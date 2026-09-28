@@ -141,7 +141,7 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
     return n
   }
   try {
-    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn;\nEND_PROGRAM\n")
+    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nIMPLEMENTATION ST\nn;\nEND_PROGRAM\n")
     expect(noOpCount(), "without settings it must fire, or this test proves nothing").toBe(1)
 
     writeFileSync(join(dir, "Project.projectsettings"), "Disabled warnings:     C0139\n")

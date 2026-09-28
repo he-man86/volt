@@ -9,8 +9,8 @@ import { CAPS, harness } from "./harness.js"
 
 const URI = "file:///F.fb"
 // A genuine type error (C0032) so every event has something to deliver.
-const BAD = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
-const BAD2 = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b; i := b;\nEND_FUNCTION_BLOCK`
+const BAD = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
+const BAD2 = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b; i := b;\nEND_FUNCTION_BLOCK`
 
 test("push-only client: diagnostics arrive via push, once per event", async () => {
   const h = harness()

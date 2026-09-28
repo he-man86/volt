@@ -541,18 +541,19 @@ give back after the push SHALL be named as such and left to the next pull, never
 
 ### Requirement: the body language and the v1 refusal
 
-A graphical body SHALL carry its language (FBD or LD) on its own implementation marker
-`(* @volt-implementation FBD|LD *)`, one per body (POU, method, action, accessor); an ST body SHALL keep the bare
-`(* @volt-implementation *)`. Text written in the previous form (`LET` statements or `NETWORK <n> <LANG>` headers) SHALL be refused with `NETWORK_PARSE` and a message to re-pull; there SHALL be no translator.
+A graphical body SHALL carry its language (FBD or LD) on its own `IMPLEMENTATION FBD|LD` line, one per body (POU,
+method, action, accessor); an ST body SHALL carry `IMPLEMENTATION ST` (the line and its rules are the
+`implementation-boundary` capability, openspec `implementation-keyword`, which replaced the comment marker this
+requirement first named). Text written in the previous form (`LET` statements or `NETWORK <n> <LANG>` headers) SHALL be refused with `NETWORK_PARSE` and a message to re-pull; there SHALL be no translator.
 
 #### Scenario: a v1 body is refused, not translated
 - **WHEN** a push carries `NETWORK 0 LD` and `LET g0 := TRUE;`
 - **THEN** it is refused with `NETWORK_PARSE`, naming a re-pull
 
 #### Scenario: a view change is one comparison
-- **WHEN** a pushed body's marker says `FBD` and the IDE body is LD
+- **WHEN** a pushed body's `IMPLEMENTATION` line says `FBD` and the IDE body is LD
 - **THEN** the push is refused as a view-mode change
 
 #### Scenario: an ST function block with an LD method
 - **WHEN** an FB has an ST body and an LD method
-- **THEN** the FB body carries the bare marker and the method carries `(* @volt-implementation LD *)`
+- **THEN** the FB body carries `IMPLEMENTATION ST` and the method carries `IMPLEMENTATION LD`

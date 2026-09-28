@@ -161,8 +161,10 @@ export type BodyOwner = "member" | "pou-or-accessor"
  * before it is trivia, which belongs to the declaration. A member's `%FOLDER` directive stands directly under the
  * line (the bridge writes it there, `StWriter`) and is taken out with it, its path kept on the line — it is folder
  * metadata, not code (`peelFolder` says exactly where). A body that opens with anything else has no line and is returned whole: the
- * files the LSP reads also include hand-written fixture ST and the library repo, which never carry one; a workspace
- * file without it is the push's to refuse ("pull the project once").
+ * parser also reads text that is no workspace file — conformance fixture ST and the library repo, which are the IDE's
+ * own body text and carry no line. In a WORKSPACE file such a body states no language: the server reports it naming
+ * `volt pull`, as the push refuses it, and reports nothing else in it (`server/diagnostics.ts`), so no language is
+ * guessed for it there.
  *
  * Reported, each on its own line, as the push refuses the same file: a line stating no language, or none a body can
  * state; code under an UNSUPPORTED line; a bare CFC, SFC or IL line; network text under `IMPLEMENTATION ST` (never re-read as a network); and a
@@ -360,7 +362,8 @@ export const NETWORK_TEXT_ENABLED: boolean = process.env.VOLT_GRAPHICAL === "1"
 
 /** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, a line that states no language a
  *  body can have, or an LD/FBD body while network text is off (`NETWORK_TEXT_ENABLED`) — neither. A body with no line is
- *  ST (see `splitImplementation`). */
+ *  ST to the PARSER, which also reads fixture ST and the library repo (IDE text, no line); in a workspace file the server
+ *  reports it as stating no language and shows none of its findings (see `splitImplementation`). */
 export function bodyReader(body: BodySpan): "st" | "network" | undefined {
   const s = body.implementation?.statement
   if (s === undefined) return "st"

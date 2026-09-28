@@ -5,75 +5,94 @@
   "injectionSelector": "L:source.structured-text -comment -string",
   "patterns": [
     {
-      "comment": "A network-text network \u2014 the textual form of an FBD/LD body, network text v2 (volt-cli docs/network-text.html). Detected by content (the NETWORK header at a line start), so it lights up in any graphical body. The header carries no order number and no language (the body's `IMPLEMENTATION FBD|LD` line says it once); its optional fields are NAMED and come in one order \u2014 LABEL: is the jump target, TITLE: is free text with ST's $-escapes, DISABLED the vendor's bit \u2014 and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
-      "name": "meta.network.vg",
-      "begin": "^\\s*(NETWORK)\\b(?:[ \\t]+(LABEL:)[ \\t]*(\\w+))?(?:[ \\t]+(TITLE:)[ \\t]*(\"(?:[^\"$\\n]|\\$.)*\"))?(?:[ \\t]+(DISABLED))?",
+      "comment": "A body whose IMPLEMENTATION line states LD or FBD — the ONE place networks are read (openspec implementation-keyword: the stated language decides how a body is read, never its content). ST may hold `NETWORK := TRUE;` (a variable named NETWORK), so sniffing a NETWORK line would paint the rest of an ST file as network text; an UNSUPPORTED body holds nothing. The line itself is coloured with the main grammar`s implementation-line names, since this injection wins the line. Ends, by lookahead, at the closing keyword of the unit that owns the body, which the main grammar then colours.",
+      "name": "meta.body.network.vg",
+      "begin": "(?i)^\\s*(IMPLEMENTATION)[ \\t]+(LD|FBD)[ \\t]*$",
       "beginCaptures": {
         "1": {
-          "name": "keyword.control.vg"
+          "name": "keyword.other.implementation.structured-text"
         },
         "2": {
-          "name": "keyword.other.vg"
-        },
-        "3": {
-          "name": "entity.name.label.vg"
-        },
-        "4": {
-          "name": "keyword.other.vg"
-        },
-        "5": {
-          "name": "string.quoted.double.vg"
-        },
-        "6": {
-          "name": "keyword.other.vg"
+          "name": "keyword.other.implementation.language.structured-text"
         }
       },
-      "end": "^\\s*(END_NETWORK)\\b",
-      "endCaptures": {
-        "1": {
-          "name": "keyword.control.vg"
-        }
-      },
+      "end": "(?i)^(?=\\s*END_(?:FUNCTION_BLOCK|PROGRAM|FUNCTION|METHOD|ACTION|GET|SET)\\b)",
       "patterns": [
         {
-          "comment": "The network's wire block: `VAR_TEMP g1, g2 : BOOL; END_VAR`, one per network that has a Demux. Its names are the network's WIRES (g<digits>, the vendor VarId), coloured apart from the type the rest of the ST grammar colours. A reference to a wire elsewhere is told from a variable by the LSP's `wire` semantic token, which resolves it through the network's scope \u2014 a name pattern alone would also paint a POU variable called g2.",
-          "name": "meta.wires.vg",
-          "begin": "(?i)\\b(VAR_TEMP)\\b",
+          "comment": "A network-text network — the textual form of an FBD/LD body, network text v2 (volt-cli docs/network-text.html). Read only inside a body stated LD or FBD (meta.body.network.vg). The header carries no order number and no language (the body's `IMPLEMENTATION FBD|LD` line says it once); its optional fields are NAMED and come in one order — LABEL: is the jump target, TITLE: is free text with ST's $-escapes, DISABLED the vendor's bit — and it ends at its newline. `\\b` after NETWORK keeps a variable such as NETWORK_OK an identifier. Mirrors the LSP's network-text parser header.",
+          "name": "meta.network.vg",
+          "begin": "^\\s*(NETWORK)\\b(?:[ \\t]+(LABEL:)[ \\t]*(\\w+))?(?:[ \\t]+(TITLE:)[ \\t]*(\"(?:[^\"$\\n]|\\$.)*\"))?(?:[ \\t]+(DISABLED))?",
           "beginCaptures": {
             "1": {
-              "name": "storage.type.vg"
+              "name": "keyword.control.vg"
+            },
+            "2": {
+              "name": "keyword.other.vg"
+            },
+            "3": {
+              "name": "entity.name.label.vg"
+            },
+            "4": {
+              "name": "keyword.other.vg"
+            },
+            "5": {
+              "name": "string.quoted.double.vg"
+            },
+            "6": {
+              "name": "keyword.other.vg"
             }
           },
-          "end": "(?i)\\b(END_VAR)\\b",
+          "end": "^\\s*(END_NETWORK)\\b",
           "endCaptures": {
             "1": {
-              "name": "storage.type.vg"
+              "name": "keyword.control.vg"
             }
           },
           "patterns": [
             {
-              "match": "\\b[gG][0-9]+\\b",
-              "name": "variable.other.wire.vg"
+              "comment": "The network's wire block: `VAR_TEMP g1, g2 : BOOL; END_VAR`, one per network that has a Demux. Its names are the network's WIRES (g<digits>, the vendor VarId), coloured apart from the type the rest of the ST grammar colours. A reference to a wire elsewhere is told from a variable by the LSP's `wire` semantic token, which resolves it through the network's scope — a name pattern alone would also paint a POU variable called g2.",
+              "name": "meta.wires.vg",
+              "begin": "(?i)\\b(VAR_TEMP)\\b",
+              "beginCaptures": {
+                "1": {
+                  "name": "storage.type.vg"
+                }
+              },
+              "end": "(?i)\\b(END_VAR)\\b",
+              "endCaptures": {
+                "1": {
+                  "name": "storage.type.vg"
+                }
+              },
+              "patterns": [
+                {
+                  "match": "\\b[gG][0-9]+\\b",
+                  "name": "variable.other.wire.vg"
+                },
+                {
+                  "include": "source.structured-text"
+                }
+              ]
+            },
+            {
+              "comment": "Backticked text is ONE operand, target or call head whose text is not a single token (`fc_dinttotime(T.Start,2)`, `arr[i + 1]`) — verbatim between the backticks, never parsed into boxes. Matched before the ST grammar so its parentheses and operators are not coloured as structure.",
+              "match": "`[^`\\n]*`",
+              "name": "variable.other.quoted.vg"
+            },
+            {
+              "comment": "`.ENO` — a consumer connected to the box's ENO output. An output of the box, not a member of its result.",
+              "match": "(?i)\\.ENO\\b",
+              "name": "keyword.other.eno.vg"
+            },
+            {
+              "comment": "The text's own constructs, call-shaped: R_EDGE(x) / F_EDGE(x) are edge FLAGS on their operand (not an R_TRIG box), PARALLEL(…) is the LD BoxTreeParallel. Only followed by `(`, and never as part of a longer name.",
+              "match": "(?i)(?<![\\w.])(R_EDGE|F_EDGE|PARALLEL)\\b(?=\\s*\\()",
+              "name": "keyword.other.construct.vg"
             },
             {
               "include": "source.structured-text"
             }
           ]
-        },
-        {
-          "comment": "Backticked text is ONE operand, target or call head whose text is not a single token (`fc_dinttotime(T.Start,2)`, `arr[i + 1]`) \u2014 verbatim between the backticks, never parsed into boxes. Matched before the ST grammar so its parentheses and operators are not coloured as structure.",
-          "match": "`[^`\\n]*`",
-          "name": "variable.other.quoted.vg"
-        },
-        {
-          "comment": "`.ENO` \u2014 a consumer connected to the box's ENO output. An output of the box, not a member of its result.",
-          "match": "(?i)\\.ENO\\b",
-          "name": "keyword.other.eno.vg"
-        },
-        {
-          "comment": "The text's own constructs, call-shaped: R_EDGE(x) / F_EDGE(x) are edge FLAGS on their operand (not an R_TRIG box), PARALLEL(\u2026) is the LD BoxTreeParallel. Only followed by `(`, and never as part of a longer name.",
-          "match": "(?i)(?<![\\w.])(R_EDGE|F_EDGE|PARALLEL)\\b(?=\\s*\\()",
-          "name": "keyword.other.construct.vg"
         },
         {
           "include": "source.structured-text"

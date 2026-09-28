@@ -117,7 +117,7 @@ test("server: didOpen pushes diagnostics (type mismatch)", async () => {
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
   })
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
@@ -138,7 +138,7 @@ test("server: a pull-capable client gets NO push (avoids double diagnostics)", a
     rootUri: null,
     capabilities: { textDocument: { diagnostic: { dynamicRegistration: false } } },
   })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
@@ -168,8 +168,8 @@ test("server: didOpen pushes network-text diagnostics for a graphical body", asy
 test("server: a dead FB's diagnostics are suppressed by default, emitted with diagnoseDeadCode", async () => {
   // FB_Dead is never called/instantiated by the PROGRAM → structurally dead. Its genuine type error must
   // NOT surface by default (matches the compiler, which never compiles it).
-  const mainSrc = `PROGRAM Main\nx := 1;\nEND_PROGRAM`
-  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const mainSrc = `PROGRAM Main\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM`
+  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   const deadUri = "file:///FB_Dead.fb"
 
   async function diagsFor(diagnoseDeadCode: boolean): Promise<{ code?: unknown }[]> {
@@ -357,7 +357,7 @@ function tempWorkspace(files: Record<string, string>): string {
   return dir
 }
 
-const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nmode := E_Mode.Idle;\nEND_PROGRAM`
+const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nIMPLEMENTATION ST\nmode := E_Mode.Idle;\nEND_PROGRAM`
 const ENUM = `TYPE E_Mode : (Idle, Run); END_TYPE`
 
 test("server: a type in an unopened sibling file resolves (eager disk index)", async () => {
@@ -668,7 +668,7 @@ test("server: semanticTokens/full/delta returns edits against the prior result i
 test("server: textDocument/diagnostic pulls the same diagnostics as the push channel", async () => {
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
   })
@@ -684,7 +684,7 @@ test("server: textDocument/diagnostic pulls the same diagnostics as the push cha
 test("server: didSave re-publishes diagnostics for the saved document", async () => {
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const bad = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   const first = onceDiag(client, URI)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: bad },
@@ -699,8 +699,8 @@ test("server: didSave re-publishes diagnostics for the saved document", async ()
 
 test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)", async () => {
   const client = connect()
-  const mainSrc = `PROGRAM Main\nx := 1;\nEND_PROGRAM`
-  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const mainSrc = `PROGRAM Main\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM`
+  const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   const deadUri = "file:///FB_Dead.fb"
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   const initial = onceDiag(client, deadUri)
@@ -718,7 +718,7 @@ test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)"
 })
 
 test("server: workspace/diagnostic reports errors in unopened files (eager index)", async () => {
-  const badFb = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
+  const badFb = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
   const dir = tempWorkspace({ "F.fb": badFb })
   const client = connect()
   await initInDir(client, dir) // crawls F.fb without opening it

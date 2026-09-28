@@ -232,3 +232,31 @@ test("ST under IMPLEMENTATION LD is a network-text diagnostic — read as a netw
   const ds = await diagnostics(fb("IMPLEMENTATION LD\nout := a;"))
   expect(ds.some((d) => String(d.code).startsWith("NETWORK_"))).toBe(true)
 })
+
+// A body with NO keyword line states no language, which the spec makes an LSP diagnostic as the push makes it a refusal
+// (`StReader.Unmarked`, "Run `volt pull` once"): never read as ST by default, so an engineer who deletes the line sees
+// it in the editor, not only when the push refuses the file.
+test("a body with no IMPLEMENTATION line is a diagnostic naming the item and `volt pull`, and read by neither reader", async () => {
+  const ds = await diagnostics(
+    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\n\ti : INT;\nEND_VAR\ni := a;\nEND_FUNCTION_BLOCK\n\n" +
+      "METHOD M : BOOL\nM := TRUE;\nEND_METHOD\n",
+  )
+  const missing = ds.filter((d) => /states no language/.test(text(d)))
+  expect(missing.map((d) => d.range.start.line)).toEqual([6, 10])
+  expect(missing.every((d) => /volt pull/.test(text(d)))).toBe(true)
+  expect(text(missing[0]!)).toContain("F")
+  expect(text(missing[1]!)).toContain("M")
+  expect(readByNeither(ds)).toBe(true)
+})
+
+test("a property accessor with no IMPLEMENTATION line is the same diagnostic", async () => {
+  const ds = await diagnostics(
+    fb("IMPLEMENTATION ST\n") + "\nPROPERTY Count : INT\nGET\nCount := i;\nEND_GET\nEND_PROPERTY\n",
+  )
+  expect(ds.filter((d) => /states no language/.test(text(d))).length).toBe(1)
+})
+
+test("a line-less ladder is not read as ST either", async () => {
+  const ds = await diagnostics(fb("NETWORK\n  out := a;\nEND_NETWORK"))
+  expect(ds.filter((d) => /states no language/.test(text(d))).map((d) => d.range.start.line)).toEqual([KEYWORD_LINE])
+})

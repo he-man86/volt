@@ -19,7 +19,10 @@ type Rule = {
 const grammar = JSON.parse(
 	readFileSync(join(import.meta.dir, "..", "languages", "structured-text", "network-text.injection.tmLanguage.json"), "utf8"),
 ) as { patterns: Rule[] }
-const network = grammar.patterns.find((p) => p.name === "meta.network.vg")!
+// A network lives only in a body whose line STATES LD or FBD (openspec implementation-keyword: the stated language is
+// the one signal for how a body is read) — never found by sniffing a NETWORK line, which ST may hold as a name.
+const body = grammar.patterns.find((p) => p.name === "meta.body.network.vg")!
+const network = body.patterns!.find((p) => p.name === "meta.network.vg")!
 const inner = network.patterns!
 const rule = (name: string): Rule => {
 	const r = inner.find((p) => p.name === name || p.beginCaptures?.["1"]?.name === name)
@@ -83,4 +86,34 @@ test("the LSP's wire token class is declared, with variable as its super type", 
 		contributes: { semanticTokenTypes?: { id: string; superType?: string }[] }
 	}
 	expect(manifest.contributes.semanticTokenTypes).toContainEqual(expect.objectContaining({ id: "wire", superType: "variable" }))
+})
+
+test("networks are read only under a line stating LD or FBD — never by sniffing a NETWORK line", () => {
+	// Only the body region stands at the top: ST that names a variable NETWORK (`NETWORK := TRUE;`) opens nothing.
+	expect(grammar.patterns.map((p) => p.name)).toEqual(["meta.body.network.vg"])
+	const opens = (line: string): boolean => re(body.begin!).test(line)
+	expect(opens("IMPLEMENTATION LD")).toBe(true)
+	expect(opens("  implementation fbd  ")).toBe(true)
+	expect(opens("IMPLEMENTATION ST")).toBe(false)
+	expect(opens("IMPLEMENTATION LD UNSUPPORTED")).toBe(false)
+	expect(opens("IMPLEMENTATION CFC UNSUPPORTED")).toBe(false)
+	expect(opens("x := IMPLEMENTATION LD;")).toBe(false)
+	// The line is coloured exactly as the main grammar colours it — the injection wins the line, so it must.
+	const main = JSON.parse(
+		readFileSync(join(import.meta.dir, "..", "languages", "structured-text", "syntax.tmLanguage.json"), "utf8"),
+	) as { repository: Record<string, { captures: Record<string, { name: string }> }> }
+	const line = main.repository["implementation-line"]!.captures
+	expect(body.beginCaptures!["1"]!.name).toBe(line["1"]!.name)
+	expect(body.beginCaptures!["2"]!.name).toBe(line["3"]!.name)
+})
+
+test("the body region ends where its unit closes, and leaves that keyword to the main grammar", () => {
+	const end = re(body.end!)
+	for (const kw of ["END_FUNCTION_BLOCK", "END_PROGRAM", "END_FUNCTION", "END_METHOD", "END_ACTION", "END_GET", "END_SET"]) {
+		end.lastIndex = 0
+		const m = end.exec(`${kw}\n`)
+		expect(m?.[0]).toBe("") // a lookahead: nothing consumed
+	}
+	end.lastIndex = 0
+	expect(end.exec("END_NETWORK")).toBeNull()
 })

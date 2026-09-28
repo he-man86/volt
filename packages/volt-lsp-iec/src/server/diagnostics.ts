@@ -28,7 +28,16 @@ import {
 } from "../symbols/index.js"
 import { pathToFileURL } from "node:url"
 import { rangeFromSpan } from "../services/index.js"
-import { type BodySpan, type Document, isRetiredComment, type Span, type TopLevel, unitBodies } from "../syntax/index.js"
+import {
+  type BodySpan,
+  type Document,
+  IMPLEMENTATION_KEYWORD,
+  isRetiredComment,
+  isTrivia,
+  type Span,
+  type TopLevel,
+  unitBodies,
+} from "../syntax/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
 
 const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
@@ -71,22 +80,25 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
   const dead = owner !== undefined && store.deadSet().has(owner)
   // Excluded/uncalled methods inside this (live) file — keyed by the resolved doc URI (matches the store map).
   const dm = dead ? undefined : store.deadMembers().get(d.uri)
-  // A workspace another materialization wrote holds bodies in a form this server does not read — an older Volt wrote
-  // no `IMPLEMENTATION` line (its boundary was a comment, and a graphical body behind it was network text v1 or v2), a
-  // newer one may state what this server cannot. Its manifests say so once (`libraryManifestDiagnostics`); flagging
-  // every body as well would bury that one sentence under findings that all mean the same thing — and a line-less
-  // ladder is ST to this server, so every rung would be a parse error. So under a mismatch the bodies that state no
-  // language are quiet, and no network-text finding is given.
-  //
-  // With no manifest to say it (a workspace with no library), the file says it itself: an older Volt's
-  // `(* @volt-… *)` comment is reported naming `volt pull` (`reportRetiredComments`), as the push refuses it. The
-  // body such a comment stands in, stating no language, is quiet the same way — but for that one finding.
+  // A body with no `IMPLEMENTATION` line states no language, so it is read by NEITHER reader — never ST by default
+  // (spec: a missing language "is an LSP diagnostic … never guessed"). Its findings are quiet and ONE finding names it:
+  //  - in this server's format: the push's own refusal (`StReader.Unmarked`), since the push refuses the same file
+  //    naming `volt pull` — seen here first, not only when the push says no;
+  //  - where an older Volt's `(* @volt-… *)` comment stands in the body, that comment is the finding
+  //    (`reportRetiredComments`), naming the same repair;
+  //  - in a workspace another materialization wrote (older: no body in it has a line; newer: it may state what this
+  //    server cannot), the manifests say so ONCE (`libraryManifestDiagnostics`) — flagging every body as well would
+  //    bury that one sentence under findings that all mean the same thing, so no network-text finding is given either.
   const otherFormat = materializationMismatch(store.workspaceRefs.libraryManifests)
-  const bodies = unstatedBodies(d.parseResult.units)
-  const unstated = otherFormat ? bodies : bodies.filter((b) => b.tokens.some(isRetiredComment))
-  const retired = otherFormat ? [] : unstated.flatMap((b) => b.tokens.filter(isRetiredComment).map((t) => t.span))
+  const unstated = unstatedBodies(d.parseResult.units)
+  const retired = otherFormat
+    ? []
+    : unstated.flatMap(({ body }) => body.tokens.filter(isRetiredComment).map((t) => t.span))
+  const missing = otherFormat
+    ? []
+    : unstated.filter(({ body }) => !body.tokens.some(isRetiredComment)).map(missingLanguage)
   const inUnstated = (span: Span): boolean =>
-    unstated.some((b) => span.start >= b.span.start && span.end <= b.span.end) &&
+    unstated.some(({ body }) => span.start >= body.span.start && span.end <= body.span.end) &&
     !retired.some((r) => r.start === span.start && r.end === span.end)
   const quiet = (span: Span): boolean => inDeadMember(span, dm) || inUnstated(span)
   const items = dead
@@ -110,14 +122,39 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
       source: "volt-lsp-iec",
       message: e.message,
     })),
+    ...missing,
   ]
 }
 
-/** The bodies that state no language — no `IMPLEMENTATION` line opens them. */
-function unstatedBodies(units: readonly TopLevel[]): BodySpan[] {
-  return units.flatMap((u) =>
-    u.kind === "namespace" ? unstatedBodies(u.units) : unitBodies(u).filter((b) => b.implementation === undefined),
-  )
+/** The bodies that state no language — no `IMPLEMENTATION` line opens them — each with the item it belongs to, as
+ *  the push names it. */
+function unstatedBodies(units: readonly TopLevel[]): { body: BodySpan; what: string }[] {
+  return units.flatMap((u): { body: BodySpan; what: string }[] => {
+    if (u.kind === "namespace") return unstatedBodies(u.units)
+    const bodies =
+      u.kind === "property"
+        ? [
+            ...(u.getter ? [{ body: u.getter.body, what: `${u.name.text}'s getter` }] : []),
+            ...(u.setter ? [{ body: u.setter.body, what: `${u.name.text}'s setter` }] : []),
+          ]
+        : unitBodies(u).map((body) => ({ body, what: "name" in u ? u.name.text : u.kind }))
+    return bodies.filter(({ body }) => body.implementation === undefined)
+  })
+}
+
+/** The finding for a body that states no language — the push's refusal of the same file (`StReader.Unmarked`), on the
+ *  body's first line of code (or the body itself when it holds none). */
+function missingLanguage({ body, what }: { body: BodySpan; what: string }): VoltDiagnostic {
+  const first = body.tokens.find((t) => !isTrivia(t.kind) && t.kind !== "eof")
+  return {
+    range: rangeFromSpan(first?.span ?? body.span),
+    severity: DiagnosticSeverity.Error,
+    source: "volt-lsp-iec",
+    message:
+      `'${what}' states no language: its body opens with no '${IMPLEMENTATION_KEYWORD} <ST|LD|FBD>' line, so the file ` +
+      "does not say where its declaration ends or what language its body is in, and neither reader reads it. " +
+      "Run `volt pull` once to rewrite the workspace in the current format.",
+  }
 }
 
 /**

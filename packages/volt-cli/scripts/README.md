@@ -38,6 +38,7 @@ file that makes that checkable rather than a claim is `accessor-census.log`.
 | `start_volt_codesys.py` | **shipped** — the in-IDE host; CODESYS's own message loop answers the pipe, so the IDE stays clickable |
 | `stop_volt_codesys.py` | its counterpart |
 | `run_pipe_production.py` | the launcher `ide.ps1` hands to `--runscript` (dialog suppression + a file log) |
+| `author-hidden-member-fixture.py` / `-tc.ps1` | not probes: they AUTHOR `VltFixtureMembers` (an ST FB with a CFC method and an SFC action) into the CODESYS / TwinCAT fixture, by the IDE itself — Volt creates no diagram. Kept because the fixture must be re-authored if a fixture project is ever regenerated (`test/e2e/README.md`) |
 | `probe-tc-task.ps1` | a PowerShell probe — TwinCAT is COM, not IronPython |
 | `probe-tc-project-object.ps1` | another: what `Projects.Item(i).Object` IS, and how to tell a TwinCAT project from a C# one (DIALECT D35) |
 | `probe-tc-dut-codes.ps1` | and a third, read-only: each DUT's tree code, `.TcDUT` Id and declaration head, run between `volt push`es (DIALECT C2e) |

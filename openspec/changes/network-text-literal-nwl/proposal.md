@@ -68,7 +68,8 @@ where the vendor nests them, and a name only where the vendor names something.**
   `NOT((a AND b))` the NOT box — tokens decide, not whitespace.
 - **Header** → `NETWORK [LABEL:] [TITLE:] [DISABLED]`, no order number, ends at its newline; the `//` comment lines
   follow it (`//` plus one space is syntax, the rest text); the language moves to a per-body marker
-  `(* @volt-implementation LD *)`; ST bodies keep the bare marker.
+  `(* @volt-implementation LD *)`; ST bodies keep the bare marker. (Since replaced by the `IMPLEMENTATION ST|LD|FBD`
+  line, openspec `implementation-keyword`; the spec delta states the line.)
 - **Labels and jumps** → the gate refuses only what the IDE cannot hold; a jump to a missing label, a label on a
   DISABLED network and a duplicate label follow a live census (1.15), with LSP parity.
 - **Pull never throws** → a shape the writer cannot spell (pin flags on CODESYS, item flags, nested Demux, a data

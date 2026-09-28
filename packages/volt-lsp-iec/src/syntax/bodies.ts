@@ -39,7 +39,8 @@ export function isGraphicalBody(body: BodySpan): boolean {
   return bodyReader(body) === "network"
 }
 
-/** True when the ST parser reads this body: its line states `ST`, or it has no line (see `splitImplementation`). A
+/** True when the ST parser reads this body: its line states `ST`, or it has no line (IDE text — see `splitImplementation`
+ *  for why, and for how a workspace file with no line is reported instead). A
  *  hidden body, and one whose line states no language a body can have, is read by NEITHER parser — so every ST
  *  consumer asks this, not `!isGraphicalBody`, and a chart under `IMPLEMENTATION CFC UNSUPPORTED` is never analysed as ST. */
 export function isStBody(body: BodySpan): boolean {

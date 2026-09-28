@@ -36,7 +36,10 @@ the **spec** and **layering** lenses.
 - [x] 2.2 StReader, StWriter, the network-text reader, gate and `NetworkText.LanguageOf`, and every driver or engine
       site that asks "is this body graphical?", read the stated language and nothing else.
 - [x] 2.3 `LibraryManifest.Materialization` goes from 3 to 4.
-- [ ] 2.4 Every C# fixture and golden rewritten (mechanical); all C# suites green.
+- [x] 2.4 Every C# fixture and golden rewritten (mechanical); all C# suites green.
+      Closed by 4.2 and 3.1: the four `ModelRoundTripOracleTests` went green with the re-pull and `bun run check`'s
+      materialization row with the LSP's format 4; every C# suite green (final review run: Engine 1824/1 skip, Cli
+      263, Codesys 166, Twincat 255, Repo.Gates 54). The record as it stood mid-change:
       Fixtures and goldens are rewritten and every C# suite is green except the four corpus-backed
       `ModelRoundTripOracleTests`, which read `volt-lsp-iec/test-corpus`: the corpora still carry the retired comment,
       so they read as pre-change files ("pull once") and the oracle finds no bodies. They go green with 4.2's re-pull.
@@ -117,8 +120,12 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       that let `END_METHOD` close a function block. The `@volt-graphical` hover is `readOnlyBodyHover` on the line.
       `MATERIALIZATION_FORMATS` gains row 4; under a materialization mismatch the bodies that state no language are
       quiet (a format-3 ladder is ST to this server) and the manifest names the re-pull. A body with NO line is still
-      read as ST: the LSP also reads hand-written fixture ST and the library repo, which carry none; a workspace file
-      without it is the push's to refuse. Proved by `syntax/implementation-keyword.test.ts`,
+      read as ST by the PARSER: it also reads conformance fixture ST and the library repo, the IDE's own text, which
+      carry none. (Corrected in the final review: "a workspace file without it is the push's to refuse" left the LSP
+      silent where the spec makes a missing language an LSP diagnostic. The server now reports every line-less body
+      in a workspace file naming the item and `volt pull` — the push's own refusal — and shows nothing else in it, so
+      no language is guessed there: `implementation-keyword-diagnostics.test.ts`, red first. Four server-level tests
+      fed line-less workspace files and are restated with `IMPLEMENTATION ST`.) Proved by `syntax/implementation-keyword.test.ts`,
       `services/structure/implementation-keyword-structure.test.ts`, `server/implementation-keyword-diagnostics.test.ts`,
       `server.test.ts` (format 3 told once, bodies quiet), `network.test.ts` (read-only hover),
       `mark-implementations.test.ts`. Two section-1 tests were superseded by 2b and rewritten to it: CFC/SFC/IL are
@@ -128,6 +135,10 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
 - [x] 3.2 volt-vscode TextMate: `IMPLEMENTATION` and `ST`/`LD`/`FBD` highlighted as keywords, with a grammar test.
       `syntax.tmLanguage.json` `#implementation-line` (whole line; the read-only forms too; UNSUPPORTED only after
       LD/FBD; after `#comments`), `src/implementation-line-grammar.test.ts`.
+      Final review: the network-text INJECTION still found a network by sniffing a `NETWORK` line in any body, so ST
+      holding `NETWORK := TRUE;` coloured the rest of its file as network text. Networks are now read only inside a
+      `meta.body.network.vg` region opened by an `IMPLEMENTATION LD|FBD` line (never ST, never UNSUPPORTED) and closed by
+      lookahead at the owning unit's END_ keyword (`src/network-text-grammar.test.ts`, red first).
 - [x] 3.3 Conformance fixtures and LSP tests rewritten; `bun typecheck` and `bun test` green.
       Graphical fixtures and every LSP test spell `IMPLEMENTATION LD|FBD`; ST fixtures gain `IMPLEMENTATION ST` at push
       (`markImplementations`); `corpus.test.ts` classifies bodies by the stated language (it sniffed `NETWORK`). Green
@@ -161,11 +172,28 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
 
 ## 3b. UNSUPPORTED means "no implementation shown", on every language (owner decision 2026-09-28)
 
-- [ ] 3b.1 Red first: CFC/SFC/IL pull as `IMPLEMENTATION CFC|SFC|IL UNSUPPORTED` (a bare `IMPLEMENTATION CFC` is now
+- [x] 3b.1 Red first: CFC/SFC/IL pull as `IMPLEMENTATION CFC|SFC|IL UNSUPPORTED` (a bare `IMPLEMENTATION CFC` is now
       refused by name, reversing 2b/3.1); editing the DECLARATION of any `UNSUPPORTED` item pushes the declaration and
       leaves the IDE body untouched (both vendors' writers); code under an `UNSUPPORTED` line is refused.
       Neither pull nor push is ever blocked by an `UNSUPPORTED` item, and the implementation is NEVER written: a live
       test on each vendor reads the IDE body before and after a declaration push and asserts it is byte-identical.
+      Closed in the final review. The CODESYS live byte read below was closed by 4.1 (native export); the hidden
+      MEMBER case that stood BLOCKED at the end of this task is closed live: `VltFixtureMembers` (an ST FB with a CFC
+      method `CfcStep` and an SFC action `SfcRun` beside an ST method) is authored into both fixture projects by the
+      IDE itself (`scripts/author-hidden-member-fixture.py`, CODESYS `--runscript`; `-tc.ps1`, TwinCAT over COM —
+      measured on the way: a TwinCAT METHOD's vInfo is `[language, returnType]`, a plain "CFC" silently makes an ST
+      method, DIALECT D19). `e2e/graphical/hidden-members.test.ts`: the pull shows both hidden members as
+      `UNSUPPORTED` lines; a no-op push, a hidden member's declaration edit, an ST member's body edit, an LD member
+      added and then edited (TwinCAT `SetMemberBodies`, the whole-POU re-import) and a hidden member moved into a
+      folder (TwinCAT `MoveMember`) are each accepted, and the two hidden bodies are byte for byte what they were before
+      any push, read from the vendor's own serialization; each case restores the fixture, held to the same bytes; a
+      control proves the read is live (the added LD member's body appears in it). Green live, 6/6 on CODESYS
+      (CodesysTestProject) and TwinCAT (Project14), each run twice from a fresh `ide.ps1` copy. Found on the first
+      TwinCAT run: a freshly created SFC gains its default step attributes on TwinCAT's first save of the POU (a
+      vendor-lazy fill of the object it already held — the IDE's own export carried it), so the committed `.TcPOU`
+      holds the action as TwinCAT saves it; on CODESYS a member moved out of a folder exports after its siblings, so
+      the bodies are compared order-free, each still whole.
+      The record as it stood before the final review:
       Done, except ONE part, OPEN (not blocked — declined in this round): the byte-level LIVE read on CODESYS. Nothing
       outside the IDE can read a CODESYS body (the push saves no file, the archive is binary, the wire carries no hidden
       body by design), but the in-proc bridge can (`CodesysObjectModel` already reads the Implementation aspect), so the
@@ -283,8 +311,10 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       `VOLT_GRAPHICAL=1`, plus one live pull WITHOUT it on each vendor: ST shown, LD/FBD `UNSUPPORTED`.
       Bodies: every e2e/script body spells `IMPLEMENTATION ST|LD|FBD`; `unsupported.test.ts` expects
       `IMPLEMENTATION CFC|SFC UNSUPPORTED`; `corpus-migration.ts` skips a hidden body by its UNSUPPORTED line.
-      Green live, both IDEs up at once (vendor-parity ran): CODESYS 230 pass / 12 skip / 0 fail, TwinCAT Project14
-      230 / 12 / 0. New live tests: `graphical/hidden-network-body.test.ts` (the 3c.2 case, live: an LD and an FBD
+      Green live (the section's first run; superseded by the sequential 233 / 12 / 0 below — two suite runs at once
+      collide in vendor-parity and whole-project, so the full suites are run one after the other): CODESYS 230 / 12 / 0,
+      TwinCAT Project14 230 / 12 / 0. After the final review (hidden-members added): CODESYS 239 / 12 / 0, TwinCAT
+      Project14 239 / 12 / 0, run one after the other. New live tests: `graphical/hidden-network-body.test.ts` (the 3c.2 case, live: an LD and an FBD
       POU pushed back as a production pull writes them — the no-op, then a declaration edit — land with the network
       text read back unchanged on both vendors and the `.TcPOU` `<Implementation>` bytes unchanged on TwinCAT; a hidden
       FBD line over the LD body refused naming both). Measured on the way: TwinCAT re-serializes a POU Volt just
@@ -359,4 +389,14 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       (b) other active changes' dated decision logs (`network-text-literal-nwl`, `plc-library-runtime`), (c) the
       retired-comment DETECTION (`ImplementationMarker.RetiredTag`'s comment, `implementation-keyword.ts`) and the
       tests that feed the retired comment in to prove it is refused naming `volt pull` — which the spec requires.
-- [ ] 4.4 Final review (spec and layering), fix, archive, delete the recreated `openspec/specs/`.
+      Final review: (b) held one hit that was no log — `network-text-literal-nwl`'s spec DELTA still REQUIRED the
+      comment (its "body language" requirement and a scenario), so archiving it would have filed a requirement against
+      the shipped code. It now states the `IMPLEMENTATION` line; its proposal and dated task log keep their history.
+- [x] 4.4 Final review (spec and layering), fix, archive, delete the recreated `openspec/specs/`.
+      Eight findings, all fixed, failing test first where behaviour changed: the LSP now reports a body with no
+      `IMPLEMENTATION` line (3.1); the live hidden-member test (3b.1); 2.4 and 4.1's records; the
+      `network-text-literal-nwl` delta that still required the comment (4.3); the TextMate injection keyed on the stated
+      language (3.2); a stale v1 comment and its dead branch deleted (`network-analysis.ts`); a dead `?? "FBD/LD"`
+      default deleted (`BodyFormatGuard.LanguageOf`). Suites green: C# (Engine, Cli, Codesys, Twincat, Repo.Gates),
+      volt-cli `test/unit`, volt-lsp-iec typecheck + 5861 tests, volt-vscode 37, `bun run check`, lint, e2e CODESYS and
+      TwinCAT 239 / 12 / 0 each.

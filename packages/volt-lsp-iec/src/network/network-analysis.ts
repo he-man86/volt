@@ -60,10 +60,6 @@ export function computeNetworkTextDiagnostics(
     for (const d of analysis.vg.diagnostics) {
       out.push({ severity: "error", span: d.span, source: SOURCE, code: d.code, message: d.message })
     }
-    // A body with no graphical marker is v1 text (or no network text at all): the parser refused it by name, and it has
-    // no reading a compiler message could be derived from.
-    if (analysis.vg.language === undefined) continue
-
     for (const [network, scope] of analysis.networkScopes) {
       // A DISABLED network is not compiled, so nothing inside it can be a compile error — its `???` included. The flag
       // was parsed and then read by nobody once, which made every disabled network's contents a source of false

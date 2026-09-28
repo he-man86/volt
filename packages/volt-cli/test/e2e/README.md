@@ -243,6 +243,18 @@ regenerate a fixture project, these two POUs must survive** — without them the
 skipping, which is deliberate: silently losing the only live coverage of a data-loss guard is the failure mode
 worth being noisy about.
 
+**`graphical/hidden-members.test.ts` needs a third: `VltFixtureMembers`**, an ST function block with a CFC method
+and an SFC action (Volt shows neither) beside an ST method, in both fixture projects. It proves the hidden MEMBERS'
+bodies are never written while Volt pushes the POU around them — TwinCAT's whole-POU re-imports included (a graphical
+member edit, a member move). Authored by each IDE: `scripts/author-hidden-member-fixture.py` (CODESYS, `--runscript`
+on a copy) and `scripts/author-hidden-member-fixture-tc.ps1` (TwinCAT, over the COM ROT against an `ide.ps1` copy).
+The committed `.TcPOU` holds the SFC action as TwinCAT saves it after its first write: a freshly created SFC gains its
+default step attributes on that save (vendor-lazy, not a Volt write), so a baseline read before it compared a file the
+IDE had not written yet. It too must survive a fixture regeneration.
+
+**`graphical/hidden-members.test.ts` needs a third: `VltFixtureMembers`**, an ST function block with a CFC method
+and an SFC action (Volt shows neither) beside an ST method, in both fixture projects. It proves the hidden MEMBERS
+
 **`graphical/refused-shapes.test.ts` runs on both, and expects a DIFFERENT verdict from each.** Four bodies -
 an unconditional `JMP`, an unconditional `RETURN`, an `EXECUTE` box, and a box output pin wired straight to a
 variable - push clean to CODESYS and are refused by the TwinCAT driver. Every refusal blames TwinCAT's PLCopen

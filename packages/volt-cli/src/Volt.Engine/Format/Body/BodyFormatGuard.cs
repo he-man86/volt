@@ -182,7 +182,8 @@ public static class BodyFormatGuard
     {
         if (body is null) return "<none>";
         if (ImplementationMarker.IsUnsupportedBody(body)) return body.Trim();
-        if (NetworkText.Is(body)) return NetworkText.LanguageOf(body) ?? "FBD/LD";
+        // `Is` IS "a language is stated", so the language is there.
+        if (NetworkText.Is(body)) return NetworkText.LanguageOf(body)!;
         return body.Trim().Length == 0 ? "<empty>" : "ST";
     }
 }
