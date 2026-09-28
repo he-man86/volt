@@ -3,9 +3,12 @@
 ### Requirement: the implementation boundary is IMPLEMENTATION <LANG>
 
 A workspace file SHALL mark where a body's declaration ends and its implementation begins with a line holding only
-`IMPLEMENTATION <LANG>`, `<LANG>` being one of `ST`, `LD`, `FBD` (read as text), `CFC`, `SFC`, `IL` (never read:
-the body is empty and read-only), or `LD UNSUPPORTED` / `FBD UNSUPPORTED` (an LD/FBD body network text cannot
-represent yet: empty and read-only); spacing is free and the keywords are case-insensitive. The line SHALL stand where the comment marker stood, on exactly the items that have an
+`IMPLEMENTATION <LANG>` or `IMPLEMENTATION <LANG> UNSUPPORTED`, `<LANG>` being the body's real language: `ST`, `LD`,
+`FBD`, `CFC`, `SFC` or `IL`. Without `UNSUPPORTED` the body under the line is shown and editable (only `ST`, `LD`,
+`FBD` can be). With `UNSUPPORTED` Volt shows NO implementation code: the body under the line is empty, push leaves
+the IDE's body exactly as it is, and the item's DECLARATION stays fully editable and is pushed as usual. `CFC`, `SFC`
+and `IL` are always `UNSUPPORTED`; `LD`/`FBD` are `UNSUPPORTED` when network text cannot represent the body or when
+graphical text is disabled in the build; spacing is free and the keywords are case-insensitive. The line SHALL stand where the comment marker stood, on exactly the items that have an
 implementation, and every such body SHALL state its language, ST included. The comment
 `(* @volt-implementation *)` SHALL NOT be recognised.
 
@@ -36,20 +39,33 @@ implementation, and every such body SHALL state its language, ST included. The c
 
 #### Scenario: a body in a language Volt does not read
 - **WHEN** a body the IDE holds in CFC, SFC or IL is pulled
-- **THEN** its keyword line is `IMPLEMENTATION CFC` / `IMPLEMENTATION SFC` / `IMPLEMENTATION IL`, the body under it
-  is empty, and pushing the file back unchanged is a no-op
+- **THEN** its keyword line is `IMPLEMENTATION CFC UNSUPPORTED` / `SFC UNSUPPORTED` / `IL UNSUPPORTED` and no
+  implementation code follows; a bare `IMPLEMENTATION CFC` (no `UNSUPPORTED`) is refused by name
 
 #### Scenario: an LD/FBD body network text cannot represent yet
 - **WHEN** an LD or FBD body holds a shape network text has no spelling for (e.g. an assign below the top level)
-- **THEN** its keyword line is `IMPLEMENTATION LD UNSUPPORTED` / `IMPLEMENTATION FBD UNSUPPORTED`, the body under it is
-  empty, the pull message names the item and the reason, and pushing the file back unchanged is a no-op
+- **THEN** its keyword line is `IMPLEMENTATION LD UNSUPPORTED` / `IMPLEMENTATION FBD UNSUPPORTED`, no implementation
+  code follows, and the pull message names the item and the reason
 
-#### Scenario: code added under a read-only body
-- **WHEN** a pushed body holds code under `IMPLEMENTATION CFC|SFC|IL` or `IMPLEMENTATION LD|FBD UNSUPPORTED`
+#### Scenario: the declaration of a hidden body is edited
+- **WHEN** a file with `IMPLEMENTATION LD UNSUPPORTED` gains a new `VAR_INPUT` and is pushed
+- **THEN** the IDE's declaration gets the new input and its LD body is exactly what it was
+
+#### Scenario: nothing in the IDE is overwritten
+- **WHEN** any push touches an item whose body is `UNSUPPORTED` (its declaration edited, moved, or unchanged)
+- **THEN** the push is not blocked, the IDE's implementation is never written, and reading it back from the IDE
+  gives the same body, byte for byte, as before the push; a pull of such an item is never blocked either
+
+#### Scenario: pushing a hidden body back unchanged
+- **WHEN** a file with any `UNSUPPORTED` line is pushed unchanged
+- **THEN** the push is a no-op
+
+#### Scenario: code added under a hidden body
+- **WHEN** a pushed body holds code under an `UNSUPPORTED` line
 - **THEN** the push refuses it naming the item, and the IDE keeps the body it had
 
-#### Scenario: a read-only member in a folder
-- **WHEN** a member whose body Volt cannot write sits in a folder
+#### Scenario: a hidden member in a folder
+- **WHEN** a member whose body is `UNSUPPORTED` sits in a folder
 - **THEN** its `%FOLDER` directive follows its keyword line, and the file reads back with that folder and that body
 
 #### Scenario: no Volt comment remains
@@ -81,3 +97,24 @@ SHALL never be guessed or re-read as another language.
 #### Scenario: a missing language
 - **WHEN** a pushed method's body opens with `IMPLEMENTATION` alone
 - **THEN** the push is refused naming the missing language
+
+### Requirement: graphical text is disabled unless the build enables it
+
+LD/FBD network text SHALL be off by default. It SHALL be on only in a process whose environment sets
+`VOLT_GRAPHICAL=1` (development, `ide.ps1`, the test suites, the e2e suites). There SHALL be exactly one flag per
+runtime: one in the C# engine (the bridge) and one in the LSP. While it is off, every LD/FBD body SHALL pull as
+`IMPLEMENTATION LD|FBD UNSUPPORTED` with the reason "graphical text is not enabled in this build", a push carrying
+network text SHALL be refused by name, and the LSP SHALL read nothing under an LD/FBD line. ST SHALL be unaffected.
+
+#### Scenario: a production build
+- **WHEN** a bridge without `VOLT_GRAPHICAL=1` pulls a project with ST and LD bodies
+- **THEN** the ST bodies are shown and editable, every LD body is `IMPLEMENTATION LD UNSUPPORTED`, and its declaration
+  can still be edited and pushed
+
+#### Scenario: network text pushed to a production build
+- **WHEN** a file with `IMPLEMENTATION LD` and network text is pushed to a bridge without `VOLT_GRAPHICAL=1`
+- **THEN** the push is refused naming the item and that graphical text is not enabled, and nothing is written
+
+#### Scenario: a development build
+- **WHEN** the bridge runs with `VOLT_GRAPHICAL=1`
+- **THEN** LD/FBD bodies pull as network text, as before

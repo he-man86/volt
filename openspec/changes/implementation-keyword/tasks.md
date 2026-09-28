@@ -159,9 +159,30 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
       on it) and refuses a body that shares that line; no conformance fixture's placement changed.
       (`services/formatting/format.test.ts`, `syntax/units/folder-directive.test.ts`, `mark-implementations.test.ts`.)
 
+## 3b. UNSUPPORTED means "no implementation shown", on every language (owner decision 2026-09-28)
+
+- [ ] 3b.1 Red first: CFC/SFC/IL pull as `IMPLEMENTATION CFC|SFC|IL UNSUPPORTED` (a bare `IMPLEMENTATION CFC` is now
+      refused by name, reversing 2b/3.1); editing the DECLARATION of any `UNSUPPORTED` item pushes the declaration and
+      leaves the IDE body untouched (both vendors' writers); code under an `UNSUPPORTED` line is refused.
+      Neither pull nor push is ever blocked by an `UNSUPPORTED` item, and the implementation is NEVER written: a live
+      test on each vendor reads the IDE body before and after a declaration push and asserts it is byte-identical.
+- [ ] 3b.2 Engine + LSP + TextMate follow; tests from 2b/3.1 that pinned bare `CFC` rewritten to the new rule.
+
+## 3c. Production flag: graphical text off by default
+
+- [ ] 3c.1 Red first: without `VOLT_GRAPHICAL=1` an LD/FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED` with the
+      reason "graphical text is not enabled in this build"; network text pushed is refused by name; ST unaffected;
+      the declaration of an LD item is still editable. With `VOLT_GRAPHICAL=1`: today's behaviour.
+- [ ] 3c.2 One flag in the C# engine (read once from the environment), one in the LSP; nothing else reads the
+      variable. The CODESYS bridge runs in-proc, so the flag comes from the CODESYS process environment.
+- [ ] 3c.3 `ide.ps1` (both vendors), the C# and TS test suites, e2e and the corpus/recording scripts set
+      `VOLT_GRAPHICAL=1`; `build-cli.ps1` and the installer do NOT. `scripts/README.md` and
+      `packages/volt-cli/README.md` say how to turn it on.
+
 ## 4. Data and docs
 
-- [ ] 4.1 e2e bodies rewritten; e2e green on CODESYS and TwinCAT (Project14; Project13 is usable again).
+- [ ] 4.1 e2e bodies rewritten; e2e green on CODESYS and TwinCAT (Project14; Project13 is usable again) with
+      `VOLT_GRAPHICAL=1`, plus one live pull WITHOUT it on each vendor: ST shown, LD/FBD `UNSUPPORTED`.
 - [ ] 4.2 Re-pull the six corpora; `corpus.test.ts` and build-conformance give the same result as before.
 - [ ] 4.3 Docs: `network-text.html`, `items.html` (regenerate with `VOLT_WRITE_DOCS=1`), `cli.html`, the scaffold
       doc, DIALECT/ARCHITECTURE mentions, and CLAUDE.md if it names the marker. `git grep volt-implementation`
