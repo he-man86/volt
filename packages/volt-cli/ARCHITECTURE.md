@@ -181,21 +181,24 @@ guard that throws** — real projects legitimately repeat these names, and throw
   emits `Member.Name`, `ReturnType` or `DataType`, so a change to the signature parsers needs its own field
   assertions — and a member-level boundary move (which side of the line a comment falls on) is byte-identical by
   construction, so those need structural assertions too. Both kinds live in that same file.
-- **The DECL/IMPL boundary is IMPLICIT in the file, and both sides have to agree on where it is.** There is no
-  marker: the reader infers it and the writer re-inserts a separator, so a disagreement is silent data movement.
-  Five rules cover every real shape, and each has a corpus file that forces it — the kind decides whether a
-  boundary exists at all (a DUT/GVL has none); an explicit body marker (`NETWORK n`, `%FOLDER`) outranks
-  `END_VAR`; otherwise the last `END_VAR`; with no VAR section, the end of the WRAPPED header
-  (`EXTENDS`/`IMPLEMENTS`/a leading `:`); and trailing trivia has THREE homes — above a member it is the
-  member's, after a member's `END_VAR` it is that member's declaration, after a TOP-LEVEL `END_VAR` it is the
-  body. The last one is not a tidy rule and cannot be made one: the writer separates a top-level declaration
-  from its body with a blank line and a member's with a single newline, so identical text has opposite correct
-  answers at the two levels.
-- **CFC, SFC and IL are UNSUPPORTED; only ST, FBD and LD round-trip** (`Graph/NetworkCode`). An unsupported body
-  materializes as the `(* @volt-graphical: <LANG> *)` marker — carrying none of the content — and is refused on
-  push. It used to be called "read-only", which oversold it: there is nothing readable, and the marker is the
-  point. IL is in this set for a reason worth keeping: being textual, it once materialized as its raw source,
-  so the engineer got an editable-looking file and the next push rewrote their IL body as ST.
+- **The DECL/IMPL boundary is STATED in the file: the line `IMPLEMENTATION <LANG>`** (`Format/St/ImplementationMarker`,
+  the one spelling on the bridge side; the LSP mirrors it in `src/syntax/implementation-keyword.ts`). It stands
+  between a declaration and its body on exactly the kinds `ImplementationMarker.AppliesTo` covers (POU, method,
+  action, property getter and setter; a DUT/GVL/interface has none), and it states the body's language, ST
+  included — the ONE signal for how the body is read: `ST` by the ST path, `LD`/`FBD` as network text. It is
+  matched as a whole line outside every comment, `IMPLEMENTATION` is a reserved name, and a missing or unknown
+  language, a second line, or a body that contradicts its language is refused by name. It replaced an INFERRED
+  boundary (last `END_VAR`, the end of a wrapped `EXTENDS`/`IMPLEMENTS` header, rules about which trailing comments
+  and pragmas belonged to which side) — every one of those rules was written after a bug, which the class summary
+  of `ImplementationMarker` lists. A file without the line (one written before it) is refused naming `volt pull`.
+- **Volt shows ST, FBD and LD; every other body is `IMPLEMENTATION <LANG> UNSUPPORTED`** (`Graph/NetworkCode`). CFC,
+  SFC and IL always; an LD/FBD body when network text has no spelling for what it holds, or when network text is
+  off in the build (`NetworkTextSwitch`, `VOLT_GRAPHICAL=1`). Nothing is shown under the line, the item's
+  DECLARATION stays editable and pushes as usual, and a push never writes the IDE's body
+  (`ImplementationMarker.Written`, on both vendors' writers) — so a hidden body blocks neither pull nor push and
+  nothing the IDE holds is overwritten. IL is in this set for a reason worth keeping: being textual, it once
+  materialized as its raw source, so the engineer got an editable-looking file and the next push rewrote their IL
+  body as ST.
   Detection is `Document/BodyElement`, ONE scan shared by the reader and the codecs, searching a direct
   `<body>` child and any depth under `<body>/<addData>`. Both halves must agree or the protection is not
   protection: if only the reader recognises a nested diagram, `PresentWith` matches the empty `<ST>` the schema

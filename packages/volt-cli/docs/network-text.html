@@ -38,7 +38,7 @@
   <tr><td>a box's own result pin vs an assign over the box</td><td class="name">dst := MOVE(src);</td><td>two spellings: <code>MOVE(src, =&gt; dst);</code> / <code>dst := MOVE(src);</code></td></tr>
   <tr><td>an LD <code>BoxTreeParallel</code></td><td class="name">(g54 AND (a OR b))</td><td class="name">PARALLEL(IN := g54, a, b)</td></tr>
   <tr><td>an edge flag on an operand</td><td class="name">x RISING</td><td class="name">R_EDGE(x)</td></tr>
-  <tr><td>the body's language, the network's position</td><td class="name">NETWORK 12 LD</td><td class="name">(* @volt-implementation LD *)<br>NETWORK</td></tr>
+  <tr><td>the body's language, the network's position</td><td class="name">NETWORK 12 LD</td><td class="name">IMPLEMENTATION LD<br>NETWORK</td></tr>
 </table>
 <p>
   Negated and edge coils are <b>not</b> in this table: 0 of 576 measured targets carry one, so they keep v1's
@@ -63,7 +63,7 @@
     <code>EMPTY;</code>, which reserves a word a variable may carry and collides with a top-level leaf.</li>
   <li><b>Keep <code>S=</code>/<code>R=</code> and chained assignment</b> — native ExST with the same level semantics:
     the target is set (reset) on every scan the value is TRUE, not on its transition.</li>
-  <li><b>Pull never throws.</b> Anything the writer cannot spell sends the body to the existing marker; push refuses
+  <li><b>Pull never throws.</b> Anything the writer cannot spell sends the body to the marker (<a href="#body-line">its <code>UNSUPPORTED</code> line</a>); push refuses
     by name. The vendor facts it has no spelling for — pin flags, item flags, nested Demux — are measured (census
     1.13, 1.1, 1.8) and routed there by name (<a href="#not-one-to-one">marker on pull, measured</a>).</li>
   <li><b>Wires are declared in a per-network <code>VAR_TEMP … END_VAR</code></b> below the header and comments, not in
@@ -91,7 +91,7 @@
   gate demanding Volt's numbering.
 </p>
 <p>
-  <b>v2 (28):</b> 1 body marker with language · 2 NETWORK header, newline-terminated · 3 LABEL · 4 TITLE quoting ·
+  <b>v2 (28):</b> 1 body line with language (<code>IMPLEMENTATION FBD|LD</code>) · 2 NETWORK header, newline-terminated · 3 LABEL · 4 TITLE quoting ·
   5 DISABLED · 6 the network's <code>VAR_TEMP</code> wire block: declaration, definition, reference, validity ·
   7 a wire's type from its producer, checked by the gate · 8 reserved names (case-insensitive scope set,
   <code>g&lt;digits&gt;</code>-only wires, collision rename, <code>PARALLEL</code>/<code>R_EDGE</code>/<code>F_EDGE</code>) ·
@@ -209,8 +209,8 @@ flowchart LR
 </p>
 
 <h2 id="grammar">Grammar</h2>
-<pre>body       = marker , NL , { network } ;
-marker     = "(* @volt-implementation" , ( "FBD" | "LD" ) , "*)" ;
+<pre>body       = line , NL , { network } ;
+line       = "IMPLEMENTATION" , ( "FBD" | "LD" ) ;                     (* alone on its line; case and spacing free *)
 network    = header , NL , { comment } , [ wires ] , { statement } , "END_NETWORK" ;
 header     = "NETWORK" , [ "LABEL:" , name ] , [ "TITLE:" , title ] , [ "DISABLED" ] ;   (* ends at its newline *)
 wires      = "VAR_TEMP" , decl , { decl } , "END_VAR" ;                 (* one per network, if it has a Demux *)
@@ -281,12 +281,19 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   ending is layout everywhere, in a comment and an EXECUTE body included. The operator table is unchanged
   (<code>FbdOperators.cs</code>).
 </p>
-<p>
-  <b>Body marker.</b> An ST body keeps the bare <code>(* @volt-implementation *)</code>. A graphical body carries
-  <code>(* @volt-implementation FBD *)</code> or <code>… LD *)</code>, one per body: an FB with an ST body and an LD
-  method carries a bare marker on the FB and an LD marker on the method; a property's two accessors carry one each.
-  <code>(* @volt-graphical: CFC *)</code> (<code>BodyMarker</code>) is unchanged: it marks an unsupported body and
-  carries no network text.
+<p id="body-line">
+  <b>Body line.</b> Every body states its language on the line that ends its declaration (openspec
+  <code>implementation-keyword</code>; <code>ImplementationMarker</code> in the engine, <code>implementation-keyword.ts</code>
+  in the LSP): <code>IMPLEMENTATION ST</code> over ST, <code>IMPLEMENTATION FBD</code> or <code>IMPLEMENTATION LD</code>
+  over network text, one per body — an FB with an ST body and an LD method carries <code>IMPLEMENTATION ST</code> on
+  the FB and <code>IMPLEMENTATION LD</code> on the method; a property's two accessors carry one each. The stated
+  language is the one signal for which reader runs; network text under <code>ST</code>, ST under <code>LD</code>, or a
+  missing language is refused by name. <b>The marker</b>, wherever this page sends a body to it, is
+  <code>IMPLEMENTATION FBD UNSUPPORTED</code> / <code>IMPLEMENTATION LD UNSUPPORTED</code> with nothing under it: no
+  implementation is shown, the pull message names the item and the shape network text has no spelling for, the
+  declaration stays editable, and a push never writes that body. CFC, SFC and IL bodies are always
+  <code>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</code>. A build without <code>VOLT_GRAPHICAL=1</code> hides every LD and
+  FBD body the same way, with the reason "LD and FBD are not enabled in this build".
 </p>
 
 <h2 id="constructs">Constructs</h2>
@@ -613,7 +620,7 @@ END_NETWORK</pre>
 
 <h2 id="gate">The gate</h2>
 <p>
-  Body language (the marker matches the IDE's view), then parse, then a <b>token fixed point</b>:
+  Body language (the <code>IMPLEMENTATION</code> line matches the IDE's view), then parse, then a <b>token fixed point</b>:
   <code>Tokens(Write(Read(x))) == Tokens(x)</code> — re-wrapping a long call one pin per line passes, changing a token
   does not, and no minted name is left to get "wrong". A separate test oracle checks <code>Read(Write(m)) ≅ m</code>
   over every vendor-read fixture: the check that sees pull-side loss, which a text fixed point cannot. Its one
@@ -644,7 +651,7 @@ END_NETWORK</pre>
   cases of v1 — an operator box naming an output, two unnamed outputs — disappear: call form and positional
   <code>=&gt;</code> spell both. <b>Pull raises no code and never throws:</b> every shape listed under
   <a href="#not-one-to-one">marker on pull</a>, and the marker-only shapes (several control-flow targets on one rung,
-  negated/edge coils, Mux), materialize the body as the existing unsupported marker.
+  negated/edge coils, Mux), materialize the body as <a href="#body-line">the marker</a>, its <code>UNSUPPORTED</code> line.
 </p>
 
 <h2 id="lsp">The language server</h2>

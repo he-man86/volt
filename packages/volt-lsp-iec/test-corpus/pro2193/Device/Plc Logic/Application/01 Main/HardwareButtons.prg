@@ -40,7 +40,7 @@ END_VAR
 VAR CONSTANT
 	speedFooterShowTime	: REAL	:= 5;	// Show footer for 5 seconds
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Initialize();
 
 StartCycle(		buttonType		:= enumHWButtons.Start);
@@ -131,7 +131,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
 END_IF
@@ -149,7 +149,7 @@ VAR_INST
 	i					: INT;
 	position			: INT := 1;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF ledTestDuration.Set(In := startLedTest, Pt := 8) THEN
 	startLedTest := FALSE;
 	position := 1;

@@ -19,8 +19,9 @@
  * corpus, `PLCWinNT` in the CODESYS blank template) so the comparison is about structure, not about what the
  * target's controller happens to be called.
  *
- * WHAT IS NOT MIGRATABLE, AND WHY THAT IS NOT A FINDING. A CFC/SFC/IL body has no text form at all — its file
- * carries a `(* @volt-graphical: LANG *)` marker instead of source — so there is nothing to create it FROM.
+ * WHAT IS NOT MIGRATABLE, AND WHY THAT IS NOT A FINDING. A hidden body has no text form — its file carries the line
+ * `IMPLEMENTATION <LANG> UNSUPPORTED` (every CFC/SFC/IL body, and an LD/FBD body network text cannot represent)
+ * and nothing under it — so there is nothing to create it FROM.
  * Those are counted and reported, never staged; pushing one is refused by `BodyFormatGuard`.
  *
  * RUNNING IT. It owns the IDE lifecycle: a throwaway blank project is opened per corpus and closed again, so no
@@ -55,8 +56,9 @@ let activePipe: string | undefined
  *  Each vendor names that folder itself: `Library Manager` on CODESYS, `References` on TwinCAT. */
 const LIBRARY_DIRS = new Set(["Library Manager", "References"])
 const FOLDER_MARKER = ".gitkeep"
-/** A body with no text form — CFC, SFC, IL. The file carries this instead of source. */
-const BODY_MARKER = "(* @volt-graphical:"
+/** A body with no text form: its IMPLEMENTATION line states UNSUPPORTED (the spelling is the bridge's
+ *  `ImplementationMarker`; a script matches the line, it does not define it). */
+const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+[A-Za-z]+[ \t]+UNSUPPORTED[ \t]*\r?$/im
 
 const VENDOR = process.env.VOLT_VENDOR ?? "codesys"
 
@@ -541,11 +543,11 @@ async function migrate(name: string): Promise<string[]> {
 
 	const all = pushableTree(join(CORPUS_ROOT, name))
 	if (all.size === 0) throw new Error(`${name} has no pushable source — is the corpus stale?`)
-	const authorable = new Map([...all].filter(([, text]) => !text.includes(BODY_MARKER)))
+	const authorable = new Map([...all].filter(([, text]) => !HIDDEN_BODY.test(text)))
 	const unauthorable = all.size - authorable.size
 	const { files: staged, notes } = adaptForVendor(authorable)
 
-	console.log(`\n── ${name}: ${staged.size} file(s) to migrate${unauthorable ? `, ${unauthorable} unauthorable (CFC/SFC/IL)` : ""}`)
+	console.log(`\n── ${name}: ${staged.size} file(s) to migrate${unauthorable ? `, ${unauthorable} unauthorable (hidden bodies)` : ""}`)
 	// Printed BEFORE the run, never buried in the result: an adapted field is a fact about what this vendor
 	// pair can carry, and it IS the finding - not noise on the way to one.
 	for (const n of notes) console.log(`   adapted  ${n}`)

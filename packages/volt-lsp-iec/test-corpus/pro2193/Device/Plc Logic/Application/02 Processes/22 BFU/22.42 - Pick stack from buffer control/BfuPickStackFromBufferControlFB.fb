@@ -22,13 +22,13 @@ VAR
 		StatePickingDone					:= 500
 	) DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 State(actState	:= ActState);
 
 IF  automaticOperationStarted
@@ -56,7 +56,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -68,7 +68,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
 		Execute_Sequence1();
@@ -88,7 +88,7 @@ VAR_INST
 	stackInBuffer		: REFERENCE TO StackStatusType;
 	rotateGripper		: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
 		;
@@ -140,7 +140,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CASE operationMode OF
 	SER_OperationModeType.Production:			ShouldStart := TRUE;
@@ -159,7 +159,7 @@ END_METHOD
 METHOD StartCycle : BOOL
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -172,7 +172,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -184,7 +184,7 @@ END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 automaticOperationStarted	:= FALSE;
 StopCycle					:= ActState = StateNone;

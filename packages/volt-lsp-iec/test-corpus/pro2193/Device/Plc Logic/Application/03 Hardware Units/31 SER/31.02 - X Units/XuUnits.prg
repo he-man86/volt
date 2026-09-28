@@ -32,7 +32,7 @@ VAR CONSTANT
 	NumberOfTakeoverPositions	: USINT	:= 2;	// 1 = Takeover pos;
 												// 2 = Reject in shute pos
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive	:= GlobalVars.EnableServoDrives,
@@ -66,7 +66,7 @@ GET
 VAR
 	i	: INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 AllUnitsAreOnTakeoutPos := TRUE;
 
 FOR i := 1 TO usiNumberOfUnits DO
@@ -84,7 +84,7 @@ GET
 VAR
 	i	: INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 AllXuUnitsHaveAllProducts := TRUE;
 
 FOR i := 1 TO usiNumberOfUnits DO

@@ -51,7 +51,7 @@ VAR
 	ServoWrappingDevice: ServoControl;
 	ServoSideCorrection: ServoControl;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "DONE network 3 : All drives ready"
   Mach1.GenFlags.ConditionsReadyForOperation := ((Mach1_Data.Drives.MainDrive.Status.DriveIsReady OR NOT Mach1_Data.Drives.MainDrive.Control.SetDriveEnable) AND (Mach1_Data.Drives.WrappingDevice.Status.DriveIsReady OR NOT Mach1_Data.Drives.WrappingDevice.Control.SetDriveEnable) AND (Mach1_Data.Drives.SideCorrection.Status.DriveIsReady OR NOT Mach1_Data.Drives.SideCorrection.Control.SetDriveEnable));
 END_NETWORK

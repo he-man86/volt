@@ -11,7 +11,7 @@ VAR_OUTPUT
 	oMainDriveRun: BOOL;
 	oMainDriveJog: BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "DONE NETWORK 1: Delay after doors closed"
   Mach1_AuxData.DelayAfterDoorsActuallyClosed := Mach1_AuxData.IEC_TIMERS.TON_DelayAfterDoorsClosed(IN := (Mach1.GenFlags.DelayAfterEmergStop AND Mach1_Safety.Status.AllDoorsActuallyClosed AND Mach1_Safety.Status.DoorsOK), PT := T#150MS);
 END_NETWORK

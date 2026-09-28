@@ -3,7 +3,7 @@ FUNCTION CheckDivLReal : LREAL
 VAR_INPUT
 	divisor:LREAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Implicitly generated code : Only an Implementation suggestion
 IF divisor = 0 THEN
 	CheckDivLReal:=1;

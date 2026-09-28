@@ -10,7 +10,7 @@ VAR
 	rDestination				: REAL;
 	rMidPoint					: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 // Labelmagazine position is in ° , acc/dec is in °/s², so no convert factor is needed
@@ -20,7 +20,7 @@ Drive.config.unitConvertFactor	:= 1;
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Set limits for the positions, and guard the limits
 Data.getNewLabelsPos.lowerLimit			:= Data.beforeGetNewLabelsPos.value;
 Data.getNewLabelsPos.upperLimit			:= DataBrink.rSWLimitPos;
@@ -47,7 +47,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -58,7 +58,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PUBLIC Execute
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	ExchangeSets.Cover_Margarine, ExchangeSets.Tray_Margarine:
 		Execute_Sequence1();
@@ -71,7 +71,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE ActState OF
 	MagazineMotors_TurnAround_State.None:
 		Drive.globalSpeedOverrideEnable := TRUE;
@@ -103,7 +103,7 @@ END_METHOD
 METHOD PROTECTED GetNew_CheckInterrupt
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Check if the profile needs to be interrupted
 IF xHaltOnPath THEN
@@ -117,7 +117,7 @@ END_METHOD
 METHOD PROTECTED GetNew_CheckProfileAllowed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Check if profile is started from the correct position
 IF Drive.PosReached(Data.labelTakeOverPos.value) THEN
@@ -131,7 +131,7 @@ END_METHOD
 METHOD PROTECTED GetNew_EndHighSpeed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Finish profile with high speed
 Drive.SetMovementProfileSeparate(
@@ -152,7 +152,7 @@ END_METHOD
 METHOD PROTECTED GetNew_MoveWithoutProfile
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Not started from correct position. Move without profile
 Drive.SetMovementProfileSeparate(
@@ -173,7 +173,7 @@ END_METHOD
 METHOD PROTECTED GetNew_ReducedSpeed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Move with reduced speed through the midpoint
 Drive.SetMovementProfileSeparate(
@@ -195,7 +195,7 @@ END_METHOD
 METHOD PROTECTED GetNew_StartHighSpeed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF xEntryActionActive THEN
 	rMidPoint	:= (Data.labelTakeOverPos.value + Data.getNewLabelsPos.value) / 2;
@@ -221,7 +221,7 @@ END_METHOD
 METHOD PROTECTED GetNew_WaitForDecel
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Wait for drive to slow down
 IF Drive.decelerating
@@ -237,7 +237,7 @@ VAR_INPUT
 	position	: MagazineMotors_Positions;
 	tolerance	: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CASE position OF
 	MagazineMotors_Positions.getNewLabelsPos:
@@ -260,7 +260,7 @@ END_METHOD
 METHOD PUBLIC MoveToBeforeGetNewLabels : BOOL		// Returns true when in position
 VAR_INPUT
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ThrowException('Not implemented');
 END_METHOD
@@ -270,7 +270,7 @@ END_METHOD
 METHOD PUBLIC MoveToBeforeTakeoverLabels : BOOL	// Returns true when in position
 VAR_INPUT
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ThrowException('Not implemented');
 END_METHOD
@@ -280,7 +280,7 @@ METHOD PUBLIC MoveToGetNewLabels : BOOL		// Returns true when in position
 VAR_INPUT
 	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF ActState = MagazineMotors_TurnAround_State.None AND NOT xCommandDone THEN
 	THIS^.xHaltOnPath := xHaltOnPath;	// Copy parameters
@@ -300,7 +300,7 @@ METHOD PUBLIC MoveToTakeoverLabels : BOOL	// Returns true when in position
 VAR_INPUT
 	xHaltOnPath		: BOOL := FALSE;		// Optional: When true the movement is interrupted before the end to await sensors
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF ActState = MagazineMotors_TurnAround_State.None AND NOT xCommandDone THEN
 	THIS^.xHaltOnPath := xHaltOnPath;	// Copy parameters
@@ -317,7 +317,7 @@ END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF ActState = MagazineMotors_TurnAround_State.None AND NOT xCommandDone THEN
 	ActState := MagazineMotors_TurnAround_State.Resetting_1;		// Resetting		<-- Press F12 here
@@ -334,7 +334,7 @@ METHOD PROTECTED Resetting_1
 VAR_INST
 	iState	: INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF Drive.Home() THEN
 	ActState := MagazineMotors_TurnAround_State.Resetting_2;
@@ -342,7 +342,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Resetting_2
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 Drive.SetMovementProfileSeparate(
 	rVel := Data.rProfileSpeedReduced,
@@ -361,7 +361,7 @@ END_METHOD
 METHOD PROTECTED Return_CheckInterrupt
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Check if the profile needs to be interrupted
 IF xHaltOnPath THEN
@@ -375,7 +375,7 @@ END_METHOD
 METHOD PROTECTED Return_CheckProfileAllowed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Check if profile is started from the correct position
 IF Drive.PosReached(Data.getNewLabelsPos.value) THEN
@@ -389,7 +389,7 @@ END_METHOD
 METHOD PROTECTED Return_EndHighSpeed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Finish profile with high speed
 Drive.SetMovementProfileSeparate(
@@ -411,7 +411,7 @@ METHOD PROTECTED Return_MoveWithoutProfile
 VAR_INST
 	switchSpeed	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Not started from correct position. Move without profile
 IF xEntryActionActive THEN
@@ -451,7 +451,7 @@ END_METHOD
 METHOD PROTECTED Return_ReducedSpeed
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Move with reduced speed through the midpoint
 Drive.SetMovementProfileSeparate(
@@ -474,7 +474,7 @@ METHOD PROTECTED Return_StartHighSpeed
 VAR_INST
 	switchSpeed	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF xEntryActionActive THEN
 	rMidPoint	:= (Data.labelTakeOverPos.value + Data.getNewLabelsPos.value) / 2;
@@ -515,7 +515,7 @@ END_METHOD
 METHOD PROTECTED Return_WaitForDecel
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Wait for drive to slow down
 IF Drive.decelerating
@@ -527,7 +527,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT GlobalVars.Reset AND Drive.AxisEnabled AND NOT Drive.config.virtualMode THEN
 	Drive.Halt();

@@ -38,7 +38,7 @@ VAR_IN_OUT
 	
 
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //START point: If HighSpeedPos>Lowspeed pos = zero is crossed, add 360
 t_intPosLowSpeedStart := i_intPosLowSpeedStart; 
 

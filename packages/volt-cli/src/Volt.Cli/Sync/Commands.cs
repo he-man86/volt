@@ -941,9 +941,12 @@ public static class Commands
                 lines.Add($"  {path}{(body.Member is null ? "" : $" '{body.Member}'")} ({body.Language}): {body.Reason}");
         }
         if (lines.Count == 0) return null;
-        return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, because " +
-               "network text has no spelling for what they hold yet. Their declarations stay editable here and push as " +
-               "usual; the push never writes these bodies. Edit them in the IDE:\n" + string.Join("\n", lines);
+        // Each line carries its body's OWN reason; the lead claims none. Network text having no spelling for a shape is one
+        // reason, a build with network text off (`NetworkTextSwitch.DisabledReason`) another, and a lead that asserted the
+        // first told an engineer on a production build something false about every body it listed.
+        return $"{lines.Count} body(ies) are IMPLEMENTATION LD|FBD UNSUPPORTED — no code is shown for them, each for the " +
+               "reason named below. Their declarations stay editable here and push as usual; the push never writes these " +
+               "bodies. Edit them in the IDE:\n" + string.Join("\n", lines);
     }
 
     /// <summary>The notes a pull's message carries, in order, or null when there are none.</summary>

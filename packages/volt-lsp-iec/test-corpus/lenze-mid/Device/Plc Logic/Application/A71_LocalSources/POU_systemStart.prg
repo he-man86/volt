@@ -1,7 +1,7 @@
 PROGRAM POU_systemStart
 VAR
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   LST_General.FirstCycle S= ;
 END_NETWORK

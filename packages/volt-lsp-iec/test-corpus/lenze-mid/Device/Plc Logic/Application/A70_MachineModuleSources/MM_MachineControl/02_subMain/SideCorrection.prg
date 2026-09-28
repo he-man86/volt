@@ -10,7 +10,7 @@ VAR
 
 	tbool: BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "Network 1: Averaging of sensorsignal"
   fc_MeanValue(EN := , iLength := 20, iAcquireNewValue := True, iNewValue := `TO_INT(LST_InputsOutputs.IW340_LeafCoverageSensor)`, ioValues := db_MeanValuesSideCorrectionSensor.MeasurementValues, oMeanValue => DB_Kantcorrectie.MeasuredValue);
 END_NETWORK

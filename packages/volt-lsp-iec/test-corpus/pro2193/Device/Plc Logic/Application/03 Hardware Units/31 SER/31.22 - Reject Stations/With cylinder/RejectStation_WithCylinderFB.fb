@@ -14,7 +14,7 @@ VAR//VISU
 END_VAR
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^(Data := Data);
 
 END_FUNCTION_BLOCK
@@ -25,7 +25,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.Cyclic();
 
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
@@ -49,7 +49,7 @@ METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 	Cylinder[i].Reset();
@@ -67,7 +67,7 @@ VAR_INST
 	localState					: SINT;
 	Timer						: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -110,7 +110,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR
 	i		: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 	Cylinder[i].Reset();
@@ -124,7 +124,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR
 	i		: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO GVL_Constants.ChainProductsForReject DO
 	Cylinder[i].Reset();
@@ -140,7 +140,7 @@ PROPERTY PUBLIC InSafePosForChain : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InSafePosForChain := Cylinder[1].IsIn; //AND Cylinder[2].IsIn;
 END_GET
 END_PROPERTY

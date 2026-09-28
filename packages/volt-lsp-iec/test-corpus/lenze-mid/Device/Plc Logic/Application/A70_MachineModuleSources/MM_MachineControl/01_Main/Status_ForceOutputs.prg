@@ -1,7 +1,7 @@
 PROGRAM Status_ForceOutputs
 VAR
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   VAR_TEMP g9 : BOOL; END_VAR
   g9 := TRUE;

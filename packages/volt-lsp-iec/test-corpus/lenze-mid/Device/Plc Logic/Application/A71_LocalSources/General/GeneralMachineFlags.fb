@@ -72,7 +72,6 @@ VAR
 	RunAuto: SR;
 
 END_VAR
-(* @volt-implementation *)
-(* @volt-graphical: a wire of unknown type *)
+IMPLEMENTATION LD UNSUPPORTED
 
 END_FUNCTION_BLOCK

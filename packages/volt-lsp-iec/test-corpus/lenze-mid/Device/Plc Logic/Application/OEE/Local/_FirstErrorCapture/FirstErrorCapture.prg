@@ -53,7 +53,7 @@ END_VAR
 VAR CONSTANT
 	uiMaxError : UINT := 99;		// Max. Numbers of L_SetErrorSingleInfo fb or errors withing the whole PLC Project
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 //Assignment of scFirstErrorData := GVL_FirstErrCapture.scFirstErrorData;
 xStructError := L_OEEA_Customizable_CopyStruct(pbySource:= ADR(GVL_FirstErrCapture.asErrorCategory),pbyTarget:=ADR(asErrorCategoryLib),
@@ -64,6 +64,5 @@ call_FirstErrorCapture_FB();
 END_PROGRAM
 
 ACTION call_FirstErrorCapture_FB
-(* @volt-implementation *)
-(* @volt-graphical: a main output other than slot 0 *)
+IMPLEMENTATION FBD UNSUPPORTED
 END_ACTION

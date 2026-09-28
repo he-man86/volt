@@ -4,7 +4,7 @@ VAR
 	nPosCountGood	: INT;
 	n					: INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 (* Delete all impossible cutting positions in array *)
 
 (* init counters *)

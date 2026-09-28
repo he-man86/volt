@@ -17,7 +17,6 @@ VAR
 	
 	
 END_VAR
-(* @volt-implementation *)
-(* @volt-graphical: an assign below the top level *)
+IMPLEMENTATION LD UNSUPPORTED
 
 END_PROGRAM

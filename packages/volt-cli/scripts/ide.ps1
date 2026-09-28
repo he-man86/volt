@@ -34,6 +34,9 @@
                    `never-git-add-all-during-e2e` is about. Use this only when the changes are the POINT.
 .PARAMETER Instance Suffix so several can run at once (per-instance pid file). Each IDE serves its own
                     `volt.bridge.<vendor>.<pid>`, so instances never collide on the wire.
+.PARAMETER Production Serve as the SHIPPED build does: LD and FBD network text OFF (`VOLT_GRAPHICAL` removed from what
+                    this launches), so every LD and FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED`. The default
+                    is ON, for development and the suites; this is for checking what a customer's bridge serves.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
                     IDE is launched, which is minutes before it serves — and every caller then reinvents the
@@ -50,6 +53,7 @@ param(
     [string]$Fixture = "",
     [string]$Instance = "",
     [switch]$InPlace,
+    [switch]$Production,
     [switch]$NoBuild,
     [switch]$Wait
 )
@@ -361,8 +365,10 @@ switch ($Action) {
         # LD and FBD network text ON for what this launches (openspec implementation-keyword 3c). The bridge reads the
         # switch from its OWN process environment — CODESYS runs it in-proc, TwinCAT in the worker — and both inherit
         # this one, so it must be set before either starts. The shipped build does not set it: a customer's bridge shows
-        # every LD and FBD body as `IMPLEMENTATION LD|FBD UNSUPPORTED`.
-        $env:VOLT_GRAPHICAL = "1"
+        # every LD and FBD body as `IMPLEMENTATION LD|FBD UNSUPPORTED`. `-Production` serves exactly that — REMOVED rather
+        # than left alone, because a shell that set it once would otherwise hand it on and the check would prove nothing.
+        if ($Production) { Remove-Item Env:VOLT_GRAPHICAL -ErrorAction SilentlyContinue }
+        else { $env:VOLT_GRAPHICAL = "1" }
         $before = Get-ServingPids $Vendor
         if ($Vendor -eq "codesys") { Up-Codesys } else { Up-Twincat }
         Write-Host "Tail the launcher log with: ide.ps1 logs -Vendor $Vendor"

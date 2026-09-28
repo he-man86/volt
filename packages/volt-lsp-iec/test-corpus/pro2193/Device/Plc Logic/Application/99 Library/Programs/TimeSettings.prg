@@ -25,7 +25,7 @@ VAR
 	applicationCredits	: UINT;	// ???? DIT HOORT NIET HIER
 	timeZoneOld			: UINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //HandleInput();
 //StateMachine();
 
@@ -118,7 +118,7 @@ END_VAR
 VAR_OUTPUT
 	xDataValid	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Read Write parameter
 ParameterRead.xExecute			:= TRUE;
 ParameterRead.wIndex			:= wIndex;
@@ -146,7 +146,7 @@ END_VAR
 VAR_OUTPUT
 	xSuccess	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Read Write parameter
 TimeZoneWrite.xExecute			:= TRUE;
 TimeZoneWrite.wIndex			:= wIndex;

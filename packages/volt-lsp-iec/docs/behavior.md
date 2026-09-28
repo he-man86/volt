@@ -587,17 +587,19 @@ before it is pushed.
 - **WHEN** the LSP hovers a wire declared in its network's `VAR_TEMP` block (network text v2)
 - **THEN** it shows the declaration (`g22 : BOOL`) and the value that produces it (`g22 := (a AND b);`)
 
-### Requirement: FBD/LD are editable; CFC/SFC are read-only
+### Requirement: FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED
 
-ST, FBD, and LD bodies SHALL be read-write and round-trip as text (FBD/LD as editable network text). CFC and SFC
-bodies SHALL have **no text representation** and are authored only in the IDE; they are not a read-only
-*access* state, they simply are not materialized as editable code. A CFC/SFC body SHALL materialize as
-a single informational marker comment identifying the language and directing the reader to the IDE, and
-SHALL NOT be analyzed as network text or ST. There is no read-only-language flag.
+ST, FBD, and LD bodies SHALL be read-write and round-trip as text (FBD/LD as editable network text). Every body
+SHALL state its language on the line that ends its declaration — `IMPLEMENTATION ST`, `IMPLEMENTATION LD`,
+`IMPLEMENTATION FBD` — and that line alone SHALL decide whether the ST parser or the network-text parser reads it.
+CFC, SFC and IL bodies SHALL have **no text representation** and are authored only in the IDE: such a body SHALL
+materialize as its line `IMPLEMENTATION <LANG> UNSUPPORTED` with nothing under it (so SHALL an LD/FBD body network
+text cannot spell), SHALL NOT be analyzed as network text or ST, and its DECLARATION SHALL be analyzed as any other.
+The push never writes such a body (openspec `implementation-keyword`).
 
-#### Scenario: A CFC body is materialized as an informational marker
-- **WHEN** a project contains a CFC (or SFC) body
-- **THEN** it materializes as an `(* @volt-graphical: <LANG> *)` informational marker comment (e.g. `(* @volt-graphical: CFC *)`, which the LSP hover explains) and is not analyzed as network text or ST
+#### Scenario: A CFC body is materialized as its UNSUPPORTED line
+- **WHEN** a project contains a CFC (or SFC, or IL) body
+- **THEN** it materializes as `IMPLEMENTATION CFC UNSUPPORTED` (the hover on the line explains it) and is not analyzed as network text or ST
 
 ### Requirement: Content detection covers whole files and inlined graphical methods
 
@@ -606,17 +608,17 @@ by its KIND (`.fb`/`.prg`/`.fun`), an editable graphical POU is stored in a kind
 language-named file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
 discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
 graphical POU (e.g. a `.fb` file whose body begins with `NETWORK`) *and* a graphical body inlined
-inside a POU (a graphical method). The body discriminator is 2-way: a body beginning with `NETWORK` is
-editable Network-text (FBD/LD); anything else is treated as text (ST, or a CFC/SFC informational marker comment,
-which yields no analysis). There is no `READONLY <LANG>` control marker.
+inside a POU (a graphical method). That token decides COLOUR only. What a body IS — and so what the LSP analyzes —
+is its stated language: `IMPLEMENTATION LD|FBD` is network text, `IMPLEMENTATION ST` is ST, and
+`IMPLEMENTATION <LANG> UNSUPPORTED` is read by neither.
 
-#### Scenario: An editable graphical body is detected by NETWORK
-- **WHEN** a kind-named POU file's body begins with `NETWORK`
-- **THEN** it is highlighted and analyzed as editable network text, regardless of extension
+#### Scenario: An editable graphical body is read by its stated language
+- **WHEN** a kind-named POU file's body is stated `IMPLEMENTATION LD` or `IMPLEMENTATION FBD`
+- **THEN** it is analyzed as editable network text, regardless of extension, and its `NETWORK` headers are highlighted
 
-#### Scenario: A CFC/SFC informational marker is not analyzed
-- **WHEN** a kind-named POU (or inlined method) body is a CFC/SFC informational marker comment
-- **THEN** it is not highlighted or analyzed as network text, and produces no diagnostics (it is a comment)
+#### Scenario: An UNSUPPORTED body is not analyzed
+- **WHEN** a kind-named POU (or inlined method) body is stated `IMPLEMENTATION <LANG> UNSUPPORTED`
+- **THEN** nothing under the line is analyzed as network text or ST, and the empty body produces no diagnostics
 
 <!-- ══════════ F. Workspace file layout & materialization — BRIDGE/CLI-OWNED (LSP consumes) ══════════ -->
 
@@ -642,17 +644,17 @@ NOT be carried on the wire (it is recovered from content on push).
 ### Requirement: Read-only graphical POUs are marked in content, not by extension
 
 Because POUs are named by kind, the extension SHALL NOT encode read-only access for a POU. A read-only
-graphical POU (a CFC/SFC body) SHALL materialize with an in-content marker: its body is a single
-`(* @volt-graphical: <LANG> *)` informational comment (e.g. `(* @volt-graphical: CFC *)`), stating it is
-read-only because the body is graphical and not round-tripped. Read-only for a POU SHALL be detected from
-this marker (the body is a lone `@volt-graphical` comment), never from the extension. Opaque reference kinds
+graphical POU (a CFC/SFC/IL body) SHALL materialize with its state in content: its body's line is
+`IMPLEMENTATION <LANG> UNSUPPORTED` (e.g. `IMPLEMENTATION CFC UNSUPPORTED`) with nothing under it, stating that no
+implementation is shown and the push never writes one. That a POU's body is hidden SHALL be detected from this
+line, never from the extension; its declaration stays editable. Opaque reference kinds
 (`library`, `task`, `image_pool`, `text_list`, `recipe_manager`, `visualization`, `visualization_manager`,
 `library_manager`, `class_diagram`, `external_types`, `tmc`) SHALL remain read-only by their own extension. A
 folder SHALL remain a `.gitkeep` marker.
 
-#### Scenario: A read-only CFC POU carries a content marker
-- **WHEN** the IDE contains a function block whose body is a read-only CFC
-- **THEN** it materializes as `<name>.fb` whose body is `(* @volt-graphical: CFC *)` — no `.cfc` extension and no wire flag mark it
+#### Scenario: A CFC POU states its hidden body in content
+- **WHEN** the IDE contains a function block whose body is a CFC chart
+- **THEN** it materializes as `<name>.fb` whose body line is `IMPLEMENTATION CFC UNSUPPORTED` — no `.cfc` extension and no wire flag mark it
 
 #### Scenario: A reference kind keeps its extension and is read-only
 - **WHEN** the IDE contains a library, task, or visualization
@@ -660,19 +662,19 @@ folder SHALL remain a `.gitkeep` marker.
 
 ### Requirement: Access is read from content; kind from content
 
-The CLI SHALL derive a POU file's push-ability from its content — a body that is a `(* @volt-graphical: … *)`
-marker is read-only, a `NETWORK`-led or plain textual body is writable — while reference kinds stay read-only
-by their extension. The bridge SHALL recover an item's kind from file content on push-back (the ST
-declaration header for textual kinds; the NETWORK-token network-text body for editable graphical POUs), never
-from the extension. The kind-based naming SHALL NOT lose kind or access information.
+The CLI SHALL derive a POU body's push-ability from its content — a body stated `IMPLEMENTATION <LANG> UNSUPPORTED`
+is never written (its declaration still pushes), a body stated `IMPLEMENTATION ST|LD|FBD` is writable — while
+reference kinds stay read-only by their extension. The bridge SHALL recover an item's kind from file content on
+push-back (the declaration header), never from the extension. The kind-based naming SHALL NOT lose kind or access
+information.
 
 #### Scenario: Kind is recovered from content on push
 - **WHEN** an agent edits and pushes a `.fb`/`.prg`/`.fun`/`.struct`/`.itf`/`.gvl` file
 - **THEN** the bridge reconstructs the correct kind from the content and applies the push (all four DUT extensions are the one kind `dut`; the IDE derives the subtype from the declaration, as the materializer does to name the file)
 
-#### Scenario: A read-only POU is not pushed
-- **WHEN** a `.fb` file whose body is a `(* @volt-graphical: … *)` marker (a CFC/SFC body) is edited and a push is attempted
-- **THEN** the CLI refuses it up front from the marker, and the bridge refuses it as a backstop
+#### Scenario: A hidden body is never written
+- **WHEN** a `.fb` file whose body is stated `IMPLEMENTATION CFC UNSUPPORTED` has its declaration edited and is pushed
+- **THEN** the declaration is pushed and the IDE's chart is left exactly as it was; code added under the line is refused by name
 
 ### Requirement: Library signatures materialize under the Library Manager, not a separate tree
 

@@ -49,11 +49,11 @@ const problems = async (): Promise<string[]> =>
 const set = (name: string, sourceText: string) => ({ op: "set", name, toFolder: "", sourceText, ifVersion: null })
 
 const prg = (n: string, vars: string, body: string) =>
-	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\n(* @volt-implementation *)\n${body}\n\nEND_PROGRAM\n`
+	`PROGRAM ${n}\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ST\n${body}\n\nEND_PROGRAM\n`
 
 /** A v1 graphical body: one `NETWORK` block per entry, each [header suffix, statement]. */
 const fbd = (n: string, nets: [string, string][]) =>
-	`PROGRAM ${n}\nVAR\n\ta : BOOL;\n\tx : BOOL;\n\ty : BOOL;\nEND_VAR\n(* @volt-implementation *)\n` +
+	`PROGRAM ${n}\nVAR\n\ta : BOOL;\n\tx : BOOL;\n\ty : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n` +
 	nets.map(([hdr, stmt], i) => `NETWORK ${i} FBD${hdr}\n  ${stmt}\nEND_NETWORK\n`).join("") +
 	`\nEND_PROGRAM\n`
 
@@ -66,28 +66,28 @@ const cases: Case[] = [
 	{
 		label: "a FUNCTION named R_EDGE, called",
 		ops: [
-			set("R_EDGE.fun", `FUNCTION R_EDGE : BOOL\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\nR_EDGE := i;\n\nEND_FUNCTION\n`),
+			set("R_EDGE.fun", `FUNCTION R_EDGE : BOOL\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nR_EDGE := i;\n\nEND_FUNCTION\n`),
 			set(`${PREFIX}UseR.prg`, prg(`${PREFIX}UseR`, "\tq : BOOL;\n\ta : BOOL;", "q := R_EDGE(a);")),
 		],
 	},
 	{
 		label: "a FUNCTION named F_EDGE, called",
 		ops: [
-			set("F_EDGE.fun", `FUNCTION F_EDGE : BOOL\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\nF_EDGE := i;\n\nEND_FUNCTION\n`),
+			set("F_EDGE.fun", `FUNCTION F_EDGE : BOOL\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nF_EDGE := i;\n\nEND_FUNCTION\n`),
 			set(`${PREFIX}UseFf.prg`, prg(`${PREFIX}UseFf`, "\tq : BOOL;\n\ta : BOOL;", "q := F_EDGE(a);")),
 		],
 	},
 	{
 		label: "an FB named R_EDGE, instantiated",
 		ops: [
-			set("R_EDGE.fb", `FUNCTION_BLOCK R_EDGE\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\n;\n\nEND_FUNCTION_BLOCK\n`),
+			set("R_EDGE.fb", `FUNCTION_BLOCK R_EDGE\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_FUNCTION_BLOCK\n`),
 			set(`${PREFIX}UseRb.prg`, prg(`${PREFIX}UseRb`, "\tinst : R_EDGE;", "inst(i := TRUE);")),
 		],
 	},
 	{
 		label: "an FB named F_EDGE, instantiated",
 		ops: [
-			set("F_EDGE.fb", `FUNCTION_BLOCK F_EDGE\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\n(* @volt-implementation *)\n;\n\nEND_FUNCTION_BLOCK\n`),
+			set("F_EDGE.fb", `FUNCTION_BLOCK F_EDGE\nVAR_INPUT\n\ti : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_FUNCTION_BLOCK\n`),
 			set(`${PREFIX}UseF.prg`, prg(`${PREFIX}UseF`, "\tinst : F_EDGE;", "inst(i := TRUE);")),
 		],
 	},
@@ -149,7 +149,7 @@ const MAIN: string = Object.keys((await refs()).items ?? {}).find((n) => /^(PLC_
 const fetchSrc = async (n: string): Promise<string> =>
 	(await callOn(PIPE, "fetch", { knownItems: {}, onlyItems: [n] })).changed.find((i: any) => i.name === n).sourceText
 const MAIN_SRC = await fetchSrc(MAIN)
-const MARK = "(* @volt-implementation *)\n"
+const MARK = "IMPLEMENTATION ST\n"
 if (!MAIN_SRC.includes(MARK)) throw new Error(`${MAIN} has no implementation marker`)
 const withCalls = (prgs: string[]) =>
 	MAIN_SRC.replace(MARK, MARK + prgs.map((p) => `${p.replace(/\.prg$/, "")}();\n`).join(""))

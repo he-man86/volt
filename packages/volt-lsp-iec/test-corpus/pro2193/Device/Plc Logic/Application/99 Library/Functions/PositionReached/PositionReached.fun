@@ -4,7 +4,7 @@ VAR_INPUT
 	rActPos		: REAL;
 	rSetPos		: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 PositionReached			:= PositionReachedValue(rActPos, rSetPos, 1);
 
 END_FUNCTION

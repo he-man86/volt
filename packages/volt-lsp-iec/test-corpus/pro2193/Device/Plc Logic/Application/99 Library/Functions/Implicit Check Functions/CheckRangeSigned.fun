@@ -3,7 +3,7 @@ FUNCTION CheckRangeSigned : DINT
 VAR_INPUT
 	value, lower, upper : DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF value >= lower AND value <= upper THEN
 	CheckRangeSigned := value;
 ELSE

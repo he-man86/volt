@@ -10,7 +10,7 @@ VAR CONSTANT
 	emptyProduct			: ProductType		:= (Present := FALSE);
 	emptyStack				: StackStatusType	:= (Present := FALSE, Initialized := TRUE);
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 END_PROGRAM
 
@@ -19,7 +19,7 @@ METHOD PUBLIC Array1D
 VAR_IN_OUT
 	aProducts			: ARRAY[*] OF ProductType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aProducts, 1);
 upper	:= UPPER_BOUND(aProducts, 1);
 
@@ -33,7 +33,7 @@ METHOD PUBLIC Array2D
 VAR_IN_OUT
 	aProducts			: ARRAY[*,*] OF ProductType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aProducts, 1);
 upper	:= UPPER_BOUND(aProducts, 1);
 
@@ -52,7 +52,7 @@ END_VAR
 VAR
 	k					: DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 FOR k := 1 TO GVL_Constants.MaxMouldLevels DO
 	Array2D(aProducts[k]);
 END_FOR
@@ -63,7 +63,7 @@ METHOD PUBLIC Single
 VAR_IN_OUT
 	Product				: ProductType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Product	:= emptyProduct;
 END_METHOD
 
@@ -72,7 +72,7 @@ METHOD PUBLIC Stack
 VAR_INPUT
 	clearStack			: REFERENCE TO StackStatusType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF __ISVALIDREF(clearStack) THEN
 	clearStack	:= emptyStack;
 END_IF
@@ -83,7 +83,7 @@ METHOD PUBLIC StackArray1D
 VAR_IN_OUT
 	aStacks			: ARRAY[*] OF StackStatusType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aStacks, 1);
 upper	:= UPPER_BOUND(aStacks, 1);
 
@@ -97,7 +97,7 @@ METHOD PUBLIC StackArray2D
 VAR_IN_OUT
 	aStacks			: ARRAY[*,*] OF StackStatusType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 lower	:= LOWER_BOUND(aStacks, 1);
 upper	:= UPPER_BOUND(aStacks, 1);
 

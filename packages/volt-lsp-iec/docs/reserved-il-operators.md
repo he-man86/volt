@@ -44,7 +44,7 @@ Tried on 2026-09-19, and each of these cost real time to find:
 - **`LD` is the Ladder language.** Network text v1 named the sublanguage in each network's header (`NETWORK 0 LD`),
   and that parser required an `identifier` token — so with `LD` a keyword every LD network fell through to `UNKNOWN`
   and took its whole body with it, and TwinCAT agreement with it. *(v2 no longer spells the language in a header:
-  a body names it once, in its implementation marker `(* @volt-implementation LD *)`, and a header is a bare
+  a body names it once, on its line `IMPLEMENTATION LD`, and a header is a bare
   `NETWORK [LABEL: x] [TITLE: "…"] [DISABLED]`. The lesson stands: a word the text spells a construct with is not
   a keyword to reserve.)*
 - **`S` and `R` are the set/reset assignment operators.** `a S= b R= c` is valid CODESYS.

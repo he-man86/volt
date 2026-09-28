@@ -100,7 +100,7 @@ VAR CONSTANT
 	maxNumberOfFuses			: USINT := 3;
 	autoSwitchFromCompleteToResetting	: BOOL	:= TRUE;	// I think It is nice to reset the machine after completing the automatic cycle. Then the SER is in Idle again. Test this and make this standard.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Initialize();
 PackML();
 Cyclic();
@@ -115,7 +115,7 @@ END_PROGRAM
 // are cleared, or safe correction of an equipment fault before the
 // production may be resumed.
 METHOD PRIVATE Aborted
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Wait for user input, e.g. button press
 
@@ -137,7 +137,7 @@ VAR_INST
 	eStopResult		: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 	EStopTimeout	: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // EStop requested
 
@@ -195,7 +195,7 @@ METHOD PRIVATE Alarms
 VAR_INST
 	fuseOk			: ARRAY[1..maxNumberOfFuses] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= SER_Errors,
@@ -377,7 +377,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE Clearing
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // No actions needed here
 
@@ -386,7 +386,7 @@ END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Completed
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // SER is done.
 // Wait for 'Home' button
@@ -440,7 +440,7 @@ VAR_INST
 	completeResult	: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 	Timer			: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // End cycle is requested
 // Wait here for the SER to finish the last cycle(s)
@@ -508,7 +508,7 @@ VAR_INST
 	ReadActualError					: ReadActualErrorFB;
 	ForwardSeverity					: L_IE1P.L_IE1P_ForwardSeverity;			// Forward alarms of children to parent
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 EnableFreqInvertersRelay();
 MainAirValve			();
 Stacklight				();
@@ -826,7 +826,7 @@ END_METHOD
 
 // Acting State - The unit/machine is in a stable acting state - unit/machine is producing.
 METHOD PRIVATE Execute
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 IF OperationMode = SER_OperationModeType.SemiAuto
 OR OperationMode = SER_OperationModeType.AutoTakeoutLabels
@@ -869,7 +869,7 @@ END_METHOD
 // are cleared, or safe correction of an equipment fault before the
 // production may be resumed.
 METHOD PRIVATE Held
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Wait for reset button ????
 
@@ -880,7 +880,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE Holding
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // An error has occured, or a pause is requested
 // Halt the SER cycle
@@ -891,7 +891,7 @@ END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Idle
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // SER is homed and ready to start
 // Wait for 'Start' button
@@ -954,7 +954,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
 END_IF
@@ -1024,7 +1024,7 @@ xInitialized := TRUE;
 END_METHOD
 
 METHOD PRIVATE PackML
-(* @volt-implementation *)
+IMPLEMENTATION ST
 State(actState := TO_DINT(ActState));
 
 CASE ActState OF
@@ -1064,7 +1064,7 @@ VAR_INST
 	startCondition	: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules, 1..2] OF BOOL;
 	resetResult		: ARRAY[1..GVL_Constants.MaxNumberOfResettableModules] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Homing button was pushed
 // All axes find the zero positions
@@ -1183,7 +1183,7 @@ VAR_INST
 	startCondition	: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF BOOL;
 	startResult		: ARRAY[1..GVL_Constants.MaxNumberOfStartableModules] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Wait here for the SER to get the first labels ready for the first cycle.
 // State is finished when the SER is at the parking position in front of the mould
@@ -1249,7 +1249,7 @@ END_METHOD
 
 // Wait State – A stable state, the SER has achieved a defined set of conditions.
 METHOD PRIVATE Stopped
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // SER is just started up, or moved in manual mode.
 // Wait for 'Home' button
@@ -1319,7 +1319,7 @@ END_VAR
 VAR_INST
 	stopResult		: ARRAY[1..GVL_Constants.MaxNumberOfModules] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Stop requested
 // Wait for standstill
@@ -1384,7 +1384,7 @@ METHOD PRIVATE Suspended
 VAR_INST
 	Timer:BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 IF NOT IMM.AutoOperation THEN
 	HardwareButtons.EndCycle.Flash();
@@ -1410,7 +1410,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE Suspending
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // The IMM is not in Automatic operation
 // Halt the SER cycle
@@ -1424,7 +1424,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE UnHolding
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Resume the SER cycle.
 // No actions needed here
@@ -1434,7 +1434,7 @@ END_METHOD
 
 // Acting State
 METHOD PRIVATE UnSuspending
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER PackML States
 // Resume the SER cycle.
 // No actions needed here
@@ -1451,7 +1451,7 @@ PROPERTY ActState : PACK_ML.State
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF currentOperationMode <> 0 THEN
 	ActState := currentOperationMode.CurrentState;
 ELSE
@@ -1467,7 +1467,7 @@ PROPERTY PUBLIC InAutomaticOperation : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InAutomaticOperation := InAutomaticOperationTrigger.xEdge;
 END_GET
 END_PROPERTY
@@ -1478,7 +1478,7 @@ PROPERTY PUBLIC InAutomaticOperation_Falling : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InAutomaticOperation_Falling := InAutomaticOperationTrigger.Q_Falling;
 END_GET
 END_PROPERTY
@@ -1489,7 +1489,7 @@ PROPERTY PUBLIC InAutomaticOperation_Rising : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InAutomaticOperation_Rising := InAutomaticOperationTrigger.Q_Rising;
 END_GET
 END_PROPERTY
@@ -1501,7 +1501,7 @@ PROPERTY PUBLIC ManualControlEnabled : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 ManualControlEnabled	:= NOT GlobalVars.EmergencyStopActive
 						AND ActState = PACK_ML.State.Stopped OR ActState = PACK_ML.State.Idle
 						AND xGatesAreClosed
@@ -1516,13 +1516,13 @@ PROPERTY PUBLIC OperationMode : SER_OperationModeType
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 OperationMode := _operationMode;
 END_GET
 SET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _operationMode := OperationMode;
 END_SET
 END_PROPERTY
@@ -1533,7 +1533,7 @@ PROPERTY PUBLIC SemiAutoNextStep : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF OperationMode = SER_OperationModeType.SemiAuto
 OR OperationMode = SER_OperationModeType.AutoTakeoutLabels
 THEN

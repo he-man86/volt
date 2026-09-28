@@ -28,7 +28,7 @@ END_VAR
 VAR CONSTANT
 	ReleaseFlapsPosition		: REAL	:= 150.0;			// Position to move flaps in and move stopper out
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^(
 	AxisRef				:= AxisRef,
 	DataBrink			:= DataBrink,
@@ -42,7 +42,7 @@ METHOD PUBLIC AddToBox : BOOL
 VAR_INPUT
 	item : enumBoxItem;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 AddToBox	:= Box.AddItem(item);
 END_METHOD
@@ -51,7 +51,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxCenterUnit_Errors,
@@ -64,13 +64,13 @@ SetError[1](
 END_METHOD
 
 METHOD PUBLIC BoxRemoved
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Box.BoxRemoved();
 END_METHOD
 
 METHOD PUBLIC ClampBox : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ClampBox	:= OpenBoxLongSide.GoOut() AND OpenBoxShortSide.GoOut();
 END_METHOD
@@ -80,7 +80,7 @@ VAR_INST
 	guardPosition				: ARRAY[1..2] OF GuardRealFB(									moduleHandler	:= ModuleHandler);
 	attachPosition				: ARRAY[1..2] OF AttachPosToButtonFB(							drive			:= Drive);
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 NumberOfLayersInBox := LayerIndex;
 
 // Set limits for the positions, and guard the limits
@@ -134,7 +134,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -149,7 +149,7 @@ EStop := Drive.Standstill OR NOT Drive.AxisEnabled;
 END_METHOD
 
 METHOD PUBLIC MoveFlapsIn : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 MoveFlapsIn	:= OpenBoxLongSide.GoIn() AND OpenBoxShortSide.GoIn();
 END_METHOD
@@ -158,7 +158,7 @@ METHOD PUBLIC PrepareBoxForFilling : BOOL
 VAR_INST
 	localState			: SINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -182,7 +182,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -230,7 +230,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -280,14 +280,14 @@ END_CASE
 END_METHOD
 
 METHOD PUBLIC SetBoxStateToChangeNeeded : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 SetBoxStateToChangeNeeded := Box.SetToChangeNeeded();
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -299,7 +299,7 @@ Stop := Drive.Standstill OR NOT Drive.AxisEnabled;
 END_METHOD
 
 METHOD PUBLIC UnclampBox : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 OpenBoxLongSide.Reset();
 OpenBoxShortSide.Reset();
@@ -312,7 +312,7 @@ PROPERTY BoxCanBeFilled : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxCanBeFilled := LiftIsInbox
 			AND	OpenBoxLongSide.IsOut AND OpenBoxShortSide.IsOut
 			AND BoxInFillPosition.IsActive
@@ -327,7 +327,7 @@ PROPERTY BoxIsFull : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxIsFull := Box.ActualNumberOfLayers >= Box.MaxNumberOfLayers;
 END_GET
 END_PROPERTY
@@ -339,7 +339,7 @@ PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE Box.State OF
 	enumBoxState.ProductsNeeded:
 		BoxItemNeeded	:= enumBoxItem.ProductLayer;
@@ -357,7 +357,7 @@ PROPERTY InSafePosToMoveFlapsIn : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InSafePosToMoveFlapsIn	:= Drive.PosSmallerOrEqual(ReleaseFlapsPosition);
 END_GET
 END_PROPERTY
@@ -368,7 +368,7 @@ PROPERTY LayerIndex : UINT
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 LayerIndex := Box.ActualNumberOfLayers;
 END_GET
 END_PROPERTY
@@ -379,7 +379,7 @@ PROPERTY LiftIsInBox : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 LiftIsInBox		:= Drive.PosReached(Data.InBoxPosition.Pos.value);
 END_GET
 END_PROPERTY
@@ -390,7 +390,7 @@ PROPERTY LiftIsOutOfBox : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 LiftIsOutOfBox	:= Drive.PosReached(Data.OutBoxPosition.Pos.value);
 END_GET
 END_PROPERTY

@@ -8,7 +8,7 @@ END_VAR
 VAR
 	ProductionCountersConfig	: EdgePcLogging.ProductionCountersPlcDataTypesConfig;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Initialize();
 
 END_FUNCTION_BLOCK
@@ -18,7 +18,7 @@ VAR_INST
 	{attribute 'init_on_onlchange' }
 	initialized	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF initialized THEN
 	RETURN;
 END_IF
@@ -39,7 +39,7 @@ VAR
 	stat			: ISubjectProductionStatistic;
 	plcDataType1	: PlcDataType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Check if we receive the right kind of data
 IF NOT __QUERYINTERFACE(payload, stat) THEN
 	RETURN;

@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from "bun:test"
 import { expectNoOperandsLost } from "../e2e/harness"
-const wrap = (lang: string, b: string) => `PROGRAM P\nVAR\nEND_VAR\n(* @volt-implementation ${lang} *)\n${b}\n\nEND_PROGRAM\n`
+const wrap = (lang: string, b: string) => `PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION ${lang}\n${b}\n\nEND_PROGRAM\n`
 describe("oracle self-check", () => {
 	it("catches an unconsumed block deleted by the writer", () => {
 		expect(() => expectNoOperandsLost(

@@ -3,7 +3,7 @@ FUNCTION CheckDivLInt : LINT
 VAR_INPUT
 	divisor:LINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Implicitly generated code : Only an Implementation suggestion
 IF divisor = 0 THEN
 	CheckDivLInt:=1;

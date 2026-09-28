@@ -17,7 +17,7 @@ END_VAR
 VAR_IN_OUT
 	ioAuxOneShot: BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   tBool := (GE(EN := , iMachinePosition, iStartCam) AND NOT iResetFlag AND iEN);
 END_NETWORK

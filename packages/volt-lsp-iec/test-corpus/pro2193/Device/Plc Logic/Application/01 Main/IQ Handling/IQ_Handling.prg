@@ -71,7 +71,7 @@ VAR
 	InputControl			: ARRAY[GVL_IQ.InputSliceStart..GVL_IQ.InputSliceEnd] OF MapperInputs;
 	OutputControl			: ARRAY[GVL_IQ.OutputSliceStart..GVL_IQ.OutputSliceEnd] OF MapperOutputs;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 {IF defined (IsSimulationMode)}
 	//RETURN;
 {END_IF}
@@ -97,7 +97,7 @@ VAR
 	servoDriveNamed			: IAbleToRegister;
 	i, i0, index			: UINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 // Copy homing sensors of all servo motors
 FOR i := 1 TO GlobalVars.fbModuleManager.servoDrivesCount DO
@@ -152,7 +152,7 @@ END_FOR
 END_METHOD
 
 METHOD PRIVATE CopyPilzSafetyStatus
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 // Onderstaande code is tijdelijk!!! dit moet mooier.
 
@@ -206,7 +206,7 @@ END_VAR
 VAR CONSTANT
 	maxLength		: INT := 1000;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 sliceDictionary		:= '{';
 
@@ -237,7 +237,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 IF xInitialized THEN
 	RETURN;
@@ -257,7 +257,7 @@ END_VAR
 VAR
 	i							: UINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 // When forcing outputs is enabled, copy the current state of the output to the force button
 IF selectedSliceForceTrigger.Rising(CLK := selectedSliceForce) THEN
@@ -312,7 +312,7 @@ END_IF
 END_METHOD
 
 ACTION G1_mapping
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InputControl[IQSlices.DI_10](
 	sliceNumber	:= IQSlices.DI_10,
 	slice		:= DI_10,
@@ -621,7 +621,7 @@ OutputControl[IQSlices.DQ_20](
 END_ACTION
 
 ACTION G3_Mapping
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InputControl[IQSlices.DI_30](
 	sliceNumber	:= IQSlices.DI_30,
 	slice		:= DI_30,
@@ -767,7 +767,7 @@ OutputControl[IQSlices.DQ_36](
 END_ACTION
 
 ACTION G4_Mapping
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InputControl[IQSlices.DI_40](
 	sliceNumber	:= IQSlices.DI_40,
 	slice		:= DI_40,
@@ -939,7 +939,7 @@ OutputControl[IQSlices.DQ_46](
 END_ACTION
 
 ACTION G5_Mapping
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InputControl[IQSlices.DI_50](
 	sliceNumber	:= IQSlices.DI_50,
 	slice		:= DI_50,

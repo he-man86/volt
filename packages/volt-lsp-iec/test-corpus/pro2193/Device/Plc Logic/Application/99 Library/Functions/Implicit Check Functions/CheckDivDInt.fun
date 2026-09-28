@@ -3,7 +3,7 @@ FUNCTION CheckDivDInt : DINT
 VAR_INPUT
 	divisor		: DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF divisor <> 0 THEN
 	CheckDivDInt := divisor;
 ELSE

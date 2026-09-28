@@ -40,7 +40,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := (a AND b);\n  out1 := g7;\n  out2 := g7;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -107,7 +107,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tn : INT;\n\tsv : INT;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP g1 : INT; END_VAR\n  g1 := (a + b);\n  n := g1;\n  sv := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
@@ -145,7 +145,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation LD *)\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out1 := g1;\n  out2 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := TRUE;\n  out1 := g1;\n  out2 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: wire, toFolder: "", sourceText: src, ifVersion: null }])
 		const outcome = expectVendorDifference("spec: a leaf wire is refused before TwinCAT's unmeasured import", {

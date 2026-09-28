@@ -3,7 +3,7 @@ VAR
 	myState 		: strState;			// Unit state
 	iIndex			: INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 {region}
 	 
 	{region}
@@ -116,14 +116,14 @@ END_VAR
 END_FUNCTION_BLOCK
 
 ACTION Aborted
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //----------------------------------------------------------------------------------	 
 // Aborted
 //----------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Aborting
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //----------------------------------------------------------------------------------	 
 // Aborting
 //----------------------------------------------------------------------------------
@@ -133,21 +133,21 @@ myState.xCmdAbortDone := TRUE;
 END_ACTION
 
 ACTION Executing
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Executing
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Idle
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Idle
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Initialize
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Initialize
 //-------------------------------------------------------------------------------------
@@ -208,7 +208,7 @@ UN01_HMI.EM02_PalletPositionActuals_HMI[3].strName := 'Pallet 3';
 END_ACTION
 
 ACTION Resetting
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Resetting
 //-------------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ myState.xCmdResetDone := TRUE;
 END_ACTION
 
 ACTION Starting
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Starting
 //-------------------------------------------------------------------------------------
@@ -230,14 +230,14 @@ myState.xCmdStartDone := TRUE;
 END_ACTION
 
 ACTION Stopped
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Stopped
 //-------------------------------------------------------------------------------------
 END_ACTION
 
 ACTION Stopping
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //-------------------------------------------------------------------------------------
 // Stopping
 //-------------------------------------------------------------------------------------

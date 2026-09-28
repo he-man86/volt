@@ -16,13 +16,13 @@ VAR
 	NotBackAlarm			: SetErrorFB;
 	NotForwardAlarm			: SetErrorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
-(* @volt-implementation *)
+IMPLEMENTATION ST
 NotBackAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -48,7 +48,7 @@ END_METHOD
 // HIGH signal when the handling device / robot enables the movement for ejector back.
 // The signal must remain HIGH at least until "Ejector back" signal is given by injection moulding machine.
 METHOD PUBLIC EnableBack : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT xInvertOutput THEN
 	EnableBackOutput.Set();
 	EnableForwardOutput.Reset();
@@ -64,7 +64,7 @@ END_METHOD
 // HIGH signal when the handling device / robot enables the movement for ejector forward.
 // The signal must remain HIGH at least until "Ejector forward" signal is given by the injection moulding machine.
 METHOD PUBLIC EnableForward : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT xInvertOutput THEN
 	EnableBackOutput.Reset();
 	EnableForwardOutput.Set();
@@ -78,7 +78,7 @@ END_METHOD
 
 // Disable both outputs. No movement is allowed by the IMM.
 METHOD PUBLIC Inhibit
-(* @volt-implementation *)
+IMPLEMENTATION ST
 EnableBackOutput.Reset();
 EnableForwardOutput.Reset();
 END_METHOD
@@ -89,29 +89,29 @@ VAR_INPUT
 	minButtonPushed			: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 	plusButtonPushed		: BOOL;		// Both the software button (on screen) and the hardware button (if attached)
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // No manual control for IMM enable signals
 END_METHOD
 
 {attribute 'hide'}
 METHOD Map : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 ThrowException('Use other mapping methods instead');
 END_METHOD
 
 METHOD PUBLIC MapEnableBack : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 MapEnableBack	:= EnableBackOutput.Map();
 END_METHOD
 
 METHOD PUBLIC MapEnableForward : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 MapEnableForward	:= EnableForwardOutput.Map();
 END_METHOD
 
 // Release both outputs, so the IMM is in full control of the ejectors / core pullers.
 METHOD PUBLIC Release
-(* @volt-implementation *)
+IMPLEMENTATION ST
 EnableBackOutput.Set();
 EnableForwardOutput.Set();
 END_METHOD
@@ -119,14 +119,14 @@ END_METHOD
 // Reset the output (=False)
 {attribute 'hide'}
 METHOD Reset
-(* @volt-implementation *)
+IMPLEMENTATION ST
 EnableBack();
 END_METHOD
 
 // Set the output (=True)
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 EnableForward();
 END_METHOD
 
@@ -136,7 +136,7 @@ METHOD SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF xValue THEN
 	Set();
 ELSE
@@ -152,7 +152,7 @@ PROPERTY IsBack : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsBack := SEL(xInvertOutput, inputIsBack, NOT inputIsBack);
 END_GET
 END_PROPERTY
@@ -164,7 +164,7 @@ PROPERTY IsForward : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsForward := SEL(xInvertOutput, inputIsForward, NOT inputIsForward);
 END_GET
 END_PROPERTY

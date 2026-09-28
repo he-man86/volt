@@ -18,7 +18,7 @@ END_VAR
 VAR CONSTANT
 	NoOfTakeoutsForReleaseBrake : USINT := 15;	// After this number of label takeouts, next time the brakes will be released during takeout
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 drawerActive	:= IsLocked;
 drawerEmpty		:= IsEmpty;
 
@@ -27,7 +27,7 @@ END_FUNCTION_BLOCK
 METHOD BrakeReleased : BOOL
 VAR_INPUT
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _releaseBrakeCounter	:= 0;
 ReleaseBrakeNeeded		:= FALSE;
 END_METHOD
@@ -35,7 +35,7 @@ END_METHOD
 METHOD LabelsTaken : BOOL
 VAR_INPUT
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Increment.AnyInt(_releaseBrakeCounter);
 
 IF _releaseBrakeCounter = NoOfTakeoutsForReleaseBrake - 1 THEN
@@ -49,13 +49,13 @@ PROPERTY IsEmpty : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsEmpty	:= _isEmpty;
 END_GET
 SET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _isEmpty := IsEmpty;
 END_SET
 END_PROPERTY
@@ -65,7 +65,7 @@ PROPERTY IsLocked : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsLocked := Lock.IsActive;
 END_GET
 END_PROPERTY
@@ -75,7 +75,7 @@ PROPERTY Name : enumDrawer
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Name := DrawerName;
 END_GET
 END_PROPERTY
@@ -85,7 +85,7 @@ PROPERTY ReleaseBrakeCounter : INT
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 ReleaseBrakeCounter := _releaseBrakeCounter;
 END_GET
 END_PROPERTY
@@ -95,14 +95,14 @@ PROPERTY ReleaseBrakeNeeded : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 ReleaseBrakeNeeded := _releaseBrakeNeeded;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _releaseBrakeNeeded := ReleaseBrakeNeeded;
 END_SET
 END_PROPERTY

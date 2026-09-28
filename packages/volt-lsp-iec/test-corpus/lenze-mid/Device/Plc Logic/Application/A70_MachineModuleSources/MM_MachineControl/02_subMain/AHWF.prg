@@ -13,7 +13,7 @@ END_VAR
 VAR 
 	IDB_WSM: WSM;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "Network 1: Detection of wrapper (set and reset)"
   VAR_TEMP g10 : BOOL; END_VAR
   g10 := True;

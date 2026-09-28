@@ -27,7 +27,7 @@ END_VAR
 VAR CONSTANT
 	tAdjustFrequency		: TIME	:= T#2S;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 IF adjustTrigger.Rising(CLK := adjustButton) THEN
@@ -50,7 +50,7 @@ VAR_INPUT
 	plcDataTypeIn	: PlcDataType;
 	plcDataTypeOut	: PlcDataType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF errorId_SensorOut <> 0 THEN
 	MeasureMaxTimeIn.SetMonitoring(		itfAddLog, plcDataTypeIn);
 END_IF
@@ -64,7 +64,7 @@ METHOD PROTECTED SetSensorInAlarm
 VAR_INPUT
 	xSet	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SensorInAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -87,7 +87,7 @@ METHOD PROTECTED SetSensorOutAlarm
 VAR_INPUT
 	xSet	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SensorOutAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -111,7 +111,7 @@ PROPERTY IsIn : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsIn := inputIn AND NOT inputOut;
 END_GET
 END_PROPERTY
@@ -121,7 +121,7 @@ PROPERTY IsOut : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsOut := inputOut AND NOT inputIn;
 END_GET
 END_PROPERTY

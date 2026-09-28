@@ -27,7 +27,7 @@ VAR
 	// Internal property vars
 	{attribute 'hide'}	_LastSheetPosition		: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -37,7 +37,7 @@ METHOD PUBLIC AddToBox : BOOL
 VAR_INPUT
 	item : enumBoxItem;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 AddToBox	:= Box.AddItem(item);
 END_METHOD
@@ -46,7 +46,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..1] OF SetErrorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxCenterUnit_Errors,
@@ -59,7 +59,7 @@ SetError[1](
 END_METHOD
 
 METHOD PUBLIC BoxRemoved
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Box.BoxRemoved();
 END_METHOD
@@ -67,7 +67,7 @@ END_METHOD
 METHOD PROTECTED Cyclic
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 NumberOfLayersInBox		:= LayerIndex;		// For visu
 
 Data.NumberOfLayers		:= LIMIT(1, Data.NumberOfLayers, GVL_Constants_BFU.MaxNumberOfStacksInBox);
@@ -122,7 +122,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 OpenBoxReset();
 Lift.Reset();
@@ -133,12 +133,12 @@ EStop := SUPER^.EStop();
 END_METHOD
 
 METHOD PROTECTED OpenBoxGoIn : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 OpenBoxGoIn	:= OpenBoxLongSide.GoIn() AND OpenBoxShortSide.GoIn();
 END_METHOD
 
 METHOD PROTECTED OpenBoxReset : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 OpenBoxLongSide.Reset();
 OpenBoxShortSide.Reset();
 OpenBoxReset := TRUE;
@@ -148,7 +148,7 @@ METHOD PUBLIC PrepareBoxForFilling : BOOL
 VAR_INST
 	localState			: SINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -182,7 +182,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -232,7 +232,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -290,7 +290,7 @@ END_METHOD
 METHOD SetBoxStateToChangeNeeded : BOOL
 VAR_INPUT
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 SetBoxStateToChangeNeeded := Box.SetToChangeNeeded();
 END_METHOD
@@ -300,7 +300,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR_INST
 	result		: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Stop := SUPER^.Stop();
 END_METHOD
@@ -311,7 +311,7 @@ PROPERTY BoxAreaFreeForFanuc : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxAreaFreeForFanuc := Lift.IsOut;	// down
 END_GET
 END_PROPERTY
@@ -322,7 +322,7 @@ PROPERTY BoxCanBeFilled : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxCanBeFilled := BoxAreaFreeForFanuc
 			AND	OpenBoxLongSide.IsOut
 			AND OpenBoxShortSide.IsOut
@@ -337,7 +337,7 @@ PROPERTY PUBLIC BoxInFillPosition : IDigitalSensor
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxInFillPosition	:= sensorBoxInFillPosition;
 END_GET
 END_PROPERTY
@@ -348,7 +348,7 @@ PROPERTY BoxIsFull : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxIsFull := Box.ActualNumberOfLayers >= Box.MaxNumberOfLayers;
 END_GET
 END_PROPERTY
@@ -360,7 +360,7 @@ PROPERTY PUBLIC BoxItemNeeded : enumBoxItem
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE Box.State OF
 	enumBoxState.ProductsNeeded:
 		BoxItemNeeded	:= enumBoxItem.ProductLayer;
@@ -378,7 +378,7 @@ PROPERTY LayerIndex : UINT
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 LayerIndex := Box.ActualNumberOfLayers;
 END_GET
 END_PROPERTY

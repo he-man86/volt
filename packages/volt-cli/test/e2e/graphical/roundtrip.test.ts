@@ -20,7 +20,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   out := NOT (a AND b);
 END_NETWORK
@@ -36,7 +36,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := (a AND b);
 END_NETWORK
@@ -60,7 +60,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := (NOT a AND b);
 END_NETWORK
@@ -76,7 +76,7 @@ VAR
 \tc : BOOL;
 \tout : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := (a AND b AND c);
 END_NETWORK
@@ -92,7 +92,7 @@ VAR
 \tq : BOOL;
 \tr : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   q := a;
   r := b;
@@ -107,7 +107,7 @@ VAR
 \ta : BOOL;
 \tout : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out S= a;
 END_NETWORK
@@ -126,7 +126,7 @@ VAR
 \tbRun : BOOL := TRUE;
 \tiResult : INT;
 END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   EXECUTE(EN := bRun)
   IF bRun THEN
@@ -152,7 +152,7 @@ function emptyExecuteProgram(name: string) {
 VAR
 	bRun : BOOL := TRUE;
 END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   EXECUTE(EN := bRun)
 
@@ -172,7 +172,7 @@ VAR
 \tb : BOOL;
 \tout : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := (a AND b);
 END_NETWORK
@@ -200,7 +200,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
 			expect(after.name.endsWith(".prg")).toBe(true)                        // named by KIND (program); graphical-ness is in the content
-			expect(after.sourceText).toContain(`(* @volt-implementation ${lang} *)`)   // stayed ${lang}, not flattened to ST
+			expect(after.sourceText).toContain(`IMPLEMENTATION ${lang}`)   // stayed ${lang}, not flattened to ST
 			expectNoOperandsLost(src, after.sourceText)   // …and nothing in the diagram was dropped on the way
 
 			// WHAT VOLT WROTE IS WHAT VOLT READS BACK — the pushed source, byte for byte.
@@ -260,7 +260,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 		const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 		expect(after).toBeDefined()
-		expect(after.sourceText).toContain("(* @volt-implementation FBD *)")   // stayed FBD, not flattened to ST
+		expect(after.sourceText).toContain("IMPLEMENTATION FBD")   // stayed FBD, not flattened to ST
 		// The Execute box materialized as a real CODESYS Execute box and read back with its inline ST intact.
 		expect(after.sourceText).toContain("EXECUTE")
 		expect(after.sourceText).toContain("END_EXECUTE")
@@ -340,7 +340,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 			expect(v1).toBeDefined()
 			expect(v1.name.endsWith(".prg")).toBe(true)                // graphical program POU is a .prg file
-			expect(v1.sourceText).toContain("(* @volt-implementation LD *)")   // stayed ladder (LD), not flattened to ST
+			expect(v1.sourceText).toContain("IMPLEMENTATION LD")   // stayed ladder (LD), not flattened to ST
 			expectNoOperandsLost(buildSrc(name), v1.sourceText)          // and every element survived the write
 			if (exact) expect(v1.sourceText).toBe(buildSrc(name))        // …and it came back exactly as pushed
 			// The one inexact shape still has to keep every rung — the split may regroup them, never drop one.
@@ -433,10 +433,10 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 		expect(before.name.endsWith(".prg")).toBe(true)                 // .prg file holding an FBD body
-		expect(before.sourceText).toContain("(* @volt-implementation FBD *)")
+		expect(before.sourceText).toContain("IMPLEMENTATION FBD")
 
 		const r1 = await bridge.refs()
-		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\n(* @volt-implementation *)\nx := TRUE;\nEND_PROGRAM\n`
+		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\nEND_PROGRAM\n`
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
 		expect(r.accepted).toBe(false)
 		// Clear, actionable reason — and it names BOTH languages. It used to assert the word "graphical", which

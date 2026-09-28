@@ -45,8 +45,10 @@ export function parseMethod(c: Cursor): Method | undefined {
     const here = c.peek()
     if (here.kind !== "keyword" || !isMethodModifier(here.keyword)) break
     const after = c.peek(1)
+    // The `IMPLEMENTATION` line is an identifier token but never a name: it ends the declaration, and a method with
+    // no return type and no VAR puts it straight under the header (`METHOD PROTECTED Override`, then the line).
     const followsWithName =
-      after.kind === "identifier" ||
+      (after.kind === "identifier" && !c.opensImplementationLine(1)) ||
       (after.kind === "keyword" &&
         (isMethodModifier(after.keyword) || after.keyword === "GET" || after.keyword === "SET"))
     if (!followsWithName) break

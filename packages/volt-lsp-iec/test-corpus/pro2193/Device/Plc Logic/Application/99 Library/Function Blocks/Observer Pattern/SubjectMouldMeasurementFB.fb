@@ -10,7 +10,7 @@ VAR
 	_peakValue		: REAL;
 	_shortShotTreshold	: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 END_FUNCTION_BLOCK
 
@@ -19,14 +19,14 @@ PROPERTY Cavity : INT
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Cavity := _cavity;
 END_GET
 SET
 
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _cavity := Cavity;
 END_SET
 END_PROPERTY
@@ -35,14 +35,14 @@ PROPERTY Classification : enumMouldMeasurementResult
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Classification := _classification;
 END_GET
 SET
 
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _classification := Classification;
 END_SET
 END_PROPERTY
@@ -52,14 +52,14 @@ PROPERTY PeakValue : REAL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 PeakValue := _peakValue;
 END_GET
 SET
 
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _peakValue := PeakValue;
 END_SET
 END_PROPERTY
@@ -69,14 +69,14 @@ PROPERTY ShortShotTreshold : REAL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 ShortShotTreshold := _shortShotTreshold;
 END_GET
 SET
 
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _shortShotTreshold := ShortShotTreshold;
 END_SET
 END_PROPERTY

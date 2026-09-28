@@ -14,7 +14,7 @@ VAR
 	
 	ResetProgramAlarms			: L_IE1P_ResetErrorGlobal;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //UNITS - Start/Stop
 {region}
 	//State control
@@ -120,7 +120,7 @@ END_VAR
 END_FUNCTION_BLOCK
 
 ACTION _Safety
-(* @volt-implementation *)
+IMPLEMENTATION ST
 //
 // Safety communication.
 //

@@ -33,7 +33,7 @@ VAR
 	sDateAndTIme2: STRING(255);
 	sRecipeNamePar: STRING(255);
 END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   EXECUTE(EN := TRUE)
 IF g_HMI_MachCommand.CMD.bNewRecipe THEN

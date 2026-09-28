@@ -11,7 +11,7 @@ VAR
 	BLINK_0: BLINK;
 	restart1: BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   GeneralProgramFlags(EN := TRUE);
 END_NETWORK

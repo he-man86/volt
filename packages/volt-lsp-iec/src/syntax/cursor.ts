@@ -12,6 +12,7 @@
 import { isTrivia, type Keyword, type Token } from "./tokens.js"
 import type { Span } from "./span.js"
 import type { ParseError } from "./ast.js"
+import { opensKeywordLine } from "./implementation-keyword.js"
 
 export class Cursor {
   private pos = 0
@@ -54,6 +55,19 @@ export class Cursor {
     }
     // Should be unreachable — lex() always appends an eof token.
     return this.tokens[this.tokens.length - 1]
+  }
+
+  /** Does the `offset`-th meaningful token open an `IMPLEMENTATION <LANG>` line? That line is where a declaration
+   *  ENDS, so a header lookahead that asks "does a name follow?" must not take it for one (`parseMethod`). */
+  opensImplementationLine(offset = 0): boolean {
+    let i = this.pos
+    let seen = 0
+    for (; i < this.tokens.length; i++) {
+      if (isTrivia(this.tokens[i]!.kind)) continue
+      if (seen === offset) break
+      seen += 1
+    }
+    return i < this.tokens.length && opensKeywordLine(this.tokens, i)
   }
 
   /** Advance past the next meaningful token (skipping trivia) and return it. */

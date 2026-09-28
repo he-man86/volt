@@ -17,56 +17,15 @@
  * here by everything short of the bytes.</p>
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { readdirSync, readFileSync, statSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { spawnSync } from "node:child_process"
-import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, currentPipe, BASE } from "../harness"
+import { readFileSync } from "node:fs"
+import { bridge, fetchItem, requireHealthy, pushOps, expectVendorDifference, BASE } from "../harness"
+import { servedProject, tcImplementations, tcPouFile } from "../lib/tc-files"
 
 setDefaultTimeout(60000)
 
 const CASES = [["CFC", "VltFixtureCfc"], ["SFC", "VltFixtureSfc"]] as const
 
 const ADDED = "VAR_INPUT\n\tbVoltHiddenProbe : BOOL;\nEND_VAR\n"
-
-/** The solution folder the served XAE has open — read from THAT process's own command line. The pipe is named
- *  `volt.bridge.twincat.<pid>` after the XAE it serves, and `ide.ps1` launches the XAE on the `.sln` of its copy, so
- *  this is a probe of the served copy rather than a guess among the `%TEMP%/volt-ide-twincat[-<instance>]` copies
- *  several `-Instance` runs leave side by side (picking the newest one was a guess that a stale copy could win). */
-function servedSolutionDir(): string {
-	const pid = Number(currentPipe().split(".").pop())
-	if (!Number.isInteger(pid) || pid <= 0) throw new Error(`pipe '${currentPipe()}' names no XAE pid`)
-	const r = spawnSync("powershell", ["-NoProfile", "-Command",
-		`(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}").CommandLine`], { encoding: "utf8" })
-	const sln = /"([^"]+\.sln)"/i.exec(r.stdout ?? "")?.[1]
-	if (!sln) throw new Error(`XAE ${pid} was not opened on a .sln (command line: ${JSON.stringify(r.stdout)}; ${r.stderr})`)
-	return dirname(sln)
-}
-
-/** The served PLC project's `<bare>.TcPOU` — exactly one, or the test cannot say which bytes it compared. */
-function tcPouFile(bare: string, project: string): string {
-	const found: string[] = []
-	const walk = (dir: string) => {
-		for (const name of readdirSync(dir)) {
-			const path = join(dir, name)
-			if (statSync(path).isDirectory()) walk(path)
-			else if (name.toLowerCase() === `${bare.toLowerCase()}.tcpou`) found.push(path)
-		}
-	}
-	const solution = servedSolutionDir()
-	walk(solution)
-	const served = found.filter((p) => p.split(/[\\/]/).includes(project))
-	if (served.length !== 1)
-		throw new Error(`expected one ${bare}.TcPOU in project '${project}' under ${solution}, found: ${JSON.stringify(found)}`)
-	return served[0]!
-}
-
-/** The POU's own `<Implementation>` element as TwinCAT saved it — the body, byte for byte. */
-function tcImplementation(file: string): string {
-	const xml = readFileSync(file, "utf8")
-	const m = /<Implementation>[\s\S]*?<\/Implementation>/.exec(xml)
-	if (!m) throw new Error(`${file} holds no <Implementation>`)
-	return m[0]
-}
 
 describe(`graphical / a hidden body's declaration is pushed and its body never written (${BASE})`, () => {
 	const wire = new Map<string, string>()
@@ -75,9 +34,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 	beforeAll(async () => {
 		await requireHealthy()
 		// The SERVED project, or no test here can say which file it read: requireHealthy just proved one is served.
-		const served = ((await bridge.health()).projects ?? []).find((p: any) => p.status && p.status !== "idle")
-		if (!served?.project) throw new Error(`health reports no served project: ${JSON.stringify(served)}`)
-		project = served.project
+		project = servedProject(await bridge.health())
 		const refs = await bridge.refs()
 		for (const [, bare] of CASES) {
 			const full = Object.keys(refs.items).find((n) => n.startsWith(`${bare}.`))
@@ -93,11 +50,11 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 	}
 
 	/** The body as the IDE holds it, where anything outside the IDE can read it (see the file header). */
-	function heldBody(bare: string): string | null {
+	function heldBody(bare: string): string[] | null {
 		return expectVendorDifference(
 			"openspec implementation-keyword 3b.1: CODESYS saves no file on push and its archive is binary, so a CODESYS " +
 				"body cannot be read outside the IDE; its writer is held offline by CodesysHiddenBodyWriteTests",
-			{ twincat: () => tcImplementation(tcPouFile(bare, project)), codesys: () => null },
+			{ twincat: () => tcImplementations(tcPouFile(bare, project)), codesys: () => null },
 		)
 	}
 
@@ -113,7 +70,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 			// itself. The restating push (the ordinary no-op) is then held to the same bytes like every other push.
 			const before = heldBody(bare)
 			expect((await set(name, pulled)).accepted).toBe(true)
-			expect(heldBody(bare)).toBe(before)
+			expect(heldBody(bare)).toEqual(before)
 
 			const edited = pulled.replace(`FUNCTION_BLOCK ${bare}\n`, `FUNCTION_BLOCK ${bare}\n${ADDED}`)
 			expect(edited).not.toBe(pulled)
@@ -125,7 +82,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				expect(after).toContain("bVoltHiddenProbe : BOOL;")             // the declaration landed
 				expect(after).toContain(`\nIMPLEMENTATION ${lang} UNSUPPORTED\n`) // still the same hidden body
 				expect(after).toBe(edited)
-				expect(heldBody(bare)).toBe(before)                              // and not one byte of it moved
+				expect(heldBody(bare)).toEqual(before)                           // and not one byte of it moved
 				// …read from a file that DID take this push: the saved declaration carries the probe, so the bytes compared
 				// above are the IDE's current state and not a file nothing wrote.
 				expectVendorDifference("openspec implementation-keyword 3b.1: only TwinCAT saves a push to a readable file", {
@@ -136,7 +93,7 @@ describe(`graphical / a hidden body's declaration is pushed and its body never w
 				// Leave the fixture as found — and that restore is itself a declaration push over a hidden body.
 				expect((await set(name, pulled)).accepted).toBe(true)
 				expect((await fetchItem(name)).sourceText).toBe(pulled)
-				expect(heldBody(bare)).toBe(before)
+				expect(heldBody(bare)).toEqual(before)
 			}
 		})
 	}

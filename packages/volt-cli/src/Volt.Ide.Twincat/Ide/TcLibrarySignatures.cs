@@ -77,10 +77,21 @@ internal static class TcLibrarySignatures
                         break;
 
                     case "VarGlobal":
+                    {
+                        var constants = Vars(ts.Element("Constants"), "Constant");
+                        // TwinCAT has no enum flag: it sends a library ENUM as a VarGlobal whose every constant is
+                        // typed as the container itself (`eWATCHDOG_TIME_DISABLED : E_WATCHDOG_TIME_CONFIG`), and
+                        // that self-typing is the vendor's only statement of one. It is translated HERE, into the
+                        // `Enum` flag CODESYS sends for the same thing, so the renderer keeps one vendor-neutral
+                        // rule. Read as a GVL instead, the constants are typed by a type no file declares, and
+                        // every library FB taking one (`FB_FileOpen`'s `E_OpenPath`) resolves to nothing.
+                        var isEnum = constants.Count > 0 &&
+                                     constants.All(c => string.Equals(c.Type, name, StringComparison.OrdinalIgnoreCase));
                         sigs.Add(Signature(name, path, kind,
                             Array.Empty<LibVar>(), Array.Empty<LibVar>(), Array.Empty<LibVar>(),
-                            members: Vars(ts.Element("Constants"), "Constant")));
+                            members: constants, flags: isEnum ? "Enum" : ""));
                         break;
+                    }
 
                     case "Type":
                     case "Interface":
@@ -118,12 +129,13 @@ internal static class TcLibrarySignatures
     private static LibSignature Signature(
         string name, string libraryPath, string pouType,
         IReadOnlyList<LibVar> inputs, IReadOnlyList<LibVar> outputs, IReadOnlyList<LibVar> inOuts,
-        IReadOnlyList<LibVar> members) =>
+        IReadOnlyList<LibVar> members, string flags = "") =>
         new LibSignature(
             name, libraryPath, pouType,
             inputs, outputs, inOuts, members,
             BaseName: null,      // no EXTENDS in this surface
-            ReturnType: null);   // lifted from Outputs by the renderer
+            ReturnType: null,    // lifted from Outputs by the renderer
+            Flags: flags);
 
     /// <summary>The <c>Name</c>/<c>DataType</c> pairs under a container (<c>Inputs</c>, <c>Constants</c>, …).
     /// A <c>Comment</c> sits beside them and is dropped: <see cref="LibVar"/> has nowhere to put it and the

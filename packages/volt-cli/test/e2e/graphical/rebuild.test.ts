@@ -59,7 +59,7 @@ VAR
 	out : BOOL;
 END_VAR
 ` +
-			`(* @volt-implementation LD *)
+			`IMPLEMENTATION LD
 NETWORK
   out := (a AND b);
 END_NETWORK
@@ -114,7 +114,7 @@ VAR
 	s : BOOL;
 END_VAR
 ` +
-			`(* @volt-implementation LD *)
+			`IMPLEMENTATION LD
 NETWORK
   VAR_TEMP g0 : BOOL; END_VAR
   g0 := (a AND b);
@@ -184,7 +184,7 @@ VAR
 	c : BOOL;
 	out : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 ` +
 			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and now the canonical form too. It was
 			// the other way round until this suite made the cost obvious: the reader takes them in either

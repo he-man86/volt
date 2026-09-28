@@ -2,7 +2,7 @@ PROGRAM VisuDashboardNotifications
 VAR
 	
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 g_sHMI_DashboardNotifications.bCabinetError := g_sMACH.ERR.dwCat4_Error_a.6 
 											OR g_sMACH.ERR.dwCat4_Error_a.7	
 											OR g_sMACH.ERR.dwCat4_Error_a.8 

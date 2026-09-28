@@ -8,7 +8,7 @@ END_VAR
 VAR_OUTPUT
 	oDriveSpeed: INT;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   MUL(EN := , iRPM, 6, => oDriveSpeed);
 END_NETWORK

@@ -58,7 +58,7 @@ tWaitBeforeRead, tWaitAfterDone	: TON;
 rtReadAfterStartUp	: R_TRIG;
 iReadLoop : INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 // Call action sequences
 actSequencer();
@@ -69,7 +69,7 @@ FirstScanCycle:= TRUE;
 END_PROGRAM
 
 ACTION actReadFromFile
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   fbReadErrorFromFile(asErrorText := L_FECA.GVL_ReadErrorFromFile.asErrorText, adwErrorID := L_FECA.GVL_ReadErrorFromFile.adwErrorID, xEnable := xEnable, xExecute := xExecute, xStoreAllErrorText := xStoreAllErrorText, xStoreTexRefIDErrorText := xStoreTexRefIDErrorText, xStoreAllAppTexRefIDErrorText := xStoreAllAppTexRefIDErrorText, xStopIfErrorFound := xStopIfErrorFound, xContinuousRead := xContinuousRead, xRepeat := xRepeat, xInit := xInit, xClearErrorArrays := xClearErrorArrays, scIN := scIN, xError => xError, xBusy => xBusy, xDone => xDone, scOUT => scOUT);
 END_NETWORK
@@ -88,7 +88,7 @@ END_NETWORK
 END_ACTION
 
 ACTION actSequencer
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 tWaitBeforeRead(IN:=FirstScanCycle, PT:=T#3S);
 tWaitAfterDone(IN:=(xDone OR xError) AND NOT xInit AND NOT tWaitAfterDone.Q, PT:=T#3S);

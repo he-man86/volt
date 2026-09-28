@@ -1,7 +1,7 @@
 PROGRAM MachineStateOEE
 VAR
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "DONE NETWORK 49: State of the machine"
   VAR_TEMP g22, g23 : BOOL; END_VAR
   g22 := TRUE;

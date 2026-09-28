@@ -22,7 +22,6 @@ VAR
 	tmr_FF1s_not: TON;
 	PLC_StartUp_Delay: TON;
 END_VAR
-(* @volt-implementation *)
-(* @volt-graphical: a wire of unknown type *)
+IMPLEMENTATION LD UNSUPPORTED
 
 END_PROGRAM

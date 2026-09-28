@@ -48,8 +48,10 @@ public static class Scaffold
         "- **`volt pull` / `volt push`** sync `src/` with the live IDE (the machine).",
         "- **`git commit` / `git push`** version the text + share with the team. Commit before pulling.", "",
         "`src/` mirrors the IDE — edit the kind-named source files locally; `volt push` writes them back.",
-        "FBD/LD graphical bodies ride in those files too, editable as network text; a CFC/SFC body is a",
-        "read-only marker.", "",
+        "Every body opens with a line stating its language: `IMPLEMENTATION ST`, or `IMPLEMENTATION LD` /",
+        "`IMPLEMENTATION FBD` over network text. A body Volt does not show (CFC, SFC, IL, an LD/FBD body network",
+        "text cannot spell yet) is `IMPLEMENTATION <LANG> UNSUPPORTED` with nothing under it: its declaration stays",
+        "editable, and `volt push` never writes that body.", "",
         "## File extensions", "",
         "A file's name is its item's name in the IDE, and the extension names what the item is.", "",
         // Rendered from the one extension table (as VscodeSettings is), never typed out: a hand-kept kind table

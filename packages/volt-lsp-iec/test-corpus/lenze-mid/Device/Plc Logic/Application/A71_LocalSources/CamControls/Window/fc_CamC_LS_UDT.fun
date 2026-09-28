@@ -11,7 +11,7 @@ END_VAR
 VAR_IN_OUT
 	ioUDTCamControlLS	: UDT_CamControlLS;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   MOVE(EN := , iActualPos, => ioUDTCamControlLS.MachinePos_HMI);
 END_NETWORK

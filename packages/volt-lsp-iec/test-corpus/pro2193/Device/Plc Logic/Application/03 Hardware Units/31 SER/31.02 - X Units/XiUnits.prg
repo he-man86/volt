@@ -28,7 +28,7 @@ VAR CONSTANT
 	MaxVacuums					: USINT	:= 12;
 	MaxChargers					: USINT	:= 2;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		xEnableServoDrive	:= GlobalVars.EnableServoDrives,

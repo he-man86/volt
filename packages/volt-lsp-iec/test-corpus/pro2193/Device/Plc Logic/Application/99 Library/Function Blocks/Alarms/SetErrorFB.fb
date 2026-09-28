@@ -20,13 +20,12 @@ VAR
 
 	KeepShittyAlarmHigh : Standard.TOF;	// todo: test if this is still needed!!
 END_VAR
-(* @volt-implementation *)
-(* @volt-graphical: CFC *)
+IMPLEMENTATION CFC UNSUPPORTED
 
 END_FUNCTION_BLOCK
 
 METHOD PRIVATE CheckRefs
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF moduleHandler = 0 THEN
 	ThrowException('No modulehandler for SetErrorFB');
 END_IF
@@ -41,7 +40,7 @@ END_IF
 END_METHOD
 
 METHOD PRIVATE ConvertSeverityAndReaction
-(* @volt-implementation *)
+IMPLEMENTATION ST
 {warning disable C0327}	// Implicit conversion from one enumeration type to another.
 SetErrorSingle.eReaction		:= reaction;
 SetErrorSingle.eSeverity		:= severity;
@@ -54,7 +53,7 @@ PROPERTY PUBLIC ElapsedTime : REAL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF AlarmTimeout.TON1.IN THEN
 	ElapsedTime := TO_REAL(AlarmTimeout.TON1.ET) / 1000;
 END_IF

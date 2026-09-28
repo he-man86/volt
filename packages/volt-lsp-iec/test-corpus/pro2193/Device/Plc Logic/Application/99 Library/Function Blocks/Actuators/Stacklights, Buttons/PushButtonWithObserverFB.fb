@@ -8,7 +8,7 @@ END_VAR
 VAR
 	Subject					: SubjectHWButtonFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -18,7 +18,7 @@ METHOD PUBLIC Attach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Attach := Subject.Attach(observer);
 END_METHOD
 
@@ -27,12 +27,12 @@ METHOD PUBLIC Detach : BOOL
 VAR_INPUT
 	observer			: IObserver;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Detach := Subject.Detach(observer);
 END_METHOD
 
 METHOD PROTECTED HandlePushed
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.HandlePushed();
 
 Subject.ButtonType	:= buttonType;
@@ -41,7 +41,7 @@ Subject.Notify();
 END_METHOD
 
 METHOD PROTECTED HandleReleased
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.HandleReleased();
 
 Subject.ButtonType	:= buttonType;
@@ -55,7 +55,7 @@ PROPERTY ObserverCount : UINT
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 ObserverCount := Subject.ObserverCount;
 END_GET
 END_PROPERTY

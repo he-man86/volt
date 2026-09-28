@@ -7,7 +7,7 @@ VAR
 	AssistCloseGate			: ActuatorFB;
 	AssistUnlock			: ActuatorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -17,7 +17,7 @@ VAR_INST
 	T_DoorCloseAssist		: BTON;
 	T_DoorOpenAssist		: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.Cyclic();
 
 AssistOpenGate();
@@ -52,18 +52,18 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistCloseGate : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 MapAssistCloseGate := AssistCloseGate.Map();
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistOpenGate : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 MapAssistOpenGate := AssistOpenGate.Map();
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapAssistUnlock : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 MapAssistUnlock := AssistUnlock.Map();
 END_METHOD

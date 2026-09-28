@@ -57,9 +57,10 @@
 <p>
   A file's extension carries the <b>kind</b> and nothing else. A body's language is not in the extension: an
   editable FBD/LD body is the same <code>.fb</code>/<code>.prg</code>/<code>.fun</code> as a textual one — the
-  language rides on the body's <a href="network-text.html#whitespace">implementation marker</a> in the content,
-  <code>(* @volt-implementation FBD *)</code> or <code>… LD *)</code> — and a
-  CFC/SFC body is that kind's extension too, materialized as a marker comment.
+  language rides on the body's <a href="network-text.html#body-line">IMPLEMENTATION line</a> in the content,
+  <code>IMPLEMENTATION ST</code>, <code>IMPLEMENTATION FBD</code> or <code>IMPLEMENTATION LD</code> — and a
+  CFC/SFC/IL body is that kind's extension too, materialized as its line <code>IMPLEMENTATION CFC UNSUPPORTED</code>
+  (and so on) with no implementation under it.
 </p>
 
 <h3 id="dut">The DUT: four codes, one kind, four wire names</h3>

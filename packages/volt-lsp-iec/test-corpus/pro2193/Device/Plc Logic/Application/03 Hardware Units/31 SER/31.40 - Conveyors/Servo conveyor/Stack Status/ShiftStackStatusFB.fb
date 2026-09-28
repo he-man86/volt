@@ -15,7 +15,7 @@ VAR
 	di					: DINT;
 	Tr_ActPosChanged	: R_TRIG;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT xEnable THEN
 	RETURN;
 END_IF

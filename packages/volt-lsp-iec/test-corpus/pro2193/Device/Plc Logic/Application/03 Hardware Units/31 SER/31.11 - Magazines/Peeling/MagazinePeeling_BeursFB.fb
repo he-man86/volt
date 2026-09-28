@@ -27,13 +27,13 @@ VAR CONSTANT
 	itfVacuums					: ARRAY[1..MaxVacuums] OF IVacuum :=[Vacuum[1], Vacuum[2], Vacuum[3], Vacuum[4]];
 	itfHammers					: ARRAY[1..MaxHammers] OF IActuator := [Hammer[1], Hammer[2], Hammer[3], Hammer[4]];
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CycleTime[1](in := FALSE,	timeElapsed => rTimeActive,		timeMeasurement => );
 CycleTime[2](in := FALSE,	timeElapsed => rTimeIdle,		timeMeasurement => );
 
@@ -104,7 +104,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ActState := MagazinePeeling_State.None;
 
@@ -119,7 +119,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PUBLIC Execute
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	ExchangeSets.Cover_Margarine, ExchangeSets.Tray_Margarine:
 		Execute_Sequence1();
@@ -132,7 +132,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE ActState OF
 	MagazinePeeling_State.None:
 		;
@@ -190,7 +190,7 @@ METHOD PROTECTED GetAllLabels : BOOL
 VAR_INST
 	Timer	: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF xEntryActionActive THEN
 	Timer.Reset();
@@ -224,7 +224,7 @@ END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF ActState = MagazinePeeling_State.None AND NOT xCommandDone THEN
 	ActState := MagazinePeeling_State.Resetting_1;		// Resetting		<-- Press F12 here
@@ -240,13 +240,13 @@ END_METHOD
 METHOD ResetPeelingVacuums : BOOL
 VAR_INPUT
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Arrays.Vacuum_ReleaseAll(itfVacuums);
 END_METHOD
 
 METHOD PUBLIC SetDefaultData
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Data.rStopperIN						:= 0.3;
 Data.rStopperOUT					:= 0.2;
@@ -265,7 +265,7 @@ METHOD StartCommand : BOOL
 VAR_INPUT
 	iParameter : INT := 0;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF ActState = MagazinePeeling_State.None AND NOT xCommandDone THEN
 	iCommandParameter := iParameter;	// Copy parameters
@@ -282,7 +282,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ActState := MagazinePeeling_State.None;
 
@@ -305,7 +305,7 @@ PROPERTY HasPayload : enumPayload
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF Arrays.Vacuum_All(
 		vacuumArray	:= itfVacuums,
 		condition	:= TRUE,
@@ -333,14 +333,14 @@ PROPERTY LabelsPeeled : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 LabelsPeeled := _labelsPeeled;
 END_GET
 SET
 PRIVATE
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _labelsPeeled := LabelsPeeled;
 END_SET
 END_PROPERTY

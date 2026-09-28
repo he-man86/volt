@@ -38,11 +38,11 @@ END_VAR`
  *  every kind and both languages, so a failure isolates to the kind or the language and never to the network.
  *  It is also the canonical form both readers emit, which is what makes the re-push a fixed point. */
 const NET = (lang: string) => (coil: string, l = "a", r = "b") =>
-	`(* @volt-implementation ${lang} *)\nNETWORK\n  ${coil} := (${l} AND ${r});\nEND_NETWORK`
+	`IMPLEMENTATION ${lang}\nNETWORK\n  ${coil} := (${l} AND ${r});\nEND_NETWORK`
 
 /** A network that CALLS an FB instance — the shape whose type can only be resolved from the OWNER's
  *  declaration. `t1` is declared in `VARS`, i.e. one level above any member that calls it. */
-const callNet = (lang: string) => `(* @volt-implementation ${lang} *)\nNETWORK\n  t1(IN := a, PT := T#1s);\nEND_NETWORK`
+const callNet = (lang: string) => `IMPLEMENTATION ${lang}\nNETWORK\n  t1(IN := a, PT := T#1s);\nEND_NETWORK`
 
 /** Every source shape for one language. Built from the same `net` so the two languages differ in exactly one
  *  token — if FBD passes where LD fails, the difference is real and not a fixture artefact. */
@@ -51,7 +51,7 @@ function sources(lang: string) {
 	const withMember = (n: string, member: string) =>
 		// The parent's OWN body is ST on purpose. A member's language is independent of its parent's, and an
 		// all-graphical document would still pass while the splice wrote the member's body into the parent's.
-		`FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
+		`FUNCTION_BLOCK ${n}\n${VARS}\nIMPLEMENTATION ST\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
 
 	/** A member whose body CALLS AN FB INSTANCE DECLARED ONE LEVEL UP — `t1 : TON` is in the owner's VAR
 	 *  block, never the member's, which is where a stateful instance has to live.
@@ -63,7 +63,7 @@ function sources(lang: string) {
 	 *  instance that is not declared in this POU", advice pointing at work already done. An ACTION is the
 	 *  starkest case: it has no declaration at all. */
 	const withFbCall = (n: string, member: string) =>
-		`FUNCTION_BLOCK ${n}\n${VARS}\n(* @volt-implementation *)\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
+		`FUNCTION_BLOCK ${n}\n${VARS}\nIMPLEMENTATION ST\nout := a;\nEND_FUNCTION_BLOCK\n${member}`
 	return {
 		fb: (n: string) => `FUNCTION_BLOCK ${n}\n${VARS}\n${net("out")}\nEND_FUNCTION_BLOCK\n`,
 		prg: (n: string) => `PROGRAM ${n}\n${VARS}\n${net("out")}\nEND_PROGRAM\n`,
@@ -83,9 +83,9 @@ function sources(lang: string) {
 	}
 }
 
-/** The languages of every graphical body's implementation marker, in order (network text v2 states the language
- *  once per body, on `(* @volt-implementation FBD|LD *)`). */
-const networkLangs = (src: string) => [...String(src).matchAll(/@volt-implementation (FBD|LD) \*\)/g)].map((m) => m[1])
+/** The languages of every graphical body's IMPLEMENTATION line, in order (network text v2 states the language
+ *  once per body, on its `IMPLEMENTATION FBD|LD` line). */
+const networkLangs = (src: string) => [...String(src).matchAll(/^IMPLEMENTATION (FBD|LD)$/gm)].map((m) => m[1])
 
 /** Re-push exactly what was fetched and assert nothing moved. The property that keeps `volt status` quiet. */
 async function isFixedPoint(fullName: string, fetched: any) {
@@ -162,7 +162,7 @@ for (const lang of ["FBD", "LD"]) {
 			// A body that is genuinely graphical must REFUSE a textual push. That refusal is the wire-visible
 			// difference between a real diagram and its text sitting in an <ST>; a flattened accessor accepts it.
 			const refs = await bridge.refs()
-			const flat = src.property(name).replace(new RegExp(`\\(\\* @volt-implementation ${lang} \\*\\)\\nNETWORK[^]*?END_NETWORK`, "g"), "(* @volt-implementation *)\nP_G := a;")
+			const flat = src.property(name).replace(new RegExp(`IMPLEMENTATION ${lang}\\nNETWORK[^]*?END_NETWORK`, "g"), "IMPLEMENTATION ST\nP_G := a;")
 			const r = await bridge.push({
 				expectedProjectVersion: refs.projectVersion,
 				ops: [{ op: "set", name: full, ifVersion: refs.items[full], sourceText: flat }],

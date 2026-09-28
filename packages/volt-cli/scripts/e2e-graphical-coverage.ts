@@ -76,8 +76,8 @@ const CONSTRUCTS: { name: string; where: string; match: RegExp; archive?: RegExp
 	{ name: "network TITLE", where: "#comments", match: /TITLE:/ },
 	{ name: "network COMMENT", where: "#comments", match: line("\\/\\/ ") },
 	{ name: "network DISABLED", where: "#comments", match: /\bDISABLED\b/ },
-	{ name: "language LD", where: "#whitespace", match: /@volt-implementation LD \*\)/ },
-	{ name: "language FBD", where: "#whitespace", match: /@volt-implementation FBD \*\)/ },
+	{ name: "language LD", where: "#whitespace", match: /IMPLEMENTATION LD\b/ },
+	{ name: "language FBD", where: "#whitespace", match: /IMPLEMENTATION FBD\b/ },
 
 	// THE TWO THAT WERE MISSING, and the reason this file exists. Both are shapes a real project holds and
 	// nothing in the suite creates.

@@ -281,8 +281,74 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
 
 - [ ] 4.1 e2e bodies rewritten; e2e green on CODESYS and TwinCAT (Project14; Project13 is usable again) with
       `VOLT_GRAPHICAL=1`, plus one live pull WITHOUT it on each vendor: ST shown, LD/FBD `UNSUPPORTED`.
-- [ ] 4.2 Re-pull the six corpora; `corpus.test.ts` and build-conformance give the same result as before.
-- [ ] 4.3 Docs: `network-text.html`, `items.html` (regenerate with `VOLT_WRITE_DOCS=1`), `cli.html`, the scaffold
+      Bodies: every e2e/script body spells `IMPLEMENTATION ST|LD|FBD`; `unsupported.test.ts` expects
+      `IMPLEMENTATION CFC|SFC UNSUPPORTED`; `corpus-migration.ts` skips a hidden body by its UNSUPPORTED line.
+      Green live, both IDEs up at once (vendor-parity ran): CODESYS 230 pass / 12 skip / 0 fail, TwinCAT Project14
+      230 / 12 / 0. New live tests: `graphical/hidden-network-body.test.ts` (the 3c.2 case, live: an LD and an FBD
+      POU pushed back as a production pull writes them — the no-op, then a declaration edit — land with the network
+      text read back unchanged on both vendors and the `.TcPOU` `<Implementation>` bytes unchanged on TwinCAT; a hidden
+      FBD line over the LD body refused naming both). Measured on the way: TwinCAT re-serializes a POU Volt just
+      created on its first save after ANY write (a visible declaration-only push, which writes no body, moves the
+      bytes the same once), so the test takes its byte baseline after a visible declaration round trip; the
+      vendor-authored CFC/SFC fixtures never move. `production/network-text-off.test.ts` (runs only against a bridge
+      whose `health.networkText` is false; `ide.ps1 up -Production` serves one): every LD/FBD body UNSUPPORTED with
+      the switch named in the fetch, ST shown, network text refused, a declaration push over a hidden body taken
+      with the body never written. Run live on CODESYS (the committed pro2193 copy; the CODESYS test fixture holds
+      no LD/FBD) and TwinCAT Project14: 3/3 each. Plus a full production `volt init` per vendor, diffed against the
+      development pull of the same project: identical but for the hidden bodies (pro2193: `ActuatorFB.Counters`;
+      Project14: `POUexecute`, `ladderLabel`). The TwinCAT hidden-body bytes are checked live.
+      **BLOCKED — the CODESYS half of "the IDE body byte-identical before and after a declaration push", live.** No
+      live check exists: CODESYS saves no file on push, its `.project` archive is binary, and the pipe has no op that
+      reads a body's bytes, so `network-text-off.test.ts`'s `held()` compares `null` with `null` on CODESYS (a
+      production bridge prints the UNSUPPORTED line whatever the IDE holds) and `hidden-network-body.test.ts` compares
+      the network text read back — which catches a body emptied, flattened or relabelled, but not a rewrite that keeps
+      the text (element Ids re-minted, anything network text does not carry). What holds it today is the offline
+      `CodesysHiddenBodyWriteTests` (no implementation aspect is so much as read on a hidden body). Closing it needs a
+      bridge read of the NWL object's own serialization (TwinCAT's `.TcPOU` holds the same `XmlArchive`) exposed for
+      tests — a wire addition this change does not make; it must be measured live on SP21 first.
+      Found live and fixed with a red-first test: the pull message said every hidden LD/FBD body was hidden
+      "because network text has no spelling for what they hold yet", false for every body hidden by the switch;
+      the lead now claims no reason and each line names its own
+      (`PullCommandTests.A_pull_with_network_text_off_names_the_switch_and_claims_no_unspellable_shape`).
+- [x] 4.2 Re-pull the six corpora; `corpus.test.ts` and build-conformance give the same result as before.
+      All six re-pulled through `refresh:corpus` against `ide.ps1` bridges (network text on); file counts unchanged
+      (pro2193 8106, lenze-mid 7832, awa-palletizer 6465, bakon-nano 6663, CodesysTestProject 850, Project14 251).
+      The diff is the boundary lines (retired comment → `IMPLEMENTATION ST|LD|FBD`, comment + marker →
+      `IMPLEMENTATION <LANG> UNSUPPORTED`) and `MATERIALIZATION 3 → 4`, plus two changes from EARLIER work that the
+      corpora had not been re-pulled for: lenze `scProductionMode` is `.struct` (was `.alias`, same bytes — the DUT
+      subtype reader, dut-subtype-on-the-wire). A first re-pull also turned Project14's twelve Tc2_System library
+      enums into `.gvl` files declaring their values as globals of a type no file declared (`PATH_GENERIC :
+      E_OPENPATH;`, while five Tc2_System FBs take an `E_OpenPath`): a8f7e0d715 made the renderer trust only CODESYS's
+      `Enum` flag, and TwinCAT sends none — a library enum reaches it as a `VarGlobal` whose constants are typed as
+      the container, which is TwinCAT's only statement of one. That was a regression, not a new baseline: fixed at
+      the vendor seam (`TcLibrarySignatures` sets `Enum` from that self-typing; red-first
+      `TcLibrarySignaturesTests.A_library_enum_renders_as_an_enum` on the captured vendor bytes, plus
+      `A_library_gvl_stays_a_gvl`), the worker rebuilt and restarted, Project14 re-pulled: the twelve are `.enum`
+      again, byte-identical to before, and Project14's diff is only the boundary lines and `MATERIALIZATION`.
+      Build-conformance (every warning line, "the LSP invents nothing") is identical to the pre-change run
+      (2aec5ea428~1). Two things differed and are resolved: (1) an LSP parse bug the retired comment had hidden —
+      `METHOD PROTECTED Override` with its keyword line straight under the header read `Override` as a modifier and
+      named the method `IMPLEMENTATION`; the method-header lookahead no longer takes the keyword line for a name
+      (`Cursor.opensImplementationLine`, red-first `implementation-keyword.test.ts` "a method named after a modifier
+      keyword…"); (2) the lowering REACH moved 55→54 POUs, 20→14 routines, 78→77 refusal codes: pre-change, pro2193's
+      CFC `SetErrorFB` and unspellable FBD `Cylinder_53ValveFB.SetAlarm` read as ST bodies holding one comment and
+      LOWERED AS EMPTY; now neither parser reads them and lowering refuses `graphical-body`. Measured: stating those
+      two bodies `IMPLEMENTATION ST` restores 55 / 20 / 78 exactly. The constants and `src/transpile/index.ts` are
+      updated with that history (a correction, as on 2026-09-25) — for the owner to confirm. `corpus.test.ts` 19 pass
+      / 0 fail; the four `ModelRoundTripOracleTests` are green.
+- [x] 4.3 Docs: `network-text.html`, `items.html` (regenerate with `VOLT_WRITE_DOCS=1`), `cli.html`, the scaffold
       doc, DIALECT/ARCHITECTURE mentions, and CLAUDE.md if it names the marker. `git grep volt-implementation`
-      finds nothing outside `openspec/changes/archive`.
+      finds it outside `openspec/` ONLY in the retired-comment detection (`ImplementationMarker.RetiredTag`,
+      `implementation-keyword.ts`) and the tests that feed the retired comment in to prove it is refused — which the
+      spec scenario "a file from before the change" requires. (Restated: this criterion first read "nothing outside
+      `openspec/changes/archive`", which that scenario makes impossible.)
+      `network-text.html` (the grammar's `line`, a `#body-line` section defining "the marker" as the UNSUPPORTED line,
+      the v1/v2 table), `items.html`, the scaffolded README (`Scaffold.cs`), `ARCHITECTURE.md` (the boundary is stated,
+      not inferred; hidden bodies), CLAUDE.md (and its stale "wires use inline LET"), volt-lsp-iec `README.md`,
+      `docs/behavior.md`, `docs/reserved-il-operators.md`, the e2e README (the production run). `VOLT_WRITE_DOCS=1`
+      regenerated nothing (the generated data already matched); `cli.html` and DIALECT.md name neither marker.
+      NOT literally clean: `git grep volt-implementation` still finds (a) this change's own proposal/spec/tasks,
+      (b) other active changes' dated decision logs (`network-text-literal-nwl`, `plc-library-runtime`), (c) the
+      retired-comment DETECTION (`ImplementationMarker.RetiredTag`'s comment, `implementation-keyword.ts`) and the
+      tests that feed the retired comment in to prove it is refused naming `volt pull` — which the spec requires.
 - [ ] 4.4 Final review (spec and layering), fix, archive, delete the recreated `openspec/specs/`.

@@ -13,7 +13,7 @@ VAR
 	t2: TON;
 	out2: INT;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   EXECUTE(EN := TRUE)
 iCount:=icount+1;

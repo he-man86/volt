@@ -20,7 +20,7 @@ VAR
 		BFU.GateBFU.ButtonLock
 	];
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Initialize();
 
 StartCycle();
@@ -50,7 +50,7 @@ VAR_INST
 	{attribute 'init_on_onlchange'}
 	xInitialized	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
 END_IF
@@ -75,7 +75,7 @@ VAR_INST
 	i					: INT;
 	position			: INT := 1;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF ledTestDuration.Set(In := startLedTest, Pt := 8) THEN
 	startLedTest := FALSE;
 	position := 1;

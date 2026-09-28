@@ -27,16 +27,17 @@
  *
  * **The reach contract: a STATED SUBSET, and it is small.** The input contract above says which programs are
  * *defined*; this says which are *reached*. Measured 2026-09-19 over the 6-project corpus (29,359 files) and
- * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-26, up one, when
- * Util's BLINK joined the library repo; the day before, DOWN, when library elements stopped running as empty bodies):
+ * enforced by `test/corpus/corpus.test.ts`, which fails if these numbers rot (last moved 2026-09-28, DOWN, when a CFC
+ * chart and an FBD body network text cannot spell stopped reading as empty ST bodies — they state
+ * `IMPLEMENTATION <LANG> UNSUPPORTED` now; before that 2026-09-26, up one, when Util's BLINK joined the library repo):
  *
- *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **55 of 304 lower (18.1%)**
- *   - METHOD / ACTION bodies: **56,629, of which 20 are REACHED**, every one from a POU that RUNS — a routine
+ *   - top-level PROGRAM / FUNCTION_BLOCK bodies: **54 of 304 lower (17.8%)**
+ *   - METHOD / ACTION bodies: **56,629, of which 14 are REACHED**, every one from a POU that RUNS — a routine
  *     lowers when a POU that lowers calls it, and they are not in the 304 denominator. This read 582 until
  *     2026-09-25: 566 were library FBs' `FB_INIT`s, bodyless declarations lowered as if they did nothing.
- *   - so of every executable body in the corpus, about **0.13%**
+ *   - so of every executable body in the corpus, about **0.12%**
  *
- * Real PLC logic lives in methods and actions, and almost none of THAT is reached: 20 routine bodies out of
+ * Real PLC logic lives in methods and actions, and almost none of THAT is reached: 14 routine bodies out of
  * 56,629. This backend therefore executes a SUBSET — enough for the conformance
  * oracle and for a POU written to be tested, not enough to run a real project — and that is a statement of fact
  * rather than a roadmap. Growing it belongs to `openspec/changes/transpile-st-to-rust`;

@@ -35,7 +35,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 		// mixes annotated and bare networks is covered in one go.
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK TITLE: "the interlock"\n` +
+			`IMPLEMENTATION FBD\nNETWORK TITLE: "the interlock"\n` +
 			`  // holds the drive off while the guard is open\n` +
 			`  // second line of the same comment\n` +
 			`  out1 := (a AND b);\n` +

@@ -38,7 +38,7 @@ public sealed record LibSignature(
     string? AliasBase = null,
     // The CODESYS signature flags ("Alias" / "Union" / "Enum" / "Structure, Internal"/…) — they pick the rendered
     // BODY form (a union gets UNION/END_UNION, an enum-flagged VarGlobal a `TYPE … ( … )`) AND the file extension
-    // it is rendered under, since the two say the same thing. Empty where the vendor has none (TwinCAT).
+    // it is rendered under, since the two say the same thing. TwinCAT sends none; its driver sets `Enum` only.
     string Flags = "",
     // Methods of an FB or interface (declaration only). Null/empty for elements that have none. Folded into the
     // parent's rendered text as METHOD blocks so a library FB's methods are known to the LSP, not unknown-member.

@@ -1,6 +1,6 @@
 PROGRAM POUTab
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 END_PROGRAM

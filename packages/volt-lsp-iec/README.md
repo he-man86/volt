@@ -40,14 +40,17 @@ Load-bearing invariants a maintainer must not break:
   recording each fixture against a live CODESYS/TwinCAT build and diffing the LSP's diagnostics byte-for-byte
   per vendor. The corpus is only a regression safety net: a miss it surfaces means *add a feature test*, not
   *tweak a threshold*.
-- **Editable FBD/LD bodies are analyzed as VG.** A POU body whose first significant token is `NETWORK` is
-  routed to the network-text path — its own grammar, parser, and analysis — not Structured Text. Code
-  correctness (type inference, undeclared-variable, hover/nav) is LSP-owned; VG *format* and the PlcOpen
-  round-trip are bridge-owned.
-- **CFC/SFC are read-only and carry no control marker.** They materialize as a single informational comment
-  `(* @volt-graphical: <LANG> *)` (e.g. `(* @volt-graphical: CFC *)`) that the LSP hover explains. There is
-  **no** `READONLY <LANG>` marker and no code path that classifies a body read-only from its content — a
-  graphical body simply parses as a comment and is not analyzed.
+- **Every body states its language, and that line alone picks the reader.** The line that ends a body's
+  declaration is `IMPLEMENTATION ST|LD|FBD` (`src/syntax/implementation-keyword.ts`, mirroring the bridge's
+  `ImplementationMarker`): `ST` goes to the ST parser, `LD`/`FBD` to the network-text path — its own grammar,
+  parser, and analysis. Nothing sniffs the text (a `NETWORK` under `IMPLEMENTATION ST` is ST and an error). Code
+  correctness (type inference, undeclared-variable, hover/nav) is LSP-owned; the network-text *format* and the
+  vendor round-trip are bridge-owned. In a process without `VOLT_GRAPHICAL=1` nothing under an LD/FBD line is
+  read (`NETWORK_TEXT_ENABLED`), as the shipped bridge shows none.
+- **A body Volt does not show is `IMPLEMENTATION <LANG> UNSUPPORTED`** — every CFC/SFC/IL body, and an LD/FBD body
+  network text cannot spell — with nothing under it. Neither parser reads it; its declaration is analysed as
+  usual and the hover on the line explains it. Code under the line, or a bare `IMPLEMENTATION CFC`, is a
+  diagnostic, as the push refuses it.
 
 ## Build & test
 

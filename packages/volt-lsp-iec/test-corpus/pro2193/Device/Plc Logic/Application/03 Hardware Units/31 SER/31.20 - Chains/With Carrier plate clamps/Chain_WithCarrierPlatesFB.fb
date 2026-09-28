@@ -19,7 +19,7 @@ VAR CONSTANT
 	MaxOpenProductCarriersZ			: USINT		:= 9;
 	MaxOpenProductCarriersReject	: USINT		:= 1;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -37,7 +37,7 @@ END_VAR
 VAR
 	i		: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.Cyclic();
 
 FOR i := 1 TO MaxOpenProductCarriersXu DO
@@ -88,7 +88,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 XuCloseProductCarriers();
 ZCloseProductCarriers();
@@ -101,7 +101,7 @@ METHOD PROTECTED IsSafeToMove : BOOL
 VAR
 	i	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsSafeToMove	:= SUPER^.IsSafeToMove();
 
 FOR i := 1 TO MaxOpenProductCarriersXu DO
@@ -131,7 +131,7 @@ METHOD PUBLIC RejectCloseProductCarriers : BOOL
 VAR
 	i	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxOpenProductCarriersReject DO
 	OpenProductCarrierReject[i].GoIn();
@@ -151,7 +151,7 @@ METHOD PUBLIC RejectOpenProductCarriers : BOOL
 VAR
 	i	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 FOR i := 1 TO MaxOpenProductCarriersReject DO
 	OpenProductCarrierReject[i].GoOut();
@@ -168,7 +168,7 @@ END_METHOD
 
 // Command to reset the module. Servodrives are homed.
 METHOD PUBLIC Reset : BOOL	// Returns true when homing done
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Reset	:=   XuCloseProductCarriers()
 	AND_THEN ZCloseProductCarriers()
@@ -181,7 +181,7 @@ METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
 VAR_INST
 	result		: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 XuCloseProductCarriers();
 ZCloseProductCarriers();
@@ -192,7 +192,7 @@ END_METHOD
 
 // Closes all Xu product carrier plates
 METHOD PUBLIC XuCloseProductCarriers : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 XuCloseProductCarriers	:=  OpenProductCarrierXu[1].GoIn()
 						AND OpenProductCarrierXu[2].GoIn()
@@ -211,7 +211,7 @@ END_METHOD
 
 // Opens all Xu product carrier plates
 METHOD PUBLIC XuOpenProductCarriers : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 XuOpenProductCarriers	:=  OpenProductCarrierXu[1].GoOut()
 						AND OpenProductCarrierXu[2].GoOut()
@@ -233,7 +233,7 @@ METHOD PUBLIC ZCloseProductCarriers : BOOL
 VAR
 	i	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ZCloseProductCarriers		:= TRUE;
 
@@ -250,7 +250,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 ZOpenProductCarriers			:= TRUE;
 FOR i := 1 TO MaxOpenProductCarriersZ DO

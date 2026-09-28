@@ -42,12 +42,12 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 
 	/** A program wrapper, so each case is only its networks.
 	 *
-	 *  THE MARKER GOES AFTER `END_VAR` and names the language. This wrapper put a bare marker ABOVE `VAR` until
+	 *  THE `IMPLEMENTATION` LINE GOES AFTER `END_VAR` and names the language. This wrapper put a bare marker ABOVE `VAR` until
 	 *  network text v2, which made the whole `VAR … END_VAR … NETWORK …` blob the implementation — stored verbatim as
 	 *  ST, so every case here round-tripped a text blob and no graphical path ever ran (`unresolved-marker.test.ts`
 	 *  found the same mistake in its own wrapper). */
 	const prg = (name: string, lang: "FBD" | "LD", networks: string, vars = "\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n") =>
-		`PROGRAM ${name}\nVAR\n${vars}END_VAR\n(* @volt-implementation ${lang} *)\n${networks}\nEND_PROGRAM\n`
+		`PROGRAM ${name}\nVAR\n${vars}END_VAR\nIMPLEMENTATION ${lang}\n${networks}\nEND_PROGRAM\n`
 
 	/** The diagnostics a body ADDS. Counted as a delta, because the fixture project reports its own. */
 	const added = async (before: any[]): Promise<string[]> => {
@@ -183,7 +183,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 * never an `R_TRIG` box (which would add an instance the IDE never had).
 	 *
 	 * The VALUE side is the one the text spells; an edge-triggered COIL has no spelling (a census of five real
-	 * projects found none to calibrate one against), so a body holding one materializes as the marker.
+	 * projects found none to calibrate one against), so a body holding one materializes as `IMPLEMENTATION LD|FBD UNSUPPORTED`.
 	 */
 	it("a rising edge (R_EDGE) survives a round trip", async () => {
 		const name = id("rise")

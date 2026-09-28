@@ -32,7 +32,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	/** A perfectly ordinary graphical POU — this one must never be the reason a push fails. */
 	const fine = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tb : BOOL;", "\tout : BOOL;", "END_VAR",
-		 "(* @volt-implementation FBD *)", "NETWORK", "  out := (a AND b);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		 "IMPLEMENTATION FBD", "NETWORK", "  out := (a AND b);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	/**
 	 * …and one calling an FB INSTANCE whose text is an expression, `` `fbs[1]`(IN := a) ``. A call head is read
@@ -46,7 +46,7 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 	 */
 	const broken = (name: string) =>
 		["PROGRAM " + name, "VAR", "\ta : BOOL;", "\tfbs : ARRAY[1..2] OF TON;", "END_VAR",
-		 "(* @volt-implementation FBD *)", "NETWORK", "  `fbs[1]`(IN := a);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
+		 "IMPLEMENTATION FBD", "NETWORK", "  `fbs[1]`(IN := a);", "END_NETWORK", "", "END_PROGRAM", ""].join(NL)
 
 	it("a create refused for an unresolvable FB instance leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")

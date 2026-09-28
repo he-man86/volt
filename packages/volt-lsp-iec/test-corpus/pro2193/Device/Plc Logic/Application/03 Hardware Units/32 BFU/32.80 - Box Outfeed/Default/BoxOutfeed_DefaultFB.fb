@@ -13,7 +13,7 @@ VAR
 	alarmBeltIsFull				: BOOL;
 	emptyBeltTimeout			: REAL := 8.0;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -22,7 +22,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= BoxOutfeed_Errors,
@@ -52,7 +52,7 @@ VAR_INST
 	TONbeltIsEmpty				: BTON;
 	calibrateStart				: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 BoxOutputConveyor(
 	moduleHandler		:= ModuleHandler,
 	textRefId			:= Conveyor_Errors,
@@ -90,7 +90,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -107,7 +107,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -142,7 +142,7 @@ METHOD PUBLIC Reset : BOOL	// Returns true when homing done
 VAR_INST
 	localState			: SINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -161,7 +161,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();		// Steal the lock from any command that may be active
 
@@ -178,7 +178,7 @@ VAR_INST
 	localState			: SINT;
 	Timer				: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;

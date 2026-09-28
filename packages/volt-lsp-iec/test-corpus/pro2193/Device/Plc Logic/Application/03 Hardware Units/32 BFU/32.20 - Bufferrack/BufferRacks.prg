@@ -22,7 +22,7 @@ END_VAR
 VAR CONSTANT
 	usiNumberOfUnits			: USINT := 1;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 FOR i := 1 TO usiNumberOfUnits DO
 	Unit[i](
 		fanucInBufferArea			:= Fanucs.Unit[1].FanucInBufferArea,

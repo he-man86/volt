@@ -564,7 +564,14 @@ test("an embedded source snippet compares equal however it was spaced", () => {
 // Two POUs "lowered" only through that. With the library units marked (`test/corpus/support/project.ts`, one loader
 // for the gate and the scripts), a library runs only where the library repo (`libraries/`) has written its ST.
 // 54 -> 55 on 2026-09-26: Util's BLINK is in the library repo (`libraries/Util/`), and one POU was waiting on it alone.
-const REACH = { bodies: 304, lowered: 55 }
+// 55 -> 54 on 2026-09-28, DOWN and the correction again (openspec implementation-keyword): pro2193 holds a CFC chart
+// (`SetErrorFB`) and an FBD body network text cannot spell (`Cylinder_53ValveFB.SetAlarm`). Before the change each
+// pulled as the retired boundary comment over a `(* @volt-graphical: … *)` comment, which this gate read as an ST
+// body holding one comment — so lowering ran a chart as an EMPTY body and counted the POU that calls it
+// (`EjectorCorePullerFB`) as reach. Pulled now as `IMPLEMENTATION CFC|FBD UNSUPPORTED`, neither parser reads them and
+// lowering refuses `graphical-body` where it truly stops. Measured: stating those two bodies `IMPLEMENTATION ST` again
+// restores 55 / 20 / 78 exactly, so nothing else moved.
+const REACH = { bodies: 304, lowered: 54 }
 /**
  * The METHOD/ACTION half of the same contract, measured 2026-09-19. `index.ts` said **none reachable** and that was
  * never true: a routine lowers when a POU that lowers calls it, and 543 do. Only 14 come from a POU that RUNS —
@@ -592,7 +599,9 @@ const REACH = { bodies: 304, lowered: 55 }
 // no bodies, walked as roots and lowered as if their empty bodies did nothing. The "lifecycle methods reached from
 // declaration-only POUs" above were those. Walking project files only, with library units marked, every routine
 // that lowers is reached from a POU that RUNS: 20 of 20. (One more was reached only past an empty library body.)
-const ROUTINES = { routines: 20, routinesFromRunning: 20 }
+// 20 -> 14 on 2026-09-28, the same correction as REACH: six routines were reached only past the chart and the FBD body
+// that lowered as empty ST.
+const ROUTINES = { routines: 14, routinesFromRunning: 14 }
 
 /** Every node kind the IR defines — `IrExpr` and `IrStmt`, from `ir.ts`. Kept by hand so ADDING one shows up here. */
 const EXPR_KINDS = ["const", "load", "binary", "unary", "convert", "builtin", "invoke", "dispatch"] as const
@@ -648,7 +657,10 @@ const COVERED_BUILTINS = 24
 //   - `call-named-args` came from the deleted Standard string intrinsic, which refused named arguments — a library
 //     call with them now lowers like any call;
 //   - and `call-library` counts again, 646 sites, where the lowering truly stops.
-const REACHED_CODES = 78
+// 78 -> 77 on 2026-09-28: `call-inout-derived` came only from routines reached past those same two hidden bodies — a
+// body "got further" by running a chart as nothing, as `call-fb-inout` did past an empty library body on 2026-09-25.
+// The code still exists and nothing that is ST stopped producing it (same measurement as REACH above).
+const REACHED_CODES = 77
 
 /**
  * The project declarations whose type name has two or more DIFFERING candidates tied at the best rank —

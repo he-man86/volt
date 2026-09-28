@@ -22,7 +22,6 @@ VAR
 	L_MC1P_ChangeMachineData_FeedforwardWrapper: L_MC1P_ChangeMachineData;
 	L_MC1P_ChangeMachineData_WrappingDevice: L_MC1P_ChangeMachineData;
 END_VAR
-(* @volt-implementation *)
-(* @volt-graphical: a bit operator box connected by a stored output slot *)
+IMPLEMENTATION LD UNSUPPORTED
 
 END_PROGRAM

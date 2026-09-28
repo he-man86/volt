@@ -89,6 +89,43 @@ public class TcLibrarySignaturesTests
         Assert.All(gvl.Members, v => Assert.NotEqual("", v.Type));
     }
 
+    /// <summary>A TWINCAT LIBRARY ENUM IS AN ENUM. The vendor sends <c>E_WATCHDOG_TIME_CONFIG</c> (real bytes, above)
+    /// as a <c>VarGlobal</c> whose every constant is typed as the container itself, and it has no flag to say
+    /// "enum" — that self-typing IS its only statement of one. Rendered as a GVL it declares
+    /// <c>eWATCHDOG_TIME_DISABLED : E_WATCHDOG_TIME_CONFIG</c> against a type no file declares, so every library FB
+    /// taking one (Tc2_System's <c>FB_FileOpen</c> takes an <c>E_OpenPath</c>) resolves to an undeclared type. That
+    /// shipped when the renderer began trusting only CODESYS's <c>Enum</c> flag (a8f7e0d715): twelve Tc2_System
+    /// enums of Project14 re-pulled as <c>.gvl</c>.</summary>
+    [Fact]
+    public void A_library_enum_renders_as_an_enum()
+    {
+        var sig = TcLibrarySignatures.Parse(Xml()).First(s => s.Name == "E_WATCHDOG_TIME_CONFIG");
+
+        var rendered = LibSignatureRenderer.Render(sig);
+
+        Assert.NotNull(rendered);
+        Assert.Equal(".enum", rendered!.Value.Ext);
+        Assert.Equal("TYPE E_WATCHDOG_TIME_CONFIG :\n(\n\teWATCHDOG_TIME_DISABLED,\n\teWATCHDOG_TIME_SECONDS,\n" +
+                     "\teWATCHDOG_TIME_MINUTES\n);\nEND_TYPE", rendered.Value.Text);
+    }
+
+    /// <summary>The other half: a <c>VarGlobal</c> whose constants are typed as something else is a GVL, as
+    /// Tc2_System's <c>Global_Version</c> is (<c>stLibVersion_Tc2_System : ST_LibVersion</c>). The element is
+    /// the vendor's shape, excerpted to the one constant.</summary>
+    [Fact]
+    public void A_library_gvl_stays_a_gvl()
+    {
+        const string xml = "<Library><LibraryName>Tc2_System</LibraryName><Version>3.10.1.0</Version>" +
+            "<Distributor>Beckhoff Automation GmbH</Distributor><TypeSignatures><TypeSignature type=\"VarGlobal\">" +
+            "<Name>Global_Version</Name><Constants><Constant><Name>stLibVersion_Tc2_System</Name>" +
+            "<DataType>ST_LibVersion</DataType></Constant></Constants></TypeSignature></TypeSignatures></Library>";
+
+        var rendered = LibSignatureRenderer.Render(TcLibrarySignatures.Parse(xml).Single());
+
+        Assert.Equal(".gvl", rendered!.Value.Ext);
+        Assert.Equal("VAR_GLOBAL\n\tstLibVersion_Tc2_System : ST_LibVersion;\nEND_VAR", rendered.Value.Text);
+    }
+
     /// <summary>A NAME-ONLY KIND IS NOT EMITTED, and that is the deliberate half of this work.
     ///
     /// <para>TwinCAT describes a <c>Type</c> and an <c>Interface</c> by name alone — no fields, no methods. The

@@ -123,7 +123,8 @@ public static class LibSignatureRenderer
                 var mem = s.Members.Where(v => OkName(v.Name)).ToList();
                 // An enum is what the VENDOR flags as one (CODESYS `Flags = Enum`), not a shape guessed from its
                 // members — the guess agreed with the flag on every SP21 library, but it would have read an enum
-                // with no readable members as a GVL. TwinCAT's VarGlobal is GVL constants and never flags Enum.
+                // with no readable members as a GVL. TwinCAT sends no flag; its driver sets this one from the
+                // self-typed constants that are its own statement of an enum (TcLibrarySignatures).
                 if (s.Flags.Contains("Enum"))
                 {
                     // Enum members carry their ordinal in Initial (`NO_ERROR := 0, FIRST_ERROR := 5700`).

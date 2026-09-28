@@ -32,7 +32,7 @@ VAR
     udiBadCount     : UDINT;
     udiTotalCount   : UDINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // ---------------------------------------------------------------------------
 // Drive the PackML unit
 // ---------------------------------------------------------------------------

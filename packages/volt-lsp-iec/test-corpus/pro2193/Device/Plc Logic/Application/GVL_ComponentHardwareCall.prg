@@ -2,7 +2,7 @@
 PROGRAM GVL_ComponentHardwareCall
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 (* This code is generated automatically *)
 (* Don't change the content! *)
 

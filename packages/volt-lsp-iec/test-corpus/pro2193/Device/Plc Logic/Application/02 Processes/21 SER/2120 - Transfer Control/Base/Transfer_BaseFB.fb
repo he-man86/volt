@@ -5,14 +5,14 @@ VAR
 	takeoverPosition		: INT;
 	{attribute 'hide'}	_alternateCycleCounter	: INT := 1;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE PersistentVars.RecipeVars.ActiveExchangeSet OF
 	enumExchangeSets.Default:
 		Execute_Sequence1();
@@ -33,13 +33,13 @@ PROPERTY AlternateCycleCounter : INT
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 AlternateCycleCounter := _alternateCycleCounter;
 END_GET
 SET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 _alternateCycleCounter := AlternateCycleCounter;
 END_SET
 END_PROPERTY

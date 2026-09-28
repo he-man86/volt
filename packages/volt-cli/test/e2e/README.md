@@ -193,10 +193,10 @@ and **8** on Project14, because several suites gate on the project being big eno
 (`if (itemCount >= 20)`, a POU with children, a folder two deep). A green run says nothing about which of
 the two it was, so read the SKIP count as part of the result, not as noise.
 
-## The two suites that are not single-vendor
+## The suites that need more than one plain development bridge
 
-Every file here drives ONE bridge, chosen by `VOLT_VENDOR`/`VOLT_PIPE` — except two, and both say so on stdout
-when they skip rather than vanishing quietly. A silent skip is how the TwinCAT graphical-move test stayed off
+Every file here drives ONE development bridge, chosen by `VOLT_VENDOR`/`VOLT_PIPE` — except a few, and each says so
+on stdout when it skips rather than vanishing quietly. A silent skip is how the TwinCAT graphical-move test stayed off
 through the entire implementation of the move it was skipping.
 
 **`vendor-parity.test.ts` needs BOTH IDEs up at once.** It pushes identical source to CODESYS and TwinCAT and
@@ -210,6 +210,20 @@ command; the suite finds the other pipe itself via `livePipesFor`.
 pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
 pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Which 13
 bun run test:e2e:twincat        # vendor-parity runs; everything else drives TwinCAT
+```
+
+**`production/network-text-off.test.ts` needs a PRODUCTION bridge** — one without `VOLT_GRAPHICAL=1`, as every
+shipped build is — and every other file needs the opposite, so it is its own run and skips (saying so) against a
+development bridge. It proves the switch is off where a customer's bridge has it off: ST shown, every LD/FBD body
+`IMPLEMENTATION LD|FBD UNSUPPORTED` with the switch named in the fetch, network text refused, and a declaration
+push over a hidden body taken with the body never written (byte for byte on TwinCAT). The project must hold an
+LD/FBD body: TwinCAT Project14 does, the CODESYS test fixture does not, so serve the committed pro2193 copy there.
+
+```bash
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Fixture 14 -Production -Wait
+VOLT_VENDOR=twincat bun test test/e2e/production
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Fixture packages/volt-cli/test/fixtures/Pro2193-94-95-96_COdesys.project -Production -Wait
+VOLT_VENDOR=codesys bun test test/e2e/production
 ```
 
 **`graphical/unsupported.test.ts` runs on both**, but only because both fixture projects carry a committed
@@ -261,4 +275,4 @@ first. CFC/SFC/IL items are counted and reported rather than staged: they have n
 
 | Found | Fixed in | Pinned by |
 |---|---|---|
-| Create path wrote a `(* @volt-graphical: LANG *)` marker as source, landing an EMPTY function block while the push reported success — a migration silently dropped every CFC/SFC POU | `BodyFormatGuard.RequireAuthorable`, called on the create arm of `PushService` | `Volt.Engine.Tests/sync/CreateUnauthorableBodyTests.cs` |
+| Create path wrote a CFC/SFC body's marker (then a comment, now the line `IMPLEMENTATION <LANG> UNSUPPORTED`) as source, landing an EMPTY function block while the push reported success — a migration silently dropped every CFC/SFC POU | `BodyFormatGuard.RequireAuthorable`, called on the create arm of `PushService` | `Volt.Engine.Tests/sync/CreateUnauthorableBodyTests.cs` |

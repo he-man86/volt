@@ -44,7 +44,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_en")
 		const full = fid("pf_en", "prg")
 		const src =
-			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n(* @volt-implementation FBD *)\n` +
+			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\n` +
 			// The enable is the box's own EN pin and the rung continues from its ENO (network text v2). The ENO form,
 			// because a box CODESYS builds with EN is read through its ENO whatever Volt writes (DIALECT N21) — the
 			// suffix-less `out := AND(EN := go, a, b);` is refused by name there, and this test is about the EN pin.
@@ -89,7 +89,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fn", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -108,7 +108,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const name = id("pf_fnbuild")
 		const src =
 			`FUNCTION_BLOCK ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
 			`END_FUNCTION_BLOCK\n`
 
 		await createItem(fid("pf_fnbuild"), src, "")
@@ -129,7 +129,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_pins", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		// Create, then edit the PULLED text rather than re-stating the body. The IDE decides its own network
@@ -164,7 +164,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_neg", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation LD *)\nNETWORK\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION LD\nNETWORK\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -185,7 +185,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_set", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation LD *)\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION LD\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const back = await roundTrip(full, src)
@@ -204,7 +204,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 		const full = fid("pf_fix", "prg")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation LD *)\nNETWORK\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
+			`IMPLEMENTATION LD\nNETWORK\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
 			`END_PROGRAM\n`
 
 		const once = await roundTrip(full, src)
@@ -240,7 +240,7 @@ VAR
 END_VAR
 ` +
 			// Two fan-outs, in two networks, so the test sees both the edited one and its untouched neighbour.
-			`(* @volt-implementation FBD *)
+			`IMPLEMENTATION FBD
 NETWORK
   VAR_TEMP g0 : BOOL; END_VAR
   g0 := (a AND b);
@@ -305,7 +305,7 @@ VAR
 END_VAR
 ` +
 			// Canonical form puts NO blank line between networks — the push gate refuses otherwise, and says so.
-			`(* @volt-implementation FBD *)
+			`IMPLEMENTATION FBD
 NETWORK
   t1(IN := go, PT := pt);
 END_NETWORK

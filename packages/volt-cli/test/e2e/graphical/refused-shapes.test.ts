@@ -67,7 +67,7 @@ VAR
 \tout : BOOL;
 \tafter : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := TRUE;
   JMP Onwards;
@@ -93,7 +93,7 @@ VAR
 \tdone : BOOL;
 \tlater : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   IF cond THEN JMP Tail; END_IF;
 END_NETWORK
@@ -125,7 +125,7 @@ VAR
 \tbStart : BOOL;
 \ttarget : INT;
 END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   EXECUTE(EN := bRun)
 IF bStart THEN
@@ -152,7 +152,7 @@ END_VAR
 VAR_OUTPUT
 \tdoubled : INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 doubled := source * 2;
 VltRefSplit := source + 1;
 
@@ -167,7 +167,7 @@ VAR
 \tnext : INT;
 \ttwice : INT;
 END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   next := VltRefSplit(src, doubled => twice);
 END_NETWORK
@@ -251,7 +251,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 
 	const NL = String.fromCharCode(10)
 	const prg = (name: string, vars: readonly string[], nets: readonly string[]) =>
-		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "(* @volt-implementation FBD *)", ...nets, "END_PROGRAM", ""].join(NL)
+		["PROGRAM " + name, "VAR", ...vars, "END_VAR", "IMPLEMENTATION FBD", ...nets, "END_PROGRAM", ""].join(NL)
 
 	const BOOLS = ["\ta : BOOL;", "\tout : BOOL;"]
 

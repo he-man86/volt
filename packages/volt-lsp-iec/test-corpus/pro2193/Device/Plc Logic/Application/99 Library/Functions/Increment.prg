@@ -5,7 +5,7 @@ PROGRAM Increment
 VAR
 	uInput		: PointerSizesUnion;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 END_PROGRAM
 
@@ -16,7 +16,7 @@ VAR_INPUT
 	incrementBy	: INT		:= 1;		// Input increments with this value (optional; defaults to 1)
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -38,7 +38,7 @@ VAR_INPUT
 	incrementBy	: REAL		:= 1.0;		// Input increments with this value (optional; defaults to 1)
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -60,7 +60,7 @@ VAR_INPUT
 	zeroValue	: INT		:= 0;		// Input resets to this value (optional; defaults to 0)
 	condition	: BOOL		:= TRUE;	// Only increment when the condition is true (optional)
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -92,7 +92,7 @@ VAR_INPUT
 	condition	: BOOL;					// Only increment when the condition is true
 	newState	: DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT condition THEN
 	RETURN;
 END_IF
@@ -115,7 +115,7 @@ VAR_INPUT
 	newSuccessState	: DINT;
 	newErrorState	: DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF condition = enumResultGeneric.NoResult THEN
 	RETURN;
 END_IF
@@ -141,7 +141,7 @@ VAR_INPUT
 END_VAR
 
 // (Method is needed because subrange type numbers are not part of ANY_INT. That is why we need input of type ANY)
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF input.TypeClass <> TYPE_CLASS.TYPE_SUBRANGE THEN
 	RETURN;
 END_IF

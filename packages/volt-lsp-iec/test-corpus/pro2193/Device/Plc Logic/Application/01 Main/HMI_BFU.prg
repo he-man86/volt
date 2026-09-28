@@ -15,7 +15,7 @@ VAR
 
 	{attribute 'symbol' := 'read'}	BFU_State					: PACK_ML.State;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Initialize();
 
 ButtonEnableDrives();
@@ -52,7 +52,7 @@ END_VAR
 VAR_INST
 	xInitialized	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF xInitialized THEN
 	RETURN;
 END_IF

@@ -14,7 +14,7 @@ END_VAR
 VAR_IN_OUT
 	ioPulse	: UDT_CamPulse;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   MOVE(EN := , iMachinePosition, => ioPulse.MachinePos_HMI);
 END_NETWORK

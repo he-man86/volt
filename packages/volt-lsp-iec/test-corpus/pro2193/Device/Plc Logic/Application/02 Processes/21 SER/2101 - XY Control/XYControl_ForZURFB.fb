@@ -47,7 +47,7 @@ VAR
 		StateYUnitOnSafetyStrip				:= 620
 	) DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -57,7 +57,7 @@ VAR_INST
 	SetError					: ARRAY[1..3] OF SetErrorFB;
 	savedState					: DINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= SER_Errors,
@@ -96,7 +96,7 @@ savedState := ActState;
 END_METHOD
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 State(actState	:= ActState);
 
 ButtonSampleShot();
@@ -118,7 +118,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -128,7 +128,7 @@ END_METHOD
 
 // After a state change, this method is called to execute the current state
 METHOD PROTECTED Execute
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF State.Changed THEN
 	Arrays.Bool_Reset(result);
 END_IF
@@ -148,7 +148,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence1
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // SingleCavSingleTakeover
 CASE ActState OF
 	StateNone:	;
@@ -173,7 +173,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence2
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // FourCavDualTakeover
 CASE ActState OF
 	StateNone:	;
@@ -198,7 +198,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Execute_Sequence3
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // FourCavDualTakeover
 CASE ActState OF
 	StateNone:	;
@@ -223,7 +223,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED FirstCycle_XUnitsToParking : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := xuUnit.MoveToParking()))
 AND SER.SemiAutoNextStep
@@ -233,7 +233,7 @@ END_IF
 END_METHOD
 
 METHOD PUBLIC GetSampleShotRequest : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 GetSampleShotRequest	:= xSampleshotBusy;
 xSampleshotBusy			:= FALSE;
@@ -244,7 +244,7 @@ METHOD ShouldStart : BOOL
 VAR_INPUT
 	operationMode : SER_OperationModeType;	// Indicate the mode in which the SER is started.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 // Only start automatic cycle when X/Y control is enabled.
 IF NOT Data.Enable THEN
@@ -268,7 +268,7 @@ END_METHOD
 
 // Start automatic operations now! Returns true when module is started.
 METHOD StartCycle : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -302,7 +302,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 CommandLock.ForceRelease();
 
@@ -312,13 +312,13 @@ END_METHOD
 
 // Cycle stop request. Returns true when module finished its active cycle.
 METHOD StopCycle : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 StopCycle				:= ActState = StateNone;
 END_METHOD
 
 METHOD PROTECTED Takeover1PosActions : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := transferProducts.ExecuteTransfer(1)))
 AND SER.SemiAutoNextStep
@@ -328,7 +328,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence1 : enumResultGeneric
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(1) THEN
 	Takeover1PosCheck_Sequence1 := enumResultGeneric.Success;
@@ -338,7 +338,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence2 : enumResultGeneric
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(1)
 AND transferProducts.AlternateCycleCounter = 1
@@ -350,7 +350,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Takeover1PosCheck_Sequence3 : enumResultGeneric
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(1) THEN
 	Takeover1PosCheck_Sequence3 := enumResultGeneric.Success;
@@ -360,7 +360,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Takeover1PosMove : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(1)))
 AND SER.SemiAutoNextStep
@@ -370,7 +370,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Takeover2PosActions : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := transferProducts.ExecuteTransfer(2)))
 AND SER.SemiAutoNextStep
@@ -380,7 +380,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED Takeover2PosCheck : enumResultGeneric
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF transferProducts.CheckIfTransferIsNeeded(2) THEN
 	Takeover2PosCheck := enumResultGeneric.Success;
@@ -393,7 +393,7 @@ METHOD PROTECTED Takeover2PosMove : BOOL
 VAR_INST
 	takeoverPosition			: INT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF (result[1] OR_ELSE (result[1] := yUnit.MoveToTakeover(2)))
 AND SER.SemiAutoNextStep
@@ -403,7 +403,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED WaitForMouldClosed : enumResultGeneric
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Stop automatic cycle when cleaning mode is active.
 IF SER.OperationMode = SER_OperationModeType.CleaningMode THEN
@@ -426,7 +426,7 @@ METHOD PROTECTED WaitForMouldOpen : BOOL
 VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Do not start moving towards mould if any X axes is not in position
 IF NOT xuUnit.InSafePos THEN
@@ -460,7 +460,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED XUnitsDoInMouldActions : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF  (result[1] OR_ELSE (result[1] := takeoutFromMould.StartCommand(1)))
 AND (result[2] OR_ELSE (result[2] := IMM.EjectShot()))
@@ -490,7 +490,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED YUnitEnterMouldArea : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
 	IMM.InhibitMouldClosing();	// Let the IMM know we're coming in.
@@ -509,7 +509,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED YUnitInPositionInMouldArea : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Xu Unit moves to halfway position during movement of Y Unit.
 takeoutFromMould.StartCommand(0);
@@ -522,7 +522,7 @@ END_IF
 END_METHOD
 
 METHOD PROTECTED YUnitLeaveMouldArea : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 // Do not start moving if any X axes is not in position
 IF NOT xuUnit.InSafePos THEN
@@ -554,7 +554,7 @@ METHOD PROTECTED YUnitOnSafetyStrip : BOOL
 VAR
 	xuUnitExtended				: IXuUnit_Default_Commands;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER States
 IF State.Changed THEN
 	// Copy the product status to the Xu axis now. This is the moment we know that this was the last shot.

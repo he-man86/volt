@@ -5,7 +5,7 @@ VAR
 	bOldRect : BOOL;
 	bOldEight : BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 (*Reset recipe*)
 IF		g_HMI_MachCommand.CMD.bResetRecipe
 THEN

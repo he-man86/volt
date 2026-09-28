@@ -5,7 +5,7 @@ VAR
 	tInt: INT;
 	tBool: BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "NETWORK 1: Write setpoint speed in DB"
   // The speed of the trayfiller has to be higher then the speed of the dryer. In this way there is always an empty space at the startpostition of the trayfiller.
   MOVE(EN := ADD(EN := , Mach1_Data.Drives.FeedForwardADS.Control.AutoSpeed, 30, => tInt).ENO, tInt, => Mach1_Data.Drives.FeedForwardATF.Control.AutoSpeed);

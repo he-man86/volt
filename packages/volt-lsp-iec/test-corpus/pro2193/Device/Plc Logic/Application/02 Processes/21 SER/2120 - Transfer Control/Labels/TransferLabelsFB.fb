@@ -32,7 +32,7 @@ VAR CONSTANT
 	// Not yet in use
 //	OptionFirstCycleWithoutLabelsAllowed			: BOOL	:= TRUE;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 // Enable manual control of magazine when Xi Unit is in safe position.
@@ -44,7 +44,7 @@ METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF xiUnit.HasPayload = enumPayload._All THEN
 	CheckIfTransferIsNeeded					:= FALSE;	// No need for transfer, there are still labels on the inlay-core
 	RETURN;
@@ -89,13 +89,13 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 State(actState	:= ActState);
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -107,7 +107,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -136,7 +136,7 @@ END_VAR
 
 // Magazine type: ***
 // Magazine hardware version: 1.1
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
 		;
@@ -238,7 +238,7 @@ METHOD PUBLIC PrepareTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -254,7 +254,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -267,7 +267,7 @@ PROPERTY TransferBusy : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 TransferBusy	:= ActState <> StateNone;
 END_GET
 END_PROPERTY

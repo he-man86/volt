@@ -10,7 +10,7 @@ VAR_INPUT
 	severity				: enumErrorSeverity := enumErrorSeverity.Fault;
 	reaction				: enumErrorReaction;	// Severity of alarm messages.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 Alarms();
@@ -18,5 +18,5 @@ Alarms();
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED ABSTRACT Alarms
-(* @volt-implementation *)
+IMPLEMENTATION ST
 END_METHOD

@@ -7,7 +7,7 @@ VAR_IN_OUT
 END_VAR
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 
 IQ_dataArrayInfo.index		:= DINT_TO_INT(LOWER_BOUND(IQ_dataArray, 1));

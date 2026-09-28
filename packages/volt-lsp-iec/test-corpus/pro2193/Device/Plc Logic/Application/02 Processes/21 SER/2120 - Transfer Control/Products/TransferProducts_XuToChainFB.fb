@@ -21,7 +21,7 @@ VAR
 	) DINT;
 
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -31,7 +31,7 @@ METHOD PUBLIC CheckIfTransferIsNeeded : BOOL
 VAR_INPUT
 	iParameter			: INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Xu unit has at least 1 product in the gripper. We need a transfer.
 CheckIfTransferIsNeeded	S= xuUnit.HasPayload <> enumPayload.None;
 
@@ -40,13 +40,13 @@ CheckIfTransferIsNeeded	S= SER.OperationMode = SER_OperationModeType.SemiAuto AN
 END_METHOD
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 State(actState	:= ActState);
 END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -58,7 +58,7 @@ METHOD PUBLIC ExecuteTransfer : BOOL
 VAR_INPUT
 	iParameter : INT := 1;	// 0: Invalid, 1: Takeover Pos 1, etc.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
 END_IF
@@ -82,7 +82,7 @@ METHOD PROTECTED Execute_Sequence1
 VAR_INST
 	result				: ARRAY[1..2] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CASE ActState OF
 	StateNone:
 		;
@@ -165,7 +165,7 @@ END_METHOD
 
 // Command to stop a module (Statemachine to zero state)
 METHOD PUBLIC Stop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 CommandLock.ForceRelease();
 
 ActState	:= StateNone;
@@ -178,7 +178,7 @@ PROPERTY TransferBusy : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 TransferBusy	:= ActState <> StateNone;
 END_GET
 END_PROPERTY

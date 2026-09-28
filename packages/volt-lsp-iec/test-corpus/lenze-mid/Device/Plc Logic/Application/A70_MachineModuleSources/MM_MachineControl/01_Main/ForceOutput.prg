@@ -1,7 +1,7 @@
 PROGRAM ForceOutput
 VAR
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   VAR_TEMP g2 : BOOL; END_VAR
   g2 := HMI_Var.ForceOutputs;

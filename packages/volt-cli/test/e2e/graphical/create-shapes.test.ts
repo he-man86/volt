@@ -45,7 +45,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 			// NO blank line between networks — that is not canonical form, and the gate refuses it while
 			// printing the exact body to use. Canonical form is what a PULL emits, so anything else would show
 			// up as drift on the very next one.
-			`(* @volt-implementation FBD *)\nNETWORK\n  out1 := (a AND b);\nEND_NETWORK\n` +
+			`IMPLEMENTATION FBD\nNETWORK\n  out1 := (a AND b);\nEND_NETWORK\n` +
 			`NETWORK\n  out2 := (b OR c);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
@@ -84,7 +84,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tel : TIME;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  t1(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := a, PT := pt, ET => el);\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 
@@ -130,7 +130,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\ta : BOOL;\n\tpt : TIME;\n\tdone : BOOL;\nEND_VAR\n` +
-			`(* @volt-implementation FBD *)\nNETWORK\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
+			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := a, PT := pt);\n  done := t1.Q;\nEND_NETWORK\n\nEND_PROGRAM\n`
 
 		const created = await pushOps([{ op: "set", name: item, toFolder: "", sourceText: src, ifVersion: null }])
 		expect(created.accepted, `create refused: ${JSON.stringify(created.conflicts)}`).toBe(true)

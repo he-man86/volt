@@ -4,7 +4,7 @@ END_VAR
 VAR
 	tbool: BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "NETWORK 5: (P1) Visualisation - emergency stop"
   Alarms_V5_1_100(AlarmDB := Mach1_Alarms, iCond := (Mach1_AuxData.MIDS_Active AND NOT Mach1_Safety.Status.Emergency_button01), iReset := True, iAlm := Mach1_Alarms.Alm080, ioAction := Mach1.GenFlags.warning);
 END_NETWORK

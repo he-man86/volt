@@ -1,6 +1,7 @@
 using System.Linq;
 using System.IO;
 using Volt.Cli.Sync;
+using Volt.Engine.Format.Network;
 using Volt.Engine.Item;
 using Xunit;
 using static Volt.Cli.Tests.CommandHarness;
@@ -827,6 +828,30 @@ public class PullCommandTests
             var file = File.ReadAllText(Path.Combine(root, "src", "POUs", "FB_Motor.fb"));
             Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", file);
             Assert.DoesNotContain("a vendor split point", file);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>The message states each body's OWN reason and asserts no other. Found by a live pull of pro2193 through a
+    /// bridge without <c>VOLT_GRAPHICAL=1</c>: every LD/FBD body came back hidden for the switch's reason, and the note
+    /// told the engineer it was "because network text has no spelling for what they hold yet" — a claim about the bodies
+    /// that was false for every one of them.</summary>
+    [Fact]
+    public void A_pull_with_network_text_off_names_the_switch_and_claims_no_unspellable_shape()
+    {
+        var ide = ConnectedIde(
+            new FakeIde.Item("FB_Motor", ItemKind.PlcPouFb, "POUs", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "",
+                             "LD", null, Unsupported: NetworkTextSwitch.DisabledReason),
+            Prg());
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            var r = Commands.Pull(root, client);
+
+            Assert.Equal("ok", r.Kind);
+            var message = r.Message ?? "";
+            Assert.Contains($"POUs/FB_Motor.fb (LD): {NetworkTextSwitch.DisabledReason}", message);
+            Assert.DoesNotContain("no spelling", message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

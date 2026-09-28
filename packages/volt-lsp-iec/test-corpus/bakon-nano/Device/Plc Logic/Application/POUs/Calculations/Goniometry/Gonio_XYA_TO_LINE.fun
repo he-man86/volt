@@ -18,7 +18,7 @@ VAR
 	dy2 : REAL;	
 	
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 
 
 l1 := settings.knifeAxis;

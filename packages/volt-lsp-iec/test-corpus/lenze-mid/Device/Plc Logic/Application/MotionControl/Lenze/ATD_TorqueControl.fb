@@ -7,7 +7,6 @@ END_VAR
 VAR
 	L_MC1P_CyclicParameterAccessWrite_0: L_MC1P_CyclicParameterAccessWrite;
 END_VAR
-(* @volt-implementation *)
-(* @volt-graphical: an FB instance the declarations do not name *)
+IMPLEMENTATION LD UNSUPPORTED
 
 END_FUNCTION_BLOCK

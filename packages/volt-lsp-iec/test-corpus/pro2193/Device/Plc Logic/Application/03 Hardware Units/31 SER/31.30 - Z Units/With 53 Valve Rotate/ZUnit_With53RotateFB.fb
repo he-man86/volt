@@ -23,7 +23,7 @@ END_VAR
 VAR CONSTANT
 	MaxVacuums					: USINT	:= ZUnits.MaxVacuums;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^(
 	Data				:= Data,
 	AxisRef				:= AxisRef,
@@ -37,7 +37,7 @@ METHOD PROTECTED Alarms
 VAR_INST
 	SetError					: ARRAY[1..2] OF SetErrorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SetError[1](
 	moduleHandler	:= ModuleHandler,
 	textRefId		:= ZUnit_Errors,
@@ -64,7 +64,7 @@ METHOD PUBLIC AwaitDelay : BOOL
 VAR_INST
 	Timer			: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -91,7 +91,7 @@ VAR_INPUT
 	productNo		: INT(1..TO_INT(GVL_Constants.ChainProductsForZUnit));
 	product			: ProductType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 takeoverPos	:= LIMIT(1, takeoverPos,	NumberOfTakeoverPositions);
 productNo	:= LIMIT(1, productNo,		TO_INT(GVL_Constants.ChainProductsForZUnit));
@@ -102,7 +102,7 @@ METHOD PROTECTED Cyclic
 VAR
 	i	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.Cyclic();
 
 // Handle ionizing bar
@@ -165,7 +165,7 @@ END_METHOD
 
 // Command to reset the module (Statemachine to zero state) in case of E-Stop
 METHOD PUBLIC EStop : BOOL	// Returns true when drives are in standstill
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 Arrays.Vacuum_ReleaseAll(itfVacuums);
 
@@ -190,7 +190,7 @@ VAR_INPUT
 END_VAR
 VAR_INST
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -213,7 +213,7 @@ METHOD PROTECTED Initialize
 VAR
 	i	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^.Initialize();
 
 // Set interfaces to correct vacuum instances
@@ -231,7 +231,7 @@ VAR_INST
 	localState			: SINT;
 	rPosition			: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -307,7 +307,7 @@ END_VAR
 VAR
 	i						: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT ReadyForStacking THEN
 	RETURN;
@@ -364,7 +364,7 @@ END_VAR
 VAR_INST
 	result					: ARRAY[1..2] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT ReadyForTransfer THEN
 	RETURN;
@@ -401,7 +401,7 @@ METHOD PUBLIC MoveUp : BOOL
 VAR_INST
 	result					: ARRAY[1..2] OF BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -431,7 +431,7 @@ VAR_INST
 	rPosition			: REAL;
 	rStartPosition		: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -479,7 +479,7 @@ VAR
 	takeover		: UINT;
 	product1		: UINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stacking
 product0	:= product - 1;	// Get zero based product number, needed for modulo calculation.
 
@@ -504,7 +504,7 @@ VAR_INST
 	result				: UINT;
 	Timer				: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -573,7 +573,7 @@ METHOD PUBLIC TransferComplete : BOOL
 VAR_INPUT
 	iParameter : INT := 0;	// Number indicates which transfer is completed
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Transfer
 IF NOT CommandLock.Request(__POUNAME()) THEN
 	RETURN;
@@ -630,7 +630,7 @@ PROPERTY HasPayload : enumPayload
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 (*IF PersistentVars.RecipeVars.ActiveExchangeSet = enumExchangeSets.FourCavDualTakeover THEN
 	IF Clamp[1].Map() AND Clamp[2].Map() THEN
 		HasPayload := enumPayload._All;
@@ -668,7 +668,7 @@ GET
 VAR
 	i, j	: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Check if last product out of the mould is on the gripper.
 FOR i := 1 TO NumberOfTakeoverPositions DO
 	FOR j := 1 TO GVL_Constants.ChainProductsForZUnit DO

@@ -26,7 +26,7 @@ VAR
 
 	taskInfo						: CmpIecTask.Task_Info2;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 taskInfo	:= TaskGetInfo();
 
 CASE chunk OF

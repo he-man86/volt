@@ -10,7 +10,7 @@ VAR
                i, j, end : INT;
                firstbyte: BYTE;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 (*
 version 1.1        12. nov. 2009
 programmer     hugo

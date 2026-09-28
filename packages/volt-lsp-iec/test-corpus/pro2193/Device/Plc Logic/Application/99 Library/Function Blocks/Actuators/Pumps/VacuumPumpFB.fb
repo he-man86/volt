@@ -43,7 +43,7 @@ END_VAR
 VAR CONSTANT
 	udiVacuumPumpServiceInterval: UDINT := 3000;	// Service interval for vacuum pumps. Default is 3000 hours or 1 year, whichever comes first.
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 Trig_MainAirValve.Call(xMainAirValve);
@@ -86,7 +86,7 @@ SwitchVacuumTanks.SetOrReset(xLowVacuumtankFull AND xVacuumpumpRunning);		// Whe
 END_FUNCTION_BLOCK
 
 METHOD PROTECTED Alarms
-(* @volt-implementation *)
+IMPLEMENTATION ST
 PhaseCheckAlarm(
 	moduleHandler	:= moduleHandler,
 	textRefId		:= textRefId,
@@ -140,25 +140,25 @@ END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC Map : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Map := VacuumPump.Map();
 END_METHOD
 
 // Maps the actuator to the physical output
 METHOD PUBLIC MapSwitchTanks : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 MapSwitchTanks := SwitchVacuumTanks.Map();
 END_METHOD
 
 // Reset the output (=False)
 METHOD PUBLIC Reset
-(* @volt-implementation *)
+IMPLEMENTATION ST
 VacuumPump.Reset();
 END_METHOD
 
 {attribute 'hide'}
 METHOD PUBLIC Set : BOOL
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // no implementation
 END_METHOD
 
@@ -167,6 +167,6 @@ METHOD PUBLIC SetOrReset
 VAR_INPUT
 	xValue	: BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // no implementation
 END_METHOD

@@ -42,7 +42,7 @@ function stOfSameKind(fullName: string): string {
 	const [bare, ext] = [fullName.split(".")[0]!, fullName.split(".").pop()!]
 	const kw = ext === "prg" ? "PROGRAM" : ext === "fun" ? "FUNCTION" : "FUNCTION_BLOCK"
 	const head = kw === "FUNCTION" ? `${kw} ${bare} : INT` : `${kw} ${bare}`
-	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\n(* @volt-implementation *)\nnHacked := 1;\nEND_${kw}\n`
+	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\nIMPLEMENTATION ST\nnHacked := 1;\nEND_${kw}\n`
 }
 
 describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () => {
@@ -63,19 +63,20 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 	})
 
 	for (const [lang, bare] of CASES) {
-		it(`a ${lang} body materializes as the MARKER, not as source`, async () => {
+		it(`a ${lang} body materializes as its IMPLEMENTATION ${lang} UNSUPPORTED line, not as source`, async () => {
 			const it0 = await fetchItem(nameOf(bare))
-			// The marker is a FILE FORMAT — it lands in the user's git history — so it is matched literally.
-			expect(it0.sourceText).toContain(`(* @volt-graphical: ${lang} *)`)
+			// The line is a FILE FORMAT — it lands in the user's git history — so it is matched literally: alone on
+			// its line, and with nothing under it but the POU's END keyword (no implementation is shown).
+			expect(it0.sourceText).toMatch(new RegExp(String.raw`\nIMPLEMENTATION ${lang} UNSUPPORTED\r?\n\s*END_(PROGRAM|FUNCTION_BLOCK|FUNCTION)\b`))
 			// And it carries none of the diagram. An engineer must not be handed an editable-looking file: that
 			// is the exact failure IL caused, materializing as its raw source and being rewritten as ST.
 			expect(it0.sourceText).not.toContain("NETWORK")
 			expect(it0.sourceText).not.toContain("XmlArchive")
 		})
 
-		it(`pushing the ${lang} marker BACK is a no-op, not a refusal`, async () => {
-			// This is what keeps the POU pullable at all: `volt pull` writes the marker to disk, and the next
-			// `volt push` of an unrelated item restates every file it has. If restating the marker were refused,
+		it(`pushing the ${lang} line BACK is a no-op, not a refusal`, async () => {
+			// This is what keeps the POU pullable at all: `volt pull` writes the line to disk, and the next
+			// `volt push` of an unrelated item restates every file it has. If restating the line were refused,
 			// a project containing one diagram could never be pushed again.
 			const name = nameOf(bare)
 			const before = await fetchItem(name)
@@ -131,7 +132,7 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 
 	it("a project containing diagrams still fetches and re-pushes everything else normally", async () => {
 		// The regression this guards is "one CFC in the project makes the project unusable" — the reason the
-		// marker round-trips as a no-op rather than an error. A full fetch must include the diagram POUs and
+		// read-only line round-trips as a no-op rather than an error. A full fetch must include the diagram POUs and
 		// must not fail on them.
 		const all = await bridge.fetch({ knownItems: {} })
 		const names = all.changed.map((i: any) => i.name)

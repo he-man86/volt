@@ -70,7 +70,7 @@ VAR
 	plcDataTypeAxisErrorId		: PlcDataType;
 	plcDataTypeDriveErrorId		: PlcDataType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 SUPER^();
 
 END_FUNCTION_BLOCK
@@ -84,7 +84,7 @@ VAR_INST
 	Alarm_xDriveError		: SetErrorFB;
 	Alarm_InternalControl	: SetErrorFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 Alarm_xError(
 	moduleHandler	:= ModuleHandler,
@@ -158,7 +158,7 @@ END_VAR
 VAR
 	i							: USINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 AxisBasicControl(
 	Axis					:= AxisRef,								// AXIS_REF
@@ -278,7 +278,7 @@ VAR_INST
 	WriteSWLimits				: L_MC1P.L_MC1P_WriteSWLimit;
 	MeasureDistance				: TravelDistanceFB;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 // Force re-homing the servo drive after changing the reference position.
 AxisBasicControl.xResetHomePosition S= SetBasicParameter.lrHomePosition <> DataBrink.rRefPos;
@@ -364,7 +364,7 @@ END_METHOD
 
 // Check if all references are valid.
 METHOD PRIVATE CheckValidRefs : BOOL;
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 IF NOT __ISVALIDREF(AxisRef) THEN
 	ThrowException('The ServoDriveFB is not connected to an axis!');
@@ -388,7 +388,7 @@ END_VAR
 // Thats why we do DataBrink.rAcc * config.unitConvertFactor (default is 1000)
 // For labelmagazines, this is 1 because no factor is needed.
 // Labelmagazine position is in ° , acceleration is in °/s²
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 ConvertAccPercentToUnits := TO_LREAL(DataBrink.rAcc * config.unitConvertFactor * (rValue / 100));
 END_METHOD
@@ -404,7 +404,7 @@ END_VAR
 // Thats why we do DataBrink.rDec * config.unitConvertFactor (default is 1000)
 // For labelmagazines, this is 1 because no factor is needed.
 // Labelmagazine position is in ° , deceleration is in °/s²
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 ConvertDecPercentToUnits := TO_LREAL(DataBrink.rDec * config.unitConvertFactor * (rValue / 100));
 END_METHOD
@@ -420,13 +420,13 @@ END_VAR
 // Thats why we do DataBrink.rVel * config.unitConvertFactor (default is 1000)
 // For labelmagazines, this is 1 because no factor is needed.
 // Labelmagazine position is in ° , velocity is in °/s
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 ConvertVelPercentToUnits := TO_LREAL(DataBrink.rVel * config.unitConvertFactor * (rValue / 100));
 END_METHOD
 
 METHOD PROTECTED Cyclic
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 // Immediately give Stop() command to axis for 100MS after xQuickStop turns on.
 // After this time the power is cut from the drive and it cannnot slow down anymore.
@@ -460,7 +460,7 @@ METHOD PUBLIC EnableContinuousUpdate
 VAR_INPUT
 	enable				: BOOL := TRUE;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 AxisBasicControl.xContinuousUpdate	:= enable;
 END_METHOD
@@ -470,7 +470,7 @@ METHOD PUBLIC Halt : BOOL
 VAR_INST
 	notReadyForHalt			: UINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stop
 IF NOT AxisEnabled
 OR NOT AxisBasicControl.xReadyForMotion
@@ -503,7 +503,7 @@ VAR_INST
 	localState			: SINT;
 	position			: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Homing
 IF NOT AxisEnabled
 OR NOT AxisBasicControl.xReadyForMotion
@@ -597,7 +597,7 @@ END_CASE
 END_METHOD
 
 METHOD PROTECTED Initialize
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 SUPER^.Initialize();
 
@@ -615,7 +615,7 @@ METHOD PRIVATE ManualControlBasic
 VAR_INPUT
 	payload : ISubjectHWButtonsPayload;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 CASE payload.ButtonType OF
 	enumHWButtons.F1:
@@ -649,7 +649,7 @@ METHOD PRIVATE ManualControlExtended
 VAR_INPUT
 	payload : ISubjectFunctionKeyPayload;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 CASE payload.ButtonType OF
 	enumHWButtons.F1:
@@ -739,7 +739,7 @@ VAR_INST
 	eAxisErrorID_old				: L_IE1P_Error;
 	dwDriveErrorID_old				: DWORD;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 IF itfAddLog = 0 THEN
 	RETURN;
@@ -779,7 +779,7 @@ METHOD PUBLIC MoveAbs : BOOL
 VAR_INPUT
 	Data : PositionWithProfileType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 SetMovementProfileData(Data);
 
@@ -791,7 +791,7 @@ METHOD PUBLIC MoveAbsContinuousUpdate : BOOL
 VAR_INPUT
 	position				: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 EnableContinuousUpdate();
 MoveAbsContinuousUpdate		:= MoveAbsPos(position);
@@ -805,7 +805,7 @@ END_VAR
 
 // Warning! 2 MoveAbsPos() commands in consecutive PLC cycles will not work!!
 // Second command will be ignored because xMoveAbsExecute does not trigger
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT AxisEnabled
 OR NOT AxisBasicControl.xReadyForMotion
@@ -843,7 +843,7 @@ METHOD PUBLIC MoveRel : BOOL
 VAR_INPUT
 	Data : PositionWithProfileType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 SetMovementProfileData(Data);
 
@@ -855,7 +855,7 @@ METHOD PUBLIC MoveRelContinuousUpdate : BOOL
 VAR_INPUT
 	distance	: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 EnableContinuousUpdate();
 MoveRelContinuousUpdate		:= MoveRelPos(distance);
@@ -869,7 +869,7 @@ METHOD PUBLIC MoveRelPos : BOOL
 VAR_INPUT
 	distance	: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT AxisEnabled
 OR NOT AxisBasicControl.xReadyForMotion
@@ -915,7 +915,7 @@ METHOD PUBLIC MoveVel : BOOL
 VAR_INPUT
 	Data : ProfileType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 IF NOT AxisEnabled
 OR NOT AxisBasicControl.xReadyForMotion
@@ -943,7 +943,7 @@ METHOD PUBLIC MoveVelContinuousUpdate : BOOL
 VAR_INPUT
 	Data : ProfileType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Move
 EnableContinuousUpdate();
 MoveVelContinuousUpdate		:= MoveVel(Data);
@@ -960,7 +960,7 @@ END_VAR
 VAR_INST
 	ReadParameter	: L_MC1P.MC_ReadParameter;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 // The "ReadCycle" property of the FB serves to set a higher cycle time for repeating a read request.
 ReadParameter.ReadCycle	:= T#1S;
@@ -991,7 +991,7 @@ END_VAR
 VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteParameter;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 WriteParameter(
 	Axis						:= AxisRef,
@@ -1023,7 +1023,7 @@ END_VAR
 VAR_INST
 	WriteParameter	: L_MC1P.MC_WriteBoolParameter;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 WriteParameter(
 	Axis						:= AxisRef,
@@ -1052,7 +1052,7 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Misc
 PosLargerOrEqual	:= actPos >= setPos - tolerance
 					AND IsHomed;
@@ -1063,7 +1063,7 @@ VAR_INPUT
 	rSetPos		: REAL;
 	tolerance	: REAL := 1.0;	// Max allowed difference
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Misc
 PosReached	:= PositionReachedValue(actPos, rSetPos, tolerance)
 			AND IsHomed;
@@ -1075,7 +1075,7 @@ VAR_INPUT
 	setPos		: REAL;
 	tolerance	: REAL	:= 1.0;	// Defaults to 1 mm
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Misc
 PosSmallerOrEqual	:= actPos <= setPos + tolerance
 					AND IsHomed;
@@ -1089,7 +1089,7 @@ END_VAR
 VAR_INST
 	notReadyForQS			: UINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Stop
 AxisBasicControl.lrVel				:= 0;
 AxisBasicControl.lrAcc				:= 0;
@@ -1121,7 +1121,7 @@ VAR_INST
 	state			: INT;
 	T_Interval		: BTON;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 CASE state OF
 0:	// Read / write parameters from drive every 10 seconds..
@@ -1289,7 +1289,7 @@ END_VAR
 VAR CONSTANT
 	maxNumberOfServicePos		: USINT := 5;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Methods
 serviceModeManualF1(buttonType := enumHWButtons.F1);
 serviceModeManualF2(buttonType := enumHWButtons.F2);
@@ -1350,7 +1350,7 @@ METHOD PUBLIC SetManualRefPos
 VAR_INPUT
 	position		: REFERENCE TO PositionWithLimitsType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 IF __ISVALIDREF(position) THEN
 	refManualMovePos REF= position;
@@ -1369,7 +1369,7 @@ VAR_INPUT
 	axisErrorId			: PlcDataType;
 	driveErrorId		: PlcDataType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Misc
 THIS^.itfAddLog						:= itfAddLog;
 THIS^.plcDataTypeErrorId			:= errorId;
@@ -1412,7 +1412,7 @@ METHOD PUBLIC SetMovementProfileData
 VAR_INPUT
 	Data		: ProfileType;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Misc
 SetMovementProfileSeparate(
 	rVel := Data.rVel,
@@ -1427,7 +1427,7 @@ VAR_INPUT
 	rAcc		: REAL;		// Acc in %
 	rDec		: REAL;		// Dec in %
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Misc
 CheckValidRefs();
 
@@ -1441,7 +1441,7 @@ METHOD PUBLIC SetPositionDirect : BOOL
 VAR_INST
 	localState			: SINT;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/Homing
 IF NOT AxisEnabled THEN
 	LogPlc.Warn(CONCAT(InstanceName, ': SetPosDirect Command ignored, drive not ready'));
@@ -1487,7 +1487,7 @@ VAR
 	hwButtonPayload : ISubjectHWButtonsPayload;
 	functionKeyPayload : ISubjectFunctionKeyPayload;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 %FOLDER Commands/ManualControl
 // Do nothing when manual control is not enabled
 IF NOT manualControlEnabled OR AxisBasicControl.xInternalControlActive THEN
@@ -1518,7 +1518,7 @@ GET
 VAR
 	rVelInMpS	: REAL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 // Get actual velocity in m/s
 rVelInMpS	:= TO_REAL(AxisBasicControl.lrActVel / config.unitConvertFactor);
 
@@ -1536,7 +1536,7 @@ PROPERTY PUBLIC AxisEnabled : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 AxisEnabled	:=	AxisBasicControl.xAxisAvailable
 			AND AxisBasicControl.xReadyForOperation
 			AND AxisBasicControl.xOperationEnabled;
@@ -1550,7 +1550,7 @@ PROPERTY PUBLIC HomingSensor : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IF NOT __ISVALIDREF(AxisRef) THEN
 	HomingSensor := FALSE;
 	RETURN;
@@ -1581,7 +1581,7 @@ PROPERTY PUBLIC InPosition : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 InPosition	:= AxisBasicControl.xInPosition;
 
 // Target position monitoring (status "axis in target")
@@ -1605,7 +1605,7 @@ PROPERTY IsHomed : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 IsHomed := AxisBasicControl.xIsHomed;
 END_GET
 END_PROPERTY
@@ -1617,7 +1617,7 @@ PROPERTY PUBLIC Standstill : BOOL
 GET
 VAR
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 Standstill	:= AxisBasicControl.xAxisAvailable
 			AND (AxisBasicControl.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.StandStill
 			  OR AxisBasicControl.eAxisState = L_MC1P.L_MC1P_AXIS_STATE.Disabled

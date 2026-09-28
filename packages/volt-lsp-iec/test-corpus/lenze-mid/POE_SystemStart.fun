@@ -4,7 +4,7 @@ VAR_IN_OUT
 END_VAR
 VAR
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 END_NETWORK
 

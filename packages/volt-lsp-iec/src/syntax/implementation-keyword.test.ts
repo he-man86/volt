@@ -76,6 +76,24 @@ test("an ST file with IMPLEMENTATION ST on every body parses clean", () => {
   expect(parseSource(MOTOR).units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
 })
 
+/** Found by the re-pulled pro2193 corpus (`LedFB.fb`): `METHOD PROTECTED Override` with no return type and no VAR, so
+ *  its keyword line comes straight after the header. The header parser takes a modifier keyword as a modifier only when
+ *  a name follows it, and `IMPLEMENTATION` is an identifier token — so `Override` became a modifier, the method was
+ *  named `IMPLEMENTATION` (reserved) and `ST THIS^…` a syntax error. The retired comment was trivia and hid it. The
+ *  keyword line is where a declaration ENDS, never a name. */
+test("a method named after a modifier keyword keeps its name when its keyword line follows the header", () => {
+  const src =
+    "FUNCTION_BLOCK F\nVAR\n\txOverride : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
+    "METHOD PROTECTED Override\nIMPLEMENTATION ST\nTHIS^.xOverride := TRUE;\nEND_METHOD\n\n" +
+    "METHOD PUBLIC Final\nIMPLEMENTATION ST\n;\nEND_METHOD\n"
+  expect(syntaxErrors(src)).toEqual([])
+  const methods = parseSource(src).units.filter((u) => u.kind === "method")
+  expect(methods.map((m) => [m.kind === "method" && m.accessModifier, m.name.text])).toEqual([
+    ["PROTECTED", "Override"],
+    ["PUBLIC", "Final"],
+  ])
+})
+
 test("the keyword line belongs to no declaration and to no statement", () => {
   const { units } = parseSource(MOTOR)
   const method = units.find((u) => u.kind === "method")!

@@ -9,7 +9,7 @@
  *  Every builder below that has an implementation emits it, because that is what a pulled file looks like
  *  and a push without it is refused. A GVL, a DUT and an INTERFACE carry none: they have no implementation
  *  to separate. */
-export const MARK = "(* @volt-implementation *)"
+export const MARK = "IMPLEMENTATION ST"
 
 // ── top-level kinds ───────────────────────────────────────────────────────────
 export const fb = (name: string, opts: { vars?: string; body?: string; children?: string } = {}) =>
