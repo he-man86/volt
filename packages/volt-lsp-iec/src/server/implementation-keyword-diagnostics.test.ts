@@ -92,6 +92,55 @@ test("IMPLEMENTATION is reserved: a variable named after it is a diagnostic on i
   }
 })
 
+/** Reserved EVERYWHERE a file names something, not only in the POU's VAR block — the push refuses the same positions
+ *  (`IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position`). Each case names the line its name stands on. */
+test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the declaring line", async () => {
+  const head = "FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" // lines 0-6
+  const cases: { what: string; uri: string; src: string; line: number }[] = [
+    {
+      what: "a method-local variable",
+      uri: "file:///F.fb",
+      src: head + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n",
+      line: 9,
+    },
+    {
+      what: "a method's name",
+      uri: "file:///F.fb",
+      src: head + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n",
+      line: 7,
+    },
+    {
+      what: "a property's name",
+      uri: "file:///F.fb",
+      src: head + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n",
+      line: 7,
+    },
+    {
+      what: "the POU's own name",
+      uri: "file:///Implementation.fb",
+      src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n",
+      line: 0,
+    },
+    { what: "an enum value", uri: "file:///E.enum", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n", line: 2 },
+  ]
+  for (const c of cases) {
+    const h = harness()
+    await h.init(CAPS.pull)
+    await h.open(c.uri, c.src)
+    const ds = await h.pull(c.uri)
+    h.dispose()
+    const on = ds.filter((d) => d.range.start.line === c.line && /reserved/i.test(text(d)))
+    expect({ what: c.what, flagged: on.length > 0 }).toEqual({ what: c.what, flagged: true })
+  }
+})
+
+/** A second keyword line outside any comment is not the boundary and not ST: the push refuses it by name
+ *  (`A_second_keyword_line_in_a_body_is_refused_naming_the_member`), so the editor shows it on its line. */
+test("a second keyword line in a body is a diagnostic on that line", async () => {
+  const ds = await diagnostics(fb("IMPLEMENTATION ST\nout := a;\nIMPLEMENTATION ST\nout := NOT a;"))
+  expect(ds.some((d) => d.range.start.line === KEYWORD_LINE + 2)).toBe(true)
+})
+
 /** A body Volt cannot write (CFC, SFC, IL, an unrepresentable network) is pulled with its `(* @volt-graphical: … *)`
  *  marker line standing where the keyword would: it states the body has no text form, where `IMPLEMENTATION ST`
  *  would have labelled a chart Structured Text. Such a file is what a pull writes, so it draws no diagnostic. */

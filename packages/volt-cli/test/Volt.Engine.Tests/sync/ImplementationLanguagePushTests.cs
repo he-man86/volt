@@ -37,13 +37,24 @@ public class ImplementationLanguagePushTests
     private static string Motor(string methodImpl) =>
         $"{Decl}\nIMPLEMENTATION ST\nout := a;\n\nEND_FUNCTION_BLOCK\n\nMETHOD DoReset : BOOL\n{methodImpl}\nEND_METHOD\n";
 
-    private static PushResponse Create(FakeIde ide, string source)
+    private static PushResponse Create(FakeIde ide, string source, string name = "FB_Motor.fb")
     {
         var refs = RefsService.Handle(ide);
         return PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "FB_Motor.fb", SourceText = source, IfVersion = null } },
+            Ops = new List<PushOp> { new SetItemOp { Name = name, SourceText = source, IfVersion = null } },
+        });
+    }
+
+    /// <summary>An UPDATE of an existing item at its current version — the push of a pulled file, edited or not.</summary>
+    private static PushResponse Update(FakeIde ide, string name, string source)
+    {
+        var refs = RefsService.Handle(ide);
+        return PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new List<PushOp> { new SetItemOp { Name = name, SourceText = source, IfVersion = refs.Items[name] } },
         });
     }
 
@@ -103,6 +114,25 @@ public class ImplementationLanguagePushTests
         Assert.Equal(language == "LD" ? BodyLanguage.Ld : BodyLanguage.Fbd, read.Body!.Language);
         Assert.Single(read.Body.Networks);
         Assert.Contains("out := a;", body);
+    }
+
+    /// <summary>"Push strips the line, so the IDE never sees it" holds for EVERY keyword line, not only the first.
+    /// A second one outside any comment — a member pasted with its boundary line, say — is neither the boundary
+    /// nor ST the IDE can compile, and stripping it would guess at what the engineer meant. It is refused by name
+    /// with nothing written; a reader that takes the first match would write it into the IDE as code.</summary>
+    [Theory]
+    [InlineData("IMPLEMENTATION ST\nIMPLEMENTATION ST\nDoReset := TRUE;")]
+    [InlineData("IMPLEMENTATION ST\nDoReset := TRUE;\nIMPLEMENTATION ST\nDoReset := FALSE;")]
+    [InlineData("IMPLEMENTATION ST\nDoReset := TRUE;\n  implementation ld\n")]
+    public void A_second_keyword_line_in_a_body_is_refused_naming_the_member(string methodImpl)
+    {
+        var ide = new FakeIde();
+
+        var reason = Reason(Create(ide, Motor(methodImpl)));
+
+        Assert.Contains("DoReset", reason);
+        Assert.Contains("IMPLEMENTATION", reason);
+        AssertNothingWritten(ide);
     }
 
     // ── 1.3 a body that contradicts its stated language ───────────────────────────────────────────
@@ -240,6 +270,36 @@ public class ImplementationLanguagePushTests
         AssertNothingWritten(ide);
     }
 
+    private const string FbHead = "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n";
+
+    /// <summary>Reserved means reserved EVERYWHERE a workspace file names something, not only in the POU's own VAR
+    /// block: a check hung on one declaration path passes the row above and lets every other position through.</summary>
+    [Theory]
+    [InlineData("FB_Motor.fb", "Implementation",   // a method-local variable
+        FbHead + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n")]
+    [InlineData("FB_Motor.fb", "Implementation",   // a method's name
+        FbHead + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n")]
+    [InlineData("FB_Motor.fb", "implementation",   // an action's name
+        FbHead + "ACTION implementation\nIMPLEMENTATION ST\n\nEND_ACTION\n")]
+    [InlineData("FB_Motor.fb", "Implementation",   // a property's name
+        FbHead + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n")]
+    [InlineData("Implementation.fb", "Implementation",   // the POU's own name
+        "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
+    [InlineData("E.enum", "IMPLEMENTATION",   // an enum value
+        "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n")]
+    [InlineData("S.struct", "implementation",   // a struct member
+        "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n")]
+    public void IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position(string op, string name, string source)
+    {
+        var ide = new FakeIde();
+
+        var reason = Reason(Create(ide, source, op));
+
+        Assert.Contains($"'{name}'", reason);
+        Assert.Contains("reserved", reason, System.StringComparison.OrdinalIgnoreCase);
+        AssertNothingWritten(ide);
+    }
+
     // ── a body Volt cannot write ──────────────────────────────────────────────────────────────────
 
     /// <summary>A POU whose body the IDE holds in a language Volt cannot write (CFC, SFC) is pulled with its
@@ -267,6 +327,42 @@ public class ImplementationLanguagePushTests
         Assert.Equal(BodyMarker.For(language), ide.ReadContent(new ItemRef("K")).Body);
     }
 
+    private const string ChartDecl = "FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR";
+
+    /// <summary>The no-op above is only a no-op when nothing was ADDED. The marker line states the body has no text
+    /// form, so code written under it, or after it on its own line, has nowhere to go: the drivers skip a marker
+    /// body, so accepting the push drops that code silently and the next pull overwrites it in the working tree.
+    /// It is refused by name instead, and the IDE keeps its chart.</summary>
+    [Theory]
+    [InlineData("CFC", "\nx := 1;")]
+    [InlineData("CFC", " x := 1;")]
+    [InlineData("SFC", "\n\nx := 1;")]
+    public void Code_added_under_a_POUs_marker_line_is_refused_naming_the_POU(string language, string added)
+    {
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
+
+        var reason = Reason(Update(ide, "FB_Chart.fb", $"{ChartDecl}\n{BodyMarker.For(language)}{added}\n\nEND_FUNCTION_BLOCK\n"));
+
+        Assert.Contains("FB_Chart", reason);
+        Assert.Empty(ide.WrittenContent);
+        Assert.Equal(BodyMarker.For(language), ide.ReadContent(new ItemRef("FB_Chart")).Body);
+    }
+
+    [Fact]
+    public void Code_added_under_a_members_marker_line_is_refused_naming_the_member()
+    {
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", null, null, Children: new[] { "Sequence" }),
+            new FakeIde.Item("Sequence", ItemKind.PlcMethod, "", false, "METHOD Sequence : BOOL", "", "SFC", null));
+        var src = $"{ChartDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
+                  $"METHOD Sequence : BOOL\n{BodyMarker.For("SFC")}\nSequence := TRUE;\nEND_METHOD\n";
+
+        var reason = Reason(Update(ide, "FB_Chart.fb", src));
+
+        Assert.Contains("Sequence", reason);
+        Assert.Empty(ide.WrittenContent);
+    }
+
     // ── 1.5 the retired comment ───────────────────────────────────────────────────────────────────
 
     [Theory]
@@ -289,6 +385,37 @@ public class ImplementationLanguagePushTests
         var ide = new FakeIde();
 
         var reason = Reason(Create(ide, Motor("(* @volt-implementation *)\nDoReset := TRUE;")));
+
+        Assert.Contains("volt pull", reason);
+        AssertNothingWritten(ide);
+    }
+
+    /// <summary>The exact pre-change shape of a body Volt cannot write — the retired comment, THEN the marker line —
+    /// is what the corpora hold today (<c>VltFixtureCfc.fb</c>, <c>VltFixtureSfc.fb</c>, lenze-mid
+    /// <c>Mach1_MIDS.prg</c>). A reader that accepts the marker line as a boundary finds one in that old file, and
+    /// the retired comment lands at the end of the DECLARATION and is pushed into the IDE. It is a file from before
+    /// the change like any other: refused, naming <c>volt pull</c>.</summary>
+    [Theory]
+    [InlineData("CFC")]
+    [InlineData("SFC")]
+    public void An_old_unsupported_POU_body_is_refused_naming_volt_pull(string language)
+    {
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
+
+        var reason = Reason(Update(ide, "FB_Chart.fb",
+            $"{ChartDecl}\n(* @volt-implementation *)\n{BodyMarker.For(language)}\n\nEND_FUNCTION_BLOCK\n"));
+
+        Assert.Contains("volt pull", reason);
+        Assert.Empty(ide.WrittenContent);
+        Assert.Equal(ChartDecl, ide.ReadContent(new ItemRef("FB_Chart")).Declaration);
+    }
+
+    [Fact]
+    public void An_old_unsupported_member_body_is_refused_naming_volt_pull()
+    {
+        var ide = new FakeIde();
+
+        var reason = Reason(Create(ide, Motor($"(* @volt-implementation *)\n{BodyMarker.For("SFC")}")));
 
         Assert.Contains("volt pull", reason);
         AssertNothingWritten(ide);

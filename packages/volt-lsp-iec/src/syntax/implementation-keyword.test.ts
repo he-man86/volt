@@ -123,6 +123,27 @@ END_FUNCTION_BLOCK
   expect(parseStatements(bodiesOf(src)[0]!).statements.map((s) => s.kind)).toEqual(["assign"])
 })
 
+/** The comment shapes a line-start scan misses, which the bridge pins in `ImplementationKeywordTests` too: a block
+ *  comment opened AFTER code on its line (bakon-nano's `:= TRUE;(*NOT (`), and a NESTED one — the lexer nests
+ *  comments, so the boundary is the first keyword line outside the outermost comment, and the two runtimes must agree
+ *  on it. Every row's only real boundary is the last line before the body. */
+test("a keyword line inside a comment opened mid-line or nested is no boundary", () => {
+  for (const decl of [
+    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL; (* old layout:\nIMPLEMENTATION ST\n*)\n\tout : BOOL;\nEND_VAR",
+    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;(*NOT (\nIMPLEMENTATION LD\n*)\n\tout : BOOL;\nEND_VAR",
+    "FUNCTION_BLOCK F\n(* outer (* inner *)\nIMPLEMENTATION LD\n*)\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
+    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL; (* a (* b *)\nIMPLEMENTATION FBD\n*)\n\tout : BOOL;\nEND_VAR",
+  ]) {
+    const src = `${decl}\nIMPLEMENTATION ST\nout := a;\nEND_FUNCTION_BLOCK\n`
+    expect({ decl, errors: syntaxErrors(src) }).toEqual({ decl, errors: [] })
+    const unit = parseSource(src).units[0]!
+    if (unit.kind !== "function_block") throw new Error("not a function block")
+    const names = unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))
+    expect({ decl, names }).toEqual({ decl, names: ["a", "out"] })
+    expect({ decl, languages: bodiesOf(src).map(graphicalMarkerLanguage) }).toEqual({ decl, languages: [undefined] })
+  }
+})
+
 /** Only a WHOLE line holding exactly `IMPLEMENTATION <LANG>` is the boundary — the bridge's `ImplementationMarker`
  *  rule, so the two runtimes cannot disagree about where a body starts or what it is. A look-alike later in an ST body
  *  (in a comment, after code, as a statement) is part of that body and switches nothing. */

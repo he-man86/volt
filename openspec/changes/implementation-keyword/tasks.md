@@ -22,6 +22,12 @@ the **spec** and **layering** lenses.
       and pushes back as a no-op; `IMPLEMENTATION` is reserved (push refusal + LSP diagnostic); the LSP holds the
       whole-line rule; an LD/FBD push asserts what reached the IDE; refusals name the whole stated line; an
       unknown language is a keyword diagnostic and the body is read by neither reader.
+- [x] 1.8 Data-lens review round 2, as red tests: a keyword line in a comment opened mid-line or nested is no
+      boundary, and `(*` in a line comment or string opens nothing (C# + LSP); the pre-change unsupported shape
+      (retired comment, then the marker line) is refused naming `volt pull`; code added under or after a marker line
+      is refused by name; a member's `%FOLDER` follows its marker line and round-trips; a second keyword line in a
+      body is refused by name (C#) and a diagnostic (LSP); `IMPLEMENTATION` is reserved in every naming position
+      (method-local VAR, method/action/property name, POU name, enum value, struct member).
 
 ## 2. Engine
 

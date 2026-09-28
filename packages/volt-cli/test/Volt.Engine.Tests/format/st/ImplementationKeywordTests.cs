@@ -233,6 +233,43 @@ public class ImplementationKeywordTests
         Assert.Equal(st, StWriter.Write(item));
     }
 
+    /// <summary>The comment shapes a line-start scan misses. A block comment may open AFTER code on its line
+    /// (bakon-nano <c>MACH_AUT_Automatic.prg</c>: <c>:= TRUE;(*NOT (</c> spanning lines), and comments NEST — the
+    /// LSP lexer nests them, so a reader that ends the comment at the first <c>*)</c> would disagree with the LSP
+    /// about where the body starts and push the rest of the declaration as the body. Every row's only real boundary
+    /// is the last keyword line.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK FB\nVAR\n\tx : INT; (* old layout:\nIMPLEMENTATION ST\n*)\nEND_VAR")]
+    [InlineData("FUNCTION_BLOCK FB\nVAR\n\tx : INT;(*NOT (\nIMPLEMENTATION LD\n*)\nEND_VAR")]
+    [InlineData("FUNCTION_BLOCK FB\n(* outer (* inner *)\nIMPLEMENTATION LD\n*)\nVAR\n\tx : INT;\nEND_VAR")]
+    [InlineData("FUNCTION_BLOCK FB\nVAR\n\tx : INT; (* a (* b *)\nIMPLEMENTATION FBD\n*)\nEND_VAR")]
+    public void A_keyword_line_inside_a_comment_opened_mid_line_or_nested_is_no_boundary(string decl)
+    {
+        var st = $"{decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n";
+
+        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+
+        Assert.Equal(decl, item.Declaration);
+        Assert.Equal("x := 1;", item.Body);
+        Assert.Equal(st, StWriter.Write(item));
+    }
+
+    /// <summary>The other side of the comment rule: <c>(*</c> inside a line comment or a string opens nothing, so
+    /// the keyword line after it IS the boundary. A comment scan that over-reaches would swallow the real
+    /// boundary and find none.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK FB\nVAR\n\tx : INT; // (* not an opener\nEND_VAR")]
+    [InlineData("FUNCTION_BLOCK FB\nVAR\n\ts : STRING := '(*';\nEND_VAR")]
+    public void A_comment_opener_inside_a_line_comment_or_a_string_opens_nothing(string decl)
+    {
+        var st = $"{decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n";
+
+        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+
+        Assert.Equal(decl, item.Declaration);
+        Assert.Equal("x := 1;", item.Body);
+    }
+
     [Fact]
     public void A_keyword_line_inside_a_members_block_comment_is_no_boundary()
     {
@@ -300,6 +337,34 @@ public class ImplementationKeywordTests
         Assert.Equal(marker, back.Members.Single(m => m.Name == "Chart").Body);
         Assert.Equal(marker, back.Members.Single(m => m.Name == "Ready").Getter?.Body);
         Assert.Equal(text, StWriter.Write(back));
+    }
+
+    /// <summary>A member's <c>%FOLDER</c> directive goes directly after its boundary line (the
+    /// <c>ChildDirectiveTests</c> layout), and a marker line IS that boundary — so the directive goes after the
+    /// marker. The other order leaves <c>%FOLDER</c> above the boundary, in the DECLARATION: the directive is
+    /// written into the IDE as declaration text and the member's folder is lost.</summary>
+    [Theory]
+    [InlineData("SFC")]
+    [InlineData("CFC")]
+    public void A_marker_members_folder_directive_follows_its_marker_line_and_round_trips(string what)
+    {
+        var marker = BodyMarker.For(what);
+        var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, "", new List<Member>
+        {
+            new(ItemKind.Kinds.Action, "Chart", "ACTION Chart", marker, Folder: "Sub/Deep"),
+        });
+
+        var text = StWriter.Write(item);
+
+        Assert.Equal(
+            $"{FbDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" +
+            $"\nACTION Chart\n{marker}\n%FOLDER Sub/Deep\nEND_ACTION\n", text);
+
+        var chart = StReader.Read(text, ItemKind.Kinds.FunctionBlock).Members.Single();
+        Assert.Equal("Sub/Deep", chart.Folder);
+        Assert.Equal("ACTION Chart", chart.Declaration);
+        Assert.Equal(marker, chart.Body);
+        Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.FunctionBlock)));
     }
 
     // ── 1.3 the stated language decides the reader ────────────────────────────────────────────────────
