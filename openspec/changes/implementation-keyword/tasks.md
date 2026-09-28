@@ -5,18 +5,23 @@ the **spec** and **layering** lenses.
 
 ## 1. Tests red
 
-- [ ] 1.1 C#: `ImplementationMarker` recognises `IMPLEMENTATION ST`, `IMPLEMENTATION LD`, `IMPLEMENTATION FBD`
+- [x] 1.1 C#: `ImplementationMarker` recognises `IMPLEMENTATION ST`, `IMPLEMENTATION LD`, `IMPLEMENTATION FBD`
       (spacing, case); it rejects the old comment, a bare `IMPLEMENTATION`, an unknown language, `IMPLEMENTATION ST;`,
       trailing tokens, and the word inside a statement.
-- [ ] 1.2 C#: StWriter writes `IMPLEMENTATION <LANG>` for every kind `AppliesTo` covers (POU, method, action, getter,
+- [x] 1.2 C#: StWriter writes `IMPLEMENTATION <LANG>` for every kind `AppliesTo` covers (POU, method, action, getter,
       setter); StReader splits on it, including the three historical traps (a trailing comment after `END_VAR`, a
       wrapped `EXTENDS`/`IMPLEMENTS`, an `{IF}` pragma).
-- [ ] 1.3 C#: the stated language decides the reader: `ST` is read as ST, `LD`/`FBD` as network text. A body that
+- [x] 1.3 C#: the stated language decides the reader: `ST` is read as ST, `LD`/`FBD` as network text. A body that
       contradicts its language (network text under `ST`, ST under `LD`) is refused by name; nothing is written.
-- [ ] 1.4 C#: a missing language (`IMPLEMENTATION` alone) is refused by name, naming the item.
-- [ ] 1.5 C#: a file carrying only the old comment is refused with the existing "pull the project once" message.
-- [ ] 1.6 LSP: body splitting and language selection from the keyword, the missing/contradicting-language
+- [x] 1.4 C#: a missing language (`IMPLEMENTATION` alone) is refused by name, naming the item.
+- [x] 1.5 C#: a file carrying only the old comment is refused with the existing "pull the project once" message.
+- [x] 1.6 LSP: body splitting and language selection from the keyword, the missing/contradicting-language
       diagnostic, the semantic token, folding.
+- [x] 1.7 Data-lens review round, as red tests: a keyword line inside a block comment is no boundary (C# + LSP); a
+      body Volt cannot write is stated by its `(* @volt-graphical: … *)` marker line, never `IMPLEMENTATION ST`,
+      and pushes back as a no-op; `IMPLEMENTATION` is reserved (push refusal + LSP diagnostic); the LSP holds the
+      whole-line rule; an LD/FBD push asserts what reached the IDE; refusals name the whole stated line; an
+      unknown language is a keyword diagnostic and the body is read by neither reader.
 
 ## 2. Engine
 

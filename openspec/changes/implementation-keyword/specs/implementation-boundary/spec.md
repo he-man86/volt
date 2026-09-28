@@ -20,6 +20,20 @@ implementation, and every such body SHALL state its language, ST included. The c
 - **WHEN** a property's getter has an ST body
 - **THEN** its accessor holds `IMPLEMENTATION ST` before the getter's code
 
+#### Scenario: the keyword inside a comment
+- **WHEN** a declaration's block comment holds a line reading `IMPLEMENTATION ST`
+- **THEN** that line is part of the comment, and the boundary is the first keyword line outside any comment
+
+#### Scenario: a body Volt cannot write
+- **WHEN** a body the IDE holds in CFC, SFC or IL, or one network text cannot represent, is pulled
+- **THEN** its `(* @volt-graphical: <what> *)` marker line stands where the keyword line would, stating that the
+  body has no text form; no `IMPLEMENTATION` line claims a language Volt reads, and pushing the file back unchanged
+  is a no-op
+
+#### Scenario: IMPLEMENTATION is reserved
+- **WHEN** a workspace file declares an identifier named `IMPLEMENTATION` (any case)
+- **THEN** the push refuses it by name as reserved, and the LSP reports it on its declaration
+
 #### Scenario: a file from before the change
 - **WHEN** a pushed file carries `(* @volt-implementation *)` and no `IMPLEMENTATION` line
 - **THEN** the push is refused, naming `volt pull` as the fix
