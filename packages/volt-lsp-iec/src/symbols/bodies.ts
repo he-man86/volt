@@ -8,11 +8,11 @@
  * can own what the other imports. `symbols/` already owns `scopeForUnit` and imports `syntax/`.
  *
  * Covers POU bodies AND property getter/setter accessor bodies (via `unitBodies`) — so diagnostics reach
- * accessor bodies that the old analysis `getBody` silently skipped. Graphical (network text) and non-parsing bodies
- * are skipped (conservative — the compilers analyze neither the way this ST engine would).
+ * accessor bodies that the old analysis `getBody` silently skipped. Bodies the ST parser does not read (`isStBody`:
+ * network text, read-only) and non-parsing bodies are skipped (conservative — the compilers analyze neither the way this ST engine would).
  */
 import {
-  isGraphicalBody,
+  isStBody,
   parseStatements,
   unitBodies,
   walkAllExprs,
@@ -42,7 +42,7 @@ export function* bodies(units: readonly TopLevel[], project: Scope): Generator<U
     const unitScope = scopeForUnit(project, unit)
     if (unitScope === undefined) continue
     for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body)) continue
+      if (!isStBody(body)) continue
       const scope = unitScope.children.find((c) => c.span === body.span) ?? unitScope
       const parsed = parseStatements(body)
       if (parsed.ok) yield { unit, body, scope, statements: parsed.statements }

@@ -15,7 +15,7 @@ import type { Cursor } from "../cursor.js"
 import type { Keyword } from "../tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
 import {
-  bodySpanFromTokens,
+  codeBody,
   collectVarSections,
   describeToken,
   identFromToken,
@@ -130,12 +130,12 @@ function collectAccessorBody(c: Cursor, endAccessor: Keyword): BodySpan {
     peekStoppers: ["GET", "SET", "END_PROPERTY"],
   })
   if (closer !== undefined) {
-    return bodySpanFromTokens(tokens, joinSpans(startSpan, closer.span))
+    return codeBody(c, tokens, joinSpans(startSpan, closer.span), "pou-or-accessor")
   }
   if (stoppedAt !== undefined) {
     // Sloppy close — stop without consuming; outer recover handles.
-    return bodySpanFromTokens(tokens, startSpan)
+    return codeBody(c, tokens, startSpan, "pou-or-accessor")
   }
   c.pushError(`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`, startSpan)
-  return bodySpanFromTokens(tokens, startSpan)
+  return codeBody(c, tokens, startSpan, "pou-or-accessor")
 }

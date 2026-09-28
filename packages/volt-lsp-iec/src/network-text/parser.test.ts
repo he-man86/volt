@@ -10,8 +10,8 @@ import { type NetworkScopeView, STRUCTURE_ONLY, parseNetworkText } from "./parse
 import { networkValueExpr, statementExprs } from "./exprs.js"
 import type { NetworkTextBody, NetworkTextStatement, NetworkValue } from "./ast.js"
 
-/** A POU whose graphical body is `networks`, behind the LD marker. */
-function body(networks: string, marker = "(* @volt-implementation LD *)"): BodySpan {
+/** A POU whose graphical body is `networks`, under the line stating LD. */
+function body(networks: string, marker = "IMPLEMENTATION LD"): BodySpan {
   const src = `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR\n${marker}\n${networks}\nEND_FUNCTION_BLOCK\n`
   const b = unitBodies(parseSource(src).units[0]!).find(isGraphicalBody)
   if (b === undefined) throw new Error("no graphical body")
@@ -42,17 +42,20 @@ const idents = (e: Expr | undefined): string[] => {
 
 // ── the body and its header ─────────────────────────────────────────────────────────────────
 
-test("the marker names the language and a network has no order number", () => {
+test("the line states the language and a network has no order number", () => {
   const b = parse(net("out := a;"))
   expect(b.language).toBe("LD")
   expect(b.networks).toHaveLength(1)
   expect(b.networks[0]!.index).toBe(0)
-  expect(parseNetworkText(body(net("out := a;"), "(* @volt-implementation FBD *)"), STRUCTURE_ONLY).language).toBe("FBD")
+  expect(parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD"), STRUCTURE_ONLY).language).toBe("FBD")
 })
 
 test("v1 text is refused naming a re-pull, never read", () => {
-  const v1 = parseNetworkText(body("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK", "(* @volt-implementation *)"), STRUCTURE_ONLY)
-  expect(v1.networks).toEqual([])
+  // v1 under the line stating LD — what a clean merge makes of an un-pushed v1 edit: the line decides the reader, and
+  // the reader refuses v1 once, by name, reading no statement of it. (The bare comment marker that used to head a v1
+  // body is no boundary any more: such a body is ST to this server, and the older-format manifest says re-pull.)
+  const v1 = parseNetworkText(body("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK"), STRUCTURE_ONLY)
+  expect(v1.networks.flatMap((n) => n.statements)).toEqual([])
   expect(v1.diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
   expect(v1.diagnostics[0]!.message).toContain("re-pull")
   // …and inside a v2 body, a LET statement or a numbered header is v1 too.
@@ -410,8 +413,8 @@ test("a call of an instance is typed by the instance's FB: one whose FB is named
   ])
 })
 
-test("a marker line may end in blanks, as the bridge's marker line may", () => {
-  const b = parseNetworkText(body(net("out := a;"), "(* @volt-implementation FBD *) \t"), STRUCTURE_ONLY)
+test("the line may end in blanks, as the bridge's line may", () => {
+  const b = parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD \t"), STRUCTURE_ONLY)
   expect([b.language, b.diagnostics, b.networks.map((n) => n.statements.length)]).toEqual(["FBD", [], [1]])
 })
 

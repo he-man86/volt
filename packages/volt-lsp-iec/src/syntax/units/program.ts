@@ -22,7 +22,7 @@ export function parseProgram(c: Cursor): Program | undefined {
   if (c.eatPunct(":") !== undefined) returnType = parseTypeExpression(c)
 
   const varSections = collectVarSections(c)
-  const body = collectBodyUntil(c, "END_PROGRAM", "program")
+  const body = collectBodyUntil(c, "END_PROGRAM", "program", "pou-or-accessor")
 
   return {
     kind: "program",

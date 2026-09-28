@@ -8,6 +8,7 @@ import type { BodySpan, Identifier, VarSection } from "./ast.js"
 import type { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: util's block helpers call into var-section, which calls back into util. Function-body imports, no init hazard.
 import { atVarSection, parseVarSection } from "./var-section.js"
+import { type BodyOwner, splitImplementation } from "./implementation-keyword.js"
 
 /** Build a span covering the source range from `a.start` to `b.end`. */
 export function joinSpans(a: Span, b: Span): Span {
@@ -53,6 +54,17 @@ export function bodySpanFromTokens(tokens: Token[], fallback: Span): BodySpan {
 }
 
 /**
+ * A POU body from the tokens a unit parser collected: its `IMPLEMENTATION <LANG>` line taken out and recorded, the
+ * code left as the body (`splitImplementation`), and every problem with the line reported on the parse cursor — the
+ * one place a POU body is built, so no unit kind can skip the line.
+ */
+export function codeBody(c: Cursor, tokens: Token[], fallback: Span, owner: BodyOwner): BodySpan {
+  const { tokens: code, implementation } = splitImplementation(tokens, owner, (message, span) => c.pushError(message, span))
+  const body = bodySpanFromTokens(code, fallback)
+  return implementation === undefined ? body : { ...body, implementation }
+}
+
+/**
  * Consume as many consecutive VAR sections as appear at the cursor.
  * Used by every POU-shape parser — FB, PROGRAM, FUNCTION, METHOD —
  * after the header, before the body.
@@ -72,8 +84,8 @@ export function collectVarSections(c: Cursor): VarSection[] {
  * BodySpan. The terminator is consumed so the outer parser sees the
  * next unit cleanly.
  */
-export function collectBodyUntil(c: Cursor, ender: Keyword, context: string): BodySpan {
-  return collectBodyUntilAny(c, [ender], context)
+export function collectBodyUntil(c: Cursor, ender: Keyword, context: string, owner: BodyOwner): BodySpan {
+  return collectBodyUntilAny(c, [ender], context, owner)
 }
 
 /**
@@ -82,14 +94,14 @@ export function collectBodyUntil(c: Cursor, ender: Keyword, context: string): Bo
  * END_GET/END_SET or an implicit close (next GET/SET/END_PROPERTY)
  * can terminate the body.
  */
-export function collectBodyUntilAny(c: Cursor, enders: readonly Keyword[], context: string): BodySpan {
+export function collectBodyUntilAny(c: Cursor, enders: readonly Keyword[], context: string, owner: BodyOwner): BodySpan {
   const startSpan = c.peek().span
   const { tokens, closer } = c.consumeBodyUntilAny({ consumeEnders: enders })
   if (closer !== undefined) {
-    return bodySpanFromTokens(tokens, joinSpans(startSpan, closer.span))
+    return codeBody(c, tokens, joinSpans(startSpan, closer.span), owner)
   }
   c.pushError(`unterminated ${context}: expected ${enders.join(" or ")}`, startSpan)
-  return bodySpanFromTokens(tokens, startSpan)
+  return codeBody(c, tokens, startSpan, owner)
 }
 
 /** Human-readable description of a token for error messages. */

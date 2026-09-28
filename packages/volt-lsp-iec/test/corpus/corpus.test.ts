@@ -42,7 +42,7 @@ import { join, relative } from "node:path"
 import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import {
   isGraphicalBody,
-  isTrivia,
+  isStBody,
   parseSource,
   parseStatements,
   type BodySpan,
@@ -102,19 +102,22 @@ function bodiesOf(u: TopLevel): BodySpan[] {
   return out
 }
 
-/** A body is graphical (network text) — not ST — when its first meaningful token is `NETWORK`. */
-function isGraphical(body: BodySpan): boolean {
-  const first = body.tokens.find((t) => !isTrivia(t.kind))
-  return first !== undefined && first.text.toUpperCase() === "NETWORK"
-}
-
 /** A span/token-free, key-sorted, body-statement-embedded string key for AST equivalence. */
 function astKey(value: unknown): string {
   const norm = (x: unknown): unknown => {
     if (Array.isArray(x)) return x.map(norm)
     if (x !== null && typeof x === "object") {
       const obj = x as Record<string, unknown>
-      if (obj.kind === "body") return { kind: "body", st: norm(parseStatements(obj as never).statements) }
+      // A body's `IMPLEMENTATION` line and a member's `%FOLDER` stand outside its tokens, so they are compared here too:
+      // comparing the statements alone passed a printer that deleted both from every file.
+      if (obj.kind === "body") {
+        const line = (obj as { implementation?: { statement: unknown; folder?: string } }).implementation
+        return {
+          kind: "body",
+          implementation: line === undefined ? null : norm({ statement: line.statement, folder: line.folder ?? null }),
+          st: norm(parseStatements(obj as never).statements),
+        }
+      }
       const out: Record<string, unknown> = {}
       for (const k of Object.keys(obj).sort()) {
         if (k === "span" || k === "tokens") continue
@@ -256,7 +259,10 @@ function pass(): Pass {
       for (const u of parseResult.units)
         for (const body of bodiesOf(u)) {
           if (body.tokens.length === 0) continue
-          if (isGraphical(body)) {
+          // Which parser reads a body is what its IMPLEMENTATION line states (`isGraphicalBody`/`isStBody`), the one
+          // signal the push reads too — never the text's first token. A read-only body (CFC/SFC/IL, LD|FBD
+          // UNSUPPORTED) is read by neither and counted by neither.
+          if (isGraphicalBody(body)) {
             // Layer F: every graphical body in the corpus is valid IDE-exported FBD/LD, so the network-text parser
             // must find its networks and emit ZERO structural errors. Duplicate name/network warnings are not
             // structural parse failures and are not counted.
@@ -266,6 +272,7 @@ function pass(): Pass {
             for (const d of vg.diagnostics) if (STRUCTURAL.has(d.code)) p.networkFailures.push(`${file} [${d.code}] ${d.message}`)
             continue
           }
+          if (!isStBody(body)) continue
           p.stBodies += 1
           const bp = parseStatements(body)
           if (!bp.ok) p.materializeFailures.push(`${file}: ${bp.firstError}`)
@@ -318,7 +325,7 @@ function pass(): Pass {
       for (const unit of parseResult.units.filter(isRunnable)) {
         const scope = scopeForUnit(lowerProject, unit)
         if (scope === undefined) continue
-        if (isGraphicalBody(unit.body)) continue // a graphical body is not ST; the network pipeline owns it
+        if (!isStBody(unit.body)) continue // a body that is not ST: the network pipeline owns a graphical one, a read-only one has none
         // the reach denominator is a body with STATEMENTS — a declaration-only POU lowers trivially and executes
         // nothing, so counting it would flatter the figure
         const hasCode = parseStatements(unit.body).statements.length > 0

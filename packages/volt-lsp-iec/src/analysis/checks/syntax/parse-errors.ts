@@ -3,7 +3,7 @@
  *
  * The syntax layer parses in two passes, each of which *collects* (never throws) its errors on a Cursor:
  *   - the TOP-LEVEL parse — unit headers, VAR sections, TYPE bodies → `parseResult.errors`
- *   - each non-graphical STATEMENT body, parsed on demand → `parseStatements(body).errors`
+ *   - each ST STATEMENT body (`isStBody`), parsed on demand → `parseStatements(body).errors`
  * Both streams are the same `ParseError` (a message + a precise span), so this check drains both into one
  * `code:"syntax-error"` diagnostic stream — a missing `THEN`, a missing `;`, a `VAR_INPUT` inside a STRUCT
  * and an unterminated section are all "the parser found bad syntax here", reported at the offending token.
@@ -16,7 +16,7 @@
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
  * `scripts/parser-completeness.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
-import { isGraphicalBody, parseStatements, unitBodies, type ParseError } from "../../../syntax/index.js"
+import { isStBody, parseStatements, unitBodies, type ParseError } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -33,7 +33,7 @@ export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void
   // Statement bodies — re-parsed here (opaque tokens at the unit level), each on its own cursor.
   for (const unit of ctx.parseResult.units) {
     for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body)) continue
+      if (!isStBody(body)) continue
       for (const e of parseStatements(body).errors) emit(e)
     }
   }

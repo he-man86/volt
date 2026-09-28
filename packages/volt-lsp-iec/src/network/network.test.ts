@@ -13,7 +13,7 @@ import {
   networkDefinition,
   networkCompletion,
   networkResolveAt,
-  networkMarkerHover,
+  readOnlyBodyHover,
   referencesAnywhere,
   renameAnywhere,
 } from "./index.js"
@@ -51,7 +51,7 @@ const LD = `FUNCTION_BLOCK FB_LD
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := (a AND b);
 END_NETWORK
@@ -63,14 +63,14 @@ test("network text: an FBD/LD body is detected as graphical, not ST", () => {
   expect(unitBodies(units[0]!).some(isGraphicalBody)).toBe(true)
 })
 
-test("network text: a graphical body is detected by its implementation marker, even with no network", () => {
-  // Network text v2 states a body's language once, on its own marker (openspec network-text-literal-nwl 3.3). A body
-  // with no network is still graphical; the bare marker is an ST body's.
+test("network text: a graphical body is detected by its IMPLEMENTATION line, even with no network", () => {
+  // A body states its language once, on its IMPLEMENTATION line (openspec implementation-keyword). A body with no
+  // network is still graphical; IMPLEMENTATION ST is an ST body's.
   const empty = parseSource(`FUNCTION_BLOCK FB_LD
 VAR
 \ta : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 END_FUNCTION_BLOCK`)
   expect(unitBodies(empty.units[0]!).map(graphicalMarkerLanguage)).toEqual(["LD"])
   expect(unitBodies(empty.units[0]!).some(isGraphicalBody)).toBe(true)
@@ -79,33 +79,32 @@ END_FUNCTION_BLOCK`)
 VAR
 \ta : BOOL;
 END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION ST
 a := TRUE;
 END_FUNCTION_BLOCK`)
   expect(unitBodies(st.units[0]!).map(graphicalMarkerLanguage)).toEqual([undefined])
   expect(unitBodies(st.units[0]!).some(isGraphicalBody)).toBe(false)
 })
 
-test("network text: a body is graphical by its first LINE, as the bridge classifies it", () => {
-  // The bridge's `NetworkText.LanguageOf` matches the body's whole first line against the marker, and `IsV1` the first
-  // non-blank line after the bare marker against v1's header. Classified by TOKEN instead — the first block comment,
-  // the first non-trivia token — a marker sharing its line with code, and a v1 header behind a comment or split over
-  // two lines, were called graphical: their ST diagnostics were suppressed for a network finding the push never gives,
-  // since the push writes each of these bodies into the IDE as Structured Text.
+test("network text: a body is graphical by its stated LINE alone, as the bridge classifies it", () => {
+  // The bridge matches the body's whole IMPLEMENTATION line (`ImplementationMarker.LanguageOf`), and nothing else
+  // decides the reader: a line sharing its line with code states no language, and text that LOOKS like a network —
+  // v1's `NETWORK 0 LD` header included — under IMPLEMENTATION ST is ST (which the ST parser refuses), never re-read.
   const body = (impl: string) => `PROGRAM P
 VAR x : INT; a : INT; END_VAR
 ${impl}
 END_PROGRAM`
   const graphical = (impl: string) => unitBodies(parseSource(body(impl)).units[0]!).some(isGraphicalBody)
 
-  expect(graphical("(* @volt-implementation FBD *) x := 1;")).toBe(false)
-  expect(graphical("(* @volt-implementation *)\n// note\nNETWORK 0 LD\nx := a;")).toBe(false)
-  expect(graphical("(* @volt-implementation *)\n(* c *) NETWORK 0 LD\nx := a;")).toBe(false)
-  expect(graphical("(* @volt-implementation *)\nNETWORK\n0 LD\nx := a;")).toBe(false)
+  expect(graphical("IMPLEMENTATION FBD x := 1;")).toBe(false)
+  expect(graphical("IMPLEMENTATION ST\n// note\nNETWORK 0 LD\nx := a;")).toBe(false)
+  expect(graphical("IMPLEMENTATION ST\n\nNETWORK 0 LD\nx := a;")).toBe(false)
+  expect(graphical("IMPLEMENTATION ST\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
+  expect(graphical("// IMPLEMENTATION FBD\nNETWORK\nx := a;\nEND_NETWORK")).toBe(false)
 
-  // …and what the bridge does read as graphical, or refuses as v1, still is.
-  expect(graphical("(* @volt-implementation FBD *)  \nNETWORK\nx := a;\nEND_NETWORK")).toBe(true)
-  expect(graphical("(* @volt-implementation *)\n\nNETWORK 0 LD\nx := a;")).toBe(true)
+  // …and what the line states as graphical is, whatever follows it.
+  expect(graphical("IMPLEMENTATION FBD  \nNETWORK\nx := a;\nEND_NETWORK")).toBe(true)
+  expect(graphical("implementation ld\n\nNETWORK 0 LD\nx := a;")).toBe(true)
 })
 
 test("network text: a single LD network with a coil parses clean", () => {
@@ -129,7 +128,7 @@ test("network text: a single LD network with a coil parses clean", () => {
 test("network text: a VAR_TEMP wire keeps its name, type and value", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 VAR_TEMP g1 : BOOL; END_VAR
 g1 := (a AND b);
@@ -153,7 +152,7 @@ END_FUNCTION_BLOCK`
 test("network text: the header parses the named LABEL/TITLE fields and DISABLED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK LABEL: skipRest TITLE: "my title" DISABLED
 out := FALSE;
 END_NETWORK
@@ -171,7 +170,7 @@ test("network text: LABEL and TITLE parse in either order (the order is the gate
   // orders, so a hand-written header is still understood while it is being typed.
   const swapped = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "t" LABEL: skipRest
 out := FALSE;
 END_NETWORK
@@ -186,7 +185,7 @@ END_FUNCTION_BLOCK`
 test("network text: DISABLED inside the title does not disable the network", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "DISABLED during commissioning"
 out := FALSE;
 END_NETWORK
@@ -197,7 +196,7 @@ END_FUNCTION_BLOCK`
 test("network text: a bare `name:` line is not a label — the label lives on the header", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 Loop:
 out := TRUE;
@@ -209,7 +208,7 @@ END_FUNCTION_BLOCK`
 test("network text: an unclosed network reports NETWORK_NOT_CLOSED", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := TRUE;
 END_FUNCTION_BLOCK`
@@ -222,7 +221,7 @@ END_FUNCTION_BLOCK`
 test("network text: a wire defined twice reports NETWORK_DUPLICATE_NAME", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 VAR_TEMP g1 : BOOL; END_VAR
 g1 := (a AND a);
@@ -238,7 +237,7 @@ test("network text: a statement before any network reports NETWORK_PARSE", () =>
   // hand-built body tokens: `out := TRUE;` with no NETWORK — force via a raw graphical-looking body.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := TRUE;
 END_NETWORK
@@ -251,7 +250,7 @@ END_FUNCTION_BLOCK`
 test("network text: EN is a pin and .ENO the rung continuing from the box", () => {
   const src = `FUNCTION_BLOCK F
 VAR c : BOOL; lamp : BOOL; status : INT; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 lamp := MOVE(EN := c, 0, => status).ENO;
 END_NETWORK
@@ -271,7 +270,7 @@ END_FUNCTION_BLOCK`
 test("network text: an FB-instance call whose output goes nowhere is a value statement", () => {
   const src = `FUNCTION_BLOCK F
 VAR tmr : TON; t : TIME; on : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 tmr(IN := on, PT := t);
 END_NETWORK
@@ -286,7 +285,7 @@ END_FUNCTION_BLOCK`
 test("network text: label, JMP and RETURN are recognised, one item each", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK LABEL: Loop
 out := TRUE;
 JMP Loop;
@@ -301,7 +300,7 @@ END_FUNCTION_BLOCK`
 test("network text: computeNetworkTextDiagnostics lifts network text errors into DiagnosticItems for the server", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := TRUE;
 END_FUNCTION_BLOCK`
@@ -321,7 +320,7 @@ END_FUNCTION_BLOCK`
 test("network text: a sink type mismatch is flagged with the SAME check/message as ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR flag : BOOL; count : INT; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 flag := count;
 END_NETWORK
@@ -333,7 +332,7 @@ END_FUNCTION_BLOCK`
 test("network text: a well-typed sink over real vars yields no code diagnostic", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := (a AND b);
 END_NETWORK
@@ -350,7 +349,7 @@ const vgUndeclared = (src: string, references?: WorkspaceRefs): string[] =>
 test("network text: an operand declared nowhere IS flagged, byte-identical to the compiler", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := nope;
 END_NETWORK
@@ -361,7 +360,7 @@ END_FUNCTION_BLOCK`
 test("network text: declared vars and VAR_TEMP wires resolve (no undeclared diagnostic)", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 VAR_TEMP g1 : BOOL; END_VAR
 g1 := (a AND b);
@@ -376,7 +375,7 @@ test("network text: R_EDGE / F_EDGE are flags on their operand, not calls of som
   // it `R_EDGE(x)`, a flag with no ST reading, so no word of the text ever reaches the undeclared check.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; a : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := R_EDGE(a);
 out := F_EDGE(NOT a);
@@ -389,7 +388,7 @@ END_FUNCTION_BLOCK`
 test("network text: a referenced-library namespace is skipped when supplied", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 out := PACK_ML.gFlag;
 END_NETWORK
@@ -406,7 +405,7 @@ test("network text: an unknown struct member IS flagged; a real one stays quiet 
   const src = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE
 FUNCTION_BLOCK F
 VAR p : Pt; out : INT; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 out := p.x;
 out := p.nope;
@@ -423,7 +422,7 @@ test("network text: a qualified_only GVL chain does NOT false-positive (lenze Ma
     "file:///Mach1.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tGenflags : UDT_GeneralFlags;\nEND_VAR`,
     "file:///HMI.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tMach1 : sUDT_HMIVar_Mach1;\nEND_VAR`,
     "file:///Types.struct": `TYPE UDT_GeneralFlags : STRUCT bReady : BOOL; END_STRUCT END_TYPE\nTYPE sUDT_HMIVar_Mach1 : STRUCT other : BOOL; END_STRUCT END_TYPE`,
-    "file:///FB_User.fb": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\n(* @volt-implementation FBD *)
+    "file:///FB_User.fb": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD
 NETWORK\nx := Mach1.Genflags.bReady;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
@@ -440,7 +439,7 @@ const vgByCode = (src: string, code: string): number => vgDiags(src).filter((d) 
 test("network text: a narrowing sink (LREAL→REAL coil) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR rv : REAL; l : LREAL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 rv := l;
 END_NETWORK
@@ -456,7 +455,7 @@ END_FUNCTION_BLOCK`
 test("network text: a conversion-arg operand that sign-changes (UINT_TO_WORD of an INT) warns like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR w : WORD; i : INT; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 w := UINT_TO_WORD(i);
 END_NETWORK
@@ -477,7 +476,7 @@ test("network text: a reset coil is the R= operator, and it is not a type mismat
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
 FUNCTION_BLOCK F
 VAR flag : BOOL; drive : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 flag R= drive;
 END_NETWORK
@@ -488,7 +487,7 @@ END_FUNCTION_BLOCK`
 test("network text: a set coil is the S= operator, and it is not a type mismatch", () => {
   const src = `FUNCTION_BLOCK F
 VAR flag : BOOL; drive : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 flag S= drive;
 END_NETWORK
@@ -502,7 +501,7 @@ test("network text: assigning a same-named enum member to a BOOL is still a mism
   const src = `TYPE DEVICE_STATE : (START, STOP, RESET); END_TYPE
 FUNCTION_BLOCK F
 VAR flag : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 flag := RESET;
 END_NETWORK
@@ -513,7 +512,7 @@ END_FUNCTION_BLOCK`
 test("network text: a bad binary operand (MOD on REAL) is flagged like ST", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : REAL; b : REAL; out : REAL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 out := (a MOD b);
 END_NETWORK
@@ -531,7 +530,7 @@ END_FUNCTION_BLOCK`
 test("network text: a JMP may target a label on ANOTHER network", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 IF a THEN JMP Done; END_IF;
 END_NETWORK
@@ -545,7 +544,7 @@ END_FUNCTION_BLOCK`
 test("network text: a JMP to an undefined label is flagged; a defined one is not", () => {
   const bad = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := TRUE;
 JMP Nowhere;
@@ -556,7 +555,7 @@ END_FUNCTION_BLOCK`
   ])
   const good = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK LABEL: Loop
 out := TRUE;
 JMP Loop;
@@ -573,7 +572,7 @@ END_FUNCTION_BLOCK
 test("network text: an unknown FB pin is flagged; a declared pin is not", () => {
   const bad = `${FB_M}FUNCTION_BLOCK F
 VAR m : FB_M; x : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 m(b := x);
 END_NETWORK
@@ -586,7 +585,7 @@ END_FUNCTION_BLOCK`
 test("network text: a box on an unresolvable (library/standard) FB is not pin-checked", () => {
   const src = `FUNCTION_BLOCK F
 VAR tmr : TON; on : BOOL; t : TIME; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 tmr(IN := on, PT := t, MADE_UP := on);
 END_NETWORK
@@ -597,7 +596,7 @@ END_FUNCTION_BLOCK`
 test("network text: a wire's type is its declaration, and it types what reads it", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; out : INT; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 VAR_TEMP g1 : BOOL; END_VAR
 g1 := a;
@@ -611,7 +610,7 @@ END_FUNCTION_BLOCK`
 test("network text: analyzeNetworkText types a wire from its VAR_TEMP declaration", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 VAR_TEMP g1 : BOOL; END_VAR
 g1 := (a AND b);
@@ -636,7 +635,7 @@ test("network text: document outline attaches networks under their POU", () => {
 
 const WIRED = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 VAR_TEMP g1 : BOOL; END_VAR
 g1 := (a AND b);
@@ -688,7 +687,7 @@ VAR Q : BOOL; END_VAR
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK F
 VAR t : Inner; done : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 done := t.Q;
 END_NETWORK
@@ -699,16 +698,24 @@ END_FUNCTION_BLOCK`
   expect(sym?.name).toBe("Q")
 })
 
-test("network text: a CFC/SFC marker hover explains the read-only graphical body (F.2e)", () => {
-  const src = `FUNCTION_BLOCK F\nVAR END_VAR\n(* @volt-graphical: CFC *)\nEND_FUNCTION_BLOCK`
+test("network text: a read-only body's line hover explains the body (F.2e)", () => {
+  const src = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION CFC\nEND_FUNCTION_BLOCK`
   const d = doc(src)
-  const off = src.indexOf("@volt-graphical")
-  const h = networkMarkerHover(d, off)
-  const value = (h as { contents: { value: string } })?.contents.value
+  const value = (readOnlyBodyHover(d, src.indexOf("CFC")) as { contents: { value: string } })?.contents.value
   expect(value).toContain("Continuous Function Chart")
   expect(value).toContain("IDE")
-  // a CFC marker body is a comment — not analyzed as network text or ST (no diagnostics)
+  // a read-only body is read by neither parser (no diagnostics)
   expect(vgDiags(src)).toEqual([])
+
+  const ld = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION LD UNSUPPORTED\nEND_FUNCTION_BLOCK`
+  const unsupported = (readOnlyBodyHover(doc(ld), ld.indexOf("UNSUPPORTED")) as { contents: { value: string } })?.contents.value
+  expect(unsupported).toContain("Ladder Diagram")
+  expect(unsupported).toContain("cannot represent")
+
+  // Only the line a body opens with answers — not an ST body, and not the line quoted in a comment.
+  const st = `FUNCTION_BLOCK F\nVAR END_VAR\n(* IMPLEMENTATION CFC *)\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK`
+  expect(readOnlyBodyHover(doc(st), st.indexOf("CFC"))).toBeUndefined()
+  expect(readOnlyBodyHover(doc(st), st.indexOf("ST\n"))).toBeUndefined()
 })
 
 // ─── cross-body references / rename: a symbol used in BOTH ST and network text bodies ─────
@@ -718,7 +725,7 @@ function crossBodyProject() {
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
     "file:///FB_ST.fb": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
-    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\n(* @volt-implementation LD *)
+    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
 NETWORK\nx := Flag;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
@@ -756,7 +763,7 @@ test("network text: a POU named EXECUTE is called backticked, and a bare EXECUTE
   // word of the text is backticked, so the call and the inline-ST box cannot be confused.
   const src = `PROGRAM P
 VAR x : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   \`EXECUTE\`(TRUE);
 END_NETWORK
@@ -768,7 +775,7 @@ END_PROGRAM`
 test("network text: EXECUTE without ( opens an inline-ST box, closed by END_EXECUTE;", () => {
   const src = `PROGRAM P
 VAR x : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   EXECUTE
   x := TRUE;
@@ -783,7 +790,7 @@ END_PROGRAM`
 test("network text: a double-quoted title is consumed, not parsed as a statement", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK TITLE: "Some title"
   VAR_TEMP g1 : BOOL; END_VAR
   g1 := a;
@@ -799,7 +806,7 @@ END_FUNCTION_BLOCK`
 test("network text: a colon in a title is not a label, and a single-quoted title is no title", () => {
   const src = (title: string) => `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: ${title}
   a := a;
 END_NETWORK
@@ -812,7 +819,7 @@ END_FUNCTION_BLOCK`
 test("network text: a quote inside a title is ST's $\" escape", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; b : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "Muting of alarm $"No bunch$""
   b := a;
 END_NETWORK
@@ -825,7 +832,7 @@ END_FUNCTION_BLOCK`
 test("network text: DISABLED still parses after a title", () => {
   const src = `FUNCTION_BLOCK F
 VAR a : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK TITLE: "T" DISABLED
   a := a;
 END_NETWORK
@@ -840,7 +847,7 @@ test("network text: EN is a pin of every box and ENO its suffix, not unknown pin
   // recorded build accepts every one.
   const src = `FUNCTION_BLOCK Outer
 VAR inner : Inner; go : BOOL; done : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   done := inner(EN := go).ENO;
 END_NETWORK
@@ -854,7 +861,7 @@ END_FUNCTION_BLOCK`
 test("network text: a pin the FB really lacks is still reported", () => {
   const src = `FUNCTION_BLOCK Outer
 VAR inner : Inner; go : BOOL; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   inner(nosuchpin := go);
 END_NETWORK
@@ -871,7 +878,7 @@ test("network text: both vendors report a JMP to a missing label, TwinCAT with a
   // v1 text, and the exception it bought went with it.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := TRUE;
 JMP Nowhere;
@@ -890,7 +897,7 @@ END_FUNCTION_BLOCK`
 
 const labelsBody = (networks: string) => `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 ${networks}
 END_FUNCTION_BLOCK`
 const labelMessages = (networks: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
@@ -928,11 +935,12 @@ test("network labels: a label nothing jumps to is the build's warning; a jump in
 
 // A v1 body is refused, and refused ONLY: its text has no reading, so no compiler message can be derived from it. The
 // token-based `???` check ran over v1 bodies anyway and reported lenze-mid's four void-call coils as targets — messages
-// the build never gives, on text the LSP had just said it does not read.
+// the build never gives, on text the LSP had just said it does not read. (v1 under a stated LD line is what a clean git
+// merge makes of an un-pushed v1 edit.)
 test("network text: a v1 body gets the re-pull finding and nothing else", () => {
   const src = `PROGRAM P
 VAR a : BOOL; END_VAR
-(* @volt-implementation *)
+IMPLEMENTATION LD
 NETWORK 0 LD
   ??? := a;
 END_NETWORK
@@ -948,7 +956,7 @@ F_Int := i;
 END_FUNCTION
 FUNCTION_BLOCK FB
 VAR a : BOOL; b : BOOL; c : BOOL; out : BOOL; iRPM : INT; s : INT; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   %s
 END_NETWORK
@@ -977,7 +985,7 @@ test("network text: the operands inside an .ENO box and an edge are still resolv
 
 test("network text: an undeclared wire-shaped name is the push's refusal, not a compiler message", () => {
   const fb = (statement: string) =>
-    `FUNCTION_BLOCK FB\nVAR out : BOOL; x : BOOL; END_VAR\n(* @volt-implementation LD *)\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+    `FUNCTION_BLOCK FB\nVAR out : BOOL; x : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   const refusal = "NETWORK_BAD_EXPRESSION: 'g5' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope."
   expect(vgDiags(fb("out := g5;")).map((d) => `${d.code}: ${d.message}`)).toEqual([refusal])
   expect(vgDiags(fb("g5 := x;")).map((d) => `${d.code}: ${d.message}`)).toEqual([refusal])
@@ -994,7 +1002,7 @@ VAR_INPUT IN : BOOL; PT : TIME; END_VAR
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK FB
 VAR a : BOOL; o : BOOL; R_EDGE : FB_T; END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   R_EDGE(IN := a, PT := T#1S);
 END_NETWORK
@@ -1010,7 +1018,7 @@ test("network text rename: a new name that is a word of the text is backticked w
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
     "file:///FB_ST.fb": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
-    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\n(* @volt-implementation LD *)
+    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
 NETWORK\nx := Flag;\nFlag := x;\nx := \`Flag OR x\`;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
@@ -1048,7 +1056,7 @@ test("network text: a marker line with trailing blanks is the marker — the bri
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
     "file:///S.prg": `PROGRAM S\nFlag := TRUE;\nEND_PROGRAM`,
-    "file:///P.prg": `PROGRAM P\nVAR x : BOOL; END_VAR\n(* @volt-implementation FBD *) \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
+    "file:///P.prg": `PROGRAM P\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
   }
   expect(projectDiags(files, "file:///P.prg")).toEqual([])
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
@@ -1062,7 +1070,7 @@ test("network text: a call of an instance whose FB TYPE is a construct word is r
   // The bridge asks the instance's type (`NetworkScope.InstanceType`) — the writer could spell none of these back.
   const edgeFb = `FUNCTION_BLOCK R_EDGE\nVAR_INPUT CLK : BOOL; END_VAR\nEND_FUNCTION_BLOCK`
   const call = (decl: string, statement: string) =>
-    `PROGRAM P\nVAR a : BOOL; ${decl} END_VAR\n(* @volt-implementation FBD *)\nNETWORK\n${statement}\nEND_NETWORK\nEND_PROGRAM`
+    `PROGRAM P\nVAR a : BOOL; ${decl} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n${statement}\nEND_NETWORK\nEND_PROGRAM`
   const refusal = "a POU named R_EDGE: the text reads R_EDGE(…) as its own construct, so a call of it has no spelling."
   expect(projectDiags({ "file:///R.fb": edgeFb, "file:///P.prg": call("e1 : R_EDGE;", "e1(CLK := a);") }, "file:///P.prg")).toEqual([
     `NETWORK_UNSUPPORTED [e1] ${refusal}`,
@@ -1086,22 +1094,23 @@ test("network text: a call of an instance whose FB TYPE is a construct word is r
 })
 
 test("network text: an ST body whose first statement starts with a variable named `network` is ST", () => {
-  // The v1 detector is v1's HEADER SHAPE, `NETWORK <n>` (the bridge's `NetworkText.IsV1Header`), not the first word.
-  const prg = `PROGRAM P\nVAR network : INT; END_VAR\n(* @volt-implementation *)\nnetwork := 1;\nEND_PROGRAM`
+  // The stated language decides, and `network := 1;` opens no network (the bridge's `NetworkText.OpensNetwork`), so
+  // it draws no "network text under ST" finding either.
+  const prg = `PROGRAM P\nVAR network : INT; END_VAR\nIMPLEMENTATION ST\nnetwork := 1;\nEND_PROGRAM`
   expect(unitBodies(parseSource(prg).units[0]!).some(isGraphicalBody)).toBe(false)
   expect(vgDiags(prg)).toEqual([])
-  const fn = `FUNCTION Network : BOOL\nVAR_INPUT x : BOOL; END_VAR\n(* @volt-implementation *)\nNetwork := x;\nEND_FUNCTION`
+  const fn = `FUNCTION Network : BOOL\nVAR_INPUT x : BOOL; END_VAR\nIMPLEMENTATION ST\nNetwork := x;\nEND_FUNCTION`
   expect(unitBodies(parseSource(fn).units[0]!).some(isGraphicalBody)).toBe(false)
   expect(vgDiags(fn)).toEqual([])
   // v1 text is still met by name, asking for a re-pull.
-  const v1 = `PROGRAM P\nVAR a : BOOL; END_VAR\n(* @volt-implementation *)\nNETWORK 0 LD\na := TRUE;\nEND_NETWORK\nEND_PROGRAM`
+  const v1 = `PROGRAM P\nVAR a : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK 0 LD\na := TRUE;\nEND_NETWORK\nEND_PROGRAM`
   expect(vgDiags(v1).map((d) => d.code)).toEqual(["NETWORK_PARSE"])
 })
 
 test("network text: a wire declared unlike its producer is the push's refusal, at the wire, and no message at its consumer", () => {
   // Spec, "a hand-edited type": the bridge reader's `CheckWireTypes`, by `NetworkSpelling.ProducerType`.
   const fb = (wires: string, def: string) =>
-    `FUNCTION_BLOCK FB\nVAR a : BOOL; b : BOOL; out : BOOL; w1 : WORD; w2 : WORD; i : INT; j : INT; END_VAR\n(* @volt-implementation LD *)\nNETWORK\nVAR_TEMP ${wires} END_VAR\n${def}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+    `FUNCTION_BLOCK FB\nVAR a : BOOL; b : BOOL; out : BOOL; w1 : WORD; w2 : WORD; i : INT; j : INT; END_VAR\nIMPLEMENTATION LD\nNETWORK\nVAR_TEMP ${wires} END_VAR\n${def}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   expect(vgDiags(fb("g1 : INT;", "g1 := (a AND b);\nout := g1;")).map((d) => `${d.code}: ${d.message}`)).toEqual([
     "NETWORK_BAD_EXPRESSION: the wire g1 is declared INT and its producer is a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD).",
   ])
@@ -1120,7 +1129,7 @@ F_Int := i;
 END_FUNCTION
 FUNCTION_BLOCK FB
 VAR o : BOOL; k : INT; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 EXECUTE
 ${line}

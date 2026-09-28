@@ -91,7 +91,7 @@ function splitItems(source: string, pouName: string, gvlNames?: readonly string[
       // the fixture STATES its kind, a DUT's subtype included — that is the name the item is pushed under
       ? `${u.kind === "global_var_list" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`
       : `${u.kind === "global_var_list" ? (gvlNames?.[lists.indexOf(u)] ?? pouName) : (u as any).name.text}.${unitExt(u)}`,
-    // MARKED on the way out. A push without `(* @volt-implementation *)` is refused, and the marker goes
+    // MARKED on the way out. A push without an `IMPLEMENTATION <LANG>` line is refused, and the line goes
     // where the PARSER says the body starts — see mark-implementations.ts. Leaving it off recorded a
     // fixture the IDE never received as `buildSuccess: true`.
     src: markImplementations(source.slice(starts[i]!, i + 1 < tops.length ? starts[i + 1]! : source.length).trimEnd() + "\n"),
@@ -198,7 +198,7 @@ const plcFolder = plcItem0.folder ?? ""
  * from, with no declarations and no body. If the live PLC_PRG differs, say so and use the derived one.
  */
 // MARKED, like every other unit this pushes — the wire refuses a program whose text does not say where its
-// declaration ends ("no '(* @volt-implementation *)' line"). Caught immediately by `pushOps`, which is the guard
+// declaration ends and what its body is (no `IMPLEMENTATION <LANG>` line). Caught immediately by `pushOps`, which is the guard
 // doing its job rather than a surprise.
 const plcPristine = markImplementations(plcPrgSource({}))
 const plcLive: string = plcItem0.sourceText

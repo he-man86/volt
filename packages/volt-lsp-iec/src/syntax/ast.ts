@@ -33,8 +33,36 @@ export interface Identifier {
  */
 export interface BodySpan {
   kind: "body"
+  /** A POU body's CODE: what the IDE holds, its keyword line (and a member's `%FOLDER` under it) taken out. */
   tokens: Token[]
   span: Span
+  /** The `IMPLEMENTATION <LANG>` line that opened the body — absent for a body that opens with anything else
+   *  (`syntax/implementation-keyword`). */
+  implementation?: ImplementationLine
+}
+
+/** What an `IMPLEMENTATION` line states (`syntax/implementation-keyword`, the bridge's `ImplementationMarker`). */
+export type ImplementationStatement =
+  /** `ST`, `LD` or `FBD`: a body a parser reads. */
+  | { kind: "read"; language: "ST" | "LD" | "FBD" }
+  /** `CFC`, `SFC`, `IL`, or `LD`/`FBD` + `UNSUPPORTED`: a body Volt cannot write, empty and read by neither parser. */
+  | { kind: "read-only"; language: string; unsupported: boolean }
+  /** The keyword alone. */
+  | { kind: "no-language" }
+  /** The keyword and something no body can state (`XYZ`, `LD;`, `ST UNSUPPORTED`, `LD // note`). */
+  | { kind: "not-a-language"; stated: string }
+
+export interface ImplementationLine {
+  /** The line as written, trimmed. */
+  text: string
+  statement: ImplementationStatement
+  /** From the keyword to the line's last word. */
+  span: Span
+  /** The words an editor colours as keywords: the whole statement when it states one, else the keyword alone. */
+  words: Token[]
+  /** The path of a member's `%FOLDER` directive on the line directly under this one — taken out of the body with the
+   *  line, and kept here so what prints the body (the formatter) prints it back. */
+  folder?: string
 }
 
 // ─── expression tree (POU bodies + all structured initializers/bounds) ───────

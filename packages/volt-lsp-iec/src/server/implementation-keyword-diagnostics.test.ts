@@ -68,7 +68,23 @@ test("IMPLEMENTATION without a language is a diagnostic on its line naming the m
 })
 
 test("an unknown language is a keyword diagnostic on its line naming it, and the body is read by neither reader", async () => {
-  for (const language of ["CFC", "SFC", "IL"]) {
+  for (const language of ["XYZ", "ST UNSUPPORTED", "CFC UNSUPPORTED"]) {
+    const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
+    const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
+    expect({ language, shown: on.some((d) => text(d).includes(language) && /language/i.test(text(d))) }).toEqual({
+      language,
+      shown: true,
+    })
+    expect({ language, readByNeither: readByNeither(ds) }).toEqual({ language, readByNeither: true })
+  }
+})
+
+/** CFC, SFC and IL are languages Volt does not read, and `LD|FBD UNSUPPORTED` states an LD/FBD body network text cannot
+ *  represent yet (owner decision 2026-09-28, section 2b): each states a READ-ONLY body, which is empty. Code under one
+ *  has nowhere to go — the push refuses it naming the item (`ReadOnlyBodyTests`) — so it is a diagnostic on the line
+ *  naming what the line states, and neither reader reads the code. */
+test("code under a read-only line is a keyword diagnostic on its line naming it, and read by neither reader", async () => {
+  for (const language of ["CFC", "SFC", "IL", "LD UNSUPPORTED", "FBD UNSUPPORTED"]) {
     const ds = await diagnostics(fb(`IMPLEMENTATION ${language}\ni := a;`))
     const on = ds.filter((d) => d.range.start.line === KEYWORD_LINE)
     // The keyword's OWN finding — it names the language and says it is one — not any parse error that echoes a token.
@@ -141,17 +157,24 @@ test("a second keyword line in a body is a diagnostic on that line", async () =>
   expect(ds.some((d) => d.range.start.line === KEYWORD_LINE + 2)).toBe(true)
 })
 
-/** A body Volt cannot write (CFC, SFC, IL, an unrepresentable network) is pulled with its `(* @volt-graphical: … *)`
- *  marker line standing where the keyword would: it states the body has no text form, where `IMPLEMENTATION ST`
- *  would have labelled a chart Structured Text. Such a file is what a pull writes, so it draws no diagnostic. */
-test("a body stated by its marker line draws no diagnostic, and the members around it are still read", async () => {
+/** A body Volt cannot write (CFC, SFC, IL, an unrepresentable network) is pulled with its read-only line —
+ *  `IMPLEMENTATION CFC|SFC|IL` or `IMPLEMENTATION LD|FBD UNSUPPORTED` — over an empty body, `%FOLDER` under it for a
+ *  member in a folder (section 2b): it states the body has no text form, where `IMPLEMENTATION ST` would have labelled
+ *  a chart Structured Text. Such a file is what a pull writes, so it draws no diagnostic. */
+test("a body stated by its read-only line draws no diagnostic, and the members around it are still read", async () => {
+  for (const line of ["CFC", "SFC", "IL", "LD UNSUPPORTED", "FBD UNSUPPORTED"])
+    expect({ line, shown: shown(await diagnostics(fb(`IMPLEMENTATION ${line}\n`))) }).toEqual({ line, shown: [] })
+
+  // The members are CALLED from the body: CODESYS compiles only what is used, so the LSP says nothing about a member
+  // nothing calls — and a member nothing calls would draw no diagnostic whatever its line said.
   const src =
-    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n" +
-    "\nMETHOD Chart\n(* @volt-graphical: SFC *)\nEND_METHOD\n" +
-    "\nMETHOD Run\nIMPLEMENTATION ST\ni := a;\nEND_METHOD\n"
-  // Exactly the ST member's type error, on its line (15): the markers draw nothing, and Run is analysed as the ST
-  // its keyword states.
-  expect((await diagnostics(src)).map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual(["15: C0032"])
+    "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\ti : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := a;\nChart();\nLadder();\nStep();\nEND_FUNCTION_BLOCK\n" +
+    "\nMETHOD Chart\nIMPLEMENTATION SFC\nEND_METHOD\n" +
+    "\nMETHOD Ladder\nIMPLEMENTATION LD UNSUPPORTED\n%FOLDER Sub/Deep\nEND_METHOD\n" +
+    "\nACTION Step\nIMPLEMENTATION CFC\nEND_ACTION\n"
+  // Exactly the ST body's type error, on its line (6): the read-only members draw nothing, and the body is analysed
+  // as the ST its keyword states.
+  expect((await diagnostics(src)).map((d) => `${d.range.start.line}: ${String(d.code)}`)).toEqual(["6: C0032"])
 })
 
 test("network text under IMPLEMENTATION ST is a diagnostic — read as ST, never as a network", async () => {

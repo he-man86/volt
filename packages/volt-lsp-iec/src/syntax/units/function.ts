@@ -34,7 +34,7 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
   }
 
   const varSections = collectVarSections(c)
-  const body = collectBodyUntil(c, "END_FUNCTION", "function")
+  const body = collectBodyUntil(c, "END_FUNCTION", "function", "pou-or-accessor")
 
   return {
     kind: "function",

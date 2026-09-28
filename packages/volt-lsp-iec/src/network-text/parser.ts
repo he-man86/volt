@@ -18,11 +18,10 @@
  * hover, rename and the type checks still see them. Recovery skips to the network's END_NETWORK, as the bridge's does.
  */
 import {
-  BARE_MARKER_LINE,
-  type BodyForm,
   type BodySpan,
-  bodyForm,
   type Expr,
+  graphicalMarkerLanguage,
+  implementationLine,
   type Span,
   type StatementList,
   type Token,
@@ -189,17 +188,17 @@ class Parser {
       span: this.body.span,
     })
 
-    // The body's form by its LINES — `syntax/bodyForm`, the classifier `isGraphicalBody` asks too, so a body this parser
-    // reads no network of is never one the ST checks were told to skip.
-    const form = bodyForm(this.text)
-    if (form.kind !== "graphical") {
-      this.refuseUnmarked(form)
+    // The body's language is the one its IMPLEMENTATION line STATES (`syntax/implementation-keyword`), and this parser
+    // reads only LD and FBD — the classifier `isGraphicalBody` asks the same question, so a body this parser reads no
+    // network of is never one the ST checks were told to skip. The line is not in the body's tokens: the text below is
+    // all network text.
+    const language = graphicalMarkerLanguage(this.body)
+    if (language === undefined) {
+      this.refuseUnstated()
       return result()
     }
-
-    const language = form.language
     this.language = language
-    this.lx = new NetworkLexer(this.text, form.marker.end)
+    this.lx = new NetworkLexer(this.text, 0)
     for (;;) {
       const t = this.peekSafe()
       if (t === undefined) continue // a lexical error, reported; the lexer moved past it
@@ -224,19 +223,16 @@ class Parser {
     return result(language)
   }
 
-  /** A body without a graphical marker on its first line: the bridge's three messages, v1 text by name (its header is
-   *  where the push's pre-flight, `RefuseV1`, points). */
-  private refuseUnmarked(form: Exclude<BodyForm, { kind: "graphical" }>): void {
-    if (form.kind === "v1") {
-      const at = form.header
-      this.report(new ParseError("NETWORK_PARSE", v1Refusal("`NETWORK <n> <LANG>` headers"), at.start, Math.max(1, at.text.length)))
-      return
-    }
-    const first = form.first
-    const message = BARE_MARKER_LINE.test(first.text)
-      ? "the body carries the bare ST marker (* @volt-implementation *); a graphical body carries (* @volt-implementation FBD *) or (* @volt-implementation LD *)."
-      : "a graphical body starts with its implementation marker, (* @volt-implementation FBD *) or (* @volt-implementation LD *), on its first line."
-    this.report(new ParseError("NETWORK_PARSE", message, first.start, Math.max(1, first.text.length)))
+  /** A body whose line states no network language: the bridge reader's messages (`NetworkTextReader.ParseBody`). */
+  private refuseUnstated(): void {
+    const opens = `${implementationLine("FBD")} or ${implementationLine("LD")}`
+    const line = this.body.implementation
+    const message =
+      line === undefined
+        ? `a graphical body opens with the line stating its language, ${opens}, on its first line.`
+        : `the body states '${line.text}' — a network-text body opens with ${opens}` +
+          (line.statement.kind === "no-language" ? "; this line states no language." : ".")
+    this.report(new ParseError("NETWORK_PARSE", message, 0, 1))
   }
 
   /** After an error: skip to the end of the network it is in, so the next one is still read. */

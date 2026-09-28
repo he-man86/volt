@@ -49,6 +49,8 @@ export interface LibraryManifest {
  *  - 2: FUNCTIONs without a return type are rendered; format 1 skipped them, so a call to one read as undefined here,
  *    where a library is known only through its materialization.
  *  - 3: graphical bodies are network text v2; format 2 wrote v1, which this server refuses body by body.
+ *  - 4: every body states its language on an `IMPLEMENTATION <LANG>` line; format 3 marked the boundary with a comment,
+ *    so no body in it states a language and a graphical one reads as ST (openspec implementation-keyword).
  *
  * The LAST row IS the format this server reads (`MATERIALIZATION`), so bumping it is adding a row: a separate number
  * beside this list could move without it, and the stale warning then printed an empty clause instead of failing.
@@ -56,6 +58,7 @@ export interface LibraryManifest {
 export const MATERIALIZATION_FORMATS: readonly (readonly [format: number, lacks: string])[] = [
   [2, "it skipped FUNCTIONs without a return type, so a call to one reads as undefined"],
   [3, "its graphical bodies are network text v1, which this language server does not read"],
+  [4, "its bodies mark where they start with a comment instead of an IMPLEMENTATION line, so none states its language"],
 ]
 
 /**

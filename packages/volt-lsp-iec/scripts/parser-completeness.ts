@@ -14,7 +14,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseSource, parseStatements, unitBodies, isGraphicalBody } from "../src/syntax/index.js"
+import { parseSource, parseStatements, unitBodies, isStBody } from "../src/syntax/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
@@ -36,7 +36,7 @@ for (const f of walk(CORPUS)) {
   declErr += pr.errors.length
   for (const unit of pr.units)
     for (const body of unitBodies(unit)) {
-      if (isGraphicalBody(body)) continue
+      if (!isStBody(body)) continue
       bodies++
       const r = parseStatements(body)
       if (r.ok) ok++

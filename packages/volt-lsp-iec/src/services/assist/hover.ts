@@ -29,7 +29,7 @@ export function hover(doc: Document, project: Scope, offset: number): Hover | un
 /**
  * Hover for a pragma — the directive (`{IF …}`, `{region …}`) or the `{attribute '<name>'}` name under the
  * cursor, described from the reference catalog. Pragmas are lexer trivia (`tokenAtOffset` skips them), so
- * re-lex for the `pragma` token spanning the offset. Wired as a hover fallback (like `networkMarkerHover`).
+ * re-lex for the `pragma` token spanning the offset. Wired as a hover fallback.
  */
 export function pragmaHover(doc: Document, offset: number): Hover | undefined {
   for (const t of lex(doc.source)) {

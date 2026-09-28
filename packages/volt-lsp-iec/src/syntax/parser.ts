@@ -33,6 +33,8 @@ import { parseProgram } from "./units/program.js"
 import { parseProperty } from "./units/property.js"
 import { parseTypeDecl } from "./units/type-decl.js"
 import { describeToken, skipFolderDirective } from "./util.js"
+import { unitBodies } from "./bodies.js"
+import { opensKeywordLine, reportReservedNames, reportRetiredComments } from "./implementation-keyword.js"
 
 /** Convenience wrapper — parse source text directly. `dialect` is the lexer's vocabulary; see `lex`. */
 export function parseSource(src: string, dialect: Dialect = "codesys"): ParseResult {
@@ -63,7 +65,27 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
   }
 
+  reportReservedNames(tokens, claimedKeywordLines(units), (message, span) => c.pushError(message, span))
+  reportRetiredComments(tokens, (message, span) => c.pushError(message, span))
   return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations() }
+}
+
+/** The `IMPLEMENTATION` tokens the body splitter owns — each body's boundary keyword, and every keyword opening a line
+ *  of its shape inside a body, which the splitter reports as a second line — so the reserved-name rule does not report
+ *  the same line again as a name. By offset: a body's tokens are the stream's own objects, but the offset says it
+ *  without relying on that. */
+function claimedKeywordLines(units: readonly TopLevel[]): (t: Token) => boolean {
+  const at = new Set<number>()
+  const visit = (unit: TopLevel): void => {
+    if (unit.kind === "namespace") return unit.units.forEach(visit)
+    for (const body of unitBodies(unit)) {
+      const keyword = body.implementation?.words[0]
+      if (keyword !== undefined) at.add(keyword.span.start)
+      body.tokens.forEach((t, i) => opensKeywordLine(body.tokens, i) && at.add(t.span.start))
+    }
+  }
+  units.forEach(visit)
+  return (t) => at.has(t.span.start)
 }
 
 const TOP_LEVEL_DISPATCH: readonly Keyword[] = [

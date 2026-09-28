@@ -156,7 +156,7 @@ test("server: didOpen pushes network-text diagnostics for a graphical body", asy
     client.onNotification(PublishDiagnosticsNotification.type, (p) => resolve(p as never))
   })
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
-  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
+  const vg = `FUNCTION_BLOCK F\nVAR out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK` // no END_NETWORK
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
   })
@@ -205,7 +205,7 @@ test("server: a dead FB's diagnostics are suppressed by default, emitted with di
 
 test("server: hover inside a network-text body resolves a wire's declared type", async () => {
   const client = connect()
-  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := (a AND b);\nout := g1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const vg = `FUNCTION_BLOCK F\nVAR a : BOOL; b : BOOL; out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := (a AND b);\nout := g1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: URI, languageId: "iecst", version: 1, text: vg },
@@ -739,7 +739,7 @@ test("server: a library an older bridge materialized is told to re-pull — on i
     `LIBRARY ${name}\nNAMESPACE ${name}\nRESOLUTION ${name}, 1.0.0.0 (x)\nPLACEHOLDER true\nSYSTEM true\n${materialization}`
   const dir = tempWorkspace({
     "Library Manager/Old/Old.library": lib("Old", ""),
-    "Library Manager/New/New.library": lib("New", "MATERIALIZATION 3\n"),
+    "Library Manager/New/New.library": lib("New", `MATERIALIZATION ${MATERIALIZATION}\n`),
     "PLC_PRG.prg": PRG,
     "E_Mode.enum": ENUM,
   })
@@ -759,12 +759,14 @@ test("server: a library an older bridge materialized is told to re-pull — on i
   rmSync(dir, { recursive: true, force: true })
 })
 
-/** A graphical body the way format 2 wrote it: network text v1, behind the bare marker. */
+/** A graphical body the way format 2 wrote it: network text v1, behind the retired bare comment marker. */
 const V1_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation *)\nNETWORK 0 LD\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
-/** …and the way format 3 writes it: network text v2. */
-const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+/** …the way format 3 wrote it: network text v2, behind the retired comment marker naming its language… */
+const RETIRED_MARKER_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+/** …and the way format 4 writes it: network text v2 under the line that states its language. */
+const V2_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 /** …and a format-3 body with a network-text finding of its own: a wire used without its VAR_TEMP declaration. */
-const V2_FLAWED_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\n  g5 := a;\n  out := g5;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
+const V2_FLAWED_BODY = `FUNCTION_BLOCK F\nVAR a : BOOL; out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  g5 := a;\n  out := g5;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK`
 
 /** Every diagnostic of a workspace, by file name. */
 async function workspaceDiagnostics(files: Record<string, string>) {
@@ -795,6 +797,20 @@ test("server: a workspace an OLDER Volt pulled is told once, on its manifests �
   expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
   expect(manifest[0]!.message).toContain("network text v1")
   expect(manifest[0]!.message).toContain("volt pull")
+  expect(diags.get("F.fb") ?? []).toEqual([])
+})
+
+test("server: a workspace format 3 pulled is told once that its bodies state no language — its ladders are not ST errors", async () => {
+  // Format 3 marked the boundary with a comment: to this server a line-less ladder is an ST body, and every rung a
+  // parse error. The manifest names the re-pull, and the bodies that state no language stay quiet.
+  const diags = await workspaceDiagnostics({
+    "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 3\n"),
+    "F.fb": RETIRED_MARKER_BODY,
+  })
+  const manifest = diags.get("Standard.library") ?? []
+  expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
+  expect(manifest[0]!.message).toContain("IMPLEMENTATION line")
+  expect(manifest[0]!.message).not.toContain("network text v1")
   expect(diags.get("F.fb") ?? []).toEqual([])
 })
 
@@ -829,9 +845,21 @@ test("server: a workspace at the LSP's own materialization says nothing about it
   expect(diags.get("F.fb") ?? []).toEqual([])
 })
 
-test("server: without the mismatch the v1 body still gets its own re-pull finding", async () => {
-  // No manifest states a format (a workspace with no library): the body is the only place left to say it.
-  const diags = await workspaceDiagnostics({ "F.fb": V1_BODY })
+test("server: without a manifest, a file an older Volt pulled is told to `volt pull` on its comment — its ladder is not ST errors", async () => {
+  // No manifest states a format (a workspace with no library), so the file itself is the only place left to say it —
+  // and it does: every Volt before the line wrote a `(* @volt-… *)` comment, which the push refuses naming `volt pull`
+  // wherever it stands. The LSP says the same on the comment. The body under it states no language, so read as ST
+  // every rung would be a parse error meaning only "this file is from an older Volt": those stay quiet.
+  for (const [format, body] of [["format 2 (v1)", V1_BODY], ["format 3", RETIRED_MARKER_BODY]] as const) {
+    const messages = [...new Set(((await workspaceDiagnostics({ "F.fb": body })).get("F.fb") ?? []).map((d) => d.message))]
+    expect({ format, count: messages.length, pull: messages[0]?.includes("volt pull") }).toEqual({ format, count: 1, pull: true })
+  }
+})
+
+test("server: network text v1 under a stated LD line is refused as v1, naming the re-pull — as the push refuses it", async () => {
+  // Not a shape any Volt wrote (v1 files carry the retired comment, above), but one an engineer can: the bridge's
+  // `NetworkText.V1Refusal` meets it wherever the network-text reader reads, and so does the LSP.
+  const diags = await workspaceDiagnostics({ "F.fb": V1_BODY.replace("(* @volt-implementation *)", "IMPLEMENTATION LD") })
   expect((diags.get("F.fb") ?? []).some((d) => d.message.includes("re-pull"))).toBe(true)
 })
 

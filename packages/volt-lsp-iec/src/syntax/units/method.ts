@@ -75,7 +75,7 @@ export function parseMethod(c: Cursor): Method | undefined {
   const returnType = parseOptionalReturnType(c)
 
   const varSections = collectVarSections(c)
-  const body = collectBodyUntil(c, "END_METHOD", "method")
+  const body = collectBodyUntil(c, "END_METHOD", "method", "member")
 
   return {
     kind: "method",

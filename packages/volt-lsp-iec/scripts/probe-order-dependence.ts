@@ -9,7 +9,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { isGraphicalBody, parseSource, parseStatements, type TopLevel } from "../src/syntax/index.js"
+import { isStBody, parseSource, parseStatements, type TopLevel } from "../src/syntax/index.js"
 import { isLibrarySymbol, scopeForUnit } from "../src/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { loweringProject, walkSources } from "../test/corpus/support/project.js"
@@ -35,7 +35,7 @@ function routinesFor(dir: string, files: string[]): Map<string, string> {
     for (const unit of parseResult.units.filter(isRunnable)) {
       const scope = scopeForUnit(lowering.project, unit)
       if (scope === undefined) continue
-      if (isGraphicalBody(unit.body)) continue
+      if (!isStBody(unit.body)) continue
       const hasCode = parseStatements(unit.body).statements.length > 0
       try {
         const { pou } = lowerUnit(unit, scope, lowering)

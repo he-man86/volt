@@ -11,7 +11,14 @@ function normalize(value: unknown): unknown {
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>
     if (obj.kind === "body") {
-      return { kind: "body", statements: normalize(parseStatements(obj as never).statements) }
+      // The body's `IMPLEMENTATION` line and a member's `%FOLDER` under it are compared too: they are out of the body's
+      // tokens, so a gate that looked at the statements alone passed a printer that deleted both from every file.
+      const line = (obj as { implementation?: { statement: unknown; folder?: string } }).implementation
+      return {
+        kind: "body",
+        implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder },
+        statements: normalize(parseStatements(obj as never).statements),
+      }
     }
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(obj)) {
@@ -206,4 +213,49 @@ test("formatting keeps a declaration's REF=, which is a bind and not an assignme
   expect(out).toContain("v : UDINT := 7")
   // the round-trip the corpus gate makes over every file
   expect(normalize(parseSource(out).units)).toEqual(normalize(parseSource(src).units))
+})
+
+/**
+ * THE `IMPLEMENTATION` LINE AND A MEMBER'S `%FOLDER` SURVIVE FORMATTING. Both stand OUTSIDE a body's tokens (the line
+ * is no code in any language, and the folder is metadata under it), so a printer that rebuilt a body from its tokens
+ * alone deleted them: an LD body lost the line that states its language and read as ST, every rung a parse error, and
+ * a member lost its folder, which the next push then took for "no folder" and moved the member to the POU's root.
+ */
+test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER under it", () => {
+  const cases: Record<string, { src: string; kept: string[] }> = {
+    "an ST function block": {
+      src: "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := x + 1;\nEND_FUNCTION_BLOCK\n",
+      kept: ["END_VAR\nIMPLEMENTATION ST\nx := x + 1;\n"],
+    },
+    "a ladder": {
+      src: "FUNCTION_BLOCK G\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
+      kept: ["END_VAR\nIMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n"],
+    },
+    "a method in a folder": {
+      src: "METHOD M : INT\nIMPLEMENTATION ST\n%FOLDER Sub/Deep\nM := 1;\nEND_METHOD\n",
+      kept: ["IMPLEMENTATION ST\n%FOLDER Sub/Deep\nM := 1;\n"],
+    },
+    "an action in a folder": {
+      src: "ACTION A\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\nEND_ACTION\n",
+      kept: ["ACTION A\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\n"],
+    },
+    "a read-only member in a folder": {
+      src: "METHOD Chart\nIMPLEMENTATION CFC\n%FOLDER Sub\nEND_METHOD\n",
+      kept: ["METHOD Chart\nIMPLEMENTATION CFC\n%FOLDER Sub\nEND_METHOD"],
+    },
+    "a property's accessors": {
+      src: "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nSET\nIMPLEMENTATION FBD UNSUPPORTED\nEND_SET\nEND_PROPERTY\n",
+      kept: ["IMPLEMENTATION ST\nP := 1;\nEND_GET","IMPLEMENTATION FBD UNSUPPORTED\nEND_SET"],
+    },
+  }
+  for (const [name, { src, kept }] of Object.entries(cases)) {
+    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+    const out = formatDocument(doc)
+    for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
+    astEqual(doc.parseResult, parseSource(out))
+    // Range formatting prints the same units.
+    const ranged = formatRange(doc, { start: { line: 0, character: 0 }, end: { line: src.split("\n").length - 1, character: 0 } })
+    for (const k of kept)
+      expect({ name, kept: ranged.some((e) => e.newText.includes(k)) }).toEqual({ name, kept: true })
+  }
 })

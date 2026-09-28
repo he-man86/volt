@@ -18,7 +18,7 @@ const messages = (source: string): string[] => {
 test("a wire declared STRING(10) keeps the length a message prints", () => {
   const src = `FUNCTION_BLOCK F
 VAR s10 : STRING(10); i : INT; END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 VAR_TEMP g1 : STRING(10); END_VAR
 g1 := s10;
@@ -31,7 +31,7 @@ END_FUNCTION_BLOCK`
 /** A POU whose FBD body is one network of `lines`. */
 const fbd = (vars: string, lines: string): string => `PROGRAM P
 VAR ${vars} END_VAR
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
 ${lines}
 END_NETWORK

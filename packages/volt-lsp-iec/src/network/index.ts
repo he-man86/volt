@@ -10,7 +10,7 @@ export { documentSymbolsWithVg } from "./network-symbols.js"
 export {
   inNetworkText,
   networkHover,
-  networkMarkerHover,
+  readOnlyBodyHover,
   networkDefinition,
   networkTypeDefinition,
   networkCompletion,

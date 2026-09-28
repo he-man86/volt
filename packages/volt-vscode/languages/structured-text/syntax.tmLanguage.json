@@ -21,6 +21,9 @@
       "include": "#strings"
     },
     {
+      "include": "#implementation-line"
+    },
+    {
       "include": "#numeric-literals"
     },
     {
@@ -158,6 +161,24 @@
         }
       ]
     },
+    "implementation-line": {
+      "comment": "The line that ends a body's declaration and states its language: IMPLEMENTATION ST|LD|FBD, or IMPLEMENTATION CFC|SFC|IL / LD|FBD UNSUPPORTED for a body Volt cannot write (openspec implementation-keyword). Volt's own line, not IEC: the push strips it. Matched as a WHOLE line, as the LSP (syntax/implementation-keyword) and the bridge (ImplementationMarker) match it, so a look-alike after code or before a comment is not coloured as one; UNSUPPORTED only after LD or FBD. Comments come first in the pattern list, so a line inside a block comment stays comment.",
+      "match": "(?i)^\\s*(IMPLEMENTATION)[ \\t]+(?:(ST|CFC|SFC|IL)|(LD|FBD)(?:[ \\t]+(UNSUPPORTED))?)[ \\t]*$",
+      "captures": {
+        "1": {
+          "name": "keyword.other.implementation.structured-text"
+        },
+        "2": {
+          "name": "keyword.other.implementation.language.structured-text"
+        },
+        "3": {
+          "name": "keyword.other.implementation.language.structured-text"
+        },
+        "4": {
+          "name": "keyword.other.implementation.structured-text"
+        }
+      }
+    },
     "numeric-literals": {
       "patterns": [
         {
@@ -231,7 +252,7 @@
     "operators": {
       "patterns": [
         {
-          "comment": "Assignment, output-parameter assignment, and ExST's set/reset/reference-rebind forms (S=, R=, REF= — docs/codesys-reference/01-languages-and-editors.md). The lexer has tokenised all three since it was written; the grammar did not colour them, so they read as a plain identifier followed by a comparison. Network text spells a coil's storage with S=/R=, which is what made the gap worth closing. The leading \\b keeps `flagS=` an identifier, and the alternation is ordered longest-first so REF= is not read as an F= that never existed.",
+          "comment": "Assignment, output-parameter assignment, and ExST's set/reset/reference-rebind forms (S=, R=, REF= \u2014 docs/codesys-reference/01-languages-and-editors.md). The lexer has tokenised all three since it was written; the grammar did not colour them, so they read as a plain identifier followed by a comparison. Network text spells a coil's storage with S=/R=, which is what made the gap worth closing. The leading \\b keeps `flagS=` an identifier, and the alternation is ordered longest-first so REF= is not read as an F= that never existed.",
           "match": "\\b(?:REF|S|R)=|:=|=>",
           "name": "keyword.operator.assignment.structured-text"
         },

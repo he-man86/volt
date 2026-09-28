@@ -27,7 +27,7 @@ const GRAPHICAL = `FUNCTION_BLOCK FB
 VAR
 \ta : BOOL; out : BOOL; g2 : BOOL; st : INT;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK TITLE: "A title" DISABLED
   VAR_TEMP g1 : BOOL; END_VAR
   g1 := R_EDGE(a);
@@ -110,7 +110,7 @@ VAR
 \tExecute : Inner;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   Execute(x := TRUE);
 END_NETWORK

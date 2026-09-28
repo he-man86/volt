@@ -28,7 +28,7 @@ import {
   type CallArg,
   declarationAttributes,
   type Expr,
-  isGraphicalBody,
+  isStBody,
   memberAttributes,
   parseSource,
   parseActive,
@@ -65,11 +65,11 @@ export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, l
   if (unit.kind !== "program" && unit.kind !== "function_block")
     return { diagnostics: [lowerDiagnostic("unit-kind", `${unit.kind} is not lowered yet`, unit.span)] }
 
-  // A graphical body holds no statements, so `parseActive` returns an empty list rather than an error —
-  // which would lower to a POU that "succeeds" and does nothing. Refuse it explicitly; FBD/LD reach the
-  // backend through network text, not through here.
-  if (isGraphicalBody(unit.body))
-    return { diagnostics: [lowerDiagnostic("graphical-body", "a graphical body is not lowered here", unit.span)] }
+  // A body the ST parser does not read — network text, or a read-only CFC/SFC/IL body, which is empty — would lower to
+  // a POU that "succeeds" and does nothing. Refuse it explicitly; FBD/LD reach the backend through network text, not
+  // through here.
+  if (!isStBody(unit.body))
+    return { diagnostics: [lowerDiagnostic("graphical-body", "a body that is not ST is not lowered here", unit.span)] }
 
   const lowering = new Lowering(scope, project, newShared(attributes, unit.name.text, libraryUnits))
   lowering.isRoot = true

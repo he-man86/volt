@@ -28,7 +28,7 @@ import {
 } from "../symbols/index.js"
 import { pathToFileURL } from "node:url"
 import { rangeFromSpan } from "../services/index.js"
-import type { Document } from "../syntax/index.js"
+import { type BodySpan, type Document, isRetiredComment, type Span, type TopLevel, unitBodies } from "../syntax/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
 
 const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
@@ -71,6 +71,24 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
   const dead = owner !== undefined && store.deadSet().has(owner)
   // Excluded/uncalled methods inside this (live) file — keyed by the resolved doc URI (matches the store map).
   const dm = dead ? undefined : store.deadMembers().get(d.uri)
+  // A workspace another materialization wrote holds bodies in a form this server does not read — an older Volt wrote
+  // no `IMPLEMENTATION` line (its boundary was a comment, and a graphical body behind it was network text v1 or v2), a
+  // newer one may state what this server cannot. Its manifests say so once (`libraryManifestDiagnostics`); flagging
+  // every body as well would bury that one sentence under findings that all mean the same thing — and a line-less
+  // ladder is ST to this server, so every rung would be a parse error. So under a mismatch the bodies that state no
+  // language are quiet, and no network-text finding is given.
+  //
+  // With no manifest to say it (a workspace with no library), the file says it itself: an older Volt's
+  // `(* @volt-… *)` comment is reported naming `volt pull` (`reportRetiredComments`), as the push refuses it. The
+  // body such a comment stands in, stating no language, is quiet the same way — but for that one finding.
+  const otherFormat = materializationMismatch(store.workspaceRefs.libraryManifests)
+  const bodies = unstatedBodies(d.parseResult.units)
+  const unstated = otherFormat ? bodies : bodies.filter((b) => b.tokens.some(isRetiredComment))
+  const retired = otherFormat ? [] : unstated.flatMap((b) => b.tokens.filter(isRetiredComment).map((t) => t.span))
+  const inUnstated = (span: Span): boolean =>
+    unstated.some((b) => span.start >= b.span.start && span.end <= b.span.end) &&
+    !retired.some((r) => r.start === span.start && r.end === span.end)
+  const quiet = (span: Span): boolean => inDeadMember(span, dm) || inUnstated(span)
   const items = dead
     ? []
     : computeSemanticDiagnostics({
@@ -80,23 +98,26 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
         config: store.config,
         references: store.workspaceRefs,
         uri: d.uri,
-      }).filter((it) => !inDeadMember(it.span, dm))
-  // A workspace another materialization wrote holds its graphical bodies in a form this server does not read — v1
-  // from an older Volt, a later one from a newer. Its manifests say so once (`libraryManifestDiagnostics`); flagging
-  // every body as well would bury that one sentence under a finding per POU that all mean the same thing.
-  const otherFormat = materializationMismatch(store.workspaceRefs.libraryManifests)
+      }).filter((it) => !quiet(it.span))
   return [
     ...items.map(toLspDiagnostic),
     ...(dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messages, store.workspaceRefs))
       .filter((it) => !inDeadMember(it.span, dm))
       .map(toLspDiagnostic),
-    ...d.parseResult.errors.map((e) => ({
+    ...d.parseResult.errors.filter((e) => !inUnstated(e.span)).map((e) => ({
       range: rangeFromSpan(e.span),
       severity: DiagnosticSeverity.Error,
       source: "volt-lsp-iec",
       message: e.message,
     })),
   ]
+}
+
+/** The bodies that state no language — no `IMPLEMENTATION` line opens them. */
+function unstatedBodies(units: readonly TopLevel[]): BodySpan[] {
+  return units.flatMap((u) =>
+    u.kind === "namespace" ? unstatedBodies(u.units) : unitBodies(u).filter((b) => b.implementation === undefined),
+  )
 }
 
 /**

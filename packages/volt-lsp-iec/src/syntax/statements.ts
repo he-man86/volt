@@ -16,7 +16,7 @@
 import type { Span } from "./span.js"
 import type { Keyword, Token } from "./tokens.js"
 import { Cursor, describeToken } from "./cursor.js"
-import { identFromToken, skipFolderDirective } from "./util.js"
+import { identFromToken } from "./util.js"
 import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js"
 import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "./ast.js"
 
@@ -90,8 +90,6 @@ const STMT_SYNC: readonly Keyword[] = [
 function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
-    // `%FOLDER <path>` is bridge folder metadata prepended to a child body — skip it like trivia.
-    if (skipFolderDirective(cur)) continue
     const before = cur.mark()
     const s = parseStatement(cur)
     if (s !== undefined) {

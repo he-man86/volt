@@ -14,7 +14,7 @@
 import {
   type CallArg,
   type Expr,
-  isGraphicalBody,
+  isStBody,
   parseActive,
   type Property,
   type Span,
@@ -542,7 +542,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     const scope = findChildScope(frame === undefined ? lw.project : sym.owner, sym.name)
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
-    if (isGraphicalBody(ast.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
+    if (!isStBody(ast.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
     const parsed = parseActive(ast.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     if (isBodylessLibrary(lw, ast, parsed.statements))
@@ -684,7 +684,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const unmeasured = part.varSections.find((s) => s.sectionKind !== "VAR" && s.sectionKind !== "VAR_TEMP")
     if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
-    if (isGraphicalBody(part.body)) return lw.bail("graphical-body", `${name} has a graphical body`, span)
+    if (!isStBody(part.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
     const parsed = parseActive(part.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     if (isBodylessLibrary(lw, ast, parsed.statements))
@@ -799,7 +799,7 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
   return once(lw, name, span, () => {
     const chain = chainOf(lw, unit)
     if (chain === undefined) return lw.bail("call-base", `a base of ${unit.name.text} has no body lowering can reach`, span)
-    if (isGraphicalBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has a graphical body`, span)
+    if (!isStBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has no ST body`, span)
     const parsed = parseActive(unit.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
     if (isBodylessLibrary(lw, unit, parsed.statements))
@@ -1300,7 +1300,7 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const unit = pending.unit
   const chain = chainOf(lw, unit)
   if (chain === undefined) return lw.fail(pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
-  if (isGraphicalBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has a graphical body`, span)
+  if (!isStBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has no ST body`, span)
   const parsed = parseActive(unit.body)
   if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
   if (isBodylessLibrary(lw, unit, parsed.statements))

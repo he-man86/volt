@@ -100,11 +100,52 @@ The `(* @volt-graphical: <what> *)` comment goes too: no `(* @volt-… *)` comme
 
 ## 3. LSP and editor
 
-- [ ] 3.1 One LSP module for the keyword and line regex (the read-only forms included; the `@volt-graphical` comment gone); `bodies.ts`, the network-text parser, semantic tokens,
+- [x] 3.1 One LSP module for the keyword and line regex (the read-only forms included; the `@volt-graphical` comment gone); `bodies.ts`, the network-text parser, semantic tokens,
       folding, diagnostics, `mark-implementations.ts` and `record-language.ts` use it and pick the body's reader from
       the stated language.
-- [ ] 3.2 volt-vscode TextMate: `IMPLEMENTATION` and `ST`/`LD`/`FBD` highlighted as keywords, with a grammar test.
-- [ ] 3.3 Conformance fixtures and LSP tests rewritten; `bun typecheck` and `bun test` green.
+      `src/syntax/implementation-keyword.ts` holds the spelling (the bridge's two patterns, `statementOf`,
+      `implementationLine`) and `splitImplementation`, which every POU body goes through (`util.codeBody`): the line
+      (and a member's `%FOLDER` under it) is taken OUT of `BodySpan.tokens` and kept as `BodySpan.implementation`, so
+      the ST parser, the network parser and `fixture-units` read the code alone. The line is the body's first
+      significant token opening a whole line of the keyword's shape (comments are their own tokens, nested ones
+      included). `bodyReader`/`isGraphicalBody`/`isStBody` read the stated language only; every ST consumer (parse
+      errors, symbol bodies, folding, selection, lowering, the scripts) asks `isStBody`, so a read-only body is read by
+      neither. Reported as parse errors on the line: no language, one no body can state (anything after it, UNSUPPORTED
+      after ST/CFC/SFC/IL), code under a read-only line, network text under `ST`, a second line in a body; every other
+      `IMPLEMENTATION` identifier is reserved (`reportReservedNames`). Deleted as dead: `bodyForm`, the v1 first-line
+      detection behind the bare comment, `BARE_/GRAPHICAL_MARKER_LINE`, `bodyText`, the FB parser's `NETWORK` sniff
+      that let `END_METHOD` close a function block. The `@volt-graphical` hover is `readOnlyBodyHover` on the line.
+      `MATERIALIZATION_FORMATS` gains row 4; under a materialization mismatch the bodies that state no language are
+      quiet (a format-3 ladder is ST to this server) and the manifest names the re-pull. A body with NO line is still
+      read as ST: the LSP also reads hand-written fixture ST and the library repo, which carry none; a workspace file
+      without it is the push's to refuse. Proved by `syntax/implementation-keyword.test.ts`,
+      `services/structure/implementation-keyword-structure.test.ts`, `server/implementation-keyword-diagnostics.test.ts`,
+      `server.test.ts` (format 3 told once, bodies quiet), `network.test.ts` (read-only hover),
+      `mark-implementations.test.ts`. Two section-1 tests were superseded by 2b and rewritten to it: CFC/SFC/IL are
+      read-only languages, not unknown ones (the unknown-language test now uses `XYZ`, `ST UNSUPPORTED`,
+      `CFC UNSUPPORTED`; code under a read-only line has its own test), and the read-only file uses the keyword lines
+      and CALLS its members (CODESYS compiles only what is used, so an uncalled member drew nothing whatever its line).
+- [x] 3.2 volt-vscode TextMate: `IMPLEMENTATION` and `ST`/`LD`/`FBD` highlighted as keywords, with a grammar test.
+      `syntax.tmLanguage.json` `#implementation-line` (whole line; the read-only forms too; UNSUPPORTED only after
+      LD/FBD; after `#comments`), `src/implementation-line-grammar.test.ts`.
+- [x] 3.3 Conformance fixtures and LSP tests rewritten; `bun typecheck` and `bun test` green.
+      Graphical fixtures and every LSP test spell `IMPLEMENTATION LD|FBD`; ST fixtures gain `IMPLEMENTATION ST` at push
+      (`markImplementations`); `corpus.test.ts` classifies bodies by the stated language (it sniffed `NETWORK`). Green
+      except the three corpus-backed `corpus.test.ts` rows (ST materialization, graphical networks, lowering REACH):
+      the corpora still carry the retired comment (34 files hold a graphical one), so their ladders read as ST. They go
+      green with 4.2's re-pull, like the four C# `ModelRoundTripOracleTests`. `bun run check` is green (materialization
+      parity 4 = 4). The LSP's own `README.md`/`docs/` mentions of the retired comment are left for 4.3.
+      Section-3 review round (data lens), fixed with tests: the formatter (Format Document / Format Selection) printed a
+      body from its tokens alone and so deleted every `IMPLEMENTATION` line and every member's `%FOLDER` — it now prints
+      both from the AST (`ImplementationLine.folder`), keeps any non-ST body verbatim, and both round-trip gates
+      (`format.test.ts`, `corpus.test.ts`) compare the line and the folder; `%FOLDER` is read exactly where the push
+      peels it (the line directly under a METHOD's or ACTION's line, `%FOLDER ` in that case, with a path) and nowhere
+      else, so a directive the push would write into the IDE as code is an ST error (the statement parser's silent
+      `%FOLDER` skip is deleted); a `(* @volt-… *)` comment is a parse error naming `volt pull`, as the push refuses it,
+      and with no manifest to name the re-pull, the line-less body it stands in is quiet but for that finding.
+      That finding makes the pre-change corpora report themselves: four more corpus-backed `corpus.test.ts` rows (zero
+      declaration errors, formatter round-trip, AMBIGUOUS NAMES, REFUSAL REACH — the last two are built from the files
+      that parse clean) are red for the same reason as the three above, and go green with 4.2's re-pull.
 
 ## 4. Data and docs
 

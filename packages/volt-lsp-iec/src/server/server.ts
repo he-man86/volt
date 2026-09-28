@@ -123,7 +123,7 @@ import {
   networkCompletion,
   networkDefinition,
   networkHover,
-  networkMarkerHover,
+  readOnlyBodyHover,
   networkTypeDefinition,
 } from "../network/index.js"
 
@@ -434,7 +434,9 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
 
   conn.onRequest(HoverRequest.type, (p) =>
     at(p.textDocument.uri, p.position, (d, o) =>
-      inNetworkText(d, o) ? networkHover(d, project(), o) : (hover(d, project(), o) ?? pragmaHover(d, o) ?? networkMarkerHover(d, o)),
+      inNetworkText(d, o)
+        ? networkHover(d, project(), o)
+        : (readOnlyBodyHover(d, o) ?? hover(d, project(), o) ?? pragmaHover(d, o)),
     ),
   )
   conn.onRequest(DefinitionRequest.type, (p) =>

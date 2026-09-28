@@ -21,6 +21,7 @@ import {
   type Statement,
   tokenAtOffset,
   type TopLevel,
+  unitBodies,
   walkAllExprs,
 } from "../syntax/index.js"
 import { lookup, lookupLocal, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
@@ -49,35 +50,49 @@ export function inNetworkText(doc: Document, offset: number): boolean {
 const GRAPHICAL_LANGUAGES: Record<string, string> = {
   CFC: "Continuous Function Chart",
   SFC: "Sequential Function Chart",
+  IL: "Instruction List",
   FBD: "Function Block Diagram",
   LD: "Ladder Diagram",
 }
 
 /**
- * Hover for a `(* @volt-graphical: <LANG> *)` marker (F.2e) — the informational comment a read-only
- * CFC/SFC body materializes as (spec §E). Explains that the body is authored in the IDE and not editable
- * as text. The marker is a comment, so it is otherwise not analyzed as network text or ST.
+ * Hover for a READ-ONLY body's line (F.2e) — `IMPLEMENTATION CFC|SFC|IL`, or `IMPLEMENTATION LD|FBD UNSUPPORTED` for an
+ * LD/FBD body network text cannot represent yet (`syntax/implementation-keyword`). Explains that the body is authored
+ * in the IDE and has no editable text form here: the line is what a pull writes for it, and the body under it is empty
+ * and read by neither parser. Read off the parse, so only a line the splitter took as a body's boundary answers — never
+ * a look-alike in a comment.
  */
-export function networkMarkerHover(doc: Document, offset: number): Hover | undefined {
-  const marker = /\(\* @volt-graphical: (\w+) \*\)/g
-  for (const m of doc.source.matchAll(marker)) {
-    const start = m.index
-    if (offset >= start && offset < start + m[0].length) {
-      const lang = m[1]!
-      const name = GRAPHICAL_LANGUAGES[lang] ?? lang
-      const value = [
-        "```iecst",
-        `(* @volt-graphical: ${lang} *)`,
-        "```",
-        "",
-        `_Volt graphical body (${name})_`,
-        "",
-        `This ${name} body is authored in your IDE and has no editable text form. To modify it, open the unit in CODESYS / TwinCAT.`,
-      ].join("\n")
-      return { contents: { kind: "markdown", value } }
+export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefined {
+  const visit = (units: readonly TopLevel[]): Hover | undefined => {
+    for (const unit of units) {
+      if (unit.kind === "namespace") {
+        const inner = visit(unit.units)
+        if (inner !== undefined) return inner
+        continue
+      }
+      for (const body of unitBodies(unit)) {
+        const line = body.implementation
+        if (line === undefined || line.statement.kind !== "read-only" || !spanContains(line.span, offset)) continue
+        const { language, unsupported } = line.statement
+        const name = GRAPHICAL_LANGUAGES[language] ?? language
+        const why = unsupported
+          ? `This ${name} body holds a shape network text cannot represent yet, so it has no editable text form.`
+          : `Volt does not read ${name}, so this body has no editable text form.`
+        const value = [
+          "```iecst",
+          line.text,
+          "```",
+          "",
+          `_Volt read-only body (${name})_`,
+          "",
+          `${why} It stays as it is in your IDE: to modify it, open the unit in CODESYS / TwinCAT.`,
+        ].join("\n")
+        return { contents: { kind: "markdown", value } }
+      }
     }
+    return undefined
   }
-  return undefined
+  return visit(doc.parseResult.units)
 }
 
 /**

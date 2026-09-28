@@ -7,7 +7,17 @@
  * good enough for coloring; a mis-colored deep member is cosmetic, never wrong data.
  */
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
-import { type Document, graphicalBodies, lex, type Span, type Token, type TokenKind } from "../../syntax/index.js"
+import {
+  type Document,
+  graphicalBodies,
+  implementationWords,
+  lex,
+  type Span,
+  type Token,
+  type TokenKind,
+  type TopLevel,
+  unitBodies,
+} from "../../syntax/index.js"
 import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
 import { isKnownPrimitive } from "../../types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
@@ -57,8 +67,9 @@ function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   const out: TokenRecord[] = []
   const graphical = graphicalBodySpans(doc)
   const wires = wireOccurrences(doc, project)
+  const stated = implementationLineWords(doc.parseResult.units)
   for (const tok of lex(doc.source)) {
-    const type = wires.has(tok.span.start) ? "wire" : classify(tok, doc, project, graphical)
+    const type = wires.has(tok.span.start) ? "wire" : stated.has(tok.span.start) ? "keyword" : classify(tok, doc, project, graphical)
     if (type === undefined) continue
     // Multi-line tokens (block comments) are emitted on their first line only — clients tolerate this.
     out.push({
@@ -155,6 +166,22 @@ function wireOccurrences(doc: Document, project: Scope): Set<number> {
         for (const v of walkValues(s)) if (v.kind === "wire_ref") at.add(v.name.span.start)
       }
     }
+  return at
+}
+
+/**
+ * Where the words of every body's `IMPLEMENTATION <LANG>` line start — `IMPLEMENTATION`, the language, `UNSUPPORTED`.
+ * They are syntax of a Volt file, not ST: the lexer hands them back as identifiers, and a lookup would paint them as
+ * variables. Read off the parse, so only the line the splitter took as a body's boundary is coloured — never a
+ * look-alike in a comment, or a variable someone named `ST`.
+ */
+function implementationLineWords(units: readonly TopLevel[]): Set<number> {
+  const at = new Set<number>()
+  const visit = (unit: TopLevel): void => {
+    if (unit.kind === "namespace") return unit.units.forEach(visit)
+    for (const body of unitBodies(unit)) for (const w of implementationWords(body)) at.add(w.span.start)
+  }
+  units.forEach(visit)
   return at
 }
 

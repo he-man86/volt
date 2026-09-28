@@ -14,7 +14,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseSource, parseStatements, isGraphicalBody, type ParseResult } from "../src/syntax/index.js"
+import { parseSource, parseStatements, isGraphicalBody, isStBody, type ParseResult } from "../src/syntax/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 
@@ -71,6 +71,7 @@ function featuresOf(source: string, result: ParseResult, into: Map<string, numbe
     const body = u.body as { kind?: string } | undefined
     if (body?.kind === "body") {
       if (isGraphicalBody(body as never)) bump("body:graphical")
+      else if (!isStBody(body as never)) bump("body:read-only")
       else walkNode(parseStatements(body as never).statements, true)
     }
     for (const accessor of ["getter", "setter"]) {

@@ -16,7 +16,7 @@
  */
 import { readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { isGraphicalBody, parseStatements, type TopLevel } from "../src/syntax/index.js"
+import { isStBody, parseStatements, type TopLevel } from "../src/syntax/index.js"
 import { isLibrarySymbol, scopeForUnit } from "../src/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { loweringProject } from "../test/corpus/support/project.js"
@@ -63,13 +63,13 @@ for (const projectDir of projects) {
     // visible rather than quietly excluded — and counted AGAINST `reachedRoutines`, because "not reachable yet"
     // was wrong: a routine lowers when a lowering POU calls it, and 444 of these do.
     separateBodies += parseResult.units.filter(
-      (u) => (u.kind === "method" || u.kind === "action") && !isGraphicalBody(u.body) && u.body.tokens.length > 0,
+      (u) => (u.kind === "method" || u.kind === "action") && isStBody(u.body) && u.body.tokens.length > 0,
     ).length
 
     for (const unit of parseResult.units.filter(isRunnable)) {
       const scope = scopeForUnit(lowering.project, unit)
       if (scope === undefined) continue
-      const hasCode = !isGraphicalBody(unit.body) && parseStatements(unit.body).statements.length > 0
+      const hasCode = isStBody(unit.body) && parseStatements(unit.body).statements.length > 0
       if (hasCode) withCode++
       else declOnly++
 

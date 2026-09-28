@@ -13,7 +13,7 @@ import { CAPS, harness } from "./harness.js"
 import { allowedCode } from "./diagnostic-codes.js"
 
 const C0032 = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK`
-const NETWORK_UNCLOSED = `FUNCTION_BLOCK G\nVAR out : BOOL;\nEND_VAR\n(* @volt-implementation LD *)\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK`
+const NETWORK_UNCLOSED = `FUNCTION_BLOCK G\nVAR out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\nout := TRUE;\nEND_FUNCTION_BLOCK`
 const PARSE_ERR = `FUNCTION_BLOCK H\nVAR\n x : ;\nEND_VAR\nEND_FUNCTION_BLOCK`
 
 test("a mapped check shows the recognisable Cnnnn, once, with a docs link", async () => {

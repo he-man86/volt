@@ -12,7 +12,7 @@ const LD = `FUNCTION_BLOCK FB_LD
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := (a AND b);
 END_NETWORK

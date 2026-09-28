@@ -95,7 +95,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   out := ((a AND b) OR c);
 END_NETWORK
@@ -112,7 +112,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   out := (a AND b AND c);
 END_NETWORK
@@ -130,7 +130,7 @@ VAR
 \trest : INT;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   sum := (x + y + z);
 END_NETWORK
@@ -150,7 +150,7 @@ VAR
 \tsame : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   below := (x < y);
 END_NETWORK
@@ -171,7 +171,7 @@ VAR
 \tout2 : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   VAR_TEMP g1 : BOOL; END_VAR
   g1 := (a OR b);
@@ -192,7 +192,7 @@ VAR
 \tcleared : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   VAR_TEMP g1 : BOOL; END_VAR
   g1 := (a OR b);
@@ -213,7 +213,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   out := (a AND \`NOT b\`);
 END_NETWORK
@@ -231,7 +231,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   out := NOT (a AND b);
 END_NETWORK
@@ -247,7 +247,7 @@ VAR
 \tdown : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   up := R_EDGE(clk);
 END_NETWORK
@@ -269,7 +269,7 @@ VAR
 \tdone : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   t1(IN := go, PT := pt);
   done := t1.Q;
@@ -297,7 +297,7 @@ VAR
 \ttwice : INT;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   next := F_NG_split(src, doubled => twice);
 END_NETWORK
@@ -316,7 +316,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := AND(EN := go, a, b).ENO;
 END_NETWORK
@@ -334,7 +334,7 @@ VAR
 \tout3 : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   VAR_TEMP g1 : BOOL; END_VAR
   g1 := OR(EN := go, b, c).ENO;
@@ -353,7 +353,7 @@ VAR
 \ttarget : INT;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   EXECUTE(EN := bRun)
 IF bStart THEN
@@ -374,7 +374,7 @@ VAR
 \tafter : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   out := TRUE;
   JMP Onwards;
@@ -395,7 +395,7 @@ VAR
 \tlater : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   IF cond THEN JMP Tail; END_IF;
 END_NETWORK
@@ -422,7 +422,7 @@ VAR
 \tout : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK TITLE: "the interlock"
   // both have to be true
   out := (a AND b);
@@ -439,7 +439,7 @@ VAR
 \tlive : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK DISABLED
   out := nothingDeclaredWithThisName;
 END_NETWORK
@@ -460,7 +460,7 @@ VAR
 \tfromLd : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   fromFbd := (a AND b);
 END_NETWORK
@@ -481,7 +481,7 @@ VAR
 \tcount : INT;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   count := (a AND b);
 END_NETWORK

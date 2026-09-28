@@ -2,8 +2,8 @@
  * formatting · print (Layer E · E.3). Renders the AST back to canonical ST text — the printer half of
  * the formatter. Declarations (units · VAR sections · DUT bodies) and statement trees are re-emitted
  * with tab indentation; expressions/types reuse the layer-C renderers (`exprText`/`renderTypeExpr`),
- * the one home for that. A body that doesn't parse cleanly (graphical / edge) is preserved VERBATIM
- * from its tokens — trivially round-trip-safe.
+ * the one home for that. A body that is not ST, or doesn't parse cleanly, is preserved VERBATIM from its
+ * tokens — trivially round-trip-safe — under its `IMPLEMENTATION` line (and a member's `%FOLDER`), printed from the AST.
  *
  * Contract (closes A.3): `parse(format(src)) ≡ parse(src)` — formatting never changes the AST. Comments
  * inside statement bodies are not yet re-attached, so a body with inline comments is preserved verbatim.
@@ -11,6 +11,7 @@
 import type { Position, Range, TextEdit } from "vscode-languageserver-protocol"
 import {
   type BodySpan,
+  bodyReader,
   type CaseArm,
   type Document,
   type EnumValue,
@@ -18,6 +19,7 @@ import {
   parseStatements,
   renderTypeExpr,
   type Statement,
+  statedLine,
   type StatementList,
   stmtChildLists,
   type TopLevel,
@@ -197,9 +199,28 @@ function initText(init: VarDecl["init"]): string {
 
 // ─── bodies ──────────────────────────────────────────────────────────────────
 
+/**
+ * A body: its `IMPLEMENTATION` line and a member's `%FOLDER` under it, then its code. The line and the folder are NOT in
+ * `body.tokens` (`splitImplementation` takes them out — they are no code), so they are printed from where the parser
+ * keeps them. Rebuilt from the tokens alone, formatting deleted both from every file: an LD body lost the line that
+ * states its language and read as ST, and a member lost its folder, which the next push took for "none".
+ *
+ * Only a body the ST parser reads is re-printed as ST; any other (network text, a read-only body) is kept verbatim.
+ */
 function printBody(body: BodySpan): string {
+  return implementationHead(body) + printCode(body)
+}
+
+function implementationHead(body: BodySpan): string {
+  const line = body.implementation
+  if (line === undefined) return ""
+  return `${statedLine(line)}\n${line.folder === undefined ? "" : `%FOLDER ${line.folder}\n`}`
+}
+
+function printCode(body: BodySpan): string {
+  if (bodyReader(body) !== "st") return verbatim(body)
   const parsed = parseStatements(body)
-  if (!parsed.ok || hasComment(body)) return verbatim(body) // preserve graphical / commented bodies
+  if (!parsed.ok || hasComment(body)) return verbatim(body) // preserve commented / unparseable bodies
   const text = printStatements(parsed.statements, 0)
   return text.length > 0 ? text + "\n" : ""
 }

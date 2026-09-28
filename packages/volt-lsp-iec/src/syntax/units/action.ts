@@ -14,7 +14,7 @@ export function parseAction(c: Cursor): Action | undefined {
   const nameTok = c.expectIdent("for ACTION name")
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
-  const body = collectBodyUntil(c, "END_ACTION", "action")
+  const body = collectBodyUntil(c, "END_ACTION", "action", "member")
   return {
     kind: "action",
     name,

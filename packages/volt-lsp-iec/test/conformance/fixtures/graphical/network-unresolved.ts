@@ -74,7 +74,7 @@ VAR
 \tt : TIME;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   ??? : TON(IN := a, PT := t);
 END_NETWORK
@@ -96,7 +96,7 @@ VAR
 \ta : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   ??? := a;
 END_NETWORK
@@ -118,7 +118,7 @@ VAR
 \ta : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   ??? := NOT(EN := , a).ENO;
 END_NETWORK
@@ -141,7 +141,7 @@ VAR
 	pt : TIME;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   t1(IN := ???, PT := pt);
 END_NETWORK
@@ -164,7 +164,7 @@ VAR
 	out : BOOL;
 END_VAR
 
-(* @volt-implementation FBD *)
+IMPLEMENTATION FBD
 NETWORK
   out := (??? AND a);
 END_NETWORK
@@ -208,7 +208,7 @@ VAR
 	go : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   ??? := PRG_LANG_network_unnamed_void_callee(EN := go).ENO;
 END_NETWORK
@@ -246,7 +246,7 @@ VAR
 	a : BOOL;
 END_VAR
 
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
   ??? := FUN_LANG_network_unnamed_valued(EN := , a).ENO;
 END_NETWORK

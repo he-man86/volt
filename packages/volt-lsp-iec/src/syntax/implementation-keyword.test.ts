@@ -11,6 +11,7 @@ import {
   type BodySpan,
   graphicalMarkerLanguage,
   isGraphicalBody,
+  isStBody,
   parseSource,
   parseStatements,
   unitBodies,
@@ -239,4 +240,99 @@ test("…and ST under LD is read as network text, which refuses it", () => {
   const bodies = bodiesOf(fb("IMPLEMENTATION LD\nout := a;"))
   expect(bodies.map(graphicalMarkerLanguage)).toEqual(["LD"])
   expect(parseNetworkText(bodies[0]!, STRUCTURE_ONLY).diagnostics.length).toBeGreaterThan(0)
+})
+
+// ── read-only bodies (section 2b: the line states a body Volt cannot write) ──────────────────────
+
+test("a read-only line states a body read by neither parser, and its empty body is clean", () => {
+  for (const line of ["IMPLEMENTATION CFC", "IMPLEMENTATION SFC", "IMPLEMENTATION IL", "IMPLEMENTATION LD UNSUPPORTED", "implementation  fbd  unsupported"]) {
+    const src = fb(`${line}\n`)
+    expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
+    const bodies = bodiesOf(src)
+    expect({ line, graphical: bodies.map(graphicalMarkerLanguage), st: bodies.map(isStBody) }).toEqual({
+      line,
+      graphical: [undefined],
+      st: [false],
+    })
+    expect(bodies[0]!.implementation?.statement.kind).toBe("read-only")
+  }
+})
+
+test("UNSUPPORTED stands only after LD or FBD, and anything after a read-only language is refused naming the line", () => {
+  for (const line of ["IMPLEMENTATION ST UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED", "IMPLEMENTATION CFC x := 1;", "IMPLEMENTATION LD UNSUPPORTED;"]) {
+    const errors = parseSource(fb(`${line}\n`)).errors.map((e) => e.message)
+    expect({ line, named: errors.some((m) => m.includes(`'${line}'`)) }).toEqual({ line, named: true })
+    expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })
+  }
+})
+
+test("a member's %FOLDER under its line is taken out with the line, whatever the line states", () => {
+  for (const line of ["IMPLEMENTATION ST", "IMPLEMENTATION LD", "IMPLEMENTATION CFC", "IMPLEMENTATION FBD UNSUPPORTED"]) {
+    const code = line === "IMPLEMENTATION LD" ? NETWORK : line === "IMPLEMENTATION ST" ? "out := a;" : ""
+    const src = `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\n${line}\n%FOLDER Sub/Deep\n${code}\nEND_METHOD\n`
+    expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
+    const method = bodiesOf(src)[1]!
+    expect({ line, folderInBody: method.tokens.some((t) => t.text === "%") }).toEqual({ line, folderInBody: false })
+    if (line === "IMPLEMENTATION LD")
+      expect(parseNetworkText(method, STRUCTURE_ONLY).diagnostics.map((d) => d.message)).toEqual([])
+  }
+})
+
+test("a member's %FOLDER is read where the push peels it, and nowhere else — elsewhere it is code the IDE would get", () => {
+  // The push (`StReader.PeelFolderUnder`) takes `%FOLDER ` — that spelling, case and all, with a path — off the FIRST
+  // line under a METHOD's or an ACTION's line, and nowhere else: a POU's own body and a property accessor have no
+  // folder there, and a blank line or a comment above the directive leaves it in the body. Wherever the push leaves
+  // it, it is pushed into the IDE as ST statement text — so the LSP reads it as the body's, and does not hide it.
+  for (const [member, end] of [["METHOD M", "END_METHOD"], ["ACTION A", "END_ACTION"]] as const) {
+    const src = `${fb("IMPLEMENTATION ST\n")}\n${member}\nIMPLEMENTATION ST\n%FOLDER  Sub/Deep \nout := a;\n${end}\n`
+    expect({ member, errors: syntaxErrors(src) }).toEqual({ member, errors: [] })
+    expect({ member, folder: bodiesOf(src)[1]!.implementation?.folder }).toEqual({ member, folder: "Sub/Deep" })
+  }
+  const left = {
+    "a POU's own body": "PROGRAM PRG\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\nEND_PROGRAM\n",
+    "a property accessor": `${fb("IMPLEMENTATION ST\n")}\nPROPERTY P : INT\nGET\nIMPLEMENTATION ST\n%FOLDER Sub\nP := 1;\nEND_GET\nEND_PROPERTY\n`,
+    "another case": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n%folder Sub\nout := a;\nEND_METHOD\n`,
+    "a blank line above it": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
+    "a comment above it": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n(* note *)\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
+    "no path": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n%FOLDER\nout := a;\nEND_METHOD\n`,
+  }
+  for (const [where, src] of Object.entries(left)) {
+    const body = bodiesOf(src).at(-1)!
+    expect({ where, folder: body.implementation?.folder, inBody: body.tokens.some((t) => t.text === "%") }).toEqual({
+      where,
+      folder: undefined,
+      inBody: true,
+    })
+    expect({ where, reported: syntaxErrors(src).length > 0 }).toEqual({ where, reported: true })
+  }
+})
+
+test("a (* @volt-… *) comment is an older Volt's, reported naming `volt pull` wherever it stands — as the push refuses it", () => {
+  // No Volt writes one any more (the push: `ImplementationMarker.FindRetiredComment`). A comment only — outermost or
+  // nested — and in any case; the same characters after `//` or in a string are text.
+  const reported = {
+    "the retired boundary": fb("(* @volt-implementation LD *)\nNETWORK\nout := a;\nEND_NETWORK\n"),
+    "the retired marker": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n(* @volt-graphical: CFC *)\nEND_METHOD\n`,
+    "nested, another case": fb("IMPLEMENTATION ST\n(* doc (*  @VOLT-implementation *) *)\nout := a;\n"),
+    "in a declaration": "FUNCTION_BLOCK F\nVAR\n\ta : BOOL; (* @volt-implementation *)\nEND_VAR\nIMPLEMENTATION ST\na := TRUE;\nEND_FUNCTION_BLOCK\n",
+  }
+  for (const [where, src] of Object.entries(reported))
+    expect({ where, named: syntaxErrors(src).filter((m) => m.includes("volt pull")).length }).toEqual({ where, named: 1 })
+  const text = {
+    "a line comment": fb("IMPLEMENTATION ST\n// (* @volt-implementation *)\nout := a;\n"),
+    "a string": "FUNCTION_BLOCK F\nVAR\n\ts : STRING := '(* @volt-implementation *)';\nEND_VAR\nIMPLEMENTATION ST\ns := '';\nEND_FUNCTION_BLOCK\n",
+  }
+  for (const [where, src] of Object.entries(text)) expect({ where, errors: syntaxErrors(src) }).toEqual({ where, errors: [] })
+})
+
+test("a line sharing its line with END_VAR is no boundary", () => {
+  const src = "FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\nEND_VAR IMPLEMENTATION LD\nNETWORK\nEND_NETWORK\nEND_FUNCTION_BLOCK\n"
+  expect(bodiesOf(src).map((b) => b.implementation)).toEqual([undefined])
+  expect(syntaxErrors(src).length).toBeGreaterThan(0)
+})
+
+test("the line is taken out of the body: the code starts under it, and it is not ST", () => {
+  const body = bodiesOf(fb("IMPLEMENTATION ST\nout := a;"))[0]!
+  expect(body.tokens.map((t) => t.text).join("").trim()).toBe("out := a;")
+  expect(body.implementation?.text).toBe("IMPLEMENTATION ST")
 })

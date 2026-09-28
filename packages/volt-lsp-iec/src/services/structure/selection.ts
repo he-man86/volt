@@ -8,7 +8,7 @@ import {
   type Document,
   type Expr,
   exprChildren,
-  isGraphicalBody,
+  isStBody,
   parseStatements,
   type Span,
   type Statement,
@@ -30,7 +30,7 @@ export function selectionRange(doc: Document, offset: number): SelectionRange | 
     if (!contains(unit.span, offset)) continue
     spans.push(unit.span)
     for (const body of unitBodies(unit)) {
-      if (!contains(body.span, offset) || isGraphicalBody(body)) continue
+      if (!contains(body.span, offset) || !isStBody(body)) continue
       const parsed = parseStatements(body)
       if (!parsed.ok) continue
       walkStatements(parsed.statements, (s) => collectStmt(s, offset, spans))

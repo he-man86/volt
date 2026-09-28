@@ -78,7 +78,7 @@ test("semantic tokens: color network-text operand text (whole-doc pass covers gr
 VAR
 	a : BOOL; b : BOOL; out : BOOL;
 END_VAR
-(* @volt-implementation LD *)
+IMPLEMENTATION LD
 NETWORK
 out := (a AND b);
 END_NETWORK
