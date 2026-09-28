@@ -499,4 +499,95 @@ public class ImplementationLanguagePushTests
         Assert.Contains("volt pull", reason);
         AssertNothingWritten(ide);
     }
+
+    // ── section 2, data-lens review: a directive in a declaration ─────────────────────────────────
+
+    /// <summary>The pre-change shape of a MEMBER Volt cannot write in a folder: the retired comment, <c>%FOLDER</c>, then
+    /// the marker line (the old writer put the folder under the boundary comment). The directive sits between the
+    /// comment and the marker, so a check that looks only at the line directly above the marker misses it: the comment
+    /// and <c>%FOLDER Sub</c> land at the end of the member's DECLARATION, which the driver writes into the IDE, and the
+    /// member's folder reads as none. It is a file from before the change: refused naming <c>volt pull</c>.</summary>
+    [Fact]
+    public void An_old_unsupported_member_body_in_a_folder_is_refused_naming_volt_pull()
+    {
+        var ide = new FakeIde(
+            new FakeIde.Item("FB_X", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR", "", null, null, Children: new[] { "M" }),
+            new FakeIde.Item("M", ItemKind.PlcMethod, "", false, "METHOD M : INT\nVAR\nEND_VAR", "", "CFC", null));
+        var src = "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
+                  "METHOD M : INT\nVAR\nEND_VAR\n(* @volt-implementation *)\n%FOLDER Sub\n(* @volt-graphical: CFC *)\nEND_METHOD\n";
+
+        var reason = Reason(Update(ide, "FB_X.fb", src));
+
+        Assert.Contains("volt pull", reason);
+        Assert.Empty(ide.WrittenContent);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:", System.StringComparison.Ordinal));
+    }
+
+    /// <summary><c>%FOLDER</c> is Volt's directive, and its place is fixed: directly under a member's boundary (or
+    /// marker) line, or as the last line of a property's (or an interface member's) declaration. Anywhere else in a
+    /// declaration it is no directive — and a declaration is written into the IDE verbatim, so the line would reach
+    /// the project as code while the member's folder silently read as none. Refused by name instead.</summary>
+    [Theory]
+    [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\n(* @volt-graphical: CFC *)")]      // above a marker line
+    [InlineData("METHOD DoReset : BOOL\n%FOLDER Sub\nIMPLEMENTATION ST\nDoReset := TRUE;")] // above the keyword line
+    [InlineData("METHOD DoReset : BOOL\nVAR\n%FOLDER Sub\nEND_VAR\nIMPLEMENTATION ST\nDoReset := TRUE;")]
+    public void A_FOLDER_line_in_a_members_declaration_is_refused_naming_the_member(string member)
+    {
+        var ide = new FakeIde();
+        var src = $"{Decl}\nIMPLEMENTATION ST\nout := a;\n\nEND_FUNCTION_BLOCK\n\n{member}\nEND_METHOD\n";
+
+        var reason = Reason(Create(ide, src));
+
+        Assert.Contains("DoReset", reason);
+        Assert.Contains("%FOLDER Sub", reason);
+        AssertNothingWritten(ide);
+    }
+
+    [Fact]
+    public void A_FOLDER_line_in_a_POUs_own_declaration_is_refused_naming_the_POU()
+    {
+        var ide = new FakeIde();
+
+        var reason = Reason(Create(ide, $"{Decl}\n%FOLDER Sub\nIMPLEMENTATION ST\nout := a;\n\nEND_FUNCTION_BLOCK\n"));
+
+        Assert.Contains("FB_Motor", reason);
+        Assert.Contains("%FOLDER Sub", reason);
+        AssertNothingWritten(ide);
+    }
+
+    /// <summary>A property's <c>%FOLDER</c> is the LAST line of its declaration — where the writer puts it. One
+    /// anywhere else in that declaration (above a comment that documents the property, say) is not the directive and
+    /// is refused, rather than peeled as the folder from wherever it happened to stand.</summary>
+    [Fact]
+    public void A_FOLDER_line_elsewhere_in_a_property_declaration_is_refused_naming_the_property()
+    {
+        var ide = new FakeIde();
+        var src = $"{Decl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
+                  "PROPERTY Running : BOOL\n%FOLDER Sub\n// the motor runs\nGET\nIMPLEMENTATION ST\nRunning := out;\nEND_GET\nEND_PROPERTY\n";
+
+        var reason = Reason(Create(ide, src));
+
+        Assert.Contains("Running", reason);
+        Assert.Contains("%FOLDER Sub", reason);
+        AssertNothingWritten(ide);
+    }
+
+    /// <summary>A keyword-shaped line in a DECLARATION (a wrapped variable list whose line reads <c>implementation ST</c>)
+    /// and the real boundary below it: two lines of the keyword's shape, and the text alone cannot say which one the
+    /// engineer meant as the boundary. The refusal names BOTH lines and both remedies — it used to take the first as
+    /// the boundary and tell the engineer to remove the real one.</summary>
+    [Fact]
+    public void Two_keyword_lines_in_one_item_are_refused_naming_both()
+    {
+        var ide = new FakeIde();
+        var src = "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\timplementation ST\n\t: BOOL;\nEND_VAR\nIMPLEMENTATION ST\na := TRUE;\n\nEND_FUNCTION_BLOCK\n";
+
+        var reason = Reason(Create(ide, src));
+
+        Assert.Contains("FB_Motor", reason);
+        Assert.Contains("'implementation ST'", reason);
+        Assert.Contains("'IMPLEMENTATION ST'", reason);
+        Assert.Contains("reserved", reason, System.StringComparison.OrdinalIgnoreCase);
+        AssertNothingWritten(ide);
+    }
 }

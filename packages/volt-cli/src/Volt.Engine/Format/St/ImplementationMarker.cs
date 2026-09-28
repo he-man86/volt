@@ -108,20 +108,38 @@ namespace Volt.Engine.Format.St
         /// refuse by name.</summary>
         public static bool IsMarkerLine(string line) => BodyMarker.Opens(line);
 
-        /// <summary>The index of the first line from <paramref name="from"/> that states a body — a line of the
-        /// keyword's shape, or a <see cref="BodyMarker"/> line — and that starts OUTSIDE every comment; or -1.
+        /// <summary>The index of the line that states the body in <paramref name="lines"/> — one member's region, or
+        /// the POU's — or -1. Only a line that starts OUTSIDE every comment counts.
+        ///
+        /// <para>The FIRST line of the keyword's shape when there is one; otherwise the LAST <see cref="BodyMarker"/>
+        /// line. The keyword wins because a marker line is spelled like a comment, and the pull writes a declaration's
+        /// comments through verbatim: a declaration may hold <c>(* @volt-graphical: … *)</c> as the engineer's note,
+        /// and taking it as the boundary made that item pullable and never pushable. A body that IS a marker is the
+        /// whole rest of its region, so its marker line is the last one; any other above it is declaration text. More
+        /// than one line of the keyword's shape is the caller's to refuse (<see cref="StatedLinesIn"/>).</para>
         ///
         /// <para>Outside every comment, because <c>IMPLEMENTATION ST</c> is a line an engineer can plausibly write
-        /// in documentation, and the pull writes declarations' comments through verbatim. A comment may open after
-        /// code on its line (bakon-nano: <c>:= TRUE;(*NOT (</c> spanning lines) and comments NEST, as the LSP lexer
-        /// nests them — so this asks <see cref="StTrivia"/>, which tracks both, and not the line-start scan the
-        /// structure reader uses.</para></summary>
-        public static int IndexIn(IList<string> lines, int from = 0)
+        /// in documentation. A comment may open after code on its line (bakon-nano: <c>:= TRUE;(*NOT (</c> spanning
+        /// lines) and comments NEST, as the LSP lexer nests them — so this asks <see cref="StTrivia"/>, which tracks
+        /// both, and not the line-start scan the structure reader uses.</para></summary>
+        public static int IndexIn(IList<string> lines)
+        {
+            var stated = StatedLinesIn(lines);
+            if (stated.Count > 0) return stated[0];
+            var open = StTrivia.OpenAtStart(lines);
+            for (int i = lines.Count - 1; i >= 0; i--)
+                if (!open[i] && IsMarkerLine(lines[i])) return i;
+            return -1;
+        }
+
+        /// <summary>Every line of the keyword's SHAPE (<see cref="Stated"/>) outside every comment, in order.</summary>
+        public static List<int> StatedLinesIn(IList<string> lines)
         {
             var open = StTrivia.OpenAtStart(lines);
-            for (int i = from; i < lines.Count; i++)
-                if (!open[i] && (Stated(lines[i]) is not null || IsMarkerLine(lines[i]))) return i;
-            return -1;
+            var found = new List<int>();
+            for (int i = 0; i < lines.Count; i++)
+                if (!open[i] && Stated(lines[i]) is not null) found.Add(i);
+            return found;
         }
 
         /// <summary>A body as the file spells it: its boundary line and the text under it. A network-text body

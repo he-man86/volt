@@ -114,7 +114,7 @@ public static class StReader
 		{
 			RefuseReservedNames(lines);
 			var simple = new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
-			RefuseKeywordInDeclarations(simple, what);
+			RefuseLinesInDeclarations(simple, what);
 			return simple;
 		}
 
@@ -137,7 +137,7 @@ public static class StReader
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines);
 			RefuseReservedNames(lines);
 			var itf = new ItemContent(kind, interfaceDecl, "", interfaceChildren);
-			RefuseKeywordInDeclarations(itf, what);
+			RefuseLinesInDeclarations(itf, what);
 			return itf;
 		}
 
@@ -145,7 +145,7 @@ public static class StReader
 		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), marked: true);
 		RefuseReservedNames(lines);
 		var pou = new ItemContent(kind, pouDecl, pouImpl, children);
-		RefuseKeywordInDeclarations(pou, what);
+		RefuseLinesInDeclarations(pou, what);
 		return pou;
 	}
 
@@ -323,17 +323,30 @@ public static class StReader
 	/// under it.</para></summary>
 	private static (string decl, string impl, string line) SplitAtBoundary(IList<string> lines, string what)
 	{
+		// ONE line of the keyword's shape per region. Two are refused NAMING BOTH, before either is taken as the
+		// boundary: the text alone cannot say which one the engineer meant. One may be a name in a wrapped declaration
+		// (`implementation ST` on its own line of a VAR list), the other the real boundary — taking the first as the
+		// boundary told the engineer to remove the REAL one. Or both are boundaries (a member pasted with its line),
+		// and dropping either would guess.
+		var stated = ImplementationMarker.StatedLinesIn(lines);
+		if (stated.Count > 1)
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} holds more than one {ImplementationMarker.Keyword} line: '{lines[stated[0]].Trim()}' and, below " +
+				$"it, '{lines[stated[1]].Trim()}'. A body has ONE, the line that opens it. {ImplementationMarker.Keyword} " +
+				"is reserved, so if the other one names something, rename it; otherwise remove it.");
 		int at = ImplementationMarker.IndexIn(lines);
 		if (at < 0) throw Unmarked(what);
 		// A FILE FROM BEFORE THE KEYWORD. The retired comment is no boundary, so such a file has none and is refused
 		// above — except the old shape of a body Volt cannot write: the comment, THEN the marker line, which finds its
-		// boundary at the marker and would push the comment into the IDE as the tail of the declaration. That shape,
-		// and only that one, is the comment standing AS a boundary. Anywhere else it is an engineer's comment in a
-		// current file, and refusing it sent them to `volt pull`, which writes the same IDE text straight back.
+		// boundary at the marker and would push the comment into the IDE as the tail of the declaration. The old
+		// writer put a member's `%FOLDER` between the two, so the walk up passes over directive lines as it does over
+		// blanks: stopping at the directive let the comment AND the directive through into the declaration. That
+		// shape, and only that one, is the comment standing AS a boundary. Anywhere else it is an engineer's comment
+		// in a current file, and refusing it sent them to `volt pull`, which writes the same IDE text straight back.
 		if (ImplementationMarker.IsMarkerLine(lines[at]))
 		{
 			int above = at - 1;
-			while (above >= 0 && string.IsNullOrWhiteSpace(lines[above])) above--;
+			while (above >= 0 && (string.IsNullOrWhiteSpace(lines[above]) || FolderOn(lines[above]) is not null)) above--;
 			if (above >= 0 && ImplementationMarker.IsRetired(lines[above])) throw Unmarked(what);
 		}
 		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
@@ -362,8 +375,6 @@ public static class StReader
 	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION CFC</c>) — never guessed;</item>
 	/// <item>a body whose text contradicts its language: network text under <c>ST</c>, or text under <c>LD</c>/<c>FBD</c>
 	/// that is no network — never re-read as the other;</item>
-	/// <item>a second keyword line outside a comment — neither the boundary nor ST the IDE can compile, and dropping
-	/// it would guess at what the engineer meant;</item>
 	/// <item>code under, or after, a <see cref="BodyMarker"/> line — that body has no text form, the drivers write
 	/// nothing for it, so the code would be dropped without a word and overwritten by the next pull.</item>
 	/// </list></summary>
@@ -402,11 +413,6 @@ public static class StReader
 				$"{what} states '{stated}' over the marker line '{code.Trim()}'. The marker states a body with no text " +
 				$"form and stands alone where the {ImplementationMarker.Keyword} line would: keep one or the other.");
 
-		if (SecondStatedLine(code) is { } second)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} holds a second '{second.Trim()}' line in its body — a body has ONE {ImplementationMarker.Keyword} " +
-				"line, the one that opens it. Remove the other.");
-
 		var network = Volt.Engine.Format.Network.NetworkText.OpensNetwork(code);
 		if (lang == Languages.St && network)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
@@ -419,16 +425,6 @@ public static class StReader
 		return ImplementationMarker.Join(line, code);
 	}
 
-	/// <summary>A line of the keyword's shape in a body's text, outside every comment, or null.</summary>
-	private static string? SecondStatedLine(string code)
-	{
-		var lines = code.Split('\n');
-		var open = StTrivia.OpenAtStart(lines);
-		for (int i = 0; i < lines.Length; i++)
-			if (!open[i] && ImplementationMarker.Stated(lines[i]) is not null) return lines[i];
-		return null;
-	}
-
 	/// <summary><c>IMPLEMENTATION</c> is RESERVED: no name in a workspace file may be spelled like it, in any case —
 	/// a variable at any scope, a member, the POU, an enum value, a struct member. A name spelled like the boundary line
 	/// could stand at the start of a line and read as one, so it is refused by name, never renamed or tolerated.
@@ -436,9 +432,9 @@ public static class StReader
 	/// <para>Checked over the whole text's CODE — comments, strings and pragmas blanked (<see cref="StTrivia"/>) — and
 	/// every occurrence, not only a declaration: IEC has no such keyword, so any code use of the word is a name, and
 	/// a check hung on one declaration path lets every other position through. The lines of the keyword's own shape are
-	/// skipped HERE because each has one owner that refuses it with a better message: the boundary is consumed, a second
-	/// one in a body is refused by <see cref="Body"/>, and one anywhere else lands in a declaration and is refused by
-	/// <see cref="RefuseKeywordInDeclarations"/> — which is what catches a name standing alone on its line.</para></summary>
+	/// skipped HERE because each has one owner that refuses it with a better message: the boundary is consumed, more
+	/// than one in a region is refused naming both by <see cref="SplitAtBoundary"/>, and one in a kind with no boundary
+	/// lands in a declaration and is refused by <see cref="RefuseLinesInDeclarations"/>.</para></summary>
 	private static void RefuseReservedNames(IList<string> lines)
 	{
 		var open = StTrivia.OpenAtStart(lines);
@@ -454,12 +450,17 @@ public static class StReader
 		}
 	}
 
-	/// <summary>A line of the keyword's shape that ended up in a DECLARATION is no boundary, and a declaration is
-	/// written into the IDE verbatim — so it would carry the line push is meant to strip. It gets there two ways, and
-	/// both are refused by name: a kind that has no implementation (GVL, DUT, an interface and its members) has no
-	/// boundary to consume it, and a name spelled <c>IMPLEMENTATION</c> alone on its line (the last enum value, a
-	/// variable in a wrapped declaration) has the keyword's shape and slipped past the reserved-name scan on it.</summary>
-	private static void RefuseKeywordInDeclarations(ItemContent item, string what)
+	/// <summary>A DECLARATION is written into the IDE verbatim, so a line of Volt's own that ends up in one would
+	/// reach the project as code. Two kinds of line, both refused by name:
+	/// <list type="bullet">
+	/// <item>one of the keyword's shape. A kind that has no implementation (GVL, DUT, an interface and its members)
+	/// has no boundary to consume it, and a name spelled <c>IMPLEMENTATION</c> alone on its line (the last enum value, a
+	/// variable in a wrapped declaration) has the keyword's shape and slips past the reserved-name scan on it.</item>
+	/// <item>a <c>%FOLDER</c> directive. Its place is fixed (<see cref="PeelFolderUnder"/>, <see cref="PeelFolderClosing"/>)
+	/// and the directive there has been peeled already; one anywhere else is no directive, and leaving it in let a
+	/// member's folder read as none while the line was written into its declaration.</item>
+	/// </list></summary>
+	private static void RefuseLinesInDeclarations(ItemContent item, string what)
 	{
 		Refuse(what, item.Declaration);
 		foreach (var m in item.Members)
@@ -476,11 +477,19 @@ public static class StReader
 			var lines = declaration!.Split('\n');
 			var open = StTrivia.OpenAtStart(lines);
 			for (int i = 0; i < lines.Length; i++)
-				if (!open[i] && ImplementationMarker.Stated(lines[i]) is not null)
+			{
+				if (open[i]) continue;
+				if (ImplementationMarker.Stated(lines[i]) is not null)
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"{where} holds '{lines[i].Trim()}' in its declaration. {ImplementationMarker.Keyword} is reserved: " +
 						"it is the line that opens a body and states its language, so it stands only where a body starts, " +
 						"and nothing may be named it. Remove the line, or rename what it names.");
+				if (FolderOn(lines[i]) is not null)
+					throw new BridgeException(BridgeErrorCodes.InvalidSt,
+						$"{where} holds '{lines[i].Trim()}' in its declaration. A member's %FOLDER stands directly under " +
+						"its IMPLEMENTATION (or marker) line, or as the last line of a property's declaration; anywhere " +
+						"else it would be written into the IDE as code. Move it there, or remove it.");
+			}
 		}
 	}
 
@@ -556,12 +565,14 @@ public static class StReader
 			// An INTERFACE's members are SIGNATURES (the OWNER decides, which is why `marked` is passed down: an
 			// interface's members arrive as kind `method` and are re-kinded afterwards). No boundary line, and the
 			// whole block is declaration (see ImplementationMarker.AppliesTo).
-			return new Member(kind, name, string.Join("\n", inner).TrimEnd('\n'), "", ReturnType: returnType);
+			// Its %FOLDER closes the declaration, where the writer puts it with no body to stand under.
+			var (itfFolder, itfDecl) = PeelFolderClosing(string.Join("\n", inner).TrimEnd('\n'));
+			return new Member(kind, name, itfDecl, "", Folder: itfFolder, ReturnType: returnType);
 		}
 		var (decl, impl, line) = SplitAtBoundary(inner, what);
-		// The text under the boundary begins with an optional Volt directive block; %FOLDER is ours (the child's
-		// sub-folder) and is peeled off before the body is checked against the language its line states.
-		var (folder, code) = PeelFolderDirective(impl);
+		// %FOLDER (the child's sub-folder) is the first line under the boundary when there is one, and is peeled off
+		// before the body is checked against the language its line states.
+		var (folder, code) = PeelFolderUnder(impl);
 		return new Member(kind, name, decl, Body(line, code, what), Folder: folder, ReturnType: returnType);
 	}
 
@@ -626,8 +637,8 @@ public static class StReader
 		// excluding) the first accessor or END_PROPERTY — whichever is first.
 		int declEnd = accessorBoundaries.Count > 0 ? accessorBoundaries[0].start - 1 : endLine.Value - 1;
 		var declSlice = SliceLines(lines, blockStart, declEnd);
-		// A %FOLDER directive may sit just under the signature — peel it into the folder field.
-		var (folder, propDecl) = PeelFolderDirective(string.Join("\n", declSlice).TrimEnd());
+		// A property has no boundary of its own (its accessors do), so its %FOLDER closes its declaration.
+		var (folder, propDecl) = PeelFolderClosing(string.Join("\n", declSlice).TrimEnd());
 
 		Accessor? getter = null, setter = null;
 		foreach (var (gStart, gEnd, gKind) in accessorBoundaries)
@@ -784,30 +795,34 @@ public static class StReader
 		return (name, type);
 	}
 
-	/// <summary>Peel a leading `%FOLDER &lt;path&gt;` Volt directive out of a child body/decl into the
-	/// folder field, returning (folder, remaining-text). The signature line is clean; %FOLDER leads the
-	/// body's top directive block, under the body's boundary line.</summary>
-	private static (string? folder, string rest) PeelFolderDirective(string text)
+	/// <summary>The folder a <c>%FOLDER &lt;path&gt;</c> directive line names, or null for any other line.</summary>
+	private static string? FolderOn(string line)
 	{
-		var lines = text.Replace("\r", "").Split('\n');
-		string? folder = null;
-		var kept = new List<string>(lines.Length);
-		foreach (var line in lines)
-		{
-			var t = line.Trim();
-			if (folder is null && t.StartsWith("%FOLDER ", StringComparison.Ordinal))
-			{
-				var f = t.Substring("%FOLDER ".Length).Trim();
-				folder = f.Length == 0 ? null : f;
-				continue;
-			}
-			kept.Add(line);
-		}
-		// NOT `.Trim()`. Peeling a directive is not licence to reformat what is left: SplitAtBoundary has already
-		// decided which blank lines are separator and which are the engineer's, and trimming here undid that
-		// decision for every child — the blank under a method's opening comment vanished on the way through.
-		// When there is no %FOLDER at all this returns the text it was given, unchanged.
-		return (folder, string.Join("\n", kept).TrimEnd('\n'));
+		var t = line.Trim();
+		return t.StartsWith("%FOLDER ", StringComparison.Ordinal) ? t.Substring("%FOLDER ".Length).Trim() : null;
+	}
+
+	/// <summary>Peel the <c>%FOLDER</c> directive off the FIRST line of the text under a member's boundary (or marker)
+	/// line — where the writer puts it, and the only place it is one. This used to take the first such line ANYWHERE in
+	/// the text: a line spelled like it inside a block comment in an ST body became the member's folder, so the push
+	/// moved the member into a folder named after comment text and deleted the line from the comment.</summary>
+	private static (string? folder, string rest) PeelFolderUnder(string text)
+	{
+		var eol = text.IndexOf('\n');
+		var folder = FolderOn(eol < 0 ? text : text.Substring(0, eol));
+		// The rest is NOT trimmed: SplitAtBoundary has already decided which blank lines are separator and which are
+		// the engineer's, and a blank line under the directive is the body's.
+		return folder is null ? (null, text) : (folder, eol < 0 ? "" : text.Substring(eol + 1));
+	}
+
+	/// <summary>Peel the <c>%FOLDER</c> directive off the LAST line of a declaration that has no boundary to stand
+	/// under — a property's, and an interface member's — where the writer puts it. An interface member's used to be
+	/// left in its declaration: the push wrote <c>%FOLDER Commands</c> into the IDE as code and the folder was lost.</summary>
+	private static (string? folder, string rest) PeelFolderClosing(string text)
+	{
+		var eol = text.LastIndexOf('\n');
+		var folder = FolderOn(eol < 0 ? text : text.Substring(eol + 1));
+		return folder is null ? (null, text) : (folder, eol < 0 ? "" : text.Substring(0, eol));
 	}
 
 	// ─── Line scanning helpers ───────────────────────────────────────

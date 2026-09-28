@@ -430,4 +430,99 @@ public class ImplementationKeywordTests
         Assert.NotEmpty(read.Diagnostics);
         Assert.False(NetworkTextGate.Validate(text, NetworkScope.Empty).Ok);
     }
+
+    // ── section 2, data-lens review ───────────────────────────────────────────────────────────────
+
+    /// <summary>The IDE writes a declaration's comments through verbatim, so a declaration may hold a comment line
+    /// spelled like a <see cref="BodyMarker"/>. Where the file states its boundary with the keyword, THAT line is the
+    /// boundary and the comment is declaration text: the item pulls and pushes back unchanged.</summary>
+    [Fact]
+    public void A_marker_spelled_comment_in_a_declaration_is_no_boundary_when_the_keyword_states_one()
+    {
+        const string decl = "FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\n\ta : BOOL;\nEND_VAR";
+        var text = $"{decl}\nIMPLEMENTATION ST\na := TRUE;\n\nEND_FUNCTION_BLOCK\n";
+
+        var item = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor");
+
+        Assert.Equal(decl, item.Declaration);
+        Assert.Equal("a := TRUE;", item.Body);
+        Assert.Equal(text, StWriter.Write(item));
+    }
+
+    /// <summary>And where the body IS a marker, the marker line is the LAST one of its kind: a declaration comment
+    /// spelled like one stands above it.</summary>
+    [Fact]
+    public void A_marker_spelled_comment_in_a_declaration_stays_there_above_a_marker_body()
+    {
+        const string decl = "FUNCTION_BLOCK FB_Chart\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR";
+        var marker = BodyMarker.For("CFC");
+        var text = $"{decl}\n{marker}\n\nEND_FUNCTION_BLOCK\n";
+
+        var item = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Chart");
+
+        Assert.Equal(decl, item.Declaration);
+        Assert.Equal(marker, item.Body);
+        Assert.Equal(text, StWriter.Write(item));
+    }
+
+    /// <summary><c>network</c> is an ordinary IEC name, and an ST body may open with it: a <c>REF=</c> assignment,
+    /// or a statement wrapped so that the name stands alone on its first line. The pull writes such a body under
+    /// <c>IMPLEMENTATION ST</c>; the contradiction check must not call it network text, or the item could never be
+    /// pushed back. A network header is <c>NETWORK</c> with a header field, or alone and closed by <c>END_NETWORK</c>.</summary>
+    [Theory]
+    [InlineData("network REF= y;")]
+    [InlineData("network\n\t:= y;")]
+    [InlineData("NETWORK\n\tREF= y;")]
+    public void An_ST_body_opening_with_a_variable_named_network_is_ST(string body)
+    {
+        var text = "FUNCTION_BLOCK FB_Motor\nVAR\n\tnetwork : REFERENCE TO INT;\n\ty : INT;\nEND_VAR\n" +
+                   $"IMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
+
+        var item = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor");
+
+        Assert.Equal(body, item.Body);
+    }
+
+    [Theory]
+    [InlineData("NETWORK\n  out := a;\nEND_NETWORK")]
+    [InlineData("NETWORK LABEL: L1\n  out := a;\nEND_NETWORK")]
+    [InlineData("NETWORK TITLE: \"t\"\n  out := a;\nEND_NETWORK")]
+    [InlineData("NETWORK DISABLED\n  out := a;\nEND_NETWORK")]
+    [InlineData("NETWORK 0 LD\n  out := a;\nEND_NETWORK")]   // v1's header: network text, refused by its own reader
+    [InlineData("NETWORK LABEL: L1\n  out := a;")]           // unclosed, but a header only network text has
+    public void Network_text_under_ST_is_still_network_text(string body)
+    {
+        Assert.True(NetworkText.OpensNetwork(body), body);
+    }
+
+    /// <summary><c>%FOLDER</c> is peeled only where the directive stands — the FIRST line under a member's boundary.
+    /// A line spelled like it deeper in the body (here inside a block comment) is the engineer's text: peeling it moved
+    /// the member into a folder named after the comment and deleted the line from the body.</summary>
+    [Fact]
+    public void A_FOLDER_line_inside_a_body_is_body_text_and_no_folder()
+    {
+        const string body = "(*\n%FOLDER notes\n*)\nM := TRUE;";
+        var text = $"{FbDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\n{body}\nEND_METHOD\n";
+
+        var m = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor").Members.Single();
+
+        Assert.Null(m.Folder);
+        Assert.Equal(body, m.Body);
+    }
+
+    /// <summary>An INTERFACE member has no boundary, so the writer puts its <c>%FOLDER</c> as the last line of its
+    /// declaration (pro2193's <c>IIMM_Default_XYControl.itf</c> holds nine). The reader peels it there — it used to
+    /// leave it in the declaration, which the push then wrote into the IDE as code, with the member's folder lost.</summary>
+    [Fact]
+    public void An_interface_members_FOLDER_is_its_folder_and_round_trips()
+    {
+        const string text = "INTERFACE I_X\n\nMETHOD PUBLIC Go : BOOL\nVAR_INPUT\nEND_VAR\n%FOLDER Commands\nEND_METHOD\n\nEND_INTERFACE\n";
+
+        var item = StReader.Read(text, ItemKind.Kinds.Interface, "I_X");
+
+        var go = item.Members.Single();
+        Assert.Equal("Commands", go.Folder);
+        Assert.Equal("METHOD PUBLIC Go : BOOL\nVAR_INPUT\nEND_VAR", go.Declaration);
+        Assert.Equal(text, StWriter.Write(item));
+    }
 }

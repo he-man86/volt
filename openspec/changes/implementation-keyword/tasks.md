@@ -47,6 +47,13 @@ the **spec** and **layering** lenses.
       an ST body opening with a marker-spelled comment pulls as ST and pushes back; a marker under a stated language
       is refused; a keyword-shaped line in any declaration (GVL, DUT, interface, a name alone on its line) is refused
       as reserved; the retired comment is refused only where it stands as a boundary (directly above a marker line).
+      Section-2 review round 2 (data lens), fixed with tests: the retired-comment check walks up over `%FOLDER` too
+      (the old member shape: comment, `%FOLDER`, marker), and a `%FOLDER` line anywhere in a declaration is refused
+      by name; `%FOLDER` is peeled only at its place (the first line under a member's boundary, the last line of a
+      property's or an interface member's declaration — the latter used to be pushed into the IDE as code); the
+      keyword line outranks a marker-spelled declaration comment as the boundary, and a marker body's line is the
+      last one; two keyword-shaped lines in one region are refused naming both; `OpensNetwork` no longer calls ST
+      that names a variable `network` network text.
 
 ## 3. LSP and editor
 

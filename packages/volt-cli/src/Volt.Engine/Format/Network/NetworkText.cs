@@ -40,11 +40,21 @@ public static class NetworkText
         return Languages.IsNetwork(lang) ? lang : null;
     }
 
-    // `NETWORK` opening a line, alone or followed by a header field (`LABEL:`, `TITLE:`, `DISABLED`, v1's number) — the
-    // way every network-text body opens. An ST statement never has an identifier followed by a word there
-    // (`NETWORK := 1;` and `NETWORK(…)` are ST that merely uses the name), so the shape tells the two apart.
-    private static readonly System.Text.RegularExpressions.Regex NetworkHeader =
-        new(@"^\s*NETWORK(\s*$|\s+[A-Za-z0-9_])",
+    // `NETWORK` opening a line with a header FIELD after it — `LABEL:`, `TITLE:`, `DISABLED`, v1's number — the way a
+    // network-text body opens and no ST statement can. NOT any word: `network REF= y;` is ST that names a variable
+    // `network`, and calling it network text made such a body pullable and never pushable.
+    private static readonly System.Text.RegularExpressions.Regex FieldedHeader =
+        new(@"^\s*NETWORK\s+(LABEL\s*:|TITLE\s*:|DISABLED\b|\d)",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    // `NETWORK` alone on its line is the other header — and also ST, when a statement is wrapped after the name
+    // (`network` then `:= y;`). Network text closes every network with `END_NETWORK`, which no such statement has.
+    private static readonly System.Text.RegularExpressions.Regex BareHeader =
+        new(@"^\s*NETWORK\s*$",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    private static readonly System.Text.RegularExpressions.Regex NetworkEnd =
+        new(@"^\s*END_NETWORK\b",
             System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     /// <summary>Does <paramref name="code"/> — a body's text under its boundary line — open with a network: is its first
@@ -54,10 +64,11 @@ public static class NetworkText
     /// catches the text that contradicts it, which would otherwise reach the IDE as the wrong language.</summary>
     public static bool OpensNetwork(string code)
     {
-        var lines = code.Replace("\r", "").Split('\n');
-        foreach (var line in StTrivia.Code(lines))
-            if (line.Trim().Length > 0) return NetworkHeader.IsMatch(line);
-        return false;
+        var lines = StTrivia.Code(code.Replace("\r", "").Split('\n'));
+        var first = System.Array.FindIndex(lines, l => l.Trim().Length > 0);
+        if (first < 0) return false;
+        if (FieldedHeader.IsMatch(lines[first])) return true;
+        return BareHeader.IsMatch(lines[first]) && lines.Skip(first + 1).Any(l => NetworkEnd.IsMatch(l));
     }
 
     /// <summary>How a body language is spelled — on its <c>IMPLEMENTATION</c> line, and in the vendor-neutral language
