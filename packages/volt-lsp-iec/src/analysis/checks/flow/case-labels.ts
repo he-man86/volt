@@ -1,7 +1,8 @@
 /**
- * case-labels (flow/) — CASE-selector-label rules, one traversal, four codes:
+ * case-labels (flow/) — CASE-selector-label rules, one traversal, six codes:
  *   C0216 duplicate single label · C0217 single label inside a range · C0219 overlapping ranges ·
- *   C0218 a label that is a non-constant variable.
+ *   C0218 a label that is a non-constant variable · a literal label outside the selector's type (C0032's
+ *   "Cannot convert") · an inverted range ("Lower border must be lower than upper border").
  *
  * C0216/C0217/C0219 use pure const-eval (a label participates only when it folds to a `bigint`). C0218 uses
  * `constancyOf` — flagging ONLY a label that resolves to a genuine mutable variable; an enum member or a
@@ -14,10 +15,11 @@
  */
 import { walkStatements, type CaseStatement, type Expr } from "../../../syntax/index.js"
 import { bodies, type Scope } from "../../../symbols/index.js"
-import { constancyOf, constEval } from "../../../types/index.js"
+import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, type Type } from "../../../types/index.js"
 import type { Span } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { compilerTypeName } from "../../messages.js"
 
 export function checkCaseLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -49,17 +51,35 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
     // C0218 — a label that is a genuine non-constant variable (enum members / VAR CONSTANT are fine).
     if (constancyOf(e, scope) === "variable") push("case-label-non-const", e.span, ctx.messages.caseLabelNonConst())
   }
+  // The selector's type, when it is an elementary integer or bit string: a label is a value OF it (transpile-review 37,
+  // `tr_37_case_*`). A literal outside it does not wrap in — `300` / `-212` on a SINT are "Cannot convert type 'INT' to
+  // type 'SINT'" — and a range's bounds are read in it, so `0..200` on a SINT is inverted (200 is -56 there) exactly as
+  // `5..1` is: "Lower border must be lower than upper border".
+  const selector: Type = inferExprType(s.selector, scope, ctx.project)
+  const sel = elemOf(selector)
+  const typed = sel?.range !== undefined && (sel.family === "int" || sel.family === "bitstring") ? sel : undefined
+  const inType = (v: bigint): bigint => (typed === undefined ? v : typed.signed ? BigInt.asIntN(typed.bits, v) : BigInt.asUintN(typed.bits, v))
+  const outOfType = (e: Expr): boolean => {
+    if (typed === undefined) return false
+    const rhs = literalErrorType(e, selector)
+    if (rhs === undefined || isAssignable(selector, rhs)) return false
+    push("case-label-type", e.span, ctx.messages.cannotConvert(compilerTypeName(rhs), compilerTypeName(selector)))
+    return true
+  }
   for (const arm of s.arms) {
     for (const label of arm.labels) {
       const lo = constEval(label.value, scope)
       if (label.upper !== undefined) {
         const hi = constEval(label.upper, scope)
-        if (typeof lo === "bigint" && typeof hi === "bigint") ranges.push({ lo, hi, span: label.span })
-        else {
+        if (typeof lo === "bigint" && typeof hi === "bigint") {
+          if (inType(lo) > inType(hi)) push("case-range-inverted", label.span, ctx.messages.caseRangeInverted())
+          ranges.push({ lo, hi, span: label.span })
+        } else {
           nonConst(label.value)
           nonConst(label.upper)
         }
       } else if (typeof lo === "bigint") {
+        if (outOfType(label.value)) continue
         if (seen.has(lo.toString())) push("case-label-duplicate", label.span, ctx.messages.caseLabelDuplicate()) // C0216
         else seen.set(lo.toString(), true)
         points.push({ v: lo, span: label.span })

@@ -889,13 +889,6 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     //            ("Cannot convert type 'INT' to type 'BYTE'" / "... 'SINT'").
     "tr_35_for_byte_runtime_int_step",
     "tr_35_for_sint_step_300",
-    //   task 37: a CASE label outside the selector's type (300 / -212 on a SINT: "Cannot convert type 'INT' to type
-    //            'SINT'"), and a range that is inverted or runs past the type ("Lower border must be lower than upper
-    //            border"). The review's premise — that the WRAPPED label matches — is contradicted: CODESYS refuses.
-    "tr_37_case_label_wraps_300",
-    "tr_37_case_label_wraps_minus_212",
-    "tr_37_case_range_inverted",
-    "tr_37_case_range_beyond_type",
     //   task 40: DATE / DT / TOD plus or minus an LTIME, either order ("Cannot convert type 'LTIME' to type 'ULINT'").
     "tr_40_date_plus_ltime",
     "tr_40_dt_plus_ltime",

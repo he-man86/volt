@@ -452,9 +452,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): out-of-type labels compile (warning) and compare BY VALUE — never match (r1=2, r2=2); an inverted
   range `5..1` and `0..200` on SINT are BUILD ERRORS ("Lower border must be lower than upper border").
 - Fix: drop out-of-type labels at lowering (never match); bail on inverted / out-of-type ranges. Add the LSP check.
-- [ ] 37.1 Record the four `case_label_*` / `case_range_*` fixtures — red.
+- [x] 37.1 Record the four `case_label_*` / `case_range_*` fixtures — red.
   Recorded 2026-09-29 (record:exec): `tr_37_case_label_wraps_300`, `tr_37_case_label_wraps_minus_212` ("Cannot convert type 'INT' to type 'SINT'"), `tr_37_case_range_inverted`, `tr_37_case_range_beyond_type` ("Lower border must be lower than upper border") — ALL refused by CODESYS; the wrapped-label premise is contradicted. lsp-gap (`MEASURED_SILENT`).
-- [ ] 37.2 Fix.
+- [x] 37.2 Fix. Lowering refuses `case-label-type` (invalid) for a label outside the selector's type or a range inverted in it; the LSP `case-labels` check reports "Cannot convert type 'INT' to type 'SINT'" for an out-of-type literal label and "Lower border must be lower than upper border" for a range inverted once read in the selector's type. All four rated refused, out of MEASURED_SILENT; src tests in lower.test.ts and case-labels.test.ts; corpus gate green.
 
 ## 38. Implicit string-kind conversions CODESYS refuses are lowered
 - Root cause: `lower/statements.ts:107-111` (refuseImplicitString only refuses STRING→non-string), `:93` (chain link

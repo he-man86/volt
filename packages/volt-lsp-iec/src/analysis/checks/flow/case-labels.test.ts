@@ -58,3 +58,25 @@ test("CASE-label wording is per-vendor (verified live): CODESYS 'CASE', TwinCAT 
   expect(cs(`  1: i := 1;\n  1: i := 2;`, "codesys")).toEqual(["CASE label duplicate"])
   expect(cs(`  1: i := 1;\n  1: i := 2;`, "twincat")).toEqual(["Case label duplicate"])
 })
+
+// transpile-review 37 (`tr_37_case_*`, recorded 2026-09-29): a label outside the selector's type does not wrap into it — it is
+// refused as a conversion — and a range that is inverted, or inverted once its upper bound wraps into the type, is refused
+// with its own message. Each was silent.
+const sint = (arms: string): string[] => {
+  const src = `PROGRAM PLC_PRG\nVAR\n  sv : SINT;\n  res : INT;\nEND_VAR\nCASE sv OF\n${arms}\nELSE res := 2;\nEND_CASE\nEND_PROGRAM`
+  const pr = parseSource(src)
+  const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
+  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.severity === "error")
+    .map((d) => d.message)
+}
+
+test("a CASE label outside the selector's type is refused; an inverted range is refused", () => {
+  expect(sint(`  300: res := 1;`)).toEqual(["Cannot convert type 'INT' to type 'SINT'"])
+  expect(sint(`  -212: res := 1;`)).toEqual(["Cannot convert type 'INT' to type 'SINT'"])
+  expect(sint(`  5..1: res := 1;`)).toEqual(["Lower border must be lower than upper border"])
+  expect(sint(`  0..200: res := 1;`)).toEqual(["Lower border must be lower than upper border"])
+  expect(cs(`  5..1: i := 1;`)).toEqual(["Lower border must be lower than upper border"])
+  // in the type, and a well-formed range: silent
+  expect(sint(`  -128: res := 1;\n  127: res := 3;\n  1..100: res := 4;`)).toEqual([])
+})

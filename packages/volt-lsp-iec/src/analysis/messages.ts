@@ -193,6 +193,9 @@ export interface Messages {
   caseLabelDuplicate(): string
   /** A single CASE label that also falls inside a CASE range (C0217). verified both vendors. */
   caseLabelInRange(label: string, lo: string, hi: string): string
+  /** A CASE range whose lower bound, read in the selector's type, is above its upper (`5..1`, `0..200` on a SINT).
+   *  Measured on CODESYS only (`tr_37_case_range_*`); the CODESYS string stands for both. */
+  caseRangeInverted(): string
   /** A CASE label that is a non-constant variable (C0218). verified both vendors. */
   caseLabelNonConst(): string
   /** A FOR whose end bound is beyond the counter's type range → unreachable exit test (C0266). verified both vendors. */
@@ -571,6 +574,7 @@ export function messagesFor(vendor: Vendor): Messages {
     initListExpected: (type) => `Initialisation list for ${type} expected`,
     caseLabelDuplicate: () => (tc ? `Case label duplicate` : `CASE label duplicate`),
     caseLabelInRange: (label, lo, hi) => (tc ? `Case label ${label} also contained in range ${lo} .. ${hi}` : `CASE label ${label} also contained in range ${lo} .. ${hi}`),
+    caseRangeInverted: () => `Lower border must be lower than upper border`,
     caseLabelNonConst: () => (tc ? `Case label requires literal or symbolic integer constant` : `CASE label requires literal or symbolic integer constant`),
     // Live-verified both vendors (2026-07-11): CODESYS ends "loop.", TwinCAT ends "loop!". Cond `<counter> <op> <bound>`.
     loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Possible endless loop${tc ? "!" : "."}`,

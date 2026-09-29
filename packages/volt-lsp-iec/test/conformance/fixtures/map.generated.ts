@@ -15,16 +15,16 @@
  *
  *   evidence
  *     confirmed     2033
- *     refused        541
+ *     refused        545
  *     not-lowered    108
- *     lsp-gap         17
+ *     lsp-gap         13
  *     diverges        18
  *     unaskable       38
  *
  *   tier                     lowered    clean
  *     decl                    440      440
  *     arith                  1463     1463
- *     control                  76       76
+ *     control                  72       72
  *     aggregate                29       29
  *     call                    231      229
  *     indirect                180      176
@@ -51,18 +51,18 @@
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
  *     agree         2317
  *     disagree         5
- *     not-run         97
+ *     not-run         93
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: no elementary variable to seed or compare       15
- *       not-run: the emitted Rust does not build                 11
+ *       not-run: the emitted Rust does not build                  7
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_41_limit_evaluation_order — (declared inputs): inst.x interpreter 4, Rust 3
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35833 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6646
+ *   pedantic — 35831 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6644
  *     clippy::cast_possible_truncation         5684
  *     clippy::uninlined_format_args            4743
  *     clippy::cast_sign_loss                   4383
@@ -85,8 +85,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1458 distinct emission shapes over 2419 lowered fixtures, 1659 distinct constructs.
- *   770 constructs carry a review note (`NOTES`): 2331 fixtures are improvable, 2246 touch a construct with alternatives.
+ *   shape — 1455 distinct emission shapes over 2415 lowered fixtures, 1659 distinct constructs.
+ *   770 constructs carry a review note (`NOTES`): 2327 fixtures are improvable, 2242 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2538,10 +2538,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_35_for_sint_step_300: { evidence: "lsp-gap" },
   tr_35_for_uint_step_minus_two: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.5, shape: "b460cb4525", notes: ["02b031c773", "1307e33bbf", "1d7709a031", "4979768984", "521ba042ac", "5ba97e5557", "65df8e0418", "d9d57311e3"] },
   tr_36_for_literal_limit_beyond_counter: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 15, edge: "agree", size: 7.7, shape: "b1b5e37b4f", notes: ["02b031c773", "1307e33bbf", "1ad1ab3163", "4979768984", "5ba97e5557", "93a17fab28", "d9d57311e3"] },
-  tr_37_case_label_wraps_300: { evidence: "lsp-gap", tier: "control", rust: "rejected", pedantic: 1, edge: "not-run", size: 5, shape: "33436ec268", notes: ["0e0d715a81", "1307e33bbf"] },
-  tr_37_case_label_wraps_minus_212: { evidence: "lsp-gap", tier: "control", rust: "rejected", pedantic: 1, edge: "not-run", size: 5, shape: "cdc2e0b3d3", notes: ["0e0d715a81", "1307e33bbf"] },
-  tr_37_case_range_beyond_type: { evidence: "lsp-gap", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 5, shape: "4ef7bebdec", notes: ["0e0d715a81", "1307e33bbf"] },
-  tr_37_case_range_inverted: { evidence: "lsp-gap", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 5, shape: "4ef7bebdec", notes: ["0e0d715a81", "1307e33bbf"] },
+  tr_37_case_label_wraps_300: { evidence: "refused" },
+  tr_37_case_label_wraps_minus_212: { evidence: "refused" },
+  tr_37_case_range_beyond_type: { evidence: "refused" },
+  tr_37_case_range_inverted: { evidence: "refused" },
   tr_40_date_plus_ltime: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "557a077da6", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },
   tr_40_dt_plus_ltime: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "557a077da6", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },
   tr_40_ltime_plus_date: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "557a077da6", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },

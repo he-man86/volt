@@ -73,6 +73,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "call-super": "unclassified",
   "call-target": "unclassified",
   "case-label": "unclassified",
+  "case-label-type": "invalid",
   "conversion-type": "not-measured",
   "enum-value": "unclassified",
   "expr-call": "unclassified",
