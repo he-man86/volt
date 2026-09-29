@@ -123,6 +123,13 @@ fn iec_civil(days: i64) -> (i64, i64, i64) { let z = days + 719468; let era = z.
 fn iec_date_text(s: i64) -> String { let (y, m, d) = iec_civil(s.div_euclid(86400)); format!("D#{:04}-{:02}-{:02}", y, m, d) }
 fn iec_dt_text(s: i64) -> String { let (y, m, d) = iec_civil(s.div_euclid(86400)); let t = s.rem_euclid(86400); format!("DT#{:04}-{:02}-{:02}-{:02}:{:02}:{:02}", y, m, d, t / 3600, t / 60 % 60, t % 60) }
 fn iec_tod_text(ms: i64) -> String { let s = ms / 1000; let f = ms % 1000; if f == 0 { format!("TOD#{:02}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60) } else { format!("TOD#{:02}:{:02}:{:02}.{:03}", s / 3600, s / 60 % 60, s % 60, f) } }
+// LDT, LDATE and LTOD (nanoseconds, taken as i64: CODESYS reads them signed, so 2300 wraps to 1715) → STRING —
+// 'LDT#2024-02-29-13:05:09.000000001', 'LD#2024-02-29', 'LTOD#00:00:00'; a zero fraction omitted, any other nine
+// digits; the LDT's date floors, the LDATE's day truncates toward zero. Mirrors longCalendarText in the interpreter.
+fn iec_lclock(ns: i64) -> String { let s = ns / 1_000_000_000; let f = ns % 1_000_000_000; if f == 0 { format!("{:02}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60) } else { format!("{:02}:{:02}:{:02}.{:09}", s / 3600, s / 60 % 60, s % 60, f) } }
+fn iec_ldt_text(ns: i64) -> String { let (y, m, d) = iec_civil(ns.div_euclid(86_400_000_000_000)); format!("LDT#{:04}-{:02}-{:02}-{}", y, m, d, iec_lclock(ns.rem_euclid(86_400_000_000_000))) }
+fn iec_ldate_text(ns: i64) -> String { let (y, m, d) = iec_civil(ns / 86_400_000_000_000); format!("LD#{:04}-{:02}-{:02}", y, m, d) }
+fn iec_ltod_text(ns: i64) -> String { format!("LTOD#{}", iec_lclock(ns)) }
 // STRING → REAL: the same decimal prefix the interpreter's regex takes ('.5', '5.', '1.5E' is 1.5), else 0.
 // WRITTEN OUT, not on one line like its neighbours. Each step is a separate optional piece of the grammar, so an
 // else would be wrong — but on ONE line that reads to clippy as five possible_missing_else, which was 507 of the

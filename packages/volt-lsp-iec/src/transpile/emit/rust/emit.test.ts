@@ -875,3 +875,39 @@ describe.skipIf(skipRustSuite())("emit/rust — LREAL_TO_STRING rounds a tie hal
     expect(run.stdout.toString().trim().split(/\r?\n/)).toEqual(recorded.map(([, text]) => text))
   }, 60_000)
 })
+
+/**
+ * LDT / LDATE / LTOD -> STRING (transpile-review task 12). The emitter called `iec_ldt_text` / `iec_ldate_text` /
+ * `iec_ltod_text`, which the prelude never defined (E0425). Each helper takes the u64 `as i64` — CODESYS reads it
+ * signed, so 2300-01-01 wraps to 1715 — and prints CODESYS's recorded text (`tr_12_fmt_long_dates`).
+ */
+describe.skipIf(skipRustSuite())("emit/rust — LDT/LDATE/LTOD_TO_STRING", () => {
+  test("the prelude's helpers print CODESYS's text", async () => {
+    const day = 86_400_000_000_000n
+    const leap = 19782n * day + (13n * 3600n + 5n * 60n + 9n) * 1_000_000_000n
+    const y2300 = BigInt.asIntN(64, 120_530n * day)
+    const recorded: [string, bigint, string][] = [
+      ["ldt", 0n, "LDT#1970-01-01-00:00:00"],
+      ["ldt", leap + 1n, "LDT#2024-02-29-13:05:09.000000001"],
+      ["ldt", leap + 500_000_000n, "LDT#2024-02-29-13:05:09.500000000"],
+      ["ldt", y2300, "LDT#1715-06-13-00:25:26.290448384"],
+      ["ldate", 0n, "LD#1970-01-01"],
+      ["ldate", 19782n * day, "LD#2024-02-29"],
+      ["ldate", y2300, "LD#1715-06-14"],
+      ["ltod", 0n, "LTOD#00:00:00"],
+      ["ltod", day - 1n, "LTOD#23:59:59.999999999"],
+      ["ltod", 3723n * 1_000_000_000n + 500_000_000n, "LTOD#01:02:03.500000000"],
+      ["ltod", 3723n * 1_000_000_000n + 1000n, "LTOD#01:02:03.000001000"],
+    ]
+    const main = `fn main() {\n${recorded.map(([f, v]) => `    println!("{}", iec_${f}_text(${v}i64));`).join("\n")}\n}\n`
+    const dir = await mkdtemp(join(tmpdir(), "volt-ldt-"))
+    const file = join(dir, "long_dates.rs")
+    const exe = join(dir, process.platform === "win32" ? "long_dates.exe" : "long_dates")
+    await Bun.write(file, `#![allow(dead_code)]\n${STRING_PRELUDE}\n${main}`)
+    const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-o", exe, file])
+    expect(build.stderr.toString()).toBe("")
+    const run = Bun.spawnSync([exe])
+    await rm(dir, { recursive: true, force: true })
+    expect(run.stdout.toString().trim().split(/\r?\n/)).toEqual(recorded.map(([, , text]) => text))
+  }, 60_000)
+})

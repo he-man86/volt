@@ -136,6 +136,32 @@ export function calendarText(name: "DATE" | "DT" | "TOD", v: bigint): string {
 }
 
 /**
+ * An LDT, LDATE or LTOD (nanoseconds) as its literal text — CODESYS's recorded answer (`tr_12_fmt_long_dates`):
+ *
+ *   'LDT#2024-02-29-13:05:09.000000001'   'LD#2024-02-29'   'LTOD#01:02:03.500000000'   'LTOD#00:00:00'
+ *
+ * a zero fraction omitted, any other printed with all nine digits. The u64 is read as a SIGNED i64: 2300-01-01
+ * prints 'LDT#1715-06-13-00:25:26.290448384' — the date floored, the time of day positive — but an LDATE's day
+ * TRUNCATES toward zero there, 'LD#1715-06-14'. Mirrored by the prelude's `iec_ldt_text` / `iec_ldate_text` /
+ * `iec_ltod_text`.
+ */
+export function longCalendarText(name: "LDATE" | "LDT" | "LTOD", raw: bigint): string {
+  const v = BigInt.asIntN(64, raw)
+  const second = 1_000_000_000n
+  const day = 86_400n * second
+  const clock = (ns: bigint): string => {
+    const s = ns / second
+    const f = ns % second
+    return `${pad(s / 3600n, 2)}:${pad((s / 60n) % 60n, 2)}:${pad(s % 60n, 2)}${f === 0n ? "" : `.${pad(f, 9)}`}`
+  }
+  if (name === "LTOD") return `LTOD#${clock(v)}`
+  const days = name === "LDATE" ? v / day : v >= 0n ? v / day : (v - day + 1n) / day
+  const [y, m, d] = civilDate(days)
+  const date = `${pad(y, 4)}-${pad(m, 2)}-${pad(d, 2)}`
+  return name === "LDATE" ? `LD#${date}` : `LDT#${date}-${clock(v - days * day)}`
+}
+
+/**
  * The ladder at one type's own TICK: each unit as a count of ticks, and units finer than the tick dropped — a
  * TIME counts milliseconds, so it has no `us` or `ns` component, and an LTIME counts nanoseconds and has both.
  * Both printers had this written out by hand, in two different scales.
@@ -381,6 +407,7 @@ export function coerce(v: Val, to: Type, from: Type): Val {
     if (source === "TIME") return timeText(v as bigint)
     if (source === "LTIME") return ltimeText(v as bigint)
     if (source === "LREAL") return lrealText(v as number)
+    if (source === "LDATE" || source === "LDT" || source === "LTOD") return longCalendarText(source, v as bigint)
     return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
   }
   if (typeof v === "string" && family === "real") {

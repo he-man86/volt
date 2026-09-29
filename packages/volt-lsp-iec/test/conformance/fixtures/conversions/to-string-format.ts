@@ -255,8 +255,8 @@ function textCells(slug: string, feature: string, rows: readonly (readonly [stri
 }
 
 /**
- * Task 12: LDT / LDATE / LTOD -> STRING. The interpreter prints the raw count (`values.ts` falls through to
- * `String(v)`) and the Rust emitter calls `iec_<type>_text` helpers the prelude never defines (E0425). What the
+ * Task 12: LDT / LDATE / LTOD -> STRING. The interpreter printed the raw count (`values.ts` fell through to
+ * `String(v)`) and the Rust emitter called `iec_<type>_text` helpers the prelude never defined (E0425). What the
  * review saw LIVE: prefixes LDT#/LD#/LTOD#, a zero fraction omitted, any other printed with 9 digits, and a date
  * past 2262 wrapping as signed i64 nanoseconds (2300-01-01 prints 1715-06-13).
  * The edges: the epoch, a one-nanosecond fraction, a half-second fraction (are its trailing zeros kept?), the last
@@ -365,13 +365,7 @@ const trLrealTie = cells(
 
 /** transpile-review-2026-09-29 tasks 12, 31, 32, 33 — registered beside `TO_STRING_FORMAT_TESTS` in `index.ts`. */
 export const TRANSPILE_REVIEW_TO_STRING_TESTS: readonly LanguageTest[] = [
-  {
-    ...trLongDates,
-    deferred: {
-      transpile:
-        "transpile-review-2026-09-29 task 12: CODESYS prints LDT#/LD#/LTOD# text; the interpreter prints the raw count and the emitted Rust calls format helpers that do not exist (measured 2026-09-29)",
-    },
-  },
+  trLongDates,
   trBitConversions,
   trLtimePastI64,
   trLrealTie,

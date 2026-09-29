@@ -26,3 +26,27 @@ test("an exact tie still rounds half to even, and LREAL is untouched", () => {
   expect(toReal(16777217n, "DINT")).toBe(16777216)
   expect(coerce(2n ** 60n + 2n ** 36n + 1n, elementaryRef("LREAL"), elementaryRef("LINT"))).toBe(Number(2n ** 60n + 2n ** 36n + 1n))
 })
+
+/**
+ * LDT / LDATE / LTOD -> STRING (transpile-review task 12): the interpreter printed the raw nanosecond count. CODESYS's
+ * recorded text (`tr_12_fmt_long_dates`): prefixes LDT#, LD#, LTOD#; a zero fraction omitted, any other nine digits;
+ * the u64 read as a SIGNED i64, so 2300-01-01 wraps to 1715 — and an LDATE's day then truncates toward zero
+ * (1715-06-14) where the LDT's date floors (1715-06-13, its time of day positive).
+ */
+test("LDT, LDATE and LTOD print CODESYS's text", () => {
+  const text = (v: bigint, from: string) => coerce(v, elementaryRef("STRING"), elementaryRef(from))
+  const day = 86_400_000_000_000n
+  const leap = 19782n * day + (13n * 3600n + 5n * 60n + 9n) * 1_000_000_000n
+  const y2300 = BigInt.asUintN(64, 120_530n * day)
+  expect(text(0n, "LDT")).toBe("LDT#1970-01-01-00:00:00")
+  expect(text(leap + 1n, "LDT")).toBe("LDT#2024-02-29-13:05:09.000000001")
+  expect(text(leap + 500_000_000n, "LDT")).toBe("LDT#2024-02-29-13:05:09.500000000")
+  expect(text(y2300, "LDT")).toBe("LDT#1715-06-13-00:25:26.290448384")
+  expect(text(0n, "LDATE")).toBe("LD#1970-01-01")
+  expect(text(19782n * day, "LDATE")).toBe("LD#2024-02-29")
+  expect(text(y2300, "LDATE")).toBe("LD#1715-06-14")
+  expect(text(0n, "LTOD")).toBe("LTOD#00:00:00")
+  expect(text(day - 1n, "LTOD")).toBe("LTOD#23:59:59.999999999")
+  expect(text(3723n * 1_000_000_000n + 500_000_000n, "LTOD")).toBe("LTOD#01:02:03.500000000")
+  expect(text(3723n * 1_000_000_000n + 1000n, "LTOD")).toBe("LTOD#01:02:03.000001000")
+})

@@ -261,6 +261,9 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
   // The IDE displays an LDATE's 64-bit count SIGNED: `xf_tod_to_ldate_call_once` records raw 2^64 - 2e9 beside
   // `LDATE#1969-12-31`.
   if (raw.startsWith("LDATE#")) return floorTo(BigInt.asIntN(64, value), 86_400_000_000_000n)
+  // ...and an LDT's the same way: `tr_12_fmt_long_dates` records LDT#2300-01-01's raw 2^64-wrapped count as
+  // `LDATE_AND_TIME#1715-6-13-0:25:26.290448384` — the same bits read as a signed i64.
+  if (raw.startsWith("LDATE_AND_TIME#")) return BigInt.asIntN(64, value)
   return value
 }
 

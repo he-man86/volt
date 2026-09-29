@@ -173,9 +173,9 @@ those values into the new fixture's recording.
   LD#, LTOD#; a zero fraction is omitted, any other prints 9 digits; dates after 2262 wrap as signed i64 ns
   (2300-01-01 prints 1715-06-13), so the `as i64` in the emitter is right for these.
 - Fix: implement ldt/ldate/ltod text in `values.ts` and the prelude from the recording (or refuse until then).
-- [ ] 12.1 Record `fmt_long_dates` (the 11-case LIVE program) — red.
+- [x] 12.1 Record `fmt_long_dates` (the 11-case LIVE program) — red.
   Recorded 2026-09-29 (record:exec): `tr_12_fmt_long_dates` — diverges; the emitted Rust does not compile. CODESYS wraps LDT/LDATE 2300 to 1715 (`LDT#1715-06-13-00:25:26.290448384`).
-- [ ] 12.2 Fix both backends.
+- [x] 12.2 Fix both backends. `longCalendarText` (`ir/values.ts`) + prelude `iec_ldt_text`/`iec_ldate_text`/`iec_ltod_text` read the u64 as i64; LDT's date floors but LDATE_TO_STRING's day TRUNCATES (2300 -> 'LD#1715-06-14', display LDATE#1715-6-13); the harness now reads an `LDATE_AND_TIME#` display signed like LDATE's. Fixture confirmed, rust vendor.
 
 ## 13. FOR whose limit is wider than the counter emits a step that does not compile (E0308)
 - Root cause: `lower/statements.ts:341` (the step reuses `current`, the counter already converted to compareIn at
