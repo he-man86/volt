@@ -161,9 +161,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): length-agnostic — namedInt=bareInt=5, crossNamed=crossBare=12345, n=100, narrowLen=91, n3=86.
 - Fix: keep the argument's own capacity when it is already a string of the named family; size a wide result by the
   source's capacity.
-- [ ] 11.1 Record `string_conversion_beyond_80` — red.
+- [x] 11.1 Record `string_conversion_beyond_80` — red.
   Recorded 2026-09-29 (record:exec): `tr_11_string_conversion_beyond_80` — not-lowered (`conversion-type`). CODESYS converts the whole operand (namedInt=5, crossNamed=12345).
-- [ ] 11.2 Fix.
+- [x] 11.2 Fix. `lowerConversion` (lower/builtins.ts) keeps a string operand of the named width at its own capacity and sizes a STRING<->WSTRING result by it; WSTRING_TO_<number> and a bare `TO_<number>` of a string parse the narrowed text — fixture confirmed (rust vendor); src test in lower.test.ts; four xo3 notes re-keyed.
 
 ## 12. LDT/LDATE/LTOD → STRING: interpreter prints the raw count, Rust calls missing helpers
 - Root cause: `lower/builtins.ts:273` (`hasText` admits the whole date family); `ir/values.ts:371` (falls through to

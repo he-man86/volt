@@ -1866,11 +1866,11 @@ const LEAN = {
     improvement: "A cursor index is built as `sub(p,1)` then `add(extra)` without folding. For `p^[1]` that prints `(p as i64).wrapping_sub(1i64).wrapping_add(1i64)`. When extra is a constant, fold it to `(p as i64) + (extra-1)`, or to `p as i64` for extra == 1.",
   },
   shapes16_11: {
-    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
     alternatives: [
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
   },
   shapes16_12: {
@@ -2366,8 +2366,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "3cf4e6fa21": merged(LEAN.shapes15_7, LEAN.shapes15_14),
   // if (self.f as i32) > Li32 { break; }
   "3d3b42b24d": LEAN.shapes11_16,
-  // self.f = self.f.to::<L>().narrow::<L>().to::<L>().to();
-  "3d5839a372": LEAN.shapes15_1,
+  // self.f = self.f.narrow::<L>().to::<L>().to();
+  "d54a668b9a": LEAN.shapes15_1,
   // self.f.m();
   "3d737b5821": LEAN.shapes1_6,
   // x = __grid_lower_N.wrapping_mul(Li32).wrapping_add(__grid_upper_N) as i16;
@@ -3172,8 +3172,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "bb4c155c09": LEAN.shapes15_7,
   // self.f = (self.f as i32).min(self.f as i32) as u8;
   "bcb0fc562e": LEAN.shapes8_3,
-  // self.narrow = self.f.f.to::<L>().narrow::<L>().to::<L>().to();
-  "bcc6eeb86d": merged(LEAN.shapes16_1, LEAN.shapes16_11),
+  // self.narrow = self.f.f.narrow::<L>().to();
+  "90205de00e": LEAN.shapes16_1,
   // self.f = { let x = self.g; let x = self.f; let x = self.f; if x { x } else { x } };
   "be637eb16c": LEAN.shapes9_5,
   // pub fn init(&mut self, prg: &mut Programs) {
@@ -3200,8 +3200,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c2409a5969": LEAN.shapes13_7,
   // self.f = (self.v as u64).wrapping_mul(Lu64);
   "c2729b1a2a": LEAN.shapes7_5,
-  // self.narrow = self.f.to::<L>().narrow::<L>().to::<L>().to();
-  "c276ae3078": LEAN.shapes15_1,
+  // self.narrow = self.f.narrow::<L>().to::<L>().to();
+  "08b9196831": merged(LEAN.shapes15_1, LEAN.shapes16_11),
   // self.f = (self.f as i32).min(g.f as i32) as i16;
   "c2a92e6f4e": LEAN.shapes19_4,
   // self.f = (Lf64 - self.f).sqrt();
@@ -3290,8 +3290,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "d04295d4c8": LEAN.shapes19_3,
   // if (self.f & (!self.f)) & ((self.f as i32) < Li32) {
   "d0865e3847": LEAN.shapes15_5,
-  // self.f = self.f.to::<L>().widen::<L>().to::<L>().to();
-  "d224624ae4": LEAN.shapes15_1,
+  // self.f = self.f.widen::<L>().to::<L>().to();
+  "e9e296435a": LEAN.shapes15_1,
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T
   "d231c1a7e5": LEAN.shapes17_11,
   // self.f.f = (((self.f as i32) >= Li32) & ((self.f as i32) <= Li32)) | ((self.f as i32) == Li32);

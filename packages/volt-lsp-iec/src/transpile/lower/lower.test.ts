@@ -2258,3 +2258,25 @@ test("SIZEOF of an FB skips a replaced scalar VAR CONSTANT and adds a pointer pe
   expect(sized("", "I_A, I_B")).toBe(32n)
   expect(sized("VAR CONSTANT s : STRING := 'abc'; END_VAR")).toEqual(["sizeof-unmeasured"])
 })
+
+// transpile-review 11: STRING<->WSTRING and STRING->number conversions cut the operand to 80 characters, and a
+// WSTRING->number was refused. CODESYS (`tr_11_string_conversion_beyond_80`) converts the whole operand: 90 spaces then
+// '5' is 5 through STRING_TO_INT and TO_INT, 85 spaces then '12345' is 12345 through WSTRING_TO_INT and TO_INT, a
+// WSTRING of 100 narrows to a STRING of 100, a STRING of 91 widens to 91.
+test("a string conversion keeps the operand's own capacity past 80 characters", () => {
+  const { pou, diagnostics } = lowerSource(
+    "PROGRAM P\nVAR i : INT; txt : STRING(120); wide : WSTRING(120); w100 : WSTRING(120); narrow : STRING(120); widened : WSTRING(120);\n" +
+      "namedInt : INT; bareInt : INT; crossNamed : INT; crossBare : INT; cnt : INT; wideLen : INT; END_VAR\n" +
+      "FOR i := 0 TO 89 DO txt[i] := 32; END_FOR\ntxt[90] := 53;\ntxt[91] := 0;\n" +
+      "FOR i := 0 TO 84 DO wide[i] := 32; END_FOR\nFOR i := 85 TO 89 DO wide[i] := INT_TO_WORD(i - 36); END_FOR\nwide[90] := 0;\n" +
+      "FOR i := 0 TO 99 DO w100[i] := 120; END_FOR\nw100[100] := 0;\n" +
+      "namedInt := STRING_TO_INT(txt);\nbareInt := TO_INT(txt);\ncrossNamed := WSTRING_TO_INT(wide);\ncrossBare := TO_INT(wide);\n" +
+      "narrow := WSTRING_TO_STRING(w100);\ncnt := 0;\nFOR i := 0 TO 120 DO IF narrow[i] = 0 THEN EXIT; END_IF cnt := cnt + 1; END_FOR\nwidened := STRING_TO_WSTRING(txt);\n" +
+      "wideLen := 0;\nFOR i := 0 TO 120 DO IF widened[i] = 0 THEN EXIT; END_IF wideLen := wideLen + 1; END_FOR\nEND_PROGRAM\n",
+    "P",
+  )
+  expect(diagnostics.map((d) => d.code)).toEqual([])
+  const runner = run(pou!)
+  runner.scan()
+  expect(["namedInt", "bareInt", "crossNamed", "crossBare", "cnt", "wideLen"].map((n) => runner.get(n))).toEqual([5n, 5n, 12345n, 12345n, 100n, 91n])
+})

@@ -284,7 +284,9 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   }
   // STRING conversions (design §18): to STRING from an integer, a bit string, BOOL or TIME; from STRING to an integer,
   // REAL or LREAL. REAL_TO_STRING has no single digit rule and stays refused; parsing into a bit string is unmeasured.
-  // The result is a sizeless STRING (80) — no text these produce is longer.
+  // A number's text is a sizeless STRING (80) — no text these produce is longer. A STRING or WSTRING operand keeps its
+  // OWN capacity, and a string result is sized by it: CODESYS converts the whole operand (transpile-review 11,
+  // `tr_11_string_conversion_beyond_80`: 90 spaces then '5' is 5, a WSTRING of 100 narrows to 100 characters).
   const isInt = (t: Type | undefined, orBits = false): boolean =>
     t !== undefined && (elemOf(t)?.family === "int" || (orBits && elemOf(t)?.family === "bitstring"))
   const isString = (t: Type | undefined): boolean => t !== undefined && elemOf(t)?.family === "string"
@@ -306,23 +308,32 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const wideConversion = isString(to) && isString(from) && elemOf(to)?.name !== elemOf(from ?? UNKNOWN)?.name
   // `TO_STRING(v)` names no source, so `from` is undefined and the text rules below had nothing to test — the catalog
   // only ever wrote `X_TO_STRING`, while the corpus writes the bare form 132 times. The argument's own type is the
-  // source (conformance `ct_bare_to_conversions`).
+  // source (conformance `ct_bare_to_conversions`). `TO_INT(s)` of a STRING or WSTRING is the same: the named rule below.
+  const single = e.args.length === 1 && e.args[0]?.value !== undefined && e.args[0].param === undefined && !e.args[0].output
+  const bare = from === undefined && single ? lowerExpr(lw, e.args[0]!.value!) : undefined
+  if (from === undefined && single && bare === undefined) return undefined
   if (from === undefined && isString(to)) {
-    const only = e.args[0]
-    if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
-      return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
-    const arg = lowerExpr(lw, only.value)
-    if (arg === undefined) return undefined
-    return lowerConversion(lw, e, arg.type, to)
+    if (bare === undefined) return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
+    return lowerConversion(lw, e, bare.type, to)
   }
-  if (wideConversion || (isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
+  if (bare !== undefined && isString(bare.type)) return lowerConversion(lw, e, bare.type, to)
+  // WSTRING -> a number is the STRING rule on the narrowed text (`tr_11_string_conversion_beyond_80`: 85 spaces then
+  // '12345' is 12345 through WSTRING_TO_INT and TO_INT).
+  const wideParse = isString(from) && elemOf(from ?? UNKNOWN)?.name === "WSTRING" && parses(to)
+  if (wideConversion || wideParse || (isString(to) && elemOf(to)?.name === "STRING" && hasText(from)) || (isString(from) && elemOf(from ?? UNKNOWN)?.name === "STRING" && parses(to))) {
     const only = e.args[0]
     if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
       return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
     const arg = lowerExpr(lw, only.value, from)
     if (arg === undefined) return undefined
-    const type = withStringCapacity(to)
-    return { kind: "convert", value: convert(arg, withStringCapacity(from!)), type, span: e.span }
+    // the operand keeps its own capacity when it already is a string of the named width; only a sizeless one is 80
+    const sameWidth = isString(arg.type) && elemOf(arg.type)?.name === elemOf(from!)?.name
+    const source = sameWidth ? arg : convert(arg, withStringCapacity(from!))
+    const capacity = source.type.kind === "elementary" ? source.type.length : undefined
+    const sized = (t: Type): Type => (t.kind === "elementary" && t.length === undefined && capacity !== undefined ? { ...t, length: capacity } : withStringCapacity(t))
+    if (wideParse) return { kind: "convert", value: convert(source, sized(elementaryRef("STRING"))), type: to, span: e.span }
+    const type = isString(to) && isString(source.type) ? sized(to) : withStringCapacity(to)
+    return { kind: "convert", value: source, type, span: e.span }
   }
   // LREAL_TO_STRING IS IMPLEMENTED AND REAL_TO_STRING IS NOT, and the sweep that separated them is the reason.
   // Both were refused on eleven cells each; 68 more (`conversions/to-string-format.ts`, 2026-09-19) determine one
@@ -362,7 +373,7 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const only = e.args[0]
   if (e.args.length !== 1 || only?.value === undefined || only.param !== undefined || only.output)
     return lw.bail("call-arity", "a conversion takes exactly one positional argument", e.span)
-  const arg = lowerExpr(lw, only.value)
+  const arg = bare ?? lowerExpr(lw, only.value)
   if (arg === undefined) return undefined
   const source = from === undefined ? arg : convert(arg, from)
   const fromName = elemOf(source.type)?.name ?? ""

@@ -14,9 +14,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2028
+ *     confirmed     2029
  *     refused        541
- *     not-lowered    104
+ *     not-lowered    103
  *     lsp-gap         17
  *     diverges        27
  *     unaskable       38
@@ -26,7 +26,7 @@
  *     arith                  1463     1463
  *     control                  78       78
  *     aggregate                29       29
- *     call                    230      228
+ *     call                    231      229
  *     indirect                185      181
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
@@ -35,7 +35,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               7779
+ *     dead_code                               7793
  *     clippy::self_assignment                   33
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2320
+ *     agree         2321
  *     disagree         5
  *     not-run        100
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -61,17 +61,17 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35773 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6645
- *     clippy::cast_possible_truncation         5680
- *     clippy::uninlined_format_args            4734
- *     clippy::cast_sign_loss                   4375
- *     clippy::cast_lossless                    4371
- *     clippy::unreadable_literal               3681
- *     clippy::manual_assert                    1523
- *     clippy::missing_panics_doc               1387
- *     clippy::format_push_string               1052
- *     clippy::many_single_char_names            527
+ *   pedantic — 35871 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6652
+ *     clippy::cast_possible_truncation         5695
+ *     clippy::uninlined_format_args            4743
+ *     clippy::cast_lossless                    4393
+ *     clippy::cast_sign_loss                   4384
+ *     clippy::unreadable_literal               3694
+ *     clippy::manual_assert                    1534
+ *     clippy::missing_panics_doc               1392
+ *     clippy::format_push_string               1054
+ *     clippy::many_single_char_names            528
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
  *     string_positions_low                            38
@@ -85,8 +85,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1464 distinct emission shapes over 2425 lowered fixtures, 1667 distinct constructs.
- *   774 constructs carry a review note (`NOTES`): 2337 fixtures are improvable, 2252 touch a construct with alternatives.
+ *   shape — 1465 distinct emission shapes over 2426 lowered fixtures, 1674 distinct constructs.
+ *   774 constructs carry a review note (`NOTES`): 2338 fixtures are improvable, 2253 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2494,7 +2494,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   time_multiply_divide: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5, shape: "318f407c98", notes: ["1307e33bbf", "e8954e2b0d"] },
   time_width_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.2, shape: "0d401832d0", notes: ["6bf6856d37", "e8954e2b0d"] },
   tod_wrap_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 5.4, shape: "3706cbc9a1", notes: ["6bf6856d37", "e8954e2b0d"] },
-  tr_11_string_conversion_beyond_80: { evidence: "not-lowered" },
+  tr_11_string_conversion_beyond_80: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 98, edge: "agree", size: 3, shape: "793d8ea6ed", notes: ["02b031c773", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "8986d5305c", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 1.9, shape: "88fbb6a2fa", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
   tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 12.2, shape: "f18cbffe95", notes: ["013de1dc6a", "45292dbd9c", "4edbb4135a", "687428cc81", "73505351ad", "75cc82a569", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "not-lowered" },
@@ -2830,10 +2830,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_limits_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.5, shape: "19fa3fdc12", notes: ["1307e33bbf"] },
   xo3_method_local_shadows_field: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.7, shape: "f6f253829d", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "8ccaa880cd"] },
   xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "2df57f800c", notes: ["06bb3a6005", "1307e33bbf", "4979768984", "63d29bd1a0", "fb7e9e6ff4"] },
-  xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 3.3, shape: "abe0647ee9", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "3d5839a372", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "8986d5305c", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "c276ae3078", "d224624ae4", "d9d57311e3", "dbcd1088a5", "de132e5019"] },
+  xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 3.3, shape: "718272cb14", notes: ["02b031c773", "08b9196831", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "8986d5305c", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "d54a668b9a", "d9d57311e3", "dbcd1088a5", "de132e5019", "e9e296435a"] },
   xo3_struct_default_as_input: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 48, edge: "agree", size: 2.9, shape: "fa8e03698d", notes: ["1307e33bbf", "5d9850550d", "8b9a7c5eea", "90ba7cf588", "ac452bc801"] },
   xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.9, shape: "b88514d813", notes: ["1307e33bbf", "3b823fe0e7", "687428cc81", "88544134e3", "b39326f54a", "b9787e0d18", "c2a92e6f4e", "de132e5019", "e708298af7"] },
-  xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 54, edge: "agree", size: 3.6, shape: "7136b6c3ab", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "687428cc81", "90e7185468", "98ba0d2e70", "a573b540d2", "bcc6eeb86d", "d9d57311e3", "dbcd1088a5", "de132e5019", "e8162bb9aa"] },
+  xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 54, edge: "agree", size: 3.6, shape: "a391e07d37", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "687428cc81", "90205de00e", "90e7185468", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5", "de132e5019", "e8162bb9aa"] },
   xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 87, edge: "agree", size: 4, shape: "2689691af3", notes: ["02b031c773", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d835ef992", "1d9f55ded0", "211808ca56", "3cf4e6fa21", "46c17ef7d3", "4a599db8d8", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "6a2b5f2826", "803ee89d4f", "98ba0d2e70", "a573b540d2", "c05be29130", "c58cc5538f", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   xo4_case_over_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.4, shape: "0b83d86691", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984"] },
   xo4_fb_init_chain: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 11, edge: "agree", size: 2.7, shape: "5888a4b9b7", notes: ["0ab2575555", "1307e33bbf", "4979768984", "707233d6d6", "8a9bb48ddb", "c069593bcd", "fa7d5f176f", "fbfd8ba027"] },
@@ -3046,6 +3046,19 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "`self.arg.exp()` on f32: shorter, but a different float32 routine that can differ in the last ULP from both the interpreter and CODESYS",
       "Keep today's form: the cast is the price of parity, not waste",
     ],
+  },
+  // self.narrow = self.f.narrow::<L>().to::<L>().to();
+  "08b9196831": {
+    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies. Also: LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    alternatives: [
+      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
+      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
+      "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
+      "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
+    ],
+    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
   },
   // self.f = { let x = self.v; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } };
   "08ce268604": {
@@ -4202,16 +4215,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
   },
-  // self.f = self.f.to::<L>().narrow::<L>().to::<L>().to();
-  "3d5839a372": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-  },
   // self.f.m();
   "3d737b5821": {
     improvement: "A constant index is printed as `self.arr[((5i8 as i64) - 1i64) as usize]`, `self.u.b[(1i8 as i64) as usize]`, `self.arr[0i64 as usize]`. Fold a constant index minus the lower bound to a usize literal: `self.arr[4]`. The pointer path is `(self.p as i64).wrapping_add(-1i64)`, and ADR(arr[1]) stores `1i64.wrapping_sub(-1i64) as usize`, which should be `2`.",
@@ -4506,14 +4509,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // if (len(self.f.f[(self.f as i64) as usize].to::<L>()) as i32) > (self.f as i32) {
   "4a599db8d8": {
-    improvement: "An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings. Also: LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    improvement: "An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings. Also: LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
     alternatives: [
       "Today: always castTo i64, then `as usize` or `(.. - lower) as usize`.",
       "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
       "lower != 0 with a const index: fold `k - lower` at emit time.",
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
   },
@@ -5926,11 +5929,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
   "83ed1aab47": {
-    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right. Also: A nested call argument is hoisted into a `let __arg_0` even when it is the only argument, so evaluation order cannot differ. `len(concat(..))` is the same program.",
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right. Also: A nested call argument is hoisted into a `let __arg_0` even when it is the only argument, so evaluation order cannot differ. `len(concat(..))` is the same program.",
     alternatives: [
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
   },
   // self.f[((self.f as i64) - Li64) as usize] = self.f.f;
@@ -6215,6 +6218,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
     ],
     chosen: "same-width `a.wrapping_add(b)` when the destination is the operand width. It is bit-identical for +, - and * modulo 2^16 and saves 3 casts. I would choose it only where the result is immediately stored at that width. Keep the widening for / and MOD (MIN / -1) and for comparisons.",
+  },
+  // self.narrow = self.f.f.narrow::<L>().to();
+  "90205de00e": {
+    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
   },
   // pub fn sum(&mut self, mut x: [i16; L]) {
   "9034f2a4d6": {
@@ -6549,11 +6556,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub fn m(mut str: IecString<L>, mut len: i16, mut x: i16) -> IecString<L> {
   "9c8d21e237": {
-    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
     alternatives: [
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
   },
   // self.ops[((Li8 as i64) - Li64) as usize] = L;
@@ -7076,11 +7083,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub fn m(mut x: IecString<L>, …, mut x: i16) -> IecString<L> {
   "b592939dbf": {
-    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
     alternatives: [
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
   },
   // { let mut __copy_N = self.f.clone(); self.m(Li16, Li32, …, &mut __copy_N); self.f = __copy_N; };
@@ -7227,15 +7234,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
   },
-  // self.narrow = self.f.f.to::<L>().narrow::<L>().to::<L>().to();
-  "bcc6eeb86d": {
-    improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type. Also: LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
-    alternatives: [
-      "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
-      "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
-    ],
-  },
   // self.f = { let x = self.g; let x = self.f; let x = self.f; if x { x } else { x } };
   "be637eb16c": {
     improvement: "`({ let __sel_c = false; let __sel_f = 10i64; let __sel_t = 20i64; if __sel_c { __sel_t } else { __sel_f } }) as i16`. The eager bindings are needed only when an arm can have a side effect. Here the arms are literals or plain loads, the literals are typed i64 and then cast, and a constant selector could be folded.",
@@ -7293,11 +7291,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // pub fn replace(mut x: IecString<L>, …, mut x: i16, mut p: i16) -> IecString<L> {
   "c001fbb3b1": {
-    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.to::<80>().narrow::<80>().to::<10>().to()` is four copies for one conversion. The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
+    improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right.",
     alternatives: [
       "Today: monomorphic STRING(255) by value, the ST body run as written, conversions at both ends.",
       "A generic `<const N>` borrow with the 255 cut applied as a view (units()[..min(len,255)]): this removes both copies and keeps the body.",
-      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape bcc6eeb86d.",
+      "Narrow straight to the target (`narrow::<10>()`), since narrow already truncates at M. This is the cheap fix for shape 08b9196831.",
     ],
   },
   // pub fn m(&mut self, mut p: usize, x: &mut i16) -> i16 {
@@ -7354,16 +7352,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) keep ULINT and only swap wrapping_mul for `*`.",
     ],
     chosen: "(b) ULINT only when an up-scale feeds a day mask. Plain `*` where the product provably fits; stay in u32 for a pure down-scale",
-  },
-  // self.narrow = self.f.to::<L>().narrow::<L>().to::<L>().to();
-  "c276ae3078": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
   },
   // self.f = (self.f as i32).min(g.f as i32) as i16;
   "c2a92e6f4e": {
@@ -7646,16 +7634,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
   },
-  // self.f = self.f.to::<L>().widen::<L>().to::<L>().to();
-  "d224624ae4": {
-    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
-    alternatives: [
-      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
-      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
-    ],
-    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
-  },
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: i16, …, mut x: usize, mut x: u16, x: &mut IecString<T>, …) {
   "d231c1a7e5": {
     improvement: "Every parameter is `mut`, and a blanket allow hides it. The string-pointer parameters come in pairs (usize address + &mut IecString), which pushes StringUtils functions past clippy::too_many_arguments. Emit `mut` only on parameters the body assigns. For a cursor the address is always 1 unless it was stepped, so it could be omitted when never stepped. An ARRAY[*] also passes its upper bounds as arguments, when they are derivable from the slice length (lower + len - 1).",
@@ -7711,6 +7689,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "(c) fold only in the emitter when both operands are `const`. Smaller change, but a second folding rule.",
     ],
     chosen: "(b) fold in lowering to an IrExpr const of the destination type, reusing constEval. One place, and the interpreter benefits too",
+  },
+  // self.f = self.f.narrow::<L>().to::<L>().to();
+  "d54a668b9a": {
+    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
+    alternatives: [
+      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
+      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
+    ],
+    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
   },
   // x: { let mut v = T::new(); v.f = { let mut v = T::new(); v.f = Li16; v }; v.f = Li16; v },
   "d5d625ee73": {
@@ -8138,6 +8126,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if ({ m(x); *__str_pst_N }.char_at(((x as i64).wrapping_sub(Li64) / Li64).wrapping_add(x as i64)) as i32) == Li32 { break; }
   "e9a5cabd36": {
     improvement: "`(((uisearchstart as i32).max(1i32) as u16) as i32)` goes u16 -> i32 -> u16 -> i32. `(uisearchstart.max(1) as i32)` is the same value.",
+  },
+  // self.f = self.f.widen::<L>().to::<L>().to();
+  "e9e296435a": {
+    improvement: "A string store is copied twice: the IR convert prints `.to::<80>()` and the assignment appends another `.to()` to the same capacity. The assignment should add `.to()` only when the value's capacity differs from the target's, or only for a generic (VAR_IN_OUT) target, which is the one case its comment justifies.",
+    alternatives: [
+      "today: `.to::<80>().to()`, a convert plus an unconditional assign copy",
+      "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
+      "drop the IR convert and let the assign's inferred `.to()` truncate, which loses the explicit capacity in the text",
+    ],
+    chosen: "drop the assign's `.to()` when the typed capacity already equals the target's (the one I would choose: same truncation, one copy)",
   },
   // self.copied = self.copied;
   "ea53989ac8": {
