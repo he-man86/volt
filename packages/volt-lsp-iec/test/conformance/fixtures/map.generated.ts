@@ -16,9 +16,9 @@
  *   evidence
  *     confirmed     2031
  *     refused        541
- *     not-lowered    103
+ *     not-lowered    104
  *     lsp-gap         17
- *     diverges        25
+ *     diverges        24
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -27,7 +27,7 @@
  *     control                  76       76
  *     aggregate                29       29
  *     call                    231      229
- *     indirect                185      181
+ *     indirect                184      180
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2322
+ *     agree         2321
  *     disagree         5
  *     not-run         97
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -61,15 +61,15 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35867 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6652
- *     clippy::cast_possible_truncation         5694
+ *   pedantic — 35860 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6650
+ *     clippy::cast_possible_truncation         5693
  *     clippy::uninlined_format_args            4743
- *     clippy::cast_lossless                    4393
+ *     clippy::cast_lossless                    4392
  *     clippy::cast_sign_loss                   4383
  *     clippy::unreadable_literal               3692
  *     clippy::manual_assert                    1534
- *     clippy::missing_panics_doc               1392
+ *     clippy::missing_panics_doc               1391
  *     clippy::format_push_string               1054
  *     clippy::many_single_char_names            528
  *
@@ -85,8 +85,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1463 distinct emission shapes over 2424 lowered fixtures, 1671 distinct constructs.
- *   774 constructs carry a review note (`NOTES`): 2336 fixtures are improvable, 2251 touch a construct with alternatives.
+ *   shape — 1462 distinct emission shapes over 2423 lowered fixtures, 1671 distinct constructs.
+ *   774 constructs carry a review note (`NOTES`): 2335 fixtures are improvable, 2250 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2498,7 +2498,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 1.9, shape: "88fbb6a2fa", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
   tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 12.2, shape: "f18cbffe95", notes: ["013de1dc6a", "45292dbd9c", "4edbb4135a", "687428cc81", "73505351ad", "75cc82a569", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "not-lowered" },
-  tr_16_fb_copy_carries_inout_binding: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 7, edge: "agree", size: 3.4, shape: "8da25e9c49", notes: ["06bb3a6005", "0cbdff077d", "1307e33bbf", "39e68c53af", "63d29bd1a0"] },
+  tr_16_fb_copy_carries_inout_binding: { evidence: "not-lowered" },
   tr_17_any_pvalue_byte_via_sint: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "f59fac60a7", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dd94ff18a2", "e496034f7b"] },
   tr_17_any_pvalue_dint_via_real: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 5, edge: "agree", size: 2.6, shape: "cc5acec802", notes: ["06bb3a6005", "11f6ad8ec5", "1707972c33", "63d29bd1a0", "6a98109119", "6f9ae8fd3a", "dd94ff18a2", "e496034f7b"] },
   tr_17_any_pvalue_dint_write_via_byte: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.3, shape: "15787c4b23", notes: ["06bb3a6005", "11f6ad8ec5", "5c499dbdc8", "63d29bd1a0", "687428cc81", "dd94ff18a2", "de132e5019", "e496034f7b"] },

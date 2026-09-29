@@ -48,6 +48,17 @@ function throughInstance(lw: Lowering, p: Place): boolean {
 const instanceKey = (lw: Lowering, p: Place): string | undefined =>
   (p.root === undefined || p.root === "global") && !throughInstance(lw, p) ? placeKey(lw, p) : undefined
 
+/** A value of `t` stored whole: every FB it holds is copied with its in-out binding — for `lastBinding` to refuse. */
+export function registerWholeCopy(lw: Lowering, t: Type, seen = new Set<string>()): void {
+  if (t.kind === "array") return registerWholeCopy(lw, t.element, seen)
+  if (t.kind !== "struct" && t.kind !== "function_block") return
+  const name = t.name.toUpperCase()
+  if (seen.has(name)) return
+  seen.add(name)
+  if (t.kind === "function_block") lw.shared.copiedWhole.add(name)
+  for (const f of lw.layouts.get(name)?.fields ?? []) registerWholeCopy(lw, f.type, seen)
+}
+
 /** Every call of an FB with VAR_IN_OUT: the instance it runs on and the places it binds, keyed — for `lastBinding`. */
 export function registerBodyCall(lw: Lowering, call: IrCall): void {
   const keys = call.inouts.map((b) => ("kind" in b ? undefined : placeKey(lw, b)))
@@ -99,6 +110,8 @@ export function lastBinding(lw: Lowering, routine: IrRoutine, invoke: IrInvoke, 
     else if (mine.some((c) => c.binding === undefined)) fail("while a call of the instance binds a place this cannot lend again")
     // SUPER^ binding the in-out to another place, and an instance copied whole, are not recorded (review)
     else if (lw.shared.superRebinds.has(fb)) fail("while its SUPER^ binds the in-out to another place, which is not recorded")
+    // the copy carries the SOURCE's binding (`tr_16_fb_copy_carries_inout_binding`: first=11), a tag no arm lends
+    else if (lw.shared.copiedWhole.has(fb)) fail("while an instance of it is copied whole, carrying a binding no call of its own made")
     else if (mine.length === 0 && calls.length > 0) fail("never called on this instance, while it is called on others — a copy's binding is not recorded")
     else if (key.startsWith("GLOBAL") && mine.some((c) => !single(c.context) && (c.call.inouts as readonly Place[]).some((p) => p.root !== "global")))
       fail("bound from a frame of which there can be several instances, which the one binding cannot name")

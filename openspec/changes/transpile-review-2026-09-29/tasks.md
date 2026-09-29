@@ -217,9 +217,9 @@ those values into the new fixture's recording.
 - CODESYS: instance assignment copies pointers (`docs/codesys-reference/07-pragmas.md:491-500`); the in-out binding
   lives in the instance (`callshape_inout_in_method_after_call`). Expected first=11, second=100.
 - Fix: refuse (`call-fb-inout`) a whole-value store into an instance with armed dispatches, or arm every tag of the FB.
-- [ ] 16.1 src test next to `lower.test.ts:614` with the target called first — red.
+- [x] 16.1 src test next to `lower.test.ts:614` with the target called first — red.
   Recorded 2026-09-29 (record:exec): `tr_16_fb_copy_carries_inout_binding` — diverges (the interpreter faults). CODESYS: first=11, second=100.
-- [ ] 16.2 Fix.
+- [x] 16.2 Fix (refusal). A whole-value store registers every FB it copies (`registerWholeCopy`, lower/bindings.ts; `shared.copiedWhole`), and `lastBinding` refuses `call-fb-inout` for a METHOD reaching the in-out of such an FB — the copy carries a binding no arm lends; the fixture is now not-lowered (CODESYS's first=11 waits for copying the binding tag), mark removed; src case in lower.test.ts.
 
 ## 17. ANY input's pValue ignores the pointer's declared type
 - Root cause: `lower/pointers.ts:101-106` (pValue target = the whole hidden VAR_IN_OUT at the argument's type; no

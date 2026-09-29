@@ -12,6 +12,7 @@ import { lowerAccess, lowerPlace, refuseOpenArray } from "./places.js"
 import { bindReference, nullDeref, pointerArms, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerCallStatement, lowerPropertySet } from "./calls.js"
+import { registerWholeCopy } from "./bindings.js"
 import { refuseUnionWrite, unionCopies } from "./unions.js"
 import { lowerQueryInterface, queryCondition, storeInterface } from "./interfaces.js"
 
@@ -208,6 +209,7 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       // rb=7, `b.p = ADR(a.x)`). A target outside the copied instance is not modelled: refused (transpile-review 15).
       if (holdsOwnAddress(lw, target.type))
         return lw.bail("copy-instance-pointer", "a whole-value store of an instance whose POINTER or REFERENCE field targets its own member — the copy would re-target it", s.span)
+      registerWholeCopy(lw, target.type)
       const store: IrStmt = { kind: "assign", target, value: convert(value, target.type), span: s.span }
       // a UNION member's store, then its bytes into the members it overlays
       const copies = unionCopies(lw, target, s.span)

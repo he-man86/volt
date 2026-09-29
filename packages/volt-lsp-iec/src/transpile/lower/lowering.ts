@@ -89,6 +89,9 @@ export interface Shared {
   /** The FBs whose SUPER^ call binds a base in-out to a place other than that in-out passed on — what `lastBinding`
    *  refuses, as what the instance then holds is not recorded. */
   superRebinds: Set<string>
+  /** The FBs an instance of which is stored WHOLE (`b := a`) — the copy carries the source's in-out binding, which no arm
+   *  of `lastBinding` lends, so a METHOD reaching the in-out is refused (transpile-review 16). */
+  copiedWhole: Set<string>
   /** The layouts being built right now, by upper-cased name — a type reached again while its own layout is being laid
    *  out CONTAINS itself, which has no size (`buildLayout`). */
   building: Set<string>
@@ -118,6 +121,7 @@ export function newShared(
     routineLowerings: new Map(),
     bodyCalls: [],
     superRebinds: new Set(),
+    copiedWhole: new Set(),
     building: new Set(),
     libraryUnits,
   }

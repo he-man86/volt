@@ -622,6 +622,9 @@ test("a METHOD called from outside its FB reaches the in-out the instance was la
   const rebinding = "FUNCTION_BLOCK FB_D EXTENDS FB_W\nVAR other : INT := 500; END_VAR\nSUPER^(shared := other);\nEND_FUNCTION_BLOCK\n"
   expect(codes("d : FB_D;", "d(shared := first);\nd.AddTen();", rebinding)).toContain("call-fb-inout")
   expect(codes("w2 : FB_W;", "worker(shared := first);\nw2 := worker;\nw2.AddTen();")).toContain("call-fb-inout")
+  // ...and with the TARGET called first (transpile-review 16, `tr_16_fb_copy_carries_inout_binding`): its own arm was
+  // armed, the copied tag had none, and the METHOD faulted where CODESYS writes through the copied binding (first=11)
+  expect(codes("w2 : FB_W;", "worker(shared := first);\nw2(shared := second);\nw2 := worker;\nw2.AddTen();")).toContain("call-fb-inout")
 })
 
 // Recorded (`callshape_inout_base_method_from_derived_method`: 11, `callshape_inout_base_method_from_outside_derived`: 21,

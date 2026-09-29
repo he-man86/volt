@@ -712,10 +712,6 @@ END_FUNCTION_BLOCK
       "an FB instance with a VAR_IN_OUT, called, then assigned whole from an instance bound elsewhere; its METHOD writes the in-out",
     fromDoc: "07-pragmas.md#no_assign",
     note: "transpile-review-2026-09-29 task 16 (lower/bindings.ts arms dispatch only for tags this instance's own calls wrote). Cf. callshape_inout_in_method_after_call.",
-    deferred: {
-      transpile:
-        "transpile-review-2026-09-29 task 16: CODESYS gives first=11, second=100 (the copied in-out binding is w's); the interpreter faults 'call through an interface that holds no instance' (measured 2026-09-29)",
-    },
     plcPrgVar: "w : FB_LANG_tr16_worker; w2 : FB_LANG_tr16_worker; first : INT := 1; second : INT := 100;",
     plcPrgBody: ["w(shared := first);", "w2(shared := second);", "w2 := w;", "w2.AddTen();"].join("\n"),
     source: `FUNCTION_BLOCK FB_LANG_tr16_worker
