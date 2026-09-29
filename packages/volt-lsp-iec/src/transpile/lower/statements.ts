@@ -6,7 +6,7 @@ import { classifyConversion, elementaryRef, commonType, elemOf, type Type } from
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-import { convert, stored } from "./convert.js"
+import { beside, convert, stored } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { byteSize } from "./bytes.js"
 import { lowerAccess, lowerPlace, refuseOpenArray } from "./places.js"
@@ -333,8 +333,12 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
   const control = lowerPlace(lw, s.controlVar)
   if (control === undefined || refuseUnionWrite(lw, control, s.controlVar.span) || refuseConstantWrite(lw, control, s.controlVar.span)) return undefined
   const from = lowerExpr(lw, s.from, control.type)
-  const to = lowerExpr(lw, s.to, control.type)
-  if (from === undefined || to === undefined) return undefined
+  // The LIMIT is not lowered in the counter's type: a literal the counter cannot hold is compared as it is — `FOR small :=
+  // 1 TO 200` on a SINT runs until something EXITs, as `TO (100 + 100)` does (`tr_36_for_literal_limit_beyond_counter`).
+  // Narrowed, it was -56 and the loop ran zero passes. A limit that fits takes the counter's type (`beside`).
+  const lowered = lowerExpr(lw, s.to)
+  if (from === undefined || lowered === undefined) return undefined
+  const to = beside(lowered, control.type)
 
   const by = s.by === undefined ? undefined : lowerExpr(lw, s.by, control.type)
   if (s.by !== undefined && by === undefined) return undefined

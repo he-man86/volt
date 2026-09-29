@@ -2355,3 +2355,16 @@ test("an integer literal that does not fit its neighbour's type keeps its own an
     true, -2999999995n, 5000000003n, false, false, false, 15000000000n, 5000000000n,
   ])
 })
+
+// transpile-review 36: a literal FOR limit was lowered in the counter's type, so `FOR small := 1 TO 200` on a SINT compared
+// against -56 and ran zero passes. CODESYS (`tr_36_for_literal_limit_beyond_counter`) compares against 200 — the SINT
+// counter can never pass it, so the loop runs until the EXIT guard: n=300, small=44 — the same as `TO (100 + 100)`.
+test("a literal FOR limit the counter's type cannot hold is compared unnarrowed", () => {
+  const body = [
+    "FOR small := 1 TO 200 DO n := n + 1; IF n >= 300 THEN EXIT; END_IF END_FOR",
+    "FOR small2 := 1 TO (100 + 100) DO n2 := n2 + 1; IF n2 >= 300 THEN EXIT; END_IF END_FOR",
+  ].join("\n")
+  const runner = run(ir(`PROGRAM P\nVAR small : SINT; n : INT; small2 : SINT; n2 : INT; END_VAR\n${body}\nEND_PROGRAM\n`, "P"))
+  runner.scan()
+  expect(["n", "small", "n2", "small2"].map((v) => runner.get(v))).toEqual([300n, 44n, 300n, 44n])
+})

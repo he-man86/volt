@@ -443,9 +443,9 @@ those values into the new fixture's recording.
 - Repro: `small : SINT; FOR small := 1 TO 200` → `self.small > -56i8`, 0 passes; `TO (100+100)` runs.
 - CODESYS: `cc6_loop_cannot_exit` never finished (commit 84100e3ff7) — the compare is against 200.
 - Fix: lower the limit without the counter as expected type (needs task 13 first).
-- [ ] 36.1 Recordable variant with an EXIT guard (expected n=300, small=44) — red.
+- [x] 36.1 Recordable variant with an EXIT guard (expected n=300, small=44) — red.
   Recorded 2026-09-29 (record:exec): `tr_36_for_literal_limit_beyond_counter` — diverges (CODESYS: n=n2=300, small=44).
-- [ ] 36.2 Fix.
+- [x] 36.2 Fix. `lowerFor` lowers the limit with no expected type and passes it through `beside`: a literal the counter cannot hold meets it wider instead of narrowing (200 on a SINT stays 200). Fixture confirmed, mark removed; src test in lower.test.ts.
 
 ## 37. CASE labels outside the selector type, or inverted ranges, reach the emitter verbatim
 - Root cause: `lower/statements.ts:209-217` (no range or lo≤hi check); printed at `emit/rust/emit.ts:878-881`.

@@ -1105,7 +1105,6 @@ const CASES: readonly ExecCase[] = [
   // second loop is the control, its limit a constant EXPRESSION of the same value.
   {
     name: "tr_36_for_literal_limit_beyond_counter",
-    deferred: "transpile-review-2026-09-29 task 36: CODESYS compares the SINT counter with the literal 200 unnarrowed (n=300 via EXIT, small=44); the lowering narrows the limit into the counter type (recorded 2026-09-29)",
     vars: "small : SINT; n : INT; small2 : SINT; n2 : INT;",
     body: [
       "FOR small := 1 TO 200 DO n := n + 1; IF n >= 300 THEN EXIT; END_IF END_FOR",
