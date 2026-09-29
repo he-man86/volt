@@ -355,6 +355,19 @@ function trim(whole: string, fraction: string): string {
   return `${whole}.${kept === "" ? "0" : kept}`
 }
 
+/** A bigint rounded half-to-even straight to 24 significant bits — the one rounding an integer -> REAL makes. */
+function toSingle(n: bigint): number {
+  const magnitude = n < 0n ? -n : n
+  const shift = BigInt(Math.max(0, magnitude.toString(2).length - 24))
+  if (shift === 0n) return Number(n)
+  let kept = magnitude >> shift
+  const rest = magnitude - (kept << shift)
+  const half = 1n << (shift - 1n)
+  if (rest > half || (rest === half && (kept & 1n) === 1n)) kept += 1n
+  const rounded = Number(kept << shift)
+  return n < 0n ? -rounded : rounded
+}
+
 export function coerce(v: Val, to: Type, from: Type): Val {
   if (to.kind !== "elementary") return v
   const family = to.elem.family
@@ -395,7 +408,10 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   }
   if (family === "bool") return typeof v === "boolean" ? v : typeof v === "bigint" ? v !== 0n : v !== 0
   const n = typeof v === "boolean" ? (v ? 1n : 0n) : v
-  if (family === "real") return typeof n === "bigint" ? Number(n) : n
+  // an integer rounds to the target's width ONCE: `Number(n)` then `fit`'s `Math.fround` rounds a 64-bit value twice,
+  // and 2^60+2^36+1 lands on REAL's halfway point in LREAL and ties down to 2^60 — CODESYS and Rust `as f32` say
+  // 2^60+2^37 (`tr_47_i2r_lint_to_real_double_round`)
+  if (family === "real") return typeof n === "bigint" ? (to.elem.bits === 32 ? toSingle(n) : Number(n)) : n
   // Math.round alone rounds -2.5 to -2 (half toward +infinity); on the magnitude it is half away from zero.
   // REAL → TIME rounds the same way: REAL_TO_TIME(2.5) is 3ms (conformance `temporal_conversions`)
   if (typeof n === "number" && (to.elem.rank !== undefined || family === "time")) {

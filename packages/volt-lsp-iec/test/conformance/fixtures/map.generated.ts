@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2011
+ *     confirmed     2012
  *     refused        541
  *     not-lowered    103
  *     lsp-gap         17
- *     diverges        45
+ *     diverges        44
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -49,8 +49,8 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2318
- *     disagree         6
+ *     agree         2319
+ *     disagree         5
  *     not-run        103
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: the emitted Rust does not build                 17
@@ -59,7 +59,6 @@
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_41_limit_evaluation_order — (declared inputs): inst.x interpreter 4, Rust 3
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
- *       disagree: tr_47_i2r_lint_to_real_double_round — (declared inputs): out interpreter 1568669696, Rust 1568669
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
  *   pedantic — 35186 clippy::pedantic + clippy::perf findings; the ten most frequent
@@ -2566,7 +2565,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_46_exptdom_zero_pow_minus_half: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "ca151a955b", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_zero_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "not-run", size: 4.8, shape: "4536b1b813", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_zero_pow_minus_one: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "5d76950376", notes: ["1707972c33", "6a98109119"] },
-  tr_47_i2r_lint_to_real_double_round: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 9, edge: "disagree", size: 5.4, shape: "1756db1847", notes: ["12e93440b3", "4a6baf16b3", "5c9bb13706", "74845f98c6", "90c445f7cb", "a497507b30"] },
+  tr_47_i2r_lint_to_real_double_round: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 5.4, shape: "1756db1847", notes: ["12e93440b3", "4a6baf16b3", "5c9bb13706", "74845f98c6", "90c445f7cb", "a497507b30"] },
   tr_6_literal_beyond_dint_neighbour: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 14, edge: "agree", size: 5.8, shape: "24af735558", notes: ["06bb3a6005", "4a6baf16b3", "63d29bd1a0", "687428cc81", "870b70e195", "de132e5019", "e8954e2b0d"] },
   trig_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 19, edge: "not-run", size: 6.4, shape: "9a3cdd29be", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
   trunc_beyond_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 14, edge: "agree", size: 5.2, shape: "276abb3b06", notes: ["06bb3a6005", "1307e33bbf", "1707972c33", "63d29bd1a0", "6a98109119", "c35f240db9"] },

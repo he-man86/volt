@@ -1158,7 +1158,6 @@ const CASES: readonly ExecCase[] = [
   // cannot tell. LINT, its negative, ULINT and LWORD. The topical home is conversions/integer-to-real.ts.
   {
     name: "tr_47_i2r_lint_to_real_double_round",
-    deferred: "transpile-review-2026-09-29 task 47: LINT/ULINT/LWORD -> REAL is rounded once in CODESYS (1.15292164E+18); the interpreter rounds through LREAL first (recorded 2026-09-29)",
     vars: [
       "v : LINT := 1152921573326323713; vn : LINT := -1152921573326323713; vu : ULINT := 1152921573326323713;",
       "vw : LWORD := 1152921573326323713; out : REAL; outNeg : REAL; outU : REAL; outW : REAL;",

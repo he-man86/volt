@@ -546,9 +546,9 @@ those values into the new fixture's recording.
 - Root cause: `ir/values.ts:398` (`Number(n)` then `fit`'s `Math.fround` at `:292`).
 - CODESYS (LIVE): single rounding — 2^60+2^36+1 → 1152921642045800448 (Rust `as f32` right; interpreter gives 2^60).
 - Fix: round the bigint straight to 24 significant bits with a sticky bit when the target is 32-bit.
-- [ ] 47.1 Record `i2r_lint_to_real_double_round` — red.
+- [x] 47.1 Record `i2r_lint_to_real_double_round` — red.
   Recorded 2026-09-29 (record:exec): `tr_47_i2r_lint_to_real_double_round` — diverges (CODESYS: 1.15292164E+18).
-- [ ] 47.2 Fix.
+- [x] 47.2 Fix. `coerce` rounds a bigint straight to 24 bits (half-even) for a 32-bit REAL target (`toSingle`); fixture now confirmed, src test `ir/values.test.ts`.
 
 ---
 
