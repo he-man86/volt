@@ -17,7 +17,7 @@ import {
 } from "../../types/index.js"
 import type { IrBinOp, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-import { adopt, convert, integerFoldType, retype } from "./convert.js"
+import { beside, convert, integerFoldType, retype } from "./convert.js"
 import {
   calendarOf,
   TEMPORAL_LITERAL_KINDS,
@@ -239,7 +239,7 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // without this `commonType` would find no common type.
       //
       // BEFORE THE CONSTANT RETYPING BELOW, for the same reason `calendarArithmetic` is: when the DURATION is the
-      // constant and the integer is a variable, `adopt` had already stamped the TIME constant with the promoted
+      // constant and the integer is a variable, `beside` had already stamped the TIME constant with the promoted
       // INTEGER type, so `isDuration(left.type)` was false and the expression computed in signed DINT.
       // `t := T#49D17H2M47S295MS / n` with `n : INT := 2` gave 0 in both backends where CODESYS answers
       // 2147483647, and `(T#1S * n) > t` was refused `type-unknown` while the identical expression with the
@@ -253,8 +253,8 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       // Arithmetic and comparison happen in the PROMOTED type (see `promoteForRuntime`), so a literal beside a narrow
       // variable takes that type too — else `si + 1000` would wrap the 1000 into SINT before promoting.
       const lift = LIFTED.has(op) ? promoteForRuntime : (t: Type): Type => t
-      if (left.kind === "const" && right.kind !== "const") left = adopt(left, lift(right.type))
-      else if (right.kind === "const" && left.kind !== "const") right = adopt(right, lift(left.type))
+      if (left.kind === "const" && right.kind !== "const") left = beside(left, lift(right.type))
+      else if (right.kind === "const" && left.kind !== "const") right = beside(right, lift(left.type))
       else if (left.kind === "const" && right.kind === "const") {
         // An ALL-constant integer expression folds at FULL width and then converts: `i := 100 + 100` is 200 and
         // `li := 2000000000 + 2000000000` is 4000000000 (conformance `constant_arithmetic_width`). It does not take

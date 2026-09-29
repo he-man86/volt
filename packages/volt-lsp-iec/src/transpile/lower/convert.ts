@@ -2,7 +2,7 @@
  * Conversions as IR nodes, and how a constant is stored at a type — the one place a value changes type.
  */
 import type { Span } from "../../syntax/index.js"
-import { elementaryRef, elemOf, type Type } from "../../types/index.js"
+import { commonType, elementaryRef, elemOf, integerLiteralType, type Type } from "../../types/index.js"
 import { isBit, type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
 
 /** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
@@ -56,8 +56,35 @@ export function integerFoldType(operands: readonly IrExpr[]): Type {
  * is 3.5 in CODESYS (conformance `division_with_a_real_operand`); retyping the `2.0` to INT made it the integer 2
  * and the division integral. A REAL constant keeps its type, and `wider` meets the pair in REAL.
  */
-export function adopt(c: IrExpr, to: Type): IrExpr {
+function adopt(c: IrExpr, to: Type): IrExpr {
   return elemOf(c.type)?.family === "real" && elemOf(to)?.family !== "real" ? c : retype(c, to)
+}
+
+/**
+ * An integer constant beside a variable of (lifted) type `to`: it takes that type only when it FITS. One that does not
+ * keeps its own literal type and MEETS the variable — widened to LINT (ULINT past it) when even the meet cannot hold it.
+ * `x + -3000000000` with `x : DINT` is LINT -2999999995, a UDINT literal beside a DINT meets at LINT and
+ * `MAX(ud, 5000000000)` is 5000000000 (conformance `tr_6_literal_beyond_dint_neighbour`, LIVE); adopting the
+ * neighbour's type wrapped each of them. An assignment still wraps at its target (`cc_literal_3e9_into_dint`).
+ */
+export function beside(c: IrExpr, to: Type): IrExpr {
+  const own = ownIntegerType(c, to)
+  return own === undefined ? adopt(c, to) : retype(c, own)
+}
+
+/** The type an integer constant keeps beside `to` because it does not fit it — undefined when it fits. */
+export function ownIntegerType(c: IrExpr, to: Type): Type | undefined {
+  if (c.kind !== "const" || typeof c.value !== "bigint" || elemOf(c.type)?.range === undefined) return undefined
+  const v = c.value
+  const holds = (t: Type): boolean => {
+    const r = elemOf(t)?.range
+    return r !== undefined && v >= r.min && v <= r.max
+  }
+  if (elemOf(to)?.range === undefined || holds(to)) return undefined
+  const literal = integerLiteralType(v)
+  if (literal === undefined) return undefined
+  const own = elementaryRef(literal.name)
+  return holds(commonType(to, own)) ? own : integerFoldType([c])
 }
 
 /**

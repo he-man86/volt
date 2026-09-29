@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2031
+ *     confirmed     2032
  *     refused        541
  *     not-lowered    108
  *     lsp-gap         17
- *     diverges        20
+ *     diverges        19
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -61,12 +61,12 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35822 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 35830 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::must_use_candidate               6646
  *     clippy::cast_possible_truncation         5684
  *     clippy::uninlined_format_args            4743
  *     clippy::cast_sign_loss                   4383
- *     clippy::cast_lossless                    4371
+ *     clippy::cast_lossless                    4375
  *     clippy::unreadable_literal               3688
  *     clippy::manual_assert                    1530
  *     clippy::missing_panics_doc               1391
@@ -2566,7 +2566,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_46_exptdom_zero_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "d5364f7cb2", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_zero_pow_minus_one: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 2, edge: "not-run", size: 5, shape: "24b656fdb6", notes: ["1707972c33", "6a98109119"] },
   tr_47_i2r_lint_to_real_double_round: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 5.4, shape: "1756db1847", notes: ["12e93440b3", "4a6baf16b3", "5c9bb13706", "74845f98c6", "90c445f7cb", "a497507b30"] },
-  tr_6_literal_beyond_dint_neighbour: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 14, edge: "agree", size: 5.8, shape: "24af735558", notes: ["06bb3a6005", "4a6baf16b3", "63d29bd1a0", "687428cc81", "870b70e195", "de132e5019", "e8954e2b0d"] },
+  tr_6_literal_beyond_dint_neighbour: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 22, edge: "agree", size: 5.8, shape: "fe18a22442", notes: ["06bb3a6005", "4a6baf16b3", "63d29bd1a0", "687428cc81", "870b70e195", "de132e5019", "e8954e2b0d"] },
   trig_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 19, edge: "not-run", size: 6.4, shape: "9a3cdd29be", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
   trunc_beyond_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 14, edge: "agree", size: 5.2, shape: "276abb3b06", notes: ["06bb3a6005", "1307e33bbf", "1707972c33", "63d29bd1a0", "6a98109119", "c35f240db9"] },
   trunc_functions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 18, edge: "agree", size: 6, shape: "4682949835", notes: ["06bb3a6005", "1307e33bbf", "159ca60812", "1707972c33", "5c9bb13706", "63d29bd1a0", "6a98109119", "74845f98c6"] },

@@ -103,9 +103,9 @@ those values into the new fixture's recording.
   gUdintLitRev=FALSE, mulUdintLit=15000000000 — a UDINT literal beside a DINT meets at LINT.
 - Fix: when the literal does not fit `lift(neighbour)`, keep `integerLiteralType(literal)` and let commonType meet
   the pair; assignment still wraps at the target (cc_literal_3e9_into_dint stays right).
-- [ ] 6.1 Record `literal_beyond_dint_neighbour` — red.
+- [x] 6.1 Record `literal_beyond_dint_neighbour` — red.
   Recorded 2026-09-29 (record:exec): `tr_6_literal_beyond_dint_neighbour` — diverges (deferred.transpile).
-- [ ] 6.2 Fix.
+- [x] 6.2 Fix. `beside` (lower/convert.ts): an integer constant takes its variable neighbour's lifted type only when it fits, else keeps its literal type and meets via commonType (LINT/ULINT when the meet cannot hold it); `meetOperands` does the same for MIN/MAX/LIMIT/SEL. Fixture confirmed, mark removed; src test in lower.test.ts; corpus gate green.
 
 ## 7. A negative literal is a runtime negation, not a constant
 - Root cause: `lower/expressions.ts:174-175` (unary `-` always builds a `neg` node; never folds a const operand);

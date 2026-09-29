@@ -998,7 +998,6 @@ const CASES: readonly ExecCase[] = [
   // side. `cc_literal_3e9_into_dint` (an ASSIGNMENT, which wraps) is the control beside it.
   {
     name: "tr_6_literal_beyond_dint_neighbour",
-    deferred: "transpile-review-2026-09-29 task 6: an integer literal adopts its neighbour's type even when it does not fit, and wraps; CODESYS widens (recorded 2026-09-29)",
     vars: [
       "x : DINT := 5; ud : UDINT := 3;",
       "gNegLint : BOOL; sumNegLint : LINT; sumUdLint : LINT; gUdLint : BOOL;",

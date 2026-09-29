@@ -22,7 +22,7 @@ import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 
 import { isBit } from "../ir/index.js"
-import { convert, integerFoldType } from "./convert.js"
+import { convert, integerFoldType, ownIntegerType } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
 import { foldConstant } from "./constants.js"
@@ -467,6 +467,12 @@ export function meetOperands(lw: Lowering, operands: readonly IrExpr[], span: Sp
       ? variables.map((o) => o.type).reduce(commonType)
       : operands.map((o) => (elemOf(o.type)?.family === "int" ? integerFoldType(operands) : o.type)).reduce(commonType)
   for (const o of operands) if (o.kind === "const" && elemOf(o.type)?.family === "real") type = commonType(type, o.type)
+  // an integer constant the variables' type cannot hold meets them instead of wrapping into it (`beside`)
+  if (variables.length > 0)
+    for (const o of operands) {
+      const own = ownIntegerType(o, promoteForRuntime(type))
+      if (own !== undefined) type = commonType(promoteForRuntime(type), own)
+    }
   if (type === UNKNOWN) return lw.bail("type-unknown", "the arguments have no common type", span)
   return promoteForRuntime(type)
 }
