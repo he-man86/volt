@@ -72,8 +72,8 @@ those values into the new fixture's recording.
   `F(n := 3)` → 1010 (expected 430). Rust hard-codes step 1 and ignores `n`.
 - CODESYS: VAR_INPUT is pass-by-value; `var_input_constant` recording shows the parameter holds the caller's argument.
 - Fix: fold only non-parameter CONSTANT sections (key on varSection). LSP C0218 changes accordingly.
-- [ ] 4.1 Fixture `var_input_constant_default_as_step` — red.
-- [ ] 4.2 Fix.
+- [x] 4.1 Fixture `var_input_constant_default_as_step` — red. Recorded with record:exec (F(n := 3) = 4 passes, F() = 10); the initializer half split out as `var_input_constant_default_in_init` (LIVE 30 / 10).
+- [x] 4.2 Fix. `initialValue` folds only a CONSTANT that is not a VAR_INPUT/VAR_IN_OUT parameter; `constancyOf` is unchanged (its "constant" also means read-only: the "no valid assignment target" check on `inout_const_write_5` needs it, and no recording says C0218 for a parameter label). A routine local initialised from a parameter is now refused (`init-not-constant`, rated not-lowered) instead of taking the default.
 
 ## Lowering layer
 

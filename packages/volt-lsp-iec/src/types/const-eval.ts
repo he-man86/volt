@@ -152,7 +152,7 @@ function constRef(name: string, scope: Scope, ctx: FoldContext): Folded {
  * constant carries its declared width but NOT a rounded value — the fold it is named in rounds once, at its end.
  */
 function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
-  if (symbol.constant !== true || ctx.folding.has(symbol)) return NONE
+  if (!compileTimeConstant(symbol) || ctx.folding.has(symbol)) return NONE
   const decl = symbol.ast as VarDecl
   // A scalar initializer is an Expr; an AggregateInit is not a constant scalar.
   if (decl.init === undefined || decl.init.kind === "aggregate_init") return NONE
@@ -167,6 +167,15 @@ function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
   // wherever it is named — an initializer, a CASE label. An EXPRESSION initializer is NOT: `D : SINT := K + 1` (K = 127)
   // reads 128, even from D itself (conformance `named_const_literal_wrap`, `named_const_expression_keeps`, LIVE).
   return { value: typeof value === "bigint" && decl.init.kind === "literal" ? heldAs(value, decl.type) : value }
+}
+
+/**
+ * A symbol whose initializer IS its value: one in a `CONSTANT` section that is not a parameter. A `VAR_INPUT CONSTANT`
+ * (or `VAR_IN_OUT CONSTANT`) is read-only but holds the caller's argument — its default only when none is passed:
+ * `F(n := 3)` steps `BY n` by 3 (conformance `var_input_constant_default_as_step`, LIVE; transpile-review-2026-09-29 task 4).
+ */
+function compileTimeConstant(symbol: Symbol): boolean {
+  return symbol.constant === true && symbol.varSection !== "VAR_INPUT" && symbol.varSection !== "VAR_IN_OUT"
 }
 
 /** An integer as a variable of an elementary integer or bit-string type holds it — wrapped to the type's width. */

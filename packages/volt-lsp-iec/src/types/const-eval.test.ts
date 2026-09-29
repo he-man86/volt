@@ -91,3 +91,14 @@ test("an expression over REAL folds wide and rounds once to float32; an LREAL co
   expect(folded("LREAL#0.1 * 1", list)).toBe(0.1)
   expect(folded("0.1", list)).toBe(0.1)
 })
+
+// transpile-review-2026-09-29 task 4 (conformance `var_input_constant_default_as_step`, LIVE: F(n := 3) steps by 3): a
+// VAR_INPUT CONSTANT is a PARAMETER holding the caller's argument, so its default is not a compile-time constant.
+test("a VAR_INPUT CONSTANT parameter does not fold to its default; a VAR CONSTANT beside it does", () => {
+  const source = "FUNCTION F : INT\nVAR_INPUT CONSTANT\n  n : INT := 1;\nEND_VAR\nVAR CONSTANT\n  K : INT := 2;\nEND_VAR\nF := n;\nF := K;\nEND_FUNCTION\n"
+  const all = [{ uri: "file:///p/F.fun", source, parseResult: parseSource(source) }]
+  const project = buildSymbolTable(all)
+  const [{ scope, statements }] = [...bodies(all[0]!.parseResult.units, project)]
+  const values = statements.map((s) => (s.kind === "assign" ? constEval(s.value, scope) : null))
+  expect(values).toEqual([undefined, 2n])
+})

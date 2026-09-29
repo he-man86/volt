@@ -61,6 +61,51 @@ iCount := iLimit;
 END_FUNCTION_BLOCK
 `,
   },
+  // transpile-review-2026-09-29 task 4: a VAR_INPUT CONSTANT is a PARAMETER — its default is not a compile-time
+  // constant. Does it hold the caller's argument as a FOR step, and its default when the argument is left out?
+  {
+    name: "var_input_constant_default_as_step",
+    pouName: "F_LANG_vic_step",
+    kind: "function",
+    feature: "VAR_INPUT CONSTANT with a default — the argument, not the default, as a FOR step",
+    fromDoc: "02-variables.md",
+    plcPrgVar: "rArg : INT; rDefault : INT;",
+    plcPrgBody: "rArg := F_LANG_vic_step(n := 3); rDefault := F_LANG_vic_step();",
+    source: `FUNCTION F_LANG_vic_step : INT
+VAR_INPUT CONSTANT
+	n : INT := 1;
+END_VAR
+VAR
+	i : INT;
+	cnt : INT;
+END_VAR
+FOR i := 0 TO 9 BY n DO
+	cnt := cnt + 1;
+END_FOR
+F_LANG_vic_step := cnt;
+END_FUNCTION
+`,
+  },
+  // The same parameter in a LOCAL's initializer: the argument, or the default when none is passed?
+  {
+    name: "var_input_constant_default_in_init",
+    pouName: "F_LANG_vic_init",
+    kind: "function",
+    feature: "VAR_INPUT CONSTANT with a default — the argument, not the default, in a local's initializer",
+    fromDoc: "02-variables.md",
+    plcPrgVar: "rArg : INT; rDefault : INT;",
+    plcPrgBody: "rArg := F_LANG_vic_init(n := 3); rDefault := F_LANG_vic_init();",
+    source: `FUNCTION F_LANG_vic_init : INT
+VAR_INPUT CONSTANT
+	n : INT := 1;
+END_VAR
+VAR
+	loc : INT := n * 10;
+END_VAR
+F_LANG_vic_init := loc;
+END_FUNCTION
+`,
+  },
 
   // ─── VAR_INST ──────────────────────────────────────────────────────
 

@@ -12,9 +12,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1976
+ *     confirmed     1977
  *     refused        540
- *     not-lowered     90
+ *     not-lowered     91
  *     lsp-gap          4
  *     diverges         4
  *     unaskable       38
@@ -25,7 +25,7 @@
  *     control                  59       59
  *     aggregate                25       25
  *     call                    222      220
- *     indirect                161      157
+ *     indirect                162      158
  *
  *   surviving lints (a lint listed here is work, not policy — 12 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -2554,6 +2554,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   var_external_gvl: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   var_inline_enum_decl: { evidence: "confirmed", tier: "control", rust: "vendor" },
   var_input_constant: { evidence: "confirmed", tier: "decl", rust: "vendor" },
+  var_input_constant_default_as_step: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
+  var_input_constant_default_in_init: { evidence: "not-lowered" },
   var_input_output_inout_on_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor" },
   var_inst_in_method: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   var_non_retain: { evidence: "refused", tier: "arith", rust: "compiles" },
