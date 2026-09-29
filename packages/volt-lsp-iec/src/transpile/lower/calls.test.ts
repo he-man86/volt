@@ -121,3 +121,29 @@ describe("what a call may bind", () => {
     expect(valueOf(source, "n")).toBe(11n)
   })
 })
+
+// transpile-review 42: an ANY input's variant was keyed by the bare kind `array`, so every array after the first reused
+// the first one's instantiation — its hidden in-out typed for THAT array, which the emitted Rust rejects (E0308,
+// `tr_42_any_array_variant_key`). Keyed by element type and bounds, recursively.
+test("an ANY input instantiates once per array type — element, bounds and nesting each tell two apart", () => {
+  const r = lowerSource(
+    st(
+      "FUNCTION F : DINT",
+      `VAR_INPUT${T}v : ANY; END_VAR`,
+      "F := v.diSize;",
+      "END_FUNCTION",
+      "PROGRAM P",
+      "VAR ai : ARRAY[0..3] OF INT; ab : ARRAY[0..9] OF BYTE; ad : ARRAY[1..4] OF INT; ai2 : ARRAY[0..3] OF INT;",
+      "n : ARRAY[0..1] OF ARRAY[0..1] OF INT; m : ARRAY[0..1] OF ARRAY[0..2] OF INT; s : ARRAY[0..5] OF DINT; END_VAR",
+      "s[0] := F(ai); s[1] := F(ab); s[2] := F(ad); s[3] := F(n); s[4] := F(m); s[5] := F(ai2);",
+      "END_PROGRAM",
+    ),
+    "P",
+  )
+  expect(r.diagnostics).toEqual([])
+  // ai and ai2 are one array type and share their instantiation; every other pair differs
+  expect(r.pou!.routines.length).toBe(5)
+  const p = run(r.pou!)
+  p.scan()
+  expect([0, 1, 2, 3, 4, 5].map((i) => p.get(`s[${i}]`))).toEqual([8n, 10n, 8n, 8n, 12n, 8n])
+})

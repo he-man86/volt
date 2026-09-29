@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2024
+ *     confirmed     2025
  *     refused        541
  *     not-lowered    104
  *     lsp-gap         17
- *     diverges        31
+ *     diverges        30
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -49,20 +49,20 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2319
+ *     agree         2320
  *     disagree         5
- *     not-run        101
+ *     not-run        100
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: no elementary variable to seed or compare       15
- *       not-run: the emitted Rust does not build                 15
+ *       not-run: the emitted Rust does not build                 14
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_41_limit_evaluation_order — (declared inputs): inst.x interpreter 4, Rust 3
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35771 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6643
+ *   pedantic — 35773 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6645
  *     clippy::cast_possible_truncation         5680
  *     clippy::uninlined_format_args            4734
  *     clippy::cast_sign_loss                   4375
@@ -85,7 +85,7 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1464 distinct emission shapes over 2425 lowered fixtures, 1665 distinct constructs.
+ *   shape — 1464 distinct emission shapes over 2425 lowered fixtures, 1667 distinct constructs.
  *   774 constructs carry a review note (`NOTES`): 2337 fixtures are improvable, 2252 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
@@ -2549,7 +2549,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_41_limit_evaluation_order: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "disagree", size: 2.1, shape: "cc84a8c55e", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_41_mux_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "disagree", size: 2.5, shape: "cbbd7cab37", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_41_sel_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "agree", size: 2.5, shape: "11eba92a94", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
-  tr_42_any_array_variant_key: { evidence: "diverges", tier: "call", rust: "rejected", pedantic: 0, edge: "not-run", size: 2.2, shape: "4046a8184a", notes: ["054b93382f", "06bb3a6005", "11f6ad8ec5", "63d29bd1a0"] },
+  tr_42_any_array_variant_key: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "5cd6a4f52d", notes: ["054b93382f", "06bb3a6005", "11f6ad8ec5", "63d29bd1a0"] },
   tr_43_output_dint_to_int: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 4, edge: "agree", size: 3.7, shape: "f42057c82d", notes: ["06bb3a6005", "1307e33bbf", "63d29bd1a0"] },
   tr_43_output_int_to_real: { evidence: "not-lowered" },
   tr_43_output_word_to_int: { evidence: "not-lowered" },

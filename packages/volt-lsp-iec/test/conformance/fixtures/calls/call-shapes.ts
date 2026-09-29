@@ -1290,7 +1290,7 @@ END_FUNCTION_BLOCK
   // Task 42: one ANY FUNCTION called with arrays that differ in element type, in bounds, and in both. The transpiler
   // keys an ANY variant by the bare kind `array`, so every array after the first reuses the first one's instantiation
   // (Rust E0308). Predicted sizes: 8, 10, 16, 12, 8 — the last the same size as the first over different bounds.
-  withDeferred("transpile-review-2026-09-29 task 42: the ANY variant is keyed by the bare kind `array`, so every array after the first reuses the first one's instantiation and the emitted Rust does not compile (E0308, measured 2026-09-29)", fb("tr_42_any_array_variant_key", "FB_CS_any42", "one FUNCTION with an ANY input called with ARRAY[0..3] OF INT, ARRAY[0..9] OF BYTE, ARRAY[0..3] OF DINT, ARRAY[0..5] OF INT and ARRAY[1..4] OF INT — the size each call sees",
+  fb("tr_42_any_array_variant_key", "FB_CS_any42", "one FUNCTION with an ANY input called with ARRAY[0..3] OF INT, ARRAY[0..9] OF BYTE, ARRAY[0..3] OF DINT, ARRAY[0..5] OF INT and ARRAY[1..4] OF INT — the size each call sees",
     `FUNCTION F_CS_size42 : DINT
 VAR_INPUT
 	v : ANY;
@@ -1318,7 +1318,7 @@ sizeLonger := F_CS_size42(aiLonger);
 sizeShifted := F_CS_size42(aiShifted);
 END_FUNCTION_BLOCK
 `,
-    "inst : FB_CS_any42;", "inst();")),
+    "inst : FB_CS_any42;", "inst();"),
   // Task 43: an FB output bound `name => target` of ANOTHER type converts like an assignment
   // (`accepts_output_into_other_type`, `conversion_implicit_dint_to_int`). The transpiler compares type families on the
   // FB path and exact names on the routine path: WORD=>UDINT and INT=>REAL are refused, DINT=>INT is accepted and

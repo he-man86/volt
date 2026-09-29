@@ -498,9 +498,9 @@ those values into the new fixture's recording.
 - Root cause: `lower/calls.ts:362` (typeKey returns bare `t.kind` for arrays), used at `:535` and memoised at `:539`.
 - Repro: one ANY FUNCTION called with ARRAY[0..3] OF INT and ARRAY[0..9] OF BYTE → Rust E0308; interp 8/10.
 - Fix: key arrays by element + bounds (recursively). Enums/pointers were refuted.
-- [ ] 42.1 Fixture — red.
+- [x] 42.1 Fixture — red.
   Recorded 2026-09-29 (record:exec): `tr_42_any_array_variant_key` — diverges; the emitted Rust does not compile (E0308).
-- [ ] 42.2 Fix.
+- [x] 42.2 Fix. `typeKey` (lower/calls.ts) keys an array as `ARRAY[lo:hi,...] OF <element key>`, recursively (no `.`: the emitter slices a routine name at the last one); fixture confirmed (rust vendor, 8/10/16/12/8), mark removed; src test in calls.test.ts.
 
 ## 43. Output bindings are type-checked by family, not by the assignment relation
 - Root cause: `lower/calls.ts:1541-1544` (FB path, family compare) and `:1047` (routine path, exact name and length).
