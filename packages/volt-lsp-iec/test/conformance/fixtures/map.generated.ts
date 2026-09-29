@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2022
+ *     confirmed     2023
  *     refused        541
  *     not-lowered    104
  *     lsp-gap         17
- *     diverges        33
+ *     diverges        32
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -82,10 +82,10 @@
  *     string_len_left_right_mid                       20
  *     string_input_truncation                       14.8
  *     string_escapes_named                          13.5
+ *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
- *     cs_standard_string_functions                  10.8
  *
- *   shape — 1464 distinct emission shapes over 2425 lowered fixtures, 1667 distinct constructs.
+ *   shape — 1464 distinct emission shapes over 2425 lowered fixtures, 1669 distinct constructs.
  *   774 constructs carry a review note (`NOTES`): 2337 fixtures are improvable, 2252 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
@@ -2496,7 +2496,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tod_wrap_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 5.4, shape: "3706cbc9a1", notes: ["6bf6856d37", "e8954e2b0d"] },
   tr_11_string_conversion_beyond_80: { evidence: "not-lowered" },
   tr_12_fmt_long_dates: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 1.9, shape: "88fbb6a2fa", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
-  tr_14_set_reset_through_multi_target_pointer: { evidence: "diverges", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 10.6, shape: "b923018f6f", notes: ["013de1dc6a", "45292dbd9c", "4edbb4135a", "687428cc81", "73505351ad", "75cc82a569", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
+  tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 12.2, shape: "f18cbffe95", notes: ["013de1dc6a", "45292dbd9c", "4edbb4135a", "687428cc81", "73505351ad", "75cc82a569", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "not-lowered" },
   tr_16_fb_copy_carries_inout_binding: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 7, edge: "agree", size: 3.4, shape: "8da25e9c49", notes: ["06bb3a6005", "0cbdff077d", "1307e33bbf", "39e68c53af", "63d29bd1a0"] },
   tr_17_any_pvalue_byte_via_sint: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "f59fac60a7", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dd94ff18a2", "e496034f7b"] },

@@ -34,8 +34,22 @@ function storeThrough(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): 
   const arms = pointerArms(lw, pointer, s.span)
   if (arms === undefined) return null
   const written = arms[0]!.place.type
-  const value = lowerExpr(lw, s.value, written)
+  // `p^ S= c` / `p^ R= c` LATCHES the arm's target — the whole right-hand side is the condition, as for a plain place
+  // below. Storing the value instead wrote the condition through: `p^ R= TRUE` with p on a TRUE BOOL left it TRUE
+  // (transpile-review 14, `tr_14_set_reset_through_multi_target_pointer`).
+  const latch = s.op === "S=" || s.op === "R="
+  const value = lowerExpr(lw, s.value, latch ? elementaryRef("BOOL") : written)
   if (value === undefined) return undefined
+  const store = (place: (typeof arms)[number]["place"]): IrStmt =>
+    latch
+      ? {
+          kind: "if",
+          cond: value,
+          then: [{ kind: "assign", target: place, value: convert({ kind: "const", value: s.op === "S=", type: elementaryRef("BOOL"), span: s.span }, place.type), span: s.span }],
+          else: [],
+          span: s.span,
+        }
+      : { kind: "assign", target: place, value: convert(value, place.type), span: s.span }
   // THE ELSE ARM FAULTS. A tag no arm names is a null dereference, and a select with NO arms is exactly that in
   // both backends — read into a temp, so the fault happens where the store would have.
   return {
@@ -43,7 +57,7 @@ function storeThrough(lw: Lowering, s: Extract<Statement, { kind: "assign" }>): 
     selector: { kind: "load", place: pointer, type: pointer.type, span: s.span },
     arms: arms.map((a) => ({
       labels: [{ lo: a.tag, hi: a.tag }],
-      body: [{ kind: "assign" as const, target: a.place, value: convert(value, a.place.type), span: s.span }],
+      body: [store(a.place)],
       span: s.span,
     })),
     else: [{ kind: "eval", value: nullDeref(pointer, [], written, s.span), span: s.span }],

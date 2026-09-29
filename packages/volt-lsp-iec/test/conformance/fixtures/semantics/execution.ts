@@ -1022,7 +1022,6 @@ const CASES: readonly ExecCase[] = [
   // are reached. Compare `set_reset_basic`.
   {
     name: "tr_14_set_reset_through_multi_target_pointer",
-    deferred: "transpile-review-2026-09-29 task 14: `p^ S= c` / `p^ R= c` through a multi-target pointer stores the condition; CODESYS sets/resets only when it is TRUE (a=FALSE, tb=FALSE) (recorded 2026-09-29)",
     vars: [
       "c : BOOL := FALSE; a : BOOL := TRUE; b : BOOL; a2 : BOOL; b2 : BOOL; p : POINTER TO BOOL; q : POINTER TO BOOL;",
       "ct : BOOL := TRUE; ta : BOOL; tb : BOOL := TRUE; ta2 : BOOL; tb2 : BOOL; pt : POINTER TO BOOL; qt : POINTER TO BOOL;",

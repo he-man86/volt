@@ -194,9 +194,9 @@ those values into the new fixture's recording.
 - Repro: `p := ADR(a); IF c THEN p := ADR(b); END_IF; p^ R= TRUE;` (c=FALSE) → a=TRUE.
 - CODESYS: `set_reset_basic` / `set_reset_expression` recordings (R= TRUE clears, S= FALSE leaves alone).
 - Fix: build the latch IF inside each arm of storeThrough.
-- [ ] 14.1 Fixture `set_reset_through_multi_target_pointer` — red.
+- [x] 14.1 Fixture `set_reset_through_multi_target_pointer` — red.
   Recorded 2026-09-29 (record:exec): `tr_14_set_reset_through_multi_target_pointer` — diverges.
-- [ ] 14.2 Fix.
+- [x] 14.2 Fix. `storeThrough` (lower/statements.ts) lowers an S=/R= right-hand side as the BOOL condition and builds the latch IF inside each arm; fixture confirmed (rust vendor), divergence mark removed; src test in lower.test.ts.
 
 ## 15. Copying an FB instance whole re-targets its ADR(own member) pointers
 - Root cause: `lower/statements.ts:171` (whole-value assign of an FB/struct place with no check for instance-relative

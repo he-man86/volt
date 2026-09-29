@@ -2195,3 +2195,16 @@ test("EXIT and CONTINUE outside a loop are refused; inside one — nested in an 
   expect(codes("WHILE n < 3 DO n := n + 1; EXIT; END_WHILE")).toEqual([])
   expect(codes("REPEAT n := n + 1; CONTINUE; UNTIL n > 3 END_REPEAT")).toEqual([])
 })
+
+// transpile-review 14: `p^ R= c` through a pointer naming two variables STORED the condition in the arm's target instead
+// of latching it — CODESYS (`tr_14_set_reset_through_multi_target_pointer`): R= TRUE clears, S= FALSE leaves alone.
+test("S= and R= through a pointer naming several variables latch the target, not store the condition", () => {
+  const source =
+    "PROGRAM P\nVAR\n\tc : BOOL; ct : BOOL := TRUE; a : BOOL := TRUE; b : BOOL; a2 : BOOL; b2 : BOOL; tb : BOOL := TRUE; ta : BOOL; tb2 : BOOL; ta2 : BOOL;\n" +
+    "\tp : POINTER TO BOOL; q : POINTER TO BOOL; pt : POINTER TO BOOL; qt : POINTER TO BOOL;\nEND_VAR\n" +
+    "p := ADR(a); IF c THEN p := ADR(b); END_IF; p^ R= TRUE;\nq := ADR(a2); IF c THEN q := ADR(b2); END_IF; q^ S= FALSE;\n" +
+    "pt := ADR(ta); IF ct THEN pt := ADR(tb); END_IF; pt^ R= TRUE;\nqt := ADR(ta2); IF ct THEN qt := ADR(tb2); END_IF; qt^ S= FALSE;\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["a", "b", "a2", "b2", "ta", "tb", "ta2", "tb2"].map((n) => runner.get(n))).toEqual([false, false, false, false, false, false, false, false])
+})
