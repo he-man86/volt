@@ -64,12 +64,14 @@ if (args.only?.length) steps = steps.filter(s => args.only.includes(s.id))
 const stopAt = args.stopAfter ? steps.findIndex(s => s.id === args.stopAfter) : -1
 if (stopAt >= 0) steps = steps.slice(0, stopAt + 1)
 if (args.maxSteps) steps = steps.slice(0, args.maxSteps)
-// Group consecutive structure/fix/lean steps (never model, conformance or design-first steps) up to 3 per agent.
+// Group consecutive structure/fix/lean/measure steps (never model, conformance or design-first steps).
 const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure'])
+// Group sizes by risk: mechanical moves 5; fixes and lean items 3 (an agent gets sloppier after ~4-5 substantial items).
+const GROUP_MAX = { structure: 5, measure: 3, fix: 3, lean: 3 }
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
-  if (last && GROUPABLE.has(s.kind) && !s.designFirst && last.kind === s.kind && (last.parts?.length ?? 1) < 3 && !last.designFirst) {
+  if (last && GROUPABLE.has(s.kind) && !s.designFirst && last.kind === s.kind && (last.parts?.length ?? 1) < (GROUP_MAX[s.kind] ?? 3) && !last.designFirst) {
     last.parts = [...(last.parts ?? [{ ...last }]), s]
     last.id = `${last.parts[0].id}+${s.id}`
     last.title = last.parts.map(p => p.title).join(' | ')
