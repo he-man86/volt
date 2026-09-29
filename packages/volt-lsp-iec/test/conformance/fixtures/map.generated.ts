@@ -14,15 +14,15 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2033
+ *     confirmed     2036
  *     refused        549
- *     not-lowered    108
+ *     not-lowered    105
  *     lsp-gap          9
  *     diverges        18
  *     unaskable       38
  *
  *   tier                     lowered    clean
- *     decl                    440      440
+ *     decl                    442      442
  *     arith                  1459     1459
  *     control                  72       72
  *     aggregate                29       29
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2313
+ *     agree         2315
  *     disagree         5
  *     not-run         93
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -61,13 +61,13 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35815 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6640
- *     clippy::cast_possible_truncation         5680
+ *   pedantic — 35820 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6644
+ *     clippy::cast_possible_truncation         5679
  *     clippy::uninlined_format_args            4743
  *     clippy::cast_sign_loss                   4383
- *     clippy::cast_lossless                    4376
- *     clippy::unreadable_literal               3680
+ *     clippy::cast_lossless                    4378
+ *     clippy::unreadable_literal               3679
  *     clippy::manual_assert                    1530
  *     clippy::missing_panics_doc               1391
  *     clippy::format_push_string               1054
@@ -85,8 +85,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1453 distinct emission shapes over 2411 lowered fixtures, 1657 distinct constructs.
- *   770 constructs carry a review note (`NOTES`): 2323 fixtures are improvable, 2238 touch a construct with alternatives.
+ *   shape — 1455 distinct emission shapes over 2413 lowered fixtures, 1659 distinct constructs.
+ *   770 constructs carry a review note (`NOTES`): 2325 fixtures are improvable, 2240 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2550,10 +2550,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_41_mux_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "disagree", size: 2.5, shape: "cbbd7cab37", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_41_sel_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "agree", size: 2.5, shape: "11eba92a94", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_42_any_array_variant_key: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "5cd6a4f52d", notes: ["054b93382f", "06bb3a6005", "11f6ad8ec5", "63d29bd1a0"] },
-  tr_43_output_dint_to_int: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 4, edge: "agree", size: 3.7, shape: "f42057c82d", notes: ["06bb3a6005", "1307e33bbf", "63d29bd1a0"] },
-  tr_43_output_int_to_real: { evidence: "not-lowered" },
-  tr_43_output_word_to_int: { evidence: "not-lowered" },
-  tr_43_output_word_to_udint: { evidence: "not-lowered" },
+  tr_43_output_dint_to_int: { evidence: "refused" },
+  tr_43_output_int_to_real: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "a806ffc48f", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
+  tr_43_output_word_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "af659936a3", notes: ["1307e33bbf", "1d7709a031", "65df8e0418"] },
+  tr_43_output_word_to_udint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "70c818a9fd", notes: ["1d7709a031", "65df8e0418", "e8954e2b0d"] },
   tr_44_pointer_step_below_first_element: { evidence: "not-lowered" },
   tr_45_string_embedded_nul: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 73, edge: "agree", size: 3, shape: "e657f4ffbd", notes: ["02b031c773", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "2506fd8442", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a095c1d0aa", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "de132e5019", "e6646a0bd0", "e8210b694c"] },
   tr_46_exptdom_1e19_pow_8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 5, shape: "1df5ac8bc1", notes: ["1707972c33", "6a98109119"] },

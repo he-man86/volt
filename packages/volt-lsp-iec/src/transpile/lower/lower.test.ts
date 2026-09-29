@@ -2393,3 +2393,20 @@ test("a 32-bit date plus or minus an LTIME is refused", () => {
   expect(codes("d : DATE; dur : LTIME := LTIME#1D;", "d := dur + d;")).toEqual(["calendar-width"])
   expect(codes("d : DATE; dur : TIME := T#1D;", "d := d + dur;")).toEqual([])
 })
+
+// transpile-review 43: an FB output bound `name => target` converts like an assignment, not by family. CODESYS runs
+// WORD 16#FFFF => INT as -1, WORD => UDINT as 65535 and INT -3 => REAL as -3.0, and refuses DINT => INT ("Cannot convert
+// type 'DINT' to type 'INT'") (`tr_43_output_*`). The lowering refused the first three and truncated the last.
+test("an FB output binding converts by the assignment relation", () => {
+  const fb = (out: string, value: string) => `FUNCTION_BLOCK FB_O\nVAR_OUTPUT o : ${out}; END_VAR\no := ${value};\nEND_FUNCTION_BLOCK\n`
+  const src = (into: string, out: string, value: string) => `PROGRAM P\nVAR fb1 : FB_O; t : ${into}; END_VAR\nfb1(o => t);\nEND_PROGRAM\n${fb(out, value)}`
+  const value = (into: string, out: string, v: string) => {
+    const runner = run(ir(src(into, out, v), "P"))
+    runner.scan()
+    return runner.get("t")
+  }
+  expect(value("INT", "WORD", "16#FFFF")).toBe(-1n)
+  expect(value("UDINT", "WORD", "16#FFFF")).toBe(65535n)
+  expect(value("REAL", "INT", "-3")).toBe(-3)
+  expect(lowerSource(src("INT", "DINT", "100000"), "P").diagnostics.map((d) => d.code)).toEqual(["call-output-type"])
+})

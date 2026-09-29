@@ -508,9 +508,9 @@ those values into the new fixture's recording.
 - CODESYS: an output binding converts like assignment (`accepts_output_into_other_type`,
   `conversion_implicit_dint_to_int`).
 - Fix: `isAssignable(target.type, field.type)` (types/compat.ts) on both paths.
-- [ ] 43.1 Fixtures WORD=>INT, WORD=>UDINT, INT=>REAL (run), DINT=>INT (rejected) — red.
+- [x] 43.1 Fixtures WORD=>INT, WORD=>UDINT, INT=>REAL (run), DINT=>INT (rejected) — red.
   Recorded 2026-09-29 (record:exec): `tr_43_output_word_to_int` (a=-1), `tr_43_output_word_to_udint` (ud=65535), `tr_43_output_int_to_real` (res=-3.0) — not-lowered (`call-output-type`); `tr_43_output_dint_to_int` — refused by CODESYS and the LSP.
-- [ ] 43.2 Fix.
+- [x] 43.2 Fix. FB path: `lowerCallStatement` checks an output binding with `isAssignable(target, field)` and converts; the three runnable `tr_43_*` now confirmed, DINT=>INT refused `call-output-type`; src test in lower.test.ts. The ROUTINE path still lends the target `&mut` (exact type only) — a converting binding needs the output copied out after the call, which is task 20.
 
 ## 44. A pointer stepped one element below its array's first element becomes NULL
 - Root cause: `lower/pointers.ts:151-152` (backwards step with no floor) on the tag encoding `:87-88` (element k =
