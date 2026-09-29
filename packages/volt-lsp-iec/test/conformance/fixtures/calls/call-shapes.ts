@@ -1152,8 +1152,8 @@ END_FUNCTION_BLOCK
   },
   // Task 19: a METHOD's VAR_IN_OUT named like its FB's member. The method's declaration shadows the member
   // (`shadowing_method_param_shadows_member`), so `x` in the body is the caller's `v`: r = 101, v = 101, the member 5.
-  // The transpiler resolves the member first (r = 105, v = 1). v and the member start distinct so the two answers differ.
-  withDeferred("transpile-review-2026-09-29 task 19: a METHOD's VAR_IN_OUT shadows the FB member of its name in CODESYS (res=v=101, member 5); the lowering resolves the member first (recorded 2026-09-29)", fb("tr_19_method_inout_shadows_member", "FB_CS_shadow19", "a METHOD's VAR_IN_OUT with the same name as a member of its FB, read and written in the method body — which one the body means",
+  // v and the member start distinct so the two answers (the member's would be r = 105, v = 1) differ.
+  fb("tr_19_method_inout_shadows_member", "FB_CS_shadow19", "a METHOD's VAR_IN_OUT with the same name as a member of its FB, read and written in the method body — which one the body means",
     `FUNCTION_BLOCK FB_CS_shadow19
 VAR_OUTPUT
 	memberSeen : INT;
@@ -1173,9 +1173,9 @@ M := x;
 END_METHOD
 `,
     "inst : FB_CS_shadow19; v : INT := 1; res : INT; member : INT;",
-    "res := inst.M(x := v);\ninst();\nmember := inst.memberSeen;")),
-  // ...and the twin: the shadowed name is the FB's VAR_STAT, which the transpiler also looks up before the in-out.
-  withDeferred("transpile-review-2026-09-29 task 19: a METHOD's VAR_IN_OUT shadows the FB's VAR_STAT of its name in CODESYS (res=v=101, stat 5); the lowering resolves the VAR_STAT first (recorded 2026-09-29)", fb("tr_19_method_inout_shadows_var_stat", "FB_CS_shadowStat19", "a METHOD's VAR_IN_OUT with the same name as a VAR_STAT of its FB, read and written in the method body — which one the body means",
+    "res := inst.M(x := v);\ninst();\nmember := inst.memberSeen;"),
+  // ...and the twin: the shadowed name is the FB's VAR_STAT.
+  fb("tr_19_method_inout_shadows_var_stat", "FB_CS_shadowStat19", "a METHOD's VAR_IN_OUT with the same name as a VAR_STAT of its FB, read and written in the method body — which one the body means",
     `FUNCTION_BLOCK FB_CS_shadowStat19
 VAR_OUTPUT
 	statSeen : INT;
@@ -1195,7 +1195,7 @@ M := x;
 END_METHOD
 `,
     "inst : FB_CS_shadowStat19; v : INT := 1; res : INT; stat : INT;",
-    "res := inst.M(x := v);\ninst();\nstat := inst.statSeen;")),
+    "res := inst.M(x := v);\ninst();\nstat := inst.statSeen;"),
   // Task 20: a routine's `o => target` whose target's INDEX the callee moves. CODESYS copies outputs out AFTER the call,
   // so the index is read then — measured LIVE: arr[0] = 0, arr[1] = 5, arr2[0] = 0, arr2[1] = 5. The transpiler lends the
   // target `&mut` before the call and writes arr[0] / arr2[0]. Once through a METHOD moving its FB's own output, once

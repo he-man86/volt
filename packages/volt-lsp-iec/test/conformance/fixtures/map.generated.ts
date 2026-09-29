@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2020
+ *     confirmed     2022
  *     refused        541
  *     not-lowered    104
  *     lsp-gap         17
- *     diverges        35
+ *     diverges        33
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -2504,8 +2504,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_17_any_pvalue_dint_write_via_byte: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.3, shape: "15787c4b23", notes: ["06bb3a6005", "11f6ad8ec5", "5c499dbdc8", "63d29bd1a0", "687428cc81", "dd94ff18a2", "de132e5019", "e496034f7b"] },
   tr_17_any_pvalue_uint_via_int: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "81daad753f", notes: ["06bb3a6005", "11f6ad8ec5", "1d7709a031", "63d29bd1a0", "65df8e0418", "dd94ff18a2", "e496034f7b"] },
   tr_18_queryinterface_into_global: { evidence: "not-lowered" },
-  tr_19_method_inout_shadows_member: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.4, shape: "527a21d194", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "a29db6178b", "dfc9d07c2c"] },
-  tr_19_method_inout_shadows_var_stat: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 6, edge: "agree", size: 3.1, shape: "221a195b5f", notes: ["11f6ad8ec5", "1307e33bbf", "7ef1346b85", "a29db6178b", "b9787e0d18"] },
+  tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9fbe34ab76", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
+  tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "751786240f", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "b9787e0d18"] },
   tr_20_output_index_moved_by_callee: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 13, edge: "agree", size: 2.7, shape: "79589d5a60", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "7ef1346b85", "96a5b25b66", "de132e5019"], diverges: { codesys: "known" } },
   tr_21_namespace_bare_first: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "agree", size: 2.5, shape: "d2d0fa026d", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "65df8e0418", "a54ead1fbe", "abc8bc67de"] },
   tr_21_namespace_qualified_first: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "agree", size: 2.5, shape: "48617079ba", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d"] },

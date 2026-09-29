@@ -168,11 +168,15 @@ export function lowerPlace(lw: Lowering, e: Expr, notAMember = "place-shape"): P
   // a routine's own local (its result, inputs and VAR) shadows the instance's field of the same name
   const local = lw.localByName.get(e.name.toUpperCase())
   if (local !== undefined) return { slot: local, path: [], type: lw.localSlots[local]!.type, span: e.span, root: "local" }
+  // ...and so does its own VAR_IN_OUT / VAR_OUTPUT — before a VAR_STAT or field of the FB it runs on (`tr_19_method_inout_shadows_*`).
+  // The FB's own in-outs a routine reaches (`ofInstance`) are the FB's names, so they still come after its VAR_STAT.
+  const inout = lw.inoutByName.get(e.name.toUpperCase())
+  if (inout !== undefined && lw.routineMode && lw.inoutSlots[inout]!.ofInstance !== true)
+    return { slot: inout, path: [], type: lw.inoutSlots[inout]!.type, span: e.span, root: "inout" }
   // a METHOD's VAR_STAT: one global, named for the method that declares it (conformance `state_var_stat_two_instances`)
   const stat = lw.statics.get(e.name.toUpperCase())
   if (stat !== undefined) return { slot: stat, path: [], type: lw.shared.globals.slots[stat]!.type, span: e.span, root: "global" }
   const slot = lw.byName.get(e.name.toUpperCase())
-  const inout = lw.inoutByName.get(e.name.toUpperCase())
   if (slot === undefined && inout !== undefined)
     return { slot: inout, path: [], type: lw.inoutSlots[inout]!.type, span: e.span, root: "inout" }
   if (slot === undefined) {

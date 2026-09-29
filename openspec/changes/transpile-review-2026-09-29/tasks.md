@@ -251,9 +251,9 @@ those values into the new fixture's recording.
 - CODESYS: method declarations shadow members (`shadowing_method_param_shadows_member`,
   `shadowing_method_local_shadows_member` recordings). Expected r=101, v=101.
 - Fix: in routine mode, the routine's own in-outs win before statics and byName.
-- [ ] 19.1 Record `method_inout_shadows_member` (+ VAR_STAT variant) — red.
+- [x] 19.1 Record `method_inout_shadows_member` (+ VAR_STAT variant) — red.
   Recorded 2026-09-29 (record:exec): `tr_19_method_inout_shadows_member`, `tr_19_method_inout_shadows_var_stat` — diverge (CODESYS: res=v=101).
-- [ ] 19.2 Fix.
+- [x] 19.2 Fix. `lowerPlace` (lower/places.ts): in routine mode the routine's own VAR_IN_OUT/VAR_OUTPUT (not the FB's `ofInstance` in-outs) resolves right after its locals, before VAR_STAT and fields; both fixtures match (res=v=101). Src test in lower.test.ts.
 
 ## 20. A routine's `name => target` output is lent `&mut` before the call, so its index is read too early
 - Root cause: `lower/calls.ts:1045` (output bound via bindInOut as a hidden in-out); freeze loop `:1244` / `:1252`
