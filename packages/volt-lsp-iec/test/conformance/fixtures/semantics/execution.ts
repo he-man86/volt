@@ -154,6 +154,24 @@ const CASES: readonly ExecCase[] = [
     ].join("\n"),
     body: "negWide := -sMin; negSintAsDint := -sMin; negIntWide := -iMin; negDint := -dMin;",
   },
+  // transpile-review-2026-09-29 task 8: does `-x` on a 32/64-bit UNSIGNED operand compute in the unsigned type, or in
+  // the signed integer of its width (the type `uop_neg_udint` / `uop_neg_ulint` name)?
+  {
+    name: "unary_minus_unsigned_widened",
+    vars: [
+      "u : UDINT := 5; dw : DWORD := 5; ul : ULINT := 5; lw : LWORD := 5; udMax : UDINT := 4294967295;",
+      "negU : LINT; negDw : LINT; negUl : LREAL; negLw : LINT; negUdMax : LINT; uLess : BOOL; ulLess : BOOL;",
+    ].join("\n"),
+    body: [
+      "negU := -u;",
+      "negDw := -dw;",
+      "negUl := -ul;",
+      "negLw := -lw;",
+      "negUdMax := -udMax;",
+      "uLess := -u < 0;",
+      "ulLess := -ul < 0;",
+    ].join(" "),
+  },
 
   // ── comparing signed with unsigned — the value, or the bits? ──
   {

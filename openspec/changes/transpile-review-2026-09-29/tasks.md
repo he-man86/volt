@@ -125,8 +125,8 @@ those values into the new fixture's recording.
 - CODESYS: `codesys.build.json` uop_neg_udint / uop_neg_dword type DINT, uop_neg_ulint / uop_neg_lword type LINT;
   `unary_minus_at_the_edge` shows sign extension. Expected -5, -5.0, TRUE.
 - Fix: negate in the signed integer of the operand's runtime width (checkedNegationType).
-- [ ] 8.1 Fixture `unary_minus_unsigned_widened` — red.
-- [ ] 8.2 Fix.
+- [x] 8.1 Fixture `unary_minus_unsigned_widened` — red. Recorded with record:exec: -5, -5, LREAL -5, -5, `-udMax` = 1 (DINT wrap), TRUE, TRUE; both backends gave 4294967291 / 1.8e19 / FALSE.
+- [x] 8.2 Fix. `lower/expressions.ts` negates in `checkedNegationType(promoteForRuntime(operand.type))` — the signed integer of the runtime width (DINT for UDINT/DWORD, LINT for ULINT/LWORD).
 
 ## 9. ROL/ROR on an expression rotate in the promoted (32-bit) width
 - Root cause: `lower/builtins.ts:173` (width from the lowered operand's IR type, already DINT after promoteForRuntime).

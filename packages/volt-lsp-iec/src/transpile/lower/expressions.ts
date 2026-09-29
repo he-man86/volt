@@ -3,6 +3,7 @@
  */
 import { type Expr, isSelfRef, type Span } from "../../syntax/index.js"
 import {
+  checkedNegationType,
   commonType,
   elementaryRef,
   elemOf,
@@ -182,7 +183,11 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
         const type = signed ? elementaryRef(({ 8: "BYTE", 16: "WORD", 32: "DWORD", 64: "LWORD" } as Record<number, string>)[bits]!) : operand.type
         return { kind: "unary", op: "not", operand: convert(operand, type), type, span: e.span }
       }
-      const type = promoteForRuntime(operand.type)
+      // AND IT NEGATES SIGNED. `promoteForRuntime` never changes signedness at 32/64 bits, so `-u` on a UDINT computed in
+      // UDINT: into a LINT it was 4294967291 and `-u < 0` FALSE. CODESYS negates in the signed integer of the operand's
+      // width — DINT for UDINT/DWORD, LINT for ULINT/LWORD (`uop_neg_*`), and `-udMax` is 1 (conformance
+      // `unary_minus_unsigned_widened`).
+      const type = checkedNegationType(promoteForRuntime(operand.type))
       return { kind: "unary", op: "neg", operand: convert(operand, type), type, span: e.span }
     }
     case "binary": {

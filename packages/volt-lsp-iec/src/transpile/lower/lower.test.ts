@@ -2073,3 +2073,18 @@ test("a negative literal is a constant: the all-constant fold and MIN/MAX's meet
     3000000000n, 3000000000n, 2999999995n, 2999999995n, 2999999995n, -4000000000n, -5n,
   ])
 })
+
+// transpile-review-2026-09-29 task 8 (conformance `unary_minus_unsigned_widened`, recorded): `-x` on a UDINT/DWORD/
+// ULINT/LWORD negated in the unsigned type, so `-u` into a LINT was 4294967291 and `-u < 0` FALSE. CODESYS negates in
+// the signed integer of the operand's width (DINT / LINT) — `-udMax` with udMax = 4294967295 is 1.
+test("unary minus on a 32/64-bit unsigned operand negates in the signed type of its width", () => {
+  const source =
+    "PROGRAM P\nVAR u : UDINT := 5; dw : DWORD := 5; ul : ULINT := 5; lw : LWORD := 5; udMax : UDINT := 4294967295;\n" +
+    "negU : LINT; negDw : LINT; negUl : LREAL; negLw : LINT; negUdMax : LINT; uLess : BOOL; ulLess : BOOL; END_VAR\n" +
+    "negU := -u; negDw := -dw; negUl := -ul; negLw := -lw; negUdMax := -udMax; uLess := -u < 0; ulLess := -ul < 0;\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["negU", "negDw", "negUl", "negLw", "negUdMax", "uLess", "ulLess"].map((n) => runner.get(n))).toEqual([
+    -5n, -5n, -5, -5n, 1n, true, true,
+  ])
+})

@@ -14,7 +14,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1979
+ *     confirmed     1980
  *     refused        540
  *     not-lowered     91
  *     lsp-gap          4
@@ -23,7 +23,7 @@
  *
  *   tier                     lowered    clean
  *     decl                    429      429
- *     arith                  1443     1443
+ *     arith                  1444     1444
  *     control                  59       59
  *     aggregate                25       25
  *     call                    222      220
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2254
+ *     agree         2255
  *     disagree         1
  *     not-run         85
  *       not-run: reaches the platform's libm (pow, ln, sin…)     62
@@ -57,13 +57,13 @@
  *       not-run: the emitted Rust does not build                  8
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 34458 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6500
+ *   pedantic — 34477 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6501
  *     clippy::cast_possible_truncation         5557
- *     clippy::cast_sign_loss                   4301
- *     clippy::cast_lossless                    4205
+ *     clippy::cast_sign_loss                   4302
+ *     clippy::cast_lossless                    4208
  *     clippy::uninlined_format_args            4168
- *     clippy::unreadable_literal               3568
+ *     clippy::unreadable_literal               3569
  *     clippy::manual_assert                    1474
  *     clippy::missing_panics_doc               1359
  *     clippy::format_push_string               1042
@@ -81,8 +81,8 @@
  *     string_to_real_parse                            11
  *     cs_standard_string_functions                  10.8
  *
- *   shape — 1393 distinct emission shapes over 2340 lowered fixtures, 1556 distinct constructs.
- *   776 constructs carry a review note (`NOTES`): 2252 fixtures are improvable, 2167 touch a construct with alternatives.
+ *   shape — 1394 distinct emission shapes over 2341 lowered fixtures, 1563 distinct constructs.
+ *   776 constructs carry a review note (`NOTES`): 2253 fixtures are improvable, 2168 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -585,7 +585,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_ne_udint_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 3.8, shape: "86eae37e47", notes: ["06bb3a6005", "63d29bd1a0", "687428cc81", "de132e5019", "e8954e2b0d"] },
   cc_neg_byte_into_byte: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 5, edge: "agree", size: 3.6, shape: "4cfaa90ef6", notes: ["a9c2598276"] },
   cc_neg_sint_into_sint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.6, shape: "985dc994ff", notes: ["d9d76a4055"] },
-  cc_neg_udint_into_udint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3.6, shape: "d90f6876ec", notes: ["e8954e2b0d"] },
+  cc_neg_udint_into_udint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.6, shape: "3cb795ca56", notes: ["e8954e2b0d"] },
   cc_neg_uint_into_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.6, shape: "47330ffc88", notes: ["1307e33bbf", "1d7709a031", "3968425889", "65df8e0418"] },
   cc_neg_uint_into_uint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.6, shape: "13166605bc", notes: ["1d7709a031", "65df8e0418", "d379abfe6a"] },
   cc_neg_usint_into_usint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 5, edge: "agree", size: 3.6, shape: "4cfaa90ef6", notes: ["a9c2598276"] },
@@ -2530,6 +2530,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unary_minus_on_bool: { evidence: "refused" },
   unary_minus_on_string: { evidence: "refused" },
   unary_minus_on_time: { evidence: "refused" },
+  unary_minus_unsigned_widened: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 13, edge: "agree", size: 7, shape: "26b6f717ac", notes: ["1707972c33", "4a6baf16b3", "687428cc81", "6a98109119", "870b70e195", "90c445f7cb", "a497507b30", "de132e5019", "e8954e2b0d"] },
   unary_not_on_string: { evidence: "refused" },
   unknown_attribute_typo: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "c3b7e25378", notes: ["1307e33bbf"] },
   unresolved_identifier_in_body: { evidence: "refused" },
@@ -2539,20 +2540,20 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   uop_neg_date: { evidence: "refused" },
   uop_neg_dint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "8127b98dad", notes: ["06bb3a6005", "5d9850550d", "63d29bd1a0"] },
   uop_neg_dt: { evidence: "refused" },
-  uop_neg_dword: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "cc4d680a8c", notes: ["5d9850550d", "e8954e2b0d"] },
+  uop_neg_dword: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "15f9297467", notes: ["5d9850550d", "e8954e2b0d"] },
   uop_neg_int: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "54216f0bc9", notes: ["1307e33bbf", "5d9850550d"] },
   uop_neg_lint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "5bbadf5e54", notes: ["4a6baf16b3", "5d9850550d", "870b70e195"] },
   uop_neg_lreal: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "7e8d5618f4", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
   uop_neg_ltime: { evidence: "refused" },
-  uop_neg_lword: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "efcdc1de67", notes: ["5d9850550d", "90c445f7cb", "a497507b30"] },
+  uop_neg_lword: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "a6b747b11b", notes: ["5d9850550d", "90c445f7cb", "a497507b30"] },
   uop_neg_real: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "disagree", size: 3.3, shape: "358fcda114", notes: ["5c9bb13706", "5d9850550d", "74845f98c6"] },
   uop_neg_sint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "dc6209ecdf", notes: ["5d9850550d"] },
   uop_neg_string_into_int: { evidence: "refused" },
   uop_neg_time_into_string: { evidence: "refused" },
   uop_neg_tod: { evidence: "refused" },
-  uop_neg_udint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "cc4d680a8c", notes: ["5d9850550d", "e8954e2b0d"] },
+  uop_neg_udint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "15f9297467", notes: ["5d9850550d", "e8954e2b0d"] },
   uop_neg_uint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "8ae4c04e97", notes: ["1d7709a031", "5d9850550d", "65df8e0418"] },
-  uop_neg_ulint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 42, edge: "agree", size: 3.3, shape: "efcdc1de67", notes: ["5d9850550d", "90c445f7cb", "a497507b30"] },
+  uop_neg_ulint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "a6b747b11b", notes: ["5d9850550d", "90c445f7cb", "a497507b30"] },
   uop_neg_usint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "b7f1b78e8a", notes: ["5d9850550d"] },
   uop_neg_word: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 43, edge: "agree", size: 3.3, shape: "8ae4c04e97", notes: ["1d7709a031", "5d9850550d", "65df8e0418"] },
   uop_neg_wstring: { evidence: "refused" },
