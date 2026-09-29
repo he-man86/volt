@@ -80,11 +80,11 @@ interface Case {
    * rather than bit-exactly.
    *
    * Not a softening of the rule that motivated this gate — `-0.0` is still caught, and every other value is still
-   * compared bit for bit. It is that `Math.pow` and Rust's `powf` are different libm implementations, and at extreme
-   * magnitudes they legitimately disagree in the last bits: the seed ladder feeds `EXPT` a base of 1.0E19, and
-   * 1.0E19^8 comes back 9.999999999999998e151 here and 1e152 there. Neither is wrong, no recording covers that input,
-   * and the fixture's OWN value (2^8 = 256) is exact in both. Demanding bit-equality of a transcendental across two
-   * libms is demanding something neither backend promises.
+   * compared bit for bit. It is that the one-argument functions are `Math.*` here and Rust's libm there, which disagree
+   * in the last bits at extreme arguments. EXPT is closer: the interpreter's integer powers are correctly rounded
+   * (`values.ts` `expt`, task 46 — 1.0E19^8 is 1E+152 as CODESYS says), but Windows' UCRT `powf` is one ULP out on a
+   * few inputs in ten thousand. Demanding bit-equality of a transcendental across two libms is demanding something
+   * neither backend promises.
    */
   transcendental: boolean
 }

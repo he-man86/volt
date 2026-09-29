@@ -624,14 +624,6 @@ const LEAN = {
   shapes5_12: {
     improvement: "Unary `!` binds tighter than every binary operator, so the parentheses are always redundant: emit `!x` and let the binary printer add parentheses only where needed. The `&`/`|` for eager AND/OR are deliberate and stay.",
   },
-  shapes5_13: {
-    improvement: "Two emissions are plausible here.",
-    alternatives: [
-      "powf (today, and my choice): correctly rounded on the probed inputs, matching the exact value",
-      "powi(8) for an integer-literal exponent: shorter, but repeated multiplication is not correctly rounded and differs by platform",
-    ],
-    chosen: "powf: correctly rounded on the probed inputs, matching the exact value",
-  },
   shapes5_14: {
     improvement: "Lowering already knows these are compile-time constants: 7/2 is folded at LINT width by the measured rule. Emit the folded, converted literal (`3.0f32`; `0.3f64 as f32` becomes its f32 literal). The value must be folded exactly as the vendor does, since `x : REAL := 7 / 2` is 3.",
   },
@@ -3510,8 +3502,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f4a4eb1ade": LEAN.shapes17_8,
   // self.f = IecString::<L>::lit(x!(S, { let x = self.f as i32; let x = self.f; if x == L { L } else { x.wrapping_rem(
   "f534ccee75": LEAN.shapes10_5,
-  // self.f = self.f.powf(Lf64);
-  "f54b2e3beb": LEAN.shapes5_13,
   // self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i6
   "f59561bd3c": LEAN.shapes12_2,
   // self.f = (Li64 / Li64) as f64;
@@ -3564,8 +3554,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "fdc2e175fa": LEAN.shapes5_11,
   // self.f = (self.f.wrapping_shr(Li16 as u32) & Lu32) != Lu32;
   "fdfbae2680": LEAN.shapes8_4,
-  // self.f = (self.f as f64).powf(self.f as f64);
-  "fe1f87d255": LEAN.shapes7_4,
   // fn m(v: f64) -> i64 {
   "fe6af35845": LEAN.shapes4_4,
   // self.f = m(Li32, …, &mut self.f);

@@ -538,9 +538,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): EXPT(1,NaN)=1, EXPT(-1,±inf)=1, EXPT(NaN,0)=1, REAL EXPT(1,NaN)=1 (Rust right, interpreter wrong);
   1e19**8 = 1E+152 exactly; EXPT(0,-1) and EXPT(0,-0.5) STOP; EXPT(0,-inf) = +inf with no stop.
 - Fix: interpreter uses a correctly rounded C-semantics pow; both backends stop on 0 ** finite-negative.
-- [ ] 46.1 Record `exptdom_*` (one fixture per case) — red.
+- [x] 46.1 Record `exptdom_*` (one fixture per case) — red.
   Recorded 2026-09-29 (record:exec): `tr_46_exptdom_one_pow_nan`, `tr_46_exptdom_minus_one_pow_inf`, `tr_46_exptdom_minus_one_pow_minus_inf`, `tr_46_exptdom_real_one_pow_nan`, `tr_46_exptdom_1e19_pow_8` — diverge; `tr_46_exptdom_zero_pow_minus_one`, `tr_46_exptdom_zero_pow_minus_half` — CODESYS stops (timed out), both backends finish: diverge; `tr_46_exptdom_nan_pow_zero`, `tr_46_exptdom_zero_pow_minus_inf` — confirmed.
-- [ ] 46.2 Fix.
+- [x] 46.2 Fix. `values.ts` `expt`: C's pow special cases, integer exponents correctly rounded (BigInt bracket, Ziv), 0 ** finite-negative stops; Rust emits `iec_pow` (same guard); all nine fixtures confirmed, src tests `ir/values.test.ts` + `emit.test.ts`.
 
 ## 47. LINT/ULINT/LWORD → REAL is rounded twice in the interpreter
 - Root cause: `ir/values.ts:398` (`Number(n)` then `fit`'s `Math.fround` at `:292`).

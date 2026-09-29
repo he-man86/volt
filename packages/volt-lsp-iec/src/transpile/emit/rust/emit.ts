@@ -773,8 +773,9 @@ class Printer {
             const arms = inputs.map((input, i) => (i === inputs.length - 1 ? `_ => ${input}` : `${i} => ${input}`))
             return `(match ${k} { ${arms.join(", ")} })`
           }
+          // `iec_pow`: EXPT(0, finite negative) stops the task on CODESYS, where `powf` answers inf (`values.ts` `expt`)
           case "expt":
-            return fromF64(`${castTo(args[0]!, e.args[0]!.type, "f64")}.powf(${unparen(castTo(args[1]!, e.args[1]!.type, "f64"))})`, rustType(e.type))
+            return fromF64(`iec_pow(${unparen(castTo(args[0]!, e.args[0]!.type, "f64"))}, ${unparen(castTo(args[1]!, e.args[1]!.type, "f64"))})`, rustType(e.type))
           case "abs": {
             // `abs` would panic on a signed minimum in a debug build; an unsigned type has no `abs` at all
             const t = e.type.kind === "elementary" ? e.type.elem : undefined
@@ -1311,6 +1312,13 @@ export function emitRust(pou: IrPou): Emitted {
   if (p.code.includes("iec_log(")) {
     p.push("", 0)
     p.push('fn iec_log(x: f64) -> f64 { if x == 0.0 { panic!("the logarithm of zero stops the task on CODESYS"); } x }', 0)
+  }
+  if (p.code.includes("iec_pow(")) {
+    p.push("", 0)
+    p.push(
+      'fn iec_pow(x: f64, y: f64) -> f64 { if x == 0.0 && y < 0.0 && y.is_finite() { panic!("zero to a negative power stops the task on CODESYS"); } x.powf(y) }',
+      0,
+    )
   }
   if (p.code.includes("iec_div(")) {
     p.push("", 0)

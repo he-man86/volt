@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2013
+ *     confirmed     2020
  *     refused        541
  *     not-lowered    103
  *     lsp-gap         17
- *     diverges        43
+ *     diverges        36
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -61,14 +61,14 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35760 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 35777 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::must_use_candidate               6647
  *     clippy::cast_possible_truncation         5680
  *     clippy::uninlined_format_args            4734
  *     clippy::cast_sign_loss                   4375
  *     clippy::cast_lossless                    4371
  *     clippy::unreadable_literal               3681
- *     clippy::manual_assert                    1506
+ *     clippy::manual_assert                    1523
  *     clippy::missing_panics_doc               1388
  *     clippy::format_push_string               1052
  *     clippy::many_single_char_names            527
@@ -86,7 +86,7 @@
  *     cs_standard_string_functions                  10.8
  *
  *   shape — 1466 distinct emission shapes over 2427 lowered fixtures, 1671 distinct constructs.
- *   776 constructs carry a review note (`NOTES`): 2339 fixtures are improvable, 2254 touch a construct with alternatives.
+ *   774 constructs carry a review note (`NOTES`): 2339 fixtures are improvable, 2254 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -496,10 +496,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc_enum_var_into_sint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 2.3, shape: "5cba4e2141", notes: ["1307e33bbf"] },
   cc_enum_var_into_uint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "51d342b041", notes: ["1307e33bbf", "1d7709a031", "65df8e0418"] },
   cc_enum_var_into_word: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.3, shape: "51d342b041", notes: ["1307e33bbf", "1d7709a031", "65df8e0418"] },
-  cc_expt_int_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "not-run", size: 3.6, shape: "b849d8e89f", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
-  cc_expt_lreal_real_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "not-run", size: 3.8, shape: "d459b32a4d", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
-  cc_expt_real_int_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "not-run", size: 3.8, shape: "6d3e06eb7a", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
-  cc_expt_real_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "not-run", size: 3.8, shape: "e3f9379060", notes: ["5c9bb13706", "74845f98c6"] },
+  cc_expt_int_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "not-run", size: 3.7, shape: "365a9c7062", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
+  cc_expt_lreal_real_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "not-run", size: 3.8, shape: "75f3bde077", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
+  cc_expt_real_int_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "not-run", size: 3.8, shape: "25c4e4b7de", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
+  cc_expt_real_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "not-run", size: 3.8, shape: "7faf6dce3a", notes: ["5c9bb13706", "74845f98c6"] },
   cc_fp_bitwise_mixed: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "e270a52077", notes: ["1d7709a031", "65df8e0418", "a7ca0579a1"] },
   cc_fp_enum_compare_same_enum_other_case: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 1.7, shape: "566fb5eeb2", notes: ["1307e33bbf", "687428cc81", "a363bc4ca3", "de132e5019"] },
   cc_fp_hex_to_word: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "c50bf9c6ff", notes: ["1d7709a031", "65df8e0418"] },
@@ -1014,9 +1014,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   esc_wstring_tab: { evidence: "refused" },
   estimated_stack_usage: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "3c96e8be0e", notes: ["1307e33bbf", "707233d6d6", "a01f00db76"] },
   exp_log_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "not-run", size: 7, shape: "d3669df15d", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
-  expt_mixed_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "not-run", size: 6.2, shape: "c7854922f8", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "fe1f87d255"] },
-  expt_real_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "not-run", size: 4.2, shape: "2dddf89c4e", notes: ["5c9bb13706", "74845f98c6"] },
-  expt_types: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 11, edge: "not-run", size: 6, shape: "67a8609786", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "ec9a760059", "fe1f87d255"] },
+  expt_mixed_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "not-run", size: 6.3, shape: "2554728364", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
+  expt_real_into_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "not-run", size: 4.3, shape: "f15079e4e1", notes: ["5c9bb13706", "74845f98c6"] },
+  expt_types: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "not-run", size: 6.1, shape: "f790d663e5", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "ec9a760059"] },
   fb_exit_canonical: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   fb_exit_missing_bInCopyCode: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "198ab55c44", notes: ["1307e33bbf"] },
   fb_init_and_structured_initializer: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "f246f0c538", notes: ["0ab2575555", "1307e33bbf", "8a9bb48ddb", "fa7d5f176f"] },
@@ -1837,7 +1837,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   op_logical_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "312f58b292", notes: ["3d737b5821", "687428cc81", "de132e5019", "f474d0ca12"] },
   op_math_abs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "66d9d937dd", notes: ["1307e33bbf", "3d737b5821", "6a41bda0a0", "ec9a760059"] },
   op_math_exp: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 2.9, shape: "606b0df069", notes: ["1707972c33", "3d737b5821", "6a98109119"] },
-  op_math_expt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 2.9, shape: "01f46ae5b1", notes: ["1707972c33", "3d737b5821", "6a98109119", "f54b2e3beb"] },
+  op_math_expt: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 3, shape: "c49c8d9697", notes: ["1707972c33", "3d737b5821", "6a98109119"] },
   op_math_inverse_trig: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 2.6, shape: "d4b83c07c6", notes: ["1707972c33", "3d737b5821", "6a98109119"] },
   op_math_ln: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 3, shape: "7112bc9d69", notes: ["1707972c33", "3d737b5821", "6a98109119"] },
   op_math_log: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 3, shape: "df2f03601c", notes: ["1707972c33", "3d737b5821", "6a98109119"] },
@@ -2556,15 +2556,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_43_output_word_to_udint: { evidence: "not-lowered" },
   tr_44_pointer_step_below_first_element: { evidence: "not-lowered" },
   tr_45_string_embedded_nul: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 73, edge: "agree", size: 3, shape: "e657f4ffbd", notes: ["02b031c773", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "2506fd8442", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a095c1d0aa", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "de132e5019", "e6646a0bd0", "e8210b694c"] },
-  tr_46_exptdom_1e19_pow_8: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 2, edge: "not-run", size: 4.8, shape: "66d6469d8a", notes: ["1707972c33", "6a98109119"] },
-  tr_46_exptdom_minus_one_pow_inf: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "aff7329365", notes: ["1707972c33", "6a98109119"] },
-  tr_46_exptdom_minus_one_pow_minus_inf: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "a4f1bae543", notes: ["1707972c33", "6a98109119"] },
-  tr_46_exptdom_nan_pow_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "not-run", size: 4.8, shape: "011a781551", notes: ["1707972c33", "6a98109119", "c2d750a62a"] },
-  tr_46_exptdom_one_pow_nan: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "88f74dac42", notes: ["1707972c33", "6a98109119", "c2d750a62a"] },
-  tr_46_exptdom_real_one_pow_nan: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 6, edge: "not-run", size: 4.8, shape: "613091a2c8", notes: ["5c9bb13706", "74845f98c6"] },
-  tr_46_exptdom_zero_pow_minus_half: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "ca151a955b", notes: ["1707972c33", "6a98109119"] },
-  tr_46_exptdom_zero_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "not-run", size: 4.8, shape: "4536b1b813", notes: ["1707972c33", "6a98109119"] },
-  tr_46_exptdom_zero_pow_minus_one: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 1, edge: "not-run", size: 4.8, shape: "5d76950376", notes: ["1707972c33", "6a98109119"] },
+  tr_46_exptdom_1e19_pow_8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 5, shape: "1df5ac8bc1", notes: ["1707972c33", "6a98109119"] },
+  tr_46_exptdom_minus_one_pow_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "eff0a3a592", notes: ["1707972c33", "6a98109119"] },
+  tr_46_exptdom_minus_one_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "92a265e8b8", notes: ["1707972c33", "6a98109119"] },
+  tr_46_exptdom_nan_pow_zero: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "fea7456d76", notes: ["1707972c33", "6a98109119", "c2d750a62a"] },
+  tr_46_exptdom_one_pow_nan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "01db95f7ba", notes: ["1707972c33", "6a98109119", "c2d750a62a"] },
+  tr_46_exptdom_real_one_pow_nan: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "not-run", size: 5, shape: "a0c0caf810", notes: ["5c9bb13706", "74845f98c6"] },
+  tr_46_exptdom_zero_pow_minus_half: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 2, edge: "not-run", size: 5, shape: "539cb2b88a", notes: ["1707972c33", "6a98109119"] },
+  tr_46_exptdom_zero_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "d5364f7cb2", notes: ["1707972c33", "6a98109119"] },
+  tr_46_exptdom_zero_pow_minus_one: { evidence: "confirmed", tier: "arith", rust: "compiles", pedantic: 2, edge: "not-run", size: 5, shape: "24b656fdb6", notes: ["1707972c33", "6a98109119"] },
   tr_47_i2r_lint_to_real_double_round: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 5.4, shape: "1756db1847", notes: ["12e93440b3", "4a6baf16b3", "5c9bb13706", "74845f98c6", "90c445f7cb", "a497507b30"] },
   tr_6_literal_beyond_dint_neighbour: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 14, edge: "agree", size: 5.8, shape: "24af735558", notes: ["06bb3a6005", "4a6baf16b3", "63d29bd1a0", "687428cc81", "870b70e195", "de132e5019", "e8954e2b0d"] },
   trig_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 19, edge: "not-run", size: 6.4, shape: "9a3cdd29be", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
@@ -8412,15 +8412,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`.to()` only when the capacities differ or are generic",
     why: "the other stores need no copy because IecStr is Copy",
   },
-  // self.f = self.f.powf(Lf64);
-  "f54b2e3beb": {
-    improvement: "Two emissions are plausible here.",
-    alternatives: [
-      "powf (today, and my choice): correctly rounded on the probed inputs, matching the exact value",
-      "powi(8) for an integer-literal exponent: shorter, but repeated multiplication is not correctly rounded and differs by platform",
-    ],
-    chosen: "powf: correctly rounded on the probed inputs, matching the exact value",
-  },
   // self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize] = Li16;
   "f59561bd3c": {
     improvement: "A constant index is printed as a typed literal, then cast, then offset at run time: `self.partial[((5i8 as i64) - 1i64) as usize]`. When step.index is a const, print the folded usize (`[4]`). rustc would also reject an out-of-range constant at compile time, as it already does for array_index_const_out_of_bounds.",
@@ -8601,16 +8592,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = (self.f.wrapping_shr(Li16 as u32) & Lu32) != Lu32;
   "fdfbae2680": {
     improvement: "`.%W0` / `.%B0` shift by `0i16 as u32`, which is a dead shift plus a pointless cast: emit `self.d as u16`. For other offsets the count is a known in-range constant, so emit `(self.d >> 16) as u16` and `(self.d >> 3) & 1 != 0`. The `load` bit path at emit.ts ~662 already skips `>> 0`; partial access should follow it.",
-  },
-  // self.f = (self.f as f64).powf(self.f as f64);
-  "fe1f87d255": {
-    improvement: "Every widening cast is printed with `as` (`self.n as u32`, `self.x as f64`, `self.a as i32`). That is ~200 clippy::cast_lossless findings in this batch alone. A lossless widening reads better as `u32::from(x)` / `f64::from(x)`, and `as` would then mark only the conversions that truncate, wrap or reinterpret sign.",
-    alternatives: [
-      "(a) TODAY: `as` everywhere.",
-      "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise. My choice.",
-      "(c) leave `as` and allow cast_lossless in the lint list. Zero effort, but the reader loses the lossy/lossless signal.",
-    ],
-    chosen: "(b) `T::from(x)` when the source→target is lossless (sign-preserving widening, integer ≤ 16 bits → f32, ≤ 32 bits → f64), `as` otherwise",
   },
   // fn m(v: f64) -> i64 {
   "fe6af35845": {

@@ -307,8 +307,10 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
 
   test("EXPT is `powf` through f64, narrowed to REAL only when both arguments are REAL", () => {
     const code = rust("PROGRAM P\nVAR x : REAL; y : REAL; n : INT; z : LREAL; END_VAR\ny := EXPT(x, y); z := EXPT(x, n);\nEND_PROGRAM\n")
-    expect(code).toContain("(self.x as f64).powf(self.y as f64) as f32")
-    expect(code).toContain("self.z = (self.x as f64).powf(self.n as f64);") // one INT: LREAL
+    expect(code).toContain("iec_pow(self.x as f64, self.y as f64) as f32")
+    expect(code).toContain("self.z = iec_pow(self.x as f64, self.n as f64);") // one INT: LREAL
+    // through `iec_pow`: EXPT(0, -1) stops the task on CODESYS where `powf` answers inf (`tr_46_exptdom_zero_pow_*`)
+    expect(code).toContain('panic!("zero to a negative power stops the task on CODESYS"); } x.powf(y)')
   })
 
   test("bit operations print Rust's own wrapping_shl/rotate_left, MUX a match, and bit access one slot's mask", () => {

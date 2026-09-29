@@ -74,6 +74,113 @@ export const MATH: Readonly<Record<IrMathName, (x: number) => number>> = {
 }
 
 /**
+ * EXPT IS C'S `pow`, CORRECTLY ROUNDED — what CODESYS answers and what the emitted Rust's `powf` computes
+ * (transpile-review-2026-09-29 task 46, `tr_46_exptdom_*`). `Math.pow` is not that, twice over:
+ *
+ *   EXPT(1, NaN)  EXPT(-1, ±inf)   ->  1 in C and CODESYS; NaN in JavaScript (the spec says so)
+ *   EXPT(1E19, 8)                  ->  1E+152 exactly in CODESYS; 9.999999999999998E151 in JavaScriptCore
+ *
+ * The second is JavaScriptCore's INTEGER-exponent path: repeated multiplication, rounded at every step, a few ULPs
+ * out. A fractional exponent goes to the C library's `pow`, the very function `powf` calls — measured identical on
+ * 5000 random pairs — so only an integer exponent is computed here, exactly (`integerPower`). Measured against Rust
+ * on 15000 random integer-exponent pairs: identical except 3, where Windows' UCRT `pow` is one ULP out and this is
+ * the correctly rounded one (checked exactly, 2026-09-29).
+ *
+ * A ZERO TO A FINITE NEGATIVE POWER STOPS THE TASK: EXPT(0, -1) and EXPT(0, -0.5) never complete — the machine's
+ * divide by zero, as `/` and LN(0) are. EXPT(0, -inf) is +inf and runs.
+ */
+export function expt(x: number, y: number): number {
+  if (x === 0 && y < 0 && y !== -Infinity) throw new RangeError("zero to a negative power stops the task on CODESYS")
+  if (x === 1 || y === 0) return 1
+  if (x === -1 && (y === Infinity || y === -Infinity)) return 1
+  if (Number.isInteger(y) && Number.isFinite(x) && x !== 0) return integerPower(x, y)
+  return Math.pow(x, y)
+}
+
+/**
+ * x^n for a finite non-zero x and an integer n, correctly rounded to nearest-even. |x| is m·2^e with an integer m, so
+ * x^n is bracketed by BigInt powers truncated to `p` bits — one rounded down, one rounded up — and when both round to
+ * the same double that double is the answer; otherwise `p` doubles (Ziv's loop). An exact power never truncates once
+ * `p` covers its bits, so a result that lands exactly on a tie terminates too.
+ */
+function integerPower(x: number, y: number): number {
+  const negative = x < 0 && y % 2 !== 0
+  const { m, e } = significand(x)
+  const n = BigInt(Math.abs(y))
+  for (let p = 64; ; p *= 2) {
+    const lo = power(m, e, n, p, false)
+    const hi = power(m, e, n, p, true)
+    const a = y > 0 ? toDouble(lo) : toDouble(reciprocal(hi, p, false))
+    const b = y > 0 ? toDouble(hi) : toDouble(reciprocal(lo, p, true))
+    if (a === b) return negative ? -a : a
+  }
+}
+
+/** |x| as m·2^e with an integer m, read from its bits. */
+function significand(x: number): Scaled {
+  const bits = new DataView(new Float64Array([x]).buffer).getBigUint64(0, true)
+  const biased = Number((bits >> 52n) & 0x7ffn)
+  const fraction = bits & ((1n << 52n) - 1n)
+  return biased === 0 ? { m: fraction, e: -1074 } : { m: fraction | (1n << 52n), e: biased - 1075 }
+}
+
+/** A positive value m·2^e; a `huge` exponent stands for "past every double" in its direction. */
+type Scaled = { m: bigint; e: number }
+
+const bitLength = (m: bigint): number => m.toString(2).length
+
+/** m·2^e cut to p bits, rounded down or up. */
+function cut({ m, e }: Scaled, p: number, up: boolean): Scaled {
+  const shift = bitLength(m) - p
+  if (shift <= 0) return { m, e }
+  const kept = m >> BigInt(shift)
+  return { m: up && kept << BigInt(shift) !== m ? kept + 1n : kept, e: e + shift }
+}
+
+/** (m·2^e)^n bracketed from below (`up` false) or above, by square-and-multiply at p bits. Stops early once a partial
+ *  power is past every double: a partial power lies between 1 and the whole one, so the whole one is past it too. */
+function power(m: bigint, e: number, n: bigint, p: number, up: boolean): Scaled {
+  let result: Scaled = { m: 1n, e: 0 }
+  let base: Scaled = { m, e }
+  for (let k = n; k > 0n; k >>= 1n) {
+    if (k & 1n) result = cut({ m: result.m * base.m, e: result.e + base.e }, p, up)
+    const top = bitLength(base.m) + base.e
+    if (top > 1200 || top < -1200) return { m: 1n, e: top > 0 ? 1e6 : -1e6 }
+    if (k > 1n) base = cut({ m: base.m * base.m, e: base.e * 2 }, p, up)
+  }
+  return result
+}
+
+/** 1/(m·2^e) to p bits, rounded down or up. */
+function reciprocal({ m, e }: Scaled, p: number, up: boolean): Scaled {
+  const q = p + bitLength(m)
+  const one = 1n << BigInt(q)
+  const quotient = one / m
+  return { m: up && quotient * m !== one ? quotient + 1n : quotient, e: -e - q }
+}
+
+/** m·2^e rounded to the nearest double, ties to even — subnormals and overflow included. */
+function toDouble({ m, e }: Scaled): number {
+  const top = bitLength(m) - 1 + e // the exponent of m's leading bit
+  if (top > 1023) return Infinity
+  const precision = Math.min(53, top + 1075) // the bits a double has from that leading bit down to 2^-1074
+  if (precision < 0) return 0
+  const shift = bitLength(m) - precision
+  let kept = m
+  let scale = e
+  if (shift > 0) {
+    kept = m >> BigInt(shift)
+    const rest = m - (kept << BigInt(shift))
+    const half = 1n << BigInt(shift - 1)
+    if (rest > half || (rest === half && (kept & 1n) === 1n)) kept += 1n
+    scale += shift
+  }
+  // two steps, so an intermediate power of two never underflows (kept < 2^54, scale ≥ -1074 - 53)
+  const step = Math.max(-1000, Math.min(1000, scale))
+  return Number(kept) * 2 ** step * 2 ** (scale - step)
+}
+
+/**
  * ONE CHARACTER OF A STRING, as `s[i]` reads and writes it — counted from 0, a BYTE (a WSTRING's WORD). It is the
  * primitive the Standard library's string functions are written in (`libraries/Standard`). Mirrored by the emitter's
  * prelude (`IecStr::char_at` / `with_char`).

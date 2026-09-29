@@ -16,7 +16,7 @@
  */
 import type { IrBuiltinName, IrExpr } from "./ir.js"
 import type { Type } from "../../types/index.js"
-import { arith, bool, coerce, eq, fit, logic, MATH, num, ord, charAt, setChar, type Val } from "./values.js"
+import { arith, bool, coerce, eq, expt, fit, logic, MATH, num, ord, charAt, setChar, type Val } from "./values.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything
  *  else is a lowering bug — reported as one rather than silently treated as 32 bits. */
@@ -88,8 +88,8 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       return fit(k >= 0 && k < inputs.length ? inputs[k]! : inputs[inputs.length - 1]!, type)
     }
     case "expt":
-      // float64, narrowed by `fit` when lowering typed it REAL (both arguments REAL) — matches CODESYS's digits
-      return fit(Math.pow(Number(num(args[0]!)), Number(num(args[1]!))), type)
+      // C's `pow` in float64 (`expt`: not `Math.pow`), narrowed by `fit` when lowering typed it REAL (both arguments REAL)
+      return fit(expt(Number(num(args[0]!)), Number(num(args[1]!))), type)
     case "abs": {
       // in the promoted type lowering chose; `fit` wraps a signed minimum back to itself
       const v = args[0]!

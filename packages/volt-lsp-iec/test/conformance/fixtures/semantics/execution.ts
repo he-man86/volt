@@ -1143,15 +1143,15 @@ const CASES: readonly ExecCase[] = [
   // infinity?). Base and exponent are computed from `seed` so nothing folds: NaN is SQRT of a negative, ±inf is
   // ±EXP(1000) (which completes — `mathdom_exp_overflow`), never a division by zero. The topical home is
   // operators/math-domain.ts (its header says it omits EXPT).
-  { name: "tr_46_exptdom_one_pow_nan", deferred: "transpile-review-2026-09-29 task 46: EXPT(1, NaN) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed; e := SQRT(0.0 - seed); res := EXPT(b, e);" },
-  { name: "tr_46_exptdom_minus_one_pow_inf", deferred: "transpile-review-2026-09-29 task 46: EXPT(-1, +Inf) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := 0.0 - seed; e := EXP(seed * 1000.0); res := EXPT(b, e);" },
-  { name: "tr_46_exptdom_minus_one_pow_minus_inf", deferred: "transpile-review-2026-09-29 task 46: EXPT(-1, -Inf) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := 0.0 - seed; e := 0.0 - EXP(seed * 1000.0); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_one_pow_nan", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed; e := SQRT(0.0 - seed); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_minus_one_pow_inf", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := 0.0 - seed; e := EXP(seed * 1000.0); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_minus_one_pow_minus_inf", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := 0.0 - seed; e := 0.0 - EXP(seed * 1000.0); res := EXPT(b, e);" },
   { name: "tr_46_exptdom_nan_pow_zero", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := SQRT(0.0 - seed); e := seed - seed; res := EXPT(b, e);" },
-  { name: "tr_46_exptdom_real_one_pow_nan", deferred: "transpile-review-2026-09-29 task 46: EXPT(REAL 1, NaN) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : REAL := 1.0; b : REAL; e : REAL; res : REAL;", body: "b := seed; e := SQRT(0.0 - seed); res := EXPT(b, e);" },
-  { name: "tr_46_exptdom_1e19_pow_8", deferred: "transpile-review-2026-09-29 task 46: EXPT(1E19, 8) is exactly 1E+152 in CODESYS; the interpreter's Math.pow rounds differently (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed * 1.0E19; e := seed * 8.0; res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_real_one_pow_nan", vars: "seed : REAL := 1.0; b : REAL; e : REAL; res : REAL;", body: "b := seed; e := SQRT(0.0 - seed); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_1e19_pow_8", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed * 1.0E19; e := seed * 8.0; res := EXPT(b, e);" },
   { name: "tr_46_exptdom_zero_pow_minus_inf", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - EXP(seed * 1000.0); res := EXPT(b, e);" },
-  { name: "tr_46_exptdom_zero_pow_minus_one", deferred: "transpile-review-2026-09-29 task 46: EXPT(0.0, -1.0) stops the CODESYS runtime (the scan never completes); both backends finish the scan (measured 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - seed; res := EXPT(b, e);" },
-  { name: "tr_46_exptdom_zero_pow_minus_half", deferred: "transpile-review-2026-09-29 task 46: EXPT(0.0, -0.5) stops the CODESYS runtime (the scan never completes); both backends finish the scan (measured 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - seed * 0.5; res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_zero_pow_minus_one", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - seed; res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_zero_pow_minus_half", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - seed * 0.5; res := EXPT(b, e);" },
 
   // task 47: a 64-bit integer to REAL — rounded once, or twice (via LREAL first)? 2^60 + 2^36 + 1 sits where the two
   // differ (the round to LREAL lands exactly on REAL's halfway point); the extremes `i2r_*_max` round identically and
