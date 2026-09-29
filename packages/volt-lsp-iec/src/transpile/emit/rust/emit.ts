@@ -996,11 +996,20 @@ interface Frame {
   selfType?: Type
 }
 
-/** A routine's Rust fn name BEFORE deduping: snake_case, with a keyword or a name the emitter generates itself
- *  (`new`, `call`, `scan`) suffixed `_`. */
+/**
+ * Names an inherent `&mut self` fn cannot take: the ones the emitter generates itself (`new`, `call`, `scan`), and
+ * every trait method in scope on the emitted struct that takes `self` or `&self`. Rust's method lookup tries `T` and
+ * `&T` before `&mut T`, so such a trait method WINS over a user METHOD of the same name: `b.clone()` is the derived
+ * Clone (E0308 with a result; without one it compiles and silently runs the clone — transpile-review 29). The struct
+ * derives Clone, and the prelude's blanket impls add ToOwned (`to_owned`, `clone_into`), Into and TryInto. The
+ * derived PartialEq's `eq`/`ne` would collide too, but EQ and NE are standard functions no METHOD can be named.
+ */
+const RESERVED_FN_NAMES: ReadonlySet<string> = new Set(["new", "call", "scan", "clone", "to_owned", "clone_into", "into", "try_into"])
+
+/** A routine's Rust fn name BEFORE deduping: snake_case, with a keyword or a reserved name suffixed `_`. */
 function baseFnName(routine: IrRoutine): string {
   const snaked = snake(routine.name.slice(routine.name.lastIndexOf(".") + 1))
-  return RUST_KEYWORDS.has(snaked) || ["new", "call", "scan"].includes(snaked) ? `${snaked}_` : snaked
+  return RUST_KEYWORDS.has(snaked) || RESERVED_FN_NAMES.has(snaked) ? `${snaked}_` : snaked
 }
 
 /**

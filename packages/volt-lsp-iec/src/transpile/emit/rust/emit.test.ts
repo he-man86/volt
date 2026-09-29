@@ -742,6 +742,24 @@ describe("emit/rust — routine names are unique within an impl block", () => {
     expect([...code.matchAll(/pub fn do_it\b/g)]).toHaveLength(2)
     expect(code).not.toContain("do_it_2")
   })
+
+  // transpile-review-2026-09-29 task 29 (fixtures tr_29_method_named_*): Rust's method lookup tries `T` then `&T`
+  // before `&mut T`, so a trait method taking `self` or `&self` that is IN SCOPE on the struct — the derived Clone,
+  // and the prelude's blanket ToOwned/Into/TryInto — wins over the user's `&mut self` METHOD of the
+  // same name. `r := b.Clone()` was E0308; a result-less `b.Clone();` compiled and ran the derived clone instead.
+  test("a METHOD named like a trait method the struct has is renamed, and the call follows", () => {
+    for (const [method, fn] of [
+      ["Clone", "clone_"],
+      ["To_Owned", "to_owned_"],
+      ["Into", "into_"],
+      ["Try_Into", "try_into_"],
+      ["Clone_Into", "clone_into_"],
+    ] as const) {
+      const code = rust(`PROGRAM PLC_PRG\nVAR\n\tb : FB_T;\n\tr : INT;\nEND_VAR\nr := b.${method}();\nEND_PROGRAM\n\nFUNCTION_BLOCK FB_T\nVAR\n\tv : INT := 100;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD ${method} : INT\n${method} := v;\nEND_METHOD\n`)
+      expect(code).toContain(`pub fn ${fn}(&mut self)`)
+      expect(code).toContain(`self.b.${fn}()`)
+    }
+  })
 })
 
 /**

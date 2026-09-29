@@ -910,19 +910,12 @@ END_FUNCTION_BLOCK
   },
   // Task 29: a user METHOD whose name is also a Rust prelude trait method (Clone / To_Owned / Into / Try_Into). With a
   // result, the emitted call picks the trait's method (E0308). Without one it compiles and silently runs the trait's
-  // method instead of the user's body. Each name, with and without a result. The ones the emitted Rust still gets
-  // wrong — all eight, recorded 2026-09-29 — carry the task as a known divergence.
+  // method instead of the user's body. Each name, with and without a result (recorded 2026-09-29).
   ...(["Clone", "To_Owned", "Into", "Try_Into"] as const).flatMap((method): LanguageTest[] => {
     const slug = method.toLowerCase()
-    const deferred = (): Pick<LanguageTest, "deferred"> => ({
-      deferred: {
-        transpile: `transpile-review-2026-09-29 task 29: the emitted call resolves to the Rust prelude's ${slug}() instead of the user's METHOD — it does not compile, or (clone/to_owned without a result) runs the trait's method and leaves b.v at 100 where CODESYS gives 0 (recorded 2026-09-29)`,
-      },
-    })
     return [
       {
         name: `tr_29_method_named_${slug}_result`,
-        ...deferred(),
         pouName: `FB_LANG_tr29_${slug}_r`,
         kind: "function_block",
         feature: `a METHOD named ${method} returning a field, called from outside`,
@@ -943,7 +936,6 @@ END_METHOD
       },
       {
         name: `tr_29_method_named_${slug}_no_result`,
-        ...deferred(),
         pouName: `FB_LANG_tr29_${slug}_n`,
         kind: "function_block",
         feature: `a METHOD named ${method} with no result, clearing a field, called as a statement`,

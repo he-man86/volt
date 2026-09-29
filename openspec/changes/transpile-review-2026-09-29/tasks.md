@@ -367,9 +367,9 @@ those values into the new fixture's recording.
 - Repro: `METHOD Clone : INT`; `r := b.Clone()` → E0308. Result-less `b.Clone();` compiles and silently runs the
   derived clone (interp r=100, Rust r=0).
 - Fix: reserve clone, to_owned, into, try_into (or emit UFCS calls).
-- [ ] 29.1 Fixture per name, with and without a result — red.
+- [x] 29.1 Fixture per name, with and without a result — red.
   Recorded 2026-09-29 (record:exec): all eight `tr_29_method_named_{clone,to_owned,into,try_into}_{result,no_result}` — diverge (six do not compile; clone/to_owned without a result leave b.v=100 where CODESYS gives 0).
-- [ ] 29.2 Fix.
+- [x] 29.2 Fix. `baseFnName` reserves clone/to_owned/clone_into/into/try_into (a `&self`/`self` trait method wins Rust's lookup over a `&mut self` METHOD); all eight fixtures confirmed; EQ/NE (derived PartialEq) are unreachable — standard function names.
 
 ## 30. A VAR_TEMP array/struct reset ignores its declared initializer
 - Root cause: `emit/rust/emit.ts:570` (`case "fresh"` calls the free, init-blind `initOf` at `:101` instead of
