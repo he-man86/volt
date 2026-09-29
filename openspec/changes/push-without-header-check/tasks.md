@@ -93,3 +93,20 @@
 - [ ] 3.2 Full C# suites green; e2e on both vendors. The C# suites are green offline (Engine, Cli, Codesys,
       Twincat, Contracts, Repo.Gates) and `bun test test/unit`; **the e2e on both vendors is live — after
       transpile-fix-all.**
+
+## 4. LSP parity — the LSP reports what CODESYS reports for every shape push now lets through
+
+The push no longer refuses these shapes, so the IDE's build is the answer and the LSP must give that answer, no more and
+no less (an LSP-only message is a false positive). Each shape is a conformance fixture recorded LIVE with
+`bun run record:language` (and TwinCAT where it records), whose kind is the extension and whose source is the text.
+
+- [ ] 4.1 Fixtures + live recordings, CODESYS and TwinCAT: an unclosed opening `(*` in a DUT (struct), an enum, a GVL and
+      an FB; an FB whose text declares `PROGRAM`; an empty struct; prose text under a struct; a struct whose body is an
+      enum; a struct member named `IMPLEMENTATION`; a GVL holding a retired `(* @volt-… *)` comment. Record CODESYS's exact
+      messages and lines (or that it builds clean).
+- [ ] 4.2 LSP: for each recorded error, the same diagnostic (message and line) — including the unclosed-comment case, where
+      the LSP reports nothing today; for each shape CODESYS builds clean, no diagnostic. Test-first (the fixtures are the
+      acceptance test); `bun test test/conformance` and build-conformance green.
+- [ ] 4.3 The three stale notes in `packages/volt-lsp-iec/docs/codesys-reference/error-catalog.json` that describe the
+      bridge refusing with "Unrecognized code header" (FUNCTION EXTENDS, FUNCTION IMPLEMENTS, VAR block in an INTERFACE):
+      re-record them live and correct them.
