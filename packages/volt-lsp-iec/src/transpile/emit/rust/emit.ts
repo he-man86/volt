@@ -220,6 +220,17 @@ function unitsLiteral(text: string, t: Type): string {
   return byteString(text)
 }
 
+const isReal32 = (t: Type): boolean => t.kind === "elementary" && t.elem.family === "real" && t.elem.bits === 32
+
+/** The fewest digits that parse back to the same f32 — a folded REAL (`0.10000000149011612`) printed as its f64 is
+ *  clippy's `excessive_precision`, though it names the same f32 as `0.1`. */
+function shortestF32(v: number): string {
+  const f = Math.fround(v)
+  if (!Number.isFinite(f)) return `${v}`
+  for (let p = 1; p < 9; p++) if (Math.fround(Number(f.toPrecision(p))) === f) return `${Number(f.toPrecision(p))}`
+  return `${Number(f.toPrecision(9))}`
+}
+
 function literal(v: IrValue, t: Type): string {
   if (typeof v === "boolean") return v ? "true" : "false"
   if (typeof v === "string") return `${stringPath(t)}::lit(${unitsLiteral(v, t)})`
@@ -231,7 +242,7 @@ function literal(v: IrValue, t: Type): string {
     return `(${v < 0 ? "-" : ""}${t.kind === "elementary" ? rustType(t) : "f64"}::INFINITY)`
   if (typeof v === "number" && t.kind === "elementary" && t.elem.bits === 32 && t.elem.family === "real" && !Number.isFinite(Math.fround(v)))
     return `(${v < 0 ? "-" : ""}f32::INFINITY)`
-  const text = `${v}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?\d+)(f\d\d)$/, "$1.0$2")
+  const text = `${typeof v === "number" && isReal32(t) ? shortestF32(v) : v}${t.kind === "elementary" ? rustType(t) : ""}`.replace(/^(-?\d+)(f\d\d)$/, "$1.0$2")
   // A NEGATIVE CONSTANT IS PARENTHESIZED, because in Rust a method call binds TIGHTER than unary minus — the
   // classic `-1.abs()` trap. The emitter makes a constant the RECEIVER of a method in a dozen places
   // (`wrapping_*`, `max`/`min`, `limit`, `abs`, the shifts and rotates, `round`, `clone`, the string helpers),

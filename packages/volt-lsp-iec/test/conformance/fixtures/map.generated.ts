@@ -12,7 +12,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1975
+ *     confirmed     1976
  *     refused        540
  *     not-lowered     90
  *     lsp-gap          4
@@ -20,7 +20,7 @@
  *     unaskable       38
  *
  *   tier                     lowered    clean
- *     decl                    426      426
+ *     decl                    427      427
  *     arith                  1443     1443
  *     control                  59       59
  *     aggregate                25       25
@@ -2087,8 +2087,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   r2ilad_lint_pos_09: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   r2ilad_lint_pos_10: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   r2ilad_lint_pos_11: { evidence: "confirmed", tier: "arith", rust: "vendor" },
+  real_constant_fold_width: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   real_lreal_precision: { evidence: "confirmed", tier: "arith", rust: "vendor" },
-  real_precision: { evidence: "confirmed", tier: "arith", rust: "vendor" },
+  real_precision: { evidence: "confirmed", tier: "decl", rust: "vendor" },
   real_to_bool: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   real_to_dint_above_range: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   real_to_dint_below_range: { evidence: "confirmed", tier: "arith", rust: "vendor" },

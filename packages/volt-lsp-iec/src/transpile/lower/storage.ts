@@ -214,7 +214,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
             : stored(enumStart, type)
           : decl.init.kind === "aggregate_init"
             ? aggregateInit(lw, decl.init, type)
-            : scalarInit(lw, decl.init, type)
+            : scalarInit(lw, decl.init, type, sec.constant === true)
       // AN INITIAL VALUE THAT IS NOT CONSTANT IS NOT A REFUSAL — it is the INIT STEP's. The slot takes its default
       // and the expression is queued in declaration order (`Lowering.pendingInits`), which is what `ADR(x)`, `THIS`
       // and a call to a user FUNCTION are.
@@ -471,14 +471,15 @@ function holdsCall(e: Expr): boolean {
  * does it fold strings: every `s : STRING := 'abc'` started empty (conformance `string_*`). An initializer that does not
  * fold is REPORTED — it used to be dropped, so the slot silently started at its default.
  */
-function scalarInit(lw: Lowering, e: Expr, type: Type): IrValue | undefined {
+function scalarInit(lw: Lowering, e: Expr, type: Type, asConstant = false): IrValue | undefined {
   const temporal = e.kind === "literal" ? (durationOf(e) ?? calendarOf(e) ?? typedRealOf(e)) : undefined
   // same rule as `lowerExpr`: a temporal literal that did not convert is reported, not passed to the string path
   if (temporal === undefined && e.kind === "literal" && TEMPORAL_LITERAL_KINDS.has(e.literalKind))
     return lw.bail("bad-literal", `${e.literalKind} literal outside the representable range: ${e.text}`, e.span)
   const text = e.kind === "literal" && typeof e.value === "string" ? stringLiteralText(lw, e) : undefined
   if (text === null) return undefined
-  const folded = temporal?.value ?? text ?? foldConstant(lw, e) ?? foldedCall(lw, e, type)
+  // a CONSTANT's slot holds its unrounded fold, stored at its own type: `DChain : LREAL := C01` (C01 : REAL := 0.1) is 0.1
+  const folded = temporal?.value ?? text ?? foldConstant(lw, e, asConstant) ?? foldedCall(lw, e, type)
   if (folded === undefined) return lw.bail("init-not-constant", "an initial value that is not a compile-time constant", e.span)
   // The DECLARATION half of the same rule the assignment path states: a STRING does not implicitly become a number.
   // `cc_init_string_into_int` is `i : INT := '''abc'''`, which CODESYS rejects, and which reached the emitter as a

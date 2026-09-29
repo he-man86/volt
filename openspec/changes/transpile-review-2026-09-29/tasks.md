@@ -59,8 +59,11 @@ those values into the new fixture's recording.
   to REAL at the end); an LREAL constant `DChain := C01` is exactly 0.1 (literal substituted).
 - Fix: type the fold (carry REAL width, round once at the REAL store), substitute the literal for LREAL-from-REAL
   constants as measured; or decline to fold when a REAL operand is involved.
-- [ ] 3.1 Record `real_constant_fold_width` (the 12-variable LIVE program) — red.
-- [ ] 3.2 Fix const-eval.
+- [x] 3.1 Record `real_constant_fold_width` (the 12-variable LIVE program) — red. Recorded with record:exec; the LIVE
+  values above reproduced exactly (rBig = 1 and rChain = 0.1 too).
+- [x] 3.2 Fix const-eval. The fold carries a REAL width and `constEval` rounds once at the end; a CONSTANT's own slot takes
+  the unrounded fold (`asConstant`); lowering folds an all-constant REAL expression instead of computing it in f32
+  (`rBig`); the Rust emitter prints an f32 constant in its shortest digits (no `excessive_precision`). Fixture confirmed.
 
 ## 4. A VAR_INPUT CONSTANT parameter's default is folded as a compile-time constant
 - Root cause: `src/types/const-eval.ts:118` (initialValue accepts any `symbol.constant`) and `:44` (constancyOf);

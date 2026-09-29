@@ -656,6 +656,15 @@ const CASES: readonly ExecCase[] = [
     vars: "d1 : INT := D; e1 : INT := E; d2 : INT; e2 : INT; END_VAR VAR CONSTANT K : SINT := 127; D : SINT := K + 1; U : USINT := 255; E : USINT := U + 3;",
     body: "d2 := D; e2 := E;",
   },
+  {
+    // transpile-review-2026-09-29 task 3: at what width does a constant fold over REAL? Each initializer `iX` has a
+    // runtime twin `rX` assigned the identical expression: a REAL constant named alone, a REAL sum past float32's
+    // integer range, a REAL quotient, a REAL# literal inside an expression, a REAL difference whose intermediate is
+    // past float32's range, and an LREAL constant initialised from a REAL one.
+    name: "real_constant_fold_width",
+    vars: "iRef : LREAL := C01; rRef : LREAL; iAdd : LREAL := CBig + 1; rAdd : LREAL; iDiv : LREAL := C1 / C3; rDiv : LREAL; iLit : LREAL := REAL#0.1 * 1; rLit : LREAL; iBig : LREAL := (CBig + 1) - CBig; rBig : LREAL; iChain : LREAL := DChain; rChain : LREAL; END_VAR VAR CONSTANT C01 : REAL := 0.1; CBig : REAL := 16777216; C1 : REAL := 1; C3 : REAL := 3; DChain : LREAL := C01;",
+    body: "rRef := C01; rAdd := CBig + 1; rDiv := C1 / C3; rLit := REAL#0.1 * 1; rBig := (CBig + 1) - CBig; rChain := DChain;",
+  },
 
   // ── consolidate-lsp-structure A3: does a typed literal's prefix decide its type? Lowering ignores it ──
   {

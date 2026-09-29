@@ -75,3 +75,19 @@ test("a named constant from a literal folds to what its type holds; from an expr
   expect(folded("D", list)).toBe(128n)
   expect(folded("E", list)).toBe(258n)
 })
+
+// transpile-review-2026-09-29 task 3 (conformance `real_constant_fold_width`, LIVE): a fold over REAL computes wide and
+// rounds ONCE, to float32, at the end — the value its runtime twin reads. An LREAL constant from a REAL one is the literal.
+test("an expression over REAL folds wide and rounds once to float32; an LREAL constant keeps the literal", () => {
+  const list = [
+    { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  C01 : REAL := 0.1;\n  CBig : REAL := 16777216;\n  C1 : REAL := 1;\n  C3 : REAL := 3;\n  DChain : LREAL := C01;\nEND_VAR\n" },
+  ]
+  expect(folded("C01", list)).toBe(0.10000000149011612)
+  expect(folded("CBig + 1", list)).toBe(16777216)
+  expect(folded("C1 / C3", list)).toBe(0.3333333432674408)
+  expect(folded("REAL#0.1 * 1", list)).toBe(0.10000000149011612)
+  expect(folded("(CBig + 1) - CBig", list)).toBe(1)
+  expect(folded("DChain", list)).toBe(0.1)
+  expect(folded("LREAL#0.1 * 1", list)).toBe(0.1)
+  expect(folded("0.1", list)).toBe(0.1)
+})

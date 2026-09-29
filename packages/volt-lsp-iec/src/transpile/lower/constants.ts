@@ -226,11 +226,12 @@ function isConstantCallee(name: string): boolean {
   return upper === "SIZEOF" || upper === "XSIZEOF" || BUILTIN_ARITY[upper] !== undefined || parseConversionName(upper) !== undefined
 }
 
-export function foldConstant(lw: Lowering, e: Expr): IrValue | undefined {
+/** `asConstant`: `e` is a CONSTANT's own initializer — see `constEval`. */
+export function foldConstant(lw: Lowering, e: Expr, asConstant = false): IrValue | undefined {
   // an enum value is a constant too — a CASE label `E_Mode.Busy:` or `Busy:`
   const enumValue = (e.kind === "ident_expr" && lw.holds(e.name)) || (e.kind !== "ident_expr" && e.kind !== "member") ? undefined : enumConstant(lw, e)
   if (enumValue?.kind === "const") return enumValue.value
-  return constEval(e, lw.scope)
+  return constEval(e, lw.scope, asConstant)
 }
 
 /**

@@ -23,6 +23,8 @@ import {
   contextLiteralType,
   durationOf,
   enumConstant,
+  foldConstant,
+  foldsToConstant,
   stringLiteralText,
   typedRealOf,
 } from "./constants.js"
@@ -251,6 +253,14 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
       if (meet === UNKNOWN) return lw.bail("type-unknown", `the operands of ${e.op} have no common type`, e.span)
       const operands = lift(meet)
       const type = COMPARISONS.has(op) ? elementaryRef("BOOL") : operands
+      // A REAL expression over constants is FOLDED — wide, rounded once at its end — not computed step by step in
+      // float32: `(CBig + 1) - CBig` with CBig : REAL := 16777216 is 1, the value its initializer twin folds to
+      // (conformance `real_constant_fold_width`, LIVE).
+      const real = elemOf(type)
+      if (real?.family === "real" && foldsToConstant(lw, e)) {
+        const folded = foldConstant(lw, e)
+        if (typeof folded === "number") return { kind: "const", value: real.bits === 32 ? Math.fround(folded) : folded, type, span: e.span }
+      }
       return { kind: "binary", op, left: convert(left, operands), right: convert(right, operands), type, span: e.span }
     }
     case "call":
