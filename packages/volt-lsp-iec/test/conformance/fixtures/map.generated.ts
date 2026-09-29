@@ -16,9 +16,9 @@
  *   evidence
  *     confirmed     2031
  *     refused        541
- *     not-lowered    104
+ *     not-lowered    108
  *     lsp-gap         17
- *     diverges        24
+ *     diverges        20
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -27,7 +27,7 @@
  *     control                  76       76
  *     aggregate                29       29
  *     call                    231      229
- *     indirect                184      180
+ *     indirect                180      176
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2321
+ *     agree         2317
  *     disagree         5
  *     not-run         97
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -61,14 +61,14 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35860 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6650
- *     clippy::cast_possible_truncation         5693
+ *   pedantic — 35822 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6646
+ *     clippy::cast_possible_truncation         5684
  *     clippy::uninlined_format_args            4743
- *     clippy::cast_lossless                    4392
  *     clippy::cast_sign_loss                   4383
- *     clippy::unreadable_literal               3692
- *     clippy::manual_assert                    1534
+ *     clippy::cast_lossless                    4371
+ *     clippy::unreadable_literal               3688
+ *     clippy::manual_assert                    1530
  *     clippy::missing_panics_doc               1391
  *     clippy::format_push_string               1054
  *     clippy::many_single_char_names            528
@@ -85,8 +85,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1462 distinct emission shapes over 2423 lowered fixtures, 1671 distinct constructs.
- *   774 constructs carry a review note (`NOTES`): 2335 fixtures are improvable, 2250 touch a construct with alternatives.
+ *   shape — 1458 distinct emission shapes over 2419 lowered fixtures, 1659 distinct constructs.
+ *   770 constructs carry a review note (`NOTES`): 2331 fixtures are improvable, 2246 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2334,7 +2334,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sqrt_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 6, shape: "ca8c93cf2a", notes: ["1307e33bbf", "1671e97e30", "1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "a1adee154e"] },
   standard_len_wstring_rejected: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 52, edge: "agree", size: 7.2, shape: "3180974bee", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "2481815db6", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
   state_any_input_sizes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 43, edge: "agree", size: 4.6, shape: "0aa36188a1", notes: ["040107266f", "06bb3a6005", "0855e1134c", "11f6ad8ec5", "1307e33bbf", "1707972c33", "5d9850550d", "63d29bd1a0", "687428cc81", "6a98109119", "72543de594", "dd28a02e7e", "de132e5019"] },
-  state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 39, edge: "agree", size: 5.4, shape: "6b3648d569", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "213281e470", "364933a717", "431373ac5d", "4a6baf16b3", "57ce9e2ee4", "63d29bd1a0", "64cc413c0b", "687428cc81", "870b70e195", "8952408756", "abd8fd07fd", "c5d30c56ec", "c6322760e4", "ca823a2c56", "cca22914d5", "d39e19d533", "d8e4a747d3", "dd8988b5d4", "dd94ff18a2", "de132e5019", "de8528b197", "e3343dab4f", "efd31f3397", "fbde4d6e1e"] },
+  state_any_int_pointer_increment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 16, edge: "agree", size: 4.1, shape: "bb8a69ea37", notes: ["06bb3a6005", "11f6ad8ec5", "1307e33bbf", "431373ac5d", "4a6baf16b3", "57ce9e2ee4", "63d29bd1a0", "64cc413c0b", "687428cc81", "870b70e195", "c5d30c56ec", "c6322760e4", "ca823a2c56", "cca22914d5", "d39e19d533", "d8e4a747d3", "dd8988b5d4", "dd94ff18a2", "de132e5019", "de8528b197", "e3343dab4f", "efd31f3397", "fbde4d6e1e"] },
   state_call_after_global_init_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.2, shape: "2eea5ff574", notes: ["1307e33bbf", "4979768984", "fa7d5f176f"] },
   state_empty_argument: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 3.6, shape: "0de54de31a", notes: ["1307e33bbf", "271163608b", "4979768984", "964296462a"] },
   state_program_called_from_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 4.5, shape: "65d4956fd3", notes: ["1307e33bbf", "4979768984", "58a7e6289b", "abf2bb6e4e"] },
@@ -2499,10 +2499,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_14_set_reset_through_multi_target_pointer: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 12.2, shape: "f18cbffe95", notes: ["013de1dc6a", "45292dbd9c", "4edbb4135a", "687428cc81", "73505351ad", "75cc82a569", "ad25627749", "de132e5019", "de8528b197", "fbde4d6e1e"] },
   tr_15_fb_copy_keeps_pointer_address: { evidence: "not-lowered" },
   tr_16_fb_copy_carries_inout_binding: { evidence: "not-lowered" },
-  tr_17_any_pvalue_byte_via_sint: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "f59fac60a7", notes: ["06bb3a6005", "11f6ad8ec5", "63d29bd1a0", "dd94ff18a2", "e496034f7b"] },
-  tr_17_any_pvalue_dint_via_real: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 5, edge: "agree", size: 2.6, shape: "cc5acec802", notes: ["06bb3a6005", "11f6ad8ec5", "1707972c33", "63d29bd1a0", "6a98109119", "6f9ae8fd3a", "dd94ff18a2", "e496034f7b"] },
-  tr_17_any_pvalue_dint_write_via_byte: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.3, shape: "15787c4b23", notes: ["06bb3a6005", "11f6ad8ec5", "5c499dbdc8", "63d29bd1a0", "687428cc81", "dd94ff18a2", "de132e5019", "e496034f7b"] },
-  tr_17_any_pvalue_uint_via_int: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.6, shape: "81daad753f", notes: ["06bb3a6005", "11f6ad8ec5", "1d7709a031", "63d29bd1a0", "65df8e0418", "dd94ff18a2", "e496034f7b"] },
+  tr_17_any_pvalue_byte_via_sint: { evidence: "not-lowered" },
+  tr_17_any_pvalue_dint_via_real: { evidence: "not-lowered" },
+  tr_17_any_pvalue_dint_write_via_byte: { evidence: "not-lowered" },
+  tr_17_any_pvalue_uint_via_int: { evidence: "not-lowered" },
   tr_18_queryinterface_into_global: { evidence: "not-lowered" },
   tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9fbe34ab76", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
   tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "751786240f", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "b9787e0d18"] },
@@ -3557,10 +3557,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`&mut self` set_char plus a guard around the call",
     why: "same semantics, and the interpreter's setChar needs no change",
   },
-  // *x = ({ m(x.f); *x } as i32).wrapping_add(x as i32) as i8;
-  "213281e470": {
-    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
-  },
   // if (self.f as i32) > Li32 {
   "21575de23f": {
     improvement: "Comparing a variable with an in-range literal of the variable's own type widens both sides.",
@@ -4023,10 +4019,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
-  },
-  // *x = { m(x.f); *x }.wrapping_add((x as i8) as i64);
-  "364933a717": {
-    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
   },
   // pub fn after_global_init(&mut self, g: &mut Globals) {
   "365326bb03": {
@@ -6025,10 +6017,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "`.to()` only when the capacities differ or are generic",
     why: "the other stores need no copy because IecStr is Copy",
   },
-  // *x = ({ m(x.f); *x } as i32).wrapping_add((x as i8) as i32) as i16;
-  "8952408756": {
-    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. In addition, each ANY_INT monomorph receives its diSize as a `mut input: i32` param and emits `match input` with arms for the other sizes. Only the call-site constant is ever passed (lowering refuses non-variable arguments, which I probed), so three of the four arms are dead in every instantiation. They could be folded once diSize is known at the monomorph.",
-  },
   // self.f = len(self.narrow.to::<L>());
   "8986d5305c": {
     improvement: "Every LEN call copies its argument into a 256-byte STRING(255) by value. The library body only reads it, so taking the argument by reference and generic over N (like the cursor in-outs) avoids the copy.",
@@ -6866,10 +6854,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn m(mut x: u16) -> u16 {
   "abc8bc67de": {
     improvement: "Every VAR_INPUT parameter is declared `mut`, and a blanket #[allow(unused_mut)] hides it. The IR shows whether the body writes the input (an assign whose target is that local slot, or a `&mut` lend of it). Print `mut` only then and drop unused_mut from the allow list.",
-  },
-  // *x = { m(x.f); *x }.wrapping_add((x as i8) as i32);
-  "abd8fd07fd": {
-    improvement: "A write through a pointer prints `iec_deref(p);` on the line before, and then the RHS read through the same pointer is guarded again inside `{ iec_deref(p); *x }`. The statement guard dominates the read, so the inner guard is dead. The lowering also sets the pointer to the constant 1 on the line just before (`p1 = 1; iec_deref(p1);`), so both checks can be dropped when the tag is a known non-zero constant.",
   },
   // self.f = self.f[(Li8 as i64) as usize];
   "abe3ae1f0b": {
@@ -8287,7 +8271,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   },
   // *x = ({ m(x.f); *x } as i32).wrapping_add((x as i8) as i32) as i8;
   "efd31f3397": {
-    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. In addition, each ANY_INT monomorph receives its diSize as a `mut input: i32` param and emits `match input` with arms for the other sizes. Only the call-site constant is ever passed (lowering refuses non-variable arguments, which I probed), so three of the four arms are dead in every instantiation. They could be folded once diSize is known at the monomorph.",
+    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. Each ANY_INT monomorph still receives its diSize as a `mut input: i32` param and emits `match input`, though since transpile-review 17 only the arm for its own size is lowered (the others dereferenced pValue as a type it is not), so the match has one arm and the param could be dropped.",
   },
   // g.f.count = (g.f.count as i32).wrapping_add(g.f as i32) as i16;
   "eff90824ac": {

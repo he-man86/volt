@@ -231,9 +231,9 @@ those values into the new fixture's recording.
   (`type_dut_union`). Expected 1.0, 255/-1, 16909311.
 - Fix: bail `pointer-type` on a mismatched pValue dereference; prune arms unreachable by constant diSize so
   Increment.AnyInt still lowers.
-- [ ] 17.1 Fixtures reading BYTE/UINT/DINT through SINT/INT/REAL/BYTE pointers — red (refusal).
+- [x] 17.1 Fixtures reading BYTE/UINT/DINT through SINT/INT/REAL/BYTE pointers — red (refusal).
   Recorded 2026-09-29 (record:exec): `tr_17_any_pvalue_dint_via_real`, `tr_17_any_pvalue_byte_via_sint`, `tr_17_any_pvalue_uint_via_int`, `tr_17_any_pvalue_dint_write_via_byte` — diverge.
-- [ ] 17.2 Fix.
+- [x] 17.2 Fix (refusal). `pointeePlace` (lower/pointers.ts) bails `pointer-type` when a pointer is dereferenced as another type than the one variable it names (an ANY `pValue`, a union member); `CASE anyArg.diSize` (lower/statements.ts, `anySize`) lowers only the arm for the variant's own size, so `state_any_int_pointer_increment` still lowers and matches. The four fixtures are not-lowered (the byte view is unmodelled), marks removed, not-lowered ceiling 104 -> 108; src test in lower.test.ts.
 
 ## 18. __QUERYINTERFACE into a global never marks its edge foreign
 - Root cause: `lower/interfaces.ts:358` (`foreign: false` hard-coded; storeInterface computes it at `:189-198`).

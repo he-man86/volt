@@ -270,6 +270,13 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     return lw.bail("pointer-outlives", "a pointer into a VAR_IN_OUT dereferenced outside the run of the body that stored it", span)
   if (target.element === undefined) {
     if (extra !== undefined) return lw.bail("pointer-index", "an index on a pointer to a single variable", span)
+    // THE DEREFERENCE TAKES THE POINTER'S DECLARED TYPE. `ADR(x)` checks it where the address is taken, but an ANY input's
+    // `pValue` (or a union member overlaying another pointer) reaches here at the ARGUMENT's type: a DINT read through a
+    // POINTER TO REAL was converted as a number, where CODESYS reinterprets the bytes (`tr_17_any_pvalue_*`: 1065353216
+    // is 1.0). That byte view is not modelled (transpile-review 17).
+    const declared = pointer.type.kind === "pointer" || pointer.type.kind === "reference" ? storageOf(lw, pointer.type.target) : undefined
+    if (declared !== undefined && !sameStorage(declared, target.base.type))
+      return lw.bail("pointer-type", `${describePointer(lw, pointer)} dereferenced as another type than the variable it names`, span)
     return { ...target.base, guard: pointer, span }
   }
   const lint = elementaryRef("LINT")

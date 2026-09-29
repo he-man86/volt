@@ -1,13 +1,14 @@
 /**
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
-import { isSelfRef, type Span, type Statement, type StatementList } from "../../syntax/index.js"
+import { isSelfRef, type Expr, type Span, type Statement, type StatementList } from "../../syntax/index.js"
 import { classifyConversion, elementaryRef, commonType, elemOf, type Type } from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert, stored } from "./convert.js"
 import { foldConstant } from "./constants.js"
+import { byteSize } from "./bytes.js"
 import { lowerAccess, lowerPlace, refuseOpenArray } from "./places.js"
 import { bindReference, nullDeref, pointerArms, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
@@ -234,7 +235,13 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
     case "case": {
       const selector = lowerExpr(lw, s.selector)
       if (selector === undefined) return undefined
+      // `CASE anyArg.diSize OF` in a variant whose argument is a variable: the size is that variable's, so the arms for
+      // other sizes never run — and they dereference `pValue` as a type it is not, which is refused (transpile-review 17).
+      // They are not lowered, so pro2193's `Increment.AnyInt` still lowers per size (`state_any_int_pointer_increment`).
+      const size = anySize(lw, s.selector)
+      const reaches = (labels: readonly { lo: IrValue; hi: IrValue }[]) => size === undefined || labels.some((l) => (l.lo as bigint) <= size && size <= (l.hi as bigint))
       const arms: IrArm[] = []
+      let matched = false
       for (const arm of s.arms) {
         const labels: { lo: IrValue; hi: IrValue }[] = []
         for (const label of arm.labels) {
@@ -246,13 +253,15 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
           }
           labels.push({ lo, hi })
         }
+        if (!reaches(labels)) continue
+        matched ||= size !== undefined
         arms.push({ labels, body: lowerBlock(lw, arm.body), span: arm.span })
       }
       return {
         kind: "switch",
         selector,
         arms,
-        else: s.elseBody ? lowerBlock(lw, s.elseBody) : [],
+        else: s.elseBody && !matched ? lowerBlock(lw, s.elseBody) : [],
         span: s.span,
       }
     }
@@ -391,6 +400,13 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: { kind: "load", place: control, type: control.type, span: s.controlVar.span }, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
     span: s.span,
   }
+}
+
+/** `anyArg.diSize` of an ANY input this variant was given a VARIABLE for — its byte size, known here — else undefined. */
+function anySize(lw: Lowering, e: Expr): bigint | undefined {
+  if (e.kind !== "member" || e.base.kind !== "ident_expr" || e.member.name.toUpperCase() !== "DISIZE") return undefined
+  const slot = lw.anyTargets.get(e.base.name.toUpperCase())
+  return slot === undefined ? undefined : byteSize(lw, lw.inoutSlots[slot]!.type)?.size
 }
 
 /** Whether a value of `t` holds an FB whose POINTER or REFERENCE field has a target that is not a global — a target kept

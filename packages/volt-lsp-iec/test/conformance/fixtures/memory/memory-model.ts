@@ -216,7 +216,6 @@ END_FUNCTION_BLOCK
   // One fixture per mismatch; each passes the edge values that make the reinterpretation visible.
   {
     name: "tr_17_any_pvalue_dint_via_real",
-    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
     pouName: "F_MEM_tr17_dint_via_real",
     kind: "function" as const,
     feature: "task 17: a DINT passed to an ANY input, read through POINTER TO REAL from pValue — the bits as a REAL",
@@ -230,7 +229,6 @@ END_FUNCTION_BLOCK
   },
   {
     name: "tr_17_any_pvalue_byte_via_sint",
-    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
     pouName: "F_MEM_tr17_byte_via_sint",
     kind: "function" as const,
     feature: "task 17: a BYTE passed to an ANY input, read through POINTER TO SINT and halved — the byte's signed view",
@@ -243,7 +241,6 @@ END_FUNCTION_BLOCK
   },
   {
     name: "tr_17_any_pvalue_uint_via_int",
-    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
     pouName: "F_MEM_tr17_uint_via_int",
     kind: "function" as const,
     feature: "task 17: a UINT passed to an ANY input, read through POINTER TO INT — the word's signed view",
@@ -256,7 +253,6 @@ END_FUNCTION_BLOCK
   },
   {
     name: "tr_17_any_pvalue_dint_write_via_byte",
-    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
     pouName: "F_MEM_tr17_dint_write_via_byte",
     kind: "function" as const,
     feature: "task 17: pb^ := 16#FF through POINTER TO BYTE from a DINT argument's pValue — only the low byte changes",

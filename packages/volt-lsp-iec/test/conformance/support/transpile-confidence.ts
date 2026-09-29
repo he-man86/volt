@@ -1712,7 +1712,7 @@ const LEAN = {
     improvement: "A dispatch used as a statement prints `(match ..);`, which is clippy::unnecessary_semicolon (2 in itf_call_dispatches_on_instance). As a statement it can be a bare `match .. { .. }`. A method call on a lent instance prints `(*__lent_N).take(..)`. Auto-deref makes `__lent_N.take(..)` the same call, as place() already relies on for field and index steps.",
   },
   shapes20_15: {
-    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. In addition, each ANY_INT monomorph receives its diSize as a `mut input: i32` param and emits `match input` with arms for the other sizes. Only the call-site constant is ever passed (lowering refuses non-variable arguments, which I probed), so three of the four arms are dead in every instantiation. They could be folded once diSize is known at the monomorph.",
+    improvement: "A store through a pointer that also reads through the same pointer checks for null twice in a row: once on the guard line and once in the value block. The guard line already covers the read. Each ANY_INT monomorph still receives its diSize as a `mut input: i32` param and emits `match input`, though since transpile-review 17 only the arm for its own size is lowered (the others dereferenced pValue as a type it is not), so the match has one arm and the param could be dropped.",
   },
   shapes12_1: {
     improvement: "A nested array whose element is Copy is built with std::array::from_fn closures. `[[[0i16; 3]; 2]; 2]` is the direct form. initOf already has isCopy (emit.ts:305), and its test should be isCopy(array.element) instead of array.element.kind === 'elementary'.",
@@ -2193,8 +2193,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "204a887600": LEAN.shapes11_9,
   // x = x.to();
   "211808ca56": merged(LEAN.shapes12_6, LEAN.shapes12_7),
-  // *x = ({ m(x.f); *x } as i32).wrapping_add(x as i32) as i8;
-  "213281e470": LEAN.shapes19_1,
   // if (self.f as i32) > Li32 {
   "21575de23f": LEAN.shapes11_16,
   // self.f = len(self.f.to::<L>());
@@ -2312,8 +2310,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "3489b7781f": LEAN.shapes3_7,
   // self.f = (self.f as i32).wrapping_mul(Li32) as u8;
   "34c55ebfd9": LEAN.shapes8_3,
-  // *x = { m(x.f); *x }.wrapping_add((x as i8) as i64);
-  "364933a717": LEAN.shapes19_1,
   // pub fn after_global_init(&mut self, g: &mut Globals) {
   "365326bb03": LEAN.shapes15_6,
   // x: [(-Li32), Li32, …],
@@ -2865,8 +2861,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "88544134e3": LEAN.shapes20_3,
   // self.f = IecString::<L>::lit(x!(S, { let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrappi
   "8883cf3a18": LEAN.shapes10_5,
-  // *x = ({ m(x.f); *x } as i32).wrapping_add((x as i8) as i32) as i16;
-  "8952408756": LEAN.shapes20_15,
   // self.f = len(self.narrow.to::<L>());
   "8986d5305c": LEAN.shapes14_18,
   // self.units = m(Li16, &mut self.f, …);
@@ -3076,8 +3070,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "aba7baaaaa": LEAN.shapes2_13,
   // pub fn m(mut x: u16) -> u16 {
   "abc8bc67de": LEAN.shapes13_12,
-  // *x = { m(x.f); *x }.wrapping_add((x as i8) as i32);
-  "abd8fd07fd": LEAN.shapes19_1,
   // self.f = self.f[(Li8 as i64) as usize];
   "abe3ae1f0b": LEAN.shapes11_7,
   // { let mut x = std::mem::take(&mut prg.f); x.call(prg); prg.f = x; }

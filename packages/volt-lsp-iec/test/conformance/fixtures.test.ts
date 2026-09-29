@@ -1338,7 +1338,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 23, 28, 34, 43 (three output conversions) and 44. Coverage the fixes are expected to take back.
   // 103 -> 104. `tr_18_queryinterface_into_global` (task 18): a wrong answer turned into a refusal — the query's edge
   // is foreign like the plain store's (`interface-instance-relative`); CODESYS's r1 = r2 = 1 wants form-3 lending.
-  "not-lowered": 104,
+  // 104 -> 108. Task 11 lowers its fixture (-1); task 16 (`call-fb-inout`: a METHOD reaching the in-out of an FB copied
+  // whole) and task 17 (`pointer-type`: an ANY input's pValue dereferenced as another type, four) turn wrong answers
+  // into refusals (+5) — CODESYS's answers want the copied binding tag and a byte view.
+  "not-lowered": 108,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

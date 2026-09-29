@@ -2317,3 +2317,19 @@ test("a whole-value store of an FB whose pointer field targets its own member is
   expect(codes("p : POINTER TO INT := ADR(x);", "p^")).toEqual(["copy-instance-pointer"])
   expect(codes("", "x")).toEqual([])
 })
+
+// transpile-review 17: an ANY input's pValue was dereferenced at the ARGUMENT's type whatever the pointer's declared type,
+// so a DINT read through POINTER TO REAL was a numeric conversion. CODESYS (`tr_17_any_pvalue_*`) reinterprets the bytes
+// (1065353216 -> 1.0, BYTE 254 via SINT -> -1): a byte view this does not model, so a mismatched dereference is refused;
+// a pointer of the argument's own type still reads it.
+test("an ANY input's pValue dereferenced through a pointer of another type is refused", () => {
+  const codes = (pointee: string, arg: string) =>
+    lowerSource(
+      `FUNCTION F : LREAL\nVAR_INPUT v : ANY; END_VAR\nVAR pr : POINTER TO ${pointee}; END_VAR\npr := v.pValue;\nF := pr^;\nEND_FUNCTION\n` +
+        `PROGRAM P\nVAR d : ${arg}; r : LREAL; END_VAR\nr := F(v := d);\nEND_PROGRAM\n`,
+      "P",
+    ).diagnostics.map((d) => d.code)
+  expect(codes("REAL", "DINT")).toEqual(["pointer-type"])
+  expect(codes("SINT", "BYTE")).toEqual(["pointer-type"])
+  expect(codes("DINT", "DINT")).toEqual([])
+})
