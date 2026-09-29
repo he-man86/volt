@@ -81,6 +81,7 @@ import { STRING_PRELUDE } from "../../src/transpile/emit/rust/prelude.js"
 import { elementaryType, elementaryTypeRef } from "../../src/types/index.js"
 import { comparable } from "./support/compare-message.js"
 import { EVIDENCE_ORDER, lspErrors, rateFixture, type Evidence } from "./support/evidence.js"
+import { expectStillDiverges } from "./support/expected-failure.js"
 import type { LanguageTest } from "./types.js"
 
 // ─── the recordings ──────────────────────────────────────────────────────────────────────────────────────────
@@ -353,6 +354,101 @@ async function edgeOf(built: boolean, exe: string, pou: IrPou, plan: ReturnType<
   return (await edgeVerdict(exe, pou, plan)).verdict
 }
 
+/** A built case's run: its exit, and what it printed. `exit: -1` is a case that did not build (or lower). */
+interface RustRun {
+  exit: number
+  stdout: string
+  stderr: string
+}
+
+/** The body of `main` that runs a case's RECORDED scan and prints every recorded path, tab-separated — what
+ *  `compareRust` reads back. */
+function recordedScan(c: LanguageTest, pou: IrPou, emitted: ReturnType<typeof emitRust>): string {
+  const prints = Object.keys(RUNS[c.name]!.values!).map((name) => {
+    const { expr, type, global } = rustAccess(pou, name)
+    // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
+    // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
+    const family = type.kind === "elementary" ? type.elem.family : undefined
+    // an FB's VAR_STAT read through an instance lives in the application's globals
+    const field = `${global ? "g" : "p"}.${expr}${family === "string" ? ".units()" : ""}`
+    return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
+  })
+  // a program that reaches globals or calls PROGRAMs scans against one of each, created once like the IDE's application
+  const setup = [
+    ...(emitted.usesGlobals ? ["    let mut g = Globals::new();"] : []),
+    ...(emitted.usesPrograms ? ["    let mut prg = Programs::new();"] : []),
+  ]
+  const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
+  // a POU with an init step (a `call_after_global_init_slot` method) runs it once, before the first scan
+  const init = pou.init === undefined ? [] : [`    p.init(${args});`]
+  // a CLOCKED fixture scans on the instants the recording saw: `CLOCK` assigned before each scan
+  const clock = c.clock === undefined ? undefined : rustAccess(pou, CLOCK).expr
+  const scans =
+    clock === undefined
+      ? [`    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`]
+      : Array.from({ length: c.cycles ?? 1 }, (_, i) => `    g.${clock} = ${clockAt(c, RUNS[c.name]!, i + 1)!}; p.scan(${args});`)
+  const scan = [...setup, ...init, ...scans].join("\n")
+  return `    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n`
+}
+
+/** A built case's printed values against the recording — the Rust half of a value comparison. Throws on a mismatch. */
+function compareRust(c: LanguageTest, result: RustRun): void {
+  expect({ exit: result.exit, stderr: result.stderr }).toEqual({ exit: 0, stderr: "" })
+  const rec = RUNS[c.name]!
+  const pou = lowering(c).pou!
+  const printed = new Map(
+    result.stdout
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => line.split("\t") as [string, string]),
+  )
+  const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
+  for (const path of c.wallClock ?? []) expect(printed.has(path)).toBe(true)
+  const got = Object.fromEntries(
+    Object.keys(want).map((k) => {
+      const { type } = rustAccess(pou, k)
+      const raw = printed.get(k)!
+      if ((type.kind === "elementary" && type.elem.family === "bool") || isBit(type)) return [k, raw === "true"]
+      // The Rust side prints a STRING as its BYTES, which is what it holds — decoded as UTF-8 for the same
+      // reason `asDisplayed` decodes the interpreter's: the IDE shows text, the value is bytes.
+      if (type.kind === "elementary" && type.elem.family === "string")
+        return [
+          k,
+          type.elem.bits === 8
+            ? new TextDecoder().decode(Uint8Array.from(JSON.parse(raw) as number[]))
+            : String.fromCharCode(...(JSON.parse(raw) as number[])), // a WSTRING is UTF-16 code units
+        ]
+      if (type.kind === "elementary" && type.elem.family === "real") {
+        // RUST SPELLS AN INFINITY `inf`, and `Number("inf")` is NaN — so an overflow read back as a NaN and
+        // every real-overflow fixture reported the wrong divergence. `Number` handles `NaN` itself.
+        const n = raw === "inf" ? Infinity : raw === "-inf" ? -Infinity : Number(raw)
+        return [k, type.elem.bits === 32 ? Math.fround(n) : n]
+      }
+      return [k, asDisplayed(rec.values![k]!, BigInt(raw))]
+    }),
+  )
+  expect(got).toEqual(want)
+}
+
+/** The vendor stopped; so must we — by refusing to lower (with a reason) or by throwing in the scan. */
+function compareFault(c: LanguageTest): void {
+  const lowered = lowering(c)
+  if (lowered.pou === undefined) {
+    // Refused before it could run — a stricter refusal, still a refusal. It must SAY why: a lowering that
+    // produced neither a POU nor a diagnostic would be this test passing on an empty result.
+    expect(lowered.diagnostics.length).toBeGreaterThan(0)
+    return
+  }
+  expect(() => {
+    const pou = run(lowered.pou!)
+    for (let i = 0; i < (c.cycles ?? 1); i++) pou.scan()
+  }).toThrow()
+}
+
+/** The Rust runs of the `diverges` fixtures, filled by the rest-of-the-lowered pass that already builds them, and
+ *  read by their expected-failure rows. Empty where there is no `rustc` — their Rust half is then unmeasured. */
+const DIVERGES_RUST = new Map<string, RustRun>()
+
 /**
  * THE VENDOR RAN IT AND SO DO WE. Two halves, because they fail differently: the interpreter and the emitter print
  * the same IR, so a LOWERING bug shows in both — but an EMITTER bug (a Rust operator that does not mean what the
@@ -379,19 +475,7 @@ describe("confirmed — the vendor ran it, and we produce its values", () => {
   for (const c of rated("confirmed")) {
     const rec = RUNS[c.name]!
     if (rec.error !== undefined) {
-      test(`${c.name} — faults in CODESYS (${rec.error.slice(0, 40)}), and must fault here too`, () => {
-        const lowered = lowering(c)
-        if (lowered.pou === undefined) {
-          // Refused before it could run — a stricter refusal, still a refusal. It must SAY why: a lowering that
-          // produced neither a POU nor a diagnostic would be this test passing on an empty result.
-          expect(lowered.diagnostics.length).toBeGreaterThan(0)
-          return
-        }
-        expect(() => {
-          const pou = run(lowered.pou!)
-          for (let i = 0; i < (c.cycles ?? 1); i++) pou.scan()
-        }).toThrow()
-      })
+      test(`${c.name} — faults in CODESYS (${rec.error.slice(0, 40)}), and must fault here too`, () => compareFault(c))
       continue
     }
     test(c.name, () => {
@@ -412,7 +496,7 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
   // does not overlap with anything, so all 1880 of them land INSIDE the hang guard and push it over 180s. The lanes
   // exist to overlap `rustc` processes, and this keeps them doing only that.
   const recorded = rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined && lowering(c).pou !== undefined)
-  const runs = new Map<string, { exit: number; stdout: string; stderr: string }>()
+  const runs = new Map<string, RustRun>()
   /** What the linter said about each case's EMITTED code, and what its edge run found — the halves of its row in
    *  `map.generated.ts` only this build can answer. */
   const measured = new Map<string, Measured>()
@@ -447,34 +531,10 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       const { pou, diagnostics } = lowering(c)
       if (pou === undefined)
         return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
-      const prints = Object.keys(RUNS[c.name]!.values!).map((name) => {
-        const { expr, type, global } = rustAccess(pou, name)
-        // A REAL prints with Debug, which keeps its decimal point. A STRING prints its BYTES as a list — not Debug, whose
-        // `\u{c}` for a form feed is no JSON — so no control character inside it can break this tab-separated output.
-        const family = type.kind === "elementary" ? type.elem.family : undefined
-        // an FB's VAR_STAT read through an instance lives in the application's globals
-        const field = `${global ? "g" : "p"}.${expr}${family === "string" ? ".units()" : ""}`
-        return `    println!("${name}\\t{${family === "real" || family === "string" ? ":?" : ""}}", ${field});`
-      })
       const emitted = emitRust(pou)
-      // a program that reaches globals or calls PROGRAMs scans against one of each, created once like the IDE's application
-      const setup = [
-        ...(emitted.usesGlobals ? ["    let mut g = Globals::new();"] : []),
-        ...(emitted.usesPrograms ? ["    let mut prg = Programs::new();"] : []),
-      ]
-      const args = [...(emitted.usesGlobals ? ["&mut g"] : []), ...(emitted.usesPrograms ? ["&mut prg"] : [])].join(", ")
-      // a POU with an init step (a `call_after_global_init_slot` method) runs it once, before the first scan
-      const init = pou.init === undefined ? [] : [`    p.init(${args});`]
-      // a CLOCKED fixture scans on the instants the recording saw: `CLOCK` assigned before each scan
-      const clock = c.clock === undefined ? undefined : rustAccess(pou, CLOCK).expr
-      const scans =
-        clock === undefined
-          ? [`    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`]
-          : Array.from({ length: c.cycles ?? 1 }, (_, i) => `    g.${clock} = ${clockAt(c, RUNS[c.name]!, i + 1)!}; p.scan(${args});`)
-      const scan = [...setup, ...init, ...scans].join("\n")
       // THE EDGE RUN RIDES THE SAME BINARY: `main` runs the recorded scan, or with `edge` the edge variants
       const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
-      const main = edgeHarness(pou, emitted, plan, `    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n`)
+      const main = edgeHarness(pou, emitted, plan, recordedScan(c, pou, emitted))
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
       await Bun.write(file, `${emitted.code}\n${main}`)
@@ -533,44 +593,7 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
   }, Math.max(120_000, recorded.length * 300))
 
   for (const c of recorded) {
-    test(c.name, () => {
-      const result = runs.get(c.name)!
-      expect({ exit: result.exit, stderr: result.stderr }).toEqual({ exit: 0, stderr: "" })
-      const rec = RUNS[c.name]!
-      const pou = lowering(c).pou!
-      const printed = new Map(
-        result.stdout
-          .trim()
-          .split(/\r?\n/)
-          .map((line) => line.split("\t") as [string, string]),
-      )
-      const want = Object.fromEntries(reproducible(c, rec).map(([k, v]) => [k, ideValue(v, enumsOf(c))]))
-      for (const path of c.wallClock ?? []) expect(printed.has(path)).toBe(true)
-      const got = Object.fromEntries(
-        Object.keys(want).map((k) => {
-          const { type } = rustAccess(pou, k)
-          const raw = printed.get(k)!
-          if ((type.kind === "elementary" && type.elem.family === "bool") || isBit(type)) return [k, raw === "true"]
-          // The Rust side prints a STRING as its BYTES, which is what it holds — decoded as UTF-8 for the same
-          // reason `asDisplayed` decodes the interpreter's: the IDE shows text, the value is bytes.
-          if (type.kind === "elementary" && type.elem.family === "string")
-            return [
-              k,
-              type.elem.bits === 8
-                ? new TextDecoder().decode(Uint8Array.from(JSON.parse(raw) as number[]))
-                : String.fromCharCode(...(JSON.parse(raw) as number[])), // a WSTRING is UTF-16 code units
-            ]
-          if (type.kind === "elementary" && type.elem.family === "real") {
-            // RUST SPELLS AN INFINITY `inf`, and `Number("inf")` is NaN — so an overflow read back as a NaN and
-            // every real-overflow fixture reported the wrong divergence. `Number` handles `NaN` itself.
-            const n = raw === "inf" ? Infinity : raw === "-inf" ? -Infinity : Number(raw)
-            return [k, type.elem.bits === 32 ? Math.fround(n) : n]
-          }
-          return [k, asDisplayed(rec.values![k]!, BigInt(raw))]
-        }),
-      )
-      expect(got).toEqual(want)
-    })
+    test(c.name, () => compareRust(c, runs.get(c.name)!))
   }
 
   /**
@@ -636,10 +659,23 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
           const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
           const file = join(dir, `${c.name}.rs`)
           const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-          await Bun.write(file, `${emitted.code}\n${edgeHarness(pou, emitted, plan, "")}`)
+          // A `diverges` fixture the vendor RAN also gets the recorded scan, so its expected-failure row can tell
+          // the day its Rust starts producing CODESYS's values (`DIVERGES_RUST`).
+          const valued = c.evidence === "diverges" && RUNS[c.name]?.values !== undefined
+          await Bun.write(file, `${emitted.code}\n${edgeHarness(pou, emitted, plan, valued ? recordedScan(c, pou, emitted) : "")}`)
           const build = Bun.spawn(buildArgv(CLIPPY ?? rustc!, file, { exe }), { stderr: "pipe", stdout: "pipe" })
           const ok = (await build.exited) === 0
           const stderr = await new Response(build.stderr).text()
+          if (valued && !ok) DIVERGES_RUST.set(c.name, { exit: -1, stdout: "", stderr: `does not compile:\n${rendered(stderr)}` })
+          if (valued && ok) {
+            const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })
+            const exit = await run.exited
+            DIVERGES_RUST.set(c.name, {
+              exit,
+              stdout: await new Response(run.stdout).text(),
+              stderr: await new Response(run.stderr).text(),
+            })
+          }
           const { found, pedantic } = splitFindings(stderr, emitted.code.split("\n").length)
           built.set(c.name, {
             ok,
@@ -753,11 +789,44 @@ describe("not-lowered — the vendor runs it and lowering refuses", () => {
   })
 })
 
-/** WE BOTH EXECUTE IT AND DISAGREE — the only rating that means something is WRONG rather than missing. Each
- *  carries `deferred.transpile` saying what was measured; the ceiling below is what keeps a new one visible. */
-describe("diverges — measured, and not matched yet", () => {
-  for (const c of rated("diverges"))
-    test.todo(`${c.name} — ${c.deferred?.transpile ?? "no reason recorded"}`, () => {})
+/**
+ * WE BOTH EXECUTE IT AND DISAGREE — the only rating that means something is WRONG rather than missing. Each carries
+ * `deferred.transpile` saying what was measured; the ceiling below is what keeps a new one visible.
+ *
+ * EACH RUNS AS AN EXPECTED FAILURE (`support/expected-failure.ts`), not a todo. The check is the one the fixture
+ * would face as `confirmed` — the fault check when the vendor stopped, the values through the interpreter AND the
+ * emitted Rust when it ran — and the row passes while that check still fails. The day both halves match, the row
+ * fails and names the mark to delete. A todo could not notice, so a closed divergence stayed excused for whatever
+ * reopened it.
+ */
+describe("diverges — measured, and run as an expected failure", () => {
+  const inconclusive: string[] = []
+  for (const c of rated("diverges")) {
+    const mark = c.deferred?.transpile ?? "no reason recorded"
+    test(`${c.name} — still diverges: ${mark}`, () => {
+      const rec = RUNS[c.name]
+      const halves =
+        rec?.values === undefined
+          ? [() => compareFault(c)]
+          : [
+              () => compareInterp(c, rec),
+              // the Rust half is measured by the pass above; without `rustc` (or with it filtered out) it is not
+              DIVERGES_RUST.has(c.name) ? () => compareRust(c, DIVERGES_RUST.get(c.name)!) : undefined,
+            ]
+      const verdict = expectStillDiverges(c.name, mark, halves)
+      if (verdict.verdict === "inconclusive") inconclusive.push(c.name)
+    })
+  }
+
+  // An interpreter half that MATCHES with no Rust half to settle it is unproven either way — reported, and allowed
+  // only where the Rust pass did not run. Where it ran, every diverging fixture the vendor ran must be in it.
+  test("an unproven row is one the Rust pass did not reach this run", () => {
+    console.log(
+      `  [fixtures] ${rated("diverges").length} diverge, each run as an expected failure` +
+        (inconclusive.length > 0 ? `; ${inconclusive.length} unproven (no Rust half this run): ${inconclusive.join(", ")}` : ""),
+    )
+    if (DIVERGES_RUST.size > 0) expect(inconclusive).toEqual([])
+  })
 
   test("each names what was measured", () => {
     expect(rated("diverges").filter((c) => c.deferred?.transpile === undefined).map((c) => c.name)).toEqual([])
@@ -770,8 +839,20 @@ describe("diverges — measured, and not matched yet", () => {
  * itself is one that cannot quietly grow.
  */
 describe("lsp-gap — a refusal the LSP does not make yet", () => {
-  for (const c of rated("lsp-gap"))
-    test.todo(`${c.name} — ${c.deferred?.lsp ?? "measured silent: the vendor refuses and the LSP says nothing"}`, () => {})
+  // AN EXPECTED FAILURE, like `diverges`: the check is the one `refused` makes — the LSP objects, in the vendor's
+  // words where the fixture records them — and the row fails the day it passes. `deferred.lsp` pins the rating to
+  // `lsp-gap` whatever the LSP says, so without this a closed gap stayed excused indefinitely.
+  for (const c of rated("lsp-gap")) {
+    const mark = c.deferred?.lsp ?? "MEASURED_SILENT: the vendor refuses and the LSP says nothing"
+    test(`${c.name} — still silent: ${mark}`, () => {
+      expectStillDiverges(c.name, mark, [
+        () =>
+          c.refused === undefined
+            ? expect(lspErrors(c, ALL_TESTS).length).toBeGreaterThan(0)
+            : expect(lspErrors(c, ALL_TESTS)).toContainEqual(expect.stringContaining(c.refused)),
+      ])
+    })
+  }
 
   /**
    * THE RATING HAS TWO SOURCES AND ONLY ONE OF THEM IS DECLARED. A fixture reaches `lsp-gap` either by CARRYING
@@ -1696,18 +1777,36 @@ for (const { vendor, floor } of FLOORS) {
     let agree = 0
     const falsePositives: string[] = []
     const disagreed: { name: string; lsp: string[]; ide: string[] }[] = []
+    /** Marked fixtures that AGREE exactly now — each mark is stale (`support/expected-failure.ts`). */
+    const stale: string[] = []
+    const stillDiverges = (name: string, mark: string, lsp: string[], ide: string[]): void => {
+      try {
+        expectStillDiverges(name, mark, [() => expect(lsp).toEqual(ide)], `${vendor}'s build`)
+      } catch (error) {
+        stale.push((error as Error).message)
+      }
+    }
     for (let i = 0; i < ALL_TESTS.length; i++) {
       const t = ALL_TESTS[i] as (typeof ALL_TESTS)[number]
       const rec = expected.tests[t.name]
-      if (rec === undefined || KNOWN_DIVERGENCES[vendor].has(t.name)) continue
+      if (rec === undefined) continue
       const lsp = runLsp(i, vendor)
       const ide = ideMsgs(rec.diagnostics)
+      // A KNOWN DIVERGENCE is still replayed, as an expected failure: exempt from the false-positive gate, and
+      // reported the day it agrees, so the set cannot keep a fixture that no longer diverges.
+      if (KNOWN_DIVERGENCES[vendor].has(t.name)) {
+        stillDiverges(t.name, `KNOWN_DIVERGENCES.${vendor}`, lsp, ide)
+        continue
+      }
       const ideSet = new Set(ide)
       for (const m of lsp) if (!ideSet.has(m)) falsePositives.push(`${t.name}: LSP-only ${m}`)
       // A fixture the LSP deliberately does not answer yet — the reason, with its date, is on the fixture — claims no
       // agreement. Its FALSE POSITIVES are still checked, just above: a deferral says "we do not emit this", never
-      // "anything we emit here is fine".
-      if (t.deferred?.lsp !== undefined) continue
+      // "anything we emit here is fine". And it is an expected failure like the set above: agreeing ends it.
+      if (t.deferred?.lsp !== undefined) {
+        stillDiverges(t.name, t.deferred.lsp, lsp, ide)
+        continue
+      }
       if (lsp.length === ide.length && lsp.every((m, k) => m === ide[k])) agree += 1
       else disagreed.push({ name: t.name, lsp, ide })
     }
@@ -1738,6 +1837,10 @@ for (const { vendor, floor } of FLOORS) {
       const firing = new Set(falsePositives.map((f) => f.slice(0, f.indexOf(":"))))
       console.log(`  [${vendor}] LSP-only on ${firing.size} fixture(s) — the triage backlog`)
       expect([...triaged].filter((n) => !firing.has(n))).toEqual([])
+    })
+
+    test("every known divergence still diverges (a marked fixture that agrees must lose its mark)", () => {
+      expect(stale).toEqual([])
     })
 
     test(`agreement does not regress (>= ${floor})`, () => {
