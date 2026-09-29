@@ -138,7 +138,7 @@ ${JSON.stringify(again, null, 1)}`, { label: `fix:${s.id}:r2`, phase: 'Review' }
   done.push(await agent(`${RULES}
 
 GATE step ${s.id}. Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green.
-Write the step's numbers/delta under its tasks in tasks.md and tick what is done. ${s.parts ? 'This was a group: make ONE COMMIT PER STEP in the group, in order (only that step's paths each), so bisect and revert stay per step. ' : ''}Commit exactly the step's paths as
+Write the step's numbers/delta under its tasks in tasks.md and tick what is done. ${s.parts ? 'This was a group: make ONE COMMIT PER STEP in the group, in order (only the paths of that step each), so bisect and revert stay per step. ' : ''}Commit exactly the step's paths as
 "<type>(<scope>): ${args.change} ${s.id} — <what>". If it cannot get green, do NOT commit: restore the tree to the last commit and write
 in the task what blocks it. Return: committed yes/no, hash, the numbers.`, { label: `gate:${s.id}`, phase: 'Gate' }))
 }
