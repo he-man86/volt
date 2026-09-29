@@ -889,11 +889,6 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     //            ("Cannot convert type 'INT' to type 'BYTE'" / "... 'SINT'").
     "tr_35_for_byte_runtime_int_step",
     "tr_35_for_sint_step_300",
-    //   task 40: DATE / DT / TOD plus or minus an LTIME, either order ("Cannot convert type 'LTIME' to type 'ULINT'").
-    "tr_40_date_plus_ltime",
-    "tr_40_dt_plus_ltime",
-    "tr_40_tod_minus_ltime",
-    "tr_40_ltime_plus_date",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {

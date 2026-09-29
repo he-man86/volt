@@ -480,9 +480,9 @@ those values into the new fixture's recording.
 - Root cause: `lower/expressions.ts:342` (convert before scale); `src/types/arith.ts:142/145` accepts the pair.
 - CODESYS (LIVE): every form REFUSED ("Cannot convert type 'LTIME' to type 'ULINT'" …).
 - Fix: refuse the pair in lowering (and the type layer); record as `rejects`.
-- [ ] 40.1 Fixture `date_plus_ltime_rejected` — red.
+- [x] 40.1 Fixture `date_plus_ltime_rejected` — red.
   Recorded 2026-09-29 (record:exec): `tr_40_date_plus_ltime`, `tr_40_dt_plus_ltime`, `tr_40_tod_minus_ltime`, `tr_40_ltime_plus_date` — refused by CODESYS ("Cannot convert type 'LTIME' to type 'ULINT'"), lsp-gap (`MEASURED_SILENT`).
-- [ ] 40.2 Fix.
+- [x] 40.2 Fix. `arith.ts` `narrowDateWideDuration`: a 32-bit date beside an LTIME is no temporal pair; lowering refuses it `calendar-width` (invalid) and the LSP's binary-operator check reports "Cannot convert type 'LTIME' to type 'ULINT'". All four `tr_40_*` rated refused, out of MEASURED_SILENT; src tests in arith, binary-operators and lower tests; fixtures.test.ts green.
 
 ## 41. MUX is lazy in Rust but eager in the interpreter; LIMIT evaluates IN before MN
 - Root cause: `emit/rust/emit.ts:745-749` (MUX `match`), `:724` (`IN.max(MN).min(MX)`); IR contract `ir/ir.ts:255-268`

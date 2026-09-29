@@ -18,6 +18,7 @@ import {
   isNumericType,
   literalCheckType,
   literalErrorType,
+  narrowDateWideDuration,
   parseConversionName,
   UNKNOWN,
   type Type,
@@ -182,6 +183,8 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
   // (`meet_bool_{plus,minus,times,div,mod}_int`, identical on both recordings 2026-09-20). This lives ABOVE the
   // MOD branch because BOOL is not an integer type and would otherwise be caught by it first.
   if (a === "BOOL" || b === "BOOL") return binaryDiag(e, messages.cannotConvert("BOOL", a === "BOOL" ? b : a))
+  // A 32-bit date ± an LTIME, either order, is ULINT arithmetic CODESYS refuses (`tr_40_*`).
+  if ((e.op === "+" || e.op === "-") && narrowDateWideDuration(a, b)) return binaryDiag(e, messages.cannotConvert("LTIME", "ULINT"))
   if (e.op === "MOD") {
     if (isIntegerType(a) && isIntegerType(b)) return undefined
     // THE VENDOR ALWAYS NAMES `REAL`, never `LREAL`. Measured across the whole meet grid (`operators/mixed-type.ts`,

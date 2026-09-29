@@ -30,3 +30,14 @@ test("a string on the RIGHT of a number must become that number's type", () => {
 test("comparing strings is not arithmetic — no message", () => {
   expect(mismatches("a : STRING; b : STRING; same : BOOL;", "same := a = b;")).toEqual([])
 })
+
+// transpile-review-2026-09-29 task 40 (`tr_40_*`): a 32-bit date ± an LTIME, either order, is ULINT arithmetic CODESYS
+// refuses — "Cannot convert type 'LTIME' to type 'ULINT'".
+test("DATE / DT / TOD plus or minus an LTIME is refused; with a TIME it is not", () => {
+  const ltime = ["Cannot convert type 'LTIME' to type 'ULINT'"]
+  expect(mismatches("d : DATE; dur : LTIME;", "d := d + dur;")).toEqual(ltime)
+  expect(mismatches("d : DT; dur : LTIME;", "d := d + dur;")).toEqual(ltime)
+  expect(mismatches("t : TOD; dur : LTIME;", "t := t - dur;")).toEqual(ltime)
+  expect(mismatches("d : DATE; dur : LTIME;", "d := dur + d;")).toEqual(ltime)
+  expect(mismatches("d : DATE; dur : TIME;", "d := d + dur;")).toEqual([])
+})

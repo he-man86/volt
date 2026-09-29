@@ -11,6 +11,7 @@ import {
   inTypeGroup,
   isIntegerType,
   promoteForRuntime,
+  narrowDateWideDuration,
   temporalResultType,
   type Type,
   UNKNOWN,
@@ -231,6 +232,10 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
           return lw.bail("string-op", `operator ${e.op} on a STRING`, e.span)
         return { kind: "binary", op, left, right, type: elementaryRef("BOOL"), span: e.span }
       }
+      // A 32-bit date ± an LTIME is ULINT arithmetic CODESYS refuses ("Cannot convert type 'LTIME' to type 'ULINT'",
+      // `tr_40_*`); it used to narrow the duration into the date's 32 bits before scaling.
+      if ((op === "add" || op === "sub") && narrowDateWideDuration(elemOf(left.type)?.name ?? "", elemOf(right.type)?.name ?? ""))
+        return lw.bail("calendar-width", "a 32-bit date plus or minus an LTIME", e.span)
       // BEFORE the constant retyping below: `dt + T#1S` would otherwise stamp the 1000-ms literal as a DT — 1000 s.
       const calendar = calendarArithmetic(op, left, right, e.span)
       if (calendar !== undefined) return calendar

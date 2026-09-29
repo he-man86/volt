@@ -137,11 +137,22 @@ export function durationFor(dateName: string): string {
 }
 
 /**
+ * A 32-bit date (DATE, DT, TOD) beside an LTIME, either order: no temporal pair. CODESYS computes it as ULINT and
+ * refuses it — "Cannot convert type 'LTIME' to type 'ULINT'" (`tr_40_*`, every form, recorded 2026-09-29).
+ */
+export function narrowDateWideDuration(left: string, right: string): boolean {
+  const narrowDate = (n: string): boolean => isDatetime(n) && elementaryType(n)?.bits === 32
+  const wideDuration = (n: string): boolean => isDuration(n) && elementaryType(n)?.bits === 64
+  return (narrowDate(left) && wideDuration(right)) || (wideDuration(left) && narrowDate(right))
+}
+
+/**
  * Date/time arithmetic's result type name, or undefined when the operands are not a temporal pair: a date − the same
  * date is its duration (`durationFor`), a date ± a duration and a duration + a date are the date.
  */
 export function temporalResultType(op: "+" | "-", left: string, right: string): string | undefined {
   const [l, r] = [canonicalElem(left), canonicalElem(right)]
+  if (narrowDateWideDuration(l, r)) return undefined
   if (op === "-") {
     if (isDatetime(l) && l === r) return durationFor(l)
     if (isDatetime(l) && isDuration(r)) return l

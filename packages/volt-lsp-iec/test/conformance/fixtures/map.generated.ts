@@ -15,15 +15,15 @@
  *
  *   evidence
  *     confirmed     2033
- *     refused        545
+ *     refused        549
  *     not-lowered    108
- *     lsp-gap         13
+ *     lsp-gap          9
  *     diverges        18
  *     unaskable       38
  *
  *   tier                     lowered    clean
  *     decl                    440      440
- *     arith                  1463     1463
+ *     arith                  1459     1459
  *     control                  72       72
  *     aggregate                29       29
  *     call                    231      229
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2317
+ *     agree         2313
  *     disagree         5
  *     not-run         93
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -61,13 +61,13 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35831 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6644
- *     clippy::cast_possible_truncation         5684
+ *   pedantic — 35815 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6640
+ *     clippy::cast_possible_truncation         5680
  *     clippy::uninlined_format_args            4743
  *     clippy::cast_sign_loss                   4383
  *     clippy::cast_lossless                    4376
- *     clippy::unreadable_literal               3688
+ *     clippy::unreadable_literal               3680
  *     clippy::manual_assert                    1530
  *     clippy::missing_panics_doc               1391
  *     clippy::format_push_string               1054
@@ -85,8 +85,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1455 distinct emission shapes over 2415 lowered fixtures, 1659 distinct constructs.
- *   770 constructs carry a review note (`NOTES`): 2327 fixtures are improvable, 2242 touch a construct with alternatives.
+ *   shape — 1453 distinct emission shapes over 2411 lowered fixtures, 1657 distinct constructs.
+ *   770 constructs carry a review note (`NOTES`): 2323 fixtures are improvable, 2238 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2542,10 +2542,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_37_case_label_wraps_minus_212: { evidence: "refused" },
   tr_37_case_range_beyond_type: { evidence: "refused" },
   tr_37_case_range_inverted: { evidence: "refused" },
-  tr_40_date_plus_ltime: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "557a077da6", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },
-  tr_40_dt_plus_ltime: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "557a077da6", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },
-  tr_40_ltime_plus_date: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "557a077da6", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },
-  tr_40_tod_minus_ltime: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 3.8, shape: "2fbe316f5c", notes: ["90c445f7cb", "a497507b30", "e8954e2b0d"] },
+  tr_40_date_plus_ltime: { evidence: "refused" },
+  tr_40_dt_plus_ltime: { evidence: "refused" },
+  tr_40_ltime_plus_date: { evidence: "refused" },
+  tr_40_tod_minus_ltime: { evidence: "refused" },
   tr_41_limit_evaluation_order: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "disagree", size: 2.1, shape: "cc84a8c55e", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_41_mux_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "disagree", size: 2.5, shape: "cbbd7cab37", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_41_sel_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "agree", size: 2.5, shape: "11eba92a94", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
