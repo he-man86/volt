@@ -37,6 +37,14 @@ export interface Emitted {
   usesPrograms: boolean
 }
 
+/** The family an elementary type is EMITTED as — its own, except a BIT, which is a "bitstring" of one bit that the
+ *  Rust holds (and CODESYS reads) as a BOOL. The one place that decision is made: `rustType` and `convert` both
+ *  ask here, so a type cannot be `bool` in one and a bitstring in the other (transpile-review task 31). */
+function emittedFamily(t: Type): string | undefined {
+  if (t.kind !== "elementary") return undefined
+  return isBit(t) ? "bool" : t.elem.family
+}
+
 /** IEC elementary type → Rust type, derived from the type's own facts (family · bits · signed). */
 export function rustType(t: Type): string {
   // a struct or FB instance is its layout's struct, held by value; an array is a Rust array, one per dimension
@@ -48,8 +56,9 @@ export function rustType(t: Type): string {
   // an interface holds the tag of the instance it names, 0 when null (design §22)
   if (t.kind === "interface") return "u64"
   if (t.kind !== "elementary") throw new Error(`no Rust mapping for a ${t.kind} type`)
-  const { family, bits, signed } = t.elem
-  if (family === "bool" || isBit(t)) return "bool"
+  const { bits, signed } = t.elem
+  const family = emittedFamily(t)
+  if (family === "bool") return "bool"
   if (family === "real") return bits === 32 ? "f32" : "f64"
   // A fixed-capacity string, generated into the output (STRING_PRELUDE) — not Rust `String`, which neither truncates
   // nor copies: `a := b` MOVED a String out of `self`, and no emitted program had ever held a string to find out.
@@ -663,8 +672,8 @@ class Printer {
         // TRUNCATES and SATURATES, where CODESYS rounds half away from zero (`f64::round` is exactly that) and wraps
         // (through i64, then `as` between ints wraps); `as bool` does not exist; nor does `bool as f32`.
         const value = this.expr(e.value, slots)
-        const from = e.value.type.kind === "elementary" ? e.value.type.elem.family : undefined
-        const to = e.type.kind === "elementary" ? e.type.elem.family : undefined
+        const from = emittedFamily(e.value.type)
+        const to = emittedFamily(e.type)
         const target = rustType(e.type)
         // A CONVERSION TO THE RUST TYPE THE VALUE ALREADY HAS IS NOTHING. `WORD_TO_UINT` and `UINT_TO_WORD` are both
         // `u16 as u16`; so is every conversion between an alias and what it aliases. The printer emitted the cast

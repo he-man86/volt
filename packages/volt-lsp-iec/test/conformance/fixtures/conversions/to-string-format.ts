@@ -372,13 +372,7 @@ export const TRANSPILE_REVIEW_TO_STRING_TESTS: readonly LanguageTest[] = [
         "transpile-review-2026-09-29 task 12: CODESYS prints LDT#/LD#/LTOD# text; the interpreter prints the raw count and the emitted Rust calls format helpers that do not exist (measured 2026-09-29)",
     },
   },
-  {
-    ...trBitConversions,
-    deferred: {
-      transpile:
-        "transpile-review-2026-09-29 task 31: a BIT converts by its family (bitstring) while its Rust type is bool — the emitted Rust does not compile (measured 2026-09-29)",
-    },
-  },
+  trBitConversions,
   {
     ...trLtimePastI64,
     deferred: { transpile: "transpile-review-2026-09-29 task 32: LTIME_TO_STRING casts the u64 LTIME to i64 in the emitted Rust — at and past 2^63 ns it prints a negative duration where CODESYS prints LTIME#106751d23h47m16s854ms775us808ns (recorded 2026-09-29)" },

@@ -808,3 +808,22 @@ describe("emit/rust — a VAR_TEMP reset", () => {
     expect(call).toContain("self.s = { let mut v = ST_P::new(); v.a = 9i16; v };")
   })
 })
+
+/**
+ * A BIT CONVERTS AS THE BOOL IT IS (transpile-review task 31). `rustType` maps a BIT to `bool`, but `convert` read
+ * the family ("bitstring"), so `TO_STRING(bit)` printed Rust's `true` and `BIT_TO_REAL` / `TO_LREAL` / `INT_TO_BIT`
+ * cast to or from `bool` (E0606/E0054). CODESYS reads a BIT as a BOOL: 'TRUE', 1.0, and `INT_TO_BIT(2)` = TRUE
+ * (`tr_31_bit_conversions`).
+ */
+describe("emit/rust — a BIT converts as a BOOL", () => {
+  test("TO_STRING, BIT_TO_REAL, TO_LREAL and INT_TO_BIT on BIT fields", () => {
+    const code = rust(
+      "TYPE ST_B :\nSTRUCT\n\tb : BIT;\n\tc : BIT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tbits : ST_B;\n\ti : INT := 2;\n\ts : STRING;\n\tr : REAL;\n\tl : LREAL;\nEND_VAR\ns := TO_STRING(bits.b);\nr := BIT_TO_REAL(bits.b);\nl := TO_LREAL(bits.b);\nbits.c := INT_TO_BIT(i);\nEND_PROGRAM\n",
+    )
+    expect(code).toContain(`(if self.bits.b { "TRUE" } else { "FALSE" })`)
+    expect(code).toContain("self.r = (self.bits.b as u8) as f32;")
+    expect(code).toContain("self.l = (self.bits.b as u8) as f64;")
+    expect(code).toContain("self.bits.c = self.i != 0;")
+    expect(code).not.toMatch(/as bool/)
+  })
+})

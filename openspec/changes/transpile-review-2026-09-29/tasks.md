@@ -386,9 +386,9 @@ those values into the new fixture's recording.
 - Repro: `TO_STRING(s.b0)` → "true"; `BIT_TO_REAL`, `TO_LREAL(bit)`, `INT_TO_BIT` → E0606/E0054.
 - CODESYS: BIT reads as BOOL (`type_dut_struct_with_bit_fields`, `ct_bit_fields`); `xf_bool_to_string` = 'TRUE'.
 - Fix: decide bool-ness by `isBit(t) || family === "bool"` in one place.
-- [ ] 31.1 Fixture converting a BIT field through each conversion — red.
+- [x] 31.1 Fixture converting a BIT field through each conversion — red.
   Recorded 2026-09-29 (record:exec): `tr_31_bit_conversions` — diverges; the emitted Rust does not compile. CODESYS accepts `INT_TO_BIT` (2 -> TRUE).
-- [ ] 31.2 Fix.
+- [x] 31.2 Fix. `emittedFamily` (emit/rust/emit.ts) is the one place a BIT becomes "bool"; `rustType` and `convert` both ask it — fixture confirmed ('TRUE', 1.0, INT_TO_BIT(2)=TRUE), divergence mark removed.
 
 ## 32. LTIME_TO_STRING casts the u64 LTIME to i64
 - Root cause: `emit/rust/emit.ts:678` (`castTo(value, type, "i64")`) and `emit/rust/prelude.ts:108`

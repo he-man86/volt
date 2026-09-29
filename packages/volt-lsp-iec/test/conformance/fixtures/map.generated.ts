@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2008
+ *     confirmed     2009
  *     refused        541
  *     not-lowered    103
  *     lsp-gap         17
- *     diverges        48
+ *     diverges        47
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -35,7 +35,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5658
+ *     dead_code                               5669
  *     clippy::self_assignment                   33
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -49,11 +49,11 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2315
+ *     agree         2316
  *     disagree         8
- *     not-run        104
+ *     not-run        103
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
- *       not-run: the emitted Rust does not build                 18
+ *       not-run: the emitted Rust does not build                 17
  *       not-run: no elementary variable to seed or compare       15
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
@@ -64,16 +64,16 @@
  *       disagree: tr_47_i2r_lint_to_real_double_round — (declared inputs): out interpreter 1568669696, Rust 1568669
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35154 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6636
- *     clippy::cast_possible_truncation         5666
- *     clippy::cast_sign_loss                   4361
- *     clippy::cast_lossless                    4359
- *     clippy::uninlined_format_args            4192
+ *   pedantic — 35201 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6642
+ *     clippy::cast_possible_truncation         5673
+ *     clippy::cast_lossless                    4369
+ *     clippy::cast_sign_loss                   4368
+ *     clippy::uninlined_format_args            4200
  *     clippy::unreadable_literal               3681
- *     clippy::manual_assert                    1502
- *     clippy::missing_panics_doc               1384
- *     clippy::format_push_string               1048
+ *     clippy::manual_assert                    1504
+ *     clippy::missing_panics_doc               1386
+ *     clippy::format_push_string               1050
  *     clippy::many_single_char_names            527
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
@@ -2531,7 +2531,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_29_method_named_to_owned_result: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d41194ad6a", notes: ["11f6ad8ec5", "1307e33bbf", "a29db6178b"] },
   tr_29_method_named_try_into_no_result: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "62cef3037a", notes: ["1307e33bbf", "3d737b5821", "a29db6178b"] },
   tr_29_method_named_try_into_result: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d41194ad6a", notes: ["11f6ad8ec5", "1307e33bbf", "a29db6178b"] },
-  tr_31_bit_conversions: { evidence: "diverges", tier: "aggregate", rust: "rejected", pedantic: 5, edge: "not-run", size: 2.2, shape: "274295ef96", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "5d9850550d", "687428cc81", "6a98109119", "74845f98c6", "de132e5019"] },
+  tr_31_bit_conversions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 52, edge: "agree", size: 2.2, shape: "c093cf3c37", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "5d9850550d", "687428cc81", "6a98109119", "74845f98c6", "de132e5019"] },
   tr_32_fmt_ltime_past_i64: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 50, edge: "disagree", size: 2.4, shape: "581d0a2536", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
   tr_33_fmt_lreal_tie: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 49, edge: "disagree", size: 2.1, shape: "3a2551b872", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
   tr_34_lib_prim_char_behind: { evidence: "not-lowered" },
