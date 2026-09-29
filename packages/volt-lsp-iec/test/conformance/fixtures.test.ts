@@ -1227,7 +1227,8 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 4 -> 58, ALL FOR MEASUREMENT. transpile-review-2026-09-29 landed a CODESYS-recorded fixture for every open root
   // cause ahead of its fix (tasks 6, 12, 14, 16-22, 24-33, 35, 36, 41, 42, 45-47), each carrying its task in
   // `deferred.transpile`. This number comes back down task by task as the fixes land.
-  diverges: 58,
+  // 58 -> 57: task 18 refuses its fixture now (`not-lowered`).
+  diverges: 57,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.
@@ -1335,7 +1336,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // and says so: a place cannot express a select, so the write wants an `IrSwitch` over the arms.
   // 92 -> 103. transpile-review-2026-09-29's recorded fixtures that lowering refuses today — tasks 11, 15, 22 (THIS),
   // 23, 28, 34, 43 (three output conversions) and 44. Coverage the fixes are expected to take back.
-  "not-lowered": 103,
+  // 103 -> 104. `tr_18_queryinterface_into_global` (task 18): a wrong answer turned into a refusal — the query's edge
+  // is foreign like the plain store's (`interface-instance-relative`); CODESYS's r1 = r2 = 1 wants form-3 lending.
+  "not-lowered": 104,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

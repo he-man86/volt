@@ -241,9 +241,9 @@ those values into the new fixture's recording.
 - CODESYS: an interface variable holds one instance's address; the plain store `gItf := src` is already refused
   (`interface-instance-relative`). Expected 1 (or refusal).
 - Fix: compute `foreign` in queryInto exactly as storeInterface does.
-- [ ] 18.1 Fixture (the p3 program) expecting refusal — red.
+- [x] 18.1 Fixture (the p3 program) expecting refusal — red.
   Recorded 2026-09-29 (record:exec): `tr_18_queryinterface_into_global` — diverges (CODESYS accepts it: r1=r2=1). Its `__QUERYINTERFACE` adds three to the source map's rename ceiling.
-- [ ] 18.2 Fix.
+- [x] 18.2 Fix. `foreignWrite` (lower/interfaces.ts) now sets the query's edge as storeInterface does; the fixture is refused (`interface-instance-relative`, not-lowered) — CODESYS's r1=r2=1 waits for cross-instance lending. Src test in lower.test.ts.
 
 ## 19. A METHOD's VAR_IN_OUT loses to the FB field or VAR_STAT it shadows
 - Root cause: `lower/places.ts:172-177` (localByName → statics → byName → inoutByName only if not in byName).

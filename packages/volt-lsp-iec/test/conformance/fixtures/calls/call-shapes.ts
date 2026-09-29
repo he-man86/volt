@@ -1101,11 +1101,10 @@ END_METHOD
 
   // Task 18: `__QUERYINTERFACE` into a GLOBAL interface variable. x1 queries its own child `src` (tag 1) into the
   // global; x2 (tag 2) does not query and only calls through it — the global still holds x1's child, so x2.res reads 1.
-  // The transpiler hard-codes the query's edge as not foreign and resolves the global relative to the CALLING instance
-  // (x2.res = 2); the plain store `gItf := src` is already refused (`interface-instance-relative`), and so should this be.
+  // CODESYS: r1 = r2 = 1. Lowering refuses it (`interface-instance-relative`), as it does the plain store `gItf := src`:
+  // the query's edge was hard-coded not foreign, and the global resolved relative to the CALLING instance (x2.res = 2).
   {
     name: "tr_18_queryinterface_into_global",
-    deferred: { transpile: "transpile-review-2026-09-29 task 18: __QUERYINTERFACE into a GLOBAL interface never marks its edge foreign — CODESYS gives r2=1 (x1's child), the backends disagree (recorded 2026-09-29)" },
     pouName: "GVL_CS_query18",
     kind: "gvl",
     feature: "__QUERYINTERFACE from an FB's own child into a GLOBAL interface variable: another instance that does not query calls through the global and reaches the first instance's child",

@@ -43,7 +43,8 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 //   - ONE is a mapping DEFECT, not a rename: in `tr_20_output_index_moved_by_callee` the implicit VAR_OUTPUT reset at
 //     the top of a METHOD (`*o = 0i16`) maps to [125,147) of the GVL file — the middle of the sibling FUNCTION's
 //     `F_CS_out20 := TRUE;`, not the METHOD's own text. Open; this number drops by one when the reset's span is fixed.
-const RENAMED_TARGETS = 34
+// 34 -> 31: transpile-review task 18 refuses `tr_18_queryinterface_into_global`, so its three are gone.
+const RENAMED_TARGETS = 31
 
 interface Program {
   name: string

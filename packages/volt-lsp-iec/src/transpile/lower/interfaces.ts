@@ -190,12 +190,17 @@ function onEachTag(lw: Lowering, key: string, each: (tag: number, root: Lowering
 export function storeInterface(lw: Lowering, target: Place, value: Expr, span: Span): IrStmt | undefined {
   const key = interfaceKey(lw, target)
   if (key === undefined) return lw.bail("interface-place", "an interface held somewhere this does not track — an element, an in-out, a dereference", span)
-  // a variable of this frame (or this routine), or the field of one of its own child instances — else foreign (a global)
+  const tag = interfaceArgument(lw, key, target.type, value, span, foreignWrite(lw, key, target))
+  return tag && { kind: "assign", target, value: tag, span }
+}
+
+/** Whether a write to the interface at `target` (tracked under `key`) reaches it through another instance than this
+ *  body's own: not a variable of this frame (or this routine), nor the field of one of its own child instances — a global. */
+function foreignWrite(lw: Lowering, key: string, target: Place): boolean {
   const frame = key.slice(0, key.lastIndexOf("."))
   const own = frame === lw.frameContext || frame === lw.routineContext
   const child = (target.root === undefined || target.root === "this") && target.path.length > 0
-  const tag = interfaceArgument(lw, key, target.type, value, span, !own && !child)
-  return tag && { kind: "assign", target, value: tag, span }
+  return !own && !child
 }
 
 /**
@@ -355,7 +360,7 @@ function queryInto(lw: Lowering, target: Place, v: Extract<Expr, { kind: "call" 
   const [source, dest] = [heldAt(lw, from, span), heldAt(lw, into, span)]
   if (source === undefined || dest === undefined) return undefined
   const wanted = into.type.name
-  dest.held.from.push({ key: source.key, only: wanted, foreign: false })
+  dest.held.from.push({ key: source.key, only: wanted, foreign: foreignWrite(lw, dest.key, into) })
   const bool = elementaryRef("BOOL")
   const outcome = (tag: bigint, found: boolean): IrStmt[] => [
     { kind: "assign", target: into, value: { kind: "const", value: tag, type: into.type, span }, span },

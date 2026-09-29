@@ -270,6 +270,20 @@ test("an interface naming an instance's own field stays with that instance: cros
   expect(codes(`PROGRAM P\nVAR sq : FB_S; END_VAR\nsq.Poke(shape := sq);\nEND_PROGRAM\n${shapes}${poke}`)).toContain("interface-lend-alias")
 })
 
+// transpile-review-2026-09-29 task 18 (`tr_18_queryinterface_into_global`): `__QUERYINTERFACE(srcItf, gItf)` from an
+// FB's own child into a GLOBAL is the same cross-instance write as `gItf := src` — CODESYS: r1 = r2 = 1 (x1's child).
+// The query's edge was hard-coded not-foreign, so the call through the global ran on the CALLING instance's child (r2 = 2).
+test("__QUERYINTERFACE into a global is a foreign write, refused like the plain store", () => {
+  const source =
+    "PROGRAM P\nVAR x1 : FB_Q; x2 : FB_Q; END_VAR\nx1(q := TRUE, tag := 1);\nx2(q := FALSE, tag := 2);\nEND_PROGRAM\n" +
+    "VAR_GLOBAL\n  gItf : I_G;\nEND_VAR\n" +
+    "INTERFACE I_G EXTENDS __SYSTEM.IQueryInterface\nMETHOD Get : INT\nEND_METHOD\nEND_INTERFACE\n" +
+    "FUNCTION_BLOCK FB_I IMPLEMENTS I_G\nVAR_INPUT tag : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Get : INT\nGet := tag;\nEND_METHOD\n" +
+    "FUNCTION_BLOCK FB_Q\nVAR_INPUT q : BOOL; tag : INT; END_VAR\nVAR src : FB_I; srcItf : I_G; found : BOOL; res : INT; END_VAR\n" +
+    "src(tag := tag);\nsrcItf := src;\nIF q THEN\n  found := __QUERYINTERFACE(srcItf, gItf);\nEND_IF\nres := gItf.Get();\nEND_FUNCTION_BLOCK\n"
+  expect(lowerSource(source, "P").diagnostics.map((d) => d.code)).toContain("interface-instance-relative")
+})
+
 // Corpus research (2026-09-15), each confirmed in a real project: an array bound that is the POU's or an FB's own VAR
 // CONSTANT (pro2193 `ARRAY[1..numberOfXYControls]`) was "not a sized array" — bounds folded in the project scope only; a
 // GVL variable named like its own list (lenze-mid `Mach1_Alarms.Alm001`) resolved to the list; a FOR step decided at run
