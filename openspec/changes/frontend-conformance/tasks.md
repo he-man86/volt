@@ -3,98 +3,527 @@ frontend-conformance workflow"). Resumable: it skips ticked tasks. Every step: t
 (packages/volt-lsp-iec `bun test`, plus `bun run check` at the repo root); the map regenerated; the step's numbers
 written under its task. Oracle: CODESYS recordings, written only by the recorders.
 
+**Format.** Every task is one `- [ ] <id> <what>` line, followed by `Where:`, `Acceptance:` and `Depends on:` continuation lines.
+Paths are relative to `packages/volt-lsp-iec/`; from 1.12 on, `syntax/`, `symbols/`, `types/`, `library/` mean
+`src/frontend/<that>/`. Rule ids (L1, N2, Y23, …) are design.md §4. P6/P9/P10 are design.md §1.
+
+**Acceptance shorthands.**
+- **F:** `bun scripts/frontend-snapshot.ts check` is identical against the task's base commit (design.md P9), and
+  `bun scripts/suite-snapshot.ts --compare` is identical.
+- **Gate T** (tasks that edit `src/transpile/`): design.md P10 — `src/transpile/` is clean at the start and no other run is editing it;
+  only the named transpile edits, in this task's commit; paths via `scripts/codemod-frontend-paths.ts`.
+- **CA** (every conformance task in 2.x, 3.x, 4.x):
+  1. every fixture the task names exists and is recorded (`record:language` and/or `record:exec`, `RECORD_ONLY=<fixture>`);
+  2. each disagreement was first pinned as a known divergence (red), then fixed test-first in the home design.md §4 names, and its
+     mark removed; a disagreement NOT fixed in the task stays a known divergence and is written under the task;
+  3. `rules.test.ts`: the GAP count of the task's rule ids falls by exactly the rows the task closes, and the pinned numbers in 0.5
+     are updated in the same commit (they may only fall);
+  4. the F diff (`frontend-snapshot.ts check`, printed, not required identical) touches only sources containing the task's rules;
+     every other difference is a regression and is fixed;
+  5. written under the task: fixtures recorded, divergences opened/closed, GAP count before → after, F-diff file count.
+
 ## 0. Measure (mechanical, no judgement)
 
 - [ ] 0.1 Parse every corpus file, fixture source and library body. Table: files CODESYS builds (build recordings)
       vs LSP parse errors; every LSP parse error without a recorded CODESYS error is a finding.
+      Where: test/frontend/parse-census.test.ts (+ committed baseline). Acceptance: table written here. Depends on: —
 - [ ] 0.2 Printer/formatter fixed point on everything parsed in 0.1; every non-fixed-point file is a finding.
+      Where: test/frontend/fixed-point.test.ts (+ baseline). Acceptance: finding count written here. Depends on: 0.1
 - [ ] 0.3 Resolution dump: every identifier occurrence → its declaration (or none). LSP "not defined" / "ambiguous" /
-      "no member" messages vs the recorded ones, both directions.
-- [ ] 0.4 Type dump: every expression's inferred type. Cross-check against recordings that decide a type (run values
-      that show width/sign/overflow; CODESYS type-mismatch and conversion messages).
-- [ ] 0.5 Rule inventory: list every grammar production (parser.ts, expression.ts, statements.ts, type-expr.ts,
-      var-section.ts, units/), every scope/resolution rule (binder.ts, scope-nav.ts, precedence.ts,
-      library-namespace.ts) and every typing rule (elementary, arith, compat, infer, const-eval) with the fixtures
-      that cover it; an uncovered rule is a gap.
-- [ ] 0.6 Baseline numbers into this file (parse findings, fixed-point failures, resolution and type disagreements,
-      uncovered rules).
+      "no member" messages vs the recorded ones, both directions. The dump builder is shared with snapshot F.
+      Where: test/frontend/dumps.ts (resolutionDump), test/frontend/resolution-dump.test.ts (+ baseline).
+      Acceptance: both-direction counts written here. Depends on: 0.1
+- [ ] 0.4 Type dump and fold dump: every expression's inferred type; every constant expression/initializer's `constEval` value.
+      Cross-check types against recordings that decide a type (run values that show width/sign/overflow; CODESYS type-mismatch and
+      conversion messages) and folds against run values of constants.
+      Where: test/frontend/dumps.ts (typeDump, foldDump), test/frontend/type-dump.test.ts, test/frontend/fold-dump.test.ts
+      (+ baselines). Acceptance: UNKNOWN count, type disagreements and fold disagreements written here. Depends on: 0.3
+- [ ] 0.5 Rule inventory: design.md §4 as data; every uncovered rule is a gap. Run `scripts/conversion-matrix.ts` and write the
+      number of explicit-conversion pairs without a fixture (CV7). Pin the GAP count per area (2, 3, 4) and in total here.
+      Where: test/frontend/rules.ts, rules.test.ts. Acceptance: the counts are pinned here; the test fails if a listed fixture is
+      missing or unrecorded, if a listed test title is missing, or if a count differs; the design as written (1.1) has
+      134 GAP rows (area 2: 81, area 3: 26, area 4: 27) before 0.5 re-checks each listed fixture. Depends on: 1.1
+- [ ] 0.6 Baseline numbers into this file (parse findings, fixed-point failures, resolution, type and fold disagreements,
+      uncovered rules, missing conversion pairs). Depends on: 0.1–0.5
 
 ## 1. Front-end restructure (design first, then output-neutral moves)
 
-- [ ] 1.1 design.md "Structure" (written by the frontend-design run): every current file of syntax/, symbols/, types/ —
-      its responsibility, dependencies, and every place each concern is implemented (lexing, literal decoding, bodies,
-      implementation line, unit parsing, attributes, scopes, precedence, inference, compatibility, constant evaluation);
-      the TARGET folder and file structure with one home per concern; the front-end layer and its public index; import
-      rules; the old -> new map for every file and major function; the test layout.
-- [ ] 1.2 An import-rule test (a repo gate): the front-end imports nothing from analysis/services/server/network/
-      transpile; back-ends import it only through its index — red first.
-- [ ] 1.3 The moves and splits of design.md, one task per move in an order where every step compiles and the suite is
-      green; OUTPUT-NEUTRAL: every suite, the corpus diagnostics and the transpiler's corpus-output snapshot unchanged.
-      (The detailed move list is written into this section by the frontend-design run.)
-- [ ] 1.4 The import-rule test green; no concern left implemented in two places.
+Every 1.x task: output-neutral (**F**), and the full suite is green. The layering gate's known-violation list may only shrink. No
+re-export shims: a moved symbol's old path is deleted in the same task. `src/transpile/` is touched only for import paths and for the
+functions a task names, under **Gate T**; transpile's own copies are handed to transpile-restructure (design.md P6 "T", task 5.3).
+
+- [x] 1.1 design.md: principles, target structure (`src/frontend/{library,syntax,symbols,types}`), old → new map (files, tests,
+      functions, duplicated concerns), rule catalogue, test layout, and the 30 review gaps closed (§6).
+- [ ] 1.2 The import-rule gate. `scripts/check-layering.ts` scans `src/`, `test/`, `scripts/` and `libraries/`, gains F1–F4
+      (design.md §5), and a known-violation list naming today's violations: types→reference, the 4 production deep imports, the
+      2 src test deep imports and the 16 test/script deep imports (design.md P4 census), the front-end tests importing consumers,
+      `process.env` in syntax. `test/frontend/layering.test.ts` runs it and fails on a new violation AND on a listed violation that
+      no longer occurs.
+      Where: scripts/check-layering.ts, test/frontend/layering.test.ts. Acceptance: green with the list; removing a list entry
+      turns it red. Depends on: 1.1
+- [ ] 1.3 Front-end snapshot F: `scripts/frontend-snapshot.ts write|check [--base <rev>]` (F-front: AST + errors +
+      failedDeclarations + tokens, resolution/type/fold dumps from test/frontend/dumps.ts, corpus diagnostics; F-back: fixture Rust
+      and interpreter outputs); `check` builds the base in a temporary git worktree, cached per commit (design.md P9);
+      `package.json` script `snapshot:frontend`; `.gitignore` entry; scripts/README.md.
+      Acceptance: `check` against the current commit is identical twice in a row; a deliberate one-character change to a
+      diagnostic makes it differ; run time written here. Depends on: 1.2, 0.3, 0.4
+- [ ] 1.4 Deep imports through the indexes. Census (written here): every name imported from outside each sub-layer; the indexes
+      export exactly that set plus design.md "Index contents" (`pickForAsker`, `scopeUri`, `libraryRank`, `LibraryManifest`,
+      `MATERIALIZATION*` (symbols for now), `BINARY_PRECEDENCE`, `memoByProject`, `dialectOf` …). Fix obsolete-usage.ts,
+      empty-block.ts, reference-assign.ts, types/resolve.ts, server/server.test.ts, test/conformance/suite.test.ts, and the 16
+      test/script deep imports (test/corpus/corpus.test.ts and scripts/probe-ambiguous-uses.ts included).
+      Acceptance: F; the gate's deep-import entries are removed. Depends on: 1.3
+- [ ] 1.5 Front-end tests import no consumer: the network-text half of syntax/implementation-keyword.test.ts → src/network-text/;
+      the analysis half of types/conversion-name.test.ts → src/analysis/; the symbols half of syntax/units/namespace.test.ts →
+      symbols/binder.test.ts; types/ambiguous-name.test.ts → types/resolve.test.ts.
+      Acceptance: F (every test title kept); gate entries removed. Depends on: 1.4
+- [ ] 1.6 Built-in result facts into `types/builtins.ts`: every FIXED `returnType` of reference.ts (`__POSITION`,
+      `__COMPARE_AND_SWAP`, `__XADD`, `TEST_AND_SET` and the rest) as `BUILTIN_RESULT`; infer's `MATH_ARG_TYPED` and the
+      EXPT/`__XADD`/`__POSITION` rules; `exptResultType` from arith.ts. infer's `lookupReference` call is replaced by
+      `BUILTIN_RESULT` + `parseConversionName` (the derived conversion return types). reference.ts reads its fixed return types
+      from types; `conversionEntry` stays derived. transpile/lower/builtins.ts keeps importing `exptResultType` by name from the
+      types index (no transpile edit).
+      Acceptance: F (hover output unchanged); `grep lookupReference src/types` is empty; `ALLOWED_UPWARD` empty; gate entry
+      removed. Depends on: 1.4
+- [ ] 1.7 `Document` → `services/shared/document.ts`; its consumers in services/, server/ and network/ switch.
+      Acceptance: F; syntax exports no Document. Depends on: 1.4
+- [ ] 1.8 `allUnits` in ast-walk (the one namespace flattener): replaces type-refs `flatUnits`, parser `claimedKeywordLines`,
+      reachability ×3, network-services:69, server/diagnostics:133, semantic-tokens:181 and formatting/print:139 where the unit set
+      is identical. A site whose set differs is left and listed here for 3.1.2.
+      Acceptance: F; a grep for hand recursion over `.units` finds only allUnits (plus the listed sites). Depends on: 1.4
+- [ ] 1.9 `syntax/type-refs.ts` → `services/navigation/type-refs.ts` (`unitTypeExprs` private).
+      Acceptance: F; references tests unchanged. Depends on: 1.8
+- [ ] 1.10 `tokenAtOffset` (token-at.ts), `exprAtOffset`, `memberAtOffset` → `services/shared/positions.ts`;
+      syntax/token-at.test.ts → services/shared/positions.test.ts; network imports them downward.
+      Acceptance: F; syntax exports none of them; no syntax test imports services. Depends on: 1.4
+- [ ] 1.11 The network-text switch becomes a parse option (`networkText: boolean`), and the parse options carry the dialect to the
+      network-text parser. The server reads `VOLT_GRAPHICAL` in one place; the test preload and conformance support pass it. First
+      count and list here every direct parse call that depends on the env default.
+      Acceptance: F (with VOLT_GRAPHICAL=1 and without); the "off" server test still passes; no `process.env` under syntax; gate
+      entry removed. Depends on: 1.4
+- [ ] 1.12 Folder move: `src/{syntax,symbols,types}` → `src/frontend/{syntax,symbols,types}`, `src/frontend/index.ts`; the import
+      codemod `scripts/codemod-frontend-paths.ts` (committed, re-runnable) over ~254 consumer files and ~38 test/script files;
+      `check-layering.ts` `layerOf` maps `frontend/<x>`, `TRANSPILE_ALLOWED = {frontend}`; `network-text` re-ranked to 2.5;
+      `docs/architecture.md` paths.
+      Acceptance: Gate T; `tsc` clean; F. Depends on: 1.5–1.11
+- [ ] 1.13 `span.ts` owns joining and synthetic spans: `joinSpans` (from util), expression `merge`/`mergeSpans` deleted,
+      `eofSpan`/`zeroSpan` replace the 5 hand-built spans; the lexer's EOF span uses its incremental line/col.
+      Acceptance: F (spans included). Depends on: 1.12
+- [ ] 1.14 `lex/`: tokens.ts → `lex/tokens.ts` (TokenKind, Token, isTrivia) + `lex/vocabulary.ts` (`KEYWORDS` const array,
+      `Keyword` derived; named subsets replacing cursor `SOFT_NAME_KEYWORDS`/`DECL_LIST_ENDERS`, var-section `SECTION_KEYWORDS`,
+      parser `TOP_LEVEL_DISPATCH`, the FB/method/property/interface modifier sets; lexer prefix tables; `MULTI_CHAR_PUNCT`,
+      `SINGLE_CHAR_PUNCT`); `lexer.ts` → `lex/lexer.ts`; `ParseResult.tokens` exposed and used by analysis/diagnostics and
+      refused-name (same dialect). The orphan JSDoc and the consumer list in the dialect comment are deleted.
+      Acceptance: F; one keyword list. Depends on: 1.13
+- [ ] 1.15 `ast/`: ast.ts → `ast/nodes.ts`; ast-walk.ts → `ast/walk.ts`; `isSelfRef` + `sameName` (from types/compat) →
+      `identifier.ts` (+ `selfRefKind`); this-super-context.ts:32,42-44 uses them; `varInputParams` → `ast/declarations.ts`; stale
+      ast.ts comments fixed.
+      Acceptance: F; no `=== "THIS"`/`"SUPER"` comparison outside identifier.ts. Depends on: 1.14
+- [ ] 1.16 `parse/cursor.ts` (Cursor only, unused `_context` parameters removed) and `parse/errors.ts` (cursor `describeToken`,
+      util `describeToken`, type-expr `tokenDescription`, the inline "got <kind>" forms as named functions; `nameExpected`,
+      `reportBrokenDeclaration`); the detached JSDoc fixed.
+      Acceptance: F (every message byte-identical). Depends on: 1.15
+- [ ] 1.17 `util.ts` dissolved: `parse/body.ts` (collectBodyUntil(Any), cursor `consumeBodyUntilAny`, property
+      `collectAccessorBody`), `parse/names.ts` (identFromToken, eatModifiers), `format/folder.ts` (readFolderLine,
+      closesDeclaration, reportMisplacedFolder), `collectVarSections` → var-section; the util↔var-section cycle is gone; C#
+      `<see cref>` docs rewritten.
+      Acceptance: F; no import cycle in syntax (the gate checks). Depends on: 1.16
+- [ ] 1.18 `parse/names.ts`: one `readQualifiedName` (type-expr loop, `readMaybeQualifiedName`, interface `parseQualifiedName`;
+      callers keep their node shapes), one `readNameList` (the 5 identifier-list loops), one `readModifiers` (FB, method, property
+      and interface loops; FB/method keep their boolean flags).
+      Acceptance: F. Depends on: 1.17
+- [ ] 1.19 `parse/initializer.ts` (aggregate parser, collectInitTokens, initializerFromTokens) out of expression.ts;
+      `parse/scan.ts` (one balanced scanner for collectInitTokens, collectDimTokens, collectBalancedParenInner, topLevelDotDot);
+      aggregate.test.ts → parse/initializer.test.ts. The stale expression.ts header is rewritten.
+      Acceptance: F. Depends on: 1.18
+- [ ] 1.20 `parse/statements.ts` + `parse/body-parse.ts`: the BodyParse cache and conditional-pragmas `parseActive` in one module
+      with one cache; the stale statements.ts header is rewritten.
+      Acceptance: F (both entries still give today's two trees). Depends on: 1.19
+- [ ] 1.21 `parse/type-expr.ts`, `parse/declarations.ts` (var-section + type-decl `parseStructField` side by side), `parse/units/*`,
+      `parse/units/header.ts` (`parseOptionalReturnType`; program.ts uses it only if F is unchanged, else noted for 2.4.1),
+      `parse/parser.ts` (dispatch from UNIT_STARTERS; header rewritten); interface.ts import order fixed; parser.test.ts,
+      fuzz.test.ts, units/interface.test.ts, units/namespace.test.ts move to parse/ (design.md §3.1a).
+      Acceptance: F. Depends on: 1.20
+- [ ] 1.22 `literal/`: literal-value.ts → `literal/value.ts` + `literal/string.ts` (tests split likewise);
+      `calendarNanoseconds` from transpile/lower/constants.ts → `literal/calendar.ts` (the transpile call site imports it from the
+      syntax index); the lexer's prefix carried on the Literal node (`prefix`); `types` literal typing reads `prefix`, not a regex
+      over `text`.
+      Acceptance: Gate T; F. Depends on: 1.21
+- [ ] 1.23 `pragmas/`: `conditional.ts` (scanner; `hasConditionalPragmas` replaces unresolved-identifier `CONDITIONAL_PRAGMA_RE`;
+      analysis/checks/pragmas/pragmas.ts's balance stack switches only if F is unchanged, else noted for 2.7.1); `attributes.ts`
+      (one regex, one lex). The seven attribute sites of design.md P6: unit-attributes.ts (moves), binder `hasQualifiedOnly` →
+      `fileHasAttribute`, analysis attribute-placement.ts, analysis pragmas.ts, services hover.ts, services completion.ts,
+      workspace-refs.ts (the obsolete regex) — each switches where identical; `addAttribute` test-only export removed; tests move
+      (conditional-pragmas.test.ts, unit-attributes.test.ts).
+      Acceptance: F; the non-identical sites are listed here. Depends on: 1.22
+- [ ] 1.24 `format/`: implementation-keyword.ts → `implementation-line.ts`, `folder.ts`, `retired-comments.ts`, `reserved-names.ts`,
+      `network-header.ts` (network-text/parser.ts imports its markers and drops its copy); syntax/bodies.ts → `format/bodies.ts`;
+      implementation-keyword.test.ts and units/folder-directive.test.ts → `format/*.test.ts`, each FMT1–FMT8 case under the title
+      design.md §4 2.10 names; exports used only inside a file become private.
+      Acceptance: F; one set of network-header markers. Depends on: 1.23
+- [ ] 1.25 `frontend/library/`: `path.ts` (isLibraryUri, libraryOf, the path half of isLibrarySymbol; workspace-store:135
+      switches), `manifest.ts`, `materialization.ts` (out of symbols/library-namespace.ts); server/diagnostics, workspace-refs,
+      libraries/index.ts, transpile lower.ts and the tests import `library/index`; library-symbol.test.ts split (design.md §3.1a).
+      Acceptance: Gate T; F; `bun run check` (C# parity) green. Depends on: 1.24
+- [ ] 1.26 Symbols model split: symbol.ts → `model.ts`, `scope.ts`, `cache.ts` (the lazy indices, `invalidate(scope)` used by
+      binder, library-namespaces, scope-nav and canonicalize; `memoByProject`).
+      Acceptance: F; no `_childIndex` write outside cache.ts. Depends on: 1.25
+- [ ] 1.27 Binder split: `binder.ts` (ingest, `gvlName`, which document-symbol uses), `incremental.ts` (bindFile, unbindFile,
+      canonicalize, `relink`), `extends.ts` (`linkExtends`, `extendsChain` base-first with a cycle guard, `baseOf`); the rank doc
+      lives only in precedence.ts; `model.ts` `isPouScope` replaces network-analyze:111 `isPou`'s kind set; build-API `localScope`
+      replaces network-analyze:41-54's hand-built Scope; symbols.test.ts → binder.test.ts, extends-ambiguity.test.ts →
+      extends.test.ts, incremental-rebind.test.ts → incremental.test.ts.
+      Acceptance: F. Depends on: 1.26
+- [ ] 1.28 scope-nav gains `enclosingPou` (from infer), `rootOf` and `resolveQualifiedConst` (from const-eval), `visibleNames`
+      (completion:81-93), `symbolDefinedAt` (resolve-at:84-100); inherited-variable:34, network-analysis pinSet and
+      this-super-context:22 switch where identical.
+      Acceptance: F; every non-identical site listed here for 3.x. Depends on: 1.27
+- [ ] 1.29 symbols/bodies.ts → `symbols/scoped-bodies.ts`; server/diagnostics `unstatedBodies` and analysis/body-context.ts list
+      bodies through `unitBodies`.
+      Acceptance: F. Depends on: 1.28
+- [ ] 1.30 symbols index curated: the named read API of design.md "Index contents" + a `build` namespace (buildSymbolTable,
+      bindFile, unbindFile, relink, localScope); server/workspace-store, transpile lower.ts and network-analyze use `build`.
+      Acceptance: Gate T; F; no `export *` in symbols/index. Depends on: 1.29
+- [ ] 1.31 elementary.ts split exactly as design.md §3.1: `elementary.ts` (facts, `elementaryType`), `platform.ts`
+      (`PLATFORM_ALIASES`, `POINTER_BITS`, `canonicalElem` with an optional target defaulting to today's 64-bit answer),
+      `predicates.ts` (complete list incl. `isDuration`, `numericRank`), `conversion-name.ts`, `defaults.ts`; the header's legacy
+      reference is removed. No transpile file changes (it imports through the types index).
+      Acceptance: F; every former elementary.ts export has exactly one home. Depends on: 1.30
+- [ ] 1.32 `types/literal.ts`: integerLiteralType, REAL_LITERAL_TYPE, ANY_INT_RANGE, REAL_MAX_MAGNITUDE, and infer's literalType,
+      literalCheckType, literalErrorType, typedLiteralSum; `literalOwnType` (reference-assign, call-arguments),
+      `literalCapacityType` (constant-overflow), `isNegatedIntLiteral` (narrowing) replace the consumer copies; literal-check.test.ts
+      → literal.test.ts.
+      Acceptance: F. Depends on: 1.31
+- [ ] 1.33 `types/width.ts`: `integerOfWidth` (from arith), `wrapToWidth` (const-eval `heldAs`), `widthOf`; infer's three ladders
+      and checkedNegationType's ternary use it.
+      Acceptance: F. Depends on: 1.32
+- [ ] 1.34 `types/arith/`: `runtime.ts`, `checked.ts`, `temporal.ts`, `operators.ts` (`UNARY_ACCEPTS` from unary-operand;
+      `operandConversion` from narrowing; `operandFamilyRule` from rules.binaryOpError; the bitwise-result rule from infer;
+      `OPERATOR_FUNCTIONS`); network-text/parser.ts `BIT_STRINGS`/`COMPARISONS`/`BIT_OPERATORS` switch to
+      `inTypeGroup("ANY_BIT")` and `OPERATOR_FUNCTIONS` where F is unchanged (else listed here for 4.4). The analysis checks keep
+      only their messages; arith.test.ts split by file.
+      Acceptance: F; no family list in analysis/checks/types/{unary-operand,narrowing}.ts or rules.ts. Depends on: 1.33
+- [ ] 1.35 `types/infer/`: `expr.ts`, `member.ts`, `callee.ts` (`fbChainSections` on `extendsChain`); stray doc block fixed.
+      Acceptance: F. Depends on: 1.34
+- [ ] 1.36 `types/const/`: `fold.ts`, `constancy.ts`; name resolution through `scope-nav.resolveQualifiedConst`; const-eval.test.ts
+      and constancy.test.ts move.
+      Acceptance: F. Depends on: 1.35
+- [ ] 1.37 `types/enums.ts`: the EnumType.base rule (from resolve) and enum numbering/default (`defaultOfValues`, `enumDefault`,
+      `inlineEnumDefault` from transpile/lower/constants.ts; the transpile call sites import them from the types index).
+      Acceptance: Gate T; F (the storage-base disagreement is left for 4.7.3). Depends on: 1.36
+- [ ] 1.38 `compat.ts` owns pointer↔integer (from pointer-conversion `pointerSized`, width from `platform.POINTER_BITS`);
+      `resolve.isDialectType` replaces resolution.ts:107/:229 and refused-name.ts:114; `types/names.ts` created holding
+      `nameResolves`'s search order ONLY if F is unchanged (else it moves in 3.1.5, and this is noted here).
+      Acceptance: F. Depends on: 1.37
+- [ ] 1.39 `render.ts` forms: messages `compilerTypeName`, `compilerArrayText`, `compilerSubrangeText` type text →
+      `renderType(t, { form: "compiler" })`; array-bounds, array-init:54 and compilerArrayText read `ArrayTypeInfo.bounds`.
+      Acceptance: F (every message byte-identical). Depends on: 1.38
+- [ ] 1.40 Types and syntax indexes curated (named exports, the 1.4 census). Dead exports deleted (`isKnown`, `isNarrowing` and
+      their tests). Exports used only inside their sub-layer made private: types (numericRank, isDatetime, isIsolated, durationFor,
+      elementaryDisplayName) and syntax (parseTopLevel, parseExpression, parseAssignable, atVarSection, parseVarSection,
+      collectInitTokens, bodySpanFromTokens, codeBody, opensKeywordLine, statementOf, unsupportedLine, UNSUPPORTED_WORD, folderOn,
+      MULTI_CHAR_PUNCT, SINGLE_CHAR_PUNCT), each only where `scripts/dead-exports.ts` confirms no outside user.
+      Acceptance: F; `scripts/dead-exports.ts` is clean for frontend/; no `export *` in any front-end index. Depends on: 1.39
+- [ ] 1.41 No concern in two places: the layering gate's known-violation list is empty; design.md §3.3 is re-verified by grep (every
+      "R" row has one home). Every remaining copy is either a C task named in design.md or a T hand-off listed in 5.3. Stale headers
+      named in the maps (parser, statements, expression, var-section, render) are rewritten.
+      Acceptance: gate green with an empty list; the §3.3 check result written here. Depends on: 1.40
 
 ## 2. Parser (syntax/) conformance
 
-Per area: review against CODESYS's grammar (docs/codesys-reference, docs/language-reference.md) and the recordings;
-one fixture per rule, recorded with `record:language` (accept, or CODESYS's exact messages); root causes fixed
-test-first.
+Per group: record the named fixtures first (`record:language`; accept, or CODESYS's exact messages); pin each disagreement as a
+known divergence, then fix test-first in the file design.md §4 names. Every task's acceptance is **CA** unless it says otherwise.
 
-- [ ] 2.1 Lexer: identifiers (incl. reserved words — LIMIT/MIN/MAX/SEL/MUX are reserved in CODESYS), comments
-      (nested, line), pragmas, whitespace/line endings, every token class.
-- [ ] 2.2 Literals: integer (typed `INT#`, based `16#`, `_` separators, signs), REAL/LREAL (exponents, limits),
-      BOOL, TIME/LTIME, DATE/LDATE, TOD/LTOD, DT/LDT (every unit and range), STRING/WSTRING (every `$` escape,
-      `$00`, quotes), typed and enum literals.
-- [ ] 2.3 Declarations: every VAR section kind and qualifier (CONSTANT, RETAIN, PERSISTENT, AT), initializers
-      (structured, arrays, repeat counts), types (ARRAY incl. multi-dim and `*`, POINTER TO, REFERENCE TO, STRING(n),
-      subranges, anonymous enums).
-- [ ] 2.4 Units: PROGRAM, FUNCTION, FUNCTION_BLOCK (EXTENDS, IMPLEMENTS, ABSTRACT, FINAL, access modifiers), METHOD,
-      PROPERTY (GET/SET), ACTION, INTERFACE (EXTENDS), TYPE (STRUCT incl. EXTENDS, UNION, enum with base, alias), GVL,
-      NAMESPACE / library qualification, the IMPLEMENTATION line.
-- [ ] 2.5 Expressions: precedence and associativity of every operator (incl. `**`/EXPT, unary minus, NOT, MOD, AND_THEN
-      / OR_ELSE), calls (formal, informal, `=>` outputs, EN/ENO), member/index/deref chains, THIS/SUPER, `REF=`, ADR.
-- [ ] 2.6 Statements: assignment forms (`:=`, `S=`, `R=`, `REF=`), IF/CASE (label lists, ranges, enum labels), FOR/
-      WHILE/REPEAT, EXIT/CONTINUE/RETURN/JMP, empty statements, calls as statements.
-- [ ] 2.7 Pragmas and conditional compilation (`{IF defined(...)}`, attributes on every position).
-- [ ] 2.8 Error recovery: every recorded CODESYS parse error reproduced at the same location with the same meaning.
-- [ ] 2.9 Printer/formatter: fixed point everywhere (0.2 findings closed).
+- [ ] 2.1.1 Comments and line endings (L1–L4). Record lex_line_comment_in_body, lex_block_comment, lex_nested_block_comment,
+      lex_crlf_body, lex_crlf_implementation_line.
+      Where: lex/lexer, format/implementation-line. Acceptance: CA. Depends on: 1.41
+- [ ] 2.1.2 Identifiers, keywords, unknown characters, deprecated keywords (L5–L8, L13, L15). Record lex_unknown_character,
+      lex_reserved_unused_keyword_as_name (READ_ONLY, FROM, USING, WITH), lex_div_as_operator, lex_cal_keyword, lex_ini_keyword.
+      Where: lex/vocabulary, lex/lexer. Acceptance: CA. Depends on: 2.1.1
+- [ ] 2.1.3 Reserved and soft names (L9, L12, L14): the refused-name cascade moves into the parser. Record lex_limit_as_variable,
+      lex_min_as_variable, lex_sel_as_variable, lex_mux_as_variable, lex_max_as_variable, lex_soft_keyword_names.
+      Where: parse/errors, parse/names; analysis/checks/names/refused-name.ts shrinks to what the parser cannot know.
+      Acceptance: CA. Depends on: 2.1.2
+- [ ] 2.1.4 Dialect vocabulary (L10, L11): `__VECTOR` applied on TwinCAT; every default-dialect re-lexer of design.md P6 lexes with
+      the project dialect: services hover.ts, semantic-tokens.ts, analysis reachability.ts, symbols binder.ts, pragmas/attributes,
+      services/shared/positions.ts (`tokenAtOffset`), network/network-analyze.ts:116, network-text/parser.ts:1175 (via the parse
+      options of 1.11). Record lex_vector_twincat, lex_codesys_only_keyword_twincat_names.
+      Where: lex/vocabulary, parse/type-expr, the eight sites. Acceptance: CA; `grep "lex("` outside syntax/ shows only calls that
+      pass a dialect. Depends on: 2.1.3
+- [ ] 2.2.1 Integers and bases (N1–N10): record lit_int_underscore, lit_invalid_base_3, lit_invalid_base_10, lit_byte_typed,
+      lit_word_typed, lit_word_16_ff, lit_int_typed_negative.
+      Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 1.41
+- [ ] 2.2.2 Reals and BOOL (N11–N15, N12a, N12b): record lit_bool_typed_true, lit_bool_typed_1, lit_real_exponent_capital,
+      lit_real_no_leading_digit, lit_real_no_fraction_digit.
+      Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 2.2.1
+- [ ] 2.2.3 Durations (N16–N20): the TIME us/ns refusal moves into the lexer (from analysis time-literal-unit). Record
+      lit_time_underscore, lit_time_fraction, lit_time_negative, lit_ltime_fraction_ns.
+      Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 2.2.2
+- [ ] 2.2.4 Dates, TOD, DT (N21–N25): calendar decode in literal/calendar. Record lit_date_month_13, lit_tod_hour_25,
+      lit_dt_leap_day, lit_ldt_nanoseconds.
+      Where: literal/calendar, lex/vocabulary. Acceptance: CA. Depends on: 2.2.3
+- [ ] 2.2.5 Strings and escapes (S1–S9): the WSTRING `$hhhh` refusal moves into the lexer (from analysis wstring-escape). Record
+      lit_wstring_named_escapes, lit_string_double_quote_inside, lit_wstring_single_quote_inside.
+      Where: lex/lexer, literal/string. Acceptance: CA. Depends on: 2.2.4
+- [ ] 2.2.6 Typed char, typed STRING, enum literal, UTF8 (S10–S13): record lit_char_typed, lit_wchar_typed, lit_string_typed,
+      lit_wstring_typed, lit_enum_typed_value, lit_utf8_string, lit_utf8_non_ascii.
+      Where: lex/lexer, literal/string. Acceptance: CA. Depends on: 2.2.5
+- [ ] 2.2.7 Addresses (A1–A2): record lit_address_incomplete, lit_address_unsized.
+      Where: lex/lexer. Acceptance: CA. Depends on: 2.2.6
+- [ ] 2.3.1 VAR section kinds (D1–D5): VAR_ACCESS dispatched at file scope with its path syntax. Record decl_var_access,
+      decl_var_access_read_only, decl_var_generic.
+      Where: parse/declarations, parse/parser. Acceptance: CA. Depends on: 1.41
+- [ ] 2.3.2 Qualifiers (D6–D7): the NON_RETAIN refusal moves into the parser (from lost-declaration). Record
+      decl_non_retain_in_gvl, decl_constant_retain.
+      Where: parse/declarations. Acceptance: CA. Depends on: 2.3.1
+- [ ] 2.3.3 Names and AT (D8–D11): the AT-operand refusal moves into the parser (from at-address / lost-declaration). Record
+      decl_at_after_type, decl_at_not_an_address, decl_at_incomplete_in_program.
+      Where: parse/declarations. Acceptance: CA. Depends on: 2.3.2
+- [ ] 2.3.4 Initializers and aggregates (D12–D17): record decl_repeat_count, decl_nested_aggregate, decl_bracket_init_no_assign,
+      decl_struct_init_missing_field.
+      Where: parse/initializer, parse/declarations. Acceptance: CA. Depends on: 2.3.3
+- [ ] 2.3.5 One declaration parser for struct fields (D19, U23): `parseStructField` → `parseVarDecl`. Record
+      decl_struct_field_soft_name, decl_struct_field_ref_init, decl_struct_field_at, decl_var_inside_struct.
+      Where: parse/declarations, parse/units/type-decl. Acceptance: CA. Depends on: 2.3.4
+- [ ] 2.3.6 Type expressions (T1–T11): one implicit-enum value parser. Record decl_array_of_array, decl_pointer_to_pointer,
+      decl_string_brackets, decl_string_length_constant, decl_implicit_enum_with_base.
+      Where: parse/type-expr. Acceptance: CA. Depends on: 2.3.5
+- [ ] 2.4.1 PROGRAM and FUNCTION headers (U1–U4): record unit_program_return_type, unit_function_no_return_type,
+      unit_function_implements.
+      Where: parse/units, parse/units/header. Acceptance: CA. Depends on: 2.3.6
+- [ ] 2.4.2 FUNCTION_BLOCK headers (U5–U10), with one qualified-name AST shape. Record unit_fb_extends_qualified,
+      unit_fb_implements_qualified, unit_fb_public, unit_fb_internal.
+      Where: parse/units/function-block, parse/names, ast/nodes. Acceptance: CA. Depends on: 2.4.1
+- [ ] 2.4.3 METHOD/PROPERTY/ACTION modifiers (U11–U17): modifiers become an ordered list in the AST (all unit kinds); the property
+      and interface modifier sets are decided by recording. Record unit_method_each_modifier (6), unit_method_override_public_order,
+      unit_property_modifiers, unit_property_accessor_modifier, unit_property_no_end_get.
+      Where: parse/units/{method,property,action}, parse/names, lex/vocabulary. Acceptance: CA. Depends on: 2.4.2
+- [ ] 2.4.4 INTERFACE (U18–U21): accessor VAR sections kept in the AST; the unterminated path keeps implementsMisused. Record
+      unit_interface_extends_list, unit_interface_implements, unit_interface_property_accessor_var.
+      Where: parse/units/interface. Acceptance: CA. Depends on: 2.4.3
+- [ ] 2.4.5 TYPE (U22–U27): STRUCT EXTENDS accepted in one place; no invented `?` alias. Record unit_type_extends_on_enum,
+      unit_type_extends_on_alias, unit_struct_extends_twice.
+      Where: parse/units/type-decl. Acceptance: CA. Depends on: 2.4.4
+- [ ] 2.4.6 NAMESPACE (U28): a multi-object fixture shape. Record unit_namespace_block, unit_namespace_nested,
+      unit_namespace_method_after_fb.
+      Where: parse/units/namespace, test/conformance support (the multi-object shape). Acceptance: CA. Depends on: 2.4.5
+- [ ] 2.4.7 The Volt format (FMT1–FMT8): unit tests only, one per rule, under the titles design.md §4 2.10 names (most moved in
+      1.24; the missing ones written here).
+      Where: syntax/format/*.test.ts. Acceptance: every FMT row's test title exists (rules.test); F unchanged (no product change
+      unless a test finds a bug, which is then fixed test-first and noted). Depends on: 2.4.6
+- [ ] 2.5.1 Precedence and associativity (E1, E3, E4, E6–E9): record expr_power_right_assoc, expr_neg_power,
+      expr_comparison_chain, expr_mod_precedence. The CASE lookahead (statements `isArmStart`) uses the expression grammar.
+      Where: parse/expression, parse/statements. Acceptance: CA. Depends on: 1.41
+- [ ] 2.5.2 Unary (E10–E11): record expr_unary_plus, expr_prefix_ampersand, expr_double_minus, expr_not_not.
+      Where: parse/expression. Acceptance: CA. Depends on: 2.5.1
+- [ ] 2.5.3 `&` and `**` refused by the parser (E2, E5), moved from analysis unsupported-operator. The fixtures exist.
+      Where: parse/expression, parse/errors. Acceptance: CA; the recorded messages stay byte-identical. Depends on: 2.5.2
+- [ ] 2.5.4 Postfix chains (E12–E17, E22, E32): the call-result postfix refusal (call-result-access) and the partial-access
+      refusal (partial-access) move into the parser. Record expr_trailing_comma_index, expr_trailing_comma_call,
+      expr_member_named_keyword.
+      Where: parse/expression. Acceptance: CA. Depends on: 2.5.3
+- [ ] 2.5.5 Calls (E18–E21, E23, E28, E31): the IL operator call form moves into the parser. Record expr_en_eno_call.
+      Where: parse/expression. Acceptance: CA. Depends on: 2.5.4
+- [ ] 2.5.6 THIS/SUPER, system operands, global-namespace and pool qualifiers (E24–E30, E33, E34): a leading-dot primary `.ident`.
+      Record expr_inline_assign_if_condition, expr_inline_assign_while_condition, expr_global_namespace_dot,
+      expr_global_namespace_shadowed_local, expr_pool_qualified_call.
+      Where: parse/expression, parse/statements. Acceptance: CA. Depends on: 2.5.5
+- [ ] 2.6.1 Assignment forms (ST1–ST5): record stmt_s_eq_no_space, stmt_ref_eq_on_non_reference.
+      Where: parse/statements, lex/lexer (S=/R=/REF=). Acceptance: CA. Depends on: 2.5.6
+- [ ] 2.6.2 IF and CASE labels (ST6–ST10): record stmt_case_typed_label, stmt_case_paren_label, stmt_case_const_expr_label,
+      stmt_case_negative_label, stmt_case_empty_arm.
+      Where: parse/statements. Acceptance: CA. Depends on: 2.6.1
+- [ ] 2.6.3 Loops, jumps, missing `;`, `__TRY` recovery, CAL/INI statements (ST11–ST19): record stmt_return_no_semicolon,
+      stmt_exit_no_semicolon, stmt_continue_no_semicolon, stmt_try_without_catch, stmt_try_nested, stmt_cal_instance,
+      stmt_ini_call.
+      Where: parse/statements. Acceptance: CA. Depends on: 2.6.2
+- [ ] 2.7.1 Conditional compilation: ONE statement tree. Every consumer uses `bodyStatements` with pragmas applied; the
+      unresolved-identifier skip and the analysis balance stack are removed. The `{IF}` grammar covers P10–P13. Record
+      prag_define_in_declaration, prag_if_in_expression_statement, prag_unbalanced_end_if, prag_define_with_value,
+      prag_if_hasvalue, prag_if_hasconstantvalue, prag_if_hasconstanttype, prag_if_defined_type, prag_if_defined_pou,
+      prag_if_defined_task, prag_if_is_little_endian, prag_if_register_size, prag_if_not_and_or, prag_project_defined_in_declaration,
+      prag_project_defined_forbidden_construct.
+      Where: parse/body-parse, pragmas/conditional. Acceptance: CA. Depends on: 2.6.3
+- [ ] 2.7.2 Attributes in the AST (on the unit, member and declaration nodes); `qualified_only` read per unit; the front-end
+      attributes of design.md §4 2.7 (qualified_only, strict, to_string, const_replaced/const_non_replaced) exposed by name. Record
+      prag_attribute_on_method, prag_attribute_on_struct_field, prag_attribute_brace_in_value, prag_attribute_commented_out.
+      Where: pragmas/attributes, ast/nodes. Acceptance: CA. Depends on: 2.7.1
+- [ ] 2.7.3 Message and region pragmas, pragmas inside expressions (P6–P7): record prag_inside_expression, prag_region_unclosed.
+      Where: lex/lexer. Acceptance: CA. Depends on: 2.7.2
+- [ ] 2.8.1 One token-description wording (the vendor's): the named forms from 1.16 collapse to the recorded ones. Record
+      rec_file_scope_stray, rec_expected_expression.
+      Where: parse/errors, parse/parser. Acceptance: CA. Depends on: 2.7.3
+- [ ] 2.8.2 Recovery (R1–R2): record rec_missing_then, rec_missing_of, rec_missing_do, rec_missing_end_if, rec_missing_end_case,
+      rec_missing_end_for.
+      Where: parse/statements, parse/errors. Acceptance: CA. Depends on: 2.8.1
+- [ ] 2.8.3 The vendor cascades in one place (R3, R6): analysis/resync.ts and refused-name's cascade are folded into parse/errors.
+      Record rec_refused_name_cascade_type_word, rec_refused_name_cascade_function_word, rec_unknown_literal_prefix_cascade.
+      Where: parse/errors. Acceptance: CA; the 0.1 parse-census baseline is empty (every finding closed or a recorded known
+      divergence named here). Depends on: 2.8.2
+- [ ] 2.9 Printer/formatter fixed point (PR1–PR4): STRING[n] and AT-after-type round-trip; parentheses from precedence; modifier
+      order kept.
+      Where: syntax/print.ts, services/formatting/print.ts; tests `print.test.ts` "STRING[n] round-trips", "AT after the type
+      round-trips", "nested binary gets precedence parentheses"; `services/formatting/print.test.ts` "method modifiers keep their
+      order". Acceptance: the four named tests exist and pass; the 0.2 fixed-point baseline is EMPTY; PR1–PR4 are no longer GAP in
+      rules.test. Depends on: 2.8.3
+- [ ] 2.10 Area 2 closed: every §4 2.x rule (L, N, S, A, D, T, U, E, ST, P, R, PR, FMT) has a recorded fixture or named test.
+      Where: test/frontend/rules.ts. Acceptance: the rules.test GAP count for area 2 is 0 and pinned as 0; known divergences left
+      in area 2 listed here with their reason. Depends on: 2.9
 
 ## 3. Symbols (symbols/) conformance
 
-- [ ] 3.1 Scopes: POU, method, action, property accessor, GVL, namespace, library; lookup order and shadowing
-      (VAR_IN_OUT vs FB field vs VAR_STAT — cf. transpile-review 19).
-- [ ] 3.2 Inheritance: EXTENDS chains (FB, STRUCT, INTERFACE), SUPER, overriding, abstract members, ambiguity.
-- [ ] 3.3 Enums: qualified and unqualified members, enums with base type, collisions with other names.
-- [ ] 3.4 Libraries: namespace-qualified and bare references, the manifest resolution, same short name in two
-      libraries (cf. transpile-review 21).
-- [ ] 3.5 Members: struct/FB/union member access, properties, interface members, through pointers/references.
-- [ ] 3.6 0.3 findings closed; every resolution rule has a recorded fixture.
+Every task's acceptance is **CA** unless it says otherwise. Area 3 needs the restructure and the 0.3 resolution dump, not the parser
+conformance work; the cross-area edges are named on the tasks that have them.
+
+- [ ] 3.1.1 Scopes and shadowing (Y1–Y8, Y20): record sym_getter_setter_same_local, sym_inout_vs_field_vs_stat.
+      Where: binder, scope-nav. Acceptance: CA. Depends on: 1.41, 0.3
+- [ ] 3.1.2 Namespace blocks (Y17–Y18): `scopedBodies` and `unitBodies` recurse via `allUnits` (the sites 1.8 left); ingestNamespace
+      passes the member host. Record sym_namespace_block_unit_checked, sym_namespace_method_parents_to_fb.
+      Where: scoped-bodies, format/bodies, binder. Acceptance: CA. Depends on: 3.1.1, 1.8
+- [ ] 3.1.3 GVLs (Y9–Y14): `qualified_only` per unit (from 2.7.2); VAR_EXTERNAL binding in scope-nav. Record
+      sym_qualified_only_one_of_two_gvls_in_file.
+      Where: binder, scope-nav, pragmas/attributes. Acceptance: CA. Depends on: 3.1.2, 2.7.2
+- [ ] 3.1.4 Order independence and dialect (Y19, Y22): record sym_order_independent (fixture pair, two file orders).
+      Where: incremental, scope. Acceptance: CA. Depends on: 3.1.3
+- [ ] 3.1.5 The bare-name search order (Y15, Y23, Y24, E33): analysis `nameResolves` → `types/names.resolveBareName` (tagged answer);
+      the built-in NAME set from `types/builtins.ts`; device-tree instances bound by the binder from the `.device` descriptors
+      (workspace-refs' `deviceInstances` set is deleted); `.ident` resolves in the global namespace. Record
+      sym_method_before_global, sym_global_before_pou_name, sym_library_gvl_needs_qualification, sym_device_instance_bare,
+      sym_global_namespace_dot_skips_local.
+      Where: types/names.ts, symbols/binder.ts, analysis/resolution.ts (message only). Acceptance: CA; analysis/resolution.ts has no
+      `lookupReference` call. Depends on: 3.1.4, 2.5.6
+- [ ] 3.2.1 INTERFACE EXTENDS bound in the binder (H4–H5): interface scopes get `baseScope`; interface method parameters are bound;
+      the 4 consumer re-derivations switch. Record inh_interface_method_param_resolves, inh_interface_extends_member.
+      Where: binder, extends. Acceptance: CA. Depends on: 3.1.5
+- [ ] 3.2.2 Every base resolved through `baseScope`/`extendsChain`, never by name (H8): method-signature, interface-implementation,
+      hierarchy and inheritance switch. Record inh_extends_ambiguous_library_base.
+      Where: extends; the four consumer sites. Acceptance: CA; no `findScopeByName` for an EXTENDS base outside extends.ts.
+      Depends on: 3.2.1
+- [ ] 3.2.3 Inherited members through an instance (H2): infer/member uses `lookupMember`. The fixture exists.
+      Where: infer/member. Acceptance: CA; the type dump gives callshape_inout_base_method_from_outside_derived a type, not UNKNOWN.
+      Depends on: 3.2.2
+- [ ] 3.2.4 Unresolved base, cycle, SUPER, override (H6–H10): record inh_unresolved_base, inh_extends_cycle,
+      inh_override_signature_mismatch.
+      Where: extends, scope-nav.hasUnresolvedBase. Acceptance: CA. Depends on: 3.2.3
+- [ ] 3.3 Enums (EN1–EN6): `resolveBareEnumMember` takes an asker and reports ambiguity. Record enum_same_member_two_enums,
+      enum_member_vs_variable, enum_library_bare, enum_library_qualified.
+      Where: scope-nav, library-namespaces. Acceptance: CA. Depends on: 3.2.4
+- [ ] 3.4.1 Library precedence everywhere (LB3, LB5, LB6): `lookup`, `lookupMember`, `resolveBareEnumMember` and `findScopeByName`
+      apply `pickForAsker`. Record lib_ns_same_name_two_libraries, lib_ns_own_library_first, lib_ns_type_name_two_libraries.
+      Where: scope-nav, precedence, types/resolve. Acceptance: CA. Depends on: 3.3
+- [ ] 3.4.2 Visibility, qualification and the project-over-namespace rule (LB1, LB2, LB4, LB8, LB9): record
+      lib_ns_direct_dependency_only, lib_ns_project_unit_shadows_namespace, lib_ns_transitive_qualification,
+      lib_ns_library_gvl_member.
+      Where: library-namespaces, scope-nav. Acceptance: CA. Depends on: 3.4.1
+- [ ] 3.4.3 Incremental library rebind (LB7): `bindLibraryNamespaces` re-runs on an incremental rebind; workspace-store drops its
+      whole-rebuild workaround.
+      Where: incremental, library-namespaces, server/workspace-store. Acceptance: the unit test `symbols/incremental.test.ts`
+      "library rebind equals whole rebuild" exists and passes; LB7 is no longer GAP; F diff limited to the server's rebuild path.
+      Depends on: 3.4.2
+- [ ] 3.5 Members (M1–M6): access modifiers resolve first and are refused after. Record mem_reference_to_fb_member,
+      mem_reference_to_fb_method, mem_pointer_deref_method, mem_private_member_resolves_then_refused,
+      mem_protected_member_from_derived.
+      Where: scope-nav, infer/member. Acceptance: CA. Depends on: 3.4.3
+- [ ] 3.6 Area 3 closed: the 0.3 findings are closed; every §4 3.x rule has a recorded fixture or named test.
+      Where: test/frontend/rules.ts, resolution-dump baseline. Acceptance: the 0.3 baseline is empty (or each remaining entry is a
+      recorded known divergence named here); the rules.test GAP count for area 3 is 0 and pinned. Depends on: 3.5
 
 ## 4. Types (types/) conformance
 
-One fixture per typing rule, recorded with `record:exec` (values that expose width/sign/overflow) and
-`record:language` (CODESYS's type messages).
+One fixture per typing rule, recorded with `record:exec` (values that expose width/sign/overflow) and `record:language` (CODESYS's
+type messages). Every task's acceptance is **CA** unless it says otherwise. Area 4 needs the restructure and the 0.4 dumps; the
+cross-area edges are named on the tasks that have them.
 
-- [ ] 4.1 Elementary types and their ranges, incl. platform aliases (__XWORD, __UXINT …).
-- [ ] 4.2 Literal typing: untyped integer and REAL literals in every context (assignment, arithmetic, comparison,
-      call argument, initializer, CASE label, array bound), typed literals, negative literals.
-- [ ] 4.3 Arithmetic: common type (meet) of every operand pair (signed/unsigned × widths, REAL/LREAL, TIME), integer
-      promotion, overflow/wrap, DIV/MOD signs, shifts and rotates, EXPT.
-- [ ] 4.4 Comparisons and BOOL/bit operations on every pair.
-- [ ] 4.5 Conversions: implicit (allowed/refused per CODESYS), explicit `X_TO_Y` for every pair, TRUNC/ROUND, BCD,
-      strings ↔ numbers/time/date, lengths.
-- [ ] 4.6 Constant evaluation: CONSTANTs, folding widths (INT/REAL), VAR_INPUT CONSTANT, array bounds and STRING(n)
-      from constants, subranges.
-- [ ] 4.7 Derived types: aliases (incl. alias with initializer), enums with base, subranges, arrays, structs, unions,
-      POINTER TO / REFERENCE TO and their compatibility.
-- [ ] 4.8 0.4 findings closed; every typing rule has a recorded fixture.
+- [ ] 4.1.1 Platform width per target (TY5–TY6): `Target` on the project scope; `canonicalElem`, `POINTER_BITS` readers,
+      `temporalResultType`, compat's pointer↔integer rule and infer REQUIRE a target (the 1.31 default is deleted, so `tsc` lists
+      every caller). The transpile `lowering.ts` call gets today's 64-bit target explicitly and is handed off (5.3). Record
+      ty_xint_twincat_width, ty_pointer_size_twincat.
+      Where: types/platform.ts, symbols/scope.ts (target beside dialect), every caller. Acceptance: CA; Gate T for the one
+      transpile call. Depends on: 1.41, 0.4
+- [ ] 4.1.2 Platform conversion names (TY11): `parseConversionName` accepts `__XINT_TO_*`; hand the transpile rewrite to T. Record
+      ty_xint_to_dint, ty_dint_to_uxint.
+      Where: conversion-name. Acceptance: CA. Depends on: 4.1.1
+- [ ] 4.1.3 Elementary facts, aliases, ANY groups, type restrictions (TY1–TY4, TY7–TY10, TY12–TY15). Record ty_bit_as_variable,
+      ty_pointer_to_bit, ty_array_of_bit, ty_array_of_reference, ty_any_num_parameter_accepts_int, ty_any_num_parameter_rejects_string,
+      ty_version_type.
+      Where: elementary, resolve, compat. Acceptance: CA; the 0.4 elementary findings are empty. Depends on: 4.1.2
+- [ ] 4.2 Literal typing in every context (LT1–LT14): record lt_literal_in_comparison, lt_literal_case_label,
+      lt_literal_array_bound, lt_literal_for_bounds, lt_literal_any_int_argument, lt_negative_min_sint, lt_negative_min_int; write
+      `test/frontend/literal-agreement.test.ts` (`contextLiteralType` agrees with `literalCheckType` on every literal of the corpus
+      and fixtures; disagreements pinned; T hand-off for the call site).
+      Where: types/literal.ts. Acceptance: CA; literal-agreement.test.ts exists and its disagreement list is written here.
+      Depends on: 4.1.3
+- [ ] 4.3.1 Meets and promotion (AR1–AR3, AR19–AR21): record ar_div_negative, ar_mod_negative.
+      Where: arith/runtime, arith/checked. Acceptance: CA. Depends on: 4.2
+- [ ] 4.3.2 NOT and unary minus (AR4–AR6): one NOT rule in arith/operators, decided by the recordings (infer vs lowering); T
+      hand-off for expressions.ts:180-184.
+      Where: arith/operators. Acceptance: CA. Depends on: 4.3.1
+- [ ] 4.3.3 Bitwise and shifts (AR7, AR10): the checked shift/rotate result type. Record ar_shl_byte_type, ar_ror_word_type,
+      ar_shl_int_type.
+      Where: arith/operators, builtins. Acceptance: CA. Depends on: 4.3.2
+- [ ] 4.3.4 Built-ins (AR11–AR16, AR22–AR31): LIMIT/SEL/MUX typed in builtins.ts (T hand-off for builtins.ts:456); every built-in's
+      result type from `BUILTIN_RESULT` or a rule in builtins.ts. Record ar_limit_mixed_types, ar_sel_mixed_types,
+      ar_mux_mixed_types, ar_upper_bound_type, ar_lower_bound_type, ar_time_call, ar_ltime_call; re-check that the AR22–AR29
+      fixtures decide the result TYPE (a message or a width-revealing value); record ar_<name>_type for any that does not.
+      Where: types/builtins.ts. Acceptance: CA. Depends on: 4.3.3
+- [ ] 4.3.5 Temporal (AR17–AR18): duration × integer typed in arith/temporal (T hand-off for expressions.ts:248). Record
+      ar_time_times_int_type, ar_ltime_div_int_type.
+      Where: arith/temporal. Acceptance: CA. Depends on: 4.3.4
+- [ ] 4.4 Comparisons and BOOL (CB1–CB5), including the network-text wire rules 1.34 could not switch. Record cb_compare_pointers,
+      cb_compare_time_ltime, cb_and_then_on_int.
+      Where: infer/expr, arith/operators, network-text/parser.ts (imports only). Acceptance: CA; network-text/parser.ts holds no
+      type-family or operator-result list. Depends on: 4.3.5
+- [ ] 4.5.1 Enum conversions (CV3–CV5, P14, P15): `strict` and `to_string` read from the AST attributes. Record
+      cv_enum_with_base_into_int, cv_library_enum_into_int, cv_int_into_enum, cv_literal_into_enum, cv_int_into_strict_enum,
+      cv_strict_enum_into_int, cv_enum_to_string_attribute.
+      Where: compat, enums, builtins. Acceptance: CA. Depends on: 4.4, 2.7.2
+- [ ] 4.5.2 Pointer and reference compatibility and arithmetic (CV6, DT12, DT13, DT14): record cv_reference_to_pointer,
+      cv_pointer_to_reference, dt_pointer_plus_int, dt_pointer_difference, dt_reference_auto_deref_type, dt_ref_assign_wrong_type.
+      Where: compat, arith/operators, infer/member. Acceptance: CA. Depends on: 4.5.1
+- [ ] 4.5.3 Explicit conversions (CV7): record every pair `scripts/conversion-matrix.ts` lists as missing (the count pinned in 0.5).
+      Where: conversions/*.ts fixtures, builtins, conversion-name. Acceptance: CA; the matrix reports 0 missing pairs.
+      Depends on: 4.5.2
+- [ ] 4.6.1 One constant fold (CE6, CE9, P16): constEval folds conversions, pure built-ins, SIZEOF, enum values, NOT and shifts,
+      honouring `const_replaced`/`const_non_replaced`, so the LSP and the transpiler fold one set (T hand-off deletes transpile's
+      folder). Record ce_fold_conversion_bound, ce_fold_sizeof_bound, ce_fold_not_int, ce_fold_shl, ce_real_alias_const,
+      ce_const_non_replaced_bound.
+      Where: const/fold, const/constancy. Acceptance: CA; the 0.4 fold-dump baseline is empty. Depends on: 4.5.3
+- [ ] 4.6.2 Constancy and scope (CE1–CE5, CE7–CE8): one walk for constancy and fold; cycle guard. Record ce_cycle.
+      Where: const/fold, const/constancy. Acceptance: CA. Depends on: 4.6.1
+- [ ] 4.7.1 Subrange in the Type model (DT3): subrange.ts reads the Type. Record dt_subrange_arithmetic_result.
+      Where: type.ts, resolve, analysis/checks/types/subrange.ts. Acceptance: CA. Depends on: 4.6.2
+- [ ] 4.7.2 Union in the Type model (DT4): record dt_union_member_sizes.
+      Where: type.ts, resolve. Acceptance: CA. Depends on: 4.7.1
+- [ ] 4.7.3 Enum storage base (DT5–DT6): one rule in enums.ts, decided by recording (T hand-off for enumStorage). Record
+      dt_enum_base_byte_storage, dt_library_enum_storage.
+      Where: enums. Acceptance: CA. Depends on: 4.7.2
+- [ ] 4.7.4 Aliases, static bases, callees, rendering (DT1–DT2, DT7–DT11): staticScopeType distinguishes namespace and interface
+      from struct. Record dt_alias_of_alias_init, dt_namespace_static_base, dt_interface_static_base.
+      Where: infer/member, render. Acceptance: CA. Depends on: 4.7.3, 3.2.1
+- [ ] 4.8 Area 4 closed: the 0.4 findings are closed; every §4 4.x rule has a recorded fixture or named test.
+      Where: test/frontend/rules.ts, type/fold-dump baselines. Acceptance: the 0.4 baselines are empty (or each remaining entry is a
+      recorded known divergence named here); the rules.test GAP count for area 4, and in total, is 0 and pinned. Depends on: 4.7.4
 
 ## 5. Consequences downstream
 
-- [ ] 5.1 Re-run analysis, corpus, build-conformance and the transpiler suites; every change is either a recording-
-      decided improvement (note it) or a regression (fix it). Regenerate the map.
-- [ ] 5.2 Record in `transpile-restructure` which of its root causes this change already closed.
+- [ ] 5.1 Re-run analysis, corpus, build-conformance and the transpiler suites; every change is either a recording-decided
+      improvement (note it) or a regression (fix it). Regenerate the map.
+      Acceptance: all green; the improvements listed here. Depends on: 2.10, 3.6, 4.8
+- [ ] 5.2 Record in `transpile-restructure` which of its root causes this change already closed, and which of its §6 items 1–15
+      the front-end now provides (with their `frontend/…` paths).
+      Where: openspec/changes/transpile-restructure/{design,tasks}.md. Acceptance: every §6 item has a path or "not provided,
+      because". Depends on: 5.1
+- [ ] 5.3 Hand-off list into `transpile-restructure`: every "T" row of design.md P6 and §3.3 — the 13 EXTENDS sites, places GVL
+      resolution, the `ns.symbols.get` namespace lookups (calls.ts:976,1627, constants.ts:103), `stored`/`fit`/`integerFoldType`,
+      `withStringCapacity`, `contextLiteralType`, `UNARY_MATH`, the platform rewrite, `canonicalElem`'s target in lowering.ts, the
+      LIMIT/SEL/MUX and NOT rules, the duration × integer rule, the constant folder, `enumStorage`, interp `sameName` — each with
+      the front-end function that replaces it.
+      Where: openspec/changes/transpile-restructure/tasks.md. Acceptance: every T row appears once. Depends on: 5.2
 
 ## 6. Close
 
-- [ ] 6.1 docs/architecture.md and data-model.md describe the front-end layer and its rules.
+- [ ] 6.1 docs/architecture.md and data-model.md describe the front-end layer (`src/frontend/`), its sub-layers, its indexes and
+      its import rules; the stale "literals carry a type" claim is corrected.
+      Acceptance: the docs name every sub-layer and rule F1–F4. Depends on: 5.3
 - [ ] 6.2 Final review (spec + layering); fix; archive; delete the recreated openspec/specs/.
+      Acceptance: `openspec/changes/archive/<date>-frontend-conformance` exists; `openspec/specs/` absent. Depends on: 6.1
