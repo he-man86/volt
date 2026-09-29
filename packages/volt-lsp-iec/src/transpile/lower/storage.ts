@@ -9,7 +9,7 @@ import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumDefault, enumStorage, foldsToConstant, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
-import { buildInitSequence } from "./init-sequence.js"
+import { buildInitSequence, lowerPendingInit, readsLaterTemp } from "./init-sequence.js"
 // A folded initial value and the same expression at run time go through ONE implementation, so they cannot
 // disagree — `ir/` is the folder lowering and the backends share, which is why it lives there.
 import { constantValue } from "../ir/evaluate.js"
@@ -166,6 +166,19 @@ export function tempResets(lw: Lowering, sections: readonly VarSection[], span: 
       const index = lw.byName.get(name.text.toUpperCase())
       if (index === undefined) continue // refused where it was declared
       const slot = lw.slots[index]!
+      // AN INITIALIZER THAT IS NOT A CONSTANT RUNS AGAIN, as the statement it is — `t : INT := g` reads g's value at
+      // this call (`var_temp_dynamic_init`: 9 then 10, expr 21). It was queued for the run-once init step and the
+      // reset below then wrote the type's zero on every run (transpile-review 24).
+      const dynamic = lw.tempInits.get(index)
+      if (dynamic !== undefined) {
+        const assigned = lowerPendingInit(lw, dynamic)
+        if (assigned === undefined) return undefined
+        const later = readsLaterTemp(lw, assigned, index)
+        if (later !== undefined)
+          return lw.bail("init-reads-later", `${name.text}'s initial value reads the VAR_TEMP ${later}, whose value at that point of the run is not recorded`, decl.span)
+        resets.push(...assigned)
+        continue
+      }
       // A COMPOSITE RESETS TOO, to a fresh value of its type. Measured: an ARRAY in VAR_TEMP counts 1 after three
       // scans where the same ARRAY in VAR counts 3, and a STRING the same (`decl_temp_array_counts`,
       // `decl_temp_string_counts`) — so a composite behaves exactly as a scalar does and was refused only because
@@ -278,8 +291,12 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
           // THE BIND TRAVELS WITH THE VALUE. A reference declaration is a BIND, not an assignment, and the init
           // sequence lowers these through `lowerStmt` — which reads `op` to decide. Dropping it made the bind a
           // store through an unbound reference.
-          if (deferred)
-            lw.pendingInits.push({ name, type, expr: decl.init as Expr, span: decl.span, slot, ...(binds ? { op: "REF=" as const } : {}) })
+          if (deferred) {
+            const pending = { name, type, expr: decl.init as Expr, span: decl.span, slot, ...(binds ? { op: "REF=" as const } : {}) }
+            // a VAR_TEMP's runs on every run of its body, not once before the first (`tempResets`)
+            if (sec.sectionKind === "VAR_TEMP") lw.tempInits.set(slot, pending)
+            else lw.pendingInits.push(pending)
+          }
         }
       }
     }

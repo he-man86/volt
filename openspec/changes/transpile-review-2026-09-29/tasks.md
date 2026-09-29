@@ -306,9 +306,9 @@ those values into the new fixture's recording.
 - Repro: `VAR_TEMP t : INT := g; END_VAR r := t;` with g=7 → r=0 every scan.
 - CODESYS (LIVE): fbSeen1=7, fbSeen2=8, prgSeen1=7, prgSeen2=8 — evaluated on every call.
 - Fix: re-emit the initializer expression in tempResets.
-- [ ] 24.1 Record `var_temp_dynamic_init` — red.
+- [x] 24.1 Record `var_temp_dynamic_init` — red.
   Recorded 2026-09-29 (record:exec): `var_temp_dynamic_init` — diverges (CODESYS: seen 9 then 10, expr 21).
-- [ ] 24.2 Fix.
+- [x] 24.2 Fix. A deferred VAR_TEMP initializer goes to `Lowering.tempInits`, not the run-once `pendingInits`; `tempResets` (lower/storage.ts) re-lowers it as its assignment on every run (`lowerPendingInit`), and refuses one reading a later VAR_TEMP (`init-reads-later`, unrecorded). Fixture confirmed (rust vendor), mark removed; src test in lower.test.ts.
 
 ## 25. Array elements ignore their element type's default (enum, alias with initializer, alias array)
 - Root cause: `lower/storage.ts:204-217` (aliasInit / enumDefault only for the declared type, never an array element);

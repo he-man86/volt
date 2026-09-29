@@ -33,17 +33,8 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
   lw.initSequence = { statements: undefined }
   const out: IrStmt[] = []
   for (const pending of lw.pendingInits) {
-    const lowered = lowerStmt(lw, {
-      kind: "assign",
-      target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
-      value: pending.expr,
-      // `REF=` from the DECLARATION, carried through `pendingInits` — `bindReference` is what records the
-      // reference`s target, and an assign with no `op` is a store through a reference nothing bound.
-      ...(pending.op !== undefined ? { op: pending.op } : {}),
-      span: pending.span,
-    })
-    if (lowered === undefined) return undefined
-    const assigned = Array.isArray(lowered) ? lowered : [lowered]
+    const assigned = lowerPendingInit(lw, pending)
+    if (assigned === undefined) return undefined
     const values = assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : []))
 
     // A LATER DECLARATION HAS NOT BEEN INITIALIZED YET, and neither has a CONSTANT one: the whole sequence runs in
@@ -73,6 +64,28 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
   }
   lw.initSequence = { statements: out }
   return out
+}
+
+/** One queued initializer, lowered as the assignment it is — also a VAR_TEMP's, on every run (`tempResets`). */
+export function lowerPendingInit(lw: Lowering, pending: Lowering["pendingInits"][number]): IrStmt[] | undefined {
+  const lowered = lowerStmt(lw, {
+    kind: "assign",
+    target: { kind: "ident_expr", name: pending.name.text, span: pending.name.span },
+    value: pending.expr,
+    // `REF=` from the DECLARATION, carried through `pendingInits` — `bindReference` is what records the
+    // reference`s target, and an assign with no `op` is a store through a reference nothing bound.
+    ...(pending.op !== undefined ? { op: pending.op } : {}),
+    span: pending.span,
+  })
+  return lowered === undefined ? undefined : Array.isArray(lowered) ? lowered : [lowered]
+}
+
+/** The VAR_TEMP at `slot` or declared after it that a VAR_TEMP's initializer reads — whose value at this point of
+ *  the run is not recorded (`tempResets` refuses it). */
+export function readsLaterTemp(lw: Lowering, assigned: readonly IrStmt[], slot: number): string | undefined {
+  const later = laterThan(lw, slot)
+  const temp = (place: Place): string | undefined => (lw.frame[place.slot]?.section === "VAR_TEMP" ? later(place) : undefined)
+  return assigned.flatMap((a) => (a.kind === "assign" ? [a.value] : [])).reduce<string | undefined>((f, v) => f ?? reads(lw, v, temp), undefined)
 }
 
 /**

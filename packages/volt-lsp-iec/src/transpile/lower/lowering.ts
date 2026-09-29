@@ -298,6 +298,9 @@ export class Lowering {
    * variable declared after it — which `ADR(x)` does 180 times in the corpus.
    */
   readonly pendingInits: { name: Identifier; type: Type; expr: Expr; span: Span; slot: number; op?: "REF=" }[] = []
+  /** A VAR_TEMP's initializer that is not a constant, by slot: it runs at the start of EVERY run of the body
+   *  (`tempResets`), never in the run-once init step — `var_temp_dynamic_init` reads 9 then 10 (transpile-review 24). */
+  readonly tempInits = new Map<number, Lowering["pendingInits"][number]>()
 
   /** `pendingInits` lowered, memoized — built BEFORE any body, so a pointer this step fills is known to be filled
    *  when a body dereferences it (`shared.pointers`), and consumed by the init step at the end. `statements`

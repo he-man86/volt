@@ -122,7 +122,6 @@ const transpileReview: LanguageTest[] = [
   // (the two ways a VAR_TEMP owner is entered); `u` is a computed initializer, not just a bare global read.
   {
     name: "var_temp_dynamic_init",
-    deferred: { transpile: "transpile-review-2026-09-29 task 24: a VAR_TEMP with a non-constant initializer is re-initialized on every call in CODESYS (seen 9 then 10, expr 21); the lowering resets it to 0 (recorded 2026-09-29)" },
     pouName: "GVL_LANG_tr24",
     kind: "gvl",
     feature:
