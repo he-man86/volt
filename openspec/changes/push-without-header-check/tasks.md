@@ -110,3 +110,18 @@ no less (an LSP-only message is a false positive). Each shape is a conformance f
 - [ ] 4.3 The three stale notes in `packages/volt-lsp-iec/docs/codesys-reference/error-catalog.json` that describe the
       bridge refusing with "Unrecognized code header" (FUNCTION EXTENDS, FUNCTION IMPLEMENTS, VAR block in an INTERFACE):
       re-record them live and correct them.
+
+## 5. Pull reads the kind from the IDE object, never from the text (found by bridge-refusal-review, 2026-09-29)
+
+Without these, section 2's promise fails on the pull side: a text the push now writes as sent comes back wrong.
+
+- [ ] 5.1 A DUT's SUBTYPE on pull comes from the IDE object, not from `CodeHelper.DutSubtype(declaration)` in
+      `Materializer`: measure what each vendor exposes (CODESYS `IDUTObject`/its DUT type; TwinCAT's tree code, which lags
+      an in-place change until a reload — DIALECT C2e) and use the object's own answer; where no vendor answer exists,
+      decide with the owner before falling back to anything. Acceptance: a DUT pushed with an unclosed `(*` or as
+      `TYPE X : END_TYPE` pulls back under its extension, and the next push that fixes the text is accepted (not refused
+      as unreadable); no `--force` needed to delete it.
+- [ ] 5.2 CODESYS POU kind on pull from the object type, not the header (`CodesysTypeMap.cs:173` defaults to function
+      block): a `.prg` whose text has an unclosed `(*` pulls back as `.prg`. TwinCAT checked the same way.
+- [ ] 5.3 Live on both vendors with 3.2: push each shape of 3.1, pull, push the fixed text, pull — the item keeps its name
+      and kind throughout.
