@@ -39,7 +39,10 @@
         never closed was not refused at all: the rest of the file read as trivia and the member was DROPPED, which a
         push then deleted from the IDE.
 
-- [ ] 1.2 Measure the `.fb`-with-`PROGRAM`-text case with the check off, both vendors: what does the project hold
+- [x] 1.2 Measure the `.fb`-with-`PROGRAM`-text case with the check off, both vendors: what does the project hold
+      DECIDED by the owner (2026-09-29), not measured: a top-level text that contradicts its extension (e.g. `K.fb` saying
+      `PROGRAM`) is written as sent and the IDE reports it as a compile error; the workspace file keeps the body, so fixing
+      the header and pushing again restores it. No push-side guard. 3.2 still exercises the case live on both vendors.
       afterwards, and what does `refs` report? **Live — after transpile-fix-all** (it needs CODESYS and TwinCAT,
       and another run holds CODESYS). Note for the measurement: the re-type guard's comment recorded that writing
       `PROGRAM X` over a live function block made CODESYS CLEAR the body. The guard still refuses a NAME that
