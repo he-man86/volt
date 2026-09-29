@@ -338,7 +338,9 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     init: [{ kind: "assign", target: control, value: convert(from, control.type), span: s.from.span }],
     test: { cond, atEnd: false },
     body: lowerBlock(lw, s.body),
-    step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: current, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
+    // The step adds in the COUNTER's type: `current` is the counter widened for the test, and adding a step of the
+    // counter's type to it printed `(self.u as i32).wrapping_add(1u16)` — E0308 (transpile-review 13).
+    step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: { kind: "load", place: control, type: control.type, span: s.controlVar.span }, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
     span: s.span,
   }
 }

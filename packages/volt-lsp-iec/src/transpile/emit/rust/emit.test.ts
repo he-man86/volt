@@ -626,6 +626,8 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
         "FUNCTION F_OGrid : DINT\nVAR_IN_OUT grid : ARRAY[*, *] OF INT; END_VAR\nVAR r0 : DINT; c0 : DINT; END_VAR\nFOR r0 := LOWER_BOUND(grid, 1) TO UPPER_BOUND(grid, 1) DO\n  FOR c0 := LOWER_BOUND(grid, 2) TO UPPER_BOUND(grid, 2) DO\n    grid[r0, c0] := DINT_TO_INT(r0 * 10 + c0);\n  END_FOR\nEND_FOR\nF_OGrid := UPPER_BOUND(grid, 2);\nEND_FUNCTION\n" +
         "FUNCTION_BLOCK FB_OFill\nVAR_IN_OUT numbers : ARRAY[*] OF INT; END_VAR\nVAR index : DINT; END_VAR\nFOR index := LOWER_BOUND(numbers, 1) TO UPPER_BOUND(numbers, 1) DO\n  numbers[index] := DINT_TO_INT(index);\nEND_FOR\nEND_FUNCTION_BLOCK\n" +
         "FUNCTION F_OShift : BOOL\nVAR_IN_OUT rows : ARRAY[*] OF ARRAY[1..4] OF INT; END_VAR\nVAR di : DINT; END_VAR\nFOR di := UPPER_BOUND(rows, 1) TO 2 BY -1 DO\n  rows[di] := rows[di - 1];\nEND_FOR\nEND_FUNCTION\n",
+      // A FOR limit wider than an UNSIGNED counter (recorded, task 13): the test widens, the step stays in UINT.
+      "PROGRAM ForWiderLimit\nVAR n : UINT := 3; u : UINT; runs : INT; sc : SINT; sum : INT; END_VAR\nFOR u := 0 TO n - 1 DO\n  runs := runs + 1;\nEND_FOR\nFOR sc := 5 TO -5 BY -1 DO\n  sum := sum + sc;\nEND_FOR\nEND_PROGRAM\n",
       "PROGRAM Inherit\nVAR plain : FB_ID; viaSuper : FB_IS; shared : INT; END_VAR\nplain(inBase := 7, io := shared);\nviaSuper(inBase := 5, io := shared);\nEND_PROGRAM\nFUNCTION_BLOCK FB_IB\nVAR_INPUT inBase : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR nBase : INT; END_VAR\nnBase := nBase + 1;\nio := io + inBase;\nHook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase + 10;\nEND_METHOD\nFUNCTION_BLOCK FB_ID EXTENDS FB_IB\nVAR nDerived : INT; END_VAR\nnDerived := nDerived + inBase;\nio := io + 1;\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnDerived := 0;\nEND_METHOD\nFUNCTION_BLOCK FB_IS EXTENDS FB_IB\nSUPER^(inBase := inBase + 100, io := io);\nSUPER^.Hook();\nEND_FUNCTION_BLOCK\nMETHOD Hook\nnBase := nBase - 1;\nEND_METHOD\n",
     ]
     // a library element WITH its body, the shape the library repo (`libraries/`) hands in — a declaration alone is refused
@@ -694,6 +696,15 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
 describe("emit/rust — a FOR whose limit is a different type", () => {
   test("the counter is promoted to the common type, so the comparison is same-typed", () => {
     expect(rust("PROGRAM P\nVAR\n\ti : INT;\n\thi : DINT := 5;\n\tn : INT;\nEND_VAR\nFOR i := 1 TO hi DO\n\tn := n + 1;\nEND_FOR\nEND_PROGRAM\n")).toContain("if (self.i as i32) > self.hi { break; }")
+  })
+
+  // transpile-review-2026-09-29 task 13 (conformance `for_limit_wider_than_counter_uint_expr`, recorded: 3 passes, u
+  // left at 3). `n - 1` on a UINT is a DINT, so the TEST widens the counter — and the STEP reused that widened read,
+  // printing `self.u = (self.u as i32).wrapping_add(1u16)`: E0308. The step adds in the counter's own type.
+  test("the step adds in the counter's own type — only the test is widened", () => {
+    const code = rust("PROGRAM P\nVAR\n\tn : UINT := 3;\n\tu : UINT;\n\truns : INT;\nEND_VAR\nFOR u := 0 TO n - 1 DO\n\truns := runs + 1;\nEND_FOR\nEND_PROGRAM\n")
+    expect(code).toContain("if (self.u as i32) > (self.n as i32).wrapping_sub(1i32) { break; }")
+    expect(code).toContain("self.u = self.u.wrapping_add(1u16);")
   })
 
   test("a same-typed limit is left alone — no needless cast", () => {

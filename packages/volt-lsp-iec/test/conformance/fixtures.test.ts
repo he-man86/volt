@@ -794,6 +794,12 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // a type) and the LSP says nothing about any of them. A real gap, newly visible because the question is now
     // real.
     "op_sys_queryinterface",
+    // a FOR limit WIDER than an INT counter (a DINT variable, a DINT expression, UPPER_BOUND), measured 2026-09-29
+    // for transpile-review task 13: CODESYS refuses each with "Cannot convert type 'DINT' to type 'INT'" and the LSP
+    // says nothing. A UINT counter's `n - 1` limit it compiles (`for_limit_wider_than_counter_uint_expr`, confirmed).
+    "for_limit_wider_than_counter_dint_var",
+    "for_limit_wider_than_counter_dint_expr",
+    "for_limit_wider_than_counter_upper_bound",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1138,7 +1144,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // refuse an unknown `__` name in a declaration initializer at the PARSER, and `nameResolves` accepts every
   // unlisted `__` name on purpose — the blanket that keeps an unlisted system operator from false-positiving.
   // `system-initializer` answers the half the dialect table HAS a verdict for; this is the half it does not.
-  "lsp-gap": 4,
+  // 4 -> 7. `for_limit_wider_than_counter_{dint_var,dint_expr,upper_bound}` (transpile-review task 13) asked
+  // whether a FOR limit wider than an INT counter compiles, and it does NOT: "Cannot convert type 'DINT' to type
+  // 'INT'". The LSP says nothing. A rise for measurement — the refusal is the follow-up.
+  "lsp-gap": 7,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the

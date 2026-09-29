@@ -183,8 +183,8 @@ those values into the new fixture's recording.
 - CODESYS: ordinary compiled FOR loops; counter ends one step past the limit (`callshape_for_bounds_changed_in_body`).
 - Fix: step's left operand = `{kind:'load', place: control, type: control.type}`; widen only in the test.
   `emit.test.ts:694` must compile its output.
-- [ ] 13.1 Fixtures `for_limit_wider_than_counter` (DINT expr, UPPER_BOUND, UINT `n-1`, `5 TO -5 BY -1`) — red.
-- [ ] 13.2 Fix.
+- [x] 13.1 Fixtures `for_limit_wider_than_counter_*` (DINT var, DINT expr, UPPER_BOUND, UINT `n-1`, `5 TO -5 BY -1`) — red. Recorded: CODESYS REFUSES the three DINT limits over an INT counter ("Cannot convert type 'DINT' to type 'INT'") — rated lsp-gap (LSP silent; follow-up); UINT `n-1` (3 passes, u=3) and the negative step (11 passes, sc=-6) confirmed.
+- [x] 13.2 Fix. The step adds a fresh load of the counter in its own type; only the test widens (emit.test.ts compiles a UINT `n - 1` loop). The emit test's INT/DINT `hi` premise ("CODESYS compiles") is contradicted by the recording.
 
 ## 14. `p^ S= c` / `p^ R= c` through a multi-target pointer stores the condition
 - Root cause: `lower/statements.ts:29` (storeThrough ignores `s.op`), called at `:129` before the latch branch at `:145`.

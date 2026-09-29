@@ -906,6 +906,34 @@ const CASES: readonly ExecCase[] = [
     vars: "i : INT; runs : INT; sum : INT;",
     body: "FOR i := 10 TO 1 BY -3 DO runs := runs + 1; sum := sum + i; END_FOR",
   },
+  // transpile-review-2026-09-29 task 13: a FOR whose limit is WIDER than its counter — a DINT variable, a DINT expression,
+  // UPPER_BOUND (a DINT), a UINT `n - 1` — and a negative step. Does CODESYS take each, how many passes, where is the
+  // counter left?
+  {
+    name: "for_limit_wider_than_counter_dint_var",
+    vars: "hi : DINT := 3; i : INT; runs : INT;",
+    body: "FOR i := 1 TO hi DO runs := runs + 1; END_FOR",
+  },
+  {
+    name: "for_limit_wider_than_counter_dint_expr",
+    vars: "k : DINT := 4; i : INT; runs : INT;",
+    body: "FOR i := 1 TO k - 1 DO runs := runs + 1; END_FOR",
+  },
+  {
+    name: "for_limit_wider_than_counter_upper_bound",
+    vars: "arr : ARRAY[0..4] OF INT; j : INT; runs : INT;",
+    body: "FOR j := 0 TO UPPER_BOUND(arr, 1) DO runs := runs + 1; END_FOR",
+  },
+  {
+    name: "for_limit_wider_than_counter_uint_expr",
+    vars: "n : UINT := 3; u : UINT; runs : INT;",
+    body: "FOR u := 0 TO n - 1 DO runs := runs + 1; END_FOR",
+  },
+  {
+    name: "for_limit_wider_than_counter_negative_step",
+    vars: "sc : SINT; runs : INT; sum : INT;",
+    body: "FOR sc := 5 TO -5 BY -1 DO runs := runs + 1; sum := sum + sc; END_FOR",
+  },
 
   // ── MOD by zero: `cc_mod_udint_dint` (0 MOD 0) recorded 0 where `/` by zero stopped the application. Is the answer 0,
   //    or the dividend — in each signedness and width? ──
