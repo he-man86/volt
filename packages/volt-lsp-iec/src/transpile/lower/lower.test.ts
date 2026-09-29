@@ -2043,3 +2043,18 @@ describe("lower — a LIBRARY BASE (libraries bound once, each program bound on 
     expect(lowerSource("PROGRAM P\nVAR x : INT; END_VAR\nx := F();\nEND_PROGRAM\n", "P", [], "p.prg", base).diagnostics).toEqual([])
   })
 })
+
+// transpile-review-2026-09-29 task 5 (conformance `const_literal_wider_than_lint`, recorded): an all-constant integer
+// expression folded at LINT, so a literal ≥ 2^63 wrapped negative — `18446744073709551615 > 5` was FALSE. CODESYS folds
+// it at the literal's own width, ULINT.
+test("an all-constant integer expression with a literal wider than LINT folds at ULINT, not wrapped into LINT", () => {
+  const source =
+    "PROGRAM P\nVAR isgt : BOOL; half : ULINT; mx : ULINT; hexgt : BOOL; hexdiv : LWORD; signbit : BOOL; END_VAR\n" +
+    "isgt := 18446744073709551615 > 5;\nhalf := 18446744073709551615 / 2;\nmx := MAX(18446744073709551615, 5);\n" +
+    "hexgt := 16#FFFFFFFFFFFFFFFF > 16#7FFFFFFFFFFFFFFF;\nhexdiv := 16#FFFFFFFFFFFFFFFF / 16;\nsignbit := 16#8000000000000000 > 1;\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["isgt", "half", "mx", "hexgt", "hexdiv", "signbit"].map((n) => runner.get(n))).toEqual([
+    true, 9223372036854775807n, 18446744073709551615n, true, 1152921504606846975n, true,
+  ])
+})

@@ -14,7 +14,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1977
+ *     confirmed     1978
  *     refused        540
  *     not-lowered     91
  *     lsp-gap          4
@@ -23,7 +23,7 @@
  *
  *   tier                     lowered    clean
  *     decl                    427      427
- *     arith                  1443     1443
+ *     arith                  1444     1444
  *     control                  59       59
  *     aggregate                25       25
  *     call                    222      220
@@ -39,7 +39,7 @@
  *     clippy::self_assignment                   33
  *     clippy::eq_op                             12
  *     clippy::approx_constant                    6
- *     clippy::unnecessary_min_or_max             5
+ *     clippy::unnecessary_min_or_max             6
  *     clippy::manual_clamp                       2
  *     unreachable_code                           2
  *     clippy::absurd_extreme_comparisons         1
@@ -50,7 +50,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2252
+ *     agree         2253
  *     disagree         1
  *     not-run         85
  *       not-run: reaches the platform's libm (pow, ln, sin…)     62
@@ -58,13 +58,13 @@
  *       not-run: the emitted Rust does not build                  8
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 34504 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6498
+ *   pedantic — 34512 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6499
  *     clippy::cast_possible_truncation         5618
  *     clippy::cast_sign_loss                   4303
  *     clippy::cast_lossless                    4205
  *     clippy::uninlined_format_args            4168
- *     clippy::unreadable_literal               3553
+ *     clippy::unreadable_literal               3560
  *     clippy::manual_assert                    1474
  *     clippy::missing_panics_doc               1359
  *     clippy::format_push_string               1042
@@ -82,8 +82,8 @@
  *     string_to_real_parse                            11
  *     cs_standard_string_functions                  10.8
  *
- *   shape — 1393 distinct emission shapes over 2338 lowered fixtures, 1551 distinct constructs.
- *   791 constructs carry a review note (`NOTES`): 2277 fixtures are improvable, 2199 touch a construct with alternatives.
+ *   shape — 1394 distinct emission shapes over 2339 lowered fixtures, 1554 distinct constructs.
+ *   791 constructs carry a review note (`NOTES`): 2278 fixtures are improvable, 2200 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -831,6 +831,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   conditional_undefine_after_define: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   conditionalshow: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "c3b7e25378", notes: ["1307e33bbf"] },
   conditionalshow_all_locals: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "61038779bd", notes: ["1307e33bbf"] },
+  const_literal_wider_than_lint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 6, shape: "48d4a9b5ce", notes: ["687428cc81", "90c445f7cb", "a497507b30", "de132e5019"] },
   const_non_replaced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   const_replaced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   constant_arithmetic_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 4.5, shape: "eb12e49e94", notes: ["06bb3a6005", "0e60621ff1", "1307e33bbf", "24588decbd", "4a6baf16b3", "63d29bd1a0", "6e95d900d2", "870b70e195"] },

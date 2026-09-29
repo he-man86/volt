@@ -51,6 +51,20 @@ const CASES: readonly ExecCase[] = [
     vars: "i : INT; di : DINT; li : LINT;",
     body: "i := 100 + 100; di := 30000 + 30000; li := 2000000000 + 2000000000;",
   },
+  // transpile-review-2026-09-29 task 5: an all-constant expression whose literal needs ULINT/LWORD (≥ 2^63) — does
+  // it fold at that width, a comparison, a division and MAX alike, decimal and hex?
+  {
+    name: "const_literal_wider_than_lint",
+    vars: "isgt : BOOL; half : ULINT; mx : ULINT; hexgt : BOOL; hexdiv : LWORD; signbit : BOOL;",
+    body: [
+      "isgt := 18446744073709551615 > 5;",
+      "half := 18446744073709551615 / 2;",
+      "mx := MAX(18446744073709551615, 5);",
+      "hexgt := 16#FFFFFFFFFFFFFFFF > 16#7FFFFFFFFFFFFFFF;",
+      "hexdiv := 16#FFFFFFFFFFFFFFFF / 16;",
+      "signbit := 16#8000000000000000 > 1;",
+    ].join(" "),
+  },
 
   // ── integer division and MOD signs ──
   {

@@ -20,7 +20,7 @@ import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 
 import { isBit } from "../ir/index.js"
-import { convert } from "./convert.js"
+import { convert, integerFoldType } from "./convert.js"
 import { withStringCapacity } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
 import { foldConstant } from "./constants.js"
@@ -419,13 +419,13 @@ const DATE_PART: Readonly<Record<string, "day" | "inDay" | "all">> = {
 }
 
 /** The one type a list of operands meets at — a binary operator's rule, over N operands: variables decide, a
- *  REAL constant still widens (as in `int7 / 2.0`), all-constant integers fold as LINT, and the result promotes. */
+ *  REAL constant still widens (as in `int7 / 2.0`), all-constant integers fold as LINT (ULINT past it), and the result promotes. */
 export function meetOperands(lw: Lowering, operands: readonly IrExpr[], span: Span): Type | undefined {
   const variables = operands.filter((o) => o.kind !== "const")
   let type =
     variables.length > 0
       ? variables.map((o) => o.type).reduce(commonType)
-      : operands.map((o) => (elemOf(o.type)?.family === "int" ? elementaryRef("LINT") : o.type)).reduce(commonType)
+      : operands.map((o) => (elemOf(o.type)?.family === "int" ? integerFoldType(operands) : o.type)).reduce(commonType)
   for (const o of operands) if (o.kind === "const" && elemOf(o.type)?.family === "real") type = commonType(type, o.type)
   if (type === UNKNOWN) return lw.bail("type-unknown", "the arguments have no common type", span)
   return promoteForRuntime(type)

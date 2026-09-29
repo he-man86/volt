@@ -16,7 +16,7 @@ import {
 } from "../../types/index.js"
 import type { IrBinOp, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-import { adopt, convert, retype } from "./convert.js"
+import { adopt, convert, integerFoldType, retype } from "./convert.js"
 import {
   calendarOf,
   TEMPORAL_LITERAL_KINDS,
@@ -245,9 +245,10 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
         // An ALL-constant integer expression folds at FULL width and then converts: `i := 100 + 100` is 200 and
         // `li := 2000000000 + 2000000000` is 4000000000 (conformance `constant_arithmetic_width`). It does not take
         // the context's type either — `x : REAL := 7 / 2` is 3, not 3.5 (`all_constant_division_in_real_context`);
-        // this used to retype both sides to the context. LINT is the widest the IR can type.
-        if (elemOf(left.type)?.family === "int") left = retype(left, elementaryRef("LINT"))
-        if (elemOf(right.type)?.family === "int") right = retype(right, elementaryRef("LINT"))
+        // this used to retype both sides to the context. The width is LINT, or ULINT for a literal ≥ 2^63 (`integerFoldType`).
+        const fold = integerFoldType([left, right])
+        if (elemOf(left.type)?.family === "int") left = retype(left, fold)
+        if (elemOf(right.type)?.family === "int") right = retype(right, fold)
       }
       const meet = commonType(left.type, right.type)
       if (meet === UNKNOWN) return lw.bail("type-unknown", `the operands of ${e.op} have no common type`, e.span)

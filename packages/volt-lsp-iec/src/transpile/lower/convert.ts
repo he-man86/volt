@@ -2,7 +2,7 @@
  * Conversions as IR nodes, and how a constant is stored at a type — the one place a value changes type.
  */
 import type { Span } from "../../syntax/index.js"
-import { elemOf, type Type } from "../../types/index.js"
+import { elementaryRef, elemOf, type Type } from "../../types/index.js"
 import { isBit, type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
 
 /** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
@@ -36,6 +36,19 @@ export function convert(e: IrExpr, to: Type): IrExpr {
 export function retype(e: IrExpr, to: Type): IrExpr {
   if (e.kind !== "const" || elemOf(to) === undefined) return e
   return { ...e, value: valueAs(e.value, to), type: to }
+}
+
+const LINT_MAX = (1n << 63n) - 1n
+
+/**
+ * The type an ALL-constant integer expression folds at: LINT — wide enough that `2000000000 + 2000000000` is 4000000000
+ * (conformance `constant_arithmetic_width`) — unless an operand holds a value only ULINT can: `18446744073709551615 > 5`
+ * is TRUE and `16#FFFFFFFFFFFFFFFF / 16` is 16#0FFFFFFFFFFFFFFF (`const_literal_wider_than_lint`, LIVE). Folding
+ * those at LINT wrapped them negative.
+ */
+export function integerFoldType(operands: readonly IrExpr[]): Type {
+  const needsUlint = operands.some((o) => o.kind === "const" && typeof o.value === "bigint" && o.value > LINT_MAX)
+  return elementaryRef(needsUlint ? "ULINT" : "LINT")
 }
 
 /**

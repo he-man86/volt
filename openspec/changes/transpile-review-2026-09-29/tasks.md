@@ -86,8 +86,10 @@ those values into the new fixture's recording.
   hexdiv=1152921504606846975, signbit=TRUE.
 - Fix: fold at commonType(LINT, the literal's own `integerLiteralType`) — ULINT when an operand needs it — or fold
   exactly in bigint and store once.
-- [ ] 5.1 Record `const_literal_wider_than_lint` — red.
-- [ ] 5.2 Fix.
+- [x] 5.1 Record `const_literal_wider_than_lint` — red. Recorded with record:exec; the LIVE values reproduced exactly; both
+  backends gave FALSE, 0, 5, FALSE, 0, FALSE.
+- [x] 5.2 Fix. `integerFoldType` (`lower/convert.ts`): an all-constant fold is LINT, or ULINT when an operand's value exceeds
+  LINT's range — used by the binary fold and `meetOperands`; fixtures.test.ts 4249 pass, map unchanged beyond the new row.
 
 ## 6. An integer literal adopts its neighbour's type even when it does not fit, and wraps
 - Root cause: `lower/constants.ts:324` (contextLiteralType returns the expected type regardless of range), reached
