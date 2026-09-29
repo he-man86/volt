@@ -2106,3 +2106,50 @@ test("ROL/ROR on an expression rotate in the expression's checked width, not the
   const names = ["rolWordAnd", "rorWordAnd", "rolByteAdd0", "rolByteMax", "rorByteOr", "rolByteAndLit", "rolByteOverflow", "rolByteOverflowWide", "rolMixed"]
   expect(names.map((n) => runner.get(n))).toEqual([3n, 49152n, 3n, 3n, 192n, 3n, 2n, 258n, 258n])
 })
+
+// transpile-review-2026-09-29 task 10 (conformance `xf_*_to_date_call_once` / `xf_*_to_ldate_call_once`, recorded): a
+// conversion INTO DATE/LDATE keeps whole days as `x - x MOD day`, and CODESYS reads a DT/LDT/TOD/LTOD source TWICE doing
+// it — left first, wrapping in the destination (TOD 5s then 7s into a DATE is 5 - 7 = 16#FFFFFFFE). A DATE/LDATE source
+// is already whole days and CODESYS reads it ONCE; the lowering masked it too, so `LDATE_TO_DATE(F(calls))` ran F twice.
+test("a conversion into DATE/LDATE reads a DATE/LDATE call source once, any other date source twice as CODESYS does", () => {
+  const walk: Record<string, [string, string]> = {
+    DATE: ["D#1970-01-02", "D#1970-01-04"],
+    LDATE: ["LDATE#1970-01-02", "LDATE#1970-01-04"],
+    DT: ["DT#1970-01-02-00:00:05", "DT#1970-01-03-00:00:07"],
+    LDT: ["LDT#1970-01-02-00:00:05", "LDT#1970-01-03-00:00:07"],
+    TOD: ["TOD#00:00:05", "TOD#00:00:07"],
+    LTOD: ["LTOD#00:00:05", "LTOD#00:00:07"],
+  }
+  // [source, destination, calls, raw] — the recorded values
+  const recorded: readonly [string, string, bigint, bigint][] = [
+    ["LDATE", "DATE", 1n, 86_400n],
+    ["DT", "DATE", 2n, 86_398n],
+    ["LDT", "DATE", 2n, 86_398n],
+    ["TOD", "DATE", 2n, 4_294_967_294n],
+    ["LTOD", "DATE", 2n, 4_294_967_294n],
+    ["DATE", "LDATE", 1n, 86_400_000_000_000n],
+    ["DT", "LDATE", 2n, 86_398_000_000_000n],
+    ["LDT", "LDATE", 2n, 86_398_000_000_000n],
+    ["TOD", "LDATE", 2n, 18_446_744_071_709_551_616n],
+    ["LTOD", "LDATE", 2n, 18_446_744_071_709_551_616n],
+  ]
+  for (const [src, dst, calls, raw] of recorded) {
+    const [first, later] = walk[src]!
+    const source =
+      `PROGRAM P
+VAR calls : INT; d : ${dst}; END_VAR
+d := ${src}_TO_${dst}(F_Walk(calls));
+END_PROGRAM
+` +
+      `FUNCTION F_Walk : ${src}
+VAR_IN_OUT calls : INT; END_VAR
+calls := calls + 1;
+` +
+      `IF calls = 1 THEN F_Walk := ${first}; ELSE F_Walk := ${later}; END_IF
+END_FUNCTION
+`
+    const runner = run(ir(source, "P"))
+    runner.scan()
+    expect([`${src}>${dst}`, runner.get("calls"), runner.get("d")]).toEqual([`${src}>${dst}`, calls, raw])
+  }
+})

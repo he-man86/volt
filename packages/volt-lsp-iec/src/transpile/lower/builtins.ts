@@ -410,7 +410,10 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
     else if (toTick > fromTick) count = { kind: "binary", op: "div", left: count, right: w(toTick / fromTick), type: work, span }
     const dayTicks = 86_400_000_000_000n / toTick
     const part = DATE_PART[toName] ?? "all" // a duration has no calendar part to keep
-    if (part !== "all") {
+    // `x - x MOD day` reads the source TWICE, and so does CODESYS for a DT/LDT/TOD/LTOD source (a call runs twice —
+    // conformance `xf_dt_to_date_call_once` and siblings). A DATE/LDATE source is already whole days: CODESYS reads it
+    // ONCE (`xf_ldate_to_date_call_once`, `xf_date_to_ldate_call_once`), so there is nothing to mask.
+    if (part !== "all" && !(part === "day" && DATE_PART[fromName] === "day")) {
       const inDay: IrExpr = { kind: "binary", op: "mod", left: count, right: w(dayTicks), type: work, span }
       count = part === "inDay" ? inDay : { kind: "binary", op: "sub", left: count, right: inDay, type: work, span }
     }

@@ -257,7 +257,9 @@ function asDisplayed(raw: string, value: IrValue): IrValue {
   if (raw.startsWith("LTIME_OF_DAY#"))
     return ((value % 86_400_000_000_000n) + 86_400_000_000_000n) % 86_400_000_000_000n
   if (raw.startsWith("DATE#")) return floorTo(value, 86_400n)
-  if (raw.startsWith("LDATE#")) return floorTo(value, 86_400_000_000_000n)
+  // The IDE displays an LDATE's 64-bit count SIGNED: `xf_tod_to_ldate_call_once` records raw 2^64 - 2e9 beside
+  // `LDATE#1969-12-31`.
+  if (raw.startsWith("LDATE#")) return floorTo(BigInt.asIntN(64, value), 86_400_000_000_000n)
   return value
 }
 

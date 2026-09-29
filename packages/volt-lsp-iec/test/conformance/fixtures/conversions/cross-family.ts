@@ -64,6 +64,46 @@ const dates: LanguageTest[] = DATES.flatMap((src) =>
   ),
 )
 
+/** transpile-review-2026-09-29 task 10: a conversion INTO DATE/LDATE keeps whole days — is a CALL source evaluated once?
+ *  The function counts its calls through a VAR_IN_OUT and returns a different instant on a second call, so a double read
+ *  shows in both the count and the date (a DATE that is not a whole day). */
+const WALK: Readonly<Record<string, readonly [string, string]>> = {
+  DATE: ["D#1970-01-02", "D#1970-01-04"],
+  LDATE: ["LDATE#1970-01-02", "LDATE#1970-01-04"],
+  DT: ["DT#1970-01-02-00:00:05", "DT#1970-01-03-00:00:07"],
+  LDT: ["LDT#1970-01-02-00:00:05", "LDT#1970-01-03-00:00:07"],
+  TOD: ["TOD#00:00:05", "TOD#00:00:07"],
+  LTOD: ["LTOD#00:00:05", "LTOD#00:00:07"],
+}
+const callOnce: LanguageTest[] = ["DATE", "LDATE"].flatMap((dst) =>
+  DATES.filter((src) => src !== dst).map((src): LanguageTest => {
+    const slug = `xf_${src.toLowerCase()}_to_${dst.toLowerCase()}_call_once`
+    const pou = `F_LANG_${slug}`
+    const [first, later] = WALK[src]!
+    return {
+      name: slug,
+      pouName: pou,
+      kind: "function",
+      feature: `${src}_TO_${dst} of a function call — the call runs once`,
+      fromDoc: "06-data-types.md",
+      plcPrgVar: `calls : INT; d : ${dst}; raw : ULINT;`,
+      plcPrgBody: `d := ${src}_TO_${dst}(${pou}(calls)); raw := ${dst}_TO_ULINT(d);`,
+      source: `FUNCTION ${pou} : ${src}
+VAR_IN_OUT
+	calls : INT;
+END_VAR
+calls := calls + 1;
+IF calls = 1 THEN
+	${pou} := ${first};
+ELSE
+	${pou} := ${later};
+END_IF
+END_FUNCTION
+`,
+    }
+  }),
+)
+
 /** Every family's text form — the prelude mirrors each one, so a drift here is a silent backend divergence. */
 const texts: LanguageTest[] = [
   probe("xf_time_to_string", "\tv : TIME;", "v := T#1S500MS;", "TIME_TO_STRING(v)", "STRING", "TIME as text"),
@@ -103,4 +143,4 @@ const bools: LanguageTest[] = [
   probe("xf_bool_to_real_true", "\tv : BOOL;", "v := TRUE;", "BOOL_TO_REAL(v)", "REAL", "TRUE as a REAL"),
 ]
 
-export const CROSS_FAMILY_TESTS: readonly LanguageTest[] = [...durations, ...dates, ...texts, ...parses, ...bools]
+export const CROSS_FAMILY_TESTS: readonly LanguageTest[] = [...durations, ...dates, ...callOnce, ...texts, ...parses, ...bools]

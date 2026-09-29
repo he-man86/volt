@@ -148,8 +148,8 @@ those values into the new fixture's recording.
   not a whole day (raw=86399).
 - CODESYS: a call argument is evaluated once; `xf_dt_to_date` fixes the value rule. Expected calls=1, raw=86400.
 - Fix: `div(count, day)` then `mul(…, day)` (single read; also leaner).
-- [ ] 10.1 Fixture per DATE/LDATE-target pair with a VAR_IN_OUT-call source — red.
-- [ ] 10.2 Fix.
+- [x] 10.1 Fixtures `xf_<src>_to_<date|ldate>_call_once` (all 10 pairs) — recorded with record:exec. The premise was half wrong: CODESYS itself reads a DT/LDT/TOD/LTOD source TWICE (`x - x MOD day`, left first, wrapping: DT 86405 then 172807 -> 86398; TOD 5s then 7s -> 16#FFFFFFFE), which the lowering already matched; only DATE<->LDATE reads it ONCE (calls=1, raw=86400) — red there.
+- [x] 10.2 Fix. `lower/builtins.ts`: a DATE/LDATE source is already whole days, so the day mask (and its second read) is skipped; `mul(div(...))` was NOT applied — it would read the DT/TOD sources once, unlike CODESYS. The harness displays an LDATE signed (recorded `LDATE#1969-12-31` beside raw 2^64-2e9).
 
 ## 11. STRING↔WSTRING and STRING→number conversions cut the operand to 80 characters
 - Root cause: `lower/builtins.ts:298-299` (`convert(arg, withStringCapacity(from!))` and result `withStringCapacity(to)`;
