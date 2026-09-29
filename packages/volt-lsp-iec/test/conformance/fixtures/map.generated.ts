@@ -12,17 +12,17 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1974
+ *     confirmed     1975
  *     refused        540
  *     not-lowered     90
  *     lsp-gap          4
- *     diverges         3
+ *     diverges         4
  *     unaskable       38
  *
  *   tier                     lowered    clean
  *     decl                    426      426
- *     arith                  1442     1442
- *     control                  58       58
+ *     arith                  1443     1443
+ *     control                  59       59
  *     aggregate                25       25
  *     call                    222      220
  *     indirect                161      157
@@ -1714,6 +1714,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   mux_basic: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   mux_mixed_types: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   mux_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor" },
+  named_const_expression_keeps: { evidence: "diverges", tier: "arith", rust: "compiles" },
+  named_const_literal_wrap: { evidence: "confirmed", tier: "control", rust: "vendor" },
   narrowing_lreal_to_real: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   network_unnamed_assignment_target: { evidence: "refused" },
   network_unnamed_group_operand: { evidence: "refused" },

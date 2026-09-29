@@ -9,6 +9,7 @@
 import type { Scope, Symbol } from "../symbols/index.js"
 import { findChildScope, lookup, lookupLocal, lookupMember, isLibrarySymbol, resolveGvlMember } from "../symbols/index.js"
 import type { Expr, TypeExpr, VarDecl } from "../syntax/index.js"
+import { elementaryType } from "./elementary.js"
 
 export type ConstValue = bigint | number | boolean | undefined
 
@@ -122,9 +123,20 @@ function initialValue(symbol: Symbol, ctx: FoldContext): ConstValue {
   ctx.folding.add(symbol)
   const value = fold(decl.init, symbol.owner, { folding: ctx.folding, ...(symbol.kind === "gvl_var" ? { list: symbol.uri } : {}) })
   ctx.folding.delete(symbol)
+  // A LITERAL initializer is held at the declared width, as the constant's slot holds it: `C : INT := 40000` is -25536
+  // wherever it is named — an initializer, a CASE label. An EXPRESSION initializer is NOT: `D : SINT := K + 1` (K = 127)
+  // reads 128, even from D itself (conformance `named_const_literal_wrap`, `named_const_expression_keeps`, LIVE).
+  if (typeof value === "bigint" && decl.init.kind === "literal" && !isRealType(decl.type)) return heldAs(value, decl.type)
   // `RC : REAL := 10` is a REAL: `RC / 4` is 2.5, not the integer 2 the literal would fold to.
   // ponytail: a REAL behind an alias type folds as its literal; resolve the alias when one is seen
   return typeof value === "bigint" && isRealType(decl.type) ? Number(value) : value
+}
+
+/** An integer as a variable of an elementary integer or bit-string type holds it — wrapped to the type's width. */
+function heldAs(v: bigint, t: TypeExpr): bigint {
+  const e = t.kind === "named_type" ? elementaryType(t.name.text) : undefined
+  if (e === undefined || e.rank === undefined || (e.family !== "int" && e.family !== "bitstring")) return v
+  return e.signed ? BigInt.asIntN(e.bits, v) : BigInt.asUintN(e.bits, v)
 }
 
 const isRealType = (t: TypeExpr): boolean => t.kind === "named_type" && /^L?REAL$/i.test(t.name.text)

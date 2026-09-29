@@ -638,6 +638,24 @@ const CASES: readonly ExecCase[] = [
     vars: "ul : ULINT := 6; sn : SINT := -2; w : DWORD := 10; i : INT := -2; z : DWORD := 0; ud : UDINT := 7; divUlS : LINT; divWI : LINT; gtZI : BOOL; gtUlS : BOOL; modUdI : LINT; minUdI : LINT;",
     body: "divUlS := ul / sn; divWI := w / i; gtZI := z > i; gtUlS := ul > sn; modUdI := ud MOD i; minUdI := MIN(ud, i);",
   },
+  {
+    // transpile-review-2026-09-29 task 2: a named CONSTANT initialised from a LITERAL its type cannot hold — does a
+    // use of it see the literal, or the value its slot holds? Asked where the fold is the only answer: an initializer
+    // and a CASE label (the `END_VAR VAR CONSTANT` splice declares the constants inside PLC_PRG).
+    name: "named_const_literal_wrap",
+    vars: "x : DINT := C; y : DINT; xn : DINT := N; sw : INT := -25536; res : INT; END_VAR VAR CONSTANT C : INT := 40000; N : SINT := 200;",
+    body: "y := C; CASE sw OF C: res := 1; ELSE res := 2; END_CASE",
+  },
+  {
+    // task 2's other half: a constant initialised from a constant EXPRESSION that overflows its type.
+    name: "named_const_expression_keeps",
+    // The FOLD matches (d1 = 128, e1 = 258). The slot does not: CODESYS reads D back as SINT#128 and E as USINT#258 —
+    // the constant is its folded value, not a stored SINT — while lowering stores D wrapped (-128) and reads `d2 := D`
+    // from that slot. A different root cause from task 2's fold; tracked as transpile-review task 2.3.
+    deferred: "a constant from an overflowing expression is read from its wrapped slot; CODESYS reads the unwrapped fold (measured 2026-09-29, transpile-review 2.3)",
+    vars: "d1 : INT := D; e1 : INT := E; d2 : INT; e2 : INT; END_VAR VAR CONSTANT K : SINT := 127; D : SINT := K + 1; U : USINT := 255; E : USINT := U + 3;",
+    body: "d2 := D; e2 := E;",
+  },
 
   // ── consolidate-lsp-structure A3: does a typed literal's prefix decide its type? Lowering ignores it ──
   {

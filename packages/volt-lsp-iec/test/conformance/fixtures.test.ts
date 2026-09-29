@@ -853,7 +853,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // and sixteen cells across 0x80..0x9F follow that codepage exactly. What is left is one family — CODESYS's trig
   // is the x87 FPU, whose 66-bit argument reduction and few-ULP kernel are named at `ir/values.ts` and
   // deliberately not emulated.
-  diverges: 3,
+  // 3 -> 4. `named_const_expression_keeps` (transpile-review-2026-09-29 task 2.3): CODESYS reads a constant whose
+  // constant-EXPRESSION initializer overflows its type as the unwrapped fold (`D : SINT := K + 1` reads SINT#128);
+  // lowering stores and reads it through a slot of the declared width.
+  diverges: 4,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.

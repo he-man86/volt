@@ -62,3 +62,16 @@ test("inside a list's own initializer a bare name is its sibling first — not a
   ]
   expect(folded("GQ.B", lists)).toBe(10n)
 })
+
+// transpile-review-2026-09-29 task 2 (conformance `named_const_literal_wrap`, `named_const_expression_keeps`, LIVE):
+// a constant initialised from a LITERAL holds it at its declared width, as its slot does — but one initialised from a
+// constant EXPRESSION keeps the unwrapped value, even read back from the constant itself.
+test("a named constant from a literal folds to what its type holds; from an expression, unwrapped", () => {
+  const list = [
+    { uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  C : INT := 40000;\n  Q : SINT := 200;\n  K : SINT := 127;\n  D : SINT := K + 1;\n  U : USINT := 255;\n  E : USINT := U + 3;\nEND_VAR\n" },
+  ]
+  expect(folded("C", list)).toBe(-25536n)
+  expect(folded("Q", list)).toBe(-56n)
+  expect(folded("D", list)).toBe(128n)
+  expect(folded("E", list)).toBe(258n)
+})
