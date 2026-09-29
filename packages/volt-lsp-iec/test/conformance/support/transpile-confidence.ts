@@ -2524,8 +2524,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "53bd7d992e": LEAN.shapes17_9,
   // self.f = (self.f as i32) >= (self.f as i32);
   "54889e0f45": LEAN.shapes7_2,
-  // self.f = IecString::<L>::lit(iec_ltime_text(self.v as i64).as_bytes()).to();
-  "54e36b572f": LEAN.shapes9_1,
   // x = (((x as i32).max(Li32) as u16) as i32).wrapping_sub(Li32);
   "5513d0e592": LEAN.shapes16_9,
   // self.f[(self.p as i64).wrapping_add(-Li64).wrapping_add(Li64) as usize].f = Li16;
@@ -3256,6 +3254,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "c8ca44a755": LEAN.shapes15_7,
   // self.f = IecString::<L>::lit(x!(S, (self.f as i32).wrapping_mul(self.f as i32)).as_bytes()).to();
   "c90fc459e6": LEAN.shapes10_5,
+  // self.f = IecString::<L>::lit(iec_ltime_text(self.v).as_bytes()).to();
+  "c9573720ef": LEAN.shapes9_1,
   // x: std::array::from_fn(|_| T::new()),
   "c9c77500c6": merged(LEAN.shapes2_7, LEAN.shapes2_9),
   // self.f = (self.f as i32).wrapping_add(self.f as i32) as i16;

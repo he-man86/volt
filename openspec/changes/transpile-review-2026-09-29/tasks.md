@@ -396,9 +396,9 @@ those values into the new fixture's recording.
 - Repro: LTIME#106752d → Rust 'LTIME#-106751d-23h-…'; interpreter correct.
 - CODESYS: LTIME is unsigned 64-bit ns up to LTIME#213503d23h34m33s709ms551us615ns.
 - Fix: `iec_ltime_text(ns: u64)`, no cast.
-- [ ] 32.1 Extend `fmt_ltime_every_component` with values ≥ 2^63 ns — red.
+- [x] 32.1 Extend `fmt_ltime_every_component` with values ≥ 2^63 ns — red.
   Recorded 2026-09-29 (record:exec): `tr_32_fmt_ltime_past_i64` — diverges (the Rust prints a negative duration).
-- [ ] 32.2 Fix.
+- [x] 32.2 Fix. `iec_ltime_text(ns: u64)` and the emitter passes an LTIME uncast (`castTo(..., "u64")`) — fixture confirmed through the maximum LTIME, divergence mark removed; the shapes9_1 note re-keyed to the uncast construct.
 
 ## 33. LREAL_TO_STRING rounds an exact 16th-digit tie to even in Rust
 - Root cause: `emit/rust/prelude.ts:88` (`format!("{:.*e}", 14, …)` rounds half-even) vs `ir/values.ts:344`

@@ -695,7 +695,9 @@ class Printer {
             from === "bool"
               ? `(if ${unparen(value)} { "TRUE" } else { "FALSE" })`
               : isTemporal(source)
-                ? `iec_${source.toLowerCase()}_text(${unparen(castTo(value, e.value.type, "i64"))})`
+                ? // An LTIME is a u64 of nanoseconds and its helper takes it as one: through i64, 2^63 ns and past
+                  // printed a negative duration (transpile-review 32, `tr_32_fmt_ltime_past_i64`).
+                  `iec_${source.toLowerCase()}_text(${unparen(castTo(value, e.value.type, source === "LTIME" ? "u64" : "i64"))})`
                 : source === "LREAL"
                   ? `iec_lreal_text(${unparen(value)})`
                   : `format!("{}", ${unparen(value)})`

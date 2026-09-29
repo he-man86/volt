@@ -827,3 +827,18 @@ describe("emit/rust — a BIT converts as a BOOL", () => {
     expect(code).not.toMatch(/as bool/)
   })
 })
+
+/**
+ * LTIME_TO_STRING READS THE LTIME AS THE u64 IT IS (transpile-review task 32). The emitter cast the LTIME to i64 for
+ * `iec_ltime_text(ns: i64)`, so LTIME#106752d (past 2^63 ns) printed a negative duration; CODESYS prints it whole, up
+ * to LTIME#213503d23h34m33s709ms551us615ns (`tr_32_fmt_ltime_past_i64`).
+ */
+describe("emit/rust — LTIME_TO_STRING is unsigned", () => {
+  test("the LTIME goes to iec_ltime_text uncast, and the helper takes a u64", () => {
+    const code = rust(
+      "PROGRAM PLC_PRG\nVAR\n\tt : LTIME := LTIME#106752D;\n\ts : STRING;\nEND_VAR\ns := LTIME_TO_STRING(t);\nEND_PROGRAM\n",
+    )
+    expect(code).toContain("iec_ltime_text(self.t)")
+    expect(code).toContain("fn iec_ltime_text(ns: u64)")
+  })
+})
