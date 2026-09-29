@@ -437,18 +437,20 @@ function preludeLines(code: string): number {
  *
  * `shape` is what the map's row carries: two fixtures share it exactly when they emit the same constructs in the
  * same order, whatever their names and literals. `constructs` is what `NOTES` is keyed by — the unit the review
- * judged — and what a row's `improvable` is joined through. Neither depends on anything but the code: no run order,
- * no counter, no position in the corpus.
+ * judged — and what a row's `notes` are joined through; `lines` is each construct as `normalizeRustLine` printed
+ * it, parallel to `constructs`, which the map prints above each note. None of it depends on anything but the code:
+ * no run order, no counter, no position in the corpus.
  */
-export function emissionShape(code: string): { shape: string; constructs: readonly string[] } {
+export function emissionShape(code: string): { shape: string; constructs: readonly string[]; lines: readonly string[] } {
   const skip = preludeLines(code)
-  const constructs: string[] = []
+  const lines: string[] = []
   code.split("\n").forEach((raw, i) => {
     if (i < skip || raw.trim() === "") return
     const n = normalizeRustLine(raw)
-    if (!BOILERPLATE.test(n)) constructs.push(shapeId(n))
+    if (!BOILERPLATE.test(n)) lines.push(n)
   })
-  return { shape: shapeId(constructs.join("\n")), constructs }
+  const constructs = lines.map(shapeId)
+  return { shape: shapeId(constructs.join("\n")), constructs, lines }
 }
 
 /**
@@ -475,10 +477,12 @@ export function sizeRatio(code: string, source: string, gvls: readonly { source:
  *   `chosen`        the option the reviewer would pick, when one was named
  *   `why`           the reviewer's reason for it
  *
- * MEMBERSHIP IN THE MAP, REASONS HERE — the rule `diverges` already follows. A row carries only `improvable: true`
- * and how many of its constructs have `alternatives`; the prose lives here, authored, where a regeneration cannot
- * delete it. And like `ALLOWED`, a note outlives its construct silently unless something refuses it: the generator
- * and `fixtures.test.ts` both fail on a key no fixture emits any more.
+ * AUTHORED HERE, RENDERED IN THE MAP. A row carries `notes` — the ids of the noted constructs it emits — and the
+ * map ends with a generated `NOTES` section holding every note's full text under its construct line (`renderNotes`),
+ * so a reader goes from a row to its reasons in the same file. The prose is WRITTEN here, where a regeneration
+ * cannot delete it; the map's copy is regenerated from this one and `fixtures.test.ts` fails when it drifts. And
+ * like `ALLOWED`, a note outlives its construct silently unless something refuses it: the generator and
+ * `fixtures.test.ts` both fail on a key no fixture emits any more.
  */
 export interface ShapeNote {
   improvement?: string
@@ -3648,12 +3652,55 @@ export function deadNotes(emitted: ReadonlySet<string>): string[] {
   return Object.keys(NOTES).filter((id) => !emitted.has(id)).sort()
 }
 
-/** What `NOTES` says about a fixture's constructs, as the membership its row carries. */
-export function notesOf(constructs: readonly string[]): Pick<FixtureMapRow, "improvable" | "alternatives"> {
-  const noted = [...new Set(constructs)].filter((id) => NOTES[id] !== undefined)
-  if (noted.length === 0) return {}
-  const choices = noted.filter((id) => (NOTES[id]!.alternatives ?? []).length > 0).length
-  return { improvable: true, ...(choices > 0 ? { alternatives: choices } : {}) }
+/** Which of a fixture's constructs `NOTES` judged — the ids its row carries, deduplicated and sorted. */
+export function notesOf(constructs: readonly string[]): Pick<FixtureMapRow, "notes"> {
+  const noted = [...new Set(constructs)].filter((id) => NOTES[id] !== undefined).sort()
+  return noted.length === 0 ? {} : { notes: noted }
+}
+
+/**
+ * THE MAP'S `NOTES` SECTION — every note's full text, by construct id, with the construct as `normalizeRustLine`
+ * prints it in a comment above. Written at the END of `map.generated.ts`, so the ids a row's `notes` names resolve in
+ * the same file. A COPY of the authored table, never the source: edit `NOTES` here and regenerate.
+ *
+ * `lines` maps each construct id some fixture emits to its normalized line. A note with no line is a note about a
+ * construct nobody emits — refused, never printed without the construct it is about.
+ */
+export function renderNotes(
+  notes: Readonly<Record<string, ShapeNote>>,
+  lines: ReadonlyMap<string, string>,
+): string {
+  const ids = Object.keys(notes).sort()
+  const lineless = ids.filter((id) => !lines.has(id))
+  if (lineless.length > 0) throw new Error(`these notes name a construct no fixture emits: ${lineless.join(", ")}`)
+  const q = (s: string): string => JSON.stringify(s)
+  const entries = ids.map((id) => {
+    const n = notes[id]!
+    return [
+      `  // ${lines.get(id)}`,
+      `  ${q(id)}: {`,
+      ...(n.improvement === undefined ? [] : [`    improvement: ${q(n.improvement)},`]),
+      ...(n.alternatives === undefined ? [] : ["    alternatives: [", ...n.alternatives.map((a) => `      ${q(a)},`), "    ],"]),
+      ...(n.chosen === undefined ? [] : [`    chosen: ${q(n.chosen)},`]),
+      ...(n.why === undefined ? [] : [`    why: ${q(n.why)},`]),
+      "  },",
+    ].join("\n")
+  })
+  return `
+/**
+ * THE REVIEW'S NOTES — the full text behind every row's \`notes\`, keyed by construct id, the construct as
+ * \`normalizeRustLine\` prints it in the comment above each. GENERATED from the authored \`NOTES\` in
+ * \`support/transpile-confidence.ts\`: edit it there and regenerate, never here.
+ *
+ *   \`improvement\`   what a Rust engineer would write instead
+ *   \`alternatives\`  when several emissions are CORRECT: each option, as the reviewer put it
+ *   \`chosen\`        the option the reviewer would pick, when one was named
+ *   \`why\`           the reviewer's reason for it
+ */
+export const NOTES: Readonly<Record<string, ShapeNote>> = {
+${entries.join("\n")}
+}
+`
 }
 
 // ── the edge differential ────────────────────────────────────────────────────────────────────────────────────
@@ -4010,10 +4057,8 @@ export interface FixtureMapRow {
   size?: number
   /** The id of the fixture's emission shape — its constructs in order (`emissionShape`). */
   shape?: string
-  /** One of its constructs has a note in `NOTES`: the review said what a Rust engineer would write instead. */
-  improvable?: true
-  /** How many of its noted constructs record several CORRECT emissions — the choices, in `NOTES`. */
-  alternatives?: number
+  /** The ids, sorted, of its constructs that carry a review note — each one's text is in the map's `NOTES` section. */
+  notes?: readonly string[]
 }
 
 
@@ -4041,8 +4086,7 @@ export function printRow(name: string, row: FixtureMapRow): string {
   if (row.edge !== undefined) parts.push(`edge: ${JSON.stringify(row.edge)}`)
   if (row.size !== undefined) parts.push(`size: ${row.size}`)
   if (row.shape !== undefined) parts.push(`shape: ${JSON.stringify(row.shape)}`)
-  if (row.improvable === true) parts.push("improvable: true")
-  if (row.alternatives !== undefined) parts.push(`alternatives: ${row.alternatives}`)
+  if (row.notes !== undefined) parts.push(`notes: [${row.notes.map((id) => JSON.stringify(id)).join(", ")}]`)
   if (row.diverges !== undefined)
     parts.push(
       `diverges: { ${Object.entries(row.diverges)

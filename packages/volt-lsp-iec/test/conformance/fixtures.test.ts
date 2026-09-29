@@ -65,9 +65,11 @@ import {
   edgeVerdict,
   emissionShape,
   normalizeRustLine,
+  NOTES,
   notesOf,
   reachesLibm,
   rejectionIsADefect,
+  renderNotes,
   rendered,
   shapeId,
   sizeRatio,
@@ -879,6 +881,56 @@ describe("the map's measured columns — the pure halves", () => {
     expect(emissionShape(STRING_PRELUDE + body)).toEqual(emissionShape(body))
   })
 
+  test("a fixture's constructs come with their normalized lines, one per id", () => {
+    const code = "fn scan() {\n    self.a = 1i16;\n    self.b = self.a;\n}\n"
+    const { constructs, lines } = emissionShape(code)
+    expect(lines).toEqual(["fn scan() {", "self.a = 1i16;", "self.b = self.a;"].map((l) => normalizeRustLine(l)))
+    expect(constructs).toEqual(lines.map(shapeId))
+  })
+
+  test("a row's notes are the ids of its noted constructs, deduplicated and sorted", () => {
+    const [first, second] = Object.keys(NOTES).sort()
+    const unnoted = shapeId("no review ever judged this line")
+    expect(NOTES[unnoted]).toBeUndefined()
+    expect(notesOf([unnoted])).toEqual({})
+    expect(notesOf([second!, unnoted, first!, second!])).toEqual({ notes: [first!, second!] })
+  })
+
+  test("the map's NOTES section renders every note's full text under its construct line, by id", () => {
+    const notes = {
+      bbbbbbbbbb: { improvement: 'say "less"' },
+      aaaaaaaaaa: { improvement: "one", alternatives: ["x", "y"], chosen: "y", why: "because" },
+    }
+    const lines = new Map([
+      ["aaaaaaaaaa", "self.f = Li16;"],
+      ["bbbbbbbbbb", "loop {"],
+    ])
+    const text = renderNotes(notes, lines)
+    expect(text).toContain(
+      [
+        "export const NOTES: Readonly<Record<string, ShapeNote>> = {",
+        "  // self.f = Li16;",
+        '  "aaaaaaaaaa": {',
+        '    improvement: "one",',
+        "    alternatives: [",
+        '      "x",',
+        '      "y",',
+        "    ],",
+        '    chosen: "y",',
+        '    why: "because",',
+        "  },",
+        "  // loop {",
+        '  "bbbbbbbbbb": {',
+        '    improvement: "say \\"less\\"",',
+        "  },",
+        "}",
+      ].join("\n"),
+    )
+    expect(text.endsWith("}\n")).toBe(true)
+    // a note whose construct no fixture emits has no line to print — refused, never printed without one
+    expect(() => renderNotes(notes, new Map([["aaaaaaaaaa", "loop {"]]))).toThrow(/bbbbbbbbbb/)
+  })
+
   test("size counts emitted lines per ST line, the prelude and blank lines excluded", () => {
     const rust = "pub struct P {\n\n    pub a: i16,\n}\n"
     expect(sizeRatio(rust, "PROGRAM P\n// note\nVAR a : INT; END_VAR\n\nEND_PROGRAM", [])).toBe(1)
@@ -987,25 +1039,32 @@ describe("the table is total", () => {
   }, Math.max(30_000, ALL_TESTS.length * 10))
 
   /**
-   * THE COLUMNS THAT NEED NO COMPILER — the emission's `shape`, its `size`, and the `NOTES` membership joined onto
-   * it — recomputed for every fixture that lowers, from the same emitted code the generator hashed.
+   * THE COLUMNS THAT NEED NO COMPILER — the emission's `shape`, its `size`, and the ids of its constructs `NOTES`
+   * judged — recomputed for every fixture that lowers, from the same emitted code the generator hashed. And the
+   * map's own `NOTES` section, re-rendered from the authored table and the construct lines those fixtures emit: the
+   * texts a row's `notes` point at are in the same file, so they are gated like every other column.
    */
-  test("the stored shape, size and notes on every fixture match the computed ones", () => {
+  test("the stored shape, size and notes on every fixture, and the map's NOTES section, match the computed ones", () => {
     const stale: string[] = []
+    const lines = new Map<string, string>()
     for (const t of ALL_TESTS) {
       const { pou } = lowering(t)
       if (pou === undefined) continue
       const code = emitRust(pou).code
       const { source, gvls } = assembleFixture(t, ALL_TESTS)
-      const { shape, constructs } = emissionShape(code)
-      const notes = notesOf(constructs)
-      const got = { shape, size: sizeRatio(code, source, gvls), improvable: notes.improvable, alternatives: notes.alternatives }
+      const emitted = emissionShape(code)
+      emitted.constructs.forEach((id, i) => lines.set(id, emitted.lines[i]!))
+      const got = { shape: emitted.shape, size: sizeRatio(code, source, gvls), notes: notesOf(emitted.constructs).notes }
       const stored = t.transpile
-      const want = { shape: stored?.shape, size: stored?.size, improvable: stored?.improvable, alternatives: stored?.alternatives }
+      const want = { shape: stored?.shape, size: stored?.size, notes: stored?.notes }
       if (JSON.stringify(got) !== JSON.stringify(want)) stale.push(`${t.name}: stored ${JSON.stringify(want)}, computed ${JSON.stringify(got)}`)
     }
     if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
     expect(stale).toEqual([])
+    const map = readFileSync(join(import.meta.dir, "fixtures", "map.generated.ts"), "utf8")
+    const section = renderNotes(NOTES, lines)
+    if (!map.endsWith(section)) console.log("  [fixtures] the map's NOTES section is stale — run `bun run rate:fixtures`")
+    expect(map.endsWith(section)).toBe(true)
   }, Math.max(30_000, ALL_TESTS.length * 10))
 
   /**

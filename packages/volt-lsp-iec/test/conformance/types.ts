@@ -165,8 +165,10 @@ export interface LanguageTest {
    *                  -1, NaN, empty and full strings) — `agree`, `disagree`, or `not-run` (the map's header says why).
    *   `size`         emitted Rust lines per ST line.
    *   `shape`        the emission's shape id: fixtures that emit the same constructs in the same order share it.
-   *   `improvable`,  membership in the review's authored `NOTES` (`support/transpile-confidence.ts`), which holds
-   *   `alternatives` the reasons — the same rule `diverges` follows.
+   *   `notes`        the ids of the constructs it emits that the review judged. Each id's full text — improvement,
+   *                  alternatives, chosen, why — is rendered in the map's own `NOTES` section, at the end of the
+   *                  same file, so a row leads to its reasons without leaving it. The AUTHORED source is `NOTES` in
+   *                  `support/transpile-confidence.ts`; the map's copy is generated from it and gated.
    *
    * A fixture that does not lower carries no `tier`, `rust` or `lints` at all — that absence IS the signal, and
    * it must not be able to read as clean.
@@ -187,10 +189,8 @@ export interface LanguageTest {
     size?: number
     /** The emission's shape id: its normalized constructs in order (`emissionShape`). */
     shape?: string
-    /** One of its constructs carries a review note in `NOTES` — the reasons are there, not here. */
-    improvable?: true
-    /** How many of its noted constructs record several correct emissions. */
-    alternatives?: number
+    /** The construct ids, sorted, that carry a review note — each one's text is in the map's `NOTES` section. */
+    notes?: readonly string[]
   }
   /**
    * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is

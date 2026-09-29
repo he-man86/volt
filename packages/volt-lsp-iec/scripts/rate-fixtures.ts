@@ -19,7 +19,10 @@
  *               `not-run`, and the header says why for each of those.
  *   `size`      emitted Rust lines per ST line.
  *   `shape`     the emission's shape id — its normalized constructs in order.
- *   `improvable` / `alternatives`  membership in the review's authored `NOTES`, which keeps the reasons.
+ *   `notes`     the ids of the constructs it emits that the review judged. Their full text — improvement,
+ *               alternatives, chosen, why — is written at the END of the same file, a generated `NOTES` section
+ *               copied from the authored table in `support/transpile-confidence.ts` (`renderNotes`), so a row leads
+ *               to its reasons without leaving the map. The authored table stays the source; the copy is gated.
  *
  * WHY A GENERATED MODULE AND NOT A FIELD IN EACH FIXTURE. About half the catalog is not literal objects: 458 of the
  * fixtures come from factory helpers (`fb("cc_…", …)`) or carry template-literal names
@@ -71,6 +74,7 @@ import {
   notesOf,
   printRow,
   rejectionIsADefect,
+  renderNotes,
   rendered,
   sizeRatio,
   splitFindings,
@@ -103,8 +107,8 @@ const rows = new Map<string, FixtureMapRow>()
 const excused = new Map<string, number>()
 /** A fixture INSIDE the input contract whose emitted Rust the compiler refused — an emitter defect, refused below. */
 const rejected = new Map<string, string>()
-/** Every construct any fixture emits — a note keyed by anything else is refused below. */
-const constructs = new Set<string>()
+/** Every construct any fixture emits, with its normalized line — a note keyed by anything else is refused below. */
+const constructs = new Map<string, string>()
 /** Why each `not-run` edge row did not run, by reason. */
 const notRun = new Map<string, number>()
 /** The first difference of each `disagree` edge row, for the header. */
@@ -163,7 +167,7 @@ await Promise.all(
       rmSync(exe.replace(/\.exe$/, ".pdb"), { force: true })
 
       const shape = emissionShape(code)
-      for (const c of shape.constructs) constructs.add(c)
+      shape.constructs.forEach((id, k) => constructs.set(id, shape.lines[k]!))
       const diverges = divergesOf(t.name)
       rows.set(t.name, {
         evidence,
@@ -203,7 +207,7 @@ if (dead.length > 0)
 
 // THE SAME REFUSAL FOR A NOTE: a judgement about a construct no fixture emits any more is a note about nothing, and
 // it would sit in `NOTES` looking like open work. Delete it, or re-key it to the construct that replaced it.
-const orphaned = deadNotes(constructs)
+const orphaned = deadNotes(new Set(constructs.keys()))
 if (orphaned.length > 0)
   throw new Error(`these NOTES name a construct no fixture emits any more: ${orphaned.join(", ")}`)
 
@@ -225,8 +229,8 @@ for (const [name, row] of rows) {
   if (row.edge !== undefined) edgeTally.set(row.edge, (edgeTally.get(row.edge) ?? 0) + 1)
   if (row.shape !== undefined) shapes.add(row.shape)
   if (row.size !== undefined) sizes.push([name, row.size])
-  if (row.improvable === true) improvable++
-  if (row.alternatives !== undefined) withAlternatives++
+  if (row.notes !== undefined) improvable++
+  if (row.notes?.some((id) => (NOTES[id]!.alternatives ?? []).length > 0)) withAlternatives++
 }
 // by value, then by name on a tie: the Maps take their order from racing compile lanes, and `--check` compares bytes
 const ranked = <K extends string>(m: ReadonlyMap<K, number>): [K, number][] =>
@@ -246,7 +250,8 @@ const text = `/**
  *
  * \`support/evidence.ts\` defines the evidence ratings; \`support/transpile-confidence.ts\` defines the tier, the
  * oracle, the lint policy — including the reason each allowed lint is Volt's own answer rather than a defect —, the
- * shape, the edge differential, and the review's \`NOTES\`, which hold the reasons behind \`improvable\`.
+ * shape, the edge differential, and the review's \`NOTES\` — authored there, and copied in full to the END of this
+ * file, so the construct ids in a row's \`notes\` resolve to their text here.
  *
  * At the last regeneration:
  *
@@ -305,13 +310,14 @@ ${sizes
  *
  *   shape — ${shapes.size} distinct emission shapes over ${sizes.length} lowered fixtures, ${constructs.size} distinct constructs.
  *   ${Object.keys(NOTES).length} constructs carry a review note (\`NOTES\`): ${improvable} fixtures are improvable, ${withAlternatives} touch a construct with alternatives.
+ *   Each row's \`notes\` names its noted constructs; their texts are the \`NOTES\` section at the end of this file.
  */
-import type { FixtureMapRow } from "../support/transpile-confidence.js"
+import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
 
 export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
 ${lines.join("\n")}
 }
-`
+${renderNotes(NOTES, constructs)}`
 
 const before = (() => {
   try {
