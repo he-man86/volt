@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2010
+ *     confirmed     2011
  *     refused        541
  *     not-lowered    103
  *     lsp-gap         17
- *     diverges        46
+ *     diverges        45
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -49,15 +49,14 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2317
- *     disagree         7
+ *     agree         2318
+ *     disagree         6
  *     not-run        103
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: the emitted Rust does not build                 17
  *       not-run: no elementary variable to seed or compare       15
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
- *       disagree: tr_33_fmt_lreal_tie — (declared inputs): inst.s0 interpreter [49, 46, 50, 51, 52, 53, 54, 55, 56,
  *       disagree: tr_41_limit_evaluation_order — (declared inputs): inst.x interpreter 4, Rust 3
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: tr_47_i2r_lint_to_real_double_round — (declared inputs): out interpreter 1568669696, Rust 1568669
@@ -2532,7 +2531,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_29_method_named_try_into_result: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d41194ad6a", notes: ["11f6ad8ec5", "1307e33bbf", "a29db6178b"] },
   tr_31_bit_conversions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 52, edge: "agree", size: 2.2, shape: "c093cf3c37", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "5d9850550d", "687428cc81", "6a98109119", "74845f98c6", "de132e5019"] },
   tr_32_fmt_ltime_past_i64: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 46, edge: "agree", size: 2.4, shape: "5276512907", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
-  tr_33_fmt_lreal_tie: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 49, edge: "disagree", size: 2.1, shape: "3a2551b872", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
+  tr_33_fmt_lreal_tie: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 49, edge: "agree", size: 2.1, shape: "3a2551b872", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
   tr_34_lib_prim_char_behind: { evidence: "not-lowered" },
   tr_35_for_byte_runtime_int_step: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 8, edge: "agree", size: 5.8, shape: "8f28ced131", notes: ["02b031c773", "1307e33bbf", "4979768984", "521ba042ac", "5ba97e5557", "d9d57311e3", "ec9a760059"] },
   tr_35_for_byte_step_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.5, shape: "b0d4e5d662", notes: ["02b031c773", "1307e33bbf", "4979768984", "521ba042ac", "5ba97e5557", "d9d57311e3"] },

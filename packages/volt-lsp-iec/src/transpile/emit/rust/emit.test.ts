@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { emitRust, rustType, snake } from "./emit.js"
+import { STRING_PRELUDE } from "./prelude.js"
 import { lowerSource } from "../../lower/index.js"
 import { RUSTC, skipRustSuite } from "../../../../test/conformance/support/rustc.js"
 import { LOOP_CAP_MESSAGE, LOOP_ITERATION_CAP } from "../../ir/index.js"
@@ -841,4 +842,36 @@ describe("emit/rust — LTIME_TO_STRING is unsigned", () => {
     expect(code).toContain("iec_ltime_text(self.t)")
     expect(code).toContain("fn iec_ltime_text(ns: u64)")
   })
+})
+
+/**
+ * LREAL_TO_STRING ROUNDS AN EXACT 16th-DIGIT TIE HALF-UP (transpile-review task 33). The prelude took its fifteen
+ * digits from `format!("{:.*e}", 14, …)`, which rounds an exact tie half-to-EVEN — 1000000000000005 printed
+ * '1.00000000000000e15' where CODESYS prints '1.00000000000001e15'. Every value below is exact in an f64 (< 2^53) and
+ * every expected text is CODESYS's recorded answer (`tr_33_fmt_lreal_tie`): three ties half-even rounds down, one it
+ * rounds up, and non-tie controls either side.
+ */
+describe.skipIf(skipRustSuite())("emit/rust — LREAL_TO_STRING rounds a tie half-up", () => {
+  test("the prelude's iec_lreal_text prints CODESYS's text at and beside a 16th-digit tie", async () => {
+    const recorded: [string, string][] = [
+      ["1234567890123445.0", "1.23456789012345e15"],
+      ["1000000000000005.0", "1.00000000000001e15"],
+      ["2500000000000005.0", "2.50000000000001e15"],
+      ["1234567890123455.0", "1.23456789012346e15"],
+      ["1234567890123444.0", "1.23456789012344e15"],
+      ["1234567890123446.0", "1.23456789012345e15"],
+      ["1000000000000006.0", "1.00000000000001e15"],
+    ]
+    const fn = /fn iec_lreal_text\(v: f64\) -> String \{[\s\S]*?\n\}\n/.exec(STRING_PRELUDE)![0]
+    const main = `fn main() {\n${recorded.map(([v]) => `    println!("{}", iec_lreal_text(${v}f64));`).join("\n")}\n}\n`
+    const dir = await mkdtemp(join(tmpdir(), "volt-lreal-"))
+    const file = join(dir, "lreal_tie.rs")
+    const exe = join(dir, process.platform === "win32" ? "lreal_tie.exe" : "lreal_tie")
+    await Bun.write(file, fn + main)
+    const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-o", exe, file])
+    expect(build.stderr.toString()).toBe("")
+    const run = Bun.spawnSync([exe])
+    await rm(dir, { recursive: true, force: true })
+    expect(run.stdout.toString().trim().split(/\r?\n/)).toEqual(recorded.map(([, text]) => text))
+  }, 60_000)
 })

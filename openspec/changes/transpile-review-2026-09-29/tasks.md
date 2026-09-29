@@ -406,9 +406,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): half-up — 1234567890123445 → '1.23456789012345e15', 1000000000000005 → '1.00000000000001e15',
   2500000000000005 → '2.50000000000001e15'; non-tie controls match both rules.
 - Fix: in the prelude, take 17 exact digits and round half-up.
-- [ ] 33.1 Record `fmt_lreal_tie_*` (7 cells) — red.
+- [x] 33.1 Record `fmt_lreal_tie_*` (7 cells) — red.
   Recorded 2026-09-29 (record:exec): `tr_33_fmt_lreal_tie` — diverges (CODESYS rounds the tie up: `1.00000000000001e15`).
-- [ ] 33.2 Fix Rust.
+- [x] 33.2 Fix Rust. `iec_lreal_text` takes the EXACT expansion (`{:.800e}`) and rounds half-up on its 16th digit (17 digits could carry a sub-half into a tie) — all 7 recorded cells match, divergence mark removed.
 
 ## 34. A string's bytes past its terminator are thrown away
 - Root cause: `emit/rust/prelude.ts:44` (store past len dropped), `:48` (0 store truncates and forgets), `:26`

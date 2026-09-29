@@ -84,11 +84,21 @@ fn iec_lreal_text(v: f64) -> String {
     if v.is_infinite() { return String::from(if v < 0.0 { "-#Inf" } else { "#Inf" }); }
     if v == 0.0 { return String::from("0.0"); }
     let sign = if v < 0.0 { "-" } else { "" };
-    // Round to fifteen significant digits FIRST, so the exponent deciding the notation is the printed one.
-    let text = format!("{:.*e}", 14, v.abs());
+    // Round to fifteen significant digits FIRST, so the exponent deciding the notation is the printed one — and HALF-UP
+    // on the exact value, as CODESYS and toExponential do (tr_33_fmt_lreal_tie). format!'s own rounding is half-to-even,
+    // and rounding to any shorter precision first can carry into the 16th digit, so this takes the EXACT expansion
+    // (an f64 has at most 767 significant digits) and decides on its 16th digit alone.
+    let text = format!("{:.*e}", 800, v.abs());
     let (mantissa, exponent) = text.split_once('e').unwrap();
-    let digits: String = mantissa.chars().filter(|c| *c != '.').collect();
-    let exponent: i32 = exponent.parse().unwrap();
+    let exact: Vec<u8> = mantissa.bytes().filter(|c| *c != b'.').collect();
+    let mut exponent: i32 = exponent.parse().unwrap();
+    let mut kept = exact[..15].to_vec();
+    if exact[15] >= b'5' {
+        let mut i = 15;
+        while i > 0 && kept[i - 1] == b'9' { kept[i - 1] = b'0'; i -= 1; }
+        if i == 0 { kept[0] = b'1'; exponent += 1; } else { kept[i - 1] += 1; }
+    }
+    let digits = String::from_utf8(kept).unwrap();
     let trim = |whole: &str, fraction: &str| -> String {
         let kept = fraction.trim_end_matches('0');
         format!("{}.{}", whole, if kept.is_empty() { "0" } else { kept })

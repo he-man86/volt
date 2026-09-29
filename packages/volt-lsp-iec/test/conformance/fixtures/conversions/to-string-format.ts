@@ -342,8 +342,8 @@ const trLtimePastI64 = textCells(
 )
 
 /**
- * Task 33: LREAL_TO_STRING keeps 15 significant digits; at an EXACT tie on the 16th the Rust prelude
- * (`format!("{:.*e}", 14, ...)`) rounds half-to-even where the interpreter (`toExponential(14)`) rounds half-up, and
+ * Task 33: LREAL_TO_STRING keeps 15 significant digits; at an EXACT tie on the 16th the Rust prelude used to
+ * (`format!("{:.*e}", 14, ...)`) round half-to-even where the interpreter (`toExponential(14)`) rounds half-up, and
  * the review saw half-up LIVE. Three ties half-even rounds DOWN (…445, …005, …005), one tie both rules round up
  * (…455), and non-tie controls either side (…444, …446, …006). Every value is below 2^53, so each is exact.
  */
@@ -374,10 +374,7 @@ export const TRANSPILE_REVIEW_TO_STRING_TESTS: readonly LanguageTest[] = [
   },
   trBitConversions,
   trLtimePastI64,
-  {
-    ...trLrealTie,
-    deferred: { transpile: "transpile-review-2026-09-29 task 33: LREAL_TO_STRING rounds an exact 16th-digit tie half-to-even in the emitted Rust; CODESYS rounds half up (1.00000000000001e15) (recorded 2026-09-29)" },
-  },
+  trLrealTie,
 ]
 
 export const TO_STRING_FORMAT_TESTS: readonly LanguageTest[] = [...reals, ...sweep, ...sweep2, ...ltimes, ...times]
