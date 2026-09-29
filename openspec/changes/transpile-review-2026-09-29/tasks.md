@@ -206,9 +206,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): res=7, `b.p = ADR(a.x)` TRUE, `b.p = ADR(b.x)` FALSE — the copy keeps the source's address.
 - Fix: refuse (`lw.bail`) a whole-value store of a type whose pointer/reference fields have instance-relative
   targets (or model a foreign target).
-- [ ] 15.1 Fixture `fb_copy_keeps_pointer_address` — red (expect refusal until modelled).
+- [x] 15.1 Fixture `fb_copy_keeps_pointer_address` — red (expect refusal until modelled).
   Recorded 2026-09-29 (record:exec): `tr_15_fb_copy_keeps_pointer_address` — not-lowered (`pointer-value`). CODESYS: sameA=TRUE, sameB=FALSE, rb=7.
-- [ ] 15.2 Fix.
+- [x] 15.2 Fix (refusal until a foreign target is modelled). The whole-value store (lower/statements.ts, `holdsOwnAddress`) refuses `copy-instance-pointer` (not-modelled) for an FB, or a type holding one, whose POINTER/REFERENCE field has a recorded non-global target; the fixture stays not-lowered, now refused at the copy first; src test in lower.test.ts.
 
 ## 16. Copying an FB instance whole carries its in-out binding tag, and the target's METHOD panics
 - Root cause: `lower/bindings.ts:89` (dispatch arms only for tags written by this instance's own calls) and `:100-102`

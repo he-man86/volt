@@ -2299,3 +2299,18 @@ test("a constant FOR step wraps to the counter's width and keeps its signed dire
   expect(loop("b : BYTE; stp : INT := -1;", "FOR b := 5 TO 1 BY stp DO n := n + 1; END_FOR")).toEqual(["for-step-type"])
   expect(loop("sc : SINT;", "FOR sc := 1 TO 10 BY 300 DO n := n + 1; END_FOR")).toEqual(["for-step-type"])
 })
+
+// transpile-review 15: `b := a` copied an FB instance whose POINTER field holds ADR(its own member); the copy's pointer
+// re-targeted to b's member, where CODESYS keeps a's address (`tr_15_fb_copy_keeps_pointer_address`: rb=7, sameA=TRUE,
+// sameB=FALSE). A foreign target is not modelled, so the whole-value store is refused; a copy of an FB without a pointer
+// field still lowers.
+test("a whole-value store of an FB whose pointer field targets its own member is refused", () => {
+  const codes = (fields: string, read: string) =>
+    lowerSource(
+      `FUNCTION_BLOCK FB_P\nVAR_INPUT set : INT; END_VAR\nVAR x : INT := 5; ${fields} seen : INT; END_VAR\nIF set <> 0 THEN x := set; END_IF\nseen := ${read};\nEND_FUNCTION_BLOCK\n` +
+        "PROGRAM P\nVAR a : FB_P; b : FB_P; rb : INT; END_VAR\nb := a;\na(set := 7);\nb(set := 0);\nrb := b.seen;\nEND_PROGRAM\n",
+      "P",
+    ).diagnostics.map((d) => d.code)
+  expect(codes("p : POINTER TO INT := ADR(x);", "p^")).toEqual(["copy-instance-pointer"])
+  expect(codes("", "x")).toEqual([])
+})

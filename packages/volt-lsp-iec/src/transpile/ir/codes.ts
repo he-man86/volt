@@ -86,6 +86,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "fb-init-order": "unclassified",
   "fb-init-program": "unclassified",
   "exit-outside-loop": "invalid",
+  "copy-instance-pointer": "not-modelled",
   "for-bound-call": "unclassified",
   "for-step-type": "invalid",
   "graphical-body": "unclassified",

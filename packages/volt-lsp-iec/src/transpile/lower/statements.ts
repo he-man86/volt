@@ -203,6 +203,11 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       // Only the IMPLICIT store is refused. `STRING_TO_INT('123')` is an explicit conversion and stays, which is the
       // whole difference CODESYS draws.
       if (refuseImplicitString(lw, value, target.type, s.span)) return undefined
+      // A pointer target is kept FRAME-RELATIVE (`pointerKey`: `FB:<name>.<field>`), so an instance copied whole would
+      // point at its OWN member where CODESYS copies the address and keeps the source's (`tr_15_fb_copy_keeps_pointer_address`:
+      // rb=7, `b.p = ADR(a.x)`). A target outside the copied instance is not modelled: refused (transpile-review 15).
+      if (holdsOwnAddress(lw, target.type))
+        return lw.bail("copy-instance-pointer", "a whole-value store of an instance whose POINTER or REFERENCE field targets its own member — the copy would re-target it", s.span)
       const store: IrStmt = { kind: "assign", target, value: convert(value, target.type), span: s.span }
       // a UNION member's store, then its bytes into the members it overlays
       const copies = unionCopies(lw, target, s.span)
@@ -384,6 +389,21 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: { kind: "load", place: control, type: control.type, span: s.controlVar.span }, right: stepExpr, type: control.type, span: s.span }, span: s.span }],
     span: s.span,
   }
+}
+
+/** Whether a value of `t` holds an FB whose POINTER or REFERENCE field has a target that is not a global — a target kept
+ *  relative to the instance, which a whole-value copy would re-target (transpile-review 15). */
+function holdsOwnAddress(lw: Lowering, t: Type, seen = new Set<string>()): boolean {
+  if (t.kind === "array") return holdsOwnAddress(lw, t.element, seen)
+  if (t.kind !== "struct" && t.kind !== "function_block") return false
+  const name = t.name.toUpperCase()
+  if (seen.has(name)) return false
+  seen.add(name)
+  return (lw.layouts.get(name)?.fields ?? []).some((f) =>
+    f.type.kind === "pointer" || f.type.kind === "reference"
+      ? (lw.shared.pointers.get(`FB:${name}.${f.name.toUpperCase()}`) ?? []).some((target) => target.base.root !== "global")
+      : holdsOwnAddress(lw, f.type, seen),
+  )
 }
 
 // ─── type helpers (facts come from `types/elementary`, never from a second table) ─────────────────────────
