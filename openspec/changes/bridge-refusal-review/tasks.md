@@ -159,3 +159,17 @@
       `?? ItemKind.Kinds.Method`, `PlcPouFb; // default`; `CodeHelper.HeaderLine` used only by child delimiting.
 - [ ] 6.3 Re-census: every `throw` / refusal site in `Volt.Engine/Format`, `Volt.Engine/Sync`, `Volt.Engine/Ide` and
       both drivers appears in the proposal's table as keep; any new site is classified before it lands.
+
+## Error-code vocabulary (owner question, 2026-09-29)
+
+All 22 codes are still raised somewhere (no dead code), but not all fit what they report.
+
+- [ ] V.1 Codes on the wrong situation: a stale item version raised as `BAD_REQUEST` → `STALE_ITEM_VERSION`; a refused
+      `.task` and known vendor limits raised as `INTERNAL_ERROR` → `UNSUPPORTED`; model errors worded as "cannot express as
+      PLCopen" (PLCopen is deleted) → say what the model lacks. `INTERNAL_ERROR` is left for Volt's own broken invariants only.
+- [ ] V.2 `NETWORK_NOT_CANONICAL` goes with the layout-only gate (design issue 6): text that is complete and writable is
+      written; the code is removed from Volt.Contracts, ConflictCodes, wire.html and the LSP's network code list.
+- [ ] V.3 `NO_SIDECAR` ("supply knownItems … or run `volt init`") is named after an internal cache a client never sees:
+      rename to a request-shape code or fold into `BAD_REQUEST` with the same message; update clients and wire.html.
+- [ ] V.4 Gate: every code in BridgeErrorCodes/ConflictCodes is raised by production code AND documented in wire.html
+      with the situation it means; a code raised for two different kinds of situation fails the gate.
