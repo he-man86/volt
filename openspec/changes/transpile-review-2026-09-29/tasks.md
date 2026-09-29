@@ -434,9 +434,9 @@ those values into the new fixture's recording.
   BYTE counter and `BY 300` on SINT are BUILD ERRORS ("Cannot convert type 'INT' to type 'BYTE'/'SINT'").
 - Fix: wrap the folded step to the counter width (`wrapping_add(255u8)`), keep the direction from the signed literal;
   refuse a runtime step or folded step whose type does not convert.
-- [ ] 35.1 Record `for_unsigned_negative_step` (split per loop) — red.
+- [x] 35.1 Record `for_unsigned_negative_step` (split per loop) — red.
   Recorded 2026-09-29 (record:exec): `tr_35_for_byte_step_minus_one`, `tr_35_for_uint_step_minus_two` — diverge (the Rust does not compile); `tr_35_for_byte_step_255` — confirmed; `tr_35_for_byte_runtime_int_step`, `tr_35_for_sint_step_300` — refused by CODESYS, lsp-gap (`MEASURED_SILENT`).
-- [ ] 35.2 Fix.
+- [x] 35.2 Fix. `lowerFor` (lower/statements.ts) holds a folded step at the counter width (`stored`: BY -1 on a BYTE adds 255) with the direction from the signed fold, and refuses `for-step-type` (invalid) for a folded step the counter cannot hold (a negative one on an unsigned counter excepted) or a variable step whose type does not convert; both diverging fixtures confirmed (rust vendor), marks removed; src test in lower.test.ts.
 
 ## 36. FOR literal limit is narrowed into the counter type
 - Root cause: `lower/statements.ts:294` (`lowerExpr(lw, s.to, control.type)`) with `lower/constants.ts:324`.

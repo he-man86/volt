@@ -2,11 +2,11 @@
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
 import { isSelfRef, type Span, type Statement, type StatementList } from "../../syntax/index.js"
-import { elementaryRef, commonType, elemOf, type Type } from "../../types/index.js"
+import { classifyConversion, elementaryRef, commonType, elemOf, type Type } from "../../types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-import { convert } from "./convert.js"
+import { convert, stored } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerAccess, lowerPlace, refuseOpenArray } from "./places.js"
 import { bindReference, nullDeref, pointerArms, pointeePlace, refuseConstantWrite, storePointer, through } from "./pointers.js"
@@ -328,10 +328,25 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
   // 4 runs for 3 passes, the corpus's `fbModuleManager.baseModulesCount`). One in the step, or in a limit a runtime step
   // tests on two arms, would run a number of times no recording shows: refused below.
   const step: IrValue | undefined = s.by === undefined ? 1n : foldConstant(lw, s.by)
+  // A step whose type does not convert into the counter's is a build error — "Cannot convert type 'INT' to type 'BYTE'"
+  // for a runtime INT step on a BYTE counter, '... to type 'SINT'' for BY 300 on a SINT (`tr_35_for_byte_runtime_int_step`,
+  // `tr_35_for_sint_step_300`). A negative literal on an unsigned counter converts (a change of sign): BY -1 on a BYTE.
+  // A literal adopts the counter's type whatever its value, so a folded step is asked by VALUE: it fits the counter, or
+  // it is a negative one on an unsigned counter that the signed type of that width holds. A runtime step is asked by its
+  // TYPE only when it is a variable, the measured shape: an expression of untyped literals (`SEL(b, 2, -2)`) meets as
+  // LINT here, and CODESYS compiles it on an INT counter (`callshape_for_runtime_step`).
+  const counter = elemOf(control.type)
+  const foldedFits = (v: bigint): boolean =>
+    stored(v, control.type) === v || (counter !== undefined && !counter.signed && v < 0n && BigInt.asIntN(counter.bits, v) === v)
+  if (by !== undefined && ((by.kind === "load" && classifyConversion(control.type, by.type) === "incompatible") || (typeof step === "bigint" && !foldedFits(step))))
+    return lw.bail("for-step-type", "a FOR step whose type does not convert into the counter's", s.by!.span)
   // A step that does not fold makes the loop's DIRECTION runtime: the test takes the limit from below for a step of 0 or
   // more and from above for a negative one (conformance `callshape_for_runtime_step`). It was refused (`for-step-runtime`)
   // — guessing `<=` would run a negative step zero times.
-  const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: step, type: control.type, span: s.by?.span ?? s.span }
+  //
+  // A folded step is held at the counter's width (BY -1 on a BYTE adds 255, which wraps it down) while the DIRECTION stays
+  // the signed literal's: CODESYS counts a BYTE down from 5 to 0 and a UINT from 10 to 0 BY -2 (`tr_35_for_*_step_*`).
+  const stepExpr: IrExpr = step === undefined ? convert(by!, control.type) : { kind: "const", value: stored(step, control.type), type: control.type, span: s.by?.span ?? s.span }
   const bool = elementaryRef("BOOL")
   // THE TEST MEETS THE PAIR IN THE COMMON TYPE, like every other comparison.
   //

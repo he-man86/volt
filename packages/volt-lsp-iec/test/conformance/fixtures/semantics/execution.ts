@@ -1085,8 +1085,8 @@ const CASES: readonly ExecCase[] = [
 
   // task 35: a constant FOR step taken in an UNSIGNED counter's type — is -1 on a BYTE a step down, or 255 up? One loop
   // each; a runtime INT step on a BYTE counter and an out-of-range step on a SINT are the build's questions.
-  { name: "tr_35_for_byte_step_minus_one", deferred: "transpile-review-2026-09-29 task 35: CODESYS steps the BYTE counter down (n=5, b=0); the emitted Rust does not compile — the constant step is not wrapped to the counter type (measured 2026-09-29)", vars: "b : BYTE; n : INT;", body: "FOR b := 5 TO 1 BY -1 DO n := n + 1; END_FOR" },
-  { name: "tr_35_for_uint_step_minus_two", deferred: "transpile-review-2026-09-29 task 35: CODESYS steps the UINT counter down (n=5, u=0); the emitted Rust does not compile — the constant step is not wrapped to the counter type (measured 2026-09-29)", vars: "u : UINT; n : INT;", body: "FOR u := 10 TO 2 BY -2 DO n := n + 1; END_FOR" },
+  { name: "tr_35_for_byte_step_minus_one", vars: "b : BYTE; n : INT;", body: "FOR b := 5 TO 1 BY -1 DO n := n + 1; END_FOR" },
+  { name: "tr_35_for_uint_step_minus_two", vars: "u : UINT; n : INT;", body: "FOR u := 10 TO 2 BY -2 DO n := n + 1; END_FOR" },
   { name: "tr_35_for_byte_step_255", vars: "b : BYTE; n : INT;", body: "FOR b := 1 TO 10 BY 255 DO n := n + 1; END_FOR" },
   {
     name: "tr_35_for_byte_runtime_int_step",

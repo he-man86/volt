@@ -2280,3 +2280,22 @@ test("a string conversion keeps the operand's own capacity past 80 characters", 
   runner.scan()
   expect(["namedInt", "bareInt", "crossNamed", "crossBare", "cnt", "wideLen"].map((n) => runner.get(n))).toEqual([5n, 5n, 12345n, 12345n, 100n, 91n])
 })
+
+// transpile-review 35: a constant FOR step was typed as the counter without wrapping (`wrapping_add(-1u8)`, E0600).
+// CODESYS (`tr_35_*`): BY -1 on a BYTE counts down (n=5, b=0), BY -2 on a UINT too (n=5, u=0), BY 255 on a BYTE wraps (n=2,
+// b=255); a runtime INT step on a BYTE counter and BY 300 on a SINT are build errors ("Cannot convert type 'INT' to ...").
+test("a constant FOR step wraps to the counter's width and keeps its signed direction; a step that does not convert is refused", () => {
+  const loop = (vars: string, body: string) => {
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} n : INT; END_VAR\n${body}\nEND_PROGRAM\n`, "P")
+    if (pou === undefined) return diagnostics.map((d) => d.code)
+    const step = (pou.body.find((s) => s.kind === "loop") as IrLoop).step[0] as IrAssign
+    const runner = run(pou)
+    runner.scan()
+    return [runner.get("n"), runner.get(vars.split(" ")[0]!), step.value.kind === "binary" && step.value.right.kind === "const" ? step.value.right.value : "runtime"]
+  }
+  expect(loop("b : BYTE;", "FOR b := 5 TO 1 BY -1 DO n := n + 1; END_FOR")).toEqual([5n, 0n, 255n])
+  expect(loop("u : UINT;", "FOR u := 10 TO 2 BY -2 DO n := n + 1; END_FOR")).toEqual([5n, 0n, 65534n])
+  expect(loop("b : BYTE;", "FOR b := 1 TO 10 BY 255 DO n := n + 1; END_FOR")).toEqual([2n, 255n, 255n])
+  expect(loop("b : BYTE; stp : INT := -1;", "FOR b := 5 TO 1 BY stp DO n := n + 1; END_FOR")).toEqual(["for-step-type"])
+  expect(loop("sc : SINT;", "FOR sc := 1 TO 10 BY 300 DO n := n + 1; END_FOR")).toEqual(["for-step-type"])
+})
