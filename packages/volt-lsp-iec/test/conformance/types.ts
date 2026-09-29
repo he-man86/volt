@@ -159,6 +159,15 @@ export interface LanguageTest {
    *                  `triage` for an open false positive, `known` for a documented mismatch. The membership is
    *                  here so one row answers the whole question; the REASON stays in that file, where prose belongs.
    *
+   *   `pedantic`     how many clippy::pedantic + clippy::perf findings the emitted code carries — beside `lints`,
+   *                  which is clippy::all. A count, not a list: it is the distance to idiomatic, not a work list.
+   *   `edge`         the interpreter against the compiled Rust on edge inputs nobody recorded (type extremes, 0,
+   *                  -1, NaN, empty and full strings) — `agree`, `disagree`, or `not-run` (the map's header says why).
+   *   `size`         emitted Rust lines per ST line.
+   *   `shape`        the emission's shape id: fixtures that emit the same constructs in the same order share it.
+   *   `improvable`,  membership in the review's authored `NOTES` (`support/transpile-confidence.ts`), which holds
+   *   `alternatives` the reasons — the same rule `diverges` follows.
+   *
    * A fixture that does not lower carries no `tier`, `rust` or `lints` at all — that absence IS the signal, and
    * it must not be able to read as clean.
    */
@@ -170,6 +179,18 @@ export interface LanguageTest {
     rust?: "vendor" | "compiles" | "rejected"
     lints?: readonly string[]
     diverges?: Readonly<Record<string, "triage" | "known">>
+    /** clippy::pedantic + clippy::perf findings on the emitted code, counted once per occurrence. */
+    pedantic?: number
+    /** The interpreter against the compiled Rust on deterministic edge inputs per variable (`edgeVerdict`). */
+    edge?: "agree" | "disagree" | "not-run"
+    /** Emitted Rust lines per ST line, one decimal, the string prelude not counted. */
+    size?: number
+    /** The emission's shape id: its normalized constructs in order (`emissionShape`). */
+    shape?: string
+    /** One of its constructs carries a review note in `NOTES` — the reasons are there, not here. */
+    improvable?: true
+    /** How many of its noted constructs record several correct emissions. */
+    alternatives?: number
   }
   /**
    * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is

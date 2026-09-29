@@ -24,8 +24,10 @@
  * and fail on a disagreement; derived data committed to source needs exactly that gate and nothing less.
  *
  * That file carries the OTHER half of each fixture's row too — the tier its ST lowers to, which oracle reached the
- * emitted Rust, and what the Rust linter still says about that Rust — and this gate owns all of it: the tier and
- * the oracle are recomputed below, and the lints come out of the compile the Rust block already runs.
+ * emitted Rust, what the Rust linter still says about that Rust, how many pedantic findings it carries, whether the
+ * interpreter and the Rust agree on edge inputs, its size and its emission shape — and this gate owns all of it: the
+ * tier, the oracle, the shape and the size are recomputed below, and the lints, the pedantic count and the edge
+ * verdict come out of the compile (and the run) the Rust blocks already make, one binary per fixture.
  *
  * A RED ROW IS THE PRODUCT BEING WRONG, never the recording. Fix `lower/`, `interp/`, `emit/` or the check —
  * never the expectation.
@@ -42,7 +44,7 @@ import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiter
 import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
-import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
+import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
 import { lowerCodeKind } from "../../src/transpile/ir/codes.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
 import { ALL_TESTS } from "./fixtures/index.js"
@@ -54,12 +56,27 @@ import {
   buildArgv,
   assertPolicy,
   correctnessOf,
+  assertNotes,
+  deadNotes,
   divergesOf,
-  emittedFindings,
+  edgeHarness,
+  edgePlan,
+  edgeSeeds,
+  edgeVerdict,
+  emissionShape,
+  normalizeRustLine,
+  notesOf,
+  reachesLibm,
   rejectionIsADefect,
   rendered,
+  shapeId,
+  sizeRatio,
+  splitFindings,
   tierOf,
+  type EdgeVerdict,
 } from "./support/transpile-confidence.js"
+import { STRING_PRELUDE } from "../../src/transpile/emit/rust/prelude.js"
+import { elementaryType, elementaryTypeRef } from "../../src/types/index.js"
 import { comparable } from "./support/compare-message.js"
 import { EVIDENCE_ORDER, lspErrors, rateFixture, type Evidence } from "./support/evidence.js"
 import type { LanguageTest } from "./types.js"
@@ -302,6 +319,36 @@ const lintDrift = (found: Map<string, string[]>): string[] =>
       `${name}:${extra.length > 0 ? ` now reports ${extra.join(", ")}` : ""}${gone.length > 0 ? ` no longer reports ${gone.join(", ")}` : ""}`,
     )
 
+/** What one fixture's compile and edge run measured — the three columns only a built binary can answer. */
+interface Measured {
+  lints: string[]
+  pedantic: number
+  edge: EdgeVerdict
+}
+
+/**
+ * THE PEDANTIC COUNT AND THE EDGE VERDICT, stored against computed — the same symmetric check `lintDrift` makes, for
+ * the two columns that come out of the same build. An edge verdict that moved is either an emitter change (regenerate)
+ * or a backend that started to disagree with the other (the `disagree` rows in the map's header say where).
+ */
+const measuredDrift = (found: Map<string, Measured>): string[] =>
+  [...found].flatMap(([name, got]) => {
+    const stored = BY_NAME.get(name)?.transpile
+    const out: string[] = []
+    if (stored?.pedantic !== got.pedantic) out.push(`${name}: pedantic stored ${stored?.pedantic}, computed ${got.pedantic}`)
+    if (stored?.edge !== got.edge) out.push(`${name}: edge stored ${stored?.edge}, computed ${got.edge}`)
+    return out
+  })
+
+/**
+ * The edge column for one built fixture — run only when it built and there is something to seed; a fixture whose
+ * Rust did not build, or that has no elementary variable, is `not-run` exactly as the generator writes it.
+ */
+async function edgeOf(built: boolean, exe: string, pou: IrPou, plan: ReturnType<typeof edgePlan>): Promise<EdgeVerdict> {
+  if (!built || "notRun" in plan) return "not-run"
+  return (await edgeVerdict(exe, pou, plan)).verdict
+}
+
 /**
  * THE VENDOR RAN IT AND SO DO WE. Two halves, because they fail differently: the interpreter and the emitter print
  * the same IR, so a LOWERING bug shows in both — but an EMITTER bug (a Rust operator that does not mean what the
@@ -362,8 +409,9 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
   // exist to overlap `rustc` processes, and this keeps them doing only that.
   const recorded = rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined && lowering(c).pou !== undefined)
   const runs = new Map<string, { exit: number; stdout: string; stderr: string }>()
-  /** What the linter said about each case's EMITTED code — the `lints` half of its row in `map.generated.ts`. */
-  const lints = new Map<string, string[]>()
+  /** What the linter said about each case's EMITTED code, and what its edge run found — the halves of its row in
+   *  `map.generated.ts` only this build can answer. */
+  const measured = new Map<string, Measured>()
 
   beforeAll(async () => {
     const started = performance.now()
@@ -420,7 +468,9 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
           ? [`    for _ in 0..${c.cycles ?? 1} { p.scan(${args}); }`]
           : Array.from({ length: c.cycles ?? 1 }, (_, i) => `    g.${clock} = ${clockAt(c, RUNS[c.name]!, i + 1)!}; p.scan(${args});`)
       const scan = [...setup, ...init, ...scans].join("\n")
-      const main = `fn main() {\n    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n}\n`
+      // THE EDGE RUN RIDES THE SAME BINARY: `main` runs the recorded scan, or with `edge` the edge variants
+      const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
+      const main = edgeHarness(pou, emitted, plan, `    let mut p = ${pou.name}::new();\n${scan}\n${prints.join("\n")}\n`)
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
       await Bun.write(file, `${emitted.code}\n${main}`)
@@ -452,7 +502,10 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       )
       const buildExit = await build.exited
       const buildErr = await new Response(build.stderr).text()
-      lints.set(c.name, emittedFindings(buildErr, emitted.code.split("\n").length).map((f) => f.code))
+      const findings = splitFindings(buildErr, emitted.code.split("\n").length)
+      const measure = (edge: EdgeVerdict) =>
+        measured.set(c.name, { lints: findings.found.map((f) => f.code), pedantic: findings.pedantic.length, edge })
+      if (buildExit !== 0) measure("not-run")
       if (buildExit !== 0)
         return void runs.set(c.name, {
           exit: -1,
@@ -466,6 +519,7 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
         stdout: await new Response(run.stdout).text(),
         stderr: await new Response(run.stderr).text(),
       })
+      measure(await edgeOf(true, exe, pou, plan))
     }
     // A HANG GUARD PROPORTIONAL TO THE WORK, not a constant. Measured 2026-09-20: 1857 cases compile and run in
     // 179s — against a guard of 180s, which it had silently grown into. That is the failure mode a constant has:
@@ -528,14 +582,20 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
    * must equal computed data, and an improvement is a regeneration rather than an exception.
    */
   test.skipIf(skipLintCheck())("every case's lints are exactly what its stored row carries", () => {
-    const stale = lintDrift(lints)
+    const stale = lintDrift(new Map([...measured].map(([name, m]) => [name, m.lints])))
     if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
+    expect(stale).toEqual([])
+  })
+
+  test.skipIf(skipLintCheck())("every case's pedantic count and edge verdict are what its stored row carries", () => {
+    const stale = measuredDrift(measured)
+    if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
     expect(stale).toEqual([])
   })
 })
 
 /**
- * THE LOWERED FIXTURES THE VALUE PASS DOES NOT REACH — compiled, not run.
+ * THE LOWERED FIXTURES THE VALUE PASS DOES NOT REACH — compiled, and run only on edge inputs.
  *
  * The block above needs RECORDED VALUES, so it selects `confirmed` fixtures that have them: 1,912 of the 2,295 that
  * lower. The other 383 emitted Rust that nothing in this suite ever built, and their rows said `rust: "compiles"`
@@ -544,13 +604,16 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
  * EMISSION defensible and the claim false; the map says `rejected` for them now.
  *
  * So this exists to make the claim checkable on every push, and to put the 383 under the lint ratchet with the
- * rest. Compile only — there is nothing recorded to compare — which is why it is its own block and not a widened
- * selection above: that one's whole shape is print-the-values-and-diff-them.
+ * rest. Nothing recorded is compared — which is why it is its own block and not a widened selection above: that
+ * one's whole shape is print-the-values-and-diff-them. What does run is the EDGE differential (interpreter against
+ * the Rust on inputs nobody recorded), so the build is an executable; for exactly two fixtures that is stricter than
+ * the metadata build this used to make (`array_index_const_*`: rustc's deny-by-default `unconditional_panic`),
+ * and both are refused by CODESYS, so `rejected` is the honest oracle for them.
  */
 describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitted Rust builds, or says why not", () => {
   const seen = new Set(rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined).map((c) => c.name))
   const rest = ALL_TESTS.filter((t) => !seen.has(t.name) && t.transpile?.tier !== undefined)
-  const built = new Map<string, { ok: boolean; lints: string[]; why: string }>()
+  const built = new Map<string, { ok: boolean; why: string } & Measured>()
 
   beforeAll(async () => {
     const started = performance.now()
@@ -564,16 +627,23 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
           const pou = lowering(c).pou
           if (pou === undefined) continue
           const emitted = emitRust(pou)
+          // AN EXECUTABLE, like the value pass and the generator: the edge run needs one, and `rust` then means one
+          // build everywhere — the generator's `compiles`/`rejected` is decided by this same argv.
+          const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
           const file = join(dir, `${c.name}.rs`)
-          await Bun.write(file, `${emitted.code}\nfn main() {}\n`)
-          const build = Bun.spawn(
-            buildArgv(CLIPPY ?? rustc!, file, { metadata: `${file}.meta` }),
-            { stderr: "pipe", stdout: "pipe" },
-          )
+          const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
+          await Bun.write(file, `${emitted.code}\n${edgeHarness(pou, emitted, plan, "")}`)
+          const build = Bun.spawn(buildArgv(CLIPPY ?? rustc!, file, { exe }), { stderr: "pipe", stdout: "pipe" })
           const ok = (await build.exited) === 0
           const stderr = await new Response(build.stderr).text()
-          const n = emitted.code.split("\n").length
-          built.set(c.name, { ok, lints: emittedFindings(stderr, n).map((f) => f.code), why: ok ? "" : rendered(stderr) })
+          const { found, pedantic } = splitFindings(stderr, emitted.code.split("\n").length)
+          built.set(c.name, {
+            ok,
+            lints: found.map((f) => f.code),
+            pedantic: pedantic.length,
+            edge: await edgeOf(ok, exe, pou, plan),
+            why: ok ? "" : rendered(stderr),
+          })
         }
       }),
     )
@@ -601,6 +671,12 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
   test.skipIf(skipLintCheck())("every case's lints are exactly what its stored row carries", () => {
     const stale = lintDrift(new Map(rest.filter((c) => built.has(c.name)).map((c) => [c.name, built.get(c.name)!.lints])))
     if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
+    expect(stale).toEqual([])
+  })
+
+  test.skipIf(skipLintCheck())("every case's pedantic count and edge verdict are what its stored row carries", () => {
+    const stale = measuredDrift(built)
+    if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
     expect(stale).toEqual([])
   })
 })
@@ -763,6 +839,93 @@ const NO_ROW: Partial<Record<Evidence, string>> = {
   unasked: "nothing has been measured, so there is nothing to assert — the ceiling below holds it at zero",
 }
 
+/**
+ * THE PURE HALVES OF THE MAP'S MEASURED COLUMNS — the normalizer behind `shape` and the input set behind `edge`,
+ * pinned on their own so a change to either is a red line here before it is 2,300 changed rows in the map.
+ *
+ * The two ids below are the ones the overnight review (transpile-review-2026-09-29) printed into its `shapes.json`
+ * for these lines. Pinning them is what "the same normalization the measure step used" means in a test: the
+ * review's lean items and `NOTES` are keyed by those ids, and a normalizer that drifted would orphan all of them.
+ */
+describe("the map's measured columns — the pure halves", () => {
+  test("a line normalizes to its construct: identifiers, literals and temporaries are erased, types are kept", () => {
+    expect(normalizeRustLine("    self.total = (self.total as i32).wrapping_add(1i32) as i16; // step")).toBe(
+      "self.f = (self.f as i32).wrapping_add(Li32) as i16;",
+    )
+    expect(normalizeRustLine("        let __mod_l_3 = helper(5u8);")).toBe("let __mod_l_N = m(Lu8);")
+    expect(normalizeRustLine('    name: IecString::<12>::lit(b"hi"),')).toBe("x: IecString::<L>::lit(B),")
+    // the SUFFIX is the construct: an i16 and a u8 store are different emissions
+    expect(normalizeRustLine("x = 1i16;")).not.toBe(normalizeRustLine("x = 1u8;"))
+    expect(normalizeRustLine("alpha = 1i16;")).toBe(normalizeRustLine("beta = 7i16;"))
+  })
+
+  test("a construct's id is the review's id for the same line", () => {
+    expect(shapeId("loop {")).toBe("521ba042ac")
+    expect(shapeId(normalizeRustLine("    limit: 5,"))).toBe("fbde4d6e1e")
+  })
+
+  test("a fixture's shape is its constructs in order — renaming is invisible, reordering is not", () => {
+    const a = "pub struct P {\n    pub a: i16,\n}\nfn scan() {\n    self.a = 1i16;\n    self.b = self.a;\n}\n"
+    const renamed = a.replaceAll("self.a", "self.zz").replace("pub a", "pub zz").replace("1i16", "9i16")
+    const swapped = "pub struct P {\n    pub a: i16,\n}\nfn scan() {\n    self.b = self.a;\n    self.a = 1i16;\n}\n"
+    expect(emissionShape(renamed)).toEqual(emissionShape(a))
+    expect(emissionShape(swapped).shape).not.toBe(emissionShape(a).shape)
+    // braces are boilerplate, not constructs
+    expect(emissionShape(a).constructs.length).toBe(5)
+  })
+
+  test("the prelude is not the fixture's construct", () => {
+    const body = "pub struct P {\n    pub s: IecString<5>,\n}\n"
+    expect(emissionShape(STRING_PRELUDE + body)).toEqual(emissionShape(body))
+  })
+
+  test("size counts emitted lines per ST line, the prelude and blank lines excluded", () => {
+    const rust = "pub struct P {\n\n    pub a: i16,\n}\n"
+    expect(sizeRatio(rust, "PROGRAM P\n// note\nVAR a : INT; END_VAR\n\nEND_PROGRAM", [])).toBe(1)
+    expect(sizeRatio(STRING_PRELUDE + rust, "PROGRAM P\nEND_PROGRAM", [])).toBe(1.5)
+    expect(sizeRatio(rust, "PROGRAM P\n", [{ source: "VAR_GLOBAL\nEND_VAR" }])).toBe(1)
+  })
+
+  const elementary = (name: string, length?: number) => ({ ...elementaryTypeRef(elementaryType(name)!), ...(length === undefined ? {} : { length }) })
+  const labels = (name: string, length?: number) => edgeSeeds(elementary(name, length)).map((s) => s.label)
+
+  test("the edge inputs of an integer are its extremes, zero, one and minus one", () => {
+    expect(labels("INT")).toEqual(["INT#-32768", "INT#-1", "INT#0", "INT#1", "INT#32767"])
+    // an unsigned type has no -1 to seed: its -1 IS its maximum, one past its range from below
+    expect(labels("USINT")).toEqual(["USINT#0", "USINT#1", "USINT#255"])
+    expect(labels("LWORD")).toEqual(["LWORD#0", "LWORD#1", "LWORD#18446744073709551615"])
+    const [min] = edgeSeeds(elementary("DINT"))
+    expect(min).toEqual({ label: "DINT#-2147483648", interp: -2147483648n, rust: "(-2147483648i128) as _" })
+  })
+
+  test("the edge inputs of a REAL reach NaN, both infinities, both zeros and the largest finite value", () => {
+    for (const name of ["REAL", "LREAL"]) {
+      const seeds = labels(name)
+      for (const l of ["NaN", "+inf", "-inf", "0", "-0", `${name}_MAX`, `-${name}_MAX`, "min_subnormal"])
+        expect(seeds).toContain(`${name}#${l}`)
+    }
+    const nan = edgeSeeds(elementary("REAL")).find((s) => s.label === "REAL#NaN")!
+    expect(Number.isNaN(nan.interp as number)).toBe(true)
+    expect(nan.rust).toBe("f32::from_bits(0x7fc00000)")
+  })
+
+  test("a program that reaches the platform's libm is not an edge question the repo can answer", () => {
+    expect(reachesLibm("self.r = self.x.powf(2.0f32);")).toBe(true)
+    expect(reachesLibm("self.r = (self.x as f64).ln();")).toBe(true)
+    expect(reachesLibm("self.r = self.x.sin();")).toBe(true)
+    // IEEE-754 defines these to the last bit on every platform
+    expect(reachesLibm("self.r = self.x.sqrt(); self.q = self.x.abs(); self.t = self.x.trunc();")).toBe(false)
+    // the prelude is the same text everywhere, and does not reach it
+    expect(reachesLibm(STRING_PRELUDE)).toBe(false)
+  })
+
+  test("the edge inputs of a string are empty and full; of a BOOL both values", () => {
+    expect(labels("STRING", 5)).toEqual(["''(empty)", "'A'x5(max length)"])
+    expect(edgeSeeds(elementary("WSTRING", 3))[1]).toEqual({ label: "'A'x3(max length)", interp: "AAA", rust: "IecStr::lit(&[65u16; 3])" })
+    expect(labels("BOOL")).toEqual(["FALSE", "TRUE"])
+  })
+})
+
 describe("the table is total", () => {
   test("every fixture carries a rating this file has a row for", () => {
     const unknown = ALL_TESTS.filter((t) => !EVIDENCE_ORDER.includes(t.evidence as Evidence)).map(
@@ -821,6 +984,43 @@ describe("the table is total", () => {
     }
     if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
     expect(stale).toEqual([])
+  }, Math.max(30_000, ALL_TESTS.length * 10))
+
+  /**
+   * THE COLUMNS THAT NEED NO COMPILER — the emission's `shape`, its `size`, and the `NOTES` membership joined onto
+   * it — recomputed for every fixture that lowers, from the same emitted code the generator hashed.
+   */
+  test("the stored shape, size and notes on every fixture match the computed ones", () => {
+    const stale: string[] = []
+    for (const t of ALL_TESTS) {
+      const { pou } = lowering(t)
+      if (pou === undefined) continue
+      const code = emitRust(pou).code
+      const { source, gvls } = assembleFixture(t, ALL_TESTS)
+      const { shape, constructs } = emissionShape(code)
+      const notes = notesOf(constructs)
+      const got = { shape, size: sizeRatio(code, source, gvls), improvable: notes.improvable, alternatives: notes.alternatives }
+      const stored = t.transpile
+      const want = { shape: stored?.shape, size: stored?.size, improvable: stored?.improvable, alternatives: stored?.alternatives }
+      if (JSON.stringify(got) !== JSON.stringify(want)) stale.push(`${t.name}: stored ${JSON.stringify(want)}, computed ${JSON.stringify(got)}`)
+    }
+    if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
+    expect(stale).toEqual([])
+  }, Math.max(30_000, ALL_TESTS.length * 10))
+
+  /**
+   * A NOTE ABOUT A CONSTRUCT NOBODY EMITS IS A NOTE ABOUT NOTHING — the refusal the generator makes for a dead
+   * `ALLOWED` entry, made for `NOTES` here as well, so an emitter change that retires a construct cannot leave its
+   * review note behind looking like open work.
+   */
+  test("every note names a construct some fixture still emits, and says something", () => {
+    expect(() => assertNotes()).not.toThrow()
+    const emitted = new Set<string>()
+    for (const t of ALL_TESTS) {
+      const { pou } = lowering(t)
+      if (pou !== undefined) for (const id of emissionShape(emitRust(pou).code).constructs) emitted.add(id)
+    }
+    expect(deadNotes(emitted)).toEqual([])
   }, Math.max(30_000, ALL_TESTS.length * 10))
 
   test("every allowed lint states the reason it is Volt's answer rather than a defect", () => {
