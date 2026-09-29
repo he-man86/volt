@@ -195,7 +195,8 @@ function extendsChain(lw: Lowering, fb: string): string[] {
  * body that runs on an instance. `IrInvoke` binds the instance, so nothing has to rewrite places per instance.
  */
 function instanceInitRoutine(lw: Lowering, fb: string): string | undefined | null {
-  const nested = lw.bodies.get(fb.toUpperCase())?.lowering
+  const entry = lw.bodies.get(fb.toUpperCase())
+  const nested = entry?.lowering
   if (nested === undefined || nested.pendingInits.length === 0) return undefined
   const key = `${fb.toUpperCase()}.__INIT`
   const cached = lw.routines.get(key)
@@ -212,7 +213,8 @@ function instanceInitRoutine(lw: Lowering, fb: string): string | undefined | nul
   lw.routines.set(key, {
     state: "lowered",
     // no per-call storage: a temp one of these needs is a field of the instance, as every FB body's temps are
-    routine: { name: `${fb}.__init`, key, kind: "method", fb, locals: [], inputs: [], inouts: [], body },
+    // its spans index the file the TYPE is declared in, which need not be the main source (a GVL's FB)
+    routine: { name: `${fb}.__init`, key, kind: "method", fb, ...(entry?.uri === undefined ? {} : { uri: entry.uri }), locals: [], inputs: [], inouts: [], body },
   })
   return key
 }
