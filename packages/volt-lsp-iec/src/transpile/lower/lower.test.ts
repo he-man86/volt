@@ -2058,3 +2058,18 @@ test("an all-constant integer expression with a literal wider than LINT folds at
     true, 9223372036854775807n, 18446744073709551615n, true, 1152921504606846975n, true,
   ])
 })
+
+// transpile-review-2026-09-29 task 7 (conformance `negative_literal_constant_fold`, recorded): `-5` lowered to a runtime
+// negation of 5, so it counted as a VARIABLE — the all-constant fold and MIN/MAX's meet took DINT from it and wrapped
+// 3000000000. CODESYS treats a negative literal as the constant it is.
+test("a negative literal is a constant: the all-constant fold and MIN/MAX's meet apply", () => {
+  const source =
+    "PROGRAM P\nVAR a : LINT; b : LINT; c : LINT; d : LINT; e : LINT; f : LINT; h : LINT; END_VAR\n" +
+    "a := MAX(-5, 3000000000);\nb := MAX(-1, 3000000000, 7);\nc := -5 + 3000000000;\nd := 3000000000 + -5;\n" +
+    "e := 3000000000 - 5;\nf := -2000000000 - 2000000000;\nh := MIN(-5, 3000000000);\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["a", "b", "c", "d", "e", "f", "h"].map((n) => runner.get(n))).toEqual([
+    3000000000n, 3000000000n, 2999999995n, 2999999995n, 2999999995n, -4000000000n, -5n,
+  ])
+})

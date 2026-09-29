@@ -116,8 +116,8 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): a=3000000000, b=3000000000, c=d=e=2999999995, f=-4000000000, h=-5.
 - Fix: fold `-<const>` into a const at lowering; the all-constant rules then apply unchanged. Keep promote+wrapping_neg
   for variables (unary_minus_at_the_edge).
-- [ ] 7.1 Record `negative_literal_constant_fold` — red.
-- [ ] 7.2 Fix.
+- [x] 7.1 Record `negative_literal_constant_fold` — red. Recorded with record:exec; the LIVE values reproduced exactly (a=b=3000000000, c=d=e=2999999995, f=-4000000000, h=-5); both backends gave -5, 7, -1294967301, -1294967301, 2999999995, 294967296, -1294967296.
+- [x] 7.2 Fix. The unary case (`lower/expressions.ts`) lowers `-<int|real literal>` as the negative literal itself (context type, else the narrowest that holds it), so the all-constant fold and MIN/MAX's meet apply; a variable keeps promote+wrapping_neg. The review notes about the unfolded negation (14 constructs, shapes1_2/5_2/6_5/9_7/13_5/14_1/16_8/18_5/20_5) are done and deleted; the survivors re-keyed; the dead `clippy::min_max` allow folded into `unnecessary_min_or_max`.
 
 ## 8. Unary minus on UDINT/DWORD/ULINT/LWORD computes in the unsigned type
 - Root cause: `lower/expressions.ts:174` (`promoteForRuntime(operand.type)` never changes signedness at 32/64 bits).

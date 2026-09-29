@@ -136,6 +136,15 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
     case "unary": {
       if (e.op === "+") return lowerExpr(lw, e.operand, expected)
       if (e.op !== "-" && e.op !== "NOT") return lw.bail("unary-op", `unary ${e.op}`, e.span)
+      // A NEGATIVE LITERAL IS A CONSTANT, typed as the literal it is — not a runtime negation of the positive one.
+      // As a `neg` node it counted as a variable: `MAX(-5, 3000000000)` met in DINT and answered -5, and
+      // `-2000000000 - 2000000000` computed in DINT instead of folding at LINT (conformance
+      // `negative_literal_constant_fold`, LIVE: 3000000000 and -4000000000).
+      const literal = e.operand
+      if (e.op === "-" && literal.kind === "literal" && (literal.literalKind === "int" || literal.literalKind === "real")) {
+        const v = literal.value
+        if (typeof v === "bigint" || typeof v === "number") return lowerExpr(lw, { ...literal, value: -v, span: e.span }, expected)
+      }
       const operand = lowerExpr(lw, e.operand, expected)
       if (operand === undefined) return undefined
       // THE OPERAND HAS TO BE A TYPE THE OPERATOR HAS A MEANING FOR. It was not checked, so `-s` on a STRING, `NOT s`

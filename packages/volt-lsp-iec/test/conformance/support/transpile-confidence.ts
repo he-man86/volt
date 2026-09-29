@@ -177,10 +177,8 @@ export const ALLOWED: Readonly<Record<string, string>> = {
     "the ST computes a value FROM a variable and itself, on purpose: `realovf_divide_by_computed_zero` needs a zero the constant folder cannot see (`zero := num - num`), and `mathdom_ln_zero` needs one for `LN(0)`",
   "clippy::approx_constant":
     "the fixture's own literal. `narrowing_lreal_to_real` declares `3.14159265358979` to ask what survives LREAL → REAL, and `fmt_lreal_many_decimals` multiplies by `3.14159265` to ask how many digits LREAL_TO_STRING prints",
-  "clippy::min_max":
-    "`limit_inverted_bounds` asks what LIMIT answers when MN > MX, so `.max(100).min(0)` — a chain clippy can prove constant — IS the question. CODESYS answers MX for every IN and `limit` prints MIN(MAX(…)) for exactly that reason",
   "clippy::unnecessary_min_or_max":
-    "`max_min_basic` and `max_extensible` put LITERALS through MIN/MAX to ask what the operators do with them, so the chain folds; the emission is faithful",
+    "`max_min_basic` and `max_extensible` put LITERALS through MIN/MAX to ask what the operators do with them, so the chain folds; the emission is faithful. `limit_inverted_bounds` asks what LIMIT answers when MN > MX, so `(-5i64).max(100).min(0)` IS the question — CODESYS answers MX, and `limit` prints MIN(MAX(…)) for exactly that reason",
   "clippy::manual_clamp":
     "NOT `clamp`, deliberately and with a measurement behind it: Rust's `clamp` PANICS when MN > MX and CODESYS answers MX (`limit_inverted_bounds`). `MIN(MAX(IN, MN), MX)` is the measured behaviour — see the comment at the `limit` case in `emit.ts`",
   "clippy::never_loop":
@@ -569,15 +567,6 @@ const LEAN = {
   shapes5_1: {
     improvement: "f64::round already rounds half away from zero and is odd-symmetric: round(-2.5) = -3, round(-0.0) = -0.0, round(NaN) = NaN. So the sign branch is the identity. Emit `let c = v.round();`. The 32-bit helper can also fold to `if c.is_nan() || c >= 9223372036854775808.0 { 0 } else if c < -2147483648.0 { i32::MIN } else { c as i64 as i32 }`.",
   },
-  shapes5_2: {
-    improvement: "ST `x := -2147483648` becomes a literal already wrapped to MIN, then negated again with wrapping_neg. The value is right only by two's complement. Fold a unary minus over a const at lowering, wrapped to the type, and emit `i32::MIN` / `-2147483648i32`.",
-    alternatives: [
-      "fold in lowering, so the IR const carries the negative value (chosen: the interpreter and the emitter both see one const)",
-      "fold in the emitter's unary case when the operand is a const (today: neither folds; `(-L).wrapping_neg()` is emitted)",
-    ],
-    chosen: "fold in lowering, so the IR const carries the negative value",
-    why: "the interpreter and the emitter both see one const",
-  },
   shapes5_3: {
     improvement: "An all-constant integer expression is already folded at full width in lowering (expressions.ts:241-247), but the node is kept and printed. Emit the folded literal. Constant-folding in lowering is fine; CODESYS folding it too does not matter for a value.",
     alternatives: [
@@ -781,15 +770,6 @@ const LEAN = {
   shapes1_1: {
     improvement: "A negative constant in a non-receiver position is still wrapped: `s_minus1: (-1i8),`, `neg_big: (-40000.5f32),`. The parens only matter when the literal is a method receiver. Apply `unparen` (or skip the parens) in field-initializer and argument positions.",
   },
-  shapes1_2: {
-    improvement: "The negation of a literal is not folded, so `us := -1` emits `self.us = 1i32.wrapping_neg() as u8;` and a limit `-5` emits `5i32.wrapping_neg()`. It is folded in initializers (`(-1i8)`), so the same ST constant has two emissions. Fold `-<literal>` to a constant of the expected type: `self.us = 255u8;`, `-5i16`. This also removes the widening that sets off the FOR E0308 finding.",
-    alternatives: [
-      "today: `1i32.wrapping_neg() as u8` in statements, `(-1i8)` in initializers (inconsistent)",
-      "fold in lowering to a const in the target type: `255u8` / `-5i16` (preferred: one spelling, no cast, no DINT widening leaking into FOR tests)",
-    ],
-    chosen: "fold in lowering to a const in the target type: `255u8` / `-5i16`",
-    why: "one spelling, no cast, no DINT widening leaking into FOR tests",
-  },
   shapes1_3: {
     improvement: "The body is always wrapped in an extra `{ ... }` block even when it has no CONTINUE, and a loop whose only EXIT sits directly in its own body gets `'loop_N:` + `break 'loop_N;` although a plain `break;` works when the body block is unlabeled. Emit the body inline when `!frame.continues`, and use an unlabeled `break` when no labeled body block sits between the EXIT and the loop.",
   },
@@ -973,16 +953,6 @@ const LEAN = {
     ],
     chosen: "`T::from(x)` for lossless widenings and `as` only where wrap or truncation is intended. That makes the narrowing casts stand out, which suits a reviewer (my choice if the lint list is being worked down)",
   },
-  shapes13_5: {
-    improvement: "Negating a constant prints `1i32.wrapping_neg()`. When the operand is a const that is not the type's MIN, fold it to the negative literal `-1i32`, and when a narrowing cast follows, fold it into the target type (`-1i16`).",
-    alternatives: [
-      "emitted today: `1i32.wrapping_neg()` (always, so a MIN operand does not panic)",
-      "fold at emit when e.operand.kind==='const' && value != MIN: `-1i32` (chosen: same value, the shortest form, and what a Rust engineer writes)",
-      "fold in lowering (lower/expressions.ts unary case) so both backends see a const",
-    ],
-    chosen: "fold at emit when e.operand.kind==='const' && value != MIN: `-1i32`",
-    why: "same value, the shortest form, and what a Rust engineer writes",
-  },
   shapes13_6: {
     improvement: "A FOR ... BY -1 step is printed as `i.wrapping_add(-1i32)`. When the step is a negative constant, print `i.wrapping_sub(1i32)` instead.",
     alternatives: [
@@ -1047,16 +1017,6 @@ const LEAN = {
   },
   shapes13_17: {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
-  },
-  shapes6_5: {
-    improvement: "Fold a negated literal into a typed literal. `v := -128` into SINT prints `128i32.wrapping_neg() as i8` in 26 fixtures (shapes a673bb89da, 111b0ac9c6, 0f0bc4f4cf, 597fb429c3, 7e38be4a75). Lowering already has the evaluator (ir/evaluate.ts), which the declaration folding uses.",
-    alternatives: [
-      "today: `128i32.wrapping_neg() as i8`: correct, including -129 into SINT = 127, but reads as runtime arithmetic",
-      "`-128i8`: fold through evaluate.ts plus fit() into the destination and print the typed literal. My choice: one token, and wrap-on-store is already computed by fit",
-      "`i8::MIN`: nice for exactly MIN, but it is a special case and a second spelling",
-    ],
-    chosen: "`-128i8`: fold through evaluate.ts plus fit() into the destination and print the typed literal",
-    why: "one token, and wrap-on-store is already computed by fit",
   },
   shapes6_6: {
     improvement: "Fold all-constant integer and real expressions to a single literal. The comment already says 'folds at FULL width', but the IR still carries the operation: `2000000000i64.wrapping_add(2000000000i64)`, `100i64.wrapping_add(100i64) as i16`, `9i64.min(2i64) as i16`, `((-1e15f64) * 1e15f64) * self.grow`. Folding via evaluate.ts gives `4000000000i64`, `200i16`, `2i16`, `-1e30f64 * self.grow`.",
@@ -1385,9 +1345,6 @@ const LEAN = {
   shapes18_4: {
     improvement: "castTo wraps a constant in a cast even though its value is known. Today: `2882343476u32 as u64`, `self.slots[(0i8 as i64) as usize]`, `self.mask.wrapping_shl(20i8 as u32)`, `rotate_right(4i8 as u32)`. When the operand is an IR const that fits the target type, print the literal in the target type instead: `2882343476u64`, `self.slots[0]`, `wrapping_shl(20)`. The value is identical: an in-range constant keeps its value through `as`, and a negative shift count can still go through the cast. Removes clippy cast_lossless/cast_possible_truncation/cast_sign_loss on these lines.",
   },
-  shapes18_5: {
-    improvement: "The ST literal `-1` passed to an INT parameter lowers to neg(DINT const 1) and then a convert, so it prints as `1i32.wrapping_neg() as i16`. The operand is a constant, so lowering can fold neg(const) into a const of the target type, which prints as `-1i16`. Binary const+const already folds at full width (expressions.ts:242-250). Unary minus is the one operator left out.",
-  },
   shapes18_6: {
     improvement: "Comparing an INT to a literal widens both sides: `(i_value as i32) < 0i32`, `(path.used as i32) < 3i32`, `(self.n as i32) <= 12i32`. That is always correct, and the lowering comment explains why: a narrow compare against an out-of-range literal (`i < 40000`) would be wrong. When the constant fits the variable's own type, though, `i_value < 0` gives the same answer and reads the way you would write it.",
     alternatives: [
@@ -1417,9 +1374,6 @@ const LEAN = {
       "default-then-assign (today): uniform, always matches ST's read-before-write semantics",
       "initialise at the first unconditional write when nothing reads the result before it (smaller, but needs a definite-assignment pass)",
     ],
-  },
-  shapes14_1: {
-    improvement: "Negating a constant should print the negative literal in the destination type. `STRCMPA := -1` becomes `strcmpa = -1i16;`, not `1i32.wrapping_neg() as i16`. Fold in lowering (or when the operand is a const) and range-check it once.",
   },
   shapes14_2: {
     improvement: "A constant that is cast or used as an index should be printed already typed or folded. `char_at(0i8 as i64)` becomes `char_at(0)`, and `values[((1i8 as i64) - 1i64) as usize]` becomes `values[0]`. Literals come out typed as the smallest type (SINT), then castTo adds `as i64`, and the lower-bound subtraction is done at run time.",
@@ -1607,7 +1561,7 @@ const LEAN = {
     chosen: "(b) for constants, and keep wrapping_* with `as u32` only for variable counts.",
   },
   shapes8_6: {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. A negative literal prints as `5i32.wrapping_neg()` rather than `-5i32`, which also makes the same LIMIT fixture emit i64 in one line and i32 in the next (limit_inverted_bounds). The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
     alternatives: [
       "(a) today: `1i64.max(5i64).max(3i64) as i16`",
       "(b) fold the constant: `self.three = 5;`",
@@ -1719,9 +1673,6 @@ const LEAN = {
       "Choose (b).",
     ],
     chosen: "(b).",
-  },
-  shapes20_5: {
-    improvement: "A negated integer LITERAL is printed as a runtime `1i32.wrapping_neg() as i16` instead of the constant `-1i16`. The same thing shows up in array lower bounds (`self.k - -2i64`) and MOD divisors (`let __mod_r = 1i32.wrapping_neg()`). Fold unary minus on a const node in lowering, or print it as a negative literal of the target type.",
   },
   shapes20_6: {
     improvement: "When the value is already a convert to the target's own capacity, the assign adds a second truncating copy. `insert(...).to::<80>().to()` into an IecString<80> is two 81-byte copies where one does. This occurs 101 times across 64 fixtures. Skip the trailing `.to()` when the value's type equals the target type, or drop the convert when its only consumer is the assign.",
@@ -1912,9 +1863,6 @@ const LEAN = {
     ],
     chosen: "lower == 0: `[i as usize]`, and a const index folded to `[k]`. This is what I would choose.",
   },
-  shapes16_8: {
-    improvement: "A negative literal prints `3i32.wrapping_neg() as i16` (e.g. MID(s, -3, 2)). A constant operand can be folded to `-3i16` in its target type. `wrapping_neg` only earns its place on a variable (the MIN case the comment names).",
-  },
   shapes16_9: {
     improvement: "StrFindA's `MAX(uiSearchStart, 1) - 1` prints `(((uisearchstart as i32).max(1i32) as u16) as i32).wrapping_sub(1i32)`. That promotes, narrows back to UINT (a no-op, because the max of two UINTs is a UINT), and then promotes again. `(uisearchstart.max(1) as i32) - 1`, or the u16 max followed by one widening, is the same value.",
   },
@@ -2003,9 +1951,6 @@ const LEAN = {
   shapes9_6: {
     improvement: "`(match k { 0 => self.a as i32, 1 => self.b as i32, _ => self.c as i32 }) as i16` for INT inputs into an INT destination: the widening per arm and the narrowing afterwards cancel out (20 cast lints). Emit the match in the inputs' own type when it equals the destination's.",
   },
-  shapes9_7: {
-    improvement: "`5i32.wrapping_neg().max(..)`: a negated integer literal is printed as a runtime negation. Fold it to `(-5i32)`. The literal can never be the type's minimum's positive counterpart unless it is out of range, which lowering already rejects.",
-  },
   shapes9_8: {
     improvement: "`{ let mut __program = std::mem::take(&mut prg.x); __program.boot(prg); prg.x = __program; };` builds a whole default program (arrays, strings included) and moves it twice on every call, even when the callee never reads `prg` (its fn carries #[allow(unused_variables)] for exactly that). When the callee's body does not reach Programs, call `prg.x.call()` directly and drop the prg parameter. The statement form also carries a stray `;` after the block.",
   },
@@ -2062,13 +2007,11 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub p: usize,
   "013de1dc6a": LEAN.shapes1_12,
   // self.f = Lu8;
-  "013fc4acaa": LEAN.shapes1_2,
   // self.sum = (self.sum as i32).wrapping_add(self.f as i32) as i16;
   "0153115496": LEAN.shapes11_15,
   // self.v = m(self.f * Lf64, …);
   "015dcb3b7f": LEAN.shapes5_4,
   // self.v = (-Li64).wrapping_neg();
-  "01800f2d92": LEAN.shapes5_2,
   // pub fn fb_init(&mut self, prg: &mut Programs, mut x: bool, …) -> bool {
   "0180f72495": LEAN.shapes9_9,
   // m(Li32, &mut (*x));
@@ -2154,19 +2097,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn x<const T: usize>(str: &mut IecString<T>) -> u16 {
   "0d14fd327c": LEAN.shapes15_9,
   // self.f = Li16;
-  "0e0d715a81": merged(LEAN.shapes1_2, LEAN.shapes1_11),
+  "0e0d715a81": LEAN.shapes1_11,
   // self.f = (self.f as i32).wrapping_sub(Li32) as u8;
   "0e5c6a2896": LEAN.shapes8_3,
   // self.f = Li64.wrapping_add(Li64);
   "0e60621ff1": LEAN.shapes6_6,
   // self.v = Li32.wrapping_neg() as i16;
-  "0f0bc4f4cf": LEAN.shapes6_5,
   // self.f.f = ({ let x = self.f.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }).wrapping_add(({
   "10814b65ce": LEAN.shapes12_4,
   // self.f = IecString::<L>::lit(x!(S, self.f).as_bytes()).to();
   "10af274f28": LEAN.shapes9_1,
   // self.f = Li32.wrapping_neg() as i8;
-  "111b0ac9c6": LEAN.shapes6_5,
   // x
   "11f6ad8ec5": LEAN.shapes1_9,
   // self.f = ((self.f as i32) > Li32) & (((self.f as i32) < Li32) | self.f);
@@ -2252,7 +2193,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = ({ let x = self.g; let x = self.f as i32; let x = self.f as i32; if x { x } else { x } }) as i16;
   "1ff319663d": LEAN.shapes10_4,
   // x = Li32.wrapping_neg();
-  "200b13a48d": LEAN.shapes13_5,
   // break 'body_N;
   "204a887600": LEAN.shapes11_9,
   // x = x.to();
@@ -2354,7 +2294,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = self.f.with_char(Li8 as i64, Lu8).to();
   "318cfd770d": merged(LEAN.shapes15_2, LEAN.shapes15_3),
   // self.f = Li32.wrapping_neg().max(self.f as i32).min(self.f as i32) as i16;
-  "3209b704ad": LEAN.shapes9_7,
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu16 << L) } else { *x & !(Lu16 << L) }; }
   "3279d75111": LEAN.shapes20_13,
   // self.f = (self.f as u64).wrapping_sub({ let x = self.f as u64; let x = Lu64; if x == L { L } else { x.wrapping_rem
@@ -2386,7 +2325,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x.f = (x.f as i32).wrapping_add(Li32) as i16;
   "373f640901": LEAN.shapes15_4,
   // self.f = Li32.wrapping_neg().max(Li32).min(Li32) as i16;
-  "3762f8da28": LEAN.shapes8_6,
+  "ef06033fe1": LEAN.shapes8_6,
   // map
   "37745ed7a0": LEAN.shapes17_5,
   // pub __property_N: i16,
@@ -2478,7 +2417,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn m(mut x: i32, mut x: i16, x: &mut i64) -> bool {
   "431373ac5d": LEAN.shapes19_2,
   // x = Li32.wrapping_neg() as i16;
-  "4321e87941": LEAN.shapes14_1,
   // self.f.__numbers_lower_N = self.__numbers_lower_N;
   "43449862b7": LEAN.shapes15_13,
   // x = (x as i32).wrapping_sub(Li32) as u8;
@@ -2492,7 +2430,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if ({ m(p); *x }.char_at((p as i64).wrapping_sub(Li64)) as i32) == Li32 { break; }
   "44d286d05b": merged(LEAN.shapes16_2, LEAN.shapes16_5),
   // self.f = m(self.f.to::<L>(), Li32.wrapping_neg() as i16, Li16).to::<L>().to();
-  "45248d57b5": merged(LEAN.shapes16_1, LEAN.shapes16_8),
+  "8ee065ce1a": LEAN.shapes16_1,
   // self.p = L;
   "45292dbd9c": merged(LEAN.shapes1_6, LEAN.shapes1_8),
   // self.f = IecString::<L>::lit((if self.v { S } else { S }).as_bytes()).to();
@@ -2518,7 +2456,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = (self.f as i32).wrapping_add(Li32) as i16;
   "4979768984": LEAN.shapes2_1,
   // self.f = (-Li64).wrapping_neg();
-  "49dfd2fe2b": LEAN.shapes5_2,
   // if (len(self.f.f[(self.f as i64) as usize].to::<L>()) as i32) > (self.f as i32) {
   "4a599db8d8": merged(LEAN.shapes16_7, LEAN.shapes16_11),
   // pub x: i64,
@@ -2618,7 +2555,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if (x as i32) < Li32 {
   "58f3434567": LEAN.shapes18_6,
   // self.f = Li32.wrapping_neg() as i16;
-  "597fb429c3": LEAN.shapes6_5,
   // self.f = iec_min(self.f, …).to();
   "59b48cdb5b": LEAN.shapes5_8,
   // self.f = iec_max(self.f, …).to();
@@ -2860,7 +2796,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = { let __copy_N = IecString::<L>::lit(B); m(&__copy_N) };
   "7de11239a2": LEAN.shapes20_7,
   // self.f = Li32.wrapping_neg() as u8;
-  "7e38be4a75": LEAN.shapes6_5,
   // x = m(x, &mut (*x));
   "7e45a342fc": LEAN.shapes13_9,
   // self.f = IecString::<L>::lit(iec_dt_text(self.v as i64).as_bytes()).to();
@@ -2876,7 +2811,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if (self.f & (!self.f)) & ((self.f as i32) > Li32) {
   "7f4dd168c2": LEAN.shapes15_5,
   // self.v = (-Li32).wrapping_neg();
-  "7f8e969483": LEAN.shapes5_2,
   // pub __chain_value_N: f64,
   "7fc67373d7": LEAN.shapes4_6,
   // self.f = IecString::<L>::lit(B).to();
@@ -2954,7 +2888,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // x: { let mut v = T::new(); v.f = Li16; v },
   "8b9a7c5eea": LEAN.shapes7_11,
   // self.f.m(Li32.wrapping_neg() as i16);
-  "8c3daea66a": LEAN.shapes18_5,
   // { m(self.f); self.f.m_set(self.__property_N) };
   "8c658bedd7": LEAN.shapes15_10,
   // self.f.narrow();
@@ -3132,7 +3065,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // ops: std::array::from_fn(|_| L),
   "a65506e4d8": LEAN.shapes18_8,
   // self.v = Li32.wrapping_neg() as i8;
-  "a673bb89da": LEAN.shapes6_5,
   // self.f = ((self.f as i32) & (self.f as i32)) as u16;
   "a7ca0579a1": LEAN.shapes8_3,
   // x: { let mut v = T::new(); v.f = IecString::<L>::lit(B); v.f = IecString::<L>::lit(B); v },
@@ -3140,7 +3072,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = (self.f as i32).wrapping_sub(Li32) as u16;
   "a851cc298d": LEAN.shapes8_3,
   // self.f = (-Li32).wrapping_neg();
-  "a908a8c548": LEAN.shapes5_2,
   // self.f = (self.f as i32).wrapping_neg() as u8;
   "a9c2598276": LEAN.shapes7_3,
   // self.f = (*x) == IecString::<L>::lit(B);
@@ -3166,7 +3097,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f.f = ((self.f as i32) == Li32) | ((self.f as i32) == Li32);
   "adb6559f1f": LEAN.shapes16_5,
   // self.f = m(self.f.to::<L>(), IecString::<L>::lit(B), Li32.wrapping_neg() as i16).to::<L>().to();
-  "adcbfa9e2c": merged(LEAN.shapes20_5, LEAN.shapes20_6),
+  "b7bdb5cfef": LEAN.shapes20_6,
   // self.f = self.f[((Li8 as i64) - Li64) as usize][(Li8 as i64) as usize][((Li8 as i64) - Li64) as usize];
   "ae08e85841": LEAN.shapes12_2,
   // self.f = (self.f as i32).max(self.f as i32) as u16;
@@ -3282,7 +3213,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = (Lf64 - self.f).sqrt();
   "c2d750a62a": LEAN.shapes5_11,
   // self.f = m(self.f.to::<L>(), Li16, Li32.wrapping_neg() as i16).to::<L>().to();
-  "c2ddda9c05": merged(LEAN.shapes16_1, LEAN.shapes16_8),
+  "e42f1ae167": LEAN.shapes16_1,
   // x: (-Lf64),
   "c35f240db9": LEAN.shapes1_1,
   // self.f = IecString::<L>::lit(x!(S, { let x = self.f; let x = self.f as u32; if x == L { L } else { x.wrapping_rem(
@@ -3446,7 +3377,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = ((self.f as i32) | (self.f as i32)) as i8;
   "e1456a0eae": LEAN.shapes8_3,
   // self.f = self.f.wrapping_add(({ let x = self.f; let x = Li32; let x = Li32.wrapping_neg(); if x { x } else { x } }
-  "e1ba0abec8": LEAN.shapes11_8,
+  "547ea4e920": LEAN.shapes11_8,
   // self.f = m(self.f.to::<L>(), self.f.to::<L>()).to::<L>().to();
   "e205f81b84": LEAN.shapes16_1,
   // if (self.f as i32) <= Li32 { break; }
@@ -3500,7 +3431,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // if ({ m(x); *__str_pst_N }.char_at(((x as i64).wrapping_sub(Li64) / Li64).wrapping_add(x as i64)) as i32) == Li32 
   "e9a5cabd36": LEAN.shapes17_12,
   // self.f = m(self.f.to::<L>(), Li32.wrapping_neg() as i16).to::<L>().to();
-  "e9c9b3b310": merged(LEAN.shapes16_1, LEAN.shapes16_8),
+  "0a2a55e976": LEAN.shapes16_1,
   // self.copied = self.copied;
   "ea53989ac8": LEAN.shapes11_20,
   // if ((x == L) | (x == L)) | ((x as i32) == Li32) {
@@ -3604,7 +3535,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn init(&mut self) {
   "fa7d5f176f": LEAN.shapes2_12,
   // if !((((({ let x = self.f; let x = Li32; let x = Li32.wrapping_neg(); if x { x } else { x } }) as i16) >= Li16) & 
-  "faf51ffbeb": LEAN.shapes11_8,
+  "129bb34a7e": LEAN.shapes11_8,
   // let mut map: i16 = Li16;
   "faf5605030": LEAN.shapes18_10,
   // self.m();
@@ -3636,7 +3567,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = m(Li32, …, &mut self.f);
   "fedbbc431c": LEAN.shapes14_15,
   // self.f = m(Li32.wrapping_neg() as i16);
-  "ff4848724a": LEAN.shapes18_5,
 }
 
 /** A note with nothing in it, or an id that cannot be a construct id — refused, like an allowed lint with no reason. */

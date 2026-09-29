@@ -65,6 +65,21 @@ const CASES: readonly ExecCase[] = [
       "signbit := 16#8000000000000000 > 1;",
     ].join(" "),
   },
+  // transpile-review-2026-09-29 task 7: is a negative literal a CONSTANT (the all-constant fold and MIN/MAX's meet
+  // apply) or a runtime negation of one?
+  {
+    name: "negative_literal_constant_fold",
+    vars: "a : LINT; b : LINT; c : LINT; d : LINT; e : LINT; f : LINT; h : LINT;",
+    body: [
+      "a := MAX(-5, 3000000000);",
+      "b := MAX(-1, 3000000000, 7);",
+      "c := -5 + 3000000000;",
+      "d := 3000000000 + -5;",
+      "e := 3000000000 - 5;",
+      "f := -2000000000 - 2000000000;",
+      "h := MIN(-5, 3000000000);",
+    ].join(" "),
+  },
 
   // ── integer division and MOD signs ──
   {
