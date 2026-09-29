@@ -32,6 +32,11 @@ export function commonType(a: Type, b: Type): Type {
   // orders, LINT/ULINT likewise (conformance `same_width_mixed_sign_order`) — and not by value, UDINT 4294967295 = DINT -1
   // (`signed_unsigned_comparison`). This let the left operand win, so `u > d` compared in UDINT.
   if (ea.rank === eb.rank) return eb.signed && !ea.signed ? b : a
+  // At DIFFERENT widths a signed operand still makes the meet signed, at the WIDER width: ULINT 6 / SINT -2 is -3,
+  // DWORD 0 > INT -2 is TRUE and MIN(UDINT 7, INT -2) is -2 (conformance `meet_mixed_sign_wider_unsigned`) — the
+  // checked meet's rule (`checkedMeetType`). Letting the wider unsigned type win computed all three in it.
+  const wider = ea.rank > eb.rank ? ea : eb
+  if (!wider.signed && (ea.signed === true || eb.signed === true)) return elementaryRef(integerOfWidth(wider.bits, true).name)
   return ea.rank > eb.rank ? a : b
 }
 

@@ -629,6 +629,15 @@ const CASES: readonly ExecCase[] = [
     vars: "dw : DWORD := 0; di : DINT := -1; sumDwDi : LINT; sumDiDw : LINT; greaterDw : BOOL; lessDi : BOOL;",
     body: "sumDwDi := dw + di; sumDiDw := di + dw; greaterDw := dw > di; lessDi := di < dw;",
   },
+  {
+    // transpile-review-2026-09-29 task 1: at DIFFERENT widths, does the wider UNSIGNED operand decide the sign? The
+    // checked meet says no — ULINT + SINT is named LINT, DWORD + SINT DINT (`fixtures/operators/mixed-type.ts`) — but
+    // only the name was asked, never the value. A negative narrow signed operand tells them apart: in the unsigned
+    // type 6 / -2 is 0, 0 > -2 is FALSE, 7 MOD -2 is 7 and MIN(7, -2) is 7. (`s` is not a usable name — CODESYS reserves the IL operator `S`.)
+    name: "meet_mixed_sign_wider_unsigned",
+    vars: "ul : ULINT := 6; sn : SINT := -2; w : DWORD := 10; i : INT := -2; z : DWORD := 0; ud : UDINT := 7; divUlS : LINT; divWI : LINT; gtZI : BOOL; gtUlS : BOOL; modUdI : LINT; minUdI : LINT;",
+    body: "divUlS := ul / sn; divWI := w / i; gtZI := z > i; gtUlS := ul > sn; modUdI := ud MOD i; minUdI := MIN(ud, i);",
+  },
 
   // ── consolidate-lsp-structure A3: does a typed literal's prefix decide its type? Lowering ignores it ──
   {

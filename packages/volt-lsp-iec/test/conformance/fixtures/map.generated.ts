@@ -12,7 +12,7 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     1973
+ *     confirmed     1974
  *     refused        540
  *     not-lowered     90
  *     lsp-gap          4
@@ -21,7 +21,7 @@
  *
  *   tier                     lowered    clean
  *     decl                    426      426
- *     arith                  1441     1441
+ *     arith                  1442     1442
  *     control                  58       58
  *     aggregate                25       25
  *     call                    222      220
@@ -1625,6 +1625,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   meet_lword_mod_lint: { evidence: "refused", tier: "arith", rust: "compiles" },
   meet_lword_plus_lint: { evidence: "refused", tier: "arith", rust: "compiles" },
   meet_lword_times_lint: { evidence: "refused", tier: "arith", rust: "compiles" },
+  meet_mixed_sign_wider_unsigned: { evidence: "confirmed", tier: "arith", rust: "vendor" },
   meet_real_div_int: { evidence: "refused", tier: "arith", rust: "compiles" },
   meet_real_div_lreal: { evidence: "refused", tier: "arith", rust: "compiles" },
   meet_real_minus_int: { evidence: "refused", tier: "arith", rust: "compiles" },

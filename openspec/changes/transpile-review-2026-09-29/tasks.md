@@ -25,8 +25,10 @@ those values into the new fixture's recording.
   (meet_ulint_div_sint = LINT, meet_dword_plus_sint = DINT). Expected -5, -5, TRUE, TRUE, 1, -2.
 - Fix: in commonType's integer branch, when exactly one side is signed return `integerOfWidth(maxBits, true)`
   (checkedMeetType's rule); promote each operand BEFORE the meet. Also run the LSP corpus gate.
-- [ ] 1.1 Run fixture `meet_mixed_sign_wider_unsigned` (the repro, one scan) + arith src test — red.
-- [ ] 1.2 Fix commonType; re-run LSP + transpile gates.
+- [x] 1.1 Run fixture `meet_mixed_sign_wider_unsigned` (the repro, one scan) + arith src test — red. Recorded with
+  `record:exec`: CODESYS answers -3 (not -5: 6 / -2), -5, TRUE, TRUE, 1, -2; both backends gave 0, 0, FALSE, FALSE, 7, 7.
+- [x] 1.2 Fix commonType; re-run LSP + transpile gates. Different widths, one side signed -> the signed type of the
+  wider width (`src/types/arith.ts`, `arith.test.ts`); fixtures.test.ts 4225 pass, map unchanged beyond the new row.
 
 ## 2. A named integer CONSTANT folds to its unwrapped initializer
 - Root cause: `src/types/const-eval.ts:127` (initialValue never narrows to the declared integer width; the slot does,
