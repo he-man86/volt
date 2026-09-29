@@ -3,5 +3,6 @@
 export * from "./symbol.js"
 export * from "./binder.js"
 export * from "./scope-nav.js"
+export * from "./precedence.js"
 export * from "./library-namespace.js"
 export * from "./bodies.js"

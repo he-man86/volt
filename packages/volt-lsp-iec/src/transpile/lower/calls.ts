@@ -22,7 +22,7 @@ import {
   type TopLevel,
   type VarSection,
 } from "../../syntax/index.js"
-import { childScopesByName, findChildScope, lookup, lookupMember, type Scope } from "../../symbols/index.js"
+import { childScopesByName, findChildScope, libraryOf, lookup, lookupLocal, lookupMember, pickForAsker, type Scope, scopeUri } from "../../symbols/index.js"
 import { ANY_FAMILIES, elemOf, elementaryRef, inferExprType, isAssignable, type Type, UNKNOWN } from "../../types/index.js"
 import { byteSize } from "./bytes.js"
 import {
@@ -548,11 +548,14 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     ...[...targets].map(([n, t]) => `${n}=${typeKey(t)}`),
     ...[...cursors].map(([n, c]) => `${n}^=${c.offset ? "@" : ""}${c.shares === undefined ? typeKey(c.type) : `${c.shares}^`}`),
   ].join(",")
-  const name = `${frame === undefined ? sym.name : `${frame.name}.${as}`}${variant === "" ? "" : `#${variant}`}`
+  // A FUNCTION is named by its SYMBOL, not its bare name: a project FUNCTION and a library's element of the same name are
+  // two routines (transpile-review 21, `tr_21_namespace_*`), so a library's carries its library's folder.
+  const library = frame === undefined ? libraryOf(sym) : undefined
+  const name = `${frame === undefined ? `${library === undefined ? "" : `${library}.`}${sym.name}` : `${frame.name}.${as}`}${variant === "" ? "" : `#${variant}`}`
   return once(lw, name, span, () => {
     if (frame !== undefined && !lw.layouts.has(frame.name.toUpperCase())) return lw.bail("call-target", `${frame.name} has no layout`, span)
     const ast = sym.ast as Extract<TopLevel, { kind: "method" | "action" | "function" }>
-    const scope = findChildScope(frame === undefined ? lw.project : sym.owner, sym.name)
+    const scope = frame === undefined ? childScopesByName(lw.project, sym.name).find((s) => s.defUri === sym.uri) : findChildScope(sym.owner, sym.name)
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
     if (!isStBody(ast.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
@@ -1014,7 +1017,13 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     routine = methodOf(lw, frame, callee.name, call.span, call)
     instance = thisPlace(frame, callee.span)
   } else if (callee.kind === "ident_expr") {
-    const sym = lookup(lw.scope, callee.name)?.symbol
+    // a project-level name with several FUNCTIONs behind it (a project one and a library's) means the one the ASKER sees
+    // first (`symbols/precedence.ts`): the project's from project code (transpile-review 21, `tr_21_namespace_*`)
+    const found = lookup(lw.scope, callee.name)
+    const sym =
+      found?.symbol.kind === "function" && found.foundIn === lw.project
+        ? pickForAsker(lw.project, lookupLocal(lw.project, callee.name).filter((s) => s.kind === "function"), (s) => s.uri, scopeUri(lw.scope))
+        : found?.symbol
     if (sym?.kind !== "function") return lw.bail("expr-call", `${callee.name} is not a project FUNCTION`, call.span)
     // A library FUNCTION lowers like a project one when its body is there — the library repo's (`libraries/`) — and is
     // refused as `call-library` by `calledRoutine` when only the materialized declaration is.

@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2037
+ *     confirmed     2039
  *     refused        549
  *     not-lowered    105
  *     lsp-gap          9
- *     diverges        17
+ *     diverges        15
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -61,12 +61,12 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35820 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6644
- *     clippy::cast_possible_truncation         5679
+ *   pedantic — 35828 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6646
+ *     clippy::cast_possible_truncation         5681
  *     clippy::uninlined_format_args            4743
- *     clippy::cast_sign_loss                   4383
- *     clippy::cast_lossless                    4378
+ *     clippy::cast_sign_loss                   4385
+ *     clippy::cast_lossless                    4380
  *     clippy::unreadable_literal               3679
  *     clippy::manual_assert                    1530
  *     clippy::missing_panics_doc               1391
@@ -85,7 +85,7 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1455 distinct emission shapes over 2413 lowered fixtures, 1660 distinct constructs.
+ *   shape — 1455 distinct emission shapes over 2413 lowered fixtures, 1661 distinct constructs.
  *   770 constructs carry a review note (`NOTES`): 2325 fixtures are improvable, 2240 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
@@ -1479,7 +1479,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_std_ton: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 25, edge: "agree", size: 6.1, shape: "8e9bcc6371", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "848701ece2", "90c445f7cb", "98716b4ff8", "a497507b30", "b9787e0d18", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   lib_std_tp: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 29, edge: "agree", size: 6, shape: "6d9ef272aa", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "848701ece2", "8e4b1ce4cc", "90c445f7cb", "a497507b30", "b9787e0d18", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   lib_std_tp_held: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 29, edge: "agree", size: 6, shape: "7f2ea976ba", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "848701ece2", "90c445f7cb", "a497507b30", "b9787e0d18", "d04295d4c8", "d263b8545d", "de132e5019", "e8954e2b0d"] },
-  lib_stu_chars: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 25, edge: "agree", size: 1.4, shape: "bb491cb288", notes: ["11f6ad8ec5", "14b2f39d44", "1d7709a031", "2a09a0d33c", "43aa1830f1", "65df8e0418", "687428cc81", "82fcd0be19", "9c1d0c1a6e", "a54ead1fbe", "abc8bc67de", "b7cc1b2b1d", "de132e5019"] },
+  lib_stu_chars: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 25, edge: "agree", size: 2.9, shape: "bb491cb288", notes: ["11f6ad8ec5", "14b2f39d44", "1d7709a031", "2a09a0d33c", "43aa1830f1", "65df8e0418", "687428cc81", "82fcd0be19", "9c1d0c1a6e", "a54ead1fbe", "abc8bc67de", "b7cc1b2b1d", "de132e5019"] },
   lib_stu_compare: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 129, edge: "agree", size: 5.3, shape: "47bd50d11c", notes: ["02b031c773", "0969e59592", "11f6ad8ec5", "1307e33bbf", "256218c83c", "43aa1830f1", "521ba042ac", "5370b79269", "5ba97e5557", "5d9850550d", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d", "d9d57311e3", "dd94ff18a2", "ec21aafede"] },
   lib_stu_concat: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 61, edge: "agree", size: 5.2, shape: "ec07963e4a", notes: ["02b031c773", "0969e59592", "11f6ad8ec5", "1d1551a034", "4c796f6678", "521ba042ac", "5ba97e5557", "5c499dbdc8", "5d9850550d", "687428cc81", "7e45a342fc", "8088e0ab18", "ca94bceedc", "d9d57311e3", "dd94ff18a2", "de132e5019", "e6075a580f", "ec21aafede", "f31583df05", "fcc1e3ee2e"] },
   lib_stu_copy: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 58, edge: "agree", size: 4, shape: "d97e54b54c", notes: ["02b031c773", "06bb3a6005", "0969e59592", "0b353e99d9", "11f6ad8ec5", "3eed014822", "4fb82cd93a", "521ba042ac", "5ba97e5557", "5c499dbdc8", "5d9850550d", "63d29bd1a0", "d9d57311e3", "dd94ff18a2"] },
@@ -2507,8 +2507,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9fbe34ab76", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
   tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "751786240f", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "b9787e0d18"] },
   tr_20_output_index_moved_by_callee: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 2.7, shape: "57ac4e8994", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "7ef1346b85", "96a5b25b66", "de132e5019"], diverges: { codesys: "known" } },
-  tr_21_namespace_bare_first: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "agree", size: 2.5, shape: "d2d0fa026d", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "65df8e0418", "a54ead1fbe", "abc8bc67de"] },
-  tr_21_namespace_qualified_first: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "agree", size: 2.5, shape: "48617079ba", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d"] },
+  tr_21_namespace_bare_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "4c454109c0", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "4c9f4e33f4", "65df8e0418", "a54ead1fbe", "abc8bc67de"] },
+  tr_21_namespace_qualified_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "55a4f7414c", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d"] },
   tr_22_fb_init_reads_adr_field: { evidence: "diverges", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 3.1, shape: "227f34dccd", notes: ["013de1dc6a", "1307e33bbf", "45292dbd9c", "49346d6299", "75cc82a569", "8a9bb48ddb", "dd94ff18a2", "fa7d5f176f"] },
   tr_22_fb_init_reads_call_field: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 2.5, shape: "0b67b056d0", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "49346d6299", "8a9bb48ddb", "8ccaa880cd", "fa7d5f176f"] },
   tr_22_fb_init_reads_this_field: { evidence: "not-lowered" },

@@ -1239,10 +1239,10 @@ END_METHOD
   },
   // Task 21: a FUNCTION named like a library element, called qualified through the library's NAMESPACE and bare. The
   // qualified call names the library's (StringUtils, namespace `Stu`, whose body the library repo holds); the bare one,
-  // from project code, the project's. The transpiler caches the routine by its BARE name, so whichever call comes first
-  // decides both — hence two fixtures, one per order, each on its own element so neither can reach the other's object.
+  // from project code, the project's. The transpiler cached the routine by its BARE name (fixed: keyed by symbol), so whichever call came first
+  // decided both — hence two fixtures, one per order, each on its own element so neither can reach the other's object.
   // Predicted: the library upper-cases (16#61 -> 16#41, 16#FF itself), the project adds 1 (16#61 -> 16#62, 16#FF wraps).
-  withDeferred("transpile-review-2026-09-29 task 21: a namespace-qualified FUNCTION is cached and scoped by its bare name, so the first call decides both (CODESYS: lib 65/255, project 98/0) (recorded 2026-09-29)", fb("tr_21_namespace_qualified_first", "FB_CS_ns21a", "a project FUNCTION named like a StringUtils element (CharToUpper): the Stu-qualified call first, then the bare one",
+  fb("tr_21_namespace_qualified_first", "FB_CS_ns21a", "a project FUNCTION named like a StringUtils element (CharToUpper): the Stu-qualified call first, then the bare one",
     `FUNCTION CharToUpper : BYTE
 VAR_INPUT
 	BYCHAR : BYTE;
@@ -1263,8 +1263,8 @@ libEdge := Stu.CharToUpper(16#FF);
 projEdge := CharToUpper(16#FF);
 END_FUNCTION_BLOCK
 `,
-    "inst : FB_CS_ns21a;", "inst();")),
-  withDeferred("transpile-review-2026-09-29 task 21: a namespace-qualified FUNCTION is cached and scoped by its bare name, so the first call decides both (CODESYS: lib 65/65535, project 98/0) (recorded 2026-09-29)", fb("tr_21_namespace_bare_first", "FB_CS_ns21b", "a project FUNCTION named like a StringUtils element (WCharToUpper): the bare call first, then the Stu-qualified one",
+    "inst : FB_CS_ns21a;", "inst();"),
+  fb("tr_21_namespace_bare_first", "FB_CS_ns21b", "a project FUNCTION named like a StringUtils element (WCharToUpper): the bare call first, then the Stu-qualified one",
     `FUNCTION WCharToUpper : WORD
 VAR_INPUT
 	WDCHAR : WORD;
@@ -1285,7 +1285,7 @@ projEdge := WCharToUpper(16#FFFF);
 libEdge := Stu.WCharToUpper(16#FFFF);
 END_FUNCTION_BLOCK
 `,
-    "inst : FB_CS_ns21b;", "inst();")),
+    "inst : FB_CS_ns21b;", "inst();"),
   // Task 42: one ANY FUNCTION called with arrays that differ in element type, in bounds, and in both. The transpiler
   // keys an ANY variant by the bare kind `array`, so every array after the first reuses the first one's instantiation
   // (Rust E0308). Predicted sizes: 8, 10, 16, 12, 8 — the last the same size as the first over different bounds.

@@ -274,9 +274,9 @@ those values into the new fixture's recording.
 - CODESYS: a qualified call names the library element; unqualified project code resolves to the project element.
   Expected a=1020, b=3.
 - Fix: key and scope FUNCTION routines by symbol identity; resolve bare calls with the asker's precedence.
-- [ ] 21.1 lower.test.ts case with a namespaced library — red.
+- [x] 21.1 lower.test.ts case with a namespaced library — red.
   Recorded 2026-09-29 (record:exec): `tr_21_namespace_qualified_first`, `tr_21_namespace_bare_first` — diverge (the harness reaches StringUtils `Stu.`; no lower.test.ts fallback needed).
-- [ ] 21.2 Fix.
+- [x] 21.2 Fix. `calledRoutine` keys a library FUNCTION `<library>.<name>` and scopes it by its own `defUri`; a bare call to a project-level FUNCTION picks with the asker's precedence (`pickForAsker`); both fixtures confirmed, src test in lower.test.ts. The harness's `withDependencies` no longer takes a name a referenced library declares from another fixture (tr_21 had moved its CharToUpper into `lib_stu_chars`, a program CODESYS never ran).
 
 ## 22. An instance's non-constant field initializers run AFTER its FB_Init
 - Root cause: `lower/lower.ts:468` (FB_Init invokes pushed to `mine`) before `:521-531` (the `<FB>.__INIT` invokes).

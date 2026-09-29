@@ -14,16 +14,14 @@ import { parseSource } from "../../../src/syntax/index.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../../src/symbols/index.js"
 import { libraryBase, type LibraryBase, type LibraryFile } from "../../../src/transpile/index.js"
 import { walkSources } from "../../corpus/support/project.js"
-
-/** The fixture project's Library Manager — where the bridge materializes every library it references. */
-const MANAGER = join(import.meta.dir, "..", "..", "..", "test-corpus", "CodesysTestProject", "Device", "Plc Logic", "Application", "Library Manager")
+import { LIBRARY_MANAGER } from "./fixture-units.js"
 
 /** Where the fixture project materialized its Standard. */
-export const STANDARD = join(MANAGER, "Standard")
+export const STANDARD = join(LIBRARY_MANAGER, "Standard")
 
 const read = (uri: string): { uri: string; source: string } => ({ uri, source: readFileSync(uri, "utf8") })
-const DECLARATIONS = walkSources(MANAGER).map(read)
-const MANIFEST_FILES = walkSources(MANAGER, new Set([".library"])).map(read)
+const DECLARATIONS = walkSources(LIBRARY_MANAGER).map(read)
+const MANIFEST_FILES = walkSources(LIBRARY_MANAGER, new Set([".library"])).map(read)
 
 /** Every library's declarations, PARSED ONCE — what the LSP replay binds a library name against, as the LSP binds a
  *  project that references them. A caller re-parses only for another dialect. */

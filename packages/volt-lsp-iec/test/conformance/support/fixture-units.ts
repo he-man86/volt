@@ -21,6 +21,8 @@ import {
   type TypeExpr,
   type VarSection,
 } from "../../../src/syntax/index.js"
+import { readdirSync } from "node:fs"
+import { join } from "node:path"
 import type { LanguageTest } from "../types.js"
 import { plcPrgSource } from "./plc-prg.js"
 
@@ -78,7 +80,7 @@ export function withDependencies(t: LanguageTest, all: readonly LanguageTest[]):
     visiting.add(f.name)
     const own = declaredNames(parsed(f))
     for (const name of referencedNames(f)) {
-      if (own.has(name)) continue
+      if (own.has(name) || libraryElements().has(name)) continue
       const dependency = declaredBy.get(name)
       if (dependency !== undefined && dependency.name !== f.name) visit(dependency)
     }
@@ -89,6 +91,28 @@ export function withDependencies(t: LanguageTest, all: readonly LanguageTest[]):
 }
 
 // ─── dependency resolution ────────────────────────────────────────────────────
+
+/** The fixture project's Library Manager — where the bridge materializes every library it references. */
+export const LIBRARY_MANAGER = join(import.meta.dir, "..", "..", "..", "test-corpus", "CodesysTestProject", "Device", "Plc Logic", "Application", "Library Manager")
+
+/**
+ * THE NAMES A REFERENCED LIBRARY ALREADY ANSWERS — its POUs and types, one materialized `<NAME>.<kind>` file each. Such a
+ * name is never another fixture's to supply: a fixture that declares one (`tr_21_namespace_*` shadows StringUtils'
+ * CharToUpper on purpose) shadows it for itself. Resolved as a dependency, it moved into `lib_stu_chars`, whose
+ * recording ran the library's element — so the recorder and every replay built a program CODESYS never ran.
+ */
+let libraryNames: Set<string> | undefined
+function libraryElements(): Set<string> {
+  if (libraryNames !== undefined) return libraryNames
+  libraryNames = new Set()
+  for (const library of readdirSync(LIBRARY_MANAGER, { withFileTypes: true }))
+    if (library.isDirectory())
+      for (const file of readdirSync(join(LIBRARY_MANAGER, library.name))) {
+        const element = /^(.*)\.(fun|fb|itf|struct|enum|alias|union)$/i.exec(file)
+        if (element !== null) libraryNames.add(element[1]!.toUpperCase())
+      }
+  return libraryNames
+}
 
 const parseCache = new Map<string, ParseResult>()
 function parsed(t: LanguageTest): ParseResult {
