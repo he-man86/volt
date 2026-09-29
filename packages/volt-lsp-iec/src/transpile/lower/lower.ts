@@ -520,17 +520,23 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     //     diagnostic — the exact "silently started at its default" failure `init-not-constant` exists to prevent.
     // The base's statements are valid on a derived instance because `inherit` pushes the base's fields FIRST, at the
     // same indices they have in the base's own frame.
-    if (t.kind === "function_block")
-      for (const type of extendsChain(lw, t.name)) {
-        const routine = instanceInitRoutine(lw, type)
-        if (routine === null) return false
-        if (routine !== undefined)
-          mine.push({
-            kind: "eval",
-            value: { kind: "invoke", routine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span },
-            span,
-          })
-      }
+    //
+    // BEFORE the instance's FB_Init (transpile-review 22): CODESYS completes the implicit initialization first — FB_Init
+    // dereferences an `ADR(m)` field and reads a call-initialized one (`tr_22_fb_init_reads_adr_field`,
+    // `tr_22_fb_init_reads_call_field`: seen = 7), and its own write is not undone. Whether a DERIVED type's initializers
+    // run before its BASE's FB_Init is not recorded: refused.
+    const implicit: IrStmt[] = []
+    const chain = t.kind === "function_block" ? extendsChain(lw, t.name) : []
+    // the depth of the most basic FB_Init in the chain — a type below it initializes after a base's FB_Init could run
+    const firstFbInit = Math.min(...inits.map((sym) => chain.findIndex((name) => name.toUpperCase() === sym.owner.name.toUpperCase())))
+    for (const [depth, type] of chain.entries()) {
+      const routine = instanceInitRoutine(lw, type)
+      if (routine === null) return false
+      if (routine === undefined) continue
+      if (depth > firstFbInit)
+        return lw.bail("fb-init-order", `${type}'s field initializers and a base's FB_Init — which runs first is not recorded`, span) ?? false
+      implicit.push({ kind: "eval", value: { kind: "invoke", routine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
+    }
     const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
     // every instance of the layout sees its initializers as declared: the first one's clearInit emptied them for the next,
     // which then started from 0 where the 9 is re-applied (review of the fixture batch)
@@ -541,7 +547,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
       if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, declared[i]!, clear)) return false
     }
     // an instance's own FB_Init runs after those of the instances inside it (`fb_init_nested_in_fb_init`: the outer's saw 5)
-    fbInitCalls.push(...mine)
+    fbInitCalls.push(...implicit, ...mine)
     return true
   }
   const frame = lw.frame as IrSlot[]

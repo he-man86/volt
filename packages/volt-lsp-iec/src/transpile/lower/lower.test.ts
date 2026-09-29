@@ -2455,3 +2455,18 @@ test("a namespace-qualified FUNCTION and a project FUNCTION of the same name are
     expect([runner.get("a"), runner.get("b")]).toEqual([1020n, 3n])
   }
 })
+
+// transpile-review 22: an instance's non-constant field initializers ran AFTER its FB_Init, so FB_Init dereferenced a
+// still-null `ADR(m)` pointer, read 0 from a call-initialized field and saw its own write undone. CODESYS completes the
+// implicit initialization first (`tr_22_fb_init_reads_adr_field`, `tr_22_fb_init_reads_call_field`: seen = 7, a = 100).
+test("an instance's field initializers run before its FB_Init", () => {
+  const fbInit = (body: string) => `METHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR\n${body}\nEND_METHOD\n`
+  const src =
+    "PROGRAM P\nVAR viaAdr : FB_Adr; called : FB_Call; END_VAR\nviaAdr();\ncalled();\nEND_PROGRAM\n" +
+    "FUNCTION F_Inc : INT\nVAR_INPUT n : INT; END_VAR\nF_Inc := n + 1;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB_Adr\nVAR m : INT := 7; p : POINTER TO INT := ADR(m); seen : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit("seen := p^;") +
+    "FUNCTION_BLOCK FB_Call\nVAR a : INT := F_Inc(6); seen : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + fbInit("seen := a;\na := 100;")
+  const runner = run(ir(src, "P"))
+  runner.scan()
+  expect(["viaAdr.seen", "called.seen", "called.a"].map((v) => runner.get(v))).toEqual([7n, 7n, 100n])
+})

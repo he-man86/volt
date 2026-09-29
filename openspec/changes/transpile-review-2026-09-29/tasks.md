@@ -285,9 +285,9 @@ those values into the new fixture's recording.
 - CODESYS: implicit initialization completes before FB_Init (`docs/codesys-reference/11-fb-lifecycle.md:23`;
   `fb_init_runs_with_declared_arguments`). Expected seen=7, a=100.
 - Fix: emit the chain's __INIT before the FB_Init invokes; record or refuse the EXTENDS interleaving.
-- [ ] 22.1 Record fixtures: FB_Init reading an ADR(), call and THIS-initialized field — red.
+- [x] 22.1 Record fixtures: FB_Init reading an ADR(), call and THIS-initialized field — red.
   Recorded 2026-09-29 (record:exec): `tr_22_fb_init_reads_adr_field` (diverges, null deref), `tr_22_fb_init_reads_call_field` (diverges), `tr_22_fb_init_reads_this_field` (not-lowered, `place-not-local`). CODESYS: seen=7 in all three.
-- [ ] 22.2 Fix.
+- [x] 22.2 Fix. `visit` (lower/lower.ts) emits an instance's `<FB>.__INIT` chain before its FB_Init invokes; a derived type's initializers below a base's FB_Init are refused (`fb-init-order`, unrecorded). `tr_22_fb_init_reads_adr_field` and `_call_field` confirmed; `_this_field` stays not-lowered (`place-not-local`, another gap). Src test in lower.test.ts.
 
 ## 23. An FB_Init argument read from a variable with a non-folding initializer passes 0
 - Root cause: `lower/lower.ts:298` (recordedArgument never checks pendingInits) and `:566` (the whole init sequence

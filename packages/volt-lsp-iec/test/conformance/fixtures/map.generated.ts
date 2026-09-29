@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2039
+ *     confirmed     2041
  *     refused        549
  *     not-lowered    105
  *     lsp-gap          9
- *     diverges        15
+ *     diverges        13
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -2509,8 +2509,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_20_output_index_moved_by_callee: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 2.7, shape: "57ac4e8994", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "7ef1346b85", "96a5b25b66", "de132e5019"], diverges: { codesys: "known" } },
   tr_21_namespace_bare_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "4c454109c0", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "4c9f4e33f4", "65df8e0418", "a54ead1fbe", "abc8bc67de"] },
   tr_21_namespace_qualified_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "55a4f7414c", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d"] },
-  tr_22_fb_init_reads_adr_field: { evidence: "diverges", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 3.1, shape: "227f34dccd", notes: ["013de1dc6a", "1307e33bbf", "45292dbd9c", "49346d6299", "75cc82a569", "8a9bb48ddb", "dd94ff18a2", "fa7d5f176f"] },
-  tr_22_fb_init_reads_call_field: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 5, edge: "agree", size: 2.5, shape: "0b67b056d0", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "49346d6299", "8a9bb48ddb", "8ccaa880cd", "fa7d5f176f"] },
+  tr_22_fb_init_reads_adr_field: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "fc6c3b9cfd", notes: ["013de1dc6a", "1307e33bbf", "45292dbd9c", "49346d6299", "75cc82a569", "8a9bb48ddb", "dd94ff18a2", "fa7d5f176f"] },
+  tr_22_fb_init_reads_call_field: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.5, shape: "b354277f2a", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "49346d6299", "8a9bb48ddb", "8ccaa880cd", "fa7d5f176f"] },
   tr_22_fb_init_reads_this_field: { evidence: "not-lowered" },
   tr_23_fb_init_argument_from_pending_init: { evidence: "not-lowered" },
   tr_23_fb_init_argument_from_pending_init_reversed: { evidence: "not-lowered" },

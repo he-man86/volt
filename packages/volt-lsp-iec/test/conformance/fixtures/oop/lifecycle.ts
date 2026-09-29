@@ -734,11 +734,7 @@ END_METHOD
     kind: "function_block",
     feature: "FB_Init dereferencing a POINTER field initialized to ADR(a member with an initial value)",
     fromDoc: "11-fb-lifecycle.md#critical-rules",
-    note: "transpile-review-2026-09-29 task 22 (lower/lower.ts pushes the FB_Init invokes before the <FB>.__INIT invokes).",
-    deferred: {
-      transpile:
-        "transpile-review-2026-09-29 task 22: CODESYS runs the field initializers first (seen=7); the interpreter runs FB_Init first and dereferences a null pointer (measured 2026-09-29)",
-    },
+    note: "transpile-review-2026-09-29 task 22 (lower/lower.ts pushed the FB_Init invokes before the <FB>.__INIT invokes; fixed).",
     plcPrgVar: "inst : FB_LANG_tr22_adr;",
     plcPrgBody: "inst();",
     source: `FUNCTION_BLOCK FB_LANG_tr22_adr
@@ -760,7 +756,6 @@ END_METHOD
   },
   {
     name: "tr_22_fb_init_reads_call_field",
-    deferred: { transpile: "transpile-review-2026-09-29 task 22: CODESYS runs the call-initialized field before FB_Init (seen=7, a=100); the lowering runs FB_Init first (seen=0, a=7) (recorded 2026-09-29)" },
     pouName: "FB_LANG_tr22_call",
     kind: "function_block",
     feature: "FB_Init reading, then overwriting, a field initialized by a FUNCTION call",
