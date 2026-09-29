@@ -25,30 +25,47 @@ Plus the model-independent lean groups: 1 (prelude on demand, ≈20k lints), 2 (
 
 ## What Changes
 
-- **Design first, per model.** Each model gets a short design section in this change (`design.md`) BEFORE any code:
-  the target representation, how both backends (interpreter and Rust) implement it identically, what CODESYS does
-  (recorded fixtures cited), the options considered and why one wins, and the migration of existing emitted Rust.
-  The pointer model has the widest option space (extended tags, a flat byte arena per program, Rust references with
-  an address table) and must decide against the recorded pointer fixtures, not taste.
+- **Order.** `frontend-conformance` (syntax/symbols/types) runs first and is archived before this change starts; the rest of the
+  LSP review (analysis, services, server) comes after. This change takes the front-end as frontend-conformance leaves it and adds
+  only the shared facts the transpiler needs that it did not provide (design.md §6).
+- **Structure first (phase 1), output-neutral.** `src/transpile/` gets the target tree of design.md §2: a new `semantics/` layer
+  (the value model the interpreter runs and the Rust runtime mirrors, held together by shared case tables and a twin test),
+  `ir/` reduced to the node contract plus one exhaustive walker, `lower/` split into concern folders (entry, project, diagnostics,
+  core, values, storage, init, places, pointers, expressions, builtins, statements, calls, interfaces), `interp/` split into
+  machine/frame/calls/runner, `emit/rust/` split into printers plus a `runtime/` registry replacing `prelude.ts`, and a
+  `pipeline/` composition root. Every rule with several copies gets one home (design.md P1). Giant functions are split in place
+  before they move. Every step is proven by a corpus snapshot (IR, Rust, source map, both backends' outputs, edge verdicts) and
+  by test-title equality; the layering lint gains the transpile-internal rules, a size ratchet and a stale-citation check.
+- **Design first, per model.** Each model gets its decision section in `design.md` BEFORE any code, after a measurement task:
+  the target representation, how both backends (interpreter and Rust) implement it identically, what CODESYS does (recorded
+  fixtures cited), the options considered and why one wins, and the migration of existing emitted Rust. The pointer model
+  starts from `transpile-st-to-rust/pointer-model.md`'s census and weighs extended tags, a flat byte arena per program, and a
+  per-pointer enum of targets against the recorded pointer fixtures, not taste.
 - **Then implement each model**, test-first against its root causes' fixtures, which are known divergences today
   and must turn into passes (the suite enforces removing the marks).
-- **Then the lean groups**, in dependency order, each as "same program output, less Rust": the whole corpus's
-  recorded values and the `edge` differential must be byte-identical before and after; the map's `size`,
-  `pedantic` and lint counts must move in the promised direction; the ALLOWED lint list shrinks accordingly.
+- **Then the remaining root causes** (one task each, in the new structure; closed ones verified in their new home), the
+  unverified appendix items (recorded first), and the removal of every parameter a neutral consolidation kept.
+- **Then the lean groups**, in dependency order, each as "same program output, less Rust": the corpus-output snapshot and the
+  `edge` differential must be byte-identical before and after; the map's `size`, `pedantic` and lint counts must move in the
+  promised direction; the ALLOWED lint list shrinks accordingly. Every review note is tagged with the task that resolves it.
 - **Every step reports its delta in the map:** fixtures changed, `edge` verdicts, median `size`, `pedantic` total,
   notes resolved (a resolved note is deleted from the authored table; the gate enforces no orphans).
+- **Hand-offs are filed, not dropped:** LSP-only gaps found here go to a new change `lsp-transpile-review-gaps`;
+  transpile-st-to-rust's overlapping open tasks are marked superseded.
 
 ## Non-goals
 
 - No change to what CODESYS behaviour Volt claims: the recordings stay the oracle.
 - No new transpiler features (unsupported constructs stay refused); the 315 fixtures that do not lower are out of
   scope unless a model change makes one lower for free.
-- Syntax/symbols/analysis are out of scope (the LSP review plan covers them).
+- The front-end's structure and conformance (syntax/symbols/types) belong to `frontend-conformance`; this change touches
+  the front-end only for the shared facts design.md §6 lists, with the LSP gates. Analysis, services and server are out of
+  scope (the rest of the LSP review); LSP-only gaps found here are handed to `lsp-transpile-review-gaps`.
 
 ## Impact
 
-- `packages/volt-lsp-iec/src/transpile/**` (lower, ir, emit/rust incl. the prelude, interp), `src/types/**` where a
-  model needs a type fact.
+- `packages/volt-lsp-iec/src/transpile/**` (every file moves: design.md §4 maps each symbol), the shared front-end facts of
+  design.md §6, `test/conformance/**` support (split), `scripts/` (snapshot, size, citation tools).
 - Nearly every fixture's emitted Rust changes; `map.generated.ts` regenerates at every step.
 - Docs: `packages/volt-lsp-iec/docs/architecture.md` and `data-model.md` describe the new models.
 - Supersedes `transpile-lean-candidates` (its groups are tasks here); archive that change unapplied when this lands.
