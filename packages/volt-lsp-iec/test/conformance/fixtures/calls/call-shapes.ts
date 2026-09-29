@@ -1197,12 +1197,11 @@ END_METHOD
     "inst : FB_CS_shadowStat19; v : INT := 1; res : INT; stat : INT;",
     "res := inst.M(x := v);\ninst();\nstat := inst.statSeen;"),
   // Task 20: a routine's `o => target` whose target's INDEX the callee moves. CODESYS copies outputs out AFTER the call,
-  // so the index is read then — measured LIVE: arr[0] = 0, arr[1] = 5, arr2[0] = 0, arr2[1] = 5. The transpiler lends the
-  // target `&mut` before the call and writes arr[0] / arr2[0]. Once through a METHOD moving its FB's own output, once
+  // so the index is read then — measured LIVE: arr[0] = 0, arr[1] = 5, arr2[0] = 0, arr2[1] = 5. The transpiler lent the
+  // target `&mut` before the call and wrote arr[0] / arr2[0] (fixed: the output is copied out after the call). Once through a METHOD moving its FB's own output, once
   // through a FUNCTION moving a global.
   {
     name: "tr_20_output_index_moved_by_callee",
-    deferred: { transpile: "transpile-review-2026-09-29 task 20: CODESYS copies an output after the call, so the index the callee moved is the one written (arr[1]=5, arr2[1]=5); the lowering lends the target before the call (recorded 2026-09-29)" },
     pouName: "GVL_CS_outIndex20",
     kind: "gvl",
     feature: "a METHOD's and a FUNCTION's VAR_OUTPUT bound `o => arr[k]` where the callee itself increments k — the element the output lands in",

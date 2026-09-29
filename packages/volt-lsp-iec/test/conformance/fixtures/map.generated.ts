@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2036
+ *     confirmed     2037
  *     refused        549
  *     not-lowered    105
  *     lsp-gap          9
- *     diverges        18
+ *     diverges        17
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -26,8 +26,8 @@
  *     arith                  1459     1459
  *     control                  72       72
  *     aggregate                29       29
- *     call                    231      229
- *     indirect                180      176
+ *     call                    230      228
+ *     indirect                181      177
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -85,7 +85,7 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1455 distinct emission shapes over 2413 lowered fixtures, 1659 distinct constructs.
+ *   shape — 1455 distinct emission shapes over 2413 lowered fixtures, 1660 distinct constructs.
  *   770 constructs carry a review note (`NOTES`): 2325 fixtures are improvable, 2240 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
@@ -436,7 +436,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_input_left_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 2.3, shape: "589f48a700", notes: ["11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "a5c4faeebd", "c8ca44a755"] },
   callshape_method_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 6, edge: "agree", size: 2.9, shape: "cb6b52d112", notes: ["11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "c8ca44a755"] },
   callshape_method_on_program: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 3.4, shape: "7af35f7f06", notes: ["11f6ad8ec5", "1307e33bbf", "1ebe9a3a67", "4979768984", "58a7e6289b", "6713eb5cc0", "69b0552c65", "abf2bb6e4e", "c68f0b1ef6"] },
-  callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "cb08373ba2", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984", "7ab9128afd", "96a5b25b66"] },
+  callshape_output_index_before_call: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2, shape: "2808477e09", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984", "7ab9128afd", "96a5b25b66"] },
   callshape_own_field_inout_read_by_name: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "7adffcabd8", notes: ["11f6ad8ec5", "1307e33bbf", "6713eb5cc0", "6dd22a92d0", "707715f6ab"] },
   callshape_own_field_two_inouts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 2.6, shape: "c0aa0f524c", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "96a5b25b66", "fb7e9e6ff4"] },
   callshape_positional_arguments: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 28, edge: "agree", size: 1.8, shape: "81bc08b5f2", notes: ["11f6ad8ec5", "1307e33bbf", "228035615e", "2ea589a8a1", "4979768984", "4b22d23722", "6713eb5cc0", "6dd22a92d0", "707715f6ab", "a5c4faeebd", "c8ca44a755"] },
@@ -2339,7 +2339,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   state_empty_argument: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 8, edge: "agree", size: 3.6, shape: "0de54de31a", notes: ["1307e33bbf", "271163608b", "4979768984", "964296462a"] },
   state_program_called_from_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 4.5, shape: "65d4956fd3", notes: ["1307e33bbf", "4979768984", "58a7e6289b", "abf2bb6e4e"] },
   state_property_get_set: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.4, shape: "12ebec9636", notes: ["11f6ad8ec5", "1307e33bbf", "228035615e", "377c1dfc31", "3d737b5821", "48737e1389", "4d8c0c87ee", "637fe937dc", "6713eb5cc0", "79ff186095", "8ccaa880cd", "9610f67747", "fda03fa84f"] },
-  state_routine_outputs: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.5, shape: "15434ffa74", notes: ["11f6ad8ec5", "1307e33bbf", "1647895e3b", "3a7612a7b4", "50ba9519ad", "51ea066d8e", "53bd7d992e", "6713eb5cc0", "7685022caa", "782a04d94c", "821a3bb974", "89b6f263d9", "96a5b25b66", "cbb0b6eefe"] },
+  state_routine_outputs: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.5, shape: "341e289ef9", notes: ["11f6ad8ec5", "1307e33bbf", "1647895e3b", "1bb6d1cb14", "2421f6476e", "3a7612a7b4", "50ba9519ad", "51ea066d8e", "53bd7d992e", "6713eb5cc0", "7685022caa", "782a04d94c", "821a3bb974", "96a5b25b66"] },
   state_var_inst_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "e5bcd579fc", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984"] },
   state_var_stat_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.9, shape: "1e4b92d281", notes: ["11f6ad8ec5", "1307e33bbf", "7ef1346b85", "f62e4d99a5"] },
   stmt_case_boundary_high: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "a02cc74168", notes: ["0e0d715a81", "1307e33bbf"] },
@@ -2506,7 +2506,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_18_queryinterface_into_global: { evidence: "not-lowered" },
   tr_19_method_inout_shadows_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "9fbe34ab76", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "dfc9d07c2c"] },
   tr_19_method_inout_shadows_var_stat: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "751786240f", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf", "a29db6178b", "b9787e0d18"] },
-  tr_20_output_index_moved_by_callee: { evidence: "diverges", tier: "indirect", rust: "compiles", pedantic: 13, edge: "agree", size: 2.7, shape: "79589d5a60", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "7ef1346b85", "96a5b25b66", "de132e5019"], diverges: { codesys: "known" } },
+  tr_20_output_index_moved_by_callee: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 13, edge: "agree", size: 2.7, shape: "57ac4e8994", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "7ef1346b85", "96a5b25b66", "de132e5019"], diverges: { codesys: "known" } },
   tr_21_namespace_bare_first: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "agree", size: 2.5, shape: "d2d0fa026d", notes: ["11f6ad8ec5", "1d7709a031", "2a09a0d33c", "65df8e0418", "a54ead1fbe", "abc8bc67de"] },
   tr_21_namespace_qualified_first: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "agree", size: 2.5, shape: "48617079ba", notes: ["11f6ad8ec5", "43aa1830f1", "9c1d0c1a6e", "a54ead1fbe", "b7cc1b2b1d"] },
   tr_22_fb_init_reads_adr_field: { evidence: "diverges", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 3.1, shape: "227f34dccd", notes: ["013de1dc6a", "1307e33bbf", "45292dbd9c", "49346d6299", "75cc82a569", "8a9bb48ddb", "dd94ff18a2", "fa7d5f176f"] },
@@ -2692,7 +2692,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   var_input_output_inout_on_fb: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 7, edge: "agree", size: 2.4, shape: "ced8ff26f4", notes: ["1307e33bbf", "833efb5917", "e7b84e4a19"] },
   var_inst_in_method: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.5, shape: "7e1374d317", notes: ["1307e33bbf", "3d737b5821", "4979768984"] },
   var_non_retain: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 2, edge: "agree", size: 3, shape: "3866846b47", notes: ["06bb3a6005", "3d737b5821", "63d29bd1a0"] },
-  var_output_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 1.7, shape: "ca8db1782f", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "96a5b25b66"] },
+  var_output_on_function: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 1.7, shape: "dd7a8db162", notes: ["11f6ad8ec5", "1307e33bbf", "41d2269c05", "96a5b25b66"] },
   var_persistent: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3866846b47", notes: ["06bb3a6005", "3d737b5821", "63d29bd1a0"], diverges: { codesys: "known" } },
   var_retain: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "3866846b47", notes: ["06bb3a6005", "3d737b5821", "63d29bd1a0"] },
   var_stat_in_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.4, shape: "ed9b175e71", notes: ["1307e33bbf", "7ef1346b85"] },
@@ -2815,7 +2815,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo2_grid_of_structs: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 31, edge: "agree", size: 2.8, shape: "189cf4acf5", notes: ["02b031c773", "0e0d715a81", "1307e33bbf", "1ad1ab3163", "204a887600", "271163608b", "46c17ef7d3", "4979768984", "521ba042ac", "5ba97e5557", "687428cc81", "93a17fab28", "95094bd48a", "b0965eecf6", "d9d57311e3", "de132e5019"] },
   xo2_instance_in_struct: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 49, edge: "agree", size: 2.7, shape: "85a48aa16c", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "37c65c7fbb", "5d9850550d", "c9cd63632c", "cd54e9d497"] },
   xo2_interface_extends: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "fe8e152e10", notes: ["11f6ad8ec5", "1307e33bbf", "228035615e", "4979768984", "59c341cb0f", "a497507b30", "ad25627749", "fbde4d6e1e"] },
-  xo2_method_outputs_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 12, edge: "agree", size: 2.4, shape: "3fbba9ad19", notes: ["11f6ad8ec5", "1307e33bbf", "3357f26b8d", "7a6f282031", "96a5b25b66", "bb4c155c09", "ed3ad19a47"] },
+  xo2_method_outputs_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 12, edge: "agree", size: 2.4, shape: "282462e9aa", notes: ["11f6ad8ec5", "1307e33bbf", "3357f26b8d", "7a6f282031", "96a5b25b66", "bb4c155c09", "ed3ad19a47"] },
   xo2_pointer_step_variable: { evidence: "not-lowered" },
   xo2_pointer_walk_across_objects: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 24, edge: "agree", size: 2.8, shape: "f8175f9f31", notes: ["0c7c4434c4", "1307e33bbf", "32f4b8cabb", "785b5ff775", "c9c77500c6", "dd94ff18a2", "de8528b197", "fbde4d6e1e"] },
   xo2_property_override_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 14, edge: "agree", size: 2.3, shape: "1e5fbdcb1d", notes: ["11f6ad8ec5", "1307e33bbf", "228035615e", "377c1dfc31", "4979768984", "4d8c0c87ee", "81d1867d27", "9610f67747", "fda03fa84f"] },
@@ -3439,6 +3439,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
   },
+  // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
+  "1bb6d1cb14": {
+    improvement: "MOD by a non-zero CONSTANT still emits the zero-divisor block `{ let __mod_l = …; let __mod_r = 1000u32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`. With a literal divisor it is just `x % 1000` (or `wrapping_rem` for a -1 divisor).",
+  },
   // x[(self.__numbers_upper_N as i64).wrapping_sub(self.__numbers_lower_N as i64) as usize] = Li16;
   "1be212b44b": {
     improvement: "An index prints `[(i as i64) as usize]`. On a 64-bit target, `i as usize` is bit-identical for every integer i (sign-extension is the same), so the i64 hop only earns its place when a lower bound is subtracted. A literal index prints `[(1i8 as i64) as usize]` where `[1]` is enough. The lower-bound form uses plain `-` (`((self.i as i64) - 1i64) as usize`), while the same subtraction written in ST prints `.wrapping_sub`, so the same construct has two spellings.",
@@ -3631,6 +3635,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn m(mut x: u32) -> bool {
   "241f597128": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+  },
+  // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
+  "2421f6476e": {
+    improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
   },
   // self.f = Li64.wrapping_add(Li64) as i32;
   "24588decbd": {
@@ -6025,10 +6033,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "&IecStr<u8, N> generic, with the cut at 255 inside the body. Saves the copy, but changes the input-copy semantics a callee could observe if it wrote its input. Worth it only for bodies proven read-only",
     ],
   },
-  // self.units = m(Li16, &mut self.f, …);
-  "89b6f263d9": {
-    improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
-  },
   // self.f = IecString::<L>::lit(x!(S, self.f.wrapping_sub(self.f as u32)).as_bytes()).to();
   "89be6ee945": {
     improvement: "`.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
@@ -7529,10 +7533,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
     ],
     chosen: "B for add/sub/mul (it is exact) and keep A for div, where INT_MIN / -1 must not panic (measured arithedge_int_div_min_by_minus_one = -32768) and for comparisons that mix signedness.",
-  },
-  // self.f = self.f.take(Li16, &mut self.f, …);
-  "cbb0b6eefe": {
-    improvement: "MOD by a non-zero CONSTANT still emits the zero-divisor block `{ let __mod_l = …; let __mod_r = 1000u32; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`. With a literal divisor it is just `x % 1000` (or `wrapping_rem` for a -1 divisor).",
   },
   // x = m(&mut x) as i32;
   "cbcde0e5de": {

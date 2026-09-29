@@ -38,6 +38,7 @@ import {
   type IrCall,
   type IrFreeze,
   type IrStmt,
+  type IrValue,
   type Place,
   holdsCall,
 } from "../ir/index.js"
@@ -1058,7 +1059,13 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
       if (target === undefined || isInFrame(target)) return undefined
       if (target.type.kind !== "elementary" || param.type.kind !== "elementary" || target.type.name !== param.type.name || target.type.length !== param.type.length)
         return lw.bail("call-output-type", `${param.name} is read into a variable of another type`, arg.span)
-      inouts[bound] = target
+      // COPIED OUT AFTER THE CALL, not lent before it: the callee writes a copy, and the target — its index read then —
+      // takes it once the call returns. A METHOD moving its FB's `k`, or a FUNCTION moving a global, lands the output in
+      // `arr[k]` at the index it moved to (`tr_20_output_index_moved_by_callee`: arr[1] = 5). A target through a
+      // dereference is still lent: what the callee could do to the pointer is not recorded.
+      const copied = "kind" in target || target.guard !== undefined ? target
+        : { kind: "copy" as const, value: { kind: "const" as const, value: param.init as IrValue, type: param.type, span: arg.span }, type: param.type, back: target, span: arg.span }
+      inouts[bound] = copied
       order.push({ inout: bound, output: true })
       continue
     }
@@ -1255,6 +1262,8 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     }
     if (!order.slice(at + 1).some((later) => typeof later === "number" && holdsCall(inputs[later]))) continue
     const binding = inouts[entry.inout]!
+    // an output copied out after the call reads its index then, whatever a later argument did to it
+    if (entry.output === true && "kind" in binding && binding.kind === "copy" && binding.back !== undefined) continue
     const name = routine.inouts[entry.inout]!.name
     // A VAR_OUTPUT's target is NOT bound where written: its index is read after the inputs (`callshape_output_index_before_call`:
     // 7 into numbers[1]) — as both backends bind it — for a FUNCTION that binds nothing else and touches only its own

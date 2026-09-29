@@ -261,9 +261,9 @@ those values into the new fixture's recording.
 - Repro: METHOD M `k := k + 1; o := 5`; `b := fb1.M(o => arr[fb1.k])` → arr[0]=5; FUNCTION + GVL index likewise.
 - CODESYS (LIVE): arr[0]=0, arr[1]=5, arr2[0]=0, arr2[1]=5 — outputs copied out after the call.
 - Fix: copy routine outputs out after the invoke (temp in-out, then assign), as lowerCallStatement does for FB outputs.
-- [ ] 20.1 Record `callshape_output_index_moved_by_callee` — red.
+- [x] 20.1 Record `callshape_output_index_moved_by_callee` — red.
   Recorded 2026-09-29 (record:exec): `tr_20_output_index_moved_by_callee` — diverges (CODESYS: arr[1]=arr2[1]=5). It also found an LSP false positive (`'o' is no output of 'F_CS_OUT20'`), now in `KNOWN_DIVERGENCES.codesys`, and a source-map defect (a METHOD's VAR_OUTPUT reset maps into the sibling FUNCTION's text; `RENAMED_TARGETS`).
-- [ ] 20.2 Fix.
+- [x] 20.2 Fix. `lowerInvoke` binds a routine's `o => target` as a copy lent `&mut` and written back to the target after the call (`IrCopy.back`, which both backends already honour), so the index is read then; no freeze/`call-inout-order` for it. `tr_20_output_index_moved_by_callee` confirmed; src test in lower.test.ts (and the E0503 refusal of `res => numbers[cursor]` beside `io := cursor` is gone — nothing is borrowed now; it runs 7 into numbers[1]). Two NOTES re-keyed to the new construct lines. Still open: the LSP false positive (`KNOWN_DIVERGENCES.codesys`), the source-map defect (`RENAMED_TARGETS`), a target through a dereference (still lent), and a CONVERTING routine output (task 43's routine half: the write-back has no conversion, so the exact-type `call-output-type` stays).
 
 ## 21. A namespace-qualified FUNCTION is cached and scoped by its bare name
 - Root cause: `lower/calls.ts:538` (routine key = `sym.name`, memoised by `once`, `:148-160`), `:542`

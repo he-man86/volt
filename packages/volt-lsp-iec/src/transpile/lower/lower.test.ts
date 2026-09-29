@@ -707,11 +707,16 @@ test("the init step visits every called PROGRAM, refuses a moved-out read, and r
   const sharedRun = run(ir(shared, "Root"))
   sharedRun.scan()
   expect([sharedRun.get("seen"), sharedRun.get("o")]).toEqual([9n, 9n])
-  // a FUNCTION's VAR_OUTPUT beside an in-out bound to its index variable: printed E0503 (`&mut self.cursor` held)
+  // a FUNCTION's VAR_OUTPUT beside an in-out bound to its index variable: printed E0503 (`&mut self.cursor` held) while
+  // the output was lent before the call. It is copied out AFTER the call now (transpile-review 20, as CODESYS does:
+  // `tr_20_output_index_moved_by_callee`), so nothing borrows `numbers[cursor]` during it: 7 lands in numbers[1], the
+  // index read after the inputs ran (`callshape_output_index_before_call`).
   const both =
     "PROGRAM Root\nVAR o : FB_O; END_VAR\no();\nEND_PROGRAM\nFUNCTION_BLOCK FB_O\nVAR numbers : ARRAY[0..3] OF INT; cursor : INT; got : INT; END_VAR\ngot := F_Both(res => numbers[cursor], io := cursor, stepValue := Advance());\nEND_FUNCTION_BLOCK\n" +
     "METHOD Advance : INT\ncursor := cursor + 1;\nAdvance := cursor;\nEND_METHOD\nFUNCTION F_Both : INT\nVAR_INPUT stepValue : INT; END_VAR\nVAR_IN_OUT io : INT; END_VAR\nVAR_OUTPUT res : INT; END_VAR\nres := 7;\nEND_FUNCTION\n"
-  expect(codes(both)).toContain("call-inout-order")
+  const bothRun = run(ir(both, "Root"))
+  bothRun.scan()
+  expect([bothRun.get("o.numbers[0]"), bothRun.get("o.numbers[1]")]).toEqual([0n, 7n])
 })
 
 // Recorded (`fbcall_program_own_members`: calls 4, deep 40, tidied 200, doubled 8 after two cycles): a PROGRAM calling its
@@ -2409,4 +2414,24 @@ test("an FB output binding converts by the assignment relation", () => {
   expect(value("UDINT", "WORD", "16#FFFF")).toBe(65535n)
   expect(value("REAL", "INT", "-3")).toBe(-3)
   expect(lowerSource(src("INT", "DINT", "100000"), "P").diagnostics.map((d) => d.code)).toEqual(["call-output-type"])
+})
+
+// transpile-review 20: a routine's `o => target` was lent `&mut` before the call, so an index the callee moves was read
+// too early. CODESYS copies the output out AFTER the call (`tr_20_output_index_moved_by_callee`): arr[1] = 5 through a
+// METHOD moving its FB's own k, arr2[1] = 5 through a FUNCTION moving a global.
+test("a routine's output is copied out after the call, at the index the callee moved", () => {
+  const src = [
+    "PROGRAM P",
+    "VAR fb1 : FB_O; arr : ARRAY[0..3] OF INT; arr2 : ARRAY[0..3] OF INT; b : BOOL; c : BOOL; END_VAR",
+    "b := fb1.M(o => arr[fb1.k]);",
+    "c := F_O(o => arr2[gK]);",
+    "END_PROGRAM",
+    "VAR_GLOBAL gK : INT; END_VAR",
+    "FUNCTION F_O : BOOL\nVAR_OUTPUT o : INT; END_VAR\ngK := gK + 1;\no := 5;\nF_O := TRUE;\nEND_FUNCTION",
+    "FUNCTION_BLOCK FB_O\nVAR_OUTPUT k : INT; END_VAR\nEND_FUNCTION_BLOCK",
+    "METHOD M : BOOL\nVAR_OUTPUT o : INT; END_VAR\nk := k + 1;\no := 5;\nM := TRUE;\nEND_METHOD",
+  ].join("\n")
+  const runner = run(ir(src, "P"))
+  runner.scan()
+  expect(["arr[0]", "arr[1]", "arr2[0]", "arr2[1]"].map((v) => runner.get(v))).toEqual([0n, 5n, 0n, 5n])
 })

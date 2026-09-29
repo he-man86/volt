@@ -2863,8 +2863,9 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "8883cf3a18": LEAN.shapes10_5,
   // self.f = len(self.narrow.to::<L>());
   "8986d5305c": LEAN.shapes14_18,
-  // self.units = m(Li16, &mut self.f, …);
-  "89b6f263d9": LEAN.shapes18_1,
+  // self.units = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = m(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
+  // (re-keyed from `self.units = m(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
+  "2421f6476e": LEAN.shapes18_1,
   // self.f = IecString::<L>::lit(x!(S, self.f.wrapping_sub(self.f as u32)).as_bytes()).to();
   "89be6ee945": LEAN.shapes10_5,
   // self.f = (self.f as i32).min(self.f as i32) as i8;
@@ -3256,8 +3257,9 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "cb7d97e2f5": LEAN.shapes10_5,
   // self.f = (self.f as i32).wrapping_mul(Li32).wrapping_add(self.f as i32) as i16;
   "cbab9cd013": LEAN.shapes9_3,
-  // self.f = self.f.take(Li16, &mut self.f, …);
-  "cbb0b6eefe": LEAN.shapes19_11,
+  // self.f = { let mut __copy_N = Li16; let mut __copy_N = Li16; let x = self.f.take(Li16, &mut __copy_N, …); self.f = __copy_N; self.f = __copy_N; x };
+  // (re-keyed from `self.f = self.f.take(Li16, &mut self.f, …);` — a routine's outputs are copied out after the call, transpile-review 20)
+  "1bb6d1cb14": LEAN.shapes19_11,
   // x = m(&mut x) as i32;
   "cbcde0e5de": LEAN.shapes13_15,
   // pub fn m(mut x: i32, x: &mut T) -> bool {
