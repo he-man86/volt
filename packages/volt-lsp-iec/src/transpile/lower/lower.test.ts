@@ -2088,3 +2088,21 @@ test("unary minus on a 32/64-bit unsigned operand negates in the signed type of 
     -5n, -5n, -5, -5n, 1n, true, true,
   ])
 })
+
+// transpile-review-2026-09-29 task 9 (conformance `rotate_of_expression`, recorded): ROL/ROR took its width from the
+// LOWERED operand, and an expression is already promoted to DINT there — `ROL(w AND m, 1)` with w = 16#8001 was 2 and
+// `ROR(b OR b, 1)` with b = 16#81 was 64. CODESYS rotates the expression's own (checked) width; the promoted bits above
+// it ride along, so `ROL(b + b2, 1)` (16#101) into a WORD is 16#102 = 258, and into a BYTE 2.
+test("ROL/ROR on an expression rotate in the expression's checked width, not the promoted one", () => {
+  const source =
+    "PROGRAM P\nVAR w : WORD := 16#8001; m : WORD := 16#FFFF; b : BYTE := 16#81; b2 : BYTE := 16#80; one : BYTE := 1; w0 : WORD := 0;\n" +
+    "rolWordAnd : WORD; rorWordAnd : WORD; rolByteAdd0 : BYTE; rolByteMax : BYTE; rorByteOr : BYTE;\n" +
+    "rolByteAndLit : BYTE; rolByteOverflow : BYTE; rolByteOverflowWide : WORD; rolMixed : WORD; END_VAR\n" +
+    "rolWordAnd := ROL(w AND m, 1); rorWordAnd := ROR(w AND m, 1); rolByteAdd0 := ROL(b + 0, 1); rolByteMax := ROL(MAX(b, one), 1);\n" +
+    "rorByteOr := ROR(b OR b, 1); rolByteAndLit := ROL(b AND 16#FF, 1); rolByteOverflow := ROL(b + b2, 1);\n" +
+    "rolByteOverflowWide := ROL(b + b2, 1); rolMixed := ROL(b OR w0, 1);\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  const names = ["rolWordAnd", "rorWordAnd", "rolByteAdd0", "rolByteMax", "rorByteOr", "rolByteAndLit", "rolByteOverflow", "rolByteOverflowWide", "rolMixed"]
+  expect(names.map((n) => runner.get(n))).toEqual([3n, 49152n, 3n, 3n, 192n, 3n, 2n, 258n, 258n])
+})

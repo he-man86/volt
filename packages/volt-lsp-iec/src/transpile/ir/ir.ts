@@ -277,7 +277,7 @@ export type IrBuiltinName =
   /** `(value, count)`, value already promoted; the count is masked to the width's bits (design §14). */
   | "shl"
   | "shr"
-  /** `(value, count)` in the value's OWN width; the count is taken modulo that width. */
+  /** `(value, count)` in the value's OWN width — or in the node's `bits` when set — the count taken modulo that width. */
   | "rol"
   | "ror"
   /** `(K, IN0, …)`: inputs already met; an out-of-range K — negative included — picks the LAST input. */
@@ -301,6 +301,10 @@ export interface IrBuiltin {
   name: IrBuiltinName
   args: readonly IrExpr[]
   type: Type
+  /** `rol`/`ror` only: rotate the LOW `bits` of the (promoted, wider) value and keep the bits above as they are — an
+   *  expression operand rotates in its checked width while its promoted register rides along (conformance
+   *  `rotate_of_expression`: `ROL(BYTE 16#81 + BYTE 16#80, 1)` into a WORD is 16#102). Absent: the node's own width. */
+  bits?: number
   span: Span
 }
 

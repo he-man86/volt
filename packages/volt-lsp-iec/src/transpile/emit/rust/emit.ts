@@ -749,10 +749,13 @@ class Printer {
             return `${args[0]}.wrapping_shl(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
           case "shr":
             return `${args[0]}.wrapping_shr(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+          // With `bits`, the LOW bits rotate as a `u8`/`u16` and the promoted bits above them are kept (`IrBuiltin.bits`).
           case "rol":
-            return `${args[0]}.rotate_left(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
-          case "ror":
-            return `${args[0]}.rotate_right(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+          case "ror": {
+            const rotate = `rotate_${e.name === "rol" ? "left" : "right"}(${unparen(castTo(args[1]!, e.args[1]!.type, "u32"))})`
+            if (e.bits === undefined) return `${args[0]}.${rotate}`
+            return `({ let __rot = ${argv[0]}; (__rot & !${(1n << BigInt(e.bits)) - 1n}) | ((__rot as u${e.bits}).${rotate} as ${rustType(e.type)}) })`
+          }
           case "mux": {
             // a match ARM stands alone; the printer's parentheses around each one are `unused_parens`
             const [k, ...inputs] = argv

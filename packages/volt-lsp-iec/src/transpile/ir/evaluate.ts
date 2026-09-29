@@ -33,7 +33,7 @@ function widthOf(type: Type, op: string): number {
 export class LoweringBug extends TypeError {}
 
 /** A builtin over ALREADY-EVALUATED arguments — `argTypes` their types, which `char` reads its string's capacity from. */
-export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type, argTypes: readonly Type[]): Val {
+export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type, argTypes: readonly Type[], rotateBits?: number): Val {
   const pick = (op: "lt" | "gt"): Val => args.reduce((best, v) => (ord(op, v, best) ? v : best))
   switch (name) {
     case "max":
@@ -71,13 +71,15 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
     }
     case "rol":
     case "ror": {
-      // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (conformance `rotate_*`)
-      const bits = widthOf(type, name)
+      // in the value's own width, count modulo that width — ROL(BYTE 129, 9) is 3 (conformance `rotate_*`) — or in the
+      // node's `bits`, the bits above them kept as they are (conformance `rotate_of_expression`)
+      const bits = rotateBits ?? widthOf(type, name)
       const width = BigInt(bits)
       const left = BigInt(((Number(num(args[1]!)) % bits) + bits) % bits)
       const by = name === "rol" ? left : (width - left) % width
-      const unsigned = BigInt.asUintN(bits, num(args[0]!) as bigint)
-      return fit(BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width))), type)
+      const value = num(args[0]!) as bigint
+      const unsigned = BigInt.asUintN(bits, value)
+      return fit((value - unsigned) | BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width))), type)
     }
     case "mux": {
       // an out-of-range K — negative included — picks the LAST input (conformance `mux_out_of_range`)
@@ -203,7 +205,7 @@ function evaluate(e: IrExpr): Val | undefined {
         if (v === undefined) return undefined
         args.push(v)
       }
-      return builtinValue(e.name, args, e.type, e.args.map((a) => a.type))
+      return builtinValue(e.name, args, e.type, e.args.map((a) => a.type), e.bits)
     }
     default:
       return undefined

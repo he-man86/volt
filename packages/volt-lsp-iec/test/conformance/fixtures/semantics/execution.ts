@@ -419,6 +419,27 @@ const CASES: readonly ExecCase[] = [
     vars: "b129 : BYTE := 129; n9 : INT := 9; n8 : INT := 8; rol9 : BYTE; rol8 : BYTE; ror9 : BYTE;",
     body: "rol9 := ROL(b129, n9); rol8 := ROL(b129, n8); ror9 := ROR(b129, n9);",
   },
+  // transpile-review-2026-09-29 task 9: an EXPRESSION operand is promoted to DINT at run time — does ROL/ROR rotate in
+  // that promoted width, or in the expression's own (checked) width? And a BYTE + BYTE that overflows into a WORD?
+  {
+    name: "rotate_of_expression",
+    vars: [
+      "w : WORD := 16#8001; m : WORD := 16#FFFF; b : BYTE := 16#81; b2 : BYTE := 16#80; one : BYTE := 1; w0 : WORD := 0;",
+      "rolWordAnd : WORD; rorWordAnd : WORD; rolByteAdd0 : BYTE; rolByteMax : BYTE; rorByteOr : BYTE;",
+      "rolByteAndLit : BYTE; rolByteOverflow : BYTE; rolByteOverflowWide : WORD; rolMixed : WORD;",
+    ].join("\n"),
+    body: [
+      "rolWordAnd := ROL(w AND m, 1);",
+      "rorWordAnd := ROR(w AND m, 1);",
+      "rolByteAdd0 := ROL(b + 0, 1);",
+      "rolByteMax := ROL(MAX(b, one), 1);",
+      "rorByteOr := ROR(b OR b, 1);",
+      "rolByteAndLit := ROL(b AND 16#FF, 1);",
+      "rolByteOverflow := ROL(b + b2, 1);",
+      "rolByteOverflowWide := ROL(b + b2, 1);",
+      "rolMixed := ROL(b OR w0, 1);",
+    ].join(" "),
+  },
   {
     name: "mux_basic",
     vars: "k0 : INT := 0; k1 : INT := 1; k2 : INT := 2; pick0 : INT; pick1 : INT; pick2 : INT;",

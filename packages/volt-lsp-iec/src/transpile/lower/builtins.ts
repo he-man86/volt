@@ -10,7 +10,9 @@ import {
   PLATFORM_ALIASES,
   elemOf,
   exptResultType,
+  inferExprType,
   isTemporal,
+  literalCheckType,
   parseConversionName,
   promoteForRuntime,
   type Type,
@@ -33,6 +35,23 @@ import { lowerInvoke } from "./calls.js"
  *  can become the clock, or the clock a GVL variable. */
 export const CLOCK = "__clock"
 const CLOCK_KEY = "TIME()"
+
+/** The width an integer or bit-string expression is CHECKED in — before run-time promotion. `inferExprType` answers
+ *  UNKNOWN beside an untyped literal, which takes the other operand's type when that holds it (`literalCheckType`). */
+function checkedBits(lw: Lowering, e: Expr): number | undefined {
+  if (e.kind === "binary") {
+    const literal = (x: Expr): boolean => x.kind === "literal" && x.literalKind === "int"
+    const [lit, other] = literal(e.right) && !literal(e.left) ? [e.right, e.left] : literal(e.left) && !literal(e.right) ? [e.left, e.right] : []
+    if (lit !== undefined && other !== undefined) {
+      const bits = checkedBits(lw, other)
+      const otherType = inferExprType(other, lw.scope, lw.project)
+      const litBits = elemOf(literalCheckType(lit, otherType) ?? otherType)?.bits
+      return bits === undefined || litBits === undefined ? bits : Math.max(bits, litBits)
+    }
+  }
+  const t = elemOf(inferExprType(e, lw.scope, lw.project))
+  return t !== undefined && (t.family === "int" || t.family === "bitstring") ? t.bits : undefined
+}
 
 /** The value functions `builtin` lowers, and how many operands each takes. SEL's count includes its selector. */
 export const BUILTIN_ARITY: Readonly<Record<string, { min: number; max?: number }>> = {
@@ -172,7 +191,14 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
     const shift = name === "SHL" || name === "SHR"
     const type = shift ? promoteForRuntime(value.type) : value.type
     const op = name.toLowerCase() as IrBuiltinName
-    return { kind: "builtin", name: op, args: [convert(value, type), count], type, span: e.span }
+    // AN EXPRESSION OPERAND is already promoted here — `w AND m` lowers to DINT — so its own width was lost and
+    // `ROL(WORD 16#8001 AND m, 1)` rotated 32 bits (2, not 3). CODESYS rotates in the expression's CHECKED width, and the
+    // promoted bits above it ride along: `ROL(BYTE 16#81 + BYTE 16#80, 1)` is 2 into a BYTE and 16#102 = 258 into a WORD
+    // (conformance `rotate_of_expression`). An untyped literal beside a BYTE is a BYTE: `ROL(b + 0, 1)` rotates 8 bits.
+    const checked = shift ? undefined : checkedBits(lw, values[0]!)
+    const own = elemOf(value.type)?.bits
+    const bits = checked !== undefined && own !== undefined && checked < own ? checked : undefined
+    return { kind: "builtin", name: op, args: [convert(value, type), count], type, ...(bits === undefined ? {} : { bits }), span: e.span }
   }
   if (name === "MUX") {
     const index = lowerExpr(lw, values[0]!)

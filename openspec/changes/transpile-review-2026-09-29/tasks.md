@@ -136,8 +136,11 @@ those values into the new fixture's recording.
   follows the assignment context), rolMixed=258.
 - Fix: rotate in the checked type of the expression (checkedMeetType / operand type), widened to the destination when
   the destination is wider, converting the promoted value down before `rotate_left`.
-- [ ] 9.1 Record `rotate_of_expression` — red.
-- [ ] 9.2 Fix.
+- [x] 9.1 Record `rotate_of_expression` — red. Recorded with record:exec; the LIVE values reproduced. Both backends gave 2, 16384,
+  2, 2, 64, 2, 2, 514, 258. NOTE 258 is NOT a 16-bit rotate of 16#101 (that is 514): the low 8 bits rotate and the promoted bits
+  above them ride along (x86 `rol al` in EAX) — so "widened to the destination" is not the rule.
+- [x] 9.2 Fix. ROL/ROR rotate the low bits of the operand's checked width (`checkedBits` in `lower/builtins.ts`; an untyped literal
+  takes the other operand's type) and keep the promoted bits above (`IrBuiltin.bits`, evaluate + Rust emitter); fixture confirmed.
 
 ## 10. DT/LDT/TOD → DATE/LDATE evaluates the source twice
 - Root cause: `lower/builtins.ts:389` (`sub(count, mod(count, day))` reuses one IrExpr node).
