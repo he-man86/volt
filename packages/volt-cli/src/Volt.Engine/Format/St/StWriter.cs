@@ -17,7 +17,7 @@ namespace Volt.Engine.Format.St;
 /// <para>The dict-based <c>StAssembler</c> that used to share this format is DELETED, retiring its
 /// `ponytail:` note (which prescribed exactly this once the two round-trip tests stopped driving it): it had no
 /// production call site, and it had already diverged here — it invented `END_&lt;KIND&gt;` where this throws
-/// <c>INVALID_CODE_HEADER</c>. ChildDirectiveTests and InterfaceRoundTripTests now certify THIS emitter, against
+/// a coded refusal. ChildDirectiveTests and InterfaceRoundTripTests now certify THIS emitter, against
 /// a golden of the whole emitted text.</para></summary>
 public static class StWriter
 {
@@ -71,16 +71,18 @@ public static class StWriter
         kind is not (ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut);
 
     // No silent fallback — an invented `END_<KIND>` would write syntactically wrong ST into the user's repo.
-    // The kind is DERIVED text (CodeHelper.ParseCodeHeader), so a malformed export can legitimately hand us
-    // `method`/`property`/`action` here; fail loud, exactly like the sibling ItemKind.ExtFor (which throws on
-    // the same kind a few lines later in Materializer — so this fallback was masked, not unreachable).
+    // The kind comes from the IDE's tree, and a kind with no END line (`method`/`property`/`action` handed up as
+    // an item) fails loud here, exactly like the sibling ItemKind.ExtFor (which throws on the same kind a few lines
+    // later in Materializer — so this fallback was masked, not unreachable). A PULL-side refusal: the item is listed
+    // `unreadable`, coded UNSUPPORTED (a kind with no mapping). It was INVALID_CODE_HEADER, which no longer exists: a push
+    // reads no top-level header, and a pull refusal is never observable as a code.
     private static string EndKeyword(string kind) => kind switch
     {
         ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
         ItemKind.Kinds.Program => "END_PROGRAM",
         ItemKind.Kinds.Function => "END_FUNCTION",
         ItemKind.Kinds.Interface => "END_INTERFACE",
-        _ => throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, $"No END keyword for kind '{kind}'"),
+        _ => throw new BridgeException(BridgeErrorCodes.Unsupported, $"No END keyword for kind '{kind}'"),
     };
 
     private static int KindOrder(string kind) => kind switch
@@ -105,7 +107,7 @@ public static class StWriter
             // An interface's members are the same ST constructs as a POU's; only the WIRE kind differs.
             ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod => "END_METHOD",
             ItemKind.Kinds.Action => "END_ACTION",
-            _ => throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
+            _ => throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"No END keyword for POU child kind '{child.Kind}'"),
         };
         if (!ImplementationMarker.AppliesTo(child.Kind) || !ImplementationMarker.AppliesTo(ownerKind))

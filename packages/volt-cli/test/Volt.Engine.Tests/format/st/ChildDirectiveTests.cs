@@ -70,7 +70,7 @@ public class ChildDirectiveTests
         Assert.DoesNotContain("(* folder", st);                 // no comment annotation
         Assert.DoesNotContain("@volt-graphical", st);           // no marker
 
-        var split = StReader.Read(st);
+        var split = StReader.Read(st, pou.Kind);
 
         var bf = split.Members.First(ch => ch.Name == "BF01");
         Assert.Equal("MFB01_Basic Functions", bf.Folder);
@@ -92,7 +92,7 @@ public class ChildDirectiveTests
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
                  "IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP\n    g1 : BOOL;\n  END_VAR\n" +
                  "  g1 := (a AND a);\n  out1 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n";
-        var s = StReader.Read(st);
+        var s = StReader.Read(st, ItemKind.Kinds.Program);
         Assert.Contains("PROGRAM POU", s.Declaration);
         Assert.Contains("out1 : BOOL;", s.Declaration);
         Assert.DoesNotContain("VAR_TEMP", s.Declaration);   // network text temps never leak into the decl
@@ -164,7 +164,7 @@ public class ChildDirectiveTests
             "END_PROPERTY",
             ""), st);
 
-        var back = StReader.Read(st);
+        var back = StReader.Read(st, pou.Kind);
         Assert.Equal("out := NOT a;", back.Body);
         Assert.False(NetworkText.Is(back.Body));
         Assert.Equal(ld, back.Members.Single(m => m.Name == "Run").Body);

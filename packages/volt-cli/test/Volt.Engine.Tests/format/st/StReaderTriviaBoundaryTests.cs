@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using Volt.Engine.Item;
+using System.Linq;
 using Xunit;
 using Xunit.Abstractions;
 using Volt.Engine.Format.St;
@@ -49,7 +50,7 @@ public class StReaderTriviaBoundaryTests
             "END_SET\n" +
             "END_PROPERTY\n";
 
-        var item = StReader.Read(src);
+        var item = StReader.Read(src, ItemKind.Kinds.FunctionBlock);
         var prop = item.Members.Single(m => m.Name == "P");
         _out.WriteLine($"getter: '{prop.Getter?.Body}'  setter: '{prop.Setter?.Body}'");
 
@@ -74,7 +75,7 @@ public class StReaderTriviaBoundaryTests
             "M := d * 2;\n" +
             "END_METHOD\n";
 
-        var item = StReader.Read(src);
+        var item = StReader.Read(src, ItemKind.Kinds.FunctionBlock);
         var m = item.Members.Single(x => x.Name == "M");
         _out.WriteLine($"decl: '{m.Declaration}'\nbody: '{m.Body}'");
 
@@ -99,7 +100,7 @@ public class StReaderTriviaBoundaryTests
             "\tx := 2;\n" +
             "END_ACTION\n";
 
-        var item = StReader.Read(src);
+        var item = StReader.Read(src, ItemKind.Kinds.FunctionBlock);
         var a = item.Members.Single(m => m.Name == "A");
         _out.WriteLine($"decl: '{a.Declaration}'\nbody: '{a.Body}'");
 

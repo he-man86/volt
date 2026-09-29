@@ -55,16 +55,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         public static Item TextualPou(string name, string decl, string impl, string folder = "") =>
             new Item(name, CodeForDeclaration(decl), folder, true, decl, impl, null, null);
 
-        /// <summary>The tree code a declaration describes — the fixture-side twin of PushService's
-        /// <c>PouKindToCode</c>, which is what a real create would have used to make this object.</summary>
+        /// <summary>The tree code a declaration describes, from its header's leading keyword — what the object a
+        /// fixture describes was created as. (Fixture authoring only: a push never reads a header for this.)</summary>
         private static int CodeForDeclaration(string decl) =>
-            Volt.Engine.Format.St.CodeHelper.ParseCodeHeader(decl) switch
+            Volt.Engine.Format.St.CodeHelper.HeaderLine(decl).Split(' ', '\t')[0].ToUpperInvariant() switch
             {
-                ItemKind.Kinds.FunctionBlock => ItemKind.PlcPouFb,
-                ItemKind.Kinds.Function => ItemKind.PlcPouFunc,
-                ItemKind.Kinds.Interface => ItemKind.PlcItf,
-                ItemKind.Kinds.Dut => ItemKind.PlcDut,
-                ItemKind.Kinds.Gvl => ItemKind.PlcGvl,
+                "FUNCTION_BLOCK" => ItemKind.PlcPouFb,
+                "FUNCTION" => ItemKind.PlcPouFunc,
+                "INTERFACE" => ItemKind.PlcItf,
+                "TYPE" => ItemKind.PlcDut,
+                "VAR_GLOBAL" or "VAR_CONFIG" => ItemKind.PlcGvl,
                 _ => ItemKind.PlcPouProg,
             };
 

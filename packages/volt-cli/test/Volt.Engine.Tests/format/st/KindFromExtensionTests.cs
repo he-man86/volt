@@ -12,13 +12,12 @@ namespace Volt.Engine.Tests;
 /// It used to. `StReader.Read` took the source alone and called `CodeHelper.ParseCodeHeader` on it, and
 /// `PushService` created the object from that (`PouKindToCode(split.Kind)`). Measured against live SP21
 /// (2026-09-17): pushing an item named `KindTest.fb` whose text said `PROGRAM` was ACCEPTED and produced
-/// `KindTest.prg`. The file changes identity behind the engineer — and because the wire is keyed by the FULL
-/// name, the next `ifVersion` gate names an item that no longer exists, so the same file can be pulled and
-/// never pushed back.
+/// `KindTest.prg`.
 ///
-/// The sibling rule is the same one CODESYS enforces for NAMES: an object called one thing holding a signature
-/// calling itself another is an error ("The name used in the signature is not identical to the object name"),
-/// not a rename. Kind is no different; it is simply the half nothing was checking.
+/// The first fix read the header anyway and REFUSED a text whose header disagreed with the extension. That is
+/// gone too (openspec `push-without-header-check`): a top-level item's header is never read — not for the kind,
+/// not to check it, not to refuse. The text is written as sent, and the IDE's build reports what is wrong with
+/// it. `StReader.Read` takes the kind as a REQUIRED argument, so there is no path left on which the text decides.
 /// </summary>
 public class KindFromExtensionTests
 {
@@ -28,38 +27,36 @@ public class KindFromExtensionTests
     [Fact]
     public void The_wire_name_decides_the_kind_not_the_text()
     {
-        Assert.Equal(ItemKind.Kinds.Program, StReader.Read(ProgramText, ItemKind.KindForWireName("KindTest.prg")).Kind);
-        Assert.Equal(ItemKind.Kinds.FunctionBlock, StReader.Read(FbText, ItemKind.KindForWireName("KindTest.fb")).Kind);
+        Assert.Equal(ItemKind.Kinds.Program, StReader.Read(ProgramText, ItemKind.KindForWireName("KindTest.prg")!).Kind);
+        Assert.Equal(ItemKind.Kinds.FunctionBlock, StReader.Read(FbText, ItemKind.KindForWireName("KindTest.fb")!).Kind);
     }
 
+    /// <summary>A text whose header disagrees with the extension is read AS the extension's kind, its declaration
+    /// verbatim — never refused for its header, never followed.</summary>
     [Fact]
-    public void A_text_that_disagrees_with_the_extension_is_REFUSED_not_followed()
+    public void A_text_that_disagrees_with_the_extension_is_read_as_the_extension_says()
     {
-        var ex = Assert.Throws<BridgeException>(() => StReader.Read(ProgramText, ItemKind.Kinds.FunctionBlock));
-        Assert.Contains("function_block", ex.Message);
-        Assert.Contains("program", ex.Message);
+        var item = StReader.Read(ProgramText, ItemKind.Kinds.FunctionBlock);
+
+        Assert.Equal(ItemKind.Kinds.FunctionBlock, item.Kind);
+        Assert.Equal("PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR", item.Declaration);
+        Assert.Equal("n := n + 1;", item.Body);
     }
 
     [Fact]
-    public void A_DUT_agrees_at_the_DUT_kind_whichever_subtype_name_it_travels_under()
+    public void A_DUT_is_the_DUT_kind_whichever_subtype_name_it_travels_under_and_its_text_is_not_read()
     {
         // `.struct`/`.enum`/`.union`/`.alias` are the four WIRE names of the one DUT kind, so each must hand the
-        // reader the DUT kind to check against. They used to answer NO kind (only `.dut` was in the table), which
-        // passed a DUT text through with the check silently off — asserting the KIND first is what tells the
-        // two apart. The reader then accepts a DUT and refuses a non-DUT under a DUT name.
+        // reader the DUT kind. They used to answer NO kind (only `.dut` was in the table). The text is a DUT's one
+        // declaration and is handed over as sent — even when it is not a DUT at all: the IDE's build judges it.
         const string st = "TYPE DUT_X :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE";
         foreach (var name in new[] { "DUT_X.struct", "DUT_X.enum", "DUT_X.union", "DUT_X.alias" })
         {
             Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(name));
-            Assert.Equal(ItemKind.Kinds.Dut, StReader.Read(st, ItemKind.KindForWireName(name)).Kind);
-            Assert.Throws<BridgeException>(() => StReader.Read(ProgramText, ItemKind.KindForWireName(name)));
+            Assert.Equal(st, StReader.Read(st, ItemKind.KindForWireName(name)!).Declaration);
+            var program = StReader.Read(ProgramText, ItemKind.KindForWireName(name)!);
+            Assert.Equal(ItemKind.Kinds.Dut, program.Kind);
+            Assert.Equal(ProgramText, program.Declaration);
         }
-    }
-
-    [Fact]
-    public void Without_an_expected_kind_the_text_still_answers()
-    {
-        // The reader is still usable where no wire name exists (tests, and the ST format's own round-trip).
-        Assert.Equal(ItemKind.Kinds.Program, StReader.Read(ProgramText).Kind);
     }
 }

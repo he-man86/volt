@@ -114,11 +114,11 @@ public static class ConflictCodes
 
     /// <summary>The <see cref="BridgeErrorCodes"/> values that reach a client as a CONFLICT rather than as an
     /// error frame, because the push catches them. Listing them is what makes the enum honest: without this,
-    /// six of the ten codes are published by no op and look unreachable.</summary>
+    /// six of the ten codes are published by no op and look unreachable. <c>INVALID_CODE_HEADER</c> is gone from the
+    /// vocabulary: a push no longer reads a top-level item's header (openspec <c>push-without-header-check</c>).</summary>
     public static readonly string[] FromBridge =
     {
         BridgeErrorCodes.NotFound, BridgeErrorCodes.Unsupported, BridgeErrorCodes.DuplicateChild,
-        BridgeErrorCodes.BadRequest, BridgeErrorCodes.InvalidSt, BridgeErrorCodes.InvalidCodeHeader,
-        BridgeErrorCodes.Unreadable,
+        BridgeErrorCodes.BadRequest, BridgeErrorCodes.InvalidSt, BridgeErrorCodes.Unreadable,
     };
 }

@@ -42,7 +42,7 @@ public class InterfaceRoundTripTests
             "END_INTERFACE",
             ""), st);
 
-        var split = StReader.Read(st);
+        var split = StReader.Read(st, ItemKind.Kinds.Interface);
 
         Assert.Equal("interface", split.Kind);
         Assert.Contains(split.Members, c => c.Name == "DoIt");   // member survived the round-trip
@@ -67,12 +67,12 @@ public class InterfaceRoundTripTests
             "END_METHOD",
             "",
             "END_INTERFACE");
-        var split = StReader.Read(canonical);
+        var split = StReader.Read(canonical, ItemKind.Kinds.Interface);
         Assert.Equal(new[] { "GetEMName", "GetUnitState" }, split.Members.Select(c => c.Name).ToArray());
 
         // The compact form (no END_METHOD) is rejected — not a second allowed shape.
         var compact = "INTERFACE I_X\nMETHOD Foo : INT\nEND_INTERFACE";
-        Assert.Throws<Volt.Engine.BridgeException>(() => StReader.Read(compact));
+        Assert.Throws<Volt.Engine.BridgeException>(() => StReader.Read(compact, ItemKind.Kinds.Interface));
     }
 
     /// <summary>AN <c>EXTENDS</c> ON ITS OWN LINE IS PART OF THE DECLARATION, not a member.
@@ -99,7 +99,7 @@ public class InterfaceRoundTripTests
             "",
             "END_INTERFACE");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.Interface);
 
         Assert.Contains("EXTENDS IModuleStartable", split.Declaration);
         Assert.Equal(new[] { "GetSampleShotRequest" }, split.Members.Select(m => m.Name).ToArray());
@@ -119,7 +119,7 @@ public class InterfaceRoundTripTests
             "",
             "END_INTERFACE");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.Interface);
 
         Assert.Contains("EXTENDS IBase", split.Declaration);
         Assert.Contains("IMPLEMENTS IOther", split.Declaration);
@@ -142,7 +142,7 @@ public class InterfaceRoundTripTests
             "INTERFACE ITest\n" +
             "METHOD Go : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nEND_METHOD\n" +
             "PROPERTY Ready : BOOL\nGET\nEND_GET\nEND_PROPERTY\n" +
-            "END_INTERFACE\n");
+            "END_INTERFACE\n", ItemKind.Kinds.Interface);
 
         Assert.Equal(ItemKind.Kinds.Interface, read.Kind);
         Assert.Equal(
@@ -173,7 +173,7 @@ public class InterfaceRoundTripTests
         // and it comes back the way it went out
         Assert.Equal(
             new[] { ItemKind.Kinds.InterfaceMethod, ItemKind.Kinds.InterfaceProperty },
-            StReader.Read(text).Members.OrderBy(m => m.Name).Select(m => m.Kind).ToArray());
+            StReader.Read(text, ItemKind.Kinds.Interface).Members.OrderBy(m => m.Name).Select(m => m.Kind).ToArray());
     }
 
     /// <summary>A MEMBER SIGNATURE MAY CARRY A TRAILING COMMENT — engineers document methods on the signature
@@ -202,7 +202,7 @@ public class InterfaceRoundTripTests
             ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St),
             "END_METHOD");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.FunctionBlock);
 
         var member = Assert.Single(split.Members);
         Assert.Equal(name, member.Name);

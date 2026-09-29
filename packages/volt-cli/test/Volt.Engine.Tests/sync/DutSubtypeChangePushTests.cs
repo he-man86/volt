@@ -338,23 +338,22 @@ public class DutSubtypeChangePushTests
         Assert.DoesNotContain(resp.Conflicts ?? new List<PushConflict>(), c => c.Code == BridgeErrorCodes.BadRequest);
     }
 
-    // ── the name must say what the declaration says ────────────────────────────────────────────────
+    // ── the body is not checked against the name ───────────────────────────────────────────────────
 
-    /// <summary>A DUT'S WIRE NAME IS ITS DECLARATION'S SUBTYPE, on the way in as on the way out. The common way to
-    /// break it is an engineer rewriting `DUTs/X.struct` as an enum without renaming the file: git sees a MODIFY
-    /// and the client sends `set X.struct` with an enum body. The re-type guard cannot see it (all four names are
-    /// `Kinds.Dut`), and accepting it would publish `X.enum` in the receipt for an op the client sent as
-    /// `X.struct` — the client's baseline then holds neither name for `X`, its workspace keeps the stale
-    /// `X.struct` beside the `X.enum` the next pull writes, and a later delete of the stale file deletes the live
-    /// DUT (the split this change removes). So the disagreement is refused by name — the op's name AND the name
-    /// its declaration implies — and nothing is written. Every shape that carries a body: an update, a subtype
-    /// rename, the delete + create pair, and a plain create.</summary>
+    /// <summary>A DUT OP'S BODY IS WRITTEN AS SENT, whatever subtype its name carries (openspec
+    /// <c>push-without-header-check</c>): the extension is the subtype, the text is not read, and the IDE takes the shape
+    /// the text gives it. <c>refs</c> — and the receipt — then name the item by what it holds, a rename the next pull
+    /// carries into the workspace; the stale file cannot delete the live DUT, because a delete reaches a DUT only under
+    /// the name it has (<see cref="A_delete_of_a_subtype_the_ide_does_not_hold_never_deletes_the_dut"/>). Every shape
+    /// that carries a body: an update, a subtype rename, the delete + create pair, and a plain create.
+    /// <para>This test used to assert the opposite — each shape refused <c>BAD_REQUEST</c>, naming the op's subtype and
+    /// its declaration's — a check that read the pushed text's declaration, which a push no longer does.</para></summary>
     [Theory]
     [InlineData("update")]
     [InlineData("rename")]
     [InlineData("pair")]
     [InlineData("create")]
-    public void An_op_whose_subtype_name_disagrees_with_its_declaration_is_refused_by_name(string shape)
+    public void An_op_whose_subtype_name_disagrees_with_its_declaration_is_written_as_sent(string shape)
     {
         FakeIde ide;
         RefsResponse refs;
@@ -366,16 +365,16 @@ public class DutSubtypeChangePushTests
         else (ide, refs) = StructInDuts();
 
         PushOp[] ops;
-        string sent, declared;
+        string body, held;
         switch (shape)
         {
             case "update":   // DUTs/X.struct rewritten as an enum, file not renamed
                 ops = new PushOp[] { new SetItemOp { Name = "X.struct", IfVersion = refs.Items["X.struct"], SourceText = Enum } };
-                (sent, declared) = ("X.struct", "X.enum");
+                (body, held) = (Enum, "X.enum");
                 break;
             case "rename":   // renamed to X.enum, body still a struct
                 ops = new PushOp[] { new SetItemOp { Name = "X.struct", ToName = "X.enum", IfVersion = refs.Items["X.struct"], SourceText = Struct } };
-                (sent, declared) = ("X.enum", "X.struct");
+                (body, held) = (Struct, "X.struct");
                 break;
             case "pair":     // git saw delete + add, and the added file's body is still a struct
                 ops = new PushOp[]
@@ -383,27 +382,21 @@ public class DutSubtypeChangePushTests
                     new DeleteItemOp { Name = "X.struct", IfVersion = refs.Items["X.struct"] },
                     new SetItemOp { Name = "X.enum", IfVersion = null, SourceText = Struct },
                 };
-                (sent, declared) = ("X.enum", "X.struct");
+                (body, held) = (Struct, "X.struct");
                 break;
             default:         // a new file named for a subtype its body does not declare
                 ops = new PushOp[] { new SetItemOp { Name = "X.struct", IfVersion = null, SourceText = Enum } };
-                (sent, declared) = ("X.struct", "X.enum");
+                (body, held) = (Enum, "X.enum");
                 break;
         }
 
         var resp = Push(ide, refs, ops);
 
-        Assert.False(resp.Accepted);
-        var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
-        Assert.Contains(sent, conflict.Reason);
-        Assert.Contains(declared, conflict.Reason);
-        // The sentence the engineer reads, pinned: it says which subtype the NAME claims and which the DECLARATION
-        // states, in words that read for every subtype (the previous "is named for a enum" did not).
-        var (sentExt, declaredExt) = (sent[(sent.LastIndexOf('.') + 1)..], declared[(declared.LastIndexOf('.') + 1)..]);
-        Assert.Contains($"'{sent}' names the subtype {sentExt} but its declaration's subtype is {declaredExt}, so its name is '{declared}'.",
-            conflict.Reason);
-        Assert.Empty(ide.Recorded);
+        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.Contains("writecontent:X", ide.Recorded);
+        Assert.Equal(body.TrimEnd('\n'), ide.WrittenContent["X"].Declaration);
+        Assert.Contains(held, RefsService.Handle(ide).Items.Keys);
+        Assert.Contains(held, resp.NewItems!.Keys);
     }
 
     /// <summary>A DELETE NAMES ONE WIRE ITEM, not a bare name. `X.struct` does not exist when the IDE's `X` is an
@@ -586,10 +579,12 @@ public class DutSubtypeChangePushTests
     /// <summary>THE APPLY-TIME READ GETS THE WIRE NAME'S KIND — for a DUT name, <c>Kinds.Dut</c> (task 3.6). It was
     /// handed the BARE name, so <c>KindForWireName</c> answered null for every item and the write believed the
     /// text's header. Pushed at <c>X.struct</c>, a function block's text over the IDE's function block <c>X</c>
-    /// passes every other check (the re-type guard compares the text with the object, both FB; the subtype check
-    /// judges only a TYPE declaration), and was written — with <c>--force</c>, and without it as a "create" whose
-    /// name the version map does not hold. The receipt then named <c>X.fb</c> for an op sent as <c>X.struct</c>.
-    /// The name is the kind: refused, and nothing written.</summary>
+    /// passed every other check (the re-type guard compared the text with the object, both FB), and was written — with
+    /// <c>--force</c>, and without it as a "create" whose name the version map does not hold. The receipt then named
+    /// <c>X.fb</c> for an op sent as <c>X.struct</c>. The name is the kind: the re-type guard compares the object's kind
+    /// with the NAME's, refuses <c>UNSUPPORTED</c>, and nothing is written. (It was refused <c>INVALID_ST</c> by a check
+    /// of the text's header against the name; a push no longer reads that header — openspec
+    /// <c>push-without-header-check</c>.)</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -605,30 +600,26 @@ public class DutSubtypeChangePushTests
         Assert.False(resp.Accepted, "a push named X.struct wrote a function block's text");
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("X.struct", conflict.Name);
-        Assert.Equal(BridgeErrorCodes.InvalidSt, conflict.Code);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
     }
 
-    /// <summary>ONE ANSWER TO "IS THIS TEXT A DUT DECLARATION" — the ST reader's (<c>CodeHelper.ParseCodeHeader</c>).
-    /// The subtype check used to scan the header keyword itself and accept a bare <c>TYPE</c> line the reader
-    /// refuses, so <c>set X.struct</c> with <c>TYPE\n\tX : (A, B);</c> was told to rename the file to <c>X.enum</c>,
-    /// and the renamed push was then refused by the reader as an unrecognized header — advice leading straight into
-    /// a second, contradictory refusal. Both names get the reader's refusal, and the same one.</summary>
+    /// <summary>A DUT's text is not read: a bare <c>TYPE</c> line — which the header parse refused as an unrecognized
+    /// header, under any subtype name — is written as sent, and the IDE's build judges it (openspec
+    /// <c>push-without-header-check</c>; this used to assert <c>INVALID_CODE_HEADER</c>, a code that no longer exists).
+    /// What the IDE then holds names the item on the next <c>refs</c>, as for any DUT.</summary>
     [Theory]
     [InlineData("X.struct")]
     [InlineData("X.enum")]
-    public void A_type_keyword_alone_on_its_line_is_refused_by_the_st_reader_under_any_subtype_name(string name)
+    public void A_type_keyword_alone_on_its_line_is_written_as_sent_under_any_subtype_name(string name)
     {
-        // A CREATE, so nothing else (a version gate, the object's own kind) can answer first.
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
         var refs = RefsService.Handle(ide);
         var resp = Push(ide, refs,
             new SetItemOp { Name = name, IfVersion = null, SourceText = "TYPE\n\tX : (A, B);\nEND_TYPE\n" });
 
-        Assert.False(resp.Accepted);
-        var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Equal(BridgeErrorCodes.InvalidCodeHeader, conflict.Code);
-        Assert.Empty(ide.Recorded);
+        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.Equal("TYPE\n\tX : (A, B);\nEND_TYPE", ide.WrittenContent["X"].Declaration);
     }
 
     // ── section 3 review, round 3: names the wire never published, and an update posing as a create ──

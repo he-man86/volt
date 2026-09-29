@@ -43,6 +43,11 @@ public class StFixedPointTests
     private static readonly string FixtureDir =
         Path.Combine(AppContext.BaseDirectory, "fixtures", "st-fixed-point");
 
+    /// <summary>A file's kind, read off its EXTENSION — the push reads it the same way, and never from the text.</summary>
+    private static string KindOfFile(string path) =>
+        ItemKind.KindForWireName("x." + Path.GetExtension(path).TrimStart('.').ToLowerInvariant())
+        ?? throw new ArgumentException($"'{path}' has no kind extension");
+
     public static TheoryData<string> Fixtures()
     {
         var data = new TheoryData<string>();
@@ -56,7 +61,7 @@ public class StFixedPointTests
     public void A_pulled_file_reads_and_writes_back_byte_for_byte(string fixture)
     {
         var text = Read(Path.Combine(FixtureDir, fixture));
-        Assert.Equal(text, StWriter.Write(StReader.Read(text)));
+        Assert.Equal(text, StWriter.Write(StReader.Read(text, KindOfFile(fixture))));
     }
 
     /// <summary>The boundary is implicit, so the two sides have to agree on it TWICE — once about where the
@@ -67,7 +72,7 @@ public class StFixedPointTests
     [Fact]
     public void A_wrapped_header_is_declaration_not_body()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-header-no-var-section.fb")));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-header-no-var-section.fb")), KindOfFile("wrapped-header-no-var-section.fb"));
 
         Assert.Contains("EXTENDS Cylinder_52ValveFB", item.Declaration);
         Assert.Contains("IMPLEMENTS IActuator", item.Declaration);
@@ -81,7 +86,7 @@ public class StFixedPointTests
     [Fact]
     public void A_block_comment_above_a_member_belongs_to_that_member()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "block-comment-with-a-blank-line-above-a-member.itf")));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "block-comment-with-a-blank-line-above-a-member.itf")), KindOfFile("block-comment-with-a-blank-line-above-a-member.itf"));
 
         var eStop = item.Members.Single(m => m.Name == "EStop");
         Assert.Contains("Add code here to handle emergency stops", eStop.Declaration);
@@ -102,7 +107,7 @@ public class StFixedPointTests
     [Fact]
     public void An_actions_trailing_comment_is_body_because_an_action_has_no_declaration()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "action-with-a-leading-comment.fb")));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "action-with-a-leading-comment.fb")), KindOfFile("action-with-a-leading-comment.fb"));
 
         var action = item.Members.Single(m => m.Kind == ItemKind.Kinds.Action);
         Assert.Equal("ACTION Reset", action.Declaration);
@@ -119,7 +124,7 @@ public class StFixedPointTests
     [Fact]
     public void A_wrapped_return_type_is_declaration_not_the_first_line_of_the_body()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-return-type-no-var-section.fun")));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-return-type-no-var-section.fun")), KindOfFile("wrapped-return-type-no-var-section.fun"));
 
         Assert.Contains(": REAL", item.Declaration);
         Assert.DoesNotContain("REAL", item.Body ?? "");
@@ -140,7 +145,7 @@ public class StFixedPointTests
             "FUNCTION_BLOCK Machine\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_FUNCTION_BLOCK\n\n" +
             "PROPERTY PUBLIC Ready : BOOL\t// TRUE once every axis has homed\n" +
             "GET\nIMPLEMENTATION ST\nReady := TRUE;\nEND_GET\n" +
-            "END_PROPERTY\n");
+            "END_PROPERTY\n", ItemKind.Kinds.FunctionBlock);
 
         var ready = item.Members.Single(m => m.Name == "Ready");
         Assert.Equal("BOOL", ready.DataType);
@@ -178,7 +183,7 @@ public class StFixedPointTests
             "// this comment sits against END_VAR, with no blank line under it\n" +
             "IMPLEMENTATION ST\nstep := 0;\n\nEND_FUNCTION_BLOCK\n";
 
-        Assert.Equal(text, StWriter.Write(StReader.Read(text)));
+        Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.FunctionBlock)));
     }
 
     /// <summary>The sweep, over whatever `VOLT_CORPUS` points at. Skipped — not failed — when it is unset, which
@@ -214,7 +219,7 @@ public class StFixedPointTests
             var text = Read(file);
             checkedCount++;
             string back;
-            try { back = StWriter.Write(StReader.Read(text)); }
+            try { back = StWriter.Write(StReader.Read(text, KindOfFile(file))); }
             catch (Exception ex) { drifted.Add($"{file}: THREW {ex.Message}"); continue; }
             if (back != text) drifted.Add($"{file}: {FirstDifference(text, back)}");
         }

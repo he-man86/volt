@@ -14,7 +14,6 @@ public static class BridgeErrorCodes
     public const string BadRequest = "BAD_REQUEST";
     public const string Unsupported = "UNSUPPORTED";
     public const string DuplicateChild = "DUPLICATE_CHILD";
-    public const string InvalidCodeHeader = "INVALID_CODE_HEADER";
     public const string InvalidSt = "INVALID_ST";
 
     /// <summary>The item exists in the IDE and its body could not be READ — so it has no version a client can

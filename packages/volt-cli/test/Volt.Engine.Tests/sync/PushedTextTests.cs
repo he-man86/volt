@@ -30,13 +30,14 @@ public class PushedTextTests
         Assert.Equal(same, PushedText.SameExceptLayout("P.prg", Prg("  out := (a AND b);"), Prg(statement)));
     }
 
-    /// <summary>The extension is the kind wherever a wire name exists (the ST reader's contract): a text whose header
-    /// says otherwise is refused as the push refuses it, never compared as another kind.</summary>
+    /// <summary>The extension is the kind wherever a wire name exists (the ST reader's contract), and the text's header
+    /// is never read for it: a text whose header says another kind is compared as the kind its NAME says, exactly as
+    /// the push wrote it (openspec <c>push-without-header-check</c>; this used to assert the header refusal).</summary>
     [Fact]
     public void An_item_is_read_at_its_wire_kind()
     {
         const string prg = "PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n";
-        var e = Assert.Throws<BridgeException>(() => PushedText.SameExceptLayout("P.fb", prg, prg));
-        Assert.Equal(BridgeErrorCodes.InvalidSt, e.ErrorCode);
+        Assert.True(PushedText.SameExceptLayout("P.fb", prg, prg));
+        Assert.False(PushedText.SameExceptLayout("P.fb", prg, prg.Replace("x := 1;", "x := 2;")));
     }
 }

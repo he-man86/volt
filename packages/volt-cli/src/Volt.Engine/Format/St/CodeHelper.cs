@@ -16,9 +16,11 @@ public static class CodeHelper
     /// driver used to find its keyword with a bare <c>TrimStart()</c> + first-token read, which yields <c>""</c>
     /// for any declaration opening with a pragma or a doc comment — so a `PROGRAM` behind
     /// <c>{attribute 'qualified_only'}</c> fell to the FUNCTION_BLOCK default and was reported as
-    /// <c>function_block</c> on the wire. Two ways to find a header line is one too many; this is the one.
-    /// <see cref="ParseCodeHeader"/> is the strict caller — it turns "no header" into a coded throw — and a
-    /// classifier that must stay total calls this directly instead.</para></summary>
+    /// <c>function_block</c> on the wire. Two ways to find a header line is one too many; this is the one.</para>
+    /// <para><b>Never asked on a push.</b> Its strict sibling <c>ParseCodeHeader</c>, which turned "no header" into
+    /// <c>INVALID_CODE_HEADER</c>, is DELETED: it classified a pushed text by its header, and a top-level item's kind is
+    /// its wire name's extension (openspec <c>push-without-header-check</c>). What reads a header now reads it from the
+    /// IDE, to classify what the IDE holds.</para></summary>
     public static string HeaderLine(string? code)
     {
         if (string.IsNullOrWhiteSpace(code)) return "";
@@ -143,8 +145,9 @@ public static class CodeHelper
     /// <para><b>THE one subtype reader, and the subtype is a WIRE IDENTITY.</b> A DUT is one internal kind
     /// (<see cref="ItemKind.Kinds.Dut"/>) and is named on the wire by its subtype — <c>X.struct</c>,
     /// <c>X.enum</c>, … — minted from this answer in <c>Materializer</c>, the one place a wire name is minted;
-    /// <c>LibSignatureRenderer</c> names a library DUT from the same answer, and <c>PushService</c> checks a pushed
-    /// DUT's name against it. The IDE's tree cannot say it (TwinCAT's code lags the declaration, DIALECT C2e), and
+    /// <c>LibSignatureRenderer</c> names a library DUT from the same answer. It is asked of what the IDE HOLDS,
+    /// never of a pushed text — a push writes a DUT's text as sent (openspec <c>push-without-header-check</c>), and
+    /// <c>PushService</c> asks this only of the IDE's DUT, to tell whether a delete names it. The IDE's tree cannot say it (TwinCAT's code lags the declaration, DIALECT C2e), and
     /// both vendors create every DUT with one call and let this same text decide the shape — so Volt reads what the
     /// IDE reads, and nothing else.</para>
     ///
@@ -232,65 +235,4 @@ public static class CodeHelper
         }
         return -1;
     }
-
-    /// <summary>The item KIND a declaration's header names — <c>function_block</c>, <c>program</c>, … — and
-    /// nothing else.
-    ///
-    /// <para><b>It used to return the NAME too, and the name was a lie.</b> Nothing read it: the item's name is
-    /// the FILENAME, which the wire carries as <c>name.kind</c> and both drivers get from the tree. Worse, it was
-    /// wrong wherever a modifier sat where the name was expected — <c>FUNCTION_BLOCK ABSTRACT libObject</c> read
-    /// as <c>ABSTRACT</c>, on 78 files across the corpora. Deleting an unread field is a small win; deleting an
-    /// unread field that is also incorrect removes a trap.</para>
-    ///
-    /// <para><b>And with the name gone, so do the regexes.</b> Nine <c>Regex.Match</c> calls per file existed
-    /// only to capture a name after a keyword, with the modifier alternation spelled twice and a
-    /// FUNCTION_BLOCK-before-FUNCTION ordering hazard called out in a comment. The kind is the FIRST TOKEN of the
-    /// header line, compared whole — which is both faster and unable to have that ordering bug, because
-    /// <c>FUNCTION</c> is not <c>FUNCTION_BLOCK</c> when you compare tokens instead of prefixes.</para>
-    ///
-    /// <para>A keyword with NOTHING after it is still not a header (<c>FUNCTION_BLOCK</c> alone), and that guard
-    /// is kept — the global-variable keywords are the deliberate exception, since a GVL header names nothing.
-    /// Modifiers are simply not looked at any more: <c>METHOD PUBLIC FINAL Foo</c> and <c>METHOD Foo</c> are the
-    /// same kind, which was the only thing the modifier-skipping was ever in service of.</para></summary>
-    public static string ParseCodeHeader(string code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-            throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "Empty code");
-
-        var headerLine = HeaderLine(code);
-        if (headerLine.Length == 0)
-            throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader, "No header line found");
-
-        // `HeaderLine` only ever returns a line with code on it, so this cannot come back empty today — but an
-        // array index is the wrong thing to bet that on when every other way out of here is a coded refusal.
-        var tokens = headerLine.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-        var keyword = tokens.Length > 0 ? tokens[0] : "";
-
-        // A GVL is the one header with no name after the keyword.
-        if (Is(keyword, "VAR_GLOBAL") || Is(keyword, "VAR_CONFIG")) return ItemKind.Kinds.Gvl;
-
-        // Everything else names something. `TYPE Foo:` counts — the token carries the colon and this does not
-        // care, because the name is not being read, only its presence.
-        if (tokens.Length >= 2)
-        {
-            if (Is(keyword, "FUNCTION_BLOCK")) return ItemKind.Kinds.FunctionBlock;
-            if (Is(keyword, "PROGRAM")) return ItemKind.Kinds.Program;
-            if (Is(keyword, "INTERFACE")) return ItemKind.Kinds.Interface;
-            if (Is(keyword, "FUNCTION")) return ItemKind.Kinds.Function;
-            if (Is(keyword, "ACTION")) return ItemKind.Kinds.Action;
-            if (Is(keyword, "METHOD")) return ItemKind.Kinds.Method;
-            if (Is(keyword, "PROPERTY")) return ItemKind.Kinds.Property;
-            // A DUT is unambiguous — only a DUT begins with TYPE — and it is ONE kind. Its struct/enum/union/alias
-            // SUBTYPE is not a kind: it lives in the declaration body, where `DutSubtype` reads it to NAME the item
-            // on the wire and where both IDEs read it to shape the object.
-            if (Is(keyword, "TYPE")) return ItemKind.Kinds.Dut;
-        }
-
-        throw new BridgeException(BridgeErrorCodes.InvalidCodeHeader,
-            $"Unrecognized code header: {(headerLine.Length > 80 ? headerLine.Substring(0, 80) + "..." : headerLine)}");
-    }
-
-    /// <summary>Whole-token keyword comparison. IEC identifiers are case-insensitive, so this is too.</summary>
-    private static bool Is(string token, string keyword) =>
-        string.Equals(token, keyword, StringComparison.OrdinalIgnoreCase);
 }

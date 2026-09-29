@@ -1,3 +1,4 @@
+using Volt.Engine.Item;
 using System.Linq;
 using Xunit;
 using Volt.Engine.Format.St;
@@ -21,8 +22,8 @@ namespace Volt.Engine.Tests;
 /// </summary>
 public class ConditionalPragmaSplitTests
 {
-    private static string DeclOf(string st) => StReader.Read(st).Members.Single().Declaration;
-    private static string BodyOf(string st) => StReader.Read(st).Members.Single().Body;
+    private static string DeclOf(string st) => StReader.Read(st, ItemKind.Kinds.FunctionBlock).Members.Single().Declaration;
+    private static string BodyOf(string st) => StReader.Read(st, ItemKind.Kinds.FunctionBlock).Members.Single().Body;
 
     // The marker is what keeps the block whole: the boundary is STATED, so nothing has to decide whether
     // `{IF defined(X)}` is trivia or code. The rule that used to answer that question is gone with the guess.
@@ -71,7 +72,7 @@ public class ConditionalPragmaSplitTests
     [Fact]
     public void The_text_round_trips_either_way_which_is_why_this_needed_its_own_test()
     {
-        var content = StReader.Read(MethodWithConditional);
+        var content = StReader.Read(MethodWithConditional, ItemKind.Kinds.FunctionBlock);
         Assert.Equal(MethodWithConditional.TrimEnd('\n'), StWriter.Write(content).TrimEnd('\n'));
     }
 }

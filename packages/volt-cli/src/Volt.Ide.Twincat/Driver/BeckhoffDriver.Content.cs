@@ -56,7 +56,8 @@ public sealed partial class BeckhoffDriver
     public override void ValidateSource(string wireName, string sourceText,
                                IReadOnlyDictionary<string, string> pushedDeclarations)
     {
-        var split = StReader.Read(sourceText, null);
+        var split = StReader.Read(sourceText, ItemKind.KindForWireName(wireName)
+            ?? throw new ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName)));
         foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
         {
             if (body is not { } text || !NetworkText.Is(text)) continue;

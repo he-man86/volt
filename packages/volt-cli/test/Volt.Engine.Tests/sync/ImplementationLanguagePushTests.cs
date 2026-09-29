@@ -285,14 +285,6 @@ public class ImplementationLanguagePushTests
         FbHead + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n")]
     [InlineData("Implementation.fb", "Implementation",   // the POU's own name
         "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("E.enum", "IMPLEMENTATION",   // an enum value
-        "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n")]
-    [InlineData("S.struct", "implementation",   // a struct member
-        "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n")]
-    [InlineData("E.enum", "IMPLEMENTATION",   // an enum value alone on its line — the keyword's SHAPE, no comma
-        "TYPE E :\n(\n\ta,\n\tIMPLEMENTATION\n);\nEND_TYPE\n")]
-    [InlineData("G.gvl", "IMPLEMENTATION",    // a global alone on its line in a multi-line declaration
-        "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n")]
     [InlineData("FB_Motor.fb", "IMPLEMENTATION",   // the same shape in a POU's own VAR block, above its boundary
         "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
     public void IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position(string op, string name, string source)
@@ -304,6 +296,24 @@ public class ImplementationLanguagePushTests
         Assert.Contains($"'{name}'", reason);
         Assert.Contains("reserved", reason, System.StringComparison.OrdinalIgnoreCase);
         AssertNothingWritten(ide);
+    }
+
+    /// <summary>…in every file that HAS a boundary. A GVL or a DUT has none and is not read on a push at all (openspec
+    /// <c>push-without-header-check</c>): a name spelled <c>IMPLEMENTATION</c> in one is the IDE's to judge, and the text
+    /// is written as sent. These four rows used to sit in the theory above.</summary>
+    [Theory]
+    [InlineData("E.enum", "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE")]            // an enum value
+    [InlineData("S.struct", "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE")] // a struct member
+    [InlineData("E.enum", "TYPE E :\n(\n\ta,\n\tIMPLEMENTATION\n);\nEND_TYPE")]               // alone on its line
+    [InlineData("G.gvl", "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR")]             // a global alone on its line
+    public void IMPLEMENTATION_in_a_gvl_or_a_dut_is_written_as_sent(string op, string source)
+    {
+        var ide = new FakeIde();
+
+        var resp = Create(ide, source + "\n", op);
+
+        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
+        Assert.Equal(source, ide.WrittenContent[op.Substring(0, op.IndexOf('.'))].Declaration);
     }
 
     // ── a body Volt cannot write ──────────────────────────────────────────────────────────────────

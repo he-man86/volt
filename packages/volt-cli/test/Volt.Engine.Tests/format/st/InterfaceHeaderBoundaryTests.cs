@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using Volt.Engine.Item;
+using System.Linq;
 using Xunit;
 using Volt.Engine.Format.St;
 
@@ -39,7 +40,7 @@ public class InterfaceHeaderBoundaryTests
             "",
             "END_INTERFACE");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.Interface);
 
         Assert.Contains(continuation, split.Declaration);
         Assert.Equal(new[] { "Go" }, split.Members.Select(m => m.Name).ToArray());
@@ -61,7 +62,7 @@ public class InterfaceHeaderBoundaryTests
             "",
             "END_INTERFACE");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.Interface);
 
         Assert.DoesNotContain("what Go does", split.Declaration);
         var member = Assert.Single(split.Members);
@@ -76,7 +77,7 @@ public class InterfaceHeaderBoundaryTests
     {
         var src = string.Join("\n", "INTERFACE IEmpty", "EXTENDS IBase", "", "END_INTERFACE");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.Interface);
 
         Assert.Contains("INTERFACE IEmpty", split.Declaration);
         Assert.Contains("EXTENDS IBase", split.Declaration);
@@ -97,7 +98,7 @@ public class InterfaceHeaderBoundaryTests
             "",
             "END_INTERFACE");
 
-        var split = StReader.Read(src);
+        var split = StReader.Read(src, ItemKind.Kinds.Interface);
 
         Assert.Equal(new[] { "Real" }, split.Members.Select(m => m.Name).ToArray());
     }

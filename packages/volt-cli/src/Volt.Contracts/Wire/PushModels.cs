@@ -92,7 +92,8 @@ public class PushConflict
     /// vocabulary is documented as BridgeErrorCodes alone.</para>
     ///
     /// <para>This used to carry the network-text code and nothing else, so every coded refusal a push raised —
-    /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER — arrived as a
+    /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST (and INVALID_CODE_HEADER, deleted once a push
+    /// stopped reading a top-level item's header) — arrived as a
     /// message with no code. Since a push answers refusals as CONFLICTS rather than error frames, those six
     /// were unobservable anywhere on the wire, and callers matched the English instead: the e2e suite asserted
     /// on an exact sentence and the CLI printed the prose unbranched.</para>

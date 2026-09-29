@@ -119,9 +119,10 @@
 </table>
 <p>
   Anything else that lands two ops on one bare DUT is refused <code>BAD_REQUEST</code> naming both, never
-  ordered. A same-named item of another kind (<code>X.fb</code>) is another item and never pairs. A DUT op's name
-  must agree with its body: a <code>set X.struct</code> whose declaration is an enum is refused
-  <code>BAD_REQUEST</code> naming <code>X.struct</code> and <code>X.enum</code>. A <code>delete</code> names one
+  ordered. A same-named item of another kind (<code>X.fb</code>) is another item and never pairs. A DUT op's body
+  is <b>not</b> checked against its name: the text is written as sent, so a <code>set X.struct</code> whose
+  declaration is an enum lands, and the receipt and the next <code>refs</code> name the item <code>X.enum</code>. A
+  rename that changes the subtype and carries no body is refused <code>BAD_REQUEST</code>. A <code>delete</code> names one
   wire item: <code>delete X.struct</code> never deletes an <code>X</code> that is an enum, forced or not. An op
   under a name with no kind extension — <code>X</code>, <code>X.foo</code>, or the retired spelling of the DUT
   kind — is refused <code>BAD_REQUEST</code> before anything is read.
@@ -137,12 +138,11 @@
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
   <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>.</td><td>Send <code>connect</code>.</td></tr>
   <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
-  <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — an empty <code>sourceText</code>, a create with none, an unknown member kind, a name with no kind extension, or DUT ops the <a href="#dut-subtype">subtype rule</a> refuses.</td><td>Fix the caller. The message names the op and the body type.</td></tr>
+  <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, a name with no kind extension, or DUT ops the <a href="#dut-subtype">subtype rule</a> refuses.</td><td>Fix the caller. The message names the op and the body type.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td><td>Re-read <code>refs</code>.</td></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor cannot write, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind.</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor cannot write, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind, or an item whose kind has no canonical text form. (<code>INVALID_CODE_HEADER</code> is gone: a push never reads a top-level item's header, so nothing raises it.)</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>
-  <tr><td class="name">INVALID_CODE_HEADER</td><td>The pushed source's header is not one Volt recognises.</td><td>Fix the file.</td></tr>
-  <tr><td class="name">INVALID_ST</td><td>The pushed body failed the ST reader. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
+  <tr><td class="name">INVALID_ST</td><td>A POU's or an interface's text could not be split into what the push writes: no <code>IMPLEMENTATION</code> line or END line, a body that contradicts the language its line states, or a CHILD (METHOD, ACTION, PROPERTY and its GET/SET) whose header cannot be read &mdash; named with the item and the line. A top-level item's header is never read, and a DUT or a GVL is never refused by it: those are written as sent, and the IDE's build reports what is wrong with them. Raised during a push, so it reaches you on <code>conflicts[].code</code> rather than as an error frame.</td><td>Fix the body. A <a href="network-text.html#diagnostics">network-text</a> refusal also carries a <code>line</code>.</td></tr>
   <tr><td class="name">UNREADABLE</td><td>The IDE holds the item but its body could not be materialized, so there is no version to compare against. Every <code>refs</code>/<code>fetch</code> names it in <code>unreadable</code>.</td><td>Fix it in the IDE, or push with <code>force</code> to overwrite it.</td></tr>
   <tr><td class="name">NO_SIDECAR</td><td><code>fetch</code> only: the request carried neither <code>knownItems</code> nor <code>onlyItems</code>, so "everything" and "a client that lost its baseline" are indistinguishable.</td><td>Send <code>init: true</code> for a first pull, or supply a baseline.</td></tr>
   <tr><td class="name">INTERNAL_ERROR</td><td>Anything thrown that was not an <code>ICodedError</code>. Usually a bug.</td><td>Collect the <a href="logs.html">log</a>; the message is the exception's own.</td></tr>
@@ -150,7 +150,7 @@
 
 <h3 id="not-a-code">Where a code arrives as a conflict, not a frame</h3>
 <p>
-  Seven of these codes are raised in places whose exceptions the push <b>catches on purpose</b>. They are not
+  Six of these codes are raised in places whose exceptions the push <b>catches on purpose</b>. They are not
   lost — they arrive on the conflict — but they never appear as an error <i>frame</i>, which is the single
   most useful thing to know when a failure does not look like what you expected:
 </p>
@@ -158,7 +158,6 @@
   <tr><th>code</th><th>raised in</th><th>reaches you as</th></tr>
   <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A push <b>rejection</b> — <code>accepted:false</code>, with the code on <code>conflicts[].code</code>.</td></tr>
   <tr><td class="name">INVALID_ST</td><td>The ST reader.</td><td>Same.</td></tr>
-  <tr><td class="name">INVALID_CODE_HEADER</td><td>The ST header helpers.</td><td>Same.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The push, and both drivers.</td><td>Same, from a push. A driver read during <code>fetch</code> is isolated into <code>unreadable</code> instead.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>The push.</td><td>Same.</td></tr>
   <tr><td class="name">BAD_REQUEST</td><td>The push's op routing.</td><td>Same.</td></tr>

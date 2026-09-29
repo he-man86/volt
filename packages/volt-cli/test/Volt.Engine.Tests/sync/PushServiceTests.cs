@@ -258,12 +258,15 @@ public class PushServiceTests
         Assert.Equal(new[] { $"{name}.{subtype}" }, RefsService.Handle(ide).Items.Keys.ToArray());
     }
 
+    /// <summary>A POU with no text has nothing to split, so it is refused before anything is created. (A DUT or a GVL
+    /// is written as sent, empty or not — openspec <c>push-without-header-check</c>; this used to push an empty
+    /// <c>.struct</c>, whose refusal was a check on the text that is gone.)</summary>
     [Fact]
     public void Create_with_empty_sourceText_is_rejected_before_any_mutation()
     {
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = "   " });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Foo.prg", IfVersion = null, SourceText = "   " });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);   // rejected up front — nothing created/written
     }
@@ -283,11 +286,14 @@ public class PushServiceTests
     public void Create_with_unclassifiable_content_is_rejected_not_crashed()
     {
         // An AI that pastes prose or a wrong-language body instead of ST: reject with a structured error,
-        // never a half-created item. ParseCodeHeader throws INVALID_CODE_HEADER before any IDE mutation.
+        // never a half-created item. A POU's text has no IMPLEMENTATION line or END line to split on, so the reader
+        // refuses it INVALID_ST before any IDE mutation. (This pushed `Junk.struct` and leaned on the header parse; a
+        // DUT's text is no longer read — PushWithoutHeaderCheckTests pins that prose under a DUT name is written.)
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.struct", IfVersion = null, SourceText = "this is not structured text at all" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.prg", IfVersion = null, SourceText = "this is not structured text at all" });
         Assert.False(resp.Accepted);
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.InvalidSt, Assert.Single(resp.Conflicts!).Code);
         Assert.Empty(ide.Recorded);
     }
 

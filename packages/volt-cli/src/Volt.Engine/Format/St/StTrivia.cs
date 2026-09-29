@@ -29,11 +29,18 @@ internal static class StTrivia
     /// exactly as for <see cref="OpenAtStart"/>.</summary>
     public static List<(int Line, int Column)> CommentOpenings(IList<string> lines) => Scan(lines).Openings;
 
-    private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings) Scan(IList<string> lines)
+    /// <summary>The <c>(*</c> that never close — each one still open when the text ends, as its line and column, in
+    /// order. Empty for any text whose comments all close. Comments nest, so a <c>(* a (* b *)</c> leaves the OUTER
+    /// one open.</summary>
+    public static List<(int Line, int Column)> UnterminatedOpenings(IList<string> lines) => Scan(lines).Unclosed;
+
+    private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings,
+        List<(int Line, int Column)> Unclosed) Scan(IList<string> lines)
     {
         var open = new bool[lines.Count];
         var code = new string[lines.Count];
         var openings = new List<(int Line, int Column)>();
+        var stack = new List<(int Line, int Column)>();   // the openers not yet closed, innermost last
         var depth = 0;
         for (int i = 0; i < lines.Count; i++)
         {
@@ -46,12 +53,12 @@ internal static class StTrivia
                 var next = j + 1 < line.Length ? line[j + 1] : '\0';
                 if (depth > 0)
                 {
-                    if (c == '(' && next == '*') { openings.Add((i, j)); depth++; sb.Append("  "); j++; }
-                    else if (c == '*' && next == ')') { depth--; sb.Append("  "); j++; }
+                    if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth++; sb.Append("  "); j++; }
+                    else if (c == '*' && next == ')') { depth--; stack.RemoveAt(stack.Count - 1); sb.Append("  "); j++; }
                     else sb.Append(' ');
                     continue;
                 }
-                if (c == '(' && next == '*') { openings.Add((i, j)); depth = 1; sb.Append("  "); j++; continue; }
+                if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth = 1; sb.Append("  "); j++; continue; }
                 if (c == '/' && next == '/') { sb.Append(' ', line.Length - j); break; }
                 if (c == '\'' || c == '"' || c == '{')
                 {
@@ -71,6 +78,6 @@ internal static class StTrivia
             }
             code[i] = sb.ToString();
         }
-        return (open, code, openings);
+        return (open, code, openings, stack);
     }
 }

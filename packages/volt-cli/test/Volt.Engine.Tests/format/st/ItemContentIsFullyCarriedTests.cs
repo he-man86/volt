@@ -147,7 +147,7 @@ public class ItemContentIsFullyCarriedTests
     public void Every_populated_field_survives_write_then_read()
     {
         var before = Maximal();
-        var after = StReader.Read(StWriter.Write(before));
+        var after = StReader.Read(StWriter.Write(before), before.Kind);
 
         Assert.Equal(before.Kind, after.Kind);
         Assert.Equal(before.Declaration, after.Declaration);
@@ -207,7 +207,7 @@ public class ItemContentIsFullyCarriedTests
                     "METHOD PUBLIC DoWork : BOOL\nVAR_INPUT\n\tbGo : BOOL;\nEND_VAR", body),
             });
 
-        var after = StReader.Read(StWriter.Write(before));
+        var after = StReader.Read(StWriter.Write(before), before.Kind);
 
         Assert.Equal(body, Assert.Single(after.Members).Body);
     }

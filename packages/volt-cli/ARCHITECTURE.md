@@ -166,9 +166,12 @@ guard that throws** — real projects legitimately repeat these names, and throw
   (`TreeNav.ResolveTaskParent`, DIALECT C22).
 - **A DECLARATION is handed to the vendor VERBATIM — nothing re-emits one from parsed fields.** The path is
   `StReader` → `ItemContent.Declaration` → `PushService` → the driver's declaration aspect, and not one step in
-  it reassembles the text. That is why the header parse can be as thin as it is (`CodeHelper.ParseCodeHeader`
-  reads the leading KEYWORD and nothing else — no name, no return type, no modifiers, and no regex), and it is
-  the rule to refuse any future "normalize the header" on sight. **Three exceptions, and they are the whole
+  it reassembles the text — and **a top-level item's header is not even read** (openspec
+  `push-without-header-check`): its kind is its wire name's extension, so the header is never parsed, never checked
+  against the extension and never a reason to refuse. A DUT or a GVL is not read at all; a POU or an interface is
+  read for its `IMPLEMENTATION` line and its CHILD elements, whose signature line is the only place a member's name
+  exists (a child whose header cannot be read is refused naming the item and the line). A mistake in the text is
+  the IDE build's to report. It is the rule to refuse any future "normalize the header" on sight. **Three exceptions, and they are the whole
   list:** an ACTION's header is SYNTHESIZED (`ACTION <name>`, because IEC gives an action a name and a body and
   nothing else, so there is no declaration to read), a property's accessors are framed with `GET`/`END_GET`, and
   trailing NEWLINES are dropped at every block edge because `StWriter` cannot represent them.
@@ -372,9 +375,9 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     boundary and name the variable for what it holds.
 13. **A classifier must be TOTAL; a parser may be partial.** `RefinePou` returns a code for every input because
     it runs inside the CODESYS tree walk, whose `try/catch` wraps only `GetChildren` — a throw there aborts
-    `WalkItems` and with it every fetch/refs/init/push for the project. `CodeHelper.ParseCodeHeader` throws by
-    design. When the two must share logic, share the TOTAL half (`CodeHelper.HeaderLine`) and let the strict
-    caller add the throw.
+    `WalkItems` and with it every fetch/refs/init/push for the project. A member-signature parser
+    (`StReader.ParseSignature`) throws by design. When the two must share logic, share the TOTAL half
+    (`CodeHelper.HeaderLine`) and let the strict caller add the throw.
 14. **A reflective miss is a version mismatch, not a no-op.** `CodesysObjectModel.InvokeMethod` returned null when
     no overload matched, and every mutating call routes through it — so a renamed object-model method turns
     `SetObject(meta, true, null)` into a silent no-op: push reports success and the edit is gone. Its siblings

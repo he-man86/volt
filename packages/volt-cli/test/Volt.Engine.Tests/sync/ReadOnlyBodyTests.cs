@@ -459,14 +459,15 @@ public class ReadOnlyBodyTests
         Assert.Empty(ide.WrittenContent);
     }
 
+    /// <summary>A declaration-only kind is NOT held to that rule: a GVL or a DUT is not read on a push at all (openspec
+    /// <c>push-without-header-check</c>). The retired comment is a comment there — harmless text to the IDE — and it was
+    /// only ever a hazard where it stated a boundary, which a GVL or a DUT does not have. This used to assert the
+    /// refusal.</summary>
     [Theory]
-    [InlineData("gvl", "VAR_GLOBAL\n\tn : INT; (* @volt-graphical: CFC *)\nEND_VAR\n")]
-    [InlineData("struct", "TYPE ST_A :\nSTRUCT\n\t(* @volt-implementation *)\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n")]
-    public void A_volt_comment_in_a_declaration_only_kind_is_refused_too(string ext, string source)
-    {
-        var ex = Assert.Throws<BridgeException>(() => StReader.Read(source, ext == "gvl" ? ItemKind.Kinds.Gvl : ItemKind.Kinds.Dut, "X"));
-        Assert.Contains("volt pull", ex.Message);
-    }
+    [InlineData("gvl", "VAR_GLOBAL\n\tn : INT; (* @volt-graphical: CFC *)\nEND_VAR")]
+    [InlineData("struct", "TYPE ST_A :\nSTRUCT\n\t(* @volt-implementation *)\n\tn : INT;\nEND_STRUCT\nEND_TYPE")]
+    public void A_volt_comment_in_a_declaration_only_kind_is_its_text_like_any_other(string ext, string source) =>
+        Assert.Equal(source, StReader.Read(source + "\n", ext == "gvl" ? ItemKind.Kinds.Gvl : ItemKind.Kinds.Dut, "X").Declaration);
 
     /// <summary>A comment is what the rule is about. The same characters in a string literal, or after <c>//</c> (where
     /// <c>(*</c> opens nothing), are the engineer's text and are pushed like any other.</summary>

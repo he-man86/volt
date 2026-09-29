@@ -19,13 +19,13 @@ public static class PushedText
     /// graphical body the same tokens (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout
     /// vary. A TASK is a descriptor, not ST, and is compared by its own format.
     ///
-    /// <para>Read by the WIRE KIND (<see cref="ItemKind.KindForWireName"/>), as the ST reader's contract asks wherever a
-    /// wire name exists: the extension is the kind, so a text whose header says otherwise is refused, never compared
-    /// as another kind.</para></summary>
+    /// <para>Read by the WIRE KIND (<see cref="ItemKind.KindForWireName"/>), as the ST reader's contract asks: the
+    /// extension is the kind, and the text's header is never read for it.</para></summary>
     public static bool SameExceptLayout(string wireName, string pushed, string held)
     {
         if (ItemKind.IsTaskWireName(wireName)) return TaskDescriptorFormat.SameDescriptor(pushed, held);
-        var kind = ItemKind.KindForWireName(wireName);
+        var kind = ItemKind.KindForWireName(wireName)
+            ?? throw new System.ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName));
         var a = StReader.Read(pushed, kind);
         var b = StReader.Read(held, kind);
         return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)

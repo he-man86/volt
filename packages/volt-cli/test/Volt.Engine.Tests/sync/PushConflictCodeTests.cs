@@ -126,7 +126,7 @@ public class PushConflictCodeTests
         Assert.False(res.Accepted);
         var conflict = Assert.Single(res.Conflicts!);
         Assert.False(string.IsNullOrEmpty(conflict.Code));
-        Assert.Contains(conflict.Code, new[] { BridgeErrorCodes.InvalidSt, BridgeErrorCodes.InvalidCodeHeader });
+        Assert.Equal(BridgeErrorCodes.InvalidSt, conflict.Code);
     }
 
     /// <summary>An op the engine cannot route is BAD_REQUEST — a `set` that creates an item and supplies no

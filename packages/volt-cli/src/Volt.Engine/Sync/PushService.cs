@@ -141,9 +141,9 @@ public static class PushService
             //
             // This read `netEx?.Code` alone, so only a network-text diagnostic kept its code and every
             // `BridgeException` on this path arrived as `code: null` — NOT_FOUND, UNSUPPORTED,
-            // DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER. Since a push catches EVERY
-            // exception and returns a rejection rather than an error frame, those six were unreachable as
-            // codes anywhere on the wire: five of the ten `BridgeErrorCodes` values could not be observed by
+            // DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST (and INVALID_CODE_HEADER, deleted since a push stopped reading a top-level item's header). Since
+            // a push catches EVERY exception and returns a rejection rather than an error frame, those were unreachable
+            // as codes anywhere on the wire: five of the ten `BridgeErrorCodes` values could not be observed by
             // a client at all. So callers matched the English message instead — the e2e suite asserted on an
             // exact sentence, and the CLI gave up and printed the prose — which means a caller cannot tell
             // "pull and retry" from "this shape can never be written".
@@ -219,10 +219,9 @@ public static class PushService
                 else
                 {
                     var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
-                    // Only a CREATE compares the extension with the text. An UPDATE that disagrees is a RE-TYPE,
-                    // and `ItemKindIsNotRewritable` refuses it with the better message — it can name what the
-                    // object actually is, which a create has nothing to ask.
-                    ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations, creating ? ItemKind.KindForWireName(set.Name) : null);
+                    // Read by the kind of the name the op LANDS under — its extension, never the text's header.
+                    ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations,
+                                          ItemKind.KindForWireName(set.ToName ?? set.Name)!);
                     // …and what only the DRIVER can decide without writing. This is the class the comment above
                     // used to name as out of reach — a body one vendor's format cannot express — and it is out
                     // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
@@ -391,13 +390,15 @@ public static class PushService
             if (op is not SetItemOp { SourceText: { } src } set) continue;
             // The name the item will HAVE — a rename+edit is indexed under its new name, because the bodies
             // being pushed alongside it are the ones that reference it by that name.
-            var name = Materializer.Bare(set.ToName ?? set.Name);
+            var wireName = set.ToName ?? set.Name;
+            if (ItemKind.IsTaskWireName(wireName)) continue;   // a descriptor declares nothing
+            var name = Materializer.Bare(wireName);
             if (byName.ContainsKey(name)) continue;
 
             // A source text that does not parse is NOT failed here. This index is a lookup, and the op that
             // carries the bad text is the one that must report it — with its own name, its own line number and
             // the whole apply loop's error handling around it. Failing here would blame the first item pushed.
-            try { byName[name] = StReader.Read(src).Declaration; }
+            try { byName[name] = StReader.Read(src, ItemKind.KindForWireName(wireName)!).Declaration; }
             catch (Exception) { /* the op's own write reports it */ }
         }
         return byName;
@@ -656,8 +657,8 @@ public static class PushService
                                    string currentFolder, SetItemOp op, bool force,
                                    IReadOnlyDictionary<string, string> pushedDeclarations)
     {
-        if (op.SourceText is { } st && string.IsNullOrWhiteSpace(st))
-            throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': sourceText is empty");
+        // An EMPTY sourceText is not refused here: a DUT or a GVL is written as sent, empty or not, and a POU or an
+        // interface with no text was already refused by the pre-flight's read (it has nothing to split).
 
         // CREATE — no existing item; sourceText is required, toFolder is the placement.
         if (existing is not { } item)
@@ -830,9 +831,9 @@ public static class PushService
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
     private static void ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
-                                              IReadOnlyDictionary<string, string> pushedDeclarations, string? wireKind = null)
+                                              IReadOnlyDictionary<string, string> pushedDeclarations, string wireKind)
     {
-        var split = StReader.Read(src, wireKind, name);      // throws InvalidSt on a malformed document, or a kind the name contradicts
+        var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         //
@@ -893,14 +894,14 @@ public static class PushService
                                         IReadOnlyDictionary<string, string> pushedDeclarations,
                                         string? ifVersion = null)
     {
-        // THE WIRE KIND DECIDES, create or update — read off the FULL name. This was handed the BARE name, so
-        // `KindForWireName` answered null for every item and the write believed the text's header: a function
-        // block's text pushed as `X.struct` over the FB `X` was written, and the receipt named `X.fb` for an op
-        // sent as `X.struct`. A CREATE is read by the wire kind outright. An UPDATE is read by its header first so
-        // the re-type guard below can name what the live object IS (the better message, when the text disagrees
-        // with the object); the wire kind is then checked against the text by the reader's own refusal.
-        var wireKind = ItemKind.KindForWireName(wireName);
-        var split = StReader.Read(src, existing is null ? wireKind : null, name);
+        // THE WIRE KIND DECIDES, create or update — read off the FULL name, and the text's header is never read
+        // (openspec `push-without-header-check`): the text is written as sent, and the IDE's build reports what is
+        // wrong with it. This was once handed the BARE name, so `KindForWireName` answered null for every item and
+        // the write believed the text's header: a function block's text pushed as `X.struct` over the FB `X` was
+        // written, and the receipt named `X.fb` for an op sent as `X.struct`.
+        var wireKind = ItemKind.KindForWireName(wireName)
+            ?? throw new BridgeException(BridgeErrorCodes.BadRequest, $"'{wireName}' is not a wire name: its extension names no item kind");
+        var split = StReader.Read(src, wireKind, name);
 
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
@@ -975,11 +976,9 @@ public static class PushService
             // must never be overwritten by a textual push, and a UNSUPPORTED line must not be written over one it can.
             live = ide.ReadContent(pou);
 
-            // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM. The IDE's kind comes from the TREE — the object really is
-            // a function block, a program, a DUT — and a declaration write cannot change that: it writes TEXT
-            // into an object whose type is already decided. Accepting one wrote `PROGRAM X` over a live function
-            // block (CODESYS additionally CLEARS the body), reported `updated`, and the CLI then saved a receipt
-            // and ref pair asserting the workspace and the IDE agree — over a project that no longer builds.
+            // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME. The IDE's kind comes from the TREE — the object
+            // really is a function block, a program, a DUT — and the op's kind from its wire name's extension. They
+            // are compared here, and nothing else is: the text's header is not read.
             //
             // It is reachable from an ordinary edit: renaming `X.fb` to `X.prg` produces `ToName = "X.prg"`
             // whose BARE name is unchanged, so the rename compare degrades it to a plain content write. And when
@@ -991,11 +990,9 @@ public static class PushService
             // MEMBER whose kind changed; this is the same rule for the item.
             if (!string.Equals(live.Kind, split.Kind, StringComparison.Ordinal))
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"'{name}' is a {live.Kind} in the IDE and this push declares it a {split.Kind}. A push " +
-                    "writes an object's TEXT and cannot change what it IS. Delete it and create it again if that " +
+                    $"'{name}' is a {live.Kind} in the IDE and this push names it a {split.Kind} ('{wireName}'). A " +
+                    "push writes an object's TEXT and cannot change what it IS. Delete it and create it again if that " +
                     "is what you mean — that discards the object's identity, so it is not done for you.");
-            // …and the text matches the object, so it must match its NAME too: the extension is the kind.
-            StReader.RequireKind(split.Kind, wireKind);
 
             // LAST-MOMENT CHECK, against the state the IDE is in RIGHT NOW.
             //

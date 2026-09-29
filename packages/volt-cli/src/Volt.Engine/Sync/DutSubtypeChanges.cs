@@ -30,19 +30,21 @@ namespace Volt.Engine.Sync;
 /// items (the item-name invariant), and a "two ops on one bare name" rule would be the forbidden duplicate-name
 /// guard.</para>
 ///
-/// <para><b>And a DUT op's name must say what its body says.</b> The re-type guard cannot see a subtype mismatch
-/// (all four names are one kind), so <c>set X.struct</c> with an enum body — a file rewritten without being renamed
-/// — would be accepted, and the receipt would name <c>X.enum</c> for an op the client sent as <c>X.struct</c>: its
-/// baseline then holds neither name, and the stale file later deletes the live DUT. Refused here, naming both, with
-/// nothing written.</para></summary>
+/// <para><b>A DUT op's body is NOT checked against its name</b> (openspec <c>push-without-header-check</c>): the
+/// extension is the subtype, the text is written as sent, and the IDE takes the shape the text gives it. So
+/// <c>set X.struct</c> with an enum body lands, and <c>refs</c> — and the receipt — then name the item <c>X.enum</c>, a
+/// rename the next pull carries into the workspace. What that once risked — the stale <c>X.struct</c> file later
+/// deleting the live DUT — is closed where it happened: a delete reaches a DUT only under the name it has
+/// (<c>PushService.NamesThisItem</c>). This used to refuse such an op naming both subtypes, which read the text's
+/// declaration to do it — the one thing a top-level item's text is no longer read for.</para></summary>
 internal static class DutSubtypeChanges
 {
     /// <summary>The ops with every DUT subtype change rewritten as one update; throws <see cref="PushRefusal"/> for a
-    /// DUT op whose name contradicts its body, for any other pair on one DUT, and — unforced — for a pair whose
+    /// body-less rename that changes a DUT's subtype, for any other pair on one DUT, and — unforced — for a pair whose
     /// delete quotes no version. Ops that touch no DUT pass through untouched and in order.</summary>
     internal static List<PushOp> Normalize(IReadOnlyList<PushOp> ops, bool force)
     {
-        foreach (var op in ops) RequireNameMatchesBody(op);
+        foreach (var op in ops) RequireBodyForSubtypeRename(op);
 
         // Every DUT op under each bare DUT name it touches — a rename across bare names touches two.
         var byBare = new Dictionary<string, List<PushOp>>(StringComparer.OrdinalIgnoreCase);
@@ -114,37 +116,16 @@ internal static class DutSubtypeChanges
             : (delete, create);
     }
 
-    /// <summary>Refuse a DUT set whose target name (<c>toName ?? name</c>) is not the name its declaration implies.
-    /// Only a body that IS a DUT declaration is judged here. Text whose header is anything else under a DUT name is
-    /// refused at the write, which reads it by the wire name's kind: over an IDE DUT the re-type guard names what the
-    /// object is, over anything else the ST reader's kind check names both kinds (<c>PushService.WriteItemFromSource</c>).</summary>
-    private static void RequireNameMatchesBody(PushOp op)
+    /// <summary>Refuse a RENAME that changes a DUT's subtype and carries no body. It reads no text — there is none —
+    /// and it cannot be true: the IDE's declaration stays what it is, so the name would disagree with it the moment it
+    /// landed.</summary>
+    private static void RequireBodyForSubtypeRename(PushOp op)
     {
-        if (op is not SetItemOp set) return;
-        var target = set.ToName ?? set.Name;
-        if (!IsDut(target)) return;
-
-        if (set.SourceText is not { } text)
-        {
-            // A rename that changes the SUBTYPE with no body cannot be true: the IDE's declaration stays what it
-            // is, so the name would disagree with it the moment it landed.
-            if (set.ToName is not null && !string.Equals(Ext(set.Name), Ext(target), StringComparison.OrdinalIgnoreCase))
-                throw new PushRefusal(set.Name,
-                    $"'{set.Name}' -> '{target}' changes the DUT's subtype but carries no declaration — the subtype is " +
-                    "what the declaration says, so push the file's text with the rename.");
-            return;
-        }
-        if (!IsDutDeclaration(text)) return;
-
-        string declared;
-        try { declared = CodeHelper.DutSubtype(text); }
-        catch (FormatException ex) { throw new PushRefusal(set.Name, $"'{target}': {ex.Message}."); }
-
-        if (!string.Equals(Ext(target), declared, StringComparison.OrdinalIgnoreCase))
+        if (op is not SetItemOp { SourceText: null, ToName: { } target } set || !IsDut(target)) return;
+        if (!string.Equals(Ext(set.Name), Ext(target), StringComparison.OrdinalIgnoreCase))
             throw new PushRefusal(set.Name,
-                $"'{target}' names the subtype {Ext(target)} but its declaration's subtype is {declared}, so its name is " +
-                $"'{Materializer.Bare(target)}.{declared}'. A DUT's name carries its subtype: rename the file to match " +
-                "its declaration (or the declaration to match the file).");
+                $"'{set.Name}' -> '{target}' changes the DUT's subtype but carries no declaration — the subtype is " +
+                "what the declaration says, so push the file's text with the rename.");
     }
 
     private static IEnumerable<string> BareDutNames(PushOp op)
@@ -154,16 +135,6 @@ internal static class DutSubtypeChanges
         if (op is SetItemOp { ToName: { } to } && IsDut(to) && !names.Contains(Materializer.Bare(to), StringComparer.OrdinalIgnoreCase))
             names.Add(Materializer.Bare(to));
         return names;
-    }
-
-    /// <summary>Is this text a DUT declaration — asked of THE header classifier, <c>CodeHelper.ParseCodeHeader</c>, the
-    /// one the ST reader decides <c>Kinds.Dut</c> with. A text it refuses (a bare <c>TYPE</c> line, no header at all)
-    /// is not judged here: the reader refuses it by its own code, whatever subtype the name carries, so this check
-    /// never gives advice ("rename it to X.enum") that the reader then contradicts.</summary>
-    private static bool IsDutDeclaration(string text)
-    {
-        try { return CodeHelper.ParseCodeHeader(text) == ItemKind.Kinds.Dut; }
-        catch (BridgeException) { return false; }
     }
 
     private static string Describe(PushOp op) => op switch

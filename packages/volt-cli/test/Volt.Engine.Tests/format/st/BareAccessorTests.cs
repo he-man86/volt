@@ -21,7 +21,7 @@ namespace Volt.Engine.Tests;
 public class BareAccessorTests
 {
     private static Member OnlyChild(string src) =>
-        StReader.Read(src).Members.Single();
+        StReader.Read(src, ItemKind.Kinds.FunctionBlock).Members.Single();
 
     private const string Fb = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n";
 

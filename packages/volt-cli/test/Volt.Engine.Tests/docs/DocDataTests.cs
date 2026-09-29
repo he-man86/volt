@@ -108,7 +108,7 @@ public class DocDataTests
             + "loop is caught and returned as `accepted:false` with one conflict. A client MUST check `accepted`.",
             "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
             + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
-            + "NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, INVALID_CODE_HEADER. Match the code, "
+            + "NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, "
             + "never the message.",
             "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item.",
             "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not "

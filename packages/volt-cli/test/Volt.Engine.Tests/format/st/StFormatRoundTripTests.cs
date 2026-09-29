@@ -121,7 +121,7 @@ public class StFormatRoundTripTests
     public void A_the_format_is_a_fixed_point(string desc, ItemContent content)
     {
         var once = StWriter.Write(content);
-        var twice = StWriter.Write(StReader.Read(once));
+        var twice = StWriter.Write(StReader.Read(once, content.Kind));
 
         Assert.Equal(once, twice);
     }
@@ -132,7 +132,7 @@ public class StFormatRoundTripTests
     [MemberData(nameof(Shapes))]
     public void B_kind_members_and_folders_survive(string desc, ItemContent content)
     {
-        var back = StReader.Read(StWriter.Write(content));
+        var back = StReader.Read(StWriter.Write(content), content.Kind);
 
         Assert.Equal(content.Kind, back.Kind);
         Assert.Equal(content.Members.Select(m => m.Name).OrderBy(n => n),
@@ -169,7 +169,7 @@ public class StFormatRoundTripTests
         var content = new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
             new() { Method("Go", body: "%FOLDER Nope\nx := 1;") });
 
-        var back = StReader.Read(StWriter.Write(content));
+        var back = StReader.Read(StWriter.Write(content), content.Kind);
         var member = back.Members.Single(m => m.Name == "Go");
 
         Assert.Equal("Nope", member.Folder);      // consumed as a directive…
@@ -185,7 +185,7 @@ public class StFormatRoundTripTests
         var content = new ItemContent(ItemKind.Kinds.Interface, "INTERFACE ITest", null,
             new() { Property("Ready", new Accessor(null, ""), null) });
 
-        var back = StReader.Read(StWriter.Write(content));
+        var back = StReader.Read(StWriter.Write(content), content.Kind);
         var prop = back.Members.Single(m => m.Name == "Ready");
 
         Assert.NotNull(prop.Getter);

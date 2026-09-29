@@ -42,14 +42,15 @@ namespace Volt.Engine.Format.St;
 /// after END_INTERFACE. SplitInterfaceBody pulls them out as children.
 /// An interface and its members carry NO boundary line: signatures have no
 /// implementation, so there is no boundary to record.
-/// GVL / DUT are simple single-block forms with no child structure.
+/// GVL / DUT are one declaration each and are not read at all.
 ///
 /// TWO THINGS ARE READ FROM THE TEXT AND NOTHING ELSE IS:
-///   1. the STRUCTURE — where each member block opens and closes;
+///   1. the STRUCTURE — where each member block opens and closes, and each
+///      member's signature line, which is the only place its name exists;
 ///   2. the BOUNDARY and the body's LANGUAGE — and those are not read, they
 ///      are STATED, by `IMPLEMENTATION ST|LD|FBD` (see ImplementationMarker).
-/// The KIND comes from the wire name's extension, never the header
-/// (see the `expectedKind` parameter of Read).
+/// The KIND comes from the wire name's extension; the item's own header is
+/// never read (see the `kind` parameter of Read).
 ///
 /// Structure scan — at the first non-whitespace of a line (LineStartsWithKeyword
 /// does TrimStart, so ANY indentation matches; it is not column-0), match outer-end keywords
@@ -68,97 +69,133 @@ public static class StReader
 	// The model lives in Item/ — this reader and StWriter are the two halves of ONE format, and they now
 	// produce and consume the SAME record rather than two records that happened to line up. See ItemContent.
 
-	/// <summary>Refuse a text whose header declares <paramref name="declared"/> under a wire name whose extension says
-	/// <paramref name="expectedKind"/> — THE refusal <see cref="Read"/> makes, for a caller that must read the text
-	/// before it compares (the push's update arm, whose re-type guard first names what the live object IS). A null
-	/// <paramref name="expectedKind"/> is no wire name and checks nothing.</summary>
-	public static void RequireKind(string declared, string? expectedKind)
-	{
-		if (expectedKind != null && !string.Equals(declared, expectedKind, System.StringComparison.Ordinal))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"the item's extension says '{expectedKind}' and its text declares a '{declared}'. The extension is " +
-				"the kind — rename the file to match the code, or change the code to match the file. (Writing it " +
-				"anyway would silently replace the item with one of the other kind, under a different name.)");
-	}
-
 	/// <summary>
 	/// Split one canonical workspace source item (ST text) into the vendor-neutral primitives the
 	/// push path writes through <c>IIdeDriver</c>.
+	///
+	/// <para><b>A TOP-LEVEL ITEM'S HEADER IS NEVER READ</b> (openspec <c>push-without-header-check</c>). Its kind is
+	/// <paramref name="kind"/> — the wire name's extension — so the header is not parsed, not checked against it, and
+	/// never a reason to refuse: the text is written as sent, and the IDE's build reports what is wrong with it. It
+	/// used to be parsed first and checked against the extension, and the parse refused a DUT whose opening comment
+	/// was never closed with "No header line found" — a header that was fine, over an error only the build names
+	/// (PLCAssist chat <c>c802b74d</c>). A DUT or a GVL is therefore not read at ALL: it is one declaration, handed
+	/// over verbatim, empty or not.</para>
+	///
+	/// <para>A POU or an interface is read for what performing the push needs and nothing else: its
+	/// <c>IMPLEMENTATION</c> line (the declaration/body split) and its CHILD elements — METHOD, ACTION, PROPERTY and
+	/// its GET/SET — which have no extension of their own, so their header line is what names and delimits them. A
+	/// child whose header cannot be read is refused naming the item and the line.</para>
+	///
+	/// <para><b>A comment that never closes hides no structure.</b> A <c>(*</c> with no <c>*)</c> after it is a
+	/// compile error the IDE reports; read as a comment it swallowed the <c>IMPLEMENTATION</c> line, the END line and
+	/// every member below it, so the push refused the file as one Volt had not written — or, when only a member's
+	/// doc comment was left open, dropped that member without a word. The structure is read as if such a <c>(*</c>
+	/// opened nothing; the text itself is carried unchanged.</para>
 	/// </summary>
-	/// <param name="expectedKind">The kind the WIRE NAME says this item is (<see cref="ItemKind.KindForWireName"/>).
-	/// When given it DECIDES, and a header that disagrees is refused rather than followed — see the class remark.
-	/// Null only where no wire name exists (the format's own round-trip, and tests).</param>
+	/// <param name="kind">The kind the WIRE NAME says this item is (<see cref="ItemKind.KindForWireName"/>). It
+	/// decides; the text is never consulted for it.</param>
 	/// <param name="name">The item's bare name, for the refusals that name the POU's own body. A member is named by its
-	/// signature; the POU is named by its FILE, which this text does not carry (<c>CodeHelper.ParseCodeHeader</c>
-	/// reads no name, on purpose). Null where there is none, and the refusal then names the kind.</param>
-	public static ItemContent Read(string sourceText, string? expectedKind = null, string? name = null)
+	/// signature; the POU is named by its FILE, which this text does not carry. Null where there is none, and the
+	/// refusal then names the kind.</param>
+	public static ItemContent Read(string sourceText, string kind, string? name = null)
 	{
+		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
+		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
+
+		// 1. A DUT or a GVL is ONE declaration, written as sent. Nothing in it is Volt's to judge.
+		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
+			return new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
+
+		var what = name is null ? $"this {kind}" : $"'{name}'";
 		if (string.IsNullOrWhiteSpace(sourceText))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt, "Empty ST source");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{what} is empty — a {kind} file holds at least its declaration, its {ImplementationMarker.Keyword} line and its END line.");
 
-		var lines = NormalizeLines(sourceText);
+		var original = NormalizeLines(sourceText);
 
-		// 0. A FILE FROM BEFORE THE KEYWORD. No Volt writes a `(* @volt-… *)` comment any more — the boundary and a
+		// 2. A FILE FROM BEFORE THE KEYWORD. No Volt writes a `(* @volt-… *)` comment any more — the boundary and a
 		// hidden body are both stated by an IMPLEMENTATION line — so a file holding one, anywhere, was pulled by an
 		// older Volt. Refused before anything else is read, naming the pull that rewrites it: read around, the old
 		// boundary comment left a file with no boundary and the old marker comment landed in the IDE as the tail of a
-		// declaration or as a body. A comment only — the same characters in a string or after `//` are text.
-		if (ImplementationMarker.FindRetiredComment(lines) is { } retired)
+		// declaration or as a body. A comment only — the same characters in a string or after `//` are text. Only a POU
+		// or an interface asks: in a DUT or a GVL the comment is a comment.
+		if (ImplementationMarker.FindRetiredComment(original) is { } retired)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{(name is null ? "this file" : $"'{name}'")} holds '{retired.Text}' (line {retired.Line + 1}), a comment of a Volt from " +
+				$"{what} holds '{retired.Text}' (line {retired.Line + 1}), a comment of a Volt from " +
 				$"before bodies were stated by an {ImplementationMarker.Keyword} line. Run `volt pull` once to rewrite the " +
 				"workspace in the current format.");
 
-		// 1. The kind. THE EXTENSION IS THE KIND — it is on the wire name and `KindForWireName` reads it off,
-		// so the header is CHECKED against it rather than consulted for it. Taking the kind from the text let a
-		// push rename the object: `KindTest.fb` whose text said `PROGRAM` was accepted and produced
-		// `KindTest.prg` (measured on live SP21, 2026-09-17), and since the wire is keyed by the FULL name the
-		// next `ifVersion` then named an item that no longer existed.
-		var declared = CodeHelper.ParseCodeHeader(sourceText);
-		RequireKind(declared, expectedKind);
-		var kind = expectedKind ?? declared;
-		var what = name is null ? $"this {kind}" : $"'{name}'";
+		// 3. The structure, read with every never-closed `(*` opening nothing (see the summary). Neutralized in a COPY,
+		// by a stand-in of the same length that no scanner reads as trivia, and put back in everything that leaves.
+		var unclosed = StTrivia.UnterminatedOpenings(original);
+		var neutralize = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0;
+		var lines = neutralize ? Neutralized(original, unclosed) : original;
 
-		// 2. Branch on kind: composite POUs have children, simple
-		// ones (gvl / dut) are single text blobs.
-		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
+		ItemContent item;
+		try { item = ReadStructure(lines, kind, what); }
+		catch (BridgeException ex) when (neutralize)
 		{
-			RefuseReservedNames(lines);
-			var simple = new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
-			RefuseLinesInDeclarations(simple, what);
-			return simple;
+			throw new BridgeException(ex.ErrorCode, Restored(ex.Message)!, ex);
 		}
+		RefuseReservedNames(original);
+		if (neutralize) item = Restored(item);
+		RefuseLinesInDeclarations(item, what);
+		return item;
+	}
 
-		// 3. Composite POU: find the outer END_X to split POU from
-		// children. INTERFACE is special — no implementation body, and
-		// method/property signatures live INSIDE the INTERFACE block
-		// (not as siblings after END_INTERFACE like FB methods).
-		var outerEnd = OuterEndKeyword(kind);
-		var (pouEnd, childrenStart) = FindOuterBlock(lines, outerEnd);
+	/// <summary>A POU's or an interface's structure: the outer block, the declaration/body split, the children.</summary>
+	private static ItemContent ReadStructure(List<string> lines, string kind, string what)
+	{
+		// Find the outer END_X to split the POU from its children. INTERFACE is special — no implementation body, and
+		// its method/property signatures live INSIDE the INTERFACE block, not as siblings after END_INTERFACE like an
+		// FB's methods.
+		var (pouEnd, childrenStart) = FindOuterBlock(lines, OuterEndKeywords(kind), what);
 		var pouLines = SliceLines(lines, 0, pouEnd - 1);
 
 		if (kind == ItemKind.Kinds.Interface)
 		{
-			// Header = the INTERFACE line (+ any pragmas above). Children
-			// = METHOD / PROPERTY / ACTION signature blocks INSIDE the
-			// INTERFACE block. childrenStart from FindOuterBlock points
-			// AFTER END_INTERFACE and should be empty for well-formed
-			// source — we don't merge those in (no spec for sibling
-			// children of an interface).
-			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines);
-			RefuseReservedNames(lines);
-			var itf = new ItemContent(kind, interfaceDecl, "", interfaceChildren);
-			RefuseLinesInDeclarations(itf, what);
-			return itf;
+			// Children = METHOD / PROPERTY / ACTION signature blocks INSIDE the INTERFACE block. childrenStart points
+			// AFTER END_INTERFACE and should be empty for well-formed source — those are not merged in (no spec for
+			// sibling children of an interface).
+			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines, what);
+			return new ItemContent(kind, interfaceDecl, "", interfaceChildren);
 		}
 
 		var (pouDecl, pouImpl) = SplitDeclImpl(pouLines, what);
-		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), marked: true);
-		RefuseReservedNames(lines);
-		var pou = new ItemContent(kind, pouDecl, pouImpl, children);
-		RefuseLinesInDeclarations(pou, what);
-		return pou;
+		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), childrenStart, what, marked: true);
+		return new ItemContent(kind, pouDecl, pouImpl, children);
 	}
+
+	/// <summary>What stands in for a never-closed <c>(*</c> while the structure is read: two Unicode NONCHARACTERS,
+	/// which the standard reserves for exactly this — internal use, never interchanged — so no scanner reads them as
+	/// a comment and no workspace file holds them. (A text that did hold one is read unneutralized.)</summary>
+	private const string UnclosedStandIn = "﷐﷑";
+
+	private static List<string> Neutralized(List<string> lines, List<(int Line, int Column)> unclosed)
+	{
+		var copy = new List<string>(lines);
+		foreach (var (line, column) in unclosed)
+			copy[line] = copy[line].Substring(0, column) + UnclosedStandIn + copy[line].Substring(column + 2);
+		return copy;
+	}
+
+	private static string? Restored(string? text) => text?.Replace(UnclosedStandIn, "(*");
+
+	private static ItemContent Restored(ItemContent item) => item with
+	{
+		Declaration = Restored(item.Declaration)!,
+		Body = Restored(item.Body),
+		Members = item.Members.Select(m => m with
+		{
+			Declaration = Restored(m.Declaration)!,
+			Body = Restored(m.Body),
+			Folder = Restored(m.Folder),
+			ReturnType = Restored(m.ReturnType),
+			DataType = Restored(m.DataType),
+			Getter = m.Getter is { } g ? g with { Declaration = Restored(g.Declaration), Body = Restored(g.Body) } : null,
+			Setter = m.Setter is { } st ? st with { Declaration = Restored(st.Declaration), Body = Restored(st.Body) } : null,
+		}).ToList(),
+	};
 
 	/// <summary>The index of the first line that OPENS a member block, or -1 when there is none. Trivia-aware,
 	/// so a `METHOD` inside a comment does not count.</summary>
@@ -216,7 +253,7 @@ public static class StReader
 	/// including END_INTERFACE) into the header-only declaration and
 	/// any METHOD/PROPERTY/ACTION signature children that live inside.
 	/// </summary>
-	private static (string decl, List<Member> children) SplitInterfaceBody(IList<string> bodyLines)
+	private static (string decl, List<Member> children) SplitInterfaceBody(IList<string> bodyLines, string what)
 	{
 		// Find the INTERFACE header line — first non-trivia line.
 		int interfaceHeaderLineIdx = FirstCodeLine(bodyLines);
@@ -268,7 +305,7 @@ public static class StReader
 		// interface read from the IDE reported `interface_method` - and StWriter, knowing only the latter,
 		// threw "No END keyword for POU child kind 'interface_method'". The whole interface then materialized
 		// as UNREADABLE: created in the project, accepted by push, and absent from /refs.
-		var children = SplitChildren(childRegion, marked: false).Select(InterfaceMember).ToList();
+		var children = SplitChildren(childRegion, interfaceHeaderLineIdx + 1, what, marked: false).Select(InterfaceMember).ToList();
 		return (decl, children);
 	}
 
@@ -284,12 +321,15 @@ public static class StReader
 
 	// ─── Outer-block boundary detection ──────────────────────────────
 
-	private static string OuterEndKeyword(string kind) => kind switch
+	/// <summary>The lines that can close the outer block of <paramref name="kind"/>. A program, a function and a function
+	/// block share one shape — declaration, boundary, body, END line, then members — so any of their three END lines
+	/// closes any of them: which one the text spells is its header's business, and the header is not read. An
+	/// interface has a shape of its own (its members sit INSIDE the block), so only END_INTERFACE closes it.</summary>
+	private static string[] OuterEndKeywords(string kind) => kind switch
 	{
-		ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
-		ItemKind.Kinds.Program        => "END_PROGRAM",
-		ItemKind.Kinds.Function       => "END_FUNCTION",
-		ItemKind.Kinds.Interface      => "END_INTERFACE",
+		ItemKind.Kinds.FunctionBlock or ItemKind.Kinds.Program or ItemKind.Kinds.Function =>
+			new[] { "END_FUNCTION_BLOCK", "END_PROGRAM", "END_FUNCTION" },
+		ItemKind.Kinds.Interface => new[] { "END_INTERFACE" },
 		_ => throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Unexpected composite POU kind: {kind}"),
 	};
 
@@ -299,7 +339,7 @@ public static class StReader
 	/// skipped). The outer block always starts at line 0, so any pragmas/comments above the
 	/// FUNCTION_BLOCK line stay part of the POU declaration.
 	/// </summary>
-	private static (int outerEndIdx, int childrenStart) FindOuterBlock(IList<string> lines, string outerEnd)
+	private static (int outerEndIdx, int childrenStart) FindOuterBlock(IList<string> lines, string[] outerEnds, string what)
 	{
 		int? endIdx = null;
 		var ctx = new ScanContext();
@@ -307,14 +347,16 @@ public static class StReader
 		{
 			ctx.Update(lines[i]);
 			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(ctx.Code, outerEnd))
+			if (outerEnds.Any(end => LineStartsWithKeyword(ctx.Code, end)))
 			{
 				endIdx = i;
 				break;
 			}
 		}
 		if (endIdx is null)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing {outerEnd}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"Missing {string.Join(" / ", outerEnds)} in {what} — the text does not say where the item ends and " +
+				"its members begin.");
 
 		// Skip blank lines between END_X and first child block.
 		int childrenStart = endIdx.Value + 1;
@@ -499,8 +541,14 @@ public static class StReader
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
 
-	private static List<Member> SplitChildren(IList<string> after, bool marked)
+	/// <summary>The CHILD elements in <paramref name="after"/> — the one place push reads a header, because a child has
+	/// no extension: its header line names it, says what it is and delimits it. Every refusal names the item
+	/// (<paramref name="owner"/>) and the line IN THE FILE — <paramref name="offset"/> is where <paramref name="after"/>
+	/// starts in it. These used to count from the start of the child region, so "line 1" was the line under the POU's
+	/// END line, and named no item at all.</summary>
+	private static List<Member> SplitChildren(IList<string> after, int offset, string owner, bool marked)
 	{
+		var at = new ChildSite(owner, offset);
 		var children = new List<Member>();
 		int i = 0;
 		while (i < after.Count)
@@ -517,11 +565,11 @@ public static class StReader
 				ctx.Update(after[i]);
 				if (!ctx.InsideTrivia)
 				{
-					if (LineStartsWithKeyword(ctx.Code, "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD", marked)); break; }
-					if (LineStartsWithKeyword(ctx.Code, "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION", marked)); break; }
-					if (LineStartsWithKeyword(ctx.Code, "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart, marked)); break; }
+					if (LineStartsWithKeyword(ctx.Code, "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD", marked, at)); break; }
+					if (LineStartsWithKeyword(ctx.Code, "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION", marked, at)); break; }
+					if (LineStartsWithKeyword(ctx.Code, "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart, marked, at)); break; }
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
-						$"Expected METHOD/ACTION/PROPERTY at line {i + 1}, got: {Truncate(after[i], 80)}");
+						$"{at.Line(i)}: expected METHOD/ACTION/PROPERTY, got: {Truncate(after[i].Trim(), 80)}");
 				}
 				i++;
 			}
@@ -529,7 +577,18 @@ public static class StReader
 		return children;
 	}
 
-	private static Member ReadMethodOrAction(IList<string> lines, ref int i, int blockStart, string kind, string endKw, bool marked)
+	/// <summary>Where a child region sits: the item it belongs to, and the file line its first line is.</summary>
+	private readonly struct ChildSite
+	{
+		private readonly string _owner;
+		private readonly int _offset;
+		public ChildSite(string owner, int offset) { _owner = owner; _offset = offset; }
+
+		/// <summary>"'FB_A', line 7" for the region's line <paramref name="index"/>.</summary>
+		public string Line(int index) => $"{_owner}, line {_offset + index + 1}";
+	}
+
+	private static Member ReadMethodOrAction(IList<string> lines, ref int i, int blockStart, string kind, string endKw, bool marked, ChildSite at)
 	{
 		int sigLine = i; // line with the keyword
 		// Find the matching end keyword — at any indentation (see LineStartsWithKeyword), not column 0.
@@ -546,15 +605,13 @@ public static class StReader
 			if (LineStartsWithKeyword(ctx.Code, endKw)) { endLine = j; break; }
 		}
 		if (endLine is null)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing {endKw} for {kind} starting at line {sigLine + 1}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"{at.Line(sigLine)}: missing {endKw} for the {kind} starting there");
 
-		// Block runs blockStart..endLine inclusive (covers pragmas above).
-		var block = SliceLines(lines, blockStart, endLine.Value);
 		i = endLine.Value + 1;
 
 		// Parse header of the signature line for name + return type.
 		var sig = lines[sigLine];
-		var (name, returnType) = ParseMethodOrActionSignature(sig, kind);
+		var (name, returnType) = ParseMethodOrActionSignature(sig, kind, at.Line(sigLine));
 
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
@@ -576,7 +633,7 @@ public static class StReader
 		return new Member(kind, name, decl, Body(line, code, what), Folder: folder, ReturnType: returnType);
 	}
 
-	private static Member ReadProperty(IList<string> lines, ref int i, int blockStart, bool marked)
+	private static Member ReadProperty(IList<string> lines, ref int i, int blockStart, bool marked, ChildSite at)
 	{
 		int sigLine = i;
 		var ctx = new ScanContext();
@@ -626,12 +683,12 @@ public static class StReader
 			currentAccessorKind = null;
 		}
 		if (endLine is null)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Missing END_PROPERTY for property starting at line {sigLine + 1}");
+			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"{at.Line(sigLine)}: missing END_PROPERTY for the property starting there");
 
 		i = endLine.Value + 1;
 
 		var sig = lines[sigLine];
-		var (name, dataType) = ParsePropertySignature(sig);
+		var (name, dataType) = ParsePropertySignature(sig, at.Line(sigLine));
 
 		// Declaration of the property itself: from blockStart up to (but
 		// excluding) the first accessor or END_PROPERTY — whichever is first.
@@ -706,8 +763,9 @@ public static class StReader
 	/// against the CURRENT culture, so under tr-TR the keyword `ACTION` stops matching itself. Neither hazard
 	/// has a spelling in a pattern that is still readable. Four words and a colon do not need one.</para></summary>
 	/// <param name="keyword">The keyword the line must open with — the caller already knows it from the block it
-	/// is standing in, so this CHECKS rather than discovers, the same way <c>Read</c> checks the header kind.</param>
-	private static (string name, string? type) ParseSignature(string sig, string keyword)
+	/// is standing in, so this CHECKS rather than discovers.</param>
+	/// <param name="where">The item and file line, for the refusal (a child has no name to be called by until this reads it).</param>
+	private static (string name, string? type) ParseSignature(string sig, string keyword, string where)
 	{
 		// COMMENTS OFF FIRST. An engineer documents a member on its signature line — `METHOD INTERNAL
 		// _mStrConcatA //Concats string to sContent` — and CODESYS stores it exactly there. The old patterns
@@ -734,21 +792,21 @@ public static class StReader
 		{
 			type = clean.Substring(colon + 1).Trim();
 			clean = clean.Substring(0, colon);
-			if (type.Length == 0) throw BadSignature(sig, keyword, "nothing follows the ':'");
+			if (type.Length == 0) throw BadSignature(sig, keyword, "nothing follows the ':'", where);
 		}
 
 		// KEYWORD [modifier …] NAME — the name is last because everything between is a modifier, and a word
 		// there that is NOT one is a malformed line, not a second name to pick from.
 		var words = clean.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 		if (words.Length < 2 || !string.Equals(words[0], keyword, StringComparison.OrdinalIgnoreCase))
-			throw BadSignature(sig, keyword, $"it does not begin with '{keyword}' and a name");
+			throw BadSignature(sig, keyword, $"it does not begin with '{keyword}' and a name", where);
 		for (var i = 1; i < words.Length - 1; i++)
 			if (!Modifiers.Contains(words[i]))
-				throw BadSignature(sig, keyword, $"'{words[i]}' is not an access modifier");
+				throw BadSignature(sig, keyword, $"'{words[i]}' is not an access modifier", where);
 
 		var name = words[words.Length - 1];
 		if (!IsIdentifier(name))
-			throw BadSignature(sig, keyword, $"'{Truncate(name, 40)}' is not a valid IEC identifier");
+			throw BadSignature(sig, keyword, $"'{Truncate(name, 40)}' is not a valid IEC identifier", where);
 		return (name, type);
 	}
 
@@ -770,28 +828,28 @@ public static class StReader
 
 	/// <summary>The refusal. It names the line AND what is wrong with it — a member signature is something the
 	/// engineer typed, so "Cannot parse" alone sends them looking at the whole file.</summary>
-	private static BridgeException BadSignature(string sig, string keyword, string why) =>
+	private static BridgeException BadSignature(string sig, string keyword, string why, string where) =>
 		new BridgeException(BridgeErrorCodes.InvalidSt,
-			$"Cannot parse {keyword} signature: {why} — {Truncate(sig.Trim(), 80)}");
+			$"{where}: Cannot parse {keyword} signature: {why} — {Truncate(sig.Trim(), 80)}");
 
-	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string kind)
+	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string kind, string where)
 	{
-		if (kind == ItemKind.Kinds.Method) return ParseSignature(sig, "METHOD");
+		if (kind == ItemKind.Kinds.Method) return ParseSignature(sig, "METHOD", where);
 
 		// AN ACTION HAS NO RETURN TYPE — it is a named body sharing the POU's variables. A `:` on the line is a
 		// method signature under the wrong keyword, and taking the name and dropping the rest would write it as
 		// an action the IDE then cannot call.
-		var (name, type) = ParseSignature(sig, "ACTION");
-		if (type != null) throw BadSignature(sig, "ACTION", "an action has no return type");
+		var (name, type) = ParseSignature(sig, "ACTION", where);
+		if (type != null) throw BadSignature(sig, "ACTION", "an action has no return type", where);
 		return (name, null);
 	}
 
-	private static (string name, string dataType) ParsePropertySignature(string sig)
+	private static (string name, string dataType) ParsePropertySignature(string sig, string where)
 	{
 		// A PROPERTY's type is MANDATORY where a method's is optional — the one real difference between the two
 		// lines, and the reason they were ever two patterns.
-		var (name, type) = ParseSignature(sig, "PROPERTY");
-		if (type == null) throw BadSignature(sig, "PROPERTY", "a property must declare a type");
+		var (name, type) = ParseSignature(sig, "PROPERTY", where);
+		if (type == null) throw BadSignature(sig, "PROPERTY", "a property must declare a type", where);
 		return (name, type);
 	}
 

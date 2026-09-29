@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Volt.Engine.Item;
+using System;
 using System.IO;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.St;
@@ -58,7 +59,7 @@ public class TcSharedFormatTests
     public void Twincat_authored_text_survives_the_st_round_trip(string name)
     {
         var text = Read(name);
-        var back = StWriter.Write(StReader.Read(text));
+        var back = StWriter.Write(StReader.Read(text, ItemKind.KindForWireName(name)!));
 
         if (back == text) return;
 
@@ -90,7 +91,7 @@ public class TcSharedFormatTests
     [Fact]
     public void A_twincat_drawn_ladder_is_canonical_network_text()
     {
-        var pou = StReader.Read(Read("ladderLabel.prg"));
+        var pou = StReader.Read(Read("ladderLabel.prg"), ItemKind.Kinds.Program);
         var body = pou.Body!;
 
         Assert.StartsWith("IMPLEMENTATION LD\n", body);

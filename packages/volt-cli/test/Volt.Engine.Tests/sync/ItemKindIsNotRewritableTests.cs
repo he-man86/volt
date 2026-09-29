@@ -43,11 +43,25 @@ public class ItemKindIsNotRewritableTests
         });
     }
 
+    /// <summary>A NAME that re-types the object is refused, naming what the object IS — the rename <c>K.fb</c> →
+    /// <c>K.prg</c>, which leaves the bare name unchanged and so arrives as a content write.</summary>
     [Fact]
-    public void Declaring_a_function_block_a_program_is_refused()
+    public void Renaming_a_function_block_to_a_program_is_refused()
     {
         var ide = WithFunctionBlock();
-        var resp = Push(ide, "K.fb", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n");
+        var refs = RefsService.Handle(ide);
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new System.Collections.Generic.List<PushOp>
+            {
+                new SetItemOp
+                {
+                    Name = "K.fb", ToName = "K.prg", IfVersion = refs.Items["K.fb"],
+                    SourceText = "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n",
+                },
+            },
+        });
 
         Assert.False(resp.Accepted);
         Assert.Contains("cannot change what it IS", resp.Conflicts![0].Reason);
@@ -55,14 +69,31 @@ public class ItemKindIsNotRewritableTests
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
     }
 
+    /// <summary>The TEXT is not a re-type: a push does not read a top-level item's header (openspec
+    /// <c>push-without-header-check</c>), so <c>K.fb</c> whose text says <c>PROGRAM</c> is written as sent and the
+    /// IDE's build judges it. These two used to be refused by that header; what the IDE then holds is task 1.2's live
+    /// measurement.</summary>
     [Fact]
-    public void Declaring_a_function_block_a_DUT_is_refused()
+    public void A_function_blocks_text_declaring_a_program_is_written_as_sent()
     {
-        // The cross-family case, where no vendor could re-type the object even in principle.
-        var resp = Push(WithFunctionBlock(), "K.fb", "TYPE K :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n");
+        var ide = WithFunctionBlock();
+        var resp = Push(ide, "K.fb", "PROGRAM K\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n");
+
+        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : resp.Conflicts[0].Reason);
+        Assert.Equal("PROGRAM K\nVAR\n\tx : INT;\nEND_VAR", ide.WrittenContent["K"].Declaration);
+    }
+
+    /// <summary>…while a DUT's text under an FB's name cannot be SPLIT — it has no IMPLEMENTATION line and no END line
+    /// of a POU — so it is refused INVALID_ST for that, and nothing is written.</summary>
+    [Fact]
+    public void A_function_blocks_text_that_is_a_DUT_cannot_be_split_and_is_refused()
+    {
+        var ide = WithFunctionBlock();
+        var resp = Push(ide, "K.fb", "TYPE K :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n");
 
         Assert.False(resp.Accepted);
-        Assert.Contains("cannot change what it IS", resp.Conflicts![0].Reason);
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.InvalidSt, resp.Conflicts![0].Code);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
     }
 
     [Fact]

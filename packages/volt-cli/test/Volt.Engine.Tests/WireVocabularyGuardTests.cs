@@ -34,7 +34,7 @@ public class WireVocabularyGuardTests
     {
         ("error codes (BridgeErrorCodes)",
             new[] { "PLC_DISCONNECTED", "WRONG_PROJECT", "NO_SIDECAR", "NOT_FOUND", "BAD_REQUEST", "UNSUPPORTED",
-                    "DUPLICATE_CHILD", "INVALID_CODE_HEADER", "INVALID_ST", "INTERNAL_ERROR" },
+                    "DUPLICATE_CHILD", "INVALID_ST", "INTERNAL_ERROR" },
             // ImplementationMarker.cs spells the workspace keyword `IMPLEMENTATION LD UNSUPPORTED` — a word of the file
             // format that shares its spelling with the error code, not the error code.
             new HashSet<string> { "BridgeErrorCodes.cs", "ImplementationMarker.cs" }),
