@@ -12,7 +12,9 @@ export const meta = {
   ],
 }
 
-// args: { change: 'frontend-conformance', requires: ['…'] , only: ['1.3'], stopAfter: '2' }
+// args: { change: 'frontend-conformance', requires: ['…'], only: ['1.3'], stopAfter: '2', maxSteps: 4 }
+// Cost standard (memory: workflow-cost-standard): consecutive small steps of the same kind run in ONE agent (context read once),
+// each task still test-first with its own commit; one data review per group, a second only on a high finding.
 if (!args?.change) throw new Error('execute-change needs args.change (an openspec change name)')
 const CHANGE = `openspec/changes/${args.change}`
 const REQUIRES = args.requires ?? []
@@ -61,6 +63,20 @@ let steps = status?.steps ?? []
 if (args.only?.length) steps = steps.filter(s => args.only.includes(s.id))
 const stopAt = args.stopAfter ? steps.findIndex(s => s.id === args.stopAfter) : -1
 if (stopAt >= 0) steps = steps.slice(0, stopAt + 1)
+if (args.maxSteps) steps = steps.slice(0, args.maxSteps)
+// Group consecutive structure/fix/lean steps (never model, conformance or design-first steps) up to 3 per agent.
+const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure'])
+const grouped = []
+for (const s of steps) {
+  const last = grouped[grouped.length - 1]
+  if (last && GROUPABLE.has(s.kind) && !s.designFirst && last.kind === s.kind && (last.parts?.length ?? 1) < 3 && !last.designFirst) {
+    last.parts = [...(last.parts ?? [{ ...last }]), s]
+    last.id = `${last.parts[0].id}+${s.id}`
+    last.title = last.parts.map(p => p.title).join(' | ')
+    last.openTasks = [...last.openTasks, ...s.openTasks]
+  } else grouped.push({ ...s })
+}
+steps = grouped
 log(steps.length ? `${args.change}: open steps ${steps.map(s => `${s.id}(${s.kind})`).join(', ')}` : `${args.change}: nothing open`)
 
 const KIND = {
@@ -90,7 +106,9 @@ Return the choice in three lines.`, { label: `design:${s.id}`, phase: 'Design' }
   phase('Implement')
   const impl = await agent(`${RULES}
 
-STEP ${s.id} — ${s.title} (tasks ${s.openTasks.join(', ')}). ${KIND[s.kind] ?? ''}
+STEP ${s.id} — ${s.title} (tasks ${s.openTasks.join(', ')}). ${KIND[s.kind] ?? ''}${s.parts ? `
+This agent handles ${s.parts.length} consecutive steps (${s.parts.map(p => p.id).join(', ')}) — read the context once, do them IN ORDER, and
+keep each one separable: its own tests, and leave a note per step so the gate can commit them one by one.` : ''}
 Test-first where there is logic. Do not start a later step. Do not commit (the gate commits). Return what changed, tests and fixtures
 added, and the numbers the step's tasks ask for.`, { label: `impl:${s.id}`, phase: 'Implement' })
 
@@ -120,7 +138,7 @@ ${JSON.stringify(again, null, 1)}`, { label: `fix:${s.id}:r2`, phase: 'Review' }
   done.push(await agent(`${RULES}
 
 GATE step ${s.id}. Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green.
-Write the step's numbers/delta under its tasks in tasks.md and tick what is done. Commit exactly the step's paths as
+Write the step's numbers/delta under its tasks in tasks.md and tick what is done. ${s.parts ? 'This was a group: make ONE COMMIT PER STEP in the group, in order (only that step's paths each), so bisect and revert stay per step. ' : ''}Commit exactly the step's paths as
 "<type>(<scope>): ${args.change} ${s.id} — <what>". If it cannot get green, do NOT commit: restore the tree to the last commit and write
 in the task what blocks it. Return: committed yes/no, hash, the numbers.`, { label: `gate:${s.id}`, phase: 'Gate' }))
 }
