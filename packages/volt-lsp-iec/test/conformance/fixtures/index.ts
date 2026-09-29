@@ -13,7 +13,7 @@ import { CONDITIONAL_PRAGMA_TESTS } from "./pragmas/conditional-pragma.js"
 import { CONVERSION_TESTS } from "./conversions/conversion.js"
 import { INTEGER_TO_INTEGER_TESTS } from "./conversions/integer-to-integer.js"
 import { CROSS_FAMILY_TESTS } from "./conversions/cross-family.js"
-import { TO_STRING_FORMAT_TESTS } from "./conversions/to-string-format.js"
+import { TO_STRING_FORMAT_TESTS, TRANSPILE_REVIEW_TO_STRING_TESTS } from "./conversions/to-string-format.js"
 import { INTEGER_TO_REAL_TESTS } from "./conversions/integer-to-real.js"
 import { REAL_TO_INTEGER_LADDER_TESTS } from "./conversions/real-to-integer-ladder.js"
 import { REAL_TO_INTEGER_TESTS } from "./conversions/real-to-integer.js"
@@ -24,7 +24,7 @@ import { ARITHMETIC_EDGE_TESTS } from "./operators/arithmetic-edges.js"
 import { BITWISE_TESTS } from "./operators/bitwise.js"
 import { SELECTION_TESTS } from "./operators/selection.js"
 import { ESCAPE_TESTS } from "./strings/escapes.js"
-import { STRING_EDGE_TESTS } from "./strings/string-edges.js"
+import { STRING_EDGE_TESTS, TRANSPILE_REVIEW_STRING_TESTS } from "./strings/string-edges.js"
 import { COMPARISON_TESTS } from "./operators/comparison.js"
 import { MIXED_TYPE_TESTS } from "./operators/mixed-type.js"
 import { MATH_DOMAIN_TESTS } from "./operators/math-domain.js"
@@ -133,7 +133,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "integer-to-integer", tests: INTEGER_TO_INTEGER_TESTS },
   { name: "integer-to-real", tests: INTEGER_TO_REAL_TESTS },
   { name: "cross-family", tests: CROSS_FAMILY_TESTS },
-  { name: "to-string-format", tests: TO_STRING_FORMAT_TESTS },
+  { name: "to-string-format", tests: [...TO_STRING_FORMAT_TESTS, ...TRANSPILE_REVIEW_TO_STRING_TESTS] },
   { name: "semantic", tests: SEMANTIC_TESTS },
   { name: "statement-edges", tests: STATEMENT_EDGE_TESTS },
   { name: "unary-operand", tests: UNARY_OPERAND_TESTS },
@@ -153,7 +153,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "comparison", tests: COMPARISON_TESTS },
   { name: "bitwise", tests: BITWISE_TESTS },
   { name: "selection", tests: SELECTION_TESTS },
-  { name: "string-edges", tests: STRING_EDGE_TESTS },
+  { name: "string-edges", tests: [...STRING_EDGE_TESTS, ...TRANSPILE_REVIEW_STRING_TESTS] },
   { name: "escapes", tests: ESCAPE_TESTS },
   { name: "mixed-type", tests: MIXED_TYPE_TESTS },
   { name: "variable-section", tests: VARIABLE_SECTION_TESTS },

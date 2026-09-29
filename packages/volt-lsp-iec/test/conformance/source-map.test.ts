@@ -38,7 +38,12 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // target (design §9 form 1), so `ref_ := 41` on `ref_ : REFERENCE TO INT REF= v` emits a line naming `v`. The
 // three come from `declarations/reference-binding.ts` — verified by unregistering that family, which returns the
 // count to 27. The rename is the model working; a reference that still named itself would mean it had not erased.
-const RENAMED_TARGETS = 30
+// 30 -> 34 (2026-09-29), from the transpile-review-2026-09-29 fixtures, each read:
+//   - three are `tr_18_queryinterface_into_global`'s `__QUERYINTERFACE` into a global — the documented `match` class;
+//   - ONE is a mapping DEFECT, not a rename: in `tr_20_output_index_moved_by_callee` the implicit VAR_OUTPUT reset at
+//     the top of a METHOD (`*o = 0i16`) maps to [125,147) of the GVL file — the middle of the sibling FUNCTION's
+//     `F_CS_out20 := TRUE;`, not the METHOD's own text. Open; this number drops by one when the reset's span is fixed.
+const RENAMED_TARGETS = 34
 
 interface Program {
   name: string

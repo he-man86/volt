@@ -659,4 +659,309 @@ initCalls := initCalls + 1;
 END_METHOD
 `,
   },
+
+  // ═══ transpile-review-2026-09-29: the lifecycle root causes (tasks 15, 16, 22, 23, 29). Each case asks the vendor
+  //     and the recorder answers. The values the review measured LIVE are quoted as leads, not as expectations. ═══
+
+  // Task 15: copying an FB instance whole (`b := a`). Does the copy's ADR(own member) pointer keep the SOURCE's
+  // address, or point at its own member? The review measured LIVE r=7, sameA=TRUE, sameB=FALSE (the copy keeps a's
+  // address). The lowering re-targets the pointer at b.x (r=5). Until a foreign target is modelled, the transpiler must
+  // refuse it.
+  {
+    name: "tr_15_fb_copy_keeps_pointer_address",
+    pouName: "FB_LANG_tr15_ptrcopy",
+    kind: "function_block",
+    feature: "an FB instance assigned whole to another; its POINTER field was initialized to ADR(its own member)",
+    fromDoc: "07-pragmas.md#no_assign",
+    note: "transpile-review-2026-09-29 task 15 (lower/statements.ts whole-value assign; lower/pointers.ts frame-relative targets).",
+    plcPrgVar: "a : FB_LANG_tr15_ptrcopy; b : FB_LANG_tr15_ptrcopy; rb : INT; ra : INT; sameA : BOOL; sameB : BOOL;",
+    plcPrgBody: [
+      "b := a;",
+      "a(set := 7);",
+      "b(set := 0);",
+      "rb := b.seen;",
+      "ra := a.seen;",
+      "sameA := b.p = ADR(a.x);",
+      "sameB := b.p = ADR(b.x);",
+    ].join("\n"),
+    source: `FUNCTION_BLOCK FB_LANG_tr15_ptrcopy
+VAR_INPUT
+	set : INT;
+END_VAR
+VAR
+	x : INT := 5;
+	p : POINTER TO INT := ADR(x);
+	seen : INT;
+END_VAR
+IF set <> 0 THEN
+	x := set;
+END_IF
+seen := p^;
+END_FUNCTION_BLOCK
+`,
+  },
+  // Task 16: an instance with a VAR_IN_OUT is called with its own variable first (so it holds its own binding), then
+  // overwritten whole by an instance bound to a different variable. Whose variable does the target's METHOD write
+  // through? Instance assignment copies the in-out's pointer (07-pragmas.md), so the lead is first=11, second=100. The
+  // lowering has no dispatch arm for the copied binding and panics.
+  {
+    name: "tr_16_fb_copy_carries_inout_binding",
+    pouName: "FB_LANG_tr16_worker",
+    kind: "function_block",
+    feature:
+      "an FB instance with a VAR_IN_OUT, called, then assigned whole from an instance bound elsewhere; its METHOD writes the in-out",
+    fromDoc: "07-pragmas.md#no_assign",
+    note: "transpile-review-2026-09-29 task 16 (lower/bindings.ts arms dispatch only for tags this instance's own calls wrote). Cf. callshape_inout_in_method_after_call.",
+    deferred: {
+      transpile:
+        "transpile-review-2026-09-29 task 16: CODESYS gives first=11, second=100 (the copied in-out binding is w's); the interpreter faults 'call through an interface that holds no instance' (measured 2026-09-29)",
+    },
+    plcPrgVar: "w : FB_LANG_tr16_worker; w2 : FB_LANG_tr16_worker; first : INT := 1; second : INT := 100;",
+    plcPrgBody: ["w(shared := first);", "w2(shared := second);", "w2 := w;", "w2.AddTen();"].join("\n"),
+    source: `FUNCTION_BLOCK FB_LANG_tr16_worker
+VAR_IN_OUT
+	shared : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD AddTen
+shared := shared + 10;
+END_METHOD
+`,
+  },
+  // Task 22: does an instance's implicit initialization (its non-constant field initializers) complete BEFORE its
+  // FB_Init (11-fb-lifecycle.md:23)? Three initializer shapes, each read inside FB_Init. The lowering runs FB_Init
+  // first: a null dereference for ADR(), and seen=0 / a=7 for the call.
+  {
+    name: "tr_22_fb_init_reads_adr_field",
+    pouName: "FB_LANG_tr22_adr",
+    kind: "function_block",
+    feature: "FB_Init dereferencing a POINTER field initialized to ADR(a member with an initial value)",
+    fromDoc: "11-fb-lifecycle.md#critical-rules",
+    note: "transpile-review-2026-09-29 task 22 (lower/lower.ts pushes the FB_Init invokes before the <FB>.__INIT invokes).",
+    deferred: {
+      transpile:
+        "transpile-review-2026-09-29 task 22: CODESYS runs the field initializers first (seen=7); the interpreter runs FB_Init first and dereferences a null pointer (measured 2026-09-29)",
+    },
+    plcPrgVar: "inst : FB_LANG_tr22_adr;",
+    plcPrgBody: "inst();",
+    source: `FUNCTION_BLOCK FB_LANG_tr22_adr
+VAR
+	m : INT := 7;
+	p : POINTER TO INT := ADR(m);
+	seen : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+END_VAR
+seen := p^;
+END_METHOD
+`,
+  },
+  {
+    name: "tr_22_fb_init_reads_call_field",
+    deferred: { transpile: "transpile-review-2026-09-29 task 22: CODESYS runs the call-initialized field before FB_Init (seen=7, a=100); the lowering runs FB_Init first (seen=0, a=7) (recorded 2026-09-29)" },
+    pouName: "FB_LANG_tr22_call",
+    kind: "function_block",
+    feature: "FB_Init reading, then overwriting, a field initialized by a FUNCTION call",
+    fromDoc: "11-fb-lifecycle.md#critical-rules",
+    note: "transpile-review-2026-09-29 task 22. An initializer that ran after FB_Init would also undo FB_Init's write (a=7).",
+    plcPrgVar: "inst : FB_LANG_tr22_call;",
+    plcPrgBody: "inst();",
+    source: `FUNCTION F_LANG_tr22_inc : INT
+VAR_INPUT
+	n : INT;
+END_VAR
+F_LANG_tr22_inc := n + 1;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr22_call
+VAR
+	a : INT := F_LANG_tr22_inc(6);
+	seen : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+END_VAR
+seen := a;
+a := 100;
+END_METHOD
+`,
+  },
+  {
+    name: "tr_22_fb_init_reads_this_field",
+    pouName: "FB_LANG_tr22_this",
+    kind: "function_block",
+    feature: "FB_Init reading a member through a POINTER field initialized to THIS",
+    fromDoc: "11-fb-lifecycle.md#critical-rules",
+    note: "transpile-review-2026-09-29 task 22. Cf. initseq_this (the same initializer, read in the body).",
+    plcPrgVar: "inst : FB_LANG_tr22_this;",
+    plcPrgBody: "inst();",
+    source: `FUNCTION_BLOCK FB_LANG_tr22_this
+VAR
+	self : POINTER TO FB_LANG_tr22_this := THIS;
+	n : INT := 7;
+	seen : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+END_VAR
+seen := self^.n;
+END_METHOD
+`,
+  },
+  // Task 23: an FB_Init argument naming a variable whose initializer does not fold (a FUNCTION call). Initializers and
+  // FB_Init interleave in declaration order (initseq_fb_init_declared_last, initseq_after_fb_init), so with the variable
+  // declared first the lead is got=4. The lowering passes 0. The twin declares the instance FIRST: does it compile, and
+  // what arrives then?
+  {
+    name: "tr_23_fb_init_argument_from_pending_init",
+    pouName: "FB_LANG_tr23_holder",
+    kind: "function_block",
+    feature: "an FB_Init argument naming a variable declared before the instance, whose initializer is a FUNCTION call",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    note: "transpile-review-2026-09-29 task 23 (lower/lower.ts recordedArgument never checks pendingInits).",
+    plcPrgVar: "holder : FB_LANG_tr23_holder;",
+    plcPrgBody: "holder();",
+    source: `FUNCTION F_LANG_tr23_inc : INT
+VAR_INPUT
+	n : INT;
+END_VAR
+F_LANG_tr23_inc := n + 1;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr23_target
+VAR
+	got : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	v : INT;
+END_VAR
+got := v;
+END_METHOD
+
+FUNCTION_BLOCK FB_LANG_tr23_holder
+VAR
+	x : INT := F_LANG_tr23_inc(3);
+	h : FB_LANG_tr23_target(v := x);
+	got : INT;
+END_VAR
+got := h.got;
+END_FUNCTION_BLOCK
+`,
+  },
+  {
+    name: "tr_23_fb_init_argument_from_pending_init_reversed",
+    pouName: "FB_LANG_tr23r_holder",
+    kind: "function_block",
+    feature: "an FB_Init argument naming a variable declared AFTER the instance, whose initializer is a FUNCTION call",
+    fromDoc: "11-fb-lifecycle.md#fb_init",
+    note: "transpile-review-2026-09-29 task 23: the reversed-order twin.",
+    plcPrgVar: "holder : FB_LANG_tr23r_holder;",
+    plcPrgBody: "holder();",
+    source: `FUNCTION F_LANG_tr23r_inc : INT
+VAR_INPUT
+	n : INT;
+END_VAR
+F_LANG_tr23r_inc := n + 1;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr23r_target
+VAR
+	got : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD FB_Init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL;
+	bInCopyCode : BOOL;
+	v : INT;
+END_VAR
+got := v;
+END_METHOD
+
+FUNCTION_BLOCK FB_LANG_tr23r_holder
+VAR
+	h : FB_LANG_tr23r_target(v := x);
+	x : INT := F_LANG_tr23r_inc(3);
+	got : INT;
+END_VAR
+got := h.got;
+END_FUNCTION_BLOCK
+`,
+  },
+  // Task 29: a user METHOD whose name is also a Rust prelude trait method (Clone / To_Owned / Into / Try_Into). With a
+  // result, the emitted call picks the trait's method (E0308). Without one it compiles and silently runs the trait's
+  // method instead of the user's body. Each name, with and without a result. The ones the emitted Rust still gets
+  // wrong — all eight, recorded 2026-09-29 — carry the task as a known divergence.
+  ...(["Clone", "To_Owned", "Into", "Try_Into"] as const).flatMap((method): LanguageTest[] => {
+    const slug = method.toLowerCase()
+    const deferred = (): Pick<LanguageTest, "deferred"> => ({
+      deferred: {
+        transpile: `transpile-review-2026-09-29 task 29: the emitted call resolves to the Rust prelude's ${slug}() instead of the user's METHOD — it does not compile, or (clone/to_owned without a result) runs the trait's method and leaves b.v at 100 where CODESYS gives 0 (recorded 2026-09-29)`,
+      },
+    })
+    return [
+      {
+        name: `tr_29_method_named_${slug}_result`,
+        ...deferred(),
+        pouName: `FB_LANG_tr29_${slug}_r`,
+        kind: "function_block",
+        feature: `a METHOD named ${method} returning a field, called from outside`,
+        fromDoc: "08-identifiers.md",
+        note: "transpile-review-2026-09-29 task 29 (emit/rust/emit.ts baseFnName reserves no prelude trait method name).",
+        plcPrgVar: `b : FB_LANG_tr29_${slug}_r; res : INT;`,
+        plcPrgBody: `res := b.${method}();`,
+        source: `FUNCTION_BLOCK FB_LANG_tr29_${slug}_r
+VAR
+	v : INT := 100;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD ${method} : INT
+${method} := v;
+END_METHOD
+`,
+      },
+      {
+        name: `tr_29_method_named_${slug}_no_result`,
+        ...deferred(),
+        pouName: `FB_LANG_tr29_${slug}_n`,
+        kind: "function_block",
+        feature: `a METHOD named ${method} with no result, clearing a field, called as a statement`,
+        fromDoc: "08-identifiers.md",
+        note: "transpile-review-2026-09-29 task 29: the result-less call compiles in Rust and runs the derived trait method.",
+        plcPrgVar: `b : FB_LANG_tr29_${slug}_n; res : INT;`,
+        plcPrgBody: `b.${method}();\nres := b.v;`,
+        source: `FUNCTION_BLOCK FB_LANG_tr29_${slug}_n
+VAR
+	v : INT := 100;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD ${method}
+v := 0;
+END_METHOD
+`,
+      },
+    ]
+  }),
 ]

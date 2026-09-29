@@ -104,6 +104,7 @@ those values into the new fixture's recording.
 - Fix: when the literal does not fit `lift(neighbour)`, keep `integerLiteralType(literal)` and let commonType meet
   the pair; assignment still wraps at the target (cc_literal_3e9_into_dint stays right).
 - [ ] 6.1 Record `literal_beyond_dint_neighbour` — red.
+  Recorded 2026-09-29 (record:exec): `tr_6_literal_beyond_dint_neighbour` — diverges (deferred.transpile).
 - [ ] 6.2 Fix.
 
 ## 7. A negative literal is a runtime negation, not a constant
@@ -161,6 +162,7 @@ those values into the new fixture's recording.
 - Fix: keep the argument's own capacity when it is already a string of the named family; size a wide result by the
   source's capacity.
 - [ ] 11.1 Record `string_conversion_beyond_80` — red.
+  Recorded 2026-09-29 (record:exec): `tr_11_string_conversion_beyond_80` — not-lowered (`conversion-type`). CODESYS converts the whole operand (namedInt=5, crossNamed=12345).
 - [ ] 11.2 Fix.
 
 ## 12. LDT/LDATE/LTOD → STRING: interpreter prints the raw count, Rust calls missing helpers
@@ -172,6 +174,7 @@ those values into the new fixture's recording.
   (2300-01-01 prints 1715-06-13), so the `as i64` in the emitter is right for these.
 - Fix: implement ldt/ldate/ltod text in `values.ts` and the prelude from the recording (or refuse until then).
 - [ ] 12.1 Record `fmt_long_dates` (the 11-case LIVE program) — red.
+  Recorded 2026-09-29 (record:exec): `tr_12_fmt_long_dates` — diverges; the emitted Rust does not compile. CODESYS wraps LDT/LDATE 2300 to 1715 (`LDT#1715-06-13-00:25:26.290448384`).
 - [ ] 12.2 Fix both backends.
 
 ## 13. FOR whose limit is wider than the counter emits a step that does not compile (E0308)
@@ -192,6 +195,7 @@ those values into the new fixture's recording.
 - CODESYS: `set_reset_basic` / `set_reset_expression` recordings (R= TRUE clears, S= FALSE leaves alone).
 - Fix: build the latch IF inside each arm of storeThrough.
 - [ ] 14.1 Fixture `set_reset_through_multi_target_pointer` — red.
+  Recorded 2026-09-29 (record:exec): `tr_14_set_reset_through_multi_target_pointer` — diverges.
 - [ ] 14.2 Fix.
 
 ## 15. Copying an FB instance whole re-targets its ADR(own member) pointers
@@ -203,6 +207,7 @@ those values into the new fixture's recording.
 - Fix: refuse (`lw.bail`) a whole-value store of a type whose pointer/reference fields have instance-relative
   targets (or model a foreign target).
 - [ ] 15.1 Fixture `fb_copy_keeps_pointer_address` — red (expect refusal until modelled).
+  Recorded 2026-09-29 (record:exec): `tr_15_fb_copy_keeps_pointer_address` — not-lowered (`pointer-value`). CODESYS: sameA=TRUE, sameB=FALSE, rb=7.
 - [ ] 15.2 Fix.
 
 ## 16. Copying an FB instance whole carries its in-out binding tag, and the target's METHOD panics
@@ -213,6 +218,7 @@ those values into the new fixture's recording.
   lives in the instance (`callshape_inout_in_method_after_call`). Expected first=11, second=100.
 - Fix: refuse (`call-fb-inout`) a whole-value store into an instance with armed dispatches, or arm every tag of the FB.
 - [ ] 16.1 src test next to `lower.test.ts:614` with the target called first — red.
+  Recorded 2026-09-29 (record:exec): `tr_16_fb_copy_carries_inout_binding` — diverges (the interpreter faults). CODESYS: first=11, second=100.
 - [ ] 16.2 Fix.
 
 ## 17. ANY input's pValue ignores the pointer's declared type
@@ -226,6 +232,7 @@ those values into the new fixture's recording.
 - Fix: bail `pointer-type` on a mismatched pValue dereference; prune arms unreachable by constant diSize so
   Increment.AnyInt still lowers.
 - [ ] 17.1 Fixtures reading BYTE/UINT/DINT through SINT/INT/REAL/BYTE pointers — red (refusal).
+  Recorded 2026-09-29 (record:exec): `tr_17_any_pvalue_dint_via_real`, `tr_17_any_pvalue_byte_via_sint`, `tr_17_any_pvalue_uint_via_int`, `tr_17_any_pvalue_dint_write_via_byte` — diverge.
 - [ ] 17.2 Fix.
 
 ## 18. __QUERYINTERFACE into a global never marks its edge foreign
@@ -235,6 +242,7 @@ those values into the new fixture's recording.
   (`interface-instance-relative`). Expected 1 (or refusal).
 - Fix: compute `foreign` in queryInto exactly as storeInterface does.
 - [ ] 18.1 Fixture (the p3 program) expecting refusal — red.
+  Recorded 2026-09-29 (record:exec): `tr_18_queryinterface_into_global` — diverges (CODESYS accepts it: r1=r2=1). Its `__QUERYINTERFACE` adds three to the source map's rename ceiling.
 - [ ] 18.2 Fix.
 
 ## 19. A METHOD's VAR_IN_OUT loses to the FB field or VAR_STAT it shadows
@@ -244,6 +252,7 @@ those values into the new fixture's recording.
   `shadowing_method_local_shadows_member` recordings). Expected r=101, v=101.
 - Fix: in routine mode, the routine's own in-outs win before statics and byName.
 - [ ] 19.1 Record `method_inout_shadows_member` (+ VAR_STAT variant) — red.
+  Recorded 2026-09-29 (record:exec): `tr_19_method_inout_shadows_member`, `tr_19_method_inout_shadows_var_stat` — diverge (CODESYS: res=v=101).
 - [ ] 19.2 Fix.
 
 ## 20. A routine's `name => target` output is lent `&mut` before the call, so its index is read too early
@@ -253,6 +262,7 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): arr[0]=0, arr[1]=5, arr2[0]=0, arr2[1]=5 — outputs copied out after the call.
 - Fix: copy routine outputs out after the invoke (temp in-out, then assign), as lowerCallStatement does for FB outputs.
 - [ ] 20.1 Record `callshape_output_index_moved_by_callee` — red.
+  Recorded 2026-09-29 (record:exec): `tr_20_output_index_moved_by_callee` — diverges (CODESYS: arr[1]=arr2[1]=5). It also found an LSP false positive (`'o' is no output of 'F_CS_OUT20'`), now in `KNOWN_DIVERGENCES.codesys`, and a source-map defect (a METHOD's VAR_OUTPUT reset maps into the sibling FUNCTION's text; `RENAMED_TARGETS`).
 - [ ] 20.2 Fix.
 
 ## 21. A namespace-qualified FUNCTION is cached and scoped by its bare name
@@ -265,6 +275,7 @@ those values into the new fixture's recording.
   Expected a=1020, b=3.
 - Fix: key and scope FUNCTION routines by symbol identity; resolve bare calls with the asker's precedence.
 - [ ] 21.1 lower.test.ts case with a namespaced library — red.
+  Recorded 2026-09-29 (record:exec): `tr_21_namespace_qualified_first`, `tr_21_namespace_bare_first` — diverge (the harness reaches StringUtils `Stu.`; no lower.test.ts fallback needed).
 - [ ] 21.2 Fix.
 
 ## 22. An instance's non-constant field initializers run AFTER its FB_Init
@@ -275,6 +286,7 @@ those values into the new fixture's recording.
   `fb_init_runs_with_declared_arguments`). Expected seen=7, a=100.
 - Fix: emit the chain's __INIT before the FB_Init invokes; record or refuse the EXTENDS interleaving.
 - [ ] 22.1 Record fixtures: FB_Init reading an ADR(), call and THIS-initialized field — red.
+  Recorded 2026-09-29 (record:exec): `tr_22_fb_init_reads_adr_field` (diverges, null deref), `tr_22_fb_init_reads_call_field` (diverges), `tr_22_fb_init_reads_this_field` (not-lowered, `place-not-local`). CODESYS: seen=7 in all three.
 - [ ] 22.2 Fix.
 
 ## 23. An FB_Init argument read from a variable with a non-folding initializer passes 0
@@ -285,6 +297,7 @@ those values into the new fixture's recording.
   `initseq_after_fb_init`). Expected 4.
 - Fix: interleave initSequence and fbInitCalls by declaration position (also lifts `init-reads-instance`), or refuse.
 - [ ] 23.1 Fixture `fb_init_argument_from_pending_init` — red.
+  Recorded 2026-09-29 (record:exec): `tr_23_fb_init_argument_from_pending_init` (CODESYS got=4), `tr_23_fb_init_argument_from_pending_init_reversed` (got=0) — both not-lowered (`fb-init-argument`).
 - [ ] 23.2 Fix.
 
 ## 24. A VAR_TEMP with a non-constant initializer is always reset to 0
@@ -294,6 +307,7 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): fbSeen1=7, fbSeen2=8, prgSeen1=7, prgSeen2=8 — evaluated on every call.
 - Fix: re-emit the initializer expression in tempResets.
 - [ ] 24.1 Record `var_temp_dynamic_init` — red.
+  Recorded 2026-09-29 (record:exec): `var_temp_dynamic_init` — diverges (CODESYS: seen 9 then 10, expr 21).
 - [ ] 24.2 Fix.
 
 ## 25. Array elements ignore their element type's default (enum, alias with initializer, alias array)
@@ -306,6 +320,7 @@ those values into the new fixture's recording.
   leaves the tail at 0 (r_alias_part2=0), so today's tail behaviour is right.
 - Fix: resolve the element default in lowering and carry it in IrInit; keep partial tails at the family zero.
 - [ ] 25.1 Record `array_element_type_default` — red.
+  Recorded 2026-09-29 (record:exec): `array_element_type_default` — diverges.
 - [ ] 25.2 Fix.
 
 ## 26. SIZEOF of an FB counts VAR CONSTANT and ignores IMPLEMENTS
@@ -315,6 +330,7 @@ those values into the new fixture's recording.
   (Volt 16), two=32 (Volt 16), baseline=16.
 - Fix: skip replaced scalar constants; add 8 bytes per implemented interface; keep refusing what is not measured.
 - [ ] 26.1 Record `mem_fb_var_constant_*` and `mem_fb_implements_*` — red.
+  Recorded 2026-09-29 (record:exec): `mem_fb_var_constant_scalar` (SIZEOF 16), `mem_fb_implements_one` (24), `mem_fb_implements_two` (32) — diverge; `mem_fb_var_constant_non_replaced` (24) and `mem_fb_var_constant_struct` (32) — confirmed.
 - [ ] 26.2 Fix.
 
 ## 27. Every loop panics after 1,000,000 passes; the two backends also trip at different counts
@@ -328,6 +344,7 @@ those values into the new fixture's recording.
 - Fix: remove the cap from emitted semantics (at most a harness-only guard behind a cfg/option); where a guard
   remains, both backends count one iteration = one body entry.
 - [ ] 27.1 Boundary test running both backends at CAP and CAP+1 for FOR/WHILE/REPEAT; record `loop_cap_*` — red.
+  Recorded 2026-09-29 (record:exec): `tr_27_loop_cap_for_1000000`, `tr_27_loop_cap_for_1000001`, `tr_27_loop_cap_repeat_1000001`, `tr_27_loop_cap_while_5000000` — all diverge (CODESYS runs every pass; the interpreter faults on for_1000001 and while_5000000, the Rust on for_1000000 and repeat_1000001).
 - [ ] 27.2 Fix.
 
 ## Emit / interpreter layer
@@ -341,6 +358,7 @@ those values into the new fixture's recording.
   so read results as bits.
 - Fix: emit exactly `if a > b { a } else { b }` (and the MIN/LIMIT forms) for reals; make `pick` match.
 - [ ] 28.1 Record `minmax_limit_nan_signed_zero` (bit readback) — red.
+  Recorded 2026-09-29 (record:exec): `tr_28_minmax_limit_nan_signed_zero_lreal`, `tr_28_minmax_limit_nan_signed_zero_real` — not-lowered (`pointer-type`, the bit readback).
 - [ ] 28.2 Fix both backends.
 
 ## 29. A user METHOD named Clone / To_Owned / Into / Try_Into is shadowed by a prelude trait method
@@ -350,6 +368,7 @@ those values into the new fixture's recording.
   derived clone (interp r=100, Rust r=0).
 - Fix: reserve clone, to_owned, into, try_into (or emit UFCS calls).
 - [ ] 29.1 Fixture per name, with and without a result — red.
+  Recorded 2026-09-29 (record:exec): all eight `tr_29_method_named_{clone,to_owned,into,try_into}_{result,no_result}` — diverge (six do not compile; clone/to_owned without a result leave b.v=100 where CODESYS gives 0).
 - [ ] 29.2 Fix.
 
 ## 30. A VAR_TEMP array/struct reset ignores its declared initializer
@@ -359,6 +378,7 @@ those values into the new fixture's recording.
 - CODESYS: VAR_TEMP resets to its declared value each call (`decl_temp_initialized`, `decl_temp_array_counts`).
 - Fix: `return this.initOf(e.type, e.init)`.
 - [ ] 30.1 Fixtures `decl_temp_array_init_resets`, `decl_temp_struct_init_resets` — red.
+  Recorded 2026-09-29 (record:exec): `decl_temp_array_init_resets`, `decl_temp_struct_init_resets` — diverge (the Rust resets to zero).
 - [ ] 30.2 Fix.
 
 ## 31. BIT conversions dispatch on family "bitstring" while the Rust type is bool
@@ -367,6 +387,7 @@ those values into the new fixture's recording.
 - CODESYS: BIT reads as BOOL (`type_dut_struct_with_bit_fields`, `ct_bit_fields`); `xf_bool_to_string` = 'TRUE'.
 - Fix: decide bool-ness by `isBit(t) || family === "bool"` in one place.
 - [ ] 31.1 Fixture converting a BIT field through each conversion — red.
+  Recorded 2026-09-29 (record:exec): `tr_31_bit_conversions` — diverges; the emitted Rust does not compile. CODESYS accepts `INT_TO_BIT` (2 -> TRUE).
 - [ ] 31.2 Fix.
 
 ## 32. LTIME_TO_STRING casts the u64 LTIME to i64
@@ -376,6 +397,7 @@ those values into the new fixture's recording.
 - CODESYS: LTIME is unsigned 64-bit ns up to LTIME#213503d23h34m33s709ms551us615ns.
 - Fix: `iec_ltime_text(ns: u64)`, no cast.
 - [ ] 32.1 Extend `fmt_ltime_every_component` with values ≥ 2^63 ns — red.
+  Recorded 2026-09-29 (record:exec): `tr_32_fmt_ltime_past_i64` — diverges (the Rust prints a negative duration).
 - [ ] 32.2 Fix.
 
 ## 33. LREAL_TO_STRING rounds an exact 16th-digit tie to even in Rust
@@ -385,6 +407,7 @@ those values into the new fixture's recording.
   2500000000000005 → '2.50000000000001e15'; non-tie controls match both rules.
 - Fix: in the prelude, take 17 exact digits and round half-up.
 - [ ] 33.1 Record `fmt_lreal_tie_*` (7 cells) — red.
+  Recorded 2026-09-29 (record:exec): `tr_33_fmt_lreal_tie` — diverges (CODESYS rounds the tie up: `1.00000000000001e15`).
 - [ ] 33.2 Fix Rust.
 
 ## 34. A string's bytes past its terminator are thrown away
@@ -396,6 +419,7 @@ those values into the new fixture's recording.
   'abcBC'. (Task 45's LIVE run shows assignment copies bytes past a NUL, uc3=99.)
 - Fix: hold the full n+1 buffer; len = first 0; a store at or past len re-scans; `.to()` keeps units when N == M.
 - [ ] 34.1 Record the `lib_prim_char_behind` extension — red.
+  Recorded 2026-09-29 (record:exec): `tr_34_lib_prim_char_behind` — not-lowered (`pointer-type`). CODESYS: u='abcBC', lenU=5.
 - [ ] 34.2 Fix both backends.
 
 ---
@@ -411,6 +435,7 @@ those values into the new fixture's recording.
 - Fix: wrap the folded step to the counter width (`wrapping_add(255u8)`), keep the direction from the signed literal;
   refuse a runtime step or folded step whose type does not convert.
 - [ ] 35.1 Record `for_unsigned_negative_step` (split per loop) — red.
+  Recorded 2026-09-29 (record:exec): `tr_35_for_byte_step_minus_one`, `tr_35_for_uint_step_minus_two` — diverge (the Rust does not compile); `tr_35_for_byte_step_255` — confirmed; `tr_35_for_byte_runtime_int_step`, `tr_35_for_sint_step_300` — refused by CODESYS, lsp-gap (`MEASURED_SILENT`).
 - [ ] 35.2 Fix.
 
 ## 36. FOR literal limit is narrowed into the counter type
@@ -419,6 +444,7 @@ those values into the new fixture's recording.
 - CODESYS: `cc6_loop_cannot_exit` never finished (commit 84100e3ff7) — the compare is against 200.
 - Fix: lower the limit without the counter as expected type (needs task 13 first).
 - [ ] 36.1 Recordable variant with an EXIT guard (expected n=300, small=44) — red.
+  Recorded 2026-09-29 (record:exec): `tr_36_for_literal_limit_beyond_counter` — diverges (CODESYS: n=n2=300, small=44).
 - [ ] 36.2 Fix.
 
 ## 37. CASE labels outside the selector type, or inverted ranges, reach the emitter verbatim
@@ -427,6 +453,7 @@ those values into the new fixture's recording.
   range `5..1` and `0..200` on SINT are BUILD ERRORS ("Lower border must be lower than upper border").
 - Fix: drop out-of-type labels at lowering (never match); bail on inverted / out-of-type ranges. Add the LSP check.
 - [ ] 37.1 Record the four `case_label_*` / `case_range_*` fixtures — red.
+  Recorded 2026-09-29 (record:exec): `tr_37_case_label_wraps_300`, `tr_37_case_label_wraps_minus_212` ("Cannot convert type 'INT' to type 'SINT'"), `tr_37_case_range_inverted`, `tr_37_case_range_beyond_type` ("Lower border must be lower than upper border") — ALL refused by CODESYS; the wrapped-label premise is contradicted. lsp-gap (`MEASURED_SILENT`).
 - [ ] 37.2 Fix.
 
 ## 38. Implicit string-kind conversions CODESYS refuses are lowered
@@ -454,6 +481,7 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): every form REFUSED ("Cannot convert type 'LTIME' to type 'ULINT'" …).
 - Fix: refuse the pair in lowering (and the type layer); record as `rejects`.
 - [ ] 40.1 Fixture `date_plus_ltime_rejected` — red.
+  Recorded 2026-09-29 (record:exec): `tr_40_date_plus_ltime`, `tr_40_dt_plus_ltime`, `tr_40_tod_minus_ltime`, `tr_40_ltime_plus_date` — refused by CODESYS ("Cannot convert type 'LTIME' to type 'ULINT'"), lsp-gap (`MEASURED_SILENT`).
 - [ ] 40.2 Fix.
 
 ## 41. MUX is lazy in Rust but eager in the interpreter; LIMIT evaluates IN before MN
@@ -463,6 +491,7 @@ those values into the new fixture's recording.
 - CODESYS: unrecorded (help text says SEL/MUX evaluate only the selected input).
 - Fix: record SEL/MUX/LIMIT with side-effecting arguments; make the IR contract and both backends follow it.
 - [ ] 41.1 Record `sel_mux_limit_side_effects` — red.
+  Recorded 2026-09-29 (record:exec): `tr_41_mux_side_effects`, `tr_41_sel_side_effects`, `tr_41_limit_evaluation_order` — diverge. CODESYS: MUX and SEL run only the selected input; LIMIT leaves x=4.
 - [ ] 41.2 Fix.
 
 ## 42. ANY variant key collapses array types
@@ -470,6 +499,7 @@ those values into the new fixture's recording.
 - Repro: one ANY FUNCTION called with ARRAY[0..3] OF INT and ARRAY[0..9] OF BYTE → Rust E0308; interp 8/10.
 - Fix: key arrays by element + bounds (recursively). Enums/pointers were refuted.
 - [ ] 42.1 Fixture — red.
+  Recorded 2026-09-29 (record:exec): `tr_42_any_array_variant_key` — diverges; the emitted Rust does not compile (E0308).
 - [ ] 42.2 Fix.
 
 ## 43. Output bindings are type-checked by family, not by the assignment relation
@@ -479,6 +509,7 @@ those values into the new fixture's recording.
   `conversion_implicit_dint_to_int`).
 - Fix: `isAssignable(target.type, field.type)` (types/compat.ts) on both paths.
 - [ ] 43.1 Fixtures WORD=>INT, WORD=>UDINT, INT=>REAL (run), DINT=>INT (rejected) — red.
+  Recorded 2026-09-29 (record:exec): `tr_43_output_word_to_int` (a=-1), `tr_43_output_word_to_udint` (ud=65535), `tr_43_output_int_to_real` (res=-3.0) — not-lowered (`call-output-type`); `tr_43_output_dint_to_int` — refused by CODESYS and the LSP.
 - [ ] 43.2 Fix.
 
 ## 44. A pointer stepped one element below its array's first element becomes NULL
@@ -488,6 +519,7 @@ those values into the new fixture's recording.
 - CODESYS: a pointer is a byte address; ADR(arr[0]) - 2 is non-zero.
 - Fix: bias array-element tags so no in-range step reaches 0.
 - [ ] 44.1 Fixture — red.
+  Recorded 2026-09-29 (record:exec): `tr_44_pointer_step_below_first_element` — not-lowered (`pointer-step`). CODESYS: back=backTwo=11, isNull=FALSE.
 - [ ] 44.2 Fix.
 
 ## 45. A STRING literal with an embedded $00 keeps the characters after it
@@ -497,6 +529,7 @@ those values into the new fixture's recording.
   lenU=2, uc3=99 (assignment copies the bytes behind the NUL), weqAb=TRUE, cat='abX', lenS3=2.
 - Fix: len = position of the first 0 unit, but keep the bytes behind it (ties into task 34).
 - [ ] 45.1 Record `string_embedded_nul` — red.
+  Recorded 2026-09-29 (record:exec): `tr_45_string_embedded_nul` — diverges (CODESYS: LEN 2, bytes behind the NUL are 0).
 - [ ] 45.2 Fix.
 
 ## 46. EXPT: the interpreter's Math.pow disagrees with pow semantics; EXPT(0, negative) stops CODESYS
@@ -506,6 +539,7 @@ those values into the new fixture's recording.
   1e19**8 = 1E+152 exactly; EXPT(0,-1) and EXPT(0,-0.5) STOP; EXPT(0,-inf) = +inf with no stop.
 - Fix: interpreter uses a correctly rounded C-semantics pow; both backends stop on 0 ** finite-negative.
 - [ ] 46.1 Record `exptdom_*` (one fixture per case) — red.
+  Recorded 2026-09-29 (record:exec): `tr_46_exptdom_one_pow_nan`, `tr_46_exptdom_minus_one_pow_inf`, `tr_46_exptdom_minus_one_pow_minus_inf`, `tr_46_exptdom_real_one_pow_nan`, `tr_46_exptdom_1e19_pow_8` — diverge; `tr_46_exptdom_zero_pow_minus_one`, `tr_46_exptdom_zero_pow_minus_half` — CODESYS stops (timed out), both backends finish: diverge; `tr_46_exptdom_nan_pow_zero`, `tr_46_exptdom_zero_pow_minus_inf` — confirmed.
 - [ ] 46.2 Fix.
 
 ## 47. LINT/ULINT/LWORD → REAL is rounded twice in the interpreter
@@ -513,6 +547,7 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): single rounding — 2^60+2^36+1 → 1152921642045800448 (Rust `as f32` right; interpreter gives 2^60).
 - Fix: round the bigint straight to 24 significant bits with a sticky bit when the target is 32-bit.
 - [ ] 47.1 Record `i2r_lint_to_real_double_round` — red.
+  Recorded 2026-09-29 (record:exec): `tr_47_i2r_lint_to_real_double_round` — diverges (CODESYS: 1.15292164E+18).
 - [ ] 47.2 Fix.
 
 ---

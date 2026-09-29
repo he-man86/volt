@@ -210,4 +210,140 @@ END_FUNCTION_BLOCK
     plcPrgBody: "sz_fb_pack_mode_struct_control := SIZEOF(inst_fb_pack_mode_struct_control);",
     source: "{attribute 'pack_mode' := '1'}\nTYPE DUT_MEM_packed :\nSTRUCT\n\tflag : BOOL;\n\twide : DINT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_MEM_fb_pack_mode_struct_control\nVAR\n\theld : DUT_MEM_packed;\nEND_VAR\nheld.wide := held.wide + 1;\nEND_FUNCTION_BLOCK\n",
   },
+  // ─── transpile-review-2026-09-29 task 17: AN ANY INPUT'S pValue IS A RAW BYTE ADDRESS ──────────────────
+  // `lower/pointers.ts` binds `v.pValue` to the whole argument AT THE ARGUMENT'S TYPE, so a pointer of another declared
+  // type reads (or writes) the argument as if it were its own type. CODESYS reinterprets the bytes (little-endian).
+  // One fixture per mismatch; each passes the edge values that make the reinterpretation visible.
+  {
+    name: "tr_17_any_pvalue_dint_via_real",
+    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
+    pouName: "F_MEM_tr17_dint_via_real",
+    kind: "function" as const,
+    feature: "task 17: a DINT passed to an ANY input, read through POINTER TO REAL from pValue — the bits as a REAL",
+    fromDoc: doc,
+    plcPrgVar:
+      "dOne : DINT := 1065353216; dMinusOne : DINT := -1082130432; dZero : DINT := 0; rOne : LREAL; rMinusOne : LREAL; rZero : LREAL;",
+    plcPrgBody:
+      "rOne := F_MEM_tr17_dint_via_real(v := dOne); rMinusOne := F_MEM_tr17_dint_via_real(v := dMinusOne); rZero := F_MEM_tr17_dint_via_real(v := dZero);",
+    source:
+      "FUNCTION F_MEM_tr17_dint_via_real : LREAL\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nVAR\n\tpr : POINTER TO REAL;\nEND_VAR\npr := v.pValue;\nF_MEM_tr17_dint_via_real := pr^;\nEND_FUNCTION\n",
+  },
+  {
+    name: "tr_17_any_pvalue_byte_via_sint",
+    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
+    pouName: "F_MEM_tr17_byte_via_sint",
+    kind: "function" as const,
+    feature: "task 17: a BYTE passed to an ANY input, read through POINTER TO SINT and halved — the byte's signed view",
+    fromDoc: doc,
+    plcPrgVar: "b254 : BYTE := 254; b128 : BYTE := 128; b127 : BYTE := 127; h254 : DINT; h128 : DINT; h127 : DINT;",
+    plcPrgBody:
+      "h254 := F_MEM_tr17_byte_via_sint(v := b254); h128 := F_MEM_tr17_byte_via_sint(v := b128); h127 := F_MEM_tr17_byte_via_sint(v := b127);",
+    source:
+      "FUNCTION F_MEM_tr17_byte_via_sint : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nVAR\n\tps : POINTER TO SINT;\nEND_VAR\nps := v.pValue;\nF_MEM_tr17_byte_via_sint := ps^ / 2;\nEND_FUNCTION\n",
+  },
+  {
+    name: "tr_17_any_pvalue_uint_via_int",
+    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
+    pouName: "F_MEM_tr17_uint_via_int",
+    kind: "function" as const,
+    feature: "task 17: a UINT passed to an ANY input, read through POINTER TO INT — the word's signed view",
+    fromDoc: doc,
+    plcPrgVar: "uMax : UINT := 65535; uHigh : UINT := 32768; uOne : UINT := 1; iMax : DINT; iHigh : DINT; iOne : DINT;",
+    plcPrgBody:
+      "iMax := F_MEM_tr17_uint_via_int(v := uMax); iHigh := F_MEM_tr17_uint_via_int(v := uHigh); iOne := F_MEM_tr17_uint_via_int(v := uOne);",
+    source:
+      "FUNCTION F_MEM_tr17_uint_via_int : DINT\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nVAR\n\tpi : POINTER TO INT;\nEND_VAR\npi := v.pValue;\nF_MEM_tr17_uint_via_int := pi^;\nEND_FUNCTION\n",
+  },
+  {
+    name: "tr_17_any_pvalue_dint_write_via_byte",
+    deferred: { transpile: "transpile-review-2026-09-29 task 17: CODESYS reinterprets the argument's bytes through the pointer's declared type (little-endian); lowering binds pValue at the argument's own type (recorded 2026-09-29)" },
+    pouName: "F_MEM_tr17_dint_write_via_byte",
+    kind: "function" as const,
+    feature: "task 17: pb^ := 16#FF through POINTER TO BYTE from a DINT argument's pValue — only the low byte changes",
+    fromDoc: doc,
+    plcPrgVar: "dMixed : DINT := 16#01020304; dHigh : DINT := 16#7FFFFF00; okMixed : BOOL; okHigh : BOOL;",
+    plcPrgBody:
+      "okMixed := F_MEM_tr17_dint_write_via_byte(v := dMixed); okHigh := F_MEM_tr17_dint_write_via_byte(v := dHigh);",
+    source:
+      "FUNCTION F_MEM_tr17_dint_write_via_byte : BOOL\nVAR_INPUT\n\tv : ANY;\nEND_VAR\nVAR\n\tpb : POINTER TO BYTE;\nEND_VAR\npb := v.pValue;\npb^ := 16#FF;\nF_MEM_tr17_dint_write_via_byte := TRUE;\nEND_FUNCTION\n",
+  },
+  // ─── transpile-review-2026-09-29 task 26: WHAT A VAR CONSTANT AND AN IMPLEMENTS ADD TO SIZEOF(FB) ─────
+  // `lower/bytes.ts` lays out every VAR CONSTANT (the section's `constant` flag is not in its skip list) and never
+  // reads `unit.implements`. The baseline is `mem_sizeof_fb_baseline_one_dint`; each variant below adds ONE thing to
+  // that same one-DINT FB: a replaced scalar constant, a const_non_replaced one, a struct constant, one interface, two.
+  {
+    name: "mem_fb_var_constant_scalar",
+    deferred: { transpile: "transpile-review-2026-09-29 task 26: a replaced scalar VAR CONSTANT takes no instance storage in CODESYS (SIZEOF 16); the layout counts it (24) (recorded 2026-09-29)" },
+    pouName: "FB_MEM_fb_var_constant_scalar",
+    kind: "function_block" as const,
+    feature: "task 26: SIZEOF the one-DINT FB plus a scalar VAR CONSTANT (replaced by the compiler) — is it in the instance?",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_var_constant_scalar : FB_MEM_fb_var_constant_scalar; sz_fb_var_constant_scalar : ULINT;",
+    plcPrgBody: "sz_fb_var_constant_scalar := SIZEOF(inst_fb_var_constant_scalar);",
+    source:
+      "FUNCTION_BLOCK FB_MEM_fb_var_constant_scalar\nVAR\n\tkept : DINT;\nEND_VAR\nVAR CONSTANT\n\tc : LINT := 5;\nEND_VAR\nkept := kept + LINT_TO_DINT(c);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_fb_var_constant_non_replaced",
+    pouName: "FB_MEM_fb_var_constant_non_replaced",
+    kind: "function_block" as const,
+    feature: "task 26: the same scalar VAR CONSTANT under {attribute 'const_non_replaced'} — kept as a symbol, in the instance",
+    fromDoc: doc,
+    plcPrgVar:
+      "inst_fb_var_constant_non_replaced : FB_MEM_fb_var_constant_non_replaced; sz_fb_var_constant_non_replaced : ULINT;",
+    plcPrgBody: "sz_fb_var_constant_non_replaced := SIZEOF(inst_fb_var_constant_non_replaced);",
+    source:
+      "FUNCTION_BLOCK FB_MEM_fb_var_constant_non_replaced\nVAR\n\tkept : DINT;\nEND_VAR\nVAR CONSTANT\n\t{attribute 'const_non_replaced'}\n\tc : LINT := 5;\nEND_VAR\nkept := kept + LINT_TO_DINT(c);\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_fb_var_constant_struct",
+    pouName: "FB_MEM_fb_var_constant_struct",
+    kind: "function_block" as const,
+    feature: "task 26: a STRUCT-typed VAR CONSTANT (never replaced) — it takes room in the instance",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_var_constant_struct : FB_MEM_fb_var_constant_struct; sz_fb_var_constant_struct : ULINT;",
+    plcPrgBody: "sz_fb_var_constant_struct := SIZEOF(inst_fb_var_constant_struct);",
+    source:
+      "TYPE DUT_MEM_kpair :\nSTRUCT\n\twide : LINT;\n\tnarrow : DINT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_MEM_fb_var_constant_struct\nVAR\n\tkept : DINT;\nEND_VAR\nVAR CONSTANT\n\tc : DUT_MEM_kpair := (wide := 5, narrow := 6);\nEND_VAR\nkept := kept + c.narrow;\nEND_FUNCTION_BLOCK\n",
+  },
+  {
+    name: "mem_fb_implements_one",
+    deferred: { transpile: "transpile-review-2026-09-29 task 26: each implemented interface adds a pointer to the instance in CODESYS (SIZEOF 24); the layout ignores IMPLEMENTS (recorded 2026-09-29)" },
+    pouName: "FB_MEM_fb_implements_one",
+    kind: "function_block" as const,
+    feature: "task 26: SIZEOF the one-DINT FB IMPLEMENTS one interface — does each interface add a pointer?",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_implements_one : FB_MEM_fb_implements_one; sz_fb_implements_one : ULINT;",
+    plcPrgBody: "sz_fb_implements_one := SIZEOF(inst_fb_implements_one);",
+    source:
+      "INTERFACE I_MEM_impl_one_a\nMETHOD Ma : DINT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_MEM_fb_implements_one IMPLEMENTS I_MEM_impl_one_a\nVAR\n\tkept : DINT;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n\nMETHOD Ma : DINT\nMa := kept;\nEND_METHOD\n",
+  },
+  {
+    name: "mem_fb_implements_two",
+    deferred: { transpile: "transpile-review-2026-09-29 task 26: each implemented interface adds a pointer to the instance in CODESYS (SIZEOF 32); the layout ignores IMPLEMENTS (recorded 2026-09-29)" },
+    pouName: "FB_MEM_fb_implements_two",
+    kind: "function_block" as const,
+    feature: "task 26: SIZEOF the one-DINT FB IMPLEMENTS two interfaces",
+    fromDoc: doc,
+    plcPrgVar: "inst_fb_implements_two : FB_MEM_fb_implements_two; sz_fb_implements_two : ULINT;",
+    plcPrgBody: "sz_fb_implements_two := SIZEOF(inst_fb_implements_two);",
+    source:
+      "INTERFACE I_MEM_impl_two_a\nMETHOD Ma : DINT\nEND_METHOD\nEND_INTERFACE\n\nINTERFACE I_MEM_impl_two_b\nMETHOD Mb : DINT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_MEM_fb_implements_two IMPLEMENTS I_MEM_impl_two_a, I_MEM_impl_two_b\nVAR\n\tkept : DINT;\nEND_VAR\nkept := kept + 1;\nEND_FUNCTION_BLOCK\n\nMETHOD Ma : DINT\nMa := kept;\nEND_METHOD\n\nMETHOD Mb : DINT\nMb := kept + 1;\nEND_METHOD\n",
+  },
+  // ─── transpile-review-2026-09-29 task 44: A POINTER STEPPED BELOW ITS ARRAY'S FIRST ELEMENT ───────────
+  // `lower/pointers.ts` tags array element k as k+1 and 0 as NULL, and a backwards step has no floor: ADR(arr[0])
+  // minus one element lands on tag 0 and reads as NULL. In CODESYS a pointer is a byte address, so it is not NULL.
+  // Also stepped two elements below and back, so a fix cannot bias only the first step.
+  {
+    name: "tr_44_pointer_step_below_first_element",
+    pouName: "FB_MEM_tr44_step_below",
+    kind: "function_block" as const,
+    feature: "task 44: ADR(arr[0]) - SIZEOF(INT) is not NULL, and stepping back up reads arr[0] again",
+    fromDoc: doc,
+    plcPrgVar: "inst_tr44 : FB_MEM_tr44_step_below; isNull : BOOL; back : INT; isNullTwo : BOOL; backTwo : INT;",
+    plcPrgBody:
+      "inst_tr44();\nisNull := inst_tr44.isNull; back := inst_tr44.back; isNullTwo := inst_tr44.isNullTwo; backTwo := inst_tr44.backTwo;",
+    source:
+      "FUNCTION_BLOCK FB_MEM_tr44_step_below\nVAR_OUTPUT\n\tisNull : BOOL;\n\tback : INT;\n\tisNullTwo : BOOL;\n\tbackTwo : INT;\nEND_VAR\nVAR\n\tarr : ARRAY[0..3] OF INT := [11, 22, 33, 44];\n\tp : POINTER TO INT;\n\tq : POINTER TO INT;\nEND_VAR\np := ADR(arr[0]);\np := p - SIZEOF(INT);\nisNull := p = 0;\np := p + SIZEOF(INT);\nback := p^;\nq := ADR(arr[0]);\nq := q - 2 * SIZEOF(INT);\nisNullTwo := q = 0;\nq := q + 2 * SIZEOF(INT);\nbackTwo := q^;\nEND_FUNCTION_BLOCK\n",
+  },
 ]

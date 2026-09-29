@@ -275,5 +275,11 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     //                            answer about the file in front of you before anything instantiates it. The fixture
     //                            stays because the 0 it records is what proves the FB count is not per-declaration.
     "ir_initializer_warning_no_instance",
+    //   `tr_20_output_index_moved_by_callee` (transpile-review-2026-09-29 task 20, recorded 2026-09-29) — CODESYS
+    //                            builds and RUNS it; the LSP reports `'o' is no output of 'F_CS_OUT20'` and a
+    //                            wrong input count for the FUNCTION's `o => arr2[gCsK20]` output binding. An LSP
+    //                            false positive this fixture found, open until the call check reads a FUNCTION's
+    //                            VAR_OUTPUT; it must leave this list the day it stops.
+    "tr_20_output_index_moved_by_callee",
   ]),
 }

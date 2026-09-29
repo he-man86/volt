@@ -989,6 +989,182 @@ const CASES: readonly ExecCase[] = [
   // (No math-domain-error case: `SQRT(-1.0)` / `LN(0.0)` stop the simulated application — the recorder's read
   //  times out, measured 2026-09-14 — so there is no state to compare. A runtime exception, like division by zero;
   //  neither backend models runtime exceptions yet, and the oracle cannot record one.)
+
+  // ════ transpile-review-2026-09-29 — the confirmed root causes still open, one question each (tasks 6–47). Nothing
+  //      here states an answer: the recorder does (record:exec), and each comment says only what the case exposes. ════
+
+  // task 6: an untyped integer literal beside a variable — does it adopt the NEIGHBOUR's type (and wrap), or its own
+  // (the smallest type that holds it: just past DINT, past UDINT)? Compare, sum, product and MAX, the literal on either
+  // side. `cc_literal_3e9_into_dint` (an ASSIGNMENT, which wraps) is the control beside it.
+  {
+    name: "tr_6_literal_beyond_dint_neighbour",
+    deferred: "transpile-review-2026-09-29 task 6: an integer literal adopts its neighbour's type even when it does not fit, and wraps; CODESYS widens (recorded 2026-09-29)",
+    vars: [
+      "x : DINT := 5; ud : UDINT := 3;",
+      "gNegLint : BOOL; sumNegLint : LINT; sumUdLint : LINT; gUdLint : BOOL;",
+      "gUdintLit : BOOL; gUdintLitRev : BOOL; mulUdintLit : LINT; mx : LINT;",
+    ].join("\n"),
+    body: [
+      "gNegLint := x > -3000000000;",
+      "sumNegLint := x + -3000000000;",
+      "sumUdLint := ud + 5000000000;",
+      "gUdLint := ud > 5000000000;",
+      "gUdintLit := x > 3000000000;",
+      "gUdintLitRev := 3000000000 < x;",
+      "mulUdintLit := ud * 5000000000;",
+      "mx := MAX(ud, 5000000000);",
+    ].join(" "),
+  },
+
+  // task 14: S= / R= through a pointer that MAY point at one of two places (assigned on both arms of an IF) — still a
+  // conditional set/reset of the target, or does it store the condition? The `c` group leaves each pointer on its
+  // first target (R= TRUE on a TRUE bool, S= FALSE on a FALSE one); the `ct` group takes the other arm, so both targets
+  // are reached. Compare `set_reset_basic`.
+  {
+    name: "tr_14_set_reset_through_multi_target_pointer",
+    deferred: "transpile-review-2026-09-29 task 14: `p^ S= c` / `p^ R= c` through a multi-target pointer stores the condition; CODESYS sets/resets only when it is TRUE (a=FALSE, tb=FALSE) (recorded 2026-09-29)",
+    vars: [
+      "c : BOOL := FALSE; a : BOOL := TRUE; b : BOOL; a2 : BOOL; b2 : BOOL; p : POINTER TO BOOL; q : POINTER TO BOOL;",
+      "ct : BOOL := TRUE; ta : BOOL; tb : BOOL := TRUE; ta2 : BOOL; tb2 : BOOL; pt : POINTER TO BOOL; qt : POINTER TO BOOL;",
+    ].join("\n"),
+    body: [
+      "p := ADR(a); IF c THEN p := ADR(b); END_IF; p^ R= TRUE;",
+      "q := ADR(a2); IF c THEN q := ADR(b2); END_IF; q^ S= FALSE;",
+      "pt := ADR(ta); IF ct THEN pt := ADR(tb); END_IF; pt^ R= TRUE;",
+      "qt := ADR(ta2); IF ct THEN qt := ADR(tb2); END_IF; qt^ S= FALSE;",
+    ].join("\n"),
+  },
+
+  // task 27: is there a pass cap on a loop? Exactly 1,000,000 passes and one past it, for FOR and REPEAT, and a WHILE
+  // far beyond.
+  { name: "tr_27_loop_cap_for_1000000", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 1000000 passes; the emitted Rust panics at its own iteration cap, a different count from the interpreter's (recorded 2026-09-29)", vars: "i : DINT; cnt : DINT;", body: "FOR i := 1 TO 1000000 DO cnt := cnt + 1; END_FOR" },
+  { name: "tr_27_loop_cap_for_1000001", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 1000001 passes (cnt=1000001); the interpreter stops at its 1,000,000-pass cap (measured 2026-09-29)", vars: "i : DINT; cnt : DINT;", body: "FOR i := 1 TO 1000001 DO cnt := cnt + 1; END_FOR" },
+  { name: "tr_27_loop_cap_repeat_1000001", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 1000001 passes; the emitted Rust panics at its own iteration cap, a different count from the interpreter's (recorded 2026-09-29)", vars: "cnt : DINT;", body: "REPEAT cnt := cnt + 1; UNTIL cnt >= 1000001 END_REPEAT" },
+  { name: "tr_27_loop_cap_while_5000000", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 5000000 passes; the interpreter stops at its 1,000,000-pass cap (measured 2026-09-29)", vars: "cnt : DINT;", body: "WHILE cnt < 5000000 DO cnt := cnt + 1; END_WHILE" },
+
+  // task 28: MAX / MIN / LIMIT given a NaN or a signed zero, both argument orders, LREAL and REAL. NaN is SQRT of a
+  // computed negative and -0.0 is +0.0 times a computed -1 — never folded, and never 1.0/0.0 (it stops the runtime).
+  // NaN and -0 do not compare, so every result is also read as its BITS through a pointer (`wN`).
+  {
+    name: "tr_28_minmax_limit_nan_signed_zero_lreal",
+    vars: [
+      "seed : LREAL := 1.0; n : LREAL; pz : LREAL := 0.0; nz : LREAL;",
+      "r1 : LREAL; r2 : LREAL; r3 : LREAL; r4 : LREAL; r5 : LREAL; r6 : LREAL; r7 : LREAL; r8 : LREAL; r9 : LREAL;",
+      "pw : POINTER TO LWORD; wn : LWORD; wnz : LWORD;",
+      "w1 : LWORD; w2 : LWORD; w3 : LWORD; w4 : LWORD; w5 : LWORD; w6 : LWORD; w7 : LWORD; w8 : LWORD; w9 : LWORD;",
+    ].join("\n"),
+    body: [
+      "n := SQRT(0.0 - seed); nz := pz * (0.0 - seed);",
+      "r1 := MAX(n, 1); r2 := MAX(1, n); r3 := MIN(n, 1); r4 := MIN(1, n);",
+      "r5 := LIMIT(0, n, 5); r6 := LIMIT(n, 1, 5); r7 := LIMIT(0, 1, n);",
+      "r8 := MAX(nz, pz); r9 := MAX(pz, nz);",
+      "pw := ADR(n); wn := pw^; pw := ADR(nz); wnz := pw^;",
+      "pw := ADR(r1); w1 := pw^; pw := ADR(r2); w2 := pw^; pw := ADR(r3); w3 := pw^;",
+      "pw := ADR(r4); w4 := pw^; pw := ADR(r5); w5 := pw^; pw := ADR(r6); w6 := pw^;",
+      "pw := ADR(r7); w7 := pw^; pw := ADR(r8); w8 := pw^; pw := ADR(r9); w9 := pw^;",
+    ].join("\n"),
+  },
+  {
+    name: "tr_28_minmax_limit_nan_signed_zero_real",
+    vars: [
+      "seed : REAL := 1.0; n : REAL; pz : REAL := 0.0; nz : REAL;",
+      "r1 : REAL; r2 : REAL; r3 : REAL; r4 : REAL; r5 : REAL; r6 : REAL; r7 : REAL; r8 : REAL; r9 : REAL;",
+      "pw : POINTER TO DWORD; wn : DWORD; wnz : DWORD;",
+      "w1 : DWORD; w2 : DWORD; w3 : DWORD; w4 : DWORD; w5 : DWORD; w6 : DWORD; w7 : DWORD; w8 : DWORD; w9 : DWORD;",
+    ].join("\n"),
+    body: [
+      "n := SQRT(0.0 - seed); nz := pz * (0.0 - seed);",
+      "r1 := MAX(n, 1); r2 := MAX(1, n); r3 := MIN(n, 1); r4 := MIN(1, n);",
+      "r5 := LIMIT(0, n, 5); r6 := LIMIT(n, 1, 5); r7 := LIMIT(0, 1, n);",
+      "r8 := MAX(nz, pz); r9 := MAX(pz, nz);",
+      "pw := ADR(n); wn := pw^; pw := ADR(nz); wnz := pw^;",
+      "pw := ADR(r1); w1 := pw^; pw := ADR(r2); w2 := pw^; pw := ADR(r3); w3 := pw^;",
+      "pw := ADR(r4); w4 := pw^; pw := ADR(r5); w5 := pw^; pw := ADR(r6); w6 := pw^;",
+      "pw := ADR(r7); w7 := pw^; pw := ADR(r8); w8 := pw^; pw := ADR(r9); w9 := pw^;",
+    ].join("\n"),
+  },
+
+  // task 35: a constant FOR step taken in an UNSIGNED counter's type — is -1 on a BYTE a step down, or 255 up? One loop
+  // each; a runtime INT step on a BYTE counter and an out-of-range step on a SINT are the build's questions.
+  { name: "tr_35_for_byte_step_minus_one", deferred: "transpile-review-2026-09-29 task 35: CODESYS steps the BYTE counter down (n=5, b=0); the emitted Rust does not compile — the constant step is not wrapped to the counter type (measured 2026-09-29)", vars: "b : BYTE; n : INT;", body: "FOR b := 5 TO 1 BY -1 DO n := n + 1; END_FOR" },
+  { name: "tr_35_for_uint_step_minus_two", deferred: "transpile-review-2026-09-29 task 35: CODESYS steps the UINT counter down (n=5, u=0); the emitted Rust does not compile — the constant step is not wrapped to the counter type (measured 2026-09-29)", vars: "u : UINT; n : INT;", body: "FOR u := 10 TO 2 BY -2 DO n := n + 1; END_FOR" },
+  { name: "tr_35_for_byte_step_255", vars: "b : BYTE; n : INT;", body: "FOR b := 1 TO 10 BY 255 DO n := n + 1; END_FOR" },
+  {
+    name: "tr_35_for_byte_runtime_int_step",
+    vars: "b : BYTE; n : INT; stp : INT := -1;",
+    body: "FOR b := 5 TO 1 BY stp DO n := n + 1; END_FOR",
+    rejects: "Cannot convert type 'INT' to type 'BYTE'",
+  },
+  {
+    name: "tr_35_for_sint_step_300",
+    vars: "sc : SINT; n : INT;",
+    body: "FOR sc := 1 TO 10 BY 300 DO n := n + 1; END_FOR",
+    rejects: "Cannot convert type 'INT' to type 'SINT'",
+  },
+
+  // task 36: a literal FOR limit beyond the counter's type (200 on a SINT) — compared as 200 (the counter wraps and only
+  // EXIT ends the loop) or narrowed into SINT first (-56, no pass)? The recordable twin of `cc6_loop_cannot_exit`; the
+  // second loop is the control, its limit a constant EXPRESSION of the same value.
+  {
+    name: "tr_36_for_literal_limit_beyond_counter",
+    deferred: "transpile-review-2026-09-29 task 36: CODESYS compares the SINT counter with the literal 200 unnarrowed (n=300 via EXIT, small=44); the lowering narrows the limit into the counter type (recorded 2026-09-29)",
+    vars: "small : SINT; n : INT; small2 : SINT; n2 : INT;",
+    body: [
+      "FOR small := 1 TO 200 DO n := n + 1; IF n >= 300 THEN EXIT; END_IF END_FOR",
+      "FOR small2 := 1 TO (100 + 100) DO n2 := n2 + 1; IF n2 >= 300 THEN EXIT; END_IF END_FOR",
+    ].join("\n"),
+  },
+
+  // task 37: CASE labels outside the selector's type — does a label whose WRAPPED value equals the selector (300 and
+  // -212 are both 44 as a SINT) match? The inverted range and the range past the type are the build's questions.
+  { name: "tr_37_case_label_wraps_300", vars: "sv : SINT := 44; r1 : INT;", body: "CASE sv OF 300: r1 := 1; ELSE r1 := 2; END_CASE" },
+  { name: "tr_37_case_label_wraps_minus_212", vars: "sv : SINT := 44; r2 : INT;", body: "CASE sv OF -212: r2 := 1; ELSE r2 := 2; END_CASE" },
+  {
+    name: "tr_37_case_range_inverted",
+    vars: "sv : SINT := 3; r3 : INT;",
+    body: "CASE sv OF 5..1: r3 := 1; ELSE r3 := 2; END_CASE",
+    rejects: "Lower border must be lower than upper border",
+  },
+  {
+    name: "tr_37_case_range_beyond_type",
+    vars: "sv : SINT := 44; r4 : INT;",
+    body: "CASE sv OF 0..200: r4 := 1; ELSE r4 := 2; END_CASE",
+    rejects: "Lower border must be lower than upper border",
+  },
+
+  // task 40: DATE / DT / TOD plus or minus an LTIME — taken, or refused? One form each, and LTIME on the left.
+  { name: "tr_40_date_plus_ltime", vars: "d : DATE; dur : LTIME := LTIME#1D;", body: "d := d + dur;", rejects: "Cannot convert type 'LTIME' to type 'ULINT'" },
+  { name: "tr_40_dt_plus_ltime", vars: "dt1 : DT; dur : LTIME := LTIME#1D;", body: "dt1 := dt1 + dur;", rejects: "Cannot convert type 'LTIME' to type 'ULINT'" },
+  { name: "tr_40_tod_minus_ltime", vars: "t : TOD; dur : LTIME := LTIME#1H;", body: "t := t - dur;", rejects: "Cannot convert type 'LTIME' to type 'ULINT'" },
+  { name: "tr_40_ltime_plus_date", vars: "d : DATE; dur : LTIME := LTIME#1D;", body: "d := dur + d;", rejects: "Cannot convert type 'LTIME' to type 'ULINT'" },
+
+  // task 46: EXPT's domain edges — the IEEE pow special cases (1^NaN, (-1)^±inf, NaN^0) in LREAL and REAL, an exact
+  // huge power, and a zero base to a negative exponent (does it stop the scan like `mathdom_ln_zero`, or answer
+  // infinity?). Base and exponent are computed from `seed` so nothing folds: NaN is SQRT of a negative, ±inf is
+  // ±EXP(1000) (which completes — `mathdom_exp_overflow`), never a division by zero. The topical home is
+  // operators/math-domain.ts (its header says it omits EXPT).
+  { name: "tr_46_exptdom_one_pow_nan", deferred: "transpile-review-2026-09-29 task 46: EXPT(1, NaN) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed; e := SQRT(0.0 - seed); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_minus_one_pow_inf", deferred: "transpile-review-2026-09-29 task 46: EXPT(-1, +Inf) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := 0.0 - seed; e := EXP(seed * 1000.0); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_minus_one_pow_minus_inf", deferred: "transpile-review-2026-09-29 task 46: EXPT(-1, -Inf) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := 0.0 - seed; e := 0.0 - EXP(seed * 1000.0); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_nan_pow_zero", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := SQRT(0.0 - seed); e := seed - seed; res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_real_one_pow_nan", deferred: "transpile-review-2026-09-29 task 46: EXPT(REAL 1, NaN) is 1 in CODESYS (pow semantics); the interpreter's Math.pow gives NaN (recorded 2026-09-29)", vars: "seed : REAL := 1.0; b : REAL; e : REAL; res : REAL;", body: "b := seed; e := SQRT(0.0 - seed); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_1e19_pow_8", deferred: "transpile-review-2026-09-29 task 46: EXPT(1E19, 8) is exactly 1E+152 in CODESYS; the interpreter's Math.pow rounds differently (recorded 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed * 1.0E19; e := seed * 8.0; res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_zero_pow_minus_inf", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - EXP(seed * 1000.0); res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_zero_pow_minus_one", deferred: "transpile-review-2026-09-29 task 46: EXPT(0.0, -1.0) stops the CODESYS runtime (the scan never completes); both backends finish the scan (measured 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - seed; res := EXPT(b, e);" },
+  { name: "tr_46_exptdom_zero_pow_minus_half", deferred: "transpile-review-2026-09-29 task 46: EXPT(0.0, -0.5) stops the CODESYS runtime (the scan never completes); both backends finish the scan (measured 2026-09-29)", vars: "seed : LREAL := 1.0; b : LREAL; e : LREAL; res : LREAL;", body: "b := seed - seed; e := 0.0 - seed * 0.5; res := EXPT(b, e);" },
+
+  // task 47: a 64-bit integer to REAL — rounded once, or twice (via LREAL first)? 2^60 + 2^36 + 1 sits where the two
+  // differ (the round to LREAL lands exactly on REAL's halfway point); the extremes `i2r_*_max` round identically and
+  // cannot tell. LINT, its negative, ULINT and LWORD. The topical home is conversions/integer-to-real.ts.
+  {
+    name: "tr_47_i2r_lint_to_real_double_round",
+    deferred: "transpile-review-2026-09-29 task 47: LINT/ULINT/LWORD -> REAL is rounded once in CODESYS (1.15292164E+18); the interpreter rounds through LREAL first (recorded 2026-09-29)",
+    vars: [
+      "v : LINT := 1152921573326323713; vn : LINT := -1152921573326323713; vu : ULINT := 1152921573326323713;",
+      "vw : LWORD := 1152921573326323713; out : REAL; outNeg : REAL; outU : REAL; outW : REAL;",
+    ].join("\n"),
+    body: "out := LINT_TO_REAL(v); outNeg := LINT_TO_REAL(vn); outU := ULINT_TO_REAL(vu); outW := LWORD_TO_REAL(vw);",
+  },
 ]
 
 /** An execution case as a conformance fixture: no units, its program is PLC_PRG; `rejects` is `refused`, and a
@@ -1009,4 +1185,90 @@ function program(c: ExecCase): LanguageTest {
   }
 }
 
-export const EXECUTION_TESTS: readonly LanguageTest[] = CASES.map(program)
+/** A case that needs POUs of its own (a FUNCTION with a side effect) — an FB holding the question, its helpers beside
+ *  it in the same source, run from PLC_PRG as `inst`. */
+function withUnits(name: string, feature: string, source: string, deferred?: string): LanguageTest {
+  return {
+    ...(deferred === undefined ? {} : { deferred: { transpile: deferred } }),
+    name,
+    pouName: `FB_LANG_${name}`,
+    kind: "function_block",
+    feature: `execution: ${feature}`,
+    fromDoc: "execution-oracle",
+    source,
+    plcPrgVar: `inst : FB_LANG_${name};`,
+    plcPrgBody: "inst();",
+  }
+}
+
+/** A FUNCTION that bumps its VAR_IN_OUT and answers the new value — a call whose running is visible afterwards. */
+function inc(fn: string): string {
+  return `FUNCTION ${fn} : INT\nVAR_IN_OUT\n\tc : INT;\nEND_VAR\nc := c + 1;\n${fn} := c;\nEND_FUNCTION\n`
+}
+
+// transpile-review-2026-09-29 task 41: do SEL / MUX evaluate the inputs they do NOT select (the unselected counter
+// moves or not), and in what order does LIMIT evaluate its arguments when each modifies the same variable (Add1 then
+// Dbl leaves x=4, Dbl then Add1 leaves x=3)? One fixture per builtin.
+const SIDE_EFFECT_TESTS: readonly LanguageTest[] = [
+  withUnits(
+    "tr_41_mux_side_effects",
+    "MUX runs the inputs it does not select?",
+    `${inc("FUN_LANG_tr41_mux_Inc")}
+FUNCTION_BLOCK FB_LANG_tr_41_mux_side_effects
+VAR
+	a : INT;
+	b : INT;
+	res : INT;
+END_VAR
+res := MUX(0, FUN_LANG_tr41_mux_Inc(a), FUN_LANG_tr41_mux_Inc(b));
+END_FUNCTION_BLOCK
+`,
+    "transpile-review-2026-09-29 task 41: MUX runs only the selected input in CODESYS (a=1, b=0) — as the emitted Rust does; the interpreter evaluates every input (recorded 2026-09-29)",
+  ),
+  withUnits(
+    "tr_41_sel_side_effects",
+    "SEL runs the input it does not select?",
+    `${inc("FUN_LANG_tr41_sel_Inc")}
+FUNCTION_BLOCK FB_LANG_tr_41_sel_side_effects
+VAR
+	a2 : INT;
+	b2 : INT;
+	r2 : INT;
+END_VAR
+r2 := SEL(FALSE, FUN_LANG_tr41_sel_Inc(a2), FUN_LANG_tr41_sel_Inc(b2));
+END_FUNCTION_BLOCK
+`,
+    "transpile-review-2026-09-29 task 41: SEL runs only the selected input in CODESYS (a2=1, b2=0); the backends evaluate differently (recorded 2026-09-29)",
+  ),
+  withUnits(
+    "tr_41_limit_evaluation_order",
+    "LIMIT's argument evaluation order",
+    `FUNCTION FUN_LANG_tr41_Add1 : INT
+VAR_IN_OUT
+	x : INT;
+END_VAR
+x := x + 1;
+FUN_LANG_tr41_Add1 := x;
+END_FUNCTION
+
+FUNCTION FUN_LANG_tr41_Dbl : INT
+VAR_IN_OUT
+	x : INT;
+END_VAR
+x := x * 2;
+FUN_LANG_tr41_Dbl := x;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_LANG_tr_41_limit_evaluation_order
+VAR
+	x : INT := 1;
+	r3 : INT;
+END_VAR
+r3 := LIMIT(FUN_LANG_tr41_Add1(x), FUN_LANG_tr41_Dbl(x), 1000);
+END_FUNCTION_BLOCK
+`,
+    "transpile-review-2026-09-29 task 41: LIMIT runs Add1 then Dbl in CODESYS (x=4), as the interpreter does; the emitted Rust evaluates IN before MN (recorded 2026-09-29)",
+  ),
+]
+
+export const EXECUTION_TESTS: readonly LanguageTest[] = [...CASES.map(program), ...SIDE_EFFECT_TESTS]

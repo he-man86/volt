@@ -14,6 +14,11 @@ function fb(name: string, pouName: string, feature: string, source: string, plcP
   return { name, pouName, kind: "function_block", feature, fromDoc: doc, source, plcPrgVar, plcPrgBody, ...(cycles === undefined ? {} : { cycles }) }
 }
 
+/** A fixture whose root cause is an open transpile-review task: the vendor's answer is recorded, ours is known wrong. */
+function withDeferred(transpile: string, t: LanguageTest): LanguageTest {
+  return { ...t, deferred: { transpile } }
+}
+
 export const CALL_SHAPE_TESTS: readonly LanguageTest[] = [
   fb("callshape_method_on_program", "FB_CS_caller1", "a METHOD of a PROGRAM, run on the program's one instance from PLC_PRG and from an FB, beside the program's own body",
     `PROGRAM PRG_CS_counter1
@@ -1089,4 +1094,270 @@ END_METHOD
     plcPrgBody: "inst_xo_reference_property();",
     source: "FUNCTION_BLOCK FB_LANG_reference_property_target\nVAR\n\tside : INT := 3;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\n\nFUNCTION_BLOCK FB_LANG_xo_reference_property\nVAR\n\tc : FB_LANG_reference_property_target;\n\tref_ : REFERENCE TO FB_LANG_reference_property_target;\n\treadBack : INT;\n\twrittenBack : INT;\nEND_VAR\nref_ REF= c;\nreadBack := ref_.Size;\nref_.Size := 7;\nwrittenBack := c.Size;\nEND_FUNCTION_BLOCK\n",
   },
+  // ─── TRANSPILE REVIEW 2026-09-29 ───────────────────────────────────────────────────────────────────
+  // One fixture per confirmed root cause of `openspec/changes/transpile-review-2026-09-29` (the task id leads each
+  // name). Written before the recording: the expected values are CODESYS's, taken by the recorder — the numbers in
+  // these comments are what the review predicts, not what any test asserts.
+
+  // Task 18: `__QUERYINTERFACE` into a GLOBAL interface variable. x1 queries its own child `src` (tag 1) into the
+  // global; x2 (tag 2) does not query and only calls through it — the global still holds x1's child, so x2.res reads 1.
+  // The transpiler hard-codes the query's edge as not foreign and resolves the global relative to the CALLING instance
+  // (x2.res = 2); the plain store `gItf := src` is already refused (`interface-instance-relative`), and so should this be.
+  {
+    name: "tr_18_queryinterface_into_global",
+    deferred: { transpile: "transpile-review-2026-09-29 task 18: __QUERYINTERFACE into a GLOBAL interface never marks its edge foreign — CODESYS gives r2=1 (x1's child), the backends disagree (recorded 2026-09-29)" },
+    pouName: "GVL_CS_query18",
+    kind: "gvl",
+    feature: "__QUERYINTERFACE from an FB's own child into a GLOBAL interface variable: another instance that does not query calls through the global and reaches the first instance's child",
+    fromDoc: doc,
+    source: `VAR_GLOBAL
+	gCsItf18 : ITF_CS_get18;
+END_VAR
+
+INTERFACE ITF_CS_get18 EXTENDS __SYSTEM.IQueryInterface
+METHOD Get : INT
+END_METHOD
+END_INTERFACE
+
+FUNCTION_BLOCK FB_CS_impl18 IMPLEMENTS ITF_CS_get18
+VAR_INPUT
+	tag : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD Get : INT
+Get := tag;
+END_METHOD
+
+FUNCTION_BLOCK FB_CS_query18
+VAR_INPUT
+	q : BOOL;
+	tag : INT;
+END_VAR
+VAR
+	src : FB_CS_impl18;
+	srcItf : ITF_CS_get18;
+	found : BOOL;
+	res : INT;
+END_VAR
+src(tag := tag);
+srcItf := src;
+IF q THEN
+	found := __QUERYINTERFACE(srcItf, gCsItf18);
+END_IF
+res := gCsItf18.Get();
+END_FUNCTION_BLOCK
+`,
+    plcPrgVar: "x1 : FB_CS_query18; x2 : FB_CS_query18; r1 : INT; r2 : INT;",
+    plcPrgBody: "x1(q := TRUE, tag := 1);\nx2(q := FALSE, tag := 2);\nr1 := x1.res;\nr2 := x2.res;",
+  },
+  // Task 19: a METHOD's VAR_IN_OUT named like its FB's member. The method's declaration shadows the member
+  // (`shadowing_method_param_shadows_member`), so `x` in the body is the caller's `v`: r = 101, v = 101, the member 5.
+  // The transpiler resolves the member first (r = 105, v = 1). v and the member start distinct so the two answers differ.
+  withDeferred("transpile-review-2026-09-29 task 19: a METHOD's VAR_IN_OUT shadows the FB member of its name in CODESYS (res=v=101, member 5); the lowering resolves the member first (recorded 2026-09-29)", fb("tr_19_method_inout_shadows_member", "FB_CS_shadow19", "a METHOD's VAR_IN_OUT with the same name as a member of its FB, read and written in the method body — which one the body means",
+    `FUNCTION_BLOCK FB_CS_shadow19
+VAR_OUTPUT
+	memberSeen : INT;
+END_VAR
+VAR
+	x : INT := 5;
+END_VAR
+memberSeen := x;
+END_FUNCTION_BLOCK
+
+METHOD M : INT
+VAR_IN_OUT
+	x : INT;
+END_VAR
+x := x + 100;
+M := x;
+END_METHOD
+`,
+    "inst : FB_CS_shadow19; v : INT := 1; res : INT; member : INT;",
+    "res := inst.M(x := v);\ninst();\nmember := inst.memberSeen;")),
+  // ...and the twin: the shadowed name is the FB's VAR_STAT, which the transpiler also looks up before the in-out.
+  withDeferred("transpile-review-2026-09-29 task 19: a METHOD's VAR_IN_OUT shadows the FB's VAR_STAT of its name in CODESYS (res=v=101, stat 5); the lowering resolves the VAR_STAT first (recorded 2026-09-29)", fb("tr_19_method_inout_shadows_var_stat", "FB_CS_shadowStat19", "a METHOD's VAR_IN_OUT with the same name as a VAR_STAT of its FB, read and written in the method body — which one the body means",
+    `FUNCTION_BLOCK FB_CS_shadowStat19
+VAR_OUTPUT
+	statSeen : INT;
+END_VAR
+VAR_STAT
+	x : INT := 5;
+END_VAR
+statSeen := x;
+END_FUNCTION_BLOCK
+
+METHOD M : INT
+VAR_IN_OUT
+	x : INT;
+END_VAR
+x := x + 100;
+M := x;
+END_METHOD
+`,
+    "inst : FB_CS_shadowStat19; v : INT := 1; res : INT; stat : INT;",
+    "res := inst.M(x := v);\ninst();\nstat := inst.statSeen;")),
+  // Task 20: a routine's `o => target` whose target's INDEX the callee moves. CODESYS copies outputs out AFTER the call,
+  // so the index is read then — measured LIVE: arr[0] = 0, arr[1] = 5, arr2[0] = 0, arr2[1] = 5. The transpiler lends the
+  // target `&mut` before the call and writes arr[0] / arr2[0]. Once through a METHOD moving its FB's own output, once
+  // through a FUNCTION moving a global.
+  {
+    name: "tr_20_output_index_moved_by_callee",
+    deferred: { transpile: "transpile-review-2026-09-29 task 20: CODESYS copies an output after the call, so the index the callee moved is the one written (arr[1]=5, arr2[1]=5); the lowering lends the target before the call (recorded 2026-09-29)" },
+    pouName: "GVL_CS_outIndex20",
+    kind: "gvl",
+    feature: "a METHOD's and a FUNCTION's VAR_OUTPUT bound `o => arr[k]` where the callee itself increments k — the element the output lands in",
+    fromDoc: doc,
+    source: `VAR_GLOBAL
+	gCsK20 : INT;
+END_VAR
+
+FUNCTION F_CS_out20 : BOOL
+VAR_OUTPUT
+	o : INT;
+END_VAR
+gCsK20 := gCsK20 + 1;
+o := 5;
+F_CS_out20 := TRUE;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_out20
+VAR_OUTPUT
+	k : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+METHOD M : BOOL
+VAR_OUTPUT
+	o : INT;
+END_VAR
+k := k + 1;
+o := 5;
+M := TRUE;
+END_METHOD
+`,
+    plcPrgVar: "fb1 : FB_CS_out20; arr : ARRAY[0..3] OF INT; arr2 : ARRAY[0..3] OF INT; b : BOOL; c : BOOL;",
+    plcPrgBody: "b := fb1.M(o => arr[fb1.k]);\nc := F_CS_out20(o => arr2[gCsK20]);",
+  },
+  // Task 21: a FUNCTION named like a library element, called qualified through the library's NAMESPACE and bare. The
+  // qualified call names the library's (StringUtils, namespace `Stu`, whose body the library repo holds); the bare one,
+  // from project code, the project's. The transpiler caches the routine by its BARE name, so whichever call comes first
+  // decides both — hence two fixtures, one per order, each on its own element so neither can reach the other's object.
+  // Predicted: the library upper-cases (16#61 -> 16#41, 16#FF itself), the project adds 1 (16#61 -> 16#62, 16#FF wraps).
+  withDeferred("transpile-review-2026-09-29 task 21: a namespace-qualified FUNCTION is cached and scoped by its bare name, so the first call decides both (CODESYS: lib 65/255, project 98/0) (recorded 2026-09-29)", fb("tr_21_namespace_qualified_first", "FB_CS_ns21a", "a project FUNCTION named like a StringUtils element (CharToUpper): the Stu-qualified call first, then the bare one",
+    `FUNCTION CharToUpper : BYTE
+VAR_INPUT
+	BYCHAR : BYTE;
+END_VAR
+CharToUpper := BYCHAR + 1;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_ns21a
+VAR
+	libA : BYTE;
+	projA : BYTE;
+	libEdge : BYTE;
+	projEdge : BYTE;
+END_VAR
+libA := Stu.CharToUpper(16#61);
+projA := CharToUpper(16#61);
+libEdge := Stu.CharToUpper(16#FF);
+projEdge := CharToUpper(16#FF);
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_CS_ns21a;", "inst();")),
+  withDeferred("transpile-review-2026-09-29 task 21: a namespace-qualified FUNCTION is cached and scoped by its bare name, so the first call decides both (CODESYS: lib 65/65535, project 98/0) (recorded 2026-09-29)", fb("tr_21_namespace_bare_first", "FB_CS_ns21b", "a project FUNCTION named like a StringUtils element (WCharToUpper): the bare call first, then the Stu-qualified one",
+    `FUNCTION WCharToUpper : WORD
+VAR_INPUT
+	WDCHAR : WORD;
+END_VAR
+WCharToUpper := WDCHAR + 1;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_ns21b
+VAR
+	projA : WORD;
+	libA : WORD;
+	projEdge : WORD;
+	libEdge : WORD;
+END_VAR
+projA := WCharToUpper(16#61);
+libA := Stu.WCharToUpper(16#61);
+projEdge := WCharToUpper(16#FFFF);
+libEdge := Stu.WCharToUpper(16#FFFF);
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_CS_ns21b;", "inst();")),
+  // Task 42: one ANY FUNCTION called with arrays that differ in element type, in bounds, and in both. The transpiler
+  // keys an ANY variant by the bare kind `array`, so every array after the first reuses the first one's instantiation
+  // (Rust E0308). Predicted sizes: 8, 10, 16, 12, 8 — the last the same size as the first over different bounds.
+  withDeferred("transpile-review-2026-09-29 task 42: the ANY variant is keyed by the bare kind `array`, so every array after the first reuses the first one's instantiation and the emitted Rust does not compile (E0308, measured 2026-09-29)", fb("tr_42_any_array_variant_key", "FB_CS_any42", "one FUNCTION with an ANY input called with ARRAY[0..3] OF INT, ARRAY[0..9] OF BYTE, ARRAY[0..3] OF DINT, ARRAY[0..5] OF INT and ARRAY[1..4] OF INT — the size each call sees",
+    `FUNCTION F_CS_size42 : DINT
+VAR_INPUT
+	v : ANY;
+END_VAR
+F_CS_size42 := v.diSize;
+END_FUNCTION
+
+FUNCTION_BLOCK FB_CS_any42
+VAR
+	ai : ARRAY[0..3] OF INT;
+	ab : ARRAY[0..9] OF BYTE;
+	ad : ARRAY[0..3] OF DINT;
+	aiLonger : ARRAY[0..5] OF INT;
+	aiShifted : ARRAY[1..4] OF INT;
+	sizeInt : DINT;
+	sizeByte : DINT;
+	sizeDint : DINT;
+	sizeLonger : DINT;
+	sizeShifted : DINT;
+END_VAR
+sizeInt := F_CS_size42(ai);
+sizeByte := F_CS_size42(ab);
+sizeDint := F_CS_size42(ad);
+sizeLonger := F_CS_size42(aiLonger);
+sizeShifted := F_CS_size42(aiShifted);
+END_FUNCTION_BLOCK
+`,
+    "inst : FB_CS_any42;", "inst();")),
+  // Task 43: an FB output bound `name => target` of ANOTHER type converts like an assignment
+  // (`accepts_output_into_other_type`, `conversion_implicit_dint_to_int`). The transpiler compares type families on the
+  // FB path and exact names on the routine path: WORD=>UDINT and INT=>REAL are refused, DINT=>INT is accepted and
+  // truncates. Values at the edges — 16#FFFF, a negative INT, a DINT beyond INT — so a wrong conversion shows.
+  fb("tr_43_output_word_to_int", "FB_CS_outWI43", "an FB's WORD output (16#FFFF) bound => an INT variable",
+    `FUNCTION_BLOCK FB_CS_outWI43
+VAR_OUTPUT
+	w : WORD;
+END_VAR
+w := 16#FFFF;
+END_FUNCTION_BLOCK
+`,
+    "fb1 : FB_CS_outWI43; a : INT;", "fb1(w => a);"),
+  fb("tr_43_output_word_to_udint", "FB_CS_outWU43", "an FB's WORD output (16#FFFF) bound => a UDINT variable",
+    `FUNCTION_BLOCK FB_CS_outWU43
+VAR_OUTPUT
+	w : WORD;
+END_VAR
+w := 16#FFFF;
+END_FUNCTION_BLOCK
+`,
+    "fb1 : FB_CS_outWU43; ud : UDINT;", "fb1(w => ud);"),
+  fb("tr_43_output_int_to_real", "FB_CS_outIR43", "an FB's INT output (-3) bound => a REAL variable",
+    `FUNCTION_BLOCK FB_CS_outIR43
+VAR_OUTPUT
+	i : INT;
+END_VAR
+i := -3;
+END_FUNCTION_BLOCK
+`,
+    "fb1 : FB_CS_outIR43; res : REAL;", "fb1(i => res);"),
+  fb("tr_43_output_dint_to_int", "FB_CS_outDI43", "an FB's DINT output (100000) bound => an INT variable — a narrowing an assignment refuses",
+    `FUNCTION_BLOCK FB_CS_outDI43
+VAR_OUTPUT
+	d : DINT;
+END_VAR
+d := 100000;
+END_FUNCTION_BLOCK
+`,
+    "fb1 : FB_CS_outDI43; si : INT;", "fb1(d => si);"),
 ]

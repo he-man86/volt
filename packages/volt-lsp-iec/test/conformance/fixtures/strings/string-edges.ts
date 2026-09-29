@@ -108,3 +108,174 @@ export const STRING_EDGE_TESTS: readonly LanguageTest[] = [
   ...finds,
   ...truncation,
 ]
+
+/** A whole-FB fixture: every variable the body writes is recorded, so one fixture asks several related questions. */
+function whole(name: string, feature: string, source: string): LanguageTest {
+  const pouName = /FUNCTION_BLOCK (\w+)/.exec(source)![1]!
+  return { name, pouName, kind: "function_block", feature, fromDoc: "06-data-types.md#string", source, plcPrgVar: `inst : ${pouName};`, plcPrgBody: "inst();" }
+}
+
+/**
+ * transpile-review-2026-09-29 root causes in the STRING representation, registered beside `STRING_EDGE_TESTS` in
+ * `index.ts`. The values are CODESYS's, taken by `record:exec`, never written here. Every long operand is BUILT in the body by a
+ * loop, so no compile-time fold can stand in for the runtime conversion.
+ */
+export const TRANSPILE_REVIEW_STRING_TESTS: readonly LanguageTest[] = [
+  // Task 11: a STRING<->WSTRING or STRING->number conversion must not cut its operand to the 80-character default
+  // capacity. `txt` is 90 spaces then '5' (91 chars, the digit past position 80); `at80` puts its digit AT position 80,
+  // the last one the default would keep. `wide` is 85 spaces then '12345' for the WSTRING->number pair, `w100` is 100
+  // characters narrowed to STRING, `txt91` is `txt` widened, and `w86` goes through the bare TO_STRING. The WSTRINGs are
+  // filled by index (`w[i] := code`) and measured by a loop: the recording project references no WCONCAT / WLEN.
+  whole("tr_11_string_conversion_beyond_80", "STRING<->WSTRING and STRING->INT of operands longer than 80 characters (transpile-review task 11)",
+    `FUNCTION_BLOCK FB_LANG_tr_11_conv_beyond_80
+VAR
+\ti : INT;
+\ttxt : STRING(120);
+\tat80 : STRING(120);
+\twide : WSTRING(120);
+\tw100 : WSTRING(120);
+\tw86 : WSTRING(120);
+\tnarrow : STRING(120);
+\tnarrow86 : STRING(120);
+\twidened : WSTRING(120);
+\tnamedInt : INT;
+\tbareInt : INT;
+\tat80Int : INT;
+\tcrossNamed : INT;
+\tcrossBare : INT;
+\tcnt : INT;
+\tnarrowLen : INT;
+\tn3 : INT;
+END_VAR
+txt := '';
+at80 := '';
+wide := "";
+w100 := "";
+w86 := "";
+FOR i := 1 TO 90 DO
+\ttxt := CONCAT(txt, ' ');
+END_FOR
+txt := CONCAT(txt, '5');
+FOR i := 1 TO 79 DO
+\tat80 := CONCAT(at80, ' ');
+END_FOR
+at80 := CONCAT(at80, '7');
+FOR i := 0 TO 84 DO
+\twide[i] := 32;
+END_FOR
+FOR i := 85 TO 89 DO
+\twide[i] := INT_TO_WORD(i - 36);
+END_FOR
+wide[90] := 0;
+FOR i := 0 TO 99 DO
+\tw100[i] := 120;
+END_FOR
+w100[100] := 0;
+FOR i := 0 TO 85 DO
+\tw86[i] := 121;
+END_FOR
+w86[86] := 0;
+namedInt := STRING_TO_INT(txt);
+bareInt := TO_INT(txt);
+at80Int := STRING_TO_INT(at80);
+crossNamed := WSTRING_TO_INT(wide);
+crossBare := TO_INT(wide);
+narrow := WSTRING_TO_STRING(w100);
+cnt := LEN(narrow);
+widened := STRING_TO_WSTRING(txt);
+narrowLen := 0;
+FOR i := 0 TO 120 DO
+	IF widened[i] = 0 THEN
+		EXIT;
+	END_IF
+	narrowLen := narrowLen + 1;
+END_FOR
+narrow86 := TO_STRING(w86);
+n3 := LEN(narrow86);
+END_FUNCTION_BLOCK
+`),
+
+  // Task 34: STRING(n) is n+1 bytes and s[i] a byte access — bytes behind the terminator are KEPT. Right-to-left digit
+  // fill (the terminator is written first, into an empty string); a NUL stored then overwritten (the tail 'def' must
+  // come back); and stores past the length through a POINTER TO BYTE, the far one first.
+  whole("tr_34_lib_prim_char_behind", "bytes past a STRING's terminator survive: right-to-left fill, NUL then overwrite, POINTER TO BYTE past the length (transpile-review task 34)",
+    `FUNCTION_BLOCK FB_LANG_tr_34_char_behind
+VAR
+\tdigits : STRING(10);
+\tt : STRING(10) := 'abcdef';
+\tu : STRING(10) := 'abc';
+\tp : POINTER TO BYTE;
+\tlenDigits : INT;
+\tlenT : INT;
+\tlenU : INT;
+\tcopied : STRING(10);
+\tlenCopied : INT;
+END_VAR
+digits := '';
+digits[4] := 0;
+digits[3] := 49;
+digits[2] := 50;
+digits[1] := 51;
+digits[0] := 52;
+lenDigits := LEN(digits);
+t := 'abcdef';
+t[2] := 0;
+t[2] := 88;
+lenT := LEN(t);
+u := 'abc';
+p := ADR(u);
+p[4] := 67;
+p[3] := 66;
+lenU := LEN(u);
+copied := u;
+lenCopied := LEN(copied);
+END_FUNCTION_BLOCK
+`),
+
+  // Task 45: a literal with $00 in the middle — the length ends at the NUL but the bytes behind it are stored, and an
+  // assignment copies them. The STRING(3) initializer of a 4-byte literal only warns in CODESYS.
+  {
+    deferred: { transpile: "transpile-review-2026-09-29 task 45: CODESYS ends a literal at an embedded $00 (LEN 2, 'ab', bytes behind it 0); the backends keep the characters after it (recorded 2026-09-29)" },
+    ...whole("tr_45_string_embedded_nul", "a STRING / WSTRING literal with an embedded $00: length, comparison, bytes behind the NUL, copy and CONCAT (transpile-review task 45)",
+    `FUNCTION_BLOCK FB_LANG_tr_45_embedded_nul
+VAR
+\ttxt : STRING(3) := 'ab$00c';
+\tu : STRING(10);
+\tsmall : STRING(3);
+\tw : WSTRING := "ab$0000c";
+\teqAb : BOOL;
+\teqFull : BOOL;
+\tlenS : INT;
+\tc2 : BYTE;
+\tc3 : BYTE;
+\tlenU : INT;
+\tuc3 : BYTE;
+\tweqAb : BOOL;
+\tlenW : INT;
+\tcat : STRING;
+\tlenS3 : INT;
+\ti : INT;
+END_VAR
+eqAb := txt = 'ab';
+eqFull := txt = 'ab$00c';
+lenS := LEN(txt);
+c2 := txt[2];
+c3 := txt[3];
+u := txt;
+lenU := LEN(u);
+uc3 := u[3];
+weqAb := w = "ab";
+lenW := 0;
+FOR i := 0 TO 80 DO
+	IF w[i] = 0 THEN
+		EXIT;
+	END_IF
+	lenW := lenW + 1;
+END_FOR
+cat := CONCAT(txt, 'X');
+small := u;
+lenS3 := LEN(small);
+END_FUNCTION_BLOCK
+`),
+  },
+]

@@ -140,9 +140,13 @@ export function correctnessOf(name: string, evidence: string, built: boolean): C
  * the transpiler's input contract is "code CODESYS compiles" (`src/transpile/index.ts`), so inside the contract the
  * Rust has to build. Outside it — `refused`, `lsp-gap` — lowering is only total, not meaningful, and a rejected
  * emission is the honest outcome rather than a bug.
+ *
+ * `diverges` is the defect ALREADY WRITTEN DOWN: the fixture carries `deferred.transpile` naming what was measured
+ * (a transpile-review task whose red fixture landed before its fix), and its row reads `rust: "rejected"`. Refusing
+ * to write the map over it would make the red fixture impossible to land ahead of the fix.
  */
 export function rejectionIsADefect(evidence: string): boolean {
-  return evidence !== "refused" && evidence !== "lsp-gap"
+  return evidence !== "refused" && evidence !== "lsp-gap" && evidence !== "diverges"
 }
 
 // ── the lint policy ──────────────────────────────────────────────────────────────────────────────────────────

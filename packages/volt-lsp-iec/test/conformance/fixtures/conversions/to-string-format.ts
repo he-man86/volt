@@ -225,4 +225,168 @@ const sweep2: LanguageTest[] = SWEEP2.map(([t, expr, slug]) =>
   ),
 )
 
+/**
+ * transpile-review-2026-09-29 — one fixture per root cause, each a single FB whose variables are the cells, so one
+ * recording answers the whole task. Every value is set at run time (a variable, or a `seed` product) so the format
+ * recorded is the RUNTIME one, never a folded literal. The expected values are the recorder's to supply.
+ */
+function cells(slug: string, feature: string, decls: readonly string[], body: readonly string[], types = ""): LanguageTest {
+  const pou = `FB_LANG_${slug}`
+  return {
+    name: slug,
+    pouName: pou,
+    kind: "function_block" as const,
+    feature,
+    fromDoc: "06-data-types.md",
+    plcPrgVar: `inst : ${pou};`,
+    plcPrgBody: "inst();",
+    source: `${types}FUNCTION_BLOCK ${pou}\nVAR\n${decls.map((d) => `\t${d}`).join("\n")}\nEND_VAR\n${body.join("\n")}\nEND_FUNCTION_BLOCK\n`,
+  }
+}
+
+/** One `v<i> : T; s<i> : STRING;` pair per row, with `v<i> := value; s<i> := CONV(v<i>);` in the body. */
+function textCells(slug: string, feature: string, rows: readonly (readonly [string, string, string])[]): LanguageTest {
+  return cells(
+    slug,
+    feature,
+    rows.flatMap(([t], i) => [`v${i} : ${t};`, `s${i} : STRING;`]),
+    rows.flatMap(([, value, conv], i) => [`v${i} := ${value};`, `s${i} := ${conv}(v${i});`]),
+  )
+}
+
+/**
+ * Task 12: LDT / LDATE / LTOD -> STRING. The interpreter prints the raw count (`values.ts` falls through to
+ * `String(v)`) and the Rust emitter calls `iec_<type>_text` helpers the prelude never defines (E0425). What the
+ * review saw LIVE: prefixes LDT#/LD#/LTOD#, a zero fraction omitted, any other printed with 9 digits, and a date
+ * past 2262 wrapping as signed i64 nanoseconds (2300-01-01 prints 1715-06-13).
+ * The edges: the epoch, a one-nanosecond fraction, a half-second fraction (are its trailing zeros kept?), the last
+ * nanosecond of a day, a microsecond fraction, midnight, a leap day, and the post-2262 wrap on both LDT and LDATE.
+ */
+const trLongDates = textCells(
+  "tr_12_fmt_long_dates",
+  "LDT_TO_STRING / LDATE_TO_STRING / LTOD_TO_STRING at every fraction shape and past 2262 (transpile-review 12)",
+  [
+    ["LDT", "LDT#1970-01-01-00:00:00", "LDT_TO_STRING"],
+    ["LDT", "LDT#2024-02-29-13:05:09.000000001", "LDT_TO_STRING"],
+    ["LDT", "LDT#2024-02-29-13:05:09.5", "LDT_TO_STRING"],
+    ["LDT", "LDT#2300-01-01-00:00:00", "LDT_TO_STRING"],
+    ["LDATE", "LDATE#1970-01-01", "LDATE_TO_STRING"],
+    ["LDATE", "LDATE#2024-02-29", "LDATE_TO_STRING"],
+    ["LDATE", "LDATE#2300-01-01", "LDATE_TO_STRING"],
+    ["LTOD", "LTOD#00:00:00", "LTOD_TO_STRING"],
+    ["LTOD", "LTOD#23:59:59.999999999", "LTOD_TO_STRING"],
+    ["LTOD", "LTOD#01:02:03.5", "LTOD_TO_STRING"],
+    ["LTOD", "LTOD#01:02:03.000001", "LTOD_TO_STRING"],
+  ],
+)
+
+/**
+ * Task 31: a BIT converts by its FAMILY ("bitstring") while its Rust type is `bool` — `TO_STRING(s.b0)` prints
+ * 'true', and BIT_TO_REAL / TO_LREAL / INT_TO_BIT do not compile (E0606/E0054). CODESYS reads a BIT as a BOOL
+ * (`type_dut_struct_with_bit_fields`, `ct_bit_fields`), and `xf_bool_to_string` is 'TRUE'. BIT exists only as a
+ * STRUCT field, so the probe is a struct. Each conversion is taken from a TRUE field and a FALSE one; INT_TO_BIT
+ * from 0, 1 and 2 (does 2 read as TRUE, or as its low bit?), each stored into its own BIT field and read back.
+ */
+const trBitConversions = cells(
+  "tr_31_bit_conversions",
+  "TO_STRING / BIT_TO_REAL / TO_LREAL / INT_TO_BIT on BIT struct fields (transpile-review 31)",
+  [
+    "bits : DUT_LANG_tr_31_bits;",
+    "i0 : INT := 0;",
+    "i1 : INT := 1;",
+    "i2 : INT := 2;",
+    "strTrue : STRING;",
+    "strFalse : STRING;",
+    "realTrue : REAL;",
+    "realFalse : REAL;",
+    "lrealTrue : LREAL;",
+    "lrealFalse : LREAL;",
+    "fromInt0 : BOOL;",
+    "fromInt1 : BOOL;",
+    "fromInt2 : BOOL;",
+  ],
+  [
+    "bits.bTrue := TRUE;",
+    "bits.bFalse := FALSE;",
+    "strTrue := TO_STRING(bits.bTrue);",
+    "strFalse := TO_STRING(bits.bFalse);",
+    "realTrue := BIT_TO_REAL(bits.bTrue);",
+    "realFalse := BIT_TO_REAL(bits.bFalse);",
+    "lrealTrue := TO_LREAL(bits.bTrue);",
+    "lrealFalse := TO_LREAL(bits.bFalse);",
+    "bits.b0 := INT_TO_BIT(i0);",
+    "bits.b1 := INT_TO_BIT(i1);",
+    "bits.b2 := INT_TO_BIT(i2);",
+    "fromInt0 := bits.b0;",
+    "fromInt1 := bits.b1;",
+    "fromInt2 := bits.b2;",
+  ],
+  "TYPE DUT_LANG_tr_31_bits :\nSTRUCT\n\tbTrue : BIT;\n\tbFalse : BIT;\n\tb0 : BIT;\n\tb1 : BIT;\n\tb2 : BIT;\nEND_STRUCT\nEND_TYPE\n\n",
+)
+
+/**
+ * Task 32: LTIME_TO_STRING casts the UNSIGNED 64-bit LTIME to i64 in the Rust emitter (`castTo(..., "i64")`,
+ * `iec_ltime_text(ns: i64)`), so LTIME#106752d prints 'LTIME#-106751d-23h-...'; the interpreter is right. Extends
+ * `fmt_ltime_every_component` past 2^63 ns: 2^63-1 as the control both readings agree on, 2^63 exactly, the first
+ * whole day past it, and the maximum LTIME (2^64-1 ns).
+ */
+const trLtimePastI64 = textCells(
+  "tr_32_fmt_ltime_past_i64",
+  "LTIME_TO_STRING at and beyond 2^63 ns, up to the maximum LTIME (transpile-review 32)",
+  [
+    ["LTIME", "LTIME#106751D23H47M16S854MS775US807NS", "LTIME_TO_STRING"],
+    ["LTIME", "LTIME#106751D23H47M16S854MS775US808NS", "LTIME_TO_STRING"],
+    ["LTIME", "LTIME#106752D", "LTIME_TO_STRING"],
+    ["LTIME", "LTIME#213503D23H34M33S709MS551US615NS", "LTIME_TO_STRING"],
+  ],
+)
+
+/**
+ * Task 33: LREAL_TO_STRING keeps 15 significant digits; at an EXACT tie on the 16th the Rust prelude
+ * (`format!("{:.*e}", 14, ...)`) rounds half-to-even where the interpreter (`toExponential(14)`) rounds half-up, and
+ * the review saw half-up LIVE. Three ties half-even rounds DOWN (…445, …005, …005), one tie both rules round up
+ * (…455), and non-tie controls either side (…444, …446, …006). Every value is below 2^53, so each is exact.
+ */
+const TIES = [
+  "1234567890123445.0",
+  "1000000000000005.0",
+  "2500000000000005.0",
+  "1234567890123455.0",
+  "1234567890123444.0",
+  "1234567890123446.0",
+  "1000000000000006.0",
+]
+const trLrealTie = cells(
+  "tr_33_fmt_lreal_tie",
+  "LREAL_TO_STRING at an exact 16th-digit tie — half-up or half-even (transpile-review 33)",
+  ["seed : LREAL := 1.0;", ...TIES.flatMap((_, i) => [`v${i} : LREAL;`, `s${i} : STRING;`])],
+  TIES.flatMap((value, i) => [`v${i} := seed * ${value};`, `s${i} := LREAL_TO_STRING(v${i});`]),
+)
+
+/** transpile-review-2026-09-29 tasks 12, 31, 32, 33 — registered beside `TO_STRING_FORMAT_TESTS` in `index.ts`. */
+export const TRANSPILE_REVIEW_TO_STRING_TESTS: readonly LanguageTest[] = [
+  {
+    ...trLongDates,
+    deferred: {
+      transpile:
+        "transpile-review-2026-09-29 task 12: CODESYS prints LDT#/LD#/LTOD# text; the interpreter prints the raw count and the emitted Rust calls format helpers that do not exist (measured 2026-09-29)",
+    },
+  },
+  {
+    ...trBitConversions,
+    deferred: {
+      transpile:
+        "transpile-review-2026-09-29 task 31: a BIT converts by its family (bitstring) while its Rust type is bool — the emitted Rust does not compile (measured 2026-09-29)",
+    },
+  },
+  {
+    ...trLtimePastI64,
+    deferred: { transpile: "transpile-review-2026-09-29 task 32: LTIME_TO_STRING casts the u64 LTIME to i64 in the emitted Rust — at and past 2^63 ns it prints a negative duration where CODESYS prints LTIME#106751d23h47m16s854ms775us808ns (recorded 2026-09-29)" },
+  },
+  {
+    ...trLrealTie,
+    deferred: { transpile: "transpile-review-2026-09-29 task 33: LREAL_TO_STRING rounds an exact 16th-digit tie half-to-even in the emitted Rust; CODESYS rounds half up (1.00000000000001e15) (recorded 2026-09-29)" },
+  },
+]
+
 export const TO_STRING_FORMAT_TESTS: readonly LanguageTest[] = [...reals, ...sweep, ...sweep2, ...ltimes, ...times]

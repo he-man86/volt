@@ -800,6 +800,23 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     "for_limit_wider_than_counter_dint_var",
     "for_limit_wider_than_counter_dint_expr",
     "for_limit_wider_than_counter_upper_bound",
+    // transpile-review-2026-09-29, recorded 2026-09-29 — each refused by CODESYS, silently accepted by the LSP:
+    //   task 35: a FOR step the counter's type cannot hold — a runtime INT step on a BYTE counter, 300 on a SINT one
+    //            ("Cannot convert type 'INT' to type 'BYTE'" / "... 'SINT'").
+    "tr_35_for_byte_runtime_int_step",
+    "tr_35_for_sint_step_300",
+    //   task 37: a CASE label outside the selector's type (300 / -212 on a SINT: "Cannot convert type 'INT' to type
+    //            'SINT'"), and a range that is inverted or runs past the type ("Lower border must be lower than upper
+    //            border"). The review's premise — that the WRAPPED label matches — is contradicted: CODESYS refuses.
+    "tr_37_case_label_wraps_300",
+    "tr_37_case_label_wraps_minus_212",
+    "tr_37_case_range_inverted",
+    "tr_37_case_range_beyond_type",
+    //   task 40: DATE / DT / TOD plus or minus an LTIME, either order ("Cannot convert type 'LTIME' to type 'ULINT'").
+    "tr_40_date_plus_ltime",
+    "tr_40_dt_plus_ltime",
+    "tr_40_tod_minus_ltime",
+    "tr_40_ltime_plus_date",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1123,7 +1140,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 3 -> 4. `named_const_expression_keeps` (transpile-review-2026-09-29 task 2.3): CODESYS reads a constant whose
   // constant-EXPRESSION initializer overflows its type as the unwrapped fold (`D : SINT := K + 1` reads SINT#128);
   // lowering stores and reads it through a slot of the declared width.
-  diverges: 4,
+  // 4 -> 58, ALL FOR MEASUREMENT. transpile-review-2026-09-29 landed a CODESYS-recorded fixture for every open root
+  // cause ahead of its fix (tasks 6, 12, 14, 16-22, 24-33, 35, 36, 41, 42, 45-47), each carrying its task in
+  // `deferred.transpile`. This number comes back down task by task as the fixes land.
+  diverges: 58,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted
   // them silently (`cc_reserved_name_s_string` and its neighbours). The rating asks both sides now.
@@ -1147,7 +1167,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 4 -> 7. `for_limit_wider_than_counter_{dint_var,dint_expr,upper_bound}` (transpile-review task 13) asked
   // whether a FOR limit wider than an INT counter compiles, and it does NOT: "Cannot convert type 'DINT' to type
   // 'INT'". The LSP says nothing. A rise for measurement — the refusal is the follow-up.
-  "lsp-gap": 7,
+  // 7 -> 17. transpile-review-2026-09-29 tasks 35, 37 and 40: ten sources CODESYS refuses (a FOR step or a CASE label
+  // outside the type, an inverted CASE range, DATE/DT/TOD +/- LTIME) that the LSP accepts — `MEASURED_SILENT` names them.
+  "lsp-gap": 17,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1227,7 +1249,9 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // after `p := ADR(a); p := ADR(b)`, and both `refdecl_rebound_*` follow a reference rebound after its
   // declaration, one of them from a METHOD and across a scan. Writing through such a pointer is still refused,
   // and says so: a place cannot express a select, so the write wants an `IrSwitch` over the arms.
-  "not-lowered": 92,
+  // 92 -> 103. transpile-review-2026-09-29's recorded fixtures that lowering refuses today — tasks 11, 15, 22 (THIS),
+  // 23, 28, 34, 43 (three output conversions) and 44. Coverage the fixes are expected to take back.
+  "not-lowered": 103,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
