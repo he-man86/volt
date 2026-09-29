@@ -790,3 +790,21 @@ describe("emit/rust — a negative constant keeps its sign inside a method call"
     expect(rust("TYPE E_Sign : (Neg := -1, Zero := 0); END_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : INT := 5;\n\ty : INT;\n\tz : INT;\n\tmn : SINT := -128;\nEND_VAR\ny := MAX(E_Sign.Neg, x);\nz := ABS(-1);\nEND_PROGRAM\n")).toContain("mn: (-128i8),")
   })
 })
+
+/**
+ * A VAR_TEMP RESET HONOURS ITS DECLARED INITIALIZER (transpile-review task 30). A composite VAR_TEMP is reset on
+ * every call through a `fresh` expression; that printed the free, init-blind `initOf`, so `arr := [5, 6, 7]` and
+ * `s := (a := 9)` came back as the type's zeros where CODESYS resets them to the declared values
+ * (`decl_temp_array_init_resets`, `decl_temp_struct_init_resets`).
+ */
+describe("emit/rust — a VAR_TEMP reset", () => {
+  test("an initialized array or struct in VAR_TEMP is reset to its initializer, not to zero", () => {
+    const code = rust(
+      "TYPE ST_P :\nSTRUCT\n\ta : INT;\n\tb : INT := 4;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB\nVAR_TEMP\n\tarr : ARRAY[0..2] OF INT := [5, 6, 7];\n\ts : ST_P := (a := 9);\nEND_VAR\nVAR\n\tout : INT;\nEND_VAR\nout := arr[1] + s.a;\nEND_FUNCTION_BLOCK\n",
+    )
+    // the reset at the top of `call`, not the declaration in `new()`
+    const call = code.slice(code.indexOf("pub fn call("))
+    expect(call).toContain("self.arr = [5i16, 6i16, 7i16];")
+    expect(call).toContain("self.s = { let mut v = ST_P::new(); v.a = 9i16; v };")
+  })
+})

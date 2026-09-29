@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2006
+ *     confirmed     2008
  *     refused        541
  *     not-lowered    103
  *     lsp-gap         17
- *     diverges        50
+ *     diverges        48
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -49,14 +49,12 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2313
- *     disagree        10
+ *     agree         2315
+ *     disagree         8
  *     not-run        104
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: the emitted Rust does not build                 18
  *       not-run: no elementary variable to seed or compare       15
- *       disagree: decl_temp_array_init_resets — (declared inputs): inst.out interpreter 6, Rust 0
- *       disagree: decl_temp_struct_init_resets — (declared inputs): inst.out interpreter 9, Rust 0
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_32_fmt_ltime_past_i64 — (declared inputs): inst.s1 interpreter [76, 84, 73, 77, 69, 35, 49, 48
@@ -90,7 +88,7 @@
  *     string_to_real_parse                            11
  *     cs_standard_string_functions                  10.8
  *
- *   shape — 1466 distinct emission shapes over 2427 lowered fixtures, 1669 distinct constructs.
+ *   shape — 1466 distinct emission shapes over 2427 lowered fixtures, 1671 distinct constructs.
  *   776 constructs carry a review note (`NOTES`): 2339 fixtures are improvable, 2254 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
@@ -915,11 +913,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_stat_counts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "fd0802fcee", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
   decl_stat_initialized: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "fd0802fcee", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
   decl_temp_array_counts: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "50da785a81", notes: ["1307e33bbf", "abe3ae1f0b", "c8927952f2", "fcc10694ff"] },
-  decl_temp_array_init_resets: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 8, edge: "disagree", size: 3.1, shape: "ac5cfcac56", notes: ["1307e33bbf", "abe3ae1f0b", "c8927952f2", "e02b80c3c1"] },
+  decl_temp_array_init_resets: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3.1, shape: "b5cc3c2fc5", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
   decl_temp_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "a56687ac91", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
   decl_temp_initialized: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "a56687ac91", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
   decl_temp_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 62, edge: "agree", size: 5.3, shape: "b157559057", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
-  decl_temp_struct_init_resets: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 3, edge: "disagree", size: 3, shape: "5d8a47f594", notes: ["1307e33bbf", "8b9a7c5eea", "b3e78a179a"] },
+  decl_temp_struct_init_resets: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "856bc7521f", notes: ["1307e33bbf", "8b9a7c5eea"] },
   decl_var_array_counts: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "7af1760417", notes: ["1307e33bbf", "abe3ae1f0b", "fcc10694ff"] },
   decl_var_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 62, edge: "agree", size: 5.3, shape: "256cd7d7f5", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   deref_on_array_type: { evidence: "refused" },

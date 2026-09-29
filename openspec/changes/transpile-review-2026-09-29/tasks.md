@@ -377,9 +377,9 @@ those values into the new fixture's recording.
 - Repro: `VAR_TEMP arr : ARRAY[0..2] OF INT := [5,6,7]; s : ST_P := (a := 9)` → Rust 0/0, interpreter 6/9.
 - CODESYS: VAR_TEMP resets to its declared value each call (`decl_temp_initialized`, `decl_temp_array_counts`).
 - Fix: `return this.initOf(e.type, e.init)`.
-- [ ] 30.1 Fixtures `decl_temp_array_init_resets`, `decl_temp_struct_init_resets` — red.
+- [x] 30.1 Fixtures `decl_temp_array_init_resets`, `decl_temp_struct_init_resets` — red.
   Recorded 2026-09-29 (record:exec): `decl_temp_array_init_resets`, `decl_temp_struct_init_resets` — diverge (the Rust resets to zero).
-- [ ] 30.2 Fix.
+- [x] 30.2 Fix. `case "fresh"` prints `this.initOf(e.type, e.init)`; both fixtures confirmed (first=second=6; 9/9/4), divergence marks removed.
 
 ## 31. BIT conversions dispatch on family "bitstring" while the Rust type is bool
 - Root cause: `emit/rust/emit.ts:655` (`from`/`to` from `elem.family`), hitting `:675`, `:689`, `:690`.

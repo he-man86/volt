@@ -250,13 +250,11 @@ END_FUNCTION_BLOCK
       "out := arr[1];\narr[1] := 0;",
       "an initialized ARRAY in VAR_TEMP, read then zeroed, called twice a scan — reset to its initializer each call (transpile-review task 30)",
     ),
-    deferred: { transpile: "transpile-review-2026-09-29 task 30: a VAR_TEMP array is reset to its declared initializer on every call (first=second=6); the emitted Rust resets it to the type's zero (recorded 2026-09-29)" },
     plcPrgVar: "inst : FB_LANG_decl_temp_array_init_resets; first : INT; second : INT;",
     plcPrgBody: "inst(); first := inst.out;\ninst(); second := inst.out;",
   },
   {
     name: "decl_temp_struct_init_resets",
-    deferred: { transpile: "transpile-review-2026-09-29 task 30: a VAR_TEMP struct is reset to its declared initializer on every call (first=second=9, secondB=4); the emitted Rust resets it to the type's zero (recorded 2026-09-29)" },
     pouName: "FB_LANG_decl_temp_struct_init_resets",
     kind: "function_block",
     feature:

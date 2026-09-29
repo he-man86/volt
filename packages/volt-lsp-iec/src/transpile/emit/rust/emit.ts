@@ -578,7 +578,7 @@ class Printer {
       // A fresh composite — the emitted twin of the interpreter's `instantiate`, and the same `initOf` a slot's
       // declaration already uses. Only a VAR_TEMP reset reaches it.
       case "fresh":
-        return initOf(e.type, e.init as IrValue)
+        return this.initOf(e.type, e.init)
       case "invoke": {
         // the inputs by value, then the VAR_IN_OUT as `&mut` — a METHOD or ACTION on its instance, a FUNCTION free
         const routine = this.routines.get(e.routine)!
