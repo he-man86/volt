@@ -168,6 +168,8 @@ export class Lowering {
   arguments = 0
   /** How deep in an IF, CASE or loop body lowering is: a statement at 0 runs on every run of the body. */
   conditional = 0
+  /** How many loop bodies enclose this statement: an EXIT or CONTINUE at 0 has no loop to leave (transpile-review 39). */
+  loops = 0
   /** The pointers and references this body stores at depth 0, by `pointerKey` — so far, in source order. */
   readonly boundPointers = new Set<string>()
   /** The FB instances of other frames this body is lent per call, by tag — its `lent` places (`interfaces.ts`). */

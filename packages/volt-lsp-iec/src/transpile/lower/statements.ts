@@ -65,6 +65,16 @@ export function lowerBlock(lw: Lowering, list: StatementList): IrStmt[] {
   return out
 }
 
+/** A loop's body: an EXIT or CONTINUE in it has a loop to leave. */
+function loopBody(lw: Lowering, list: StatementList): IrStmt[] {
+  lw.loops++
+  try {
+    return lowerBlock(lw, list)
+  } finally {
+    lw.loops--
+  }
+}
+
 /**
  * An assignment CHAIN — `a := b := c`, `a S= b R= c`, `a := b S= c`. One rule fits every chain measured
  * (conformance `set_reset_chained*`, `assign_chained_*`): the VALUE flows right to left, converted to each link's
@@ -229,21 +239,23 @@ export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undef
       return lowerFor(lw, s)
     case "while": {
       const cond = lowerExpr(lw, s.cond, elementaryRef("BOOL"))
-      return cond && { kind: "loop", init: [], test: { cond, atEnd: false }, body: lowerBlock(lw, s.body), step: [], span: s.span }
+      return cond && { kind: "loop", init: [], test: { cond, atEnd: false }, body: loopBody(lw, s.body), step: [], span: s.span }
     }
     case "repeat": {
       // REPEAT runs until its condition holds; the IR's test is "keep going", so it is negated here.
       const until = lowerExpr(lw, s.until, elementaryRef("BOOL"))
       if (until === undefined) return undefined
       const cond: IrExpr = { kind: "unary", op: "not", operand: until, type: until.type, span: until.span }
-      return { kind: "loop", init: [], test: { cond, atEnd: true }, body: lowerBlock(lw, s.body), step: [], span: s.span }
+      return { kind: "loop", init: [], test: { cond, atEnd: true }, body: loopBody(lw, s.body), step: [], span: s.span }
     }
     case "call_stmt":
       return lowerCallStatement(lw, s.call)
+    // CODESYS refuses both outside a loop — "No enclosing loop of which to exit" (`cc2_exit_outside_loop`); lowered, they
+    // were a Rust E0268 and an interpreter that stopped the body (transpile-review 39)
     case "exit":
-      return { kind: "break", span: s.span }
     case "continue":
-      return { kind: "continue", span: s.span }
+      if (lw.loops === 0) return lw.bail("exit-outside-loop", `${s.kind.toUpperCase()} outside any loop`, s.span)
+      return { kind: s.kind === "exit" ? "break" : "continue", span: s.span }
     case "return":
       return { kind: "return", span: s.span }
     // `__TRY` IS MEASURED AND NOT YET LOWERED, which is a different thing from unmeasured — the model is complete
@@ -337,7 +349,7 @@ export function lowerFor(lw: Lowering, s: Extract<Statement, { kind: "for" }>): 
     kind: "loop",
     init: [{ kind: "assign", target: control, value: convert(from, control.type), span: s.from.span }],
     test: { cond, atEnd: false },
-    body: lowerBlock(lw, s.body),
+    body: loopBody(lw, s.body),
     // The step adds in the COUNTER's type: `current` is the counter widened for the test, and adding a step of the
     // counter's type to it printed `(self.u as i32).wrapping_add(1u16)` — E0308 (transpile-review 13).
     step: [{ kind: "assign", target: control, value: { kind: "binary", op: "add", left: { kind: "load", place: control, type: control.type, span: s.controlVar.span }, right: stepExpr, type: control.type, span: s.span }, span: s.span }],

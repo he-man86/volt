@@ -85,6 +85,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "fb-init-root": "not-measured",
   "fb-init-order": "unclassified",
   "fb-init-program": "unclassified",
+  "exit-outside-loop": "invalid",
   "for-bound-call": "unclassified",
   "graphical-body": "unclassified",
   // An initial value that READS an FB instance. A sibling instance's FB_Init runs in the same step, at its own

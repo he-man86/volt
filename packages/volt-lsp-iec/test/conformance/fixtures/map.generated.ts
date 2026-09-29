@@ -24,7 +24,7 @@
  *   tier                     lowered    clean
  *     decl                    440      440
  *     arith                  1463     1463
- *     control                  79       79
+ *     control                  78       78
  *     aggregate                29       29
  *     call                    230      228
  *     indirect                185      181
@@ -51,10 +51,10 @@
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
  *     agree         2319
  *     disagree         5
- *     not-run        102
+ *     not-run        101
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
- *       not-run: the emitted Rust does not build                 16
  *       not-run: no elementary variable to seed or compare       15
+ *       not-run: the emitted Rust does not build                 15
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_41_limit_evaluation_order — (declared inputs): inst.x interpreter 4, Rust 3
@@ -85,8 +85,8 @@
  *     string_to_real_parse                            11
  *     cs_standard_string_functions                  10.8
  *
- *   shape — 1465 distinct emission shapes over 2426 lowered fixtures, 1669 distinct constructs.
- *   774 constructs carry a review note (`NOTES`): 2338 fixtures are improvable, 2253 touch a construct with alternatives.
+ *   shape — 1464 distinct emission shapes over 2425 lowered fixtures, 1667 distinct constructs.
+ *   774 constructs carry a review note (`NOTES`): 2337 fixtures are improvable, 2252 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -662,7 +662,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc2_circular_inheritance: { evidence: "refused" },
   cc2_constant_and_external: { evidence: "refused" },
   cc2_duplicate_inherited_variable: { evidence: "refused" },
-  cc2_exit_outside_loop: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.1, shape: "1fe01658b8", notes: ["0e0d715a81", "1307e33bbf"] },
+  cc2_exit_outside_loop: { evidence: "refused" },
   cc2_fb_not_instantiated: { evidence: "refused" },
   cc2_in_out_not_assigned: { evidence: "refused" },
   cc2_indexing_and_arity: { evidence: "refused" },

@@ -2182,3 +2182,16 @@ test("a METHOD's own VAR_IN_OUT shadows the FB field and the FB VAR_STAT of its 
     expect([section, runner.get("res"), runner.get("v"), runner.get("member")]).toEqual([section, 101n, 101n, 5n])
   }
 })
+
+// transpile-review 39: EXIT/CONTINUE outside any loop lowered to a `break`/`continue` with no enclosing loop — Rust E0268,
+// and the interpreter "stopped the body". CODESYS refuses it: "No enclosing loop of which to exit" (`cc2_exit_outside_loop`).
+test("EXIT and CONTINUE outside a loop are refused; inside one — nested in an IF — they lower", () => {
+  const prg = (body: string) => `PROGRAM P\nVAR\n\tn : INT;\n\ti : INT;\nEND_VAR\n${body}\nEND_PROGRAM\n`
+  const codes = (body: string) => lowerSource(prg(body), "P").diagnostics.map((d) => d.code)
+  expect(codes("n := 1;\nEXIT;")).toEqual(["exit-outside-loop"])
+  expect(codes("IF n = 0 THEN CONTINUE; END_IF")).toEqual(["exit-outside-loop"])
+  expect(codes("FOR i := 1 TO 3 DO IF i = 2 THEN EXIT; END_IF END_FOR\nEXIT;")).toEqual(["exit-outside-loop"])
+  expect(codes("FOR i := 1 TO 3 DO IF i = 2 THEN CONTINUE; END_IF n := n + 1; END_FOR")).toEqual([])
+  expect(codes("WHILE n < 3 DO n := n + 1; EXIT; END_WHILE")).toEqual([])
+  expect(codes("REPEAT n := n + 1; CONTINUE; UNTIL n > 3 END_REPEAT")).toEqual([])
+})

@@ -473,8 +473,8 @@ those values into the new fixture's recording.
 - Repro: `cc2_exit_outside_loop` → Rust E0268, interpreter "stops the body".
 - CODESYS: "No enclosing loop of which to exit" (`codesys.build.json:474`).
 - Fix: track loop depth; bail at depth 0.
-- [ ] 39.1 src test — red.
-- [ ] 39.2 Fix.
+- [x] 39.1 src test — red (lower.test.ts: EXIT/CONTINUE at top level, in an IF, after a loop lowered clean).
+- [x] 39.2 Fix. `Lowering.loops` counts enclosing loop bodies (`loopBody` in lower/statements.ts); EXIT/CONTINUE at 0 bails `exit-outside-loop` (invalid) — `cc2_exit_outside_loop` no longer emits E0268 Rust (map row: refused, no rust).
 
 ## 40. DATE/DT/TOD ± LTIME is accepted (and narrows the duration to 32 bits)
 - Root cause: `lower/expressions.ts:342` (convert before scale); `src/types/arith.ts:142/145` accepts the pair.
