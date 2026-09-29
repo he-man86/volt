@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2025
+ *     confirmed     2028
  *     refused        541
  *     not-lowered    104
  *     lsp-gap         17
- *     diverges        30
+ *     diverges        27
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -1749,13 +1749,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   meet_word_times_int: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 45, edge: "agree", size: 2.9, shape: "62c5553856", notes: ["0e0d715a81", "1307e33bbf", "1d7709a031", "5d9850550d", "65df8e0418", "c90fc459e6"] },
   meet_word_times_uint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 45, edge: "agree", size: 2.9, shape: "ce3820a002", notes: ["1d7709a031", "5d9850550d", "65df8e0418", "c90fc459e6"] },
   mem_adr_of_inout_member: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 3, shape: "e7075da0d5", notes: ["013de1dc6a", "1307e33bbf", "45292dbd9c", "75cc82a569", "dd94ff18a2", "f7ea0fc7a1"] },
-  mem_fb_implements_one: { evidence: "diverges", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "7d7348bda2", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "90c445f7cb", "a497507b30"] },
-  mem_fb_implements_two: { evidence: "diverges", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 1.5, shape: "7d7348bda2", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "90c445f7cb", "a497507b30"] },
+  mem_fb_implements_one: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "7d7348bda2", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "90c445f7cb", "a497507b30"] },
+  mem_fb_implements_two: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 1.5, shape: "7d7348bda2", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "90c445f7cb", "a497507b30"] },
   mem_fb_pack_mode_aligned_baseline: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "bcc9f2f534", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "687428cc81", "90c445f7cb", "a497507b30", "de132e5019"] },
   mem_fb_pack_mode_one: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "bcc9f2f534", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "687428cc81", "90c445f7cb", "a497507b30", "de132e5019"] },
   mem_fb_pack_mode_struct_control: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "8e7865d0cd", notes: ["06bb3a6005", "4bf3f61062", "63d29bd1a0", "687428cc81", "90c445f7cb", "a497507b30", "de132e5019"] },
   mem_fb_var_constant_non_replaced: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "43aced519b", notes: ["06bb3a6005", "4a6baf16b3", "4bf3f61062", "63d29bd1a0", "870b70e195", "90c445f7cb", "a497507b30"] },
-  mem_fb_var_constant_scalar: { evidence: "diverges", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.8, shape: "43aced519b", notes: ["06bb3a6005", "4a6baf16b3", "4bf3f61062", "63d29bd1a0", "870b70e195", "90c445f7cb", "a497507b30"] },
+  mem_fb_var_constant_scalar: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "43aced519b", notes: ["06bb3a6005", "4a6baf16b3", "4bf3f61062", "63d29bd1a0", "870b70e195", "90c445f7cb", "a497507b30"] },
   mem_fb_var_constant_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "5f9e5be173", notes: ["06bb3a6005", "4a6baf16b3", "4bf3f61062", "63d29bd1a0", "870b70e195", "90c445f7cb", "a497507b30"] },
   mem_member_offsets: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.8, shape: "76fedf0b91", notes: ["06bb3a6005", "1307e33bbf", "1707972c33", "4bf3f61062", "63d29bd1a0", "687428cc81", "6a98109119", "90c445f7cb", "a497507b30", "de132e5019"] },
   mem_pointer_index_struct_array: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 28, edge: "agree", size: 4.6, shape: "8b9431e9eb", notes: ["013de1dc6a", "02b031c773", "0c7c4434c4", "0e0d715a81", "1307e33bbf", "28e0f14a5a", "417ce6fb0b", "41d2232599", "46c17ef7d3", "48944bacca", "521ba042ac", "55d895e28f", "5ba97e5557", "5c9bb13706", "74845f98c6", "75cc82a569", "7886e7bd17", "c9c77500c6", "d9d57311e3", "dd94ff18a2", "de8528b197", "ef64f29f0d", "f7ea0fc7a1", "fbde4d6e1e"] },

@@ -273,7 +273,6 @@ END_FUNCTION_BLOCK
   // that same one-DINT FB: a replaced scalar constant, a const_non_replaced one, a struct constant, one interface, two.
   {
     name: "mem_fb_var_constant_scalar",
-    deferred: { transpile: "transpile-review-2026-09-29 task 26: a replaced scalar VAR CONSTANT takes no instance storage in CODESYS (SIZEOF 16); the layout counts it (24) (recorded 2026-09-29)" },
     pouName: "FB_MEM_fb_var_constant_scalar",
     kind: "function_block" as const,
     feature: "task 26: SIZEOF the one-DINT FB plus a scalar VAR CONSTANT (replaced by the compiler) — is it in the instance?",
@@ -308,7 +307,6 @@ END_FUNCTION_BLOCK
   },
   {
     name: "mem_fb_implements_one",
-    deferred: { transpile: "transpile-review-2026-09-29 task 26: each implemented interface adds a pointer to the instance in CODESYS (SIZEOF 24); the layout ignores IMPLEMENTS (recorded 2026-09-29)" },
     pouName: "FB_MEM_fb_implements_one",
     kind: "function_block" as const,
     feature: "task 26: SIZEOF the one-DINT FB IMPLEMENTS one interface — does each interface add a pointer?",
@@ -320,7 +318,6 @@ END_FUNCTION_BLOCK
   },
   {
     name: "mem_fb_implements_two",
-    deferred: { transpile: "transpile-review-2026-09-29 task 26: each implemented interface adds a pointer to the instance in CODESYS (SIZEOF 32); the layout ignores IMPLEMENTS (recorded 2026-09-29)" },
     pouName: "FB_MEM_fb_implements_two",
     kind: "function_block" as const,
     feature: "task 26: SIZEOF the one-DINT FB IMPLEMENTS two interfaces",

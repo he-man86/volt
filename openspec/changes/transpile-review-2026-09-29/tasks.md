@@ -329,9 +329,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): scalar VAR CONSTANT=16 (Volt 24), const_non_replaced=24, struct constant=32, IMPLEMENTS one=24
   (Volt 16), two=32 (Volt 16), baseline=16.
 - Fix: skip replaced scalar constants; add 8 bytes per implemented interface; keep refusing what is not measured.
-- [ ] 26.1 Record `mem_fb_var_constant_*` and `mem_fb_implements_*` — red.
+- [x] 26.1 Record `mem_fb_var_constant_*` and `mem_fb_implements_*` — red.
   Recorded 2026-09-29 (record:exec): `mem_fb_var_constant_scalar` (SIZEOF 16), `mem_fb_implements_one` (24), `mem_fb_implements_two` (32) — diverge; `mem_fb_var_constant_non_replaced` (24) and `mem_fb_var_constant_struct` (32) — confirmed.
-- [ ] 26.2 Fix.
+- [x] 26.2 Fix. `fieldBytes` (lower/bytes.ts) skips a replaced elementary VAR CONSTANT (not `const_non_replaced`, not a STRUCT), starts an FB's fields 8 bytes further per IMPLEMENTS, and refuses a STRING/ARRAY constant and an interface in a packed FB (unmeasured); all five fixtures confirmed, marks removed; src test in lower.test.ts.
 
 ## 27. Every loop panics after 1,000,000 passes; the two backends also trip at different counts
 - Root cause: `ir/ir.ts:33-37` (LOOP_ITERATION_CAP as semantics), `emit/rust/emit.ts:904-911` (increment + check

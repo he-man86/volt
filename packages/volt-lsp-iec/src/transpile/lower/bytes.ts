@@ -82,7 +82,26 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
     for (const list of s.symbols.values())
       if (list.some((sym) => sym.kind === "method" && (sym.ast as { varSections?: readonly { sectionKind: string }[] }).varSections?.some((v) => v.sectionKind === "VAR_INST"))) return undefined
   const isFb = t.kind === "function_block"
-  let offset = isFb ? 8n : 0n
+  // A VAR CONSTANT THE COMPILER REPLACES TAKES NO ROOM, and each IMPLEMENTS adds a pointer (transpile-review 26).
+  // Measured on the one-DINT FB (16): a scalar LINT constant leaves it 16, the same under `const_non_replaced` makes
+  // it 24, a STRUCT constant 32; one interface 24, two 32. Where the interface pointers sit is not measured, so an FB
+  // still has no field offsets; a constant of any other kind (a STRING, an ARRAY), and an interface in a packed FB,
+  // are refused rather than guessed.
+  const replaced = new Set<string>()
+  for (const sec of isFb ? (pending?.unit.varSections ?? []) : [])
+    if (sec.constant === true)
+      for (const d of sec.decls) {
+        if (lw.attributes.get(d)?.has("const_non_replaced") === true) continue
+        for (const n of d.names) {
+          const type = layout.fields.find((f) => f.name.toUpperCase() === n.text.toUpperCase())?.type
+          if (type?.kind === "struct") continue
+          if (type?.kind !== "elementary" || type.elem.family === "string") return undefined
+          replaced.add(n.text.toUpperCase())
+        }
+      }
+  const interfaces = BigInt(isFb && pending?.unit.kind === "function_block" ? (pending.unit.implements?.length ?? 0) : 0)
+  if (packed && interfaces > 0n) return undefined
+  let offset = isFb ? 8n + 8n * interfaces : 0n
   let align = isFb ? 8n : 1n
   const offsets = new Map<string, bigint>()
   // Consecutive BIT fields PACK, eight to a byte; anything else ends the run, and a BIT after one starts a fresh byte.
@@ -91,7 +110,7 @@ export function fieldBytes(lw: Lowering, t: Extract<Type, { kind: "struct" | "fu
   // go back into the first byte. A BOOL is a whole byte either way, so two BOOLs are 2. It was refused outright.
   let bitsUsed = 0
   for (const field of layout.fields) {
-    if (field.section === "temp" || field.section === "VAR_TEMP" || field.section === "VAR_STAT") continue
+    if (field.section === "temp" || field.section === "VAR_TEMP" || field.section === "VAR_STAT" || replaced.has(field.name.toUpperCase())) continue
     if (field.type.kind === "elementary" && field.type.elem.name === "BIT") {
       // the byte a run of bits sits in is taken once, at the first of them
       if (bitsUsed === 0) {
