@@ -211,6 +211,11 @@ function byteString(text: string): string {
   return `b"${out}"`
 }
 
+/** True for a REAL or LREAL type — the operands whose MAX / MIN is a compare-select, not f32::max. */
+function isReal(t: Type): boolean {
+  return t.kind === "elementary" && t.elem.family === "real"
+}
+
 /** True for a STRING or WSTRING type — the operands that need `iec_max`/`iec_min` rather than `Ord`. */
 function isString(t: Type): boolean {
   return t.kind === "elementary" && (t.name === "STRING" || t.name === "WSTRING")
@@ -733,18 +738,24 @@ class Printer {
           // A STRING has no `Ord`, only the cross-length `PartialOrd` the prelude defines, so `.max()` does not
           // resolve on one (E0599 — the error that had MAX over a STRING refused in the first place). `iec_max`
           // and `iec_min` need only that `PartialOrd`, and pick the same operand the interpreter's `ord` does.
+          // A REAL is `iec_fmax` / `iec_fmin`, CODESYS's compare-select — the SECOND argument on a tie or a NaN — where
+          // f32::max drops the NaN and answers either zero (`tr_28_minmax_limit_nan_signed_zero_*`, recorded as bits).
           case "max":
           case "min":
             return isString(e.type)
               ? args.reduce((acc, a) => `iec_${e.name}(${acc}, ${a})`)
-              : args.reduce((acc, a) => `${acc}.${e.name}(${unparen(a)})`)
+              : isReal(e.type)
+                ? argv.reduce((acc, a) => `iec_f${e.name}(${acc}, ${a})`)
+                : args.reduce((acc, a) => `${acc}.${e.name}(${unparen(a)})`)
           // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (conformance
           // `limit_inverted_bounds`). MIN(MAX(MN, IN), MX) is exactly the measured behaviour — MN as the receiver, so
           // it is evaluated before IN, as the IR states (`tr_41_limit_evaluation_order`).
           case "limit":
             return isString(e.type)
               ? `iec_min(iec_max(${args[0]}, ${args[1]}), ${args[2]})`
-              : `${args[0]}.max(${argv[1]}).min(${argv[2]})`
+              : isReal(e.type)
+                ? `iec_fmin(iec_fmax(${argv[0]}, ${argv[1]}), ${argv[2]})`
+                : `${args[0]}.max(${argv[1]}).min(${argv[2]})`
           // LAZY, as the IR states: only the selected input is evaluated (`tr_41_sel_side_effects`).
           case "sel":
             return `(if ${argv[0]} { ${argv[2]} } else { ${argv[1]} })`
@@ -1308,6 +1319,15 @@ export function emitRust(pou: IrPou): Emitted {
     p.push("if c >= 9223372036854775808.0 { return 0; }", 1)
     p.push("(c as i64) as i32", 1)
     p.push("}", 0)
+  }
+  // MAX / MIN over a REAL: CODESYS's compare-select, the SECOND argument on a tie or a NaN (`ir/evaluate.ts` `select`)
+  if (p.code.includes("iec_fmax(")) {
+    p.push("", 0)
+    p.push("fn iec_fmax<T: PartialOrd>(a: T, b: T) -> T { if a > b { a } else { b } }", 0)
+  }
+  if (p.code.includes("iec_fmin(")) {
+    p.push("", 0)
+    p.push("fn iec_fmin<T: PartialOrd>(a: T, b: T) -> T { if a < b { a } else { b } }", 0)
   }
   if (p.code.includes("iec_log(")) {
     p.push("", 0)

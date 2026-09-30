@@ -44,17 +44,19 @@ export function selectedArg(name: "sel" | "mux", selector: Val, arity: number): 
 
 /** A builtin over ALREADY-EVALUATED arguments — `argTypes` their types, which `char` reads its string's capacity from. */
 export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type, argTypes: readonly Type[], rotateBits?: number): Val {
-  const pick = (op: "lt" | "gt"): Val => args.reduce((best, v) => (ord(op, v, best) ? v : best))
+  // MAX(a, b) is `IF a > b THEN a ELSE b` and MIN(a, b) `IF a < b THEN a ELSE b`: the SECOND argument on a tie or a NaN
+  // — MAX(NaN, 1) is 1, MAX(1, NaN) NaN, MAX(-0, +0) +0 and MAX(+0, -0) -0 (conformance
+  // `tr_28_minmax_limit_nan_signed_zero_*`, recorded as bits; transpile-review-2026-09-29 task 28).
+  const select = (op: "lt" | "gt", a: Val, b: Val): Val => (ord(op, a, b) ? a : b)
   switch (name) {
     case "max":
-      return fit(pick("gt"), type)
+      return fit(args.reduce((a, b) => select("gt", a, b)), type)
     case "min":
-      return fit(pick("lt"), type)
+      return fit(args.reduce((a, b) => select("lt", a, b)), type)
     case "limit": {
-      // MIN(MAX(IN, MN), MX) — measured; with MN > MX that is MX for every IN
+      // MIN(MAX(MN, IN), MX) — measured; with MN > MX that is MX for every IN, and LIMIT(0, 1, NaN) is NaN
       const [mn, value, mx] = args as [Val, Val, Val]
-      const raised = ord("gt", value, mn) ? value : mn
-      return fit(ord("lt", raised, mx) ? raised : mx, type)
+      return fit(select("lt", select("gt", mn, value), mx), type)
     }
     case "sel":
     case "mux":

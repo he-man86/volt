@@ -272,6 +272,18 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).toContain("if self.g { 2i64 } else { 1i64 }")
   })
 
+  // transpile-review-2026-09-29 task 28 (conformance `tr_28_minmax_limit_nan_signed_zero_*`, recorded as bits): a REAL
+  // MAX is `if a > b { a } else { b }` — the second argument on a tie or NaN — where f32::max drops the NaN and picks
+  // either zero; LIMIT is MIN(MAX(MN, IN), MX) over the same two.
+  test("REAL MAX / MIN / LIMIT print as compare-select, never f32::max / f32::min", () => {
+    const code = rust("PROGRAM P\nVAR a : REAL; b : REAL; y : REAL; END_VAR\ny := MAX(a, b); y := MIN(a, b); y := LIMIT(0.0, a, b);\nEND_PROGRAM\n")
+    expect(code).toContain("self.y = iec_fmax(self.a, self.b);")
+    expect(code).toContain("self.y = iec_fmin(self.a, self.b);")
+    expect(code).toContain("iec_fmin(iec_fmax(")
+    expect(code).toContain("fn iec_fmax<T: PartialOrd>(a: T, b: T) -> T { if a > b { a } else { b } }")
+    expect(code).toContain("fn iec_fmin<T: PartialOrd>(a: T, b: T) -> T { if a < b { a } else { b } }")
+  })
+
   test("LIMIT evaluates MN before IN; MUX runs only the selected input (transpile-review-2026-09-29 task 41)", () => {
     const code = rust(
       "FUNCTION Add1 : INT\nVAR_IN_OUT x : INT; END_VAR\nx := x + 1;\nAdd1 := x;\nEND_FUNCTION\n" +

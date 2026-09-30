@@ -1271,3 +1271,24 @@ END_PROGRAM
     expect([pou.get("x"), pou.get("r3")]).toEqual([4n, 4n])
   })
 })
+
+// transpile-review-2026-09-29 task 28 (conformance `tr_28_minmax_limit_nan_signed_zero_lreal` / `_real`, recorded as bits):
+// MAX(a, b) is `IF a > b THEN a ELSE b`, MIN(a, b) `IF a < b THEN a ELSE b` — the SECOND argument on a tie or a NaN —
+// and LIMIT(mn, in, mx) is MIN(MAX(mn, in), mx).
+describe("interp — MAX / MIN / LIMIT on a NaN and a signed zero", () => {
+  const shown = (v: unknown): string => (Object.is(v, -0) ? "-0" : String(v))
+  for (const t of ["LREAL", "REAL"])
+    test(`${t}: the second argument on a tie or NaN`, () => {
+      const pou = load(`PROGRAM P
+VAR seed : ${t} := 1.0; n : ${t}; pz : ${t} := 0.0; nz : ${t};
+r1 : ${t}; r2 : ${t}; r3 : ${t}; r4 : ${t}; r5 : ${t}; r6 : ${t}; r7 : ${t}; r8 : ${t}; r9 : ${t}; END_VAR
+n := SQRT(0.0 - seed); nz := pz * (0.0 - seed);
+r1 := MAX(n, 1); r2 := MAX(1, n); r3 := MIN(n, 1); r4 := MIN(1, n);
+r5 := LIMIT(0, n, 5); r6 := LIMIT(n, 1, 5); r7 := LIMIT(0, 1, n);
+r8 := MAX(nz, pz); r9 := MAX(pz, nz);
+END_PROGRAM
+`)
+      pou.scan()
+      expect(["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].map((n) => shown(pou.get(n)))).toEqual(["1", "NaN", "1", "NaN", "5", "1", "NaN", "0", "-0"])
+    })
+})

@@ -69,8 +69,8 @@ impl<T: Copy + PartialEq, const N: usize, const M: usize> PartialEq<IecStr<T, M>
 impl<T: Copy + PartialOrd, const N: usize, const M: usize> PartialOrd<IecStr<T, M>> for IecStr<T, N> { fn partial_cmp(&self, other: &IecStr<T, M>) -> Option<std::cmp::Ordering> { self.units[..self.len].partial_cmp(&other.units[..other.len]) } }
 impl<T: Copy + Into<u32>, const N: usize> std::fmt::Debug for IecStr<T, N> { fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { let text: String = self.units[..self.len].iter().map(|&u| char::from_u32(u.into()).unwrap_or('\\u{fffd}')).collect(); write!(f, "{:?}", text) } }
 // MAX / MIN OVER A STRING. Rust's .max() comes from Ord, and an IecStr has only the cross-length PartialOrd
-// above, so these take its place — and they pick the same operand the interpreter does: the LATER one only when
-// it is strictly greater, so two equal strings answer with the first. CODESYS compares byte by byte, UNSIGNED,
+// above, so these take its place. Two equal strings are the same value, so which one a tie answers with is not
+// observable (a REAL tie is: iec_fmax / iec_fmin answer the second argument, as measured). CODESYS compares byte by byte, UNSIGNED,
 // a prefix losing to what it is a prefix of (conformance strord_prefix, strord_high_byte and their four
 // neighbours), which is exactly what that PartialOrd does over a byte slice.
 fn iec_max<T: PartialOrd>(a: T, b: T) -> T { if b > a { b } else { a } }

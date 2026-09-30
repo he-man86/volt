@@ -357,9 +357,9 @@ those values into the new fixture's recording.
   LIMIT(0,n,5)=5, LIMIT(n,1,5)=1, LIMIT(0,1,n)=NaN; MAX(-0,+0)=+0, MAX(+0,-0)=-0. LREAL 1.0/0.0 STOPS the runtime,
   so read results as bits.
 - Fix: emit exactly `if a > b { a } else { b }` (and the MIN/LIMIT forms) for reals; make `pick` match.
-- [ ] 28.1 Record `minmax_limit_nan_signed_zero` (bit readback) — red.
+- [x] 28.1 Record `minmax_limit_nan_signed_zero` (bit readback) — red.
   Recorded 2026-09-29 (record:exec): `tr_28_minmax_limit_nan_signed_zero_lreal`, `tr_28_minmax_limit_nan_signed_zero_real` — not-lowered (`pointer-type`, the bit readback).
-- [ ] 28.2 Fix both backends.
+- [x] 28.2 Fix both backends. `ir/evaluate.ts` MAX/MIN/LIMIT are CODESYS's compare-select (second argument on a tie or NaN, LIMIT = MIN(MAX(MN, IN), MX)); the Rust prints `iec_fmax`/`iec_fmin` for REAL/LREAL. Src tests carry the recorded values (interp.test.ts, emit.test.ts); both `tr_28_*` stay not-lowered (`pointer-type`, the bit readback) until the pointer model.
 
 ## 29. A user METHOD named Clone / To_Owned / Into / Try_Into is shadowed by a prelude trait method
 - Root cause: `emit/rust/emit.ts:989` (baseFnName reserves only keywords + new/call/scan; structs derive Clone at
