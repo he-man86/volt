@@ -238,3 +238,12 @@ Without these, section 2's promise fails on the pull side: a text the push now w
       block): a `.prg` whose text has an unclosed `(*` pulls back as `.prg`. TwinCAT checked the same way.
 - [ ] 5.3 Live on both vendors with 3.2: push each shape of 3.1, pull, push the fixed text, pull — the item keeps its name
       and kind throughout.
+
+**Gate (2026-09-30): BLOCKED, not committed.** Nothing of 5.1–5.3 is implemented: the tree is at `c321318e37` (the
+design commit), with no code, test, fixture or recording change for section 5. The design's *Owner decisions required
+before code* are still open: (1) the TwinCAT DUT subtype as a driver-owned "opens with TYPE" read, (2) the *unnamed*
+state on both vendors, (3) amending 5.1's acceptance so that `TYPE X : END_TYPE` pulls back as `X.alias` on CODESYS.
+Task 5.1 itself says to "decide with the owner before falling back to anything". Typecheck is green (5 packages).
+The suites were not re-run, because nothing has changed since the step-4 gate, and a green run would not show that
+5.1–5.3 are met. Unblock by recording the owner's answers to the three decisions in design.md, then running Migration
+steps 1–7.
