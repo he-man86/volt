@@ -186,15 +186,15 @@ function toDouble({ m, e }: Scaled): number {
  * prelude (`IecStr::char_at` / `with_char`).
  *
  * A STRING(n) is n + 1 bytes in CODESYS, and `s[i]` reaches every one of them — 0 to n — whatever the length
- * (recorded: lib_prim_char_past_length — `buf[SIZEOF(buf) - 1] := 0` on a short string runs). The value model holds the
- * characters up to the terminator and nothing after it:
- *   - a read AT or PAST the length reads 0 — the terminator, or a byte past it;
- *   - a store below the length replaces that character, and a 0 there cuts the string at i;
- *   - a store AT the length appends (a 0 there changes nothing), and at n only a 0 fits;
- *   - a store PAST the length lands behind the terminator: the string does not change.
+ * (recorded: lib_prim_char_past_length — `buf[SIZEOF(buf) - 1] := 0` on a short string runs). The value holds the
+ * WHOLE BUFFER, one JS char a unit, trailing zeros trimmed; the string is what stands before its first 0 (`visible`):
+ *   - a read reads that byte — the terminator, or whatever lies behind it — and 0 past what is held;
+ *   - a store stores that byte wherever it lands, and the length is where the first 0 now stands: a 0 cuts the
+ *     string and KEEPS its tail, which a later store over that 0 brings back ('abcdef', t[2] := 0, t[2] := 88 is
+ *     'abXdef'); a store past the terminator is held behind it (recorded: tr_34_lib_prim_char_behind);
+ *   - at n only a 0 fits.
  * An index outside 0..n is outside the variable — a fault, as CODESYS would be writing into its neighbour.
- * ponytail: the bytes behind the terminator are not held, so ST that reads back what it stored past the length — or
- * what an earlier, longer value left there — sees 0 where CODESYS sees that byte. The library's ST always terminates.
+ * Mirrored by the prelude's `IecStr`, whose `[T; N]` is the same buffer and `len` the same first 0.
  */
 export function charAt(s: string, i: bigint, capacity: number): bigint {
   const at = Number(i)
@@ -205,10 +205,17 @@ export function charAt(s: string, i: bigint, capacity: number): bigint {
 export function setChar(s: string, i: bigint, c: bigint, capacity: number): string {
   const at = Number(i)
   if (at < 0 || at > capacity || (at === capacity && c !== 0n)) throw new RangeError(`character ${at} of a string of capacity ${capacity}`)
-  if (at > s.length) return s
-  if (c === 0n) return s.slice(0, at)
-  return s.slice(0, at) + String.fromCharCode(Number(c)) + s.slice(at + 1)
+  return held(s.padEnd(at, "\0").slice(0, at) + String.fromCharCode(Number(c)) + s.slice(at + 1))
 }
+
+/** The string a buffer holds — its units before the first 0. */
+export function visible(s: string): string {
+  const end = s.indexOf("\0")
+  return end < 0 ? s : s.slice(0, end)
+}
+
+/** A buffer as the value holds it: its trailing zeros trimmed, so one buffer has one spelling. */
+const held = (s: string): string => s.replace(/\0+$/, "")
 
 /** A TIME's text — mirrored by the emitter's `iec_time_text`. */
 /** Days since 1970 as a civil year, month and day — Hinnant's days-from-civil inverse, mirrored by the prelude's `iec_civil`. */
@@ -319,12 +326,16 @@ export function bool(v: Val): boolean {
 
 // Lowering converts both operands of a comparison to ONE type, so the two values always share a representation, and
 // JavaScript's own operators compare it exactly — bigints as bigints (a LINT above 2^53 included), strings by code unit.
+// a string compares as the string it holds, not its buffer: the bytes behind the terminator are not part of it
+const compared = (v: Val): Val => (typeof v === "string" ? visible(v) : v)
+
 export function eq(a: Val, b: Val): boolean {
-  return a === b
+  return compared(a) === compared(b)
 }
 
 export function ord(op: "lt" | "le" | "gt" | "ge", a: Val, b: Val): boolean {
-  return op === "lt" ? a < b : op === "le" ? a <= b : op === "gt" ? a > b : a >= b
+  const [l, r] = [compared(a), compared(b)]
+  return op === "lt" ? l < r : op === "le" ? l <= r : op === "gt" ? l > r : l >= r
 }
 
 export function arith(op: string, a: Val, b: Val, type?: Type): Val {
@@ -431,7 +442,8 @@ export function fit(v: Val, type: Type): Val {
   // convert type 'SINT' to type 'BIT'"). The default value was right only because nothing converted it.
   if (isBit(type)) return typeof v === "bigint" ? v !== 0n : v
   // a STRING(n) keeps its first n characters — `STRING(5) := 'abcdefgh'` is 'abcde' (conformance `string_*`)
-  if (family === "string") return typeof v === "string" && type.length !== undefined ? v.slice(0, type.length) : v
+  // the buffer cut at the target's capacity — as the prelude's `to` copies the units both buffers hold
+  if (family === "string") return typeof v === "string" && type.length !== undefined ? held(v.slice(0, type.length)) : v
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,
   // the L variants 64-bit nanoseconds (design §16, §17)
   if ((family === "int" || family === "bitstring" || family === "time" || family === "date") && typeof v === "bigint")
@@ -511,12 +523,15 @@ export function coerce(v: Val, to: Type, from: Type): Val {
   if (family === "string") {
     if (typeof v === "boolean") return v ? "TRUE" : "FALSE"
     const source = from.kind === "elementary" ? from.name : ""
+    // STRING <-> WSTRING carries the string, not the buffer behind it (the prelude's `narrow` / `widen`)
+    if (typeof v === "string") return source === to.elem.name ? v : visible(v)
     if (source === "TIME") return timeText(v as bigint)
     if (source === "LTIME") return ltimeText(v as bigint)
     if (source === "LREAL") return lrealText(v as number)
     if (source === "LDATE" || source === "LDT" || source === "LTOD") return longCalendarText(source, v as bigint)
     return source === "DATE" || source === "DT" || source === "TOD" ? calendarText(source, v as bigint) : String(v)
   }
+  if (typeof v === "string") v = visible(v)
   if (typeof v === "string" && family === "real") {
     // a decimal prefix after spaces/tabs: '.5', '5.', '1.5E' (1.5), '2e2', '1,5' (1); none at all is 0 (`string_to_real_parse`)
     const m = /^[ \t]*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/.exec(v)

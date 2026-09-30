@@ -418,9 +418,9 @@ those values into the new fixture's recording.
 - CODESYS: STRING(n) is n+1 bytes, `s[i]` is a byte access (`lib_prim_char_past_length`). Expected '4321', 'abXdef',
   'abcBC'. (Task 45's LIVE run shows assignment copies bytes past a NUL, uc3=99.)
 - Fix: hold the full n+1 buffer; len = first 0; a store at or past len re-scans; `.to()` keeps units when N == M.
-- [ ] 34.1 Record the `lib_prim_char_behind` extension — red.
+- [x] 34.1 Record the `lib_prim_char_behind` extension — red.
   Recorded 2026-09-29 (record:exec): `tr_34_lib_prim_char_behind` — not-lowered (`pointer-type`). CODESYS: u='abcBC', lenU=5.
-- [ ] 34.2 Fix both backends.
+- [x] 34.2 Fix both backends. The value holds the whole n+1 buffer (interpreter: trailing zeros trimmed, `visible` = before the first 0; Rust: `[T; N]` with `len` re-scanned by `scan`), `.to()` copies the units both hold; a POINTER TO BYTE over a STRING is a char target (`PointerTarget.chars`, `cursorChar`) — fixture confirmed (rust vendor); src test in lower.test.ts.
 
 ---
 

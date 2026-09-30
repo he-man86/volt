@@ -16,17 +16,21 @@ export const STRING_PRELUDE = `#[derive(Clone, Copy)]
 pub struct IecStr<T: Copy, const N: usize> { len: usize, units: [T; N] }
 pub type IecString<const N: usize> = IecStr<u8, N>;
 pub type IecWString<const N: usize> = IecStr<u16, N>;
-impl<T: Copy + Default, const N: usize> Default for IecStr<T, N> {
+impl<T: Copy + Default + PartialEq, const N: usize> Default for IecStr<T, N> {
     fn default() -> Self { Self::new() }
 }
-impl<T: Copy + Default, const N: usize> IecStr<T, N> {
+impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
     pub fn new() -> Self { Self { len: 0, units: [T::default(); N] } }
-    pub fn lit(text: &[T]) -> Self { let mut s = Self::new(); let n = text.len().min(N); s.units[..n].copy_from_slice(&text[..n]); s.len = n; s }
+    pub fn lit(text: &[T]) -> Self { let mut s = Self::new(); let n = text.len().min(N); s.units[..n].copy_from_slice(&text[..n]); s.scan(); s }
     pub fn units(&self) -> &[T] { &self.units[..self.len] }
-    pub fn to<const M: usize>(&self) -> IecStr<T, M> { IecStr::<T, M>::lit(self.units()) }
+    // the units BOTH buffers hold, the bytes behind the terminator among them — the interpreter's fit slicing its buffer
+    pub fn to<const M: usize>(&self) -> IecStr<T, M> { let mut s = IecStr::<T, M>::new(); let n = N.min(M); s.units[..n].copy_from_slice(&self.units[..n]); s.scan(); s }
+    // the length is where the first 0 stands: the buffer behind it is kept
+    fn scan(&mut self) { self.len = self.units.iter().position(|u| *u == T::default()).unwrap_or(N); }
 }
-// s[i] — 0-based over the N + 1 bytes of the variable: a read at or past the length is 0, a store below it replaces (a 0
-// cuts), a store AT it appends, a store past it lands behind the terminator and changes nothing. Outside 0..N is
+// s[i] — 0-based over the N + 1 bytes of the variable, the bytes behind the terminator included: a read reads that byte,
+// a store stores it and the length is re-scanned — a 0 cuts the string and keeps its tail, which a store over that 0
+// brings back (tr_34_lib_prim_char_behind). Byte N is the terminator: it reads 0, and only a 0 fits. Outside 0..N is
 // outside the variable: a panic, as the interpreter's RangeError (ir/values.ts charAt / setChar).
 // Written out, not on one line: "if .. { panic!() } if .." on one line reads to clippy as possible_missing_else.
 impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
@@ -34,24 +38,17 @@ impl<T: Copy + Default + PartialEq, const N: usize> IecStr<T, N> {
         if i < 0 || i as usize > N {
             panic!("character {} of a string of capacity {}", i, N)
         }
-        if i as usize >= self.len { T::default() } else { self.units[i as usize] }
+        if i as usize == N { T::default() } else { self.units[i as usize] }
     }
     pub fn with_char(mut self, i: i64, c: T) -> Self {
         if i < 0 || i as usize > N || (i as usize == N && c != T::default()) {
             panic!("character {} of a string of capacity {}", i, N)
         }
         let i = i as usize;
-        if i > self.len {
-            return self;
-        }
-        if c == T::default() {
-            self.len = i;
-        } else {
+        if i < N {
             self.units[i] = c;
-            if i == self.len {
-                self.len += 1;
-            }
         }
+        self.scan();
         self
     }
 }

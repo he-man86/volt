@@ -14,9 +14,9 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2050
+ *     confirmed     2051
  *     refused        549
- *     not-lowered    101
+ *     not-lowered    100
  *     lsp-gap          9
  *     diverges         8
  *     unaskable       38
@@ -26,7 +26,7 @@
  *     arith                  1246     1246
  *     control                  72       72
  *     aggregate                31       31
- *     call                    221      219
+ *     call                    222      220
  *     indirect                180      176
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
@@ -35,7 +35,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               4455
+ *     dead_code                               4470
  *     clippy::self_assignment                   34
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2098
+ *     agree         2099
  *     disagree         2
  *     not-run         92
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -58,17 +58,17 @@
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
  *
- *   pedantic — 25844 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               5528
- *     clippy::cast_possible_truncation         4107
- *     clippy::cast_lossless                    3700
- *     clippy::cast_sign_loss                   2805
- *     clippy::unreadable_literal               2786
- *     clippy::uninlined_format_args            2727
- *     clippy::manual_assert                    1063
- *     clippy::missing_panics_doc                931
- *     clippy::format_push_string                606
- *     clippy::cast_possible_wrap                344
+ *   pedantic — 25907 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               5534
+ *     clippy::cast_possible_truncation         4115
+ *     clippy::cast_lossless                    3712
+ *     clippy::cast_sign_loss                   2813
+ *     clippy::unreadable_literal               2791
+ *     clippy::uninlined_format_args            2736
+ *     clippy::manual_assert                    1067
+ *     clippy::missing_panics_doc                934
+ *     clippy::format_push_string                608
+ *     clippy::cast_possible_wrap                347
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
  *     string_positions_low                            38
@@ -82,8 +82,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1273 distinct emission shapes over 2192 lowered fixtures, 1581 distinct constructs.
- *   726 constructs carry a review note (`NOTES`): 2104 fixtures are improvable, 2030 touch a construct with alternatives.
+ *   shape — 1274 distinct emission shapes over 2193 lowered fixtures, 1586 distinct constructs.
+ *   726 constructs carry a review note (`NOTES`): 2105 fixtures are improvable, 2031 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2528,7 +2528,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_31_bit_conversions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 53, edge: "agree", size: 2.2, shape: "c093cf3c37", notes: ["1307e33bbf", "1707972c33", "5c9bb13706", "5d9850550d", "687428cc81", "6a98109119", "74845f98c6", "de132e5019"] },
   tr_32_fmt_ltime_past_i64: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 47, edge: "agree", size: 2.4, shape: "5276512907", notes: ["4bf3f61062", "5d9850550d", "90c445f7cb", "a497507b30"] },
   tr_33_fmt_lreal_tie: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 50, edge: "agree", size: 2.1, shape: "3a2551b872", notes: ["1707972c33", "5d9850550d", "6a98109119"] },
-  tr_34_lib_prim_char_behind: { evidence: "not-lowered" },
+  tr_34_lib_prim_char_behind: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 63, edge: "agree", size: 2.6, shape: "fe88ab4e72", notes: ["013de1dc6a", "02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "318cfd770d", "45292dbd9c", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "75cc82a569", "803ee89d4f", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5", "dd94ff18a2", "f7ea0fc7a1"] },
   tr_35_for_byte_runtime_int_step: { evidence: "lsp-gap" },
   tr_35_for_byte_step_255: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.5, shape: "b0d4e5d662", notes: ["02b031c773", "1307e33bbf", "4979768984", "521ba042ac", "5ba97e5557", "d9d57311e3"] },
   tr_35_for_byte_step_minus_one: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 5.5, shape: "1aef54c9ff", notes: ["02b031c773", "1307e33bbf", "4979768984", "521ba042ac", "5ba97e5557", "d9d57311e3"] },

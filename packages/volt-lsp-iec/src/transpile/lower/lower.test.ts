@@ -2548,3 +2548,18 @@ test("a pointer stepped below its array's first element is not NULL and steps ba
   runner.scan()
   expect(["isNull", "back", "isNullTwo", "backTwo"].map((n) => runner.get(n))).toEqual([false, 11n, false, 11n])
 })
+
+// transpile-review 34: a STRING(n) is n + 1 bytes and `s[i]` a byte access, but the value model held only the characters up
+// to the terminator — a store past it was dropped, a 0 forgot the tail, and a POINTER TO BYTE over a STRING was refused.
+// CODESYS (`tr_34_lib_prim_char_behind`): the bytes behind the terminator survive and come back when it is overwritten.
+test("the bytes behind a STRING's terminator survive, and a POINTER TO BYTE reaches them", () => {
+  const source =
+    "PROGRAM P\nVAR digits : STRING(10); t : STRING(10) := 'abcdef'; u : STRING(10) := 'abc'; p : POINTER TO BYTE;\n" +
+    "copied : STRING(10); END_VAR\n" +
+    "digits[4] := 0; digits[3] := 49; digits[2] := 50; digits[1] := 51; digits[0] := 52;\n" +
+    "t[2] := 0; t[2] := 88;\n" +
+    "p := ADR(u); p[4] := 67; p[3] := 66; copied := u;\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  expect(["digits", "t", "u", "copied"].map((n) => runner.get(n))).toEqual(["4321", "abXdef", "abcBC", "abcBC"])
+})

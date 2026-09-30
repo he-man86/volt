@@ -32,6 +32,7 @@ import {
   num,
   ord,
   type Val,
+  visible,
 } from "../ir/values.js"
 import { binaryValue, builtinValue, selectedArg, unaryValue } from "../ir/evaluate.js"
 export type { Val } from "../ir/values.js"
@@ -336,6 +337,14 @@ function resolvePath(pou: IrPou, frame: Val[], globals: Val[], layouts: Readonly
   return { container, key, type }
 }
 
+/** A value as the IDE shows it: a string is what stands before its terminator, not the buffer behind it (`values.ts`). */
+function shown(v: Val): Val {
+  if (typeof v === "string") return visible(v)
+  if (Array.isArray(v)) return v.map(shown)
+  if (typeof v === "object" && v !== null) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shown(x)]))
+  return v
+}
+
 /** Prepare a lowered POU for execution: allocate its frame, seed it from the slots' initial values. */
 export function run(pou: IrPou): Runner {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
@@ -349,7 +358,7 @@ export function run(pou: IrPou): Runner {
     frame,
     get: (path) => {
       const { container, key } = resolvePath(pou, frame, globals, layouts, path)
-      return container[key]!
+      return shown(container[key]!)
     },
     // stored as the variable's type holds it, like every write the program makes — a test cannot plant a value the PLC couldn't
     set: (path, value) => {

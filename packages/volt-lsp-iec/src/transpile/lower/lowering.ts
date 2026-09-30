@@ -138,6 +138,9 @@ export interface PointerTarget {
   base: Place
   /** The array's first dimension, when the pointer points at its elements. */
   element?: { lower: bigint; length: number; type: Type }
+  /** A POINTER TO BYTE over a STRING (TO WORD over a WSTRING): the value is a byte offset + 1 into its buffer, and `p^` /
+   *  `p[i]` are its characters — a string cursor over a variable (`cursorChar`). */
+  chars?: Type
   /** A place in a VAR_IN_OUT: the FB body binding it — the one body that may dereference it (`recordTarget`). */
   scopedTo?: Lowering
 }

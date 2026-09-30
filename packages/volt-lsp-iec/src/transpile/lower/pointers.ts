@@ -82,6 +82,11 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
   // pointer's own target type is modelled — a byte walk over another type is the unmeasured byte view (design §9).
   const declared = storageOf(lw, pointerType.target)
   if (last?.kind !== "index") {
+    // A POINTER TO BYTE OVER A STRING walks its n + 1 bytes (`tr_34_lib_prim_char_behind`: `p := ADR(u); p[4] := 67`
+    // stores behind the terminator) — its characters, exactly as a string cursor's, and valued the same: offset + 1.
+    const unit = charsOf(place.type)
+    if (unit !== undefined && sameStorage(declared, unit))
+      return { value: { kind: "const", value: 1n, type: pointerType, span }, target: { base: place, chars: unit } }
     if (!sameStorage(declared, place.type)) return lw.bail("pointer-type", "the address of a variable of another type than the pointer's", span)
     return { value: { kind: "const", value: 1n, type: pointerType, span }, target: { base: place } }
   }
@@ -96,6 +101,12 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
   const lint = elementaryRef("LINT")
   const offset = binaryOf("sub", convert(last.index, lint), { kind: "const", value: array.lower - ELEMENT_TAG_BIAS, type: lint, span }, lint, span)
   return { value: cast(offset, pointerType), target: { base, element: { lower: array.lower, length: array.length, type: array.element } } }
+}
+
+/** The character type of a STRING (BYTE) or WSTRING (WORD) — undefined for anything else. */
+function charsOf(t: Type): Type | undefined {
+  const text = elemOf(t)
+  return text?.name === "STRING" ? elementaryRef("BYTE") : text?.name === "WSTRING" ? elementaryRef("WORD") : undefined
 }
 
 /** A value stored into a pointer: `0`, `ADR(x)`, another pointer, or one stepped by whole elements (`p + SIZEOF(T)`). */
@@ -312,8 +323,20 @@ function cursorOf(lw: Lowering, pointer: Place): Cursor | undefined {
  */
 export function cursorChar(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
   const cursor = cursorOf(lw, pointer)
-  if (cursor === undefined || elemOf(cursor.unit)?.family === "string") return null
-  return cursorCharAt(lw, pointer, cursor, cursor.unit, extra, span)
+  if (cursor === undefined) return charsThrough(lw, pointer, extra, span)
+  if (elemOf(cursor.unit)?.family === "string") return null
+  const text: Place = { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
+  return cursorCharAt(pointer, text, cursor.unit, extra, span)
+}
+
+/** `p^` / `p[i]` through a POINTER TO BYTE whose one target is a STRING's characters (`PointerTarget.chars`) — null for any
+ *  other pointer. Several targets, or one scoped to an in-out's binding, fall through to `pointeePlace`, which refuses them. */
+function charsThrough(lw: Lowering, pointer: Place, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } | null {
+  const key = pointer.type.kind === "pointer" ? pointerKey(lw, pointer) : undefined
+  const targets = key === undefined ? undefined : lw.shared.pointers.get(key)
+  const target = targets?.length === 1 ? targets[0]! : undefined
+  if (target?.chars === undefined || target.scopedTo !== undefined) return null
+  return cursorCharAt(pointer, { ...target.base, guard: pointer, span }, target.chars, extra, span)
 }
 
 /** `p^[i]` on a `POINTER TO STRING` (WSTRING) cursor — the i-th character counted from where the cursor stands, which is
@@ -322,14 +345,13 @@ export function cursorStringChar(lw: Lowering, pointer: Place, extra: IrExpr, sp
   const cursor = cursorOf(lw, pointer)
   const text = cursor === undefined ? undefined : elemOf(cursor.unit)
   if (cursor === undefined || text?.family !== "string") return null
-  return cursorCharAt(lw, pointer, cursor, elementaryRef(text.name === "WSTRING" ? "WORD" : "BYTE"), extra, span)
+  const place: Place = { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
+  return cursorCharAt(pointer, place, elementaryRef(text.name === "WSTRING" ? "WORD" : "BYTE"), extra, span)
 }
 
-/** The character a cursor's byte offset, plus `extra` characters, names in the string it walks. */
-function cursorCharAt(lw: Lowering, pointer: Place, cursor: Cursor, unit: Type, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } {
-  // guarded by the pointer: a cursor handed a null pointer variable is bound all the same, and faults HERE, where it is
-  // dereferenced — as form 1's `p^` does
-  const text: Place = { slot: cursor.inout, path: [], type: lw.inoutSlots[cursor.inout]!.type, span, root: "inout", guard: pointer }
+/** The character a pointer's byte offset, plus `extra` characters, names in the string `text` it walks — guarded by the
+ *  pointer: one handed a null pointer is bound all the same, and faults HERE, where it is dereferenced, as form 1's `p^` does. */
+function cursorCharAt(pointer: Place, text: Place, unit: Type, extra: IrExpr | undefined, span: Span): { place: Place; index: IrExpr; unit: Type } {
   const lint = elementaryRef("LINT")
   const n = (value: bigint): IrExpr => ({ kind: "const", value, type: lint, span })
   const width = elemOf(unit)?.name === "WORD" ? 2n : 1n
@@ -386,7 +408,7 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
     // names several ELEMENTS is refused rather than given a tag that its index arithmetic would then read.
     const targets = lw.shared.pointers.get(key) ?? []
     if (targets.length > 1) {
-      if (targets.some((t) => t.element !== undefined))
+      if (targets.some((t) => t.element !== undefined || t.chars !== undefined))
         return lw.bail("pointer-targets", "a pointer that names several variables, one of them an array element — the value would be both a tag and an index", span)
       written = { kind: "const", value: tag, type: target.type, span }
     }
@@ -408,7 +430,7 @@ export function pointerArms(lw: Lowering, pointer: Place, span: Span): { tag: bi
   if (targets === undefined || targets.length < 2) return undefined
   // A target inside a VAR_IN_OUT is exact only while the body that bound it runs (`recordTarget`), and an arm is
   // selected wherever the tag is read — so the two do not combine yet.
-  if (targets.some((t) => t.scopedTo !== undefined || t.element !== undefined)) {
+  if (targets.some((t) => t.scopedTo !== undefined || t.element !== undefined || t.chars !== undefined)) {
     lw.bail("pointer-targets", "a pointer naming several variables, one of them an array element or inside a bound VAR_IN_OUT", span)
     return undefined
   }
@@ -439,7 +461,7 @@ export function bindReference(lw: Lowering, s: Extract<Statement, { kind: "assig
   // share a slot. A reference rebound after its declaration is the shape this exists for
   // (`refdecl_rebound_by_statement`: before 1, after 2).
   const targets = lw.shared.pointers.get(key) ?? []
-  if (targets.length > 1 && targets.some((t) => t.element !== undefined))
+  if (targets.length > 1 && targets.some((t) => t.element !== undefined || t.chars !== undefined))
     return lw.bail("pointer-targets", "a reference rebound across an array element and a variable — the value would be both a tag and an index", s.span)
   const value = targets.length > 1 ? ({ kind: "const", value: tag, type: target.type, span: s.span } as IrExpr) : address.value
   if (lw.conditional === 0) lw.boundPointers.add(key)
@@ -502,6 +524,7 @@ export function sameStorage(a: Type, b: Type): boolean {
 /** Two pointer targets naming the same variable (or the same array) — through fields and constant indices only. */
 export function sameTarget(a: PointerTarget, b: PointerTarget): boolean {
   if (a.base.slot !== b.base.slot || a.base.root !== b.base.root || (a.element === undefined) !== (b.element === undefined)) return false
+  if ((a.chars === undefined) !== (b.chars === undefined)) return false
   if (a.base.path.length !== b.base.path.length) return false
   return a.base.path.every((step, i) => {
     const other = b.base.path[i]!
