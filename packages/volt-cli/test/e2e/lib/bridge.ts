@@ -13,7 +13,7 @@ export const bridge = {
 	health: (): Promise<any> => call("health"),
 	refs: (): Promise<any> => call("refs"),
 	fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => call("fetch", req),
-	push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => call("push", req),
+	push: (req: { ops: unknown[]; expectedProjectVersion?: string; force?: boolean }): Promise<any> => call("push", req),
 	build: (): Promise<any> => call("build", {}),
 	// `init` was its own op until it turned out to be `fetch { init: true }` with the identity guard missing.
 	init: (): Promise<any> => call("fetch", { init: true }),
@@ -37,7 +37,7 @@ export function clientFor(pipe: string) {
 		health: (): Promise<any> => on("health"),
 		refs: (): Promise<any> => on("refs"),
 		fetch: (req: { knownItems?: Record<string, string>; onlyItems?: string[] } = {}): Promise<any> => on("fetch", req),
-		push: (req: { ops: unknown[]; expectedProjectVersion?: string }): Promise<any> => on("push", req),
+		push: (req: { ops: unknown[]; expectedProjectVersion?: string; force?: boolean }): Promise<any> => on("push", req),
 		build: (): Promise<any> => on("build", {}),
 		connect: (req: { project?: string | null } = {}): Promise<any> => on("connect", req),
 	}

@@ -9,13 +9,14 @@ using Volt.Tests.Shared;
 namespace Volt.Engine.Tests;
 
 /// <summary>
-/// A PUSH MAY NOT RE-TYPE AN EXISTING ITEM.
+/// A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME.
 ///
 /// <para>An item's kind comes from the TREE — the object really is a function block, or a program, or a DUT —
-/// and a declaration write cannot change that: it writes TEXT into an object whose type is already decided.
-/// Accepting one wrote `PROGRAM X` over a live function block, reported <c>updated</c>, and the CLI then saved
-/// a receipt and ref pair asserting the workspace and the IDE agreed — over a project that no longer builds.
-/// On CODESYS the body is CLEARED as well.</para>
+/// and the op's from its wire name's extension; the two are compared, the text's header is not read. The TEXT is
+/// written as sent: measured live 2026-09-30 (DIALECT C2f), CODESYS then takes the kind the text declares and
+/// TwinCAT keeps the tree kind, both as ONE object with its body kept. (This summary used to say a text write
+/// could not change the kind and that CODESYS CLEARED the body; the live measurement contradicts both, and the
+/// guard's message was corrected with it.)</para>
 ///
 /// <para><b>Why this was invisible offline until now.</b> <c>FakeIde.KindOf</c> derived an item's kind by
 /// PARSING ITS DECLARATION, so the fake re-typed the object to match whatever the push asserted and every test
@@ -64,7 +65,7 @@ public class ItemKindIsNotRewritableTests
         });
 
         Assert.False(resp.Accepted);
-        Assert.Contains("cannot change what it IS", resp.Conflicts![0].Reason);
+        Assert.Contains("cannot re-type an object by its NAME", resp.Conflicts![0].Reason);
         // NOTHING was written: a refusal that lands half the change is worse than one that lands none.
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("writecontent:"));
     }

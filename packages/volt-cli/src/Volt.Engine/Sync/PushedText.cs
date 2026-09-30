@@ -14,6 +14,27 @@ namespace Volt.Engine.Sync;
 /// </summary>
 public static class PushedText
 {
+    /// <summary>Whether the IDE can publish the ONE object pushed as <paramref name="pushedWireName"/> under
+    /// <paramref name="heldWireName"/> instead: the same bare name (IEC names are case-insensitive) and another kind of
+    /// the same family, the two a text write moves an object between. A push writes the text as sent and never reads
+    /// its header (openspec <c>push-without-header-check</c>), and the wire names an object by what the IDE holds:
+    /// CODESYS takes a POU's kind from its text (DIALECT C2f) — <c>X.fb</c> whose text says <c>PROGRAM</c> is published
+    /// as <c>X.prg</c> — and a DUT is named by its declaration's subtype on both vendors (C2e). Any other pair is two
+    /// items (<c>X.fb</c> beside <c>X.struct</c>, the item-name invariant).</summary>
+    public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
+    {
+        static string? Family(string wireName) => ItemKind.KindForWireName(wireName) switch
+        {
+            ItemKind.Kinds.FunctionBlock or ItemKind.Kinds.Program or ItemKind.Kinds.Function => ItemKind.Kinds.Program,
+            ItemKind.Kinds.Dut => ItemKind.Kinds.Dut,
+            _ => null,
+        };
+        return !string.Equals(pushedWireName, heldWireName, System.StringComparison.Ordinal)
+               && Family(pushedWireName) is { } family && Family(heldWireName) == family
+               && string.Equals(Materializer.Bare(pushedWireName), Materializer.Bare(heldWireName),
+                                System.StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>Whether <paramref name="held"/> — the IDE's text of <paramref name="wireName"/> after a push — is
     /// <paramref name="pushed"/> but for layout: the same declarations, folders and ST bodies byte for byte, and every
     /// graphical body the same tokens (<see cref="NetworkTextGate.SameTokens"/>) — the one place the format lets layout
@@ -28,7 +49,11 @@ public static class PushedText
             ?? throw new System.ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName));
         var a = StReader.Read(pushed, kind);
         var b = StReader.Read(held, kind);
+        // The outer END line is a token the item content does not carry (the IDE writes it from the object's kind),
+        // so it is compared on its own: TwinCAT gives `PROGRAM X … END_PROGRAM` pushed under `X.fb` back as
+        // `… END_FUNCTION_BLOCK` (DIALECT C2f), which is not the pushed text laid out otherwise.
         return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)
+               && StReader.OuterEndKeyword(pushed, kind) == StReader.OuterEndKeyword(held, kind)
                && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same);
 
         static bool SameMember(Member x, Member y) =>

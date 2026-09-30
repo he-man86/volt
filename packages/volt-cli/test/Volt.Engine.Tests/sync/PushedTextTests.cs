@@ -40,4 +40,30 @@ public class PushedTextTests
         Assert.True(PushedText.SameExceptLayout("P.fb", prg, prg));
         Assert.False(PushedText.SameExceptLayout("P.fb", prg, prg.Replace("x := 1;", "x := 2;")));
     }
+
+    /// <summary>The outer END line is a token of the text, not layout. TwinCAT keeps a function block's tree kind when
+    /// the text pushed under <c>X.fb</c> says <c>PROGRAM … END_PROGRAM</c>, and gives it back as
+    /// <c>PROGRAM … END_FUNCTION_BLOCK</c> (DIALECT C2f, measured 2026-09-30). Both read to the same declaration and
+    /// body, so "same but for layout" adopted the IDE's text into the working tree and rewrote the engineer's
+    /// <c>END_PROGRAM</c> unseen. Its case is layout, as any keyword's is.</summary>
+    /// <summary>Which name the IDE may publish a pushed object under instead (DIALECT C2e, C2f): another kind of the same
+    /// family, same bare name in any case. Across families it is another item, and a name is never "held as" itself.</summary>
+    [Theory]
+    [InlineData("X.fb", "X.prg", true)]
+    [InlineData("X.fb", "x.fun", true)]
+    [InlineData("X.struct", "X.enum", true)]
+    [InlineData("X.fb", "X.fb", false)]
+    [InlineData("X.fb", "X.struct", false)]
+    [InlineData("X.fb", "Y.prg", false)]
+    [InlineData("X.gvl", "X.prg", false)]
+    public void A_pushed_object_may_be_held_under_another_kind_of_its_family(string pushed, string held, bool may) =>
+        Assert.Equal(may, PushedText.MayBeHeldAs(pushed, held));
+
+    [Fact]
+    public void The_outer_END_keyword_is_a_token_not_layout()
+    {
+        const string pushed = "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n";
+        Assert.False(PushedText.SameExceptLayout("X.fb", pushed, pushed.Replace("END_PROGRAM", "END_FUNCTION_BLOCK")));
+        Assert.True(PushedText.SameExceptLayout("X.fb", pushed, pushed.Replace("END_PROGRAM", "end_program")));
+    }
 }

@@ -459,6 +459,47 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A PUSHED ITEM THE IDE NOW PUBLISHES UNDER ANOTHER NAME (openspec <c>push-without-header-check</c> 3.2).
+    /// The text is written as sent, and CODESYS takes a POU's kind from it (DIALECT C2f): <c>X.fb</c> whose text says
+    /// <c>PROGRAM</c> is held as ONE object that <c>refs</c> names <c>X.prg</c>. The receipt has no <c>X.fb</c>, and the
+    /// baseline used to keep neither name on a create — so the next pull brought <c>X.prg</c> in beside the <c>X.fb</c>
+    /// file that volt/ide still carried: two files for one IDE object, after a push that reported plain success. The
+    /// push says where the IDE holds it, and the next pull moves the file there as the IDE-side change it is.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_pushed_item_the_IDE_publishes_under_another_kind_is_one_file_after_the_pull(bool existed)
+    {
+        var items = new System.Collections.Generic.List<FakeIde.Item> { Prg() };
+        if (existed) items.Add(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\n\tn : INT;\nEND_VAR", "n := 5;"));
+        var ide = new FakeIde(items.ToArray())
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            RetypesFromDeclaration = decl => decl.StartsWith("PROGRAM ") ? Volt.Engine.Item.ItemKind.PlcPouProg : null,
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var dir = Path.Combine(root, "src");
+            var fb = Path.Combine(dir, "X.fb");
+            File.WriteAllText(fb, "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n");
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.NotNull(r.Message);
+            Assert.Contains("X.fb", r.Message);
+            Assert.Contains("X.prg", r.Message);
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.False(File.Exists(fb), "the pull left X.fb beside the X.prg the IDE holds");
+            Assert.Contains("n := 6;", File.ReadAllText(Path.Combine(dir, "X.prg")));
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Push_refuses_before_the_first_pull()
     {

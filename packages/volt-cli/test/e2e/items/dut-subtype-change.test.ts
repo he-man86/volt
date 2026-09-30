@@ -105,17 +105,18 @@ describe(`items / DUT subtype change (${BASE})`, () => {
 		expect((await bridge.refs()).items[fid("sub_two", "struct")]).toBe(version)
 	})
 
-	it("a body of another subtype under the old name is refused BAD_REQUEST naming both names", async () => {
-		const { bare, version } = await seedStruct("sub_body")
+	// This asserted the opposite until openspec `push-without-header-check`: a body of another subtype under the old
+	// name was refused BAD_REQUEST naming both names — a check that read the pushed text's declaration, which a push no
+	// longer does (the owner's rule, 2026-09-29: the extension is the subtype, the text is written as sent). The
+	// offline twin is `DutSubtypeChangePushTests.An_op_whose_subtype_name_disagrees_with_its_declaration_is_written_as_sent`.
+	it("a body of another subtype under the old name is written as sent; refs names it by what it holds", async () => {
+		const { bare, folder, version } = await seedStruct("sub_body")
 		const r = await pushOps([{ op: "set", name: fid("sub_body", "struct"), sourceText: enumDut(bare), ifVersion: version }])
-		expect(r.accepted).toBe(false)
-		const c = (r.conflicts ?? []).find((x: any) => x.code === "BAD_REQUEST")
-		expect(c, JSON.stringify(r.conflicts)).toBeDefined()
-		const text = `${c.name} ${c.reason}`
-		expect(text).toContain(fid("sub_body", "struct"))
-		expect(text).toContain(fid("sub_body", "enum"))
-		await expectOnlyUnder("sub_body", "struct", ["enum"])
-		expect((await bridge.refs()).items[fid("sub_body", "struct")]).toBe(version)
+		expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+		await expectOnlyUnder("sub_body", "enum", ["struct"])
+		const it = await fetchItem(fid("sub_body", "enum"))
+		expect(it.folder).toBe(folder)
+		expect(it.sourceText).toMatch(/Green/)
 	})
 
 	it("deleting a stale subtype name does not delete the DUT", async () => {

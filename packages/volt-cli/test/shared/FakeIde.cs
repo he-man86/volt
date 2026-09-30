@@ -759,6 +759,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// shares ONE model of the drivers and cannot quietly grow a second by overriding a member.</para></summary>
     public Func<ItemRef, Exception?>? RefuseContentWrite { get; init; }
 
+    /// <summary>Model CODESYS taking a POU's kind from the TEXT written to it (DIALECT C2f, measured 2026-09-30): the
+    /// declaration written decides the item's new tree code, or null to keep it. Opt-in, because TwinCAT does not do
+    /// it (it keeps the tree kind) and the default fake is the one that derives nothing (<see cref="KindOf"/>).</summary>
+    public Func<string, int?>? RetypesFromDeclaration { get; init; }
+
     /// <summary>Is this item in the project? For assertions about what a failed push LEFT BEHIND, which is not
     /// visible through any transport the fake records.</summary>
     public bool Exists(string bareName) => _items.Any(i => i.Name == bareName);
@@ -787,6 +792,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         if (owner is not null)
             _items[_items.IndexOf(owner)] = owner with
             {
+                KindCode = RetypesFromDeclaration?.Invoke(content.Declaration) ?? owner.KindCode,
                 Declaration = content.Declaration,
                 Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), content.Declaration, pushedDeclarations) ?? owner.Implementation,
                 // The member SET is not this call's to change: `CreateChild` adds a member and `Delete` removes one,

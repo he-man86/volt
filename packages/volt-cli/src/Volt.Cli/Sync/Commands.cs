@@ -666,6 +666,11 @@ public static class Commands
         // An item whose text did not come back is pinned the same way, for the same effect — the next pull fetches it
         // and shows whatever the IDE holds — but it is NAMED apart: nothing was compared, so nothing is claimed.
         foreach (var (name, version) in heldOtherwise.Concat(unfetched)) adopted[name] = version;
+        // A PUSHED ITEM THE IDE PUBLISHES UNDER ANOTHER NAME is pinned the same way, under the name that was pushed:
+        // the next pull asks about it, hears it is gone, and brings the IDE's name in beside the removal — one file
+        // per object. Left out, a create kept neither name and the pull added the IDE's name next to the pushed file.
+        var heldUnder = HeldUnderAnotherName(ops, resp, known, pushed);
+        foreach (var (name, _, version) in heldUnder) adopted[name] = version;
         if (canonical.Count > 0)
         {
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonical.SelectMany(Materialize.MaterializeItem).ToList(),
@@ -705,6 +710,9 @@ public static class Commands
             // just written holds only names the receipt has and names restored above as unseen.
         });
         var notes = new List<string>();
+        if (heldUnder.Count > 0)
+            notes.Add("the IDE holds " + string.Join(", ", heldUnder.Select(h => $"{h.Name} as {h.HeldAs}")) +
+                      " — the kind its text declares; `volt pull` moves the file to that name");
         if (heldOtherwise.Count > 0)
             notes.Add("the IDE holds " + string.Join(", ", heldOtherwise.Select(h => h.Name)) +
                       " as another program than the text pushed; `volt pull` brings its text in as an IDE change");
@@ -770,6 +778,34 @@ public static class Commands
             else if (PushedText.SameExceptLayout(kv.Key, kv.Value.Text, held.SourceText)) canonical.Add(held);
             else heldOtherwise.Add((kv.Key, kv.Value.Version));
         return (canonical, heldOtherwise, unfetched);
+    }
+
+    /// <summary>
+    /// THE PUSHED ITEMS THE IDE NOW PUBLISHES UNDER ANOTHER NAME — each with that name and the version of the text
+    /// that was pushed, for the baseline to keep under the pushed name.
+    ///
+    /// <para><b>How a push re-names an item.</b> A push writes the text as sent and never reads its header (openspec
+    /// <c>push-without-header-check</c>), and the wire names an item by what the IDE holds, which the text can change
+    /// (DIALECT C2e, C2f). The receipt then names the ONE object otherwise and has no entry under the name pushed.
+    /// Which names the IDE may publish one object under is the engine's answer (<see cref="PushedText.MayBeHeldAs"/>).</para>
+    ///
+    /// <para>Only a name this client neither had nor pushed, and only one: a pushed name absent with no such sibling is
+    /// not claimed here — an unreadable or unwalked item is absent too, and what is gone is the next fetch's answer.</para>
+    /// </summary>
+    private static List<(string Name, string HeldAs, string Version)> HeldUnderAnotherName(
+        List<PushOp> ops, PushResponse resp, IReadOnlyDictionary<string, string> known, ISet<string> pushed)
+    {
+        var held = new List<(string, string, string)>();
+        foreach (var o in ops.OfType<SetItemOp>())
+        {
+            var name = o.ToName ?? o.Name;
+            if (o.SourceText is null || resp.NewItems!.ContainsKey(name)) continue;
+            var other = resp.NewItems.Keys.Where(k => !known.ContainsKey(k) && !pushed.Contains(k) && PushedText.MayBeHeldAs(name, k))
+                                          .ToList();
+            if (other.Count != 1) continue;
+            held.Add((name, other[0], Volt.Engine.Sync.Hasher.ComputeItemVersion(resp.NewFolders![other[0]], o.SourceText)));
+        }
+        return held;
     }
 
     /// <summary>volt build — build via the IDE, return normalized diagnostics.</summary>

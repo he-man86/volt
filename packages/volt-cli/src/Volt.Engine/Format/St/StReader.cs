@@ -143,13 +143,32 @@ public static class StReader
 		return item;
 	}
 
+	/// <summary>The END keyword that closes a POU's or an interface's outer block — which of the lines
+	/// <see cref="OuterEndKeywords"/> accepts the text SPELLS — or null for a DUT or a GVL, which Volt does not read.
+	///
+	/// <para>Not part of <see cref="ItemContent"/>: the IDE writes the END line from the object's own kind, so it
+	/// carries nothing a push writes. It is still a TOKEN of the text, and the post-push comparison
+	/// (<see cref="Volt.Engine.Sync.PushedText"/>) needs it: TwinCAT keeps a function block's tree kind when the pushed
+	/// text says <c>PROGRAM … END_PROGRAM</c> and gives back <c>PROGRAM … END_FUNCTION_BLOCK</c> (DIALECT C2f), which
+	/// reads to the same declaration and body. Upper case — a keyword's case is layout.</para></summary>
+	public static string? OuterEndKeyword(string sourceText, string kind)
+	{
+		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
+		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
+		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut) return null;
+		var original = NormalizeLines(sourceText);
+		var unclosed = StTrivia.UnterminatedOpenings(original);
+		var lines = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0 ? Neutralized(original, unclosed) : original;
+		return FindOuterBlock(lines, OuterEndKeywords(kind), $"this {kind}").keyword.ToUpperInvariant();
+	}
+
 	/// <summary>A POU's or an interface's structure: the outer block, the declaration/body split, the children.</summary>
 	private static ItemContent ReadStructure(List<string> lines, string kind, string what)
 	{
 		// Find the outer END_X to split the POU from its children. INTERFACE is special — no implementation body, and
 		// its method/property signatures live INSIDE the INTERFACE block, not as siblings after END_INTERFACE like an
 		// FB's methods.
-		var (pouEnd, childrenStart) = FindOuterBlock(lines, OuterEndKeywords(kind), what);
+		var (pouEnd, childrenStart, _) = FindOuterBlock(lines, OuterEndKeywords(kind), what);
 		var pouLines = SliceLines(lines, 0, pouEnd - 1);
 
 		if (kind == ItemKind.Kinds.Interface)
@@ -339,15 +358,17 @@ public static class StReader
 	/// skipped). The outer block always starts at line 0, so any pragmas/comments above the
 	/// FUNCTION_BLOCK line stay part of the POU declaration.
 	/// </summary>
-	private static (int outerEndIdx, int childrenStart) FindOuterBlock(IList<string> lines, string[] outerEnds, string what)
+	private static (int outerEndIdx, int childrenStart, string keyword) FindOuterBlock(IList<string> lines, string[] outerEnds, string what)
 	{
 		int? endIdx = null;
+		string? keyword = null;
 		var ctx = new ScanContext();
 		for (int i = 0; i < lines.Count; i++)
 		{
 			ctx.Update(lines[i]);
 			if (ctx.InsideTrivia) continue;
-			if (outerEnds.Any(end => LineStartsWithKeyword(ctx.Code, end)))
+			keyword = outerEnds.FirstOrDefault(end => LineStartsWithKeyword(ctx.Code, end));
+			if (keyword is not null)
 			{
 				endIdx = i;
 				break;
@@ -362,7 +383,7 @@ public static class StReader
 		int childrenStart = endIdx.Value + 1;
 		while (childrenStart < lines.Count && string.IsNullOrWhiteSpace(lines[childrenStart]))
 			childrenStart++;
-		return (endIdx.Value, childrenStart);
+		return (endIdx.Value, childrenStart, keyword!);
 	}
 
 	// ─── POU decl/impl split ─────────────────────────────────────────

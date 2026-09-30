@@ -104,10 +104,9 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 					// A WELL-FORMED body OF THE ITEM'S OWN KIND. The refusal has to come from the body being a
 					// diagram, and every guard that fires EARLIER hides the one under test:
 					//   - without `END_...` the push is rejected for "Missing END_..." — a parse error;
-					//   - as a `PROGRAM` over these `.fb` fixtures it is rejected for changing the item's KIND
-					//     ("a push writes an object's TEXT and cannot change what it IS"), which is a correct
-					//     refusal for the wrong reason and is what this test started reporting when that guard
-					//     landed.
+					//   - as a `PROGRAM` over these `.fb` fixtures it was rejected for changing the item's KIND,
+					//     a correct refusal for the wrong reason; since push-without-header-check the text's
+					//     header is not read, and CODESYS would re-type the object to a program (DIALECT C2f).
 					// So the keyword is derived from the item's extension rather than hard-coded.
 					sourceText: stOfSameKind(name),
 					ifVersion: refs.items[name],

@@ -90,9 +90,52 @@
       `.struct`, a `.gvl` with a retired comment, a `.struct` member named `IMPLEMENTATION`, prose under a `.struct`,
       a `.fb` whose text says `PROGRAM`, and two child refusals naming item and line). "A build then reports it" is
       the live half — with 3.2.
-- [ ] 3.2 Full C# suites green; e2e on both vendors. The C# suites are green offline (Engine, Cli, Codesys,
-      Twincat, Contracts, Repo.Gates) and `bun test test/unit`; **the e2e on both vendors is live — after
-      transpile-fix-all.**
+- [x] 3.2 Full C# suites green; e2e on both vendors. (2026-09-30) C# green: Engine 1816/1 skip, Cli 263, Connector
+      110, Twincat 255, Codesys 166, Contracts 19, Relay 46, Repo.Gates 54; `bun test test/unit` 4; consumers
+      volt-control 115, volt-desktop 25, volt-vscode 37. **e2e live: CODESYS 239 pass / 24 skip / 0 fail, TwinCAT
+      (Project14) 239 / 24 / 0** (263 tests, 48 files). New `test/e2e/items/push-without-header-check.test.ts` is the
+      live half of 3.1 and the measurement 1.2 asked for:
+      - Every shape of 3.1 and 4.1 is ACCEPTED on both vendors. A build only reaches a referenced item (an
+        unreferenced one is not compiled — CODESYS answers "The application is up to date", 0 errors, even for
+        `n := ;`), so the test references each from the main program: the four unclosed-`(*` shapes (struct, enum,
+        GVL, FB) then fail the build at the reference (`Unknown type: '<name>'`, `Identifier '<name>_g' not defined`).
+      - `X.struct` holding an enum: `refs` names it `X.enum`, builds clean, both vendors.
+      - `X.fb` whose text says `PROGRAM`, create AND update: ONE object, body and folder kept, never a second or
+        half-written item. CODESYS takes the text's kind (`refs` → `X.prg`); TwinCAT keeps its tree kind (`refs` →
+        `X.fb`, and a pull renders `PROGRAM X … END_FUNCTION_BLOCK`). Pushing the fixed FB text under the name `refs`
+        publishes gives back the FB on both (asserted as an `expectVendorDifference`).
+      - A DUT whose text states no subtype (unclosed `(*`, empty, prose) and a GVL holding a retired `@volt-`
+        comment are written but come back only in `refs.unreadable`; a plain delete is refused UNREADABLE, only
+        `--force` deletes them — task 5.1's acceptance, open.
+      `items/dut-subtype-change.test.ts` "a body of another subtype under the old name" asserted the removed rule
+      (BAD_REQUEST); it now asserts written-as-sent, `refs` naming it by what it holds (premise changed by the owner's
+      rule, like its offline twin).
+      **Review fixes (2026-09-30), e2e re-run green on both vendors:**
+      - The CLI path (not only the bridge wire) for a pushed item the IDE publishes under another name: the receipt
+        had no entry under the pushed name, so a create kept neither name and the next pull added `X.prg` beside
+        `X.fb`. The push now names it ("the IDE holds X.fb as X.prg") and pins the pushed name, so the pull moves the
+        file (`Commands.HeldUnderAnotherName`, engine answer `PushedText.MayBeHeldAs`; `PushCommandTests`, with an
+        opt-in `FakeIde.RetypesFromDeclaration` modelling CODESYS).
+      - TwinCAT's `PROGRAM … END_FUNCTION_BLOCK` was adopted as a "layout" over the pushed `END_PROGRAM`: the post-push
+        comparison now reads the outer END keyword as a token (`StReader.OuterEndKeyword`; `PushedTextTests`).
+      - The vendor asymmetry is DIALECT **C2f**; the re-type guard's comment and message no longer claim a text write
+        cannot change the kind ("a push cannot re-type an object by its NAME").
+      - e2e: the build's exact messages are pinned per shape (the oracle for 4.1/4.2 — identical on both vendors, all
+        on the main program's reference); every shape's held state is asserted (fetched back as sent, or listed
+        `unreadable`); a push of the fixed text under the ORIGINAL name at the version held before is refused by the
+        version gate (CODESYS `ITEM_MISSING`, TwinCAT `STALE_ITEM_VERSION`) with nothing written — the restore goes
+        through a pull. **Open for the owner:** 1.2 says "fixing the header and pushing again restores it"; read
+        literally (no pull between), a CODESYS push under the original name would reach the re-type guard (live
+        program vs `.fb`) — the guard 2.1 kept. It is refused earlier by the gate today; if the literal reading is
+        meant, the guard must be relaxed for CODESYS, which is a decision, not a fix.
+      **Gate (2026-09-30, after the review fixes):** typecheck green (5 packages), lint 0 errors, `bun run check`
+      green; no fixture or transpiler change, so no `rate:fixtures`. C#: Engine 1824 / 1 skip (+8 over 1816: `PushedTextTests`,
+      `MayBeHeldAs` ×7 + the outer END keyword), Cli 265 (+2: `PushCommandTests` held-under-another-name), Connector 110,
+      Twincat 255, Codesys 166, Contracts 19, Relay 46, Repo.Gates 54 — 0 fail. `bun test test/unit` 4. Consumers:
+      volt-control 115 / 0 fail, volt-desktop 25, volt-vscode 37. volt-control's `diagnostics.e2e` "clean
+      workspace" was RED once the LSP dist was rebuilt (1 error): its fixture predated implementation-keyword (no
+      `IMPLEMENTATION ST` line → "states no language"), a premise the file format retired on 2026-09-28, independent
+      of this change — fixed in its own commit.
 
 ## 4. LSP parity — the LSP reports what CODESYS reports for every shape push now lets through
 

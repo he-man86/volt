@@ -978,7 +978,9 @@ public static class PushService
 
             // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME. The IDE's kind comes from the TREE — the object
             // really is a function block, a program, a DUT — and the op's kind from its wire name's extension. They
-            // are compared here, and nothing else is: the text's header is not read.
+            // are compared here, and nothing else is: the text's header is not read. The TEXT is written as sent, and
+            // CODESYS then takes the kind it declares (DIALECT C2f) — `refs` names the object by it afterwards; what
+            // is refused is a NAME that disagrees with the object the IDE publishes.
             //
             // It is reachable from an ordinary edit: renaming `X.fb` to `X.prg` produces `ToName = "X.prg"`
             // whose BARE name is unchanged, so the rename compare degrades it to a plain content write. And when
@@ -991,8 +993,9 @@ public static class PushService
             if (!string.Equals(live.Kind, split.Kind, StringComparison.Ordinal))
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"'{name}' is a {live.Kind} in the IDE and this push names it a {split.Kind} ('{wireName}'). A " +
-                    "push writes an object's TEXT and cannot change what it IS. Delete it and create it again if that " +
-                    "is what you mean — that discards the object's identity, so it is not done for you.");
+                    "push cannot re-type an object by its NAME: the name's extension is the kind `refs` publishes it " +
+                    "under. Delete it and create it again if that is what you mean — that discards the object's " +
+                    "identity, so it is not done for you.");
 
             // LAST-MOMENT CHECK, against the state the IDE is in RIGHT NOW.
             //
