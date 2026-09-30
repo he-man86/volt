@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
-import { parseDocument, parseSource } from "../../../src/syntax/index.js"
+import { parseDocument, parseSource, type Dialect } from "../../../src/syntax/index.js"
 import { bindFile, buildSymbolTable, linkExtends, type Scope, unbindFile } from "../../../src/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
@@ -72,42 +72,46 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
  * carry the vendor's own text to compare against. They are the same walk on purpose — the wording check used to build
  * its own two-file project, which is the very assembly the third note above says defeats `signature-name`.
  */
-export function lspErrors(t: LanguageTest, all: readonly LanguageTest[]): string[] {
+export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
   // ONE ITEM, ONE FILE — the layout the protocol guarantees and `fixtures.test.ts` replays. `assembleFixture` is the
   // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
   // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
   const ownUri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
-  const own = { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source) }
+  const own = { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, vendor) }
   const deps = withDependencies(t, all)
     .filter((f) => f.name !== t.name && f.source !== "")
     .map((f) => {
       const uri = `file:///conformance/${f.pouName}.${extFor(f.kind)}`
-      return { uri, source: f.source, parseResult: parseDocument(uri, f.source) }
+      return { uri, source: f.source, parseResult: parseDocument(uri, f.source, vendor) }
     })
   const plcText = plcPrgSource(t)
-  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
+  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText, vendor) }
   const files = [own, plc, ...deps]
   // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
-  const project = (lspBase ??= buildSymbolTable(libraryFiles(), PROJECT_MANIFESTS))
+  let project = lspBase.get(vendor)
+  if (project === undefined) {
+    project = buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor)
+    lspBase.set(vendor, project)
+  }
   for (const f of files) bindFile(project, f)
   linkExtends(project, PROJECT_MANIFESTS)
   try {
-    return diagnosed(own, files, project)
+    return diagnosed(own, files, project, vendor)
   } finally {
     for (const f of files) unbindFile(project, f.uri)
     linkExtends(project, PROJECT_MANIFESTS)
   }
 }
 
-let lspBase: Scope | undefined
+const lspBase = new Map<Dialect, Scope>()
 
-function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope): string[] {
-  const config = resolveConfig({ vendor: "codesys" })
+function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
+  const config = resolveConfig({ vendor })
   const semantic = files.flatMap((f) =>
     computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }),
   )
-  const network = computeNetworkTextDiagnostics(own, project, messagesFor("codesys"))
+  const network = computeNetworkTextDiagnostics(own, project, messagesFor(vendor))
   return [
     ...files.flatMap((f) => f.parseResult.errors.map((e) => e.message)),
     ...[...semantic, ...network]
@@ -118,7 +122,7 @@ function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<t
 
 /** Whether the LSP objects at all — a parse error counts, and so does a check the PROJECT could configure louder. */
 function lspReportsAnError(t: LanguageTest, all: readonly LanguageTest[]): boolean {
-  return lspErrors(t, all).length > 0
+  return lspErrors(t, all, "codesys").length > 0
 }
 
 /**
@@ -150,8 +154,9 @@ function extFor(kind: LanguageTest["kind"]): string {
   return kind === "function_block" ? "fb" : kind === "function" ? "fun" : kind === "program" ? "prg" : kind === "gvl" ? "gvl" : kind === "interface" ? "itf" : kind
 }
 
-let libraries: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] | undefined
-const libraryFiles = (): NonNullable<typeof libraries> => (libraries ??= PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: l.parseResult! })))
+/** The fixture project's libraries parsed as `vendor` — as `fixtures.test.ts` `standardLibrary` parses them. */
+const libraryFiles = (vendor: Dialect): { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] =>
+  PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, vendor) }))
 
 export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evidence {
   if (t.execSkip !== undefined || t.recorderSkip === true) return "unaskable"

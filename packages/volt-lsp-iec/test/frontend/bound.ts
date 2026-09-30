@@ -1,0 +1,94 @@
+/**
+ * THE THREE GROUPS OF `sources.ts`, BOUND — each file in the project the LSP would analyse it in, for the dumps that
+ * need a scope (0.3, 0.4, snapshot F).
+ *
+ *   corpus    one symbol table per project, over every file, with the project's library manifests and its vendor's
+ *             dialect, and the workspace scan's library namespaces and device instances — what the server binds;
+ *   fixtures  the fixture project's libraries bound once per vendor, and each fixture's own item, its PLC_PRG and the
+ *             fixtures it depends on, parsed as that vendor, bound on top for the length of one visit — what the replay
+ *             binds for that vendor (`conformance/fixtures.test.ts` `runLsp`);
+ *   library   the fixture project's libraries with the repo's bodies in place of the declarations (`withImplementations`),
+ *             which is where each body is lowered from.
+ */
+import { EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
+import { parseSource, type Dialect } from "../../src/syntax/index.js"
+import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
+import { loadWorkspaceRefs, scanLibraryManifests } from "../../src/workspace-refs.js"
+import { withDependencies } from "../conformance/support/fixture-units.js"
+import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS } from "../conformance/support/project-libraries.js"
+import { ALL_TESTS } from "../conformance/fixtures/index.js"
+import { parse, type Bound, type Parsed } from "./dumps.js"
+import { fixtureUri, libraryRepoFiles, type CorpusProject, type FixtureSources } from "./sources.js"
+
+/** Every file of a corpus project, parsed and bound together. */
+export function boundCorpus(p: CorpusProject): Bound[] {
+  const parsed = p.files.map((f) => parse(f, p.vendor))
+  const project = buildSymbolTable(parsed, scanLibraryManifests(p.dir), p.vendor)
+  const refs = loadWorkspaceRefs(p.dir)
+  return parsed.map((f) => ({ parsed: f, project, refs }))
+}
+
+const libraryProjects = new Map<Dialect, Scope>()
+/** The fixture project's libraries, parsed and bound as `vendor` once — what every fixture is bound on top of. */
+function fixtureBase(vendor: Dialect): Scope {
+  let project = libraryProjects.get(vendor)
+  if (project === undefined) {
+    project = buildSymbolTable(
+      PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, vendor) })),
+      PROJECT_MANIFESTS,
+      vendor,
+    )
+    libraryProjects.set(vendor, project)
+  }
+  return project
+}
+
+/**
+ * Visit one fixture bound as the replay binds it for `vendor`: its own item and PLC_PRG, parsed as that vendor, and
+ * every fixture it depends on, on top of the libraries. The binding is undone after `visit`, whatever it throws.
+ */
+export function withBoundFixture<T>(
+  f: FixtureSources,
+  vendor: Dialect,
+  visit: (own: Bound, plc: Bound, deps: readonly Bound[]) => T,
+): T {
+  const project = fixtureBase(vendor)
+  const own = parse(f.own, vendor)
+  const plc = parse(f.plc, vendor)
+  const deps: Parsed[] = withDependencies(f.test, ALL_TESTS)
+    .filter((d) => d.name !== f.test.name && d.source !== "")
+    .map((d) => parse({ id: d.name, uri: fixtureUri(d), source: d.source }, vendor))
+  const files = [own, plc, ...deps]
+  for (const file of files) bindFile(project, file)
+  linkExtends(project, PROJECT_MANIFESTS)
+  try {
+    const bound = (parsed: Parsed): Bound => ({ parsed, project, refs: EMPTY_WORKSPACE_REFS })
+    return visit(bound(own), bound(plc), deps.map(bound))
+  } finally {
+    for (const file of files) unbindFile(project, file.uri)
+    linkExtends(project, PROJECT_MANIFESTS)
+  }
+}
+
+/**
+ * Every body of the library repo, bound where it is lowered: in the fixture project's libraries, under the uri of the
+ * declaration it replaces. A repo file the fixture project does not resolve to is not bound anywhere, and throws — the
+ * repo holds only versions some project resolves.
+ */
+export function boundLibrary(): Bound[] {
+  const files = PROJECT_LOWERING.filter((f) => !f.uri.toLowerCase().endsWith(".library"))
+  const parsed: Parsed[] = files.map((f) => ({
+    id: f.uri,
+    uri: f.uri,
+    source: f.source,
+    dialect: "codesys",
+    parseResult: f.parseResult!,
+  }))
+  const project = buildSymbolTable(parsed, PROJECT_MANIFESTS)
+  const bySource = new Map(parsed.map((p) => [p.source, p]))
+  return libraryRepoFiles().map((r) => {
+    const at = bySource.get(r.source)
+    if (at === undefined) throw new Error(`${r.id} is not among the bodies the fixture project resolves`)
+    return { parsed: { ...at, id: r.id }, project, refs: EMPTY_WORKSPACE_REFS }
+  })
+}

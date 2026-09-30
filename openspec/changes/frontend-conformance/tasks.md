@@ -24,27 +24,142 @@ Paths are relative to `packages/volt-lsp-iec/`; from 1.12 on, `syntax/`, `symbol
 
 ## 0. Measure (mechanical, no judgement)
 
-- [ ] 0.1 Parse every corpus file, fixture source and library body. Table: files CODESYS builds (build recordings)
+- [x] 0.1 Parse every corpus file, fixture source and library body. Table: files CODESYS builds (build recordings)
       vs LSP parse errors; every LSP parse error without a recorded CODESYS error is a finding.
       Where: test/frontend/parse-census.test.ts (+ committed baseline). Acceptance: table written here. Depends on: —
-- [ ] 0.2 Printer/formatter fixed point on everything parsed in 0.1; every non-fixed-point file is a finding.
+      **Measured 2026-09-30** (`test/frontend/{sources,dumps}.ts`; baseline `test/frontend/baselines/parse-census.json`). A parse
+      error is both passes (declarations + every ST statement body), worded per vendor as `checks/syntax/parse-errors.ts` words
+      it; it matches when the vendor's build recorded the same normalized message. Fixtures are parsed once as CODESYS against
+      `codesys.build.json`, once as TwinCAT against `twincat.build.json`; `twincat-project14` is parsed as TwinCAT.
+
+      | source | vendor build | files / fixtures | LSP parse error | matched | findings |
+      |---|---|---|---|---|---|
+      | corpus CodesysTestProject, awa-palletizer, bakon-nano, lenze-mid, pro2193 | CODESYS, succeeded | 816 + 6292 + 6460 + 7599 + 7759 | 0 | — | 0 |
+      | corpus twincat-project14 | TwinCAT, succeeded | 244 | 0 | — | 0 |
+      | fixtures, CODESYS | builds | 2062 | 0 | — | 0 |
+      | | refuses | 575 | 26 (549 without) | 46 errors | 3 |
+      | | unrecorded | 146 | 0 | — | 0 |
+      | fixtures, TwinCAT | builds | 2001 | 0 | — | 0 |
+      | | refuses | 634 | 42 (592 without) | 80 errors | 6 |
+      | | unrecorded | 148 | 6 | — | 42 |
+      | library repo bodies | none (Volt's) | 50 | 0 | — | 0 |
+
+      **51 findings**: 3 CODESYS (`cc5_deprecated_functionblock_keyword`, `pwh_gvl_then_prose`, `pwh_struct_then_prose` — the LSP's
+      "unexpected identifier … at file scope" is not CODESYS's wording), 6 TwinCAT on recorded refusals (the same three, and
+      `ldate_ltod_ldt`'s PLC_PRG: the L-date literals lex apart on TwinCAT), 42 TwinCAT on 6 fixtures TwinCAT never recorded
+      (`tr_12_fmt_long_dates`, `xf_l*_call_once`: the same L-date literals). The other direction, counted not pinned as findings:
+      64 CODESYS and 88 TwinCAT refusals carry a syntax-shaped message ("expected", "Unexpected token") where the LSP has no parse
+      error at all.
+- [x] 0.2 Printer/formatter fixed point on everything parsed in 0.1; every non-fixed-point file is a finding.
       Where: test/frontend/fixed-point.test.ts (+ baseline). Acceptance: finding count written here. Depends on: 0.1
-- [ ] 0.3 Resolution dump: every identifier occurrence → its declaration (or none). LSP "not defined" / "ambiguous" /
+      **Measured 2026-09-30** (baseline `baselines/fixed-point.json`). Two printers: the formatter (`format(x)`, re-parsed as the
+      same source object — its uri — carries no parse error `x` does not already carry, parses to the same AST, and
+      `format(format(x)) === format(x)`) and `exprText` (every maximal expression re-parses and prints the same).
+      **23 files, 23 findings**: corpus 3 of 29 170 files (`expr-reprint-fails`: an inline assignment `(x := v)` printed without
+      its parentheses); fixtures 20 of 5 566 (14 `format-ast-changed` — the printer drops an alias/enum type-level initializer,
+      a function's misused EXTENDS/IMPLEMENTS, an interface's stray VAR section, FB EXTENDS A, B, and turns
+      `cc_decl_init_trailing_int`'s broken initializer into a clean one; 6 `expr-reprint-fails` — partial access `%W0` and
+      `__CURRENTTASK`); library 0 of 50; 0 `format-reparse-errors`. Idempotence held everywhere. (Review 2026-09-30: a first
+      count of 25 held two test artifacts — a `.struct` re-parsed without its uri, and a fixture's own parse error reproduced.)
+- [x] 0.3 Resolution dump: every identifier occurrence → its declaration (or none). LSP "not defined" / "ambiguous" /
       "no member" messages vs the recorded ones, both directions. The dump builder is shared with snapshot F.
       Where: test/frontend/dumps.ts (resolutionDump), test/frontend/resolution-dump.test.ts (+ baseline).
       Acceptance: both-direction counts written here. Depends on: 0.1
-- [ ] 0.4 Type dump and fold dump: every expression's inferred type; every constant expression/initializer's `constEval` value.
+      **Measured 2026-09-30** (baseline `baselines/resolution-dump.json`; one bound walk shared with 0.4 in
+      `test/frontend/bound-census.ts`). Bindings: a declaration (`lookup` / `resolveMemberChain` / the callee's parameters), else
+      an avenue `analysis/resolution.ts` accepts undeclared, else NONE; NOSCOPE = the unit binds no scope (GVL initializers,
+      DUT fields); NO-CALLEE = a named argument whose callee does not resolve.
+
+      | group | resolved | NONE | NOSCOPE | NO-CALLEE |
+      |---|---|---|---|---|
+      | corpus (own files) | 81 458 | 4 057 (bare 326, member 3 712, parameter 19) | 858 | 2 062 |
+      | corpus Library Manager | 11 983 | 426 (bare 81, member 345) | 2 380 | 0 |
+      | fixtures | 18 156 | 64 (bare 21, member 43) | 0 | 9 |
+      | library repo | 930 | 0 | 0 | 0 |
+
+      Fixtures are bound once per vendor, parsed as that vendor (`bound.ts` `withBoundFixture(f, vendor, …)`): the fixtures row
+      above is CODESYS; TwinCAT: bare names 16 919 resolved, NONE 91 (the CODESYS-only operators `__POSITION`/`__POUNAME`/
+      `__COMPARE_AND_SWAP` and the L-date conversions among them, as `resolveBare` decides for TwinCAT); members 660 / NONE 43,
+      parameters 480 / NO-CALLEE 9.
+      Messages ("Identifier … not defined", "Ambiguous use of name", "is no component of"), each fixture against each vendor's
+      build (`lspErrors(t, all, vendor)`) and corpus projects against their recorded builds:
+      CODESYS **LSP 27, recorded 31, both 26; LSP only 1** (`itf_var_section_inherited` "Identifier 'held' not defined");
+      **recorded only 5** (`ilc_calc_declared_unused`, `ilc_calc_other_type` 'n'; `network_unnamed_target_behind_enable`,
+      `ng_en_eno_named_wire`, `ng_en_eno_sink` — CODESYS's `__…__ImpVar` implicit variables).
+      TwinCAT **LSP 60, recorded 70, both 59; LSP only 1** (`itf_var_section_inherited`); **recorded only 11**
+      (`esc_wstring_hex3`, `esc_wstring_hex_41`, `esc_wstring_hex_ff`, `esc_wstring_pair` 'out'; `ilc_calc_declared_unused`,
+      `ilc_calc_other_type` 'n'; `network_unnamed_target_behind_enable` ''; `network_unnamed_target_of_valued_call` '' and
+      'In1'; `type_codesys_vector` 'vec4'; `var_non_retain` 'iCount'). The corpus: 0 and 0 both ways. The 73 CODESYS and 143
+      TwinCAT unbound fixture occurrences are pinned one by one; the corpus as counts.
+- [x] 0.4 Type dump and fold dump: every expression's inferred type; every constant expression/initializer's `constEval` value.
       Cross-check types against recordings that decide a type (run values that show width/sign/overflow; CODESYS type-mismatch and
       conversion messages) and folds against run values of constants.
       Where: test/frontend/dumps.ts (typeDump, foldDump), test/frontend/type-dump.test.ts, test/frontend/fold-dump.test.ts
       (+ baselines). Acceptance: UNKNOWN count, type disagreements and fold disagreements written here. Depends on: 0.3
-- [ ] 0.5 Rule inventory: design.md §4 as data; every uncovered rule is a gap. Run `scripts/conversion-matrix.ts` and write the
+      **Measured 2026-09-30** (baselines `baselines/type-dump.json`, `baselines/fold-dump.json`).
+      UNKNOWN over every value expression (an untyped int/real literal is UNKNOWN by design — its context types it — so it is
+      counted apart):
+
+      | group | expressions | UNKNOWN (not a literal) | UNKNOWN untyped literal | NOSCOPE |
+      |---|---|---|---|---|
+      | corpus (own files) | 123 515 | 17 013 | 17 758 | 1 842 |
+      | corpus Library Manager | 131 610 | 4 603 | 88 033 | 23 286 |
+      | fixtures | 26 733 | 2 601 | 5 396 | 32 |
+      | library repo | 1 748 | 231 | 271 | 0 |
+
+      The fixtures UNKNOWN row is CODESYS-bound; TwinCAT-bound: 26 666 expressions, UNKNOWN 2 685 not a literal, 5 399 untyped
+      literals, NOSCOPE 32.
+      **Type disagreements: 262** (CODESYS 124, TwinCAT 96, run 42). Build: each recorded type message ("Cannot convert type",
+      the two sign-change warnings, the loss warning) is explained by a store the front-end types X → Y (assignment,
+      initializer, input argument, operand → its operator's type, comparison operand → the checked meet), ONE store per
+      recorded copy (the recordings carry no position). CODESYS: 732 messages, **629 explained, 81 by no store** (42 "Cannot
+      convert", 18 of them on an expression CODESYS calls "Unknown type"; 16 sign-change; 5 loss — mostly built-in arguments:
+      MIN/MAX/SEL, the atomics, `ANY_NUM`/`ANY_BIT` operand targets, subranges) **and 22 a copy more than the stores**
+      (`bound_byte_below_min` SINT → BYTE twice over one initializer store; `unary_minus_on_time` DINT → TIME twice over one
+      store). TwinCAT: 455 messages, 377 explained, 77 by no store, 1 a copy more. The other way — a store the front-end types
+      not implicitly convertible (`classifyConversion` "incompatible") with no recorded "Cannot convert" left for it: CODESYS
+      336 such stores, 315 refused, **21 not**; TwinCAT 328, 310, **18 not**.
+      Run: 6 995 recorded values, 6 953 inferred as printed, **42 inferred UNKNOWN** (inherited members through `inst.` — H2).
+      Folds: corpus own decl 6 818 fold / 520 do not / 1 405 NOSCOPE, body constants 725 / 950; fixtures decl 1 706 / 430 / 32,
+      body 217 / 33; library decl 34 / 2, body 9 / 0. Run: of 6 995 recorded values, 5 131 name a declaration with no scalar
+      initializer, 1 165 a variable a body names, 514 resolve to no declaration (the 42 H2 paths among them), 9 are reached
+      through an initializing declaration, and **176 still hold their initializer**: 123 fold to it, 33 do not fold,
+      **20 fold disagreements** — every one an initializer whose value lies outside the declared type's range:
+      CODESYS stores it at the declared width, `constEval` returns it unwrapped (`bound_*`, `overflow_*`, `cc_fp_overflow_*`,
+      `cc_init_constant_expr_into_sint`, `named_const_literal_wrap`; rule CE2).
+- [x] 0.5 Rule inventory: design.md §4 as data; every uncovered rule is a gap. Run `scripts/conversion-matrix.ts` and write the
       number of explicit-conversion pairs without a fixture (CV7). Pin the GAP count per area (2, 3, 4) and in total here.
       Where: test/frontend/rules.ts, rules.test.ts. Acceptance: the counts are pinned here; the test fails if a listed fixture is
       missing or unrecorded, if a listed test title is missing, or if a count differs; the design as written (1.1) has
       134 GAP rows (area 2: 81, area 3: 26, area 4: 27) before 0.5 re-checks each listed fixture. Depends on: 1.1
-- [ ] 0.6 Baseline numbers into this file (parse findings, fixed-point failures, resolution, type and fold disagreements,
+      **Pinned 2026-09-30: 352 rules; GAP area 2: 79, area 3: 26, area 4: 28, total 133.** The re-check moved three rows, each
+      recorded in its `recheck`: E21 (`lib_std_rtc`) and ST8 (`tr_37_case_label_wraps_minus_212`) are recorded now — the
+      condition the design states — so they are covered (area 2: 81 → 79); AR24's only fixture `op_sys_new_delete` is
+      `recorderSkip` and unrecorded, so AR24 is a GAP (area 4: 27 → 28). Every other listed fixture exists and is recorded; the
+      FMT rows name today's tests (`implementation-keyword.test.ts`, `units/folder-directive.test.ts`,
+      `implementation-keyword-diagnostics.test.ts`, `network-text/parser.test.ts`) until 1.x moves them.
+      **CV7** (`bun run scripts/conversion-matrix.ts --explicit`, offline): 600 explicit `X_TO_Y` pairs over the front-end's type
+      table, 273 called by a recorded fixture, **327 by none** — pinned in `rules.test.ts`.
+- [x] 0.6 Baseline numbers into this file (parse findings, fixed-point failures, resolution, type and fold disagreements,
       uncovered rules, missing conversion pairs). Depends on: 0.1–0.5
+      **Baseline 2026-09-30** (every later task's numbers may only fall from these):
+
+      | measure | baseline |
+      |---|---|
+      | parse findings (0.1) | **51** (CODESYS 3, TwinCAT recorded 6, TwinCAT unrecorded 42); corpus 0; library 0 |
+      | fixed-point failures (0.2) | **23 files** (corpus 3 `expr-reprint-fails`; fixtures 20: 14 `format-ast-changed`, 6 `expr-reprint-fails`); library 0 |
+      | resolution NONE (0.3) | corpus 4 057 own + 426 Library Manager; fixtures CODESYS 64, TwinCAT 91 bare + 43 member |
+      | resolution messages (0.3) | CODESYS LSP-only 1, recorded-only 5; TwinCAT LSP-only 1, recorded-only 11 |
+      | type disagreements (0.4) | **262** (CODESYS 124, TwinCAT 96, run 42) |
+      | fold disagreements (0.4) | **20** (all CE2: out-of-range initializer not wrapped) |
+      | uncovered rules (0.5) | **133 GAP** of 352 (area 2: 79, area 3: 26, area 4: 28) |
+      | explicit conversion pairs without a fixture (CV7) | **327** of 600 |
+
+      Gate 0: `bun typecheck` clean; `bun test` 6016 pass / 34 skip / 148 todo / 0 fail (6198 tests, 172 files, 508 s);
+      `bun run check` 14 passed, 0 failed; `bun run rate:fixtures` regenerated `map.generated.ts` byte-identical (the
+      vendor-parameterized `lspErrors` rates every fixture as before). Not a gate of this change but noted: `bun run lint`
+      reports one pre-existing layering violation at HEAD (`services/structure/semantic-tokens.ts → network/network-analyze.js`),
+      untouched by step 0.
 
 ## 1. Front-end restructure (design first, then output-neutral moves)
 

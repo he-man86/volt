@@ -20,6 +20,14 @@ produces what — see [`../TESTING.md`](../TESTING.md). This file is only the ma
 Plus `conformance/source-map.test.ts` — every emitted Rust line a mapping names exists and holds code. It is small
 and it is its own question.
 
+Plus `frontend/` — the FRONT-END MEASURED (openspec `frontend-conformance`, phase 0): does the parser, the binder and
+the type layer (`src/syntax`, `src/symbols`, `src/types`) answer as the recordings do, over every corpus file, fixture
+and library body? `parse-census` (0.1), `fixed-point` (0.2, the printer), `resolution-dump` (0.3), `type-dump` and
+`fold-dump` (0.4) each pin their findings in `frontend/baselines/` — a new finding fails and so does one that vanished
+(`VOLT_WRITE_BASELINE=1` rewrites them); `rules.test.ts` (0.5) holds design.md §4's rule catalogue (`rules.ts`) to the
+fixtures and recordings that exist. The dump builders (`dumps.ts`) are shared with snapshot F. `bound-census.ts` walks
+everything bound ONCE for 0.3 and 0.4.
+
 ## Why these four, and not more
 
 They divide by **what could be wrong**, which is the only division that makes a hole visible:

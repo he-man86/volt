@@ -751,7 +751,7 @@ describe("refused — the vendor rejects it, in words we repeat", () => {
     test(c.name, () => {
       const rec = RUNS[c.name]
       if (rec?.error !== undefined) expect(rec.error).toContain(c.refused!)
-      expect(lspErrors(c, ALL_TESTS)).toContainEqual(expect.stringContaining(c.refused!))
+      expect(lspErrors(c, ALL_TESTS, "codesys")).toContainEqual(expect.stringContaining(c.refused!))
     })
   }
 })
@@ -853,8 +853,8 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
       expectStillDiverges(c.name, mark, [
         () =>
           c.refused === undefined
-            ? expect(lspErrors(c, ALL_TESTS).length).toBeGreaterThan(0)
-            : expect(lspErrors(c, ALL_TESTS)).toContainEqual(expect.stringContaining(c.refused)),
+            ? expect(lspErrors(c, ALL_TESTS, "codesys").length).toBeGreaterThan(0)
+            : expect(lspErrors(c, ALL_TESTS, "codesys")).toContainEqual(expect.stringContaining(c.refused)),
       ])
     })
   }

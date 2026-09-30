@@ -70,6 +70,9 @@ test/
                              (vs each project's recorded IDE build), and lowering is total over it
   catalog/
     catalog.test.ts          one test per documented Cnnnn
+  frontend/                  the front-end MEASURED against the recordings (openspec frontend-conformance phase 0):
+                             parse census, printer fixed point, resolution / type / fold dumps, each with a pinned
+                             baseline of findings in baselines/; rules.ts + rules.test.ts, the rule catalogue as data
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two

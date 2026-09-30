@@ -14,7 +14,32 @@ import { classifyConversion, type ConversionKind } from "../src/types/compat.js"
 import type { Type } from "../src/types/type.js"
 import { call, VENDOR } from "./bridge.js"
 
-const TYPES = ["SINT", "USINT", "BYTE", "INT", "UINT", "WORD", "DINT", "UDINT", "DWORD", "LINT", "ULINT", "LWORD", "REAL", "LREAL"]
+if (process.argv.includes("--explicit")) {
+  const { explicitConversionPairs } = await import("../test/frontend/conversion-pairs.js")
+  const { pairs, covered, missing } = explicitConversionPairs()
+  console.log(
+    `explicit conversions: ${pairs.length} pairs, ${covered.length} called by a recorded fixture, ${missing.length} by none`,
+  )
+  for (const m of missing) console.log(`  ${m}`)
+  process.exit(0)
+}
+
+const TYPES = [
+  "SINT",
+  "USINT",
+  "BYTE",
+  "INT",
+  "UINT",
+  "WORD",
+  "DINT",
+  "UDINT",
+  "DWORD",
+  "LINT",
+  "ULINT",
+  "LWORD",
+  "REAL",
+  "LREAL",
+]
 const elem = (name: string): Type => ({ kind: "elementary", name }) as Type
 const predicted = (kind: ConversionKind): "none" | "warning" | "error" =>
   kind === "incompatible" ? "error" : kind === "narrow" || kind === "sign-change" ? "warning" : "none"
@@ -38,7 +63,13 @@ const prg = plcName.replace(".prg", "")
 
 await pushOps([{ op: "set", name: "ConvMatrix.fb", toFolder: plcFolder, sourceText: source, ifVersion: null }])
 await pushOps([
-  { op: "set", name: plcName, toFolder: null, sourceText: `PROGRAM ${prg}\nVAR\n  inst : ConvMatrix;\nEND_VAR\ninst();\nEND_PROGRAM\n`, ifVersion: await version(plcName) },
+  {
+    op: "set",
+    name: plcName,
+    toFolder: null,
+    sourceText: `PROGRAM ${prg}\nVAR\n  inst : ConvMatrix;\nEND_VAR\ninst();\nEND_PROGRAM\n`,
+    ifVersion: await version(plcName),
+  },
 ])
 const r = await call("build", { buildType: "incremental" })
 
@@ -65,15 +96,22 @@ for (const dst of TYPES)
     const want = predicted(kind)
     const ide = ideSev.get(`${src}->${dst}`) ?? "none"
     if (want === ide) agree++
-    else disagreements.push(`${src.padEnd(6)}→ ${dst.padEnd(6)} classify=${kind.padEnd(12)} predict=${want.padEnd(8)} IDE=${ide}`)
+    else
+      disagreements.push(
+        `${src.padEnd(6)}→ ${dst.padEnd(6)} classify=${kind.padEnd(12)} predict=${want.padEnd(8)} IDE=${ide}`,
+      )
   }
 
 console.log(`\nconversion matrix: ${agree}/${TYPES.length * TYPES.length} agree with the live compiler (${VENDOR})`)
-console.log(`(build success=${r.success}, ${(r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").length} error+warning diagnostics matched)`)
+console.log(
+  `(build success=${r.success}, ${(r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").length} error+warning diagnostics matched)`,
+)
 if (disagreements.length) {
   console.log(`\n${disagreements.length} DISAGREEMENTS (classify predicts ≠ compiler):`)
   for (const d of disagreements) console.log("  " + d)
 } else console.log("classifyConversion is severity-identical to the compiler over the full numeric matrix. ✓")
 
-await pushOps([{ op: "set", name: plcName, toFolder: null, sourceText: plcOriginal, ifVersion: await version(plcName) }])
+await pushOps([
+  { op: "set", name: plcName, toFolder: null, sourceText: plcOriginal, ifVersion: await version(plcName) },
+])
 await pushOps([{ op: "deleteItem", name: "ConvMatrix.fb", ifVersion: await version("ConvMatrix.fb") }])
