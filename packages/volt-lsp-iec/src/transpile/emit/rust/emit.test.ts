@@ -6,8 +6,6 @@ import { emitRust, rustType, snake } from "./emit.js"
 import { STRING_PRELUDE } from "./prelude.js"
 import { lowerSource } from "../../lower/index.js"
 import { RUSTC, skipRustSuite } from "../../../../test/conformance/support/rustc.js"
-import { LOOP_CAP_MESSAGE, LOOP_ITERATION_CAP } from "../../ir/index.js"
-import { load } from "../../index.js"
 
 function rust(src: string): string {
   const { pou, diagnostics } = lowerSource(src)
@@ -408,45 +406,82 @@ test("a PROGRAM's METHOD takes its arguments before the program is moved out of 
 })
 
 /**
- * THE ITERATION CAP IS A SHARED CONTRACT, not an interpreter convenience.
+ * A LOOP RUNS EVERY PASS CODESYS RUNS — there is no iteration cap in the emitted Rust (transpile-review task 27).
  *
- * It lived in `interp/` as a private constant, so it was the one rule in the transpiler that one backend obeyed
- * and the other had never heard of: a runaway loop threw after a million iterations in the interpreter and ran
- * FOREVER in the emitted Rust. Measured on `WHILE go DO n := n + 1; END_WHILE` — interpreter "loop exceeded the
- * iteration cap", compiled Rust no termination at all.
- *
- * That direction is the bad one. The emitted Rust is what a user runs under `cargo test`, where a hang is
- * indistinguishable from a slow suite until CI gives up with no output to show for it.
- *
- * The cap and its wording now come from `ir/` — the IR carries the semantics, so neither backend can drift.
+ * A 1,000,000-pass cap used to be printed into every loop as semantics, and the two backends even counted it
+ * differently: the Rust incremented before the head test, so `FOR i := 1 TO 1000000` panicked there while the
+ * interpreter ran it. CODESYS has no such cap — it runs all passes of `tr_27_loop_cap_for_1000000`,
+ * `_for_1000001`, `_repeat_1000001` and `_while_5000000` (recorded 2026-09-29). A runaway loop is bounded by the
+ * harness that runs it (the interpreter's opt-in `loopGuard`, a process timeout), never by the program.
  */
-describe("emit/rust — the iteration cap both backends share", () => {
-  test("every loop carries the guard, with the IR's own cap and message", () => {
+describe("emit/rust — no iteration cap", () => {
+  test("a loop carries no pass counter and no panic", () => {
     const code = rust("PROGRAM P\nVAR\n\tn : INT;\n\tgo : BOOL := TRUE;\nEND_VAR\nWHILE go DO\n\tn := n + 1;\nEND_WHILE\nEND_PROGRAM\n")
-    expect(code).toContain("let mut __iter_1: u64 = 0;")
-    expect(code).toContain(`if __iter_1 > ${LOOP_ITERATION_CAP} { panic!(${JSON.stringify(LOOP_CAP_MESSAGE)}); }`)
+    expect(code).not.toContain("__iter_")
+    expect(code).not.toContain("panic!")
   })
+})
 
-  test("each loop in a POU gets its own counter", () => {
-    // one shared counter would make a second loop inherit the first one's count and trip early
-    const code = rust(
-      "PROGRAM P\nVAR\n\ti : INT;\n\tj : INT;\n\tn : INT;\nEND_VAR\n" +
-        "FOR i := 1 TO 3 DO n := n + 1; END_FOR\nFOR j := 1 TO 3 DO n := n + 1; END_FOR\nEND_PROGRAM\n",
-    )
-    expect(code).toContain("let mut __iter_1: u64 = 0;")
-    expect(code).toContain("let mut __iter_2: u64 = 0;")
-  })
-
-  test("the interpreter enforces the SAME cap and message", () => {
-    // the point of the shared constant: this assertion and the emitted text above cannot drift apart
-    let thrown = "no throw"
+describe.skipIf(skipRustSuite())("emit/rust — no iteration cap, compiled", () => {
+  test("FOR to 1000000 / 1000001 and REPEAT to 1000001 run every pass, as CODESYS records", async () => {
+    const recorded: [string, string, number][] = [
+      ["for_1000000", "FOR i := 1 TO 1000000 DO cnt := cnt + 1; END_FOR", 1000000],
+      ["for_1000001", "FOR i := 1 TO 1000001 DO cnt := cnt + 1; END_FOR", 1000001],
+      ["repeat_1000001", "REPEAT cnt := cnt + 1; UNTIL cnt >= 1000001 END_REPEAT", 1000001],
+      ["while_5000000", "WHILE cnt < 5000000 DO cnt := cnt + 1; END_WHILE", 5000000],
+    ]
+    const dir = await mkdtemp(join(tmpdir(), "volt-loopcap-"))
     try {
-      load("PROGRAM P\nVAR\n\tn : INT;\n\tgo : BOOL := TRUE;\nEND_VAR\nWHILE go DO\n\tn := n + 1;\nEND_WHILE\nEND_PROGRAM\n", "P").scan()
-    } catch (error) {
-      thrown = (error as Error).message
+      for (const [name, body, cnt] of recorded) {
+        const code = rust(`PROGRAM P\nVAR i : DINT; cnt : DINT; END_VAR\n${body}\nEND_PROGRAM\n`)
+        const file = join(dir, `${name}.rs`)
+        const exe = join(dir, process.platform === "win32" ? `${name}.exe` : name)
+        await Bun.write(file, `${code}\nfn main() {\n    let mut p = P::new();\n    p.scan();\n    println!("{}", p.cnt);\n}\n`)
+        const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
+        expect(build.stderr.toString()).toBe("")
+        const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 30_000 })
+        expect([name, ran.exitCode, ran.stdout.toString().trim()]).toEqual([name, 0, String(cnt)])
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
     }
-    expect(thrown).toBe(LOOP_CAP_MESSAGE)
-  })
+  }, 120_000)
+
+  test("a harness's loop guard counts one body entry as one pass, as the interpreter's does", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "volt-loopguard-"))
+    try {
+      const bodies = [
+        "FOR i := 1 TO 3 DO cnt := cnt + 1; END_FOR",
+        "WHILE cnt < 3 DO cnt := cnt + 1; END_WHILE",
+        "REPEAT cnt := cnt + 1; UNTIL cnt >= 3 END_REPEAT",
+      ]
+      for (const [k, body] of bodies.entries())
+        for (const loopGuard of [3, 2]) {
+          const { pou } = lowerSource(`PROGRAM P
+VAR i : DINT; cnt : DINT; END_VAR
+${body}
+END_PROGRAM
+`)
+          const code = emitRust(pou!, { loopGuard }).code
+          const file = join(dir, `g${k}_${loopGuard}.rs`)
+          const exe = join(dir, process.platform === "win32" ? `g${k}_${loopGuard}.exe` : `g${k}_${loopGuard}`)
+          await Bun.write(file, `${code}
+fn main() {
+    let mut p = P::new();
+    p.scan();
+    println!("{}", p.cnt);
+}
+`)
+          const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
+          expect(build.stderr.toString()).toBe("")
+          const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe" })
+          expect([body, loopGuard, ran.exitCode === 0]).toEqual([body, loopGuard, loopGuard === 3])
+          if (loopGuard === 3) expect(ran.stdout.toString().trim()).toBe("3")
+        }
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }, 120_000)
 })
 
 /**

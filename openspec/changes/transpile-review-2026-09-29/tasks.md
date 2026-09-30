@@ -343,9 +343,9 @@ those values into the new fixture's recording.
   cnt=1000001, while_5000000 cnt=5000000.
 - Fix: remove the cap from emitted semantics (at most a harness-only guard behind a cfg/option); where a guard
   remains, both backends count one iteration = one body entry.
-- [ ] 27.1 Boundary test running both backends at CAP and CAP+1 for FOR/WHILE/REPEAT; record `loop_cap_*` — red.
+- [x] 27.1 Boundary test running both backends at CAP and CAP+1 for FOR/WHILE/REPEAT; record `loop_cap_*` — red.
   Recorded 2026-09-29 (record:exec): `tr_27_loop_cap_for_1000000`, `tr_27_loop_cap_for_1000001`, `tr_27_loop_cap_repeat_1000001`, `tr_27_loop_cap_while_5000000` — all diverge (CODESYS runs every pass; the interpreter faults on for_1000001 and while_5000000, the Rust on for_1000000 and repeat_1000001).
-- [ ] 27.2 Fix.
+- [x] 27.2 Fix. The cap is gone from the IR and both backends; a harness bounds a runaway loop by opt-in `run(pou, { loopGuard })` / `emitRust(pou, { loopGuard })`, both counting one body entry as one pass (src tests in interp.test.ts + emit.test.ts); all four `tr_27_loop_cap_*` confirmed, marks removed.
 
 ## Emit / interpreter layer
 

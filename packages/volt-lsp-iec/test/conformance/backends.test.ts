@@ -28,13 +28,14 @@ import { describe, expect, test } from "bun:test"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { lowerSource, rustAccess, run, type IrPou } from "../../src/transpile/index.js"
+import { LoopGuardError, lowerSource, rustAccess, run, type IrPou } from "../../src/transpile/index.js"
 import type { Type } from "../../src/types/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
 import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
 import { PROJECT_BASE } from "./support/project-libraries.js"
+import { HARNESS_LOOP_GUARD } from "./support/transpile-confidence.js"
 import type { LanguageTest } from "./types.js"
 
 /**
@@ -148,14 +149,19 @@ function bitsOf(v: number, wide: boolean): string {
  * loudly and correctly. That is not a divergence; it is the harness handing the program bad input.
  *
  * But "it faulted" is still a fact both backends must agree on, and a fault in ONE of them is one of the most
- * valuable divergences there is — the runaway-loop bug was exactly that shape. So the comparison is between
+ * valuable divergences there is — a loop that panicked in one backend and ran in the other was exactly that shape. So the comparison is between
  * outcomes: both faulted (agree — the messages differ by design and are not compared), neither faulted (compare
  * every value), or one did (a divergence, reported as one).
  */
 type Outcome = { faulted: true } | { faulted: false; values: Map<string, string> }
 
-function interpreterOutcome(c: Case): Outcome {
-  const runner = run(c.pou)
+/**
+ * The interpreter's outcome, or undefined when the harness's loop guard gave up on the case — seeding can hand a
+ * loop a bound nobody arranged, and CODESYS caps no loop (`tr_27_loop_cap_*`), so a give-up has no answer to
+ * compare. The Rust is built with the same guard (`emitFor`) and runs under a timeout.
+ */
+function interpreterOutcome(c: Case): Outcome | undefined {
+  const runner = run(c.pou, { loopGuard: HARNESS_LOOP_GUARD })
   try {
     for (const p of c.paths) {
       const kind = seedable(p.type)
@@ -168,7 +174,8 @@ function interpreterOutcome(c: Case): Outcome {
       }
     }
     for (let i = 0; i < c.cycles; i++) runner.scan()
-  } catch {
+  } catch (error) {
+    if (error instanceof LoopGuardError) return undefined
     return { faulted: true }
   }
   const values = new Map<string, string>()
@@ -233,7 +240,7 @@ function emitFor(c: Case): { code: string; usesGlobals?: boolean; usesPrograms?:
   if (hit !== undefined) return hit
   // imported lazily so the module still loads where rustc is absent and the whole describe is skipped
   const { emitRust } = require("../../src/transpile/index.js") as typeof import("../../src/transpile/index.js")
-  const made = emitRust(c.pou)
+  const made = emitRust(c.pou, { loopGuard: HARNESS_LOOP_GUARD })
   emitCache.set(c.pou, made)
   return made
 }
@@ -280,11 +287,6 @@ const PROBES: ReadonlyArray<{ name: string; source: string; why: string }> = [
       "e := LREAL_TO_DINT(huge);\nf := LREAL_TO_DINT(nhuge);\ng := LREAL_TO_LINT(huge);\nh := LREAL_TO_LINT(nhuge);\nEND_PROGRAM\n",
   },
   {
-    name: "probe_runaway_loop",
-    why: "the interpreter capped a loop at a million iterations and threw; the emitted Rust had no cap and ran forever",
-    source: "PROGRAM PLC_PRG\nVAR\n\tn : DINT;\n\tgo : BOOL := TRUE;\nEND_VAR\nWHILE go DO\n\tn := n + 1;\nEND_WHILE\nEND_PROGRAM\n",
-  },
-  {
     name: "probe_real_infinity_faults",
     why: "an infinite REAL STOPS the task on CODESYS (domain_ln_zero, domain_divide_real_by_zero) — the interpreter faults, and the emitted Rust must fault too rather than carrying an `inf` forward. Dividing by `zero - zero`, not `zero`: a seeded variable is not the zero this is about",
     source:
@@ -319,16 +321,15 @@ function prepareProbe(name: string, source: string): Case | undefined {
 /** Run one case through both backends and return the divergences — the whole comparison, in one place. */
 async function compareCase(c: Case, dir: string): Promise<{ divergences: string[]; compared: number; faultedBoth: boolean }> {
   const b = interpreterOutcome(c)
+  if (b === undefined) return { divergences: [], compared: 0, faultedBoth: false }
   const file = join(dir, `${c.name}.rs`)
   const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
   await Bun.write(file, rustProgram(c))
   const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
   if (build.exitCode !== 0) return { divergences: [], compared: 0, faultedBoth: false }
-  // A TIMEOUT, because the failure this gate exists to catch can be a HANG. Without the shared iteration cap the
-  // emitted Rust ran a runaway loop forever while the interpreter threw after a million iterations — and an
-  // un-timed harness meets that by hanging, which in CI is indistinguishable from a slow suite and strictly
-  // worse than a red test. A run that had to be killed is a fault, and it is a DIFFERENT outcome from the
-  // interpreter's clean throw, so it is reported as the divergence it is.
+  // A TIMEOUT, because the failure this gate exists to catch can be a HANG: the emitted Rust bounds no loop
+  // (CODESYS bounds none), so a harness that did not time it would meet a runaway loop by hanging, which in CI is
+  // indistinguishable from a slow suite. A run that had to be killed is a fault, and reported as one.
   const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 10_000 })
   const cFaulted = ran.exitCode !== 0 || ran.exitCode === null
   if (b.faulted !== cFaulted)
@@ -422,13 +423,14 @@ describe.skipIf(skipRustSuite())("the two backends agree with each other, withou
           const c = prepare(t)
           if (c === undefined) continue
           const b = interpreterOutcome(c)
+          if (b === undefined) continue // the harness's loop guard gave up — no answer to compare
           const file = join(dir, `${c.name}.rs`)
           const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
           await Bun.write(file, rustProgram(c))
           const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
           // a case that does not COMPILE is the compile gate's business, not this one
           if (build.exitCode !== 0) continue
-          const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe" })
+          const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 10_000 })
           const cFaulted = ran.exitCode !== 0
           if (b.faulted !== cFaulted) {
             divergences.push(

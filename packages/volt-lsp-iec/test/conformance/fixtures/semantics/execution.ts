@@ -1033,10 +1033,10 @@ const CASES: readonly ExecCase[] = [
 
   // task 27: is there a pass cap on a loop? Exactly 1,000,000 passes and one past it, for FOR and REPEAT, and a WHILE
   // far beyond.
-  { name: "tr_27_loop_cap_for_1000000", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 1000000 passes; the emitted Rust panics at its own iteration cap, a different count from the interpreter's (recorded 2026-09-29)", vars: "i : DINT; cnt : DINT;", body: "FOR i := 1 TO 1000000 DO cnt := cnt + 1; END_FOR" },
-  { name: "tr_27_loop_cap_for_1000001", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 1000001 passes (cnt=1000001); the interpreter stops at its 1,000,000-pass cap (measured 2026-09-29)", vars: "i : DINT; cnt : DINT;", body: "FOR i := 1 TO 1000001 DO cnt := cnt + 1; END_FOR" },
-  { name: "tr_27_loop_cap_repeat_1000001", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 1000001 passes; the emitted Rust panics at its own iteration cap, a different count from the interpreter's (recorded 2026-09-29)", vars: "cnt : DINT;", body: "REPEAT cnt := cnt + 1; UNTIL cnt >= 1000001 END_REPEAT" },
-  { name: "tr_27_loop_cap_while_5000000", deferred: "transpile-review-2026-09-29 task 27: CODESYS runs all 5000000 passes; the interpreter stops at its 1,000,000-pass cap (measured 2026-09-29)", vars: "cnt : DINT;", body: "WHILE cnt < 5000000 DO cnt := cnt + 1; END_WHILE" },
+  { name: "tr_27_loop_cap_for_1000000", vars: "i : DINT; cnt : DINT;", body: "FOR i := 1 TO 1000000 DO cnt := cnt + 1; END_FOR" },
+  { name: "tr_27_loop_cap_for_1000001", vars: "i : DINT; cnt : DINT;", body: "FOR i := 1 TO 1000001 DO cnt := cnt + 1; END_FOR" },
+  { name: "tr_27_loop_cap_repeat_1000001", vars: "cnt : DINT;", body: "REPEAT cnt := cnt + 1; UNTIL cnt >= 1000001 END_REPEAT" },
+  { name: "tr_27_loop_cap_while_5000000", vars: "cnt : DINT;", body: "WHILE cnt < 5000000 DO cnt := cnt + 1; END_WHILE" },
 
   // task 28: MAX / MIN / LIMIT given a NaN or a signed zero, both argument orders, LREAL and REAL. NaN is SQRT of a
   // computed negative and -0.0 is +0.0 times a computed -1 — never folded, and never 1.0/0.0 (it stops the runtime).

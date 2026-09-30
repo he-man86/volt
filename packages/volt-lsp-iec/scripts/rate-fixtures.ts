@@ -70,6 +70,7 @@ import {
   edgeHarness,
   edgePlan,
   edgeVerdict,
+  HARNESS_LOOP_GUARD,
   emissionShape,
   notesOf,
   printRow,
@@ -137,8 +138,10 @@ await Promise.all(
         rows.set(t.name, { evidence, ...(divergesOf(t.name) === undefined ? {} : { diverges: divergesOf(t.name) }) })
         continue
       }
-      const emitted = emitRust(pou)
+      // BUILT with the harness's loop guard (the edge run needs it); RATED on the emission a user gets, which has none
+      const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
       const code = emitted.code
+      const shown = emitRust(pou).code
       const plan = edgePlan(t, ALL_TESTS, pou, code)
       const file = join(dir, `${t.name}.rs`)
       const exe = join(dir, `${t.name}${process.platform === "win32" ? ".exe" : ""}`)
@@ -166,7 +169,7 @@ await Promise.all(
       rmSync(exe, { force: true })
       rmSync(exe.replace(/\.exe$/, ".pdb"), { force: true })
 
-      const shape = emissionShape(code)
+      const shape = emissionShape(shown)
       shape.constructs.forEach((id, k) => constructs.set(id, shape.lines[k]!))
       const diverges = divergesOf(t.name)
       rows.set(t.name, {
@@ -176,7 +179,7 @@ await Promise.all(
         ...(found.length > 0 ? { lints: [...new Set(found.map((f) => f.code))].sort() } : {}),
         pedantic: pedantic.length,
         edge,
-        size: sizeRatio(code, source, gvls),
+        size: sizeRatio(shown, source, gvls),
         shape: shape.shape,
         ...notesOf(shape.constructs),
         ...(diverges === undefined ? {} : { diverges }),

@@ -63,6 +63,7 @@ import {
   edgePlan,
   edgeSeeds,
   edgeVerdict,
+  HARNESS_LOOP_GUARD,
   emissionShape,
   normalizeRustLine,
   NOTES,
@@ -534,7 +535,8 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       const { pou, diagnostics } = lowering(c)
       if (pou === undefined)
         return void runs.set(c.name, { exit: -1, stdout: "", stderr: `does not lower: ${diagnostics[0]?.message}` })
-      const emitted = emitRust(pou)
+      // built with the harness's loop guard, which the edge run's seeds need and no recorded pass count reaches
+      const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
       // THE EDGE RUN RIDES THE SAME BINARY: `main` runs the recorded scan, or with `edge` the edge variants
       const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)
       const main = edgeHarness(pou, emitted, plan, recordedScan(c, pou, emitted))
@@ -656,7 +658,7 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
           const c = rest[i]!
           const pou = lowering(c).pou
           if (pou === undefined) continue
-          const emitted = emitRust(pou)
+          const emitted = emitRust(pou, { loopGuard: HARNESS_LOOP_GUARD })
           // AN EXECUTABLE, like the value pass and the generator: the edge run needs one, and `rust` then means one
           // build everywhere — the generator's `compiles`/`rejected` is decided by this same argv.
           const plan = edgePlan(c, ALL_TESTS, pou, emitted.code)

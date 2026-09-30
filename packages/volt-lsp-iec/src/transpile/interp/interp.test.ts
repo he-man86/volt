@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { load } from "../index.js"
+import { load, LoopGuardError, lowerSource, run } from "../index.js"
 
 describe("interp — the executable core", () => {
   test("a PRG with IF/ELSIF and a counter runs scan cycles", () => {
@@ -1303,4 +1303,47 @@ END_PROGRAM
       pou.scan()
       expect(["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].map((n) => shown(pou.get(n)))).toEqual(["1", "NaN", "1", "NaN", "5", "1", "NaN", "0", "-0"])
     })
+})
+
+/**
+ * NO ITERATION CAP (transpile-review task 27). The interpreter threw after 1,000,000 passes, counted from 0 so it
+ * ran one pass more than the emitted Rust; CODESYS runs every pass (`tr_27_loop_cap_*`, recorded 2026-09-29). A
+ * runaway loop is the harness's to bound: `run(pou, { loopGuard })` counts ONE BODY ENTRY as one pass and throws
+ * a `LoopGuardError` — a harness giving up, not a program outcome — on the entry past the guard.
+ */
+describe("interp — no iteration cap", () => {
+  const counter = (body: string) => load(`PROGRAM P\nVAR i : DINT; cnt : DINT; END_VAR\n${body}\nEND_PROGRAM\n`, "P")
+
+  test("FOR / REPEAT / WHILE run every pass CODESYS records", () => {
+    const recorded: [string, bigint][] = [
+      ["FOR i := 1 TO 1000000 DO cnt := cnt + 1; END_FOR", 1000000n],
+      ["FOR i := 1 TO 1000001 DO cnt := cnt + 1; END_FOR", 1000001n],
+      ["REPEAT cnt := cnt + 1; UNTIL cnt >= 1000001 END_REPEAT", 1000001n],
+      ["WHILE cnt < 5000000 DO cnt := cnt + 1; END_WHILE", 5000000n],
+    ]
+    for (const [body, cnt] of recorded) {
+      const p = counter(body)
+      p.scan()
+      expect([body, p.get("cnt")]).toEqual([body, cnt])
+    }
+  })
+
+  test("the harness guard counts one body entry as one pass, for every loop form", () => {
+    const guarded = (body: string, loopGuard: number) => {
+      const { pou } = lowerSource(`PROGRAM P\nVAR i : DINT; cnt : DINT; END_VAR\n${body}\nEND_PROGRAM\n`, "P")
+      return run(pou!, { loopGuard })
+    }
+    for (const body of [
+      "FOR i := 1 TO 3 DO cnt := cnt + 1; END_FOR",
+      "WHILE cnt < 3 DO cnt := cnt + 1; END_WHILE",
+      "REPEAT cnt := cnt + 1; UNTIL cnt >= 3 END_REPEAT",
+    ]) {
+      const exact = guarded(body, 3)
+      exact.scan()
+      expect([body, exact.get("cnt")]).toEqual([body, 3n])
+      const short = guarded(body, 2)
+      expect(() => short.scan()).toThrow(LoopGuardError)
+      expect([body, short.get("cnt")]).toEqual([body, 2n])
+    }
+  })
 })

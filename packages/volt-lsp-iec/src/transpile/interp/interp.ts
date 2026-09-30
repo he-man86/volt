@@ -18,8 +18,6 @@ import {
   type IrStmt,
   peelArray,
   type Place,
-  LOOP_CAP_MESSAGE,
-  LOOP_ITERATION_CAP,
 } from "../ir/index.js"
 import type { Type } from "../../types/index.js"
 import {
@@ -39,7 +37,22 @@ export type { Val } from "../ir/values.js"
 
 type Signal = "none" | "break" | "continue" | "return"
 
-// the cap and its wording come from the IR, so the two backends cannot drift apart on either — see ir.ts
+/**
+ * A HARNESS gave up on a loop — not a program outcome. CODESYS caps no loop (`tr_27_loop_cap_*` run 1,000,001 and
+ * 5,000,000 passes), so neither backend does; a harness that runs code it cannot trust to terminate passes
+ * `run(pou, { loopGuard })`, and this is thrown on the body entry past the guard: one pass = one body entry.
+ */
+export class LoopGuardError extends RangeError {
+  constructor(readonly guard: number) {
+    super(`loop entered its body more than ${guard} times (harness loop guard)`)
+  }
+}
+
+/** How a harness runs a POU. */
+export interface RunOptions {
+  /** Throw {@link LoopGuardError} when one loop enters its body more than this many times. Unset: no bound. */
+  readonly loopGuard?: number
+}
 
 /** Where a value lives: a container (a frame, a record, an array) and the key into it. */
 type Cell = { container: Record<string | number, Val>; key: string | number }
@@ -58,6 +71,8 @@ class Machine {
     private readonly routines: ReadonlyMap<string, IrRoutine>,
     /** The application's globals — ONE array every body shares. */
     private readonly globals: Val[],
+    /** The harness's loop guard ({@link RunOptions}) — undefined runs every pass. */
+    private readonly guard: number | undefined,
     /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
     private readonly locals: Val[] = [],
     /** The FB instances this body's caller lends it (`lent` places), by slot. */
@@ -89,7 +104,7 @@ class Machine {
       keys = this.layouts.get(routine.fb!.toUpperCase())!.fields.map((f) => f.name.toUpperCase())
     }
     const lent = (e.lent ?? []).map((p) => this.bind(p))
-    new Machine(root, keys, bound, this.layouts, this.routines, this.globals, locals, lent).block(routine.body)
+    new Machine(root, keys, bound, this.layouts, this.routines, this.globals, this.guard, locals, lent).block(routine.body)
     this.writeBack(e.inouts, bound)
     return routine.result === undefined ? false : locals[routine.result]!
   }
@@ -241,9 +256,9 @@ class Machine {
       }
       case "loop": {
         this.block(s.init)
-        for (let n = 0; ; n++) {
-          if (n > LOOP_ITERATION_CAP) throw new RangeError(LOOP_CAP_MESSAGE)
+        for (let n = 1; ; n++) {
           if (s.test !== undefined && !s.test.atEnd && !bool(this.expr(s.test.cond))) break
+          if (this.guard !== undefined && n > this.guard) throw new LoopGuardError(this.guard)
           const sig = this.block(s.body)
           if (sig === "break") break
           if (sig === "return") return sig
@@ -261,7 +276,7 @@ class Machine {
         if (s.bind !== undefined) this.write(s.bind.place, s.bind.tag)
         const bound = s.inouts.map((b) => this.bind(b))
         const lent = (s.lent ?? []).map((p) => this.bind(p))
-        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, [], lent).block(layout.body!)
+        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, this.guard, [], lent).block(layout.body!)
         this.writeBack(s.inouts, bound)
         return "none"
       }
@@ -346,12 +361,12 @@ function shown(v: Val): Val {
 }
 
 /** Prepare a lowered POU for execution: allocate its frame, seed it from the slots' initial values. */
-export function run(pou: IrPou): Runner {
+export function run(pou: IrPou, options: RunOptions = {}): Runner {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), l]))
   const frame = pou.slots.map((s) => instantiate(s.type, s.init, layouts))
   const routines = new Map(pou.routines.map((r) => [r.key, r]))
   const globals = pou.globals.map((s) => instantiate(s.type, s.init, layouts))
-  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals)
+  const machine = new Machine(frame as unknown as Record<number, Val>, pou.slots.map((_, i) => i), [], layouts, routines, globals, options.loopGuard)
   if (pou.init !== undefined) machine.block(pou.init)
 
   return {

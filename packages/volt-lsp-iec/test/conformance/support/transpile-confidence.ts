@@ -20,7 +20,7 @@
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { CLOCK, isBit, run, rustAccess, type IrPou, type Runner } from "../../../src/transpile/index.js"
+import { CLOCK, isBit, LoopGuardError, run, rustAccess, type IrPou, type Runner } from "../../../src/transpile/index.js"
 import { lex } from "../../../src/syntax/lexer.js"
 import { STRING_PRELUDE } from "../../../src/transpile/emit/rust/prelude.js"
 import type { Type } from "../../../src/types/index.js"
@@ -794,15 +794,6 @@ const LEAN = {
   shapes1_3: {
     improvement: "The body is always wrapped in an extra `{ ... }` block even when it has no CONTINUE, and a loop whose only EXIT sits directly in its own body gets `'loop_N:` + `break 'loop_N;` although a plain `break;` works when the body block is unlabeled. Emit the body inline when `!frame.continues`, and use an unlabeled `break` when no labeled body block sits between the EXIT and the loop.",
   },
-  shapes1_4: {
-    improvement: "The cap costs 3 lines per loop: `let mut __iter_N: u64 = 0;`, `__iter_N += 1;` and an if/panic.",
-    alternatives: [
-      "today: a u64 counter plus an `if > CAP { panic! }` in every loop",
-      "`for _ in 0..=CAP { ... }` as the loop head, then `panic!` after it, so the cap is structural and the counter disappears; keeps panic parity if the interpreter counts the same way",
-      "a prelude `fn iec_cap(n: &mut u64)` call (1 line) — I would choose the `for` range: shortest, no mutable counter, and it fixes the off-by-one by construction",
-    ],
-    chosen: "a prelude `fn iec_cap(n: &mut u64)` call (1 line) — I would choose the `for` range: shortest, no mutable counter, and it fixes the off-by-one by construction",
-  },
   shapes1_5: {
     improvement: "In a PROGRAM/FB body, a lowering temporary (`__chain_value_N`, and likewise the output/property/inout_guard temps from calls.ts:787/1229/1261) becomes a persistent `pub` struct field. It appears in Debug/PartialEq/new() and is carried across scans, though it is only ever a statement-local value. Emit it as a `let` in scan()/call(), as routineMode already does. SIZEOF correctly ignores it (probed r1/sz.st: 16 = 16).",
   },
@@ -848,9 +839,6 @@ const LEAN = {
       "Choose B for add/sub/mul/neg and comparisons whose result goes straight back to T or into a bool, and keep A for DIV and for a result stored into a wider target (ABS(INT_MIN) into a DINT, `si + 1000` into an INT). It removes 2 casts per statement on the most common line in the corpus.",
     ],
     chosen: "B for add/sub/mul/neg and comparisons whose result goes straight back to T or into a bool, and keep A for DIV and for a result stored into a wider target (ABS(INT_MIN) into a DINT, `si + 1000` into an INT). It removes 2 casts per statement on the most common line in the corpus.",
-  },
-  shapes2_2: {
-    improvement: "Every loop carries a u64 counter, an increment and a compare, including FOR loops with constant bounds and step whose counter the body never writes. Their trip count is known at lowering time and is below the cap, so the counter is dead code. Drop it when the IR loop is a FOR with folded limit and step and no store to the control variable in its body.",
   },
   shapes2_3: {
     improvement: "A constant index prints as `(4i8 as i64) as usize` and should print `4`, since the lowering already knows it is in range and rustc checks constant indices. For lower == 0 and a signed variable index, `(self.k as i64) as usize` can be `self.k as usize`: a signed-to-usize `as` sign-extends, so a negative index still becomes huge and still panics. The i64 hop is needed only when a non-zero lower bound is subtracted.",
@@ -1433,12 +1421,12 @@ const LEAN = {
     why: "promotion cannot change the result of an ordering between two values of one type",
   },
   shapes14_7: {
-    improvement: "WHILE and FOR print as `loop { cap; if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of the iteration cap and CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
+    improvement: "WHILE and FOR print as `loop { if !(cond) { break; } body; step }`. `while cond { … }` / `for`-style is what a Rust engineer writes. The loop-form is kept because of CONTINUE-before-step. Also `negated` does not apply De Morgan's law: `!((i < n) & (i < last))` could be `(i >= n) | (i >= last)`.",
     alternatives: [
       "emitted today: loop + negated break. Correct for a CONTINUE that must still run the FOR step, and for the limit being re-evaluated every pass (measured callshape_for_limit_call: 4 limit reads for 3 passes)",
-      "`while cond { cap; body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+      "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
     ],
-    chosen: "`while cond { cap; body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
+    chosen: "`while cond { body }` for WHILE with no CONTINUE, and a labelled block for the FOR step. I would choose while for WHILE only; FOR keeps loop+break because its limit is re-read each pass",
   },
   shapes14_8: {
     improvement: "A library routine that takes a string pointer is lowered once per argument capacity (`strcmpa_pby1_string80_pby2_string30` and `strcmpa_pby1_string80_pby2_string80` sit side by side). Each copy is ALSO generic over the capacity, so the bodies are identical. Key the cursor variant by width (STRING/WSTRING), offset and sharing only.",
@@ -1791,7 +1779,7 @@ const LEAN = {
     improvement: "Each routine declares `let mut f: T = 0; f = expr; f`, where `expr` as the tail is the idiomatic form. Each FOR prints `i = 0i32;` right after `let mut i: i32 = 0i32;`. Both are dead stores. When the result is assigned exactly once as the last statement, return the expression. Otherwise the pattern is correct and only verbose.",
   },
   shapes12_11: {
-    improvement: "LEN copies the argument into a STRING(255) by value, then counts it one char_at at a time under the iteration cap. IecStr already stores `len`. Emitted by hand, LEN is `s.units().len() as i16` (the truncation to 255 is `.min(255)`). Library bodies are ST by design (only s[i] and TIME() are primitives), so this is a trade-off rather than a defect.",
+    improvement: "LEN copies the argument into a STRING(255) by value, then counts it one char_at at a time. IecStr already stores `len`. Emitted by hand, LEN is `s.units().len() as i16` (the truncation to 255 is `.min(255)`). Library bodies are ST by design (only s[i] and TIME() are primitives), so this is a trade-off rather than a defect.",
     alternatives: [
       "TODAY: ST library body, one source for both backends, O(n) plus a copy",
       "a prelude intrinsic for LEN_INTERNAL only (`units().len()`), which every other string function calls, so one primitive speeds them all (my choice)",
@@ -2035,8 +2023,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "0205cf3af0": merged(LEAN.shapes17_2, LEAN.shapes17_4),
   // if x.is_nan() { return L; }
   "02a72c2e83": LEAN.shapes5_1,
-  // if __iter_N > L { panic!(S); }
-  "02b031c773": LEAN.shapes2_2,
   // pub fn m(mut x: u8, …) -> bool {
   "03846c1eae": LEAN.shapes14_14,
   // self.f.f[(Li8 as i64) as usize] = Lu8;
@@ -2482,7 +2468,7 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // let mut take: i16 = Li16;
   "51ea066d8e": LEAN.shapes18_10,
   // loop {
-  "521ba042ac": merged(LEAN.shapes1_3, LEAN.shapes1_4),
+  "521ba042ac": LEAN.shapes1_3,
   // self.f = self.f.wrapping_shr(Li16 as u32) as u16;
   "5228723708": LEAN.shapes8_4,
   // self.f = (*x).m();
@@ -2540,8 +2526,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "5a9bc1030e": LEAN.shapes9_6,
   // __chain_value_N: Li16,
   "5b7909c564": LEAN.shapes4_6,
-  // let mut __iter_N: u64 = L;
-  "5ba97e5557": LEAN.shapes2_2,
   // self.v = self.f * (-Lf64);
   "5c40a4e5a8": LEAN.shapes4_9,
   // m(x);
@@ -3251,8 +3235,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "d8e4a747d3": LEAN.shapes19_2,
   // self.f = (self.f as i32) == Li32;
   "d99adbcc4b": LEAN.shapes14_6,
-  // __iter_N += L;
-  "d9d57311e3": LEAN.shapes1_4,
   // self.f = (self.f as i32).wrapping_neg() as i8;
   "d9d76a4055": LEAN.shapes7_3,
   // pub fn x<const T: usize, …>(mut x: usize, mut x: u16, mut x: usize, mut x: i16, …, x: &mut IecString<T>, …) {
@@ -3690,6 +3672,22 @@ export function edgePlan(t: LanguageTest, all: readonly LanguageTest[], pou: IrP
 export const EDGE_ARG = "edge"
 
 /**
+ * THE HARNESS'S LOOP GUARD — body entries one loop may make before a harness gives up on a run. CODESYS caps no
+ * loop (`tr_27_loop_cap_*`), so neither backend does by default; but an edge seed can hand a loop a bound (or a
+ * `WHILE flag`) nobody arranged, and a harness must still finish. The Rust a harness builds carries it
+ * (`emitRust(pou, { loopGuard })`), above every recorded pass count (5,000,000, `tr_27_loop_cap_while_5000000`) since
+ * the value pass shares that binary.
+ */
+export const HARNESS_LOOP_GUARD = 10_000_000
+
+/**
+ * The interpreter's guard on an EDGE variant — lower, because the interpreter is far slower than the Rust and a
+ * runaway seed would otherwise cost seconds per variant (`cc6_loop_cannot_exit` has eleven). Both backends count
+ * one body entry as one pass; a variant the interpreter gives up on has no answer, so it is not compared.
+ */
+const EDGE_INTERP_GUARD = 1_000_000
+
+/**
  * The Rust that runs a plan's variants, and the `main` that dispatches to it — appended after the emitted code, so
  * the edge run shares the ONE compile each fixture already pays for. `body` is what `main` does otherwise: the value
  * pass prints the recorded paths there, the generator does nothing.
@@ -3746,6 +3744,8 @@ fn __volt_edge() {
 
 interface Outcome {
   faulted: boolean
+  /** The harness's loop guard gave up — no answer, so nothing to compare. */
+  gaveUp?: boolean
   /** The variant printed its `=done` line — it ran to the end, as against a process that died inside it. */
   done: boolean
   values: Map<string, string>
@@ -3780,14 +3780,14 @@ function interpOutcome(pou: IrPou, plan: Extract<EdgePlan, { paths: unknown }>, 
   const v = plan.variants[k]!
   let runner: Runner
   try {
-    runner = run(pou)
+    runner = run(pou, { loopGuard: EDGE_INTERP_GUARD })
     if (v.seed !== undefined) runner.set(v.seed.p.path, v.seed.s.interp)
     for (let i = 1; i <= plan.cycles; i++) {
       if (plan.clock !== undefined) runner.set(CLOCK, BigInt(i) * 10_000_000n)
       runner.scan()
     }
-  } catch {
-    return { faulted: true, done: false, values: new Map() }
+  } catch (error) {
+    return { faulted: true, gaveUp: error instanceof LoopGuardError, done: false, values: new Map() }
   }
   return { faulted: false, done: true, values: new Map(plan.paths.map((p) => [p.path, interpRender(runner.get(p.path), p.type)])) }
 }
@@ -3826,8 +3826,8 @@ async function spawnEdge(argv: string[], timeoutMs: number): Promise<{ stdout: s
  * process that dies part-way (a stack overflow aborts, it does not unwind) is re-run one variant per process, and a
  * variant that dies on its own counts as a fault — which is what CODESYS calls it too.
  *
- * A HANG IS NOT A VERDICT. Both backends cap a loop, so a variant that outlives its timeout is a defect in one of
- * them, and writing it down as `disagree` would make a timing fact a row of the map. It throws.
+ * A HANG IS NOT A VERDICT. Both backends are built with the harness's loop guard, so a variant that outlives its
+ * timeout is a defect in one of them, and writing it down as `disagree` would make a timing fact a row of the map. It throws.
  */
 export async function edgeVerdict(
   exe: string,
@@ -3850,6 +3850,7 @@ export async function edgeVerdict(
   }
   for (let k = 0; k < plan.variants.length; k++) {
     const interp = interpOutcome(pou, plan, k)
+    if (interp.gaveUp) continue
     const rust = outcomes.get(k) ?? { faulted: true, done: false, values: new Map() }
     const label = plan.variants[k]!.label
     if (interp.faulted !== rust.faulted)

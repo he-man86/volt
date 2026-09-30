@@ -8,16 +8,12 @@ describe("transpile — public surface", () => {
     expect(Object.keys(transpile).sort()).toEqual([
       // the global `TIME()` reads — a harness sets it before a scan, so the name is how every harness reaches it
       "CLOCK",
-      // the loop cap and its wording are IR-level semantics BOTH backends read, so they are surface: the
-      // interpreter enforces the cap and the emitter prints it, and a rename must break here rather than let
-      // the two drift apart again (which is how the emitted Rust came to have no cap at all). Capitals sort
-      // first, so they head the list.
-      "LOOP_CAP_MESSAGE",
-      "LOOP_ITERATION_CAP",
       // the refusal registry: the codes, the templated families, the resolver and the factory. Surface on
       // purpose — `kind` answers "is this my bug or yours?", and a consumer that renders a refusal needs it.
       "LOWER_CODES",
       "LOWER_CODE_PREFIXES",
+      // a harness's loop guard giving up — thrown only when `run(pou, { loopGuard })` asked for one (task 27)
+      "LoopGuardError",
       "defaultValueOf",
       "elementOf",
       "emitRust",

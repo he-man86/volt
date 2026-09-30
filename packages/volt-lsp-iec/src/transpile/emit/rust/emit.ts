@@ -18,7 +18,7 @@
  * diagnostics use — there is no second table of type sizes here.
  */
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
-import { defaultValueOf, elementOf, holdsCall, isBit, LOOP_CAP_MESSAGE, LOOP_ITERATION_CAP, peelArray } from "../../ir/index.js"
+import { defaultValueOf, elementOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
 import type { Span } from "../../../syntax/index.js"
 import { isTemporal, type Type } from "../../../types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
@@ -393,6 +393,8 @@ class Printer {
   readonly sourceMap: { line: number; span: Span; uri?: string }[] = []
   /** The file whose spans `push` is currently recording — set around each routine (`printRoutine`). */
   sourceUri: string | undefined = undefined
+  /** A harness's loop guard ({@link EmitOptions}) — undefined prints none. */
+  loopGuard: number | undefined = undefined
 
   /** The enclosing IR loops, innermost last — each one's number names its `'loop_N` and `'body_N` labels, and the flags
    *  say whether an EXIT or a CONTINUE used them (an unused label is a rustc warning, and the crate builds with none). */
@@ -931,23 +933,20 @@ class Printer {
         // CONTINUE in FOR still steps and in REPEAT still tests UNTIL (conformance `continue_in_*`). It printed a bare Rust
         // `continue`, which skipped both and looped forever (transpiler review 2026-09-14). EXIT names the loop, since an
         // unlabeled `break` may not sit directly in a labeled block.
+        // No pass counter: CODESYS caps no loop (`tr_27_loop_cap_*`) — a runaway loop is its harness's to bound, and
+        // a harness's guard counts what the interpreter's does: one body entry, after the head test.
         const frame = { n: ++this.loopCount, exits: false, continues: false }
         for (const init of s.init) this.stmt(init, slots, indent)
-        // THE ITERATION CAP, the same one the interpreter enforces (ir.ts). Without it the two backends disagreed
-        // about a runaway loop in the worst possible direction: the interpreter threw, the emitted Rust ran
-        // forever — and the emitted Rust is what a user runs under `cargo test`, where a hang looks like a slow
-        // suite until CI gives up with nothing to show. The counter carries the reserved prefix for the reason
-        // the MOD expansion does.
-        this.push(`let mut __iter_${frame.n}: u64 = 0;`, indent, s.span)
+        if (this.loopGuard !== undefined) this.push(`let mut __guard_${frame.n}: u64 = 0;`, indent)
         const loopLine = this.lines.length
         this.push(`'loop_${frame.n}: loop {`, indent, s.span)
-        this.push(`__iter_${frame.n} += 1;`, indent + 1)
-        this.push(
-          `if __iter_${frame.n} > ${LOOP_ITERATION_CAP} { panic!(${JSON.stringify(LOOP_CAP_MESSAGE)}); }`,
-          indent + 1,
-        )
         if (s.test !== undefined && !s.test.atEnd)
           this.push(`if ${this.negated(s.test.cond, slots)} { break; }`, indent + 1)
+        if (this.loopGuard !== undefined) {
+          const guard = String(this.loopGuard).replace(/\B(?=(\d{3})+(?!\d))/g, "_")
+          this.push(`__guard_${frame.n} += 1;`, indent + 1)
+          this.push(`assert!(__guard_${frame.n} <= ${guard}, "harness loop guard");`, indent + 1)
+        }
         const bodyLine = this.lines.length
         this.push(`'body_${frame.n}: {`, indent + 1)
         this.loops.push(frame)
@@ -1177,8 +1176,15 @@ export function rustAccess(pou: IrPou, path: string): { expr: string; type: Type
   return { expr, type, global }
 }
 
+/** How a HARNESS emits a POU — the default emission, what a user gets, sets none of this. */
+export interface EmitOptions {
+  /** Panic when one loop enters its body more than this many times — the interpreter's `run(pou, { loopGuard })`,
+   *  counted the same way. CODESYS caps no loop (`tr_27_loop_cap_*`), so only a harness bounds a runaway one. */
+  readonly loopGuard?: number
+}
+
 /** Emit one lowered POU as a Rust struct with a `scan` method. */
-export function emitRust(pou: IrPou): Emitted {
+export function emitRust(pou: IrPou, options: EmitOptions = {}): Emitted {
   const layouts = new Map(pou.layouts.map((l) => [l.name.toUpperCase(), { layout: l, fields: fieldNames(l.fields) }]))
   const fields = fieldNames(pou.slots)
   // The application's global storage, as two structs so a call borrows two things: the GVL variables (`Globals`, handed
@@ -1193,6 +1199,7 @@ export function emitRust(pou: IrPou): Emitted {
     s.section === "program" ? `prg.${programNames[programs.indexOf(s)]}` : `g.${variableNames[variables.indexOf(s)]}`,
   )
   const p = new Printer(fields, layouts, new Map(pou.routines.map((r) => [r.key, r])), routineFnNames(pou.routines), { access, slots: pou.globals }, usesGlobals, usesPrograms)
+  p.loopGuard = options.loopGuard
   const name = rustName(pou.name)
   // every generated body is handed the globals as `g`, so no parameter or local of its own may take that name
   const globalsParam = p.globalsParams
