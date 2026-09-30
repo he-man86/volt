@@ -45,8 +45,9 @@ const status = await agent(`${RULES}
 
 STATUS ONLY — change nothing.
 1. Prerequisites: ${REQUIRES.length ? REQUIRES.map(r => `"${r}"`).join(', ') + ' must each be ARCHIVED (a folder openspec/changes/archive/<date>-<name> exists and openspec/changes/<name> does not).' : 'none.'}
-2. Read ${CHANGE}/tasks.md and design.md. Return every STEP (a numbered section, or a sub-section where the file groups tasks that belong
-   together) that still has an unticked task, in the file's order: its unticked task ids, its kind — measure (mechanical measurement),
+2. Read ${CHANGE}/tasks.md and design.md. Return every STEP that still has an unticked task, in the file's order. A STEP is a
+   numbered section or sub-section — but NEVER more than 5 unticked tasks: split a larger section into consecutive steps of at most
+   5 tasks (ids like 1a, 1b, …), so no agent carries a whole big section and every step gets its own commit. For each step: its unticked task ids, its kind — measure (mechanical measurement),
    baseline, structure (moves/splits, output-neutral), model (a representation change), conformance (an area reviewed against CODESYS,
    rule by rule, with recorded fixtures), fix (root causes), lean (same output, less code), downstream (re-run consumers), close — and
    whether it needs a design.md section that is not written yet.`,
