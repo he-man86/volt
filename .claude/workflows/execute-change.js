@@ -28,7 +28,10 @@ recorders (packages/volt-lsp-iec: bun run record:exec / record:language, RECORD_
 time — you are the only agent running). Known divergences run as expected failures and FAIL the suite when they start matching — remove
 the mark when your step fixes one. test/conformance/fixtures/map.generated.ts changes only through bun run rate:fixtures and is the
 one-file truth about fixtures. Tests from the package directory, never the repo root. Compile scratch Rust only outside the repo; delete
-any stray .exe/.pdb/.rs you create in the repo. No fallbacks or defaults that hide a missing fact; fail loud, refuse by name. Stage
+any stray .exe/.pdb/.rs you create in the repo. No fallbacks or defaults that hide a missing fact; fail loud, refuse by name.
+TRIAGE (owner): a finding that is cheap to fix is fixed. A NICHE finding — about zero occurrences in the six real corpora
+(packages/volt-lsp-iec/test-corpus; count them) and not trivial to fix — is recorded as a known divergence with the reason
+"niche: accepted loss (N occurrences in the corpora)" and not worked on. Stage
 explicit paths only (never git add -A); commit messages end with "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>". No push.`
 
 const STEP = { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' },
