@@ -234,9 +234,7 @@ END_FUNCTION_BLOCK
 
   // Task 45: a literal with $00 in the middle — the length ends at the NUL but the bytes behind it are stored, and an
   // assignment copies them. The STRING(3) initializer of a 4-byte literal only warns in CODESYS.
-  {
-    deferred: { transpile: "transpile-review-2026-09-29 task 45: CODESYS ends a literal at an embedded $00 (LEN 2, 'ab', bytes behind it 0); the backends keep the characters after it (recorded 2026-09-29)" },
-    ...whole("tr_45_string_embedded_nul", "a STRING / WSTRING literal with an embedded $00: length, comparison, bytes behind the NUL, copy and CONCAT (transpile-review task 45)",
+  whole("tr_45_string_embedded_nul", "a STRING / WSTRING literal with an embedded $00: length, comparison, bytes behind the NUL, copy and CONCAT (transpile-review task 45)",
     `FUNCTION_BLOCK FB_LANG_tr_45_embedded_nul
 VAR
 \ttxt : STRING(3) := 'ab$00c';
@@ -277,5 +275,4 @@ small := u;
 lenS3 := LEN(small);
 END_FUNCTION_BLOCK
 `),
-  },
 ]

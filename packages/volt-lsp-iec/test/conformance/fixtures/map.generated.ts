@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2051
+ *     confirmed     2052
  *     refused        549
  *     not-lowered    100
  *     lsp-gap          9
- *     diverges         8
+ *     diverges         7
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -2552,7 +2552,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_43_output_word_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "af659936a3", notes: ["1307e33bbf", "1d7709a031", "65df8e0418"] },
   tr_43_output_word_to_udint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "70c818a9fd", notes: ["1d7709a031", "65df8e0418", "e8954e2b0d"] },
   tr_44_pointer_step_below_first_element: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 17, edge: "agree", size: 2.5, shape: "5a7f4e0390", notes: ["013de1dc6a", "1307e33bbf", "32f4b8cabb", "41d2232599", "687428cc81", "75cc82a569", "dd94ff18a2", "de132e5019", "de8528b197", "fbde4d6e1e"] },
-  tr_45_string_embedded_nul: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 73, edge: "agree", size: 3, shape: "e657f4ffbd", notes: ["02b031c773", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "2506fd8442", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a095c1d0aa", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "de132e5019", "e6646a0bd0", "e8210b694c"] },
+  tr_45_string_embedded_nul: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 73, edge: "agree", size: 3, shape: "e657f4ffbd", notes: ["02b031c773", "0a52a768d3", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1ad1ab3163", "211808ca56", "21ef64a1e0", "2506fd8442", "3cf4e6fa21", "46c17ef7d3", "4979768984", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "93a17fab28", "98ba0d2e70", "9a8003dce0", "a095c1d0aa", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "de132e5019", "e6646a0bd0", "e8210b694c"] },
   tr_46_exptdom_1e19_pow_8: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "not-run", size: 5, shape: "1df5ac8bc1", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_minus_one_pow_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "eff0a3a592", notes: ["1707972c33", "6a98109119"] },
   tr_46_exptdom_minus_one_pow_minus_inf: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 5, shape: "92a265e8b8", notes: ["1707972c33", "6a98109119"] },
