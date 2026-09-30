@@ -3,9 +3,9 @@
     "corpus: expr-reprint-fails": 3,
     "corpus: files": 29170,
     "corpus: files not a fixed point": 3,
-    "fixtures: files": 6280,
-    "fixtures: files not a fixed point": 14,
-    "fixtures: format-ast-changed": 14,
+    "fixtures: files": 6298,
+    "fixtures: files not a fixed point": 13,
+    "fixtures: format-ast-changed": 13,
     "library: files": 50
   },
   "findings": [
@@ -15,7 +15,6 @@
     "fixture/array_element_type_default/FB_LANG_tr25.fb format-ast-changed - @761: \"tr25_F\\\"}},{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalKind\\\":\\\"i\" vs \"tr25_F\\\"}},{\\\"body\\\":{\\\"kind\\\":\\\"alias\\\",\\\"target\\\":{\\\"…",
     "fixture/cc2_var_in_interface/FB_C2_itfUser.fb format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
     "fixture/cc3_multiple_inheritance/FB_C3_twoBases.fb format-ast-changed - @964: \"\\\":\\\"FB_C3_baseOne\\\"},\\\"extendsExtra\\\":[{\\\"kind\\\":\\\"identifier\\\",\\\"tex\" vs \"\\\":\\\"FB_C3_baseOne\\\"},\\\"kind\\\":\\\"function_block\\\",\\\"name\\…",
-    "fixture/cc_decl_init_trailing_int/FB_LANG_cc_decl_init_trailing_int.fb format-ast-changed - @186: \"{\\\"decls\\\":[{\\\"init\\\":{\\\"elements\\\":[],\\\"form\\\":\\\"unknown\\\",\\\"kind\\\":\\\"ag\" vs \"{\\\"decls\\\":[{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalK…",
     "fixture/ct_subrange_across_objects/FB_CT_ranged.fb format-ast-changed - @11: \"[{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalKind\\\":\\\"i\" vs \"[{\\\"body\\\":{\\\"kind\\\":\\\"alias\\\",\\\"target\\\":{\\\"kind\\\":\\\"named_ty\"",
     "fixture/hdr_function_extends/F_LANG_hdr_extends.fun format-ast-changed - @243: \"pr\\\",\\\"name\\\":\\\"x\\\"}}]},\\\"extendsMisused\\\":{\\\"kind\\\":\\\"identifier\\\",\\\"te\" vs \"pr\\\",\\\"name\\\":\\\"x\\\"}}]},\\\"kind\\\":\\\"function\\\",\\\"name\\\":…",
     "fixture/hdr_function_extends_no_return/F_LANG_hdr_extends_bare.fun format-ast-changed - @142: \"{\\\"kind\\\":\\\"empty\\\"}]},\\\"extendsMisused\\\":{\\\"kind\\\":\\\"identifier\\\",\\\"te\" vs \"{\\\"kind\\\":\\\"empty\\\"}]},\\\"kind\\\":\\\"function\\\",\\\"name\\\":{\\…",

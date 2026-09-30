@@ -50,6 +50,7 @@ import {
   type Span,
   type StatementList,
   type TopLevel,
+  type TypeExpr,
 } from "../../src/frontend/syntax/index.js"
 import { formatDocument } from "../../src/services/index.js"
 
@@ -178,6 +179,8 @@ const EXPR_KINDS: ReadonlySet<string> = new Set([
  * bounds, string lengths, subrange bounds, FB_Init arguments, enum values and defaults, alias and field initializers.
  * Found by walking the node, not by listing fields, so a declaration form nobody listed is not silently left out. A
  * body (`kind: "body"`) is not a declaration and is not entered; a call argument's parameter NAME is not an expression.
+ * A `__VECTOR`'s `dims` are the parser's index range for its count (`0..count-1`), not source: its count AS WRITTEN
+ * (`ArrayType.vector.size`) is the expression the declaration holds.
  */
 export function declExprs(unit: TopLevel): Expr[] {
   const out: Expr[] = []
@@ -189,6 +192,12 @@ export function declExprs(unit: TopLevel): Expr[] {
     }
     const node = x as { kind?: unknown }
     if (node.kind === "body") return
+    const vector = node.kind === "array_type" ? (x as Extract<TypeExpr, { kind: "array_type" }>) : undefined
+    if (vector?.vector !== undefined) {
+      visit(vector.vector.size, "size")
+      visit(vector.element, "element")
+      return
+    }
     if (typeof node.kind === "string" && EXPR_KINDS.has(node.kind)) {
       out.push(x as Expr)
       return
@@ -472,12 +481,13 @@ export function typeDump(b: Bound): string[] {
 }
 
 /** `typeDump`, each line with the expression it was printed from — for a measure that asks more of the expression. */
-export function typeRows(b: Bound): { expr: Expr; line: string }[] {
-  const out: { expr: Expr; line: string }[] = []
+export function typeRows(b: Bound): { expr: Expr; scope: Scope | undefined; line: string }[] {
+  const out: { expr: Expr; scope: Scope | undefined; line: string }[] = []
   for (const s of sites(b))
     for (const e of valueExprs(s.expr))
       out.push({
         expr: e,
+        scope: s.scope,
         line: `${at(e.span)} ${e.kind} ${s.scope === undefined ? "NOSCOPE" : renderType(inferExprType(e, s.scope, b.project))}`,
       })
   return out

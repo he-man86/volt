@@ -5,11 +5,12 @@
 import { expect, test } from "bun:test"
 import { lex } from "../lex/lexer.js"
 import type { BodySpan } from "../ast/nodes.js"
+import type { Dialect } from "../lex/vocabulary.js"
 import { parseStatements } from "./body-parse.js"
 
 /** The errors a body snippet parses with — message, and the vendor-worded token where the message is its shape. */
-function errors(body: string): string[] {
-  const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
+function errors(body: string, dialect: Dialect = "codesys"): string[] {
+  const toks = lex(body, dialect).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
   return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).errors.map((e) => e.message)
 }
@@ -124,4 +125,25 @@ test("so does one that opens a statement: `__QUERYINTERFACE := 1;` takes the `:=
     "Unexpected token '1' found",
   ])
   expect(errors("__queryinterface n := 2;")).toEqual(["'(' expected instead of 'n'", "'__QUERYINTERFACE' needs exactly '2' operands"])
+})
+
+// ─── the dialect vocabulary (task 2.1.4, L10/L11) ──────────────────────────────────────────────────────────────────
+
+test("__VECTOR is a CODESYS keyword: refused where a statement starts and where a value belongs (lex_keyword_*_sys_vector, L11)", () => {
+  // CODESYS, 2026-09-30: the three statement positions answer exactly as every other reserved word does
+  expect(errors("__vector := 1;\nn := 2;")).toEqual(refusedAssignment("__vector"))
+  expect(errors("__vector n := 2;")).toEqual(["Unexpected token '__vector' found", "';' expected instead of 'n'"])
+  expect(errors("n := __vector;")).toEqual([
+    "Expression expected instead of '__vector'",
+    "';' expected instead of '__vector'",
+    "Unexpected token '__vector' found",
+  ])
+})
+
+test("on TwinCAT the CODESYS-only words are names: no parse error in any statement position (lex_keyword_*_sys_{vector,position,pouname,compare_and_swap}, lex_codesys_only_keyword_twincat_names, L10)", () => {
+  // TwinCAT, 2026-09-30: "Identifier '__vector' not defined" and the like — the binder's answer, not the parser's
+  for (const w of ["__vector", "__position", "__pouname", "__compare_and_swap"]) {
+    expect(errors(`${w} := 1;`, "twincat")).toEqual([])
+    expect(errors(`n := ${w};`, "twincat")).toEqual([])
+  }
 })

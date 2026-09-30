@@ -373,6 +373,13 @@ export interface ArrayType {
   kind: "array_type"
   dims: ArrayDim[]
   element: TypeExpr
+  /**
+   * Set when the source wrote a CODESYS `__VECTOR[<count>] OF <type>`, with the count AS WRITTEN (absent when the
+   * brackets are empty — a vector still). `dims` holds the index range it stands for, `0..count-1`, which the parser
+   * builds and the type layer folds; this is what the source says, so a printer prints a vector and not the array it is
+   * resolved as (`syntax/print.ts`).
+   */
+  vector?: { size?: Expr }
   span: Span
 }
 /**
@@ -527,6 +534,9 @@ export interface Program {
   name: Identifier
   /** A return type illegally declared on a PROGRAM (`PROGRAM P : BOOL`) — drives C0182. */
   returnType?: TypeExpr
+  /** A `: <type>` the parser refused (`METHOD M : final`; `__VECTOR` on TwinCAT) — `returnType` is then absent, and this
+   *  says it was DECLARED, so nothing reads the unit as one that returns nothing. */
+  returnTypeRefused?: true
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -535,6 +545,9 @@ export interface Function {
   kind: "function"
   name: Identifier
   returnType?: TypeExpr
+  /** A `: <type>` the parser refused (`METHOD M : final`; `__VECTOR` on TwinCAT) — `returnType` is then absent, and this
+   *  says it was DECLARED, so nothing reads the unit as one that returns nothing. */
+  returnTypeRefused?: true
   /** An illegal `IMPLEMENTS` clause on a FUNCTION (only FBs implement interfaces) — drives C0145. */
   implementsMisused?: Identifier[]
   /** An illegal `EXTENDS` clause on a FUNCTION — its base is never found (`hdr_function_extends_no_return`). */
@@ -551,6 +564,9 @@ export interface Method {
   abstract?: boolean
   override?: boolean
   returnType?: TypeExpr
+  /** A `: <type>` the parser refused (`METHOD M : final`; `__VECTOR` on TwinCAT) — `returnType` is then absent, and this
+   *  says it was DECLARED, so nothing reads the unit as one that returns nothing. */
+  returnTypeRefused?: true
   varSections: VarSection[]
   body: BodySpan
   span: Span

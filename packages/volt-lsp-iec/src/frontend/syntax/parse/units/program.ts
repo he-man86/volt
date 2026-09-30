@@ -6,7 +6,7 @@
  */
 import type { Program } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import { parseTypeExpression } from "../type-expr.js"
+import { parseReturnTypeClause } from "./header.js"
 import { collectBodyUntil } from "../body.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken } from "../names.js"
@@ -21,8 +21,7 @@ export function parseProgram(c: Cursor): Program | undefined {
 
   // A return type on a PROGRAM (`PROGRAM P : BOOL`) is illegal — capture it so a check can emit C0182
   // (rather than letting the `: <type>` fall into the body collector).
-  let returnType: Program["returnType"]
-  if (c.eatPunct(":") !== undefined) returnType = parseTypeExpression(c)
+  const returnType = parseReturnTypeClause(c)
 
   const varSections = collectVarSections(c)
   const body = collectBodyUntil(c, "END_PROGRAM", "program", "pou-or-accessor")
@@ -30,7 +29,7 @@ export function parseProgram(c: Cursor): Program | undefined {
   return {
     kind: "program",
     name,
-    ...(returnType !== undefined ? { returnType } : {}),
+    ...returnType,
     varSections,
     body,
     span: joinSpans(start.span, body.span),

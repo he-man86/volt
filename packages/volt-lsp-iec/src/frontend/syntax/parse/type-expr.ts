@@ -20,7 +20,7 @@ import { eofSpan, joinSpans, type Span } from "../span.js"
 import { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
 import { parseExpression, parseExprFromTokens } from "./expression.js"
-import { typeExpected } from "./errors.js"
+import { typeExpected, vendorTokenText } from "./errors.js"
 import { identFromToken, readQualifiedName } from "./names.js"
 import { collectParenInner, collectUntilTopLevel, topLevelDotDot } from "./scan.js"
 
@@ -105,16 +105,11 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     return { kind: "array_type", dims, element, span: joinSpans(arrTok.span, element.span) }
   }
 
-  // NamedType — identifier with optional qualifiers + optional subrange
-  const idTok = c.eatIdent()
-  if (idTok === undefined) {
-    const next = c.peek()
-    c.pushError(typeExpected(next), next.span)
-    return undefined
-  }
   // CODESYS `__VECTOR[<size>] OF <type>` — SIMD fixed-size container. Same shape as
-  // ARRAY[0..size-1] OF <type>; modeled as a single-dim array (TC rejects it — conformance encodes that).
-  if (idTok.text.toUpperCase() === "__VECTOR") {
+  // ARRAY[0..size-1] OF <type>; modeled as a single-dim array. A keyword only in the CODESYS dialect: on TwinCAT the
+  // word lexes as an identifier and is refused below.
+  const vectorTok = c.eatKeyword("__VECTOR")
+  if (vectorTok !== undefined) {
     c.expectPunct("[")
     const size = parseExpression(c)
     c.expectPunct("]")
@@ -125,17 +120,38 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     // resolving to an array with neither bounds nor open dims (`resolve.ts` needs both ends to fold) — a third state
     // nothing downstream models, so its size, its index checks and its members were all working from nothing. The
     // comment above already said what it is: `ARRAY[0..size-1]`, written out so `constEval` folds it like any other.
-    const zero: Expr = { kind: "literal", literalKind: "int", text: "0", value: 0n, span: idTok.span }
-    const one: Expr = { kind: "literal", literalKind: "int", text: "1", value: 1n, span: idTok.span }
+    const zero: Expr = { kind: "literal", literalKind: "int", text: "0", value: 0n, span: vectorTok.span }
+    const one: Expr = { kind: "literal", literalKind: "int", text: "1", value: 1n, span: vectorTok.span }
     const dim: ArrayDim = {
       kind: "array_dim",
       dynamic: false,
       ...(size !== undefined
         ? { lower: zero, upper: { kind: "binary", op: "-", left: size, right: one, span: size.span } as Expr }
         : {}),
-      span: size?.span ?? idTok.span,
+      span: size?.span ?? vectorTok.span,
     }
-    return { kind: "array_type", dims: [dim], element, span: joinSpans(idTok.span, element.span) }
+    return {
+      kind: "array_type",
+      dims: [dim],
+      element,
+      vector: size !== undefined ? { size } : {},
+      span: joinSpans(vectorTok.span, element.span),
+    }
+  }
+
+  // NamedType — identifier with optional qualifiers + optional subrange
+  const idTok = c.eatIdent()
+  if (idTok === undefined) {
+    const next = c.peek()
+    c.pushError(typeExpected(next), next.span)
+    return undefined
+  }
+  // TwinCAT has no `__VECTOR` (`lex_vector_twincat`, `type_codesys_vector`, 2026-09-30): "Type definition expected
+  // instead of '__VECTOR'", and nothing more — the declaration is dropped quietly to its `;`, so its uses are "not
+  // defined". The word reaches here as an identifier only in that dialect (`CODESYS_ONLY_KEYWORDS`).
+  if (idTok.text.toUpperCase() === "__VECTOR") {
+    c.pushError(`Type definition expected instead of ${vendorTokenText(idTok)}`, idTok.span)
+    return undefined
   }
 
   const [first, ...rest] = readQualifiedName(c, idTok, "report")

@@ -116,15 +116,20 @@ export function boundCensus(): BoundCensus {
       }
     const refused = refusedIn(b.parsed.parseResult)
     if (!vendor.known)
-      for (const { expr, line } of typeRows(b)) {
+      for (const { expr, scope, line } of typeRows(b)) {
         const [where, kind, ...rest] = line.split(" ")
         const type = rest.join(" ")
         tally(c.types, `${group}: expressions`)
         if (type !== "?" && type !== "NOSCOPE") continue
         // a refused expression (`dumps.ts` `refusedIn`) has no type to ask for; an undefined name the vendor also
-        // reports undefined has none either — both counted, neither an UNKNOWN
+        // reports undefined has none either, nor does an index, member or dereference BUILT on it (`vec4[0]` over an
+        // undefined `vec4` starts where `vec4` does); and a call to a POU that returns nothing has no value — each
+        // counted, none an UNKNOWN. Where a value belongs (`x := m.NoRet();`) the vendor says the same: "Cannot convert
+        // type 'Unknown type: 'm.NoRet()'' to type 'INT'" (`refuse_method_no_result`), and the LSP agrees.
         if (refused(expr)) tally(c.types, `${group}: ${kind} untyped, a refused expression`)
-        else if (kind === "ident_expr" && agreed.has(where)) tally(c.types, `${group}: ident_expr UNKNOWN, not defined on the vendor too`)
+        else if (ON_ITS_ROOT_NAME.has(kind!) && agreed.has(where!))
+          tally(c.types, `${group}: ${kind} UNKNOWN, not defined on the vendor too`)
+        else if (type === "?" && returnsNothing(expr, scope, b)) tally(c.types, `${group}: call with no return value`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     for (const line of foldDump(b)) {
@@ -463,4 +468,22 @@ function crossCheckFolds(f: FixtureSources, plc: Bound, files: readonly Bound[],
         `${f.test.name}: ${path} is ${value}, the initializer folds to ${typeof folded === "bigint" ? `${folded}` : String(folded)}`,
       )
   }
+}
+
+/** The expression kinds that start with — and are built on — the name at their root. */
+const ON_ITS_ROOT_NAME: ReadonlySet<string> = new Set(["ident_expr", "index", "member", "deref"])
+
+/** The POUs a call can name whose declaration states no return type. */
+const MAY_RETURN_NOTHING: ReadonlySet<string> = new Set(["function", "method", "action", "program"])
+
+/**
+ * A call whose callee is a function, method, action or program declared with no return type: it has no value. A
+ * return type WRITTEN and refused by the parser (`METHOD M : final`, `FUNCTION F : __VECTOR[4] OF REAL` on TwinCAT) is
+ * no such declaration: its calls stay UNKNOWN (`returnTypeRefused`).
+ */
+function returnsNothing(expr: Expr, scope: Scope | undefined, b: Bound): boolean {
+  if (expr.kind !== "call" || scope === undefined) return false
+  const callee = resolveMemberChain(expr.callee, scope, b.project)
+  if (callee === undefined || !MAY_RETURN_NOTHING.has(callee.kind) || callee.typeExpr !== undefined) return false
+  return !("returnTypeRefused" in callee.ast && callee.ast.returnTypeRefused === true)
 }

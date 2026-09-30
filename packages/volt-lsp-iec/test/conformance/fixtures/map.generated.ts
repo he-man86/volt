@@ -14,19 +14,19 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2074
- *     refused        903
+ *     confirmed     2079
+ *     refused        907
  *     not-lowered    103
  *     lsp-gap         11
  *     diverges         3
  *     unaskable       46
  *
  *   tier                     lowered    clean
- *     decl                    465      465
+ *     decl                    469      469
  *     arith                  1247     1247
  *     control                  72       72
  *     aggregate                31       31
- *     call                    225      223
+ *     call                    226      224
  *     indirect                182      178
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
@@ -49,16 +49,16 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2128
+ *     agree         2132
  *     disagree         0
- *     not-run         94
+ *     not-run         95
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
- *       not-run: no elementary variable to seed or compare       17
+ *       not-run: no elementary variable to seed or compare       18
  *       not-run: the emitted Rust does not build                  6
 
  *
- *   pedantic — 25220 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               5589
+ *   pedantic — 25230 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               5599
  *     clippy::cast_possible_truncation         4116
  *     clippy::cast_lossless                    3713
  *     clippy::cast_sign_loss                   2813
@@ -81,8 +81,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1283 distinct emission shapes over 2222 lowered fixtures, 1585 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2132 fixtures are improvable, 2058 touch a construct with alternatives.
+ *   shape — 1288 distinct emission shapes over 2227 lowered fixtures, 1589 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2137 fixtures are improvable, 2062 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -1475,6 +1475,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_cascade_meets_soft_name_get: { evidence: "refused" },
   lex_cascade_meets_soft_name_override: { evidence: "refused" },
   lex_cascade_meets_soft_name_set: { evidence: "refused" },
+  lex_codesys_only_keyword_twincat_names: { evidence: "refused" },
   lex_crlf_body: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
   lex_crlf_implementation_line: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   lex_div_as_operator: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -1566,6 +1567,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_keyword_assigned_sys_queryinterface: { evidence: "refused" },
   lex_keyword_assigned_sys_querypointer: { evidence: "refused" },
   lex_keyword_assigned_sys_varinfo: { evidence: "refused" },
+  lex_keyword_assigned_sys_vector: { evidence: "refused" },
   lex_keyword_assigned_sys_xadd: { evidence: "refused" },
   lex_keyword_assigned_tan: { evidence: "refused" },
   lex_keyword_assigned_test_and_set: { evidence: "refused" },
@@ -1626,7 +1628,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_keyword_before_name_mul: { evidence: "refused" },
   lex_keyword_before_name_mux: { evidence: "refused" },
   lex_keyword_before_name_ne: { evidence: "refused" },
-  lex_keyword_before_name_non_retain: { evidence: "refused" },
+  lex_keyword_before_name_non_retain: { evidence: "refused", diverges: { twincat: "known" } },
   lex_keyword_before_name_of: { evidence: "refused" },
   lex_keyword_before_name_or: { evidence: "refused" },
   lex_keyword_before_name_or_else: { evidence: "refused" },
@@ -1651,7 +1653,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_keyword_before_name_string: { evidence: "refused" },
   lex_keyword_before_name_sub: { evidence: "refused" },
   lex_keyword_before_name_sys_catch: { evidence: "refused" },
-  lex_keyword_before_name_sys_compare_and_swap: { evidence: "refused" },
+  lex_keyword_before_name_sys_compare_and_swap: { evidence: "refused", diverges: { twincat: "known" } },
   lex_keyword_before_name_sys_currenttask: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   lex_keyword_before_name_sys_delete: { evidence: "refused" },
   lex_keyword_before_name_sys_endtry: { evidence: "refused" },
@@ -1659,11 +1661,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_keyword_before_name_sys_isvalidref: { evidence: "refused" },
   lex_keyword_before_name_sys_new: { evidence: "refused" },
   lex_keyword_before_name_sys_pool: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
-  lex_keyword_before_name_sys_position: { evidence: "refused" },
-  lex_keyword_before_name_sys_pouname: { evidence: "refused" },
+  lex_keyword_before_name_sys_position: { evidence: "refused", diverges: { twincat: "known" } },
+  lex_keyword_before_name_sys_pouname: { evidence: "refused", diverges: { twincat: "known" } },
   lex_keyword_before_name_sys_queryinterface: { evidence: "refused" },
   lex_keyword_before_name_sys_querypointer: { evidence: "refused" },
   lex_keyword_before_name_sys_varinfo: { evidence: "refused" },
+  lex_keyword_before_name_sys_vector: { evidence: "refused", diverges: { twincat: "known" } },
   lex_keyword_before_name_sys_xadd: { evidence: "refused" },
   lex_keyword_before_name_tan: { evidence: "refused" },
   lex_keyword_before_name_test_and_set: { evidence: "refused" },
@@ -1762,6 +1765,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_keyword_operand_sys_queryinterface: { evidence: "refused" },
   lex_keyword_operand_sys_querypointer: { evidence: "refused" },
   lex_keyword_operand_sys_varinfo: { evidence: "refused" },
+  lex_keyword_operand_sys_vector: { evidence: "refused" },
   lex_keyword_operand_sys_xadd: { evidence: "refused" },
   lex_keyword_operand_tan: { evidence: "refused" },
   lex_keyword_operand_test_and_set: { evidence: "refused" },
@@ -1826,6 +1830,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_unknown_character_pipe: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   lex_unknown_character_question: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   lex_unknown_character_tilde: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  lex_vector_twincat: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "10f8f6190a", notes: ["0e0d715a81", "1307e33bbf"] },
+  lex_vector_twincat_array_of: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "c3c9caeddf", notes: ["0e0d715a81", "1307e33bbf", "4026548939"] },
+  lex_vector_twincat_pointer_to: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "de5ec83c26", notes: ["013de1dc6a", "0e0d715a81", "1307e33bbf", "75cc82a569"] },
+  lex_vector_twincat_return_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "not-run", size: 2.3, shape: "2e4559e909", notes: ["11f6ad8ec5"], diverges: { twincat: "known" } },
+  lex_vector_twincat_struct_field: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "241688deb2", notes: ["1307e33bbf"] },
   lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 55, edge: "agree", size: 3.3, shape: "9d8a37f7b2", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2506fd8442", "318cfd770d", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   lib_prim_null_cursor: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 47, edge: "agree", size: 2.2, shape: "688961967a", notes: ["06bb3a6005", "0969e59592", "11f6ad8ec5", "44d286d05b", "521ba042ac", "5d9850550d", "63d29bd1a0", "8539587ea0", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e"] },
   lib_prim_string_cursor_offset: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 46, edge: "agree", size: 2.4, shape: "82c140754c", notes: ["11f6ad8ec5", "1dec9ffb7e", "43aad8296c", "5d9850550d", "7cfee53212", "7e45a342fc", "9c1d0c1a6e", "dd94ff18a2"] },
@@ -2965,7 +2974,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   type_array_2d: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3, shape: "e1df0f4eca", notes: ["4026548939", "67c71ff35c", "fa7d5f176f"] },
   type_array_of_int: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "bde9630159", notes: ["e02b80c3c1", "fa7d5f176f"] },
   type_codesys_uxint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "78fbee2300", notes: ["3d737b5821", "4bf3f61062", "90c445f7cb", "a497507b30"] },
-  type_codesys_vector: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "803a59dfa3", notes: ["3d737b5821", "c0e245211c"], diverges: { twincat: "known" } },
+  type_codesys_vector: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "803a59dfa3", notes: ["3d737b5821", "c0e245211c"] },
   type_codesys_version: { evidence: "not-lowered" },
   type_codesys_xint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "f107e96e83", notes: ["3d737b5821", "4a6baf16b3", "870b70e195"] },
   type_codesys_xword: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "78fbee2300", notes: ["3d737b5821", "4bf3f61062", "90c445f7cb", "a497507b30"] },

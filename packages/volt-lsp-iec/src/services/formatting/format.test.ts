@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { type ParseResult, parseSource, parseStatements } from "../../frontend/syntax/index.js"
+import { type ParseResult, parseDocument, parseSource, parseStatements } from "../../frontend/syntax/index.js"
 import { formatDocument, formatOnType, formatRange } from "../index.js"
 import type { Document } from "../shared/index.js"
 
@@ -333,5 +333,31 @@ test("formatting keeps a comment or pragma between the declaration and the IMPLE
     const out = formatDocument(doc)
     expect({ between, out, kept: out.includes(`END_VAR\n${between}\nIMPLEMENTATION ST\n`) }).toEqual({ between, out, kept: true })
     astEqual(doc.parseResult, parseSource(out, { networkText: true }))
+  }
+})
+
+test("formatting keeps a declaration the parser refused, on either vendor (`__VECTOR` on TwinCAT, a keyword type)", () => {
+  // A refused declaration leaves no node, so a unit reprinted from its AST DELETED the user's line: `v : __VECTOR[4] OF
+  // REAL;` on TwinCAT (task 2.1.4 refuses the word there, `lex_vector_twincat`) and `v : final;` on either. A unit the
+  // parse refused anything inside is kept as written — the rule an unparseable body already follows.
+  const cases: [string, "codesys" | "twincat"][] = [
+    ["\tv : __VECTOR[4] OF REAL;", "twincat"],
+    ["\tv : final;", "codesys"],
+  ]
+  for (const [decl, dialect] of cases) {
+    const src = `FUNCTION_BLOCK FB\nVAR\n${decl}\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n`
+    const doc: Document = { uri: "file:///x/FB.fb", source: src, parseResult: parseDocument("file:///x/FB.fb", src, { networkText: true }, dialect) }
+    expect(doc.parseResult.errors.length).toBeGreaterThan(0)
+    expect({ dialect, whole: formatDocument(doc) }).toEqual({ dialect, whole: src })
+    const range = { start: { line: 0, character: 0 }, end: { line: 7, character: 0 } }
+    expect({ dialect, edits: formatRange(doc, range) }).toEqual({ dialect, edits: [] })
+  }
+})
+
+test("formatting keeps a `__VECTOR` as a vector, with its size or without", () => {
+  for (const decl of ["v : __VECTOR[4] OF REAL;", "v : __VECTOR[] OF REAL;"]) {
+    const src = `FUNCTION_BLOCK FB\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`
+    const out = formatDocument({ uri: "file:///x/FB.fb", source: src, parseResult: parseDocument("file:///x/FB.fb", src, { networkText: true }, "codesys") })
+    expect(out).toContain(decl)
   }
 })

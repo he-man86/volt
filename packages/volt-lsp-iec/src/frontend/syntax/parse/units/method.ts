@@ -76,7 +76,7 @@ export function parseMethod(c: Cursor): Method | undefined {
     ...(isFinal ? { final: true } : {}),
     ...(isAbstract ? { abstract: true } : {}),
     ...(isOverride ? { override: true } : {}),
-    ...(returnType !== undefined ? { returnType } : {}),
+    ...returnType,
     varSections,
     body,
     span: joinSpans(start.span, body.span),

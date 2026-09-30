@@ -181,6 +181,10 @@ export const KEYWORDS = [
   "__XADD",
   "__POOL",
   "TEST_AND_SET",
+  // CODESYS's vector type. A KEYWORD: `__vector` is refused where a statement starts and where a value belongs, as every
+  // reserved word is (`lex_keyword_*_sys_vector`, `lex_codesys_only_keyword_twincat_names`, CODESYS 2026-09-30);
+  // `parse/type-expr` reads it where a type belongs. CODESYS-only (`CODESYS_ONLY_KEYWORDS`).
+  "__VECTOR",
   // Extended VAR section + export-format
   "VAR_GENERIC",
   "PARAMS",
@@ -219,7 +223,8 @@ export type Dialect = "codesys" | "twincat"
  * compilers the same source (2026-09-20):
  *
  *   `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`  TwinCAT answers "Identifier '<name>' not defined"
- *   `__VECTOR`                                        "Type definition expected instead of '__VECTOR'"
+ *   `__VECTOR`                                        "Type definition expected instead of '__VECTOR'" where a type
+ *                                                     belongs (`parse/type-expr`), "not defined" where a name does
  *   `UCHAR#`, `LDATE#`, `LDT#`, `LTOD#`               the prefix cascades: "Unexpected Token 'LDATE#' found"
  *
  * And the ones it DOES have, listed because absence of evidence is not what this set is for: `__TRY`/`__CATCH`/
@@ -346,7 +351,7 @@ export const REFUSED_AT_STATEMENT_START: ReadonlySet<string> = (() => {
  * THE KEYWORDS THAT ARE NO OPERAND — where a value belongs (`n := w;`, a call's argument) CODESYS answers "Expression
  * expected instead of 'w'", then resyncs as after a refused statement: "';' expected instead of 'w'", "Unexpected token
  * 'w' found", a pair for every token to the `;` (`lex_keyword_operand_*`, `lex_soft_keyword_named_argument_*`,
- * `lex_cal_declared_operand`; CODESYS, 2026-09-30). Every keyword was asked; these 48 answered that. The others are not
+ * `lex_cal_declared_operand`; CODESYS, 2026-09-30). Every keyword was asked; these 49 answered that. The others are not
  * refused on the word: the binary operators (AND … MOD) are taken as the operator and their left operand is what is
  * missing (`parse/expression.ts`); the call operators (ABS, SEL, `__XADD` …) take the next token for their `(`
  * (`CALL_OPERATOR_OPERANDS`); `__NEW`, `__POSITION`, `__POUNAME`, `__CURRENTTASK` and `__POOL` each answer in a shape of
@@ -361,6 +366,7 @@ export const NOT_AN_OPERAND: ReadonlySet<string> = new Set([
   "READ_ONLY", "READ_WRITE", "EXTENDS", "IMPLEMENTS", "ARRAY", "OF", "REFERENCE", "POINTER", "TO", "AT", "STRING",
   "WSTRING", "THEN", "ELSIF", "ELSE", "END_IF", "END_CASE", "BY", "DO", "END_FOR", "END_WHILE", "UNTIL", "END_REPEAT",
   "DIV", "ADD", "SUB", "MUL", "GT", "LT", "GE", "LE", "EQ", "NE", "PARAMS", "FROM", "__CATCH", "__FINALLY", "__ENDTRY",
+  "__VECTOR",
 ] satisfies Keyword[])
 
 /**

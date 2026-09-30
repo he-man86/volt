@@ -348,3 +348,36 @@ test("a keyword where a type belongs is \"Type definition expected\", echoed as 
   expect(messages(inVar("inst : Public;"))[0]).toBe("Type definition expected instead of 'Public'")
   expect(messages(inVar("inst : final;"))[0]).toBe("Type definition expected instead of 'final'")
 })
+
+// ─── `__VECTOR` by dialect (task 2.1.4, L11) ───────────────────────────────────────────────────────────────────────
+
+const VECTOR_FB = "FUNCTION_BLOCK FB\nVAR\n\tv : __VECTOR[4] OF REAL;\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n"
+
+test("CODESYS reads `__VECTOR[4] OF REAL` as a four-element array (lex_vector_twincat, type_codesys_vector)", () => {
+  const r = parseSource(VECTOR_FB, { networkText: true }, "codesys")
+  expect(r.errors).toEqual([])
+  const decls = (r.units[0] as FunctionBlock).varSections[0].decls
+  expect(decls.map((d) => d.names[0].text)).toEqual(["v", "n"])
+  expect(decls[0].type.kind).toBe("array_type")
+})
+
+test("TwinCAT has no `__VECTOR`: a type definition is expected instead, and the declaration is dropped (lex_vector_twincat, type_codesys_vector)", () => {
+  // TwinCAT, 2026-09-30: the one message, nothing for `[4] OF REAL`, and the variable's uses are "not defined"
+  const r = parseSource(VECTOR_FB, { networkText: true }, "twincat")
+  expect(r.errors.map((e) => e.message)).toEqual(["Type definition expected instead of '__VECTOR'"])
+  expect((r.units[0] as FunctionBlock).varSections[0].decls.map((d) => d.names[0].text)).toEqual(["n"])
+})
+
+test("a return type the parser refused is stated as refused, not as no return type", () => {
+  // `returnType` absent said both "declared none" and "declared one the parser refused" — so a call to a function whose
+  // return type failed to parse read as a call that returns nothing (`test/frontend/bound-census.ts`).
+  const unit = (src: string, dialect: "codesys" | "twincat") => parseSource(src, { networkText: true }, dialect).units[0] as { returnType?: unknown; returnTypeRefused?: true }
+  const refused = unit("FUNCTION F : __VECTOR[4] OF REAL\nVAR_INPUT\n\tx : INT;\nEND_VAR\nF := 0;\nEND_FUNCTION\n", "twincat")
+  expect({ returnType: refused.returnType, returnTypeRefused: refused.returnTypeRefused }).toEqual({ returnType: undefined, returnTypeRefused: true })
+  const method = unit("METHOD M : final\nEND_METHOD\n", "codesys")
+  expect(method.returnTypeRefused).toBe(true)
+  const program = unit("PROGRAM P : final\nEND_PROGRAM\n", "codesys")
+  expect(program.returnTypeRefused).toBe(true)
+  const none = unit("FUNCTION G\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION\n", "codesys")
+  expect({ returnType: none.returnType, returnTypeRefused: none.returnTypeRefused }).toEqual({ returnType: undefined, returnTypeRefused: undefined })
+})

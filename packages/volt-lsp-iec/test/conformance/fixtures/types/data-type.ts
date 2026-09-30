@@ -406,7 +406,7 @@ END_METHOD
     kind: "function_block",
     feature: "__VECTOR — CODESYS-only SIMD type; TC rejects",
     fromDoc: "06-data-types.md",
-    note: "DISCOVERY (verified live 2026-05-29): TC rejects `__VECTOR[N] OF T` with 'Type definition expected instead of __VECTOR'. CODESYS-only extension; TC has no SIMD primitive — use plain ARRAY[0..N-1] OF T. LSP parses the syntax (maps to array_type) so the user sees their code in the IDE; the vendor-only-operator check needs widening to include type-position keywords if we want LSP to flag this too.",
+    note: "DISCOVERY (verified live 2026-05-29): TC rejects `__VECTOR[N] OF T` with 'Type definition expected instead of __VECTOR'. CODESYS-only extension; TC has no SIMD primitive — use plain ARRAY[0..N-1] OF T. The LSP agrees since frontend-conformance 2.1.4 (rule L11): `__VECTOR` is a keyword only in the CODESYS dialect, and `parse/type-expr` refuses the identifier on TwinCAT with the vendor's words, the declaration dropped, so the uses are 'not defined' as TwinCAT says.",
     plcPrgVar: "fb_v : FB_LANG_codesys_vector;",
     plcPrgBody: "fb_v.Compute();",
     source: `FUNCTION_BLOCK FB_LANG_codesys_vector

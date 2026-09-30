@@ -612,12 +612,31 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       CAL rule; its back end drops rust/interp because it is now refused at parse); no corpus source moved.
       `bun typecheck` clean; `bun test` 6084 pass / 34 skip / 148 todo / 0 fail (6266 tests, 182 files, 505 s);
       `bun run check` 14 passed, 0 failed; lint clean (the one known layering violation).
-- [ ] 2.1.4 Dialect vocabulary (L10, L11): `__VECTOR` applied on TwinCAT; every default-dialect re-lexer of design.md P6 lexes with
+- [x] 2.1.4 Dialect vocabulary (L10, L11): `__VECTOR` applied on TwinCAT; every default-dialect re-lexer of design.md P6 lexes with
       the project dialect: services hover.ts, semantic-tokens.ts, analysis reachability.ts, symbols binder.ts, pragmas/attributes,
       services/shared/positions.ts (`tokenAtOffset`), network/network-analyze.ts:116, network-text/parser.ts:1175 (via the parse
       options of 1.11). Record lex_vector_twincat, lex_codesys_only_keyword_twincat_names.
       Where: lex/vocabulary, parse/type-expr, the eight sites. Acceptance: CA; `grep "lex("` outside syntax/ shows only calls that
       pass a dialect. Depends on: 2.1.3
+      **Gate 2.1.4 (2026-10-01).** Fixtures (`fixtures/grammar/lexer.ts`), recorded on both vendors (and `record:exec` on
+      CODESYS for the five declared ones): `lex_codesys_only_keyword_twincat_names`, `lex_vector_twincat`,
+      `lex_vector_twincat_{pointer_to,array_of,struct_field,return_type}`. `__VECTOR` is a keyword on CODESYS and an
+      identifier on TwinCAT that `parse/type-expr` refuses where a type belongs ("Type definition expected instead of
+      '__VECTOR'"). Rules GAP area 2 **71 → 70** (total 125 → 124): L11 closed; L10's row gains its recorded fixtures.
+      Divergences closed: `type_codesys_vector` (TwinCAT). Opened (`support/divergences.ts`, both recovery rules', not the
+      vocabulary's): TwinCAT's missing "has no effect" warning after an unknown word before a name (5
+      `lex_keyword_before_name_*`, → 2.8.2), TwinCAT's cascade after `__VECTOR` as a return type
+      (`lex_vector_twincat_return_type`, → 2.8.3); the DUT-alias case recorded but not kept (it would raise a NOSCOPE
+      ceiling — owner question, written there). `rate:fixtures`: 3149 fixtures; confirmed 2079, refused 907, lsp-gap 11,
+      diverges 3. The 0.4 measure asks one more question it states (`bound-census.ts`): an index/member/deref built on a
+      name the vendor reports undefined agrees as its root does, and a call to a POU with no return type has no value
+      ("call with no return value": corpus 1820, fixtures 232/233) — every ceiling it moved fell (corpus call UNKNOWN
+      4523 → 2703, fixtures 896 → 664 / 926 → 694; fixed-point findings 17 → 16). `grep "lex("` outside syntax/: three
+      calls, each with a dialect (refused-name, network-analyze, network-text/parser); the other P6 sites read
+      `parseResult.tokens`. F (`frontend-snapshot check --base HEAD`): 352 aspects over 47 sources — all the L10/L11
+      fixtures above plus `lex_keyword_*_sys_vector` and `type_codesys_vector` (front and back end); no corpus source moved.
+      `bun typecheck` clean; `bun test` 6102 pass / 34 skip / 148 todo / 0 fail (6284 tests, 182 files, 551 s);
+      `bun run check` 14 passed, 0 failed; lint clean.
 - [ ] 2.2.1 Integers and bases (N1–N10): record lit_int_underscore, lit_invalid_base_3, lit_invalid_base_10, lit_byte_typed,
       lit_word_typed, lit_word_16_ff, lit_int_typed_negative.
       Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 1.41

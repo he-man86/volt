@@ -260,4 +260,45 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
     "\tget : INT;\n\tset : INT;\n\toverride : INT;",
     "get := 1;\nset := 2;\noverride := 3;",
   ),
+
+  // ─── L10/L11 the dialect vocabulary (task 2.1.4) ──────────────────────────────────────────────────────────────────
+  // L10: the CODESYS-only keywords, together, where a statement writes a NAME — CODESYS refuses each as a reserved word,
+  // TwinCAT reads each as an identifier it has never heard of. Undeclared: a `__` DECLARATION is refused by both vendors
+  // whatever the word (`identifier_double_underscore`), so it would ask that rule, not this one. One word per position
+  // is the `lex_keyword_*` family's; this asks the vocabulary as a whole.
+  fb(
+    "lex_codesys_only_keyword_twincat_names",
+    "L10 — `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP` and `__VECTOR`, together, assigned where a statement starts",
+    "\tn : INT;",
+    // The words written out, not derived from `CODESYS_ONLY_KEYWORDS`: the recording answers THIS text, and a vocabulary
+    // change must not silently change the question under an answer recorded for the old one.
+    "__position := 1;\n__pouname := 2;\n__compare_and_swap := 3;\n__vector := 4;\nn := 5;",
+  ),
+  // L11: `__VECTOR` in the one place CODESYS reads it — a declaration's type — and nothing else: declared, not used.
+  fb("lex_vector_twincat", "L11 — `v : __VECTOR[4] OF REAL;`, declared and not used", "\tv : __VECTOR[4] OF REAL;\n\tn : INT;", "n := 1;"),
+  // …and every OTHER place a type is written — each reaches the same refusal in `parse/type-expr`, and each recovers
+  // from it in its own way, so each is asked: inside a type (`POINTER TO`, `ARRAY … OF`), a struct field, a function's
+  // return type. A DUT ALIAS was asked and answered too, and is not a fixture here: see `support/divergences.ts`
+  // `TWINCAT_VECTOR_REFUSAL_CASCADE`.
+  fb("lex_vector_twincat_pointer_to", "L11 — `p : POINTER TO __VECTOR[4] OF REAL;`", "\tp : POINTER TO __VECTOR[4] OF REAL;\n\tn : INT;", "n := 1;"),
+  fb("lex_vector_twincat_array_of", "L11 — `a : ARRAY[0..1] OF __VECTOR[4] OF REAL;`", "\ta : ARRAY[0..1] OF __VECTOR[4] OF REAL;\n\tn : INT;", "n := 1;"),
+  {
+    name: "lex_vector_twincat_struct_field",
+    pouName: "DUT_LANG_vector_field",
+    kind: "struct",
+    feature: "L11 — a struct field `v : __VECTOR[4] OF REAL;` beside `n : INT;`, the struct used through `n`",
+    fromDoc: doc,
+    plcPrgVar: "s_vec : DUT_LANG_vector_field;",
+    plcPrgBody: "s_vec.n := 1;",
+    source: "TYPE DUT_LANG_vector_field :\nSTRUCT\n\tv : __VECTOR[4] OF REAL;\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n",
+  },
+  {
+    name: "lex_vector_twincat_return_type",
+    pouName: "FUN_LANG_vector_return",
+    kind: "function",
+    feature: "L11 — `FUNCTION FUN_LANG_vector_return : __VECTOR[4] OF REAL`, called as a statement",
+    fromDoc: doc,
+    plcPrgBody: "FUN_LANG_vector_return(x := 1);",
+    source: "FUNCTION FUN_LANG_vector_return : __VECTOR[4] OF REAL\nVAR_INPUT\n\tx : INT;\nEND_VAR\n;\nEND_FUNCTION\n",
+  },
 ]

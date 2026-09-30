@@ -149,7 +149,9 @@ const SYSTEM_OPERAND_AT_STATEMENT_START: readonly string[] = [
  * CODESYS refuses the reserved word. But CALLED it is no undefined name either: `XSIZEOF(DINT)` answers only "Expression
  * expected instead of 'DINT'" (`cp_xsizeof`), so it is not simply a CODESYS-only word (`CODESYS_ONLY_KEYWORDS` made that
  * call three "not defined" false positives). The LSP reads CODESYS's keyword on both vendors; what TwinCAT's XSIZEOF is
- * — a callable that is no keyword — is the dialect vocabulary's question (rule L10, task 2.1.4).
+ * — a callable that is no keyword — is the dialect vocabulary's question (rule L10). Task 2.1.4 answered the rest of
+ * L10 and left this one standing: an identifier on TwinCAT would make the call form "not defined" (`cp_xsizeof`), so
+ * the fix needs a name that resolves only as a callee — a resolution rule (Y23), not a vocabulary one.
  * NICHE: ACCEPTED LOSS (0 occurrences in the TwinCAT corpus; the 5 in pro2193 are CODESYS, all called — `XSIZEOF(x)`;
  * owner triage 2026-09-30): a bare `xsizeof` is asked by nothing real, and the call form needs a callable-but-no-keyword
  * reading the vocabulary does not have.
@@ -160,6 +162,46 @@ const TWINCAT_XSIZEOF_IS_NO_KEYWORD: readonly string[] = [
   "lex_keyword_operand_xsizeof",
 ]
 
+
+/**
+ * FRONTEND-CONFORMANCE 2.1.4 review (2026-09-30) — TwinCAT's "no effect" after a word it does not know, before a name.
+ * `__vector n := 2;` on TwinCAT is "';' expected instead of 'n'" AND the warning "The code '__vector;' has no effect.
+ * Is this the intent?" — a statement of its own, warned although the word is declared nowhere and nothing says "not
+ * defined". The LSP matches the error and not the warning: `flow/no-op-statement` stays silent on an unresolved name
+ * (its zero-FP guard), which is right everywhere but here. A missing-only difference — pinned so the suite notices the
+ * day it matches. The recovery's rule (R1–R2, task 2.8.2), not the vocabulary's: the same shape for every word
+ * TwinCAT reads as an identifier there. (`lex_cascade_meets_soft_name_{get,set,override}` miss the same warning.)
+ */
+const TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD: readonly string[] = [
+  "lex_keyword_before_name_sys_position",
+  "lex_keyword_before_name_sys_pouname",
+  "lex_keyword_before_name_sys_compare_and_swap",
+  "lex_keyword_before_name_sys_vector",
+  "lex_keyword_before_name_non_retain",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.1.4 review (2026-09-30) — TwinCAT's recovery after a refused `__VECTOR`, where it is not a
+ * variable's type. Every place a type is written was recorded: in a VAR declaration, inside `POINTER TO` and
+ * `ARRAY … OF`, and as a struct field TwinCAT says "Type definition expected instead of '__VECTOR'" and nothing more, and
+ * the LSP agrees (`lex_vector_twincat{,_pointer_to,_array_of,_struct_field}`). As a DUT alias and as a function's return
+ * type it goes on, each in a shape of its own: the alias wants "':= or ;'" at `END_TYPE` and then `END_TYPE` at the end
+ * of the text; the return type swallows through `VAR_INPUT` and quotes the next declaration run together ("VAR,
+ * VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of x:INT;"), so the function has no inputs and its call is
+ * refused. The LSP gives the first message and its own recovery after it ("unexpected '[' at file scope", "expected
+ * expression, got punct '['"). One shape each — too little to read TwinCAT's skip rule from; the vendor cascades are
+ * task 2.8.3's (R3), and this is its evidence. CODESYS builds all six.
+ *
+ * THE ALIAS IS NOT A FIXTURE, and needs the owner. `TYPE DUT_LANG_vector_alias : __VECTOR[4] OF REAL;` + `END_TYPE`,
+ * declared in PLC_PRG, was recorded 2026-09-30: CODESYS builds it (run: `v_alias[0..3]` = `REAL#0`); TwinCAT answers
+ * "Type definition expected instead of '__VECTOR'", "':= or ;' expected instead of 'END_TYPE'" and "'END_TYPE' expected
+ * instead of ''" (all line 1), where the LSP says the first and then "'END_TYPE' expected instead of '['" and
+ * "unexpected '[' at file scope". It could not be kept: an alias binds no scope, so on CODESYS its count `4` is one more
+ * `fixtures codesys: literal NOSCOPE` (0.4) and `decl NOSCOPE` (fold) than the ceilings allow, and a ceiling may only
+ * fall. The fixture, its three recordings and its pin here go back together once the owner accepts that rise or an
+ * alias binds a scope.
+ */
+const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_return_type"]
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -189,17 +231,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...TWINCAT_XSIZEOF_IS_NO_KEYWORD,
-    //   `type_codesys_vector` (FRONTEND-CONFORMANCE 2.1, rule L11) — TwinCAT has no `__VECTOR`: "Type definition expected
-    //                       instead of '__VECTOR'", the declaration is dropped, and its uses are "Identifier 'vec4' not
-    //                       defined" / "'vec4[0]' is no valid assignment target". The LSP reads CODESYS's vector type on
-    //                       both vendors. The fix is known and small — `__VECTOR` a KEYWORD (it is already in
-    //                       `CODESYS_ONLY_KEYWORDS`, so TwinCAT lexes an identifier) and `parse/type-expr` refusing that
-    //                       identifier with the vendors' words — and it was built and matched this recording exactly. It
-    //                       did not land because the answer it gives is an UNDEFINED `vec4`, which the 0.3/0.4 measures
-    //                       count as a finding (TwinCAT bare-name NONE +1, ident_expr and index UNKNOWN +1 each) and their
-    //                       ceilings may only fall. Whether a NONE the vendor itself reports "not defined" is a finding is
-    //                       the owner's to decide (openspec frontend-conformance tasks.md 2.1.4).
-    "type_codesys_vector",
+    ...TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD,
+    ...TWINCAT_VECTOR_REFUSAL_CASCADE,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers

@@ -137,7 +137,7 @@ export const RULES: readonly Rule[] = [
     rule: "CODESYS-only keywords are identifiers on TwinCAT",
     home: "lex/vocabulary, lex/lexer",
     gap: false,
-    fixtures: ["cp_pouname_operator", "operand_position", "operand_compare_and_swap"],
+    fixtures: ["cp_pouname_operator", "operand_position", "operand_compare_and_swap", "lex_codesys_only_keyword_twincat_names", "lex_keyword_*_sys_position", "lex_keyword_*_sys_pouname", "lex_keyword_*_sys_compare_and_swap", "lex_keyword_*_sys_vector"],
     design: "cp_pouname_operator, operand_position, operand_compare_and_swap",
   },
   {
@@ -146,11 +146,11 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "`__VECTOR` refused on TwinCAT (declared but never applied)",
     home: "lex/vocabulary + parse/type-expr",
-    gap: true,
-    fixtures: ["type_codesys_vector"],
+    gap: false,
+    fixtures: ["type_codesys_vector", "lex_vector_twincat", "lex_keyword_assigned_sys_vector", "lex_keyword_before_name_sys_vector", "lex_keyword_operand_sys_vector", "lex_codesys_only_keyword_twincat_names", "lex_vector_twincat_pointer_to", "lex_vector_twincat_array_of", "lex_vector_twincat_struct_field", "lex_vector_twincat_return_type"],
     design: "type_codesys_vector (CODESYS only) — **GAP** for TwinCAT",
     recheck:
-      "2.1 (2026-09-30): `type_codesys_vector` IS recorded on TwinCAT — \"Type definition expected instead of '__VECTOR'\", then its uses undefined. The LSP still reads the vector type on TwinCAT (a known divergence, `support/divergences.ts`), so the row stays a GAP: it is task 2.1.4's, whose acceptance is CA, and it flips with that task's fix — not with the recording.",
+      "2.1.4 (2026-09-30): answered. `__VECTOR` is a KEYWORD on CODESYS (refused as every reserved word is, in the three statement positions: `lex_keyword_*_sys_vector`, `lex_codesys_only_keyword_twincat_names`) and CODESYS-only; on TwinCAT it lexes an identifier and `parse/type-expr` refuses it where a type belongs, \"Type definition expected instead of '__VECTOR'\", the declaration dropped (`lex_vector_twincat`, `type_codesys_vector`). Every other place a type is written was recorded too (review, 2026-09-30): inside `POINTER TO` and `ARRAY … OF` and as a struct field TwinCAT says the one message and the LSP agrees (`lex_vector_twincat_{pointer_to,array_of,struct_field}`); CODESYS builds all of them. The LSP agrees exactly on both vendors but for three, each pinned in `support/divergences.ts` and each a recovery rule's, not the vocabulary's: TwinCAT's `lex_keyword_before_name_sys_vector` misses the \"The code '__vector;' has no effect\" warning (`__position`, `__pouname`, `__compare_and_swap` and `non_retain` share it), and after the refusal as a function's return type (`lex_vector_twincat_return_type`) TwinCAT's cascade is its own (R3, task 2.8.3). The DUT alias was recorded and is not a fixture: its count would raise a NOSCOPE ceiling (an alias binds no scope) — the answer and the owner's question are in `support/divergences.ts` `TWINCAT_VECTOR_REFUSAL_CASCADE`.",
   },
   {
     id: "L12",

@@ -43,7 +43,7 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
   return {
     kind: "function",
     name,
-    ...(returnType !== undefined ? { returnType } : {}),
+    ...returnType,
     ...(implementsMisused !== undefined ? { implementsMisused } : {}),
     ...(extendsMisused !== undefined ? { extendsMisused } : {}),
     varSections,

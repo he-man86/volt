@@ -18,7 +18,9 @@ export function renderTypeExpr(t: TypeExpr): string {
     case "string_type":
       return (t.wide ? "WSTRING" : "STRING") + (t.length ? `(${exprText(t.length)})` : "")
     case "array_type":
-      return `ARRAY[${t.dims.map(dimText).join(", ")}] OF ${renderTypeExpr(t.element)}`
+      return t.vector !== undefined
+        ? `__VECTOR[${t.vector.size !== undefined ? exprText(t.vector.size) : ""}] OF ${renderTypeExpr(t.element)}`
+        : `ARRAY[${t.dims.map(dimText).join(", ")}] OF ${renderTypeExpr(t.element)}`
     case "pointer_type":
       return `POINTER TO ${renderTypeExpr(t.target)}`
     case "reference_type":

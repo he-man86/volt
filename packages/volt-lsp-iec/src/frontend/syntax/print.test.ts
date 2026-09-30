@@ -37,6 +37,10 @@ const TYPES = [
   "WSTRING(255)",
   "POINTER TO ARRAY[0..9] OF INT",
   "ARRAY[0..1] OF POINTER TO Tc2_Standard.TON",
+  // a CODESYS vector is not an array: it printed as `ARRAY[0..4 - 1] OF REAL`, so formatting rewrote the user's type
+  // (frontend-conformance 2.1.4, L11 — `type_codesys_vector`, `lex_vector_twincat`)
+  "__VECTOR[4] OF REAL",
+  "__VECTOR[N + 1] OF INT",
 ]
 
 test("renderTypeExpr round-trips every meaningful token (parser data-loss oracle)", () => {

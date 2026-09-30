@@ -40,7 +40,8 @@ export interface FormatOptions {
 
 /** Format the whole document. */
 export function formatDocument(doc: Document, options?: FormatOptions): string {
-  return applyIndentStyle(doc.parseResult.units.map(printUnit).join("\n\n") + "\n", options)
+  const units = doc.parseResult.units
+  return applyIndentStyle(units.map((u, i) => printOrKeep(doc, u, units[i + 1])).join("\n\n") + "\n", options)
 }
 
 /** Range formatting: re-emit each top-level unit that intersects the range (edits are per-unit). */
@@ -50,6 +51,7 @@ export function formatRange(doc: Document, range: Range, options?: FormatOptions
   const edits: TextEdit[] = []
   for (const unit of doc.parseResult.units) {
     if (unit.span.end < start || unit.span.start > end) continue
+    if (refusedIn(doc, unit)) continue // kept as written: no edit (`printOrKeep`)
     edits.push({ range: rangeFromSpan(unit.span), newText: applyIndentStyle(printUnit(unit), options) })
   }
   return edits
@@ -104,6 +106,22 @@ function statementDepthAt(list: StatementList, offset: number): number {
     return 1 + Math.max(0, ...inner)
   }
   return 0
+}
+
+/**
+ * A unit the declaration parse refused anything inside is kept AS WRITTEN: a refused declaration leaves no node, so a
+ * unit reprinted from its AST deletes the user's line (`v : __VECTOR[4] OF REAL;` on TwinCAT, `v : final;` on either
+ * vendor). The rule an unparseable body already follows (`printCode`), one level up. A unit's span ends with its body,
+ * before its `END_…` keyword, so what is kept runs to where the next unit starts (or the end of the file).
+ */
+function printOrKeep(doc: Document, unit: TopLevel, next: TopLevel | undefined): string {
+  if (!refusedIn(doc, unit)) return printUnit(unit)
+  return verbatimText(doc.source.slice(unit.span.start, next?.span.start ?? doc.source.length)).trimEnd()
+}
+
+/** Whether the declaration parse reported an error inside `unit`. */
+function refusedIn(doc: Document, unit: TopLevel): boolean {
+  return doc.parseResult.errors.some((e) => e.span.start >= unit.span.start && e.span.start < unit.span.end)
 }
 
 function printUnit(unit: TopLevel): string {

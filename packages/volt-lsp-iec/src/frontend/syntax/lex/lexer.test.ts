@@ -81,3 +81,14 @@ test("READ_ONLY, READ_WRITE, FROM and PARAMS stay reserved — CODESYS refuses e
   // `lex_reserved_unused_keyword_as_name_{read_only,read_write,from,params}`: "Unexpected token '<name>' found"
   for (const w of ["read_only", "READ_WRITE", "From", "params"]) expect(code(w)[0].kind).toBe("keyword")
 })
+
+// ─── the dialect vocabulary (task 2.1.4, L10/L11) ────────────────────────────────────────────────────────────────────
+
+test("the CODESYS-only words are keywords on CODESYS and identifiers on TwinCAT — `__VECTOR` among them (L10, L11)", () => {
+  // `lex_keyword_*_sys_vector` (2026-09-30): CODESYS refuses `__vector` as every reserved word is refused; TwinCAT calls
+  // it an undefined identifier, as it does `__position`, `__pouname` and `__compare_and_swap`
+  for (const w of ["__VECTOR", "__position", "__PouName", "__compare_and_swap"]) {
+    expect(code(w)[0].kind).toBe("keyword")
+    expect(lex(w, "twincat")[0]).toMatchObject({ kind: "identifier", text: w })
+  }
+})
