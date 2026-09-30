@@ -188,28 +188,35 @@ function extendsChain(lw: Lowering, fb: string): string[] {
 }
 
 /**
- * The implicit routine that runs ONE FB type's non-constant field initializers on an instance — its key, or
- * `undefined` when the type has none, or `null` when one of them cannot lower.
+ * The implicit routine that runs ONE FB type's non-constant field initializers on an instance — those of the fields at
+ * slots `from` up to (not including) `to` — its key, or `undefined` when there are none, or `null` when one of them
+ * cannot lower.
  *
  * Built once per type and cached in `lw.routines` beside the real METHODs, because that is exactly what it is: a
- * body that runs on an instance. `IrInvoke` binds the instance, so nothing has to rewrite places per instance.
+ * body that runs on an instance. `IrInvoke` binds the instance, so nothing has to rewrite places per instance. A PART
+ * of them is a routine of its own, keyed by the slots it covers: an instance field running FB_Init splits the sequence
+ * there (transpile-review 23).
  */
-function instanceInitRoutine(lw: Lowering, fb: string): string | undefined | null {
+function instanceInitRoutine(lw: Lowering, fb: string, from = 0, to = Number.POSITIVE_INFINITY): string | undefined | null {
   const entry = lw.bodies.get(fb.toUpperCase())
   const nested = entry?.lowering
   if (nested === undefined || nested.pendingInits.length === 0) return undefined
-  const key = `${fb.toUpperCase()}.__INIT`
+  const inRange = nested.pendingInits.filter((p) => p.slot >= from && p.slot < to)
+  if (inRange.length === 0) return undefined
+  const whole = inRange.length === nested.pendingInits.length
+  const key = `${fb.toUpperCase()}.__INIT${whole ? "" : `@${inRange[0]!.slot}..${inRange.at(-1)!.slot}`}`
   const cached = lw.routines.get(key)
   if (cached?.state === "failed") return null
   if (cached?.state === "lowered") return key
   // `nested`'s diagnostics were drained into `lw` when the layout was built, so only what THIS lowering adds is new
   const before = nested.diagnostics.length
-  const body = buildInitSequence(nested)
+  const built = buildInitSequence(nested)
   lw.diagnostics.push(...nested.diagnostics.slice(before))
-  if (body === undefined) {
+  if (built === undefined) {
     lw.routines.set(key, { state: "failed" })
     return null
   }
+  const body = whole ? built : (nested.initSequence?.bySlot ?? []).filter((b) => b.slot >= from && b.slot < to).flatMap((b) => b.statements)
   lw.routines.set(key, {
     state: "lowered",
     // no per-call storage: a temp one of these needs is a field of the instance, as every FB body's temps are
@@ -297,8 +304,12 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     if (read === undefined || read.path.length > 0 || read.type.kind !== "elementary") return undefined
     if (read.root === undefined) {
       const declared = declaring.frame[read.slot]
-      if (!(read.slot < instanceSlot && (declared?.section === "VAR" || declared?.section === "VAR_INPUT"))) return undefined
-      return holder === undefined ? read : { ...holder, path: [{ kind: "field", name: declared!.name }], type: read.type }
+      // declared before the instance, its initializer has run; declared after it with one that RUNS, it has not, and the
+      // variable is still at its default (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). A later one
+      // whose initializer folds starts at that value here, which is not recorded.
+      const settled = read.slot < instanceSlot || declaring.pendingInits.some((p) => p.slot === read.slot)
+      if (!(settled && (declared?.section === "VAR" || declared?.section === "VAR_INPUT"))) return undefined
+      return holder === undefined ? read : { ...holder, path: [...holder.path, { kind: "field", name: declared!.name }], type: read.type }
     }
     if (read.root !== "global" || lw.globals[read.slot]?.section === "program") return undefined
     globalArguments.add(read.slot)
@@ -370,7 +381,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   const declaredInits = new Map<string, IrInit[]>()
   /** `args`: the FB_Init arguments the place is declared with, lowered in `declaring`; `init` / `clearInit`: the declaring
    *  slot's initial value, and a way to take a structured initializer out of it — to be applied after FB_Init instead. */
-  const visit = (place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void): boolean => {
+  const visit = (place: Place, args: readonly CallArg[], declaring: Lowering, init: IrInit, clearInit: () => void, holder?: Place): boolean => {
     const t = place.type
     if (!reaches(t)) return true
     if (peelArray(t) !== undefined) return unreached("an array") ?? false
@@ -420,6 +431,13 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
           if (input === undefined && expr !== undefined && place.path.length === 1 && held?.kind === "field" && ownProgram(place)) {
             const holder: Place = { ...place, path: [], type: (place.root === "global" ? lw.globals : lw.frame)[place.slot]!.type }
             const read = recordedArgument(expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === held.name.toUpperCase()), declaring, holder)
+            if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
+          }
+          // ...and an instance held by an FB instance: the variable is the HOLDER's field (transpile-review 23 — it was
+          // refused, `tr_23_fb_init_argument_from_pending_init`)
+          const last = place.path.at(-1)
+          if (input === undefined && expr !== undefined && holder?.type.kind === "function_block" && last?.kind === "field" && lw.bodies.get(holder.type.name.toUpperCase())?.lowering === declaring) {
+            const read = recordedArgument(expr, declaring.frame.findIndex((f) => f.name.toUpperCase() === last.name.toUpperCase()), declaring, holder)
             if (read !== undefined) input = convert({ kind: "load", place: read, type: read.type, span }, slot.type)
           }
           // NO ARGUMENT AT ALL IS NOT A GAP IN LOWERING — the vendor refuses that declaration too: an FB whose
@@ -525,17 +543,27 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     // dereferences an `ADR(m)` field and reads a call-initialized one (`tr_22_fb_init_reads_adr_field`,
     // `tr_22_fb_init_reads_call_field`: seen = 7), and its own write is not undone. Whether a DERIVED type's initializers
     // run before its BASE's FB_Init is not recorded: refused.
-    const implicit: IrStmt[] = []
+    //
+    // INTERLEAVED with the instances inside it, by declaration (transpile-review 23): a field running FB_Init does so at
+    // its own position, so the initializers declared before it have run and those after it have not
+    // (`tr_23_fb_init_argument_from_pending_init{,_reversed}`: 4, 0). The sequence is split there, one routine per part.
     const chain = t.kind === "function_block" ? extendsChain(lw, t.name) : []
     // the depth of the most basic FB_Init in the chain — a type below it initializes after a base's FB_Init could run
     const firstFbInit = Math.min(...inits.map((sym) => chain.findIndex((name) => name.toUpperCase() === sym.owner.name.toUpperCase())))
-    for (const [depth, type] of chain.entries()) {
-      const routine = instanceInitRoutine(lw, type)
-      if (routine === null) return false
-      if (routine === undefined) continue
-      if (depth > firstFbInit)
-        return lw.bail("fb-init-order", `${type}'s field initializers and a base's FB_Init — which runs first is not recorded`, span) ?? false
-      implicit.push({ kind: "eval", value: { kind: "invoke", routine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
+    const initialized = chain.filter((type) => (lw.bodies.get(type.toUpperCase())?.lowering.pendingInits.length ?? 0) > 0)
+    const below = initialized.find((type) => chain.indexOf(type) > firstFbInit)
+    if (below !== undefined) return lw.bail("fb-init-order", `${below}'s field initializers and a base's FB_Init — which runs first is not recorded`, span) ?? false
+    const ordered: IrStmt[] = []
+    let from = 0
+    /** the initializers of the fields from `from` up to `to`, each type's part run on the instance */
+    const initializeUpTo = (to: number): boolean => {
+      for (const type of initialized) {
+        const routine = instanceInitRoutine(lw, type, from, to)
+        if (routine === null) return false
+        if (routine !== undefined) ordered.push({ kind: "eval", value: { kind: "invoke", routine, instance: place, inputs: [], inouts: [], type: UNKNOWN, span }, span })
+      }
+      from = to
+      return true
     }
     const layoutFields = (lw.layouts.get(t.name.toUpperCase())?.fields ?? []) as IrSlot[]
     // every instance of the layout sees its initializers as declared: the first one's clearInit emptied them for the next,
@@ -544,16 +572,31 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
     declaredInits.set(t.name.toUpperCase(), declared)
     for (const [i, field] of [...layoutFields].entries()) {
       const clear = () => void (layoutFields[i] = { ...layoutFields[i]!, init: defaultValueOf(field.type) })
-      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, declared[i]!, clear)) return false
+      const start = fbInitCalls.length
+      if (!visit({ ...place, path: [...place.path, { kind: "field", name: field.name }], type: field.type }, declaredArgs(owner, field.name), nested, declared[i]!, clear, place)) return false
+      const inside = fbInitCalls.splice(start)
+      if (inside.length === 0) continue
+      if (!initializeUpTo(i + 1)) return false
+      ordered.push(...inside)
     }
+    if (!initializeUpTo(Number.POSITIVE_INFINITY)) return false
     // an instance's own FB_Init runs after those of the instances inside it (`fb_init_nested_in_fb_init`: the outer's saw 5)
-    fbInitCalls.push(...implicit, ...mine)
+    fbInitCalls.push(...ordered, ...mine)
     return true
   }
+  // The POU's own initializers interleave with its instances the same way (transpile-review 23): those declared before an
+  // instance whose init step does anything run before it. The rest keep their place after every FB_Init.
   const frame = lw.frame as IrSlot[]
+  const ownInits = lw.initSequence?.bySlot ?? []
+  let ownRun = 0
   for (const [slot, frameSlot] of [...frame].entries()) {
     const clear = () => void (frame[slot] = { ...frame[slot]!, init: defaultValueOf(frameSlot.type) })
+    const start = fbInitCalls.length
     if (!visit({ slot, path: [], type: frameSlot.type, span }, declaredArgs(root?.ast as TopLevel | undefined, frameSlot.name), lw, frameSlot.init, clear)) return undefined
+    const inside = fbInitCalls.splice(start)
+    if (inside.length === 0) continue
+    for (; ownRun < ownInits.length && ownInits[ownRun]!.slot <= slot; ownRun++) fbInitCalls.push(...ownInits[ownRun]!.statements)
+    fbInitCalls.push(...inside)
   }
   // A PROGRAM this POU calls is an instance among the globals, visited as the frame's slots are — its FB_Init arguments, an
   // instance-path, an init-slot METHOD. They were `attr-init-unreached` (`fb_init_argument_in_program_with_method`: 4,
@@ -571,7 +614,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
   // a global an FB_Init argument reads while an FB_Init of this init step writes globals: which value arrives is not recorded
   if (globalArguments.size > 0 && writesGlobal(fbInitCalls))
     return lw.bail("fb-init-argument", "an FB_Init argument reads a global while an FB_Init writes globals — which value arrives is not recorded", span)
-  return [...out, ...fbInitCalls, ...reapplied, ...(lw.initSequence?.statements ?? []), ...slotCalls]
+  return [...out, ...fbInitCalls, ...reapplied, ...ownInits.slice(ownRun).flatMap((b) => b.statements), ...slotCalls]
 }
 
 /**

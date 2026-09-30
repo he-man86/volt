@@ -308,8 +308,9 @@ export class Lowering {
 
   /** `pendingInits` lowered, memoized — built BEFORE any body, so a pointer this step fills is known to be filled
    *  when a body dereferences it (`shared.pointers`), and consumed by the init step at the end. `statements`
-   *  undefined means the build failed or is in progress. */
-  initSequence?: { statements: IrStmt[] | undefined }
+   *  undefined means the build failed or is in progress. `bySlot` is the same statements, per declaration they
+   *  initialize — the init step interleaves them with the FB_Inits by position (transpile-review 23). */
+  initSequence?: { statements: IrStmt[] | undefined; bySlot?: { slot: number; statements: IrStmt[] }[] }
 
 
   bail(code: string, message: string, span: Span): undefined {

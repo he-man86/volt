@@ -56,11 +56,21 @@ test("the guards see a read wherever it is — a call's argument, an index, a st
   // handled `load`/`convert`/`unary`/`binary`/`builtin` and stopped at everything else.
   expect(codes(F_INC, "i : INT := F_Inc(other);\n\tother : INT := -7;")).toEqual(["init-reads-later"])
   expect(codes("", "arr : ARRAY[0..3] OF INT := [10,11,12,13];\n\ti : INT := arr[k];\n\tk : INT := 2;")).toEqual(["init-reads-later"])
-  expect(codes(F_INC + FB_I, "holder : FB_I;\n\tseen : INT := F_Inc(holder.started);")).toEqual(["init-reads-instance"])
+  // An instance's field is read AFTER its FB_Init when the instance is declared first — the init step interleaves them
+  // by declaration (`initseq_after_fb_init`: 5; transpile-review 23) — so only an instance whose STRUCTURED initializer
+  // is applied after every FB_Init is still refused, wherever the read is
+  expect(codes(F_INC + FB_I, "holder : FB_I := (started := 9);\n\tseen : INT := F_Inc(holder.started);")).toEqual(["init-reads-instance"])
+  const read = lower(F_INC + FB_I, "holder : FB_I;\n\tseen : INT := F_Inc(holder.started);")
+  expect(read.diagnostics).toEqual([])
+  const p = run(read.pou!)
+  p.scan()
+  expect(p.get("seen")).toBe(6n)
   // an instance reached through a STRUCT field is still an instance
-  expect(codes(`TYPE T_H :\nSTRUCT\n\tinner : FB_I;\nEND_STRUCT\nEND_TYPE\n\n${FB_I}`, "holder : T_H;\n\tseen : INT := holder.inner.started;")).toEqual([
-    "init-reads-instance",
-  ])
+  const deep = lower(`TYPE T_H :\nSTRUCT\n\tinner : FB_I;\nEND_STRUCT\nEND_TYPE\n\n${FB_I}`, "holder : T_H;\n\tseen : INT := holder.inner.started;")
+  expect(deep.diagnostics).toEqual([])
+  const q = run(deep.pou!)
+  q.scan()
+  expect(q.get("seen")).toBe(5n)
 })
 
 test("and the ordinary shapes still lower", () => {

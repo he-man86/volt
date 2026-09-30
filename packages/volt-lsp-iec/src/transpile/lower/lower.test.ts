@@ -510,9 +510,12 @@ test("FB_Init: an inner instance's runs first, and an argument may name a variab
   const runner = run(lowered.pou!)
   runner.scan()
   expect(["outer.seenInner", "outer.inner.started", "fromVariable.started", "fromGlobal.started"].map((v) => runner.get(v))).toEqual([5n, 5n, 4n, 6n])
-  // a variable named in a declaration inside an FB means that FB's field — not a place the POU's init step has
+  // a variable named in a declaration inside an FB means that FB's field — refused while the init step had no such place;
+  // it reads the holder's field now (transpile-review 23, `tr_23_fb_init_argument_from_pending_init`)
   const holder = "FUNCTION_BLOCK FB_Holder\nVAR localSeed : INT := 3; held : FB_In(startValue := localSeed); END_VAR\nEND_FUNCTION_BLOCK\n"
-  expect(lowerSource(source("holder : FB_Holder;", holder), "P").diagnostics.map((d) => d.code)).toContain("fb-init-argument")
+  const held = run(ir(source("holder : FB_Holder;", holder), "P"))
+  held.scan()
+  expect(held.get("holder.held.started")).toBe(3n)
   // Review of that batch: only what the recordings cover takes a variable argument. A struct field's declaration was read
   // in the POU's scope (a local the struct cannot see), and a later or VAR_TEMP variable, or a global an FB_Init writes,
   // gave values no recording shows; a derived FB holding FB_Init instances got an order none shows either.
@@ -2469,4 +2472,25 @@ test("an instance's field initializers run before its FB_Init", () => {
   const runner = run(ir(src, "P"))
   runner.scan()
   expect(["viaAdr.seen", "called.seen", "called.a"].map((v) => runner.get(v))).toEqual([7n, 7n, 100n])
+})
+
+// transpile-review 23: an FB_Init argument naming a variable whose initializer does not fold was refused inside an FB, and
+// passed 0 in a POU's own frame — every initializer ran after every FB_Init. CODESYS interleaves the two in declaration
+// order (`tr_23_fb_init_argument_from_pending_init`: got = 4 with the variable first; `_reversed`: got = 0 with it last).
+test("initializers and FB_Init interleave in declaration order, so an FB_Init argument sees the variables before it", () => {
+  const target =
+    "FUNCTION F_Inc : INT\nVAR_INPUT n : INT; END_VAR\nF_Inc := n + 1;\nEND_FUNCTION\n" +
+    "FUNCTION_BLOCK FB_T\nVAR got : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD FB_Init : BOOL\nVAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; v : INT; END_VAR\ngot := v;\nEND_METHOD\n"
+  const holder = (decls: string) => `FUNCTION_BLOCK FB_H\nVAR\n${decls}\ngot : INT;\nEND_VAR\ngot := h.got;\nEND_FUNCTION_BLOCK\n`
+  const program = (decls: string) => `PROGRAM P\nVAR\n${decls}\nfirst : FB_H; END_VAR\nfirst();\nEND_PROGRAM\n${target}`
+  const got = (src: string, path: string) => {
+    const runner = run(ir(src, "P"))
+    runner.scan()
+    return runner.get(path)
+  }
+  // inside an FB, the variable before the instance, then after it
+  expect(got(program("") + holder("x : INT := F_Inc(3);\nh : FB_T(v := x);"), "first.got")).toBe(4n)
+  expect(got(program("") + holder("h : FB_T(v := x);\nx : INT := F_Inc(3);"), "first.got")).toBe(0n)
+  // in the POU's own frame
+  expect(got(program("x : INT := F_Inc(3);\nh : FB_T(v := x);") + holder("h : FB_T(v := 1);"), "h.got")).toBe(4n)
 })

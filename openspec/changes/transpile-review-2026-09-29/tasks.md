@@ -296,9 +296,9 @@ those values into the new fixture's recording.
 - CODESYS: initializers and FB_Init interleave in declaration order (`initseq_fb_init_declared_last`,
   `initseq_after_fb_init`). Expected 4.
 - Fix: interleave initSequence and fbInitCalls by declaration position (also lifts `init-reads-instance`), or refuse.
-- [ ] 23.1 Fixture `fb_init_argument_from_pending_init` — red.
+- [x] 23.1 Fixture `fb_init_argument_from_pending_init` — red.
   Recorded 2026-09-29 (record:exec): `tr_23_fb_init_argument_from_pending_init` (CODESYS got=4), `tr_23_fb_init_argument_from_pending_init_reversed` (got=0) — both not-lowered (`fb-init-argument`).
-- [ ] 23.2 Fix.
+- [x] 23.2 Fix. `initStep` (lower/lower.ts) interleaves each FB's initializers (split into `<FB>.__INIT@a..b` parts) and the POU's own with the instances' FB_Inits by declaration; an FB_Init argument may name the holder FB's field, or a later variable whose initializer runs (still at its default). Both tr_23 fixtures confirmed (4, 0), and `initseq_after_fb_init` with them; `init-reads-instance` now refuses only an instance with a structured initializer. Src tests in lower.test.ts / init-sequence.test.ts.
 
 ## 24. A VAR_TEMP with a non-constant initializer is always reset to 0
 - Root cause: `lower/storage.ts:243` (VAR_TEMP is deferrable → pendingInits, run once) with `:173-177` (tempResets

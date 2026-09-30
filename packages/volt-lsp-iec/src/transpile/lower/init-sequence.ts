@@ -32,6 +32,7 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
   if (lw.initSequence !== undefined) return lw.initSequence.statements
   lw.initSequence = { statements: undefined }
   const out: IrStmt[] = []
+  const bySlot: { slot: number; statements: IrStmt[] }[] = []
   for (const pending of lw.pendingInits) {
     const assigned = lowerPendingInit(lw, pending)
     if (assigned === undefined) return undefined
@@ -51,18 +52,20 @@ export function buildInitSequence(lw: Lowering): IrStmt[] | undefined {
 
     // AN FB INSTANCE'S FIELD, whose own FB_Init runs at ITS declaration's position — `seen : INT := holder.started`
     // is 5 with `holder` declared first and 0 with it declared last (`initseq_after_fb_init`,
-    // `initseq_fb_init_declared_last`). These statements go in as one block relative to the FB_Init calls, so only
-    // the first of those two would come out right. Interleaving the two by declaration position is what lifts it.
+    // `initseq_fb_init_declared_last`). The init step interleaves these statements with the FB_Inits by declaration
+    // (transpile-review 23), which answers that — except for an instance declared with a STRUCTURED initializer, which
+    // is applied after every FB_Init (`fb_init_and_structured_initializer`), so what a sibling reads of it is not.
     const instance = values.reduce<string | undefined>((f, v) => f ?? reads(lw, v, insideInstance(lw)), undefined)
     if (instance !== undefined)
       return lw.bail(
         "init-reads-instance",
-        `${pending.name.text}'s initial value reads ${instance}, an instance whose own FB_Init runs at its declaration's position`,
+        `${pending.name.text}'s initial value reads ${instance}, an instance declared with a structured initializer applied after the FB_Inits`,
         pending.span,
       )
     out.push(...assigned)
+    bySlot.push({ slot: pending.slot, statements: assigned })
   }
-  lw.initSequence = { statements: out }
+  lw.initSequence = { statements: out, bySlot }
   return out
 }
 
@@ -155,7 +158,8 @@ const laterThan =
     place.root === undefined && place.slot >= slot ? (lw.frame[place.slot]?.name ?? "a later declaration") : undefined
 
 /**
- * A place that reads INSIDE a function block instance — at any depth, not only one held directly in the frame.
+ * A place that reads INSIDE a function block instance declared with a structured initializer — at any depth, not only
+ * one held directly in the frame.
  * `holder : T_H; seen : INT := holder.inner.started` reaches an FB through a STRUCT field and slipped past a check
  * that only looked at the root slot's kind.
  */
@@ -164,7 +168,7 @@ const insideInstance =
   (place: Place): string | undefined => {
     if (place.root !== undefined) return undefined
     const slot = lw.frame[place.slot]
-    if (slot === undefined) return undefined
+    if (slot === undefined || !(typeof slot.init === "object" && slot.init !== null && "fields" in slot.init)) return undefined
     let type: Type | undefined = slot.type
     let name = slot.name
     for (const access of place.path) {
