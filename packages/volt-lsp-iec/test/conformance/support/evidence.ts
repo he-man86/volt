@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
-import { parseSource } from "../../../src/syntax/index.js"
+import { parseDocument, parseSource } from "../../../src/syntax/index.js"
 import { bindFile, buildSymbolTable, linkExtends, type Scope, unbindFile } from "../../../src/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
@@ -77,10 +77,14 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[]): string
   // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
   // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
-  const own = { uri: `file:///conformance/${t.pouName}.${extFor(t.kind)}`, source: t.source, parseResult: parseSource(t.source) }
+  const ownUri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
+  const own = { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source) }
   const deps = withDependencies(t, all)
     .filter((f) => f.name !== t.name && f.source !== "")
-    .map((f) => ({ uri: `file:///conformance/${f.pouName}.${extFor(f.kind)}`, source: f.source, parseResult: parseSource(f.source) }))
+    .map((f) => {
+      const uri = `file:///conformance/${f.pouName}.${extFor(f.kind)}`
+      return { uri, source: f.source, parseResult: parseDocument(uri, f.source) }
+    })
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText) }
   const files = [own, plc, ...deps]

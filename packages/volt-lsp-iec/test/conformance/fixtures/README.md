@@ -15,6 +15,7 @@ is a visible gap rather than an invisible one. That is the whole reason for the 
 | `memory/` | pointers, references, `ADR`/`SIZEOF`, direct addresses, layout |
 | `pragmas/` | attribute pragmas, both vendors', and conditional compilation |
 | `graphical/` | network text (FBD/LD) — the non-ST sublanguage |
+| `objects/` | an object's TEXT against the object — what the build says about a text the push writes as sent (a never-closed comment, an empty or prose text, a text of another kind than its extension) |
 | `cross-object/` | one fixture reaching another object: GVLs, DUTs, signature names |
 | `semantics/` | whole-program behaviour that is not one construct — execution order, catalog wording |
 | `batches/` | **not a topic.** See below. |

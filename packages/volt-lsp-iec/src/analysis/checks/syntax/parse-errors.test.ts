@@ -52,3 +52,25 @@ test("grammar-completion forms surface no false positive (gate regression guard)
   expect(syntaxErrors(`FUNCTION_BLOCK FB\nVAR dw : DWORD; w : WORD; b : BYTE;\nEND_VAR\nw := dw.%W1;\nb := dw.%B3;\nEND_FUNCTION_BLOCK`)).toEqual([])
   expect(syntaxErrors(`FUNCTION_BLOCK FB\nVAR b : BYTE;\nEND_VAR\nb := UCHAR#'A';\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
+
+// `pwh_gvl_missing_semicolon` (both vendors, 2026-09-30): a GLOBAL missing its `;` after the type. TwinCAT reports it as
+// it reports the slip in a STRUCT or a POU's VAR block — "';, :=, REF=, ( or [' expected instead of '<next>'"; CODESYS
+// reports NOTHING for it in a GVL (only the swallowed global is undefined where it is used). Both swallow the next one.
+test("a global missing its `;`: TwinCAT names it, CODESYS says nothing — and neither declares the next global", () => {
+  const src = "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\n\tg_c : INT;\nEND_VAR\n"
+  const errors = (vendor: "codesys" | "twincat"): string[] => {
+    const parseResult = parseSource(src, vendor, "gvl")
+    const project = buildSymbolTable([{ uri: "GVL.gvl", parseResult, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "syntax-error")
+      .map((d) => d.message)
+  }
+  expect(errors("twincat")).toEqual(["';, :=, REF=, ( or [' expected instead of 'g_b'"])
+  expect(errors("codesys")).toEqual([])
+  const list = parseSource(src, "codesys", "gvl").units[0] as { varSections: { decls: { names: { text: string }[] }[] }[] }
+  expect(list.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["g_a", "g_c"])
+  // …and in a STRUCT on CODESYS the same slip IS reported (`pwh_struct_missing_semicolon`) — the silence is the GVL's
+  expect(syntaxErrors("TYPE T :\nSTRUCT\n\ta : INT\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual([
+    "';, :=, REF=, ( or [' expected instead of 'b'",
+  ])
+})

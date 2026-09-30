@@ -77,3 +77,16 @@ test("libraryManifestDiagnostics: an older manifest names an older CLI as a poss
   expect(warning!.message).toContain(`format ${MATERIALIZATION}`)
   expect(warning!.message).toMatch(/update the volt CLI/i)
 })
+
+// What a client SEES for a GVL whose global misses its `;` (`pwh_gvl_missing_semicolon`): on CODESYS nothing, since the
+// compiler says nothing; on TwinCAT the one message it gives. The parse errors reach a client by this path as well as
+// by the semantic pass, so the vendor's rule has to hold on both.
+test("a global missing its `;`: silent on CODESYS, reported on TwinCAT, in what the client receives", () => {
+  const seen = (vendor: "codesys" | "twincat"): string[] => {
+    const store = new WorkspaceStore(resolveConfig({ vendor }))
+    store.seedDisk([{ uri: "C:/w/GVL.gvl", source: "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\nEND_VAR\n" }])
+    return [...new Set(store.workspace().flatMap((d) => documentDiagnostics(store, messagesFor(vendor), d).map((x) => x.message)))]
+  }
+  expect(seen("codesys")).toEqual([])
+  expect(seen("twincat")).toEqual(["';, :=, REF=, ( or [' expected instead of 'g_b'"])
+})

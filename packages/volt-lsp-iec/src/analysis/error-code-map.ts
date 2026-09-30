@@ -39,6 +39,7 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "unexpected-array-init": ["C0074", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0074.html"],
   "array-init-count": ["C0075", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0075.html"],
   "unexpected-struct-init": ["C0076", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0076.html"],
+  "unknown-type": ["C0077", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0077.html"],
   "fb-not-instantiated": ["C0080", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0080.html"],
   "orphan-conditional-pragma": ["C0081", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0081.html"],
   "var-in-interface": ["C0149", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0149.html"],

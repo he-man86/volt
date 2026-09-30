@@ -259,3 +259,19 @@ test("a missing statement `;` echoes the offending token back unless it could st
   expect(bodyErrors("here := 1 1;")).toEqual(["';' expected instead of '1'", "Unexpected token '1' found"])
   expect(bodyErrors("here := 1")).toEqual(["';' expected instead of end of POU"])
 })
+
+// `pwh_var_missing_semicolon` / `pwh_struct_missing_semicolon` (CODESYS SP21, 2026-09-30): a declaration whose type is
+// followed by neither `;` nor anything else a declaration may continue with names every one of them, at the token it
+// found — in a POU's VAR block and in a STRUCT alike. And the declaration it runs into is swallowed with it: the body's
+// `nSpeed := 1;` answers "Identifier 'nSpeed' not defined", so `nSpeed : INT;` declared nothing.
+test("a declaration missing its `;` after the type: CODESYS's list of what may follow, and the next one is swallowed", () => {
+  const fb = "FUNCTION_BLOCK F\nVAR\n\tnPos : INT\n\tnSpeed : INT;\n\tnOk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
+  expect(messages(fb)).toEqual(["';, :=, REF=, ( or [' expected instead of 'nSpeed'"])
+  const unit = parseSource(fb).units[0] as { varSections: { decls: VarDecl[] }[] }
+  expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["nPos", "nOk"])
+  const struct = "TYPE T :\nSTRUCT\n\tnPos : INT\n\tnSpeed : INT;\nEND_STRUCT\nEND_TYPE\n"
+  expect(messages(struct)).toEqual(["';, :=, REF=, ( or [' expected instead of 'nSpeed'"])
+  // …and never past the END of the list, which is also where the measurement stops: it is a NAME where the `;`
+  // belonged. Before END_VAR the wording is unmeasured and stays what it was.
+  expect(messages("FUNCTION_BLOCK F\nVAR\n\tnPos : INT\nEND_VAR\nEND_FUNCTION_BLOCK\n")).toEqual(["';' expected instead of 'END_VAR'"])
+})

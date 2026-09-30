@@ -15,6 +15,7 @@ import { bodies } from "../../../symbols/index.js"
 import { inferExprType, resolveMemberChain } from "../../../types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { unknownTypeName } from "../../resolution.js"
 
 // `interface` is here so C0035 cedes the INTERFACE case to `fb-instantiation`, which has the IDE's own two messages
 // for it — "Cannot call object of type 'INTERFACE'" and "Interface '…' must be instantiated to be accessed"
@@ -35,6 +36,16 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
       if (sym === undefined || CALLABLE_KINDS.has(sym.kind)) return // unresolved or a real callable → skip
       if (sym.kind === "gvl_block") {
         out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("VAR_GLOBAL") })
+        return
+      }
+      // An instance of a type NOTHING DECLARES is no instance either: CODESYS adds C0035 beside the declaration's
+      // "Unknown type" (`pwh_unclosed_comment_fb`, 2026-09-30, both vendors). The same verdict as `unknown-type`, so
+      // a type the LSP merely cannot see — the library floor — stays possibly-callable below. On TwinCAT the verdict is
+      // `dialectMissingType`'s (a CODESYS-only elementary type, "Unknown type: 'LDATE'", `xf_date_to_ldate`), and the
+      // call rule is TwinCAT's too: `pwh_unclosed_comment_fb` and `cc5_deprecated_functionblock_keyword` record C0035
+      // beside "Unknown type" there.
+      if (unknownTypeName(ctx.project, sym.typeExpr) !== undefined) {
+        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee)) })
         return
       }
       // A value whose type is a KNOWN non-callable kind → C0035. An unknown/library/FB type → skip (zero-FP).

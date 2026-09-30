@@ -68,7 +68,12 @@ function extForKind(kind: string): string {
   return ext
 }
 
-function splitItems(source: string, pouName: string, gvlNames?: readonly string[], kind?: string): { wire: string; src: string }[] {
+function splitItems(f: { source: string; pouName: string; gvlNames?: readonly string[]; kind: string; asSent?: string }): { wire: string; src: string }[] {
+  const { source, pouName, gvlNames, kind } = f
+  // AS SENT: the source is ONE item's text, and the text is the question — a never-closed `(*`, an empty or prose
+  // text, a text of another kind than its extension (`openspec/changes/push-without-header-check`). The parser would
+  // find no unit to split or mark in most of them, so it is not asked: the push takes the kind from the extension.
+  if (f.asSent !== undefined) return [{ wire: `${kind === "gvl" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`, src: source }]
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
   const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
@@ -239,10 +244,81 @@ const fixtureItems = new Set(
     ...(t.gvlNames ?? []).map((g) => `${g}.gvl`),
   ]),
 )
-const orphans = Object.keys(refs0.items).filter((n) => fixtureItems.has(n))
+/**
+ * DELETE THE ITEMS PUSHED AS `wires`, WHEREVER THE IDE NOW HOLDS THEM.
+ *
+ * An item pushed as `X.ext` is not always held as `X.ext` afterwards, since the push writes a top-level text as sent
+ * (`openspec/changes/push-without-header-check`, measured live 2026-09-30):
+ *   - CODESYS makes an `.fb` whose text says PROGRAM a program, and `refs` names it `X.prg` (DIALECT C2f);
+ *   - a DUT whose text states no subtype (a never-closed `(*`, an empty or prose text) and a GVL holding a retired
+ *     `(* @volt-… *)` comment are in the project but listed under `unreadable` by bare name, and only a FORCED push
+ *     deletes one (a plain delete is refused UNREADABLE).
+ * So each is looked up under its own name first, then under a name the IDE may publish that one object under — the
+ * engine's `PushedText.MayBeHeldAs`: the same bare name and another kind of the SAME FAMILY (POU ↔ POU, DUT ↔ DUT) —
+ * then, for a DUT or a GVL, in `unreadable`. A bare-name match of any OTHER kind is another item (`X.fb` beside
+ * `X.visualization` is legitimate) and is never touched. `before` is the project as it stood before the push: what it
+ * already held is not the push's to delete — a refused push leaves only that, and a match there is someone else's.
+ */
+const FAMILY: Readonly<Record<string, "pou" | "dut">> = {
+  fb: "pou",
+  prg: "pou",
+  fun: "pou",
+  struct: "dut",
+  enum: "dut",
+  union: "dut",
+  alias: "dut",
+}
+const extOf = (n: string): string => n.slice(n.lastIndexOf(".") + 1)
+const bareOf = (n: string): string => n.slice(0, n.lastIndexOf(".")).toLowerCase()
+function mayBeHeldAs(pushed: string, held: string): boolean {
+  const family = FAMILY[extOf(pushed)]
+  return pushed !== held && family !== undefined && FAMILY[extOf(held)] === family && bareOf(pushed) === bareOf(held)
+}
+/** The kinds a push may leave listed only as `unreadable` (measured 2026-09-30: a DUT with no subtype, a GVL). */
+const MAY_BE_UNREADABLE = new Set(["struct", "enum", "union", "alias", "gvl"])
+
+interface Held {
+  items: ReadonlySet<string>
+  unreadable: ReadonlySet<string>
+}
+const heldIn = (r: { items: Record<string, unknown>; unreadable?: string[] }): Held => ({
+  items: new Set(Object.keys(r.items)),
+  unreadable: new Set((r.unreadable ?? []).map((n) => n.toLowerCase())),
+})
+
+async function removeItems(wires: readonly string[], before: Held): Promise<void> {
+  const r = await refs()
+  const now = heldIn(r)
+  const ops: unknown[] = []
+  let force = false
+  for (const wire of wires) {
+    const held = (now.items.has(wire) ? [wire] : [...now.items].filter((n) => mayBeHeldAs(wire, n))).filter(
+      (n) => !before.items.has(n),
+    )
+    for (const n of held) ops.push({ op: "deleteItem", name: n, ifVersion: r.items[n] })
+    const bare = bareOf(wire)
+    if (held.length === 0 && MAY_BE_UNREADABLE.has(extOf(wire)) && now.unreadable.has(bare) && !before.unreadable.has(bare)) {
+      ops.push({ op: "deleteItem", name: wire, ifVersion: null })
+      force = true
+    }
+  }
+  if (ops.length === 0) return
+  const p = await call("push", { expectedProjectVersion: r.projectVersion, force, ops })
+  if (!p.accepted) throw new Error(`could not delete ${JSON.stringify(wires)}: ${JSON.stringify(p.conflicts ?? p)}`)
+}
+
+const orphans = [
+  // a fixture wire held under its own name OR under the kind the IDE re-typed it to (`X.fb` held as `X.prg`, DIALECT
+  // C2f) — keyed on the exact names alone, a killed run's re-typed leftover was never swept, and since it then sat in
+  // every later fixture's `before`, never deleted after that fixture either
+  ...[...fixtureItems].filter((w) => Object.keys(refs0.items).some((n) => n === w || mayBeHeldAs(w, n))),
+  // an unreadable one is listed by BARE name; any fixture wire with that bare name reaches it
+  ...[...fixtureItems].filter((w) => (refs0.unreadable ?? []).some((u: string) => u.toLowerCase() === w.slice(0, w.lastIndexOf(".")).toLowerCase())),
+]
 if (orphans.length > 0) {
   console.log(`sweeping ${orphans.length} orphan(s) left by an earlier killed run: ${orphans.join(', ')}`)
-  for (const n of orphans) await pushOps([{ op: "deleteItem", name: n, ifVersion: await version(n) }])
+  // every one is a fixture's own name, so none of them is the project's: nothing counts as held before
+  await removeItems(orphans, { items: new Set(), unreadable: new Set() })
 }
 
 async function setPlcPrg(src: string): Promise<void> {
@@ -304,7 +380,8 @@ for (const t of ALL_TESTS) {
   // exactly as the replay's cross-fixture project lets it. Those must be in the IDE too, or the build records nothing
   // but the fallout of their absence ("Unknown type: 'DUT_XO_tally'"), which is not the fixture's ground truth at all.
   // `withDependencies` names them, dependencies first, as the execution recorder already does.
-  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f.source, f.pouName, f.gvlNames, f.kind)).map((it) => [it.wire, it])).values()]
+  const items = [...new Map(withDependencies(t, ALL_TESTS).flatMap((f) => splitItems(f)).map((it) => [it.wire, it])).values()]
+  const before = heldIn(await refs())
   try {
     await pushOps(items.map((it) => ({ op: "set", name: it.wire, toFolder: plcFolder, sourceText: it.src, ifVersion: null })))
     if (t.plcPrgVar !== undefined || t.plcPrgBody !== undefined) {
@@ -323,7 +400,7 @@ for (const t of ALL_TESTS) {
     console.warn(`  ${t.name}: ERROR ${(e as Error).message}`)
   } finally {
     // restore: delete every item this fixture created, put PLC_PRG back
-    for (const it of items) await pushOps([{ op: "deleteItem", name: it.wire, ifVersion: await version(it.wire) }])
+    await removeItems(items.map((it) => it.wire), before)
     if (plcOriginal !== undefined) await setPlcPrg(plcOriginal)
   }
   if (++done % 25 === 0) {

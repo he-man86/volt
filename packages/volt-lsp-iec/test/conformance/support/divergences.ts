@@ -126,6 +126,34 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
+    //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
+    //   reproduce, each for a reason that is not a rule to implement from what was measured:
+    //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers
+    //                            read it as more declarations and word the error from their own recovery ("VAR_GLOBAL
+    //                            or VAR_CONFIG expected instead of a:;" quotes a declaration CODESYS rebuilt from the
+    //                            prose), and the two vendors recover differently from each other. One shape each —
+    //                            too little to read a rule from. The LSP's "unexpected identifier 'a' at file scope"
+    //                            is NO vendor's message: an LSP-only message, a false positive by the parity rule,
+    //                            left standing (an error where the build fails) until more shapes are measured.
+    //   `hdr_function_extends`, `hdr_function_implements` — a return type AFTER the clause (`FUNCTION F EXTENDS B : INT`).
+    //                            Both vendors close the header at the clause and cascade seven messages from the `:`,
+    //                            one of them echoing the call as `F(x := INT#2)`. The LSP reads the clause where they
+    //                            do and the return type after it, so it gives the clause's own message (their
+    //                            `_no_return` twins agree exactly) and nothing of its own — a subset, not the cascade
+    //                            (`header-rules.test.ts`).
+    //   …and the six whose answer is "Unknown type": the LSP has no standing to say that on TwinCAT, whose `References/`
+    //                            materialization lacks types its compiler knows (External Types, `ST_LibVersion` —
+    //                            `analysis/resolution.ts` `unknownTypeName`). CODESYS agrees on all six.
+    "pwh_struct_then_prose",
+    "pwh_gvl_then_prose",
+    "hdr_function_extends",
+    "hdr_function_implements",
+    "pwh_unclosed_comment_struct",
+    "pwh_unclosed_comment_enum",
+    "pwh_unclosed_comment_fb",
+    "pwh_empty_struct",
+    "pwh_prose_struct",
+    "pwh_prose_then_struct",
     "cc2_var_in_interface",
     "itf_var_section_declaration",
     "itf_var_section_inherited",
@@ -211,6 +239,25 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            What actually separates every one of these is REACHABILITY, which a per-file
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
+    //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
+    //   reproduce, each for a reason that is not a rule to implement from what was measured:
+    //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers
+    //                            read it as more declarations and word the error from their own recovery ("VAR_GLOBAL
+    //                            or VAR_CONFIG expected instead of a:;" quotes a declaration CODESYS rebuilt from the
+    //                            prose), and the two vendors recover differently from each other. One shape each —
+    //                            too little to read a rule from. The LSP's "unexpected identifier 'a' at file scope"
+    //                            is NO vendor's message: an LSP-only message, a false positive by the parity rule,
+    //                            left standing (an error where the build fails) until more shapes are measured.
+    //   `hdr_function_extends`, `hdr_function_implements` — a return type AFTER the clause (`FUNCTION F EXTENDS B : INT`).
+    //                            Both vendors close the header at the clause and cascade seven messages from the `:`,
+    //                            one of them echoing the call as `F(x := INT#2)`. The LSP reads the clause where they
+    //                            do and the return type after it, so it gives the clause's own message (their
+    //                            `_no_return` twins agree exactly) and nothing of its own — a subset, not the cascade
+    //                            (`header-rules.test.ts`).
+    "pwh_struct_then_prose",
+    "pwh_gvl_then_prose",
+    "hdr_function_extends",
+    "hdr_function_implements",
     "sn_dut_mismatch_used",
     "cc5_pointer_not_convertible",
     "cc5_new_in_expression",

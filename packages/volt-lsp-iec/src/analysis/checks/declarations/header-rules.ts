@@ -7,6 +7,7 @@
  *   C0144 inheritance-not-allowed    — `EXTENDS` on an enum/alias DUT (inheritance is FB/interface/struct only).
  *   C0542 union-inheritance          — `EXTENDS` on a UNION DUT (unions cannot inherit).
  *   C0145 function-implements        — `IMPLEMENTS` on a FUNCTION (only FBs implement interfaces).
+ *   base-class-not-found              — `EXTENDS` on a FUNCTION: a function has no base class, so none is found.
  *   property-without-accessor        — a PROPERTY declaring neither GET nor SET, which nothing can use (a WARNING;
  *          conformance `interface_with_property`).
  *
@@ -81,6 +82,17 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
         source: SOURCE,
         code: "function-implements",
         message: ctx.messages.functionImplements(),
+      })
+    }
+    // A FUNCTION's EXTENDS: a function has no base class, so none is ever found — even a function block of that name
+    // (conformance `hdr_function_extends_no_return`, CODESYS SP21 2026-09-30).
+    if (unit.kind === "function" && unit.extendsMisused !== undefined) {
+      out.push({
+        severity: "error",
+        span: unit.extendsMisused.span,
+        source: SOURCE,
+        code: "base-class-not-found",
+        message: ctx.messages.baseClassNotFound(unit.extendsMisused.text),
       })
     }
     if (unit.kind === "type_decl" && unit.extendsMisused !== undefined) {

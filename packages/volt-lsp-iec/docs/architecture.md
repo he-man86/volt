@@ -43,7 +43,10 @@ A  syntax        tokens · lexer · complete AST · parser + treewalker
 Tokens, lexer (error-tolerant, trivia-preserving), the **complete AST** (declarations · type expressions with
 structured dims/length/subrange/vector · statements · expressions · literals carrying value + type), and the
 parser + treewalker. Contract: `parse(source) → { units, diagnostics }`; a body materializes to a statement
-tree or a graphical marker. No semantics here. Modern parser concerns: **incremental re-parse** of the edited
+tree or a graphical marker. No semantics here. A WORKSPACE file is parsed as the object its extension names
+(`parseDocument(uri, …)`, `source-object.ts`): a DUT's or a GVL's text is written to the IDE as sent, so it is read as
+the IDE reads it — nothing is declared (and nothing reported) unless the text opens with TYPE / VAR_GLOBAL, and Volt's
+POU-only file-format rules (the IMPLEMENTATION line, the retired `@volt-` comment) do not apply. Modern parser concerns: **incremental re-parse** of the edited
 region (perf on large files, paired with the server's incremental sync); **error-recovery nodes** in the tree
 so completion/navigation still work inside a broken region. Design call: the tree is an AST + `BodySpan` trivia,
 NOT a fully-lossless CST — enough for round-trip/formatting without the CST's weight (revisit only if

@@ -12,7 +12,7 @@
  */
 import { TextDocument } from "vscode-languageserver-textdocument"
 import { fileURLToPath } from "node:url"
-import { type Document, parseSource, type Span } from "../syntax/index.js"
+import { type Document, parseDocument, type Span } from "../syntax/index.js"
 import { buildSymbolTable, bindFile, unbindFile, linkExtends, type Scope } from "../symbols/index.js"
 import {
   deadPousFromInfos,
@@ -90,7 +90,7 @@ export class WorkspaceStore {
     const hit = this.cache.get(key)
     if (hit !== undefined && hit.version === td.version) return hit.doc
     const source = td.getText()
-    const doc: Document = { uri: td.uri, source, parseResult: parseSource(source, this.config.vendor) }
+    const doc: Document = { uri: td.uri, source, parseResult: parseDocument(td.uri, source, this.config.vendor) }
     this.cache.set(key, { version: td.version, doc })
     return doc
   }
@@ -260,7 +260,7 @@ export class WorkspaceStore {
   seedDisk(files: readonly { uri: string; source: string }[]): void {
     this.disk.clear()
     for (const f of files)
-      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseSource(f.source, this.config.vendor) })
+      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseDocument(f.uri, f.source, this.config.vendor) })
     this.projectScope = undefined
     this.boundDocs.clear()
     this.cachedDead = undefined // wholesale reseed ⇒ the dead caches + their snapshot are stale

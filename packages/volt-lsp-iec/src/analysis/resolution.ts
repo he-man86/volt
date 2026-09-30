@@ -15,7 +15,7 @@
  * in a project that does not reference its library it is the unknown name CODESYS says it is.
  */
 import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../syntax/index.js"
-import { CODESYS_ONLY_TYPES } from "../types/index.js"
+import { ANY_FAMILIES, CODESYS_ONLY_TYPES } from "../types/index.js"
 import { lookupReference } from "../reference/index.js"
 import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
 import { inferExprType, parseConversionName } from "../types/index.js"
@@ -232,4 +232,47 @@ export function dialectMissingType(project: Scope, t: TypeExpr | undefined): str
   // the same name, and the one that speaks is the one that is wrong.
   if (lookupLocal(project, name).length > 0) return undefined
   return renderTypeExpr(t)
+}
+
+/**
+ * The name a declared type spells that NOTHING DECLARES — "Unknown type: '<name>'" (C0077) — or `undefined` when the LSP
+ * has no standing to say so.
+ *
+ * <p>Measured on CODESYS SP21 and identical on TwinCAT (2026-09-30, conformance `objects/written-as-sent.ts`): an FB or
+ * a DUT whose object's text declares nothing — a never-closed `(*`, an empty or a prose text — leaves every
+ * declaration of its name with this error. It is the same bet `nameResolves` makes for an identifier one function up:
+ * a library's element resolves through the scope, from its materialized declaration, so a BARE name that nothing in
+ * the project, no referenced library and no compiler built-in declares is the unknown name CODESYS says it is.</p>
+ *
+ * <p>Deliberately narrow where it is unmeasured: only a bare named type — a namespace-qualified name (`Lib.T`) is the
+ * library floor, and a wrapper around an unknown name (`ARRAY OF X`, `POINTER TO X`) is a different shape nobody has
+ * recorded. A name some symbol DOES carry is left alone even when that symbol is no type: that is a different
+ * error, not this one. A CODESYS-only elementary type on TwinCAT is `dialectMissingType`'s.</p>
+ *
+ * <p>CODESYS ONLY, and measured so: TwinCAT answers the same message for the same shapes, but its library
+ * materialization (`References/`) does not carry every type its compiler knows — the External Types (`HRESULT`,
+ * `PVOID`, `OTCID`) and Tc2_System's `ST_LibVersion` are declared in no file (corpus `twincat-project14`, whose own
+ * library GVLs declare globals of them). There, "nothing declares it" is not something the LSP can know.</p>
+ */
+/**
+ * The compilers' own NAMED types that are no elementary type and no library's — `docs/codesys-reference/06-data-types.md`,
+ * read section by section: `ANY` (its `ANY_<type>` families are `ANY_FAMILIES`) and `VERSION`, the project-information
+ * struct both vendors build without any library (conformance `type_codesys_version`). `BIT` and `__UXINT`/`__XINT`/
+ * `__XWORD` are elementary; `__VECTOR`, `POINTER TO`, `REFERENCE TO` and `ARRAY OF` are no bare name.
+ */
+const BUILTIN_NAMED_TYPES: ReadonlySet<string> = new Set(["ANY", "VERSION"])
+
+export function unknownTypeName(project: Scope, t: TypeExpr | undefined): string | undefined {
+  const dialect = dialectMissingType(project, t)
+  if (dialect !== undefined) return dialect
+  if (project.dialect !== "codesys") return undefined
+  if (t?.kind !== "named_type" || t.subrange !== undefined || (t.qualifiers?.length ?? 0) > 0) return undefined
+  const name = t.name.text
+  const upper = name.toUpperCase()
+  if (name.startsWith("__") || lookupReference(name) !== undefined || ANY_FAMILIES.has(upper) || BUILTIN_NAMED_TYPES.has(upper)) return undefined
+  // a name the compiler provides resolves here as it does in `nameResolves` — bare TYPE_CLASS is a type CODESYS builds
+  // clean (conformance `op_sys_type_class_bare`), so the two verdicts about one name may not differ
+  if (COMPILER_PROVIDED_IMPLICITS.has(name.toLowerCase())) return undefined
+  if (lookupLocal(project, name).length > 0) return undefined
+  return name
 }

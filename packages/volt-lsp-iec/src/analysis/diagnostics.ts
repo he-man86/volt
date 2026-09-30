@@ -69,7 +69,7 @@ import { checkExternalNonInputWrite } from "./checks/oop/external-write.js"
 import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkConditionalCall } from "./checks/names/conditional-call.js"
-import { checkDialectType } from "./checks/declarations/dialect-type.js"
+import { checkUnknownType } from "./checks/declarations/unknown-type.js"
 import { checkSystemInitializer } from "./checks/declarations/system-initializer.js"
 import { checkDynamicCreation } from "./checks/declarations/dynamic-creation.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
@@ -197,7 +197,7 @@ const CHECKS: readonly Check[] = [
   checkInoutExternalAccess,
   checkInoutOwnAccess,
   checkConditionalCall,
-  checkDialectType,
+  checkUnknownType,
   checkSystemInitializer,
   checkDynamicCreation,
   checkFbInitInout,
@@ -259,7 +259,7 @@ const TWINCAT_ONLY: ReadonlySet<Check> = new Set<Check>([
   // component name belongs and leaves the width+index standing as its own statement (both recordings, all four
   // widths, 2026-09-21 — the `ARRAY[*]` cells beside it compile clean on both, which is what makes it a rule).
   checkPartialAccess,
-  // NOT `checkDialectType`, which looks like a sibling and is not: its rule lives in `dialectMissingType`, a
+  // NOT `checkUnknownType`, which looks like a sibling and is not: its TwinCAT rule lives in `dialectMissingType`, a
   // helper `unknown-source` also calls, so the vendor question has to be answered there anyway. Listing it here
   // as well would be two gates for one fact — which is the thing this table exists to stop.
 ])

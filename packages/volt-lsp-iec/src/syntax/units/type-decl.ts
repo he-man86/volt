@@ -32,7 +32,7 @@ import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { collectInitTokens, initializerFromTokens, parseExpression } from "../expression.js"
 import { identFromToken, joinSpans } from "../util.js"
-import { atVarSection } from "../var-section.js"
+import { atVarSection, endAfterType } from "../var-section.js"
 
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const start = c.expectKeyword("TYPE", "at start of TYPE block")
@@ -203,7 +203,7 @@ function parseStructField(c: Cursor): VarDecl | undefined {
   let init: VarDecl["init"]
   if (c.eatPunct(":=") !== undefined) init = initializerFromTokens(collectInitTokens(c))
 
-  const semi = c.expectPunct(";", "after struct field")
+  const semi = init === undefined ? endAfterType(c, "after struct field", false) : c.expectPunct(";", "after struct field")
   const endSpan = semi?.span ?? init?.span ?? type.span
   return {
     kind: "var_decl",

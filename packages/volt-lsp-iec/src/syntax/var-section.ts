@@ -60,6 +60,24 @@ const SECTION_KEYWORDS: readonly Keyword[] = [
   "VAR_GENERIC",
 ]
 
+/**
+ * The `;` that ends a declaration straight after its TYPE — where CODESYS, finding a NAME instead, lists everything a
+ * declaration may go on with: "';, :=, REF=, ( or [' expected instead of 'nSpeed'" (conformance
+ * `pwh_var_missing_semicolon` in a POU's VAR block, `pwh_struct_missing_semicolon` in a STRUCT — the same words). The
+ * declaration that name opens is swallowed with it, up to its `;`: the body's use of it answers "Identifier 'nSpeed'
+ * not defined". Only the measured shape — a name — is worded so; anything else is `expectPunct`'s as before, and the
+ * recovery never runs past the END of the list. In a VAR_GLOBAL list (`global`) the error carries that fact: CODESYS
+ * reports nothing for it there, TwinCAT the same words (`pwh_gvl_missing_semicolon`) — `ParseError.globalMissingSemicolon`.
+ */
+export function endAfterType(c: Cursor, context: string, global: boolean): Token | undefined {
+  const next = c.peek()
+  if (next.kind !== "identifier") return c.expectPunct(";", context)
+  const message = `';, :=, REF=, ( or [' expected instead of '${next.text}'`
+  c.pushParseError(global ? { message, span: next.span, globalMissingSemicolon: true } : { message, span: next.span })
+  c.recoverTo({ keywords: ["END_VAR", "END_STRUCT", "END_UNION"], puncts: [";"] })
+  return c.eatPunct(";")
+}
+
 /** Returns true if the next meaningful token starts a VAR section. */
 export function atVarSection(c: Cursor): boolean {
   const t = c.peek()
@@ -104,7 +122,7 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
     // Any OTHER non-name token is a reserved word used as a variable name (`Limit : INT;`) — a bad decl, not
     // an unterminated section. Fall through: `parseVarDecl` reports it on the name and recovers to the `;`.
     if (c.atDeclListEnd()) break
-    const decl = parseVarDecl(c)
+    const decl = parseVarDecl(c, sectionKind === "VAR_GLOBAL")
     if (decl !== undefined && decl !== "bad-name") {
       section.decls.push(decl)
     } else {
@@ -129,7 +147,7 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
  */
 type DeclFailure = "bad-name"
 
-function parseVarDecl(c: Cursor): VarDecl | DeclFailure | undefined {
+function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undefined {
   // `expectName` (not `expectIdent`): soft keywords like SET/GET/OVERRIDE are legal variable names — the
   // Standard `RS` FB literally declares `SET : BOOL`, and CODESYS accepts it.
   // The token that could not be a name is REMEMBERED, not just reported: a declaration that fails binds nothing,
@@ -203,7 +221,10 @@ function parseVarDecl(c: Cursor): VarDecl | DeclFailure | undefined {
     if (stray !== undefined) c.pushError(`';' expected instead of '${stray.text}'`, stray.span)
   }
 
-  const semi = c.expectPunct(";", "after var declaration")
+  const semi =
+    init === undefined && at === undefined
+      ? endAfterType(c, "after var declaration", global)
+      : c.expectPunct(";", "after var declaration")
   const endSpan = semi?.span ?? init?.span ?? at?.span ?? type.span
 
   return {

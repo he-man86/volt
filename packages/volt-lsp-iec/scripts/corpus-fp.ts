@@ -9,9 +9,9 @@
  *   bun scripts/corpus-fp.ts            # all checks
  *   bun scripts/corpus-fp.ts array      # only codes containing "array"
  */
-import { readdirSync, readFileSync, statSync } from "node:fs"
+import { readdirSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseSource } from "../src/syntax/index.js"
+import { parseDocument } from "../src/syntax/index.js"
 import { buildSymbolTable, isLibrarySymbol } from "../src/symbols/index.js"
 import {
   computeSemanticDiagnostics,
@@ -23,7 +23,7 @@ import {
 } from "../src/analysis/index.js"
 import { loadWorkspaceRefs, loadTaskRoots } from "../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { scanLibraryManifests } from "../src/workspace-refs.js"
+import { readSourceText, scanLibraryManifests } from "../src/workspace-refs.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const filter = process.argv[2]
@@ -44,8 +44,8 @@ for (const project of readdirSync(CORPUS)) {
   const dir = join(CORPUS, project)
   if (!statSync(dir).isDirectory()) continue
   const inputs = walk(dir).map((uri) => {
-    const source = readFileSync(uri, "utf8")
-    return { uri, source, parseResult: parseSource(source) }
+    const source = readSourceText(uri)
+    return { uri, source, parseResult: parseDocument(uri, source) }
   })
   const scope = buildSymbolTable(inputs, scanLibraryManifests(dir))
   const references = loadWorkspaceRefs(dir)

@@ -143,16 +143,86 @@ The push no longer refuses these shapes, so the IDE's build is the answer and th
 no less (an LSP-only message is a false positive). Each shape is a conformance fixture recorded LIVE with
 `bun run record:language` (and TwinCAT where it records), whose kind is the extension and whose source is the text.
 
-- [ ] 4.1 Fixtures + live recordings, CODESYS and TwinCAT: an unclosed opening `(*` in a DUT (struct), an enum, a GVL and
+- [x] 4.1 Fixtures + live recordings, CODESYS and TwinCAT: an unclosed opening `(*` in a DUT (struct), an enum, a GVL and
       an FB; an FB whose text declares `PROGRAM`; an empty struct; prose text under a struct; a struct whose body is an
       enum; a struct member named `IMPLEMENTATION`; a GVL holding a retired `(* @volt-… *)` comment. Record CODESYS's exact
       messages and lines (or that it builds clean).
-- [ ] 4.2 LSP: for each recorded error, the same diagnostic (message and line) — including the unclosed-comment case, where
+      (2026-09-30) `test/conformance/fixtures/objects/written-as-sent.ts`, 21 fixtures, each `asSent` (new `LanguageTest`
+      field: the source is ONE item's text, pushed verbatim under `pouName` + the kind's extension — the recorder no longer
+      parses/marks it) and referenced from PLC_PRG. The ten shapes above, plus the probes that find each RULE rather than
+      one answer: prose above / below a well-formed STRUCT and VAR_GLOBAL, a missing `;` in a STRUCT, a GVL and a POU VAR
+      block, an empty and a prose GVL, `.enum` holding a STRUCT, `.prg` holding a FUNCTION_BLOCK. Recorded live with
+      `record:language` (RECORD_ONLY) on CODESYS SP21 and TwinCAT (Project14), and `record:exec` for the six that build
+      and declare something. Messages: every unclosed-`(*`/empty/prose DUT → only PLC_PRG's `Unknown type: '<name>'`
+      (+ C0035 for `v()` on the FB); the GVL → `Identifier … not defined` + the conversion; FB-says-PROGRAM,
+      struct-holds-enum, member `IMPLEMENTATION`, retired-comment GVL, prose/empty GVL, enum-holds-struct,
+      prg-holds-FB → build clean. The rules: a DUT/GVL text that does not OPEN with TYPE / VAR_GLOBAL|VAR_CONFIG declares
+      nothing and draws no message; a missing `;` after a type is `';, :=, REF=, ( or [' expected instead of '<name>'`
+      and swallows the next declaration (CODESYS says nothing for it in a GVL; TwinCAT does). **Lines:** the recordings
+      carry `line: 0` for every message — the bridge publishes no position (see `codesys-imessage-position-api`), so
+      the gate compares messages; the colocated tests pin where each is reported. Recorder fixes this needed:
+      `record-language.ts` deletes an item where the IDE holds it (under its bare name when CODESYS re-typed it, forced
+      when `refs` lists it `unreadable`), sweeps unreadable orphans; `fixture-units.ts` loads a body that states its
+      `IMPLEMENTATION ST` line without the line (it was loaded as code: "',, AT or :' expected instead of 'ST'") and
+      refuses an as-sent text that is not one object.
+- [x] 4.2 LSP: for each recorded error, the same diagnostic (message and line) — including the unclosed-comment case, where
       the LSP reports nothing today; for each shape CODESYS builds clean, no diagnostic. Test-first (the fixtures are the
       acceptance test); `bun test test/conformance` and build-conformance green.
-- [ ] 4.3 The three stale notes in `packages/volt-lsp-iec/docs/codesys-reference/error-catalog.json` that describe the
+      (2026-09-30) Root causes, each with its colocated test: (a) `syntax/source-object.ts` + `parseDocument(uri, …)` — a
+      workspace file is read as the object its extension names; a DUT/GVL whose text does not open with its keyword
+      declares nothing and reports nothing, and the POU-only format rules (IMPLEMENTATION reserved, retired `@volt-`
+      comment) do not apply to a DUT/GVL — used by the workspace store, the replay, `evidence.ts`, the corpus
+      (`source-object.test.ts`; the server test that held an enum value named IMPLEMENTATION reserved changed premise
+      with the push's 2.1, as its C# twin did); (b) C0077 `Unknown type: '<name>'` for a bare declared type nothing
+      declares, and C0035 for calling its instance — `unknownTypeName` in `analysis/resolution.ts`, `dialect-type.ts`
+      generalized into `declarations/unknown-type.ts`, mapped to C0077 (catalog entry `implemented`); CODESYS only —
+      TwinCAT's `References/` lacks types its compiler knows (External Types, `ST_LibVersion`), so on TwinCAT six
+      fixtures are known divergences with that reason (`unknown-type.test.ts`); (c) the missing-`;` wording and
+      recovery (`var-section.ts endAfterType`, `parser.test.ts`); (d) `FUNCTION … EXTENDS` parsed and answered
+      "No definition found for base class" (`header-rules.test.ts`); (e) C0145 in TwinCAT's spelling "Functionblocks".
+      Known divergences with reasons (`support/divergences.ts`): CODESYS 5 (`pwh_struct_then_prose`,
+      `pwh_gvl_then_prose`, `hdr_function_extends`, `hdr_function_implements`, `pwh_gvl_missing_semicolon`), TwinCAT 10
+      (the first four + the six Unknown-type). Exact agreement CODESYS 2560 → 2582, TwinCAT 2546 → 2562 (floors raised);
+      no false positives on either. `bun test test/conformance` 4462 pass / 102 todo / 0 fail; `src` + catalog +
+      libraries 1505 pass / 0 fail; corpus 19 pass / 1 skip / 0 fail (the TwinCAT library GVLs drew C0077 only once it
+      was unmapped — mapped now). `rate:fixtures`: confirmed 2060, refused 567, not-lowered 102, lsp-gap 9, diverges 3,
+      unaskable 40, unasked 0. Two new fixtures rate `not-lowered` — `pwh_struct_member_implementation` and
+      `pwh_gvl_retired_volt_comment`: the transpiler parses the assembled fixture as no object, so the POU format rules
+      refuse it — transpiler work, not this step.
+      **Review fixes (2026-09-30):** (1) a file saved with a UTF-8 BOM declared nothing (the BOM stood before TYPE /
+      VAR_GLOBAL): the crawl now reads a source file as the push sends it, BOM removed (`workspace-refs.ts`
+      `readSourceText`, also the corpus loaders; `workspace-refs.test.ts`). (2) `FUNCTION F IMPLEMENTS I : INT` read
+      IMPLEMENTS only after the return type, so the rest of the file became body (LSP-only messages): both clauses are
+      read after the name (`function.ts`, `header-rules.test.ts`); `hdr_function_*` stay divergences with a true reason
+      (the LSP gives the clause's message, not the vendors' cascade). (3) a global missing its `;` is silent on CODESYS —
+      a vendor fact on the parse error (`ParseError.globalMissingSemicolon`), gated in `checkParseErrors` and the
+      server's parse-error stream; `pwh_gvl_missing_semicolon` left `KNOWN_DIVERGENCES.codesys`. `pwh_struct_then_prose`
+      / `pwh_gvl_then_prose` stay marked, and their reason now says the LSP's "unexpected identifier … at file scope" is
+      an LSP-only message (one shape each, no rule measured). (4) `record-language.ts` deletes only what the push added,
+      under a same-FAMILY name (`PushedText.MayBeHeldAs`) or, for a DUT/GVL, `unreadable` — never another kind's item.
+      (5) bare `TYPE_CLASS` measured: `op_sys_type_class_bare` builds clean on both vendors; `unknownTypeName` now
+      agrees with `nameResolves`. (6) `call_ldate_instance` recorded on both: TwinCAT gives "Unknown type: 'LDATE'" +
+      C0035, CODESYS C0035 — the LSP already answered both. (7) `sourceObjectOf` matches extensions exactly, as the
+      crawl and the CLI do. Floors: CODESYS 2585, TwinCAT 2564. `rate:fixtures`: refused 568, not-lowered 103
+      (`op_sys_type_class_bare` — the transpiler does not know TYPE_CLASS), unasked 0.
+- [x] 4.3 The three stale notes in `packages/volt-lsp-iec/docs/codesys-reference/error-catalog.json` that describe the
       bridge refusing with "Unrecognized code header" (FUNCTION EXTENDS, FUNCTION IMPLEMENTS, VAR block in an INTERFACE):
       re-record them live and correct them.
+      (2026-09-30) Re-recorded as conformance fixtures on both vendors (`fixtures/oop/header-rules.ts`: `hdr_function_extends`
+      and `_implements`, each with and without a return type after the clause, and `hdr_interface_var_input` reached through
+      an implementing FB), and the three notes rewritten to what was recorded. `scripts/verify-catalog.ts` was NOT used: it
+      pushes texts with no IMPLEMENTATION line and synthesizes `PLC_PRG` on TwinCAT, and a report-only run answered for
+      neither vendor's real build — so the entries' `*Actual`/`verified` fields are left as that script wrote them, and the
+      notes say so. That script is stale tooling to fix or delete on its own.
+
+**Gate (2026-09-30):** typecheck green (5 packages); root lint (oxlint) 0 errors; `bun run check` 14 pass / 0 fail.
+`rate:fixtures` re-run: 2783 fixtures, `map.generated.ts` byte-identical to the tree (confirmed 2060, refused 568,
+not-lowered 103, lsp-gap 9, diverges 3, unaskable 40; edge agree 2109 / disagree 0). volt-lsp-iec full `bun test`:
+6179 tests, 5997 pass / 34 skip / 148 todo / **0 fail**; exact agreement CODESYS 2585/2783, TwinCAT 2564/2783 (= the
+raised floors). Consumers on the rebuilt LSP dist: volt-control 115 / 0 fail, volt-desktop 25, volt-vscode 37.
+Pre-existing, not this step (files unmodified since before the change): the package `lint` layering check flags
+`services/structure/semantic-tokens.ts → network/network-analyze.js`, and `bun run build` reports `Bun` /
+`import.meta.dir` type errors in `test/conformance/support/{rustc,transpile-confidence,fixture-units}.ts` (it emits).
 
 ## 5. Pull reads the kind from the IDE object, never from the text (found by bridge-refusal-review, 2026-09-29)
 

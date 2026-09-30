@@ -35,14 +35,31 @@ import { parseTypeDecl } from "./units/type-decl.js"
 import { describeToken, readFolderLine, reportMisplacedFolder } from "./util.js"
 import { unitBodies } from "./bodies.js"
 import { opensKeywordLine, reportReservedNames, reportRetiredComments } from "./implementation-keyword.js"
+import { isTrivia } from "./tokens.js"
+import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } from "./source-object.js"
 
-/** Convenience wrapper — parse source text directly. `dialect` is the lexer's vocabulary; see `lex`. */
-export function parseSource(src: string, dialect: Dialect = "codesys"): ParseResult {
-  return parse(lex(src, dialect))
+/**
+ * Convenience wrapper — parse source text directly. `dialect` is the lexer's vocabulary; see `lex`. `object` is what
+ * the file holds when it is a workspace file (`sourceObjectOf`); text that is no workspace file passes none.
+ */
+export function parseSource(src: string, dialect: Dialect = "codesys", object?: SourceObject): ParseResult {
+  return parse(lex(src, dialect), object)
+}
+
+/** A WORKSPACE FILE, read as the object its extension names (`source-object.ts`). */
+export function parseDocument(uri: string, src: string, dialect: Dialect = "codesys"): ParseResult {
+  return parseSource(src, dialect, sourceObjectOf(uri))
 }
 
 /** Parse a stream of tokens into one or more top-level units. */
-export function parse(tokens: readonly Token[]): ParseResult {
+export function parse(tokens: readonly Token[], object?: SourceObject): ParseResult {
+  // A DUT or a GVL whose text does not OPEN with its keyword declares nothing, and the IDE says nothing about it
+  // (`source-object.ts`): there is no declaration to read and no error to give.
+  if (isWrittenAsSent(object)) {
+    const first = tokens.find((t) => !isTrivia(t.kind))
+    if (first?.keyword === undefined || !OPENING_KEYWORDS[object].includes(first.keyword))
+      return { units: [], errors: [], failedDeclarations: [] }
+  }
   const c = new Cursor(tokens)
   const units: TopLevel[] = []
 
@@ -69,8 +86,11 @@ export function parse(tokens: readonly Token[]): ParseResult {
     }
   }
 
-  reportReservedNames(tokens, claimedKeywordLines(units), (message, span) => c.pushError(message, span))
-  reportRetiredComments(tokens, (message, span) => c.pushError(message, span))
+  // The file format's POU rules — a DUT's or a GVL's text is written as sent and claims none of them
+  if (!isWrittenAsSent(object)) {
+    reportReservedNames(tokens, claimedKeywordLines(units), (message, span) => c.pushError(message, span))
+    reportRetiredComments(tokens, (message, span) => c.pushError(message, span))
+  }
   return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations() }
 }
 

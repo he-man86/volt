@@ -193,6 +193,16 @@ export interface LanguageTest {
     notes?: readonly string[]
   }
   /**
+   * THE SOURCE IS ONE ITEM'S TEXT, PUSHED AS SENT — the reason, in its own words. Without it the recorder PARSES the
+   * source into one item per top-level unit and writes an `IMPLEMENTATION ST` line where the parser says each body
+   * starts; with it the whole `source` is pushed verbatim as ONE item named `pouName` (a GVL: `gvlNames[0]`) under
+   * the extension of `kind` — the push takes the kind from the extension and never reads the header
+   * (`openspec/changes/push-without-header-check`). It exists for a text the parser cannot split, because the text IS
+   * the question: a never-closed `(*`, an empty or prose text, a text of another kind than its extension. Such a
+   * text states its own `IMPLEMENTATION ST` line where it has a body, as a workspace file does.
+   */
+  asSent?: string
+  /**
    * The object NAME of each VAR_GLOBAL block in `source`, in order. A GVL names nothing in its own text, so one is
    * named after `pouName` — which is fine for a fixture with a single list and wrong for one with two, where both
    * objects would collide on the wire. A fixture that needs two lists declaring the SAME global (the only way to

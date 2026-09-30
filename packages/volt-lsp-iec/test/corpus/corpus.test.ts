@@ -43,6 +43,7 @@ import { DiagnosticSeverity } from "vscode-languageserver-protocol"
 import {
   isGraphicalBody,
   isStBody,
+  parseDocument,
   parseSource,
   parseStatements,
   type BodySpan,
@@ -249,7 +250,7 @@ function pass(): Pass {
     const dir = join(CORPUS, projectName)
     const parsed = walkSources(dir).map((file) => {
       const source = readFileSync(file, "utf8")
-      return { file, source, parseResult: parseSource(source) }
+      return { file, source, parseResult: parseDocument(file, source) }
     })
     p.files += parsed.length
 

@@ -72,3 +72,55 @@ test("C0145: IMPLEMENTS on a FUNCTION is flagged; a bare FUNCTION is fine", () =
   ])
   expect(msgs(`FUNCTION F : INT\nVAR\nEND_VAR\nEND_FUNCTION`, "function-implements")).toEqual([])
 })
+
+/** Every error the analysis gives `own`, in a project of `own` and `others` — whole, not filtered by code. */
+const allErrors = (own: { uri: string; source: string }, others: { uri: string; source: string }[]): string[] => {
+  const files = [own, ...others].map((f) => ({ ...f, parseResult: parseSource(f.source) }))
+  const project = buildSymbolTable(files)
+  return computeSemanticDiagnostics({ parseResult: files[0]!.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
+    .filter((d) => d.severity === "error")
+    .map((d) => d.message)
+}
+
+// `hdr_function_extends_no_return` (CODESYS SP21, 2026-09-30 — push-without-header-check 4.3): a FUNCTION reads an
+// EXTENDS clause and answers that the base does not exist, although `FB_LANG_oop_base` does — as a function block. A
+// function has no base CLASS, so none is ever found. Nothing else is reported, the call included.
+test("a FUNCTION that EXTENDS: its base class is never found, even one that exists", () => {
+  const base = { uri: "FB_Base.fb", source: "FUNCTION_BLOCK FB_Base\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" }
+  const f = { uri: "F_Ext.fun", source: "FUNCTION F_Ext EXTENDS FB_Base\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
+  expect(allErrors(f, [base])).toEqual(["No definition found for base class 'FB_Base'"])
+})
+
+// `hdr_function_implements_no_return` on TwinCAT (2026-09-30): the same rule in TwinCAT's own spelling — the catalog's
+// `twincatActual` for C0145 had it since 2026-07-11, and it is the one word that differs.
+test("C0145 on TwinCAT: 'Functionblocks', as TwinCAT writes it", () => {
+  const src = "FUNCTION F_Impl IMPLEMENTS ITF_A\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n"
+  const parseResult = parseSource(src)
+  const project = buildSymbolTable([{ uri: "F_Impl.fun", parseResult, source: src }], [], "twincat")
+  const got = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
+    .filter((d) => d.code === "function-implements")
+    .map((d) => d.message)
+  expect(got).toEqual(["Interfaces can only be implemented by Functionblocks"])
+})
+
+// `hdr_function_implements` / `hdr_function_extends` (both vendors, 2026-09-30): a return type AFTER the clause. Both
+// vendors read the clause where they read an FB's — straight after the name — and then cascade from the `:`; the LSP
+// reads the clause at the same place and the return type after it, so it gives the clause's own message and NOTHING the
+// vendors do not (the cascade is theirs alone — a known divergence). It read IMPLEMENTS only after the return type,
+// left `: INT` unread, and the rest of the file became body: two "IMPLEMENTATION line inside a body" errors, a parse
+// error on the `:`, and "requires exactly '0' inputs" at every call — none of them any vendor's.
+test("a clause before the return type is read whole: only the clause's own message, on the unit and at the call", () => {
+  const itf = { uri: "ITF_A.itf", source: "INTERFACE ITF_A\nEND_INTERFACE\n" }
+  const base = { uri: "FB_Base.fb", source: "FUNCTION_BLOCK FB_Base\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" }
+  const caller = (f: string) => ({
+    uri: "PLC_PRG.prg",
+    source: `PROGRAM PLC_PRG\nVAR\n\tnOut : INT;\nEND_VAR\nIMPLEMENTATION ST\nnOut := ${f}(2);\nEND_PROGRAM\n`,
+  })
+  const impl = { uri: "F_Impl.fun", source: "FUNCTION F_Impl IMPLEMENTS ITF_A : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Impl := x;\nEND_FUNCTION\n" }
+  const ext = { uri: "F_Ext.fun", source: "FUNCTION F_Ext EXTENDS FB_Base : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Ext := x;\nEND_FUNCTION\n" }
+  expect(parseSource(impl.source).errors.map((e) => e.message)).toEqual([])
+  expect(allErrors(impl, [itf, caller("F_Impl")])).toEqual(["Interfaces can only be implemented by function blocks"])
+  expect(allErrors(caller("F_Impl"), [impl, itf])).toEqual([])
+  expect(allErrors(ext, [base, caller("F_Ext")])).toEqual(["No definition found for base class 'FB_Base'"])
+  expect(allErrors(caller("F_Ext"), [ext, base])).toEqual([])
+})

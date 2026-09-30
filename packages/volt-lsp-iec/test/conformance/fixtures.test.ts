@@ -40,7 +40,7 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiteral, parseSource } from "../../src/syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiteral, parseDocument, parseSource } from "../../src/syntax/index.js"
 import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
@@ -1528,7 +1528,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2539 -> 2546 (2026-09-27): network text v2 (openspec network-text-literal-nwl 5.6). TwinCAT reports a JMP to a
   // missing label after all (census 1.15 — the silence measured 2026-07-07 was of v1 text), and the label checks
   // follow the recorded builds: four new label fixtures, each recorded live on both vendors.
-  { vendor: "twincat", floor: 2546 },
+  // 2546 -> 2562 (2026-09-30): push-without-header-check 4.1/4.2 — the texts the push now writes as sent, recorded on
+  // both vendors: a DUT/GVL read as the IDE reads it (nothing before its keyword), a declaration missing its `;` in
+  // CODESYS's own words, a FUNCTION's EXTENDS, and C0145 in TwinCAT's spelling.
+  // 2562 -> 2564 (2026-09-30, the step's review): `op_sys_type_class_bare` and `call_ldate_instance`, recorded live —
+  // the second pins C0035 beside "Unknown type: 'LDATE'" for a call of a CODESYS-only type's instance.
+  { vendor: "twincat", floor: 2564 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1609,7 +1614,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2545 -> 2555: the same ten cells.
   // 2555 -> 2556: the same cell.
   // 2556 -> 2560 (2026-09-27): the four label fixtures of network text v2 (5.6), each the build's own message.
-  { vendor: "codesys", floor: 2560 },
+  // 2560 -> 2582 (2026-09-30): the same, plus C0077 "Unknown type" for a bare name nothing declares (CODESYS only —
+  // TwinCAT's library materialization does not carry every type its compiler knows).
+  // 2582 -> 2585 (2026-09-30, the step's review): a global missing its `;` is silent on CODESYS
+  // (`pwh_gvl_missing_semicolon` left `KNOWN_DIVERGENCES`), bare TYPE_CLASS is no unknown type
+  // (`op_sys_type_class_bare`) and a call of an LDATE instance (`call_ldate_instance`), both recorded live.
+  { vendor: "codesys", floor: 2585 },
 ]
 
 
@@ -1625,11 +1635,12 @@ function extFor(kind: string): string {
 // AND inherited members resolve across fixtures. Each fixture is its own file, so a standalone method binds to
 // the FB in its OWN fixture (no cross-fixture leak); fixture pouNames are unique (`FB_LANG_<name>`) so FBs
 // don't collide. Only PROGRAM units are excluded (PLC_PRG is synthesized per fixture separately).
-const PARSED = ALL_TESTS.map((t) => ({
-  uri: `file:///conformance/${t.pouName}.${extFor(t.kind)}`,
-  source: t.source,
-  parseResult: parseSource(t.source),
-}))
+// Each read as the object its file holds (`parseDocument`), as the workspace store reads a workspace file — a DUT's or a
+// GVL's text the way the IDE reads it (`syntax/source-object.ts`).
+const PARSED = ALL_TESTS.map((t) => {
+  const uri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
+  return { uri, source: t.source, parseResult: parseDocument(uri, t.source) }
+})
 const CROSS_DECLS = PARSED.map((p) => ({
   uri: p.uri,
   source: p.source,
@@ -1689,7 +1700,7 @@ function asVendor<T extends { uri: string; source: string; parseResult: ReturnTy
   if (vendor !== "twincat" || !DIALECT_SENSITIVE.test(doc.source)) return doc
   let hit = TC_PARSE.get(doc.uri)
   if (hit === undefined) {
-    hit = { uri: doc.uri, source: doc.source, parseResult: parseSource(doc.source, "twincat") }
+    hit = { uri: doc.uri, source: doc.source, parseResult: parseDocument(doc.uri, doc.source, "twincat") }
     TC_PARSE.set(doc.uri, hit)
   }
   return hit

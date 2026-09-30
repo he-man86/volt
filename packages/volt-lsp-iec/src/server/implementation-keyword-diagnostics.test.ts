@@ -182,7 +182,6 @@ test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the d
       src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n",
       line: 0,
     },
-    { what: "an enum value", uri: "file:///E.enum", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n", line: 2 },
   ]
   for (const c of cases) {
     const h = harness()
@@ -192,6 +191,26 @@ test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the d
     h.dispose()
     const on = ds.filter((d) => d.range.start.line === c.line && /reserved/i.test(text(d)))
     expect({ what: c.what, flagged: on.length > 0 }).toEqual({ what: c.what, flagged: true })
+  }
+})
+
+/** …in every file that HAS a boundary. A DUT or a GVL has none, and the push writes its text as sent
+ *  (`IMPLEMENTATION_in_a_gvl_or_a_dut_is_written_as_sent`, push-without-header-check 2.1): CODESYS builds a struct member
+ *  named IMPLEMENTATION clean (conformance `pwh_struct_member_implementation`). An enum value sat in the list above
+ *  while the push refused it; the push no longer does, so the premise changed with it. */
+test("IMPLEMENTATION in a DUT or a GVL is a name like any other: no diagnostic", async () => {
+  const cases: { uri: string; src: string }[] = [
+    { uri: "file:///E.enum", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
+    { uri: "file:///S.struct", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
+    { uri: "file:///G.gvl", src: "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n" },
+  ]
+  for (const c of cases) {
+    const h = harness()
+    await h.init(CAPS.pull)
+    await h.open(c.uri, c.src)
+    const ds = await h.pull(c.uri)
+    h.dispose()
+    expect({ uri: c.uri, reserved: ds.filter((d) => /reserved/i.test(text(d))).map(text) }).toEqual({ uri: c.uri, reserved: [] })
   }
 })
 

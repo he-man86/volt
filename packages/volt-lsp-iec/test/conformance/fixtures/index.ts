@@ -35,6 +35,8 @@ import { CORPUS_STANDARD_TESTS } from "./semantics/corpus-standard.js"
 import { LIBRARY_BODY_TESTS } from "./libraries/library-bodies.js"
 import { IL_CALC_SHAPE_TESTS, INTERFACE_VAR_TESTS } from "./calls/il-calc-shapes.js"
 import { SIGNATURE_NAME_TESTS } from "./cross-object/signature-name.js"
+import { WRITTEN_AS_SENT_TESTS } from "./objects/written-as-sent.js"
+import { HEADER_RULE_TESTS } from "./oop/header-rules.js"
 import { NETWORK_GRAPHICAL_TESTS } from "./graphical/network-graphical.js"
 import { NETWORK_UNRESOLVED_TESTS } from "./graphical/network-unresolved.js"
 import { INIT_SLOT_TESTS } from "./declarations/init-slot.js"
@@ -125,6 +127,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "il-calc-shapes", tests: IL_CALC_SHAPE_TESTS },
   { name: "interface-var", tests: INTERFACE_VAR_TESTS },
   { name: "signature-name", tests: SIGNATURE_NAME_TESTS },
+  { name: "written-as-sent", tests: WRITTEN_AS_SENT_TESTS },
+  { name: "header-rules", tests: HEADER_RULE_TESTS },
   { name: "init-slot", tests: INIT_SLOT_TESTS },
   { name: "shadowing", tests: SHADOWING_TESTS },
   { name: "conversion", tests: CONVERSION_TESTS },

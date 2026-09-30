@@ -40,6 +40,11 @@ export class Cursor {
     this.errors.push(unexpectedToken === undefined ? { message, span } : { message, span, unexpectedToken })
   }
 
+  /** Record an error that carries its own vendor facts (`ParseError`), worded where the vendor is known. */
+  pushParseError(error: ParseError): void {
+    this.errors.push(error)
+  }
+
   /** Current meaningful token (skipping trivia). Never returns undefined; EOF is the sentinel. */
   peek(offset = 0): Token {
     let i = this.pos

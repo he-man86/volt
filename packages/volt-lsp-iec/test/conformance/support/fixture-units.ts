@@ -15,6 +15,7 @@
 import {
   lex,
   parseSource,
+  type BodySpan,
   type ParseResult,
   type Span,
   type TopLevel,
@@ -63,6 +64,10 @@ export function fixtureUnits(t: LanguageTest): LoadUnit[] {
     }
     out.push(asUnit(t, source, unit, pragmas))
   }
+  // An AS-SENT text is ONE object, whatever the parser makes of it. A never-closed `(*`, an empty or a prose text parses
+  // to no unit at all, and loading nothing in its place would run a program that is not the one the IDE was given.
+  if (t.asSent !== undefined && out.length !== 1)
+    throw new Error(`${t.name}: its as-sent text parses to ${out.length} objects, not the one the push writes — it cannot be loaded from its units`)
   return out
 }
 
@@ -205,8 +210,8 @@ function asUnit(t: LanguageTest, source: string, unit: TopLevel, pragmas: string
       return {
         kind: unit.kind,
         name: unit.name.text,
-        declaration: pragmas + source.slice(unit.span.start, unit.body.span.start).trimEnd() + "\n",
-        implementation: bodyText(source, unit.body.span),
+        declaration: pragmas + declarationText(source, unit.span.start, unit.body),
+        implementation: codeText(source, unit.body),
         members: [],
       }
     case "type_decl":
@@ -254,14 +259,14 @@ function asMember(source: string, unit: TopLevel, pragmas: string): LoadMember |
     return {
       kind: "method",
       name: unit.name.text,
-      declaration: pragmas + source.slice(unit.span.start, unit.body.span.start).trimEnd() + "\n",
-      implementation: bodyText(source, unit.body.span),
+      declaration: pragmas + declarationText(source, unit.span.start, unit.body),
+      implementation: codeText(source, unit.body),
     }
-  if (unit.kind === "action") return { kind: "action", name: unit.name.text, declaration: pragmas, implementation: bodyText(source, unit.body.span) }
+  if (unit.kind === "action") return { kind: "action", name: unit.name.text, declaration: pragmas, implementation: codeText(source, unit.body) }
   if (unit.kind === "property") {
     const first = unit.getter?.span.start ?? unit.setter?.span.start ?? unit.span.end
     const accessor = (a: typeof unit.getter): LoadAccessor | undefined =>
-      a === undefined ? undefined : { declaration: varSectionsText(source, a.varSections), implementation: bodyText(source, a.body.span) }
+      a === undefined ? undefined : { declaration: varSectionsText(source, a.varSections), implementation: codeText(source, a.body) }
     return {
       kind: "property",
       name: unit.name.text,
@@ -286,6 +291,22 @@ function bodyText(source: string, span: Span): string {
       .replace(/\s*\bEND_(FUNCTION_BLOCK|PROGRAM|FUNCTION|METHOD|ACTION|GET|SET|PROPERTY)\b\s*$/i, "")
       .trim() + "\n"
   )
+}
+
+/**
+ * A body's CODE — what the IDE holds as the implementation. A fixture written as a workspace file holds it (`asSent`)
+ * states its body's `IMPLEMENTATION ST` line, which is no code in any language: the parser takes it out of the body's
+ * tokens, and the text loaded into the IDE starts under it, as the push strips it. Loaded with the line, CODESYS read it
+ * as code ("',, AT or :' expected instead of 'ST'", `pwh_fb_text_says_program`, 2026-09-30). The declaration stops
+ * above it for the same reason.
+ */
+function declarationText(source: string, start: number, body: BodySpan): string {
+  return source.slice(start, body.implementation?.span.start ?? body.span.start).trimEnd() + "\n"
+}
+
+function codeText(source: string, body: BodySpan): string {
+  if (body.implementation === undefined) return bodyText(source, body.span)
+  return bodyText(source, { ...body.span, start: body.implementation.span.end })
 }
 
 /** A declaration-only unit's whole text, its END_ keyword included (the span stops before it). */

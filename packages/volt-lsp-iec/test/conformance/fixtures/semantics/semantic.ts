@@ -171,6 +171,19 @@ END_METHOD
     plcPrgBody: "inst_refuse_super_without_base();",
     source: "FUNCTION_BLOCK FB_LANG_refuse_super_without_base\nVAR\n\tn : INT;\nEND_VAR\nSUPER^();\nn := 1;\nEND_FUNCTION_BLOCK\n",
   },
+  // A CALL of an instance of a CODESYS-only elementary type — on TwinCAT the type is unknown ("Unknown type: 'LDATE'",
+  // `xf_date_to_ldate`), and a call of an instance of an unknown type draws C0035 there (`pwh_unclosed_comment_fb`);
+  // this asks the two together (push-without-header-check review). On CODESYS LDATE is a type and no callable one.
+  {
+    name: "call_ldate_instance",
+    pouName: "FB_LANG_call_ldate_instance",
+    kind: "function_block" as const,
+    feature: "calling a variable of type LDATE — `v()` on a CODESYS-only elementary type",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "inst_call_ldate_instance : FB_LANG_call_ldate_instance;",
+    plcPrgBody: "inst_call_ldate_instance();",
+    source: "FUNCTION_BLOCK FB_LANG_call_ldate_instance\nVAR\n\tv : LDATE;\n\tn : INT;\nEND_VAR\nv();\nn := 1;\nEND_FUNCTION_BLOCK\n",
+  },
   {
     name: "refuse_pointer_two_targets",
     pouName: "FB_LANG_refuse_pointer_two_targets",

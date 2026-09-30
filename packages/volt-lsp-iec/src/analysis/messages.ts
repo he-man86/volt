@@ -672,7 +672,8 @@ export function messagesFor(vendor: Vendor): Messages {
         : `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
     inheritanceNotAllowed: () => `Inheritance only allowed in function blocks, Interfaces and Structures`,
     unionInheritance: (name) => `Inheritance is not intended for data type "UNION": ${name}`,
-    functionImplements: () => `Interfaces can only be implemented by function blocks`,
+    // TwinCAT writes one word differently (`hdr_function_implements_no_return`; the catalog's C0145 twincatActual).
+    functionImplements: () => `Interfaces can only be implemented by ${tc ? "Functionblocks" : "function blocks"}`,
     packModeNotAllowed: (kind) => `Attribute 'pack_mode' not allowed for '${kind}'`,
     duplicateInheritedVariable: (name, fb, base) =>
       `Duplicate definition of variable '${name}' in function block '${fb}' and in base '${base}'`,

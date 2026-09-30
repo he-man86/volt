@@ -110,6 +110,46 @@ test("the workspace scan takes a source file only under its exact extension", ()
   }
 })
 
+// A UTF-8 BOM is a file-encoding mark, never content: Visual Studio and TcXaeShell save one by default, and the push
+// strips it (`Commands.cs` HeadSrc) before the IDE sees the text. Kept here, it stood in front of the DUT's `TYPE` and
+// the GVL's `VAR_GLOBAL`, so the file declared NOTHING (a DUT/GVL reads only when it OPENS with its keyword) and every
+// use site drew "Unknown type" / "not defined" that CODESYS, handed the stripped text, never gives.
+test("the workspace scan reads a file saved with a BOM as the push sends it — without the BOM", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-bom-"))
+  try {
+    writeFileSync(
+      join(dir, "PLC_PRG.prg"),
+      "﻿PROGRAM PLC_PRG\nVAR\n\tv : DUT_A;\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := v.nPos + g;\nEND_PROGRAM\n",
+    )
+    writeFileSync(join(dir, "DUT_A.struct"), "﻿TYPE DUT_A :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n")
+    writeFileSync(join(dir, "GVL.gvl"), "﻿VAR_GLOBAL\n\tg : INT;\nEND_VAR\n")
+    const scan = scanWorkspace(dir)
+    expect(scan.sources.every((s) => !s.source.startsWith("﻿"))).toBe(true)
+    const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
+    store.seedDisk(scan.sources.map((f) => ({ uri: f.path, source: f.source })))
+    const messages = store
+      .workspace()
+      .flatMap((d) => documentDiagnostics(store, messagesFor("codesys"), d).map((x) => `${d.uri}: ${x.message}`))
+    expect(messages).toEqual([])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// HeadSrc strips EVERY leading U+FEFF (`TrimStart('\uFEFF')`), not one: a BOM-writing tool re-saving text that already
+// kept a U+FEFF char leaves two, and the IDE still receives `TYPE …`. Stripping one left the second in front of the
+// keyword, so the DUT declared nothing here and every use drew an "Unknown type" the IDE never gives.
+test("the workspace scan strips every leading BOM, as the push does", () => {
+  const dir = mkdtempSync(join(tmpdir(), "volt-bom2-"))
+  try {
+    const text = "TYPE DUT_B :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n"
+    writeFileSync(join(dir, "DUT_B.struct"), "\uFEFF\uFEFF" + text)
+    expect(scanWorkspace(dir).sources.map((s) => s.source)).toEqual([text])
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 /**
  * THE SETTINGS HAVE TO REACH THE ANALYSIS, not merely be parsed out of the file.
  *

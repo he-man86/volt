@@ -65,6 +65,17 @@ export function scanLibraryManifests(root: string): LibraryManifest[] {
   return out
 }
 
+/**
+ * A workspace source file's TEXT, as the push sends it: its bytes decoded as UTF-8 with a leading BOM removed. A BOM
+ * is a file-encoding mark, never content — Visual Studio and TcXaeShell save UTF-8 with one by default — and the CLI
+ * strips it at the one place a workspace file's bytes become text for the IDE (`Commands.cs` HeadSrc). `readFileSync`
+ * keeps it, and in front of a DUT's `TYPE` or a GVL's `VAR_GLOBAL` it made the file declare nothing.
+ */
+export function readSourceText(file: string): string {
+  const text = readFileSync(file, "utf8")
+  return text.replace(/^﻿+/, "") // EVERY leading BOM, as the push's HeadSrc `TrimStart('﻿')` does
+}
+
 // ─── per-extension name extractors (shared by the single-file loaders + scanWorkspace) ───
 const libraryNamespaceOf = (file: string): string | undefined =>
   readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
@@ -206,7 +217,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
       } else if (ext === ".task") {
         for (const p of taskRootsOf(file)) taskRoots.add(p.toLowerCase())
       } else if (SOURCE_EXTENSION_SET.has(ext)) {
-        const source = readFileSync(file, "utf8")
+        const source = readSourceText(file)
         sources.push({ path: file, source })
         for (const m of source.matchAll(OBSOLETE_RE)) obsoletePous.set(m[2]!.toLowerCase(), { name: m[2]!, message: m[1]! })
       }

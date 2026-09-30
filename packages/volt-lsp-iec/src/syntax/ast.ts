@@ -537,6 +537,8 @@ export interface Function {
   returnType?: TypeExpr
   /** An illegal `IMPLEMENTS` clause on a FUNCTION (only FBs implement interfaces) — drives C0145. */
   implementsMisused?: Identifier[]
+  /** An illegal `EXTENDS` clause on a FUNCTION — its base is never found (`hdr_function_extends_no_return`). */
+  extendsMisused?: Identifier
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -652,6 +654,12 @@ export interface ParseError {
    * change than one capital letter is worth.
    */
   unexpectedToken?: string
+  /**
+   * A GLOBAL missing its `;` after the type (`endAfterType` in a VAR_GLOBAL section). A vendor FACT like
+   * `unexpectedToken`: TwinCAT reports it, CODESYS reports nothing for it in a GVL (conformance
+   * `pwh_gvl_missing_semicolon`, measured on both 2026-09-30), and only the analysis layer knows the vendor.
+   */
+  globalMissingSemicolon?: true
 }
 export interface ParseResult {
   units: TopLevel[]

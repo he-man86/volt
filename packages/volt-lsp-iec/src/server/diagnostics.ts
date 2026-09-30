@@ -12,6 +12,7 @@ import {
   computeSemanticDiagnostics,
   inDeadMember,
   ownerPou,
+  vendorReportsParseError,
   type DiagnosticItem,
   type Messages,
 } from "../analysis/index.js"
@@ -116,12 +117,14 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
     ...(dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messages, store.workspaceRefs))
       .filter((it) => !inDeadMember(it.span, dm))
       .map(toLspDiagnostic),
-    ...d.parseResult.errors.filter((e) => !inUnstated(e.span)).map((e) => ({
-      range: rangeFromSpan(e.span),
-      severity: DiagnosticSeverity.Error,
-      source: "volt-lsp-iec",
-      message: e.message,
-    })),
+    ...d.parseResult.errors
+      .filter((e) => !inUnstated(e.span) && vendorReportsParseError(e, store.config.vendor))
+      .map((e) => ({
+        range: rangeFromSpan(e.span),
+        severity: DiagnosticSeverity.Error,
+        source: "volt-lsp-iec",
+        message: e.message,
+      })),
     ...missing,
   ]
 }

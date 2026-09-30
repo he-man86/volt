@@ -9,10 +9,10 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
-import { parseSource } from "../../../src/syntax/index.js"
+import { parseDocument, parseSource } from "../../../src/syntax/index.js"
 import { prepareProject, type LoweringProject, type ParsedFile } from "../../../src/transpile/index.js"
 import { SOURCE_EXTENSION_SET } from "../../../src/source-extensions.js"
-import { scanLibraryManifests } from "../../../src/workspace-refs.js"
+import { readSourceText, scanLibraryManifests } from "../../../src/workspace-refs.js"
 import { withImplementations } from "../../../libraries/index.js"
 
 /**
@@ -45,8 +45,8 @@ export function walkSources(dir: string, extensions: ReadonlySet<string> = SOURC
 /** Every source file under `dir`, read and parsed, in `walkSources` order. */
 export function parseProject(dir: string): ParsedFile[] {
   return walkSources(dir).map((uri) => {
-    const source = readFileSync(uri, "utf8")
-    return { uri, source, parseResult: parseSource(source) }
+    const source = readSourceText(uri)
+    return { uri, source, parseResult: parseDocument(uri, source) }
   })
 }
 

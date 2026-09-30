@@ -19,12 +19,24 @@
 import { isStBody, parseStatements, unitBodies, type ParseError } from "../../../syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import type { Vendor } from "../../config.js"
+
+/**
+ * Whether `vendor`'s compiler reports this parse error at all. The parser has no vendor, so a shape the two compilers
+ * answer differently arrives as a FACT: a global missing its `;` (`globalMissingSemicolon`) is reported by TwinCAT and
+ * passed over in silence by CODESYS (`pwh_gvl_missing_semicolon`, 2026-09-30). Every path that hands a parse error to a
+ * client asks this — the semantic pass here and the server's own parse-error stream.
+ */
+export function vendorReportsParseError(e: ParseError, vendor: Vendor): boolean {
+  return !(e.globalMissingSemicolon === true && vendor === "codesys")
+}
 
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
   // The parser has no vendor, so one shape it produces arrives as a FACT (`unexpectedToken`) rather than as
   // final text: both compilers report it, and they capitalise it differently (CODESYS "token", TwinCAT
   // "Token" — `echo_*`, measured on both recordings 2026-09-20). Worded here, where the vendor is known.
   const emit = (e: ParseError): void => {
+    if (!vendorReportsParseError(e, ctx.config.vendor)) return
     const message = e.unexpectedToken === undefined ? e.message : ctx.messages.unexpectedToken(e.unexpectedToken)
     out.push({ severity: "error", span: e.span, source: SOURCE, code: "syntax-error", message })
   }

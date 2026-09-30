@@ -644,6 +644,29 @@ END_METHOD
 `,
   },
 
+  // BARE `TYPE_CLASS` — the system enum `__VARINFO` answers with, spelled without its `__SYSTEM.` qualifier, as a
+  // DECLARED TYPE and as the qualifier of its values. Libraries in the corpus declare `ETYPE : TYPE_CLASS;` so
+  // (L_UM1P_DATASENDER) and pro2193's own code compares `TYPE_CLASS.TYPE_SUBRANGE`; whether a project may is asked here
+  // (push-without-header-check review: `nameResolves` took the name for granted, the new C0077 check refused it).
+  {
+    name: "op_sys_type_class_bare",
+    pouName: "FB_LANG_op_sys_type_class_bare",
+    kind: "function_block",
+    feature: "bare TYPE_CLASS (no __SYSTEM.) as a declared type and as its values' qualifier",
+    fromDoc: "06-data-types.md",
+    plcPrgVar: "fb_tcb : FB_LANG_op_sys_type_class_bare;",
+    plcPrgBody: "fb_tcb();",
+    source: `FUNCTION_BLOCK FB_LANG_op_sys_type_class_bare
+VAR
+	eType : TYPE_CLASS;
+	bSubrange : BOOL;
+END_VAR
+
+bSubrange := eType = TYPE_CLASS.TYPE_SUBRANGE;
+END_FUNCTION_BLOCK
+`,
+  },
+
   {
     name: "op_sys_currenttask",
     pouName: "FB_LANG_op_sys_currenttask",
