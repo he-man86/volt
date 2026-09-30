@@ -2017,6 +2017,31 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
     expect([pou, diagnostics.map((d) => d.code)]).toEqual([undefined, ["assign-string"]])
   })
 
+  // transpile-review 38: STRING and WSTRING are isolated from each other and from every other type — CODESYS converts
+  // neither way implicitly (`string_wstring_mixing`: "Cannot convert type 'STRING' to type 'WSTRING'", "Cannot compare
+  // type 'STRING' with type 'WSTRING'"), and a number stored into a STRING is refused too (`uop_neg_real`: "Cannot
+  // convert type 'REAL' to type 'STRING'", every `uop_*` probe). Only the explicit X_TO_Y conversion is legal.
+  describe("an implicit string-kind conversion CODESYS refuses is refused while lowering", () => {
+    const codes = (vars: string, body: string, extra = ""): { lowered: boolean; codes: string[] } => {
+      const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n${extra}`, "P")
+      return { lowered: pou !== undefined, codes: diagnostics.map((d) => d.code) }
+    }
+    const NW = "narrow : STRING := 'abc'; wide : WSTRING := \"abc\"; intoWide : WSTRING; intoNarrow : STRING; same : BOOL; r : REAL; n : INT;"
+    test("a STRING stored into a WSTRING", () => expect(codes(NW, "intoWide := narrow;")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("a WSTRING stored into a STRING", () => expect(codes(NW, "intoNarrow := wide;")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("a STRING compared with a WSTRING", () => expect(codes(NW, "same := narrow = wide;")).toEqual({ lowered: false, codes: ["string-op"] }))
+    test("a REAL stored into a STRING (uop_neg_real)", () => expect(codes(NW, "intoNarrow := -r;")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("an INT stored into a STRING", () => expect(codes(NW, "intoNarrow := n;")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("a chain link that would convert a STRING into a WSTRING", () =>
+      expect(codes(NW, "intoWide := intoNarrow := narrow;")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("an INT argument for a STRING input", () =>
+      expect(codes(NW, "intoNarrow := F(n);", "FUNCTION F : STRING\nVAR_INPUT s : STRING; END_VAR\nF := s;\nEND_FUNCTION\n")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("a WSTRING argument for an FB's STRING input", () =>
+      expect(codes(`${NW} fb : FB;`, "fb(s := wide);", "FUNCTION_BLOCK FB\nVAR_INPUT s : STRING; END_VAR\nEND_FUNCTION_BLOCK\n")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("the explicit conversions stay legal", () =>
+      expect(codes(NW, "intoWide := STRING_TO_WSTRING(narrow); intoNarrow := WSTRING_TO_STRING(wide); intoNarrow := INT_TO_STRING(n); same := narrow = 'abc';")).toEqual({ lowered: true, codes: [] }))
+  })
+
   test("two pointers into ONE string share it, each at its own offset — StrMidA(pst := s, pstResult := s)", () => {
     expect(scanned("s : STRING := 'Device.Main';", "CSHIFT(ADR(s), 7, ADR(s));").get("s")).toBe("Main")
     // into two strings, each is its own

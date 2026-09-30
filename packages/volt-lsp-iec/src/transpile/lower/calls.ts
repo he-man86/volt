@@ -44,7 +44,7 @@ import {
 } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, type PendingBody } from "./lowering.js"
 import { callsNothing, type InFrame, inFramePlace, isInFrame, specializeRoutine } from "./specialize.js"
-import { convert } from "./convert.js"
+import { convert, refuseImplicitString } from "./convert.js"
 import { declareInOuts, declareOpenBounds, declareVars, storageOf, tempResets } from "./storage.js"
 import { boundOf, lowerPlace } from "./places.js"
 import { pointeePlace, pointerKey, refuseConstantWrite, sameStorage, through } from "./pointers.js"
@@ -799,7 +799,7 @@ export function lowerPropertySet(lw: Lowering, s: Extract<Statement, { kind: "as
   if (routine === undefined) return undefined
   const type = routine.locals[0]!.type
   const value = lowerExpr(lw, s.value, type)
-  if (value === undefined) return undefined
+  if (value === undefined || refuseImplicitString(lw, value, type, s.span)) return undefined
   const temp = lw.tempPlace("property", type, s.span)
   const set: IrInvoke = { kind: "invoke", routine: routine.key, instance: access.instance, inputs: [{ kind: "load", place: temp, type, span: s.span }], inouts: [], type: UNKNOWN, span: s.span }
   return [{ kind: "assign", target: temp, value: convert(value, type), span: s.span }, { kind: "eval", value: set, span: s.span }]
@@ -1192,7 +1192,7 @@ export function lowerInvoke(lw: Lowering, call: Extract<Expr, { kind: "call" }>)
     // `callshape_property_read_in_arguments`) — each backend takes the inputs in `order`. It was refused (`call-nested`),
     // which stays for a call inside an in-out binding, whose place the call borrows.
     const value = lowerExpr(lw, arg.value!, slot.type)
-    if (value === undefined) return undefined
+    if (value === undefined || refuseImplicitString(lw, value, slot.type, arg.span)) return undefined
     inputs[k] = convert(value, slot.type)
     order.push(k)
   }
@@ -1428,7 +1428,7 @@ function lowerSuperCall(lw: Lowering, call: Extract<Statement, { kind: "call_stm
     const field = layout.fields.find((f) => f.name.toUpperCase() === name && f.section === "VAR_INPUT")
     if (field === undefined) return lw.bail("call-param", `${arg.param.name} is not an input of ${frame.name}'s base`, arg.span)
     const value = lowerExpr(lw, arg.value, field.type)
-    if (value === undefined) return undefined
+    if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
     const member: Place = { ...instance, path: [{ kind: "field", name: field.name }], type: field.type, span: arg.span }
     before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
   }
@@ -1583,7 +1583,7 @@ export function lowerCallStatement(lw: Lowering, call: Extract<Statement, { kind
         continue
       }
       const value = lowerExpr(lw, arg.value, field.type)
-      if (value === undefined) return undefined
+      if (value === undefined || refuseImplicitString(lw, value, field.type, arg.span)) return undefined
       before.push({ kind: "assign", target: member, value: convert(value, field.type), span: arg.span })
     }
   }

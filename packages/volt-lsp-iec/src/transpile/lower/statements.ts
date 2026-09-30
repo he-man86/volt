@@ -6,7 +6,7 @@ import { classifyConversion, elementaryRef, commonType, elemOf, type Type } from
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
-import { beside, convert, stored } from "./convert.js"
+import { beside, convert, refuseImplicitString, stored } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { byteSize } from "./bytes.js"
 import { lowerAccess, lowerPlace, refuseOpenArray } from "./places.js"
@@ -116,6 +116,7 @@ export function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" 
     if (target === undefined) return undefined
     const op = ops[i]
     if (op === undefined) {
+      if (refuseImplicitString(lw, flowing, target.type, s.span)) return undefined
       flowing = convert(flowing, target.type) // a `:=` link converts the value on its way through
       out.push({ kind: "assign", target, value: flowing, span: s.span })
       continue
@@ -126,15 +127,6 @@ export function lowerChain(lw: Lowering, s: Extract<Statement, { kind: "assign" 
     out.push({ kind: "if", cond: convert(flowing, elementaryRef("BOOL")), then: [set], else: [], span: s.span })
   }
   return out
-}
-
-/** A STRING value stored into anything but a string — `n := '12'`, or `s[0] := 'X'` into a character — which CODESYS
- *  refuses (see the assignment below); true when refused. */
-function refuseImplicitString(lw: Lowering, value: IrExpr, target: Type, span: Span): boolean {
-  const targetFamily = elemOf(target)?.family
-  if (elemOf(value.type)?.family !== "string" || targetFamily === undefined || targetFamily === "string") return false
-  lw.bail("assign-string", `a STRING stored into a ${target.kind === "elementary" ? target.name : target.kind}, which is not a conversion the vendor makes implicitly`, span)
-  return true
 }
 
 export function lowerStmt(lw: Lowering, s: Statement): IrStmt | IrStmt[] | undefined {

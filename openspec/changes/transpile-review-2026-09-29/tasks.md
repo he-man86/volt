@@ -465,8 +465,8 @@ those values into the new fixture's recording.
   ("Cannot convert type 'REAL' to type 'STRING'") in codesys.run.json / codesys.build.json.
 - Fix: refuse implicit STRING↔WSTRING stores/arguments/chains/compares and any implicit non-string → STRING;
   explicit X_TO_Y stays legal. Refused rows lose tier/rust.
-- [ ] 38.1 src tests from the recorded fixtures — red.
-- [ ] 38.2 Fix; regenerate map.
+- [x] 38.1 src tests from the recorded fixtures — red. `lower.test.ts` "an implicit string-kind conversion CODESYS refuses…" (from `string_wstring_mixing`, `uop_*`): all 9 lowered.
+- [x] 38.2 Fix; regenerate map. `refuseImplicitString` (`lower/convert.ts`) refuses any implicit store where either side is a string kind and the names differ — assignment, chain link, routine/FB/SUPER input, property set; a STRING/WSTRING compare is `string-op`. 225 refused fixtures stop lowering (all `refused`, no evidence change), 44 orphaned NOTES removed; fixtures.test.ts green.
 
 ## 39. EXIT/CONTINUE outside a loop lowers with no diagnostic
 - Root cause: `lower/statements.ts:243-246`.

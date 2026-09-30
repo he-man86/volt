@@ -4,6 +4,24 @@
 import type { Span } from "../../syntax/index.js"
 import { commonType, elementaryRef, elemOf, integerLiteralType, type Type } from "../../types/index.js"
 import { isBit, type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
+import type { Lowering } from "./lowering.js"
+
+/**
+ * A STRING or WSTRING converted IMPLICITLY into anything but itself, or anything converted implicitly into one — which
+ * CODESYS refuses; true when refused. Both string kinds are isolated: `n := '12'` is "Cannot convert type 'STRING(INT#2)'
+ * to type 'INT'", `s[0] := 'X'` stores a STRING into a character, `intoWide := narrow` is "Cannot convert type 'STRING'
+ * to type 'WSTRING'" (`string_wstring_mixing`) and `out := -r` into a STRING is "Cannot convert type 'REAL' to type
+ * 'STRING'" (`uop_*`). This refused only the first two, so the rest lowered to a conversion no vendor makes (transpile-review
+ * 38). Every implicit store asks it — an assignment, a chain link, an input argument; the explicit X_TO_Y stays legal.
+ * A side that is not elementary (a struct, an FB) is not this question.
+ */
+export function refuseImplicitString(lw: Lowering, value: IrExpr, target: Type, span: Span): boolean {
+  const from = elemOf(value.type)
+  const to = elemOf(target)
+  if (from === undefined || to === undefined || (from.family !== "string" && to.family !== "string") || from.name === to.name) return false
+  lw.bail("assign-string", `a ${from.name} converted implicitly to a ${to.name}, which is not a conversion the vendor makes implicitly`, span)
+  return true
+}
 
 /** Wrap in an explicit conversion when the types differ — a backend never widens on its own. Two STRINGs of different
  *  capacity differ too: the conversion is where a longer string is truncated into a shorter one. */

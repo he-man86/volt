@@ -230,6 +230,10 @@ export function lowerExpr(lw: Lowering, e: Expr, expected?: Type): IrExpr | unde
         // (`string_arithmetic_rejected`) — so this refusal only keeps lowering total.
         if (!COMPARISONS.has(op) || !isString(left) || !isString(right))
           return lw.bail("string-op", `operator ${e.op} on a STRING`, e.span)
+        // A STRING and a WSTRING do not compare — "Cannot compare type 'STRING' with type 'WSTRING'"
+        // (`string_wstring_mixing`, transpile-review 38): neither converts into the other implicitly.
+        if (elemOf(left.type)!.name !== elemOf(right.type)!.name)
+          return lw.bail("string-op", `a ${elemOf(left.type)!.name} compared with a ${elemOf(right.type)!.name}`, e.span)
         return { kind: "binary", op, left, right, type: elementaryRef("BOOL"), span: e.span }
       }
       // A 32-bit date ± an LTIME is ULINT arithmetic CODESYS refuses ("Cannot convert type 'LTIME' to type 'ULINT'",
