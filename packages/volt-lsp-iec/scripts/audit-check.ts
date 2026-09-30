@@ -7,10 +7,11 @@
  *
  * LSP-only = candidate false positive; IDE-only = a gap we miss. Non-destructive (scratch POU deleted after).
  */
-import { parseSource } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
+import { parseSource } from "../src/frontend/syntax/index.js"
+import { build } from "../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
 import { call, VENDOR as V } from "./bridge.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const VENDOR: Vendor = V
 const source = process.argv[2]
@@ -26,8 +27,8 @@ const ver = async (n: string): Promise<string | null> => (await call("refs")).it
 const key = (d: any): string => `[${d.severity}] ${d.message}`
 
 // LSP side (offline).
-const pr = parseSource(source)
-const project = buildSymbolTable([{ uri: "S.fb", parseResult: pr, source }])
+const pr = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, VENDOR)
+const project = build.buildSymbolTable([{ uri: "S.fb", parseResult: pr, source }], [], VENDOR)
 const lsp = computeSemanticDiagnostics({ parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
   .filter((d) => d.severity === "error" || d.severity === "warning")
   .map(key)

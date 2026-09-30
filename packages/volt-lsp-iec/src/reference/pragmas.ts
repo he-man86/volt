@@ -10,7 +10,7 @@
  * companions). Add the rich `PragmaEntry` shape back when hover/completion or conflict checks need it.
  */
 
-import type { Dialect } from "../syntax/index.js"
+import type { Dialect } from "../frontend/syntax/index.js"
 
 // Attribute names accepted after `{attribute '…'}` (CODESYS + shared), plus alias spellings.
 const CODESYS_ATTRIBUTES: readonly string[] = [

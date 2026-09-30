@@ -10,9 +10,9 @@
  * The declaration is LOST when this fires — the compiler never saw it, and answers `Identifier 'misplaced' not
  * defined` at every use (conformance `cc5_at_address_not_direct`).
  */
-import { isTrivia } from "../../../syntax/index.js"
+import { isTrivia } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl } from "../../../symbols/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { reportLostUses } from "../../lost-declaration.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

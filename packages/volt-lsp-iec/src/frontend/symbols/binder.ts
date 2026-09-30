@@ -1,11 +1,11 @@
 /**
- * The binder: walk the parsed AST(s) of a workspace and populate one project `Scope` tree
- * (Layer B). Cross-file — each top-level unit becomes a symbol in the project scope with a
- * child scope for its members, and the URI is propagated so cross-file LSP queries resolve.
+ * THE BINDER — a parsed unit into the project `Scope` tree: each top-level unit becomes a symbol in the project scope
+ * with a child scope for its members, and the URI is propagated so cross-file LSP queries resolve. One `ingest*` per
+ * unit kind, every scope through the one `makeScope` factory.
  *
- * Two passes: (1) `ingest*` builds the tree via the one `makeScope` factory; (2) `linkExtends`
- * resolves each `EXTENDS` name to its base scope (split out — the base may live in a later file).
- * No module-level state: every function takes the target scope explicitly and mutates it.
+ * The rest of a build is elsewhere: binding and unbinding whole files, and the canonical order (`incremental.ts`);
+ * EXTENDS linking (`extends.ts`); library namespaces (`library-namespaces.ts`). No module-level state: every function
+ * takes the target scope explicitly and mutates it.
  */
 import type {
   Action,
@@ -29,14 +29,16 @@ import type {
   VarSectionKind,
 } from "../syntax/index.js"
 import { lex, type Dialect } from "../syntax/index.js"
-import { createProjectScope, defineSymbol, makeScope, type Scope, type SymbolKind } from "./symbol.js"
+import type { Scope, SymbolKind } from "./model.js"
+import { createProjectScope, defineSymbol, makeScope } from "./scope.js"
 import { pickForAsker } from "./precedence.js"
 import {
   bindLibraryNamespaces,
   manifestsByTitle,
   visibleFolders,
-  type LibraryManifest,
-} from "./library-namespace.js"
+} from "./library-namespaces.js"
+import type { LibraryManifest } from "../library/index.js"
+import { invalidate, setLibVisible } from "./cache.js"
 
 export interface SymbolTableInput {
   /** URI of the source document. "" is allowed for tests that don't track URIs. */
@@ -59,172 +61,7 @@ function hasQualifiedOnly(source: string): boolean {
   return false
 }
 
-/** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
- *  `manifests` are the referenced libraries' `.library` files (`parseLibraryManifest`), each binding its own
- *  units under the NAMESPACE the source qualifies them with. */
-export function buildSymbolTable(
-  files: readonly SymbolTableInput[],
-  manifests: readonly LibraryManifest[] = [],
-  dialect: Dialect = "codesys",
-): Scope {
-  const project = createProjectScope(dialect)
-  for (const file of files) bindFile(project, file)
-  linkExtends(project, manifests)
-  bindLibraryNamespaces(project, manifests)
-  return project
-}
-
-/**
- * Bind ONE file's units into an existing project scope (the incremental-index unit of work). Appends the
- * file's top-level scopes + project symbols; tags each new top-level child with the file URI so
- * `unbindFile` can drop exactly this file's contribution later. Caller re-runs `linkExtends` afterwards.
- */
-export function bindFile(project: Scope, { uri, parseResult, source }: SymbolTableInput): void {
-  const start = project.children.length
-  // Track the most recent FB/PROGRAM/INTERFACE scope in THIS file so standalone
-  // methods/actions/properties that follow it (the workspace one-item-per-file layout:
-  // a POU, then its members as top-level siblings) parent to it — else member-var
-  // references in those bodies resolve nowhere.
-  let currentMemberHost: Scope | undefined
-  for (const unit of parseResult.units) {
-    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, source ?? "")
-    if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") {
-      currentMemberHost = newScope
-    }
-    if (unit.kind === "function") currentMemberHost = undefined
-  }
-  // Only makeScope(project, …) appends to project.children, so the new top-level scopes are exactly this
-  // slice — tag them with the file URI. Nested member scopes (children of these) need no tag: dropping the
-  // top-level scope drops its whole subtree.
-  for (let i = start; i < project.children.length; i++) project.children[i]!.defUri = uri
-  project._childIndex = undefined // children changed — bust the lazy name index (length-based staleness misses same-count swaps)
-  project._childIndexLen = undefined
-  project._spanIndex = undefined // and the span→scope index — else scopeForUnit misses the rebound file's fresh spans
-  project._generation = (project._generation ?? 0) + 1 // and every project-wide memo (`memoByProject`)
-}
-
-/**
- * Remove one file's contribution from a project scope: its top-level scopes (by `defUri` tag, subtrees
- * included) and its project-level symbols (by `Symbol.uri`). Inverse of `bindFile`. Caller re-runs
- * `linkExtends` so any base pointer into a removed scope is dropped.
- */
-export function unbindFile(project: Scope, uri: string): void {
-  project.children = project.children.filter((c) => c.defUri !== uri)
-  for (const [key, arr] of project.symbols) {
-    const kept = arr.filter((s) => s.uri !== uri)
-    if (kept.length === 0) project.symbols.delete(key)
-    else if (kept.length !== arr.length) project.symbols.set(key, kept)
-  }
-  project._childIndex = undefined
-  project._childIndexLen = undefined
-  project._spanIndex = undefined
-  project._generation = (project._generation ?? 0) + 1
-}
-
-/**
- * Post-pass: link each `EXTENDS` scope to its base scope. Separated from the ingest walk because the base may
- * live in a later file — resolution needs the whole project ingested first. Idempotent: resets every base
- * pointer first so an incremental re-link can't leave a link into a removed scope.
- *
- * <b>A NAME CAN HAVE SEVERAL CANDIDATES, AND WHICH ONE IS RIGHT DEPENDS ON WHO IS ASKING.</b> This used to be
- * one `Map.set` per candidate, so the LAST one bound won — and bind order is file order, which is
- * `readdirSync` order. Measured across the six corpus projects: 343 names have more than one candidate and 19
- * of those are reached by an `EXTENDS`. They are not harmless duplicates. `ETRIG` is exported by BOTH `CAA
- * Behaviour Model` (namespace CBM, CAA Technical Workgroup) and `CBML` (Common Behaviour Model, 3S) with
- * DIFFERENT declarations — `ETRIGTL` carries an `EXTENDS` in one and none in the other — and both libraries
- * are referenced by the same project. CODESYS tells them apart by NAMESPACE; Volt materializes both into
- * `Library Manager/<folder>/` under their bare names, so the bare name really is ambiguous here.
- *
- * The manifests settle it, and they already carry what is needed. `CAA Device Diagnosis`, `CAA File` and `CAA
- * Storage` each DEPEND ON `CAA Behaviour Model`, so their `EXTENDS ETRIG` means CBM's. `VisuUtils` depends on
- * `CBML`, so the same three characters in that file mean a different base class. No positional rule can be
- * right for both, which is why this resolves by who is asking:
- *
- *   0. the asker's OWN library (project source: another project unit)
- *   1. a library the asker's library DEPENDS ON
- *   2. any library at all, but only for a PROJECT unit — project code may use anything it references
- *   3. anything else
- *
- * Ties break on the defining URI, so the answer does not depend on bind order at any rank. That matters
- * beyond determinism: the live server re-links incrementally as files open and change, so a bind-order rule
- * could hand the same workspace different bases between two keystrokes.
- */
-/**
- * Put the project scope into a CANONICAL order: by defining URI, then by position within that file.
- *
- * <b>Why this is not cosmetic.</b> `project.children` and each `project.symbols` array are in BIND order,
- * which is the order files were handed to the binder — `readdirSync` order in a batch build, and open/edit
- * order in the live server. Every lookup that takes the first match therefore inherits it, and a real project
- * has duplicates for them to disagree about: 343 top-level names in the six corpus projects have more than
- * one candidate, because two referenced libraries may legitimately export the same bare name.
- *
- * Measured: lowering the corpus with the files reversed produced a different set of routines — 588 against
- * 558 — with no other change. Names resolved to a different library, so a hover, a go-to-definition and the
- * transpiler's output all depended on the shape of the disk.
- *
- * <b>Canonical is not the same as CORRECT</b>, and the difference is worth stating. Sorting makes the answer
- * the same everywhere; it does not make it the right one when two libraries really do export different types
- * under one name. That question needs to know WHO is asking, and `linkExtends` below answers it properly for
- * `EXTENDS` using the manifests' own `DEPENDENCIES`. Lookups that have no asker in hand get determinism here
- * and nothing more — which is strictly better than what they had, and honest about what is still open.
- *
- * It lives in `linkExtends` because every path that mutates the table already re-runs it — `buildSymbolTable`
- * once at the end, `workspace-store` after each `bindFile`/`unbindFile`. A separate function would be a
- * second thing to remember, and the first caller to forget it would reintroduce exactly this bug.
- */
-function canonicalize(project: Scope): void {
-  const at = (u: string | undefined): string => u ?? ""
-  project.children.sort(
-    (a, b) =>
-      (at(a.defUri) < at(b.defUri) ? -1 : at(a.defUri) > at(b.defUri) ? 1 : 0) ||
-      (a.span?.start ?? 0) - (b.span?.start ?? 0),
-  )
-  for (const syms of project.symbols.values())
-    syms.sort(
-      (a, b) =>
-        (at(a.uri) < at(b.uri) ? -1 : at(a.uri) > at(b.uri) ? 1 : 0) ||
-        (a.span?.start ?? 0) - (b.span?.start ?? 0),
-    )
-  // The lazy indices are built off these orders, so they cannot survive a reorder.
-  project._childIndex = undefined
-  project._childIndexLen = undefined
-  project._spanIndex = undefined
-}
-
-export function linkExtends(project: Scope, manifests: readonly LibraryManifest[] = []): void {
-  canonicalize(project)
-  for (const c of project.children) c.baseScope = undefined
-
-  const candidates = new Map<string, Scope[]>()
-  for (const c of project.children) {
-    if (c.extendsName === undefined && c.kind !== "pou" && c.kind !== "interface" && c.kind !== "struct")
-      continue
-    const key = c.name.toLowerCase()
-    const list = candidates.get(key)
-    if (list === undefined) candidates.set(key, [c])
-    else list.push(c)
-  }
-
-  // PUBLISHED ON THE PROJECT, not kept local: `EXTENDS` is only one of the lookups that can face several
-  // candidates for one name, and every one of them has to answer the same way. `precedence.ts` reads this.
-  const byTitle = manifestsByTitle(manifests)
-  const visible = new Map<string, Set<string>>()
-  for (const m of manifests) visible.set(m.folder.toLowerCase(), visibleFolders(manifests, m, byTitle))
-  project._libVisible = visible.size > 0 ? visible : undefined
-
-  for (const c of project.children) {
-    if (c.extendsName === undefined) continue
-    const base = pickForAsker(
-      project,
-      (candidates.get(c.extendsName) ?? []).filter((x) => x !== c),
-      (x) => x.defUri,
-      c.defUri,
-    )
-    if (base !== undefined) c.baseScope = base
-  }
-}
-
-function ingestTopLevel(
+export function ingestTopLevel(
   project: Scope,
   unit: TopLevel,
   uri: string,
@@ -495,11 +332,11 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, so
 
   // Register the GVL block itself under the URI basename — ST has no in-source name for the block,
   // the file basename IS the identifier (CODESYS convention). Lets `GvlName.field` resolve.
-  const gvlName = gvlNameFromUri(uri)
-  if (gvlName !== undefined) {
+  const blockName = gvlName(uri)
+  if (blockName !== undefined) {
     defineSymbol(project, {
       kind: "gvl_block",
-      name: gvlName,
+      name: blockName,
       span: gvl.span,
       declarationSpan: gvl.span,
       owner: project,
@@ -529,8 +366,9 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, so
   }
 }
 
-/** Derive a GVL block name from its URI: basename minus extension. Splits on `/` AND `\` (Windows). */
-function gvlNameFromUri(uri: string): string | undefined {
+/** A GVL's name — ST has none in the source, so it is the file's: the URI's basename minus its extension (split on
+ *  `/` AND `\`, Windows). Undefined for an empty URI (a test's). The document outline names a GVL by it too. */
+export function gvlName(uri: string): string | undefined {
   if (uri.length === 0) return undefined
   const last = uri.split(/[\\/]/).pop() ?? ""
   if (last.length === 0) return undefined

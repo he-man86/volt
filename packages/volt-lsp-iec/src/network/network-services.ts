@@ -10,23 +10,20 @@
  */
 import type { CompletionItem, Hover, Location, Range, TextEdit, WorkspaceEdit } from "vscode-languageserver-protocol"
 import {
+  allUnits,
   type BodySpan,
-  type Document,
   type Expr,
-  exprAtOffset,
   isNeverShown,
   graphicalBodies,
   spanContains,
   type IdentExpr,
-  memberAtOffset,
   type Statement,
-  tokenAtOffset,
   type TopLevel,
   unitBodies,
   walkAllExprs,
-} from "../syntax/index.js"
-import { lookup, lookupLocal, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
-import { resolveMemberChain } from "../types/index.js"
+} from "../frontend/syntax/index.js"
+import { lookup, lookupLocal, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
+import { resolveMemberChain } from "../frontend/types/index.js"
 import { lookupReference, renderReferenceHover } from "../reference/index.js"
 import {
   completionAtScope,
@@ -42,6 +39,8 @@ import { analyzeNetworkText, networkNetworkAt, type NetworkTextAnalysis } from "
 import { statementTargets, walkValues, type NetworkTextStatement } from "../network-text/ast.js"
 import { executeBoxes, statementExprs } from "../network-text/exprs.js"
 import { NETWORK_TEXT_WORDS } from "../network-text/parser.js"
+import type { Document } from "../services/shared/index.js"
+import { exprAtOffset, memberAtOffset, tokenAtOffset } from "../services/shared/index.js"
 
 /** True when the offset falls inside a graphical (network text) body — the server's routing discriminator. */
 export function inNetworkText(doc: Document, offset: number): boolean {
@@ -58,19 +57,14 @@ const GRAPHICAL_LANGUAGES: Record<string, string> = {
 
 /**
  * Hover for a hidden body's line (F.2e) — `IMPLEMENTATION <LANG> UNSUPPORTED`: always for CFC, SFC and IL, and for an
- * LD/FBD body network text cannot represent yet (`syntax/implementation-keyword`). Explains that no implementation is
+ * LD/FBD body network text cannot represent yet (`syntax/format/implementation-line`). Explains that no implementation is
  * shown and the push never writes it, while the declaration above the line stays editable: the line is what a pull
  * writes for such a body, and the body under it is empty and read by neither parser. Read off the parse, so only a line the splitter took as a body's boundary answers — never
  * a look-alike in a comment.
  */
 export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefined {
   const visit = (units: readonly TopLevel[]): Hover | undefined => {
-    for (const unit of units) {
-      if (unit.kind === "namespace") {
-        const inner = visit(unit.units)
-        if (inner !== undefined) return inner
-        continue
-      }
+    for (const unit of allUnits(units)) {
       for (const body of unitBodies(unit)) {
         const line = body.implementation
         if (line === undefined || line.statement.kind !== "unsupported" || !spanContains(line.span, offset)) continue

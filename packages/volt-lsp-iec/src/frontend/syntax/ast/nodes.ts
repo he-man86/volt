@@ -1,9 +1,8 @@
 /**
- * The complete IEC 61131-3 Structured Text AST (Layer A · Task A.1).
+ * The complete IEC 61131-3 Structured Text AST.
  *
- * Design (from architecture.md + data-model.md "Rebuild refinements"):
- * the AST models the language *completely* so consumers read structured nodes and
- * never re-parse spans. Concretely, vs. the legacy shapes:
+ * The AST models the language *completely* so consumers read structured nodes and never re-parse spans
+ * (`docs/data-model.md`). Concretely:
  *   - type-expr bounds are STRUCTURED: subrange `{ lo, hi }`, array dims as const-expr
  *     nodes, string length as an expr — not opaque `BodySpan`s re-parsed ad hoc.
  *   - literals carry a parsed `value`; the *type* is inferred in layer C (types/infer)
@@ -13,10 +12,11 @@
  * `BodySpan` survives only for genuinely-opaque ranges: a POU body (parsed on demand)
  * and an `AT` address.
  *
- * Ownership: `syntax/ast` owns every AST node type. Nobody redefines a node elsewhere.
+ * Ownership: `syntax/ast/nodes` owns every AST node type. Nobody redefines a node elsewhere.
  */
-import type { Span } from "./span.js"
-import type { Keyword, Token } from "./tokens.js"
+import type { Span } from "../span.js"
+import type { Token } from "../lex/tokens.js"
+import type { Dialect, Keyword } from "../lex/vocabulary.js"
 
 // ─── leaves & opaque spans ───────────────────────────────────────────────────
 
@@ -37,11 +37,11 @@ export interface BodySpan {
   tokens: Token[]
   span: Span
   /** The `IMPLEMENTATION <LANG>` line that opened the body — absent for a body that opens with anything else
-   *  (`syntax/implementation-keyword`). */
+   *  (`syntax/format/implementation-line`). */
   implementation?: ImplementationLine
 }
 
-/** What an `IMPLEMENTATION` line states (`syntax/implementation-keyword`, the bridge's `ImplementationMarker`). */
+/** What an `IMPLEMENTATION` line states (`syntax/format/implementation-line`, the bridge's `ImplementationMarker`). */
 export type ImplementationStatement =
   /** `ST`, `LD` or `FBD`: a body a parser reads. */
   | { kind: "read"; language: "ST" | "LD" | "FBD" }
@@ -675,15 +675,13 @@ export interface ParseResult {
    * reason it has been invisible is that no fixture had a malformed declaration AND a later use of the name.
    */
   failedDeclarations: string[]
-}
-
-/**
- * A parsed source document — its identity, its text and its parse: what every language service and the server work
- * on. It lived in `services/shared/resolve-at.ts`, so the network layer and the server imported the services layer for
- * a type (consolidate-lsp-structure C1).
- */
-export interface Document {
-  uri: string
-  source: string
-  parseResult: ParseResult
+  /**
+   * The token stream the parse read — trivia included, lexed ONCE with the parse's dialect. A consumer that needs the
+   * tokens (a check reading pragmas or literals as written) reads them here rather than lexing the source a second
+   * time, possibly with another vocabulary.
+   */
+  tokens: readonly Token[]
+  /** The vocabulary `tokens` were lexed with — so a consumer reading them can refuse a parse made for another vendor
+   *  (`computeSemanticDiagnostics`) instead of answering with the wrong vocabulary. */
+  dialect: Dialect
 }

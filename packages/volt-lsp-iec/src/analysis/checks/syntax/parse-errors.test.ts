@@ -6,13 +6,13 @@
  * closed, so these valid CODESYS forms produce no diagnostic.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const syntaxErrors = (src: string): string[] => {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "syntax-error")
     .map((d) => d.message)
@@ -59,15 +59,15 @@ test("grammar-completion forms surface no false positive (gate regression guard)
 test("a global missing its `;`: TwinCAT names it, CODESYS says nothing — and neither declares the next global", () => {
   const src = "VAR_GLOBAL\n\tg_a : INT\n\tg_b : INT;\n\tg_c : INT;\nEND_VAR\n"
   const errors = (vendor: "codesys" | "twincat"): string[] => {
-    const parseResult = parseSource(src, vendor, "gvl")
-    const project = buildSymbolTable([{ uri: "GVL.gvl", parseResult, source: src }], [], vendor)
+    const parseResult = parseSource(src, { networkText: true }, vendor, "gvl")
+    const project = build.buildSymbolTable([{ uri: "GVL.gvl", parseResult, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "syntax-error")
       .map((d) => d.message)
   }
   expect(errors("twincat")).toEqual(["';, :=, REF=, ( or [' expected instead of 'g_b'"])
   expect(errors("codesys")).toEqual([])
-  const list = parseSource(src, "codesys", "gvl").units[0] as { varSections: { decls: { names: { text: string }[] }[] }[] }
+  const list = parseSource(src, { networkText: true }, "codesys", "gvl").units[0] as { varSections: { decls: { names: { text: string }[] }[] }[] }
   expect(list.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["g_a", "g_c"])
   // …and in a STRUCT on CODESYS the same slip IS reported (`pwh_struct_missing_semicolon`) — the silence is the GVL's
   expect(syntaxErrors("TYPE T :\nSTRUCT\n\ta : INT\n\tb : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual([

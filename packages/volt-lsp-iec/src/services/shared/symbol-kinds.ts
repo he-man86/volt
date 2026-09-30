@@ -4,7 +4,7 @@
  * everywhere (the hover↔completion parity test guards it).
  */
 import { SymbolKind as Lsp } from "vscode-languageserver-protocol"
-import type { SymbolKind } from "../../symbols/index.js"
+import type { SymbolKind } from "../../frontend/symbols/index.js"
 
 export function lspSymbolKind(kind: SymbolKind): Lsp {
   switch (kind) {

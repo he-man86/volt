@@ -3,14 +3,14 @@
  * constant and a non-constant var are not.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const ci = (body: string): string[] => {
   const src = `FUNCTION_BLOCK FB\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "constant-no-initial-value")
     .map((d) => d.message)
@@ -22,8 +22,8 @@ test("a CONSTANT without an initializer is flagged; one with an initializer is n
 
 test("it is a WARNING, not an error (live-confirmed on the bakon-nano build)", () => {
   const src = `FUNCTION_BLOCK FB\nVAR CONSTANT\nk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   const ds = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
     (d) => d.code === "constant-no-initial-value",
   )

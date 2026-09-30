@@ -13,7 +13,6 @@ import {
   type BodySpan,
   bodyReader,
   type CaseArm,
-  type Document,
   type EnumValue,
   type PropertyAccessor,
   exprText,
@@ -27,8 +26,9 @@ import {
   unitBodies,
   type VarDecl,
   type VarSection,
-} from "../../syntax/index.js"
+} from "../../frontend/syntax/index.js"
 import { offsetFromPosition, rangeFromSpan } from "../shared/index.js"
+import type { Document } from "../shared/index.js"
 
 const TAB = "\t"
 

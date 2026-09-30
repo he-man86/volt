@@ -16,8 +16,8 @@
  */
 import { describe, expect, test } from "bun:test"
 import { parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "./index.js"
-import type { LibraryManifest } from "./library-namespace.js"
+import type { LibraryManifest } from "../library/index.js"
+import { buildSymbolTable } from "./incremental.js"
 
 const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
 
@@ -31,7 +31,7 @@ const manifest = (folder: string, library: string, namespace: string, dependenci
   materialization: 2,
 })
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source) })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
 
 // Two libraries, each exporting an ETRIG — and they are not the same type.
 const CBM_ETRIG = file(

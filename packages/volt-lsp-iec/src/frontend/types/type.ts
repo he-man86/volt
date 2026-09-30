@@ -10,7 +10,7 @@
  * produces these values (`resolve.ts`, `infer.ts`).
  *
  * Naming: the composite variants are `*Type` interfaces distinct from the AST's TypeExpr nodes of
- * the same concept (`syntax/ast` owns `ArrayType`/`PointerType`/`ReferenceType` the *syntax*; here
+ * the same concept (`syntax/ast/nodes` owns `ArrayType`/`PointerType`/`ReferenceType` the *syntax*; here
  * they are `ArrayTypeInfo`/`PointerTypeInfo`/`ReferenceTypeInfo`, the *resolved* form).
  */
 import type { Scope } from "../symbols/index.js"
@@ -89,21 +89,6 @@ export interface UnknownType {
 
 /** The total, conservative fallback. Every consumer skips on this. */
 export const UNKNOWN: UnknownType = { kind: "unknown" }
-
-/** True when a type is fully known — no `unknown` anywhere in it (the C.6 conservative-skip guard). */
-export function isKnown(t: Type): boolean {
-  switch (t.kind) {
-    case "unknown":
-      return false
-    case "array":
-      return isKnown(t.element)
-    case "pointer":
-    case "reference":
-      return isKnown(t.target)
-    default:
-      return true
-  }
-}
 
 /** Construct an elementary Type from its facts. */
 export function elementaryTypeRef(elem: ElementaryType): ElementaryTypeRef {

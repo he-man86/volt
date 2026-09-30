@@ -17,7 +17,7 @@
  * missing, by recording it.
  */
 import { describe, expect, test } from "bun:test"
-import type { Dialect } from "../../src/syntax/index.js"
+import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { checkBaseline, tally, type Baseline } from "./baseline.js"
 import { parse, parseErrors } from "./dumps.js"
 import { corpusProjects, fixtureSources, libraryRepoFiles, messagePool, type RecordedBuild } from "./sources.js"

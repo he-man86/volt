@@ -4,14 +4,14 @@
  * `REF= <non-zero literal>` and `REF= <constant>` error.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const codes = (body: string, code: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT; i : INT;\nEND_VAR\nVAR CONSTANT K : INT := 7;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === code)
     .map((d) => d.message)
@@ -49,8 +49,8 @@ test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
 
 test("a LITERAL on the right of REF= is a TYPE error, not the write-access one", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nbound : REFERENCE TO INT;\nEND_VAR\nbound REF= 7;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch" || d.code.startsWith("reference-assign"))
     .map((d) => d.message)

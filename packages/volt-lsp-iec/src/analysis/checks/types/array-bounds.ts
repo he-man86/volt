@@ -4,9 +4,9 @@
  * `const-eval` + `infer`. Conservative: a variable index (non-foldable), a dynamic `ARRAY[*]` dim, or
  * non-`bigint` bounds skip → zero-FP.
  */
-import { walkAllExprs } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { constEval, inferExprType } from "../../../types/index.js"
+import { walkAllExprs } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { constEval, inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

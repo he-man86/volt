@@ -21,7 +21,7 @@ Plus `conformance/source-map.test.ts` — every emitted Rust line a mapping name
 and it is its own question.
 
 Plus `frontend/` — the FRONT-END MEASURED (openspec `frontend-conformance`, phase 0): does the parser, the binder and
-the type layer (`src/syntax`, `src/symbols`, `src/types`) answer as the recordings do, over every corpus file, fixture
+the type layer (`src/frontend/syntax`, `symbols`, `types`) answer as the recordings do, over every corpus file, fixture
 and library body? `parse-census` (0.1), `fixed-point` (0.2, the printer), `resolution-dump` (0.3), `type-dump` and
 `fold-dump` (0.4) each pin their findings in `frontend/baselines/` — a new finding fails and so does one that vanished
 (`VOLT_WRITE_BASELINE=1` rewrites them). `baselines/ceilings.json` makes "may only fall" mechanical: the writer refuses a

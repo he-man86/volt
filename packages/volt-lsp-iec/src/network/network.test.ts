@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
-import { type BodySpan, type Document, type Expr, graphicalMarkerLanguage, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../syntax/index.js"
-import { buildSymbolTable, type Scope } from "../symbols/index.js"
+import { type BodySpan, type Expr, graphicalMarkerLanguage, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../frontend/syntax/index.js"
+import { build, type Scope } from "../frontend/symbols/index.js"
 import { messagesFor, type DiagnosticItem, type WorkspaceRefs } from "../analysis/index.js"
 import {
   STRUCTURE_ONLY,
@@ -17,6 +17,7 @@ import {
   referencesAnywhere,
   renameAnywhere,
 } from "./index.js"
+import type { Document } from "../services/shared/index.js"
 
 /** Every identifier name referenced anywhere in an expression. */
 function idents(e: Expr | undefined): string[] {
@@ -27,18 +28,18 @@ function idents(e: Expr | undefined): string[] {
 
 /** Parse a full POU source and return its (single) graphical body. */
 function vgBody(src: string): BodySpan {
-  const { units } = parseSource(src)
+  const { units } = parseSource(src, { networkText: true })
   const body = unitBodies(units[0]!).find(isGraphicalBody)
   if (body === undefined) throw new Error("no graphical body")
   return body
 }
 
 function doc(src: string): Document {
-  return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src) }
+  return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
 }
 
 function project(d: Document): Scope {
-  return buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
+  return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
 }
 
 /** network-text diagnostics for a single-doc project (codesys wording). */
@@ -58,7 +59,7 @@ END_NETWORK
 END_FUNCTION_BLOCK`
 
 test("network text: an FBD/LD body is detected as graphical, not ST", () => {
-  const { units, errors } = parseSource(LD)
+  const { units, errors } = parseSource(LD, { networkText: true })
   expect(errors).toEqual([]) // ST parser routes around the network-text body — no false parse errors
   expect(unitBodies(units[0]!).some(isGraphicalBody)).toBe(true)
 })
@@ -71,7 +72,7 @@ VAR
 \ta : BOOL;
 END_VAR
 IMPLEMENTATION LD
-END_FUNCTION_BLOCK`)
+END_FUNCTION_BLOCK`, { networkText: true })
   expect(unitBodies(empty.units[0]!).map(graphicalMarkerLanguage)).toEqual(["LD"])
   expect(unitBodies(empty.units[0]!).some(isGraphicalBody)).toBe(true)
 
@@ -81,7 +82,7 @@ VAR
 END_VAR
 IMPLEMENTATION ST
 a := TRUE;
-END_FUNCTION_BLOCK`)
+END_FUNCTION_BLOCK`, { networkText: true })
   expect(unitBodies(st.units[0]!).map(graphicalMarkerLanguage)).toEqual([undefined])
   expect(unitBodies(st.units[0]!).some(isGraphicalBody)).toBe(false)
 })
@@ -94,7 +95,7 @@ test("network text: a body is graphical by its stated LINE alone, as the bridge 
 VAR x : INT; a : INT; END_VAR
 ${impl}
 END_PROGRAM`
-  const graphical = (impl: string) => unitBodies(parseSource(body(impl)).units[0]!).some(isGraphicalBody)
+  const graphical = (impl: string) => unitBodies(parseSource(body(impl), { networkText: true }).units[0]!).some(isGraphicalBody)
 
   expect(graphical("IMPLEMENTATION FBD x := 1;")).toBe(false)
   expect(graphical("IMPLEMENTATION ST\n// note\nNETWORK 0 LD\nx := a;")).toBe(false)
@@ -425,8 +426,8 @@ test("network text: a qualified_only GVL chain does NOT false-positive (lenze Ma
     "file:///FB_User.fb": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD
 NETWORK\nx := Mach1.Genflags.bReady;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
-  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
-  const proj = buildSymbolTable(docs)
+  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
+  const proj = build.buildSymbolTable(docs)
   const fbDoc = docs.find((d) => d.uri === "file:///FB_User.fb")!
   const diags = computeNetworkTextDiagnostics(fbDoc, proj, messagesFor("codesys"))
   expect(diags.filter((d) => d.code === "network-unknown-member")).toEqual([])
@@ -617,7 +618,7 @@ g1 := (a AND b);
 END_NETWORK
 END_FUNCTION_BLOCK`
   const d = doc(src)
-  const analysis = analyzeNetworkText(parseSource(src).units[0]!, vgBody(src), project(d), d.uri)
+  const analysis = analyzeNetworkText(parseSource(src, { networkText: true }).units[0]!, vgBody(src), project(d), d.uri)
   const scope = [...analysis.networkScopes.values()][0]!
   const wire = scope.symbols.get("g1")?.[0]
   expect(wire?.typeExpr?.kind).toBe("named_type")
@@ -729,8 +730,8 @@ function crossBodyProject() {
     "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
 NETWORK\nx := Flag;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
-  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
-  return { docs, project: buildSymbolTable(docs), by: (uri: string) => docs.find((d) => d.uri === uri)! }
+  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
+  return { docs, project: build.buildSymbolTable(docs), by: (uri: string) => docs.find((d) => d.uri === uri)! }
 }
 
 test("network text references: a global read in a network-text operand is found from an ST cursor", () => {
@@ -1022,8 +1023,8 @@ test("network text rename: a new name that is a word of the text is backticked w
     "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
 NETWORK\nx := Flag;\nFlag := x;\nx := \`Flag OR x\`;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
-  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
-  const proj = buildSymbolTable(docs)
+  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
+  const proj = build.buildSymbolTable(docs)
   const vg = docs.find((d) => d.uri === "file:///FB_VG.fb")!
   const edit = renameAnywhere(docs, proj, vg, vg.source.indexOf("Flag"), "Execute")!
   // ST and a declaration take the name as it is; inside backticked text it is verbatim ST, so it is not backticked again.
@@ -1044,9 +1045,9 @@ NETWORK\nx := Flag;\nFlag := x;\nx := \`Flag OR x\`;\nEND_NETWORK\nEND_FUNCTION_
 
 /** Network-text diagnostics of `uri` in a project of several files. */
 function projectDiags(files: Record<string, string>, uri: string): string[] {
-  const docs = Object.entries(files).map(([u, source]) => ({ uri: u, source, parseResult: parseSource(source) }))
+  const docs = Object.entries(files).map(([u, source]) => ({ uri: u, source, parseResult: parseSource(source, { networkText: true }) }))
   const d = docs.find((x) => x.uri === uri)!
-  return computeNetworkTextDiagnostics(d, buildSymbolTable(docs), messagesFor("codesys")).map(
+  return computeNetworkTextDiagnostics(d, build.buildSymbolTable(docs), messagesFor("codesys")).map(
     (x) => `${x.code} [${d.source.slice(x.span.start, x.span.end)}] ${x.message}`,
   )
 }
@@ -1060,8 +1061,8 @@ test("network text: a marker line with trailing blanks is the marker — the bri
     "file:///P.prg": `PROGRAM P\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
   }
   expect(projectDiags(files, "file:///P.prg")).toEqual([])
-  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source) }))
-  const proj = buildSymbolTable(docs)
+  const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
+  const proj = build.buildSymbolTable(docs)
   const s = docs.find((d) => d.uri === "file:///S.prg")!
   const edit = renameAnywhere(docs, proj, s, s.source.indexOf("Flag"), "Enabled")
   expect(Object.keys(edit?.changes ?? {}).sort()).toEqual(["file:///G.gvl", "file:///P.prg", "file:///S.prg"])
@@ -1098,10 +1099,10 @@ test("network text: an ST body whose first statement starts with a variable name
   // The stated language decides, and `network := 1;` opens no network (the bridge's `NetworkText.OpensNetwork`), so
   // it draws no "network text under ST" finding either.
   const prg = `PROGRAM P\nVAR network : INT; END_VAR\nIMPLEMENTATION ST\nnetwork := 1;\nEND_PROGRAM`
-  expect(unitBodies(parseSource(prg).units[0]!).some(isGraphicalBody)).toBe(false)
+  expect(unitBodies(parseSource(prg, { networkText: true }).units[0]!).some(isGraphicalBody)).toBe(false)
   expect(vgDiags(prg)).toEqual([])
   const fn = `FUNCTION Network : BOOL\nVAR_INPUT x : BOOL; END_VAR\nIMPLEMENTATION ST\nNetwork := x;\nEND_FUNCTION`
-  expect(unitBodies(parseSource(fn).units[0]!).some(isGraphicalBody)).toBe(false)
+  expect(unitBodies(parseSource(fn, { networkText: true }).units[0]!).some(isGraphicalBody)).toBe(false)
   expect(vgDiags(fn)).toEqual([])
   // v1 text is still met by name, asking for a re-pull.
   const v1 = `PROGRAM P\nVAR a : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK 0 LD\na := TRUE;\nEND_NETWORK\nEND_PROGRAM`

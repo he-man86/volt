@@ -8,7 +8,7 @@
  * derived FB is skipped entirely). Only `var`-kind symbols collide — a method/property of the same name is a
  * legal override, not a duplicate variable. The nearest base that declares the name is the one reported.
  */
-import { isLibrarySymbol, lookup, type Scope, scopeForUnit, type Symbol } from "../../../symbols/index.js"
+import { extendsChain, isLibrarySymbol, lookup, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -30,9 +30,8 @@ export function checkInheritedVariable(ctx: CheckContext, out: DiagnosticItem[])
     // seeded with the FB ITSELF: in a cycle its own scope is reached again as a "base", and every one of its variables
     // was then reported as duplicating itself ("in function block 'FB_C2_circleA' and in base 'FB_C2_circleA'").
     // A cycle is `circular-inheritance`'s to report, and it does.
-    const walked = new Set<Scope>([scope])
-    for (let base: Scope | undefined = scope.baseScope; base !== undefined && !walked.has(base); base = base.baseScope) {
-      walked.add(base)
+    // (`extendsChain` walks each scope once, so the chain ends where a cycle closes — back at the FB itself.)
+    for (const base of extendsChain(scope).reverse().slice(1)) {
       const baseSym = lookup(ctx.project, base.name)?.symbol
       if (baseSym !== undefined && isLibrarySymbol(baseSym)) break // library base → vars may be hidden; stop
       for (const [name, syms] of base.symbols) if (isVar(syms) && !inherited.has(name)) inherited.set(name, base.name)

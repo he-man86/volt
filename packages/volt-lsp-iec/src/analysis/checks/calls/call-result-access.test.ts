@@ -3,8 +3,8 @@
  * Fires once per offending access; a clean call and access on a variable stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const MSG =
@@ -12,8 +12,8 @@ const MSG =
 
 const msgs = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n i:INT; a:ARRAY[0..3] OF INT;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION F : INT\nEND_FUNCTION`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-result-access")
     .map((d) => d.message)

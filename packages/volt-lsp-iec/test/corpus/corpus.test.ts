@@ -49,9 +49,9 @@ import {
   type BodySpan,
   type TopLevel,
   type TypeExpr,
-} from "../../src/syntax/index.js"
-import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/symbols/index.js"
-import { libraryRank } from "../../src/symbols/precedence.js"
+} from "../../src/frontend/syntax/index.js"
+import { isLibrarySymbol, lookupLocal, scopeForUnit } from "../../src/frontend/symbols/index.js"
+import { libraryRank } from "../../src/frontend/symbols/index.js"
 import { lowerUnit } from "../../src/transpile/index.js"
 import { LOWER_CODES, LOWER_CODE_PREFIXES } from "../../src/transpile/ir/codes.js"
 import type { IrBuiltinName, IrPou, IrRoutine, IrStmt } from "../../src/transpile/ir/index.js"
@@ -250,7 +250,7 @@ function pass(): Pass {
     const dir = join(CORPUS, projectName)
     const parsed = walkSources(dir).map((file) => {
       const source = readFileSync(file, "utf8")
-      return { file, source, parseResult: parseDocument(file, source) }
+      return { file, source, parseResult: parseDocument(file, source, { networkText: true }) }
     })
     p.files += parsed.length
 
@@ -284,7 +284,7 @@ function pass(): Pass {
       // ── the formatter re-emits valid ST that re-parses to an EQUIVALENT AST ──
       // Proves the formatter never changes meaning (span/token-free, body statements embedded, key-order-insensitive).
       const formatted = formatDocument({ uri: file, source, parseResult })
-      const reparsed = parseSource(formatted)
+      const reparsed = parseSource(formatted, { networkText: true })
       if (reparsed.errors.length > 0) p.formatFailures.push(`${file}: formatted output has parse errors`)
       else if (astKey(parseResult.units) !== astKey(reparsed.units)) p.formatFailures.push(`${file}: AST changed after formatting`)
     }

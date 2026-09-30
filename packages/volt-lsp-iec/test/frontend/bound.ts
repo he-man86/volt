@@ -11,8 +11,8 @@
  *             which is where each body is lowered from.
  */
 import { EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
-import { parseSource, type Dialect } from "../../src/syntax/index.js"
-import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
+import { parseSource, type Dialect } from "../../src/frontend/syntax/index.js"
+import { build, type Scope } from "../../src/frontend/symbols/index.js"
 import { loadWorkspaceRefs, scanLibraryManifests } from "../../src/workspace-refs.js"
 import { withDependencies } from "../conformance/support/fixture-units.js"
 import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS } from "../conformance/support/project-libraries.js"
@@ -23,7 +23,7 @@ import { fixtureUri, libraryRepoFiles, type CorpusProject, type FixtureSources }
 /** Every file of a corpus project, parsed and bound together. */
 export function boundCorpus(p: CorpusProject): Bound[] {
   const parsed = p.files.map((f) => parse(f, p.vendor))
-  const project = buildSymbolTable(parsed, scanLibraryManifests(p.dir), p.vendor)
+  const project = build.buildSymbolTable(parsed, scanLibraryManifests(p.dir), p.vendor)
   const refs = loadWorkspaceRefs(p.dir)
   return parsed.map((f) => ({ parsed: f, project, refs }))
 }
@@ -33,8 +33,8 @@ const libraryProjects = new Map<Dialect, Scope>()
 function fixtureBase(vendor: Dialect): Scope {
   let project = libraryProjects.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable(
-      PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, vendor) })),
+    project = build.buildSymbolTable(
+      PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true }, vendor) })),
       PROJECT_MANIFESTS,
       vendor,
     )
@@ -59,14 +59,14 @@ export function withBoundFixture<T>(
     .filter((d) => d.name !== f.test.name && d.source !== "")
     .map((d) => parse({ id: d.name, uri: fixtureUri(d), source: d.source }, vendor))
   const files = [own, plc, ...deps]
-  for (const file of files) bindFile(project, file)
-  linkExtends(project, PROJECT_MANIFESTS)
+  for (const file of files) build.bindFile(project, file)
+  build.relink(project, PROJECT_MANIFESTS)
   try {
     const bound = (parsed: Parsed): Bound => ({ parsed, project, refs: EMPTY_WORKSPACE_REFS })
     return visit(bound(own), bound(plc), deps.map(bound))
   } finally {
-    for (const file of files) unbindFile(project, file.uri)
-    linkExtends(project, PROJECT_MANIFESTS)
+    for (const file of files) build.unbindFile(project, file.uri)
+    build.relink(project, PROJECT_MANIFESTS)
   }
 }
 
@@ -84,7 +84,7 @@ export function boundLibrary(): Bound[] {
     dialect: "codesys",
     parseResult: f.parseResult!,
   }))
-  const project = buildSymbolTable(parsed, PROJECT_MANIFESTS)
+  const project = build.buildSymbolTable(parsed, PROJECT_MANIFESTS)
   const bySource = new Map(parsed.map((p) => [p.source, p]))
   return libraryRepoFiles().map((r) => {
     const at = bySource.get(r.source)

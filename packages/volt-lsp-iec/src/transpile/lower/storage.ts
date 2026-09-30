@@ -1,13 +1,13 @@
 /**
  * What a variable is stored as: a type's storage and its layout, and the declarations that make a frame's slots.
  */
-import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
-import { lookup } from "../../symbols/index.js"
-import { constantSlotType, DEFAULT_STRING_LENGTH, elemOf, elementaryRef, elementaryTypeRef, resolveNamedType, type Type } from "../../types/index.js"
+import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../frontend/syntax/index.js"
+import { lookup } from "../../frontend/symbols/index.js"
+import { constantSlotType, DEFAULT_STRING_LENGTH, elementaryRef, elementaryTypeRef, elemOf, enumDefault, inlineEnumDefault, resolveNamedType, type Type } from "../../frontend/types/index.js"
 import { defaultValueOf, elementOf, type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
-import { calendarOf, durationOf, enumDefault, enumStorage, foldsToConstant, inlineEnumDefault, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
+import { calendarOf, durationOf, enumeratorValue, enumStorage, foldsToConstant, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
 import { buildInitSequence, lowerPendingInit, readsLaterTemp } from "./init-sequence.js"
 // A folded initial value and the same expression at run time go through ONE implementation, so they cannot
@@ -219,7 +219,9 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       // zero — `enumDefault` carries the measured rule. A variable WITH an initializer never asks; neither does
       // folding a VALUE of the same enum, which is a constant its declaration states.
       const enumStart =
-        decl.init === undefined ? (enumDefault(lw, lw.resolve(written.type)) ?? inlineEnumDefault(lw, written.type)) : undefined
+        decl.init === undefined
+          ? (enumDefault(lw.project, lw.resolve(written.type), enumeratorValue(lw)) ?? inlineEnumDefault(written.type, enumeratorValue(lw)))
+          : undefined
       const attempt = (): IrInit | undefined =>
         decl.init === undefined
           ? enumStart === undefined
@@ -623,7 +625,7 @@ function elementDefaults(lw: Lowering, written: TypeExpr, type: Type): IrInit | 
   if (written.kind !== "array_type" || type.kind !== "array" || type.bounds === undefined) return undefined
   const element = type.element
   const alias = aliasInit(lw, written.element)
-  const enumStart = enumDefault(lw, lw.resolve(written.element)) ?? inlineEnumDefault(lw, written.element)
+  const enumStart = enumDefault(lw.project, lw.resolve(written.element), enumeratorValue(lw)) ?? inlineEnumDefault(written.element, enumeratorValue(lw))
   const one =
     written.element.kind === "array_type"
       ? elementDefaults(lw, written.element, element)

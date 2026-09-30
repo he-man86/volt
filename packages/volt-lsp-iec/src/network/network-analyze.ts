@@ -11,9 +11,17 @@
  * Wires are network-scoped (VarIds are per network), so each network owns its own scope and `g1` in network 0 never
  * shadows `g1` in network 1.
  */
-import { defineSymbol, lookup, scopeForUnit, type Scope, type Symbol as StSymbol } from "../symbols/index.js"
-import { type BodySpan, type Expr, type TopLevel, type TypeExpr, isTrivia, lex, parseExprFromTokens } from "../syntax/index.js"
-import { type FunctionBlockType, inferExprType, isSameType, resolveTypeExpr } from "../types/index.js"
+import {
+  build,
+  defineSymbol,
+  isPouSymbol,
+  lookup,
+  type Scope,
+  scopeForUnit,
+  type Symbol as StSymbol,
+} from "../frontend/symbols/index.js"
+import { type BodySpan, type Expr, type TopLevel, type TypeExpr, isTrivia, lex, parseExprFromTokens } from "../frontend/syntax/index.js"
+import { type FunctionBlockType, inferExprType, isSameType, resolveTypeExpr } from "../frontend/types/index.js"
 import { type NetworkScopeView, parseNetworkText } from "../network-text/parser.js"
 import type { NetworkTextBody, NetworkTextNetwork, NetworkWire } from "../network-text/ast.js"
 import { networkValueExpr } from "../network-text/exprs.js"
@@ -38,7 +46,7 @@ export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scop
   const networkScopes = new Map<NetworkTextNetwork, Scope>()
   const wires = new Map<StSymbol, NetworkWire>()
   for (const network of vg.networks) {
-    const scope: Scope = { kind: "pou", name: `${pou.name}$net${network.index}`, parent: pou, symbols: new Map(), children: [], span: network.span }
+    const scope = build.localScope(pou, "pou", `${pou.name}$net${network.index}`, network.span)
     for (const wire of network.wires) {
       const sym: StSymbol = {
         kind: "var",
@@ -109,8 +117,8 @@ function scopeView(pou: Scope, project: Scope): NetworkScopeView {
   return {
     contains: (name) => lookup(pou, name) !== undefined,
     isPou: (name) => {
-      const kind = lookup(pou, name)?.symbol.kind
-      return kind === "function" || kind === "function_block" || kind === "program"
+      const sym = lookup(pou, name)?.symbol
+      return sym !== undefined && isPouSymbol(sym)
     },
     instanceType: (head) => {
       const toks = lex(head).filter((t) => t.kind !== "eof" && !isTrivia(t.kind))

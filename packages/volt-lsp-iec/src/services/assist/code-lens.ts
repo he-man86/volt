@@ -3,9 +3,9 @@
  * Counts via the shared type-aware `findReferences` (minus the declaration itself).
  */
 import type { CodeLens } from "vscode-languageserver-protocol"
-import type { Scope } from "../../symbols/index.js"
+import type { Scope } from "../../frontend/symbols/index.js"
 import { rangeFromSpan, resolveAt } from "../shared/index.js"
-import type { Document } from "../../syntax/index.js"
+import type { Document } from "../shared/index.js"
 import { findReferences } from "../navigation/index.js"
 
 export function codeLenses(docs: Iterable<Document>, project: Scope, doc: Document): CodeLens[] {

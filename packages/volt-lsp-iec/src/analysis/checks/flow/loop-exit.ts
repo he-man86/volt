@@ -7,9 +7,9 @@
  * range, the step folds to a non-zero integer constant, and the end bound folds to a constant at/beyond the
  * range limit in the step's direction. Unknown types, non-constant bounds/steps, and reals are skipped.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { constEval, inferExprType } from "../../../types/index.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { constEval, inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

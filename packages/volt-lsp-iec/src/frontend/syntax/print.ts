@@ -3,7 +3,7 @@
  * code actions and a few diagnostic messages print through these. They lived in `types/render.ts`, though they read
  * only the AST — `types/renderType`, which prints a RESOLVED type, stays there (consolidate-lsp-structure C4).
  */
-import type { CallArg, Expr, TypeExpr } from "./ast.js"
+import type { CallArg, Expr, TypeExpr } from "./ast/nodes.js"
 
 /** Render a declared AST `TypeExpr` to display text. */
 export function renderTypeExpr(t: TypeExpr): string {

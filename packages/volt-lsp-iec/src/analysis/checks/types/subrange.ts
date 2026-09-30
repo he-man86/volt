@@ -12,9 +12,9 @@
  * recorded, not chosen (`subrange_init_above_range` vs `subrange_assign_const_out`), so the spelling is vendor data in
  * `messages`, not a flag here.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies, lookup, scopeForUnit } from "../../../symbols/index.js"
-import { constEval } from "../../../types/index.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies, lookup, scopeForUnit } from "../../../frontend/symbols/index.js"
+import { constEval } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { compilerSubrangeText } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

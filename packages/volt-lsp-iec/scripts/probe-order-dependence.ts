@@ -9,10 +9,11 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { isStBody, parseSource, parseStatements, type TopLevel } from "../src/syntax/index.js"
-import { isLibrarySymbol, scopeForUnit } from "../src/symbols/index.js"
+import { isStBody, parseSource, parseStatements, type TopLevel } from "../src/frontend/syntax/index.js"
+import { isLibrarySymbol, scopeForUnit } from "../src/frontend/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { loweringProject, walkSources } from "../test/corpus/support/project.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 if (!existsSync(CORPUS)) throw new Error(`no corpus at ${CORPUS}`)
@@ -27,7 +28,7 @@ function routinesFor(dir: string, files: string[]): Map<string, string> {
     dir,
     files.map((uri) => {
       const source = readFileSync(uri, "utf8")
-      return { uri, source, parseResult: parseSource(source) }
+      return { uri, source, parseResult: parseSource(source, { networkText: NETWORK_TEXT_ENABLED }) }
     }),
   )
   const out = new Map<string, string>()

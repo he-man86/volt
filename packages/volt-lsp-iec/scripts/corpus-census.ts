@@ -14,9 +14,10 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseSource, parseStatements, isGraphicalBody, isStBody, type ParseResult } from "../src/syntax/index.js"
+import { parseSource, parseStatements, isGraphicalBody, isStBody, type ParseResult } from "../src/frontend/syntax/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const walk = (d: string): string[] =>
@@ -87,7 +88,7 @@ for (const project of readdirSync(CORPUS).filter((n) => statSync(join(CORPUS, n)
   for (const file of walk(join(CORPUS, project))) {
     const source = readFileSync(file, "utf8")
     try {
-      const result = parseSource(source)
+      const result = parseSource(source, { networkText: NETWORK_TEXT_ENABLED })
       if (result.errors.length === 0) featuresOf(source, result, corpus)
     } catch {
       continue
@@ -98,7 +99,7 @@ const fixtures = new Map<string, number>()
 for (const t of ALL_TESTS) {
   if (t.source === "") continue
   try {
-    featuresOf(t.source, parseSource(t.source), fixtures)
+    featuresOf(t.source, parseSource(t.source, { networkText: NETWORK_TEXT_ENABLED }), fixtures)
   } catch {
     continue
   }

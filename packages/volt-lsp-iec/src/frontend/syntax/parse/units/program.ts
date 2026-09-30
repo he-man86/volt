@@ -4,15 +4,18 @@
  * No modifiers, no extends/implements — programs are top-level
  * entry points and don't participate in the FB inheritance graph.
  */
-import type { Program } from "../ast.js"
+import type { Program } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
-import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js"
+import { collectBodyUntil } from "../body.js"
+import { joinSpans } from "../../span.js"
+import { identFromToken } from "../names.js"
+import { collectVarSections } from "../declarations.js"
 
 export function parseProgram(c: Cursor): Program | undefined {
-  const start = c.expectKeyword("PROGRAM", "at start of PROGRAM")
+  const start = c.expectKeyword("PROGRAM")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent("for PROGRAM name")
+  const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

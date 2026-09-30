@@ -4,20 +4,9 @@
  * signed↔unsigned crossing ("change of sign", e.g. `WORD`→`INT`). Both derive from the ONE `classifyConversion`
  * relation, through the shared rules in `analysis/rules` — this check only walks the places they apply.
  */
-import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
-import { bodies, forEachDecl, type Scope } from "../../../symbols/index.js"
-import {
-
-  checkedMeetType,
-  elementaryTypeRef,
-  inferExprType,
-  integerOfWidth,
-  isIntegerType,
-  literalCheckType,
-  resolveTypeExpr,
-  type ElementaryType,
-  type Type,
-} from "../../../types/index.js"
+import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
+import { checkedMeetType, comparisonConverts, type ElementaryType, elementaryTypeRef, inferExprType, integerOfWidth, isIntegerType, isIntLiteral, literalCheckType, operandConversion, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -100,7 +89,7 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   let rule: "signed" | "unsigned" | "signed-wide" | undefined
   let pair: readonly [Expr, Expr] | undefined
   if (x.kind === "binary") {
-    rule = ARITHMETIC.has(x.op) ? "signed" : BITWISE.has(x.op) ? "unsigned" : COMPARISON.has(x.op) ? "signed-wide" : undefined
+    rule = operandConversion(x.op)
     pair = [x.left, x.right]
   } else if (x.kind === "call" && x.callee.kind === "ident_expr" && /^(MAX|MIN)$/i.test(x.callee.name) && x.args.length === 2) {
     const [a, b] = [x.args[0]!.value, x.args[1]!.value]
@@ -133,7 +122,7 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
     return [each([l, left]), each([r, right])].filter((d): d is DiagnosticItem => d !== undefined)
   }
   if (l.signed === r.signed) return []
-  if (rule === "signed-wide" && l.bits < 32 && project.dialect !== "twincat") return []
+  if (rule === "signed-wide" && !comparisonConverts(l.bits, project.dialect)) return []
   const [signed, unsigned, unsignedAt] = l.signed ? [l, r, right] : [r, l, left]
   const w = conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
   return w === undefined ? [] : [w]
@@ -168,15 +157,10 @@ function integral(t: Type): (ElementaryType & { signed: boolean }) | undefined {
   return e !== undefined && isIntegerType(e.name) ? { ...e, signed: e.signed === true } : undefined
 }
 
-const ARITHMETIC: ReadonlySet<string> = new Set(["+", "-", "*", "/", "MOD"])
-const BITWISE: ReadonlySet<string> = new Set(["AND", "OR", "XOR"])
-const COMPARISON: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
-// the ladder is `types/arith`'s; this was a second copy of it, written with `===` where the one home uses `<=`
+// the ladder is `types/arith/`'s; this was a second copy of it, written with `===` where the one home uses `<=`
 const unsignedOfWidth = (bits: number): Type => elementaryTypeRef(integerOfWidth(bits, false))
 
-const isIntLiteral = (e: Expr): boolean =>
-  (e.kind === "literal" && e.literalKind === "int") || (e.kind === "unary" && e.op === "-" && e.operand.kind === "literal" && e.operand.literalKind === "int")
 
 function negationOperandWarning(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
   if (x.kind !== "unary" || x.op !== "-") return undefined

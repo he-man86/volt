@@ -10,8 +10,7 @@
  * message (the bridge reports line 0 for build diagnostics, so line-mapping is impossible). Diffs the
  * compiler's severity against what `classifyConversion` predicts; prints every disagreement. Restores after.
  */
-import { classifyConversion, type ConversionKind } from "../src/types/compat.js"
-import type { Type } from "../src/types/type.js"
+import { classifyConversion, type ConversionKind, type Type } from "../src/frontend/types/index.js"
 import { call, VENDOR } from "./bridge.js"
 
 if (process.argv.includes("--explicit")) {

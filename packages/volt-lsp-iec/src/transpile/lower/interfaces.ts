@@ -27,9 +27,9 @@
  * interface inputs from two frames — its instances are lent per TYPE, so every caller would have to lend both frames'
  * (`interface-context`; a limitation, not recorded behaviour).
  */
-import type { Expr, Interface, Span, Statement } from "../../syntax/index.js"
-import { lookup, lookupMember } from "../../symbols/index.js"
-import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../types/index.js"
+import type { Expr, Interface, Span, Statement } from "../../frontend/syntax/index.js"
+import { lookup, lookupMember } from "../../frontend/symbols/index.js"
+import { ANY_FAMILIES, elementaryRef, inferExprType, type Type, UNKNOWN } from "../../frontend/types/index.js"
 import { type IrArm, type IrCall, type IrDispatch, type IrExpr, type IrInvoke, type IrStmt, peelArray, type Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { convert } from "./convert.js"

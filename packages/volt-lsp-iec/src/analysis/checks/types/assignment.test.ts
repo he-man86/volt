@@ -4,14 +4,14 @@
  * `cc_fp_ltime_literal_into_ltime`).
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const mismatches = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -24,8 +24,8 @@ test("an LTIME literal into a TIME does not convert — it was silent", () => {
 /** Every `assignment-type-mismatch` message for `x := E_Mode.Busy` with `x : <target>`, beside an enum `E_Mode`. */
 const enumInto = (target: string, base = ""): string[] => {
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n)${base};\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : ${target};\nEND_VAR\nx := E_Mode.Busy;\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -46,8 +46,8 @@ test("an enum with a written base type is unmeasured, so it stays silent", () =>
 /** Every `assignment-type-mismatch` message for a declaration-only FB. */
 const initMismatches = (vars: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -140,8 +140,8 @@ test("a reference bound to a name only the shared resolution oracle can excuse i
   const fb = (decls: string, header = "FUNCTION_BLOCK FB_Derived EXTENDS FB_Missing") =>
     `${header}\nVAR\n${decls}\nEND_VAR\n;\nEND_FUNCTION_BLOCK`
   const codes = (src: string): string[] => {
-    const parseResult = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)

@@ -19,7 +19,7 @@ import {
   peelArray,
   type Place,
 } from "../ir/index.js"
-import type { Type } from "../../types/index.js"
+import type { Type } from "../../frontend/types/index.js"
 import {
   bool,
   coerce,

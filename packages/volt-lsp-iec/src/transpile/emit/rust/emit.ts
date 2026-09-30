@@ -19,8 +19,8 @@
  */
 import type { IrBinding, IrExpr, IrInit, IrLayout, IrMathName, IrPou, IrRoutine, IrStmt, IrValue, Place } from "../../ir/index.js"
 import { defaultValueOf, elementOf, holdsCall, isBit, peelArray } from "../../ir/index.js"
-import type { Span } from "../../../syntax/index.js"
-import { isTemporal, type Type } from "../../../types/index.js"
+import type { Span } from "../../../frontend/syntax/index.js"
+import { isTemporal, type Type } from "../../../frontend/types/index.js"
 import { STRING_PRELUDE } from "./prelude.js"
 
 /** Emitted Rust, plus the line→ST mapping a panic or a failed assertion is reported through. */

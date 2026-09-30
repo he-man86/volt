@@ -17,14 +17,7 @@
 import { isAbsolute, join, relative } from "node:path"
 import { messagesFor, vendorReportsParseError, type WorkspaceRefs } from "../../src/analysis/index.js"
 import { lookupReference } from "../../src/reference/index.js"
-import {
-  lookup,
-  lookupMember,
-  resolveBareEnumMember,
-  scopeForUnit,
-  type Scope,
-  type Symbol,
-} from "../../src/symbols/index.js"
+import { lookup, lookupMember, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   CODESYS_ONLY_TYPES,
   constancyOf,
@@ -36,8 +29,9 @@ import {
   resolveMemberChain,
   type CalleeInfo,
   type ConstValue,
-} from "../../src/types/index.js"
+} from "../../src/frontend/types/index.js"
 import {
+  allUnits,
   CODESYS_ONLY_KEYWORDS,
   exprText,
   isStBody,
@@ -56,7 +50,7 @@ import {
   type Span,
   type StatementList,
   type TopLevel,
-} from "../../src/syntax/index.js"
+} from "../../src/frontend/syntax/index.js"
 import { formatDocument } from "../../src/services/index.js"
 
 export const at = (s: Span): string => `${s.startLine}:${s.startCol}`
@@ -71,7 +65,7 @@ export interface Parsed {
 }
 
 export function parse(file: { id: string; uri: string; source: string }, dialect: Dialect): Parsed {
-  return { ...file, dialect, parseResult: parseDocument(file.uri, file.source, dialect) }
+  return { ...file, dialect, parseResult: parseDocument(file.uri, file.source, { networkText: true }, dialect) }
 }
 
 // ─── 0.1 parse errors ────────────────────────────────────────────────────────────────────────────────────────
@@ -160,11 +154,7 @@ export interface PrintFinding {
 /** The MAXIMAL expressions of `units` — every one a declaration holds (`declExprs`) and every one an ST statement holds
  *  directly — with nothing resolved. A sub-expression is printed as part of the expression that holds it. */
 export function* topExprs(units: readonly TopLevel[]): Generator<Expr> {
-  for (const unit of units) {
-    if (unit.kind === "namespace") {
-      yield* topExprs(unit.units)
-      continue
-    }
+  for (const unit of allUnits(units)) {
     yield* declExprs(unit)
     for (const body of unitBodies(unit)) if (isStBody(body)) yield* statementExprs(parseStatements(body).statements)
   }
@@ -231,7 +221,7 @@ export function printFindings(p: Parsed): PrintFinding[] {
   const out: PrintFinding[] = []
   const once = formatDocument({ uri: p.uri, source: p.source, parseResult: p.parseResult })
   // Re-parsed as the SAME source object (the uri decides how `.struct`/`.gvl`/… are read), as the LSP would read it.
-  const reparsed = parseDocument(p.uri, once, p.dialect)
+  const reparsed = parseDocument(p.uri, once, { networkText: true }, p.dialect)
   // Only an error the formatter INTRODUCED is its failure: one the original already has, reproduced, is the source's.
   const own = new Map<string, number>()
   for (const e of p.parseResult.errors) own.set(e.message, (own.get(e.message) ?? 0) + 1)
@@ -288,28 +278,21 @@ export interface Site {
 
 /**
  * Every maximal expression of a bound file with its scope: a declaration's resolves in its unit's scope, a body's in the
- * body's own (a property accessor's is a child of the unit's, keyed by span — as `symbols/bodies.ts` does). Namespace
+ * body's own (a property accessor's is a child of the unit's, keyed by span — as `symbols/scoped-bodies.ts` does). Namespace
  * members are entered, since they are code; a unit whose scope does not resolve still yields its sites, scope-less, so
  * the dump shows what the front-end cannot place rather than leaving it out.
  */
 export function sites(b: Bound): Site[] {
   const out: Site[] = []
-  const visit = (units: readonly TopLevel[]): void => {
-    for (const unit of units) {
-      if (unit.kind === "namespace") {
-        visit(unit.units)
-        continue
-      }
-      const unitScope = scopeForUnit(b.project, unit)
-      for (const expr of declExprs(unit)) out.push({ where: "decl", expr, scope: unitScope })
-      for (const body of unitBodies(unit)) {
-        if (!isStBody(body)) continue
-        const scope = unitScope?.children.find((c) => c.span === body.span) ?? unitScope
-        for (const expr of statementExprs(parseStatements(body).statements)) out.push({ where: "body", expr, scope })
-      }
+  for (const unit of allUnits(b.parsed.parseResult.units)) {
+    const unitScope = scopeForUnit(b.project, unit)
+    for (const expr of declExprs(unit)) out.push({ where: "decl", expr, scope: unitScope })
+    for (const body of unitBodies(unit)) {
+      if (!isStBody(body)) continue
+      const scope = unitScope?.children.find((c) => c.span === body.span) ?? unitScope
+      for (const expr of statementExprs(parseStatements(body).statements)) out.push({ where: "body", expr, scope })
     }
   }
-  visit(b.parsed.parseResult.units)
   return out
 }
 

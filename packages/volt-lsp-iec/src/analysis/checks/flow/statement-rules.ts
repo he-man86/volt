@@ -7,9 +7,9 @@
  *          the statement: "No enclosing loop of which to exit" / "…of which to continue" (conformance
  *          `cc2_exit_outside_loop`, which records both).
  */
-import { walkStatements, stmtChildLists, type StatementList } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { constancyOf } from "../../../types/index.js"
+import { walkStatements, stmtChildLists, type StatementList } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { constancyOf } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

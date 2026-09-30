@@ -23,7 +23,7 @@ import {
   type DiagnosticState,
   type WorkspaceRefs,
 } from "./analysis/index.js"
-import { parseLibraryManifest, type LibraryManifest } from "./symbols/index.js"
+import { parseLibraryManifest, type LibraryManifest } from "./frontend/library/index.js"
 import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */

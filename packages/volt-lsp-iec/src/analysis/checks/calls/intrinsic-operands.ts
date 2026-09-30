@@ -14,12 +14,11 @@
  * operator name is UNSHADOWED (a project/library symbol of the same name skips) and the argument's type is a
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
-import { elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, isAssignable } from "../../../types/index.js"
+import { elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, isAssignable, renderType } from "../../../frontend/types/index.js"
 import { conversionWarning, storeConversionError } from "../../rules.js"
-import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../syntax/index.js"
-import { forEachExpr, lookup } from "../../../symbols/index.js"
+import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../frontend/syntax/index.js"
+import { forEachExpr, lookup } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { compilerTypeName } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
@@ -124,7 +123,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
           "error",
           arg.span,
           "call-argument-type",
-          ctx.messages.cannotConvert(compilerTypeName(t), tc ? wants : `POINTER TO ${wants}`),
+          ctx.messages.cannotConvert(renderType(t, { form: "compiler" }), tc ? wants : `POINTER TO ${wants}`),
         )
     }
     // INDEXOF WAS REMOVED IN SP21 and says so, whether it is handed a POU name or a variable (`operand_indexof`,

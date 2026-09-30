@@ -8,7 +8,7 @@
  * exactly the "leading trivia" ownership the parser skips. Zero-FP: only fires for `pack_mode` and only when the
  * owned unit is a FUNCTION/METHOD, so a pack_mode on a struct/var (its legal home) is never flagged.
  */
-import { isTrivia } from "../../../syntax/index.js"
+import { isTrivia } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

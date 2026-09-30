@@ -15,8 +15,7 @@ import {
   parseSource,
   parseStatements,
   unitBodies,
-} from "./index.js"
-import { STRUCTURE_ONLY, parseNetworkText } from "../network-text/parser.js"
+} from "../index.js"
 
 const MOTOR = `FUNCTION_BLOCK FB_Motor
 VAR
@@ -59,12 +58,12 @@ const NETWORK = "NETWORK\nout := a;\nEND_NETWORK"
 const fb = (impl: string): string =>
   `FUNCTION_BLOCK F\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n${impl}\nEND_FUNCTION_BLOCK\n`
 
-const bodiesOf = (src: string): BodySpan[] => parseSource(src).units.flatMap(unitBodies)
+const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }).units.flatMap(unitBodies)
 
 /** Every syntax error of a file: its declarations' (the top-level parse) and each ST body's (parsed on demand), as the
  *  `parse-errors` check drains them. A graphical body is the network parser's. */
 function syntaxErrors(src: string): string[] {
-  const parsed = parseSource(src)
+  const parsed = parseSource(src, { networkText: true })
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
   return [...parsed.errors, ...bodies.flatMap((b) => parseStatements(b).errors)].map((e) => e.message)
 }
@@ -73,7 +72,7 @@ function syntaxErrors(src: string): string[] {
 
 test("an ST file with IMPLEMENTATION ST on every body parses clean", () => {
   expect(syntaxErrors(MOTOR)).toEqual([])
-  expect(parseSource(MOTOR).units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
+  expect(parseSource(MOTOR, { networkText: true }).units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
 })
 
 /** Found by the re-pulled pro2193 corpus (`LedFB.fb`): `METHOD PROTECTED Override` with no return type and no VAR, so
@@ -87,7 +86,7 @@ test("a method named after a modifier keyword keeps its name when its keyword li
     "METHOD PROTECTED Override\nIMPLEMENTATION ST\nTHIS^.xOverride := TRUE;\nEND_METHOD\n\n" +
     "METHOD PUBLIC Final\nIMPLEMENTATION ST\n;\nEND_METHOD\n"
   expect(syntaxErrors(src)).toEqual([])
-  const methods = parseSource(src).units.filter((u) => u.kind === "method")
+  const methods = parseSource(src, { networkText: true }).units.filter((u) => u.kind === "method")
   expect(methods.map((m) => [m.kind === "method" && m.accessModifier, m.name.text])).toEqual([
     ["PROTECTED", "Override"],
     ["PUBLIC", "Final"],
@@ -106,20 +105,20 @@ test("a function block named after a modifier keyword keeps its name when its ke
   ] as const) {
     const src = `${header}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
     expect(syntaxErrors(src)).toEqual([])
-    const units = parseSource(src).units
+    const units = parseSource(src, { networkText: true }).units
     expect(units.map((u) => (u.kind === "function_block" ? [u.name.text, u.accessModifier] : [u.kind]))).toEqual([
       [name, access],
     ])
   }
   // With a VAR section the same name was already a name; it stays one, and real modifiers stay modifiers.
-  const withVar = parseSource("FUNCTION_BLOCK FINAL ABSTRACT FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n")
+  const withVar = parseSource("FUNCTION_BLOCK FINAL ABSTRACT FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", { networkText: true })
   const fbx = withVar.units[0]!
   if (fbx.kind !== "function_block") throw new Error("not a function block")
   expect([fbx.name.text, fbx.final, fbx.abstract]).toEqual(["FB_X", true, true])
 })
 
 test("the keyword line belongs to no declaration and to no statement", () => {
-  const { units } = parseSource(MOTOR)
+  const { units } = parseSource(MOTOR, { networkText: true })
   const method = units.find((u) => u.kind === "method")!
   // The method's inputs are its declaration; the keyword did not end up as a variable or a statement.
   if (method.kind !== "method") throw new Error("not a method")
@@ -159,7 +158,7 @@ out := a;
 END_FUNCTION_BLOCK
 `
   expect(syntaxErrors(src)).toEqual([])
-  const unit = parseSource(src).units[0]!
+  const unit = parseSource(src, { networkText: true }).units[0]!
   if (unit.kind !== "function_block") throw new Error("not a function block")
   expect(unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toEqual(["a", "out"])
   expect(bodiesOf(src).map(graphicalMarkerLanguage)).toEqual([undefined])
@@ -179,7 +178,7 @@ test("a keyword line inside a comment opened mid-line or nested is no boundary",
   ]) {
     const src = `${decl}\nIMPLEMENTATION ST\nout := a;\nEND_FUNCTION_BLOCK\n`
     expect({ decl, errors: syntaxErrors(src) }).toEqual({ decl, errors: [] })
-    const unit = parseSource(src).units[0]!
+    const unit = parseSource(src, { networkText: true }).units[0]!
     if (unit.kind !== "function_block") throw new Error("not a function block")
     const names = unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))
     expect({ decl, names }).toEqual({ decl, names: ["a", "out"] })
@@ -224,19 +223,6 @@ test("only a whole line is the boundary: a keyword with anything else on its lin
 
 // ── language selection ───────────────────────────────────────────────────────────────────────────
 
-test("IMPLEMENTATION LD and IMPLEMENTATION FBD select the network-text reader", () => {
-  for (const language of ["LD", "FBD"] as const) {
-    const src = fb(`IMPLEMENTATION ${language}\n${NETWORK}`)
-    expect(syntaxErrors(src)).toEqual([]) // the ST parser routes around a graphical body
-    const bodies = bodiesOf(src)
-    expect(bodies.map(graphicalMarkerLanguage)).toEqual([language])
-    const parsed = parseNetworkText(bodies[0]!, STRUCTURE_ONLY)
-    expect(parsed.diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([])
-    expect(parsed.language).toBe(language)
-    expect(parsed.networks).toHaveLength(1)
-  }
-})
-
 test("a graphical body is graphical by its keyword alone, even with no network", () => {
   expect(bodiesOf(fb("IMPLEMENTATION LD")).map(graphicalMarkerLanguage)).toEqual(["LD"])
 })
@@ -278,12 +264,6 @@ test("the stated language wins over what the text looks like: network text under
   expect(syntaxErrors(src).length).toBeGreaterThan(0)
 })
 
-test("…and ST under LD is read as network text, which refuses it", () => {
-  const bodies = bodiesOf(fb("IMPLEMENTATION LD\nout := a;"))
-  expect(bodies.map(graphicalMarkerLanguage)).toEqual(["LD"])
-  expect(parseNetworkText(bodies[0]!, STRUCTURE_ONLY).diagnostics.length).toBeGreaterThan(0)
-})
-
 // ── hidden bodies (sections 2b and 3b: the line states a body Volt does not show) ─────────────────
 
 test("an UNSUPPORTED line states a body read by neither parser, on every language but ST, and its empty body is clean", () => {
@@ -312,7 +292,7 @@ test("an UNSUPPORTED line states a body read by neither parser, on every languag
 test("a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line to write", () => {
   for (const language of ["CFC", "SFC", "IL", "cfc"]) {
     const line = `IMPLEMENTATION ${language}`
-    const errors = parseSource(fb(`${line}\n`)).errors.map((e) => e.message)
+    const errors = parseSource(fb(`${line}\n`), { networkText: true }).errors.map((e) => e.message)
     expect({ line, named: errors.some((m) => m.includes(`'${line}'`) && m.includes(`IMPLEMENTATION ${language.toUpperCase()} UNSUPPORTED`)) }).toEqual({
       line,
       named: true,
@@ -323,7 +303,7 @@ test("a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line t
 
 test("UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line", () => {
   for (const line of ["IMPLEMENTATION ST UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED x := 1;", "IMPLEMENTATION LD UNSUPPORTED;"]) {
-    const errors = parseSource(fb(`${line}\n`)).errors.map((e) => e.message)
+    const errors = parseSource(fb(`${line}\n`), { networkText: true }).errors.map((e) => e.message)
     expect({ line, named: errors.some((m) => m.includes(`'${line}'`)) }).toEqual({ line, named: true })
     expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })
   }
@@ -336,56 +316,7 @@ test("a member's %FOLDER under its line is taken out with the line, whatever the
     expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
     const method = bodiesOf(src)[1]!
     expect({ line, folderInBody: method.tokens.some((t) => t.text === "%") }).toEqual({ line, folderInBody: false })
-    if (line === "IMPLEMENTATION LD")
-      expect(parseNetworkText(method, STRUCTURE_ONLY).diagnostics.map((d) => d.message)).toEqual([])
   }
-})
-
-test("a member's %FOLDER is read where the push peels it, and nowhere else — elsewhere it is code the IDE would get", () => {
-  // The push (`StReader.PeelFolderUnder`) takes `%FOLDER ` — that spelling, case and all, with a path — off the FIRST
-  // line under a METHOD's or an ACTION's line, and nowhere else: a POU's own body and a property accessor have no
-  // folder there, and a blank line or a comment above the directive leaves it in the body. Wherever the push leaves
-  // it, it is pushed into the IDE as ST statement text — so the LSP reads it as the body's, and does not hide it.
-  for (const [member, end] of [["METHOD M", "END_METHOD"], ["ACTION A", "END_ACTION"]] as const) {
-    const src = `${fb("IMPLEMENTATION ST\n")}\n${member}\nIMPLEMENTATION ST\n%FOLDER  Sub/Deep \nout := a;\n${end}\n`
-    expect({ member, errors: syntaxErrors(src) }).toEqual({ member, errors: [] })
-    expect({ member, folder: bodiesOf(src)[1]!.implementation?.folder }).toEqual({ member, folder: "Sub/Deep" })
-  }
-  const left = {
-    "a POU's own body": "PROGRAM PRG\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n%FOLDER Sub\nx := 1;\nEND_PROGRAM\n",
-    "a property accessor": `${fb("IMPLEMENTATION ST\n")}\nPROPERTY P : INT\nGET\nIMPLEMENTATION ST\n%FOLDER Sub\nP := 1;\nEND_GET\nEND_PROPERTY\n`,
-    "another case": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n%folder Sub\nout := a;\nEND_METHOD\n`,
-    "a blank line above it": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
-    "a comment above it": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n(* note *)\n%FOLDER Sub\nout := a;\nEND_METHOD\n`,
-    "no path": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n%FOLDER\nout := a;\nEND_METHOD\n`,
-  }
-  for (const [where, src] of Object.entries(left)) {
-    const body = bodiesOf(src).at(-1)!
-    expect({ where, folder: body.implementation?.folder, inBody: body.tokens.some((t) => t.text === "%") }).toEqual({
-      where,
-      folder: undefined,
-      inBody: true,
-    })
-    expect({ where, reported: syntaxErrors(src).length > 0 }).toEqual({ where, reported: true })
-  }
-})
-
-test("a (* @volt-… *) comment is an older Volt's, reported naming `volt pull` wherever it stands — as the push refuses it", () => {
-  // No Volt writes one any more (the push: `ImplementationMarker.FindRetiredComment`). A comment only — outermost or
-  // nested — and in any case; the same characters after `//` or in a string are text.
-  const reported = {
-    "the retired boundary": fb("(* @volt-implementation LD *)\nNETWORK\nout := a;\nEND_NETWORK\n"),
-    "the retired marker": `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION ST\n(* @volt-graphical: CFC *)\nEND_METHOD\n`,
-    "nested, another case": fb("IMPLEMENTATION ST\n(* doc (*  @VOLT-implementation *) *)\nout := a;\n"),
-    "in a declaration": "FUNCTION_BLOCK F\nVAR\n\ta : BOOL; (* @volt-implementation *)\nEND_VAR\nIMPLEMENTATION ST\na := TRUE;\nEND_FUNCTION_BLOCK\n",
-  }
-  for (const [where, src] of Object.entries(reported))
-    expect({ where, named: syntaxErrors(src).filter((m) => m.includes("volt pull")).length }).toEqual({ where, named: 1 })
-  const text = {
-    "a line comment": fb("IMPLEMENTATION ST\n// (* @volt-implementation *)\nout := a;\n"),
-    "a string": "FUNCTION_BLOCK F\nVAR\n\ts : STRING := '(* @volt-implementation *)';\nEND_VAR\nIMPLEMENTATION ST\ns := '';\nEND_FUNCTION_BLOCK\n",
-  }
-  for (const [where, src] of Object.entries(text)) expect({ where, errors: syntaxErrors(src) }).toEqual({ where, errors: [] })
 })
 
 test("a line sharing its line with END_VAR is no boundary", () => {

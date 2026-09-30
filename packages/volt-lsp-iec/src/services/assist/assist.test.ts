@@ -1,7 +1,6 @@
 import { test, expect } from "bun:test"
 import { DiagnosticSeverity } from "vscode-languageserver-protocol"
-import { type Document, parseSource } from "../../syntax/index.js"
-import { buildSymbolTable } from "../../symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
 import { hover, pragmaHover } from "./hover.js"
 import { completion } from "./completion.js"
 import { signatureHelp } from "./signature-help.js"
@@ -9,12 +8,13 @@ import { inlayHints } from "./inlay-hints.js"
 import { codeLenses } from "./code-lens.js"
 import { codeActions } from "./code-actions.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../analysis/index.js"
-import { rangeFromSpan } from "../shared/index.js"
+import { type Document, rangeFromSpan } from "../shared/index.js"
+import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src)
+  const parseResult = parseSource(src, { networkText: true })
   const doc: Document = { uri: "file:///F.fb", source: src, parseResult }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   return { doc, project }
 }
 
@@ -60,8 +60,8 @@ FUNCTION_BLOCK FB
 END_FUNCTION_BLOCK
 METHOD M
 END_METHOD`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
   const kw = (needle: string, prefix: string) =>
     (hover(doc, project, src.indexOf(needle) + prefix.length)?.contents as { value: string } | undefined)?.value ?? ""
   expect(kw("PROGRAM P", "PROGRAM ")).toContain("PROGRAM P")
@@ -84,14 +84,14 @@ test("hover: whitespace / unknown token yields nothing", () => {
 
 test("pragma hover: an {attribute '<name>'} name describes the attribute", () => {
   const src = `{attribute 'qualified_only'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
   const h = pragmaHover(doc, src.indexOf("qualified_only") + 2)
   expect((h?.contents as { value: string }).value).toMatch(/qualified_only[\s\S]*attribute/i)
 })
 
 test("pragma hover: a directive word describes the directive; an unknown one yields nothing", () => {
   const src = `FUNCTION_BLOCK F\nVAR x : INT; END_VAR\n{IF defined(FOO)}\nx := 1;\n{END_IF}\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
   const onIf = pragmaHover(doc, src.indexOf("{IF") + 1)
   expect((onIf?.contents as { value: string }).value).toMatch(/[Cc]onditional/)
   expect(pragmaHover(doc, src.indexOf("x : INT"))).toBeUndefined() // not a pragma
@@ -99,8 +99,8 @@ test("pragma hover: a directive word describes the directive; an unknown one yie
 
 test("completion: inside {attribute '…'} offers the known attribute names, not scope symbols", () => {
   const src = `{attribute 'qual'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
   const items = completion(doc, project, src.indexOf("qual") + 4)
   const labels = items.map((i) => i.label)
   expect(labels).toContain("qualified_only")
@@ -163,4 +163,27 @@ test("code-actions: 'wrap in TO_<type>' quick fix for an assignment type mismatc
   expect(actions).toHaveLength(1)
   expect(actions[0]?.title).toBe("Wrap in TO_INT(…)")
   expect(actions[0]?.edit?.changes?.[doc.uri]?.[0]?.newText).toBe("TO_INT(b)")
+})
+
+// A cyclic EXTENDS (conformance cc2_circular_inheritance: A EXTENDS B, B EXTENDS A) is an error the IDE reports, and the
+// editor still completes in it: the visible names walk each base once (`visibleNames`). The two loops completion had
+// before looped forever on this input — a hang, which only a test that runs it can keep from coming back.
+test("completion in a cyclic EXTENDS answers — each base's names once, no endless walk", () => {
+  const src = `FUNCTION_BLOCK FB_CircleA EXTENDS FB_CircleB
+VAR
+  aOwn : INT;
+END_VAR
+aOwn := 1;
+END_FUNCTION_BLOCK
+
+FUNCTION_BLOCK FB_CircleB EXTENDS FB_CircleA
+VAR
+  bOwn : INT;
+END_VAR
+END_FUNCTION_BLOCK`
+  const { doc, project } = setup(src)
+  const labels = completion(doc, project, src.indexOf("aOwn := 1")).map((i) => i.label)
+  expect(labels).toContain("aOwn")
+  expect(labels).toContain("bOwn")
+  expect(labels.filter((l) => l === "bOwn")).toHaveLength(1)
 })

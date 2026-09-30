@@ -4,14 +4,14 @@
  * from '<lo>' to '<hi>'". In-range / variable / unknown-dim indices stay quiet (0-FP).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const oob = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR a : ARRAY[0..2] OF INT; i : INT; END_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "array-index-out-of-bounds")
     .map((d) => d.message)

@@ -13,13 +13,12 @@
  * NOT here: C0426 empty arm lives in the `empty-block` check. An empty arm (`1:\n2:`) IS an error (live-verified
  * 2026-07-21) — the legal fall-through is a comma list `1, 2:`, not separate empty labels.
  */
-import { walkStatements, type CaseStatement, type Expr } from "../../../syntax/index.js"
-import { bodies, type Scope } from "../../../symbols/index.js"
-import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, type Type } from "../../../types/index.js"
-import type { Span } from "../../../syntax/index.js"
+import { walkStatements, type CaseStatement, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies, type Scope } from "../../../frontend/symbols/index.js"
+import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, renderType, type Type } from "../../../frontend/types/index.js"
+import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { compilerTypeName } from "../../messages.js"
 
 export function checkCaseLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -63,7 +62,7 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
     if (typed === undefined) return false
     const rhs = literalErrorType(e, selector)
     if (rhs === undefined || isAssignable(selector, rhs)) return false
-    push("case-label-type", e.span, ctx.messages.cannotConvert(compilerTypeName(rhs), compilerTypeName(selector)))
+    push("case-label-type", e.span, ctx.messages.cannotConvert(renderType(rhs, { form: "compiler" }), renderType(selector, { form: "compiler" })))
     return true
   }
   for (const arm of s.arms) {

@@ -12,8 +12,8 @@
  * unambiguous mismatch; a same-count/different-type mismatch is (deliberately) not flagged yet. Library
  * bases/interfaces (whose members we can't fully see) are skipped, as are abstract/unresolved cases.
  */
-import { findScopeByName, isLibrarySymbol, lookup, type Scope, scopeForUnit, type Symbol } from "../../../symbols/index.js"
-import type { Method, InterfaceMethod, VarSection } from "../../../syntax/index.js"
+import { findScopeByName, isLibrarySymbol, lookup, type Scope, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
+import type { Method, InterfaceMethod, VarSection } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

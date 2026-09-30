@@ -10,8 +10,8 @@ import {
   type IrValue,
   peelArray,
 } from "../ir/index.js"
-import { elemOf, type Type } from "../../types/index.js"
-import { DURATION_UNITS_NS } from "../../syntax/index.js"
+import { elemOf, type Type } from "../../frontend/types/index.js"
+import { DURATION_UNITS_NS } from "../../frontend/syntax/index.js"
 import { isBit } from "./ir.js"
 
 /** A runtime value. Integers, durations and dates stay `bigint` in their type's unit (so `/` truncates like IEC does);

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { parseActive } from "./conditional-pragmas.js"
-import { parseSource } from "./parser.js"
+import { parseSource } from "../parse/parser.js"
+import { parseActive } from "../parse/body-parse.js"
 
 /** The statements a METHOD body keeps under its conditional pragmas, as their source text. */
 function kept(body: string): string[] | string {
   const source = `FUNCTION_BLOCK FB\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Run\n${body}\nEND_METHOD\n`
-  const unit = parseSource(source).units[1]
+  const unit = parseSource(source, { networkText: true }).units[1]
   if (unit?.kind !== "method") throw new Error("no method")
   const parsed = parseActive(unit.body)
   return parsed.ok ? parsed.statements.map((s) => source.slice(s.span.start, s.span.end).trim()) : (parsed.firstError ?? "failed")

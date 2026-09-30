@@ -7,9 +7,9 @@
  * Zero-FP: C0003 fires only on an integer/bit-string base with a known width and `N >= bits`; C0061 on a `call`
  * base. Other bases (REAL, struct, unresolved) are a different error / undecidable → skipped.
  */
-import { inferExprType, inTypeGroup } from "../../../types/index.js"
+import { inferExprType, inTypeGroup } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr } from "../../../symbols/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkBitNumber(ctx: CheckContext, out: DiagnosticItem[]): void {

@@ -10,7 +10,7 @@
  * carries the hole on from there (conformance `cc2_constant_and_external`, where one dangling name accounts for six
  * of the ten recorded errors).
  */
-import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
+import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import { reportLostUses } from "../../lost-declaration.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

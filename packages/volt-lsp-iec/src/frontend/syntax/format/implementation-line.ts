@@ -26,14 +26,17 @@
  * IDE holds — which every consumer (the ST parser, the network parser, the recorder's `fixture-units`) then reads with
  * no special case.
  */
-import type { BodySpan, ImplementationLine, ImplementationStatement } from "./ast.js"
-import { isTrivia, type Token } from "./tokens.js"
-import type { Span } from "./span.js"
+import type { BodySpan, ImplementationLine, ImplementationStatement } from "../ast/nodes.js"
+import { isTrivia, type Token } from "../lex/tokens.js"
+import { joinSpans, type Span } from "../span.js"
+import { peelFolder } from "./folder.js"
+import { lineAround, nextSignificant, type ReportAt } from "./lines.js"
+import { opensNetwork } from "./network-header.js"
 
 export const IMPLEMENTATION_KEYWORD = "IMPLEMENTATION"
 
 /** The word after a language that states a body Volt does not show. */
-export const UNSUPPORTED_WORD = "UNSUPPORTED"
+const UNSUPPORTED_WORD = "UNSUPPORTED"
 
 /** The languages a body's line may state that a parser READS. */
 export type ReadLanguage = "ST" | "LD" | "FBD"
@@ -67,12 +70,12 @@ export function isNeverShown(language: string): boolean {
 }
 
 /** The line of a body Volt does not show, in its one spelling. */
-export function unsupportedLine(language: string): string {
+function unsupportedLine(language: string): string {
   return `${IMPLEMENTATION_KEYWORD} ${language} ${UNSUPPORTED_WORD}`
 }
 
 /** What a line of the keyword's shape states, or undefined for a line of any other shape. */
-export function statementOf(line: string): ImplementationStatement | undefined {
+function statementOf(line: string): ImplementationStatement | undefined {
   const shape = SHAPE.exec(line)
   if (shape === null) return undefined
   const stated = (shape[1] ?? "").trim()
@@ -95,59 +98,13 @@ export function statedLine(line: ImplementationLine): string {
   return line.text
 }
 
-// ── the line in a token stream ───────────────────────────────────────────────────────────────────
-
-/** One source line around `tokens[at]`: its text, and the index of the token holding the newline that ends it
- *  (`tokens.length` when the stream ends first). `code` blanks comments and pragmas, as the bridge's `StTrivia.Code`
- *  does, for the network-header test; the keyword's own test reads the raw line, so a comment on it disqualifies it. */
-function lineAround(tokens: readonly Token[], at: number, code = false): { text: string; end: number } {
-  const piece = (t: Token): string =>
-    code && (t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma")
-      ? t.text.replace(/[^\n]/g, " ")
-      : t.text
-  let before = ""
-  let k = at - 1
-  for (; k >= 0; k--) {
-    const text = piece(tokens[k]!)
-    const nl = text.lastIndexOf("\n")
-    if (nl >= 0) {
-      before = text.slice(nl + 1) + before
-      break
-    }
-    before = text + before
-  }
-  // The stream began mid-line (a body right after `END_VAR` on the same line): the line holds text this stream does
-  // not, so it is no whole line. A NUL stands for that text, which no pattern here accepts.
-  if (k < 0 && (tokens[0]?.span.startCol ?? 0) > 0) before = "\u0000" + before
-  let after = ""
-  let end = at
-  for (; end < tokens.length; end++) {
-    const text = piece(tokens[end]!)
-    const nl = text.indexOf("\n")
-    if (nl >= 0) {
-      after += text.slice(0, nl)
-      break
-    }
-    after += text
-  }
-  return { text: before + after, end }
-}
-
-const isKeywordToken = (t: Token): boolean => t.kind === "identifier" && t.text.toUpperCase() === IMPLEMENTATION_KEYWORD
+/** Is `t` the word `IMPLEMENTATION` (an identifier to the lexer, in any case)? */
+export const isImplementationKeyword = (t: Token): boolean => t.kind === "identifier" && t.text.toUpperCase() === IMPLEMENTATION_KEYWORD
 
 /** Does `tokens[at]` open a line of the keyword's shape (outside every comment — a comment is its own token)? */
 export function opensKeywordLine(tokens: readonly Token[], at: number): boolean {
-  return isKeywordToken(tokens[at]!) && SHAPE.test(lineAround(tokens, at).text)
+  return isImplementationKeyword(tokens[at]!) && SHAPE.test(lineAround(tokens, at).text)
 }
-
-const nextSignificant = (tokens: readonly Token[], from: number): number => {
-  let i = from
-  while (i < tokens.length && isTrivia(tokens[i]!.kind)) i++
-  return i
-}
-
-/** Where a problem with a body's keyword line is reported, and what it says. */
-export type ReportAt = (message: string, span: Span) => void
 
 /** Whose body the splitter is given. A `member` — a METHOD or an ACTION of a POU — is the one body a `%FOLDER`
  *  directive stands under; a POU's own body and a property accessor carry none there (a property's closes its
@@ -218,70 +175,6 @@ export function splitImplementation(
   return implementation === undefined ? { tokens: code } : { tokens: code, implementation }
 }
 
-// The directive as the push reads it (`StReader.FolderOn`): the trimmed line opens with `%FOLDER ` — that case, one
-// space — and a path follows.
-const FOLDER_LINE = /^\s*%FOLDER (.*\S)\s*$/
-
-/** The folder a whole line states as the push reads it (`StReader.FolderOn`), or undefined — the one spelling of the
- *  directive, for a member's body (`peelFolder`) and a declaration's closing line (`util.readFolderLine`) alike. */
-export function folderOn(line: string): string | undefined {
-  return FOLDER_LINE.exec(line)?.[1]?.trim()
-}
-
-/**
- * The `%FOLDER <path>` directive on the line DIRECTLY under a member's keyword line — `code` opens with the token
- * holding the newline that ends the keyword line — as its path and the index of the token that ends its line; or
- * undefined. Exactly where the push peels it (`StReader.PeelFolderUnder`) and nowhere else: not after a blank line
- * or a comment, not in another case, not without a path. Anywhere the push does not peel it, it pushes the line into
- * the IDE as code — so the LSP must leave it in the body, where the parser reports it, not read a folder the push
- * will not.
- */
-function peelFolder(code: readonly Token[]): { path: string; end: number } | undefined {
-  const newline = code[0]
-  // Only indentation may follow the keyword line's newline in its token: a second newline is a blank line.
-  if (newline?.kind !== "whitespace" || newline.text.slice(newline.text.indexOf("\n") + 1).includes("\n")) return undefined
-  if (code.length < 2 || code[1]!.kind === "eof") return undefined
-  const { text, end } = lineAround(code, 1)
-  const path = folderOn(text)
-  return path === undefined ? undefined : { path, end }
-}
-
-// ── a Volt comment from before the line ──────────────────────────────────────────────────────────
-
-// `(*`, then `@volt-`: the prefix every retired Volt comment carried (`ImplementationMarker.RetiredTag`).
-const RETIRED_OPENING = /\(\*\s*@volt-/i
-
-/**
- * Every `(* @volt-… *)` comment, reported naming `volt pull` — as the push refuses a file holding one
- * (`StReader`, `ImplementationMarker.FindRetiredComment`). No Volt writes one any more: the boundary comment
- * `(* @volt-implementation … *)` and the marker `(* @volt-graphical: … *)` both became an `IMPLEMENTATION` line, so
- * a comment of that spelling says the file was pulled by an older Volt. This is no reading of the old form — its
- * body is still read as a body that states no language — only the one sentence that names the repair, where a
- * workspace with no library manifest has no other place to say it.
- *
- * A comment only: the lexer puts a comment in its own token with every comment nested in it, so an opening anywhere in
- * a block comment's text is a comment's; the same characters after `//` or in a string are text.
- */
-export function reportRetiredComments(tokens: readonly Token[], report: ReportAt): void {
-  for (const t of tokens) {
-    if (t.kind !== "block_comment") continue
-    const m = RETIRED_OPENING.exec(t.text)
-    if (m === null) continue
-    const close = t.text.indexOf("*)", m.index + 2)
-    const text = (close < 0 ? t.text.slice(m.index) : t.text.slice(m.index, close + 2)).trim()
-    report(
-      `'${text}' is a comment of a Volt from before bodies were stated by an ${IMPLEMENTATION_KEYWORD} line. Run ` +
-        "`volt pull` once to rewrite the workspace in the current format.",
-      t.span,
-    )
-  }
-}
-
-/** Is this token a `(* @volt-… *)` comment (`reportRetiredComments`)? */
-export function isRetiredComment(t: Token): boolean {
-  return t.kind === "block_comment" && RETIRED_OPENING.test(t.text)
-}
-
 function checkLine(line: ImplementationLine, code: readonly Token[], report: ReportAt): void {
   const s = line.statement
   // Anything but whitespace is text under the line — a comment and a pragma included. Not `isTrivia`: the push tests
@@ -326,50 +219,29 @@ function checkLine(line: ImplementationLine, code: readonly Token[], report: Rep
     )
 }
 
-// `NETWORK` opening a line with a header FIELD after it — the way a network-text body opens and no ST statement can —
-// or `NETWORK` alone on its line with an `END_NETWORK` line later, which no ST statement wrapped after a name `network`
-// has. The bridge's `NetworkText.OpensNetwork`, the one test a body is held against its stated language by.
-const FIELDED_HEADER = /^\s*NETWORK\s+(LABEL\s*:|TITLE\s*:|DISABLED\b|\d)/i
-const BARE_HEADER = /^\s*NETWORK\s*$/i
-const NETWORK_END = /^\s*END_NETWORK\b/i
-
-function opensNetwork(code: readonly Token[]): boolean {
-  const at = nextSignificant(code, 0)
-  if (at >= code.length || code[at]!.kind === "eof") return false
-  const line = lineAround(code, at, true).text
-  if (FIELDED_HEADER.test(line)) return true
-  if (!BARE_HEADER.test(line)) return false
-  for (let i = at + 1; i < code.length; i++)
-    if (code[i]!.kind === "identifier" && code[i]!.text.toUpperCase() === "END_NETWORK" && NETWORK_END.test(lineAround(code, i, true).text))
-      return true
-  return false
-}
-
 // ── what a body is ───────────────────────────────────────────────────────────────────────────────
 
 /**
- * Is LD and FBD network text read at all in this process? ON only when its environment holds `VOLT_GRAPHICAL=1` — the
- * LSP's one switch (openspec `implementation-keyword` 3c), the twin of the bridge's `NetworkTextSwitch`, and the only
- * place in the LSP that reads the variable (a repo gate holds that).
- *
- * WHY: network text is not ready to ship. A production bridge pulls every LD and FBD body as its UNSUPPORTED line; a
- * production editor reads nothing under an `IMPLEMENTATION LD|FBD` line either (one pulled from a development bridge,
- * or written by hand) — no network finding and no refusal, because whether a push accepts it is the BRIDGE's answer,
- * from its own environment, which this process cannot see. Read ONCE: one answer for the server's life. Development
- * turns it on in the editor's environment, and the test suite in `bunfig.toml`.
+ * The bodies a parse read with network text OFF (`ParseOptions.networkText`), by identity: the parse's decision, not the
+ * text's, so it is no field of the tree. A body is marked where the parse finishes (`parser.ts`).
  */
-export const NETWORK_TEXT_ENABLED: boolean = process.env.VOLT_GRAPHICAL === "1"
+const NO_NETWORK_TEXT = new WeakSet<BodySpan>()
+
+/** Mark a body as parsed with network text off: an LD/FBD body under it is read by neither parser. */
+export function readNoNetworkText(body: BodySpan): void {
+  NO_NETWORK_TEXT.add(body)
+}
 
 /** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, a line that states no language a
- *  body can have, or an LD/FBD body while network text is off (`NETWORK_TEXT_ENABLED`) — neither. A body with no line is
- *  ST to the PARSER, which also reads fixture ST and the library repo (IDE text, no line); in a workspace file the server
- *  reports it as stating no language and shows none of its findings (see `splitImplementation`). */
+ *  body can have, or an LD/FBD body parsed with network text off (`ParseOptions.networkText`) — neither. A body with no
+ *  line is ST to the PARSER, which also reads fixture ST and the library repo (IDE text, no line); in a workspace file
+ *  the server reports it as stating no language and shows none of its findings (see `splitImplementation`). */
 export function bodyReader(body: BodySpan): "st" | "network" | undefined {
   const s = body.implementation?.statement
   if (s === undefined) return "st"
   if (s.kind !== "read") return undefined
   if (s.language === "ST") return "st"
-  return NETWORK_TEXT_ENABLED ? "network" : undefined
+  return NO_NETWORK_TEXT.has(body) ? undefined : "network"
 }
 
 /** The words of a body's keyword line an editor colours as keywords (`IMPLEMENTATION`, the language, `UNSUPPORTED`). */
@@ -377,22 +249,28 @@ export function implementationWords(body: BodySpan): readonly Token[] {
   return body.implementation?.words ?? []
 }
 
+// ── the body a unit parser collected ─────────────────────────────────────────────────────────────
+
 /**
- * `IMPLEMENTATION` is RESERVED: nothing in a file may be named it, in any case — a variable at any scope, a member, the
- * POU, an enum value, a struct member. A name spelled like the line could stand at the start of one and read as it,
- * which is why the push refuses every such name (`StReader.RefuseReservedNames`); this reports the same tokens.
- *
- * Every identifier token spelled like the keyword is a name, EXCEPT one that opens a line of the keyword's shape inside
- * a body (`claimed`): that one is the boundary, or the second line `splitImplementation` already reported by name.
+ * Build a BodySpan from a list of tokens. Falls back to `fallback`
+ * span if the list is empty.
  */
-export function reportReservedNames(tokens: readonly Token[], claimed: (t: Token) => boolean, report: ReportAt): void {
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i]!
-    if (!isKeywordToken(t) || claimed(t)) continue
-    report(
-      `'${t.text}' is reserved: ${IMPLEMENTATION_KEYWORD} is the line that states where a body starts and what ` +
-        "language it is in, so nothing may be named it. Rename it.",
-      t.span,
-    )
+export function bodySpanFromTokens(tokens: Token[], fallback: Span): BodySpan {
+  if (tokens.length === 0) {
+    return { kind: "body", tokens, span: fallback }
   }
+  const first = tokens[0]
+  const last = tokens[tokens.length - 1]
+  return { kind: "body", tokens, span: joinSpans(first.span, last.span) }
+}
+
+/**
+ * A POU body from the tokens a unit parser collected: its `IMPLEMENTATION <LANG>` line taken out and recorded, the
+ * code left as the body (`splitImplementation`), and every problem with the line reported through `report` (the parse cursor's errors) — the
+ * one place a POU body is built, so no unit kind can skip the line.
+ */
+export function codeBody(report: ReportAt, tokens: Token[], fallback: Span, owner: BodyOwner): BodySpan {
+  const { tokens: code, implementation } = splitImplementation(tokens, owner, report)
+  const body = bodySpanFromTokens(code, fallback)
+  return implementation === undefined ? body : { ...body, implementation }
 }

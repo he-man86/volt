@@ -4,13 +4,13 @@
  * (which infers to `unknown` offline) is NOT flagged.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { build } from "../../../frontend/symbols/index.js"
 
 const diag = (inputs: { uri: string; src: string }[]): { code: string; message: string }[] => {
-  const parsed = inputs.map((i) => ({ uri: i.uri, source: i.src, parseResult: parseSource(i.src) }))
-  const project = buildSymbolTable(parsed)
+  const parsed = inputs.map((i) => ({ uri: i.uri, source: i.src, parseResult: parseSource(i.src, { networkText: true }) }))
+  const project = build.buildSymbolTable(parsed)
   return parsed.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))
 }
 const one = (src: string) => diag([{ uri: "F.fb", src }])

@@ -3,11 +3,11 @@
  * prepare-rename · rename, ALL routed through `shared/resolveAt` (one resolution) and the type-aware
  * `findReferences` (one occurrence set). Thin by construction: each feature is a few lines.
  */
-import { tokenAtOffset } from "../../syntax/index.js"
+import { tokenAtOffset } from "../shared/index.js"
 import type { Location, Range, TextEdit, WorkspaceEdit } from "vscode-languageserver-protocol"
-import { lookup, type Scope } from "../../symbols/index.js"
+import { lookup, type Scope } from "../../frontend/symbols/index.js"
 import { locationOf, rangeFromSpan, resolveAt } from "../shared/index.js"
-import type { Document } from "../../syntax/index.js"
+import type { Document } from "../shared/index.js"
 import { findReferences, toLocations } from "./references.js"
 
 /** Go-to-definition: the defining location of the symbol under the cursor. */

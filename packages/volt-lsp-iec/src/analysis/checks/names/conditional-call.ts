@@ -22,8 +22,8 @@
  * BOTH VENDORS, measured 2026-09-20 (`cc_il_name_calc`, `ilc_calc_*`): TwinCAT reports the same two things,
  * hyphenating "call-statement" and capitalising "Declaration part".
  */
-import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
-import { bodies, forEachDecl } from "../../../symbols/index.js"
+import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

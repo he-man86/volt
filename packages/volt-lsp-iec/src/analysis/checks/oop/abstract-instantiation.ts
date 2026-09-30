@@ -3,8 +3,8 @@
  * both vendors reject it. Conservative: only a DIRECT named-type decl resolving to a project FB
  * symbol whose AST carries `abstract`; arrays/pointers of an abstract FB and library FBs skip.
  */
-import type { FunctionBlock } from "../../../syntax/index.js"
-import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
+import type { FunctionBlock } from "../../../frontend/syntax/index.js"
+import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

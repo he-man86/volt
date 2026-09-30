@@ -9,7 +9,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
-import { parseDocument, parseSource } from "../../../src/syntax/index.js"
+import { parseDocument, parseSource } from "../../../src/frontend/syntax/index.js"
 import { prepareProject, type LoweringProject, type ParsedFile } from "../../../src/transpile/index.js"
 import { SOURCE_EXTENSION_SET } from "../../../src/source-extensions.js"
 import { readSourceText, scanLibraryManifests } from "../../../src/workspace-refs.js"
@@ -46,7 +46,7 @@ export function walkSources(dir: string, extensions: ReadonlySet<string> = SOURC
 export function parseProject(dir: string): ParsedFile[] {
   return walkSources(dir).map((uri) => {
     const source = readSourceText(uri)
-    return { uri, source, parseResult: parseDocument(uri, source) }
+    return { uri, source, parseResult: parseDocument(uri, source, { networkText: true }) }
   })
 }
 
@@ -67,7 +67,7 @@ export function loweringProject(dir: string, parsed: readonly ParsedFile[] = par
     .map((f) => {
       const own = byUri.get(f.uri)
       if (own !== undefined && own.source === f.source) return own
-      const body = { ...f, parseResult: parseSource(f.source) }
+      const body = { ...f, parseResult: parseSource(f.source, { networkText: true }) }
       if (body.parseResult.errors.length > 0) throw new Error(`the library repo's ${f.uri} did not parse: ${body.parseResult.errors[0]!.message}`)
       return body
     })

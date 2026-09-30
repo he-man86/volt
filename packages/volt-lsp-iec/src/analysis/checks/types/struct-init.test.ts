@@ -4,14 +4,14 @@
  * Sibling of C0074 (array literal on non-array).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const init = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT p1 : INT; p2 : INT; END_STRUCT END_TYPE`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
+  const pr = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unexpected-struct-init")
     .map((d) => d.message)
@@ -53,8 +53,8 @@ test("the compiler resolves each FIELD NAME against the POU's scope, where they 
   // Why missed: only the "unexpected" sentence was emitted, so six of the seven errors CODESYS gives for
   // `otherWay : INT := (x := 1, y := 2)` were missing (conformance `cc3_unexpected_struct_init`).
   const src = `TYPE DUT_P :\nSTRUCT\nx : INT;\ny : INT;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\notherWay : INT := (x := 1, y := 2);\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "a.fb", parseResult: pr, source: src }], [], "codesys")
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "a.fb", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unexpected-struct-init")
     .map((d) => d.message)

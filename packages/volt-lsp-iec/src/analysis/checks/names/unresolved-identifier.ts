@@ -17,8 +17,8 @@
  * compilers strip dead branches before analysis but we have no preprocessor, so checking would
  * false-positive on stripped-branch references.
  */
-import { stmtExprs, walkExpr, walkStatements, type BodySpan } from "../../../syntax/index.js"
-import { bodies, forEachDecl, lookupLocal } from "../../../symbols/index.js"
+import { stmtExprs, walkExpr, walkStatements, type BodySpan } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"

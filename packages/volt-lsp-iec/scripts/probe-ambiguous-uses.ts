@@ -9,12 +9,11 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join, relative } from "node:path"
-import { parseSource, type TopLevel, type TypeExpr } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
-import { isLibrarySymbol, lookupLocal } from "../src/symbols/symbol.js"
-import { libraryRank } from "../src/symbols/precedence.js"
+import { parseSource, type TopLevel, type TypeExpr } from "../src/frontend/syntax/index.js"
+import { build, isLibrarySymbol, libraryRank, lookupLocal } from "../src/frontend/symbols/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { scanLibraryManifests } from "../src/workspace-refs.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 if (!existsSync(CORPUS)) throw new Error("no corpus")
@@ -39,17 +38,17 @@ let multi = 0
 for (const projectName of readdirSync(CORPUS).filter((p) => statSync(join(CORPUS, p)).isDirectory()).sort()) {
   const dir = join(CORPUS, projectName)
   const files = walk(dir)
-  const project = buildSymbolTable(
+  const project = build.buildSymbolTable(
     files.map((file) => {
       const source = readFileSync(file, "utf8")
-      return { uri: file, source, parseResult: parseSource(source) }
+      return { uri: file, source, parseResult: parseSource(source, { networkText: NETWORK_TEXT_ENABLED }) }
     }),
     scanLibraryManifests(dir),
   )
   for (const file of files) {
     if (isLibrarySymbol({ uri: file })) continue // diagnostics never run on these
     projectFiles++
-    const pr = parseSource(readFileSync(file, "utf8"))
+    const pr = parseSource(readFileSync(file, "utf8"), { networkText: NETWORK_TEXT_ENABLED })
     const raw = new Set<string | undefined>()
     // varSections -> decls -> type, which is the real AST. The first pass read a `declarations` property that
     // does not exist, so it saw nothing and reported a confident zero. A probe that cannot find its own input

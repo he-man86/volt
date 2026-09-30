@@ -33,10 +33,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
-import { parseSource } from "../src/syntax/index.js"
+import { parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call, requireNetworkText } from "./bridge.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 // The bridge stores ONE item per top-level unit. A multi-unit fixture (e.g. a struct + an FB that uses it,
 // for unknown-member) must therefore be pushed as SEPARATE items — else the splitter mangles all but the
@@ -76,7 +77,7 @@ function splitItems(f: { source: string; pouName: string; gvlNames?: readonly st
   if (f.asSent !== undefined) return [{ wire: `${kind === "gvl" ? (gvlNames?.[0] ?? pouName) : pouName}.${extForKind(kind)}`, src: source }]
   // Each item spans from a top-level unit's start to the NEXT top-level unit's start (or EOF) — a unit's own
   // span.end excludes its END_xxx keyword, and this also folds trailing member units into their POU.
-  const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
+  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }).units.filter((u) => TOP.has(u.kind))
   const lists = tops.filter((u) => u.kind === "global_var_list")
   // …starting at the PRAGMAS written above it, not at the keyword. A unit's span begins at `FUNCTION_BLOCK`, so
   // slicing from there dropped `{attribute 'pingroup' := …}` on the way to the IDE, and the fixture then recorded

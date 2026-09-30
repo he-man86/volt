@@ -3,15 +3,15 @@
  * a bound within range, a non-constant bound, and a wider counter type all stay silent (zero-FP).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
 const diag = (decls: string, body: string): { code: string; message: string }[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 const codes = (decls: string, body: string): string[] => diag(decls, body).map((d) => d.code)

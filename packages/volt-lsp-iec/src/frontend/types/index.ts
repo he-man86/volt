@@ -1,10 +1,70 @@
-// Layer C — types. elementary facts · Type model · resolve · const-eval · infer · compat · render.
-// Owns: the type-facts SSOT, the Type model, compat relation, const eval, the one renderer.
-export * from "./elementary.js"
-export * from "./type.js"
-export * from "./resolve.js"
-export * from "./const-eval.js"
-export * from "./infer.js"
-export * from "./compat.js"
-export * from "./arith.js"
-export * from "./render.js"
+/**
+ * TYPES — what a type is and what an expression's type is: the elementary facts, the `Type` model and its resolution,
+ * inference, compatibility, constant folding and the operators' rules (openspec frontend-conformance design.md §2
+ * "Index contents"). This file names exactly what the rest of the package imports; consumers import it, never a file
+ * beside it, so a name can move between the files here without a consumer noticing.
+ */
+
+// the elementary facts
+export {
+  ANY_FAMILIES,
+  CODESYS_ONLY_TYPES,
+  ELEMENTARY_TYPES,
+  elementaryType,
+  inTypeGroup,
+  type ElementaryType,
+} from "./elementary.js"
+export { canonicalElem, PLATFORM_ALIASES } from "./platform.js"
+export { isDuration, isIntegerType, isKnownPrimitive, isNumericType, isTemporal } from "./predicates.js"
+export { parseConversionName } from "./conversion-name.js"
+export { DEFAULT_STRING_LENGTH } from "./defaults.js"
+export { integerOfWidth } from "./width.js"
+export {
+  integerLiteralType,
+  isIntLiteral,
+  literalCapacityType,
+  literalCheckType,
+  literalErrorType,
+  literalOwnType,
+  literalType,
+  REAL_LITERAL_TYPE,
+  REAL_MAX_MAGNITUDE,
+} from "./literal.js"
+
+// the Type model and its resolution
+export {
+  elementaryRef,
+  elementaryTypeRef,
+  elemOf,
+  UNKNOWN,
+  type ArrayTypeInfo,
+  type ElementaryTypeRef,
+  type FunctionBlockType,
+  type Type,
+} from "./type.js"
+export { isDialectType, resolveNamedType, resolveTypeExpr } from "./resolve.js"
+export { enumDefault, inlineEnumDefault } from "./enums.js"
+export { renderType } from "./render.js"
+
+// inference
+export { inferExprType } from "./infer/expr.js"
+export { isEnumValueRef, memberScopeOf, resolveMemberChain } from "./infer/member.js"
+export { resolveCallee, type CalleeInfo } from "./infer/callee.js"
+
+// compatibility, constants, arithmetic, operators, built-ins
+export { classifyConversion, isAssignable, isPointerSizedInteger, isSameType, type ConversionKind } from "./compat.js"
+export { constantSlotType, constEval, type ConstValue } from "./const/fold.js"
+export { constancyOf } from "./const/constancy.js"
+export { commonType, promoteForRuntime } from "./arith/runtime.js"
+export { checkedMeetType, checkedNegationType } from "./arith/checked.js"
+export { narrowDateWideDuration, temporalResultType } from "./arith/temporal.js"
+export {
+  ARITHMETIC_OPERATORS,
+  BIT_OPERATOR_FUNCTIONS,
+  COMPARISON_FUNCTIONS,
+  comparisonConverts,
+  operandConversion,
+  operandFamilyRule,
+  unaryOperandConversion,
+} from "./arith/operators.js"
+export { BUILTIN_RESULT, exptResultType } from "./builtins.js"

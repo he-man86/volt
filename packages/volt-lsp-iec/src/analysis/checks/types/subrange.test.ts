@@ -4,8 +4,8 @@
  * (conformance `subrange_init_above_range`, `subrange_assign_const_out`).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 
@@ -13,8 +13,8 @@ test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the 
   // silent before: only declaration initializers were checked (conformance `subrange_assign_const_out`).
   const src = `FUNCTION_BLOCK F\nVAR\nvalue : INT(1..100);\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Set\nvalue := 200;\nEND_METHOD`
   const run = (vendor: "codesys" | "twincat") => {
-    const parseResult = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+    const parseResult = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === "subrange-out-of-range")
       .map((d) => d.message)
@@ -25,8 +25,8 @@ test("an ASSIGNMENT out of the subrange is the same error — CODESYS types the 
 
 test("an assignment INSIDE the subrange is silent", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nvalue : INT(1..100);\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Set\nvalue := 50;\nEND_METHOD`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   expect(
     computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "subrange-out-of-range"),

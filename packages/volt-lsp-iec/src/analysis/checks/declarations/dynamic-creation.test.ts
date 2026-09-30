@@ -4,16 +4,16 @@
  * `newdel_with_pragma_has_method`, `newdel_in_method_with_pragma`, `newdel_elementary`); TwinCAT unmeasured.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
 const PRAGMA = "A function block or structure needs the pragma '{attribute 'enable_dynamic_creation'}' to be created with __NEW"
 
 function diagnose(src: string, vendor: Vendor = "codesys") {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "dynamic-creation-pragma")
     .map((d) => d.message)

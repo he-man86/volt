@@ -4,9 +4,9 @@
  */
 import { expect, test } from "bun:test"
 import { parseSource, type Expr, type FunctionBlock } from "../syntax/index.js"
-import { elementaryType, integerLiteralType } from "./elementary.js"
-import { literalCheckType } from "./infer.js"
+import { elementaryType } from "./elementary.js"
 import { elementaryTypeRef } from "./type.js"
+import { integerLiteralType, literalCheckType } from "./literal.js"
 
 test("the narrowest of SINT, USINT, INT, UINT, DINT, UDINT, LINT, ULINT that holds the value", () => {
   const named = (v: bigint) => integerLiteralType(v)?.name
@@ -19,7 +19,7 @@ test("the narrowest of SINT, USINT, INT, UINT, DINT, UDINT, LINT, ULINT that hol
 
 /** The literal (or negated literal) initializer of `x : <type> := <literal>`. */
 const literalInit = (literal: string): Expr => {
-  const unit = parseSource(`FUNCTION_BLOCK F\nVAR\n x : INT := ${literal};\nEND_VAR\nEND_FUNCTION_BLOCK`).units[0] as FunctionBlock
+  const unit = parseSource(`FUNCTION_BLOCK F\nVAR\n x : INT := ${literal};\nEND_VAR\nEND_FUNCTION_BLOCK`, { networkText: true }).units[0] as FunctionBlock
   return unit.varSections[0]!.decls[0]!.init as Expr
 }
 const checkedAs = (literal: string, target: string) => {

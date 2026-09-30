@@ -5,7 +5,7 @@
  * Zero-FP: a pure declaration-shape decision (section kind + declared type kind).
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl } from "../../../symbols/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkOutputRules(ctx: CheckContext, out: DiagnosticItem[]): void {

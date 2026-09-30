@@ -2,7 +2,7 @@
  * binary-operator-type-mismatch (D.2 · types/): `MOD` on a non-integer, and arithmetic mixing BOOL or a string with a
  * numeric. The rule is `rules.binaryOpError`, shared with the network-text operand check; this walks every binary node.
  */
-import { forEachExpr } from "../../../symbols/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import type { DiagnosticItem } from "../../diagnostic-item.js"
 import { binaryOpError } from "../../rules.js"

@@ -3,14 +3,14 @@
  * width instead of assuming it (`esc_wstring_*`, seventeen cells).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
 function msgs(src: string, vendor: Vendor = "codesys"): string[] {
-  const parseResult = parseSource(src, vendor)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "wstring-escape")
     .map((d) => d.message)

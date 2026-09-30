@@ -6,10 +6,10 @@
  *
  * Zero-FP: only a `variable` verdict fires; literals, constants, and unresolved/library names never do.
  */
-import { constancyOf } from "../../../types/index.js"
-import type { Expr, Span } from "../../../syntax/index.js"
+import { constancyOf } from "../../../frontend/types/index.js"
+import type { Expr, Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl } from "../../../symbols/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): void {

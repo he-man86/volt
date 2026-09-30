@@ -24,7 +24,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
-import { libraryResolution } from "../src/symbols/index.js"
+import { libraryResolution } from "../src/frontend/library/index.js"
 import type { LibraryFile } from "../src/transpile/index.js"
 
 const REPO = import.meta.dirname

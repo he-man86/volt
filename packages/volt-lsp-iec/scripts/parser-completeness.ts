@@ -14,8 +14,9 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseSource, parseStatements, unitBodies, isStBody } from "../src/syntax/index.js"
+import { parseSource, parseStatements, unitBodies, isStBody } from "../src/frontend/syntax/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const walk = (d: string): string[] => {
@@ -32,7 +33,7 @@ let files = 0, declErr = 0, bodies = 0, ok = 0, stmtRecorded = 0, stmtSilent = 0
 for (const f of walk(CORPUS)) {
   files++
   let pr
-  try { pr = parseSource(readFileSync(f, "utf8")) } catch { continue }
+  try { pr = parseSource(readFileSync(f, "utf8"), { networkText: NETWORK_TEXT_ENABLED }) } catch { continue }
   declErr += pr.errors.length
   for (const unit of pr.units)
     for (const body of unitBodies(unit)) {

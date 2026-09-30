@@ -3,13 +3,13 @@
  * array LOCAL variable default stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const msgs = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "input-default-composite")
     .map((d) => d.message)

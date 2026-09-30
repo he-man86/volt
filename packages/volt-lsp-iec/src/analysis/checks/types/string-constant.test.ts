@@ -2,14 +2,14 @@
  * string-constant-too-long (C0198). A string literal longer than its declared STRING(n).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const sc = (decls: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+  const pr = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "string-constant-too-long")
     .map((d) => d.message)
@@ -84,8 +84,8 @@ test("a WSTRING is checked too — UTF-16 code units, the same printed prefix", 
 
 test("it is a WARNING, and the length is the decoded one", () => {
   const src = `PROGRAM P\nVAR\n  s2 : STRING(2) := 'abc';\n  fits : STRING(3) := 'a$Tb';\nEND_VAR\nEND_PROGRAM`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const found = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "string-constant-too-long")
   expect(found.map((d) => d.severity)).toEqual(["warning"]) // 'abc' into STRING(2); 'a$Tb' is 3 decoded and fits
@@ -108,8 +108,8 @@ test("an ASSIGNMENT's target is the same destination as a declaration's", () => 
   // `xo4_string_constant_too_long`'s recorded warnings were missing.
   const body = (decls: string, stmts: string): string[] => {
     const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\n${stmts}\nEND_PROGRAM`
-    const pr = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "string-constant-too-long")
       .map((d) => d.message)

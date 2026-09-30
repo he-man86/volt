@@ -4,12 +4,11 @@
  * shared with the network-text sink check; conservative — a side that isn't elementary or enum skips, so a
  * struct/FB/composite/library type never false-positives.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies, forEachDecl, hasUnresolvedBase } from "../../../symbols/index.js"
-import { literalErrorType, renderType, resolveTypeExpr } from "../../../types/index.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl, hasUnresolvedBase } from "../../../frontend/symbols/index.js"
+import { literalErrorType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { compilerTypeName } from "../../messages.js"
 import { nameResolves } from "../../resolution.js"
 import { assignmentPairError, checkable, checkableType, storeConversionError } from "../../rules.js"
 
@@ -54,20 +53,20 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
           span: decl.init.span,
           source: SOURCE,
           code: "assignment-type-mismatch",
-          message: ctx.messages.cannotConvert(ctx.messages.unknownType(decl.init.name), compilerTypeName(resolved)),
+          message: ctx.messages.cannotConvert(ctx.messages.unknownType(decl.init.name), renderType(resolved, { form: "compiler" })),
         })
         continue
       }
       const rhs = checkableType(decl.init, scope, ctx.project)
       // EXACT: the referenced type must BE the reference's own. `checkable` on both sides keeps the conservative
       // default — a composite or library type on either side skips, as everywhere else in this file.
-      if (rhs !== undefined && checkable(referenced) !== undefined && compilerTypeName(referenced) !== compilerTypeName(rhs))
+      if (rhs !== undefined && checkable(referenced) !== undefined && renderType(referenced, { form: "compiler" }) !== renderType(rhs, { form: "compiler" }))
         out.push({
           severity: "error",
           span: decl.init.span,
           source: SOURCE,
           code: "assignment-type-mismatch",
-          message: ctx.messages.cannotConvert(compilerTypeName(rhs), compilerTypeName(resolved)),
+          message: ctx.messages.cannotConvert(renderType(rhs, { form: "compiler" }), renderType(resolved, { form: "compiler" })),
         })
       continue
     }

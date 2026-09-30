@@ -4,11 +4,12 @@
  * fell back to scope symbols and hover on the member wrongly matched a builtin operator.
  */
 import { test, expect } from "bun:test"
-import { type Document, parseSource } from "../../syntax/index.js"
-import { buildSymbolTable } from "../../symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
 import { hover } from "./hover.js"
 import { completion } from "./completion.js"
 import { signatureHelp } from "./signature-help.js"
+import type { Document } from "../shared/index.js"
+import { build } from "../../frontend/symbols/index.js"
 
 const SRC = `INTERFACE IDrive
 METHOD Spin : BOOL
@@ -29,9 +30,9 @@ n := drv.Pos;
 END_PROGRAM`
 
 const setup = () => {
-  const parseResult = parseSource(SRC)
+  const parseResult = parseSource(SRC, { networkText: true })
   const doc: Document = { uri: "file:///F.fb", source: SRC, parseResult }
-  return { doc, project: buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
+  return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
 }
 
 test("completion after an interface instance's `.` offers its members", () => {

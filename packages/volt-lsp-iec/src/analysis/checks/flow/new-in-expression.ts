@@ -8,7 +8,7 @@
  * so it never fires. Distinct from C0509 (a chained `a := b := __NEW(...)` statement).
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr } from "../../../symbols/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkNewInExpression(ctx: CheckContext, out: DiagnosticItem[]): void {

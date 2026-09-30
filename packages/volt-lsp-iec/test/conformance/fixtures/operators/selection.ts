@@ -15,7 +15,7 @@
  *
  * Every operand is written by the body, so nothing folds and `SEL`'s unused arm is a real runtime question.
  */
-import { ELEMENTARY_TYPES } from "../../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 const INTEGERS = [...ELEMENTARY_TYPES.values()].filter(

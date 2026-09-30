@@ -13,8 +13,8 @@
  * <p>The LSP's grammar keeps the form for both vendors on purpose — a TwinCAT engineer opening CODESYS code
  * should see the slice highlighted and navigable, with the vendor's error on it, not a parse cascade.</p>
  */
-import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
 import { compilerExprText } from "../../expr-echo.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

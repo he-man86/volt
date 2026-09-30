@@ -6,8 +6,8 @@
  * Labels and JMPs are collected across the whole body (nested blocks included, via `walkStatements`). Matching
  * is case-insensitive (IEC identifiers).
  */
-import { walkStatements, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

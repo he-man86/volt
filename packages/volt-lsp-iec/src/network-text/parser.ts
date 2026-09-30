@@ -30,7 +30,7 @@ import {
   parseExprFromTokens,
   parseStatements,
   parseTypeExprFromTokens,
-} from "../syntax/index.js"
+} from "../frontend/syntax/index.js"
 import type {
   NetworkAssign,
   NetworkCall,
@@ -49,6 +49,7 @@ import type {
   NetworkWire,
 } from "./ast.js"
 import { NetworkLexer, OPERATOR_HEADS, SYMBOL_TO_TYPE, type Tok, isOperator, isSym, isWord } from "./lexer.js"
+import { BIT_OPERATOR_FUNCTIONS, COMPARISON_FUNCTIONS } from "../frontend/types/index.js"
 
 /**
  * Words the text's own grammar gives a meaning at operand position (`NetworkSpelling.TextWords`); an operand spelled
@@ -188,7 +189,7 @@ class Parser {
       span: this.body.span,
     })
 
-    // The body's language is the one its IMPLEMENTATION line STATES (`syntax/implementation-keyword`), and this parser
+    // The body's language is the one its IMPLEMENTATION line STATES (`syntax/format/implementation-line`), and this parser
     // reads only LD and FBD — the classifier `isGraphicalBody` asks the same question, so a body this parser reads no
     // network of is never one the ST checks were told to skip. The line is not in the body's tokens: the text below is
     // all network text.
@@ -499,12 +500,12 @@ class Parser {
         case "edge":
           return walk(v.operand, boolean)
         case "group": {
-          const contacts = ld && BIT_OPERATORS.has(operatorType(v.op))
+          const contacts = ld && BIT_OPERATOR_FUNCTIONS.has(operatorType(v.op))
           for (const o of v.operands) walk(o, contacts)
           return
         }
         case "call": {
-          const contacts = ld && BIT_OPERATORS.has(v.boxType.toUpperCase())
+          const contacts = ld && BIT_OPERATOR_FUNCTIONS.has(v.boxType.toUpperCase())
           for (const p of v.pins) if (p.kind === "input") walk(p.value, p.name?.text.toUpperCase() === "EN" || contacts)
           return
         }
@@ -1337,10 +1338,6 @@ function shift(s: Span, at: { offset: number; line: number; col: number }): Span
 const BOOL = "BOOL"
 /** IEC ANY_BIT: an AND/OR/XOR/NOT box is bitwise on any of them. */
 const BIT_STRINGS: ReadonlySet<string> = new Set(["BOOL", "BYTE", "WORD", "DWORD", "LWORD"])
-/** Operator boxes whose result is BOOL whatever their operands. */
-const COMPARISONS: ReadonlySet<string> = new Set(["GT", "GE", "LT", "LE", "EQ", "NE"])
-/** The bit operators: their result has their operands' bit-string type. */
-const BIT_OPERATORS: ReadonlySet<string> = new Set(["AND", "OR", "XOR", "NOT"])
 /** A group's operator → its box type: the lexer's table (`SYMBOL_TO_TYPE`), the one the group's operator was accepted
  *  by (`isOperator`), so a miss is a drift between the two and fails loudly rather than naming a box by its symbol. */
 function operatorType(op: string): string {
@@ -1358,8 +1355,8 @@ interface Produced {
 /** A box's word on its output, with no stored output type (the text carries none). */
 function boxProduces(type: string): Produced {
   const t = type.toUpperCase()
-  if (COMPARISONS.has(t)) return { exact: BOOL }
-  if (BIT_OPERATORS.has(t)) return { anyBit: true }
+  if (COMPARISON_FUNCTIONS.has(t)) return { exact: BOOL }
+  if (BIT_OPERATOR_FUNCTIONS.has(t)) return { anyBit: true }
   return {}
 }
 

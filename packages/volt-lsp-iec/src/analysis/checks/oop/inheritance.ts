@@ -10,7 +10,7 @@
  * self-cycle (C0091) is flagged before the not-found check so `EXTENDS FB` on `FB` reports the cycle, not a
  * spurious not-found.
  */
-import { isLibrarySymbol, lookup, scopeForUnit } from "../../../symbols/index.js"
+import { isLibrarySymbol, lookup, scopeForUnit } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { nameResolves } from "../../resolution.js"

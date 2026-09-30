@@ -12,48 +12,38 @@
  * sets the corresponding flag. Don't reorder the keyword list in
  * `eatAnyKeyword` without re-running the stacked-modifier corpus.
  */
-import type { Method } from "../ast.js"
+import type { Method } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import { parseOptionalReturnType } from "../type-expr.js"
-import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js"
-import type { Keyword } from "../tokens.js"
-
-function isMethodModifier(kw: Keyword | undefined): boolean {
-  return (
-    kw === "PUBLIC" ||
-    kw === "PRIVATE" ||
-    kw === "PROTECTED" ||
-    kw === "INTERNAL" ||
-    kw === "FINAL" ||
-    kw === "ABSTRACT" ||
-    kw === "OVERRIDE"
-  )
-}
+import { collectBodyUntil } from "../body.js"
+import { MEMBER_MODIFIERS } from "../../lex/vocabulary.js"
+import { joinSpans } from "../../span.js"
+import { identFromToken, readModifiers } from "../names.js"
+import { collectVarSections } from "../declarations.js"
+import { parseOptionalReturnType } from "./header.js"
 
 export function parseMethod(c: Cursor): Method | undefined {
-  const start = c.expectKeyword("METHOD", "at start of METHOD")
+  const start = c.expectKeyword("METHOD")
   if (start === undefined) return undefined
 
   let accessModifier: Method["accessModifier"]
   let isFinal = false
   let isAbstract = false
   let isOverride = false
-  while (true) {
-    // A modifier keyword is only a modifier if a name (or further modifiers) follow it. Otherwise it
-    // IS the method name — e.g. `METHOD PROTECTED Override`, where `Override` (the OVERRIDE keyword)
-    // names the method. Peek ahead so we don't swallow the name as a modifier.
-    const here = c.peek()
-    if (here.kind !== "keyword" || !isMethodModifier(here.keyword)) break
-    const after = c.peek(1)
-    // The `IMPLEMENTATION` line is an identifier token but never a name: it ends the declaration, and a method with
-    // no return type and no VAR puts it straight under the header (`METHOD PROTECTED Override`, then the line).
-    const followsWithName =
+  // A modifier keyword is only a modifier if a name (or further modifiers) follow it. Otherwise it IS the method name —
+  // e.g. `METHOD PROTECTED Override`, where `Override` (the OVERRIDE keyword) names the method. The `IMPLEMENTATION`
+  // line is an identifier token but never a name: it ends the declaration, and a method with no return type and no VAR
+  // puts it straight under the header (`METHOD PROTECTED Override`, then the line).
+  const modifiers = readModifiers(
+    c,
+    MEMBER_MODIFIERS,
+    (after) =>
       (after.kind === "identifier" && !c.opensImplementationLine(1)) ||
       (after.kind === "keyword" &&
-        (isMethodModifier(after.keyword) || after.keyword === "GET" || after.keyword === "SET"))
-    if (!followsWithName) break
-    const mod = c.eatAnyKeyword("PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE")
-    if (mod === undefined) break
+        ((after.keyword !== undefined && MEMBER_MODIFIERS.includes(after.keyword)) ||
+          after.keyword === "GET" ||
+          after.keyword === "SET")),
+  )
+  for (const mod of modifiers) {
     if (
       mod.keyword === "PUBLIC" ||
       mod.keyword === "PRIVATE" ||
@@ -70,7 +60,7 @@ export function parseMethod(c: Cursor): Method | undefined {
     }
   }
 
-  const nameTok = c.expectName("for METHOD name")
+  const nameTok = c.expectName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

@@ -5,8 +5,7 @@
  *   - `findReferences` (rename/references) — matches EVERY ref (incl. bases) to the target symbol, so
  *     renaming a type also updates its `: T` / `EXTENDS T` / `IMPLEMENTS T` uses (the P0 rename-corruption bug).
  */
-import type { Identifier, TopLevel, TypeExpr } from "./ast.js"
-import type { Span } from "./span.js"
+import type { Identifier, Span, TopLevel, TypeExpr } from "../../frontend/syntax/index.js"
 
 export interface TypeNameRef {
   name: string
@@ -17,16 +16,6 @@ export interface TypeNameRef {
   position: "type" | "base"
 }
 
-/** Flatten namespace-wrapped units so a `NAMESPACE … END_NAMESPACE` body is walked too. */
-export function flatUnits(units: readonly TopLevel[]): TopLevel[] {
-  const out: TopLevel[] = []
-  for (const u of units) {
-    if (u.kind === "namespace") out.push(...flatUnits(u.units))
-    else out.push(u)
-  }
-  return out
-}
-
 /** Every named-type reference a unit makes, in type or base position (unit assumed already namespace-flattened). */
 export function* unitTypeNameRefs(unit: TopLevel): Generator<TypeNameRef> {
   for (const t of unitTypeExprs(unit)) yield* namedTypesOf(t)
@@ -34,7 +23,7 @@ export function* unitTypeNameRefs(unit: TopLevel): Generator<TypeNameRef> {
 }
 
 /** Every TypeExpr a unit DECLARES (var/field/return/property/alias types) — the checkable type positions. */
-export function* unitTypeExprs(unit: TopLevel): Generator<TypeExpr> {
+function* unitTypeExprs(unit: TopLevel): Generator<TypeExpr> {
   if ("varSections" in unit) for (const section of unit.varSections) for (const decl of section.decls) yield decl.type
   if ("returnType" in unit && unit.returnType !== undefined) yield unit.returnType
   if (unit.kind === "property") {

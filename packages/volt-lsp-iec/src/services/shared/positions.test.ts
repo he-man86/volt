@@ -3,10 +3,10 @@
  * definition, completion). Untested before; off-by-one here breaks all of them, so pin the line/col
  * boundaries, the end-of-source case, out-of-range, and the Span(1-based line)→Range(0-based) mapping.
  */
-import { spanContains } from "../../syntax/index.js"
+import { spanContains } from "../../frontend/syntax/index.js"
 import { test, expect } from "bun:test"
-import type { Span } from "../../syntax/index.js"
-import { offsetFromPosition, rangeFromSpan } from "./positions.js"
+import type { Span } from "../../frontend/syntax/index.js"
+import { offsetFromPosition, rangeFromSpan, tokenAtOffset } from "./positions.js"
 
 const SRC = "abc\ndef\nghi" // offsets: a0 b1 c2 \n3 d4 e5 f6 \n7 g8 h9 i10  (length 11)
 
@@ -34,4 +34,27 @@ test("spanContains: start inclusive, end exclusive", () => {
   expect(spanContains(span, 6)).toBe(true) // inside
   expect(spanContains(span, 7)).toBe(false) // end exclusive
   expect(spanContains(span, 3)).toBe(false) // before
+})
+
+// ── tokenAtOffset — the token under a cursor when there is no statement tree (declarations), for hover and
+// definition on type names and declared identifiers (from `syntax/token-at.test.ts`, openspec frontend-conformance 1.10).
+
+// "x := foo;" → x[0,1) :=[2,4) foo[5,8) ;[8,9)   (offsets 1 and 4 are whitespace = trivia)
+const TOKENS = "x := foo;"
+
+test("returns the token whose span covers the offset (start inclusive)", () => {
+  expect(tokenAtOffset(TOKENS, 0)?.text).toBe("x")
+  expect(tokenAtOffset(TOKENS, 3)?.text).toBe(":=") // inside the operator
+  expect(tokenAtOffset(TOKENS, 6)?.text).toBe("foo") // inside the identifier
+  expect(tokenAtOffset(TOKENS, 8)?.text).toBe(";")
+})
+
+test("returns undefined in trivia (whitespace) and past the end", () => {
+  expect(tokenAtOffset(TOKENS, 4)).toBeUndefined() // the space before 'foo'
+  expect(tokenAtOffset(TOKENS, 99)).toBeUndefined() // past end of source
+})
+
+test("end offset is exclusive — a cursor at a token's end belongs to the next token", () => {
+  // offset 1 is the end of 'x' (exclusive) AND the start of the following space (trivia) → no token.
+  expect(tokenAtOffset(TOKENS, 1)).toBeUndefined()
 })

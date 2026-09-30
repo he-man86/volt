@@ -1,9 +1,9 @@
 /**
  * The measured byte layout — SIZEOF and the difference of two addresses in one variable.
  */
-import type { Expr } from "../../syntax/index.js"
-import { lookup } from "../../symbols/index.js"
-import { elementaryRef, elementaryType, resolveNamedType, type Type } from "../../types/index.js"
+import type { Expr } from "../../frontend/syntax/index.js"
+import { lookup } from "../../frontend/symbols/index.js"
+import { elementaryRef, elementaryType, resolveNamedType, type Type } from "../../frontend/types/index.js"
 import { type IrExpr, peelArray, type Place } from "../ir/index.js"
 import { baseOf, type Lowering } from "./lowering.js"
 import { storageOf } from "./storage.js"

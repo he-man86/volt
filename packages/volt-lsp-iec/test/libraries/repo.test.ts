@@ -14,7 +14,7 @@ import { describe, expect, test } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { implementationDir, writtenVersions } from "../../libraries/index.js"
-import { libraryResolution } from "../../src/symbols/index.js"
+import { libraryResolution } from "../../src/frontend/library/index.js"
 import { walkSources } from "../corpus/support/project.js"
 
 const CORPUS = join(import.meta.dir, "..", "..", "test-corpus")

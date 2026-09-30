@@ -13,7 +13,7 @@
  * while the same value reached through a BOOL wire was checked. Their reading is a BOOL literal with no value — typed, never folded as
  * a constant — and the operands inside them are read on their own (`sealed`).
  */
-import type { CallArg, Expr, IdentExpr, Literal, Span } from "../syntax/index.js"
+import type { CallArg, Expr, IdentExpr, Literal, Span } from "../frontend/syntax/index.js"
 import type { NetworkCall, NetworkExecute, NetworkTextStatement, NetworkValue } from "./ast.js"
 import { statementValues, valueChildren, walkValues } from "./ast.js"
 import { OPERATOR_HEADS } from "./lexer.js"

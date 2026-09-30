@@ -6,7 +6,7 @@
  *
  * ponytail: the required-param table is inlined here, its one reader; move it to `reference/` if a second appears.
  */
-import { varInputParams } from "../../../syntax/index.js"
+import { varInputParams } from "../../../frontend/syntax/index.js"
 import type { LifecycleMethod } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

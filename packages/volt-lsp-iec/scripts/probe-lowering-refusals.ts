@@ -9,8 +9,8 @@
  */
 import { existsSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { isStBody, parseStatements, type TopLevel } from "../src/syntax/index.js"
-import { isLibrarySymbol, scopeForUnit } from "../src/symbols/index.js"
+import { isStBody, parseStatements, type TopLevel } from "../src/frontend/syntax/index.js"
+import { isLibrarySymbol, scopeForUnit } from "../src/frontend/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { loweringProject } from "../test/corpus/support/project.js"
 

@@ -11,10 +11,10 @@
  * are skipped for C0233 (an enum accepts integer literals). C0075 fires only on a single dimension with
  * const-foldable bounds, all-countable elements, and a strict OVER-count (a short initializer is legal).
  */
-import { forEachDecl, type Scope } from "../../../symbols/index.js"
-import { constancyOf, constEval, resolveTypeExpr } from "../../../types/index.js"
-import type { AggregateElement } from "../../../syntax/index.js"
-import type { Span } from "../../../syntax/index.js"
+import { forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
+import { constancyOf, constEval, resolveTypeExpr } from "../../../frontend/types/index.js"
+import type { AggregateElement } from "../../../frontend/syntax/index.js"
+import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

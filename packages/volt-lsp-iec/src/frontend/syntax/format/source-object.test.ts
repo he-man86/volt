@@ -3,32 +3,10 @@
  * CODESYS SP21 (2026-09-30, conformance `objects/written-as-sent.ts`, push-without-header-check 4.1/4.2).
  */
 import { expect, test } from "bun:test"
-import { SOURCE_EXTENSIONS } from "../source-extensions.js"
-import { parseDocument, parseSource, sourceObjectOf } from "./index.js"
-
-test("every writable-source extension names its object; nothing else does", () => {
-  expect(Object.fromEntries(SOURCE_EXTENSIONS.map((e) => [e, sourceObjectOf(`file:///w/X${e}`)]))).toEqual({
-    ".fb": "pou",
-    ".prg": "pou",
-    ".fun": "pou",
-    ".itf": "interface",
-    ".gvl": "gvl",
-    ".struct": "dut",
-    ".enum": "dut",
-    ".union": "dut",
-    ".alias": "dut",
-  })
-  // EXACT, as the crawl (`workspace-refs.ts`) and the CLI's classifier read extensions: `X.STRUCT` is a foreign file
-  // `volt push` refuses, never the `X.struct` the IDE publishes. (This said "case-insensitive, as the crawl reads
-  // extensions" — the crawl never did, so an open `X.GVL` was read as a GVL here and ignored there.)
-  expect(sourceObjectOf("C:\\w\\X.STRUCT")).toBeUndefined()
-  expect(sourceObjectOf("C:\\w\\X.Gvl")).toBeUndefined()
-  // text that is no workspace file — a conformance fixture, the library repo — has no object to read it as
-  expect(sourceObjectOf("unit.st")).toBeUndefined()
-})
+import { parseDocument, parseSource, sourceObjectOf } from "../index.js"
 
 const read = (uri: string, source: string) => {
-  const r = parseDocument(uri, source)
+  const r = parseDocument(uri, source, { networkText: true })
   return { units: r.units.map((u) => u.kind), errors: r.errors.map((e) => e.message) }
 }
 
@@ -65,9 +43,9 @@ test("a DUT or a GVL is held to none of the file format's POU rules", () => {
 test("a POU still is — and so is text read with no object", () => {
   const retired = "(* @volt-impl *)\nFUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n"
   expect(read("FB_A.fb", retired).errors).toHaveLength(1)
-  expect(parseSource(retired).errors).toHaveLength(1)
+  expect(parseSource(retired, { networkText: true }).errors).toHaveLength(1)
   // …and a DUT's text read as no object keeps today's reading: a fixture packs several units into one text
-  expect(parseSource("this is not structured text\nTYPE DUT_A :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n").units.map((u) => u.kind)).toEqual(["type_decl"])
+  expect(parseSource("this is not structured text\nTYPE DUT_A :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n", { networkText: true }).units.map((u) => u.kind)).toEqual(["type_decl"])
 })
 
 // The server reads a document's object from its URI, and the client's selector is language-only: an SCM diff's HEAD

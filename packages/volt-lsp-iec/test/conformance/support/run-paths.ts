@@ -15,9 +15,9 @@
  *   - a SUBRANGE value (`INT(0..100)`, or a DUT that is one): the online read refuses it, "Type 'Subrange' is not a
  *     literal type." (measured 2026-09-14, `type_dut_subrange`, `subrange_init_in_range`).
  */
-import { buildSymbolTable } from "../../../src/symbols/index.js"
-import { parseSource, type TopLevel, type TypeExpr, type VarSection, type VarSectionKind } from "../../../src/syntax/index.js"
-import { constEval, elementaryType } from "../../../src/types/index.js"
+import { build } from "../../../src/frontend/symbols/index.js"
+import { parseSource, type TopLevel, type TypeExpr, type VarSection, type VarSectionKind } from "../../../src/frontend/syntax/index.js"
+import { constEval, elementaryType } from "../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../types.js"
 import { withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
@@ -34,9 +34,9 @@ const MAX_DEPTH = 4
 
 export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[] {
   const fixtures = withDependencies(t, all)
-  const parsedFixtures = fixtures.map((f) => ({ uri: f.name, source: f.source, parseResult: parseSource(f.source) }))
-  const plc = parseSource(plcPrgSource(t))
-  const project = buildSymbolTable([...parsedFixtures, { uri: "plc_prg", parseResult: plc, source: plcPrgSource(t) }])
+  const parsedFixtures = fixtures.map((f) => ({ uri: f.name, source: f.source, parseResult: parseSource(f.source, { networkText: true }) }))
+  const plc = parseSource(plcPrgSource(t), { networkText: true })
+  const project = build.buildSymbolTable([...parsedFixtures, { uri: "plc_prg", parseResult: plc, source: plcPrgSource(t) }])
   // The TYPES a variable can be declared of, by name — a library's first, then a fixture's own over them, as the project's
   // own declaration wins in CODESYS. The same filter for both: a library file folds its FBs' METHOD blocks in as
   // top-level units, and one named like a library type replaced that type here, so its instances expanded to nothing.

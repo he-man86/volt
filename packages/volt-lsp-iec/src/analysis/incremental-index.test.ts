@@ -2,12 +2,12 @@
  * Incremental-index equivalence (Phase B correctness gate). The whole point of the incremental symbol index
  * is that it must produce a project scope IDENTICAL to a from-scratch `buildSymbolTable` — otherwise a
  * keystroke silently changes navigation/diagnostics. After every mutation we assert
- * `store.project()  ≡  buildSymbolTable(store.workspace())` via an order-insensitive structural key (child
+ * `store.project()  ≡  build.buildSymbolTable(store.workspace())` via an order-insensitive structural key (child
  * and same-name symbol order may differ — last-write-wins on duplicate names is by-design, per the protocol
  * invariant — but the resolvable content must match exactly).
  */
 import { test, expect } from "bun:test"
-import { buildSymbolTable, type Scope } from "../symbols/index.js"
+import { build, type Scope } from "../frontend/symbols/index.js"
 import { resolveConfig } from "./index.js"
 import { WorkspaceStore } from "../server/workspace-store.js"
 
@@ -33,7 +33,7 @@ function scopeKey(s: Scope): string {
 /** Assert the store's incrementally-maintained project ≡ a full rebuild of the same merged docs. */
 function assertEquivalent(store: WorkspaceStore, label: string) {
   const incremental = scopeKey(store.project())
-  const fresh = scopeKey(buildSymbolTable(store.workspace()))
+  const fresh = scopeKey(build.buildSymbolTable(store.workspace()))
   expect(incremental, label).toBe(fresh)
 }
 

@@ -11,22 +11,23 @@
  * `IdentExpr` in the tree; a consumer that only wants "real" references
  * filters by context.
  */
-import type { Expr, MemberExpr, Statement, StatementList } from "./ast.js"
+import type { Expr, Statement, StatementList, TopLevel } from "./nodes.js"
 
-/** Immediate sub-expressions of an expression, in source order. */
 /**
- * True when `e` names the enclosing instance — `THIS` or `SUPER`, in any case (ST names are case-insensitive), optionally
- * parenthesised and dereferenced (`THIS^`). The one home of that test: two OOP checks each kept a private copy.
+ * EVERY UNIT OF A FILE, NAMESPACES FLATTENED — in source order, each namespace's units where the namespace stands; a
+ * namespace is not itself a unit this yields. The one namespace flattener: every walk over "the units of a file" that
+ * must see inside `NAMESPACE … END_NAMESPACE` goes through here.
  */
-export function isSelfRef(e: Expr): boolean {
-  let x = e
-  if (x.kind === "paren") x = x.inner
-  if (x.kind === "deref") x = x.base
-  if (x.kind !== "ident_expr") return false
-  const name = x.name.toUpperCase()
-  return name === "THIS" || name === "SUPER"
+export function allUnits(units: readonly TopLevel[]): TopLevel[] {
+  const out: TopLevel[] = []
+  for (const u of units) {
+    if (u.kind === "namespace") out.push(...allUnits(u.units))
+    else out.push(u)
+  }
+  return out
 }
 
+/** Immediate sub-expressions of an expression, in source order. */
 export function exprChildren(e: Expr): Expr[] {
   switch (e.kind) {
     case "ident_expr":
@@ -121,25 +122,4 @@ export function walkAllExprs(list: StatementList, visit: (e: Expr) => void): voi
   walkStatements(list, (s) => {
     for (const e of stmtExprs(s)) walkExpr(e, visit)
   })
-}
-
-/** The innermost expression node whose span covers `offset` (smallest span wins). */
-export function exprAtOffset(list: StatementList, offset: number): Expr | undefined {
-  let best: Expr | undefined
-  walkAllExprs(list, (e) => {
-    if (offset >= e.span.start && offset < e.span.end) {
-      if (best === undefined || e.span.end - e.span.start < best.span.end - best.span.start) best = e
-    }
-  })
-  return best
-}
-
-/** The member-access node whose MEMBER name (`.b` in `a.b`) covers `offset` — the node to resolve for
- *  member-chain navigation when the cursor is on a member. */
-export function memberAtOffset(list: StatementList, offset: number): MemberExpr | undefined {
-  let hit: MemberExpr | undefined
-  walkAllExprs(list, (e) => {
-    if (e.kind === "member" && offset >= e.member.span.start && offset < e.member.span.end) hit = e
-  })
-  return hit
 }

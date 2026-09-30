@@ -5,7 +5,7 @@
  * whole project because the server's eager index seeds the project `Scope` from disk, not just open docs.
  */
 import type { SymbolInformation } from "vscode-languageserver-protocol"
-import type { Scope } from "../../symbols/index.js"
+import type { Scope } from "../../frontend/symbols/index.js"
 import { lspSymbolKind, rangeFromSpan } from "../shared/index.js"
 
 export function workspaceSymbols(project: Scope, query: string): SymbolInformation[] {

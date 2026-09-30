@@ -11,9 +11,9 @@
  */
 import { describe, expect, test } from "bun:test"
 import { parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "../symbols/index.js"
-import type { LibraryManifest } from "../symbols/library-namespace.js"
 import { resolveNamedType } from "./resolve.js"
+import type { LibraryManifest } from "../library/index.js"
+import { build } from "../symbols/index.js"
 
 const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
 
@@ -31,7 +31,7 @@ const manifest = (
   materialization: 2,
 })
 
-const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source) })
+const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
 
 // The two ETRIGs are not the same function block: only one has `fromCbm`.
 const FILES = [
@@ -47,7 +47,7 @@ const MANIFESTS = [
 ]
 
 /** The member set the name resolves to, from the point of view of `askerUri`. */
-const membersSeenFrom = (project: ReturnType<typeof buildSymbolTable>, askerUri: string): string[] => {
+const membersSeenFrom = (project: ReturnType<typeof build.buildSymbolTable>, askerUri: string): string[] => {
   const t = resolveNamedType("ETRIG", project, 0, askerUri)
   const scope = t.kind === "function_block" ? t.scope : undefined
   return [...(scope?.symbols.keys() ?? [])].sort()
@@ -55,13 +55,13 @@ const membersSeenFrom = (project: ReturnType<typeof buildSymbolTable>, askerUri:
 
 describe("a type name with two candidates", () => {
   test("resolves through the asking file's own library dependencies", () => {
-    const project = buildSymbolTable(FILES, MANIFESTS)
+    const project = build.buildSymbolTable(FILES, MANIFESTS)
     expect(membersSeenFrom(project, `${LIB("CAA File")}/Reader.fb`)).toEqual(["fromcbm"])
     expect(membersSeenFrom(project, `${LIB("VisuUtils")}/Widget.fb`)).toEqual(["fromcbml"])
   })
 
   test("a file resolves its OWN library's export before a dependency's", () => {
-    const project = buildSymbolTable(FILES, [
+    const project = build.buildSymbolTable(FILES, [
       ...MANIFESTS.slice(0, 2),
       manifest("CBML", "CBML", "CBML", ["CAA Behaviour Model"]),
     ])
@@ -70,22 +70,22 @@ describe("a type name with two candidates", () => {
 
   test("project source prefers a project type over any library's", () => {
     const own = file("file:///w/POUs/ETRIG.fb", "FUNCTION_BLOCK ETRIG\nVAR\n  fromProject : BOOL;\nEND_VAR\n")
-    const project = buildSymbolTable([...FILES, own], MANIFESTS)
+    const project = build.buildSymbolTable([...FILES, own], MANIFESTS)
     expect(membersSeenFrom(project, "file:///w/POUs/App.fb")).toEqual(["fromproject"])
   })
 
   test("the answer does not depend on the order the files were bound", () => {
-    const forward = buildSymbolTable(FILES, MANIFESTS)
-    const reverse = buildSymbolTable([...FILES].reverse(), MANIFESTS)
+    const forward = build.buildSymbolTable(FILES, MANIFESTS)
+    const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS)
     for (const asker of [`${LIB("CAA File")}/Reader.fb`, `${LIB("VisuUtils")}/Widget.fb`])
       expect(membersSeenFrom(reverse, asker)).toEqual(membersSeenFrom(forward, asker))
     expect(membersSeenFrom(reverse, `${LIB("VisuUtils")}/Widget.fb`)).toEqual(["fromcbml"])
   })
 
   test("with no asker it is still stable — the same answer every time, just uninformed", () => {
-    const forward = buildSymbolTable(FILES, MANIFESTS)
-    const reverse = buildSymbolTable([...FILES].reverse(), MANIFESTS)
-    const anon = (p: ReturnType<typeof buildSymbolTable>) => {
+    const forward = build.buildSymbolTable(FILES, MANIFESTS)
+    const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS)
+    const anon = (p: ReturnType<typeof build.buildSymbolTable>) => {
       const t = resolveNamedType("ETRIG", p)
       return [...((t.kind === "function_block" ? t.scope : undefined)?.symbols.keys() ?? [])]
     }

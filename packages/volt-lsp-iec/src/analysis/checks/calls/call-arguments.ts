@@ -17,23 +17,10 @@
  * optional (retained between calls) and function optional/EN-ENO inputs would false-positive.
  * ponytail: no too-few check — the only spec requirement about omission is the negative "don't flag it".
  */
-import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../syntax/index.js"
-import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../symbols/index.js"
-import {
-  constancyOf,
-  elementaryType,
-  elementaryTypeRef,
-  inferExprType,
-  integerLiteralType,
-  isAssignable,
-  isSameType,
-  resolveCallee,
-  resolveTypeExpr,
-  type CalleeInfo,
-  type Type,
-} from "../../../types/index.js"
+import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
+import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, inferExprType, isAssignable, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { compilerTypeName } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { checkable, checkableType, conversionWarning } from "../../rules.js"
 import { bindableMember } from "../../resolution.js"
@@ -320,8 +307,8 @@ function isBitAccess(e: Expr): boolean {
 function argumentType(value: Expr, scope: Scope, ctx: CheckContext): Type {
   const inferred = inferExprType(value, scope, ctx.project)
   if (inferred.kind !== "unknown") return inferred
-  if (value.kind !== "literal" || value.literalKind !== "int" || typeof value.value !== "bigint") return inferred
-  const narrowest = integerLiteralType(value.value)
+  if (value.kind !== "literal") return inferred
+  const narrowest = literalOwnType(value)
   return narrowest === undefined ? inferred : elementaryTypeRef(narrowest)
 }
 
@@ -347,7 +334,7 @@ function outputTypeError(
     span: target.span,
     source: SOURCE,
     code: "call-argument-type",
-    message: ctx.messages.cannotConvert(compilerTypeName(src), compilerTypeName(dst)),
+    message: ctx.messages.cannotConvert(renderType(src, { form: "compiler" }), renderType(dst, { form: "compiler" })),
   })
 }
 
@@ -383,6 +370,6 @@ function argTypeError(
     span: value.span,
     source: SOURCE,
     code: "call-argument-type",
-    message: ctx.messages.cannotConvert(compilerTypeName(arg), compilerTypeName(target)),
+    message: ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
   })
 }

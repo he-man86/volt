@@ -1,6 +1,7 @@
 import { test, expect } from "bun:test"
-import { type Document, type ParseResult, parseSource, parseStatements } from "../../syntax/index.js"
+import { type ParseResult, parseSource, parseStatements } from "../../frontend/syntax/index.js"
 import { formatDocument, formatOnType, formatRange } from "../index.js"
+import type { Document } from "../shared/index.js"
 
 /**
  * Normalize a parse result to a span-free / token-free shape, embedding each body's PARSED statement
@@ -38,9 +39,9 @@ function astEqual(a: ParseResult, b: ParseResult): void {
 }
 
 function roundtrips(src: string): void {
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
   const formatted = formatDocument(doc)
-  astEqual(doc.parseResult, parseSource(formatted))
+  astEqual(doc.parseResult, parseSource(formatted, { networkText: true }))
 }
 
 test("roundtrip: an instance's FB_Init arguments survive formatting", () => {
@@ -55,7 +56,7 @@ END_VAR
 END_PROGRAM
 `
   roundtrips(src)
-  expect(formatDocument({ uri: "file:///P.prg", source: src, parseResult: parseSource(src) })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
+  expect(formatDocument({ uri: "file:///P.prg", source: src, parseResult: parseSource(src, { networkText: true }) })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
 })
 
 test("roundtrip: a mixed set/reset chain keeps each link's operator", () => {
@@ -159,8 +160,8 @@ VAR
 END_VAR
 a := a + 1;
 END_FUNCTION_BLOCK`
-  const once = formatDocument({ uri: "u", source: src, parseResult: parseSource(src) })
-  const twice = formatDocument({ uri: "u", source: once, parseResult: parseSource(once) })
+  const once = formatDocument({ uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) })
+  const twice = formatDocument({ uri: "u", source: once, parseResult: parseSource(once, { networkText: true }) })
   expect(twice).toBe(once)
 })
 
@@ -170,17 +171,17 @@ VAR
 	a : INT;
 END_VAR
 END_FUNCTION_BLOCK`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
   const spaced = formatDocument(doc, { insertSpaces: true, tabSize: 4 })
   expect(spaced).toContain("    a : INT;") // 4 spaces, no tab
   expect(spaced).not.toContain("\t")
   // still round-trips (indentation style doesn't change the AST)
-  expect(parseSource(spaced).errors).toEqual([])
+  expect(parseSource(spaced, { networkText: true }).errors).toEqual([])
 })
 
 test("range formatting: only units intersecting the range are edited", () => {
   const src = `FUNCTION_BLOCK A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
   // range covering only the first unit (lines 0-1)
   const edits = formatRange(doc, { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } })
   expect(edits).toHaveLength(1)
@@ -189,7 +190,7 @@ test("range formatting: only units intersecting the range are edited", () => {
 
 test("on-type formatting: a newline inside a block indents to its depth", () => {
   const src = `PROGRAM P\nFOR i := 0 TO 10 DO\n\nEND_FOR\nEND_PROGRAM`
-  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src) }
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
   const edits = formatOnType(doc, { line: 2, character: 0 }, "\n") // the empty line inside FOR
   expect(edits).toHaveLength(1)
   expect(edits[0]?.newText).toBe("\t") // one level deep
@@ -208,13 +209,13 @@ test("on-type formatting: a newline inside a block indents to its depth", () => 
  */
 test("formatting keeps a declaration's REF=, which is a bind and not an assignment", () => {
   const src = `PROGRAM P\nVAR\n\tv : UDINT := 7;\n\tr : REFERENCE TO UDINT REF= v;\nEND_VAR\nr := 1;\nEND_PROGRAM\n`
-  const out = formatDocument({ uri: "u", source: src, parseResult: parseSource(src) })
+  const out = formatDocument({ uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) })
   expect(out).toContain("REFERENCE TO UDINT REF= v")
   expect(out).not.toContain("REFERENCE TO UDINT := v")
   // and the ordinary initializer is untouched
   expect(out).toContain("v : UDINT := 7")
   // the round-trip the corpus gate makes over every file
-  expect(normalize(parseSource(out).units)).toEqual(normalize(parseSource(src).units))
+  expect(normalize(parseSource(out, { networkText: true }).units)).toEqual(normalize(parseSource(src, { networkText: true }).units))
 })
 
 /**
@@ -251,10 +252,10 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
     },
   }
   for (const [name, { src, kept }] of Object.entries(cases)) {
-    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
     const out = formatDocument(doc)
     for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
-    astEqual(doc.parseResult, parseSource(out))
+    astEqual(doc.parseResult, parseSource(out, { networkText: true }))
     // Range formatting prints the same units.
     const ranged = formatRange(doc, { start: { line: 0, character: 0 }, end: { line: src.split("\n").length - 1, character: 0 } })
     for (const k of kept)
@@ -289,12 +290,12 @@ test("formatting keeps a property's and an interface member's %FOLDER, and an in
     },
   }
   for (const [name, { src, kept, gone }] of Object.entries(cases)) {
-    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
     expect({ name, errors: doc.parseResult.errors }).toEqual({ name, errors: [] })
     const out = formatDocument(doc)
     for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
     for (const g of gone) expect({ name, out, gone: !out.includes(g) }).toEqual({ name, out, gone: true })
-    astEqual(doc.parseResult, parseSource(out))
+    astEqual(doc.parseResult, parseSource(out, { networkText: true }))
   }
 })
 
@@ -310,7 +311,7 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
     "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
   }
   for (const [name, src] of Object.entries(cases)) {
-    const out = formatDocument({ uri: "file:///F.fb", source: src, parseResult: parseSource(src) })
+    const out = formatDocument({ uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) })
     expect({ name, out, blankLine: /(IMPLEMENTATION [A-Z]+|%FOLDER a)\r?\n\r?\n/.test(out), cr: out.includes("\r") }).toEqual({
       name,
       out,
@@ -328,9 +329,9 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
 test("formatting keeps a comment or pragma between the declaration and the IMPLEMENTATION line", () => {
   for (const between of ["{warning 'keep'}", "// keep me", "(* keep me *)"]) {
     const src = `FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n${between}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
-    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src) }
+    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
     const out = formatDocument(doc)
     expect({ between, out, kept: out.includes(`END_VAR\n${between}\nIMPLEMENTATION ST\n`) }).toEqual({ between, out, kept: true })
-    astEqual(doc.parseResult, parseSource(out))
+    astEqual(doc.parseResult, parseSource(out, { networkText: true }))
   }
 })

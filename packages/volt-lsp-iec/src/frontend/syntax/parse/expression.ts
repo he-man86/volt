@@ -1,22 +1,17 @@
 /**
- * ST expression parser — precedence-climbing (Pratt) over a `Cursor`.
+ * ST EXPRESSIONS — a precedence-climbing (Pratt) parser over a `Cursor`, producing the `Expr` tree of `ast/nodes.ts`.
  *
- * Produces the `Expr` tree from `ast.ts`. Every function returns
- * `undefined` on failure and records an error on the cursor (never
- * throws); the statement parser turns "any error / unconsumed tokens"
- * into the body-level `ok = false` fallback, so no parse-error
- * diagnostic ever reaches the user from body parsing.
+ * Every function returns `undefined` on failure and records an error on the cursor (never throws); the error reaches
+ * the user through the statement or declaration parse that called it (`BodyParse.errors`, `ParseResult.errors`).
+ * `parseExprFromTokens` parses a token slice in a CONTAINED sub-cursor, for callers that decide a fallback themselves.
+ * Initializers (`:=` right-hand sides, aggregates) are `initializer.ts`'s.
  *
- * Grammar and precedence follow IEC 61131-3, cross-checked against
- * RuSTy's `expressions_parser.rs` (see
- * `openspec/changes/st-body-ast/design.md` D1a): OR < XOR < AND <
- * equality < comparison < additive < multiplicative < exponent, with
- * exponent right-associative and postfix (`.` `[]` `^` `()`) binding
- * tightest.
+ * Precedence, lowest first: OR < XOR < AND < equality < comparison < additive < multiplicative < exponent, with
+ * exponent right-associative and postfix (`.` `[]` `^` `()`) binding tightest (`BINARY_PRECEDENCE`).
  */
-import type { Span } from "./span.js"
-import type { Token } from "./tokens.js"
-import { Cursor, describeToken } from "./cursor.js"
+import { eofSpan, joinSpans, type Span, zeroSpan } from "../span.js"
+import type { Token } from "../lex/tokens.js"
+import { Cursor } from "./cursor.js"
 import type {
   AggregateElement,
   AggregateForm,
@@ -28,8 +23,9 @@ import type {
   Initializer,
   Literal,
   LiteralKind,
-} from "./ast.js"
-import { parseLiteralValue } from "./literal-value.js"
+} from "../ast/nodes.js"
+import { parseLiteralValue } from "../literal/value.js"
+import { expressionExpected, vendorTokenText } from "./errors.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
 // Exported for `test/conformance/coverage.test.ts`, which requires every operator here to appear in at least one
@@ -81,17 +77,6 @@ const LIT_KIND: Partial<Record<Token["kind"], LiteralKind>> = {
   address_lit: "address",
 }
 
-function merge(a: Span, b: Span): Span {
-  return {
-    start: a.start,
-    end: b.end,
-    startLine: a.startLine,
-    startCol: a.startCol,
-    endLine: b.endLine,
-    endCol: b.endCol,
-  }
-}
-
 /** Canonical operator string for a token, or undefined if it's not a binary operator. */
 function binaryOp(t: Token): { op: string; prec: number; rightAssoc: boolean } | undefined {
   const key = t.kind === "keyword" ? t.keyword : t.kind === "punct" ? t.text : undefined
@@ -133,7 +118,7 @@ export function parseAssignable(cur: Cursor): Expr | undefined {
     cur.consume()
     const value = parseExpression(cur)
     if (value === undefined) return undefined
-    return { kind: "assign_expr", target, value, span: merge(target.span, value.span) }
+    return { kind: "assign_expr", target, value, span: joinSpans(target.span, value.span) }
   }
   return target
 }
@@ -147,7 +132,7 @@ function parseBinary(cur: Cursor, minPrec: number): Expr | undefined {
     cur.consume()
     const right = parseBinary(cur, info.rightAssoc ? info.prec : info.prec + 1)
     if (right === undefined) return undefined
-    left = { kind: "binary", op: info.op, left, right, span: merge(left.span, right.span) }
+    left = { kind: "binary", op: info.op, left, right, span: joinSpans(left.span, right.span) }
   }
   return left
 }
@@ -159,7 +144,7 @@ function parseUnary(cur: Cursor): Expr | undefined {
     cur.consume()
     const operand = parseUnary(cur)
     if (operand === undefined) return undefined
-    return { kind: "unary", op, operand, span: merge(t.span, operand.span) }
+    return { kind: "unary", op, operand, span: joinSpans(t.span, operand.span) }
   }
   return parsePostfix(cur)
 }
@@ -177,7 +162,7 @@ function parsePostfix(cur: Cursor): Expr | undefined {
       if (bitTok.kind === "int_lit") {
         cur.consume()
         const member: IdentExpr = { kind: "ident_expr", name: bitTok.text, span: bitTok.span }
-        base = { kind: "member", base, member, span: merge(base.span, bitTok.span) }
+        base = { kind: "member", base, member, span: joinSpans(base.span, bitTok.span) }
         continue
       }
       // CODESYS partial variable access `x.%X0` / `.%B3` / `.%W1` / `.%D0` — a sub-bit/byte/word/dword slice
@@ -191,8 +176,8 @@ function parsePostfix(cur: Cursor): Expr | undefined {
           cur.pushError("expected partial-access specifier after '.%'", cur.peek().span)
           return undefined
         }
-        const member: IdentExpr = { kind: "ident_expr", name: `%${specTok.text}`, span: merge(pct.span, specTok.span) }
-        base = { kind: "member", base, member, span: merge(base.span, specTok.span) }
+        const member: IdentExpr = { kind: "ident_expr", name: `%${specTok.text}`, span: joinSpans(pct.span, specTok.span) }
+        base = { kind: "member", base, member, span: joinSpans(base.span, specTok.span) }
         continue
       }
       const nameTok = eatName(cur)
@@ -201,7 +186,7 @@ function parsePostfix(cur: Cursor): Expr | undefined {
         return undefined
       }
       const member: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span }
-      base = { kind: "member", base, member, span: merge(base.span, nameTok.span) }
+      base = { kind: "member", base, member, span: joinSpans(base.span, nameTok.span) }
     } else if (t.text === "[") {
       cur.consume()
       const indices: Expr[] = []
@@ -215,12 +200,12 @@ function parsePostfix(cur: Cursor): Expr | undefined {
           break
         }
       }
-      const close = cur.expectPunct("]", "closing array index")
+      const close = cur.expectPunct("]")
       if (close === undefined) return undefined
-      base = { kind: "index", base, indices, span: merge(base.span, close.span) }
+      base = { kind: "index", base, indices, span: joinSpans(base.span, close.span) }
     } else if (t.text === "^") {
       const caret = cur.consume()
-      base = { kind: "deref", base, span: merge(base.span, caret.span) }
+      base = { kind: "deref", base, span: joinSpans(base.span, caret.span) }
     } else if (t.text === "(") {
       const call = parseCall(cur, base)
       if (call === undefined) return undefined
@@ -249,10 +234,10 @@ function parseCall(cur: Cursor, callee: Expr): CallExpr | undefined {
   const close = cur.eatPunct(")")
   if (close === undefined) {
     const next = cur.peek()
-    cur.pushError(`',' or ')' expected instead of ${describeToken(next)}`, next.span)
+    cur.pushError(`',' or ')' expected instead of ${vendorTokenText(next)}`, next.span)
     return undefined
   }
-  return { kind: "call", callee, args, span: merge(callee.span, close.span) }
+  return { kind: "call", callee, args, span: joinSpans(callee.span, close.span) }
 }
 
 function parseCallArg(cur: Cursor): CallArg | undefined {
@@ -272,11 +257,11 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
       // empty input (routed from nowhere) as well as an empty output.
       const after = cur.peek()
       if (after.kind === "punct" && (after.text === "," || after.text === ")")) {
-        return { kind: "call_arg", param, output, span: merge(nameTok.span, opTok.span) }
+        return { kind: "call_arg", param, output, span: joinSpans(nameTok.span, opTok.span) }
       }
       const value = parseExpression(cur)
       if (value === undefined) return undefined
-      return { kind: "call_arg", param, output, value, span: merge(nameTok.span, value.span) }
+      return { kind: "call_arg", param, output, value, span: joinSpans(nameTok.span, value.span) }
     }
   }
   const value = parseExpression(cur)
@@ -338,11 +323,11 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     // Allow an inline assignment `(x := value)` inside the parens (CODESYS).
     const inner = parseAssignable(cur)
     if (inner === undefined) return undefined
-    const close = cur.expectPunct(")", "closing parenthesis")
+    const close = cur.expectPunct(")")
     if (close === undefined) return undefined
-    return { kind: "paren", inner, span: merge(open.span, close.span) }
+    return { kind: "paren", inner, span: joinSpans(open.span, close.span) }
   }
-  cur.pushError(`expected expression, got ${t.kind} '${t.text}'`, t.span)
+  cur.pushError(expressionExpected(t), t.span)
   return undefined
 }
 
@@ -360,26 +345,6 @@ function makeLiteral(literalKind: LiteralKind, tok: Token): Literal {
 }
 
 /**
- * Collect an initializer's RHS tokens, depth-aware over `()`/`[]`, up to a top-level
- * `;` (and `END_TYPE`, for TYPE-body inits). Used by every declaration-initializer site.
- */
-export function collectInitTokens(cur: Cursor, stopAtEndType = false): Token[] {
-  const out: Token[] = []
-  let depth = 0
-  while (!cur.atEof()) {
-    const t = cur.peek()
-    if (depth === 0) {
-      if (t.kind === "punct" && t.text === ";") break
-      if (stopAtEndType && t.kind === "keyword" && t.keyword === "END_TYPE") break
-    }
-    if (t.kind === "punct" && (t.text === "(" || t.text === "[")) depth += 1
-    else if (t.kind === "punct" && (t.text === ")" || t.text === "]")) depth -= 1
-    out.push(cur.consume())
-  }
-  return out
-}
-
-/**
  * Parse a token slice as a single expression in a CONTAINED sub-cursor, so a speculative
  * failure never pollutes the caller's error list. Returns the `Expr` only if it consumes
  * every token cleanly; otherwise `undefined` (the caller decides the fallback). Used for
@@ -389,121 +354,9 @@ export function parseExprFromTokens(tokens: readonly Token[]): Expr | undefined 
   if (tokens.length === 0) return undefined
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
-  const span = merge(first.span, last.span)
-  const eof: Token = {
-    kind: "eof",
-    text: "",
-    span: {
-      start: span.end,
-      end: span.end,
-      startLine: span.endLine,
-      startCol: span.endCol,
-      endLine: span.endLine,
-      endCol: span.endCol,
-    },
-  }
+  const span = joinSpans(first.span, last.span)
+  const eof: Token = { kind: "eof", text: "", span: eofSpan(span) }
   const cur = new Cursor([...tokens, eof])
   const expr = parseExpression(cur)
   return expr !== undefined && cur.atEof() && cur.getErrors().length === 0 ? expr : undefined
 }
-
-/**
- * Turn collected initializer tokens into an `Initializer`: a clean scalar expression
- * (parses to a single `Expr` consuming every token, no errors) stays an `Expr`;
- * anything else — a struct/FB/array aggregate — becomes an opaque `AggregateInit`.
- */
-export function initializerFromTokens(tokens: Token[]): Initializer | undefined {
-  if (tokens.length === 0) return undefined
-  const expr = parseExprFromTokens(tokens)
-  // `(y := 7)` parses as a parenthesized inline assignment, but a declaration assigns nothing: it is a one-field struct or
-  // FB initializer (conformance `init_struct_by_field`, `init_fb_instance_inputs`). `STRUCT(x := 20)` parses as a call,
-  // and is the same initializer spelled with its keyword.
-  const aggregate =
-    (expr?.kind === "paren" && expr.inner.kind === "assign_expr") ||
-    (expr?.kind === "call" && expr.callee.kind === "ident_expr" && expr.callee.name.toUpperCase() === "STRUCT")
-  if (expr !== undefined && !aggregate) return expr
-  const first = tokens[0]
-  const last = tokens[tokens.length - 1]
-  const { form, elements } = parseAggregate(tokens)
-  const agg: AggregateInit = { kind: "aggregate_init", form, elements, tokens, span: merge(first.span, last.span) }
-  return agg
-}
-
-// ─── aggregate-initializer element parser ────────────────────────────────────
-// Turns the raw aggregate tokens (`[…]` / `(…)` / `STRUCT(…)`) into a structured element list. Total and
-// error-tolerant: an element it can't classify becomes `unparsed`; an unrecognized outer shape → `unknown`.
-
-/** Parse aggregate `tokens` (including the outer delimiters) into a form + top-level elements. */
-function parseAggregate(tokens: Token[]): { form: AggregateForm; elements: AggregateElement[] } {
-  const peeled = peelAggregate(tokens)
-  if (peeled === undefined) return { form: "unknown", elements: [] }
-  return { form: peeled.form, elements: splitTopLevel(peeled.inner).map(parseElement) }
-}
-
-/** Strip the outer delimiter, returning the form and the inner token slice, or undefined for an unknown shape. */
-function peelAggregate(t: Token[]): { form: AggregateForm; inner: Token[] } | undefined {
-  const last = t[t.length - 1]?.text
-  if (t[0]?.text === "[" && last === "]") return { form: "array", inner: t.slice(1, -1) }
-  if (t[0]?.text === "STRUCT" && t[1]?.text === "(" && last === ")") return { form: "struct", inner: t.slice(2, -1) }
-  if (t[0]?.text === "(" && last === ")") return { form: "struct", inner: t.slice(1, -1) }
-  return undefined
-}
-
-/** Split tokens on commas at bracket-depth 0 (so nested `[…]`/`(…)` stay intact). */
-function splitTopLevel(toks: Token[]): Token[][] {
-  const groups: Token[][] = []
-  let cur: Token[] = []
-  let depth = 0
-  for (const tok of toks) {
-    if (tok.text === "[" || tok.text === "(") depth++
-    else if (tok.text === "]" || tok.text === ")") depth--
-    if (tok.text === "," && depth === 0) {
-      groups.push(cur)
-      cur = []
-    } else cur.push(tok)
-  }
-  if (cur.length > 0) groups.push(cur)
-  return groups
-}
-
-function parseElement(g: Token[]): AggregateElement {
-  if (g.length === 0) return { kind: "unparsed", span: { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }
-  const span = merge(g[0].span, g[g.length - 1].span)
-  if (g.length >= 2 && g[1].text === ":=") return { kind: "field", name: g[0].text, value: parseValue(g.slice(2)), span }
-  return parseValue(g)
-}
-
-function parseValue(g: Token[]): AggregateElement {
-  if (g.length === 0) return { kind: "unparsed", span: { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 } }
-  const span = merge(g[0].span, g[g.length - 1].span)
-  const lead = g[0].text
-  // Nested aggregate: `[…]`, `(…)`, or `STRUCT(…)` spanning the whole group.
-  if ((lead === "[" || lead === "(" || (lead === "STRUCT" && g[1]?.text === "(")) && isBalancedAggregate(g)) {
-    const sub = parseAggregate(g)
-    const init: AggregateInit = { kind: "aggregate_init", form: sub.form, elements: sub.elements, tokens: g, span }
-    return { kind: "nested", init, span }
-  }
-  // Repeat: `<count>(<value>)` — count is a single leading token, not a delimiter.
-  if (g.length >= 4 && g[1]?.text === "(" && g[g.length - 1].text === ")" && lead !== "[" && lead !== "(" && lead !== "STRUCT") {
-    const count = parseExprFromTokens([g[0]])
-    if (count !== undefined) return { kind: "repeat", count, value: parseValue(g.slice(2, -1)), span }
-  }
-  const expr = parseExprFromTokens(g)
-  return expr !== undefined ? { kind: "value", expr, span } : { kind: "unparsed", span }
-}
-
-/** True when the first bracket opened in `g` closes exactly at the last token (a single balanced aggregate). */
-function isBalancedAggregate(g: Token[]): boolean {
-  let depth = 0
-  for (let i = 0; i < g.length; i++) {
-    const t = g[i].text
-    if (t === "[" || t === "(") depth++
-    else if (t === "]" || t === ")") {
-      depth--
-      if (depth === 0) return i === g.length - 1
-    }
-  }
-  return false
-}
-
-export { merge as mergeSpans }

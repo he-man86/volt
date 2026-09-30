@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
-import { parseSource } from "./parser.js"
-import { declarationAttributes, memberAttributes, unitAttributes } from "./unit-attributes.js"
+import { parseSource } from "../parse/parser.js"
+import { declarationAttributes, memberAttributes, unitAttributes } from "./attributes.js"
 
 // An `instance-path` STRING is set from the project tree (user decision 2026-09-15) — lowering has to know WHICH variable
 // carries the attribute, which the folded map cannot say.
@@ -16,7 +16,7 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK
 `
-  const parseResult = parseSource(source)
+  const parseResult = parseSource(source, { networkText: true })
   const byName = new Map([...declarationAttributes(parseResult, source)].map(([decl, names]) => [decl.names[0]!.text, [...names].sort()]))
   expect([...byName]).toEqual([["sPath", ["instance-path", "noinit"]]])
 })
@@ -34,7 +34,7 @@ END_METHOD
 METHOD AfterInit
 END_METHOD
 `
-  const parseResult = parseSource(source)
+  const parseResult = parseSource(source, { networkText: true })
   const byName = new Map([...memberAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names]]))
   // the set holds the NAME, and `name=value` beside it where the pragma carries one (`addAttribute`), so a consumer
   // that needs the value has it — `pack_mode=1` is a different struct layout from `pack_mode=2`
@@ -60,7 +60,7 @@ END_METHOD
 FUNCTION_BLOCK FB_B
 END_FUNCTION_BLOCK
 `
-  const parseResult = parseSource(source)
+  const parseResult = parseSource(source, { networkText: true })
   const byName = new Map([...unitAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names].sort()]))
   expect(byName.get("FB_A")).toEqual(["call_after_global_init_slot", "call_after_global_init_slot=50000", "instance-path", "reflection"])
   expect(byName.has("FB_B")).toBe(false)

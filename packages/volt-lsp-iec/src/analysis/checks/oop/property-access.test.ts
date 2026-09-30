@@ -3,9 +3,9 @@
  * property that has a getter, is not.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import { build } from "../../../frontend/symbols/index.js"
 
 const pa = (body: string): string[] => {
   const src = `FUNCTION_BLOCK FB
@@ -25,8 +25,8 @@ PROGRAM PLC_PRG
 VAR f : FB; y : INT; END_VAR
 ${body}
 END_PROGRAM`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "property-lacks-getter")
     .map((d) => d.message)
@@ -45,8 +45,8 @@ test("writing a set-only property is not flagged; reading a get-only property is
 
 test("the owning FB's own body names its property BARE — but the accessor's own value is not a read", () => {
   const run = (src: string) => {
-    const parseResult = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "property-lacks-getter")
       .map((d) => d.message)

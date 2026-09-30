@@ -4,9 +4,10 @@
  * callee to a callable symbol, and renders its VAR_INPUT parameters.
  */
 import type { SignatureHelp, SignatureInformation } from "vscode-languageserver-protocol"
-import { type CallExpr, type Document, renderTypeExpr, walkAllExprs } from "../../syntax/index.js"
-import { bodiesAt, type Scope } from "../../symbols/index.js"
-import { resolveCallee } from "../../types/index.js"
+import { type CallExpr, renderTypeExpr, walkAllExprs } from "../../frontend/syntax/index.js"
+import { bodiesAt, type Scope } from "../../frontend/symbols/index.js"
+import { resolveCallee } from "../../frontend/types/index.js"
+import type { Document } from "../shared/index.js"
 
 export function signatureHelp(doc: Document, project: Scope, offset: number): SignatureHelp | undefined {
   // `bodiesAt` gives a property accessor its own scope — a getter-local instance's method used to find no signature

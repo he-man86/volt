@@ -14,13 +14,15 @@
  *
  * Primitive names (BOOL/INT/REAL) lex as identifiers; the semantic layer classifies them.
  */
-import type { Token } from "./tokens.js"
-import type { ArrayDim, CallArg, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "./ast.js"
-import type { Span } from "./span.js"
+import type { Token } from "../lex/tokens.js"
+import type { ArrayDim, CallArg, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "../ast/nodes.js"
+import { eofSpan, joinSpans, type Span } from "../span.js"
 import { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
-import { identFromToken, joinSpans } from "./util.js"
 import { parseExpression, parseExprFromTokens } from "./expression.js"
+import { typeExpected } from "./errors.js"
+import { identFromToken, readQualifiedName } from "./names.js"
+import { collectParenInner, collectUntilTopLevel, topLevelDotDot } from "./scan.js"
 
 export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   // Implicit enumeration — `(A, B, C := 10, D)` declared inline.
@@ -44,7 +46,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
         span: value !== undefined ? joinSpans(name.span, value.span) : name.span,
       })
       if (c.eatPunct(",") !== undefined) continue
-      c.expectPunct(")", "closing implicit enumeration")
+      c.expectPunct(")")
       break
     }
     // Optional explicit base type after the value list: `( … ) DINT` — a sized enum.
@@ -69,7 +71,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   // REFERENCE TO X
   const refTok = c.eatKeyword("REFERENCE")
   if (refTok !== undefined) {
-    c.expectKeyword("TO", "after REFERENCE")
+    c.expectKeyword("TO")
     const target = parseTypeExpression(c)
     if (target === undefined) return undefined
     return { kind: "reference_type", target, span: joinSpans(refTok.span, target.span) }
@@ -78,7 +80,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   // POINTER TO X
   const ptrTok = c.eatKeyword("POINTER")
   if (ptrTok !== undefined) {
-    c.expectKeyword("TO", "after POINTER")
+    c.expectKeyword("TO")
     const target = parseTypeExpression(c)
     if (target === undefined) return undefined
     return { kind: "pointer_type", target, span: joinSpans(ptrTok.span, target.span) }
@@ -87,17 +89,17 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   // ARRAY [a..b, c..d] OF X
   const arrTok = c.eatKeyword("ARRAY")
   if (arrTok !== undefined) {
-    c.expectPunct("[", "after ARRAY")
+    c.expectPunct("[")
     const dims: ArrayDim[] = []
     while (true) {
       if (c.peek().kind === "eof" || c.eatPunct("]") !== undefined) break
       const dim = parseArrayDim(c)
       if (dim !== undefined) dims.push(dim)
       if (c.eatPunct(",") !== undefined) continue
-      c.expectPunct("]", "closing ARRAY dimensions")
+      c.expectPunct("]")
       break
     }
-    c.expectKeyword("OF", "after ARRAY dimensions")
+    c.expectKeyword("OF")
     const element = parseTypeExpression(c)
     if (element === undefined) return undefined
     return { kind: "array_type", dims, element, span: joinSpans(arrTok.span, element.span) }
@@ -107,16 +109,16 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   const idTok = c.eatIdent()
   if (idTok === undefined) {
     const next = c.peek()
-    c.pushError(`expected type, got ${tokenDescription(next)}`, next.span)
+    c.pushError(typeExpected(next), next.span)
     return undefined
   }
   // CODESYS `__VECTOR[<size>] OF <type>` — SIMD fixed-size container. Same shape as
   // ARRAY[0..size-1] OF <type>; modeled as a single-dim array (TC rejects it — conformance encodes that).
   if (idTok.text.toUpperCase() === "__VECTOR") {
-    c.expectPunct("[", "after __VECTOR")
+    c.expectPunct("[")
     const size = parseExpression(c)
-    c.expectPunct("]", "closing __VECTOR size")
-    c.expectKeyword("OF", "after __VECTOR size")
+    c.expectPunct("]")
+    c.expectKeyword("OF")
     const element = parseTypeExpression(c)
     if (element === undefined) return undefined
     // `[4]` IS A COUNT, AND `ArrayDim` HOLDS INDICES. Storing the count as `upper` with no `lower` left a `__VECTOR`
@@ -136,16 +138,9 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     return { kind: "array_type", dims: [dim], element, span: joinSpans(idTok.span, element.span) }
   }
 
-  const head = identFromToken(idTok)
-  const qualifiers: Identifier[] = []
-  while (c.eatPunct(".") !== undefined) {
-    const part = c.eatIdent()
-    if (part === undefined) {
-      c.pushError("expected identifier after '.'", c.peek().span)
-      break
-    }
-    qualifiers.push(identFromToken(part))
-  }
+  const [first, ...rest] = readQualifiedName(c, idTok, "report")
+  const head = identFromToken(first!)
+  const qualifiers: Identifier[] = rest.map(identFromToken)
   let lastSpan = qualifiers.length > 0 ? qualifiers[qualifiers.length - 1].span : head.span
 
   // A `(...)` after a named type is either a SUBRANGE (`INT(0..100)`, structured) or an
@@ -156,7 +151,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   let initArgs: CallArg[] | undefined
   if (c.peek().kind === "punct" && c.peek().text === "(") {
     const open = c.consume() // (
-    const { inner, closeSpan } = collectBalancedParenInner(c)
+    const { inner, closeSpan } = collectParenInner(c)
     lastSpan = closeSpan
     const cut = topLevelDotDot(inner)
     if (cut >= 0) {
@@ -193,17 +188,6 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   }
 }
 
-/**
- * Parse a METHOD/FUNCTION header's optional `: ReturnType`, then eat an optional trailing `;`.
- * The `;` MUST be consumed or `collectVarSections` stops at it and drops every local.
- */
-export function parseOptionalReturnType(c: Cursor): TypeExpr | undefined {
-  let returnType: TypeExpr | undefined
-  if (c.eatPunct(":") !== undefined) returnType = parseTypeExpression(c)
-  c.eatPunct(";")
-  return returnType
-}
-
 function parseArrayDim(c: Cursor): ArrayDim | undefined {
   const start = c.peek().span
   // Variable-length dimension `ARRAY[*]` — no bounds.
@@ -214,7 +198,7 @@ function parseArrayDim(c: Cursor): ArrayDim | undefined {
   // Collect the dim's tokens (depth-aware) up to the top-level `,`/`]`, then split on `..`
   // and parse each bound in a contained sub-cursor. Bounds that don't form a clean expression
   // (e.g. a `Up...Left` source typo) are left undefined rather than aborting the parse.
-  const toks = collectDimTokens(c)
+  const toks = collectUntilTopLevel(c, (t) => t.kind === "punct" && (t.text === "," || t.text === "]"))
   if (toks.length === 0) return undefined
   const end = toks[toks.length - 1].span
   const cut = topLevelDotDot(toks)
@@ -234,64 +218,14 @@ function parseArrayDim(c: Cursor): ArrayDim | undefined {
   }
 }
 
-/** Collect an array dimension's tokens up to the top-level `,` or `]` (depth-aware, not consumed). */
-function collectDimTokens(c: Cursor): Token[] {
-  const out: Token[] = []
-  let depth = 0
-  while (!c.atEof()) {
-    const t = c.peek()
-    if (depth === 0 && t.kind === "punct" && (t.text === "," || t.text === "]")) break
-    if (t.kind === "punct" && (t.text === "(" || t.text === "[")) depth += 1
-    else if (t.kind === "punct" && (t.text === ")" || t.text === "]")) depth -= 1
-    out.push(c.consume())
-  }
-  return out
-}
-
-/** Consume through the matching `)` (the `(` already consumed); returns inner tokens + closing span. */
-function collectBalancedParenInner(c: Cursor): { inner: Token[]; closeSpan: Span } {
-  const inner: Token[] = []
-  let depth = 1
-  let closeSpan = c.peek().span
-  while (!c.atEof() && depth > 0) {
-    const t = c.consume()
-    closeSpan = t.span
-    if (t.kind === "punct" && t.text === "(") depth += 1
-    else if (t.kind === "punct" && t.text === ")") {
-      depth -= 1
-      if (depth === 0) break
-    }
-    inner.push(t)
-  }
-  return { inner, closeSpan }
-}
-
-/** Index of the first top-level `..` in a token slice (depth-aware over `()`/`[]`), or -1. */
-function topLevelDotDot(tokens: readonly Token[]): number {
-  let depth = 0
-  for (let i = 0; i < tokens.length; i++) {
-    const t = tokens[i]
-    if (t.kind === "punct" && (t.text === "(" || t.text === "[")) depth += 1
-    else if (t.kind === "punct" && (t.text === ")" || t.text === "]")) depth -= 1
-    else if (depth === 0 && t.kind === "punct" && t.text === "..") return i
-  }
-  return -1
-}
-
 /** The optional `(n)`/`[n]` length clause, with the span of its closer so the STRING type covers the paren. */
 function parseOptionalStringLength(c: Cursor): { length?: Expr; end: Span } | undefined {
   const open = c.eatPunct("(") ?? c.eatPunct("[")
   if (open === undefined) return undefined
   const closer = open.text === "(" ? ")" : "]"
   const length = parseExpression(c)
-  const close = c.expectPunct(closer, "closing string length")
+  const close = c.expectPunct(closer)
   return { ...(length !== undefined ? { length } : {}), end: (close ?? length ?? open).span }
-}
-
-function tokenDescription(t: Token): string {
-  if (t.kind === "eof") return "end of input"
-  if (t.kind === "keyword") return `keyword '${t.keyword ?? t.text}'`
-  return `'${t.text}'`
 }
 
 /**
@@ -302,8 +236,7 @@ function tokenDescription(t: Token): string {
 export function parseTypeExprFromTokens(tokens: readonly Token[]): TypeExpr | undefined {
   if (tokens.length === 0) return undefined
   const last = tokens[tokens.length - 1]!
-  const at = { ...last.span, start: last.span.end, startLine: last.span.endLine, startCol: last.span.endCol }
-  const cur = new Cursor([...tokens, { kind: "eof", text: "", span: at }])
+  const cur = new Cursor([...tokens, { kind: "eof", text: "", span: eofSpan(last.span) }])
   const type = parseTypeExpression(cur)
   return type !== undefined && cur.atEof() && cur.getErrors().length === 0 ? type : undefined
 }

@@ -3,12 +3,12 @@
  * Both were previously copy-pasted across the services + analysis layers; consolidated here so every consumer imports
  * the same definition.
  *
- * Which parser reads a body is what its `IMPLEMENTATION <LANG>` line STATES (`syntax/implementation-keyword`) and
+ * Which parser reads a body is what its `IMPLEMENTATION <LANG>` line STATES (`syntax/format/implementation-line`) and
  * nothing else — never the text's first line, a header's shape or a comment. A body that contradicts its line is a
  * diagnostic of the parser the line names, never re-read as the other language.
  */
-import type { BodySpan, Identifier, TopLevel, TypeExpr, VarSection } from "./ast.js"
-import { bodyReader } from "./implementation-keyword.js"
+import type { BodySpan, Identifier, TopLevel, TypeExpr, VarSection } from "../ast/nodes.js"
+import { bodyReader } from "./implementation-line.js"
 
 /** Every token-body a unit carries (POU body + property accessors). */
 export function unitBodies(unit: TopLevel): BodySpan[] {
@@ -50,18 +50,8 @@ export function isStBody(body: BodySpan): boolean {
 /**
  * Every graphical (network text) body in a unit list, with its unit — the walk the outline, semantic tokens, the network
  * diagnostics and the network services each wrote out by hand (consolidate-lsp-structure C2). The ST counterpart, with a
- * resolved scope and parsed statements, is `symbols/bodies`.
+ * resolved scope and parsed statements, is `symbols/scoped-bodies`.
  */
 export function* graphicalBodies(units: readonly TopLevel[]): Generator<{ unit: TopLevel; body: BodySpan }> {
   for (const unit of units) for (const body of unitBodies(unit)) if (isGraphicalBody(body)) yield { unit, body }
-}
-
-/** The VAR_INPUT parameters (name + declared type) of a POU/method's var sections, in order. */
-export function varInputParams(sections: readonly VarSection[]): { name: Identifier; type: TypeExpr }[] {
-  const out: { name: Identifier; type: TypeExpr }[] = []
-  for (const section of sections) {
-    if (section.sectionKind !== "VAR_INPUT") continue
-    for (const decl of section.decls) for (const id of decl.names) out.push({ name: id, type: decl.type })
-  }
-  return out
 }

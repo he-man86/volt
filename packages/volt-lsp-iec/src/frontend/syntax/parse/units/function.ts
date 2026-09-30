@@ -5,15 +5,18 @@
  * methods of their own. The optional return-type clause uses the
  * same TypeExpr grammar as VAR declarations.
  */
-import type { Function as FunctionAST, Identifier } from "../ast.js"
+import type { Function as FunctionAST, Identifier } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import { parseOptionalReturnType } from "../type-expr.js"
-import { collectBodyUntil, collectVarSections, identFromToken, joinSpans } from "../util.js"
+import { collectBodyUntil } from "../body.js"
+import { joinSpans } from "../../span.js"
+import { identFromToken, readIdent, readNameList } from "../names.js"
+import { collectVarSections } from "../declarations.js"
+import { parseOptionalReturnType, readImplements } from "./header.js"
 
 export function parseFunction(c: Cursor): FunctionAST | undefined {
-  const start = c.expectKeyword("FUNCTION", "at start of FUNCTION")
+  const start = c.expectKeyword("FUNCTION")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent("for FUNCTION name")
+  const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
@@ -25,7 +28,7 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
   // divergence — the LSP gives the clause's message and no message of its own).
   let extendsMisused: Identifier | undefined
   if (c.eatKeyword("EXTENDS") !== undefined) {
-    const base = c.expectIdent("after EXTENDS")
+    const base = c.expectIdent()
     if (base !== undefined) extendsMisused = identFromToken(base)
   }
   let implementsMisused = readImplements(c)
@@ -47,18 +50,4 @@ export function parseFunction(c: Cursor): FunctionAST | undefined {
     body,
     span: joinSpans(start.span, body.span),
   }
-}
-
-/** An `IMPLEMENTS a, b` clause at the cursor, or `undefined` when none stands there. */
-function readImplements(c: Cursor): Identifier[] | undefined {
-  if (c.eatKeyword("IMPLEMENTS") === undefined) return undefined
-  const names: Identifier[] = []
-  const first = c.expectIdent("after IMPLEMENTS")
-  if (first !== undefined) names.push(identFromToken(first))
-  while (c.eatPunct(",") !== undefined) {
-    const more = c.expectIdent("in IMPLEMENTS list")
-    if (more === undefined) break
-    names.push(identFromToken(more))
-  }
-  return names
 }

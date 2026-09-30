@@ -36,7 +36,7 @@ public class NetworkTextSwitchTests
         var root = RepoRoot();
         Assert.Equal(new[] { "packages/volt-cli/src/Volt.Engine/Format/Network/NetworkTextSwitch.cs" },
                      Mentioning(root, Path.Combine("packages", "volt-cli", "src"), "*.cs"));
-        Assert.Equal(new[] { "packages/volt-lsp-iec/src/syntax/implementation-keyword.ts" },
+        Assert.Equal(new[] { "packages/volt-lsp-iec/src/server/config.ts" },
                      Mentioning(root, Path.Combine("packages", "volt-lsp-iec", "src"), "*.ts")
                          .Where(f => !f.EndsWith(".test.ts", StringComparison.Ordinal)));
         foreach (var other in new[] { "volt-vscode", "volt-control", "volt-desktop" })

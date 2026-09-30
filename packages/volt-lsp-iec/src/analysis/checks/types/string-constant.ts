@@ -11,10 +11,10 @@
  * are one character each, so `STRING(1) := '$T'` is fine. Only a sized destination with a const-foldable length
  * and a string-literal source fires, on a strict over-length; a sizeless `STRING` is skipped.
  */
-import { decodeStringLiteral, renderTypeExpr, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../syntax/index.js"
-import { constEval, inferExprType, type Type } from "../../../types/index.js"
+import { decodeStringLiteral, renderTypeExpr, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
+import { constEval, inferExprType, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { bodies, forEachDecl } from "../../../symbols/index.js"
+import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): void {

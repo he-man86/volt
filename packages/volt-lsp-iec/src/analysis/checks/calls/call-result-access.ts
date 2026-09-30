@@ -14,7 +14,7 @@
  * both made `cc3_bit_access_and_call_result` say this twice where the IDE says it once.
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr } from "../../../symbols/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { leftoverStatement } from "../../resync.js"
 

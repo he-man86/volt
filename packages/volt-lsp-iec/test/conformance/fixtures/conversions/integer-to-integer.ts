@@ -17,7 +17,7 @@
  * assumption in this file is one the recording either confirms or kills, and the ones that seemed too obvious to
  * ask are precisely where `BYTE + BYTE is USINT` and `-SINT widens to INT` were hiding.
  */
-import { ELEMENTARY_TYPES } from "../../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 /** Every integer and bit-string type — the sources and the destinations alike. */

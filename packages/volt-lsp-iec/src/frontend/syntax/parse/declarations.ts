@@ -1,27 +1,27 @@
 /**
- * VAR section parser. Handles all 9 VAR variants and their modifiers
- * (CONSTANT, RETAIN, NON_RETAIN, PERSISTENT).
+ * DECLARATIONS — VAR sections (every keyword of `VAR_SECTION_KEYWORDS`, twelve, with their modifiers CONSTANT, RETAIN,
+ * NON_RETAIN, PERSISTENT), the declarations in them, and a STRUCT's or UNION's fields (`parseStructField`, beside
+ * `parseVarDecl` until conformance 2.3.5 makes them one).
  *
  * Grammar (simplified):
  *   VarSection := VarKw Modifiers* VarDecl* END_VAR
- *   VarKw      := VAR | VAR_INPUT | VAR_OUTPUT | VAR_IN_OUT | VAR_TEMP
- *               | VAR_STAT | VAR_INST | VAR_EXTERNAL | VAR_GLOBAL
- *               | VAR_CONFIG | VAR_ACCESS
  *   Modifier   := CONSTANT | RETAIN | NON_RETAIN | PERSISTENT
- *   VarDecl    := Name (',' Name)* ':' TypeExpr
- *                  ('AT' OpaqueAddr)?
- *                  (':=' OpaqueInit)?
- *                  ';'
+ *   VarDecl    := Name (',' Name)* ('AT' Address)? ':' TypeExpr ('AT' Address)? (':=' Initializer)? ';'
  *
- * Recovery: on a bad decl line, skip to the next ';' or END_VAR so
- * one malformed var doesn't poison the rest of the section.
+ * Recovery: on a bad declaration, skip to the next ';' or END_VAR so one malformed variable does not poison the rest
+ * of the section — reporting as the vendor does (`errors.ts` `reportBrokenDeclaration`).
  */
-import type { Keyword, Token } from "./tokens.js"
-import { type Identifier, type VarDecl, type VarSection, type VarSectionKind } from "./ast.js"
-import { Cursor, reportBrokenDeclaration } from "./cursor.js"
-import { bodySpanFromTokens, identFromToken, joinSpans } from "./util.js"
+import type { Token } from "../lex/tokens.js"
+import { type Identifier, type VarDecl, type VarSection, type VarSectionKind } from "../ast/nodes.js"
+import { Cursor } from "./cursor.js"
 import { parseTypeExpression } from "./type-expr.js"
-import { collectInitTokens, initializerFromTokens, parseExprFromTokens } from "./expression.js"
+import { parseExprFromTokens } from "./expression.js"
+import { VAR_SECTION_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
+import { joinSpans } from "../span.js"
+import { reportBrokenDeclaration } from "./errors.js"
+import { identFromToken, joinedName, readIdent, readNameList, readQualifiedName } from "./names.js"
+import { bodySpanFromTokens } from "../format/implementation-line.js"
+import { collectInitTokens, initializerFromTokens } from "./initializer.js"
 
 /**
  * The first token after a COMPLETE scalar initializer, or undefined. `x : INT := 5 abc;` does not compile —
@@ -45,21 +45,6 @@ function strayAfterScalarInit(tokens: readonly Token[]): Token | undefined {
   return undefined
 }
 
-const SECTION_KEYWORDS: readonly Keyword[] = [
-  "VAR",
-  "VAR_INPUT",
-  "VAR_OUTPUT",
-  "VAR_IN_OUT",
-  "VAR_TEMP",
-  "VAR_STAT",
-  "VAR_INST",
-  "VAR_EXTERNAL",
-  "VAR_GLOBAL",
-  "VAR_CONFIG",
-  "VAR_ACCESS",
-  "VAR_GENERIC",
-]
-
 /**
  * The `;` that ends a declaration straight after its TYPE — where CODESYS, finding a NAME instead, lists everything a
  * declaration may go on with: "';, :=, REF=, ( or [' expected instead of 'nSpeed'" (conformance
@@ -69,9 +54,9 @@ const SECTION_KEYWORDS: readonly Keyword[] = [
  * recovery never runs past the END of the list. In a VAR_GLOBAL list (`global`) the error carries that fact: CODESYS
  * reports nothing for it there, TwinCAT the same words (`pwh_gvl_missing_semicolon`) — `ParseError.globalMissingSemicolon`.
  */
-export function endAfterType(c: Cursor, context: string, global: boolean): Token | undefined {
+export function endAfterType(c: Cursor, global: boolean): Token | undefined {
   const next = c.peek()
-  if (next.kind !== "identifier") return c.expectPunct(";", context)
+  if (next.kind !== "identifier") return c.expectPunct(";")
   const message = `';, :=, REF=, ( or [' expected instead of '${next.text}'`
   c.pushParseError(global ? { message, span: next.span, globalMissingSemicolon: true } : { message, span: next.span })
   c.recoverTo({ keywords: ["END_VAR", "END_STRUCT", "END_UNION"], puncts: [";"] })
@@ -81,12 +66,12 @@ export function endAfterType(c: Cursor, context: string, global: boolean): Token
 /** Returns true if the next meaningful token starts a VAR section. */
 export function atVarSection(c: Cursor): boolean {
   const t = c.peek()
-  return t.kind === "keyword" && t.keyword !== undefined && SECTION_KEYWORDS.includes(t.keyword)
+  return t.kind === "keyword" && t.keyword !== undefined && VAR_SECTION_KEYWORDS.includes(t.keyword)
 }
 
 /** Parse a single VAR section starting at one of the section keywords. */
 export function parseVarSection(c: Cursor): VarSection | undefined {
-  const header = c.eatAnyKeyword(...SECTION_KEYWORDS)
+  const header = c.eatAnyKeyword(...VAR_SECTION_KEYWORDS)
   if (header === undefined) return undefined
 
   const sectionKind = header.keyword as VarSectionKind
@@ -154,18 +139,18 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
   // and without this every later mention of the name is "not defined" where CODESYS stops at the parse error.
   // See `ParseResult.failedDeclarations`.
   const failing = c.peek()
-  const firstName = c.expectName("at start of var declaration")
+  const firstName = c.expectName()
   if (firstName === undefined) {
     c.declarationFailed(failing)
     return "bad-name"
   }
-  const names: Identifier[] = [readMaybeQualifiedName(c, firstName)]
-
-  while (c.eatPunct(",") !== undefined) {
-    const more = c.expectName("in comma-separated var name list")
-    if (more === undefined) break
-    names.push(readMaybeQualifiedName(c, more))
-  }
+  const names: Identifier[] = [
+    joinedName(readQualifiedName(c, firstName, "consume")),
+    ...readNameList(c, () => {
+      const more = c.expectName()
+      return more === undefined ? undefined : joinedName(readQualifiedName(c, more, "consume"))
+    }),
+  ]
 
   // `AT <address>` can appear *before* the colon (standard IEC and
   // TwinCAT memory-mapped vars like `digIn AT %I*`) or *after* the
@@ -183,7 +168,7 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
     at = bodySpanFromTokens(tokens, atKwBefore.span)
   }
 
-  const colon = c.expectPunct(":", "after var name(s)")
+  const colon = c.expectPunct(":")
   if (colon === undefined) return undefined
 
   const type = parseTypeExpression(c)
@@ -223,8 +208,8 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
 
   const semi =
     init === undefined && at === undefined
-      ? endAfterType(c, "after var declaration", global)
-      : c.expectPunct(";", "after var declaration")
+      ? endAfterType(c, global)
+      : c.expectPunct(";")
   const endSpan = semi?.span ?? init?.span ?? at?.span ?? type.span
 
   return {
@@ -239,26 +224,43 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
 }
 
 /**
- * Some VAR sections — most notably VAR_CONFIG at the GVL/file level —
- * accept dot-qualified names like `PROGRAM_NAME.var_name`. Consume the
- * `.<ident>` suffix(es) and fold the whole qualified path back into a
- * single Identifier whose `text` carries the joined name. Symbol-table
- * consumers see one symbol with the dotted text — accurate to what the
- * source declared.
+ * A STRUCT or UNION field — the same shape as a VAR declaration without the VAR/END_VAR wrapper, parsed by its own
+ * reader beside `parseVarDecl` until conformance 2.3.5 makes them one.
  */
-function readMaybeQualifiedName(c: Cursor, first: Token): Identifier {
-  const parts: string[] = [first.text]
-  let lastSpan = first.span
-  while (c.eatPunct(".") !== undefined) {
-    const next = c.eatIdent()
-    if (next === undefined) break
-    parts.push(next.text)
-    lastSpan = next.span
-  }
-  if (parts.length === 1) return identFromToken(first)
+export function parseStructField(c: Cursor): VarDecl | undefined {
+  const first = c.expectIdent()
+  if (first === undefined) return undefined
+  const names: Identifier[] = [identFromToken(first), ...readNameList(c, () => readIdent(c))]
+  const colon = c.expectPunct(":")
+  if (colon === undefined) return undefined
+  const type = parseTypeExpression(c)
+  if (type === undefined) return undefined
+
+  let init: VarDecl["init"]
+  if (c.eatPunct(":=") !== undefined) init = initializerFromTokens(collectInitTokens(c))
+
+  const semi = init === undefined ? endAfterType(c, false) : c.expectPunct(";")
+  const endSpan = semi?.span ?? init?.span ?? type.span
   return {
-    kind: "identifier",
-    text: parts.join("."),
-    span: joinSpans(first.span, lastSpan),
+    kind: "var_decl",
+    names,
+    type,
+    ...(init !== undefined ? { init } : {}),
+    span: joinSpans(first.span, endSpan),
   }
+}
+
+/**
+ * Consume as many consecutive VAR sections as appear at the cursor.
+ * Used by every POU-shape parser — FB, PROGRAM, FUNCTION, METHOD —
+ * after the header, before the body.
+ */
+export function collectVarSections(c: Cursor): VarSection[] {
+  const sections: VarSection[] = []
+  while (atVarSection(c)) {
+    const s = parseVarSection(c)
+    if (s !== undefined) sections.push(s)
+    else break
+  }
+  return sections
 }

@@ -23,7 +23,7 @@
  * unregistered code.
  */
 
-import type { Span } from "../../syntax/index.js"
+import type { Span } from "../../frontend/syntax/index.js"
 import type { LowerDiagnostic } from "./ir.js"
 
 /** What a refusal asks of the person who hit it. */

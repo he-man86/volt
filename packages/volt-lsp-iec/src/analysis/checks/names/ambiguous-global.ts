@@ -8,7 +8,7 @@
  * manufacture false duplicates (ERR_OK, NULL, … live in many library GVLs). A reference locally shadowed by a
  * var/param is skipped.
  */
-import { forEachExpr, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../symbols/index.js"
+import { forEachExpr, isLibrarySymbol, lookup, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

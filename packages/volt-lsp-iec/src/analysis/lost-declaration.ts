@@ -8,8 +8,8 @@
  *   - a `VAR NON_RETAIN` section, which CODESYS has no  (`var_non_retain`)
  *   - an `AT` clause whose operand is not an address    (`cc5_at_address_not_direct`)
  */
-import { stmtExprs, walkExpr, walkStatements } from "../syntax/index.js"
-import { bodies } from "../symbols/index.js"
+import { stmtExprs, walkExpr, walkStatements } from "../frontend/syntax/index.js"
+import { bodies } from "../frontend/symbols/index.js"
 import type { CheckContext } from "./diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
 

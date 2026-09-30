@@ -4,10 +4,17 @@
  * `qualified_only` detection does). A pragma belongs to the unit it sits in or the unit that follows it; a METHOD's,
  * ACTION's or PROPERTY's attributes fold into the POU before it, the one-item-per-file layout the binder parents them by.
  */
-import type { ParseResult, TopLevel } from "./ast.js"
-import { lex } from "./lexer.js"
+import type { ParseResult, TopLevel } from "../ast/nodes.js"
+import { lex } from "../lex/lexer.js"
 
 type Declaration = Extract<TopLevel, { kind: "function_block" }>["varSections"][number]["decls"][number]
+
+/** The name an `{attribute '<name>' …}` pragma sets — its first quoted word, non-empty — or undefined for any other
+ *  pragma. The one reading of an attribute pragma here; the analysis and service copies of it read the empty name
+ *  and the value differently (openspec frontend-conformance 1.23), which conformance 2.7.2 decides. */
+function attributeName(pragma: string): string | undefined {
+  return /^\{\s*attribute\s+'([^']+)'/i.exec(pragma)?.[1]
+}
 
 /** The `{attribute '…'}` names on each variable declaration: a pragma inside a VAR section belongs to the declaration that
  *  follows it (`{attribute 'instance-path'}` above `sPath : STRING(255);`). */
@@ -16,7 +23,7 @@ export function declarationAttributes(parseResult: ParseResult, source: string):
   const out = new Map<Declaration, Set<string>>()
   for (const token of lex(source)) {
     if (token.kind !== "pragma") continue
-    const name = /^\{\s*attribute\s+'([^']+)'/i.exec(token.text)?.[1]
+    const name = attributeName(token.text)
     const section = name === undefined ? undefined : sections.find((s) => s.span.start <= token.span.start && token.span.end <= s.span.end)
     const decl = section?.decls.find((d) => d.span.start >= token.span.end)
     if (decl === undefined) continue
@@ -34,7 +41,7 @@ export function memberAttributes(parseResult: ParseResult, source: string): Map<
   const out = new Map<TopLevel, Set<string>>()
   for (const token of lex(source)) {
     if (token.kind !== "pragma") continue
-    const name = /^\{\s*attribute\s+'([^']+)'/i.exec(token.text)?.[1]
+    const name = attributeName(token.text)
     const unit = name === undefined ? undefined : parseResult.units.find((u) => u.span.end >= token.span.end)
     if (unit === undefined || !members.has(unit)) continue
     const names = out.get(unit) ?? new Set<string>()
@@ -56,7 +63,7 @@ export function unitAttributes(parseResult: ParseResult, source: string): Map<To
   const out = new Map<TopLevel, Set<string>>()
   for (const token of lex(source)) {
     if (token.kind !== "pragma") continue
-    const name = /^\{\s*attribute\s+'([^']+)'/i.exec(token.text)?.[1]
+    const name = attributeName(token.text)
     // a unit's span stops before its END_ keyword, so the first unit ending at or after the pragma holds or follows it
     const unit = name === undefined ? undefined : units.find((u) => u.span.end >= token.span.end)
     if (unit === undefined) continue
@@ -70,7 +77,7 @@ export function unitAttributes(parseResult: ParseResult, source: string): Map<To
 
 /** The name, and — when the pragma carries one — `name=value` beside it, so a consumer that needs the VALUE has it
  *  while every `.has(name)` check keeps answering. `{attribute 'pack_mode' := '1'}` adds `pack_mode` and `pack_mode=1`. */
-export function addAttribute(into: Set<string>, pragma: string, name: string): void {
+function addAttribute(into: Set<string>, pragma: string, name: string): void {
   into.add(name.toLowerCase())
   const value = /:=\s*'([^']*)'/.exec(pragma)?.[1]
   if (value !== undefined) into.add(`${name.toLowerCase()}=${value.toLowerCase()}`)

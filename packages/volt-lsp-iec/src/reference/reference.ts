@@ -13,7 +13,7 @@
  *
  * ponytail: a curated core catalog, not an exhaustive doc port; add operator entries as hover/lint needs surface them.
  */
-import { ELEMENTARY_TYPES, elementaryType, parseConversionName } from "../types/index.js"
+import { BUILTIN_RESULT, ELEMENTARY_TYPES, elementaryType, parseConversionName } from "../frontend/types/index.js"
 
 export type ReferenceKind = "data-type" | "operator" | "standard-function"
 
@@ -23,17 +23,19 @@ export interface ReferenceEntry {
   oneLiner: string
   /** Extra detail rendered under the one-liner (e.g. a type's range/width). */
   details?: string
-  /** Elementary result type for an operator/function with a FIXED return type (`EXPT`→`LREAL`), so type
-   *  inference can flow a built-in's result into downstream checks (e.g. narrowing a conversion argument).
-   *  Only set where the type is unambiguous; a type-preserving operator (ABS, SEL) leaves it undefined. */
+  /** Elementary result type of an operator with a FIXED return type — read from `types/builtins.ts` `BUILTIN_RESULT`
+   *  (the one table; inference reads it there too), or a conversion's derived one. Only set where the type is
+   *  unambiguous; a type-preserving operator (ABS, SEL) leaves it undefined. */
   returnType?: string
 }
 
 // ─── operators + standard functions (curated) ────────────────────────────────
 
-/** Terse entry builder — most catalog names need only name + one-liner (hover shows more when present). */
+/** Terse entry builder — most catalog names need only name + one-liner (hover shows more when present). A built-in
+ *  with a fixed result type carries it from `BUILTIN_RESULT`. */
 function ref(name: string, kind: ReferenceKind, oneLiner: string): ReferenceEntry {
-  return { name, kind, oneLiner }
+  const returnType = BUILTIN_RESULT.get(name)
+  return { name, kind, oneLiner, ...(returnType === undefined ? {} : { returnType }) }
 }
 
 // The catalog doubles as the unresolved-identifier check's "is this a compiler-provided global?" oracle:
@@ -75,7 +77,7 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("LN", "operator", "Natural logarithm."),
   ref("LOG", "operator", "Base-10 logarithm."),
   ref("EXP", "operator", "e raised to a power."),
-  // No fixed returnType: EXPT is REAL when BOTH arguments are REAL, LREAL otherwise (measured — `types/infer.ts`
+  // No fixed returnType: EXPT is REAL when BOTH arguments are REAL, LREAL otherwise (measured — `types/infer/`
   // `exptType`). The "always LREAL" this used to carry made `real := EXPT(real, real)` warn falsely.
   ref("EXPT", "operator", "Power. `EXPT(base, exp)` — REAL when both arguments are REAL, otherwise LREAL."),
   ref("SIN", "operator", "Sine (radians)."),
@@ -102,22 +104,14 @@ const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   ref("__FINALLY", "operator", "Exception-handling finally."),
   ref("__ENDTRY", "operator", "Exception-handling block end."),
   ref("__VARINFO", "operator", "Reflection info for a variable."),
-  // A STRING, and the CALL form is the only one that works: `here := __POSITION();` into a DINT is
-  // "Cannot convert type 'STRING(INT#23)' to type 'DINT'" (`sysop_position_call_form`). The length is the
-  // position text's own and cannot be known offline, so the plain STRING is what is claimed.
-  { ...ref("__POSITION", "operator", "Source position intrinsic."), returnType: "STRING" },
+  // `__POSITION`, `__COMPARE_AND_SWAP`, `__XADD` and `TEST_AND_SET` return a FIXED type, measured: `types/builtins.ts`.
+  ref("__POSITION", "operator", "Source position intrinsic."),
   ref("__POUNAME", "operator", "Enclosing POU name intrinsic."),
   ref("__CURRENTTASK", "operator", "Currently executing task."),
-  // RETURN TYPES, measured (`calls/atomic-operands.ts`, 2026-09-19). Without one each of these inferred UNKNOWN,
-  // which is assignable to anything, so nothing downstream could see a wrong destination.
-  { ...ref("__COMPARE_AND_SWAP", "operator", "Atomic compare-and-swap."), returnType: "BOOL" },
-  // `__XADD(anInt, 5)` into an INT is "Cannot convert type 'DINT' to type 'INT'" — the result is a DINT whatever
-  // the operand was.
-  { ...ref("__XADD", "operator", "Atomic exchange-and-add."), returnType: "DINT" },
+  ref("__COMPARE_AND_SWAP", "operator", "Atomic compare-and-swap."),
+  ref("__XADD", "operator", "Atomic exchange-and-add."),
   ref("__POOL", "operator", "Memory-pool intrinsic (CODESYS)."),
-  // A DWORD, and the operand does not change it: `TEST_AND_SET(aBool)` into a BOOL is still "Cannot convert type
-  // 'DWORD' to type 'BOOL'". The one fixture that recorded this read as an OPERAND rule and is not one.
-  { ...ref("TEST_AND_SET", "operator", "Atomic test-and-set."), returnType: "DWORD" },
+  ref("TEST_AND_SET", "operator", "Atomic test-and-set."),
   ref("INI", "operator", "Initialize an FB instance."),
 ]
 

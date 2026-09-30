@@ -4,19 +4,13 @@
  * oracle (T.1). Routing all wording through this one module is what makes a new check parity-correct
  * by construction. Vendor differences are data here, not scattered `if (vendor === …)` in the checks.
  */
-import type { Scope } from "../symbols/index.js"
-import { constEval, renderType, type ArrayTypeInfo, type Type } from "../types/index.js"
+import type { Scope } from "../frontend/symbols/index.js"
+import { constEval, renderType, type ArrayTypeInfo, type Type } from "../frontend/types/index.js"
 import type { Vendor } from "./config.js"
 
 // ─── type text as the COMPILERS print it inside a message ─────────────────────────────────────────────────────────
 // Distinct from `types/renderType`, which keeps a user's spelling for hover. Each was built inline by the check that
 // needed it (consolidate-lsp-structure B7).
-
-/** A type's name in a message: an enum's upper-cased — `DUT_LANG_cc_enum_byte` is "Cannot convert type
- *  'DUT_LANG_CC_ENUM_BYTE' to type 'BYTE'" (conformance `cc_enum_into_*`, `cc_enum_compare_two_enums`). */
-export function compilerTypeName(t: Type): string {
-  return t.kind === "enum" ? t.name.toUpperCase() : renderType(t)
-}
 
 /** An array type: `ARRAY [1..2] OF INT` (CODESYS-verified), or undefined when a bound does not fold. */
 export function compilerArrayText(t: ArrayTypeInfo, scope: Scope): string | undefined {

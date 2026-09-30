@@ -1,8 +1,9 @@
 import { test, expect } from "bun:test"
-import { type Document, parseSource } from "../syntax/index.js"
-import { buildSymbolTable, type Scope } from "../symbols/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
+import { build, type Scope } from "../frontend/symbols/index.js"
 import { messagesFor, type DiagnosticItem } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "./index.js"
+import type { Document } from "../services/shared/index.js"
 
 /**
  * SHAPES A REAL PROJECT WRITES, which the LSP must not report as mistakes.
@@ -16,10 +17,10 @@ import { computeNetworkTextDiagnostics } from "./index.js"
  */
 
 function doc(src: string): Document {
-  return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src) }
+  return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
 }
 function project(d: Document): Scope {
-  return buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
+  return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
 }
 function diags(src: string): DiagnosticItem[] {
   const d = doc(src)

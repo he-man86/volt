@@ -6,8 +6,8 @@
  *
  * Adding a check: implement `(ctx, out) => void` in `checks/<group>/` and register it below.
  */
-import { lex, type ParseResult, type Token } from "../syntax/index.js"
-import type { Scope } from "../symbols/index.js"
+import type { ParseResult, Token } from "../frontend/syntax/index.js"
+import type { Scope } from "../frontend/symbols/index.js"
 import {
   EMPTY_WORKSPACE_REFS,
   resolveConfig,
@@ -115,8 +115,9 @@ export interface CheckContext {
   messages: Messages
   /** Workspace reference-file names (library namespaces + device instances) the checks may skip. */
   references: WorkspaceRefs
-  /** The source lexed ONCE, shared by every pragma/attribute-token check. The parser strips pragmas, so these
-   *  checks re-lex — three of them independently did (~5ms each on a large file); this memoizes to one lex. */
+  /** The source's tokens as the PARSE lexed them (`ParseResult.tokens`: once, with the parse's dialect), shared by
+   *  every pragma/attribute-token check. The parser strips pragmas from the tree, so these checks read the stream —
+   *  three of them used to re-lex it independently, then one memoized lex did. */
   tokens: () => readonly Token[]
 }
 
@@ -292,7 +293,12 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
       `dialect mismatch: the project was bound as '${args.project.dialect}' and the analysis asked for ` +
         `'${config.vendor}'. Pass the vendor to buildSymbolTable(files, manifests, vendor) as well.`,
     )
-  let tokenCache: readonly Token[] | undefined
+  // …and to the PARSE: the token-reading checks read `ctx.tokens`, which the parse lexed with ITS dialect.
+  if (args.parseResult.dialect !== config.vendor)
+    throw new Error(
+      `dialect mismatch: the source was parsed as '${args.parseResult.dialect}' and the analysis asked for ` +
+        `'${config.vendor}'. Pass the vendor to parseSource/parseDocument as well.`,
+    )
   const ctx: CheckContext = {
     parseResult: args.parseResult,
     source: args.source,
@@ -301,7 +307,7 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     config,
     messages: messagesFor(config.vendor),
     references: args.references ?? EMPTY_WORKSPACE_REFS,
-    tokens: () => (tokenCache ??= lex(args.source, config.vendor)),
+    tokens: () => args.parseResult.tokens,
   }
   const out: DiagnosticItem[] = []
   // ONE PLACE DECIDES WHICH CHECKS RUN FOR WHICH VENDOR, in both directions. A check that opens with its own

@@ -11,7 +11,7 @@
  * initialize — the parameter is bound at the call — so CODESYS reads the `:=` as that binding and answers about
  * what is on the right of it: "'3' is no valid assignment target" (conformance `cc4_inout_in_initializer`).
  */
-import { walkExpr } from "../../../syntax/index.js"
+import { walkExpr } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

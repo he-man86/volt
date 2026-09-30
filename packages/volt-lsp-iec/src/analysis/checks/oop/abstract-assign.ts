@@ -8,10 +8,10 @@
  * they're excluded; library FBs (no `abstract` visible) are skipped. Wording is CODESYS-verified (the message
  * names the TARGET variable, not the FB type). PROVISIONAL on TwinCAT.
  */
-import type { FunctionBlock } from "../../../syntax/index.js"
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies, lookupLocal } from "../../../symbols/index.js"
-import { inferExprType } from "../../../types/index.js"
+import type { FunctionBlock } from "../../../frontend/syntax/index.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies, lookupLocal } from "../../../frontend/symbols/index.js"
+import { inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

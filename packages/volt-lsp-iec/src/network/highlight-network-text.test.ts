@@ -4,8 +4,8 @@
  * the network-text-aware `allReferences`.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "../symbols/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
+import { build } from "../frontend/symbols/index.js"
 import { documentHighlightsAnywhere } from "./network-services.js"
 
 const LD = `FUNCTION_BLOCK FB_LD
@@ -19,9 +19,9 @@ END_NETWORK
 END_FUNCTION_BLOCK`
 
 test("highlighting a network-text operand includes its declaration AND its in-network use", () => {
-  const parseResult = parseSource(LD)
+  const parseResult = parseSource(LD, { networkText: true })
   const doc = { uri: "file:///F.fb", source: LD, parseResult }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult, source: LD }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: LD }])
   // Cursor on `a` inside the network `out := (a AND b)`.
   const ranges = documentHighlightsAnywhere(doc, project, LD.indexOf("(a AND") + 1)
   expect(ranges).toBeDefined()

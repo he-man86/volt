@@ -14,9 +14,9 @@
  *      suppresses, trading a rare missed error for guaranteed no false positive).
  * CASE `ELSE` is intentionally excluded — an empty CASE `ELSE` is a parse error in CODESYS, not this diagnostic.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import type { Span } from "../../../syntax/span.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

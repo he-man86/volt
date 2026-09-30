@@ -31,41 +31,61 @@ F  reference · network        language data catalogs · the FBD/LD sublanguage 
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
-C  types         elementary facts · Type model · resolve · const-eval · infer · compat · render
-B  symbols       symbol table · binder · scope-nav · bodies (the shared ST-body iterator)
-A  syntax        tokens · lexer · complete AST · parser + treewalker
-                      ↘ transpile (Rust backend) consumes A·B·C directly — headless test execution
+C  types         elementary facts · Type model · resolve · const · infer · compat · arith · render   ┐
+B  symbols       symbol table · binder · scope-nav · scoped-bodies (the shared ST-body iterator)    │ frontend/
+A  syntax        vocabulary · lexer · complete AST · parser · literals · pragmas · file format      │ (+ library)
+                      ↘ transpile (Rust backend) consumes the front-end directly — headless test execution
 ```
 
 ## Layers
 
-### A — `syntax/`
-Tokens, lexer (error-tolerant, trivia-preserving), the **complete AST** (declarations · type expressions with
-structured dims/length/subrange/vector · statements · expressions · literals carrying value + type), and the
-parser + treewalker. Contract: `parse(source) → { units, diagnostics }`; a body materializes to a statement
-tree or a graphical marker. No semantics here. A WORKSPACE file is parsed as the object its extension names
-(`parseDocument(uri, …)`, `source-object.ts`): a DUT's or a GVL's text is written to the IDE as sent, so it is read as
-the IDE reads it — nothing is declared (and nothing reported) unless the text opens with TYPE / VAR_GLOBAL, and Volt's
-POU-only file-format rules (the IMPLEMENTATION line, the retired `@volt-` comment) do not apply. Modern parser concerns: **incremental re-parse** of the edited
-region (perf on large files, paired with the server's incremental sync); **error-recovery nodes** in the tree
-so completion/navigation still work inside a broken region. Design call: the tree is an AST + `BodySpan` trivia,
-NOT a fully-lossless CST — enough for round-trip/formatting without the CST's weight (revisit only if
-tree-rewriting refactors are needed).
+### The front-end — `frontend/`
+Layers A–C are ONE layer, `src/frontend/` (openspec `frontend-conformance`): `syntax → symbols → types`, with `library`
+beside them — the Volt library format (the `Library Manager/<folder>` path layout, the `.library` manifest, the
+materialization format), a leaf that imports nothing. Nothing in `frontend/` imports a consumer; a consumer imports a
+sub-layer's `index.ts` and nothing beside it, and each index names its exports one by one — the export list IS the
+public API. `scripts/check-layering.ts` holds both (rules F1–F6, run inside `bun test` by
+`test/frontend/layering.test.ts`). Every move inside `frontend/` is proved output-neutral by snapshot F
+(`scripts/frontend-snapshot.ts`).
 
-### B — `symbols/`
-The binder: `symbol` · `scope`, `binder` (AST → scope tree, workspace cross-indexed; property getter/setter
-each bind their own accessor scope), `scope-nav` (the one scope-tree navigator), and `bodies` (the one
-scope-aware "walk every ST body" iterator — POU bodies **and** property accessor bodies — shared by every
-analysis check and the language services). Contract: name → declaring symbol/scope.
+### A — `frontend/syntax/`
+Text to a tree, and nothing about meaning. `lex/` — the token model, the vocabulary (`vocabulary.ts`: every keyword, the
+named keyword subsets the parser asks about, the dialect's differences, the literal prefixes, the punctuation) and the
+lexer (error-tolerant, trivia-preserving). `ast/` — the **complete AST** (`nodes.ts`: declarations · type expressions
+with structured dims/length/subrange/vector · statements · expressions · literals carrying their value), its walks
+(`walk.ts`, `allUnits` the one namespace flattener) and declaration queries. `parse/` — the parser: the cursor, the
+messages (`errors.ts`), names, the balanced-token scanner, declarations, initializers, expressions, statements, type
+expressions, the unit parsers, and `body-parse.ts`, where a body's statements are parsed once and cached (`parseActive`
+applies the conditional pragmas). `literal/` — a literal's value (numbers and durations, string escapes, calendar
+values). `pragmas/` — conditional pragmas and `{attribute …}`. `format/` — the Volt workspace file format, which is not
+CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, `%FOLDER`, the retired comments, the reserved
+name, the network header, which reader reads a body, and what a file's extension says its object is (a DUT's or a GVL's
+text is read as the IDE reads it — nothing is declared, and nothing reported, unless the text opens with TYPE /
+VAR_GLOBAL). A parse takes `ParseOptions` (`networkText`: whether an LD/FBD body is read as network text — the server
+passes its environment's answer; the front-end reads no environment) and hands back the token stream it lexed
+(`ParseResult.tokens`). Design call: the tree is an AST + `BodySpan` trivia, NOT a fully-lossless CST — enough for
+round-trip/formatting without the CST's weight.
 
-### C — `types/`
-The type system, the clean core: `elementary` (the type-facts source of truth — family, bits, signed, `bigint`
-range, widening rank, aliases, `ANY_*`); the rich `Type` model (`UNKNOWN` is the total, conservative
-fallback); `resolve` (TypeExpr → Type); `const-eval` (Expr → value); `infer` (Expr → Type, one engine);
-`compat` (assignability · narrowing · conversion-source, one relation); `arith` (arithmetic result types — run-time
-`commonType`/`promoteForRuntime` for the transpiler, checked `checkedNegationType` for diagnostics); `render`
-(a resolved `Type` → string — a declared `TypeExpr` or an expression prints through `syntax/print`). Powers
-diagnostics, hover, completion, navigation, and codegen alike.
+### B — `frontend/symbols/`
+The binder: the model (`model.ts` `Symbol` · `Scope`), scope construction and the local lookup (`scope.ts`), the lazy
+indices and their one invalidation (`cache.ts`), `binder` (AST → scope tree; property getter/setter each bind their own
+accessor scope), `incremental` (a whole table, and the live server's bind/unbind one file + `relink`), `extends`
+(EXTENDS linking and the base chain), `precedence` (which of several same-named candidates a reference means),
+`library-namespaces`, `scope-nav` (the one scope-tree navigator) and `scoped-bodies` (the one scope-aware "walk every
+ST body" iterator — POU bodies **and** property accessor bodies — shared by every analysis check and the language
+services). Its index names the read API; building is the `build` namespace. Contract: name → declaring symbol/scope.
+
+### C — `frontend/types/`
+The type system, the clean core: `elementary` (the type-facts source of truth — family, bits, signed, `bigint` range,
+widening rank, aliases, `ANY_*`) with its views (`predicates`, `platform` — the one target assumption, `width`,
+`conversion-name`, `literal`, `defaults`); the rich `Type` model (`UNKNOWN` is the total, conservative fallback);
+`resolve` (TypeExpr → Type); `enums`; `const/` (Expr → value, and constancy); `infer/` (Expr → Type, one engine:
+`expr`, `member`, `callee`); `compat` (assignability · narrowing · conversion-source, one relation); `arith/` (run-time
+`commonType`/`promoteForRuntime` for the transpiler, checked `checkedMeetType`/`checkedNegationType` for diagnostics,
+temporal arithmetic, and `operators` — every operator's typing rule, the checks keeping only their messages);
+`builtins` (every built-in's result type); `render` (a resolved `Type` → string, in the display or the compiler form —
+a declared `TypeExpr` or an expression prints through `syntax/print`). Powers diagnostics, hover, completion,
+navigation, and codegen alike.
 
 ### D — `analysis/`
 `diagnostics` (the orchestrator, vendor-keyed config, the CODESYS-only check list), `messages` (per-vendor builders
@@ -73,7 +93,7 @@ and the compiler-exact type text), `diagnostic-item`, `rules` (the diagnostics m
 store, narrowing, conversion-argument and binary-operator rules the ST checks and the network-text checks share),
 `resolution` (identifier resolution, likewise shared), `error-code-map` (slug → `Cnnnn`), and `checks/` — thin walks
 over those rules, grouped by concern: `types/` · `declarations/` · `names/` · `oop/` · `calls/` · `pragmas/`. Every
-body-walking check iterates through `symbols/bodies` (one loop, not a per-check copy). Each check traces to a
+body-walking check iterates through `symbols/scoped-bodies` (one loop, not a per-check copy). Each check traces to a
 conformance fixture recorded against the live compiler.
 
 ### E — `services/`
@@ -86,7 +106,7 @@ implementation), `hierarchy` (call + type), `assist` (hover · completion · sig
 
 ### F — `reference/` · `network/`
 `reference/` holds the language data catalogs (types · operators · conversions · pragmas · standard fns/fbs ·
-lifecycle) — ranges derive from `types/elementary`. `network/` is the FBD/LD family: the readable text
+lifecycle) — ranges derive from `frontend/types/elementary`. `network/` is the FBD/LD family: the readable text
 encoding (`network-text/`, room for future formats), plus infer/checks/services that **reuse the shared
 core** — one type engine, one orchestrator, one service set. Graphical is a second front-end that plugs in, not
 a second stack.
@@ -142,7 +162,7 @@ not a second type model. **If a backend ever has to decide something, the loweri
 
 Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever
 a guess would be a false positive (`REAL + INT` among them). A backend cannot emit `UNKNOWN`, so lowering
-computes operator types over the same widening lattice `types/elementary` owns, and an expression that still
+computes operator types over the same widening lattice `frontend/types/elementary` owns, and an expression that still
 lands on `UNKNOWN` is a reported gap — never untyped IR. Likewise IEC integer literals are polymorphic: they
 take their type from context, and from the sibling operand before the assignment target (`rate := n / 2` with
 `n : INT` divides in INT and converts the result).
@@ -150,7 +170,7 @@ take their type from context, and from the sibling operand before the assignment
 The three correctness essentials, all live: **source maps** (emitted line → ST span, so a panic points at the
 ST); **codegen diagnostics** (`LowerDiagnostic` — lowering is total and never throws, so an untestable POU is
 reported, never silently wrong); **deterministic numerics** (IEC integers wrap at the declared width, so
-arithmetic emits `wrapping_*` rather than Rust's panicking defaults; widths come from `types/elementary`).
+arithmetic emits `wrapping_*` rather than Rust's panicking defaults; widths come from `frontend/types/width`).
 
 Coverage is measured, not asserted: `scripts/lower-completeness.ts` lowers the whole corpus and ranks the
 constructs blocking it, so the next thing to build is a number. Its denominator is POUs **with a body** — most
@@ -178,17 +198,21 @@ constant, look it up here; if it exists, import it — never redefine.
 
 | Concept | Owner |
 |---|---|
-| Source spans, tokens | `syntax/` (`Span`, `Token`) — the shared foundation everything imports down to |
-| AST node types | `syntax/ast` |
-| Symbols, scopes | `symbols/` |
-| Scope-tree navigation | `symbols/scope-nav` |
-| **"Walk every ST body"** (unit + scope + parsed statements, incl. property accessors) | `symbols/bodies` — the one iterator shared by checks + services |
-| Call → callee + parameters (VAR_INPUT, base-first through EXTENDS) | `types/infer` `resolveCallee` — shared by signature-help + the call-argument check |
-| **Elementary type facts** (ranges, families, bits, signed, rank, aliases) | `types/elementary` — the type-facts SSOT |
-| The `Type` model | `types/type` |
-| Type compatibility (assignable/narrowing/arith/conversion) | `types/compat` |
-| Constant evaluation | `types/const-eval` |
-| Type/expr rendering | `types/render` (a resolved `Type`) · `syntax/print` (a declared `TypeExpr`, an expression) |
+| Source spans, tokens | `frontend/syntax/` (`Span`, `Token`) — the shared foundation everything imports down to |
+| Keywords, the dialect's vocabulary | `frontend/syntax/lex/vocabulary` |
+| AST node types | `frontend/syntax/ast/nodes` |
+| The Volt workspace file format (`IMPLEMENTATION` line, `%FOLDER`, which reader reads a body) | `frontend/syntax/format/` |
+| The library format (path layout, manifest, materialization) | `frontend/library/` |
+| Symbols, scopes | `frontend/symbols/` |
+| Scope-tree navigation | `frontend/symbols/scope-nav` |
+| **"Walk every ST body"** (unit + scope + parsed statements, incl. property accessors) | `frontend/symbols/scoped-bodies` — the one iterator shared by checks + services |
+| Call → callee + parameters (VAR_INPUT, base-first through EXTENDS) | `frontend/types/infer/callee` `resolveCallee` — shared by signature-help + the call-argument check |
+| **Elementary type facts** (ranges, families, bits, signed, rank, aliases) | `frontend/types/elementary` — the type-facts SSOT |
+| The `Type` model | `frontend/types/type` |
+| Type compatibility (assignable/narrowing/arith/conversion) | `frontend/types/compat` |
+| An operator's typing rule, a built-in's result type | `frontend/types/arith/operators` · `frontend/types/builtins` |
+| Constant evaluation | `frontend/types/const/fold` |
+| Type/expr rendering | `frontend/types/render` (a resolved `Type`) · `frontend/syntax/print` (a declared `TypeExpr`, an expression) |
 | Diagnostic message building (per-vendor) | `analysis/messages` |
 | Vendor differences | `analysis` vendor-difference registry (data; see `language-reference.md` §10) |
 | Cursor → symbol resolution | `services/shared/resolve-at` |
@@ -199,7 +223,7 @@ constant, look it up here; if it exists, import it — never redefine.
 | Language reference data (types/operators/pragmas/…) | `reference/` |
 
 **2. Per-layer barrels.** Each layer exposes its public surface through one `index.ts`; consumers import
-`from "../types"`, not `from "../types/elementary"`. One import path per layer makes "where does X come from"
+`from "../frontend/types/index.js"`, not `from "../frontend/types/elementary.js"`. One import path per layer makes "where does X come from"
 unambiguous — re-creating it reads as obviously wrong.
 
 **3. Lint-enforced layering.** `scripts/check-layering.ts` (an import scan, not dependency-cruiser) FAILS the build when

@@ -20,7 +20,7 @@
  * BOOL and BIT are included on purpose. `x : BOOL := 0` and `:= 2` are ordinary questions with non-obvious answers —
  * does the vendor take an integer literal for a boolean at all, and where is its edge.
  */
-import { ELEMENTARY_TYPES, REAL_MAX_MAGNITUDE } from "../../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES, REAL_MAX_MAGNITUDE } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 type Edge = "at_min" | "at_max" | "below_min" | "above_max"

@@ -15,8 +15,8 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
-import { parseDocument, parseSource, type Dialect } from "../../../src/syntax/index.js"
-import { bindFile, buildSymbolTable, linkExtends, type Scope, unbindFile } from "../../../src/symbols/index.js"
+import { parseDocument, parseSource, type Dialect } from "../../../src/frontend/syntax/index.js"
+import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture, withDependencies } from "./fixture-units.js"
@@ -78,29 +78,29 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor:
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
   // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
   const ownUri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
-  const own = { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, vendor) }
+  const own = { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, { networkText: true }, vendor) }
   const deps = withDependencies(t, all)
     .filter((f) => f.name !== t.name && f.source !== "")
     .map((f) => {
       const uri = `file:///conformance/${f.pouName}.${extFor(f.kind)}`
-      return { uri, source: f.source, parseResult: parseDocument(uri, f.source, vendor) }
+      return { uri, source: f.source, parseResult: parseDocument(uri, f.source, { networkText: true }, vendor) }
     })
   const plcText = plcPrgSource(t)
-  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText, vendor) }
+  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText, { networkText: true }, vendor) }
   const files = [own, plc, ...deps]
   // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
   let project = lspBase.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor)
+    project = build.buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor)
     lspBase.set(vendor, project)
   }
-  for (const f of files) bindFile(project, f)
-  linkExtends(project, PROJECT_MANIFESTS)
+  for (const f of files) build.bindFile(project, f)
+  build.relink(project, PROJECT_MANIFESTS)
   try {
     return diagnosed(own, files, project, vendor)
   } finally {
-    for (const f of files) unbindFile(project, f.uri)
-    linkExtends(project, PROJECT_MANIFESTS)
+    for (const f of files) build.unbindFile(project, f.uri)
+    build.relink(project, PROJECT_MANIFESTS)
   }
 }
 
@@ -156,20 +156,20 @@ function extFor(kind: LanguageTest["kind"]): string {
 
 /** The fixture project's libraries parsed as `vendor` — as `fixtures.test.ts` `standardLibrary` parses them. */
 const libraryFiles = (vendor: Dialect): { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[] =>
-  PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, vendor) }))
+  PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true }, vendor) }))
 
 export function rateFixture(t: LanguageTest, all: readonly LanguageTest[]): Evidence {
   if (t.execSkip !== undefined || t.recorderSkip === true) return "unaskable"
   if (t.deferred?.lsp !== undefined) return "lsp-gap"
 
   const rec = runRec[t.name]
-  const build = buildRec[t.name]
+  const recordedBuild = buildRec[t.name]
   if (rec?.error !== undefined && onlyProjectConfiguration(rec.error)) return "unaskable"
   // A vendor REFUSAL is an answer, and either recording can carry it — but `refused` claims WE refuse it too, so it
   // has to be asked rather than assumed. It was assumed, and that was an overclaim: `cc_reserved_name_s_string`,
   // `cc_il_name_ld` and their neighbours are rejected by CODESYS, carry no `refused` marker for `fixtures.test.ts` to
   // check, and parse CLEANLY here — rated as evidence when they were silent gaps.
-  if (rec?.error?.startsWith("does not compile") === true || build?.buildSuccess === false || t.refused !== undefined)
+  if (rec?.error?.startsWith("does not compile") === true || recordedBuild?.buildSuccess === false || t.refused !== undefined)
     return lspReportsAnError(t, all) ? "refused" : "lsp-gap"
   // THE VENDOR STOPPING IS AN ANSWER. A recording whose error is not a compile failure is one the IDE built, logged
   // into and ran — and whose scan never completed: `LN(0)`, `1.0 / 0`, an integer divide by zero, a deref of an

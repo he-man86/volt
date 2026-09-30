@@ -5,7 +5,7 @@
 import { test, expect } from "bun:test"
 import { SymbolKind as Lsp } from "vscode-languageserver-protocol"
 import { lspSymbolKind, humanKind } from "./symbol-kinds.js"
-import type { SymbolKind } from "../../symbols/index.js"
+import type { SymbolKind } from "../../frontend/symbols/index.js"
 
 const CASES: [SymbolKind, Lsp, string][] = [
   ["function_block", Lsp.Class, "function block"],

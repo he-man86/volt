@@ -18,11 +18,12 @@ import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { KNOWN_DIVERGENCES } from "../test/conformance/support/divergences.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { PROJECT_LIBRARY, PROJECT_MANIFESTS } from "../test/conformance/support/project-libraries.js"
-import { parseSource } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
+import { parseSource } from "../src/frontend/syntax/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../src/network/index.js"
 import { comparable } from "../test/conformance/support/compare-message.js"
+import { build } from "../src/frontend/symbols/index.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 // WHICH VENDOR? `VOLT_VENDOR=twincat` picks the other recording AND the other dialect — since the vocabulary,
 // the wording and one collapse rule all differ, reading TwinCAT's residue through a CODESYS analysis would invent
@@ -35,14 +36,14 @@ if (asked !== undefined && asked !== "twincat" && asked !== "codesys") {
   process.exit(1)
 }
 const vendor = asked === "twincat" ? ("twincat" as const) : ("codesys" as const)
-const build = JSON.parse(
+const builds = JSON.parse(
   readFileSync(join(import.meta.dir, "..", "test", "conformance", "recordings", `${vendor}.build.json`), "utf8"),
 ).tests as Record<string, { diagnostics: { severity: string; message: string }[] }>
 const config = resolveConfig({ vendor })
 // THE SAME PROJECT THE HARNESS BUILDS, or this tool prints a work list for a compiler nobody runs. It did:
 // `fixtures.test.ts` gave the standard library to CODESYS alone, so `LEN` resolved nowhere on TwinCAT and the
 // harness recorded seventeen disagreements this script could not see. Whatever is added to one belongs in both.
-const std = PROJECT_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source, vendor), source: l.source }))
+const std = PROJECT_LIBRARY.map((l) => ({ uri: l.uri, parseResult: parseSource(l.source, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: l.source }))
 const buckets = new Map<string, string[]>()
 const add = (k: string, name: string) => buckets.set(k, [...(buckets.get(k) ?? []), name])
 const missingMessages = new Map<string, number>()
@@ -51,12 +52,12 @@ const perFixture: [name: string, missing: string[], extra: string[]][] = []
 const only = process.argv.slice(2).filter((a) => !a.startsWith("--"))
 /** Each fixture as a DECLARATION source for the others — programs dropped, as the replay drops them. */
 const crossDecls = ALL_TESTS.filter((t) => t.source !== "").map((t) => {
-  const parsed = parseSource(t.source, vendor)
+  const parsed = parseSource(t.source, { networkText: NETWORK_TEXT_ENABLED }, vendor)
   return {
     name: t.name,
     uri: `${t.pouName}__decl.st`,
     source: t.source,
-    parseResult: { units: parsed.units.filter((u) => u.kind !== "program"), errors: [], failedDeclarations: [] },
+    parseResult: { units: parsed.units.filter((u) => u.kind !== "program"), errors: [], failedDeclarations: [], tokens: parsed.tokens, dialect: parsed.dialect },
   }
 })
 
@@ -67,7 +68,7 @@ for (const t of ALL_TESTS) {
   // VAR_PERSISTENT list) and reachability, and an editor can know none of them.
   if (KNOWN_DIVERGENCES[vendor].has(t.name)) continue
   if (only.length > 0 && !only.includes(t.name)) continue
-  const rec = build[t.name]
+  const rec = builds[t.name]
   if (rec === undefined) {
     // A vendor whose IDE REFUSED the push has no ground truth here and never will — that is a fact about the
     // fixture, not a gap in the recording, so it is bucketed as what it is.
@@ -82,12 +83,12 @@ for (const t of ALL_TESTS) {
   // invents unresolved-name findings that the replay does not have (`op_sys_queryinterface`).
   const own = new Set(fixtures.map((f) => f.name))
   const files = [
-    ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source, vendor), source: f.source })),
-    { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc, vendor), source: plc },
+    ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: f.source })),
+    { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: plc },
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
   ]
-  const project = buildSymbolTable(files, PROJECT_MANIFESTS, vendor)
+  const project = build.buildSymbolTable(files, PROJECT_MANIFESTS, vendor)
   const lsp: string[] = []
   // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
   // not to be diagnosed, exactly as `fixtures.test.ts` does it. Analyzing them too attributed one fixture's findings

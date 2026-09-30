@@ -8,9 +8,9 @@
  * compiler types without trouble. Only the first counts — gating on "any diagnostic was reported inside" produced 30
  * false positives on the arithmetic fixtures alone.
  */
-import type { Expr, Span } from "../syntax/index.js"
-import type { Scope } from "../symbols/index.js"
-import { inferExprType, resolveMemberChain } from "../types/index.js"
+import type { Expr, Span } from "../frontend/syntax/index.js"
+import type { Scope } from "../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain } from "../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
 /** The findings that mean the expression has NO TYPE — the ST codes and their network-text counterparts. */

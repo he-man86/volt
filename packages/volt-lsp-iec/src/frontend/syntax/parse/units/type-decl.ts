@@ -27,17 +27,19 @@ import type {
   TypeDecl,
   UnionBody,
   VarDecl,
-} from "../ast.js"
+} from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
-import { collectInitTokens, initializerFromTokens, parseExpression } from "../expression.js"
-import { identFromToken, joinSpans } from "../util.js"
-import { atVarSection, endAfterType } from "../var-section.js"
+import { parseExpression } from "../expression.js"
+import { atVarSection, endAfterType, parseStructField } from "../declarations.js"
+import { joinSpans } from "../../span.js"
+import { identFromToken, readIdent, readNameList } from "../names.js"
+import { collectInitTokens, initializerFromTokens } from "../initializer.js"
 
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
-  const start = c.expectKeyword("TYPE", "at start of TYPE block")
+  const start = c.expectKeyword("TYPE")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent("for TYPE name")
+  const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   // Optional `EXTENDS Base` clause between the name and the `:` —
@@ -45,10 +47,10 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   // Per 06-data-types.md: `TYPE S_PENTAGON EXTENDS S_POLYGONLINE : STRUCT ...`.
   let extendsName: Identifier | undefined
   if (c.eatKeyword("EXTENDS") !== undefined) {
-    const t = c.expectIdent("after EXTENDS in TYPE")
+    const t = c.expectIdent()
     if (t !== undefined) extendsName = identFromToken(t)
   }
-  const colon = c.expectPunct(":", "after TYPE name")
+  const colon = c.expectPunct(":")
   if (colon === undefined) return undefined
   const body = parseDutBody(c)
   // Hoist the EXTENDS onto the STRUCT body (the AST stores it there). EXTENDS on any other DUT kind
@@ -62,7 +64,7 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   // terminate the enum/struct/alias before END_TYPE). Spec-permissive
   // for aliases (always required), tolerated by TC for the others.
   c.eatPunct(";")
-  const endType = c.expectKeyword("END_TYPE", "after TYPE body")
+  const endType = c.expectKeyword("END_TYPE")
   const endSpan = endType?.span ?? body?.span ?? start.span
   if (body === undefined) {
     return {
@@ -102,12 +104,12 @@ function parseDutBody(c: Cursor): DutBody | undefined {
 }
 
 function parseStructBody(c: Cursor): StructBody | undefined {
-  const start = c.expectKeyword("STRUCT", "at start of struct")
+  const start = c.expectKeyword("STRUCT")
   if (start === undefined) return undefined
 
   let extendsName: Identifier | undefined
   if (c.eatKeyword("EXTENDS") !== undefined) {
-    const t = c.expectIdent("after EXTENDS in struct")
+    const t = c.expectIdent()
     if (t !== undefined) extendsName = identFromToken(t)
   }
 
@@ -156,7 +158,7 @@ function parseStructBody(c: Cursor): StructBody | undefined {
 }
 
 function parseUnionBody(c: Cursor): UnionBody | undefined {
-  const start = c.expectKeyword("UNION", "at start of union")
+  const start = c.expectKeyword("UNION")
   if (start === undefined) return undefined
   const fields: VarDecl[] = []
   while (!c.atEof()) {
@@ -182,46 +184,14 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
   return { kind: "union", fields, span: start.span }
 }
 
-/**
- * Struct/union field — same shape as a VAR decl but without the
- * VAR/END_VAR wrapper.
- */
-function parseStructField(c: Cursor): VarDecl | undefined {
-  const first = c.expectIdent("for struct field name")
-  if (first === undefined) return undefined
-  const names: Identifier[] = [identFromToken(first)]
-  while (c.eatPunct(",") !== undefined) {
-    const more = c.expectIdent("in struct field name list")
-    if (more === undefined) break
-    names.push(identFromToken(more))
-  }
-  const colon = c.expectPunct(":", "after struct field name")
-  if (colon === undefined) return undefined
-  const type = parseTypeExpression(c)
-  if (type === undefined) return undefined
-
-  let init: VarDecl["init"]
-  if (c.eatPunct(":=") !== undefined) init = initializerFromTokens(collectInitTokens(c))
-
-  const semi = init === undefined ? endAfterType(c, "after struct field", false) : c.expectPunct(";", "after struct field")
-  const endSpan = semi?.span ?? init?.span ?? type.span
-  return {
-    kind: "var_decl",
-    names,
-    type,
-    ...(init !== undefined ? { init } : {}),
-    span: joinSpans(first.span, endSpan),
-  }
-}
-
 function parseEnumBody(c: Cursor): EnumBody | undefined {
-  const open = c.expectPunct("(", "at start of enum body")
+  const open = c.expectPunct("(")
   if (open === undefined) return undefined
   const values: EnumValue[] = []
 
   while (!c.atEof()) {
     if (c.eatPunct(")") !== undefined) break
-    const nameTok = c.expectIdent("for enum value")
+    const nameTok = c.expectIdent()
     if (nameTok === undefined) {
       if (!c.recoverTo({ puncts: [",", ")"] })) break
       c.eatPunct(",")

@@ -3,14 +3,14 @@
  * (conformance `cc_string_*`, `cc_int_plus_string`, `cc_wstring_plus_wstring`; execution oracle `string_arithmetic_rejected`).
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const mismatches = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "binary-op-type-mismatch")
     .map((d) => d.message)

@@ -4,8 +4,8 @@
  * The declared type is resolved, so array aliases stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const byCode =
@@ -15,8 +15,8 @@ const byCode =
       `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\n` +
       `TYPE MyArr : ARRAY[0..2] OF INT; END_TYPE\nTYPE sv : STRUCT a : INT; END_STRUCT END_TYPE\n` +
       `TYPE HUE : (RED, GREEN, BLUE); END_TYPE`
-    const pr = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
+    const pr = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)

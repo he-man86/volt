@@ -14,7 +14,7 @@
  * then `unresolved-identifier` makes exactly this bet for identifiers, and the corpus gate (every error ⊆ the project's
  * own recorded build) holds this one to it for types.
  */
-import { forEachDecl } from "../../../symbols/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { unknownTypeName } from "../../resolution.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

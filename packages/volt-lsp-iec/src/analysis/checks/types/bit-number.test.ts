@@ -3,14 +3,14 @@
  * Docs wording (#C0003).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const bits = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  w : WORD; b : BOOL; d : DWORD; re : REAL;\nEND_VAR\n${body}\nEND_PROGRAM`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
+  const pr = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "invalid-bit-number")
     .map((d) => d.message)
@@ -32,8 +32,8 @@ test("bit access on a non-integer base is a different error, not flagged here", 
 
 test("C0061: bit access on a function-call result is flagged (not treated as C0003)", () => {
   const src = `FUNCTION_BLOCK F\nVAR i:INT;\nEND_VAR\ni := Test().2;\nEND_FUNCTION_BLOCK\nFUNCTION Test : INT\nEND_FUNCTION`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "bit-access-on-call")
     .map((d) => d.message)

@@ -7,14 +7,14 @@
  * operators, bare enum members, referenced-library namespaces, device instances, conditional-compile bodies).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type WorkspaceRefs } from "../../index.js"
 
 /** Diagnostics for one FB source, optionally with workspace reference-file names injected. */
 function diag(src: string, references?: WorkspaceRefs) {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }), references })
 }
 
@@ -68,10 +68,10 @@ test("a bare-accessible enum member (non-qualified_only) is not flagged", () => 
 /** unresolved-identifier messages in `consumer`, with `enumDut` supplied as a second workspace file. */
 const enumUse = (enumDut: string, consumer: string): string[] => {
   const files = [
-    { uri: "E.enum", parseResult: parseSource(enumDut), source: enumDut },
-    { uri: "F.fb", parseResult: parseSource(consumer), source: consumer },
+    { uri: "E.enum", parseResult: parseSource(enumDut, { networkText: true }), source: enumDut },
+    { uri: "F.fb", parseResult: parseSource(consumer, { networkText: true }), source: consumer },
   ]
-  const project = buildSymbolTable(files, [], "codesys")
+  const project = build.buildSymbolTable(files, [], "codesys")
   return computeSemanticDiagnostics({ parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier")
     .map((d) => d.message)
@@ -157,9 +157,9 @@ VAR p : Pt; i : INT; END_VAR
 i := p.z;
 END_FUNCTION_BLOCK`
   const tc = computeSemanticDiagnostics({
-    parseResult: parseSource(src),
+    parseResult: parseSource(src, { networkText: true }, "twincat"),
     source: src,
-    project: buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src), source: src }], [], "twincat"),
+    project: build.buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src, { networkText: true }, "twincat"), source: src }], [], "twincat"),
     config: resolveConfig({ vendor: "twincat" }),
   })
     .filter((d) => d.code === "unknown-member")
@@ -220,9 +220,9 @@ test("member access on a LIBRARY-typed base is not flagged (signatures may be lo
   // The struct type lives under a `Library Manager/` uri → isLibrarySymbol → the member check must skip it.
   const libSrc = "TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE"
   const useSrc = `FUNCTION_BLOCK F\nVAR p : Pt; i : INT; END_VAR\ni := p.z;\nEND_FUNCTION_BLOCK`
-  const libPr = parseSource(libSrc)
-  const usePr = parseSource(useSrc)
-  const project = buildSymbolTable([
+  const libPr = parseSource(libSrc, { networkText: true })
+  const usePr = parseSource(useSrc, { networkText: true })
+  const project = build.buildSymbolTable([
     { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.struct", parseResult: libPr, source: libSrc },
     { uri: "F.fb", parseResult: usePr, source: useSrc },
   ])
@@ -256,8 +256,8 @@ test("a name that does not resolve and is CALLED is two errors", () => {
   // CODESYS has no `TIME_OF_DAY_TO_UDINT` — only `TOD_TO_UDINT` — and says both that the name is undefined and that
   // it is not something you can call (conformance `cc_conv_spelled_source_ok` and its three siblings).
   const src = `FUNCTION_BLOCK F\nVAR\nt : TOD;\nu : UDINT;\nEND_VAR\nu := TIME_OF_DAY_TO_UDINT(t);\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier" || d.code === "invalid-call-target")
     .map((d) => d.message)

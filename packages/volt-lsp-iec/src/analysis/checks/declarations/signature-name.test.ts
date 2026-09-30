@@ -4,14 +4,14 @@
  * an FB implementing it.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
 const at = (uri: string, source: string, vendor: Vendor = "codesys"): string[] => {
-  const parseResult = parseSource(source)
-  const project = buildSymbolTable([{ uri, parseResult, source }], [], vendor)
+  const parseResult = parseSource(source, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri, parseResult, source }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "signature-name-mismatch")
     .map((d) => d.message)

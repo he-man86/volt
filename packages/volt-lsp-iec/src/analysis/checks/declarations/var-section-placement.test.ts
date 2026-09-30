@@ -3,13 +3,13 @@
  * METHOD/ACTION/INTERFACE, or VAR_GLOBAL outside a GVL. Vendor-keyed wording; conformance-only before.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 
 const sections = (src: string, vendor: Vendor): string[] => {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "var-section-placement")
     .map((d) => d.message)
@@ -33,8 +33,8 @@ test("VAR_GLOBAL outside a GVL is flagged; inside a GVL it is fine", () => {
 
 test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", () => {
   const run = (src: string) => {
-    const parseResult = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "retain-not-allowed")
       .map((d) => d.message)
@@ -47,8 +47,8 @@ test("C0175: a VAR RETAIN block in a FUNCTION is flagged; in an FB it is fine", 
 
 test("C0168: a VAR_CONFIG block in a POU is flagged with its own message", () => {
   const src = `PROGRAM P\nVAR_CONFIG i : INT; END_VAR\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "codesys")
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "misplaced-var-config")
     .map((d) => d.message)

@@ -7,7 +7,7 @@
  * `tr_47_i2r_lint_to_real_double_round` (transpile-review-2026-09-29 task 47).
  */
 import { expect, test } from "bun:test"
-import { elementaryRef } from "../../types/index.js"
+import { elementaryRef } from "../../frontend/types/index.js"
 import { coerce, expt, fit } from "./values.js"
 
 const toReal = (v: bigint, from: string) => fit(coerce(v, elementaryRef("REAL"), elementaryRef(from)), elementaryRef("REAL"))

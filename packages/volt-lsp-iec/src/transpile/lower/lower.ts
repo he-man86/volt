@@ -32,22 +32,38 @@ import {
   memberAttributes,
   parseSource,
   parseActive,
+  type ParseOptions,
   type Span,
   type TopLevel,
   unitAttributes,
-} from "../../syntax/index.js"
-import { bindFile, buildSymbolTable, linkExtends, lookup, lookupMember, parseLibraryManifest, unbindFile, type LibraryManifest, type Scope, scopeForUnit, type Symbol, isLibrarySymbol } from "../../symbols/index.js"
+} from "../../frontend/syntax/index.js"
+import {
+  build,
+  isLibrarySymbol,
+  lookup,
+  lookupMember,
+  type Scope,
+  scopeForUnit,
+  type Symbol,
+} from "../../frontend/symbols/index.js"
 import { convert, stored, valueAs } from "./convert.js"
 import { foldConstant } from "./constants.js"
 import { lowerPlace } from "./places.js"
 import { buildInitSequence } from "./init-sequence.js"
-import { resolveNamedType, type Type, UNKNOWN } from "../../types/index.js"
+import { resolveNamedType, type Type, UNKNOWN } from "../../frontend/types/index.js"
 import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type IrRoutine, type IrSlot, type IrStmt, type LoweredPou, peelArray, type Place, lowerDiagnostic } from "../ir/index.js"
 import { type AttributeLookup, baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
 import { calledLayout, calledRoutine, programReentrant } from "./calls.js"
 import { finishInterfaces } from "./interfaces.js"
+import { parseLibraryManifest, type LibraryManifest } from "../../frontend/library/index.js"
+
+/** How the transpiler reads the text it is handed: the language as Volt defines it, LD/FBD bodies as network text — which
+ *  reaches the backend through network text, never through `lowerUnit`, which refuses a body that is not ST (`isStBody`).
+ *  Stated, not defaulted (frontend-conformance P5): the transpiler has no environment of its own to take it from, and it
+ *  ran with network text on in every run that measured it (the test preload). */
+const TRANSPILE_PARSE: ParseOptions = { networkText: true }
 
 /** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
 function representable(t: Type): boolean {
@@ -682,7 +698,7 @@ export interface LoweringProject {
  *  repo's (`libraries/` `withImplementations`) to run one, or its materialized declarations to have it refused. */
 export function prepareProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[]): LoweringProject {
   return {
-    project: buildSymbolTable(files, manifests),
+    project: build.buildSymbolTable(files, manifests),
     // every file's: a GVL's or a library's unit carries its own. Only the main source's were read once, so the
     // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran
     attributes: new Map<object, ReadonlySet<string>>(files.flatMap(attributesOf)),
@@ -752,7 +768,7 @@ function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[]; manife
   const manifests = files.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
   const parsed = files
     .filter((l) => !l.uri.toLowerCase().endsWith(".library"))
-    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source), source: l.source }))
+    .map((l) => ({ uri: l.uri, parseResult: l.parseResult ?? parseSource(l.source, TRANSPILE_PARSE), source: l.source }))
   const unparsed = parsed.find((f) => f.parseResult.errors.length > 0)
   return unparsed === undefined ? { files: parsed, manifests } : { unparsed }
 }
@@ -762,7 +778,7 @@ function readFiles(files: readonly LibraryFile[]): { files: ParsedFile[]; manife
  *  `base`, when given, holds the project's libraries already bound (`libraryBase`); `libraries` is then only the
  *  program's other files — its GVLs and sibling POUs, none of them in the base and no `.library` among them. */
 export function lowerSource(source: string, name?: string, libraries: readonly LibraryFile[] = [], uri = "transpile://source", base?: LibraryBase): LoweredPou {
-  const parseResult = parseSource(source)
+  const parseResult = parseSource(source, TRANSPILE_PARSE)
   if (parseResult.errors.length > 0) {
     const first = parseResult.errors[0]!
     return { diagnostics: [lowerDiagnostic("parse", first.message, first.span)] }
@@ -783,8 +799,8 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
   // the program's files bound on the base for this lowering only — and taken off again whatever happens, so the next
   // program starts from the libraries alone
   const project = base.prepared.project
-  for (const f of own) bindFile(project, f)
-  linkExtends(project, base.manifests)
+  for (const f of own) build.bindFile(project, f)
+  build.relink(project, base.manifests)
   try {
     const libraryUnits = own.filter((f) => isLibrarySymbol(f)).flatMap((f) => f.parseResult.units)
     const attributes = new Map<object, ReadonlySet<string>>(own.flatMap(attributesOf))
@@ -795,12 +811,12 @@ export function lowerSource(source: string, name?: string, libraries: readonly L
       libraryUnits: libraryUnits.length === 0 ? base.prepared.libraryUnits : new Set([...base.prepared.libraryUnits, ...libraryUnits]),
     })
   } finally {
-    for (const f of own) unbindFile(project, f.uri)
+    for (const f of own) build.unbindFile(project, f.uri)
     // Taking the files off leaves the base's order canonical and its links as they were — unless a program unit shared
     // a name something in the base EXTENDS, when that link may now point into a removed scope. Only then is it
     // relinked: the whole relink was 0.3 ms of a 1.5 ms lowering (`lowerSource` is run some 10 000 times a suite).
     const named = own.some((f) => f.parseResult.units.some((u) => "name" in u && base.extended.has(u.name.text.toLowerCase())))
-    if (named) linkExtends(project, base.manifests)
+    if (named) build.relink(project, base.manifests)
   }
 }
 

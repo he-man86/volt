@@ -12,29 +12,20 @@
  * parent interfaces. Each parent is fully qualified by name; the
  * resolver flattens the chain at symbol-table build time.
  */
-import type { Identifier, Interface, InterfaceMethod, InterfaceProperty, VarSection } from "../ast.js"
+import type { Identifier, Interface, InterfaceMethod, InterfaceProperty, VarSection } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
-import type { Keyword } from "../tokens.js"
-import {
-  closesDeclaration,
-  collectVarSections,
-  describeToken,
-  eatModifiers,
-  identFromToken,
-  joinSpans,
-  readFolderLine,
-  reportMisplacedFolder,
-} from "../util.js"
-
-/** Modifiers are allowed on an interface member, and are informational — but they are the file's text, so kept. */
-const MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT", "OVERRIDE"]
-import { atVarSection, parseVarSection } from "../var-section.js"
+import { atVarSection, collectVarSections, parseVarSection } from "../declarations.js"
+import { INTERFACE_MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
+import { joinSpans } from "../../span.js"
+import { plainTokenText } from "../errors.js"
+import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
+import { identFromToken, joinedName, readModifiers, readNameList, readQualifiedName } from "../names.js"
 
 export function parseInterface(c: Cursor): Interface | undefined {
-  const start = c.expectKeyword("INTERFACE", "at start of INTERFACE")
+  const start = c.expectKeyword("INTERFACE")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent("for INTERFACE name")
+  const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
@@ -42,13 +33,9 @@ export function parseInterface(c: Cursor): Interface | undefined {
   let extendsList: Identifier[] | undefined
   if (c.eatKeyword("EXTENDS") !== undefined) {
     extendsList = []
-    const first = parseQualifiedName(c, "after EXTENDS")
+    const first = parseQualifiedName(c)
     if (first !== undefined) extendsList.push(first)
-    while (c.eatPunct(",") !== undefined) {
-      const more = parseQualifiedName(c, "in EXTENDS list")
-      if (more === undefined) break
-      extendsList.push(more)
-    }
+    extendsList.push(...readNameList(c, () => parseQualifiedName(c)))
   }
 
   // IMPLEMENTS on an interface is illegal — interfaces inherit via EXTENDS. Capture the misused list so a
@@ -56,13 +43,9 @@ export function parseInterface(c: Cursor): Interface | undefined {
   let implementsMisused: Identifier[] | undefined
   if (c.eatKeyword("IMPLEMENTS") !== undefined) {
     implementsMisused = []
-    const first = parseQualifiedName(c, "after IMPLEMENTS")
+    const first = parseQualifiedName(c)
     if (first !== undefined) implementsMisused.push(first)
-    while (c.eatPunct(",") !== undefined) {
-      const more = parseQualifiedName(c, "in IMPLEMENTS list")
-      if (more === undefined) break
-      implementsMisused.push(more)
-    }
+    implementsMisused.push(...readNameList(c, () => parseQualifiedName(c)))
   }
 
   const methods: InterfaceMethod[] = []
@@ -114,7 +97,7 @@ export function parseInterface(c: Cursor): Interface | undefined {
       continue
     }
     // Unknown — record and skip
-    c.pushError(`unexpected ${describeToken(next)} inside INTERFACE`, next.span)
+    c.pushError(`unexpected ${plainTokenText(next)} inside INTERFACE`, next.span)
     if (!c.recoverTo({ keywords: ["END_INTERFACE", "METHOD", "PROPERTY"] })) break
   }
 
@@ -131,23 +114,16 @@ export function parseInterface(c: Cursor): Interface | undefined {
 }
 
 /** Read a possibly-qualified name (`Foo` or `__SYSTEM.IQueryInterface`) as a single dotted Identifier. */
-function parseQualifiedName(c: Cursor, ctx: string): Identifier | undefined {
-  const head = c.expectIdent(ctx)
-  if (head === undefined) return undefined
-  let id = identFromToken(head)
-  while (c.peek().kind === "punct" && c.peek().text === "." && c.peek(1).kind === "identifier") {
-    c.consume() // .
-    const part = identFromToken(c.consume())
-    id = { kind: "identifier", text: `${id.text}.${part.text}`, span: joinSpans(id.span, part.span) }
-  }
-  return id
+function parseQualifiedName(c: Cursor): Identifier | undefined {
+  const head = c.expectIdent()
+  return head === undefined ? undefined : joinedName(readQualifiedName(c, head, "leave"))
 }
 
 function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
-  const start = c.expectKeyword("METHOD", "at start of interface method")
+  const start = c.expectKeyword("METHOD")
   if (start === undefined) return undefined
-  const modifiers = eatModifiers(c, MODIFIERS)
-  const nameTok = c.expectName("for interface method name")
+  const modifiers = readModifiers(c, INTERFACE_MEMBER_MODIFIERS).map((m) => m.keyword!)
+  const nameTok = c.expectName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   let returnType: InterfaceMethod["returnType"]
@@ -183,14 +159,14 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 }
 
 function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
-  const start = c.expectKeyword("PROPERTY", "at start of interface property")
+  const start = c.expectKeyword("PROPERTY")
   if (start === undefined) return undefined
   // Modifiers are allowed but informational on interfaces (e.g. `PROPERTY PUBLIC Foo : T`).
-  const modifiers = eatModifiers(c, MODIFIERS)
-  const nameTok = c.expectName("for interface property name")
+  const modifiers = readModifiers(c, INTERFACE_MEMBER_MODIFIERS).map((m) => m.keyword!)
+  const nameTok = c.expectName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
-  if (c.expectPunct(":", "after interface property name") === undefined) return undefined
+  if (c.expectPunct(":") === undefined) return undefined
   const dataType = parseTypeExpression(c)
   if (dataType === undefined) return undefined
   c.eatPunct(";") // some exports terminate the property data type with a trailing `;`

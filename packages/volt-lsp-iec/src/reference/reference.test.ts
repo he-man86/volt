@@ -1,8 +1,9 @@
 import { test, expect } from "bun:test"
 import { lookupReference, renderReferenceHover } from "./index.js"
-import { type Document, parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "../symbols/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
 import { hover } from "../services/index.js"
+import type { Document } from "../services/shared/index.js"
+import { build } from "../frontend/symbols/index.js"
 
 test("reference: elementary type entry with range DERIVED from types/elementary", () => {
   const int = lookupReference("INT")
@@ -22,9 +23,9 @@ test("reference hover markdown includes the one-liner + details", () => {
 
 test("hover falls back to the reference catalog for a built-in type", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
+  const parseResult = parseSource(src, { networkText: true })
   const doc: Document = { uri: "u", source: src, parseResult }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   // cursor on the `INT` type name (a built-in, not a user symbol)
   const h = hover(doc, project, src.indexOf(": INT") + 2)
   expect((h?.contents as { value: string }).value).toContain("elementary type")

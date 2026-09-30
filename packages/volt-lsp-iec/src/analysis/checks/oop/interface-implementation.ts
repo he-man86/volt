@@ -12,8 +12,8 @@
  * Only the PRESENCE check is ported; per-signature mismatch used LSP-custom wording that never matched.
  */
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { findScopeByName, lookupLocal, scopeForUnit, type Scope } from "../../../symbols/index.js"
-import type { FunctionBlock } from "../../../syntax/index.js"
+import { findScopeByName, lookupLocal, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
+import type { FunctionBlock } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 
 export function checkInterfaceImplementations(ctx: CheckContext, out: DiagnosticItem[]): void {

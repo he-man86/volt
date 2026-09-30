@@ -12,9 +12,11 @@
  *
  * Case-insensitive (PLC convention).
  */
-import type { Expr, Span, TopLevel } from "../syntax/index.js"
-import { lookupLocal, type Scope, type Symbol } from "./symbol.js"
+import { spanContains, type Expr, type Span, type TopLevel } from "../syntax/index.js"
+import type { Scope, Symbol } from "./model.js"
+import { isLibrarySymbol, lookupLocal } from "./scope.js"
 import { pickForAsker } from "./precedence.js"
+import { childIndex, spanIndex } from "./cache.js"
 
 export interface LookupResult {
   symbol: Symbol
@@ -85,18 +87,7 @@ export function hasUnresolvedBase(scope: Scope): boolean {
 /** Direct child scopes of `parent` by name (case-insensitive), via a lazy index. Multiple only on same-name
  *  collisions (rare); the index is rebuilt whenever `children` grows so a mid-build query never goes stale. */
 export function childScopesByName(parent: Scope, name: string): Scope[] {
-  if (parent._childIndex === undefined || parent._childIndexLen !== parent.children.length) {
-    const index = new Map<string, Scope[]>()
-    for (const c of parent.children) {
-      const key = c.name.toLowerCase()
-      const bucket = index.get(key)
-      if (bucket !== undefined) bucket.push(c)
-      else index.set(key, [c])
-    }
-    parent._childIndex = index
-    parent._childIndexLen = parent.children.length
-  }
-  return parent._childIndex.get(name.toLowerCase()) ?? []
+  return childIndex(parent).get(name.toLowerCase()) ?? []
 }
 
 /**
@@ -111,7 +102,7 @@ export function findChildScope(parent: Scope, name: string, askerUri?: string): 
   const candidates = childScopesByName(parent, name)
   if (candidates.length <= 1) return candidates[0]
   // Ranks are defined against the PROJECT's manifest map; `parent` is the project for every ambiguous case
-  // (its children are the top-level units), and a nested parent simply has no `_libVisible` to consult.
+  // (its children are the top-level units), and a nested parent simply has no library visibility to consult.
   return pickForAsker(parent, candidates, (c) => c.defUri, askerUri)
 }
 
@@ -134,29 +125,15 @@ export function findScopeByName(project: Scope, name: string): Scope | undefined
  * object, shared at ingest by `makeScope`), which disambiguates same-named methods across FBs. Falls
  * back to a name walk for scopes built independently of the parsed unit (some tests).
  */
+// Called by ~13 checks × every file: a per-call DFS over the project tree (thousands of scopes) made the whole
+// diagnostic pass O(files × project) — quadratic. `cache.ts` indexes span→scope ONCE per project generation, and
+// `bindFile`/`unbindFile` invalidate it on every incremental rebind — without that a stale index misses the rebound
+// file's fresh spans and name-walks into a same-named sibling POU's scope (the cross-unit contamination on `didOpen`).
 export function scopeForUnit(project: Scope, unit: TopLevel): Scope | undefined {
   const bySpan = spanIndex(project).get(unit.span)
   if (bySpan !== undefined) return bySpan
   const name = "name" in unit ? unit.name.text : undefined
   return name !== undefined ? findScopeByName(project, name) : undefined
-}
-
-// Called by ~13 checks × every file: a per-call DFS over the project tree (thousands of scopes) made the
-// whole diagnostic pass O(files × project) — quadratic. Index span→scope ONCE per project (cached on the root
-// scope's `_spanIndex`, like `_childIndex`) so `scopeForUnit` is O(1). `bindFile`/`unbindFile` NULL it on every
-// incremental rebind — without that a stale index misses the rebound file's fresh spans and name-walks into a
-// same-named sibling POU's scope (the cross-unit contamination that surfaces on `didOpen`).
-function spanIndex(project: Scope): Map<Span, Scope> {
-  if (project._spanIndex !== undefined) return project._spanIndex
-  const index = new Map<Span, Scope>()
-  const visit = (scope: Scope): void => {
-    for (const child of scope.children) {
-      if (child.span !== undefined) index.set(child.span, child)
-      visit(child)
-    }
-  }
-  visit(project)
-  return (project._spanIndex = index)
 }
 
 /**
@@ -170,5 +147,75 @@ export function resolveBareEnumMember(project: Scope, name: string): Symbol | un
     const syms = child.symbols.get(target)
     if (syms !== undefined && syms.length > 0) return syms[0]
   }
+  return undefined
+}
+
+/** The POU scope `scope` sits in (itself when it is one), walking outward — undefined outside any POU. */
+export function enclosingPou(scope: Scope): Scope | undefined {
+  let s: Scope | undefined = scope
+  while (s !== undefined) {
+    if (s.kind === "pou") return s
+    s = s.parent
+  }
+  return undefined
+}
+
+/** The project root `scope` hangs off. */
+export const rootOf = (scope: Scope): Scope => (scope.parent === undefined ? scope : rootOf(scope.parent))
+
+/**
+ * `List.Const` / `Program.Const` — the variable a qualified name reaches through its global variable list or its
+ * PROGRAM, or undefined. A library's are not reached: its declarations may be partial (the constant folder reads its
+ * value, `const/fold`).
+ */
+export function resolveQualifiedConst(expr: Extract<Expr, { kind: "member" }>, scope: Scope): Symbol | undefined {
+  if (expr.base.kind !== "ident_expr") return undefined
+  const project = rootOf(scope)
+  const base = lookup(scope, expr.base.name)?.symbol
+  if (base === undefined || isLibrarySymbol(base)) return undefined
+  const programScope = base.kind === "program" ? findChildScope(project, base.name) : undefined
+  const target =
+    base.kind === "gvl_block" ? resolveGvlMember(expr, scope, project) : programScope && lookupMember(programScope, expr.member.name)
+  return target === undefined || isLibrarySymbol(target) ? undefined : target
+}
+
+/**
+ * Every symbol a name at `scope` can reach, in the order a lookup meets them: `scope` and its EXTENDS bases, then —
+ * `outward` — each enclosing scope with its bases in turn. Duplicates are the caller's to drop (the first one met
+ * is the one a lookup answers with). Each base chain is cycle-guarded.
+ */
+export function* visibleNames(scope: Scope, outward: boolean): Generator<Symbol> {
+  for (let s: Scope | undefined = scope; s !== undefined; s = outward ? s.parent : undefined) {
+    const seen = new Set<Scope>()
+    for (let b: Scope | undefined = s; b !== undefined && !seen.has(b); b = b.baseScope) {
+      seen.add(b)
+      for (const list of b.symbols.values()) yield* list
+    }
+  }
+}
+
+/**
+ * The symbol whose DEFINING identifier span covers `offset` in the document `uri` — a cursor on a declaration. The
+ * offset is a position in ONE document, so only what that document declares is searched: its project-level symbols
+ * (tagged by `uri`) and its own scope subtrees (project children tagged by `defUri`). Walking the whole project tree
+ * was an O(project) tax on the go-to-definition hot path, and a document-local offset can fall inside another file's
+ * span.
+ */
+export function symbolDefinedAt(project: Scope, uri: string, offset: number): Symbol | undefined {
+  for (const syms of project.symbols.values())
+    for (const s of syms) if (s.uri === uri && spanContains(s.span, offset)) return s
+  const walk = (scope: Scope): Symbol | undefined => {
+    for (const syms of scope.symbols.values()) for (const s of syms) if (spanContains(s.span, offset)) return s
+    for (const child of scope.children) {
+      const inner = walk(child)
+      if (inner !== undefined) return inner
+    }
+    return undefined
+  }
+  for (const child of project.children)
+    if (child.defUri === uri) {
+      const found = walk(child)
+      if (found !== undefined) return found
+    }
   return undefined
 }

@@ -3,15 +3,15 @@
  * against CODESYS 3.5.21: CHAR / WCHAR / USING warn; hard keywords parse-error, real types stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { DiagnosticState } from "../../config.js"
 
 function rk(decl: string, state: DiagnosticState = "warning") {
   const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "codesys")
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "reserved-keyword": state } }) }).filter(
     (d) => d.code === "reserved-keyword",
   )
@@ -41,8 +41,8 @@ test("the C0543 warning can be turned off", () => {
 
 test("CODESYS-only — TwinCAT accepts CHAR as an identifier silently (verified live)", () => {
   const src = `PROGRAM PLC_PRG\nVAR\n  CHAR : INT;\nEND_VAR\nEND_PROGRAM`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "twincat")
+  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], "twincat")
   const d = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) }).filter(
     (x) => x.code === "reserved-keyword",
   )

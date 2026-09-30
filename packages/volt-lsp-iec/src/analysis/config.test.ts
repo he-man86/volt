@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
-import { parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "../symbols/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
+import { build } from "../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, projectDiagnosticsFrom, CONFIGURABLE_CHECKS } from "./index.js"
 import { CODESYS_CODE_MAP } from "./error-code-map.js"
 
@@ -10,8 +10,8 @@ import { CODESYS_CODE_MAP } from "./error-code-map.js"
  * an "off" code and FORCES the chosen severity on the rest.
  */
 const diag = (src: string, opts?: Parameters<typeof resolveConfig>[0]) => {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig(opts) })
 }
 

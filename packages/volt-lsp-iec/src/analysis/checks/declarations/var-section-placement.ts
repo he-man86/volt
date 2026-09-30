@@ -10,7 +10,7 @@
  * That last rule was refused once — "the compilers parse-cascade, so a single clean message would false-positive
  * against their error spray". The spray is what the LSP emits now, so the objection is spent.
  */
-import type { TopLevel, VarSection } from "../../../syntax/index.js"
+import type { TopLevel, VarSection } from "../../../frontend/syntax/index.js"
 import { reportLostUses } from "../../lost-declaration.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

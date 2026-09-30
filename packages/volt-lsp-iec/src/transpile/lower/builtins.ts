@@ -3,7 +3,7 @@
  * conversions, SIZEOF and the other system operators, and the clock (`TIME()`/`LTIME()`). A library element (`LEN`, `TON`)
  * is an ordinary call of the body the library repo (`libraries/`) supplies.
  */
-import type { Expr, Span } from "../../syntax/index.js"
+import type { Expr, Span } from "../../frontend/syntax/index.js"
 import {
   commonType,
   elementaryRef,
@@ -17,7 +17,7 @@ import {
   promoteForRuntime,
   type Type,
   UNKNOWN,
-} from "../../types/index.js"
+} from "../../frontend/types/index.js"
 import type { IrBuiltinName, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 

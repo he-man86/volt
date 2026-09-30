@@ -8,7 +8,7 @@
  */
 import type { SemanticTokens, SemanticTokensEdit } from "vscode-languageserver-protocol"
 import {
-  type Document,
+  allUnits,
   graphicalBodies,
   implementationWords,
   lex,
@@ -17,13 +17,14 @@ import {
   type TokenKind,
   type TopLevel,
   unitBodies,
-} from "../../syntax/index.js"
-import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../symbols/index.js"
-import { isKnownPrimitive } from "../../types/index.js"
+} from "../../frontend/syntax/index.js"
+import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
+import { isKnownPrimitive } from "../../frontend/types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
 import { NETWORK_TEXT_KEYWORDS } from "../../network-text/parser.js"
 import { analyzeNetworkText } from "../../network/network-analyze.js"
 import { walkValues } from "../../network-text/ast.js"
+import type { Document } from "../shared/index.js"
 
 /** The token-type legend (index = the `typeIdx` emitted). Advertised to the client in server capabilities. */
 export const SEMANTIC_TOKEN_TYPES = [
@@ -177,11 +178,8 @@ function wireOccurrences(doc: Document, project: Scope): Set<number> {
  */
 function implementationLineWords(units: readonly TopLevel[]): Set<number> {
   const at = new Set<number>()
-  const visit = (unit: TopLevel): void => {
-    if (unit.kind === "namespace") return unit.units.forEach(visit)
+  for (const unit of allUnits(units))
     for (const body of unitBodies(unit)) for (const w of implementationWords(body)) at.add(w.span.start)
-  }
-  units.forEach(visit)
   return at
 }
 

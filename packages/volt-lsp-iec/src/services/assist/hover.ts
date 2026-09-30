@@ -7,9 +7,11 @@
  */
 import type { Hover } from "vscode-languageserver-protocol"
 import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"
-import { type Document, lex, renderTypeExpr, tokenAtOffset } from "../../syntax/index.js"
-import type { Scope, Symbol, SymbolKind } from "../../symbols/index.js"
+import { lex, renderTypeExpr } from "../../frontend/syntax/index.js"
+import type { Scope, Symbol, SymbolKind } from "../../frontend/symbols/index.js"
 import { humanKind, rangeFromSpan, resolveAt } from "../shared/index.js"
+import type { Document } from "../shared/index.js"
+import { tokenAtOffset } from "../shared/index.js"
 
 export function hover(doc: Document, project: Scope, offset: number): Hover | undefined {
   const tok = tokenAtOffset(doc.source, offset)

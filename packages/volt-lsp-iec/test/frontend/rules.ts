@@ -2008,11 +2008,11 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "only a whole line is the boundary: a keyword with anything else on its line states no language",
       },
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "a keyword line inside a declaration's block comment is no boundary",
       },
     ],
@@ -2028,7 +2028,7 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
         title:
           "an UNSUPPORTED line states a body read by neither parser, on every language but ST, and its empty body is clean",
       },
@@ -2045,7 +2045,7 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line to write",
       },
     ],
@@ -2061,11 +2061,11 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "only a whole line is the boundary: a look-alike inside an ST body switches no reader",
       },
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "a keyword line inside a comment opened mid-line or nested is no boundary",
       },
     ],
@@ -2081,11 +2081,11 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/units/folder-directive.test.ts",
+        file: "src/frontend/syntax/format/folder.test.ts",
         title: "a property's folder is the last line of its declaration",
       },
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/folder.test.ts",
         title:
           "a member's %FOLDER is read where the push peels it, and nowhere else — elsewhere it is code the IDE would get",
       },
@@ -2102,7 +2102,7 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/units/folder-directive.test.ts",
+        file: "src/frontend/syntax/format/folder.test.ts",
         title: "a %FOLDER line anywhere the push does not peel it is reported, as the push refuses it",
       },
     ],
@@ -2118,7 +2118,7 @@ export const RULES: readonly Rule[] = [
     fixtures: [],
     tests: [
       {
-        file: "src/syntax/implementation-keyword.test.ts",
+        file: "src/frontend/syntax/format/retired-comments.test.ts",
         title:
           "a (* @volt-… *) comment is an older Volt's, reported naming `volt pull` wherever it stands — as the push refuses it",
       },
@@ -2134,6 +2134,14 @@ export const RULES: readonly Rule[] = [
     gap: false,
     fixtures: [],
     tests: [
+      {
+        file: "src/frontend/syntax/format/reserved-names.test.ts",
+        title: "a name spelled like the IMPLEMENTATION keyword is reported, in any case; a body's line is not",
+      },
+      {
+        file: "src/frontend/syntax/format/network-header.test.ts",
+        title: "a network opens with a fielded header, or a bare NETWORK closed by END_NETWORK",
+      },
       {
         file: "src/server/implementation-keyword-diagnostics.test.ts",
         title: "IMPLEMENTATION is reserved in every naming position: a diagnostic on the declaring line",

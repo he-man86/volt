@@ -1,12 +1,13 @@
 import { test, expect } from "bun:test"
-import { type Document, parseSource } from "../../syntax/index.js"
-import { buildSymbolTable } from "../../symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
 import { documentSymbols, foldingRanges, selectionRange, semanticTokens, SEMANTIC_TOKEN_TYPES } from "./index.js"
+import type { Document } from "../shared/index.js"
+import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src)
+  const parseResult = parseSource(src, { networkText: true })
   const doc: Document = { uri: "file:///F.fb", source: src, parseResult }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   return { doc, project }
 }
 
@@ -20,7 +21,7 @@ FOR i := 0 TO 10 DO
 END_FOR
 END_FUNCTION_BLOCK`
 
-const docOf = (src: string, uri = "file:///F.fb"): Document => ({ uri, source: src, parseResult: parseSource(src) })
+const docOf = (src: string, uri = "file:///F.fb"): Document => ({ uri, source: src, parseResult: parseSource(src, { networkText: true }) })
 const names = (syms: { name: string }[]) => syms.map((s) => s.name)
 
 test("document-symbol: an FB outlines with its VAR members as children", () => {

@@ -12,8 +12,8 @@
  *
  * CODESYS-only: TwinCAT is unmeasured and may accept either — a guess there would be a new false positive.
  */
-import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { leftoverStatement } from "../../resync.js"

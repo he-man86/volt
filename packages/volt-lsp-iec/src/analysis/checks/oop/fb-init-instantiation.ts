@@ -19,9 +19,9 @@
  * BOTH VENDORS, measured 2026-09-20 (`fb_init_argument_left_out`): TwinCAT reports it and STOPS at the name —
  * "No matching FB_init method found for instantiation of X", with no input count and no suggested syntax.
  */
-import { renderTypeExpr, varInputParams, type Method } from "../../../syntax/index.js"
-import { forEachDecl, isLibrarySymbol, lookupLocal } from "../../../symbols/index.js"
-import { resolveTypeExpr } from "../../../types/index.js"
+import { renderTypeExpr, varInputParams, type Method } from "../../../frontend/syntax/index.js"
+import { forEachDecl, isLibrarySymbol, lookupLocal } from "../../../frontend/symbols/index.js"
+import { resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

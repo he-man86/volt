@@ -6,7 +6,7 @@
  * ("The name used in the signature is not identical to the object name", measured on SP21), so a harness that
  * invents a file name accuses its own fixture of a real defect. Seventeen tests across five files did.
  */
-import type { ParseResult } from "../syntax/index.js"
+import type { ParseResult } from "../frontend/syntax/index.js"
 
 const EXT: Record<string, string> = {
   function_block: "fb",

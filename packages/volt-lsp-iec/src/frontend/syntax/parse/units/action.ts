@@ -4,14 +4,16 @@
  * Actions are the simplest unit — no return type, no modifiers, no
  * VAR sections. The body is captured opaquely up to END_ACTION.
  */
-import type { Action } from "../ast.js"
+import type { Action } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import { collectBodyUntil, identFromToken, joinSpans } from "../util.js"
+import { collectBodyUntil } from "../body.js"
+import { joinSpans } from "../../span.js"
+import { identFromToken } from "../names.js"
 
 export function parseAction(c: Cursor): Action | undefined {
-  const start = c.expectKeyword("ACTION", "at start of ACTION")
+  const start = c.expectKeyword("ACTION")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent("for ACTION name")
+  const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   const body = collectBodyUntil(c, "END_ACTION", "action", "member")

@@ -4,7 +4,7 @@
  * every prefix truncation and every single-character deletion of representative sources.
  */
 import { test, expect } from "bun:test"
-import { parseSource, parseStatements, lex } from "./index.js"
+import { parseSource, parseStatements, lex } from "../index.js"
 
 const SAMPLES = [
   `FUNCTION_BLOCK FB EXTENDS Base VAR n : INT(0..9) := 3; a : ARRAY[0..2] OF REAL; END_VAR n := n + 1; END_FUNCTION_BLOCK`,
@@ -23,7 +23,7 @@ function mutations(src: string): string[] {
 test("parseSource never throws on mutated input", () => {
   for (const sample of SAMPLES) {
     for (const m of mutations(sample)) {
-      expect(() => parseSource(m)).not.toThrow()
+      expect(() => parseSource(m, { networkText: true })).not.toThrow()
     }
   }
 })

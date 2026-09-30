@@ -20,15 +20,15 @@
  * everything with an implementation to separate. A GVL and a DUT are a declaration and nothing else; an INTERFACE
  * and its members are SIGNATURES, so there is no boundary to record and a line would invent one.
  */
-import { implementationLine, parseSource, type BodySpan, type TopLevel } from "../../../src/syntax/index.js"
+import { implementationLine, parseSource, type BodySpan, type TopLevel } from "../../../src/frontend/syntax/index.js"
 
-/** The line an ST fixture body is pushed under — `syntax/implementation-keyword`'s one spelling. */
+/** The line an ST fixture body is pushed under — `syntax/format/implementation-line`'s one spelling. */
 export const IMPLEMENTATION_ST = implementationLine("ST")
 
 /** Offsets in `source` where an `IMPLEMENTATION ST` line belongs (`lineUnder`), ascending. */
 function boundaries(source: string): number[] {
   const at: number[] = []
-  for (const unit of parseSource(source).units) push(unit, at)
+  for (const unit of parseSource(source, { networkText: true }).units) push(unit, at)
   return at.sort((a, b) => a - b)
 }
 

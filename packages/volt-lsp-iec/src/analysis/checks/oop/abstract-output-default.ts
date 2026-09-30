@@ -7,7 +7,7 @@
  * inside an ABSTRACT FB with no `ABSTRACT` keyword — is deliberately NOT flagged (needs an empty-body heuristic
  * that would risk false positives). Live /build confirmed the wording on the interface-method form.
  */
-import type { VarSection } from "../../../syntax/index.js"
+import type { VarSection } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

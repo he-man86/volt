@@ -1,16 +1,22 @@
 /**
- * render — the resolved-type renderer (Layer C, C.5): `renderType` displays a `Type`. A declared `TypeExpr` and an
- * expression print through `syntax/print` (`renderTypeExpr`, `exprText`), which read only the AST.
+ * render — the resolved-type renderer: `renderType` prints a `Type`, in the human DISPLAY form or in the form a
+ * compiler message names it (`form: "compiler"`). A declared `TypeExpr` and an expression print through `syntax/print`
+ * (`renderTypeExpr`, `exprText`), which read only the AST.
  *
- * Note: compiler-EXACT message forms (e.g. a string literal shown as `STRING(INT#4)`) are diagnostic
- * wording and live in `analysis/messages`, not here — this renderer is the general, human display form.
+ * Message forms that are not a type's name — a string literal shown as `STRING(INT#4)`, a subrange `INT (1..100)`, an
+ * array with its bounds folded where it is used — are diagnostic wording and live in `analysis/messages`.
  */
 import { dimText } from "../syntax/index.js"
 import { elementaryDisplayName } from "./elementary.js"
 import type { Type } from "./type.js"
 
-/** Render a resolved `Type` to display text. */
-export function renderType(t: Type): string {
+/**
+ * Render a resolved `Type`. The `compiler` form differs in one measured way: an enum's name is upper-cased —
+ * `DUT_LANG_cc_enum_byte` is "Cannot convert type 'DUT_LANG_CC_ENUM_BYTE' to type 'BYTE'" (conformance `cc_enum_into_*`,
+ * `cc_enum_compare_two_enums`).
+ */
+export function renderType(t: Type, options?: { form: "display" | "compiler" }): string {
+  if (options?.form === "compiler" && t.kind === "enum") return t.name.toUpperCase()
   switch (t.kind) {
     case "elementary": {
       // the compiler's spelling — TOD prints 'TIME_OF_DAY' — and a declared string capacity is part of the type it

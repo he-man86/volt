@@ -21,8 +21,8 @@
  * CODESYS-only: TwinCAT is unmeasured. The rule is structural and almost certainly shared, but "almost
  * certainly" is how a false positive gets written.
  */
-import type { Identifier, TopLevel } from "../../../syntax/index.js"
-import { scopeForUnit } from "../../../symbols/index.js"
+import type { Identifier, TopLevel } from "../../../frontend/syntax/index.js"
+import { scopeForUnit } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

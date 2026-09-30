@@ -4,7 +4,7 @@ import { CLOCK } from "./builtins.js"
 import type { IrAssign, IrIf, IrLoop } from "../ir/index.js"
 import { run } from "../interp/index.js"
 import { stored } from "./convert.js"
-import { elementaryType, elementaryTypeRef } from "../../types/index.js"
+import { elementaryType, elementaryTypeRef } from "../../frontend/types/index.js"
 
 // {attribute 'instance-path'} (user decision 2026-09-15): the path from the project tree — the device folder, the application
 // folder, then the instance hierarchy — set once at start. Without a project tree there is nothing to take it from.

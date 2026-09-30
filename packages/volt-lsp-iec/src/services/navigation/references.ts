@@ -6,11 +6,13 @@
  * A member-access chain resolves through `types/resolveMemberChain`; a bare ident through scope lookup.
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
-import { type Document, flatUnits, type IdentExpr, unitTypeNameRefs, walkAllExprs } from "../../syntax/index.js"
-import { bodies, lookup, resolveBareEnumMember, scopeForUnit, type Scope, type Symbol } from "../../symbols/index.js"
-import { resolveMemberChain } from "../../types/index.js"
+import { allUnits, type IdentExpr, walkAllExprs } from "../../frontend/syntax/index.js"
+import { unitTypeNameRefs } from "./type-refs.js"
+import { bodies, lookup, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../frontend/symbols/index.js"
+import { resolveMemberChain } from "../../frontend/types/index.js"
 import { rangeFromSpan } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
+import type { Document } from "../shared/index.js"
 
 export interface Ref {
   uri: string
@@ -39,7 +41,7 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
     }
     // Type positions — `inst : T`, `EXTENDS T`, `IMPLEMENTS T`, return/field/alias types. Bodies above never
     // see these, so without this a type rename leaves its declaration uses stale (broken project).
-    for (const unit of flatUnits(doc.parseResult.units)) {
+    for (const unit of allUnits(doc.parseResult.units)) {
       const uscope = scopeForUnit(project, unit) ?? project
       for (const ref of unitTypeNameRefs(unit)) {
         if (ref.qualified) continue // `NS.T` keys on the last segment; skip to avoid cross-namespace collisions

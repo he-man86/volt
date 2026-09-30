@@ -13,7 +13,7 @@
  */
 import { expect, test } from "bun:test"
 import path from "node:path"
-import { NETWORK_TEXT_ENABLED } from "../syntax/index.js"
+import { NETWORK_TEXT_ENABLED } from "./config.js"
 
 const PACKAGE = path.resolve(import.meta.dir, "..", "..")
 

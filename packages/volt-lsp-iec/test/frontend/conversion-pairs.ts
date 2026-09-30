@@ -10,7 +10,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { ELEMENTARY_TYPES, parseConversionName } from "../../src/types/index.js"
+import { ELEMENTARY_TYPES, parseConversionName } from "../../src/frontend/types/index.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 
 const RECORDINGS = join(import.meta.dir, "..", "conformance", "recordings")

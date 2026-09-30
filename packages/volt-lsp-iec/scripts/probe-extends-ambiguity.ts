@@ -13,10 +13,11 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join, relative } from "node:path"
-import { parseSource } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
+import { parseSource } from "../src/frontend/syntax/index.js"
+import { build, type Scope } from "../src/frontend/symbols/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { libraryOf, type Scope } from "../src/symbols/symbol.js"
+import { libraryOf } from "../src/frontend/library/index.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 if (!existsSync(CORPUS)) throw new Error(`no corpus at ${CORPUS}`)
@@ -44,10 +45,10 @@ for (const project of readdirSync(CORPUS)
   .sort()) {
   const dir = join(CORPUS, project)
   const files = walk(dir)
-  const table = buildSymbolTable(
+  const table = build.buildSymbolTable(
     files.map((file) => {
       const source = readFileSync(file, "utf8")
-      return { uri: file, source, parseResult: parseSource(source) }
+      return { uri: file, source, parseResult: parseSource(source, { networkText: NETWORK_TEXT_ENABLED }) }
     }),
   )
 

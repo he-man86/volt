@@ -24,12 +24,12 @@
  * the same order, capitalising the one word its error list capitalises. This was CODESYS-only on a note
  * written when its recording covered 280 fixtures.
  */
-import { isTrivia, lex, stmtExprs, walkExpr, walkStatements, type Span } from "../../../syntax/index.js"
-import { bodies, forEachDecl } from "../../../symbols/index.js"
+import { isTrivia, lex, stmtExprs, walkExpr, walkStatements, type Span } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import type { Vendor } from "../../config.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { CODESYS_ONLY_TYPES, elementaryType } from "../../../types/index.js"
+import { elementaryType, isDialectType } from "../../../frontend/types/index.js"
 
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
   "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",
@@ -111,7 +111,7 @@ function isRefused(text: string, vendor: Vendor): boolean {
  * CODESYS-only until the same day.
  */
 function isRefusedInBody(text: string, vendor: Vendor): boolean {
-  const reservedType = elementaryType(text) !== undefined && !(vendor === "twincat" && CODESYS_ONLY_TYPES.has(text.toUpperCase()))
+  const reservedType = elementaryType(text) !== undefined && isDialectType(text, vendor)
   return IL_OPERATOR_NAMES.has(text.toLowerCase()) || reservedType || isUnknownPrefix(text)
 }
 

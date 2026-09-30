@@ -1,8 +1,8 @@
 /**
  * Conversions as IR nodes, and how a constant is stored at a type — the one place a value changes type.
  */
-import type { Span } from "../../syntax/index.js"
-import { commonType, elementaryRef, elemOf, integerLiteralType, type Type } from "../../types/index.js"
+import type { Span } from "../../frontend/syntax/index.js"
+import { commonType, elementaryRef, elemOf, integerLiteralType, type Type } from "../../frontend/types/index.js"
 import { isBit, type IrBinOp, type IrExpr, type IrValue } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 

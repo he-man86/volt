@@ -16,9 +16,9 @@
  * Zero-FP: fires only when the reference resolves to a KNOWN project property whose `getter` is absent; a
  * library property (accessor info flattens across the wire) or any unresolved reference skips.
  */
-import { walkStatements, walkAllExprs, type Expr } from "../../../syntax/index.js"
-import { bodies, isLibrarySymbol, lookup, type Scope, type Symbol } from "../../../symbols/index.js"
-import { resolveMemberChain } from "../../../types/index.js"
+import { walkStatements, walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies, isLibrarySymbol, lookup, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
+import { resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

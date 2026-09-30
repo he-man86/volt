@@ -25,7 +25,9 @@
  * live server re-binds incrementally as files open and change, so a positional rule could hand the same
  * workspace different answers between two keystrokes.
  */
-import { libraryOf, type Scope } from "./symbol.js"
+import { libraryOf } from "../library/index.js"
+import type { Scope } from "./model.js"
+import { libVisibleOf } from "./cache.js"
 
 /** The file a scope belongs to. Only TOP-LEVEL children carry `defUri`, so a member scope asks its parents. */
 export function scopeUri(scope: Scope | undefined): string | undefined {
@@ -40,7 +42,7 @@ const folderOf = (uri: string | undefined): string | undefined =>
 /**
  * How well `candidateUri` answers a reference made from `askerUri`. Lower is better; see the ranks above.
  *
- * `project._libVisible` is the folder→visible-folders map `linkExtends` builds from the manifests. When a
+ * `libVisibleOf(project)` is the folder→visible-folders map `linkExtends` builds from the manifests. When a
  * workspace has no manifests it is absent, every library candidate lands on the last rank, and the URI
  * tiebreak decides — still deterministic, just uninformed, which is the honest outcome when nothing on disk
  * says which library a bare name belongs to.
@@ -55,7 +57,7 @@ export function libraryRank(
   if (mine === undefined) return theirs === undefined ? 0 : 2
   if (theirs === undefined) return 3
   if (theirs === mine) return 0
-  return project._libVisible?.get(mine)?.has(theirs) === true ? 1 : 3
+  return libVisibleOf(project)?.get(mine)?.has(theirs) === true ? 1 : 3
 }
 
 /**

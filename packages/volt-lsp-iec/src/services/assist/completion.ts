@@ -8,11 +8,12 @@
  * back to scope completion. Upgrade to full-chain resolution when a case needs it.
  */
 import { CompletionItemKind, type CompletionItem } from "vscode-languageserver-protocol"
-import { dialectOf, findChildScope, lookup, type Scope, type Symbol, type SymbolKind } from "../../symbols/index.js"
-import { memberScopeOf, resolveTypeExpr } from "../../types/index.js"
+import { dialectOf, findChildScope, lookup, type Scope, type Symbol, type SymbolKind, visibleNames } from "../../frontend/symbols/index.js"
+import { memberScopeOf, resolveTypeExpr } from "../../frontend/types/index.js"
 import { attributeNames, pragmaHelp } from "../../reference/index.js"
 import { humanKind, scopeAtOffset } from "../shared/index.js"
-import type { Dialect, Document } from "../../syntax/index.js"
+import type { Dialect } from "../../frontend/syntax/index.js"
+import type { Document } from "../shared/index.js"
 
 export function completion(doc: Document, project: Scope, offset: number): CompletionItem[] {
   const attrs = attributeCompletions(doc.source, offset, dialectOf(project))
@@ -78,24 +79,14 @@ function memberCompletions(base: string, scope: Scope, project: Scope): Completi
 
   const items: CompletionItem[] = []
   const seen = new Set<string>()
-  for (let s: Scope | undefined = memberScope; s !== undefined; s = s.baseScope) {
-    for (const list of s.symbols.values()) {
-      for (const m of list) if (addOnce(seen, m.name)) items.push(item(m))
-    }
-  }
+  for (const m of visibleNames(memberScope, false)) if (addOnce(seen, m.name)) items.push(item(m))
   return items
 }
 
 function scopeCompletions(scope: Scope): CompletionItem[] {
   const items: CompletionItem[] = []
   const seen = new Set<string>()
-  for (let s: Scope | undefined = scope; s !== undefined; s = s.parent) {
-    for (let b: Scope | undefined = s; b !== undefined; b = b.baseScope) {
-      for (const list of b.symbols.values()) {
-        for (const m of list) if (addOnce(seen, m.name)) items.push(item(m))
-      }
-    }
-  }
+  for (const m of visibleNames(scope, true)) if (addOnce(seen, m.name)) items.push(item(m))
   for (const kw of KEYWORDS) if (addOnce(seen, kw)) items.push({ label: kw, kind: CompletionItemKind.Keyword })
   return items
 }

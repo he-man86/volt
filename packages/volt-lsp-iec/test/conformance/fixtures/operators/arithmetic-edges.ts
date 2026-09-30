@@ -18,7 +18,7 @@
  *
  * Nothing is folded: every operand comes from a variable the body wrote in an earlier statement.
  */
-import { ELEMENTARY_TYPES } from "../../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 function edge(type: string, kind: string, decls: string, body: string, feature: string): LanguageTest {

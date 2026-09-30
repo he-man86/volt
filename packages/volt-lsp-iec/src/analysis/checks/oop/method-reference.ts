@@ -15,9 +15,9 @@
  * Zero-FP: member access only (a bare `Meth` could be the enclosing method's own return variable); fires only
  * when the reference resolves to a KNOWN project method; a library method or unresolved member skips.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies, isLibrarySymbol } from "../../../symbols/index.js"
-import { inferExprType, renderType, resolveMemberChain } from "../../../types/index.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
+import { inferExprType, renderType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

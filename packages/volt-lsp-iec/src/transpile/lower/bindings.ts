@@ -11,8 +11,8 @@
  * of its frame or the globals, not reached through another instance (a holder's or a program's, which another frame names
  * too), bound to places this frame can lend again. Anything else is refused (`call-fb-inout`).
  */
-import type { Span } from "../../syntax/index.js"
-import { elementaryRef, type Type } from "../../types/index.js"
+import type { Span } from "../../frontend/syntax/index.js"
+import { elementaryRef, type Type } from "../../frontend/types/index.js"
 import { defaultValueOf, holdsCall, type IrBinding, type IrCall, type IrDispatch, type IrInvoke, type IrRoutine, type IrSlot, peelArray, type Place } from "../ir/index.js"
 import { aliases } from "./calls.js"
 import type { Lowering } from "./lowering.js"

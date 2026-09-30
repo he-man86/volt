@@ -8,9 +8,9 @@
  * scopes are absent → skipped) and an initializer field resolves to one of its VAR_IN_OUT members. Fields
  * targeting inputs/outputs/unknown members are left alone.
  */
-import type { Initializer, Span } from "../../../syntax/index.js"
-import { forEachDecl, lookupLocal } from "../../../symbols/index.js"
-import { resolveTypeExpr } from "../../../types/index.js"
+import type { Initializer, Span } from "../../../frontend/syntax/index.js"
+import { forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
+import { resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

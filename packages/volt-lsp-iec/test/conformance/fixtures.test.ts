@@ -40,8 +40,8 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiteral, parseDocument, parseSource } from "../../src/syntax/index.js"
-import { bindFile, buildSymbolTable, linkExtends, unbindFile, type Scope } from "../../src/symbols/index.js"
+import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiteral, parseDocument, parseSource } from "../../src/frontend/syntax/index.js"
+import { build, type Scope } from "../../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
@@ -79,7 +79,7 @@ import {
   type EdgeVerdict,
 } from "./support/transpile-confidence.js"
 import { STRING_PRELUDE } from "../../src/transpile/emit/rust/prelude.js"
-import { elementaryType, elementaryTypeRef } from "../../src/types/index.js"
+import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
 import { comparable } from "./support/compare-message.js"
 import { EVIDENCE_ORDER, lspErrors, rateFixture, type Evidence } from "./support/evidence.js"
 import { expectStillDiverges } from "./support/expected-failure.js"
@@ -141,7 +141,7 @@ function runSource(c: LanguageTest): string {
  *  before it, from 0 — how CODESYS numbers them (conformance `type_dut_enum_*`). */
 function enumsOf(c: LanguageTest): Map<string, bigint> {
   const out = new Map<string, bigint>()
-  const number = (prefix: string, values: readonly { name: { text: string }; value?: import("../../src/syntax/index.js").Expr }[]) => {
+  const number = (prefix: string, values: readonly { name: { text: string }; value?: import("../../src/frontend/syntax/index.js").Expr }[]) => {
     let next = 0n
     for (const v of values) {
       // `Cold := -1` is a unary minus over a literal — reading literals only numbered it as the value before it plus one
@@ -154,7 +154,7 @@ function enumsOf(c: LanguageTest): Map<string, bigint> {
       next = value + 1n
     }
   }
-  for (const unit of parseSource(runSource(c)).units) {
+  for (const unit of parseSource(runSource(c), { networkText: true }).units) {
     if (unit.kind === "type_decl" && unit.body.kind === "enum") number(unit.name.text, unit.body.values)
     // an implicit enumeration displays under a name of the IDE's making: `Implicit_Enum__FB_LANG_implicit_enum__eState.Running`
     if ("varSections" in unit && "name" in unit && unit.name !== undefined)
@@ -1636,10 +1636,10 @@ function extFor(kind: string): string {
 // the FB in its OWN fixture (no cross-fixture leak); fixture pouNames are unique (`FB_LANG_<name>`) so FBs
 // don't collide. Only PROGRAM units are excluded (PLC_PRG is synthesized per fixture separately).
 // Each read as the object its file holds (`parseDocument`), as the workspace store reads a workspace file — a DUT's or a
-// GVL's text the way the IDE reads it (`syntax/source-object.ts`).
+// GVL's text the way the IDE reads it (`syntax/format/source-object.ts`).
 const PARSED = ALL_TESTS.map((t) => {
   const uri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
-  return { uri, source: t.source, parseResult: parseDocument(uri, t.source) }
+  return { uri, source: t.source, parseResult: parseDocument(uri, t.source, { networkText: true }) }
 })
 const CROSS_DECLS = PARSED.map((p) => ({
   uri: p.uri,
@@ -1650,6 +1650,8 @@ const CROSS_DECLS = PARSED.map((p) => ({
     // The declaration-only copy parses the SAME source, so it fails on the same names; keeping them means a fixture
     // whose declaration cannot parse stays as quiet here as it is anywhere else.
     failedDeclarations: p.parseResult.failedDeclarations,
+    tokens: p.parseResult.tokens,
+    dialect: p.parseResult.dialect,
   },
 }))
 // The recorder builds each fixture with a PLC_PRG that instantiates + uses it; usage-only diagnostics
@@ -1660,7 +1662,7 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
   // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.prg`, as a workspace has it.
   // It used to be `<fixture>__plcprg.fb`, which made every synthesized PLC_PRG look like a POU whose signature
   // disagrees with its object name (`signature-name`), and that is a real CODESYS error, not a harness detail.
-  return { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source, parseResult: parseSource(source) }
+  return { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source, parseResult: parseSource(source, { networkText: true }) }
 })
 
 /**
@@ -1677,13 +1679,13 @@ const PLC_PRGS = ALL_TESTS.map((t) => {
  * Measured 2026-09-21 — agreement 2479 -> 2496 and the false-positive list unchanged at three. A specific
  * divergence, when one is found, is a reason to materialize Tc2_Standard separately, not to go back to none.</p>
  */
-const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, vendor) }))
+const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, parseResult: parseSource(l.source, { networkText: true }, vendor) }))
 
 /**
  * THE SAME SOURCE, LEXED AS THE OTHER VENDOR — for the handful of fixtures where that can differ at all.
  *
  * `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`, `__VECTOR` and the `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` literal
- * prefixes are CODESYS's alone (`syntax/tokens.ts`, measured on both recordings). For every other source the
+ * prefixes are CODESYS's alone (`syntax/lex/vocabulary.ts`, measured on both recordings). For every other source the
  * two dialects produce identical tokens, so this re-parses only what contains one of them — exactly, by name,
  * not by a heuristic. Parsing all 2540 fixtures twice would be correct and would also double the harness's
  * setup for about thirty files.
@@ -1692,16 +1694,22 @@ const DIALECT_SENSITIVE = new RegExp(
   `(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")}|(${[...CODESYS_ONLY_LITERAL_PREFIXES].join("|")})#)`,
   "i",
 )
-const TC_PARSE = new Map<string, { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>()
+// By the document, not its uri: fixtures share a POU name, so two fixtures' files can share a uri.
+const TC_PARSE = new WeakMap<object, { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>()
 function asVendor<T extends { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>(
   doc: T,
   vendor: Vendor,
 ): T | { uri: string; source: string; parseResult: ReturnType<typeof parseSource> } {
-  if (vendor !== "twincat" || !DIALECT_SENSITIVE.test(doc.source)) return doc
-  let hit = TC_PARSE.get(doc.uri)
+  if (vendor !== "twincat") return doc
+  let hit = TC_PARSE.get(doc)
   if (hit === undefined) {
-    hit = { uri: doc.uri, source: doc.source, parseResult: parseDocument(doc.uri, doc.source, "twincat") }
-    TC_PARSE.set(doc.uri, hit)
+    // A source with none of the CODESYS-only words lexes to the same tokens in both dialects, so its CODESYS parse IS
+    // its TwinCAT parse, and says so (`ParseResult.dialect` — the analysis refuses a parse made for the other vendor).
+    const parseResult = DIALECT_SENSITIVE.test(doc.source)
+      ? parseDocument(doc.uri, doc.source, { networkText: true }, "twincat")
+      : { ...doc.parseResult, dialect: "twincat" as const }
+    hit = { uri: doc.uri, source: doc.source, parseResult }
+    TC_PARSE.set(doc, hit)
   }
   return hit
 }
@@ -1722,7 +1730,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor)
+    project = build.buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor)
     SHARED.set(vendor, project)
   }
   return project
@@ -1732,9 +1740,9 @@ function sharedProject(vendor: Vendor): Scope {
 let pending: { project: Scope; idx: number; plcUri: string | undefined } | undefined
 function restore(): void {
   if (pending === undefined) return
-  unbindFile(pending.project, PARSED[pending.idx]!.uri)
-  if (pending.plcUri !== undefined) unbindFile(pending.project, pending.plcUri)
-  bindFile(pending.project, CROSS_DECLS[pending.idx]!)
+  build.unbindFile(pending.project, PARSED[pending.idx]!.uri)
+  if (pending.plcUri !== undefined) build.unbindFile(pending.project, pending.plcUri)
+  build.bindFile(pending.project, CROSS_DECLS[pending.idx]!)
   pending = undefined
 }
 
@@ -1745,17 +1753,17 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   const plc = plc0 === undefined ? undefined : asVendor(plc0, vendor)
   const project = sharedProject(vendor)
   // swap this fixture's declaration-only copy for its real one, run, then put it back
-  // ONE `linkExtends` PER FIXTURE, not two. It walks every child in the project, so at two per fixture it is the
+  // ONE `relink` PER FIXTURE, not two. It walks every child in the project, so at two per fixture it is the
   // O(n^2) term all over again — which is what pushed this back over the 5s hang guard once the census sweeps added
   // another eight hundred fixtures. The restore does not link: the project is left bound-but-unlinked, and the NEXT
   // fixture's link fixes it before anything reads it. Nothing runs in between.
   restore()
-  unbindFile(project, own.uri)
-  bindFile(project, { uri: own.uri, parseResult: own.parseResult, source: own.source })
-  if (plc) bindFile(project, { uri: plc.uri, parseResult: plc.parseResult, source: plc.source })
+  build.unbindFile(project, own.uri)
+  build.bindFile(project, { uri: own.uri, parseResult: own.parseResult, source: own.source })
+  if (plc) build.bindFile(project, { uri: plc.uri, parseResult: plc.parseResult, source: plc.source })
   // with the MANIFESTS: re-linking without them cleared the library-visibility table the first build published, so
   // every fixture after the first resolved an ambiguous library name as if no library could see another
-  linkExtends(project, PROJECT_MANIFESTS)
+  build.relink(project, PROJECT_MANIFESTS)
   pending = { project, idx: testIdx, plcUri: plc?.uri }
 
   const config = resolveConfig({ vendor })
@@ -1875,7 +1883,7 @@ for (const { vendor, floor } of FLOORS) {
  * AN EXPLICIT BUDGET, because the default 5s is not one. This runs the whole analyzer over every fixture and the
  * cost is LINEAR in how many there are — about 3ms each, and the census sweeps took the suite from 967 fixtures
  * to 2332 in a day. It timed out twice on the way and both times it was a real quadratic term in the harness, now
- * gone: a symbol table rebuilt per fixture from every other fixture's declarations, and `linkExtends` walking
+ * gone: a symbol table rebuilt per fixture from every other fixture's declarations, and `relink` walking
  * every child twice per fixture. What is left is the work the gate exists to do.
  */
 test("the LSP emits NO error on a fixture the simulator built and executed", () => {

@@ -7,10 +7,10 @@
  * — an unresolved bare name (gibberish, or code inside a stripped `{IF defined(…)}` branch the IDE never
  * compiles) is not a "no effect" case (CODESYS reports it as undefined, or strips it), so it must not fire here.
  */
-import { walkStatements, walkExpr } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { inferExprType } from "../../../types/index.js"
-import type { Expr } from "../../../syntax/index.js"
+import { walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { inferExprType } from "../../../frontend/types/index.js"
+import type { Expr } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

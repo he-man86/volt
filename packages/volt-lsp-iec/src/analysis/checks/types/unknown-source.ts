@@ -22,9 +22,9 @@
 import { compilerExprText } from "../../expr-echo.js"
 import { isHole, reported } from "../../hole.js"
 import { dialectMissingType } from "../../resolution.js"
-import { renderTypeExpr, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../syntax/index.js"
-import { bodies, forEachDecl, lookup } from "../../../symbols/index.js"
-import { inferExprType, renderType } from "../../../types/index.js"
+import { renderTypeExpr, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
+import { inferExprType, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

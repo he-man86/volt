@@ -16,7 +16,7 @@
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
  * `scripts/parser-completeness.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
-import { isStBody, parseStatements, unitBodies, type ParseError } from "../../../syntax/index.js"
+import { isStBody, parseStatements, unitBodies, type ParseError } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import type { Vendor } from "../../config.js"

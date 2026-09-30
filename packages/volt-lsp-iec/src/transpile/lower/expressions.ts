@@ -1,7 +1,7 @@
 /**
  * Expressions → IR: operators with their promotion rules, calendar arithmetic, and the dispatch to calls and places.
  */
-import { type Expr, isSelfRef, type Span } from "../../syntax/index.js"
+import { type Expr, isSelfRef, type Span } from "../../frontend/syntax/index.js"
 import {
   checkedNegationType,
   commonType,
@@ -15,7 +15,7 @@ import {
   temporalResultType,
   type Type,
   UNKNOWN,
-} from "../../types/index.js"
+} from "../../frontend/types/index.js"
 import type { IrBinOp, IrExpr } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { beside, convert, integerFoldType, retype } from "./convert.js"

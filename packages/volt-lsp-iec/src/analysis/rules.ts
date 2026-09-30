@@ -4,27 +4,11 @@
  * wording. The rules lived inside check files, so the network layer imported three check files through the analysis
  * index (consolidate-lsp-structure C3).
  */
-import { decodeStringLiteral, type BinaryExpr, type Expr, type Span } from "../syntax/index.js"
-import type { Scope } from "../symbols/index.js"
-import {
-  classifyConversion,
-  elementaryType,
-  elementaryTypeRef,
-  elemOf,
-  inferExprType,
-  inTypeGroup,
-  isAssignable,
-  isIntegerType,
-  isNumericType,
-  literalCheckType,
-  literalErrorType,
-  narrowDateWideDuration,
-  parseConversionName,
-  UNKNOWN,
-  type Type,
-} from "../types/index.js"
+import { decodeStringLiteral, type BinaryExpr, type Expr, type Span } from "../frontend/syntax/index.js"
+import type { Scope } from "../frontend/symbols/index.js"
+import { ARITHMETIC_OPERATORS, classifyConversion, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN } from "../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
-import { compilerStringLiteralText, compilerTypeName, type Messages } from "./messages.js"
+import { compilerStringLiteralText, type Messages } from "./messages.js"
 
 // ─── checkable types ─────────────────────────────────────────────────────────
 
@@ -51,12 +35,12 @@ export function checkableType(expr: Expr, scope: Scope, project: Scope): Type | 
  */
 export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages): DiagnosticItem | undefined {
   const kind = classifyConversion(lhs, rhs)
-  if (kind === "narrow") return conversionWarn(at, "narrowing-conversion", messages.narrowing(compilerTypeName(rhs), compilerTypeName(lhs)))
+  if (kind === "narrow") return conversionWarn(at, "narrowing-conversion", messages.narrowing(renderType(rhs, { form: "compiler" }), renderType(lhs, { form: "compiler" })))
   if (kind === "sign-change")
     return conversionWarn(
       at,
       "sign-change-conversion",
-      messages.signChange(signOf(rhs), compilerTypeName(rhs), signOf(lhs), compilerTypeName(lhs)),
+      messages.signChange(signOf(rhs), renderType(rhs, { form: "compiler" }), signOf(lhs), renderType(lhs, { form: "compiler" })),
     )
   return undefined
 }
@@ -110,7 +94,7 @@ export function storeConversionError(
     span,
     source: SOURCE,
     code: "assignment-type-mismatch",
-    message: messages.cannotConvert(display, compilerTypeName(lhs)),
+    message: messages.cannotConvert(display, renderType(lhs, { form: "compiler" })),
   }
 }
 
@@ -126,7 +110,7 @@ function rhsDisplay(value: Expr, rhs: Type): string | undefined {
     const decoded = decodeStringLiteral(value.value as string, wide)
     return decoded === undefined ? undefined : compilerStringLiteralText(decoded.length, wide)
   }
-  return compilerTypeName(rhs)
+  return renderType(rhs, { form: "compiler" })
 }
 
 /**
@@ -165,7 +149,6 @@ export function conversionArgError(x: Expr, scope: Scope, project: Scope, messag
 
 // ─── binary operators ────────────────────────────────────────────────────────
 
-const ARITH_OPS = new Set(["+", "-", "*", "/"])
 
 /**
  * The binary-operator-type-mismatch diagnostic for one binary node, or undefined — the ST body check and the network-text
@@ -173,41 +156,16 @@ const ARITH_OPS = new Set(["+", "-", "*", "/"])
  * arithmetic mixing `BOOL` or a string with a numeric.
  */
 export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
-  if (!ARITH_OPS.has(e.op) && e.op !== "MOD") return undefined
+  if (!ARITHMETIC_OPERATORS.has(e.op)) return undefined
   const a = elemName(e.left, scope, project)
   const b = elemName(e.right, scope, project)
   if (a === undefined || b === undefined) return undefined
-  // A BOOL OPERAND IS THE SAME ANSWER FOR ALL FIVE OPERATORS, MOD INCLUDED. Both vendors take `aBool MOD anInt`
-  // as arithmetic — the meet is SINT and the complaint is the conversion, "Cannot convert type 'BOOL' to type
-  // 'INT'" — where the LSP said "MOD is not defined for BOOL", a rule neither compiler has
-  // (`meet_bool_{plus,minus,times,div,mod}_int`, identical on both recordings 2026-09-20). This lives ABOVE the
-  // MOD branch because BOOL is not an integer type and would otherwise be caught by it first.
-  if (a === "BOOL" || b === "BOOL") return binaryDiag(e, messages.cannotConvert("BOOL", a === "BOOL" ? b : a))
-  // A 32-bit date ± an LTIME, either order, is ULINT arithmetic CODESYS refuses (`tr_40_*`).
-  if ((e.op === "+" || e.op === "-") && narrowDateWideDuration(a, b)) return binaryDiag(e, messages.cannotConvert("LTIME", "ULINT"))
-  if (e.op === "MOD") {
-    if (isIntegerType(a) && isIntegerType(b)) return undefined
-    // THE VENDOR ALWAYS NAMES `REAL`, never `LREAL`. Measured across the whole meet grid (`operators/mixed-type.ts`,
-    // 2026-09-19): every floating operand, either side and either width, is "MOD is not defined for REAL". We named
-    // the operand's own type, which reads more precise and is not what the compiler says — and parity is the goal,
-    // so the more informative message is the wrong one. Non-floating operands keep their own name.
-    const offending = !isIntegerType(a) ? a : b
-    return binaryDiag(e, messages.modNotDefined(offending === "LREAL" ? "REAL" : offending))
-  }
-  // arithmetic
-  if (isNumericType(a) && isNumericType(b)) return undefined
-  // A string operand (gap 11, conformance `cc_string_*`): on the LEFT it must become a number — "Cannot convert type
-  // 'STRING' to type 'ANY_NUM'", for + - * / and for WSTRING alike; on the RIGHT of a number it must become THAT
-  // number's type — `i + str` is "Cannot convert type 'STRING' to type 'INT'". One message either way.
-  if (isStringType(a)) return binaryDiag(e, messages.cannotConvert(a, "ANY_NUM"))
-  if (isStringType(b) && isNumericType(a)) return binaryDiag(e, messages.cannotConvert(b, a))
-  return undefined
-}
-
-/** A string type by name — the table's ANY_STRING group, not a second list of string type names. */
-function isStringType(name: string): boolean {
-  const facts = elementaryType(name)
-  return facts !== undefined && inTypeGroup("ANY_STRING", facts)
+  // The rule is the type layer's (`operandFamilyRule`): a BOOL operand converts, MOD is integer-only and names
+  // `REAL` for every floating operand (parity with the compiler's wording, not the more precise operand name), a
+  // string converts to ANY_NUM or to the number beside it.
+  const rule = operandFamilyRule(e.op, a, b)
+  if (rule === undefined) return undefined
+  return binaryDiag(e, rule.kind === "convert" ? messages.cannotConvert(rule.from, rule.to) : messages.modNotDefined(rule.type))
 }
 
 function binaryDiag(e: BinaryExpr, message: string): DiagnosticItem {

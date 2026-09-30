@@ -6,8 +6,8 @@
  * target/value slot fires. `MyEnum.RED` is a member (not a bare ident) and `SIZEOF(MyEnum)` is a call argument,
  * so both are naturally excluded. FB/interface type names have their own codes (C0080/C0199).
  */
-import { walkStatements, type Expr } from "../../../syntax/index.js"
-import { bodies, lookup, type Scope } from "../../../symbols/index.js"
+import { walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

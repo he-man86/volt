@@ -13,10 +13,10 @@
  * then has no type, which the declaration's destination cannot take (conformance `cc3_unexpected_struct_init`:
  * `otherWay : INT := (x := 1, y := 2)` is six errors, of which the LSP had one).
  */
-import { exprText, renderTypeExpr, type AggregateElement, type Initializer } from "../../../syntax/index.js"
-import { resolveTypeExpr } from "../../../types/index.js"
+import { exprText, renderTypeExpr, type AggregateElement, type Initializer } from "../../../frontend/syntax/index.js"
+import { resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl, lookup, type Scope } from "../../../symbols/index.js"
+import { forEachDecl, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void {

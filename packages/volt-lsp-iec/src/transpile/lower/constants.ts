@@ -1,8 +1,8 @@
 /**
  * Literals, enum values and folded constants — every value lowering knows before the program runs.
  */
-import { decodeStringLiteral, type Expr, type TypeDecl } from "../../syntax/index.js"
-import { findChildScope, lookup, lookupMember, resolveBareEnumMember } from "../../symbols/index.js"
+import { calendarNanoseconds, decodeStringLiteral, type Expr, type TypeDecl } from "../../frontend/syntax/index.js"
+import { findChildScope, lookup, lookupMember, resolveBareEnumMember } from "../../frontend/symbols/index.js"
 import {
   constEval,
   elementaryRef,
@@ -14,7 +14,7 @@ import {
   REAL_LITERAL_TYPE,
   type Type,
   UNKNOWN,
-} from "../../types/index.js"
+} from "../../frontend/types/index.js"
 import type { IrExpr, IrValue } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 import { stored } from "./convert.js"
@@ -32,57 +32,10 @@ export function enumStorage(lw: Lowering, t: Extract<Type, { kind: "enum" }>): T
   return elementaryRef("INT")
 }
 
-/**
- * WHERE AN UNINITIALIZED VARIABLE OF AN ENUM STARTS — measured on CODESYS 3.5.21.40, 2026-09-18.
- *
- * **Zero if zero is one of the values; otherwise the FIRST enumerator.** Neither half was guessable:
- *
- *   (Forward := 1, Reverse := 2)              -> 1   `type_enum_default_first_nonzero`
- *   (Reverse := -1, Neutral := 0, Forward := 1) -> 0   `type_enum_default_first_negative`   (Neutral, NOT first)
- *   (High := 10, None := 0)                   -> 0   `type_enum_default_gap_then_zero`     (None, NOT first)
- *   (Idle, Busy)                              -> 0   `type_enum_default_first_implicit_zero`
- *
- * So the storage is zero-initialised like everything else, and the vendor only moves off zero when zero would not be
- * a value of the type at all. This was refused while unmeasured — rightly: lowering used to start EVERY enum at 0,
- * which for the middle two is correct and for the first is a value the type does not have. 446 corpus enum types
- * declare a non-zero first enumerator, 21 of them in project source.
- */
-export function enumDefault(lw: Lowering, t: Type): bigint | undefined {
-  if (t.kind !== "enum" || t.name === "(implicit)") return undefined
-  const sym = lookup(lw.project, t.name)?.symbol
-  const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
-  return body?.kind === "enum" ? defaultOfValues(lw, body.values, body.init) : undefined
-}
-
-/**
- * The same rule for an INLINE enum — `e : (Forward := 1, Reverse := 2)` — whose values live on the DECLARATION and
- * never reach a named type, so `enumDefault` cannot see them. Measured the same way
- * (`type_enum_inline_default_first_nonzero`, recorded 1).
- */
-export function inlineEnumDefault(lw: Lowering, type: { kind: string; values?: readonly { name: { text: string }; value?: Expr }[] }): bigint | undefined {
-  return type.kind === "implicit_enum_type" && type.values !== undefined ? defaultOfValues(lw, type.values, undefined) : undefined
-}
-
-/** Zero when zero is one of the values, else the FIRST — or the member a type-level `:= Name` default names. */
-function defaultOfValues(lw: Lowering, values: readonly { name: { text: string }; value?: Expr }[], init: { kind: string; name?: string } | undefined): bigint | undefined {
-  let next = 0n
-  let first: bigint | undefined
-  let hasZero = false
-  const byName = new Map<string, bigint>()
-  for (const v of values) {
-    const written = v.value === undefined ? undefined : enumValueOf(lw, v.value, 0)
-    if (v.value !== undefined && typeof written !== "bigint") return undefined // a value that does not fold
-    const value = typeof written === "bigint" ? written : next
-    if (first === undefined) first = value
-    if (value === 0n) hasZero = true
-    byName.set(v.name.text.toUpperCase(), value)
-    next = value + 1n
-  }
-  // A TYPE-LEVEL default names one of its own members: `TYPE E : (Idle, Busy) := Busy` starts every E at Busy
-  // (`type_enum_type_level_default`, recorded 1). Read from the value list rather than resolved as an expression —
-  // the name is a member of THIS enum, and a bare one does not resolve in the declaring scope.
-  if (init !== undefined) return init.kind === "ident_expr" && init.name !== undefined ? byName.get(init.name.toUpperCase()) : undefined
-  return hasZero ? 0n : first
+/** How lowering folds an enumerator's written value — the evaluator `types/enums.ts` numbers the enumerators with. */
+export const enumeratorValue = (lw: Lowering) => (e: Expr): bigint | undefined => {
+  const v = enumValueOf(lw, e, 0)
+  return typeof v === "bigint" ? v : undefined
 }
 
 /**
@@ -288,28 +241,6 @@ export function typedRealOf(e: Extract<Expr, { kind: "literal" }>): { value: num
 export function inTicks(ns: bigint, type: Type): { value: bigint; type: Type } | undefined {
   const tick = elemOf(type)?.tickNs
   return tick === undefined ? undefined : { value: ns / tick, type }
-}
-
-/** Nanoseconds since the epoch (DATE/DT) or since midnight (TOD) for a literal's text, or undefined when malformed. */
-export function calendarNanoseconds(kind: "date" | "datetime" | "tod", text: string): bigint | undefined {
-  const clock = (h: string, m: string, s: string, frac = ""): bigint =>
-    ((BigInt(h) * 60n + BigInt(m)) * 60n + BigInt(s)) * 1_000_000_000n + BigInt(frac.padEnd(9, "0").slice(0, 9) || "0")
-  if (kind === "tod") {
-    const t = /^(\d+):(\d+):(\d+)(?:\.(\d+))?$/.exec(text)
-    return t === null ? undefined : clock(t[1]!, t[2]!, t[3]!, t[4])
-  }
-  const d = /^(\d+)-(\d+)-(\d+)(?:-(\d+):(\d+):(\d+)(?:\.(\d+))?)?$/.exec(text)
-  if (d === null) return undefined
-  // `Date.UTC` answers NaN past its own range (about year 275760), and `BigInt(NaN)` THROWS — which broke the
-  // totality contract that everything downstream rests on: `D#300000-01-01` came out of `lowerSource` as a bare
-  // `RangeError: Not an integer`, with no diagnostic and no position. Answering `undefined` is all that is
-  // needed, because this function already returns it for a malformed literal and the caller already reports
-  // that — the machinery was there, the NaN just walked past it.
-  const utc = Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3]))
-  if (!Number.isFinite(utc)) return undefined
-  const days = BigInt(utc / 86_400_000)
-  const midnight = days * 86_400n * 1_000_000_000n
-  return kind === "date" || d[4] === undefined ? midnight : midnight + clock(d[4], d[5]!, d[6]!, d[7])
 }
 
 /** An untyped literal's type: the context's, or the narrowest that holds the value (its OWN type is `types/literalType`). */

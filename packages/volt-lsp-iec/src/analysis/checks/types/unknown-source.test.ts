@@ -3,8 +3,8 @@
  * (conformance `cc_unknown_member`, `deref_on_array_type`, `cc3_multiple_inheritance`, `fbcall_this_in_program`).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
@@ -13,8 +13,8 @@ import type { Vendor } from "../../config.js"
 // WORDING. Passing it to `resolveConfig` alone got the wording right and left the other two on CODESYS, which
 // is a harness that cannot fail for the shapes this file is about.
 function msgs(src: string, vendor: Vendor = "codesys"): string[] {
-  const parseResult = parseSource(src, vendor)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unknown-source")
     .map((d) => d.message)

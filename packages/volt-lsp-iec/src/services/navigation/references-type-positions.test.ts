@@ -4,9 +4,10 @@
  * otherwise renaming the type silently leaves those uses stale, producing a broken project.
  */
 import { test, expect } from "bun:test"
-import { type Document, parseSource } from "../../syntax/index.js"
-import { buildSymbolTable } from "../../symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
 import { references, rename } from "./index.js"
+import type { Document } from "../shared/index.js"
+import { build } from "../../frontend/symbols/index.js"
 
 const SRC = `FUNCTION_BLOCK FB_Base
 END_FUNCTION_BLOCK
@@ -27,9 +28,9 @@ a();
 END_PROGRAM`
 
 const setup = () => {
-  const parseResult = parseSource(SRC)
+  const parseResult = parseSource(SRC, { networkText: true })
   const doc: Document = { uri: "file:///F.fb", source: SRC, parseResult }
-  return { doc, project: buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
+  return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
 }
 const at = (needle: string, n = 1) => {
   let i = -1
@@ -52,7 +53,7 @@ test("rename of a type rewrites its type-position uses (no stale `: FB_Base` lef
   // Apply the edits and confirm no "FB_Base" survives and the code still parses.
   const applied = applyEdits(SRC, edits)
   expect(applied).not.toContain("FB_Base")
-  expect(parseSource(applied).errors).toHaveLength(0)
+  expect(parseSource(applied, { networkText: true }).errors).toHaveLength(0)
 })
 
 test("a same-named local variable is NOT swept up by a type rename (identity, not text)", () => {
@@ -64,9 +65,9 @@ VAR
 END_VAR
 T := T + 1;
 END_PROGRAM`
-  const parseResult = parseSource(src)
+  const parseResult = parseSource(src, { networkText: true })
   const doc: Document = { uri: "file:///G.fb", source: src, parseResult }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   // Rename the local var `T : INT` — must touch only the var (decl + 2 body uses = 3), never the FB type `T`.
   const varDecl = src.indexOf("T : INT")
   const edit = rename([doc], project, doc, varDecl, "n")

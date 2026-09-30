@@ -8,8 +8,8 @@
  * to sibling members, and anything that doesn't fold to a real (undefined) are skipped. A real literal is
  * LREAL by CODESYS default, which is the reported source type.
  */
-import { scopeForUnit } from "../../../symbols/index.js"
-import { constEval, REAL_LITERAL_TYPE } from "../../../types/index.js"
+import { scopeForUnit } from "../../../frontend/symbols/index.js"
+import { constEval, REAL_LITERAL_TYPE } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

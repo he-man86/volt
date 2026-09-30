@@ -12,8 +12,8 @@
  * unknown/pointer/qualified types don't), so a graph edge means real value nesting — the corpus (which
  * compiles clean) has no cycles and never fires.
  */
-import type { Identifier, TopLevel, TypeExpr } from "../../../syntax/index.js"
-import { memoByProject, type Scope } from "../../../symbols/index.js"
+import type { Identifier, TopLevel, TypeExpr } from "../../../frontend/syntax/index.js"
+import { memoByProject, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

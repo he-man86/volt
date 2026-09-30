@@ -10,41 +10,35 @@
  * stopper it returns WITHOUT consuming so the outer property loop
  * can dispatch on the next keyword.
  */
-import type { BodySpan, Property } from "../ast.js"
+import type { BodySpan, Property } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import type { Keyword } from "../tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
-import {
-  closesDeclaration,
-  codeBody,
-  collectVarSections,
-  describeToken,
-  eatModifiers,
-  identFromToken,
-  joinSpans,
-  readFolderLine,
-  reportMisplacedFolder,
-} from "../util.js"
+import { PROPERTY_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
+import { joinSpans } from "../../span.js"
+import { plainTokenText } from "../errors.js"
+import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
+import { collectVarSections } from "../declarations.js"
+import { identFromToken, readModifiers } from "../names.js"
+import { collectAccessorBody } from "../body.js"
 
 /** What may stand before a property's name, and before an accessor's VAR sections (`SET PRIVATE …`). */
-const MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL"]
 
 export function parseProperty(c: Cursor): Property | undefined {
-  const start = c.expectKeyword("PROPERTY", "at start of PROPERTY")
+  const start = c.expectKeyword("PROPERTY")
   if (start === undefined) return undefined
 
   // Modifiers before the name, in any order: an access level plus optional ABSTRACT/FINAL
   // (e.g. `PROPERTY PUBLIC ABSTRACT Busy`). Keep the access level; ABSTRACT/FINAL are eaten but unused.
   let accessModifier: Keyword | undefined
-  const modifiers = eatModifiers(c, MODIFIERS)
+  const modifiers = readModifiers(c, PROPERTY_MODIFIERS).map((m) => m.keyword!)
   for (const m of modifiers)
     if (m === "PUBLIC" || m === "PRIVATE" || m === "PROTECTED" || m === "INTERNAL") accessModifier = m
 
-  const nameTok = c.expectName("for PROPERTY name")
+  const nameTok = c.expectName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
-  const colon = c.expectPunct(":", "after PROPERTY name")
+  const colon = c.expectPunct(":")
   if (colon === undefined) return undefined
   const dataType = parseTypeExpression(c)
   if (dataType === undefined) return undefined
@@ -91,7 +85,7 @@ export function parseProperty(c: Cursor): Property | undefined {
     }
     // Unknown content inside PROPERTY — record and skip to next anchor
     const stray = c.peek()
-    c.pushError(`unexpected ${describeToken(stray)} inside PROPERTY body`, stray.span)
+    c.pushError(`unexpected ${plainTokenText(stray)} inside PROPERTY body`, stray.span)
     if (!c.recoverTo({ keywords: ["END_PROPERTY", "GET", "SET"] })) break
   }
 
@@ -115,7 +109,7 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   const kind: "get" | "set" = kw.keyword === "GET" ? "get" : "set"
   // An accessor may carry its own access level + ABSTRACT/FINAL (`SET PRIVATE …`) before its
   // VAR sections — kept, so they don't leak into the accessor body and the formatter prints them back.
-  const modifiers = eatModifiers(c, MODIFIERS)
+  const modifiers = readModifiers(c, PROPERTY_MODIFIERS).map((m) => m.keyword!)
   const varSections = collectVarSections(c)
   const endAccessor: Keyword = kind === "get" ? "END_GET" : "END_SET"
 
@@ -138,21 +132,4 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
     body,
     span: joinSpans(kw.span, body.span),
   }
-}
-
-function collectAccessorBody(c: Cursor, endAccessor: Keyword): BodySpan {
-  const startSpan = c.peek().span
-  const { tokens, closer, stoppedAt } = c.consumeBodyUntilAny({
-    consumeEnders: [endAccessor],
-    peekStoppers: ["GET", "SET", "END_PROPERTY"],
-  })
-  if (closer !== undefined) {
-    return codeBody(c, tokens, joinSpans(startSpan, closer.span), "pou-or-accessor")
-  }
-  if (stoppedAt !== undefined) {
-    // Sloppy close — stop without consuming; outer recover handles.
-    return codeBody(c, tokens, startSpan, "pou-or-accessor")
-  }
-  c.pushError(`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`, startSpan)
-  return codeBody(c, tokens, startSpan, "pou-or-accessor")
 }

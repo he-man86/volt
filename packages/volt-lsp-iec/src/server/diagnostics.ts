@@ -20,26 +20,22 @@ import { computeNetworkTextDiagnostics } from "../network/index.js"
 import { codesysCodeFor } from "../analysis/error-code-map.js"
 import {
   isLibrarySymbol,
-  MATERIALIZATION,
-  MATERIALIZATION_FORMATS,
-  materializationMismatch,
-  newerLibraryManifests,
-  staleLibraryManifests,
-  type LibraryManifest,
-} from "../symbols/index.js"
+} from "../frontend/symbols/index.js"
 import { pathToFileURL } from "node:url"
 import { rangeFromSpan } from "../services/index.js"
 import {
-  type BodySpan,
-  type Document,
-  IMPLEMENTATION_KEYWORD,
   isRetiredComment,
+  allUnits,
+  type BodySpan,
+  IMPLEMENTATION_KEYWORD,
   isTrivia,
   type Span,
   type TopLevel,
   unitBodies,
-} from "../syntax/index.js"
+} from "../frontend/syntax/index.js"
 import type { WorkspaceStore } from "./workspace-store.js"
+import type { Document } from "../services/shared/index.js"
+import { MATERIALIZATION, MATERIALIZATION_FORMATS, materializationMismatch, newerLibraryManifests, staleLibraryManifests, type LibraryManifest } from "../frontend/library/index.js"
 
 const SEVERITY: Record<DiagnosticItem["severity"], DiagnosticSeverity> = {
   error: DiagnosticSeverity.Error,
@@ -132,17 +128,19 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
 /** The bodies that state no language — no `IMPLEMENTATION` line opens them — each with the item it belongs to, as
  *  the push names it. */
 function unstatedBodies(units: readonly TopLevel[]): { body: BodySpan; what: string }[] {
-  return units.flatMap((u): { body: BodySpan; what: string }[] => {
-    if (u.kind === "namespace") return unstatedBodies(u.units)
-    const bodies =
-      u.kind === "property"
-        ? [
-            ...(u.getter ? [{ body: u.getter.body, what: `${u.name.text}'s getter` }] : []),
-            ...(u.setter ? [{ body: u.setter.body, what: `${u.name.text}'s setter` }] : []),
-          ]
-        : unitBodies(u).map((body) => ({ body, what: "name" in u ? u.name.text : u.kind }))
-    return bodies.filter(({ body }) => body.implementation === undefined)
-  })
+  return allUnits(units).flatMap((u): { body: BodySpan; what: string }[] =>
+    unitBodies(u)
+      .filter((body) => body.implementation === undefined)
+      .map((body) => ({
+        body,
+        what:
+          u.kind === "property"
+            ? `${u.name.text}'s ${body === u.getter?.body ? "getter" : "setter"}`
+            : "name" in u
+              ? u.name.text
+              : u.kind,
+      })),
+  )
 }
 
 /** The finding for a body that states no language — the push's refusal of the same file (`StReader.Unmarked`), on the

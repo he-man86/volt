@@ -2,9 +2,9 @@
  * The state one POU's lowering shares — the frame being built, the layouts, bodies and routines its calls reach, the
  * globals — and the primitives every construct uses: report (`bail`), declare a slot, make a temp, resolve a type.
  */
-import type { Expr, Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../syntax/index.js"
-import type { Scope } from "../../symbols/index.js"
-import { resolveTypeExpr, type Type } from "../../types/index.js"
+import type { Expr, Identifier, Span, TopLevel, TypeExpr, VarSection } from "../../frontend/syntax/index.js"
+import type { Scope } from "../../frontend/symbols/index.js"
+import { resolveTypeExpr, type Type } from "../../frontend/types/index.js"
 import {
   defaultValueOf,
   type IrCall,

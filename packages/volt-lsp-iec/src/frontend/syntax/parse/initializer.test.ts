@@ -4,11 +4,11 @@
  * unclassifiable elements degrade to `unknown` / `unparsed` rather than throwing.
  */
 import { test, expect } from "bun:test"
-import { parseSource, type AggregateInit, type AggregateElement } from "./index.js"
+import { parseSource, type AggregateInit, type AggregateElement } from "../index.js"
 
 function agg(init: string): AggregateInit {
   const src = `PROGRAM P\nVAR\n  x : T := ${init};\nEND_VAR\nEND_PROGRAM`
-  const unit = parseSource(src).units[0]
+  const unit = parseSource(src, { networkText: true }).units[0]
   if (unit === undefined || !("varSections" in unit)) throw new Error("expected a POU with a var section")
   const decl = unit.varSections[0].decls[0].init
   if (decl?.kind !== "aggregate_init") throw new Error(`expected an aggregate init, got ${decl?.kind}`)

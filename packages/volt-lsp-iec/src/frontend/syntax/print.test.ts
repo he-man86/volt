@@ -16,7 +16,7 @@ const toks = (s: string): string[] =>
 /** Parse `x : <type>;` and return the type node + its exact source text. */
 function typeOf(typeSrc: string): { node: TypeExpr; src: string } {
   const source = `FUNCTION_BLOCK F\nVAR\n x : ${typeSrc};\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const unit = parseSource(source).units[0]
+  const unit = parseSource(source, { networkText: true }).units[0]
   if (unit?.kind !== "function_block") throw new Error(`not an FB: ${typeSrc}`)
   const node = unit.varSections[0]!.decls[0]!.type
   return { node, src: source.slice(node.span.start, node.span.end) }

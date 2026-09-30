@@ -13,8 +13,8 @@
 import { test, expect } from "bun:test"
 import { readFileSync } from "node:fs"
 import { errorCatalog, type ErrorCode } from "./error-codes.js"
-import { parseSource } from "../../src/syntax/index.js"
-import { buildSymbolTable } from "../../src/symbols/index.js"
+import { parseSource } from "../../src/frontend/syntax/index.js"
+import { build } from "../../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
 import { obsoletePousInText } from "../../src/workspace-refs.js"
 
@@ -23,12 +23,12 @@ const catalog = errorCatalog()
 /** Diagnostic messages the LSP emits for a repro (a full ST source). Every check runs by default (errors always,
  *  warnings default-ON like CODESYS), so no per-lint config is needed. Includes warnings as well as errors. */
 function lspMessages(repro: string, extra?: { uri: string; source: string }[]): string[] {
-  const parseResult = parseSource(repro)
+  const parseResult = parseSource(repro, { networkText: true })
   const files = [
     { uri: "F.fb", parseResult, source: repro },
-    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
+    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }) })),
   ]
-  const project = buildSymbolTable(files)
+  const project = build.buildSymbolTable(files)
   // Reproduce the workspace obsolete-POU scan from the repro text, so workspace-scan-based checks (C0357) fire.
   const obsoletePous = new Map(files.flatMap((f) => obsoletePousInText(f.source)))
   const semantic = computeSemanticDiagnostics({

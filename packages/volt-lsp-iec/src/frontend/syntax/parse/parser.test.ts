@@ -1,12 +1,14 @@
 import { test, expect } from "bun:test"
-import { lex } from "./lexer.js"
+import { lex } from "../lex/lexer.js"
 import { parseSource } from "./parser.js"
-import { parseStatements } from "./statements.js"
-import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType, TypeDecl, VarDecl } from "./ast.js"
+import { bodyReader } from "../format/implementation-line.js"
+import { unitBodies } from "../format/bodies.js"
+import { parseStatements } from "./body-parse.js"
+import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType, TypeDecl, VarDecl } from "../ast/nodes.js"
 
 /** First VAR decl of the first unit — the common path into type-expr assertions. */
 function firstDecl(src: string): VarDecl {
-  const unit = parseSource(src).units[0] as FunctionBlock
+  const unit = parseSource(src, { networkText: true }).units[0] as FunctionBlock
   return unit.varSections[0].decls[0]
 }
 
@@ -26,7 +28,7 @@ END_VAR
 METHOD PUBLIC Step : BOOL
   Step := TRUE;
 END_METHOD
-END_FUNCTION_BLOCK`)
+END_FUNCTION_BLOCK`, { networkText: true })
   expect(r.errors).toEqual([])
   const fb = r.units[0] as FunctionBlock
   expect(fb.kind).toBe("function_block")
@@ -110,7 +112,7 @@ test("scalar init is an Expr; aggregate init is opaque", () => {
 })
 
 test("enum DUT values carry parsed value expressions", () => {
-  const td = parseSource("TYPE E : (Red := 0, Green := 16#0A, Blue) DINT; END_TYPE").units[0] as TypeDecl
+  const td = parseSource("TYPE E : (Red := 0, Green := 16#0A, Blue) DINT; END_TYPE", { networkText: true }).units[0] as TypeDecl
   expect(td.body.kind).toBe("enum")
   const enumBody = td.body as Extract<TypeDecl["body"], { kind: "enum" }>
   expect((enumBody.values[1].value as Literal).value).toBe(10n)
@@ -132,7 +134,7 @@ test("statement tree: IF / CASE / FOR parse fully", () => {
 })
 
 test("error-tolerant: a malformed unit records an error, never throws", () => {
-  const r = parseSource("FUNCTION_BLOCK")
+  const r = parseSource("FUNCTION_BLOCK", { networkText: true })
   expect(r.errors.length).toBeGreaterThan(0)
 })
 
@@ -157,7 +159,7 @@ test("statement tree: CODESYS typed char literal `UCHAR#'A'` parses cleanly", ()
 // `C0009: Unexpected token 'LIMIT' found` on the NAME. The section is still terminated — blaming its header
 // for a missing END_VAR that is right there sent readers hunting the wrong line.
 
-const messages = (src: string) => parseSource(src).errors.map((e) => e.message)
+const messages = (src: string) => parseSource(src, { networkText: true }).errors.map((e) => e.message)
 
 test("a stray token after a scalar initializer is a parse error, worded as CODESYS reports it (gap 12)", () => {
   // It was silent: the initializer's tokens were collected up to `;`, and an unparsable tail became an opaque aggregate.
@@ -185,10 +187,10 @@ test("a reserved word as a variable name is reported on the name, not the sectio
     "';' expected instead of 'INT'",
     "Unexpected token 'INT' found",
   ])
-  const err = parseSource(src).errors[0]!
+  const err = parseSource(src, { networkText: true }).errors[0]!
   expect(src.slice(err.span.start, err.span.end)).toBe("Limit")
   // recovery continues the section: the following decl and END_VAR are still parsed
-  const unit = parseSource(src).units[0] as { varSections: { decls: VarDecl[] }[] }
+  const unit = parseSource(src, { networkText: true }).units[0] as { varSections: { decls: VarDecl[] }[] }
   expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["Ok"])
 })
 
@@ -267,11 +269,27 @@ test("a missing statement `;` echoes the offending token back unless it could st
 test("a declaration missing its `;` after the type: CODESYS's list of what may follow, and the next one is swallowed", () => {
   const fb = "FUNCTION_BLOCK F\nVAR\n\tnPos : INT\n\tnSpeed : INT;\n\tnOk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n"
   expect(messages(fb)).toEqual(["';, :=, REF=, ( or [' expected instead of 'nSpeed'"])
-  const unit = parseSource(fb).units[0] as { varSections: { decls: VarDecl[] }[] }
+  const unit = parseSource(fb, { networkText: true }).units[0] as { varSections: { decls: VarDecl[] }[] }
   expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["nPos", "nOk"])
   const struct = "TYPE T :\nSTRUCT\n\tnPos : INT\n\tnSpeed : INT;\nEND_STRUCT\nEND_TYPE\n"
   expect(messages(struct)).toEqual(["';, :=, REF=, ( or [' expected instead of 'nSpeed'"])
   // …and never past the END of the list, which is also where the measurement stops: it is a NAME where the `;`
   // belonged. Before END_VAR the wording is unmeasured and stays what it was.
   expect(messages("FUNCTION_BLOCK F\nVAR\n\tnPos : INT\nEND_VAR\nEND_FUNCTION_BLOCK\n")).toEqual(["';' expected instead of 'END_VAR'"])
+})
+
+// ── whether LD/FBD bodies are network text is the CALLER's fact (frontend-conformance P5) ──
+
+const LADDER = "PROGRAM P\nVAR\n  a : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nEND_PROGRAM"
+
+test("a parse is told whether LD/FBD bodies are network text: without the option it refuses by name", () => {
+  // @ts-expect-error — the option is required; a parse that is not told must not fill the fact in
+  expect(() => parseSource(LADDER)).toThrow(/networkText/)
+})
+
+test("the option decides who reads an IMPLEMENTATION LD body: network text on reads it, off reads it by neither", () => {
+  const readers = (networkText: boolean) =>
+    parseSource(LADDER, { networkText }).units.flatMap(unitBodies).map(bodyReader)
+  expect(readers(true)).toEqual(["network"])
+  expect(readers(false)).toEqual([undefined])
 })

@@ -8,9 +8,9 @@
  * (library sections flatten — unreliable), and whose section is neither input nor output. Anything
  * uncertain skips → zero FP.
  */
-import { isSelfRef, walkStatements } from "../../../syntax/index.js"
-import { bodies, isLibrarySymbol } from "../../../symbols/index.js"
-import { inferExprType, resolveMemberChain } from "../../../types/index.js"
+import { isSelfRef, walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

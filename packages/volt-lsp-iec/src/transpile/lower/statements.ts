@@ -1,8 +1,8 @@
 /**
  * Statements → IR: assignment and its chains and latches, IF, CASE, the three loops, and call statements.
  */
-import { isSelfRef, type Expr, type Span, type Statement, type StatementList } from "../../syntax/index.js"
-import { classifyConversion, elementaryRef, commonType, elemOf, type Type } from "../../types/index.js"
+import { isSelfRef, type Expr, type Span, type Statement, type StatementList } from "../../frontend/syntax/index.js"
+import { classifyConversion, elementaryRef, commonType, elemOf, type Type } from "../../frontend/types/index.js"
 import type { IrArm, IrExpr, IrStmt, IrValue } from "../ir/index.js"
 import { holdsCall } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"

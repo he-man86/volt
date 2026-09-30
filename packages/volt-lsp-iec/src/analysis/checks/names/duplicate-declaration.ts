@@ -9,7 +9,7 @@
  * opt-in style lints, off by default: the compilers parse-cascade on them, so a single clean message
  * would never match the IDE's error spray.)
  */
-import { scopeForUnit, type Scope, type Symbol } from "../../../symbols/index.js"
+import { scopeForUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

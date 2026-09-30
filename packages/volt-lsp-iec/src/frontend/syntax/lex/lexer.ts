@@ -9,49 +9,25 @@
  * moves so we don't rescan the source for every token span. Lines are
  * 1-based, columns 0-based (matches the LSP convention).
  */
-import { spanFromOffsets, type Span } from "./span.js"
+import { pointSpan, type Span } from "../span.js"
+import type { Token, TokenKind } from "./tokens.js"
 import {
-  ALL_KEYWORDS,
   CODESYS_ONLY_KEYWORDS,
   CODESYS_ONLY_LITERAL_PREFIXES,
+  DATE_PREFIXES,
+  DATETIME_PREFIXES,
+  KEYWORDS,
   MULTI_CHAR_PUNCT,
   SINGLE_CHAR_PUNCT,
+  TIME_PREFIXES,
+  TOD_PREFIXES,
+  TYPED_PREFIXES,
   type Dialect,
   type Keyword,
-  type Token,
-  type TokenKind,
-} from "./tokens.js"
+} from "./vocabulary.js"
 
 // Keyword lookup — upper-cased key → canonical keyword.
-const KEYWORD_MAP: Map<string, Keyword> = new Map(ALL_KEYWORDS.map((k) => [k, k]))
-
-// Identifier prefixes that introduce a `#`-suffixed literal.
-const TIME_PREFIXES = new Set(["T", "TIME", "LTIME"])
-const DATE_PREFIXES = new Set(["D", "DATE", "LDATE"])
-const TOD_PREFIXES = new Set(["TOD", "TIME_OF_DAY", "LTOD", "LTIME_OF_DAY"])
-const DATETIME_PREFIXES = new Set(["DT", "DATE_AND_TIME", "LDT", "LDATE_AND_TIME"])
-// Typed-literal prefixes (`INT#42`, `REAL#1.5`, `BOOL#TRUE`). These
-// look like an identifier followed by `#` followed by a literal body.
-// We lex the whole thing as a single `typed_lit` token.
-const TYPED_PREFIXES = new Set([
-  "BOOL",
-  "BYTE",
-  "WORD",
-  "DWORD",
-  "LWORD",
-  "SINT",
-  "INT",
-  "DINT",
-  "LINT",
-  "USINT",
-  "UINT",
-  "UDINT",
-  "ULINT",
-  "REAL",
-  "LREAL",
-  "CHAR",
-  "WCHAR",
-])
+const KEYWORD_MAP: Map<string, Keyword> = new Map(KEYWORDS.map((k) => [k, k]))
 
 /**
  * `dialect` decides only the VOCABULARY — which words are reserved and which `<prefix>#` forms are literals
@@ -348,11 +324,8 @@ export function lex(src: string, dialect: Dialect = "codesys"): Token[] {
     emit("unknown", startPos, startLine, startCol)
   }
 
-  tokens.push({
-    kind: "eof",
-    text: "",
-    span: spanFromOffsets(src, len, len),
-  })
+  // the end-of-input sentinel, where the incremental line/col already stand — no rescan of the source
+  tokens.push({ kind: "eof", text: "", span: pointSpan(pos, line, col) })
 
   return tokens
 

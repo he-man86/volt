@@ -4,9 +4,9 @@
  * no value (transpiler corpus: `init-not-constant`, "an index on something that is not a sized array").
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../syntax/index.js"
-import { bodies, buildSymbolTable } from "../symbols/index.js"
-import { constantSlotType, constEval, elementaryType } from "./index.js"
+import { parseSource } from "../../syntax/index.js"
+import { bodies, build } from "../../symbols/index.js"
+import { constantSlotType, constEval, elementaryType } from "../index.js"
 
 const LISTS = [
   { uri: "file:///p/GVL_Constants.gvl", source: "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\n  Count : INT := 12;\nEND_VAR\nVAR_GLOBAL\n  plain : INT := 3;\nEND_VAR\n" },
@@ -15,8 +15,8 @@ const LISTS = [
 
 /** The value of `n := <value>;` in an FB beside `files`. */
 function folded(value: string, files: readonly { uri: string; source: string }[] = LISTS): unknown {
-  const all = [...files, { uri: "file:///p/F.fb", source: `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK\n` }].map((f) => ({ ...f, parseResult: parseSource(f.source) }))
-  const project = buildSymbolTable(all)
+  const all = [...files, { uri: "file:///p/F.fb", source: `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK\n` }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
+  const project = build.buildSymbolTable(all)
   for (const { scope, statements } of bodies(all.at(-1)!.parseResult.units, project)) {
     const s = statements[0]
     if (s?.kind === "assign") return constEval(s.value, scope)
@@ -104,8 +104,8 @@ test("an expression over REAL folds wide and rounds once to float32; an LREAL co
 // VAR_INPUT CONSTANT is a PARAMETER holding the caller's argument, so its default is not a compile-time constant.
 test("a VAR_INPUT CONSTANT parameter does not fold to its default; a VAR CONSTANT beside it does", () => {
   const source = "FUNCTION F : INT\nVAR_INPUT CONSTANT\n  n : INT := 1;\nEND_VAR\nVAR CONSTANT\n  K : INT := 2;\nEND_VAR\nF := n;\nF := K;\nEND_FUNCTION\n"
-  const all = [{ uri: "file:///p/F.fun", source, parseResult: parseSource(source) }]
-  const project = buildSymbolTable(all)
+  const all = [{ uri: "file:///p/F.fun", source, parseResult: parseSource(source, { networkText: true }) }]
+  const project = build.buildSymbolTable(all)
   const [{ scope, statements }] = [...bodies(all[0]!.parseResult.units, project)]
   const values = statements.map((s) => (s.kind === "assign" ? constEval(s.value, scope) : null))
   expect(values).toEqual([undefined, 2n])

@@ -11,10 +11,10 @@
  * Conservative (zero-FP): fires only when the base infers to a project-local FB (library sections flatten →
  * unreliable) and the member resolves to a VAR_IN_OUT; a THIS/SUPER base (the FB's own params) is legal.
  */
-import { isSelfRef, walkAllExprs } from "../../../syntax/index.js"
-import { bodies, isLibrarySymbol } from "../../../symbols/index.js"
+import { isSelfRef, walkAllExprs } from "../../../frontend/syntax/index.js"
+import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
 import { bodyContext } from "../../body-context.js"
-import { inferExprType, resolveMemberChain } from "../../../types/index.js"
+import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

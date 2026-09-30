@@ -3,19 +3,19 @@
  * definition, a locally-shadowing var, and a qualified `GVL.name` all stay silent (zero-FP).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { bindFile, buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const GVL1 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const GVL2 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const run = (prg: string, extraGvl2 = true) => {
   const inputs = [
-    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg) },
-    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1) },
-    ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2) }] : []),
+    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
+    ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) }] : []),
   ]
-  const project = buildSymbolTable(inputs)
+  const project = build.buildSymbolTable(inputs)
   return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "ambiguous-global")
 }
@@ -38,14 +38,14 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
   // `WorkspaceStore` binds an added file into the same project Scope; the ambiguous set was memoized on the Scope
   // alone, so the second declaration was never counted
   const prg = "PROGRAM PLC_PRG\nVAR\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM"
-  const prgParse = parseSource(prg)
-  const project = buildSymbolTable([
+  const prgParse = parseSource(prg, { networkText: true })
+  const project = build.buildSymbolTable([
     { uri: "PLC_PRG.prg", source: prg, parseResult: prgParse },
-    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1) },
+    { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
   ])
   const ambiguous = () =>
     computeSemanticDiagnostics({ parseResult: prgParse, source: prg, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.code === "ambiguous-global").length
   expect(ambiguous()).toBe(0)
-  bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2) })
+  build.bindFile(project, { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) })
   expect(ambiguous()).toBe(1)
 })

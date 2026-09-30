@@ -16,7 +16,7 @@
  * `self`, which is E0499 again. The path must be static — fields and constant indices, no bit, no dereference — so the
  * substitution is one rewrite, not a runtime choice. Anything else stays `call-inout-alias`.
  */
-import type { Span } from "../../syntax/index.js"
+import type { Span } from "../../frontend/syntax/index.js"
 import type { Access, IrBinding, IrRoutine, IrSlot, Place } from "../ir/index.js"
 import type { Lowering } from "./lowering.js"
 

@@ -12,9 +12,9 @@
  *
  * CODESYS-only: TwinCAT is unmeasured, and a guess there would be a new false positive.
  */
-import { renderTypeExpr } from "../../../syntax/index.js"
+import { renderTypeExpr } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl } from "../../../symbols/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { leftoverStatement } from "../../resync.js"
 

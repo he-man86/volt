@@ -1,24 +1,21 @@
 /**
- * ST statement parser — drives the expression parser to build the
- * `StatementList` for a POU body.
+ * ST STATEMENTS — the statement parser, driving the expression parser to build a body's `StatementList`.
  *
- * Contract: `parseStatements(body)` returns `{ statements, ok }`. `ok`
- * is true only when the whole body was consumed with zero errors; on
- * any unexpected/unmodeled token it stops and returns `ok: false`,
- * WITHOUT throwing and WITHOUT emitting a diagnostic. Consumers use the
- * token-scan fallback when `ok` is false (see `st-body-ast` design D3).
+ * `parseStatementTokens` returns `{ statements, ok, errors }`: `ok` is true only when every token was consumed with zero
+ * errors; the errors are the body's syntax errors, which the `parse-errors` check reports. It never throws. A body is
+ * parsed through `body-parse.ts`, which caches the parse per body and applies conditional pragmas (`parseActive`).
  *
- * Conditional-compile pragmas (`{IF}` / `{ELSIF}` / `{ELSE}` /
- * `{END_IF}`) are lexer trivia, so the cursor skips them automatically
- * — they are consumed-and-ignored exactly as the prior token scan did
- * (task 3.2), never modeled as nodes this phase.
+ * Pragmas are lexer trivia, so the cursor skips them: a conditional pragma (`{IF}` … `{END_IF}`) is invisible here —
+ * `parseStatements` reads every branch, `parseActive` only the ones taken.
  */
-import type { Span } from "./span.js"
-import type { Keyword, Token } from "./tokens.js"
-import { Cursor, describeToken } from "./cursor.js"
-import { identFromToken } from "./util.js"
-import { mergeSpans as merge, parseAssignable, parseExpression } from "./expression.js"
-import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "./ast.js"
+import { eofSpan, joinSpans, type Span, zeroSpan } from "../span.js"
+import type { Token } from "../lex/tokens.js"
+import { Cursor } from "./cursor.js"
+import { parseAssignable, parseExpression } from "./expression.js"
+import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "../ast/nodes.js"
+import type { Keyword } from "../lex/vocabulary.js"
+import { vendorTokenText } from "./errors.js"
+import { identFromToken } from "./names.js"
 
 export interface BodyParse {
   statements: StatementList
@@ -30,30 +27,13 @@ export interface BodyParse {
   errors: readonly ParseError[]
 }
 
-// A BodySpan is immutable and parsed identically every time, but the ~15 semantic checks each iterate
-// `bodies()` → `parseStatements(body)`, so without this a POU body is re-parsed once per check per run.
-// Keyed on BodySpan identity: same parse → cache hit; a document re-parse yields fresh BodySpans (old
-// entries GC'd), so edits are never stale. Parse-once is what makes the multi-check registry actually cheap.
-const parseCache = new WeakMap<BodySpan, BodyParse>()
-
-export function parseStatements(body: BodySpan): BodyParse {
-  const cached = parseCache.get(body)
-  if (cached !== undefined) return cached
-  // BodySpan.tokens is a slice with no EOF sentinel; append one so the
-  // cursor's peek()/atEof() terminate correctly at the body's end.
-  const toks = body.tokens
+/** A body's statement tokens parsed as a statement list — uncached; `body-parse.ts` is where a body is parsed once. */
+export function parseStatementTokens(toks: readonly Token[]): BodyParse {
+  // The tokens are a slice with no EOF sentinel; append one so the cursor's peek()/atEof() terminate correctly at the
+  // body's end.
   const last = toks[toks.length - 1]
-  const eofSpan: Span = last
-    ? {
-        start: last.span.end,
-        end: last.span.end,
-        startLine: last.span.endLine,
-        startCol: last.span.endCol,
-        endLine: last.span.endLine,
-        endCol: last.span.endCol,
-      }
-    : { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  const cur = new Cursor([...toks, { kind: "eof", text: "", span: eofSpan }])
+  const end: Span = last ? eofSpan(last.span) : zeroSpan()
+  const cur = new Cursor([...toks, { kind: "eof", text: "", span: end }])
   const statements = parseStatementList(cur, () => false)
   const errors = cur.getErrors()
   const ok = errors.length === 0 && cur.atEof()
@@ -61,9 +41,7 @@ export function parseStatements(body: BodySpan): BodyParse {
   const firstError = ok
     ? undefined
     : (errors[0]?.message ?? `unexpected ${cur.peek().kind} '${cur.peek().text.slice(0, 24)}'`)
-  const result: BodyParse = { statements, ok, firstError, errors }
-  parseCache.set(body, result)
-  return result
+  return { statements, ok, firstError, errors }
 }
 
 function atKeyword(cur: Cursor, ...kws: Keyword[]): boolean {
@@ -151,7 +129,7 @@ function parseStatement(cur: Cursor): Statement | undefined {
     if (after.kind === "punct" && after.text === ":") {
       const nameTok = cur.consume()
       const colon = cur.consume() // ':'
-      return { kind: "label", name: identFromToken(nameTok), span: merge(nameTok.span, colon.span) }
+      return { kind: "label", name: identFromToken(nameTok), span: joinSpans(nameTok.span, colon.span) }
     }
   }
   return parseExprOrAssign(cur)
@@ -165,7 +143,7 @@ function parseJmp(cur: Cursor): Statement | undefined {
     return undefined
   }
   const semi = cur.eatPunct(";") // lenient like RETURN/EXIT — a missing ';' is caught by the next statement
-  return { kind: "jmp", target, span: merge(kw.span, semi?.span ?? target.span) }
+  return { kind: "jmp", target, span: joinSpans(kw.span, semi?.span ?? target.span) }
 }
 
 /** The assignment operator a token spells: `"S="`/`"R="`/`"REF="`, `undefined` for `:=`, or `null` when it is not one. */
@@ -216,15 +194,15 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
       value,
       ...(op !== undefined ? { op } : {}),
       ...(chained.length > 0 ? { chained, chainOps } : {}),
-      span: merge(expr.span, semi.span),
+      span: joinSpans(expr.span, semi.span),
     }
   }
   const semi = expectStatementSemicolon(cur)
   if (semi === undefined) return undefined
-  if (expr.kind === "call") return { kind: "call_stmt", call: expr, span: merge(expr.span, semi.span) }
+  if (expr.kind === "call") return { kind: "call_stmt", call: expr, span: joinSpans(expr.span, semi.span) }
   // A bare expression terminated by `;` — a no-op read CODESYS tolerates (e.g. `fb.Status.Flag;`,
   // a placeholder written elsewhere). Keep it in the tree so the whole body still tree-parses.
-  return { kind: "expr_stmt", expr, span: merge(expr.span, semi.span) }
+  return { kind: "expr_stmt", expr, span: joinSpans(expr.span, semi.span) }
 }
 
 function parseTry(cur: Cursor): Statement | undefined {
@@ -233,17 +211,17 @@ function parseTry(cur: Cursor): Statement | undefined {
   let catchVar: Expr | undefined
   let catchBody: StatementList | undefined
   if (cur.eatKeyword("__CATCH") !== undefined) {
-    if (cur.expectPunct("(", "in __CATCH") === undefined) return undefined
+    if (cur.expectPunct("(") === undefined) return undefined
     catchVar = parseExpression(cur)
     if (catchVar === undefined) return undefined
-    if (cur.expectPunct(")", "closing __CATCH") === undefined) return undefined
+    if (cur.expectPunct(")") === undefined) return undefined
     catchBody = parseStatementList(cur, (c) => atKeyword(c, "__FINALLY", "__ENDTRY"))
   }
   let finallyBody: StatementList | undefined
   if (cur.eatKeyword("__FINALLY") !== undefined) {
     finallyBody = parseStatementList(cur, (c) => atKeyword(c, "__ENDTRY"))
   }
-  const end = cur.expectKeyword("__ENDTRY", "closing __TRY") // missing closer: record, keep the parsed bodies
+  const end = cur.expectKeyword("__ENDTRY") // missing closer: record, keep the parsed bodies
   cur.eatPunct(";")
   return {
     kind: "try",
@@ -251,7 +229,7 @@ function parseTry(cur: Cursor): Statement | undefined {
     ...(catchVar ? { catchVar } : {}),
     ...(catchBody ? { catchBody } : {}),
     ...(finallyBody ? { finallyBody } : {}),
-    span: merge(kw.span, end?.span ?? kw.span),
+    span: joinSpans(kw.span, end?.span ?? kw.span),
   }
 }
 
@@ -270,9 +248,9 @@ function parseIf(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_IF"))
   }
-  const end = cur.expectKeyword("END_IF", "closing IF") // missing closer: record, but keep the parsed branches
+  const end = cur.expectKeyword("END_IF") // missing closer: record, but keep the parsed branches
   cur.eatPunct(";")
-  return { kind: "if", branches, elseBody, span: merge(kw.span, end?.span ?? kw.span) }
+  return { kind: "if", branches, elseBody, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
@@ -281,16 +259,16 @@ function parseIfBranch(cur: Cursor): IfBranch | undefined {
   // Missing-token recovery (Roslyn-style): record the absent THEN but DON'T abandon the branch — parse the
   // body anyway and let the IF consume its END_IF. Bailing here instead dumps the body + END_IF back to the
   // statement list, which mis-parses them into a spurious cascade error. One error in → one error out.
-  cur.expectKeyword("THEN", "in IF")
+  cur.expectKeyword("THEN")
   const body = parseStatementList(cur, (c) => atKeyword(c, "ELSIF", "ELSE", "END_IF"))
-  return { kind: "if_branch", cond, body, span: merge(cond.span, lastSpan(body, cond.span)) }
+  return { kind: "if_branch", cond, body, span: joinSpans(cond.span, lastSpan(body, cond.span)) }
 }
 
 function parseCase(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // CASE
   const selector = parseExpression(cur)
   if (selector === undefined) return undefined
-  cur.expectKeyword("OF", "in CASE") // missing-token recovery — parse the arms regardless (see parseIfBranch)
+  cur.expectKeyword("OF") // missing-token recovery — parse the arms regardless (see parseIfBranch)
   const arms: CaseArm[] = []
   while (!cur.atEof() && !atKeyword(cur, "ELSE", "END_CASE")) {
     if (!isArmStart(cur)) break // not a label header — let END_CASE expectation fail → fallback
@@ -302,9 +280,9 @@ function parseCase(cur: Cursor): Statement | undefined {
   if (cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_CASE"))
   }
-  const end = cur.expectKeyword("END_CASE", "closing CASE") // missing closer: record, but keep the parsed arms
+  const end = cur.expectKeyword("END_CASE") // missing closer: record, but keep the parsed arms
   cur.eatPunct(";")
-  return { kind: "case", selector, arms, elseBody, span: merge(kw.span, end?.span ?? kw.span) }
+  return { kind: "case", selector, arms, elseBody, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 function parseCaseArm(cur: Cursor): CaseArm | undefined {
@@ -318,17 +296,17 @@ function parseCaseArm(cur: Cursor): CaseArm | undefined {
       const u = parseExpression(cur)
       if (u === undefined) return undefined
       upper = u
-      sp = merge(value.span, u.span)
+      sp = joinSpans(value.span, u.span)
     }
     labels.push({ kind: "case_label", value, upper, span: sp })
     if (cur.eatPunct(",") !== undefined) continue
     break
   }
-  const colon = cur.expectPunct(":", "after CASE labels")
+  const colon = cur.expectPunct(":")
   if (colon === undefined) return undefined
   const body = parseStatementList(cur, (c) => atKeyword(c, "ELSE", "END_CASE") || isArmStart(c))
   const head = labels[0]
-  return { kind: "case_arm", labels, body, span: merge(head.span, lastSpan(body, colon.span)) }
+  return { kind: "case_arm", labels, body, span: joinSpans(head.span, lastSpan(body, colon.span)) }
 }
 
 /**
@@ -381,10 +359,10 @@ function parseFor(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // FOR
   const controlVar = parseExpression(cur)
   if (controlVar === undefined) return undefined
-  if (cur.expectPunct(":=", "in FOR") === undefined) return undefined
+  if (cur.expectPunct(":=") === undefined) return undefined
   const from = parseExpression(cur)
   if (from === undefined) return undefined
-  cur.expectKeyword("TO", "in FOR") // missing-token recovery — the upper bound follows regardless (see parseIfBranch)
+  cur.expectKeyword("TO") // missing-token recovery — the upper bound follows regardless (see parseIfBranch)
   const to = parseExpression(cur)
   if (to === undefined) return undefined
   let by: Expr | undefined
@@ -392,33 +370,33 @@ function parseFor(cur: Cursor): Statement | undefined {
     by = parseExpression(cur)
     if (by === undefined) return undefined
   }
-  cur.expectKeyword("DO", "in FOR") // missing-token recovery — parse the body regardless (see parseIfBranch)
+  cur.expectKeyword("DO") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_FOR"))
-  const end = cur.expectKeyword("END_FOR", "closing FOR") // missing closer: record, but keep the parsed body
+  const end = cur.expectKeyword("END_FOR") // missing closer: record, but keep the parsed body
   cur.eatPunct(";")
-  return { kind: "for", controlVar, from, to, by, body, span: merge(kw.span, end?.span ?? kw.span) }
+  return { kind: "for", controlVar, from, to, by, body, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 function parseWhile(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // WHILE
   const cond = parseAssignable(cur)
   if (cond === undefined) return undefined
-  cur.expectKeyword("DO", "in WHILE") // missing-token recovery — parse the body regardless (see parseIfBranch)
+  cur.expectKeyword("DO") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"))
-  const end = cur.expectKeyword("END_WHILE", "closing WHILE") // missing closer: record, but keep the parsed body
+  const end = cur.expectKeyword("END_WHILE") // missing closer: record, but keep the parsed body
   cur.eatPunct(";")
-  return { kind: "while", cond, body, span: merge(kw.span, end?.span ?? kw.span) }
+  return { kind: "while", cond, body, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 function parseRepeat(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // REPEAT
   const body = parseStatementList(cur, (c) => atKeyword(c, "UNTIL"))
-  if (cur.expectKeyword("UNTIL", "in REPEAT") === undefined) return undefined
+  if (cur.expectKeyword("UNTIL") === undefined) return undefined
   const until = parseAssignable(cur)
   if (until === undefined) return undefined
-  const end = cur.expectKeyword("END_REPEAT", "closing REPEAT") // missing closer: record, keep the parsed body
+  const end = cur.expectKeyword("END_REPEAT") // missing closer: record, keep the parsed body
   cur.eatPunct(";")
-  return { kind: "repeat", body, until, span: merge(kw.span, end?.span ?? kw.span) }
+  return { kind: "repeat", body, until, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 /**
@@ -434,8 +412,8 @@ function parseRepeat(cur: Cursor): Statement | undefined {
  */
 function expectStatementSemicolon(cur: Cursor): Token | undefined {
   const next = cur.peek()
-  const semi = cur.expectPunct(";", "after statement")
+  const semi = cur.expectPunct(";")
   if (semi === undefined && next.kind !== "identifier" && next.kind !== "eof")
-    cur.pushError(`Unexpected token ${describeToken(next)} found`, next.span, next.text)
+    cur.pushError(`Unexpected token ${vendorTokenText(next)} found`, next.span, next.text)
   return semi
 }

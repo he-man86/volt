@@ -186,30 +186,59 @@ functions a task names, under **Gate T**; transpile's own copies are handed to t
 
 - [x] 1.1 design.md: principles, target structure (`src/frontend/{library,syntax,symbols,types}`), old → new map (files, tests,
       functions, duplicated concerns), rule catalogue, test layout, and the 30 review gaps closed (§6).
-- [ ] 1.2 The import-rule gate. `scripts/check-layering.ts` scans `src/`, `test/`, `scripts/` and `libraries/`, gains F1–F4
+- [x] 1.2 The import-rule gate. `scripts/check-layering.ts` scans `src/`, `test/`, `scripts/` and `libraries/`, gains F1–F4
       (design.md §5), and a known-violation list naming today's violations: types→reference, the 4 production deep imports, the
       2 src test deep imports and the 16 test/script deep imports (design.md P4 census), the front-end tests importing consumers,
       `process.env` in syntax. `test/frontend/layering.test.ts` runs it and fails on a new violation AND on a listed violation that
       no longer occurs.
       Where: scripts/check-layering.ts, test/frontend/layering.test.ts. Acceptance: green with the list; removing a list entry
       turns it red. Depends on: 1.1
-- [ ] 1.3 Front-end snapshot F: `scripts/frontend-snapshot.ts write|check [--base <rev>]` (F-front: AST + errors +
+      **Done 2026-09-30.** `scripts/check-layering.ts` exports `layeringViolations()`/`layeringReport()`, scans `src/`, `test/`,
+      `scripts/`, `libraries/` (tests included for F1–F3), and adds F1 (the front-end imports no consumer), F2 (consumers import
+      an index only), F3 (sub-layer and `syntax/` folder table), F4 (`ALLOWED_UPWARD` deleted), F5 (no `process.env` in the
+      front-end), F6 (no import cycle in `syntax`). `test/frontend/layering.test.ts` fails on an unlisted violation and on a
+      listed one that no longer occurs. The list at 1.2: **31** front-end violations — 21 F2 deep imports (3 production, 1 src
+      test, 17 test/script: the census's 16 plus `test/conformance/support/transpile-confidence.ts` → `syntax/lexer.js`, added
+      after it), 3 F3 (`types/resolve.ts` → precedence, and 2 front-end tests), 4 F1 (`types/infer.ts` → reference and 3 front-end
+      tests importing consumers — `source-object.test.ts` → `source-extensions` is one the census had not seen), 1 F5
+      (`process.env`), 2 F6 (`util ↔ var-section`) — plus
+      `KNOWN_OTHER_VIOLATIONS` = 1 (`services/structure/semantic-tokens.ts → network/network-analyze.ts`, pre-existing, outside
+      the front-end, not this change's).
+- [x] 1.3 Front-end snapshot F: `scripts/frontend-snapshot.ts write|check [--base <rev>]` (F-front: AST + errors +
       failedDeclarations + tokens, resolution/type/fold dumps from test/frontend/dumps.ts, corpus diagnostics; F-back: fixture Rust
       and interpreter outputs); `check` builds the base in a temporary git worktree, cached per commit (design.md P9);
       `package.json` script `snapshot:frontend`; `.gitignore` entry; scripts/README.md.
       Acceptance: `check` against the current commit is identical twice in a row; a deliberate one-character change to a
       diagnostic makes it differ; run time written here. Depends on: 1.2, 0.3, 0.4
-- [ ] 1.4 Deep imports through the indexes. Census (written here): every name imported from outside each sub-layer; the indexes
+      **Done.** `scripts/frontend-snapshot.ts write|check|show`, `snapshot:frontend`, `.gitignore`, scripts/README. Aspects per
+      source: `ast`, `errors`, `failed`, `tokens`, `stmts` (parseStatements), `active` (parseActive), `resolution`, `types`,
+      `folds` (fixtures once per vendor), corpus `diagnostics`; F-back per fixture: `lowering`, `rust`, `interp` — **399 527
+      aspect hashes**. The base is built in a worktree under `.worktrees/`, checked out byte-for-byte (`core.autocrlf=false`,
+      then CRLF re-applied to every file this tree holds CRLF — the library repo's bodies are), the package `node_modules`
+      reached by a junction. **Run time: 96 s for one side, ~210 s cold (base built), ~95 s with the base cached.** `check
+      --base HEAD` identical twice in a row; a one-character change to a corpus-reported message (`loss of informatio`) made 4
+      aspects over 4 sources differ (a message no corpus file draws — `not defined` — does not: F's diagnostics are the six
+      corpora's, as specified). `--graphical 0|1` sets `VOLT_GRAPHICAL` before any import.
+- [x] 1.4 Deep imports through the indexes. Census (written here): every name imported from outside each sub-layer; the indexes
       export exactly that set plus design.md "Index contents" (`pickForAsker`, `scopeUri`, `libraryRank`, `LibraryManifest`,
       `MATERIALIZATION*` (symbols for now), `BINARY_PRECEDENCE`, `memoByProject`, `dialectOf` …). Fix obsolete-usage.ts,
       empty-block.ts, reference-assign.ts, types/resolve.ts, server/server.test.ts, test/conformance/suite.test.ts, and the 16
       test/script deep imports (test/corpus/corpus.test.ts and scripts/probe-ambiguous-uses.ts included).
       Acceptance: F; the gate's deep-import entries are removed. Depends on: 1.3
-- [ ] 1.5 Front-end tests import no consumer: the network-text half of syntax/implementation-keyword.test.ts → src/network-text/;
+      **Done.** Census (names imported from outside each sub-layer, 2026-09-30, after the step): syntax **93**, symbols **40**,
+      types **69**, library **10** — the index export lists of 1.30/1.40 are these names plus the design's named extras
+      (`libraryRank`, `pickForAsker`, `scopeUri`, `memoByProject`, `dialectOf`, `forEachExpr`, `forEachDecl`, `bodiesAt`,
+      `BINARY_PRECEDENCE`, the format surface, `baseOf`). Fixed: obsolete-usage, empty-block, reference-assign, types/resolve,
+      server.test, suite.test and the 17 test/script deep imports. Gate entries removed: 23.
+- [x] 1.5 Front-end tests import no consumer: the network-text half of syntax/implementation-keyword.test.ts → src/network-text/;
       the analysis half of types/conversion-name.test.ts → src/analysis/; the symbols half of syntax/units/namespace.test.ts →
       symbols/binder.test.ts; types/ambiguous-name.test.ts → types/resolve.test.ts.
       Acceptance: F (every test title kept); gate entries removed. Depends on: 1.4
-- [ ] 1.6 Built-in result facts into `types/builtins.ts`: every FIXED `returnType` of reference.ts (`__POSITION`,
+      **Done.** Moved: 2 network-text tests + the network-text assertion of the `%FOLDER` test → `src/network-text/implementation-line.test.ts`
+      (one new title for the split assertion); 2 analysis tests of conversion-name → `src/analysis/conversion-name.test.ts`;
+      2 binder tests of namespace.test → `symbols/binder.test.ts`; `ambiguous-name.test.ts` → `types/resolve.test.ts`;
+      `source-object.test.ts`'s extension-parity test → `src/source-extensions.test.ts`. Every title kept. Gate entries removed: 4.
+- [x] 1.6 Built-in result facts into `types/builtins.ts`: every FIXED `returnType` of reference.ts (`__POSITION`,
       `__COMPARE_AND_SWAP`, `__XADD`, `TEST_AND_SET` and the rest) as `BUILTIN_RESULT`; infer's `MATH_ARG_TYPED` and the
       EXPT/`__XADD`/`__POSITION` rules; `exptResultType` from arith.ts. infer's `lookupReference` call is replaced by
       `BUILTIN_RESULT` + `parseConversionName` (the derived conversion return types). reference.ts reads its fixed return types
@@ -217,149 +246,327 @@ functions a task names, under **Gate T**; transpile's own copies are handed to t
       types index (no transpile edit).
       Acceptance: F (hover output unchanged); `grep lookupReference src/types` is empty; `ALLOWED_UPWARD` empty; gate entry
       removed. Depends on: 1.4
-- [ ] 1.7 `Document` → `services/shared/document.ts`; its consumers in services/, server/ and network/ switch.
+      **Done.** `types/builtins.ts`: `BUILTIN_RESULT` (`__POSITION` STRING, `__COMPARE_AND_SWAP` BOOL, `__XADD` DINT,
+      `TEST_AND_SET` DWORD — the only fixed `returnType`s the catalog had), `builtinCallResult`, `bareBuiltinType`,
+      `MATH_ARG_TYPED`/`mathResultType`, `exptResultType` (from arith) + `exptCheckedType`, `twincatXaddResultType`.
+      `reference.ts` `ref()` reads its return type from `BUILTIN_RESULT`. `grep lookupReference src/frontend` empty;
+      `ALLOWED_UPWARD` gone; F identical.
+- [x] 1.7 `Document` → `services/shared/document.ts`; its consumers in services/, server/ and network/ switch.
       Acceptance: F; syntax exports no Document. Depends on: 1.4
-- [ ] 1.8 `allUnits` in ast-walk (the one namespace flattener): replaces type-refs `flatUnits`, parser `claimedKeywordLines`,
+      **Done.** `services/shared/document.ts`; 34 consumer files import `Document` from `services/shared/index.js`.
+- [x] 1.8 `allUnits` in ast-walk (the one namespace flattener): replaces type-refs `flatUnits`, parser `claimedKeywordLines`,
       reachability ×3, network-services:69, server/diagnostics:133, semantic-tokens:181 and formatting/print:139 where the unit set
       is identical. A site whose set differs is left and listed here for 3.1.2.
       Acceptance: F; a grep for hand recursion over `.units` finds only allUnits (plus the listed sites). Depends on: 1.4
-- [ ] 1.9 `syntax/type-refs.ts` → `services/navigation/type-refs.ts` (`unitTypeExprs` private).
+      **Done.** `allUnits` (`ast/walk.ts`) replaces type-refs `flatUnits`, parser `claimedKeywordLines`, reachability
+      `firstPou`/`hasRootDecl`/`catalog`, network-services:69, server/diagnostics `unstatedBodies`, semantic-tokens:181, and the
+      test harness's `topExprs`/`sites`/bound-census walks. Left, listed for 3.1.2: `services/formatting/print.ts:139` (it PRINTS
+      the namespace, so it needs the nesting, not the flattened set), `symbols/scoped-bodies.ts` and `format/bodies.ts` (no
+      recursion today — C 3.1.2), the binder's namespace ingest (it builds scopes), and `scripts/frontend-snapshot.ts` (it must
+      run on base commits that have no `allUnits`).
+- [x] 1.9 `syntax/type-refs.ts` → `services/navigation/type-refs.ts` (`unitTypeExprs` private).
       Acceptance: F; references tests unchanged. Depends on: 1.8
-- [ ] 1.10 `tokenAtOffset` (token-at.ts), `exprAtOffset`, `memberAtOffset` → `services/shared/positions.ts`;
+      **Done.** `services/navigation/type-refs.ts`; `unitTypeExprs` private; references tests unchanged.
+- [x] 1.10 `tokenAtOffset` (token-at.ts), `exprAtOffset`, `memberAtOffset` → `services/shared/positions.ts`;
       syntax/token-at.test.ts → services/shared/positions.test.ts; network imports them downward.
       Acceptance: F; syntax exports none of them; no syntax test imports services. Depends on: 1.4
-- [ ] 1.11 The network-text switch becomes a parse option (`networkText: boolean`), and the parse options carry the dialect to the
+      **Done.** `tokenAtOffset`, `exprAtOffset`, `memberAtOffset` in `services/shared/positions.ts`; `token-at.test.ts`'s three
+      tests appended to `positions.test.ts`; network imports them from `services/shared`.
+- [x] 1.11 The network-text switch becomes a parse option (`networkText: boolean`), and the parse options carry the dialect to the
       network-text parser. The server reads `VOLT_GRAPHICAL` in one place; the test preload and conformance support pass it. First
       count and list here every direct parse call that depends on the env default.
       Acceptance: F (with VOLT_GRAPHICAL=1 and without); the "off" server test still passes; no `process.env` under syntax; gate
       entry removed. Depends on: 1.4
-- [ ] 1.12 Folder move: `src/{syntax,symbols,types}` → `src/frontend/{syntax,symbols,types}`, `src/frontend/index.ts`; the import
+      **Done.** `ParseOptions { networkText }` on `parseSource`/`parseDocument`/`parse`; a body parsed with network text off is
+      marked by identity (`format/implementation-line.ts`, a WeakSet — the parse's decision, not the text's, so no AST field and
+      no F change). The environment is read once in `server/config.ts`; `WorkspaceStore` passes it to both of its parses. Count:
+      direct parse calls outside the parser — `parseSource` 296, `parseDocument` 12 (src/test/scripts/libraries); **4
+      production**: `server/workspace-store.ts` ×2 (the only ones that depended on the env default — now explicit) and
+      `transpile/lower/lower.ts` ×2 (read only `isStBody`, which network text does not change). The rest are tests, which ran
+      with the preload's `VOLT_GRAPHICAL=1` and get the same answer from the option's absence. The C# repo gate
+      `NetworkTextSwitchTests` names `src/server/config.ts` now (54/54 Repo.Gates pass). Not done here: carrying the DIALECT to
+      the network-text parser — using it changes TwinCAT answers (C 2.1.4). F identical with VOLT_GRAPHICAL=1 and without.
+- [x] 1.12 Folder move: `src/{syntax,symbols,types}` → `src/frontend/{syntax,symbols,types}`, `src/frontend/index.ts`; the import
       codemod `scripts/codemod-frontend-paths.ts` (committed, re-runnable) over ~254 consumer files and ~38 test/script files;
       `check-layering.ts` `layerOf` maps `frontend/<x>`, `TRANSPILE_ALLOWED = {frontend}`; `network-text` re-ranked to 2.5;
       `docs/architecture.md` paths.
       Acceptance: Gate T; `tsc` clean; F. Depends on: 1.5–1.11
-- [ ] 1.13 `span.ts` owns joining and synthetic spans: `joinSpans` (from util), expression `merge`/`mergeSpans` deleted,
+      **Done.** Gate T: `src/transpile/` had no foreign edits; its edits are import paths only (one spelling-only change the
+      first codemod made, `ir/values.ts`, was restored). `scripts/codemod-frontend-paths.ts` (re-runnable; `--check`): 303
+      files rewritten, 0 unresolved; `--check` clean after. `check-layering` maps `frontend/<x>`, transpile may import the
+      front-end, `network-text` ranked 2.5. `scripts/check-wiring.ts` reads the materialization table at its new home.
+      `docs/architecture.md`, README, TESTING.md, test/README paths updated.
+- [x] 1.13 `span.ts` owns joining and synthetic spans: `joinSpans` (from util), expression `merge`/`mergeSpans` deleted,
       `eofSpan`/`zeroSpan` replace the 5 hand-built spans; the lexer's EOF span uses its incremental line/col.
       Acceptance: F (spans included). Depends on: 1.12
-- [ ] 1.14 `lex/`: tokens.ts → `lex/tokens.ts` (TokenKind, Token, isTrivia) + `lex/vocabulary.ts` (`KEYWORDS` const array,
+      **Done.** `span.ts`: `joinSpans`, `pointSpan`, `eofSpan`, `zeroSpan`; expression `merge`/`mergeSpans` deleted; the 5
+      hand-built spans (statements, expression ×3, type-expr) and the binder's namespace span use them; the lexer's EOF span is
+      `pointSpan(pos, line, col)` from its incremental tracking (`spanFromOffsets`, now unused, deleted in 1.40).
+- [x] 1.14 `lex/`: tokens.ts → `lex/tokens.ts` (TokenKind, Token, isTrivia) + `lex/vocabulary.ts` (`KEYWORDS` const array,
       `Keyword` derived; named subsets replacing cursor `SOFT_NAME_KEYWORDS`/`DECL_LIST_ENDERS`, var-section `SECTION_KEYWORDS`,
       parser `TOP_LEVEL_DISPATCH`, the FB/method/property/interface modifier sets; lexer prefix tables; `MULTI_CHAR_PUNCT`,
       `SINGLE_CHAR_PUNCT`); `lexer.ts` → `lex/lexer.ts`; `ParseResult.tokens` exposed and used by analysis/diagnostics and
       refused-name (same dialect). The orphan JSDoc and the consumer list in the dialect comment are deleted.
       Acceptance: F; one keyword list. Depends on: 1.13
-- [ ] 1.15 `ast/`: ast.ts → `ast/nodes.ts`; ast-walk.ts → `ast/walk.ts`; `isSelfRef` + `sameName` (from types/compat) →
+      **Done.** `lex/tokens.ts` (TokenKind, Token, isTrivia), `lex/vocabulary.ts` (`KEYWORDS` const array — 154 — with `Keyword`
+      derived; `Dialect`, `CODESYS_ONLY_*`; `VAR_SECTION_KEYWORDS`, `UNIT_STARTERS`, `SOFT_NAME_KEYWORDS`, `DECL_LIST_ENDERS`,
+      `FB_MODIFIERS`, `MEMBER_MODIFIERS`, `PROPERTY_MODIFIERS`, `INTERFACE_MEMBER_MODIFIERS`; the lexer's prefix tables;
+      `MULTI_CHAR_PUNCT`, `SINGLE_CHAR_PUNCT`), `lex/lexer.ts`. `ParseResult.tokens` is the stream the parse lexed;
+      `analysis/diagnostics` `ctx.tokens` returns it (refused-name reads it through `ctx.tokens`). Left: refused-name's
+      `cascadeAfter` re-lexes a SLICE of the source from an offset (same dialect) — not the whole stream. The orphan JSDoc and the
+      dialect comment's consumer list are deleted.
+- [x] 1.15 `ast/`: ast.ts → `ast/nodes.ts`; ast-walk.ts → `ast/walk.ts`; `isSelfRef` + `sameName` (from types/compat) →
       `identifier.ts` (+ `selfRefKind`); this-super-context.ts:32,42-44 uses them; `varInputParams` → `ast/declarations.ts`; stale
       ast.ts comments fixed.
       Acceptance: F; no `=== "THIS"`/`"SUPER"` comparison outside identifier.ts. Depends on: 1.14
-- [ ] 1.16 `parse/cursor.ts` (Cursor only, unused `_context` parameters removed) and `parse/errors.ts` (cursor `describeToken`,
+      **Done.** `ast/nodes.ts`, `ast/walk.ts`, `ast/declarations.ts` (`varInputParams`); `identifier.ts`: `sameName` (compat's copy,
+      same semantics), `selfRefKind`, `isSelfRef`; this-super-context uses `selfRefKind` — no `=== "THIS"`/`"SUPER"` outside
+      identifier.ts. The ast header's stale history is rewritten in 1.41's sweep.
+- [x] 1.16 `parse/cursor.ts` (Cursor only, unused `_context` parameters removed) and `parse/errors.ts` (cursor `describeToken`,
       util `describeToken`, type-expr `tokenDescription`, the inline "got <kind>" forms as named functions; `nameExpected`,
       `reportBrokenDeclaration`); the detached JSDoc fixed.
       Acceptance: F (every message byte-identical). Depends on: 1.15
-- [ ] 1.17 `util.ts` dissolved: `parse/body.ts` (collectBodyUntil(Any), cursor `consumeBodyUntilAny`, property
+      **Done.** `parse/cursor.ts` without the `_context` parameters (every call site; the `endAfterType` context parameter went with
+      them); `parse/errors.ts`: `vendorTokenText` (the cursor's), `plainTokenText` (util's), `typeTokenText` (type-expr's),
+      `typeExpected`, `expressionExpected`, `nameExpected`, `unexpectedTokenOf`, `reportBrokenDeclaration` (over an
+      `ErrorCursor` shape, so errors ↔ cursor is no cycle); the detached JSDoc now sits on `nameExpected`. Every message
+      byte-identical (F).
+- [x] 1.17 `util.ts` dissolved: `parse/body.ts` (collectBodyUntil(Any), cursor `consumeBodyUntilAny`, property
       `collectAccessorBody`), `parse/names.ts` (identFromToken, eatModifiers), `format/folder.ts` (readFolderLine,
       closesDeclaration, reportMisplacedFolder), `collectVarSections` → var-section; the util↔var-section cycle is gone; C#
       `<see cref>` docs rewritten.
       Acceptance: F; no import cycle in syntax (the gate checks). Depends on: 1.16
-- [ ] 1.18 `parse/names.ts`: one `readQualifiedName` (type-expr loop, `readMaybeQualifiedName`, interface `parseQualifiedName`;
+      **Done.** `parse/body.ts` (collectBodyUntil(Any), `consumeBodyUntilAny` over two raw-stream primitives the cursor
+      gained, `collectAccessorBody`), `parse/names.ts`, `format/folder.ts` (over a `FolderCursor` shape: format may not import
+      parse), `format/lines.ts` (the line readers the format files share), `codeBody`/`bodySpanFromTokens` → format/
+      implementation-line (reporting through a `ReportAt`), `collectVarSections` → declarations. The util ↔ var-section cycle is
+      gone: F6 reports no cycle in syntax. The `<see cref>` doc is rewritten.
+- [x] 1.18 `parse/names.ts`: one `readQualifiedName` (type-expr loop, `readMaybeQualifiedName`, interface `parseQualifiedName`;
       callers keep their node shapes), one `readNameList` (the 5 identifier-list loops), one `readModifiers` (FB, method, property
       and interface loops; FB/method keep their boolean flags).
       Acceptance: F. Depends on: 1.17
-- [ ] 1.19 `parse/initializer.ts` (aggregate parser, collectInitTokens, initializerFromTokens) out of expression.ts;
+      **Done.** `parse/names.ts`: `readQualifiedName(c, first, dangling)` — the three readers' three behaviours at a dangling
+      `.` kept as `report` (type-expr), `consume` (declarations), `leave` (interface) — with `joinedName`; `readNameList` (the
+      5 loops: FB EXTENDS and IMPLEMENTS, function IMPLEMENTS, interface EXTENDS/IMPLEMENTS, struct fields, var names);
+      `readModifiers` (FB and method with their lookahead, property and interface greedy); `readIdent`. Node shapes unchanged.
+- [x] 1.19 `parse/initializer.ts` (aggregate parser, collectInitTokens, initializerFromTokens) out of expression.ts;
       `parse/scan.ts` (one balanced scanner for collectInitTokens, collectDimTokens, collectBalancedParenInner, topLevelDotDot);
       aggregate.test.ts → parse/initializer.test.ts. The stale expression.ts header is rewritten.
       Acceptance: F. Depends on: 1.18
-- [ ] 1.20 `parse/statements.ts` + `parse/body-parse.ts`: the BodyParse cache and conditional-pragmas `parseActive` in one module
+      **Done.** `parse/initializer.ts`; `parse/scan.ts` (`collectUntilTopLevel` for init tokens and dims, `collectParenInner`,
+      `topLevelDotDot`, one depth rule — parentheses only where the paren scanner counted only them); aggregate.test.ts →
+      parse/initializer.test.ts; expression.ts header rewritten.
+- [x] 1.20 `parse/statements.ts` + `parse/body-parse.ts`: the BodyParse cache and conditional-pragmas `parseActive` in one module
       with one cache; the stale statements.ts header is rewritten.
       Acceptance: F (both entries still give today's two trees). Depends on: 1.19
-- [ ] 1.21 `parse/type-expr.ts`, `parse/declarations.ts` (var-section + type-decl `parseStructField` side by side), `parse/units/*`,
+      **Done.** `parse/body-parse.ts`: `parseStatements` and `parseActive`, one WeakMap per body; `parse/statements.ts`
+      `parseStatementTokens` (uncached); `pragmas/conditional.ts` is the scanner (`scanConditionals`, `hasConditionalPragmas`).
+      Both entries give today's trees (F `stmts` and `active` identical).
+- [x] 1.21 `parse/type-expr.ts`, `parse/declarations.ts` (var-section + type-decl `parseStructField` side by side), `parse/units/*`,
       `parse/units/header.ts` (`parseOptionalReturnType`; program.ts uses it only if F is unchanged, else noted for 2.4.1),
       `parse/parser.ts` (dispatch from UNIT_STARTERS; header rewritten); interface.ts import order fixed; parser.test.ts,
       fuzz.test.ts, units/interface.test.ts, units/namespace.test.ts move to parse/ (design.md §3.1a).
       Acceptance: F. Depends on: 1.20
-- [ ] 1.22 `literal/`: literal-value.ts → `literal/value.ts` + `literal/string.ts` (tests split likewise);
+      **Done.** `parse/declarations.ts` holds `parseStructField` beside `parseVarDecl`; `parse/units/header.ts`:
+      `parseOptionalReturnType`, `readImplements` (function's, now also FB's — identical); `parse/parser.ts` dispatches through a
+      `UNIT_PARSERS` table keyed by `UnitStarter` (a starter with no parser is a type error), header rewritten; interface.ts
+      imports in order. **Noted for 2.4.1:** `program.ts` keeps its own `: <type>` read — `parseOptionalReturnType` also eats a
+      trailing `;`, which would change a program's parse.
+- [x] 1.22 `literal/`: literal-value.ts → `literal/value.ts` + `literal/string.ts` (tests split likewise);
       `calendarNanoseconds` from transpile/lower/constants.ts → `literal/calendar.ts` (the transpile call site imports it from the
       syntax index); the lexer's prefix carried on the Literal node (`prefix`); `types` literal typing reads `prefix`, not a regex
       over `text`.
       Acceptance: Gate T; F. Depends on: 1.21
-- [ ] 1.23 `pragmas/`: `conditional.ts` (scanner; `hasConditionalPragmas` replaces unresolved-identifier `CONDITIONAL_PRAGMA_RE`;
+      **Done.** Gate T (transpile clean of foreign edits; the one named edit: `constants.ts` imports `calendarNanoseconds` from the
+      syntax index). `literal/value.ts`, `literal/string.ts` (+ string.test.ts), `literal/calendar.ts`. Literal typing reads
+      `prefix` for DATE/TOD/DT (`L…`). **Left:** a TIME literal carries no `prefix` on its node (adding one changes every
+      duration literal's AST, so F), so `LTIME#` is still read off `text` — for 2.2.3.
+- [x] 1.23 `pragmas/`: `conditional.ts` (scanner; `hasConditionalPragmas` replaces unresolved-identifier `CONDITIONAL_PRAGMA_RE`;
       analysis/checks/pragmas/pragmas.ts's balance stack switches only if F is unchanged, else noted for 2.7.1); `attributes.ts`
       (one regex, one lex). The seven attribute sites of design.md P6: unit-attributes.ts (moves), binder `hasQualifiedOnly` →
       `fileHasAttribute`, analysis attribute-placement.ts, analysis pragmas.ts, services hover.ts, services completion.ts,
       workspace-refs.ts (the obsolete regex) — each switches where identical; `addAttribute` test-only export removed; tests move
       (conditional-pragmas.test.ts, unit-attributes.test.ts).
       Acceptance: F; the non-identical sites are listed here. Depends on: 1.22
-- [ ] 1.24 `format/`: implementation-keyword.ts → `implementation-line.ts`, `folder.ts`, `retired-comments.ts`, `reserved-names.ts`,
+      **Done.** `pragmas/conditional.ts` (1.20), `pragmas/attributes.ts` (one attribute-name reader for its three functions;
+      `addAttribute` private). **Non-identical sites, left** (each changes an answer): unresolved-identifier
+      `CONDITIONAL_PRAGMA_RE` (no `define`/`undefine`, no closing-brace anchor — 2.7.1); analysis pragmas.ts balance stack
+      (2.7.1); binder `hasQualifiedOnly` (unanchored, `'qualified_only'}` only — 2.7.2); attribute-placement and hover (`'[^']*'`
+      reads an empty name); analysis pragmas `parsePragma` (reads the value, an unquoted one as ''); completion (a prefix inside
+      an unfinished pragma); workspace-refs (the obsolete regex over raw text with the following POU). The three attribute
+      functions still lex the source once each: reading `ParseResult.tokens` changes their signature, which the transpiler
+      calls (T, 5.3).
+- [x] 1.24 `format/`: implementation-keyword.ts → `implementation-line.ts`, `folder.ts`, `retired-comments.ts`, `reserved-names.ts`,
       `network-header.ts` (network-text/parser.ts imports its markers and drops its copy); syntax/bodies.ts → `format/bodies.ts`;
       implementation-keyword.test.ts and units/folder-directive.test.ts → `format/*.test.ts`, each FMT1–FMT8 case under the title
       design.md §4 2.10 names; exports used only inside a file become private.
       Acceptance: F; one set of network-header markers. Depends on: 1.23
-- [ ] 1.25 `frontend/library/`: `path.ts` (isLibraryUri, libraryOf, the path half of isLibrarySymbol; workspace-store:135
+      **Done.** `format/implementation-line.ts`, `folder.ts`, `retired-comments.ts`, `reserved-names.ts`, `network-header.ts`,
+      `bodies.ts`, `source-object.ts` (a file-format fact the design did not map; it is the format's); tests:
+      `implementation-line.test.ts`, `folder.test.ts` (+ the member-folder test), `retired-comments.test.ts`, and two new unit
+      tests, `reserved-names.test.ts`, `network-header.test.ts`; `rules.ts` FMT rows name them. `network-text/parser.ts` keeps
+      no copy of the header markers (its token grammar is its own), so nothing switched; the markers are private to
+      network-header.ts.
+- [x] 1.25 `frontend/library/`: `path.ts` (isLibraryUri, libraryOf, the path half of isLibrarySymbol; workspace-store:135
       switches), `manifest.ts`, `materialization.ts` (out of symbols/library-namespace.ts); server/diagnostics, workspace-refs,
       libraries/index.ts, transpile lower.ts and the tests import `library/index`; library-symbol.test.ts split (design.md §3.1a).
       Acceptance: Gate T; F; `bun run check` (C# parity) green. Depends on: 1.24
-- [ ] 1.26 Symbols model split: symbol.ts → `model.ts`, `scope.ts`, `cache.ts` (the lazy indices, `invalidate(scope)` used by
+      **Done.** Gate T (named edits: import paths in lower.ts, calls.ts, places.ts). `frontend/library/{path,manifest,
+      materialization,index}.ts`; `symbols/library-namespace.ts` → `symbols/library-namespaces.ts` (the binding half);
+      `isLibrarySymbol(sym)` is `isLibraryUri(sym.uri)`; library-symbol.test → `library/path.test.ts` (+ libraryOf's test) and a
+      binder test. `bun run check` 14/14. **Non-identical, left:** workspace-store:135 tests a lower-cased key for
+      `library manager/` with a separator; `isLibraryUri` is case-sensitive without one.
+- [x] 1.26 Symbols model split: symbol.ts → `model.ts`, `scope.ts`, `cache.ts` (the lazy indices, `invalidate(scope)` used by
       binder, library-namespaces, scope-nav and canonicalize; `memoByProject`).
       Acceptance: F; no `_childIndex` write outside cache.ts. Depends on: 1.25
-- [ ] 1.27 Binder split: `binder.ts` (ingest, `gvlName`, which document-symbol uses), `incremental.ts` (bindFile, unbindFile,
+      **Done.** `symbols/model.ts`, `scope.ts`, `cache.ts` (child and span indices, generation, the library visibility map, all in
+      WeakMaps — no cache field on `Scope`; `invalidate(scope)` at bindFile, unbindFile, canonicalize, library-namespaces).
+      `grep _childIndex` finds nothing outside cache.ts (nothing at all).
+- [x] 1.27 Binder split: `binder.ts` (ingest, `gvlName`, which document-symbol uses), `incremental.ts` (bindFile, unbindFile,
       canonicalize, `relink`), `extends.ts` (`linkExtends`, `extendsChain` base-first with a cycle guard, `baseOf`); the rank doc
       lives only in precedence.ts; `model.ts` `isPouScope` replaces network-analyze:111 `isPou`'s kind set; build-API `localScope`
       replaces network-analyze:41-54's hand-built Scope; symbols.test.ts → binder.test.ts, extends-ambiguity.test.ts →
       extends.test.ts, incremental-rebind.test.ts → incremental.test.ts.
       Acceptance: F. Depends on: 1.26
-- [ ] 1.28 scope-nav gains `enclosingPou` (from infer), `rootOf` and `resolveQualifiedConst` (from const-eval), `visibleNames`
+      **Done.** `binder.ts` (ingest, `gvlName`), `incremental.ts` (`buildSymbolTable`, bindFile, unbindFile, canonicalize,
+      `relink` = canonicalize + linkExtends, never apart; every former `linkExtends` caller calls `relink`), `extends.ts`
+      (`linkExtends`, `extendsChain` base-first with a cycle guard, `baseOf`); the rank list lives only in precedence.ts;
+      `model.ts` `POU_SYMBOL_KINDS`/`isPouSymbol` replace network-analyze's `isPou` kind set (a SYMBOL kind set, so it is named
+      for symbols); `scope.ts` `localScope` replaces network-analyze's hand-built Scope; document-symbol names a GVL with
+      `gvlName`. Tests: symbols.test.ts merged into binder.test.ts, extends.test.ts, incremental.test.ts.
+- [x] 1.28 scope-nav gains `enclosingPou` (from infer), `rootOf` and `resolveQualifiedConst` (from const-eval), `visibleNames`
       (completion:81-93), `symbolDefinedAt` (resolve-at:84-100); inherited-variable:34, network-analysis pinSet and
       this-super-context:22 switch where identical.
       Acceptance: F; every non-identical site listed here for 3.x. Depends on: 1.27
-- [ ] 1.29 symbols/bodies.ts → `symbols/scoped-bodies.ts`; server/diagnostics `unstatedBodies` and analysis/body-context.ts list
+      **Done.** scope-nav: `enclosingPou`, `rootOf`, `resolveQualifiedConst`, `visibleNames`, `symbolDefinedAt`. Switched:
+      inherited-variable:34 and network pinSet (`extendsChain`), this-super-context:22 (`enclosingPou`), completion:81-93
+      (`visibleNames` — which adds a cycle guard; the two loops there looped forever on `A EXTENDS B, B EXTENDS A`),
+      resolve-at (`symbolDefinedAt`), const-eval (`resolveQualifiedConst`, `rootOf`). No non-identical site.
+- [x] 1.29 symbols/bodies.ts → `symbols/scoped-bodies.ts`; server/diagnostics `unstatedBodies` and analysis/body-context.ts list
       bodies through `unitBodies`.
       Acceptance: F. Depends on: 1.28
-- [ ] 1.30 symbols index curated: the named read API of design.md "Index contents" + a `build` namespace (buildSymbolTable,
+      **Done.** `symbols/scoped-bodies.ts`; server/diagnostics `unstatedBodies` lists through `unitBodies`. analysis/body-context
+      lists no bodies (it names the one it is given), so nothing to switch.
+- [x] 1.30 symbols index curated: the named read API of design.md "Index contents" + a `build` namespace (buildSymbolTable,
       bindFile, unbindFile, relink, localScope); server/workspace-store, transpile lower.ts and network-analyze use `build`.
       Acceptance: Gate T; F; no `export *` in symbols/index. Depends on: 1.29
-- [ ] 1.31 elementary.ts split exactly as design.md §3.1: `elementary.ts` (facts, `elementaryType`), `platform.ts`
+      **Done.** Gate T (lower.ts's builders through `build`). symbols/index names the read API one by one (no `export *`) and
+      exports `build` = { buildSymbolTable, bindFile, unbindFile, relink, localScope }; 115 consumer files call through it.
+- [x] 1.31 elementary.ts split exactly as design.md §3.1: `elementary.ts` (facts, `elementaryType`), `platform.ts`
       (`PLATFORM_ALIASES`, `POINTER_BITS`, `canonicalElem` with an optional target defaulting to today's 64-bit answer),
       `predicates.ts` (complete list incl. `isDuration`, `numericRank`), `conversion-name.ts`, `defaults.ts`; the header's legacy
       reference is removed. No transpile file changes (it imports through the types index).
       Acceptance: F; every former elementary.ts export has exactly one home. Depends on: 1.30
-- [ ] 1.32 `types/literal.ts`: integerLiteralType, REAL_LITERAL_TYPE, ANY_INT_RANGE, REAL_MAX_MAGNITUDE, and infer's literalType,
+      **Done.** `elementary.ts` (facts, `elementaryType`, aliases, `ANY_FAMILIES`/`inTypeGroup`, `CODESYS_ONLY_TYPES`,
+      `elementaryDisplayName`), `platform.ts` (`Target`, `PLATFORM_ALIASES`, the measured 32-bit table, `canonicalElem(name,
+      target = the 64-bit target)`), `predicates.ts`, `conversion-name.ts`, `defaults.ts`, `literal.ts` (1.32). The header's legacy
+      reference is gone. No transpile file changed. **Not created:** `widthOf` and `POINTER_BITS` — nothing reads them yet
+      (4.1.1 will).
+- [x] 1.32 `types/literal.ts`: integerLiteralType, REAL_LITERAL_TYPE, ANY_INT_RANGE, REAL_MAX_MAGNITUDE, and infer's literalType,
       literalCheckType, literalErrorType, typedLiteralSum; `literalOwnType` (reference-assign, call-arguments),
       `literalCapacityType` (constant-overflow), `isNegatedIntLiteral` (narrowing) replace the consumer copies; literal-check.test.ts
       → literal.test.ts.
       Acceptance: F. Depends on: 1.31
-- [ ] 1.33 `types/width.ts`: `integerOfWidth` (from arith), `wrapToWidth` (const-eval `heldAs`), `widthOf`; infer's three ladders
+      **Done.** `types/literal.ts`: integerLiteralType, REAL_LITERAL_TYPE, ANY_INT_RANGE (private), REAL_MAX_MAGNITUDE,
+      literalType, literalCheckType, literalErrorType, typedLiteralSum, `literalOwnType` (reference-assign, call-arguments),
+      `literalCapacityType` (constant-overflow's `overflowType`), `isIntLiteral` (narrowing's — named for what it is: an integer
+      literal written plain OR negated, not `isNegatedIntLiteral`); literal-check.test.ts → literal.test.ts.
+- [x] 1.33 `types/width.ts`: `integerOfWidth` (from arith), `wrapToWidth` (const-eval `heldAs`), `widthOf`; infer's three ladders
       and checkedNegationType's ternary use it.
       Acceptance: F. Depends on: 1.32
-- [ ] 1.34 `types/arith/`: `runtime.ts`, `checked.ts`, `temporal.ts`, `operators.ts` (`UNARY_ACCEPTS` from unary-operand;
+      **Done.** `types/width.ts`: `integerOfWidth`, `wrapToWidth` (const-eval `heldAs` now wraps through it); infer's NOT ladder,
+      the bitwise ladder, `typedLiteralSum`'s order and `checkedNegationType`'s ternary use it.
+- [x] 1.34 `types/arith/`: `runtime.ts`, `checked.ts`, `temporal.ts`, `operators.ts` (`UNARY_ACCEPTS` from unary-operand;
       `operandConversion` from narrowing; `operandFamilyRule` from rules.binaryOpError; the bitwise-result rule from infer;
       `OPERATOR_FUNCTIONS`); network-text/parser.ts `BIT_STRINGS`/`COMPARISONS`/`BIT_OPERATORS` switch to
       `inTypeGroup("ANY_BIT")` and `OPERATOR_FUNCTIONS` where F is unchanged (else listed here for 4.4). The analysis checks keep
       only their messages; arith.test.ts split by file.
       Acceptance: F; no family list in analysis/checks/types/{unary-operand,narrowing}.ts or rules.ts. Depends on: 1.33
-- [ ] 1.35 `types/infer/`: `expr.ts`, `member.ts`, `callee.ts` (`fbChainSections` on `extendsChain`); stray doc block fixed.
+      **Done.** `arith/runtime.ts`, `checked.ts`, `temporal.ts`, `operators.ts` (`ARITHMETIC/BITWISE/COMPARISON_OPERATORS`,
+      `COMPARISON_FUNCTIONS`, `BIT_OPERATOR_FUNCTIONS`, `operandConversion`, `comparisonConverts`, `unaryOperandConversion`,
+      `notResultType`, `bitwiseResultType`, `operandFamilyRule`); unary-operand, narrowing and rules.binaryOpError keep only their
+      messages; arith.test split into runtime.test/temporal.test. network-text's `COMPARISONS`/`BIT_OPERATORS` switched to
+      `COMPARISON_FUNCTIONS`/`BIT_OPERATOR_FUNCTIONS`. **Listed for 4.4:** network-text `BIT_STRINGS` is not `ANY_BIT` (it has no
+      `BIT`).
+- [x] 1.35 `types/infer/`: `expr.ts`, `member.ts`, `callee.ts` (`fbChainSections` on `extendsChain`); stray doc block fixed.
       Acceptance: F. Depends on: 1.34
-- [ ] 1.36 `types/const/`: `fold.ts`, `constancy.ts`; name resolution through `scope-nav.resolveQualifiedConst`; const-eval.test.ts
+      **Done.** `infer/expr.ts`, `member.ts`, `callee.ts`; the stray `enclosingPou` doc block is gone. **Listed for 3.2.2:**
+      `fbChainSections` walks the EXTENDS chain by NAME (`lookup`), not through `extendsChain` — switching changes the base
+      under library ambiguity.
+- [x] 1.36 `types/const/`: `fold.ts`, `constancy.ts`; name resolution through `scope-nav.resolveQualifiedConst`; const-eval.test.ts
       and constancy.test.ts move.
       Acceptance: F. Depends on: 1.35
-- [ ] 1.37 `types/enums.ts`: the EnumType.base rule (from resolve) and enum numbering/default (`defaultOfValues`, `enumDefault`,
+      **Done.** `const/fold.ts`, `const/constancy.ts` (with `compileTimeConstant`); qualified constants resolve through
+      `scope-nav.resolveQualifiedConst`; the tests moved.
+- [x] 1.37 `types/enums.ts`: the EnumType.base rule (from resolve) and enum numbering/default (`defaultOfValues`, `enumDefault`,
       `inlineEnumDefault` from transpile/lower/constants.ts; the transpile call sites import them from the types index).
       Acceptance: Gate T; F (the storage-base disagreement is left for 4.7.3). Depends on: 1.36
-- [ ] 1.38 `compat.ts` owns pointer↔integer (from pointer-conversion `pointerSized`, width from `platform.POINTER_BITS`);
+      **Done.** Gate T (named edits: constants.ts gives up `enumDefault`/`inlineEnumDefault`/`defaultOfValues` and exports
+      `enumeratorValue(lw)`, its enumerator folder; storage.ts calls the types index). `types/enums.ts`: `enumBase` (resolve's
+      rule), `enumDefault(project, t, valueOf)`, `inlineEnumDefault(type, valueOf)` — the enumerator values are folded by the
+      caller, since lowering and the LSP fold differently (4.6.1). The storage-base disagreement is left for 4.7.3.
+- [x] 1.38 `compat.ts` owns pointer↔integer (from pointer-conversion `pointerSized`, width from `platform.POINTER_BITS`);
       `resolve.isDialectType` replaces resolution.ts:107/:229 and refused-name.ts:114; `types/names.ts` created holding
       `nameResolves`'s search order ONLY if F is unchanged (else it moves in 3.1.5, and this is noted here).
       Acceptance: F. Depends on: 1.37
-- [ ] 1.39 `render.ts` forms: messages `compilerTypeName`, `compilerArrayText`, `compilerSubrangeText` type text →
+      **Done.** `compat.ts` `isPointerSizedInteger` (pointer-conversion's rule, `bits >= 32` as measured — the target's
+      pointer width would change the 32-bit answers: 4.1.1); `resolve.ts` `isDialectType` replaces resolve:97, resolution.ts's
+      two gates and refused-name:114. **`types/names.ts` not created:** `nameResolves` asks the reference catalog, which the
+      front-end may not import — it moves in 3.1.5.
+- [x] 1.39 `render.ts` forms: messages `compilerTypeName`, `compilerArrayText`, `compilerSubrangeText` type text →
       `renderType(t, { form: "compiler" })`; array-bounds, array-init:54 and compilerArrayText read `ArrayTypeInfo.bounds`.
       Acceptance: F (every message byte-identical). Depends on: 1.38
-- [ ] 1.40 Types and syntax indexes curated (named exports, the 1.4 census). Dead exports deleted (`isKnown`, `isNarrowing` and
+      **Done.** `renderType(t, { form: "compiler" })` (the enum upper-casing); `compilerTypeName` is gone, its 12 call sites use
+      the form. **Non-identical, left for 4.7.x:** `compilerArrayText`, array-bounds and array-init:54 fold their bounds in the
+      USE site's scope; `ArrayTypeInfo.bounds` is folded in the resolving scope, which differs for a local constant bound.
+      `compilerSubrangeText` is not a type's name (it takes the base name and bounds), so it stays message wording.
+- [x] 1.40 Types and syntax indexes curated (named exports, the 1.4 census). Dead exports deleted (`isKnown`, `isNarrowing` and
       their tests). Exports used only inside their sub-layer made private: types (numericRank, isDatetime, isIsolated, durationFor,
       elementaryDisplayName) and syntax (parseTopLevel, parseExpression, parseAssignable, atVarSection, parseVarSection,
       collectInitTokens, bodySpanFromTokens, codeBody, opensKeywordLine, statementOf, unsupportedLine, UNSUPPORTED_WORD, folderOn,
       MULTI_CHAR_PUNCT, SINGLE_CHAR_PUNCT), each only where `scripts/dead-exports.ts` confirms no outside user.
       Acceptance: F; `scripts/dead-exports.ts` is clean for frontend/; no `export *` in any front-end index. Depends on: 1.39
-- [ ] 1.41 No concern in two places: the layering gate's known-violation list is empty; design.md §3.3 is re-verified by grep (every
+      **Done.** syntax, symbols, types and frontend indexes name their exports (no `export *` in any front-end index; the
+      frontend index is the union, for `src/index.ts`). Deleted: `isKnown`, `isNarrowing` (+ their tests), `spanFromOffsets`.
+      Made private (the dead-export scan: no other file names them): `folderOn`, `UNSUPPORTED_WORD`, `unsupportedLine`,
+      `statementOf`, `durationFor`, `generationOf`, `consumeBodyUntilAny`, `typeTokenText`, `FIELDED_HEADER`, `END_NETWORK`,
+      `ANY_INT_RANGE`. The design's other candidates (parseTopLevel, parseExpression, parseAssignable, atVarSection,
+      parseVarSection, collectInitTokens, bodySpanFromTokens, codeBody, opensKeywordLine, MULTI/SINGLE_CHAR_PUNCT, numericRank,
+      isDatetime, isIsolated, elementaryDisplayName) are used by another file of their sub-layer, so they stay exported and off
+      the index. The dead-export scan's remaining front-end rows are union members and types named in exported signatures.
+- [x] 1.41 No concern in two places: the layering gate's known-violation list is empty; design.md §3.3 is re-verified by grep (every
       "R" row has one home). Every remaining copy is either a C task named in design.md or a T hand-off listed in 5.3. Stale headers
       named in the maps (parser, statements, expression, var-section, render) are rewritten.
       Acceptance: gate green with an empty list; the §3.3 check result written here. Depends on: 1.40
+      **Done.** `KNOWN_FRONTEND_VIOLATIONS` is empty; the gate is green (`KNOWN_OTHER_VIOLATIONS` holds the one pre-existing
+      services→network edge, outside the front-end). §3.3 re-verified by grep — one home each: keyword vocabulary, span joining,
+      token description (home; one wording is 2.8.1), namespace flattening (print.ts listed under 1.8), body listing, body →
+      statement tree (home; one tree is 2.7.1), `%FOLDER`, network-header markers, self reference, POU kinds, scope construction,
+      cache invalidation, EXTENDS chain home (the name-resolving sites are 3.2.2), library path (workspace-store listed under
+      1.25), precedence rank table, integer width ladder, wrap to width (types; transpile copies are T), literal typing (LSP
+      copies; transpile's is T), NOT result type, unary-operator families, built-in result types (LIMIT/SEL/MUX are 4.3.4),
+      enum numbering/default, dialect type gate, type rendering (array bounds listed under 1.39). Remaining copies are the C
+      tasks named above and the T hand-offs of 5.3. Stale headers rewritten: parser, statements, expression, declarations
+      (var-section), render, ast/nodes, binder, model.
+      
+      **Gate 1 (2026-09-30):** F identical against the step's base `1b03f0e55c` with VOLT_GRAPHICAL=1 and without (399 527 aspects
+      each); `bun typecheck` clean; `bun test` 6029 pass / 34 skip / 148 todo / 0 fail (6211 tests, 181 files,
+      521 s — re-run after the review fixes below; a first run made while snapshot F ran alongside timed out
+      `interp — no iteration cap` at 5037 ms, which takes ~3 s alone and passed uncontended); `suite-snapshot.ts --compare` against a snapshot taken at the base identical (4565 tests); `bun run rate:fixtures`
+      regenerated `map.generated.ts` byte-identical; `bun run check` 14/14; `bun run lint` green; Repo.Gates 54/54. The step's base is `1b03f0e55c`: commit
+      `5cef943304` (the execute-change 5-task cap) swept this step's staged `git mv` renames — content-less, 68 R100 + 5 D — into
+      itself, so that commit's package tree is a half-moved intermediate; F must be checked with `--base 1b03f0e55c`.
+      **Step-1 review fixes:** (a) 1.11's count was wrong — scripts do not run with the preload, so an absent option turned
+      network text ON for every script and the transpiler where the base read it OFF. `ParseOptions` is now REQUIRED
+      (`parseSource(src, options, dialect?, object?)`, `parseDocument(uri, src, options, dialect?)`; a missing one throws by
+      name): tests and test support pass `{ networkText: true }`, scripts `{ networkText: NETWORK_TEXT_ENABLED }`
+      (`server/config.ts`, the base's reading), `lower.ts` a stated `TRANSPILE_PARSE` (on). (b) `ParseResult.dialect` records
+      the parse's vocabulary and `computeSemanticDiagnostics` refuses a parse made for another vendor by name, as it refuses
+      the project's; colocated check tests (30 files) that analysed a CODESYS-lexed parse as TwinCAT now parse as the vendor they assert
+      (all still green). (c) `incremental.test.ts` runs the production sequence (unbind, bind, `relink`), rebinding the file
+      canonical order puts SECOND; `check-layering` refuses an import of `linkExtends` outside `incremental.ts`. (d) the
+      cyclic-EXTENDS completion answer (1.28) is pinned in `assist.test.ts` (hangs with the guard removed). Correction to the
+      title claim: 1.25 renamed three titles (`isLibrarySymbol …` → `isLibraryUri …`), which the suite snapshot cannot see.
 
 ## 2. Parser (syntax/) conformance
 

@@ -4,14 +4,14 @@
  * (integer narrowing) does NOT also produce a conversion warning — one site, one diagnostic.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../index.js"
 
 const conv = (decls: string, body: string, vendor: Vendor = "codesys") => {
   const src = `FUNCTION_BLOCK F\nVAR\n${decls}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], vendor)
+  const pr = parseSource(src, { networkText: true }, vendor)
+  const p = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor }) }).filter(
     (d) => d.code === "narrowing-conversion" || d.code === "sign-change-conversion",
   )
@@ -63,8 +63,8 @@ test("an enum value into an unsigned type warns change of sign as a signed INT w
   // The warning typed the value by inference alone, which gives an enum VALUE no type (conformance `cc_enum_into_uint`,
   // `cc_enum_into_dword`; into DINT silent, `cc_enum_into_dint`).
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\tu : UINT;\n\tw : DWORD;\n\ti : DINT;\nEND_VAR\nu := E_Mode.Busy;\nw := E_Mode.Busy;\ni := E_Mode.Busy;\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const p = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], "codesys")
+  const pr = parseSource(src, { networkText: true })
+  const p = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], "codesys")
   const messages = computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "sign-change-conversion")
     .map((d) => d.message)
@@ -79,9 +79,9 @@ test("a LIBRARY enum stays silent — real builds store one into a WORD without 
   // project enum's variable does warn (conformance `cc_enum_var_into_word`). Why is unrecorded, so no rule is guessed.
   const lib = `TYPE E_Lib :\n(\n\tIdle := 0,\n\tBusy := 1\n);\nEND_TYPE`
   const src = `FUNCTION_BLOCK F\nVAR\n\te : E_Lib;\n\tw : WORD;\nEND_VAR\nw := e;\nEND_FUNCTION_BLOCK`
-  const libResult = parseSource(lib)
-  const pr = parseSource(src)
-  const p = buildSymbolTable([
+  const libResult = parseSource(lib, { networkText: true })
+  const pr = parseSource(src, { networkText: true })
+  const p = build.buildSymbolTable([
     { uri: "Application/Library Manager/Lib/E_Lib.enum", parseResult: libResult, source: lib },
     { uri: "F.fb", parseResult: pr, source: src },
   ])

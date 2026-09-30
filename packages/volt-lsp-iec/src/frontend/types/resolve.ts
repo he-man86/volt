@@ -3,13 +3,19 @@
  * follows aliases, embeds elementary facts, and carries member scopes. Conservative: any step that
  * fails (name not in scope, library type, cycle) yields `UNKNOWN` — callers skip, never false-positive.
  */
-import type { Scope } from "../symbols/index.js"
-import { pickForAsker, scopeUri } from "../symbols/precedence.js"
-import { childScopesByName, findChildScope, isLibrarySymbol, lookupLocal } from "../symbols/index.js"
-import type { TypeDecl, TypeExpr } from "../syntax/index.js"
-import { constEval } from "./const-eval.js"
+import {
+  childScopesByName,
+  findChildScope,
+  lookupLocal,
+  pickForAsker,
+  scopeUri,
+  type Scope,
+} from "../symbols/index.js"
+import type { Dialect, TypeDecl, TypeExpr } from "../syntax/index.js"
+import { constEval } from "./const/fold.js"
 import { CODESYS_ONLY_TYPES, elementaryType } from "./elementary.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
+import { enumBase } from "./enums.js"
 
 const MAX_ALIAS_DEPTH = 10
 
@@ -88,7 +94,7 @@ export function resolveNamedType(
 ): Type {
   // …unless the project's dialect does not have it: `LDATE`/`LTOD`/`LDT` are CODESYS's (see
   // `CODESYS_ONLY_TYPES`), and on TwinCAT the name reaches the symbol lookup like any other unknown one.
-  const elem = project.dialect === "twincat" && CODESYS_ONLY_TYPES.has(name.toUpperCase()) ? undefined : elementaryType(name)
+  const elem = isDialectType(name, project.dialect) ? elementaryType(name) : undefined
   if (elem !== undefined) return elementaryTypeRef(elem)
 
   // KIND FIRST, THEN WHO IS ASKING. A name can be held by something that is not a type at all — every
@@ -117,11 +123,9 @@ export function resolveNamedType(
     const body = (sym.ast as TypeDecl).body
     if (body.kind === "enum") {
       const scope = ownScope()
-      // A project enum with no base type written converts as INT (conformance `cc_enum_into_*`, `cc_enum_var_into_*`). A
-      // written base type is unmeasured, and so is a LIBRARY enum: two real builds (bakon-nano, pro2193) store one into a
-      // WORD with no warning — both stay without a base, so they convert as before.
-      const measured = body.baseType === undefined && !isLibrarySymbol(sym)
-      return measured ? { kind: "enum", name, scope, base: elementaryTypeRef(elementaryType("INT")!) } : { kind: "enum", name, scope }
+      // the base it converts as is `enums.ts`'s rule
+      const base = enumBase(body, sym)
+      return base !== undefined ? { kind: "enum", name, scope, base } : { kind: "enum", name, scope }
     }
     if (body.kind === "struct" || body.kind === "union") {
       return { kind: "struct", name, scope: ownScope() }
@@ -131,4 +135,13 @@ export function resolveNamedType(
     if (body.kind === "alias") return resolveTypeExpr(body.target, project, depth + 1, project, sym.uri)
   }
   return UNKNOWN
+}
+
+/**
+ * Is `name` a type in `dialect`'s vocabulary? Every name is but the 64-bit date types on TwinCAT, which has `LTIME` and
+ * does NOT have `LDATE`, `LTOD`/`LTIME_OF_DAY` or `LDT`/`LDATE_AND_TIME` (`elementary.ts` `CODESYS_ONLY_TYPES`). The
+ * one copy of that gate: resolution, the conversion names and the refused-name cascade all ask here.
+ */
+export function isDialectType(name: string, dialect: Dialect | undefined): boolean {
+  return !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(name.toUpperCase()))
 }

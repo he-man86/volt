@@ -17,106 +17,13 @@
  * resolved before still resolves the same way, and members, EXTENDS bases and go-to-definition answer through the
  * namespace exactly as they already do through the project.
  */
-import type { Namespace, Span } from "../syntax/index.js"
-import { defineSymbol, libraryOf, makeScope, type Scope, type Symbol } from "./symbol.js"
+import { zeroSpan, type Namespace, type Span } from "../syntax/index.js"
+import { libraryOf, type LibraryManifest } from "../library/index.js"
+import type { Scope, Symbol } from "./model.js"
+import { defineSymbol, makeScope } from "./scope.js"
 import { findChildScope } from "./scope-nav.js"
+import { invalidate } from "./cache.js"
 
-export interface LibraryManifest {
-  /** The manifest file itself. It is what the namespace symbol declares, so `isLibrarySymbol` answers TRUE for it:
-   *  a library's member set is incomplete by construction (signatures, and only what the project materialized), and
-   *  every check that already skips library types skips the namespace for the same reason. */
-  uri: string
-  /** The `Library Manager/<folder>` this manifest describes — how its declaration files are recognised. */
-  folder: string
-  /** The name the source qualifies with. */
-  namespace: string
-  /** The manifest's own LIBRARY line — the library's TITLE, which is how other manifests name it. */
-  library: string
-  /** The titles the DEPENDENCIES line lists. A namespace also sees its dependencies' elements: pro2193 writes
-   *  `L_IE1P.L_IE1P_SeverityLevel`, and that enum belongs to `L_IE1P_ApplicationErrorsTypes`, which the
-   *  `L_IE1P_ApplicationErrors` library (namespace `L_IE1P`) depends on. Titles that name no manifest are ignored. */
-  dependencies: readonly string[]
-  /** Which materialization wrote the workspace — the manifest's MATERIALIZATION line, 1 when the manifest predates the
-   *  line. Different from `MATERIALIZATION`, the files that format wrote mean something else to this server
-   *  (`staleLibraryManifests`, `newerLibraryManifests`). */
-  materialization: number
-}
-
-/**
- * Every materialization format since the first, each with what a workspace an OLDER format pulled lacks against it, in
- * the words the stale manifest's warning uses (`libraryManifestDiagnostics`). Nothing in the LSP fills either gap —
- * the manifest is told to re-pull instead.
- *  - 2: FUNCTIONs without a return type are rendered; format 1 skipped them, so a call to one read as undefined here,
- *    where a library is known only through its materialization.
- *  - 3: graphical bodies are network text v2; format 2 wrote v1, which this server refuses body by body.
- *  - 4: every body states its language on an `IMPLEMENTATION <LANG>` line; format 3 marked the boundary with a comment,
- *    so no body in it states a language and a graphical one reads as ST (openspec implementation-keyword).
- *
- * The LAST row IS the format this server reads (`MATERIALIZATION`), so bumping it is adding a row: a separate number
- * beside this list could move without it, and the stale warning then printed an empty clause instead of failing.
- */
-export const MATERIALIZATION_FORMATS: readonly (readonly [format: number, lacks: string])[] = [
-  [2, "it skipped FUNCTIONs without a return type, so a call to one reads as undefined"],
-  [3, "its graphical bodies are network text v1, which this language server does not read"],
-  [4, "its bodies mark where they start with a comment instead of an IMPLEMENTATION line, so none states its language"],
-]
-
-/**
- * The materialization this server reads — `LibraryManifest.Materialization` in C#, stated on every library manifest a
- * pull writes. The manifest is the one file a pull always writes that can carry a format number, so it names the whole
- * workspace, not only the library beside it. The two runtimes cannot share the constant; `bun run check`
- * (`scripts/check-wiring.ts`) fails when they disagree, since a mismatch silences every network-text diagnostic.
- */
-export const MATERIALIZATION: number = MATERIALIZATION_FORMATS[MATERIALIZATION_FORMATS.length - 1]![0]
-
-/** The manifests a pull by an OLDER Volt wrote — the workspace holds files the current format writes otherwise. */
-export function staleLibraryManifests(manifests: readonly LibraryManifest[]): LibraryManifest[] {
-  return manifests.filter((m) => m.materialization < MATERIALIZATION)
-}
-
-/** The manifests a pull by a NEWER Volt wrote — this server is the stale side (a volt-vscode bundle lagging the CLI). */
-export function newerLibraryManifests(manifests: readonly LibraryManifest[]): LibraryManifest[] {
-  return manifests.filter((m) => m.materialization > MATERIALIZATION)
-}
-
-/** Did any pull other than this server's format write the workspace? Then its graphical bodies are in a form this
- *  server does not read, and the manifests say so once instead of every body being flagged. */
-export function materializationMismatch(manifests: readonly LibraryManifest[]): boolean {
-  return manifests.some((m) => m.materialization !== MATERIALIZATION)
-}
-
-/** A path as the manifest match reads it: forward slashes, decoded spaces, lower case. */
-const normalize = (uri: string): string => uri.replace(/%20/g, " ").replaceAll("\\", "/").toLowerCase()
-
-/**
- * A manifest's RESOLUTION line — `RESOLUTION Standard, 3.5.18.0 (System)` — as the library and the version the project
- * resolved; undefined without one. The one reading of it: the library repo is looked up by it (`libraries/index.ts`),
- * and its interface gate finds the materialization to hold a version to by it. (The bridge's `LibraryFetch.ResolutionLine`
- * reads the same line whole, as the key a library signature joins its manifest by — a different question.)
- */
-export function libraryResolution(source: string): { library: string; version: string } | undefined {
-  const m = /^RESOLUTION[ \t]+(.+?),[ \t]*(\S+)/m.exec(source)
-  return m === null ? undefined : { library: m[1]!.trim(), version: m[2]! }
-}
-
-/** `<folder>.library`'s LIBRARY and NAMESPACE lines — undefined when the file is not one, or names no namespace. */
-export function parseLibraryManifest(uri: string, source: string): LibraryManifest | undefined {
-  if (!normalize(uri).endsWith(".library")) return undefined
-  const namespace = /^NAMESPACE[ \t]+(\S.*)$/m.exec(source)?.[1]?.trim()
-  // the folder is the one the file sits in — the manifest's own LIBRARY line is the library's TITLE, which may differ
-  const folder = normalize(uri).split("/").at(-2)
-  const library = /^LIBRARY[ \t]+(\S.*)$/m.exec(source)?.[1]?.trim() ?? ""
-  // the DEPENDENCIES line is comma-separated and its own entries may hold commas, so each token is simply matched
-  // against the titles seen; one that names no library is ignored rather than guessed at
-  const dependencies = (/^DEPENDENCIES[ \t]+(\S.*)$/m.exec(source)?.[1] ?? "").split(",").map((d) => d.trim()).filter((d) => d !== "")
-  const materialization = Number(/^MATERIALIZATION[ 	]+(\d+)/m.exec(source)?.[1] ?? 1)
-  return namespace === undefined || namespace === "" || folder === undefined ? undefined : { uri, folder, namespace, library, dependencies, materialization }
-}
-
-/**
- * Give each manifest's library a namespace scope over the units it materialized. Call after every file is bound.
- * A namespace a project unit already owns is left alone — the project's own name wins, as it does everywhere else.
- */
 /** `value` appended to `key`'s list in `map`. */
 function file<T>(map: Map<string, T[]>, key: string, value: T): void {
   const list = map.get(key)
@@ -157,6 +64,10 @@ export const manifestsByTitle = (
 ): Map<string, LibraryManifest> =>
   new Map(manifests.filter((m) => m.library !== "").map((m) => [m.library.toLowerCase(), m]))
 
+/**
+ * Give each manifest's library a namespace scope over the units it materialized. Call after every file is bound.
+ * A namespace a project unit already owns is left alone — the project's own name wins, as it does everywhere else.
+ */
 export function bindLibraryNamespaces(project: Scope, manifests: readonly LibraryManifest[]): void {
   let added = false
   const byTitle = manifestsByTitle(manifests)
@@ -201,7 +112,7 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
       else list.push(sym)
     }
     if (scopes.length === 0 && symbols.size === 0) continue
-    const span: Span = scopes[0]?.span ?? { start: 0, end: 0, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
+    const span: Span = scopes[0]?.span ?? zeroSpan()
     const ns = makeScope(project, "namespace", namespace, span)
     ns.children.push(...scopes)
     for (const [key, syms] of symbols) ns.symbols.set(key, syms)
@@ -214,6 +125,6 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     own(namespace.toLowerCase(), sym)
     added = true
   }
-  // `makeScope` and `defineSymbol` both changed the project's children/symbols — the lazy name index must go
-  if (added) project._childIndex = undefined
+  // `makeScope` and `defineSymbol` both changed the project's children/symbols — the lazy indices must go
+  if (added) invalidate(project)
 }

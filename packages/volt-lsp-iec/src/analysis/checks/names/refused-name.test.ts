@@ -5,15 +5,15 @@
  * unmeasured, so the check is CODESYS-only.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
+import { build } from "../../../frontend/symbols/index.js"
 
 function diagnose(src: string, vendor: Vendor = "codesys") {
   // the DIALECT too: an unknown literal prefix only exists as a token on the vendor that lacks the literal
-  const parseResult = parseSource(src, vendor)
-  const project = buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 const program = (decl: string, body = "") => `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`

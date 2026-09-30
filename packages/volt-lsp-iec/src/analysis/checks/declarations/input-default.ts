@@ -6,7 +6,7 @@
  *
  * Zero-FP: an array default on a function/method input never compiles, so a clean corpus never exhibits it.
  */
-import { renderType, resolveTypeExpr } from "../../../types/index.js"
+import { renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

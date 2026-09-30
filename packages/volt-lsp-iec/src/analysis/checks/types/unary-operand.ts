@@ -26,19 +26,11 @@
  * and the only asymmetry left is the TARGET it names: `-` and `NOT` both name the concrete integer, except that
  * `NOT` on a REAL or a STRING names the generic `ANY_BIT`, because there is no integer it could produce.</p>
  */
-import { stmtExprs, walkExpr, walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { elemOf, inferExprType } from "../../../types/index.js"
+import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { elemOf, inferExprType, renderType, unaryOperandConversion } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { compilerTypeName } from "../../messages.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-
-/** Families `-` converts LOUDLY. Integers, bit strings and reals are already what it computes in. */
-const MINUS_REPORTS: ReadonlySet<string> = new Set(["bool", "time", "date", "string"])
-/** Families `NOT` converts loudly. BOOL is absent: `NOT BOOL` is BOOL, so there is no conversion to report. */
-const NOT_REPORTS: ReadonlySet<string> = new Set(["real", "string", "time", "date"])
-/** …and the two it cannot produce an integer FROM, which it names by the generic family instead. */
-const ANY_BIT_FAMILIES: ReadonlySet<string> = new Set(["real", "string"])
 
 export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project))
@@ -49,18 +41,17 @@ export function checkUnaryOperand(ctx: CheckContext, out: DiagnosticItem[]): voi
           const operand = inferExprType(x.operand, scope, ctx.project)
           const elem = elemOf(operand)
           if (elem === undefined) return // unresolved or composite → skip (zero-FP)
-          const reports = x.op === "-" ? MINUS_REPORTS : NOT_REPORTS
-          if (!reports.has(elem.family)) return
-          // Both name the type the operator computes in — the expression's own type — except that `NOT` on a REAL
-          // or a STRING has no integer to name and says `ANY_BIT`.
-          const target =
-            x.op === "NOT" && ANY_BIT_FAMILIES.has(elem.family) ? "ANY_BIT" : compilerTypeName(inferExprType(x, scope, ctx.project))
+          // The operand converts into the type the operator computes in — the expression's own type — except that `NOT`
+          // on a REAL or a STRING has no integer to name and says `ANY_BIT` (`unaryOperandConversion`).
+          const conversion = unaryOperandConversion(x.op, elem.family)
+          if (conversion === "none") return
+          const target = conversion === "ANY_BIT" ? "ANY_BIT" : renderType(inferExprType(x, scope, ctx.project), { form: "compiler" })
           out.push({
             severity: "error",
             span: x.span,
             source: SOURCE,
             code: "unary-operand-type",
-            message: ctx.messages.cannotConvert(compilerTypeName(operand), target),
+            message: ctx.messages.cannotConvert(renderType(operand, { form: "compiler" }), target),
           })
         })
     })

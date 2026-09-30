@@ -13,7 +13,7 @@
  * by name so the report can say how much of the language is still unmeasured, instead of a green tick meaning
  * "nobody has written a cell for that".
  */
-import { ELEMENTARY_TYPES } from "../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES } from "../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../types.js"
 
 export interface Cell {

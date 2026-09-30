@@ -7,9 +7,9 @@
  * (zero-FP). Both types print as the compiler prints them: `TOD_TO_UDINT(anInt)` is "Cannot convert type 'INT' to type
  * 'TIME_OF_DAY'" (conformance `cc_conv_short_source_mismatch`).
  */
-import { walkAllExprs } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../types/index.js"
+import { walkAllExprs } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

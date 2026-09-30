@@ -4,8 +4,8 @@
  * way the workspace scan produces it (the attribute is parser trivia, collected from raw file text).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../../index.js"
 import type { DiagnosticState } from "../../config.js"
 import { obsoletePousInText } from "../../../workspace-refs.js"
@@ -13,8 +13,8 @@ import { obsoletePousInText } from "../../../workspace-refs.js"
 const OBSOLETE = new Map([["oldfb", { name: "OldFB", message: "use NewFB instead" }], ["oldfn", { name: "OldFn", message: "gone in v2" }]])
 
 function obs(src: string, state: DiagnosticState = "warning") {
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   const references = { ...EMPTY_WORKSPACE_REFS, obsoletePous: OBSOLETE }
   const config = resolveConfig({ vendor: "codesys", diagnostics: { "obsolete-usage": state } })
   return computeSemanticDiagnostics({ parseResult, source: src, project, config, references }).filter((d) => d.code === "obsolete-usage")
@@ -67,8 +67,8 @@ test("extractor: leading extra attributes before the POU header are tolerated", 
 
 test("no obsolete set (empty workspace) ⇒ nothing flagged", () => {
   const src = `FUNCTION_BLOCK Use\nVAR\n  inst : OldFB;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   const d = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((x) => x.code === "obsolete-usage")
   expect(d).toEqual([])
 })

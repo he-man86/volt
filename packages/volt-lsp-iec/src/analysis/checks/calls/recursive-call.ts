@@ -13,8 +13,8 @@
  * function can't be distinguished — but such a function is rare, and the corpus (which compiles clean) has no
  * recursion at all. If a `{attribute 'recursive'}` function ever appears, revisit once attributes reach the AST.
  */
-import { walkAllExprs } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { walkAllExprs } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

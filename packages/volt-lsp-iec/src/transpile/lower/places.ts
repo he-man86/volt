@@ -1,15 +1,16 @@
 /**
  * Places — where a name, a field, an element or a bit lives: in the frame, a local, a VAR_IN_OUT, or the globals.
  */
-import { type Expr, isSelfRef, type Span, type TopLevel, type VarDecl, type VarSection } from "../../syntax/index.js"
-import { libraryOf, lookup } from "../../symbols/index.js"
-import { elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
+import { type Expr, isSelfRef, type Span, type TopLevel, type VarDecl, type VarSection } from "../../frontend/syntax/index.js"
+import { lookup } from "../../frontend/symbols/index.js"
+import { elementaryRef, resolveNamedType, type Type } from "../../frontend/types/index.js"
 import { defaultValueOf, elementOf, type IrExpr, peelArray, type Place } from "../ir/index.js"
 import { boundName, Lowering, openDims } from "./lowering.js"
 import { binaryOf, convert } from "./convert.js"
 import { addressPlace, declareVars, storageOf, withStringCapacity } from "./storage.js"
 import { cursorChar, cursorString, cursorStringChar, pointeePlace } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
+import { libraryOf } from "../../frontend/library/index.js"
 
 /**
  * A name no local, field or parameter holds: a GVL variable, or a called PROGRAM's instance — the application's

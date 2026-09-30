@@ -1,7 +1,7 @@
 import { test, expect } from "bun:test"
 import { WorkspaceStore } from "./workspace-store.js"
 import { resolveConfig, deadPous, deadMemberSpans } from "../analysis/index.js"
-import { parseSource } from "../syntax/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
 
 // A tiny multi-POU project: MAIN (task root) calls A; B is dead; A has a called + an uncalled method.
 const FILES = (aBody: string): { uri: string; source: string }[] => [
@@ -10,7 +10,7 @@ const FILES = (aBody: string): { uri: string; source: string }[] => [
   { uri: "file:///B.fb", source: `FUNCTION_BLOCK B\nEND_FUNCTION_BLOCK` },
 ]
 const freshDead = (files: { uri: string; source: string }[]) => {
-  const inputs = files.map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) }))
+  const inputs = files.map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }) }))
   return { dead: [...deadPous(inputs, undefined)].sort(), members: deadMemberSpans(inputs, deadPous(inputs, undefined)).size }
 }
 const storeDead = (store: WorkspaceStore) => ({ dead: [...store.deadSet()].sort(), members: store.deadMembers().size })

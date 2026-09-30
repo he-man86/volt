@@ -12,10 +12,10 @@
  * Sibling `inout-external-access` (C0178) owns the external-instance case; this owns the own-member-scope case.
  * The two never overlap (that check requires a non-THIS FB-typed base; this requires a bare/own reference).
  */
-import { walkAllExprs, type IdentExpr } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
+import { walkAllExprs, type IdentExpr } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
 import { bodyContext, MAIN_BODY } from "../../body-context.js"
-import { resolveMemberChain } from "../../../types/index.js"
+import { resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

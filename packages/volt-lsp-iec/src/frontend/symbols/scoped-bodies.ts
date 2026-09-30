@@ -24,7 +24,7 @@ import {
   type TopLevel,
 } from "../syntax/index.js"
 import { scopeForUnit } from "./scope-nav.js"
-import type { Scope } from "./symbol.js"
+import type { Scope } from "./model.js"
 
 export interface UnitBody {
   unit: TopLevel

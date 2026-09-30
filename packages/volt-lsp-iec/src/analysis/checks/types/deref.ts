@@ -9,9 +9,9 @@
  * identity), and `unknown` (unresolved / computed base — can't decide). The corpus compiles clean, so any
  * flag on it is a false positive; skipping the fold cases is what keeps `THIS^`/ref derefs quiet.
  */
-import { inferExprType } from "../../../types/index.js"
+import { inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr } from "../../../symbols/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkDeref(ctx: CheckContext, out: DiagnosticItem[]): void {

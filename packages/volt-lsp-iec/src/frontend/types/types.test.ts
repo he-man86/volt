@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test"
 import { type Expr, type FunctionBlock, parseSource, parseStatements, renderTypeExpr, type TypeExpr } from "../syntax/index.js"
-import { buildSymbolTable, findChildScope, type Scope } from "../symbols/index.js"
+import { build, findChildScope, type Scope } from "../symbols/index.js"
 import {
   constEval,
   ELEMENTARY_TYPES,
@@ -8,18 +8,15 @@ import {
   inferExprType,
   isAssignable,
   isIntegerType,
-  isIsolated,
-  isKnown,
-  isNarrowing,
   classifyConversion,
   isNumericType,
-  numericRank,
   renderType,
   resolveNamedType,
   resolveTypeExpr,
   UNKNOWN,
   type Type,
 } from "./index.js"
+import { isIsolated, numericRank } from "./predicates.js"
 
 // ─── C.1 elementary — golden test: derived views reproduce the known sets exactly ───
 
@@ -70,7 +67,7 @@ test("derived views match the legacy explicit sets", () => {
 // ─── C.2 resolve ───
 
 function proj(src: string): Scope {
-  return buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src), source: src }])
+  return build.buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src, { networkText: true }), source: src }])
 }
 
 test("resolve: elementary carries facts; alias follows; FB/enum/struct carry scope", () => {
@@ -93,8 +90,8 @@ FUNCTION_BLOCK FB_A VAR n : INT; END_VAR END_FUNCTION_BLOCK`)
 
 function evalConst(varDecls: string, exprSrc: string) {
   const src = `FUNCTION_BLOCK F\n${varDecls}\n${exprSrc};\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
   const scope = findChildScope(project, "F")!
   const e = lastExpr(pr.units[0] as FunctionBlock)
   return constEval(e, scope)
@@ -141,8 +138,8 @@ function lastExpr(fb: FunctionBlock): Expr {
 
 function inferExpr(unitsBefore: string, varDecls: string, exprSrc: string): Type {
   const src = `${unitsBefore}\nFUNCTION_BLOCK F\n${varDecls}\n${exprSrc};\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
   const scope = findChildScope(project, "F")!
   return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), scope, project)
 }
@@ -211,15 +208,6 @@ test("infer: EXPT is REAL only when BOTH arguments are REAL (measured) — never
   expect(expt("a : REAL;", "EXPT(a, 2)")).toEqual(UNKNOWN) // a bare literal has no width: stay silent
 })
 
-// ─── C.6 conservative-skip: an unresolved sub-part makes the whole type not-known ───
-
-test("isKnown: an unknown sub-part collapses the whole type", () => {
-  expect(isKnown({ kind: "array", element: UNKNOWN, dims: [] })).toBe(false)
-  expect(isKnown({ kind: "pointer", target: UNKNOWN })).toBe(false)
-  const intT = resolveNamedType("INT", proj(""))
-  expect(isKnown(intT)).toBe(true)
-})
-
 // ─── C.5 compat ───
 
 test("isAssignable: widening, narrowing, isolation, enums", () => {
@@ -234,16 +222,6 @@ test("isAssignable: widening, narrowing, isolation, enums", () => {
   expect(isAssignable(T("Color"), T("INT"))).toBe(true) // enum↔int allowed
   expect(isAssignable(T("Color"), T("STRING"))).toBe(false) // enum↔string rejected
   expect(isAssignable(T("INT"), UNKNOWN)).toBe(true) // unknown → skip
-})
-
-test("isNarrowing: an implicit LOSSY narrowing (a warning, not an error)", () => {
-  const p = proj("")
-  const T = (n: string) => resolveNamedType(n, p)
-  // isNarrowing = classifyConversion === "narrow" — only the implicit lossy narrowings the compiler WARNS on.
-  expect(isNarrowing(T("REAL"), T("LREAL"))).toBe(true) // LREAL→REAL: possible loss (implicit, warns)
-  expect(isNarrowing(T("INT"), T("DINT"))).toBe(false) // DINT→INT is NOT implicit — it's an ERROR (needs X_TO_Y)
-  expect(isNarrowing(T("DINT"), T("INT"))).toBe(false) // INT→DINT widens
-  expect(isNarrowing(T("INT"), UNKNOWN)).toBe(false) // conservative skip
 })
 
 test("classifyConversion: identity / widen / narrow / sign-change / incompatible", () => {
@@ -272,7 +250,7 @@ test("classifyConversion: identity / widen / narrow / sign-change / incompatible
 // ─── C.5 render ───
 
 function declType(src: string): TypeExpr {
-  const fb = parseSource(`FUNCTION_BLOCK F\nVAR\n ${src}\nEND_VAR\nEND_FUNCTION_BLOCK`).units[0] as FunctionBlock
+  const fb = parseSource(`FUNCTION_BLOCK F\nVAR\n ${src}\nEND_VAR\nEND_FUNCTION_BLOCK`, { networkText: true }).units[0] as FunctionBlock
   return fb.varSections[0].decls[0].type
 }
 

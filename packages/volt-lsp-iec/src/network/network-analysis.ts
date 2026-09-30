@@ -19,15 +19,14 @@
  * (POU + the network's wires). Error severity, so the corpus 0-FP gate covers it.
  */
 import {
-  type Document,
   type Expr,
   type Span,
   graphicalBodies,
   stmtExprs,
   walkExpr,
   walkStatements,
-} from "../syntax/index.js"
-import { inferExprType, renderType, resolveCallee } from "../types/index.js"
+} from "../frontend/syntax/index.js"
+import { inferExprType, renderType, resolveCallee } from "../frontend/types/index.js"
 import { compilerExprText } from "../analysis/expr-echo.js"
 import { isHole, reported } from "../analysis/hole.js"
 import {
@@ -43,10 +42,11 @@ import {
   type WorkspaceRefs,
 } from "../analysis/index.js"
 import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
-import { hasUnresolvedBase, type Scope } from "../symbols/index.js"
+import { extendsChain, hasUnresolvedBase, type Scope } from "../frontend/symbols/index.js"
 import { analyzeNetworkText, instanceFb } from "./network-analyze.js"
 import { walkValues, type NetworkName, type NetworkTextNetwork, type NetworkTextStatement, type NetworkValue } from "../network-text/ast.js"
 import { callReading, executeBoxes, networkValueExpr, statementExprs } from "../network-text/exprs.js"
+import type { Document } from "../services/shared/index.js"
 
 export function computeNetworkTextDiagnostics(
   doc: Document,
@@ -230,17 +230,12 @@ function checkPins(
 function pinSet(fbScope: Scope): Set<string> | undefined {
   if (hasUnresolvedBase(fbScope)) return undefined // an incomplete pin set — don't guess
   const pins = new Set<string>(["en", "eno"])
-  const seen = new Set<Scope>()
-  let s: Scope | undefined = fbScope
-  while (s !== undefined && !seen.has(s)) {
-    seen.add(s)
+  for (const s of extendsChain(fbScope))
     for (const [, syms] of s.symbols) {
       for (const sym of syms) {
         if (sym.kind === "property" || isPinSection(sym.varSection)) pins.add(sym.name.toLowerCase())
       }
     }
-    s = s.baseScope
-  }
   return pins
 }
 

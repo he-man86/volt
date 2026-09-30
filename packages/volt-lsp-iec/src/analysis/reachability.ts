@@ -16,6 +16,7 @@
  * corpus shows a dead unit staying live because of a coincidental name collision.
  */
 import {
+  allUnits,
   lex,
   type Function,
   type FunctionBlock,
@@ -23,7 +24,7 @@ import {
   type Program,
   type Span,
   type TopLevel,
-} from "../syntax/index.js"
+} from "../frontend/syntax/index.js"
 
 export interface ReachabilityInput {
   uri: string
@@ -71,14 +72,7 @@ export function ownerPou(parseResult: ParseResult): string | undefined {
 }
 
 function firstPou(units: readonly TopLevel[]): Pou | undefined {
-  for (const u of units) {
-    if (isPou(u)) return u
-    if (u.kind === "namespace") {
-      const inner = firstPou(u.units)
-      if (inner !== undefined) return inner
-    }
-  }
-  return undefined
+  return allUnits(units).find(isPou)
 }
 
 /**
@@ -309,11 +303,7 @@ export function inDeadMember(span: Span, deadSpans: readonly Span[] | undefined)
 /** A file with no POU is an always-active root iff it declares a global (GVL) or a type — either can
  *  hold/name an FB instance and so keeps its target live. A pure interface file is NOT a root. */
 function hasRootDecl(units: readonly TopLevel[]): boolean {
-  for (const u of units) {
-    if (u.kind === "global_var_list" || u.kind === "type_decl") return true
-    if (u.kind === "namespace" && hasRootDecl(u.units)) return true
-  }
-  return false
+  return allUnits(units).some((u) => u.kind === "global_var_list" || u.kind === "type_decl")
 }
 
 /** Flatten namespaces and record every top-level POU, PROGRAM root, and interface-implementer edge. */
@@ -323,11 +313,7 @@ function catalog(
   programs: string[],
   implementers: Map<string, string[]>,
 ): void {
-  for (const u of units) {
-    if (u.kind === "namespace") {
-      catalog(u.units, pous, programs, implementers)
-      continue
-    }
+  for (const u of allUnits(units)) {
     if (!isPou(u)) continue
     const name = u.name.text.toLowerCase()
     pous.add(name)

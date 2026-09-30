@@ -9,18 +9,16 @@
  * target-dependent). Only provable overflows are reported, so it stays quiet on the corpus. Message is the
  * literal's own text (`INT#123456`, `10E500`), matching the compiler.
  */
-import type { Literal } from "../../../syntax/index.js"
-import { ANY_INT_RANGE, elementaryType, REAL_MAX_MAGNITUDE } from "../../../types/index.js"
+import { literalCapacityType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachExpr } from "../../../symbols/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
-const LREAL_MAX = REAL_MAX_MAGNITUDE.get("LREAL")!
 
 export function checkConstantOverflow(ctx: CheckContext, out: DiagnosticItem[]): void {
   forEachExpr(ctx.parseResult, ctx.project, (e) => {
     if (e.kind !== "literal") return
-    const type = overflowType(e)
+    const type = literalCapacityType(e)
     if (type === undefined) return
     out.push({
       severity: "error",
@@ -32,20 +30,3 @@ export function checkConstantOverflow(ctx: CheckContext, out: DiagnosticItem[]):
   })
 }
 
-/** The type name a literal overflows, or undefined if it is representable. */
-function overflowType(lit: Literal): string | undefined {
-  if (lit.literalKind === "typed" && lit.prefix !== undefined) {
-    const et = elementaryType(lit.prefix)
-    if (et?.range !== undefined && typeof lit.value === "bigint")
-      return lit.value < et.range.min || lit.value > et.range.max ? et.name : undefined
-    const mag = REAL_MAX_MAGNITUDE.get(lit.prefix) // REAL#/LREAL#
-    if (mag !== undefined && typeof lit.value === "number")
-      return !Number.isFinite(lit.value) || Math.abs(lit.value) > mag ? lit.prefix : undefined
-    return undefined
-  }
-  if (lit.literalKind === "int" && typeof lit.value === "bigint")
-    return lit.value < ANY_INT_RANGE.min || lit.value > ANY_INT_RANGE.max ? "ANY_INT" : undefined
-  if (lit.literalKind === "real" && typeof lit.value === "number")
-    return !Number.isFinite(lit.value) || Math.abs(lit.value) > LREAL_MAX ? "ANY_REAL" : undefined
-  return undefined
-}

@@ -25,12 +25,13 @@
  */
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { parseSource } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
+import { parseSource } from "../src/frontend/syntax/index.js"
+import { build } from "../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../src/analysis/index.js"
 import { obsoletePousInText } from "../src/workspace-refs.js"
 import { call, TARGET } from "./bridge.js"
 import { openFixture } from "./bridge-fixture.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 /** The messages the LSP (in `vendor` mode) emits for `ourCode` on this repro — what we must match to the IDE.
  *  `extra` are cross-file context units (a code's `reproFiles`); the symbol table is built from all of them but
@@ -42,12 +43,12 @@ function lspMessagesForCode(
   extra?: { uri: string; source: string }[],
 ): string[] {
   if (ourCode === undefined) return []
-  const pr = parseSource(repro)
+  const pr = parseSource(repro, { networkText: NETWORK_TEXT_ENABLED }, vendor)
   const files = [
     { uri: "R.fb", parseResult: pr, source: repro },
-    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source) })),
+    ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor) })),
   ]
-  const project = buildSymbolTable(files)
+  const project = build.buildSymbolTable(files, [], vendor)
   const obsoletePous = new Map(files.flatMap((f) => obsoletePousInText(f.source)))
   return computeSemanticDiagnostics({
     parseResult: pr,
@@ -111,7 +112,7 @@ function leadStart(source: string, start: number): number {
 
 /** Split a repro into { plcBody?, items[], instTypes[] (VAR-instantiable), calls[] (function calls) }. */
 function splitRepro(source: string): { plcBody?: string; items: { wire: string; src: string }[]; instTypes: string[]; calls: string[] } {
-  const tops = parseSource(source).units.filter((u) => TOP.has(u.kind))
+  const tops = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }).units.filter((u) => TOP.has(u.kind))
   const items: { wire: string; src: string }[] = []
   const instTypes: string[] = []
   const calls: string[] = []

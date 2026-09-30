@@ -4,7 +4,7 @@
  * reading only the elementary lattice facts (`family`/`bits`/`signed`/`rank` from `elementary`). The
  * severity/message is the `analysis` layer's job — it maps the returned kind, never re-deciding.
  *
- * `isAssignable` and `isNarrowing` are thin views over `classifyConversion` (no second rank/sign table).
+ * `isAssignable` is a thin view over `classifyConversion` (no second rank/sign table).
  * Conservative: `unknown` on either side, or a non-checkable category (struct/FB/composite), classifies as
  * `identity` (no diagnostic) — we'd rather miss a bug than flag valid code (0-FP is the floor).
  *
@@ -14,8 +14,11 @@
  *   - sign-change (same width, signed↔unsigned)           → WARNING "change of sign"
  *   - incompatible (integer narrowing, isolated mismatch, real→int, …) → ERROR (explicit X_TO_Y required)
  */
-import { canonicalElem, elementaryType, isIsolated } from "./elementary.js"
-import type { Type } from "./type.js"
+import { sameName } from "../syntax/index.js"
+import { elementaryType } from "./elementary.js"
+import type { ElementaryTypeRef, Type } from "./type.js"
+import { isIsolated } from "./predicates.js"
+import { canonicalElem } from "./platform.js"
 
 /** How `rhs` converts into `lhs`. `identity` also covers the conservative skips (unknown / non-elementary). */
 export type ConversionKind = "identity" | "widen" | "narrow" | "sign-change" | "incompatible"
@@ -95,15 +98,16 @@ export function isAssignable(lhs: Type, rhs: Type): boolean {
   return classifyConversion(lhs, rhs) !== "incompatible"
 }
 
-/** True when assigning `rhs` to `lhs` is an implicit lossy narrowing (a WARNING, not an error) — e.g. LREAL→REAL. */
-export function isNarrowing(lhs: Type, rhs: Type): boolean {
-  return classifyConversion(lhs, rhs) === "narrow"
-}
-
 function bitToBool(name: string): string {
   return name === "BIT" ? "BOOL" : name
 }
 
-function sameName(a: string, b: string): boolean {
-  return a.toLowerCase() === b.toLowerCase()
+/**
+ * Is this integer wide enough to hold a pointer — the targets TwinCAT accepts a pointer assigned to silently? An
+ * unsigned integer or bit string of 32 bits or more: DERIVED from the table, not listed (it was
+ * `["DWORD", "LWORD", "UDINT", "ULINT"]`). The 32-bit rows are there because the recorded target is 64-bit and CODESYS
+ * accepts the narrower pair too; the target width itself (`platform.ts`) decides it from conformance 4.1.1.
+ */
+export function isPointerSizedInteger(t: ElementaryTypeRef): boolean {
+  return !t.elem.signed && (t.elem.family === "int" || t.elem.family === "bitstring") && t.elem.bits >= 32
 }

@@ -21,7 +21,7 @@ import {
   type TopLevel,
   type TypeExpr,
   type VarSection,
-} from "../../../src/syntax/index.js"
+} from "../../../src/frontend/syntax/index.js"
 import { readdirSync } from "node:fs"
 import { join } from "node:path"
 import type { LanguageTest } from "../types.js"
@@ -49,7 +49,7 @@ export interface LoadUnit {
 
 export function fixtureUnits(t: LanguageTest): LoadUnit[] {
   const source = t.source
-  const { units } = parseSource(source)
+  const { units } = parseSource(source, { networkText: true })
   const out: LoadUnit[] = []
   let previousEnd = 0
   for (const unit of units) {
@@ -123,7 +123,7 @@ const parseCache = new Map<string, ParseResult>()
 function parsed(t: LanguageTest): ParseResult {
   let result = parseCache.get(t.name)
   if (result === undefined) {
-    result = parseSource(t.source)
+    result = parseSource(t.source, { networkText: true })
     parseCache.set(t.name, result)
   }
   return result
@@ -166,7 +166,7 @@ function referencedNames(t: LanguageTest): Set<string> {
         if (s.sectionKind === "VAR_EXTERNAL") for (const n of d.names) names.add(n.text.toUpperCase())
       }
   }
-  const units = [...parsed(t).units, ...parseSource(plcPrgSource(t)).units]
+  const units = [...parsed(t).units, ...parseSource(plcPrgSource(t), { networkText: true }).units]
   for (const u of units) {
     if (u.kind === "function_block") {
       if (u.extends !== undefined) names.add(u.extends.text.toUpperCase())
@@ -245,7 +245,7 @@ function asUnit(t: LanguageTest, source: string, unit: TopLevel, pragmas: string
     case "global_var_list": {
       // A GVL has no name in its text; the fixture's pouName is the object's name — or, for a fixture holding SEVERAL
       // lists, the matching entry of `gvlNames`, since two objects cannot share one name on the wire.
-      const lists = parseSource(source).units.filter((u) => u.kind === "global_var_list")
+      const lists = parseSource(source, { networkText: true }).units.filter((u) => u.kind === "global_var_list")
       const at = lists.findIndex((u) => u.span.start === unit.span.start)
       return { kind: "gvl", name: t.gvlNames?.[at] ?? t.pouName, declaration: pragmas + withEnd(source, unit.span), implementation: "", members: [] }
     }

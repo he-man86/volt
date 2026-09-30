@@ -10,9 +10,9 @@
  * Zero-FP: fires only on an exact name match against a POU carrying the explicit attribute, and PLC item names are
  * unique project-wide (the protocol invariant), so a name in the obsolete set is that POU. Empty set ⇒ nothing.
  */
-import type { Span } from "../../../syntax/span.js"
+import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl, forEachExpr } from "../../../symbols/index.js"
+import { forEachDecl, forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkObsoleteUsage(ctx: CheckContext, out: DiagnosticItem[]): void {

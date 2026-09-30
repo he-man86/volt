@@ -1,57 +1,18 @@
 /**
- * const-eval — evaluate a constant `Expr` to its value (Layer C, C.3). Literals are already valued
- * in layer A; this folds unary/binary arithmetic and references to `CONSTANT` variables. Anything
+ * CONSTANT FOLDING — evaluate a constant `Expr` to its value. Literals are already valued by the parser
+ * (`syntax/literal`); this folds unary/binary arithmetic and references to `CONSTANT` variables. Anything
  * non-constant (a plain var, a call, a member, mixed/unsupported ops) yields `undefined` — the
  * conservative signal that a consumer (subrange/array-bounds/overflow) must skip.
  *
  * Integers stay `bigint` (exact for the 64-bit types); reals are `number`.
  */
-import type { Scope, Symbol } from "../symbols/index.js"
-import { findChildScope, lookup, lookupLocal, lookupMember, isLibrarySymbol, resolveGvlMember } from "../symbols/index.js"
-import type { Expr, TypeExpr, VarDecl } from "../syntax/index.js"
-import { elementaryType, type ElementaryType } from "./elementary.js"
-import { integerOfWidth } from "./arith.js"
+import { lookup, lookupLocal, resolveQualifiedConst, rootOf, type Scope, type Symbol } from "../../symbols/index.js"
+import type { Expr, TypeExpr, VarDecl } from "../../syntax/index.js"
+import { elementaryType, type ElementaryType } from "../elementary.js"
+import { integerOfWidth, wrapToWidth } from "../width.js"
+import { compileTimeConstant } from "./constancy.js"
 
 export type ConstValue = bigint | number | boolean | undefined
-
-/**
- * Whether an expression is a compile-time CONSTANT, a mutable VARIABLE, or UNDECIDABLE — the zero-FP basis for
- * "this must be a constant" checks (CASE labels C0218, array-repeat counts C0162). It answers what `constEval`
- * cannot: `constEval` returns `undefined` for BOTH a mutable variable AND a constant it merely can't fold (an
- * enum member, a library/unresolved constant), so "didn't fold" is not "is a variable". Here an enum member
- * (`enum_value` kind) and a `CONSTANT`-section symbol are `constant`; only a genuine non-constant local/global
- * is `variable`; anything unresolved or from a library is `unknown`. Callers flag ONLY `variable`.
- */
-export type Constancy = "constant" | "variable" | "unknown"
-
-export function constancyOf(expr: Expr, scope: Scope): Constancy {
-  switch (expr.kind) {
-    case "literal":
-      return "constant"
-    case "paren":
-      return constancyOf(expr.inner, scope)
-    case "unary":
-      return constancyOf(expr.operand, scope)
-    case "binary": {
-      const l = constancyOf(expr.left, scope)
-      const r = constancyOf(expr.right, scope)
-      if (l === "variable" || r === "variable") return "variable"
-      return l === "constant" && r === "constant" ? "constant" : "unknown"
-    }
-    case "ident_expr": {
-      const found = lookup(scope, expr.name)
-      if (found === undefined) return "unknown" // unresolved — could be a library constant or a typo
-      const sym = found.symbol
-      if (isLibrarySymbol(sym)) return "unknown" // library symbol — may be a constant we can't see (normalizes %20)
-      if (sym.kind === "enum_value" || sym.constant === true) return "constant"
-      if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var")
-        return "variable"
-      return "unknown" // a function/type/namespace name is not a value in this position
-    }
-    default:
-      return "unknown" // member / index / call / deref — undecidable
-  }
-}
 
 /**
  * A REAL expression folds WIDE and rounds ONCE, to float32, at its end — the value its runtime twin reads: `C01 : REAL :=
@@ -119,8 +80,6 @@ function fold(expr: Expr, scope: Scope, ctx: FoldContext): Folded {
   }
 }
 
-const rootOf = (scope: Scope): Scope => (scope.parent === undefined ? scope : rootOf(scope.parent))
-
 /**
  * `List.Const` / `Program.Const` — a CONSTANT named through its global variable list or its PROGRAM, as pro2193 sizes
  * arrays (`ARRAY[1..GVL_Constants.ChainProductsForReject]`, `MaxVacuums : USINT := XiUnits.MaxVacuums`). Neither folded,
@@ -128,13 +87,8 @@ const rootOf = (scope: Scope): Scope => (scope.parent === undefined ? scope : ro
  * constancy (`constancyOf`): its declarations may be partial.
  */
 function qualifiedConstRef(expr: Extract<Expr, { kind: "member" }>, scope: Scope, ctx: FoldContext): Folded {
-  if (expr.base.kind !== "ident_expr") return NONE
-  const project = rootOf(scope)
-  const base = lookup(scope, expr.base.name)?.symbol
-  if (base === undefined || isLibrarySymbol(base)) return NONE
-  const programScope = base.kind === "program" ? findChildScope(project, base.name) : undefined
-  const target = base.kind === "gvl_block" ? resolveGvlMember(expr, scope, project) : programScope && lookupMember(programScope, expr.member.name)
-  return target === undefined || isLibrarySymbol(target) ? NONE : initialValue(target, ctx)
+  const target = resolveQualifiedConst(expr, scope)
+  return target === undefined ? NONE : initialValue(target, ctx)
 }
 
 /**
@@ -170,20 +124,11 @@ function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
   return { value: typeof value === "bigint" && decl.init.kind === "literal" ? heldAs(value, decl.type) : value }
 }
 
-/**
- * A symbol whose initializer IS its value: one in a `CONSTANT` section that is not a parameter. A `VAR_INPUT CONSTANT`
- * (or `VAR_IN_OUT CONSTANT`) is read-only but holds the caller's argument — its default only when none is passed:
- * `F(n := 3)` steps `BY n` by 3 (conformance `var_input_constant_default_as_step`, LIVE; transpile-review-2026-09-29 task 4).
- */
-function compileTimeConstant(symbol: Symbol): boolean {
-  return symbol.constant === true && symbol.varSection !== "VAR_INPUT" && symbol.varSection !== "VAR_IN_OUT"
-}
-
 /** An integer as a variable of an elementary integer or bit-string type holds it — wrapped to the type's width. */
 function heldAs(v: bigint, t: TypeExpr): bigint {
   const e = t.kind === "named_type" ? elementaryType(t.name.text) : undefined
   if (e === undefined || e.rank === undefined || (e.family !== "int" && e.family !== "bitstring")) return v
-  return e.signed ? BigInt.asIntN(e.bits, v) : BigInt.asUintN(e.bits, v)
+  return wrapToWidth(v, e)
 }
 
 

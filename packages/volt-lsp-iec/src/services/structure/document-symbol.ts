@@ -4,8 +4,10 @@
  * Pure AST walk — no resolution needed.
  */
 import { SymbolKind as Lsp, type DocumentSymbol } from "vscode-languageserver-protocol"
-import type { Document, TopLevel, VarSection } from "../../syntax/index.js"
+import type { TopLevel, VarSection } from "../../frontend/syntax/index.js"
 import { rangeFromSpan } from "../shared/index.js"
+import type { Document } from "../shared/index.js"
+import { gvlName } from "../../frontend/symbols/index.js"
 
 export function documentSymbols(doc: Document): DocumentSymbol[] {
   const out: DocumentSymbol[] = []
@@ -18,7 +20,7 @@ export function documentSymbols(doc: Document): DocumentSymbol[] {
 
 function unitSymbol(unit: TopLevel, uri: string): DocumentSymbol | undefined {
   if (unit.kind === "global_var_list") {
-    const name = basename(uri)
+    const name = gvlName(uri) ?? ""
     return {
       name,
       kind: Lsp.Namespace,
@@ -100,8 +102,4 @@ function unitKind(kind: TopLevel["kind"]): Lsp {
   }
 }
 
-function basename(uri: string): string {
-  const last = uri.split(/[\\/]/).pop() ?? uri
-  const dot = last.lastIndexOf(".")
-  return dot > 0 ? last.slice(0, dot) : last
-}
+

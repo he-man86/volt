@@ -22,6 +22,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
+  allUnits,
   isStBody,
   lex,
   isTrivia,
@@ -32,8 +33,8 @@ import {
   exprText,
   type Expr,
   type TopLevel,
-} from "../../src/syntax/index.js"
-import { scopeForUnit, type Scope, type Symbol } from "../../src/symbols/index.js"
+} from "../../src/frontend/syntax/index.js"
+import { scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -47,12 +48,12 @@ import {
   resolveMemberChain,
   resolveTypeExpr,
   type Type,
-} from "../../src/types/index.js"
+} from "../../src/frontend/types/index.js"
 import { tally } from "./baseline.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { foldDump, resolutionDump, sites, typeDump, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
-import type { Dialect } from "../../src/syntax/index.js"
+import type { Dialect } from "../../src/frontend/syntax/index.js"
 
 export interface BoundCensus {
   resolution: Record<string, number>
@@ -193,11 +194,7 @@ function storesOf(b: Bound): Store[] {
     }
   }
   const visit = (units: readonly TopLevel[]): void => {
-    for (const unit of units) {
-      if (unit.kind === "namespace") {
-        visit(unit.units)
-        continue
-      }
+    for (const unit of allUnits(units)) {
       const scope = scopeForUnit(b.project, unit)
       if (scope === undefined) continue
       if ("varSections" in unit)

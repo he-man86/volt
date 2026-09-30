@@ -3,13 +3,13 @@
  * member breaks the cycle and is not flagged.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { bindFile, buildSymbolTable, unbindFile } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const rec = (src: string): string[] => {
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "data-recursion")
     .map((d) => d.message)
@@ -43,11 +43,11 @@ test("an EDIT that introduces a recursion is reported — the incremental re-ind
   const cfg = resolveConfig({ vendor: "codesys" })
   const before = "FUNCTION_BLOCK FB1\nVAR n : INT; END_VAR\nEND_FUNCTION_BLOCK"
   const after = "FUNCTION_BLOCK FB1\nVAR sv : FB1; END_VAR\nEND_FUNCTION_BLOCK"
-  const project = buildSymbolTable([{ uri: "F", parseResult: parseSource(before), source: before }])
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: parseSource(before, { networkText: true }), source: before }])
   const check = (src: string) =>
-    computeSemanticDiagnostics({ parseResult: parseSource(src), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
+    computeSemanticDiagnostics({ parseResult: parseSource(src, { networkText: true }), source: src, project, config: cfg }).filter((d) => d.code === "data-recursion").length
   expect(check(before)).toBe(0)
-  unbindFile(project, "F")
-  bindFile(project, { uri: "F", parseResult: parseSource(after), source: after })
+  build.unbindFile(project, "F")
+  build.bindFile(project, { uri: "F", parseResult: parseSource(after, { networkText: true }), source: after })
   expect(check(after)).toBe(1)
 })

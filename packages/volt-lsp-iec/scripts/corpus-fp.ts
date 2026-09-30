@@ -11,8 +11,8 @@
  */
 import { readdirSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseDocument } from "../src/syntax/index.js"
-import { buildSymbolTable, isLibrarySymbol } from "../src/symbols/index.js"
+import { parseDocument } from "../src/frontend/syntax/index.js"
+import { build, isLibrarySymbol } from "../src/frontend/symbols/index.js"
 import {
   computeSemanticDiagnostics,
   resolveConfig,
@@ -21,9 +21,9 @@ import {
   inDeadMember,
   ownerPou,
 } from "../src/analysis/index.js"
-import { loadWorkspaceRefs, loadTaskRoots } from "../src/workspace-refs.js"
+import { loadTaskRoots, loadWorkspaceRefs, readSourceText, scanLibraryManifests } from "../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
-import { readSourceText, scanLibraryManifests } from "../src/workspace-refs.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 const filter = process.argv[2]
@@ -45,9 +45,9 @@ for (const project of readdirSync(CORPUS)) {
   if (!statSync(dir).isDirectory()) continue
   const inputs = walk(dir).map((uri) => {
     const source = readSourceText(uri)
-    return { uri, source, parseResult: parseDocument(uri, source) }
+    return { uri, source, parseResult: parseDocument(uri, source, { networkText: NETWORK_TEXT_ENABLED }) }
   })
-  const scope = buildSymbolTable(inputs, scanLibraryManifests(dir))
+  const scope = build.buildSymbolTable(inputs, scanLibraryManifests(dir))
   const references = loadWorkspaceRefs(dir)
   const dead = deadPous(inputs, loadTaskRoots(dir))
   const deadMembers = deadMemberSpans(inputs, dead)

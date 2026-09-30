@@ -8,12 +8,12 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { extname, join } from "node:path"
-import { parseSource } from "../src/syntax/index.js"
-import { buildSymbolTable } from "../src/symbols/index.js"
-import { manifestsByTitle } from "../src/symbols/library-namespace.js"
-import { libraryOf } from "../src/symbols/symbol.js"
+import { parseSource } from "../src/frontend/syntax/index.js"
+import { build, manifestsByTitle } from "../src/frontend/symbols/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { scanLibraryManifests } from "../src/workspace-refs.js"
+import { libraryOf } from "../src/frontend/library/index.js"
+import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
 if (!existsSync(CORPUS)) throw new Error("no corpus")
@@ -35,10 +35,10 @@ for (const projectName of readdirSync(CORPUS).filter((p) => statSync(join(CORPUS
   const dir = join(CORPUS, projectName)
   const files = walk(dir)
   const manifests = scanLibraryManifests(dir)
-  const project = buildSymbolTable(
+  const project = build.buildSymbolTable(
     files.map((file) => {
       const source = readFileSync(file, "utf8")
-      return { uri: file, source, parseResult: parseSource(source) }
+      return { uri: file, source, parseResult: parseSource(source, { networkText: NETWORK_TEXT_ENABLED }) }
     }),
     manifests,
   )

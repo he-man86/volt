@@ -10,8 +10,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { withImplementations } from "../../../libraries/index.js"
-import { parseSource } from "../../../src/syntax/index.js"
-import { parseLibraryManifest, type LibraryManifest } from "../../../src/symbols/index.js"
+import { parseSource } from "../../../src/frontend/syntax/index.js"
+import { parseLibraryManifest, type LibraryManifest } from "../../../src/frontend/library/index.js"
 import { libraryBase, type LibraryBase, type LibraryFile } from "../../../src/transpile/index.js"
 import { walkSources } from "../../corpus/support/project.js"
 import { LIBRARY_MANAGER } from "./fixture-units.js"
@@ -25,7 +25,7 @@ const MANIFEST_FILES = walkSources(LIBRARY_MANAGER, new Set([".library"])).map(r
 
 /** Every library's declarations, PARSED ONCE — what the LSP replay binds a library name against, as the LSP binds a
  *  project that references them. A caller re-parses only for another dialect. */
-export const PROJECT_LIBRARY: readonly LibraryFile[] = DECLARATIONS.map((f) => ({ ...f, parseResult: parseSource(f.source) }))
+export const PROJECT_LIBRARY: readonly LibraryFile[] = DECLARATIONS.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
 
 /** Every library's manifest — its NAMESPACE, DEPENDENCIES and the RESOLUTION the repo is looked up by. */
 export const PROJECT_MANIFESTS: readonly LibraryManifest[] = MANIFEST_FILES.flatMap((l) => parseLibraryManifest(l.uri, l.source) ?? [])
@@ -33,7 +33,7 @@ export const PROJECT_MANIFESTS: readonly LibraryManifest[] = MANIFEST_FILES.flat
 /** What the transpiler lowers against: every library, with the bodies the library repo holds for the versions the
  *  project resolved — parsed ONCE, since every fixture lowers against them. */
 export const PROJECT_LOWERING: readonly LibraryFile[] = withImplementations([...DECLARATIONS, ...MANIFEST_FILES]).map((f) =>
-  f.uri.endsWith(".library") ? f : { ...f, parseResult: parseSource(f.source) },
+  f.uri.endsWith(".library") ? f : { ...f, parseResult: parseSource(f.source, { networkText: true }) },
 )
 
 /** Those libraries bound ONCE (`libraryBase`): every fixture lowers on top of them, rather than binding 857 files anew. */

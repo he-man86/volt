@@ -12,16 +12,15 @@
  * having resolved: an FB extending a LIBRARY type names one this analysis cannot see, and flagging that would be a
  * false positive.
  */
-import { walkAllExprs } from "../../../syntax/index.js"
-import { bodies, type Scope } from "../../../symbols/index.js"
+import { selfRefKind, walkAllExprs } from "../../../frontend/syntax/index.js"
+import { bodies, enclosingPou, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 /** True when the nearest enclosing POU declares no EXTENDS at all — a method's base is its owner's. */
 function baseless(scope: Scope): boolean {
-  for (let s: Scope | undefined = scope; s !== undefined; s = s.parent)
-    if (s.kind === "pou") return s.extendsName === undefined
-  return false
+  const pou = enclosingPou(scope)
+  return pou !== undefined && pou.extendsName === undefined
 }
 
 export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -29,7 +28,7 @@ export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]):
     if (unit.kind !== "program" && unit.kind !== "function") {
       if (!baseless(scope)) continue
       walkAllExprs(statements, (e) => {
-        if (e.kind !== "ident_expr" || e.name.toUpperCase() !== "SUPER") return
+        if (e.kind !== "ident_expr" || selfRefKind(e.name) !== "SUPER") return
         out.push({ severity: "error", span: e.span, source: SOURCE, code: "super-without-base", message: ctx.messages.superWithoutBase() })
       })
       continue
@@ -38,7 +37,7 @@ export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]):
       if (e.kind !== "ident_expr") return
       // Case-insensitive, as ST names are: a lower-case `this`/`super` is the same error (conformance `cc_self_this_*`,
       // `cc_self_super_*`). An exact `=== "THIS"` let them through (consolidate-lsp-structure A8).
-      const name = e.name.toUpperCase()
+      const name = selfRefKind(e.name)
       if (name === "THIS")
         out.push({ severity: "error", span: e.span, source: SOURCE, code: "this-not-allowed", message: ctx.messages.thisNotAllowed() })
       else if (name === "SUPER")

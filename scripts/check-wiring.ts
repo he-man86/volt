@@ -224,8 +224,8 @@ check("C# LibraryManifest.Materialization == LSP MATERIALIZATION", () => {
 		readRepo("packages/volt-cli/src/Volt.Engine/Library/LibraryManifest.cs"));
 	if (!cs) return "could not find `public const int Materialization = N;` in LibraryManifest.cs";
 	const table = /MATERIALIZATION_FORMATS[^=]*=\s*\[([\s\S]*?)\n\]/.exec(
-		readRepo("packages/volt-lsp-iec/src/symbols/library-namespace.ts"));
-	if (!table) return "could not find the MATERIALIZATION_FORMATS table in library-namespace.ts";
+		readRepo("packages/volt-lsp-iec/src/frontend/library/materialization.ts"));
+	if (!table) return "could not find the MATERIALIZATION_FORMATS table in materialization.ts";
 	const formats = [...table[1].matchAll(/^\s*\[(\d+),/gm)].map((m) => Number(m[1]));
 	if (formats.length === 0) return "MATERIALIZATION_FORMATS has no rows";
 	const lsp = formats[formats.length - 1];

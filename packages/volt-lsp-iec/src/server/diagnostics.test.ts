@@ -8,7 +8,7 @@ import { test, expect } from "bun:test"
 import { messagesFor, resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
-import { MATERIALIZATION } from "../symbols/index.js"
+import { MATERIALIZATION } from "../frontend/library/index.js"
 
 const messages = messagesFor("codesys")
 // A library GVL that would otherwise trip array-bound-non-const (bound is a plain global, not provably const).

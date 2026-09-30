@@ -19,7 +19,7 @@
  *
  * Every value is computed in the body, so a constant folded at compile time cannot answer for the runtime.
  */
-import { ELEMENTARY_TYPES } from "../../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 const INTEGERS = [...ELEMENTARY_TYPES.values()].filter(

@@ -8,7 +8,7 @@
  *   - Plus one non-CODESYS switch: `diagnoseDeadCode`.
  */
 
-import type { LibraryManifest } from "../symbols/index.js"
+import type { LibraryManifest } from "../frontend/library/index.js"
 export type Vendor = "codesys" | "twincat"
 export type VendorSetting = Vendor | "auto"
 

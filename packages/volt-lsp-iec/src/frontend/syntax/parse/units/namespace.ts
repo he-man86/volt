@@ -6,14 +6,16 @@
  * needs to call back into us, we accept a `parseInner` callback as
  * dependency injection — keeps the import graph acyclic.
  */
-import type { Namespace, TopLevel } from "../ast.js"
+import type { Namespace, TopLevel } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import { describeToken, identFromToken, joinSpans } from "../util.js"
+import { joinSpans } from "../../span.js"
+import { plainTokenText } from "../errors.js"
+import { identFromToken } from "../names.js"
 
 export function parseNamespace(c: Cursor, parseInner: (c: Cursor) => TopLevel | undefined): Namespace | undefined {
-  const start = c.expectKeyword("NAMESPACE", "at start of NAMESPACE")
+  const start = c.expectKeyword("NAMESPACE")
   if (start === undefined) return undefined
-  const nameTok = c.expectIdent("for NAMESPACE name")
+  const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
@@ -36,7 +38,7 @@ export function parseNamespace(c: Cursor, parseInner: (c: Cursor) => TopLevel | 
     }
     // Unknown token inside namespace — consume one and continue.
     c.pushError(
-      `unexpected ${describeToken(t)} inside NAMESPACE — expected POU, TYPE, VAR_GLOBAL, or END_NAMESPACE`,
+      `unexpected ${plainTokenText(t)} inside NAMESPACE — expected POU, TYPE, VAR_GLOBAL, or END_NAMESPACE`,
       t.span,
     )
     c.consume()

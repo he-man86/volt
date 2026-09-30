@@ -1,7 +1,7 @@
 /**
  * Network-text AST — the textual form of an FBD/LD body, v2 (`volt-cli/docs/network-text.html`, openspec
  * network-text-literal-nwl). A body is network text when its line states it — `IMPLEMENTATION FBD` or
- * `IMPLEMENTATION LD` (`syntax/implementation-keyword`, `syntax/isGraphicalBody`). One statement per vendor network item:
+ * `IMPLEMENTATION LD` (`syntax/format/implementation-line`, `syntax/isGraphicalBody`). One statement per vendor network item:
  *
  *   body      = "IMPLEMENTATION" ( "FBD" | "LD" ) NL , { network }
  *   network   = "NETWORK" [LABEL: x] [TITLE: "…"] [DISABLED] NL , { "//" line } , [ VAR_TEMP wires END_VAR ] ,
@@ -13,7 +13,7 @@
  * the text spells that ST has no node for — an empty slot, `PARALLEL`, an edge, `.ENO`, an EXECUTE box, `=> v` — is a
  * node of its own here, and `networkValueExpr` says which values have an ST reading at all.
  */
-import type { Expr, Span, StatementList, TypeExpr } from "../syntax/index.js"
+import type { Expr, Span, StatementList, TypeExpr } from "../frontend/syntax/index.js"
 
 export type NetworkLanguage = "FBD" | "LD"
 

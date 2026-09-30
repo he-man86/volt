@@ -15,7 +15,7 @@
  * because a node's meaning belongs with the node, not with one of the things that executes it.
  */
 import type { IrBuiltinName, IrExpr } from "./ir.js"
-import type { Type } from "../../types/index.js"
+import type { Type } from "../../frontend/types/index.js"
 import { arith, bool, coerce, eq, expt, fit, logic, MATH, num, ord, charAt, setChar, type Val } from "./values.js"
 
 /** A shift or rotate happens in the NODE's width. Lowering always types these from a promoted operand, so anything

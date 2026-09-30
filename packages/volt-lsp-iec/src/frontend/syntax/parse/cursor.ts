@@ -9,10 +9,12 @@
  * - Provides convenience eaters for keyword, punct, identifier — the
  *   three things parsers check most.
  */
-import { isTrivia, type Keyword, type Token } from "./tokens.js"
-import type { Span } from "./span.js"
-import type { ParseError } from "./ast.js"
-import { opensKeywordLine } from "./implementation-keyword.js"
+import { isTrivia, type Token } from "../lex/tokens.js"
+import type { Span } from "../span.js"
+import type { ParseError } from "../ast/nodes.js"
+import { opensKeywordLine } from "../format/implementation-line.js"
+import { DECL_LIST_ENDERS, SOFT_NAME_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
+import { nameExpected, unexpectedTokenOf, vendorTokenText } from "./errors.js"
 
 export class Cursor {
   private pos = 0
@@ -135,27 +137,27 @@ export class Cursor {
 
   // ─── Expect variants — record an error if mismatched, don't consume ──
 
-  // Wording mirrors CODESYS/TwinCAT: `'<expected>' expected instead of <found>` (the `context` arg — which
-  // construct we were in — is retained for call-site readability but omitted from the message, as the IDEs do).
-  expectKeyword(kw: Keyword, _context: string): Token | undefined {
+  // Wording mirrors CODESYS/TwinCAT: `'<expected>' expected instead of <found>` — no word about the construct we were
+  // in, as the IDEs say none.
+  expectKeyword(kw: Keyword): Token | undefined {
     const t = this.eatKeyword(kw)
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`'${kw}' expected instead of ${describeToken(next)}`, next.span)
+      this.pushError(`'${kw}' expected instead of ${vendorTokenText(next)}`, next.span)
     }
     return t
   }
 
-  expectPunct(text: string, _context: string): Token | undefined {
+  expectPunct(text: string): Token | undefined {
     const t = this.eatPunct(text)
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`'${text}' expected instead of ${describeToken(next)}`, next.span)
+      this.pushError(`'${text}' expected instead of ${vendorTokenText(next)}`, next.span)
     }
     return t
   }
 
-  expectIdent(_context: string): Token | undefined {
+  expectIdent(): Token | undefined {
     const t = this.eatIdent()
     if (t === undefined) {
       const next = this.peek()
@@ -170,9 +172,9 @@ export class Cursor {
    * `FINAL`/`ABSTRACT`/`OVERRIDE`) are all legal identifiers elsewhere — real code has methods named
    * `Set`, `Override`, etc. The token's `.text` keeps its source casing, so it reads as the name.
    */
-  expectName(_context: string): Token | undefined {
+  expectName(): Token | undefined {
     const t = this.peek()
-    if (t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
+    if (t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
       return this.consume()
     }
     this.pushError(nameExpected(t), t.span, unexpectedTokenOf(t))
@@ -184,20 +186,8 @@ export class Cursor {
    *  that ends the section" without choking `expectName` on the latter. */
   atNameStart(): boolean {
     const t = this.peek()
-    return t.kind === "identifier" || (t.kind === "keyword" && Cursor.SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))
+    return t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))
   }
-
-  private static readonly SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set([
-    "GET",
-    "SET",
-    "PUBLIC",
-    "PRIVATE",
-    "PROTECTED",
-    "INTERNAL",
-    "FINAL",
-    "ABSTRACT",
-    "OVERRIDE",
-  ])
 
   /**
    * True when the next token genuinely CLOSES a declaration list — an `END_*`, another VAR section, the start
@@ -210,34 +200,8 @@ export class Cursor {
     const t = this.peek()
     if (t.kind === "eof") return true
     if (t.kind !== "keyword" || t.keyword === undefined) return false
-    return t.keyword.startsWith("END_") || Cursor.DECL_LIST_ENDERS.has(t.keyword)
+    return t.keyword.startsWith("END_") || DECL_LIST_ENDERS.has(t.keyword)
   }
-
-  private static readonly DECL_LIST_ENDERS: ReadonlySet<string> = new Set([
-    // the VAR sections — a new one ends the previous
-    "VAR",
-    "VAR_INPUT",
-    "VAR_OUTPUT",
-    "VAR_IN_OUT",
-    "VAR_TEMP",
-    "VAR_STAT",
-    "VAR_INST",
-    "VAR_EXTERNAL",
-    "VAR_GLOBAL",
-    "VAR_CONFIG",
-    "VAR_ACCESS",
-    "VAR_GENERIC",
-    // the unit starters (`parseTopLevel`'s dispatch set) — recovery must never eat past one
-    "PROGRAM",
-    "FUNCTION_BLOCK",
-    "FUNCTION",
-    "METHOD",
-    "ACTION",
-    "PROPERTY",
-    "INTERFACE",
-    "TYPE",
-    "NAMESPACE",
-  ])
 
   // ─── Raw lines — for the few rules that are about LINES, not tokens ──
 
@@ -261,44 +225,16 @@ export class Cursor {
     return out
   }
 
-  // ─── Body collection (raw — preserves trivia) ──────────────────
+  // ─── The raw stream — for the body collectors, which keep trivia (`body.ts`) ──
 
-  /**
-   * Walk the raw token stream — **including trivia (pragmas,
-   * comments, whitespace)** — until the next *meaningful* token is
-   * one of `consumeEnders` (the cursor advances past it) or
-   * `peekStoppers` (the cursor leaves it for the caller). Returns
-   * the collected tokens and the closer (undefined on EOF).
-   *
-   * Used by body collectors so the captured `BodySpan.tokens` keeps
-   * pragma tokens (semantically meaningful: `{IF}`, `{warning ...}`,
-   * `{attribute ...}`). Downstream consumers filter trivia via
-   * `isLexerTrivia()` when they want only meaningful tokens.
-   */
-  consumeBodyUntilAny(opts: { consumeEnders: readonly Keyword[]; peekStoppers?: readonly Keyword[] }): {
-    tokens: Token[]
-    closer: Token | undefined
-    stoppedAt: Token | undefined
-  } {
-    const tokens: Token[] = []
-    const consumeSet = new Set<Keyword>(opts.consumeEnders)
-    const peekSet = new Set<Keyword>(opts.peekStoppers ?? [])
-    while (this.pos < this.tokens.length) {
-      const t = this.tokens[this.pos]
-      if (t.kind === "eof") return { tokens, closer: undefined, stoppedAt: undefined }
-      if (!isTrivia(t.kind) && t.kind === "keyword" && t.keyword !== undefined) {
-        if (consumeSet.has(t.keyword)) {
-          this.pos += 1
-          return { tokens, closer: t, stoppedAt: undefined }
-        }
-        if (peekSet.has(t.keyword)) {
-          return { tokens, closer: undefined, stoppedAt: t }
-        }
-      }
-      tokens.push(t)
-      this.pos += 1
-    }
-    return { tokens, closer: undefined, stoppedAt: undefined }
+  /** The raw token at the cursor, trivia included, or undefined past the end. */
+  rawAt(): Token | undefined {
+    return this.tokens[this.pos]
+  }
+
+  /** Step past the raw token at the cursor, trivia included. */
+  advanceRaw(): void {
+    this.pos += 1
   }
 
   // ─── Recovery ──────────────────────────────────────────────────
@@ -322,68 +258,4 @@ export class Cursor {
     }
     return false
   }
-}
-
-/**
- * The error for "a name belongs here and this isn't one".
- *
- * A reserved word in name position is CODESYS's **C0009**, not its C0189: `Limit : INT;` — `LIMIT` is a
- * standard FUNCTION, so it is reserved — reports `Unexpected token 'Limit' found`.
- *
- * THE SPELLING IS THE SOURCE'S, not the keyword's. A 2026-09-03 note here recorded this as `'LIMIT'`, and that was
- * wrong: `echo_mixed_case_function_name` and its three siblings asked CODESYS on 2026-09-18 with the same word in
- * four spellings, and it echoed each one back unchanged. Only the keyword case has that evidence; punct/EOF keep the
- * "expected instead of" form.
- */
-/**
- * RESYNC A BROKEN DECLARATION THE WAY THE VENDOR DOES — complaining about every token in the way rather than
- * skipping in silence. For `VAR Limit : INT;`, where `Limit` is a reserved standard-function name, CODESYS says
- *
- *   Unexpected token 'Limit' found         the name — `nameExpected`, already ours
- *   ';' expected instead of ':'            a PAIR for the `:`
- *   Unexpected token ':' found
- *   ';' expected instead of 'INT'          and a pair for the `INT`
- *   Unexpected token 'INT' found
- *
- * which is the same shape the STATEMENT parser already produces for the body half of such a fixture. The
- * declaration half reported the name and recovered quietly — four messages short every time (`cc_il_name_cal`
- * records all ten for a declaration AND a use).
- *
- * Only for a BAD NAME. `x : INT := 5 abc;` is ONE message on CODESYS (`cc_decl_init_trailing_ident`) and keeps the
- * quiet recovery; see the caller.
- */
-export function reportBrokenDeclaration(c: Cursor, stop: readonly Keyword[]): void {
-  for (;;) {
-    const t = c.peek()
-    if (t.kind === "eof") return
-    if (t.kind === "punct" && t.text === ";") return
-    if (t.kind === "keyword" && t.keyword !== undefined && stop.includes(t.keyword)) return
-    c.pushError(`';' expected instead of ${describeToken(t)}`, t.span)
-    c.pushError(`Unexpected token ${describeToken(t)} found`, t.span, t.text)
-    c.consume()
-  }
-}
-
-/** The token, when `nameExpected` words it as the "Unexpected token" shape — see `ParseError.unexpectedToken`. */
-function unexpectedTokenOf(t: Token): string | undefined {
-  return t.kind === "keyword" ? t.text : undefined
-}
-
-function nameExpected(t: Token): string {
-  return t.kind === "keyword"
-    ? `Unexpected token ${describeToken(t)} found`
-    : `identifier expected instead of ${describeToken(t)}`
-}
-
-// CODESYS/TwinCAT render the offending token bare-quoted (`'x'`, `';'`, `'TO'`) and EOF as "end of POU".
-export function describeToken(t: Token): string {
-  if (t.kind === "eof") return "end of POU"
-  // AS WRITTEN. CODESYS echoes the token exactly as it is typed, asked directly with the same word in four
-  // spellings (`echo_*_case_*`, recorded 2026-09-18): `Limit` -> `'Limit'`, `limit` -> `'limit'`, `Lt` -> `'Lt'`,
-  // `LT` -> `'LT'`. Printing the canonical keyword made every mention that was not already upper-case disagree on
-  // wording alone.
-  if (t.kind === "keyword") return `'${t.text}'`
-  if (t.kind === "identifier") return `'${t.text}'`
-  if (t.kind === "punct") return `'${t.text}'`
-  return `'${t.text.length > 20 ? `${t.text.slice(0, 20)}…` : t.text}'`
 }

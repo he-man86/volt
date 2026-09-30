@@ -10,9 +10,9 @@
  * block or its type is a KNOWN non-callable kind; an unknown/library type is possibly-callable → skipped.
  * Corpus-verified zero-FP.
  */
-import { walkAllExprs, type Expr } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { inferExprType, resolveMemberChain } from "../../../types/index.js"
+import { walkAllExprs, type Expr } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { unknownTypeName } from "../../resolution.js"

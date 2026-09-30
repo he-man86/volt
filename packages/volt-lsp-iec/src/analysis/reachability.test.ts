@@ -1,10 +1,10 @@
 import { test, expect } from "bun:test"
-import { parseSource } from "../syntax/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
 import { deadPous, deadMemberSpans, ownerPou, type ReachabilityInput } from "./reachability.js"
 
 /** Build a reachability input from a file's bare name + source (uri drives GVL naming, not needed here). */
 function file(name: string, source: string): ReachabilityInput {
-  return { uri: `file:///${name}`, source, parseResult: parseSource(source) }
+  return { uri: `file:///${name}`, source, parseResult: parseSource(source, { networkText: true }) }
 }
 
 const PRG = (name: string, body: string) => file(`${name}.prg`, `PROGRAM ${name}\n${body}\nEND_PROGRAM`)
@@ -206,6 +206,6 @@ test("a method of a DEAD FB is not double-reported (whole file already suppresse
 })
 
 test("ownerPou returns the file's primary POU, undefined for a non-POU file", () => {
-  expect(ownerPou(parseSource("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK"))).toBe("f")
-  expect(ownerPou(parseSource("INTERFACE I\nEND_INTERFACE"))).toBeUndefined()
+  expect(ownerPou(parseSource("FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK", { networkText: true }))).toBe("f")
+  expect(ownerPou(parseSource("INTERFACE I\nEND_INTERFACE", { networkText: true }))).toBeUndefined()
 })

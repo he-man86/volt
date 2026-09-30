@@ -4,15 +4,15 @@
  * with the four cells that had never been asked: `-BOOL` into a STRING, and `NOT` on TOD, DT and LTIME.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
 function msgs(decl: string, op: string, outType: string, vendor: Vendor = "codesys"): string[] {
   const src = `FUNCTION_BLOCK F\nVAR\n\t${decl}\n\tout : ${outType};\nEND_VAR\nout := ${op} x;\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, vendor)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unary-operand-type")
     .map((d) => d.message)

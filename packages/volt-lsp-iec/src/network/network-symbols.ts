@@ -4,9 +4,10 @@
  * body shows its networks instead of appearing empty.
  */
 import { SymbolKind, type DocumentSymbol } from "vscode-languageserver-protocol"
-import { type Document, graphicalBodies } from "../syntax/index.js"
+import { graphicalBodies } from "../frontend/syntax/index.js"
 import { documentSymbols, rangeFromSpan } from "../services/index.js"
 import { STRUCTURE_ONLY, parseNetworkText } from "../network-text/parser.js"
+import type { Document } from "../services/shared/index.js"
 
 /** ST document symbols with each network-text body's networks attached under their owning POU. */
 export function documentSymbolsWithVg(doc: Document): DocumentSymbol[] {

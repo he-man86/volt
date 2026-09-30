@@ -1,12 +1,12 @@
 import { test, expect } from "bun:test"
 import { readdirSync, readFileSync } from "node:fs"
-import { parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "../symbols/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type DiagnosticItem, type Vendor } from "./index.js"
+import { build } from "../frontend/symbols/index.js"
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
-  const parseResult = parseSource(src, vendor)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 
@@ -355,4 +355,16 @@ test("no check opens with a whole-body vendor early return — the registry deci
       offenders.push(`${file.pathname.split("/").pop()}: ${m[1]!.trim()}`)
   }
   expect(offenders).toEqual([])
+})
+
+// The token-reading checks (refused-name, time-literal-unit, wstring-escape, pragmas, attribute placement) read the
+// PARSE's tokens, lexed with the parse's dialect — so a parse in one dialect analysed as the other is the same
+// "which vendor is this?" the project/config mismatch is, and is refused the same way rather than answered.
+test("a parse lexed as one vendor is refused by name when analysed as the other", () => {
+  const src = "PROGRAM P\nVAR\n  x : INT;\nEND_VAR\nx := 1;\nEND_PROGRAM"
+  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const project = build.buildSymbolTable([{ uri: "P.prg", parseResult, source: src }], [], "codesys")
+  expect(() =>
+    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }),
+  ).toThrow(/dialect mismatch: the source was parsed as 'twincat'/)
 })

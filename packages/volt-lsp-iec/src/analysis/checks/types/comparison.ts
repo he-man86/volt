@@ -10,10 +10,10 @@
  * fire when either operand is an array, rendering the CODESYS-exact `ARRAY [lo..hi]` form; a non-foldable bound
  * skips (zero-FP). Struct/FB/pointer/unknown operands are still undecidable → skipped.
  */
-import { classifyConversion, inferExprType, isEnumValueRef, isSameType, type Type } from "../../../types/index.js"
+import { classifyConversion, inferExprType, isEnumValueRef, isSameType, renderType, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { compilerArrayText, compilerTypeName } from "../../messages.js"
-import { forEachExpr } from "../../../symbols/index.js"
+import { compilerArrayText } from "../../messages.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
@@ -49,7 +49,7 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
     // unmeasured, so it stays silent too.
     if (left.kind === "enum" && right.kind === "enum" && !isSameType(left, right)) {
       if (!isEnumValueRef(e.left, scope, ctx.project) && !isEnumValueRef(e.right, scope, ctx.project))
-        push("enum-comparison", ctx.messages.enumComparison(compilerTypeName(left), compilerTypeName(right)))
+        push("enum-comparison", ctx.messages.enumComparison(renderType(left, { form: "compiler" }), renderType(right, { form: "compiler" })))
       return
     }
 

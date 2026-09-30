@@ -1,13 +1,14 @@
 /**
  * inlay-hints (Layer E · E.3 · assist). Parameter-name hints at call sites: a POSITIONAL argument
  * `f(x)` gets a `paramName:` hint before it (a named arg `f(p := x)` already shows its name, so it's
- * skipped). Thin over `symbols/bodies` + `types/resolveCallee`, the same pair signature help and the call checks use.
+ * skipped). Thin over `symbols/scoped-bodies` + `types/resolveCallee`, the same pair signature help and the call checks use.
  */
 import type { InlayHint } from "vscode-languageserver-protocol"
 import { InlayHintKind } from "vscode-languageserver-protocol"
-import { type Document, walkAllExprs } from "../../syntax/index.js"
-import { bodies, type Scope } from "../../symbols/index.js"
-import { resolveCallee } from "../../types/index.js"
+import { walkAllExprs } from "../../frontend/syntax/index.js"
+import { bodies, type Scope } from "../../frontend/symbols/index.js"
+import { resolveCallee } from "../../frontend/types/index.js"
+import type { Document } from "../shared/index.js"
 
 export function inlayHints(doc: Document, project: Scope, startOffset: number, endOffset: number): InlayHint[] {
   const out: InlayHint[] = []

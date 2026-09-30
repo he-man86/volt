@@ -3,16 +3,16 @@
  * C0236 (type mismatch) is NOT checked — the live IDE builds it clean (not an error).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const run = (prg: string, gvl?: string) => {
   const inputs = [
-    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg) },
-    ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl) }] : []),
+    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) }] : []),
   ]
-  const project = buildSymbolTable(inputs)
+  const project = build.buildSymbolTable(inputs)
   return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code.startsWith("external-"))
 }

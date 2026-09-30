@@ -8,10 +8,10 @@
  * Zero-FP: `BIT` in any of these positions is always an error; struct fields (a DUT body, not a var section)
  * and FB VAR_INPUT/VAR_OUTPUT/VAR are the legal cases and are never visited/flagged.
  */
-import type { TypeExpr } from "../../../syntax/index.js"
-import type { Span } from "../../../syntax/index.js"
+import type { TypeExpr } from "../../../frontend/syntax/index.js"
+import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl } from "../../../symbols/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const BIT_OK_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR"])

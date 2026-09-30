@@ -50,7 +50,7 @@ import {
   type TypeHierarchyItem,
 } from "vscode-languageserver-protocol/node"
 import { connectToServer } from "./harness.js"
-import { MATERIALIZATION } from "../symbols/library-namespace.js"
+import { MATERIALIZATION } from "../frontend/library/index.js"
 
 /** A client connection wired to an in-process server over two pipes — `harness.ts` owns the setup, and the typed
  *  `harness()` built on it is what the wire-behaviour tests beside this file use. */

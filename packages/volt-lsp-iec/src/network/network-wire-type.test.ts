@@ -4,14 +4,14 @@
  * is declared with its full type, and the message a mismatch prints must keep it.
  */
 import { expect, test } from "bun:test"
-import { parseSource } from "../syntax/index.js"
-import { buildSymbolTable } from "../symbols/index.js"
+import { parseSource } from "../frontend/syntax/index.js"
+import { build } from "../frontend/symbols/index.js"
 import { messagesFor } from "../analysis/index.js"
 import { computeNetworkTextDiagnostics } from "./index.js"
 
 const messages = (source: string): string[] => {
-  const parseResult = parseSource(source)
-  const project = buildSymbolTable([{ uri: "F.fb", parseResult, source }])
+  const parseResult = parseSource(source, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source }])
   return computeNetworkTextDiagnostics({ uri: "F.fb", source, parseResult }, project, messagesFor("codesys")).map((d) => d.message)
 }
 

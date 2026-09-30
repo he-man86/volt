@@ -5,8 +5,8 @@
  * enum/VAR CONSTANT labels stay quiet (the earlier `constEval`-only attempt false-positived on those).
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import { uriFor } from "../../test-uri.js"
 
@@ -14,8 +14,8 @@ const cs = (arms: string, vendor: "codesys" | "twincat" = "codesys"): string[] =
   const src =
     `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  a : INT := 2;\nEND_VAR\nVAR CONSTANT\n  K : INT := 7;\nEND_VAR\n` +
     `CASE i OF\n${arms}\nEND_CASE\nEND_PROGRAM`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], vendor)
+  const pr = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)
@@ -46,8 +46,8 @@ test("an empty CASE arm is an error (C0426, live-verified); comma is the legal f
 
 test("C0218: enum-member labels stay quiet (the 207-FP case)", () => {
   const src = `FUNCTION_BLOCK F\nVAR\n  stv : (A, B, C);\n  n : INT;\nEND_VAR\nCASE stv OF\n  A: n:=1;\n  B: n:=2;\n  C: n:=3;\nEND_CASE\nEND_FUNCTION_BLOCK`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "case-label-non-const")
     .map((d) => d.message)
@@ -64,8 +64,8 @@ test("CASE-label wording is per-vendor (verified live): CODESYS 'CASE', TwinCAT 
 // with its own message. Each was silent.
 const sint = (arms: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  sv : SINT;\n  res : INT;\nEND_VAR\nCASE sv OF\n${arms}\nELSE res := 2;\nEND_CASE\nEND_PROGRAM`
-  const pr = parseSource(src)
-  const project = buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)

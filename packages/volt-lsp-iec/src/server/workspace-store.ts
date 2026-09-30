@@ -12,8 +12,8 @@
  */
 import { TextDocument } from "vscode-languageserver-textdocument"
 import { fileURLToPath } from "node:url"
-import { type Document, parseDocument, type Span } from "../syntax/index.js"
-import { buildSymbolTable, bindFile, unbindFile, linkExtends, type Scope } from "../symbols/index.js"
+import { parseDocument, type ParseOptions, type Span } from "../frontend/syntax/index.js"
+import { build, type Scope } from "../frontend/symbols/index.js"
 import {
   deadPousFromInfos,
   deadMemberSpansFromInfos,
@@ -24,6 +24,11 @@ import {
   type WorkspaceRefs,
 } from "../analysis/index.js"
 import { deadNameUniverse, reachDeadEquivalent } from "./dead-code-equivalence.js"
+import type { Document } from "../services/shared/index.js"
+import { NETWORK_TEXT_ENABLED } from "./config.js"
+
+/** Every parse the server makes reads network text as its environment says (`config.ts`). */
+const PARSE_OPTIONS: ParseOptions = { networkText: NETWORK_TEXT_ENABLED }
 
 // Windows and macOS default to case-insensitive filesystems; Linux is case-sensitive. Case-fold the key on
 // the former so an open buffer and its disk crawl (which may differ in path case) collapse to one entry.
@@ -90,7 +95,7 @@ export class WorkspaceStore {
     const hit = this.cache.get(key)
     if (hit !== undefined && hit.version === td.version) return hit.doc
     const source = td.getText()
-    const doc: Document = { uri: td.uri, source, parseResult: parseDocument(td.uri, source, this.config.vendor) }
+    const doc: Document = { uri: td.uri, source, parseResult: parseDocument(td.uri, source, PARSE_OPTIONS, this.config.vendor) }
     this.cache.set(key, { version: td.version, doc })
     return doc
   }
@@ -110,7 +115,7 @@ export class WorkspaceStore {
       // each referenced library's units under the NAMESPACE the source qualifies them with (`bindLibraryNamespaces`)
       // the VENDOR belongs here as much as it does on the parse above — `project.dialect` is what decides that
       // `LDATE` does not resolve on TwinCAT, and omitting it left every such branch dead in the running server
-      this.projectScope = buildSymbolTable(docs, this.workspaceRefs.libraryManifests, this.config.vendor)
+      this.projectScope = build.buildSymbolTable(docs, this.workspaceRefs.libraryManifests, this.config.vendor)
       this.boundDocs.clear()
       for (const d of docs) this.boundDocs.set(normalizeKey(d.uri), d)
     }
@@ -138,17 +143,17 @@ export class WorkspaceStore {
       return
     }
     const old = this.boundDocs.get(key)
-    if (old !== undefined) unbindFile(this.projectScope, old.uri)
+    if (old !== undefined) build.unbindFile(this.projectScope, old.uri)
     const desired = this.mergedDoc(key)
     if (desired !== undefined) {
-      bindFile(this.projectScope, { uri: desired.uri, parseResult: desired.parseResult, source: desired.source })
+      build.bindFile(this.projectScope, { uri: desired.uri, parseResult: desired.parseResult, source: desired.source })
       this.boundDocs.set(key, desired)
     } else {
       this.boundDocs.delete(key)
     }
-    // WITH the manifests: `linkExtends` resolves an ambiguous base by the asker's library and its
+    // WITH the manifests: `relink` resolves an ambiguous base by the asker's library and its
     // dependencies, and re-linking without them would silently demote every library base to the last rank.
-    linkExtends(this.projectScope, this.workspaceRefs.libraryManifests)
+    build.relink(this.projectScope, this.workspaceRefs.libraryManifests)
     this.markDeadDirtyIfReachChanged(key, desired)
   }
 
@@ -260,7 +265,7 @@ export class WorkspaceStore {
   seedDisk(files: readonly { uri: string; source: string }[]): void {
     this.disk.clear()
     for (const f of files)
-      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseDocument(f.uri, f.source, this.config.vendor) })
+      this.disk.set(normalizeKey(f.uri), { uri: f.uri, source: f.source, parseResult: parseDocument(f.uri, f.source, PARSE_OPTIONS, this.config.vendor) })
     this.projectScope = undefined
     this.boundDocs.clear()
     this.cachedDead = undefined // wholesale reseed ⇒ the dead caches + their snapshot are stale

@@ -21,9 +21,9 @@ import {
   type Statement,
   type TopLevel,
   type VarSection,
-} from "../../syntax/index.js"
-import { childScopesByName, findChildScope, libraryOf, lookup, lookupLocal, lookupMember, pickForAsker, type Scope, scopeUri } from "../../symbols/index.js"
-import { ANY_FAMILIES, elemOf, elementaryRef, inferExprType, isAssignable, type Type, UNKNOWN } from "../../types/index.js"
+} from "../../frontend/syntax/index.js"
+import { childScopesByName, findChildScope, lookup, lookupLocal, lookupMember, pickForAsker, type Scope, scopeUri } from "../../frontend/symbols/index.js"
+import { ANY_FAMILIES, elemOf, elementaryRef, inferExprType, isAssignable, type Type, UNKNOWN } from "../../frontend/types/index.js"
 import { byteSize } from "./bytes.js"
 import {
   defaultValueOf,
@@ -52,6 +52,7 @@ import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
 import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
 import { lastBinding, registerBodyCall } from "./bindings.js"
+import { libraryOf } from "../../frontend/library/index.js"
 
 type FbType = Extract<Type, { kind: "function_block" }>
 type RoutineSymbol = NonNullable<ReturnType<typeof lookup>>["symbol"]

@@ -3,16 +3,16 @@
  * `constancyOf`, so enum members / VAR CONSTANT stay quiet.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const run =
   (code: string) =>
   (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
     const src = `PROGRAM P\n${body}\nEND_PROGRAM`
-    const pr = parseSource(src)
-    const project = buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+    const pr = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
       .filter((d) => d.code === code)
       .map((d) => d.message)

@@ -3,8 +3,8 @@
  * Wording measured on CODESYS SP21 (conformance `fb_init_argument_left_out`); TwinCAT unmeasured.
  */
 import { test, expect } from "bun:test"
-import { parseSource } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseSource } from "../../../frontend/syntax/index.js"
+import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
 
@@ -32,11 +32,11 @@ END_FUNCTION_BLOCK
 
 function diagnose(plc: string, vendor: Vendor = "codesys") {
   const files = [
-    { uri: "file:///c/FB_Needs.fb", source: FB, parseResult: parseSource(FB) },
-    { uri: "file:///c/FB_Plain.fb", source: PLAIN, parseResult: parseSource(PLAIN) },
-    { uri: "file:///c/PLC_PRG.prg", source: plc, parseResult: parseSource(plc) },
+    { uri: "file:///c/FB_Needs.fb", source: FB, parseResult: parseSource(FB, { networkText: true }, vendor) },
+    { uri: "file:///c/FB_Plain.fb", source: PLAIN, parseResult: parseSource(PLAIN, { networkText: true }, vendor) },
+    { uri: "file:///c/PLC_PRG.prg", source: plc, parseResult: parseSource(plc, { networkText: true }, vendor) },
   ]
-  const project = buildSymbolTable(files, [], vendor)
+  const project = build.buildSymbolTable(files, [], vendor)
   const f = files[2]!
   return computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "fb-init-argument-missing")

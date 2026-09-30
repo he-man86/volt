@@ -18,8 +18,8 @@
  * (`newdel_without_pragma`, `newdel_with_pragma`). It was CODESYS-only on the grounds that TwinCAT's opt-in was
  * "documented, not measured"; it is measured now, and the wording is data in `messages.ts` like every other.
  */
-import { forEachExpr } from "../../../symbols/index.js"
-import { unitAttributes, type TopLevel } from "../../../syntax/index.js"
+import { forEachExpr } from "../../../frontend/symbols/index.js"
+import { unitAttributes, type TopLevel } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 

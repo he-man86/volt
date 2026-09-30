@@ -8,7 +8,7 @@
  * (`depth - 1` with `depth : INT` comes back `(depth - INT#1)`, conformance `cc2_call_recursion`) — `typeOf` supplies
  * that. It does NOT do so elsewhere: an index echoes `plain[1]` and an aggregate `STRUCT(x := 1, y := 2)`.
  */
-import { exprText, type Expr } from "../syntax/index.js"
+import { exprText, type Expr } from "../frontend/syntax/index.js"
 
 export function compilerExprText(e: Expr, typeOf: (e: Expr) => string | undefined = () => undefined): string {
   const text = (x: Expr): string => compilerExprText(x, typeOf)

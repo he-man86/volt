@@ -14,11 +14,11 @@
  * Standard's LEN or TON included — resolves through the scope, from its materialized declaration, and nowhere else:
  * in a project that does not reference its library it is the unknown name CODESYS says it is.
  */
-import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../syntax/index.js"
-import { ANY_FAMILIES, CODESYS_ONLY_TYPES } from "../types/index.js"
+import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
+import { ANY_FAMILIES, isDialectType } from "../frontend/types/index.js"
 import { lookupReference } from "../reference/index.js"
-import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../symbols/index.js"
-import { inferExprType, parseConversionName } from "../types/index.js"
+import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
+import { inferExprType, parseConversionName } from "../frontend/types/index.js"
 import type { WorkspaceRefs } from "./config.js"
 
 
@@ -91,7 +91,7 @@ export function nameResolves(name: string, scope: Scope, project: Scope, referen
   const lower = name.toLowerCase()
   // A reserved system operator (`__NEW`, `__ISVALIDREF`, …) — EXCEPT the four TwinCAT does not have, where
   // the name is an ordinary identifier that resolves nowhere, and TwinCAT says so: "Identifier
-  // '__POSITION' not defined" (`syntax/tokens.ts` carries the measurement).
+  // '__POSITION' not defined" (`syntax/lex/vocabulary.ts` carries the measurement).
   if (name.startsWith("__"))
     return !(project.dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(name.toUpperCase()))
   // A conversion operator — an implicit token, not a symbol. Only a name CODESYS defines: this matched any `…_TO_…` shape,
@@ -104,7 +104,7 @@ export function nameResolves(name: string, scope: Scope, project: Scope, referen
     // no leading underscore — so `TO_LDATE` stayed resolved on TwinCAT while `DATE_TO_LDATE` did not, which is the
     // same operator named two ways.
     const involved = [conversion.to.name, conversion.from?.name]
-    return !(project.dialect === "twincat" && involved.some((n) => n !== undefined && CODESYS_ONLY_TYPES.has(n.toUpperCase())))
+    return involved.every((n) => n === undefined || isDialectType(n, project.dialect))
   }
   if (COMPILER_PROVIDED_IMPLICITS.has(lower)) return true
   if (lookupReference(name) !== undefined) return true // built-in operator / std function / std FB / type
@@ -226,7 +226,7 @@ export function dialectMissingType(project: Scope, t: TypeExpr | undefined): str
   // an ARRAY OF or POINTER TO wrapper is a different shape and is left alone
   if (t?.kind !== "named_type") return undefined
   const name = t.name.text
-  if (!CODESYS_ONLY_TYPES.has(name.toUpperCase())) return undefined
+  if (isDialectType(name, project.dialect)) return undefined
   // …unless the PROJECT declares it. `TYPE LDATE : ULINT; END_TYPE` is exactly the shim a TwinCAT project
   // porting CODESYS code writes, and `resolveNamedType` resolves it — so without this the two disagree about
   // the same name, and the one that speaks is the one that is wrong.

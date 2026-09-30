@@ -17,9 +17,9 @@
  *
  * The IR is a typed tree, not SSA: the targets are source languages, not machine code.
  */
-import type { Span, VarSectionKind } from "../../syntax/index.js"
+import type { Span, VarSectionKind } from "../../frontend/syntax/index.js"
 import type { LowerCodeKind } from "./codes.js"
-import type { Type } from "../../types/index.js"
+import type { Type } from "../../frontend/types/index.js"
 
 // ─── values ──────────────────────────────────────────────────────────────────
 

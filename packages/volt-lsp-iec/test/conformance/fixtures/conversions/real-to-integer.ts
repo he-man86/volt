@@ -21,7 +21,7 @@
  * The rule under test is `emit/rust/emit.ts`'s REAL→int model (through a 64-bit register, `i64::MIN` on overflow or
  * NaN, then wrap) and its interpreter twin. Four measurements fit it. This asks a hundred and forty.
  */
-import { ELEMENTARY_TYPES } from "../../../../src/types/elementary.js"
+import { ELEMENTARY_TYPES } from "../../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../../types.js"
 
 type Klass = "above_max" | "below_min" | "nan" | "pos_inf" | "neg_inf"

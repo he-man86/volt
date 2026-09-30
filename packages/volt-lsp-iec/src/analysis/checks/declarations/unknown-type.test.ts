@@ -6,17 +6,17 @@
  * Identical on TwinCAT (the e2e twin, `volt-cli/test/e2e/items/push-without-header-check.test.ts`).
  */
 import { expect, test } from "bun:test"
-import { parseDocument } from "../../../syntax/index.js"
-import { buildSymbolTable } from "../../../symbols/index.js"
+import { parseDocument } from "../../../frontend/syntax/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { Vendor } from "../../config.js"
+import { build } from "../../../frontend/symbols/index.js"
 
 type File = { uri: string; source: string }
 
 /** Every error the analysis gives `main`, in a project of `main` and `others`. */
 function errors(main: File, others: File[] = [], vendor: Vendor = "codesys"): string[] {
-  const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source) }))
-  const project = buildSymbolTable(files, [], vendor)
+  const files = [main, ...others].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, vendor) }))
+  const project = build.buildSymbolTable(files, [], vendor)
   const own = files[0]!
   return computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor }), uri: own.uri })
     .filter((d) => d.severity === "error")

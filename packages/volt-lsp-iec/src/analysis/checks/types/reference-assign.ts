@@ -23,10 +23,9 @@
  * TWO measurements is what this rests on, so it claims nothing wider: a literal whose own type EQUALS the
  * referenced type falls through to C0141, and every other literal keeps the conversion error it already had.
  */
-import { walkStatements } from "../../../syntax/index.js"
-import { bodies } from "../../../symbols/index.js"
-import { inferExprType, constancyOf, constEval, literalErrorType, renderType } from "../../../types/index.js"
-import { integerLiteralType } from "../../../types/elementary.js"
+import { walkStatements } from "../../../frontend/syntax/index.js"
+import { bodies } from "../../../frontend/symbols/index.js"
+import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -46,10 +45,7 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
         // Does the literal's OWN type ALREADY equal the referenced one? Then the store is accepted and the
         // compiler goes on to the write-access rule — fall through. Anything else keeps the conversion error.
         const referenced = target.kind === "reference" ? target.target : undefined
-        const own =
-          s.value.literalKind === "int" && typeof s.value.value === "bigint"
-            ? integerLiteralType(s.value.value)
-            : undefined
+        const own = literalOwnType(s.value)
         const exact =
           own !== undefined && referenced?.kind === "elementary" && referenced.elem.name === own.name
         if (!exact) {

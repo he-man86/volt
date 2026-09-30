@@ -41,12 +41,13 @@ Load-bearing invariants a maintainer must not break:
   per vendor. The corpus is only a regression safety net: a miss it surfaces means *add a feature test*, not
   *tweak a threshold*.
 - **Every body states its language, and that line alone picks the reader.** The line that ends a body's
-  declaration is `IMPLEMENTATION ST|LD|FBD` (`src/syntax/implementation-keyword.ts`, mirroring the bridge's
+  declaration is `IMPLEMENTATION ST|LD|FBD` (`src/frontend/syntax/format/implementation-line.ts`, mirroring the bridge's
   `ImplementationMarker`): `ST` goes to the ST parser, `LD`/`FBD` to the network-text path — its own grammar,
   parser, and analysis. Nothing sniffs the text (a `NETWORK` under `IMPLEMENTATION ST` is ST and an error). Code
   correctness (type inference, undeclared-variable, hover/nav) is LSP-owned; the network-text *format* and the
   vendor round-trip are bridge-owned. In a process without `VOLT_GRAPHICAL=1` nothing under an LD/FBD line is
-  read (`NETWORK_TEXT_ENABLED`), as the shipped bridge shows none.
+  read (`server/config.ts` `NETWORK_TEXT_ENABLED`, passed to every server parse as `ParseOptions.networkText`), as
+  the shipped bridge shows none.
 - **A body Volt does not show is `IMPLEMENTATION <LANG> UNSUPPORTED`** — every CFC/SFC/IL body, and an LD/FBD body
   network text cannot spell — with nothing under it. Neither parser reads it; its declaration is analysed as
   usual and the hover on the line explains it. Code under the line, or a bare `IMPLEMENTATION CFC`, is a
@@ -59,7 +60,7 @@ cd packages/volt-lsp-iec        # tests can't run from repo root
 
 bun typecheck                   # tsc --noEmit — src + test + scripts (this tsconfig, not a bare tsc)
 bun test                        # all three layers, offline & deterministic
-bun test src/types              # a single dir / module's unit tests
+bun test src/frontend/types     # a single dir / module's unit tests
 bun test test/conformance       # just the conformance replay
 bun run build                   # tsc -> dist/ (also runs on prepare; bin is ./dist/src/bin.js)
 bun run lint                    # the layer-boundary check (fails on an upward import)
@@ -70,15 +71,16 @@ produce the recorded ground truth; they are run by hand, never by `bun test`. Se
 
 ## Layout
 
-Folders are layers; **imports point downward only** (`syntax ← symbols ← types ← analysis ← services ←
-server`), lint-enforced. See [`docs/architecture.md`](./docs/architecture.md) for the full ownership map.
+Folders are layers; **imports point downward only** (the front-end `syntax ← symbols ← types` ← analysis ←
+services ← server), lint-enforced. See [`docs/architecture.md`](./docs/architecture.md) for the full ownership map.
 
 | Path | Layer / role |
 |---|---|
 | `src/bin.ts` | CLI entry — `--stdio [--codesys\|--twincat]` runs the server; `--version` prints it. |
-| `src/syntax/` | tokens · lexer (error-tolerant) · the complete AST · parser + treewalker. |
-| `src/symbols/` | binder · scope-nav · `bodies` (the one shared "walk every ST body" iterator). |
-| `src/types/` | elementary type facts · the `Type` model · resolve · const-eval · infer · compat · render. |
+| `src/frontend/syntax/` | the vocabulary · lexer (error-tolerant) · the complete AST · parser · literals · pragmas · the Volt file format. |
+| `src/frontend/symbols/` | binder · scope-nav · `scoped-bodies` (the one shared "walk every ST body" iterator). |
+| `src/frontend/types/` | elementary type facts · the `Type` model · resolve · const · infer · compat · arith · render. |
+| `src/frontend/library/` | the Volt library format: path layout · manifest · materialization format. |
 | `src/analysis/` | diagnostics orchestrator (vendor-keyed) · per-vendor messages · the `checks/`. |
 | `src/services/` | navigation · hierarchy · hover/completion/signature-help · semantic-tokens · formatting · code-actions. |
 | `src/reference/` · `src/network/` | language-data catalogs · the network-text (FBD/LD) sublanguage (reuses the shared core). |

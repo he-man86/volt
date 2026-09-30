@@ -80,7 +80,7 @@ import {
 } from "../analysis/index.js"
 import { scanWorkspace } from "../workspace-refs.js"
 import { SOURCE_EXTENSIONS } from "../source-extensions.js"
-import type { Scope, Symbol } from "../symbols/index.js"
+import type { Scope, Symbol } from "../frontend/symbols/index.js"
 import { sameDocument, WorkspaceStore } from "./workspace-store.js"
 import { documentDiagnostics, libraryManifestDiagnostics } from "./diagnostics.js"
 import {
@@ -112,7 +112,7 @@ import {
   workspaceSymbols,
   type HierItem,
 } from "../services/index.js"
-import type { Document } from "../syntax/index.js"
+import type { Document } from "../services/shared/index.js"
 import {
   documentHighlightsAnywhere,
   documentSymbolsWithVg,

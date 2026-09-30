@@ -21,8 +21,8 @@
  *
  * <p>Measured for the initializer's LEADING token, which is where every recorded cell has it.</p>
  */
-import { renderTypeExpr } from "../../../syntax/index.js"
-import { forEachDecl } from "../../../symbols/index.js"
+import { renderTypeExpr } from "../../../frontend/syntax/index.js"
+import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { refusedSystemNames } from "../../resolution.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"

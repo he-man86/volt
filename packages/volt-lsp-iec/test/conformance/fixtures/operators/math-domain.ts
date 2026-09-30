@@ -112,7 +112,7 @@ export const MATH_DOMAIN_TESTS: readonly LanguageTest[] = [
   //    about an LREAL losing information, so SQRT of an untyped real literal is LREAL. That is one data point
   //    for one function, and the catalog models no return type for any of them — which is why the LSP says
   //    nothing about a narrowing that the compiler reports. EXPT is the one that IS measured, and it is not
-  //    always LREAL: `REAL when both arguments are REAL` (`types/arith.ts`). So ask all ten, with a REAL
+  //    always LREAL: `REAL when both arguments are REAL` (`types/builtins.ts`). So ask all ten, with a REAL
   //    argument and with an LREAL one, and let the pair say whether the result follows the argument.
   //    …AND WITH AN INTEGER ARGUMENT, which the first pass left out and the inference branch recorded in a
   //    comment as "unmeasured" — so the LSP says nothing where lowering types the result LREAL. An INT is where

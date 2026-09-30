@@ -1,6 +1,5 @@
 import { test, expect } from "bun:test"
-import { type Document, parseSource } from "../../syntax/index.js"
-import { buildSymbolTable } from "../../symbols/index.js"
+import { parseSource } from "../../frontend/syntax/index.js"
 import { implementation } from "./implementation.js"
 import {
   prepareTypeHierarchy,
@@ -10,11 +9,13 @@ import {
   callIncoming,
   callOutgoing,
 } from "./hierarchy.js"
+import type { Document } from "../shared/index.js"
+import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
-  const parseResult = parseSource(src)
+  const parseResult = parseSource(src, { networkText: true })
   const doc: Document = { uri: "file:///F.fb", source: src, parseResult }
-  const project = buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   return { doc, project }
 }
 const at = (src: string, needle: string) => src.indexOf(needle) + 1
