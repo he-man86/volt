@@ -45,7 +45,7 @@ afterAll(() => {
 test("collectDiagnostics spawns the server and reports a type error in an UNOPENED file", async () => {
   if (!ready) return // see the beforeAll warning
   // `i := b` assigns a BOOL to an INT — a type error the eager crawl must find without the file being opened.
-  writeFileSync(join(dir, "F.fb"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK")
+  writeFileSync(join(dir, "F.fb"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK")
   const r = await collectDiagnostics(dir, "codesys", { timeoutMs: 20_000 })
   expect(r.errors).toBeGreaterThanOrEqual(1)
   expect(r.files.some((f) => f.path.endsWith("F.fb"))).toBe(true)
@@ -54,7 +54,7 @@ test("collectDiagnostics spawns the server and reports a type error in an UNOPEN
 test("collectDiagnostics reports no errors for a clean workspace", async () => {
   if (!ready) return
   const clean = mkdtempSync(join(tmpdir(), "volt-diag-e2e-clean-"))
-  writeFileSync(join(clean, "G.fb"), "FUNCTION_BLOCK G\nVAR\n x : INT;\nEND_VAR\nx := 1;\nEND_FUNCTION_BLOCK")
+  writeFileSync(join(clean, "G.fb"), "FUNCTION_BLOCK G\nVAR\n x : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK")
   try {
     const r = await collectDiagnostics(clean, "codesys", { timeoutMs: 20_000 })
     expect(r.errors).toBe(0)
