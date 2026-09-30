@@ -3,23 +3,40 @@
  *
  * `rules.ts` is design.md §4 as data. This file holds it to what exists: each fixture a row lists exists and has a
  * CODESYS recording (build or run), each unit test it names exists under that title, a row that is not a GAP lists
- * something, and the GAP count per area — the rules nobody has asked CODESYS yet — is the pinned number below, which is
- * tasks.md 0.5's and may only fall. CV7's own count is the explicit-conversion pairs no recorded fixture calls
- * (`conversion-pairs.ts`); it is pinned here too.
+ * something, and the GAP count per area — the rules nobody has asked CODESYS yet — is the pinned number in
+ * `baselines/ceilings.json`, which is tasks.md 0.5's and may only fall. CV7's own count is the explicit-conversion pairs
+ * no recorded fixture calls (`conversion-pairs.ts`); it is pinned there too, and both denominators are pinned here.
  */
 import { describe, expect, test } from "bun:test"
 import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { LanguageTest } from "../conformance/types.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
+import { ceilingsOf } from "./baseline.js"
 import { explicitConversionPairs, recordedFixtures } from "./conversion-pairs.js"
 import { RULES } from "./rules.js"
 
-/** THE PINNED GAP COUNTS (tasks.md 0.5). They may only fall, and fall in the commit that closes a row. */
-const GAPS = { 2: 79, 3: 26, 4: 28 } as const
-const TOTAL_GAPS = 133
-/** Explicit `X_TO_Y` pairs no recorded fixture calls (CV7). May only fall. */
-const MISSING_CONVERSION_PAIRS = 327
+/**
+ * THE PINNED GAP COUNTS (tasks.md 0.5) and CV7's explicit `X_TO_Y` pairs no recorded fixture calls live in
+ * `baselines/ceilings.json` ("rules"): they may only fall, fall in the commit that closes a row, and `baseline.test.ts`
+ * refuses a ceilings file that rose against any committed version of itself.
+ */
+const RULE_CEILINGS = ceilingsOf("rules")
+const pinned = (key: string): number => {
+  const n = RULE_CEILINGS[key]
+  if (n === undefined) throw new Error(`baselines/ceilings.json "rules" has no "${key}"`)
+  return n
+}
+const GAPS = { 2: pinned("GAP area 2"), 3: pinned("GAP area 3"), 4: pinned("GAP area 4") }
+const TOTAL_GAPS = pinned("GAP total")
+const MISSING_CONVERSION_PAIRS = pinned("CV7 explicit pairs no recorded fixture calls")
+/**
+ * THE DENOMINATORS. A GAP count falls by a row being ANSWERED, never by the row being deleted or the conversion universe
+ * shrinking — so the number of rules and of explicit pairs is pinned too. Either may move only with the reason: a rule the
+ * design adds, a type the type table gains.
+ */
+const RULE_COUNT = 352
+const CONVERSION_PAIRS = 600
 
 const PACKAGE = join(import.meta.dir, "..", "..")
 const FIXTURES = join(PACKAGE, "test", "conformance", "fixtures")
@@ -76,6 +93,11 @@ describe("0.5 the rule inventory", () => {
     expect(recorded.has("ptrparam_unsupplied")).toBe(false)
     // a refusal is an answer: `tr_37_case_label_wraps_minus_212`'s run entry is the compiler's "does not compile: …"
     expect(recorded.has("tr_37_case_label_wraps_minus_212")).toBe(true)
+  })
+
+  test("the denominators are the pinned ones: a GAP falls by being answered, not by a row or a pair vanishing", () => {
+    expect(RULES.length).toBe(RULE_COUNT)
+    expect(explicitConversionPairs().pairs.length).toBe(CONVERSION_PAIRS)
   })
 
   test("every id is unique", () => {

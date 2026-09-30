@@ -8,7 +8,9 @@
  *   a file whose build SUCCEEDED has no parse error to match, so any is a finding;
  *   a build that FAILED matches a parse error when it recorded the same message, each recorded copy matching one
  *   parse error (a multiset, as 0.3 compares); one it did not record, or recorded fewer times, is a finding;
- *   a source nothing recorded (a library body, a fixture never put to that vendor) has no oracle, so any is a finding.
+ *   a source nothing recorded (a library body, a fixture never put to that vendor) has no oracle, so any is a finding;
+ *   a build that FAILED with a syntax-shaped message ("expected", "Unexpected token") where the LSP reports no parse
+ *   error at all is a finding the other way — the parser accepting what the vendor refuses.
  *
  * The counts are the census table (openspec frontend-conformance 0.1); the findings are pinned in
  * `baselines/parse-census.json` and may only be removed by fixing the parser — or, where a vendor's recording is
@@ -68,8 +70,12 @@ function census(): Baseline {
         continue
       }
       tally(counts, `${key}: refused, ${lsp}`)
-      if (errors.length === 0 && rec.diagnostics.some((d) => d.severity === "error" && SYNTAX_MESSAGE.test(d.message)))
+      const syntax = rec.diagnostics.find((d) => d.severity === "error" && SYNTAX_MESSAGE.test(d.message))
+      if (errors.length === 0 && syntax !== undefined) {
+        // the other direction: the vendor refuses what the parser accepts — a different answer, pinned line by line
         tally(counts, `${key}: refused with a syntax message, no LSP parse error`)
+        findings.push(`${vendor} fixture/${f.test.name} — ${vendor} refuses it with "${syntax.message}", the LSP reports no parse error`)
+      }
       const recorded = recordedPool(rec)
       for (const e of errors) {
         if (recorded.take(e.message)) tally(counts, `${key}: parse errors ${vendor} recorded`)

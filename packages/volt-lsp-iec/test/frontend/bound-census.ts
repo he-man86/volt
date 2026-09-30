@@ -416,6 +416,8 @@ function crossCheckFolds(f: FixtureSources, plc: Bound, files: readonly Bound[],
     const folded = constEval(decl.init, sym.owner)
     if (folded === undefined) {
       tally(c.folds, "run: initializer does not fold")
+      // CODESYS has a value, the front-end none — a disagreement as much as a wrong value
+      c.foldDisagreements.push(`${f.test.name}: ${path} is ${value}, the initializer does not fold`)
       continue
     }
     const same = sameValue(value, folded)

@@ -4,8 +4,8 @@
  * The dump (`dumps.ts` `foldDump`) folds every expression a declaration holds and every constant expression of a body,
  * across the corpus, the fixtures and the library bodies; what does not fold is pinned as a count per group. Then the
  * run recordings (`bound-census.ts`): a variable no body of its fixture names still holds its initializer when CODESYS
- * reads it, so the initializer's fold must equal the recorded value. Each that does not is a finding in
- * `baselines/fold-dump.json`.
+ * reads it, so the initializer's fold must equal the recorded value. Each that does not — a wrong value, or no value
+ * at all where CODESYS has one — is a finding in `baselines/fold-dump.json`.
  */
 import { describe, expect, test } from "bun:test"
 import { checkBaseline } from "./baseline.js"

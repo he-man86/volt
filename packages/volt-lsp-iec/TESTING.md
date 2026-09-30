@@ -72,7 +72,9 @@ test/
     catalog.test.ts          one test per documented Cnnnn
   frontend/                  the front-end MEASURED against the recordings (openspec frontend-conformance phase 0):
                              parse census, printer fixed point, resolution / type / fold dumps, each with a pinned
-                             baseline of findings in baselines/; rules.ts + rules.test.ts, the rule catalogue as data
+                             baseline of findings in baselines/ and a ceiling per disagreement measure in
+                             baselines/ceilings.json (baseline.test.ts: may only fall, against git history);
+                             rules.ts + rules.test.ts, the rule catalogue as data
 ```
 
 A **fixture** is only input. A **recording** is the ground truth, and each file has ONE recorder. The two

@@ -47,9 +47,9 @@ Paths are relative to `packages/volt-lsp-iec/`; from 1.12 on, `syntax/`, `symbol
       **51 findings**: 3 CODESYS (`cc5_deprecated_functionblock_keyword`, `pwh_gvl_then_prose`, `pwh_struct_then_prose` — the LSP's
       "unexpected identifier … at file scope" is not CODESYS's wording), 6 TwinCAT on recorded refusals (the same three, and
       `ldate_ltod_ldt`'s PLC_PRG: the L-date literals lex apart on TwinCAT), 42 TwinCAT on 6 fixtures TwinCAT never recorded
-      (`tr_12_fmt_long_dates`, `xf_l*_call_once`: the same L-date literals). The other direction, counted not pinned as findings:
-      64 CODESYS and 88 TwinCAT refusals carry a syntax-shaped message ("expected", "Unexpected token") where the LSP has no parse
-      error at all.
+      (`tr_12_fmt_long_dates`, `xf_l*_call_once`: the same L-date literals). The other direction: 64 CODESYS and 88 TwinCAT refusals
+      carry a syntax-shaped message ("expected", "Unexpected token") where the LSP has no parse error at all — counted here,
+      and since 0.6's review pinned as one finding line each too (see 0.6).
 - [x] 0.2 Printer/formatter fixed point on everything parsed in 0.1; every non-fixed-point file is a finding.
       Where: test/frontend/fixed-point.test.ts (+ baseline). Acceptance: finding count written here. Depends on: 0.1
       **Measured 2026-09-30** (baseline `baselines/fixed-point.json`). Two printers: the formatter (`format(x)`, re-parsed as the
@@ -142,16 +142,28 @@ Paths are relative to `packages/volt-lsp-iec/`; from 1.12 on, `syntax/`, `symbol
       table, 273 called by a recorded fixture, **327 by none** — pinned in `rules.test.ts`.
 - [x] 0.6 Baseline numbers into this file (parse findings, fixed-point failures, resolution, type and fold disagreements,
       uncovered rules, missing conversion pairs). Depends on: 0.1–0.5
-      **Baseline 2026-09-30** (every later task's numbers may only fall from these):
+      **Baseline 2026-09-30** (every later task's numbers may only fall from these). Held mechanically, not by review:
+      `test/frontend/baselines/ceilings.json` holds a ceiling for every measure below; `VOLT_WRITE_BASELINE=1` refuses a
+      measurement above one and lowers each to what it measured, and `test/frontend/baseline.test.ts` fails a ceilings file
+      that rose against any committed version of itself (a measure retires only at 0). The GAP and CV7 counts live there
+      too; `rules.test.ts` also pins their denominators (352 rules, 600 explicit pairs), so a GAP cannot fall by a row or a
+      pair vanishing.
 
       | measure | baseline |
       |---|---|
-      | parse findings (0.1) | **51** (CODESYS 3, TwinCAT recorded 6, TwinCAT unrecorded 42); corpus 0; library 0 |
+      | parse findings (0.1), LSP refuses what the vendor accepts or words it otherwise | **51** (CODESYS 3, TwinCAT recorded 6, TwinCAT unrecorded 42); corpus 0; library 0 |
+      | parse findings (0.1), the vendor refuses with a syntax message and the LSP has no parse error | **152** (CODESYS 64, TwinCAT 88) — one finding line each since 0.6's review; `parse-census.json` holds 203 lines |
       | fixed-point failures (0.2) | **23 files** (corpus 3 `expr-reprint-fails`; fixtures 20: 14 `format-ast-changed`, 6 `expr-reprint-fails`); library 0 |
-      | resolution NONE (0.3) | corpus 4 057 own + 426 Library Manager; fixtures CODESYS 64, TwinCAT 91 bare + 43 member |
+      | resolution findings (0.3) | **234** lines (CODESYS 73, TwinCAT 143 unbound fixture occurrences; 18 message lines) |
+      | resolution NONE (0.3) | corpus own **4 057** (bare 326, member 3 712, parameter 19); Library Manager **426** (bare 81, member 345); fixtures CODESYS **64** (bare 21, member 43); fixtures TwinCAT **134** (bare 91, member 43) |
+      | resolution NOSCOPE (0.3) | corpus own **858** (bare 439, member 419); Library Manager **2 380** (bare 1 939, member 441); fixtures 0 |
+      | resolution NO-CALLEE (0.3) | corpus own **2 062**; fixtures CODESYS **9**, TwinCAT **9** |
       | resolution messages (0.3) | CODESYS LSP-only 1, recorded-only 5; TwinCAT LSP-only 1, recorded-only 11 |
+      | UNKNOWN, not a literal (0.4) | corpus own **17 013**; Library Manager **4 603**; fixtures CODESYS **2 601**, TwinCAT **2 685**; library **231** — ceilinged per expression kind (`type-dump.json`) |
+      | type NOSCOPE (0.4) | corpus own 1 842; Library Manager 23 286; fixtures 32 each vendor |
       | type disagreements (0.4) | **262** (CODESYS 124, TwinCAT 96, run 42) |
-      | fold disagreements (0.4) | **20** (all CE2: out-of-range initializer not wrapped) |
+      | fold disagreements (0.4) | **53**: 20 a wrong value (all CE2: out-of-range initializer not wrapped) and 33 no value — a recorded run value whose initializer `constEval` does not fold (one finding line each since 0.6's review) |
+      | fold NOSCOPE (0.4) | corpus own decl 1 405; Library Manager decl 20 195; fixtures decl 32 each vendor |
       | uncovered rules (0.5) | **133 GAP** of 352 (area 2: 79, area 3: 26, area 4: 28) |
       | explicit conversion pairs without a fixture (CV7) | **327** of 600 |
 
@@ -160,6 +172,11 @@ Paths are relative to `packages/volt-lsp-iec/`; from 1.12 on, `syntax/`, `symbol
       vendor-parameterized `lspErrors` rates every fixture as before). Not a gate of this change but noted: `bun run lint`
       reports one pre-existing layering violation at HEAD (`services/structure/semantic-tokens.ts → network/network-analyze.js`),
       untouched by step 0.
+      Gate 0.6 (the review: ceilings + both-direction parse and fold findings): `bun typecheck` clean; `bun test` 6022 pass /
+      34 skip / 148 todo / 0 fail (6204 tests, 173 files, 641 s; +6 tests, +1 file `baseline.test.ts`); `bun run check` 14
+      passed, 0 failed; `bun run rate:fixtures` regenerated `map.generated.ts` byte-identical. Delta vs step 0: parse-census
+      findings 51 → 203 lines (+152 vendor-refuses-LSP-accepts, now pinned), fold findings 20 → 53 (+33 no-value), every
+      other measure unchanged.
 
 ## 1. Front-end restructure (design first, then output-neutral moves)
 
