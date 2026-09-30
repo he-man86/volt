@@ -21,6 +21,7 @@ import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CLOCK, isBit, run, rustAccess, type IrPou, type Runner } from "../../../src/transpile/index.js"
+import { lex } from "../../../src/syntax/lexer.js"
 import { STRING_PRELUDE } from "../../../src/transpile/emit/rust/prelude.js"
 import type { Type } from "../../../src/types/index.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./divergences.js"
@@ -122,7 +123,7 @@ const RUNS = JSON.parse(readFileSync(join(import.meta.dirname, "..", "recordings
  * deterministic SAMPLE of 120, which is a property of the suite rather than a fact about a fixture — writing it in
  * a per-fixture row would claim evidence that moves when `SAMPLE` moves.
  */
-export function correctnessOf(name: string, evidence: string, built: boolean): Correctness {
+export function correctnessOf(name: string, evidence: string, built: boolean, source: string): Correctness {
   // BOTH ARGUMENTS ARE REQUIRED, and `built` has no default ON PURPOSE. `compiles` was once ASSUMED: the generator
   // ran the compiler and threw the exit code away, so every fixture that lowered was written `compiles` — six of
   // them wrongly, because their emitted Rust does not build (`i : INT := 1.5` emits `1.5i16`). A default of `true`
@@ -132,8 +133,38 @@ export function correctnessOf(name: string, evidence: string, built: boolean): C
   // `fixtures/index.ts` merges, so inside it `t.transpile` is the PREVIOUS generation's and `t.evidence` is a
   // rating this run may be about to change. Reading either there is a read path into its own prior output.
   if (!built) return "rejected"
-  return evidence === "confirmed" && RUNS[name]?.values !== undefined ? "vendor" : "compiles"
+  const values = RUNS[name]?.values
+  if (evidence !== "confirmed" || values === undefined) return "compiles"
+  // A RECORDING OF NOTHING BUT DEFAULTS, FROM NOTHING BUT DEFAULTS, IS NOT A VALUE COMPARED. Every variable starts at its
+  // type's default, so a body that computes the wrong thing over zeros — or nothing at all — reads the same: `b := -a`
+  // with `a` at 0 answers 0 under any sign rule. 158 of the 1950 `vendor` rows were that (transpile-review 48, 36 `cc_`
+  // rows). A default ANSWER from a non-default constant does discriminate — `LIMIT(100, 50, 0)` = 0 is the measured
+  // "MX wins", a WHILE false on entry leaves 0 — and a `prim_default_*` fixture asks for exactly the default.
+  if (!name.startsWith("prim_default_") && Object.values(values).every((v) => DEFAULT_VALUE.test(v)) && constantsAreDefaults(source))
+    return "compiles"
+  return "vendor"
 }
+
+/** A recorded value that is its type's default: a zero of any type, FALSE, an empty string, the epoch, midnight. */
+const DEFAULT_VALUE =
+  /^(?:[A-Z_]+#0(?:ms|ns|us)?|FALSE|''|""|L?DATE#1970-1-1|L?(?:DATE_AND_TIME|DT)#1970-1-1-0:0:0|L?(?:TIME_OF_DAY|TOD)#0:0:0)$/
+
+/** True when no constant in the program is anything but a default — no non-zero number, no TRUE, no non-empty string,
+ *  no non-zero duration or date. Comments and pragmas are not inputs. */
+function constantsAreDefaults(source: string): boolean {
+  for (const t of lex(source)) {
+    if (t.kind === "keyword" && t.keyword === "TRUE") return false
+    if (t.kind === "string_lit" || t.kind === "wstring_lit") {
+      if (t.text.length > 2) return false
+      continue
+    }
+    if (!LITERALS.has(t.kind)) continue
+    const value = t.text.slice(t.text.lastIndexOf("#") + 1).replace(/_/g, "")
+    if (!/^[0.]+(?:e[+-]?\d+)?(?:ms|s|ns|us|m|h|d)?$/i.test(value)) return false
+  }
+  return true
+}
+const LITERALS: ReadonlySet<string> = new Set(["int_lit", "real_lit", "typed_lit", "time_lit", "date_lit", "tod_lit", "datetime_lit"])
 
 /**
  * A fixture whose emitted Rust the compiler REJECTS, and whose ST the vendor accepts. That is an emitter defect:

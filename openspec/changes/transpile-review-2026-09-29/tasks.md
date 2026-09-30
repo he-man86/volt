@@ -561,4 +561,4 @@ those values into the new fixture's recording.
   arithmetic_width, signed_unsigned_comparison, max_signed_unsigned, bitwise_on_narrow_types.
 - Fix: give the cc_ run fixtures discriminating initializers and re-record, or rate all-default recordings
   `compiles` (exempting prim_default_*).
-- [ ] 48.1 Fix the rating or the inputs; regenerate map.
+- [x] 48.1 Fix the rating or the inputs; regenerate map. Rating: `correctnessOf` rates `compiles` a recording of only defaults from a program with only default constants (exempting `prim_default_*`; a default answer from non-default constants, e.g. `limit_inverted_bounds`, keeps `vendor`); 114 rows downgraded (39 `cc_`), src test `support/transpile-confidence.test.ts`.

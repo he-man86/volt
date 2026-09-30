@@ -1124,7 +1124,9 @@ describe("the table is total", () => {
       if ((pou === undefined) !== (rust === undefined))
         stale.push(`${t.name}: rust stored ${rust ?? "(none)"}, but it ${pou === undefined ? "does not lower" : "lowers"}`)
       // `built: true` only so the call is well formed — this compares the `vendor` half, which does not depend on it
-      if (rust !== undefined && (rust === "vendor") !== (correctnessOf(t.name, t.evidence ?? "", true) === "vendor"))
+      const { source, gvls } = assembleFixture(t, ALL_TESTS)
+      const inputs = [source, ...gvls.map((g) => g.source)].join("\n")
+      if (rust !== undefined && (rust === "vendor") !== (correctnessOf(t.name, t.evidence ?? "", true, inputs) === "vendor"))
         stale.push(`${t.name}: rust stored ${rust}, and the recording says otherwise`)
 
       const diverges = divergesOf(t.name)

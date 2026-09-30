@@ -172,7 +172,7 @@ await Promise.all(
       rows.set(t.name, {
         evidence,
         tier: tierOf(pou, t.pouName),
-        rust: correctnessOf(t.name, evidence, built),
+        rust: correctnessOf(t.name, evidence, built, [source, ...gvls.map((g) => g.source)].join("\n")),
         ...(found.length > 0 ? { lints: [...new Set(found.map((f) => f.code))].sort() } : {}),
         pedantic: pedantic.length,
         edge,
