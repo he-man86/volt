@@ -530,7 +530,7 @@ those values into the new fixture's recording.
 - Fix: len = position of the first 0 unit, but keep the bytes behind it (ties into task 34).
 - [x] 45.1 Record `string_embedded_nul` — red.
   Recorded 2026-09-29 (record:exec): `tr_45_string_embedded_nul` — diverges (CODESYS: LEN 2, bytes behind the NUL are 0).
-- [x] 45.2 Fix. Landed with task 34 (5c1e7e00df): the value keeps the whole n+1 buffer and `len` stops at the first 0, which is exactly this row. The full-suite gate after 38/48/25/44/34 went red only because the expected-failure harness reported `tr_45_string_embedded_nul` "now matches CODESYS"; the recording is unchanged, the stale divergence mark was removed, and the fixture is confirmed (rust vendor). Verified that it is caused by 34: with 34 reverted the fixture still diverges. Nothing was reverted.
+- [x] 45.2 Fix. Landed with task 34 (5c1e7e00df): the value keeps the whole n+1 buffer and `len` stops at the first 0, which is exactly this row. The full-suite gate after 38/48/25/44/34 went red only because the expected-failure harness reported `tr_45_string_embedded_nul` "now matches CODESYS"; the recording is unchanged, the stale divergence mark was removed, and the fixture is confirmed (rust vendor). Verified that it is caused by 34: with 34 reverted the fixture still diverges. Nothing was reverted. Colocated src test added (interp.test.ts "a literal with an embedded $00 ...", the recorded non-library rows): red on the pre-34 sources, green now.
 
 ## 46. EXPT: the interpreter's Math.pow disagrees with pow semantics; EXPT(0, negative) stops CODESYS
 - Root cause: `ir/evaluate.ts:88-90` (`Math.pow`) vs `emit/rust/emit.ts:751-752` (`powf`); no domain guard like

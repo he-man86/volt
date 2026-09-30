@@ -1194,6 +1194,18 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
     expect([pou.get("x"), pou.get("s"), pou.get("y")]).toEqual([0n, "ab", 0n])
   })
 
+  test("a literal with an embedded $00 ends at the NUL; its bytes are stored, compared and copied as CODESYS holds them", () => {
+    // tr_45_string_embedded_nul (CODESYS-recorded): txt reads 'ab', equals both 'ab' and 'ab$00c', txt[2] = txt[3] = 0,
+    // and the copy u is 'ab' with u[3] = 0. (LEN/CONCAT run from the library repo, so the fixture covers those rows.)
+    const pou = scanned(
+      "txt : STRING(3) := 'ab$00c'; u : STRING(10); c2 : BYTE; c3 : BYTE; uc3 : BYTE; eqAb : BOOL; eqFull : BOOL;",
+      "eqAb := txt = 'ab'; eqFull := txt = 'ab$00c'; c2 := txt[2]; c3 := txt[3]; u := txt; uc3 := u[3];",
+    )
+    expect(["txt", "eqAb", "eqFull", "c2", "c3", "u", "uc3"].map((n) => pou.get(n))).toEqual([
+      "ab", true, true, 0n, 0n, "ab", 0n,
+    ])
+  })
+
   test("s[i] outside the variable faults — past the capacity, or a character where only the terminator fits", () => {
     expect(() => scanned("s : STRING(3) := 'abc'; x : BYTE;", "x := s[4];")).toThrow(RangeError)
     expect(() => scanned("s : STRING(3) := 'abc';", "s[3] := 100;")).toThrow(RangeError)
