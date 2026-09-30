@@ -1202,7 +1202,7 @@ function inc(fn: string): string {
 
 // transpile-review-2026-09-29 task 41: do SEL / MUX evaluate the inputs they do NOT select (the unselected counter
 // moves or not), and in what order does LIMIT evaluate its arguments when each modifies the same variable (Add1 then
-// Dbl leaves x=4, Dbl then Add1 leaves x=3)? One fixture per builtin.
+// Dbl leaves x=4, Dbl then Add1 leaves x=3)? One fixture per builtin. CODESYS: only the selected input; MN before IN.
 const SIDE_EFFECT_TESTS: readonly LanguageTest[] = [
   withUnits(
     "tr_41_mux_side_effects",
@@ -1217,7 +1217,6 @@ END_VAR
 res := MUX(0, FUN_LANG_tr41_mux_Inc(a), FUN_LANG_tr41_mux_Inc(b));
 END_FUNCTION_BLOCK
 `,
-    "transpile-review-2026-09-29 task 41: MUX runs only the selected input in CODESYS (a=1, b=0) — as the emitted Rust does; the interpreter evaluates every input (recorded 2026-09-29)",
   ),
   withUnits(
     "tr_41_sel_side_effects",
@@ -1232,7 +1231,6 @@ END_VAR
 r2 := SEL(FALSE, FUN_LANG_tr41_sel_Inc(a2), FUN_LANG_tr41_sel_Inc(b2));
 END_FUNCTION_BLOCK
 `,
-    "transpile-review-2026-09-29 task 41: SEL runs only the selected input in CODESYS (a2=1, b2=0); the backends evaluate differently (recorded 2026-09-29)",
   ),
   withUnits(
     "tr_41_limit_evaluation_order",
@@ -1261,7 +1259,6 @@ END_VAR
 r3 := LIMIT(FUN_LANG_tr41_Add1(x), FUN_LANG_tr41_Dbl(x), 1000);
 END_FUNCTION_BLOCK
 `,
-    "transpile-review-2026-09-29 task 41: LIMIT runs Add1 then Dbl in CODESYS (x=4), as the interpreter does; the emitted Rust evaluates IN before MN (recorded 2026-09-29)",
   ),
 ]
 

@@ -33,7 +33,7 @@ import {
   ord,
   type Val,
 } from "../ir/values.js"
-import { binaryValue, builtinValue, unaryValue } from "../ir/evaluate.js"
+import { binaryValue, builtinValue, selectedArg, unaryValue } from "../ir/evaluate.js"
 export type { Val } from "../ir/values.js"
 
 type Signal = "none" | "break" | "continue" | "return"
@@ -199,6 +199,9 @@ class Machine {
       // them too when it folds a declaration's initial value — one table, so a folded value and a computed one
       // cannot disagree.
       case "builtin":
+        // SEL and MUX evaluate only the input their selector picks (`IrBuiltinName`)
+        if (e.name === "sel" || e.name === "mux")
+          return fit(this.expr(e.args[selectedArg(e.name, this.expr(e.args[0]!), e.args.length)]!), e.type)
         return builtinValue(e.name, e.args.map((a) => this.expr(a)), e.type, e.args.map((a) => a.type), e.bits)
       case "unary":
         return unaryValue(e.op, this.expr(e.operand), e.type)

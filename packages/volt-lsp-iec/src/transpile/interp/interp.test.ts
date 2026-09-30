@@ -1236,3 +1236,38 @@ END_PROGRAM
     expect(["D", "E", "d1", "e1", "d2", "e2"].map((n) => pou.get(n))).toEqual([128n, 258n, 128n, 258n, 128n, 258n])
   })
 })
+
+// transpile-review-2026-09-29 task 41 (conformance `tr_41_mux_side_effects`, `tr_41_sel_side_effects`,
+// `tr_41_limit_evaluation_order`, recorded): SEL and MUX run ONLY the input they select; LIMIT runs MN, IN, MX in order.
+describe("interp — SEL / MUX / LIMIT with side-effecting arguments", () => {
+  const INC = "FUNCTION Inc : INT\nVAR_IN_OUT c : INT; END_VAR\nc := c + 1;\nInc := c;\nEND_FUNCTION\n"
+  test("MUX and SEL evaluate only the selected input", () => {
+    const pou = load(`${INC}PROGRAM P
+VAR a : INT; b : INT; res : INT; a2 : INT; b2 : INT; r2 : INT; END_VAR
+res := MUX(0, Inc(a), Inc(b)); r2 := SEL(FALSE, Inc(a2), Inc(b2));
+END_PROGRAM
+`)
+    pou.scan()
+    expect(["a", "b", "res", "a2", "b2", "r2"].map((n) => pou.get(n))).toEqual([1n, 0n, 1n, 1n, 0n, 1n])
+  })
+
+  test("LIMIT evaluates MN before IN", () => {
+    const pou = load(`FUNCTION Add1 : INT
+VAR_IN_OUT x : INT; END_VAR
+x := x + 1;
+Add1 := x;
+END_FUNCTION
+FUNCTION Dbl : INT
+VAR_IN_OUT x : INT; END_VAR
+x := x * 2;
+Dbl := x;
+END_FUNCTION
+PROGRAM P
+VAR x : INT := 1; r3 : INT; END_VAR
+r3 := LIMIT(Add1(x), Dbl(x), 1000);
+END_PROGRAM
+`)
+    pou.scan()
+    expect([pou.get("x"), pou.get("r3")]).toEqual([4n, 4n])
+  })
+})

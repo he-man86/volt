@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2045
+ *     confirmed     2048
  *     refused        549
  *     not-lowered    102
  *     lsp-gap          9
- *     diverges        12
+ *     diverges         9
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -40,25 +40,24 @@
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
  *     clippy::approx_constant                    6
- *     clippy::manual_clamp                       2
  *     unreachable_code                           2
  *     clippy::absurd_extreme_comparisons         1
+ *     clippy::manual_clamp                       1
  *     clippy::manual_range_patterns              1
  *     clippy::never_loop                         1
  *     unused_comparisons                         1
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2318
- *     disagree         5
+ *     agree         2319
+ *     disagree         4
  *     not-run         93
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: no elementary variable to seed or compare       15
  *       not-run: the emitted Rust does not build                  7
+ *       disagree: limit_basic — x := REAL#-0: realClamp interpreter 0, Rust 2147483648
  *       disagree: tr_27_loop_cap_for_1000000 — (declared inputs): interpreter runs, Rust panics
  *       disagree: tr_27_loop_cap_repeat_1000001 — (declared inputs): interpreter runs, Rust panics
- *       disagree: tr_41_limit_evaluation_order — (declared inputs): inst.x interpreter 4, Rust 3
- *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
  *   pedantic — 35842 clippy::pedantic + clippy::perf findings; the ten most frequent
@@ -418,7 +417,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   callshape_bounds_of_sized_array: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "abb2ff20b9", notes: ["06bb3a6005", "63d29bd1a0", "f9bdd4950a"] },
   callshape_for_bounds_changed_in_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 10, edge: "agree", size: 2.5, shape: "b4694ec1b0", notes: ["02b031c773", "0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "5ba97e5557", "6bf6856d37", "d9d57311e3"] },
   callshape_for_limit_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 16, edge: "agree", size: 2.7, shape: "fd59a4a0f6", notes: ["02b031c773", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac", "5370b79269", "5ba97e5557", "b736e18f55", "d9d57311e3", "e8a1222ae6"] },
-  callshape_for_runtime_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 12, edge: "agree", size: 2.3, shape: "93427534eb", notes: ["02b031c773", "0e0d715a81", "129bb34a7e", "1307e33bbf", "4979768984", "521ba042ac", "547ea4e920", "5ba97e5557", "687428cc81", "d9d57311e3", "de132e5019"] },
+  callshape_for_runtime_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 12, edge: "agree", size: 2.3, shape: "067ba808e2", notes: ["02b031c773", "0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "5ba97e5557", "60fefc4d63", "687428cc81", "9358115574", "d9d57311e3", "de132e5019"] },
   callshape_function_input_no_default: { evidence: "refused", tier: "call", rust: "compiles", pedantic: 6, edge: "agree", size: 2.5, shape: "76c6c0ff50", notes: ["11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "a5c4faeebd"] },
   callshape_inout_base_method_from_derived_method: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 5, edge: "agree", size: 3.3, shape: "cc9c591c5f", notes: ["0b51d542e8", "a29db6178b"] },
   callshape_inout_base_method_from_outside_derived: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 8, edge: "agree", size: 3.3, shape: "6529fdd9d0", notes: ["06bb3a6005", "0b51d542e8", "63d29bd1a0", "9fbd098efb", "a29db6178b"] },
@@ -827,7 +826,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   co_any_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 15, edge: "agree", size: 2.4, shape: "2fbd242527", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "159ca60812", "5c9bb13706", "63d29bd1a0", "63f801635e", "693c14b0bd", "6f8ef8f0bd", "6f9ae8fd3a", "90c445f7cb", "a497507b30", "b7286c7932", "de283d0ef6", "e8954e2b0d"] },
   co_move_operator: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "3dc012292c", notes: ["0e0d715a81", "1307e33bbf", "1d7709a031", "65df8e0418"] },
   co_remaining_conversion_pairs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 62, edge: "agree", size: 2.3, shape: "ad00ba2a68", notes: ["02a72c2e83", "0ab1e9c511", "1307e33bbf", "159ca60812", "1707972c33", "1d7709a031", "5c9bb13706", "5d9850550d", "65df8e0418", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "74845f98c6", "8653414194", "923862ec54", "af39c91205", "b501abe431", "b7286c7932", "de283d0ef6", "e8954e2b0d", "ec9a760059"] },
-  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 126, edge: "agree", size: 10, shape: "c847034f40", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e42f1ae167", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
+  co_standard_string_calls: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 126, edge: "agree", size: 10, shape: "4a49758cbf", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e42f1ae167", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
   conditional_define_then_if: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   conditional_else_branch_taken: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
   conditional_elsif_chain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "5fc44a54c3", notes: ["0e0d715a81", "1307e33bbf", "3d737b5821"] },
@@ -869,7 +868,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cs_array_four_dimensions: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 26, edge: "agree", size: 3.1, shape: "56701bd640", notes: ["1307e33bbf", "1f2f8205f9", "9b12fdbfc8", "f59561bd3c"] },
   cs_clock_reads: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 4.5, shape: "8ce98dad99", notes: ["90c445f7cb", "a497507b30", "b9787e0d18", "e8954e2b0d"] },
   cs_spelled_narrowing_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.6, shape: "c194b38beb", notes: ["1d7709a031", "5c9bb13706", "65df8e0418", "74845f98c6", "b501abe431", "e8954e2b0d"] },
-  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 135, edge: "agree", size: 10.8, shape: "7c0e587cf4", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
+  cs_standard_string_functions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 135, edge: "agree", size: 10.8, shape: "be84cd294d", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
   ct_bare_to_conversions: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 57, edge: "agree", size: 2.4, shape: "ac3be1edf8", notes: ["02a72c2e83", "06bb3a6005", "0ab1e9c511", "1307e33bbf", "1707972c33", "1d7709a031", "5c9bb13706", "5d9850550d", "63d29bd1a0", "65df8e0418", "693c14b0bd", "6a98109119", "6f8ef8f0bd", "74845f98c6", "af39c91205", "b7286c7932", "de283d0ef6", "e3e3555f9c", "e8954e2b0d", "ec9a760059"] },
   ct_bit_fields: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 2.6, shape: "70a36f112f", notes: ["06bb3a6005", "63d29bd1a0", "687428cc81", "de132e5019"] },
   ct_bit_packing_sizes: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 11, edge: "agree", size: 7, shape: "29e128ed3f", notes: ["06bb3a6005", "1307e33bbf", "496b8acb56", "63d29bd1a0", "687428cc81", "de132e5019"] },
@@ -1491,13 +1490,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lib_stu_start_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 96, edge: "agree", size: 7.1, shape: "588ac95a4b", notes: ["02b031c773", "03846c1eae", "0969e59592", "11f6ad8ec5", "1307e33bbf", "1d1551a034", "256218c83c", "3cded85aba", "3d7b4a7836", "43aa1830f1", "4c796f6678", "521ba042ac", "5370b79269", "5ba97e5557", "5d9850550d", "7e45a342fc", "8088e0ab18", "9a63db2a45", "9c1d0c1a6e", "a021273b0d", "a54ead1fbe", "b7cc1b2b1d", "d9d57311e3", "dd94ff18a2", "e6075a580f", "ec21aafede"] },
   lib_stu_trim: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 77, edge: "agree", size: 5, shape: "3b5ad630bf", notes: ["02b031c773", "0969e59592", "11f6ad8ec5", "14b2f39d44", "4c796f6678", "521ba042ac", "5ba97e5557", "5c499dbdc8", "5d9850550d", "77378f7efe", "803ee89d4f", "8088e0ab18", "828ee45554", "82fcd0be19", "b8e7f28ba6", "d9d57311e3", "dd94ff18a2", "e6075a580f", "e798927653", "ef4db7eb51"] },
   lib_stu_wide: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 183, edge: "agree", size: 10.5, shape: "00464c2878", notes: ["02b031c773", "0969e59592", "11f6ad8ec5", "1307e33bbf", "256218c83c", "2a09a0d33c", "521ba042ac", "5370b79269", "5513d0e592", "5ba97e5557", "7db062ce2f", "8088e0ab18", "a54ead1fbe", "abc8bc67de", "d9d57311e3", "dd94ff18a2", "e6ef5a4585", "e798927653", "e9a5cabd36", "ec21aafede"] },
-  lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 23, edge: "agree", size: 8.8, shape: "6ec0c12553", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73351964cd", "73505351ad", "848701ece2", "90c445f7cb", "9c7058e6e1", "a497507b30", "b9787e0d18", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
-  lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 23, edge: "agree", size: 8.8, shape: "6ec0c12553", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73351964cd", "73505351ad", "848701ece2", "90c445f7cb", "9c7058e6e1", "a497507b30", "b9787e0d18", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
+  lib_util_blink: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 23, edge: "agree", size: 8.8, shape: "feed2fc488", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73351964cd", "73505351ad", "848701ece2", "90c445f7cb", "a497507b30", "b9787e0d18", "c2ecf76c31", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
+  lib_util_blink_slow: { evidence: "confirmed", tier: "indirect", rust: "vendor", lints: ["clippy::collapsible_if"], pedantic: 23, edge: "agree", size: 8.8, shape: "feed2fc488", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "687428cc81", "73351964cd", "73505351ad", "848701ece2", "90c445f7cb", "a497507b30", "b9787e0d18", "c2ecf76c31", "d04295d4c8", "de132e5019", "e8954e2b0d"] },
   life_fb_var_stat_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "22fffaf56f", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
   life_fb_var_temp_calls: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.5, shape: "aca0dbe55e", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
   life_program_var_temp_runs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 3.3, shape: "db043007d6", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "abf2bb6e4e"] },
-  limit_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "agree", size: 6, shape: "28d295ea0e", notes: ["1307e33bbf", "5c9bb13706", "7402369985", "74845f98c6"] },
-  limit_inverted_bounds: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 4.5, shape: "8a09380bff", notes: ["1307e33bbf", "745a764511", "ef06033fe1"] },
+  limit_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 12, edge: "disagree", size: 6, shape: "aa8ce0eaa9", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6", "deaa2bbf15"] },
+  limit_inverted_bounds: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 4.5, shape: "cf3224910a", notes: ["1307e33bbf", "21672c09ea", "745a764511"] },
   linkalways: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },
   linkalways_with_unused_pou: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "not-run", size: 1.9, shape: "a50ba5e42d" },
   literal_binary: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "120259e97e", notes: ["fa7d5f176f"] },
@@ -1833,7 +1832,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   op_arithmetic_same_type: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.9, shape: "91bf1c4b6e", notes: ["1307e33bbf", "3d737b5821", "c9cd63632c"] },
   op_bitwise_on_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "17bf6dc2b9", notes: ["1d7709a031", "3d737b5821", "65df8e0418", "81f1075b92"] },
   op_comparison_int_vs_int: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "4b43681632", notes: ["1307e33bbf", "3d737b5821", "687428cc81", "a363bc4ca3", "de132e5019"] },
-  op_limit_clamp: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "ace9b1cf7c", notes: ["1307e33bbf", "779b38c9e9", "e007ef42d8"] },
+  op_limit_clamp: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "904a09b662", notes: ["1307e33bbf", "9d3d81580d", "e007ef42d8"] },
   op_logical_bool: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "312f58b292", notes: ["3d737b5821", "687428cc81", "de132e5019", "f474d0ca12"] },
   op_math_abs: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "66d9d937dd", notes: ["1307e33bbf", "3d737b5821", "6a41bda0a0", "ec9a760059"] },
   op_math_exp: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "not-run", size: 2.9, shape: "606b0df069", notes: ["1707972c33", "3d737b5821", "6a98109119"] },
@@ -1848,7 +1847,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   op_mux_multi_select: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "229b790716", notes: ["1307e33bbf", "3d737b5821", "96b55e688b"] },
   op_rotate_left: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "19a47f5ea1", notes: ["3d737b5821", "9a4cb2346e"] },
   op_rotate_right: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "8487f1c0e0", notes: ["09eeda28bb", "3d737b5821"] },
-  op_sel_bool_picker: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "e4eaceedd5", notes: ["1307e33bbf", "3d737b5821", "7c185b5fac", "de132e5019"] },
+  op_sel_bool_picker: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "3698cbb558", notes: ["1307e33bbf", "3d737b5821", "ba75ffae84", "de132e5019"] },
   op_shift_left: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.9, shape: "521d63efc3", notes: ["17bfcf56b6", "1d7709a031", "3d737b5821", "65df8e0418"] },
   op_shift_right: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.9, shape: "3dc7261cfb", notes: ["1d7709a031", "2c27c13c32", "3d737b5821", "65df8e0418"] },
   op_sys_currenttask: { evidence: "refused" },
@@ -2253,13 +2252,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   round_real_trunc_neg_below_half: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 3.1, shape: "9fda22c32e", notes: ["06bb3a6005", "5c9bb13706", "63d29bd1a0", "682fffc71e", "74845f98c6"] },
   same_width_bitstring_sign: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 5.7, shape: "74b260b735", notes: ["4a6baf16b3", "63d29bd1a0", "687428cc81", "6f9ae8fd3a", "870b70e195", "de132e5019", "e8954e2b0d"] },
   same_width_mixed_sign_order: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 7.3, shape: "01ed6f22da", notes: ["12e93440b3", "4a6baf16b3", "63d29bd1a0", "687428cc81", "6f9ae8fd3a", "870b70e195", "90c445f7cb", "a497507b30", "de132e5019", "e8954e2b0d"] },
-  sel_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.5, shape: "ce1eaa8616", notes: ["1307e33bbf", "14257c633c", "5c9bb13706", "74845f98c6", "9b69fbd632", "be637eb16c"] },
-  sel_limit_above: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "3f85671ab3", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
-  sel_limit_below: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "3f85671ab3", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
-  sel_limit_inside: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "3f85671ab3", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
-  sel_limit_inverted_above: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "3f85671ab3", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
-  sel_limit_inverted_below: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "3f85671ab3", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
-  sel_limit_inverted_between: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "3f85671ab3", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  sel_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.5, shape: "eb0eae6800", notes: ["12a2ae661a", "1307e33bbf", "2db51dfb96", "5c9bb13706", "74845f98c6", "faa5102f23"] },
+  sel_limit_above: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "ff10ea4e34", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  sel_limit_below: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "ff10ea4e34", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  sel_limit_inside: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "ff10ea4e34", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  sel_limit_inverted_above: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "ff10ea4e34", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  sel_limit_inverted_below: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "ff10ea4e34", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  sel_limit_inverted_between: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.8, shape: "ff10ea4e34", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
   sel_max_byte: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "45fd01d6a3", notes: ["0817bbbc15"] },
   sel_max_byte_sint: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 45, edge: "agree", size: 2.9, shape: "039dba598d", notes: ["5d9850550d", "97466ed0c4"] },
   sel_max_dint: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "4556b5820d", notes: ["06bb3a6005", "63d29bd1a0"] },
@@ -2301,8 +2300,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sel_mux_2: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "a09b3a3bf5", notes: ["0e0d715a81", "1307e33bbf", "5a9bc1030e"] },
   sel_mux_3: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "a09b3a3bf5", notes: ["0e0d715a81", "1307e33bbf", "5a9bc1030e"] },
   sel_mux_7: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "a09b3a3bf5", notes: ["0e0d715a81", "1307e33bbf", "5a9bc1030e"] },
-  sel_sel_false: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.8, shape: "ea39d353e7", notes: ["0e0d715a81", "1307e33bbf", "1ff319663d", "496b8acb56"] },
-  sel_sel_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.8, shape: "2f8d575b7b", notes: ["0e0d715a81", "1307e33bbf", "1ff319663d", "496b8acb56"] },
+  sel_sel_false: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.8, shape: "73ee364f4f", notes: ["0e0d715a81", "1307e33bbf", "496b8acb56", "8b3a192776"] },
+  sel_sel_true: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 2.8, shape: "654d2ae056", notes: ["0e0d715a81", "1307e33bbf", "496b8acb56", "8b3a192776"] },
   set_reset_across_cycles: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 7, edge: "agree", size: 6, shape: "6bd6bb6335", notes: ["1307e33bbf", "271163608b", "4979768984", "4edbb4135a", "687428cc81", "73505351ad", "de132e5019"] },
   set_reset_basic: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6, shape: "6abe58a39d", notes: ["4edbb4135a", "687428cc81", "73505351ad", "de132e5019"] },
   set_reset_chained: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 5.5, shape: "df50512540", notes: ["42897347c4", "4edbb4135a", "687428cc81", "73505351ad", "7a88c529f6", "c7af448b33", "de132e5019", "e7e871371f"] },
@@ -2384,11 +2383,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   str_insert_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 75, edge: "agree", size: 6.9, shape: "91ce4c9141", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "d9d57311e3", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
   str_insert_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 75, edge: "agree", size: 6.9, shape: "91ce4c9141", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "d9d57311e3", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
   str_insert_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 75, edge: "agree", size: 6.9, shape: "91ce4c9141", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "211808ca56", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "cbcde0e5de", "d9d57311e3", "db96948bf3", "e6646a0bd0", "f0973f1bcc"] },
-  str_left_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "b9bb82b4d2", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_left_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "b13acddd01", notes: ["02b031c773", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_left_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "b9bb82b4d2", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_left_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "b9bb82b4d2", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_left_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "b9bb82b4d2", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_left_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "af7f1a81a5", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_left_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "fdacebfff6", notes: ["02b031c773", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_left_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "af7f1a81a5", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_left_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "af7f1a81a5", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_left_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.1, shape: "af7f1a81a5", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "803ee89d4f", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
   str_len_after_truncation: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 4.1, shape: "bf501548b9", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
   str_len_empty: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 4.1, shape: "bf501548b9", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
   str_len_five: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 4.2, shape: "248c2ca3ad", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
@@ -2408,11 +2407,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   str_replace_at_the_last: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 90, edge: "agree", size: 9.4, shape: "1aa016f44c", notes: ["0205cf3af0", "02b031c773", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
   str_replace_at_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 90, edge: "agree", size: 9.4, shape: "1aa016f44c", notes: ["0205cf3af0", "02b031c773", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
   str_replace_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 90, edge: "agree", size: 9.4, shape: "1aa016f44c", notes: ["0205cf3af0", "02b031c773", "0d14fd327c", "11f6ad8ec5", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5d9850550d", "7566f32b5e", "7a85af3c04", "803ee89d4f", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "9cbdbcc28b", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "e6646a0bd0", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5"] },
-  str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "2113e1155d", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "a07f519be5", notes: ["02b031c773", "0464b7d671", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "2113e1155d", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_right_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "2113e1155d", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
-  str_right_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "2113e1155d", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_right_exactly_the_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "bfa43a1cc9", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_right_negative: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "44cd47955d", notes: ["02b031c773", "0464b7d671", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_right_one: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "bfa43a1cc9", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_right_past_the_end: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "bfa43a1cc9", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
+  str_right_zero: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 60, edge: "agree", size: 5.2, shape: "bfa43a1cc9", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1d1551a034", "234c4da721", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7a85af3c04", "803ee89d4f", "83ed1aab47", "98ba0d2e70", "d9d57311e3", "e6646a0bd0"] },
   string_arithmetic_rejected: { evidence: "refused" },
   string_assign_truncation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 42, edge: "agree", size: 4.7, shape: "e6f5a8e4de", notes: ["0a52a768d3", "5d9850550d"] },
   string_compare: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 6.7, shape: "3a1cddf2a2", notes: ["5d9850550d", "687428cc81", "a095c1d0aa", "de132e5019"] },
@@ -2422,20 +2421,20 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   string_conversions_formats: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 81, edge: "agree", size: 20.3, shape: "e9b1c2241b", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "211808ca56", "448986061e", "4c9f4e33f4", "50226e2c19", "521ba042ac", "5ba97e5557", "5c9bb13706", "5d9850550d", "687428cc81", "74845f98c6", "8088e0ab18", "8e30e6691c", "98ba0d2e70", "b2d33739c5", "b592939dbf", "b7bdb5cfef", "cbcde0e5de", "d9d57311e3", "de132e5019", "e6646a0bd0", "e8954e2b0d", "f0973f1bcc"] },
   string_conversions_more: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 49, edge: "agree", size: 10.5, shape: "5dfa2fe62b", notes: ["10af274f28", "12e93440b3", "1307e33bbf", "448986061e", "4a6baf16b3", "5c9bb13706", "5d9850550d", "74845f98c6", "de132e5019", "e8954e2b0d"] },
   string_default_length: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 52, edge: "agree", size: 7.7, shape: "275dcff6a9", notes: ["02b031c773", "0a52a768d3", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
-  string_edge_positions: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 97, edge: "agree", size: 27, shape: "3fb445266c", notes: ["02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "234c4da721", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "521ba042ac", "5ba97e5557", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "a573b540d2", "cbcde0e5de", "d9d57311e3", "dbcd1088a5", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f5ca982c14"] },
+  string_edge_positions: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 97, edge: "agree", size: 27, shape: "1968de6e54", notes: ["02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "234c4da721", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "521ba042ac", "5ba97e5557", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "a573b540d2", "cbcde0e5de", "d9d57311e3", "dbcd1088a5", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "f5ca982c14"] },
   string_escapes: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 52, edge: "agree", size: 8, shape: "179f046e4f", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
   string_escapes_named: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 53, edge: "agree", size: 13.5, shape: "e8af8fd5dd", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "d9d57311e3", "dbcd1088a5", "de132e5019"] },
   string_high_byte_escape: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 4.8, shape: "7da76dadb0", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
-  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 71, edge: "agree", size: 14.8, shape: "5de7958553", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "47a7c12d8a", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
+  string_input_truncation: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 71, edge: "agree", size: 14.8, shape: "3744e07226", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "47a7c12d8a", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   string_insert_delete_replace_find: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 102, edge: "agree", size: 29.2, shape: "44df07d9f2", notes: ["0205cf3af0", "02b031c773", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "7566f32b5e", "7a85af3c04", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 84, edge: "agree", size: 20, shape: "4d11414512", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5ba97e5557", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "a573b540d2", "d9d57311e3", "dbcd1088a5", "de2f16610e", "e6646a0bd0"] },
+  string_len_left_right_mid: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 84, edge: "agree", size: 20, shape: "8eedfae635", notes: ["02b031c773", "0464b7d671", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "21ef64a1e0", "234c4da721", "4c9f4e33f4", "4eeb332195", "521ba042ac", "5ba97e5557", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "9c8d21e237", "a573b540d2", "d9d57311e3", "dbcd1088a5", "de2f16610e", "e6646a0bd0"] },
   string_limit: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.1, shape: "d45cf1b1ed", notes: ["5d9850550d"] },
   string_max: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "a9e4905c5a", notes: ["59b92aa532", "5d9850550d"] },
   string_max_differing_case: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "a9e4905c5a", notes: ["59b92aa532", "5d9850550d"] },
   string_min: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 3.2, shape: "b7dd355cf0", notes: ["59b48cdb5b", "5d9850550d"] },
   string_non_ascii_bytes: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 54, edge: "agree", size: 4.4, shape: "115c8221c6", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2506fd8442", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
   string_positions_high: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 116, edge: "agree", size: 35.7, shape: "7603532467", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7566f32b5e", "7a85af3c04", "8088e0ab18", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
-  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 125, edge: "agree", size: 38, shape: "0e4a67b73a", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
+  string_positions_low: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 125, edge: "agree", size: 38, shape: "9fc9d957f3", notes: ["0205cf3af0", "02b031c773", "0464b7d671", "0969e59592", "0a2a55e976", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "19dfd3f883", "1d1551a034", "211808ca56", "234c4da721", "3cacc7bfac", "41d85d47cf", "4c9f4e33f4", "4d5ea12dda", "4eeb332195", "50226e2c19", "521ba042ac", "5ba97e5557", "5c7f0546bc", "5d9850550d", "5e5aa25221", "7030300a1b", "7566f32b5e", "7a85af3c04", "8088e0ab18", "83ed1aab47", "8e30e6691c", "92f7142ab2", "98ba0d2e70", "9c8d21e237", "b2d33739c5", "b592939dbf", "c001fbb3b1", "cbcde0e5de", "d9d57311e3", "de2f16610e", "e6646a0bd0", "e6ef5a4585", "e798927653", "ec1b55e90b", "f0973f1bcc", "f39a4e5fb5", "f5ca982c14"] },
   string_to_real_parse: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 51, edge: "agree", size: 11, shape: "a35ad6cc8b", notes: ["1707972c33", "5c9bb13706", "5d9850550d", "6a98109119", "74845f98c6"] },
   string_wstring_mixing: { evidence: "refused", tier: "arith", rust: "rejected", pedantic: 5, edge: "not-run", size: 5.2, shape: "8abbc647dc", notes: ["5d9850550d", "687428cc81", "738e474bd5", "de132e5019"] },
   strord_capacity_longer_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 4.3, shape: "d4134acadc", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "286d90b120", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5"] },
@@ -2546,9 +2545,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   tr_40_dt_plus_ltime: { evidence: "refused" },
   tr_40_ltime_plus_date: { evidence: "refused" },
   tr_40_tod_minus_ltime: { evidence: "refused" },
-  tr_41_limit_evaluation_order: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 9, edge: "disagree", size: 2.1, shape: "cc84a8c55e", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
-  tr_41_mux_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "disagree", size: 2.5, shape: "cbbd7cab37", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
-  tr_41_sel_side_effects: { evidence: "diverges", tier: "call", rust: "compiles", pedantic: 7, edge: "agree", size: 2.5, shape: "11eba92a94", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
+  tr_41_limit_evaluation_order: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.1, shape: "cc84a8c55e", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
+  tr_41_mux_side_effects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.5, shape: "cbbd7cab37", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
+  tr_41_sel_side_effects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 7, edge: "agree", size: 2.5, shape: "2a7b4f7470", notes: ["01ef1b756d", "11f6ad8ec5", "1307e33bbf"] },
   tr_42_any_array_variant_key: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "5cd6a4f52d", notes: ["054b93382f", "06bb3a6005", "11f6ad8ec5", "63d29bd1a0"] },
   tr_43_output_dint_to_int: { evidence: "refused" },
   tr_43_output_int_to_real: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.7, shape: "a806ffc48f", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
@@ -2800,7 +2799,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo_reference_index_step: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 15, edge: "agree", size: 2.8, shape: "b194567726", notes: ["1307e33bbf", "abe3ae1f0b", "ad25627749", "dd94ff18a2", "de8528b197", "e02b80c3c1", "fbde4d6e1e"] },
   xo_reference_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "4fe9fc3750", notes: ["11f6ad8ec5", "1307e33bbf", "377c1dfc31", "4d8c0c87ee", "707233d6d6", "8c658bedd7", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e", "fda03fa84f"] },
   xo_reference_to_fb_call: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 9, edge: "agree", size: 2.7, shape: "1c03f4d895", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984", "687428cc81", "ad25627749", "c9cd63632c", "dd94ff18a2", "de132e5019", "de8528b197", "fbde4d6e1e"] },
-  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 73, edge: "agree", size: 4.6, shape: "5ff6af0d5d", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "a573b540d2", "a7ca9e8349", "c05be29130", "cb2199fcf3", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "df1778304b", "e6646a0bd0", "e8210b694c"] },
+  xo_string_built_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 73, edge: "agree", size: 4.6, shape: "3f29c66f3b", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d1551a034", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "7030300a1b", "7566f32b5e", "8088e0ab18", "83ed1aab47", "8e30e6691c", "98ba0d2e70", "a573b540d2", "a7ca9e8349", "c05be29130", "cb2199fcf3", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "df1778304b", "e6646a0bd0", "e8210b694c"] },
   xo_tally_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.6, shape: "9a969560c1", notes: ["1307e33bbf"] },
   xo_three_level_super_chain: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 14, edge: "agree", size: 3.2, shape: "d277e0e151", notes: ["11f6ad8ec5", "1307e33bbf", "293906cee0", "5370b79269"] },
   xo_two_fbs_one_global: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 8, edge: "agree", size: 3, shape: "f43890d546", notes: ["1307e33bbf", "b9787e0d18", "eff90824ac"] },
@@ -2832,7 +2831,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   xo3_override_calls_override: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 2.6, shape: "2df57f800c", notes: ["06bb3a6005", "1307e33bbf", "4979768984", "63d29bd1a0", "fb7e9e6ff4"] },
   xo3_string_wide_conversions: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 53, edge: "agree", size: 3.3, shape: "718272cb14", notes: ["02b031c773", "08b9196831", "0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "687428cc81", "8986d5305c", "98ba0d2e70", "a095c1d0aa", "a573b540d2", "d54a668b9a", "d9d57311e3", "dbcd1088a5", "de132e5019", "e9e296435a"] },
   xo3_struct_default_as_input: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 48, edge: "agree", size: 2.9, shape: "fa8e03698d", notes: ["1307e33bbf", "5d9850550d", "8b9a7c5eea", "90ba7cf588", "ac452bc801"] },
-  xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.9, shape: "b88514d813", notes: ["1307e33bbf", "3b823fe0e7", "687428cc81", "88544134e3", "b39326f54a", "b9787e0d18", "c2a92e6f4e", "de132e5019", "e708298af7"] },
+  xo3_value_functions_across_objects: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.9, shape: "6d36038c87", notes: ["1307e33bbf", "14e2fedf17", "3b823fe0e7", "687428cc81", "83d24ce33a", "b9787e0d18", "c2a92e6f4e", "de132e5019", "e708298af7"] },
   xo3_wstring_across_objects: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 54, edge: "agree", size: 3.6, shape: "a391e07d37", notes: ["02b031c773", "0d14fd327c", "11f6ad8ec5", "185a887a57", "23d12708e2", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "687428cc81", "90205de00e", "90e7185468", "98ba0d2e70", "a573b540d2", "d9d57311e3", "dbcd1088a5", "de132e5019", "e8162bb9aa"] },
   xo4_array_of_strings: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 87, edge: "agree", size: 4, shape: "2689691af3", notes: ["02b031c773", "0d14fd327c", "0e0d715a81", "11f6ad8ec5", "1307e33bbf", "185a887a57", "1d835ef992", "1d9f55ded0", "211808ca56", "3cf4e6fa21", "46c17ef7d3", "4a599db8d8", "4c9f4e33f4", "521ba042ac", "5ba97e5557", "5d9850550d", "6a2b5f2826", "803ee89d4f", "98ba0d2e70", "a573b540d2", "c05be29130", "c58cc5538f", "cbcde0e5de", "d8b7f34852", "d9d57311e3", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   xo4_case_over_property: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 2.4, shape: "0b83d86691", notes: ["0e0d715a81", "11f6ad8ec5", "1307e33bbf", "4979768984"] },
@@ -3230,9 +3229,14 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "B only for pure right operands; the current rule is still needed when the right side can have effects.",
   },
-  // if !((((({ let x = self.f; let x = Li64; let x = -Li64; if x { x } else { x } }) as i16) >= Li16) & (self.f <= self.f)) | (((({ let x = self.f; let x = Li64; let x = -Li64; if x { x } else { x } }) as i16) < Li16) & (self.f >= self.f))) { break; }
-  "129bb34a7e": {
-    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a 3-binding SEL block each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
+  // self.f = if self.g { self.f } else { self.f };
+  "12a2ae661a": {
+    improvement: "`(if false { 10i64 } else { 20i64 }) as i16`: the literals are typed i64 and then cast, and a constant selector could be folded.",
+    alternatives: [
+      "A (emitted today): a plain `if` — only the selected arm is evaluated (transpile-review-2026-09-29 task 41).",
+      "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
+    ],
+    chosen: "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
   },
   // x: (-Li64),
   "12e93440b3": {
@@ -3261,18 +3265,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "keep today's form",
     why: "one uniform path is worth the lines; the suffix-vs-bare literal inconsistency is cosmetic",
   },
-  // self.f = ({ let x = self.g; let x = Li64; let x = Li64; if x { x } else { x } }) as i16;
-  "14257c633c": {
-    improvement: "SEL binds all three arguments to lets even when they are pure places or literals, and integer literals are typed i64, or the operands widened to i32, then cast back to the target. With side-effect-free arms `if g { b } else { a }` is exact. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. Also: `.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
-    alternatives: [
-      "today: eager let-bindings of every argument, in the promoted type",
-      "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls. Chosen: same evaluation semantics, since pure arms have no observable evaluation",
-      "today: `.to()` on every string store",
-      "`.to()` only when the capacities differ or are generic. Chosen: the other stores need no copy because IecStr is Copy",
-    ],
-    chosen: "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls",
-    why: "same evaluation semantics, since pure arms have no observable evaluation",
-  },
   // pub __inout_guard_N: usize,
   "149af70520": {
     improvement: "Per-call scratch in an FB or PROGRAM body (a discarded VAR_OUTPUT `__output_N`, a property-setter value `__property_N`, an in-out guard or index `__inout_guard_N`/`__inout_index_N`) becomes a persistent `pub` struct field. It gets initialised in new(), carried by Clone/PartialEq/Debug, and trips clippy::pub_underscore_fields. The same temp inside a METHOD is a `let mut` local (tempPlace's routineMode branch), so one construct is emitted two ways. A body could collect these as locals too: a `let mut __output_10 = 0i16;` at the top of call()/scan(), or declared at the statement. The value never outlives the statement that writes it.",
@@ -3284,6 +3276,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn m(mut x: u16) -> bool {
   "14b2f39d44": {
     improvement: "Mark a parameter `mut` only when the body assigns it, and return the value directly when the result is assigned once at the end. That removes the blanket allow attribute.",
+  },
+  // self.f = (if self.f { g.f as i32 } else { g.f as i32 }) as i16;
+  "14e2fedf17": {
+    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
   },
   // pub fn init(&mut self, g: &mut Globals) {
   "1524fb865f": {
@@ -3536,16 +3532,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would keep today's split, since the guard form is shorter for the common case, but share one panic helper so the message and the code path are single-sourced.",
     ],
   },
-  // self.f = ({ let x = self.g; let x = self.f as i32; let x = self.f as i32; if x { x } else { x } }) as i16;
-  "1ff319663d": {
-    improvement: "SEL binds all three arguments to lets even when they are pure places or literals, and integer literals are typed i64, or the operands widened to i32, then cast back to the target. With side-effect-free arms `if g { b } else { a }` is exact. Literals can be typed at the destination (`20i16`) and INT arms left unwidened.",
-    alternatives: [
-      "today: eager let-bindings of every argument, in the promoted type",
-      "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls. Chosen: same evaluation semantics, since pure arms have no observable evaluation",
-    ],
-    chosen: "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls",
-    why: "same evaluation semantics, since pure arms have no observable evaluation",
-  },
   // break 'body_N;
   "204a887600": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
@@ -3568,6 +3554,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Emitted today: `(self.n as i32) > 5i32`, uniform, and safe for out-of-range literals.",
       "Narrow: `self.n > 5i16`, used when the literal fits the variable's type (the answer cannot differ). The FOR test already emits `self.i > 10i16` for the same comparison, so one construct currently has two spellings. I would narrow when the constant fits.",
     ],
+  },
+  // self.f = Li64.max(-Li64).min(Li64) as i16;
+  "21672c09ea": {
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    alternatives: [
+      "(a) today: `1i64.max(5i64).max(3i64) as i16`",
+      "(b) fold the constant: `self.three = 5;`",
+      "(c) no folding, but type the literals in the destination type: `1i16.max(5).max(3)`",
+      "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    ],
+    chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
   },
   // self.f = len(self.f.to::<L>());
   "21ef64a1e0": {
@@ -3864,6 +3861,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "compare in the operands' own common type when the op is a comparison or MIN/MAX and every constant fits it",
     why: "exact for every input and no casts",
+  },
+  // self.f = (if self.g { Li64 } else { Li64 }) as i16;
+  "2db51dfb96": {
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.) Also: `.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
+    alternatives: [
+      "today: `.to()` on every string store",
+      "`.to()` only when the capacities differ or are generic. Chosen: the other stores need no copy because IecStr is Copy",
+    ],
+    chosen: "`.to()` only when the capacities differ or are generic",
+    why: "the other stores need no copy because IecStr is Copy",
   },
   // self.f = IecString::<L>::lit(x!(S, (self.f as u32).wrapping_mul(self.f)).as_bytes()).to();
   "2dfe67cbc7": {
@@ -4736,10 +4743,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "53bd7d992e": {
     improvement: "An output nobody binds (f_state_split(9, ..)) is written into a persistent `pub __output_N` field of PLC_PRG (4 such fields in state_routine_outputs). A local `let mut __out = 0;` or a `&mut 0i16` temporary would keep the struct to the variables the ST declared.",
   },
-  // self.f = self.f.wrapping_add(({ let x = self.f; let x = Li64; let x = -Li64; if x { x } else { x } }) as i16);
-  "547ea4e920": {
-    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a 3-binding SEL block each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
-  },
   // self.f = (self.f as i32) >= (self.f as i32);
   "54889e0f45": {
     improvement: "A comparison of two operands of the SAME narrow type (SINT/SINT, INT/INT, the same enum) is printed as `(a as i32) < (b as i32)`. Comparing in the operands' own type gives the same result, because a comparison cannot overflow. Only mixed-sign or mixed-width pairs need the lift.",
@@ -4998,6 +5001,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Choose (b). It matches the program-instance form already emitted.",
     ],
     chosen: "(b). It matches the program-instance form already emitted.",
+  },
+  // self.f = self.f.wrapping_add((if self.f { -Li64 } else { Li64 }) as i16);
+  "60fefc4d63": {
+    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
   },
   // self.f = m(self.f as f64, Lf64) as f32;
   "61a75e7b4b": {
@@ -5411,17 +5418,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b) skip `.to()` when the value's printed type already has the target's capacity; compare against a literal via `units()` slices",
   },
-  // self.f = Li32.max(self.f as i32).min(self.f as i32) as i16;
-  "7402369985": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
-    alternatives: [
-      "(a) today: `1i64.max(5i64).max(3i64) as i16`",
-      "(b) fold the constant: `self.three = 5;`",
-      "(c) no folding, but type the literals in the destination type: `1i16.max(5).max(3)`",
-      "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
-    ],
-    chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
-  },
   // self.f = Li64.max(Li64).min(Li64) as i16;
   "745a764511": {
     improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
@@ -5524,17 +5520,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "Keep both, but drop `mut` when the IR never assigns the slot.",
     ],
     chosen: "Pass lower only; compute UPPER_BOUND as `lower + x.len() as i32 - 1`. This is what I would choose.",
-  },
-  // self.f = (self.f as i32).max(Li32).min(Li32) as i16;
-  "779b38c9e9": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
-    alternatives: [
-      "(a) today: `1i64.max(5i64).max(3i64) as i16`",
-      "(b) fold the constant: `self.three = 5;`",
-      "(c) no folding, but type the literals in the destination type: `1i16.max(5).max(3)`",
-      "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
-    ],
-    chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
   },
   // self.f = (self.v as u64).wrapping_mul(Lu64).wrapping_sub({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } });
   "7812f5a53d": {
@@ -5670,18 +5655,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "keep value style but drop .to() when capacities match: the smallest emitter change",
     ],
     chosen: "in-place `s.set_char(i, c)`: the shortest form with no copies, and I would choose it, since the setchar is always stored straight back into the place it loaded",
-  },
-  // self.f = ({ let x = self.f; let x = Li64; let x = Li64; if x { x } else { x } }) as i16;
-  "7c185b5fac": {
-    improvement: "SEL binds all three arguments to lets even when they are pure places or literals, and integer literals are typed i64, or the operands widened to i32, then cast back to the target. With side-effect-free arms `if g { b } else { a }` is exact. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. Also: `.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
-    alternatives: [
-      "today: eager let-bindings of every argument, in the promoted type",
-      "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls. Chosen: same evaluation semantics, since pure arms have no observable evaluation",
-      "today: `.to()` on every string store",
-      "`.to()` only when the capacities differ or are generic. Chosen: the other stores need no copy because IecStr is Copy",
-    ],
-    chosen: "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls",
-    why: "same evaluation semantics, since pure arms have no observable evaluation",
   },
   // pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {
   "7c7cff3d31": {
@@ -5927,6 +5900,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "a const nonzero divisor (other than -1) emits plain `%`",
     why: "this is exact and it is what a Rust engineer writes",
   },
+  // self.f = (g.f as i32).max(self.f as i32).min(g.f as i32) as i16;
+  "83d24ce33a": {
+    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
+  },
   // pub fn m(mut str: IecString<L>, mut x: i16) -> IecString<L> {
   "83ed1aab47": {
     improvement: "LEN/LEFT/RIGHT/MID/CONCAT/INSERT/DELETE/REPLACE/FIND take `mut str: IecString<255>` BY VALUE. Every call site therefore converts `self.hello.to::<255>()` (a 256-byte copy through lit), and every result comes back as `.to::<80>()`. LEN then walks 255 bytes with char_at in a loop capped at 1e6 iterations, although the length is `s.len`. The xo3 WSTRING chain `.narrow::<80>().to::<10>().to()` is three copies for one conversion (the operand keeps its own capacity since transpile-review 11, so the leading `.to::<80>()` is gone). The 255 cut on the way in is measured (string_input_truncation), so a generic `&IecStr<N>` parameter would need an explicit `min(len, 255)` view to stay right. Also: A nested call argument is hoisted into a `let __arg_0` even when it is the only argument, so evaluation order cannot differ. `len(concat(..))` is the same program.",
@@ -6005,16 +5982,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "(b), with (c) for a variable value.",
   },
-  // self.f = (self.f as i32).max(g.f as i32).min(g.f as i32) as i16;
-  "88544134e3": {
-    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `self.raw.max(g.g_low).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL always binds all three arguments into lets. When the arguments are pure places or constants, `if c { t } else { f }` is equivalent, because eager evaluation is only observable with calls.",
-    alternatives: [
-      "SEL: (a) today, bind all three eagerly and branch. Always right.",
-      "SEL: (b) plain `if` when no argument holds a call.",
-      "Choose (b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
-    ],
-    chosen: "(b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
-  },
   // self.f = IecString::<L>::lit(x!(S, { let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrapping_rem(x) } }).as_bytes()).to();
   "8883cf3a18": {
     improvement: "`.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
@@ -6057,6 +6024,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // let mut fb_init: bool = false;
   "8a9bb48ddb": {
     improvement: "Every input is declared `mut` and every method carries `#[allow(unused_mut, unused_variables, unused_assignments)]`. Print `mut` only for an input the body stores to (the IR knows the assigned places). When the result local is never assigned, return `false`/default directly instead of `let mut fb_init = false; ... fb_init`. The allows could then go.",
+  },
+  // self.f = (if self.g { self.f as i32 } else { self.f as i32 }) as i16;
+  "8b3a192776": {
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
   },
   // self.f = self.f.wrapping_shr(self.f as u32);
   "8b69355dc1": {
@@ -6312,6 +6283,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "92f7142ab2": {
     improvement: "An empty-string initializer prints `IecString::<255>::lit(b\"\")`. `IecString::<255>::new()` (or Default) says the same thing without the slice copy.",
   },
+  // if !(((((if self.f { -Li64 } else { Li64 }) as i16) >= Li16) & (self.f <= self.f)) | ((((if self.f { -Li64 } else { Li64 }) as i16) < Li16) & (self.f >= self.f))) { break; }
+  "9358115574": {
+    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
+  },
   // 'loop_N: loop {
   "93a17fab28": {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
@@ -6468,16 +6443,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     chosen: "fold in the emitter when step.index.kind === 'const': `[4]`, and a constant OOB becomes a compile error)",
     why: "one line in place(",
   },
-  // self.f = ({ let x = false; let x = Li64; let x = Li64; if x { x } else { x } }) as i16;
-  "9b69fbd632": {
-    improvement: "SEL binds all three arguments to lets even when they are pure places or literals, and integer literals are typed i64, or the operands widened to i32, then cast back to the target. With side-effect-free arms `if g { b } else { a }` is exact. Literals can be typed at the destination (`20i16`) and INT arms left unwidened.",
-    alternatives: [
-      "today: eager let-bindings of every argument, in the promoted type",
-      "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls. Chosen: same evaluation semantics, since pure arms have no observable evaluation",
-    ],
-    chosen: "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls",
-    why: "same evaluation semantics, since pure arms have no observable evaluation",
-  },
   // self.v = Li64.wrapping_sub(Li64) as i16;
   "9b7b8014c4": {
     improvement: "Fold all-constant integer subtrees. `v := 0 - 42` is emitted as `0i64.wrapping_sub(42i64) as i32`, `x := MAX(1,5,3)` as `1i64.max(5i64).max(3i64) as i16` (clippy::unnecessary_min_or_max), a shift count literal as `1i8 as u32`, and `d + T#1H` as `3600000u32 / 1000u32`. The declaration path already folds (lower/constants.ts foldConstant/constEval), and CODESYS folds these at compile time too.",
@@ -6511,16 +6476,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // let mut x: u8 = Lu8;
   "9c1d0c1a6e": {
     improvement: "A library routine is lowered once per caller string type and per call context, yet every copy is already generic over `const N___STR_*`. The copies come out byte-identical apart from the name. Key the variant on the cursor shape (and not on capacity) or dedupe routines with identical bodies at emit.",
-  },
-  // self.f.f = { let x = self.f; let x = self.f; let x = self.f; if x { x } else { x } };
-  "9c7058e6e1": {
-    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `self.raw.max(g.g_low).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL always binds all three arguments into lets. When the arguments are pure places or constants, `if c { t } else { f }` is equivalent, because eager evaluation is only observable with calls.",
-    alternatives: [
-      "SEL: (a) today, bind all three eagerly and branch. Always right.",
-      "SEL: (b) plain `if` when no argument holds a call.",
-      "Choose (b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
-    ],
-    chosen: "(b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
   },
   // self.f = ({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "9c7ca7c1f9": {
@@ -6568,6 +6523,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = replace(self.f.to::<L>(), self.f.to::<L>(), Li16, …).to::<L>().to();
   "9cbdbcc28b": {
     improvement: "Every store into a string gets another `.to()`, even when the value already has the target's capacity. That covers `left(...).to::<80>().to()`, `x = x.with_char(..).to()` and `IecString::<80>::lit(b\"..\").to()`. The extra `.to()` is an identity copy through lit(). Append it only when the target capacity is a generic (the VAR_IN_OUT case the comment is about) or differs from the value's type.",
+  },
+  // self.f = Li32.max(self.f as i32).min(Li32) as i16;
+  "9d3d81580d": {
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    alternatives: [
+      "(a) today: `1i64.max(5i64).max(3i64) as i16`",
+      "(b) fold the constant: `self.three = 5;`",
+      "(c) no folding, but type the literals in the destination type: `1i16.max(5).max(3)`",
+      "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    ],
+    chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
   },
   // self.f = self.f.wrapping_shl(Li8 as u32);
   "9d8cd15435": {
@@ -7026,16 +6992,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "`&&`/`||` only when neither side holds an invoke, and compare in the narrow type when the literal fits (the one I would choose)",
   },
-  // self.f = ({ let x = self.f; let x = g.f as i32; let x = g.f as i32; if x { x } else { x } }) as i16;
-  "b39326f54a": {
-    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `self.raw.max(g.g_low).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL always binds all three arguments into lets. When the arguments are pure places or constants, `if c { t } else { f }` is equivalent, because eager evaluation is only observable with calls.",
-    alternatives: [
-      "SEL: (a) today, bind all three eagerly and branch. Always right.",
-      "SEL: (b) plain `if` when no argument holds a call.",
-      "Choose (b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
-    ],
-    chosen: "(b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
-  },
   // x = __grid_lower_N;
   "b3a0495ed2": {
     improvement: "An open array is passed as a slice plus hidden lower and upper DINTs, and in an FB these are stored as two pub fields per dimension. The upper bound is always lower + slice.len() - 1, so passing it again is redundant. Pass only the lower bound and compute UPPER_BOUND from `.len()`.",
@@ -7196,6 +7152,16 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
   },
+  // self.f = (if self.f { Li64 } else { Li64 }) as i16;
+  "ba75ffae84": {
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.) Also: `.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
+    alternatives: [
+      "today: `.to()` on every string store",
+      "`.to()` only when the capacities differ or are generic. Chosen: the other stores need no copy because IecStr is Copy",
+    ],
+    chosen: "`.to()` only when the capacities differ or are generic",
+    why: "the other stores need no copy because IecStr is Copy",
+  },
   // self.f = ((self.f as i32) | (self.f as i32)) as i16;
   "ba90e3c4fe": {
     improvement: "When both operands already have the destination's width and signedness, and the promoted result is stored straight back at that width, the i32 detour changes nothing for add/sub/mul (congruent mod 2^n), and/or/xor, and min/max. Division, shifts, comparisons and mixed signedness still need the widening.",
@@ -7221,17 +7187,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
     ],
     chosen: "I would choose (b) with (c)'s exclusions. It is what a Rust engineer writes and it removes most of the arith-tier cast lints, but it needs a lowering rule listing which ops are width-agnostic.",
-  },
-  // self.f = { let x = self.g; let x = self.f; let x = self.f; if x { x } else { x } };
-  "be637eb16c": {
-    improvement: "`({ let __sel_c = false; let __sel_f = 10i64; let __sel_t = 20i64; if __sel_c { __sel_t } else { __sel_f } }) as i16`. The eager bindings are needed only when an arm can have a side effect. Here the arms are literals or plain loads, the literals are typed i64 and then cast, and a constant selector could be folded.",
-    alternatives: [
-      "A (emitted today): always bind all three, then branch. This is correct for side effects, where the IR contract is eager.",
-      "B: `if g { b } else { a }` when neither arm contains a call or dereference (pure loads or constants). Eagerness is unobservable then.",
-      "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
-      "Choose B+C: keep A only when an arm can have an effect.",
-    ],
-    chosen: "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
   },
   // pub fn init(&mut self, prg: &mut Programs) {
   "bea3694884": {
@@ -7354,6 +7309,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // self.f = (Lf64 - self.f).sqrt();
   "c2d750a62a": {
     improvement: "For SQRT only, f32::sqrt is correctly rounded, and f64 sqrt followed by narrowing is provably the same (53 >= 2*24+2). So a REAL SQRT can be `x.sqrt()` in f32. Keep the f64 detour for the other transcendentals, where it is load-bearing.",
+  },
+  // self.f.f = if self.f { self.f } else { self.f };
+  "c2ecf76c31": {
+    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
   },
   // x: (-Lf64),
   "c35f240db9": {
@@ -7849,6 +7808,17 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
       "&IecStr<u8, N> generic, with the cut at 255 inside the body. Saves the copy, but changes the input-copy semantics a callee could observe if it wrote its input. Worth it only for bodies proven read-only",
     ],
   },
+  // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
+  "deaa2bbf15": {
+    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
+    alternatives: [
+      "(a) today: `1i64.max(5i64).max(3i64) as i16`",
+      "(b) fold the constant: `self.three = 5;`",
+      "(c) no folding, but type the literals in the destination type: `1i16.max(5).max(3)`",
+      "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+    ],
+    chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
+  },
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x.max(Li32) as i64), Lu8).to();
   "deb9c88c25": {
     improvement: "A character read through a string cursor prints `{ iec_deref(p); *__str_p }.char_at(i)`. The block's tail moves the WHOLE IecString out (it is Copy) just to read one byte. Loops such as StrLenA, StrFindA and the null-cursor length therefore copy the whole string once per character, which makes an O(n) walk O(n*N). Return a borrow instead (`{ iec_deref(p); &*__str_p }.char_at(i)`) or put the check inside the index. A write prints `iec_deref(p);` on its own line and then the same guard again inside the value, so each character store checks the pointer twice. Also: `s[i] := c` is lowered as a value, `s = s.with_char(i, c).to()`. That makes three whole-string moves or copies per character: self by value, the return, and `.to()`. A statement-level setchar could print `s.set_char(i, c);` with `set_char(&mut self, ..)`.",
@@ -8243,17 +8213,6 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "eeb7e2463d": {
     improvement: "A lossless widening followed by a conversion back to the source's own Rust type is the identity. Peephole: if e.value is a convert from type X with rustType(X) === target and the middle step is a widening, emit X's text.",
   },
-  // self.f = (-Li64).max(Li64).min(Li64) as i16;
-  "ef06033fe1": {
-    improvement: "An all-literal MAX/MIN/LIMIT is not folded, even though lowering can fold through ir/evaluate.ts. It is also computed in i64 and cast. The MUX arms could be typed at the result type: `match k { 0 => 10, 1 => 20, _ => 30 }`.",
-    alternatives: [
-      "(a) today: `1i64.max(5i64).max(3i64) as i16`",
-      "(b) fold the constant: `self.three = 5;`",
-      "(c) no folding, but type the literals in the destination type: `1i16.max(5).max(3)`",
-      "Choose (b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
-    ],
-    chosen: "(b). The folding already exists for declaration initializers and is proven equal to runtime (constant-folding.ts).",
-  },
   // m(L, &mut self.f);
   "ef4db7eb51": {
     improvement: "A character read through a string cursor copies the whole IecStr out of the borrow: `{ iec_deref(p); *__str_p }.char_at(i)` is 256+ bytes per character, so O(n²) per LEN/TRIM/COPY loop. A write guards twice and copies twice: `iec_deref(p); *__str_p = { iec_deref(p); *__str_p }.with_char(..).to();`. Put the guard around the whole method call (`{ iec_deref(p); __str_p.char_at(i) }`) and add an in-place `set_char(&mut self, i, c)` to the prelude for stores. Also: A pointer whose only target is a whole variable is the constant 1 (`pointer_to_value = 1;`), and each dereference still emits `{ iec_deref(pointer_to_value); *value }`. A borrowed pointer parameter is passed as a dead `0` (`f_lang_ptrread(0, &mut self.value)`) that the body never reads. The same goes for the string-cursor calls `strtrima_pstring_string20(1, &mut self.both)`. When the pointer slot is only ever stored constants ≠ 0, skip the guard. When the callee never reads the integer, drop the parameter.",
@@ -8496,6 +8455,10 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   // pub fn init(&mut self) {
   "fa7d5f176f": {
     improvement: "init() always gets `#[allow(unused_variables)]`, even without a g or prg parameter. Guard it the way line 1240 does (`usesGlobals || usesPrograms`).",
+  },
+  // self.f = (if false { Li64 } else { Li64 }) as i16;
+  "faa5102f23": {
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
   },
   // let mut map: i16 = Li16;
   "faf5605030": {

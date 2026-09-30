@@ -490,9 +490,9 @@ those values into the new fixture's recording.
 - Repro: `MUX(0, Inc(a), Inc(b))` → interp both bumped, Rust one; `LIMIT(Add1(x), Dbl(x), 1000)` → x=2 vs x=1.
 - CODESYS: unrecorded (help text says SEL/MUX evaluate only the selected input).
 - Fix: record SEL/MUX/LIMIT with side-effecting arguments; make the IR contract and both backends follow it.
-- [ ] 41.1 Record `sel_mux_limit_side_effects` — red.
+- [x] 41.1 Record `sel_mux_limit_side_effects` — red.
   Recorded 2026-09-29 (record:exec): `tr_41_mux_side_effects`, `tr_41_sel_side_effects`, `tr_41_limit_evaluation_order` — diverge. CODESYS: MUX and SEL run only the selected input; LIMIT leaves x=4.
-- [ ] 41.2 Fix.
+- [x] 41.2 Fix. IR contract (`ir/ir.ts`): arguments in written order, SEL/MUX evaluate only the selected input (`selectedArg`, `ir/evaluate.ts`); interpreter lazy for SEL/MUX, Rust SEL a plain `if`, LIMIT `MN.max(IN).min(MX)`; all three fixtures confirmed (rust vendor), marks removed; notes re-keyed to the new constructs.
 
 ## 42. ANY variant key collapses array types
 - Root cause: `lower/calls.ts:362` (typeKey returns bare `t.kind` for arrays), used at `:535` and memoised at `:539`.

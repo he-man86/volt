@@ -32,6 +32,16 @@ function widthOf(type: Type, op: string): number {
  */
 export class LoweringBug extends TypeError {}
 
+/**
+ * The one argument SEL or MUX evaluates after its selector — its index in the node's `args`. An out-of-range MUX K,
+ * negative included, picks the LAST input (conformance `mux_out_of_range`). See `IrBuiltinName` for why only one.
+ */
+export function selectedArg(name: "sel" | "mux", selector: Val, arity: number): number {
+  if (name === "sel") return bool(selector) ? 2 : 1
+  const k = Number(num(selector))
+  return k >= 0 && k < arity - 1 ? k + 1 : arity - 1
+}
+
 /** A builtin over ALREADY-EVALUATED arguments — `argTypes` their types, which `char` reads its string's capacity from. */
 export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Type, argTypes: readonly Type[], rotateBits?: number): Val {
   const pick = (op: "lt" | "gt"): Val => args.reduce((best, v) => (ord(op, v, best) ? v : best))
@@ -47,7 +57,8 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       return fit(ord("lt", raised, mx) ? raised : mx, type)
     }
     case "sel":
-      return fit(bool(args[0]!) ? args[2]! : args[1]!, type)
+    case "mux":
+      return fit(args[selectedArg(name, args[0]!, args.length)]!, type)
     case "trunc": {
       // Toward zero into a DINT whose out-of-range answer is DINT's MINIMUM — x86's "integer indefinite":
       // TRUNC(3.0E9) is -2147483648, where LREAL_TO_DINT(3.0E9) wraps to -1294967296 (conformance
@@ -80,12 +91,6 @@ export function builtinValue(name: IrBuiltinName, args: readonly Val[], type: Ty
       const value = num(args[0]!) as bigint
       const unsigned = BigInt.asUintN(bits, value)
       return fit((value - unsigned) | BigInt.asUintN(bits, (unsigned << by) | (unsigned >> ((width - by) % width))), type)
-    }
-    case "mux": {
-      // an out-of-range K — negative included — picks the LAST input (conformance `mux_out_of_range`)
-      const k = Number(num(args[0]!))
-      const inputs = args.slice(1)
-      return fit(k >= 0 && k < inputs.length ? inputs[k]! : inputs[inputs.length - 1]!, type)
     }
     case "expt":
       // C's `pow` in float64 (`expt`: not `Math.pow`), narrowed by `fit` when lowering typed it REAL (both arguments REAL)

@@ -253,18 +253,13 @@ export interface IrCopy {
  *  `trunc` is TRUNC/TRUNC_INT: toward zero, into its node's DINT/INT `type` — the one conversion that does not
  *  round, so it cannot be a `convert`. */
 /**
- * **EVERY ARGUMENT IS EVALUATED, ALL OF THEM, BEFORE THE BUILTIN RUNS.** The IR said nothing about this and the
- * two backends answered differently: `interp/` evaluates the whole argument list up front, while the emitter
- * printed `sel` as `if c { b } else { a }` — Rust text, so the unselected arm was never evaluated. An argument
- * with a side effect therefore meant two things, which is the shape of divergence this IR exists to prevent
- * (decision 2: the IR carries the semantics; a backend that has to DECIDE something means the lowering was
- * incomplete).
- *
- * Eager is chosen because it is what the reference backend already does, so writing it down costs nothing and
- * makes the pair agree by construction. It is NOT measured against CODESYS: an argument with a side effect
- * needs a call in an expression, which lowering refuses today (`expr-call`, 75 corpus POUs). When that lowers,
- * a fixture should ask the vendor — and if the answer is lazy, it is this line that changes, once, rather than
- * one backend drifting from the other again.
+ * **ARGUMENTS ARE EVALUATED IN WRITTEN ORDER, EACH ONCE — EXCEPT SEL AND MUX, WHICH EVALUATE THEIR SELECTOR AND THEN
+ * ONLY THE INPUT IT SELECTS.** Measured on CODESYS (transpile-review-2026-09-29 task 41, recorded):
+ * `MUX(0, Inc(a), Inc(b))` leaves a = 1, b = 0 (`tr_41_mux_side_effects`); `SEL(FALSE, Inc(a2), Inc(b2))` leaves
+ * a2 = 1, b2 = 0 (`tr_41_sel_side_effects`); `LIMIT(Add1(x), Dbl(x), 1000)` from x = 1 leaves x = 4 — MN before IN
+ * (`tr_41_limit_evaluation_order`). This used to say "every argument, eagerly", unmeasured, on the premise that a
+ * call in an expression was refused; the interpreter obeyed it for MUX while the emitted `match` did not, and the
+ * emitted LIMIT read IN first. `selectedArg` (`ir/evaluate.ts`) is the one statement of which input is selected.
  */
 export type IrBuiltinName =
   | "max"

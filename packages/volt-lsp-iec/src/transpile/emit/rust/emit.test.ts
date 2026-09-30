@@ -267,9 +267,19 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     expect(code).not.toContain("clamp")
     expect(code).toContain(".max(")
     expect(code).toContain(".min(")
-    // SEL binds both arms before branching, so an argument with a side effect is evaluated exactly once on
-    // either side — the IR states eager evaluation and both backends obey it
-    expect(code).toContain("let __sel_c = self.g; let __sel_f = 1i64; let __sel_t = 2i64; if __sel_c")
+    // SEL runs ONLY the input it selects — CODESYS leaves the unselected call's counter untouched
+    // (conformance `tr_41_sel_side_effects`, recorded; transpile-review-2026-09-29 task 41)
+    expect(code).toContain("if self.g { 2i64 } else { 1i64 }")
+  })
+
+  test("LIMIT evaluates MN before IN; MUX runs only the selected input (transpile-review-2026-09-29 task 41)", () => {
+    const code = rust(
+      "FUNCTION Add1 : INT\nVAR_IN_OUT x : INT; END_VAR\nx := x + 1;\nAdd1 := x;\nEND_FUNCTION\n" +
+        "PROGRAM P\nVAR x : INT := 1; y : INT; k : INT; END_VAR\ny := LIMIT(Add1(x), x, 1000); y := MUX(k, Add1(x), x);\nEND_PROGRAM\n",
+    )
+    // `tr_41_limit_evaluation_order`, recorded: MN is bound before IN is read
+    expect(code).toContain("(add1(&mut self.x) as i32).max(self.x as i32)")
+    expect(code).toContain("match ")
   })
 
   test("conversions print CODESYS's rules, not a bare `as` — which truncates, saturates, and has no bool", () => {

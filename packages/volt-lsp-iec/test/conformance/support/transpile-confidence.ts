@@ -533,13 +533,7 @@ const LEAN = {
     why: "identical values for every input",
   },
   shapes10_4: {
-    improvement: "SEL binds all three arguments to lets even when they are pure places or literals, and integer literals are typed i64, or the operands widened to i32, then cast back to the target. With side-effect-free arms `if g { b } else { a }` is exact. Literals can be typed at the destination (`20i16`) and INT arms left unwidened.",
-    alternatives: [
-      "today: eager let-bindings of every argument, in the promoted type",
-      "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls. Chosen: same evaluation semantics, since pure arms have no observable evaluation",
-    ],
-    chosen: "an if-expression when neither arm holdsCall (the IR already has holdsCall), keeping the lets only for arms with calls",
-    why: "same evaluation semantics, since pure arms have no observable evaluation",
+    improvement: "SEL's integer literal arms are typed i64, or its INT arms widened to i32, then the whole `if` is cast back to the target. Literals can be typed at the destination (`20i16`) and INT arms left unwidened. (SEL prints a plain `if` now — only the selected arm is evaluated, as CODESYS does, transpile-review-2026-09-29 task 41.)",
   },
   shapes10_5: {
     improvement: "`.to()` re-copies the string even when the value is already `IecString::<N>` of the target's own capacity (for example `IecString::<80>::lit(...).to()` into an IecString<80>). Emit it only when the capacities differ or the target's capacity is generic (VAR_IN_OUT).",
@@ -1154,7 +1148,7 @@ const LEAN = {
     improvement: "A constant array index is printed as `[(1i8 as i64) as usize]`, or `[((1i8 as i64) - 1i64) as usize]` for a non-zero lower bound. It should fold to `[1]` / `[0]`. The same constant also comes out two ways in one fixture: xo_union_across_objects has both `halves[0i64 as usize]` and `halves[(0i8 as i64) as usize]`.",
   },
   shapes11_8: {
-    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a 3-binding SEL block each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
+    improvement: "A runtime FOR step is printed in full three times per pass: twice in the test and once in the step. For callshape_for_runtime_step that is a SEL `if` each time. It is side-effect free because calls are refused, so it can be bound once per pass (`let __step = ...;`) and referenced.",
   },
   shapes11_9: {
     improvement: "When the body has no CONTINUE, only the label `'body_N:` is stripped and a bare `{ ... }` block is left around the body. Drop the braces too, as is already done for `'loop_N:`.",
@@ -1653,13 +1647,7 @@ const LEAN = {
     chosen: "(b). The eager `&` is the right default only for impure operands.",
   },
   shapes20_3: {
-    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `self.raw.max(g.g_low).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL always binds all three arguments into lets. When the arguments are pure places or constants, `if c { t } else { f }` is equivalent, because eager evaluation is only observable with calls.",
-    alternatives: [
-      "SEL: (a) today, bind all three eagerly and branch. Always right.",
-      "SEL: (b) plain `if` when no argument holds a call.",
-      "Choose (b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
-    ],
-    chosen: "(b) under a `holdsCall` test (the same predicate the invoke emitter already uses at emit.ts:580).",
+    improvement: "LIMIT/MAX/MIN on INT operands widen every argument to i32 and cast the result back. Integer max/min is width-independent, so `g.g_low.max(self.raw).min(g.g_high)` is the same. I probed LIMIT with the inverted bounds (hi,lo) and -32768: both backends give -5. SEL's arms are widened the same way inside its `if`.",
   },
   shapes20_4: {
     improvement: "When the divisor is a literal, the zero test is decided at emit time. For a nonzero unsigned literal, plain `%` cannot panic. For a signed literal other than 0 and -1, plain `%` cannot panic either. So `self.difftime % 1000u32` replaces the 3-binding block. 1522 also widens INT to i32 for a MOD whose result goes back to i16. Remainder never needs widening: wrapping_rem already covers MIN % -1. A literal -1 is printed as `1i32.wrapping_neg()`, so it is not recognised as a constant (see the next item).",
@@ -1935,12 +1923,10 @@ const LEAN = {
     improvement: "`{ let __mod_l = v; let __mod_r = 86400000000000u64; if __mod_r == 0 { 0 } else { __mod_l.wrapping_rem(__mod_r) } }`: the divisor is a nonzero literal (every calendar conversion lowers to this), so the zero check and both bindings are dead. Print `(v % 86_400_000_000_000u64)` when the right operand is a nonzero constant; wrapping_rem is only needed for a signed divisor of -1.",
   },
   shapes9_5: {
-    improvement: "`({ let __sel_c = false; let __sel_f = 10i64; let __sel_t = 20i64; if __sel_c { __sel_t } else { __sel_f } }) as i16`. The eager bindings are needed only when an arm can have a side effect. Here the arms are literals or plain loads, the literals are typed i64 and then cast, and a constant selector could be folded.",
+    improvement: "`(if false { 10i64 } else { 20i64 }) as i16`: the literals are typed i64 and then cast, and a constant selector could be folded.",
     alternatives: [
-      "A (emitted today): always bind all three, then branch. This is correct for side effects, where the IR contract is eager.",
-      "B: `if g { b } else { a }` when neither arm contains a call or dereference (pure loads or constants). Eagerness is unobservable then.",
+      "A (emitted today): a plain `if` — only the selected arm is evaluated (transpile-review-2026-09-29 task 41).",
       "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
-      "Choose B+C: keep A only when an arm can have an effect.",
     ],
     chosen: "C: fold SEL with a constant selector to the chosen arm, and type literal arms as the result type (10i16) instead of LINT.",
   },
@@ -2114,8 +2100,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "12ebb4e632": LEAN.shapes10_5,
   // pub x: i16,
   "1307e33bbf": merged(LEAN.shapes11_5, LEAN.shapes11_6),
-  // self.f = ({ let x = self.g; let x = Li64; let x = Li64; if x { x } else { x } }) as i16;
-  "14257c633c": merged(LEAN.shapes10_4, LEAN.shapes10_5),
+  // self.f = (if self.g { Li64 } else { Li64 }) as i16;
+  "2db51dfb96": merged(LEAN.shapes10_4, LEAN.shapes10_5),
   // pub __inout_guard_N: usize,
   "149af70520": LEAN.shapes18_1,
   // self.f[(Li8 as i64) as usize] = L;
@@ -2186,8 +2172,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "1f2f8205f9": LEAN.shapes12_1,
   // self.f = match self.f { L => self.f, …, _ => panic!(S) };
   "1fa78ccf62": LEAN.shapes3_5,
-  // self.f = ({ let x = self.g; let x = self.f as i32; let x = self.f as i32; if x { x } else { x } }) as i16;
-  "1ff319663d": LEAN.shapes10_4,
+  // self.f = (if self.g { self.f as i32 } else { self.f as i32 }) as i16;
+  "8b3a192776": LEAN.shapes10_4,
   // x = Li32.wrapping_neg();
   // break 'body_N;
   "204a887600": LEAN.shapes11_9,
@@ -2316,8 +2302,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "36d4b59ee2": LEAN.shapes11_19,
   // x.f = (x.f as i32).wrapping_add(Li32) as i16;
   "373f640901": LEAN.shapes15_4,
-  // self.f = Li32.wrapping_neg().max(Li32).min(Li32) as i16;
-  "ef06033fe1": LEAN.shapes8_6,
+  // self.f = Li64.max(-Li64).min(Li64) as i16;
+  "21672c09ea": LEAN.shapes8_6,
   // map
   "37745ed7a0": LEAN.shapes17_5,
   // pub __property_N: i16,
@@ -2705,8 +2691,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "73505351ad": LEAN.shapes1_5,
   // self.f = self.narrow.widen::<L>().to();
   "738e474bd5": LEAN.shapes7_7,
-  // self.f = Li32.max(self.f as i32).min(self.f as i32) as i16;
-  "7402369985": LEAN.shapes8_6,
+  // self.f = (self.f as i32).max(Li32).min(self.f as i32) as i16;
+  "deaa2bbf15": LEAN.shapes8_6,
   // self.f = Li64.max(Li64).min(Li64) as i16;
   "745a764511": LEAN.shapes7_1,
   // x: Lf32,
@@ -2731,8 +2717,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "77378f7efe": LEAN.shapes14_9,
   // pub fn m(mut __numbers_lower_N: i32, mut __numbers_upper_N: i32, x: &mut [i16]) -> i32 {
   "775c30eac7": LEAN.shapes16_15,
-  // self.f = (self.f as i32).max(Li32).min(Li32) as i16;
-  "779b38c9e9": LEAN.shapes8_6,
+  // self.f = Li32.max(self.f as i32).min(Li32) as i16;
+  "9d3d81580d": LEAN.shapes8_6,
   // self.f = (self.v as u64).wrapping_mul(Lu64).wrapping_sub({ let x = (self.v as u64).wrapping_mul(Lu64); let x = Lu6
   "7812f5a53d": merged(LEAN.shapes10_1, LEAN.shapes10_2),
   // pub __output_N: i16,
@@ -2769,8 +2755,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "7ab9128afd": LEAN.shapes18_9,
   // *x = { m(x); *x }.with_char((x as i64).wrapping_sub(Li64).wrapping_add(x as i64), { m(x); *x }.char_at((x as i64).
   "7b34ea5981": LEAN.shapes17_2,
-  // self.f = ({ let x = self.f; let x = Li64; let x = Li64; if x { x } else { x } }) as i16;
-  "7c185b5fac": merged(LEAN.shapes10_4, LEAN.shapes10_5),
+  // self.f = (if self.f { Li64 } else { Li64 }) as i16;
+  "ba75ffae84": merged(LEAN.shapes10_4, LEAN.shapes10_5),
   // pub fn scan(&mut self, g: &mut Globals, prg: &mut Programs) {
   "7c7cff3d31": LEAN.shapes19_8,
   // x = (x as i32).wrapping_mul(Li32) as i16;
@@ -2857,8 +2843,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "873f201d21": LEAN.shapes5_10,
   // { let x = true; let x = &mut self.f; *x = if x { *x | (Lu8 << L) } else { *x & !(Lu8 << L) }; }
   "87cd3925f5": LEAN.shapes20_13,
-  // self.f = (self.f as i32).max(g.f as i32).min(g.f as i32) as i16;
-  "88544134e3": LEAN.shapes20_3,
+  // self.f = (g.f as i32).max(self.f as i32).min(g.f as i32) as i16;
+  "83d24ce33a": LEAN.shapes20_3,
   // self.f = IecString::<L>::lit(x!(S, { let x = self.f as i32; let x = self.f as i32; if x == L { L } else { x.wrappi
   "8883cf3a18": LEAN.shapes10_5,
   // self.f = len(self.narrow.to::<L>());
@@ -2969,8 +2955,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9a8003dce0": LEAN.shapes16_1,
   // self.f = self.f[((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((Li8 as i64) - Li64) as usize][((
   "9b12fdbfc8": LEAN.shapes12_2,
-  // self.f = ({ let x = false; let x = Li64; let x = Li64; if x { x } else { x } }) as i16;
-  "9b69fbd632": LEAN.shapes10_4,
+  // self.f = (if false { Li64 } else { Li64 }) as i16;
+  "faa5102f23": LEAN.shapes10_4,
   // self.v = Li64.wrapping_sub(Li64) as i16;
   "9b7b8014c4": LEAN.shapes7_1,
   // self.f = { let __copy_N = self.f; self.m(&__copy_N) };
@@ -2979,8 +2965,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "9c052f4d4b": LEAN.shapes10_5,
   // let mut x: u8 = Lu8;
   "9c1d0c1a6e": LEAN.shapes13_16,
-  // self.f.f = { let x = self.f; let x = self.f; let x = self.f; if x { x } else { x } };
-  "9c7058e6e1": LEAN.shapes20_3,
+  // self.f.f = if self.f { self.f } else { self.f };
+  "c2ecf76c31": LEAN.shapes20_3,
   // self.f = ({ let x = self.v / Lu64; let x = Lu64; if x == L { L } else { x.wrapping_rem(x) } }) as u32;
   "9c7ca7c1f9": LEAN.shapes10_1,
   // self.f = IecString::<L>::lit(x!(S, (self.f as u64).wrapping_mul(self.f)).as_bytes()).to();
@@ -3111,8 +3097,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "b1e8ba6d90": LEAN.shapes16_4,
   // if ((x as i32) < Li32) | ((x as i32) > x) {
   "b2d33739c5": LEAN.shapes15_5,
-  // self.f = ({ let x = self.f; let x = g.f as i32; let x = g.f as i32; if x { x } else { x } }) as i16;
-  "b39326f54a": LEAN.shapes20_3,
+  // self.f = (if self.f { g.f as i32 } else { g.f as i32 }) as i16;
+  "14e2fedf17": LEAN.shapes20_3,
   // x = __grid_lower_N;
   "b3a0495ed2": LEAN.shapes13_17,
   // self.f = T::new();
@@ -3167,8 +3153,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "bcb0fc562e": LEAN.shapes8_3,
   // self.narrow = self.f.f.narrow::<L>().to();
   "90205de00e": LEAN.shapes16_1,
-  // self.f = { let x = self.g; let x = self.f; let x = self.f; if x { x } else { x } };
-  "be637eb16c": LEAN.shapes9_5,
+  // self.f = if self.g { self.f } else { self.f };
+  "12a2ae661a": LEAN.shapes9_5,
   // pub fn init(&mut self, prg: &mut Programs) {
   "bea3694884": LEAN.shapes7_8,
   // self.f = (self.f as i32) < (self.f as i32);
@@ -3366,8 +3352,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "e02b80c3c1": LEAN.shapes11_7,
   // self.f = ((self.f as i32) | (self.f as i32)) as i8;
   "e1456a0eae": LEAN.shapes8_3,
-  // self.f = self.f.wrapping_add(({ let x = self.f; let x = Li32; let x = Li32.wrapping_neg(); if x { x } else { x } }
-  "547ea4e920": LEAN.shapes11_8,
+  // self.f = self.f.wrapping_add((if self.f { -Li64 } else { Li64 }) as i16);
+  "60fefc4d63": LEAN.shapes11_8,
   // self.f = m(self.f.to::<L>(), self.f.to::<L>()).to::<L>().to();
   "e205f81b84": LEAN.shapes16_1,
   // if (self.f as i32) <= Li32 { break; }
@@ -3522,8 +3508,8 @@ export const NOTES: Readonly<Record<string, ShapeNote>> = {
   "f9bdd4950a": LEAN.shapes2_7,
   // pub fn init(&mut self) {
   "fa7d5f176f": LEAN.shapes2_12,
-  // if !((((({ let x = self.f; let x = Li32; let x = Li32.wrapping_neg(); if x { x } else { x } }) as i16) >= Li16) & 
-  "129bb34a7e": LEAN.shapes11_8,
+  // if !(((((if self.f { -Li64 } else { Li64 }) as i16) >= Li16) & (self.f <= self.f)) | ((((if self.f { -Li64 } else { Li64 }) as i16) < Li16) & (self.f >= self.f))) { break; }
+  "9358115574": LEAN.shapes11_8,
   // let mut map: i16 = Li16;
   "faf5605030": LEAN.shapes18_10,
   // self.m();

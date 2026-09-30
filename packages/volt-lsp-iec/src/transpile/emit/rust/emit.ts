@@ -739,16 +739,15 @@ class Printer {
               ? args.reduce((acc, a) => `iec_${e.name}(${acc}, ${a})`)
               : args.reduce((acc, a) => `${acc}.${e.name}(${unparen(a)})`)
           // NOT `clamp`: Rust's panics when MN > MX, and CODESYS answers that case with MX for every IN (conformance
-          // `limit_inverted_bounds`). MIN(MAX(IN, MN), MX) is exactly the measured behaviour.
+          // `limit_inverted_bounds`). MIN(MAX(MN, IN), MX) is exactly the measured behaviour — MN as the receiver, so
+          // it is evaluated before IN, as the IR states (`tr_41_limit_evaluation_order`).
           case "limit":
             return isString(e.type)
-              ? `iec_min(iec_max(${args[1]}, ${args[0]}), ${args[2]})`
-              : `${args[1]}.max(${argv[0]}).min(${argv[2]})`
-          // EAGER, as the IR states: the arms are bound BEFORE the branch, so both are evaluated exactly once
-          // like every other argument list. Printed as `if c { b } else { a }` the unselected arm was never
-          // evaluated, and an argument with a side effect meant one thing here and another in the interpreter.
+              ? `iec_min(iec_max(${args[0]}, ${args[1]}), ${args[2]})`
+              : `${args[0]}.max(${argv[1]}).min(${argv[2]})`
+          // LAZY, as the IR states: only the selected input is evaluated (`tr_41_sel_side_effects`).
           case "sel":
-            return `({ let __sel_c = ${argv[0]}; let __sel_f = ${argv[1]}; let __sel_t = ${argv[2]}; if __sel_c { __sel_t } else { __sel_f } })`
+            return `(if ${argv[0]} { ${argv[2]} } else { ${argv[1]} })`
           // Toward zero into an i32 whose out-of-range (and NaN) answer is i32::MIN — CODESYS's TRUNC(3.0E9) is
           // -2147483648, not a wrap and not Rust's saturating `as` — then `as` wraps that into INT for TRUNC_INT.
           case "trunc":
@@ -768,6 +767,7 @@ class Printer {
             return `({ let __rot = ${argv[0]}; (__rot & !${(1n << BigInt(e.bits)) - 1n}) | ((__rot as u${e.bits}).${rotate} as ${rustType(e.type)}) })`
           }
           case "mux": {
+            // LAZY, as the IR states: a `match` evaluates only the selected arm (`tr_41_mux_side_effects`).
             // a match ARM stands alone; the printer's parentheses around each one are `unused_parens`
             const [k, ...inputs] = argv
             const arms = inputs.map((input, i) => (i === inputs.length - 1 ? `_ => ${input}` : `${i} => ${input}`))
