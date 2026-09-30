@@ -129,8 +129,9 @@ export function newShared(
 
 /**
  * A pointer's or reference's ONE target (design §9 form 1): every address stored into the variable names the same place, or
- * elements of the same array. The pointer's value is 0 when null, 1 for its variable, and k + 1 for element k (from 0) —
- * so `p = 0` and `__ISVALIDREF` are plain comparisons, and `p[i]` / `p + n·SIZEOF(T)` step whole elements.
+ * elements of the same array. The pointer's value is 0 when null, 1 for its variable, and k + ELEMENT_TAG_BIAS (2^32) for
+ * element k (from 0), so a step below the first element does not reach 0 (`pointers.ts`) — so `p = 0` and `__ISVALIDREF`
+ * are plain comparisons, and `p[i]` / `p + n·SIZEOF(T)` step whole elements.
  */
 export interface PointerTarget {
   /** The variable — or the array whose elements the value indexes. */

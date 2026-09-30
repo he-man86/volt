@@ -9,6 +9,7 @@ import { binaryOf, cast, convert } from "./convert.js"
 import { storageOf } from "./storage.js"
 import { lowerPlace, refuseOpenArray } from "./places.js"
 import { byteSize } from "./bytes.js"
+import { constantValue } from "../ir/evaluate.js"
 import { lowerExpr } from "./expressions.js"
 import { refuseUnionWrite, unionOf } from "./unions.js"
 
@@ -51,7 +52,15 @@ export function recordTarget(lw: Lowering, key: string, target: PointerTarget, s
   return BigInt(known.length + 1)
 }
 
-/** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + 1) and its target. */
+/**
+ * THE VALUE OF A POINTER TO ARRAY ELEMENT k (counted from 0) is k + ELEMENT_TAG_BIAS. It was k + 1, which put the
+ * element one below the first on 0 — NULL — where CODESYS holds a byte address that is not (conformance
+ * `tr_44_pointer_step_below_first_element`: `ADR(arr[0]) - SIZEOF(INT) = 0` is FALSE, and stepping back reads arr[0]).
+ * Biased by 2^32, no step within reach of the array lands on 0; the index arithmetic subtracts the same bias.
+ */
+export const ELEMENT_TAG_BIAS = 1n << 32n
+
+/** `ADR(x)` or the right side of `REF=` — the pointer's value (1, or element index + ELEMENT_TAG_BIAS) and its target. */
 export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span): { value: IrExpr; target: PointerTarget } | undefined {
   if (pointerType.kind !== "pointer" && pointerType.kind !== "reference") return lw.bail("pointer-shape", "an address stored into something that is not a pointer", span)
   const place = lowerPlace(lw, x)
@@ -85,7 +94,7 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
   if (array === undefined) return lw.bail("pointer-shape", "the address of an element of an ARRAY[*]", span)
   if (!sameStorage(declared, array.element)) return lw.bail("pointer-type", "the address of an element of another type than the pointer's", span)
   const lint = elementaryRef("LINT")
-  const offset = binaryOf("sub", convert(last.index, lint), { kind: "const", value: array.lower - 1n, type: lint, span }, lint, span)
+  const offset = binaryOf("sub", convert(last.index, lint), { kind: "const", value: array.lower - ELEMENT_TAG_BIAS, type: lint, span }, lint, span)
   return { value: cast(offset, pointerType), target: { base, element: { lower: array.lower, length: array.length, type: array.element } } }
 }
 
@@ -147,9 +156,11 @@ export function pointerValue(lw: Lowering, e: Expr, pointerType: Type): { value:
       "a pointer to a single variable stepped by bytes, which needs the byte-addressable view (design §9)",
       e.span,
     )
-  if (bytes.kind !== "const" || typeof bytes.value !== "bigint" || bytes.value % size !== 0n)
+  // `2 * SIZEOF(INT)` is as constant as `SIZEOF(INT)`: the step is FOLDED, not required to be a single literal
+  const count = constantValue(bytes)
+  if (typeof count !== "bigint" || count % size !== 0n)
     return lw.bail("pointer-step", "a pointer stepped by something other than whole elements of its array", e.span)
-  const step: IrExpr = { kind: "const", value: bytes.value / size, type: pointerType, span: stepped.right.span }
+  const step: IrExpr = { kind: "const", value: count / size, type: pointerType, span: stepped.right.span }
   return { value: binaryOf(stepped.op === "+" ? "add" : "sub", loaded, step, pointerType, e.span), target }
 }
 
@@ -280,8 +291,8 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     return { ...target.base, guard: pointer, span }
   }
   const lint = elementaryRef("LINT")
-  // the element the value names, back in the array's own index range: value - 1 + lower (+ extra)
-  let index = binaryOf("add", cast({ kind: "load", place: pointer, type: pointer.type, span }, lint), { kind: "const", value: target.element.lower - 1n, type: lint, span }, lint, span)
+  // the element the value names, back in the array's own index range: value - ELEMENT_TAG_BIAS + lower (+ extra)
+  let index = binaryOf("add", cast({ kind: "load", place: pointer, type: pointer.type, span }, lint), { kind: "const", value: target.element.lower - ELEMENT_TAG_BIAS, type: lint, span }, lint, span)
   if (extra !== undefined) index = binaryOf("add", index, convert(extra, lint), lint, span)
   const step = { kind: "index" as const, index, lower: target.element.lower, length: target.element.length }
   return { ...target.base, path: [...target.base.path, step], type: target.element.type, guard: pointer, span }
@@ -370,7 +381,7 @@ export function storePointer(lw: Lowering, target: Place, value: Expr, span: Spa
     const tag = recordTarget(lw, key, stored.target, span)
     if (tag === undefined) return undefined
     // THE VALUE IS THE TAG once the pointer has more than one target. With one it stays what `addressOf` gave —
-    // 1 for a variable, the element index + 1 for an array — which is form 1's encoding and what `p = 0`,
+    // 1 for a variable, the element index + ELEMENT_TAG_BIAS for an array — which is form 1's encoding and what `p = 0`,
     // `__ISVALIDREF` and `p[i]` are all built on. Those two encodings cannot share a variable, so a pointer that
     // names several ELEMENTS is refused rather than given a tag that its index arithmetic would then read.
     const targets = lw.shared.pointers.get(key) ?? []

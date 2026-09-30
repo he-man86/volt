@@ -518,9 +518,9 @@ those values into the new fixture's recording.
 - Repro: `p := ADR(arr[0]); p := p - SIZEOF(INT); isNull := p = 0` → TRUE.
 - CODESYS: a pointer is a byte address; ADR(arr[0]) - 2 is non-zero.
 - Fix: bias array-element tags so no in-range step reaches 0.
-- [ ] 44.1 Fixture — red.
+- [x] 44.1 Fixture — red.
   Recorded 2026-09-29 (record:exec): `tr_44_pointer_step_below_first_element` — not-lowered (`pointer-step`). CODESYS: back=backTwo=11, isNull=FALSE.
-- [ ] 44.2 Fix.
+- [x] 44.2 Fix. Array element k is tagged k + `ELEMENT_TAG_BIAS` (2^32, `lower/pointers.ts`; `addressOf` and `pointeePlace` agree), and a step is folded (`2 * SIZEOF(INT)` is whole elements); fixture confirmed (rust vendor); src test in lower.test.ts.
 
 ## 45. A STRING literal with an embedded $00 keeps the characters after it
 - Root cause: `src/syntax/literal-value.ts:50` (decodes $00 to a real NUL), `lower/constants.ts:147` (passes it),
