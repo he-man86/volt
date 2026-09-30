@@ -319,9 +319,9 @@ those values into the new fixture's recording.
 - CODESYS (LIVE): r_ea0=r_ea1=3, r_eb1=1, r_ma0=r_ma1=5, r_aa1_0=8, r_aa1_1=9, r_sz1=5; a PARTIAL initializer `[7]`
   leaves the tail at 0 (r_alias_part2=0), so today's tail behaviour is right.
 - Fix: resolve the element default in lowering and carry it in IrInit; keep partial tails at the family zero.
-- [ ] 25.1 Record `array_element_type_default` — red.
+- [x] 25.1 Record `array_element_type_default` — red.
   Recorded 2026-09-29 (record:exec): `array_element_type_default` — diverges.
-- [ ] 25.2 Fix.
+- [x] 25.2 Fix. `elementDefaults` (lower/storage.ts) gives an array declared without an initializer an `IrInit` of its element type's default per element (enum rule, alias `:=`, alias-of-array aggregate; nested arrays and every dimension); a partial initializer's tail is untouched (0). The recording says r_eb1=0 (`F : (X:=1, Y:=0)` starts at its zero member, the existing enum rule), not the 1 noted above. Fixture confirmed (rust vendor), mark removed; src test in lower.test.ts.
 
 ## 26. SIZEOF of an FB counts VAR CONSTANT and ignores IMPLEMENTS
 - Root cause: `lower/bytes.ts:94` (skip list ignores the section's `constant` flag) and `:64` (never reads

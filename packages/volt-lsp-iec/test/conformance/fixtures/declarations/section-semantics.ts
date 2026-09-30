@@ -177,7 +177,6 @@ END_PROGRAM
   // today and must stay right).
   {
     name: "array_element_type_default",
-    deferred: { transpile: "transpile-review-2026-09-29 task 25: array elements take their element type's default in CODESYS (enum first member, alias initializer, alias array); the lowering zeroes them (recorded 2026-09-29)" },
     pouName: "FB_LANG_tr25",
     kind: "function_block",
     feature:

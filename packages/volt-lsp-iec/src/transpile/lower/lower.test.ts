@@ -2271,6 +2271,21 @@ END_PROGRAM
   expect(later("b : INT := 1; a : INT := g + b;")).toEqual([])
 })
 
+// transpile-review 25: an array with no initializer started every element at the family zero. CODESYS
+// (`array_element_type_default`) starts each at its ELEMENT type's default — an enum's (zero when it is a member, else the
+// first), an alias's own `:=`, an initialized alias-of-array's per element — while a PARTIAL initializer's tail stays 0.
+test("an array's elements start at their element type's default; a partial initializer's tail stays zero", () => {
+  const source =
+    "TYPE E : (A := 3, B := 4);\nEND_TYPE\nTYPE F : (X := 1, Y := 0);\nEND_TYPE\nTYPE MyInt : INT := 5;\nEND_TYPE\n" +
+    "TYPE MyArr : ARRAY[0..1] OF INT := [8, 9];\nEND_TYPE\n" +
+    "PROGRAM P\nVAR ea : ARRAY[0..1] OF E; eb : ARRAY[0..1] OF F; ma : ARRAY[0..1] OF MyInt; aa : ARRAY[0..1] OF MyArr;\n" +
+    "sz : ARRAY[1..2] OF MyInt; part : ARRAY[0..2] OF MyInt := [7]; grid : ARRAY[0..1, 0..1] OF E; END_VAR\nEND_PROGRAM\n"
+  const runner = run(ir(source, "P"))
+  runner.scan()
+  const names = ["ea[0]", "ea[1]", "eb[1]", "ma[0]", "ma[1]", "aa[1][0]", "aa[1][1]", "sz[1]", "sz[2]", "part[0]", "part[2]", "grid[1, 1]"]
+  expect(names.map((n) => runner.get(n))).toEqual([3n, 3n, 0n, 5n, 5n, 8n, 9n, 5n, 5n, 7n, 0n, 3n])
+})
+
 // transpile-review 26: SIZEOF of an FB laid out every VAR CONSTANT and never read IMPLEMENTS. CODESYS (`mem_fb_var_constant_*`,
 // `mem_fb_implements_*`): a replaced scalar constant takes no room (16), a `const_non_replaced` one (24) and a STRUCT one (32)
 // do, and each implemented interface adds 8 (24, 32). A constant whose replacement is not measured is refused.

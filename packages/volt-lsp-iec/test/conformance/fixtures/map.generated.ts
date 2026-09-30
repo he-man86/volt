@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2048
+ *     confirmed     2049
  *     refused        549
  *     not-lowered    102
  *     lsp-gap          9
- *     diverges         9
+ *     diverges         8
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -176,7 +176,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   arithedge_word_mul_over: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "5874e28c37", notes: ["1d7709a031", "65df8e0418", "ed846b075d"] },
   arithedge_word_sub_under: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "2d0456471a", notes: ["1d7709a031", "65df8e0418", "a851cc298d"] },
   arithmetic_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 6.3, shape: "94c553d629", notes: ["06bb3a6005", "1307e33bbf", "4979768984", "4a6baf16b3", "63d29bd1a0", "870b70e195"] },
-  array_element_type_default: { evidence: "diverges", tier: "aggregate", rust: "compiles", pedantic: 38, edge: "agree", size: 1.5, shape: "82a59a63ed", notes: ["1307e33bbf", "4e213fd264", "abe3ae1f0b", "f9bdd4950a"] },
+  array_element_type_default: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 38, edge: "agree", size: 1.5, shape: "b8f1f37312", notes: ["1307e33bbf", "4e213fd264", "abe3ae1f0b"] },
   array_index_const_below_bounds: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 5, edge: "not-run", size: 3, shape: "0faf30d780", notes: ["3d737b5821", "c52c7994ca"] },
   array_index_const_in_bounds: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "0faf30d780", notes: ["3d737b5821", "c52c7994ca"] },
   array_index_const_out_of_bounds: { evidence: "refused", tier: "aggregate", rust: "rejected", pedantic: 5, edge: "not-run", size: 3, shape: "0faf30d780", notes: ["3d737b5821", "c52c7994ca"] },

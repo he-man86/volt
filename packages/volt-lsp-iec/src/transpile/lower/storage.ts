@@ -223,7 +223,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       const attempt = (): IrInit | undefined =>
         decl.init === undefined
           ? enumStart === undefined
-            ? undefined
+            ? elementDefaults(lw, written.type, type)
             : stored(enumStart, type)
           : decl.init.kind === "aggregate_init"
             ? aggregateInit(lw, decl.init, type)
@@ -610,6 +610,34 @@ export function holdsInstance(lw: Lowering, t: Type): boolean {
   if (element !== undefined) return holdsInstance(lw, element)
   if (t.kind === "function_block") return true
   return t.kind === "struct" && (lw.layouts.get(t.name.toUpperCase())?.fields ?? []).some((f) => holdsInstance(lw, f.type))
+}
+
+/**
+ * AN ARRAY'S ELEMENTS START AT THEIR ELEMENT TYPE'S DEFAULT, not the family zero: an enum's (`enumDefault`), an alias's
+ * own `:=`, an initialized alias-of-array's for each element (conformance `array_element_type_default`: `ARRAY OF E` with
+ * `E : (A := 3, B := 4)` is 3, `ARRAY OF MyInt` with `MyInt : INT := 5` is 5 — transpile-review 25). Only for an array
+ * declared WITHOUT an initializer: a partial `[7]`'s tail stays 0 (`r_alias_part2`), which `aggregateInit` already does.
+ * Undefined when the element's default is its zero, so the slot keeps `defaultValueOf`.
+ */
+function elementDefaults(lw: Lowering, written: TypeExpr, type: Type): IrInit | undefined {
+  if (written.kind !== "array_type" || type.kind !== "array" || type.bounds === undefined) return undefined
+  const element = type.element
+  const alias = aliasInit(lw, written.element)
+  const enumStart = enumDefault(lw, lw.resolve(written.element)) ?? inlineEnumDefault(lw, written.element)
+  const one =
+    written.element.kind === "array_type"
+      ? elementDefaults(lw, written.element, element)
+      : alias !== undefined
+        ? alias.kind === "aggregate_init"
+          ? aggregateInit(lw, alias, element)
+          : scalarInit(lw, alias, element)
+        : enumStart === undefined
+          ? undefined
+          : stored(enumStart, element)
+  if (one === undefined || one === defaultValueOf(element)) return undefined
+  const lengths = type.bounds.map((b) => Number(b.upper - b.lower + 1n))
+  const fill = (level: number): IrInit => (level === lengths.length ? one : { elements: Array.from({ length: lengths[level]! }, () => fill(level + 1)) })
+  return fill(0)
 }
 
 /** The initializer the variable's alias type carries. ponytail: an alias OF an alias is unmeasured, so only the
