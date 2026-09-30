@@ -3,7 +3,7 @@
  */
 import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl, TypeExpr, VarDecl, VarSection } from "../../syntax/index.js"
 import { lookup } from "../../symbols/index.js"
-import { DEFAULT_STRING_LENGTH, elemOf, elementaryRef, resolveNamedType, type Type } from "../../types/index.js"
+import { constantSlotType, DEFAULT_STRING_LENGTH, elemOf, elementaryRef, elementaryTypeRef, resolveNamedType, type Type } from "../../types/index.js"
 import { defaultValueOf, elementOf, type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
 import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
@@ -210,7 +210,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       // it is skipped for the reason above — a hardware-mapped variable left as ordinary storage, un-diagnosed,
       // is worse than the cascade.
       if (written.at !== undefined) bindAddress(lw, written)
-      const type = storageOf(lw, lw.resolve(written.type))
+      const type = constantSlot(lw, sec, written, storageOf(lw, lw.resolve(written.type)))
       // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
       // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
       // alias to INT and the alias's initializer went with it.
@@ -300,6 +300,21 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
         }
       }
     }
+}
+
+/**
+ * A CONSTANT's slot is wide enough for its value: an initializer that is a constant EXPRESSION is not narrowed to the
+ * declared type (`constantSlotType`), so `D : SINT := K + 1` (K = 127) holds 128 and every read of it is 128
+ * (conformance `named_const_expression_keeps`, recorded; transpile-review-2026-09-29 task 2.3).
+ */
+function constantSlot(lw: Lowering, sec: VarSection, decl: VarDecl, type: Type): Type {
+  const init = decl.init
+  const elem = elemOf(type)
+  if (sec.constant !== true || sec.sectionKind === "VAR_INPUT" || sec.sectionKind === "VAR_IN_OUT") return type
+  if (elem === undefined || init === undefined || init.kind === "aggregate_init" || init.kind === "literal") return type
+  const folded = foldConstant(lw, init, true)
+  const wide = typeof folded === "bigint" ? constantSlotType(folded, elem) : undefined
+  return wide === undefined ? type : elementaryTypeRef(wide)
 }
 
 /**

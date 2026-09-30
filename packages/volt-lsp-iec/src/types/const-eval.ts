@@ -9,7 +9,8 @@
 import type { Scope, Symbol } from "../symbols/index.js"
 import { findChildScope, lookup, lookupLocal, lookupMember, isLibrarySymbol, resolveGvlMember } from "../symbols/index.js"
 import type { Expr, TypeExpr, VarDecl } from "../syntax/index.js"
-import { elementaryType } from "./elementary.js"
+import { elementaryType, type ElementaryType } from "./elementary.js"
+import { integerOfWidth } from "./arith.js"
 
 export type ConstValue = bigint | number | boolean | undefined
 
@@ -185,6 +186,21 @@ function heldAs(v: bigint, t: TypeExpr): bigint {
   return e.signed ? BigInt.asIntN(e.bits, v) : BigInt.asUintN(e.bits, v)
 }
 
+
+/**
+ * The integer type a CONSTANT's slot holds its fold in. A constant-EXPRESSION initializer is not narrowed (see
+ * `initialValue`), so `D : SINT := K + 1` (K = 127) IS 128 — CODESYS reads D itself back as SINT#128 and `d2 := D` is
+ * 128 (conformance `named_const_expression_keeps`, recorded; transpile-review-2026-09-29 task 2.3). A slot of the
+ * declared width cannot hold that, so it is the same signedness at the first width that can. Undefined when the declared
+ * type already holds the value, or it is not a signed/unsigned integer type (a bit string is unmeasured).
+ */
+export function constantSlotType(value: bigint, declared: ElementaryType): ElementaryType | undefined {
+  if (declared.family !== "int") return undefined
+  const fits = (bits: number): boolean => (declared.signed ? BigInt.asIntN(bits, value) : BigInt.asUintN(bits, value)) === value
+  if (fits(declared.bits)) return undefined
+  const bits = [16, 32, 64].find((b) => b > declared.bits && fits(b))
+  return bits === undefined ? undefined : integerOfWidth(bits, declared.signed)
+}
 
 function foldUnary(op: string, v: ConstValue): ConstValue {
   if (v === undefined) return undefined

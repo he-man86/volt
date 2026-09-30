@@ -1220,3 +1220,19 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
     expect([pou.get("x"), pou.get("y")]).toEqual([12n, -31073n])
   })
 })
+
+// transpile-review-2026-09-29 task 2.3 (conformance `named_const_expression_keeps`, recorded): a CONSTANT whose
+// constant-EXPRESSION initializer overflows its type IS its unwrapped fold — CODESYS reads `D : SINT := K + 1` back as
+// SINT#128 and `d2 := D` is 128 — where a variable of that type would hold -128.
+describe("interp — a CONSTANT from an overflowing expression", () => {
+  test("its slot and every read of it hold the unwrapped fold", () => {
+    const pou = load(`PROGRAM P
+VAR d1 : INT := D; e1 : INT := E; d2 : INT; e2 : INT; END_VAR
+VAR CONSTANT K : SINT := 127; D : SINT := K + 1; U : USINT := 255; E : USINT := U + 3; END_VAR
+d2 := D; e2 := E;
+END_PROGRAM
+`)
+    pou.scan()
+    expect(["D", "E", "d1", "e1", "d2", "e2"].map((n) => pou.get(n))).toEqual([128n, 258n, 128n, 258n, 128n, 258n])
+  })
+})

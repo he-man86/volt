@@ -45,9 +45,9 @@ those values into the new fixture's recording.
 - [x] 2.1 Record `named_const_literal_wrap` and `named_const_expression_keeps` from the LIVE case — red.
   Recorded with record:exec: C=-25536, x=y=-25536, CASE matches; N : SINT := 200 reads -56. Emitted Rust `40000 =>` on i16 failed rate:fixtures.
 - [x] 2.2 Fix initialValue. A literal initializer is held at the declared integer width (`heldAs` in `types/const-eval.ts`, shared by LSP and lowering); an expression initializer keeps the unwrapped fold (d1 = 128, e1 = 258 match).
-- [ ] 2.3 `named_const_expression_keeps` diverges on the SLOT: CODESYS reads D as SINT#128 / E as USINT#258 and `d2 := D` = 128;
-  lowering stores the constant wrapped (-128 / 2) and reads it from that slot. Deferred (diverges ceiling 3 -> 4) —
-  a constant reference would have to lower to its folded value, and the constant's own read cannot be held in its declared width.
+- [x] 2.3 `named_const_expression_keeps` diverges on the SLOT: CODESYS reads D as SINT#128 / E as USINT#258 and `d2 := D` = 128;
+  lowering stores the constant wrapped (-128 / 2) and reads it from that slot.
+  Fixed: a CONSTANT's slot takes the first same-signedness width that holds its unwrapped fold (`constantSlotType` in `types/const-eval.ts`, `constantSlot` in `lower/storage.ts`); fixture confirmed (rust vendor), mark removed.
 
 ## 3. REAL constants and REAL# literals fold at double precision
 - Root cause: `src/types/const-eval.ts:69` (literal ignores REAL#), `:127` (no Math.fround for a REAL constant),

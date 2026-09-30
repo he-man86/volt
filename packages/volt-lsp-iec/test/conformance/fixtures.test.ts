@@ -1216,6 +1216,7 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // cause ahead of its fix (tasks 6, 12, 14, 16-22, 24-33, 35, 36, 41, 42, 45-47), each carrying its task in
   // `deferred.transpile`. This number comes back down task by task as the fixes land.
   // 58 -> 57: task 18 refuses its fixture now (`not-lowered`).
+  // `named_const_expression_keeps` (task 2.3) is RESOLVED: a CONSTANT's slot takes the width its unwrapped fold needs.
   diverges: 57,
   // 18 -> 34 because the MEASUREMENT changed, not because gaps appeared. `refused` claimed the vendor rejects a
   // source AND so do we, while only checking the vendor; 16 fixtures were counted as evidence while the LSP accepted

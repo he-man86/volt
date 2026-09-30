@@ -6,7 +6,7 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import { bodies, buildSymbolTable } from "../symbols/index.js"
-import { constEval } from "./index.js"
+import { constantSlotType, constEval, elementaryType } from "./index.js"
 
 const LISTS = [
   { uri: "file:///p/GVL_Constants.gvl", source: "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\n  Count : INT := 12;\nEND_VAR\nVAR_GLOBAL\n  plain : INT := 3;\nEND_VAR\n" },
@@ -74,6 +74,14 @@ test("a named constant from a literal folds to what its type holds; from an expr
   expect(folded("Q", list)).toBe(-56n)
   expect(folded("D", list)).toBe(128n)
   expect(folded("E", list)).toBe(258n)
+})
+
+// transpile-review-2026-09-29 task 2.3 (conformance `named_const_expression_keeps`, recorded: D reads SINT#128, E USINT#258):
+// the constant's slot is the same signedness at the first width that holds its unwrapped fold.
+test("a constant whose fold its declared type cannot hold gets a slot that can", () => {
+  expect(constantSlotType(128n, elementaryType("SINT")!)?.name).toBe("INT")
+  expect(constantSlotType(258n, elementaryType("USINT")!)?.name).toBe("UINT")
+  expect(constantSlotType(127n, elementaryType("SINT")!)).toBeUndefined()
 })
 
 // transpile-review-2026-09-29 task 3 (conformance `real_constant_fold_width`, LIVE): a fold over REAL computes wide and

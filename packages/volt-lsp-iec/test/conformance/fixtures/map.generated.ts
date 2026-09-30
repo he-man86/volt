@@ -14,11 +14,11 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2044
+ *     confirmed     2045
  *     refused        549
  *     not-lowered    102
  *     lsp-gap          9
- *     diverges        13
+ *     diverges        12
  *     unaskable       38
  *
  *   tier                     lowered    clean
@@ -61,12 +61,12 @@
  *       disagree: tr_41_mux_side_effects — (declared inputs): inst.b interpreter 1, Rust 0
  *       disagree: uop_neg_real — inst.x := REAL#0: inst.out interpreter [48], Rust [45, 48]
  *
- *   pedantic — 35843 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *   pedantic — 35842 clippy::pedantic + clippy::perf findings; the ten most frequent
  *     clippy::must_use_candidate               6657
  *     clippy::cast_possible_truncation         5683
  *     clippy::uninlined_format_args            4743
  *     clippy::cast_sign_loss                   4385
- *     clippy::cast_lossless                    4382
+ *     clippy::cast_lossless                    4380
  *     clippy::unreadable_literal               3679
  *     clippy::manual_assert                    1530
  *     clippy::missing_panics_doc               1391
@@ -1771,7 +1771,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   mux_basic: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 5.5, shape: "01ef849627", notes: ["1307e33bbf", "96b55e688b"] },
   mux_mixed_types: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 5.3, shape: "e998521ed0", notes: ["1307e33bbf", "5c9bb13706", "74845f98c6"] },
   mux_out_of_range: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 4.7, shape: "df3897f2a5", notes: ["1307e33bbf", "96b55e688b", "ec9a760059"] },
-  named_const_expression_keeps: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 6, shape: "bd0e8536fd", notes: ["1307e33bbf", "b501abe431"] },
+  named_const_expression_keeps: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 6, shape: "18cba35b92", notes: ["1307e33bbf", "1d7709a031", "65df8e0418"] },
   named_const_literal_wrap: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.8, shape: "5e91c8782e", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "63d29bd1a0", "6f9ae8fd3a", "b501abe431", "ec9a760059"] },
   narrowing_lreal_to_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "3cbfe9dd16", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "8cca954ad7"] },
   negative_literal_constant_fold: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 6.5, shape: "9d95229a47", notes: ["4a6baf16b3", "57a8f5a4c8", "870b70e195"] },
