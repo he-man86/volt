@@ -93,6 +93,9 @@ const KIND = {
   downstream: 'DOWNSTREAM step: re-run every consumer suite; each change is either a recording-decided improvement (note it) or a regression (fix it).',
 }
 
+const GATE = { type: 'object', properties: { committed: { type: 'boolean' }, hash: { type: 'string' },
+  numbers: { type: 'string' }, blocker: { type: 'string' } }, required: ['committed'] }
+let stopped = null
 const done = []
 for (const s of steps) {
   if (s.kind === 'close') break
@@ -138,14 +141,30 @@ ${JSON.stringify(again, null, 1)}`, { label: `fix:${s.id}:r2`, phase: 'Review' }
   }
 
   phase('Gate')
-  done.push(await agent(`${RULES}
+  let gate = await agent(`${RULES}
 
 GATE step ${s.id}. Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green.
 Write the step's numbers/delta under its tasks in tasks.md and tick what is done. ${s.parts ? 'This was a group: make ONE COMMIT PER STEP in the group, in order (only the paths of that step each), so bisect and revert stay per step. ' : ''}Commit exactly the step's paths as
 "<type>(<scope>): ${args.change} ${s.id} — <what>". If it cannot get green, do NOT commit: restore the tree to the last commit and write
-in the task what blocks it. Return: committed yes/no, hash, the numbers.`, { label: `gate:${s.id}`, phase: 'Gate' }))
+in the task what blocks it. Return: committed yes/no, hash, the numbers.`, { label: `gate:${s.id}`, phase: 'Gate', schema: GATE })
+  if (!gate?.committed) {
+    // A red gate gets ONE repair attempt on the same work; if it stays red the run STOPS — a later step must never be
+    // built on a tree that lacks this one (2026-09-30: 2.2 started without 2.1's lexer and had to be parked).
+    log(`gate ${s.id} not green — one repair attempt`)
+    gate = await agent(`${RULES}
+
+REPAIR step ${s.id}: its gate was not green. Gate report:
+${JSON.stringify(gate)}
+Bring back the step's work if the gate set it aside (git stash apply of ITS stash — never git stash -u, which would sweep other
+sessions' untracked files), then fix the failures: decide on grounds independent of the code whether product or test is wrong;
+baseline ceilings may only fall. When everything is green, tick and commit as the gate would have. Otherwise leave the tree clean
+and say what blocks it.`, { label: `repair:${s.id}`, phase: 'Gate', schema: GATE })
+  }
+  done.push(gate)
+  if (!gate?.committed) { log(`STOP: step ${s.id} could not be made green — ${gate?.blocker ?? 'see report'}`); stopped = s.id; break }
 }
 
+if (stopped) return { change: args.change, stoppedAt: stopped, blockedBy: [`${args.change} step ${stopped} is red`], done }
 const closeOpen = (status?.steps ?? []).some(s => s.kind === 'close')
 if (closeOpen && (!steps.length || steps[steps.length - 1]?.kind === 'close' || steps.every(s => s.kind === 'close'))) {
   phase('Close')
