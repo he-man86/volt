@@ -6,7 +6,8 @@
  *   the FORMATTER   `format(x)` re-parses, as the same source object (its uri), with no parse error `x` does not
  *                   already carry, to the same AST (spans and tokens aside, bodies compared as statements), and
  *                   `format(format(x)) === format(x)`;
- *   `exprText`      every maximal expression prints to a text that parses back as an expression printing the same.
+ *   `exprText`      every maximal expression prints to a text that parses back as an expression printing the same —
+ *                   save one holding its source's own parse error (`dumps.ts` `refusedIn`), which has no fixed point.
  *
  * The printer is Volt's, not the vendor's, so there is no recording to hold it to: a fixed point is the whole rule
  * (design.md §4 2.9, PR1). Each non-fixed-point is a finding pinned in `baselines/fixed-point.json`; PR1 stays a GAP

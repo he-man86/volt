@@ -14,7 +14,7 @@ function firstDecl(src: string): VarDecl {
 
 /** Materialize a statement list from a body snippet. */
 function stmts(body: string) {
-  const toks = lex(body).filter((t) => t.kind !== "eof")
+  const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
   return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
 }
@@ -249,6 +249,26 @@ test("__POSITION eats the token after it, so the compiler complains about whatev
   expect(bodyErrors("__POSITION;\nhere := 1;")).toEqual(["Unexpected token '__POSITION' found"])
 })
 
+// `lex_keyword_operand_sys_pouname` (CODESYS, 2026-09-30): `n := __pouname;` answers exactly what `n := __POSITION;`
+// does — the `;` eaten — and nothing else; the call form `__POUNAME()` (308 uses in pro2193) is untouched.
+test("__POUNAME without its parentheses eats the token after it, as __POSITION does", () => {
+  expect(bodyErrors("n := __pouname;")).toEqual(["';' expected instead of end of POU"])
+  expect(bodyErrors("n := __POUNAME();")).toEqual([])
+})
+
+// `lex_keyword_operand_sys_new` (CODESYS and TwinCAT alike, 2026-09-30): without its `(` `__NEW` takes the next token
+// for it, then wants a type, then its `)`, and the statement has lost its `;`.
+test("__NEW without its parentheses takes the next token for its `(` and then wants a type", () => {
+  expect(bodyErrors("n := __new;").sort()).toEqual(
+    [
+      "'(' expected instead of ';'",
+      "Type definition expected as operand for __NEW",
+      "')' expected instead of ''",
+      "';' expected instead of end of POU",
+    ].sort(),
+  )
+})
+
 test("__CURRENTTASK answers the same two words wherever it stands", () => {
   const refusal = ["';' expected instead of end of POU", "Expression expected instead of ''"]
   for (const body of ["here := __CURRENTTASK;", "here := __CURRENTTASK();", "__CURRENTTASK;", "here := __CURRENTTASK;\nafter := 7;"])
@@ -292,4 +312,39 @@ test("the option decides who reads an IMPLEMENTATION LD body: network text on re
     parseSource(LADDER, { networkText }).units.flatMap(unitBodies).map(bodyReader)
   expect(readers(true)).toEqual(["network"])
   expect(readers(false)).toEqual([undefined])
+})
+
+// ─── names CODESYS refuses in a declaration (frontend-conformance 2.1.3, L9 L12) ──────────────────────────────────
+
+const brokenDeclaration = (name: string): string[] => [
+  `Unexpected token '${name}' found`,
+  "';' expected instead of ':'",
+  "Unexpected token ':' found",
+  "';' expected instead of 'INT'",
+  "Unexpected token 'INT' found",
+]
+const inVar = (decl: string) => `FUNCTION_BLOCK F\nVAR\n  ${decl}\nEND_VAR\nEND_FUNCTION_BLOCK`
+
+test("an access or inheritance modifier is no variable name: the vendor's broken-declaration cascade (lex_soft_keyword_name_public, L12)", () => {
+  for (const w of ["public", "private", "protected", "internal", "final", "abstract"])
+    expect(messages(inVar(`${w} : INT;`))).toEqual(brokenDeclaration(w))
+})
+
+test("GET, SET and OVERRIDE are variable names (lex_soft_keyword_name_get/_set/_override, L12)", () => {
+  for (const w of ["get", "SET", "Override"]) expect(messages(inVar(`${w} : INT;`))).toEqual([])
+})
+
+test("a unit header takes all nine as its name: the compiler says nothing there (lex_soft_keyword_method_name_*, L12)", () => {
+  // CODESYS refuses to CREATE a method called `public` ("The name 'public' is not valid for this object.") and an FB
+  // called `Public` builds nothing about its header — only its use as a type is refused. No compiler message exists
+  // for the header, so the parser reads the name.
+  const method = (name: string) => `FUNCTION_BLOCK F\nEND_FUNCTION_BLOCK\n\nMETHOD ${name}\nEND_METHOD\n`
+  for (const w of ["Get", "set", "OVERRIDE", "public", "Final"]) expect(messages(method(w))).toEqual([])
+  expect(messages("FUNCTION_BLOCK Abstract\nEND_FUNCTION_BLOCK\n")).toEqual([])
+})
+
+test("a keyword where a type belongs is \"Type definition expected\", echoed as written (lex_soft_keyword_as_type_*, L12)", () => {
+  // both vendors, `v : Public;`: "Type definition expected instead of 'Public'"
+  expect(messages(inVar("inst : Public;"))[0]).toBe("Type definition expected instead of 'Public'")
+  expect(messages(inVar("inst : final;"))[0]).toBe("Type definition expected instead of 'final'")
 })

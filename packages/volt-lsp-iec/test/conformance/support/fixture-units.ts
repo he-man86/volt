@@ -195,8 +195,9 @@ function referencedNames(t: LanguageTest): Set<string> {
   // declaring the interface in the fixture itself). Lexing the source over-collects on purpose: only a name
   // ANOTHER FIXTURE DECLARES becomes a dependency, so a local variable that happens to match nothing costs
   // nothing. Measured when it was added: zero of 2561 fixtures gain a dependency, so no recording moves — which
-  // is exactly when to close a trap like this.
-  for (const tok of lex(t.source)) if (tok.kind === "identifier") names.add(tok.text.toUpperCase())
+  // is exactly when to close a trap like this. As CODESYS: its vocabulary reserves more words, so it collects no name
+  // TwinCAT's would not (a CODESYS-only word is no fixture's POU).
+  for (const tok of lex(t.source, "codesys")) if (tok.kind === "identifier") names.add(tok.text.toUpperCase())
   return names
 }
 

@@ -4,7 +4,7 @@ import { deadPous, deadMemberSpans, ownerPou, type ReachabilityInput } from "./r
 
 /** Build a reachability input from a file's bare name + source (uri drives GVL naming, not needed here). */
 function file(name: string, source: string): ReachabilityInput {
-  return { uri: `file:///${name}`, source, parseResult: parseSource(source, { networkText: true }) }
+  return { uri: `file:///${name}`, parseResult: parseSource(source, { networkText: true }) }
 }
 
 const PRG = (name: string, body: string) => file(`${name}.prg`, `PROGRAM ${name}\n${body}\nEND_PROGRAM`)

@@ -5,7 +5,10 @@
  * The dump (`dumps.ts` `resolutionDump`) binds every identifier occurrence of every corpus file, fixture and library body
  * to its declaration, or to NONE (nothing binds it), NOSCOPE (its unit binds no scope) or NO-CALLEE (a named argument
  * whose callee does not resolve). The corpus builds, so every NONE there is a finding; they are pinned as counts per
- * shape. The fixtures' are pinned one by one.
+ * shape. The fixtures' are pinned one by one — but a bare name the fixture's build ITSELF reports "Identifier 'x' not
+ * defined" binds to NONE in agreement with the oracle, and is counted as such, not pinned (frontend-conformance 2.1).
+ * A fixture `support/divergences.ts` pins as disagreeing with a vendor's build is counted, not measured, for that vendor:
+ * the suite already replays it as an expected failure, and it leaves that list the day it agrees.
  *
  * The fixtures are bound once per vendor, parsed as that vendor. Then the messages, both directions: every resolution
  * message the LSP gives for a fixture (`support/evidence.ts` `lspErrors`, the replay's own walk, once per vendor
@@ -14,6 +17,7 @@
  */
 import { describe, expect, test } from "bun:test"
 import { lspErrors } from "../conformance/support/evidence.js"
+import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { projectDocuments } from "../corpus/support/diagnostics.js"
 import { checkBaseline, tally } from "./baseline.js"
@@ -65,10 +69,13 @@ describe("0.3 resolution", () => {
     const census = boundCensus()
     const counts: Record<string, number> = { ...census.resolution }
     const findings = [...census.fixtureUnresolved]
+    // the two disagreement measures are ceilinged, so each is counted from 0 — one that falls to 0 is measured, not missing
+    for (const vendor of ["codesys", "twincat"]) for (const w of ["LSP only", "recorded only"]) counts[`messages ${vendor}: ${w}`] = 0
     for (const vendor of ["codesys", "twincat"] as const)
       for (const f of fixtureSources()) {
         const build = vendor === "codesys" ? f.codesys : f.twincat
-        if (build === undefined) continue
+        // pinned by `support/divergences.ts` as disagreeing with this build — held there, not measured twice
+        if (build === undefined || KNOWN_DIVERGENCES[vendor].has(f.test.name)) continue
         compare(
           vendor,
           `fixture ${vendor} ${f.test.name}`,

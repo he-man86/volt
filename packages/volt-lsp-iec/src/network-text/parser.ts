@@ -19,6 +19,7 @@
  */
 import {
   type BodySpan,
+  type Dialect,
   type Expr,
   graphicalMarkerLanguage,
   implementationLine,
@@ -152,8 +153,12 @@ export const STRUCTURE_ONLY = "structure-only" as const
 
 /** Parse a graphical body into networks, statements and the bridge reader's structural findings. Everything that reads
  *  the statements passes the POU's scope (`network/network-analyze`). */
-export function parseNetworkText(body: BodySpan, scope: NetworkScopeView | typeof STRUCTURE_ONLY): NetworkTextBody {
-  return new Parser(body, scope === STRUCTURE_ONLY ? undefined : scope).parseBody()
+export function parseNetworkText(
+  body: BodySpan,
+  scope: NetworkScopeView | typeof STRUCTURE_ONLY,
+  dialect: Dialect,
+): NetworkTextBody {
+  return new Parser(body, scope === STRUCTURE_ONLY ? undefined : scope, dialect).parseBody()
 }
 
 class Parser {
@@ -170,6 +175,8 @@ class Parser {
   constructor(
     private readonly body: BodySpan,
     private readonly scope: NetworkScopeView | undefined,
+    /** The document's vocabulary, for the ST fragments in the text (`stTokens`) — the parse's own. */
+    private readonly dialect: Dialect,
   ) {
     // The body's text is its tokens' text: the ST lexer emits every character, whitespace included.
     this.text = body.tokens.map((t) => t.text).join("")
@@ -1173,7 +1180,7 @@ class Parser {
   /** The ST tokens of `[from, to)` of the body text, positioned in the document. */
   private stTokens(from: number, to: number): Token[] {
     const at = this.position(from)
-    return lex(this.text.slice(from, to))
+    return lex(this.text.slice(from, to), this.dialect)
       .filter((t) => t.kind !== "eof" && !isTrivia(t.kind))
       .map((t) => ({ ...t, span: shift(t.span, at) }))
   }

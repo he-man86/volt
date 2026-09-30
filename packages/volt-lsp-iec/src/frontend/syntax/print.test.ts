@@ -9,7 +9,7 @@ import { isTrivia, lex, parseSource, renderTypeExpr, type TypeExpr } from "./ind
 
 /** The meaningful (non-trivia) token stream as `kind:text` pairs — the whitespace-insensitive identity. */
 const toks = (s: string): string[] =>
-  lex(s)
+  lex(s, "codesys")
     .filter((t) => !isTrivia(t.kind) && t.kind !== "eof")
     .map((t) => `${t.kind}:${t.text}`)
 

@@ -174,12 +174,12 @@ export class WorkspaceStore {
     return this.disk.get(key)
   }
 
-  /** The memoized dead-code reachInfo for one document (lex-heavy; keyed by Document identity, so only a
-   *  re-parsed file re-lexes). */
+  /** The memoized dead-code reachInfo for one document (a scan of its parse's tokens; keyed by Document identity, so
+   *  only a re-parsed file is scanned again). */
   private reachOf(d: Document): FileReachInfo {
     let info = this.reachCache.get(d)
     if (info === undefined) {
-      info = fileReachInfo({ uri: d.uri, source: d.source, parseResult: d.parseResult })
+      info = fileReachInfo({ uri: d.uri, parseResult: d.parseResult })
       this.reachCache.set(d, info)
     }
     return info

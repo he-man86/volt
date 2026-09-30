@@ -11,7 +11,6 @@ import {
   allUnits,
   graphicalBodies,
   implementationWords,
-  lex,
   type Span,
   type Token,
   type TokenKind,
@@ -69,7 +68,7 @@ function tokenRecords(doc: Document, project: Scope): TokenRecord[] {
   const graphical = graphicalBodySpans(doc)
   const wires = wireOccurrences(doc, project)
   const stated = implementationLineWords(doc.parseResult.units)
-  for (const tok of lex(doc.source)) {
+  for (const tok of doc.parseResult.tokens) {
     const type = wires.has(tok.span.start) ? "wire" : stated.has(tok.span.start) ? "keyword" : classify(tok, doc, project, graphical)
     if (type === undefined) continue
     // Multi-line tokens (block comments) are emitted on their first line only — clients tolerate this.

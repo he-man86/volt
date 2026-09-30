@@ -34,7 +34,7 @@ export function parseProperty(c: Cursor): Property | undefined {
   for (const m of modifiers)
     if (m === "PUBLIC" || m === "PRIVATE" || m === "PROTECTED" || m === "INTERNAL") accessModifier = m
 
-  const nameTok = c.expectName()
+  const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

@@ -51,7 +51,8 @@ import {
 } from "../../src/frontend/types/index.js"
 import { tally } from "./baseline.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
-import { foldDump, resolutionDump, sites, typeDump, valueExprs, type Bound } from "./dumps.js"
+import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
+import { foldDump, refusedIn, resolutionDump, sites, typeRows, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
 
@@ -81,22 +82,51 @@ export function boundCensus(): BoundCensus {
     folds: {},
     foldDisagreements: [],
   }
-  const summarize = (group: string, b: Bound, pin: string | undefined): void => {
-    for (const line of resolutionDump(b)) {
-      const [lhs, binding] = line.split(" -> ") as [string, string]
-      const name = lhs.slice(lhs.indexOf(" ") + 1)
-      const shape = name.startsWith(".") ? "member" : / (:=|=>)$/.test(name) ? "parameter" : "bare name"
-      const verdict = binding === "NONE" || binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
-      tally(c.resolution, `${group}: ${shape} ${verdict}`)
-      if (pin !== undefined && verdict !== "resolved") c.fixtureUnresolved.push(`${pin}${b.parsed.id} ${line}`)
+  /**
+   * `vendor` — a fixture's, measured against that vendor's build: `known` when `support/divergences.ts` already pins the
+   * fixture as disagreeing with that build (the suite replays it as an expected failure and fails the day it agrees), so
+   * its resolution and types are held there, once, and only counted here; `notDefined`, the names that build reports
+   * "Identifier 'x' not defined" — a bare name that binds to NONE, or is typed UNKNOWN, there AGREES with the oracle
+   * (0.3 asks whether the LSP says "not defined" exactly where the vendor does), so it is counted, not a finding.
+   */
+  const summarize = (
+    group: string,
+    b: Bound,
+    pin: string | undefined,
+    vendor: { known: boolean; notDefined: ReadonlySet<string> } = { known: false, notDefined: new Set() },
+  ): void => {
+    if (vendor.known) {
+      tally(c.resolution, `${group}: files of a known divergence (support/divergences.ts), not measured`)
+      tally(c.types, `${group}: files of a known divergence (support/divergences.ts), not measured`)
     }
-    for (const line of typeDump(b)) {
-      const [, kind, ...rest] = line.split(" ")
-      const type = rest.join(" ")
-      tally(c.types, `${group}: expressions`)
-      if (type === "?" || type === "NOSCOPE")
-        tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
-    }
+    const agreed = new Set<string>()
+    if (!vendor.known)
+      for (const line of resolutionDump(b)) {
+        const [lhs, binding] = line.split(" -> ") as [string, string]
+        const name = lhs.slice(lhs.indexOf(" ") + 1)
+        const shape = name.startsWith(".") ? "member" : / (:=|=>)$/.test(name) ? "parameter" : "bare name"
+        const verdict = binding === "NONE" || binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
+        if (verdict === "NONE" && shape === "bare name" && vendor.notDefined.has(name.toLowerCase())) {
+          agreed.add(lhs.slice(0, lhs.indexOf(" ")))
+          tally(c.resolution, `${group}: bare name NONE, not defined on the vendor too`)
+          continue
+        }
+        tally(c.resolution, `${group}: ${shape} ${verdict}`)
+        if (pin !== undefined && verdict !== "resolved") c.fixtureUnresolved.push(`${pin}${b.parsed.id} ${line}`)
+      }
+    const refused = refusedIn(b.parsed.parseResult)
+    if (!vendor.known)
+      for (const { expr, line } of typeRows(b)) {
+        const [where, kind, ...rest] = line.split(" ")
+        const type = rest.join(" ")
+        tally(c.types, `${group}: expressions`)
+        if (type !== "?" && type !== "NOSCOPE") continue
+        // a refused expression (`dumps.ts` `refusedIn`) has no type to ask for; an undefined name the vendor also
+        // reports undefined has none either — both counted, neither an UNKNOWN
+        if (refused(expr)) tally(c.types, `${group}: ${kind} untyped, a refused expression`)
+        else if (kind === "ident_expr" && agreed.has(where)) tally(c.types, `${group}: ident_expr UNKNOWN, not defined on the vendor too`)
+        else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
+      }
     for (const line of foldDump(b)) {
       const [, where, value] = line.split(" ")
       tally(
@@ -113,9 +143,16 @@ export function boundCensus(): BoundCensus {
   for (const vendor of ["codesys", "twincat"] as const)
     for (const f of fixtureSources())
       withBoundFixture(f, vendor, (own, plc, deps) => {
-        summarize(`fixtures ${vendor}`, own, `${vendor} `)
-        summarize(`fixtures ${vendor}`, plc, `${vendor} `)
-        crossCheckBuildTypes(f, vendor, [own, plc], c)
+        const known = KNOWN_DIVERGENCES[vendor].has(f.test.name)
+        const notDefined = new Set(
+          ((vendor === "codesys" ? f.codesys : f.twincat)?.diagnostics ?? []).flatMap((d) => {
+            const m = /^Identifier '(.+)' not defined$/.exec(d.message)
+            return m === null ? [] : [m[1].toLowerCase()]
+          }),
+        )
+        summarize(`fixtures ${vendor}`, own, `${vendor} `, { known, notDefined })
+        summarize(`fixtures ${vendor}`, plc, `${vendor} `, { known, notDefined })
+        if (!known) crossCheckBuildTypes(f, vendor, [own, plc], c)
         if (vendor === "codesys") {
           crossCheckRunTypes(f, plc, c)
           crossCheckFolds(f, plc, [own, plc, ...deps], c)
@@ -238,8 +275,9 @@ function sameType(recorded: string, inferred: string): boolean {
   return r === i
 }
 
+/** A run-recording path as an expression — the run recording is CODESYS's, so lexed as CODESYS. */
 const pathExpr = (path: string): Expr | undefined =>
-  parseExprFromTokens(lex(path).filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))
+  parseExprFromTokens(lex(path, "codesys").filter((t) => !isTrivia(t.kind) && t.kind !== "eof"))
 
 function plcScope(plc: Bound): Scope | undefined {
   const unit = plc.parsed.parseResult.units[0]

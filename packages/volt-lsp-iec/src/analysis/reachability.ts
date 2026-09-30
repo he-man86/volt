@@ -17,7 +17,6 @@
  */
 import {
   allUnits,
-  lex,
   type Function,
   type FunctionBlock,
   type ParseResult,
@@ -28,7 +27,7 @@ import {
 
 export interface ReachabilityInput {
   uri: string
-  source: string
+  /** The parse carries the file's tokens (`ParseResult.tokens`, in its dialect) — the identifier scan reads those. */
   parseResult: ParseResult
 }
 
@@ -45,7 +44,7 @@ interface UnitInfo {
  * ALL lex-derived facts about ONE file — the ONLY expensive (source-scanning) part of dead-code analysis.
  * Extracted so the server can MEMOIZE it per parsed document: on a keystroke, only the edited file is
  * re-scanned; the other N-1 files' infos are reused, instead of re-lexing the whole project every edit.
- * A pure function of `(source, parseResult)`, so caching by document identity is sound.
+ * A pure function of `parseResult` (its tokens included), so caching by document identity is sound.
  */
 export interface FileReachInfo {
   uri: string
@@ -85,17 +84,17 @@ function firstPou(units: readonly TopLevel[]): Pou | undefined {
  * roots, preserving the uncertain-⇒-live safety.
  */
 /**
- * Extract every lex-derived fact about one file (the expensive, memoizable step). One lexer pass feeds both
+ * Extract every lex-derived fact about one file (the expensive, memoizable step). One pass over the parse's tokens feeds both
  * `deadPous` (whole-file identifier set) and `deadMemberSpans` (per-unit identifier buckets).
  */
 export function fileReachInfo(file: ReachabilityInput): FileReachInfo {
-  const { source, parseResult, uri } = file
+  const { parseResult, uri } = file
   const refs = new Set<string>()
   const ordered = [...parseResult.units].filter((u) => "span" in u).sort((a, b) => a.span.start - b.span.start)
   const buckets = new Map<TopLevel, Set<string>>()
   for (const u of ordered) buckets.set(u, new Set())
   let ui = 0
-  for (const tok of lex(source)) {
+  for (const tok of parseResult.tokens) {
     if (tok.kind !== "identifier") continue
     const lc = tok.text.toLowerCase()
     refs.add(lc)

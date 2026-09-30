@@ -30,7 +30,8 @@ test("a (* @volt-… *) comment is an older Volt's, reported naming `volt pull` 
     expect({ where, named: syntaxErrors(src).filter((m) => m.includes("volt pull")).length }).toEqual({ where, named: 1 })
   const text = {
     "a line comment": fb("IMPLEMENTATION ST\n// (* @volt-implementation *)\nout := a;\n"),
-    "a string": "FUNCTION_BLOCK F\nVAR\n\ts : STRING := '(* @volt-implementation *)';\nEND_VAR\nIMPLEMENTATION ST\ns := '';\nEND_FUNCTION_BLOCK\n",
+    // `txt`, not `s`: `s` is an IL operator CODESYS refuses as a name (`cc_reserved_name_s_*`)
+    "a string": "FUNCTION_BLOCK F\nVAR\n\ttxt : STRING := '(* @volt-implementation *)';\nEND_VAR\nIMPLEMENTATION ST\ntxt := '';\nEND_FUNCTION_BLOCK\n",
   }
   for (const [where, src] of Object.entries(text)) expect({ where, errors: syntaxErrors(src) }).toEqual({ where, errors: [] })
 })

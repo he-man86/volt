@@ -65,7 +65,7 @@ export function documentHighlights(doc: Document, project: Scope, offset: number
 /** The renameable range under the cursor (null-ish when nothing resolves → the client blocks rename). */
 export function prepareRename(doc: Document, project: Scope, offset: number): Range | undefined {
   if (resolveAt(doc, project, offset) === undefined) return undefined
-  const tok = tokenAtOffset(doc.source, offset)
+  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   return tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")
     ? rangeFromSpan(tok.span)
     : undefined

@@ -31,10 +31,15 @@ const KEYWORD_MAP: Map<string, Keyword> = new Map(KEYWORDS.map((k) => [k, k]))
 
 /**
  * `dialect` decides only the VOCABULARY — which words are reserved and which `<prefix>#` forms are literals
- * (see `CODESYS_ONLY_KEYWORDS`). Everything else is shared, and CODESYS is the default because it is the
- * superset: a TwinCAT project read as CODESYS reserves a handful of words it should not.
+ * (see `CODESYS_ONLY_KEYWORDS`). Everything else is shared.
+ *
+ * REQUIRED (frontend-conformance 2.1.4). It defaulted to CODESYS, "the superset", and eight re-lexers outside the parse
+ * took the default — hover, semantic tokens, reachability, the binder's `qualified_only`, the attribute readers, the
+ * token under the cursor, and the network-text parser's ST fragments — so a TwinCAT project was re-read with words
+ * reserved that TwinCAT does not have. A consumer reads `ParseResult.tokens` (lexed once, in the parse's dialect) or
+ * passes the dialect it has.
  */
-export function lex(src: string, dialect: Dialect = "codesys"): Token[] {
+export function lex(src: string, dialect: Dialect): Token[] {
   const tc = dialect === "twincat"
   const tokens: Token[] = []
   let pos = 0

@@ -7,14 +7,14 @@
  */
 import type { Hover } from "vscode-languageserver-protocol"
 import { lookupReference, pragmaHelp, renderReferenceHover } from "../../reference/index.js"
-import { lex, renderTypeExpr } from "../../frontend/syntax/index.js"
+import { renderTypeExpr } from "../../frontend/syntax/index.js"
 import type { Scope, Symbol, SymbolKind } from "../../frontend/symbols/index.js"
 import { humanKind, rangeFromSpan, resolveAt } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
 import { tokenAtOffset } from "../shared/index.js"
 
 export function hover(doc: Document, project: Scope, offset: number): Hover | undefined {
-  const tok = tokenAtOffset(doc.source, offset)
+  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   const range = tok !== undefined ? { range: rangeFromSpan(tok.span) } : {}
 
   const sym = resolveAt(doc, project, offset)
@@ -31,10 +31,10 @@ export function hover(doc: Document, project: Scope, offset: number): Hover | un
 /**
  * Hover for a pragma — the directive (`{IF …}`, `{region …}`) or the `{attribute '<name>'}` name under the
  * cursor, described from the reference catalog. Pragmas are lexer trivia (`tokenAtOffset` skips them), so
- * re-lex for the `pragma` token spanning the offset. Wired as a hover fallback.
+ * read the parse's tokens for the `pragma` token spanning the offset. Wired as a hover fallback.
  */
 export function pragmaHover(doc: Document, offset: number): Hover | undefined {
-  for (const t of lex(doc.source)) {
+  for (const t of doc.parseResult.tokens) {
     if (t.kind !== "pragma" || offset < t.span.start || offset >= t.span.end) continue
     // Cursor on the attribute NAME inside `{attribute 'NAME'}` → describe the attribute.
     const am = /^\{\s*attribute\s+'([^']*)'/i.exec(t.text)

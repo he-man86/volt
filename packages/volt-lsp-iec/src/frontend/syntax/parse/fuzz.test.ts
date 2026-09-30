@@ -31,7 +31,7 @@ test("parseSource never throws on mutated input", () => {
 test("parseStatements never throws on mutated bodies", () => {
   for (const sample of SAMPLES) {
     for (const m of mutations(sample)) {
-      const tokens = lex(m).filter((t) => t.kind !== "eof")
+      const tokens = lex(m, "codesys").filter((t) => t.kind !== "eof")
       const span = { start: 0, end: m.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
       expect(() => parseStatements({ kind: "body", tokens, span })).not.toThrow()
     }

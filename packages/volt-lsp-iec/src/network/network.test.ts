@@ -109,7 +109,7 @@ END_PROGRAM`
 })
 
 test("network text: a single LD network with a coil parses clean", () => {
-  const vg = parseNetworkText(vgBody(LD), STRUCTURE_ONLY)
+  const vg = parseNetworkText(vgBody(LD), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   expect(vg.language).toBe("LD") // the body's marker says it, once
   expect(vg.networks).toHaveLength(1)
@@ -136,7 +136,7 @@ g1 := (a AND b);
 out := g1;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY)
+  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   const n = vg.networks[0]!
   expect(n.wires.map((w) => `${w.name.text} : ${w.typeText}`)).toEqual(["g1 : BOOL"])
@@ -158,7 +158,7 @@ NETWORK LABEL: skipRest TITLE: "my title" DISABLED
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY)
+  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   const n = vg.networks[0]!
   expect(vg.language).toBe("FBD")
   expect(n.label?.text).toBe("skipRest") // the jump target
@@ -176,7 +176,7 @@ NETWORK TITLE: "t" LABEL: skipRest
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const n = parseNetworkText(vgBody(swapped), STRUCTURE_ONLY).networks[0]!
+  const n = parseNetworkText(vgBody(swapped), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(n.label?.text).toBe("skipRest")
   expect(n.title).toBe("t")
 })
@@ -191,7 +191,7 @@ NETWORK TITLE: "DISABLED during commissioning"
 out := FALSE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(parseNetworkText(vgBody(src), STRUCTURE_ONLY).networks[0]!.disabled).toBe(false)
+  expect(parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!.disabled).toBe(false)
 })
 
 test("network text: a bare `name:` line is not a label — the label lives on the header", () => {
@@ -203,7 +203,7 @@ Loop:
 out := TRUE;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(parseNetworkText(vgBody(src), STRUCTURE_ONLY).diagnostics.map((x) => x.code)).toEqual(["NETWORK_PARSE"])
+  expect(parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").diagnostics.map((x) => x.code)).toEqual(["NETWORK_PARSE"])
 })
 
 test("network text: an unclosed network reports NETWORK_NOT_CLOSED", () => {
@@ -213,7 +213,7 @@ IMPLEMENTATION LD
 NETWORK
 out := TRUE;
 END_FUNCTION_BLOCK`
-  const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY).diagnostics.map((d) => d.code)
+  const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.code)
   expect(codes).toContain("NETWORK_NOT_CLOSED")
 })
 
@@ -230,7 +230,7 @@ g1 := (a OR a);
 out := g1;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY).diagnostics.map((d) => d.code)
+  const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.code)
   expect(codes).toContain("NETWORK_DUPLICATE_NAME")
 })
 
@@ -244,7 +244,7 @@ out := TRUE;
 END_NETWORK
 JUNK
 END_FUNCTION_BLOCK`
-  const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY).diagnostics.map((d) => d.code)
+  const codes = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.code)
   expect(codes).toContain("NETWORK_PARSE")
 })
 
@@ -256,7 +256,7 @@ NETWORK
 lamp := MOVE(EN := c, 0, => status).ENO;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY)
+  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   const s = vg.networks[0]!.statements[0]!
   expect(s.kind).toBe("assign")
@@ -276,7 +276,7 @@ NETWORK
 tmr(IN := on, PT := t);
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY)
+  const vg = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys")
   expect(vg.diagnostics).toEqual([])
   const s = vg.networks[0]!.statements[0]!
   expect(s.kind).toBe("value")
@@ -293,7 +293,7 @@ JMP Loop;
 RETURN;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY).networks[0]!
+  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(net.label?.text).toBe("Loop") // a network property, not a statement
   expect(net.statements.map((s) => s.kind)).toEqual(["assign", "jump", "return"])
 })
@@ -771,7 +771,7 @@ NETWORK
 END_NETWORK
 END_PROGRAM`
   expect(vgDiags(src).map((d) => d.code)).not.toContain("NETWORK_NOT_CLOSED")
-  expect(parseNetworkText(vgBody(src), STRUCTURE_ONLY).diagnostics).toEqual([])
+  expect(parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
 })
 
 test("network text: EXECUTE without ( opens an inline-ST box, closed by END_EXECUTE;", () => {
@@ -799,7 +799,7 @@ NETWORK TITLE: "Some title"
   b := g1;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY).networks[0]!
+  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(net.title).toBe("Some title")
   expect(net.statements.map((s) => s.kind)).toEqual(["wire_def", "assign"])
   expect(vgDiags(src)).toEqual([])
@@ -813,9 +813,9 @@ NETWORK TITLE: ${title}
   a := a;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  expect(parseNetworkText(vgBody(src('"Network 3 : STATE: Prehoming"')), STRUCTURE_ONLY).networks[0]!.title).toBe("Network 3 : STATE: Prehoming")
+  expect(parseNetworkText(vgBody(src('"Network 3 : STATE: Prehoming"')), STRUCTURE_ONLY, "codesys").networks[0]!.title).toBe("Network 3 : STATE: Prehoming")
   // A TITLE is a double-quoted string with ST's escapes — the one spelling the writer writes.
-  expect(parseNetworkText(vgBody(src("'Network 3'")), STRUCTURE_ONLY).diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
+  expect(parseNetworkText(vgBody(src("'Network 3'")), STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
 })
 
 test("network text: a quote inside a title is ST's $\" escape", () => {
@@ -826,7 +826,7 @@ NETWORK TITLE: "Muting of alarm $"No bunch$""
   b := a;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY).networks[0]!
+  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(net.title).toBe('Muting of alarm "No bunch"')
   expect(vgDiags(src)).toEqual([])
 })
@@ -839,7 +839,7 @@ NETWORK TITLE: "T" DISABLED
   a := a;
 END_NETWORK
 END_FUNCTION_BLOCK`
-  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY).networks[0]!
+  const net = parseNetworkText(vgBody(src), STRUCTURE_ONLY, "codesys").networks[0]!
   expect(net.title).toBe("T")
   expect(net.disabled).toBe(true)
 })
@@ -1038,7 +1038,7 @@ NETWORK\nx := Flag;\nFlag := x;\nx := \`Flag OR x\`;\nEND_NETWORK\nEND_FUNCTION_
     lines[e.range.start.line] = l.slice(0, e.range.start.character) + e.newText + l.slice(e.range.end.character)
   }
   const renamed = lines.join("\n").replace("\tx : BOOL;", "\tx : BOOL;\n\tExecute : BOOL;")
-  expect(parseNetworkText(vgBody(renamed), STRUCTURE_ONLY).diagnostics).toEqual([])
+  expect(parseNetworkText(vgBody(renamed), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
 })
 
 // ─── section-5 second review: what the bridge reads, the LSP reads — marker, instance type, v1 shape, wire type ────

@@ -34,7 +34,7 @@ export function buildSymbolTable(
  * file's top-level scopes + project symbols; tags each new top-level child with the file URI so
  * `unbindFile` can drop exactly this file's contribution later. Caller re-runs `relink` afterwards.
  */
-export function bindFile(project: Scope, { uri, parseResult, source }: SymbolTableInput): void {
+export function bindFile(project: Scope, { uri, parseResult }: SymbolTableInput): void {
   const start = project.children.length
   // Track the most recent FB/PROGRAM/INTERFACE scope in THIS file so standalone
   // methods/actions/properties that follow it (the workspace one-item-per-file layout:
@@ -42,7 +42,7 @@ export function bindFile(project: Scope, { uri, parseResult, source }: SymbolTab
   // references in those bodies resolve nowhere.
   let currentMemberHost: Scope | undefined
   for (const unit of parseResult.units) {
-    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, source ?? "")
+    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, parseResult.tokens)
     if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") {
       currentMemberHost = newScope
     }

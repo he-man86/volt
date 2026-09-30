@@ -13,7 +13,7 @@ import type { Document } from "../services/shared/index.js"
 export function documentSymbolsWithVg(doc: Document): DocumentSymbol[] {
   const symbols = documentSymbols(doc)
   for (const { body } of graphicalBodies(doc.parseResult.units)) {
-    const networks = parseNetworkText(body, STRUCTURE_ONLY).networks.map(
+    const networks = parseNetworkText(body, STRUCTURE_ONLY, doc.parseResult.dialect).networks.map(
       (n): DocumentSymbol => ({
         name: `NETWORK ${n.index ?? "?"}${n.title ? `: ${n.title}` : ""}`,
         kind: SymbolKind.Namespace,

@@ -891,6 +891,12 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     //            ("Cannot convert type 'INT' to type 'BYTE'" / "... 'SINT'").
     "tr_35_for_byte_runtime_int_step",
     "tr_35_for_sint_step_300",
+    // frontend-conformance 2.1.3, recorded 2026-09-30 on both vendors — `__POOL` named where an operand (or an
+    // assignment target) belongs reads the next token as its member, a shape the LSP does not model (rules E30/E34,
+    // task 2.5.6; niche, accepted — `support/divergences.ts`). Bare `__NEW` and `__POUNAME` left this set in 2.1: the
+    // parser now answers them as the vendor does (`parse/expression.ts`).
+    "lex_keyword_assigned_sys_pool",
+    "lex_keyword_operand_sys_pool",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1533,7 +1539,13 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // CODESYS's own words, a FUNCTION's EXTENDS, and C0145 in TwinCAT's spelling.
   // 2562 -> 2564 (2026-09-30, the step's review): `op_sys_type_class_bare` and `call_ldate_instance`, recorded live —
   // the second pins C0035 beside "Unknown type: 'LDATE'" for a call of a CODESYS-only type's instance.
-  { vendor: "twincat", floor: 2564 },
+  // 2564 -> 2601 (2026-09-30, frontend-conformance 2.1): the lexer's fixtures (`grammar/lexer.ts`), recorded live — 37
+  // agree; ten are `KNOWN_DIVERGENCES` (the recovery rule R1's) and six are refused at object creation (`execSkip`).
+  // 2601 -> 2886 (2026-09-30, frontend-conformance 2.1.3): every keyword asked in the three positions a statement gives a
+  // name (`lex_keyword_{assigned,before_name,operand}_*`), the cascade meeting a soft name, the modifiers as named
+  // arguments and `cal` read — recorded live; the parser refuses a keyword that is no operand, takes the next token for
+  // a call operator's `(`, and refuses at a statement start only the words the recordings refuse.
+  { vendor: "twincat", floor: 2886 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1619,7 +1631,11 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 2582 -> 2585 (2026-09-30, the step's review): a global missing its `;` is silent on CODESYS
   // (`pwh_gvl_missing_semicolon` left `KNOWN_DIVERGENCES`), bare TYPE_CLASS is no unknown type
   // (`op_sys_type_class_bare`) and a call of an LDATE instance (`call_ldate_instance`), both recorded live.
-  { vendor: "codesys", floor: 2585 },
+  // 2585 -> 2622 (2026-09-30, frontend-conformance 2.1): the lexer's fixtures (`grammar/lexer.ts`), recorded live — 37
+  // agree; ten are `KNOWN_DIVERGENCES` (the recovery rule R1's) and six are refused at object creation (`execSkip`).
+  // 2622 -> 2912 (2026-09-30, frontend-conformance 2.1.3): the same fixtures, the same fixes, on the vendor they were
+  // first recorded on.
+  { vendor: "codesys", floor: 2912 },
 ]
 
 

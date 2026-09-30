@@ -75,7 +75,6 @@ export const KEYWORDS = [
   "POINTER",
   "TO",
   "AT",
-  "WITH",
   "STRING",
   "WSTRING",
   // Control flow
@@ -157,6 +156,13 @@ export const KEYWORDS = [
   "TRUNC_INT",
   // Legacy / misc
   "INI",
+  // The Instruction List call. CODESYS reserves it in ST: a statement opening with it is refused on the word
+  // (`lex_cal_keyword`: "Unexpected token 'CAL' found", then `t();` parses on its own) and so is a variable of that
+  // name, declared, assigned (`cc_il_name_cal`) or read (`lex_keyword_operand_cal`, `lex_cal_declared_operand`:
+  // "Expression expected instead of 'cal'" — `NOT_AN_OPERAND`). It was here once and was taken out because the name
+  // then echoed upper-cased and its use said "not defined"; the echo is as written now, and every position a use can
+  // stand in is refused by the parser in the vendor's words.
+  "CAL",
   // CODESYS system operators (all __-prefixed; reserved by language rule)
   "__NEW",
   "__DELETE",
@@ -184,9 +190,10 @@ export const KEYWORDS = [
   // Self-reference
   "THIS",
   "SUPER",
-  // Reserved but rarely used
+  // Reserved words no grammar rule consumes — CODESYS refuses each as a name (`lex_reserved_unused_keyword_as_name_*`,
+  // 2026-09-30). `USING` and `WITH` are NOT here: CODESYS builds a variable called either, `USING` with the C0543
+  // warning (`checks/names/reserved-keyword.ts`), so they are identifiers.
   "FROM",
-  "USING",
   "NAMESPACE",
   "END_NAMESPACE",
 ] as const
@@ -274,21 +281,109 @@ export const UNIT_STARTERS = [
 export type UnitStarter = (typeof UNIT_STARTERS)[number]
 
 /**
- * Keywords that are legal NAMES outside the construct that reserves them. `GET`/`SET` (reserved only inside a
- * PROPERTY) and the access/inheritance modifiers (`PUBLIC`/`PRIVATE`/`PROTECTED`/`INTERNAL`/`FINAL`/`ABSTRACT`/
- * `OVERRIDE`) are all legal identifiers elsewhere — real code has methods named `Set`, `Override`, etc.
+ * Keywords that are legal VARIABLE names outside the construct that reserves them — a variable or a parameter may be
+ * called `GET`, `SET` or `OVERRIDE` (the Standard `RS` FB declares `SET : BOOL`). Measured one word per fixture
+ * (`lex_soft_keyword_name_*`, 2026-09-30): these three build. The other access/inheritance modifiers — `PUBLIC`,
+ * `PRIVATE`, `PROTECTED`, `INTERNAL`, `FINAL`, `ABSTRACT` — do NOT: CODESYS refuses each as a variable, "Unexpected
+ * token 'public' found" and the broken-declaration cascade, and refuses it again where it is assigned, read, or named
+ * as a call's parameter (`lex_keyword_operand_public`, `lex_soft_keyword_named_argument_*` — `NOT_AN_OPERAND`).
  */
-export const SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set([
-  "GET",
-  "SET",
+export const SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set(["GET", "SET", "OVERRIDE"])
+
+/**
+ * Keywords a UNIT header may take as its name (a function block, method, property or interface): the variable names
+ * above and the six modifiers too. Not because CODESYS accepts them there — it refuses to CREATE a method called
+ * `public` ("The name 'public' is not valid for this object.", `lex_soft_keyword_method_name_*`), and an FB called
+ * `Public` cannot be named as a type ("Type definition expected instead of 'Public'", `lex_soft_keyword_as_type_*`) —
+ * but because the compiler says nothing about the HEADER: the object is refused by the IDE, or never compiled. There is
+ * no compiler message for the LSP to give on the header, so it reads the name and the header's modifiers stay
+ * unambiguous (`FUNCTION_BLOCK PUBLIC Final`).
+ */
+export const UNIT_NAME_KEYWORDS: ReadonlySet<string> = new Set([
+  ...SOFT_NAME_KEYWORDS,
   "PUBLIC",
   "PRIVATE",
   "PROTECTED",
   "INTERNAL",
   "FINAL",
   "ABSTRACT",
-  "OVERRIDE",
 ])
+
+/**
+ * THE KEYWORDS REFUSED AS A NAME WHERE A STATEMENT STARTS — "Unexpected token 'w' found" on the word, then the resync
+ * (`parse/statements.ts`). Every keyword was asked, one per fixture, assigned (`w := 1;`) and before a name (`w n := 2;`)
+ * — `lex_keyword_assigned_*`, `lex_keyword_before_name_*` (CODESYS, 2026-09-30) — and 92 answered exactly that. The set
+ * is every keyword but the ones below, so a keyword added to `KEYWORDS` is refused until a recording says otherwise:
+ *
+ *   the words a statement or an expression opens with — IF … JMP, `__TRY`, THIS/SUPER/TRUE/FALSE/NOT — and the names
+ *   GET/SET/OVERRIDE (`SOFT_NAME_KEYWORDS`);
+ *   NON_RETAIN — CODESYS has no such keyword. It is a NAME to it ("Identifier 'non_retain' not defined", "'non_retain'
+ *   is no valid assignment target"); Volt keeps the keyword only to read `VAR NON_RETAIN`, which CODESYS refuses
+ *   (`checks/declarations/var-section-placement.ts`);
+ *   `__DELETE`, `__QUERYINTERFACE`, `__QUERYPOINTER` — an operator that opens a call: CODESYS takes the next token for
+ *   its `(` ("'(' expected instead of ':='") and counts its operands (`CALL_OPERATOR_OPERANDS`), not a refused word;
+ *   `__CURRENTTASK`, `__POOL` — each reads the next token as its member ("'__CURRENTTASK.n' is no valid assignment
+ *   target"), the system operands' rule (E30, E34);
+ *   the unit and declaration structure — the POU shells, TYPE/STRUCT/UNION, the VAR sections, NAMESPACE. Not asked: a
+ *   body holding `END_VAR` is another object's text, and what the IDE answers for it is not measured.
+ */
+export const REFUSED_AT_STATEMENT_START: ReadonlySet<string> = (() => {
+  const notRefused = new Set<string>([
+    "IF", "CASE", "FOR", "WHILE", "REPEAT", "RETURN", "EXIT", "CONTINUE", "JMP", "__TRY",
+    "THIS", "SUPER", "TRUE", "FALSE", "NOT",
+    ...SOFT_NAME_KEYWORDS,
+    "NON_RETAIN",
+    "__DELETE", "__QUERYINTERFACE", "__QUERYPOINTER", "__CURRENTTASK", "__POOL",
+    "FUNCTION_BLOCK", "END_FUNCTION_BLOCK", "PROGRAM", "END_PROGRAM", "FUNCTION", "END_FUNCTION", "METHOD", "END_METHOD",
+    "ACTION", "END_ACTION", "PROPERTY", "END_PROPERTY", "END_GET", "END_SET", "INTERFACE", "END_INTERFACE",
+    "TYPE", "END_TYPE", "STRUCT", "END_STRUCT", "UNION", "END_UNION",
+    ...VAR_SECTION_KEYWORDS, "END_VAR", "NAMESPACE", "END_NAMESPACE",
+  ])
+  return new Set(KEYWORDS.filter((k) => !notRefused.has(k)))
+})()
+
+/**
+ * THE KEYWORDS THAT ARE NO OPERAND — where a value belongs (`n := w;`, a call's argument) CODESYS answers "Expression
+ * expected instead of 'w'", then resyncs as after a refused statement: "';' expected instead of 'w'", "Unexpected token
+ * 'w' found", a pair for every token to the `;` (`lex_keyword_operand_*`, `lex_soft_keyword_named_argument_*`,
+ * `lex_cal_declared_operand`; CODESYS, 2026-09-30). Every keyword was asked; these 48 answered that. The others are not
+ * refused on the word: the binary operators (AND … MOD) are taken as the operator and their left operand is what is
+ * missing (`parse/expression.ts`); the call operators (ABS, SEL, `__XADD` …) take the next token for their `(`
+ * (`CALL_OPERATOR_OPERANDS`); `__NEW`, `__POSITION`, `__POUNAME`, `__CURRENTTASK` and `__POOL` each answer in a shape of
+ * their own (rules E24–E34, task 2.5.6); and the words no fixture asked (the unit structure) are not claimed.
+ *
+ * ONLY THE BARE WORD. `ADD(a, b)` — the IL call form — is refused too, and with this cascade, but it is still
+ * `checks/names/refused-name.ts`'s (`ST_OPERATOR_CALLS`) until the call form moves into the parser (task 2.5.5); and a
+ * keyword before `(` is otherwise unmeasured.
+ */
+export const NOT_AN_OPERAND: ReadonlySet<string> = new Set([
+  "CAL", "CONSTANT", "RETAIN", "PERSISTENT", "PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT",
+  "READ_ONLY", "READ_WRITE", "EXTENDS", "IMPLEMENTS", "ARRAY", "OF", "REFERENCE", "POINTER", "TO", "AT", "STRING",
+  "WSTRING", "THEN", "ELSIF", "ELSE", "END_IF", "END_CASE", "BY", "DO", "END_FOR", "END_WHILE", "UNTIL", "END_REPEAT",
+  "DIV", "ADD", "SUB", "MUL", "GT", "LT", "GE", "LE", "EQ", "NE", "PARAMS", "FROM", "__CATCH", "__FINALLY", "__ENDTRY",
+] satisfies Keyword[])
+
+/**
+ * THE OPERATORS THAT ARE WRITTEN AS A CALL, AND HOW MANY OPERANDS EACH NEEDS. Without its `(` such an operator TAKES the
+ * next token as if it were the `(` — `n := abs;` is "'(' expected instead of ';'" and "'ABS' needs exactly '1'
+ * operands", and then, the `;` gone, "';' expected instead of end of POU" (`lex_keyword_operand_*`, one operator per
+ * fixture, CODESYS 2026-09-30); `__queryinterface := 1;` takes the `:=` the same way (`lex_keyword_assigned_sys_*`).
+ * The counts are the ones the vendor named. `__NEW` is not here — without its `(` it wants a type ("Type definition
+ * expected as operand for __NEW") — nor `__POSITION`, `__CURRENTTASK` or `__POOL`, each its own shape
+ * (`parse/expression.ts`, rules E24–E34).
+ */
+export const CALL_OPERATOR_OPERANDS: ReadonlyMap<string, { readonly count: number; readonly atLeast: boolean }> = new Map([
+  ...operands(1, false, "ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN", "ADR", "BITADR",
+    "MOVE", "INDEXOF", "SIZEOF", "XSIZEOF", "TRUNC", "TRUNC_INT", "TEST_AND_SET", "__ISVALIDREF", "__VARINFO", "__DELETE"),
+  ...operands(2, false, "SHL", "SHR", "ROL", "ROR", "EXPT", "INI", "__QUERYINTERFACE", "__QUERYPOINTER", "__XADD"),
+  ...operands(3, false, "SEL", "LIMIT", "__COMPARE_AND_SWAP"),
+  ...operands(2, true, "MIN", "MAX"),
+  ...operands(3, true, "MUX"),
+])
+
+function operands(count: number, atLeast: boolean, ...ops: Keyword[]): [string, { count: number; atLeast: boolean }][] {
+  return ops.map((k) => [k, { count, atLeast }])
+}
 
 /**
  * Besides an `END_*`, the keywords that CLOSE a declaration list: another VAR section, and the start of the next unit —

@@ -100,6 +100,66 @@ export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
 // so it's in the ratchet. array-index-out-of-bounds is likewise byte-identical. The overflow fixtures are NOT
 // here: the `constant-overflow` check was REMOVED (it false-positived — CODESYS accepts out-of-range untyped
 // literals), so the LSP is silent on them; they read as honest "not-yet-implemented" misses.
+/**
+ * FRONTEND-CONFORMANCE 2.1 (2026-09-30) — lexer fixtures whose one disagreement is the RECOVERY after the first refused
+ * token: rule R1 (openspec frontend-conformance design.md §4 2.8, task 2.8.2), not the lexer. `n := 1 ! 2;` — both
+ * vendors report the stray character exactly as the LSP does ("';' expected instead of '!'", "Unexpected token '!'
+ * found") and then name the `2` the same way; the statement parser resyncs to the `;` in silence after its first pair.
+ * `n := 7 DIV 2;` is the same shape — DIV is no infix operator on either vendor. One mechanism, both vendors, identical
+ * answers, so one list; it leaves with R1's fix (`syntax/parse/errors.ts` `reportStatementCascade` is that cascade, used
+ * today only after a refused statement start).
+ */
+const R1_CASCADE_AFTER_A_STRAY_TOKEN: readonly string[] = [
+  "lex_unknown_character",
+  "lex_unknown_character_at",
+  "lex_unknown_character_tilde",
+  "lex_unknown_character_backslash",
+  "lex_unknown_character_pipe",
+  "lex_unknown_character_dollar",
+  "lex_unknown_character_question",
+  "lex_unknown_character_hash",
+  "lex_unknown_character_percent",
+  "lex_div_as_operator",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.1.3 (2026-09-30) — `__CURRENTTASK` and `__POOL` where a statement starts. Every keyword was asked
+ * there (`lex_keyword_assigned_*`, `lex_keyword_before_name_*`), and these two answer in a shape of their own on both
+ * vendors: each takes the NEXT token as its member — `__currenttask := 1;\nn := 2;` is "'__CURRENTTASK.n' is no valid
+ * assignment target" and "Identifier 'n' not defined" (TwinCAT adds its stack-size sentence), `__pool n := 2;` quotes
+ * `__POOL.!!!'ERROR'!!!`. The LSP refuses neither word there any more (`REFUSED_AT_STATEMENT_START`), but reads them
+ * with the `__CURRENTTASK` rule of an operand and nothing for `__POOL` — the system operands' rules, E30 and E34
+ * (task 2.5.6), which this recording is evidence for. `__POOL` as a bare OPERAND (`n := __pool;`) is the same rule:
+ * CODESYS "Identifier expected instead of ''", TwinCAT "Expression expected instead of ''", and the LSP reads a name.
+ * NICHE: ACCEPTED LOSS (0 occurrences in the corpora — neither word appears in any of the six, in any position; owner
+ * triage 2026-09-30). They stay pinned here, and leave only if task 2.5.6 fixes them on the way.
+ */
+const SYSTEM_OPERAND_AT_STATEMENT_START: readonly string[] = [
+  "lex_keyword_assigned_sys_currenttask",
+  "lex_keyword_before_name_sys_currenttask",
+  "lex_keyword_assigned_sys_pool",
+  "lex_keyword_before_name_sys_pool",
+  "lex_keyword_operand_sys_pool",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.1.3 (2026-09-30) — TwinCAT's XSIZEOF is no keyword. Named alone it is an identifier nothing
+ * declares: `xsizeof := 1;` is "Identifier 'xsizeof' not defined" and "'xsizeof' is no valid assignment target", `xsizeof
+ * n := 2;` is a statement of its own ("The code 'xsizeof;' has no effect"), `n := xsizeof;` "not defined" — where
+ * CODESYS refuses the reserved word. But CALLED it is no undefined name either: `XSIZEOF(DINT)` answers only "Expression
+ * expected instead of 'DINT'" (`cp_xsizeof`), so it is not simply a CODESYS-only word (`CODESYS_ONLY_KEYWORDS` made that
+ * call three "not defined" false positives). The LSP reads CODESYS's keyword on both vendors; what TwinCAT's XSIZEOF is
+ * — a callable that is no keyword — is the dialect vocabulary's question (rule L10, task 2.1.4).
+ * NICHE: ACCEPTED LOSS (0 occurrences in the TwinCAT corpus; the 5 in pro2193 are CODESYS, all called — `XSIZEOF(x)`;
+ * owner triage 2026-09-30): a bare `xsizeof` is asked by nothing real, and the call form needs a callable-but-no-keyword
+ * reading the vocabulary does not have.
+ */
+const TWINCAT_XSIZEOF_IS_NO_KEYWORD: readonly string[] = [
+  "lex_keyword_assigned_xsizeof",
+  "lex_keyword_before_name_xsizeof",
+  "lex_keyword_operand_xsizeof",
+]
+
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -126,6 +186,20 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
+    ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...SYSTEM_OPERAND_AT_STATEMENT_START,
+    ...TWINCAT_XSIZEOF_IS_NO_KEYWORD,
+    //   `type_codesys_vector` (FRONTEND-CONFORMANCE 2.1, rule L11) — TwinCAT has no `__VECTOR`: "Type definition expected
+    //                       instead of '__VECTOR'", the declaration is dropped, and its uses are "Identifier 'vec4' not
+    //                       defined" / "'vec4[0]' is no valid assignment target". The LSP reads CODESYS's vector type on
+    //                       both vendors. The fix is known and small — `__VECTOR` a KEYWORD (it is already in
+    //                       `CODESYS_ONLY_KEYWORDS`, so TwinCAT lexes an identifier) and `parse/type-expr` refusing that
+    //                       identifier with the vendors' words — and it was built and matched this recording exactly. It
+    //                       did not land because the answer it gives is an UNDEFINED `vec4`, which the 0.3/0.4 measures
+    //                       count as a finding (TwinCAT bare-name NONE +1, ident_expr and index UNKNOWN +1 each) and their
+    //                       ceilings may only fall. Whether a NONE the vendor itself reports "not defined" is a finding is
+    //                       the owner's to decide (openspec frontend-conformance tasks.md 2.1.4).
+    "type_codesys_vector",
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers
@@ -239,6 +313,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            What actually separates every one of these is REACHABILITY, which a per-file
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
+    ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...SYSTEM_OPERAND_AT_STATEMENT_START,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers

@@ -27,7 +27,14 @@ test("a var named CHAR is flagged, byte-identical to CODESYS", () => {
 test("WCHAR is also flagged; the message uppercases the name", () => {
   expect(rk("WCHAR : INT;")).toHaveLength(1)
   expect(rk("wchar : INT;")[0]?.message).toContain("'WCHAR'") // IEC is case-insensitive; IDE uppercases
-  // USING also warns in CODESYS, but our parser treats it as a hard keyword (parse error), so it's out of scope here.
+})
+
+test("USING warns too — a name, not a keyword (lex_reserved_unused_keyword_as_name_using)", () => {
+  // CODESYS builds `using : INT;` with this warning and nothing else (2026-09-30); WITH builds clean.
+  expect(rk("using : INT;").map((d) => d.message)).toEqual([
+    "The name 'USING' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.",
+  ])
+  expect(rk("with : INT;")).toEqual([])
 })
 
 test("an ordinary identifier or a real type name is not flagged", () => {

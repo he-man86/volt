@@ -64,11 +64,13 @@ export interface LanguageTest {
    */
   recorderSkip?: boolean
   /**
-   * A vendor whose DRIVER refuses to take this fixture, with the refusal in its own words. Not a skip anyone
-   * chose: `volt push` comes back rejected and there is nothing to record, so the fixture has ground truth on
-   * the other vendor and none here.
+   * Each vendor whose push refuses to take this fixture, mapped to the refusal in its own words — one entry per
+   * vendor that refused, so a fixture BOTH refuse says so for both (`lex_soft_keyword_method_name_*`). Not a skip
+   * anyone chose: `volt push` comes back rejected and there is nothing to record, so the fixture has ground truth
+   * on the vendors not listed and none on those that are.
    *
-   * **The refusal is VOLT'S, and whether the IDE would have taken it is unproven.** Each reason blames TwinCAT's
+   * **For the graphical shapes the refusal is VOLT'S, and whether the IDE would have taken it is unproven.** (A
+   * refused OBJECT NAME is the IDE's own: "The name 'public' is not valid for this object.") Each graphical reason blames TwinCAT's
    * PLCopen importer — an unconditional jump or return (it is said to require both wired to a condition), an
    * Execute box, a box output pin wired straight to a variable — and every one of those is the DRIVER's rule,
    * written from what it could express at the time. "TwinCAT cannot" and "Volt does not" read identically from
@@ -78,7 +80,7 @@ export interface LanguageTest {
    * So this field records WHERE the ground truth is missing and WHY it is missing, not that it cannot exist.
    * Distinct from `recorderSkip`, which is about a fixture nothing can usefully record on EITHER vendor.
    */
-  vendorRefuses?: { vendor: "codesys" | "twincat"; reason: string }
+  vendorRefuses?: Partial<Record<"codesys" | "twincat", string>>
   /**
    * Skip this test in the EXECUTION recorder (`record:exec`) only — with the reason, in the reason's own words.
    * The BUILD recording is still taken and the LSP still replays it; the only thing withheld is a set of

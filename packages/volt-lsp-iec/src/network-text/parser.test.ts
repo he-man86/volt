@@ -17,7 +17,7 @@ function body(networks: string, marker = "IMPLEMENTATION LD"): BodySpan {
   if (b === undefined) throw new Error("no graphical body")
   return b
 }
-const parse = (networks: string): NetworkTextBody => parseNetworkText(body(networks), STRUCTURE_ONLY)
+const parse = (networks: string): NetworkTextBody => parseNetworkText(body(networks), STRUCTURE_ONLY, "codesys")
 const net = (statements: string, header = "NETWORK"): string => `${header}\n${statements}\nEND_NETWORK`
 const codes = (networks: string): string[] => parse(networks).diagnostics.map((d) => d.code)
 const clean = (networks: string): NetworkTextStatement[] => {
@@ -47,14 +47,14 @@ test("the line states the language and a network has no order number", () => {
   expect(b.language).toBe("LD")
   expect(b.networks).toHaveLength(1)
   expect(b.networks[0]!.index).toBe(0)
-  expect(parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD"), STRUCTURE_ONLY).language).toBe("FBD")
+  expect(parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD"), STRUCTURE_ONLY, "codesys").language).toBe("FBD")
 })
 
 test("v1 text is refused naming a re-pull, never read", () => {
   // v1 under the line stating LD — what a clean merge makes of an un-pushed v1 edit: the line decides the reader, and
   // the reader refuses v1 once, by name, reading no statement of it. (The bare comment marker that used to head a v1
   // body is no boundary any more: such a body is ST to this server, and the older-format manifest says re-pull.)
-  const v1 = parseNetworkText(body("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK"), STRUCTURE_ONLY)
+  const v1 = parseNetworkText(body("NETWORK 0 LD\n  LET g0 := TRUE;\nEND_NETWORK"), STRUCTURE_ONLY, "codesys")
   expect(v1.networks.flatMap((n) => n.statements)).toEqual([])
   expect(v1.diagnostics.map((d) => d.code)).toEqual(["NETWORK_PARSE"])
   expect(v1.diagnostics[0]!.message).toContain("re-pull")
@@ -332,7 +332,7 @@ const scope = (pous: string[], names: string[] = [], instances: Record<string, s
   }
 }
 const scoped = (networks: string, sc: NetworkScopeView): string[] =>
-  parseNetworkText(body(networks), sc).diagnostics.map((d) => `${d.code}: ${d.message}`)
+  parseNetworkText(body(networks), sc, "codesys").diagnostics.map((d) => `${d.code}: ${d.message}`)
 
 test("an operator head's argument list holding an EXECUTE box whose ST holds an operator word is a call", () => {
   // The bridge writer's own text: its reader accepts it, because the look-ahead walks THROUGH the EXECUTE body.
@@ -397,7 +397,7 @@ test("the scope is an explicit argument: structure-only is a value, never an omi
   // now refuses the omission (the bridge's `NetworkScope.Empty`, "explicit, never a default").
   // @ts-expect-error — the scope is required
   expect(() => parseNetworkText(body(net("out := a;")))).not.toThrow()
-  expect(parseNetworkText(body(net("out := g5;")), STRUCTURE_ONLY).diagnostics).toEqual([])
+  expect(parseNetworkText(body(net("out := g5;")), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
   expect(scoped(net("out := g5;"), scope([], ["out"]))).toEqual([
     "NETWORK_BAD_EXPRESSION: 'g5' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope.",
   ])
@@ -414,7 +414,7 @@ test("a call of an instance is typed by the instance's FB: one whose FB is named
 })
 
 test("the line may end in blanks, as the bridge's line may", () => {
-  const b = parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD \t"), STRUCTURE_ONLY)
+  const b = parseNetworkText(body(net("out := a;"), "IMPLEMENTATION FBD \t"), STRUCTURE_ONLY, "codesys")
   expect([b.language, b.diagnostics, b.networks.map((n) => n.statements.length)]).toEqual(["FBD", [], [1]])
 })
 
@@ -423,7 +423,7 @@ test("a call box carries its type as the reader decided it: an instance's FB, an
   // parseCall would have been typed by its instance name — `t1`, not its FB — silently.
   const sc = scope(["F_Scale"], ["a", "x", "out"], { t1: "TON" })
   const call = (statements: string) => {
-    const b = parseNetworkText(body(net(statements)), sc)
+    const b = parseNetworkText(body(net(statements)), sc, "codesys")
     expect(b.diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([])
     const v = valueOf(b.networks[0]!.statements[0]!)
     if (v.kind !== "call") throw new Error(`no call: ${v.kind}`)

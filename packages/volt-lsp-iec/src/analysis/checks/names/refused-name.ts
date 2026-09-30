@@ -13,7 +13,9 @@
  * Why nothing caught the first family: the lexer reads these as identifiers (`R`/`S` only become `R=`/`S=` before an
  * `=`), so the parser accepted the declaration; the reserved-name handling covers the keyword table (`LIMIT`, `MIN` …,
  * which CODESYS echoes UPPER-case — a different mechanism); no fixture declared one; and no real project does. `CAL`
- * sat in the keyword table, so `cal` was reported as 'CAL' with a false "Identifier 'cal' not defined" on its use.
+ * sat in the keyword table, so `cal` was reported as 'CAL' with a false "Identifier 'cal' not defined" on its use; it
+ * is back there, and the parser now answers the declaration and every use — assigned, opening a statement, read as an
+ * operand — as the vendor does (frontend-conformance 2.1.2, 2.1.3).
  *
  * Not here: `CALC` — CODESYS parses `calc : INT;` as a conditional call and says other things ("Second parameter of
  * conditional call must be a valid call statement" …), unmodelled. The comparison and arithmetic IL operators (`LT`,
@@ -31,8 +33,11 @@ import type { Vendor } from "../../config.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { elementaryType, isDialectType } from "../../../frontend/types/index.js"
 
+// `cal` is not here: CAL is a KEYWORD (`syntax/lex/vocabulary.ts`), so the parser refuses it — declared, assigned,
+// opening a statement, or read as an operand (`cc_il_name_cal`, `lex_cal_keyword`, `lex_keyword_operand_cal`,
+// `lex_cal_declared_operand`; frontend-conformance 2.1.2, 2.1.3).
 const IL_OPERATOR_NAMES: ReadonlySet<string> = new Set([
-  "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "cal", "calcn", "andn", "orn", "xorn",
+  "r", "s", "ld", "ldn", "st", "stn", "ret", "retc", "retcn", "jmpc", "jmpcn", "calcn", "andn", "orn", "xorn",
 ])
 
 /**

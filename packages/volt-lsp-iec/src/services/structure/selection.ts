@@ -23,7 +23,7 @@ import { tokenAtOffset } from "../shared/index.js"
 export function selectionRange(doc: Document, offset: number): SelectionRange | undefined {
   // Collect every span that contains the offset, from the parse tree + the token.
   const spans: Span[] = []
-  const tok = tokenAtOffset(doc.source, offset)
+  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   if (tok !== undefined) spans.push(tok.span)
 
   for (const unit of doc.parseResult.units) {

@@ -73,7 +73,7 @@ function targetWidth(t: Record<string, Row>): string {
   const m = t["plat_xint_into_string"]?.diagnostics?.[0]?.message.match(/Cannot convert type '(\w+)'/)
   return m?.[1] ?? "unknown"
 }
-function verify(vendor: string): number {
+function verify(vendor: "codesys" | "twincat"): number {
   const stem = `${vendor}.build`
   const fresh = `${stem}.new.json`
   if (!existsSync(join(RECORDINGS, fresh))) {
@@ -112,7 +112,7 @@ function verify(vendor: string): number {
 
   // 3. EVERY FIXTURE ACCOUNTED FOR.
   const missing = ALL_TESTS.filter(
-    (x) => !x.recorderSkip && x.vendorRefuses?.vendor !== vendor && t[x.name] === undefined,
+    (x) => !x.recorderSkip && x.vendorRefuses?.[vendor] === undefined && t[x.name] === undefined,
   )
   console.log(`\nfixtures with no row in this run: ${missing.length}`)
   for (const m of missing.slice(0, 15)) console.log(`   ${m.name}`)

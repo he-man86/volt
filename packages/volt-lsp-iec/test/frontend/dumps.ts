@@ -15,7 +15,7 @@
  * temporary worktree compares equal to one taken here.
  */
 import { isAbsolute, join, relative } from "node:path"
-import { messagesFor, vendorReportsParseError, type WorkspaceRefs } from "../../src/analysis/index.js"
+import { messagesFor, parseErrorMessage, vendorReportsParseError, type WorkspaceRefs } from "../../src/analysis/index.js"
 import { lookupReference } from "../../src/reference/index.js"
 import { lookup, lookupMember, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
@@ -87,7 +87,7 @@ export function parseErrors(p: Parsed, vendor: Dialect): ParseErrorRow[] {
   const row = (pass: ParseErrorRow["pass"], e: ParseError): ParseErrorRow => ({
     pass,
     at: at(e.span),
-    message: e.unexpectedToken === undefined ? e.message : messages.unexpectedToken(e.unexpectedToken),
+    message: parseErrorMessage(e, messages),
   })
   const out: ParseErrorRow[] = []
   for (const e of p.parseResult.errors) if (vendorReportsParseError(e, vendor)) out.push(row("decl", e))
@@ -242,7 +242,11 @@ export function printFindings(p: Parsed): PrintFinding[] {
   const twice = formatDocument({ uri: p.uri, source: once, parseResult: reparsed })
   if (twice !== once) out.push({ kind: "format-not-idempotent", at: "-", detail: firstDifference(once, twice) })
 
+  const refused = refusedIn(p.parseResult)
   for (const e of topExprs(p.parseResult.units)) {
+    // An expression the parser itself refused has no text to hold to a fixed point: its reprint re-meets the source's own
+    // error — the rule the formatter above already follows, for the second printer (0.1 measures the refusal).
+    if (refused(e)) continue
     const text = exprText(e)
     const again = parseExprFromTokens(exprTokens(text, p.dialect))
     if (again === undefined) out.push({ kind: "expr-reprint-fails", at: at(e.span), detail: text })
@@ -250,6 +254,19 @@ export function printFindings(p: Parsed): PrintFinding[] {
       out.push({ kind: "expr-not-fixed", at: at(e.span), detail: `${text} → ${exprText(again)}` })
   }
   return out
+}
+
+/**
+ * Does an expression HOLD one of its source's own parse errors — does an error, declaration or body, any vendor, start
+ * inside its span? Such an expression is a refusal (`n := __CURRENTTASK;`, `__DELETE n` — the parser's recovery node,
+ * carrying the vendor's words at its own token): what it prints to or is typed as is no question about the printer or
+ * the types. The parse census (0.1) is where a refusal is measured.
+ */
+export function refusedIn(parseResult: ParseResult): (e: Expr) => boolean {
+  const starts: number[] = [...parseResult.errors.map((e) => e.span.start)]
+  for (const unit of allUnits(parseResult.units))
+    for (const body of unitBodies(unit)) if (isStBody(body)) starts.push(...parseStatements(body).errors.map((e) => e.span.start))
+  return (e) => starts.some((s) => s >= e.span.start && s < e.span.end)
 }
 
 /** The first place two texts differ, with a little context either side — enough to read a finding, not the file. */
@@ -451,12 +468,18 @@ export function valueExprs(e: Expr): Expr[] {
 
 /** EVERY EXPRESSION → ITS INFERRED TYPE (0.4): `<at> <kind> <type>`, `?` for UNKNOWN, `NOSCOPE` where nothing binds. */
 export function typeDump(b: Bound): string[] {
-  const out: string[] = []
+  return typeRows(b).map((r) => r.line)
+}
+
+/** `typeDump`, each line with the expression it was printed from — for a measure that asks more of the expression. */
+export function typeRows(b: Bound): { expr: Expr; line: string }[] {
+  const out: { expr: Expr; line: string }[] = []
   for (const s of sites(b))
     for (const e of valueExprs(s.expr))
-      out.push(
-        `${at(e.span)} ${e.kind} ${s.scope === undefined ? "NOSCOPE" : renderType(inferExprType(e, s.scope, b.project))}`,
-      )
+      out.push({
+        expr: e,
+        line: `${at(e.span)} ${e.kind} ${s.scope === undefined ? "NOSCOPE" : renderType(inferExprType(e, s.scope, b.project))}`,
+      })
   return out
 }
 

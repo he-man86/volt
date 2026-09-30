@@ -13,7 +13,7 @@ import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Span } from "../span.js"
 import type { ParseError } from "../ast/nodes.js"
 import { opensKeywordLine } from "../format/implementation-line.js"
-import { DECL_LIST_ENDERS, SOFT_NAME_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
+import { DECL_LIST_ENDERS, SOFT_NAME_KEYWORDS, UNIT_NAME_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
 import { nameExpected, unexpectedTokenOf, vendorTokenText } from "./errors.js"
 
 export class Cursor {
@@ -36,6 +36,24 @@ export class Cursor {
   /** Record that a declaration failed on this token, so the semantic pass stays quiet about the name. */
   declarationFailed(t: Token): void {
     this.failedDeclarations.push(t.text.toLowerCase())
+  }
+
+  /** Where a keyword was refused as an operand (`refuseOperand`), if the parse has not moved since. */
+  private refusedOperandAt: number | undefined
+
+  /**
+   * The next token is a keyword refused where an operand belongs (`NOT_AN_OPERAND`). It is left UNCONSUMED: the vendor's
+   * answer goes on as a STATEMENT's resync from that word, which only the statement list can run (`takeRefusedOperand`).
+   */
+  refuseOperand(): void {
+    this.refusedOperandAt = this.pos
+  }
+
+  /** Did the statement that just failed stop on a refused operand? True only if nothing has moved since; clears it. */
+  takeRefusedOperand(): boolean {
+    const here = this.refusedOperandAt === this.pos
+    this.refusedOperandAt = undefined
+    return here
   }
 
   pushError(message: string, span: Span, unexpectedToken?: string): void {
@@ -167,22 +185,29 @@ export class Cursor {
   }
 
   /**
-   * Like `expectIdent`, but also accepts contextual keywords as a name. `GET`/`SET` (reserved only
-   * inside a PROPERTY) and the access/inheritance modifiers (`PUBLIC`/`PRIVATE`/`PROTECTED`/`INTERNAL`/
-   * `FINAL`/`ABSTRACT`/`OVERRIDE`) are all legal identifiers elsewhere — real code has methods named
-   * `Set`, `Override`, etc. The token's `.text` keeps its source casing, so it reads as the name.
+   * Like `expectIdent`, but also accepts the keywords that are legal VARIABLE names — `GET`, `SET`, `OVERRIDE`
+   * (`SOFT_NAME_KEYWORDS`). The token's `.text` keeps its source casing, so it reads as the name.
    */
   expectName(): Token | undefined {
+    return this.expectNameOf(SOFT_NAME_KEYWORDS)
+  }
+
+  /** A unit header's name — `expectName`, and the six access/inheritance modifiers too (`UNIT_NAME_KEYWORDS`). */
+  expectUnitName(): Token | undefined {
+    return this.expectNameOf(UNIT_NAME_KEYWORDS)
+  }
+
+  private expectNameOf(keywords: ReadonlySet<string>): Token | undefined {
     const t = this.peek()
-    if (t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
+    if (t.kind === "identifier" || (t.kind === "keyword" && keywords.has(t.keyword ?? ""))) {
       return this.consume()
     }
     this.pushError(nameExpected(t), t.span, unexpectedTokenOf(t))
     return undefined
   }
 
-  /** True if the next token can begin a name — an identifier, or a soft-name keyword (`SET`/`GET`/`OVERRIDE`
-   *  …) that is a legal variable/member name. Lets a declaration loop tell "another decl" from "a hard keyword
+  /** True if the next token can begin a name — an identifier, or a soft-name keyword (`SET`/`GET`/`OVERRIDE`)
+   *  that is a legal variable name. Lets a declaration loop tell "another decl" from "a hard keyword
    *  that ends the section" without choking `expectName` on the latter. */
   atNameStart(): boolean {
     const t = this.peek()

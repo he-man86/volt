@@ -573,16 +573,45 @@ functions a task names, under **Gate T**; transpile's own copies are handed to t
 Per group: record the named fixtures first (`record:language`; accept, or CODESYS's exact messages); pin each disagreement as a
 known divergence, then fix test-first in the file design.md §4 names. Every task's acceptance is **CA** unless it says otherwise.
 
-- [ ] 2.1.1 Comments and line endings (L1–L4). Record lex_line_comment_in_body, lex_block_comment, lex_nested_block_comment,
+- [x] 2.1.1 Comments and line endings (L1–L4). Record lex_line_comment_in_body, lex_block_comment, lex_nested_block_comment,
       lex_crlf_body, lex_crlf_implementation_line.
       Where: lex/lexer, format/implementation-line. Acceptance: CA. Depends on: 1.41
-- [ ] 2.1.2 Identifiers, keywords, unknown characters, deprecated keywords (L5–L8, L13, L15). Record lex_unknown_character,
+- [x] 2.1.2 Identifiers, keywords, unknown characters, deprecated keywords (L5–L8, L13, L15). Record lex_unknown_character,
       lex_reserved_unused_keyword_as_name (READ_ONLY, FROM, USING, WITH), lex_div_as_operator, lex_cal_keyword, lex_ini_keyword.
       Where: lex/vocabulary, lex/lexer. Acceptance: CA. Depends on: 2.1.1
-- [ ] 2.1.3 Reserved and soft names (L9, L12, L14): the refused-name cascade moves into the parser. Record lex_limit_as_variable,
+- [x] 2.1.3 Reserved and soft names (L9, L12, L14): the refused-name cascade moves into the parser. Record lex_limit_as_variable,
       lex_min_as_variable, lex_sel_as_variable, lex_mux_as_variable, lex_max_as_variable, lex_soft_keyword_names.
       Where: parse/errors, parse/names; analysis/checks/names/refused-name.ts shrinks to what the parser cannot know.
       Acceptance: CA. Depends on: 2.1.2
+      **Gate 2.1.1–2.1.3 (2026-09-30).** Fixtures: `fixtures/grammar/lexer.ts`, 357 `lex_*` (294 of them the
+      `lex_keyword_{assigned,before_name,operand}_*` family — every keyword asked as a name in the three statement
+      positions), 351 recorded on each vendor (the six `lex_soft_keyword_method_name_{public…abstract}` are refused at
+      object creation, `vendorRefuses`). Rules GAP area 2 **79 → 71** (total 133 → 125): L1–L4, L8, L13, L14, L15 closed;
+      L11 stays (2.1.4). `rate:fixtures`: lsp-gap 13 → 11 (`lex_keyword_operand_sys_{new,pouname}` fixed here).
+      Divergences opened (`support/divergences.ts`): R1 cascade after a stray token (10, both vendors → 2.8.2); system
+      operands `__CURRENTTASK`/`__POOL` as bare words (5, both → 2.5.6; **niche: accepted loss, 0 occurrences in the
+      corpora**); TwinCAT bare `xsizeof` (3 → 2.1.4; **niche: accepted loss, 0 in the TwinCAT corpus**, the 5 in pro2193
+      are CODESYS calls); `type_codesys_vector` (TwinCAT → 2.1.4). Fixed in the product on the way (cheap): bare `__POUNAME`
+      bites the next token as `__POSITION` does, bare `__NEW` takes the next token for its `(` then wants a type (both
+      `parse/expression.ts`, tests in `parse/parser.test.ts`).
+      **The 0.x measures, three refinements** (the first gate run was red: the `lex_keyword_*` family raised four
+      ceilings — parse findings 201→223, fixed-point 23→25, resolution 234→250, types 262→263). No ceiling rose; each
+      refinement makes a measure ask the question it states, and every ceiling it moved went DOWN:
+      (a) `dumps.ts` `refusedIn` — an expression holding its source's own parse error has no printer fixed point (0.2; the
+      rule the formatter check already followed) and no type to ask (0.4, counted "untyped, a refused expression");
+      (b) a fixture bare name that binds NONE, or an `ident_expr` typed UNKNOWN, whose name that fixture's build itself
+      reports "Identifier 'x' not defined" AGREES with the oracle (0.3's own question) — counted, not a finding
+      (this also answers 2.1.4's open question for `type_codesys_vector`);
+      (c) a fixture `support/divergences.ts` pins for a vendor is counted, not measured, for that vendor in 0.1/0.3/0.4 —
+      the suite already replays it as an expected failure and fails the day it agrees; without this an owner-accepted
+      niche divergence could never be recorded under a ceiling.
+      Ceilings now: fixed-point findings 17 (fixtures not a fixed point 14); parse findings 190 (CODESYS refused-no-LSP
+      61, TwinCAT 83); resolution findings 166 (fixture bare NONE CODESYS 5, TwinCAT 45; messages LSP-only 0/0,
+      recorded-only 2/10); type findings 253 (ident_expr UNKNOWN CODESYS 68, TwinCAT 115). F (`frontend-snapshot check
+      --base HEAD`): 13 268 aspects over 1 788 sources — every one a new `lex_*` fixture but `cc_il_name_cal` (L15, the
+      CAL rule; its back end drops rust/interp because it is now refused at parse); no corpus source moved.
+      `bun typecheck` clean; `bun test` 6084 pass / 34 skip / 148 todo / 0 fail (6266 tests, 182 files, 505 s);
+      `bun run check` 14 passed, 0 failed; lint clean (the one known layering violation).
 - [ ] 2.1.4 Dialect vocabulary (L10, L11): `__VECTOR` applied on TwinCAT; every default-dialect re-lexer of design.md P6 lexes with
       the project dialect: services hover.ts, semantic-tokens.ts, analysis reachability.ts, symbols binder.ts, pragmas/attributes,
       services/shared/positions.ts (`tokenAtOffset`), network/network-analyze.ts:116, network-text/parser.ts:1175 (via the parse

@@ -14,6 +14,7 @@
 import {
   build,
   defineSymbol,
+  dialectOf,
   isPouSymbol,
   lookup,
   type Scope,
@@ -42,7 +43,7 @@ const WIRE_AST = {} as StSymbol["ast"]
 
 export function analyzeNetworkText(unit: TopLevel, body: BodySpan, project: Scope, uri: string): NetworkTextAnalysis {
   const pou = scopeForUnit(project, unit) ?? project
-  const vg = parseNetworkText(body, scopeView(pou, project))
+  const vg = parseNetworkText(body, scopeView(pou, project), dialectOf(project))
   const networkScopes = new Map<NetworkTextNetwork, Scope>()
   const wires = new Map<StSymbol, NetworkWire>()
   for (const network of vg.networks) {
@@ -121,7 +122,7 @@ function scopeView(pou: Scope, project: Scope): NetworkScopeView {
       return sym !== undefined && isPouSymbol(sym)
     },
     instanceType: (head) => {
-      const toks = lex(head).filter((t) => t.kind !== "eof" && !isTrivia(t.kind))
+      const toks = lex(head, dialectOf(project)).filter((t) => t.kind !== "eof" && !isTrivia(t.kind))
       const expr = toks.some((t) => t.kind === "unknown") ? undefined : parseExprFromTokens(toks)
       return expr === undefined ? undefined : instanceFb(expr, pou, project)?.name
     },

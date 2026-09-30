@@ -46,8 +46,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "line comment `//`",
     home: "lex/lexer",
-    gap: true,
-    fixtures: ["ng_network_title_and_comment"],
+    gap: false,
+    fixtures: ["ng_network_title_and_comment", "lex_line_comment_in_body"],
     design: "ng_network_title_and_comment (only one, and it is a network fixture) — **GAP** for ST bodies",
   },
   {
@@ -56,8 +56,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "block comment `(* *)`",
     home: "lex/lexer",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lex_block_comment"],
     design: "**GAP**",
   },
   {
@@ -66,8 +66,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "nested block comment",
     home: "lex/lexer",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lex_nested_block_comment"],
     design: "**GAP**",
   },
   {
@@ -76,8 +76,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "CRLF line endings (lexer, implementation line)",
     home: "lex/lexer, format/implementation-line",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lex_crlf_body", "lex_crlf_implementation_line"],
     design: "**GAP**",
   },
   {
@@ -116,8 +116,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "unknown character token",
     home: "lex/lexer",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lex_unknown_character*"],
     design: "**GAP**",
   },
   {
@@ -127,7 +127,7 @@ export const RULES: readonly Rule[] = [
     rule: 'a reserved standard-function or type word used as a name → "Unexpected token" cascade',
     home: "parse/errors (today cursor + analysis refused-name)",
     gap: false,
-    fixtures: ["cc4_type_name_bit_as_variable", "cc4_type_name_byte_as_variable", "identifier_double_underscore"],
+    fixtures: ["cc4_type_name_bit_as_variable", "cc4_type_name_byte_as_variable", "identifier_double_underscore", "lex_keyword_assigned_*", "lex_keyword_before_name_*", "lex_keyword_operand_*"],
     design: "cc4_type_name_bit_as_variable, cc4_type_name_byte_as_variable, identifier_double_underscore",
   },
   {
@@ -149,6 +149,8 @@ export const RULES: readonly Rule[] = [
     gap: true,
     fixtures: ["type_codesys_vector"],
     design: "type_codesys_vector (CODESYS only) — **GAP** for TwinCAT",
+    recheck:
+      "2.1 (2026-09-30): `type_codesys_vector` IS recorded on TwinCAT — \"Type definition expected instead of '__VECTOR'\", then its uses undefined. The LSP still reads the vector type on TwinCAT (a known divergence, `support/divergences.ts`), so the row stays a GAP: it is task 2.1.4's, whose acceptance is CA, and it flips with that task's fix — not with the recording.",
   },
   {
     id: "L12",
@@ -157,7 +159,7 @@ export const RULES: readonly Rule[] = [
     rule: "soft keywords (GET/SET/PUBLIC/…/OVERRIDE) as names",
     home: "lex/vocabulary SOFT_NAME_KEYWORDS",
     gap: false,
-    fixtures: ["tr_15_fb_copy_keeps_pointer_address", "cc2_fb_not_instantiated", "subrange_assign_const_out"],
+    fixtures: ["tr_15_fb_copy_keeps_pointer_address", "cc2_fb_not_instantiated", "subrange_assign_const_out", "lex_soft_keyword_name_*", "lex_soft_keyword_as_type_*", "lex_soft_keyword_names", "lex_cascade_meets_soft_name_*", "lex_soft_keyword_named_argument_*"],
     design: "tr_15_fb_copy_keeps_pointer_address, cc2_fb_not_instantiated, subrange_assign_const_out",
   },
   {
@@ -166,8 +168,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "reserved keywords no grammar rule consumes (READ_ONLY, READ_WRITE, FROM, USING, WITH, PARAMS, DIV as infix)",
     home: "lex/vocabulary",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lex_reserved_unused_keyword_as_name_*", "lex_div_as_operator"],
     design: "**GAP**",
   },
   {
@@ -176,8 +178,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "LIMIT/MIN/MAX/SEL/MUX are reserved (cannot be variable names)",
     home: "lex/vocabulary",
-    gap: true,
-    fixtures: ["cc4_type_name_bit_as_variable", "cc4_type_name_byte_as_variable"],
+    gap: false,
+    fixtures: ["cc4_type_name_bit_as_variable", "cc4_type_name_byte_as_variable", "lex_limit_as_variable", "lex_min_as_variable", "lex_sel_as_variable", "lex_mux_as_variable", "lex_max_as_variable"],
     design: "covered by L9 fixtures for BIT/BYTE only — **GAP** for LIMIT/MIN/MAX/SEL/MUX",
   },
   {
@@ -186,8 +188,8 @@ export const RULES: readonly Rule[] = [
     section: "2.1",
     rule: "the deprecated keywords CAL and INI: accepted or refused, and with which message",
     home: "lex/vocabulary, parse/statements",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lex_cal_keyword", "lex_ini_keyword", "cc_il_name_cal", "operand_ini_deprecated", "lex_cal_declared_operand"],
     design: "**GAP**",
   },
   // ── 2.2 ──

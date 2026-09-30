@@ -36,7 +36,7 @@ test("IMPLEMENTATION LD and IMPLEMENTATION FBD select the network-text reader", 
     expect(syntaxErrors(src)).toEqual([]) // the ST parser routes around a graphical body
     const bodies = bodiesOf(src)
     expect(bodies.map(graphicalMarkerLanguage)).toEqual([language])
-    const parsed = parseNetworkText(bodies[0]!, STRUCTURE_ONLY)
+    const parsed = parseNetworkText(bodies[0]!, STRUCTURE_ONLY, "codesys")
     expect(parsed.diagnostics.map((d) => `${d.code}: ${d.message}`)).toEqual([])
     expect(parsed.language).toBe(language)
     expect(parsed.networks).toHaveLength(1)
@@ -46,11 +46,11 @@ test("IMPLEMENTATION LD and IMPLEMENTATION FBD select the network-text reader", 
 test("…and ST under LD is read as network text, which refuses it", () => {
   const bodies = bodiesOf(fb("IMPLEMENTATION LD\nout := a;"))
   expect(bodies.map(graphicalMarkerLanguage)).toEqual(["LD"])
-  expect(parseNetworkText(bodies[0]!, STRUCTURE_ONLY).diagnostics.length).toBeGreaterThan(0)
+  expect(parseNetworkText(bodies[0]!, STRUCTURE_ONLY, "codesys").diagnostics.length).toBeGreaterThan(0)
 })
 
 test("a member's %FOLDER taken out with its IMPLEMENTATION LD line leaves a network body the reader reads clean", () => {
   const src = `${fb("IMPLEMENTATION ST\n")}\nMETHOD M\nIMPLEMENTATION LD\n%FOLDER Sub/Deep\n${NETWORK}\nEND_METHOD\n`
   const method = bodiesOf(src)[1]!
-  expect(parseNetworkText(method, STRUCTURE_ONLY).diagnostics.map((d) => d.message)).toEqual([])
+  expect(parseNetworkText(method, STRUCTURE_ONLY, "codesys").diagnostics.map((d) => d.message)).toEqual([])
 })

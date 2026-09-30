@@ -31,14 +31,25 @@ export function vendorReportsParseError(e: ParseError, vendor: Vendor): boolean 
   return !(e.globalMissingSemicolon === true && vendor === "codesys")
 }
 
+/**
+ * A parse error's text as `messages`' vendor words it. The parser has no vendor, so the shapes the two compilers
+ * capitalise differently arrive as FACTS rather than as final text — "Unexpected token" (CODESYS) / "Unexpected Token"
+ * (TwinCAT, `echo_*`, measured on both recordings 2026-09-20), and an operator's operand count ("operands" / "Operands").
+ * Every path that shows a parse error words it here.
+ */
+export function parseErrorMessage(e: ParseError, messages: CheckContext["messages"]): string {
+  if (e.unexpectedToken !== undefined) return messages.unexpectedToken(e.unexpectedToken)
+  if (e.operandCount !== undefined) {
+    const { operator, count, atLeast } = e.operandCount
+    return atLeast ? messages.operatorNeedsAtLeast(operator, count) : messages.operatorNeedsExactly(operator, count)
+  }
+  return e.message
+}
+
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
-  // The parser has no vendor, so one shape it produces arrives as a FACT (`unexpectedToken`) rather than as
-  // final text: both compilers report it, and they capitalise it differently (CODESYS "token", TwinCAT
-  // "Token" — `echo_*`, measured on both recordings 2026-09-20). Worded here, where the vendor is known.
   const emit = (e: ParseError): void => {
     if (!vendorReportsParseError(e, ctx.config.vendor)) return
-    const message = e.unexpectedToken === undefined ? e.message : ctx.messages.unexpectedToken(e.unexpectedToken)
-    out.push({ severity: "error", span: e.span, source: SOURCE, code: "syntax-error", message })
+    out.push({ severity: "error", span: e.span, source: SOURCE, code: "syntax-error", message: parseErrorMessage(e, ctx.messages) })
   }
   // Declaration structure — recorded on the top-level parse cursor (unit headers, VAR sections, type decls).
   for (const e of ctx.parseResult.errors) emit(e)

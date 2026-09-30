@@ -25,7 +25,8 @@ import type {
   LiteralKind,
 } from "../ast/nodes.js"
 import { parseLiteralValue } from "../literal/value.js"
-import { expressionExpected, vendorTokenText } from "./errors.js"
+import { expressionExpected, vendorExpressionExpected, vendorTokenText } from "./errors.js"
+import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND } from "../lex/vocabulary.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
 // Exported for `test/conformance/coverage.test.ts`, which requires every operator here to appear in at least one
@@ -286,6 +287,61 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     cur.consume()
     return { kind: "ident_expr", name: t.text, span: t.span }
   }
+  // Every keyword rule below was measured with a token AFTER the word (`n := cal;`). A keyword that ENDS the tokens is
+  // read as a name, as before: network text reads a callee on its own (`MAX` of `MAX(a, b)`), and a stray block closer
+  // at the end of a body is unmeasured.
+  const followed = cur.peek(1).kind !== "eof"
+  // A keyword that is NO OPERAND (`NOT_AN_OPERAND`) — `n := cal;`, `t(Public := TRUE);` — is refused on the word and
+  // left where it stands: the vendor resyncs from it as from a refused statement, which the statement list runs.
+  // Before `(` it is not refused here — the IL call form `ADD(a, b)` is still refused by the analysis (task 2.5.5).
+  if (t.kind === "keyword" && t.keyword !== undefined && NOT_AN_OPERAND.has(t.keyword) && followed && !isOpenParen(cur.peek(1))) {
+    cur.pushError(expressionExpected(t), t.span)
+    cur.refuseOperand()
+    return undefined
+  }
+  // A CALL OPERATOR WITHOUT ITS `(` TAKES THE NEXT TOKEN FOR IT (`CALL_OPERATOR_OPERANDS`): `n := abs;` is "'(' expected
+  // instead of ';'" and "'ABS' needs exactly '1' operands", and the `;` is gone — so the statement then says "';'
+  // expected instead of end of POU" by itself, as for `__POSITION` below. Measured per operator (`lex_keyword_operand_*`,
+  // `lex_keyword_assigned_sys_queryinterface` …, CODESYS 2026-09-30).
+  const operands = t.kind === "keyword" && t.keyword !== undefined ? CALL_OPERATOR_OPERANDS.get(t.keyword) : undefined
+  if (t.keyword !== undefined && operands !== undefined && followed && !isOpenParen(cur.peek(1))) {
+    cur.consume()
+    const taken = cur.peek()
+    cur.pushError(`'(' expected instead of ${vendorTokenText(taken)}`, taken.span)
+    const operator = t.keyword
+    const { count, atLeast } = operands
+    cur.pushParseError({
+      message: `'${operator}' needs ${atLeast ? "at least" : "exactly"} '${count}' operands`,
+      span: t.span,
+      operandCount: { operator, count, atLeast },
+    })
+    cur.consume()
+    return { kind: "ident_expr", name: t.text, span: t.span }
+  }
+  // `__NEW` WITHOUT ITS `(` takes the next token for it too, then wants a TYPE where the calls above want operands:
+  // `n := __new;` is "'(' expected instead of ';'", "Type definition expected as operand for __NEW", "')' expected
+  // instead of ''" — and the `;` gone, the statement's "';' expected instead of end of POU" (`lex_keyword_operand_sys_new`,
+  // CODESYS and TwinCAT alike, 2026-09-30). Only that position was measured.
+  if (t.kind === "keyword" && t.keyword === "__NEW" && followed && !isOpenParen(cur.peek(1))) {
+    cur.consume()
+    const taken = cur.consume()
+    cur.pushError(`'(' expected instead of ${vendorTokenText(taken)}`, taken.span)
+    const next = cur.peek()
+    cur.pushError("Type definition expected as operand for __NEW", next.span)
+    cur.pushError(`')' expected instead of ${next.kind === "eof" ? "''" : vendorTokenText(next)}`, next.span)
+    return { kind: "ident_expr", name: t.text, span: t.span }
+  }
+  // A BINARY OPERATOR WORD where an operand belongs is read as the operator, its left operand missing: CODESYS names the
+  // word, then — having taken it as the operator — the token where the right operand should be (`n := and;`: "Expression
+  // expected instead of 'and'", "Expression expected instead of ';'"; `lex_keyword_operand_and` and its five siblings).
+  if (t.kind === "keyword" && binaryOp(t) !== undefined && followed) {
+    cur.pushError(expressionExpected(t), t.span)
+    cur.consume()
+    const operand = cur.peek()
+    if (operand.kind === "punct") cur.pushError(vendorExpressionExpected(operand), operand.span)
+    else parseUnary(cur)
+    return undefined
+  }
   // A keyword that isn't an operator can start an expression as a name —
   // standard functions/operators lexed as keywords (`ADR`, `SIZEOF`, `SEL`, …).
   if (t.kind === "keyword" && t.keyword !== undefined && !OPERATOR_KEYWORDS.has(t.keyword)) {
@@ -301,7 +357,10 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     //
     // Modelling it as "an unknown operand" fits none of them: the compiler never names `__POSITION`, it names
     // whatever stands after it. Emulating the bite makes the ordinary statement parser say the vendor's words.
-    if (t.keyword === "__POSITION" && !isOpenParen(cur.peek())) cur.consume()
+    //
+    // `__POUNAME` answers the same way (`lex_keyword_operand_sys_pouname`, CODESYS 2026-09-30: `n := __pouname;` is
+    // "';' expected instead of end of POU" and nothing else). On TwinCAT neither is a keyword (`CODESYS_ONLY_KEYWORDS`).
+    if ((t.keyword === "__POSITION" || t.keyword === "__POUNAME") && !isOpenParen(cur.peek())) cur.consume()
     // `__CURRENTTASK` IS REFUSED IN ST, AND ALWAYS WITH THE SAME TWO WORDS. Six positions were recorded on SP21
     // (`op_sys_currenttask`, `sysop_currenttask_*`) — a method, an FB body, a bare statement, the call form, a
     // dereference-and-read, and one with a statement after it — and every one answers:

@@ -3,7 +3,7 @@
  * definition, completion). Untested before; off-by-one here breaks all of them, so pin the line/col
  * boundaries, the end-of-source case, out-of-range, and the Span(1-based line)→Range(0-based) mapping.
  */
-import { spanContains } from "../../frontend/syntax/index.js"
+import { lex, spanContains } from "../../frontend/syntax/index.js"
 import { test, expect } from "bun:test"
 import type { Span } from "../../frontend/syntax/index.js"
 import { offsetFromPosition, rangeFromSpan, tokenAtOffset } from "./positions.js"
@@ -40,7 +40,7 @@ test("spanContains: start inclusive, end exclusive", () => {
 // definition on type names and declared identifiers (from `syntax/token-at.test.ts`, openspec frontend-conformance 1.10).
 
 // "x := foo;" → x[0,1) :=[2,4) foo[5,8) ;[8,9)   (offsets 1 and 4 are whitespace = trivia)
-const TOKENS = "x := foo;"
+const TOKENS = lex("x := foo;", "codesys")
 
 test("returns the token whose span covers the offset (start inclusive)", () => {
   expect(tokenAtOffset(TOKENS, 0)?.text).toBe("x")

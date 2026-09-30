@@ -12,12 +12,15 @@
  *   a build that FAILED with a syntax-shaped message ("expected", "Unexpected token") where the LSP reports no parse
  *   error at all is a finding the other way — the parser accepting what the vendor refuses.
  *
+ * A fixture `support/divergences.ts` pins for a vendor is counted, not measured, for that vendor (it is held there).
+ *
  * The counts are the census table (openspec frontend-conformance 0.1); the findings are pinned in
  * `baselines/parse-census.json` and may only be removed by fixing the parser — or, where a vendor's recording is
  * missing, by recording it.
  */
 import { describe, expect, test } from "bun:test"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
+import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { checkBaseline, tally, type Baseline } from "./baseline.js"
 import { parse, parseErrors } from "./dumps.js"
 import { corpusProjects, fixtureSources, libraryRepoFiles, messagePool, type RecordedBuild } from "./sources.js"
@@ -54,6 +57,12 @@ function census(): Baseline {
     const key = `fixtures ${vendor}`
     for (const f of fixtureSources()) {
       const rec = f[vendor]
+      // A fixture `support/divergences.ts` pins as disagreeing with this vendor's build is held there — the suite replays
+      // it as an expected failure and fails the day it agrees — so it is counted here, not measured twice.
+      if (rec !== undefined && KNOWN_DIVERGENCES[vendor].has(f.test.name)) {
+        tally(counts, `${key}: known divergence (support/divergences.ts), not measured`)
+        continue
+      }
       const errors = [f.own, f.plc].flatMap((s) =>
         parseErrors(parse(s, vendor), vendor).map((e) => ({ ...e, id: s.id })),
       )

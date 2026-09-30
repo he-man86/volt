@@ -21,7 +21,7 @@ function attributeName(pragma: string): string | undefined {
 export function declarationAttributes(parseResult: ParseResult, source: string): Map<Declaration, Set<string>> {
   const sections = parseResult.units.flatMap((u) => ("varSections" in u ? u.varSections : []))
   const out = new Map<Declaration, Set<string>>()
-  for (const token of lex(source)) {
+  for (const token of lex(source, parseResult.dialect)) {
     if (token.kind !== "pragma") continue
     const name = attributeName(token.text)
     const section = name === undefined ? undefined : sections.find((s) => s.span.start <= token.span.start && token.span.end <= s.span.end)
@@ -39,7 +39,7 @@ export function declarationAttributes(parseResult: ParseResult, source: string):
 export function memberAttributes(parseResult: ParseResult, source: string): Map<TopLevel, Set<string>> {
   const members = new Set<TopLevel>(parseResult.units.filter((u) => u.kind === "method" || u.kind === "action" || u.kind === "property"))
   const out = new Map<TopLevel, Set<string>>()
-  for (const token of lex(source)) {
+  for (const token of lex(source, parseResult.dialect)) {
     if (token.kind !== "pragma") continue
     const name = attributeName(token.text)
     const unit = name === undefined ? undefined : parseResult.units.find((u) => u.span.end >= token.span.end)
@@ -61,7 +61,7 @@ export function unitAttributes(parseResult: ParseResult, source: string): Map<To
     } else owner = unit
   }
   const out = new Map<TopLevel, Set<string>>()
-  for (const token of lex(source)) {
+  for (const token of lex(source, parseResult.dialect)) {
     if (token.kind !== "pragma") continue
     const name = attributeName(token.text)
     // a unit's span stops before its END_ keyword, so the first unit ending at or after the pragma holds or follows it

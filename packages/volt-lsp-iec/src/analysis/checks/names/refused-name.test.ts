@@ -16,9 +16,15 @@ function diagnose(src: string, vendor: Vendor = "codesys") {
   const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
+/**
+ * A refusal is the PARSER'S where the syntax layer knows the name — an IL operator or a `__` name declared, an IL
+ * operator starting a statement (frontend-conformance 2.1.3) — and this check's where only the type table does. The
+ * messages are the vendor's either way, so the tests read both codes.
+ */
+const refusal = (d: { code?: string }): boolean => d.code === "refused-name" || d.code === "syntax-error"
 const program = (decl: string, body = "") => `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
 const flagged = (decl: string, vendor: Vendor = "codesys") =>
-  diagnose(program(decl), vendor).filter((d) => d.code === "refused-name")
+  diagnose(program(decl), vendor).filter((d) => refusal(d))
 
 // The IDE does not stop at the name: it resyncs by demanding a `;`, reporting a PAIR for every token until it finds
 // one (conformance `cc_reserved_name_r`: five errors, not one). Only the first was emitted here, which is why 22
@@ -51,16 +57,27 @@ test("every recorded IL operator name is reserved the same way — LD, ST, RET, 
 test("`cal` is reported as written and its use is not an undefined identifier", () => {
   // CAL sat in the keyword table: the name was echoed 'CAL', and `cal := 1` added "Identifier 'cal' not defined" —
   // neither is in the recording (cc_il_name_cal), which reports 'cal' on the declaration and on the use.
-  const d = diagnose(program("cal : INT;", "cal := 1;")).filter((x) => x.code === "refused-name")
+  const d = diagnose(program("cal : INT;", "cal := 1;")).filter((x) => refusal(x))
   expect(d.map((x) => x.message).filter((m) => m.includes("'cal'"))).toEqual([
     "Unexpected token 'cal' found",
     "Unexpected token 'cal' found",
   ])
 })
 
+test("`cal` READ as an operand is refused, declared or not, and never an undefined identifier (lex_keyword_operand_cal, lex_cal_declared_operand)", () => {
+  // CODESYS: "Expression expected instead of 'cal'" and its pair — the parser's now; `cal` left the IL-name table here
+  for (const decl of ["n : INT;", "cal : INT; n : INT;"]) {
+    const d = diagnose(program(decl, "n := cal;"))
+    expect(d.map((x) => x.message)).not.toContain("Identifier 'cal' not defined")
+    const use = ["Expression expected instead of 'cal'", "';' expected instead of 'cal'", "Unexpected token 'cal' found"]
+    const expected = decl.startsWith("cal") ? ["Unexpected token 'cal' found", ...use] : use
+    expect(d.filter((x) => refusal(x)).map((x) => x.message).filter((m) => m.includes("'cal'")).sort()).toEqual(expected.sort())
+  }
+})
+
 test("a USE is flagged too — CODESYS reports the declaration and every use", () => {
   // recorded: `s : STRING; s := 'abc';` → "Unexpected token 's' found" twice (cc_reserved_name_s_string)
-  const d = diagnose(program("s : STRING;", "s := 'abc';")).filter((x) => x.code === "refused-name")
+  const d = diagnose(program("s : STRING;", "s := 'abc';")).filter((x) => refusal(x))
   expect(d.map((x) => x.message).filter((m) => m.includes("'s'"))).toEqual([
     "Unexpected token 's' found",
     "Unexpected token 's' found",
@@ -68,7 +85,7 @@ test("a USE is flagged too — CODESYS reports the declaration and every use", (
 })
 
 test("S= and R= stay operators — only a bare NAME is flagged", () => {
-  expect(diagnose(program("a : BOOL; b : BOOL;", "a S= b;\na R= b;")).filter((x) => x.code === "refused-name")).toEqual([])
+  expect(diagnose(program("a : BOOL; b : BOOL;", "a S= b;\na R= b;")).filter((x) => refusal(x))).toEqual([])
 })
 
 test("names that merely contain an operator are ordinary identifiers, and CALC is not claimed", () => {
@@ -105,14 +122,14 @@ test("an identifier holding consecutive underscores is refused — the compiler 
   ])
   expect(flagged("__systemReserved : INT;")[0]?.message).toBe("Unexpected token '__systemReserved' found")
   // a USE is not refused: `__NEW`, `__QUERYINTERFACE` and the rest are compiler operators spelled that way
-  expect(diagnose(program("p : POINTER TO INT;", "p := __NEW(INT);")).filter((d) => d.code === "refused-name")).toEqual([])
+  expect(diagnose(program("p : POINTER TO INT;", "p := __NEW(INT);")).filter((d) => refusal(d))).toEqual([])
 })
 
 test("an elementary type name is refused in the BODY too, and says which position it was in", () => {
   // Why missed: the name was reported only at its declaration, so `byte := 2;` and `n := byte;` — eight more IDE
   // errors — went unreported (conformance `cc4_type_name_byte_as_variable`).
   const msgs = diagnose(program("byte : INT; n : INT;", "byte := 2;\nn := byte;"))
-    .filter((d) => d.code === "refused-name")
+    .filter((d) => refusal(d))
     .map((d) => d.message)
   // where the statement STARTS the parser wanted a target; anywhere else it wanted an operand and says so
   expect(msgs).toContain("Expression expected instead of 'byte'")
@@ -124,7 +141,7 @@ test("a type name a call uses is NOT refused — as an argument or as the callee
   // `LTIME()` reads the clock and `XSIZEOF(DINT)` names a type; corpus pro2193 `StopwatchFB` calls the first, which
   // is how the callee exclusion was found (12 false positives in one file).
   const d = diagnose(program("n : UDINT; t : LTIME;", "t := LTIME();\nn := XSIZEOF(DINT);"))
-  expect(d.filter((x) => x.code === "refused-name")).toEqual([])
+  expect(d.filter((x) => refusal(x))).toEqual([])
 })
 
 // A TYPE NAME IS ONLY RESERVED WHERE THE TYPE EXISTS. TwinCAT has no `LDATE`/`LTOD`/`LDT`, so `ldate : INT;`
@@ -133,7 +150,7 @@ test("a type name a call uses is NOT refused — as an argument or as the callee
 // day the dialect work landed, which is why no fixture covers it.
 test("a CODESYS-only type name is not a reserved name on TwinCAT", () => {
   const decl = program("ldate : INT;", "ldate := 1;")
-  expect(diagnose(decl, "twincat").filter((d) => d.code === "refused-name")).toEqual([])
+  expect(diagnose(decl, "twincat").filter((d) => refusal(d))).toEqual([])
   // …and the ones TwinCAT DOES have are still refused, on both
   expect(diagnose(program("ltime : INT;", "ltime := 1;"), "twincat").length).toBeGreaterThan(0)
   expect(diagnose(decl).length).toBeGreaterThan(0)
@@ -170,14 +187,14 @@ test("an unknown literal prefix is refused on TwinCAT, and cascades", () => {
     "Unexpected Token '2026' found",
   ])
   // …and CODESYS lexes the whole thing as one date literal, so nothing here fires at all
-  expect(diagnose(program("v : LDT;", "v := LDT#2026-05-09-07:05:03;")).filter((d) => d.code === "refused-name")).toEqual([])
+  expect(diagnose(program("v : LDT;", "v := LDT#2026-05-09-07:05:03;")).filter((d) => refusal(d))).toEqual([])
 })
 test("an IL operator's CALL FORM is refused — `ADD(a, b)` is not ST", () => {
   // `added := ADD(a, b);` is eleven IDE errors and was silent here: ADD lexes as a keyword, and the expression
   // parser accepts any non-operator keyword as a name (`LTIME()`), so the call parsed clean
   // (conformance `operator_call_form_arithmetic`, `_comparison`, `_extensible`).
   const msgs = diagnose(program("a : INT; b : INT; added : INT;", "added := ADD(a, b);"))
-    .filter((d) => d.code === "refused-name")
+    .filter((d) => refusal(d))
     .map((d) => d.message)
   expect(msgs).toEqual([
     "Expression expected instead of 'ADD'",

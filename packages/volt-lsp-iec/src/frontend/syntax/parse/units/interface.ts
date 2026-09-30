@@ -123,7 +123,7 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   const start = c.expectKeyword("METHOD")
   if (start === undefined) return undefined
   const modifiers = readModifiers(c, INTERFACE_MEMBER_MODIFIERS).map((m) => m.keyword!)
-  const nameTok = c.expectName()
+  const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   let returnType: InterfaceMethod["returnType"]
@@ -163,7 +163,7 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   if (start === undefined) return undefined
   // Modifiers are allowed but informational on interfaces (e.g. `PROPERTY PUBLIC Foo : T`).
   const modifiers = readModifiers(c, INTERFACE_MEMBER_MODIFIERS).map((m) => m.keyword!)
-  const nameTok = c.expectName()
+  const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   if (c.expectPunct(":") === undefined) return undefined

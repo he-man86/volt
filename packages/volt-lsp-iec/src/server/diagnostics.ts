@@ -12,6 +12,7 @@ import {
   computeSemanticDiagnostics,
   inDeadMember,
   ownerPou,
+  parseErrorMessage,
   vendorReportsParseError,
   type DiagnosticItem,
   type Messages,
@@ -119,7 +120,7 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
         range: rangeFromSpan(e.span),
         severity: DiagnosticSeverity.Error,
         source: "volt-lsp-iec",
-        message: e.message,
+        message: parseErrorMessage(e, messages),
       })),
     ...missing,
   ]

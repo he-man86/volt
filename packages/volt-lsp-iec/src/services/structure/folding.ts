@@ -17,7 +17,7 @@ export function foldingRanges(doc: Document): FoldingRange[] {
     if ("varSections" in unit) for (const s of unit.varSections) add(s.span)
     for (const body of unitBodies(unit)) {
       if (isGraphicalBody(body)) {
-        for (const n of parseNetworkText(body, STRUCTURE_ONLY).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
+        for (const n of parseNetworkText(body, STRUCTURE_ONLY, doc.parseResult.dialect).networks) add(n.span) // one fold per NETWORK in an FBD/LD body
         continue
       }
       if (!isStBody(body)) continue // a hidden body is empty: nothing to fold

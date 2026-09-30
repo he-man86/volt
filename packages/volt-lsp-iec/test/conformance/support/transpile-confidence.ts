@@ -152,7 +152,7 @@ const DEFAULT_VALUE =
 /** True when no constant in the program is anything but a default — no non-zero number, no TRUE, no non-empty string,
  *  no non-zero duration or date. Comments and pragmas are not inputs. */
 function constantsAreDefaults(source: string): boolean {
-  for (const t of lex(source)) {
+  for (const t of lex(source, "codesys")) { // the transpiler's input is CODESYS ST
     if (t.kind === "keyword" && t.keyword === "TRUE") return false
     if (t.kind === "string_lit" || t.kind === "wstring_lit") {
       if (t.text.length > 2) return false

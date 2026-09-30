@@ -133,8 +133,10 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
 type DeclFailure = "bad-name"
 
 function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undefined {
-  // `expectName` (not `expectIdent`): soft keywords like SET/GET/OVERRIDE are legal variable names — the
-  // Standard `RS` FB literally declares `SET : BOOL`, and CODESYS accepts it.
+  // `expectName` (not `expectIdent`): the soft keywords GET/SET/OVERRIDE are legal variable names — the Standard `RS`
+  // FB literally declares `SET : BOOL`, and CODESYS accepts it (`lex_soft_keyword_name_*`). An IL operator or `__`
+  // name is refused by `analysis/checks/names/refused-name.ts` until conformance 2.8.3 gives the two declaration
+  // cascades one home: they differ on `s : ST_Foo;`, which no recording decides.
   // The token that could not be a name is REMEMBERED, not just reported: a declaration that fails binds nothing,
   // and without this every later mention of the name is "not defined" where CODESYS stops at the parse error.
   // See `ParseResult.failedDeclarations`.

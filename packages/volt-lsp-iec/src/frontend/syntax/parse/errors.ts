@@ -6,7 +6,7 @@
  */
 import type { Span } from "../span.js"
 import type { Token } from "../lex/tokens.js"
-import type { Keyword } from "../lex/vocabulary.js"
+import { SOFT_NAME_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
 
 /** What an error needs of the cursor it resyncs — the cursor itself satisfies it. */
 export interface ErrorCursor {
@@ -38,21 +38,37 @@ export function plainTokenText(t: Token): string {
   return `${t.kind} '${t.text}'`
 }
 
-/** A token as the type parser's message names it — a keyword by its canonical spelling. */
+/** A token that is not a keyword as the type parser's Volt-worded message names it (a keyword gets the vendors' form). */
 function typeTokenText(t: Token): string {
   if (t.kind === "eof") return "end of input"
-  if (t.kind === "keyword") return `keyword '${t.keyword ?? t.text}'`
   return `'${t.text}'`
 }
 
-/** "expected type, got …" — a type position holding something else. */
+/**
+ * A type position holding something else. For a KEYWORD it is the vendors' "Type definition expected instead of 'X'",
+ * echoed as written — both vendors for `v : Public;` (`lex_soft_keyword_as_type_*`), and TwinCAT for `END_VAR` where the
+ * type was missing (`var_non_retain`). Any other token keeps Volt's "expected type, got …" until a
+ * recording words it (conformance 2.8.1).
+ */
 export function typeExpected(t: Token): string {
+  if (t.kind === "keyword") return `Type definition expected instead of ${vendorTokenText(t)}`
   return `expected type, got ${typeTokenText(t)}`
 }
 
-/** "expected expression, got …" — an expression position holding something else. */
+/**
+ * An expression position holding something else. For a KEYWORD it is the vendors' "Expression expected instead of 'X'",
+ * echoed as written — `n := cal;`, `n := and;` (`lex_keyword_operand_*`, 2026-09-30, every keyword asked). Any other
+ * token keeps Volt's "expected expression, got …" until a recording words it in that position (conformance 2.8.1);
+ * `vendorExpressionExpected` is the vendors' form where one has.
+ */
 export function expressionExpected(t: Token): string {
+  if (t.kind === "keyword") return vendorExpressionExpected(t)
   return `expected expression, got ${t.kind} '${t.text}'`
+}
+
+/** "Expression expected instead of 'X'" — the vendors' words for any token, used where a recording has them. */
+export function vendorExpressionExpected(t: Token): string {
+  return `Expression expected instead of ${vendorTokenText(t)}`
 }
 
 /**
@@ -101,6 +117,35 @@ export function reportBrokenDeclaration(c: ErrorCursor, stop: readonly Keyword[]
     if (t.kind === "punct" && t.text === ";") return
     if (t.kind === "keyword" && t.keyword !== undefined && stop.includes(t.keyword)) return
     c.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    c.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
+    c.consume()
+  }
+}
+
+/**
+ * RESYNC A REFUSED STATEMENT THE WAY THE VENDOR DOES — after the word it refused, CODESYS demands a `;` and names every
+ * token in its way: `';' expected instead of 'T'`, and `Unexpected token 'T' found` for a token no statement can start
+ * with. A token that CAN start one (a name: an identifier, or GET/SET/OVERRIDE) gets the first line only, and the statement
+ * parser resumes there (`lex_cascade_meets_soft_name_*`: `limit := set + 1;` says "';' expected instead of 'set'" and
+ * nothing more about `set` — its last message, "'(set + 1);' is no valid statement", is the resumed statement's). For
+ * `limit := 1;` that is the name, a pair for `:=` and a pair for `1` (`lex_limit_as_variable`); for `CAL t();` it is the
+ * word and `';' expected instead of 't'`, after which `t();` is an ordinary call (`lex_cal_keyword`). A keyword refused
+ * as an OPERAND resyncs the same way from that word (`n := cal;`, `t(Public := TRUE);` — `lex_keyword_operand_*`,
+ * `lex_soft_keyword_named_argument_*`).
+ *
+ * `stop` names the tokens it ends at in silence — the block keywords a statement list recovers to, where no vendor
+ * answer has been recorded. The `;` that ends the refused statement is consumed.
+ */
+export function reportStatementCascade(c: ErrorCursor, stop: (t: Token) => boolean): void {
+  for (;;) {
+    const t = c.peek()
+    if (t.kind === "eof" || stop(t)) return
+    if (t.kind === "punct" && t.text === ";") {
+      c.consume()
+      return
+    }
+    c.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    if (t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) return
     c.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
     c.consume()
   }

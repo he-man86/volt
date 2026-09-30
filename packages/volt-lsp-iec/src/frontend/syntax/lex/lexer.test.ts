@@ -3,7 +3,7 @@ import { lex } from "./lexer.js"
 import { isTrivia, type Token } from "./tokens.js"
 
 // Non-trivia tokens, the stream the parser actually consumes.
-const code = (src: string): Token[] => lex(src).filter((t) => !isTrivia(t.kind))
+const code = (src: string): Token[] => lex(src, "codesys").filter((t) => !isTrivia(t.kind))
 
 test("keywords are canonicalized case-insensitively", () => {
   const [t] = code("function_block")
@@ -58,12 +58,26 @@ test("ExST set/reset assignment operators lex as one punct", () => {
 })
 
 test("nestable block comments are trivia", () => {
-  const all = lex("(* outer (* inner *) still *) x")
+  const all = lex("(* outer (* inner *) still *) x", "codesys")
   expect(all.find((t) => t.kind === "block_comment")).toBeDefined()
   expect(code("(* outer (* inner *) still *) x").map((t) => t.text)).toEqual(["x", ""])
 })
 
 test("eof always terminates the stream", () => {
-  const toks = lex("")
+  const toks = lex("", "codesys")
   expect(toks.at(-1)?.kind).toBe("eof")
+})
+
+// ─── the vocabulary, as CODESYS records it (frontend-conformance 2.1.2, L13) ─────────────────────────────────────────
+
+test("USING and WITH are names, not keywords — CODESYS accepts both as a variable name (L13)", () => {
+  // `lex_reserved_unused_keyword_as_name_using` builds with the C0543 warning only, `_with` builds clean (2026-09-30);
+  // a keyword here made both a parse error the vendor never reports.
+  expect(code("using")[0]).toMatchObject({ kind: "identifier", text: "using" })
+  expect(code("WITH")[0]).toMatchObject({ kind: "identifier", text: "WITH" })
+})
+
+test("READ_ONLY, READ_WRITE, FROM and PARAMS stay reserved — CODESYS refuses each as a name (L13)", () => {
+  // `lex_reserved_unused_keyword_as_name_{read_only,read_write,from,params}`: "Unexpected token '<name>' found"
+  for (const w of ["read_only", "READ_WRITE", "From", "params"]) expect(code(w)[0].kind).toBe("keyword")
 })

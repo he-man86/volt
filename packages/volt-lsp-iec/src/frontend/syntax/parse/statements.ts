@@ -13,8 +13,8 @@ import type { Token } from "../lex/tokens.js"
 import { Cursor } from "./cursor.js"
 import { parseAssignable, parseExpression } from "./expression.js"
 import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "../ast/nodes.js"
-import type { Keyword } from "../lex/vocabulary.js"
-import { vendorTokenText } from "./errors.js"
+import { REFUSED_AT_STATEMENT_START, type Keyword } from "../lex/vocabulary.js"
+import { reportStatementCascade, vendorTokenText } from "./errors.js"
 import { identFromToken } from "./names.js"
 
 export interface BodyParse {
@@ -65,13 +65,29 @@ const STMT_SYNC: readonly Keyword[] = [
   "__CATCH", "__FINALLY", "__ENDTRY",
 ]
 
+/** Where a refused statement's cascade stops in silence: a recovery anchor of `STMT_SYNC`. */
+const atStatementSync = (t: Token): boolean => t.kind === "keyword" && t.keyword !== undefined && STMT_SYNC.includes(t.keyword)
+
+/** A statement the parser refused and already resynced past (`reportStatementCascade`) — nothing to add, nothing to skip. */
+const RESYNCED = Symbol("resynced")
+
 function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
     const before = cur.mark()
     const s = parseStatement(cur)
+    if (s === RESYNCED) continue
     if (s !== undefined) {
       out.push(s)
+      continue
+    }
+    // A keyword refused as an OPERAND stopped it (`parsePrimary`, `NOT_AN_OPERAND`): the vendor resyncs from that word
+    // as from a refused statement — the pair for the word, then `reportStatementCascade` (`lex_keyword_operand_*`).
+    if (cur.takeRefusedOperand()) {
+      const word = cur.consume()
+      cur.pushError(`';' expected instead of ${vendorTokenText(word)}`, word.span)
+      cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
+      reportStatementCascade(cur, atStatementSync)
       continue
     }
     // Unparsable statement (error already recorded). Skip to the next statement boundary and keep going. The
@@ -83,7 +99,7 @@ function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): Statem
   return out
 }
 
-function parseStatement(cur: Cursor): Statement | undefined {
+function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
   const t = cur.peek()
   if (t.kind === "punct" && t.text === ";") {
     const semi = cur.consume()
@@ -132,7 +148,31 @@ function parseStatement(cur: Cursor): Statement | undefined {
       return { kind: "label", name: identFromToken(nameTok), span: joinSpans(nameTok.span, colon.span) }
     }
   }
+  if (refusedAtStatementStart(cur)) {
+    const word = cur.consume()
+    cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
+    reportStatementCascade(cur, atStatementSync)
+    return RESYNCED
+  }
   return parseExprOrAssign(cur)
+}
+
+/**
+ * A reserved word CODESYS refuses where a statement starts, reported on the word and resynced (`reportStatementCascade`):
+ * a keyword of `REFUSED_AT_STATEMENT_START` (every keyword was asked; the set says which answered this), followed by
+ *   - an assignment operator — the word used as a variable (`limit := 1;`, `abs := 1;`, `public := 1;` —
+ *     `lex_keyword_assigned_*`, `lex_*_as_variable`, `cc_il_name_cal`), or
+ *   - a name — the word used as a statement of its own (`CAL t();`, `END_IF n := 2;` — `lex_keyword_before_name_*`,
+ *     `lex_cal_keyword`).
+ * Only those two are measured; a keyword followed by anything else (`LIMIT(…);`, a call) keeps the expression parse. The
+ * statement keywords themselves never reach here — `parseStatement` dispatched them above. The Instruction List operator
+ * NAMES (`ld`, `r` …) are identifiers to this lexer and stay `analysis/checks/names/refused-name.ts`'s.
+ */
+function refusedAtStatementStart(cur: Cursor): boolean {
+  const t = cur.peek()
+  if (t.kind !== "keyword" || t.keyword === undefined || !REFUSED_AT_STATEMENT_START.has(t.keyword)) return false
+  const next = cur.peek(1)
+  return assignOpOf(next) !== null || next.kind === "identifier"
 }
 
 function parseJmp(cur: Cursor): Statement | undefined {

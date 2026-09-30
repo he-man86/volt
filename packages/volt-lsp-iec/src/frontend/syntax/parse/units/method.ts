@@ -60,7 +60,7 @@ export function parseMethod(c: Cursor): Method | undefined {
     }
   }
 
-  const nameTok = c.expectName()
+  const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

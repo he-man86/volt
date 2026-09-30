@@ -49,8 +49,8 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
     else if (mod.keyword === "ABSTRACT") isAbstract = true
   }
 
-  // `expectName`, as a method's: a modifier keyword the loop above left is the FB's name.
-  const nameTok = c.expectName()
+  // `expectUnitName`, as a method's: a modifier keyword the loop above left is the FB's name.
+  const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 

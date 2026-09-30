@@ -95,6 +95,7 @@ import { CHECK_COVERAGE_FOUR_TESTS } from "./batches/check-coverage-four.js"
 import { CHECK_COVERAGE_FIVE_TESTS } from "./batches/check-coverage-five.js"
 import { CHECK_COVERAGE_SIX_TESTS } from "./batches/check-coverage-six.js"
 import { INITIALIZER_REPEAT_TESTS } from "./declarations/initializer-repeat.js"
+import { LEXER_TESTS } from "./grammar/lexer.js"
 
 export interface CategoryGroup {
   name: string
@@ -200,6 +201,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "atomic-operands", tests: ATOMIC_OPERAND_TESTS },
   // ── implicit check functions a project defines (CheckBounds, CheckDiv…): what CODESYS calls, with what ──
   { name: "implicit-checks", tests: IMPLICIT_CHECK_TESTS },
+  // ── the front-end's grammar, rule by rule (openspec frontend-conformance design.md §4 area 2) ──
+  { name: "grammar-lexer", tests: LEXER_TESTS },
 ]
 
 /**

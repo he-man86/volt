@@ -54,7 +54,7 @@ function ng(name: string, pouName: string, feature: string, source: string, from
     plcPrgVar: `inst : ${pouName};`,
     plcPrgBody: "inst();",
     execSkip: NOT_ST,
-    ...(TWINCAT_REFUSES[name] === undefined ? {} : { vendorRefuses: { vendor: "twincat" as const, reason: TWINCAT_REFUSES[name]! } }),
+    ...(TWINCAT_REFUSES[name] === undefined ? {} : { vendorRefuses: { twincat: TWINCAT_REFUSES[name]! } }),
   }
 }
 

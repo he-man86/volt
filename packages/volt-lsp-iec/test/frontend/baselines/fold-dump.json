@@ -25,9 +25,9 @@
     "run: initializer does not fold": 33,
     "run: not asked, a body names the variable": 1165,
     "run: not asked, reached through an initializing declaration": 9,
-    "run: not asked, the declaration holds no scalar initializer": 5131,
+    "run: not asked, the declaration holds no scalar initializer": 5151,
     "run: not asked, the path resolves to no declaration": 514,
-    "run: recorded values": 6995,
+    "run: recorded values": 7015,
     "run: recorded values still holding their initializer": 176
   },
   "findings": [

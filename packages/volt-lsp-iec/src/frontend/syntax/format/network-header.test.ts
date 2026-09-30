@@ -7,7 +7,7 @@ import { expect, test } from "bun:test"
 import { lex } from "../lex/lexer.js"
 import { opensNetwork } from "./network-header.js"
 
-const opens = (text: string): boolean => opensNetwork(lex(text).filter((t) => t.kind !== "eof"))
+const opens = (text: string): boolean => opensNetwork(lex(text, "codesys").filter((t) => t.kind !== "eof"))
 
 test("a network opens with a fielded header, or a bare NETWORK closed by END_NETWORK", () => {
   expect(opens("NETWORK LABEL: start\nout := a;\nEND_NETWORK")).toBe(true)

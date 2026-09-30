@@ -660,6 +660,11 @@ export interface ParseError {
    * `pwh_gvl_missing_semicolon`, measured on both 2026-09-30), and only the analysis layer knows the vendor.
    */
   globalMissingSemicolon?: true
+  /**
+   * A CALL OPERATOR WRITTEN WITHOUT ITS `(` — "'ABS' needs exactly '1' operands" (`CALL_OPERATOR_OPERANDS`). A fact like
+   * `unexpectedToken`, for the same reason: TwinCAT capitalises "Operands", and only the analysis layer knows the vendor.
+   */
+  operandCount?: { operator: string; count: number; atLeast: boolean }
 }
 export interface ParseResult {
   units: TopLevel[]

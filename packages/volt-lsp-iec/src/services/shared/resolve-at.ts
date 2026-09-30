@@ -34,7 +34,7 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   // Declaration path — the cursor is on a defining identifier, a type name, or a modifier.
   const onDef = symbolDefinedAt(project, doc.uri, offset)
   if (onDef !== undefined) return onDef
-  const tok = tokenAtOffset(doc.source, offset)
+  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
     const scope = unitScopeAtOffset(doc.parseResult, project, offset)
     return lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)

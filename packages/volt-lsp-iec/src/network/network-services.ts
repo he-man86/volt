@@ -106,7 +106,7 @@ export function networkHover(doc: Document, project: Scope, offset: number): Hov
     const value = (hover.contents as { value: string }).value
     return { contents: { kind: "markdown", value: `${value}\n\n\`\`\`iecst\n${def.wire.text} := ${producer};\n\`\`\`` } }
   }
-  const tok = tokenAtOffset(doc.source, offset)
+  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
     const entry = lookupReference(tok.text)
     if (entry !== undefined) return { contents: { kind: "markdown", value: renderReferenceHover(entry) } }
@@ -208,7 +208,7 @@ export function documentHighlightsAnywhere(doc: Document, project: Scope, offset
 /** prepareRename (ST + network text) — the editable range for a renameable cursor. */
 export function prepareRenameAnywhere(doc: Document, project: Scope, offset: number): Range | undefined {
   if (resolveAnywhere(doc, project, offset) === undefined) return undefined
-  const tok = tokenAtOffset(doc.source, offset)
+  const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   return tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword") ? rangeFromSpan(tok.span) : undefined
 }
 

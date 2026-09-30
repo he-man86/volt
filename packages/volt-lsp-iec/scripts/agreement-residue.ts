@@ -72,7 +72,7 @@ for (const t of ALL_TESTS) {
   if (rec === undefined) {
     // A vendor whose IDE REFUSED the push has no ground truth here and never will — that is a fact about the
     // fixture, not a gap in the recording, so it is bucketed as what it is.
-    add(t.vendorRefuses?.vendor === vendor ? `the ${vendor} IDE refuses this fixture` : "no recording at all", t.name)
+    add(t.vendorRefuses?.[vendor] !== undefined ? `the ${vendor} IDE refuses this fixture` : "no recording at all", t.name)
     continue
   }
   const ide = rec.diagnostics.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)}`).sort()

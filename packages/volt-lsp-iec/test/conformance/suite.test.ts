@@ -50,8 +50,9 @@ const OTHER_OPERATORS = ["NOT", ":=", "S=", "R=", "REF=", "=>", "^"]
  * covered in this file's sense. Refused and UNEXAMINED are different states, and only the second belongs below.
  */
 const NOT_COVERED: Readonly<Record<string, string>> = {
-  __POOL:
-    "disambiguates the POUs view from the Devices view, so exercising it needs a device tree a single-source fixture has no way to build (see 09-shadowing.md)",
+  // `__POOL` left 2026-09-30: `lex_keyword_{assigned,before_name,operand}_sys_pool` name it, recorded on both vendors —
+  // bare, which both refuse. Its real use, the `__POOL.POU()` qualifier that disambiguates the POUs view from the Devices
+  // view, still needs a device tree a single-source fixture cannot build (see 09-shadowing.md): rule E34, a GAP.
 }
 
 /** Every token any fixture's ST contains, upper-cased — its source and the PLC_PRG that reaches it. */
@@ -61,7 +62,7 @@ function fixtureTokens(): Set<string> {
   const seen = new Set<string>()
   for (const fixture of ALL_TESTS)
     for (const source of [fixture.source, plcPrgSource(fixture)])
-      for (const token of lex(source)) seen.add((token.kind === "keyword" ? (token.keyword ?? token.text) : token.text).toUpperCase())
+      for (const token of lex(source, "codesys")) seen.add((token.kind === "keyword" ? (token.keyword ?? token.text) : token.text).toUpperCase())
   cachedTokens = seen
   return seen
 }
