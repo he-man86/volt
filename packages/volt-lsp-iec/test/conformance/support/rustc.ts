@@ -28,10 +28,31 @@ export const RUSTC: string | null = Bun.which("rustc")
 export const CLIPPY: string | null = Bun.which("clippy-driver")
 
 /**
+ * `VOLT_SKIP_RUST=1` — skip the emitted-Rust half ON PURPOSE, with a toolchain present: an intermediate step of
+ * front-end/LSP work, where the Rust half is ~half the suite's wall time (691 s -> 367 s, measured 2026-10-01) and
+ * proves nothing the step touched. It is never how a change CLOSES — lowering reads the same binder, so an LSP change
+ * can break the emitted Rust, and the closing run is a full one (`execute-change`). Contradicting
+ * `VOLT_REQUIRE_RUSTC=1` throws: CI must not be able to skip it by setting one more variable.
+ */
+let warnedSkip = false
+function skipRustOnPurpose(): boolean {
+  if (process.env.VOLT_SKIP_RUST !== "1") return false
+  if (process.env.VOLT_REQUIRE_RUSTC === "1")
+    throw new Error("VOLT_SKIP_RUST=1 and VOLT_REQUIRE_RUSTC=1 contradict each other — this run was told to verify the emitter.")
+  if (!warnedSkip) {
+    warnedSkip = true
+    // eslint-disable-next-line no-console
+    console.warn("  [transpile] VOLT_SKIP_RUST=1 — the emitted-Rust differential and its lints are SKIPPED: the emitter is UNVERIFIED in this run.")
+  }
+  return true
+}
+
+/**
  * True when the lint half must be skipped. Same rule as `skipRustSuite`, same reason it is not a silent skip:
  * `VOLT_REQUIRE_RUSTC=1` says this run was told to verify the emitter, and half-verifying it has to fail.
  */
 export function skipLintCheck(): boolean {
+  if (skipRustOnPurpose()) return true
   if (CLIPPY !== null) return false
   if (process.env.VOLT_REQUIRE_RUSTC === "1")
     throw new Error(
@@ -55,6 +76,7 @@ export function skipLintCheck(): boolean {
  * assertions.
  */
 export function skipRustSuite(): boolean {
+  if (skipRustOnPurpose()) return true
   if (RUSTC !== null) return false
   if (process.env.VOLT_REQUIRE_RUSTC === "1")
     throw new Error(
