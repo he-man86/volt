@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { bridge, id, fid, cleanup, requireHealthy, createItem, savePlcPrg, restorePlcPrg, instantiateInPlcPrg, fixPlcPrg, BASE } from "../harness"
+import { fb, METHOD, ACTION, MARK } from "../fixtures"
 
 describe(`endpoints / build diagnostics (${BASE})`, () => {
 	setDefaultTimeout(60_000)
@@ -86,6 +87,66 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 		expect(hit).toBeDefined()
 		expect(hit.line).toBeGreaterThanOrEqual(0)
 		expect(hit.column).toBeGreaterThanOrEqual(0)
+	})
+
+	// A DIAGNOSTIC INSIDE A CHILD OBJECT NAMES THE ITEM AND THE CHILD (openspec codesys-diagnostic-child-names). A method,
+	// action or property accessor is its own object in the IDE but travels inside its parent's file, so `name` is the
+	// parent - the file a client opens - and `member` the child. CODESYS reports such an error against the CHILD's
+	// guid (measured, scripts/diagnostic-child-guid.log), which the bridge used to resolve against top-level items
+	// only: the field case (c802b74d) was five `C0578`s in METHOD bodies published with no name at all. Both vendors
+	// must answer the same pair - the parity boundary is the wire.
+	//
+	// EXACTLY ONE `Identifier '…' not defined` per planted fault, not "one is found": TwinCAT writes every error to two
+	// Output panes and the bridge dedupes them, so a pane that spelled the object path differently would come back
+	// TWICE, and a dedupe key that was too coarse would drop a real one. `find` could see neither. Matched on that ONE
+	// message, not on the token: the compiler legitimately says more than one thing about a planted fault (measured,
+	// CODESYS SP21: `zzChild := 1;` also gives C0018 "'zzChild' is no valid assignment target", `Prop := zzChild;`
+	// also C0032 "Cannot convert type ..."), and every one of those is returned as the IDE gave it.
+	const undefinedIn = (r: any, token: string) =>
+		r.diagnostics.filter((d: any) => d.severity === "error" && d.message === `Identifier '${token}' not defined`)
+	const zz = (r: any) => undefinedIn(r, "zzChild")
+	for (const [label, children, member] of [
+		["a METHOD", METHOD("Compute", "Compute := d;\nzzChild := 1;"), "Compute"],
+		["an ACTION", ACTION("Act", "x := 1;\nzzChild := 1;"), "Act"],
+		["a PROPERTY GET", `\nPROPERTY Prop : INT\nGET\n${MARK}\n\tProp := zzChild;\nEND_GET\nEND_PROPERTY\n`, "Prop"],
+	] as [string, string, string][]) {
+		it(`an error inside ${label} names the FB and ${member}, once`, async () => {
+			const name = id(`b_child_${member}`), wire = fid(`b_child_${member}`)
+			await createItem(wire, fb(name, { children }))
+			await instantiateInPlcPrg(name)
+
+			const r = await bridge.build()
+			expect(r.success).toBe(false)
+			const hits = zz(r)
+			expect(hits.map((d: any) => ({ name: d.name, member: d.member })), JSON.stringify(r.diagnostics))
+				.toEqual([{ name: wire, member }])
+		})
+	}
+
+	// THE GET AND THE SET OF ONE PROPERTY, the same error on the same line of each, are TWO diagnostics on both vendors.
+	// Both publish `member: Prop` (an accessor is read with its property), and TwinCAT writes no column - so a dedupe
+	// keyed on what the wire carries merged them, and TwinCAT returned one where CODESYS returned two.
+	it("the same error in a property's GET and SET is two diagnostics", async () => {
+		const name = id("b_child_getset"), wire = fid("b_child_getset")
+		const children = `\nPROPERTY Prop : INT\nGET\n${MARK}\n\tProp := zzChild;\nEND_GET\nSET\n${MARK}\n\tx := zzChild;\nEND_SET\nEND_PROPERTY\n`
+		await createItem(wire, fb(name, { children }))
+		await instantiateInPlcPrg(name)
+
+		const r = await bridge.build()
+		expect(r.success).toBe(false)
+		expect(zz(r).map((d: any) => ({ name: d.name, member: d.member })), JSON.stringify(r.diagnostics))
+			.toEqual([{ name: wire, member: "Prop" }, { name: wire, member: "Prop" }])
+	})
+
+	it("an error in the FB's own body names the FB and no member, once", async () => {
+		const name = id("b_child_self"), wire = fid("b_child_self")
+		await createItem(wire, fb(name, { body: "x := 1;\nzzSelf := 1;", children: METHOD("Compute") }))
+		await instantiateInPlcPrg(name)
+
+		const r = await bridge.build()
+		const hits = undefinedIn(r, "zzSelf")
+		expect(hits.map((d: any) => ({ name: d.name, member: d.member })), JSON.stringify(r.diagnostics))
+			.toEqual([{ name: wire, member: undefined }])
 	})
 
 	it("every diagnostic has a column field (may be 0 if IDE omits it)", async () => {
