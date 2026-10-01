@@ -568,16 +568,6 @@ functions a task names, under **Gate T**; transpile's own copies are handed to t
       cyclic-EXTENDS completion answer (1.28) is pinned in `assist.test.ts` (hangs with the guard removed). Correction to the
       title claim: 1.25 renamed three titles (`isLibrarySymbol …` → `isLibraryUri …`), which the suite snapshot cannot see.
 
-- [ ] 1.42 Network text's FRONT-END parts move into the front-end layer — MOVE ONLY, no redesign (owner, 2026-10-01: folders
-      by layer, not by language; network-text's details are parked for the LD/FBD coverage change).
-      Where: `src/network-text/{lexer,parser,ast,exprs}.ts` (+ their tests) -> `src/frontend/syntax/network/`; the wire scope
-      part of `src/network/network-symbols.ts` -> `src/frontend/symbols/` (or stays, if the import graph says it is analysis —
-      record why). Consumers import it through the front-end index. `src/network/` keeps only analysis/services parts, which
-      analysis-conformance moves.
-      Accept: output-neutral (every suite, the fixture map and the F snapshot unchanged); the layering gate green; no file left
-      in `src/network-text/`.
-      Depends: 1.41.
-
 ## 2. Parser (syntax/) conformance
 
 Per group: record the named fixtures first (`record:language`; accept, or CODESYS's exact messages); pin each disagreement as a
