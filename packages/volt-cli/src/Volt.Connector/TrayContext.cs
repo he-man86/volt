@@ -147,7 +147,7 @@ namespace Volt.Connector
             _conn.Projects.Select(p => new ProjectView(
                 p.Id, p.Vendor, p.Dirty,
                 p.Status, // serving derives from status (!= "idle") on the client
-                p.Attach.Project, p.Pipe, p.IdeVersion)).ToList());
+                p.Attach.Project, p.Pipe, p.IdeVersion, p.Unsupported)).ToList());
 
         // A session declares its FULL interest set; the manager reconciles the bridges and re-scans, so the snapshot
         // we return already reflects what those bridges now serve — the client reads its own row from it in one call.
@@ -369,7 +369,7 @@ namespace Volt.Connector
                     // The frontends drive per-project connect/disconnect via their sessions; the TRAY is the supervisor
                     // escape hatch. A serving row can be force-off'd (paused regardless of interest) and a paused row
                     // resumed — those rows are clickable to toggle it. A merely-detected row is status-only (greyed).
-                    var tag = paused ? "   ⏸ paused" : serving ? "   ● connected" : "";
+                    var tag = p.Unsupported != null ? "   ✕ IDE not supported" : paused ? "   ⏸ paused" : serving ? "   ● connected" : "";
                     var label = $"{_conn.DisplayNameOf(p.Vendor)}{ver} · {p.ProjectName}{(p.Dirty ? " *" : "")}{tag}";
                     var actionable = serving || paused;
                     var id = p.Id;
@@ -377,6 +377,7 @@ namespace Volt.Connector
                     {
                         Enabled = actionable,
                         Checked = serving && !paused,
+                        ToolTipText = p.Unsupported, // the bridge's own sentence: which CODESYS, and what it lacks
                     };
                     if (serving && !paused) row.Font = BoldMenuFont;
                     AddRow(row);

@@ -26,9 +26,13 @@ namespace Volt.Connector
         string? Pipe = null, // the bridge pipe that serves this project (per-pid for CODESYS, the worker pipe for
                              // TwinCAT) — the source targets it, and the CLI/shells read it (VOLT_PIPE for init)
         string? IdeVersion = null, // for the label when a vendor has >1 live instance
-        string Status = HealthStatus.Idle) // the wire row's full connection state — idle | healthy | degraded. The
+        string Status = HealthStatus.Idle, // the wire row's full connection state — idle | healthy | degraded. The
                                    // ONE self-describing field carried straight through: the UI reads serving + the
                                    // degraded distinction off it, with no separate per-vendor bridge-health view.
+        string? Unsupported = null) // why this row's bridge serves NOTHING — health's top-level `unsupported`, the
+                                   // fixed sentence every op answers under IDE_UNSUPPORTED (the IDE lacks something
+                                   // the bridge needs). Null when the IDE has everything. A row carrying it is never
+                                   // bound: `connect` would be refused every cycle, and the reason is what to show.
     {
         /// <summary>GROUND TRUTH: is this project's bridge serving it right now (pull/push work) — a non-idle row.
         /// Derived from <see cref="Status"/>, not stored: the host stamps exactly one non-idle row per bridge and

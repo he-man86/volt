@@ -45,6 +45,21 @@ public class ReconcilerTests
         Assert.Empty(plan.ToUnbind);
     }
 
+    /// <summary>openspec codesys-minimum-version (review): a bridge whose IDE lacks what it needs refuses `connect` with
+    /// IDE_UNSUPPORTED, every time — nothing a retry can cure. Binding it anyway made the connector send `connect` on
+    /// every ~4 s cycle and log a "retried next cycle" warning forever. It stays WANTED (the interest is real; the
+    /// reason is what the row shows), but it is never bound.</summary>
+    [Fact]
+    public void A_wanted_project_on_an_unsupported_ide_is_wanted_but_never_bound()
+    {
+        var unsupported = Proj("codesys", "A") with { Unsupported = "CODESYS 3.5.17.0 is not supported: it lacks X." };
+        var plan = Plan(new[] { Live("s1", Want("codesys", "A")) }, None, None, new[] { unsupported });
+
+        Assert.Empty(plan.ToBind);
+        Assert.Empty(plan.ToUnbind);
+        Assert.Contains("codesys:A", plan.Wanted);
+    }
+
     [Fact]
     public void Two_sessions_wanting_two_idle_projects_bind_both_independently()
     {

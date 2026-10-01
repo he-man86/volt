@@ -91,7 +91,10 @@ namespace Volt.Connector
 
                 // Otherwise nothing wanted serves here yet: bind ONE wanted-but-idle row. Deterministic pick keeps the
                 // choice stable across passes; switching which sibling serves on a shared worker is an explicit Connect.
-                var candidate = rows.Where(p => wanted.Contains(p.Id) && !p.Serving)
+                // A row whose IDE the bridge cannot serve (`Unsupported`) is never a candidate: `connect` is refused with
+                // IDE_UNSUPPORTED every time — no retry cures a missing capability — so binding it only repeats the
+                // refusal each cycle. It stays wanted; the row's reason is what a client shows.
+                var candidate = rows.Where(p => wanted.Contains(p.Id) && !p.Serving && p.Unsupported == null)
                                     .OrderBy(p => p.Id, StringComparer.Ordinal)
                                     .FirstOrDefault();
                 if (candidate != null) toBind.Add(candidate);

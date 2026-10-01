@@ -890,7 +890,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public override string Vendor => HealthPlatform;
     /// <summary>The LIVE served-project name — what the in-op guard reads. Independent of the health snapshot.</summary>
     public override string? ServedProjectName => IsConnected ? HealthProjectName : null;
-    public override string? IdeVersion => "0";
+    public override string? IdeVersion => Version;
+    /// <summary>The IDE version this double reports. "0" unless a test names one.</summary>
+    public string Version { get; init; } = "0";
+    /// <summary>What this double's IDE lacks, as the driver's fixed refusal text — null (the default) when it has
+    /// everything the bridge needs. See <c>IIdeSession.Unsupported</c>.</summary>
+    public string? UnsupportedReason { get; init; }
+    public override string? Unsupported => UnsupportedReason;
     public override void Disconnect() { }
     // IsDegraded / MarkDegraded / ClearDegraded / Recover are NOT stubbed here any more: DriverBase's real ones run,
     // so the degraded state machine is under test. Nothing flips it by default, so today's answers are unchanged.

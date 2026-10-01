@@ -40,7 +40,8 @@ window.VOLT = {
         ],
         "x-outcomes": [
           "Never gated by \u0060disconnect\u0060 \u2014 while paused every row is forced to \u0060idle\u0060, because the list is how the user reconnects.",
-          "Answers from the driver\u0027s cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving nothing is the aggregate status \u0060unavailable\u0060 instead."
+          "Answers from the driver\u0027s cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving nothing is the aggregate status \u0060unavailable\u0060 instead.",
+          "Answers even when the IDE lacks what the bridge needs: \u0060unsupported\u0060 then carries the fixed reason every other op answers with as IDE_UNSUPPORTED, \u0060ideVersion\u0060 the IDE version, and every row is idle. Never a version floor \u2014 an IDE is refused for what it lacks, not for its number."
         ],
         "result": {
           "name": "result",
@@ -63,6 +64,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "INTERNAL_ERROR"
         ],
@@ -87,9 +89,11 @@ window.VOLT = {
         "summary": "Pause the bridge: refuse sync until the next connect, tear nothing down. Answers even while a push is running, and that push RUNS TO COMPLETION \u2014 the gate stops the NEXT op, never the current one.",
         "paramStructure": "by-name",
         "params": [],
-        "x-errorCodes": [],
+        "x-errorCodes": [
+          "IDE_UNSUPPORTED"
+        ],
         "x-outcomes": [
-          "Cannot fail: it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
+          "Fails only with IDE_UNSUPPORTED, as every op but \u0060health\u0060 does on an IDE that lacks what the bridge needs. Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so it answers even while a push is running \u2014 and that push runs to completion. The gate stops the NEXT op, never the current one."
         ],
         "result": {
           "name": "ok",
@@ -117,6 +121,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
           "INTERNAL_ERROR"
@@ -146,6 +151,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
           "NO_SIDECAR",
@@ -177,6 +183,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
           "INTERNAL_ERROR"
@@ -208,6 +215,7 @@ window.VOLT = {
           }
         ],
         "x-errorCodes": [
+          "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT"
         ],
@@ -237,6 +245,12 @@ window.VOLT = {
             },
             "networkText": {
               "type": "boolean"
+            },
+            "ideVersion": {
+              "type": "string"
+            },
+            "unsupported": {
+              "type": "string"
             }
           },
           "required": [
@@ -745,6 +759,7 @@ window.VOLT = {
     "DUPLICATE_CHILD",
     "INVALID_ST",
     "UNREADABLE",
+    "IDE_UNSUPPORTED",
     "INTERNAL_ERROR"
   ],
   "conflictCodes": {
@@ -1548,6 +1563,11 @@ window.VOLT = {
           "name": "IdeVersion",
           "kind": "property",
           "signature": "string? IdeVersion { get; }"
+        },
+        {
+          "name": "Unsupported",
+          "kind": "property",
+          "signature": "string? Unsupported { get; }"
         },
         {
           "name": "Disconnect",

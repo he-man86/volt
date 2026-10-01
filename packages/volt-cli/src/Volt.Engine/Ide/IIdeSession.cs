@@ -27,8 +27,16 @@ public interface IIdeSession
     /// <para>Called from inside an op, on the marshalled IDE thread, so an implementation MAY touch its object model
     /// (CODESYS reads the primary project's path); it must not marshal again and must not throw.</para></summary>
     string? ServedProjectName { get; }
-    /// <summary>The IDE version, shown per-instance in the connector's project label. Not a wire top-level field.</summary>
+    /// <summary>The IDE version, shown per-instance in the connector's project label and stamped on `health`
+    /// (<c>ideVersion</c>). CODESYS: the underlying platform version, never an OEM exe's (DIALECT V1).</summary>
     string? IdeVersion { get; }
+
+    /// <summary>Null when the IDE has everything the bridge needs; otherwise the fixed English sentence naming the
+    /// platform version and what it lacks — e.g. <c>CODESYS 3.5.17.0 is not supported: it lacks …</c>. A PRIMITIVE
+    /// (a state read, decided once at attach); the POLICY — every op but <c>health</c> refused as
+    /// <c>IDE_UNSUPPORTED</c>, every row idle — is <c>BridgePipeHost</c>'s, once for both vendors. Never a version
+    /// floor: an IDE is refused for a missing capability, never for its number.</summary>
+    string? Unsupported { get; }
     // NB: there is deliberately NO Connect() here. The startup attach is vendor-shaped (CODESYS: an in-proc snapshot
     // on its primary thread; TwinCAT: attach to a specific XAE by pid, `Connect(int)`), so each driver exposes its own
     // and its own host calls it. Core never connects — `Ops.Connect` maps to SelectProject; nothing here is Core's.

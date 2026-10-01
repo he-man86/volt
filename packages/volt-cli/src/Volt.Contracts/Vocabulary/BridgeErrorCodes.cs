@@ -23,6 +23,13 @@ public static class BridgeErrorCodes
     /// sentinel version no `refs` hands out, so no `ifVersion` could ever satisfy it.</summary>
     public const string Unreadable = "UNREADABLE";
 
+    /// <summary>The IDE this bridge runs in lacks something the bridge needs, so it serves nothing: every op but
+    /// <c>health</c> answers with this code, and the message is a fixed English sentence naming the IDE's platform
+    /// version and what it lacks (never an OS-localized exception text). <c>health</c> carries the same sentence as
+    /// <c>unsupported</c>. Do not retry — the IDE has to change, not the call. A NEW code on purpose: a client maps by
+    /// code, and an old code would be read as its old meaning (openspec <c>codesys-minimum-version</c>).</summary>
+    public const string IdeUnsupported = "IDE_UNSUPPORTED";
+
     /// <summary>The catch-all <c>PipeServer</c> assigns to any exception that isn't an <see cref="ICodedError"/>.</summary>
     public const string InternalError = "INTERNAL_ERROR";
 }

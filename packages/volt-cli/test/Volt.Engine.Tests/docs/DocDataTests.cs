@@ -69,21 +69,25 @@ public class DocDataTests
             + "the user reconnects.",
             "Answers from the driver's cached snapshot, so it cannot report PLC_DISCONNECTED. A bridge serving "
             + "nothing is the aggregate status `unavailable` instead.",
+            "Answers even when the IDE lacks what the bridge needs: `unsupported` then carries the fixed reason "
+            + "every other op answers with as IDE_UNSUPPORTED, `ideVersion` the IDE version, and every row is idle. "
+            + "Never a version floor — an IDE is refused for what it lacks, not for its number.",
         }),
-        [Ops.Connect] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
+        [Ops.Connect] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
         {
             "PLC_DISCONNECTED here is the POST-condition: the driver attached nothing, or attached something "
             + "other than the project named. Enforced once in shared code, so both vendors refuse identically.",
             "A REFUSED connect still leaves the bridge RESUMED: the pause flag is cleared before the IDE work, "
             + "so a `disconnect` racing a connect wins.",
         }),
-        [Ops.Disconnect] = (new string[0], new[]
+        [Ops.Disconnect] = (new[] { BridgeErrorCodes.IdeUnsupported }, new[]
         {
-            "Cannot fail: it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so "
+            "Fails only with IDE_UNSUPPORTED, as every op but `health` does on an IDE that lacks what the bridge "
+            + "needs. Otherwise it sets a flag and answers. It is deliberately not marshalled onto the IDE thread, so "
             + "it answers even while a push is running — and that push runs to completion. The gate stops the "
             + "NEXT op, never the current one.",
         }),
-        [Ops.Refs] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Refs] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                               BridgeErrorCodes.InternalError }, new[]
         {
             "An item whose body will not materialize is NOT an error: it is named in `unreadable`, keeps a "
@@ -91,7 +95,7 @@ public class DocDataTests
             "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The "
             + "session is marked degraded meanwhile, which `health` reports.",
         }),
-        [Ops.Fetch] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Fetch] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                                BridgeErrorCodes.NoSidecar, BridgeErrorCodes.InternalError }, new[]
         {
             "NO_SIDECAR is specific to this op: a fetch with neither `knownItems` nor `onlyItems` is ambiguous "
@@ -101,7 +105,7 @@ public class DocDataTests
             + "name absent from a folder it did read is still in `removed`, judged by `knownFolders`.",
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
-        [Ops.Push] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+        [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
                               BridgeErrorCodes.InternalError }, new[]
         {
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
@@ -115,7 +119,7 @@ public class DocDataTests
             + "rolled back. The reason says how many, because a rejection that reads as \"nothing happened\" is "
             + "a lie the user acts on.",
         }),
-        [Ops.Build] = (new[] { BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject }, new[]
+        [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject }, new[]
         {
             "The guard sits OUTSIDE the try, deliberately — otherwise WRONG_PROJECT would be swallowed into a "
             + "fake \"build failed\" diagnostic instead of surfacing as an error frame.",

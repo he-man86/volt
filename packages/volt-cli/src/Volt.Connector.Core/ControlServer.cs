@@ -25,7 +25,10 @@ namespace Volt.Connector
     /// <c>status != "idle"</c>), never from the project merely appearing in the list — a disconnected bridge stays
     /// listed (that is how you reconnect), and treating "detected" as "connected" is what let the UI claim a connection
     /// against a gated bridge.</param>
-    public sealed record ProjectView(string Id, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null);
+    /// <param name="Unsupported">Why this row's bridge serves nothing — the IDE lacks something the bridge needs (the
+    /// bridge's <c>health.unsupported</c>, the same sentence every op answers under <c>IDE_UNSUPPORTED</c>). Null when
+    /// the IDE has everything. A client shows it instead of offering a connect that the bridge would refuse.</param>
+    public sealed record ProjectView(string Id, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null, string? Unsupported = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
     /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;

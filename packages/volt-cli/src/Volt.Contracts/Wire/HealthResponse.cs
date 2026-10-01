@@ -33,6 +33,19 @@ public class HealthResponse
     [JsonPropertyName("networkText")]
     public bool NetworkText { get; set; }
 
+    /// <summary>The version of the IDE this bridge runs in — for CODESYS the underlying PLATFORM version, a pure
+    /// version a client may parse (`3.5.21.40`; an OEM product's name is never in it), for TwinCAT the XAE's. A bridge-process fact like
+    /// <see cref="NetworkText"/>, so a client can show it before making any call — in particular beside
+    /// <see cref="Unsupported"/>. Each row carries the same value as its <c>version</c>.</summary>
+    [JsonPropertyName("ideVersion")]
+    public string? IdeVersion { get; set; }
+
+    /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs. The fixed English sentence
+    /// every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the IDE has everything. While it is set,
+    /// every row is <c>idle</c>.</summary>
+    [JsonPropertyName("unsupported")]
+    public string? Unsupported { get; set; }
+
     /// <summary>The one project this bridge is serving right now, or null (paused / nothing attached). "Serving" is a
     /// non-idle row — the status field carries it (there is no separate serving flag).</summary>
     [JsonIgnore]

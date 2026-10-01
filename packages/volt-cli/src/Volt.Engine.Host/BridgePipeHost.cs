@@ -46,6 +46,13 @@ public sealed class BridgePipeHost : IDisposable
 
     private object Dispatch(PipeRequest req, Action<object> onProgress)
     {
+        // An IDE that lacks what the bridge needs serves NOTHING but `health` — not even connect/disconnect, which
+        // would otherwise answer ok and leave a client believing it can sync. The driver decided it once at attach
+        // and names what is missing; the refusal is here, once, so both vendors answer it identically. Checked
+        // BEFORE the pause gate: "unsupported" is the truer answer, and pressing Reconnect cannot cure it.
+        var unsupported = _ide.Unsupported;
+        if (unsupported != null && req.Op != Ops.Health)
+            throw new BridgeException(BridgeErrorCodes.IdeUnsupported, unsupported);
         if (_paused && !AllowedWhilePaused(req.Op)) throw BridgeException.Paused();
         // NOTE: the not-connected precondition for the project ops (refs/fetch/init/push/build) is NOT here — it is
         // each handler's first act, on the marshalled STA thread: RefsService / FetchService / PushService /
@@ -67,7 +74,12 @@ public sealed class BridgePipeHost : IDisposable
                 // One host-owned fact stamped onto the rows: while paused (disconnect) the bridge serves nothing, so
                 // force every row to `idle` — the list stays (it is how the user reconnects), and serving/Connected
                 // derive to "not serving".
-                if (_paused) h.Projects = h.Projects.Select(p => p with { Status = HealthStatus.Idle }).ToList();
+                // The same for an IDE the bridge cannot serve: the rows stay (they name the project), none is served,
+                // and the reason plus the IDE version ride on the frame so a client can show both before any call.
+                if (_paused || unsupported != null)
+                    h.Projects = h.Projects.Select(p => p with { Status = HealthStatus.Idle }).ToList();
+                h.IdeVersion = _ide.IdeVersion;
+                h.Unsupported = unsupported;
                 return h;
             }
             case Ops.Connect:

@@ -121,7 +121,11 @@ namespace Volt.Connector
             {
                 if (p.Project is null) continue;
                 var attach = new ProjectRef(p.Project);
-                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version, p.Status ?? HealthStatus.Idle));
+                // `unsupported` is a bridge-process fact (top level, like `ideVersion`): the IDE lacks what the bridge
+                // needs, so every row of that bridge carries the reason — it is what the tray and the frontends show,
+                // and what keeps the reconciler from sending a `connect` the bridge refuses every cycle.
+                list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version,
+                    p.Status ?? HealthStatus.Idle, parsed!.Unsupported));
             }
             return list;
         }

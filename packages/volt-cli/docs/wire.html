@@ -137,6 +137,7 @@
 <table>
   <tr><th>code</th><th>means</th><th>what a client does</th></tr>
   <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>.</td><td>Send <code>connect</code>.</td></tr>
+  <tr><td class="name">IDE_UNSUPPORTED</td><td>The IDE the bridge runs in lacks something the bridge needs, so it serves nothing: every op but <code>health</code> answers with it. The message is fixed English naming the platform version and what is missing — <code>CODESYS 3.5.17.0 is not supported: it lacks …</code> — and <code>health</code> carries the same sentence as <code>unsupported</code>, beside <code>ideVersion</code>. Refused by capability, never by version number.</td><td>Show the message; do not retry. The IDE has to change, not the call.</td></tr>
   <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
   <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, a name with no kind extension, or DUT ops the <a href="#dut-subtype">subtype rule</a> refuses.</td><td>Fix the caller. The message names the op and the body type.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td><td>Re-read <code>refs</code>.</td></tr>

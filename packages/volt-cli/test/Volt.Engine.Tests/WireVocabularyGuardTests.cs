@@ -33,7 +33,7 @@ public class WireVocabularyGuardTests
     private static readonly (string Label, string[] Values, HashSet<string> Allow)[] Vocabularies =
     {
         ("error codes (BridgeErrorCodes)",
-            new[] { "PLC_DISCONNECTED", "WRONG_PROJECT", "NO_SIDECAR", "NOT_FOUND", "BAD_REQUEST", "UNSUPPORTED",
+            new[] { "PLC_DISCONNECTED", "WRONG_PROJECT", "NO_SIDECAR", "NOT_FOUND", "BAD_REQUEST", "UNSUPPORTED", "IDE_UNSUPPORTED",
                     "DUPLICATE_CHILD", "INVALID_ST", "INTERNAL_ERROR" },
             // ImplementationMarker.cs spells the workspace keyword `IMPLEMENTATION LD UNSUPPORTED` — a word of the file
             // format that shares its spelling with the error code, not the error code.
@@ -59,8 +59,9 @@ public class WireVocabularyGuardTests
 
         ("vendor ids (Vendors)",
             new[] { "codesys", "twincat", "CODESYS", "TwinCAT" },
-            // TcObjectModel matches a TwinCAT menu-name substring, not the vendor id.
-            new HashSet<string> { "Vendors.cs", "TcObjectModel.cs" }),
+            // TcObjectModel matches a TwinCAT menu-name substring, not the vendor id. CodesysPlatform compares the IDE's
+            // OEM product name (IEngine3.OEMCustomization.ProductName), which plain CODESYS answers as "CODESYS".
+            new HashSet<string> { "Vendors.cs", "TcObjectModel.cs", "CodesysPlatform.cs" }),
 
         ("health status (HealthStatus)",
             // `idle` was absent — the DEFAULT row state and the pivot of the whole serving rule (`status != idle`),

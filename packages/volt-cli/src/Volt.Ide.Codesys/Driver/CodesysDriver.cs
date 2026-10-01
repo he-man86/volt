@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
@@ -26,11 +27,45 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
 
     private volatile bool _hasProject; // cached from the primary thread (HasPrimaryProject); read off-thread by IsConnected
 
+    private readonly string? _platformVersion;   // DIALECT V1: the platform's, not an OEM exe's
+    private readonly string? _unsupported;       // CodesysPlatform.Refusal — null when nothing is missing
+
     public CodesysDriver(object? projects)
     {
         _om = new CodesysObjectModel(projects);
         _dispatcher = CodesysDispatcher.TryCreate();
+
+        // Read ONCE: neither the platform nor its capabilities change under a running IDE. Each capability is the
+        // very thing the bridge binds — not a probe of something adjacent — so "missing" here is exactly what would
+        // otherwise surface as "no IDE engine" and a PLC_DISCONNECTED on every op.
+        _platformVersion = CodesysPlatform.ReadVersion();
+        var missing = new List<CodesysPlatform.Capability>();
+        if (_platformVersion == null) missing.Add(CodesysPlatform.Core);
+        if (_dispatcher == null) missing.Add(CodesysPlatform.Dispatcher);
+        if (!_om.HasObjectManager) missing.Add(CodesysPlatform.ObjectManager);
+        _unsupported = CodesysPlatform.Refusal(_platformVersion, missing);
+        // The product name is a display nicety, never a capability: an OEM build whose getter throws or whose
+        // property is shadowed must not abort construction (that would leave no bridge and no IDE_UNSUPPORTED
+        // answer at all). Its failure is kept, by name, for the start log.
+        try { ProductName = CodesysPlatform.ReadProductName(CodesysPlatform.ReadEngine()); }
+        catch (Exception e)
+        {
+            var cause = e is TargetInvocationException { InnerException: { } inner } ? inner : e;
+            ProductNameUnreadable = $"{cause.GetType().Name}: {cause.Message}";
+        }
+        OemProduct = CodesysPlatform.OemProduct(ProductName);
     }
+
+    /// <summary>The product name exactly as the IDE states it (null when the platform has no such member).</summary>
+    public string? ProductName { get; }
+
+    /// <summary>Why <see cref="ProductName"/> could not be read (the exception, by type and message), or null.</summary>
+    public string? ProductNameUnreadable { get; }
+
+    /// <summary>The OEM product this CODESYS platform is (WAGO, Lenze, …), or null for plain CODESYS.</summary>
+    public string? OemProduct { get; }
+
+    public override string? Unsupported => _unsupported;
 
     // Keyed on whether a project is actually OPEN (cached _hasProject), not just the persistent projects
     // collection (HasProjects) — otherwise a closed project still reports "connected" with a null project name.
@@ -40,7 +75,10 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     // LIVE, not the cached row: reads the primary project's path off the object model, so it must only be called on
     // the primary thread — which is where the in-op guard runs. Same value BuildProjects() snapshots.
     public override string? ServedProjectName => IsConnected ? _om.ProjectName : null;
-    public override string? IdeVersion => "3.5";
+    // The PLATFORM version, pure (`3.5.21.40`) — a client may parse it. Was the constant "3.5", so nothing — bridge
+    // or client — knew which CODESYS it was in (openspec codesys-minimum-version). An OEM product's name is a separate
+    // fact (OemProduct): the start log and the message-window line carry it, never this field.
+    public override string? IdeVersion => _platformVersion;
 
     /// <summary>CODESYS startup attach: snapshot health on the primary thread (called by its own PipeHost, not Core).</summary>
     public void Connect() => SnapshotHealth();

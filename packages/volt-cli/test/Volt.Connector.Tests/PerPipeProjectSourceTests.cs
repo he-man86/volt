@@ -230,4 +230,32 @@ public class PerPipeProjectSourceTests
             """;
         Assert.Equal(rowStatus, Assert.Single(WireProjects.Flatten(Health(json), "codesys", null)).Status);
     }
+    /// <summary>openspec codesys-minimum-version (review): an IDE the bridge cannot serve answers `health` with a
+    /// top-level `unsupported` sentence beside `ideVersion`. Flatten read only `projects`, so the connector showed an
+    /// ordinary idle project with no reason — the tray, /status and both frontends offered a connect the bridge refuses
+    /// every cycle. The reason rides onto every row of that bridge.</summary>
+    [Fact]
+    public void An_unsupported_bridges_reason_rides_onto_each_of_its_rows()
+    {
+        const string reason = "CODESYS 3.5.17.0 is not supported: it lacks the object manager (SystemInstances.ObjectMgr).";
+        var rows = WireProjects.Flatten(Health(
+            $$"""
+            { "projects": [ { "vendor": "codesys", "version": "3.5.17.0", "project": "Demo", "status": "idle", "dirty": false } ],
+              "ideVersion": "3.5.17.0", "unsupported": "{{reason}}" }
+            """), "codesys", "volt.bridge.codesys.1");
+
+        var row = Assert.Single(rows);
+        Assert.Equal(reason, row.Unsupported);
+        Assert.Equal("3.5.17.0", row.IdeVersion);
+        Assert.False(row.Serving);
+    }
+
+    [Fact]
+    public void A_supported_bridges_rows_carry_no_reason()
+    {
+        var row = Assert.Single(WireProjects.Flatten(Health(
+            """{ "projects": [ { "vendor": "codesys", "version": "3.5.21.40", "project": "P", "status": "healthy", "dirty": false } ], "ideVersion": "3.5.21.40" }"""),
+            "codesys", null));
+        Assert.Null(row.Unsupported);
+    }
 }

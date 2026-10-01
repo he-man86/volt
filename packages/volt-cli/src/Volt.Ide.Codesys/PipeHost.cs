@@ -43,8 +43,12 @@ public static class PipeHost
 
             VoltLog.Init(Vendors.Codesys);
             VoltLog.Debug($"in-proc bridge starting on pipe {_pipeName}");
+            LogBoundAssemblies();
 
             _driver = new CodesysDriver(projects);
+            VoltLog.Info($"CODESYS platform {_driver.IdeVersion ?? "(version unreadable)"}; product name as stated: " +
+                         (_driver.ProductName is { } pn ? $"\"{pn}\""
+                          : _driver.ProductNameUnreadable is { } why ? $"(unreadable: {why})" : "(none)"));
             _driver.Connect(); // snapshot on the primary thread (we are on it now)
 
             _host = new BridgePipeHost(_driver, _pipeName);
@@ -65,10 +69,29 @@ public static class PipeHost
             // today. That is the default, and it is why this cannot regress a local install.
             StartTunnelIfConfigured();
 
-            var where = _driver.IsConnected ? "connected to IDE" : "no IDE engine";
+            // An IDE lacking what the bridge needs: the pipe is up (so every client gets IDE_UNSUPPORTED with the reason
+            // rather than no bridge at all), but it serves nothing, and this line — printed to the CODESYS message
+            // window by start_volt_codesys.py — says so instead of "connected".
+            if (_driver.Unsupported is { } reason)
+            {
+                var product = _driver.OemProduct is { } p ? $"{p}: " : "";
+                VoltLog.Error($"CODESYS bridge on {_pipeName} serves nothing — {product}{reason}");
+                return $"Volt: {product}{reason} The bridge on pipe {_pipeName} refuses every call (IDE_UNSUPPORTED).";
+            }
+
+            var where = _driver.IsConnected ? "connected to IDE" : "no project open";
             VoltLog.Info($"CODESYS bridge ready on {_pipeName} ({where})");
-            return $"Volt bridge started on pipe {_pipeName} ({where})";
+            var oem = _driver.OemProduct is { } o ? $"{o} on " : "";
+            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion})";
         }
+    }
+
+    /// <summary>One line per bound wire assembly (<see cref="BoundAssemblies"/>). Never fatal: the log is evidence
+    /// about a failure, so it must not become one.</summary>
+    private static void LogBoundAssemblies()
+    {
+        try { foreach (var line in BoundAssemblies.Describe()) VoltLog.Info("bound: " + line); }
+        catch (Exception ex) { VoltLog.Error("bound: the assembly log itself failed: " + ex.GetType().Name + ": " + ex.Message); }
     }
 
     /// <summary>Start the relay tunnel when this install is configured for one.

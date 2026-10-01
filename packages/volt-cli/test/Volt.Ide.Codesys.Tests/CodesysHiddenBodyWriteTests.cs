@@ -9,7 +9,7 @@ using Xunit;
 // `StObjectDoubles` follows: the names are the contract.
 namespace _3S.CoDeSys.Core
 {
-    internal static class SystemInstances
+    internal static partial class SystemInstances
     {
         public static object? ObjectMgr { get; set; }
     }
