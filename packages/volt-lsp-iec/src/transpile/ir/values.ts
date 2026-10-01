@@ -334,7 +334,8 @@ export function eq(a: Val, b: Val): boolean {
 }
 
 export function ord(op: "lt" | "le" | "gt" | "ge", a: Val, b: Val): boolean {
-  const [l, r] = [compared(a), compared(b)]
+  const l = compared(a)
+  const r = compared(b)
   return op === "lt" ? l < r : op === "le" ? l <= r : op === "gt" ? l > r : l >= r
 }
 
@@ -447,8 +448,21 @@ export function fit(v: Val, type: Type): Val {
   // a duration or date wraps like the integer it is: TIME and TOD are 32-bit milliseconds, DATE and DT 32-bit seconds,
   // the L variants 64-bit nanoseconds (design §16, §17)
   if ((family === "int" || family === "bitstring" || family === "time" || family === "date") && typeof v === "bigint")
-    return signed ? BigInt.asIntN(bits, v) : BigInt.asUintN(bits, v)
+    return inWidth(v, bits, signed) ? v : signed ? BigInt.asIntN(bits, v) : BigInt.asUintN(bits, v)
   return v
+}
+
+/** Whether an integer already lies inside `bits` of the given signedness — two comparisons against bounds computed
+ *  once per width, where the `asIntN` that answers the same allocates a new bigint every time it runs. */
+const lowest: bigint[] = []
+const highest: bigint[] = []
+function inWidth(v: bigint, bits: number, signed: boolean): boolean {
+  const at = bits * 2 + (signed ? 1 : 0)
+  if (lowest[at] === undefined) {
+    lowest[at] = signed ? -(1n << BigInt(bits - 1)) : 0n
+    highest[at] = signed ? (1n << BigInt(bits - 1)) - 1n : (1n << BigInt(bits)) - 1n
+  }
+  return v >= lowest[at]! && v <= highest[at]!
 }
 
 /**

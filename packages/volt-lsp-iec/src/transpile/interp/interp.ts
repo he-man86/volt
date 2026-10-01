@@ -5,7 +5,7 @@
  * emitter bug shows up as a disagreement between them rather than as a silently wrong number. It walks a
  * frame of slots — no name lookup, no scope chain, no types at run time; lowering already answered all three.
  *
- * ponytail: a tree walk. It is the oracle and the fast path to a green test, not the shipping runtime — if
+ * ponytail: a tree compiled once into closures (`compileExpr`, `compileStmt`). It is the oracle and the fast path to a green test, not the shipping runtime — if
  * scan throughput ever matters, that is what the Rust backend is for.
  */
 import {
@@ -13,6 +13,7 @@ import {
   type IrExpr,
   type IrInvoke,
   type IrLayout,
+  type IrCall,
   type IrPou,
   type IrRoutine,
   type IrStmt,
@@ -64,24 +65,24 @@ class Machine {
    * @param inouts the caller's variables bound to the body's VAR_IN_OUT parameters, by parameter index
    */
   constructor(
-    private readonly root: Record<string | number, Val>,
-    private readonly keys: readonly (string | number)[],
+    readonly root: Record<string | number, Val>,
+    readonly keys: readonly (string | number)[],
     private readonly inouts: readonly Cell[],
-    private readonly layouts: ReadonlyMap<string, IrLayout>,
+    readonly layouts: ReadonlyMap<string, IrLayout>,
     private readonly routines: ReadonlyMap<string, IrRoutine>,
     /** The application's globals — ONE array every body shares. */
-    private readonly globals: Val[],
+    readonly globals: Val[],
     /** The harness's loop guard ({@link RunOptions}) — undefined runs every pass. */
-    private readonly guard: number | undefined,
+    readonly guard: number | undefined,
     /** The running METHOD's, ACTION's or FUNCTION's per-call locals. */
-    private readonly locals: Val[] = [],
+    readonly locals: Val[] = [],
     /** The FB instances this body's caller lends it (`lent` places), by slot. */
     private readonly lent: readonly Cell[] = [],
   ) {}
 
   /** A METHOD, ACTION or FUNCTION: fresh locals, the inputs stored into them, the body run on the instance (or on nothing),
    *  and the result slot's value — FALSE stands in for a routine without one, which only an `eval` calls. */
-  private invoke(e: IrInvoke): Val {
+  invoke(e: IrInvoke): Val {
     const routine = this.routines.get(e.routine)!
     // the inputs in the order they are written — a call inside one runs there (`callshape_argument_order`)
     const inputs: Val[] = new Array(e.inputs.length)
@@ -127,29 +128,53 @@ class Machine {
     return { container: cell.container as Record<string | number, Val>, key: cell.key }
   }
 
+  /** The container a place's root names, before the first step of its path. */
+  private base(place: Place): Record<string | number, Val> {
+    switch (place.root) {
+      case undefined:
+        return this.root
+      case "local":
+        return this.locals as unknown as Record<number, Val>
+      case "global":
+        return this.globals as unknown as Record<number, Val>
+      case "inout":
+        return this.inouts[place.slot]!.container
+      case "lent":
+        return this.lent[place.slot]!.container
+      case "this":
+        return { THIS: this.root as Val }
+    }
+  }
+
+  /** The key into {@link base} a place's root names. */
+  private baseKey(place: Place): string | number {
+    switch (place.root) {
+      case undefined:
+        return this.keys[place.slot]!
+      case "local":
+      case "global":
+        return place.slot
+      case "inout":
+        return this.inouts[place.slot]!.key
+      case "lent":
+        return this.lent[place.slot]!.key
+      case "this":
+        return "THIS"
+    }
+  }
+
   /** The container and key the steps before a place's last one lead to — where a read or write lands. */
-  private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit?: Extract<Access, { kind: "bit" }> } {
+  private locate(place: Place): { container: Val[] | { [field: string]: Val }; key: number | string; bit: Extract<Access, { kind: "bit" }> | undefined } {
     // a dereference: the pointer holds 0 when null, and CODESYS stops the application on that access — so does this
     if (place.guard !== undefined && this.read(place.guard) === 0n) throw new RangeError("dereference of a null pointer")
     const steps = place.path
     const last = steps.at(-1)
     const bit = last?.kind === "bit" ? last : undefined
-    const walk = bit === undefined ? steps : steps.slice(0, -1)
-    const start: Cell =
-      place.root === "inout"
-        ? this.inouts[place.slot]!
-        : place.root === "lent"
-          ? this.lent[place.slot]!
-        : place.root === "local"
-          ? { container: this.locals as unknown as Record<number, Val>, key: place.slot }
-          : place.root === "global"
-            ? { container: this.globals as unknown as Record<number, Val>, key: place.slot }
-            : place.root === "this"
-              ? { container: { THIS: this.root as Val }, key: "THIS" }
-              : { container: this.root, key: this.keys[place.slot]! }
-    let container: Val[] | { [field: string]: Val } = start.container as Val[] | { [field: string]: Val }
-    let key: number | string = start.key
-    for (const step of walk) {
+    const walk = bit === undefined ? steps.length : steps.length - 1
+    let container: Val[] | { [field: string]: Val } = this.base(place) as Val[] | { [field: string]: Val }
+    let key: number | string = this.baseKey(place)
+    for (let s = 0; s < walk; s++) {
+      const step = steps[s]!
       const next = (container as Record<string | number, Val>)[key] as Val[] | { [field: string]: Val }
       if (step.kind === "field") key = step.name.toUpperCase()
       else if (step.kind === "index") {
@@ -160,10 +185,17 @@ class Machine {
       }
       container = next
     }
-    return { container, key, ...(bit === undefined ? {} : { bit }) }
+    return { container, key, bit }
+  }
+
+  /** A place with no step and no dereference — a variable itself, the commonest place there is — is its root's slot,
+   *  reached without walking a path or building a result for one. */
+  private static plain(place: Place): boolean {
+    return place.path.length === 0 && place.guard === undefined
   }
 
   read(place: Place): Val {
+    if (Machine.plain(place)) return this.base(place)[this.baseKey(place)]!
     const { container, key, bit } = this.locate(place)
     const value = (container as Record<string | number, Val>)[key]!
     // A bigint's `>>` and `&` work on infinite two's complement, so a negative INT's bits read as the PLC's do.
@@ -171,6 +203,10 @@ class Machine {
   }
 
   write(place: Place, value: Val): void {
+    if (Machine.plain(place)) {
+      this.base(place)[this.baseKey(place)] = typeof value === "object" ? copy(value) : fit(value, place.type)
+      return
+    }
     const { container, key, bit } = this.locate(place)
     const slot = container as Record<string | number, Val>
     if (bit === undefined) {
@@ -183,114 +219,237 @@ class Machine {
     slot[key] = fit(bool(value) ? current | mask : current & ~mask, bit.of)
   }
 
+  /** An expression's value on this frame — through the closure it was compiled into, once ({@link compiledExpr}). */
   expr(e: IrExpr): Val {
-    switch (e.kind) {
-      case "const":
-        return fit(e.value, e.type)
-      // A fresh composite — what a VAR_TEMP struct or array is reset to at the top of each call.
-      case "fresh":
-        return instantiate(e.type, e.init, this.layouts)
-      case "load":
-        return this.read(e.place)
-      case "invoke":
-        return this.invoke(e)
-      case "dispatch": {
-        // a call through an interface runs on the instance its value names; none — a null interface — stops the application
-        const tag = this.expr(e.tag)
-        const arm = e.arms.find((a) => a.tag === tag)
-        if (arm === undefined) throw new RangeError("call through an interface that holds no instance")
-        return this.invoke(arm.call)
-      }
-      case "select": {
-        // a read through a pointer that may name several variables: the tag picks which. None is a null dereference,
-        // which stops the application exactly as `iec_deref` does for the single-target form.
-        const tag = this.expr(e.tag)
-        const arm = e.arms.find((a) => a.tag === tag)
-        if (arm === undefined) throw new RangeError("dereference of a null pointer")
-        return this.read(arm.place)
-      }
-      case "convert":
-        return fit(coerce(this.expr(e.value), e.type, e.value.type), e.type)
-      // The three node kinds whose meaning needs no storage live in `ir/evaluate.ts`, because lowering evaluates
-      // them too when it folds a declaration's initial value — one table, so a folded value and a computed one
-      // cannot disagree.
-      case "builtin":
-        // SEL and MUX evaluate only the input their selector picks (`IrBuiltinName`)
-        if (e.name === "sel" || e.name === "mux")
-          return fit(this.expr(e.args[selectedArg(e.name, this.expr(e.args[0]!), e.args.length)]!), e.type)
-        return builtinValue(e.name, e.args.map((a) => this.expr(a)), e.type, e.args.map((a) => a.type), e.bits)
-      case "unary":
-        return unaryValue(e.op, this.expr(e.operand), e.type)
-      case "binary": {
-        // The short-circuit forms must not evaluate the right side — the only reason they are distinct nodes,
-        // and the one part of a binary that belongs to whoever does the evaluating.
-        if (e.op === "and_then") return bool(this.expr(e.left)) && bool(this.expr(e.right))
-        if (e.op === "or_else") return bool(this.expr(e.left)) || bool(this.expr(e.right))
-        return binaryValue(e.op, this.expr(e.left), this.expr(e.right), e.type)
-      }
-    }
+    return compiledExpr(e)(this)
   }
 
+  /** A statement list run on this frame — through the closure it was compiled into, once ({@link compiledBlock}). */
   block(list: readonly IrStmt[]): Signal {
-    for (const s of list) {
-      const sig = this.stmt(s)
+    return compiledBlock(list)(this)
+  }
+
+  /** An FB call: the FB's body runs on the instance itself — its fields are the frame, the bound places its VAR_IN_OUT. */
+  call(s: IrCall): void {
+    const at = this.locate(s.instance)
+    const instance = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
+    const layout = this.layouts.get(s.fb.toUpperCase())!
+    // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/bindings.ts`)
+    if (s.bind !== undefined) this.write(s.bind.place, s.bind.tag)
+    const bound = s.inouts.map((b) => this.bind(b))
+    const lent = (s.lent ?? []).map((p) => this.bind(p))
+    new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, this.guard, [], lent).block(layout.body!)
+    this.writeBack(s.inouts, bound)
+  }
+}
+
+/**
+ * THE TREE IS WALKED ONCE, NOT ONCE PER PASS. Each IR node is compiled, the first time it runs, into a closure over its
+ * already-compiled children; a pass is then a chain of direct calls. Walking the tree on every pass — a `switch` on
+ * the node's kind, then on its operator, then on the place's root, a result object per place and a spread to build it,
+ * at every node of every pass — cost ~400 ns for `cnt := cnt + 1` and its loop test, which put the recorded loops
+ * (`tr_27_loop_cap_*`: 1,000,001 and 5,000,000 passes) at seconds. A closure holds nothing but the node it was made
+ * from; the frame it runs on is its argument, so one compiled body serves every instance, call and scan.
+ */
+type Run<T> = (m: Machine) => T
+
+const exprs = new WeakMap<IrExpr, Run<Val>>()
+const blocks = new WeakMap<readonly IrStmt[], Run<Signal>>()
+
+function compiledExpr(e: IrExpr): Run<Val> {
+  let run = exprs.get(e)
+  if (run === undefined) exprs.set(e, (run = compileExpr(e)))
+  return run
+}
+
+function compiledBlock(list: readonly IrStmt[]): Run<Signal> {
+  let run = blocks.get(list)
+  if (run === undefined) blocks.set(list, (run = compileBlock(list)))
+  return run
+}
+
+function compileExpr(e: IrExpr): Run<Val> {
+  switch (e.kind) {
+    case "const": {
+      // a constant is stored the same way every time it is read: fitted on its first read, and kept
+      let value: Val | undefined
+      return () => (value ??= fit(e.value, e.type))
+    }
+    // A fresh composite — what a VAR_TEMP struct or array is reset to at the top of each call.
+    case "fresh":
+      return (m) => instantiate(e.type, e.init, m.layouts)
+    case "load":
+      return compileRead(e.place)
+    case "invoke":
+      return (m) => m.invoke(e)
+    case "dispatch": {
+      // a call through an interface runs on the instance its value names; none — a null interface — stops the application
+      const tag = compiledExpr(e.tag)
+      return (m) => {
+        const t = tag(m)
+        const arm = e.arms.find((a) => a.tag === t)
+        if (arm === undefined) throw new RangeError("call through an interface that holds no instance")
+        return m.invoke(arm.call)
+      }
+    }
+    case "select": {
+      // a read through a pointer that may name several variables: the tag picks which. None is a null dereference,
+      // which stops the application exactly as `iec_deref` does for the single-target form.
+      const tag = compiledExpr(e.tag)
+      return (m) => {
+        const t = tag(m)
+        const arm = e.arms.find((a) => a.tag === t)
+        if (arm === undefined) throw new RangeError("dereference of a null pointer")
+        return m.read(arm.place)
+      }
+    }
+    case "convert": {
+      const value = compiledExpr(e.value)
+      return (m) => fit(coerce(value(m), e.type, e.value.type), e.type)
+    }
+    // The three node kinds whose meaning needs no storage live in `ir/evaluate.ts`, because lowering evaluates
+    // them too when it folds a declaration's initial value — one table, so a folded value and a computed one
+    // cannot disagree.
+    case "builtin": {
+      const args = e.args.map(compiledExpr)
+      // SEL and MUX evaluate only the input their selector picks (`IrBuiltinName`)
+      if (e.name === "sel" || e.name === "mux") {
+        const name = e.name
+        return (m) => fit(args[selectedArg(name, args[0]!(m), args.length)]!(m), e.type)
+      }
+      const types = e.args.map((a) => a.type)
+      return (m) => builtinValue(e.name, args.map((a) => a(m)), e.type, types, e.bits)
+    }
+    case "unary": {
+      const operand = compiledExpr(e.operand)
+      return (m) => unaryValue(e.op, operand(m), e.type)
+    }
+    case "binary": {
+      const left = compiledExpr(e.left)
+      const right = compiledExpr(e.right)
+      // The short-circuit forms must not evaluate the right side — the only reason they are distinct nodes,
+      // and the one part of a binary that belongs to whoever does the evaluating.
+      if (e.op === "and_then") return (m) => bool(left(m)) && bool(right(m))
+      if (e.op === "or_else") return (m) => bool(left(m)) || bool(right(m))
+      const { op, type } = e
+      return (m) => binaryValue(op, left(m), right(m), type)
+    }
+  }
+}
+
+/** A read of a place. A variable itself — no step, no dereference, the commonest place there is — is one slot of the
+ *  frame, the locals or the globals, read directly; anything else walks its path ({@link Machine.read}). */
+function compileRead(place: Place): Run<Val> {
+  const slot = place.slot
+  if (place.path.length === 0 && place.guard === undefined)
+    switch (place.root) {
+      case undefined:
+        return (m) => m.root[m.keys[slot]!]!
+      case "local":
+        return (m) => m.locals[slot]!
+      case "global":
+        return (m) => m.globals[slot]!
+    }
+  return (m) => m.read(place)
+}
+
+/** A write to a place, stored as the place's type holds it — the counterpart of {@link compileRead}. */
+function compileWrite(place: Place): (m: Machine, value: Val) => void {
+  const { slot, type } = place
+  if (place.path.length === 0 && place.guard === undefined)
+    switch (place.root) {
+      case undefined:
+        return (m, v) => void (m.root[m.keys[slot]!] = typeof v === "object" ? copy(v) : fit(v, type))
+      case "local":
+        return (m, v) => void (m.locals[slot] = typeof v === "object" ? copy(v) : fit(v, type))
+      case "global":
+        return (m, v) => void (m.globals[slot] = typeof v === "object" ? copy(v) : fit(v, type))
+    }
+  return (m, v) => m.write(place, v)
+}
+
+function compileBlock(list: readonly IrStmt[]): Run<Signal> {
+  const stmts = list.map(compileStmt)
+  if (stmts.length === 0) return () => "none"
+  if (stmts.length === 1) return stmts[0]!
+  return (m) => {
+    for (const s of stmts) {
+      const sig = s(m)
       if (sig !== "none") return sig
     }
     return "none"
   }
+}
 
-  stmt(s: IrStmt): Signal {
-    switch (s.kind) {
-      case "assign":
-        this.write(s.target, this.expr(s.value))
+function compileStmt(s: IrStmt): Run<Signal> {
+  switch (s.kind) {
+    case "assign": {
+      const value = compiledExpr(s.value)
+      const store = compileWrite(s.target)
+      return (m) => {
+        store(m, value(m))
         return "none"
-      case "if":
-        return this.block(bool(this.expr(s.cond)) ? s.then : s.else)
-      case "switch": {
-        const sel = this.expr(s.selector)
-        for (const arm of s.arms)
+      }
+    }
+    case "if": {
+      const cond = compiledExpr(s.cond)
+      const then = compiledBlock(s.then)
+      const otherwise = compiledBlock(s.else)
+      return (m) => (bool(cond(m)) ? then : otherwise)(m)
+    }
+    case "switch": {
+      const selector = compiledExpr(s.selector)
+      const arms = s.arms.map((arm) => ({ labels: arm.labels, body: compiledBlock(arm.body) }))
+      const otherwise = compiledBlock(s.else)
+      return (m) => {
+        const sel = selector(m)
+        for (const arm of arms)
           for (const label of arm.labels)
             if (label.lo === label.hi ? eq(sel, label.lo) : ord("ge", sel, label.lo) && ord("le", sel, label.hi))
-              return this.block(arm.body)
-        return this.block(s.else)
+              return arm.body(m)
+        return otherwise(m)
       }
-      case "loop": {
-        this.block(s.init)
+    }
+    case "loop": {
+      const init = compiledBlock(s.init)
+      const body = compiledBlock(s.body)
+      const step = compiledBlock(s.step)
+      // the test, at the top of a pass (FOR, WHILE) or at its end (REPEAT) — or none
+      const before = s.test !== undefined && !s.test.atEnd ? compiledExpr(s.test.cond) : undefined
+      const after = s.test !== undefined && s.test.atEnd ? compiledExpr(s.test.cond) : undefined
+      return (m) => {
+        init(m)
         for (let n = 1; ; n++) {
-          if (s.test !== undefined && !s.test.atEnd && !bool(this.expr(s.test.cond))) break
-          if (this.guard !== undefined && n > this.guard) throw new LoopGuardError(this.guard)
-          const sig = this.block(s.body)
+          if (before !== undefined && !bool(before(m))) break
+          if (m.guard !== undefined && n > m.guard) throw new LoopGuardError(m.guard)
+          const sig = body(m)
           if (sig === "break") break
           if (sig === "return") return sig
-          this.block(s.step)
-          if (s.test !== undefined && s.test.atEnd && !bool(this.expr(s.test.cond))) break
+          step(m)
+          if (after !== undefined && !bool(after(m))) break
         }
         return "none"
       }
-      case "call": {
-        // the FB's body runs on the instance itself — its fields are the frame, the bound places its VAR_IN_OUT
-        const at = this.locate(s.instance)
-        const instance = (at.container as Record<string | number, Val>)[at.key] as Record<string | number, Val>
-        const layout = this.layouts.get(s.fb.toUpperCase())!
-        // the binding this call makes, which the FB's METHODs called from outside dispatch on (`lower/bindings.ts`)
-        if (s.bind !== undefined) this.write(s.bind.place, s.bind.tag)
-        const bound = s.inouts.map((b) => this.bind(b))
-        const lent = (s.lent ?? []).map((p) => this.bind(p))
-        new Machine(instance, layout.fields.map((f) => f.name.toUpperCase()), bound, this.layouts, this.routines, this.globals, this.guard, [], lent).block(layout.body!)
-        this.writeBack(s.inouts, bound)
+    }
+    case "call":
+      return (m) => {
+        m.call(s)
         return "none"
       }
-      case "eval":
-        // a call as a statement — direct, or dispatched through an interface
-        this.expr(s.value)
+    case "eval": {
+      // a call as a statement — direct, or dispatched through an interface
+      const value = compiledExpr(s.value)
+      return (m) => {
+        value(m)
         return "none"
-      case "break":
-        return "break"
-      case "continue":
-        return "continue"
-      case "return":
-        return "return"
+      }
     }
+    case "break":
+      return () => "break"
+    case "continue":
+      return () => "continue"
+    case "return":
+      return () => "return"
   }
 }
 
