@@ -49,7 +49,10 @@ in the log.
 
 1. **Read the real CODESYS version**: the full `3.5.x.y` of the running IDE. Report it in `IdeVersion` (health, the
    connector row) instead of `"3.5"`.
-2. **Refuse to serve below the supported minimum (CODESYS 3.5 SP21), clearly.** At start, write one line to the CODESYS
+2. **Refuse to serve an IDE that lacks what the bridge needs, clearly — by CAPABILITY, not a version floor** (owner,
+   2026-10-01: OEM IDEs — WAGO, Lenze, Schneider — run older CODESYS platforms and carry their own product version; a
+   fixed SP21 floor would lock out ones that work. The version read is the underlying PLATFORM version, never the exe's).
+   The original wording below said "below the supported minimum (CODESYS 3.5 SP21)"; the refusal names what is missing. At start, write one line to the CODESYS
    message window, e.g. `Volt: CODESYS 3.5.17 is not supported — PLC Assist needs CODESYS 3.5 SP21 or newer`. Do not
    report healthy/connected. The minimum lives in one place.
 
