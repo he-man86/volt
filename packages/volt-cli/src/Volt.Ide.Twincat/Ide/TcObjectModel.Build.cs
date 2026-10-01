@@ -200,15 +200,7 @@ internal sealed partial class TcObjectModel
                     continue;
                 }
                 if (string.IsNullOrEmpty(text)) continue;
-                foreach (var diagnostic in ParsePaneText(text))
-                {
-                    // ONE ENTRY PER DIAGNOSTIC, however many panes carry it. A PLC build writes the same error
-                    // to Visual Studio's own Build pane AND to TwinCAT's, so now that every pane is read the
-                    // same error arrives twice; the engineer would see it twice in the Problems list. Keyed on
-                    // everything the wire carries, so two genuinely different errors on one line both survive.
-                    if (seen.Add($"{diagnostic.Name}{diagnostic.Severity}{diagnostic.Line}{diagnostic.Column}{diagnostic.Message}"))
-                        result.Add(diagnostic);
-                }
+                CollectPane(text, seen, result);
             }
         }
         catch (Exception ex)
@@ -234,7 +226,23 @@ internal sealed partial class TcObjectModel
         return result;
     }
 
-    /// <summary>One Output pane's text, parsed into diagnostics. Pure, so it is tested offline.</summary>
+    /// <summary>One pane's diagnostics, appended to <paramref name="into"/> unless an earlier pane already carried them.
+    ///
+    /// <para>ONE ENTRY PER DIAGNOSTIC, however many panes carry it. A PLC build writes the same error to Visual Studio's
+    /// own Build pane AND to TwinCAT's, so with every pane read the same error arrives twice; the engineer would see it
+    /// twice. But ONLY a repeat is dropped: the key is the OBJECT the compiler named (the file stem plus the dotted path
+    /// after its `;`), not what the wire publishes. The wire folds a property accessor into its property (`FB.Prop.Get`
+    /// and `FB.Prop.Set` are both `member: Prop`) and TwinCAT writes no column, so a key built from the published fields
+    /// merged a GET's error into the SET's identical one - a real IDE diagnostic lost, while CODESYS returned both
+    /// (openspec <c>codesys-diagnostic-child-names</c>). The MSBuild `N&gt;` prefix the Build pane adds is not in the
+    /// key, which is what lets the two panes' copies of one error meet.</para></summary>
+    internal static void CollectPane(string text, HashSet<string> seen, List<BridgeDiagnostic> into)
+    {
+        foreach (var (diagnostic, key) in ParseLines(text))
+            if (seen.Add(key)) into.Add(diagnostic);
+    }
+
+    /// <summary>One Output pane's text, parsed into diagnostics, each with its cross-pane identity (<see cref="CollectPane"/>).</summary>
     /// <remarks>
     /// A line matches only if it is shaped `file(line,col) : error|warning|message : text`, which is a compiler's
     /// output and not a window's chrome — that shape IS the pane filter, which is why no pane is selected by name.
@@ -246,9 +254,9 @@ internal sealed partial class TcObjectModel
     /// rather than by "the next line is not a diagnostic": the pane is full of build chrome, and appending that to
     /// the previous message would corrupt far more than the break does.
     /// </remarks>
-    internal static IReadOnlyList<BridgeDiagnostic> ParsePaneText(string text)
+    private static List<(BridgeDiagnostic Diagnostic, string Key)> ParseLines(string text)
     {
-        var parsed = new List<BridgeDiagnostic>();
+        var parsed = new List<(BridgeDiagnostic, string)>();
         var regex = new Regex(
             @"^(.+?)(?:\((\d+)(?:,(\d+))?\))?\s*:\s*(error|warning|message)\s*:\s*(.+)$",
             RegexOptions.IgnoreCase | RegexOptions.Multiline);
@@ -257,20 +265,71 @@ internal sealed partial class TcObjectModel
             int lineNum = 0, colNum = 0;
             if (m.Groups[2].Success) int.TryParse(m.Groups[2].Value, out lineNum);
             if (m.Groups[3].Success) int.TryParse(m.Groups[3].Value, out colNum);
-            parsed.Add(new BridgeDiagnostic
+            var captured = m.Groups[1].Value;
+            // The BARE name -- BuildService promotes it to the wire's full `name.kind`. Group 1 is the file the
+            // compiler named, and it was captured and DROPPED: the diagnostic kept a line number with nothing to
+            // anchor it to, so a client had a position and no file to put it in.
+            var file = BareNameOf(FileOf(captured));
+            var obj = ObjectOf(captured);
+            var (name, member) = obj is null ? (file, null) : ChildOf(file, obj);
+            var diagnostic = new BridgeDiagnostic
             {
                 // "message" is TwinCAT's word for informational; Severity.Of maps it.
                 Severity = Volt.Contracts.Severity.Of(m.Groups[4].Value),
                 Message = WithContinuation(text, m).Trim(),
                 Line = lineNum,
                 Column = colNum,
-                // The BARE name -- BuildService promotes it to the wire's full `name.kind`. Group 1 is the file
-                // the compiler named, and it was captured and DROPPED: the diagnostic kept a line number with
-                // nothing to anchor it to, so a client had a position and no file to put it in.
-                Name = BareNameOf(m.Groups[1].Value),
-            });
+                Name = name,
+                Member = member,
+            };
+            // Separated by U+0001 so no two field splits collide.
+            parsed.Add((diagnostic,
+                $"{file}\u0001{obj}\u0001{diagnostic.Severity}\u0001{lineNum}\u0001{colNum}\u0001{diagnostic.Message}"));
         }
         return parsed;
+    }
+
+    /// <summary>The FILE half of what the compiler named — `C:\p\FB.TcPOU;FB.Execute` → `C:\p\FB.TcPOU`.
+    ///
+    /// <para>AN ERROR INSIDE A CHILD OBJECT IS WRITTEN `FILE;OBJECT`. Measured on live TcXaeShell 15.0 (DIALECT D36,
+    /// openspec <c>codesys-diagnostic-child-names</c> 3.3): a method body's error reads
+    /// `...\FB.TcPOU;FB.Compute(6) : error: ...`, a property GET's `...;FB.Prop.Get(2)`, an action's `...;FB.Act(3)`,
+    /// while the POU's own body stays `...\FB.TcPOU(6)`. Taking the stem of the whole capture gave `FB.TcPOU;FB`, a
+    /// name no item has, so the engine resolved it to nothing and every such diagnostic reached the wire unnamed —
+    /// the same gap the CODESYS driver had through a different door.</para></summary>
+    private static string FileOf(string captured)
+    {
+        var semi = captured.IndexOf(';');
+        return semi < 0 ? captured : captured.Substring(0, semi);
+    }
+
+    /// <summary>The dotted OBJECT path after the `;` (see <see cref="FileOf"/>) — `FB.Prop.Get` — or null when the
+    /// compiler named the file alone, which is the item's own declaration or body.</summary>
+    private static string? ObjectOf(string captured)
+    {
+        var semi = captured.IndexOf(';');
+        return semi < 0 ? null : captured.Substring(semi + 1).Trim();
+    }
+
+    /// <summary>The item and the CHILD an object path names: the segment after the POU's own name — `FB.Compute` →
+    /// `Compute`, and `FB.Prop.Get` → `Prop`, because a property accessor is read with its property, not beside it (the
+    /// CODESYS driver names it the same way, which is the parity the wire needs).
+    ///
+    /// <para>THE PATH MUST START AT THE FILE'S OWN POU. Every measured line does (`VltE2E_raw.TcPOU;VltE2E_raw.…`); a
+    /// path that starts anywhere else, or has no child segment, is a shape nobody measured, and reading its second
+    /// segment as a member of the file's POU would be a guess. Such a diagnostic is published with neither name nor
+    /// member - its message intact, its location not invented - and the line is logged so the shape can be measured.
+    /// UNMEASURED: whether a method in a POU-internal folder is written `FB.Folder.Method` (which would publish the
+    /// folder as the member).</para></summary>
+    private static (string? Name, string? Member) ChildOf(string? pou, string obj)
+    {
+        var path = obj.Split('.');
+        if (pou is not null && path.Length >= 2 && path[1].Length > 0
+            && string.Equals(path[0], pou, StringComparison.OrdinalIgnoreCase))
+            return (pou, path[1]);
+        VoltLog.Warn($"twincat: a build diagnostic names the object '{obj}' in the file of '{pou}', a shape that is not " +
+                     "a child of that POU — reporting it without an item or member rather than guessing one");
+        return (null, null);
     }
 
     /// <summary>The item a compiler line names, as the IDE's own BARE name — `1&gt;C:\p\MAIN.TcPOU` → `MAIN`.

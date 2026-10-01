@@ -60,10 +60,11 @@ public class NoTestOnlyCodeInSrcTests
                      "workers get reaped otherwise only runs behind a spawned process. Its production caller is " +
                      "ListPids, in the same file",
 
-        ["ParsePaneText"] = "the Output-pane PARSE, split out for the same reason as ChooseBridgePipe: the only " +
-                            "way to reach it in production is a COM walk over live Visual Studio panes, so the " +
-                            "rule that turns pane text into diagnostics could not be exercised at all. Its " +
-                            "production caller is GetBuildDiagnostics, in the same file",
+        ["CollectPane"] = "the Output-pane PARSE and cross-pane dedupe, split out for the same reason as " +
+                          "ChooseBridgePipe: the only way to reach it in production is a COM walk over live Visual " +
+                          "Studio panes, so the rule that turns pane text into diagnostics - and keeps a GET's error " +
+                          "apart from the SET's identical one (openspec codesys-diagnostic-child-names) - could not be " +
+                          "exercised at all. Its production caller is GetBuildDiagnostics, in the same file",
 
         // Deliberate reference implementations. `FastImport_tree_matches_hash_object_plus_BuildTree` asserts the
         // fast-import path produces a byte-identical tree SHA to plumbing git — so these exist to be the OTHER

@@ -4,6 +4,7 @@ using System.Linq;
 
 using Volt.Contracts;
 using Volt.Engine.Ide;
+using Volt.Engine.Item;
 using Volt.Engine.Library;
 
 namespace Volt.Ide.Codesys;
@@ -125,39 +126,102 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     {
         var raw = _om.GetBuildDiagnostics().Cast<Dictionary<string, object?>>().ToList();
         var names = NamesFor(raw);
-        return raw.Select(m => new BridgeDiagnostic
+        return raw.Select(m =>
         {
-            Severity = m.TryGetValue("severity", out var s) ? s as string ?? Severity.Info : Severity.Info,
-            Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
-            Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
-            Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
-            Code = m.TryGetValue("code", out var code) ? code as string : null,
-            // The BARE name — BuildService promotes it to the wire's full `name.kind`. See its PromoteNames.
-            Name = m.TryGetValue("objectGuid", out var g) && g is Guid guid && names.TryGetValue(guid, out var n)
-                ? n : null,
+            var placed = m.TryGetValue("objectGuid", out var g) && g is Guid guid && names.TryGetValue(guid, out var p) ? p : null;
+            return new BridgeDiagnostic
+            {
+                Severity = m.TryGetValue("severity", out var s) ? s as string ?? Severity.Info : Severity.Info,
+                Message = m.TryGetValue("message", out var msg) ? msg as string ?? "" : "",
+                Line = m.TryGetValue("line", out var l) && l is int li ? li : 0,
+                Column = m.TryGetValue("column", out var c) && c is int ci ? ci : 0,
+                Code = m.TryGetValue("code", out var code) ? code as string : null,
+                // The BARE name — BuildService promotes it to the wire's full `name.kind`. See its PromoteNames.
+                Name = placed?.Name,
+                Member = placed?.Member,
+            };
         }).ToList();
     }
 
-    /// <summary>The bare name of every object a diagnostic points at, by guid.
+    /// <summary>Where a diagnostic's object sits on the wire: the top-level item that owns it (BARE name), and the
+    /// child of that item it is inside — null when the object IS the item.</summary>
+    private sealed class Placement
+    {
+        public Placement(string name, string? member) { Name = name; Member = member; }
+        public string Name { get; }
+        public string? Member { get; }
+    }
+
+    /// <summary>The item (bare name) and member every object a diagnostic points at belongs to, by guid.
     ///
     /// <para>`IMessage.ObjectGuid` is the only handle CODESYS gives on WHICH object a diagnostic is about, and
     /// the object model has no guid lookup that does not also need the object's project handle — so the tree
     /// walk is how a guid becomes a name. It runs only when at least one diagnostic carried a guid, i.e. never
-    /// on a clean build, and a build is seconds where a walk is milliseconds.</para></summary>
-    private Dictionary<Guid, string> NamesFor(List<Dictionary<string, object?>> raw)
+    /// on a clean build, and a build is seconds where a walk is milliseconds.</para>
+    ///
+    /// <para>A CHILD OBJECT IS NOT A TOP-LEVEL ITEM, and its diagnostic carries ITS OWN guid. Measured live on SP21
+    /// 3.5.21.40 (DIALECT C27, openspec <c>codesys-diagnostic-child-names</c> 1.2, <c>scripts/diagnostic-child-guid.log</c>): an
+    /// error in a METHOD body points at the method (`FB_DcnMeth/MExecute`), one in a property GET at the accessor
+    /// (`FB_DcnMeth/PProp/Get`), one in an action at the action — never at the FB, never `Guid.Empty`. Resolved
+    /// against <see cref="WalkItems"/> alone, which lists top-level items, every one of them was published with no
+    /// name (field case <c>c802b74d</c>). So a guid the walk does not place is looked for UNDER the items: the item
+    /// is the file the client opens, and the member is the child directly under it (through any POU-internal
+    /// folder), which is how an accessor names its property.</para>
+    ///
+    /// <para>Children are read only for a guid the top-level walk did not place, so a build whose errors are all in
+    /// item bodies opens no POU. The descent is structural - names, guids and folder flags, no object reads - and is
+    /// limited to the kinds that HOLD members (<see cref="ItemKind.HoldsMembers"/>).</para></summary>
+    private Dictionary<Guid, Placement> NamesFor(List<Dictionary<string, object?>> raw)
     {
         var wanted = new HashSet<Guid>(raw.Select(m => m.TryGetValue("objectGuid", out var g) ? g as Guid? : null)
                                           .Where(g => g is not null).Select(g => g!.Value));
-        var names = new Dictionary<Guid, string>();
+        var names = new Dictionary<Guid, Placement>();
         if (wanted.Count == 0) return names;
-        foreach (var pi in WalkItems().Items)
+        var items = WalkItems().Items;
+        foreach (var pi in items)
         {
             var guid = _om.GuidOf(pi.Item.Native);
-            if (guid != Guid.Empty && wanted.Contains(guid)) names[guid] = pi.Name;
+            if (guid != Guid.Empty && wanted.Contains(guid)) names[guid] = new Placement(pi.Name, null);
             // STOP once every guid is placed. This runs on the IDE's primary thread, and a failing build on a
             // real project asks about a handful of items out of hundreds.
-            if (names.Count == wanted.Count) break;
+            if (names.Count == wanted.Count) return names;
+        }
+        foreach (var pi in items)
+        {
+            if (!ItemKind.HoldsMembers(pi.KindCode)) continue;
+            foreach (var child in _om.GetChildren(pi.Item.Native))
+            {
+                if (PlaceUnder(child, pi.Name, wanted, names) && names.Count == wanted.Count) return names;
+            }
         }
         return names;
+    }
+
+    /// <summary>Place every wanted guid in <paramref name="node"/>'s subtree under <paramref name="item"/>, with the
+    /// member the subtree belongs to: the node's own name, or - for a POU-internal folder - each child's.</summary>
+    private bool PlaceUnder(object node, string item, HashSet<Guid> wanted, Dictionary<Guid, Placement> names)
+    {
+        if (_om.IsFolder(node))
+        {
+            var placed = false;
+            foreach (var child in _om.GetChildren(node)) placed |= PlaceUnder(child, item, wanted, names);
+            return placed;
+        }
+        var member = _om.GetName(node);
+        var found = false;
+        foreach (var guid in Subtree(node))
+        {
+            if (!wanted.Contains(guid) || names.ContainsKey(guid)) continue;
+            names[guid] = new Placement(item, member);
+            found = true;
+        }
+        return found;
+    }
+
+    private IEnumerable<Guid> Subtree(object node)
+    {
+        yield return _om.GuidOf(node);
+        foreach (var child in _om.GetChildren(node))
+            foreach (var g in Subtree(child)) yield return g;
     }
 }

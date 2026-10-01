@@ -278,6 +278,11 @@ public static class ItemKind
     public static bool IsMember(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp;
 
+    /// <summary>The item kinds whose tree node holds member objects (methods, properties, actions, transitions) - the
+    /// items a CODESYS build diagnostic on a CHILD object is placed under (<c>CodesysDriver.NamesFor</c>), and the only
+    /// items a diagnostic that carries a member can be named for (<c>BuildService.PromoteNames</c>).</summary>
+    public static bool HoldsMembers(int code) => code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcItf;
+
     public static bool IsInlinedInPou(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp
              or PlcPropGet or PlcPropSet or PlcTrans or PlcProgRef

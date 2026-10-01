@@ -697,6 +697,9 @@ window.VOLT = {
             "name": {
               "type": "string"
             },
+            "member": {
+              "type": "string"
+            },
             "code": {
               "type": "string"
             },

@@ -93,7 +93,15 @@ public static class BuildService
     /// <para>AMBIGUITY RESOLVES TO NULL, not to a guess. IEC guarantees unique names within a kind, not across
     /// them: <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> both exist in real projects, and a bare
     /// `CM_Carrier` from the vendor names one of them without saying which. Publishing either would point a
-    /// client's editor at the wrong file.</para>
+    /// client's editor at the wrong file. A diagnostic that carries a <see cref="BridgeDiagnostic.Member"/> is the
+    /// exception that is not a guess: it is inside a method, property or action, and only an item whose kind HOLDS
+    /// members (<see cref="ItemKind.HoldsMembers"/>) can be its parent - the visualization cannot, so the FB is the
+    /// one.</para>
+    ///
+    /// <para>THE MEMBER GOES WITH THE NAME. <see cref="BridgeDiagnostic.Member"/> is the CHILD of the name, so a
+    /// diagnostic whose name resolves to nothing - unknown, still ambiguous, unreadable, or a walk that threw -
+    /// publishes no member either: <c>{name: null, member: "Execute"}</c> is a child of nothing, and no client can
+    /// tell whose <c>Execute</c> it is.</para>
     ///
     /// <para>Costs a tree walk plus a read of the NAMED items only, and only when a diagnostic carried a name
     /// at all — a clean build walks nothing. On CODESYS this is the SECOND walk: the driver has already made
@@ -102,20 +110,22 @@ public static class BuildService
     /// expensive part — materializing an item to learn its kind — happens here and only for the named ones.</para></summary>
     private static void PromoteNames(IIdeDriver ide, List<BridgeDiagnostic> diagnostics)
     {
-        var wanted = new HashSet<string>(
-            diagnostics.Select(d => d.Name).Where(n => !string.IsNullOrEmpty(n))!,
-            StringComparer.OrdinalIgnoreCase);
-        if (wanted.Count == 0) return;
-
         // CLEARED FIRST, assigned last. What the drivers put here is a BARE name, and the field's contract is
         // FULL or null — so between those two instants the only safe value is null. If the walk below throws
         // (the caller catches it: naming is decoration, not the build) the diagnostics keep the nulls rather
-        // than escaping with the vendor's spelling still on them.
-        var bare = diagnostics.Select(d => d.Name).ToList();
-        foreach (var d in diagnostics) d.Name = null;
+        // than escaping with the vendor's spelling still on them - and the member, a child of that name, with it.
+        var bare = diagnostics.Select(d => (Name: d.Name, Member: d.Member)).ToList();
+        foreach (var d in diagnostics) { d.Name = null; d.Member = null; }
 
-        // null value = the bare name matched more than one item, so it names none of them.
+        var wanted = new HashSet<string>(
+            bare.Select(b => b.Name).Where(n => !string.IsNullOrEmpty(n))!,
+            StringComparer.OrdinalIgnoreCase);
+        if (wanted.Count == 0) return;
+
+        // null value = the bare name matched more than one item, so it names none of them. `holders` is the same
+        // map over the items that can hold a member, which is where a diagnostic carrying one is looked up.
         var resolved = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var holders = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         foreach (var pi in ide.WalkItems().Items)
         {
             if (!wanted.Contains(pi.Name)) continue;
@@ -127,20 +137,28 @@ public static class BuildService
             // makes.
             if (Versioning.SafeVersion(ide, pi.Name, kind, pi.Item, pi.Folder).Materialized?.FullName is not { } identity)
                 continue;
-            if (resolved.TryGetValue(pi.Name, out var seen))
-            {
-                if (!string.Equals(seen, identity, StringComparison.OrdinalIgnoreCase)) resolved[pi.Name] = null;
-            }
-            else resolved[pi.Name] = identity;
+            Record(resolved, pi.Name, identity);
+            if (ItemKind.HoldsMembers(pi.KindCode)) Record(holders, pi.Name, identity);
         }
 
         for (var i = 0; i < diagnostics.Count; i++)
         {
-            if (bare[i] is not { } name) continue;
-            diagnostics[i].Name = resolved.TryGetValue(name, out var full) ? full : null;
+            if (bare[i].Name is not { } name) continue;
+            var map = bare[i].Member is null ? resolved : holders;
+            diagnostics[i].Name = map.TryGetValue(name, out var full) ? full : null;
             if (diagnostics[i].Name is null)
                 VoltLog.Debug($"build: a diagnostic named '{name}', which resolves to no single readable item — "
                               + "reporting it without a name rather than pointing at the wrong file");
+            else diagnostics[i].Member = bare[i].Member;
         }
+    }
+
+    private static void Record(Dictionary<string, string?> map, string bare, string identity)
+    {
+        if (map.TryGetValue(bare, out var seen))
+        {
+            if (!string.Equals(seen, identity, StringComparison.OrdinalIgnoreCase)) map[bare] = null;
+        }
+        else map[bare] = identity;
     }
 }

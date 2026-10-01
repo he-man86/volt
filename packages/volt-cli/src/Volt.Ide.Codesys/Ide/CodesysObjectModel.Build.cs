@@ -61,9 +61,11 @@ namespace Volt.Ide.Codesys
                     // Members measured against the shipped assembly, not assumed — MessageStorage.dll,
                     // `_3S.CoDeSys.Core.Messages.IMessage` {ProjectHandle, ObjectGuid, Position, PositionOffset,
                     // Length, Text, Severity} and `IMessage4` {Icon, Number, Prefix}, CODESYS 3.5.21.40.
-                    // `Position`/`PositionOffset` are deliberately NOT read here: their units are undocumented
-                    // and unmeasured, and a wrong line number is worse than none. The guid alone lets a client
-                    // open the right file, which is the gap that mattered.
+                    // `Position`/`PositionOffset` are deliberately NOT read here, and that is now MEASURED rather
+                    // than cautious (DIALECT C27): `PositionOffset` is the 0-based column, but `Position` is an
+                    // opaque id, not a line or an offset, and a column without a line places nothing. A wrong line
+                    // number is worse than none. The guid lets a client open the right file - and, for an error
+                    // inside a method/property/action, name the member (`CodesysDriver.NamesFor`).
                     var guid = GetMember(m, "ObjectGuid") is Guid g && g != Guid.Empty ? g : (Guid?)null;
                     outv.Add(new Dictionary<string, object?>
                     {

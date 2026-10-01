@@ -59,6 +59,28 @@ public class BridgeDiagnostic
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
+    /// <summary>The CHILD of <see cref="Name"/> the diagnostic is inside — a method, property, action or transition
+    /// (`Execute`) — or null when it is about the item itself.
+    ///
+    /// <para>A method, property accessor or action is not an item on this wire: it travels inside its parent's file,
+    /// so <see cref="Name"/> is the parent and is the file a client opens. But CODESYS reports the error against the
+    /// CHILD object, and an FB with twelve methods is still a hunt without it (openspec
+    /// <c>codesys-diagnostic-child-names</c>, field case <c>c802b74d</c>: five <c>C0578</c>s in METHOD bodies,
+    /// published with no name at all). A property accessor's diagnostic names the PROPERTY: GET/SET are read with
+    /// their property, not beside it.</para>
+    ///
+    /// <para>Bare and unpromoted: a member is named inside its parent's file, not on the wire's item map, so
+    /// <c>BuildService.PromoteNames</c> leaves its spelling exactly as the driver gave it. But it is never present
+    /// without <see cref="Name"/>: a name that resolves to nothing takes the member with it, because a child of
+    /// nothing tells a client nothing.</para>
+    ///
+    /// <para><b>It is also the frame of <see cref="Line"/>.</b> A vendor counts a child's line inside the CHILD
+    /// object (TwinCAT, DIALECT D36), not in the wire file, so `name:line` alone points at the wrong line of the right
+    /// file. A client that prints a position prints the member with it - `FB_Motor.fb(Execute):6`, as `volt build`
+    /// does.</para></summary>
+    [JsonPropertyName("member")]
+    public string? Member { get; set; }
+
     /// <summary>The vendor's own diagnostic number as the IDE renders it (`C0032`) — null when it has none.
     ///
     /// <para>Not a <see cref="BridgeErrorCodes"/> value and not comparable to one: those are VOLT's codes for
@@ -74,6 +96,11 @@ public class BridgeDiagnostic
     [JsonPropertyName("message")]
     public string Message { get; set; } = "";
 
+    /// <summary>The vendor's line, as the IDE gave it - 0 when it gave none (every CODESYS diagnostic: its position
+    /// is an opaque id, DIALECT C27).
+    ///
+    /// <para>Counted in the VENDOR'S object, not in the wire file: when <see cref="Member"/> is set it is a line of
+    /// that member (TwinCAT, DIALECT D36), so it is only a position together with the member.</para></summary>
     [JsonPropertyName("line")]
     public int Line { get; set; }
 
