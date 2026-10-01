@@ -67,7 +67,14 @@ export interface FixtureSources {
 // ─── corpus ──────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** The six projects, in name order, each with its files in `walkSources` order. */
-export function corpusProjects(): CorpusProject[] {
+export function corpusProjects(): readonly CorpusProject[] {
+  // READ ONCE PER PROCESS: four measurements walk it in one test run (0.1, 0.2, 0.3 and the bound census), and each
+  // read 29k files again — ~2 s a time (2026-10-01). Read-only to every caller; the corpus does not change under a run.
+  return (corpusCache ??= readCorpus())
+}
+let corpusCache: readonly CorpusProject[] | undefined
+
+function readCorpus(): readonly CorpusProject[] {
   if (!existsSync(CORPUS)) return []
   return readdirSync(CORPUS)
     .filter((name) => statSync(join(CORPUS, name)).isDirectory())
