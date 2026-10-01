@@ -568,6 +568,16 @@ functions a task names, under **Gate T**; transpile's own copies are handed to t
       cyclic-EXTENDS completion answer (1.28) is pinned in `assist.test.ts` (hangs with the guard removed). Correction to the
       title claim: 1.25 renamed three titles (`isLibrarySymbol …` → `isLibraryUri …`), which the suite snapshot cannot see.
 
+- [ ] 1.42 Network text's FRONT-END parts move into the front-end layer — MOVE ONLY, no redesign (owner, 2026-10-01: folders
+      by layer, not by language; network-text's details are parked for the LD/FBD coverage change).
+      Where: `src/network-text/{lexer,parser,ast,exprs}.ts` (+ their tests) -> `src/frontend/syntax/network/`; the wire scope
+      part of `src/network/network-symbols.ts` -> `src/frontend/symbols/` (or stays, if the import graph says it is analysis —
+      record why). Consumers import it through the front-end index. `src/network/` keeps only analysis/services parts, which
+      analysis-conformance moves.
+      Accept: output-neutral (every suite, the fixture map and the F snapshot unchanged); the layering gate green; no file left
+      in `src/network-text/`.
+      Depends: 1.41.
+
 ## 2. Parser (syntax/) conformance
 
 Per group: record the named fixtures first (`record:language`; accept, or CODESYS's exact messages); pin each disagreement as a
@@ -856,6 +866,56 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
 - [ ] 2.3.6 Type expressions (T1–T11): one implicit-enum value parser. Record decl_array_of_array, decl_pointer_to_pointer,
       decl_string_brackets, decl_string_length_constant, decl_implicit_enum_with_base.
       Where: parse/type-expr. Acceptance: CA. Depends on: 2.3.5
+      **Step 2.3b (2026-10-01).** Fixtures: `fixtures/grammar/type-expressions.ts`, 62 `decl_*`, every name the task lists and
+      per rule the cells that separate its readings — T1 no type, a keyword, an unknown qualified type; T2 reversed, from
+      constants, on REAL/BOOL/BYTE/an alias of INT, one value after INT and after REAL, UINT's default; T3 `FB()`; T4 reversed,
+      one bound, none, no OF, negative, `[*]` in VAR / an FB's VAR_INPUT / a FUNCTION's VAR_INPUT, `[0..1, *]`, `[*, 0..1]`,
+      `[*, *]`; T5 a bound from a constant expression and from a variable; T6 ARRAY OF ARRAY indexed both ways, POINTER TO
+      POINTER; T7 POINTER without TO, REFERENCE TO REFERENCE, POINTER TO REFERENCE, ARRAY OF REFERENCE, REFERENCE TO ARRAY;
+      T8 STRING(0), WSTRING(3) cut, STRING(2+3); T9 STRING[5], WSTRING[3], STRING(N), STRING[N], STRING(n), each closer mix
+      for STRING and WSTRING; T10 base, init, next value, empty, trailing comma, a number, duplicate, unclosed, in an ARRAY,
+      in VAR_INPUT, in a STRUCT, and the TYPE enum's trailing comma, number, empty; T11 size from a constant, of INT, of BOOL.
+      No variable is named `s`/`r` (IL operators — the first batch was re-recorded for it). Recorded `record:language` on
+      CODESYS and TwinCAT (62 each, one batch per vendor plus the 8 cells the first answers asked for, and three fixtures
+      re-recorded after they were written free of area-4 typing: typed bounds `INT#-3`, `N-INT#1`, POINTER TO POINTER
+      declared without ADR), `record:exec` on CODESYS (26 build and run). Measured: `(…)` after a type is a SUBRANGE only
+      after an integer or bit string (`INT(5)` "'..' expected instead of ')'"), an argument list after anything else
+      (`REAL(0..1)`, `BOOL(0..1)`, an alias: "',' or ')' expected instead of '..'"; `REAL(5)` builds); a dimension wants `..`
+      ("'..' expected instead of ']'" for `[5]`, `[]`, `[0..1, *]`) and after a `*` every dimension is one ("'*' expected
+      instead of '0'"); a STRING length is `(…)` or `[…]` with either closer, a WSTRING's `(…)` only (`WSTRING[3]` is D16's
+      bracket list); an implicit enum takes a base type and a trailing comma, a TYPE enum no trailing comma, neither an
+      empty list; a subrange variable starts at its lower bound (`UINT(1..5)` runs as 1). Fixed test-first
+      (`parse/type-expr.test.ts`, `declared-type.test.ts`, `const-context.test.ts`, `binder.test.ts`, `types.test.ts`,
+      `lower.test.ts`): `parse/type-expr` — ONE enum value parser (`parseEnumValues`, `parseEnumBase`, TYPE enum and implicit
+      enum; `trailingComma` the one measured difference; a value followed by neither `,` nor `)` is TwinCAT's "', or )'
+      expected", resynced within its declaration), `ImplicitEnumType.baseType` kept and printed (it was consumed and
+      dropped), the subrange/argument split by `SUBRANGE_BASE_TYPES` (`lex/vocabulary`), the dimension rules (a refused
+      dimension drops its declaration), STRING/WSTRING length closers; `parse/errors` "Type definition expected instead of
+      ';'" for a punctuation mark; `symbols/binder` binds an implicit enum's values through an ARRAY; `types/infer` types an
+      implicit enum's value as the implicit enum and an index through a REFERENCE TO an array (corpus `ident_expr UNKNOWN`
+      1527 → 634 — pro2193's 30 implicit enums); new `analysis` declared-type (border-order, reference-base-type,
+      vector-base-type, variable-length-placement, each vendor's words) and const-context string-length-non-const.
+      **One transpile edit, not named by this task (Gate T: `src/transpile` was clean, no other run):** `lower.ts`
+      `representable` holds an `ARRAY[*]` only in a slot a call lends (VAR_IN_OUT, a routine's VAR_INPUT) — three refused
+      fixtures lowered as if every open array were an in-out and the Rust emitter THREW, so `rate:fixtures` could not run.
+      Divergences opened (`support/divergences.ts`): `TYPE_EXPRESSION_RECOVERY` (both, 11, in `DECLARATION_RECOVERY`,
+      → 2.8.2), `IMPLICIT_ENUM_LIST_RECOVERY` (both, 2, niche: 0 malformed lists in the corpora), `IMPLICIT_ENUM_TYPE_NAME`
+      (both, 2, `Implicit_Enum__<POU>__<var>`; not niche, 30 implicit enums in pro2193 → 4.7.4/3.3),
+      `STRING_LENGTH_AS_WRITTEN` (both, 3, 'STRING(N)'/'STRING((2 + 3))' and a local constant's length unfolded; not niche,
+      581 named lengths → 4.7.4/4.6.2), `UNKNOWN_QUALIFIED_TYPE` (both, 1, `deferred.lsp`, → 3.4.2), `AFTER_A_REFUSED_TYPE`
+      (CODESYS 2, TwinCAT 5, niche: 0 occurrences); `decl_subrange_unsigned` `deferred.transpile` (the subrange default,
+      → 4.7.1; 83 subranges without an initializer in the corpora). Rules GAP area 2 **45 → 43** (total 99 → 97): T6, T9
+      closed; T1–T5, T7, T8, T10, T11 gain recorded cells. Agreement floors CODESYS 3137 → 3178, TwinCAT 3086 → 3124 (3445
+      fixtures). `rate:fixtures`: confirmed 2181, refused 1085, not-lowered 111 (ceiling 109 → 111 for measurement:
+      `decl_implicit_enum_in_array`, `decl_array_star_in_function_input`), lsp-gap 14, diverges 4, unaskable 50; edges
+      agree 2251 / disagree 0 / not-run 96. Ceilings (all fell): corpus member NONE 3712 → 3709, ident_expr UNKNOWN
+      1527 → 634, index UNKNOWN 227 → 223, member UNKNOWN 4230 → 4227, fixtures ident_expr UNKNOWN 52 → 47 / 95 → 90,
+      index UNKNOWN 34 → 30 / 33 → 29; parse findings 132, fixed-point 16, resolution 154, type 226 unchanged. F
+      (`frontend-snapshot check --base HEAD`): 2442 aspects over 353 sources — 248 new fixture sources and their 62 back
+      ends; 31 corpus sources (pro2193: 30 implicit enums now carry their `DINT` base and type their values, one
+      `CassetteAdjustmentFB` member resolved through a reference index); 12 sources of 6 older fixtures (the implicit enum
+      fixtures' spans and value types, `refdecl_to_array`/`xo_reference_index_step` reference indexing,
+      `lit_char_typed_in_enum_value` TwinCAT's enum list resync); no corpus `diagnostics` aspect moved.
 - [ ] 2.4.1 PROGRAM and FUNCTION headers (U1–U4): record unit_program_return_type, unit_function_no_return_type,
       unit_function_implements.
       Where: parse/units, parse/units/header. Acceptance: CA. Depends on: 2.3.6
