@@ -981,7 +981,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() =>
         BuildDiagnostics.Select(d => new BridgeDiagnostic
         {
-            Name = d.Name, Code = d.Code, Severity = d.Severity, Message = d.Message, Line = d.Line, Column = d.Column,
+            Name = d.Name, Member = d.Member, Code = d.Code, Severity = d.Severity, Message = d.Message, Line = d.Line,
+            Column = d.Column,
         }).ToList();
 
     /// <summary>Library element signatures the fetch's verbose fold will render + fold under each owning

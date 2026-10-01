@@ -93,6 +93,74 @@ public class BuildDiagnosticNameTests
         Assert.Null(Assert.Single(Build(ide).Diagnostics).Name);
     }
 
+    /// <summary>THE MEMBER TRAVELS AS THE DRIVER GAVE IT (openspec <c>codesys-diagnostic-child-names</c> 3.2). A CODESYS
+    /// error inside a method names the PARENT item and the method as <c>member</c>; only the name is a wire name, so
+    /// only the name is promoted. But a member is the CHILD OF <c>name</c> (the field's contract), so a name that cannot
+    /// be promoted takes the member with it: <c>{name: null, member: "Execute"}</c> is a child of nothing, and no client
+    /// can tell whose <c>Execute</c> it is.</summary>
+    [Theory]
+    [InlineData("Boiler", "Boiler.fb", "Execute")]
+    [InlineData("SomethingElse", null, null)]
+    public void The_member_is_kept_as_the_driver_gave_it(string bare, string? expected, string? expectedMember)
+    {
+        var ide = new FakeIde(Pou("Boiler", Fb))
+        {
+            BuildSucceeds = false,
+            BuildDiagnostics = new List<BridgeDiagnostic>
+            {
+                new() { Name = bare, Member = "Execute", Severity = Severity.Error, Code = "C0578", Message = "Unexpected statement" },
+            },
+        };
+
+        var diagnostic = Assert.Single(Build(ide).Diagnostics);
+
+        Assert.Equal((expected, expectedMember), (diagnostic.Name, diagnostic.Member));
+    }
+
+    /// <summary>THE V71 SHAPE, INSIDE A METHOD. <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> share a bare
+    /// name, but only one of them CAN hold a method: a diagnostic that carries a member is inside a POU or an interface
+    /// (<c>ItemKind.HoldsMembers</c>), never a visualization. The driver knew the parent exactly (CODESYS placed the
+    /// child's guid under it); resolving the name to nothing here published the field case's own error as an orphan
+    /// member.</summary>
+    [Fact]
+    public void A_member_picks_the_item_that_can_hold_one()
+    {
+        var ide = new FakeIde(
+            Pou("CM_Carrier", Fb),
+            new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcVisObj, "", true, null, null, null, null))
+        {
+            BuildSucceeds = false,
+            BuildDiagnostics = new List<BridgeDiagnostic>
+            {
+                new() { Name = "CM_Carrier", Member = "Execute", Severity = Severity.Error, Code = "C0578", Message = "Unexpected statement" },
+            },
+        };
+
+        var diagnostic = Assert.Single(Build(ide).Diagnostics);
+
+        Assert.Equal(("CM_Carrier.fb", "Execute"), (diagnostic.Name, diagnostic.Member));
+    }
+
+    /// <summary>A fault while naming leaves no orphan member either: the member is the child of a name that was not
+    /// published.</summary>
+    [Fact]
+    public void A_fault_while_naming_drops_the_member_with_the_name()
+    {
+        var ide = new FakeIde(Pou("Boiler", Fb))
+        {
+            BuildSucceeds = false,
+            OnWalkItems = () => throw new System.InvalidOperationException("COM fault reading the tree"),
+            BuildDiagnostics = new List<BridgeDiagnostic>
+            {
+                new() { Name = "Boiler", Member = "Execute", Severity = Severity.Error, Message = "C0578: Unexpected statement" },
+            },
+        };
+
+        var diagnostic = Assert.Single(Build(ide).Diagnostics);
+
+        Assert.Equal(((string?)null, (string?)null), (diagnostic.Name, diagnostic.Member));
+    }
+
     /// <summary>A project-level message names no item and must not acquire one.</summary>
     [Fact]
     public void A_diagnostic_with_no_name_stays_nameless()

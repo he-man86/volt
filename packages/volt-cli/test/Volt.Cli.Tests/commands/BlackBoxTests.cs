@@ -223,6 +223,33 @@ public class BlackBoxTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>An error inside a METHOD names the item's file AND the method (openspec
+    /// <c>codesys-diagnostic-child-names</c>): `--json` carries <c>member</c>, and the printed location puts it between
+    /// the file and the line, because the vendor counts that line inside the method (DIALECT D36).</summary>
+    [Fact]
+    public void Build_prints_and_emits_the_member_a_diagnostic_is_inside()
+    {
+        var ide = new FakeIde(Prg())
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            BuildSucceeds = false,
+            BuildDiagnostics = new[] { new BridgeDiagnostic { Name = "PLC_PRG", Member = "Step", Severity = "error", Code = "C0578", Message = "Unexpected statement", Line = 6 } },
+        };
+        var (root, host, pipe) = Boot(ide);
+        try
+        {
+            RunVolt(root, pipe, "pull");
+            var j = RunVolt(root, pipe, "build", "--json");
+            using (var doc = JsonDocument.Parse(j.Out.Trim()))
+            {
+                var d = doc.RootElement.GetProperty("diagnostics")[0];
+                Assert.Equal(("PLC_PRG.prg", "Step"), (d.GetProperty("name").GetString(), d.GetProperty("member").GetString()));
+            }
+            Assert.Contains("PLC_PRG.prg(Step):6 C0578: Unexpected statement", RunVolt(root, pipe, "build").Out);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     // ── a DUT's file name is its wire name (openspec dut-subtype-on-the-wire) ───────────────────────
 
     private const string DutStruct =
