@@ -34,6 +34,7 @@ import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture } from "./support/fixture-units.js"
 import { runPaths } from "./support/run-paths.js"
 import { RUSTC as rustc, skipRustSuite } from "./support/rustc.js"
+import { buildRust } from "./support/rustc-cache.js"
 import { PROJECT_BASE } from "./support/project-libraries.js"
 import { HARNESS_LOOP_GUARD } from "./support/transpile-confidence.js"
 import type { LanguageTest } from "./types.js"
@@ -418,47 +419,58 @@ describe.skipIf(skipRustSuite())("the two backends agree with each other, withou
       const divergences: string[] = []
       let compared = 0
       let agreedFaults = 0
-      try {
-        for (const t of sampled) {
-          const c = prepare(t)
-          if (c === undefined) continue
-          const b = interpreterOutcome(c)
-          if (b === undefined) continue // the harness's loop guard gave up — no answer to compare
-          const file = join(dir, `${c.name}.rs`)
-          const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-          await Bun.write(file, rustProgram(c))
-          const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-          // a case that does not COMPILE is the compile gate's business, not this one
-          if (build.exitCode !== 0) continue
-          const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 10_000 })
-          const cFaulted = ran.exitCode !== 0
-          if (b.faulted !== cFaulted) {
-            divergences.push(
-              `${c.name}: ${b.faulted ? "the INTERPRETER faulted and the Rust ran" : "the RUST faulted and the interpreter ran"}` +
-                ` — ${(cFaulted ? ran.stderr.toString() : "").split("\n")[0]?.trim() ?? ""}`,
-            )
-            continue
-          }
-          if (b.faulted) {
-            agreedFaults++
-            continue // both refused the same program; the wording is each backend's own
-          }
-          for (const line of ran.stdout.toString().split("\n")) {
-            const tab = line.indexOf("\t")
-            if (tab < 0) continue
-            const path = line.slice(0, tab)
-            const got = line.slice(tab + 1).trim()
-            const want = b.values.get(path)
-            if (want === undefined) continue
-            compared++
-            // the same rule the probe comparison applies — a transcendental's last bits are two libms', not a defect
-            if (want !== got && !(c.transcendental && withinUlp(want, got)))
-              divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
-          }
+      // THROUGH THE RUSTC CACHE, ON ONE LANE PER CORE — it was one uncached `rustc` after another, ~20 s of the suite
+      // for a sample that changes only when a fixture or the emitter does (measured 2026-10-01).
+      const lanes = Math.max(1, navigator.hardwareConcurrency - 1)
+      let next = 0
+      const one = async (t: (typeof sampled)[number]): Promise<void> => {
+        const c = prepare(t)
+        if (c === undefined) return
+        const b = interpreterOutcome(c)
+        if (b === undefined) return // the harness's loop guard gave up — no answer to compare
+        const file = join(dir, `${c.name}.rs`)
+        const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
+        const build = await buildRust([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, rustProgram(c))
+        // a case that does not COMPILE is the compile gate's business, not this one
+        if (build.exit !== 0) return
+        const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe", timeout: 10_000 })
+        const [stdout, stderr, exit] = await Promise.all([new Response(run.stdout).text(), new Response(run.stderr).text(), run.exited])
+        // killed by the timeout is a fault too: a hang is what this gate must not meet by hanging
+        const cFaulted = exit !== 0 || run.signalCode !== null
+        if (b.faulted !== cFaulted) {
+          divergences.push(
+            `${c.name}: ${b.faulted ? "the INTERPRETER faulted and the Rust ran" : "the RUST faulted and the interpreter ran"}` +
+              ` — ${(cFaulted ? stderr : "").split("\n")[0]?.trim() ?? ""}`,
+          )
+          return
         }
+        if (b.faulted) {
+          agreedFaults++
+          return // both refused the same program; the wording is each backend's own
+        }
+        for (const line of stdout.split("\n")) {
+          const tab = line.indexOf("\t")
+          if (tab < 0) continue
+          const path = line.slice(0, tab)
+          const got = line.slice(tab + 1).trim()
+          const want = b.values.get(path)
+          if (want === undefined) continue
+          compared++
+          // the same rule the probe comparison applies — a transcendental's last bits are two libms', not a defect
+          if (want !== got && !(c.transcendental && withinUlp(want, got)))
+            divergences.push(`${c.name}: ${path} — interp ${want}, rust ${got}`)
+        }
+      }
+      try {
+        await Promise.all(
+          Array.from({ length: Math.min(lanes, sampled.length) }, async () => {
+            for (let i = next++; i < sampled.length; i = next++) await one(sampled[i]!)
+          }),
+        )
       } finally {
         await rm(dir, { recursive: true, force: true })
       }
+      divergences.sort() // the lanes finish in any order; the report should not
       // eslint-disable-next-line no-console
       console.log(`  [b<->c] ${compared} places compared, ${agreedFaults} case(s) where both backends faulted`)
       expect(compared).toBeGreaterThan(0) // a gate that compared nothing has not passed, it has abstained
