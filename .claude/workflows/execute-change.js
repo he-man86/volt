@@ -34,6 +34,8 @@ SPEED (measured 2026-10-01: a full LSP suite is ~8.5 min and steps ran it ~10 ti
   bun test test/conformance -t "<fixture names>" for the fixtures they touched.
 - RECORD IN ONE BATCH per vendor: write all of the step's fixtures first, then record them in ONE recorder run per vendor
   (RECORD_ONLY with the comma-separated list), not one run per fixture.
+- The rustc cache (VOLT_RUSTC_CACHE) speeds up gates; it is verified by sampling on every run. The CLOSE step of a change runs
+  the full suite COLD (VOLT_RUSTC_CACHE=0) once, so no change is archived on cached results alone.
 TRIAGE (owner): a finding that is cheap to fix is fixed. A NICHE finding — about zero occurrences in the six real corpora
 (packages/volt-lsp-iec/test-corpus; count them) and not trivial to fix — is recorded as a known divergence with the reason
 "niche: accepted loss (N occurrences in the corpora)" and not worked on. Stage
@@ -178,7 +180,7 @@ if (closeOpen && (!steps.length || steps[steps.length - 1]?.kind === 'close' || 
   phase('Close')
   done.push(await agent(`${RULES}
 
-CLOSE ${args.change}. If every other step is ticked: the docs the change names are updated; a final review with the SPEC and LAYERING
+CLOSE ${args.change}. If every other step is ticked: run the FULL suite COLD once (VOLT_RUSTC_CACHE=0) — green; the docs the change names are updated; a final review with the SPEC and LAYERING
 lenses over the whole change (fix what it finds, test-first); archive it (npx --yes openspec archive ${args.change} -y), delete the
 recreated openspec/specs/, and commit. If a step is still open, say which and stop.`, { label: 'close', phase: 'Close' }))
 }
