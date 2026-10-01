@@ -16,7 +16,7 @@ import { spanContains, type Expr, type Span, type TopLevel } from "../syntax/ind
 import type { Scope, Symbol } from "./model.js"
 import { isLibrarySymbol, lookupLocal } from "./scope.js"
 import { pickForAsker } from "./precedence.js"
-import { childIndex, spanIndex } from "./cache.js"
+import { childIndex, memoByProject, spanIndex } from "./cache.js"
 
 export interface LookupResult {
   symbol: Symbol
@@ -106,18 +106,57 @@ export function findChildScope(parent: Scope, name: string, askerUri?: string): 
   return pickForAsker(parent, candidates, (c) => c.defUri, askerUri)
 }
 
-/** Any scope in the project tree by name (case-insensitive), depth-first. */
+/**
+ * Any scope in the project tree by name (case-insensitive) — the FIRST in depth-first pre-order.
+ *
+ * Indexed once per project generation. It was a full walk per call: ~17 ms on a 120k-scope corpus project, called by two
+ * checks for every IMPLEMENTS/EXTENDS of every FB and by `scopeForUnit` for every GVL and DUT (which never has a span
+ * entry) — 3.2 s of pro2193's 4.9 s diagnostic pass, and ~130 ms of every keystroke on its largest FB (2026-10-01).
+ * Every mutation of the tree ends in `invalidate(project)`, which is what the generation memo checks. A scope that is not
+ * a project root has no generation of its own, so it is still walked.
+ */
 export function findScopeByName(project: Scope, name: string): Scope | undefined {
-  const target = name.toLowerCase()
-  const walk = (scope: Scope): Scope | undefined => {
+  if (project.parent === undefined) return scopesByName(project).get(name.toLowerCase())
+  return walkForScope(project, name.toLowerCase())
+}
+
+const scopesByName = memoByProject((project: Scope): Map<string, Scope> => {
+  // Merged from each top-level scope's own subtree index, in child order — the same pre-order first match. A subtree's
+  // index is kept by the scope's identity: an edit rebinds only its own file's scopes (new objects), so after one the
+  // rebuild re-walks that file and merges the rest (~33 ms -> a few on pro2193's 120k scopes).
+  const index = new Map<string, Scope>()
+  for (const child of project.children)
+    for (const [key, scope] of subtreeIndex(child)) if (!index.has(key)) index.set(key, scope)
+  return index
+})
+
+/** `top` and everything under it by lower-cased name, first in pre-order. */
+const subtrees = new WeakMap<Scope, { size: number; index: Map<string, Scope> }>()
+function subtreeIndex(top: Scope): Map<string, Scope> {
+  const hit = subtrees.get(top)
+  // A top-level scope's subtree is complete when it is bound; the one scope that gains children afterwards is a library
+  // namespace (`bindLibraryNamespaces` fills it right after `makeScope`), so a changed child count rebuilds it.
+  if (hit !== undefined && hit.size === top.children.length) return hit.index
+  const index = new Map<string, Scope>([[top.name.toLowerCase(), top]])
+  const visit = (scope: Scope): void => {
     for (const child of scope.children) {
-      if (child.name.toLowerCase() === target) return child
-      const inner = walk(child)
-      if (inner !== undefined) return inner
+      const key = child.name.toLowerCase()
+      if (!index.has(key)) index.set(key, child)
+      visit(child)
     }
-    return undefined
   }
-  return walk(project)
+  visit(top)
+  subtrees.set(top, { size: top.children.length, index })
+  return index
+}
+
+function walkForScope(scope: Scope, target: string): Scope | undefined {
+  for (const child of scope.children) {
+    if (child.name.toLowerCase() === target) return child
+    const inner = walkForScope(child, target)
+    if (inner !== undefined) return inner
+  }
+  return undefined
 }
 
 /**
