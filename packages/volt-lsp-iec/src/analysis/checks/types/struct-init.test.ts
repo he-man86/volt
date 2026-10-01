@@ -85,9 +85,10 @@ test("a STRUCT's initializer naming a field the struct lacks: undefined, and no 
 })
 
 // A struct that EXTENDS a base the LSP cannot resolve (a library struct): the base could declare the field, so a name
-// the struct's own fields lack is no fact — the guard every inherited-member lookup carries (`hasUnresolvedBase`).
+// the struct's own fields lack is no fact — the guard every inherited-member lookup carries (`hasUnresolvedBase`). The
+// EXTENDS stands on the TYPE: `STRUCT EXTENDS` is refused by both vendors (`unit_struct_extends_after_struct`).
 test("a field of a struct whose base is unresolved is not reported unknown", () => {
-  const src = `PROGRAM P\nVAR\n  rec : sv := (baseF := 1, p1 := 2);\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT EXTENDS LibBase p1 : INT; END_STRUCT END_TYPE`
+  const src = `PROGRAM P\nVAR\n  rec : sv := (baseF := 1, p1 := 2);\nEND_VAR\nEND_PROGRAM\nTYPE sv EXTENDS LibBase : STRUCT p1 : INT; END_STRUCT END_TYPE`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
   const codes = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })

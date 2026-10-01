@@ -431,7 +431,18 @@ export interface ImplicitEnumType {
 
 // ─── DUT bodies (`TYPE … END_TYPE`) ──────────────────────────────────────────
 
-export type DutBody = StructBody | EnumBody | UnionBody | AliasBody
+export type DutBody = StructBody | EnumBody | UnionBody | AliasBody | RefusedBody
+
+/**
+ * A TYPE whose body the parser refused — no `:` (`TYPE X STRUCT`), an EXTENDS list (`TYPE X EXTENDS A, B :`), or nothing
+ * after the colon (`TYPE X : END_TYPE`). Both vendors keep such a type, bodiless: it is no unknown type where it is used,
+ * its EXTENDS gets the alias's messages, and its members are none (`unit_type_no_body`, `unit_type_missing_colon`,
+ * `unit_struct_extends_list`, 2026-10-01). It used to be an alias of a type named `?`, which no source wrote.
+ */
+export interface RefusedBody {
+  kind: "refused"
+  span: Span
+}
 
 export interface StructBody {
   kind: "struct"
@@ -573,13 +584,18 @@ export interface Namespace {
 export interface FunctionBlock {
   kind: "function_block"
   name: Identifier
-  accessModifier?: Keyword
+  /** Every modifier as written, in order (`PUBLIC FINAL`): the header's text, kept so a check reads it and the formatter
+   *  prints it back as written (conformance 2.4.3). An access modifier stands only first; one written later is kept here
+   *  too — it is the file's text — and refused by the parser (`parse/names` `refusedAccessModifier`). */
+  modifiers: Keyword[]
+  /** An access modifier written after another modifier (`FUNCTION_BLOCK FINAL PUBLIC X`): both vendors then declare no
+   *  FB at all and say nothing about the header — only "Unknown type" where it is used (`unit_fb_final_public_order`,
+   *  `unit_fb_public_internal`, 2026-10-01). The binder declares no symbol for it. */
+  headerRefused?: true
   extends?: Identifier
   /** The illegal 2nd+ bases when the EXTENDS list has more than one (single inheritance only) — drives C0096. */
   extendsExtra?: Identifier[]
   implements?: Identifier[]
-  abstract?: boolean
-  final?: boolean
   varSections: VarSection[]
   body: BodySpan
   span: Span
@@ -614,10 +630,10 @@ export interface Function {
 export interface Method {
   kind: "method"
   name: Identifier
-  accessModifier?: Keyword
-  final?: boolean
-  abstract?: boolean
-  override?: boolean
+  /** Every modifier as written, in order (`PUBLIC FINAL`): the header's text, kept so a check reads it and the formatter
+   *  prints it back as written (conformance 2.4.3). An access modifier stands only first; one written later is kept here
+   *  too — it is the file's text — and refused by the parser (`parse/names` `refusedAccessModifier`). */
+  modifiers: Keyword[]
   returnType?: TypeExpr
   /** A `: <type>` the parser refused (`METHOD M : final`; `__VECTOR` on TwinCAT) — `returnType` is then absent, and this
    *  says it was DECLARED, so nothing reads the unit as one that returns nothing. */
@@ -635,7 +651,6 @@ export interface Action {
 export interface Property {
   kind: "property"
   name: Identifier
-  accessModifier?: Keyword
   /** Every modifier as written, in order (`PUBLIC ABSTRACT`): declaration text the push keeps, so the formatter prints
    *  it back — eaten and dropped, formatting rewrote the member's signature. */
   modifiers: Keyword[]
@@ -694,6 +709,10 @@ export interface InterfaceProperty {
   dataType: TypeExpr
   hasGetter: boolean
   hasSetter: boolean
+  /** The VAR sections each accessor declares — the vendor's stored content, not a body (DIALECT D21: an interface
+   *  accessor has none). Kept so the formatter prints them back; read and dropped, formatting deleted them (U21). */
+  getterVarSections: VarSection[]
+  setterVarSections: VarSection[]
   span: Span
 }
 export interface TypeDecl {

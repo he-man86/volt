@@ -947,22 +947,126 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       moved to registration as `fixtures.test.ts` did. `bun test` 6460 pass / 34 skip / 156 todo / 0 fail (6650 tests,
       190 files, 584 s); agreement CODESYS 3190, TwinCAT 3135 (3464 fixtures); `bun run check` 14 passed, 0 failed;
       `bun run lint` exit 0 (warnings only); layering clean.
-- [ ] 2.4.1 PROGRAM and FUNCTION headers (U1–U4): record unit_program_return_type, unit_function_no_return_type,
+- [x] 2.4.1 PROGRAM and FUNCTION headers (U1–U4): record unit_program_return_type, unit_function_no_return_type,
       unit_function_implements.
       Where: parse/units, parse/units/header. Acceptance: CA. Depends on: 2.3.6
-- [ ] 2.4.2 FUNCTION_BLOCK headers (U5–U10), with one qualified-name AST shape. Record unit_fb_extends_qualified,
+- [x] 2.4.2 FUNCTION_BLOCK headers (U5–U10), with one qualified-name AST shape. Record unit_fb_extends_qualified,
       unit_fb_implements_qualified, unit_fb_public, unit_fb_internal.
       Where: parse/units/function-block, parse/names, ast/nodes. Acceptance: CA. Depends on: 2.4.1
-- [ ] 2.4.3 METHOD/PROPERTY/ACTION modifiers (U11–U17): modifiers become an ordered list in the AST (all unit kinds); the property
+- [x] 2.4.3 METHOD/PROPERTY/ACTION modifiers (U11–U17): modifiers become an ordered list in the AST (all unit kinds); the property
       and interface modifier sets are decided by recording. Record unit_method_each_modifier (6), unit_method_override_public_order,
       unit_property_modifiers, unit_property_accessor_modifier, unit_property_no_end_get.
       Where: parse/units/{method,property,action}, parse/names, lex/vocabulary. Acceptance: CA. Depends on: 2.4.2
-- [ ] 2.4.4 INTERFACE (U18–U21): accessor VAR sections kept in the AST; the unterminated path keeps implementsMisused. Record
+- [x] 2.4.4 INTERFACE (U18–U21): accessor VAR sections kept in the AST; the unterminated path keeps implementsMisused. Record
       unit_interface_extends_list, unit_interface_implements, unit_interface_property_accessor_var.
       Where: parse/units/interface. Acceptance: CA. Depends on: 2.4.3
-- [ ] 2.4.5 TYPE (U22–U27): STRUCT EXTENDS accepted in one place; no invented `?` alias. Record unit_type_extends_on_enum,
+- [x] 2.4.5 TYPE (U22–U27): STRUCT EXTENDS accepted in one place; no invented `?` alias. Record unit_type_extends_on_enum,
       unit_type_extends_on_alias, unit_struct_extends_twice.
       Where: parse/units/type-decl. Acceptance: CA. Depends on: 2.4.4
+      **Step 2.4a (2026-10-01).** Fixtures: `fixtures/grammar/units.ts`, 81 `unit_*` — every name the tasks list (`unit_method_each_modifier`
+      is `unit_method_{public,private,protected,internal,final,override}`) and per rule the cells that separate its readings:
+      U1 `PROGRAM P;`; U2 a PROGRAM's return type; U3 `FUNCTION F : INT;`; U4 no return type as a statement and as a value,
+      IMPLEMENTS/EXTENDS after the return type; U5 IMPLEMENTS before EXTENDS, a list ending in a comma, one interface twice;
+      U7 `EXTENDS Standard.TON`, `EXTENDS NoSuchLib.FB_X`, `IMPLEMENTS __SYSTEM.IQueryInterface`; U8/U9 each access
+      modifier, ABSTRACT FINAL, PUBLIC PUBLIC, PUBLIC INTERNAL, FINAL FINAL, FINAL PUBLIC, INTERNAL FINAL, a PRIVATE FB not
+      called; U11–U13 `METHOD M : INT;`, each modifier, OVERRIDE (overriding a base), reordered, two access modifiers,
+      repeated, ABSTRACT FINAL; U16 the six on a PROPERTY, OVERRIDE, stacked, reordered, `GET PRIVATE`, a getter without
+      END_GET (with and without a setter); U17 an ACTION with a VAR section, with a modifier; U18 the seven on an interface
+      METHOD and on an interface PROPERTY; U20 EXTENDS a list, IMPLEMENTS, EXTENDS `__SYSTEM.IQueryInterface`; U21 an
+      interface getter's VAR and VAR_INPUT; U22 STRUCT EXTENDS after STRUCT, twice, a list, `END_STRUCT;`, no colon;
+      U24 `END_UNION;`; U25/U27 EXTENDS on an enum (struct base, enum base), an alias, a UNION, `TYPE X : END_TYPE`; U26 an
+      alias without `;`. Recorded `record:language` on CODESYS and TwinCAT (one 75-fixture batch per vendor, then the six
+      cells the answers asked for, then seven re-recorded after their sources were made to ask one question — typed
+      literals `INT#1`, an undeclared FB declared and not called, `unit_struct_extends_list` as one TYPE), `record:exec`
+      on CODESYS (47 cases, 5 refused there; then the 6 interface properties after the loader fix below and the 2 retyped
+      functions). Measured (both
+      vendors unless named): an access modifier stands only FIRST — `FINAL PRIVATE`/`PUBLIC PRIVATE` on a METHOD is
+      "Identifier expected instead of 'PRIVATE'", `FINAL PUBLIC` on a PROPERTY "Unexpected token 'PUBLIC' found" + "';'
+      expected instead of 'P'", and on an FB (`PUBLIC PUBLIC`, `PUBLIC INTERNAL`, `FINAL PUBLIC`) no FB is declared and
+      nothing is said of the header; a repeated FINAL builds; OVERRIDE is NO modifier — CODESYS reads `METHOD OVERRIDE M`
+      as a method named OVERRIDE ("The name used in the signature is not identical to the object name", record:exec; the
+      push refuses every OVERRIDE header, `vendorRefuses`); PRIVATE/PROTECTED on an FB or an interface member is "PRIVATE
+      and PROTECTED may only be applied on methods of function blocks" (TwinCAT "functionblocks"; an interface PROPERTY's
+      is CODESYS's alone), plus "Cannot access private method ???.FB" at the call; ABSTRACT with FINAL is "A method or
+      functionblock cannot be ABSTRACT and FINAL"; a FUNCTION reads IMPLEMENTS/EXTENDS only after its name — after the
+      return type it is "Unexpected token 'IMPLEMENTS' found" + "';' expected instead of '<name>'" and the declaration
+      recovery after it; IMPLEMENTS before EXTENDS likewise; a qualified base or interface builds (`Standard.TON` on
+      CODESYS; TwinCAT has no `Standard` namespace); EXTENDS stands on the TYPE only (`STRUCT EXTENDS` is "Unexpected
+      token 'EXTENDS' found") and names one base ("':' expected instead of ','"); an alias REQUIRES its `;`, an enum takes
+      one, a STRUCT or UNION refuses it ("'END_TYPE' expected instead of ';'"); a refused token is consumed and the end of
+      the object quoted '' (`TYPE X : END_TYPE`: three messages); EXTENDS on an alias is "Keyword EXTENDS not applicable to
+      type <base>" (TwinCAT names the type) + "Inheritance only allowed in function blocks, interfaces and structures"
+      (TwinCAT "Functionblocks, Interfaces and Structures"), on an enum C0144 only with an enum base (any other: "No
+      definition found for base class"), on a UNION CODESYS's warning; a variable an interface accessor declares is refused
+      ("Only inputs, outputs, and inouts allowed in interface methods"; VAR_INPUT "It is not allowed to define input
+      variables in property accessors: scratch : INT", record:exec). Fixed test-first (`parse/units/{function-block,method,
+      property,program,type-decl,interface}.test.ts`, `binder.test.ts`, `extends.test.ts`, `header-rules.test.ts`,
+      `inheritance.test.ts`, `format.test.ts`): modifiers are ONE ordered list in the AST on every unit kind
+      (`FunctionBlock`/`Method`/`Property` `modifiers`; `accessModifier`/`final`/`abstract`/`override` deleted, consumers
+      read the list), ONE member modifier set (`MEMBER_MODIFIERS`, decided by recording — `PROPERTY_MODIFIERS`,
+      `INTERFACE_MEMBER_MODIFIERS` deleted, OVERRIDE out, `ACCESS_MODIFIERS` + `names.refusedAccessModifier`), FB
+      `headerRefused` (the binder declares no symbol); ONE qualified-name shape (`names.readHeaderName`/`readHeaderNames`,
+      every EXTENDS/IMPLEMENTS of FB, FUNCTION and INTERFACE; "Identifier expected" where none stands), a qualified base
+      linked through its library's manifest namespace (`extends.qualifiedCandidates`; `inheritance` reads the linked base
+      first); `header.refuseLateClauses`; `PROGRAM P;`; the interface accessor VAR sections KEPT (`getterVarSections`/
+      `setterVarSections`) and the unterminated INTERFACE keeps `implementsMisused`; TYPE: EXTENDS in one place, a refused
+      header skipped through its `;`, the `;` per body kind, `RefusedBody` in place of the invented `?` alias, a span that
+      covers what it consumed (`Cursor.previous`); analysis `header-rules` (access-only-on-methods, abstract-and-final,
+      interface-member-variable, the measured C0144); the printer writes every header clause as written (modifier order, a
+      FUNCTION's IMPLEMENTS, a PROGRAM's return type, an FB's second base, a TYPE's EXTENDS on its own line and its
+      initializer, an interface's IMPLEMENTS and accessor VARs) — it had moved a STRUCT's EXTENDS to where both vendors
+      refuse it and dropped all the rest (fixed-point findings 16 → 6). Harness: `record:exec`'s loader wrote an interface
+      property SYNTHESIZED (`PROPERTY <name> : <type>`, accessors empty), so the U18/U21 property cells were never asked as
+      written — it writes the text now (`fixture-units.ts`); the two run entries the buggy load had written for
+      `unit_action_modifier` and `unit_interface_property_override` were removed (both `execSkip` now, with the reason);
+      the parse census counts a fixture whose PUSH the vendor refuses (`vendorRefuses`) instead of finding it unrecorded.
+      Divergences opened (`support/divergences.ts`, each niche: accepted loss, 0 occurrences in the corpora unless named):
+      `UNIT_HEADER_RECOVERY` (both, 9, the vendors' recovery after a refused header → 2.8.2), `ACTION_HEADER_DROPPED_BY_THE_
+      PUSH` (both, 2), `FB_ACCESS_AT_THE_CALL` (both, 2, → 3.5), `ENUM_TO_ENUM_IS_A_WARNING` (both, 1, an LSP-only error,
+      → 4.5.1), `TWINCAT_UNIT_DIVERGENCES` (4: the unresolved base's silence → 3.2.4, "Unknown type" on TwinCAT).
+      **For the owner — a bridge data loss found on the way (volt-cli, not this step's):** the push DROPS text silently in
+      three shapes the LSP reads: a getter not closed by END_GET (`unit_property_no_end_get`, `_alone`: `StReader.
+      ReadProperty` closes it as a BARE accessor, so its body `P := stored;` never reaches the IDE — the build succeeds
+      with an empty getter), an ACTION's VAR section, and a modifier on an ACTION or an accessor (`GET PRIVATE`).
+      Rules GAP area 2 **44 → 35** (total 98 → 89): U2, U4, U7, U9, U13, U16, U20, U21, U27 closed; U1, U3, U5, U8, U11,
+      U12, U17, U18, U22, U24–U26 gain recorded cells. Agreement floors CODESYS 3190 → 3250, TwinCAT 3135 → 3191 (3545
+      fixtures). `rate:fixtures` (reproduces the map byte-identically): confirmed 2223, refused 1137, not-lowered 113
+      (ceiling 111 → 113 for measurement: `unit_fb_extends_qualified` `layout-base`, `unit_type_extends_on_union`
+      `layout-union` — the transpiler's), lsp-gap 16, diverges 4, unaskable 52; edges agree 2310 / disagree 0 / not-run 98.
+      Ceilings: parse findings 132, resolution 154, type 226 unchanged; fixed-point findings 16 → 6, files not a fixed point
+      13 → 3. F (`frontend-snapshot check --base HEAD`): 18557 aspects — 15451 `ast` (the AST's new shape: `modifiers`,
+      the interface accessors' VAR sections, on every unit), 3105 the new fixtures' sources and back ends, and ONE more:
+      `decl_var_generic_inside_struct`@twincat `errors` (the refused END_VAR consumed: "unexpected identifier 'b' at
+      file scope" for "unexpected keyword 'END_VAR' at file scope", both LSP-only in a known divergence); no corpus
+      diagnostics, resolution or types aspect moved. Targeted: `bun test src` 1511 pass / 0 fail, `test/conformance` 4833
+      / 0, `test/frontend` 29 / 0; `bun x tsc --noEmit` clean; `bun run lint` (layering 1 known violation).
+      **2.4a review fixes (2026-10-01).** (1) The accessor cells were the push's rewrite, not the text: `unit_property_
+      no_end_get`, `_alone` and `unit_property_accessor_modifier` carry `execSkip` (`pushRewrites`, rated unaskable, run
+      entries removed) and U16 is a GAP again (area 2 **35 → 36**, total 89 → 90) — its modifier cells closed, its
+      accessor cells (and a setter without END_SET) unaskable until the bridge carries the text. (2) A refused FB is no
+      base: `Scope.undeclared`, skipped by `linkExtends` (`unit_fb_extends_refused`: CODESYS both messages, TwinCAT the
+      first). (3) Recorded (one batch per vendor) and fixed: `unit_property_abstract_final`, `_final_twice` and the
+      interface property's `_abstract_final`/`_final_public_order` — a PROPERTY takes one of FINAL/ABSTRACT after its access
+      modifier (`names.refusedPropertyModifier`/`readPropertyModifiers`, FB and interface alike); an interface METHOD's
+      access modifier after FINAL ("Identifier expected", recovery → `UNIT_HEADER_RECOVERY`) and ABSTRACT FINAL (C-error,
+      both); an interface METHOD's VAR_TEMP/VAR_STAT/VAR_INST (both vendors; TwinCAT's "Only Inputs, Outputs and Inouts
+      allowed in Interface Methods"); an accessor's VAR_OUTPUT/VAR_IN_OUT (record:exec: the implementer's `__GETVAL`
+      mismatch, `deferred.lsp` niche, lsp-gap ceiling 17 → 18). (4) The parse census measures a push-refused fixture
+      against its CODESYS record:exec refusal; `unit_method_override` and `_public_order` re-recorded on today's parser
+      (OVERRIDE still a name: "Unexpected token 'INT' found" + "';' expected instead of 'M'"); `unit_property_override`
+      and `unit_interface_method_override` `execSkip` (`loaderNamed`: their answer moves with the parser's object naming).
+      (5) TwinCAT read-back after the push keeps `PROPERTY PRIVATE Val` on an interface — the vendor split stands.
+      (6) Skipped: a library enum base IS found (`lookupLocal` on the project holds library units), and a project unit named
+      like a namespace resolves the base and the type alike — neither reproduces.
+      **Gate 2.4a (2026-10-01).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3557
+      fixtures, 174 s: confirmed 2220, refused 1145, not-lowered 113, lsp-gap 18, diverges 4, unaskable 57; edges agree
+      2316 / disagree 0 / not-run 98). The first full run had 1 fail, fixed: the error catalog's C0144 still expected
+      "Inheritance only allowed in …" for its repro — an ENUM extending a STRUCT — but both vendors answer that repro
+      "No definition found for base class 'Base'" (its own `codesysActual`/`twincatActual`, and fixture
+      `unit_type_extends_on_enum`; C0144 stands only with an enum base, `unit_enum_extends_enum`), which the LSP now says,
+      so its `expect` says that. Agreement floors raised to the measured CODESYS 3250 → 3259, TwinCAT 3191 → 3200 (the
+      2.4a review's cells). `bun test` 6566 pass / 34 skip / 158 todo / 1 fail → the catalog file 146 / 0 after the fix
+      (6759 tests, 195 files, 515 s); `bun run check` 14 passed, 0 failed; `bun run lint` exit 0.
 - [ ] 2.4.6 NAMESPACE (U28): a multi-object fixture shape. Record unit_namespace_block, unit_namespace_nested,
       unit_namespace_method_after_fb.
       Where: parse/units/namespace, test/conformance support (the multi-object shape). Acceptance: CA. Depends on: 2.4.5
@@ -970,6 +1074,40 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       1.24; the missing ones written here).
       Where: syntax/format/*.test.ts. Acceptance: every FMT row's test title exists (rules.test); F unchanged (no product change
       unless a test finds a bug, which is then fixed test-first and noted). Depends on: 2.4.6
+### 2.P Performance bugs the suite profile found (owner, 2026-10-01: "a slow check is usually an LSP bug")
+
+Profile (dev c85441f40f, report in the session scratchpad prof/): full serial suite 691 s; the opt-in edit benchmark
+(LSP_BENCH=1 src/server/bench.test.ts) FAILS: p50 212 ms / p95 262–289 ms vs a 90 ms budget (documented baseline 31/55).
+Product bugs are fixed in the product, test-first with a measured size sweep; never hidden by a harness cache. Caching
+LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
+
+- [ ] 2.P.1 A1: `findScopeByName` (symbols/scope-nav.ts:110-121) is a full DFS per call; callers method-signature.ts:33,45,
+      interface-implementation.ts:32,74, services/navigation/hierarchy.ts:150 and the `scopeForUnit` fallback (scope-nav.ts:136,
+      fires for EVERY global_var_list/type_decl unit — they never have a span-index entry). Fix: a per-project name index
+      (memoByProject) or findChildScope; no fallback for unit kinds that never own a scope. Test: lookup cost flat across the
+      four corpus sizes (2.9k→122k scopes). Acceptance: pro2193 PROFILE_CHECKS interface-implementation + method-signature
+      from 1,863 + 1,318 ms to < 200 ms together; LSP_BENCH=1 bench green (p50 ≤ 90 ms); output unchanged (G).
+- [ ] 2.P.2 A2: re-binding one file is O(project) (workspace-store.ts:134 promises O(changed file)): unbindFile
+      (symbols/incremental.ts:63) filters every array, relink (:74) re-sorts every array and re-links every EXTENDS,
+      invalidate bumps the project generation so compositionGraph / ambiguousGlobals / span + child indexes all rebuild.
+      Fix: children and symbols indexed by file, relink only the affected scopes, per-file invalidation of the memos that
+      depend on the file. The incremental-equivalence test stays the safety net. Acceptance: the 300-fixture sweep
+      against 400/800/1,600/3,279-fixture projects is flat (today 6.7/6.6/9.5/16.5 ms per call); output unchanged (G).
+- [ ] 2.P.3 Harness: the rustc cache runs a hit's executable IN PLACE from a stable path inside the cache entry instead of
+      copying it to a fresh temp path (Defender scans every new exe on first run: 60 fresh copies 3.1–3.5 s vs 0.37 s in
+      place; ~2,250 + 2,350 runs per suite). Keep sampled verification. Acceptance: fixtures.test.ts before-all Rust phase
+      measured before/after (was 165 s + 23 s); same verdicts.
+- [ ] 2.P.4 Harness memos (same tests, same failures): `runLsp` per (fixture, vendor) — the "LSP emits NO error on a
+      fixture the simulator built" test (31 s) reuses the registration loop's result; `lspErrors` memoized (~7 s);
+      backends.test.ts (and emit + libraries) compile through `buildRust` with its lanes and cache, not raw serial
+      spawnSync(rustc) (backends.test.ts:328,430; ~18 s). Acceptance: per-file times before/after written here.
+- [ ] 2.P.5 Harness walks: `walkSources` (test/corpus/support/project.ts:34) withFileTypes + one pre-keyed sort, same order
+      (2.2 s → 0.17 s per walk, ~8 walks); `projectDocuments` (test/corpus/support/diagnostics.ts:65) reuses scanWorkspace's
+      refs/roots/sources; `loadWorkspaceRefs` (src/workspace-refs.ts:165) walks once (A3: 10.2 s vs scanWorkspace 5.2 s over
+      the six corpora). Then re-measure corpus.test's "corpus is present" (144 s in-suite vs 30 s alone) and write the cause.
+      Acceptance: full serial suite time written here (target ≤ 350 s); `bun test --parallel` re-measured with the 5 s/120 s
+      limits under load — adopted only if it is green with no raised timeout.
+
 - [ ] 2.5.1 Precedence and associativity (E1, E3, E4, E6–E9): record expr_power_right_assoc, expr_neg_power,
       expr_comparison_chain, expr_mod_precedence. The CASE lookahead (statements `isArmStart`) uses the expression grammar.
       Where: parse/expression, parse/statements. Acceptance: CA. Depends on: 1.41

@@ -416,34 +416,22 @@ export const DECL_LIST_ENDERS: ReadonlySet<string> = new Set([
   "NAMESPACE",
 ])
 
+/** The access modifiers — the modifier that may stand only FIRST in a header (`parse/names` `refusedAccessModifier`). */
+export const ACCESS_MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL"]
+
 /** The modifiers a FUNCTION_BLOCK header takes. */
-export const FB_MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT"]
+export const FB_MODIFIERS: readonly Keyword[] = [...ACCESS_MODIFIERS, "FINAL", "ABSTRACT"]
 
-/** The modifiers a METHOD header takes. */
-export const MEMBER_MODIFIERS: readonly Keyword[] = [
-  "PUBLIC",
-  "PRIVATE",
-  "PROTECTED",
-  "INTERNAL",
-  "FINAL",
-  "ABSTRACT",
-  "OVERRIDE",
-]
-
-/** The modifiers a PROPERTY header takes (two named sets with the interface's until conformance 2.4.3 decides). */
-export const PROPERTY_MODIFIERS: readonly Keyword[] = ["PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "ABSTRACT", "FINAL"]
-
-/** The modifiers an interface member (a METHOD or PROPERTY inside INTERFACE) takes — informational, but the file's
- *  text, so kept. */
-export const INTERFACE_MEMBER_MODIFIERS: readonly Keyword[] = [
-  "PUBLIC",
-  "PRIVATE",
-  "PROTECTED",
-  "INTERNAL",
-  "FINAL",
-  "ABSTRACT",
-  "OVERRIDE",
-]
+/**
+ * The modifiers a member header takes — a METHOD, a PROPERTY, and a METHOD or PROPERTY inside an INTERFACE: ONE set,
+ * decided by recording (conformance 2.4.3, `fixtures/grammar/units.ts`, both vendors 2026-10-01). Each was asked on each
+ * member kind: the six are read (PRIVATE and PROTECTED on an interface member are refused by a CHECK, "PRIVATE and
+ * PROTECTED may only be applied on methods of function blocks", not by the grammar). OVERRIDE is NO modifier: CODESYS
+ * reads `METHOD OVERRIDE M` as a method NAMED Override ("The name used in the signature is not identical to the object
+ * name", `unit_method_override`; the property and interface twins alike, `record:exec` — the push refuses all of them
+ * before the IDE sees them) — it is a name (`SOFT_NAME_KEYWORDS`), as it is for a variable.
+ */
+export const MEMBER_MODIFIERS: readonly Keyword[] = [...ACCESS_MODIFIERS, "FINAL", "ABSTRACT"]
 
 // Identifier prefixes that introduce a `#`-suffixed literal.
 export const TIME_PREFIXES : ReadonlySet<string> = new Set(["T", "TIME", "LTIME"])

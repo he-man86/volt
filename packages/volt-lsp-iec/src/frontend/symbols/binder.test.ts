@@ -169,3 +169,14 @@ test("isLibrarySymbol is the library path rule asked of the symbol's uri", () =>
   expect(isLibrarySymbol({ uri: "file:///C:/proj/src/Application/Library%20Manager/Util/X.fb" })).toBe(true)
   expect(isLibrarySymbol({ uri: "file:///C:/proj/src/Main.prg" })).toBe(false)
 })
+
+test("an FB whose header the vendor refuses is declared nowhere; a bodiless TYPE is declared, with no members", () => {
+  // `unit_fb_final_public_order`: an access modifier after FINAL leaves no FB on either vendor ("Unknown type" where it
+  // is used); `unit_type_no_body`: a TYPE with a refused body is no unknown type where it is used
+  const project = build(
+    { uri: "A.fb", src: "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" },
+    { uri: "T.alias", src: "TYPE T_X :\nEND_TYPE\n" },
+  )
+  expect(lookupLocal(project, "FB_A")).toEqual([])
+  expect(lookupLocal(project, "T_X").map((s) => s.kind)).toEqual(["type"])
+})

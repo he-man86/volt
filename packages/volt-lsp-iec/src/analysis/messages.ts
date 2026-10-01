@@ -341,8 +341,24 @@ export interface Messages {
   returnTypeNotAllowed(): string
   /** An interface using IMPLEMENTS where interface inheritance needs EXTENDS (C0421). verified both vendors. */
   interfaceImplementsMisused(): string
-  /** `EXTENDS` on an enum/alias DUT — inheritance is only legal on FB/interface/struct (C0144). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
+  /** `EXTENDS` on an alias, or on an enum extending an enum — inheritance is only legal on FB/interface/struct (C0144).
+   *  Measured both vendors (`unit_type_extends_on_alias`, `unit_enum_extends_enum`, 2026-10-01). */
   inheritanceNotAllowed(): string
+  /** `EXTENDS` on an alias (or a TYPE whose body was refused): CODESYS names the BASE, TwinCAT the type itself
+   *  (`unit_type_extends_on_alias`, `unit_struct_extends_list`, 2026-10-01) — so the caller passes both. */
+  extendsNotApplicable(base: string, type: string): string
+  /** PRIVATE or PROTECTED on a FUNCTION_BLOCK or an interface member (`unit_fb_private`, `unit_interface_method_private`,
+   *  both vendors 2026-10-01; an interface PROPERTY's is CODESYS's alone). */
+  accessOnlyOnMethods(): string
+  /** ABSTRACT and FINAL on one FUNCTION_BLOCK or METHOD (`unit_fb_abstract_final`, `unit_method_abstract_final`, both
+   *  vendors 2026-10-01). */
+  abstractAndFinal(): string
+  /** A variable an interface METHOD or property ACCESSOR declares in a VAR section (CODESYS, record:exec 2026-10-01:
+   *  `unit_interface_property_accessor_var`). */
+  onlyParametersInInterfaceMethods(): string
+  /** A VAR_INPUT variable an interface property ACCESSOR declares, echoed as `name : TYPE` (CODESYS, record:exec
+   *  2026-10-01: `unit_interface_property_accessor_var_input`). */
+  inputInPropertyAccessor(decl: string): string
   /** `EXTENDS` on a UNION DUT — unions cannot inherit (C0542). verified both vendors. */
   unionInheritance(name: string): string
   /** `IMPLEMENTS` on a FUNCTION — only FBs implement interfaces (C0145). Bridge-blocked: the push is rejected before the IDE compiles it (live-confirmed). */
@@ -698,7 +714,15 @@ export function messagesFor(vendor: Vendor): Messages {
       tc
         ? `Use Keyword EXTENDS for inheritance of Interfaces instead of IMPLEMENTS.`
         : `Use keyword EXTENDS for inheritance of interfaces instead of IMPLEMENTS`,
-    inheritanceNotAllowed: () => `Inheritance only allowed in function blocks, Interfaces and Structures`,
+    inheritanceNotAllowed: () =>
+      `Inheritance only allowed in ${tc ? "Functionblocks, Interfaces and Structures" : "function blocks, interfaces and structures"}`,
+    extendsNotApplicable: (base, type) => `Keyword EXTENDS not applicable to type ${tc ? type : base}`,
+    accessOnlyOnMethods: () => `PRIVATE and PROTECTED may only be applied on methods of ${tc ? "functionblocks" : "function blocks"}`,
+    abstractAndFinal: () => `A method or functionblock cannot be ABSTRACT and FINAL`,
+    // TwinCAT capitalizes and drops the serial comma (`unit_interface_method_var_stat`, 2026-10-01)
+    onlyParametersInInterfaceMethods: () =>
+      tc ? `Only Inputs, Outputs and Inouts allowed in Interface Methods` : `Only inputs, outputs, and inouts allowed in interface methods`,
+    inputInPropertyAccessor: (decl) => `It is not allowed to define input variables in property accessors: ${decl}`,
     unionInheritance: (name) => `Inheritance is not intended for data type "UNION": ${name}`,
     // TwinCAT writes one word differently (`hdr_function_implements_no_return`; the catalog's C0145 twincatActual).
     functionImplements: () => `Interfaces can only be implemented by ${tc ? "Functionblocks" : "function blocks"}`,

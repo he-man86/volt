@@ -87,9 +87,9 @@ test("a method named after a modifier keyword keeps its name when its keyword li
     "METHOD PUBLIC Final\nIMPLEMENTATION ST\n;\nEND_METHOD\n"
   expect(syntaxErrors(src)).toEqual([])
   const methods = parseSource(src, { networkText: true }).units.filter((u) => u.kind === "method")
-  expect(methods.map((m) => [m.kind === "method" && m.accessModifier, m.name.text])).toEqual([
-    ["PROTECTED", "Override"],
-    ["PUBLIC", "Final"],
+  expect(methods.map((m) => [m.kind === "method" && m.modifiers, m.name.text])).toEqual([
+    [["PROTECTED"], "Override"],
+    [["PUBLIC"], "Final"],
   ])
 })
 
@@ -99,22 +99,22 @@ test("a method named after a modifier keyword keeps its name when its keyword li
  *  follows it, and the keyword line is never a name. */
 test("a function block named after a modifier keyword keeps its name when its keyword line follows the header", () => {
   for (const [header, access, name] of [
-    ["FUNCTION_BLOCK PUBLIC Final", "PUBLIC", "Final"],
-    ["FUNCTION_BLOCK Abstract", undefined, "Abstract"],
-    ["FUNCTION_BLOCK INTERNAL Protected", "INTERNAL", "Protected"],
+    ["FUNCTION_BLOCK PUBLIC Final", ["PUBLIC"], "Final"],
+    ["FUNCTION_BLOCK Abstract", [], "Abstract"],
+    ["FUNCTION_BLOCK INTERNAL Protected", ["INTERNAL"], "Protected"],
   ] as const) {
     const src = `${header}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
     expect(syntaxErrors(src)).toEqual([])
     const units = parseSource(src, { networkText: true }).units
-    expect(units.map((u) => (u.kind === "function_block" ? [u.name.text, u.accessModifier] : [u.kind]))).toEqual([
-      [name, access],
+    expect(units.map((u) => (u.kind === "function_block" ? [u.name.text, u.modifiers] : [u.kind]))).toEqual([
+      [name, [...access]],
     ])
   }
   // With a VAR section the same name was already a name; it stays one, and real modifiers stay modifiers.
   const withVar = parseSource("FUNCTION_BLOCK FINAL ABSTRACT FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", { networkText: true })
   const fbx = withVar.units[0]!
   if (fbx.kind !== "function_block") throw new Error("not a function block")
-  expect([fbx.name.text, fbx.final, fbx.abstract]).toEqual(["FB_X", true, true])
+  expect([fbx.name.text, fbx.modifiers]).toEqual(["FB_X", ["FINAL", "ABSTRACT"]])
 })
 
 test("the keyword line belongs to no declaration and to no statement", () => {

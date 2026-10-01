@@ -1,24 +1,34 @@
 /**
- * `TYPE Name [EXTENDS Base] : <body> [;] END_TYPE`
+ * `TYPE Name [EXTENDS Base] : <body> END_TYPE`
  *
  * Dispatches on the first keyword/punct after the colon:
  *
- *   STRUCT … END_STRUCT      → struct (fields look like VAR decls; supports EXTENDS)
+ *   STRUCT … END_STRUCT      → struct (fields are declarations, `parse/declarations`)
  *   UNION  … END_UNION       → union (struct-like)
  *   '(' … ')' [base]         → enum (comma-separated values, optional base type)
  *   anything else            → alias (just parses a TypeExpr)
  *
- * The `EXTENDS BaseStruct` clause between the name and the `:`
- * applies to STRUCT DUTs only (OOP-style structs in TwinCAT 3 /
- * CODESYS 3.5). It's hoisted onto the STRUCT body so the AST puts
- * the inheritance info next to the fields.
+ * MEASURED, both vendors (`fixtures/grammar/units.ts`, 2026-10-01):
  *
- * The trailing `;` before END_TYPE is consumed here (single source
- * of truth) — TwinCAT-idiomatic C-style terminator is tolerated for
- * struct/union/enum and required for aliases.
+ *   EXTENDS stands in ONE place, between the name and the `:`, and names ONE base. `STRUCT EXTENDS B` is the field
+ *   parser's "Unexpected token 'EXTENDS' found" (`unit_struct_extends_after_struct`), `EXTENDS A, B` is "':' expected
+ *   instead of ','" (`unit_struct_extends_list`). It is hoisted onto the STRUCT body (the AST puts the inheritance next
+ *   to the fields); on any other body it is `extendsMisused`, a check's.
+ *
+ *   The `;` before END_TYPE: an alias REQUIRES it ("':= or ;' expected instead of 'END_TYPE'", `unit_alias_no_semicolon`),
+ *   an enum takes it, and a STRUCT or UNION refuses it ("'END_TYPE' expected instead of ';'", `unit_struct_end_semicolon`,
+ *   `unit_union_end_semicolon`).
+ *
+ *   A refused token is CONSUMED, and the end of the object is quoted as '' — so `TYPE X : END_TYPE` is "Type
+ *   definition expected instead of 'END_TYPE'", "':= or ;' expected instead of ''", "'END_TYPE' expected instead of
+ *   ''" (`unit_type_no_body`). A header the vendor cannot read (no `:`, an EXTENDS list) is skipped through the next `;`,
+ *   and END_TYPE is then expected (`unit_type_missing_colon`: "': or EXTENDS' expected instead of 'STRUCT'", "'END_TYPE'
+ *   expected instead of 'END_STRUCT'"). Either way the type is KEPT, bodiless (`RefusedBody`): it is no unknown type
+ *   where it is used.
  */
 import type {
   AliasBody,
+  RefusedBody,
   DutBody,
   EnumBody,
   Identifier,
@@ -27,11 +37,14 @@ import type {
   UnionBody,
   VarDecl,
 } from "../../ast/nodes.js"
+import type { Token } from "../../lex/tokens.js"
+import { DECL_LIST_ENDERS, UNIT_STARTERS } from "../../lex/vocabulary.js"
 import type { Cursor } from "../cursor.js"
 import { parseEnumBase, parseEnumValues, parseTypeExpression } from "../type-expr.js"
 import { atSectionInStruct, FIELD_LIST, parseDeclInto, refuseSectionInStruct } from "../declarations.js"
 import { joinSpans } from "../../span.js"
-import { identFromToken, readIdent, readNameList } from "../names.js"
+import { vendorTokenText } from "../errors.js"
+import { identFromToken, readHeaderName } from "../names.js"
 import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from "../initializer.js"
 
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
@@ -40,89 +53,99 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const nameTok = c.expectIdent()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
-  // Optional `EXTENDS Base` clause between the name and the `:` —
-  // applies to STRUCT DUTs (CODESYS / TwinCAT 3.5+ OO-style structs).
-  // Per 06-data-types.md: `TYPE S_PENTAGON EXTENDS S_POLYGONLINE : STRUCT ...`.
+  // Optional `EXTENDS Base` between the name and the `:` (`TYPE S_PENTAGON EXTENDS S_POLYGONLINE : STRUCT ...`).
   let extendsName: Identifier | undefined
-  if (c.eatKeyword("EXTENDS") !== undefined) {
-    const t = c.expectIdent()
-    if (t !== undefined) extendsName = identFromToken(t)
+  if (c.eatKeyword("EXTENDS") !== undefined) extendsName = readHeaderName(c)
+
+  let body: DutBody
+  if (c.eatPunct(":") === undefined) {
+    // what may stand here is the colon, or EXTENDS while none was written
+    refuse(c, extendsName !== undefined ? "':'" : "': or EXTENDS'")
+    body = { kind: "refused", span: name.span }
+    skipThroughSemicolon(c)
+  } else {
+    body = parseDutBody(c, name)
+    endBody(c, body)
   }
-  const colon = c.expectPunct(":")
-  if (colon === undefined) return undefined
-  const body = parseDutBody(c)
-  // Hoist the EXTENDS onto the STRUCT body (the AST stores it there). EXTENDS on any other DUT kind
-  // (enum/alias → C0144, union → C0542) is illegal — capture it as `extendsMisused` for the check.
+  // Hoist the EXTENDS onto the STRUCT body (the AST stores it there). EXTENDS on any other DUT is illegal — captured as
+  // `extendsMisused` for the check (a bodiless type's included: both vendors give it an alias's messages).
   let extendsMisused: Identifier | undefined
-  if (extendsName !== undefined && body !== undefined) {
-    if (body.kind === "struct" && body.extends === undefined) body.extends = extendsName
-    else if (body.kind !== "struct") extendsMisused = extendsName
+  if (extendsName !== undefined) {
+    if (body.kind === "struct") body.extends = extendsName
+    else extendsMisused = extendsName
   }
-  // TwinCAT-idiomatic optional `;` after the body (engineers C-style
-  // terminate the enum/struct/alias before END_TYPE). Spec-permissive
-  // for aliases (always required), tolerated by TC for the others.
-  c.eatPunct(";")
-  const endType = c.expectKeyword("END_TYPE")
-  const endSpan = endType?.span ?? body?.span ?? start.span
-  if (body === undefined) {
-    return {
-      kind: "type_decl",
-      name,
-      body: {
-        kind: "alias",
-        target: { kind: "named_type", name: { kind: "identifier", text: "?", span: name.span }, span: name.span },
-        span: name.span,
-      } satisfies DutBody,
-      span: joinSpans(start.span, endSpan),
-    }
+  // a refused token is consumed, so END_TYPE may stand right behind it (`… instead of 'END_STRUCT'`, then END_TYPE)
+  let endType = c.eatKeyword("END_TYPE")
+  if (endType === undefined) {
+    refuse(c, "'END_TYPE'")
+    endType = c.eatKeyword("END_TYPE")
   }
   return {
     kind: "type_decl",
     name,
     body,
     ...(extendsMisused !== undefined ? { extendsMisused } : {}),
-    span: joinSpans(start.span, endSpan),
+    // without its END_TYPE the unit ends at the last token it consumed — so the errors it raised lie inside it
+    span: joinSpans(start.span, endType?.span ?? c.previous().span),
   }
+}
+
+/** The end of the object, as both vendors quote it in a TYPE: '' — the end of the text, or the next POU's or TYPE's start
+ *  (a workspace holds one object per file; a fixture several). A VAR section keyword is no such start: inside a broken
+ *  STRUCT it is the DUT's own text (`decl_var_access_inside_struct`), and a GVL follows no TYPE in one file. */
+function atObjectEnd(t: Token): boolean {
+  return t.kind === "eof" || (t.kind === "keyword" && OBJECT_STARTERS.has(t.keyword ?? ""))
+}
+const OBJECT_STARTERS: ReadonlySet<string> = new Set(
+  UNIT_STARTERS.filter((k) => k !== "VAR_GLOBAL" && k !== "VAR_CONFIG" && k !== "VAR_ACCESS"),
+)
+
+/** "`<expected>` expected instead of 'T'", and the token CONSUMED — the vendor's recovery in a TYPE (`consumeRefused`).
+ *  The end of the object is quoted as ''. */
+function refuse(c: Cursor, expected: string): void {
+  const t = c.peek()
+  c.pushError(`${expected} expected instead of ${atObjectEnd(t) ? "''" : vendorTokenText(t)}`, t.span)
+  consumeRefused(c)
+}
+
+/** Past the token a TYPE refused, as the vendor reads on — never the end of the object, and never a keyword recovery must
+ *  not eat past (`DECL_LIST_ENDERS`): a VAR section keyword in a broken STRUCT is left for the recovery that reads it. */
+function consumeRefused(c: Cursor): void {
+  const t = c.peek()
+  if (!atObjectEnd(t) && !(t.kind === "keyword" && DECL_LIST_ENDERS.has(t.keyword ?? ""))) c.consume()
+}
+
+/** Past the next `;` (a header the vendor could not read), stopping at the end of the object. */
+function skipThroughSemicolon(c: Cursor): void {
+  while (!atObjectEnd(c.peek())) if (c.consume().text === ";") return
+}
+
+/** What ends a body before END_TYPE: an alias's required `;` (`:=` while it has no initializer), an enum's optional
+ *  one, and a STRUCT's or UNION's refused one. */
+function endBody(c: Cursor, body: DutBody): void {
+  if (body.kind === "alias" || body.kind === "refused") {
+    if (c.eatPunct(";") === undefined) refuse(c, body.kind === "alias" && body.init !== undefined ? "';'" : "':= or ;'")
+  } else if (body.kind === "enum") c.eatPunct(";")
+  else if (c.peek().kind === "punct" && c.peek().text === ";") refuse(c, "'END_TYPE'")
 }
 
 // ─── DUT body parsers ────────────────────────────────────────────────
 
-function parseDutBody(c: Cursor): DutBody | undefined {
+function parseDutBody(c: Cursor, name: Identifier): DutBody {
   const next = c.peek()
-  if (next.kind === "keyword" && next.keyword === "STRUCT") {
-    return parseStructBody(c)
-  }
-  if (next.kind === "keyword" && next.keyword === "UNION") {
-    return parseUnionBody(c)
-  }
-  if (next.kind === "punct" && next.text === "(") {
-    return parseEnumBody(c)
-  }
-  return parseAliasBody(c)
+  if (next.kind === "keyword" && next.keyword === "STRUCT") return parseStructBody(c)
+  if (next.kind === "keyword" && next.keyword === "UNION") return parseUnionBody(c)
+  if (next.kind === "punct" && next.text === "(") return parseEnumBody(c)
+  return parseAliasBody(c, name)
 }
 
-function parseStructBody(c: Cursor): StructBody | undefined {
-  const start = c.expectKeyword("STRUCT")
-  if (start === undefined) return undefined
-
-  let extendsName: Identifier | undefined
-  if (c.eatKeyword("EXTENDS") !== undefined) {
-    const t = c.expectIdent()
-    if (t !== undefined) extendsName = identFromToken(t)
-  }
-
+function parseStructBody(c: Cursor): StructBody {
+  const start = c.consume() // STRUCT
   const fields: VarDecl[] = []
   while (!c.atEof()) {
     if (c.eatPunct(";") !== undefined) continue // stray/empty field — CODESYS accepts `x : T;;`
     const endStruct = c.eatKeyword("END_STRUCT")
-    if (endStruct !== undefined) {
-      return {
-        kind: "struct",
-        ...(extendsName !== undefined ? { extends: extendsName } : {}),
-        fields,
-        span: joinSpans(start.span, endStruct.span),
-      }
-    }
+    if (endStruct !== undefined) return { kind: "struct", fields, span: joinSpans(start.span, endStruct.span) }
     // A VAR-section keyword inside a STRUCT is illegal (C0173) — the whole misplaced `VAR_* … END_VAR` is read and
     // refused as ONE echo (`refuseSectionInStruct`), instead of choking the field parser on `VAR_INPUT` and `END_VAR`.
     if (atSectionInStruct(c)) {
@@ -139,28 +162,16 @@ function parseStructBody(c: Cursor): StructBody | undefined {
     if (!parseDeclInto(c, FIELD_LIST, fields)) break
   }
   c.pushError("unterminated STRUCT: expected END_STRUCT", start.span)
-  return {
-    kind: "struct",
-    ...(extendsName !== undefined ? { extends: extendsName } : {}),
-    fields,
-    span: start.span,
-  }
+  return { kind: "struct", fields, span: start.span }
 }
 
-function parseUnionBody(c: Cursor): UnionBody | undefined {
-  const start = c.expectKeyword("UNION")
-  if (start === undefined) return undefined
+function parseUnionBody(c: Cursor): UnionBody {
+  const start = c.consume() // UNION
   const fields: VarDecl[] = []
   while (!c.atEof()) {
     if (c.eatPunct(";") !== undefined) continue // stray/empty field — CODESYS accepts `x : T;;`
     const endUnion = c.eatKeyword("END_UNION")
-    if (endUnion !== undefined) {
-      return {
-        kind: "union",
-        fields,
-        span: joinSpans(start.span, endUnion.span),
-      }
-    }
+    if (endUnion !== undefined) return { kind: "union", fields, span: joinSpans(start.span, endUnion.span) }
     if (c.atDeclListEnd()) break // list-ending keyword → unterminated union; leave it for the TYPE parser (see struct)
     if (!parseDeclInto(c, FIELD_LIST, fields)) break
   }
@@ -168,9 +179,8 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
   return { kind: "union", fields, span: start.span }
 }
 
-function parseEnumBody(c: Cursor): EnumBody | undefined {
-  const open = c.expectPunct("(")
-  if (open === undefined) return undefined
+function parseEnumBody(c: Cursor): EnumBody {
+  const open = c.consume() // (
   // the values and the base type are read as an implicit enum's are (`parse/type-expr`, one parser), but a TYPE enum's
   // list may not end in a comma (`decl_type_enum_trailing_comma`, both vendors 2026-10-01)
   const { values } = parseEnumValues(c, false)
@@ -195,10 +205,15 @@ function parseEnumBody(c: Cursor): EnumBody | undefined {
   }
 }
 
-function parseAliasBody(c: Cursor): AliasBody | undefined {
+/** An alias, or — its type refused ("Type definition expected instead of 'END_TYPE'") — a bodiless type, the refused
+ *  token consumed as the vendor does (`unit_type_no_body`). */
+function parseAliasBody(c: Cursor, name: Identifier): AliasBody | RefusedBody {
   const start = c.peek().span
   const target = parseTypeExpression(c)
-  if (target === undefined) return undefined
+  if (target === undefined) {
+    consumeRefused(c)
+    return { kind: "refused", span: name.span }
+  }
 
   let init: AliasBody["init"]
   if (c.eatPunct(":=") !== undefined) {
@@ -206,9 +221,6 @@ function parseAliasBody(c: Cursor): AliasBody | undefined {
     const initTokens = collectInitTokens(c, true)
     if (refuseMalformedInit(c, initTokens) === undefined) init = initializerFromTokens(initTokens)
   }
-
-  // Note: the trailing `;` (and the optional one for struct/union/enum)
-  // is consumed at the parseTypeDecl level — single source of truth.
 
   const endSpan = init?.span ?? target.span
   return {

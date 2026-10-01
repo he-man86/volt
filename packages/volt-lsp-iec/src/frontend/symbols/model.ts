@@ -107,6 +107,12 @@ export interface Scope {
   /** For an `enum`/`gvl` scope carrying `{attribute 'qualified_only'}`: members are NOT bare-accessible. */
   qualifiedOnly?: boolean
   /**
+   * A scope whose unit DECLARES nothing — an FB whose header both vendors refuse (`FunctionBlock.headerRefused`). It
+   * holds the unit's own members so its body still resolves, but it is no candidate for any lookup by name: no base
+   * (`linkExtends`), as it is no type.
+   */
+  undeclared?: true
+  /**
    * PROJECT ROOT ONLY: whose ST this project is. The vocabulary differs between the vendors — `__POSITION`,
    * `__POUNAME`, `__COMPARE_AND_SWAP` and `__VECTOR` are CODESYS's alone — and name resolution and type
    * inference both need to know, which is why it rides on the scope they already receive rather than

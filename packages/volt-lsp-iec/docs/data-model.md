@@ -62,29 +62,44 @@ type TopLevel =
 
 interface Namespace { kind: "namespace"; name: Identifier; units: TopLevel[]; span: Span }
 
+// `modifiers`: every modifier as written, in order (`INTERNAL FINAL`) — an access modifier stands only first
+// (conformance 2.4, both vendors); a base or interface is ONE (possibly dotted) identifier (`Standard.TON`).
 interface FunctionBlock {
-  kind: "function_block"; name: Identifier
-  accessModifier?: Keyword; extends?: Identifier; implements?: Identifier[]
-  abstract?: boolean; final?: boolean
+  kind: "function_block"; name: Identifier; modifiers: Keyword[]
+  headerRefused?: true                      // an access modifier after another: both vendors declare no FB
+  extends?: Identifier; extendsExtra?: Identifier[]; implements?: Identifier[]
   varSections: VarSection[]; body: BodySpan; span: Span
 }
-interface Program  { kind: "program";  name: Identifier; varSections: VarSection[]; body: BodySpan; span: Span }
-interface Function { kind: "function"; name: Identifier; returnType?: TypeExpr; varSections: VarSection[]; body: BodySpan; span: Span }
+interface Program  { kind: "program";  name: Identifier; returnType?: TypeExpr; varSections: VarSection[]; body: BodySpan; span: Span }
+interface Function {
+  kind: "function"; name: Identifier; returnType?: TypeExpr
+  implementsMisused?: Identifier[]; extendsMisused?: Identifier   // a clause after the name; after the return type it is no header
+  varSections: VarSection[]; body: BodySpan; span: Span
+}
 interface Method {
-  kind: "method"; name: Identifier
-  accessModifier?: Keyword; final?: boolean; abstract?: boolean; override?: boolean
+  kind: "method"; name: Identifier; modifiers: Keyword[]   // OVERRIDE is no modifier: CODESYS reads it as the name
   returnType?: TypeExpr; varSections: VarSection[]; body: BodySpan; span: Span
 }
 interface Action { kind: "action"; name: Identifier; body: BodySpan; span: Span }
 interface Property {
-  kind: "property"; name: Identifier; accessModifier?: Keyword; dataType: TypeExpr
+  kind: "property"; name: Identifier; modifiers: Keyword[]; dataType: TypeExpr
   getter?: PropertyAccessor; setter?: PropertyAccessor; span: Span
 }
-interface PropertyAccessor { kind: "get" | "set"; varSections: VarSection[]; body: BodySpan; span: Span }
-interface Interface { kind: "interface"; name: Identifier; extends?: Identifier[]; methods: InterfaceMethod[]; properties: InterfaceProperty[]; span: Span }
-interface InterfaceMethod { kind: "interface_method"; name: Identifier; returnType?: TypeExpr; varSections: VarSection[]; span: Span }
-interface InterfaceProperty { kind: "interface_property"; name: Identifier; dataType: TypeExpr; hasGetter: boolean; hasSetter: boolean; span: Span }
-interface TypeDecl { kind: "type_decl"; name: Identifier; body: DutBody; span: Span }
+interface PropertyAccessor { kind: "get" | "set"; modifiers: Keyword[]; varSections: VarSection[]; body: BodySpan; span: Span }
+interface Interface {
+  kind: "interface"; name: Identifier; extends?: Identifier[]; implementsMisused?: Identifier[]
+  methods: InterfaceMethod[]; properties: InterfaceProperty[]; span: Span
+}
+interface InterfaceMethod { kind: "interface_method"; name: Identifier; modifiers: Keyword[]; returnType?: TypeExpr; varSections: VarSection[]; span: Span }
+interface InterfaceProperty {
+  kind: "interface_property"; name: Identifier; modifiers: Keyword[]; dataType: TypeExpr
+  hasGetter: boolean; hasSetter: boolean
+  getterVarSections: VarSection[]; setterVarSections: VarSection[]   // the vendor's stored declaration (no body)
+  span: Span
+}
+// A body the parser refused (no `:`, an EXTENDS list, nothing after the colon) is `{ kind: "refused" }`: the type is
+// kept, bodiless, as both vendors keep it — never an alias of an invented type.
+interface TypeDecl { kind: "type_decl"; name: Identifier; body: DutBody; extendsMisused?: Identifier; span: Span }
 interface GlobalVarList { kind: "global_var_list"; varSections: VarSection[]; span: Span }
 ```
 
@@ -129,13 +144,14 @@ interface ImplicitEnumType { kind: "implicit_enum_type"; values: Array<{ name: I
 ### AST — DUT bodies (`TYPE … END_TYPE`)
 
 ```ts
-type DutBody = StructBody | EnumBody | UnionBody | AliasBody
+type DutBody = StructBody | EnumBody | UnionBody | AliasBody | RefusedBody
 
 interface StructBody { kind: "struct"; fields: VarDecl[]; extends?: Identifier; span: Span }
 interface EnumBody { kind: "enum"; baseType?: TypeExpr; init?: BodySpan; values: EnumValue[]; span: Span }
 interface EnumValue { kind: "enum_value"; name: Identifier; value?: BodySpan; span: Span }  // `:= 42`
 interface UnionBody { kind: "union"; fields: VarDecl[]; span: Span }
 interface AliasBody { kind: "alias"; target: TypeExpr; init?: BodySpan; span: Span }
+interface RefusedBody { kind: "refused"; span: Span }   // a TYPE whose body was refused, kept bodiless
 ```
 
 ### AST — leaves & body span
@@ -240,6 +256,7 @@ interface Scope {
   children: Scope[]; span?: Span
   extendsName?: string; baseScope?: Scope   // EXTENDS link (post-pass)
   qualifiedOnly?: boolean
+  undeclared?: true       // a refused FB header: holds its members, is no base and no type (linkExtends skips it)
 }
 interface LookupResult { symbol: Symbol; foundIn: Scope }
 ```

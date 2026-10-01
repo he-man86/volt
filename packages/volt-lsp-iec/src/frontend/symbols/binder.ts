@@ -117,9 +117,14 @@ function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): Sc
     "pou",
     fb.name.text,
     fb.span,
-    fb.extends !== undefined ? { extendsName: fb.extends.text.toLowerCase() } : undefined,
+    {
+      ...(fb.extends !== undefined ? { extendsName: fb.extends.text.toLowerCase() } : {}),
+      ...(fb.headerRefused !== undefined ? { undeclared: true as const } : {}),
+    },
   )
-  defineSymbol(project, {
+  // a header both vendors refuse leaves NO FB — only "Unknown type" where it is used, and no base where it is extended
+  // (`FunctionBlock.headerRefused`, `Scope.undeclared`)
+  if (fb.headerRefused === undefined) defineSymbol(project, {
     kind: "function_block",
     name: fb.name.text,
     span: fb.name.span,
@@ -282,7 +287,8 @@ function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string, tokens: readon
       ingestEnum(project, t, t.body, uri, tokens)
       break
     case "alias":
-      // Aliases add no members; the alias points at another type (resolved in layer C).
+    case "refused":
+      // An alias adds no members; it points at another type (resolved in layer C). A refused body has none.
       break
   }
 }

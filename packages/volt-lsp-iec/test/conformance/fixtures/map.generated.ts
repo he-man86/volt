@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2186
- *     refused       1097
- *     not-lowered    111
- *     lsp-gap         16
+ *     confirmed     2220
+ *     refused       1145
+ *     not-lowered    113
+ *     lsp-gap         18
  *     diverges         4
- *     unaskable       50
+ *     unaskable       57
  *
  *   tier                     lowered    clean
- *     decl                    561      561
+ *     decl                    576      576
  *     arith                  1251     1251
  *     control                  78       78
  *     aggregate                52       52
  *     call                    228      226
- *     indirect                184      180
+ *     indirect                229      225
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -49,18 +49,18 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2259
+ *     agree         2316
  *     disagree         0
- *     not-run         95
+ *     not-run         98
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
- *       not-run: no elementary variable to seed or compare       18
+ *       not-run: no elementary variable to seed or compare       21
  *       not-run: the emitted Rust does not build                  6
 
  *
- *   pedantic — 26359 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               5913
- *     clippy::cast_possible_truncation         4275
- *     clippy::cast_lossless                    3785
+ *   pedantic — 26487 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6034
+ *     clippy::cast_possible_truncation         4278
+ *     clippy::cast_lossless                    3789
  *     clippy::cast_sign_loss                   2969
  *     clippy::uninlined_format_args            2898
  *     clippy::unreadable_literal               2507
@@ -81,8 +81,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1340 distinct emission shapes over 2354 lowered fixtures, 1620 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2242 fixtures are improvable, 2165 touch a construct with alternatives.
+ *   shape — 1348 distinct emission shapes over 2414 lowered fixtures, 1627 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2302 fixtures are improvable, 2225 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -3328,6 +3328,99 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unary_minus_on_time: { evidence: "refused" },
   unary_minus_unsigned_widened: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 13, edge: "agree", size: 7, shape: "26b6f717ac", notes: ["1707972c33", "4a6baf16b3", "687428cc81", "6a98109119", "870b70e195", "90c445f7cb", "a497507b30", "de132e5019", "e8954e2b0d"] },
   unary_not_on_string: { evidence: "refused" },
+  unit_action_modifier: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
+  unit_action_var_section: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_alias_no_semicolon: { evidence: "refused" },
+  unit_enum_extends_enum: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 1.7, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  unit_fb_abstract_final: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.9, shape: "c597f63ae6", notes: ["de8528b197", "fbde4d6e1e"] },
+  unit_fb_extends_qualified: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  unit_fb_extends_qualified_unknown: { evidence: "refused" },
+  unit_fb_extends_refused: { evidence: "refused" },
+  unit_fb_final_public_order: { evidence: "refused", diverges: { twincat: "known" } },
+  unit_fb_final_twice: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_fb_implements_before_extends: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_fb_implements_qualified: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_fb_implements_trailing_comma: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_fb_implements_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_fb_internal: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_fb_internal_final: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_fb_modifier_twice: { evidence: "refused", diverges: { twincat: "known" } },
+  unit_fb_private: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  unit_fb_private_not_called: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.9, shape: "c597f63ae6", notes: ["de8528b197", "fbde4d6e1e"] },
+  unit_fb_protected: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  unit_fb_public: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_fb_public_internal: { evidence: "refused", diverges: { twincat: "known" } },
+  unit_function_extends_after_return: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_function_implements: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_function_no_return_type: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.1, shape: "738c90a8ad", notes: ["1307e33bbf"] },
+  unit_function_no_return_type_in_expression: { evidence: "refused" },
+  unit_function_trailing_semicolon: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 2.3, shape: "3fc50a37f3", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc", "8ccaa880cd"] },
+  unit_interface_extends_list: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 1.9, shape: "44a02a46eb", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_extends_qualified: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_implements: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_abstract: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_abstract_final: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_final: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_final_public_order: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_interface_method_internal: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_override: { evidence: "unaskable" },
+  unit_interface_method_private: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_protected: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_public: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_var_inst: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_var_stat: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_method_var_temp: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_abstract: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_abstract_final: { evidence: "refused" },
+  unit_interface_property_accessor_var: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_accessor_var_in_out: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_accessor_var_input: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_accessor_var_output: { evidence: "lsp-gap", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_final: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_final_public_order: { evidence: "refused" },
+  unit_interface_property_internal: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_override: { evidence: "unaskable" },
+  unit_interface_property_private: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_protected: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_interface_property_public: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_abstract_final: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 1, edge: "not-run", size: 1.6, shape: "c597f63ae6", notes: ["de8528b197", "fbde4d6e1e"] },
+  unit_method_final: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_final_private_order: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_method_internal: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_modifier_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_override: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "54fcacfbce", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_override_public_order: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "54fcacfbce", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_private: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_protected: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_public: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_trailing_semicolon: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  unit_method_two_access: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_program_return_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 4.7, shape: "c28a4c31d4", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
+  unit_program_trailing_semicolon: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 4.4, shape: "c28a4c31d4", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
+  unit_property_abstract: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "d635829e14", notes: ["1307e33bbf"] },
+  unit_property_abstract_final: { evidence: "refused" },
+  unit_property_accessor_modifier: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_final: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_final_twice: { evidence: "refused" },
+  unit_property_internal: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_modifiers: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_modifiers_reordered: { evidence: "refused" },
+  unit_property_no_end_get: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_no_end_get_alone: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_override: { evidence: "unaskable" },
+  unit_property_private: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_protected: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_public: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_struct_end_semicolon: { evidence: "refused" },
+  unit_struct_extends_after_struct: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_struct_extends_list: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_struct_extends_twice: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_type_extends_on_alias: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.2, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_type_extends_on_enum: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 1.8, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  unit_type_extends_on_union: { evidence: "not-lowered" },
+  unit_type_missing_colon: { evidence: "refused" },
+  unit_type_no_body: { evidence: "refused" },
+  unit_union_end_semicolon: { evidence: "refused" },
   unknown_attribute_typo: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "c3b7e25378", notes: ["1307e33bbf"] },
   unresolved_identifier_in_body: { evidence: "refused" },
   unsigned_underflow: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 4.5, shape: "6d13dd3cbb", notes: ["0e5c6a2896", "1d7709a031", "65df8e0418", "a851cc298d", "e8954e2b0d"] },

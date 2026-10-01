@@ -2164,7 +2164,7 @@
     "message": "Inheritance only allowed in function blocks, Interfaces and Structures",
     "repro": "TYPE Base : STRUCT\n x : INT;\nEND_STRUCT\nEND_TYPE\nTYPE E EXTENDS Base :\n(\n A, B\n); END_TYPE",
     "expect": [
-      "Inheritance only allowed in function blocks, Interfaces and Structures"
+      "No definition found for base class 'Base'"
     ],
     "status": "implemented",
     "ourCheck": "declarations/header-rules",
@@ -2181,7 +2181,7 @@
     "twincatActual": [
       "No definition found for base class 'Base'"
     ],
-    "note": "(re-recorded live 2026-09-30, push-without-header-check 4.3 — this replaces a 2026-07-11 note saying the bridge's header parser refused 'FUNCTION EXTENDS' before the IDE compiled it; the push no longer reads a top-level header, so the IDE now answers.) Conformance hdr_function_extends_no_return, both vendors: a FUNCTION's EXTENDS draws 'No definition found for base class '<base>'' — even for an existing function block — and nothing else; the LSP says the same (header-rules, base-class-not-found). With a return type AFTER the clause (hdr_function_extends) both vendors add a seven-message parse cascade the LSP does not reproduce (a known divergence). This entry's own repro — an ENUM that EXTENDS a struct — is a different shape; its *Actual fields and verified flags are verify-catalog's and were not re-run."
+    "note": "(re-recorded live 2026-09-30, push-without-header-check 4.3 — this replaces a 2026-07-11 note saying the bridge's header parser refused 'FUNCTION EXTENDS' before the IDE compiled it; the push no longer reads a top-level header, so the IDE now answers.) Conformance hdr_function_extends_no_return, both vendors: a FUNCTION's EXTENDS draws 'No definition found for base class '<base>'' — even for an existing function block — and nothing else; the LSP says the same (header-rules, base-class-not-found). With a return type AFTER the clause (hdr_function_extends) both vendors add a seven-message parse cascade the LSP does not reproduce (a known divergence). This entry's own repro — an ENUM that EXTENDS a struct — is a different shape; its *Actual fields and verified flags are verify-catalog's and were not re-run. (frontend-conformance 2.4a gate, 2026-10-01: `expect` now says what both vendors answered for this repro, codesysActual/twincatActual, re-measured by fixture unit_type_extends_on_enum; C0144 itself stands only with an ENUM base — unit_enum_extends_enum — and the LSP now matches both.)"
   },
   {
     "code": "C0145",

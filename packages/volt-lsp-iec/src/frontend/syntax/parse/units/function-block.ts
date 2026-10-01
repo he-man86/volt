@@ -1,53 +1,41 @@
 /**
- * `FUNCTION_BLOCK Name [FINAL|ABSTRACT] [EXTENDS Base] [IMPLEMENTS …]
+ * `FUNCTION_BLOCK [modifiers] Name [EXTENDS Base] [IMPLEMENTS I1, I2] [;]
  *  <var-sections>
  *  <body>
  *  END_FUNCTION_BLOCK`
  *
- * Modifiers `FINAL` / `ABSTRACT` may appear in either order between the
- * keyword and the name. `EXTENDS` (single base) and `IMPLEMENTS`
- * (comma list) are both optional.
+ * The modifiers are kept in order as written (`INTERNAL FINAL`); an access modifier stands only first — written after
+ * another modifier, both vendors declare no FB at all (`headerRefused`). `EXTENDS` names one base and `IMPLEMENTS` a
+ * list, each name possibly qualified (`Standard.TON`); IMPLEMENTS before EXTENDS is no header (`unit_fb_implements_
+ * before_extends`: "Unexpected token 'EXTENDS' found", the body parser's).
  */
 import type { FunctionBlock, Identifier } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { collectBodyUntil } from "../body.js"
 import { FB_MODIFIERS } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
-import { identFromToken, readIdent, readModifiers, readNameList } from "../names.js"
+import { identFromToken, readHeaderName, readModifiers, readNameList, refusedAccessModifier } from "../names.js"
 import { collectVarSections } from "../declarations.js"
-import { readImplements } from "./header.js"
+import { readImplements, refuseLateClauses } from "./header.js"
 
 export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   const start = c.expectKeyword("FUNCTION_BLOCK")
   if (start === undefined) return undefined
 
-  // Optional modifiers before name (any order): access (PUBLIC/PRIVATE/PROTECTED/INTERNAL),
-  // FINAL, ABSTRACT — real CODESYS code writes e.g. `FUNCTION_BLOCK PUBLIC FB_X`.
-  let accessModifier: FunctionBlock["accessModifier"]
-  let isFinal = false
-  let isAbstract = false
   // A modifier keyword is a modifier only when a name (or another modifier) follows it; otherwise it IS the name
   // (`FUNCTION_BLOCK PUBLIC Final`). The `IMPLEMENTATION` line is an identifier token but never a name — it ends the
   // declaration, and an FB with no VAR puts it straight under the header — so it does not count as one. Eating
   // greedily named such an FB `IMPLEMENTATION` (the method header's twin, `parseMethod`).
-  const modifiers = readModifiers(
+  const written = readModifiers(
     c,
     FB_MODIFIERS,
     (after) =>
       (after.kind === "identifier" && !c.opensImplementationLine(1)) ||
       (after.kind === "keyword" && after.keyword !== undefined && FB_MODIFIERS.includes(after.keyword)),
   )
-  for (const mod of modifiers) {
-    if (
-      mod.keyword === "PUBLIC" ||
-      mod.keyword === "PRIVATE" ||
-      mod.keyword === "PROTECTED" ||
-      mod.keyword === "INTERNAL"
-    ) {
-      accessModifier = mod.keyword
-    } else if (mod.keyword === "FINAL") isFinal = true
-    else if (mod.keyword === "ABSTRACT") isAbstract = true
-  }
+  // An access modifier after another one leaves no FB declared, and no message about it on either vendor.
+  const refused = refusedAccessModifier(written)
+  const modifiers = written.map((m) => m.keyword!)
 
   // `expectUnitName`, as a method's: a modifier keyword the loop above left is the FB's name.
   const nameTok = c.expectUnitName()
@@ -60,13 +48,15 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   let extendsName: Identifier | undefined
   let extendsExtra: Identifier[] | undefined
   if (c.eatKeyword("EXTENDS") !== undefined) {
-    extendsName = readIdent(c)
-    const more = readNameList(c, () => readIdent(c))
+    extendsName = readHeaderName(c)
+    const more = readNameList(c, () => readHeaderName(c))
     if (more.length > 0) extendsExtra = more
   }
 
   // Optional IMPLEMENTS X, Y, Z
   const implementsList = readImplements(c)
+  // …and nothing after it: `IMPLEMENTS I EXTENDS B` is no header (`unit_fb_implements_before_extends`)
+  refuseLateClauses(c)
 
   // Some CODESYS exports terminate the FB header with a stray `;` (e.g. `FUNCTION_BLOCK X EXTENDS Y;`).
   // Consume it — otherwise collectVarSections stops at the `;`, drops every local from the symbol table,
@@ -80,12 +70,11 @@ export function parseFunctionBlock(c: Cursor): FunctionBlock | undefined {
   return {
     kind: "function_block",
     name,
-    ...(accessModifier !== undefined ? { accessModifier } : {}),
+    modifiers,
+    ...(refused !== undefined ? { headerRefused: true as const } : {}),
     ...(extendsName !== undefined ? { extends: extendsName } : {}),
     ...(extendsExtra !== undefined ? { extendsExtra } : {}),
     ...(implementsList !== undefined ? { implements: implementsList } : {}),
-    ...(isFinal ? { final: true } : {}),
-    ...(isAbstract ? { abstract: true } : {}),
     varSections,
     body,
     span: joinSpans(start.span, body.span),

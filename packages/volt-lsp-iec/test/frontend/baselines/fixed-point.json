@@ -3,27 +3,17 @@
     "corpus: expr-reprint-fails": 3,
     "corpus: files": 29170,
     "corpus: files not a fixed point": 3,
-    "fixtures: files": 6928,
-    "fixtures: files not a fixed point": 13,
-    "fixtures: format-ast-changed": 13,
+    "fixtures: files": 7114,
+    "fixtures: files not a fixed point": 3,
+    "fixtures: format-ast-changed": 3,
     "library: files": 50
   },
   "findings": [
     "corpus/pro2193/Device/Plc Logic/Application/02 Processes/21 SER/2120 - Transfer Control/Products/TransferProducts_ChainToZFB.fb expr-reprint-fails 166:5 result[1] := zUnit.GetProducts(data)",
     "corpus/pro2193/Device/Plc Logic/Application/02 Processes/21 SER/2130 - Chain Control/ChainControlFB.fb expr-reprint-fails 385:3 result := transferRejects.ExecuteTransfer()",
     "corpus/pro2193/Device/Plc Logic/Application/03 Hardware Units/31 SER/31.03 - Sticker Units/StickerUnits.prg expr-reprint-fails 47:5 debuggingResult := Unit[1].ApplySticker()",
-    "fixture/array_element_type_default/FB_LANG_tr25.fb format-ast-changed - @761: \"tr25_F\\\"}},{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalKind\\\":\\\"i\" vs \"tr25_F\\\"}},{\\\"body\\\":{\\\"kind\\\":\\\"alias\\\",\\\"target\\\":{\\\"…",
     "fixture/cc2_var_in_interface/FB_C2_itfUser.fb format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
-    "fixture/cc3_multiple_inheritance/FB_C3_twoBases.fb format-ast-changed - @964: \"\\\":\\\"FB_C3_baseOne\\\"},\\\"extendsExtra\\\":[{\\\"kind\\\":\\\"identifier\\\",\\\"tex\" vs \"\\\":\\\"FB_C3_baseOne\\\"},\\\"kind\\\":\\\"function_block\\\",\\\"name\\…",
-    "fixture/ct_subrange_across_objects/FB_CT_ranged.fb format-ast-changed - @11: \"[{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalKind\\\":\\\"i\" vs \"[{\\\"body\\\":{\\\"kind\\\":\\\"alias\\\",\\\"target\\\":{\\\"kind\\\":\\\"named_ty\"",
-    "fixture/hdr_function_extends/F_LANG_hdr_extends.fun format-ast-changed - @243: \"pr\\\",\\\"name\\\":\\\"x\\\"}}]},\\\"extendsMisused\\\":{\\\"kind\\\":\\\"identifier\\\",\\\"te\" vs \"pr\\\",\\\"name\\\":\\\"x\\\"}}]},\\\"kind\\\":\\\"function\\\",\\\"name\\\":…",
-    "fixture/hdr_function_extends_no_return/F_LANG_hdr_extends_bare.fun format-ast-changed - @142: \"{\\\"kind\\\":\\\"empty\\\"}]},\\\"extendsMisused\\\":{\\\"kind\\\":\\\"identifier\\\",\\\"te\" vs \"{\\\"kind\\\":\\\"empty\\\"}]},\\\"kind\\\":\\\"function\\\",\\\"name\\\":{\\…",
-    "fixture/hdr_function_implements/F_LANG_hdr_implements.fun format-ast-changed - @246: \"pr\\\",\\\"name\\\":\\\"x\\\"}}]},\\\"implementsMisused\\\":[{\\\"kind\\\":\\\"identifier\\\"\" vs \"pr\\\",\\\"name\\\":\\\"x\\\"}}]},\\\"kind\\\":\\\"function\\\",\\\"name\\\":{…",
-    "fixture/hdr_function_implements_no_return/F_LANG_hdr_implements_bare.fun format-ast-changed - @142: \"{\\\"kind\\\":\\\"empty\\\"}]},\\\"implementsMisused\\\":[{\\\"kind\\\":\\\"identifier\\\"\" vs \"{\\\"kind\\\":\\\"empty\\\"}]},\\\"kind\\\":\\\"function\\\",\\\"name\\\":{\\\"…",
     "fixture/hdr_interface_var_input/ITF_LANG_hdr_var_input.itf format-ast-changed - @286: \"ut\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ut\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
-    "fixture/itf_var_section_declaration/ITF_IV_withVar.itf format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]}]\"",
-    "fixture/type_dut_alias_with_init/DUT_LANG_alias_with_init.alias format-ast-changed - @11: \"[{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalKind\\\":\\\"i\" vs \"[{\\\"body\\\":{\\\"kind\\\":\\\"alias\\\",\\\"target\\\":{\\\"kind\\\":\\\"named_ty\"",
-    "fixture/type_enum_type_level_default/FB_LANG_enum_type_level_default.fb format-ast-changed - @11: \"[{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"ident_expr\\\",\\\"name\\\":\\\"Busy\\\"\" vs \"[{\\\"body\\\":{\\\"kind\\\":\\\"enum\\\",\\\"values\\\":[{\\\"kind\\\":\\\"enum_val\"",
-    "fixture/xo3_alias_type/DUT_X3_counter.alias format-ast-changed - @11: \"[{\\\"body\\\":{\\\"init\\\":{\\\"kind\\\":\\\"literal\\\",\\\"literalKind\\\":\\\"i\" vs \"[{\\\"body\\\":{\\\"kind\\\":\\\"alias\\\",\\\"target\\\":{\\\"kind\\\":\\\"named_ty\""
+    "fixture/itf_var_section_declaration/ITF_IV_withVar.itf format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]}]\""
   ]
 }

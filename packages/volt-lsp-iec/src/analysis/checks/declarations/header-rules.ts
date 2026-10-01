@@ -4,18 +4,29 @@
  *   C0182 return-type-not-allowed   — a return type on a POU that isn't a FUNCTION/METHOD (e.g. `PROGRAM P : BOOL`).
  *   C0421 interface-implements       — an INTERFACE using `IMPLEMENTS` where interface inheritance needs `EXTENDS`.
  *   C0149 var-in-interface           — a VAR section placed directly in an INTERFACE body (signatures only).
- *   C0144 inheritance-not-allowed    — `EXTENDS` on an enum/alias DUT (inheritance is FB/interface/struct only).
+ *   C0144 inheritance-not-allowed    — `EXTENDS` on an alias (with "Keyword EXTENDS not applicable"), or on an enum
+ *          whose base is an enum; an enum's other base is one it does not find (both vendors 2026-10-01).
  *   C0542 union-inheritance          — `EXTENDS` on a UNION DUT (unions cannot inherit).
  *   C0145 function-implements        — `IMPLEMENTS` on a FUNCTION (only FBs implement interfaces).
  *   base-class-not-found              — `EXTENDS` on a FUNCTION: a function has no base class, so none is found.
  *   property-without-accessor        — a PROPERTY declaring neither GET nor SET, which nothing can use (a WARNING;
  *          conformance `interface_with_property`).
+ *   access-only-on-methods           — PRIVATE or PROTECTED on a FUNCTION_BLOCK, or on an interface member
+ *          (`unit_fb_private`, `unit_interface_method_private`; an interface PROPERTY's is CODESYS's alone — TwinCAT
+ *          builds it, and a TwinCAT read-back after the push keeps `PROPERTY PRIVATE Val`, 2026-10-01, so the question
+ *          reached it).
+ *   abstract-and-final               — ABSTRACT and FINAL on one FUNCTION_BLOCK, METHOD or interface METHOD
+ *          (`unit_*_abstract_final`).
+ *   interface-member-variable        — a variable an interface method declares outside its parameters (both vendors), or
+ *          an accessor in a VAR or VAR_INPUT (CODESYS's, `unit_interface_property_accessor_var`).
  *
  * Each reads a field the parser only sets in the illegal case (`extendsExtra` / program `returnType` /
  * `implementsMisused` / `extendsMisused`), so the check is a pure presence test — zero-FP
  * by construction (the corpus, which compiles clean, never sets them).
  */
 import type { CheckContext } from "../../diagnostics.js"
+import { renderTypeExpr, type TypeDecl } from "../../../frontend/syntax/index.js"
+import { lookupLocal } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -96,18 +107,83 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
       })
     }
     if (unit.kind === "type_decl" && unit.extendsMisused !== undefined) {
-      // union → C0542 (a WARNING, kept for backward compat; its message names the type);
-      // enum/alias → C0144 (a hard error, the general rule).
-      const isUnion = unit.body.kind === "union"
-      // C0542 is CODESYS-only: live /build shows TwinCAT silently accepts EXTENDS on a UNION.
-      if (isUnion && ctx.config.vendor !== "codesys") continue
-      out.push({
-        severity: isUnion ? "warning" : "error",
-        span: unit.extendsMisused.span,
-        source: SOURCE,
-        code: isUnion ? "union-inheritance" : "inheritance-not-allowed",
-        message: isUnion ? ctx.messages.unionInheritance(unit.extendsMisused.text) : ctx.messages.inheritanceNotAllowed(),
-      })
+      const base = unit.extendsMisused
+      const error = (code: string, message: string) => out.push({ severity: "error", span: base.span, source: SOURCE, code, message })
+      if (unit.body.kind === "union") {
+        // C0542, a WARNING naming the base — CODESYS-only: TwinCAT silently accepts EXTENDS on a UNION
+        // (`unit_type_extends_on_union`, 2026-10-01)
+        if (ctx.config.vendor === "codesys")
+          out.push({ severity: "warning", span: base.span, source: SOURCE, code: "union-inheritance", message: ctx.messages.unionInheritance(base.text) })
+      } else if (unit.body.kind === "enum") {
+        // an enum looks for an ENUM base: with one, inheritance is not allowed (`unit_enum_extends_enum`); with any other
+        // there is none to find (`unit_type_extends_on_enum`, a struct base)
+        if (isEnumType(ctx, base.text)) error("inheritance-not-allowed", ctx.messages.inheritanceNotAllowed())
+        else error("base-class-not-found", ctx.messages.baseClassNotFound(base.text))
+      } else {
+        // an alias, or a TYPE whose body was refused — both vendors give it the alias's two messages
+        // (`unit_type_extends_on_alias`, `unit_struct_extends_list`)
+        error("inheritance-not-allowed", ctx.messages.extendsNotApplicable(base.text, unit.name.text))
+        error("inheritance-not-allowed", ctx.messages.inheritanceNotAllowed())
+      }
     }
+    // PRIVATE / PROTECTED belong to an FB's methods (and properties) alone
+    const accessError = (mods: readonly string[], span: DiagnosticItem["span"]) => {
+      if (mods.includes("PRIVATE") || mods.includes("PROTECTED"))
+        out.push({ severity: "error", span, source: SOURCE, code: "access-only-on-methods", message: ctx.messages.accessOnlyOnMethods() })
+    }
+    // (an FB whose header the vendor refused is no FB at all, and gets no message about its header — `headerRefused`)
+    if (unit.kind === "function_block" && unit.headerRefused === undefined) accessError(unit.modifiers, unit.name.span)
+    if (unit.kind === "interface") {
+      for (const m of unit.methods) accessError(m.modifiers, m.name.span)
+      // an interface PROPERTY's is CODESYS's alone: `unit_interface_property_private` builds on TwinCAT, and the modifier
+      // reached it — a TwinCAT read-back after the push keeps `PROPERTY PRIVATE Val` (2026-10-01)
+      if (ctx.config.vendor === "codesys") for (const p of unit.properties) accessError(p.modifiers, p.name.span)
+    }
+    // A variable an interface METHOD or ACCESSOR declares. An interface METHOD declares parameters alone (both vendors,
+    // 2026-10-01 — `unit_interface_method_var_temp`, `_var_stat`, `_var_inst`; its VAR, CODESYS record:exec,
+    // `unit_interface_method_override`): every other section's variable is "Only inputs, outputs, and inouts allowed
+    // in interface methods", a VAR_TEMP or VAR_INST section is also not allowed in this place, and a VAR_INST is a
+    // variable the interface declares. An ACCESSOR's (CODESYS, record:exec — `unit_interface_property_accessor_var`,
+    // `_var_input`): a VAR's is refused, a VAR_INPUT echoes the declaration; TwinCAT is unmeasured there — the push
+    // refuses to write an accessor's text and TwinCAT has no execution oracle. A bare `VAR END_VAR` is the vendor's
+    // own content (pro2193 holds 263) and no error.
+    if (unit.kind === "interface") {
+      const error = (span: DiagnosticItem["span"], message: string) =>
+        out.push({ severity: "error", span, source: SOURCE, code: "interface-member-variable", message })
+      for (const m of unit.methods)
+        for (const section of m.varSections) {
+          if (PARAMETER_SECTIONS.has(section.sectionKind) || section.decls.length === 0) continue
+          if (section.sectionKind === "VAR_INST") error(section.span, ctx.messages.varInInterface())
+          if (section.sectionKind === "VAR_TEMP" || section.sectionKind === "VAR_INST")
+            error(section.span, ctx.messages.sectionNotAllowed(section.sectionKind))
+          for (const decl of section.decls) error(decl.span, ctx.messages.onlyParametersInInterfaceMethods())
+        }
+      if (ctx.config.vendor === "codesys")
+        for (const p of unit.properties)
+          for (const section of [...p.getterVarSections, ...p.setterVarSections])
+            for (const decl of section.decls) {
+              if (section.sectionKind === "VAR") error(decl.span, ctx.messages.onlyParametersInInterfaceMethods())
+              else if (section.sectionKind === "VAR_INPUT")
+                error(decl.span, ctx.messages.inputInPropertyAccessor(`${decl.names.map((n) => n.text).join(", ")} : ${renderTypeExpr(decl.type)}`))
+            }
+      // ABSTRACT with FINAL on an interface METHOD, as on a function block's (`unit_interface_method_abstract_final`)
+      for (const m of unit.methods)
+        if (m.modifiers.includes("ABSTRACT") && m.modifiers.includes("FINAL"))
+          out.push({ severity: "error", span: m.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() })
+    }
+    if (
+      (unit.kind === "method" || (unit.kind === "function_block" && unit.headerRefused === undefined)) &&
+      unit.modifiers.includes("ABSTRACT") &&
+      unit.modifiers.includes("FINAL")
+    )
+      out.push({ severity: "error", span: unit.name.span, source: SOURCE, code: "abstract-and-final", message: ctx.messages.abstractAndFinal() })
   }
+}
+
+/** The sections an interface METHOD may declare: its parameters. */
+const PARAMETER_SECTIONS: ReadonlySet<string> = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"])
+
+/** Whether `name` declares an ENUM type in the project. */
+function isEnumType(ctx: CheckContext, name: string): boolean {
+  return lookupLocal(ctx.project, name).some((sym) => sym.kind === "type" && (sym.ast as TypeDecl).body.kind === "enum")
 }

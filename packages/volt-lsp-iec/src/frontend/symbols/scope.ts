@@ -26,7 +26,7 @@ export function makeScope(
   kind: ScopeKind,
   name: string,
   span: Span,
-  extra?: Partial<Pick<Scope, "extendsName" | "qualifiedOnly">>,
+  extra?: Partial<Pick<Scope, "extendsName" | "qualifiedOnly" | "undeclared">>,
 ): Scope {
   const scope: Scope = { kind, name, parent, symbols: new Map(), children: [], span, ...extra }
   parent.children.push(scope)

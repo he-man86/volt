@@ -13,7 +13,7 @@ export function checkAbstractInstantiation(ctx: CheckContext, out: DiagnosticIte
     if (decl.type.kind !== "named_type") continue
     const name = decl.type.name.text
     const fbSym = lookupLocal(ctx.project, name).find((s) => s.kind === "function_block")
-    if (fbSym === undefined || (fbSym.ast as FunctionBlock).abstract !== true) continue
+    if (fbSym === undefined || !(fbSym.ast as FunctionBlock).modifiers.includes("ABSTRACT")) continue
     for (const id of decl.names) {
       out.push({
         severity: "error",

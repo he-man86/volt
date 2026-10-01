@@ -38,7 +38,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
     if (p.attributeName?.toLowerCase() !== "abstract") continue
     // the pragma decorates the next unit that opens after it
     const owner = units.find((u) => u.span.start >= p.span.end)
-    if (owner?.kind !== "method" || owner.abstract === true) continue
+    if (owner?.kind !== "method" || owner.modifiers.includes("ABSTRACT")) continue
     out.push({
       severity: "warning",
       span: owner.name.span,

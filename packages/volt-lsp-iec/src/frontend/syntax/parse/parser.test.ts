@@ -32,7 +32,7 @@ END_FUNCTION_BLOCK`, { networkText: true })
   expect(r.errors).toEqual([])
   const fb = r.units[0] as FunctionBlock
   expect(fb.kind).toBe("function_block")
-  expect(fb.accessModifier).toBe("PUBLIC")
+  expect(fb.modifiers).toEqual(["PUBLIC"])
   expect(fb.extends?.text).toBe("Base")
   expect(fb.implements?.map((i) => i.text)).toEqual(["IA", "IB"])
 })

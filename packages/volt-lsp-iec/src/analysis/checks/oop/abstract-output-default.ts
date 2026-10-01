@@ -15,7 +15,7 @@ export function checkAbstractOutputDefault(ctx: CheckContext, out: DiagnosticIte
   for (const unit of ctx.parseResult.units) {
     if (unit.kind === "interface") {
       for (const m of unit.methods) flagOutputDefaults(m.varSections, ctx, out)
-    } else if (unit.kind === "method" && unit.abstract === true) {
+    } else if (unit.kind === "method" && unit.modifiers.includes("ABSTRACT")) {
       flagOutputDefaults(unit.varSections, ctx, out)
     }
   }

@@ -453,6 +453,88 @@ const STRING_LENGTH_AS_WRITTEN: readonly string[] = [
 const UNKNOWN_QUALIFIED_TYPE: readonly string[] = ["decl_type_unknown_qualified"]
 
 /**
+ * FRONTEND-CONFORMANCE 2.4a (2026-10-01) — what each vendor says AFTER a unit header it refuses. The LSP gives the
+ * refusal itself, in the vendor's words (`parse/units`: "Unexpected token 'IMPLEMENTS' found" and "';' expected instead
+ * of '<name>'" for a clause where the header no longer takes one; "Identifier expected instead of 'VAR'" for a list
+ * ending in a comma; "Identifier expected instead of 'PRIVATE'" for an access modifier after another one; "Unexpected
+ * token 'EXTENDS' found" for `STRUCT EXTENDS`), and not the vendors' recovery after it, which is each vendor's own and
+ * conformance 2.8.2's:
+ *   `unit_function_implements`, `unit_function_extends_after_return`, `unit_fb_implements_before_extends`,
+ *   `unit_fb_implements_trailing_comma` — the rest of the declaration read as a declaration LIST ("',, AT or :'
+ *     expected instead of 'VAR_INPUT'", "Unexpected token 'END_VAR' found", "';' expected instead of end of POU" on
+ *     CODESYS; "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of ITF…:;", "Type definition expected instead
+ *     of 'END_VAR'" on TwinCAT) and every variable it held lost ("Identifier 'x' not defined");
+ *   `unit_method_final_private_order`, `unit_method_two_access` — the method's object name no longer its signature's
+ *     ("The name used in the signature is not identical to the object name") and the method not declared;
+ *   `unit_struct_extends_after_struct`, `unit_struct_extends_twice` — the base read as a field name ("',, AT or :'
+ *     expected instead of 'b'"), the next field lost; TwinCAT also loses the END_STRUCT. The LSP's field resync names
+ *     each token in its way — LSP-only messages, accepted with the cell;
+ *   `unit_struct_extends_list` — the bodiless type has no component ("'c' is no component of …"); the LSP types a
+ *     refused body as nothing, and says nothing of its members.
+ * Niche: accepted loss (0 occurrences in the corpora — no clause after a FUNCTION's return type, IMPLEMENTS before
+ * EXTENDS, IMPLEMENTS list ending in a comma, access modifier after another modifier, STRUCT EXTENDS or EXTENDS list in
+ * any of the six).
+ */
+const UNIT_HEADER_RECOVERY: readonly string[] = [
+  "unit_function_implements",
+  "unit_function_extends_after_return",
+  "unit_fb_implements_before_extends",
+  "unit_fb_implements_trailing_comma",
+  "unit_method_final_private_order",
+  "unit_method_two_access",
+  "unit_struct_extends_after_struct",
+  "unit_struct_extends_twice",
+  "unit_struct_extends_list",
+  // 2.4a review (2026-10-01): an access modifier after FINAL on an INTERFACE method — the LSP gives the vendors' first
+  // message, "Identifier expected instead of 'PUBLIC'"; both go on to read the object name '' (the signature, the
+  // `;`, the parameters-only rule and a missing implementation of method '')
+  "unit_interface_method_final_public_order",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.4a (2026-10-01) — an ACTION's header text, which the PUSH drops: a CODESYS action has no
+ * declaration, so `ACTION Act` + a VAR section reaches the IDE as the body alone ("Identifier 't' not defined", both
+ * vendors), and `ACTION PRIVATE Act` as a plain action (it builds). The LSP reads the text as written and refuses both.
+ * A bridge fact, reported to the owner (the push drops text silently); niche: accepted loss (0 occurrences in the
+ * corpora — a pulled action never carries a header beyond its name).
+ */
+const ACTION_HEADER_DROPPED_BY_THE_PUSH: readonly string[] = ["unit_action_var_section", "unit_action_modifier"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.4a (2026-10-01) — a PRIVATE or PROTECTED FUNCTION_BLOCK, CALLED: both vendors add "Cannot access
+ * private method ???.FB_…" (TwinCAT "…private Method…") at the call, beside the header's "PRIVATE and PROTECTED may only
+ * be applied on methods of function blocks", which the LSP gives (`unit_fb_private_not_called` has the header's alone).
+ * Member access is conformance 3.5's (M1–M6: "access modifiers resolve first and are refused after"). Missing-only;
+ * niche: accepted loss (0 PRIVATE or PROTECTED function blocks in the corpora).
+ */
+const FB_ACCESS_AT_THE_CALL: readonly string[] = ["unit_fb_private", "unit_fb_protected"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.4a (2026-10-01) — `unit_enum_extends_enum`: `e := VA`, a value of ANOTHER enum type, is the
+ * warning "Implicit conversion from one enumeration type (BASE) to another (E)" on both vendors (as
+ * `decl_implicit_enum_cross_assign`), where the LSP's assignment check refuses it ("Cannot convert type …") — an
+ * LSP-only error. The question the fixture asks (EXTENDS on an enum) agrees; the enum conversion is conformance 4.5.1's
+ * (CV3–CV5).
+ */
+const ENUM_TO_ENUM_IS_A_WARNING: readonly string[] = ["unit_enum_extends_enum"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.4a (2026-10-01), TwinCAT only:
+ *   `unit_fb_extends_qualified` — TwinCAT has no `Standard` namespace (its library is Tc2_Standard), so the base is
+ *     not found, as the LSP says; TwinCAT then reports every inherited name the body uses ("Identifier 'PT' not
+ *     defined"), where the LSP is silent inside an FB whose base did not resolve (`hasUnresolvedBase`) — H6, task 3.2.4;
+ *   `unit_fb_modifier_twice`, `unit_fb_public_internal`, `unit_fb_final_public_order` — the FB left undeclared is
+ *     "Unknown type" where it is used, which the LSP has no standing to say on TwinCAT (`unknownTypeName`: its
+ *     References/ materialization lacks types the compiler knows). CODESYS agrees exactly on all three.
+ */
+const TWINCAT_UNIT_DIVERGENCES: readonly string[] = [
+  "unit_fb_extends_qualified",
+  "unit_fb_modifier_twice",
+  "unit_fb_public_internal",
+  "unit_fb_final_public_order",
+]
+
+/**
  * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — what a vendor says AFTER a declared type it refuses, each one cell and each
  * missing-only (the LSP says the refusal itself, `analysis` declared-type):
  *   `decl_array_reversed_bounds` (CODESYS) — "The variable 'a' is too large. (variable size: 2147483647, …)": the
@@ -628,6 +710,11 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...STRING_LENGTH_AS_WRITTEN,
     ...UNKNOWN_QUALIFIED_TYPE,
     ...AFTER_A_REFUSED_TYPE.twincat,
+    ...UNIT_HEADER_RECOVERY,
+    ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
+    ...FB_ACCESS_AT_THE_CALL,
+    ...ENUM_TO_ENUM_IS_A_WARNING,
+    ...TWINCAT_UNIT_DIVERGENCES,
     ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
     ...GVL_MEMBER_NOT_DECLARED,
@@ -761,6 +848,10 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...UNIT_HEADER_RECOVERY,
+    ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
+    ...FB_ACCESS_AT_THE_CALL,
+    ...ENUM_TO_ENUM_IS_A_WARNING,
     ...DECLARATION_RECOVERY,
     ...IMPLICIT_ENUM_LIST_RECOVERY,
     ...IMPLICIT_ENUM_TYPE_NAME,

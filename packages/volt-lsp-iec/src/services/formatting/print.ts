@@ -24,6 +24,7 @@ import {
   type StatementList,
   stmtChildLists,
   type TopLevel,
+  type TypeExpr,
   unitBodies,
   type VarDecl,
   type VarSection,
@@ -130,17 +131,17 @@ function printUnit(unit: TopLevel): string {
     case "function_block":
       return wrap(fbHeader(unit), unit.varSections, unit.body, "END_FUNCTION_BLOCK")
     case "program":
-      return wrap(`PROGRAM ${unit.name.text}`, unit.varSections, unit.body, "END_PROGRAM")
+      return wrap(`PROGRAM ${unit.name.text}${returnTypeText(unit.returnType)}`, unit.varSections, unit.body, "END_PROGRAM")
     case "function":
       return wrap(
-        `FUNCTION ${unit.name.text}${unit.returnType ? ` : ${renderTypeExpr(unit.returnType)}` : ""}`,
+        `FUNCTION ${unit.name.text}${unit.extendsMisused ? ` EXTENDS ${unit.extendsMisused.text}` : ""}${namesClause("IMPLEMENTS", unit.implementsMisused)}${returnTypeText(unit.returnType)}`,
         unit.varSections,
         unit.body,
         "END_FUNCTION",
       )
     case "method":
       return wrap(
-        `METHOD ${modifiers(unit)}${unit.name.text}${unit.returnType ? ` : ${renderTypeExpr(unit.returnType)}` : ""}`,
+        `METHOD ${modifierText(unit.modifiers)}${unit.name.text}${returnTypeText(unit.returnType)}`,
         unit.varSections,
         unit.body,
         "END_METHOD",
@@ -160,22 +161,20 @@ function printUnit(unit: TopLevel): string {
   }
 }
 
+// Every header clause as written — a clause a CHECK refuses (a PROGRAM's return type, a FUNCTION's IMPLEMENTS, an FB's
+// second base) is still the file's text: reprinted without it, formatting deleted it (conformance 2.4).
 function fbHeader(fb: Extract<TopLevel, { kind: "function_block" }>): string {
-  const mods = [fb.accessModifier, fb.final ? "FINAL" : undefined, fb.abstract ? "ABSTRACT" : undefined].filter(Boolean)
-  const ext = fb.extends ? ` EXTENDS ${fb.extends.text}` : ""
-  const impl =
-    fb.implements && fb.implements.length > 0 ? ` IMPLEMENTS ${fb.implements.map((i) => i.text).join(", ")}` : ""
-  return `FUNCTION_BLOCK ${mods.length ? mods.join(" ") + " " : ""}${fb.name.text}${ext}${impl}`
+  const bases = fb.extends ? [fb.extends, ...(fb.extendsExtra ?? [])] : []
+  return `FUNCTION_BLOCK ${modifierText(fb.modifiers)}${fb.name.text}${namesClause("EXTENDS", bases)}${namesClause("IMPLEMENTS", fb.implements)}`
 }
 
-function modifiers(m: Extract<TopLevel, { kind: "method" }>): string {
-  const mods = [
-    m.accessModifier,
-    m.final ? "FINAL" : undefined,
-    m.abstract ? "ABSTRACT" : undefined,
-    m.override ? "OVERRIDE" : undefined,
-  ].filter(Boolean)
-  return mods.length ? mods.join(" ") + " " : ""
+/** ` KEYWORD a, b` for a header's name list, or nothing when it has none. */
+function namesClause(keyword: string, names: readonly { text: string }[] | undefined): string {
+  return names !== undefined && names.length > 0 ? ` ${keyword} ${names.map((n) => n.text).join(", ")}` : ""
+}
+
+function returnTypeText(t: TypeExpr | undefined): string {
+  return t !== undefined ? ` : ${renderTypeExpr(t)}` : ""
 }
 
 function wrap(header: string, sections: readonly VarSection[], body: BodySpan, ender: string): string {
@@ -363,7 +362,7 @@ function modifierText(written: readonly string[]): string {
 // An interface member's `%FOLDER` closes its declaration — the last line before END_METHOD, or before a property's
 // accessors — which is where the push reads it (`StReader.PeelFolderClosing`).
 function printInterface(iface: Extract<TopLevel, { kind: "interface" }>): string {
-  const ext = iface.extends && iface.extends.length > 0 ? ` EXTENDS ${iface.extends.map((i) => i.text).join(", ")}` : ""
+  const ext = `${namesClause("EXTENDS", iface.extends)}${namesClause("IMPLEMENTS", iface.implementsMisused)}`
   const methods = iface.methods.map((m) => {
     const ret = m.returnType ? ` : ${renderTypeExpr(m.returnType)}` : ""
     const vars = m.varSections.map(printVarSection).join("\n")
@@ -371,7 +370,10 @@ function printInterface(iface: Extract<TopLevel, { kind: "interface" }>): string
     return `${head}${vars ? vars + "\n" : ""}${folderLine(m.folder)}${TAB}END_METHOD`
   })
   const properties = iface.properties.map((p) => {
-    const getset = `${p.hasGetter ? `\n${TAB}GET` : ""}${p.hasSetter ? `\n${TAB}SET` : ""}`
+    // an accessor that declares VAR sections is written as a block, so they are kept (U21); a bare one as its keyword
+    const accessor = (kw: string, vars: readonly VarSection[]) =>
+      vars.length === 0 ? `\n${TAB}${kw}` : `\n${TAB}${kw}\n${vars.map(printVarSection).join("\n")}\n${TAB}END_${kw}`
+    const getset = `${p.hasGetter ? accessor("GET", p.getterVarSections) : ""}${p.hasSetter ? accessor("SET", p.setterVarSections) : ""}`
     const folder = p.folder === undefined ? "" : `\n%FOLDER ${p.folder}`
     const head = `${TAB}PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}`
     return `${head}${folder}${getset}\n${TAB}END_PROPERTY`
@@ -380,20 +382,26 @@ function printInterface(iface: Extract<TopLevel, { kind: "interface" }>): string
   return `INTERFACE ${iface.name.text}${ext}\n${members ? members + "\n" : ""}END_INTERFACE`
 }
 
+// EXTENDS stands on the TYPE line and nowhere else: `STRUCT EXTENDS B` is refused by both vendors
+// (`unit_struct_extends_after_struct`), and printing it there turned a struct the vendor builds into one it refuses. An
+// EXTENDS a check refuses (`extendsMisused`) and a type's initializer are the file's text too — printed, not dropped.
 function printTypeDecl(t: Extract<TopLevel, { kind: "type_decl" }>): string {
   const body = t.body
+  const base = body.kind === "struct" ? body.extends : t.extendsMisused
+  const head = `TYPE ${t.name.text}${base ? ` EXTENDS ${base.text}` : ""} :`
   if (body.kind === "struct" || body.kind === "union") {
-    const ext = body.kind === "struct" && body.extends ? ` EXTENDS ${body.extends.text}` : ""
     const fields = body.fields.map((f) => TAB + printVarDecl(f)).join("\n")
     const kw = body.kind === "struct" ? "STRUCT" : "UNION"
-    return `TYPE ${t.name.text} :\n${kw}${ext}\n${fields}\nEND_${kw}\nEND_TYPE`
+    return `${head}\n${kw}\n${fields}\nEND_${kw}\nEND_TYPE`
   }
   if (body.kind === "enum") {
     const values = body.values.map(printEnumValue).join(", ")
-    const base = body.baseType ? ` ${renderTypeExpr(body.baseType)}` : ""
-    return `TYPE ${t.name.text} : (${values})${base};\nEND_TYPE`
+    const baseType = body.baseType ? ` ${renderTypeExpr(body.baseType)}` : ""
+    return `${head} (${values})${baseType}${body.init ? ` := ${initText(body.init)}` : ""};\nEND_TYPE`
   }
-  return `TYPE ${t.name.text} : ${renderTypeExpr(body.target)};\nEND_TYPE`
+  // a refused body carries a parse error, and a unit with one is kept as written (`printOrKeep`), never reprinted
+  if (body.kind === "refused") throw new Error(`TYPE ${t.name.text} has a refused body; it is kept as written, not printed`)
+  return `${head} ${renderTypeExpr(body.target)}${body.init ? ` := ${initText(body.init)}` : ""};\nEND_TYPE`
 }
 
 function printEnumValue(v: EnumValue): string {

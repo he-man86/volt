@@ -19,7 +19,7 @@ import type { CheckContext } from "../../diagnostics.js"
 export function checkInterfaceImplementations(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function_block") continue
-    if (unit.abstract === true) continue // an abstract FB may leave interface members abstract/deferred
+    if (unit.modifiers.includes("ABSTRACT")) continue // an abstract FB may leave interface members abstract/deferred
     const implementsList = unit.implements
     if (implementsList === undefined || implementsList.length === 0) continue
     const fbScope = scopeForUnit(ctx.project, unit)
@@ -73,7 +73,7 @@ function collectProvidedMembers(
     visited.add(ext)
     const base = findScopeByName(project, ext)
     if (base === undefined || base.kind !== "pou") return { names, baseUnresolved: true, abstractInChain }
-    if ((lookupLocal(project, ext)[0]?.ast as FunctionBlock | undefined)?.abstract === true) abstractInChain = true
+    if ((lookupLocal(project, ext)[0]?.ast as FunctionBlock | undefined)?.modifiers.includes("ABSTRACT") === true) abstractInChain = true
     scope = base
   }
   return { names, baseUnresolved: false, abstractInChain }

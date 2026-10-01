@@ -13,6 +13,10 @@
  *   error at all is a finding the other way — the parser accepting what the vendor refuses.
  *
  * A fixture `support/divergences.ts` pins for a vendor is counted, not measured, for that vendor (it is held there).
+ * A fixture whose PUSH a vendor refuses (`vendorRefuses`) has no build recording there. On CODESYS `record:exec` loads
+ * it without the push, and its refusal ("does not compile: a | b") is CODESYS's answer — measured like a build
+ * (`unit_method_override`). With no such answer the push's refusal is all there is, and the fixture is counted, not
+ * measured: a parse error there is neither a finding a recording could remove nor one the parser could.
  *
  * The counts are the census table (openspec frontend-conformance 0.1); the findings are pinned in
  * `baselines/parse-census.json` and may only be removed by fixing the parser — or, where a vendor's recording is
@@ -23,7 +27,22 @@ import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { checkBaseline, tally, type Baseline } from "./baseline.js"
 import { parse, parseErrors } from "./dumps.js"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { corpusProjects, fixtureSources, libraryRepoFiles, messagePool, type RecordedBuild } from "./sources.js"
+
+/** CODESYS's `record:exec` refusals ("does not compile: a | b"), by fixture — the answer to a fixture whose push is refused. */
+const EXEC_REFUSALS: ReadonlyMap<string, RecordedBuild> = new Map(
+  Object.entries(
+    (JSON.parse(readFileSync(join(import.meta.dir, "..", "conformance", "recordings", "codesys.run.json"), "utf8")) as {
+      tests: Record<string, { error?: string }>
+    }).tests,
+  ).flatMap(([name, r]) =>
+    r.error?.startsWith("does not compile: ") === true
+      ? [[name, { buildSuccess: false, diagnostics: r.error.slice("does not compile: ".length).split(" | ").map((message) => ({ severity: "error", message })) }] as const]
+      : [],
+  ),
+)
 
 /** A recorded message that reads as a syntax refusal — to count the refusals the parser does not share (the other direction). */
 const SYNTAX_MESSAGE = /expected|unexpected token/i
@@ -56,7 +75,8 @@ function census(): Baseline {
   for (const vendor of ["codesys", "twincat"] as const satisfies readonly Dialect[]) {
     const key = `fixtures ${vendor}`
     for (const f of fixtureSources()) {
-      const rec = f[vendor]
+      const rec =
+        f[vendor] ?? (vendor === "codesys" && f.test.vendorRefuses?.codesys !== undefined ? EXEC_REFUSALS.get(f.test.name) : undefined)
       // A fixture `support/divergences.ts` pins as disagreeing with this vendor's build is held there — the suite replays
       // it as an expected failure and fails the day it agrees — so it is counted here, not measured twice.
       if (rec !== undefined && KNOWN_DIVERGENCES[vendor].has(f.test.name)) {
@@ -67,6 +87,10 @@ function census(): Baseline {
         parseErrors(parse(s, vendor), vendor).map((e) => ({ ...e, id: s.id })),
       )
       const lsp = errors.length > 0 ? "LSP parse error" : "no LSP parse error"
+      if (rec === undefined && f.test.vendorRefuses?.[vendor] !== undefined) {
+        tally(counts, `${key}: the push refuses it, ${lsp}`)
+        continue
+      }
       if (rec === undefined) {
         tally(counts, `${key}: unrecorded, ${lsp}`)
         for (const e of errors)

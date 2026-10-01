@@ -135,6 +135,13 @@ export class Cursor {
     return this.tokens[this.tokens.length - 1]
   }
 
+  /** The last meaningful token consumed (the first token when nothing was) — where a unit that ends without its closer
+   *  ends (`parse/units/type-decl`). */
+  previous(): Token {
+    for (let i = this.pos - 1; i >= 0; i--) if (!isTrivia(this.tokens[i]!.kind)) return this.tokens[i]!
+    return this.tokens[0]!
+  }
+
   /** Are we at end-of-stream? */
   atEof(): boolean {
     return this.peek().kind === "eof"

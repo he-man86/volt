@@ -114,3 +114,24 @@ describe("EXTENDS with two candidates", () => {
     expect(baseFolder(reverse, "VisuUser")).toBe(baseFolder(forward, "VisuUser")!)
   })
 })
+
+// A QUALIFIED BASE — `EXTENDS Standard.TON` (conformance `unit_fb_extends_qualified`, CODESYS builds it and the derived FB
+// reads the base's `PT`, 2026-10-01): the name before the dot is a library's NAMESPACE, the one after it a unit of it.
+test("a qualified EXTENDS names a unit of a library namespace", () => {
+  const ton = file(`${LIB("Standard")}/TON.fb`, "FUNCTION_BLOCK TON\nVAR_INPUT\n  PT : TIME;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+  const derived = file("file:///w/FB_D.fb", "FUNCTION_BLOCK FB_D EXTENDS Standard.TON\nEND_FUNCTION_BLOCK\n")
+  const unknown = file("file:///w/FB_U.fb", "FUNCTION_BLOCK FB_U EXTENDS NoSuchLib.TON\nEND_FUNCTION_BLOCK\n")
+  const project = buildSymbolTable([ton, derived, unknown], [manifest("Standard", "Standard", "Standard")])
+  const child = (name: string) => project.children.find((c) => c.name === name)!
+  expect(child("FB_D").baseScope?.defUri).toBe(ton.uri)
+  expect(child("FB_U").baseScope).toBeUndefined()
+})
+
+// A REFUSED FB IS NO BASE — `FUNCTION_BLOCK FINAL PUBLIC FB_A` declares no FB on either vendor (`headerRefused`), so an
+// `EXTENDS FB_A` has nothing to link to: the scope the binder keeps for FB_A's own body is no candidate for anyone.
+test("an FB whose header is refused is no candidate base", () => {
+  const refused = file("file:///w/FB_A.fb", "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n  n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+  const derived = file("file:///w/FB_D.fb", "FUNCTION_BLOCK FB_D EXTENDS FB_A\nEND_FUNCTION_BLOCK\n")
+  const project = buildSymbolTable([refused, derived], [])
+  expect(project.children.find((c) => c.name === "FB_D")!.baseScope).toBeUndefined()
+})

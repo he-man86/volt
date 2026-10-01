@@ -231,14 +231,20 @@ function asUnit(t: LanguageTest, source: string, unit: TopLevel, pragmas: string
           if (m.kind === "interface_method") return { kind: "method", name: m.name.text, declaration: bodyText(source, m.span), implementation: "" }
           // Only the accessors the text names: giving an unnamed one both made CODESYS demand `__SETVALUE` of a GET-only
           // implementation the bridge build had accepted (`interface_with_property`).
-          const none: LoadAccessor = { declaration: "", implementation: "" }
+          // AS WRITTEN: the header with its modifiers, and each accessor's VAR sections. Both used to be synthesized —
+          // `PROPERTY <name> : <type>` and an empty accessor — so `unit_interface_property_private` and
+          // `unit_interface_property_accessor_var` put a question to CODESYS that none of them asks (conformance 2.4).
+          const accessor = (sections: readonly VarSection[]): LoadAccessor => ({
+            declaration: sections.map((v) => source.slice(v.span.start, v.span.end)).join("\n"),
+            implementation: "",
+          })
           return {
             kind: "property",
             name: m.name.text,
-            declaration: `PROPERTY ${m.name.text} : ${source.slice(m.dataType.span.start, m.dataType.span.end)}\n`,
+            declaration: `${source.slice(m.span.start, m.dataType.span.end)}\n`,
             implementation: "",
-            ...(m.hasGetter ? { get: none } : {}),
-            ...(m.hasSetter ? { set: none } : {}),
+            ...(m.hasGetter ? { get: accessor(m.getterVarSections) } : {}),
+            ...(m.hasSetter ? { set: accessor(m.setterVarSections) } : {}),
           }
         }),
       }

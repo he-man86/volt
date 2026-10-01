@@ -374,3 +374,69 @@ test("formatting keeps an FB array's bracket list without `:=`", () => {
   expect(out).toContain("fbs : ARRAY[0..1] OF FB_X [")
   expect(parseSource(out, { networkText: true }).units[0]).toMatchObject({ varSections: [{ decls: [{ initOp: "FB_Init" }, {}] }] })
 })
+
+// conformance 2.4 (`fixtures/grammar/units.ts`): the printer wrote a header from flags in a fixed order and dropped what
+// a check refuses — so formatting reordered `FINAL PUBLIC`-style modifiers, moved a STRUCT's EXTENDS to where both vendors
+// refuse it, and deleted a FUNCTION's IMPLEMENTS, a PROGRAM's return type, an FB's second base, a TYPE's initializer and
+// an interface accessor's VAR sections.
+test("roundtrip: every header clause as written — modifier order, a refused clause, a qualified base", () => {
+  roundtrips(`FUNCTION_BLOCK INTERNAL FINAL FB_X EXTENDS Standard.TON, Other IMPLEMENTS __SYSTEM.IQueryInterface
+VAR
+	n : INT;
+END_VAR
+n := 1;
+END_FUNCTION_BLOCK
+METHOD PROTECTED FINAL ABSTRACT Step : BOOL
+Step := TRUE;
+END_METHOD`)
+  roundtrips(`FUNCTION F EXTENDS B IMPLEMENTS I : INT
+VAR_INPUT
+	x : INT;
+END_VAR
+F := x;
+END_FUNCTION`)
+  roundtrips(`PROGRAM P : BOOL
+VAR
+	n : INT;
+END_VAR
+n := 1;
+END_PROGRAM`)
+})
+
+test("roundtrip: a TYPE's EXTENDS stays on the TYPE line, and its initializer stays", () => {
+  const src = `TYPE S EXTENDS Base :
+STRUCT
+	x : INT;
+END_STRUCT
+END_TYPE`
+  roundtrips(src)
+  const doc: Document = { uri: "file:///S.struct", source: src, parseResult: parseSource(src, { networkText: true }) }
+  expect(formatDocument(doc)).toContain("TYPE S EXTENDS Base :\nSTRUCT\n")
+  roundtrips(`TYPE A EXTENDS S : INT := 5;
+END_TYPE`)
+  roundtrips(`TYPE E : (Red, Green) DINT := Green;
+END_TYPE`)
+})
+
+test("roundtrip: an interface's IMPLEMENTS and its accessors' VAR sections", () => {
+  roundtrips(`INTERFACE I2 IMPLEMENTS I1
+PROPERTY Level : INT
+GET
+VAR
+	scratch : INT;
+END_VAR
+END_GET
+SET
+END_PROPERTY
+END_INTERFACE`)
+})
+
+test("roundtrip: an FB header the vendor refuses keeps every modifier as written", () => {
+  // `unit_fb_final_public_order`: no message on either vendor, so the unit is reprinted — and must not lose `PUBLIC`
+  roundtrips(`FUNCTION_BLOCK FINAL PUBLIC FB_X
+VAR
+	n : INT;
+END_VAR
+n := 1;
+END_FUNCTION_BLOCK`)
+})

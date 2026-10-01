@@ -1277,7 +1277,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 'INT'". The LSP says nothing. A rise for measurement — the refusal is the follow-up.
   // 7 -> 17. transpile-review-2026-09-29 tasks 35, 37 and 40: ten sources CODESYS refuses (a FOR step or a CASE label
   // outside the type, an inverted CASE range, DATE/DT/TOD +/- LTIME) that the LSP accepts — `MEASURED_SILENT` names them.
-  "lsp-gap": 17,
+  // 17 -> 18. frontend-conformance 2.4a review (2026-10-01): `unit_interface_property_accessor_var_output` and
+  // `_var_in_out` asked whether an interface accessor may declare an output or in-out — CODESYS refuses the implementer's
+  // getter against it ("Interface of overridden method '__GETVAL' … doesn't match declaration"), which the LSP does not
+  // compare; niche, accepted (`deferred.lsp`, 0 occurrences in the corpora). A rise for measurement.
+  "lsp-gap": 18,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1378,7 +1382,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // array only as a VAR_IN_OUT; niche: accepted loss (0 occurrences in the corpora — their 36 `ARRAY[*]` are VAR_IN_OUT).
   // `decl_pointer_to_pointer_deref` was recorded refused by lowering and lowers too (`pointers.ts`: a pointer's storage
   // is its target's), so it adds nothing here.
-  "not-lowered": 111,
+  // 111 -> 113, FOR MEASUREMENT. frontend-conformance 2.4a recorded two units CODESYS builds and runs that lowering
+  // refuses, each the transpiler's and not the front-end's: `unit_fb_extends_qualified` (an FB extending a LIBRARY FB,
+  // `Standard.TON` — its base has no layout lowering reaches, `layout-base`; 0 qualified library bases in the corpora)
+  // and `unit_type_extends_on_union` (a UNION of INT and DINT — `layout-union`, its overlaid bytes unmeasured; the
+  // EXTENDS is only the warning's).
+  "not-lowered": 113,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1610,7 +1619,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3086 -> 3124 (2026-10-01, frontend-conformance 2.3.6): the same type-expression fixtures and fixes, on TwinCAT, with
   // its own words for a reversed bound, a reference as a base type and an `ARRAY[*]` outside a VAR_IN_OUT.
   // 3124 -> 3135 (2026-10-01, 2.3b review): the same cells on TwinCAT, in its words for a nested `ARRAY[*]`.
-  { vendor: "twincat", floor: 3135 },
+  // 3135 -> 3191 (2026-10-01, frontend-conformance 2.4a): the same unit fixtures and fixes, on TwinCAT, with its own
+  // words for PRIVATE/PROTECTED, the alias's EXTENDS (the type named, not the base) and an interface property's
+  // PRIVATE/PROTECTED (it builds).
+  // 3191 -> 3200 (2026-10-01, 2.4a review): the review's cells on TwinCAT (a PROPERTY's FINAL/ABSTRACT after its access
+  // modifier, an interface METHOD's VAR_TEMP/VAR_STAT/VAR_INST, a refused FB as no base).
+  { vendor: "twincat", floor: 3200 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1722,7 +1736,14 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3178 -> 3190 (2026-10-01, 2.3b review): the cells the review asked for — punctuation and TIME/DATE/platform-integer
   // subranges, untyped negative and `N-1` bounds, a POINTER TO POINTER written through, a TYPE enum value followed by
   // neither `,` nor `)` in the vendors' two wordings, an `ARRAY[*]` nested, in a STRUCT field or a METHOD's VAR_INPUT.
-  { vendor: "codesys", floor: 3190 },
+  // 3190 -> 3250 (2026-10-01, frontend-conformance 2.4a): the unit fixtures (`grammar/units.ts`), recorded live — the
+  // header clauses in each position, each modifier on each unit kind (an access modifier only first, OVERRIDE a name),
+  // a qualified base linked through its library's namespace, the TYPE's `;` per body kind and a refused body kept, the
+  // checks the recordings worded (PRIVATE/PROTECTED, ABSTRACT and FINAL, EXTENDS on an alias or enum). Not agreeing:
+  // the marks of `support/divergences.ts` 2.4a.
+  // 3250 -> 3259 (2026-10-01, 2.4a review): the review's cells (a PROPERTY's FINAL/ABSTRACT after its access modifier,
+  // an interface METHOD's ABSTRACT FINAL and VAR_TEMP/VAR_STAT/VAR_INST, a refused FB as no base).
+  { vendor: "codesys", floor: 3259 },
 ]
 
 

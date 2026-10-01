@@ -13,26 +13,21 @@
 import type { BodySpan, Property } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
-import { PROPERTY_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
+import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
 import { plainTokenText } from "../errors.js"
 import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
 import { collectVarSections } from "../declarations.js"
-import { identFromToken, readModifiers } from "../names.js"
+import { identFromToken, readModifiers, readPropertyModifiers } from "../names.js"
 import { collectAccessorBody } from "../body.js"
-
-/** What may stand before a property's name, and before an accessor's VAR sections (`SET PRIVATE …`). */
 
 export function parseProperty(c: Cursor): Property | undefined {
   const start = c.expectKeyword("PROPERTY")
   if (start === undefined) return undefined
 
-  // Modifiers before the name, in any order: an access level plus optional ABSTRACT/FINAL
-  // (e.g. `PROPERTY PUBLIC ABSTRACT Busy`). Keep the access level; ABSTRACT/FINAL are eaten but unused.
-  let accessModifier: Keyword | undefined
-  const modifiers = readModifiers(c, PROPERTY_MODIFIERS).map((m) => m.keyword!)
-  for (const m of modifiers)
-    if (m === "PUBLIC" || m === "PRIVATE" || m === "PROTECTED" || m === "INTERNAL") accessModifier = m
+  // Modifiers before the name: an access level, then ONE of ABSTRACT/FINAL (e.g. `PROPERTY PUBLIC ABSTRACT Busy`), kept
+  // as written — `readPropertyModifiers`.
+  const modifiers = readPropertyModifiers(c)
 
   const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
@@ -54,7 +49,6 @@ export function parseProperty(c: Cursor): Property | undefined {
       return {
         kind: "property",
         name,
-        ...(accessModifier !== undefined ? { accessModifier } : {}),
         modifiers,
         ...(folder !== undefined ? { folder } : {}),
         dataType,
@@ -93,7 +87,6 @@ export function parseProperty(c: Cursor): Property | undefined {
   return {
     kind: "property",
     name,
-    ...(accessModifier !== undefined ? { accessModifier } : {}),
     modifiers,
     ...(folder !== undefined ? { folder } : {}),
     dataType,
@@ -109,7 +102,7 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   const kind: "get" | "set" = kw.keyword === "GET" ? "get" : "set"
   // An accessor may carry its own access level + ABSTRACT/FINAL (`SET PRIVATE …`) before its
   // VAR sections — kept, so they don't leak into the accessor body and the formatter prints them back.
-  const modifiers = readModifiers(c, PROPERTY_MODIFIERS).map((m) => m.keyword!)
+  const modifiers = readModifiers(c, MEMBER_MODIFIERS).map((m) => m.keyword!)
   const varSections = collectVarSections(c)
   const endAccessor: Keyword = kind === "get" ? "END_GET" : "END_SET"
 

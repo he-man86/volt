@@ -158,3 +158,56 @@ END_INTERFACE`)
 
   expect(pr.errors.length).toBeGreaterThan(0)
 })
+
+test("an interface accessor's VAR sections are KEPT in the AST, each accessor its own (U21)", () => {
+  // Read and dropped, the formatter reprinted the property without them and deleted the vendor's content.
+  const pr = parse(`INTERFACE IThing
+PROPERTY Level : INT
+GET
+VAR
+	scratch : INT;
+END_VAR
+END_GET
+SET
+END_SET
+END_PROPERTY
+END_INTERFACE`)
+  expect(pr.errors).toEqual([])
+  const itf = pr.units[0]
+  if (itf?.kind !== "interface") throw new Error("not an interface")
+  const p = itf.properties[0]!
+  expect(p.getterVarSections.map((s) => s.decls.map((d) => d.names[0]?.text))).toEqual([["scratch"]])
+  expect(p.setterVarSections).toEqual([])
+})
+
+test("an unterminated INTERFACE keeps its IMPLEMENTS clause, so the check still sees it", () => {
+  const pr = parse("INTERFACE I2 IMPLEMENTS I1\nMETHOD M : INT\nEND_METHOD\n")
+  const itf = pr.units[0]
+  if (itf?.kind !== "interface") throw new Error("not an interface")
+  expect(itf.implementsMisused?.map((i) => i.text)).toEqual(["I1"])
+})
+
+test("an interface's EXTENDS list and IMPLEMENTS read qualified names as one dotted identifier", () => {
+  const pr = parse("INTERFACE I EXTENDS __SYSTEM.IQueryInterface, IOther\nEND_INTERFACE")
+  expect(pr.errors).toEqual([])
+  const itf = pr.units[0]
+  if (itf?.kind !== "interface") throw new Error("not an interface")
+  expect(itf.extends?.map((i) => i.text)).toEqual(["__SYSTEM.IQueryInterface", "IOther"])
+})
+
+test("an interface member's modifiers are refused where a function block's are (U18)", () => {
+  // CODESYS 2026-10-01: an access modifier stands only first on an interface METHOD too, in a method's words
+  // (`unit_interface_method_final_public_order`); an interface PROPERTY takes one of FINAL/ABSTRACT after its access
+  // modifier, in a property's words (`unit_interface_property_final_public_order`, `_abstract_final`)
+  const errors = (member: string) => parse(`INTERFACE I\n${member}\nEND_INTERFACE\n`).errors.map((e) => e.message)
+  expect(errors("METHOD FINAL PUBLIC Get : INT\nEND_METHOD")).toEqual(["Identifier expected instead of 'PUBLIC'"])
+  expect(errors("PROPERTY FINAL PUBLIC Val : INT\nGET\nEND_GET\nEND_PROPERTY")).toEqual([
+    "Unexpected token 'PUBLIC' found",
+    "';' expected instead of 'Val'",
+  ])
+  expect(errors("PROPERTY ABSTRACT FINAL Val : INT\nGET\nEND_GET\nEND_PROPERTY")).toEqual([
+    "Unexpected token 'FINAL' found",
+    "';' expected instead of 'Val'",
+  ])
+  expect(errors("METHOD PUBLIC FINAL Get : INT\nEND_METHOD\nPROPERTY PUBLIC ABSTRACT Val : INT\nGET\nEND_GET\nEND_PROPERTY")).toEqual([])
+})

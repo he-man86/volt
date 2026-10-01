@@ -60,7 +60,9 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
         })
       } else if (cycle !== undefined) {
         continue
-      } else if (!nameResolves(unit.extends.text, scope, ctx.project, ctx.references)) {
+      } else if (scope.baseScope === undefined && !nameResolves(unit.extends.text, scope, ctx.project, ctx.references)) {
+        // the base the symbol table LINKED is the answer first: a qualified library base (`EXTENDS Standard.TON`,
+        // `unit_fb_extends_qualified`) resolves there, through its namespace, where a name lookup has no namespace
         // Two errors for a base: the definition it could not find, and the TYPE it therefore does not have. An
         // unresolved INTERFACE gets only the first (conformance `cc2_base_and_interface_not_found`).
         // TWINCAT REPORTS ONLY THE FIRST — same fixture, its recording 2026-09-20: it says the base class is

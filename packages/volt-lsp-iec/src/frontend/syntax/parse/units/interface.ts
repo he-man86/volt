@@ -16,11 +16,11 @@ import type { Identifier, Interface, InterfaceMethod, InterfaceProperty, VarSect
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { atVarSection, collectVarSections, parseVarSection } from "../declarations.js"
-import { INTERFACE_MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
+import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
 import { plainTokenText } from "../errors.js"
 import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
-import { identFromToken, joinedName, readModifiers, readNameList, readQualifiedName } from "../names.js"
+import { identFromToken, readHeaderNames, readModifiers, readPropertyModifiers, refusedAccessModifier } from "../names.js"
 
 export function parseInterface(c: Cursor): Interface | undefined {
   const start = c.expectKeyword("INTERFACE")
@@ -29,24 +29,15 @@ export function parseInterface(c: Cursor): Interface | undefined {
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
-  // Optional EXTENDS X, Y, Z (interfaces can extend multiple)
+  // Optional EXTENDS X, Y, Z (interfaces can extend multiple; `unit_interface_extends_list`), each possibly qualified
+  // (`__SYSTEM.IQueryInterface`, `unit_interface_extends_qualified`)
   let extendsList: Identifier[] | undefined
-  if (c.eatKeyword("EXTENDS") !== undefined) {
-    extendsList = []
-    const first = parseQualifiedName(c)
-    if (first !== undefined) extendsList.push(first)
-    extendsList.push(...readNameList(c, () => parseQualifiedName(c)))
-  }
+  if (c.eatKeyword("EXTENDS") !== undefined) extendsList = readHeaderNames(c)
 
   // IMPLEMENTS on an interface is illegal — interfaces inherit via EXTENDS. Capture the misused list so a
   // check can emit C0421 instead of the generic "unexpected keyword" recovery error.
   let implementsMisused: Identifier[] | undefined
-  if (c.eatKeyword("IMPLEMENTS") !== undefined) {
-    implementsMisused = []
-    const first = parseQualifiedName(c)
-    if (first !== undefined) implementsMisused.push(first)
-    implementsMisused.push(...readNameList(c, () => parseQualifiedName(c)))
-  }
+  if (c.eatKeyword("IMPLEMENTS") !== undefined) implementsMisused = readHeaderNames(c)
 
   const methods: InterfaceMethod[] = []
   const properties: InterfaceProperty[] = []
@@ -106,6 +97,7 @@ export function parseInterface(c: Cursor): Interface | undefined {
     kind: "interface",
     name,
     ...(extendsList !== undefined ? { extends: extendsList } : {}),
+    ...(implementsMisused !== undefined ? { implementsMisused } : {}),
     ...(strayVarSections.length > 0 ? { strayVarSections } : {}),
     methods,
     properties,
@@ -113,16 +105,14 @@ export function parseInterface(c: Cursor): Interface | undefined {
   }
 }
 
-/** Read a possibly-qualified name (`Foo` or `__SYSTEM.IQueryInterface`) as a single dotted Identifier. */
-function parseQualifiedName(c: Cursor): Identifier | undefined {
-  const head = c.expectIdent()
-  return head === undefined ? undefined : joinedName(readQualifiedName(c, head, "leave"))
-}
-
 function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   const start = c.expectKeyword("METHOD")
   if (start === undefined) return undefined
-  const modifiers = readModifiers(c, INTERFACE_MEMBER_MODIFIERS).map((m) => m.keyword!)
+  // an access modifier stands only first, in a method's words (`unit_interface_method_final_public_order`, CODESYS)
+  const written = readModifiers(c, MEMBER_MODIFIERS)
+  const refused = refusedAccessModifier(written)
+  if (refused !== undefined) c.pushError(`Identifier expected instead of '${refused.text}'`, refused.span)
+  const modifiers = written.map((m) => m.keyword!)
   const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
@@ -161,8 +151,9 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
 function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   const start = c.expectKeyword("PROPERTY")
   if (start === undefined) return undefined
-  // Modifiers are allowed but informational on interfaces (e.g. `PROPERTY PUBLIC Foo : T`).
-  const modifiers = readModifiers(c, INTERFACE_MEMBER_MODIFIERS).map((m) => m.keyword!)
+  // A property's modifiers, refused as a function block's are (`unit_interface_property_final_public_order`,
+  // `_abstract_final`, CODESYS 2026-10-01)
+  const modifiers = readPropertyModifiers(c)
   const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
@@ -182,6 +173,8 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   // expecting it. Consume the declaration here, where it belongs.
   let hasGetter = false
   let hasSetter = false
+  const getterVarSections: VarSection[] = []
+  const setterVarSections: VarSection[] = []
   let folder: string | undefined
   while (true) {
     // The property's `%FOLDER` is the last line of its declaration, before its first accessor (`StReader.ReadProperty`).
@@ -202,11 +195,12 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
     if (accessor.keyword === "GET") hasGetter = true
     if (accessor.keyword === "SET") hasSetter = true
 
-    // Block form: whatever the accessor declares, then its closer. The vars are local temps of a body that
-    // does not exist, so they are consumed rather than captured — but only VAR sections are, so anything genuinely
-    // unexpected still reaches the recovery error instead of being swallowed here. A `%FOLDER` line in here is
-    // the accessor's declaration text, which the push refuses.
+    // Block form: whatever the accessor declares, then its closer. The vars are local temps of a body that does not
+    // exist, but they are the vendor's stored declaration, so they are KEPT (U21) — the formatter prints them back. Only
+    // VAR sections are read, so anything genuinely unexpected still reaches the recovery error instead of being
+    // swallowed here. A `%FOLDER` line in here is the accessor's declaration text, which the push refuses.
     const closer = accessor.keyword === "GET" ? "END_GET" : "END_SET"
+    const into = accessor.keyword === "GET" ? getterVarSections : setterVarSections
     while (true) {
       const stray = readFolderLine(c)
       if (stray !== undefined) {
@@ -214,7 +208,9 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
         continue
       }
       if (!atVarSection(c)) break
-      if (parseVarSection(c) === undefined) break
+      const section = parseVarSection(c)
+      if (section === undefined) break
+      into.push(section)
     }
     c.eatKeyword(closer)
   }
@@ -228,6 +224,8 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
     dataType,
     hasGetter,
     hasSetter,
+    getterVarSections,
+    setterVarSections,
     span: joinSpans(start.span, endSpan),
   }
 }

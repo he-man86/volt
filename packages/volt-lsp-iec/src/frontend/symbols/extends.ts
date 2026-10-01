@@ -2,7 +2,7 @@
  * EXTENDS — each scope's base, linked once the whole project is bound (the base may live in a later file), and the
  * chain of bases walked from it.
  */
-import type { LibraryManifest } from "../library/index.js"
+import { libraryOf, type LibraryManifest } from "../library/index.js"
 import type { Scope } from "./model.js"
 import { setLibVisible } from "./cache.js"
 import { manifestsByTitle, visibleFolders } from "./library-namespaces.js"
@@ -41,6 +41,7 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
   for (const c of project.children) {
     if (c.extendsName === undefined && c.kind !== "pou" && c.kind !== "interface" && c.kind !== "struct")
       continue
+    if (c.undeclared === true) continue // a refused FB is no base (`FB_D EXTENDS FB_A`, FB_A's header refused)
     const key = c.name.toLowerCase()
     const list = candidates.get(key)
     if (list === undefined) candidates.set(key, [c])
@@ -58,7 +59,7 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
     if (c.extendsName === undefined) continue
     const base = pickForAsker(
       project,
-      (candidates.get(c.extendsName) ?? []).filter((x) => x !== c),
+      (qualifiedCandidates(project, c.extendsName, manifests, visible) ?? candidates.get(c.extendsName) ?? []).filter((x) => x !== c),
       (x) => x.defUri,
       c.defUri,
     )
@@ -66,6 +67,32 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
   }
 }
 
+/**
+ * A QUALIFIED base (`EXTENDS Standard.TON`, `unit_fb_extends_qualified` — CODESYS builds it, 2026-10-01): the name
+ * before the dot is a library's NAMESPACE (its manifest's), the one after it a unit that library — or a library it
+ * depends on — materialized. Read off the manifests, not the namespace scopes: those are bound after the link.
+ * `undefined` for a bare name; an empty list for a namespace no manifest declares or a unit it does not hold — a
+ * qualified name never falls back to a bare one.
+ */
+function qualifiedCandidates(
+  project: Scope,
+  extendsName: string,
+  manifests: readonly LibraryManifest[],
+  visible: ReadonlyMap<string, ReadonlySet<string>>,
+): Scope[] | undefined {
+  const dot = extendsName.lastIndexOf(".")
+  if (dot < 0) return undefined
+  const namespace = extendsName.slice(0, dot)
+  const name = extendsName.slice(dot + 1)
+  const folders = new Set(
+    manifests.filter((m) => m.namespace.toLowerCase() === namespace).flatMap((m) => [...(visible.get(m.folder.toLowerCase()) ?? [])]),
+  )
+  return project.children.filter((s) => {
+    if (s.name.toLowerCase() !== name || s.defUri === undefined || s.undeclared === true) return false
+    const lib = libraryOf({ uri: s.defUri })?.toLowerCase()
+    return lib !== undefined && folders.has(lib)
+  })
+}
 /** The scope `scope` EXTENDS, as `linkExtends` resolved it — undefined without an EXTENDS or when its base resolved
  *  to nothing. */
 export function baseOf(scope: Scope): Scope | undefined {

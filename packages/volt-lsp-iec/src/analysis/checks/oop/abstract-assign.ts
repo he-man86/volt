@@ -23,7 +23,7 @@ export function checkAbstractAssign(ctx: CheckContext, out: DiagnosticItem[]): v
       const fb = t.kind === "reference" ? t.target : t
       if (fb.kind !== "function_block") return
       const sym = lookupLocal(ctx.project, fb.name).find((x) => x.kind === "function_block")
-      if (sym === undefined || (sym.ast as FunctionBlock).abstract !== true) return
+      if (sym === undefined || !(sym.ast as FunctionBlock).modifiers.includes("ABSTRACT")) return
       out.push({
         severity: "error",
         span: s.target.span,
