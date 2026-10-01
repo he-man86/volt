@@ -130,8 +130,17 @@
       names the one message. 10/10 on CODESYS SP21 (fixture copy) and 10/10 on TwinCAT (Project14 copy, one worker).
       **Unmeasured on TwinCAT:** transitions (covered offline on CODESYS only) and a method in a POU-internal folder
       (whether its path is `FB.Folder.Method`, which would publish the folder as the member) — DIALECT D36.
-- [ ] 5.4 The shipped frontends print `name:line` and ignore `member` (`volt-vscode/src/commands.ts`,
+- [x] 5.4 The shipped frontends print `name:line` and ignore `member` (`volt-vscode/src/commands.ts`,
       `volt-desktop/src/commands.ts`). On TwinCAT a child's `line` is counted inside the CHILD (D36), so those two now
       show the right file with the wrong line, where before this change they showed no location. The wire now states
       the frame (`BridgeDiagnostic.Line`/`Member` docs: a position is `name(member):line`, as `volt build` prints it);
       the two renderers still have to print the member. **Open:** outside `packages/volt-cli`, not done in this run.
+      **Done (2026-10-01).** The statement of a build diagnostic now lives once in `@volt/control`
+      (`src/view/build.ts`: `buildDiagnosticWhere`, `describeBuildDiagnostic`), the same text `volt build` prints:
+      `FB_Motor.fb(Execute):6[:col] C0578: message`, the member shown even when the line is 0 (every CODESYS
+      diagnostic), no position without a name, no column without a line. `BuildDiagnostic.member` is on the
+      TypeScript wire type. Both shells call it (vscode's Volt output channel; the desktop's build-failed
+      notification) instead of building `name:line` themselves. Red first: `src/view/build.test.ts` (5) failed to
+      load before `build.ts` existed. Navigation: neither shell navigates to a build diagnostic (both print it), so
+      no line can be opened wrongly; the module doc states that a future "go to" must not read `line` as a line of
+      the item's file when `member` is set.

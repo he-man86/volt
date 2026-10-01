@@ -28,6 +28,7 @@ export * from "./view/workspace.js" // projectWorkspace, syncMode, onboardingMod
 export * from "./view/outcomes.js" // describePull, describePush, describeMerge, presentOutcome, FINISH_MERGE, ABORT_MERGE, OutcomeView, OutcomeAction, OutcomeActionTag
 export * from "./view/progress.js" // formatProgress — the one frame→{pct,message} mapping both shells render
 export * from "./view/diff.js" // loadDiff, lineDiff, FileDiff, DiffLine, DiffDirection — shared change-diff logic
+export * from "./view/build.js" // buildDiagnosticWhere, describeBuildDiagnostic — how both shells state a build diagnostic
 
 // the shared log store (same folder + line format as the connector's own log)
 export * from "./log.js" // voltLog, VOLT_LOG_DIR, LogSource

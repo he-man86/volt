@@ -11,6 +11,7 @@ import {
   pull,
   push,
   build,
+  describeBuildDiagnostic,
   initFromProject,
   rebind,
   connectWorkspace,
@@ -224,13 +225,7 @@ export function registerCommands(ipcMain: IpcMain, dialog: Dialog, shell: Shell)
       else if (!r.success) {
         const errs = r.diagnostics.filter((d) => d.severity === "error")
         const first = errs[0] ?? r.diagnostics[0]
-        const where = first?.name ? `${first.name}${first.line ? `:${first.line}` : ""} ` : ""
-        notify(
-          "error",
-          first
-            ? `Build failed (${errs.length} error(s)): ${where}${first.code ? `${first.code}: ` : ""}${first.message}`
-            : "Build failed",
-        )
+        notify("error", first ? `Build failed (${errs.length} error(s)): ${describeBuildDiagnostic(first)}` : "Build failed")
       }
     }),
   )

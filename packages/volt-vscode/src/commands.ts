@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { join } from "node:path"
 import {
 	VoltStatus,
-	pull, push, build, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
+	pull, push, build, describeBuildDiagnostic, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
 	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
@@ -318,8 +318,7 @@ async function doBuild(workspaceRoot: string): Promise<void> {
 		return
 	}
 	for (const d of r.diagnostics) {
-		const where = d.name ? `${d.name}${d.line ? `:${d.line}${d.column ? `:${d.column}` : ""}` : ""} ` : ""
-		output().appendLine(`[${d.severity}] ${where}${d.code ? `${d.code}: ` : ""}${d.message}`)
+		output().appendLine(`[${d.severity}] ${describeBuildDiagnostic(d)}`)
 	}
 	output().appendLine(`Build ${r.success ? "succeeded" : "FAILED"} (${r.duration}ms)`)
 	output().show()

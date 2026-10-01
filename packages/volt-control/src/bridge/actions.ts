@@ -132,6 +132,10 @@ export interface BuildDiagnostic {
   message: string
   /** Full wire name of the item (`FB_Motor.fb`), or absent for a project-level message. */
   name?: string
+  /** The CHILD of `name` the diagnostic is inside — a method, action or property (`Execute`) — absent when it is about
+   *  the item itself. Never present without `name`. It is the frame of `line`: on TwinCAT a child's line counts inside
+   *  the child (DIALECT D36), so a position is `name(member):line` (`describeBuildDiagnostic`). */
+  member?: string
   /** The vendor's own diagnostic number as the IDE renders it (`C0032`). */
   code?: string
   line?: number
