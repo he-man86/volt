@@ -37,6 +37,10 @@
 .PARAMETER Production Serve as the SHIPPED build does: LD and FBD network text OFF (`VOLT_GRAPHICAL` removed from what
                     this launches), so every LD and FBD body pulls as `IMPLEMENTATION LD|FBD UNSUPPORTED`. The default
                     is ON, for development and the suites; this is for checking what a customer's bridge serves.
+.PARAMETER RunScript codesys only: the runscript CODESYS starts with, in place of run_pipe_production.py. For a
+                    probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
+                    probe-dut-subtype-push.py), so the probe runs in an IDE this script launched, tracks and closes,
+                    on a fixture COPY - not one started by hand.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
                     IDE is launched, which is minutes before it serves — and every caller then reinvents the
@@ -54,6 +58,7 @@ param(
     [string]$Instance = "",
     [switch]$InPlace,
     [switch]$Production,
+    [string]$RunScript = "",
     [switch]$NoBuild,
     [switch]$Wait
 )
@@ -208,7 +213,7 @@ function Up-Codesys {
     $install = "C:\Program Files\CODESYS 3.5.21.40"
     $exe     = Join-Path $install "CODESYS\Common\CODESYS.exe"
     $dll     = Join-Path $ROOT "src\Volt.Ide.Codesys\bin\Release\net48\Volt.Ide.Codesys.dll"
-    $scriptPy = Join-Path $PSScriptRoot "run_pipe_production.py"
+    $scriptPy = if ($RunScript) { $RunScript } else { Join-Path $PSScriptRoot "run_pipe_production.py" }
     $project = if ($Fixture) { $Fixture } else { Join-Path $FIXTURES "CodesysTestProject.project" }
 
     if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
