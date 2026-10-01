@@ -29,6 +29,11 @@ time — you are the only agent running). Known divergences run as expected fail
 the mark when your step fixes one. test/conformance/fixtures/map.generated.ts changes only through bun run rate:fixtures and is the
 one-file truth about fixtures. Tests from the package directory, never the repo root. Compile scratch Rust only outside the repo; delete
 any stray .exe/.pdb/.rs you create in the repo. No fallbacks or defaults that hide a missing fact; fail loud, refuse by name.
+SPEED (measured 2026-10-01: a full LSP suite is ~8.5 min and steps ran it ~10 times; recordings ran one fixture at a time):
+- ONLY the GATE runs the FULL suite. Implement and fix agents run TARGETED tests: the tests next to the files they changed, and
+  bun test test/conformance -t "<fixture names>" for the fixtures they touched.
+- RECORD IN ONE BATCH per vendor: write all of the step's fixtures first, then record them in ONE recorder run per vendor
+  (RECORD_ONLY with the comma-separated list), not one run per fixture.
 TRIAGE (owner): a finding that is cheap to fix is fixed. A NICHE finding — about zero occurrences in the six real corpora
 (packages/volt-lsp-iec/test-corpus; count them) and not trivial to fix — is recorded as a known divergence with the reason
 "niche: accepted loss (N occurrences in the corpora)" and not worked on. Stage
