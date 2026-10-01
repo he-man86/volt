@@ -257,6 +257,13 @@ export interface CallStatement {
 export interface ExprStatement {
   kind: "expr_stmt"
   expr: Expr
+  /**
+   * The statement the vendor RESUMED at after refusing a token before it — `NS;` in `t := T#5NS;`, `RUE;` in
+   * `b := BOOL#TRUE;` (`parse/errors.ts` `reportStatementCascade`). Both vendors warn it has no effect although nothing
+   * declares the name: a body that did not parse is never resolved, and the warning does not need it
+   * (`cc_time_nanosecond_literal`, `lit_bool_typed_true`).
+   */
+  resumed?: true
   span: Span
 }
 export interface TryStatement {
@@ -491,8 +498,28 @@ export interface VarDecl {
    * information was in the source and the AST dropped it.
    */
   initOp?: "REF="
+  /** AN INITIALIZER THE PARSER REFUSED (`RefusedInit`), when there is one; `init` is then absent. */
+  refusedInit?: RefusedInit
   at?: BodySpan // `AT %IX0.0` — opaque address
   span: Span
+}
+
+/**
+ * THE COMPILER'S PLACEHOLDER for an expression it refused: `!!!'ERROR'!!!`, as both vendors print it in a message about
+ * the value ("Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'TIME'").
+ */
+export const REFUSED_PLACEHOLDER = "!!!'ERROR'!!!"
+
+/**
+ * A declaration initializer the parser refused at a malformed literal (`Token.malformed`: `"$41"`, `T#1500` before
+ * `US`; `parse/initializer` `refuseMalformedInit`). `span` is the literal's. `value` is the initializer as the
+ * compiler kept it — the tokens before the literal, the literal itself an `ident_expr` named `REFUSED_PLACEHOLDER`
+ * (nothing binds it: the binder never walks a refused initializer) — and is absent where the compiler keeps none, inside
+ * an aggregate (`lit_init_malformed_in_aggregate`). Its type check is `declarations/refused-initializer`.
+ */
+export interface RefusedInit {
+  span: Span
+  value?: Expr
 }
 
 // ─── top-level units ─────────────────────────────────────────────────────────
@@ -681,6 +708,12 @@ export interface ParseError {
    * `unexpectedToken`, for the same reason: TwinCAT capitalises "Operands", and only the analysis layer knows the vendor.
    */
   operandCount?: { operator: string; count: number; atLeast: boolean }
+  /**
+   * AN `AT` OPERAND THAT IS NO ADDRESS — a size letter and no position, `AT %IW*` / `AT %MW`: "Direct address expected
+   * after AT instead of %IW" (`lit_address_incomplete_sized`, `lit_address_no_position`). A fact like `unexpectedToken`:
+   * TwinCAT words it 'Direct Address expected after "AT" instead of %IW', and only the analysis layer knows the vendor.
+   */
+  directAddressExpected?: string
 }
 export interface ParseResult {
   units: TopLevel[]

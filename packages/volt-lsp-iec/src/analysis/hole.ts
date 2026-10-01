@@ -8,9 +8,9 @@
  * compiler types without trouble. Only the first counts — gating on "any diagnostic was reported inside" produced 30
  * false positives on the arithmetic fixtures alone.
  */
-import type { Expr, Span } from "../frontend/syntax/index.js"
+import { addressShape, typedLiteralForm, type Expr, type Span } from "../frontend/syntax/index.js"
 import type { Scope } from "../frontend/symbols/index.js"
-import { inferExprType, resolveMemberChain } from "../frontend/types/index.js"
+import { inferExprType, parseConversionName, resolveMemberChain, resolveNamedType } from "../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
 /** The findings that mean the expression has NO TYPE — the ST codes and their network-text counterparts. */
@@ -49,6 +49,67 @@ function valuelessCall(e: Expr, scope: Scope, project: Scope): boolean {
   return (sym?.kind === "method" || sym?.kind === "function") && sym.typeExpr === undefined
 }
 
+/** A `<word>#<operand>` literal whose word is an ENUM type — IEC's typed enum literal, which CODESYS does not support. */
+export function enumTypedLiteral(text: string, project: Scope): boolean {
+  const form = typedLiteralForm(text)
+  return form.kind === "component" && resolveNamedType(form.prefix, project).kind === "enum"
+}
+
+/**
+ * A LITERAL THAT IS A HOLE ON ITS OWN EVIDENCE: a malformed ADDRESS — "Cannot convert type 'Unknown type: '%M?0.1''
+ * to type 'BOOL'" — and an ENUM type's `Type#Value`, which CODESYS does not support and types as nothing — "Unknown
+ * type: 'E_Mode#Running'" (`lit_address_unsized_in_body`, `lit_enum_typed_*`, 2026-10-01). Nothing else names the
+ * failure. Any other `<word>#<operand>` is reported as no component of its word (`checks/types/typed-literal`) and
+ * carries no hole: the vendor stops there.
+ */
+export function literalHole(e: Expr, project: Scope): boolean {
+  if (e.kind !== "literal") return false
+  if (e.literalKind === "address") return addressShape(e.text).kind === "malformed"
+  return e.literalKind === "typed" && enumTypedLiteral(e.text, project)
+}
+
+/** The built-in calls whose type is their one operand's (ABS) or a pointer to it (ADR). */
+const PASS_THROUGH_CALLS: ReadonlySet<string> = new Set(["ABS", "ADR"])
+
+/**
+ * THE OPERAND OF AN OPERATION WHOSE TYPE IS ITS OPERAND'S — `NOT x`, `-x`, `ABS(x)`, and `ADR(x)` (a pointer to it) — or
+ * `undefined`. Such an operation has no type when its operand has none: `out := ABS(%M0.1)` is "Unknown type: '%M?0.1'"
+ * on the operand AND "Cannot convert type 'Unknown type: 'ABS(%M?0.1)'' to type 'INT'" on the whole
+ * (`lit_address_unsized_as_argument`, `_under_not`, `_under_adr`, `lit_enum_typed_as_argument`, `_under_minus`,
+ * CODESYS 2026-10-01). A bare conversion is NOT one: its type is its name's (`checks/types/unknown-source`).
+ */
+export function passThroughOperand(e: Expr): Expr | undefined {
+  if (e.kind === "unary") return e.op === "NOT" || e.op === "-" ? e.operand : undefined
+  if (e.kind !== "call" || e.callee.kind !== "ident_expr" || !PASS_THROUGH_CALLS.has(e.callee.name.toUpperCase())) return undefined
+  const [only] = e.args
+  return e.args.length === 1 && only.param === undefined ? only.value : undefined
+}
+
+/**
+ * The one positional argument of a BARE conversion call (`TO_INT(x)` — no source type in its name), or `undefined`. It
+ * converts its argument to ANY and keeps its own type: `TO_INT(%M0.1)` is "Cannot convert type 'Unknown type: '%M?0.1''
+ * to type 'ANY'" and nothing more (`lit_address_unsized_as_conversion_argument`, CODESYS 2026-10-01).
+ */
+export function bareConversionArgument(e: Expr): Expr | undefined {
+  if (e.kind !== "call" || e.callee.kind !== "ident_expr" || !/^TO_/i.test(e.callee.name)) return undefined
+  if (parseConversionName(e.callee.name) === undefined) return undefined
+  const [only] = e.args
+  return e.args.length === 1 && only.param === undefined ? only.value : undefined
+}
+
+/**
+ * An operation that passes a LITERAL hole's type through, however deep (`NOT ABS(%M0.1)`). Only a literal hole: a name
+ * that did not resolve is a hole by the `explained` gate below, and what ADR or ABS of one says is not recorded.
+ */
+function passesLiteralHole(e: Expr, project: Scope): boolean {
+  const operand = passThroughOperand(e)
+  return operand !== undefined && literalHoleWithin(operand, project)
+}
+
+/** A literal hole, under parentheses or operations that pass its type through. */
+export const literalHoleWithin = (e: Expr, project: Scope): boolean =>
+  e.kind === "literal" ? literalHole(e, project) : e.kind === "paren" ? literalHoleWithin(e.inner, project) : passesLiteralHole(e, project)
+
 /** True when `e` is a hole the COMPILER has too — see the header for why both halves are needed. */
 export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): boolean {
   // A CALL TO A ROUTINE WITH NO RETURN TYPE IS A HOLE ON ITS OWN EVIDENCE. It needs no earlier check to explain it:
@@ -64,6 +125,10 @@ export function isHole(e: Expr, scope: Scope, project: Scope, seen: Reported): b
   // the expensive half and this way it runs only for an expression that is already untyped, which is rare. Put the
   // other way round it cost the corpus gate its 120s budget.
   if (unknown && valuelessCall(e, scope, project)) return true
+  // TWO LITERALS ARE HOLES ON THEIR OWN EVIDENCE TOO, and for the same reason: nothing else names the failure
+  // (`literalHole`) — and so is an operation that passes such a hole's type through (`passThroughOperand`).
+  if (e.kind === "literal") return literalHole(e, project)
+  if (passesLiteralHole(e, project)) return true
   if (!within(seen.explained, e.span)) return false
   if (unknown) return true
   // For a CALL only the CALLEE counts: the result is the callee's declared return type, which the compiler knows

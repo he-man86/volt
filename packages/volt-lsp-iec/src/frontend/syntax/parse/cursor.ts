@@ -56,6 +56,21 @@ export class Cursor {
     return here
   }
 
+  /** Where a refused statement's resync stopped at a name and the vendor starts a statement (`reportStatementCascade`). */
+  private resumedAt: number | undefined
+
+  /** The next token starts the statement the vendor RESUMES at after a refused token (`ExprStatement.resumed`). */
+  markResumed(): void {
+    this.resumedAt = this.pos
+  }
+
+  /** Does the statement about to be parsed start where a resync resumed? True only if nothing has moved since; clears it. */
+  takeResumed(): boolean {
+    const here = this.resumedAt === this.pos
+    this.resumedAt = undefined
+    return here
+  }
+
   pushError(message: string, span: Span, unexpectedToken?: string): void {
     this.errors.push(unexpectedToken === undefined ? { message, span } : { message, span, unexpectedToken })
   }

@@ -3,8 +3,8 @@
  * follows the offending token then stands on its own: an IDENTIFIER can start a statement, so `NS;` / `b;` is re-read
  * as one and warned about as having no effect; a literal or an operator cannot, and is simply named.
  *
- * Shared by the checks that model such a refusal (`time-literal-unit`, `unsupported-operator`), each with its own
- * recording (conformance `cc_time_nanosecond_literal`, `cc_fp_op_ampersand`, `cc_power_operator`).
+ * Used by the check that models such a refusal (`unsupported-operator`), with its own recording (conformance
+ * `cc_fp_op_ampersand`, `cc_power_operator`). A refused LITERAL is the parser's now (`Token.malformed`, `ExprStatement.resumed`).
  */
 const LINE_END_AFTER = /^[^\S\r\n]*(\r?\n)/
 

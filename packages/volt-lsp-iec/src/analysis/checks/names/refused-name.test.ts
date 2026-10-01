@@ -170,15 +170,17 @@ test("a declaration cascade does not claim the code has no effect", () => {
   ])
 })
 // AN UNKNOWN LITERAL PREFIX CASCADES LIKE ANY OTHER REFUSED NAME. `LDATE#`/`LDT#`/`LTOD#`/`UCHAR#` are
-// CODESYS's, so on TwinCAT they lex as an identifier ending in `#` and the compiler quotes the prefix WHOLE and
-// then resyncs — a pair per token to the `;` (`xf_ldt_to_*`, `cc_ld*_literal_into_*`, its recording 2026-09-20).
-// It is found by scanning tokens rather than walking the AST because there is no AST: the parser gives up at
-// the first stray and the statement list comes back EMPTY.
+// CODESYS's, so on TwinCAT they lex as ONE refused literal and the compiler quotes the prefix WHOLE and then
+// resyncs — a pair per token to the `;` (`xf_ldt_to_*`, `cc_ld*_literal_into_*`, its recording 2026-09-20). The
+// parser refuses it as it refuses any malformed literal (`syntax-error`); this check scanned the tokens for it
+// until task 2.2.6 made the prefix a literal token.
 test("an unknown literal prefix is refused on TwinCAT, and cascades", () => {
   const msgs = diagnose(
     program("v : LDT;", "v := LDT#2026-05-09-07:05:03;"),
     "twincat",
-  ).map((d) => d.message)
+  )
+    .filter((d) => refusal(d))
+    .map((d) => d.message)
   expect(msgs.slice(0, 5)).toEqual([
     "Expression expected instead of 'LDT#'",
     "';' expected instead of 'LDT#'",

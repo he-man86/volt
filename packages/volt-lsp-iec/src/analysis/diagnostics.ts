@@ -71,6 +71,7 @@ import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkConditionalCall } from "./checks/names/conditional-call.js"
 import { checkUnknownType } from "./checks/declarations/unknown-type.js"
 import { checkSystemInitializer } from "./checks/declarations/system-initializer.js"
+import { checkRefusedInitializer } from "./checks/declarations/refused-initializer.js"
 import { checkDynamicCreation } from "./checks/declarations/dynamic-creation.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
 import { checkFbInitInstantiation } from "./checks/oop/fb-init-instantiation.js"
@@ -90,9 +91,8 @@ import { checkUnknownSource } from "./checks/types/unknown-source.js"
 import { checkSignatureName } from "./checks/declarations/signature-name.js"
 import { checkUnaryOperand } from "./checks/types/unary-operand.js"
 import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
-import { checkTimeLiteralUnit } from "./checks/types/time-literal-unit.js"
-import { checkWstringEscape } from "./checks/types/wstring-escape.js"
 import { checkPartialAccess } from "./checks/types/partial-access.js"
+import { checkTypedLiteral } from "./checks/types/typed-literal.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
 import { checkAttributePlacement } from "./checks/declarations/attribute-placement.js"
@@ -146,9 +146,8 @@ const CHECKS: readonly Check[] = [
   checkEnumInit,
   checkUnaryOperand,
   checkUnsupportedOperator,
-  checkTimeLiteralUnit,
-  checkWstringEscape,
   checkPartialAccess,
+  checkTypedLiteral,
   // flow/
   checkCaseLabels,
   checkStatementRules,
@@ -200,6 +199,7 @@ const CHECKS: readonly Check[] = [
   checkConditionalCall,
   checkUnknownType,
   checkSystemInitializer,
+  checkRefusedInitializer,
   checkDynamicCreation,
   checkFbInitInout,
   checkFbInitInstantiation,
@@ -224,7 +224,7 @@ const CHECKS: readonly Check[] = [
  * The checks that run for CODESYS only — one list, where each used to open with its own `if (vendor !== "codesys") return`
  * (consolidate-lsp-structure C6). A rule gate INSIDE a check (one message of several) stays in that check.
  *
- * SIX OF THESE WERE NOT VENDOR DIFFERENCES AT ALL. `checkRefusedName`, `checkTimeLiteralUnit`,
+ * SIX OF THESE WERE NOT VENDOR DIFFERENCES AT ALL. `checkRefusedName`, `checkTimeLiteralUnit` (since moved into the lexer),
  * `checkUnaryOperand`, `checkUnsupportedOperator`, `checkUnknownSource` and `checkSignatureName` each sat here
  * with the note "TwinCAT unmeasured" — a placeholder from when TwinCAT's recording covered 280 fixtures. It
  * covers 2524 now, and every one of them AGREES: an IL operator used as a name cascades identically on both,

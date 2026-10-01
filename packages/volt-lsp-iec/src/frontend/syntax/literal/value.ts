@@ -6,6 +6,8 @@
  * Conservative: anything malformed yields `undefined` (error-tolerant — a broken literal must not throw).
  */
 import type { DurationValue, LiteralKind, LiteralValue } from "../ast/nodes.js"
+import { QUOTED_LITERAL_PREFIXES, TYPED_PREFIXES } from "../lex/vocabulary.js"
+import { decodeUtf8Literal } from "./string.js"
 
 export interface ParsedLiteral {
   value: LiteralValue
@@ -26,12 +28,20 @@ export function parseLiteralValue(kind: LiteralKind, text: string): ParsedLitera
     case "time":
       return { value: parseDuration(text) }
     case "typed": {
-      // `INT#42`, `REAL#1.5`, `BOOL#TRUE`, `WORD#16#FF`
-      const hash = text.indexOf("#")
-      if (hash < 0) return { value: undefined }
-      const prefix = text.slice(0, hash).toUpperCase()
-      const body = text.slice(hash + 1)
-      return { prefix, value: valueForTypedBody(prefix, body) }
+      // `INT#42`, `REAL#1.5`, `BOOL#TRUE`, `WORD#16#FF`; `UCHAR#'A'`, `UTF8#'…'`; a component pair (`typedLiteralForm`)
+      const prefix = text.slice(0, text.indexOf("#")).toUpperCase()
+      const form = typedLiteralForm(text)
+      switch (form.kind) {
+        case "typed":
+          return { prefix, value: valueForTypedBody(form.prefix, form.body) }
+        case "char":
+          return { prefix, value: form.code }
+        case "utf8":
+        case "text":
+          return { prefix, value: form.raw }
+        case "component":
+          return { prefix, value: undefined }
+      }
     }
     case "date":
     case "tod":
@@ -47,6 +57,53 @@ export function parseLiteralValue(kind: LiteralKind, text: string): ParsedLitera
       return { prefix: text, value: undefined }
   }
 }
+
+/**
+ * WHAT A `<word>#<operand>` TOKEN IS (S10–S13) — the lexer reads every such pair as one `typed_lit`, and CODESYS gives
+ * it one of five meanings (measured 2026-10-01, `lit_*`):
+ *
+ *   typed       a literal prefix (`TYPED_PREFIXES`): `INT#5`, `REAL#1.5`, `BOOL#1`, `WORD#16#FF`
+ *   char        `UCHAR#'A'` — exactly `UCHAR`, one character once its escapes are decoded — its code: `UCHAR#'€'` runs
+ *               as UDINT#8364, `UCHAR#'$41'` as UDINT#65
+ *   utf8        `UTF8#'…'` — exactly `UTF8` — a STRING of the text's UTF-8 bytes (`literal/string` `decodeUtf8Literal`)
+ *   text        a `UCHAR#'…'`/`UTF8#'…'` token that is neither (another case, not one character): a STRING of the
+ *               TOKEN'S OWN TEXT less its first and last character — `UCHAR#'AB'` runs as 'CHAR#$'AB', `utf8#'a'` as
+ *               'tf8#$'a', `UCHAR#'$41$42'` is STRING(8). Raw: its escapes are decoded where a STRING's are.
+ *   component   any other pair — `CHAR#'A'`, `WCHAR#"A"`, `CHAR#65`, `UCHAR#"A"`, `XYZ#'abc'`, `E_Mode#Running` — which
+ *               CODESYS reads as a component of the word: "''A'' is no component of 'CHAR'", word and operand as
+ *               written; of an ENUM type, a value of unknown type ("Unknown type: 'E_Mode#Running'", IEC's typed enum
+ *               literal is not supported)
+ *
+ * A character is counted as CODESYS counts it, once the escapes are decoded — and an escape names a WINDOWS-1252 byte,
+ * as in a STRING: `UCHAR#'$C4'` runs as UDINT#196 (`Ä`), `UCHAR#'$80'` as UDINT#8364 (`€`, not the byte 128)
+ * (`lit_uchar_high_escape`, `lit_uchar_escape_80`, CODESYS 2026-10-01). The decoder keeps a STRING as its UTF-8
+ * bytes, so the characters are read back from those bytes, never counted off the byte string itself.
+ */
+export type TypedLiteralForm =
+  | { kind: "typed"; prefix: string; body: string }
+  | { kind: "char"; code: bigint }
+  | { kind: "utf8"; raw: string }
+  | { kind: "text"; raw: string }
+  | { kind: "component"; prefix: string; operand: string }
+
+export function typedLiteralForm(text: string): TypedLiteralForm {
+  const hash = text.indexOf("#")
+  if (hash < 0) throw new Error(`'${text}' is not a typed literal`)
+  const prefix = text.slice(0, hash)
+  const upper = prefix.toUpperCase()
+  const operand = text.slice(hash + 1)
+  if (TYPED_PREFIXES.has(upper)) return { kind: "typed", prefix: upper, body: operand }
+  if (!QUOTED_LITERAL_PREFIXES.has(upper) || !operand.startsWith("'")) return { kind: "component", prefix, operand }
+  const raw = stripQuotes(operand)
+  if (prefix === "UTF8") return { kind: "utf8", raw }
+  const bytes = prefix === "UCHAR" ? decodeUtf8Literal(raw) : undefined
+  const chars = bytes === undefined ? [] : [...UTF8.decode(Uint8Array.from(bytes, (b) => b.charCodeAt(0)))]
+  if (chars.length === 1) return { kind: "char", code: BigInt(chars[0].codePointAt(0)!) }
+  return { kind: "text", raw: text.slice(1, -1) }
+}
+
+/** Strict: a byte string the decoder produced is UTF-8 by construction, and one that is not is a decoder bug. */
+const UTF8 = new TextDecoder("utf-8", { fatal: true })
 
 function stripQuotes(text: string): string {
   if (text.length >= 2) {
@@ -93,8 +150,6 @@ function valueForTypedBody(prefix: string, body: string): LiteralValue {
     // `BOOL#1` / `BOOL#0`
     return body === "0" ? false : body === "1" ? true : undefined
   }
-  // CHAR/WCHAR carry a quoted char; ints otherwise.
-  if (prefix === "CHAR" || prefix === "WCHAR") return stripQuotes(body)
   return parseIntLiteral(body)
 }
 

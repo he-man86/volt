@@ -25,3 +25,10 @@ test("an unresolved bare name is NOT a no-op (gibberish / stripped {IF} branch â
   // is stripped by the IDE and never compiled, so it must not surface a 'no effect' warning.
   expect(noop(`broken_first_branch_xyz;`)).toEqual([])
 })
+
+test("a statement RESUMED after a refused token is a no-op even when its name is declared nowhere (cc_time_*, lit_*)", () => {
+  // `cc_time_nanosecond_literal`, `lit_bool_typed_true`: the compiler never resolves names in a body it could not parse,
+  // yet warns "The code 'NS;' has no effect" â€” the parser marks the statement it resumed at (`ExprStatement.resumed`)
+  expect(noop(`i := T#5NS;`)).toEqual(["The code 'NS;\n' has no effect. Is this the intent?"])
+  expect(noop(`i := BOOL#TRUE;`)).toEqual(["The code 'RUE;\n' has no effect. Is this the intent?"])
+})

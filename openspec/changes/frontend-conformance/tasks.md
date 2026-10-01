@@ -637,26 +637,109 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       fixtures above plus `lex_keyword_*_sys_vector` and `type_codesys_vector` (front and back end); no corpus source moved.
       `bun typecheck` clean; `bun test` 6102 pass / 34 skip / 148 todo / 0 fail (6284 tests, 182 files, 551 s);
       `bun run check` 14 passed, 0 failed; lint clean.
-- [ ] 2.2.1 Integers and bases (N1–N10): record lit_int_underscore, lit_invalid_base_3, lit_invalid_base_10, lit_byte_typed,
+- [x] 2.2.1 Integers and bases (N1–N10): record lit_int_underscore, lit_invalid_base_3, lit_invalid_base_10, lit_byte_typed,
       lit_word_typed, lit_word_16_ff, lit_int_typed_negative.
       Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 1.41
-- [ ] 2.2.2 Reals and BOOL (N11–N15, N12a, N12b): record lit_bool_typed_true, lit_bool_typed_1, lit_real_exponent_capital,
+- [x] 2.2.2 Reals and BOOL (N11–N15, N12a, N12b): record lit_bool_typed_true, lit_bool_typed_1, lit_real_exponent_capital,
       lit_real_no_leading_digit, lit_real_no_fraction_digit.
       Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 2.2.1
-- [ ] 2.2.3 Durations (N16–N20): the TIME us/ns refusal moves into the lexer (from analysis time-literal-unit). Record
+- [x] 2.2.3 Durations (N16–N20): the TIME us/ns refusal moves into the lexer (from analysis time-literal-unit). Record
       lit_time_underscore, lit_time_fraction, lit_time_negative, lit_ltime_fraction_ns.
       Where: lex/lexer, literal/value. Acceptance: CA. Depends on: 2.2.2
-- [ ] 2.2.4 Dates, TOD, DT (N21–N25): calendar decode in literal/calendar. Record lit_date_month_13, lit_tod_hour_25,
+- [x] 2.2.4 Dates, TOD, DT (N21–N25): calendar decode in literal/calendar. Record lit_date_month_13, lit_tod_hour_25,
       lit_dt_leap_day, lit_ldt_nanoseconds.
       Where: literal/calendar, lex/vocabulary. Acceptance: CA. Depends on: 2.2.3
-- [ ] 2.2.5 Strings and escapes (S1–S9): the WSTRING `$hhhh` refusal moves into the lexer (from analysis wstring-escape). Record
+- [x] 2.2.5 Strings and escapes (S1–S9): the WSTRING `$hhhh` refusal moves into the lexer (from analysis wstring-escape). Record
       lit_wstring_named_escapes, lit_string_double_quote_inside, lit_wstring_single_quote_inside.
       Where: lex/lexer, literal/string. Acceptance: CA. Depends on: 2.2.4
-- [ ] 2.2.6 Typed char, typed STRING, enum literal, UTF8 (S10–S13): record lit_char_typed, lit_wchar_typed, lit_string_typed,
+      **Gate 2.2.1–2.2.5 (2026-10-01).** Fixtures: `fixtures/grammar/literals.ts`, 60 `lit_*` — every name the tasks list, and
+      per rule the cells that separate its readings: bases 3/4/10/12 and a digit each base lacks (N3–N6), every bit-string width
+      and base (N8/N9), `INT#+5`/`UINT#-5`/`INT#-16#10` (N10), `1.5E+3`/`2E3` (N12a), `BOOL#TRUE/FALSE/0/1/2` (N15), a fraction on
+      every unit class and `_` after a unit (N20), month/day/Feb-30/before-1970/hour/minute/second/non-leap (N24), every named
+      escape in both cases and both widths (S3/S8). Recorded `record:language` on CODESYS and TwinCAT (identical verdicts on
+      all 60 but `lit_ldt_nanoseconds`, TwinCAT has no LDT) and `record:exec` on CODESYS (34 build; all 34 `confirmed`,
+      both backends; 26 `refused`). Measured: `10#` IS a base; `_` is free in an integer (doubled, trailing, after `#`) but
+      ends a duration after a unit; `BOOL#` reads ONE character; `5.` and `T#-…` are refused; a fraction may not stand on the
+      smallest unit; out-of-range calendar fields are "Constant '…' too large for type 'DATE'/'TIME_OF_DAY'/'DATE_AND_TIME'";
+      WSTRING named escapes and lower-case escapes decode as in a STRING. Fixed (test-first): the lexer ends each literal where
+      the vendor does and marks a refused one `Token.malformed` (`lex/lexer.ts`, `TYPED_INTEGER_PREFIXES` in `lex/vocabulary`),
+      the parser refuses it as a no-operand keyword (body) or with the pair and `VarDecl.refusedInit` (initializer), the
+      statement a resync resumes at is `ExprStatement.resumed` and `flow/no-op-statement` warns it; `literal/calendar`
+      validates fields and `types/literal` `literalCapacityType` names the type; `literal/string` decodes named escapes on
+      both widths. **The TIME us/ns and WSTRING `$hhhh` refusals moved into the lexer:** `analysis/checks/types/time-literal-unit`
+      and `wstring-escape` are deleted; the one type message after them is `declarations/refused-initializer`. On the way:
+      `lex_cascade_meets_soft_name_{get,set,override}` now agree on both vendors (the resumed warning). Divergences opened
+      (`support/divergences.ts`): `LITERAL_FOLLOW_ON_RULES` (both vendors, 4 — the missing-`;` resume, 2.8.2:
+      `lit_invalid_digit_hex`, `lit_time_underscore`; the `.name` primary, 2.5.6: `lit_real_no_leading_digit`; the IL
+      operator S as a word, 2.8.3: `lit_time_fraction_ms`), `TWINCAT_WSTRING_ESCAPE_RUNS_TO_END` (TwinCAT, 4 `esc_wstring_*`:
+      the literal and every message but "'END_VAR' expected instead of ''" now agree; R3, 2.8.3). Closed: none were marked.
+      Rules GAP area 2 **70 → 58** (total 124 → 112): N2, N6, N8, N9, N10, N12a, N12b, N15, N20, N24, S8, S9 closed; N3–N5,
+      N19, N22, N23, N25, S3, S6 gain recorded fixtures. Agreement floors CODESYS 2912 → 2982, TwinCAT 2886 → 2954 (3209
+      fixtures). `rate:fixtures`: confirmed 2113, refused 933, not-lowered 103, lsp-gap 11, diverges 3. The 0.3 measure asks
+      one more question it states (`bound-census.ts`): a bare name inside a refused expression (the resumed `NS;`) is counted,
+      as 0.4 counts it untyped — neither side resolves a body that did not parse. Ceilings (all fell): parse findings
+      190 → 180 (refused-no-LSP CODESYS 61 → 56, TwinCAT 83 → 78), resolution findings 166 → 162 (TwinCAT recorded-only
+      10 → 6), type findings 253 → 249. F (`frontend-snapshot check --base HEAD`): 2400 aspects over 203 sources — every one a
+      `lit_*`/`cc_time_*`/`esc_wstring_*` fixture (front and back end; the four `esc_wstring_{dollar,dquote,newline,tab}` back
+      ends because a WSTRING named escape now decodes) and `lex_cascade_meets_soft_name_*` (the `resumed` mark); no corpus
+      source moved. `bun typecheck` clean; `bun test` 6182 pass / 34 skip / 148 todo / 0 fail (6364 tests, 182 files, 531 s);
+      `bun run check` 14 passed, 0 failed; lint clean (warnings only, none new).
+- [x] 2.2.6 Typed char, typed STRING, enum literal, UTF8 (S10–S13): record lit_char_typed, lit_wchar_typed, lit_string_typed,
       lit_wstring_typed, lit_enum_typed_value, lit_utf8_string, lit_utf8_non_ascii.
       Where: lex/lexer, literal/string. Acceptance: CA. Depends on: 2.2.5
-- [ ] 2.2.7 Addresses (A1–A2): record lit_address_incomplete, lit_address_unsized.
+- [x] 2.2.7 Addresses (A1–A2): record lit_address_incomplete, lit_address_unsized.
       Where: lex/lexer. Acceptance: CA. Depends on: 2.2.6
+      **Gate 2.2.6–2.2.7 (2026-10-01).** Fixtures: `fixtures/grammar/literals.ts`, 58 more `lit_*` — every name the tasks
+      list, and per rule the cells that separate its readings: each char prefix with each quote, a number, two characters,
+      none, an escape, a non-Latin-1 character, lower case, and a BOOL target to make the vendor NAME the type (S10);
+      STRING#/WSTRING# with each quote, an escape (S11); an enum value, a missing one, a qualified_only enum (S12); UTF8#
+      with ASCII, `ä`, `$21`, a `"`, lower case, into a WSTRING (S13); `%I*`/`%Q*`/`%M*`, `%IW*`, `%MW`, no size, no bit,
+      two/three/four segments, an address as an operand, `%ML`, lower case, bit 8 (A1, A2). Recorded `record:language` on
+      CODESYS and TwinCAT (58 each) and `record:exec` on CODESYS (14 run; the three `AT %I*`/`%Q*`/`%M*` record "Login
+      failed..." each ALONE — no VAR_CONFIG in the recording project — and carry that as `execSkip`). Also recorded on
+      TwinCAT for the first time: `tr_12_fmt_long_dates` and the five `xf_l*_call_once` (the census pinned their parse
+      errors as "no TwinCAT recording"). Measured: CODESYS reads any `<word>#<operand>` as ONE token — `UCHAR#'…'` and
+      `UTF8#'…'` (either case, single quote) are literals, every other pair a COMPONENT ("''A'' is no component of 'CHAR'",
+      CHAR/WCHAR are no typed prefixes), an enum's `Type#Value` a value of unknown type; `UCHAR#'A'` is UDINT 65 only in
+      capitals with one decoded character, else the token is a STRING of its own text less its first and last character
+      (`UCHAR#'AB'` runs as 'CHAR#$'AB', `utf8#'a'` as 'tf8#$'a'); `UTF8#'ä'` is STRING(INT#2); `STRING#`/`WSTRING#` are
+      refused words on both vendors; TwinCAT refuses EVERY `<word>#` it has no literal for, as one token. An address's `*`
+      stands only after the area (`%IW*` is `%IW` then `*`); an address with a size and no position is "Direct address
+      expected after AT instead of %IW" and the declaration is lost; no size letter or the wrong segment count (X two,
+      B/W/D/L one) is "Direct address '%I?0.0' malformed"; the bit is not checked against a byte (`%MX10.8` builds).
+      Fixed (test-first): `lex/lexer` (`TWINCAT_LITERAL_PREFIXES`, `QUOTED_LITERAL_PREFIXES`, `REFUSED_LITERAL_PREFIXES` in
+      `lex/vocabulary`; a refused `<word>#` is a `Token.malformed` typed literal, so the PARSER refuses it with its cascade —
+      the source scan in `analysis/checks/names/refused-name` is deleted; CHAR/WCHAR leave `TYPED_PREFIXES`; the address's
+      `*`), `literal/value` `typedLiteralForm`, `literal/string` `decodeUtf8Literal`, new `literal/address` `addressShape`,
+      `types/literal` (UCHAR UDINT/STRING, UTF8 STRING, component UNKNOWN), `parse/expression` (an incomplete address is
+      no operand), `parse/declarations` `refuseAtOperand` (the no-position AT refusal is the parser's, a `ParseError` fact
+      `directAddressExpected`), `parse/errors` (a refused prefix echoes whole), new check `analysis/checks/types/
+      typed-literal` (no component), `analysis/hole` (a malformed address operand and an enum `Type#Value` are holes on
+      their own evidence), `expr-echo` (the `?` echo), `rules` `stringLiteralMessageType` (STRING(INT#n) for the quoted
+      typed literals), `at-address` (malformed; lost uses), `unknown-source` (the target in the compiler's form).
+      On the way: `ldate_ltod_ldt` left `TWINCAT_TRIAGE` (its LSP-only messages are gone); `src/transpile/lower/
+      init-sequence.test.ts` wrote `AT %MQ8`, which is no address (the parser now refuses it) — `%I*` is the unmodelled
+      address it meant (the one transpile edit, a test premise). Divergences opened (TwinCAT): `TWINCAT_MALFORMED_ADDRESS_
+      ALIGNMENT` (2, the granularity warning on a malformed address; niche, accepted loss), `TWINCAT_LDATE_CASCADE_STOPS_
+      IN_A_FUNCTION` (5 `xf_l*_call_once`, → 2.8.2/2.8.3). Closed: none were marked.
+      Rules GAP area 2 **58 → 53** (total 112 → 107): S10, S11, S12, S13, A2 closed; A1 gains its recorded cells.
+      Agreement floors CODESYS 2996 → 3054, TwinCAT 2968 → 3025 (3285 fixtures). `rate:fixtures`: confirmed 2131, refused
+      987, not-lowered 104, lsp-gap 11, diverges 3, unaskable 49. Two measures ask one more question they state: 0.1
+      counts TwinCAT's parse errors per line once, as the LSP reports them (`dumps.ts` `parseErrors`, TwinCAT's
+      `dedupePerLine`); 0.4 also matches a string literal by its message form STRING(INT#n) and an untyped expression by
+      the compiler's echo (`bound-census.ts`). Ceilings (all fell): parse findings 180 → 135, resolution findings
+      162 → 155 (TwinCAT bare NONE 45 → 38), type findings 245 → 232 (TwinCAT binary/call/ident UNKNOWN 1160/694/115 →
+      1155/689/111). F (`frontend-snapshot check --base HEAD`, HEAD still without 2.2.1–2.2.5): 5373 aspects over 743
+      sources, of them this step's 2287 over 319 — the new `lit_*` fixtures and the sources holding the rules' prefixes
+      on TwinCAT (`xf_l*`, `cc_ld*`/`cc_lt*`/`cc_fp_ldate*`, `tr_12_fmt_long_dates`, `ldate_ltod_ldt`,
+      `operand_uchar_literal`); no corpus or library source moved. `bun typecheck` clean; `bun test` 6243 pass / 34 skip
+      / 149 todo / 0 fail (6426 tests, 184 files, 530 s); `bun run check` 14 passed, 0 failed; lint clean (warnings only,
+      none new).
+      **Gate re-run 2.2b (2026-10-01, before commit):** `bun typecheck` clean; `bun test` 6255 pass / 34 skip / 149 todo /
+      0 fail (6438 tests, 184 files, 543 s; `fixtures.test.ts` recomputes every `map.generated.ts` row and agrees — the map
+      is current); `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only), layering 1 known violation.
+      Committed together with 2.2.1–2.2.5: their gate passed but was never committed, and both batches share the same
+      files (lexer, literals, divergences, recordings, baselines, the map), so they cannot be split.
 - [ ] 2.3.1 VAR section kinds (D1–D5): VAR_ACCESS dispatched at file scope with its path syntax. Record decl_var_access,
       decl_var_access_read_only, decl_var_generic.
       Where: parse/declarations, parse/parser. Acceptance: CA. Depends on: 1.41

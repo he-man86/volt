@@ -166,10 +166,11 @@ test("a stray token after a scalar initializer is a parse error, worded as CODES
   const fb = (decl: string) => `FUNCTION_BLOCK F\nVAR\n  ${decl}\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(messages(fb("x : INT := 5 abc;"))).toEqual(["';' expected instead of 'abc'"])
   expect(messages(fb("x : INT := 5 6;"))).toEqual(["';' expected instead of '6'"])
-  // not stray: an aggregate, a complete expression, and a TIME literal cut at its unit (its own check reports that)
+  // not stray: an aggregate, a complete expression — and a TIME literal cut at its unit is the LITERAL refused, the pair
+  // and nothing about the `US` after it (`cc_time_microsecond_literal`, frontend-conformance 2.2.3)
   expect(messages(fb("p : ST := (a := 1, b := 2);"))).toEqual([])
   expect(messages(fb("x : INT := 2 + 3;"))).toEqual([])
-  expect(messages(fb("t1 : TIME := T#1500US;"))).toEqual([])
+  expect(messages(fb("t1 : TIME := T#1500US;"))).toEqual(["';' expected instead of 'T#1500'", "Expression expected instead of 'T#1500'"])
 })
 
 test("a reserved word as a variable name is reported on the name, not the section header", () => {
@@ -380,4 +381,53 @@ test("a return type the parser refused is stated as refused, not as no return ty
   expect(program.returnTypeRefused).toBe(true)
   const none = unit("FUNCTION G\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION\n", "codesys")
   expect({ returnType: none.returnType, returnTypeRefused: none.returnTypeRefused }).toEqual({ returnType: undefined, returnTypeRefused: undefined })
+})
+
+// ─── a MALFORMED literal leading a declaration's initializer (frontend-conformance 2.2.3, 2.2.5) ─────────────────────
+// Both vendors, every recorded cell (`cc_time_microsecond_literal`, `esc_wstring_hex_41`, `_ff`, `_pair`, `hex3`): the
+// pair on the literal, and the initial value is then the compiler's placeholder (`VarDecl.refusedInit`), which the
+// type check words "Cannot convert type 'Unknown type: '!!!'ERROR'!!!''". Nothing after it in the initializer is named.
+
+test("a malformed literal leading an initializer is the pair, and the declaration keeps a refused initializer", () => {
+  const src = (init: string) => `FUNCTION_BLOCK F\nVAR\n\tv : WSTRING := ${init};\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const pair = (text: string) => [`';' expected instead of '${text}'`, `Expression expected instead of '${text}'`]
+  expect(messages(src('"$41"'))).toEqual(pair('"$41"'))
+  expect(messages(src('"$C3$A9"'))).toEqual(pair('"$C3$A9"'))
+  expect(messages(`FUNCTION_BLOCK F\nVAR\n\tt : TIME := T#1500US;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual(pair("T#1500"))
+  const decl = firstDecl(src('"$41"'))
+  expect(decl.init).toBeUndefined()
+  expect(decl.refusedInit).toBeDefined()
+  // TwinCAT quotes only as far as it lexed
+  const tc = parseSource(src('"$C3$A9"'), { networkText: true }, "twincat").errors.map((e) => e.message)
+  expect(tc.slice(0, 2)).toEqual(pair('"$C3'))
+  // a clean initializer is no refusal
+  expect(firstDecl(src('"$0041"')).refusedInit).toBeUndefined()
+})
+
+// ─── a MALFORMED literal where the parser reads a TYPE (frontend-conformance 2.2a) ───────────────────────────────────
+// Both vendors (`lit_malformed_array_bound`, `_typed`, `lit_malformed_subrange_bound`, 2026-10-01): an array bound ends at
+// the literal and the dimension wants its `]` or `,`; a subrange bound is refused as an operand AND wants its `)`. The
+// cascade the vendors run after that (to END_VAR and past it) is recovery, task 2.8 — what is asked here is that the
+// refusal is said, where a contained sub-parse used to swallow it.
+
+test("a malformed literal as an array bound: the dimension wants its `]` or `,`, and keeps no bound", () => {
+  const fb = (decl: string) => `FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`
+  expect(messages(fb("a : ARRAY[0..3#1] OF INT;"))).toContain("'] or ,' expected instead of '3#'")
+  expect(messages(fb("a : ARRAY[0..INT#+5] OF INT;"))).toContain("'] or ,' expected instead of 'INT#'")
+  const dim = (firstDecl(fb("a : ARRAY[0..3#1] OF INT;")).type as { dims: { upper?: unknown }[] }).dims[0]!
+  expect(dim.upper).toBeUndefined()
+})
+
+test("a malformed literal as a subrange bound: refused as an operand, and the subrange wants its `)`", () => {
+  const got = messages(`FUNCTION_BLOCK F\nVAR\n\ta : INT(0..BOOL#2);\nEND_VAR\nEND_FUNCTION_BLOCK\n`)
+  expect(got).toContain("')' expected instead of 'BOOL#2'")
+  expect(got).toContain("Expression expected instead of 'BOOL#2'")
+})
+
+test("an AT address with a size and no position is refused by the parser, as a fact the analysis words (A2)", () => {
+  // `lit_address_incomplete_sized` (`%IW*`), `lit_address_no_position` (`%MW`), both vendors 2026-10-01
+  const errs = (decl: string) => parseSource(`FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true }).errors
+  expect(errs("w AT %IW* : WORD;").map((e) => [e.message, e.directAddressExpected])).toEqual([["Direct address expected after AT instead of %IW", "%IW"]])
+  expect(errs("w : WORD AT %MW;").map((e) => e.directAddressExpected)).toEqual(["%MW"])
+  for (const d of ["b AT %I* : BOOL;", "b AT %IX0.0 : BOOL;", "b AT %I0.0 : BOOL;"]) expect(errs(d)).toEqual([])
 })

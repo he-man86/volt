@@ -66,21 +66,6 @@ export function checkRefusedName(ctx: CheckContext, out: DiagnosticItem[]): void
     for (const name of decl.names) if (isRefused(name.text, ctx.config.vendor)) report(name.text, name.span, true)
   }
 
-  // AN UNKNOWN LITERAL PREFIX IS FOUND BY SCANNING THE SOURCE, not by walking the AST, because there is no AST
-  // to walk: `v := LDT#2026-05-09-07:05:03;` leaves the statement list EMPTY — the parser gives up at the stray
-  // `2026` and the body yields nothing at all. The prefix is unambiguous in raw tokens (an identifier ending in
-  // `#`, a shape no valid source produces), which is the same reason `cascadeAfter` re-lexes rather than walking.
-  // …once each. A cascade runs to the next `;`, so a second prefix in the SAME statement has already been
-  // reported by the first one's resync — reporting it again adds a message for a position the parser never
-  // reaches, out of order (`v := LDT#1 + LTOD#2;`).
-  let reportedTo = -1
-  for (const token of ctx.tokens()) {
-    if (token.kind !== "identifier" || !isUnknownPrefix(token.text) || token.span.start < reportedTo) continue
-    push(ctx.messages.expressionExpectedInsteadOf(token.text), token.span)
-    cascadeAfter(ctx, out, token.span.start)
-    reportedTo = cascadeEnd(ctx.source, token.span.start)
-  }
-
   // Bare identifiers only: `S=`/`R=` are operator tokens, and a member name (`fb.S`) was not measured.
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project))
     walkStatements(statements, (s) => {
@@ -117,18 +102,7 @@ function isRefused(text: string, vendor: Vendor): boolean {
  */
 function isRefusedInBody(text: string, vendor: Vendor): boolean {
   const reservedType = elementaryType(text) !== undefined && isDialectType(text, vendor)
-  return IL_OPERATOR_NAMES.has(text.toLowerCase()) || reservedType || isUnknownPrefix(text)
-}
-
-/**
- * A `<prefix>#` identifier — which only the TwinCAT dialect's lexer produces, for a literal prefix that vendor does
- * not have (`LDATE#`, `LDT#`, `LTOD#`, `UCHAR#`; see `CODESYS_ONLY_LITERAL_PREFIXES`). TwinCAT quotes the prefix
- * WHOLE and then resyncs exactly like any other refused name — `v := LDT#2026-05-09-07:05:03;` is "Expression
- * expected instead of 'LDT#'" and then a pair per token to the `;` (`xf_ldt_to_*`, `cc_ld*_literal_into_*`). On
- * CODESYS these lex as one `date_lit` token and never reach this, which is why the test is the `#` and not a list.
- */
-function isUnknownPrefix(text: string): boolean {
-  return text.endsWith("#")
+  return IL_OPERATOR_NAMES.has(text.toLowerCase()) || reservedType
 }
 
 /**
@@ -145,12 +119,6 @@ function callArgumentNames(s: Parameters<typeof stmtExprs>[0]): ReadonlySet<numb
       for (const a of x.args) if (a.value?.kind === "ident_expr") spans.add(a.value.span.start)
     })
   return spans
-}
-
-/** Where a cascade from `at` stops — the `;` it resyncs to, or the end of the source. */
-function cascadeEnd(source: string, at: number): number {
-  const semi = source.indexOf(";", at)
-  return semi < 0 ? source.length : semi
 }
 
 /** The line ending the FILE uses. */

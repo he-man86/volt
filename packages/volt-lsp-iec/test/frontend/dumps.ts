@@ -81,7 +81,10 @@ export interface ParseErrorRow {
 /**
  * Every parse error a client would see for `p` on `vendor`: both passes, the vendor's wording of "Unexpected token",
  * and without the ones that vendor's compiler does not report (`vendorReportsParseError`) — the same stream
- * `checks/syntax/parse-errors.ts` drains.
+ * `checks/syntax/parse-errors.ts` drains. On TwinCAT a message said twice on one LINE is seen once, because
+ * `computeSemanticDiagnostics` folds TwinCAT's output per line (`dedupePerLine`: TwinCAT never says the same thing twice
+ * on one line) — so a refused `LDATE#2024-01-01`, whose cascade pairs `'-'` twice, is counted as TwinCAT records it
+ * (task 2.2.6, when the cascade moved from `refused-name` into the parser).
  */
 export function parseErrors(p: Parsed, vendor: Dialect): ParseErrorRow[] {
   const messages = messagesFor(vendor)
@@ -97,7 +100,14 @@ export function parseErrors(p: Parsed, vendor: Dialect): ParseErrorRow[] {
       if (!isStBody(body)) continue
       for (const e of parseStatements(body).errors) if (vendorReportsParseError(e, vendor)) out.push(row("body", e))
     }
-  return out
+  if (vendor !== "twincat") return out
+  const seen = new Set<string>()
+  return out.filter((r) => {
+    const key = `${r.at.split(":")[0]}\u0000${r.message}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // ─── 0.2 the printer ─────────────────────────────────────────────────────────────────────────────────────────

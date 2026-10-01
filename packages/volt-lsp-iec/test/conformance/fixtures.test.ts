@@ -40,7 +40,7 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, decodeStringLiteral, parseDocument, parseSource } from "../../src/frontend/syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, TWINCAT_LITERAL_PREFIXES, decodeStringLiteral, parseDocument, parseSource } from "../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } from "../../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
@@ -1545,7 +1545,24 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // name (`lex_keyword_{assigned,before_name,operand}_*`), the cascade meeting a soft name, the modifiers as named
   // arguments and `cal` read — recorded live; the parser refuses a keyword that is no operand, takes the next token for
   // a call operator's `(`, and refuses at a statement start only the words the recordings refuse.
-  { vendor: "twincat", floor: 2886 },
+  // 2886 -> 2954 (2026-10-01, frontend-conformance 2.2): the literal fixtures (`grammar/literals.ts`), recorded live — the
+  // lexer ends a literal where the vendor does and refuses a malformed one whole (`Token.malformed`), a calendar field
+  // out of range is "too large", and the statement a refused literal's resync resumes at is warned (`resumed`); 2.1.4's
+  // own fixtures had already taken the count past the old floor.
+  // 2954 -> 2968 (2026-10-01, frontend-conformance 2.2a): the review's 18 literal cells, recorded live — `_` as free in a
+  // typed integer and a duration as in an integer, a duration's components strictly largest first, a 32-bit DATE/DT's
+  // upper end, a refused literal in a type position or after an operator in an initializer said where it stands. The
+  // four that do not agree are `LITERAL_REFUSAL_DECLARATION_RECOVERY`.
+  // 2968 -> 3025 (2026-10-01, frontend-conformance 2.2.6/2.2.7): the typed character, string, enum and UTF8# literals and
+  // the address shapes (58 `lit_*`), recorded live — every `<word>#` TwinCAT has no literal for is ONE refused token
+  // (`TWINCAT_LITERAL_PREFIXES`), an address is taken by its shape (`literal/address`); `tr_12_fmt_long_dates`, first
+  // recorded on TwinCAT here, agrees. Not agreeing: `TWINCAT_MALFORMED_ADDRESS_ALIGNMENT`,
+  // the `xf_l*_call_once` (then one mark; split by the 2.2b review into the three rules they show).
+  // 3025 -> 3036 (2026-10-01, frontend-conformance 2.2b): the review's 17 literal and address cells, recorded live — a
+  // literal hole under NOT/ABS/ADR/a negation or a bare conversion, a sized address with no position in a body, a typed
+  // integer as a CASE label, a UCHAR# escape past ASCII; the six a refused `<word>#` reaches inside a list are
+  // `TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST`.
+  { vendor: "twincat", floor: 3036 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1635,7 +1652,16 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // agree; ten are `KNOWN_DIVERGENCES` (the recovery rule R1's) and six are refused at object creation (`execSkip`).
   // 2622 -> 2912 (2026-09-30, frontend-conformance 2.1.3): the same fixtures, the same fixes, on the vendor they were
   // first recorded on.
-  { vendor: "codesys", floor: 2912 },
+  // 2912 -> 2982 (2026-10-01, frontend-conformance 2.2): the same literal fixtures and fixes, on CODESYS.
+  // 2982 -> 2996 (2026-10-01, frontend-conformance 2.2a): the same review cells and fixes, on CODESYS.
+  // 2996 -> 3054 (2026-10-01, frontend-conformance 2.2.6/2.2.7): the same 58 literal and address fixtures, all agreeing —
+  // a `<word>#<operand>` is a typed literal, a character, a UTF-8 string, its token's own text, or a component
+  // (`literal/value` `typedLiteralForm`), `STRING#`/`WSTRING#` refused words.
+  // 3054 -> 3069 (2026-10-01, frontend-conformance 2.2b): the same 17 cells — a literal hole is a hole under NOT, ABS,
+  // ADR and a negation and converts to ANY in a bare conversion (`analysis/hole` `passThroughOperand`), `%MW` is no
+  // operand and no target, "no component" in every initializer, `INT#5:` a CASE label and an enum's `Type#Value` none,
+  // `UCHAR#'$80'` one character; the two DUT ones are `COMPONENT_CARRIED_ON_IN_A_DUT`.
+  { vendor: "codesys", floor: 3069 },
 ]
 
 
@@ -1700,16 +1726,21 @@ const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, 
 /**
  * THE SAME SOURCE, LEXED AS THE OTHER VENDOR — for the handful of fixtures where that can differ at all.
  *
- * `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`, `__VECTOR` and the `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` literal
- * prefixes are CODESYS's alone (`syntax/lex/vocabulary.ts`, measured on both recordings). For every other source the
- * two dialects produce identical tokens, so this re-parses only what contains one of them — exactly, by name,
- * not by a heuristic. Parsing all 2540 fixtures twice would be correct and would also double the harness's
- * setup for about thirty files.
+ * `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`, `__VECTOR` are CODESYS's alone, and so is every `<word>#` literal
+ * prefix TwinCAT does not read (`TWINCAT_LITERAL_PREFIXES`: `UCHAR#`, `LDATE#`, `CHAR#`, an enum's `E#`…;
+ * `syntax/lex/vocabulary.ts`, measured on both recordings) — and a WSTRING hex escape
+ * of fewer than four digits ends the token where TwinCAT stops, not where CODESYS does (`lex/lexer.ts`
+ * `lexQuotedString`, `esc_wstring_hex_*`). For every other source the two dialects produce identical tokens, so this
+ * re-parses only what contains one of them — by name, and for the escape any `$` with one to three hex digits (a
+ * STRING's too: re-parsing more than needed is exact, only slower). Parsing all 2540 fixtures twice would be correct
+ * and would also double the harness's setup for about thirty files.
  */
-const DIALECT_SENSITIVE = new RegExp(
-  `(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")}|(${[...CODESYS_ONLY_LITERAL_PREFIXES].join("|")})#)`,
-  "i",
-)
+const DIALECT_WORDS = new RegExp(`(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")})|\\$[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])`, "i")
+const LITERAL_PREFIX = /(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)#/g
+const DIALECT_SENSITIVE = {
+  test: (source: string): boolean =>
+    DIALECT_WORDS.test(source) || [...source.matchAll(LITERAL_PREFIX)].some((m) => !TWINCAT_LITERAL_PREFIXES.has(m[1].toUpperCase())),
+}
 // By the document, not its uri: fixtures share a POU name, so two fixtures' files can share a uri.
 const TC_PARSE = new WeakMap<object, { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>()
 function asVendor<T extends { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }>(

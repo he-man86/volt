@@ -357,7 +357,7 @@ test("no check opens with a whole-body vendor early return — the registry deci
   expect(offenders).toEqual([])
 })
 
-// The token-reading checks (refused-name, time-literal-unit, wstring-escape, pragmas, attribute placement) read the
+// The token-reading checks (refused-name, pragmas, attribute placement) read the
 // PARSE's tokens, lexed with the parse's dialect — so a parse in one dialect analysed as the other is the same
 // "which vendor is this?" the project/config mismatch is, and is refused the same way rather than answered.
 test("a parse lexed as one vendor is refused by name when analysed as the other", () => {

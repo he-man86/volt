@@ -282,6 +282,8 @@ export interface Messages {
   pouObsolete(name: string, message: string): string
   /** An `AT` clause whose operand is not a direct address (`i AT ABC`) — C0030. verified live CODESYS; TC pending. */
   directAddressExpectedAt(found: string): string
+  /** An `AT` address of the wrong shape, echoed with `?` for a missing size letter — `lit_address_*`, both vendors 2026-10-01. */
+  directAddressMalformed(echo: string): string
   /** An empty control-flow block or CASE arm (C0013/C0426) — a body with no statements. verified live CODESYS; TC pending. */
   emptyStatementBlock(): string
   /** An identifier named after an IEC-reserved keyword CODESYS soft-allows (CHAR/WCHAR/USING) — C0543. verified live CODESYS; TC pending. */
@@ -637,6 +639,7 @@ export function messagesFor(vendor: Vendor): Messages {
     pouObsolete: (name, message) => `POU '${name}' has been marked as obsolete: ${message}`,
     directAddressExpectedAt: (found) =>
       tc ? `Direct Address expected after "AT" instead of ${found}` : `Direct address expected after AT instead of ${found}`,
+    directAddressMalformed: (echo) => `Direct ${tc ? "Address" : "address"} '${echo}' malformed`,
     emptyStatementBlock: () => `At least one statement is expected`,
     reservedKeyword: (name) =>
       `The name '${name.toUpperCase()}' is a reserved keyword in the IEC61131-3 standard. An error will be reported in future versions.`,

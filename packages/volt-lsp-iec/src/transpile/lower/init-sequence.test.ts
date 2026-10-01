@@ -132,9 +132,13 @@ test("an initializer that IS the type's default is not mistaken for a dropped on
 })
 
 test("a global AT an address lowering does not model keeps its refusal", () => {
-  // otherwise a hardware-mapped variable is silently modelled as ordinary storage
+  // otherwise a hardware-mapped variable is silently modelled as ordinary storage. (`%MQ8` stood here, which is no
+  // address at all — an area, no size letter, then `Q8` — and the parser refuses it since frontend-conformance 2.2.7;
+  // `%I*` is an address, incomplete, which lowering does not model — and CODESYS and TwinCAT build exactly this, an
+  // initialized incomplete address in a VAR_GLOBAL: recorded 2026-10-01, and not kept as a fixture only because a GVL's
+  // initializer would raise a NOSCOPE ceiling — the answer is in `test/conformance/fixtures/grammar/literals.ts`.)
   const r = lowerSource(
-    "VAR_GLOBAL\n\tgB AT %MQ8 : BYTE := 2;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n\tx : BYTE := SHL(gB, 2);\n\tz : BYTE;\nEND_VAR\nz := gB;\nEND_PROGRAM\n",
+    "VAR_GLOBAL\n\tgB AT %I* : BYTE := 2;\nEND_VAR\n\nPROGRAM PLC_PRG\nVAR\n\tx : BYTE := SHL(gB, 2);\n\tz : BYTE;\nEND_VAR\nz := gB;\nEND_PROGRAM\n",
     "PLC_PRG",
   )
   expect(r.diagnostics.map((d) => d.code)).toContain("var-at")

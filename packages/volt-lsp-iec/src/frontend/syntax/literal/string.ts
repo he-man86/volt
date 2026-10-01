@@ -3,18 +3,46 @@
  */
 
 /**
- * A string literal's text with its `$` escapes decoded — only the ones measured on CODESYS (conformance `string_escapes*`,
- * `wstring_code_units`): `$T`/`$t` a tab, `$$` a dollar, `$N` and `$L` ONE line feed, `$R` CR, `$P` form feed, `$'` and `$"`
- * the quotes; two hex digits one byte in a STRING, four one code unit in a WSTRING (`$00E9` = 'é'). Any other escape — and
- * a WSTRING's named escapes, unmeasured — returns undefined, so a caller refuses rather than guesses. The ONE decoder:
- * the transpiler, the string-constant check and the assignment message used to count three different ways.
+ * The named escapes, as CODESYS stores them, in a STRING and a WSTRING alike and in either case: `$T` a tab, `$$` a
+ * dollar, `$N` and `$L` ONE line feed, `$R` CR, `$P` form feed, `$'` and `$"` the quotes (conformance `string_escapes*`;
+ * `lit_wstring_named_escapes`, `lit_string_lowercase_escapes`, `lit_wstring_lowercase_escapes` — each compared with the
+ * code unit it names, 2026-10-01).
+ */
+const NAMED_ESCAPES: Readonly<Record<string, string>> = {
+  T: "\t", t: "\t", N: "\n", n: "\n", L: "\n", l: "\n", R: "\r", r: "\r", P: "\f", p: "\f", $: "$", "'": "'", '"': '"',
+}
+
+/**
+ * A string literal's text with its `$` escapes decoded: the named ones (`NAMED_ESCAPES`); two hex digits one byte in a
+ * STRING, four one code unit in a WSTRING (`$00E9` = 'é', `wstring_code_units`). Any other escape returns undefined, so a
+ * caller refuses rather than guesses. The ONE decoder: the transpiler, the string-constant check and the assignment
+ * message used to count three different ways.
  */
 export function decodeStringLiteral(raw: string, wide = false): string | undefined {
-  const MEASURED: Readonly<Record<string, string>> = { T: "\t", t: "\t", N: "\n", L: "\n", R: "\r", P: "\f", $: "$", "'": "'", '"': '"' }
+  return decode(raw, wide, (ch) => ch)
+}
+
+/**
+ * A `UTF8#'…'` literal's text, decoded: each character stored as its UTF-8 bytes (one JS char each, as a STRING's bytes
+ * are kept), its `$` escapes as a STRING's. `LEN(UTF8#'ä')` is 2 and the type is `STRING(INT#2)` (`lit_utf8_non_ascii`,
+ * `lit_utf8_non_ascii_into_wstring`); `UTF8#'$21'` is '!' (`lit_utf8_escape`, CODESYS 2026-10-01).
+ */
+export function decodeUtf8Literal(raw: string): string | undefined {
+  return decode(raw, false, (ch) => {
+    const code = ch.codePointAt(0)!
+    return code < 0x80 ? ch : utf8Bytes(code)
+  })
+}
+
+/** The one decoder: `plain` is what a character that is no escape is stored as. */
+function decode(raw: string, wide: boolean, plain: (ch: string) => string): string | undefined {
   let out = ""
   for (let i = 0; i < raw.length; i++) {
     if (raw[i] !== "$") {
-      out += raw[i]
+      const code = raw.codePointAt(i)!
+      const ch = String.fromCodePoint(code)
+      out += plain(ch)
+      i += ch.length - 1
       continue
     }
     const digits = wide ? 4 : 2
@@ -40,8 +68,7 @@ export function decodeStringLiteral(raw: string, wide = false): string | undefin
       i += digits
       continue
     }
-    if (wide) return undefined // a WSTRING's named escapes are not measured yet
-    const decoded = MEASURED[raw[++i] ?? ""]
+    const decoded = NAMED_ESCAPES[raw[++i] ?? ""]
     if (decoded === undefined) return undefined
     out += decoded
   }
@@ -60,8 +87,9 @@ const CP1252: Readonly<Record<number, number>> = {
   0x9c: 0x0153, 0x9e: 0x017e, 0x9f: 0x0178,
 }
 
-/** A code point's UTF-8 bytes, one JS char each — two below U+0800, three above it. */
+/** A code point's UTF-8 bytes, one JS char each — two below U+0800, three below U+10000, four above. */
 function utf8Bytes(code: number): string {
   if (code < 0x800) return String.fromCharCode(0xc0 | (code >> 6), 0x80 | (code & 0x3f))
-  return String.fromCharCode(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f))
+  if (code < 0x10000) return String.fromCharCode(0xe0 | (code >> 12), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f))
+  return String.fromCharCode(0xf0 | (code >> 18), 0x80 | ((code >> 12) & 0x3f), 0x80 | ((code >> 6) & 0x3f), 0x80 | (code & 0x3f))
 }

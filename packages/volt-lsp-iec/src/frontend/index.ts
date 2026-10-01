@@ -9,7 +9,7 @@ export {
   bodyReader,
   calendarNanoseconds,
   CODESYS_ONLY_KEYWORDS,
-  CODESYS_ONLY_LITERAL_PREFIXES,
+  TWINCAT_LITERAL_PREFIXES,
   declarationAttributes,
   decodeStringLiteral,
   dimText,

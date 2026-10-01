@@ -19,6 +19,7 @@ import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErr
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { enumTypedLiteral } from "../../hole.js"
 
 export function checkCaseLabels(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -48,7 +49,10 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
 
   const nonConst = (e: Expr) => {
     // C0218 — a label that is a genuine non-constant variable (enum members / VAR CONSTANT are fine).
-    if (constancyOf(e, scope) === "variable") push("case-label-non-const", e.span, ctx.messages.caseLabelNonConst())
+    // An enum's `Type#Value` is no constant either: CODESYS gives it no type (`analysis/hole`), and as a label it says
+    // exactly this (`lit_enum_typed_case_label`, 2026-10-01).
+    const enumLiteral = e.kind === "literal" && e.literalKind === "typed" && enumTypedLiteral(e.text, ctx.project)
+    if (enumLiteral || constancyOf(e, scope) === "variable") push("case-label-non-const", e.span, ctx.messages.caseLabelNonConst())
   }
   // The selector's type, when it is an elementary integer or bit string: a label is a value OF it (transpile-review 37,
   // `tr_37_case_*`). A literal outside it does not wrap in — `300` / `-212` on a SINT are "Cannot convert type 'INT' to

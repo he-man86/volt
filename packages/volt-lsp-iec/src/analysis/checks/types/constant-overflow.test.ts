@@ -54,3 +54,38 @@ test("representable constants stay quiet (0-FP)", () => {
 test("byte-identical on both vendors", () => {
   expect(overflow(`i := INT#123456;`, "twincat")).toEqual(overflow(`i := INT#123456;`, "codesys"))
 })
+
+test("a calendar literal with a field out of range is too large for its type, named in full (N24)", () => {
+  // `lit_date_month_13`, `lit_tod_hour_25`, `lit_dt_leap_day_non_leap` — both vendors, identically (2026-10-01)
+  const cal = (decl: string, body: string) => {
+    const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "constant-too-large")
+      .map((d) => d.message)
+  }
+  expect(cal("v : DATE;", "v := D#2024-13-01;")).toEqual(["Constant 'D#2024-13-01' too large for type 'DATE'"])
+  expect(cal("v : TOD;", "v := TOD#25:00:00;")).toEqual(["Constant 'TOD#25:00:00' too large for type 'TIME_OF_DAY'"])
+  expect(cal("v : DT;", "v := DT#2023-02-29-12:00:00;")).toEqual(["Constant 'DT#2023-02-29-12:00:00' too large for type 'DATE_AND_TIME'"])
+  expect(cal("v : DT;", "v := DT#2024-02-29-12:00:00;")).toEqual([])
+})
+
+test("a 32-bit DATE or DT ends on 2106-02-07; an LDATE does not; hour 24 is out of range (N24)", () => {
+  // `lit_date_year_2200`, `lit_date_last_32bit`, `lit_date_past_32bit`, `lit_dt_year_2200`, `lit_ldate_year_2200`,
+  // `lit_tod_hour_24` — CODESYS and TwinCAT identically (TwinCAT has no LDATE), 2026-10-01
+  const cal = (decl: string, body: string) => {
+    const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "constant-too-large")
+      .map((d) => d.message)
+  }
+  expect(cal("v : DATE;", "v := D#2200-01-01;")).toEqual(["Constant 'D#2200-01-01' too large for type 'DATE'"])
+  expect(cal("v : DATE;", "v := D#2106-02-08;")).toEqual(["Constant 'D#2106-02-08' too large for type 'DATE'"])
+  expect(cal("v : DATE;", "v := D#2106-02-07;")).toEqual([])
+  expect(cal("v : DT;", "v := DT#2200-01-01-00:00:00;")).toEqual(["Constant 'DT#2200-01-01-00:00:00' too large for type 'DATE_AND_TIME'"])
+  expect(cal("v : LDATE;", "v := LDATE#2200-01-01;")).toEqual([])
+  expect(cal("v : TOD;", "v := TOD#24:00:00;")).toEqual(["Constant 'TOD#24:00:00' too large for type 'TIME_OF_DAY'"])
+})

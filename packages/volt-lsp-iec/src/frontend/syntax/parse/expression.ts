@@ -25,6 +25,7 @@ import type {
   LiteralKind,
 } from "../ast/nodes.js"
 import { parseLiteralValue } from "../literal/value.js"
+import { addressShape } from "../literal/address.js"
 import { expressionExpected, vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND } from "../lex/vocabulary.js"
 
@@ -272,9 +273,24 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
 
 const isOpenParen = (t: Token): boolean => t.kind === "punct" && t.text === "("
 
+/** The address shapes that are no operand: complete only after AT (`%I*`), or no address at all (`%MW`). */
+const NO_OPERAND_ADDRESS: ReadonlySet<string> = new Set(["incomplete", "no-position"])
+
 function parsePrimary(cur: Cursor): Expr | undefined {
   const t = cur.peek()
   const lk = LIT_KIND[t.kind]
+  // A MALFORMED literal (`Token.malformed`) is refused as a keyword that is no operand is, and left where it stands for
+  // the statement's resync: "Expression expected instead of '3#'", then the pair and a pair per token to the `;`
+  // (`lit_invalid_base_3`, `lit_int_typed_plus`, `cc_time_nanosecond_literal`, both vendors).
+  // An INCOMPLETE address (`%I*`) is refused the same way where it is an operand — it is completed by a VAR_CONFIG,
+  // so it belongs after `AT` only (`lit_address_incomplete_in_body`, both vendors 2026-10-01). So is one with a size
+  // and NO POSITION (`%MW`; `%IW*` is `%IW` then `*`), which is no address at all (`lit_address_no_position_in_body`,
+  // `lit_address_sized_star_in_body`, CODESYS 2026-10-01).
+  if (lk !== undefined && (t.malformed || (lk === "address" && NO_OPERAND_ADDRESS.has(addressShape(t.text).kind)))) {
+    cur.pushError(vendorExpressionExpected(t), t.span)
+    cur.refuseOperand()
+    return undefined
+  }
   if (lk !== undefined) {
     cur.consume()
     return makeLiteral(lk, t)

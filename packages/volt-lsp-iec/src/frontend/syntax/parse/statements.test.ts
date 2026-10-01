@@ -147,3 +147,67 @@ test("on TwinCAT the CODESYS-only words are names: no parse error in any stateme
     expect(errors(`n := ${w};`, "twincat")).toEqual([])
   }
 })
+
+// ─── a MALFORMED literal where an operand belongs (frontend-conformance 2.2) ─────────────────────────────────────────
+// The token the lexer refused (`Token.malformed`) is refused as the keywords of `NOT_AN_OPERAND` are: "Expression
+// expected instead of 'X'", then the statement's resync from it — a pair per token, a name ending it.
+
+const refusedLiteral = (text: string): string[] => [
+  `Expression expected instead of '${text}'`,
+  `';' expected instead of '${text}'`,
+  `Unexpected token '${text}' found`,
+]
+
+/** The statements of a body snippet. */
+function statements(body: string) {
+  const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
+  const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
+  return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).statements
+}
+
+test("a malformed literal is refused whole, and the tokens after it resync as after a refused word (lit_*)", () => {
+  // `lit_invalid_base_3`, `lit_int_typed_plus`, `lit_int_typed_negative_based`, `lit_real_no_fraction_digit`, `lit_bool_typed_2`
+  expect(errors("v := 3#12;")).toEqual([...refusedLiteral("3#"), "';' expected instead of '12'", "Unexpected token '12' found"])
+  expect(errors("v := INT#+5;")).toEqual([
+    ...refusedLiteral("INT#"),
+    "';' expected instead of '+'", "Unexpected token '+' found",
+    "';' expected instead of '5'", "Unexpected token '5' found",
+  ])
+  expect(errors("v := INT#-16#10;")).toEqual([
+    ...refusedLiteral("INT#-16"),
+    "';' expected instead of '#'", "Unexpected token '#' found",
+    "';' expected instead of '10'", "Unexpected token '10' found",
+  ])
+  expect(errors("v := 5.;")).toEqual(refusedLiteral("5."))
+  expect(errors("v := BOOL#2;")).toEqual(refusedLiteral("BOOL#2"))
+  // a WSTRING with a short hex escape, the same way
+  expect(errors('v := "$41";')).toEqual(refusedLiteral('"$41"'))
+})
+
+test("a name after a refused literal ends its cascade and starts a statement of its own, marked resumed (cc_time_*, lit_*)", () => {
+  // `cc_time_nanosecond_literal`: "';' expected instead of 'NS'", then `NS;` is a statement — the vendor warns it has
+  // no effect, a name nothing declares or not (`flow/no-op-statement` reads the mark)
+  expect(errors("t1 := T#5NS;")).toEqual([...refusedLiteral("T#5"), "';' expected instead of 'NS'"])
+  expect(errors("v := BOOL#TRUE;")).toEqual([...refusedLiteral("BOOL#T"), "';' expected instead of 'RUE'"])
+  expect(errors("v := T#-10ms;")).toEqual([
+    ...refusedLiteral("T#"),
+    "';' expected instead of '-'", "Unexpected token '-' found",
+    "';' expected instead of '10'", "Unexpected token '10' found",
+    "';' expected instead of 'ms'",
+  ])
+  expect(statements("v := BOOL#TRUE;")).toMatchObject([{ kind: "expr_stmt", resumed: true, expr: { kind: "ident_expr", name: "RUE" } }])
+  // an ordinary bare statement is not resumed
+  expect(statements("RUE;")[0]).not.toHaveProperty("resumed")
+})
+
+test("an address with a size and no position is no operand and no target in a body either (A2)", () => {
+  // CODESYS 2026-10-01: `lit_address_no_position_in_body` (`out := %MW;`), `lit_address_sized_star_in_body`
+  // (`out := %IW*2;` — `%IW`, then `*`), `lit_address_no_position_as_target` (`%MW := 1;`)
+  // (the parser's order: the refusal, then the pair a refused statement gets for the word — as `n := cal;` above)
+  expect(errors("out := %MW;")).toEqual(["Expression expected instead of '%MW'", "';' expected instead of '%MW'", "Unexpected token '%MW' found"])
+  expect(errors("out := %IW*2;")).toEqual([
+    "Expression expected instead of '%IW'", "';' expected instead of '%IW'", "Unexpected token '%IW' found",
+    "';' expected instead of '*'", "Unexpected token '*' found", "';' expected instead of '2'", "Unexpected token '2' found",
+  ])
+  expect(errors("%MW := 1;")).toEqual(refusedAssignment("%MW"))
+})

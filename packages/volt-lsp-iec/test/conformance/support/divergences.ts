@@ -48,8 +48,6 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *   cc5_deprecated_functionblock_keyword  The parser's own `unexpected identifier 'FUNCTIONBLOCK' at file
  *                             scope`, which is Volt's wording, where both vendors say nothing about the
  *                             header and complain where the missing FB is USED.
- *   ldate_ltod_ldt            Arrived with the vocabulary fix: after an unknown literal prefix the two
- *                             parsers resync differently and ours says three things more.
  *
  * THE RULE HERE IS THAT IT ONLY SHRINKS. A fixture not in this list may not emit an LSP-only message, and a
  * fixture that stops emitting one must leave the list — both are asserted below, so this cannot quietly grow
@@ -91,7 +89,6 @@ export const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
 export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
   "cc3_reference_assign",
   "cc5_deprecated_functionblock_keyword",
-  "ldate_ltod_ldt",
 ])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
@@ -170,7 +167,8 @@ const TWINCAT_XSIZEOF_IS_NO_KEYWORD: readonly string[] = [
  * defined". The LSP matches the error and not the warning: `flow/no-op-statement` stays silent on an unresolved name
  * (its zero-FP guard), which is right everywhere but here. A missing-only difference — pinned so the suite notices the
  * day it matches. The recovery's rule (R1–R2, task 2.8.2), not the vocabulary's: the same shape for every word
- * TwinCAT reads as an identifier there. (`lex_cascade_meets_soft_name_{get,set,override}` miss the same warning.)
+ * TwinCAT reads as an identifier there. (`lex_cascade_meets_soft_name_{get,set,override}` missed the same warning and
+ * no longer do: the statement a refused operand's resync resumes at is marked, `ExprStatement.resumed`, task 2.2.)
  */
 const TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD: readonly string[] = [
   "lex_keyword_before_name_sys_position",
@@ -202,6 +200,150 @@ const TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD: readonly string[] = [
  * alias binds a scope.
  */
 const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_return_type"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2 (2026-10-01) — literal fixtures whose literal the LSP now reads as both vendors do, and whose
+ * one remaining disagreement is a rule of another task. Each vendor answers them identically (TwinCAT's capital "Token"
+ * aside), so one list serves both:
+ *   `lit_invalid_digit_hex`, `lit_time_underscore` — the literal ends where the vendor's does (`16#F` before `G`, `T#1h`
+ *                            before `_30m`) and the LSP says "';' expected instead of 'G'" as they do. They then keep
+ *                            the statement as if the `;` were there and RESUME at the name — "The code 'G;' has no
+ *                            effect" — where the statement parser skips to the `;`. The recovery after a missing `;`
+ *                            is R1–R2's (task 2.8.2); `ExprStatement.resumed` is the mark it will set there.
+ *   `lit_real_no_leading_digit` — `.5` is no literal on either vendor: a leading `.` is the GLOBAL SCOPE operator, so
+ *                            they answer "Identifier expected instead of '5'" and "Global scope operation '.' is not
+ *                            valid on expression '!!!'ERROR'!!!'". The `.name` primary is E33 (task 2.5.6); the LSP's
+ *                            "expected expression, got punct '.'" is Volt's wording until then.
+ *   `lit_time_fraction_ms` — the literal is refused as the vendors refuse it (`T#1.5m`, `Token.malformed`), and the `s`
+ *                            left after it is the IL operator S, which they refuse as a WORD ("Unexpected token 's'
+ *                            found") where the LSP lexes a name and warns `s;` has no effect. The IL operators as
+ *                            words are `refused-name`'s until task 2.8.3 gives the cascade its one home.
+ */
+const LITERAL_FOLLOW_ON_RULES: readonly string[] = [
+  "lit_invalid_digit_hex",
+  "lit_time_underscore",
+  "lit_real_no_leading_digit",
+  "lit_time_fraction_ms",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2a (2026-10-01) — a malformed literal where a TYPE is read (an array bound, a subrange bound) or
+ * inside an aggregate initializer. The LSP now says every refusal the vendors say there — "'] or ,' expected instead of
+ * '3#'", "')' expected instead of 'BOOL#2'" with "Expression expected instead of 'BOOL#2'", "',, ( or ]' expected
+ * instead of 'T#1500'" with its "Expression expected" — where a contained sub-parse used to drop the literal silently.
+ * What is left is MISSING-ONLY and is the vendors' RECOVERY after the refusal, identical on both: they resync to END_VAR
+ * and past it ("'OF' expected instead of 'END_VAR'", "Type definition expected instead of ''", "'END_VAR' expected
+ * instead of ''", "';, :=, REF=, ( or [' expected instead of 'END_VAR'", "';' expected instead of 'END_VAR'") and the
+ * subrange's placeholder bound adds "Border '!!!'ERROR'!!!' of array is no constant value". The declaration recovery is
+ * R1–R3's (tasks 2.8.2, 2.8.3).
+ */
+const LITERAL_REFUSAL_DECLARATION_RECOVERY: readonly string[] = [
+  "lit_malformed_array_bound",
+  "lit_malformed_array_bound_typed",
+  "lit_malformed_subrange_bound",
+  "lit_init_malformed_in_aggregate",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2.5 (2026-10-01) — TwinCAT after a WSTRING hex escape of fewer than four digits. The lexer ends
+ * the literal where TwinCAT does (`"$C3`), so the LSP now gives every message TwinCAT records but one: the `"` left after
+ * the cut opens a string that TwinCAT reads to the END OF THE POU, so its VAR block never closes — "'END_VAR' expected
+ * instead of ''". Ours ends at the line (IEC strings do not span lines, and nothing measured says TwinCAT's do otherwise
+ * than here). A missing-only difference, one shape; the recovery is R3's (task 2.8.3). CODESYS agrees exactly.
+ */
+const TWINCAT_WSTRING_ESCAPE_RUNS_TO_END: readonly string[] = [
+  "esc_wstring_hex_41",
+  "esc_wstring_hex_ff",
+  "esc_wstring_pair",
+  "esc_wstring_hex3",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2.7 (2026-10-01) — TwinCAT's alignment WARNING on a malformed address. A WORD `AT %MW2.5` or
+ * `AT %IW2.5.7.1` is "Direct Address '…' malformed" on both vendors, and the LSP says so; TwinCAT adds "Variable 'w'
+ * has a granularity of 2 but is located at direct address %MW2.5 which is not aligned to 2 bytes." — reading SOME
+ * position out of an address it has just refused. Which one is not readable from two cells (2.5 and 2.5.7.1 are both
+ * "not aligned"), and no well-formed address was measured against it. Missing-only; niche — a malformed address is an
+ * error already, and the corpora hold no multi-segment address. An accepted loss until an aligned/unaligned pair of
+ * well-formed addresses is recorded on TwinCAT.
+ */
+const TWINCAT_MALFORMED_ADDRESS_ALIGNMENT: readonly string[] = ["lit_address_two_segments", "lit_address_multi_segment"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2b (2026-10-01) — TwinCAT, a refused `<word>#` (its lexer refuses every word it has no literal
+ * for, `TWINCAT_LITERAL_PREFIXES`) where the parser is INSIDE something that is not a statement: a call's argument list,
+ * a CASE label, an aggregate, a STRUCT field's or an enum value's initializer. Both sides refuse the token ("Expression
+ * expected instead of 'CHAR#'"); TwinCAT then words the refusal by the place — "',' or ')' expected" in `ABS(…)`, "')'
+ * expected" in a one-parameter `TO_INT(…)`, "No case label found", "', or )' expected" in an enum's list — and recovers
+ * by that place's rule: it closes the VAR block or the TYPE ("'END_VAR' expected instead of ''"), carries the refused
+ * value on as `!!!'ERROR'!!!` into a conversion, and checks the next enum value against it. The LSP resyncs as from a
+ * refused statement. Both missing and LSP-only; recovery, R2/R3's (task 2.8.3). CODESYS reads none of these as a refused
+ * token (they are an enum literal or a component there): it agrees on the first four, and the two DUT ones are
+ * `COMPONENT_CARRIED_ON_IN_A_DUT`'s.
+ */
+const TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST: readonly string[] = [
+  "lit_enum_typed_as_argument",
+  "lit_enum_typed_as_conversion_argument",
+  "lit_enum_typed_case_label",
+  "lit_char_typed_in_array_init",
+  "lit_char_typed_in_struct_field",
+  "lit_char_typed_in_enum_value",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2b (2026-10-01) — CODESYS, a refused component (`CHAR#'A'`) as a DUT's initializer. The LSP says
+ * the refusal CODESYS says first, "''A'' is no component of 'CHAR'"; CODESYS then CARRIES the refused pair on as a value
+ * it echoes `CHAR#'null'`, and every rule of the place it stands in reports it: in a STRUCT field one "Cannot convert type
+ * 'Unknown type: 'CHAR#'null''' to type 'BYTE'"; in an enum value
+ * "Unknown type", "Cannot convert" and "is no valid initialisation for an enumeration" for the value AND for the next
+ * one, which counts from it (`(CHAR#'null' + 1)`), and "The constant 0 is assigned to more than one enumeration". Missing-only; niche — the first message already refuses
+ * the source, and the echo (`'null'` for an operand that was `'A'`) is the compiler's internal placeholder, not a rule
+ * worth reproducing. An accepted loss. (A variable's initializer and an array element say the first message alone,
+ * `lit_char_typed_in_array_init` agrees.)
+ */
+const COMPONENT_CARRIED_ON_IN_A_DUT: readonly string[] = ["lit_char_typed_in_struct_field", "lit_char_typed_in_enum_value"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.2.6 (2026-10-01; split by the 2.2b review) — TwinCAT, the five `xf_l*_call_once`: a FUNCTION
+ * returning a CODESYS-only date type whose IF assigns that type's refused literal. First recorded on TwinCAT in 2.2.7.
+ * The return type's "Unknown type: 'LDT'" the LSP now says (`checks/declarations/unknown-type`); what is left is THREE
+ * differences, each its own rule, and a fixture is listed under every one it shows:
+ *
+ * TWINCAT_REFUSED_LDATE_LITERAL_STOPS — `LDATE#1970-01-02`: TwinCAT gives, per literal, "';' expected instead of
+ *   'LDATE#'" and "Expression expected instead of 'LDATE#'" and NOTHING over the date's pieces, where after `LTOD#`/`LDT#`
+ *   (and the LSP after all three) it cascades "Unexpected Token" + "';' expected" per token. Why LDATE alone stops is not
+ *   readable from one fixture; the cascade is R1's (task 2.8.2).
+ */
+const TWINCAT_REFUSED_LDATE_LITERAL_STOPS: readonly string[] = ["xf_ldate_to_date_call_once"]
+
+/**
+ * TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL — after the cascade over a refused `LTOD#`/`LDT#` in a THEN branch, TwinCAT
+ * stays out of the IF: "Unexpected Token 'ELSE' found", "';' expected instead of 'F_LANG_…'" on the ELSE branch's target,
+ * "Unexpected Token 'END_IF' found" and "';' expected instead of end of POU". The LSP resumes inside the IF and says none
+ * of the four. Statement recovery, R2/R3's (task 2.8.3).
+ */
+const TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL: readonly string[] = [
+  "xf_ldt_to_date_call_once",
+  "xf_ltod_to_date_call_once",
+  "xf_ldt_to_ldate_call_once",
+  "xf_ltod_to_ldate_call_once",
+]
+
+/**
+ * TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR — PLC_PRG calls the conversion (`LDT_TO_DATE(F(calls))`, and in the
+ * `_to_ldate` pair `LDATE_TO_ULINT(d)`), which TwinCAT does not have. The LSP says "Identifier 'LDT_TO_DATE' not defined",
+ * "Program name, function or function block instance expected instead of 'LDT_TO_DATE'" and the "Cannot convert" after
+ * them; TwinCAT says nothing about PLC_PRG in these builds, and no TwinCAT recording carries an "Identifier
+ * '<L-type>_TO_…' not defined" anywhere. Whether TwinCAT checks a POU at all while another fails to parse is unrecorded;
+ * it is a FALSE POSITIVE by the parity rule until it is, LSP-only on all five. Build-order recovery, task 2.8.3.
+ */
+const TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR: readonly string[] = [
+  "xf_ldate_to_date_call_once",
+  "xf_ldt_to_date_call_once",
+  "xf_ltod_to_date_call_once",
+  "xf_ldt_to_ldate_call_once",
+  "xf_ltod_to_ldate_call_once",
+]
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -210,11 +352,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       closing quote, where CODESYS stores the whole sentence including the line break it quotes.
   //                       The message is cut at that break on the way out of the TwinCAT driver — a BRIDGE bug to
   //                       fix and re-record, not something for the LSP to match.
-  //   `operand_uchar_literal` — `UCHAR#'A'` is a CODESYS extension TwinCAT does not have: it parse-cascades on the
-  //                       prefix (five errors), where CODESYS types the literal UDINT. The LSP's parser accepts the
-  //                       extension for both, so it types the literal and TwinCAT sees a message it never emits.
-  //                       The fix is a TwinCAT-only rejection of the prefix, in the shape `analysis/resync` already
-  //                       models — TwinCAT work, deferred until CODESYS is finished.
   //   THE SAME FIVE REASONS CODESYS ALREADY HAS, now checked against TwinCAT's own recording rather than
   //   assumed from its twin (2026-09-20). Each was on the triage backlog as if it were a false positive:
   //   `cc2_var_in_interface`, `itf_var_section_declaration`, `ir_initializer_warning_no_instance` — TwinCAT
@@ -229,6 +366,14 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...LITERAL_FOLLOW_ON_RULES,
+    ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
+    ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
+    ...TWINCAT_MALFORMED_ADDRESS_ALIGNMENT,
+    ...TWINCAT_REFUSED_LDATE_LITERAL_STOPS,
+    ...TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL,
+    ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
+    ...TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...TWINCAT_XSIZEOF_IS_NO_KEYWORD,
     ...TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD,
@@ -347,6 +492,9 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...COMPONENT_CARRIED_ON_IN_A_DUT,
+    ...LITERAL_FOLLOW_ON_RULES,
+    ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:

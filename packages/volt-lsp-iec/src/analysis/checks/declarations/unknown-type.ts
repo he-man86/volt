@@ -9,13 +9,16 @@
  *     across 13 fixtures in its recording, none in CODESYS's (2026-09-20). The conversions that carry them fall out of
  *     `nameResolves`.
  *
+ * A FUNCTION's RETURN type is a declaration too, for the dialect half only: TwinCAT reports `FUNCTION F : LDT` on the
+ * header (`xf_l*_call_once`, 2026-10-01); a bare unknown name as a return type is recorded on neither vendor.
+ *
  * This file was `dialect-type`, whose header said a general unknown-type check should not exist because "a name the
  * LSP cannot resolve is usually a library type it cannot see". That was true before libraries were materialized; since
  * then `unresolved-identifier` makes exactly this bet for identifiers, and the corpus gate (every error ⊆ the project's
  * own recorded build) holds this one to it for types.
  */
 import { forEachDecl } from "../../../frontend/symbols/index.js"
-import { unknownTypeName } from "../../resolution.js"
+import { dialectMissingType, unknownTypeName } from "../../resolution.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -25,5 +28,11 @@ export function checkUnknownType(ctx: CheckContext, out: DiagnosticItem[]): void
     if (name === undefined) continue
     for (const at of decl.names)
       out.push({ severity: "error", span: at.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) })
+  }
+  for (const unit of ctx.parseResult.units) {
+    if (unit.kind !== "function" || unit.returnType === undefined) continue
+    const name = dialectMissingType(ctx.project, unit.returnType)
+    if (name !== undefined)
+      out.push({ severity: "error", span: unit.returnType.span, source: SOURCE, code: "unknown-type", message: ctx.messages.unknownType(name) })
   }
 }

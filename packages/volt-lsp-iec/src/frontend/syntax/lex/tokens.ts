@@ -65,4 +65,14 @@ export interface Token {
   text: string
   /** Source span (start/end byte offsets + line/column for tooling). */
   span: Span
+  /**
+   * A LITERAL THE VENDOR REFUSES WHOLE — set on a literal token only, where the lexer stopped at a character the
+   * literal's grammar does not take: a base other than 2/8/10/16 (`3#`), a typed prefix with no body it can read
+   * (`INT#` before `+`, `BOOL#T`), a REAL point with no digit after it (`5.`), a duration component with no unit
+   * (`T#1500` before `US`), a WSTRING hex escape of fewer than four digits (`"$41"`). Both vendors answer it as they
+   * answer a keyword where an operand belongs — "Expression expected instead of 'X'" — and resync from it; the token's
+   * text is how far the vendor lexed, so every message after it is made of the tokens that follow (frontend-conformance
+   * 2.2, `lit_*`, `cc_time_*`, `esc_wstring_*`).
+   */
+  malformed?: true
 }

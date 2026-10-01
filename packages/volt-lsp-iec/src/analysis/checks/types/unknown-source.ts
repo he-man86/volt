@@ -20,7 +20,7 @@
  * TwinCAT propagates the same way, in its own words. See `targetTypeName` for the one place the two diverge.
  */
 import { compilerExprText } from "../../expr-echo.js"
-import { isHole, reported } from "../../hole.js"
+import { bareConversionArgument, isHole, literalHoleWithin, passThroughOperand, reported } from "../../hole.js"
 import { dialectMissingType } from "../../resolution.js"
 import { renderTypeExpr, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
@@ -56,7 +56,7 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
    */
   const targetTypeName = (target: Expr, scope: Parameters<typeof inferExprType>[1]): string | undefined => {
     const t = inferExprType(target, scope, ctx.project)
-    if (t.kind !== "unknown") return renderType(t)
+    if (t.kind !== "unknown") return renderType(t, { form: "compiler" })
     if (target.kind !== "ident_expr") return undefined
     return dialectMissingType(ctx.project, lookup(scope, target.name)?.symbol.typeExpr)
   }
@@ -84,6 +84,16 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
           if (x.kind === "member" && hole(x.base, scope)) push(ctx.messages.notStructuredVariable(compilerExprText(x.base, metType(scope))), x.base)
+          // an operation that passes its operand's type through (NOT, a negation, ABS, ADR) reports its operand as an
+          // operator does — measured for a LITERAL hole only (`hole.ts` `passThroughOperand`)
+          const through = passThroughOperand(x)
+          if (through !== undefined && literalHoleWithin(through, ctx.project)) push(ctx.messages.unknownType(compilerExprText(through, metType(scope))), through)
+          // a BARE conversion converts its argument to ANY, and keeps its own type: `TO_INT(%M0.1)` is "Cannot convert
+          // type 'Unknown type: '%M?0.1'' to type 'ANY'" and nothing more (`lit_address_unsized_as_conversion_argument`,
+          // `lit_enum_typed_as_conversion_argument`, CODESYS 2026-10-01)
+          const converted = bareConversionArgument(x)
+          if (converted !== undefined && literalHoleWithin(converted, ctx.project))
+            push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(converted, metType(scope))), "ANY"), converted)
           if (x.kind !== "binary") return
           for (const operand of [x.left, x.right]) if (hole(operand, scope)) push(ctx.messages.unknownType(compilerExprText(operand, metType(scope))), operand)
         })

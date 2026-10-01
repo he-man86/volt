@@ -34,7 +34,7 @@ import { parseExpression } from "../expression.js"
 import { atVarSection, endAfterType, parseStructField } from "../declarations.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken, readIdent, readNameList } from "../names.js"
-import { collectInitTokens, initializerFromTokens } from "../initializer.js"
+import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from "../initializer.js"
 
 export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
   const start = c.expectKeyword("TYPE")
@@ -226,7 +226,11 @@ function parseEnumBody(c: Cursor): EnumBody | undefined {
 
   // Optional default initializer: `(A, B) := A;` — the enum type's default value.
   let init: EnumBody["init"]
-  if (c.eatPunct(":=") !== undefined) init = initializerFromTokens(collectInitTokens(c, true))
+  if (c.eatPunct(":=") !== undefined) {
+    // a malformed literal is refused there as in a VAR declaration (`refuseMalformedInit`), and leaves no value
+    const initTokens = collectInitTokens(c, true)
+    if (refuseMalformedInit(c, initTokens) === undefined) init = initializerFromTokens(initTokens)
+  }
 
   const endSpan = init?.span ?? baseType?.span ?? open.span
   return {
@@ -244,7 +248,11 @@ function parseAliasBody(c: Cursor): AliasBody | undefined {
   if (target === undefined) return undefined
 
   let init: AliasBody["init"]
-  if (c.eatPunct(":=") !== undefined) init = initializerFromTokens(collectInitTokens(c, true))
+  if (c.eatPunct(":=") !== undefined) {
+    // a malformed literal is refused there as in a VAR declaration (`refuseMalformedInit`), and leaves no value
+    const initTokens = collectInitTokens(c, true)
+    if (refuseMalformedInit(c, initTokens) === undefined) init = initializerFromTokens(initTokens)
+  }
 
   // Note: the trailing `;` (and the optional one for struct/union/enum)
   // is consumed at the parseTypeDecl level — single source of truth.

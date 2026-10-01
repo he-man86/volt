@@ -8,7 +8,10 @@
  * (`depth - 1` with `depth : INT` comes back `(depth - INT#1)`, conformance `cc2_call_recursion`) — `typeOf` supplies
  * that. It does NOT do so elsewhere: an index echoes `plain[1]` and an aggregate `STRUCT(x := 1, y := 2)`.
  */
-import { exprText, type Expr } from "../frontend/syntax/index.js"
+import { addressShape, exprText, type Expr } from "../frontend/syntax/index.js"
+
+/** The type of the zero a negation of an UNTYPED operand is echoed with — measured, not a default (`lit_enum_typed_under_minus`). */
+const UNTYPED_NEGATION_ZERO = "INT"
 
 export function compilerExprText(e: Expr, typeOf: (e: Expr) => string | undefined = () => undefined): string {
   const text = (x: Expr): string => compilerExprText(x, typeOf)
@@ -21,6 +24,13 @@ export function compilerExprText(e: Expr, typeOf: (e: Expr) => string | undefine
         met !== undefined && x.kind === "literal" && /^\d+$/.test(x.text) ? `${met}#${x.text}` : text(x)
       return `(${operand(e.left)} ${e.op} ${operand(e.right)})`
     }
+    case "unary":
+      // `NOT x` comes back as a call, `NOT(x)`, and `-x` as a subtraction from a typed zero, `(INT#0 - x)` — with an
+      // operand of NO type the zero is INT's (`lit_address_unsized_under_not`, `lit_enum_typed_under_minus`, CODESYS
+      // 2026-10-01); with a typed one it is the operation's type, as a binary operation's literal is
+      if (e.op === "NOT") return `NOT(${text(e.operand)})`
+      if (e.op === "-") return `(${typeOf(e) ?? UNTYPED_NEGATION_ZERO}#0 - ${text(e.operand)})`
+      return exprText(e)
     case "paren":
       // the operation inside brings its own parentheses; a parenthesized name keeps none
       return text(e.inner)
@@ -37,6 +47,12 @@ export function compilerExprText(e: Expr, typeOf: (e: Expr) => string | undefine
       // THIS and SUPER come back UPPER-case however they were written (conformance `cc_self_super_in_program`,
       // where the source says `super` and the IDE answers 'SUPER')
       return /^(this|super)$/i.test(e.name) ? e.name.toUpperCase() : e.name
+    case "literal": {
+      // a malformed ADDRESS comes back with a `?` where its size letter is missing — 'Unknown type: '%M?0.1''
+      // (`lit_address_unsized_in_body`, both vendors 2026-10-01)
+      const shape = e.literalKind === "address" ? addressShape(e.text) : undefined
+      return shape?.kind === "malformed" ? shape.echo : exprText(e)
+    }
     default:
       return exprText(e)
   }

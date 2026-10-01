@@ -4,7 +4,7 @@
  * wording. The rules lived inside check files, so the network layer imported three check files through the analysis
  * index (consolidate-lsp-structure C3).
  */
-import { decodeStringLiteral, type BinaryExpr, type Expr, type Span } from "../frontend/syntax/index.js"
+import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span } from "../frontend/syntax/index.js"
 import type { Scope } from "../frontend/symbols/index.js"
 import { ARITHMETIC_OPERATORS, classifyConversion, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN } from "../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
@@ -98,19 +98,31 @@ export function storeConversionError(
   }
 }
 
-/**
- * The RHS type as the COMPILER renders it in the mismatch message. A string LITERAL is shown length-tagged —
- * `STRING(INT#<len>)` (`WSTRING` for `"…"`) — by its DECODED length: `i := 'a$Tb'` is "Cannot convert type
- * 'STRING(INT#3)' to type 'INT'" (conformance `cc_string_escape_literal_into_int`). A literal whose escape the shared
- * decoder does not know has no measured length — undefined, and no message.
- */
+/** The RHS type as the COMPILER renders it in the mismatch message — a string literal's own form, else the type's. */
 function rhsDisplay(value: Expr, rhs: Type): string | undefined {
-  if (value.kind === "literal" && (value.literalKind === "string" || value.literalKind === "wstring")) {
+  const literal = stringLiteralMessageType(value)
+  return literal === null ? renderType(rhs, { form: "compiler" }) : literal
+}
+
+/**
+ * A STRING LITERAL'S TYPE as the compiler names it in a message — length-tagged, `STRING(INT#<len>)` (`WSTRING` for
+ * `"…"`), by its DECODED length: `i := 'a$Tb'` is "Cannot convert type 'STRING(INT#3)' to type 'INT'" (conformance
+ * `cc_string_escape_literal_into_int`). So is a quoted typed literal that is a STRING: `UTF8#'ä'` by its UTF-8 bytes,
+ * STRING(INT#2); a `UCHAR#'AB'` by the token's own text it stands for, STRING(INT#8) (`lit_utf8_*_into_wstring`,
+ * `lit_uchar_two_chars`, 2026-10-01). `null` for an expression that is no string literal; `undefined` for one whose
+ * escape the shared decoder does not know — it has no measured length, and no message.
+ */
+export function stringLiteralMessageType(value: Expr): string | null | undefined {
+  if (value.kind !== "literal") return null
+  if (value.literalKind === "string" || value.literalKind === "wstring") {
     const wide = value.literalKind === "wstring"
     const decoded = decodeStringLiteral(value.value as string, wide)
     return decoded === undefined ? undefined : compilerStringLiteralText(decoded.length, wide)
   }
-  return renderType(rhs, { form: "compiler" })
+  if (value.literalKind !== "typed") return null
+  const form = typedLiteralForm(value.text)
+  const decoded = form.kind === "utf8" ? decodeUtf8Literal(form.raw) : form.kind === "text" ? decodeStringLiteral(form.raw) : null
+  return decoded === null ? null : decoded === undefined ? undefined : compilerStringLiteralText(decoded.length, false)
 }
 
 /**

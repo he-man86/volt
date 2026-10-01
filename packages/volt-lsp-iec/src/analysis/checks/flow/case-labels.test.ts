@@ -80,3 +80,19 @@ test("a CASE label outside the selector's type is refused; an inverted range is 
   // in the type, and a well-formed range: silent
   expect(sint(`  -128: res := 1;\n  127: res := 3;\n  1..100: res := 4;`)).toEqual([])
 })
+
+// A TYPED LITERAL AS A LABEL (frontend-conformance 2.2b, CODESYS 2026-10-01): `INT#5:` is a label like `5:`
+// (`lit_typed_int_case_label` builds and runs), and an enum's `Type#Value` — a value of no type to CODESYS — is not a
+// constant: "CASE label requires literal or symbolic integer constant" (`lit_enum_typed_case_label`).
+test("a typed integer label is a label; an enum `Type#Value` label is no constant", () => {
+  expect(cs(`  INT#5: i := 1;`)).toEqual([])
+  const src =
+    `PROGRAM PLC_PRG\nVAR\n  m : E_Mode;\n  i : INT;\nEND_VAR\nCASE m OF\nE_Mode#Running: i := 1;\nEND_CASE\nEND_PROGRAM`
+  const enumSrc = "TYPE E_Mode :\n(\n\tIdle,\n\tRunning\n);\nEND_TYPE\n"
+  const pr = parseSource(src, { networkText: true })
+  const er = parseSource(enumSrc, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }, { uri: "file:///E_Mode.enum", parseResult: er, source: enumSrc }], [], "codesys")
+  const errs = [...pr.errors.map((e) => e.message), ...computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.severity === "error").map((d) => d.message)]
+  expect(errs).toEqual(["CASE label requires literal or symbolic integer constant"])
+})

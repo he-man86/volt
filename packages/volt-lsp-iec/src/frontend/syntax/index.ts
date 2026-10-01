@@ -9,7 +9,7 @@ export { spanContains, zeroSpan, type Span } from "./span.js"
 export { isSelfRef, sameName, selfRefKind } from "./identifier.js"
 
 // the vocabulary and the lexer
-export { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_LITERAL_PREFIXES, KEYWORDS, type Dialect } from "./lex/vocabulary.js"
+export { CODESYS_ONLY_KEYWORDS, TWINCAT_LITERAL_PREFIXES, KEYWORDS, type Dialect } from "./lex/vocabulary.js"
 export { isTrivia, type Token, type TokenKind } from "./lex/tokens.js"
 export { lex } from "./lex/lexer.js"
 
@@ -47,6 +47,7 @@ export type {
   Program,
   Property,
   PropertyAccessor,
+  RefusedInit,
   Statement,
   StatementList,
   StructBody,
@@ -58,6 +59,7 @@ export type {
   VarSection,
   VarSectionKind,
 } from "./ast/nodes.js"
+export { REFUSED_PLACEHOLDER } from "./ast/nodes.js"
 export {
   allUnits,
   exprChildren,
@@ -76,8 +78,9 @@ export { BINARY_PRECEDENCE, parseExprFromTokens } from "./parse/expression.js"
 export { parseTypeExprFromTokens } from "./parse/type-expr.js"
 
 // literal values
-export { DURATION_UNITS_NS } from "./literal/value.js"
-export { decodeStringLiteral } from "./literal/string.js"
+export { DURATION_UNITS_NS, typedLiteralForm, type TypedLiteralForm } from "./literal/value.js"
+export { decodeStringLiteral, decodeUtf8Literal } from "./literal/string.js"
+export { addressShape, type AddressShape } from "./literal/address.js"
 export { calendarNanoseconds } from "./literal/calendar.js"
 
 // pragmas

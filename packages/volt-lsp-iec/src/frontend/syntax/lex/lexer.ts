@@ -13,18 +13,29 @@ import { pointSpan, type Span } from "../span.js"
 import type { Token, TokenKind } from "./tokens.js"
 import {
   CODESYS_ONLY_KEYWORDS,
-  CODESYS_ONLY_LITERAL_PREFIXES,
   DATE_PREFIXES,
   DATETIME_PREFIXES,
   KEYWORDS,
   MULTI_CHAR_PUNCT,
+  REFUSED_LITERAL_PREFIXES,
   SINGLE_CHAR_PUNCT,
   TIME_PREFIXES,
   TOD_PREFIXES,
+  TWINCAT_LITERAL_PREFIXES,
+  TYPED_INTEGER_PREFIXES,
   TYPED_PREFIXES,
   type Dialect,
   type Keyword,
 } from "./vocabulary.js"
+
+/** The bases a `<base>#` literal may name — asked of both vendors (`lit_invalid_base_*`, 2026-10-01). */
+const RADIXES: ReadonlySet<number> = new Set([2, 8, 10, 16])
+
+/** What `emit` adds to a literal the vendor refuses whole (`Token.malformed`). */
+const MALFORMED = { malformed: true } as const
+
+/** A duration's units, largest first — a literal's components must run strictly down this list (`lexTimeLiteralBody`). */
+const DURATION_UNIT_RANK = ["d", "h", "m", "s", "ms", "us", "ns"]
 
 // Keyword lookup — upper-cased key → canonical keyword.
 const KEYWORD_MAP: Map<string, Keyword> = new Map(KEYWORDS.map((k) => [k, k]))
@@ -143,25 +154,27 @@ export function lex(src: string, dialect: Dialect): Token[] {
 
     // ─── WString literal (double-quoted, IEC WSTRING) ──────────
     if (ch === '"') {
-      lexQuotedString('"')
-      emit("wstring_lit", startPos, startLine, startCol)
+      emit("wstring_lit", startPos, startLine, startCol, lexQuotedString('"') ? undefined : MALFORMED)
       continue
     }
 
     // ─── Number-with-radix `16#FF`, `8#77`, `2#1010` ───────────
-    // CODESYS allows underscores as separators within numeric
-    // literals: `1_000_000`, `16#FFFF_FFFF`. We accept `_` adjacent
-    // to digits as part of the literal text; consumers strip
-    // underscores when computing the numeric value.
+    // `_` separates digits anywhere in the run — doubled, trailing, right after the base's `#` (`lit_int_underscore*`
+    // all build, the values read with the separators dropped). A BASE is 2, 8, 10 or 16 (`lit_invalid_base_{3,4,12}`
+    // refuse the `<n>#` token whole, `lit_invalid_base_10` builds) and takes only its own digits: `2#102` is `2#10` and
+    // then `2`, `16#FG` is `16#F` and then `G` (`lit_invalid_digit_*`) — the vendor's lexer ends the literal there.
     if (isDigit(ch)) {
       const radixCheckStart = pos
       while (pos < len && (isDigit(peek()) || peek() === "_")) advance(1)
       if (peek() === "#") {
-        // `<base>#<digits>` — base must be 2/8/16, but we let
-        // the parser validate; lexer just captures the run.
+        const base = Number(src.slice(radixCheckStart, pos).replace(/_/g, ""))
         advance(1)
-        while (pos < len && (isHexDigit(peek()) || peek() === "_")) advance(1)
-        emit("int_lit", radixCheckStart, startLine, startCol)
+        if (!RADIXES.has(base)) {
+          emit("int_lit", radixCheckStart, startLine, startCol, MALFORMED)
+          continue
+        }
+        const digits = lexBasedDigits(base)
+        emit("int_lit", radixCheckStart, startLine, startCol, digits ? undefined : MALFORMED)
         continue
       }
       // Otherwise rewind and let the real-number path handle
@@ -184,19 +197,21 @@ export function lex(src: string, dialect: Dialect): Token[] {
 
       // Check for #-suffixed literal forms: T#10ms, DATE#…,
       // TOD#…, DT#…, INT#42, …
-      // A PREFIX TWINCAT DOES NOT HAVE IS STILL ONE TOKEN THERE, `#` included: its own errors quote `LDATE#`
+      // A PREFIX THE VENDOR DOES NOT HAVE IS STILL ONE TOKEN, `#` included: its own errors quote `LDATE#`
       // whole ("Unexpected Token 'LDATE#' found"), then the date's pieces separately. Lexing it as an
       // identifier plus a stray `#` cascades differently and the difference is visible in every message.
-      if (peek() === "#" && tc && CODESYS_ONLY_LITERAL_PREFIXES.has(upper)) {
+      // On TwinCAT that is every word that is no literal prefix there; on both, `STRING#` and `WSTRING#`. It is a
+      // typed literal the vendor refuses whole (`Token.malformed`), so the parser refuses it where any refused literal
+      // is refused — a body's operand, an initializer — with the same cascade.
+      if (peek() === "#" && (REFUSED_LITERAL_PREFIXES.has(upper) || (tc && !TWINCAT_LITERAL_PREFIXES.has(upper)))) {
         advance(1)
-        emit("identifier", startPos, startLine, startCol)
+        emit("typed_lit", startPos, startLine, startCol, MALFORMED)
         continue
       }
       if (peek() === "#") {
         if (TIME_PREFIXES.has(upper)) {
           advance(1)
-          lexTimeLiteralBody(upper.startsWith("L"))
-          emit("time_lit", startPos, startLine, startCol)
+          emit("time_lit", startPos, startLine, startCol, lexTimeLiteralBody(upper.startsWith("L")) ? undefined : MALFORMED)
           continue
         }
         if (DATE_PREFIXES.has(upper)) {
@@ -217,15 +232,26 @@ export function lex(src: string, dialect: Dialect): Token[] {
           emit("datetime_lit", startPos, startLine, startCol)
           continue
         }
+        if (TYPED_INTEGER_PREFIXES.has(upper)) {
+          advance(1)
+          emit("typed_lit", startPos, startLine, startCol, lexTypedIntegerBody() ? undefined : MALFORMED)
+          continue
+        }
+        if (upper === "BOOL") {
+          advance(1)
+          emit("typed_lit", startPos, startLine, startCol, lexTypedBoolBody() ? undefined : MALFORMED)
+          continue
+        }
         if (TYPED_PREFIXES.has(upper)) {
           advance(1)
           lexTypedLiteralBody()
           emit("typed_lit", startPos, startLine, startCol)
           continue
         }
-        // Typed char/string literal `UCHAR#'A'` / `STRING#'x'` (CODESYS extension): the value is a QUOTED
-        // string, not the alnum run `lexTypedLiteralBody` accepts, so match it here regardless of prefix —
-        // an identifier followed by `#` then a quote is unambiguously a typed literal in ST.
+        // ANY OTHER WORD BEFORE `#` TAKES ONE OPERAND, and CODESYS reads the pair as one: a quoted string (`UCHAR#'A'`
+        // and `UTF8#'…'` are literals — `QUOTED_LITERAL_PREFIXES`, single quote only — every other pair asks for a
+        // component, "''A'' is no component of 'CHAR'"), or a word or a number (`CHAR#65`, `E_Mode#Running`).
+        // What the pair means is `literal/value`'s (`typedLiteralForm`); here it is one `typed_lit` (`lit_*`, S10–S13).
         const afterHash = peek(1)
         if (afterHash === "'" || afterHash === '"') {
           advance(1) // #
@@ -233,8 +259,13 @@ export function lex(src: string, dialect: Dialect): Token[] {
           emit("typed_lit", startPos, startLine, startCol)
           continue
         }
-        // Unrecognized prefix before `#`: fall through and let
-        // the identifier stand; the `#` becomes an unknown token.
+        if (isIdentCont(afterHash)) {
+          advance(1) // #
+          while (pos < len && isIdentCont(peek())) advance(1)
+          emit("typed_lit", startPos, startLine, startCol)
+          continue
+        }
+        // Anything else after the `#` is unmeasured: the identifier stands and the `#` is an unknown token.
       }
 
       // ─── ExST assignment operators: S=, R=, REF= ──────────────
@@ -272,17 +303,17 @@ export function lex(src: string, dialect: Dialect): Token[] {
     if (ch === "%" && isAddressAreaChar(peek(1))) {
       advance(1) // %
       advance(1) // area letter
-      // Optional size character (X/B/W/D/L)
-      if (isAddressSizeChar(peek())) advance(1)
-      // Body: digits, dots, optional `*` for incomplete address.
-      while (pos < len) {
-        const c = peek()
-        if (isDigit(c) || c === "." || c === "*") {
-          advance(1)
-        } else {
-          break
-        }
+      // The incomplete address's `*` stands RIGHT AFTER the area: `%I*` builds, `%IW*` is "Direct address expected
+      // after AT instead of %IW" — the address ends before the `*` (`lit_address_incomplete*`, both vendors 2026-10-01).
+      if (peek() === "*") {
+        advance(1)
+        emit("address_lit", startPos, startLine, startCol)
+        continue
       }
+      // Optional size character (X/B/W/D/L), then the position: digits and dots. Whether the shape is one the vendor
+      // takes is `literal/address`'s.
+      if (isAddressSizeChar(peek())) advance(1)
+      while (pos < len && (isDigit(peek()) || peek() === ".")) advance(1)
       emit("address_lit", startPos, startLine, startCol)
       continue
     }
@@ -336,23 +367,33 @@ export function lex(src: string, dialect: Dialect): Token[] {
 
   // ─── Local helpers (closures over pos/line/col) ──────────────────
 
-  function lexQuotedString(quote: '"' | "'"): void {
+  /**
+   * A quoted string — and whether it is WELL FORMED, which only a WSTRING's hex escape can make it not: it is FOUR hex
+   * digits, and both vendors refuse a shorter run (`esc_wstring_hex_41`, `_ff`, `_pair`, `hex3`; four digits and five
+   * build). THE VENDORS STOP IN DIFFERENT PLACES, and their messages quote how far they got: CODESYS reads the whole
+   * literal and then refuses it (`'"$C3$A9"'`), TwinCAT ends the token at the short run (`'"$C3'`). A STRING's hex
+   * escape is two digits; `$` before anything else is a named escape and takes one character.
+   */
+  function lexQuotedString(quote: '"' | "'"): boolean {
+    let wellFormed = true
     advance(1) // opening quote
     while (pos < len) {
       const c = peek()
       if (c === "\n") break // IEC strings don't span lines (lexer recovery)
       if (c === "$") {
-        // $$ $L $N $P $R $T $' $" $<2 hex> in STRING; $<4 hex> in WSTRING
         advance(1)
         const esc = peek()
         if (esc === "\n" || esc === "") break
         if (isHexDigit(esc)) {
-          // Consume up to 4 hex chars; STRING uses 2, WSTRING up to 4.
-          // We don't try to enforce the difference at lex time.
+          // up to 4 hex chars — a token boundary only; the decoder (`literal/string`) reads a STRING's two
           let n = 0
           while (n < 4 && isHexDigit(peek())) {
             advance(1)
             n += 1
+          }
+          if (quote === '"' && n < 4) {
+            wellFormed = false
+            if (tc) return false
           }
         } else {
           advance(1)
@@ -361,13 +402,12 @@ export function lex(src: string, dialect: Dialect): Token[] {
       }
       if (c === quote) {
         advance(1) // closing quote
-        return
+        return wellFormed
       }
       advance(1)
     }
-    // Unterminated — return with cursor wherever we stopped; token
-    // span reflects partial consumption. The parser sees an
-    // `unknown` token after if needed.
+    // Unterminated — return with cursor wherever we stopped; token span reflects partial consumption.
+    return wellFormed
   }
 
   function lexNumber(): void {
@@ -381,6 +421,12 @@ export function lex(src: string, dialect: Dialect): Token[] {
     if (peek() === "." && peek(1) !== ".") {
       isReal = true
       advance(1)
+      // `5.` is no REAL: both vendors refuse the token whole, "Expression expected instead of '5.'"
+      // (`lit_real_no_fraction_digit`) — no exponent is read after it
+      if (!isDigit(peek())) {
+        emit("real_lit", s, sl, sc, MALFORMED)
+        return
+      }
       while (pos < len && (isDigit(peek()) || peek() === "_")) advance(1)
     }
     // Exponent
@@ -393,21 +439,104 @@ export function lex(src: string, dialect: Dialect): Token[] {
     emit(isReal ? "real_lit" : "int_lit", s, sl, sc)
   }
 
-  function lexTimeLiteralBody(long: boolean): void {
-    // Body: digits, time units (ms/s/m/h/d), underscores. Stop at
-    // whitespace/punct that isn't part of the body.
-    // A TIME (not LTIME) has no microsecond or nanosecond unit: CODESYS lexes `T#1500US` as `T#1500` then `US`, and the
-    // parse errors follow from that (gap 7, conformance `cc_time_*`); `LTIME#1500US` is a literal. So a TIME body ends at
-    // the first `u`, `n` or `µ` — none of them starts a TIME unit.
-    while (pos < len) {
-      const c = peek()
-      if (!long && (c === "u" || c === "U" || c === "n" || c === "N" || c === "µ")) break
-      if (isAlnum(c) || c === "_" || c === ".") {
+  /**
+   * A duration's body — COMPONENTS, each a number and a unit, largest first — and whether it is well formed. Measured
+   * (`lit_time_*`, `lit_ltime_*`, `cc_time_*`, both vendors 2026-09-20 and 2026-10-01):
+   *   - a number starts with a digit and takes `_` as freely as an integer does (`T#1_000ms`, `T#1_ms`); a `_` after a
+   *     unit ends the literal, so `T#1h_30m` is `T#1h` and then the name `_30m`;
+   *   - the components are STRICTLY largest first, each unit once: `T#5s1h` and `T#1s1s` are refused whole
+   *     (`lit_time_components_out_of_order`, `lit_time_component_repeated`, CODESYS 2026-10-01);
+   *   - a TIME's units are d h m s ms, an LTIME's add us and ns (`µs` too); a TIME ends at a `u`, `n` or `µ`;
+   *   - a number may carry a fraction, on any unit but the smallest (`T#1.5m`, `T#1.5s100ms`, `LTIME#1.5us` build);
+   *     after one, `ms` in a TIME and `ns` in an LTIME are no unit: `T#1.5ms` takes `m` and the `s` left against it
+   *     refuses the token, `LTIME#1.5ns` leaves its number with none;
+   *   - a number with no unit (`T#1500` before `US`), a letter straight after a unit, and no component at all (`T#`
+   *     before `-10ms` — a duration has no sign) are refused whole.
+   */
+  function lexTimeLiteralBody(long: boolean): boolean {
+    let components = 0
+    let lastRank = -1
+    let ordered = true
+    while (isDigit(peek())) {
+      lexDigits()
+      const fraction = peek() === "." && isDigit(peek(1))
+      if (fraction) {
         advance(1)
-      } else {
-        break
+        lexDigits()
       }
+      const unit = durationUnitAt(long, fraction)
+      if (unit === 0) return false
+      const rank = DURATION_UNIT_RANK.indexOf(src.slice(pos, pos + unit).toLowerCase().replace("µ", "u"))
+      if (rank <= lastRank) ordered = false
+      lastRank = rank
+      advance(unit)
+      components += 1
+      if (isAlpha(peek()) || peek() === "µ") return false
     }
+    return components > 0 && ordered
+  }
+
+  /**
+   * An integer's digits: `_` anywhere among them — doubled, trailing, leading (`1__000`, `1000_`, `INT#_5`, `T#1_ms`:
+   * `lit_int_underscore_*`, `lit_int_typed_underscore_*`, `lit_time_underscore_before_unit`, CODESYS 2026-10-01).
+   * Whether a DIGIT was read.
+   */
+  function lexDigits(): boolean {
+    let any = false
+    while (isDigit(peek()) || peek() === "_") {
+      if (peek() !== "_") any = true
+      advance(1)
+    }
+    return any
+  }
+
+  /** The length of the duration unit at the cursor that this literal may take here, or 0 (see `lexTimeLiteralBody`). */
+  function durationUnitAt(long: boolean, afterFraction: boolean): number {
+    const two = (peek() + peek(1)).toLowerCase()
+    const smallest = long ? "ns" : "ms"
+    const twoLetterUnits = long ? ["ms", "us", "µs", "ns"] : ["ms"]
+    if (twoLetterUnits.includes(two) && !(afterFraction && two === smallest)) return 2
+    const one = peek().toLowerCase()
+    return one !== "" && "dhms".includes(one) ? 1 : 0
+  }
+
+  /**
+   * A typed integer or bit string's body (`INT#`, `WORD#`, …) — whether it is well formed. An optional `-`, then digits,
+   * then, UNSIGNED only, a `#` and that base's digits (`WORD#16#FF`, `INT#-5`: `lit_*_typed`). Both vendors refuse
+   * what else there is at its first character: `INT#+5` is the token `INT#` (`lit_int_typed_plus`), `INT#-16#10` the
+   * token `INT#-16` and then `#` (`lit_int_typed_negative_based`).
+   */
+  function lexTypedIntegerBody(): boolean {
+    const signed = peek() === "-"
+    if (signed) advance(1)
+    const digitsStart = pos
+    if (!lexDigits()) return false
+    if (peek() !== "#") return true
+    if (signed) return false
+    const base = Number(src.slice(digitsStart, pos).replace(/_/g, ""))
+    advance(1)
+    return RADIXES.has(base) && lexBasedDigits(base)
+  }
+
+  /**
+   * A typed BOOL's body is ONE character, and only `0` and `1` are values: `BOOL#TRUE` is the refused token `BOOL#T` and
+   * then the name `RUE`, `BOOL#2` is refused whole (`lit_bool_typed_*`, both vendors).
+   */
+  function lexTypedBoolBody(): boolean {
+    const c = peek()
+    if (!isAlnum(c)) return false
+    advance(1)
+    return c === "0" || c === "1"
+  }
+
+  /** A based literal's digits and `_` after its `#` — whether at least one digit of the base was read. */
+  function lexBasedDigits(base: number): boolean {
+    let any = false
+    while (pos < len && (isBaseDigit(peek(), base) || peek() === "_")) {
+      if (peek() !== "_") any = true
+      advance(1)
+    }
+    return any
   }
 
   function lexDateLiteralBody(): void {
@@ -503,6 +632,13 @@ function isAddressSizeChar(c: string): boolean {
 
 function isDigit(c: string): boolean {
   return c >= "0" && c <= "9"
+}
+
+/** A digit of `base` (2, 8, 10 or 16), letters in either case. */
+function isBaseDigit(c: string, base: number): boolean {
+  if (c.length !== 1) return false
+  const d = parseInt(c, 16)
+  return !Number.isNaN(d) && d < base
 }
 
 function isHexDigit(c: string): boolean {

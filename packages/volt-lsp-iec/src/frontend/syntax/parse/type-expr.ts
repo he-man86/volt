@@ -20,7 +20,7 @@ import { eofSpan, joinSpans, type Span } from "../span.js"
 import { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
 import { parseExpression, parseExprFromTokens } from "./expression.js"
-import { typeExpected, vendorTokenText } from "./errors.js"
+import { typeExpected, vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { identFromToken, readQualifiedName } from "./names.js"
 import { collectParenInner, collectUntilTopLevel, topLevelDotDot } from "./scan.js"
 
@@ -170,7 +170,14 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     const { inner, closeSpan } = collectParenInner(c)
     lastSpan = closeSpan
     const cut = topLevelDotDot(inner)
-    if (cut >= 0) {
+    // a MALFORMED literal in a bound (`Token.malformed`) is refused as an operand AND ends the subrange where it stands:
+    // "')' expected instead of 'BOOL#2'" and "Expression expected instead of 'BOOL#2'" (`lit_malformed_subrange_bound`,
+    // both vendors) — said on the main cursor, since the bounds' contained sub-parse would drop it. No subrange is kept.
+    const malformed = cut >= 0 ? inner.find((t) => t.malformed) : undefined
+    if (malformed !== undefined) {
+      c.pushError(`')' expected instead of ${vendorTokenText(malformed)}`, malformed.span)
+      c.pushError(vendorExpressionExpected(malformed), malformed.span)
+    } else if (cut >= 0) {
       const lo = parseExprFromTokens(inner.slice(0, cut))
       const hi = parseExprFromTokens(inner.slice(cut + 1))
       if (lo !== undefined && hi !== undefined) {
@@ -217,6 +224,12 @@ function parseArrayDim(c: Cursor): ArrayDim | undefined {
   const toks = collectUntilTopLevel(c, (t) => t.kind === "punct" && (t.text === "," || t.text === "]"))
   if (toks.length === 0) return undefined
   const end = toks[toks.length - 1].span
+  // a MALFORMED literal (`Token.malformed`) ends the bound it stands in, and the dimension wants its next token there:
+  // "'] or ,' expected instead of '3#'" (`lit_malformed_array_bound`, `_typed`: an UPPER bound, both vendors; a lower
+  // bound is unmeasured and refused the same way). Said on the main cursor — the bounds' contained sub-parse would drop
+  // it — and the bound it stands in is not kept.
+  const malformed = toks.find((t) => t.malformed)
+  if (malformed !== undefined) c.pushError(`'] or ,' expected instead of ${vendorTokenText(malformed)}`, malformed.span)
   const cut = topLevelDotDot(toks)
   if (cut < 0) {
     // No `..` — malformed; keep it as a best-effort single lower bound, don't error out.

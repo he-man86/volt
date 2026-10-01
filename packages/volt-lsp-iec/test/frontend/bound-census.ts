@@ -47,6 +47,7 @@ import {
   resolveCallee,
   resolveMemberChain,
   resolveTypeExpr,
+  UNKNOWN,
   type Type,
 } from "../../src/frontend/types/index.js"
 import { tally } from "./baseline.js"
@@ -55,6 +56,9 @@ import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { foldDump, refusedIn, resolutionDump, sites, typeRows, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
+import { compilerExprText } from "../../src/analysis/expr-echo.js"
+import { bareConversionArgument } from "../../src/analysis/hole.js"
+import { stringLiteralMessageType } from "../../src/analysis/index.js"
 
 export interface BoundCensus {
   resolution: Record<string, number>
@@ -87,19 +91,31 @@ export function boundCensus(): BoundCensus {
    * fixture as disagreeing with that build (the suite replays it as an expected failure and fails the day it agrees), so
    * its resolution and types are held there, once, and only counted here; `notDefined`, the names that build reports
    * "Identifier 'x' not defined" — a bare name that binds to NONE, or is typed UNKNOWN, there AGREES with the oracle
-   * (0.3 asks whether the LSP says "not defined" exactly where the vendor does), so it is counted, not a finding.
+   * (0.3 asks whether the LSP says "not defined" exactly where the vendor does), so it is counted, not a finding;
+   * `unknownTypes`, every text that build names "Unknown type: '<text>'" (alone or inside a "Cannot convert") — an
+   * expression typed UNKNOWN whose compiler echo is one of them is untyped on the vendor too: the build says so of THAT
+   * expression (`ABS(%M?0.1)`, `(INT#0 - E#V)`, frontend-conformance 2.2b), so it is counted, not an UNKNOWN.
    */
   const summarize = (
     group: string,
     b: Bound,
     pin: string | undefined,
-    vendor: { known: boolean; notDefined: ReadonlySet<string> } = { known: false, notDefined: new Set() },
+    vendor: { known: boolean; notDefined: ReadonlySet<string>; unknownTypes: ReadonlySet<string> } = { known: false, notDefined: new Set(), unknownTypes: new Set() },
   ): void => {
     if (vendor.known) {
       tally(c.resolution, `${group}: files of a known divergence (support/divergences.ts), not measured`)
       tally(c.types, `${group}: files of a known divergence (support/divergences.ts), not measured`)
     }
     const agreed = new Set<string>()
+    const refused = refusedIn(b.parsed.parseResult)
+    // Where a bare name stands inside a REFUSED expression — the statement the parser resumed at after a refused token
+    // (`NS;` in `t := T#5NS;`, `ExprStatement.resumed`) holds the vendor's error at its own name. Neither side resolves
+    // it: the vendor resolves nothing in a body it could not parse and says only "no effect", the LSP analyses no such
+    // body. So NONE there is no disagreement to ask 0.3 about — counted, as 0.4 counts it untyped (frontend-conformance 2.2).
+    const refusedNames = new Set<string>()
+    if (!vendor.known)
+      for (const { expr, line } of typeRows(b))
+        if (expr.kind === "ident_expr" && refused(expr)) refusedNames.add(line.slice(0, line.indexOf(" ")))
     if (!vendor.known)
       for (const line of resolutionDump(b)) {
         const [lhs, binding] = line.split(" -> ") as [string, string]
@@ -111,10 +127,13 @@ export function boundCensus(): BoundCensus {
           tally(c.resolution, `${group}: bare name NONE, not defined on the vendor too`)
           continue
         }
+        if (verdict === "NONE" && shape === "bare name" && refusedNames.has(lhs.slice(0, lhs.indexOf(" ")))) {
+          tally(c.resolution, `${group}: bare name NONE, a refused expression`)
+          continue
+        }
         tally(c.resolution, `${group}: ${shape} ${verdict}`)
         if (pin !== undefined && verdict !== "resolved") c.fixtureUnresolved.push(`${pin}${b.parsed.id} ${line}`)
       }
-    const refused = refusedIn(b.parsed.parseResult)
     if (!vendor.known)
       for (const { expr, scope, line } of typeRows(b)) {
         const [where, kind, ...rest] = line.split(" ")
@@ -130,6 +149,8 @@ export function boundCensus(): BoundCensus {
         else if (ON_ITS_ROOT_NAME.has(kind!) && agreed.has(where!))
           tally(c.types, `${group}: ${kind} UNKNOWN, not defined on the vendor too`)
         else if (type === "?" && returnsNothing(expr, scope, b)) tally(c.types, `${group}: call with no return value`)
+        else if (type === "?" && vendor.unknownTypes.has(compilerExprText(expr)))
+          tally(c.types, `${group}: ${kind} UNKNOWN, unknown on the vendor too`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     for (const line of foldDump(b)) {
@@ -155,8 +176,13 @@ export function boundCensus(): BoundCensus {
             return m === null ? [] : [m[1].toLowerCase()]
           }),
         )
-        summarize(`fixtures ${vendor}`, own, `${vendor} `, { known, notDefined })
-        summarize(`fixtures ${vendor}`, plc, `${vendor} `, { known, notDefined })
+        const unknownTypes = new Set(
+          ((vendor === "codesys" ? f.codesys : f.twincat)?.diagnostics ?? []).flatMap((d) =>
+            [...d.message.matchAll(/Unknown type: '(.+?)''? to type|^Unknown type: '(.+)'$/g)].map((m) => m[1] ?? m[2]),
+          ),
+        )
+        summarize(`fixtures ${vendor}`, own, `${vendor} `, { known, notDefined, unknownTypes })
+        summarize(`fixtures ${vendor}`, plc, `${vendor} `, { known, notDefined, unknownTypes })
         if (!known) crossCheckBuildTypes(f, vendor, [own, plc], c)
         if (vendor === "codesys") {
           crossCheckRunTypes(f, plc, c)
@@ -193,18 +219,29 @@ interface Store {
 
 function storesOf(b: Bound): Store[] {
   const out: Store[] = []
-  const store = (target: Type, value: Expr, scope: Scope): void => {
+  /** `named`: the target as the compiler names it where it is no `Type` — a bare conversion's parameter, `ANY`. */
+  const store = (target: Type, value: Expr, scope: Scope, named?: string): void => {
     const inferred = inferExprType(value, scope, b.project)
     const as = new Set([typeKey(renderType(inferred))])
     for (const t of [literalErrorType(value, target), literalCheckType(value, target)])
       if (t !== undefined) as.add(typeKey(renderType(t)))
-    // CODESYS names an expression it cannot type by its text: "Cannot convert type 'Unknown type: 'x'' to type 'INT'"
-    if (inferred.kind === "unknown") as.add(typeKey(`Unknown type: '${exprText(value)}'`))
+    // CODESYS names an expression it cannot type by its text: "Cannot convert type 'Unknown type: 'x'' to type 'INT'" —
+    // as written, or as the compiler echoes it (a malformed address with its `?`: 'Unknown type: '%M?0.1'',
+    // `lit_address_unsized_in_body`, frontend-conformance 2.2.7)
+    if (inferred.kind === "unknown") {
+      as.add(typeKey(`Unknown type: '${exprText(value)}'`))
+      as.add(typeKey(`Unknown type: '${compilerExprText(value)}'`))
+    }
+    // …and a string LITERAL by its message form, length-tagged: "Cannot convert type 'STRING(INT#3)' to type 'INT'" —
+    // the front-end's type is STRING, the length is the message's (`analysis/rules` `stringLiteralMessageType`;
+    // `cc_string_escape_literal_into_int`, `lit_uchar_two_chars`, `lit_utf8_*_into_wstring`, frontend-conformance 2.2.6)
+    const literal = stringLiteralMessageType(value)
+    if (typeof literal === "string") as.add(typeKey(literal))
     out.push({
-      target: typeKey(renderType(target)),
+      target: typeKey(named ?? renderType(target)),
       value: as,
       conversion: classifyConversion(target, inferred),
-      printed: `${renderType(inferred)} → ${renderType(target)}`,
+      printed: `${renderType(inferred)} → ${named ?? renderType(target)}`,
     })
   }
   /** Stores inside an expression: an operand converts to the type of its operator — for a comparison, whose BOOL is not
@@ -222,6 +259,9 @@ function storesOf(b: Bound): Store[] {
         }
       }
       if (x.kind !== "call") continue
+      // a BARE conversion converts its argument to ANY (`analysis/hole` `bareConversionArgument`, frontend-conformance 2.2b)
+      const converted = bareConversionArgument(x)
+      if (converted !== undefined) store(UNKNOWN, converted, scope, "ANY")
       const callee = resolveCallee(x, scope, b.project)
       if (callee === undefined) continue
       x.args.forEach((a, i) => {
@@ -241,9 +281,15 @@ function storesOf(b: Bound): Store[] {
       if (scope === undefined) continue
       if ("varSections" in unit)
         for (const section of unit.varSections)
-          for (const decl of section.decls)
+          for (const decl of section.decls) {
             if (decl.init !== undefined && decl.init.kind !== "aggregate_init" && decl.initOp === undefined)
               store(resolveTypeExpr(decl.type, b.project, 0, scope), decl.init, scope)
+            // a REFUSED initializer still stores the value the compiler kept — the placeholder where the malformed
+            // literal stood (`RefusedInit.value`): "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'TIME'"
+            // (`cc_time_microsecond_literal`, `lit_init_*`, frontend-conformance 2.2a)
+            const refused = decl.refusedInit?.value
+            if (refused !== undefined) store(resolveTypeExpr(decl.type, b.project, 0, scope), refused, scope)
+          }
       for (const body of unitBodies(unit)) {
         if (!isStBody(body)) continue
         const bodyScope = scope.children.find((s) => s.span === body.span) ?? scope

@@ -2,11 +2,12 @@
  * INITIALIZERS — the right-hand side of a declaration's `:=`: a clean scalar expression stays an `Expr`; anything else
  * (a struct, FB or array aggregate) becomes an `AggregateInit` whose elements are parsed structurally, error-tolerant.
  */
-import type { AggregateElement, AggregateForm, AggregateInit, Initializer } from "../ast/nodes.js"
+import { REFUSED_PLACEHOLDER, type AggregateElement, type AggregateForm, type AggregateInit, type Initializer, type RefusedInit } from "../ast/nodes.js"
 import type { Token } from "../lex/tokens.js"
 import { joinSpans, zeroSpan } from "../span.js"
 import type { Cursor } from "./cursor.js"
 import { parseExprFromTokens } from "./expression.js"
+import { vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { collectUntilTopLevel } from "./scan.js"
 
 /**
@@ -18,6 +19,28 @@ export function collectInitTokens(cur: Cursor, stopAtEndType = false): Token[] {
     cur,
     (t) => (t.kind === "punct" && t.text === ";") || (stopAtEndType && t.kind === "keyword" && t.keyword === "END_TYPE"),
   )
+}
+
+/**
+ * THE FIRST MALFORMED LITERAL in an initializer's tokens (`Token.malformed`), reported as both vendors report it there:
+ * the declaration ENDS at it — "';' expected instead of 'X'", "Expression expected instead of 'X'", nothing about the
+ * tokens after it — and the value is what was read before it with the literal as the compiler's placeholder
+ * (`RefusedInit.value`): `!!!'ERROR'!!!` when the literal leads (`cc_time_microsecond_literal`, `esc_wstring_hex_*`,
+ * `lit_init_bool_typed_true`), `(1 + !!!'ERROR'!!!)` after an operator (`lit_init_malformed_not_leading`). Inside an
+ * open `[` aggregate it is the AGGREGATE that wants its next token — "',, ( or ]' expected instead of 'X'" — and there is
+ * no value to convert (`lit_init_malformed_in_aggregate`). Undefined when there is no malformed literal.
+ */
+export function refuseMalformedInit(cur: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
+  const at = tokens.findIndex((t) => t.malformed)
+  if (at < 0) return undefined
+  const bad = tokens[at]!
+  const before = tokens.slice(0, at)
+  const inAggregate = before.reduce((depth, t) => depth + (t.kind === "punct" ? (t.text === "[" ? 1 : t.text === "]" ? -1 : 0) : 0), 0) > 0
+  cur.pushError(`${inAggregate ? "',, ( or ]'" : "';'"} expected instead of ${vendorTokenText(bad)}`, bad.span)
+  cur.pushError(vendorExpressionExpected(bad), bad.span)
+  if (inAggregate) return { span: bad.span }
+  const value = parseExprFromTokens([...before, { kind: "identifier", text: REFUSED_PLACEHOLDER, span: bad.span }])
+  return value === undefined ? { span: bad.span } : { span: bad.span, value }
 }
 
 /**

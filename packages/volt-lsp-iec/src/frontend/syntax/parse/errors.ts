@@ -13,6 +13,7 @@ export interface ErrorCursor {
   peek(): Token
   consume(): Token
   pushError(message: string, span: Span, unexpectedToken?: string): void
+  markResumed(): void
 }
 
 /** A token as CODESYS and TwinCAT quote it in a message: bare-quoted (`'x'`, `';'`, `'TO'`), EOF as "end of POU". */
@@ -25,6 +26,9 @@ export function vendorTokenText(t: Token): string {
   if (t.kind === "keyword") return `'${t.text}'`
   if (t.kind === "identifier") return `'${t.text}'`
   if (t.kind === "punct") return `'${t.text}'`
+  // a refused PREFIX — a word and its `#`, no operand — is echoed whole like the word it is: 'DUT_LANG_enum_simple#',
+  // 21 characters (`lit_enum_typed_*`, TwinCAT 2026-10-01); a literal longer than 20 is cut
+  if (t.kind === "typed_lit" && t.text.endsWith("#")) return `'${t.text}'`
   return `'${t.text.length > 20 ? `${t.text.slice(0, 20)}…` : t.text}'`
 }
 
@@ -145,7 +149,12 @@ export function reportStatementCascade(c: ErrorCursor, stop: (t: Token) => boole
       return
     }
     c.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
-    if (t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) return
+    // the vendor starts a statement at the name — one it warns about as a bare statement whether or not anything
+    // declares the name (`cc_time_nanosecond_literal`: "The code 'NS;' has no effect"), so the statement is marked
+    if (t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
+      c.markResumed()
+      return
+    }
     c.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
     c.consume()
   }

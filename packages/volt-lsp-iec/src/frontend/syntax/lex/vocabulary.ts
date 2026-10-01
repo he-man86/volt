@@ -225,7 +225,9 @@ export type Dialect = "codesys" | "twincat"
  *   `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`  TwinCAT answers "Identifier '<name>' not defined"
  *   `__VECTOR`                                        "Type definition expected instead of '__VECTOR'" where a type
  *                                                     belongs (`parse/type-expr`), "not defined" where a name does
- *   `UCHAR#`, `LDATE#`, `LDT#`, `LTOD#`               the prefix cascades: "Unexpected Token 'LDATE#' found"
+ *   `UCHAR#`, `UTF8#`, `LDATE#`, `LDT#`, `LTOD#`      the prefix cascades: "Unexpected Token 'LDATE#' found" — and so
+ *                                                     does every `<word>#` TwinCAT has no literal for
+ *                                                     (`TWINCAT_LITERAL_PREFIXES`)
  *
  * And the ones it DOES have, listed because absence of evidence is not what this set is for: `__TRY`/`__CATCH`/
  * `__FINALLY`/`__ENDTRY`, `__NEW`/`__DELETE`, `__CURRENTTASK`, `__ISVALIDREF`, `__QUERYINTERFACE`,
@@ -239,15 +241,6 @@ export const CODESYS_ONLY_KEYWORDS: ReadonlySet<string> = new Set([
   "__VECTOR",
 ])
 
-/** The `<prefix>#<value>` literal forms only CODESYS has — same measurement, same day. */
-export const CODESYS_ONLY_LITERAL_PREFIXES: ReadonlySet<string> = new Set([
-  "UCHAR",
-  "LDATE",
-  "LDT",
-  "LDATE_AND_TIME",
-  "LTOD",
-  "LTIME_OF_DAY",
-])
 
 // ── named subsets — each parser rule that asks "is this one of …" asks here ─────────────────────────────────────────
 
@@ -474,8 +467,37 @@ export const TYPED_PREFIXES : ReadonlySet<string> = new Set([
   "ULINT",
   "REAL",
   "LREAL",
-  "CHAR",
-  "WCHAR",
+])
+
+/** The typed prefixes whose body is an INTEGER — optional `-`, digits, an unsigned base (`lexer.ts` `lexTypedIntegerBody`):
+ *  the integers and the bit strings, BOOL aside (its body is one character). */
+export const TYPED_INTEGER_PREFIXES: ReadonlySet<string> = new Set([
+  "BYTE", "WORD", "DWORD", "LWORD", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
+])
+
+/**
+ * CODESYS's two QUOTED literal prefixes — `UCHAR#'A'` (a character code) and `UTF8#'…'` (a STRING of UTF-8 bytes). The
+ * lexer reads either in any case, with a SINGLE quote only: `uchar#'A'` builds, `UCHAR#"A"` is "'\"A\"' is no
+ * component of 'UCHAR'" (`lit_uchar_*`, `lit_utf8_*`, CODESYS 2026-10-01). What the token MEANS is `literal/value`'s.
+ */
+export const QUOTED_LITERAL_PREFIXES: ReadonlySet<string> = new Set(["UCHAR", "UTF8"])
+
+/**
+ * The words before `#` that are no literal and no operand: `STRING#'abc'` is "Unexpected token 'STRING#' found", the
+ * word and its `#` one token, on both vendors (`lit_string_typed*`, `lit_wstring_typed*`, 2026-10-01).
+ */
+export const REFUSED_LITERAL_PREFIXES: ReadonlySet<string> = new Set(["STRING", "WSTRING"])
+
+/**
+ * The `<prefix>#` literals TwinCAT reads. ANY OTHER `<word>#` is one identifier token there, `#` included, and cascades
+ * — "Unexpected Token 'CHAR#' found" for `CHAR#'A'`, `CHAR#65`, `XYZ#'abc'`, `UTF8#'a'`, `E_Mode#Running` alike, and
+ * `UCHAR#`/`LDATE#`/`LDT#`/`LTOD#` before them (`lit_*`, `xf_l*`, `operand_uchar_literal`, TwinCAT 2026-09-20 and
+ * 2026-10-01). It was a list of the CODESYS-only prefixes; the measurement says the rule is the other way round.
+ */
+export const TWINCAT_LITERAL_PREFIXES: ReadonlySet<string> = new Set([
+  ...TIME_PREFIXES,
+  "D", "DATE", "TOD", "TIME_OF_DAY", "DT", "DATE_AND_TIME",
+  ...TYPED_PREFIXES,
 ])
 
 /**

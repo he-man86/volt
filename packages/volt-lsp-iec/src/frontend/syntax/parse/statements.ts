@@ -14,6 +14,7 @@ import { Cursor } from "./cursor.js"
 import { parseAssignable, parseExpression } from "./expression.js"
 import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "../ast/nodes.js"
 import { REFUSED_AT_STATEMENT_START, type Keyword } from "../lex/vocabulary.js"
+import { addressShape } from "../literal/address.js"
 import { reportStatementCascade, vendorTokenText } from "./errors.js"
 import { identFromToken } from "./names.js"
 
@@ -75,10 +76,11 @@ function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): Statem
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
     const before = cur.mark()
+    const resumed = cur.takeResumed()
     const s = parseStatement(cur)
     if (s === RESYNCED) continue
     if (s !== undefined) {
-      out.push(s)
+      out.push(resumed && s.kind === "expr_stmt" ? { ...s, resumed: true } : s)
       continue
     }
     // A keyword refused as an OPERAND stopped it (`parsePrimary`, `NOT_AN_OPERAND`): the vendor resyncs from that word
@@ -170,6 +172,9 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
  */
 function refusedAtStatementStart(cur: Cursor): boolean {
   const t = cur.peek()
+  // …and an address with a size and NO POSITION assigned to: `%MW := 1;` is refused on the address as a reserved word
+  // is (`lit_address_no_position_as_target`, CODESYS 2026-10-01). Only the assignment is measured.
+  if (t.kind === "address_lit") return addressShape(t.text).kind === "no-position" && assignOpOf(cur.peek(1)) !== null
   if (t.kind !== "keyword" || t.keyword === undefined || !REFUSED_AT_STATEMENT_START.has(t.keyword)) return false
   const next = cur.peek(1)
   return assignOpOf(next) !== null || next.kind === "identifier"
@@ -366,6 +371,9 @@ function isArmStart(cur: Cursor): boolean {
     const isAtom =
       t.kind === "int_lit" ||
       t.kind === "real_lit" ||
+      // a typed literal is a label as its bare value is: `INT#5:` builds (`lit_typed_int_case_label`); an enum's
+      // `Type#Value` parses here too and is refused as no constant (`lit_enum_typed_case_label`, `flow/case-labels`)
+      (t.kind === "typed_lit" && t.malformed !== true) ||
       t.kind === "identifier" ||
       (t.kind === "keyword" && t.keyword !== undefined)
     if (!isAtom) return false

@@ -85,3 +85,12 @@ test("the generic ANY types a FUNCTION may take are not unknown", () => {
 test("a compiler-provided name is no unknown type — bare TYPE_CLASS, as `op_sys_type_class_bare` builds", () => {
   expect(errors(prg("eType : TYPE_CLASS;\n\tbSub : BOOL;", "bSub := eType = TYPE_CLASS.TYPE_SUBRANGE;"))).toEqual([])
 })
+
+// A FUNCTION's RETURN type is a declared type too. TwinCAT reports a CODESYS-only elementary return type on the header
+// line, before anything the body says (`xf_ldt_to_date_call_once` and its four siblings, TwinCAT 2026-10-01: "Unknown
+// type: 'LDT'" at line 1). Only the dialect half is measured there: a bare unknown name as a return type is not.
+test("a FUNCTION returning a CODESYS-only elementary type, on TwinCAT — the return type is a declaration", () => {
+  const f = { uri: "F_Stamp.fun", source: "FUNCTION F_Stamp : LDT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
+  expect(errors(f, [], "twincat")).toEqual(["Unknown type: 'LDT'"])
+  expect(errors(f, [], "codesys")).toEqual([])
+})

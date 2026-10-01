@@ -39,6 +39,7 @@ export function vendorReportsParseError(e: ParseError, vendor: Vendor): boolean 
  */
 export function parseErrorMessage(e: ParseError, messages: CheckContext["messages"]): string {
   if (e.unexpectedToken !== undefined) return messages.unexpectedToken(e.unexpectedToken)
+  if (e.directAddressExpected !== undefined) return messages.directAddressExpectedAt(e.directAddressExpected)
   if (e.operandCount !== undefined) {
     const { operator, count, atLeast } = e.operandCount
     return atLeast ? messages.operatorNeedsAtLeast(operator, count) : messages.operatorNeedsExactly(operator, count)

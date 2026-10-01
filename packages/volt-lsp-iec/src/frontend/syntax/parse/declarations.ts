@@ -12,7 +12,7 @@
  * of the section — reporting as the vendor does (`errors.ts` `reportBrokenDeclaration`).
  */
 import type { Token } from "../lex/tokens.js"
-import { type Identifier, type VarDecl, type VarSection, type VarSectionKind } from "../ast/nodes.js"
+import { type Identifier, type RefusedInit, type VarDecl, type VarSection, type VarSectionKind } from "../ast/nodes.js"
 import { Cursor } from "./cursor.js"
 import { parseTypeExpression } from "./type-expr.js"
 import { parseExprFromTokens } from "./expression.js"
@@ -21,14 +21,14 @@ import { joinSpans } from "../span.js"
 import { reportBrokenDeclaration } from "./errors.js"
 import { identFromToken, joinedName, readIdent, readNameList, readQualifiedName } from "./names.js"
 import { bodySpanFromTokens } from "../format/implementation-line.js"
-import { collectInitTokens, initializerFromTokens } from "./initializer.js"
+import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from "./initializer.js"
+import { addressShape } from "../literal/address.js"
 
 /**
  * The first token after a COMPLETE scalar initializer, or undefined. `x : INT := 5 abc;` does not compile —
  * "';' expected instead of 'abc'" (conformance `cc_decl_init_trailing_ident`, `_int`) — but the initializer's tokens were
  * collected up to the `;` and anything that did not parse became an opaque aggregate, silently (gap 12). An aggregate
- * shape (`(`, `[`, `STRUCT`) is the aggregate parser's. A TIME literal cut at a `US`/`NS` unit is not a stray token
- * either: CODESYS rejects the literal itself there, which `analysis/checks/types/time-literal-unit.ts` reports.
+ * shape (`(`, `[`, `STRUCT`) is the aggregate parser's; a malformed literal is `refuseMalformedInit`'s, asked first.
  * ponytail: tries each prefix, longest first — quadratic in the initializer's token count, which is a handful.
  */
 function strayAfterScalarInit(tokens: readonly Token[]): Token | undefined {
@@ -37,10 +37,7 @@ function strayAfterScalarInit(tokens: readonly Token[]): Token | undefined {
   if (parseExprFromTokens(tokens) !== undefined) return undefined
   for (let k = tokens.length - 1; k >= 1; k--) {
     if (parseExprFromTokens(tokens.slice(0, k)) === undefined) continue
-    const before = tokens[k - 1]!
-    const stray = tokens[k]!
-    if (before.kind === "time_lit" && before.span.end === stray.span.start) return undefined
-    return stray
+    return tokens[k]!
   }
   return undefined
 }
@@ -132,6 +129,18 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
  */
 type DeclFailure = "bad-name"
 
+/**
+ * An `AT` operand that is an address with a size and NO POSITION is no address at all — `AT %IW*` (which lexes `%IW` then
+ * `*`) and `AT %MW` are "Direct address expected after AT instead of %IW" on both vendors, and the declaration is lost
+ * (`lit_address_incomplete_sized`, `lit_address_no_position`, 2026-10-01; the lost uses are `analysis` at-address's).
+ * A malformed address is a declaration that stands, with an error of its own (`literal/address`, the analysis).
+ */
+function refuseAtOperand(c: Cursor, tokens: readonly Token[]): void {
+  const op = tokens[0]
+  if (op?.kind !== "address_lit" || addressShape(op.text).kind !== "no-position") return
+  c.pushParseError({ message: `Direct address expected after AT instead of ${op.text}`, span: op.span, directAddressExpected: op.text })
+}
+
 function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undefined {
   // `expectName` (not `expectIdent`): the soft keywords GET/SET/OVERRIDE are legal variable names — the Standard `RS`
   // FB literally declares `SET : BOOL`, and CODESYS accepts it (`lex_soft_keyword_name_*`). An IL operator or `__`
@@ -167,6 +176,7 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
       if (next.kind === "punct" && (next.text === ":" || next.text === ":=" || next.text === ";")) break
       tokens.push(c.consume())
     }
+    refuseAtOperand(c, tokens)
     at = bodySpanFromTokens(tokens, atKwBefore.span)
   }
 
@@ -186,6 +196,7 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
         if (next.kind === "punct" && (next.text === ":=" || next.text === ";")) break
         tokens.push(c.consume())
       }
+      refuseAtOperand(c, tokens)
       at = bodySpanFromTokens(tokens, atKw.span)
     }
   }
@@ -201,24 +212,29 @@ function parseVarDecl(c: Cursor, global: boolean): VarDecl | DeclFailure | undef
   // WHICH one it was is kept: a REFERENCE binds its target with `REF=`, and dropping the operator made that
   // declaration indistinguishable from an assignment to whatever the reference points at.
   const initOp = assign?.text === "REF=" ? ("REF=" as const) : undefined
+  let refusedInit: RefusedInit | undefined
   if (hasBracketInit || assign !== undefined) {
     const initTokens = collectInitTokens(c)
-    init = initializerFromTokens(initTokens)
-    const stray = strayAfterScalarInit(initTokens)
-    if (stray !== undefined) c.pushError(`';' expected instead of '${stray.text}'`, stray.span)
+    refusedInit = refuseMalformedInit(c, initTokens)
+    if (refusedInit === undefined) {
+      init = initializerFromTokens(initTokens)
+      const stray = strayAfterScalarInit(initTokens)
+      if (stray !== undefined) c.pushError(`';' expected instead of '${stray.text}'`, stray.span)
+    }
   }
 
   const semi =
-    init === undefined && at === undefined
+    init === undefined && refusedInit === undefined && at === undefined
       ? endAfterType(c, global)
       : c.expectPunct(";")
-  const endSpan = semi?.span ?? init?.span ?? at?.span ?? type.span
+  const endSpan = semi?.span ?? init?.span ?? refusedInit?.span ?? at?.span ?? type.span
 
   return {
     kind: "var_decl",
     names,
     type,
     ...(init !== undefined ? { init } : {}),
+    ...(refusedInit !== undefined ? { refusedInit } : {}),
     ...(initOp !== undefined ? { initOp } : {}),
     ...(at !== undefined ? { at } : {}),
     span: joinSpans(firstName.span, endSpan),
@@ -239,15 +255,21 @@ export function parseStructField(c: Cursor): VarDecl | undefined {
   if (type === undefined) return undefined
 
   let init: VarDecl["init"]
-  if (c.eatPunct(":=") !== undefined) init = initializerFromTokens(collectInitTokens(c))
+  let refusedInit: RefusedInit | undefined
+  if (c.eatPunct(":=") !== undefined) {
+    const initTokens = collectInitTokens(c)
+    refusedInit = refuseMalformedInit(c, initTokens)
+    if (refusedInit === undefined) init = initializerFromTokens(initTokens)
+  }
 
-  const semi = init === undefined ? endAfterType(c, false) : c.expectPunct(";")
-  const endSpan = semi?.span ?? init?.span ?? type.span
+  const semi = init === undefined && refusedInit === undefined ? endAfterType(c, false) : c.expectPunct(";")
+  const endSpan = semi?.span ?? init?.span ?? refusedInit?.span ?? type.span
   return {
     kind: "var_decl",
     names,
     type,
     ...(init !== undefined ? { init } : {}),
+    ...(refusedInit !== undefined ? { refusedInit } : {}),
     span: joinSpans(first.span, endSpan),
   }
 }

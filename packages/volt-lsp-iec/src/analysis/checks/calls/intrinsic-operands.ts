@@ -20,6 +20,7 @@ import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../frontend/syntax/index
 import { forEachExpr, lookup } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { literalHole } from "../../hole.js"
 
 /** Math operators requiring an ANY_NUM operand — a non-numeric argument is C0072. */
 const MATH_OPS = new Set(["ABS", "SQRT", "LN", "LOG", "EXP", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN"])
@@ -92,7 +93,9 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       }
     }
     if (name === "ADR") {
-      if (arg.kind === "literal") {
+      // a literal HOLE (a malformed address, an enum `Type#Value`) is not refused as an operand: it has no type, and
+      // CODESYS reports that instead (`lit_address_unsized_under_adr`, `analysis/hole`)
+      if (arg.kind === "literal" && !literalHole(arg, ctx.project)) {
         push(out, "error", arg.span, "invalid-adr-operand", ctx.messages.invalidAdrOperand(text(ctx.source, arg.span))) // C0131
       } else {
         const t = inferExprType(arg, scope, ctx.project)

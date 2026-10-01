@@ -1,11 +1,12 @@
 /**
  * A LITERAL'S TYPE — what the compiler makes of an untyped integer, an untyped real, and the limits a literal is held to.
  */
-import type { BinaryExpr, Expr, Literal } from "../syntax/index.js"
+import { calendarNanoseconds, typedLiteralForm, type BinaryExpr, type Expr, type Literal } from "../syntax/index.js"
 import { ELEMENTARY_TYPES, elementaryType, type ElementaryType } from "./elementary.js"
 import { canonicalElem } from "./platform.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 import { integerOfWidth } from "./width.js"
+import { renderType } from "./render.js"
 
 /** The type an untyped real literal takes — `i := 1.5` is "Cannot convert type 'LREAL' to type 'INT'" (conformance
  *  `cc_init_real_into_int`), an enum member `(A := 2.5)` "Type 'LREAL' can not be converted". */
@@ -39,6 +40,9 @@ export function integerLiteralType(value: bigint): ElementaryType | undefined {
   return undefined
 }
 
+/** The last moment a 32-bit DATE or DT holds: 2^32 - 1 seconds after 1970-01-01 (2106-02-07T06:28:15). */
+const MAX_32BIT_CALENDAR_NS = (2n ** 32n - 1n) * 1_000_000_000n
+
 /**
  * A literal's OWN exact type, where the value alone decides it: an untyped integer's narrowest type
  * (`integerLiteralType`). Undefined for every other literal.
@@ -47,9 +51,19 @@ export function literalOwnType(lit: Literal): ElementaryType | undefined {
   return lit.literalKind === "int" && typeof lit.value === "bigint" ? integerLiteralType(lit.value) : undefined
 }
 
-/** The type a literal's value overflows — its typed prefix, `ANY_INT` or `ANY_REAL` for an untyped one — or undefined
- *  when the value is representable. */
+/** The type a literal's value overflows — its typed prefix, `ANY_INT` or `ANY_REAL` for an untyped one, a calendar
+ *  literal's own type in the compiler's spelling — or undefined when the value is representable. */
 export function literalCapacityType(lit: Literal): string | undefined {
+  // A CALENDAR field out of its range (`calendarNanoseconds`) — "Constant 'D#2024-13-01' too large for type 'DATE'",
+  // "… for type 'TIME_OF_DAY'" (frontend-conformance 2.2.4, N24, both vendors) — or a moment past what a 32-bit DATE or
+  // DT holds, seconds since 1970 in a UDINT: `D#2106-02-07` builds, `D#2106-02-08` and `DT#2200-01-01-00:00:00` do not
+  // (`lit_date_last_32bit`, `_past_32bit`, `lit_dt_year_2200`, both vendors); an LDATE's 64 bits hold 2200 (`lit_ldate_year_2200`).
+  if ((lit.literalKind === "date" || lit.literalKind === "tod" || lit.literalKind === "datetime") && typeof lit.value === "string") {
+    const type = renderType(literalType(lit), { form: "compiler" })
+    const ns = calendarNanoseconds(lit.literalKind, lit.value)
+    if (ns === undefined) return type
+    return (type === "DATE" || type === "DATE_AND_TIME") && ns > MAX_32BIT_CALENDAR_NS ? type : undefined
+  }
   if (lit.literalKind === "typed" && lit.prefix !== undefined) {
     const et = elementaryType(lit.prefix)
     if (et?.range !== undefined && typeof lit.value === "bigint")
@@ -152,13 +166,23 @@ export function literalType(lit: Literal): Type {
     case "datetime":
       return elementaryRef(lit.prefix?.startsWith("L") ? "LDT" : "DT")
     case "typed": {
-      // `BYTE#170` / `INT#5` → the type prefix. `16#FF` (numeric base) has no type prefix → skip.
-      const prefix = lit.prefix ?? ""
-      // A CHARACTER literal is the exception: `UCHAR#'A'` is a character CODE, and CODESYS types it UDINT rather
-      // than by its prefix — `bChar : BYTE := UCHAR#'A'` is "Cannot convert type 'UDINT' to type 'BYTE'"
-      // (conformance `operand_uchar_literal`). Only UCHAR is measured; another char prefix keeps its own name.
-      if (/^UCHAR$/i.test(prefix)) return elementaryRef("UDINT")
-      return /^[A-Za-z_]/.test(prefix) ? elementaryRef(prefix) : UNKNOWN
+      // `BYTE#170` / `INT#5` → the type prefix. The quoted forms are `typedLiteralForm`'s: a CHARACTER literal is a
+      // character CODE, and CODESYS types it UDINT rather than by its prefix — `bChar : BYTE := UCHAR#'A'` is "Cannot
+      // convert type 'UDINT' to type 'BYTE'" (conformance `operand_uchar_literal`); a UTF8# literal, and a quoted token
+      // that is neither, a STRING (`lit_utf8_into_wstring`, `lit_uchar_two_chars`); a component pair has no type
+      // (`lit_char_typed*`, `lit_enum_typed_*`).
+      const form = typedLiteralForm(lit.text)
+      switch (form.kind) {
+        case "typed":
+          return elementaryRef(form.prefix)
+        case "char":
+          return elementaryRef("UDINT")
+        case "utf8":
+        case "text":
+          return elementaryRef("STRING")
+        case "component":
+          return UNKNOWN
+      }
     }
     default:
       // int / real / address literals are context-dependent width — skip (conservative).
