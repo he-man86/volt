@@ -1,0 +1,117 @@
+project: C:\Users\marce\AppData\Local\Temp\volt-ide-codesys-dcn\CodesysTestProject.project
+== CONTROL: every object valid
+  (no numbered messages)
+== B1 FB body  [body.impl]  planted at impl line 3 col 3
+   text='x := 1;\nx := 2;\n  zzBody1 := 3;\n'
+  C0046 Error      "Identifier 'zzBody1' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=17 (hex 11) PositionOffset=2 Length=7
+  C0018 Error      "'zzBody1' is no valid assignment target"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=17 (hex 11) PositionOffset=2 Length=7
+== B2 FB body  [body.impl]  planted at impl line 5 col 9
+   text='x := 1;\nx := 2;\nx := 3;\nx := 4;\n        zzBody2 := 5;\n'
+  C0046 Error      "Identifier 'zzBody2' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=23 (hex 17) PositionOffset=8 Length=7
+  C0018 Error      "'zzBody2' is no valid assignment target"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=23 (hex 17) PositionOffset=8 Length=7
+== B3 FB body, long line 1  [body.impl]  planted at impl line 3 col 3
+   text='x := 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1;\nx := 2;\n  zzBody1 := 3;\n'
+  C0046 Error      "Identifier 'zzBody1' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=27 (hex 1b) PositionOffset=2 Length=7
+  C0018 Error      "'zzBody1' is no valid assignment target"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=27 (hex 1b) PositionOffset=2 Length=7
+== B4 FB body, mid-line  [body.impl]  planted at impl line 2 col 10 (statement at col 1)
+   text='x := 1;\nx := 2 + zzMid;\n'
+  C0032 Error      "Cannot convert type 'Unknown type: '(2 + zzMid)'' to type 'INT'"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=30 (hex 1e) PositionOffset=2 Length=2
+  C0077 Error      "Unknown type: 'zzMid'"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=30 (hex 1e) PositionOffset=9 Length=5
+  C0046 Error      "Identifier 'zzMid' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=30 (hex 1e) PositionOffset=9 Length=5
+== D1 FB decl  [decl.decl]  planted at decl line 4 col 2 (type at col 6)
+   text='FUNCTION_BLOCK FB_DcnDecl\nVAR\n\tx : INT;\n\ty : NoSuchType;\nEND_VAR\n'
+  C0077 Error      "Unknown type: 'NoSuchType'"
+      guid -> Device/Plc Logic/Application/FB_DcnDecl
+      Position=18 (hex 12) PositionOffset=1 Length=1
+== D2 FB decl  [decl.decl]  planted at decl line 6 col 2 (type at col 6)
+   text='FUNCTION_BLOCK FB_DcnDecl\nVAR\n\tx : INT;\n\tx2 : INT;\n\tx3 : INT;\n\ty : NoSuchType;\nEND_VAR\n'
+  C0077 Error      "Unknown type: 'NoSuchType'"
+      guid -> Device/Plc Logic/Application/FB_DcnDecl
+      Position=29 (hex 1d) PositionOffset=1 Length=1
+== D3 FB decl, spaces  [decl.decl]  planted at decl line 4 col 9 (type at col 13)
+   text='FUNCTION_BLOCK FB_DcnDecl\nVAR\n\tx : INT;\n        y : NoSuchType;\nEND_VAR\n'
+  C0077 Error      "Unknown type: 'NoSuchType'"
+      guid -> Device/Plc Logic/Application/FB_DcnDecl
+      Position=38 (hex 26) PositionOffset=8 Length=1
+== M1 method body  [calc.impl]  planted at impl line 2 col 5
+   text='MCalc := a;\n    zzMeth := 2;\n'
+  C0046 Error      "Identifier 'zzMeth' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MCalc
+      Position=12 (hex c) PositionOffset=4 Length=6
+  C0018 Error      "'zzMeth' is no valid assignment target"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MCalc
+      Position=12 (hex c) PositionOffset=4 Length=6
+== M2 method body  [calc.impl]  planted at impl line 4 col 2
+   text='MCalc := a;\nMCalc := a;\nMCalc := a;\n zzMeth := 2;\n'
+  C0046 Error      "Identifier 'zzMeth' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MCalc
+      Position=17 (hex 11) PositionOffset=1 Length=6
+  C0018 Error      "'zzMeth' is no valid assignment target"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MCalc
+      Position=17 (hex 11) PositionOffset=1 Length=6
+== M3 method decl  [calc.decl]  planted at decl line 4 col 2 (type at col 6)
+   text='METHOD MCalc : INT\nVAR_INPUT\n\ta : INT;\n\tb : NoSuchType;\nEND_VAR\n'
+  C0040 Error      "Function 'MCalc' requires exactly '2' inputs"
+      guid -> Device/Plc Logic/Application/PLC_PRG
+      Position=17 (hex 11) PositionOffset=5 Length=15
+  C0077 Error      "Unknown type: 'NoSuchType'"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MCalc
+      Position=22 (hex 16) PositionOffset=1 Length=1
+== P1 property GET body  [get.impl]  planted at impl line 2 col 1 (zzGet at col 10)
+   text='PProp := 1;\nPProp := zzGet;\n'
+  C0032 Error      "Cannot convert type 'Unknown type: 'zzGet'' to type 'INT'"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/PProp/Get
+      Position=7 (hex 7) PositionOffset=6 Length=2
+  C0046 Error      "Identifier 'zzGet' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/PProp/Get
+      Position=7 (hex 7) PositionOffset=9 Length=5
+== A1 action body  [act.impl]  planted at impl line 2 col 1
+   text='x := 1;\nzzAct := 1;\n'
+  C0046 Error      "Identifier 'zzAct' not defined"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/AAct
+      Position=4 (hex 4) PositionOffset=0 Length=5
+  C0018 Error      "'zzAct' is no valid assignment target"
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/AAct
+      Position=4 (hex 4) PositionOffset=0 Length=5
+== X1 stray VAR in a method  [exec.impl]  planted at impl line 2 col 1 (c802b74d)
+   text='MExecute := TRUE;\nVAR\n\tq : INT;\nEND_VAR\n'
+  C0578 Error      'Unexpected statement'
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MExecute
+      Position=9 (hex 9) PositionOffset=0 Length=21
+== X2 stray VAR, line 4  [exec.impl]  planted at impl line 4 col 1
+   text='MExecute := TRUE;\nMExecute := TRUE;\nMExecute := TRUE;\nVAR\n\tq : INT;\nEND_VAR\n'
+  C0578 Error      'Unexpected statement'
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MExecute
+      Position=16 (hex 10) PositionOffset=0 Length=21
+== FINAL (left in place for the pipe's build)
+  C0578 Error      'Unexpected statement'
+      guid -> Device/Plc Logic/Application/FB_DcnBody
+      Position=33 (hex 21) PositionOffset=0 Length=21
+  C0578 Error      'Unexpected statement'
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/MExecute
+      Position=21 (hex 15) PositionOffset=0 Length=21
+  C0578 Error      'Unexpected statement'
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/AAct
+      Position=7 (hex 7) PositionOffset=0 Length=21
+  C0578 Error      'Unexpected statement'
+      guid -> Device/Plc Logic/Application/FB_DcnMeth/PProp/Get
+      Position=10 (hex a) PositionOffset=0 Length=21
+done - the IDE stays up, serving the pipe

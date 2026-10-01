@@ -124,6 +124,11 @@ why the transpiler's oracle, `volt-lsp-iec/scripts/record-exec.py`, is a runscri
 method at create — "An object with the name '…' already exists within the corresponding namespace" — so the
 compiler never sees the repro, through scripting or the bridge).
 
+**Build diagnostics** — `probe-diagnostic-child-guid` (CODESYS, a `--runscript` launched through `ide.ps1 up -RunScript`
+that serves the pipe afterwards: a build error inside a method, property accessor or action carries the CHILD's own
+`ObjectGuid`; `PositionOffset` is the 0-based column, `Length` the token's, and `Position` is opaque — not a line,
+not an offset; `diagnostic-child-guid.log`, DIALECT C27).
+
 **Project / settings** — `probe-project-container`, `probe-projectsettings-scope` (the compiler configuration
 is a session SERVICE over per-project state, and the read is sound — DIALECT C24, which closed
 `project-settings-sync`).
