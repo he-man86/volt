@@ -51,3 +51,45 @@ test("an EDIT that introduces a recursion is reported — the incremental re-ind
   build.bindFile(project, { uri: "F", parseResult: parseSource(after, { networkText: true }), source: after })
   expect(check(after)).toBe(1)
 })
+
+test("a cycle across two files follows an edit to EITHER one — a rebound file's scopes are new, the other's are kept", () => {
+  // The graph is read lazily, with each scope's member types cached by the Scope object (2026-10-01): an edit makes the
+  // edited file's scopes anew and leaves the other file's in place, so the cache must answer for both halves correctly.
+  const cfg = resolveConfig({ vendor: "codesys" })
+  const a = "FUNCTION_BLOCK FB_A\nVAR b : FB_B; END_VAR\nEND_FUNCTION_BLOCK"
+  const bCycle = "FUNCTION_BLOCK FB_B\nVAR a : FB_A; END_VAR\nEND_FUNCTION_BLOCK"
+  const bFlat = "FUNCTION_BLOCK FB_B\nVAR a : POINTER TO FB_A; END_VAR\nEND_FUNCTION_BLOCK"
+  const file = (uri: string, src: string) => ({ uri, source: src, parseResult: parseSource(src, { networkText: true }) })
+  const project = build.buildSymbolTable([file("A", a), file("B", bFlat)])
+  const fileA = file("A", a)
+  const onA = () =>
+    computeSemanticDiagnostics({ parseResult: fileA.parseResult, source: a, project, config: cfg })
+      .filter((d) => d.code === "data-recursion")
+      .map((d) => d.message)
+  expect(onA()).toEqual([])
+  build.unbindFile(project, "B")
+  build.bindFile(project, file("B", bCycle))
+  build.relink(project)
+  expect(onA()).toEqual(["Data recursion: FB_A -> FB_B -> FB_A"])
+  build.unbindFile(project, "B")
+  build.bindFile(project, file("B", bFlat))
+  build.relink(project)
+  expect(onA()).toEqual([])
+})
+
+test("two same-named types are ONE node, with both declarations' members as its edges", () => {
+  // Two libraries may export the same name; the composition graph has always merged them under it, in project order.
+  const cfg = resolveConfig({ vendor: "codesys" })
+  const first = "TYPE sv :\nSTRUCT\nn : INT;\nEND_STRUCT\nEND_TYPE"
+  const second = "TYPE SV :\nSTRUCT\nloop : sv;\nEND_STRUCT\nEND_TYPE"
+  const pr = parseSource(first, { networkText: true })
+  const project = build.buildSymbolTable([
+    { uri: "1", parseResult: pr, source: first },
+    { uri: "2", parseResult: parseSource(second, { networkText: true }), source: second },
+  ])
+  expect(
+    computeSemanticDiagnostics({ parseResult: pr, source: first, project, config: cfg })
+      .filter((d) => d.code === "data-recursion")
+      .map((d) => d.message),
+  ).toEqual(["Data recursion: SV -> SV"])
+})

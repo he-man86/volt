@@ -13,7 +13,7 @@
  * compiles clean) has no cycles and never fires.
  */
 import type { Identifier, TopLevel, TypeExpr } from "../../../frontend/syntax/index.js"
-import { memoByProject, type Scope } from "../../../frontend/symbols/index.js"
+import { childScopesByName, memoByProject, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -22,32 +22,62 @@ interface Node {
   edges: string[] // lowercased target node names
 }
 
-// The composition graph depends only on the project scope, so build it ONCE per project and memoize. Without this
-// the whole-project graph was rebuilt per file (O(files × project size)) — 85% of all check time on a 24k-file
-// corpus. Memoized per project GENERATION (`memoByProject`): this said "a workspace change yields a fresh Scope",
-// and the incremental re-index does not — it rebinds files into the same one, so the graph went stale on every edit.
-const compositionGraph = memoByProject((project: Scope): Map<string, Node> => {
-  const graph = new Map<string, Node>()
-  for (const scope of project.children) {
-    if (scope.kind !== "pou" && scope.kind !== "struct") continue
-    const key = scope.name.toLowerCase()
-    if (!graph.has(key)) graph.set(key, { display: scope.name, edges: [] })
-  }
-  for (const scope of project.children) {
-    if (scope.kind !== "pou" && scope.kind !== "struct") continue
-    const node = graph.get(scope.name.toLowerCase())!
+/**
+ * THE COMPOSITION GRAPH, READ LAZILY — only the part reachable from the types the current document declares.
+ *
+ * A node is every project-level FB/struct scope under one lower-cased name (the first one's spelling is its display
+ * name); its edges are, in project order, each such scope's value-nesting member types that name another node.
+ *
+ * This was the whole graph, built per project GENERATION: correct, and rebuilt on every rebind — before every fixture
+ * of the conformance replay and on every keystroke — at ~4 ms on the fixture project, the costliest check there
+ * (measured 2026-10-01). Before THAT it was rebuilt per file (85% of all check time on a 24k-file corpus). Now a
+ * scope's member types are read once per Scope object (a scope's symbols are fixed when its file is bound; a rebind
+ * makes new scopes), and the node lookup is the project's child-name index, which every rebind already rebuilds.
+ */
+const memberTargets = new WeakMap<Scope, string[]>()
+function targetsOf(scope: Scope): string[] {
+  let targets = memberTargets.get(scope)
+  if (targets === undefined) {
+    targets = []
     for (const syms of scope.symbols.values())
       for (const s of syms) {
         if (s.kind !== "var" && s.kind !== "struct_field") continue
         const target = s.typeExpr && baseTypeName(s.typeExpr)
-        if (target !== undefined && graph.has(target)) node.edges.push(target)
+        if (target !== undefined) targets.push(target)
       }
+    memberTargets.set(scope, targets)
   }
-  return graph
-})
+  return targets
+}
+
+const isNodeScope = (s: Scope): boolean => s.kind === "pou" || s.kind === "struct"
+
+interface Graph {
+  has(key: string): boolean
+  get(key: string): Node | undefined
+}
+
+function lazyGraph(project: Scope): Graph {
+  const scopesOf = (key: string): Scope[] => childScopesByName(project, key).filter(isNodeScope)
+  const has = (key: string): boolean => childScopesByName(project, key).some(isNodeScope)
+  const nodes = new Map<string, Node>()
+  const get = (key: string): Node | undefined => {
+    const known = nodes.get(key)
+    if (known !== undefined) return known
+    const scopes = scopesOf(key)
+    if (scopes.length === 0) return undefined
+    const node: Node = { display: scopes[0]!.name, edges: [] }
+    for (const scope of scopes) for (const t of targetsOf(scope)) if (has(t)) node.edges.push(t)
+    nodes.set(key, node)
+    return node
+  }
+  return { has, get }
+}
+/** One lazy view per project generation: the nodes a whole-project pass reads are built once, and a rebind starts empty. */
+const graphOf = memoByProject(lazyGraph)
 
 export function checkDataRecursion(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const graph = compositionGraph(ctx.project)
+  const graph = graphOf(ctx.project)
 
   // Emit for each current-document FB/struct that participates in a cycle.
   for (const unit of ctx.parseResult.units) {
@@ -80,7 +110,7 @@ function baseTypeName(t: TypeExpr): string | undefined {
 }
 
 /** A cycle path `[start, …, start]` reachable from `start` (DFS on the current path), or undefined. */
-function findCycle(start: string, graph: Map<string, Node>): string[] | undefined {
+function findCycle(start: string, graph: Graph): string[] | undefined {
   const path: string[] = []
   const onPath = new Set<string>()
   const dfs = (n: string): string[] | undefined => {
