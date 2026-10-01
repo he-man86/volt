@@ -19,6 +19,7 @@ import {
   type DetectedProject,
   type ConnectAction,
   type ConnectOption,
+  type Refusal,
   type OnboardingMode,
 } from "@volt/control"
 import { writeRecent } from "./recent.js"
@@ -31,7 +32,10 @@ import type { Shell } from "./context.js"
 // the groups, it never re-decides "which is primary". `onboarding` is the SHARED empty-state decision.
 // The UI is vendor-blind: a project is identified by its NAME only — no vendor label rides to the renderer. Each
 // project carries its connect `action` (init / connect / rebind) so the picker knows what clicking it does.
-type LabeledProject = DetectedProject & { action: ConnectAction }
+// A `refusal` (openspec codesys-minimum-version) rides along when the project's IDE is refused by its bridge: the
+// renderer draws its caption + reason and no action. It is @volt/control's decision, shipped because the sandboxed
+// renderer cannot import it.
+type LabeledProject = DetectedProject & { action: ConnectAction; refusal?: Refusal }
 type Surface = { create: LabeledProject[]; primary: LabeledProject[]; alternates: LabeledProject[] }
 // There is no separate `awaiting` field: the cold start IS an `OnboardingMode` ("probing"), so the renderer reads
 // one enum rather than crossing a flag with a mode. The desktop carried that flag privately and the extension did
@@ -47,7 +51,7 @@ export function snapshot(shell: Shell): Snap {
   const bound = vs ? readBoundProject(vs.workspaceRoot) : undefined
   // The connection picker, partitioned + ordered by @volt/control (create vs reconnect; matching project first).
   // Name-only — the UI is vendor-blind. Both shells render THIS decision; neither re-derives the grouping.
-  const label = (o: ConnectOption): LabeledProject => ({ ...o.project, action: o.action })
+  const label = (o: ConnectOption): LabeledProject => ({ ...o.project, action: o.action, refusal: o.refusal })
   const s = connectSurface(connectOptions(shell.projects, bound))
   // No `kind`: the renderer branches on `onboarding` and re-derives reconnect itself, so carrying it was a
   // second source of truth for the same decision — and the one nothing read.
@@ -81,7 +85,8 @@ export function pushStatus(shell: Shell): void {
  *
  *  Exported for its test. The refresh around it is impure — it probes the connector and sends over a
  *  BrowserWindow — so the decision worth pinning is this projection, not the plumbing. */
-export const detectedKey = (ps: DetectedProject[]): string => ps.map((p) => `${p.id}:${p.dirty}`).sort().join("|")
+export const detectedKey = (ps: DetectedProject[]): string =>
+  ps.map((p) => `${p.id}:${p.dirty}:${p.unsupported ?? ""}`).sort().join("|")
 
 /** Refresh the detected-project list from the connector. Pushes to the renderer only when the list changes, so the
  *  connector feed is otherwise silent. Runs even when BOUND: the list also feeds the offline connection surface (pick your
@@ -100,6 +105,8 @@ export async function refreshDetectedProjects(shell: Shell): Promise<void> {
   // Worse than a stale asterisk: the early return below runs BEFORE `shell.projects = next`, so a suppressed
   // update froze the cached list itself — which also feeds the offline reconnect surface and the pipe that
   // rebind/init resolve against.
+  //
+  // `unsupported`: the picker draws a refused project's reason in place of its action.
   //
   // NOT `projectName`: an id is `vendor + ":" + project name`, so a rename already changes it. NOT `status`:
   // the picker does not draw it. The rule is the fields drawn, and no more.

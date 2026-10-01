@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import { basename, join } from "node:path"
 import { buildUri } from "./content.js"
-import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
+import { projectWorkspace, isPouFile, readBridgeVendor, readBoundProject, onboardingMode, connectOptions, connectSurface, type ConnectOption, type Refusal, type DetectedProject, type DriftItem, type ConflictItem, type WorkspaceView, type VoltStatus, describeDiagnostics, diffRefs} from "@volt/control"
 
 // The one place the extension turns a tracker into the shared view-model; every panel row renders from this.
 function viewOf(s: VoltStatus): WorkspaceView {
@@ -383,7 +383,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 					label: detected.length === 1 ? "Detected project" : "Detected projects",
 					icon: new vscode.ThemeIcon("list-tree"),
 					collapsed: vscode.TreeItemCollapsibleState.Expanded,
-					children: detected.map(detectedNode),
+					children: connectOptions(detected, undefined).map(detectedNode),
 				},
 			]
 		case "no-project":
@@ -403,6 +403,7 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 // project — a rename, or the wrong bind) → re-point the binding, with the confirm in the command. (`init` never
 // reaches here — that's the unbound onboarding path.)
 function reconnectNode(o: ConnectOption): VoltNode {
+	if (o.refusal) return refusedNode(`reconnect:${o.project.id}`, o.project, o.refusal)
 	// Vendor-blind: a project is identified by its name (the vendor is a wire/binding detail, never a label here).
 	if (o.action === "connect")
 		return {
@@ -422,7 +423,21 @@ function reconnectNode(o: ConnectOption): VoltNode {
 	}
 }
 
-function detectedNode(p: DetectedProject): VoltNode {
+// A project whose IDE the bridge refuses (openspec codesys-minimum-version): named, with the reason @volt/control
+// carries, and NO command — every call the click could make would be answered IDE_UNSUPPORTED.
+function refusedNode(key: string, p: DetectedProject, refusal: Refusal): VoltNode {
+	return {
+		key,
+		label: p.projectName,
+		description: refusal.caption,
+		tooltip: refusal.reason,
+		icon: new vscode.ThemeIcon("error"),
+	}
+}
+
+function detectedNode(o: ConnectOption): VoltNode {
+	if (o.refusal) return refusedNode(`detected:${o.project.id}`, o.project, o.refusal)
+	const p = o.project
 	return {
 		key: `detected:${p.id}`,
 		label: p.projectName,

@@ -138,3 +138,24 @@ test("before the first probe, the view says it is still looking rather than blam
 
   expect(node?.label).toContain("Looking for open PLC projects")
 })
+
+// openspec codesys-minimum-version: the connector carries an unsupported IDE's reason on its rows. The IDE Connection
+// view states it and offers no click that the bridge would refuse.
+const REASON = "CODESYS 3.5.17.0 is not supported: it lacks SystemInstances.ObjectMgr."
+
+test("unbound + a project on an unsupported IDE → the row says why and sets nothing up", () => {
+  const [header] = bridgeRoots([], [proj({ status: "idle", unsupported: REASON })], true)
+  const node = header?.children?.[0]
+  expect(node?.label).toBe("MyMachine")
+  expect(node?.description).toBe("IDE not supported")
+  expect(node?.tooltip).toBe(REASON)
+  expect(node?.command).toBeUndefined()
+})
+
+test("bound + offline + its project on an unsupported IDE → the reconnect row says why and reconnects nothing", () => {
+  const nodes = bridgeRoots([offlineView as never], [proj({ status: "idle", unsupported: REASON })], true)
+  const row = nodes.find((n) => n.key.startsWith("reconnect:"))
+  expect(row?.description).toBe("IDE not supported")
+  expect(row?.tooltip).toBe(REASON)
+  expect(row?.command).toBeUndefined()
+})

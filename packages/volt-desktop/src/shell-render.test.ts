@@ -128,6 +128,37 @@ test("a project name containing an apostrophe renders as data, not as code", () 
   expect(out).toContain("data-pact")
   expect(out).not.toMatch(/onclick="do(Init|Rebind)\(/) // no user text in a handler body
   expect(out).toContain("Bob&#39;s Machine") // and the name is escaped as TEXT, which is what esc is for
+  // ...as the button's LABEL, not only inside data-pid (the id embeds the name, so the line above alone passed while
+  // the button read "undefined": it drew `p.displayName`, a field the rows stopped carrying).
+  expect(out).toContain("</svg>Bob&#39;s Machine</button>")
+  expect(out).not.toContain("undefined")
+})
+
+// openspec codesys-minimum-version: a project whose IDE the bridge refuses is drawn with the reason, as text, and
+// with no action to dispatch — the bridge would refuse it.
+test("a project on an unsupported IDE shows why, and cannot be clicked", () => {
+  const reason = "CODESYS 3.5.17.0 is not supported: it lacks SystemInstances.ObjectMgr."
+  const s = shell()
+  s.setSnap({
+    ...bound,
+    bound: false,
+    initialized: false,
+    onboarding: "choose-project",
+    surface: {
+      create: [
+        { id: "codesys::OldRig:", projectName: "OldRig", dirty: false, action: "init", refusal: { caption: "IDE not supported", reason } },
+      ],
+      primary: [],
+      alternates: [],
+    },
+  })
+  s.render()
+
+  const out = s.html()
+  expect(out).toContain("OldRig")
+  expect(out).toContain("IDE not supported")
+  expect(out).toContain(reason)
+  expect(out).not.toContain("data-pact") // nothing to dispatch
 })
 
 /** C9: the status error the view-model has always carried is now displayed — but only in the ready state, where

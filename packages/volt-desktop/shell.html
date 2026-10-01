@@ -256,11 +256,17 @@
   // binding at a DIFFERENT project (a rename), confirmed first. The project's id and name travel as `data-*`,
   // never as inline call arguments — see `esc` above for why that distinction is load-bearing.
   const projectBtn = (p) => {
+    // A project whose IDE the bridge refuses (openspec codesys-minimum-version): named, disabled, and the reason
+    // @volt/control carries is drawn as TEXT under it — no data-*, so there is nothing to dispatch (the bridge would
+    // answer IDE_UNSUPPORTED).
+    if (p.refusal)
+      return `<button class="btn" title="${esc(p.refusal.reason)}" disabled><svg class="bolt"><use href="#bolt"/></svg>${esc(p.projectName)} — ${esc(p.refusal.caption)}</button>` +
+        `<div class="note" style="padding:0">${esc(p.refusal.reason)}</div>`
     const key = p.action === "connect" ? "connect" : `${p.action}:${p.id}` // "connect" | "rebind:<id>" | "init:<id>"
     // The project NAME is the identity — the UI is vendor-blind, so no "CODESYS · " prefix or badge (the vendor is a
     // wire/binding detail, never a way to label a project here).
-    const label = `${esc(p.displayName)}${p.dirty ? " *" : ""}`
-    const attrs = `data-pact="${esc(p.action)}" data-pid="${esc(p.id)}" data-pname="${esc(p.displayName)}"`
+    const label = `${esc(p.projectName)}${p.dirty ? " *" : ""}`
+    const attrs = `data-pact="${esc(p.action)}" data-pid="${esc(p.id)}" data-pname="${esc(p.projectName)}"`
     const title = p.action === "connect"
       ? "Reconnect this workspace to the IDE."
       : p.action === "rebind"

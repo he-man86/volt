@@ -10,7 +10,7 @@
 export * from "./bridge/cli.js" // setBundledCli, cliScript, runVolt, ProgressUpdate, RunOpts
 export * from "./bridge/gate.js" // isMutationInFlight, withGate
 export * from "./bridge/health.js" // HealthState, BridgeHealth, isBridgeOnline, healthOf, readBridgeVendor, VENDORS, Vendor
-export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, matchesBinding, isServing, connectSurface, DetectedProject, ConnectorView
+export * from "./bridge/connector.js" // connectorStatus, detectedProjects, boundStatus, matchesBinding, isServing, connectSurface, DetectedProject, Refusal, ConnectorView
 export * from "./bridge/actions.js" // fetchStatus, pull, push, build, init, initFromProject, merge{Continue,Abort,Resolve}, firstLine + Pull/Push/MergeOutcome
 // The connector feed — the product's ONE live-connection clock. Everything else in the session client is internal
 // (actions.ts wraps it as enterWorkspace/leaveWorkspace), so only these two are public.

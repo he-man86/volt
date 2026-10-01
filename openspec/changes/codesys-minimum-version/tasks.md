@@ -108,6 +108,17 @@ A fixed SP21 floor would lock out OEM IDEs on an older platform that work today 
         **Open, outside this package:** `@volt/control` (volt-desktop, volt-vscode) does not read
         `ProjectView.unsupported` yet — the field is on `/status` and the session sync; rendering it is a
         volt-control change.
+        **Done (2026-10-01).** `DetectedProject.unsupported` is read; `connectOptions` gives such a row a
+        `refusal` (`{ caption: "IDE not supported", reason: <the bridge's sentence> }`) — the wording decided once in
+        `@volt/control`. The IDE Connection view in both shells draws a refused row named, with the caption and the
+        reason, and with NO action (vscode: no command, the reason as tooltip; desktop: a disabled button with the
+        reason as text under it). The desktop's change-detection key covers `unsupported`. Red first:
+        `connector.test.ts` (refusal on unbound and bound rows), vscode `panel.test.ts` (2), desktop `panel.test.ts`
+        (2) and `shell-render.test.ts` (1). Found on the way, same renderer function: the desktop picker drew
+        `p.displayName`, a field the rows no longer carry, so every project button read "undefined" — the apostrophe
+        test passed only because the id embeds the name; it now asserts the label, red before the fix.
+        Not covered: vscode's `volt.init` QuickPick (a command, not the view) still lists a refused project; picking it
+        fails with the CLI's `IDE_UNSUPPORTED` message, which is the same sentence.
       - **The spec delta claimed the field failure was fixed** (finding, medium). Its scenario "CODESYS 3.5.17 lacks a
         needed API … instead of failing with a runtime exception" asserted what 2.1 shows was NOT built: that install
         had every capability and failed on Volt's own `PipeClient.Call`. The delta now states the refusal for a

@@ -42,6 +42,22 @@ test("connectOptions tags each detected project: init (unbound) / connect (match
   expect(connectOptions([mine, renamed, other] as never, bound).map((o) => o.action)).toEqual(["connect", "rebind", "rebind"])
 })
 
+// openspec codesys-minimum-version: a bridge on an IDE that lacks a capability Volt needs refuses every call, and the
+// connector carries the bridge's sentence on each of its rows as `unsupported`. The picker must say WHY that project
+// cannot be picked — not offer a set-up/reconnect that is refused — and that wording is decided here, once.
+test("connectOptions marks a row on an unsupported IDE as refused, with the bridge's own reason", () => {
+  const reason = "CODESYS 3.5.17.0 is not supported: it lacks SystemInstances.ObjectMgr."
+  const refused = { ...proj("codesys", "OldRig"), status: "idle" as const, unsupported: reason }
+  const fine = { ...proj("codesys", "MyMachine"), unsupported: null }
+  const [r, f] = connectOptions([refused, fine] as never, undefined)
+  expect(r?.refusal).toEqual({ caption: "IDE not supported", reason })
+  expect(f?.refusal).toBeUndefined()
+  // Bound: the workspace's OWN project on an unsupported IDE is still its reconnect row — refused, and saying why.
+  const [own] = connectOptions([refused] as never, { vendor: "codesys", projectName: "OldRig" })
+  expect(own?.action).toBe("connect")
+  expect(own?.refusal?.reason).toBe(reason)
+})
+
 // The surface partition both shells frame from: create (unbound) vs reconnect (bound), matching project primary.
 test("connectSurface splits create vs reconnect and puts the matching project first", () => {
   const mine = proj("codesys", "MyMachine")

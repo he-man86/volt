@@ -42,6 +42,11 @@ export interface DetectedProject {
    *  from the project merely appearing in the list (a disconnected bridge stays listed — that list is how you
    *  reconnect, so "detected" never meant "connected"). Absent → not serving. */
   status?: "idle" | "healthy" | "degraded"
+  /** Why the IDE this row is open in is REFUSED by its bridge — the bridge's own sentence (`CODESYS 3.5.17.0 is not
+   *  supported: it lacks …`), carried by the connector onto every row of that bridge (C# `ProjectView.Unsupported`,
+   *  openspec `codesys-minimum-version`). Null/absent when the IDE is served. Such a row is never bound: every call
+   *  but health is answered `IDE_UNSUPPORTED`. Read it through {@link ConnectOption.refusal}, not here. */
+  unsupported?: string | null
 }
 
 /** Is this project's bridge serving it right now (pull/push work) — a non-idle row. The ONE connection-state
@@ -67,15 +72,30 @@ export type ConnectAction = "init" | "connect" | "rebind"
 export interface ConnectOption {
   project: DetectedProject
   action: ConnectAction
+  /** Set when picking this project cannot work because its IDE is refused by the bridge: the shells draw the row
+   *  with `caption` and `reason` and give it NO action (the bridge would answer every call `IDE_UNSUPPORTED`). */
+  refusal?: Refusal
+}
+
+/** Why a detected project cannot be picked — the wording both shells show. `reason` is the bridge's sentence as
+ *  given (it names the platform version and what is missing); `caption` is the short state, as the tray says it. */
+export interface Refusal {
+  caption: string
+  reason: string
+}
+
+function refusalOf(p: DetectedProject): Refusal | undefined {
+  return p.unsupported ? { caption: "IDE not supported", reason: p.unsupported } : undefined
 }
 
 /** Tag every detected project with what picking it does for a given binding (undefined ⇒ unbound folder, so every
  *  option is a first-time `init`). Shared so both shells render the SAME picker rather than each re-deciding. */
 export function connectOptions(projects: DetectedProject[], bound: BoundProject | undefined): ConnectOption[] {
-  return projects.map((project) => ({
-    project,
-    action: bound === undefined ? "init" : matchesBinding(project, bound) ? "connect" : "rebind",
-  }))
+  return projects.map((project) => {
+    const action: ConnectAction = bound === undefined ? "init" : matchesBinding(project, bound) ? "connect" : "rebind"
+    const refusal = refusalOf(project)
+    return refusal ? { project, action, refusal } : { project, action }
+  })
 }
 
 /** The connection surface, partitioned so both shells frame + emphasize it identically instead of each re-deciding

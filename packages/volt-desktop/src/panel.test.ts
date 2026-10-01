@@ -103,3 +103,17 @@ test("...and is stable under reordering, since it is a set comparison", () => {
 test("before the first probe, the snapshot says 'probing' rather than 'no connector'", () => {
   expect(snapshot({ projects: [], status: undefined, connectorUp: undefined } as never).onboarding).toBe("probing")
 })
+
+// openspec codesys-minimum-version: the refusal is decided by @volt/control and rides the snapshot to the sandboxed
+// renderer, which cannot import it. And the picker draws it, so the change-detection key must cover it — or a bridge
+// that starts refusing (or stops) leaves the panel showing the old state.
+const REASON = "CODESYS 3.5.17.0 is not supported: it lacks SystemInstances.ObjectMgr."
+
+test("a project on an unsupported IDE carries its refusal into the snapshot", () => {
+  const snap = snapshot({ projects: [{ ...proj, unsupported: REASON }], status: undefined, connectorUp: true } as never)
+  expect(snap.surface.create[0]?.refusal).toEqual({ caption: "IDE not supported", reason: REASON })
+})
+
+test("the detected-project key changes when a project's IDE becomes unsupported", () => {
+  expect(detectedKey([{ ...proj, unsupported: REASON }] as never)).not.toBe(detectedKey([{ ...proj, unsupported: null }] as never))
+})
