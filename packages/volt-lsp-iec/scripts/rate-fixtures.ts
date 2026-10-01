@@ -67,6 +67,7 @@ import {
   correctnessOf,
   deadNotes,
   divergesOf,
+  EDGE_ARG,
   edgeHarness,
   edgePlan,
   edgeVerdict,
@@ -84,6 +85,10 @@ import {
   type FixtureMapRow,
 } from "../test/conformance/support/transpile-confidence.js"
 import { CLIPPY } from "../test/conformance/support/rustc.js"
+import { buildRust } from "../test/conformance/support/rustc-cache.js"
+
+/** What a harness binary is run with; a re-proved cache hit runs both builds on each (`support/rustc-cache.ts`). */
+const HARNESS_PROBES = [[], [EDGE_ARG]]
 import { emitRust, lowerSource } from "../src/transpile/index.js"
 
 const OUT = join(import.meta.dir, "..", "test", "conformance", "fixtures", "map.generated.ts")
@@ -145,13 +150,13 @@ await Promise.all(
       const plan = edgePlan(t, ALL_TESTS, pou, code)
       const file = join(dir, `${t.name}.rs`)
       const exe = join(dir, `${t.name}${process.platform === "win32" ? ".exe" : ""}`)
-      await Bun.write(file, `${code}\n${edgeHarness(pou, emitted, plan, "")}`)
-      const build = Bun.spawn(buildArgv(clippy, file, { exe }), { stderr: "pipe", stdout: "pipe" })
+      // THROUGH THE CACHE the suite uses (`support/rustc-cache.ts`): one build per distinct source, argv and compiler
+      const build = await buildRust(buildArgv(clippy, file, { exe }), file, exe, `${code}\n${edgeHarness(pou, emitted, plan, "")}`, HARNESS_PROBES)
       // THE EXIT CODE IS READ. It was discarded, so every fixture that lowered was written `compiles` — six of
       // them wrongly, because their emitted Rust does not build (`i : INT := 1.5` emits `1.5i16`). All six are
       // outside the input contract, which makes the EMISSION fine and the CLAIM false.
-      const built = (await build.exited) === 0
-      const stderr = await new Response(build.stderr).text()
+      const built = build.exit === 0
+      const stderr = build.stderr
       if (!built && rejectionIsADefect(evidence)) rejected.set(t.name, rendered(stderr).slice(0, 600))
       // ONE pass over the compiler's JSON, all three halves out of it
       const { found, excused: covered, pedantic } = splitFindings(stderr, code.split("\n").length)

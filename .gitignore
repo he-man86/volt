@@ -15,6 +15,9 @@ ts-dist
 # @volt/web (React Router) builds to build/, and caches generated types in .react-router/
 build
 .react-router
+
+# @volt/lsp-iec: the content-addressed rustc cache the conformance suite and rate:fixtures share (test/conformance/support/rustc-cache.ts)
+packages/volt-lsp-iec/.cache/
 **/.serena
 .serena/
 **/.omo

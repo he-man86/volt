@@ -52,6 +52,11 @@ import { assembleFixture, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
+import { buildRust } from "./support/rustc-cache.js"
+
+/** What a harness binary is run with — the recorded scan, and the edge run. A re-proved cache hit runs both builds on
+ *  each (`support/rustc-cache.ts`). */
+const HARNESS_PROBES = [[], [EDGE_ARG]]
 import {
   buildArgv,
   assertPolicy,
@@ -59,6 +64,7 @@ import {
   assertNotes,
   deadNotes,
   divergesOf,
+  EDGE_ARG,
   edgeHarness,
   edgePlan,
   edgeSeeds,
@@ -542,7 +548,6 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       const main = edgeHarness(pou, emitted, plan, recordedScan(c, pou, emitted))
       const file = join(dir, `${c.name}.rs`)
       const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-      await Bun.write(file, `${emitted.code}\n${main}`)
       // ST has no dynamic memory, so the Rust needs no `unsafe` — forbidden, so a case needing it fails rather than builds
       //
       // DENY warnings, with the exceptions `support/transpile-confidence.ts` names and REASONS. This used to be
@@ -565,12 +570,11 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
       // rustc lint used to get from `-D warnings` it gets from the RATCHET below instead — a fixture may report
       // only the lints its stored row carries — which is the same guarantee per fixture and covers clippy's too.
       // A real compile ERROR still fails the build here; it is not a lint.
-      const build = Bun.spawn(
-        buildArgv(CLIPPY ?? rustc!, file, { exe }),
-        { stderr: "pipe" },
-      )
-      const buildExit = await build.exited
-      const buildErr = await new Response(build.stderr).text()
+      //
+      // THROUGH THE CACHE (`support/rustc-cache.ts`): a source, argv and compiler already built are not built again.
+      const build = await buildRust(buildArgv(CLIPPY ?? rustc!, file, { exe }), file, exe, `${emitted.code}\n${main}`, HARNESS_PROBES)
+      const buildExit = build.exit
+      const buildErr = build.stderr
       const findings = splitFindings(buildErr, emitted.code.split("\n").length)
       const measure = (edge: EdgeVerdict) =>
         measured.set(c.name, { lints: findings.found.map((f) => f.code), pedantic: findings.pedantic.length, edge })
@@ -667,10 +671,10 @@ describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitt
           // A `diverges` fixture the vendor RAN also gets the recorded scan, so its expected-failure row can tell
           // the day its Rust starts producing CODESYS's values (`DIVERGES_RUST`).
           const valued = c.evidence === "diverges" && RUNS[c.name]?.values !== undefined
-          await Bun.write(file, `${emitted.code}\n${edgeHarness(pou, emitted, plan, valued ? recordedScan(c, pou, emitted) : "")}`)
-          const build = Bun.spawn(buildArgv(CLIPPY ?? rustc!, file, { exe }), { stderr: "pipe", stdout: "pipe" })
-          const ok = (await build.exited) === 0
-          const stderr = await new Response(build.stderr).text()
+          const source = `${emitted.code}\n${edgeHarness(pou, emitted, plan, valued ? recordedScan(c, pou, emitted) : "")}`
+          const build = await buildRust(buildArgv(CLIPPY ?? rustc!, file, { exe }), file, exe, source, HARNESS_PROBES)
+          const ok = build.exit === 0
+          const stderr = build.stderr
           if (valued && !ok) DIVERGES_RUST.set(c.name, { exit: -1, stdout: "", stderr: `does not compile:\n${rendered(stderr)}` })
           if (valued && ok) {
             const run = Bun.spawn([exe], { stdout: "pipe", stderr: "pipe" })

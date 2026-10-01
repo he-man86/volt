@@ -85,6 +85,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VOLT_REQUIRE_RUSTC: "1" # a missing toolchain fails the job instead of silently dropping the emitter suite
+      # CI IS ALWAYS COLD: every emitted-Rust build is a real compile, never a hit out of the content-addressed cache
+      # (`packages/volt-lsp-iec/test/conformance/support/rustc-cache.ts`) — the cache is a local speed-up, and the
+      # one run that must not be able to trust a stale entry is this one.
+      VOLT_RUSTC_CACHE: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
