@@ -210,7 +210,11 @@ reachability exports leave with the file.
 
 ---
 
-## 3. The network-text seam
+## 3. The network-text seam — PARKED
+
+> **Parked (owner, 2026-10-01): the network language will still change, so this section is NOT executed here.** Nothing
+> of `src/network` or `src/network-text` moves or is rewired in this change; A1's network clause and the
+> `checks/network/` folder of §2 do not apply. The section stays as the analysis for the LD/FBD coverage change (task 5.3).
 
 **Today** network text crosses at nine places (S0–S9 in the map). Three of them are wrong for diagnostics:
 

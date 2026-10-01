@@ -105,7 +105,7 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
 - [ ] 1.7 The registry becomes data: `{ check, group, vendors, reads?, note }`, group comments corrected (signature-name
       out of the syntax block); the CODESYS_ONLY and TWINCAT_ONLY sets fold into `vendors`; generic-instantiation and
       system-initializer get a note naming their rule gate. A test asserts every producer of a `reads` code runs before
-      its reader (unknown-source now; the network check's empty `reads` after 2.4).
+      its reader (unknown-source now).
       Where: pipeline/registry.ts, pipeline/registry.test.ts. Acceptance: A. Depends on: 1.6
 - [ ] 1.8 shared/: rules, resolution, hole, expr-echo, body-context, diagnostic-item, lost-declaration move under it;
       imports updated.
@@ -135,43 +135,13 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
       Candidates that stay are untouched. Skipped with a note if 0.5 moved none.
       Where: checks/syntax/. Acceptance: A; G. Depends on: 0.5, 1.10
 
-## 2. Network-text seams (design.md §3; only the integration, nothing inside network text)
+## 2. Parse-error and composition seams (design.md §3 is PARKED)
 
-### 2a Interface and routing (output-neutral)
+Owner, 2026-10-01: network text's language will still change, so NOTHING of it moves or is rewired here — no
+network-text/index.ts, no routing rewrite, no rename, no move of network-analysis/network-analyze, no parse memo (the
+former 2.1–2.4 and 2.7). src/network and src/network-text stay exactly where and as they are; their integration is
+handed to the LD/FBD coverage change (5.3). Only the two seams below, which are not network work, stay.
 
-- [ ] 2.1 network-text/index.ts is the one interface; its export list = the measured union of what services/, network/,
-      analysis/, test/ and scripts/ import from network-text/* and network/network-analyze.ts (the grep written here);
-      network/network-analyze.ts → network-text/analyze.ts (moved whole); semantic-tokens, folding and network/ import
-      network-text/index.js; network/index.ts stops re-exporting network-text; src/index.ts exports network-text/index.js;
-      KNOWN_OTHER_VIOLATIONS empty.
-      Where: src/network-text/, src/network/, src/services/structure/, src/index.ts, scripts/check-layering.ts.
-      Acceptance: A; G; the package barrel's export names unchanged (listed before/after here; computeNetworkTextDiagnostics leaves only in 2.4).
-      Depends on: 1.3
-- [ ] 2.2 Routing. FIRST (red-free baseline): named routing tests — a position in an ST body, in a graphical body and on an
-      `IMPLEMENTATION <LANG> UNSUPPORTED` line, through hover/definition/typeDefinition/completion and through
-      `resolveAnywhere`. THEN: frontend/syntax/format/bodies.ts `bodyAtOffset(units, offset)` replaces network-services'
-      vgBodyAt and inNetworkText at every caller (the server's four handlers through one `routeAt`; inside
-      network-services `resolveAnywhere` and the two vgBodyAt callers); readOnlyBodyHover → services/assist/hover; the
-      *Anywhere combinators documented as the cross-language home.
-      Where: src/frontend/syntax/format/bodies.ts, src/network/network-services.ts, src/server/server.ts,
-      src/services/assist/hover.ts (+ the routing test file beside server.ts). Acceptance: A; the routing tests pass
-      unchanged before and after; services + server suites unchanged. Depends on: 2.1
-- [ ] 2.3 "Vg" retired from exported names only: documentSymbolsWithVg → documentSymbolsWithNetworks (NetworkTextAnalysis.vg
-      is network-text internals: left for 5.3).
-      Where: src/network, src/server. Acceptance: A; `grep -rnE "export .*Vg" src` empty. Depends on: 2.2
-
-### 2b One pipeline (output changes, recording-decided)
-
-- [ ] 2.4 network/network-analysis.ts → analysis/checks/network/network-text.ts as the registry check `checkNetworkText`
-      (input CheckContext; graphicalBodies inside; a LOCAL slice for its hole pass; LAST in the registry, `reads` empty);
-      its codes that hole reads come from shared/codes.ts; computeNetworkTextDiagnostics leaves network/index;
-      network.test.ts, network-real-shapes.test.ts and network-wire-type.test.ts move beside the check (the diagnostic
-      tests as network-text.test.ts) and call computeDiagnostics through analysis/index.js; the server calls
-      computeDiagnostics once, with `groups` excluding "network" when materializationMismatch holds (a test pins that
-      gate); a pipeline test: network text OFF → the check emits nothing.
-      Where: src/network, src/analysis/{checks/network,shared/codes.ts,pipeline/registry.ts}, src/server/diagnostics.ts.
-      Acceptance: N (expected classes only: config/off on network codes, TwinCAT dedupe across ST+network, quiet() on
-      network findings in unstated bodies); G. Depends on: 2.3, 1.7
 - [ ] 2.5 Server merge: the raw parseResult.errors stream is dropped (the duplicate C0002/no-code pair); one quiet() for all
       items; `syntax-error` exempt from the dead-member suppression; a dead POU runs `computeDiagnostics({ groups:
       ["syntax"] })` (parse errors still ride, cost as today); documentDiagnostics' `messages` parameter removed (callers
@@ -179,20 +149,12 @@ lines. Paths are relative to `packages/volt-lsp-iec/`. P1–P9, §2–§7 refer 
       now unused.
       Where: src/server/diagnostics.ts (+ tests: one parse error → one diagnostic; a parse error in a dead POU and in a
       dead member still shown). Acceptance: N (only the codeless duplicates vanish on the corpora; 0.4's unpartnered
-      errors fixed first). Depends on: 2.4, 0.4
-- [ ] 2.6 One composition: fixtures.test runLsp, support/evidence diagnosed (no re-added parse errors, no network call),
+      errors fixed first). The network diagnostics call stays as it is (parked). Depends on: 1.7, 0.4
+- [ ] 2.6 One composition: fixtures.test runLsp, support/evidence diagnosed (no re-added parse errors; the network call stays as it is),
       scripts/agreement-residue, audit-check, corpus-fp and verify-catalog call computeDiagnostics only; the conformance
       composition passes WorkspaceRefs computed from the fixture sources (so obsolete-usage can fire).
       Where: test/conformance/{fixtures.test.ts,support/evidence.ts}, scripts/. Acceptance: N (evidence's double count
-      gone; ratings recomputed by rate:fixtures, changes listed). Depends on: 2.4
-
-### 2c Network parse memo (measure-gated)
-
-- [ ] 2.7 Only if 0.4 measured ≥ 5% of a documentDiagnostics pass: a memo at the seam in network-text/index.ts wrapping
-      the exports without touching their bodies — STRUCTURE_ONLY parses per BodySpan (WeakMap), analyzeNetworkText per
-      (BodySpan, project object) (nested WeakMap). Otherwise ticked with the measured number and "not needed".
-      Where: src/network-text/index.ts. Acceptance: A; the parse count and ms before → after written here.
-      Depends on: 2.1, 0.4
+      gone; ratings recomputed by rate:fixtures, changes listed). Depends on: 2.5
 
 ## 3. Conformance per check group (gaps first; one recorder batch per vendor per step; niche rule)
 
@@ -351,20 +313,20 @@ is the one exception (P6): its census rows are only handed off (5.3).
 
 - [ ] 5.1 Cold full suite once: `VOLT_RUSTC_CACHE=0 bun test` in packages/volt-lsp-iec, and `bun run check` at the root.
       Where: —. Acceptance: green; durations written here. Depends on: 4.4
-- [ ] 5.2 Docs: architecture.md D (pipeline/, shared/, checks/ groups, the one pipeline, rules A1–A6) and F (the seam:
-      network-text/index → analysis check, services, server routeAt; what is left of network/); data-model.md "analysis"
+- [ ] 5.2 Docs: architecture.md D (pipeline/, shared/, checks/ groups, the one pipeline, rules A1–A6) (network text's
+      integration unchanged and marked as parked for the LD/FBD change); data-model.md "analysis"
       (the stale DiagnosticConfig flag list replaced by the real config, CheckContext, registry entry); TESTING.md and
       test/README.md (the census, beyond 0.1's listing); scripts/README.md.
       Where: docs/, TESTING.md, test/README.md, scripts/README.md. Acceptance: every path named exists. Depends on: 5.1
-- [ ] 5.3 Hand-off notes: to the LD/FBD coverage change (the duplicate jump-label rule, NETWORK_* code spelling,
+- [ ] 5.3 Hand-off notes: to the LD/FBD coverage change (the whole parked network seam of design.md §3 — one
+      network-text interface, routing, one pipeline for network findings, the parse memo — plus the duplicate jump-label rule, NETWORK_* code spelling,
       Cnnnn entries for network codes, the `NetworkTextAnalysis.vg` field name, the network check's own conformance with
       its census rows) and to lsp-package-structure (network-text/, what is left of network/, and analysis/checks/network/
       final homes, test/analysis's root, the baseline.ts directory).
       Where: openspec/changes/{lsp-package-structure,<the LD/FBD change if it exists>}/proposal.md or a hand-off section
       in their tasks.md. Acceptance: each item named once, with its file. Depends on: 5.2
 - [ ] 5.4 Spec delta: specs/analysis-conformance/spec.md gains the requirements of what was BUILT — one pipeline and the
-      registry's order contract (P1, P3), the layering rules A1–A6, the network-text seam (one interface; network findings
-      under config, dedupe and quiet) — each with a scenario; anything the work measured and rejected is not asserted.
+      registry's order contract (P1, P3), the layering rules A1–A6 — each with a scenario; anything the work measured and rejected is not asserted.
       Where: openspec/changes/analysis-conformance/specs/analysis-conformance/spec.md. Acceptance: `npx --yes openspec
       validate analysis-conformance` passes. Depends on: 5.3
 - [ ] 5.5 Final review (spec + layering: A1–A6 allow-list empty or each remaining entry justified); fix;
