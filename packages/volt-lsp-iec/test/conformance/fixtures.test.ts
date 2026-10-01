@@ -1875,8 +1875,20 @@ function restore(): void {
   pending = undefined
 }
 
-/** Every error+warning message the LSP emits for a fixture (incl. parse errors + PLC_PRG usage). */
+/**
+ * Every error+warning message the LSP emits for a fixture (incl. parse errors + PLC_PRG usage) — ONCE per fixture and
+ * vendor. The replay against the recorded build and the simulator gate below both ask it for every codesys fixture; it
+ * was computed twice (31 s of the file, measured 2026-10-01). Each call swaps its own fixture into the shared project
+ * after undoing the previous one, so its answer does not depend on the order fixtures are asked in.
+ */
+const LSP_MEMO = new Map<string, string[]>()
 function runLsp(testIdx: number, vendor: Vendor): string[] {
+  const key = `${vendor} ${testIdx}`
+  let hit = LSP_MEMO.get(key)
+  if (hit === undefined) LSP_MEMO.set(key, (hit = runLspNow(testIdx, vendor)))
+  return hit
+}
+function runLspNow(testIdx: number, vendor: Vendor): string[] {
   const own = asVendor(PARSED[testIdx] as (typeof PARSED)[number], vendor)
   const plc0 = PLC_PRGS[testIdx]
   const plc = plc0 === undefined ? undefined : asVendor(plc0, vendor)

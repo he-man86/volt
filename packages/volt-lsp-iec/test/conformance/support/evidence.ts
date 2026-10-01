@@ -73,6 +73,19 @@ function sourceOf(t: LanguageTest, all: readonly LanguageTest[]): { source: stri
  * its own two-file project, which is the very assembly the third note above says defeats `signature-name`.
  */
 export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
+  // ONCE per fixture, fixture list and vendor: the rating, the refused rows and the resolution dump all ask it, and the
+  // answer is a pure function of those three (the fixture's files are bound onto the base and unbound again below).
+  let byAll = LSP_ERRORS.get(t)
+  if (byAll === undefined) LSP_ERRORS.set(t, (byAll = new WeakMap()))
+  let byVendor = byAll.get(all)
+  if (byVendor === undefined) byAll.set(all, (byVendor = new Map()))
+  let hit = byVendor.get(vendor)
+  if (hit === undefined) byVendor.set(vendor, (hit = lspErrorsNow(t, all, vendor)))
+  return [...hit]
+}
+const LSP_ERRORS = new WeakMap<LanguageTest, WeakMap<readonly LanguageTest[], Map<Dialect, readonly string[]>>>()
+
+function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
   // ONE ITEM, ONE FILE — the layout the protocol guarantees and `fixtures.test.ts` replays. `assembleFixture` is the
   // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
