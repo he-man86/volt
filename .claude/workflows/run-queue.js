@@ -1,7 +1,7 @@
 export const meta = {
   name: 'run-queue',
   description: 'Work through the queued openspec changes in their fixed order, each via execute-change (resumable; a finished change is skipped, a blocked one stops the queue)',
-  whenToUse: 'Run to continue all queued work unattended. Order: push-without-header-check -> bridge-refusal-review -> frontend-conformance -> analysis-conformance -> transpile-restructure. Before a long run: keep the laptop awake and check /usage; if the weekly limit is hit the current change stops and resumes from its tasks.md next time.',
+  whenToUse: 'Run to continue all queued work unattended. Order: push-without-header-check -> bridge-refusal-review -> frontend-conformance -> analysis-conformance -> transpile-restructure -> lsp-package-structure. Before a long run: keep the laptop awake and check /usage; if the weekly limit is hit the current change stops and resumes from its tasks.md next time.',
   phases: [{ title: 'Queue', detail: 'one execute-change per change, in order' }],
 }
 
@@ -12,6 +12,7 @@ const QUEUE = [
   { change: 'frontend-conformance' },
   { change: 'analysis-conformance', requires: ['frontend-conformance'] },
   { change: 'transpile-restructure', requires: ['frontend-conformance', 'analysis-conformance'] },
+  { change: 'lsp-package-structure', requires: ['transpile-restructure'] },
 ]
 
 let queue = QUEUE
