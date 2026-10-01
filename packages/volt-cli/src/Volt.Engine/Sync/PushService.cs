@@ -73,6 +73,13 @@ public static class PushService
             currentVersions[v.Identity] = version;
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
         }
+        // An object the walk could not classify counts here exactly as on refs and fetch, or the gate would refuse
+        // every push quoting refs' projectVersion while it stays unreadable.
+        if (needVersions)
+        {
+            Versioning.CountUnclassifiable(walk, currentVersions);
+            Versioning.CountUnclassifiable(walk, gatedVersions);
+        }
 
         // Null when the walk skipped the reads. NOT the empty string: this value is published as
         // `PushResponse.currentProjectVersion` on EVERY rejection, including one raised mid-apply long after
@@ -99,7 +106,9 @@ public static class PushService
         }
 
         var conflicts = PushConflicts.DetectConflicts(ops, request.ExpectedProjectVersion, request.Force,
-                                                      currentVersions, currentProjectVersion, walk.Complete);
+                                                      currentVersions, currentProjectVersion, walk.Complete,
+                                                      // the IDE resolves a name case-insensitively (itemCache), so this does too
+                                                      new HashSet<string>(walk.UnreadableObjects.Select(o => o.Name), StringComparer.OrdinalIgnoreCase));
         if (conflicts.Count > 0)
         {
             VoltLog.Info($"push {ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");

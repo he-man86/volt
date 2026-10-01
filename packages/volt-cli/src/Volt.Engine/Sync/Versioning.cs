@@ -35,6 +35,38 @@ public static class Versioning
     /// PLCopen export has no FBD/LD body). Stable, so the item looks unchanged across reads.</summary>
     public const string Unreadable = "UNREADABLE000000";
 
+    /// <summary>Record every object the walk saw and could not CLASSIFY (<see cref="WalkResult.UnreadableObjects"/>)
+    /// in <paramref name="versions"/> with the <see cref="Unreadable"/> sentinel, and return their bare names for the
+    /// op's <c>unreadable</c> list (one entry per OBJECT). It exists, so it counts toward the aggregate version like
+    /// an unreadable item does — an object that cannot be read is not one that was deleted. ONE function for the three
+    /// version-producing walks (refs, fetch, the push gate), so their maps cannot disagree.
+    ///
+    /// <para><b>One entry per object, never per bare name</b> (CLAUDE.md, the item-name invariant): IEC makes a name
+    /// unique within a kind, and this object's kind is exactly what is unknown — <c>CM_Carrier</c> the FB and
+    /// <c>CM_Carrier</c> the visualization are two objects. Keyed by the bare name they collapsed into one entry, so
+    /// deleting either left <c>projectVersion</c> unchanged. The key is <see cref="UnclassifiableKey"/>: never a wire
+    /// name, so the push's <c>ifVersion</c> gate cannot resolve an op onto it (an op on such a name is refused as
+    /// unreadable by <c>PushConflicts</c>, by name).</para></summary>
+    public static System.Collections.Generic.IReadOnlyList<string> CountUnclassifiable(
+        WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions)
+    {
+        var names = new System.Collections.Generic.List<string>();
+        var seen = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
+        foreach (var o in walk.UnreadableObjects)
+        {
+            var path = FolderPath.Append(o.Folder, o.Name);
+            seen[path] = seen.TryGetValue(path, out var n) ? n + 1 : 0;
+            versions[UnclassifiableKey(path, seen[path])] = Unreadable;
+            names.Add(o.Name);
+        }
+        return names;
+    }
+
+    /// <summary>The version-map key of the <paramref name="ordinal"/>-th unclassifiable object at encoded
+    /// <paramref name="path"/> (two objects of one name can share a folder — the FB and its visualization). It starts
+    /// with <c>/</c>, which no wire name and no encoded path segment does, so it can collide with no item.</summary>
+    private static string UnclassifiableKey(string path, int ordinal) => $"/{path}#{ordinal}";
+
     /// <summary>Resilient version for the AGGREGATE ops (<c>refs</c>, <c>push</c> project-version): a
     /// single unreadable item must never crash the whole batch — it is isolated with the <see cref="Unreadable"/>
     /// sentinel and still listed/deletable (its <see cref="ItemRef"/> comes from WalkItems, not the read).

@@ -13,7 +13,8 @@ internal static class PushConflicts
 {
     internal static List<PushConflict> DetectConflicts(
         List<PushOp> ops, string? expectedProjectVersion, bool force,
-        Dictionary<string, string> currentVersions, string? currentProjectVersion, bool walkComplete = true)
+        Dictionary<string, string> currentVersions, string? currentProjectVersion, bool walkComplete,
+        IReadOnlyCollection<string> unclassifiable)
     {
         var conflicts = new List<PushConflict>();
 
@@ -47,6 +48,25 @@ internal static class PushConflicts
             // land on top of one.
             var key = pending.ContainsKey(name) ? name : bare;
             var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
+
+            // AN OBJECT THE WALK COULD NOT CLASSIFY, under the bare name this op names. Its kind is unknown, so an op on
+            // ANY `X.<kind>` that is not a published identity may be that very object: the apply resolves by bare name
+            // and would land on it unchecked. Refused as what it is, by name — never a stale-version conflict quoting
+            // the sentinel (no pull can satisfy one: the object stays unreadable and no fetch ever sends it), and never
+            // through the version map, which keys these objects by a path that is no wire name
+            // (`Versioning.CountUnclassifiable`). Force skipped this whole loop above, as it does every item check.
+            if (op is SetItemOp && !pending.ContainsKey(name) && unclassifiable.Contains(bare))
+            {
+                conflicts.Add(new PushConflict
+                {
+                    Name = name, YourVersion = clientVersion, CurrentVersion = null,
+                    Code = BridgeErrorCodes.Unreadable,
+                    Reason = $"the IDE holds an object named '{bare}' whose kind the bridge could not read, so it cannot "
+                           + "tell whether this item is that object, and a push cannot write it safely. It is named in "
+                           + "the `unreadable` list of every refs/fetch. Fix it in the IDE, or push with --force.",
+                });
+                continue;
+            }
 
             if (op is SetItemOp set)
             {

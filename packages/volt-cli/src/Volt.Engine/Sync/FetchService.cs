@@ -185,6 +185,10 @@ public static class FetchService
 
             changed.Add(item);
         }
+        // Objects the walk saw and could not even classify — counted and named like an unreadable item, by the
+        // same rule as refs and the push gate (Versioning.CountUnclassifiable). Their kind is unknown, so the
+        // removal exemption is their FOLDER (WalkResult puts it in UnwalkedFolders), not `unreadableKinds`.
+        foreach (var n in Versioning.CountUnclassifiable(walk, versions)) { unreadableBareNames.Add(n); unreadable++; }
 
         // The wire is keyed by NAME: `versions`/`Items` collapse same-name WALK items last-write-wins, so `changed`
         // must agree — otherwise a legitimately-repeated opaque name (IEC guarantees uniqueness only for SOURCE

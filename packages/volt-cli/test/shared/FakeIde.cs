@@ -208,6 +208,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // usually refuse to enumerate until something goes wrong.
     public IReadOnlyList<string> UnwalkableFolders { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Items (by bare name) the walk SEES but cannot classify — a driver whose read of the object faults
+    /// (the CODESYS walk reads every child's object to learn its kind). They are reported as
+    /// <see cref="WalkResult.UnreadableObjects"/>, never in <c>Items</c>. Settable for the same reason as
+    /// <see cref="UnwalkableFolders"/>: the object exists first and becomes unreadable afterwards.</summary>
+    public IReadOnlyCollection<string> UnclassifiableItems { get; set; } = System.Array.Empty<string>();
+
     /// <summary>Tree nodes whose <see cref="ChildCount"/> FAULTS — a COM read failing mid-lookup, without a live
     /// IDE to fail. Distinct from <see cref="UnwalkableFolders"/>, which models a WALK skipping a subtree; this
     /// models a single-item lookup hitting a fault, where "I could not read" and "it is not there" are different
@@ -229,11 +235,23 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     {
         WalkCalls++;
         OnWalkItems?.Invoke();
-        var items = _items
-            .Where(i => !UnwalkableFolders.Any(f => i.Folder == f || i.Folder.StartsWith(f + "/", StringComparison.Ordinal)))
+        // A real walk never ENTERS an object it could not classify — it cannot know the object is a container — so
+        // nothing beneath one is seen: its subtree is `<folder>/<name>`.
+        var unclassifiedSubtrees = _items.Where(i => UnclassifiableItems.Contains(i.Name))
+            .Select(i => FolderPath.Append(i.Folder, i.Name)).ToList();
+        // The ROOT ("") covers everything: a root whose children cannot be enumerated hides the whole project.
+        static bool Under(string folder, string root) =>
+            root.Length == 0 || folder == root || folder.StartsWith(root + "/", StringComparison.Ordinal);
+        var walked = _items
+            .Where(i => !UnwalkableFolders.Any(f => Under(i.Folder, f)) && !unclassifiedSubtrees.Any(s => Under(i.Folder, s)))
+            .ToList();
+        var items = walked.Where(i => !UnclassifiableItems.Contains(i.Name))
             .Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder))
             .ToList();
-        return new WalkResult(items, UnwalkableFolders);
+        var unreadable = walked.Where(i => UnclassifiableItems.Contains(i.Name))
+            .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it"))
+            .ToList();
+        return new WalkResult(items, UnwalkableFolders, unreadable);
     }
     /// <summary>Folder paths that are the vendor's TASK CONTAINER rather than a plain user folder. A real tree
     /// has typed containers; this fake synthesizes its folders from item paths, so every one of them read as

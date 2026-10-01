@@ -72,18 +72,26 @@ namespace Volt.Ide.Codesys
         public static int RequireInt(object o, string member) =>
             Get(o, member) is int i ? i : throw Missing(o, member);
 
-        /// <summary>Invoke a method by name and arity, on the type or on any interface.</summary>
+        /// <summary>Invoke a method by name, on the type or on any interface — the overload the arguments' TYPES
+        /// pick (<see cref="Reflection.Overload"/>), not the first of that arity.
+        /// <para>A source whose same-name overloads cannot take the arguments is not where the method lives: the
+        /// search goes on to the interfaces (a vendor type can implement the meant overload EXPLICITLY beside a public
+        /// one of another type). Only when no source fits does the first such refusal surface, naming the types.
+        /// An AMBIGUOUS source throws at once — two overloads that both fit is never resolved by moving on.</para></summary>
         public static object? Call(object o, string method, params object?[] args)
         {
             var t = o.GetType();
+            MissingMethodException? noFit = null;
             foreach (var src in new[] { t }.Concat(t.GetInterfaces()))
             {
-                var m = src.GetMethods(BF).FirstOrDefault(
-                    x => x.Name == method && x.GetParameters().Length == args.Length);
+                MethodInfo? m;
+                try { m = Reflection.Overload(src.GetMethods(BF), method, args); }
+                catch (MissingMethodException ex) { noFit ??= ex; continue; }
                 if (m == null) continue;
                 try { return m.Invoke(o, args); }
                 catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
             }
+            if (noFit != null) throw noFit;
             throw Missing(o, method + "(" + args.Length + " args)");
         }
 

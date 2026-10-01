@@ -110,6 +110,9 @@ internal sealed class ProjectSnapshot
             if (v.Materialized is { } mat) { snap.FullVersions[mat.FullName] = v.Version; snap.Folders[mat.FullName] = folder; }
             else { snap.Unreadable.Add(it.Name); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
         }
+        // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the
+        // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree.
+        snap.Unreadable.AddRange(Versioning.CountUnclassifiable(walk, snap.Versions));
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
         return snap;
     }

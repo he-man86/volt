@@ -35,12 +35,14 @@ public sealed partial class BeckhoffDriver
         _declarations = null;
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
-        WalkInner(_om.PlcRoot(), "", items, unwalked);
+        var unreadable = new List<UnreadableObject>();
+        WalkInner(_om.PlcRoot(), "", items, unwalked, unreadable);
         WalkIoDevices(items, unwalked);
-        return new WalkResult(items, unwalked);
+        return new WalkResult(items, unwalked, unreadable);
     }
 
-    private void WalkInner(object node, string folderPath, List<ProjectItem> items, List<string> unwalked)
+    private void WalkInner(object node, string folderPath, List<ProjectItem> items, List<string> unwalked,
+                           List<UnreadableObject> unreadable)
     {
         // A COM node that faults mid-walk is skipped (never break the whole walk) — but LOG it (Debug, so a
         // healthy project stays quiet) so a silently-dropped item is diagnosable. A swallowed materialize error
@@ -53,7 +55,7 @@ public sealed partial class BeckhoffDriver
             // which is off by default, and the caller that derives DELETIONS from absence never saw it — so a
             // single faulting folder made `volt pull` delete every file beneath it.
             VoltLog.Warn($"walk: ChildCount faulted at folder='{folderPath}' — SUBTREE SKIPPED: {ex.Message}");
-            unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+            unwalked.Add(folderPath);   // "" is the root: Removal reads it as covering everything
             return;
         }
         for (int i = 1; i <= count; i++)
@@ -64,7 +66,7 @@ public sealed partial class BeckhoffDriver
             {
                 // One child lost rather than a subtree — still enough to make absence meaningless.
                 VoltLog.Warn($"walk: ChildAt({i}) faulted at folder='{folderPath}': {ex.Message}");
-                unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+                unwalked.Add(folderPath);   // "" is the root: Removal reads it as covering everything
                 continue;
             }
             string name;
@@ -72,7 +74,7 @@ public sealed partial class BeckhoffDriver
             catch (Exception ex)
             {
                 VoltLog.Warn($"walk: GetName faulted at folder='{folderPath}' index={i}: {ex.Message}");
-                unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+                unwalked.Add(folderPath);   // "" is the root: Removal reads it as covering everything
                 continue;
             }
             // Classification faults where every other read in this loop does - and is recorded the same way, so
@@ -81,8 +83,11 @@ public sealed partial class BeckhoffDriver
             try { itemType = ClassifiedKind(child); }
             catch (Exception ex)
             {
+                // NAMED, not only folder-marked: the walk knows which object it was, and `refs`/`fetch` list it in
+                // `unreadable` (WalkResult derives the folder) — the same answer the CODESYS walk gives (openspec
+                // codesys-refs-guid-int32; the parity boundary is the wire).
                 VoltLog.Warn($"walk: kind unreadable for '{name}' at folder='{folderPath}': {ex.Message}");
-                unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message));
                 continue;
             }
 
@@ -93,7 +98,7 @@ public sealed partial class BeckhoffDriver
             if (itemType == ItemKind.PlcFolder || ItemKind.IsContainerManager(itemType))
             {
                 var nested = FolderPath.Append(folderPath, name);
-                WalkInner(child, nested, items, unwalked);
+                WalkInner(child, nested, items, unwalked, unreadable);
                 continue;
             }
             if (ItemKind.IsInlinedInPou(itemType)) continue;
@@ -127,7 +132,7 @@ public sealed partial class BeckhoffDriver
             string emitFolder = isHybrid ? FolderPath.Append(folderPath, name) : folderPath;
 
             items.Add(new ProjectItem(name, new ItemRef(child), itemType, emitFolder));
-            if (isHybrid) WalkInner(child, emitFolder, items, unwalked);
+            if (isHybrid) WalkInner(child, emitFolder, items, unwalked, unreadable);
         }
     }
 

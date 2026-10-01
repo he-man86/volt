@@ -114,14 +114,27 @@ def call(o, name, args):
     are found, and the reason string so a failure says which kind it was."""
     import System
     t = o.GetType()
+    argv = System.Array[System.Object](list(args))
     for src in [t] + list(t.GetInterfaces()):
-        for m in src.GetMethods(bf()):
-            if m.Name != name or len(m.GetParameters()) != len(args):
-                continue
-            try:
-                return True, m.Invoke(o, System.Array[System.Object](list(args)))
-            except Exception:
-                return False, traceback.format_exc().strip().split(chr(10))[-1]
+        candidates = [m for m in src.GetMethods(bf()) if m.Name == name and len(m.GetParameters()) == len(args)]
+        if not candidates:
+            continue
+        # BY THE ARGUMENTS' TYPES, never "the first of this arity": the object manager has GetObjectToRead(int, int)
+        # AND GetObjectToRead(int, Guid), and which one GetMethods lists first CHANGES inside one IDE (DIALECT C26) -
+        # this helper read every object by INDEX after the flip and reported "READ FAILED" for objects that read fine.
+        try:
+            # One candidate needs no choosing (and a None argument has no type to choose by).
+            m = candidates[0] if len(candidates) == 1 else System.Type.DefaultBinder.SelectMethod(
+                bf(), System.Array[System.Reflection.MethodBase](candidates),
+                System.Array[System.Type]([a.GetType() if a is not None else System.Object for a in argv]), None)
+        except Exception:
+            return False, "ambiguous " + name + ": " + traceback.format_exc().strip().split(chr(10))[-1]
+        if m is None:
+            return False, "no %s taking (%s)" % (name, ", ".join(a.GetType().Name if a is not None else "null" for a in argv))
+        try:
+            return True, m.Invoke(o, argv)
+        except Exception:
+            return False, traceback.format_exc().strip().split(chr(10))[-1]
     return False, "no method " + name
 
 

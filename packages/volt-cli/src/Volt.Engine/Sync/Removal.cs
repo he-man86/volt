@@ -75,11 +75,15 @@ internal static class Removal
         && ItemKind.KindForWireName(known) is { } kind && kinds.Contains(kind);
 
     /// <summary>Is <paramref name="folder"/> one of <paramref name="roots"/>, or inside one? The walk's unwalked
-    /// folders and the client's known folders are the same shape, so this is a prefix test on `/` boundaries.</summary>
+    /// folders and the client's known folders are the same shape, so this is a prefix test on `/` boundaries.
+    /// <para>The ROOT is <c>""</c> — the folder path every root-level item has — and it covers everything: no real
+    /// path starts with <c>"" + "/"</c>, so without saying so an unwalked root protected only the root-level items,
+    /// and a pull deleted every file under a root object the walk could not enter.</para></summary>
     private static bool UnderAny(string folder, IReadOnlyList<string> roots)
     {
         foreach (var r in roots)
-            if (string.Equals(folder, r, System.StringComparison.Ordinal)
+            if (r.Length == 0
+                || string.Equals(folder, r, System.StringComparison.Ordinal)
                 || folder.StartsWith(r + "/", System.StringComparison.Ordinal))
                 return true;
         return false;

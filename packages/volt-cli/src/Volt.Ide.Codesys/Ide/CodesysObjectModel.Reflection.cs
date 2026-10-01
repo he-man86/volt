@@ -79,17 +79,13 @@ namespace Volt.Ide.Codesys
         {
             found = false;
             if (o == null) return null;
-            // Matches by name + ARG COUNT only (the first such overload). This is safe for every CODESYS
-            // surface we call — none has two same-arity overloads of the same name — but it is the reason
-            // not to point this at an arbitrary overloaded API without checking.
-            foreach (var m in o.GetType().GetMethods(BF))
-                if (m.Name == name && m.GetParameters().Length == args.Length)
-                {
-                    found = true;
-                    try { return m.Invoke(o, args); }
-                    catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
-                }
-            return null;
+            // The overload the arguments' TYPES pick, never "the first with this many parameters": the object
+            // manager has two 2-arg reads, and which came first changed inside one IDE (Reflection.Overload).
+            var m = Reflection.Overload(o.GetType().GetMethods(BF), name, args);
+            if (m == null) return null;
+            found = true;
+            try { return m.Invoke(o, args); }
+            catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
         }
 
         private static object? TryInvokeMethod(object? o, string name, params object?[] args) =>

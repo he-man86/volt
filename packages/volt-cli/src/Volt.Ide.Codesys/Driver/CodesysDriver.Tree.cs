@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;
@@ -20,9 +21,10 @@ public sealed partial class CodesysDriver
         _declarations = null;
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
+        var unreadable = new List<UnreadableObject>();
         var root = _om.PrimaryProject;
-        if (root != null) Walk(root, "", items, unwalked);
-        return new WalkResult(items, unwalked);
+        if (root != null) Walk(root, "", items, unwalked, unreadable);
+        return new WalkResult(items, unwalked, unreadable);
     }
 
     // The walk mirrors the CODESYS project tree 1:1 into workspace paths. Every container — a user folder, a
@@ -30,7 +32,8 @@ public sealed partial class CodesysDriver
     // own name, so the tree reads exactly as the IDE: Device → Plc Logic → Application → usercode, with the
     // hardware devices as siblings under Device. Nothing is flattened; the only per-kind logic is WHAT each leaf
     // emits (source text vs a device descriptor vs a library reference).
-    private void Walk(object node, string folderPath, List<ProjectItem> items, List<string> unwalked)
+    private void Walk(object node, string folderPath, List<ProjectItem> items, List<string> unwalked,
+                      List<UnreadableObject> unreadable)
     {
         // Guard the child read: recursing an unclassified GenericContainer may reach an opaque subtree whose
         // children are unreadable — that must stop this branch, not crash the whole walk (matches Beckhoff).
@@ -43,13 +46,31 @@ public sealed partial class CodesysDriver
             // Logged at Warn already — correctly, per the no-fallback policy — but a log cannot be acted on by
             // the caller. `FetchService` derives DELETIONS from absence, so it has to be TOLD, not informed.
             BridgeLog.Warn($"could not read children of folder='{folderPath}' (subtree skipped): {ex.Message}");
-            unwalked.Add(folderPath.Length == 0 ? "<root>" : folderPath);
+            unwalked.Add(folderPath);   // "" is the root: Removal reads it as covering everything
             return;
         }
         foreach (var child in children)
         {
             var name = _om.GetName(child);
-            var code = KindCodeOf(child);
+            // ONE OBJECT NEVER FAILS THE WALK. Classifying reads the child's object, and that read was unguarded:
+            // one failure threw out of WalkItems and `refs` answered INTERNAL_ERROR for the whole project (openspec
+            // codesys-refs-guid-int32 — measured on a Pro2193 copy). The object is named instead, with its folder,
+            // and WalkResult counts that folder as not fully read: its kind is unknown, so nothing there is
+            // "deleted". Matches the TwinCAT walk's classification catch.
+            //
+            // ONLY a fault of THIS object. A binder failure (`Reflection.Overload`: an ambiguous or non-fitting
+            // overload — `AmbiguousMatchException`, `MissingMethodException`) or a vendor member that is not there at
+            // all (`MissingMemberException`) is the bridge disagreeing with the IDE's surface: it would hit EVERY
+            // object, and caught here it would answer a successful walk with every object unreadable — so it fails
+            // the operation, by name.
+            int code;
+            try { code = KindCodeOf(child); }
+            catch (Exception ex) when (ex is not (MissingMemberException or AmbiguousMatchException))
+            {
+                BridgeLog.Warn($"could not read the kind of '{name}' in folder='{folderPath}' (named unreadable): {ex.Message}");
+                unreadable.Add(new UnreadableObject(name, folderPath, ex.Message));
+                continue;
+            }
 
             // A device-tree node (controller, fieldbus master, drive, axis, I/O module — all IDeviceObject): emit
             // a read-only `.device` descriptor and mirror its subtree. A device WITH children gets a folder named
@@ -61,14 +82,14 @@ public sealed partial class CodesysDriver
                 var hasChildren = HasChildren(child);
                 items.Add(new ProjectItem(name, new ItemRef(child), ItemKind.PlcDevice,
                     hasChildren ? deviceFolder : folderPath));
-                if (hasChildren) Walk(child, deviceFolder, items, unwalked);
+                if (hasChildren) Walk(child, deviceFolder, items, unwalked, unreadable);
                 continue;
             }
             // Any other container — a user folder or a structural node (PLC Logic, Application, Task Configuration,
             // the SoftMotion "Kinematics" / drive "Functions" groupers) — nests its children under its own name.
             if (code == ItemKind.PlcFolder || CodesysTypeMap.IsRecurseOnlyContainer(code))
             {
-                Walk(child, FolderPath.Append(folderPath, name), items, unwalked);
+                Walk(child, FolderPath.Append(folderPath, name), items, unwalked, unreadable);
                 continue;
             }
             if (CodesysTypeMap.IsSkipped(code)) continue;       // transient/hidden/unknown
@@ -90,7 +111,7 @@ public sealed partial class CodesysDriver
                         items.Add(new ProjectItem(FolderPath.Encode(lib.Name), new ItemRef(lib), ItemKind.PlcLibRef, managerFolder));
                 else
                     // Recipe / visualization managers hold real tree children (recipe definitions, visualizations).
-                    Walk(child, managerFolder, items, unwalked);
+                    Walk(child, managerFolder, items, unwalked, unreadable);
                 continue;
             }
 
