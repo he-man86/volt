@@ -102,4 +102,29 @@ public class InterfaceHeaderBoundaryTests
 
         Assert.Equal(new[] { "Real" }, split.Members.Select(m => m.Name).ToArray());
     }
+    /// <summary>THE END OF THE BLOCK. An interface's members sit INSIDE it, so nothing a push writes stands after
+    /// END_INTERFACE — and a line there used to be DROPPED in silence (a namespace's END_NAMESPACE, a stray member,
+    /// a comment), while the same line after an FB's END is refused. It is refused here too, naming the line.</summary>
+    [Theory]
+    [InlineData("END_NAMESPACE")]
+    [InlineData("METHOD Late : BOOL")]
+    [InlineData("// a note")]
+    public void A_line_after_END_INTERFACE_is_refused_naming_it(string after)
+    {
+        var src = string.Join("\n", "INTERFACE IThing", "END_INTERFACE", "", after, "");
+
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(src, ItemKind.Kinds.Interface, "IThing"));
+
+        Assert.Contains("'IThing', line 4", ex.Message);
+        Assert.Contains(after, ex.Message);
+    }
+
+    /// <summary>Blank lines after END_INTERFACE are no content.</summary>
+    [Fact]
+    public void Blank_lines_after_END_INTERFACE_are_read_clean()
+    {
+        var split = StReader.Read("INTERFACE IThing\nEND_INTERFACE\n\n  \n", ItemKind.Kinds.Interface);
+
+        Assert.Empty(split.Members);
+    }
 }

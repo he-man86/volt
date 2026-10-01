@@ -1067,13 +1067,67 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       so its `expect` says that. Agreement floors raised to the measured CODESYS 3250 → 3259, TwinCAT 3191 → 3200 (the
       2.4a review's cells). `bun test` 6566 pass / 34 skip / 158 todo / 1 fail → the catalog file 146 / 0 after the fix
       (6759 tests, 195 files, 515 s); `bun run check` 14 passed, 0 failed; `bun run lint` exit 0.
-- [ ] 2.4.6 NAMESPACE (U28): a multi-object fixture shape. Record unit_namespace_block, unit_namespace_nested,
+- [x] 2.4.6 NAMESPACE (U28): a multi-object fixture shape. Record unit_namespace_block, unit_namespace_nested,
       unit_namespace_method_after_fb.
       Where: parse/units/namespace, test/conformance support (the multi-object shape). Acceptance: CA. Depends on: 2.4.5
-- [ ] 2.4.7 The Volt format (FMT1–FMT8): unit tests only, one per rule, under the titles design.md §4 2.10 names (most moved in
+      **Step 2.4b (2026-10-01).** A project holds NO namespace object (the wire has no such kind; a namespace is a library's,
+      named in its manifest), so the "multi-object shape" is an FB object's TEXT wrapping its unit: `fixtures/grammar/units.ts`
+      `namespaced()` pushes it AS SENT (`execSkip`: no program runs the FB, and there is no namespace object for record:exec
+      to load). Fixtures (4): `unit_namespace_block`, `_nested`, `_method_after_fb` — Volt's push REFUSES each on both
+      vendors before either IDE sees it ("'FB_LANG_…', line N: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE",
+      `vendorRefuses`, the engine's shared `StReader`; measured on both); so `unit_namespace_opening_only` asks the one
+      namespace text the push hands an IDE, the keyword line alone: CODESYS and TwinCAT both declare nothing and say NOTHING
+      about the text — only "Unknown type: 'FB_LANG_…'" where PLC_PRG declares it (record:language, one batch per vendor).
+      Disagreements, fixed test-first (`parse/units/namespace.test.ts`, `services/formatting/format.test.ts`): (1) the LSP
+      read a namespace block clean where the push refuses it — END_NAMESPACE is now reported on its line, as the push refuses
+      it (as `%FOLDER` and the retired comments are); (2) an unterminated NAMESPACE was an LSP-only error ("unterminated
+      NAMESPACE") where both vendors are silent — removed; (3) the printer closed a NAMESPACE with an END_NAMESPACE nobody
+      wrote (fixed-point finding on `unit_namespace_opening_only`) — `Namespace.closer` holds the written one, absent on an
+      unterminated block and on a library's synthesized namespace. Divergence opened: `TWINCAT_UNIT_DIVERGENCES` +
+      `unit_namespace_opening_only` (TwinCAT "Unknown type", which the LSP has no standing to say there — the class the
+      three 2.4a FB cells are in; niche: accepted loss, 0 occurrences in the corpora: their 695 NAMESPACE lines are all
+      library manifests', no source holds a block). Rules GAP area 2 **36 → 35** (total 90 → 89): U28 closed (fixture
+      `unit_namespace_opening_only` + the two namespace unit tests). **For the owner:** Y17/Y18 (area 3: "units inside a
+      source NAMESPACE block are scoped and analysed", "a METHOD after an FB inside a NAMESPACE parents to that FB") ask about
+      a text no workspace file can carry past the push — they are likely moot, and the binder's source-namespace path
+      (`ingestNamespace`) serves only text the push refuses; left for 3.x to decide. Agreement CODESYS 3259 → **3260** (floor
+      raised), TwinCAT 3200 (3561 fixtures). `rate:fixtures` (map regenerated): confirmed 2220, refused 1145, not-lowered
+      113, lsp-gap 18, diverges 4, unaskable 57 → 61; edges agree 2316 / disagree 0 / not-run 98. Baselines (counts only,
+      no finding or ceiling rose): parse census (the push refuses it, LSP parse error +3 per vendor; refused, no LSP parse
+      error +1), fixed point (fixture files 7114 → 7122), resolution, types (literal UNKNOWN +4 per vendor — the namespaced
+      bodies; the three refused blocks are declared in PLC_PRG and not called, as an undeclared FB is asked). F (`frontend-
+      snapshot check --base HEAD`): 148 aspects over 20 sources — all the four new fixtures' (own + PLC_PRG × 2 vendors, and
+      their back ends); no other source moved. Targeted: `bun test` src/frontend/syntax + symbols + services/formatting +
+      test/conformance/fixtures.test.ts + test/frontend 2832 + 29 pass / 0 fail (VOLT_SKIP_RUST=1); `tsc --noEmit` clean.
+      **Review fixes (2.4b).** (1) END_NAMESPACE is reported only in a POU (`object === "pou"`, `reportNamespaceClosers` in
+      parser.ts), where the push refuses it: a GVL's and a DUT's text is written as sent, and text that is no workspace
+      file is no push's. (2) The bridge DROPPED any line after END_INTERFACE in silence; `StReader` now refuses it naming
+      the line ("nothing may follow END_INTERFACE", `InterfaceHeaderBoundaryTests`). The LSP does not report that line:
+      niche, accepted loss (0 of the corpora's 97 project interfaces; a library's materialized interface writes its methods
+      there and is never pushed, so a rule needs the file's library-ness). (3) A qualified `NS.F` under an opening-only
+      NAMESPACE still resolves: niche, accepted loss (0 source NAMESPACE lines) — no qualified type name is checked for being
+      unknown, so not binding the namespace would not give the diagnostic. (4) The stray-in-NAMESPACE message no longer
+      offers END_NAMESPACE. Baselines re-measured (counts only: the TwinCAT `unit_namespace_opening_only` divergence mark).
+- [x] 2.4.7 The Volt format (FMT1–FMT8): unit tests only, one per rule, under the titles design.md §4 2.10 names (most moved in
       1.24; the missing ones written here).
       Where: syntax/format/*.test.ts. Acceptance: every FMT row's test title exists (rules.test); F unchanged (no product change
       unless a test finds a bug, which is then fixed test-first and noted). Depends on: 2.4.6
+      **Step 2.4b (2026-10-01).** Rule by rule, each clause of each FMT row against a named test (`test/frontend/rules.ts`):
+      FMT1 — whole line, outside comments, nothing else on it: listed; ADDED to the row the clauses it lacked: the stated
+      language selects the reader on members and accessors, the line is taken out of the body, and a body without the line
+      (the push's refusal; `server/implementation-keyword-diagnostics.test.ts`). FMT2 — "never for ST" listed (the existing
+      "UNSUPPORTED never stands after ST…" test), and "the body under it is empty" had no format test: WRITTEN,
+      `implementation-line.test.ts` "code, a comment or a pragma under an UNSUPPORTED line is refused naming the line, and read
+      by neither reader" (CFC and LD; code, `//`, `(* *)`, a pragma, a network — the push refuses any non-blank text there,
+      `StReader.Body`). FMT3, FMT4, FMT6, FMT7, FMT8: every clause already has its test. FMT5 — the interface member's folder
+      test ADDED to the row. No test found a bug: no product change, F unchanged by 2.4.7. rules.test: every listed title
+      exists (352 rules; FMT rows carry tests, no GAP).
+      **Gate 2.4b (2026-10-01).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3561
+      fixtures: confirmed 2220, refused 1145, not-lowered 113, lsp-gap 18, diverges 4, unaskable 61; edges agree 2316 /
+      disagree 0 / not-run 98). `bun test` 6579 pass / 34 skip / 158 todo / 0 fail (6771 tests, 196 files, 225 s, rustc
+      cache on); agreement CODESYS 3260, TwinCAT 3200 (3561 fixtures, = floors). volt-cli (the `StReader` refusal):
+      `dotnet test` Volt.Engine.Tests 1840 pass / 1 skip / 0 fail, Volt.Cli.Tests 274 / 0. `bun run check` 14 passed,
+      0 failed; `bun run lint` exit 0 (warnings only).
 ### 2.P Performance bugs the suite profile found (owner, 2026-10-01: "a slow check is usually an LSP bug")
 
 Profile (dev c85441f40f, report in the session scratchpad prof/): full serial suite 691 s; the opt-in edit benchmark

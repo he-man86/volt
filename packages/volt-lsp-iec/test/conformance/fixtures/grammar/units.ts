@@ -464,7 +464,41 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
     "TYPE DUT_LANG_unit_type_no_body :\nEND_TYPE\n"),
   bareType("unit_type_missing_colon", "U22/U27 — a TYPE with no colon before its body: `TYPE X STRUCT … END_STRUCT`", "struct",
     "TYPE DUT_LANG_unit_type_missing_colon\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n"),
+
+  // ─── U28 NAMESPACE … END_NAMESPACE (task 2.4.6) ─────────────────────────────────────────────────────────────────────
+  // A project holds no namespace OBJECT (the wire has no such kind; a namespace is a LIBRARY's, named in its manifest),
+  // so the only text a vendor can be asked about is an object's text that wraps its unit in one — pushed AS SENT as the
+  // FB it holds, a namespace around the FB, around a namespace, and around an FB and its METHOD. Volt's push refuses
+  // each block on both vendors (the engine's `StReader`, shared, before either IDE sees the text): an FB item's text
+  // holds its unit and that unit's members, and END_NAMESPACE is neither (2026-10-01).
+  pushRefuses(undeclaredFb(namespaced("unit_namespace_block", "U28 — an FB written inside `NAMESPACE N … END_NAMESPACE`",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_block\n${fbText}END_NAMESPACE\n`)),
+    "'FB_LANG_unit_namespace_block', line 9: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
+  pushRefuses(undeclaredFb(namespaced("unit_namespace_nested", "U28 — a NAMESPACE inside a NAMESPACE, holding an FB",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_nested\nNAMESPACE NS_LANG_unit_namespace_nested_inner\n${fbText}END_NAMESPACE\nEND_NAMESPACE\n`)),
+    "'FB_LANG_unit_namespace_nested', line 10: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
+  pushRefuses(undeclaredFb(namespaced("unit_namespace_method_after_fb", "U28 — an FB and its METHOD after it, inside one NAMESPACE",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_method_after_fb\n${fbText}\nMETHOD M : INT\nIMPLEMENTATION ST\nM := 7;\nEND_METHOD\nEND_NAMESPACE\n`,
+    "out := M();")),
+    "'FB_LANG_unit_namespace_method_after_fb', line 14: expected METHOD/ACTION/PROPERTY, got: END_NAMESPACE"),
+  // …so the one namespace text the push hands an IDE is the keyword line alone, with no END_NAMESPACE to refuse: does
+  // the vendor's own parser read NAMESPACE at all? (Declared in PLC_PRG and not called, as an FB whose header leaves it
+  // undeclared is asked.)
+  undeclaredFb(namespaced("unit_namespace_opening_only", "U28 — `NAMESPACE N` above an FB, with no END_NAMESPACE",
+    (fbText) => `NAMESPACE NS_LANG_unit_namespace_opening_only\n${fbText}`)),
 ]
+
+/** An FB `FB_LANG_<name>` (`out := <body>`) whose object text wraps it as `wrap` says, pushed AS SENT: the text IS the
+ *  question, and the parser's split would carry its own reading of the namespace instead. */
+function namespaced(name: string, feature: string, wrap: (fbText: string) => string, body = "out := 1;"): LanguageTest {
+  const fbText = `FUNCTION_BLOCK FB_LANG_${name}\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_FUNCTION_BLOCK\n`
+  return {
+    ...fbUnit(name, feature, wrap(fbText)),
+    asSent: "a project holds no namespace object; the namespace is the object's text, pushed as a workspace file holds it",
+    execSkip:
+      "NOTHING TO MEASURE: no program runs the FB — the push refuses a namespace block on both vendors, and the keyword line alone leaves the FB undeclared (CODESYS: \"Unknown type\", record:language 2026-10-01); nor is there a namespace object for record:exec to load the text into",
+  }
+}
 
 /** `t` declared in PLC_PRG and not called — an FB whose header leaves it undeclared is asked by "Unknown type" alone. */
 function undeclaredFb(t: LanguageTest): LanguageTest {

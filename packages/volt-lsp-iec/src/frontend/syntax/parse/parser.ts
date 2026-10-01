@@ -19,7 +19,7 @@ import { parseFunctionBlock } from "./units/function-block.js"
 import { parseGlobalVarList } from "./units/global-var-list.js"
 import { parseInterface } from "./units/interface.js"
 import { parseMethod } from "./units/method.js"
-import { parseNamespace } from "./units/namespace.js"
+import { parseNamespace, reportNamespaceClosers } from "./units/namespace.js"
 import { parseProgram } from "./units/program.js"
 import { parseProperty } from "./units/property.js"
 import { parseTypeDecl } from "./units/type-decl.js"
@@ -103,6 +103,8 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
     reportReservedNames(tokens, claimedKeywordLines(units), (message, span) => c.pushError(message, span))
     reportRetiredComments(tokens, (message, span) => c.pushError(message, span))
   }
+  // a POU's END_NAMESPACE is the push's refusal (rule U28; `reportNamespaceClosers` says where it is not reported)
+  if (object === "pou") reportNamespaceClosers(units, (message, span) => c.pushError(message, span))
   if (!options.networkText) for (const unit of allUnits(units)) unitBodies(unit).forEach(readNoNetworkText)
   return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations(), tokens, dialect }
 }

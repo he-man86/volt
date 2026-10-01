@@ -157,7 +157,7 @@ function printUnit(unit: TopLevel): string {
     case "property":
       return printProperty(unit)
     case "namespace":
-      return `NAMESPACE ${unit.name.text}\n${unit.units.map(printUnit).join("\n\n")}\nEND_NAMESPACE`
+      return `NAMESPACE ${unit.name.text}\n${unit.units.map(printUnit).join("\n\n")}${unit.closer === undefined ? "" : "\nEND_NAMESPACE"}`
   }
 }
 

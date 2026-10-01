@@ -440,3 +440,18 @@ END_VAR
 n := 1;
 END_FUNCTION_BLOCK`)
 })
+
+test("roundtrip: a NAMESPACE with no END_NAMESPACE is printed without one", () => {
+  // `unit_namespace_opening_only`: the keyword line alone is a text the push hands the IDE (which declares nothing and
+  // says nothing). The printer closed it with an END_NAMESPACE nobody wrote — a line the push then refuses.
+  const src = `NAMESPACE NS
+FUNCTION_BLOCK F
+VAR
+	n : INT;
+END_VAR
+n := 1;
+END_FUNCTION_BLOCK`
+  roundtrips(src)
+  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  expect(formatDocument(doc)).not.toContain("END_NAMESPACE")
+})

@@ -579,6 +579,10 @@ export interface Namespace {
   kind: "namespace"
   name: Identifier
   units: TopLevel[]
+  /** Its END_NAMESPACE as written — absent when the text runs out first (the keyword line alone is a text the push hands
+   *  the IDE, rule U28) and on a library's namespace, which no text spells. The printer writes a closer only where one
+   *  stood. */
+  closer?: Span
   span: Span
 }
 export interface FunctionBlock {

@@ -19,7 +19,7 @@
  *     not-lowered    113
  *     lsp-gap         18
  *     diverges         4
- *     unaskable       57
+ *     unaskable       61
  *
  *   tier                     lowered    clean
  *     decl                    576      576
@@ -3395,6 +3395,10 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unit_method_public: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   unit_method_trailing_semicolon: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   unit_method_two_access: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  unit_namespace_block: { evidence: "unaskable" },
+  unit_namespace_method_after_fb: { evidence: "unaskable" },
+  unit_namespace_nested: { evidence: "unaskable" },
+  unit_namespace_opening_only: { evidence: "unaskable", diverges: { twincat: "known" } },
   unit_program_return_type: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 3, edge: "agree", size: 4.7, shape: "c28a4c31d4", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
   unit_program_trailing_semicolon: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 4.4, shape: "c28a4c31d4", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
   unit_property_abstract: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "d635829e14", notes: ["1307e33bbf"] },

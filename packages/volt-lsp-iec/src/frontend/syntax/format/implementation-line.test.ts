@@ -301,6 +301,23 @@ test("a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line t
   }
 })
 
+/** FMT2's other half: the body under an UNSUPPORTED line is EMPTY. The push refuses any text under it — a comment and a
+ *  pragma too (`StReader.Body`: `code.Trim().Length > 0`), since the drivers write nothing for that body and the text
+ *  would be dropped — so the parser refuses it, naming the line, and neither reader reads it. */
+test("code, a comment or a pragma under an UNSUPPORTED line is refused naming the line, and read by neither reader", () => {
+  for (const line of ["IMPLEMENTATION CFC UNSUPPORTED", "IMPLEMENTATION LD UNSUPPORTED"])
+    for (const under of ["out := a;", "// a note", "(* a note *)", "{attribute 'x'}", NETWORK]) {
+      const src = fb(`${line}\n${under}`)
+      const errors = parseSource(src, { networkText: true }).errors.map((e) => e.message)
+      expect({ line, under, named: errors.some((m) => m.includes(`under '${line}'`)) }).toEqual({ line, under, named: true })
+      expect({ line, under, reader: bodiesOf(src).map((b) => [isStBody(b), isGraphicalBody(b)]) }).toEqual({
+        line,
+        under,
+        reader: [[false, false]],
+      })
+    }
+})
+
 test("UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line", () => {
   for (const line of ["IMPLEMENTATION ST UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED x := 1;", "IMPLEMENTATION LD UNSUPPORTED;"]) {
     const errors = parseSource(fb(`${line}\n`), { networkText: true }).errors.map((e) => e.message)

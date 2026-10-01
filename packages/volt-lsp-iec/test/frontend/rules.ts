@@ -1203,9 +1203,35 @@ export const RULES: readonly Rule[] = [
     section: "2.4",
     rule: "NAMESPACE … END_NAMESPACE",
     home: "parse/units/namespace",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    // A project holds no namespace object, so the block is asked as an FB object's text (2.4.6): the push refuses its
+    // END_NAMESPACE on both vendors (`unit_namespace_block`, `_nested`, `_method_after_fb` — Volt's refusal, so no IDE
+    // recording, and the LSP reports the line as the push refuses it); the keyword line alone reaches the IDE, which
+    // declares nothing and says nothing of the text (`unit_namespace_opening_only`, both vendors). Reported in a POU
+    // only: a GVL's and a DUT's text is written as sent, and one opening with NAMESPACE declares nothing
+    // (`source-object.ts`). Niche: accepted loss (0 occurrences in the corpora — their NAMESPACE lines are all library
+    // manifests', and none of their 97 project interfaces has a line after END_INTERFACE): an interface's closer, a line
+    // after END_INTERFACE, which the push refuses (since 2.4b's review; it was dropped in silence) and the LSP does not
+    // report (a library's materialized interface writes its methods there); and a qualified `NS.F` under an
+    // opening-only NAMESPACE, which the binder still binds where CODESYS declares nothing.
+    fixtures: ["unit_namespace_opening_only"],
+    tests: [
+      {
+        file: "src/frontend/syntax/parse/units/namespace.test.ts",
+        title: "END_NAMESPACE in a POU is reported on its line, as the push refuses it",
+      },
+      {
+        file: "src/frontend/syntax/parse/units/namespace.test.ts",
+        title: "a GVL, a DUT and text that is no workspace file are not refused for END_NAMESPACE: no push reads it",
+      },
+      {
+        file: "src/frontend/syntax/parse/units/namespace.test.ts",
+        title: "a NAMESPACE with no END_NAMESPACE is no error: the vendor reads the object as declaring nothing, silently",
+      },
+    ],
     design: "**GAP** (the catalog shape cannot express it; needs a multi-object fixture)",
+    recheck:
+      "2.4.6 (2026-10-01): closed — the namespace is an FB object's text (`unit_namespace_*`): the push refuses END_NAMESPACE, the keyword line alone declares nothing, silently",
   },
   // ── 2.5 ──
   {
@@ -2022,6 +2048,20 @@ export const RULES: readonly Rule[] = [
         file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "a keyword line inside a declaration's block comment is no boundary",
       },
+      // the stated language is the one signal for the reader (2.4.7)
+      {
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
+        title: "a method's and an accessor's stated language select their reader too",
+      },
+      {
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
+        title: "the line is taken out of the body: the code starts under it, and it is not ST",
+      },
+      // …and a body without the line is the push's refusal, which the server reports (2.4.7)
+      {
+        file: "src/server/implementation-keyword-diagnostics.test.ts",
+        title: "a body with no IMPLEMENTATION line is a diagnostic naming the item and `volt pull`, and read by neither reader",
+      },
     ],
     design: "`implementation-line.test.ts` (from implementation-keyword.test.ts)",
   },
@@ -2038,6 +2078,15 @@ export const RULES: readonly Rule[] = [
         file: "src/frontend/syntax/format/implementation-line.test.ts",
         title:
           "an UNSUPPORTED line states a body read by neither parser, on every language but ST, and its empty body is clean",
+      },
+      // "never for ST" and "the body under it is empty" (2.4.7: the second written here)
+      {
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
+        title: "UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line",
+      },
+      {
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
+        title: "code, a comment or a pragma under an UNSUPPORTED line is refused naming the line, and read by neither reader",
       },
     ],
     design: "`implementation-line.test.ts`",
@@ -2090,6 +2139,10 @@ export const RULES: readonly Rule[] = [
       {
         file: "src/frontend/syntax/format/folder.test.ts",
         title: "a property's folder is the last line of its declaration",
+      },
+      {
+        file: "src/frontend/syntax/format/folder.test.ts",
+        title: "an interface method's folder is the line before END_METHOD, an interface property's the last before its accessors",
       },
       {
         file: "src/frontend/syntax/format/folder.test.ts",

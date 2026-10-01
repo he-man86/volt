@@ -525,13 +525,17 @@ const ENUM_TO_ENUM_IS_A_WARNING: readonly string[] = ["unit_enum_extends_enum"]
  *     defined"), where the LSP is silent inside an FB whose base did not resolve (`hasUnresolvedBase`) — H6, task 3.2.4;
  *   `unit_fb_modifier_twice`, `unit_fb_public_internal`, `unit_fb_final_public_order` — the FB left undeclared is
  *     "Unknown type" where it is used, which the LSP has no standing to say on TwinCAT (`unknownTypeName`: its
- *     References/ materialization lacks types the compiler knows). CODESYS agrees exactly on all three.
+ *     References/ materialization lacks types the compiler knows). CODESYS agrees exactly on all three;
+ *   `unit_namespace_opening_only` (2.4.6) — the same "Unknown type" for an FB whose text opens with `NAMESPACE N`, which
+ *     TwinCAT, like CODESYS, leaves undeclared without a word about the text. CODESYS agrees exactly. Niche: accepted
+ *     loss (0 occurrences in the corpora — their 695 NAMESPACE lines are all library manifests', no source text holds one).
  */
 const TWINCAT_UNIT_DIVERGENCES: readonly string[] = [
   "unit_fb_extends_qualified",
   "unit_fb_modifier_twice",
   "unit_fb_public_internal",
   "unit_fb_final_public_order",
+  "unit_namespace_opening_only",
 ]
 
 /**

@@ -1743,7 +1743,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // the marks of `support/divergences.ts` 2.4a.
   // 3250 -> 3259 (2026-10-01, 2.4a review): the review's cells (a PROPERTY's FINAL/ABSTRACT after its access modifier,
   // an interface METHOD's ABSTRACT FINAL and VAR_TEMP/VAR_STAT/VAR_INST, a refused FB as no base).
-  { vendor: "codesys", floor: 3259 },
+  // 3259 -> 3260 (2026-10-01, 2.4.6): `unit_namespace_opening_only` — no word about a text opening with NAMESPACE.
+  { vendor: "codesys", floor: 3260 },
 ]
 
 

@@ -173,9 +173,17 @@ public static class StReader
 
 		if (kind == ItemKind.Kinds.Interface)
 		{
-			// Children = METHOD / PROPERTY / ACTION signature blocks INSIDE the INTERFACE block. childrenStart points
-			// AFTER END_INTERFACE and should be empty for well-formed source — those are not merged in (no spec for
-			// sibling children of an interface).
+			// Children = METHOD / PROPERTY / ACTION signature blocks INSIDE the INTERFACE block, so nothing a push
+			// writes stands AFTER END_INTERFACE. A line there is refused, naming it — it used to be dropped in silence
+			// (a namespace's END_NAMESPACE, a member written after the block, a comment), where the same line after an
+			// FB's END is refused by SplitChildren.
+			var at = new ChildSite(what, childrenStart);
+			var trailing = SliceLines(lines, childrenStart, lines.Count - 1);
+			for (int i = 0; i < trailing.Count; i++)
+				if (!string.IsNullOrWhiteSpace(trailing[i]))
+					throw new BridgeException(BridgeErrorCodes.InvalidSt,
+						$"{at.Line(i)}: nothing may follow END_INTERFACE (an interface's members sit inside its block), got: " +
+						Truncate(trailing[i].Trim(), 80));
 			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines, what);
 			return new ItemContent(kind, interfaceDecl, "", interfaceChildren);
 		}
