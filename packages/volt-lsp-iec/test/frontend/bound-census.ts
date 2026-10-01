@@ -53,7 +53,7 @@ import {
 import { tally } from "./baseline.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
-import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, valueChildren, valueExprs, type Bound } from "./dumps.js"
+import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
@@ -100,7 +100,20 @@ export function boundCensus(): BoundCensus {
     group: string,
     b: Bound,
     pin: string | undefined,
-    vendor: { known: boolean; notDefined: ReadonlySet<string>; unknownTypes: ReadonlySet<string> } = { known: false, notDefined: new Set(), unknownTypes: new Set() },
+    vendor: {
+      known: boolean
+      notDefined: ReadonlySet<string>
+      noComponent: ReadonlySet<string>
+      unknownTypes: ReadonlySet<string>
+      /** every message the vendor recorded, lower case; undefined when it recorded no build (`dumps.ts` `unparsedIn`) */
+      says: ReadonlySet<string> | undefined
+    } = {
+      known: false,
+      notDefined: new Set(),
+      noComponent: new Set(),
+      unknownTypes: new Set(),
+      says: new Set(),
+    },
   ): void => {
     if (vendor.known) {
       tally(c.resolution, `${group}: files of a known divergence (support/divergences.ts), not measured`)
@@ -113,14 +126,22 @@ export function boundCensus(): BoundCensus {
     // it: the vendor resolves nothing in a body it could not parse and says only "no effect", the LSP analyses no such
     // body. So NONE there is no disagreement to ask 0.3 about — counted, as 0.4 counts it untyped (frontend-conformance 2.2).
     const refusedNames = new Set<string>()
+    // …and every name in a BODY THAT DID NOT PARSE (`dumps.ts` `unparsedIn`): the vendor resolves nothing there, an
+    // undefined name beside the refusal included (`expr_member_named_keyword_beside_undefined`, frontend-conformance 2.5)
+    const unparsed = unparsedIn(b.parsed.parseResult, vendor.says)
+    const unparsedSites = new Set<string>()
     if (!vendor.known)
-      for (const { expr, line } of typeRows(b))
-        if (expr.kind === "ident_expr" && refused(expr)) refusedNames.add(line.slice(0, line.indexOf(" ")))
+      for (const { expr, line } of typeRows(b)) {
+        const where = line.slice(0, line.indexOf(" "))
+        if (expr.kind === "ident_expr" && refused(expr)) refusedNames.add(where)
+        if (unparsed(expr)) unparsedSites.add(where)
+      }
     // A member read off a name the vendor reports undefined (`Gvl.accD` with `Gvl` "not defined",
     // `decl_var_access_used`) starts where its root does, as 0.4 already counts it. The root is the AST's
     // (`memberShapes`), never the dump's previous line: a call's arguments and an index's subscripts are written between a
     // member and its base, so `arr[undefIdx].nope`'s `.nope` follows `undefIdx` and belongs to `arr`.
     const shapes = memberShapes(sites(b).map((s) => s.expr))
+    const bases = memberBases(b)
     const lines = vendor.known
       ? []
       : resolutionDump(b).map((line) => {
@@ -134,6 +155,21 @@ export function boundCensus(): BoundCensus {
     for (const { where, name, shape, verdict } of lines)
       if (verdict === "NONE" && shape === "bare name" && vendor.notDefined.has(name.toLowerCase())) agreed.add(where)
     for (const { line, where, name, shape, verdict } of lines) {
+      if (verdict === "NONE" && unparsedSites.has(where)) {
+        tally(c.resolution, `${group}: ${shape} NONE, in a body that did not parse`)
+        continue
+      }
+      // a member the vendor reports no component of THIS base — "'GET' is no component of 'DUT_LANG_…'" naming the base's
+      // type, "'END_IF' is no component of 'bx'" the base as written (`expr_member_named_*`, frontend-conformance 2.5) —
+      // is unknown on both sides. Keyed by member AND base: the same member name off another base is no agreement.
+      if (
+        verdict === "NONE" &&
+        shape === "member" &&
+        (bases.get(where) ?? []).some((base) => vendor.noComponent.has(`${name.slice(1).toLowerCase()}|${base}`))
+      ) {
+        tally(c.resolution, `${group}: member NONE, no component on the vendor too`)
+        continue
+      }
       if (verdict === "NONE" && shape === "member" && agreed.has(shapes.rootOf.get(where) ?? "")) {
         tally(c.resolution, `${group}: member NONE, on a name not defined on the vendor too`)
         continue
@@ -161,6 +197,7 @@ export function boundCensus(): BoundCensus {
         // counted, none an UNKNOWN. Where a value belongs (`x := m.NoRet();`) the vendor says the same: "Cannot convert
         // type 'Unknown type: 'm.NoRet()'' to type 'INT'" (`refuse_method_no_result`), and the LSP agrees.
         if (refused(expr)) tally(c.types, `${group}: ${kind} untyped, a refused expression`)
+        else if (unparsed(expr)) tally(c.types, `${group}: ${kind} untyped, in a body that did not parse`)
         else if (ON_ITS_ROOT_NAME.has(kind!) && agreed.has(where!))
           tally(c.types, `${group}: ${kind} UNKNOWN, not defined on the vendor too`)
         else if (type === "?" && returnsNothing(expr, scope, b)) tally(c.types, `${group}: call with no return value`)
@@ -199,13 +236,22 @@ export function boundCensus(): BoundCensus {
             return m === null ? [] : [m[1].toLowerCase()]
           }),
         )
+        // "'<member>' is no component of '<base>'": each member the vendor found on no component, with the base it names
+        // (`member|base`, lower case — `memberBases`)
+        const noComponent = new Set(
+          ((vendor === "codesys" ? f.codesys : f.twincat)?.diagnostics ?? []).flatMap((d) => {
+            const m = /^'(.+)' is no component of '(.+)'$/.exec(d.message)
+            return m === null ? [] : [`${m[1]!.toLowerCase()}|${m[2]!.toLowerCase()}`]
+          }),
+        )
         const unknownTypes = new Set(
           ((vendor === "codesys" ? f.codesys : f.twincat)?.diagnostics ?? []).flatMap((d) =>
             [...d.message.matchAll(/Unknown type: '(.+?)''? to type|^Unknown type: '(.+)'$/g)].map((m) => m[1] ?? m[2]),
           ),
         )
-        summarize(`fixtures ${vendor}`, own, `${vendor} `, { known, notDefined, unknownTypes })
-        summarize(`fixtures ${vendor}`, plc, `${vendor} `, { known, notDefined, unknownTypes })
+        const says = vendorSays(vendor === "codesys" ? f.codesys : f.twincat)
+        summarize(`fixtures ${vendor}`, own, `${vendor} `, { known, notDefined, noComponent, unknownTypes, says })
+        summarize(`fixtures ${vendor}`, plc, `${vendor} `, { known, notDefined, noComponent, unknownTypes, says })
         if (!known) crossCheckBuildTypes(f, vendor, [own, plc], c)
         if (vendor === "codesys") {
           crossCheckRunTypes(f, plc, c)
@@ -238,12 +284,20 @@ interface Store {
   conversion: ReturnType<typeof classifyConversion>
   /** The two types as printed, for a finding. */
   printed: string
+  /** A comparison operand's store: its two operands' types, `LEFT|RIGHT`. */
+  compared?: string
 }
 
-function storesOf(b: Bound): Store[] {
+/** Every message a recorded build holds, lower case — what `dumps.ts` `unparsedIn` asks of an LSP parse error; undefined
+ *  when there is no build recording (the push refused the fixture). */
+function vendorSays(build: { diagnostics: readonly { message: string }[] } | undefined): ReadonlySet<string> | undefined {
+  return build === undefined ? undefined : new Set(build.diagnostics.map((d) => d.message.toLowerCase()))
+}
+
+function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   const out: Store[] = []
   /** `named`: the target as the compiler names it where it is no `Type` — a bare conversion's parameter, `ANY`. */
-  const store = (target: Type, value: Expr, scope: Scope, named?: string): void => {
+  const store = (target: Type, value: Expr, scope: Scope, named?: string, compared?: string): void => {
     const inferred = inferExprType(value, scope, b.project)
     const as = new Set([typeKey(renderType(inferred))])
     for (const t of [literalErrorType(value, target), literalCheckType(value, target)])
@@ -265,6 +319,7 @@ function storesOf(b: Bound): Store[] {
       value: as,
       conversion: classifyConversion(target, inferred),
       printed: `${renderType(inferred)} → ${named ?? renderType(target)}`,
+      ...(compared !== undefined ? { compared } : {}),
     })
   }
   /** Stores inside an expression: an operand converts to the type of its operator — for a comparison, whose BOOL is not
@@ -277,8 +332,11 @@ function storesOf(b: Bound): Store[] {
           ? checkedMeetType(inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project))
           : inferExprType(x, scope, b.project)
         if (result !== undefined) {
-          store(result, x.left, scope)
-          store(result, x.right, scope)
+          const compared = COMPARISONS.has(x.op)
+            ? `${typeKey(renderType(inferExprType(x.left, scope, b.project)))}|${typeKey(renderType(inferExprType(x.right, scope, b.project)))}`
+            : undefined
+          store(result, x.left, scope, undefined, compared)
+          store(result, x.right, scope, undefined, compared)
         }
       }
       if (x.kind !== "call") continue
@@ -314,7 +372,8 @@ function storesOf(b: Bound): Store[] {
             if (refused !== undefined) store(resolveTypeExpr(decl.type, b.project, 0, scope), refused, scope)
           }
       for (const body of unitBodies(unit)) {
-        if (!isStBody(body)) continue
+        // a body that did not parse — on the vendor too — is typed by neither side (`dumps.ts` `unparsedIn`)
+        if (!isStBody(body) || unparsed(body)) continue
         const bodyScope = scope.children.find((s) => s.span === body.span) ?? scope
         walkStatements(parseStatements(body).statements, (s) => {
           if (s.kind === "assign" && s.op === undefined && s.chained === undefined)
@@ -323,8 +382,9 @@ function storesOf(b: Bound): Store[] {
       }
     }
   }
+  const unparsed = unparsedIn(b.parsed.parseResult, says)
   visit(b.parsed.parseResult.units)
-  for (const s of sites(b)) if (s.scope !== undefined) inner(s.expr, s.scope)
+  for (const s of sites(b)) if (s.scope !== undefined && !unparsed(s.expr)) inner(s.expr, s.scope)
   return out
 }
 
@@ -363,7 +423,8 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
   if (build === undefined) return
   const name = f.test.name
   const key = (what: string): string => `build ${vendor}: ${what}`
-  const stores = files.flatMap(storesOf)
+  const says = vendorSays(build)
+  const stores = files.flatMap((b) => storesOf(b, says))
   // each store explains ONE copy of a message: it is used up by the message it explains
   const unused = new Set(stores)
   const refused = new Set<Store>()
@@ -384,11 +445,22 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
         } store the front-end types ${m[1]} → ${m[2]}`,
       )
   }
+  // a COMPARISON whose operands meet in no type the vendor refuses as one: "Cannot compare type 'BOOL' with type 'INT'"
+  // refuses the store of the one operand into their meet (`expr_comparison_chain_same_level`, both vendors,
+  // frontend-conformance 2.5)
+  const compared = new Set(
+    build.diagnostics.flatMap((d) => {
+      const m = /^Cannot compare type '(.+)' with type '(.+)'$/.exec(d.message)
+      return m === null ? [] : [`${typeKey(m[1]!)}|${typeKey(m[2]!)}`, `${typeKey(m[2]!)}|${typeKey(m[1]!)}`]
+    }),
+  )
   // the other way: a store the front-end calls not implicitly convertible must be one the vendor refused
   for (const s of stores) {
     if (s.conversion !== "incompatible") continue
     tally(c.types, key("stores typed not implicitly convertible"))
     if (refused.has(s)) tally(c.types, key("stores typed not implicitly convertible, refused"))
+    else if (s.compared !== undefined && compared.has(s.compared))
+      tally(c.types, key("stores typed not implicitly convertible, refused as a comparison"))
     else
       c.typeDisagreements.push(
         `${vendor} ${name}: the front-end types a store ${s.printed}, not implicitly convertible — no recorded refusal is left for it`,
@@ -563,6 +635,27 @@ export function memberShapes(exprs: readonly Expr[]): { rootOf: Map<string, stri
   }
   exprs.forEach(visit)
   return { rootOf, qualifiers }
+}
+
+/**
+ * Each member access's BASE as a vendor's "no component" message can name it — as written (`bx`) and by its type
+ * (`DUT_LANG_…`), lower case — keyed by the member's site (`at`).
+ */
+function memberBases(b: Bound): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  for (const { expr, scope } of sites(b)) {
+    const visit = (e: Expr): void => {
+      if (e.kind === "member") {
+        const names = [exprText(e.base).toLowerCase()]
+        if (scope !== undefined) names.push(renderType(inferExprType(e.base, scope, b.project)).toLowerCase())
+        out.set(at(e.member.span), names)
+      }
+      const args = e.kind === "call" ? e.args.flatMap((a) => (a.value === undefined ? [] : [a.value])) : []
+      for (const child of e.kind === "call" ? [e.callee, ...args] : valueChildren(e)) visit(child)
+    }
+    visit(expr)
+  }
+  return out
 }
 
 /** The bare name an access chain starts at, or undefined when it starts at no name (a literal, a parenthesised sum). */

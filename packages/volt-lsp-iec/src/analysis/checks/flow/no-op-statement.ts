@@ -23,7 +23,9 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
       // Mirror the IDE: it echoes the whole statement source (incl. the `;`), not just the expression — and the
       // LINE BREAK that ends it, which is in the recorded message (conformance `cc5_no_op_statement`).
       code: "no-op-statement",
-      message: ctx.messages.codeHasNoEffect(withLineEnd(ctx.source, s.span.start, s.span.end)),
+      message: ctx.messages.codeHasNoEffect(
+        s.unterminated ? `${ctx.source.slice(s.span.start, s.span.end)};${lineBreakOf(ctx.source)}` : withLineEnd(ctx.source, s.span.start, s.span.end),
+      ),
     })
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
@@ -58,6 +60,12 @@ function withLineEnd(source: string, start: number, end: number): string {
   const br = /\r?\n/.exec(gap)
   return source.slice(start, end) + (br?.[0] ?? "")
 }
+
+/**
+ * The line break the vendor ends a quote of a statement WITHOUT its `;` with — the `;` it supplied and the FILE's own
+ * break (`ExprStatement.unterminated`: "The code 'b;\r\n' has no effect", `expr_power_right_assoc`, both vendors).
+ */
+const lineBreakOf = (source: string): string => (source.includes("\r\n") ? "\r\n" : "\n")
 
 function containsCall(e: Expr): boolean {
   let found = false

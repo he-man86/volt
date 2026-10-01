@@ -100,6 +100,7 @@ import { LITERAL_RULE_TESTS } from "./grammar/literals.js"
 import { DECLARATION_RULE_TESTS } from "./grammar/declarations.js"
 import { TYPE_EXPRESSION_RULE_TESTS } from "./grammar/type-expressions.js"
 import { UNIT_RULE_TESTS } from "./grammar/units.js"
+import { EXPRESSION_RULE_TESTS } from "./grammar/expressions.js"
 
 export interface CategoryGroup {
   name: string
@@ -211,6 +212,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "grammar-declarations", tests: DECLARATION_RULE_TESTS },
   { name: "grammar-type-expressions", tests: TYPE_EXPRESSION_RULE_TESTS },
   { name: "grammar-units", tests: UNIT_RULE_TESTS },
+  { name: "grammar-expressions", tests: EXPRESSION_RULE_TESTS },
 ]
 
 /**

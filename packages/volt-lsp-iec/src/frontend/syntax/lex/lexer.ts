@@ -10,7 +10,7 @@
  * 1-based, columns 0-based (matches the LSP convention).
  */
 import { pointSpan, type Span } from "../span.js"
-import type { Token, TokenKind } from "./tokens.js"
+import { isTrivia, type Token, type TokenKind } from "./tokens.js"
 import {
   CODESYS_ONLY_KEYWORDS,
   DATE_PREFIXES,
@@ -300,6 +300,18 @@ export function lex(src: string, dialect: Dialect): Token[] {
     // Recognized as a single `address_lit` token to keep parser
     // rules simple. We're permissive on the body content — only
     // the leading `%` + area letter is required.
+    // ─── CODESYS partial access `x.%X0` / `.%B3` / `.%W1` / `.%D0` ───
+    // A bit, byte, word or double-word slice of an integer, right after a `.`: ONE token, the member's name. It is
+    // CODESYS's extension — TwinCAT reads the `%` as a member of its own and leaves the specifier for the statement
+    // ("'%' is no component of 'd'", "';' expected instead of 'W0'", `accepts_partial_access`, both vendors 2026-09-21),
+    // so on TwinCAT the `%` stays a mark and the parser says so (`parse/expression` `parsePostfix`).
+    if (!tc && ch === "%" && isPartialAccessWidth(peek(1)) && isDigit(peek(2)) && lastMeaningful(tokens)?.text === ".") {
+      advance(2)
+      while (pos < len && isDigit(peek())) advance(1)
+      emit("identifier", startPos, startLine, startCol)
+      continue
+    }
+
     if (ch === "%" && isAddressAreaChar(peek(1))) {
       advance(1) // %
       advance(1) // area letter
@@ -609,6 +621,17 @@ export function lex(src: string, dialect: Dialect): Token[] {
 
 function isWhitespace(c: string): boolean {
   return c === " " || c === "\t" || c === "\r" || c === "\n"
+}
+
+/** A partial access's width letter — X, B, W or D, either case (the four measured, `operand_partial_*`). */
+function isPartialAccessWidth(c: string): boolean {
+  return "XBWDxbwd".includes(c) && c !== ""
+}
+
+/** The last token that is not trivia, if any. */
+function lastMeaningful(tokens: readonly Token[]): Token | undefined {
+  for (let i = tokens.length - 1; i >= 0; i--) if (!isTrivia(tokens[i]!.kind)) return tokens[i]
+  return undefined
 }
 
 function isAddressAreaChar(c: string): boolean {

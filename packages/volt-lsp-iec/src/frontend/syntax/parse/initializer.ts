@@ -4,9 +4,9 @@
  */
 import { REFUSED_PLACEHOLDER, type AggregateElement, type AggregateForm, type AggregateInit, type Initializer, type RefusedInit } from "../ast/nodes.js"
 import type { Token } from "../lex/tokens.js"
-import { joinSpans, zeroSpan } from "../span.js"
-import type { Cursor } from "./cursor.js"
-import { parseExprFromTokens } from "./expression.js"
+import { eofSpan, joinSpans, zeroSpan } from "../span.js"
+import { Cursor } from "./cursor.js"
+import { parseExpression, parseExprFromTokens } from "./expression.js"
 import { vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { collectUntilTopLevel } from "./scan.js"
 
@@ -41,6 +41,26 @@ export function refuseMalformedInit(cur: Cursor, tokens: readonly Token[]): Refu
   if (inAggregate) return { span: bad.span }
   const value = parseExprFromTokens([...before, { kind: "identifier", text: REFUSED_PLACEHOLDER, span: bad.span }])
   return value === undefined ? { span: bad.span } : { span: bad.span, value }
+}
+
+/**
+ * AN OPERATOR'S TRAILING COMMA in an initializer is refused as in a body (`parse/expression` `parseCall`): `c : INT :=
+ * MAX(1, 2,);` is "Expression expected instead of ')'" at the `)` (`expr_trailing_comma_operator_call_in_initializer`,
+ * both vendors 2026-10-02) — where the tokens used to fall through to an aggregate, refused at the `(`. The vendor's value
+ * then is `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)`, which the LSP does not build (a known divergence): no value is kept.
+ * Undefined unless the initializer's expression parse stops exactly there; a `STRUCT(…)` is an aggregate, not asked.
+ */
+export function refuseOperatorTrailingComma(cur: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
+  if (tokens.length === 0 || tokens.some((t) => t.kind === "keyword" && t.keyword === "STRUCT")) return undefined
+  const last = tokens[tokens.length - 1]!
+  const sub = new Cursor([...tokens, { kind: "eof", text: "", span: eofSpan(last.span) }])
+  parseExpression(sub)
+  const errors = sub.getErrors()
+  const at = tokens.findIndex((t) => t.span === errors.at(-1)?.span)
+  if (at < 1 || tokens[at]!.text !== ")" || tokens[at - 1]!.text !== ",") return undefined
+  if (errors.at(-1)!.message !== vendorExpressionExpected(tokens[at]!)) return undefined
+  for (const e of errors) cur.pushParseError(e)
+  return { span: tokens[at]!.span }
 }
 
 /**

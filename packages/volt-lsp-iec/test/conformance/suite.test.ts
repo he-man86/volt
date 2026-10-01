@@ -30,7 +30,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { BINARY_PRECEDENCE } from "../../src/frontend/syntax/index.js"
+import { BINARY_PRECEDENCE, REFUSED_OPERATORS } from "../../src/frontend/syntax/index.js"
 import { lex } from "../../src/frontend/syntax/index.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { plcPrgSource } from "./support/plc-prg.js"
@@ -75,7 +75,8 @@ function referenceConstructs(): string[] {
 
 describe("OUR GRAMMAR and THE VENDOR — every construct either list names", () => {
   test("OUR GRAMMAR — every operator the parser accepts is exercised by one", () => {
-    const operators = [...BINARY_PRECEDENCE.flatMap((row) => row.ops), ...OTHER_OPERATORS]
+    // …and the two IEC operators the parser REFUSES (`**`, `&`): refused is an answer, and it is asked of a fixture too
+    const operators = [...BINARY_PRECEDENCE.flatMap((row) => row.ops), ...OTHER_OPERATORS, ...REFUSED_OPERATORS]
     const seen = fixtureTokens()
     expect(operators.filter((op) => !seen.has(op))).toEqual([])
   })

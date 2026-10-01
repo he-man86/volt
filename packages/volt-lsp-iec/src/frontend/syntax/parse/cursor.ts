@@ -152,6 +152,23 @@ export class Cursor {
     return this.pos
   }
 
+  /** The source of `span` AS WRITTEN — every token inside it, trivia included, joined — for a message that quotes it
+   *  (`parse/expression`: "'END_IF' is no component of 'bx'"). */
+  textOf(span: Span): string {
+    return this.tokens
+      .filter((t) => t.kind !== "eof" && t.span.start >= span.start && t.span.end <= span.end)
+      .map((t) => t.text)
+      .join("")
+  }
+
+  /** A cursor at this position over the same tokens, with errors of its own: a speculative parse that leaves this
+   *  cursor untouched (`statements.ts` `isArmStart`). */
+  fork(): Cursor {
+    const ahead = new Cursor(this.tokens, this.vocabulary)
+    ahead.pos = this.pos
+    return ahead
+  }
+
   // ─── Typed eaters ──────────────────────────────────────────────
 
   /** Consume if the next meaningful token is the given keyword. Returns the token, else undefined. */

@@ -1141,40 +1141,148 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       (memoByProject) or findChildScope; no fallback for unit kinds that never own a scope. Test: lookup cost flat across the
       four corpus sizes (2.9k→122k scopes). Acceptance: pro2193 PROFILE_CHECKS interface-implementation + method-signature
       from 1,863 + 1,318 ms to < 200 ms together; LSP_BENCH=1 bench green (p50 ≤ 90 ms); output unchanged (G).
+      **Done in 79e9c44c47** (name index per generation, merged from per-file subtree indexes; scope-nav.test.ts keeps the
+      walk as oracle): bench p50 212 → 66 ms, p95 ~270 → 93 ms (budget 90 — the rest is 2.P.2). Left for this task: verify
+      the PROFILE_CHECKS numbers and the GVL/DUT fallback, then tick together with 2.P.2 once the bench is green.
 - [ ] 2.P.2 A2: re-binding one file is O(project) (workspace-store.ts:134 promises O(changed file)): unbindFile
       (symbols/incremental.ts:63) filters every array, relink (:74) re-sorts every array and re-links every EXTENDS,
       invalidate bumps the project generation so compositionGraph / ambiguousGlobals / span + child indexes all rebuild.
       Fix: children and symbols indexed by file, relink only the affected scopes, per-file invalidation of the memos that
       depend on the file. The incremental-equivalence test stays the safety net. Acceptance: the 300-fixture sweep
       against 400/800/1,600/3,279-fixture projects is flat (today 6.7/6.6/9.5/16.5 ms per call); output unchanged (G).
+      **Partly done:** 427d25bedd — checkDataRecursion's composition graph is lazy (per-Scope member-type cache, memo per
+      generation; identical output on 32,731 documents): per-fixture LSP pass 16.6 → 10.5 ms. A ready first part of the
+      rebind fix is parked as a patch (C:/Users/marce/AppData/Local/Temp/claude/C--Users-marce-Github-volt/
+      e922541b-92e2-41f1-acc3-c0924669eb89/scratchpad/prof/binder-rebind-speedup.patch): unbindFile touches only the keys
+      the file defined; linkExtends reads candidates from the child-name index (~3 of ~6.6 ms per rebind). Proven:
+      candidate lists identical on all corpora; random-rebind equivalence on twincat-project14 + fixtures. NOT yet proven:
+      old-vs-new state after the same edit sequence on the five CODESYS corpora — do that first, then apply. Known and
+      harmless: a relink moves library namespace scopes to the front (old code too).
 - [ ] 2.P.3 Harness: the rustc cache runs a hit's executable IN PLACE from a stable path inside the cache entry instead of
       copying it to a fresh temp path (Defender scans every new exe on first run: 60 fresh copies 3.1–3.5 s vs 0.37 s in
       place; ~2,250 + 2,350 runs per suite). Keep sampled verification. Acceptance: fixtures.test.ts before-all Rust phase
       measured before/after (was 165 s + 23 s); same verdicts.
+      **Done in af655724ea** (hard link; verify renames the link aside first — test red on the old code; EXDEV copies):
+      Rust phase 165 → 69 s, fixtures.test.ts 366 → 242 s. Tick after the gate re-confirms.
 - [ ] 2.P.4 Harness memos (same tests, same failures): `runLsp` per (fixture, vendor) — the "LSP emits NO error on a
       fixture the simulator built" test (31 s) reuses the registration loop's result; `lspErrors` memoized (~7 s);
       backends.test.ts (and emit + libraries) compile through `buildRust` with its lanes and cache, not raw serial
       spawnSync(rustc) (backends.test.ts:328,430; ~18 s). Acceptance: per-file times before/after written here.
+      **Done in 992f2c1bfa** (runLsp + lspErrors memo, ~30 s) **and b2ef9a5aba** (backends via the cache on lanes,
+      26.7 → 9.8 s cold). Left: emit + libraries tests through buildRust if still raw; then tick.
 - [ ] 2.P.5 Harness walks: `walkSources` (test/corpus/support/project.ts:34) withFileTypes + one pre-keyed sort, same order
       (2.2 s → 0.17 s per walk, ~8 walks); `projectDocuments` (test/corpus/support/diagnostics.ts:65) reuses scanWorkspace's
       refs/roots/sources; `loadWorkspaceRefs` (src/workspace-refs.ts:165) walks once (A3: 10.2 s vs scanWorkspace 5.2 s over
       the six corpora). Then re-measure corpus.test's "corpus is present" (144 s in-suite vs 30 s alone) and write the cause.
       Acceptance: full serial suite time written here (target ≤ 350 s); `bun test --parallel` re-measured with the 5 s/120 s
       limits under load — adopted only if it is green with no raised timeout.
+      **Mostly done:** dd5c7efaea (walkSources 4.1 → 0.29 s per round), 2c677b85d4 (loadWorkspaceRefs reuses scanWorkspace,
+      byte-identical on six corpora). Full serial suite 691 → 390 s (6,767 tests, 0 fail), ~370 s after b2ef9a5aba.
+      Left: projectDocuments reuse, the corpus "is present" inflation cause, the --parallel re-measure (after 2.P.2).
 
-- [ ] 2.5.1 Precedence and associativity (E1, E3, E4, E6–E9): record expr_power_right_assoc, expr_neg_power,
+- [x] 2.5.1 Precedence and associativity (E1, E3, E4, E6–E9): record expr_power_right_assoc, expr_neg_power,
       expr_comparison_chain, expr_mod_precedence. The CASE lookahead (statements `isArmStart`) uses the expression grammar.
       Where: parse/expression, parse/statements. Acceptance: CA. Depends on: 1.41
-- [ ] 2.5.2 Unary (E10–E11): record expr_unary_plus, expr_prefix_ampersand, expr_double_minus, expr_not_not.
+- [x] 2.5.2 Unary (E10–E11): record expr_unary_plus, expr_prefix_ampersand, expr_double_minus, expr_not_not.
       Where: parse/expression. Acceptance: CA. Depends on: 2.5.1
-- [ ] 2.5.3 `&` and `**` refused by the parser (E2, E5), moved from analysis unsupported-operator. The fixtures exist.
+- [x] 2.5.3 `&` and `**` refused by the parser (E2, E5), moved from analysis unsupported-operator. The fixtures exist.
       Where: parse/expression, parse/errors. Acceptance: CA; the recorded messages stay byte-identical. Depends on: 2.5.2
-- [ ] 2.5.4 Postfix chains (E12–E17, E22, E32): the call-result postfix refusal (call-result-access) and the partial-access
+- [x] 2.5.4 Postfix chains (E12–E17, E22, E32): the call-result postfix refusal (call-result-access) and the partial-access
       refusal (partial-access) move into the parser. Record expr_trailing_comma_index, expr_trailing_comma_call,
       expr_member_named_keyword.
       Where: parse/expression. Acceptance: CA. Depends on: 2.5.3
-- [ ] 2.5.5 Calls (E18–E21, E23, E28, E31): the IL operator call form moves into the parser. Record expr_en_eno_call.
+- [x] 2.5.5 Calls (E18–E21, E23, E28, E31): the IL operator call form moves into the parser. Record expr_en_eno_call.
       Where: parse/expression. Acceptance: CA. Depends on: 2.5.4
+      **Step 2.5a (2026-10-01).** Fixtures: `fixtures/grammar/expressions.ts`, 60 `expr_*` — every name the tasks list and
+      per rule the cells whose two readings differ in VALUE or in a type error (operands are variables, literals typed):
+      E1/E6 every pair of the boolean levels whose groupings differ (OR/XOR, XOR/OR, OR_ELSE/XOR, XOR/OR_ELSE, XOR/AND,
+      XOR/AND_THEN, OR/AND_THEN, OR_ELSE/AND, OR_ELSE/AND_THEN), `=` vs AND, NOT vs `=`; E3/E9 `a<b=c`, `a=b=c`, `a<b<c`;
+      E4/E7 `a+b MOD c`, `a*b MOD c`, `a/b/c`; E8 `a**b**c`, `-a**b`; E10/E11 `+a`, `&a`, `- -a`, `--a`, `+ +a`, `NOT NOT`,
+      `-NOT`, `NOT -`, `a - -b`, `a * -b`; E2/E5 `&`/`**` in parentheses, a conversion's and a user function's argument, an
+      IF condition (and a stray name there and in parentheses, for the recovery); E15/E16 `arr[]`, `arr[1,]`, `grid[1,2,]`,
+      `grid[1][2]`, a trailing comma in a user function's, a formal, an FB's, an operator's (`MAX`) and a conversion's list;
+      E22 `F()[1]`, and beside an undefined name; E32 `bx.END_IF`/`.MOD`/`.ABS`/`.INT`/`.GET`, and beside an undefined name;
+      E18/E19/E21 formal arguments reordered, positional after formal, EN/ENO on a FUNCTION; E31 `MOD(a,b)`, `AND(a,b)`,
+      `NOT(a)`, `add(a,b)`. Recorded `record:language` on CODESYS and TwinCAT (60 each: one 47-fixture batch per vendor, then
+      the cells the answers asked for — 5, 2, 7 re-recorded after their literals were typed, 6) and `record:exec` on CODESYS
+      (31 run). The two vendors answer every cell alike (TwinCAT's capitals and one more sign warning aside).
+      Measured: **OR, OR_ELSE and XOR are ONE level**, left to right (`TRUE OR TRUE XOR TRUE` runs FALSE, `TRUE XOR TRUE OR
+      TRUE` TRUE) — not IEC's XOR-above-OR, which `BINARY_PRECEDENCE` had: a real bug, fixed test-first; AND/AND_THEN above
+      them, then `=`/`<>`, then `<`…, all left-associative (`a<b<c` is "Cannot compare type 'BOOL' with type 'INT'"); unary
+      `-`/`+`/NOT stack in any order; `**` and `&` are NO operators — the expression ends before them and its reader says
+      what it wanted ("';' expected", "')' expected", "',' or ')' expected", "'THEN' expected"), a prefix `&` is "Expression
+      expected instead of '&'"; a statement without its `;` STANDS and the vendor resyncs from the token (pairs, a NAME
+      starts the next statement, "The code 'b;' has no effect" quoting the `;` it supplied); a parenthesis left open says
+      "')' expected" and the statement resyncs; an IF missing THEN resumes at the THEN in silence; an index list takes no
+      empty list or trailing comma ("Expression expected instead of ']'"), a call's list takes one unless the callee is an
+      operator ("Expression expected instead of ')'"); any keyword is read as a member name and answered only "'END_IF' is
+      no component of 'bx'" — and nothing else in the body is analysed (a PARSE refusal); C0185 on `F()[1]` does NOT stop
+      the body's analysis (an undefined name beside it is still reported), so it is no parse refusal; EN/ENO are no
+      parameters of a FUNCTION in ST. Fixed test-first (`parse/expression.test.ts`, new, 17 tests; `types.test.ts`;
+      `lower.test.ts`; `refused-name.test.ts`): `parse/expression` — XOR on OR's level, `**`/`&` out of the table
+      (`REFUSED_OPERATORS`, still asked of a fixture by `suite.test.ts`; `rightAssoc` gone with `**`), prefix `&` refused, a
+      paren's missing `)` refuses the operand for the statement's resync, a binary operator word reads its `(` operand, the
+      IL call form refused on the word (`NOT_AN_OPERAND` before `(`), index lists and an operator's trailing comma refused,
+      a keyword or lone `%` member reported "'X' is no component of '<base as written>'" (`Cursor.textOf`); `lex/lexer` —
+      CODESYS's `.%W0` is ONE token, TwinCAT keeps `.` `%` `W0` (the vocabulary decides, the parser needs no dialect);
+      `parse/statements` — `resyncAfterMissingSemicolon` (the statement stands; `ExprStatement.unterminated`), the refused
+      operand's resync for a non-keyword, IF skips to its THEN, `isArmStart` reads CASE labels with the expression grammar
+      on a `Cursor.fork`; `types/const/fold` drops the `&`/`**` cases no tree can hold; `no-op-statement` quotes an
+      unterminated statement with the `;` supplied. **Moved into the parser:** `analysis/checks/types/unsupported-operator`
+      and `partial-access` are DELETED (TwinCAT-only list now empty), `refused-name`'s IL call form (`ST_OPERATOR_CALLS`)
+      deleted and it skips member names; **not moved:** C0185 stays `call-result-access` (measured above; E22 home and
+      `recheck` updated). Gate T (`src/transpile` clean, no other run): `lower.test.ts`'s `**`/`&` test now expects the
+      parser's refusal (`parse`), `expressions.ts`'s `BIN_OPS` comment. Divergences closed: `R1_CASCADE_AFTER_A_STRAY_TOKEN`
+      (10, both vendors — the missing-`;` resync was its rule), `lit_invalid_digit_hex`, `lit_time_underscore` (from
+      `LITERAL_FOLLOW_ON_RULES`). Opened (`EXPRESSION_NICHE_DIVERGENCES`, both vendors, each niche: accepted loss, 0
+      occurrences in the six corpora): `expr_trailing_comma_conversion_call` and `expr_ampersand_in_argument` (a conversion
+      takes ONE argument, "')' expected"; the parser cannot tell `INT_TO_DINT` from a user FUNCTION named like one —
+      pro2193's `RANGE_TO_WORD` takes three; `deferred.lsp` too, lsp-gap ceiling 18 → 19), `expr_member_named_type_keyword`
+      (`bx.INT`: the lexer reads INT as a name), `expr_en_eno_call` (EN/ENO on a FUNCTION; the call checks', LSP review).
+      Rules GAP area 2 **35 → 30** (total 89 → 84): E8, E9, E11, E16, E32 closed; E1–E7, E10, E15, E18, E19, E21, E22, E24,
+      E28, E31 gain recorded cells. Agreement floors CODESYS 3260 → 3328, TwinCAT 3200 → 3268 (3621 fixtures).
+      `rate:fixtures`: confirmed 2251, refused 1173, not-lowered 113, lsp-gap 19, diverges 4, unaskable 61; edges agree
+      2349 / disagree 0 / not-run 98. The measures ask what they state, three refinements (`dumps.ts` `unparsedIn`,
+      `bound-census.ts`): a name or expression in a BODY THAT DID NOT PARSE is counted apart (the vendor resolves and types
+      nothing there — `expr_member_named_keyword_beside_undefined`); a member the vendor reports "no component" is unknown on
+      both sides; a comparison store is refused by "Cannot compare type 'X' with type 'Y'". Ceilings (all fell): parse
+      findings 132 → 114 (refused with a syntax message, no LSP parse error: CODESYS 54 → 47, TwinCAT 77 → 66), resolution
+      findings 154 → 126 (TwinCAT bare NONE 38 → 12, member NONE 43 → 42 each), type: binary UNKNOWN 1155/1152 →
+      1153/1150, call UNKNOWN 418/429 → 406/417, TwinCAT ident_expr UNKNOWN 90 → 58, member UNKNOWN 59 → 53; fixed-point
+      unchanged (16). F (`frontend-snapshot check --base HEAD`): 2935 aspects over 471 sources — 404 sources the new and
+      the rule's fixtures (`expr_*`, `lex_keyword_operand_*`, `lex_unknown_character*`, `operator_call_form_*`,
+      `cc_power_operator`, `cc_fp_op_ampersand`, `*_operator_rejected`, `operand_partial_*`, `accepts_partial_access`,
+      `sysop_position_*`, `lit_invalid_digit_*`, `lit_time_underscore`, `lex_div_as_operator`), their 67 back ends, and the
+      `stmts`/`types` of fixtures whose body lacks a `;` (`decl_var_generic*`@twincat, `lit_enum_typed_*`@twincat,
+      `unit_action_var_section`, `unit_method_override*`: the statement before the missing `;` now stands — their parse
+      errors unchanged); no corpus or library source moved. Targeted: `bun test src` 0 fail, `test/frontend` 29 / 0,
+      `test/conformance` 4893 pass / 0 fail, `test/corpus` 19 / 0; `tsc --noEmit` clean; `bun run lint` exit 0.
+      **Review fixes (2026-10-02).** 14 cells recorded, one batch per vendor (`record:language`, CODESYS and TwinCAT; none
+      builds, so no run): `expr_paren_stray_name_in_if`, `_in_while`, `_in_index`, `expr_trailing_comma_one_operand_operator`,
+      `expr_trailing_comma_sizeof`, `expr_ampersand_in_operator_argument`, `expr_trailing_comma_operator_call_in_initializer`,
+      `expr_partial_access_beside_undefined`, `expr_operator_word_before_minus`, `_plus`, `stmt_case_const_expr_label`,
+      `stmt_case_paren_label` (2.6.2's names, recorded ahead because 2.5.1 changed their answer), `stmt_case_nonconst_label`,
+      `stmt_case_arm_missing_semicolon`. Measured: a parenthesis left open in an IF/WHILE condition is its "')' expected"
+      ALONE (the condition keeps the refusal, the IF/WHILE resumes at THEN/DO) — `statements` `refusedCondition`; in an
+      index the list adds "',' or ']' expected instead of '2'", takes the `2`, and the statement resyncs from the `)`; a
+      ONE-operand operator's trailing comma is the refusal plus "'ABS' needs exactly '1' operands" (the empty operand
+      counts; `ABS(a & b)` is "',' or ')' expected", as the parser said); MAX's trailing comma in an initializer is refused
+      at the `)` (`initializer` `refuseOperatorTrailingComma`; the vendors' value echo `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)`
+      and its two type messages a niche divergence); TwinCAT's `d.%W0` IS a parse refusal (the undefined name beside it is
+      not reported); `AND -a` is the one message; a CASE label is NO expression — `isLabelShape` (literal, signed literal,
+      qualified name) on the expression-grammar lookahead, `a + 1:` the statement before a colon (all but the ST5 "is no
+      valid statement"), `2 + 1:` / `(2):` refused otherwise and differently per vendor (niche divergences); a missing `;`
+      before the next arm is the one "';' expected" (`LIST_STOP`). `types.test.ts`'s adapted `2 ** 8` assert dropped. The
+      census: "no component" agreement keyed by member AND base (as written or its type); "a body that did not parse"
+      only where the vendor recorded every LSP parse error there (no build recording: the LSP's parse); CODESYS's partial
+      access typed by its width (`%X` BOOL … `%D` DWORD — member UNKNOWN 59 → 53). Floors CODESYS 3328 → 3338, TwinCAT
+      3268 → 3278 (3635 fixtures). Targeted: `bun test src` 1546 / 0, `test/frontend` 29 / 0, `test/conformance` 4893 / 0,
+      `test/corpus` 19 / 0; `tsc --noEmit` clean; lint exit 0.
+      **Gate 2.5a (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3635
+      fixtures: confirmed 2251, refused 1187, not-lowered 113, lsp-gap 19, diverges 4, unaskable 61; edges agree 2349 /
+      disagree 0 / not-run 98). `bun test` 6660 pass / 34 skip / 158 todo / 0 fail (6852 tests, 195 files, 239 s, rustc
+      cache on); agreement CODESYS 3338, TwinCAT 3278 (3635 fixtures, = floors). `bun run check` 14 passed, 0 failed;
+      `bun run lint` exit 0 (warnings only). volt-cli untouched by 2.5a (no dotnet run).
 - [ ] 2.5.6 THIS/SUPER, system operands, global-namespace and pool qualifiers (E24–E30, E33, E34): a leading-dot primary `.ident`.
       Record expr_inline_assign_if_condition, expr_inline_assign_while_condition, expr_global_namespace_dot,
       expr_global_namespace_shadowed_local, expr_pool_qualified_call.

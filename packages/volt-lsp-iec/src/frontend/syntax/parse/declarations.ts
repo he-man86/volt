@@ -35,7 +35,7 @@ import { joinSpans } from "../span.js"
 import { reportBrokenDeclaration, vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { identFromToken, joinedName, readNameList, readQualifiedName } from "./names.js"
 import { bodySpanFromTokens } from "../format/implementation-line.js"
-import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from "./initializer.js"
+import { collectInitTokens, initializerFromTokens, refuseMalformedInit, refuseOperatorTrailingComma } from "./initializer.js"
 import { addressShape } from "../literal/address.js"
 
 /**
@@ -326,6 +326,8 @@ function parseInitializer(c: Cursor): { init?: Initializer; initOp?: "REF=" | "F
   }
   const malformed = refuseMalformedInit(c, tokens)
   if (malformed !== undefined) return { ...op, refusedInit: malformed }
+  const trailingComma = refuseOperatorTrailingComma(c, tokens)
+  if (trailingComma !== undefined) return { ...op, refusedInit: trailingComma }
   const emptyRepeat = refuseEmptyRepeat(c, tokens)
   if (emptyRepeat !== undefined) return { ...op, refusedInit: emptyRepeat }
   const positional = positionalStructInit(c, tokens)

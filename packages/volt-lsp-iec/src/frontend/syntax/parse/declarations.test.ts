@@ -201,3 +201,15 @@ test("U23 — a VAR section inside a STRUCT is refused whole, echoed as the comp
   expect(facts("VAR")).toEqual([])
   expect(facts("VAR_EXTERNAL")).toEqual([])
 })
+
+test("an operator's trailing comma in an initializer is refused at the `)`, as in a body; no value is kept", () => {
+  // `expr_trailing_comma_operator_call_in_initializer` (both vendors 2026-10-02; the vendors' value
+  // `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)` and its two type messages are a known divergence)
+  const src = inVar("c : INT := MAX(1, 2,);\n\tx : INT;")
+  expect(messages(src)).toEqual(["Expression expected instead of ')'"])
+  expect(decls(src)[0]?.refusedInit?.value).toBeUndefined()
+  expect(decls(src)[1]?.names[0]?.text).toBe("x")
+  // a user function's list takes one, and an aggregate is not asked
+  expect(messages(inVar("c : INT := F(1, 2,);"))).toEqual([])
+  expect(messages(inVar("s : T := STRUCT(a := 1, b := 2);"))).toEqual([])
+})

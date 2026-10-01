@@ -136,7 +136,8 @@ export function reportBrokenDeclaration(c: ErrorCursor, stop: readonly Keyword[]
  * `limit := 1;` that is the name, a pair for `:=` and a pair for `1` (`lex_limit_as_variable`); for `CAL t();` it is the
  * word and `';' expected instead of 't'`, after which `t();` is an ordinary call (`lex_cal_keyword`). A keyword refused
  * as an OPERAND resyncs the same way from that word (`n := cal;`, `t(Public := TRUE);` — `lex_keyword_operand_*`,
- * `lex_soft_keyword_named_argument_*`).
+ * `lex_soft_keyword_named_argument_*`), and so does a statement that lacks its `;` from the token where it should be
+ * (`out := a ** b;`, `n := 1 ! 2;` — `parse/statements` `resyncAfterMissingSemicolon`, frontend-conformance 2.5).
  *
  * `stop` names the tokens it ends at in silence — the block keywords a statement list recovers to, where no vendor
  * answer has been recorded. The `;` that ends the refused statement is consumed.

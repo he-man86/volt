@@ -31,6 +31,10 @@ import { literalType, typedLiteralSum } from "../literal.js"
 import { BITWISE_OPERATORS, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
 import { resolveMemberChain, enumValueType, staticScopeType, thisType } from "./member.js"
 
+/** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
+const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
+const PARTIAL_ACCESS_TYPE: Readonly<Record<string, string>> = { X: "BOOL", B: "BYTE", W: "WORD", D: "DWORD" }
+
 /** Infer the type of an ST expression. `unknown` on any unresolved sub-part (conservative). */
 export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
   switch (expr.kind) {
@@ -52,6 +56,10 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       return staticScopeType(project, expr.name) ?? UNKNOWN
     }
     case "member": {
+      // CODESYS's PARTIAL ACCESS `d.%W0` is of the part it names: %X a BOOL, %B a BYTE, %W a WORD, %D a DWORD
+      // (`operand_partial_*`, `accepts_partial_access`, `expr_partial_access_beside_undefined` build into those)
+      const part = PARTIAL_ACCESS.exec(expr.member.name)?.[1]?.toUpperCase()
+      if (part !== undefined) return elementaryRef(PARTIAL_ACCESS_TYPE[part]!)
       const sym = resolveMemberChain(expr, scope, project)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
       return (sym === undefined ? undefined : enumValueType(sym, project)) ?? UNKNOWN

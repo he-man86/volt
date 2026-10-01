@@ -74,7 +74,7 @@ export { varInputParams } from "./ast/declarations.js"
 // parsing
 export { parseDocument, parseSource, type ParseOptions } from "./parse/parser.js"
 export { parseActive, parseStatements } from "./parse/body-parse.js"
-export { BINARY_PRECEDENCE, parseExprFromTokens } from "./parse/expression.js"
+export { BINARY_PRECEDENCE, REFUSED_OPERATORS, parseExprFromTokens } from "./parse/expression.js"
 export { parseTypeExprFromTokens } from "./parse/type-expr.js"
 
 // literal values

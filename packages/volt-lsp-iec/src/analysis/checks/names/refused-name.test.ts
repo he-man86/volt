@@ -191,35 +191,9 @@ test("an unknown literal prefix is refused on TwinCAT, and cascades", () => {
   // …and CODESYS lexes the whole thing as one date literal, so nothing here fires at all
   expect(diagnose(program("v : LDT;", "v := LDT#2026-05-09-07:05:03;")).filter((d) => refusal(d))).toEqual([])
 })
-test("an IL operator's CALL FORM is refused — `ADD(a, b)` is not ST", () => {
-  // `added := ADD(a, b);` is eleven IDE errors and was silent here: ADD lexes as a keyword, and the expression
-  // parser accepts any non-operator keyword as a name (`LTIME()`), so the call parsed clean
-  // (conformance `operator_call_form_arithmetic`, `_comparison`, `_extensible`).
-  const msgs = diagnose(program("a : INT; b : INT; added : INT;", "added := ADD(a, b);"))
-    .filter((d) => refusal(d))
-    .map((d) => d.message)
-  expect(msgs).toEqual([
-    "Expression expected instead of 'ADD'",
-    "';' expected instead of 'ADD'",
-    "Unexpected token 'ADD' found",
-    "';' expected instead of '('",
-    "Unexpected token '(' found",
-    // A VARIABLE in the resync is not echoed back as an unexpected token — it could START a statement, and
-    // once the compiler supplies the `;` it was asking for that is what it becomes: a statement that reads a
-    // variable and does nothing with it. Both vendors then say so, quoting the code they reconstructed
-    // (`operator_call_form_arithmetic`, twelve of these).
-    "';' expected instead of 'a'",
-    "The code 'a;\n' has no effect. Is this the intent?",
-    "';' expected instead of ','",
-    "Unexpected token ',' found",
-    "';' expected instead of 'b'",
-    "The code 'b;\n' has no effect. Is this the intent?",
-    "';' expected instead of ')'",
-    "Unexpected token ')' found",
-  ])
-  // all ten, and only as the CALLEE the arg/callee exclusion would otherwise wave through
-  for (const op of ["SUB", "MUL", "DIV", "GT", "LT", "LE", "GE", "EQ", "NE"])
-    expect(diagnose(program("a : INT; b : INT; r1 : INT;", `r1 := ${op}(a, b);`)).map((d) => d.message)).toContain(
-      `Expression expected instead of '${op}'`,
-    )
+// The IL operators' CALL FORM (`ADD(a, b)`) is the parser's since frontend-conformance 2.5.5:
+// `syntax/parse/expression.test.ts` "the IL call form of an operator keyword is refused on the word…".
+test("a member named like an elementary type is a member access, not a refused name (expr_member_named_type_keyword, E32)", () => {
+  const src = "TYPE B :\nSTRUCT\n  v : INT;\nEND_STRUCT\nEND_TYPE\n" + program("bx : B; out : INT;", "out := bx.INT;")
+  expect(diagnose(src).filter((d) => d.code === "refused-name")).toEqual([])
 })

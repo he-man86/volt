@@ -171,7 +171,6 @@ function foldBool(op: string, l: boolean, r: boolean): ConstValue {
   switch (op) {
     case "AND":
     case "AND_THEN":
-    case "&":
       return l && r
     case "OR":
     case "OR_ELSE":
@@ -199,8 +198,6 @@ function foldBigInt(op: string, l: bigint, r: bigint): ConstValue {
       return r === 0n ? undefined : l / r
     case "MOD":
       return r === 0n ? undefined : l % r
-    case "**":
-      return r < 0n ? undefined : l ** r
     default:
       return foldCompare(op, l, r)
   }
@@ -218,8 +215,6 @@ function foldNumber(op: string, l: number, r: number): ConstValue {
       return r === 0 ? undefined : l / r
     case "MOD":
       return r === 0 ? undefined : l % r
-    case "**":
-      return l ** r
     default:
       return foldCompare(op, l, r)
   }

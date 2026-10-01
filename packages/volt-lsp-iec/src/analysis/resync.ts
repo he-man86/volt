@@ -3,8 +3,9 @@
  * follows the offending token then stands on its own: an IDENTIFIER can start a statement, so `NS;` / `b;` is re-read
  * as one and warned about as having no effect; a literal or an operator cannot, and is simply named.
  *
- * Used by the check that models such a refusal (`unsupported-operator`), with its own recording (conformance
- * `cc_fp_op_ampersand`, `cc_power_operator`). A refused LITERAL is the parser's now (`Token.malformed`, `ExprStatement.resumed`).
+ * Used by the one check that still models such a refusal (`call-result-access`, an intrinsic's `.member`, until rule
+ * E33). The parser resyncs every other refusal itself (`parse/statements` `resyncAfterMissingSemicolon`,
+ * `ExprStatement.resumed`): `&` and `**` (`unsupported-operator`) and TwinCAT's `.%W1` (`partial-access`) were here.
  */
 const LINE_END_AFTER = /^[^\S\r\n]*(\r?\n)/
 

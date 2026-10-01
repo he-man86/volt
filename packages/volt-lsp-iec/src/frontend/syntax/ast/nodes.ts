@@ -264,6 +264,12 @@ export interface ExprStatement {
    * (`cc_time_nanosecond_literal`, `lit_bool_typed_true`).
    */
   resumed?: true
+  /**
+   * Its `;` is MISSING: the vendor takes the statement as ended there (`parse/statements` `resyncAfterMissingSemicolon`)
+   * and quotes it with the `;` it supplied — `b ** c;` holds the statement `b`, "The code 'b;' has no effect"
+   * (`expr_power_right_assoc`, both vendors).
+   */
+  unterminated?: true
   span: Span
 }
 export interface TryStatement {

@@ -60,7 +60,7 @@ export function exprText(e: Expr): string {
       return `${exprText(e.base)}.${e.member.name}`
     case "unary":
       // A word operator (NOT) needs a space so it doesn't glue onto the operand (`NOTx` → an ident);
-      // a symbol operator (-, +, &) binds tight.
+      // a symbol operator (-, +) binds tight.
       return `${e.op}${/^[A-Za-z]/.test(e.op) ? " " : ""}${exprText(e.operand)}`
     case "binary":
       return `${exprText(e.left)} ${e.op} ${exprText(e.right)}`

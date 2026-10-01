@@ -12,7 +12,7 @@ import { eofSpan, joinSpans, type Span, zeroSpan } from "../span.js"
 import type { Token } from "../lex/tokens.js"
 import { Cursor } from "./cursor.js"
 import { parseAssignable, parseExpression } from "./expression.js"
-import type { BodySpan, CaseArm, CaseLabel, Expr, IfBranch, ParseError, Statement, StatementList } from "../ast/nodes.js"
+import { REFUSED_PLACEHOLDER, type CaseArm, type CaseLabel, type Expr, type IfBranch, type ParseError, type Statement, type StatementList } from "../ast/nodes.js"
 import { REFUSED_AT_STATEMENT_START, type Keyword } from "../lex/vocabulary.js"
 import { addressShape } from "../literal/address.js"
 import { reportStatementCascade, vendorTokenText } from "./errors.js"
@@ -72,7 +72,25 @@ const atStatementSync = (t: Token): boolean => t.kind === "keyword" && t.keyword
 /** A statement the parser refused and already resynced past (`reportStatementCascade`) — nothing to add, nothing to skip. */
 const RESYNCED = Symbol("resynced")
 
+/**
+ * Where the statement list being parsed ends — its `stop` — for the resync after a missing `;`: a statement whose `;` is
+ * missing before the NEXT CASE ARM's label is "';' expected instead of '2'" and nothing else, and the arm is read
+ * (`stmt_case_arm_missing_semicolon`, both vendors 2026-10-02). Kept per cursor, the innermost list's.
+ */
+const LIST_STOP = new WeakMap<Cursor, (cur: Cursor) => boolean>()
+
 function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
+  const outer = LIST_STOP.get(cur)
+  LIST_STOP.set(cur, stop)
+  try {
+    return parseStatementsUntil(cur, stop)
+  } finally {
+    if (outer === undefined) LIST_STOP.delete(cur)
+    else LIST_STOP.set(cur, outer)
+  }
+}
+
+function parseStatementsUntil(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
   while (!cur.atEof() && !stop(cur)) {
     const before = cur.mark()
@@ -83,13 +101,18 @@ function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): Statem
       out.push(resumed && s.kind === "expr_stmt" ? { ...s, resumed: true } : s)
       continue
     }
-    // A keyword refused as an OPERAND stopped it (`parsePrimary`, `NOT_AN_OPERAND`): the vendor resyncs from that word
-    // as from a refused statement — the pair for the word, then `reportStatementCascade` (`lex_keyword_operand_*`).
+    // An operand was REFUSED where it stands (`Cursor.refuseOperand`): the vendor resyncs from that token as from a
+    // refused statement. A keyword (`NOT_AN_OPERAND`, `lex_keyword_operand_*`) is the pair and `reportStatementCascade`
+    // after it; anything else — the token a parenthesis wanted its `)` before, a prefix `&` — is the resync after a
+    // missing `;` (`expr_paren_stray_name`, `expr_prefix_ampersand`).
     if (cur.takeRefusedOperand()) {
-      const word = cur.consume()
-      cur.pushError(`';' expected instead of ${vendorTokenText(word)}`, word.span)
-      cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
-      reportStatementCascade(cur, atStatementSync)
+      if (cur.peek().kind === "keyword") {
+        const word = cur.consume()
+        cur.pushError(`';' expected instead of ${vendorTokenText(word)}`, word.span)
+        cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
+        reportStatementCascade(cur, atStatementSync)
+      } else resyncAfterMissingSemicolon(cur)
+      if (cur.mark() === before) cur.consume()
       continue
     }
     // Unparsable statement (error already recorded). Skip to the next statement boundary and keep going. The
@@ -231,22 +254,21 @@ function parseExprOrAssign(cur: Cursor): Statement | undefined {
       value = parseExpression(cur)
       if (value === undefined) return undefined
     }
-    const semi = expectStatementSemicolon(cur)
-    if (semi === undefined) return undefined
+    const semi = endStatement(cur)
     return {
       kind: "assign",
       target: expr,
       value,
       ...(op !== undefined ? { op } : {}),
       ...(chained.length > 0 ? { chained, chainOps } : {}),
-      span: joinSpans(expr.span, semi.span),
+      span: joinSpans(expr.span, semi?.span ?? value.span),
     }
   }
-  const semi = expectStatementSemicolon(cur)
-  if (semi === undefined) return undefined
-  if (expr.kind === "call") return { kind: "call_stmt", call: expr, span: joinSpans(expr.span, semi.span) }
+  const semi = endStatement(cur)
+  if (expr.kind === "call") return { kind: "call_stmt", call: expr, span: joinSpans(expr.span, semi?.span ?? expr.span) }
   // A bare expression terminated by `;` — a no-op read CODESYS tolerates (e.g. `fb.Status.Flag;`,
   // a placeholder written elsewhere). Keep it in the tree so the whole body still tree-parses.
+  if (semi === undefined) return { kind: "expr_stmt", expr, unterminated: true, span: expr.span }
   return { kind: "expr_stmt", expr, span: joinSpans(expr.span, semi.span) }
 }
 
@@ -299,12 +321,15 @@ function parseIf(cur: Cursor): Statement | undefined {
 }
 
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
-  const cond = parseAssignable(cur) // `IF x := f() THEN` — inline assignment in the condition (CODESYS)
+  const cond = parseAssignable(cur) ?? refusedCondition(cur, "THEN") // `IF x := f() THEN` — inline assignment (CODESYS)
   if (cond === undefined) return undefined
   // Missing-token recovery (Roslyn-style): record the absent THEN but DON'T abandon the branch — parse the
   // body anyway and let the IF consume its END_IF. Bailing here instead dumps the body + END_IF back to the
   // statement list, which mis-parses them into a spurious cascade error. One error in → one error out.
-  cur.expectKeyword("THEN")
+  // A THEN standing further on, before the next `;`, is where the vendor resumes, in silence: `IF a b THEN` and
+  // `IF a & b THEN` are "'THEN' expected instead of 'b'" / "… '&'" and nothing else (`expr_if_condition_stray_name`,
+  // `expr_ampersand_in_if`, both vendors).
+  if (cur.expectKeyword("THEN") === undefined) skipToBeforeSemicolon(cur, "THEN")
   const body = parseStatementList(cur, (c) => atKeyword(c, "ELSIF", "ELSE", "END_IF"))
   return { kind: "if_branch", cond, body, span: joinSpans(cond.span, lastSpan(body, cond.span)) }
 }
@@ -355,52 +380,70 @@ function parseCaseArm(cur: Cursor): CaseArm | undefined {
 }
 
 /**
- * Bounded lookahead: does the cursor sit at the start of a CASE arm — a
- * label list (`5`, `StateNone`, `PACK_ML.State.X`, `1..3`, comma-
- * separated) terminated by a plain `:`? Distinguishes an arm from a
- * statement (`x := …` has `:=`, `f(…)` has `(`). Does not consume.
+ * Does the cursor sit at the start of a CASE arm — a label list (`5`, `StateNone`, `PACK_ML.State.X`, `1..3`, `INT#5`,
+ * comma-separated) ended by a plain `:`? Read with the EXPRESSION GRAMMAR the arm itself is parsed with
+ * (`parseCaseArm`), on a fork of the cursor, so the two can never disagree about what a label is; a label that does not
+ * parse cleanly, or is no label's shape (`isLabelShape`), is no arm start. Distinguishes an arm from a statement (`x := …` has `:=`, `f(…);` its `;`). Does not
+ * consume.
  */
 function isArmStart(cur: Cursor): boolean {
-  let i = 0
-  const atom = (): boolean => {
-    let t = cur.peek(i)
-    if (t.kind === "punct" && (t.text === "-" || t.text === "+")) {
-      i += 1
-      t = cur.peek(i)
-    }
-    const isAtom =
-      t.kind === "int_lit" ||
-      t.kind === "real_lit" ||
-      // a typed literal is a label as its bare value is: `INT#5:` builds (`lit_typed_int_case_label`); an enum's
-      // `Type#Value` parses here too and is refused as no constant (`lit_enum_typed_case_label`, `flow/case-labels`)
-      (t.kind === "typed_lit" && t.malformed !== true) ||
-      t.kind === "identifier" ||
-      (t.kind === "keyword" && t.keyword !== undefined)
-    if (!isAtom) return false
-    i += 1
-    while (
-      cur.peek(i).kind === "punct" &&
-      cur.peek(i).text === "." &&
-      (cur.peek(i + 1).kind === "identifier" || cur.peek(i + 1).kind === "keyword")
-    ) {
-      i += 2
-    }
-    return true
+  const ahead = cur.fork()
+  const bound = (): boolean => {
+    const e = parseExpression(ahead)
+    return e !== undefined && isLabelShape(e)
   }
-  if (!atom()) return false
-  if (cur.peek(i).kind === "punct" && cur.peek(i).text === "..") {
-    i += 1
-    if (!atom()) return false
+  const label = (): boolean => bound() && (ahead.eatPunct("..") === undefined || bound())
+  if (!label()) return false
+  while (ahead.eatPunct(",") !== undefined) if (!label()) return false
+  return ahead.getErrors().length === 0 && ahead.peek().kind === "punct" && ahead.peek().text === ":"
+}
+
+/**
+ * WHAT A CASE LABEL CAN BE: a literal (typed too, `INT#5`, `E#V`), a signed one (`-1`), a name or a qualified name
+ * (`PACK_ML.State.X`). An EXPRESSION is no label — `2 + 1:`, `(2):`, `a + 1:` are no arm start, and `a + 1:` is
+ * "';' expected instead of ':'" and the resync, the statement before the colon standing (`stmt_case_nonconst_label`,
+ * `stmt_case_const_expr_label`, `stmt_case_paren_label`, both vendors 2026-10-02).
+ */
+function isLabelShape(e: Expr): boolean {
+  if (e.kind === "literal" || e.kind === "ident_expr") return true
+  if (e.kind === "unary") return (e.op === "-" || e.op === "+") && e.operand.kind === "literal"
+  if (e.kind === "member") return e.member.kind === "ident_expr" && (e.base.kind === "ident_expr" || (e.base.kind === "member" && isLabelShape(e.base)))
+  return false
+}
+
+/**
+ * A CONDITION REFUSED INSIDE ITSELF stays the condition's: `IF (a b) THEN` and `WHILE (a b) DO` are "')' expected
+ * instead of 'b'" and nothing else — the IF and the WHILE resume at their THEN / DO in silence, as an IF does after a
+ * stray name (`expr_paren_stray_name_in_if`, `_in_while`, `expr_if_condition_stray_name`, both vendors 2026-10-02). Only a
+ * refused operand that is no keyword (`Cursor.refuseOperand`: the token a parenthesis wanted its `)` before) is taken
+ * here, and only when `kw` stands before the next `;`; anything else is left to the statement list, as before. The
+ * condition the parse returns is the refused one's placeholder, a name no scope declares.
+ */
+function refusedCondition(cur: Cursor, kw: Keyword): Expr | undefined {
+  const at = cur.peek()
+  if (at.kind === "keyword" || !cur.takeRefusedOperand()) return undefined
+  const ahead = keywordAhead(cur, kw)
+  if (ahead === undefined) {
+    cur.refuseOperand()
+    return undefined
   }
-  while (cur.peek(i).kind === "punct" && cur.peek(i).text === ",") {
-    i += 1
-    if (!atom()) return false
-    if (cur.peek(i).kind === "punct" && cur.peek(i).text === "..") {
-      i += 1
-      if (!atom()) return false
-    }
+  for (let k = 0; k < ahead; k++) cur.consume()
+  return { kind: "ident_expr", name: REFUSED_PLACEHOLDER, span: at.span }
+}
+
+/** How many tokens ahead `kw` stands, when it stands before the next `;` or block keyword; else undefined. */
+function keywordAhead(cur: Cursor, kw: Keyword): number | undefined {
+  for (let i = 0; ; i++) {
+    const t = cur.peek(i)
+    if (t.kind === "keyword" && t.keyword === kw) return i
+    if (t.kind === "eof" || (t.kind === "punct" && t.text === ";") || atStatementSync(t)) return undefined
   }
-  return cur.peek(i).kind === "punct" && cur.peek(i).text === ":"
+}
+
+/** Skip in silence to `kw` and past it, when it stands before the next `;` or block keyword; else leave the cursor. */
+function skipToBeforeSemicolon(cur: Cursor, kw: Keyword): void {
+  const ahead = keywordAhead(cur, kw)
+  if (ahead !== undefined) for (let k = 0; k <= ahead; k++) cur.consume()
 }
 
 function parseFor(cur: Cursor): Statement | undefined {
@@ -427,7 +470,7 @@ function parseFor(cur: Cursor): Statement | undefined {
 
 function parseWhile(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // WHILE
-  const cond = parseAssignable(cur)
+  const cond = parseAssignable(cur) ?? refusedCondition(cur, "DO")
   if (cond === undefined) return undefined
   cur.expectKeyword("DO") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"))
@@ -448,20 +491,43 @@ function parseRepeat(cur: Cursor): Statement | undefined {
 }
 
 /**
- * The `;` a statement must end with — and, when it is missing, the SECOND message the vendor adds.
- *
- * CODESYS echoes the offending token back as `Unexpected token 'x' found` unless it is something that could START
- * the next statement. A variable name gets `';' expected instead of 'after'` and nothing else; a literal, an
- * operator or a keyword gets the pair (`sysop_position_in_expression`: `';' expected instead of '1'` AND
- * `Unexpected token '1' found`). End of input gets the single line too — there is no token to echo.
+ * The `;` a statement ends with — `undefined` when it is MISSING, and then the statement STANDS, ended where the `;`
+ * should be, and the parse resyncs as the vendor does (`resyncAfterMissingSemicolon`).
  *
  * A DECLARATION's initializer does NOT do this: `x : INT := 5 6;` is one message (`cc_decl_init_trailing_int`),
  * which is why this lives here and not in `Cursor.expectPunct`.
  */
-function expectStatementSemicolon(cur: Cursor): Token | undefined {
-  const next = cur.peek()
-  const semi = cur.expectPunct(";")
-  if (semi === undefined && next.kind !== "identifier" && next.kind !== "eof")
-    cur.pushError(`Unexpected token ${vendorTokenText(next)} found`, next.span, next.text)
+function endStatement(cur: Cursor): Token | undefined {
+  const semi = cur.eatPunct(";")
+  if (semi === undefined) resyncAfterMissingSemicolon(cur)
   return semi
+}
+
+/**
+ * A STATEMENT WITHOUT ITS `;`, AS THE VENDOR READS IT: "';' expected instead of 'X'", the statement taken as ended
+ * there, and the resync from X — `reportStatementCascade`: a pair ("Unexpected token 'X' found" too) for every token
+ * no statement can start with, up to the `;` it consumes, and at a NAME the next statement starts. So
+ * `out := a ** b ** c;` is a pair for `**`, then `b` read as a statement that itself lacks its `;` — a pair for the
+ * second `**` and "The code 'b;' has no effect" — then `c;` (`expr_power_right_assoc`, `cc_power_operator`,
+ * `cc_fp_op_ampersand`, `sysop_position_in_expression`, `lit_invalid_digit_hex`, both vendors). End of input is the one
+ * line ("';' expected instead of end of POU"), and a block keyword (`END_IF` …) keeps the pair and is left for its
+ * block, unmeasured.
+ */
+function resyncAfterMissingSemicolon(cur: Cursor): void {
+  const t = cur.peek()
+  if (t.kind === "eof") {
+    cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    return
+  }
+  if (atStatementSync(t)) {
+    cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    cur.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
+    return
+  }
+  // where the statement list ends — the next CASE arm's label (`LIST_STOP`): the one line, and the arm is read
+  if (LIST_STOP.get(cur)?.(cur) === true) {
+    cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    return
+  }
+  reportStatementCascade(cur, atStatementSync)
 }

@@ -92,8 +92,6 @@ import { checkRefusedName } from "./checks/names/refused-name.js"
 import { checkUnknownSource } from "./checks/types/unknown-source.js"
 import { checkSignatureName } from "./checks/declarations/signature-name.js"
 import { checkUnaryOperand } from "./checks/types/unary-operand.js"
-import { checkUnsupportedOperator } from "./checks/types/unsupported-operator.js"
-import { checkPartialAccess } from "./checks/types/partial-access.js"
 import { checkTypedLiteral } from "./checks/types/typed-literal.js"
 import { checkVarSectionPlacement } from "./checks/declarations/var-section-placement.js"
 import { checkHeaderRules } from "./checks/declarations/header-rules.js"
@@ -147,8 +145,6 @@ const CHECKS: readonly Check[] = [
   checkDataRecursion,
   checkEnumInit,
   checkUnaryOperand,
-  checkUnsupportedOperator,
-  checkPartialAccess,
   checkTypedLiteral,
   // flow/
   checkCaseLabels,
@@ -260,10 +256,8 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
  * so the table has both, and an early return inside a check is once again a rule gate rather than a vendor one.</p>
  */
 const TWINCAT_ONLY: ReadonlySet<Check> = new Set<Check>([
-  // `dwSource.%W1` is a CODESYS extension: TwinCAT reads the `.` as an ordinary member access, finds `%` where a
-  // component name belongs and leaves the width+index standing as its own statement (both recordings, all four
-  // widths, 2026-09-21 — the `ARRAY[*]` cells beside it compile clean on both, which is what makes it a rule).
-  checkPartialAccess,
+  // (`checkPartialAccess` stood here until frontend-conformance 2.5.4: TwinCAT's reading of `dwSource.%W1` is the
+  // lexer's and the parser's now — the vendor's vocabulary, not a check.)
   // NOT `checkUnknownType`, which looks like a sibling and is not: its TwinCAT rule lives in `dialectMissingType`, a
   // helper `unknown-source` also calls, so the vendor question has to be answered there anyway. Listing it here
   // as well would be two gates for one fact — which is the thing this table exists to stop.

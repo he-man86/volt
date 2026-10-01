@@ -1281,7 +1281,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `_var_in_out` asked whether an interface accessor may declare an output or in-out — CODESYS refuses the implementer's
   // getter against it ("Interface of overridden method '__GETVAL' … doesn't match declaration"), which the LSP does not
   // compare; niche, accepted (`deferred.lsp`, 0 occurrences in the corpora). A rise for measurement.
-  "lsp-gap": 18,
+  // 18 -> 19. frontend-conformance 2.5 (2026-10-01): `expr_trailing_comma_conversion_call` — `INT_TO_DINT(a,)` is "')'
+  // expected instead of ','" on both vendors (a conversion takes ONE argument), which the parser cannot tell from a user
+  // function named like one; niche, accepted (`deferred.lsp`, 0 occurrences in the corpora). A rise for measurement.
+  "lsp-gap": 19,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1624,7 +1627,14 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // PRIVATE/PROTECTED (it builds).
   // 3191 -> 3200 (2026-10-01, 2.4a review): the review's cells on TwinCAT (a PROPERTY's FINAL/ABSTRACT after its access
   // modifier, an interface METHOD's VAR_TEMP/VAR_STAT/VAR_INST, a refused FB as no base).
-  { vendor: "twincat", floor: 3200 },
+  // 3200 -> 3268 (2026-10-01, frontend-conformance 2.5): the expression fixtures (`grammar/expressions.ts`) and the parser
+  // moves — `**`/`&` and the IL call form refused by the parser, a statement without its `;` standing and resynced as the
+  // vendors do (which also closed the ten `R1_CASCADE_AFTER_A_STRAY_TOKEN` marks and two literal ones), a keyword member
+  // and TwinCAT's `.%` partial access refused as no component, an index list's trailing comma and an operator's.
+  // 3268 -> 3278 (2026-10-02, 2.5a review): the review's cells — a parenthesis left open in an IF/WHILE condition and in
+  // an index, a one-operand operator's trailing comma (with its operand count), `&` in ABS, an operator word before a
+  // sign, `d.%W0` beside an undefined name, a missing `;` before a CASE arm.
+  { vendor: "twincat", floor: 3278 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1744,7 +1754,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3250 -> 3259 (2026-10-01, 2.4a review): the review's cells (a PROPERTY's FINAL/ABSTRACT after its access modifier,
   // an interface METHOD's ABSTRACT FINAL and VAR_TEMP/VAR_STAT/VAR_INST, a refused FB as no base).
   // 3259 -> 3260 (2026-10-01, 2.4.6): `unit_namespace_opening_only` — no word about a text opening with NAMESPACE.
-  { vendor: "codesys", floor: 3260 },
+  // 3260 -> 3328 (2026-10-01, frontend-conformance 2.5): the expression fixtures and the parser moves, as on TwinCAT.
+  // 3328 -> 3338 (2026-10-02, 2.5a review): the review's cells, as on TwinCAT.
+  { vendor: "codesys", floor: 3338 },
 ]
 
 
@@ -1818,7 +1830,8 @@ const standardLibrary = (vendor: Vendor) => PROJECT_LIBRARY.map((l) => ({ ...l, 
  * STRING's too: re-parsing more than needed is exact, only slower). Parsing all 2540 fixtures twice would be correct
  * and would also double the harness's setup for about thirty files.
  */
-const DIALECT_WORDS = new RegExp(`(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")})|\\$[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])`, "i")
+// …and a partial access `x.%W0`: one token on CODESYS, `.` `%` `W0` on TwinCAT (`lex/lexer`, `accepts_partial_access`)
+const DIALECT_WORDS = new RegExp(`(?<![A-Za-z0-9_])(${[...CODESYS_ONLY_KEYWORDS].join("|")})|\\$[0-9A-Fa-f]{1,3}(?![0-9A-Fa-f])|\\.%`, "i")
 const LITERAL_PREFIX = /(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)#/g
 const DIALECT_SENSITIVE = {
   test: (source: string): boolean =>

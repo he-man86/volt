@@ -6,28 +6,20 @@
  * `parseExprFromTokens` parses a token slice in a CONTAINED sub-cursor, for callers that decide a fallback themselves.
  * Initializers (`:=` right-hand sides, aggregates) are `initializer.ts`'s.
  *
- * Precedence, lowest first: OR < XOR < AND < equality < comparison < additive < multiplicative < exponent, with
- * exponent right-associative and postfix (`.` `[]` `^` `()`) binding tightest (`BINARY_PRECEDENCE`).
+ * Precedence, lowest first: OR/OR_ELSE/XOR < AND/AND_THEN < equality < comparison < additive < multiplicative, every
+ * level left-associative, unary (`-` `+` NOT) above them and postfix (`.` `[]` `^` `()`) binding tightest
+ * (`BINARY_PRECEDENCE`). Measured level by level on both vendors (rules E1, E3, E4, E6, E7, E9; `expr_*`,
+ * `fixtures/grammar/expressions.ts`, 2026-10-01). `**` and `&` are NO operators (E2, E5): the expression ends before
+ * them and whatever was reading it says what it expected instead (`REFUSED_OPERATORS`).
  */
-import { eofSpan, joinSpans, type Span, zeroSpan } from "../span.js"
+import { eofSpan, joinSpans } from "../span.js"
 import type { Token } from "../lex/tokens.js"
 import { Cursor } from "./cursor.js"
-import type {
-  AggregateElement,
-  AggregateForm,
-  AggregateInit,
-  CallArg,
-  CallExpr,
-  Expr,
-  IdentExpr,
-  Initializer,
-  Literal,
-  LiteralKind,
-} from "../ast/nodes.js"
+import type { CallArg, CallExpr, Expr, IdentExpr, Literal, LiteralKind } from "../ast/nodes.js"
 import { parseLiteralValue } from "../literal/value.js"
 import { addressShape } from "../literal/address.js"
 import { expressionExpected, vendorExpressionExpected, vendorTokenText } from "./errors.js"
-import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND } from "../lex/vocabulary.js"
+import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND, SOFT_NAME_KEYWORDS } from "../lex/vocabulary.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
 // Exported for `test/conformance/coverage.test.ts`, which requires every operator here to appear in at least one
@@ -35,23 +27,29 @@ import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND } from "../lex/vocabulary.js"
 export const BINARY_PRECEDENCE: ReadonlyArray<{
   ops: readonly string[]
   prec: number
-  rightAssoc?: boolean
 }> = [
-  { ops: ["OR", "OR_ELSE"], prec: 1 },
-  { ops: ["XOR"], prec: 2 },
-  { ops: ["AND", "AND_THEN", "&"], prec: 3 },
-  { ops: ["=", "<>"], prec: 4 },
-  { ops: ["<", ">", "<=", ">="], prec: 5 },
-  { ops: ["+", "-"], prec: 6 },
-  { ops: ["*", "/", "MOD"], prec: 7 },
-  { ops: ["**"], prec: 8, rightAssoc: true },
+  // ONE level, not IEC's two: `TRUE OR TRUE XOR TRUE` runs FALSE and `TRUE XOR TRUE OR TRUE` TRUE — left to right
+  // (`expr_xor_between_or_and`, `expr_xor_then_or`, `expr_or_else_then_xor`, `expr_xor_then_or_else`, CODESYS run values
+  // 2026-10-01). This table had XOR between them, as IEC 61131-3 does.
+  { ops: ["OR", "OR_ELSE", "XOR"], prec: 1 },
+  { ops: ["AND", "AND_THEN"], prec: 2 },
+  { ops: ["=", "<>"], prec: 3 },
+  { ops: ["<", ">", "<=", ">="], prec: 4 },
+  { ops: ["+", "-"], prec: 5 },
+  { ops: ["*", "/", "MOD"], prec: 6 },
 ]
 
-const OP_INFO: ReadonlyMap<string, { prec: number; rightAssoc: boolean }> = new Map(
-  BINARY_PRECEDENCE.flatMap((row) =>
-    row.ops.map((op) => [op, { prec: row.prec, rightAssoc: row.rightAssoc ?? false }] as const),
-  ),
-)
+/**
+ * THE IEC OPERATORS NEITHER VENDOR HAS — `**` (EXPT is the only power) and `&` (AND is the only and). Not operators, so
+ * an expression ENDS before one, and the reader of the expression says what it expected instead: a statement "';'
+ * expected instead of '**'" and the resync after a missing `;`, parentheses "')' expected instead of '&'", a call "',' or
+ * ')' expected instead of '&'", an IF "'THEN' expected instead of '&'" (`cc_power_operator`, `cc_fp_op_ampersand`,
+ * `expr_power_*`, `expr_ampersand_*`, both vendors). A prefix `&` is no operand (`expr_prefix_ampersand`). Exported so
+ * the operator-coverage test still asks a fixture for each (`test/conformance/suite.test.ts`).
+ */
+export const REFUSED_OPERATORS: readonly string[] = ["**", "&"]
+
+const OP_INFO: ReadonlyMap<string, number> = new Map(BINARY_PRECEDENCE.flatMap((row) => row.ops.map((op) => [op, row.prec] as const)))
 
 /** Keywords that are operators (not names), excluded from primary/ident position. */
 const OPERATOR_KEYWORDS: ReadonlySet<string> = new Set([
@@ -80,27 +78,37 @@ const LIT_KIND: Partial<Record<Token["kind"], LiteralKind>> = {
 }
 
 /** Canonical operator string for a token, or undefined if it's not a binary operator. */
-function binaryOp(t: Token): { op: string; prec: number; rightAssoc: boolean } | undefined {
+function binaryOp(t: Token): { op: string; prec: number } | undefined {
   const key = t.kind === "keyword" ? t.keyword : t.kind === "punct" ? t.text : undefined
   if (key === undefined) return undefined
-  const info = OP_INFO.get(key)
-  return info === undefined ? undefined : { op: key, ...info }
+  const prec = OP_INFO.get(key)
+  return prec === undefined ? undefined : { op: key, prec }
 }
 
-/** Prefix unary operator text, or undefined. */
+/** Prefix unary operator text, or undefined — `-`, `+` and NOT, stacked in any order (`- -a`, `--a`, `+ +a`, `NOT NOT a`,
+ *  `-NOT a`, `NOT -a`: every one builds on both vendors, `expr_*` 2026-10-01). */
 function unaryOp(t: Token): string | undefined {
   if (t.kind === "keyword" && t.keyword === "NOT") return "NOT"
-  if (t.kind === "punct" && (t.text === "-" || t.text === "+" || t.text === "&")) return t.text
+  if (t.kind === "punct" && (t.text === "-" || t.text === "+")) return t.text
   return undefined
 }
 
-/** Accept a name token (identifier, or a keyword used as a member/function name). */
+/**
+ * A member's name: an identifier, or ANY keyword (rule E32) — the vendor reads `bx.END_IF`, `bx.MOD`, `bx.ABS` as a member
+ * access, and answers only that no component has that name, naming the base AS WRITTEN: "'END_IF' is no component of
+ * 'bx'", and nothing else about the body (`expr_member_named_*`, both vendors 2026-10-01). A soft name (`GET`, `SET`,
+ * `OVERRIDE`) is a name a component CAN bear: `bx.GET` is answered as any unknown member is (`isReservedMemberName`).
+ */
 function eatName(cur: Cursor): Token | undefined {
   const t = cur.peek()
   if (t.kind === "identifier") return cur.consume()
   if (t.kind === "keyword" && t.keyword !== undefined) return cur.consume()
   return undefined
 }
+
+/** A keyword no component can be named — every keyword but the soft names (`eatName`). */
+const isReservedMemberName = (t: Token): boolean => t.kind === "keyword" && !SOFT_NAME_KEYWORDS.has(t.keyword ?? "")
+
 
 /** Parse a full expression. Returns undefined (and records an error) on failure. */
 export function parseExpression(cur: Cursor): Expr | undefined {
@@ -143,7 +151,7 @@ function parseBinary(cur: Cursor, minPrec: number, closer?: string): Expr | unde
     const info = binaryOp(cur.peek())
     if (info === undefined || info.prec < minPrec || info.op === closer) break
     cur.consume()
-    const right = parseBinary(cur, info.rightAssoc ? info.prec : info.prec + 1, closer)
+    const right = parseBinary(cur, info.prec + 1, closer)
     if (right === undefined) return undefined
     left = { kind: "binary", op: info.op, left, right, span: joinSpans(left.span, right.span) }
   }
@@ -163,11 +171,19 @@ function parseUnary(cur: Cursor): Expr | undefined {
 }
 
 function parsePostfix(cur: Cursor): Expr | undefined {
+  const head = cur.peek()
   let base = parsePrimary(cur)
   if (base === undefined) return undefined
+  // A callee written as a KEYWORD (`MAX`, `SEL`, `ADR` …) is an operator's: its list takes no trailing comma (`parseCall`).
+  let keywordCallee = head.kind === "keyword" && base.kind === "ident_expr"
   for (;;) {
     const t = cur.peek()
     if (t.kind !== "punct") break
+    if (t.text !== "." && t.text !== "[" && t.text !== "^" && t.text !== "(") break
+    // A `.`, `[]` or `()` ON A CALL'S RESULT (C0185) is read here and refused by the ANALYSIS
+    // (`analysis/checks/calls/call-result-access`), not here: the vendor goes on analysing the body after it — an
+    // undefined name in the next statement is still reported (`expr_call_result_index_beside_undefined`, both vendors
+    // 2026-10-01) — and a parse error here stops the body's analysis.
     if (t.text === ".") {
       cur.consume()
       // CODESYS bit access `x.0` .. `x.63` — the member is a numeric bit index, not a name.
@@ -178,40 +194,51 @@ function parsePostfix(cur: Cursor): Expr | undefined {
         base = { kind: "member", base, member, span: joinSpans(base.span, bitTok.span) }
         continue
       }
-      // CODESYS partial variable access `x.%X0` / `.%B3` / `.%W1` / `.%D0` — a sub-bit/byte/word/dword slice
-      // of an integer. The lexer yields `. % <spec>`; recombine into one member named `%<spec>` (like the
-      // numeric bit-access above, its "member" is a slice selector, not a struct component).
+      // A `%` where the member's name belongs. CODESYS's partial access `x.%X0` / `.%B3` / `.%W1` / `.%D0` is ONE token,
+      // the member's name (`lex/lexer`); a `%` standing alone is TwinCAT's reading of the same text, which has no partial
+      // access: the `%` is the member, no component of anything — answered as a keyword member is — and the specifier
+      // after it is left over for the statement: "'%' is no component of 'd'", "';' expected instead of 'W0'", "The
+      // code 'W0;' has no effect" (`accepts_partial_access`, `operand_partial_*`, TwinCAT 2026-09-21).
       const pct = cur.peek()
-      if (pct.kind === "punct" && pct.text === "%") {
-        cur.consume() // %
-        const specTok = cur.eatIdent()
-        if (specTok === undefined) {
-          cur.pushError("expected partial-access specifier after '.%'", cur.peek().span)
-          return undefined
-        }
-        const member: IdentExpr = { kind: "ident_expr", name: `%${specTok.text}`, span: joinSpans(pct.span, specTok.span) }
-        base = { kind: "member", base, member, span: joinSpans(base.span, specTok.span) }
-        continue
-      }
-      const nameTok = eatName(cur)
+      const nameTok = pct.kind === "punct" && pct.text === "%" ? cur.consume() : eatName(cur)
       if (nameTok === undefined) {
         cur.pushError("expected member name after '.'", cur.peek().span)
         return undefined
       }
+      // …a PARSE refusal: nothing else in the body is analysed, an undefined name beside it included
+      // (`expr_member_named_keyword_beside_undefined`, both vendors).
+      if (nameTok.kind === "punct" || isReservedMemberName(nameTok))
+        cur.pushError(`'${nameTok.text}' is no component of '${cur.textOf(base.span)}'`, nameTok.span)
       const member: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span }
       base = { kind: "member", base, member, span: joinSpans(base.span, nameTok.span) }
     } else if (t.text === "[") {
       cur.consume()
+      // Every index is an expression: an empty list `arr[]` and a trailing comma `arr[1,]` are "Expression expected
+      // instead of ']'", and nothing else is said (`expr_index_empty`, `expr_trailing_comma_index*`, both vendors).
       const indices: Expr[] = []
-      if (!(cur.peek().kind === "punct" && cur.peek().text === "]")) {
-        for (;;) {
-          const idx = parseExpression(cur)
-          if (idx === undefined) return undefined
-          indices.push(idx)
-          // Tolerate a trailing comma (common when a subscript is edited/commented).
-          if (cur.eatPunct(",") !== undefined && !(cur.peek().kind === "punct" && cur.peek().text === "]")) continue
-          break
+      for (;;) {
+        const next = cur.peek()
+        if (next.kind === "punct" && next.text === "]") {
+          cur.pushError(vendorExpressionExpected(next), next.span)
+          return undefined
         }
+        const idx = parseExpression(cur)
+        if (idx === undefined) {
+          // a parenthesis left open INSIDE the index (`arr[(1 2)]`): its "')' expected instead of '2'", then the index
+          // list's own "',' or ']' expected instead of '2'", which takes the `2` — and the statement resyncs from the
+          // token after it, a pair for `)` and for `]` (`expr_paren_stray_name_in_index`, both vendors 2026-10-02)
+          const stray = cur.peek()
+          const last = cur.getErrors().at(-1)
+          const parenOpen = last !== undefined && last.span === stray.span && last.message.startsWith("')' expected")
+          if (parenOpen && stray.kind !== "keyword" && stray.kind !== "eof" && cur.takeRefusedOperand()) {
+            cur.pushError(`',' or ']' expected instead of ${vendorTokenText(stray)}`, stray.span)
+            cur.consume()
+            cur.refuseOperand()
+          }
+          return undefined
+        }
+        indices.push(idx)
+        if (cur.eatPunct(",") === undefined) break
       }
       const close = cur.expectPunct("]")
       if (close === undefined) return undefined
@@ -219,16 +246,23 @@ function parsePostfix(cur: Cursor): Expr | undefined {
     } else if (t.text === "^") {
       const caret = cur.consume()
       base = { kind: "deref", base, span: joinSpans(base.span, caret.span) }
-    } else if (t.text === "(") {
-      const call = parseCall(cur, base)
+    } else {
+      const call = parseCall(cur, base, keywordCallee)
       if (call === undefined) return undefined
       base = call
-    } else break
+    }
+    keywordCallee = false
   }
   return base
 }
 
-function parseCall(cur: Cursor, callee: Expr): CallExpr | undefined {
+/**
+ * A call's argument list. A TRAILING COMMA is taken in a user function's, a method's and a function block's list
+ * (`expr_trailing_comma_call`, `_formal_call`, `_fb_call` build on both vendors; pro2193's `ModuloTools` writes one), and
+ * refused in an OPERATOR's — a callee written as a keyword: `MAX(a, b,)` is "Expression expected instead of ')'"
+ * (`expr_trailing_comma_operator_call`, both vendors).
+ */
+function parseCall(cur: Cursor, callee: Expr, keywordCallee: boolean): CallExpr | undefined {
   cur.consume() // '('
   const args: CallArg[] = []
   if (!(cur.peek().kind === "punct" && cur.peek().text === ")")) {
@@ -236,10 +270,17 @@ function parseCall(cur: Cursor, callee: Expr): CallExpr | undefined {
       const arg = parseCallArg(cur)
       if (arg === undefined) return undefined
       args.push(arg)
-      // Tolerate a trailing comma before `)` — common in CODESYS when a call's
-      // last argument(s) are commented out but the separating comma remains.
-      if (cur.eatPunct(",") !== undefined && !(cur.peek().kind === "punct" && cur.peek().text === ")")) continue
-      break
+      if (cur.eatPunct(",") === undefined) break
+      const next = cur.peek()
+      if (next.kind === "punct" && next.text === ")") {
+        if (!keywordCallee) break
+        // …the empty operand after the comma COUNTS: `ABS(a,)` is two operands for ABS's one — "'ABS' needs exactly
+        // '1' operands" beside the refusal (`expr_trailing_comma_one_operand_operator`, `expr_trailing_comma_sizeof`,
+        // both vendors 2026-10-02); `MAX(a, b,)` is three of at least two, and says nothing more
+        operandCountAfterTrailingComma(cur, callee, args.length + 1)
+        cur.pushError(vendorExpressionExpected(next), next.span)
+        return undefined
+      }
     }
   }
   // A CALL's argument list can still take a COMMA here, and CODESYS says so: `',' or ')' expected instead of ';'`
@@ -251,6 +292,21 @@ function parseCall(cur: Cursor, callee: Expr): CallExpr | undefined {
     return undefined
   }
   return { kind: "call", callee, args, span: joinSpans(callee.span, close.span) }
+}
+
+/** The operand count an operator's list breaks by its trailing comma (`CALL_OPERATOR_OPERANDS`), reported on the callee. */
+function operandCountAfterTrailingComma(cur: Cursor, callee: Expr, given: number): void {
+  if (callee.kind !== "ident_expr") return
+  const operator = callee.name.toUpperCase()
+  const needed = CALL_OPERATOR_OPERANDS.get(operator)
+  if (needed === undefined) return
+  const { count, atLeast } = needed
+  if (atLeast ? given >= count : given === count) return
+  cur.pushParseError({
+    message: `'${operator}' needs ${atLeast ? "at least" : "exactly"} '${count}' operands`,
+    span: callee.span,
+    operandCount: { operator, count, atLeast },
+  })
 }
 
 function parseCallArg(cur: Cursor): CallArg | undefined {
@@ -283,6 +339,9 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
 }
 
 const isOpenParen = (t: Token): boolean => t.kind === "punct" && t.text === "("
+
+/** The punctuation an operand can start with — a parenthesis and the two signs. */
+const OPERAND_STARTS: ReadonlySet<string> = new Set(["(", "-", "+"])
 
 /** The address shapes that are no operand: complete only after AT (`%I*`), or no address at all (`%MW`). */
 const NO_OPERAND_ADDRESS: ReadonlySet<string> = new Set(["incomplete", "no-position"])
@@ -319,9 +378,11 @@ function parsePrimary(cur: Cursor): Expr | undefined {
   // at the end of a body is unmeasured.
   const followed = cur.peek(1).kind !== "eof"
   // A keyword that is NO OPERAND (`NOT_AN_OPERAND`) — `n := cal;`, `t(Public := TRUE);` — is refused on the word and
-  // left where it stands: the vendor resyncs from it as from a refused statement, which the statement list runs.
-  // Before `(` it is not refused here — the IL call form `ADD(a, b)` is still refused by the analysis (task 2.5.5).
-  if (t.kind === "keyword" && t.keyword !== undefined && NOT_AN_OPERAND.has(t.keyword) && followed && !isOpenParen(cur.peek(1))) {
+  // left where it stands: the vendor resyncs from it as from a refused statement, which the statement list runs. So is
+  // the IL CALL FORM of the operators among them (rule E31): `ADD(a, b)`, `gt(a, b)` — "Expression expected instead of
+  // 'ADD'", then the pair for it and the statement resync over `(a, b)` (`operator_call_form_*`,
+  // `expr_operator_call_form_lower_case`, both vendors).
+  if (t.kind === "keyword" && t.keyword !== undefined && NOT_AN_OPERAND.has(t.keyword) && followed) {
     cur.pushError(expressionExpected(t), t.span)
     cur.refuseOperand()
     return undefined
@@ -359,13 +420,15 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     return { kind: "ident_expr", name: t.text, span: t.span }
   }
   // A BINARY OPERATOR WORD where an operand belongs is read as the operator, its left operand missing: CODESYS names the
-  // word, then — having taken it as the operator — the token where the right operand should be (`n := and;`: "Expression
-  // expected instead of 'and'", "Expression expected instead of ';'"; `lex_keyword_operand_and` and its five siblings).
+  // word, then — having taken it as the operator — reads its right operand, or names the token where it should be
+  // (`n := and;`: "Expression expected instead of 'and'", "Expression expected instead of ';'"; `lex_keyword_operand_and`
+  // and its five siblings). Its IL call form is that too: `MOD(a, b)` reads `(a` as the operand — "')' expected instead
+  // of ','" and the statement's resync from the `,` (`expr_operator_call_form_mod`, `_and`, both vendors).
   if (t.kind === "keyword" && binaryOp(t) !== undefined && followed) {
     cur.pushError(expressionExpected(t), t.span)
     cur.consume()
     const operand = cur.peek()
-    if (operand.kind === "punct") cur.pushError(vendorExpressionExpected(operand), operand.span)
+    if (operand.kind === "punct" && !OPERAND_STARTS.has(operand.text)) cur.pushError(vendorExpressionExpected(operand), operand.span)
     else parseUnary(cur)
     return undefined
   }
@@ -409,9 +472,22 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     // Allow an inline assignment `(x := value)` inside the parens (CODESYS).
     const inner = parseAssignable(cur)
     if (inner === undefined) return undefined
+    // A parenthesis left open where something else stands is "')' expected instead of 'X'", and the statement then
+    // resyncs from X as after a missing `;` (`expr_paren_stray_name`: "';' expected instead of 'b'" and `b;` read on;
+    // `expr_ampersand_in_parens`, `expr_power_in_parens`, both vendors).
     const close = cur.expectPunct(")")
-    if (close === undefined) return undefined
+    if (close === undefined) {
+      cur.refuseOperand()
+      return undefined
+    }
     return { kind: "paren", inner, span: joinSpans(open.span, close.span) }
+  }
+  // A prefix `&` is no operand: "Expression expected instead of '&'", then the statement's resync from it — the pair for
+  // `&`, and the name after it read as a statement of its own (`expr_prefix_ampersand`, both vendors).
+  if (t.kind === "punct" && t.text === "&") {
+    cur.pushError(vendorExpressionExpected(t), t.span)
+    cur.refuseOperand()
+    return undefined
   }
   cur.pushError(expressionExpected(t), t.span)
   return undefined

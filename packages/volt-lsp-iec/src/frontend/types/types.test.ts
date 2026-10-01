@@ -107,16 +107,15 @@ test("const-eval: literals, arithmetic, const-ref folding, non-const → undefin
   expect(evalConst("", "10 / 0")).toBeUndefined() // div by zero
 })
 
-test("const-eval: unary, MOD/**, comparisons, and real arithmetic", () => {
+test("const-eval: unary, MOD, comparisons, and real arithmetic", () => {
   // unary
   expect(evalConst("", "-(2 + 3)")).toBe(-5n)
   expect(evalConst("", "NOT (5 > 3)")).toBe(false)
   expect(evalConst("", "+(4)")).toBe(4n)
-  // integer MOD / power (+ their undefined cases)
+  // integer MOD (+ its undefined case). `**` is no operator on either vendor, so there is no tree to fold: the parse
+  // refuses it (`cc_power_operator`; `parse/expression.test.ts`)
   expect(evalConst("", "10 MOD 3")).toBe(1n)
-  expect(evalConst("", "2 ** 8")).toBe(256n)
   expect(evalConst("", "10 MOD 0")).toBeUndefined()
-  expect(evalConst("", "2 ** -1")).toBeUndefined()
   // comparisons across the operator set
   expect(evalConst("", "5 = 5")).toBe(true)
   expect(evalConst("", "4 <> 4")).toBe(false)
@@ -289,4 +288,12 @@ test("infer: an FB instance called through an array index types as the plain ins
   const g = { kind: "function_block", name: "G" }
   expect(inferExpr(fb, "VAR\n inst : G;\n x : INT;\nEND_VAR", "x := inst()")).toMatchObject(g)
   expect(inferExpr(fb, "VAR\n inst : ARRAY[0..1] OF G;\n x : INT;\nEND_VAR", "x := inst[0]()")).toMatchObject(g)
+})
+
+test("infer: a CODESYS partial access is of the part it names (operand_partial_*, expr_partial_access_beside_undefined)", () => {
+  const d = "VAR\n d : DWORD;\nEND_VAR"
+  expect(inferExpr("", d, "d.%X3")).toMatchObject({ kind: "elementary", name: "BOOL" })
+  expect(inferExpr("", d, "d.%B1")).toMatchObject({ kind: "elementary", name: "BYTE" })
+  expect(inferExpr("", d, "d.%W0")).toMatchObject({ kind: "elementary", name: "WORD" })
+  expect(inferExpr("", "VAR\n l : LWORD;\nEND_VAR", "l.%D1")).toMatchObject({ kind: "elementary", name: "DWORD" })
 })

@@ -288,6 +288,30 @@ export function refusedIn(parseResult: ParseResult): (e: Expr) => boolean {
   return (e) => starts.some((s) => s >= e.span.start && s < e.span.end)
 }
 
+/**
+ * Does an expression stand in an ST BODY THAT DID NOT PARSE — one whose statement parse holds an error? The vendor
+ * resolves and types nothing in such a body: an undefined name in the statement after a refusal is not reported
+ * (`expr_member_named_keyword_beside_undefined`, both vendors, frontend-conformance 2.5), and the LSP analyses no such
+ * body either (`symbols` `bodies`). So what its names bind to and its expressions are typed as is no question for 0.3 or
+ * 0.4 — the parse census (0.1) is where such a body is measured.
+ *
+ * …as long as the VENDOR refused it too: a body counts only when every parse error the LSP gives in it is a message the
+ * vendor recorded (`vendorSays`, lower case, so TwinCAT's capitals compare). A false-positive parse error leaves the body
+ * measured by 0.3 and 0.4 — it is no reason the vendor resolved nothing there. The corpora build: they pass an empty
+ * set. A fixture the vendor never BUILT (its push was refused, `pushRefuses`: no build recording) passes `undefined` —
+ * nothing was resolved there either, and the LSP's own parse is all there is to go by.
+ */
+export function unparsedIn(parseResult: ParseResult, vendorSays: ReadonlySet<string> | undefined): (e: { span: { start: number; end: number } }) => boolean {
+  const spans: { start: number; end: number }[] = []
+  for (const unit of allUnits(parseResult.units))
+    for (const body of unitBodies(unit)) {
+      if (!isStBody(body)) continue
+      const { errors } = parseStatements(body)
+      if (errors.length > 0 && errors.every((e) => vendorSays?.has(e.message.toLowerCase()) ?? true)) spans.push(body.span)
+    }
+  return (e) => spans.some((s) => e.span.start >= s.start && e.span.end <= s.end)
+}
+
 /** The first place two texts differ, with a little context either side — enough to read a finding, not the file. */
 export function firstDifference(a: string, b: string): string {
   let i = 0

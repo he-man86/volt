@@ -1585,10 +1585,11 @@ describe("lower — STRING (design §18)", () => {
   test("code CODESYS does not compile gets no meaning — `**` and `&` are refused, not mapped to an operator", () => {
     // This slot used to assert that LEN(WSTRING) is refused. That code does not compile in CODESYS, and the transpiler's
     // input is code that does (src/transpile/index.ts) — so the refusal and its test went; `**` and `&` had been given
-    // IR meanings for the same non-existent input.
+    // IR meanings for the same non-existent input. Since frontend-conformance 2.5.3 the PARSER refuses them, in the
+    // vendors' words (`cc_power_operator`, `cc_fp_op_ampersand`), so lowering meets a body that does not parse.
     for (const op of ["**", "&"]) {
       const { diagnostics } = lowerSource(wrap(`iCount := iCount ${op} 2;`))
-      expect(diagnostics.map((d) => d.code)).toEqual(["binary-op"])
+      expect(diagnostics.map((d) => [d.code, d.message])).toEqual([["parse", `';' expected instead of '${op}'`]])
     }
   })
 })

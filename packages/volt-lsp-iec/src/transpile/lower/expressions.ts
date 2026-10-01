@@ -36,8 +36,8 @@ import { adrDifference } from "./bytes.js"
 import { lowerBuiltin } from "./builtins.js"
 import { lowerPropertyGet } from "./calls.js"
 
-/** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent on purpose: the
- *  parser accepts them (the LSP reports them), but neither is an operator in CODESYS, so they reach `binary-op`. */
+/** ST binary operators → IR opcodes. A name a backend never has to interpret. `**` and `&` are absent: neither is an
+ *  operator in CODESYS, and the parser refuses both (`parse/expression` `REFUSED_OPERATORS`), so no tree holds one. */
 export const BIN_OPS: Readonly<Record<string, IrBinOp>> = {
   "+": "add",
   "-": "sub",

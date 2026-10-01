@@ -97,27 +97,10 @@ export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
 // so it's in the ratchet. array-index-out-of-bounds is likewise byte-identical. The overflow fixtures are NOT
 // here: the `constant-overflow` check was REMOVED (it false-positived — CODESYS accepts out-of-range untyped
 // literals), so the LSP is silent on them; they read as honest "not-yet-implemented" misses.
-/**
- * FRONTEND-CONFORMANCE 2.1 (2026-09-30) — lexer fixtures whose one disagreement is the RECOVERY after the first refused
- * token: rule R1 (openspec frontend-conformance design.md §4 2.8, task 2.8.2), not the lexer. `n := 1 ! 2;` — both
- * vendors report the stray character exactly as the LSP does ("';' expected instead of '!'", "Unexpected token '!'
- * found") and then name the `2` the same way; the statement parser resyncs to the `;` in silence after its first pair.
- * `n := 7 DIV 2;` is the same shape — DIV is no infix operator on either vendor. One mechanism, both vendors, identical
- * answers, so one list; it leaves with R1's fix (`syntax/parse/errors.ts` `reportStatementCascade` is that cascade, used
- * today only after a refused statement start).
- */
-const R1_CASCADE_AFTER_A_STRAY_TOKEN: readonly string[] = [
-  "lex_unknown_character",
-  "lex_unknown_character_at",
-  "lex_unknown_character_tilde",
-  "lex_unknown_character_backslash",
-  "lex_unknown_character_pipe",
-  "lex_unknown_character_dollar",
-  "lex_unknown_character_question",
-  "lex_unknown_character_hash",
-  "lex_unknown_character_percent",
-  "lex_div_as_operator",
-]
+// FRONTEND-CONFORMANCE 2.1 (2026-09-30) opened `R1_CASCADE_AFTER_A_STRAY_TOKEN` here — `n := 1 ! 2;`, `n := 7 DIV 2;` and
+// the eight other `lex_unknown_character*`: the vendors' resync after the first stray token, where the statement parser
+// skipped to the `;` in silence. Closed in 2.5 (2026-10-01): a statement without its `;` STANDS and the parser resyncs as
+// the vendors do (`parse/statements` `resyncAfterMissingSemicolon`) — the rule the `**`/`&` refusals needed.
 
 /**
  * FRONTEND-CONFORMANCE 2.1.3 (2026-09-30) — `__CURRENTTASK` and `__POOL` where a statement starts. Every keyword was asked
@@ -204,12 +187,8 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
 /**
  * FRONTEND-CONFORMANCE 2.2 (2026-10-01) — literal fixtures whose literal the LSP now reads as both vendors do, and whose
  * one remaining disagreement is a rule of another task. Each vendor answers them identically (TwinCAT's capital "Token"
- * aside), so one list serves both:
- *   `lit_invalid_digit_hex`, `lit_time_underscore` — the literal ends where the vendor's does (`16#F` before `G`, `T#1h`
- *                            before `_30m`) and the LSP says "';' expected instead of 'G'" as they do. They then keep
- *                            the statement as if the `;` were there and RESUME at the name — "The code 'G;' has no
- *                            effect" — where the statement parser skips to the `;`. The recovery after a missing `;`
- *                            is R1–R2's (task 2.8.2); `ExprStatement.resumed` is the mark it will set there.
+ * aside), so one list serves both. (`lit_invalid_digit_hex` and `lit_time_underscore` left in 2.5, 2026-10-01: the
+ * statement without its `;` now stands and the parser resumes at the name, "The code 'G;' has no effect", as both do.)
  *   `lit_real_no_leading_digit` — `.5` is no literal on either vendor: a leading `.` is the GLOBAL SCOPE operator, so
  *                            they answer "Identifier expected instead of '5'" and "Global scope operation '.' is not
  *                            valid on expression '!!!'ERROR'!!!'". The `.name` primary is E33 (task 2.5.6); the LSP's
@@ -219,9 +198,55 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *                            found") where the LSP lexes a name and warns `s;` has no effect. The IL operators as
  *                            words are `refused-name`'s until task 2.8.3 gives the cascade its one home.
  */
+/**
+ * FRONTEND-CONFORMANCE 2.5 (2026-10-01) — expression fixtures (`fixtures/grammar/expressions.ts`) whose disagreement is a
+ * rule the parser cannot decide, each NICHE: about zero occurrences in the six corpora, and not trivial. Both vendors
+ * answer each identically (TwinCAT's capitals aside), so one list serves both:
+ *   `expr_trailing_comma_conversion_call`, `expr_ampersand_in_argument` — a CONVERSION (`INT_TO_DINT`, `BOOL_TO_INT`)
+ *                            takes ONE argument as an operator does: after it the vendors want the `)` — "')' expected
+ *                            instead of ','" for `INT_TO_DINT(a,)`, "… '&'" for `BOOL_TO_INT(a & b)` — where a user
+ *                            function's list says "',' or ')' expected" and takes a trailing comma
+ *                            (`expr_ampersand_in_user_call`, `expr_trailing_comma_call`). The parser cannot tell a
+ *                            conversion from a user function named like one (pro2193 calls a FUNCTION `RANGE_TO_WORD`
+ *                            with three arguments); that is the type layer's name. Niche: accepted loss (0 occurrences in
+ *                            the corpora: no conversion call holds a second argument, a trailing comma or `&`).
+ *   `expr_member_named_type_keyword` — `bx.INT`: an elementary type's name where a member's belongs is refused as a keyword
+ *                            member is, "'INT' is no component of 'bx'", the analysis of the body stopping there; the
+ *                            lexer reads `INT` as a name, so the LSP answers it as an unknown member ("… of
+ *                            'DUT_LANG_…'" and the conversion of the unknown type). Niche: accepted loss (0 occurrences:
+ *                            no component can be declared with such a name).
+ *   `expr_en_eno_call` — EN and ENO on a user FUNCTION called in ST are no parameters there: "Identifier 'EN' not defined",
+ *                            "Identifier 'ENO' not defined" and the input count ("requires exactly '2' inputs"), where
+ *                            `call-arguments` says "'EN' is no input of …". The call checks' (the LSP review); niche:
+ *                            accepted loss (0 occurrences: the corpora's `EN :=` are FB and PROGRAM calls, which build).
+ *   `expr_trailing_comma_operator_call_in_initializer` — `c : INT := MAX(1, 2,);`: the LSP refuses the `)` as the vendors
+ *                            do ("Expression expected instead of ')'"), and misses the two messages about the value they
+ *                            keep, `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)` — a nested echo of the operator's operands with a
+ *                            typed literal, and "Unknown type: '!!!'ERROR'!!!'" for a CALL's operand where
+ *                            `refused-initializer` knows a binary operator's. Missing-only; niche: accepted loss (0
+ *                            occurrences in the corpora: they build, and a trailing comma in an operator's list does not).
+ *   `stmt_case_const_expr_label`, `stmt_case_paren_label` — `2 + 1:` and `(2):` are no CASE label (2026-10-02), but the
+ *                            vendors do not read them as the statement before a colon, as they read `a + 1:`
+ *                            (`stmt_case_nonconst_label`, which the LSP follows): a literal or `(` there is "Unexpected
+ *                            token '2' / '(' found", and the two vendors resync differently after it (CODESYS to
+ *                            END_CASE, TwinCAT to the colon). Task 2.6.2's labels; niche: accepted loss (0 occurrences
+ *                            in the corpora, which build).
+ *   `stmt_case_nonconst_label` — the LSP gives every message but "'(a + 1);' is no valid statement", the bare-expression
+ *                            rule's (ST5, task 2.6.1), as after `lex_cascade_meets_soft_name_*`. Missing-only; niche:
+ *                            accepted loss (0 occurrences in the corpora).
+ */
+const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
+  "expr_trailing_comma_conversion_call",
+  "expr_ampersand_in_argument",
+  "expr_member_named_type_keyword",
+  "expr_en_eno_call",
+  "expr_trailing_comma_operator_call_in_initializer",
+  "stmt_case_const_expr_label",
+  "stmt_case_paren_label",
+  "stmt_case_nonconst_label",
+]
+
 const LITERAL_FOLLOW_ON_RULES: readonly string[] = [
-  "lit_invalid_digit_hex",
-  "lit_time_underscore",
   "lit_real_no_leading_digit",
   "lit_time_fraction_ms",
 ]
@@ -707,7 +732,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
-    ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
     ...DECLARATION_RECOVERY,
     ...IMPLICIT_ENUM_LIST_RECOVERY,
     ...IMPLICIT_ENUM_TYPE_NAME,
@@ -727,6 +751,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_NO_VAR_GENERIC,
     ...TWINCAT_DRIVER_CUTS_THE_ECHO,
     ...LITERAL_FOLLOW_ON_RULES,
+    ...EXPRESSION_NICHE_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
     ...TWINCAT_MALFORMED_ADDRESS_ALIGNMENT,
@@ -851,7 +876,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            What actually separates every one of these is REACHABILITY, which a per-file
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
-    ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
     ...UNIT_HEADER_RECOVERY,
     ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
@@ -869,6 +893,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_DECLARATION_DIVERGENCES,
     ...COMPONENT_CARRIED_ON_IN_A_DUT,
     ...LITERAL_FOLLOW_ON_RULES,
+    ...EXPRESSION_NICHE_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not

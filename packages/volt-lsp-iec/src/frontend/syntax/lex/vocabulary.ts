@@ -352,9 +352,8 @@ export const REFUSED_AT_STATEMENT_START: ReadonlySet<string> = (() => {
  * (`CALL_OPERATOR_OPERANDS`); `__NEW`, `__POSITION`, `__POUNAME`, `__CURRENTTASK` and `__POOL` each answer in a shape of
  * their own (rules E24–E34, task 2.5.6); and the words no fixture asked (the unit structure) are not claimed.
  *
- * ONLY THE BARE WORD. `ADD(a, b)` — the IL call form — is refused too, and with this cascade, but it is still
- * `checks/names/refused-name.ts`'s (`ST_OPERATOR_CALLS`) until the call form moves into the parser (task 2.5.5); and a
- * keyword before `(` is otherwise unmeasured.
+ * …AND THE IL CALL FORM. `ADD(a, b)`, `gt(a, b)` — a word of this set before `(` — is refused the same way, on the word
+ * (`operator_call_form_*`, `expr_operator_call_form_lower_case`, both vendors; rule E31, frontend-conformance 2.5.5).
  */
 export const NOT_AN_OPERAND: ReadonlySet<string> = new Set([
   "CAL", "CONSTANT", "RETAIN", "PERSISTENT", "PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT",

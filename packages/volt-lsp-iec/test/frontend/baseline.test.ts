@@ -54,11 +54,12 @@ describe("ceilings — a measure may only fall", () => {
 
   // A measure a census starts counting must start with a ceiling, or it can rise unwatched: `call UNKNOWN, on an untyped
   // operand` (frontend-conformance 2.3) took 76 corpus library calls with none. An AGREEMENT with the vendor (", … on
-  // the vendor too", ", a refused expression") is no disagreement; a literal's UNKNOWN is not ceilinged (tasks.md 0.4:
-  // "UNKNOWN, not a literal").
+  // the vendor too", ", a refused expression", ", in a body that did not parse") is no disagreement; a literal's UNKNOWN
+  // is not ceilinged (tasks.md 0.4: "UNKNOWN, not a literal").
   test("every disagreement count a baseline pins has a ceiling", () => {
     const ceilings = readCeilings()
-    const agreement = /, (unknown on the vendor too|not defined on the vendor too|on a name not defined on the vendor too|a refused expression)$/
+    const agreement =
+      /, (unknown on the vendor too|not defined on the vendor too|on a name not defined on the vendor too|no component on the vendor too|a refused expression|in a body that did not parse)$/
     const uncapped: string[] = []
     for (const [name, section] of Object.entries(ceilings)) {
       if (name === "rules") continue
