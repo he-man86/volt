@@ -25,7 +25,8 @@ test/README.md / TESTING.md).
 
 Rules: CODESYS (and TwinCAT) recordings are the oracle — never adapt a test or a recording to the code; a new answer comes only from the
 recorders (packages/volt-lsp-iec: bun run record:exec / record:language, RECORD_ONLY=<fixture>; every wait has a timeout; every recorder starts its OWN
-CODESYS; another workflow may run a CODESYS of its own in parallel — never kill a CODESYS/XAE process you did not start). Known divergences run as expected failures and FAIL the suite when they start matching — remove
+CODESYS; another workflow may run a CODESYS of its own in parallel — never kill a CODESYS/XAE process you did not start;
+if you use packages/volt-cli/scripts/ide.ps1, always pass -Instance ${args.change} to up AND down, so its pid file is yours alone). Known divergences run as expected failures and FAIL the suite when they start matching — remove
 the mark when your step fixes one. test/conformance/fixtures/map.generated.ts changes only through bun run rate:fixtures and is the
 one-file truth about fixtures. Tests from the package directory, never the repo root. Compile scratch Rust only outside the repo; delete
 any stray .exe/.pdb/.rs you create in the repo. No fallbacks or defaults that hide a missing fact; fail loud, refuse by name.
