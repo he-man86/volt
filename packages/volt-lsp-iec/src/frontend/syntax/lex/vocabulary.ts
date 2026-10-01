@@ -478,6 +478,15 @@ export const TYPED_INTEGER_PREFIXES: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * The named types whose parentheses hold a SUBRANGE (`INT(0..100)`): the integers and the bit strings, and the platform
+ * integers that stand for them. After any OTHER type the parentheses are an argument list (FB_Init's) — `REAL(0..1)`,
+ * `BOOL(0..1)` and an alias of INT are "',' or ')' expected instead of '..'", and `REAL(5)` builds; after one of these,
+ * `INT(5)` is "'..' expected instead of ')'" (`decl_subrange_*`, both vendors 2026-10-01; INT, UINT, BYTE, __XINT,
+ * __UXINT, __XWORD measured as subranges, TIME and DATE as argument lists).
+ */
+export const SUBRANGE_BASE_TYPES: ReadonlySet<string> = new Set([...TYPED_INTEGER_PREFIXES, "__XINT", "__UXINT", "__XWORD"])
+
+/**
  * CODESYS's two QUOTED literal prefixes — `UCHAR#'A'` (a character code) and `UTF8#'…'` (a STRING of UTF-8 bytes). The
  * lexer reads either in any case, with a SINGLE quote only: `uchar#'A'` builds, `UCHAR#"A"` is "'\"A\"' is no
  * component of 'UCHAR'" (`lit_uchar_*`, `lit_utf8_*`, CODESYS 2026-10-01). What the token MEANS is `literal/value`'s.

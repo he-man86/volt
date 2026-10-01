@@ -65,15 +65,22 @@ import { parseLibraryManifest, type LibraryManifest } from "../../frontend/libra
  *  ran with network text on in every run that measured it (the test preload). */
 const TRANSPILE_PARSE: ParseOptions = { networkText: true }
 
-/** A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those. */
-function representable(t: Type): boolean {
+/**
+ * A type a backend can store: elementary, a laid-out struct or FB instance, or a sized array of those — and, in a slot a
+ * call LENDS (`lent`), an `ARRAY[*]` of those: the array its call lends, a Rust slice (design §26).
+ */
+function representable(t: Type, lent: boolean): boolean {
   // a pointer or reference holds its one target's index (design §9 form 1) — a plain integer in both backends
   // an interface holds its instance's tag (design §22) — a plain integer too
   if (t.kind === "elementary" || t.kind === "struct" || t.kind === "function_block" || t.kind === "pointer" || t.kind === "reference" || t.kind === "interface") return true
-  // an `ARRAY[*]` — only ever a VAR_IN_OUT — is the array its call lends: a Rust slice (design §26)
-  if (openDims(t) > 0) return representable((t as Extract<Type, { kind: "array" }>).element)
+  if (openDims(t) > 0) return lent && representable((t as Extract<Type, { kind: "array" }>).element, false)
   const array = peelArray(t)
-  return array !== undefined && representable(array.element)
+  return array !== undefined && representable(array.element, false)
+}
+
+/** An array type, at any depth of its elements, with a dimension whose lower bound is above its upper. */
+function reversedArray(t: Type): boolean {
+  return t.kind === "array" && ((t.bounds ?? []).some((b) => b.lower > b.upper) || reversedArray(t.element))
 }
 
 /** Lower one already-bound unit. The workspace path: the caller owns the project scope and its index. */
@@ -146,12 +153,22 @@ export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, l
   const sharedAddress = addressSharedByInstances(lowering, [...lowering.frame, ...lowering.globals, ...routines.flatMap((r) => r.locals)])
   if (sharedAddress !== undefined)
     return { diagnostics: [lowerDiagnostic("var-at-instances", `${sharedAddress} binds a variable AT an address and has several instances, which would share it`, unit.span)] }
-  const unrepresentable = [
-    ...lowering.frame,
-    ...layouts.flatMap((l) => [...l.fields, ...(l.inouts ?? [])]),
-    ...routines.flatMap((r) => [...r.locals, ...r.inouts]),
-    ...lowering.globals,
-  ].find((s) => !representable(s.type))
+  // WHICH SLOTS A CALL LENDS: a VAR_IN_OUT, and a routine's VAR_INPUT (a function's or a method's — CODESYS takes an
+  // `ARRAY[*]` there and builds it, `decl_array_star_in_function_input`). An FB's frame, fields and globals are its own
+  // storage, where an `ARRAY[*]` has no size: `decl_array_star_in_var`, `_two_stars`, `_in_fb_input` (both vendors refuse
+  // them) lowered as if every open array were a VAR_IN_OUT, and the Rust emitter threw on the slot.
+  const slots = [
+    ...lowering.frame.map((s) => ({ s, lent: false })),
+    ...layouts.flatMap((l) => [...l.fields.map((s) => ({ s, lent: false })), ...(l.inouts ?? []).map((s) => ({ s, lent: true }))]),
+    ...routines.flatMap((r) => [...r.locals.map((s) => ({ s, lent: s.section === "VAR_INPUT" })), ...r.inouts.map((s) => ({ s, lent: true }))]),
+    ...lowering.globals.map((s) => ({ s, lent: false })),
+  ]
+  // A REVERSED ARRAY is refused by name: both vendors refuse it ("Lower border must be lower than upper border",
+  // `decl_array_reversed_bounds`), and lowered it was a negative length the Rust compiler rejected
+  const reversed = slots.find(({ s }) => reversedArray(s.type))?.s
+  if (reversed !== undefined)
+    return { diagnostics: [lowerDiagnostic("array-reversed", `${reversed.name} is an ARRAY whose lower bound is above its upper`, unit.span)] }
+  const unrepresentable = slots.find(({ s, lent }) => !representable(s.type, lent))?.s
   if (unrepresentable !== undefined) {
     const kind = unrepresentable.type.kind
     return { diagnostics: [lowerDiagnostic(`slot-${kind}`, `${unrepresentable.name} is a ${kind} variable, which has no runtime representation yet`, unit.span)] }

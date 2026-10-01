@@ -20,6 +20,7 @@ const run =
 const bound = run("array-bound-non-const")
 const cinit = run("const-init-non-const")
 const dflt = run("default-not-constant")
+const strlen = run("string-length-non-const")
 
 test("C0161: a variable array bound is flagged; literals and constants are not", () => {
   expect(bound(`VAR\n i:INT:=3;\n a:ARRAY[1..i] OF INT;\nEND_VAR`)).toEqual(["Border 'i' of array is no constant value"])
@@ -45,4 +46,15 @@ test("TwinCAT accepts a non-constant VAR_INPUT default where CODESYS refuses it 
   const src = `VAR i:INT; END_VAR\nVAR_INPUT p:INT:=i; END_VAR`
   expect(dflt(src, "codesys")).toEqual(["Default value is not constant"])
   expect(dflt(src, "twincat")).toEqual([])
+})
+
+test("a STRING length that is a mutable variable is flagged; a literal, an expression of them and a constant are not", () => {
+  // `decl_string_length_variable` (both vendors); `decl_string_length_constant`, `_expression` build
+  expect(strlen(`VAR
+ n:INT:=5;
+ str:STRING(n);
+END_VAR`)).toEqual(["String length 'n' is no constant value"])
+  expect(strlen(`VAR CONSTANT N:INT:=5; END_VAR
+VAR str:STRING(N); w:WSTRING(N); END_VAR`)).toEqual([])
+  expect(strlen(`VAR str:STRING(2+3); END_VAR`)).toEqual([])
 })

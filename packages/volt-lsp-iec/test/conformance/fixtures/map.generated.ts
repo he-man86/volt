@@ -14,18 +14,18 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2158
- *     refused       1050
- *     not-lowered    109
- *     lsp-gap         13
- *     diverges         3
+ *     confirmed     2186
+ *     refused       1097
+ *     not-lowered    111
+ *     lsp-gap         16
+ *     diverges         4
  *     unaskable       50
  *
  *   tier                     lowered    clean
- *     decl                    535      535
- *     arith                  1250     1250
- *     control                  73       73
- *     aggregate                43       43
+ *     decl                    561      561
+ *     arith                  1251     1251
+ *     control                  78       78
+ *     aggregate                52       52
  *     call                    228      226
  *     indirect                184      180
  *
@@ -35,7 +35,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               4605
+ *     dead_code                               4740
  *     clippy::self_assignment                   34
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -49,7 +49,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2218
+ *     agree         2259
  *     disagree         0
  *     not-run         95
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -57,17 +57,17 @@
  *       not-run: the emitted Rust does not build                  6
 
  *
- *   pedantic — 25847 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               5803
- *     clippy::cast_possible_truncation         4192
- *     clippy::cast_lossless                    3748
- *     clippy::cast_sign_loss                   2889
- *     clippy::uninlined_format_args            2817
- *     clippy::unreadable_literal               2469
- *     clippy::missing_panics_doc                954
- *     clippy::manual_assert                     713
- *     clippy::format_push_string                626
- *     clippy::cast_possible_wrap                349
+ *   pedantic — 26359 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               5913
+ *     clippy::cast_possible_truncation         4275
+ *     clippy::cast_lossless                    3785
+ *     clippy::cast_sign_loss                   2969
+ *     clippy::uninlined_format_args            2898
+ *     clippy::unreadable_literal               2507
+ *     clippy::missing_panics_doc                972
+ *     clippy::manual_assert                     732
+ *     clippy::format_push_string                644
+ *     clippy::cast_possible_wrap                350
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
  *     string_positions_low                          33.5
@@ -81,8 +81,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1315 distinct emission shapes over 2313 lowered fixtures, 1605 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2201 fixtures are improvable, 2124 touch a construct with alternatives.
+ *   shape — 1340 distinct emission shapes over 2354 lowered fixtures, 1620 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2242 fixtures are improvable, 2165 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -890,7 +890,28 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   date_plus_time: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 3, edge: "agree", size: 4.2, shape: "bc58396a0a", notes: ["e8954e2b0d"] },
   date_representation: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 1, edge: "agree", size: 4.7, shape: "6c8db21845", notes: ["e8954e2b0d"] },
   date_width_wrap: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 2, edge: "agree", size: 4.2, shape: "bc58396a0a", notes: ["e8954e2b0d"] },
+  decl_array_both_negative: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3.1, shape: "08545d651d", notes: ["1307e33bbf"] },
+  decl_array_bound_constant_expression: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 9, edge: "agree", size: 2.7, shape: "b9ead99f5a", notes: ["1307e33bbf", "abe3ae1f0b"] },
+  decl_array_bound_variable: { evidence: "refused" },
+  decl_array_empty_dims: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   decl_array_init_positional: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_array_missing_of: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_array_mixed_star: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_array_of_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 14, edge: "agree", size: 3.1, shape: "c117141425", notes: ["1307e33bbf", "f9bdd4950a"] },
+  decl_array_of_array_comma_index: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 8, edge: "agree", size: 3.1, shape: "074c9b4477", notes: ["0e0d715a81", "1307e33bbf", "f9bdd4950a"], diverges: { codesys: "known", twincat: "known" } },
+  decl_array_of_reference: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "bc967ad618", notes: ["00c356c11c", "0e0d715a81", "1307e33bbf"] },
+  decl_array_reversed_bounds: { evidence: "refused", diverges: { codesys: "known" } },
+  decl_array_single_bound: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_array_single_bound_used: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_array_star_in_fb_input: { evidence: "refused" },
+  decl_array_star_in_function_input: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  decl_array_star_in_method_input: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  decl_array_star_in_var: { evidence: "refused" },
+  decl_array_star_nested_in_inout: { evidence: "refused" },
+  decl_array_star_nested_in_var: { evidence: "refused" },
+  decl_array_star_struct_field: { evidence: "refused" },
+  decl_array_star_then_fixed: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_array_two_stars: { evidence: "refused" },
   decl_at_after_type: { evidence: "refused" },
   decl_at_after_type_in_gvl: { evidence: "refused" },
   decl_at_after_type_with_init: { evidence: "refused" },
@@ -906,6 +927,22 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_constant_in_expression: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "9a2b94efa2", notes: ["1307e33bbf", "e7b84e4a19"] },
   decl_constant_reads: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   decl_constant_retain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
+  decl_fb_init_empty_parens: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "41f41f5196", notes: ["1307e33bbf"] },
+  decl_implicit_enum_cross_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "9f4cf74ac2", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_duplicate: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_empty: { evidence: "refused" },
+  decl_implicit_enum_in_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3.1, shape: "98d765c94b", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
+  decl_implicit_enum_in_struct: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_in_var_input: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
+  decl_implicit_enum_into_byte: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "076b9eb8dd", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_missing_close: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_missing_comma: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_next_value: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_implicit_enum_number_name: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_trailing_comma: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_implicit_enum_with_base: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_implicit_enum_with_base_into_byte: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "076b9eb8dd", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_implicit_enum_with_init: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   decl_init_empty: { evidence: "refused" },
   decl_input_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "40f435367e", notes: ["1307e33bbf", "4979768984"] },
   decl_input_initialized: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "40f435367e", notes: ["1307e33bbf", "4979768984"] },
@@ -927,7 +964,13 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_persistent_retain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "6d72e2c0db", notes: ["1307e33bbf"], diverges: { codesys: "known" } },
   decl_plain_counts: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "40f435367e", notes: ["1307e33bbf", "4979768984"] },
   decl_plain_initialized: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.8, shape: "40f435367e", notes: ["1307e33bbf", "4979768984"] },
+  decl_pointer_missing_to: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_pointer_to_array_star_in_var: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "de5ec83c26", notes: ["013de1dc6a", "0e0d715a81", "1307e33bbf", "75cc82a569"] },
+  decl_pointer_to_pointer: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "fd616f016e", notes: ["0e0d715a81", "1307e33bbf", "de8528b197", "fbde4d6e1e"] },
+  decl_pointer_to_reference: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "de5ec83c26", notes: ["013de1dc6a", "0e0d715a81", "1307e33bbf", "75cc82a569"] },
   decl_ref_init_on_value: { evidence: "refused" },
+  decl_reference_to_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 6, edge: "agree", size: 3.9, shape: "e3ef0ffe90", notes: ["1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fa7d5f176f", "fbde4d6e1e"] },
+  decl_reference_to_reference: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "fd616f016e", notes: ["0e0d715a81", "1307e33bbf", "de8528b197", "fbde4d6e1e"] },
   decl_repeat_count: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3.3, shape: "b9725466c9", notes: ["1307e33bbf", "abe3ae1f0b"] },
   decl_repeat_count_empty: { evidence: "refused" },
   decl_repeat_count_expression: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 3.3, shape: "b9725466c9", notes: ["1307e33bbf", "abe3ae1f0b"] },
@@ -944,6 +987,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_retain_twice: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   decl_stat_counts: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "fd0802fcee", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
   decl_stat_initialized: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.8, shape: "fd0802fcee", notes: ["1307e33bbf", "7ef1346b85", "b9787e0d18"] },
+  decl_string_brackets: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "4205ee2f44", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_brackets_mismatched: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "527254fb65", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_brackets_mismatched_other: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "527254fb65", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_length_constant: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "b3d530ca71", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_string_length_constant_brackets: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "b3d530ca71", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_string_length_expression: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "4205ee2f44", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  decl_string_length_variable: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 3.2, shape: "77d0b8eca3", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_string_zero_length: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "527254fb65", notes: ["0e0d715a81", "1307e33bbf"] },
   decl_struct_field_at: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "6743e39285", notes: ["1307e33bbf"] },
   decl_struct_field_at_after_type: { evidence: "refused" },
   decl_struct_field_bracket_init: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -959,6 +1010,20 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_struct_init_unknown_field: { evidence: "refused" },
   decl_struct_init_unknown_field_in_array: { evidence: "refused" },
   decl_struct_init_unknown_field_in_field_array: { evidence: "refused" },
+  decl_subrange_constant_bounds: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "895611d246", notes: ["1307e33bbf", "a29db6178b"] },
+  decl_subrange_on_alias: { evidence: "refused", diverges: { twincat: "known" } },
+  decl_subrange_on_bool: { evidence: "refused" },
+  decl_subrange_on_byte: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "e92e645014", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_subrange_on_date: { evidence: "refused" },
+  decl_subrange_on_real: { evidence: "refused" },
+  decl_subrange_on_time: { evidence: "refused" },
+  decl_subrange_on_uxint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "c60b41f474", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_subrange_on_xint: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "fe52409507", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_subrange_on_xword: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "c60b41f474", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_subrange_one_bound: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_subrange_one_bound_real: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "62359d974f", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_subrange_reversed: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "ddda3a17da", notes: ["1307e33bbf", "a29db6178b"], diverges: { twincat: "known" } },
+  decl_subrange_unsigned: { evidence: "diverges", tier: "arith", rust: "compiles", pedantic: 3, edge: "agree", size: 3.3, shape: "85ea79dd9e", notes: ["1307e33bbf"] },
   decl_temp_array_counts: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 13, edge: "agree", size: 2.8, shape: "50da785a81", notes: ["1307e33bbf", "abe3ae1f0b", "c8927952f2", "fcc10694ff"] },
   decl_temp_array_init_resets: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 3.1, shape: "b5cc3c2fc5", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
   decl_temp_constant: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
@@ -967,6 +1032,16 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_temp_retain: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
   decl_temp_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 4.9, shape: "55ee6dd5f9", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   decl_temp_struct_init_resets: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "856bc7521f", notes: ["1307e33bbf", "8b9a7c5eea"] },
+  decl_type_enum_empty: { evidence: "refused" },
+  decl_type_enum_missing_comma: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_type_enum_number_name: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_type_enum_trailing_comma: { evidence: "refused" },
+  decl_type_enum_value_then_name: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_type_keyword: { evidence: "refused" },
+  decl_type_missing: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_type_missing_before_init: { evidence: "refused" },
+  decl_type_open_bracket: { evidence: "refused" },
+  decl_type_unknown_qualified: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
   decl_union_init_unknown_field: { evidence: "refused" },
   decl_var_access: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "11a0606b96", notes: ["1307e33bbf"] },
   decl_var_access_in_fb: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -998,6 +1073,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_var_stat_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
   decl_var_string_counts: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 59, edge: "agree", size: 4.9, shape: "7825d56e1e", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "211808ca56", "21ef64a1e0", "3cf4e6fa21", "4c9f4e33f4", "521ba042ac", "5d9850550d", "98ba0d2e70", "9a8003dce0", "a573b540d2", "c05be29130", "cbcde0e5de", "d8b7f34852", "dbcd1088a5", "e6646a0bd0", "e8210b694c"] },
   decl_var_temp_inside_struct: { evidence: "refused", diverges: { twincat: "known" } },
+  decl_vector_constant_size: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 14, edge: "agree", size: 3.1, shape: "d6f51090c9", notes: ["02a72c2e83", "0ab1e9c511", "1307e33bbf", "693c14b0bd", "6f8ef8f0bd", "b7286c7932", "de283d0ef6"], diverges: { twincat: "known" } },
+  decl_vector_of_bool: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "16977b5a38", notes: ["0e0d715a81", "1307e33bbf"] },
+  decl_vector_of_int: { evidence: "refused", tier: "aggregate", rust: "compiles", pedantic: 8, edge: "agree", size: 3.1, shape: "66693383ef", notes: ["1307e33bbf"] },
+  decl_wstring_brackets: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_wstring_brackets_mismatched: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_wstring_length: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 43, edge: "agree", size: 3.4, shape: "85ae2212d1", notes: ["0e0d715a81", "1307e33bbf", "8597dc45bd"] },
   deref_on_array_type: { evidence: "refused" },
   displaymode_bin: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "21ccd14d0c" },
   displaymode_dec: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.2, shape: "c3b7e25378", notes: ["1307e33bbf"] },

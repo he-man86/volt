@@ -164,6 +164,23 @@ test("infer: member chain, array index, comparison, temporal arithmetic", () => 
   expect(inferExpr("", "VAR\n a : DT; b : DT;\nEND_VAR", "a - b")).toMatchObject({ kind: "elementary", name: "TIME" })
 })
 
+test("infer: an implicit enum's value is of the implicit enum, as the variable declared with it is", () => {
+  // `decl_implicit_enum_with_base`, `_with_init`, `_next_value`, `_in_array`, `_in_var_input` (both vendors build and run
+  // them): the values were UNKNOWN, so nothing checked a store of one
+  const implicit: Type = { kind: "enum", name: "(implicit)" }
+  expect(inferExpr("", "VAR\n e : (ie_a, ie_b := 300, ie_c) INT;\nEND_VAR", "ie_c")).toEqual(implicit)
+  expect(inferExpr("", "VAR\n a : ARRAY[0..1] OF (ia_a, ia_b);\nEND_VAR", "ia_b")).toEqual(implicit)
+  expect(inferExpr("", "VAR\n e : (ie_a, ie_b);\nEND_VAR", "e")).toEqual(implicit)
+})
+
+test("infer: an index through a REFERENCE TO an array is the array's element", () => {
+  // `decl_reference_to_array` (`rf : REFERENCE TO ARRAY[0..1] OF INT REF= arr; out := rf[1];`, both vendors run it as 4)
+  expect(inferExpr("", "VAR\n arr : ARRAY[0..1] OF INT;\n rf : REFERENCE TO ARRAY[0..1] OF INT REF= arr;\nEND_VAR", "rf[1]")).toMatchObject({
+    kind: "elementary",
+    name: "INT",
+  })
+})
+
 test("infer: THIS resolves to the enclosing FB member scope", () => {
   const t = inferExpr("", "VAR\n flag : BOOL;\nEND_VAR", "THIS")
   expect(t.kind).toBe("function_block")

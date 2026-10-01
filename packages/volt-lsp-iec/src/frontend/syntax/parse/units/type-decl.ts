@@ -21,7 +21,6 @@ import type {
   AliasBody,
   DutBody,
   EnumBody,
-  EnumValue,
   Identifier,
   StructBody,
   TypeDecl,
@@ -29,8 +28,7 @@ import type {
   VarDecl,
 } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
-import { parseTypeExpression } from "../type-expr.js"
-import { parseExpression } from "../expression.js"
+import { parseEnumBase, parseEnumValues, parseTypeExpression } from "../type-expr.js"
 import { atSectionInStruct, FIELD_LIST, parseDeclInto, refuseSectionInStruct } from "../declarations.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken, readIdent, readNameList } from "../names.js"
@@ -173,42 +171,11 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
 function parseEnumBody(c: Cursor): EnumBody | undefined {
   const open = c.expectPunct("(")
   if (open === undefined) return undefined
-  const values: EnumValue[] = []
-
-  while (!c.atEof()) {
-    if (c.eatPunct(")") !== undefined) break
-    const nameTok = c.expectIdent()
-    if (nameTok === undefined) {
-      if (!c.recoverTo({ puncts: [",", ")"] })) break
-      c.eatPunct(",")
-      continue
-    }
-    const name = identFromToken(nameTok)
-    // A scalar value expression; parseExpression stops at the `,`/`)` that ends the value.
-    let value: EnumValue["value"]
-    if (c.eatPunct(":=") !== undefined) value = parseExpression(c)
-    const valSpan = value?.span ?? name.span
-    values.push({
-      kind: "enum_value",
-      name,
-      ...(value !== undefined ? { value } : {}),
-      span: joinSpans(name.span, valSpan),
-    })
-    if (c.eatPunct(",") !== undefined) continue
-    // No comma — expect close paren next iteration
-  }
-
+  // the values and the base type are read as an implicit enum's are (`parse/type-expr`, one parser), but a TYPE enum's
+  // list may not end in a comma (`decl_type_enum_trailing_comma`, both vendors 2026-10-01)
+  const { values } = parseEnumValues(c, false)
   // Optional explicit base type after the parens: `(VAL1, VAL2) BYTE`
-  let baseType: EnumBody["baseType"]
-  const peekNext = c.peek()
-  if (peekNext.kind === "identifier" || peekNext.kind === "keyword") {
-    // Only treat next ident/STRING as base type if it isn't END_TYPE
-    // (that's the close of the surrounding TYPE block).
-    const isEndType = peekNext.kind === "keyword" && peekNext.keyword === "END_TYPE"
-    if (!isEndType) {
-      baseType = parseTypeExpression(c)
-    }
-  }
+  const baseType = parseEnumBase(c)
 
   // Optional default initializer: `(A, B) := A;` — the enum type's default value.
   let init: EnumBody["init"]

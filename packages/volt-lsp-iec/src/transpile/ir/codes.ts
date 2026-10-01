@@ -35,6 +35,7 @@ export const LOWER_CODES: Readonly<Record<string, LowerCodeKind>> = {
   "aggregate-init": "not-modelled",
   "any-input": "unclassified",
   "array-bound": "invalid",
+  "array-reversed": "invalid",
   "assign-op": "unclassified",
   "attr-init-inputs": "unclassified",
   "attr-init-unreached": "unclassified",

@@ -198,6 +198,22 @@ export interface Messages {
   arrayInitCountNonConst(count: string): string
   /** A non-constant array dimension bound (C0161). verified both vendors. */
   arrayBoundNonConst(bound: string): string
+  /** A non-constant STRING length (`STRING(n)`, n a variable). `decl_string_length_variable`, both vendors 2026-10-01. */
+  stringLengthNonConst(length: string): string
+  /** A declared subrange or array dimension whose lower bound is above its upper (`INT(10..0)`, `ARRAY[5..1]`).
+   *  `decl_subrange_reversed`, `decl_array_reversed_bounds`, 2026-10-01 — TwinCAT ends the sentence with a period. */
+  borderOrder(): string
+  /** A REFERENCE as the base type of an array, a pointer or a reference (`decl_reference_to_reference`,
+   *  `decl_pointer_to_reference`, `decl_array_of_reference`, 2026-10-01) — TwinCAT has no comma before "or". */
+  referenceAsBaseType(): string
+  /** A `__VECTOR` of anything but REAL/LREAL (`decl_vector_of_int`, `_of_bool`, CODESYS 2026-10-01; TwinCAT has no __VECTOR). */
+  vectorBaseType(): string
+  /** An `ARRAY[*]` where the vendor takes none (`decl_array_star_in_var`, `_two_stars`, `_in_fb_input`,
+   *  `_in_function_input`, 2026-10-01) — each vendor's sentence states its own rule. */
+  variableLengthPlacement(): string
+  /** An `ARRAY[*]` inside another type (`ARRAY OF ARRAY[*]`, `POINTER TO ARRAY[*]`), in any section
+   *  (`decl_array_star_nested_in_var`, `_in_inout`, `decl_pointer_to_array_star_in_var`, both vendors 2026-10-01). */
+  variableLengthNested(): string
   /** A `VAR CONSTANT` variable initialized with a non-constant value (C0227). verified both vendors. */
   constInitNonConst(name: string): string
   /** A `VAR_INPUT` default value that is not a constant (C0526). verified both vendors. */
@@ -575,6 +591,18 @@ export function messagesFor(vendor: Vendor): Messages {
     loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Possible endless loop${tc ? "!" : "."}`,
     arrayInitCountNonConst: (count) => `Number '${count}' of array initialisations is no constant value`,
     arrayBoundNonConst: (bound) => `Border '${bound}' of array is no constant value`,
+    stringLengthNonConst: (length) => `String length '${length}' is no constant value`,
+    borderOrder: () => `Lower border must be lower than upper border${tc ? "." : ""}`,
+    referenceAsBaseType: () => `A reference type is not allowed as base type of an array, pointer${tc ? "" : ","} or reference`,
+    vectorBaseType: () => `The base type of a vector must be either REAL or LREAL.`,
+    variableLengthPlacement: () =>
+      tc
+        ? `Variable-length Arrays are only possible as VAR_IN_OUT of Methods, Functions and Functionblocks`
+        : `Variable length arrays are only possible as VAR_IN_OUT of function blocks or as VAR_IN_OUT and VAR_INPUT of methods and functions`,
+    variableLengthNested: () =>
+      tc
+        ? `A Variable-length Array type has to be on top level position of a type declaration.`
+        : `A variable length array type has to be on top level position of a type declaration`,
     constInitNonConst: (name) => `Initialisation of constant variable '${name}' not constant`,
     defaultNotConstant: () => `Default value is not constant`,
     invalidAdrOperand: (value) => `'${value}' is not allowed as operand for ADR`,

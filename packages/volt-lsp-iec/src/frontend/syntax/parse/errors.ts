@@ -49,13 +49,13 @@ function typeTokenText(t: Token): string {
 }
 
 /**
- * A type position holding something else. For a KEYWORD it is the vendors' "Type definition expected instead of 'X'",
- * echoed as written — both vendors for `v : Public;` (`lex_soft_keyword_as_type_*`), and TwinCAT for `END_VAR` where the
- * type was missing (`var_non_retain`). Any other token keeps Volt's "expected type, got …" until a
- * recording words it (conformance 2.8.1).
+ * A type position holding something else. For a KEYWORD or a PUNCTUATION MARK it is the vendors' "Type definition
+ * expected instead of 'X'", echoed as written — both vendors for `v : Public;` (`lex_soft_keyword_as_type_*`), `v : ;`
+ * (`decl_type_missing`) and `v : END_IF;` (`decl_type_keyword`), TwinCAT for `END_VAR` where the type was missing
+ * (`var_non_retain`). Any other token keeps Volt's "expected type, got …" until a recording words it (conformance 2.8.1).
  */
 export function typeExpected(t: Token): string {
-  if (t.kind === "keyword") return `Type definition expected instead of ${vendorTokenText(t)}`
+  if (t.kind === "keyword" || t.kind === "punct") return `Type definition expected instead of ${vendorTokenText(t)}`
   return `expected type, got ${typeTokenText(t)}`
 }
 

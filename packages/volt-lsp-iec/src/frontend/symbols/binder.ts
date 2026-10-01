@@ -422,9 +422,12 @@ function ingestVarDecl(
     })
   }
   // Implicit enumeration `iState : (Idle, Running, Halted)` declares the var AND introduces each
-  // value as a bare constant in the enclosing scope (CODESYS Implicit Enumeration rule).
-  if (decl.type.kind === "implicit_enum_type") {
-    for (const value of decl.type.values) {
+  // value as a bare constant in the enclosing scope (CODESYS Implicit Enumeration rule) — as the element type of an
+  // ARRAY too (`decl_implicit_enum_in_array`: `a[1] := ia_b` builds and runs, both vendors 2026-10-01).
+  let element = decl.type
+  while (element.kind === "array_type") element = element.element
+  if (element.kind === "implicit_enum_type") {
+    for (const value of element.values) {
       defineSymbol(scope, {
         kind: "enum_value",
         name: value.name.text,

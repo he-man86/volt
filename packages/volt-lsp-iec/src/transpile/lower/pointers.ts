@@ -22,6 +22,9 @@ export function pointerKey(lw: Lowering, p: Place): string | undefined {
   if (union !== undefined) return p.path.length === union.union.path.length + 1 ? pointerKey(lw, union.union) : undefined
   const field = p.path[0]
   if (p.root === "this" && p.path.length === 1 && field?.kind === "field") return `${lw.frameContext}.${field.name.toUpperCase()}`
+  // a pointer reached THROUGH another one (`pp^` of a POINTER TO POINTER) is the variable that one names — form 1 erases
+  // the step (`pointeePlace`), and the guard is only the null check of `pp` (`decl_pointer_to_pointer_deref`)
+  if (p.guard !== undefined && p.path.length === 0) return pointerKey(lw, { ...p, guard: undefined })
   if (p.path.length > 0 || p.guard !== undefined) return undefined
   if (p.root === undefined) return `${lw.frameContext}.${lw.slots[p.slot]!.name.toUpperCase()}`
   if (p.root === "local") return `${lw.routineContext}.${lw.localSlots[p.slot]!.name.toUpperCase()}`
@@ -517,6 +520,9 @@ export function loadValue(lw: Lowering, place: Place, span: Span): IrExpr | unde
 export function sameStorage(a: Type, b: Type): boolean {
   if (a.kind === "elementary" && b.kind === "elementary") return a.elem.name === b.elem.name && a.length === b.length
   if ((a.kind === "struct" || a.kind === "function_block") && a.kind === b.kind) return a.name.toUpperCase() === b.name.toUpperCase()
+  // a pointer is stored as its target's tag, so two pointers share storage when their targets do: `pp := ADR(p)` for a
+  // `POINTER TO POINTER TO INT` over a `POINTER TO INT` (`decl_pointer_to_pointer_deref`, CODESYS runs it)
+  if (a.kind === "pointer" && b.kind === "pointer") return sameStorage(a.target, b.target)
   const [x, y] = [peelArray(a), peelArray(b)]
   return x !== undefined && y !== undefined && x.lower === y.lower && x.length === y.length && sameStorage(x.element, y.element)
 }

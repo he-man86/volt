@@ -1312,6 +1312,50 @@ END_PROGRAM
     expect(diagnostics.map((d) => d.code)).toEqual(["slot-array"])
   })
 
+  test("an ARRAY[*] is a slice only where a call lends it — in a VAR or an FB's VAR_INPUT it is no slot", () => {
+    // frontend-conformance 2.3.6: `decl_array_star_in_var`, `_two_stars`, `_in_fb_input` (both vendors refuse them) lowered
+    // as if every open array were a VAR_IN_OUT, and the Rust emitter threw on the slot ("no Rust mapping for a array type")
+    const fb = (sections: string) =>
+      `PROGRAM P\nVAR inst : F; END_VAR\ninst();\nEND_PROGRAM\nFUNCTION_BLOCK F\n${sections}\nVAR out : INT; END_VAR\nout := 1;\nEND_FUNCTION_BLOCK\n`
+    for (const sections of ["VAR a : ARRAY[*] OF INT; END_VAR", "VAR a : ARRAY[*, *] OF INT; END_VAR", "VAR_INPUT a : ARRAY[*] OF INT; END_VAR"]) {
+      const { pou, diagnostics } = lowerSource(fb(sections), "P")
+      expect(pou).toBeUndefined()
+      expect(diagnostics.map((d) => d.code)).toEqual(["slot-array"])
+    }
+    // a FUNCTION's VAR_INPUT is lent by its call (`decl_array_star_in_function_input` builds and runs on CODESYS): not
+    // refused as a slot — what lowering says of it is its index's (`place-shape`), as before
+    const fn = "PROGRAM P\nVAR arr : ARRAY[0..1] OF INT := [4, 5]; r : INT; END_VAR\nr := G(arr);\nEND_PROGRAM\nFUNCTION G : INT\nVAR_INPUT a : ARRAY[*] OF INT; END_VAR\nG := a[1];\nEND_FUNCTION\n"
+    expect(lowerSource(fn, "P").diagnostics.map((d) => d.code)).not.toContain("slot-array")
+  })
+
+  // frontend-conformance 2.3b review: three type-expression fixtures lowering missed — one emitted Rust that does not
+  // build, two that CODESYS builds and runs were refused
+  test("a reversed ARRAY is refused by name — it emitted a negative length the Rust compiler rejected", () => {
+    // `decl_array_reversed_bounds`: both vendors refuse it ("Lower border must be lower than upper border")
+    const codes = (decl: string) => lowerSource(`PROGRAM P\nVAR ${decl} out : INT; END_VAR\nout := 1;\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+    expect(codes("a : ARRAY[5..1] OF INT;")).toEqual(["array-reversed"])
+    expect(codes("a : ARRAY[0..1] OF ARRAY[3..2] OF INT;")).toEqual(["array-reversed"])
+    expect(codes("a : ARRAY[-3..-1] OF INT;")).toEqual([])
+  })
+
+  test("an implicit enum's value is a constant when its variable is an ARRAY OF the enum", () => {
+    // `decl_implicit_enum_in_array` (`a[1] := ia_b`, CODESYS runs `out` as 1): `ia_b` was `place-not-local`
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR a : ARRAY[0..1] OF (ia_a, ia_b); out : INT; END_VAR\na[1] := ia_b;\nout := a[1];\nEND_PROGRAM\n", "P")
+    expect(diagnostics).toEqual([])
+    expect(pou).toBeDefined()
+  })
+
+  test("a POINTER TO POINTER takes ADR of a pointer and is written through `pp^^`", () => {
+    // `decl_pointer_to_pointer_deref` (CODESYS runs x as 5): the two pointers' storage was compared as if only an
+    // elementary, struct or array could be a pointer's target — "the address of a variable of another type"
+    const { pou, diagnostics } = lowerSource(
+      "PROGRAM P\nVAR x : INT; p : POINTER TO INT; pp : POINTER TO POINTER TO INT; out : INT; END_VAR\np := ADR(x);\npp := ADR(p);\npp^^ := 5;\nout := x;\nEND_PROGRAM\n",
+      "P",
+    )
+    expect(diagnostics).toEqual([])
+    expect(pou).toBeDefined()
+  })
+
   // Transpiler review 2026-09-15. Why missed: every pointer test took the address of a whole variable or of an element with
   // the index LAST, and every one used the pointer's own target type — no test named a place with an index inside its
   // path, or a byte-sized pointer over a wider variable.

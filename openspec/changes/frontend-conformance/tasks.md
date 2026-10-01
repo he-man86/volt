@@ -853,7 +853,7 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       2158, refused 1050, not-lowered 109, lsp-gap 13, diverges 3, unaskable 50; edges agree 2218 / disagree 0 / not-run
       95); `bun test` 6338 pass / 34 skip / 154 todo / 0 fail (6526 tests, 187 files, 655 s); `bun run check` 14 passed,
       0 failed; `bun run lint` exit 0 (warnings only).
-- [ ] 2.3.6 Type expressions (T1–T11): one implicit-enum value parser. Record decl_array_of_array, decl_pointer_to_pointer,
+- [x] 2.3.6 Type expressions (T1–T11): one implicit-enum value parser. Record decl_array_of_array, decl_pointer_to_pointer,
       decl_string_brackets, decl_string_length_constant, decl_implicit_enum_with_base.
       Where: parse/type-expr. Acceptance: CA. Depends on: 2.3.5
       **Step 2.3b (2026-10-01).** Fixtures: `fixtures/grammar/type-expressions.ts`, 62 `decl_*`, every name the task lists and
@@ -877,8 +877,9 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       empty list; a subrange variable starts at its lower bound (`UINT(1..5)` runs as 1). Fixed test-first
       (`parse/type-expr.test.ts`, `declared-type.test.ts`, `const-context.test.ts`, `binder.test.ts`, `types.test.ts`,
       `lower.test.ts`): `parse/type-expr` — ONE enum value parser (`parseEnumValues`, `parseEnumBase`, TYPE enum and implicit
-      enum; `trailingComma` the one measured difference; a value followed by neither `,` nor `)` is TwinCAT's "', or )'
-      expected", resynced within its declaration), `ImplicitEnumType.baseType` kept and printed (it was consumed and
+      enum; `trailingComma` the one measured difference; a value followed by neither `,` nor `)` is "', or )' expected"
+      after a `:=` value and "':=, , or )' expected" after a bare name — both vendors, corrected by the review below —
+      resynced within its declaration), `ImplicitEnumType.baseType` kept and printed (it was consumed and
       dropped), the subrange/argument split by `SUBRANGE_BASE_TYPES` (`lex/vocabulary`), the dimension rules (a refused
       dimension drops its declaration), STRING/WSTRING length closers; `parse/errors` "Type definition expected instead of
       ';'" for a punctuation mark; `symbols/binder` binds an implicit enum's values through an ARRAY; `types/infer` types an
@@ -894,18 +895,58 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       `STRING_LENGTH_AS_WRITTEN` (both, 3, 'STRING(N)'/'STRING((2 + 3))' and a local constant's length unfolded; not niche,
       581 named lengths → 4.7.4/4.6.2), `UNKNOWN_QUALIFIED_TYPE` (both, 1, `deferred.lsp`, → 3.4.2), `AFTER_A_REFUSED_TYPE`
       (CODESYS 2, TwinCAT 5, niche: 0 occurrences); `decl_subrange_unsigned` `deferred.transpile` (the subrange default,
-      → 4.7.1; 83 subranges without an initializer in the corpora). Rules GAP area 2 **45 → 43** (total 99 → 97): T6, T9
-      closed; T1–T5, T7, T8, T10, T11 gain recorded cells. Agreement floors CODESYS 3137 → 3178, TwinCAT 3086 → 3124 (3445
+      → 4.7.1; 83 subranges without an initializer in the corpora). Rules GAP area 2 **45 → 43** (total 99 → 97; 44/98 after the review below,
+      T6 reopened): T6, T9 closed; T1–T5, T7, T8, T10, T11 gain recorded cells. Agreement floors CODESYS 3137 → 3178, TwinCAT 3086 → 3124 (3445
       fixtures). `rate:fixtures`: confirmed 2181, refused 1085, not-lowered 111 (ceiling 109 → 111 for measurement:
       `decl_implicit_enum_in_array`, `decl_array_star_in_function_input`), lsp-gap 14, diverges 4, unaskable 50; edges
       agree 2251 / disagree 0 / not-run 96. Ceilings (all fell): corpus member NONE 3712 → 3709, ident_expr UNKNOWN
       1527 → 634, index UNKNOWN 227 → 223, member UNKNOWN 4230 → 4227, fixtures ident_expr UNKNOWN 52 → 47 / 95 → 90,
       index UNKNOWN 34 → 30 / 33 → 29; parse findings 132, fixed-point 16, resolution 154, type 226 unchanged. F
       (`frontend-snapshot check --base HEAD`): 2442 aspects over 353 sources — 248 new fixture sources and their 62 back
-      ends; 31 corpus sources (pro2193: 30 implicit enums now carry their `DINT` base and type their values, one
+      ends; 31 corpus sources (pro2193: 30 implicit enums now carry their `DINT` base IN THE AST and type their values as the one
+      `(implicit)` type — no base and no identity in the Type, so a store of one is still unchecked (review below); one
       `CassetteAdjustmentFB` member resolved through a reference index); 12 sources of 6 older fixtures (the implicit enum
       fixtures' spans and value types, `refdecl_to_array`/`xo_reference_index_step` reference indexing,
       `lit_char_typed_in_enum_value` TwinCAT's enum list resync); no corpus `diagnostics` aspect moved.
+      **Review fixes (2.3b review, 2026-10-01).** 22 fixtures written for the review's cells and recorded in one
+      `record:language` batch per vendor (plus two cells the answers asked for) and one `record:exec` batch: the
+      punctuation where a type stands (`decl_type_open_bracket` '[', `_missing_before_init` ':=') confirms the T1
+      generalization; TIME/DATE subranges are argument lists ("',' or ')' expected instead of '..'") and __XINT, __UXINT,
+      __XWORD subranges build and run; a TYPE enum value followed by neither `,` nor `)` is "':=, , or )'" after a bare
+      name and "', or )'" after a valued one on BOTH vendors (`decl_type_enum_missing_comma`, `_value_then_name`) — the
+      parser said TwinCAT's second sentence for both, fixed test-first (`type-expr.test.ts`); an `ARRAY[*]` inside another
+      type is refused in every section, VAR_IN_OUT too ("… has to be on top level position of a type declaration", each
+      vendor's words; `decl_array_star_nested_in_var`, `_in_inout`, `decl_pointer_to_array_star_in_var`), one as a STRUCT
+      field by the placement sentence (`decl_array_star_struct_field`), and a METHOD's VAR_INPUT takes one on CODESYS and
+      not on TwinCAT (`decl_array_star_in_method_input`) — declared-type `variable-length-nested` and the STRUCT field walk,
+      test-first (`declared-type.test.ts`); a refused `ARRAY[5]` used (`decl_array_single_bound_used`): the vendors say
+      "Identifier 'a' not defined" and "'a[1]' is no valid assignment target" themselves, the LSP's quiet is missing-only
+      (`TYPE_EXPRESSION_RECOVERY`); an implicit enum's value into a BYTE ("Cannot convert type 'IMPLICIT_ENUM__…' to type
+      'BYTE'", with or without a base) and into another implicit enum (C0327's warning) — unchecked, the Type has no
+      identity for it (`IMPLICIT_ENUM_TYPE_NAME`, `MEASURED_SILENT` for the two refusals). Transpile (the review's
+      finding): a reversed ARRAY is refused by name (`array-reversed`, was Rust that did not build; "rejected" 7 → 6),
+      an implicit enum's value lowers through an ARRAY OF it (`decl_implicit_enum_in_array` confirmed), a POINTER TO
+      POINTER lowers (`pointers.ts`: a pointer's storage is its target's, and a pointer reached through one is keyed as
+      itself); the routine `ARRAY[*]` VAR_INPUT stays not-lowered, `deferred.transpile` niche: accepted loss (0 of the
+      corpora's 36 `ARRAY[*]` are VAR_INPUT) — not-lowered 111 with the method's in place of the implicit enum's.
+      **Held out for the owner:** `decl_array_negative_untyped`, `decl_array_bound_constant_minus_one`,
+      `decl_pointer_to_pointer_deref` — recorded on both vendors, the LSP agrees and lowering confirms each, but each
+      raises a census ceiling (unary UNKNOWN +4, binary UNKNOWN +2, ADR +2, per vendor: untyped literals and ADR's result
+      type are area 4's), so, as `literals.ts`'s A2, they are documented in `grammar/type-expressions.ts` with their
+      recorded answers and wait for the owner to accept the rise or for 4.x to type them; T6 is a GAP again (a POINTER TO
+      POINTER only declared decides nothing). Comment fixed: an FB's VAR_INPUT refuses an `ARRAY[*]`. Floors CODESYS
+      3178 → 3190, TwinCAT 3124 → 3135 (3464 fixtures). `rate:fixtures`: confirmed 2186, refused 1097, not-lowered 111,
+      lsp-gap 16, diverges 4, unaskable 50; edges agree 2259 / disagree 0 / not-run 95.
+      **Gate 2.3b (2026-10-01).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (confirmed
+      2186, refused 1097, not-lowered 111, lsp-gap 16, diverges 4, unaskable 50; edges agree 2259 / disagree 0 / not-run
+      95; 148 s). The first full run had 2 fails, both fixed: the error catalog's C0031 still expected Volt's old "expected
+      type, got ';'" — the recordings (`decl_type_missing`, both vendors) word a punctuation mark in a type position
+      "Type definition expected instead of ';'", the catalog's own `message` form, so its `expect` now says that; and
+      `source-map.test.ts` timed out (5.5 s on bun's 5 s default) — profiled first: linear, 3464 fixtures in ~4.0 s,
+      ~1.15 ms each, no new fixture above 13 ms, so it was the sweep outgrowing a default, not a regression; the lowering
+      moved to registration as `fixtures.test.ts` did. `bun test` 6460 pass / 34 skip / 156 todo / 0 fail (6650 tests,
+      190 files, 584 s); agreement CODESYS 3190, TwinCAT 3135 (3464 fixtures); `bun run check` 14 passed, 0 failed;
+      `bun run lint` exit 0 (warnings only); layering clean.
 - [ ] 2.4.1 PROGRAM and FUNCTION headers (U1–U4): record unit_program_return_type, unit_function_no_return_type,
       unit_function_implements.
       Where: parse/units, parse/units/header. Acceptance: CA. Depends on: 2.3.6

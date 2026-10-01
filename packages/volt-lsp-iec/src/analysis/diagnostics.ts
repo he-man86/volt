@@ -47,6 +47,7 @@ import { checkLoopExit } from "./checks/flow/loop-exit.js"
 import { checkThisSuperContext } from "./checks/flow/this-super-context.js"
 import { checkFbInstantiation } from "./checks/calls/fb-instantiation.js"
 import { checkConstantContext } from "./checks/declarations/const-context.js"
+import { checkDeclaredType } from "./checks/declarations/declared-type.js"
 import { checkConstantInitializer } from "./checks/declarations/constant-initializer.js"
 import { checkExternalInitializer } from "./checks/declarations/external-initializer.js"
 import { checkExternalGlobal } from "./checks/declarations/external-global.js"
@@ -160,6 +161,7 @@ const CHECKS: readonly Check[] = [
   checkThisSuperContext,
   // declarations/
   checkConstantContext,
+  checkDeclaredType,
   checkConstantInitializer,
   checkExternalInitializer,
   checkExternalGlobal,

@@ -467,7 +467,7 @@
     "message": "Type definition expected instead of '<no data type>'",
     "repro": "TYPE T : ; END_TYPE",
     "expect": [
-      "expected type, got ';'"
+      "Type definition expected instead of ';'"
     ],
     "status": "implemented",
     "ourCheck": "syntax/type-decl",

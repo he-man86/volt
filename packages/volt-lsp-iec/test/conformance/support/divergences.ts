@@ -345,6 +345,145 @@ const TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR: readonly string[] = [
   "xf_ltod_to_ldate_call_once",
 ]
 /**
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — type expressions whose one disagreement is the vendors' RECOVERY after the
+ * first refusal, identical on both: the LSP says that first message — "Type definition expected instead of ';'"
+ * (`decl_type_missing`), "'..' expected instead of ')'" (`decl_subrange_one_bound`), "'..' expected instead of ']'"
+ * (`decl_array_single_bound`, `_empty_dims`, `_mixed_star`), "'*' expected instead of '0'" (`decl_array_star_then_fixed`),
+ * "'OF' expected instead of 'INT'", "'TO' expected instead of 'INT'" (`decl_array_missing_of`, `decl_pointer_missing_to`),
+ * "'(' expected instead of '3'" (`decl_wstring_brackets`), "')' expected instead of ']'"
+ * (`decl_wstring_brackets_mismatched`), "Identifier expected instead of '5'" (`decl_type_enum_number_name`) — and the
+ * vendors then resync through the rest of the list ("'] or ,' expected instead of ':'", "'OF' expected instead of
+ * 'END_VAR'", "Type definition expected instead of ''", "'END_VAR' expected instead of ''", "';, :=, REF=, ( or ['
+ * expected instead of ':'", "Type definition expected instead of ')'", "':= or ;' expected instead of 'END_TYPE'", and
+ * "Identifier 'out' not defined" for the declaration the resync swallows). Missing-only but one: after WSTRING's missing
+ * `)` the LSP's own recovery says "';' expected instead of ']'" and "Identifier expected instead of ']'" where the vendors
+ * skip the `]` (LSP-only, an error where the build fails). Task 2.8.2.
+ *
+ * Added by the 2.3b review, the same shape: `decl_array_single_bound_used` — the refused `ARRAY[5]` USED: the vendors'
+ * resync swallows `i` and `out` too and says "Identifier 'a' not defined", "'a[1]' is no valid assignment target" and
+ * the same for `i` and `out`; the LSP drops the refused declaration alone and says nothing for its uses (missing-only,
+ * no LSP-only line). `decl_type_enum_missing_comma`, `decl_type_enum_value_then_name` — the LSP says the vendors' first
+ * line ("':=, , or )' expected instead of 'tm_b'", "', or )' expected instead of 'tv_b'"), the vendors then close the
+ * TYPE ("':= or ;' expected instead of ''", "'END_TYPE' expected instead of ''", "Type definition expected instead of
+ * 'END_TYPE'").
+ */
+const TYPE_EXPRESSION_RECOVERY: readonly string[] = [
+  "decl_type_missing",
+  "decl_subrange_one_bound",
+  "decl_array_single_bound",
+  "decl_array_empty_dims",
+  "decl_array_mixed_star",
+  "decl_array_star_then_fixed",
+  "decl_array_missing_of",
+  "decl_pointer_missing_to",
+  "decl_wstring_brackets",
+  "decl_wstring_brackets_mismatched",
+  "decl_type_enum_number_name",
+  "decl_array_single_bound_used",
+  "decl_type_enum_missing_comma",
+  "decl_type_enum_value_then_name",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — an IMPLICIT enum's list where the vendors' parse goes another way than in a
+ * TYPE enum's, both vendors alike:
+ *   `decl_implicit_enum_number_name` — `e : (nn_a, 5);`: the TYPE enum's list says "Identifier expected instead of '5'"
+ *     (`decl_type_enum_number_name`), the implicit one does NOT, and goes on to "Type definition expected instead of ')'".
+ *     The LSP reads both lists with one parser and says the Identifier line in both (LSP-only here).
+ *   `decl_implicit_enum_missing_close` — `e : (mc_a, mc_b;`: no "')' expected" at all, but "Type definition expected
+ *     instead of 'END_VAR'" and the recovery; the LSP says "', or )' expected instead of ';'" (LSP-only — TwinCAT's words
+ *     for a value followed by neither, `lit_char_typed_in_enum_value`).
+ *   `decl_implicit_enum_missing_comma` — `e : (mm_a mm_b);`: no line at the list at all, but "';, :=, REF=, ( or ['
+ *     expected instead of 'out'" at the NEXT declaration, and "Identifier 'out' not defined"; the LSP says the TYPE enum's
+ *     "':=, , or )' expected instead of 'mm_b'" (LSP-only) — 2.3b review.
+ * Niche: accepted loss (0 occurrences in the corpora — their 30 implicit enums, all in pro2193, are well-formed lists).
+ */
+const IMPLICIT_ENUM_LIST_RECOVERY: readonly string[] = [
+  "decl_implicit_enum_number_name",
+  "decl_implicit_enum_missing_close",
+  "decl_implicit_enum_missing_comma",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — an implicit enum's TYPE NAME, both vendors: it is a type of its own, named
+ * `Implicit_Enum__<POU>__<variable>` — "A local variable named 'du_a' is already defined in
+ * 'Implicit_Enum__FB_…__e'" (`decl_implicit_enum_duplicate`, where the LSP names the POU) and, upper-cased, "Cannot
+ * convert type 'Unknown type: 'is_b'' to type 'IMPLICIT_ENUM__DUT_…__F'" (`decl_implicit_enum_in_struct`, where the LSP
+ * renders '(IMPLICIT)'). The rule and the scope agree; only the name differs, and the Type model has no owner to name it
+ * by. NOT niche: pro2193 declares 30 implicit enums (state variables, `( … ) DINT`), whose every message would name the
+ * type. The type render (DT10, task 4.7.4) with the owner from the binder (EN4, task 3.3).
+ *
+ * The same missing identity keeps an implicit enum's value from being CHECKED where it is stored (2.3b review, both
+ * vendors): "Cannot convert type 'IMPLICIT_ENUM__FB_…__E' to type 'BYTE'" for a value stored into a BYTE, with or
+ * without a written base (`decl_implicit_enum_into_byte`, `decl_implicit_enum_with_base_into_byte`), and C0327's
+ * warning "Implicit conversion from one enumeration type (IMPLICIT_ENUM__…__E2) to another (IMPLICIT_ENUM__…__E1)" for
+ * one implicit enum's value stored into another (`decl_implicit_enum_cross_assign`). The LSP says neither: every
+ * implicit enum is ONE type, `(implicit)`, with no base, so it neither converts as INT nor tells two of them apart —
+ * and C0327 is not implemented for TYPE enums either. Missing-only. The corpora build clean of both.
+ */
+const IMPLICIT_ENUM_TYPE_NAME: readonly string[] = [
+  "decl_implicit_enum_duplicate",
+  "decl_implicit_enum_in_struct",
+  "decl_implicit_enum_into_byte",
+  "decl_implicit_enum_with_base_into_byte",
+  "decl_implicit_enum_cross_assign",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — A STRING LENGTH IS RENDERED AS WRITTEN, both vendors: "String constant ''a...'
+ * too long for destination type 'STRING(N)'" for `STRING(N)`/`STRING[N]` (`decl_string_length_constant`, `_brackets`)
+ * and 'STRING((2 + 3))' for `STRING(2+3)` (`decl_string_length_expression`) — the written length in the compiler's own
+ * expression form, where the Type model holds a folded number and renders 'STRING(5)'. For a length from a LOCAL
+ * `VAR CONSTANT` the LSP says nothing at all: `resolve` folds a type's length in the project scope, where the constant
+ * is not (a global constant folds — and renders folded). NOT niche: 581 string lengths in the corpora are written as a
+ * name or an expression. The type render (DT10/DT11, task 4.7.4) and the fold scope (CE1–CE5, task 4.6.2).
+ */
+const STRING_LENGTH_AS_WRITTEN: readonly string[] = [
+  "decl_string_length_constant",
+  "decl_string_length_constant_brackets",
+  "decl_string_length_expression",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — `v : NoSuchLib.T;`: both vendors "Unknown type: 'NoSuchLib.T'". The LSP's
+ * unknown-type verdict (`analysis/resolution.ts` `unknownTypeName`) judges a BARE name only: a qualified one needs the
+ * library namespaces' own type lists, which is the qualification rule's (LB1–LB9, task 3.4.2). NOT niche as a construct
+ * — 9006 qualified type references in the corpora — so it waits for the rule that can answer every one of them.
+ */
+const UNKNOWN_QUALIFIED_TYPE: readonly string[] = ["decl_type_unknown_qualified"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — what a vendor says AFTER a declared type it refuses, each one cell and each
+ * missing-only (the LSP says the refusal itself, `analysis` declared-type):
+ *   `decl_array_reversed_bounds` (CODESYS) — "The variable 'a' is too large. (variable size: 2147483647, …)": the
+ *     reversed dimension sized as a negative count;
+ *   `decl_subrange_reversed` (TwinCAT) — "Cannot convert type '10' to type 'INT (10..0)'": the subrange's default checked
+ *     against it;
+ *   `decl_subrange_on_alias` (TwinCAT) — "No matching FB_init method found for instantiation of DUT_…": the refused
+ *     parentheses read as FB_Init's arguments;
+ *   `decl_array_star_in_function_input`, `decl_array_star_in_method_input` (TwinCAT) — the refused `ARRAY[*]` input typed
+ *     on: "Cannot convert type 'ARRAY [0..1] OF INT' to type 'ARRAY[*] OF INT'", "Cannot apply indexing with [] to …",
+ *     "Cannot convert type 'Unknown type: 'a[1]''";
+ *   `decl_vector_constant_size` (TwinCAT, which has no __VECTOR) — "Cannot convert type 'Unknown type: 'v[2]'' to type
+ *     'REAL'" for the undefined vector passed to REAL_TO_INT;
+ *   `decl_array_of_array_comma_index` (both) — `a[1, 2] := 5` on an ARRAY OF ARRAY: after "Array requires exactly 1
+ *     indexes" the target is typed as `a[1]`, "Cannot convert type 'SINT' to type 'ARRAY [0..2] OF INT'".
+ * Niche: accepted loss (0 occurrences in the corpora — no reversed bound, subrange of an alias, variable-length input of
+ * a function or method on TwinCAT, __VECTOR or comma index into an array of arrays in any of the six).
+ */
+const AFTER_A_REFUSED_TYPE: Record<Vendor, readonly string[]> = {
+  codesys: ["decl_array_reversed_bounds", "decl_array_of_array_comma_index"],
+  twincat: [
+    "decl_subrange_reversed",
+    "decl_subrange_on_alias",
+    "decl_array_star_in_function_input",
+    "decl_array_star_in_method_input",
+    "decl_vector_constant_size",
+    "decl_array_of_array_comma_index",
+  ],
+}
+
+/**
  * FRONTEND-CONFORMANCE 2.3 (2026-10-01) — declaration fixtures whose one disagreement is the vendors' RECOVERY after the
  * first refusal, identical on both: the LSP says that first message and nothing it does not have, and the vendors then
  * resync through the rest of the list in their own way — "',' or ')' expected instead of ':'", "', or ]' expected
@@ -362,6 +501,7 @@ const DECLARATION_RECOVERY: readonly string[] = [
   "decl_var_access_in_fb",
   "decl_var_access_inside_struct",
   "decl_var_generic_inside_struct",
+  ...TYPE_EXPRESSION_RECOVERY,
 ]
 
 /**
@@ -483,6 +623,11 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   twincat: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
     ...DECLARATION_RECOVERY,
+    ...IMPLICIT_ENUM_LIST_RECOVERY,
+    ...IMPLICIT_ENUM_TYPE_NAME,
+    ...STRING_LENGTH_AS_WRITTEN,
+    ...UNKNOWN_QUALIFIED_TYPE,
+    ...AFTER_A_REFUSED_TYPE.twincat,
     ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
     ...GVL_MEMBER_NOT_DECLARED,
@@ -617,6 +762,11 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   codesys: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
     ...DECLARATION_RECOVERY,
+    ...IMPLICIT_ENUM_LIST_RECOVERY,
+    ...IMPLICIT_ENUM_TYPE_NAME,
+    ...STRING_LENGTH_AS_WRITTEN,
+    ...UNKNOWN_QUALIFIED_TYPE,
+    ...AFTER_A_REFUSED_TYPE.codesys,
     ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
     ...GVL_MEMBER_NOT_DECLARED,

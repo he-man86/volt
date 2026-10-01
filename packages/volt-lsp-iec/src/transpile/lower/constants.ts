@@ -64,8 +64,11 @@ export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefin
   if (sym?.kind !== "enum_value") return undefined
   // an implicit enumeration's value (`eState : (Idle, Running)`) lives in the POU's scope, its declaration the variable's;
   // it is numbered as a TYPE enum's is and held as an INT (conformance `type_implicit_enum_inline`, `var_inline_enum_decl`)
-  const declared = sym.ast as { type?: { kind: string; values?: readonly { name: { text: string }; value?: Expr }[] } }
-  const implicit = sym.owner.kind !== "enum" && declared.type?.kind === "implicit_enum_type" ? declared.type.values : undefined
+  // …and through an ARRAY OF one, whose elements are of it (`decl_implicit_enum_in_array`: `a[1] := ia_b` runs as 1)
+  type Declared = { kind: string; element?: Declared; values?: readonly { name: { text: string }; value?: Expr }[] }
+  let declared = (sym.ast as { type?: Declared }).type
+  while (declared?.kind === "array_type") declared = declared.element
+  const implicit = sym.owner.kind !== "enum" && declared?.kind === "implicit_enum_type" ? declared.values : undefined
   const decl = sym.owner.kind === "enum" ? lookup(lw.project, sym.owner.name)?.symbol : undefined
   const body = decl?.kind === "type" ? (decl.ast as TypeDecl).body : undefined
   const values = implicit ?? (body?.kind === "enum" ? body.values : undefined)

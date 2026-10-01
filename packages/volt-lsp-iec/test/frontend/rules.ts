@@ -811,7 +811,7 @@ export const RULES: readonly Rule[] = [
     rule: "named elementary type; qualified `Lib.T`",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["try_no_fault", "try_divide_by_zero"],
+    fixtures: ["try_no_fault", "try_divide_by_zero", "decl_type_missing", "decl_type_keyword", "decl_type_unknown_qualified", "decl_type_open_bracket", "decl_type_missing_before_init"],
     design: "try_no_fault, try_divide_by_zero",
   },
   {
@@ -821,7 +821,7 @@ export const RULES: readonly Rule[] = [
     rule: "subrange `INT(lo..hi)`",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["type_dut_subrange", "subrange_init_in_range", "ct_subrange_across_objects"],
+    fixtures: ["type_dut_subrange", "subrange_init_in_range", "ct_subrange_across_objects", "decl_subrange_reversed", "decl_subrange_constant_bounds", "decl_subrange_on_real", "decl_subrange_on_byte", "decl_subrange_on_bool", "decl_subrange_on_alias", "decl_subrange_one_bound", "decl_subrange_one_bound_real", "decl_subrange_unsigned", "decl_subrange_on_time", "decl_subrange_on_date", "decl_subrange_on_xint", "decl_subrange_on_uxint", "decl_subrange_on_xword"],
     design: "type_dut_subrange, subrange_init_in_range, ct_subrange_across_objects",
   },
   {
@@ -831,7 +831,7 @@ export const RULES: readonly Rule[] = [
     rule: "FB_Init arguments `FB(x := 1)`",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["fb_init_runs_with_declared_arguments", "fb_init_base_and_derived", "xo4_fb_init_chain"],
+    fixtures: ["fb_init_runs_with_declared_arguments", "fb_init_base_and_derived", "xo4_fb_init_chain", "decl_fb_init_empty_parens", "decl_subrange_one_bound_real"],
     design: "fb_init_runs_with_declared_arguments, fb_init_base_and_derived, xo4_fb_init_chain",
   },
   {
@@ -841,7 +841,7 @@ export const RULES: readonly Rule[] = [
     rule: "ARRAY single, multi-dimensional, `[*]`, negative lower bound",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["ct_three_dimensional_array", "callshape_array_star_bounds", "array_initializers"],
+    fixtures: ["ct_three_dimensional_array", "callshape_array_star_bounds", "array_initializers", "decl_array_reversed_bounds", "decl_array_single_bound", "decl_array_missing_of", "decl_array_empty_dims", "decl_array_both_negative", "decl_array_star_in_var", "decl_array_star_in_fb_input", "decl_array_star_in_function_input", "decl_array_mixed_star", "decl_array_star_then_fixed", "decl_array_two_stars", "decl_array_single_bound_used", "decl_array_star_in_method_input", "decl_array_star_nested_in_var", "decl_array_star_nested_in_inout", "decl_pointer_to_array_star_in_var", "decl_array_star_struct_field"],
     design: "ct_three_dimensional_array, callshape_array_star_bounds, array_initializers",
   },
   {
@@ -851,7 +851,7 @@ export const RULES: readonly Rule[] = [
     rule: "ARRAY bound from a named constant",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["type_codesys_vector"],
+    fixtures: ["type_codesys_vector", "decl_array_bound_constant_expression", "decl_array_bound_variable"],
     design: "type_codesys_vector",
   },
   {
@@ -860,8 +860,10 @@ export const RULES: readonly Rule[] = [
     section: "2.3",
     rule: "ARRAY OF ARRAY; POINTER TO POINTER",
     home: "parse/type-expr",
+    // GAP while the POINTER TO POINTER is only DECLARED: the fixture that uses it (ADR, `pp^^`) is held out for the
+    // census ceiling it would raise (`fixtures/grammar/type-expressions.ts`, "THREE FIXTURES HELD OUT"; 2.3b review)
     gap: true,
-    fixtures: [],
+    fixtures: ["decl_array_of_array", "decl_array_of_array_comma_index", "decl_pointer_to_pointer"],
     design: "**GAP**",
   },
   {
@@ -871,7 +873,7 @@ export const RULES: readonly Rule[] = [
     rule: "POINTER TO / REFERENCE TO",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["xo2_pointer_walk_across_objects", "cc3_reference_assign"],
+    fixtures: ["xo2_pointer_walk_across_objects", "cc3_reference_assign", "decl_pointer_missing_to", "decl_reference_to_reference", "decl_pointer_to_reference", "decl_array_of_reference", "decl_reference_to_array"],
     design: "xo2_pointer_walk_across_objects, cc3_reference_assign",
   },
   {
@@ -881,7 +883,7 @@ export const RULES: readonly Rule[] = [
     rule: "STRING, STRING(n), WSTRING, WSTRING(n)",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["lib_stu_length", "xo_string_built_across_objects", "lib_stu_wide"],
+    fixtures: ["lib_stu_length", "xo_string_built_across_objects", "lib_stu_wide", "decl_string_zero_length", "decl_wstring_length", "decl_string_length_expression"],
     design: "lib_stu_length, xo_string_built_across_objects, lib_stu_wide",
   },
   {
@@ -890,8 +892,8 @@ export const RULES: readonly Rule[] = [
     section: "2.3",
     rule: "STRING[n]; STRING length from a constant",
     home: "parse/type-expr",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["decl_string_brackets", "decl_wstring_brackets", "decl_string_length_constant", "decl_string_length_constant_brackets", "decl_string_length_variable", "decl_string_brackets_mismatched", "decl_string_brackets_mismatched_other", "decl_wstring_brackets_mismatched"],
     design: "**GAP**",
   },
   {
@@ -901,7 +903,7 @@ export const RULES: readonly Rule[] = [
     rule: "implicit enum in a declaration",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["type_implicit_enum_inline", "var_inline_enum_decl", "type_enum_inline_default_first_nonzero"],
+    fixtures: ["type_implicit_enum_inline", "var_inline_enum_decl", "type_enum_inline_default_first_nonzero", "decl_implicit_enum_with_base", "decl_implicit_enum_with_init", "decl_implicit_enum_next_value", "decl_implicit_enum_empty", "decl_implicit_enum_trailing_comma", "decl_implicit_enum_number_name", "decl_implicit_enum_duplicate", "decl_implicit_enum_missing_close", "decl_implicit_enum_in_array", "decl_implicit_enum_in_var_input", "decl_implicit_enum_in_struct", "decl_type_enum_trailing_comma", "decl_type_enum_number_name", "decl_type_enum_empty", "decl_implicit_enum_missing_comma", "decl_type_enum_missing_comma", "decl_type_enum_value_then_name", "decl_implicit_enum_into_byte", "decl_implicit_enum_with_base_into_byte", "decl_implicit_enum_cross_assign"],
     design: "type_implicit_enum_inline, var_inline_enum_decl, type_enum_inline_default_first_nonzero",
   },
   {
@@ -911,7 +913,7 @@ export const RULES: readonly Rule[] = [
     rule: "`__VECTOR[n] OF T`",
     home: "parse/type-expr",
     gap: false,
-    fixtures: ["type_codesys_vector"],
+    fixtures: ["type_codesys_vector", "decl_vector_constant_size", "decl_vector_of_int", "decl_vector_of_bool"],
     design: "type_codesys_vector",
   },
   // ── 2.4 ──

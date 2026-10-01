@@ -13,7 +13,7 @@ import {
   type Scope,
   type Symbol,
 } from "../../symbols/index.js"
-import type { Expr } from "../../syntax/index.js"
+import type { Expr, TypeExpr } from "../../syntax/index.js"
 import { resolveNamedType } from "../resolve.js"
 import { UNKNOWN, type Type } from "../type.js"
 import { inferExprType } from "./expr.js"
@@ -49,15 +49,32 @@ export function memberScopeOf(t: Type): Scope | undefined {
 }
 
 /**
- * An enum VALUE's type: its enum, resolved by name so it carries the base type (`EnumType.base`). Only a value owned by
- * a real enum scope counts — an inline enum's values live in the enclosing POU's scope, and typing them would name the
- * POU. Inference returned UNKNOWN for every enum value, so assignment, narrowing and call arguments each re-resolved one —
- * and the call-argument copy never learned the base type (consolidate-lsp-structure B6).
+ * An enum VALUE's type: its enum, resolved by name so it carries the base type (`EnumType.base`). Inference returned
+ * UNKNOWN for every enum value, so assignment, narrowing and call arguments each re-resolved one — and the
+ * call-argument copy never learned the base type (consolidate-lsp-structure B6).
+ *
+ * An IMPLICIT enum's value lives in the enclosing POU's scope (typing it by its owner would name the POU) and is of the
+ * implicit enum, which is what the variable declared with it resolves to (`resolve`): `decl_implicit_enum_*`,
+ * frontend-conformance 2.3.6 — they were UNKNOWN. That gives the value A type, not its own: every implicit enum is the one
+ * `(implicit)` type, with no base and no name of its own, so a store of one is still unchecked — the vendors' "Cannot
+ * convert type 'IMPLICIT_ENUM__…' to type 'BYTE'" and their enum-to-enum warning between two implicit enums are not said
+ * (`decl_implicit_enum_into_byte`, `_with_base_into_byte`, `_cross_assign`; the name is `IMPLICIT_ENUM_TYPE_NAME`'s).
  */
 export function enumValueType(sym: Symbol, project: Scope): Type | undefined {
-  if (sym.kind !== "enum_value" || sym.owner.kind !== "enum") return undefined
+  if (sym.kind !== "enum_value") return undefined
+  if (sym.owner.kind !== "enum") return implicitEnumOf(sym) !== undefined ? IMPLICIT_ENUM : undefined
   const resolved = resolveNamedType(sym.owner.name, project)
   return resolved.kind === "enum" ? resolved : { kind: "enum", name: sym.owner.name, scope: sym.owner }
+}
+
+/** The implicit enum type, as `resolve` names it. */
+const IMPLICIT_ENUM: Type = { kind: "enum", name: "(implicit)" }
+
+/** The implicit enum an enum value symbol was declared in — its declaration's type, or that type's array element. */
+function implicitEnumOf(sym: Symbol): TypeExpr | undefined {
+  let t = (sym.ast as { kind?: string; type?: TypeExpr } | undefined)?.type
+  while (t?.kind === "array_type") t = t.element
+  return t?.kind === "implicit_enum_type" ? t : undefined
 }
 
 /** True when an expression names an enum VALUE (`Busy`, `E_Mode.Busy`) rather than a variable of an enum type — they

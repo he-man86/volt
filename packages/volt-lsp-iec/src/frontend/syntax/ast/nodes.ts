@@ -424,6 +424,8 @@ export interface StringType {
 export interface ImplicitEnumType {
   kind: "implicit_enum_type"
   values: EnumValue[]
+  /** `e : (A, B) INT` — the base type written after the values (`decl_implicit_enum_with_base`). */
+  baseType?: TypeExpr
   span: Span
 }
 

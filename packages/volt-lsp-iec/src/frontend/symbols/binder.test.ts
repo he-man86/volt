@@ -125,6 +125,19 @@ test("implicit enumeration introduces bare value constants into the enclosing sc
   expect(lookup(fb, "Running")?.symbol.kind).toBe("enum_value")
 })
 
+test("an ARRAY OF an implicit enumeration introduces its values too", () => {
+  // `decl_implicit_enum_in_array` (`a : ARRAY[0..1] OF (ia_a, ia_b); a[1] := ia_b;`) builds and runs on both vendors
+  const project = build({
+    uri: "F.fb",
+    src: `FUNCTION_BLOCK F
+VAR
+ a : ARRAY[0..1] OF ARRAY[0..1] OF (ia_a, ia_b);
+END_VAR
+END_FUNCTION_BLOCK`,
+  })
+  expect(lookup(findChildScope(project, "F")!, "ia_b")?.symbol.kind).toBe("enum_value")
+})
+
 const NS = `NAMESPACE NS
 FUNCTION_BLOCK Foo
 VAR x : INT; END_VAR

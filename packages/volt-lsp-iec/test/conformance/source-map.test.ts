@@ -78,10 +78,16 @@ function programs(): Program[] {
   return out
 }
 
-let cached: Program[] | undefined
-const all = (): Program[] => (cached ??= programs())
-
 describe("the source map", () => {
+  // LOWERED HERE, AT REGISTRATION, not lazily inside the first test. Lowering and emitting every fixture is this
+  // file's setup, linear in the fixture count — measured 2026-10-01: 3464 fixtures in ~4.0s, ~1.15ms each, no
+  // fixture above 13ms but the first (126ms, the library base warming). Done inside the first test it ran on bun's
+  // 5s default, which is a default and not a decision: under full-suite load it tipped over (5.5s) and failed as a
+  // timeout, reading as a hang rather than as "there are more fixtures now" — the shape `fixtures.test.ts` fixed
+  // the same way. There is no hidden term to find: each fixture is lowered once and its emission walked once.
+  const progs = programs()
+  const all = (): Program[] => progs
+
   test("every mapping names a Rust line that exists and holds code", () => {
     const bad: string[] = []
     for (const p of all())

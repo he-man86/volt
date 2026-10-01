@@ -3,6 +3,7 @@
  * `constancyOf` (so an enum member / `VAR CONSTANT` is fine; only a genuine mutable variable is flagged):
  *   C0161 array-bound-non-const — a non-constant array dimension bound (`ARRAY[1..i]`).
  *   C0227 const-init-non-const  — a `VAR CONSTANT` variable initialized with a non-constant (`k : INT := i`).
+ *   string-length-non-const     — a non-constant STRING length (`STRING(n)`).
  *
  * Zero-FP: only a `variable` verdict fires; literals, constants, and unresolved/library names never do.
  */
@@ -18,6 +19,10 @@ export function checkConstantContext(ctx: CheckContext, out: DiagnosticItem[]): 
       if (e !== undefined && constancyOf(e, scope) === "variable")
         push(out, e.span, "array-bound-non-const", ctx.messages.arrayBoundNonConst(text(ctx.source, e.span)))
     }
+    // a STRING/WSTRING length is a constant as a bound is: "String length 'n' is no constant value"
+    // (`decl_string_length_variable`, both vendors 2026-10-01)
+    if (decl.type.kind === "string_type" && decl.type.length !== undefined && constancyOf(decl.type.length, scope) === "variable")
+      push(out, decl.type.length.span, "string-length-non-const", ctx.messages.stringLengthNonConst(text(ctx.source, decl.type.length.span)))
     if (decl.type.kind === "array_type")
       for (const dim of decl.type.dims) {
         bound(dim.lower) // C0161

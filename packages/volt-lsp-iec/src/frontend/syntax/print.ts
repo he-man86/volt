@@ -36,7 +36,7 @@ export function renderTypeExpr(t: TypeExpr): string {
     case "reference_type":
       return `REFERENCE TO ${renderTypeExpr(t.target)}`
     case "implicit_enum_type":
-      return `(${t.values.map((v) => (v.value !== undefined ? `${v.name.text} := ${exprText(v.value)}` : v.name.text)).join(", ")})`
+      return `(${t.values.map((v) => (v.value !== undefined ? `${v.name.text} := ${exprText(v.value)}` : v.name.text)).join(", ")})${t.baseType !== undefined ? ` ${renderTypeExpr(t.baseType)}` : ""}`
   }
 }
 

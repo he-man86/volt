@@ -57,7 +57,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       return (sym === undefined ? undefined : enumValueType(sym, project)) ?? UNKNOWN
     }
     case "index": {
-      const base = inferExprType(expr.base, scope, project)
+      // an index through a REFERENCE TO an array reads the array (`decl_reference_to_array`, both vendors run `rf[1]`)
+      const written = inferExprType(expr.base, scope, project)
+      const base = written.kind === "reference" ? written.target : written
       return base.kind === "array" ? base.element : UNKNOWN
     }
     case "deref": {

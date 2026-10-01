@@ -165,8 +165,13 @@ function enumsOf(c: LanguageTest): Map<string, bigint> {
     // an implicit enumeration displays under a name of the IDE's making: `Implicit_Enum__FB_LANG_implicit_enum__eState.Running`
     if ("varSections" in unit && "name" in unit && unit.name !== undefined)
       for (const section of unit.varSections)
-        for (const decl of section.decls)
-          if (decl.type.kind === "implicit_enum_type") for (const n of decl.names) number(`Implicit_Enum__${unit.name.text}__${n.text}`, decl.type.values)
+        for (const decl of section.decls) {
+          // …and an ARRAY OF one, under the ARRAY variable's name (`decl_implicit_enum_in_array`:
+          // `Implicit_Enum__FB_LANG_decl_implicit_enum_in_array__a.ia_a` for `a[0]`)
+          let type = decl.type
+          while (type.kind === "array_type") type = type.element
+          if (type.kind === "implicit_enum_type") for (const n of decl.names) number(`Implicit_Enum__${unit.name.text}__${n.text}`, type.values)
+        }
   }
   return out
 }
@@ -910,6 +915,12 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // …and `[K+L(7)]`: the parser reads L's call as the vendors do; refusing a call inside an aggregate initializer is the
     // calls check's, which walks bodies (`support/divergences.ts` `CALL_IN_AN_AGGREGATE_INITIALIZER`)
     "decl_repeat_count_expression_names",
+    // frontend-conformance 2.3b review, recorded 2026-10-01 on both vendors — an implicit enum's value stored into a BYTE,
+    // with or without a written base: "Cannot convert type 'IMPLICIT_ENUM__FB_…__E' to type 'BYTE'". Every implicit
+    // enum is the one `(implicit)` type with no base, so the store is unchecked (`support/divergences.ts`
+    // `IMPLICIT_ENUM_TYPE_NAME`, the type's identity, tasks 3.3/4.7.4)
+    "decl_implicit_enum_into_byte",
+    "decl_implicit_enum_with_base_into_byte",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1356,7 +1367,18 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 108 -> 109, FOR MEASUREMENT. frontend-conformance 2.3a recorded `decl_var_generic_in_array` (an ARRAY OF a
   // VAR_GENERIC FB with its value builds and runs on CODESYS); lowering refuses VAR_GENERIC as it does for
   // `decl_var_generic` and `_read` — the transpiler's, not the front-end's.
-  "not-lowered": 109,
+  // 109 -> 111, FOR MEASUREMENT. frontend-conformance 2.3.6 recorded two type expressions CODESYS builds and runs that
+  // lowering refuses: `decl_implicit_enum_in_array` (`a[1] := ia_b` — `place-not-local`, an implicit enum's value whose
+  // declaration is an ARRAY OF it is no constant to lowering, `constants.ts` reads only a declaration typed directly)
+  // and `decl_array_star_in_function_input` (a FUNCTION's `ARRAY[*]` VAR_INPUT indexed — `place-shape`). The
+  // transpiler's, not the front-end's.
+  // 111 stays, its members change (2.3b review): `decl_implicit_enum_in_array` LOWERS now (`constants.ts` reads an
+  // implicit enum through the ARRAY OF it; confirmed), and `decl_array_star_in_method_input` (a METHOD's `ARRAY[*]`
+  // VAR_INPUT, CODESYS builds and runs it) joins the function's. Both are `deferred.transpile`: lowering lends an open
+  // array only as a VAR_IN_OUT; niche: accepted loss (0 occurrences in the corpora — their 36 `ARRAY[*]` are VAR_IN_OUT).
+  // `decl_pointer_to_pointer_deref` was recorded refused by lowering and lowers too (`pointers.ts`: a pointer's storage
+  // is its target's), so it adds nothing here.
+  "not-lowered": 111,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1585,7 +1607,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // marks of `support/divergences.ts` 2.3 (recovery, VAR_GENERIC, the driver's cut echo, NON_RETAIN's recovery).
   // 3081 -> 3086 (2026-10-01, 2.3 review fixes and 2.3a): the review's five cells, and `decl_struct_init_unknown_field_in_array`,
   // `_in_field_array` (a struct value in an array initializer held to the element's struct).
-  { vendor: "twincat", floor: 3086 },
+  // 3086 -> 3124 (2026-10-01, frontend-conformance 2.3.6): the same type-expression fixtures and fixes, on TwinCAT, with
+  // its own words for a reversed bound, a reference as a base type and an `ARRAY[*]` outside a VAR_IN_OUT.
+  // 3124 -> 3135 (2026-10-01, 2.3b review): the same cells on TwinCAT, in its words for a nested `ARRAY[*]`.
+  { vendor: "twincat", floor: 3135 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1689,7 +1714,15 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3128 -> 3137 (2026-10-01, 2.3 review fixes and 2.3a): the review's five cells; a struct value in an array initializer
   // held to the element's struct (`decl_struct_init_unknown_field_in_array`, `_in_field_array`), and an ARRAY OF a
   // VAR_GENERIC FB counted by its element (`decl_var_generic_in_array_no_argument`, `_two_values`).
-  { vendor: "codesys", floor: 3137 },
+  // 3137 -> 3178 (2026-10-01, frontend-conformance 2.3.6): the type-expression fixtures (`grammar/type-expressions.ts`),
+  // recorded live — the subrange/argument-list split by type, ARRAY dimensions all `*` or none, STRING's either closer
+  // and WSTRING's `(…)` only, one enum value parser, an implicit enum's base and its values through an array, and the
+  // declared types refused once read (`analysis` declared-type, string-length-non-const). Not agreeing: the marks of
+  // `support/divergences.ts` 2.3.6.
+  // 3178 -> 3190 (2026-10-01, 2.3b review): the cells the review asked for — punctuation and TIME/DATE/platform-integer
+  // subranges, untyped negative and `N-1` bounds, a POINTER TO POINTER written through, a TYPE enum value followed by
+  // neither `,` nor `)` in the vendors' two wordings, an `ARRAY[*]` nested, in a STRUCT field or a METHOD's VAR_INPUT.
+  { vendor: "codesys", floor: 3190 },
 ]
 
 
