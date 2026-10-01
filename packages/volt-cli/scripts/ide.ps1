@@ -42,6 +42,7 @@
                     probe-dut-subtype-push.py), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
+.PARAMETER DryRun   down only: print what would be closed and what is left running, and close nothing.
 .PARAMETER Wait     Block until the pipe is SERVING and print its name. Without it `up` returns as soon as the
                     IDE is launched, which is minutes before it serves — and every caller then reinvents the
                     same polling loop, badly.
@@ -60,7 +61,8 @@ param(
     [switch]$Production,
     [string]$RunScript = "",
     [switch]$NoBuild,
-    [switch]$Wait
+    [switch]$Wait,
+    [switch]$DryRun
 )
 $ErrorActionPreference = "Stop"
 
@@ -97,39 +99,66 @@ function Get-ServingPids([string]$vendor) {
     @(Get-BridgePipes $vendor | ForEach-Object { ($_ -split '\.')[-1] } | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ })
 }
 
-# The tracked pids, as INTS, skipping anything that is not one. A corrupt entry must not stop the rest from
-# being closed — the file is written by a previous run and read by this one, so it is the least trustworthy
-# input the script has.
-function Read-Pids([string]$path) {
+# WHAT `up` STARTED, one process per line as `<pid> <start time, UTC ticks>`. The start time is what makes a line
+# mean ONE process: a pid is reused once its process exits, and a pid alone named whatever later got the number.
+# A corrupt line is skipped, not fatal — the file is written by a previous run and read by this one, so it is the
+# least trustworthy input the script has. A bare `<pid>` line (written before the start time was recorded) still
+# counts, as it always did.
+function Read-Records([string]$path) {
     if (-not (Test-Path $path)) { return @() }
-    @(Get-Content $path | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^\d+$' } | ForEach-Object { [int]$_ })
+    @(Get-Content $path | ForEach-Object {
+        $f = @($_.Trim() -split '\s+')
+        if ($f[0] -match '^\d+$') {
+            [pscustomobject]@{ Pid = [int]$f[0]; Ticks = $(if ($f.Count -gt 1 -and $f[1] -match '^\d+$') { [long]$f[1] } else { $null }) }
+        }
+    })
 }
 
-# Did THIS script start the process? It is tracked by `up`, or it runs this repo's build (the worker `up` spawns, a
-# CODESYS started on this repo's launcher script), or it has one of this script's fixture copies open (the IDE `up`
-# opened, and the one CODESYS re-execs into, which `up` never saw). Anything else — an engineer's own IDE, a bridge
-# they downloaded — is not ours to close, whatever vendor it shares. A plain substring test, not `-like`: a path
-# holding `[` or `]` is a wildcard pattern to `-like`.
-function Test-Ours([int]$procId, [int[]]$tracked) {
-    if ($tracked -contains $procId) { return $true }
+# The process's start as UTC ticks — from CIM, so it also answers for a process this session cannot open.
+function Get-StartTicks([int]$procId) {
     $p = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
-    if ($null -eq $p) { return $false }
-    $text = "$($p.ExecutablePath) $($p.CommandLine)"
-    foreach ($mark in @($ROOT, (Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-"))) {
-        if ($text.IndexOf($mark, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    if ($null -eq $p -or $null -eq $p.CreationDate) { return $null }
+    $p.CreationDate.ToUniversalTime().Ticks
+}
+
+# Did THIS script's `up` (for this vendor and -Instance) start the process? Only by the record: it is a process `up`
+# wrote down (same pid AND same start), or a process one of them STARTED (a recorded parent, the child no older than
+# it) — which is how the IDE CODESYS may re-exec into during startup is found, though `up` never sees its pid. The
+# walk goes up a few generations, through parents that are still alive.
+#
+# It used to also count anything running this repo's build or holding a `volt-ide-*` temp copy. That took every
+# IDE another session or workflow had started from this checkout — same repo, same launcher, same temp prefix —
+# and `down` closed it. A process this `up` did not start is not this `down`'s to close.
+function Test-Ours([int]$procId, $records) {
+    $cur = $procId
+    for ($depth = 0; $depth -lt 4; $depth++) {
+        $p = Get-CimInstance Win32_Process -Filter "ProcessId=$cur" -ErrorAction SilentlyContinue
+        if ($null -eq $p) { return $false }
+        $ticks = $p.CreationDate.ToUniversalTime().Ticks
+        foreach ($r in $records) {
+            if ($depth -eq 0 -and $r.Pid -eq $cur -and ($null -eq $r.Ticks -or $r.Ticks -eq $ticks)) { return $true }
+            # A recorded PARENT: the child must not predate it, or the parent pid is a reused number.
+            if ($r.Pid -eq $p.ParentProcessId -and ($null -eq $r.Ticks -or $r.Ticks -le $ticks)) { return $true }
+        }
+        $cur = [int]$p.ParentProcessId
+        if ($cur -le 0) { return $false }
     }
     return $false
 }
 
-# MERGE with what is already tracked, never overwrite: `up -Fixture 13` then `up -Fixture 14` used to replace
-# the file, so `down` closed only the second and left the first running.
-# `@(...)` on BOTH sides is load-bearing. `$live + $new` did STRING concatenation whenever the file held
-# exactly ONE pid, because Get-Content returns a scalar for a one-line file: "22620" + 10388 wrote
-# "2262010388", a number too large for Int32. `down` then killed nothing — which is how ten orphaned
-# TcXaeShell windows accumulated before anyone noticed.
+# MERGE with what is already recorded, never overwrite: `up -Fixture 13` then `up -Fixture 14` used to replace
+# the file, so `down` closed only the second and left the first running. A record is kept after its process exits:
+# a launched process can be gone by `down` while the IDE it started is still up, and it is the parent that names
+# that IDE as ours. A stale record cannot name a stranger — its start time no longer matches anything.
+# `@(...)` on both sides is load-bearing: Get-Content returns a SCALAR for a one-line file, and `$a + $b` then
+# concatenated strings ("22620" + 10388 → "2262010388"), which once left ten TcXaeShell windows orphaned.
 function Save-Pids([string]$path, [int[]]$new) {
-    $live = @(Read-Pids $path | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue) -ne $null })
-    (@($live) + @($new) | Select-Object -Unique) | Out-File $path -Encoding ascii
+    $lines = @(Read-Records $path | ForEach-Object { "$($_.Pid) $($_.Ticks)".Trim() })
+    foreach ($procId in $new) {
+        $t = Get-StartTicks $procId
+        $lines = @($lines) + @($(if ($null -ne $t) { "$procId $t" } else { "$procId" }))
+    }
+    @($lines | Select-Object -Unique) | Out-File $path -Encoding ascii
 }
 
 # Has a worker ATTACHED to this XAE? The worker announces it in its own durable log, and that line is the
@@ -327,6 +356,7 @@ function Up-Twincat {
             if (-not $ready) { Stop-Process -Id $w.Id -Force -ErrorAction SilentlyContinue }
         }
         if (-not $ready) { throw "no worker could ATTACH to XAE $procId after 10 tries - is the PLC project actually opening? (ide.ps1 logs -Vendor twincat)" }
+        Save-Pids $pidFile @($w.Id)   # the worker is ours too — its parent is this shell, not a recorded IDE
         Write-Host "worker attached to XAE $procId -> $pipe"
     }
 }
@@ -344,27 +374,30 @@ switch ($Action) {
         Get-Content $log -Tail 40 -ErrorAction SilentlyContinue
     }
     "down" {
-        # Kill what is SERVING as well as what we launched. The two are not the same set: CODESYS re-execs, so
-        # the serving pid was never tracked, and a worker we spawned is not an IDE at all.
+        # Close what THIS `up` started (per -Vendor and -Instance) and nothing else. Candidates are what is serving,
+        # what is recorded, and (TwinCAT) every bridge worker; one is closed only if the record names it or its
+        # parent (Test-Ours). Serving pids are candidates because CODESYS can re-exec, so the IDE that serves may not
+        # be the pid `up` launched — it is found through its recorded parent.
         #
-        # BUT ONLY WHAT IS OURS (Test-Ours). This used to close every serving IDE and every VoltBridgeTwincat on the
-        # machine — and on 2026-09-26 it closed an engineer's own TcXaeShell and the production bridge serving it,
-        # which merely shared the vendor. A process `up` did not start is reported and left running.
-        $tracked = @(Read-Pids $pidFile)
-        $candidates = @(Get-ServingPids $Vendor) + $tracked
+        # This used to close every serving IDE on the machine (on 2026-09-26 an engineer's own TcXaeShell and the
+        # production bridge serving it), and then anything run from this repo or a `volt-ide-*` copy — which is
+        # every IDE ANOTHER session or workflow started here. A process this `up` did not record is left running.
+        $records = @(Read-Records $pidFile)
+        $candidates = @(Get-ServingPids $Vendor) + @($records | ForEach-Object { $_.Pid })
         if ($Vendor -eq "twincat") {
             $candidates = @(Get-Process VoltBridgeTwincat -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }) + $candidates
         }
-        $candidates = @($candidates | Select-Object -Unique)
-        $targets = @($candidates | Where-Object { Test-Ours $_ $tracked })
+        $candidates = @($candidates | Select-Object -Unique | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
+        $targets = @($candidates | Where-Object { Test-Ours $_ $records })
         foreach ($procId in @($candidates | Where-Object { $targets -notcontains $_ })) {
             Write-Host "left pid $procId running — not started by this script"
         }
         if ($targets.Count -eq 0) { Write-Host "nothing of ours to close for $Vendor" }
         foreach ($procId in $targets) {
+            if ($DryRun) { Write-Host "would close pid $procId"; continue }
             try { Stop-Process -Id $procId -Force -ErrorAction Stop; Write-Host "closed pid $procId" } catch {}
         }
-        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        if (-not $DryRun) { Remove-Item $pidFile -Force -ErrorAction SilentlyContinue }
     }
     "up" {
         # LD and FBD network text ON for what this launches (openspec implementation-keyword 3c). The bridge reads the
