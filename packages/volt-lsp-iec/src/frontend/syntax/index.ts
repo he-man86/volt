@@ -100,4 +100,4 @@ export { sourceObjectOf } from "./format/source-object.js"
 export { graphicalBodies, graphicalMarkerLanguage, isGraphicalBody, isStBody, unitBodies } from "./format/bodies.js"
 
 // printing a declared type or an expression
-export { dimText, exprText, renderTypeExpr } from "./print.js"
+export { dimText, exprText, initOperatorText, renderTypeExpr } from "./print.js"

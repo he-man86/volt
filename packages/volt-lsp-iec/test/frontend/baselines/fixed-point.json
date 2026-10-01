@@ -3,7 +3,7 @@
     "corpus: expr-reprint-fails": 3,
     "corpus: files": 29170,
     "corpus: files not a fixed point": 3,
-    "fixtures: files": 6604,
+    "fixtures: files": 6766,
     "fixtures: files not a fixed point": 13,
     "fixtures: format-ast-changed": 13,
     "library: files": 50

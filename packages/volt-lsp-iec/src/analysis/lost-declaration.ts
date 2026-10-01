@@ -2,11 +2,9 @@
  * lost-declaration — what follows when the COMPILER never saw a declaration the LSP's parser did. CODESYS drops the
  * whole declaration in several situations the LSP recovers from, and then answers `Identifier 'x' not defined` at
  * every use; `checks/types/unknown-source` carries the hole on from there, so one dropped name is typically four or
- * five errors. Three checks share this (each with its own recording):
- *
- *   - a VAR_EXTERNAL the project has no VAR_GLOBAL for  (`cc2_constant_and_external`)
- *   - a `VAR NON_RETAIN` section, which CODESYS has no  (`var_non_retain`)
- *   - an `AT` clause whose operand is not an address    (`cc5_at_address_not_direct`)
+ * five errors. One check uses this: a VAR_EXTERNAL the project has no VAR_GLOBAL for (`cc2_constant_and_external`).
+ * (`VAR NON_RETAIN` and an `AT` operand that is no address were two more; the parser refuses both now and the
+ * declaration binds nothing — frontend-conformance 2.3.2, 2.3.3.)
  */
 import { stmtExprs, walkExpr, walkStatements } from "../frontend/syntax/index.js"
 import { bodies } from "../frontend/symbols/index.js"

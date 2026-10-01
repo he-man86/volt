@@ -62,8 +62,12 @@ export function isWrittenAsSent(object: SourceObject | undefined): object is "du
   return object === "dut" || object === "gvl"
 }
 
-/** The keywords a written-as-sent object's text must OPEN with for the IDE to read a declaration from it at all. */
+/**
+ * The keywords a written-as-sent object's text must OPEN with for the IDE to read a declaration from it at all. A GVL
+ * object opening with VAR_ACCESS builds on both vendors (`decl_var_access*`), though CODESYS's message for a GVL with
+ * no list names only "VAR_GLOBAL or VAR_CONFIG" (`pwh_gvl_then_prose`).
+ */
 export const OPENING_KEYWORDS: Readonly<Record<"dut" | "gvl", readonly string[]>> = {
   dut: ["TYPE"],
-  gvl: ["VAR_GLOBAL", "VAR_CONFIG"],
+  gvl: ["VAR_GLOBAL", "VAR_CONFIG", "VAR_ACCESS"],
 }

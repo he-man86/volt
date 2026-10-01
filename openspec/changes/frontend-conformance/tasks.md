@@ -740,21 +740,119 @@ known divergence, then fix test-first in the file design.md §4 names. Every tas
       is current); `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only), layering 1 known violation.
       Committed together with 2.2.1–2.2.5: their gate passed but was never committed, and both batches share the same
       files (lexer, literals, divergences, recordings, baselines, the map), so they cannot be split.
-- [ ] 2.3.1 VAR section kinds (D1–D5): VAR_ACCESS dispatched at file scope with its path syntax. Record decl_var_access,
+- [x] 2.3.1 VAR section kinds (D1–D5): VAR_ACCESS dispatched at file scope with its path syntax. Record decl_var_access,
       decl_var_access_read_only, decl_var_generic.
       Where: parse/declarations, parse/parser. Acceptance: CA. Depends on: 1.41
-- [ ] 2.3.2 Qualifiers (D6–D7): the NON_RETAIN refusal moves into the parser (from lost-declaration). Record
+- [x] 2.3.2 Qualifiers (D6–D7): the NON_RETAIN refusal moves into the parser (from lost-declaration). Record
       decl_non_retain_in_gvl, decl_constant_retain.
       Where: parse/declarations. Acceptance: CA. Depends on: 2.3.1
-- [ ] 2.3.3 Names and AT (D8–D11): the AT-operand refusal moves into the parser (from at-address / lost-declaration). Record
+- [x] 2.3.3 Names and AT (D8–D11): the AT-operand refusal moves into the parser (from at-address / lost-declaration). Record
       decl_at_after_type, decl_at_not_an_address, decl_at_incomplete_in_program.
       Where: parse/declarations. Acceptance: CA. Depends on: 2.3.2
-- [ ] 2.3.4 Initializers and aggregates (D12–D17): record decl_repeat_count, decl_nested_aggregate, decl_bracket_init_no_assign,
+- [x] 2.3.4 Initializers and aggregates (D12–D17): record decl_repeat_count, decl_nested_aggregate, decl_bracket_init_no_assign,
       decl_struct_init_missing_field.
       Where: parse/initializer, parse/declarations. Acceptance: CA. Depends on: 2.3.3
-- [ ] 2.3.5 One declaration parser for struct fields (D19, U23): `parseStructField` → `parseVarDecl`. Record
+- [x] 2.3.5 One declaration parser for struct fields (D19, U23): `parseStructField` → `parseVarDecl`. Record
       decl_struct_field_soft_name, decl_struct_field_ref_init, decl_struct_field_at, decl_var_inside_struct.
       Where: parse/declarations, parse/units/type-decl. Acceptance: CA. Depends on: 2.3.4
+      **Gate 2.3.1–2.3.5 (2026-10-01).** Fixtures: `fixtures/grammar/declarations.ts`, 74 `decl_*` — every name the tasks list
+      (`decl_var_generic` instanced `FB<6>`; `decl_repeat_count_expression` asks `[INT#2+INT#3(7)]`), and per rule the cells
+      that separate its readings: VAR_ACCESS at file scope with and without a direction, to a path that does not exist, its
+      name read, in an FB, in a STRUCT (D4); VAR_GENERIC with and without CONSTANT, read, instanced with and without its value
+      (D5); every qualifier order and repeat, on VAR_INPUT/VAR_OUTPUT/VAR_TEMP (D6); NON_RETAIN as a name and after VAR,
+      VAR_INPUT, VAR_GLOBAL, RETAIN (D7); a trailing comma, AT after a name list (D8/D9); AT after the type, with an
+      initializer, twice (D10); an integer, a string, nothing as the AT operand (D11); REF= on a value, `:= ;` (D12); repeat
+      counts short, long, empty, mixed, an expression, a name's call (`[K+L(7)]`); nested, flat, ARRAY OF ARRAY, repeated
+      lists (D15); a bracket list without `:=` on an array, a scalar, an FB array (D16); positional and unknown-field struct
+      initializers (D14); a STRUCT field's soft name, reserved name, REF=, AT before and after the type, stray token, bracket
+      list, name list (D19); every one of the twelve section keywords inside a STRUCT (U23). Recorded `record:language` on
+      CODESYS and TwinCAT (74 each) and `record:exec` on CODESYS (29 build; 28 run; `decl_at_incomplete_in_program` is
+      "Login failed...", `execSkip` as `lit_address_incomplete`). Measured: VAR_ACCESS builds at file scope and binds nothing
+      (the list's object is no name: "Identifier 'GVL_…' not defined"), and is "Unexpected token 'VAR_ACCESS' found" in a POU;
+      VAR_GENERIC is CODESYS's alone, CONSTANT only, one value per constant ("Generic Functionblock 'X' expects exactly '1'
+      number of Generic Constant Definitions"); NON_RETAIN is a NAME on both vendors — `VAR NON_RETAIN x : T;` is "',, AT or
+      :' expected instead of 'x'"; AT after the type is no grammar ("';, :=, REF=, ( or [' expected instead of 'AT'", the
+      declaration stands without it); any AT operand but an address is "Direct address expected after AT instead of <it as
+      written>" (`:` when there is none) and the declaration is dropped; a repeat count is the expression before a LITERAL's
+      group, a NAME's group is a repeat only alone (C0162 `i(7)`) and a call inside an expression; a 2-D array is
+      initialized flat (CODESYS SP21 throws a NullReferenceException on nested lists, TwinCAT "Unexpected array
+      initialisation"); `[` after the type takes `(…)` elements only (an FB array's, passed to FB_Init); `(1, 2)` is an
+      expression wanting its `)`; a STRUCT field is a declaration in every respect; a VAR section in a STRUCT is named by its
+      placement ('VarInput'/'VarOutput'/'VarInOut', "VAR_TEMP declaration not allowed…", VAR_GLOBAL's and VAR_CONFIG's lists,
+      none for VAR/VAR_EXTERNAL) and echoed whole ("Variable declaration expected instead of VAR\r\n\ta:INT := 5;…", no
+      keyword for VAR_INST/VAR_CONFIG). Fixed (test-first, `parse/declarations.test.ts`, `initializer.test.ts`, the
+      checks' own tests): `parse/declarations` — ONE declaration parser for VAR lists, STRUCT/UNION fields and VAR_ACCESS
+      paths (`parseStructField` deleted; `parseDeclInto`), `refuseNameAfterName`, `refuseAtOperand` (every non-address,
+      `VarDecl.atRefused`), `endAfterType` takes `AT`, `parseInitializer` (`:= ;`, `refuseEmptyRepeat`,
+      `refuseBracketElement`, `positionalStructInit`), `refuseSectionInStruct` (facts `ParseError.sectionInStruct`,
+      `sectionEcho`, worded in `analysis` parse-errors), `collectVarSections` refuses VAR_ACCESS, `collectListSections`;
+      VAR_GENERIC must be CONSTANT; `parse/parser` dispatches VAR_ACCESS; `parse/type-expr` reads `FB<…>`
+      (`NamedType.genericArgs`, printed); `parse/initializer` the measured repeat rule; `lex/vocabulary` NON_RETAIN is no
+      keyword, VAR_GENERIC is CODESYS-only; `parse/errors` "Identifier expected" capitalised as both vendors write it;
+      `symbols/binder` binds nothing of a VAR_ACCESS list nor of a declaration whose AT was refused. **The NON_RETAIN and
+      AT-operand refusals moved into the parser:** `var-section-placement`'s NON_RETAIN rule and `at-address`'s operand
+      message and lost uses are deleted (the uses are plain unresolved names now); `lost-declaration` serves VAR_EXTERNAL
+      alone. Analysis on the way (each a recorded cell): `reference-assign` "Initialisation with REF= is only allowed for
+      variables of type REFERENCE TO", `struct-init` an unknown field, new `oop/generic-instantiation`, `array-init` a nested
+      list on a 2-D array, `unknown-source` no "no structured variable" on an undefined name (`decl_var_access_used`).
+      Catalog C0173's `expect` was the pre-SP21 wording; it now holds the recorded `codesysActual`. Divergences opened
+      (`support/divergences.ts`): `DECLARATION_RECOVERY` (both, 6, → 2.8.2), `LITERAL_ONE_IS_BIT` (both, → 4.1.3),
+      `EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION` and `GVL_MEMBER_NOT_DECLARED` (both, → 3.1.3), `CALL_IN_AN_AGGREGATE_INITIALIZER`
+      (both, the calls check, LSP review), `TWINCAT_NON_RETAIN_RECOVERY` (4, → 2.8.2), `TWINCAT_NO_VAR_GENERIC` (4, → 2.8.2),
+      `TWINCAT_DRIVER_CUTS_THE_ECHO` (11, the TwinCAT driver cuts a message at a line break — a bridge bug),
+      `CODESYS_DECLARATION_DIVERGENCES` (the compiler crash; FB_Init matching, LSP review), `decl_persistent_retain` in the
+      VAR_PERSISTENT family. `MEASURED_SILENT` += `decl_bracket_init_no_assign_fb`, `decl_repeat_count_expression_names`.
+      Rules GAP area 2 **53 → 45** (total 107 → 99): D4, D5, D10, D11, D15, D16, D19, U23 closed; D6–D9, D12–D14 gain recorded
+      cells. Agreement floors CODESYS 3069 → 3128, TwinCAT 3036 → 3081 (3373 fixtures). `rate:fixtures`: confirmed 2158,
+      refused 1041, not-lowered 108 (four new: an AT on a name list, REF= in a STRUCT, two VAR_GENERIC — the transpiler's),
+      lsp-gap 13, diverges 3, unaskable 50. Two measures ask one more question they state (`bound-census.ts`): 0.3 counts a
+      member read off a name the vendor reports undefined as its root (`decl_var_access_used`), and 0.4 tells a SIZEOF/ADR
+      call's UNKNOWN apart — on an untyped operand (the operand's), or the operator's missing result type (its own measure,
+      ceilinged, → 4.3.4): `[SIZEOF(T)]`/`ADR(x)` in an initializer were misread as repeat counts named SIZEOF/ADR (112 corpus
+      library declarations moved `ident_expr` → `call`). Ceilings (all fell or new): parse findings 135 → 132, resolution
+      findings 155 → 154, type findings 232 → 226 (the dropped AT declarations type as the vendor's holes). F
+      (`frontend-snapshot check --base HEAD`): 2963 aspects over 405 sources — 2664 of them the new `decl_*` fixtures, the
+      NON_RETAIN/AT fixtures (`lex_keyword_*_non_retain`, `var_non_retain`, `cc5_at_address_not_direct`,
+      `lit_address_incomplete_sized`, `_no_position`), back ends of the new fixtures, and three corpus sources × 4 projects
+      (`L_CT1P_AUTOTUNING`, `TYPEDESC_OPCUABUILTINTYPE`, `IMM_Default`: an `ADR(…)`/`SIZEOF(…)` initializer value is the call it
+      is, no longer a repeat). `bun typecheck` clean; `bun test` 6323 pass / 34 skip / 153 todo / 0 fail (6510 tests, 186 files,
+      561 s); `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only), layering 1 known violation.
+      **Review fixes (2026-10-01).** Five more cells recorded on both vendors (`record:language`): `decl_var_generic_two_values`
+      (the count message holds for two values too; TwinCAT → `TWINCAT_NO_VAR_GENERIC`), `decl_at_after_type_in_gvl` (the AT
+      refusal holds in a GVL), `decl_array_init_positional` (`(1, 2)` on an ARRAY is the same two parse errors; the vendor's
+      BIT → `LITERAL_ONE_IS_BIT`), `decl_struct_init_nested_unknown_field` and `decl_union_init_unknown_field` (the unknown-field
+      pair holds nested and on a UNION). Fixed test-first: a `.gvl` opening with VAR_ACCESS is read (`OPENING_KEYWORDS`; the
+      formatter wiped it to "\n"); `FB<…>` values are read on the main cursor (`parseGenericValue`), a malformed list is
+      refused where it breaks, skipped no further than its declaration, and marked `NamedType.genericRefused` (not counted);
+      `struct-init` skips a struct with an unresolved base (`hasUnresolvedBase`) and recurses into a field's own
+      initializer; an FB array's `[(…)]` without `:=` is `VarDecl.initOp: "FB_Init"`, printed back operator-less
+      (`initOperatorText`). Census: "unknown on the vendor too" is asked before the SIZEOF/ADR split; `call UNKNOWN, on an
+      untyped operand` is ceilinged (`baseline.test.ts` now fails any uncapped disagreement count); a GVL's name qualifying
+      its variable is counted apart, no value (corpus `ident_expr UNKNOWN` 3561 → 1527, Library Manager 1289 → 171).
+      `rate:fixtures`: refused 1041 → 1046. `bun typecheck` clean; `bun test` 0 fail.
+      **Review fixes 2.3a (2026-10-01).** Five more cells recorded (`record:language` both vendors, `record:exec` CODESYS
+      for the one that builds): `decl_struct_init_unknown_field_in_array` (`ARRAY OF sv := [(c := 1)]`) and
+      `_in_field_array` (a field's `[(zz := 1)]`) — the unknown-field pair on both vendors; `decl_var_generic_in_array`
+      (`ARRAY[0..1] OF FB<6>` builds and runs), `_no_argument` and `_two_values` (the count message, CODESYS) — TwinCAT
+      refuses `<` there too (→ `TWINCAT_NO_VAR_GENERIC`). Fixed test-first: TwinCAT has no `FB<…>` — `parse/type-expr`
+      reads the list on CODESYS only (`Cursor.dialect`, given by `parse`, refused by name on a sub-cursor made without
+      it; `parseTypeExprFromTokens` takes the dialect) and `endAfterType` refuses the `<` with "';, :=, REF=, ( or ['
+      expected instead of '<'", the declaration standing as the plain type (`decl_var_generic*` on TwinCAT; the mark's
+      note now says the `<` line agrees and only the VAR_GENERIC recovery differs); a generic value is any expression in
+      which `>` is no operator (`parseBinary`'s `closer`) — `G<6 AND 3>`, `G<X = 1>` are read, not refused (no recording
+      refuses them); `struct-init` holds a struct value inside an array initializer to the element's struct
+      (`structValues`, at the top and as a field's array value); `generic-instantiation` counts an ARRAY OF a generic FB
+      by its element; `infer` types a called array element of FB instances (`inst[0]()`) as `inst()` is typed (the new
+      fixtures' PLC_PRG raised `call UNKNOWN` by 3 — corpus `call UNKNOWN` 2314 → 2036, fixtures CODESYS 419 → 418).
+      Census (`bound-census.ts`, `memberShapes`, tested in `bound-census.test.ts`): a member's root is read from the AST,
+      not the dump's previous line (`arr[undefIdx].nope` is `arr`'s), and a GVL's name is counted as qualifying its
+      variable only where it IS a member's base. `rate:fixtures`: refused 1046 → 1050, not-lowered 108 → 109
+      (`decl_var_generic_in_array`, VAR_GENERIC is the transpiler's — its ceiling raised for measurement). Agreement
+      floors CODESYS 3128 → 3137, TwinCAT 3081 → 3086 (3383 fixtures).
+      **Gate 2.3a (2026-10-01).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (confirmed
+      2158, refused 1050, not-lowered 109, lsp-gap 13, diverges 3, unaskable 50; edges agree 2218 / disagree 0 / not-run
+      95); `bun test` 6338 pass / 34 skip / 154 todo / 0 fail (6526 tests, 187 files, 655 s); `bun run check` 14 passed,
+      0 failed; `bun run lint` exit 0 (warnings only).
 - [ ] 2.3.6 Type expressions (T1–T11): one implicit-enum value parser. Record decl_array_of_array, decl_pointer_to_pointer,
       decl_string_brackets, decl_string_length_constant, decl_implicit_enum_with_base.
       Where: parse/type-expr. Acceptance: CA. Depends on: 2.3.5

@@ -31,7 +31,7 @@ import type {
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { parseExpression } from "../expression.js"
-import { atVarSection, endAfterType, parseStructField } from "../declarations.js"
+import { atSectionInStruct, FIELD_LIST, parseDeclInto, refuseSectionInStruct } from "../declarations.js"
 import { joinSpans } from "../../span.js"
 import { identFromToken, readIdent, readNameList } from "../names.js"
 import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from "../initializer.js"
@@ -125,13 +125,10 @@ function parseStructBody(c: Cursor): StructBody | undefined {
         span: joinSpans(start.span, endStruct.span),
       }
     }
-    // A VAR-section keyword inside a STRUCT is illegal (C0173) — skip the whole misplaced `VAR_* … END_VAR`
-    // block with ONE error, instead of choking `parseStructField` on `VAR_INPUT` and then again on `END_VAR`.
-    if (atVarSection(c)) {
-      const kw = c.consume()
-      c.pushError(`'${kw.text}' not allowed in this place`, kw.span)
-      c.recoverTo({ keywords: ["END_VAR", "END_STRUCT"] })
-      c.eatKeyword("END_VAR")
+    // A VAR-section keyword inside a STRUCT is illegal (C0173) — the whole misplaced `VAR_* … END_VAR` is read and
+    // refused as ONE echo (`refuseSectionInStruct`), instead of choking the field parser on `VAR_INPUT` and `END_VAR`.
+    if (atSectionInStruct(c)) {
+      refuseSectionInStruct(c)
       continue
     }
     // A list-ending keyword here (e.g. the outer `END_TYPE` when `END_STRUCT` is missing) means the struct
@@ -140,13 +137,8 @@ function parseStructBody(c: Cursor): StructBody | undefined {
     // needs. Any other non-name token is a bad field name — reported there, not on the header (see
     // `atDeclListEnd`).
     if (c.atDeclListEnd()) break
-    const decl = parseStructField(c)
-    if (decl !== undefined) {
-      fields.push(decl)
-    } else {
-      if (!c.recoverTo({ keywords: ["END_STRUCT"], puncts: [";"] })) break
-      c.eatPunct(";")
-    }
+    // a field is a declaration (`parse/declarations`, one parser for both)
+    if (!parseDeclInto(c, FIELD_LIST, fields)) break
   }
   c.pushError("unterminated STRUCT: expected END_STRUCT", start.span)
   return {
@@ -172,13 +164,7 @@ function parseUnionBody(c: Cursor): UnionBody | undefined {
       }
     }
     if (c.atDeclListEnd()) break // list-ending keyword → unterminated union; leave it for the TYPE parser (see struct)
-    const decl = parseStructField(c)
-    if (decl !== undefined) {
-      fields.push(decl)
-    } else {
-      if (!c.recoverTo({ keywords: ["END_UNION"], puncts: [";"] })) break
-      c.eatPunct(";")
-    }
+    if (!parseDeclInto(c, FIELD_LIST, fields)) break
   }
   c.pushError("unterminated UNION: expected END_UNION", start.span)
   return { kind: "union", fields, span: start.span }

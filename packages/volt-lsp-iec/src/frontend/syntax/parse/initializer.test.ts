@@ -62,6 +62,19 @@ test("repeat syntax counts and nests", () => {
   expect(shapes(agg("[1, 3(7), 2]"))).toEqual(["1", "rep(7)", "2"])
 })
 
+// `[INT#2+INT#3(7)]` is FIVE sevens to CODESYS (`decl_repeat_count_expression`, run 2026-10-01: a[0..4] all 7) — after a
+// literal the count is the whole expression before the group; read as one token the element was `INT#2 + INT#3(7)`, a
+// call of a literal. After a NAME inside an expression the group is that name's call: `[K+L(7)]` is "Program name, function
+// or function block instance expected instead of 'L'" (`decl_repeat_count_expression_names`), a value, not a repeat.
+test("a repeat count is the expression before a literal's group; a name's group inside an expression is its call", () => {
+  const a = agg("[INT#2+INT#3(7)]")
+  expect(shapes(a)).toEqual(["rep(7)"])
+  const e = a.elements[0]
+  expect(e?.kind === "repeat" ? e.count.kind : undefined).toBe("binary")
+  expect(shapes(agg("[K+L(7)]"))).toEqual(["binary"])
+  expect(shapes(agg("[1, i(7)]"))).toEqual(["1", "rep(7)"])
+})
+
 test("array of struct initializers, and a struct with a nested-array field", () => {
   expect(shapes(agg("[STRUCT(a := 1), STRUCT(a := 2)]"))).toEqual(["struct[a:=1]", "struct[a:=2]"])
   expect(shapes(agg("STRUCT(iBias := 60, p := [1, 2])"))).toEqual(["iBias:=60", "p:=array[1,2]"])

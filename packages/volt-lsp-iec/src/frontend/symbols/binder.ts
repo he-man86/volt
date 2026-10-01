@@ -333,7 +333,10 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, to
 
   // Register the GVL block itself under the URI basename — ST has no in-source name for the block,
   // the file basename IS the identifier (CODESYS convention). Lets `GvlName.field` resolve.
-  const blockName = gvlName(uri)
+  // A VAR_ACCESS list binds NOTHING — no access name, and no list name either: both vendors build `GVL.accD` as
+  // "Identifier 'GVL' not defined" when the object holds only access paths (`decl_var_access_used`, 2026-10-01).
+  const sections = gvl.varSections.filter((s) => s.sectionKind !== "VAR_ACCESS")
+  const blockName = sections.length > 0 ? gvlName(uri) : undefined
   if (blockName !== undefined) {
     defineSymbol(project, {
       kind: "gvl_block",
@@ -346,8 +349,9 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, to
     })
   }
 
-  for (const section of gvl.varSections) {
+  for (const section of sections) {
     for (const decl of section.decls) {
+      if (decl.atRefused === true) continue // dropped by the vendor, as in a POU (`ingestVarDecl`)
       for (const name of decl.names) {
         defineSymbol(project, {
           kind: "gvl_var",
@@ -395,6 +399,9 @@ function ingestVarDecl(
   asParam = false,
   constant = false,
 ): void {
+  // a declaration whose AT operand is no address is DROPPED by both vendors (`VarDecl.atRefused`): it binds nothing, so
+  // every use of it is "not defined" as on the vendor (`cc5_at_address_not_direct`, `decl_at_*`)
+  if (decl.atRefused === true) return
   const kind: SymbolKind = asField
     ? "struct_field"
     : asParam && (sectionKind === "VAR_INPUT" || sectionKind === "VAR_OUTPUT" || sectionKind === "VAR_IN_OUT")

@@ -84,12 +84,13 @@ export function vendorExpressionExpected(t: Token): string {
  * THE SPELLING IS THE SOURCE'S, not the keyword's. A 2026-09-03 note here recorded this as `'LIMIT'`, and that was
  * wrong: `echo_mixed_case_function_name` and its three siblings asked CODESYS on 2026-09-18 with the same word in
  * four spellings, and it echoed each one back unchanged. Only the keyword case has that evidence; punct/EOF keep the
- * "expected instead of" form.
+ * "expected instead of" form, capitalised as both vendors write it: "Identifier expected instead of ':'"
+ * (`decl_names_trailing_comma`, both vendors 2026-10-01; every recorded instance has the capital).
  */
 export function nameExpected(t: Token): string {
   return t.kind === "keyword"
     ? `Unexpected token ${vendorTokenText(t)} found`
-    : `identifier expected instead of ${vendorTokenText(t)}`
+    : `Identifier expected instead of ${vendorTokenText(t)}`
 }
 
 /** The token, when `nameExpected` words it as the "Unexpected token" shape — see `ParseError.unexpectedToken`. */

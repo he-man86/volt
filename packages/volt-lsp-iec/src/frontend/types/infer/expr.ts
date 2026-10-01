@@ -149,6 +149,12 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
   if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+  // An element of an array of instances, called (`inst[0]()`), is the instance `inst()` is — typed alike, by the type
+  // the element has; it has no symbol of its own to carry one.
+  if (call.callee.kind === "index") {
+    const element = inferExprType(call.callee, scope, project)
+    if (element.kind === "function_block") return element
+  }
   if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXPT") return exptType(call, scope, project)
   // MIN AND MAX RETURN THE MEET OF THEIR ARGUMENTS, the same one a binary operator's operands reach. They are
   // extensible and type-dependent, so the reference catalog models no return type for them and they inferred

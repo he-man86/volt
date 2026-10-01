@@ -224,6 +224,8 @@ export interface Messages {
   notAssignmentTarget(target: string): string
   /** `REF=` whose target is not a `REFERENCE TO` variable (C0140). verified both vendors. */
   referenceAssignTarget(): string
+  refInitNeedsReference(): string
+  genericCount(fb: string, count: number): string
   /** An `EXIT` statement outside any loop (C0132). verified both vendors. */
   noEnclosingLoop(verb: "exit" | "continue"): string
   /** `__NEW` used in a chained (multiple) assignment (C0509). verified both vendors. */
@@ -398,8 +400,6 @@ export interface Messages {
   parenExpectedInsteadOf(token: string): string
   /** A statement where a declaration belongs, which is what a bad `calc : INT;` leaves behind. */
   notSupportedInDeclaration(): string
-  /** What a DECLARATION wanted after a name — the doubled comma is the compiler's own (CODESYS SP21). */
-  commaAtOrColonExpected(token: string): string
 }
 
 export type LifecycleMethod = "FB_Init" | "FB_Exit" | "FB_ReInit"
@@ -463,7 +463,6 @@ export function messagesFor(vendor: Vendor): Messages {
         : "Second parameter of conditional call must be a valid call statement",
     parenExpectedInsteadOf: (token) => `'(' expected instead of '${token}'`,
     notSupportedInDeclaration: () => (tc ? "This code is not supported in Declaration part" : "This code is not supported in declaration part"),
-    commaAtOrColonExpected: (token) => `',, AT or :' expected instead of '${token}'`,
     lifecycle: (method) => {
       if (method === "FB_Init") {
         return tc
@@ -601,6 +600,10 @@ export function messagesFor(vendor: Vendor): Messages {
     pointerNotConvertible: (from, to) => `Cannot convert type '${from}' to type '${to}'`,
     notAssignmentTarget: (target) => `'${target}' is no valid assignment target`,
     notStructuredVariable: (base) => `'${base}' is no structured variable`,
+    // a declaration's `REF=` on a type that is no reference — both vendors, the same words (`decl_ref_init_on_value`)
+    // CODESYS SP21 (`decl_var_generic_no_argument`); TwinCAT has no VAR_GENERIC
+    genericCount: (fb, count) => `Generic Functionblock '${fb}' expects exactly '${count}' number of Generic Constant Definitions`,
+    refInitNeedsReference: () => `Initialisation with REF= is only allowed for variables of type REFERENCE TO`,
     referenceAssignTarget: () => (tc ? `Reference assign is only allowed to variables of Reference type` : `Reference assign is only allowed to variables of reference type`),
     noEnclosingLoop: (verb) => `No enclosing loop of which to ${verb}`,
     multipleAssignmentNew: () => `Multiple assignments are not allowed for operator '__New'.`,

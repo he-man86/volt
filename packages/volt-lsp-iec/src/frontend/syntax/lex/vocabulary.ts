@@ -51,10 +51,11 @@ export const KEYWORDS = [
   "VAR_CONFIG",
   "VAR_ACCESS",
   "END_VAR",
-  // Modifiers
+  // Modifiers. NON_RETAIN is NOT one: both vendors build a variable called `NON_RETAIN`, and read `VAR NON_RETAIN x : T;`
+  // as a declaration of that name followed by a stray `x` — "',, AT or :' expected instead of 'x'"
+  // (`decl_non_retain_as_name`, `var_non_retain`, `decl_non_retain_in_*`, 2026-10-01).
   "CONSTANT",
   "RETAIN",
-  "NON_RETAIN",
   "PERSISTENT",
   "PUBLIC",
   "PRIVATE",
@@ -239,6 +240,9 @@ export const CODESYS_ONLY_KEYWORDS: ReadonlySet<string> = new Set([
   "__POUNAME",
   "__COMPARE_AND_SWAP",
   "__VECTOR",
+  // TwinCAT reads `VAR_GENERIC` as a declaration's NAME ("',, AT or :' expected instead of 'CONSTANT'", `decl_var_generic*`
+  // on TwinCAT, 2026-10-01); CODESYS opens a section with it.
+  "VAR_GENERIC",
 ])
 
 
@@ -272,6 +276,8 @@ export const UNIT_STARTERS = [
   "TYPE",
   "VAR_GLOBAL",
   "VAR_CONFIG",
+  // an access-path list at file scope (`parse/units/global-var-list` `parseAccessList`, `decl_var_access*`)
+  "VAR_ACCESS",
   "NAMESPACE",
 ] as const satisfies readonly Keyword[]
 
@@ -315,9 +321,6 @@ export const UNIT_NAME_KEYWORDS: ReadonlySet<string> = new Set([
  *
  *   the words a statement or an expression opens with — IF … JMP, `__TRY`, THIS/SUPER/TRUE/FALSE/NOT — and the names
  *   GET/SET/OVERRIDE (`SOFT_NAME_KEYWORDS`);
- *   NON_RETAIN — CODESYS has no such keyword. It is a NAME to it ("Identifier 'non_retain' not defined", "'non_retain'
- *   is no valid assignment target"); Volt keeps the keyword only to read `VAR NON_RETAIN`, which CODESYS refuses
- *   (`checks/declarations/var-section-placement.ts`);
  *   `__DELETE`, `__QUERYINTERFACE`, `__QUERYPOINTER` — an operator that opens a call: CODESYS takes the next token for
  *   its `(` ("'(' expected instead of ':='") and counts its operands (`CALL_OPERATOR_OPERANDS`), not a refused word;
  *   `__CURRENTTASK`, `__POOL` — each reads the next token as its member ("'__CURRENTTASK.n' is no valid assignment
@@ -330,7 +333,6 @@ export const REFUSED_AT_STATEMENT_START: ReadonlySet<string> = (() => {
     "IF", "CASE", "FOR", "WHILE", "REPEAT", "RETURN", "EXIT", "CONTINUE", "JMP", "__TRY",
     "THIS", "SUPER", "TRUE", "FALSE", "NOT",
     ...SOFT_NAME_KEYWORDS,
-    "NON_RETAIN",
     "__DELETE", "__QUERYINTERFACE", "__QUERYPOINTER", "__CURRENTTASK", "__POOL",
     "FUNCTION_BLOCK", "END_FUNCTION_BLOCK", "PROGRAM", "END_PROGRAM", "FUNCTION", "END_FUNCTION", "METHOD", "END_METHOD",
     "ACTION", "END_ACTION", "PROPERTY", "END_PROPERTY", "END_GET", "END_SET", "INTERFACE", "END_INTERFACE",

@@ -367,6 +367,10 @@ export interface NamedType {
   qualifiers?: Identifier[] // `Tc2_Standard.TON` → ["Tc2_Standard"]
   subrange?: Subrange // `INT(lo..hi)` — structured, not opaque
   initArgs?: CallArg[] // `inst : FB(x := 1)` — the FB_Init arguments an instance is declared with
+  /** `inst : FB<6>` — the values a VAR_GENERIC CONSTANT function block is instanced with (`decl_var_generic*`). */
+  genericArgs?: Expr[]
+  /** The `<…>` list was refused as written (a parse error stands on it) — its values were not read, so none is counted. */
+  genericRefused?: true
   span: Span
 }
 /** A structured subrange bound (A.2): both ends are const-expressions. */
@@ -479,7 +483,6 @@ export interface VarSection {
   sectionKind: VarSectionKind
   constant?: boolean
   retain?: boolean
-  nonRetain?: boolean
   persistent?: boolean
   decls: VarDecl[]
   span: Span
@@ -496,11 +499,34 @@ export interface VarDecl {
    * an ordinary assignment. Lowering then bound no target and refused every read of `r` as `pointer-order` — the
    * single largest line in that refusal's histogram (141 corpus POUs, `ONTIME.fb`'s `refSeconds`). The
    * information was in the source and the AST dropped it.
+   *
+   * `FB_Init` — a `[(…), (…)]` list written straight after the type with NO operator: each element is one array
+   * element's FB_Init arguments (`decl_bracket_init_no_assign_fb`), not the structured initialization `:= [(…)]` is.
    */
-  initOp?: "REF="
+  initOp?: "REF=" | "FB_Init"
   /** AN INITIALIZER THE PARSER REFUSED (`RefusedInit`), when there is one; `init` is then absent. */
   refusedInit?: RefusedInit
   at?: BodySpan // `AT %IX0.0` — opaque address
+  /**
+   * AN `AT` OPERAND THE PARSER REFUSED — no address at all (`AT ABC`, `AT 16#10`, `AT 'x'`, `AT :`, `AT %IW*`): "Direct
+   * address expected after AT instead of …" (`parse/declarations` `refuseAtOperand`). Both vendors then DROP the
+   * declaration, so every use of its names is "not defined" (`cc5_at_address_not_direct`, `decl_at_*`); the binder binds
+   * none of it.
+   */
+  atRefused?: true
+  /** A VAR_ACCESS declaration's access path and direction — `name : <path> : <type> READ_ONLY;` (`decl_var_access*`). */
+  access?: AccessPath
+  span: Span
+}
+
+/**
+ * IEC's access path, `PLC_PRG.x` in `accW : PLC_PRG.x : INT READ_WRITE;`. CODESYS and TwinCAT build a file-scope
+ * VAR_ACCESS list and bind NOTHING from it — a path to no variable builds (`decl_var_access_unknown_path`), and the
+ * list's object is no name (`decl_var_access_used`: "Identifier 'GVL_…' not defined") — so the path is kept as written.
+ */
+export interface AccessPath {
+  path: Identifier[]
+  direction?: "READ_ONLY" | "READ_WRITE"
   span: Span
 }
 
@@ -714,6 +740,18 @@ export interface ParseError {
    * TwinCAT words it 'Direct Address expected after "AT" instead of %IW', and only the analysis layer knows the vendor.
    */
   directAddressExpected?: string
+  /**
+   * A VAR SECTION INSIDE A STRUCT, by its keyword (`parse/declarations` `refuseSectionInStruct`) — the placement error the
+   * vendors word each their own way ("VAR_TEMP declaration not allowed in this place" / "'VAR_TEMP' declaration …",
+   * `decl_<kw>_inside_struct`). A fact like `unexpectedToken`: only the analysis layer knows the vendor.
+   */
+  sectionInStruct?: VarSectionKind
+  /**
+   * …and that section ECHOED as the compiler reads it back — "Variable declaration expected instead of VAR\r\n\ta:INT;
+   * \r\nEND_VAR\r\n" (`decl_var_inside_struct*`). The keyword as echoed (none for VAR_INST and VAR_CONFIG) and the
+   * declarations; the analysis writes the text, as it prints types and values (the parser imports no printer).
+   */
+  sectionEcho?: { keyword: string; decls: readonly VarDecl[] }
 }
 export interface ParseResult {
   units: TopLevel[]

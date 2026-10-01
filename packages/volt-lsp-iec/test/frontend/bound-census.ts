@@ -34,7 +34,7 @@ import {
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { lookup, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -53,7 +53,7 @@ import {
 import { tally } from "./baseline.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
-import { foldDump, refusedIn, resolutionDump, sites, typeRows, valueExprs, type Bound } from "./dumps.js"
+import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, valueChildren, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
@@ -116,24 +116,39 @@ export function boundCensus(): BoundCensus {
     if (!vendor.known)
       for (const { expr, line } of typeRows(b))
         if (expr.kind === "ident_expr" && refused(expr)) refusedNames.add(line.slice(0, line.indexOf(" ")))
-    if (!vendor.known)
-      for (const line of resolutionDump(b)) {
-        const [lhs, binding] = line.split(" -> ") as [string, string]
-        const name = lhs.slice(lhs.indexOf(" ") + 1)
-        const shape = name.startsWith(".") ? "member" : / (:=|=>)$/.test(name) ? "parameter" : "bare name"
-        const verdict = binding === "NONE" || binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
-        if (verdict === "NONE" && shape === "bare name" && vendor.notDefined.has(name.toLowerCase())) {
-          agreed.add(lhs.slice(0, lhs.indexOf(" ")))
-          tally(c.resolution, `${group}: bare name NONE, not defined on the vendor too`)
-          continue
-        }
-        if (verdict === "NONE" && shape === "bare name" && refusedNames.has(lhs.slice(0, lhs.indexOf(" ")))) {
-          tally(c.resolution, `${group}: bare name NONE, a refused expression`)
-          continue
-        }
-        tally(c.resolution, `${group}: ${shape} ${verdict}`)
-        if (pin !== undefined && verdict !== "resolved") c.fixtureUnresolved.push(`${pin}${b.parsed.id} ${line}`)
+    // A member read off a name the vendor reports undefined (`Gvl.accD` with `Gvl` "not defined",
+    // `decl_var_access_used`) starts where its root does, as 0.4 already counts it. The root is the AST's
+    // (`memberShapes`), never the dump's previous line: a call's arguments and an index's subscripts are written between a
+    // member and its base, so `arr[undefIdx].nope`'s `.nope` follows `undefIdx` and belongs to `arr`.
+    const shapes = memberShapes(sites(b).map((s) => s.expr))
+    const lines = vendor.known
+      ? []
+      : resolutionDump(b).map((line) => {
+          const [lhs, binding] = line.split(" -> ") as [string, string]
+          const where = lhs.slice(0, lhs.indexOf(" "))
+          const name = lhs.slice(lhs.indexOf(" ") + 1)
+          const shape = name.startsWith(".") ? "member" : / (:=|=>)$/.test(name) ? "parameter" : "bare name"
+          const verdict = binding === "NONE" || binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
+          return { line, where, name, shape, verdict }
+        })
+    for (const { where, name, shape, verdict } of lines)
+      if (verdict === "NONE" && shape === "bare name" && vendor.notDefined.has(name.toLowerCase())) agreed.add(where)
+    for (const { line, where, name, shape, verdict } of lines) {
+      if (verdict === "NONE" && shape === "member" && agreed.has(shapes.rootOf.get(where) ?? "")) {
+        tally(c.resolution, `${group}: member NONE, on a name not defined on the vendor too`)
+        continue
       }
+      if (verdict === "NONE" && shape === "bare name" && agreed.has(where)) {
+        tally(c.resolution, `${group}: bare name NONE, not defined on the vendor too`)
+        continue
+      }
+      if (verdict === "NONE" && shape === "bare name" && refusedNames.has(where)) {
+        tally(c.resolution, `${group}: bare name NONE, a refused expression`)
+        continue
+      }
+      tally(c.resolution, `${group}: ${shape} ${verdict}`)
+      if (pin !== undefined && verdict !== "resolved") c.fixtureUnresolved.push(`${pin}${b.parsed.id} ${line}`)
+    }
     if (!vendor.known)
       for (const { expr, scope, line } of typeRows(b)) {
         const [where, kind, ...rest] = line.split(" ")
@@ -149,8 +164,16 @@ export function boundCensus(): BoundCensus {
         else if (ON_ITS_ROOT_NAME.has(kind!) && agreed.has(where!))
           tally(c.types, `${group}: ${kind} UNKNOWN, not defined on the vendor too`)
         else if (type === "?" && returnsNothing(expr, scope, b)) tally(c.types, `${group}: call with no return value`)
+        // a GVL's NAME qualifying its variable (`GVL.g`) is no value on either side — it names where `g` is, and has no
+        // type to ask for (`use_gvl_field_access`, `decl_at_after_type_in_gvl`, frontend-conformance 2.3)
+        else if (type === "?" && shapes.qualifiers.has(where!) && namesAGvl(expr, scope)) tally(c.types, `${group}: ident_expr untyped, a GVL's name qualifying its variable`)
+        // what the vendor reports unknown too is that agreement before it is anything else: the SIZEOF/ADR split below
+        // is the LSP's own reason, and ahead of this it took agreements out of their measure
         else if (type === "?" && vendor.unknownTypes.has(compilerExprText(expr)))
           tally(c.types, `${group}: ${kind} UNKNOWN, unknown on the vendor too`)
+        else if (type === "?" && operandTyped(expr, scope, b) === false) tally(c.types, `${group}: call UNKNOWN, on an untyped operand`)
+        else if (type === "?" && operandTyped(expr, scope, b) === true)
+          tally(c.types, `${group}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     for (const line of foldDump(b)) {
@@ -518,6 +541,73 @@ function crossCheckFolds(f: FixtureSources, plc: Bound, files: readonly Bound[],
 
 /** The expression kinds that start with — and are built on — the name at their root. */
 const ON_ITS_ROOT_NAME: ReadonlySet<string> = new Set(["ident_expr", "index", "member", "deref"])
+
+/**
+ * The shape of every member in `exprs`, asked of the AST: `rootOf` maps a member name's position (`.m` in `a[i].m`) to
+ * the position of the bare name its chain starts at — through members, indices, dereferences, a call's callee and
+ * parentheses, never an argument or a subscript — and `qualifiers` holds the position of every bare name that is a
+ * member's base (`GVL` in `GVL.g`, `GVL.f()`). Positions as the dumps write them (`at`).
+ */
+export function memberShapes(exprs: readonly Expr[]): { rootOf: Map<string, string>; qualifiers: Set<string> } {
+  const rootOf = new Map<string, string>()
+  const qualifiers = new Set<string>()
+  const visit = (e: Expr): void => {
+    if (e.kind === "member") {
+      const root = rootName(e)
+      if (root !== undefined) rootOf.set(at(e.member.span), at(root.span))
+      if (e.base.kind === "ident_expr") qualifiers.add(at(e.base.span))
+    }
+    // a callee is no value (`valueChildren`), but a member called (`GVL.f()`) is a member all the same
+    const args = e.kind === "call" ? e.args.flatMap((a) => (a.value === undefined ? [] : [a.value])) : []
+    for (const child of e.kind === "call" ? [e.callee, ...args] : valueChildren(e)) visit(child)
+  }
+  exprs.forEach(visit)
+  return { rootOf, qualifiers }
+}
+
+/** The bare name an access chain starts at, or undefined when it starts at no name (a literal, a parenthesised sum). */
+function rootName(e: Expr): Extract<Expr, { kind: "ident_expr" }> | undefined {
+  for (;;) {
+    if (e.kind === "ident_expr") return e
+    if (e.kind === "member" || e.kind === "index" || e.kind === "deref") e = e.base
+    else if (e.kind === "call") e = e.callee
+    else if (e.kind === "paren") e = e.inner
+    else return undefined
+  }
+}
+
+/** Whether `expr` is a bare name that binds to a GVL — the list itself, not one of its variables. */
+function namesAGvl(expr: Expr, scope: Scope | undefined): boolean {
+  return expr.kind === "ident_expr" && scope !== undefined && lookup(scope, expr.name)?.symbol.kind === "gvl_block"
+}
+
+/** The operators whose result type is made from their operand: SIZEOF's from its size, ADR's from its type. */
+const TYPED_BY_THEIR_OPERAND: ReadonlySet<string> = new Set(["SIZEOF", "ADR"])
+
+/**
+ * A call of `TYPED_BY_THEIR_OPERAND`, by its operand — undefined for any other expression. The front-end has no result
+ * type for either operator yet (built-ins, task 4.3.4), so each is UNKNOWN; the census tells the two reasons apart:
+ *
+ *   false  every operand has no type — a value inferred UNKNOWN, or a name that resolves to no type
+ *          (`SIZEOF(OpcUa_Boolean)` over a library the corpus does not materialize): no rule for the operator could type
+ *          it, and the operand is counted where it stands — its UNKNOWN is the operand's, as an index or member built on
+ *          an undefined root is the root's;
+ *   true   an operand has a type, and the operator's rule is what is missing — counted apart, for 4.3.4 to close.
+ *
+ * Told apart since frontend-conformance 2.3: `[SIZEOF(T)]` in an array initializer was misread as a repeat count NAMED
+ * SIZEOF (an `ident_expr` UNKNOWN) and is the call it is now (`parse/initializer`) — 112 corpus library declarations.
+ */
+function operandTyped(expr: Expr, scope: Scope | undefined, b: Bound): boolean | undefined {
+  if (expr.kind !== "call" || expr.callee.kind !== "ident_expr" || scope === undefined) return undefined
+  if (!TYPED_BY_THEIR_OPERAND.has(expr.callee.name.toUpperCase())) return undefined
+  const operands = expr.args.flatMap((a) => (a.value === undefined ? [] : [a.value]))
+  if (operands.length === 0) return undefined
+  const untyped = (v: Expr): boolean =>
+    inferExprType(v, scope, b.project).kind === "unknown" &&
+    (v.kind !== "ident_expr" ||
+      resolveTypeExpr({ kind: "named_type", name: { kind: "identifier", text: v.name, span: v.span }, span: v.span }, scope, 0, b.project).kind === "unknown")
+  return !operands.every(untyped)
+}
 
 /** The POUs a call can name whose declaration states no return type. */
 const MAY_RETURN_NOTHING: ReadonlySet<string> = new Set(["function", "method", "action", "program"])

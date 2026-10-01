@@ -119,13 +119,39 @@ function parseValue(g: Token[]): AggregateElement {
     const init: AggregateInit = { kind: "aggregate_init", form: sub.form, elements: sub.elements, tokens: g, span }
     return { kind: "nested", init, span }
   }
-  // Repeat: `<count>(<value>)` — count is a single leading token, not a delimiter.
-  if (g.length >= 4 && g[1]?.text === "(" && g[g.length - 1].text === ")" && lead !== "[" && lead !== "(" && lead !== "STRUCT") {
-    const count = parseExprFromTokens([g[0]])
-    if (count !== undefined) return { kind: "repeat", count, value: parseValue(g.slice(2, -1)), span }
+  // Repeat: `<count>(<value>)`, as CODESYS reads it (2026-10-01):
+  //   - a NAME then the group that closes the element is a repeat, the name its count: `[1, i(7)]` is C0162's "Number
+  //     'i' of array initialisations is no constant value" (`error-catalog.json`, both vendors);
+  //   - a group after a LITERAL is a repeat whose count is the whole expression before it: `[INT#2+INT#3(7)]` is five
+  //     sevens (`decl_repeat_count_expression`), as `[5(7)]` is — a literal is no callee;
+  //   - a group after a name INSIDE an expression is that name's call: `[K+L(7)]` is "Program name, function or function
+  //     block instance expected instead of 'L'" (`decl_repeat_count_expression_names`) — the element is a value.
+  const open = g[g.length - 1].text === ")" ? openerOfLast(g) : -1
+  const before = open >= 1 ? g[open - 1] : undefined
+  const counted = before !== undefined && (open === 1 ? before.kind === "identifier" || isLiteral(before) : isLiteral(before))
+  if (counted && g.length - open >= 3 && lead !== "[" && lead !== "(" && lead !== "STRUCT") {
+    const count = parseExprFromTokens(g.slice(0, open))
+    if (count !== undefined) return { kind: "repeat", count, value: parseValue(g.slice(open + 1, -1)), span }
   }
   const expr = parseExprFromTokens(g)
   return expr !== undefined ? { kind: "value", expr, span } : { kind: "unparsed", span }
+}
+
+/** A literal token — no callee, so a `(` after it opens a repeat's value. */
+const isLiteral = (t: Token): boolean => t.kind.endsWith("_lit") && t.kind !== "address_lit"
+
+/** The index of the `(` the last token `)` of `g` closes, or -1. */
+function openerOfLast(g: Token[]): number {
+  let depth = 0
+  for (let i = g.length - 1; i >= 0; i--) {
+    const t = g[i].text
+    if (t === ")" || t === "]") depth++
+    else if (t === "(" || t === "[") {
+      depth--
+      if (depth === 0) return t === "(" ? i : -1
+    }
+  }
+  return -1
 }
 
 /** True when the first bracket opened in `g` closes exactly at the last token (a single balanced aggregate). */

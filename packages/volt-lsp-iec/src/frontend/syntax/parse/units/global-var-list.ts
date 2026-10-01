@@ -1,6 +1,7 @@
 /**
- * Top-level GVL file — one or more VAR_GLOBAL / VAR_CONFIG sections
- * with nothing wrapping them.
+ * Top-level GVL file — one or more VAR_GLOBAL / VAR_CONFIG / VAR_ACCESS sections
+ * with nothing wrapping them. A VAR_ACCESS list builds on both vendors and binds nothing (`decl_var_access*`): its
+ * sections are kept with their kind, and `symbols` binds no name from them.
  *
  * VAR_CONFIG is the IEC address-binding block; same outer shape as a
  * GVL file (single section + END_VAR), so we route both keyword
@@ -10,11 +11,11 @@
 import type { GlobalVarList } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { joinSpans } from "../../span.js"
-import { collectVarSections } from "../declarations.js"
+import { collectListSections } from "../declarations.js"
 
 export function parseGlobalVarList(c: Cursor): GlobalVarList | undefined {
   const start = c.peek()
-  const varSections = collectVarSections(c)
+  const varSections = collectListSections(c)
   if (varSections.length === 0) return undefined
   const last = varSections[varSections.length - 1]
   return {

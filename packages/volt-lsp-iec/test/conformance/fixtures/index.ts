@@ -97,6 +97,7 @@ import { CHECK_COVERAGE_SIX_TESTS } from "./batches/check-coverage-six.js"
 import { INITIALIZER_REPEAT_TESTS } from "./declarations/initializer-repeat.js"
 import { LEXER_TESTS } from "./grammar/lexer.js"
 import { LITERAL_RULE_TESTS } from "./grammar/literals.js"
+import { DECLARATION_RULE_TESTS } from "./grammar/declarations.js"
 
 export interface CategoryGroup {
   name: string
@@ -205,6 +206,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   // ── the front-end's grammar, rule by rule (openspec frontend-conformance design.md §4 area 2) ──
   { name: "grammar-lexer", tests: LEXER_TESTS },
   { name: "grammar-literals", tests: LITERAL_RULE_TESTS },
+  { name: "grammar-declarations", tests: DECLARATION_RULE_TESTS },
 ]
 
 /**

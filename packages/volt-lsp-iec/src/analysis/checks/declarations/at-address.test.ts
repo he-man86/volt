@@ -1,6 +1,7 @@
 /**
- * at-address — C0030. An AT clause whose operand isn't a direct address. Wording verified live against
- * CODESYS 3.5.21: "Direct address expected after AT instead of <token>".
+ * at-address — C0030. An AT clause whose operand isn't a direct address: the PARSER refuses it ("Direct address expected
+ * after AT instead of <token>", `parse/declarations`), and this check reports the lost declaration's uses; a malformed
+ * address is named here and the declaration stands.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
@@ -15,28 +16,6 @@ function at(src: string) {
   )
 }
 const prg = (decl: string) => `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\nEND_PROGRAM`
-
-test("an AT operand that is an identifier is flagged, byte-identical to CODESYS", () => {
-  const d = at(prg("i AT ABC : INT;"))
-  expect(d).toHaveLength(1)
-  expect(d[0]?.severity).toBe("error")
-  expect(d[0]?.message).toBe("Direct address expected after AT instead of ABC")
-})
-
-test("a valid direct address is not flagged", () => {
-  expect(at(prg("di AT %IB8 : BYTE;"))).toEqual([])
-  expect(at(prg("b AT %IX0.0 : BOOL;"))).toEqual([])
-  expect(at(prg("m AT %I* : BYTE;"))).toEqual([]) // memory-mapped placeholder
-})
-
-test("AT after the type (alternative position) is also validated", () => {
-  expect(at(prg("i : INT AT ABC;"))).toHaveLength(1)
-  expect(at(prg("i : INT AT %MB100;"))).toEqual([])
-})
-
-test("a var with no AT clause is untouched", () => {
-  expect(at(prg("i : INT;"))).toEqual([])
-})
 
 function all(src: string, vendor: "codesys" | "twincat" = "codesys") {
   const parseResult = parseSource(src, { networkText: true }, vendor)
@@ -65,4 +44,25 @@ test("an AT address of the wrong shape is malformed, echoed as the vendor echoes
   expect(all(fbWith("b AT %I0.0 : BOOL;", "out := 1;"), "twincat")).toEqual(["Direct Address '%I?0.0' malformed"])
   // and the shapes that build: `%MX10.8` (the bit is not checked against a byte), `%ML1`, lower case, `%I*`
   for (const a of ["%MX10.8", "%ML1", "%mx9.2", "%I*", "%Q*", "%M*"]) expect(all(fbWith(`b AT ${a} : BOOL;`, "out := 1;"))).toEqual([])
+})
+
+/** A body that writes and reads `v`. */
+const BODY = "v := 5;\nout := v;"
+
+test("an AT operand that is no address is refused, and every use of the declaration is lost (D11)", () => {
+  // `cc5_at_address_not_direct` (a name), `decl_at_not_an_address` (an integer), `_string`, `decl_at_empty` (no operand),
+  // both vendors 2026-10-01 — the vendor echoes the operand as written, or the `:` where there is none
+  const lost = ["'v' is no valid assignment target", "Cannot convert type 'Unknown type: 'v'' to type 'WORD'", "Identifier 'v' not defined", "Identifier 'v' not defined"]
+  for (const [operand, echo] of [["ABC", "ABC"], ["16#10", "16#10"], ["'x'", "'x'"], ["", ":"]] as const)
+    expect(all(fbWith(`v AT ${operand} : WORD;`, BODY))).toEqual([...lost, `Direct address expected after AT instead of ${echo}`].sort())
+  expect(all(fbWith("v AT 16#10 : WORD;", "out := 1;"), "twincat")).toEqual(['Direct Address expected after "AT" instead of 16#10'])
+})
+
+test("AT after the type is no grammar: the declaration stands without it (D10)", () => {
+  // `decl_at_after_type`, `_with_init`, `decl_at_twice`, `decl_at_not_an_address_after_type`, both vendors 2026-10-01
+  const refused = ["';, :=, REF=, ( or [' expected instead of 'AT'"]
+  expect(all(fbWith("v : WORD AT %MW42;", BODY))).toEqual(refused)
+  expect(all(fbWith("v : WORD AT %MW44 := 6;", "out := v;"))).toEqual(refused)
+  expect(all(fbWith("v AT %MW46 : WORD AT %MW48;", BODY))).toEqual(refused)
+  expect(all(fbWith("v : WORD AT abc;", BODY))).toEqual(refused)
 })

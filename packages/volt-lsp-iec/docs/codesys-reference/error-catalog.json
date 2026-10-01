@@ -2379,7 +2379,8 @@
     "message": "'<keyword>' not allowed in this place",
     "repro": "TYPE T :\nSTRUCT\n VAR_INPUT\n  m : INT;\n END_VAR\nEND_STRUCT\nEND_TYPE",
     "expect": [
-      "'VAR_INPUT' not allowed in this place"
+      "'VarInput' not allowed in this place",
+      "Variable declaration expected instead of VAR_INPUT\r\n\tm:INT;\r\nEND_VAR\r\n"
     ],
     "status": "implemented",
     "ourCheck": "syntax/type-decl",

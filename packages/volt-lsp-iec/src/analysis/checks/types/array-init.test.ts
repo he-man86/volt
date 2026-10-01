@@ -78,3 +78,10 @@ test("C0162: a repeat count that is a non-constant variable is flagged (literals
 test("byte-identical on both vendors", () => {
   expect(init(`  x : INT := [1,2,3];`, "twincat")).toEqual(init(`  x : INT := [1,2,3];`, "codesys"))
 })
+
+test("a MULTI-dimensional array is initialized flat: a nested list there is an unexpected array initialisation (D15)", () => {
+  // TwinCAT `decl_nested_aggregate` (CODESYS SP21 throws on it); flat and ARRAY OF ARRAY build (`_flat`, `_array_of_array`)
+  expect(init(`  a : ARRAY[0..1, 0..1] OF INT := [[1, 2], [3, 4]];`, "twincat")).toEqual(["Unexpected array initialisation"])
+  expect(init(`  a : ARRAY[0..1, 0..1] OF INT := [1, 2, 3, 4];`)).toEqual([])
+  expect(init(`  a : ARRAY[0..1] OF ARRAY[0..1] OF INT := [[1, 2], [3, 4]];`)).toEqual([])
+})

@@ -68,3 +68,66 @@ test("the compiler resolves each FIELD NAME against the POU's scope, where they 
     "Unexpected structure initialisation",
   ])
 })
+
+test("a STRUCT's initializer naming a field the struct lacks: undefined, and no assignment target (D14)", () => {
+  // `decl_struct_init_unknown_field`, both vendors 2026-10-01; a field it has is quiet (`decl_struct_init_missing_field`)
+  const unknown = (decls: string): string[] => {
+    const src = `PROGRAM PLC_PRG\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT p1 : INT; p2 : INT; END_STRUCT END_TYPE`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "unknown-struct-field")
+      .map((d) => d.message)
+  }
+  expect(unknown(`  s : sv := (c := 1);`)).toEqual(["Identifier 'c' not defined", "'c' is no valid assignment target"])
+  expect(unknown(`  s : sv := (p1 := 1, c := 2);`)).toEqual(["Identifier 'c' not defined", "'c' is no valid assignment target"])
+  expect(unknown(`  s : sv := (p1 := 1);`)).toEqual([])
+})
+
+// A struct that EXTENDS a base the LSP cannot resolve (a library struct): the base could declare the field, so a name
+// the struct's own fields lack is no fact — the guard every inherited-member lookup carries (`hasUnresolvedBase`).
+test("a field of a struct whose base is unresolved is not reported unknown", () => {
+  const src = `PROGRAM P\nVAR\n  rec : sv := (baseF := 1, p1 := 2);\nEND_VAR\nEND_PROGRAM\nTYPE sv : STRUCT EXTENDS LibBase p1 : INT; END_STRUCT END_TYPE`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+  const codes = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "unknown-struct-field")
+  expect(codes).toEqual([])
+})
+
+// `decl_struct_init_nested_unknown_field` (both vendors 2026-10-01): a nested initializer is held to its FIELD's struct —
+// the same two errors; `decl_union_init_unknown_field`: a UNION's initializer to its members, the same two.
+test("a nested initializer naming a field its struct lacks, and a union's, are unknown fields", () => {
+  const unknown = (decls: string): string[] => {
+    const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE inner : STRUCT q : INT; END_STRUCT END_TYPE\nTYPE outer : STRUCT inn : inner; k : INT; END_STRUCT END_TYPE\nTYPE uu : UNION a : INT; b : DINT; END_UNION END_TYPE`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "unknown-struct-field")
+      .map((d) => d.message)
+  }
+  const zz = ["Identifier 'zz' not defined", "'zz' is no valid assignment target"]
+  expect(unknown(`  rec : outer := (inn := (zz := 1));`)).toEqual(zz)
+  expect(unknown(`  rec : outer := (k := 2, inn := (zz := 1, q := 3));`)).toEqual(zz)
+  expect(unknown(`  rec : outer := (inn := (q := 1));`)).toEqual([])
+  expect(unknown(`  u : uu := (zz := 1);`)).toEqual(zz)
+})
+
+// `decl_struct_init_unknown_field_in_array`, `_in_field_array` (both vendors 2026-10-01): a struct value inside an ARRAY
+// initializer is held to the array's element type — at the top, and as a field's array value — the same two errors.
+test("a struct value in an array initializer naming a field its element lacks is an unknown field", () => {
+  const unknown = (decls: string): string[] => {
+    const src = `PROGRAM P\nVAR\n${decls}\nEND_VAR\nEND_PROGRAM\nTYPE inner : STRUCT q : INT; END_STRUCT END_TYPE\nTYPE outer : STRUCT arr : ARRAY[0..1] OF inner; END_STRUCT END_TYPE`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "unknown-struct-field")
+      .map((d) => d.message)
+  }
+  const zz = ["Identifier 'zz' not defined", "'zz' is no valid assignment target"]
+  expect(unknown(`  rec : ARRAY[0..1] OF inner := [(zz := 1)];`)).toEqual(zz)
+  expect(unknown(`  rec : ARRAY[0..1] OF inner := [(q := 1), (zz := 2)];`)).toEqual(zz)
+  expect(unknown(`  rec : ARRAY[0..1] OF inner := [(q := 1), (q := 2)];`)).toEqual([])
+  expect(unknown(`  rec : outer := (arr := [(zz := 1)]);`)).toEqual(zz)
+  expect(unknown(`  rec : outer := (arr := [(q := 1)]);`)).toEqual([])
+})

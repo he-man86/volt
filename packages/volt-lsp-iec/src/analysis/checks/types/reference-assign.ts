@@ -24,12 +24,20 @@
  * referenced type falls through to C0141, and every other literal keeps the conversion error it already had.
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
-import { bodies } from "../../../frontend/symbols/index.js"
-import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType } from "../../../frontend/types/index.js"
+import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
+import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): void {
+  // A DECLARATION bound with `REF=` whose type is no reference: "Initialisation with REF= is only allowed for variables
+  // of type REFERENCE TO", and nothing about the value (`decl_ref_init_on_value`, both vendors 2026-10-01).
+  for (const { decl } of forEachDecl(ctx.parseResult, ctx.project)) {
+    if (decl.initOp !== "REF=" || decl.init === undefined) continue
+    const declared = resolveTypeExpr(decl.type, ctx.project, 0, ctx.project, ctx.uri)
+    if (declared.kind === "reference" || declared.kind === "unknown") continue
+    out.push({ severity: "error", span: decl.init.span, source: SOURCE, code: "reference-init-target", message: ctx.messages.refInitNeedsReference() })
+  }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind !== "assign" || s.op !== "REF=") return

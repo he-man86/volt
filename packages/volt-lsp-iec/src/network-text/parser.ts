@@ -391,7 +391,7 @@ class Parser {
       this.next()
       const typeText = this.text.slice(from, to).replace(/\s+/g, " ").trim()
       const typeToks = this.stTokens(from, to)
-      const type = parseTypeExprFromTokens(typeToks)
+      const type = parseTypeExprFromTokens(typeToks, this.dialect)
       const declSpan = this.span(names[0]!.offset, this.lastEnd)
       for (const n of names) this.declare(n, typeText, type, declSpan, out)
       any = true

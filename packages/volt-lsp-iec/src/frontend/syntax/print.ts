@@ -3,7 +3,15 @@
  * code actions and a few diagnostic messages print through these. They lived in `types/render.ts`, though they read
  * only the AST — `types/renderType`, which prints a RESOLVED type, stays there (consolidate-lsp-structure C4).
  */
-import type { CallArg, Expr, TypeExpr } from "./ast/nodes.js"
+import type { CallArg, Expr, TypeExpr, VarDecl } from "./ast/nodes.js"
+
+/**
+ * The operator written before a declaration's initializer, with the space after it: `:= `, `REF= `, or nothing for an
+ * FB array's `[(…), (…)]` list written straight after the type (`VarDecl.initOp`).
+ */
+export function initOperatorText(op: VarDecl["initOp"]): string {
+  return op === "FB_Init" ? "" : `${op ?? ":="} `
+}
 
 /** Render a declared AST `TypeExpr` to display text. */
 export function renderTypeExpr(t: TypeExpr): string {
@@ -13,7 +21,9 @@ export function renderTypeExpr(t: TypeExpr): string {
       const sub = t.subrange ? `(${exprText(t.subrange.lo)}..${exprText(t.subrange.hi)})` : ""
       // `inst : FB(x := 1)`'s FB_Init arguments — the formatter printed the type without them, deleting them from the file
       const init = t.initArgs ? `(${t.initArgs.map(callArgText).join(", ")})` : ""
-      return `${q}${t.name.text}${sub}${init}`
+      // `inst : FB<6>` — a VAR_GENERIC instance's values
+      const generic = t.genericArgs ? `<${t.genericArgs.map(exprText).join(", ")}>` : ""
+      return `${q}${t.name.text}${generic}${sub}${init}`
     }
     case "string_type":
       return (t.wide ? "WSTRING" : "STRING") + (t.length ? `(${exprText(t.length)})` : "")

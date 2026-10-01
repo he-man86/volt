@@ -56,3 +56,17 @@ test("a LITERAL on the right of REF= is a TYPE error, not the write-access one",
     .map((d) => d.message)
   expect(msgs).toEqual(["Cannot convert type 'SINT' to type 'REFERENCE TO INT'"])
 })
+
+test("a DECLARATION bound with REF= on a type that is no reference is refused, alone (D12)", () => {
+  // `decl_ref_init_on_value`, both vendors 2026-10-01; a REFERENCE TO bound so is fine (`refdecl_program_local`)
+  const decl = (d: string): string[] => {
+    const src = `FUNCTION_BLOCK F\nVAR\n\tw : INT := 3;\n\t${d}\nEND_VAR\nEND_FUNCTION_BLOCK`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((x) => x.severity === "error")
+      .map((x) => x.message)
+  }
+  expect(decl("v : INT REF= w;")).toEqual(["Initialisation with REF= is only allowed for variables of type REFERENCE TO"])
+  expect(decl("v : REFERENCE TO INT REF= w;")).toEqual([])
+})

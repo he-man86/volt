@@ -18,7 +18,7 @@ is a visible gap rather than an invisible one. That is the whole reason for the 
 | `objects/` | an object's TEXT against the object — what the build says about a text the push writes as sent (a never-closed comment, an empty or prose text, a text of another kind than its extension) |
 | `cross-object/` | one fixture reaching another object: GVLs, DUTs, signature names |
 | `semantics/` | whole-program behaviour that is not one construct — execution order, catalog wording |
-| `grammar/` | the front-end's grammar, rule by rule — one file per area of openspec `frontend-conformance` design.md §4 (`lexer.ts` is L1–L15) |
+| `grammar/` | the front-end's grammar, rule by rule — one file per area of openspec `frontend-conformance` design.md §4 (`lexer.ts` is L1–L15, `literals.ts` N1–N25, S1–S13, A1–A2, `declarations.ts` D1–D19 and U23) |
 | `batches/` | **not a topic.** See below. |
 
 ## `batches/` is the honest name for what is left

@@ -195,12 +195,18 @@ test("a reserved word as a variable name is reported on the name, not the sectio
   expect(unit.varSections[0].decls.map((d) => d.names[0].text)).toEqual(["Ok"])
 })
 
-test("same for a STRUCT and a UNION field", () => {
-  // as written, like every other echoed token — see the VAR case above
-  expect(messages("TYPE T :\nSTRUCT\n  Limit : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual([
-    "Unexpected token 'Limit' found",
-  ])
-  expect(messages("TYPE U :\nUNION\n  Min : INT;\nEND_UNION\nEND_TYPE\n")).toEqual(["Unexpected token 'Min' found"])
+test("same for a STRUCT and a UNION field — a field is a declaration, and resyncs as one", () => {
+  // as written, like every other echoed token — see the VAR case above; the cascade after it is the VAR block's
+  // (`decl_struct_field_reserved_name`, both vendors 2026-10-01)
+  const cascade = (name: string) => [
+    `Unexpected token '${name}' found`,
+    "';' expected instead of ':'",
+    "Unexpected token ':' found",
+    "';' expected instead of 'INT'",
+    "Unexpected token 'INT' found",
+  ]
+  expect(messages("TYPE T :\nSTRUCT\n  Limit : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual(cascade("Limit"))
+  expect(messages("TYPE U :\nUNION\n  Min : INT;\nEND_UNION\nEND_TYPE\n")).toEqual(cascade("Min"))
 })
 
 test("a genuinely unterminated section still blames the header, with no cascade", () => {
@@ -428,6 +434,6 @@ test("an AT address with a size and no position is refused by the parser, as a f
   // `lit_address_incomplete_sized` (`%IW*`), `lit_address_no_position` (`%MW`), both vendors 2026-10-01
   const errs = (decl: string) => parseSource(`FUNCTION_BLOCK F\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`, { networkText: true }).errors
   expect(errs("w AT %IW* : WORD;").map((e) => [e.message, e.directAddressExpected])).toEqual([["Direct address expected after AT instead of %IW", "%IW"]])
-  expect(errs("w : WORD AT %MW;").map((e) => e.directAddressExpected)).toEqual(["%MW"])
+  expect(errs("w AT %MW : WORD;").map((e) => e.directAddressExpected)).toEqual(["%MW"])
   for (const d of ["b AT %I* : BOOL;", "b AT %IX0.0 : BOOL;", "b AT %I0.0 : BOOL;"]) expect(errs(d)).toEqual([])
 })

@@ -72,7 +72,7 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
     if (first?.keyword === undefined || !OPENING_KEYWORDS[object].includes(first.keyword))
       return { units: [], errors: [], failedDeclarations: [], tokens, dialect }
   }
-  const c = new Cursor(tokens)
+  const c = new Cursor(tokens, dialect)
   const units: TopLevel[] = []
 
   while (!c.atEof()) {
@@ -138,6 +138,7 @@ const UNIT_PARSERS: Readonly<Record<UnitStarter, (c: Cursor) => TopLevel | undef
   TYPE: parseTypeDecl,
   VAR_GLOBAL: parseGlobalVarList,
   VAR_CONFIG: parseGlobalVarList,
+  VAR_ACCESS: parseGlobalVarList,
   NAMESPACE: (c) => parseNamespace(c, parseTopLevel),
 }
 

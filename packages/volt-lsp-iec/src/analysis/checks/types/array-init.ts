@@ -37,6 +37,14 @@ export function checkArrayInit(ctx: CheckContext, out: DiagnosticItem[]): void {
       push(out, init.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
       continue
     }
+    // C0074 again — a MULTI-dimensional array is initialized flat (`decl_nested_aggregate_flat` builds), so a nested list
+    // there is an array initializer where an element belongs: "Unexpected array initialisation" (TwinCAT,
+    // `decl_nested_aggregate`, 2026-10-01; CODESYS SP21's compiler throws a NullReferenceException on it instead).
+    const nested = t.dims.length > 1 ? init.elements.find((e) => e.kind === "nested" && e.init.form === "array") : undefined
+    if (nested !== undefined) {
+      push(out, nested.span, "unexpected-array-init", ctx.messages.unexpectedArrayInit()) // C0074
+      continue
+    }
     // C0232 / C0233 — a scalar literal where a nested array / struct-init is required (takes precedence over count).
     const scalar = firstScalarLiteral(init.elements)
     if (scalar !== undefined && t.element.kind === "array") {

@@ -361,3 +361,16 @@ test("formatting keeps a `__VECTOR` as a vector, with its size or without", () =
     expect(out).toContain(decl)
   }
 })
+
+// `decl_bracket_init_no_assign_fb` (both vendors 2026-10-01): a `[…]` list straight after an FB array's type, with no
+// `:=`, passes each element's `(…)` to its FB_Init. `:= [(…), (…)]` is a structured initialization of the inputs — another
+// declaration to the vendor — so the formatter writes the form back as it was, operator-less.
+test("formatting keeps an FB array's bracket list without `:=`", () => {
+  const src = "PROGRAM P\nVAR\n\tfbs : ARRAY[0..1] OF FB_X [(x := 1), (x := 2)];\n\tn : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n"
+  const doc: Document = { uri: "file:///x/P.prg", source: src, parseResult: parseDocument("file:///x/P.prg", src, { networkText: true }) }
+  expect(doc.parseResult.errors).toEqual([])
+  const out = formatDocument(doc)
+  expect(out).not.toContain(":= [")
+  expect(out).toContain("fbs : ARRAY[0..1] OF FB_X [")
+  expect(parseSource(out, { networkText: true }).units[0]).toMatchObject({ varSections: [{ decls: [{ initOp: "FB_Init" }, {}] }] })
+})

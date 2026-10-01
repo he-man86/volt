@@ -16,6 +16,7 @@ import {
   type EnumValue,
   type PropertyAccessor,
   exprText,
+  initOperatorText,
   parseStatements,
   renderTypeExpr,
   type Statement,
@@ -186,7 +187,6 @@ function printVarSection(section: VarSection): string {
   const mods = [
     section.constant ? "CONSTANT" : undefined,
     section.retain ? "RETAIN" : undefined,
-    section.nonRetain ? "NON_RETAIN" : undefined,
     section.persistent ? "PERSISTENT" : undefined,
   ].filter(Boolean)
   const header = `${section.sectionKind}${mods.length ? " " + mods.join(" ") : ""}`
@@ -207,8 +207,11 @@ function printVarDecl(decl: VarDecl): string {
   // `:=` there changes a bind into a store through an unbound reference — a silent rewrite of the engineer's
   // meaning, in a formatter whose whole contract is that it does not change meaning. It was invisible while the
   // AST dropped the operator; the corpus round-trip gate caught it on three files the moment it was recorded.
-  const init = decl.init !== undefined ? ` ${decl.initOp ?? ":="} ${initText(decl.init)}` : ""
-  return `${names}${at} : ${renderTypeExpr(decl.type)}${init};`
+  const init = decl.init !== undefined ? ` ${initOperatorText(decl.initOp)}${initText(decl.init)}` : ""
+  // a VAR_ACCESS declaration's path and direction (`names : path : type READ_ONLY;`)
+  const path = decl.access !== undefined ? ` ${decl.access.path.map((p) => p.text).join(".")} :` : ""
+  const direction = decl.access?.direction !== undefined ? ` ${decl.access.direction}` : ""
+  return `${names}${at} :${path} ${renderTypeExpr(decl.type)}${direction}${init};`
 }
 
 function initText(init: VarDecl["init"]): string {

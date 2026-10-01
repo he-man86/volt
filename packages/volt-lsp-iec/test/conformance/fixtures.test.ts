@@ -897,6 +897,15 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // parser now answers them as the vendor does (`parse/expression.ts`).
     "lex_keyword_assigned_sys_pool",
     "lex_keyword_operand_sys_pool",
+    // frontend-conformance 2.3.4, recorded 2026-10-01 — an ARRAY OF a function block initialized element by element with
+    // no `:=` passes each element's list to the FB's FB_Init, which this FB does not declare: CODESYS "No matching
+    // 'FB_Init' method found for instantiation of FB_…" (TwinCAT: a failed build with no message). The grammar now reads
+    // the form (`parse/declarations`); the FB_Init matching is `analysis/checks/oop/fb-init-instantiation`'s, outside
+    // the front-end (`support/divergences.ts` `CODESYS_DECLARATION_DIVERGENCES`).
+    "decl_bracket_init_no_assign_fb",
+    // …and `[K+L(7)]`: the parser reads L's call as the vendors do; refusing a call inside an aggregate initializer is the
+    // calls check's, which walks bodies (`support/divergences.ts` `CALL_IN_AN_AGGREGATE_INITIALIZER`)
+    "decl_repeat_count_expression_names",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1340,7 +1349,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 104 -> 108. Task 11 lowers its fixture (-1); task 16 (`call-fb-inout`: a METHOD reaching the in-out of an FB copied
   // whole) and task 17 (`pointer-type`: an ANY input's pValue dereferenced as another type, four) turn wrong answers
   // into refusals (+5) — CODESYS's answers want the copied binding tag and a byte view.
-  "not-lowered": 108,
+  // 108 -> 109, FOR MEASUREMENT. frontend-conformance 2.3a recorded `decl_var_generic_in_array` (an ARRAY OF a
+  // VAR_GENERIC FB with its value builds and runs on CODESYS); lowering refuses VAR_GENERIC as it does for
+  // `decl_var_generic` and `_read` — the transpiler's, not the front-end's.
+  "not-lowered": 109,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1562,7 +1574,14 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // literal hole under NOT/ABS/ADR/a negation or a bare conversion, a sized address with no position in a body, a typed
   // integer as a CASE label, a UCHAR# escape past ASCII; the six a refused `<word>#` reaches inside a list are
   // `TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST`.
-  { vendor: "twincat", floor: 3036 },
+  // 3036 -> 3081 (2026-10-01, frontend-conformance 2.3.1-2.3.5): the declaration fixtures (`grammar/declarations.ts`),
+  // recorded live — VAR_ACCESS at file scope, the qualifiers in any order, NON_RETAIN a name, AT refused after the type
+  // and on an operand that is no address (the declaration dropped by the binder), `:=` with no value, repeat counts, a
+  // STRUCT field read by the one declaration parser, a VAR section in a STRUCT named by its placement. Not agreeing: the
+  // marks of `support/divergences.ts` 2.3 (recovery, VAR_GENERIC, the driver's cut echo, NON_RETAIN's recovery).
+  // 3081 -> 3086 (2026-10-01, 2.3 review fixes and 2.3a): the review's five cells, and `decl_struct_init_unknown_field_in_array`,
+  // `_in_field_array` (a struct value in an array initializer held to the element's struct).
+  { vendor: "twincat", floor: 3086 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1661,7 +1680,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // ADR and a negation and converts to ANY in a bare conversion (`analysis/hole` `passThroughOperand`), `%MW` is no
   // operand and no target, "no component" in every initializer, `INT#5:` a CASE label and an enum's `Type#Value` none,
   // `UCHAR#'$80'` one character; the two DUT ones are `COMPONENT_CARRIED_ON_IN_A_DUT`.
-  { vendor: "codesys", floor: 3069 },
+  // 3069 -> 3128 (2026-10-01, frontend-conformance 2.3.1-2.3.5): the same declaration fixtures and fixes, on CODESYS,
+  // with VAR_GENERIC (`FB<6>`, its CONSTANT, its count) and the section-in-a-STRUCT echo whole.
+  // 3128 -> 3137 (2026-10-01, 2.3 review fixes and 2.3a): the review's five cells; a struct value in an array initializer
+  // held to the element's struct (`decl_struct_init_unknown_field_in_array`, `_in_field_array`), and an ARRAY OF a
+  // VAR_GENERIC FB counted by its element (`decl_var_generic_in_array_no_argument`, `_two_values`).
+  { vendor: "codesys", floor: 3137 },
 ]
 
 

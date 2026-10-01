@@ -6,7 +6,7 @@
  *
  * Grammar:
  *   TypeExpr      := ImplicitEnum | StringType | ReferenceType | PointerType | ArrayType | NamedType
- *   NamedType     := Identifier ('.' Identifier)* ( '(' Subrange ')' )?
+ *   NamedType     := Identifier ('.' Identifier)* ( '<' Expr (',' Expr)* '>' )? ( '(' Subrange ')' )?
  *   Subrange      := Expr '..' Expr                    // else `(…)` is an FB-init constraint (consumed, opaque)
  *   ArrayType     := ARRAY '[' ArrayDim (',' ArrayDim)* ']' OF TypeExpr
  *   ArrayDim      := '*' | Expr '..' Expr
@@ -15,11 +15,12 @@
  * Primitive names (BOOL/INT/REAL) lex as identifiers; the semantic layer classifies them.
  */
 import type { Token } from "../lex/tokens.js"
+import type { Dialect } from "../lex/vocabulary.js"
 import type { ArrayDim, CallArg, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "../ast/nodes.js"
 import { eofSpan, joinSpans, type Span } from "../span.js"
 import { Cursor } from "./cursor.js"
 // Inherent recursive-descent recursion: type-expr ↔ util ↔ var-section parse into each other. Function-body imports, no init hazard.
-import { parseExpression, parseExprFromTokens } from "./expression.js"
+import { parseExpression, parseExprFromTokens, parseGenericValue } from "./expression.js"
 import { typeExpected, vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { identFromToken, readQualifiedName } from "./names.js"
 import { collectParenInner, collectUntilTopLevel, topLevelDotDot } from "./scan.js"
@@ -159,6 +160,38 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
   const qualifiers: Identifier[] = rest.map(identFromToken)
   let lastSpan = qualifiers.length > 0 ? qualifiers[qualifiers.length - 1].span : head.span
 
+  // `FB<6>` — a VAR_GENERIC CONSTANT function block instanced with its values (`decl_var_generic*`, CODESYS 2026-10-01),
+  // each a constant expression, comma-separated, up to the `>`. Read on the main cursor, so a value that is no
+  // expression is refused where it breaks; the list is then skipped to its `>`, never past its declaration's end, and
+  // marked refused — no value is dropped quietly, and no count is taken of a list that was not read.
+  // TwinCAT has none: its `<` is where the declaration wanted its end, refused there (`endAfterType`) and the declaration
+  // standing as the plain type (`decl_var_generic`, `_two_values`, `_read`, `_no_constant`, TwinCAT 2026-10-01).
+  let genericArgs: Expr[] | undefined
+  let genericRefused = false
+  if (c.peek().kind === "punct" && c.peek().text === "<" && c.dialect === "codesys") {
+    lastSpan = c.consume().span // <
+    genericArgs = []
+    for (;;) {
+      const value = parseGenericValue(c)
+      if (value === undefined) {
+        genericRefused = true
+        break
+      }
+      genericArgs.push(value)
+      lastSpan = value.span
+      if (c.eatPunct(",") !== undefined) continue
+      const close = c.expectPunct(">")
+      if (close === undefined) genericRefused = true
+      else lastSpan = close.span
+      break
+    }
+    if (genericRefused) {
+      const close = skipGenericList(c)
+      if (close !== undefined) lastSpan = close.span
+      genericArgs = undefined
+    }
+  }
+
   // A `(...)` after a named type is either a SUBRANGE (`INT(0..100)`, structured) or an
   // FB-instance init constraint (`FB(x := 1)`, `FB()`) — the latter consumed opaquely, not modeled.
   // Scan the balanced group first, then parse the bounds in a contained sub-cursor, so an
@@ -199,6 +232,8 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
       qualifiers: [head, ...qualifiers.slice(0, -1)],
       ...(subrange !== undefined ? { subrange } : {}),
       ...(initArgs !== undefined ? { initArgs } : {}),
+      ...(genericArgs !== undefined ? { genericArgs } : {}),
+      ...(genericRefused ? { genericRefused } : {}),
       span: joinSpans(head.span, lastSpan),
     }
   }
@@ -207,9 +242,32 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
     name: head,
     ...(subrange !== undefined ? { subrange } : {}),
     ...(initArgs !== undefined ? { initArgs } : {}),
+    ...(genericArgs !== undefined ? { genericArgs } : {}),
+    ...(genericRefused ? { genericRefused } : {}),
     span: joinSpans(head.span, lastSpan),
   }
 }
+
+/**
+ * Past a refused generic value list to its closing `>` (consumed, returned) — but never past the end of its declaration:
+ * a `;`, a `:=`, or a keyword that is no operator stops it unconsumed, so an unclosed `FB<` costs its own declaration only.
+ */
+function skipGenericList(c: Cursor): Token | undefined {
+  let depth = 0
+  while (!c.atEof()) {
+    const t = c.peek()
+    if (depth === 0 && t.kind === "punct" && (t.text === ";" || t.text === ":=")) return undefined
+    if (t.kind === "keyword" && t.keyword !== undefined && !OPERATOR_WORDS.has(t.keyword)) return undefined
+    if (depth === 0 && t.kind === "punct" && t.text === ">") return c.consume()
+    if (t.kind === "punct" && (t.text === "(" || t.text === "[")) depth++
+    else if (t.kind === "punct" && (t.text === ")" || t.text === "]")) depth = Math.max(0, depth - 1)
+    c.consume()
+  }
+  return undefined
+}
+
+/** The keywords an expression may hold — the rest end a declaration. */
+const OPERATOR_WORDS: ReadonlySet<string> = new Set(["AND", "AND_THEN", "OR", "OR_ELSE", "XOR", "NOT", "MOD", "TRUE", "FALSE"])
 
 function parseArrayDim(c: Cursor): ArrayDim | undefined {
   const start = c.peek().span
@@ -262,10 +320,10 @@ function parseOptionalStringLength(c: Cursor): { length?: Expr; end: Span } | un
  * network-text wire is written in its network's `VAR_TEMP` block (`g1 : BOOL;`), which the network-text parser reads
  * itself; this is how it hands the type to the one type engine.
  */
-export function parseTypeExprFromTokens(tokens: readonly Token[]): TypeExpr | undefined {
+export function parseTypeExprFromTokens(tokens: readonly Token[], dialect: Dialect): TypeExpr | undefined {
   if (tokens.length === 0) return undefined
   const last = tokens[tokens.length - 1]!
-  const cur = new Cursor([...tokens, { kind: "eof", text: "", span: eofSpan(last.span) }])
+  const cur = new Cursor([...tokens, { kind: "eof", text: "", span: eofSpan(last.span) }], dialect)
   const type = parseTypeExpression(cur)
   return type !== undefined && cur.atEof() && cur.getErrors().length === 0 ? type : undefined
 }

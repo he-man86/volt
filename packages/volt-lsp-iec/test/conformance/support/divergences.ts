@@ -344,6 +344,122 @@ const TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR: readonly string[] = [
   "xf_ldt_to_ldate_call_once",
   "xf_ltod_to_ldate_call_once",
 ]
+/**
+ * FRONTEND-CONFORMANCE 2.3 (2026-10-01) — declaration fixtures whose one disagreement is the vendors' RECOVERY after the
+ * first refusal, identical on both: the LSP says that first message and nothing it does not have, and the vendors then
+ * resync through the rest of the list in their own way — "',' or ')' expected instead of ':'", "', or ]' expected
+ * instead of ':'", "';, := or REF=' expected instead of 'END_VAR'", "'END_VAR' expected instead of ''" after a bracket
+ * list without `:=` (`decl_bracket_init_no_assign`, `_scalar`, `decl_struct_field_bracket_init`: "'(' expected instead
+ * of '1'"); "';' expected instead of 'accF'" … "';' expected instead of end of POU" after a VAR_ACCESS section in a POU
+ * (`decl_var_access_in_fb`: "Unexpected token 'VAR_ACCESS' found"); "'END_STRUCT' expected instead of 'END_VAR'" after
+ * a VAR_ACCESS or VAR_GENERIC inside a STRUCT, where the LSP's own recovery says "unterminated STRUCT" (an LSP-only
+ * message, left standing — an error where the build fails — until the recovery is the vendors'). Task 2.8.2.
+ */
+const DECLARATION_RECOVERY: readonly string[] = [
+  "decl_bracket_init_no_assign",
+  "decl_bracket_init_no_assign_scalar",
+  "decl_struct_field_bracket_init",
+  "decl_var_access_in_fb",
+  "decl_var_access_inside_struct",
+  "decl_var_generic_inside_struct",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.4 (2026-10-01) — `rec : DUT := (1, 2);`: both vendors keep `1` and type it BIT ("Cannot
+ * convert type 'BIT' to type 'DUT_…'"); the LSP types an untyped 1 as every other one, SINT. `(5, 2)` says SINT on both
+ * and agrees (`decl_struct_init_positional_five`). On an ARRAY the same BIT ("Cannot convert type 'BIT' to type 'ARRAY
+ * [0..1] OF INT'", `decl_array_init_positional`, both vendors), where the LSP says nothing past the two parse errors.
+ * Which literals are BIT, and where, is the literal typing rule's (area 4, task 4.1.3), and two cells are too little to
+ * read it from.
+ */
+const LITERAL_ONE_IS_BIT: readonly string[] = ["decl_struct_init_positional", "decl_array_init_positional"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.5 (2026-10-01) — a VAR_EXTERNAL section inside a STRUCT: both vendors refuse the section as the
+ * LSP does, and then still look its declaration up among the globals: "No global definition found for VAR_EXTERNAL a".
+ * The LSP refuses the section at parse and binds nothing from it, so no global lookup runs. The external-global rule's,
+ * over a section that is no POU's (task 3.1.3).
+ */
+const EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION: readonly string[] = ["decl_var_external_inside_struct"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.2 (2026-10-01) — `VAR_GLOBAL NON_RETAIN gNr : INT;`: the declaration is refused as on every
+ * other list (the LSP agrees on that message), and `GVL.gNr` is then "'gNr' is no component of 'GVL_…'" with its
+ * conversion. The LSP says nothing about a GVL member that does not exist — the GVL member rule's (Y9, task 3.1.3).
+ */
+const GVL_MEMBER_NOT_DECLARED: readonly string[] = ["decl_non_retain_in_gvl"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.4 (2026-10-01) — `[K+L(7)]` with K, L constants: the parser reads `L(7)` as L's call, as both
+ * vendors do (`parse/initializer`), and the vendors then refuse the call — "Program name, function or function block
+ * instance expected instead of 'L'" and "Unknown type: 'L(7)'". The LSP's call check and its hole rule walk BODIES and a
+ * scalar initializer, not an aggregate's elements: the calls check's (`analysis` non-callable-call, unknown-source), outside
+ * the front-end — the LSP review.
+ */
+const CALL_IN_AN_AGGREGATE_INITIALIZER: readonly string[] = ["decl_repeat_count_expression_names"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3 (2026-10-01) — TwinCAT's recovery after "',, AT or :' expected instead of 'k'" (a NAME after
+ * the name NON_RETAIN): it goes on to "Type definition expected instead of 'END_VAR'", and in a GVL "'END_VAR' expected
+ * instead of ''". CODESYS stops at the first, and the LSP agrees with CODESYS on all four. Task 2.8.2.
+ */
+const TWINCAT_NON_RETAIN_RECOVERY: readonly string[] = [
+  "var_non_retain",
+  "decl_non_retain_in_gvl",
+  "decl_non_retain_in_var_input",
+  "decl_retain_non_retain",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.1 (2026-10-01) — TwinCAT has no VAR_GENERIC: it reads the word as a declaration's NAME, and
+ * the LSP lexes it as an identifier there too (`CODESYS_ONLY_KEYWORDS`). What each then says about the rest of the POU is
+ * the declaration-area recovery (TwinCAT: "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of VAR_GENERIC:;",
+ * the LSP: its statement cascade) — task 2.8.2. That recovery is ALL this mark holds: the consumer's `inst : FB<6>;` is
+ * refused by both at its `<` ("';, :=, REF=, ( or [' expected instead of '<'", `parse/declarations` `endAfterType`,
+ * frontend-conformance 2.3a), so a fixture here agrees on that line and differs in the FB's own.
+ */
+const TWINCAT_NO_VAR_GENERIC: readonly string[] = [
+  "decl_var_generic",
+  "decl_var_generic_no_argument",
+  "decl_var_generic_no_constant",
+  "decl_var_generic_read",
+  "decl_var_generic_two_values",
+  "decl_var_generic_in_array",
+  "decl_var_generic_in_array_no_argument",
+  "decl_var_generic_in_array_two_values",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3.5 (2026-10-01) — the TwinCAT RECORDING is cut, not the behaviour, as for `op_sys_varinfo`: the
+ * echo of a VAR section inside a STRUCT is stored as "Variable declaration expected instead of VAR", where CODESYS stores
+ * the whole message with the lines it quotes. The TwinCAT driver cuts a message at its first line break — a BRIDGE bug
+ * to fix and re-record, not something for the LSP to match. Every placement message before the echo agrees.
+ */
+const TWINCAT_DRIVER_CUTS_THE_ECHO: readonly string[] = [
+  "decl_var_inside_struct",
+  "decl_var_inside_struct_init",
+  "decl_var_inside_struct_names",
+  "decl_var_input_inside_struct",
+  "decl_var_output_inside_struct",
+  "decl_var_in_out_inside_struct",
+  "decl_var_temp_inside_struct",
+  "decl_var_stat_inside_struct",
+  "decl_var_inst_inside_struct",
+  "decl_var_global_inside_struct",
+  "decl_var_config_inside_struct",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.3 (2026-10-01) — CODESYS-only:
+ *   `decl_nested_aggregate` — `ARRAY[0..1, 0..1] OF INT := [[1, 2], [3, 4]]`: CODESYS SP21's compiler THROWS
+ *     ("Internal error:System.NullReferenceException …" and its stack); TwinCAT says "Unexpected array initialisation",
+ *     which the LSP says on both. A vendor crash is no rule to conform to. Accepted.
+ *   `decl_bracket_init_no_assign_fb` — `fbs : ARRAY[0..1] OF FB [(x := 1), (x := 2)]` passes each element's list to the
+ *     FB's FB_Init, which this FB does not declare: "No matching 'FB_Init' method found for instantiation of FB_…"
+ *     (TwinCAT records a failed build with no message). The FB_Init matching (`analysis` fb-init-instantiation, outside the front-end; the LSP review), which the grammar now reaches.
+ */
+const CODESYS_DECLARATION_DIVERGENCES: readonly string[] = ["decl_nested_aggregate", "decl_bracket_init_no_assign_fb"]
+
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -366,6 +482,14 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...DECLARATION_RECOVERY,
+    ...LITERAL_ONE_IS_BIT,
+    ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
+    ...GVL_MEMBER_NOT_DECLARED,
+    ...CALL_IN_AN_AGGREGATE_INITIALIZER,
+    ...TWINCAT_NON_RETAIN_RECOVERY,
+    ...TWINCAT_NO_VAR_GENERIC,
+    ...TWINCAT_DRIVER_CUTS_THE_ECHO,
     ...LITERAL_FOLLOW_ON_RULES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
@@ -492,6 +616,12 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
     ...R1_CASCADE_AFTER_A_STRAY_TOKEN,
+    ...DECLARATION_RECOVERY,
+    ...LITERAL_ONE_IS_BIT,
+    ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
+    ...GVL_MEMBER_NOT_DECLARED,
+    ...CALL_IN_AN_AGGREGATE_INITIALIZER,
+    ...CODESYS_DECLARATION_DIVERGENCES,
     ...COMPONENT_CARRIED_ON_IN_A_DUT,
     ...LITERAL_FOLLOW_ON_RULES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
@@ -570,6 +700,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "decl_persistent_initialized",
     "decl_retain_persistent_counts",
     "decl_retain_persistent_initialized",
+    "decl_persistent_retain",
     "cc5_deprecated_functionblock_keyword",
     //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
     //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.

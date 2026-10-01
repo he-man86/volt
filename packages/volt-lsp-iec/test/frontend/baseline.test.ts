@@ -52,6 +52,24 @@ describe("ceilings — a measure may only fall", () => {
     expect(problems).toEqual([])
   })
 
+  // A measure a census starts counting must start with a ceiling, or it can rise unwatched: `call UNKNOWN, on an untyped
+  // operand` (frontend-conformance 2.3) took 76 corpus library calls with none. An AGREEMENT with the vendor (", … on
+  // the vendor too", ", a refused expression") is no disagreement; a literal's UNKNOWN is not ceilinged (tasks.md 0.4:
+  // "UNKNOWN, not a literal").
+  test("every disagreement count a baseline pins has a ceiling", () => {
+    const ceilings = readCeilings()
+    const agreement = /, (unknown on the vendor too|not defined on the vendor too|on a name not defined on the vendor too|a refused expression)$/
+    const uncapped: string[] = []
+    for (const [name, section] of Object.entries(ceilings)) {
+      if (name === "rules") continue
+      const pinned = JSON.parse(readFileSync(join(DIR, `${name}.json`), "utf8")) as Baseline
+      for (const key of Object.keys(pinned.counts))
+        if (/ (UNKNOWN|NONE|NOSCOPE|NO-CALLEE)/.test(key) && !agreement.test(key) && !/: literal UNKNOWN$/.test(key) && !(key in section))
+          uncapped.push(`${name}: ${key}`)
+    }
+    expect(uncapped).toEqual([])
+  })
+
   test("the ceilings never rose against any committed version of themselves", () => {
     const git = (...args: string[]) => {
       const r = Bun.spawnSync(["git", ...args], { cwd: import.meta.dir })

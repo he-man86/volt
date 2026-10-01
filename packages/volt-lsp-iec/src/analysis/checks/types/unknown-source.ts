@@ -83,7 +83,10 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
       }
       for (const e of stmtExprs(s))
         walkExpr(e, (x) => {
-          if (x.kind === "member" && hole(x.base, scope)) push(ctx.messages.notStructuredVariable(compilerExprText(x.base, metType(scope))), x.base)
+          // …but not a NAME nothing declares: `Gvl.accD` with `Gvl` undefined is "Identifier 'Gvl' not defined" and the
+          // conversion, and nothing about structure (`decl_var_access_used`, both vendors 2026-10-01); the measured
+          // structure message is over a dereference (`fbcall_this_in_program`: 'THIS^')
+          if (x.kind === "member" && x.base.kind !== "ident_expr" && hole(x.base, scope)) push(ctx.messages.notStructuredVariable(compilerExprText(x.base, metType(scope))), x.base)
           // an operation that passes its operand's type through (NOT, a negation, ABS, ADR) reports its operand as an
           // operator does — measured for a LITERAL hole only (`hole.ts` `passThroughOperand`)
           const through = passThroughOperand(x)

@@ -34,10 +34,26 @@ test("valid ST produces NO syntax-error diagnostics (zero-FP contract)", () => {
 })
 
 test("declaration-structure errors surface precisely (the parser's decl stream, not just statements)", () => {
-  // A VAR-section keyword inside a STRUCT — one precise error at the offending keyword (C0173).
+  // A VAR-section keyword inside a STRUCT (C0173) — the section's placement, then the section echoed as the compiler
+  // reads it back (`decl_var_input_inside_struct`, CODESYS 2026-10-01).
   expect(syntaxErrors(`TYPE T :\nSTRUCT\n VAR_INPUT\n  m : INT;\n END_VAR\nEND_STRUCT\nEND_TYPE`)).toEqual([
-    "'VAR_INPUT' not allowed in this place",
+    "'VarInput' not allowed in this place",
+    "Variable declaration expected instead of VAR_INPUT\r\n\tm:INT;\r\nEND_VAR\r\n",
   ])
+  // …the echo's shape, one recording each (`decl_var_inside_struct`, `_init`, `_names`, `decl_var_inst_inside_struct`),
+  // and each keyword's placement, worded per vendor (`decl_<kw>_inside_struct`, both vendors 2026-10-01)
+  const inStruct = (section: string) => `TYPE T :\nSTRUCT\n${section}\nEND_STRUCT\nEND_TYPE`
+  expect(syntaxErrors(inStruct("VAR\n a : INT := 5;\nEND_VAR"))).toEqual(["Variable declaration expected instead of VAR\r\n\ta:INT := 5;\r\nEND_VAR\r\n"])
+  expect(syntaxErrors(inStruct("VAR\n a, c : BOOL;\nEND_VAR"))).toEqual(["Variable declaration expected instead of VAR\r\n\ta, c:BOOL;\r\nEND_VAR\r\n"])
+  expect(syntaxErrors(inStruct("VAR_INST\n a : INT;\nEND_VAR"))).toEqual([
+    "VAR_INST declaration not allowed in this place",
+    "Variable declaration expected instead of \r\n\ta:INT;\r\nEND_VAR\r\n",
+  ])
+  expect(syntaxErrors(inStruct("VAR_OUTPUT\n a : INT;\nEND_VAR"))[0]).toBe("'VarOutput' not allowed in this place")
+  expect(syntaxErrors(inStruct("VAR_IN_OUT\n a : INT;\nEND_VAR"))[0]).toBe("'VarInOut' not allowed in this place")
+  expect(syntaxErrors(inStruct("VAR_GLOBAL\n a : INT;\nEND_VAR"))[0]).toBe("VAR_GLOBAL declaration only allowed in global variable list")
+  expect(syntaxErrors(inStruct("VAR_CONFIG\n a : INT;\nEND_VAR"))[0]).toBe("VAR_CONFIG declaration only allowed in VAR_CONFIG  list")
+  expect(syntaxErrors(inStruct("VAR_EXTERNAL\n a : INT;\nEND_VAR"))).toEqual(["Variable declaration expected instead of VAR_EXTERNAL\r\n\ta:INT;\r\nEND_VAR\r\n"])
   // A var name with no ':' type — a declaration-structure error surfaced from the decl stream (C0189).
   expect(syntaxErrors(`PROGRAM P\nVAR\n INT\nEND_VAR\nEND_PROGRAM`)).toContain("':' expected instead of 'END_VAR'")
 })

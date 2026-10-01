@@ -263,3 +263,13 @@ test("renderType / renderTypeExpr", () => {
   expect(renderTypeExpr(declType("x : INT(0..100);"))).toBe("INT(0..100)")
   expect(renderTypeExpr(declType("p : POINTER TO INT;"))).toBe("POINTER TO INT")
 })
+
+// An FB instance called types as its FB (`callReturnType`, the instance's declared type); an ELEMENT of an array of
+// them, called, is the same instance reached through an index (`decl_var_generic_in_array`: `inst[0]();`) — it had no
+// symbol of its own, so it was UNKNOWN where `inst()` was the FB.
+test("infer: an FB instance called through an array index types as the plain instance call does", () => {
+  const fb = "FUNCTION_BLOCK G\nVAR\n o : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const g = { kind: "function_block", name: "G" }
+  expect(inferExpr(fb, "VAR\n inst : G;\n x : INT;\nEND_VAR", "x := inst()")).toMatchObject(g)
+  expect(inferExpr(fb, "VAR\n inst : ARRAY[0..1] OF G;\n x : INT;\nEND_VAR", "x := inst[0]()")).toMatchObject(g)
+})

@@ -60,3 +60,10 @@ test("the object is read from a URI's path, not its query or fragment", () => {
   expect(sourceObjectOf("file:///c%3A/w/src/notes.txt?x=A.struct")).toBeUndefined()
   expect(read(head, "TYPE DUT_A :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual({ units: ["type_decl"], errors: [] })
 })
+
+// `decl_var_access`, `decl_var_access_read_only`: a GVL object whose text opens with VAR_ACCESS builds on both vendors —
+// the IDE reads its declaration, so the LSP must too (thrown away here, the formatter rewrote the file to "\n").
+test("a GVL whose text opens with VAR_ACCESS is a global variable list", () => {
+  const source = "VAR_ACCESS\n\taccD : PLC_PRG.d : INT READ_WRITE;\nEND_VAR\n"
+  expect(read("GVL_A.gvl", source)).toEqual({ units: ["global_var_list"], errors: [] })
+})

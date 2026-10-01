@@ -13,14 +13,29 @@ import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Span } from "../span.js"
 import type { ParseError } from "../ast/nodes.js"
 import { opensKeywordLine } from "../format/implementation-line.js"
-import { DECL_LIST_ENDERS, SOFT_NAME_KEYWORDS, UNIT_NAME_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
+import { DECL_LIST_ENDERS, SOFT_NAME_KEYWORDS, UNIT_NAME_KEYWORDS, type Dialect, type Keyword } from "../lex/vocabulary.js"
 import { nameExpected, unexpectedTokenOf, vendorTokenText } from "./errors.js"
 
 export class Cursor {
   private pos = 0
   private readonly errors: ParseError[] = []
 
-  constructor(private readonly tokens: readonly Token[]) {}
+  /**
+   * `dialect` — the vocabulary the tokens were lexed with, where a grammar rule differs by vendor (a type's `FB<…>` is
+   * CODESYS's alone). A contained sub-cursor over an expression or a statement list asks no such rule and is given none;
+   * one that does is refused by name (`dialect`), never read as CODESYS by default.
+   */
+  constructor(
+    private readonly tokens: readonly Token[],
+    private readonly vocabulary?: Dialect,
+  ) {}
+
+  /** The dialect the tokens were lexed with — thrown for, by name, on a cursor that was given none. */
+  get dialect(): Dialect {
+    if (this.vocabulary === undefined)
+      throw new Error("Cursor.dialect: this cursor was made without the dialect its tokens were lexed with — pass it to `new Cursor`")
+    return this.vocabulary
+  }
 
   private readonly failedDeclarations: string[] = []
 

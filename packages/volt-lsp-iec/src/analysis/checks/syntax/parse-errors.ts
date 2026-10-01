@@ -16,7 +16,7 @@
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
  * `scripts/parser-completeness.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
-import { isStBody, parseStatements, unitBodies, type ParseError } from "../../../frontend/syntax/index.js"
+import { exprText, initOperatorText, isStBody, parseStatements, renderTypeExpr, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import type { Vendor } from "../../config.js"
@@ -40,11 +40,41 @@ export function vendorReportsParseError(e: ParseError, vendor: Vendor): boolean 
 export function parseErrorMessage(e: ParseError, messages: CheckContext["messages"]): string {
   if (e.unexpectedToken !== undefined) return messages.unexpectedToken(e.unexpectedToken)
   if (e.directAddressExpected !== undefined) return messages.directAddressExpectedAt(e.directAddressExpected)
+  if (e.sectionInStruct !== undefined) return sectionInStructMessage(e.sectionInStruct, messages)
+  if (e.sectionEcho !== undefined) return sectionEchoMessage(e.sectionEcho.keyword, e.sectionEcho.decls)
   if (e.operandCount !== undefined) {
     const { operator, count, atLeast } = e.operandCount
     return atLeast ? messages.operatorNeedsAtLeast(operator, count) : messages.operatorNeedsExactly(operator, count)
   }
   return e.message
+}
+
+/**
+ * A VAR section inside a STRUCT, named as each vendor names its placement (`decl_<kw>_inside_struct`, both vendors
+ * 2026-10-01): the three parameter sections by their CamelCase kind, on both vendors alike; VAR_GLOBAL and VAR_CONFIG by
+ * where they belong; the rest as a section not allowed here. VAR and VAR_EXTERNAL draw no such message (the parser
+ * reports none).
+ */
+const PARAMETER_SECTION_NAMES: Partial<Record<VarSectionKind, string>> = { VAR_INPUT: "VarInput", VAR_OUTPUT: "VarOutput", VAR_IN_OUT: "VarInOut" }
+function sectionInStructMessage(kind: VarSectionKind, messages: CheckContext["messages"]): string {
+  const parameter = PARAMETER_SECTION_NAMES[kind]
+  if (parameter !== undefined) return `'${parameter}' not allowed in this place`
+  if (kind === "VAR_CONFIG") return messages.varConfigOnlyInList()
+  return messages.sectionNotAllowed(kind)
+}
+
+/**
+ * A VAR section inside a STRUCT as the compiler reads it back: each declaration on its own tab-indented line, the names
+ * joined by ", ", `:` tight against the type, ` := ` around the value — "Variable declaration expected instead of
+ * VAR\r\n\ta:INT := 5;\r\nEND_VAR\r\n" (`decl_var_inside_struct`, `_init`, `_names`, CODESYS 2026-10-01; the value
+ * measured on one literal).
+ */
+function sectionEchoMessage(keyword: string, decls: readonly VarDecl[]): string {
+  const lines = decls.map((d) => {
+    const init = d.init === undefined ? "" : ` ${initOperatorText(d.initOp)}${d.init.kind === "aggregate_init" ? d.init.tokens.map((t) => t.text).join("") : exprText(d.init)}`
+    return `\t${d.names.map((n) => n.text).join(", ")}:${renderTypeExpr(d.type)}${init};\r\n`
+  })
+  return `Variable declaration expected instead of ${keyword}\r\n${lines.join("")}END_VAR\r\n`
 }
 
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
