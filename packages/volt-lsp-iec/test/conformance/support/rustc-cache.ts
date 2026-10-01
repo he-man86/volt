@@ -50,7 +50,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { appendFile, copyFile, mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
+import { appendFile, copyFile, link, mkdir, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { basename, dirname, extname, join } from "node:path"
 
 /** Where entries live: outside git (`.cache/` is ignored), inside the package so `git clean -X` clears it. */
@@ -312,7 +312,9 @@ async function verify(
   hit: { build: RustBuild; entry: Entry },
 ): Promise<RustBuild> {
   const side = join(dirname(exe), `${basename(exe, extname(exe))}.cached${extname(exe)}`)
-  if (hit.build.exit === 0) await copyFile(exe, side) // the stored executable, before the real compile replaces it
+  // the stored executable, moved out of the way before the real compile writes that path: `exe` is a hard link to the
+  // entry (`placeExecutable`), so compiling over it in place would write the fresh build INTO the cache
+  if (hit.build.exit === 0) await rename(exe, side)
   try {
     const fresh = await compile(argv, file, source)
     const parts: [string, unknown, unknown][] = [
@@ -382,9 +384,10 @@ async function lookup(root: string, key: string, file: string, exe: string): Pro
     if (entry.format !== FORMAT || typeof entry.exit !== "number" || typeof entry.stdout !== "string" || typeof entry.stderr !== "string" || typeof entry.origin !== "string")
       throw new Error("malformed entry.json")
     if (entry.exit === 0) {
-      const bytes = await readFile(join(dir, "out.bin"))
+      const stored = join(dir, "out.bin")
+      const bytes = await readFile(stored)
       if (createHash("sha256").update(bytes).digest("hex") !== entry.exe) throw new Error("executable does not match its hash")
-      await writeFile(exe, bytes)
+      await placeExecutable(stored, exe)
     }
     const now = new Date()
     await utimes(join(dir, "entry.json"), now, now) // the LRU clock
@@ -393,6 +396,26 @@ async function lookup(root: string, key: string, file: string, exe: string): Pro
     fault("corrupt entry", new Error(`${key}: ${(error as Error).message}`))
     await rm(dir, { recursive: true, force: true })
     return undefined
+  }
+}
+
+/**
+ * The stored executable at the caller's `exe` — as a HARD LINK, not a copy. Windows' virus scanner inspects every new
+ * executable FILE before its first run, one at a time: a fresh copy per hit cost ~270 ms a run with 15 lanes, and with
+ * ~4,600 runs a suite that was the whole Rust phase. A link is the same file the scanner already passed (measured
+ * 2026-10-01: 60 runs in 0.45-0.55 s linked against 2.5 s copied).
+ *
+ * THE CALLER'S `exe` IS THEREFORE THE ENTRY'S OWN FILE, and nothing may write through it: `verify` renames it aside
+ * before compiling over that path, and the hash check above catches anything else on the next lookup. A cache on another
+ * volume than the caller's scratch directory cannot be linked (EXDEV) and is copied — same bytes, the old speed.
+ */
+async function placeExecutable(stored: string, exe: string): Promise<void> {
+  await rm(exe, { force: true })
+  try {
+    await link(stored, exe)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error
+    await copyFile(stored, exe)
   }
 }
 

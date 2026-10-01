@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test"
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -196,6 +196,27 @@ describe.skipIf(skipRustSuite())("a build through the cache", () => {
     } finally {
       verify("0")
     }
+  })
+
+  test("a hit's executable IS the entry's file (a hard link, so the virus scanner's verdict holds) — and a verified hit compiling over that path leaves the entry intact", async () => {
+    const first = await build("linked", program("linked"))
+    const hit = await build("linked", program("linked"))
+    expect(hit.b.cached).toBe(true)
+    const stored = join(root, readdirSync(root).find((k) => existsSync(join(root, k, "entry.json")) && JSON.parse(readFileSync(join(root, k, "entry.json"), "utf8")).origin === first.dir)!, "out.bin")
+    expect(statSync(hit.exe).nlink).toBeGreaterThanOrEqual(2)
+    const before = readFileSync(stored)
+    verify("1")
+    try {
+      const reproved = await build("linked", program("linked"))
+      expect([reproved.b.cached, reproved.b.exit]).toEqual([false, 0])
+    } finally {
+      verify("0")
+    }
+    // the real compile wrote `exe`; had it written THROUGH the link, the stored executable would now be that build
+    expect(readFileSync(stored).equals(before)).toBe(true)
+    const after = await build("linked", program("linked"))
+    expect(after.b.cached).toBe(true)
+    expect(Bun.spawnSync([after.exe]).stdout.toString()).toBe("linked\n")
   })
 
   test("a STALE executable is caught by the run probe, fails loudly, and is evicted", async () => {
