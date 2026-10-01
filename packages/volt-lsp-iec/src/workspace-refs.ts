@@ -92,7 +92,6 @@ export function obsoletePousInText(text: string): [string, { name: string; messa
   for (const m of text.matchAll(OBSOLETE_RE)) out.push([m[2]!.toLowerCase(), { name: m[2]!, message: m[1]! }])
   return out
 }
-const obsoletePousOf = (file: string): [string, { name: string; message: string }][] => obsoletePousInText(readFileSync(file, "utf8"))
 /** Every PROGRAM on a `.task` `Calls:` line. A task can run several (`Calls: A, B, C`), so split the
  *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. */
 const taskRootsOf = (file: string): string[] =>
@@ -147,29 +146,11 @@ export function loadTaskRoots(root: string): Set<string> {
   return out
 }
 
-/** Obsolete-POU catalog for a workspace root — scans every source file's text for `{attribute 'obsolete'}`. */
-function loadObsoletePous(root: string): Map<string, { name: string; message: string }> {
-  const out = new Map<string, { name: string; message: string }>()
-  for (const file of walkFiles(root)) {
-    if (!SOURCE_EXTENSION_SET.has(extname(file))) continue
-    try {
-      for (const [k, v] of obsoletePousOf(file)) out.set(k, v)
-    } catch {
-      continue // unreadable source — skip
-    }
-  }
-  return out
-}
-
 /** Both reference-file catalogs for a workspace root — the input the unresolved-identifier check skips. */
 export function loadWorkspaceRefs(root: string): WorkspaceRefs {
-  if (root.length === 0) return EMPTY_WORKSPACE_REFS
-  return {
-    libraryNamespaces: loadLibraryNamespaces(root),
-    libraryManifests: scanLibraryManifests(root),
-    deviceInstances: loadDeviceInstances(root),
-    obsoletePous: loadObsoletePous(root),
-  }
+  // The refs half of the server's own one-walk scan. It was four walks (one per catalog) and a second read of every
+  // source: 10.2 s over the six corpora against 5.2 s for the scan (measured 2026-10-01), for the identical catalogs.
+  return scanWorkspace(root).refs
 }
 
 export interface WorkspaceScan {
@@ -219,7 +200,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
       } else if (SOURCE_EXTENSION_SET.has(ext)) {
         const source = readSourceText(file)
         sources.push({ path: file, source })
-        for (const m of source.matchAll(OBSOLETE_RE)) obsoletePous.set(m[2]!.toLowerCase(), { name: m[2]!, message: m[1]! })
+        for (const [k, v] of obsoletePousInText(source)) obsoletePous.set(k, v)
       }
     } catch {
       continue // unreadable file — skip
