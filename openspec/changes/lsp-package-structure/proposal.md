@@ -11,9 +11,13 @@ piece of content in its final layer; it moves nothing those changes are still re
 
 ## What Changes
 
+- **Folders by LAYER, not by language** (owner, 2026-10-01). Network text (LD/FBD) is another language the LSP reads, like
+  ST, so it gets NO root folder: its lexer/parser/AST under `frontend/syntax/network/`, its wire scope and types in
+  `frontend/symbols` and `frontend/types`, its diagnostics under `analysis/checks/network/`, and services stay generic over
+  both languages. Today's `src/network/` and `src/network-text/` dissolve into those layers (with the LD/FBD coverage change
+  if it has landed, otherwise here).
 - **`src/`** tells the story at its top level and holds no loose files: `frontend/` (syntax, symbols, types, library) →
-  `analysis/` and `transpile/` and `network/` (ONE folder for LD/FBD, if the LD/FBD coverage change has landed; otherwise its
-  current two folders stay and this change says so) → `services/` and `server/`; `reference/` and the entry point in a home
+  `analysis/` and `transpile/` → `services/` and `server/`; `reference/` and the entry point in a home
   that is named, not left at the root.
 - **`test/`** mirrors `src/`: colocated unit tests stay next to their code; cross-cutting suites (conformance, corpus,
   libraries, catalog, frontend baselines) get one root with one folder per concern, each with a one-line purpose.

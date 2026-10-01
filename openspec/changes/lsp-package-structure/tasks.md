@@ -9,7 +9,8 @@ Steps of at most 5 tasks; every step output-neutral (suites, map, snapshots unch
 - [ ] 1.1 design.md: the target tree with one sentence per folder, the old -> new map, what is deleted and why.
 
 ## 2. Moves (one task per move or group of moves, output-neutral)
-- [ ] 2.1 src/ top level (no loose files; network folder decision recorded).
+- [ ] 2.1 src/ top level (no loose files); src/network and src/network-text dissolved into the layers (frontend/syntax/network,
+      frontend/symbols+types, analysis/checks/network), unless the LD/FBD coverage change already did it.
 - [ ] 2.2 test/ mirrors src/; cross-cutting suites under one root.
 - [ ] 2.3 scripts/ grouped by purpose; probes and finished codemods deleted; scripts/README.md complete.
 - [ ] 2.4 docs/ current only; architecture.md shows the final tree.
