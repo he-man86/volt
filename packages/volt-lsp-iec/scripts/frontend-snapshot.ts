@@ -10,7 +10,7 @@
  * WHAT IT HOLDS, per source (`test/frontend/sources.ts`: every corpus file, fixture source and library body):
  *
  *   F-front  `ast` (units, spans included), `errors`, `failed` (failedDeclarations), `tokens` (the lexed stream), each ST
- *            body's two statement trees (`stmts` — parseStatements, `active` — parseActive), and the `resolution`,
+ *            body's statement tree (`stmts` and `active`, one tree since frontend-conformance 2.7.1 — `bodyStatements`), and the `resolution`,
  *            `types` and `folds` dumps of `test/frontend/dumps.ts` (fixtures bound once per vendor); plus `diagnostics`,
  *            the LSP's own over the six corpora (the server's `documentDiagnostics`);
  *   F-back   each conformance fixture's lowering diagnostics, emitted Rust (`rust`) and interpreter values (`interp`, every
@@ -102,8 +102,16 @@ async function snapshot(sink: Sink, only?: string): Promise<void> {
         }
         for (const body of syntax.unitBodies(unit)) {
           if (!syntax.isStBody(body)) continue
-          stmts.push(json(syntax.parseStatements(body)))
-          active.push(json(syntax.parseActive(body)))
+          // ONE tree since 2.7.1 (`bodyStatements`, the conditional pragmas applied, no world); both aspects kept so a
+          // body's tree is compared with both of the base's (`parseStatements` every branch, `parseActive` the taken
+          // ones — this script runs in the base's worktree too), its `messages` written only where it has some
+          const api = syntax as unknown as Record<string, ((b: unknown) => { messages?: readonly unknown[] }) | undefined>
+          const tree = (parse: ((b: unknown) => { messages?: readonly unknown[] }) | undefined): string => {
+            const { messages, ...rest } = parse!(body)
+            return json(messages !== undefined && messages.length > 0 ? { ...rest, messages } : rest)
+          }
+          stmts.push(tree(api.bodyStatements ?? api.parseStatements))
+          active.push(tree(api.bodyStatements ?? api.parseActive))
         }
       }
     }

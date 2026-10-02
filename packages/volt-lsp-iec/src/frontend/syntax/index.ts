@@ -73,7 +73,9 @@ export { varInputParams } from "./ast/declarations.js"
 
 // parsing
 export { parseDocument, parseSource, type ParseOptions } from "./parse/parser.js"
-export { parseActive, parseStatements } from "./parse/body-parse.js"
+export { bodyStatements, sourceStatements } from "./parse/body-parse.js"
+export type { Attribute } from "./ast/nodes.js"
+export type { BodyParse, PragmaMessage } from "./parse/statements.js"
 export { BINARY_PRECEDENCE, REFUSED_OPERATORS, parseExprFromTokens } from "./parse/expression.js"
 export { parseTypeExprFromTokens } from "./parse/type-expr.js"
 
@@ -84,7 +86,9 @@ export { addressShape, type AddressShape } from "./literal/address.js"
 export { calendarNanoseconds } from "./literal/calendar.js"
 
 // pragmas
-export { declarationAttributes, memberAttributes, unitAttributes } from "./pragmas/attributes.js"
+export { declarationAttributes, FRONTEND_ATTRIBUTES, hasFrontendAttribute, memberAttributes, readAttribute, unitAttributes, type FrontendAttribute } from "./pragmas/attributes.js"
+export { directiveOf } from "./pragmas/conditional.js"
+export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, ProjectFacts } from "./pragmas/conditional.js"
 
 // the Volt workspace file format
 export {

@@ -21,6 +21,7 @@ import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
 import { assembleFixture, splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
+import { RECORDING_ENVIRONMENT } from "./recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./project-libraries.js"
 import type { LanguageTest } from "../types.js"
 
@@ -106,7 +107,7 @@ function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dia
   // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
   let project = lspBase.get(vendor)
   if (project === undefined) {
-    project = build.buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor)
+    project = build.buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor, RECORDING_ENVIRONMENT)
     lspBase.set(vendor, project)
   }
   for (const f of files) build.bindFile(project, f)

@@ -16,7 +16,7 @@
  */
 import { readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { isStBody, parseStatements, type TopLevel } from "../src/frontend/syntax/index.js"
+import { isStBody, bodyStatements, type TopLevel } from "../src/frontend/syntax/index.js"
 import { isLibrarySymbol, scopeForUnit } from "../src/frontend/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { loweringProject } from "../test/corpus/support/project.js"
@@ -69,7 +69,7 @@ for (const projectDir of projects) {
     for (const unit of parseResult.units.filter(isRunnable)) {
       const scope = scopeForUnit(lowering.project, unit)
       if (scope === undefined) continue
-      const hasCode = isStBody(unit.body) && parseStatements(unit.body).statements.length > 0
+      const hasCode = isStBody(unit.body) && bodyStatements(unit.body).statements.length > 0
       if (hasCode) withCode++
       else declOnly++
 

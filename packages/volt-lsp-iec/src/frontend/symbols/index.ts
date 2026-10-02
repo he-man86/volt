@@ -43,8 +43,11 @@ export { baseOf, extendsChain } from "./extends.js"
 export { libraryRank, pickForAsker, scopeUri } from "./precedence.js"
 export { manifestsByTitle } from "./library-namespaces.js"
 
+// the names a conditional pragma asks
+export { bodyConditionWorld, conditionWorld } from "./condition-world.js"
+
 // the bodies analysed, each in its scope
-export { bodies, bodiesAt, forEachDecl, forEachExpr, type UnitBody } from "./scoped-bodies.js"
+export { bodies, bodiesAt, forEachDecl, forEachExpr, sourceBodies, type UnitBody } from "./scoped-bodies.js"
 
 /**
  * BUILDING THE TABLE — a whole project from its files (`buildSymbolTable`); the incremental unit of work the live

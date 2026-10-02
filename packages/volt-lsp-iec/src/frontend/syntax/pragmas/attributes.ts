@@ -1,84 +1,114 @@
 /**
- * The `{attribute '…'}` names in force on each POU of a parsed file. The AST keeps no pragmas, so this reads the LEXER's
- * `pragma` tokens — a commented-out attribute is a comment, not a pragma, and is correctly ignored (as the binder's
- * `qualified_only` detection does). A pragma belongs to the unit it sits in or the unit that follows it; a METHOD's,
- * ACTION's or PROPERTY's attributes fold into the POU before it, the one-item-per-file layout the binder parents them by.
+ * ATTRIBUTES IN THE AST — the `{attribute '…'}` pragmas of a parse, attached ONCE to the node each belongs to
+ * (`attachAttributes`, run by the parser): a VAR section's (or a STRUCT's) pragma to the declaration that follows it, any
+ * other to the unit it sits in or the unit that follows it. A commented-out attribute is a comment, not a pragma, and is
+ * not one (`prag_attribute_commented_out`, `prag_attribute_block_commented_out`: no warning on either vendor).
+ *
+ * Measured (frontend-conformance 2.7.2, both vendors 2026-10-02): an attribute on a METHOD is the METHOD's —
+ * `{attribute 'obsolete'}` there warns at its call (`prag_attribute_on_method`); the lexer ends a pragma at its first
+ * `}`, quotes or not (`prag_attribute_brace_in_value`).
+ *
+ * The readers below fold or pick from the AST; none re-lexes.
  */
-import type { ParseResult, TopLevel } from "../ast/nodes.js"
-import { lex } from "../lex/lexer.js"
+import type { Attribute, ParseResult, TopLevel, VarDecl } from "../ast/nodes.js"
+import type { Token } from "../lex/tokens.js"
 
-type Declaration = Extract<TopLevel, { kind: "function_block" }>["varSections"][number]["decls"][number]
+/** The ATTRIBUTES THE FRONT-END ANSWERS BY (design.md §4 2.7): resolution (`qualified_only`), typing (`strict`,
+ *  `to_string`) and constancy (`const_replaced`, `const_non_replaced`). Every other attribute is a consumer's. */
+export const FRONTEND_ATTRIBUTES = ["qualified_only", "strict", "to_string", "const_replaced", "const_non_replaced"] as const
+export type FrontendAttribute = (typeof FRONTEND_ATTRIBUTES)[number]
 
-/** The name an `{attribute '<name>' …}` pragma sets — its first quoted word, non-empty — or undefined for any other
- *  pragma. The one reading of an attribute pragma here; the analysis and service copies of it read the empty name
- *  and the value differently (openspec frontend-conformance 1.23), which conformance 2.7.2 decides. */
-function attributeName(pragma: string): string | undefined {
-  return /^\{\s*attribute\s+'([^']+)'/i.exec(pragma)?.[1]
+/** Does `node` carry the front-end attribute `name`? */
+export function hasFrontendAttribute(node: { attributes?: readonly Attribute[] }, name: FrontendAttribute): boolean {
+  return node.attributes?.some((a) => a.name.toLowerCase() === name) ?? false
 }
 
-/** The `{attribute '…'}` names on each variable declaration: a pragma inside a VAR section belongs to the declaration that
- *  follows it (`{attribute 'instance-path'}` above `sPath : STRING(255);`). */
-export function declarationAttributes(parseResult: ParseResult, source: string): Map<Declaration, Set<string>> {
-  const sections = parseResult.units.flatMap((u) => ("varSections" in u ? u.varSections : []))
-  const out = new Map<Declaration, Set<string>>()
-  for (const token of lex(source, parseResult.dialect)) {
-    if (token.kind !== "pragma") continue
-    const name = attributeName(token.text)
-    const section = name === undefined ? undefined : sections.find((s) => s.span.start <= token.span.start && token.span.end <= s.span.end)
-    const decl = section?.decls.find((d) => d.span.start >= token.span.end)
-    if (decl === undefined) continue
-    const names = out.get(decl) ?? new Set<string>()
-    addAttribute(names, token.text, name!)
-    out.set(decl, names)
-  }
-  return out
+/** `text` (a whole pragma token) read as an attribute's name and value — undefined for any other pragma. The one
+ *  reading of an attribute: the analysis checks ask this, the parser attaches `parseAttribute`'s. */
+export function readAttribute(text: string): { name: string; value?: string } | undefined {
+  const m = /^\{\s*attribute\s+'([^']*)'/i.exec(text)
+  if (m === null) return undefined
+  const quoted = /:=\s*'([^']*)'/.exec(text)?.[1]
+  // `:= readwrite` — an unquoted value is the empty string to the compiler (`cc4_attribute_value_string`)
+  const value = quoted ?? (/'[^']*'\s*:=/.test(text) ? "" : undefined)
+  return value === undefined ? { name: m[1]! } : { name: m[1]!, value }
 }
 
-/** The `{attribute '…'}` names on each METHOD, ACTION and PROPERTY itself — the ones `unitAttributes` folds into their POU,
- *  for a consumer that must know WHICH member carries one (a `call_after_global_init_slot` method). */
-export function memberAttributes(parseResult: ParseResult, source: string): Map<TopLevel, Set<string>> {
-  const members = new Set<TopLevel>(parseResult.units.filter((u) => u.kind === "method" || u.kind === "action" || u.kind === "property"))
-  const out = new Map<TopLevel, Set<string>>()
-  for (const token of lex(source, parseResult.dialect)) {
-    if (token.kind !== "pragma") continue
-    const name = attributeName(token.text)
-    const unit = name === undefined ? undefined : parseResult.units.find((u) => u.span.end >= token.span.end)
-    if (unit === undefined || !members.has(unit)) continue
-    const names = out.get(unit) ?? new Set<string>()
-    addAttribute(names, token.text, name!)
-    out.set(unit, names)
-  }
-  return out
+/** `text` read as an attribute at `span` — the AST's node. */
+function parseAttribute(text: string, span: Attribute["span"]): Attribute | undefined {
+  const a = readAttribute(text)
+  return a === undefined ? undefined : { ...a, text, span }
 }
 
-export function unitAttributes(parseResult: ParseResult, source: string): Map<TopLevel, Set<string>> {
-  const units = parseResult.units
-  const ownerOf = new Map<TopLevel, TopLevel>()
-  let owner: TopLevel | undefined
-  for (const unit of units) {
-    if (unit.kind === "method" || unit.kind === "action" || unit.kind === "property") {
-      if (owner !== undefined) ownerOf.set(unit, owner)
-    } else owner = unit
-  }
-  const out = new Map<TopLevel, Set<string>>()
-  for (const token of lex(source, parseResult.dialect)) {
+type Attributed = { attributes?: readonly Attribute[] }
+
+function add(node: Attributed, attribute: Attribute): void {
+  ;(node as { attributes?: Attribute[] }).attributes = [...(node.attributes ?? []), attribute]
+}
+
+/** The declaration lists of a unit an attribute inside them belongs to: its VAR sections, a STRUCT's or UNION's fields. */
+function declarationLists(unit: TopLevel): { span: Attribute["span"]; decls: readonly VarDecl[] }[] {
+  if ("varSections" in unit) return unit.varSections
+  if (unit.kind === "type_decl" && (unit.body.kind === "struct" || unit.body.kind === "union")) return [{ span: unit.body.span, decls: unit.body.fields }]
+  return []
+}
+
+/** Attach every attribute pragma of `tokens` to the node of `units` it belongs to. Run once, by the parser. */
+export function attachAttributes(units: readonly TopLevel[], tokens: readonly Token[]): void {
+  for (const token of tokens) {
     if (token.kind !== "pragma") continue
-    const name = attributeName(token.text)
+    const attribute = parseAttribute(token.text, token.span)
+    if (attribute === undefined || attribute.name.length === 0) continue
     // a unit's span stops before its END_ keyword, so the first unit ending at or after the pragma holds or follows it
-    const unit = name === undefined ? undefined : units.find((u) => u.span.end >= token.span.end)
+    const unit = units.find((u) => u.span.end >= token.span.end)
     if (unit === undefined) continue
-    const pou = ownerOf.get(unit) ?? unit
-    const names = out.get(pou) ?? new Set<string>()
-    addAttribute(names, token.text, name!)
-    out.set(pou, names)
+    const list = declarationLists(unit).find((s) => s.span.start <= token.span.start && token.span.end <= s.span.end)
+    const decl = list?.decls.find((d) => d.span.start >= token.span.end)
+    add(decl ?? unit, attribute)
   }
+}
+
+/** The name, and — when the attribute carries one — `name=value` beside it, so a consumer that needs the VALUE has it
+ *  while every `.has(name)` check keeps answering. `{attribute 'pack_mode' := '1'}` gives `pack_mode` and `pack_mode=1`. */
+function namesOf(attributes: readonly Attribute[], into = new Set<string>()): Set<string> {
+  for (const a of attributes) {
+    into.add(a.name.toLowerCase())
+    if (a.value !== undefined && a.value.length > 0) into.add(`${a.name.toLowerCase()}=${a.value.toLowerCase()}`)
+  }
+  return into
+}
+
+/** The attribute names on each variable declaration (`{attribute 'instance-path'}` above `sPath : STRING(255);`). */
+export function declarationAttributes(parseResult: ParseResult): Map<VarDecl, Set<string>> {
+  const out = new Map<VarDecl, Set<string>>()
+  for (const unit of parseResult.units)
+    for (const list of declarationLists(unit))
+      for (const decl of list.decls) if (decl.attributes !== undefined) out.set(decl, namesOf(decl.attributes))
   return out
 }
 
-/** The name, and — when the pragma carries one — `name=value` beside it, so a consumer that needs the VALUE has it
- *  while every `.has(name)` check keeps answering. `{attribute 'pack_mode' := '1'}` adds `pack_mode` and `pack_mode=1`. */
-function addAttribute(into: Set<string>, pragma: string, name: string): void {
-  into.add(name.toLowerCase())
-  const value = /:=\s*'([^']*)'/.exec(pragma)?.[1]
-  if (value !== undefined) into.add(`${name.toLowerCase()}=${value.toLowerCase()}`)
+const MEMBER_KINDS = new Set(["method", "action", "property"])
+
+/** The attribute names on each METHOD, ACTION and PROPERTY itself — the ones `unitAttributes` folds into their POU, for
+ *  a consumer that must know WHICH member carries one (a `call_after_global_init_slot` method). */
+export function memberAttributes(parseResult: ParseResult): Map<TopLevel, Set<string>> {
+  const out = new Map<TopLevel, Set<string>>()
+  for (const unit of parseResult.units) if (MEMBER_KINDS.has(unit.kind) && unit.attributes !== undefined) out.set(unit, namesOf(unit.attributes))
+  return out
+}
+
+/** The attribute names in force on each POU: its own, its members' (the one-item-per-file layout the binder parents them
+ *  by) and its declarations'. */
+export function unitAttributes(parseResult: ParseResult): Map<TopLevel, Set<string>> {
+  const out = new Map<TopLevel, Set<string>>()
+  let owner: TopLevel | undefined
+  for (const unit of parseResult.units) {
+    if (!MEMBER_KINDS.has(unit.kind)) owner = unit
+    const pou = MEMBER_KINDS.has(unit.kind) ? owner : unit
+    if (pou === undefined) continue
+    const own = [...(unit.attributes ?? []), ...declarationLists(unit).flatMap((l) => l.decls.flatMap((d) => d.attributes ?? []))]
+    if (own.length === 0) continue
+    out.set(pou, namesOf(own, out.get(pou)))
+  }
+  return out
 }

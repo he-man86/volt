@@ -28,7 +28,6 @@ import { join } from "node:path"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../src/analysis/index.js"
-import { obsoletePousInText } from "../src/workspace-refs.js"
 import { call, TARGET } from "./bridge.js"
 import { openFixture } from "./bridge-fixture.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
@@ -49,13 +48,12 @@ function lspMessagesForCode(
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor) })),
   ]
   const project = build.buildSymbolTable(files, [], vendor)
-  const obsoletePous = new Map(files.flatMap((f) => obsoletePousInText(f.source)))
   return computeSemanticDiagnostics({
     parseResult: pr,
     source: repro,
     project,
     config: resolveConfig({ vendor }),
-    references: { ...EMPTY_WORKSPACE_REFS, obsoletePous },
+    references: EMPTY_WORKSPACE_REFS,
   })
     .filter((d) => d.code === ourCode)
     .map((d) => d.message)

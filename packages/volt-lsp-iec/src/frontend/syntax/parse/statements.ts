@@ -1,12 +1,20 @@
 /**
  * ST STATEMENTS — the statement parser, driving the expression parser to build a body's `StatementList`.
  *
- * `parseStatementTokens` returns `{ statements, ok, errors }`: `ok` is true only when every token was consumed with zero
- * errors; the errors are the body's syntax errors, which the `parse-errors` check reports. It never throws. A body is
- * parsed through `body-parse.ts`, which caches the parse per body and applies conditional pragmas (`parseActive`).
+ * `parseStatementTokens` returns `{ statements, ok, errors, messages }`: `ok` is true only when every token was consumed
+ * with zero errors; the errors are the body's syntax errors, which the `parse-errors` check reports. It never throws. A
+ * body is parsed through `body-parse.ts` `bodyStatements`, which caches the parse per body.
  *
- * Pragmas are lexer trivia, so the cursor skips them: a conditional pragma (`{IF}` … `{END_IF}`) is invisible here —
- * `parseStatements` reads every branch, `parseActive` only the ones taken.
+ * PRAGMAS ARE TRIVIA, EXCEPT WHERE A STATEMENT MAY START (frontend-conformance 2.7.1/2.7.3, measured on both vendors):
+ * there, and only there, the conditional directives (`{IF}`/`{ELSIF}`/`{ELSE}`/`{END_IF}`, `{define}`/`{undefine}`) and
+ * the message pragmas act (`applyPragmas`). Inside a statement every pragma is trivia — an `{IF}` inside an expression
+ * leaves both its branches in (`prag_if_in_expression_statement` = 31), a `{warning}` there is not said. A chain belongs
+ * to the statement list it opens in; a branch not taken is parsed IN SILENCE and dropped (`prag_untaken_branch_syntax_error`
+ * builds), so the tree is the one CODESYS compiles: ONE statement tree per body. A condition the world cannot answer
+ * leaves only its own chain undecided (`BodyParse.refused`); what lies outside it is read as compiled.
+ *
+ * The SOURCE reading (`parseSourceStatementTokens`) is the other tree a body has: no condition asked, every branch in and
+ * parsed in silence — the text as written, for the services that edit and navigate it, never for a check.
  */
 import { eofSpan, joinSpans, type Span, zeroSpan } from "../span.js"
 import type { Token } from "../lex/tokens.js"
@@ -17,6 +25,14 @@ import { REFUSED_AT_STATEMENT_START, type Keyword } from "../lex/vocabulary.js"
 import { addressShape } from "../literal/address.js"
 import { reportStatementCascade, vendorTokenText } from "./errors.js"
 import { identFromToken } from "./names.js"
+import { directiveOf, evaluateCondition, type ConditionError, type ConditionParse, type ConditionWorld, type MessageSeverity } from "../pragmas/conditional.js"
+
+/** A message pragma (`{warning 'x'}` …) where a statement may start, in a branch taken — what the build says. */
+export interface PragmaMessage {
+  severity: MessageSeverity
+  text: string
+  span: Span
+}
 
 export interface BodyParse {
   statements: StatementList
@@ -26,23 +42,183 @@ export interface BodyParse {
   /** All recorded parse errors (an `expect*` mismatch = a definite syntax error at a precise span). Surfaced
    *  as diagnostics by `checkParseErrors`; the resilient-recovery work (phase 2) grows this past one entry. */
   errors: readonly ParseError[]
+  /** The message pragmas the build says, in order. */
+  messages: readonly PragmaMessage[]
+  /** Set when a conditional pragma asks what the parse's `ConditionWorld` does not hold (a device fact, a project compile
+   *  define, the project's names), naming the first such question. Only that chain's branches are undecided: each is
+   *  parsed in silence and left out of `statements`, while what lies outside every undecided branch — compiled whichever
+   *  way the condition goes — keeps its errors and its messages. `ok` is false: the tree is not the whole body, and no
+   *  branch is guessed. */
+  refused?: string
 }
 
-/** A body's statement tokens parsed as a statement list — uncached; `body-parse.ts` is where a body is parsed once. */
-export function parseStatementTokens(toks: readonly Token[]): BodyParse {
+/** The vendor's words for a chain left open where its statement list ends (`cc_unterminated_if`, both vendors). */
+const UNTERMINATED_CONDITIONAL = "Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected"
+
+/** Whether a region of the body is compiled: surely, surely not, or as a condition Volt could not decide goes. */
+type Compiled = "on" | "maybe" | "off"
+
+/** A region is compiled as its least-compiled enclosing part is. */
+const compiledOf = (parts: readonly Compiled[]): Compiled => (parts.includes("off") ? "off" : parts.includes("maybe") ? "maybe" : "on")
+
+/** The conditional state of one parse: the world its conditions ask, the body's own defines, what it says. */
+interface PragmaState {
+  world: ConditionWorld
+  defines: Map<string, string | undefined>
+  /** Defines a `{define}`/`{undefine}` in an undecided branch may have changed: a question about one is undecided too. */
+  uncertain: Set<string>
+  messages: PragmaMessage[]
+  /** Pragma tokens already applied — a trivia run is acted on once. */
+  applied: Set<Token>
+  /** The branches being parsed in silence, outermost first — not compiled, or undecided. */
+  silent: Compiled[]
+  /** The first question the world could not answer. */
+  refused?: string
+  /** The SOURCE reading: no condition is asked, every branch is undecided — parsed in silence and KEPT in the tree. */
+  source?: true
+  /** The errors of a condition's TEXT, said wherever its directive stands — in a branch not taken, or parsed in silence
+   *  inside a statement of one — and so kept apart from the cursor's, which silence drops (`prag_hasattribute_unquoted_*`). */
+  textErrors: ParseError[]
+}
+
+/** One open `{IF}` chain of a statement list. */
+interface Chain {
+  /** Whether the branch being read is compiled. */
+  compiled: Compiled
+  /** Whether a branch of the chain was taken (in a region not compiled, it counts as taken). */
+  taken: "yes" | "no" | "maybe"
+  sawElse: boolean
+}
+
+const PRAGMAS = new WeakMap<Cursor, PragmaState>()
+
+/** A body's statement tokens parsed as a statement list — uncached; `body-parse.ts` is where a body is parsed once. Its
+ *  conditional pragmas are applied against `world` (`pragmas/conditional.ts`). */
+export function parseStatementTokens(toks: readonly Token[], world: ConditionWorld = {}): BodyParse {
+  return parseTokens(toks, { world, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], textErrors: [] })
+}
+
+/**
+ * A body's statement tokens as WRITTEN — every branch of every chain is in the tree, in source order. Not what any vendor
+ * compiles: the tree of the services that edit or navigate the source text (rename, references, folding, selection,
+ * hover), where a branch not taken today is still text that comes back when its condition flips (another device,
+ * project or define). The directives act as structure where a statement may start, as they do for the vendor, but no
+ * condition is asked: every branch is UNDECIDED, parsed in silence and kept — a syntax error in a branch (which builds
+ * when the branch is not taken, `prag_untaken_branch_syntax_error`) does not void the rest of the body, while one outside
+ * every chain, or a chain's orphan/unterminated structure, still does. Its errors and messages are that reading's; no
+ * check reads them.
+ */
+export function parseSourceStatementTokens(toks: readonly Token[]): BodyParse {
+  return parseTokens(toks, { world: {}, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], source: true, textErrors: [] })
+}
+
+function parseTokens(toks: readonly Token[], state: PragmaState | undefined): BodyParse {
   // The tokens are a slice with no EOF sentinel; append one so the cursor's peek()/atEof() terminate correctly at the
   // body's end.
   const last = toks[toks.length - 1]
   const end: Span = last ? eofSpan(last.span) : zeroSpan()
   const cur = new Cursor([...toks, { kind: "eof", text: "", span: end }])
+  if (state !== undefined) PRAGMAS.set(cur, state)
   const statements = parseStatementList(cur, () => false)
-  const errors = cur.getErrors()
-  const ok = errors.length === 0 && cur.atEof()
+  const errors = state === undefined || state.textErrors.length === 0 ? cur.getErrors() : [...cur.getErrors(), ...state.textErrors].sort((a, b) => a.span.start - b.span.start)
+  const refused = state?.refused
+  const parsed = errors.length === 0 && cur.atEof()
   // When the list stopped before EOF with no recorded error, the blocker is the token we stopped on.
-  const firstError = ok
-    ? undefined
-    : (errors[0]?.message ?? `unexpected ${cur.peek().kind} '${cur.peek().text.slice(0, 24)}'`)
-  return { statements, ok, firstError, errors }
+  const firstError = parsed ? refused : (errors[0]?.message ?? `unexpected ${cur.peek().kind} '${cur.peek().text.slice(0, 24)}'`)
+  const out: BodyParse = { statements, ok: parsed && refused === undefined, firstError, errors, messages: state?.messages ?? [] }
+  if (refused !== undefined) out.refused = refused
+  return out
+}
+
+/**
+ * Act on the pragmas in the trivia before the next statement of a list whose open chains are `chains`: the conditional
+ * directives and the message pragmas. Errors are the vendor's: an `{ELSE}`/`{ELSIF}` after the chain's `{ELSE}`, or one
+ * with no chain open in this list, is "Unexpected pragma: 'X' found without matching 'if'" (`prag_else_twice`,
+ * `prag_elsif_after_else`, `prag_unbalanced_end_if`); a condition the vendor does not read is its two errors.
+ *
+ * A condition the world cannot answer leaves its chain UNDECIDED (`maybe`): each branch is parsed in silence, a define
+ * there makes its name uncertain, nothing in it is said — and the chain's structure, which no decision changes, is still
+ * tracked, so what follows it is read as the vendor reads it either way.
+ */
+function applyPragmas(cur: Cursor, st: PragmaState, chains: Chain[]): void {
+  for (const p of cur.pragmasAhead()) {
+    if (st.applied.has(p)) continue
+    st.applied.add(p)
+    const d = directiveOf(p.text)
+    if (d === undefined) continue
+    // an unquoted `hasattribute` attribute is an error of the condition's TEXT: both vendors say it on an {IF}/{ELSIF}
+    // whether or not its condition is asked — after a taken branch, in an untaken branch (`prag_hasattribute_unquoted_*`)
+    if ((d.kind === "if" || d.kind === "elsif") && !st.source && "errors" in d.condition)
+      for (const e of d.condition.errors) if (e.attributeValueString !== undefined) st.textErrors.push({ message: e.message, span: p.span, attributeValueString: e.attributeValueString })
+    const top = chains.at(-1)
+    // is the region around the innermost open chain compiled — and the region here, inside it?
+    const outer = compiledOf([...st.silent, ...chains.slice(0, -1).map((c) => c.compiled)])
+    const here = compiledOf([outer, top?.compiled ?? "on"])
+    const orphan = (word: string): void => {
+      if (outer === "on") cur.pushParseError({ message: `Unexpected pragma: '${word}' found without matching 'if'`, span: p.span, orphanPragma: word })
+    }
+    const decide = (condition: ConditionParse): boolean | "maybe" => {
+      if (st.source) return "maybe"
+      if ("refused" in condition) return undecided(st, condition.refused)
+      if ("errors" in condition) return vendorErrors(cur, condition.errors, p.span)
+      const v = evaluateCondition(condition.ok, st.world, st.defines, st.uncertain)
+      if (typeof v === "boolean") return v
+      if ("refused" in v) return undecided(st, v.refused)
+      return vendorErrors(cur, v.errors, p.span)
+    }
+    const branch = (v: boolean | "maybe"): Pick<Chain, "compiled" | "taken"> =>
+      v === "maybe" ? { compiled: "maybe", taken: "maybe" } : v ? { compiled: "on", taken: "yes" } : { compiled: "off", taken: "no" }
+    switch (d.kind) {
+      case "if":
+        // in a region not surely compiled, a nested chain is as compiled as its region, whatever its condition
+        chains.push(here === "on" ? { ...branch(decide(d.condition)), sawElse: false } : { compiled: here, taken: "yes", sawElse: false })
+        break
+      case "elsif":
+        if (top === undefined || top.sawElse) orphan("ELSIF")
+        else if (outer !== "on") top.compiled = outer
+        else if (top.taken === "yes") top.compiled = "off"
+        // an earlier branch may have been taken: this one is undecided, and its condition is not asked
+        else if (top.taken === "maybe") top.compiled = "maybe"
+        else Object.assign(top, branch(decide(d.condition)))
+        break
+      case "else":
+        if (top === undefined || top.sawElse) orphan("ELSE")
+        else {
+          top.compiled = outer !== "on" ? outer : top.taken === "yes" ? "off" : top.taken === "no" ? "on" : "maybe"
+          top.taken = "yes"
+          top.sawElse = true
+        }
+        break
+      case "end_if":
+        if (top === undefined) orphan("END_IF")
+        else chains.pop()
+        break
+      case "define":
+      case "undefine":
+        if (here === "maybe") st.uncertain.add(d.name)
+        if (here !== "on") break
+        st.uncertain.delete(d.name)
+        if (d.kind === "define") st.defines.set(d.name, d.value)
+        else st.defines.delete(d.name)
+        break
+      case "message":
+        if (here === "on") st.messages.push({ severity: d.severity, text: d.text, span: p.span })
+        break
+    }
+  }
+}
+
+/** A condition the world cannot answer: the first is the body's `refused`, and its chain is undecided. */
+function undecided(st: PragmaState, reason: string): "maybe" {
+  st.refused ??= reason
+  return "maybe"
+}
+
+/** Record a condition's vendor errors at its pragma (an error of its text is `PragmaState.textErrors`', said already);
+ *  the branch is not taken. */
+function vendorErrors(cur: Cursor, errors: readonly ConditionError[], span: Span): false {
+  for (const e of errors) if (e.attributeValueString === undefined) cur.pushParseError({ message: e.message, span, ...(e.unexpectedToken === undefined ? {} : { unexpectedToken: e.unexpectedToken }) })
+  return false
 }
 
 function atKeyword(cur: Cursor, ...kws: Keyword[]): boolean {
@@ -92,36 +268,57 @@ function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): Statem
 
 function parseStatementsUntil(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
   const out: Statement[] = []
-  while (!cur.atEof() && !stop(cur)) {
-    const before = cur.mark()
-    const resumed = cur.takeResumed()
-    const s = parseStatement(cur)
-    if (s === RESYNCED) continue
-    if (s !== undefined) {
-      out.push(resumed && s.kind === "expr_stmt" ? { ...s, resumed: true } : s)
+  const st = PRAGMAS.get(cur)
+  const chains: Chain[] = []
+  for (;;) {
+    if (st !== undefined) applyPragmas(cur, st, chains)
+    if (cur.atEof() || stop(cur)) break
+    const compiled = compiledOf(chains.map((c) => c.compiled))
+    if (st !== undefined && compiled !== "on") {
+      // a branch not taken, or undecided: parsed in silence, and dropped — kept in the source reading
+      st.silent.push(compiled)
+      try {
+        cur.silently(() => parseListStatement(cur, st.source ? out : []))
+      } finally {
+        st.silent.pop()
+      }
       continue
     }
-    // An operand was REFUSED where it stands (`Cursor.refuseOperand`): the vendor resyncs from that token as from a
-    // refused statement. A keyword (`NOT_AN_OPERAND`, `lex_keyword_operand_*`) is the pair and `reportStatementCascade`
-    // after it; anything else — the token a parenthesis wanted its `)` before, a prefix `&` — is the resync after a
-    // missing `;` (`expr_paren_stray_name`, `expr_prefix_ampersand`).
-    if (cur.takeRefusedOperand()) {
-      if (cur.peek().kind === "keyword") {
-        const word = cur.consume()
-        cur.pushError(`';' expected instead of ${vendorTokenText(word)}`, word.span)
-        cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
-        reportStatementCascade(cur, atStatementSync)
-      } else resyncAfterMissingSemicolon(cur)
-      if (cur.mark() === before) cur.consume()
-      continue
-    }
-    // Unparsable statement (error already recorded). Skip to the next statement boundary and keep going. The
-    // trailing `consume()` guarantees ≥1 token of progress per iteration, so recovery can never loop forever.
-    cur.recoverTo({ puncts: [";"], keywords: STMT_SYNC })
-    cur.eatPunct(";")
-    if (cur.mark() === before) cur.consume()
+    parseListStatement(cur, out)
   }
+  if (chains.length > 0) cur.pushParseError({ message: UNTERMINATED_CONDITIONAL, span: cur.peek().span, unterminatedConditional: true })
   return out
+}
+
+/** Parse the next statement of a list into `out`, recovering past one that does not parse. */
+function parseListStatement(cur: Cursor, out: Statement[]): void {
+  const before = cur.mark()
+  const resumed = cur.takeResumed()
+  const s = parseStatement(cur)
+  if (s === RESYNCED) return
+  if (s !== undefined) {
+    out.push(resumed && s.kind === "expr_stmt" ? { ...s, resumed: true } : s)
+    return
+  }
+  // An operand was REFUSED where it stands (`Cursor.refuseOperand`): the vendor resyncs from that token as from a
+  // refused statement. A keyword (`NOT_AN_OPERAND`, `lex_keyword_operand_*`) is the pair and `reportStatementCascade`
+  // after it; anything else — the token a parenthesis wanted its `)` before, a prefix `&` — is the resync after a
+  // missing `;` (`expr_paren_stray_name`, `expr_prefix_ampersand`).
+  if (cur.takeRefusedOperand()) {
+    if (cur.peek().kind === "keyword") {
+      const word = cur.consume()
+      cur.pushError(`';' expected instead of ${vendorTokenText(word)}`, word.span)
+      cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
+      reportStatementCascade(cur, atStatementSync)
+    } else resyncAfterMissingSemicolon(cur)
+    if (cur.mark() === before) cur.consume()
+    return
+  }
+  // Unparsable statement (error already recorded). Skip to the next statement boundary and keep going. The
+  // trailing `consume()` guarantees ≥1 token of progress per iteration, so recovery can never loop forever.
+  cur.recoverTo({ puncts: [";"], keywords: STMT_SYNC })
+  cur.eatPunct(";")
+  if (cur.mark() === before) cur.consume()
 }
 
 function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {

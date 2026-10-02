@@ -98,3 +98,65 @@ test("member-chain definition + type-definition", () => {
   const tDef = typeDefinition(doc, project, at(CHAIN, "inst : FB_A", 1))
   expect(tDef?.range.start).toEqual({ line: 0, character: 15 }) // `FUNCTION_BLOCK FB_A`
 })
+
+// A rename edits TEXT: a use in a conditional branch the vendor does not compile today — not taken, or under a condition
+// the LSP cannot decide (`defined (IsSimulationMode)`, a device fact) — compiles again when the condition flips, so a
+// rename that skipped it would leave a stale name and break the project (frontend-conformance 2.7 review).
+const CONDITIONAL = `FUNCTION_BLOCK F
+VAR
+	count : INT;
+END_VAR
+{define HERE}
+{IF defined (HERE)}
+count := 1;
+{ELSE}
+count := 2;
+{END_IF}
+END_FUNCTION_BLOCK
+METHOD Sim
+{IF defined (IsSimulationMode)}
+count := 3;
+{END_IF}
+count := count + 4;
+END_METHOD`
+
+test("references, rename and highlight reach a use in an untaken branch and in a body whose condition is undecided", () => {
+  const { doc, project } = setup(CONDITIONAL)
+  const uses = [2, 3, 4, 5, 6] // `count := 1` (taken), `count := 2` (untaken), `count := 3` (undecided), `count := count + 4`
+  const lines = (refs: readonly { range: { start: { line: number } } }[] | undefined) => (refs ?? []).map((r) => r.range.start.line).sort((a, b) => a - b)
+  expect(lines(references([doc], project, doc, at(CONDITIONAL, "count", 2)))).toEqual([2, 6, 8, 13, 15, 15])
+  expect(Object.values(rename([doc], project, doc, at(CONDITIONAL, "count", 2), "total")!.changes!)[0]).toHaveLength(uses.length + 1)
+  expect(documentHighlights(doc, project, at(CONDITIONAL, "count", 3))).toHaveLength(uses.length + 1)
+  // and the cursor features answer inside the branch the analysis tree leaves out
+  expect(definition(doc, project, at(CONDITIONAL, "count", 3))?.range.start).toEqual({ line: 2, character: 1 })
+  expect(definition(doc, project, at(CONDITIONAL, "count", 4))?.range.start).toEqual({ line: 2, character: 1 })
+})
+
+// A branch the vendor does not compile is parsed IN SILENCE (`prag_untaken_branch_syntax_error` builds on both vendors):
+// a syntax error there must not void the rest of the body in the source walk, or a rename edits the declaration and
+// leaves every other use in the body stale (frontend-conformance 2.7 review).
+const BROKEN_BRANCH = `FUNCTION_BLOCK F
+VAR
+	count : INT;
+END_VAR
+count := 1;
+{IF defined (VOLT_NEVER_DEFINED)}
+count := ;
+{END_IF}
+count := count + 2;
+END_FUNCTION_BLOCK
+METHOD Sim
+{IF defined (IsSimulationMode)}
+count := ;
+{END_IF}
+count := 3;
+END_METHOD`
+
+test("references and rename reach every use of a body whose untaken or undecided branch holds a syntax error", () => {
+  const { doc, project } = setup(BROKEN_BRANCH)
+  const sorted = (ls: number[]) => ls.sort((a, b) => a - b)
+  // every use outside the broken statements (`count := ;` is refused, its target read by no recovery)
+  expect(sorted((references([doc], project, doc, at(BROKEN_BRANCH, "count", 1)) ?? []).map((r) => r.range.start.line))).toEqual([2, 4, 8, 8, 14])
+  const edits = Object.values(rename([doc], project, doc, at(BROKEN_BRANCH, "count", 1), "total")!.changes!)[0]!
+  expect(sorted(edits.map((e) => e.range.start.line))).toEqual([2, 4, 8, 8, 14])
+})

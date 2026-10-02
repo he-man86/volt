@@ -3,7 +3,7 @@
  *
  * The syntax layer parses in two passes, each of which *collects* (never throws) its errors on a Cursor:
  *   - the TOP-LEVEL parse — unit headers, VAR sections, TYPE bodies → `parseResult.errors`
- *   - each ST STATEMENT body (`isStBody`), parsed on demand → `parseStatements(body).errors`
+ *   - each ST STATEMENT body (`isStBody`), parsed on demand → `bodyStatements(body).errors`
  * Both streams are the same `ParseError` (a message + a precise span), so this check drains both into one
  * `code:"syntax-error"` diagnostic stream — a missing `THEN`, a missing `;`, a `VAR_INPUT` inside a STRUCT
  * and an unterminated section are all "the parser found bad syntax here", reported at the offending token.
@@ -16,7 +16,8 @@
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
  * `scripts/parser-completeness.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
-import { exprText, initOperatorText, isStBody, parseStatements, renderTypeExpr, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
+import { exprText, initOperatorText, isStBody, bodyStatements, renderTypeExpr, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
+import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import type { Vendor } from "../../config.js"
@@ -39,6 +40,9 @@ export function vendorReportsParseError(e: ParseError, vendor: Vendor): boolean 
  */
 export function parseErrorMessage(e: ParseError, messages: CheckContext["messages"]): string {
   if (e.unexpectedToken !== undefined) return messages.unexpectedToken(e.unexpectedToken)
+  if (e.orphanPragma !== undefined) return messages.orphanPragma(e.orphanPragma)
+  if (e.unterminatedConditional === true) return messages.unterminatedConditional()
+  if (e.attributeValueString !== undefined) return messages.attributeValueString(e.attributeValueString)
   if (e.directAddressExpected !== undefined) return messages.directAddressExpectedAt(e.directAddressExpected)
   if (e.sectionInStruct !== undefined) return sectionInStructMessage(e.sectionInStruct, messages)
   if (e.sectionEcho !== undefined) return sectionEchoMessage(e.sectionEcho.keyword, e.sectionEcho.decls)
@@ -77,10 +81,19 @@ function sectionEchoMessage(keyword: string, decls: readonly VarDecl[]): string 
   return `Variable declaration expected instead of ${keyword}\r\n${lines.join("")}END_VAR\r\n`
 }
 
+/** A parse error's diagnostic code: the conditional-pragma structure keeps the codes its catalog entries name (C0081 for
+ *  an orphan directive), every other shape is a syntax error. */
+function parseErrorCode(e: ParseError): string {
+  if (e.orphanPragma !== undefined) return "orphan-conditional-pragma"
+  if (e.unterminatedConditional === true) return "unterminated-conditional-pragma"
+  if (e.attributeValueString !== undefined) return "attribute-value-string"
+  return "syntax-error"
+}
+
 export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void {
   const emit = (e: ParseError): void => {
     if (!vendorReportsParseError(e, ctx.config.vendor)) return
-    out.push({ severity: "error", span: e.span, source: SOURCE, code: "syntax-error", message: parseErrorMessage(e, ctx.messages) })
+    out.push({ severity: "error", span: e.span, source: SOURCE, code: parseErrorCode(e), message: parseErrorMessage(e, ctx.messages) })
   }
   // Declaration structure — recorded on the top-level parse cursor (unit headers, VAR sections, type decls).
   for (const e of ctx.parseResult.errors) emit(e)
@@ -88,7 +101,7 @@ export function checkParseErrors(ctx: CheckContext, out: DiagnosticItem[]): void
   for (const unit of ctx.parseResult.units) {
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      for (const e of parseStatements(body).errors) emit(e)
+      for (const e of bodyStatements(body, bodyConditionWorld(ctx.project, unit, body)).errors) emit(e)
     }
   }
 }

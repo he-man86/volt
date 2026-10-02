@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { type ParseResult, parseDocument, parseSource, parseStatements } from "../../frontend/syntax/index.js"
+import { type ParseResult, parseDocument, parseSource, sourceStatements } from "../../frontend/syntax/index.js"
 import { formatDocument, formatOnType, formatRange } from "../index.js"
 import type { Document } from "../shared/index.js"
 
@@ -20,7 +20,7 @@ function normalize(value: unknown): unknown {
       return {
         kind: "body",
         implementation: line === undefined ? undefined : { statement: line.statement, folder: line.folder, leading: line.leading?.replace(/\r\n/g, "\n") },
-        statements: normalize(parseStatements(obj as never).statements),
+        statements: normalize(sourceStatements(obj as never).statements), // as written: every conditional branch
       }
     }
     const out: Record<string, unknown> = {}
@@ -196,6 +196,12 @@ test("on-type formatting: a newline inside a block indents to its depth", () => 
   expect(edits[0]?.newText).toBe("\t") // one level deep
   // outside any block → no indent edit
   expect(formatOnType(doc, { line: 0, character: 0 }, "\n")).toEqual([])
+})
+
+test("on-type formatting: a block in a conditional branch the LSP cannot decide indents to its depth too", () => {
+  const src = `PROGRAM P\n{IF defined (IsSimulationMode)}\nFOR i := 0 TO 10 DO\n\nEND_FOR\n{END_IF}\nEND_PROGRAM`
+  const doc: Document = { uri: "u", source: src, parseResult: parseSource(src, { networkText: true }) }
+  expect(formatOnType(doc, { line: 3, character: 0 }, "\n").map((e) => e.newText)).toEqual(["\t"])
 })
 
 /**

@@ -125,6 +125,28 @@ export class Cursor {
     return i < this.tokens.length && opensKeywordLine(this.tokens, i)
   }
 
+  /** The PRAGMA tokens in the trivia before the next meaningful token, in order — where a statement may start, the
+   *  ones the statement parser acts on (`parse/statements` `applyPragmas`). */
+  pragmasAhead(): Token[] {
+    const out: Token[] = []
+    for (let i = this.pos; i < this.tokens.length; i++) {
+      const t = this.tokens[i]!
+      if (!isTrivia(t.kind)) break
+      if (t.kind === "pragma") out.push(t)
+    }
+    return out
+  }
+
+  /** Run `parse` with its errors dropped: a branch not taken is parsed in silence (`parse/statements`). */
+  silently<T>(parse: () => T): T {
+    const errors = this.errors.length
+    try {
+      return parse()
+    } finally {
+      this.errors.length = errors
+    }
+  }
+
   /** Advance past the next meaningful token (skipping trivia) and return it. */
   consume(): Token {
     while (this.pos < this.tokens.length) {

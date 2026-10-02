@@ -1684,7 +1684,7 @@ test("a duration CONSTANT divided by an integer VARIABLE computes in the duratio
 /**
  * A LIBRARY CALLABLE WITHOUT A BODY IS REFUSED — a signature is not an implementation.
  *
- * A library reaches lowering as a DECLARATION file, and has a body only where the library repo (`libraries/`) wrote one. `parseActive`
+ * A library reaches lowering as a DECLARATION file, and has a body only where the library repo (`libraries/`) wrote one. `bodyStatements`
  * answers an empty statement list for that, which lowered to a routine that ran nothing — so `t1(IN := TRUE)` was a
  * no-op and `t1.Q` read FALSE forever, an INVENTED meaning rather than a missing one. 308 corpus files declare a TON,
  * TOF, CTU, R_TRIG or F_TRIG.

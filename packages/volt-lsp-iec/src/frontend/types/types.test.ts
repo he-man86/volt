@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test"
-import { type Expr, type FunctionBlock, parseSource, parseStatements, renderTypeExpr, type TypeExpr } from "../syntax/index.js"
+import { type Expr, type FunctionBlock, parseSource, bodyStatements, renderTypeExpr, type TypeExpr } from "../syntax/index.js"
 import { build, findChildScope, type Scope } from "../symbols/index.js"
 import {
   constEval,
@@ -132,7 +132,7 @@ test("const-eval: unary, MOD, comparisons, and real arithmetic", () => {
 // ─── C.4 infer ───
 
 function lastExpr(fb: FunctionBlock): Expr {
-  const stmts = parseStatements(fb.body).statements
+  const stmts = bodyStatements(fb.body).statements
   const last = stmts[stmts.length - 1] as { expr?: Expr; value?: Expr }
   return (last.expr ?? last.value) as Expr
 }

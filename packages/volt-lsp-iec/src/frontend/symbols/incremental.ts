@@ -5,7 +5,7 @@
  * `relink` is canonical order and EXTENDS linking, never apart (see `canonicalize`): every path that changes which
  * files are bound re-runs it.
  */
-import type { Dialect } from "../syntax/index.js"
+import type { CompileEnvironment, Dialect } from "../syntax/index.js"
 import type { LibraryManifest } from "../library/index.js"
 import type { Scope } from "./model.js"
 import { createProjectScope } from "./scope.js"
@@ -16,13 +16,15 @@ import { bindLibraryNamespaces } from "./library-namespaces.js"
 
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
  *  `manifests` are the referenced libraries' `.library` files (`parseLibraryManifest`), each binding its own
- *  units under the NAMESPACE the source qualifies them with. */
+ *  units under the NAMESPACE the source qualifies them with. `environment` is what the CALLER measured of the device and
+ *  the project's compile settings (`Scope.environment`); the LSP passes none. */
 export function buildSymbolTable(
   files: readonly SymbolTableInput[],
   manifests: readonly LibraryManifest[] = [],
   dialect: Dialect = "codesys",
+  environment?: CompileEnvironment,
 ): Scope {
-  const project = createProjectScope(dialect)
+  const project = createProjectScope(dialect, environment)
   for (const file of files) bindFile(project, file)
   relink(project, manifests)
   bindLibraryNamespaces(project, manifests)
@@ -42,7 +44,7 @@ export function bindFile(project: Scope, { uri, parseResult }: SymbolTableInput)
   // references in those bodies resolve nowhere.
   let currentMemberHost: Scope | undefined
   for (const unit of parseResult.units) {
-    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost, parseResult.tokens)
+    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost)
     if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") {
       currentMemberHost = newScope
     }

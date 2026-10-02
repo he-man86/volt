@@ -10,7 +10,7 @@ import {
   graphicalMarkerLanguage,
   isGraphicalBody,
   parseSource,
-  parseStatements,
+  bodyStatements,
   unitBodies,
 } from "../frontend/syntax/index.js"
 import { STRUCTURE_ONLY, parseNetworkText } from "./parser.js"
@@ -27,7 +27,7 @@ const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: tr
 function syntaxErrors(src: string): string[] {
   const parsed = parseSource(src, { networkText: true })
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
-  return [...parsed.errors, ...bodies.flatMap((b) => parseStatements(b).errors)].map((e) => e.message)
+  return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
 test("IMPLEMENTATION LD and IMPLEMENTATION FBD select the network-text reader", () => {

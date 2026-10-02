@@ -3,7 +3,7 @@
  * `volt pull` wherever they stand, as the push refuses a file holding one.
  */
 import { expect, test } from "bun:test"
-import { isGraphicalBody, parseSource, parseStatements, unitBodies } from "../index.js"
+import { isGraphicalBody, parseSource, bodyStatements, unitBodies } from "../index.js"
 
 /** A function block whose body is `impl` — its boundary line and what follows it. */
 const fb = (impl: string): string =>
@@ -14,7 +14,7 @@ const fb = (impl: string): string =>
 function syntaxErrors(src: string): string[] {
   const parsed = parseSource(src, { networkText: true })
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
-  return [...parsed.errors, ...bodies.flatMap((b) => parseStatements(b).errors)].map((e) => e.message)
+  return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
 test("a (* @volt-… *) comment is an older Volt's, reported naming `volt pull` wherever it stands — as the push refuses it", () => {

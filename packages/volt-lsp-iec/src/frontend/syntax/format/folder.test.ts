@@ -11,7 +11,7 @@
  * formatter, which prints from the AST, deleted it; the next push then moved the member to the POU's root.
  */
 import { expect, test } from "bun:test"
-import { type BodySpan, isGraphicalBody, parseSource, parseStatements, unitBodies } from "../index.js"
+import { type BodySpan, isGraphicalBody, parseSource, bodyStatements, unitBodies } from "../index.js"
 
 const FB = "FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n\n"
 
@@ -74,7 +74,7 @@ const fb = (impl: string): string =>
 function syntaxErrors(src: string): string[] {
   const parsed = parseSource(src, { networkText: true })
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
-  return [...parsed.errors, ...bodies.flatMap((b) => parseStatements(b).errors)].map((e) => e.message)
+  return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
 const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: true }).units.flatMap(unitBodies)

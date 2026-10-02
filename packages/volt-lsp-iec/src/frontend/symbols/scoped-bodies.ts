@@ -1,7 +1,7 @@
 /**
  * Body iteration (Layer B) — the ONE scope-aware "walk every ST body" loop the analysis checks and the
  * language services share. Every check under `analysis/checks/**` and `services/shared` re-implemented
- * the same `units → body → scope → parseStatements → walk` loop inline; this is that loop, once.
+ * the same `units → body → scope → statements → walk` loop inline; this is that loop, once.
  *
  * It lives in `symbols/` because it yields a `Scope` (from `scopeForUnit`) — `syntax/` can't own it
  * (that would be an upward dependency on `Scope`), and `analysis/`/`services/` are siblings so neither
@@ -10,10 +10,19 @@
  * Covers POU bodies AND property getter/setter accessor bodies (via `unitBodies`) — so diagnostics reach
  * accessor bodies that the old analysis `getBody` silently skipped. Bodies the ST parser does not read (`isStBody`:
  * network text, read-only) and non-parsing bodies are skipped (conservative — the compilers analyze neither the way this ST engine would).
+ * A body is the tree its conditional pragmas compile (`bodyStatements` with the scope's `conditionWorld`); one whose
+ * condition asks what the LSP does not hold (a device fact, a project compile define) is `refused` and skipped with
+ * the non-parsing ones — no branch is guessed. That is the ANALYSIS walk.
+ *
+ * The SOURCE walk (`sourceBodies`, and `bodiesAt` over it) is the text as written — every branch of every chain
+ * (`sourceStatements`) — for the services that edit and navigate it: a rename that skipped a branch not taken, or a
+ * body whose condition the LSP cannot decide, would leave stale names in text that compiles again when the condition
+ * flips (another device, project or define).
  */
 import {
   isStBody,
-  parseStatements,
+  bodyStatements,
+  sourceStatements,
   unitBodies,
   walkAllExprs,
   walkExpr,
@@ -24,6 +33,7 @@ import {
   type TopLevel,
 } from "../syntax/index.js"
 import { scopeForUnit } from "./scope-nav.js"
+import { conditionWorld } from "./condition-world.js"
 import type { Scope } from "./model.js"
 
 export interface UnitBody {
@@ -38,14 +48,31 @@ export interface UnitBody {
  *  is visible) — that preserves the checks' zero-false-positive guarantee. Property getter/setter bodies
  *  resolve to their own child scope (keyed by body span) so accessor locals stay isolated. */
 export function* bodies(units: readonly TopLevel[], project: Scope): Generator<UnitBody> {
+  for (const { unit, body, scope } of scopedBodies(units, project)) {
+    const parsed = bodyStatements(body, conditionWorld(project, scope))
+    if (parsed.ok) yield { unit, body, scope, statements: parsed.statements }
+  }
+}
+
+/** `bodies()` AS WRITTEN: every branch of every conditional chain in, whatever a condition says or whether the LSP can
+ *  decide it (`sourceStatements`) — the walk of the services that edit and navigate the text (references, rename,
+ *  highlight, hover, definition, signature help, call hierarchy, inlay hints). Never a check's: a branch not taken is
+ *  not compiled. */
+export function* sourceBodies(units: readonly TopLevel[], project: Scope): Generator<UnitBody> {
+  for (const { unit, body, scope } of scopedBodies(units, project)) {
+    const parsed = sourceStatements(body)
+    if (parsed.ok) yield { unit, body, scope, statements: parsed.statements }
+  }
+}
+
+/** Every ST body of `units` whose unit's scope resolves, with the scope it resolves against (an accessor's own). */
+function* scopedBodies(units: readonly TopLevel[], project: Scope): Generator<Omit<UnitBody, "statements">> {
   for (const unit of units) {
     const unitScope = scopeForUnit(project, unit)
     if (unitScope === undefined) continue
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      const scope = unitScope.children.find((c) => c.span === body.span) ?? unitScope
-      const parsed = parseStatements(body)
-      if (parsed.ok) yield { unit, body, scope, statements: parsed.statements }
+      yield { unit, body, scope: unitScope.children.find((c) => c.span === body.span) ?? unitScope }
     }
   }
 }
@@ -87,10 +114,10 @@ export function* forEachDecl(parseResult: ParseResult, project: Scope) {
 }
 
 /**
- * The bodies `bodies()` yields whose span holds `offset` (half-open, as a cursor sits) — for the features that act at a
+ * The bodies `sourceBodies()` yields whose span holds `offset` (half-open, as a cursor sits) — for the features that act at a
  * cursor. They used to re-walk the units with the UNIT scope, so a local declared inside a property accessor resolved
  * nowhere in go-to-definition and signature help (consolidate-lsp-structure A5).
  */
 export function* bodiesAt(units: readonly TopLevel[], project: Scope, offset: number): Generator<UnitBody> {
-  for (const b of bodies(units, project)) if (offset >= b.body.span.start && offset < b.body.span.end) yield b
+  for (const b of sourceBodies(units, project)) if (offset >= b.body.span.start && offset < b.body.span.end) yield b
 }

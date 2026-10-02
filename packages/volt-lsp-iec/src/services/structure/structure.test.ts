@@ -108,3 +108,32 @@ test("semantic tokens: emits 5-int tuples with valid type indices", () => {
   expect(SEMANTIC_TOKEN_TYPES).toContain("variable")
   expect(SEMANTIC_TOKEN_TYPES).toContain("keyword")
 })
+
+// Folding and selection are about the TEXT: a block in a conditional branch the vendor does not compile, or under a
+// condition the LSP cannot decide (`defined (IsSimulationMode)`), is still text the editor shows (frontend-conformance
+// 2.7 review: the compiled tree left those bodies with no fold and no selection range).
+const CONDITIONAL = `FUNCTION_BLOCK F
+VAR
+	i : INT;
+END_VAR
+{IF defined (IsSimulationMode)}
+IF i > 0 THEN
+	i := 1;
+END_IF
+{ELSE}
+WHILE i > 0 DO
+	i := i - 1;
+END_WHILE
+{END_IF}
+END_FUNCTION_BLOCK`
+
+test("folding and selection reach every conditional branch, decided or not", () => {
+  const { doc } = setup(CONDITIONAL)
+  const lines = foldingRanges(doc).map((r) => `${r.startLine}-${r.endLine}`)
+  expect(lines).toContain("5-7") // the IF statement of the undecided branch
+  expect(lines).toContain("9-11") // the WHILE of the other
+  const sel = selectionRange(doc, CONDITIONAL.indexOf("i - 1") + 1)
+  let depth = 0
+  for (let node = sel; node !== undefined; node = node.parent) depth += 1
+  expect(depth).toBeGreaterThan(3) // token, expression, assignment, WHILE, … — not just the token and the unit
+})

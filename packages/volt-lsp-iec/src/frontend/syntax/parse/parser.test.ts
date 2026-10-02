@@ -3,7 +3,7 @@ import { lex } from "../lex/lexer.js"
 import { parseSource } from "./parser.js"
 import { bodyReader } from "../format/implementation-line.js"
 import { unitBodies } from "../format/bodies.js"
-import { parseStatements } from "./body-parse.js"
+import { bodyStatements } from "./body-parse.js"
 import type { ArrayType, BodySpan, FunctionBlock, Literal, NamedType, StringType, TypeDecl, VarDecl } from "../ast/nodes.js"
 
 /** First VAR decl of the first unit — the common path into type-expr assertions. */
@@ -16,7 +16,7 @@ function firstDecl(src: string): VarDecl {
 function stmts(body: string) {
   const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
+  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
 }
 
 test("parses an FB with modifiers, EXTENDS, IMPLEMENTS, a method", () => {

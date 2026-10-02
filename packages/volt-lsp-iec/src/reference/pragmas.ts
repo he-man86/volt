@@ -14,12 +14,12 @@ import type { Dialect } from "../frontend/syntax/index.js"
 
 // Attribute names accepted after `{attribute '…'}` (CODESYS + shared), plus alias spellings.
 const CODESYS_ATTRIBUTES: readonly string[] = [
-  // `abstract` and `deprecated` were missing, so every use warned "The attribute … is unknown and will be ignored" —
-  // a false positive the IDE never emits, and on `abstract` it also hid the IDE's own "The ABSTRACT keyword is
-  // missing" (conformance `cc4_not_instantiable`, `cc4_obsolete_and_deprecated`).
+  // `abstract` was missing, so every use warned "The attribute … is unknown and will be ignored" — a false positive
+  // the IDE never emits, which also hid its own "The ABSTRACT keyword is missing" (conformance `cc4_not_instantiable`).
+  // `deprecated` is NOT CODESYS's: it warns it unknown (`cc4_obsolete_and_deprecated`, re-recorded 2026-10-02 with the
+  // pragma pushed — the recorder had dropped it, frontend-conformance 2.7.2).
   "abstract",
   "analysis",
-  "deprecated",
   "call_after_global_init_slot",
   "call_after_init",
   "call_after_online_change_slot",

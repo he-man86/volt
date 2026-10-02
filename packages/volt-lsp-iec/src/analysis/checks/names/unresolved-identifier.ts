@@ -13,19 +13,15 @@
  * only a PROJECT (non-library) struct/FB/enum base with a fully-resolved EXTENDS chain is checked, so
  * library-typed and namespace-qualified refs never false-positive (see `analysis/resolution.ts`).
  *
- * Bodies with a conditional-compile pragma (`{IF}`/`{ELSIF}`/`{ELSE}`/`{END_IF}`) are SKIPPED whole: the
- * compilers strip dead branches before analysis but we have no preprocessor, so checking would
- * false-positive on stripped-branch references.
+ * A body is the tree its conditional pragmas compile (`bodies()`): a branch not taken is not in it, so a name only
+ * that branch uses is never asked (frontend-conformance 2.7.1 — this check used to skip every body holding an `{IF}`).
  */
-import { stmtExprs, walkExpr, walkStatements, type BodySpan } from "../../../frontend/syntax/index.js"
+import { stmtExprs, walkExpr, walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
 import { resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
-
-/** `{IF ...}` / `{ELSIF ...}` / `{ELSE}` / `{END_IF}` — permissive on inner leading whitespace. */
-const CONDITIONAL_PRAGMA_RE = /^\{\s*(?:IF|ELSIF|ELSE|END_IF)\b/i
 
 export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticItem[]): void {
   // A NAME WHOSE DECLARATION FAILED TO PARSE IS NOT UNDEFINED — it is unparsed, and the parse error already said so.
@@ -36,8 +32,7 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
   // Suppressing it HERE covers the second message too. "'cal' is no valid assignment target" comes from
   // `unknown-source`, which reports a hole only once an earlier check has EXPLAINED it — and this is that check.
   const unparsed = new Set(ctx.parseResult.failedDeclarations)
-  for (const { body, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
-    if (bodyHasConditionalPragma(body)) continue
+  for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (stmt) => {
       const exprs = stmtExprs(stmt)
       const callees = new Set<number>()
@@ -104,7 +99,3 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
   }
 }
 
-/** True when the body carries a conditional-compile directive (gates the whole-body skip). */
-function bodyHasConditionalPragma(body: BodySpan): boolean {
-  return body.tokens.some((t) => t.kind === "pragma" && CONDITIONAL_PRAGMA_RE.test(t.text))
-}

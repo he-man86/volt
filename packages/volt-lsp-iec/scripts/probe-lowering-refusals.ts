@@ -9,7 +9,7 @@
  */
 import { existsSync, readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { isStBody, parseStatements, type TopLevel } from "../src/frontend/syntax/index.js"
+import { isStBody, bodyStatements, type TopLevel } from "../src/frontend/syntax/index.js"
 import { isLibrarySymbol, scopeForUnit } from "../src/frontend/symbols/index.js"
 import { lowerUnit } from "../src/transpile/index.js"
 import { loweringProject } from "../test/corpus/support/project.js"
@@ -30,7 +30,7 @@ for (const projectName of readdirSync(CORPUS)
       const scope = scopeForUnit(lowering.project, unit)
       if (scope === undefined) continue
       if (!isStBody(unit.body)) continue
-      if (parseStatements(unit.body).statements.length === 0) continue
+      if (bodyStatements(unit.body).statements.length === 0) continue
       try {
         const { pou, diagnostics } = lowerUnit(unit, scope, lowering)
         const codes = [...new Set((diagnostics ?? []).map((d) => d.code))].sort()

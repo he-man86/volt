@@ -80,18 +80,6 @@ export function readSourceText(file: string): string {
 const libraryNamespaceOf = (file: string): string | undefined =>
   readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
 const deviceInstanceOf = (file: string): string => basename(file, extname(file))
-/** POUs marked `{attribute 'obsolete' := 'msg'}` in a source file → [lowerName, {name, message}]. The attribute
- *  is parser trivia, so it's read from raw text: the pragma, then any further leading attributes, then the POU
- *  header. One entry per matched POU (the one-item-per-file layout means usually one). */
-const OBSOLETE_RE =
-  /\{attribute\s+'obsolete'\s*:=\s*'([^']*)'\}\s*(?:\{[^}]*\}\s*)*(?:FUNCTION_BLOCK|FUNCTION|PROGRAM|INTERFACE)\s+([A-Za-z_]\w*)/gi
-/** Obsolete POUs in one source text → [lowerName, {declaredName, message}]. Pure (no I/O), so the diagnostic
- *  harnesses can reproduce the workspace scan from an in-memory repro. */
-export function obsoletePousInText(text: string): [string, { name: string; message: string }][] {
-  const out: [string, { name: string; message: string }][] = []
-  for (const m of text.matchAll(OBSOLETE_RE)) out.push([m[2]!.toLowerCase(), { name: m[2]!, message: m[1]! }])
-  return out
-}
 /** Every PROGRAM on a `.task` `Calls:` line. A task can run several (`Calls: A, B, C`), so split the
  *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. */
 const taskRootsOf = (file: string): string[] =>
@@ -175,7 +163,6 @@ export function scanWorkspace(root: string): WorkspaceScan {
   const libraryManifests: LibraryManifest[] = []
   const deviceInstances = new Set<string>()
   const taskRoots = new Set<string>()
-  const obsoletePous = new Map<string, { name: string; message: string }>()
   const sources: { path: string; source: string }[] = []
   for (const file of walkFiles(root)) {
     // EXACT, never case-folded — here and in every loader above. A file name IS its item's wire name, and the
@@ -200,14 +187,13 @@ export function scanWorkspace(root: string): WorkspaceScan {
       } else if (SOURCE_EXTENSION_SET.has(ext)) {
         const source = readSourceText(file)
         sources.push({ path: file, source })
-        for (const [k, v] of obsoletePousInText(source)) obsoletePous.set(k, v)
       }
     } catch {
       continue // unreadable file — skip
     }
   }
   return {
-    refs: { libraryNamespaces, libraryManifests, deviceInstances, obsoletePous },
+    refs: { libraryNamespaces, libraryManifests, deviceInstances },
     taskRoots,
     sources,
     ...(projectDiagnostics === undefined ? {} : { projectDiagnostics }),

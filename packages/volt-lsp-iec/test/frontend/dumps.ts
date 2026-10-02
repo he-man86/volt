@@ -17,7 +17,7 @@
 import { isAbsolute, join, relative } from "node:path"
 import { messagesFor, parseErrorMessage, vendorReportsParseError, type WorkspaceRefs } from "../../src/analysis/index.js"
 import { lookupReference } from "../../src/reference/index.js"
-import { lookup, lookupMember, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../src/frontend/symbols/index.js"
+import { bodyConditionWorld, lookup, lookupMember, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   CODESYS_ONLY_TYPES,
   constancyOf,
@@ -39,7 +39,8 @@ import {
   lex,
   parseDocument,
   parseExprFromTokens,
-  parseStatements,
+  bodyStatements,
+  sourceStatements,
   stmtExprs,
   unitBodies,
   walkStatements,
@@ -79,14 +80,20 @@ export interface ParseErrorRow {
 }
 
 /**
- * Every parse error a client would see for `p` on `vendor`: both passes, the vendor's wording of "Unexpected token",
+ * Every parse error a client would see for the bound file `b` on `vendor`: both passes, the vendor's wording of "Unexpected token",
  * and without the ones that vendor's compiler does not report (`vendorReportsParseError`) — the same stream
  * `checks/syntax/parse-errors.ts` drains. On TwinCAT a message said twice on one LINE is seen once, because
  * `computeSemanticDiagnostics` folds TwinCAT's output per line (`dedupePerLine`: TwinCAT never says the same thing twice
  * on one line) — so a refused `LDATE#2024-01-01`, whose cascade pairs `'-'` twice, is counted as TwinCAT records it
  * (task 2.2.6, when the cascade moved from `refused-name` into the parser).
+ *
+ * A body is parsed in the world the analysis gives it (`bodyConditionWorld`: the project's names, its vendor, its
+ * measured environment — the recording projects' for a fixture), so a chain on the project's names (`defined (pou: …)`,
+ * `hasattribute`, …) is decided here as it is for the user and its syntax errors are counted (frontend-conformance 2.7
+ * review: a world without the names refused the chain and lost the errors the user is shown).
  */
-export function parseErrors(p: Parsed, vendor: Dialect): ParseErrorRow[] {
+export function parseErrors(b: Bound, vendor: Dialect): ParseErrorRow[] {
+  const p = b.parsed
   const messages = messagesFor(vendor)
   const row = (pass: ParseErrorRow["pass"], e: ParseError): ParseErrorRow => ({
     pass,
@@ -98,7 +105,7 @@ export function parseErrors(p: Parsed, vendor: Dialect): ParseErrorRow[] {
   for (const unit of p.parseResult.units)
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      for (const e of parseStatements(body).errors) if (vendorReportsParseError(e, vendor)) out.push(row("body", e))
+      for (const e of bodyStatements(body, bodyConditionWorld(b.project, unit, body)).errors) if (vendorReportsParseError(e, vendor)) out.push(row("body", e))
     }
   if (vendor !== "twincat") return out
   const seen = new Set<string>()
@@ -134,7 +141,7 @@ export function astKey(value: unknown): string {
                   folder: line.folder ?? null,
                   leading: line.leading?.replace(/\r\n/g, "\n") ?? null,
                 }),
-          st: norm(parseStatements(obj as never).statements),
+          st: norm(sourceStatements(obj as never).statements), // as written: every conditional branch
         }
       }
       const out: Record<string, unknown> = {}
@@ -167,7 +174,7 @@ export interface PrintFinding {
 export function* topExprs(units: readonly TopLevel[]): Generator<Expr> {
   for (const unit of allUnits(units)) {
     yield* declExprs(unit)
-    for (const body of unitBodies(unit)) if (isStBody(body)) yield* statementExprs(parseStatements(body).statements)
+    for (const body of unitBodies(unit)) if (isStBody(body)) yield* statementExprs(bodyStatements(body).statements)
   }
 }
 
@@ -286,7 +293,7 @@ export function printFindings(p: Parsed): PrintFinding[] {
 export function refusedIn(parseResult: ParseResult): (e: Expr) => boolean {
   const starts: number[] = [...parseResult.errors.map((e) => e.span.start)]
   for (const unit of allUnits(parseResult.units))
-    for (const body of unitBodies(unit)) if (isStBody(body)) starts.push(...parseStatements(body).errors.map((e) => e.span.start))
+    for (const body of unitBodies(unit)) if (isStBody(body)) starts.push(...bodyStatements(body).errors.map((e) => e.span.start))
   return (e) => starts.some((s) => s >= e.span.start && s < e.span.end)
 }
 
@@ -308,7 +315,7 @@ export function unparsedIn(parseResult: ParseResult, vendorSays: ReadonlySet<str
   for (const unit of allUnits(parseResult.units))
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      const { errors } = parseStatements(body)
+      const { errors } = bodyStatements(body)
       if (errors.length > 0 && errors.every((e) => vendorSays?.has(e.message.toLowerCase()) ?? true)) spans.push(body.span)
     }
   return (e) => spans.some((s) => e.span.start >= s.start && e.span.end <= s.end)
@@ -352,10 +359,28 @@ export function sites(b: Bound): Site[] {
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
       const scope = unitScope?.children.find((c) => c.span === body.span) ?? unitScope
-      for (const expr of statementExprs(parseStatements(body).statements)) out.push({ where: "body", expr, scope })
+      for (const expr of statementExprs(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements)) out.push({ where: "body", expr, scope })
     }
   }
   return out
+}
+
+/**
+ * The expressions `sites` cannot hold because a conditional pragma there asks what the world does not (a device fact,
+ * a project compile define): written in a branch of an undecided chain (`BodyParse.refused`), so neither typed nor
+ * resolved — COVERAGE the census does not have, counted so a fall in its UNKNOWNs is never read as an improvement
+ * (frontend-conformance 2.7 review: the corpus UNKNOWN ceilings had been lowered on this shrunken denominator).
+ */
+export function undecidedExprCount(b: Bound): number {
+  let n = 0
+  for (const unit of allUnits(b.parsed.parseResult.units))
+    for (const body of unitBodies(unit)) {
+      if (!isStBody(body)) continue
+      const compiled = bodyStatements(body, bodyConditionWorld(b.project, unit, body))
+      if (compiled.refused === undefined) continue
+      n += [...statementExprs(sourceStatements(body).statements)].length - [...statementExprs(compiled.statements)].length
+    }
+  return n
 }
 
 const PACKAGE_DIR = join(import.meta.dir, "..", "..")

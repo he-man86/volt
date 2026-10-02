@@ -396,7 +396,7 @@ END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgUndeclared(src)).toEqual(["Identifier 'PACK_ML' not defined"]) // unknown → flagged
   const refs: WorkspaceRefs = { libraryManifests: [],
-    libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set(), obsoletePous: new Map() }
+    libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set() }
   expect(vgUndeclared(src, refs)).toEqual([]) // known → skipped
 })
 

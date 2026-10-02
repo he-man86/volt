@@ -50,6 +50,7 @@ import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/div
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, splitLists, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
+import { RECORDING_ENVIRONMENT } from "./support/recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache.js"
@@ -925,6 +926,9 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // `IMPLICIT_ENUM_TYPE_NAME`, the type's identity, tasks 3.3/4.7.4)
     "decl_implicit_enum_into_byte",
     "decl_implicit_enum_with_base_into_byte",
+    // frontend-conformance 2.7: a conditional pragma in a declaration part (the declaration parser applies none)
+    "prag_if_defined_in_declaration",
+    "prag_project_defined_in_declaration",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1296,7 +1300,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // name is "no valid assignment target" (`statement-rules`).
   // 21 -> 22, FOR MEASUREMENT. The 2.6 review (2026-10-02): `lex_keyword_called_sys_pool` — `__pool(n);`, the member read
   // `__POOL` makes of the next token, which the LSP does not model (`MEASURED_SILENT`; niche, 0 occurrences).
-  "lsp-gap": 22,
+  // 22 -> 24, FOR MEASUREMENT. frontend-conformance 2.7 (2026-10-02): `prag_if_defined_in_declaration` ("This code is not
+  // supported in declaration part", CODESYS) and `prag_project_defined_in_declaration` (a declaration under an unset
+  // `project_defined` dropped) — the declaration parser applies no conditional pragma (`MEASURED_SILENT`, both
+  // `KNOWN_DIVERGENCES`; niche: accepted loss, 0 conditional directives in any declaration part of the corpora).
+  "lsp-gap": 24,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1417,7 +1425,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // expression statement, `bx.v;`) and `stmt_label_at_end` (JMP and its label).
   // 136 -> 137, FOR MEASUREMENT. The 2.6 review (2026-10-02): `stmt_function_own_name_bare` builds and runs (out = 12)
   // and lowering refuses its bare-name statement, as `stmt_bare_member`'s (the transpiler's).
-  "not-lowered": 137,
+  // 137 -> 139, FOR MEASUREMENT. frontend-conformance 2.7 (2026-10-02): `prag_if_hasconstanttype` (whether a constant is
+  // replaced is the project's "Replace constants" option, which the exec world does not state — refused by name, not
+  // guessed; P16 is area 4's) and `prag_unknown_attribute_on_union` (a UNION of INT and DINT — `layout-union`, the
+  // transpiler's, as `unit_type_extends_on_union`).
+  "not-lowered": 139,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1679,7 +1691,12 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3393 -> 3508 (2026-10-02, 2.6 review): every reserved word called where a statement starts (`lex_keyword_called_*`),
   // an assignment without its `;` before every statement and block keyword (`stmt_assign_no_semicolon_before_*`), a
   // negation as a chain's inner target and as a FOR counter, a FUNCTION's own name bare inside it.
-  { vendor: "twincat", floor: 3508 },
+  // 3508 -> 3585 (2026-10-02, frontend-conformance 2.7): the pragma fixtures (`grammar/pragmas.ts`, 75 `prag_*`) — conditional
+  // directives only where a statement may start, one statement tree per body, the condition grammar and its operators,
+  // message pragmas only where said; attributes in the AST (obsolete per use, a METHOD's its own); and the 49 fixtures the
+  // recorder had pushed without the pragmas above their units, re-recorded (the five TwinCAT `newdel_*` agree now).
+  // 3585 -> 3592 (2026-10-02, 2.7 review): the message words in upper/mixed case, the unquoted `hasattribute` cells.
+  { vendor: "twincat", floor: 3592 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1806,7 +1823,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3366 -> 3376 (2026-10-02, 2.5b review): the review's cells, as on TwinCAT.
   // 3376 -> 3454 (2026-10-02, frontend-conformance 2.6): the statement fixtures and rules, as on TwinCAT.
   // 3454 -> 3569 (2026-10-02, 2.6 review): the review's cells, as on TwinCAT; `__queryinterface(n);` the operand count alone.
-  { vendor: "codesys", floor: 3569 },
+  // 3569 -> 3640 (2026-10-02, frontend-conformance 2.7): the same, on CODESYS — and with the pragmas pushed, an unknown
+  // attribute on any DUT warns, `deprecated` is no CODESYS attribute, `abstract` on an FB warns, `pingroup` on a unit.
+  // 3640 -> 3647 (2026-10-02, 2.7 review): the same, on CODESYS.
+  { vendor: "codesys", floor: 3647 },
 ]
 
 
@@ -1927,7 +1947,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = build.buildSymbolTable([...CROSS_DECLS, ...LISTS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor)
+    project = build.buildSymbolTable([...CROSS_DECLS, ...LISTS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor, RECORDING_ENVIRONMENT)
     SHARED.set(vendor, project)
   }
   return project

@@ -27,9 +27,12 @@ import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { checkBaseline, tally, type Baseline } from "./baseline.js"
 import { parse, parseErrors } from "./dumps.js"
+import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
+import { build } from "../../src/frontend/symbols/index.js"
+import { EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { corpusProjects, fixtureSources, libraryRepoFiles, messagePool, type RecordedBuild } from "./sources.js"
+import { corpusProjects, fixtureSources, messagePool, type RecordedBuild } from "./sources.js"
 
 /** CODESYS's `record:exec` refusals ("does not compile: a | b"), by fixture — the answer to a fixture whose push is refused. */
 const EXEC_REFUSALS: ReadonlyMap<string, RecordedBuild> = new Map(
@@ -70,9 +73,10 @@ function census(): Baseline {
   for (const project of corpusProjects()) {
     const recorded = recordedPool(project.build)
     const key = `corpus ${project.name} (${project.vendor}, build ${project.build === undefined ? "unrecorded" : project.build.buildSuccess ? "succeeded" : "failed"})`
-    for (const file of project.files) {
+    for (const bound of boundCorpus(project)) {
+      const file = bound.parsed
       tally(counts, `${key}: files`)
-      const errors = parseErrors(parse(file, project.vendor), project.vendor)
+      const errors = parseErrors(bound, project.vendor)
       if (errors.length > 0) tally(counts, `${key}: files with an LSP parse error`)
       for (const e of errors) {
         if (project.build !== undefined && recorded.take(e.message))
@@ -96,8 +100,9 @@ function census(): Baseline {
         tally(counts, `${key}: known divergence (support/divergences.ts), not measured`)
         continue
       }
-      const errors = [f.own, f.plc].flatMap((s) =>
-        parseErrors(parse(s, vendor), vendor).map((e) => ({ ...e, id: s.id })),
+      // bound as the replay binds it, so a body is parsed in the world the analysis gives it (`dumps.ts` `parseErrors`)
+      const errors = withBoundFixture(f, vendor, (own, plc) =>
+        [own, plc].flatMap((b) => parseErrors(b, vendor).map((e) => ({ ...e, id: b.parsed.id }))),
       )
       const lsp = errors.length > 0 ? "LSP parse error" : "no LSP parse error"
       if (rec === undefined && f.test.vendorRefuses?.[vendor] !== undefined) {
@@ -130,9 +135,10 @@ function census(): Baseline {
     }
   }
 
-  for (const file of libraryRepoFiles()) {
+  for (const bound of boundLibrary()) {
+    const file = bound.parsed
     tally(counts, "library: bodies")
-    const errors = parseErrors(parse(file, "codesys"), "codesys")
+    const errors = parseErrors(bound, "codesys")
     if (errors.length > 0) tally(counts, "library: bodies with an LSP parse error")
     for (const e of errors) findings.push(`${file.id} ${e.pass} ${e.at} ${e.message} — no recording (Volt's own body)`)
   }
@@ -144,6 +150,15 @@ describe("0.1 the parse census", () => {
   test("a recorded message matches one LSP parse error, not every copy of it", () => {
     const pool = messagePool(["';' expected", "';'  expected"])
     expect([pool.take("';' expected"), pool.take("';' expected"), pool.take("';' expected")]).toEqual([true, true, false])
+  })
+
+  test("a body is parsed in the world the analysis gives it: a chain on the project's names is decided, its syntax errors counted", () => {
+    // `checks/syntax/parse-errors.ts` parses with `bodyConditionWorld` (names in); a measure without the names refused
+    // the chain, parsed its taken branch in silence and lost the error the user is shown (frontend-conformance 2.7 review)
+    const source = "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{IF defined (pou: F)}\nout := ;\n{END_IF}\nEND_FUNCTION_BLOCK"
+    const parsed = parse({ id: "F", uri: "file:///F.fb", source }, "codesys")
+    const bound = { parsed, project: build.buildSymbolTable([parsed], undefined, "codesys"), refs: EMPTY_WORKSPACE_REFS }
+    expect(parseErrors(bound, "codesys").map((e) => `${e.pass} ${e.at}`)).toEqual(["body 6:7"])
   })
 
   test("every LSP parse error is one the vendor recorded — the findings are the baseline's", () => {

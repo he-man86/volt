@@ -1492,19 +1492,129 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       disagree 0 / not-run 102). `bun test` 6764 pass / 34 skip / 181 todo / 0 fail (6979 tests, 195 files, 267 s, rustc
       cache on); agreement CODESYS 3569, TwinCAT 3508 (3876 fixtures, = floors). `bun run check` 14 passed, 0 failed;
       `bun run lint` exit 0 (warnings only). volt-cli untouched by 2.6 (no dotnet run).
-- [ ] 2.7.1 Conditional compilation: ONE statement tree. Every consumer uses `bodyStatements` with pragmas applied; the
+- [x] 2.7.1 Conditional compilation: ONE statement tree. Every consumer uses `bodyStatements` with pragmas applied; the
       unresolved-identifier skip and the analysis balance stack are removed. The `{IF}` grammar covers P10–P13. Record
       prag_define_in_declaration, prag_if_in_expression_statement, prag_unbalanced_end_if, prag_define_with_value,
       prag_if_hasvalue, prag_if_hasconstantvalue, prag_if_hasconstanttype, prag_if_defined_type, prag_if_defined_pou,
       prag_if_defined_task, prag_if_is_little_endian, prag_if_register_size, prag_if_not_and_or, prag_project_defined_in_declaration,
       prag_project_defined_forbidden_construct.
       Where: parse/body-parse, pragmas/conditional. Acceptance: CA. Depends on: 2.6.3
-- [ ] 2.7.2 Attributes in the AST (on the unit, member and declaration nodes); `qualified_only` read per unit; the front-end
+- [x] 2.7.2 Attributes in the AST (on the unit, member and declaration nodes); `qualified_only` read per unit; the front-end
       attributes of design.md §4 2.7 (qualified_only, strict, to_string, const_replaced/const_non_replaced) exposed by name. Record
       prag_attribute_on_method, prag_attribute_on_struct_field, prag_attribute_brace_in_value, prag_attribute_commented_out.
       Where: pragmas/attributes, ast/nodes. Acceptance: CA. Depends on: 2.7.1
-- [ ] 2.7.3 Message and region pragmas, pragmas inside expressions (P6–P7): record prag_inside_expression, prag_region_unclosed.
+- [x] 2.7.3 Message and region pragmas, pragmas inside expressions (P6–P7): record prag_inside_expression, prag_region_unclosed.
       Where: lex/lexer. Acceptance: CA. Depends on: 2.7.2
+      **Implementation 2.7.1–2.7.3 (2026-10-02).** Fixtures: `fixtures/grammar/pragmas.ts`, 75 `prag_*` (every name the
+      tasks give, and the cells that separate a rule's readings), recorded `record:language` CODESYS and TwinCAT and
+      `record:exec` CODESYS (one batch per vendor, follow-ups in small batches as the answers raised questions).
+      Measured: (1) a conditional directive acts ONLY WHERE A STATEMENT MAY START — inside a statement every pragma is
+      trivia (`prag_if_in_expression_statement` runs both branches, out = 31; `prag_if_whole_operand` is "';' expected
+      instead of 'INT#20'"; `prag_if_statement_starts_inside` leaves the `{IF}` open); a chain belongs to its statement
+      list (`prag_if_crossing_statement` unterminated); a branch not taken is parsed IN SILENCE
+      (`prag_untaken_branch_syntax_error` builds); the words are case-sensitive (`{if}`, `{DEFINE}` are no directive, `DEFINED (X)` an unknown
+      operator: "Unexpected token '(' found" + "'!!!'ERROR'!!!' is no valid condition for pragma"); a define's name is
+      case-sensitive and its body's own (one in the declaration part or the FB body is not seen by the body / the METHOD);
+      NOT binds before AND before OR; `hasvalue` of a define without a value is FALSE; `hasconstantvalue (c, v, op)` is
+      `c op v`; `defined (resource: …)` FALSE; on the exec device IsLittleEndian, IsSimulationMode, IsFPUSupported TRUE,
+      RegisterSize '64', PackMode '8', task MainTask; `project_defined` and `hasconstanttype` are CODESYS's (TwinCAT: the
+      unknown-operator pair); a second `{ELSE}` / an `{ELSIF}` after it is the orphan message. (2) Message pragmas the
+      same: inside an expression, between a statement's keywords or in an untaken branch neither vendor says a `{warning}`.
+      (3) `}` ends a pragma even inside quotes (both); an attribute on a METHOD is the METHOD's (`obsolete` warns at each
+      call), on a PROPERTY or STRUCT field obsolete says nothing; an obsolete POU warns ONCE PER USE (its type, each
+      instance call, each FUNCTION/METHOD call).
+      **The recorder dropped every pragma above a top-level unit** (`scripts/record-language.ts` `pragmaStart` never
+      walked back: a unit keyword always opens its line). Found by `prag_if_hasattribute_pou` (the exec recorder carries
+      the pragma and took the branch the build's object could not have). Fixed; the 49 fixtures it touched re-recorded
+      on both vendors — 15 answers moved (obsolete warnings, `abstract` on an FB, `pingroup` on a unit, an unknown
+      attribute on any DUT, `deprecated` unknown to CODESYS, the five TwinCAT `newdel_*` building clean).
+      Changed (test-first in `pragmas/conditional.test.ts` 17, `obsolete-usage.test.ts` 8, `pragmas.test.ts` 2 premises
+      corrected by the re-recording): `syntax/pragmas/conditional.ts` — `directiveOf`, the `{IF}` condition grammar
+      (P10–P13) and `evaluateCondition` against a `ConditionWorld` (vendor, names, device, project settings; a question it
+      cannot answer is REFUSED by name, never defaulted); `parse/statements.ts` `applyPragmas` — directives and message
+      pragmas where a statement may start, chains per list, untaken branches silent, `BodyParse.messages`/`.refused`, the
+      orphan/unterminated errors with `ParseError.orphanPragma`/`.unterminatedConditional` facts (TwinCAT's "Pragma");
+      `parse/body-parse.ts` `bodyStatements(body, world)` — ONE tree (`parseStatements`/`parseActive` gone), cached per
+      world object; `symbols/condition-world.ts` (names from the scope tree, one world per scope per project generation);
+      `bodies()`, parse-errors, no-op-statement, the message pragmas and the transpiler (`transpile/lower/conditions.ts`,
+      the exec oracle's device and project as measured — Gate T, `calls.ts`/`lower.ts` only) read it; the
+      unresolved-identifier skip and the analysis balance stack are removed. 2.7.2: `Attribute` on unit, member and
+      declaration nodes (struct/union fields too), attached once by the parser (`pragmas/attributes.ts`
+      `attachAttributes`, `readAttribute` the one reading — pragmas.ts and attribute-placement ask it; hover keeps its
+      offset regex, completion reads unfinished text); `FRONTEND_ATTRIBUTES` + `hasFrontendAttribute`; the binder's
+      `qualified_only` per unit from the AST; `obsolete-usage` AST-based (the workspace raw-text scan and
+      `WorkspaceRefs.obsoletePous` deleted); the formatter prints attributes (it had dropped every one) and keeps a body
+      holding any pragma verbatim. Divergences opened (niche: accepted loss, 0 occurrences in the corpora):
+      `prag_attribute_brace_in_value` and `prag_project_defined_in_declaration` (both), `prag_if_defined_in_declaration`
+      and `prag_project_defined_forbidden_construct` (CODESYS), `prag_project_defined_not_in_declaration` (TwinCAT) — the
+      declaration parser applies no conditional pragma (0 conditional directives in any declaration part of the corpora).
+      Closed: the five TwinCAT `newdel_*` marks. Rules GAP area 2 **22 → 13** (total 76 → 67): P2, P5, P7, P8, P9, P10,
+      P11, P12, P13 closed; P1, P3, P4, P6 gain recorded cells (P14–P16 are 4.x's). `rate:fixtures` (3951): confirmed
+      2344, refused 1377, not-lowered 139, lsp-gap 24, diverges 4, unaskable 63; edges agree 2453 / disagree 0 / not-run
+      102. Ceilings (`fixtures.test.ts`, FOR MEASUREMENT): lsp-gap 22 → 24 (the two declaration-part cells,
+      `MEASURED_SILENT`), not-lowered 137 → 139 (`prag_if_hasconstanttype`: the "Replace constants" option is not in the
+      exec world; `prag_unknown_attribute_on_union`: `layout-union`). Floors CODESYS 3569 → 3640, TwinCAT 3508 → 3585.
+      Frontend ceilings: parse findings 76 → 72 (the orphan/unterminated cells now the parser's), refused with a syntax
+      message CODESYS 36 → 34, TwinCAT 39 → 37; resolution fixtures bare NONE CODESYS 5 → 0, TwinCAT 12 → 7 (names only
+      an untaken branch held); a new capped measure `call UNKNOWN, __NEW or __DELETE` (TwinCAT fixtures 20, the
+      `newdel_*` measured since their marks went — task 4.3.4's). **Coverage, said:** the corpora hold 15 bodies with
+      conditional pragmas (16 `{IF}`); with the analysis world 2 are decided (`defined (pou: …)`) and 13 are REFUSED
+      (`defined (IsSimulationMode)`, a device fact the LSP does not hold) — analysis no longer reads them (it used to read
+      every branch, unresolved-identifier skipping them), which is why corpus expressions measured fell 123519 → 123142
+      and several corpus UNKNOWN ceilings fell with them (a fall of coverage, not of disagreement). F (`frontend-snapshot
+      check --base HEAD`): 3647 aspects over 1031 sources — 2901 added (the new fixtures), `ast` 618 (every source
+      carrying an attribute), `stmts` 40 / `active` 32 (bodies with conditional or message pragmas), `resolution` and
+      `types` 26 each, `folds` 1, `lowering` 3 (the conditional bodies). Targeted: `bun test src` 1592 / 0,
+      `test/conformance test/frontend test/catalog test/corpus` 5279 / 0; `tsc --noEmit` clean; lint exit 0.
+      **Review fixes 2.7 (2026-10-02).** (1) TWO TREES: the compiled one (`bodyStatements`, analysis and the transpiler)
+      and the body AS WRITTEN (`sourceStatements`, every branch in) — rename, references and highlight
+      (`services/navigation/references.ts`), hover/definition/signature help (`bodiesAt`), call hierarchy, inlay hints
+      (`symbols/scoped-bodies` `sourceBodies`), folding, selection and on-type indent read the source tree: a use in a
+      branch not taken, or in a body the LSP cannot decide (pro2193 `IMM_Default.fb` 995, `IQ_Handling.prg`), was left
+      unrenamed. (2) `defined (X)` / `hasvalue (X, …)` of a name the body does not define asks the project's COMPILE
+      DEFINES — refused by name without them, never FALSE by default; `Scope.environment` (`buildSymbolTable`'s 4th
+      argument) carries what a builder MEASURED: none in the LSP, the recording projects' (no compile define, measured by
+      `prag_define_upper_case`, `prag_else_twice`, …; `test/conformance/support/recording-environment.ts`) in the
+      replay, the census and the evidence, the exec oracle's in the transpiler. (3) An undecided condition leaves only
+      ITS CHAIN undecided (`parse/statements` `applyPragmas`, `Compiled` on/maybe/off): each branch parsed in silence, a
+      define there makes its name uncertain, and the text outside — compiled either way — keeps its syntax errors, its
+      messages and the chain's orphan/unterminated structure (before: no error, no message, no fold). The corpus gates
+      read the source tree (`materializeFailures` no longer excludes refused bodies; the formatter fixed point compares
+      every branch), the corpus UNKNOWN/NONE ceilings return to their pre-2.7 values (member NONE 3602, call UNKNOWN
+      1939, binary 3382, ident_expr 469, index 223, member UNKNOWN 4217 — the 2.7 cuts were lost coverage), and the lost
+      coverage is COUNTED: `… expressions in a conditional branch Volt cannot decide, not measured` (corpus 15, fixtures
+      36/32). An unquoted `hasattribute` attribute is the condition parser's vendor error where the directive acts
+      (`ParseError.attributeValueString`, code `attribute-value-string`; the analysis scan keeps the pragmas out of a
+      body) — `cc6_attribute_value_unquoted` is then a body the vendor refuses too, which the restored measurement needed
+      (its `n + 1` had been hidden behind the refusal while `newdel_with_pragma_has_method`'s joined the TwinCAT count).
+      (4) `hastype` is answered for an elementary spec of a variable of an elementary type only (`TYPED_PREFIXES`); a
+      generic spec (ANY_INT…) or an alias/DUT/FB variable is refused. (5) The message words are lower case only, in a
+      body and out of one (`analysis/checks/pragmas` reads them through `directiveOf`): recorded `prag_warning_upper_case`,
+      `prag_warning_mixed_case`, `prag_error_upper_case`, `prag_warning_upper_case_in_declaration` — all four build
+      CLEAN on CODESYS and TwinCAT (`record:language` both, `record:exec` CODESYS); `rate:fixtures` confirmed 2344 → 2348.
+      **Review fixes 2.7, round 2 (2026-10-02).** (1) The SOURCE reading voided a body whose untaken or undecided branch
+      held a syntax error (`prag_untaken_branch_syntax_error` builds), dropping it from rename/references/folding:
+      `parseSourceStatementTokens` now follows the chains' structure where a statement may start, asks no condition, and
+      parses every branch in silence and KEEPS it — an error outside every chain, or an orphan/unterminated chain, still
+      voids it (`navigation.test.ts`, `conditional.test.ts`). (2) `dumps.ts` `parseErrors` takes a `Bound` and parses a
+      body in `bodyConditionWorld` as `parse-errors` does (the census binds corpus, fixtures and library as `bound.ts`
+      does); `SYNTAX_WORLD` is gone. (3) `defined (RegisterSize|PackMode)` and `hasvalue (IsLittleEndian|IsSimulationMode|
+      IsFPUSupported, …)` are refused by name, not answered FALSE by the project defines (0 occurrences in the corpora).
+      (4) Recorded `prag_hasattribute_unquoted_{elsif_after_taken,elsif_asked,in_untaken_branch,in_declaration}`
+      (`record:language` both; none builds on CODESYS, so no exec): both vendors say the unquoted-attribute error on
+      every `{IF}`/`{ELSIF}` in a body, its condition asked or not — `applyPragmas` reports it from the condition's
+      text wherever the directive stands (`PragmaState.textErrors`, kept apart from what silence drops). In a VAR
+      section CODESYS adds "This code is not supported in declaration part" and TwinCAT builds clean:
+      `prag_hasattribute_unquoted_in_declaration` a known divergence on both (niche: accepted loss (0 occurrences in
+      the corpora)). `rate:fixtures` (3959): confirmed 2348, refused 1377 → 1381; frontend baselines rewritten (counts
+      of the four fixtures only, no finding moved). Targeted: `bun test src` 1608 / 0, `test/frontend` 30 / 0, the
+      conformance replay (`-t "LSP against|prag_hasattribute|cc6_attribute|prag_untaken"`) 8 / 0; `tsc` clean.
+      **Gate 2.7 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3959
+      fixtures: confirmed 2348, refused 1381, not-lowered 139, lsp-gap 24, diverges 4, unaskable 63; edges agree 2458 /
+      disagree 0 / not-run 102). `bun test` 6923 pass / 34 skip / 183 todo / 0 fail (7140 tests, 195 files, 288 s, rustc
+      cache on); agreement CODESYS 3647, TwinCAT 3592 (3959 fixtures) — the floors raised to them (3640 → 3647, 3585 →
+      3592: the review's cells), re-confirmed by the agreement tests. `bun run check` 14 passed, 0 failed; `bun run lint`
+      exit 0 (warnings only). volt-cli untouched by 2.7 (no dotnet run).
 - [ ] 2.8.1 One token-description wording (the vendor's): the named forms from 1.16 collapse to the recorded ones. Record
       rec_file_scope_stray, rec_expected_expression.
       Where: parse/errors, parse/parser. Acceptance: CA. Depends on: 2.7.3

@@ -13,7 +13,7 @@ import {
   isGraphicalBody,
   isStBody,
   parseSource,
-  parseStatements,
+  bodyStatements,
   unitBodies,
 } from "../index.js"
 
@@ -65,7 +65,7 @@ const bodiesOf = (src: string): BodySpan[] => parseSource(src, { networkText: tr
 function syntaxErrors(src: string): string[] {
   const parsed = parseSource(src, { networkText: true })
   const bodies = parsed.units.flatMap(unitBodies).filter((b) => !isGraphicalBody(b))
-  return [...parsed.errors, ...bodies.flatMap((b) => parseStatements(b).errors)].map((e) => e.message)
+  return [...parsed.errors, ...bodies.flatMap((b) => bodyStatements(b).errors)].map((e) => e.message)
 }
 
 // ── body splitting ────────────────────────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ test("the keyword line belongs to no declaration and to no statement", () => {
   // The method's inputs are its declaration; the keyword did not end up as a variable or a statement.
   if (method.kind !== "method") throw new Error("not a method")
   expect(method.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toEqual(["force"])
-  const statements = parseStatements(unitBodies(method)[0]!)
+  const statements = bodyStatements(unitBodies(method)[0]!)
   expect(statements.errors).toEqual([])
   expect(statements.statements.map((s) => s.kind)).toEqual(["assign", "assign"]) // `x := 0;` and `Reset := force;`
   for (const body of bodiesOf(MOTOR)) expect(isGraphicalBody(body)).toBe(false)
@@ -162,7 +162,7 @@ END_FUNCTION_BLOCK
   if (unit.kind !== "function_block") throw new Error("not a function block")
   expect(unit.varSections.flatMap((s) => s.decls.flatMap((d) => d.names.map((n) => n.text)))).toEqual(["a", "out"])
   expect(bodiesOf(src).map(graphicalMarkerLanguage)).toEqual([undefined])
-  expect(parseStatements(bodiesOf(src)[0]!).statements.map((s) => s.kind)).toEqual(["assign"])
+  expect(bodyStatements(bodiesOf(src)[0]!).statements.map((s) => s.kind)).toEqual(["assign"])
 })
 
 /** The comment shapes a line-start scan misses, which the bridge pins in `ImplementationKeywordTests` too: a block

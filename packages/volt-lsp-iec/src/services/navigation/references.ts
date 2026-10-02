@@ -3,13 +3,16 @@
  * occurrences that bind to the SAME symbol (by identity) — so `motor.Start` doesn't match every `Start`.
  * This is what makes rename safe. Powers references, highlight, and rename.
  *
+ * It walks the bodies AS WRITTEN (`sourceBodies`): a use in a conditional branch not taken, or in a body whose condition
+ * the LSP cannot decide, is still text a rename must edit — it compiles again when the condition flips.
+ *
  * A member-access chain (and a `.g` through the global namespace) resolves through `types/resolveMemberChain`; a bare
  * ident through scope lookup.
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
 import { allUnits, type IdentExpr, walkAllExprs } from "../../frontend/syntax/index.js"
 import { unitTypeNameRefs } from "./type-refs.js"
-import { bodies, lookup, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../frontend/symbols/index.js"
+import { lookup, resolveBareEnumMember, type Scope, scopeForUnit, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
 import { resolveMemberChain } from "../../frontend/types/index.js"
 import { rangeFromSpan } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
@@ -24,7 +27,7 @@ export interface Ref {
 export function findReferences(docs: Iterable<Document>, project: Scope, target: Symbol): Ref[] {
   const out: Ref[] = [{ uri: target.uri, range: rangeFromSpan(target.span) }] // the declaration itself
   for (const doc of docs) {
-    for (const { scope, statements } of bodies(doc.parseResult.units, project)) {
+    for (const { scope, statements } of sourceBodies(doc.parseResult.units, project)) {
       const memberNames = new Set<IdentExpr>()
       walkAllExprs(statements, (e) => {
         if (e.kind === "member") memberNames.add(e.member)

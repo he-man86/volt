@@ -8,7 +8,7 @@
  * exactly the "leading trivia" ownership the parser skips. Zero-FP: only fires for `pack_mode` and only when the
  * owned unit is a FUNCTION/METHOD, so a pack_mode on a struct/var (its legal home) is never flagged.
  */
-import { isTrivia } from "../../../frontend/syntax/index.js"
+import { isTrivia, readAttribute } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -44,7 +44,7 @@ export function checkAttributePlacement(ctx: CheckContext, out: DiagnosticItem[]
   }
 }
 
-/** The first quoted name of an `{attribute 'name' …}` pragma, else undefined. */
+/** The name of an `{attribute 'name' …}` pragma, else undefined — the front-end's one reading of it. */
 function attributeName(text: string): string | undefined {
-  return /^\{\s*attribute\s+'([^']*)'/i.exec(text)?.[1]
+  return readAttribute(text)?.name
 }

@@ -1,23 +1,38 @@
 /**
- * obsolete-usage — C0357, a 3-state configurable diagnostic (off/warning/error), default warning. Verified live
- * against CODESYS 3.5.21: `POU '<name>' has been marked as obsolete: <msg>`. The obsolete set is injected here the
- * way the workspace scan produces it (the attribute is parser trivia, collected from raw file text).
+ * obsolete-usage — C0357, a 3-state configurable diagnostic (off/warning/error), default warning:
+ * `POU '<name>' has been marked as obsolete: <msg>`, once per USE, on both vendors (frontend-conformance 2.7.2,
+ * recorded 2026-10-02): a variable's type, each call of the instance, each call of a FUNCTION or a METHOD
+ * (`cp_obsolete_pou`, `prag_attribute_obsolete_fb_declared`, `_fb_called_twice`, `_function`, `_on_method`,
+ * `_method_called_twice`). The attribute is read from the AST (`syntax/pragmas/attributes`) — it used to be scanned out
+ * of raw workspace text, so the conformance replay could never see the check.
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../../index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 import type { DiagnosticState } from "../../config.js"
-import { obsoletePousInText } from "../../../workspace-refs.js"
 
-const OBSOLETE = new Map([["oldfb", { name: "OldFB", message: "use NewFB instead" }], ["oldfn", { name: "OldFn", message: "gone in v2" }]])
+const OLD = `{attribute 'obsolete' := 'use NewFB instead'}
+FUNCTION_BLOCK OldFB
+VAR
+  n : INT;
+END_VAR
+END_FUNCTION_BLOCK
+
+{attribute 'obsolete' := 'gone in v2'}
+FUNCTION OldFn : INT
+END_FUNCTION
+`
 
 function obs(src: string, state: DiagnosticState = "warning") {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  const references = { ...EMPTY_WORKSPACE_REFS, obsoletePous: OBSOLETE }
+  const old = parseSource(OLD, { networkText: true })
+  const project = build.buildSymbolTable([
+    { uri: "F.fb", parseResult, source: src },
+    { uri: "Old.fb", parseResult: old, source: OLD },
+  ])
   const config = resolveConfig({ vendor: "codesys", diagnostics: { "obsolete-usage": state } })
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config, references }).filter((d) => d.code === "obsolete-usage")
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config }).filter((d) => d.code === "obsolete-usage")
 }
 
 test("a variable typed with an obsolete FB is flagged, byte-identical to CODESYS", () => {
@@ -27,17 +42,34 @@ test("a variable typed with an obsolete FB is flagged, byte-identical to CODESYS
   expect(d[0]?.message).toBe("POU 'OldFB' has been marked as obsolete: use NewFB instead")
 })
 
+test("each call of an obsolete FB's instance is a use of its own (prag_attribute_obsolete_fb_called_twice)", () => {
+  expect(obs(`FUNCTION_BLOCK Use\nVAR\n  inst : OldFB;\nEND_VAR\ninst();\ninst();\nEND_FUNCTION_BLOCK`)).toHaveLength(3)
+})
+
 test("a direct call to an obsolete FUNCTION is flagged", () => {
   const d = obs(`FUNCTION_BLOCK Use\nVAR\n  rv : INT;\nEND_VAR\nrv := OldFn();\nEND_FUNCTION_BLOCK`)
   expect(d).toHaveLength(1)
   expect(d[0]?.message).toBe("POU 'OldFn' has been marked as obsolete: gone in v2")
 })
 
-test("a non-obsolete type/call is not flagged", () => {
-  expect(obs(`FUNCTION_BLOCK Use\nVAR\n  inst : FreshFB;\n  rv : INT;\nEND_VAR\nrv := FreshFn();\nEND_FUNCTION_BLOCK`)).toEqual([])
+test("each call of an obsolete METHOD is flagged with the method's name (prag_attribute_on_method)", () => {
+  const src = `FUNCTION_BLOCK Use\nVAR\n  rv : INT;\nEND_VAR\nRun();\nRun();\nEND_FUNCTION_BLOCK\n\n{attribute 'obsolete' := 'volt method text'}\nMETHOD Run\nrv := 1;\nEND_METHOD\n`
+  const d = obs(src)
+  expect(d.map((x) => x.message)).toEqual(["POU 'Run' has been marked as obsolete: volt method text", "POU 'Run' has been marked as obsolete: volt method text"])
 })
 
-test("case-insensitive: obsolete match ignores identifier casing (IEC)", () => {
+test("a PROPERTY marked obsolete and read says nothing (prag_attribute_on_property)", () => {
+  const src = `FUNCTION_BLOCK Use\nVAR\n  rv : INT;\nEND_VAR\nrv := Value;\nEND_FUNCTION_BLOCK\n\n{attribute 'obsolete' := 'p'}\nPROPERTY Value : INT\nGET\nValue := 1;\nEND_GET\nEND_PROPERTY\n`
+  expect(obs(src)).toEqual([])
+})
+
+test("a commented-out attribute marks nothing (prag_attribute_commented_out)", () => {
+  const src = `FUNCTION_BLOCK Use\nVAR\n  rv : INT;\nEND_VAR\nRun();\nEND_FUNCTION_BLOCK\n\n// {attribute 'obsolete' := 'x'}\nMETHOD Run\nrv := 1;\nEND_METHOD\n`
+  expect(obs(src)).toEqual([])
+})
+
+test("a non-obsolete type/call is not flagged; identifiers match case-insensitively", () => {
+  expect(obs(`FUNCTION_BLOCK Use\nVAR\n  rv : INT;\nEND_VAR\nrv := 1;\nEND_FUNCTION_BLOCK`)).toEqual([])
   expect(obs(`FUNCTION_BLOCK Use\nVAR\n  inst : oldfb;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toHaveLength(1)
 })
 
@@ -45,30 +77,4 @@ test("state 'off' drops it; 'error' forces error severity", () => {
   const src = `FUNCTION_BLOCK Use\nVAR\n  inst : OldFB;\nEND_VAR\nEND_FUNCTION_BLOCK`
   expect(obs(src, "off")).toEqual([])
   expect(obs(src, "error")[0]?.severity).toBe("error")
-})
-
-// ── extractor: obsoletePousInText (the workspace scan reads the attribute from raw text) ──
-
-test("extractor: a POU-level obsolete attribute is collected", () => {
-  const got = obsoletePousInText(`{attribute 'obsolete' := 'gone'}\nFUNCTION_BLOCK OldFB\nEND_FUNCTION_BLOCK`)
-  expect(got).toEqual([["oldfb", { name: "OldFB", message: "gone" }]])
-})
-
-test("extractor: a METHOD-level obsolete attribute is NOT collected (POU-scoped, guards the corpus FPs)", () => {
-  // Real corpus obsolete markers sit on METHODs; matching them would mis-name the POU. The regex requires a
-  // POU keyword (FUNCTION_BLOCK/FUNCTION/PROGRAM/INTERFACE) right after the attribute — METHOD is skipped.
-  expect(obsoletePousInText(`FUNCTION_BLOCK LockFB\n{attribute 'obsolete' := 'no sense'}\nMETHOD M : INT\nEND_METHOD\nEND_FUNCTION_BLOCK`)).toEqual([])
-})
-
-test("extractor: leading extra attributes before the POU header are tolerated", () => {
-  const got = obsoletePousInText(`{attribute 'obsolete' := 'gone'}\n{attribute 'hide'}\nFUNCTION OldFn : INT\nEND_FUNCTION`)
-  expect(got).toEqual([["oldfn", { name: "OldFn", message: "gone" }]])
-})
-
-test("no obsolete set (empty workspace) ⇒ nothing flagged", () => {
-  const src = `FUNCTION_BLOCK Use\nVAR\n  inst : OldFB;\nEND_VAR\nEND_FUNCTION_BLOCK`
-  const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
-  const d = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((x) => x.code === "obsolete-usage")
-  expect(d).toEqual([])
 })

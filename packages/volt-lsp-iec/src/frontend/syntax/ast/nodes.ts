@@ -522,8 +522,24 @@ export interface VarSection {
   decls: VarDecl[]
   span: Span
 }
+/**
+ * AN `{attribute '<name>'}` PRAGMA, as the vendor reads it: the first quoted word is the name, and `:= '<value>'` the
+ * value; an UNQUOTED value is the empty string to the compiler ("Invalid value ''", `cc4_attribute_value_string`). The
+ * lexer ends a pragma at its first `}` even inside quotes (`prag_attribute_brace_in_value`, both vendors), so neither
+ * ever holds one.
+ */
+export interface Attribute {
+  name: string
+  value?: string
+  /** The pragma as written, braces included — what a printer writes back (`services/formatting/print`). */
+  text: string
+  span: Span
+}
+
 export interface VarDecl {
   kind: "var_decl"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   names: Identifier[] // `a, b, c : INT;`
   type: TypeExpr
   init?: Initializer // scalar → Expr, aggregate → AggregateInit (was opaque BodySpan)
@@ -599,6 +615,8 @@ export type TopLevel =
 
 export interface Namespace {
   kind: "namespace"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   units: TopLevel[]
   /** Its END_NAMESPACE as written — absent when the text runs out first (the keyword line alone is a text the push hands
@@ -609,6 +627,8 @@ export interface Namespace {
 }
 export interface FunctionBlock {
   kind: "function_block"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   /** Every modifier as written, in order (`PUBLIC FINAL`): the header's text, kept so a check reads it and the formatter
    *  prints it back as written (conformance 2.4.3). An access modifier stands only first; one written later is kept here
@@ -628,6 +648,8 @@ export interface FunctionBlock {
 }
 export interface Program {
   kind: "program"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   /** A return type illegally declared on a PROGRAM (`PROGRAM P : BOOL`) — drives C0182. */
   returnType?: TypeExpr
@@ -640,6 +662,8 @@ export interface Program {
 }
 export interface Function {
   kind: "function"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   returnType?: TypeExpr
   /** A `: <type>` the parser refused (`METHOD M : final`; `__VECTOR` on TwinCAT) — `returnType` is then absent, and this
@@ -655,6 +679,8 @@ export interface Function {
 }
 export interface Method {
   kind: "method"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   /** Every modifier as written, in order (`PUBLIC FINAL`): the header's text, kept so a check reads it and the formatter
    *  prints it back as written (conformance 2.4.3). An access modifier stands only first; one written later is kept here
@@ -670,12 +696,16 @@ export interface Method {
 }
 export interface Action {
   kind: "action"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   body: BodySpan
   span: Span
 }
 export interface Property {
   kind: "property"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   /** Every modifier as written, in order (`PUBLIC ABSTRACT`): declaration text the push keeps, so the formatter prints
    *  it back — eaten and dropped, formatting rewrote the member's signature. */
@@ -699,6 +729,8 @@ export interface PropertyAccessor {
 }
 export interface Interface {
   kind: "interface"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   extends?: Identifier[]
   /** An IMPLEMENTS list illegally used on an interface (should be EXTENDS) — drives C0421. */
@@ -743,6 +775,8 @@ export interface InterfaceProperty {
 }
 export interface TypeDecl {
   kind: "type_decl"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   name: Identifier
   body: DutBody
   /** An `EXTENDS Base` clause on a non-STRUCT DUT (enum/alias → C0144, union → C0542) — inheritance is only
@@ -752,6 +786,8 @@ export interface TypeDecl {
 }
 export interface GlobalVarList {
   kind: "global_var_list"
+  /** The `{attribute '…'}` pragmas on it, in source order (`pragmas/attributes` `attachAttributes`). */
+  attributes?: readonly Attribute[]
   varSections: VarSection[]
   span: Span
 }
@@ -799,6 +835,19 @@ export interface ParseError {
    * declarations; the analysis writes the text, as it prints types and values (the parser imports no printer).
    */
   sectionEcho?: { keyword: string; decls: readonly VarDecl[] }
+  /**
+   * A CONDITIONAL DIRECTIVE WITH NO `{IF}` OPEN for it in its statement list (`parse/statements` `applyPragmas`), by its
+   * word — "Unexpected pragma: 'END_IF' found without matching 'if'". A fact like `unexpectedToken`: TwinCAT capitalises
+   * "Pragma" (`conditional_orphan_else`, `prag_unbalanced_end_if`), and only the analysis layer knows the vendor.
+   */
+  orphanPragma?: string
+  /** A conditional `{IF}` chain left open where its statement list ends — "Unexpected End-of-file found: 'ELSIF', 'ELSE'
+   *  or 'END_IF' expected" (byte-identical on both vendors); a fact so the analysis gives it its own code. */
+  unterminatedConditional?: true
+  /** A `hasattribute` condition whose attribute is no quoted string, by the text found — "Single byte string expected for
+   *  an attribute value instead of 'X'" (`cc6_attribute_value_unquoted`, both vendors); a fact so the analysis keeps the
+   *  rule its own code (`attribute-value-string`). */
+  attributeValueString?: string
 }
 export interface ParseResult {
   units: TopLevel[]

@@ -6,13 +6,13 @@ import { expect, test } from "bun:test"
 import { lex } from "../lex/lexer.js"
 import type { BodySpan } from "../ast/nodes.js"
 import type { Dialect } from "../lex/vocabulary.js"
-import { parseStatements } from "./body-parse.js"
+import { bodyStatements } from "./body-parse.js"
 
 /** The errors a body snippet parses with — message, and the vendor-worded token where the message is its shape. */
 function errors(body: string, dialect: Dialect = "codesys"): string[] {
   const toks = lex(body, dialect).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).errors.map((e) => e.message)
+  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).errors.map((e) => e.message)
 }
 
 const refusedAssignment = (name: string): string[] => [
@@ -162,7 +162,7 @@ const refusedLiteral = (text: string): string[] => [
 function statements(body: string) {
   const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).statements
+  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).statements
 }
 
 test("a malformed literal is refused whole, and the tokens after it resync as after a refused word (lit_*)", () => {

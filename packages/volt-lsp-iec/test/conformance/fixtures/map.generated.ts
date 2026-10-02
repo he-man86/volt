@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2283
- *     refused       1367
- *     not-lowered    137
- *     lsp-gap         22
+ *     confirmed     2348
+ *     refused       1381
+ *     not-lowered    139
+ *     lsp-gap         24
  *     diverges         4
  *     unaskable       63
  *
  *   tier                     lowered    clean
- *     decl                    581      581
- *     arith                  1278     1277
- *     control                 110      105
- *     aggregate                57       57
- *     call                    234      232
- *     indirect                232      228
+ *     decl                    632      632
+ *     arith                  1282     1281
+ *     control                 114      109
+ *     aggregate                58       58
+ *     call                    236      234
+ *     indirect                238      234
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -55,7 +55,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2390
+ *     agree         2458
  *     disagree         0
  *     not-run        102
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -63,10 +63,10 @@
  *       not-run: the emitted Rust does not build                 10
 
  *
- *   pedantic — 26757 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6193
- *     clippy::cast_possible_truncation         4303
- *     clippy::cast_lossless                    3838
+ *   pedantic — 26912 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6334
+ *     clippy::cast_possible_truncation         4308
+ *     clippy::cast_lossless                    3847
  *     clippy::cast_sign_loss                   2977
  *     clippy::uninlined_format_args            2898
  *     clippy::unreadable_literal               2507
@@ -87,8 +87,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1411 distinct emission shapes over 2492 lowered fixtures, 1662 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2380 fixtures are improvable, 2303 touch a construct with alternatives.
+ *   shape — 1424 distinct emission shapes over 2560 lowered fixtures, 1663 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2448 fixtures are improvable, 2371 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -2682,12 +2682,12 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   network_unnamed_target_of_valued_call: { evidence: "lsp-gap" },
   network_unnamed_target_of_void_call: { evidence: "lsp-gap" },
   newdel_elementary: { evidence: "unaskable", diverges: { codesys: "known" } },
-  newdel_in_method_with_pragma: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 2, edge: "not-run", size: 2.3, shape: "d2c866f569", notes: ["de8528b197", "fbde4d6e1e"], diverges: { codesys: "known", twincat: "known" } },
-  newdel_struct_with_pragma: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
-  newdel_target_with_pragma: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
+  newdel_in_method_with_pragma: { evidence: "unaskable", tier: "decl", rust: "compiles", pedantic: 2, edge: "not-run", size: 2.3, shape: "d2c866f569", notes: ["de8528b197", "fbde4d6e1e"], diverges: { codesys: "known" } },
+  newdel_struct_with_pragma: { evidence: "unaskable", diverges: { codesys: "known" } },
+  newdel_target_with_pragma: { evidence: "unaskable", diverges: { codesys: "known" } },
   newdel_target_without_pragma: { evidence: "unaskable", diverges: { codesys: "known" } },
-  newdel_with_pragma: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
-  newdel_with_pragma_has_method: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
+  newdel_with_pragma: { evidence: "unaskable", diverges: { codesys: "known" } },
+  newdel_with_pragma_has_method: { evidence: "unaskable", diverges: { codesys: "known" } },
   newdel_without_pragma: { evidence: "refused", diverges: { codesys: "known" } },
   ng_box_output_arrow: { evidence: "unaskable" },
   ng_coil_storage: { evidence: "unaskable" },
@@ -2805,6 +2805,89 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   plat_xword_meet_dint: { evidence: "refused" },
   plat_xword_sizeof: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "069aeee405", notes: ["4bf3f61062", "90c445f7cb", "a497507b30", "e8954e2b0d"] },
   power_operator_rejected: { evidence: "refused" },
+  prag_attribute_block_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
+  prag_attribute_brace_in_value: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  prag_attribute_commented_out: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
+  prag_attribute_obsolete_fb_called_twice: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "6edb240771", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
+  prag_attribute_obsolete_fb_declared: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "d41335477f", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_attribute_obsolete_function: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "5c6e2643b2", notes: ["11f6ad8ec5", "1307e33bbf", "1ca8b1b1fc"] },
+  prag_attribute_obsolete_method_called_twice: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "9ee12eae29", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
+  prag_attribute_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
+  prag_attribute_on_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  prag_attribute_on_struct_field: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "8f18df5490", notes: ["1307e33bbf", "a29db6178b"] },
+  prag_define_case_insensitive: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_define_in_body_seen_by_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
+  prag_define_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_define_inside_expression: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.4, shape: "c1edf85d16", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
+  prag_define_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_define_with_value: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_else_twice: { evidence: "refused" },
+  prag_elsif_after_else: { evidence: "refused" },
+  prag_end_region_orphan: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_error_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_hasattribute_unquoted_elsif_after_taken: { evidence: "refused" },
+  prag_hasattribute_unquoted_elsif_asked: { evidence: "refused" },
+  prag_hasattribute_unquoted_in_declaration: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  prag_hasattribute_unquoted_in_untaken_branch: { evidence: "refused" },
+  prag_if_and_or_precedence: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_crossing_statement: { evidence: "refused" },
+  prag_if_defined_in_declaration: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known" } },
+  prag_if_defined_pou: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 1.9, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_pou_absent: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_resource: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_task: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_task_absent: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_type: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_type_absent: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_defined_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  prag_if_defined_variable_absent: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_hasattribute_pou: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 1.8, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_hasattribute_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  prag_if_hasconstanttype: { evidence: "not-lowered" },
+  prag_if_hasconstantvalue: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_hasconstantvalue_order: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_hastype: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  prag_if_hastype_other: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  prag_if_hasvalue: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_hasvalue_no_value: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_hasvalue_other: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_in_expression_statement: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.3, shape: "5fb9bc74d4", notes: ["1307e33bbf"] },
+  prag_if_inside_if_statement: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.4, shape: "a48f9c65e8", notes: ["0e0d715a81", "1307e33bbf", "21575de23f"] },
+  prag_if_is_fpu_supported: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_is_little_endian: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_is_simulation_mode: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_lower_case_keyword: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "28564b0244", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_lower_case_not_taken: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "28564b0244", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_mixed_case_condition: { evidence: "refused" },
+  prag_if_nested: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_not_and_or: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_not_precedence: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_packmode: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_register_size: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_register_size_32: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_if_statement_starts_inside: { evidence: "refused" },
+  prag_if_unknown_operator: { evidence: "refused" },
+  prag_if_whole_operand: { evidence: "refused" },
+  prag_inside_expression: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "851159aa61", notes: ["1307e33bbf", "4979768984"] },
+  prag_inside_statement_keywords: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "54e8ab1d3e", notes: ["0e0d715a81", "1307e33bbf", "21575de23f"] },
+  prag_project_defined_forbidden_construct: { evidence: "refused", diverges: { codesys: "known" } },
+  prag_project_defined_in_body: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_project_defined_in_declaration: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
+  prag_project_defined_not_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"], diverges: { twincat: "known" } },
+  prag_region_unclosed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_unbalanced_end_if: { evidence: "refused" },
+  prag_unknown_attribute_on_alias: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_unknown_attribute_on_enum: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_unknown_attribute_on_struct: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.2, shape: "e8944cfecf", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"] },
+  prag_unknown_attribute_on_union: { evidence: "not-lowered" },
+  prag_untaken_branch_syntax_error: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_warning_before_end_if: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "a48f9c65e8", notes: ["0e0d715a81", "1307e33bbf", "21575de23f"] },
+  prag_warning_in_untaken_branch: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_warning_inside_expression: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.3, shape: "851159aa61", notes: ["1307e33bbf", "4979768984"] },
+  prag_warning_inside_statement_keywords: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.8, shape: "54e8ab1d3e", notes: ["0e0d715a81", "1307e33bbf", "21575de23f"] },
+  prag_warning_mixed_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_warning_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_warning_upper_case_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   pragma_conflict_hide_plus_monitoring: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 43, edge: "agree", size: 2.9, shape: "268e4fd65f", notes: ["37c65c7fbb", "5d9850550d"] },
   pragma_conflicting_pair: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "61038779bd", notes: ["1307e33bbf"] },
   pragma_unknown_directive: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.4, shape: "198ab55c44", notes: ["1307e33bbf"] },

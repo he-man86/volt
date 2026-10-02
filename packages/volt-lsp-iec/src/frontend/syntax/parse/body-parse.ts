@@ -1,43 +1,50 @@
 /**
- * A BODY, PARSED ONCE — the one cache of statement trees, keyed on the `BodySpan` (a body is immutable and parsed
- * identically every time; a document re-parse yields fresh bodies, so an edit is never stale).
+ * A BODY, PARSED ONCE — the one statement tree of a body, with its conditional pragmas applied (`parse/statements`,
+ * `pragmas/conditional`), cached on the `BodySpan` (a body is immutable and parsed identically every time; a document
+ * re-parse yields fresh bodies, so an edit is never stale).
  *
- * Two trees exist for a body with conditional pragmas, and both come from here:
- *   `parseStatements`  every branch read, as analysis and services read a body today;
- *   `parseActive`      only the branches CODESYS compiles (`pragmas/conditional.ts`), as the transpiler reads it.
- * Which tree every consumer reads is conformance 2.7.1's to decide.
+ * A body whose tree depends on no condition (no `{IF}`/`{define}` where a statement may start) is parsed once for every
+ * caller. One that does is parsed once per `ConditionWorld` OBJECT: a consumer that holds a project hands the same world
+ * for the same scope until the project changes (`symbols/condition-world.ts`), so the cache sees a new world exactly
+ * when an answer may have moved.
+ *
+ * `sourceStatements` is the body AS WRITTEN — every branch of every chain in the tree — for the services that edit and
+ * navigate the text (rename, references, folding, selection, hover). A branch the compiled tree leaves out (not taken, or
+ * undecided) is still text a rename must reach: it comes back when its condition flips.
  */
 import type { BodySpan } from "../ast/nodes.js"
-import { hasConditionalPragmas, scanConditionals } from "../pragmas/conditional.js"
-import { type BodyParse, parseStatementTokens } from "./statements.js"
+import { isConditionalDirective, type ConditionWorld } from "../pragmas/conditional.js"
+import { type BodyParse, parseSourceStatementTokens, parseStatementTokens } from "./statements.js"
 
-const cache = new WeakMap<BodySpan, { every?: BodyParse; active?: BodyParse }>()
+/** The world of a caller that holds none: every condition beyond the body's own defines is refused by name. */
+const NO_WORLD: ConditionWorld = Object.freeze({})
 
-function entry(body: BodySpan): { every?: BodyParse; active?: BodyParse } {
+const cache = new WeakMap<BodySpan, { plain?: BodyParse; source?: BodyParse; byWorld?: WeakMap<ConditionWorld, BodyParse> }>()
+
+const entryOf = (body: BodySpan) => {
   let e = cache.get(body)
   if (e === undefined) cache.set(body, (e = {}))
   return e
 }
 
-/** A body's statements, every conditional branch read. */
-export function parseStatements(body: BodySpan): BodyParse {
-  const e = entry(body)
-  return (e.every ??= parseStatementTokens(body.tokens))
+const isConditional = (body: BodySpan): boolean => body.tokens.some((t) => t.kind === "pragma" && isConditionalDirective(t.text))
+
+/** A body's statements as the vendor compiles them: a branch not taken is not in the tree, a directive inside a statement
+ *  is trivia. A condition `world` cannot answer leaves its chain undecided and the body `refused` (`BodyParse.refused`),
+ *  never guessed; what lies outside that chain keeps its errors and messages. */
+export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD): BodyParse {
+  const e = entryOf(body)
+  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens))
+  const byWorld = (e.byWorld ??= new WeakMap())
+  let parsed = byWorld.get(world)
+  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(body.tokens, world)))
+  return parsed
 }
 
-/**
- * A body's statements as CODESYS compiles it under its conditional pragmas: the tokens of a branch not taken are
- * dropped before parsing, as the preprocessor drops them. A body with no conditional pragma is `parseStatements`'s.
- * A pragma the scanner does not model comes back as a failed parse naming it — never a branch picked by guess.
- */
-export function parseActive(body: BodySpan): BodyParse {
-  if (!hasConditionalPragmas(body.tokens)) return parseStatements(body)
-  const e = entry(body)
-  if (e.active !== undefined) return e.active
-  const scanned = scanConditionals(body.tokens)
-  e.active =
-    "refused" in scanned
-      ? { statements: [], ok: false, firstError: scanned.refused, errors: [] }
-      : parseStatementTokens(scanned.kept)
-  return e.active
+/** A body's statements AS WRITTEN: every branch of every conditional chain, in source order (every pragma trivia). For
+ *  the source services; a body with no conditional directive has one tree, and this is it (`bodyStatements`). */
+export function sourceStatements(body: BodySpan): BodyParse {
+  const e = entryOf(body)
+  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens))
+  return (e.source ??= parseSourceStatementTokens(body.tokens))
 }

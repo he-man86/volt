@@ -27,6 +27,7 @@ import { unitBodies } from "../format/bodies.js"
 import { allUnits } from "../ast/walk.js"
 import { opensKeywordLine, readNoNetworkText } from "../format/implementation-line.js"
 import { isTrivia } from "../lex/tokens.js"
+import { attachAttributes } from "../pragmas/attributes.js"
 import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } from "../format/source-object.js"
 import { UNIT_STARTERS, type Dialect, type UnitStarter } from "../lex/vocabulary.js"
 import { plainTokenText } from "./errors.js"
@@ -106,6 +107,7 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
   // a POU's END_NAMESPACE is the push's refusal (rule U28; `reportNamespaceClosers` says where it is not reported)
   if (object === "pou") reportNamespaceClosers(units, (message, span) => c.pushError(message, span))
   if (!options.networkText) for (const unit of allUnits(units)) unitBodies(unit).forEach(readNoNetworkText)
+  attachAttributes(units, tokens)
   return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations(), tokens, dialect }
 }
 

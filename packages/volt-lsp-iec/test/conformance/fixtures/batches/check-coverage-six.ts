@@ -13,15 +13,14 @@ import type { LanguageTest } from "../../types.js"
 const doc = "conformance — checks with no fixture, last set"
 
 /**
- * Five of the 85 codes still have no fixture, and each is here because the HARNESS cannot reach it, not because nobody
+ * Four of the 85 codes still have no fixture, and each is here because the HARNESS cannot reach it, not because nobody
  * tried (measured 2026-09-16):
  *   `ambiguous-global`      — see the fixture below.
  *   `function-implements`, `interface-implements`, `return-type-not-allowed` — CODESYS's PARSER refuses the syntax
  *                             outright ("Unexpected token 'IMPLEMENTS' found"), so the recording is parse noise and
  *                             no fixture can isolate the semantic check. They may only be reachable on TwinCAT.
- *   `obsolete-usage`        — it reads `ctx.references.obsoletePous`, which the workspace SCAN fills from disk; the
- *                             replay resolves no workspace refs, so the check cannot fire there whatever the fixture
- *                             says. Reaching it needs the replay to carry a scanned reference set.
+ *   (`obsolete-usage` was the fifth: it read a workspace scan the replay never ran. Since frontend-conformance 2.7.2 the
+ *   attribute is in the AST and the check reads it there — `prag_attribute_obsolete_*` and `cp_obsolete_pou` measure it.)
  */
 
 function fb(name: string, pouName: string, feature: string, source: string): LanguageTest {

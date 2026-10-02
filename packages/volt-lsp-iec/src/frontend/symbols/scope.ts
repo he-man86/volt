@@ -2,12 +2,14 @@
  * SCOPES, MADE AND READ — the one scope factory, symbol definition, the local lookup and the project root's dialect.
  * The model (`Symbol`, `Scope`) is `model.ts`; the lazy indices over it are `cache.ts`.
  */
-import type { Dialect, Span } from "../syntax/index.js"
+import type { CompileEnvironment, Dialect, Span } from "../syntax/index.js"
 import { isLibraryUri } from "../library/index.js"
 import type { Scope, ScopeKind, Symbol } from "./model.js"
 
-export function createProjectScope(dialect: Dialect): Scope {
-  return { kind: "project", name: "(project)", symbols: new Map(), children: [], dialect }
+export function createProjectScope(dialect: Dialect, environment?: CompileEnvironment): Scope {
+  const project: Scope = { kind: "project", name: "(project)", symbols: new Map(), children: [], dialect }
+  if (environment !== undefined) project.environment = environment
+  return project
 }
 
 /** The dialect of a bound PROJECT ROOT. Throws rather than guessing: every caller here has the project scope

@@ -16,7 +16,6 @@ import { errorCatalog, type ErrorCode } from "./error-codes.js"
 import { parseSource } from "../../src/frontend/syntax/index.js"
 import { build } from "../../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
-import { obsoletePousInText } from "../../src/workspace-refs.js"
 
 const catalog = errorCatalog()
 
@@ -29,14 +28,12 @@ function lspMessages(repro: string, extra?: { uri: string; source: string }[]): 
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }) })),
   ]
   const project = build.buildSymbolTable(files)
-  // Reproduce the workspace obsolete-POU scan from the repro text, so workspace-scan-based checks (C0357) fire.
-  const obsoletePous = new Map(files.flatMap((f) => obsoletePousInText(f.source)))
   const semantic = computeSemanticDiagnostics({
     parseResult,
     source: repro,
     project,
     config: resolveConfig({ vendor: "codesys" }),
-    references: { ...EMPTY_WORKSPACE_REFS, obsoletePous },
+    references: EMPTY_WORKSPACE_REFS,
   })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)

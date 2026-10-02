@@ -104,16 +104,22 @@ function splitItems(f: { source: string; pouName: string; gvlNames?: readonly st
   }))
 }
 
-/** Walk back over the pragma lines decorating a unit, so the pushed item carries the attributes written above it. */
+/**
+ * Walk back over the pragma lines decorating a unit, so the pushed item carries the attributes written above it.
+ *
+ * It used to start at the unit's keyword and ask whether the keyword's own line began before it — and a unit keyword
+ * always opens its line, so the walk stopped at once and EVERY pragma line above a top-level unit was dropped (the
+ * first unit's lost outright, a later unit's left on the tail of the item before it). 49 fixtures recorded a build of
+ * code without its attributes — `cp_obsolete_pou` "warned nothing", `cc6_abstract_attribute_on_fb` "records nothing" —
+ * found by frontend-conformance 2.7.2 (`prag_if_hasattribute_pou`: the exec recorder, which carries the pragma, took
+ * the branch the build's object could not have).
+ */
 function pragmaStart(source: string, unitStart: number): number {
-  let at = unitStart
-  for (;;) {
-    const lineStart = source.lastIndexOf("\n", at - 1) + 1
-    if (lineStart >= at) break // already at a line start with nothing above
-    const prevEnd = lineStart - 1
-    if (prevEnd <= 0) break
-    const prevStart = source.lastIndexOf("\n", prevEnd - 1) + 1
-    const line = source.slice(prevStart, prevEnd).trim()
+  let at = source.lastIndexOf("\n", unitStart - 1) + 1
+  if (source.slice(at, unitStart).trim() !== "") return unitStart // the keyword does not open its line
+  while (at > 0) {
+    const prevStart = source.lastIndexOf("\n", at - 2) + 1
+    const line = source.slice(prevStart, at - 1).trim()
     if (!line.startsWith("{") || !line.endsWith("}")) break
     at = prevStart
   }

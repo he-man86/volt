@@ -17,7 +17,7 @@ END_VAR
 END_FUNCTION_BLOCK
 `
   const parseResult = parseSource(source, { networkText: true })
-  const byName = new Map([...declarationAttributes(parseResult, source)].map(([decl, names]) => [decl.names[0]!.text, [...names].sort()]))
+  const byName = new Map([...declarationAttributes(parseResult)].map(([decl, names]) => [decl.names[0]!.text, [...names].sort()]))
   expect([...byName]).toEqual([["sPath", ["instance-path", "noinit"]]])
 })
 
@@ -35,7 +35,7 @@ METHOD AfterInit
 END_METHOD
 `
   const parseResult = parseSource(source, { networkText: true })
-  const byName = new Map([...memberAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names]]))
+  const byName = new Map([...memberAttributes(parseResult)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names]]))
   // the set holds the NAME, and `name=value` beside it where the pragma carries one (`addAttribute`), so a consumer
   // that needs the value has it — `pack_mode=1` is a different struct layout from `pack_mode=2`
   expect([...byName]).toEqual([["AfterInit", ["call_after_global_init_slot", "call_after_global_init_slot=50000"]]])
@@ -61,7 +61,7 @@ FUNCTION_BLOCK FB_B
 END_FUNCTION_BLOCK
 `
   const parseResult = parseSource(source, { networkText: true })
-  const byName = new Map([...unitAttributes(parseResult, source)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names].sort()]))
+  const byName = new Map([...unitAttributes(parseResult)].map(([unit, names]) => ["name" in unit ? unit.name.text : unit.kind, [...names].sort()]))
   expect(byName.get("FB_A")).toEqual(["call_after_global_init_slot", "call_after_global_init_slot=50000", "instance-path", "reflection"])
   expect(byName.has("FB_B")).toBe(false)
   expect(byName.has("AfterInit")).toBe(false)

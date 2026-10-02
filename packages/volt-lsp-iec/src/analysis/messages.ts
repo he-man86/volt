@@ -315,6 +315,8 @@ export interface Messages {
   /** A `hasattribute(...)` conditional-pragma whose attribute operand is unquoted — C0051. verified live CODESYS; TC pending. */
   attributeValueString(found: string): string
   abstractKeywordMissing(): string
+  /** An attribute that belongs on a variable declaration written on a unit (`pingroup`, `pragma_conflicting_pair`). CODESYS. */
+  attributeOnlyOnVariables(name: string): string
   /** A function block that EXTENDS itself (C0091). verified both vendors. */
   circularInheritance(chain: string): string
   /** An `EXTENDS` base class that resolves to no definition (C0090). verified both vendors. */
@@ -695,6 +697,7 @@ export function messagesFor(vendor: Vendor): Messages {
     referenceAssignWriteAccess: () => `Reference assign needs variable with write access`,
     attributeValueString: (found) => `Single byte string expected for an attribute value instead of '${found}'`,
     abstractKeywordMissing: () => `The ABSTRACT keyword is missing`,
+    attributeOnlyOnVariables: (name) => `The attribute '${name}' can only be added to variable declarations. It will be ignored here.`,
     // TwinCAT UPPER-CASES the names in the chain, CODESYS echoes them as declared — the only difference between
     // the two recordings of `cc2_circular_inheritance` (2026-09-20).
     circularInheritance: (chain) => `Recursion in base function block list: ${tc ? chain.toUpperCase() : chain}`,

@@ -28,10 +28,6 @@ export interface WorkspaceRefs {
    *  unresolved-identifier check reads, which is the same names seen from the other side. */
   libraryManifests: readonly LibraryManifest[]
   deviceInstances: ReadonlySet<string>
-  /** POUs marked `{attribute 'obsolete' := 'msg'}`, keyed by lowercased name → its declared name + message.
-   *  Feeds the C0357 obsolete-usage check (the attribute is parser trivia, so it's collected from raw file text
-   *  in the workspace scan — not on the AST). Empty when unknown ⇒ nothing flagged. */
-  obsoletePous: ReadonlyMap<string, { name: string; message: string }>
 }
 
 /** No workspace reference files known — the safe default (nothing skipped on this account). */
@@ -39,7 +35,6 @@ export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
   libraryNamespaces: new Set(),
   libraryManifests: [],
   deviceInstances: new Set(),
-  obsoletePous: new Map(),
 }
 
 /**

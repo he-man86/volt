@@ -27,14 +27,14 @@ import {
   lex,
   isTrivia,
   parseExprFromTokens,
-  parseStatements,
+  bodyStatements,
   unitBodies,
   walkStatements,
   exprText,
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { lookup, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { bodyConditionWorld, lookup, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -59,7 +59,7 @@ const EXPR_KINDS: readonly Expr["kind"][] = [
 ]
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
-import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
+import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, undecidedExprCount, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
 import type { Dialect } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
@@ -124,6 +124,10 @@ export function boundCensus(): BoundCensus {
     // an expression kind whose UNKNOWNs all came to be typed is a count of 0, not a measure gone missing — its ceiling
     // must still be able to say so (`assign_expr`, typed by its target since frontend-conformance 2.5.6)
     for (const kind of EXPR_KINDS) c.types[`${group}: ${kind} UNKNOWN`] ??= 0
+    // …and a name shape whose NONEs all came to resolve, the same way (`fixtures codesys: bare name NONE` 5 → 0: the five
+    // were names in a conditional branch CODESYS does not compile, which the one statement tree no longer holds —
+    // frontend-conformance 2.7.1)
+    for (const shape of ["bare name", "member"]) c.resolution[`${group}: ${shape} NONE`] ??= 0
     if (vendor.known) {
       tally(c.resolution, `${group}: files of a known divergence (support/divergences.ts), not measured`)
       tally(c.types, `${group}: files of a known divergence (support/divergences.ts), not measured`)
@@ -228,6 +232,8 @@ export function boundCensus(): BoundCensus {
     // types nothing there — its echo leaves the literal untyped, `(a + 1)`, where a typed operation reads `(a + INT#1)`
     // (`stmt_bare_binary`, `stmt_case_nonconst_label`, both vendors, frontend-conformance 2.6)
     const invalidStatement = noValidStatementsIn(b, vendor.says)
+    const undecided = vendor.known ? 0 : undecidedExprCount(b)
+    if (undecided > 0) tally(c.types, `${group}: expressions in a conditional branch Volt cannot decide, not measured`, undecided)
     if (!vendor.known)
       for (const { expr, scope, line } of typeRows(b)) {
         const [where, kind, ...rest] = line.split(" ")
@@ -289,6 +295,11 @@ export function boundCensus(): BoundCensus {
         else if (type === "?" && operandTyped(expr, scope, b) === false) tally(c.types, `${group}: call UNKNOWN, on an untyped operand`)
         else if (type === "?" && operandTyped(expr, scope, b) === true)
           tally(c.types, `${group}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`)
+        // …and `__NEW`/`__DELETE`, whose result type is task 4.3.4's as SIZEOF's and ADR's are — split out when the five
+        // TwinCAT `newdel_*` fixtures left KNOWN_DIVERGENCES (frontend-conformance 2.7.2: they diverged only because the
+        // recorder had dropped their pragma) and their calls came to be measured: a reclassification, not a rise
+        else if (type === "?" && expr.kind === "call" && expr.callee.kind === "ident_expr" && /^__(new|delete)$/i.test(expr.callee.name))
+          tally(c.types, `${group}: call UNKNOWN, __NEW or __DELETE (no result type yet, task 4.3.4)`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     // …and its folds (0.4) are counted, not measured, as its resolution and types are (refinement (c), frontend-conformance
@@ -465,7 +476,7 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
         // a body that did not parse — on the vendor too — is typed by neither side (`dumps.ts` `unparsedIn`)
         if (!isStBody(body) || unparsed(body)) continue
         const bodyScope = scope.children.find((s) => s.span === body.span) ?? scope
-        walkStatements(parseStatements(body).statements, (s) => {
+        walkStatements(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements, (s) => {
           if (s.kind === "assign" && s.op === undefined && s.chained === undefined)
             store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope)
           // `S=` / `R=` read and set a BOOL — both sides convert to it (`stmt_s_eq_non_bool_*`, frontend-conformance 2.6)
@@ -521,7 +532,7 @@ function noValidStatementsIn(b: Bound, says: ReadonlySet<string> | undefined): (
   for (const unit of allUnits(b.parsed.parseResult.units))
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      walkStatements(parseStatements(body).statements, (st) => {
+      walkStatements(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements, (st) => {
         if (st.kind === "expr_stmt" && echoes.has(compilerExprText(st.expr).toLowerCase())) spans.push(st.expr.span)
       })
     }

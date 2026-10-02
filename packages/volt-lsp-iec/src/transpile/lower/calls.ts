@@ -15,7 +15,6 @@ import {
   type CallArg,
   type Expr,
   isStBody,
-  parseActive,
   type Property,
   type Span,
   type Statement,
@@ -50,6 +49,7 @@ import { boundOf, lowerPlace } from "./places.js"
 import { pointeePlace, pointerKey, refuseConstantWrite, sameStorage, through } from "./pointers.js"
 import { lowerExpr } from "./expressions.js"
 import { lowerBlock } from "./statements.js"
+import { execBodyStatements } from "./conditions.js"
 import { interfaceArgument, interfaceCall, interfacePropertyGet, interfacePropertySet, storeInterface } from "./interfaces.js"
 import { lastBinding, registerBodyCall } from "./bindings.js"
 import { libraryOf } from "../../frontend/library/index.js"
@@ -522,7 +522,7 @@ function pointedString(lw: Lowering, value: Expr): Place | undefined {
  *
  * A project's libraries are materialized as DECLARATION files: signatures and VAR sections, no statements. The library
  * repo (`libraries/<library>/<version>/`) replaces them with ST bodies for the versions it has written; any other
- * library element is still only its declaration here. `parseActive` answers an empty statement list for that, and an
+ * library element is still only its declaration here. `execBodyStatements` answers an empty statement list for that, and an
  * empty routine lowers cleanly — so `t1(IN := TRUE)` would run nothing and `t1.Q` would read FALSE forever. That is an
  * INVENTED meaning rather than a missing one, and it is the same hazard `lowerUnit` already refuses for a graphical
  * body, for the same stated reason.
@@ -560,7 +560,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     if (scope === undefined) return lw.bail("call-target", `${name} did not bind`, span)
     const sections = ast.kind === "action" ? [] : ast.varSections
     if (!isStBody(ast.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
-    const parsed = parseActive(ast.body)
+    const parsed = execBodyStatements(lw.project, ast, ast.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     if (isBodylessLibrary(lw, ast, parsed.statements))
       return lw.bail("call-library", `${name} is a library declaration without a body`, span)
@@ -702,7 +702,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
     const unmeasured = part.varSections.find((s) => s.sectionKind !== "VAR" && s.sectionKind !== "VAR_TEMP")
     if (unmeasured !== undefined) return lw.bail(`routine-${unmeasured.sectionKind.toLowerCase()}`, `${name} has ${unmeasured.sectionKind}, not measured yet`, span)
     if (!isStBody(part.body)) return lw.bail("graphical-body", `${name} has no ST body`, span)
-    const parsed = parseActive(part.body)
+    const parsed = execBodyStatements(lw.project, ast, part.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${name}'s body did not parse`, span)
     if (isBodylessLibrary(lw, ast, parsed.statements))
       return lw.bail("call-library", `${name} is a library declaration without a body`, span)
@@ -817,7 +817,7 @@ function baseBody(lw: Lowering, frame: FbType, base: PendingBody, span: Span): I
     const chain = chainOf(lw, unit)
     if (chain === undefined) return lw.bail("call-base", `a base of ${unit.name.text} has no body lowering can reach`, span)
     if (!isStBody(unit.body)) return lw.bail("graphical-body", `${unit.name.text} has no ST body`, span)
-    const parsed = parseActive(unit.body)
+    const parsed = execBodyStatements(lw.project, unit, unit.body)
     if (!parsed.ok) return lw.bail("parse", parsed.firstError ?? `${unit.name.text}'s body did not parse`, span)
     if (isBodylessLibrary(lw, unit, parsed.statements))
       return lw.bail("call-library", `${unit.name.text} is a library declaration without a body`, span)
@@ -1332,7 +1332,7 @@ export function calledLayout(lw: Lowering, name: string, span: Span): IrLayout |
   const chain = chainOf(lw, unit)
   if (chain === undefined) return lw.fail(pending, "call-base", `a base of ${name} has no body lowering can reach`, span)
   if (!isStBody(unit.body)) return lw.fail(pending, "graphical-body", `${name} has no ST body`, span)
-  const parsed = parseActive(unit.body)
+  const parsed = execBodyStatements(lw.project, unit, unit.body)
   if (!parsed.ok) return lw.fail(pending, "parse", parsed.firstError ?? `${name}'s body did not parse`, span)
   if (isBodylessLibrary(lw, unit, parsed.statements))
     return lw.fail(pending, "call-library", `${name} is a library declaration without a body`, span)

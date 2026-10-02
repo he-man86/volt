@@ -45,7 +45,7 @@ import {
   isStBody,
   parseDocument,
   parseSource,
-  parseStatements,
+  sourceStatements,
   type BodySpan,
   type TopLevel,
   type TypeExpr,
@@ -118,7 +118,7 @@ function astKey(value: unknown): string {
         return {
           kind: "body",
           implementation: line === undefined ? null : norm({ statement: line.statement, folder: line.folder ?? null, leading: line.leading?.replace(/\r\n/g, "\n") ?? null }),
-          st: norm(parseStatements(obj as never).statements),
+          st: norm(sourceStatements(obj as never).statements), // as written: every conditional branch
         }
       }
       const out: Record<string, unknown> = {}
@@ -277,7 +277,9 @@ function pass(): Pass {
           }
           if (!isStBody(body)) continue
           p.stBodies += 1
-          const bp = parseStatements(body)
+          // the body AS WRITTEN, every conditional branch in: what the vendor compiles depends on a world, the text
+          // parsing does not — and a refused body is no excuse for a parse gap (frontend-conformance 2.7)
+          const bp = sourceStatements(body)
           if (!bp.ok) p.materializeFailures.push(`${file}: ${bp.firstError}`)
         }
 
@@ -331,7 +333,7 @@ function pass(): Pass {
         if (!isStBody(unit.body)) continue // a body that is not ST: the network pipeline owns a graphical one, a read-only one has none
         // the reach denominator is a body with STATEMENTS — a declaration-only POU lowers trivially and executes
         // nothing, so counting it would flatter the figure
-        const hasCode = parseStatements(unit.body).statements.length > 0
+        const hasCode = sourceStatements(unit.body).statements.length > 0
         if (hasCode) p.bodies++
         try {
           const { pou, diagnostics } = lowerUnit(unit, scope, lowering)

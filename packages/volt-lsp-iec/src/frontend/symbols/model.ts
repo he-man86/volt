@@ -14,6 +14,7 @@
  */
 import type {
   Action,
+  CompileEnvironment,
   Dialect,
   EnumValue,
   InterfaceMethod,
@@ -124,6 +125,13 @@ export interface Scope {
    * match the vendor it was asked about.</p>
    */
   dialect?: Dialect
+  /**
+   * PROJECT ROOT ONLY: the environment the project is compiled in, as far as the builder MEASURED it — the device and
+   * the project's compile settings a conditional pragma may ask (`syntax/pragmas/conditional` `CompileEnvironment`).
+   * The LSP holds neither, so it is undefined there and such a condition is refused by name; the conformance harness
+   * states the recording projects' (`symbols/condition-world.ts`).
+   */
+  environment?: CompileEnvironment
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read
    *  by `unbindFile` to surgically drop one file's scopes on an incremental re-index. Undefined elsewhere. */
   defUri?: string

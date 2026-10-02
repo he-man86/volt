@@ -3852,7 +3852,7 @@
     },
     "fix": null,
     "triage": "ideOnly",
-    "note": "Verified live against CODESYS 3.5.21 (scripts/record-gaps). Workspace-scan-based: the {attribute 'obsolete'} is parser trivia, collected from raw file text into WorkspaceRefs.obsoletePous. TwinCAT verification pending."
+    "note": "Verified live against CODESYS 3.5.21 (scripts/record-gaps). Read from the AST: the {attribute 'obsolete'} is on the POU's node (syntax/pragmas/attributes); one warning per use — the type, each instance call, each FUNCTION/METHOD call (frontend-conformance 2.7.2, both vendors)."
   },
   {
     "code": "C0371",

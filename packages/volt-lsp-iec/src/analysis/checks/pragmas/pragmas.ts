@@ -1,57 +1,76 @@
 /**
  * pragma diagnostics (D.2 · pragmas/). Several rules over the pragma tokens (the rest — wrong-vendor /
  * conflict / companion / init-slot — need the Layer-F pragma catalog and are FP-prone, so deferred):
- *   - CONDITIONAL balance: an orphan `{ELSE}`/`{ELSIF}`/`{END_IF}` with no open `{IF}`, and an `{IF}` left
- *     unterminated at end of source.
  *   - C0051 hasattribute: a `{IF hasattribute(pou: X, <attr>)}` whose attribute operand is unquoted.
  *   - MESSAGE pragmas: `{warning 'msg'}` / `{error 'msg'}` surface the author's compile-time message
- *     verbatim at matching severity (both compilers emit these when reached).
+ *     verbatim at matching severity — in a body only where a statement may start and in a branch taken
+ *     (`bodyStatements(…).messages`, frontend-conformance 2.7.3: inside an expression, between a statement's keywords
+ *     or in an untaken branch neither vendor says it), and as written outside the bodies.
  *   - C0351 unknown `{attribute '<name>'}` (CODESYS-only) — a toggleable warning, only as complete as the catalog.
  *   - a KNOWN attribute given a value outside its published set. CODESYS-only, and only for attributes whose
  *     legal values are published and CLOSED.
  *
- * Pragmas are lexer trivia (stripped from the parsed body), so re-lex the source for `pragma` tokens.
- * ponytail: no `{IF}` predicate evaluation — a message pragma inside a false branch is still surfaced;
- * upgrade to branch-aware when a corpus case needs it.
+ * The CONDITIONAL structure (an orphan `{ELSE}`/`{ELSIF}`/`{END_IF}`, an `{IF}` never closed) is the statement parser's
+ * (`parse/statements` `applyPragmas`), reported with the body's other syntax errors by `parse-errors`.
  */
 import { isKnownAttribute } from "../../../reference/index.js"
+import { allUnits, bodyStatements, directiveOf, isStBody, readAttribute, unitBodies } from "../../../frontend/syntax/index.js"
+import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
+  const message = (directive: string, text: string, span: DiagnosticItem["span"]): void => {
+    const severity = directive === "error" ? "error" : directive === "warning" ? "warning" : undefined
+    if (severity !== undefined) out.push({ severity, span, source: SOURCE, code: `message-pragma-${directive}`, message: text })
+  }
   const pragmas = ctx.tokens()
     .filter((t) => t.kind === "pragma")
     .map((t) => ({ span: t.span, text: t.text, ...parsePragma(t.text) }))
 
-  // `{attribute 'abstract'}` ON A METHOD, WITHOUT THE KEYWORD — "The ABSTRACT keyword is missing" (a warning).
-  //
-  // The attribute is the OLD spelling; SP21 wants `METHOD ABSTRACT Shape : INT` and says so when it finds one
-  // without the other. It is a METHOD rule and not a POU one, which took two fixtures to establish: the same
-  // attribute on a FUNCTION_BLOCK records NOTHING (`cc6_abstract_attribute_on_fb`), on a METHOD it warns
-  // (`cc6_abstract_attribute_on_method`). `cc4_not_instantiable` carries it on both and records one warning, so
-  // it could never say which — measuring the halves separately is what answered it.
-  // CODESYS ONLY, measured: TwinCAT builds both fixtures CLEAN (`cc4_not_instantiable`,
-  // `cc6_abstract_attribute_on_method`, its recording 2026-09-20). It warns about a spelling Beckhoff never
+  // `{attribute 'abstract'}` ON A METHOD OR A FUNCTION_BLOCK, WITHOUT THE KEYWORD — "The ABSTRACT keyword is missing"
+  // (a warning). The attribute is the OLD spelling; SP21 wants `METHOD ABSTRACT Shape : INT` / `FUNCTION_BLOCK ABSTRACT`
+  // and says so when it finds one without the other — on each (`cc6_abstract_attribute_on_fb`,
+  // `cc6_abstract_attribute_on_method`; `cc4_not_instantiable` carries it on both and records two). This said "a METHOD
+  // rule, the FB records NOTHING": the recorder dropped every pragma above a top-level unit (frontend-conformance 2.7.2),
+  // so the FB's attribute never reached the IDE. Re-recorded 2026-10-02 with it there.
+  // CODESYS ONLY, measured: TwinCAT builds all three CLEAN (2026-10-02). It warns about a spelling Beckhoff never
   // deprecated, so it is one rule of several in this check rather than a check to move into CODESYS_ONLY.
-  const units = [...ctx.parseResult.units].sort((a, b) => a.span.start - b.span.start)
-  for (const p of ctx.config.vendor === "codesys" ? pragmas : []) {
-    if (p.attributeName?.toLowerCase() !== "abstract") continue
-    // the pragma decorates the next unit that opens after it
-    const owner = units.find((u) => u.span.start >= p.span.end)
-    if (owner?.kind !== "method" || owner.modifiers.includes("ABSTRACT")) continue
-    out.push({
-      severity: "warning",
-      span: owner.name.span,
-      source: SOURCE,
-      code: "abstract-keyword-missing",
-      message: ctx.messages.abstractKeywordMissing(),
-    })
-  }
+  if (ctx.config.vendor === "codesys")
+    for (const unit of ctx.parseResult.units) {
+      if (unit.kind !== "method" && unit.kind !== "function_block") continue
+      if (!(unit.attributes ?? []).some((a) => a.name.toLowerCase() === "abstract") || unit.modifiers.includes("ABSTRACT")) continue
+      out.push({ severity: "warning", span: unit.name.span, source: SOURCE, code: "abstract-keyword-missing", message: ctx.messages.abstractKeywordMissing() })
+    }
+
+  // `{attribute 'pingroup'}` ON A UNIT — "The attribute 'pingroup' can only be added to variable declarations. It will
+  // be ignored here." CODESYS ONLY (`pragma_conflicting_pair`, re-recorded 2026-10-02 with the pragma pushed; TwinCAT
+  // builds it clean). Only `pingroup` is measured; no other attribute's placement rule is guessed from it.
+  if (ctx.config.vendor === "codesys")
+    for (const unit of ctx.parseResult.units)
+      for (const a of "attributes" in unit ? (unit.attributes ?? []) : [])
+        if (a.name.toLowerCase() === "pingroup")
+          out.push({ severity: "warning", span: a.span, source: SOURCE, code: "unknown-attribute", message: ctx.messages.attributeOnlyOnVariables(a.name) })
+
+  // The ST bodies: a pragma in one is the statement parser's to read (`parse/statements` `applyPragmas`), and what it says
+  // there it reports itself — the rules below read only the pragmas OUT of a body as text.
+  const said: { severity: string; text: string; span: DiagnosticItem["span"] }[] = []
+  const bodySpans: { start: number; end: number }[] = []
+  for (const unit of allUnits(ctx.parseResult.units))
+    for (const body of unitBodies(unit)) {
+      if (!isStBody(body)) continue
+      bodySpans.push(body.span)
+      said.push(...bodyStatements(body, bodyConditionWorld(ctx.project, unit, body)).messages)
+    }
+  const outOfBody = (p: { span: DiagnosticItem["span"] }): boolean => !bodySpans.some((b) => b.start <= p.span.start && p.span.end <= b.end)
 
   // C0051 — a `hasattribute(pou: X, <attr>)` conditional-compile operand whose attribute is unquoted. The
   // attribute must be a single-byte string literal ('MyAttribute'); a bare identifier is an error. Verified live
-  // CODESYS 3.5.21. Narrow + FP-safe: fires only on the hasattribute form with a non-quoted last argument.
+  // CODESYS 3.5.21. In a body the statement parser reports it on every `{IF}`/`{ELSIF}` where a statement may start, its
+  // condition asked or not (`prag_hasattribute_unquoted_*`, both vendors; `pragmas/conditional`,
+  // `ParseError.attributeValueString`, `parse-errors`); out of one, this narrow scan.
   for (const p of pragmas) {
+    if (!outOfBody(p)) continue
     const m = /hasattribute\s*\(([^)]*)\)/i.exec(p.text)
     if (m === null) continue
     const attr = m[1]!.split(",").pop()!.trim()
@@ -59,50 +78,21 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
     out.push({ severity: "error", span: p.span, source: SOURCE, code: "attribute-value-string", message: ctx.messages.attributeValueString(attr) })
   }
 
-  // Conditional-compile balance — track the open {IF} stack in source order. An {END_IF}/{ELSE}/{ELSIF}
-  // with no open {IF} is an orphan; any {IF} still open at the end is unterminated (both compiler errors,
-  // wording confirmed against live).
-  const ifStack: { span: DiagnosticItem["span"] }[] = []
-  for (const p of pragmas) {
-    const dir = p.directive.toLowerCase()
-    if (dir === "if") {
-      ifStack.push(p)
-    } else if (dir === "end_if") {
-      if (ifStack.length === 0) out.push(orphan(ctx, p))
-      else ifStack.pop()
-    } else if ((dir === "else" || dir === "elsif") && ifStack.length === 0) {
-      out.push(orphan(ctx, p))
-    }
-  }
-  for (const openIf of ifStack) {
-    out.push({
-      severity: "error",
-      span: openIf.span,
-      source: SOURCE,
-      code: "unterminated-conditional-pragma",
-      message: ctx.messages.unterminatedConditional(),
-    })
-  }
-
-  // Message pragmas — only error/warning have IDE ground truth (info/text are hint-level, no oracle).
-  for (const p of pragmas) {
-    if (p.messageText === undefined) continue
-    const dir = p.directive.toLowerCase()
-    const severity = dir === "error" ? "error" : dir === "warning" ? "warning" : undefined
-    if (severity === undefined) continue
-    out.push({ severity, span: p.span, source: SOURCE, code: `message-pragma-${dir}`, message: p.messageText })
-  }
+  // Message pragmas — only error/warning have IDE ground truth (info/text are hint-level, no oracle). A body's are the
+  // ones its parse says (`bodyStatements(…).messages`); in a chain whose condition the LSP cannot decide it says none,
+  // outside one it says what it says whichever way the chain goes. In source order, as the token scan said them.
+  for (const p of pragmas) if (p.messageText !== undefined && outOfBody(p)) said.push({ severity: p.directive, text: p.messageText, span: p.span })
+  for (const m of said.sort((a, b) => a.span.start - b.span.start)) message(m.severity, m.text, m.span)
 
   // Unknown `{attribute '<name>'}` — C0351, a toggleable warning (only as complete as the catalog). CODESYS-only:
   // live /build confirmed TwinCAT compiles an unknown attribute clean (no diagnostic), so firing it there would FP.
-  // ALSO skipped on a file that declares no POU: CODESYS does not run the attribute-check pass on a type
-  // declaration or a global variable list. Verified live for a DUT (a bogus attribute on a built, referenced
-  // DUT emits nothing, whereas the same on a POU variable warns C0351); firing there false-positived on
-  // `qualified_oly`/`strit` typos. The GVL half arrived with the `tc_*` family — `{attribute 'Tc2GvlVarNames'}`
-  // above a `VAR_GLOBAL` is the one of the seventeen CODESYS says NOTHING about, and it is not about the name:
-  // the pass never looks at the file.
-  const NO_ATTRIBUTE_PASS: ReadonlySet<string> = new Set(["type_decl", "global_var_list"])
-  const isDut = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => NO_ATTRIBUTE_PASS.has(u.kind))
+  // ALSO skipped on a file that is a global variable list: CODESYS does not run the attribute-check pass on one —
+  // `{attribute 'Tc2GvlVarNames'}` above a `VAR_GLOBAL` is the one of the seventeen `tc_*` fixtures CODESYS says
+  // NOTHING about, and it is not about the name (re-recorded 2026-10-02 with the pragma pushed: still silent).
+  // A DUT was skipped too, "verified live" on pro2193's enum: wrong — every DUT kind warns
+  // (`prag_unknown_attribute_on_{struct,enum,alias,union}`, `tc_global_data_type`, `tc_hide_sub_items`, 2026-10-02;
+  // the recorder had been dropping every pragma above a top-level unit, frontend-conformance 2.7.2).
+  const isGvl = ctx.parseResult.units.length > 0 && ctx.parseResult.units.every((u) => u.kind === "global_var_list")
   /**
    * `{attribute 'hide'}` on the SAME declaration silences the value check: a hidden variable is not monitored, so
    * the compiler never validates how it would be displayed. Measured — `monitoring_encoding` warns about 'UTF8' and
@@ -115,7 +105,7 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
         q.attributeName?.toLowerCase() === "hide" &&
         ctx.source.slice(Math.min(q.span.end, p.span.end), Math.max(q.span.start, p.span.start)).trim().length === 0,
     )
-  if (ctx.config.vendor === "codesys" && !isDut) {
+  if (ctx.config.vendor === "codesys" && !isGvl) {
     for (const p of pragmas) {
       // C0351a — a KNOWN attribute (`symbol`) with an out-of-set VALUE. `symbol` governs symbol-table export;
       // a typo (`'noe'`) is a real C0351 that also cascades downstream (the PROGRAM's export breaks → C0564 init
@@ -144,11 +134,6 @@ export function checkPragmas(ctx: CheckContext, out: DiagnosticItem[]): void {
         })
         continue
       }
-      // NOT here: "The attribute 'pingroup' can only be added to variable declarations." The committed recording
-      // for `pragma_conflicting_pair` carried that warning and this reported it — but the recording was STALE.
-      // Re-recorded 2026-09-17 against a recorder that no longer drops the pragmas written above a POU (it used
-      // to slice from the `FUNCTION_BLOCK` keyword), with the arrival confirmed by reading the item back out of
-      // the IDE: CODESYS says nothing. An LSP-only message is a false positive whatever the catalog says.
       // C0351 — an unknown attribute NAME (only as complete as the catalog).
       if (p.attributeName === undefined || isKnownAttribute(p.attributeName, ctx.config.vendor)) continue
       out.push({
@@ -175,34 +160,20 @@ const CLOSED_VALUE_SETS: Record<string, readonly string[]> = {
 }
 
 
-function orphan(ctx: CheckContext, p: { span: DiagnosticItem["span"]; directive: string }): DiagnosticItem {
-  return {
-    severity: "error",
-    span: p.span,
-    source: SOURCE,
-    code: "orphan-conditional-pragma",
-    message: ctx.messages.orphanPragma(p.directive),
-  }
-}
-
 /** Extract a pragma's directive (first word), a message pragma's quoted body, and an attribute's name+value. */
 function parsePragma(text: string): { directive: string; messageText?: string; attributeName?: string; attributeValue?: string } {
+  // a message pragma as the statement parser reads one (`syntax/pragmas/conditional` `directiveOf`): its word in lower
+  // case only — `{WARNING 'x'}` builds clean on both vendors (`prag_warning_upper_case_in_declaration`)
+  const said = directiveOf(text)
+  if (said?.kind === "message") return { directive: said.severity, messageText: said.text }
   const m = /^\{\s*([^\s}]+)/.exec(text)
   const directive = m?.[1] ?? ""
   const dir = directive.toLowerCase()
-  if (dir === "text" || dir === "info" || dir === "warning" || dir === "error") {
-    const body = /^\{\s*\S+\s+'([^']*)'/.exec(text)
-    if (body !== null) return { directive, messageText: body[1] }
-  }
   if (dir === "attribute") {
-    // `{attribute 'name'}` or `{attribute 'name' := 'value'}` — name + optional value, both first-quoted.
-    const m2 = /^\{\s*attribute\s+'([^']*)'(?:\s*:=\s*'([^']*)')?/i.exec(text)
-    if (m2 !== null) {
-      // An UNQUOTED value (`:= readwrite`) is not a value at all to the compiler: it reads the empty string and
-      // says so — "Invalid value ''" (conformance `cc4_attribute_value_string`).
-      const assigned = /'[^']*'\s*:=/.test(text)
-      return { directive, attributeName: m2[1], attributeValue: m2[2] ?? (assigned ? "" : undefined) }
-    }
+    // the front-end's one reading of an attribute (`syntax/pragmas/attributes` `parseAttribute`): an UNQUOTED value
+    // (`:= readwrite`) is the empty string to the compiler — "Invalid value ''" (`cc4_attribute_value_string`)
+    const a = readAttribute(text)
+    if (a !== undefined) return { directive, attributeName: a.name, attributeValue: a.value }
   }
   return { directive }
 }

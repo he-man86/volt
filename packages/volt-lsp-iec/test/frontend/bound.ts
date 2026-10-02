@@ -16,6 +16,7 @@ import { build, type Scope } from "../../src/frontend/symbols/index.js"
 import { loadWorkspaceRefs, scanLibraryManifests } from "../../src/workspace-refs.js"
 import { splitLists, withDependencies } from "../conformance/support/fixture-units.js"
 import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS } from "../conformance/support/project-libraries.js"
+import { RECORDING_ENVIRONMENT } from "../conformance/support/recording-environment.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { parse, type Bound, type Parsed } from "./dumps.js"
 import { fixtureUri, libraryRepoFiles, type CorpusProject, type FixtureSources } from "./sources.js"
@@ -38,6 +39,7 @@ function fixtureBase(vendor: Dialect): Scope {
       PROJECT_LIBRARY.map((l) => ({ uri: l.uri, source: l.source, parseResult: parseSource(l.source, { networkText: true }, vendor) })),
       PROJECT_MANIFESTS,
       vendor,
+      RECORDING_ENVIRONMENT, // the recording projects' measured compile defines — the replay's
     )
     libraryProjects.set(vendor, project)
   }

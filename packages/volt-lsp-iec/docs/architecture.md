@@ -55,9 +55,18 @@ lexer (error-tolerant, trivia-preserving). `ast/` — the **complete AST** (`nod
 with structured dims/length/subrange/vector · statements · expressions · literals carrying their value), its walks
 (`walk.ts`, `allUnits` the one namespace flattener) and declaration queries. `parse/` — the parser: the cursor, the
 messages (`errors.ts`), names, the balanced-token scanner, declarations, initializers, expressions, statements, type
-expressions, the unit parsers, and `body-parse.ts`, where a body's statements are parsed once and cached (`parseActive`
-applies the conditional pragmas). `literal/` — a literal's value (numbers and durations, string escapes, calendar
-values). `pragmas/` — conditional pragmas and `{attribute …}`. `format/` — the Volt workspace file format, which is not
+expressions, the unit parsers, and `body-parse.ts` `bodyStatements`, the ONE statement tree of a body: its conditional
+pragmas applied where a statement may start (inside a statement every pragma is trivia), a branch not taken parsed in
+silence and dropped, cached per `ConditionWorld` — what a condition may ask beyond the body's own defines (the vendor,
+the project's names from `symbols/condition-world`, and the project's MEASURED compile environment — a device's facts,
+its compile defines and tasks, `Scope.environment`, which the LSP never has and the conformance harness and the
+transpiler state); a question the world cannot answer leaves that chain undecided and the body `refused`, never a branch
+guessed — what lies outside the chain keeps its errors and messages. `sourceStatements` is the body AS WRITTEN, every
+branch in: the tree of the services that edit and navigate text (rename, references, folding, selection, hover;
+`symbols/scoped-bodies` `sourceBodies`), never of a check. `literal/` — a literal's value (numbers and durations, string escapes, calendar
+values). `pragmas/` — the `{IF}` condition grammar and its evaluation (`conditional.ts`), and `{attribute …}`, attached
+once by the parser to the unit, member or declaration it decorates (`attributes.ts`; `FRONTEND_ATTRIBUTES` the ones the
+front-end answers by). `format/` — the Volt workspace file format, which is not
 CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, `%FOLDER`, the retired comments, the reserved
 name, the network header, which reader reads a body, and what a file's extension says its object is (a DUT's or a GVL's
 text is read as the IDE reads it — nothing is declared, and nothing reported, unless the text opens with TYPE /

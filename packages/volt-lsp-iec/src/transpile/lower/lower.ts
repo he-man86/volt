@@ -31,7 +31,6 @@ import {
   isStBody,
   memberAttributes,
   parseSource,
-  parseActive,
   type ParseOptions,
   type Span,
   type TopLevel,
@@ -55,6 +54,7 @@ import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type I
 import { type AttributeLookup, baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
+import { execBodyStatements } from "./conditions.js"
 import { calledLayout, calledRoutine, programReentrant } from "./calls.js"
 import { finishInterfaces } from "./interfaces.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../frontend/library/index.js"
@@ -133,7 +133,7 @@ export function lowerUnit(unit: TopLevel, scope: Scope, { project, attributes, l
     // address, and the body's `p^` is only allowed because that store is known (`shared.pointers`). The statements
     // are kept for `initStep` to place; only the order they are BUILT in moves.
     if (buildInitSequence(lowering) === undefined) return { diagnostics: lowering.diagnostics }
-    const parsed = parseActive(unit.body)
+    const parsed = execBodyStatements(lowering.project, unit, unit.body)
     if (!parsed.ok)
       return { diagnostics: [lowerDiagnostic("parse", parsed.firstError ?? "body did not parse", unit.span)] }
     // its VAR_TEMP starts over on every scan (conformance `life_program_var_temp_runs`)
@@ -732,7 +732,7 @@ const attributeCache = new WeakMap<object, readonly (readonly [object, Set<strin
 function attributesOf(f: ParsedFile): readonly (readonly [object, Set<string>])[] {
   let found = attributeCache.get(f.parseResult)
   if (found === undefined) {
-    found = [...unitAttributes(f.parseResult, f.source), ...memberAttributes(f.parseResult, f.source), ...declarationAttributes(f.parseResult, f.source)]
+    found = [...unitAttributes(f.parseResult), ...memberAttributes(f.parseResult), ...declarationAttributes(f.parseResult)]
     attributeCache.set(f.parseResult, found)
   }
   return found

@@ -7,12 +7,12 @@ import { expect, test } from "bun:test"
 import { lex } from "../lex/lexer.js"
 import type { BodySpan, Expr } from "../ast/nodes.js"
 import type { Dialect } from "../lex/vocabulary.js"
-import { parseStatements } from "./body-parse.js"
+import { bodyStatements } from "./body-parse.js"
 
 function parse(body: string, dialect: Dialect = "codesys") {
   const toks = lex(body, dialect).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return parseStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
+  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
 }
 
 /** The errors a body snippet parses with. */

@@ -16,8 +16,8 @@
  * '()'", an error, beside the no-op warning (`stmt_bare_function_name`, both vendors 2026-10-02) — but not inside
  * that FUNCTION, where the name is its return variable (`stmt_function_own_name_bare`). Only the statement is measured.
  */
-import { isStBody, KEYWORDS, parseStatements, unitBodies, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
-import { bodies, lookup } from "../../../frontend/symbols/index.js"
+import { isStBody, KEYWORDS, bodyStatements, unitBodies, walkStatements, walkExpr } from "../../../frontend/syntax/index.js"
+import { bodies, bodyConditionWorld, lookup } from "../../../frontend/symbols/index.js"
 import { inferExprType } from "../../../frontend/types/index.js"
 import type { Expr, Statement } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -81,7 +81,7 @@ export function checkNoOpStatement(ctx: CheckContext, out: DiagnosticItem[]): vo
   for (const unit of ctx.parseResult.units)
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
-      const parsed = parseStatements(body)
+      const parsed = bodyStatements(body, bodyConditionWorld(ctx.project, unit, body))
       if (parsed.ok) continue
       walkStatements(parsed.statements, (s) => {
         if (s.kind !== "expr_stmt" || !(s.resumed === true || s.unterminated === true) || containsCall(s.expr)) return

@@ -4,7 +4,7 @@
  * every prefix truncation and every single-character deletion of representative sources.
  */
 import { test, expect } from "bun:test"
-import { parseSource, parseStatements, lex } from "../index.js"
+import { parseSource, bodyStatements, lex } from "../index.js"
 
 const SAMPLES = [
   `FUNCTION_BLOCK FB EXTENDS Base VAR n : INT(0..9) := 3; a : ARRAY[0..2] OF REAL; END_VAR n := n + 1; END_FUNCTION_BLOCK`,
@@ -28,12 +28,12 @@ test("parseSource never throws on mutated input", () => {
   }
 })
 
-test("parseStatements never throws on mutated bodies", () => {
+test("bodyStatements never throws on mutated bodies", () => {
   for (const sample of SAMPLES) {
     for (const m of mutations(sample)) {
       const tokens = lex(m, "codesys").filter((t) => t.kind !== "eof")
       const span = { start: 0, end: m.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-      expect(() => parseStatements({ kind: "body", tokens, span })).not.toThrow()
+      expect(() => bodyStatements({ kind: "body", tokens, span })).not.toThrow()
     }
   }
 })

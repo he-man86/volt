@@ -49,14 +49,12 @@ test("a Tc* attribute is known to TwinCAT and unknown to CODESYS", () => {
   }
 })
 
-// CODESYS quirk (verified live: a bogus attribute on a built+referenced DUT emits nothing, unlike the same on a
-// POU variable): the attribute-check pass does not run on a TYPE declaration. So an unknown attribute on a DUT is
-// NOT flagged, even though the identical typo on a POU IS. (Corpus-found: `qualified_oly`/`strit` on an enum.)
-test("an unknown attribute on a DUT (type_decl) is NOT flagged — POU still is", () => {
+// This said a DUT is skipped ("verified live" on pro2193's enum). Every DUT kind warns, recorded with the pragma pushed
+// (`prag_unknown_attribute_on_{struct,enum,alias,union}`, 2026-10-02 — the recorder had been dropping it).
+test("an unknown attribute on a DUT is flagged as on a POU; a GVL file is not", () => {
   const dut = (a: string) => `{attribute '${a}'}\nTYPE E : (Idle, Running); END_TYPE`
-  expect(attrs(dut("qualifid_only"), true)).toEqual([]) // DUT → skipped (matches CODESYS)
-  expect(attrs(dut("totally_bogus"), true)).toEqual([]) // any unknown attr on a DUT → skipped
-  expect(attrs(withAttr("qualifid_only"), true)).toHaveLength(1) // same typo on a POU → still flagged
+  expect(attrs(dut("totally_bogus"), true)).toHaveLength(1)
+  expect(attrs(withAttr("qualifid_only"), true)).toHaveLength(1)
 
   // …and a GVL file the same way. `{attribute 'Tc2GvlVarNames'}` above a `VAR_GLOBAL` is the ONE of the
   // seventeen `tc_*` fixtures CODESYS says nothing about, which is not about the name: the pass never runs here.
@@ -242,8 +240,12 @@ test("the warning is CODESYS-only", () => {
   expect(abstractWarnings(src, "codesys")).toEqual(["The ABSTRACT keyword is missing"])
   expect(abstractWarnings(src, "twincat")).toEqual([])
 })
-test("the same attribute on a FUNCTION_BLOCK is silent — measured, not assumed", () => {
-  expect(abstractWarnings("{attribute 'abstract'}\n" + FB)).toEqual([])
+// This said "silent — measured, not assumed": it was measured WITHOUT the attribute — the recorder dropped every pragma
+// above a top-level unit (frontend-conformance 2.7.2). With it pushed, CODESYS warns on the FB as well
+// (`cc6_abstract_attribute_on_fb`, `cc4_not_instantiable` two warnings, 2026-10-02).
+test("the same attribute on a FUNCTION_BLOCK warns too, and not on TwinCAT", () => {
+  expect(abstractWarnings("{attribute 'abstract'}\n" + FB)).toEqual(["The ABSTRACT keyword is missing"])
+  expect(abstractWarnings("{attribute 'abstract'}\n" + FB, "twincat")).toEqual([])
 })
 
 test("a method carrying the KEYWORD as well is silent", () => {
@@ -254,4 +256,27 @@ test("a method carrying the KEYWORD as well is silent", () => {
 
 test("a method with neither the attribute nor the keyword is silent", () => {
   expect(abstractWarnings(FB + "\nMETHOD Shape : INT\nShape := 1;\nEND_METHOD\n")).toEqual([])
+})
+
+// The message words are CASE-SENSITIVE on both vendors, as every other pragma word is: `{WARNING 'x'}`, `{Warning 'x'}`
+// and `{ERROR 'x'}` build CLEAN, in a body or above a declaration (`prag_warning_upper_case`, `prag_warning_mixed_case`,
+// `prag_error_upper_case`, `prag_warning_upper_case_in_declaration`, CODESYS and TwinCAT 2026-10-02). The analysis read
+// them case-insensitively, "unmeasured", and said a warning and an error no build says.
+test("a message pragma's word in upper or mixed case is no message pragma, in a body or out of one (prag_*_upper_case)", () => {
+  const said = (src: string, vendor: Vendor) => {
+    const parseResult = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code.startsWith("message-pragma"))
+      .map((d) => `${d.severity}:${d.message}`)
+  }
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(said("FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{WARNING 'upper'}\n{Warning 'mixed'}\n{ERROR 'error'}\nout := 1;\nEND_FUNCTION_BLOCK", vendor)).toEqual([])
+    expect(said("FUNCTION_BLOCK F\nVAR\n{WARNING 'upper in a declaration'}\n\tout : INT;\nEND_VAR\nout := 1;\nEND_FUNCTION_BLOCK", vendor)).toEqual([])
+    // the lower-case word is the message pragma
+    expect(said("FUNCTION_BLOCK F\nVAR\n{warning 'decl'}\n\tout : INT;\nEND_VAR\n{warning 'body'}\nout := 1;\nEND_FUNCTION_BLOCK", vendor)).toEqual([
+      "warning:decl",
+      "warning:body",
+    ])
+  }
 })

@@ -36,7 +36,7 @@ export function checkDynamicCreation(ctx: CheckContext, out: DiagnosticItem[]): 
       (u) => (u.kind === "function_block" || u.kind === "type_decl") && "name" in u && u.name.text.toLowerCase() === arg.name.toLowerCase(),
     )
     if (target === undefined) return // declared elsewhere — its pragma is not in this source
-    attributes ??= unitAttributes(ctx.parseResult, ctx.source)
+    attributes ??= unitAttributes(ctx.parseResult)
     if (attributes.get(target)?.has(ATTRIBUTE) === true) return
     out.push({
       severity: "error",

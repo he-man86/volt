@@ -28,7 +28,7 @@ import type {
   VarSection,
   VarSectionKind,
 } from "../syntax/index.js"
-import type { Dialect, Token } from "../syntax/index.js"
+import { hasFrontendAttribute, type Dialect } from "../syntax/index.js"
 import type { Scope, SymbolKind } from "./model.js"
 import { createProjectScope, defineSymbol, makeScope } from "./scope.js"
 import { pickForAsker } from "./precedence.js"
@@ -44,22 +44,9 @@ export interface SymbolTableInput {
   /** URI of the source document. "" is allowed for tests that don't track URIs. */
   uri: string
   parseResult: ParseResult
-  /** Raw source. The binder does not read it — the file-level pragmas it needs (`qualified_only`) are in
-   *  `parseResult.tokens`, lexed in the parse's dialect (frontend-conformance 2.1.4); callers hand a whole document. */
+  /** Raw source. The binder does not read it — the attribute it needs (`qualified_only`) is on the unit's AST node
+   *  (`syntax/pragmas/attributes`, frontend-conformance 2.7.2); callers hand a whole document. */
   source?: string
-}
-
-const QUALIFIED_ONLY = /\{attribute\s+'qualified_only'\}/i
-
-/**
- * True when the file carries an ACTIVE `{attribute 'qualified_only'}` pragma. Detected from the parse's tokens, not
- * a raw-source regex: a commented-out `//{attribute 'qualified_only'}` lexes as a comment (not a `pragma`
- * token), so it is correctly ignored — a raw regex would match it and wrongly hide the GVL/enum's members
- * from bare access (the lenze `LST_General` case: commented attribute → bare `FF100ms` must still resolve).
- */
-function hasQualifiedOnly(tokens: readonly Token[]): boolean {
-  for (const tok of tokens) if (tok.kind === "pragma" && QUALIFIED_ONLY.test(tok.text)) return true
-  return false
 }
 
 export function ingestTopLevel(
@@ -67,7 +54,6 @@ export function ingestTopLevel(
   unit: TopLevel,
   uri: string,
   memberHost: Scope | undefined,
-  tokens: readonly Token[],
 ): Scope | undefined {
   switch (unit.kind) {
     case "function_block":
@@ -86,18 +72,18 @@ export function ingestTopLevel(
     case "interface":
       return ingestInterface(project, unit, uri)
     case "type_decl":
-      ingestTypeDecl(project, unit, uri, tokens)
+      ingestTypeDecl(project, unit, uri)
       return undefined
     case "global_var_list":
-      ingestGlobalVarList(project, unit, uri, tokens)
+      ingestGlobalVarList(project, unit, uri)
       return undefined
     case "namespace":
-      ingestNamespace(project, unit, uri, tokens)
+      ingestNamespace(project, unit, uri)
       return undefined
   }
 }
 
-function ingestNamespace(project: Scope, ns: Namespace, uri: string, tokens: readonly Token[]): void {
+function ingestNamespace(project: Scope, ns: Namespace, uri: string): void {
   const nsScope = makeScope(project, "namespace", ns.name.text, ns.span)
   defineSymbol(project, {
     kind: "namespace",
@@ -108,7 +94,7 @@ function ingestNamespace(project: Scope, ns: Namespace, uri: string, tokens: rea
     uri,
     ast: ns,
   })
-  for (const inner of ns.units) ingestTopLevel(nsScope, inner, uri, undefined, tokens)
+  for (const inner of ns.units) ingestTopLevel(nsScope, inner, uri, undefined)
 }
 
 function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): Scope {
@@ -266,7 +252,7 @@ function ingestInterface(project: Scope, iface: Interface, uri: string): Scope {
   return ifaceScope
 }
 
-function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string, tokens: readonly Token[]): void {
+function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string): void {
   defineSymbol(project, {
     kind: "type",
     name: t.name.text,
@@ -284,7 +270,7 @@ function ingestTypeDecl(project: Scope, t: TypeDecl, uri: string, tokens: readon
       ingestUnion(project, t, t.body, uri)
       break
     case "enum":
-      ingestEnum(project, t, t.body, uri, tokens)
+      ingestEnum(project, t, t.body, uri)
       break
     case "alias":
     case "refused":
@@ -311,15 +297,15 @@ function ingestUnion(project: Scope, t: TypeDecl, body: UnionBody, uri: string):
   for (const field of body.fields) ingestVarDecl(scope, field, undefined, uri, /* asField */ true)
 }
 
-function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string, tokens: readonly Token[]): void {
+function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string): void {
   // An enum's members are bare-accessible global constants UNLESS the enum carries
-  // `{attribute 'qualified_only'}` — then only `EnumType.Member` resolves.
+  // `{attribute 'qualified_only'}` — then only `EnumType.Member` resolves. Read per unit, from the AST (2.7.2).
   const scope = makeScope(
     project,
     "enum",
     t.name.text,
     t.span,
-    hasQualifiedOnly(tokens) ? { qualifiedOnly: true } : undefined,
+    hasFrontendAttribute(t, "qualified_only") ? { qualifiedOnly: true } : undefined,
   )
   for (const v of body.values) {
     defineSymbol(scope, {
@@ -334,8 +320,10 @@ function ingestEnum(project: Scope, t: TypeDecl, body: EnumBody, uri: string, to
   }
 }
 
-function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string, tokens: readonly Token[]): void {
-  const qualifiedOnly = hasQualifiedOnly(tokens)
+function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string): void {
+  // a commented-out `//{attribute 'qualified_only'}` is a comment and no attribute (the lenze `LST_General` case: bare
+  // `FF100ms` must still resolve) — read per unit, from the AST (2.7.2)
+  const qualifiedOnly = hasFrontendAttribute(gvl, "qualified_only")
 
   // Register the GVL block itself under the URI basename — ST has no in-source name for the block,
   // the file basename IS the identifier (CODESYS convention). Lets `GvlName.field` resolve.

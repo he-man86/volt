@@ -6,7 +6,7 @@
  * (and richer diagnostics) would depend on:
  *
  *   declaration path — parseSource(...).errors   (unit header + VAR sections + type decls; parser.ts:66)
- *   statement path   — parseStatements(body)      (ok / recorded-error / silent-stop)
+ *   statement path   — bodyStatements(body)      (ok / recorded-error / silent-stop)
  *
  * Any nonzero number here is a grammar gap on VALID code — the debt to close before that path's recorded
  * errors can be surfaced zero-FP. 0/0 means the path already fully models the corpus and its recorded errors
@@ -14,7 +14,7 @@
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, extname } from "node:path"
-import { parseSource, parseStatements, unitBodies, isStBody } from "../src/frontend/syntax/index.js"
+import { parseSource, bodyStatements, unitBodies, isStBody } from "../src/frontend/syntax/index.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -39,7 +39,7 @@ for (const f of walk(CORPUS)) {
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue
       bodies++
-      const r = parseStatements(body)
+      const r = bodyStatements(body)
       if (r.ok) ok++
       else if (r.errors.length > 0) stmtRecorded++
       else stmtSilent++

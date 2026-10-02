@@ -8,7 +8,7 @@ import {
   type Expr,
   exprChildren,
   isStBody,
-  parseStatements,
+  sourceStatements,
   type Span,
   type Statement,
   stmtChildLists,
@@ -31,7 +31,7 @@ export function selectionRange(doc: Document, offset: number): SelectionRange | 
     spans.push(unit.span)
     for (const body of unitBodies(unit)) {
       if (!contains(body.span, offset) || !isStBody(body)) continue
-      const parsed = parseStatements(body)
+      const parsed = sourceStatements(body) // as written: every conditional branch
       if (!parsed.ok) continue
       walkStatements(parsed.statements, (s) => collectStmt(s, offset, spans))
     }

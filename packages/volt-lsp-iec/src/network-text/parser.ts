@@ -29,7 +29,7 @@ import {
   isTrivia,
   lex,
   parseExprFromTokens,
-  parseStatements,
+  bodyStatements,
   parseTypeExprFromTokens,
 } from "../frontend/syntax/index.js"
 import type {
@@ -1196,7 +1196,7 @@ class Parser {
   private stStatements(from: number, to: number): { statements: StatementList; ok: boolean } {
     const toks = this.stTokens(from, to)
     const span = this.span(from, to)
-    const parsed = parseStatements({ kind: "body", tokens: toks, span })
+    const parsed = bodyStatements({ kind: "body", tokens: toks, span })
     return { statements: parsed.statements, ok: parsed.ok }
   }
 

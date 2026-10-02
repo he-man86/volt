@@ -10,6 +10,7 @@
  */
 import type { Position, Range, TextEdit } from "vscode-languageserver-protocol"
 import {
+  type Attribute,
   type BodySpan,
   bodyReader,
   type CaseArm,
@@ -17,7 +18,7 @@ import {
   type PropertyAccessor,
   exprText,
   initOperatorText,
-  parseStatements,
+  sourceStatements,
   renderTypeExpr,
   type Statement,
   statedLine,
@@ -93,7 +94,7 @@ function blockDepthAt(doc: Document, offset: number): number {
     if (offset < unit.span.start || offset > unit.span.end) continue
     for (const body of unitBodies(unit)) {
       if (offset < body.span.start || offset > body.span.end) continue
-      const parsed = parseStatements(body)
+      const parsed = sourceStatements(body) // as written: the cursor may sit in any conditional branch
       if (!parsed.ok) return 1 // inside a body but unparseable — one level of indent
       return statementDepthAt(parsed.statements, offset)
     }
@@ -126,7 +127,17 @@ function refusedIn(doc: Document, unit: TopLevel): boolean {
   return doc.parseResult.errors.some((e) => e.span.start >= unit.span.start && e.span.start < unit.span.end)
 }
 
+/** The attributes a node carries, each on its own line as written, ahead of what it decorates — reprinted from the AST
+ *  without them, formatting deleted every `{attribute}` of a file (frontend-conformance 2.7.2 put them in the AST). */
+function attributeLines(node: { attributes?: readonly Attribute[] }, indent = ""): string {
+  return (node.attributes ?? []).map((a) => `${indent}${a.text}\n`).join("")
+}
+
 function printUnit(unit: TopLevel): string {
+  return attributeLines(unit) + printUnitItself(unit)
+}
+
+function printUnitItself(unit: TopLevel): string {
   switch (unit.kind) {
     case "function_block":
       return wrap(fbHeader(unit), unit.varSections, unit.body, "END_FUNCTION_BLOCK")
@@ -189,7 +200,7 @@ function printVarSection(section: VarSection): string {
     section.persistent ? "PERSISTENT" : undefined,
   ].filter(Boolean)
   const header = `${section.sectionKind}${mods.length ? " " + mods.join(" ") : ""}`
-  const decls = section.decls.map((d) => TAB + printVarDecl(d)).join("\n")
+  const decls = section.decls.map((d) => attributeLines(d, TAB) + TAB + printVarDecl(d)).join("\n")
   return `${header}\n${decls ? decls + "\n" : ""}END_VAR`
 }
 
@@ -246,8 +257,10 @@ function folderLine(folder: string | undefined): string {
 
 function printCode(body: BodySpan): string {
   if (bodyReader(body) !== "st") return verbatim(body)
-  const parsed = parseStatements(body)
-  if (!parsed.ok || hasComment(body)) return verbatim(body) // preserve commented / unparseable bodies
+  const parsed = sourceStatements(body)
+  // preserve commented, pragma'd and unparseable bodies: the tree holds neither comments nor pragmas, so printing it
+  // would drop source
+  if (!parsed.ok || hasCommentOrPragma(body)) return verbatim(body)
   const text = printStatements(parsed.statements, 0)
   return text.length > 0 ? text + "\n" : ""
 }
@@ -267,8 +280,8 @@ function verbatimText(text: string): string {
   return text.replace(/\r\n/g, "\n")
 }
 
-function hasComment(body: BodySpan): boolean {
-  return body.tokens.some((t) => t.kind === "line_comment" || t.kind === "block_comment")
+function hasCommentOrPragma(body: BodySpan): boolean {
+  return body.tokens.some((t) => t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma")
 }
 
 function printStatements(list: StatementList, depth: number): string {
@@ -391,7 +404,7 @@ function printTypeDecl(t: Extract<TopLevel, { kind: "type_decl" }>): string {
   const base = body.kind === "struct" ? body.extends : t.extendsMisused
   const head = `TYPE ${t.name.text}${base ? ` EXTENDS ${base.text}` : ""} :`
   if (body.kind === "struct" || body.kind === "union") {
-    const fields = body.fields.map((f) => TAB + printVarDecl(f)).join("\n")
+    const fields = body.fields.map((f) => attributeLines(f, TAB) + TAB + printVarDecl(f)).join("\n")
     const kw = body.kind === "struct" ? "STRUCT" : "UNION"
     return `${head}\n${kw}\n${fields}\nEND_${kw}\nEND_TYPE`
   }

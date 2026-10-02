@@ -775,6 +775,29 @@ const TWINCAT_DRIVER_CUTS_THE_ECHO: readonly string[] = [
  */
 const CODESYS_DECLARATION_DIVERGENCES: readonly string[] = ["decl_nested_aggregate", "decl_bracket_init_no_assign_fb"]
 
+/**
+ * FRONTEND-CONFORMANCE 2.7 (2026-10-02) — pragma cells the LSP does not reproduce, each NICHE: ACCEPTED LOSS.
+ *   `prag_attribute_brace_in_value` (both) — a `}` inside a quoted attribute ends the pragma on both vendors (the lexer
+ *        agrees), and the rest of the line opens a string that runs to the end of the DECLARATION part: both echo it
+ *        whole ("',, AT or :' expected instead of ''}\r\n\tv : INT;…END_VAR\r\n'"), TwinCAT adds "Type definition
+ *        expected". The LSP reads one text, so its string and its recovery end elsewhere. 0 occurrences in the corpora.
+ *   `prag_project_defined_in_declaration` (both), `prag_project_defined_not_in_declaration` (TwinCAT) — `{IF
+ *        project_defined (X)}` around a declaration: CODESYS drops the declaration when X is not set, TwinCAT (which has
+ *        no `project_defined`) drops it either way. The declaration parser applies no conditional pragma. 0 occurrences.
+ *   `prag_project_defined_forbidden_construct` (CODESYS) — a whole VAR block under `project_defined`: "The condition
+ *        'project_defined' is not supported for this syntax …" and the declaration part's `{IF}` unterminated; the LSP
+ *        says only the body's orphan `{END_IF}` (as TwinCAT does). 0 occurrences.
+ *   `prag_if_defined_in_declaration` (CODESYS) — any other `{IF}` in a declaration part is "This code is not supported
+ *        in declaration part" (TwinCAT builds it). 0 conditional directives in any declaration part of the corpora.
+ *   `prag_hasattribute_unquoted_in_declaration` (both) — an `{IF hasattribute (pou: F, x)}` with the attribute unquoted
+ *        in a VAR section: CODESYS adds "This code is not supported in declaration part" to the unquoted-attribute error,
+ *        TwinCAT builds it clean (it checks the operand only in a body); the LSP's out-of-body scan says the attribute
+ *        error on both. Niche: accepted loss (0 occurrences in the corpora — no `hasattribute` at all).
+ */
+const PRAGMA_DIVERGENCES: readonly string[] = ["prag_attribute_brace_in_value", "prag_project_defined_in_declaration", "prag_hasattribute_unquoted_in_declaration"]
+const CODESYS_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_forbidden_construct", "prag_if_defined_in_declaration"]
+const TWINCAT_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_not_in_declaration"]
+
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -817,6 +840,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...LITERAL_FOLLOW_ON_RULES,
     ...EXPRESSION_NICHE_DIVERGENCES,
     ...STATEMENT_DIVERGENCES,
+    ...PRAGMA_DIVERGENCES,
+    ...TWINCAT_PRAGMA_DIVERGENCES,
     ...TWINCAT_TRY_NEEDS_CATCH,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
@@ -883,29 +908,10 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "try_catch_only_on_fault",
     "try_nested",
     "try_one_line",
-    //   THE `newdel_*` FIXTURES THAT CARRY THE PRAGMA — the same APPLICATION fact as CODESYS's five, reached
-    //   the long way because TwinCAT does not name it. CODESYS prints "No memory for dynamic object creation
-    //   defined for application 'Device.Application'" on either side of the pragma message, so the pragma rule
-    //   is plainly never reached; TwinCAT prints the attribute message ALONE and reads, wrongly, like a vendor
-    //   that ignores the attribute.
-    //
-    //   Settled 2026-09-21 by removing every other variable rather than by argument. (a) The pragma REACHES the
-    //   compiler: pushed above `FUNCTION_BLOCK` into a live TwinCAT and fetched back it round-trips
-    //   byte-identically. (b) It is not the SELF-REFERENCE every earlier fixture happened to carry —
-    //   `newdel_target_with_pragma` has one FB create a different one and answers the same. (c) It is not FBs
-    //   only — `newdel_struct_with_pragma` answers the same for a STRUCT. (d) With the pragma REMOVED from the
-    //   same two POUs (`newdel_target_without_pragma`) the answer does not change. The attribute moves nothing
-    //   on this project, in any position, for any target.
-    //
-    //   So the message is downstream of the missing pool on BOTH vendors, and only one of them says so. The
-    //   LSP keeps the documented rule (the pragma silences it), which these projects cannot test either way.
-    //   `newdel_without_pragma`, `newdel_target_without_pragma` and `newdel_elementary` are NOT here: they
-    //   agree, because the LSP reaches the same answer by the rule it does have.
-    "newdel_with_pragma",
-    "newdel_with_pragma_has_method",
-    "newdel_in_method_with_pragma",
-    "newdel_target_with_pragma",
-    "newdel_struct_with_pragma",
+    //   (The five `newdel_*` fixtures that carry `{attribute 'enable_dynamic_creation'}` were here: TwinCAT "printed the
+    //   attribute message alone, like a vendor that ignores the attribute". It never received the attribute — the
+    //   recorder dropped every pragma above a top-level unit. Re-recorded 2026-10-02 with it pushed (frontend-conformance
+    //   2.7.2), TwinCAT builds all five clean and the LSP agrees.)
   ]),
   // The `???` fixtures were here while the LSP answered every position with ONE invented sentence. They are
   // NOT divergences any more: the check reads the slot and emits the COMPILER'S wording for it
@@ -961,6 +967,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...LITERAL_FOLLOW_ON_RULES,
     ...EXPRESSION_NICHE_DIVERGENCES,
     ...STATEMENT_DIVERGENCES,
+    ...PRAGMA_DIVERGENCES,
+    ...CODESYS_PRAGMA_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
