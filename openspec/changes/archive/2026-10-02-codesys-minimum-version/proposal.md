@@ -76,3 +76,29 @@ in the log.
 - Clients: PLCAssist adds `IDE_UNSUPPORTED` to its wire vocabulary with a row telling the model the IDE version is
   unsupported (do not retry), and shows `IdeVersion` in its bridge bar. It ships in the same deploy as the bridge
   that carries this change; PLCAssist deliberately has no interim patch.
+
+## Close-out (2026-10-02, archived; two field-log tasks moved to `ide-identity-report`)
+
+**Built** (commits `5a27779448`, `14fe21dd70`, `e4652fdfc9`):
+
+- The real CODESYS **platform** version — the assembly version of `SystemInstances.dll` (DIALECT V1), never the exe's
+  or an OEM product's — as `CodesysDriver.IdeVersion`, on each row's `version` and on `health.ideVersion`. The OEM
+  product name is read (`OemProduct`) and goes to the start log and the message-window line, never into the version.
+- The **refusal by capability, not by number**: one capability list (`CodesysPlatform.All`, DIALECT V2); a missing
+  one → the message-window line, every op but `health` answers the new `IDE_UNSUPPORTED` with
+  `CODESYS <version> is not supported: it lacks <capability>.`, `health` carries it as `unsupported`. Applied in the
+  shared host for both vendors. The connector keeps such a row wanted but never binds it; the tray, volt-desktop and
+  volt-vscode show "IDE not supported" with the reason.
+- The **bound-assembly log** (`BoundAssemblies`, DIALECT V3).
+
+**Not built, by decision:** the SP21 version floor in "What Changes" 2 above, and the message wording that names a
+required version (`… needs CODESYS 3.5 SP21 or newer`). The owner replaced both on 2026-10-01 with the capability
+refusal, because OEM IDEs on older platforms work. There is no version floor anywhere. The spec delta states what was
+built and notes that the 3.5.17 field failure is not settled by it.
+
+**Moved to `ide-identity-report`** (which reports the IDE's identity and builds on the version source above), marked
+"handed off" in `tasks.md`; both need a field log:
+
+- 2.1 — measure what failed on CODESYS 3.5.17 (chat 896f798f). The capability list is done; the failure was on Volt's
+  own `PipeClient.Call`, so it points at a second bound assembly copy.
+- 3.2 — decide on refusing when another Volt build is already loaded, once a field log shows the 3.5.21 case.

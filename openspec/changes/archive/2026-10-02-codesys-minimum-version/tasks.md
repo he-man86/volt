@@ -52,7 +52,7 @@
 A fixed SP21 floor would lock out OEM IDEs on an older platform that work today (the WAGO PFC300 PLCAssist sessions of
 2026-09-30 built and served normally). So the bridge refuses when what it NEEDS is missing, and states the version.
 
-- [ ] 2.1 Measure what failed on 3.5.17 (the proposal's exception, chat 896f798f): which API/type/member the bridge
+- [ ] 2.1 **Handed off (2026-10-02) to ide-identity-report (its task 3.1/3.2) — not done here.** Measure what failed on 3.5.17 (the proposal's exception, chat 896f798f): which API/type/member the bridge
       binds that the old platform lacks. List every framework API the bridge needs at start in ONE place
       (the capability list), each with the platform version it is known on.
 
@@ -136,7 +136,7 @@ A fixed SP21 floor would lock out OEM IDEs on an older platform that work today 
       `BoundAssembliesTests` (4). Live on 3.5.21.40 (DIALECT V3): one copy each of Volt.Wire/Volt.Contracts 1.0.0.0 and
       System.Text.Json 10.0.0.12 from the staged bridge folder, both members bind it — and **System.Memory is loaded
       three times** (4.0.1.2 Windows GAC, 4.0.1.1 CODESYS LacBinaries, 4.0.5.0 bridge folder).
-- [ ] 3.2 Decide on the "another Volt build already loaded" refusal once a field log shows the 3.5.21 case.
+- [ ] 3.2 **Handed off (2026-10-02) to ide-identity-report (its task 3.1/3.2) — not done here.** Decide on the "another Volt build already loaded" refusal once a field log shows the 3.5.21 case.
 
       **Open — needs a field log** from the 3.5.21.50 install (or the 3.5.17 one) carrying the `bound:` lines. Nothing
       here reproduces it: on this 3.5.21.40 every Volt assembly is bound once.
