@@ -86,7 +86,7 @@ never dropped, never guessed.
       box-to-box pin, read where they land. Found → the pin spelling on the formal (`f(NOT IN1 := x)`,
       `f(R_EDGE(CLK) := x)`), distinct from the value's flag (`f(CLK := R_EDGE(x))`); until then a pulled pin flag
       goes to the marker.
-- [ ] 1.14 `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
+- [ ] 1.14 **Handed off (2026-10-02) to the LD/FBD coverage change (not yet written) — not done here.** `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
       measure the vendor's evaluation order for Negation+Rtrig on one operand (the text's one order is
       `NOT R_EDGE(x)`).
       *Done 2026-09-26 (DIALECT N17, N18):* BOTH vendors let a function, an FB, an instance and a variable be named
@@ -112,7 +112,7 @@ never dropped, never guessed.
       'DONE' has not been referenced` (a JMP in a disabled network is no reference; a warning); `No such label
       'NOWHERE' ...`. Labels match case-insensitively — on CODESYS first, and on TwinCAT in the second pass (review):
       `JMP DONE` to `LABEL: Done` builds clean (`tc-labels-edge-names.log`, "jump spelled in another case").
-- [ ] 1.16 TwinCAT ladder (review 7.16): the share of wires fed by a leaf in the TwinCAT corpora (lenze-mid: 66 of
+- [ ] 1.16 **Handed off (2026-10-02) to the LD/FBD coverage change (not yet written) — not done here.** TwinCAT ladder (review 7.16): the share of wires fed by a leaf in the TwinCAT corpora (lenze-mid: 66 of
       139). If alike, refusing "a Demux of a leaf" on a structural edit blocks about half of rung edits — the reason
       4.4 measures the import first.
       *BLOCKED 2026-09-26:* no engineer-drawn TwinCAT ladder project exists on this machine. The one TwinCAT corpus
@@ -639,7 +639,7 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       `Standard.project` template raises a modal "upgrade the storage format" box on the first create, which blocks the
       bridge silently — accepted by hand on the throwaway blank here, still unhandled by the launcher's dialog
       suppression (`run_pipe_production.py`), noted for the tooling.
-- [ ] 4.6 Ladder census, per network: reconcile the lenze-mid census's Demux (573), multi-output Assign (40),
+- [ ] 4.6 **Handed off (2026-10-02) to the LD/FBD coverage change (not yet written) — not done here.** Ladder census, per network: reconcile the lenze-mid census's Demux (573), multi-output Assign (40),
       Parallel (17) and EN boxes (226 `en` LETs) with where each one lands — the file it pulls into, the marker it
       pulls as, or the push refusal that set its body aside — and push a Parallel in a real body.
       **OPEN (split from 4.5, review of section 4, 2026-09-27).** 4.5's round trip accounts for 4 of the 17
@@ -811,7 +811,8 @@ the text's rule (`NetworkText.HasEnoOutput`) rather than a copy of it; the pull 
       docs were already fixed by the swap: `NetworkModel.Assign` states C11's terminator, the reader header names use
       count only as what v1 did, and `ParallelRenderTests` no longer exists. `docs/items.html` said the language rides
       on "the `NETWORK` marker" — it rides on the implementation marker now.
-- [ ] 6.3 Archive: check the spec delta still describes what was built; delete the recreated `openspec/specs/`.
+- [x] 6.3 Archive: check the spec delta still describes what was built; delete the recreated `openspec/specs/`.
+      *Done 2026-10-02:* the delta re-checked against the code before archiving — it holds (incl. the `IMPLEMENTATION FBD|LD` line from implementation-keyword, and the TwinCAT refusals of `TcUnmeasured`: Negation+edge on one node, `PARALLEL`, a leaf wire, `=> v`). The three open tasks are handed off (see the close-out in proposal.md), not done.
       *BLOCKED (2026-09-27):* the archive waits on every other task, and three are open — 1.14 (TwinCAT's
       Negation+edge order: no TwinCAT runtime licence on this machine), 1.16 (no engineer-drawn TwinCAT ladder
       project) and 4.6 (the per-network lenze-mid census). The delta was checked against what was built: it holds —

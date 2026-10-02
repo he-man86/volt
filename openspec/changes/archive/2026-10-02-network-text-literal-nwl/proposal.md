@@ -147,3 +147,27 @@ From the 2026-09-26 reviews; each is argued on the design page (`#decisions`).
   keeps the anchors ~27 code/test/doc comments link to, and joins the docs nav as "Network text (next)" until then.
 - Users: pending graphical edits must be pushed before upgrading (v1 text is refused after MATERIALIZATION 3); CLI,
   LSP and volt-vscode ship together, with a version check that names a mismatch.
+
+## Close-out (2026-10-02, archived at 59/63)
+
+Everything this change set out to build is built and green: the v2 text (one statement per NWL item, wires in a
+network's `VAR_TEMP`, EN as a pin, `.ENO`, `=> v`, `R_EDGE`/`F_EDGE` flags, `PARALLEL`, the token gate), both drivers,
+the LSP and editor, the migration and the docs. Task 6.3 re-checked the spec delta against the code: it describes what
+was built. Three tasks stay open, blocked on things this machine does not have (a TwinCAT runtime licence, an
+engineer-drawn TwinCAT ladder project) or on a census that belongs with ladder coverage. They are **handed off to the
+LD/FBD coverage change (not yet written)** — the follow-up that makes every LD/FBD shape travel as network text — and
+are marked "handed off" (not ticked) in `tasks.md`. Their text, verbatim:
+
+- **1.14** `R_EDGE` / `F_EDGE` (review 7.12): check neither SP21 nor TwinCAT lets a POU or instance take the names;
+  measure the vendor's evaluation order for Negation+Rtrig on one operand (the text's one order is
+  `NOT R_EDGE(x)`).
+  *(State at hand-off: names measured on both vendors and the CODESYS order measured as `R_EDGE(NOT x)`; the
+  TwinCAT order is BLOCKED on a runtime licence, so the TwinCAT driver sends Negation+edge on one node to the marker.)*
+- **1.16** TwinCAT ladder (review 7.16): the share of wires fed by a leaf in the TwinCAT corpora (lenze-mid: 66 of
+  139). If alike, refusing "a Demux of a leaf" on a structural edit blocks about half of rung edits — the reason
+  4.4 measures the import first.
+  *(State at hand-off: BLOCKED — no engineer-drawn TwinCAT ladder project exists; needs a real one.)*
+- **4.6** Ladder census, per network: reconcile the lenze-mid census's Demux (573), multi-output Assign (40),
+  Parallel (17) and EN boxes (226 `en` LETs) with where each one lands — the file it pulls into, the marker it
+  pulls as, or the push refusal that set its body aside — and push a Parallel in a real body.
+  *(State at hand-off: open; needs a per-location census joined against the pull, see the task's notes.)*
