@@ -13,7 +13,7 @@
  * then has no type, which the declaration's destination cannot take (conformance `cc3_unexpected_struct_init`:
  * `otherWay : INT := (x := 1, y := 2)` is six errors, of which the LSP had one).
  */
-import { exprText, renderTypeExpr, type AggregateElement, type Initializer, type Span } from "../../../frontend/syntax/index.js"
+import { exprText, compilerTypeText, type AggregateElement, type Initializer, type Span } from "../../../frontend/syntax/index.js"
 import { resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { forEachDecl, hasUnresolvedBase, lookup, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
@@ -47,7 +47,7 @@ export function checkStructInit(ctx: CheckContext, out: DiagnosticItem[]): void 
       span: init.span,
       source: SOURCE,
       code: "unexpected-struct-init",
-      message: ctx.messages.cannotConvert(ctx.messages.unknownType(structEcho(init)), renderTypeExpr(decl.type)),
+      message: ctx.messages.cannotConvert(ctx.messages.unknownType(structEcho(init)), compilerTypeText(decl.type)),
     })
   }
 }

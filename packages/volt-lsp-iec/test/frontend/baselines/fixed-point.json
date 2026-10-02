@@ -3,14 +3,9 @@
     "corpus: files": 29170,
     "corpus: files not a fixed point": 0,
     "fixtures: files": 8064,
-    "fixtures: files not a fixed point": 3,
-    "fixtures: format-ast-changed": 3,
+    "fixtures: files not a fixed point": 0,
     "library: files": 50,
     "library: files not a fixed point": 0
   },
-  "findings": [
-    "fixture/cc2_var_in_interface/FB_C2_itfUser.fb format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
-    "fixture/hdr_interface_var_input/ITF_LANG_hdr_var_input.itf format-ast-changed - @286: \"ut\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ut\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
-    "fixture/itf_var_section_declaration/ITF_IV_withVar.itf format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]}]\""
-  ]
+  "findings": []
 }

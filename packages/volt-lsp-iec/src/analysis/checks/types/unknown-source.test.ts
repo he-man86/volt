@@ -118,3 +118,9 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`)).toEqual([])
 })
+
+// The destination is named in the compiler's spelling: a `STRING[5]` is 'STRING(5)' (`decl_string_brackets` — the
+// vendor normalises the length's delimiters; frontend-conformance 2.9 review).
+test("a bracketed STRING destination is named STRING(n)", () => {
+  expect(msgs(fb("str : STRING[5] := nope;", ""))).toEqual(["Cannot convert type 'Unknown type: 'nope'' to type 'STRING(5)'"])
+})

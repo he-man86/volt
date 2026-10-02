@@ -11,7 +11,7 @@
  * are one character each, so `STRING(1) := '$T'` is fine. Only a sized destination with a const-foldable length
  * and a string-literal source fires, on a strict over-length; a sizeless `STRING` is skipped.
  */
-import { decodeStringLiteral, renderTypeExpr, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
+import { decodeStringLiteral, compilerTypeText, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
 import { constEval, inferExprType, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
@@ -25,7 +25,7 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
     const size = constEval(sized.length, scope)
     if (typeof size !== "bigint") continue
     const wide = sized.wide === true
-    const rendered = renderTypeExpr(sized)
+    const rendered = compilerTypeText(sized)
     if (decl.type.kind === "array_type") {
       // One destination per element, in source order. `repeat` (`3('abc')`) wraps its value and is unwrapped —
       // the count does not change whether the constant fits; `unparsed` is skipped, as everywhere else here.
@@ -101,7 +101,7 @@ function tooLong(value: Initializer | Expr | undefined, wide: boolean, size: num
   }
 }
 
-/** `STRING(8)` — an inferred destination's spelling, which the declaration form gets from `renderTypeExpr`. */
+/** `STRING(8)` — an inferred destination's spelling, which the declaration form gets from `compilerTypeText`. */
 function renderType(t: Extract<Type, { kind: "elementary" }>): string {
   return `${t.name}(${String(t.length)})`
 }

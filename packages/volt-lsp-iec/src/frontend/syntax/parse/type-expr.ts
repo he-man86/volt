@@ -17,7 +17,7 @@
  */
 import type { Token } from "../lex/tokens.js"
 import type { Dialect } from "../lex/vocabulary.js"
-import type { ArrayDim, CallArg, EnumValue, Expr, Identifier, Subrange, TypeExpr } from "../ast/nodes.js"
+import type { ArrayDim, CallArg, EnumValue, Expr, Identifier, StringLengthDelimiters, Subrange, TypeExpr } from "../ast/nodes.js"
 import { SUBRANGE_BASE_TYPES } from "../lex/vocabulary.js"
 import { eofSpan, joinSpans, type Span } from "../span.js"
 import { Cursor } from "./cursor.js"
@@ -52,6 +52,7 @@ export function parseTypeExpression(c: Cursor): TypeExpr | undefined {
       kind: "string_type",
       wide,
       ...(len?.length !== undefined ? { length: len.length } : {}),
+      ...(len?.delimiters !== undefined ? { delimiters: len.delimiters } : {}),
       span: joinSpans(stringTok.span, len?.end ?? stringTok.span),
     }
   }
@@ -425,14 +426,32 @@ function parseArrayDim(c: Cursor, variable: boolean | undefined, refuse: (messag
  * no length — the `[` opens a bracket initializer, refused there (`decl_wstring_brackets`: "'(' expected instead of
  * '3'", D16's words) — and `WSTRING(3]` is "')' expected instead of ']'" (`decl_wstring_brackets_mismatched`).
  */
-function parseOptionalStringLength(c: Cursor, wide: boolean): { length?: Expr; end: Span } | undefined {
+function parseOptionalStringLength(
+  c: Cursor,
+  wide: boolean,
+): { length?: Expr; delimiters?: StringLengthDelimiters; end: Span } | undefined {
   const open = c.eatPunct("(") ?? (wide ? undefined : c.eatPunct("["))
   if (open === undefined) return undefined
   const length = parseExpression(c)
   const close = wide
     ? c.expectPunct(")")
     : (c.eatPunct(")") ?? c.eatPunct("]") ?? c.expectPunct(open.text === "(" ? ")" : "]"))
-  return { ...(length !== undefined ? { length } : {}), end: (close ?? length ?? open).span }
+  // the delimiters as written travel with the length — a missing closer too (`STRING(80;`, a parse error), so hover prints
+  // what is written there
+  const delimiters = length !== undefined ? stringDelimiters(`${open.text}${close?.text ?? ""}`) : undefined
+  return {
+    ...(length !== undefined ? { length } : {}),
+    ...(delimiters !== undefined ? { delimiters } : {}),
+    end: (close ?? length ?? open).span,
+  }
+}
+
+const STRING_DELIMITERS: readonly StringLengthDelimiters[] = ["()", "[]", "(]", "[)", "(", "["]
+
+function stringDelimiters(written: string): StringLengthDelimiters {
+  const d = STRING_DELIMITERS.find((x) => x === written)
+  if (d === undefined) throw new Error(`'${written}' are no STRING length delimiters`)
+  return d
 }
 
 /**

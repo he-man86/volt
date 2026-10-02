@@ -14,7 +14,7 @@
  * Standard's LEN or TON included — resolves through the scope, from its materialized declaration, and nowhere else:
  * in a project that does not reference its library it is the unknown name CODESYS says it is.
  */
-import { CODESYS_ONLY_KEYWORDS, renderTypeExpr, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, compilerTypeText, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
 import { ANY_FAMILIES, isDialectType } from "../frontend/types/index.js"
 import { lookupReference } from "../reference/index.js"
 import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
@@ -219,7 +219,7 @@ export function dialectMissingType(project: Scope, t: TypeExpr | undefined): str
   // porting CODESYS code writes, and `resolveNamedType` resolves it — so without this the two disagree about
   // the same name, and the one that speaks is the one that is wrong.
   if (lookupLocal(project, name).length > 0) return undefined
-  return renderTypeExpr(t)
+  return compilerTypeText(t)
 }
 
 /**

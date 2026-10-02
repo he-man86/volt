@@ -10,8 +10,8 @@
  *                   save one holding its source's own parse error (`dumps.ts` `refusedIn`), which has no fixed point.
  *
  * The printer is Volt's, not the vendor's, so there is no recording to hold it to: a fixed point is the whole rule
- * (design.md §4 2.9, PR1). Each non-fixed-point is a finding pinned in `baselines/fixed-point.json`; PR1 stays a GAP
- * until that list is empty.
+ * (design.md §4 2.9, PR1). Each non-fixed-point is a finding pinned in `baselines/fixed-point.json`; the list is EMPTY
+ * since frontend-conformance 2.9 and its ceilings are 0, so any non-fixed point fails.
  */
 import { describe, expect, test } from "bun:test"
 import { checkBaseline, tally, type Baseline } from "./baseline.js"
@@ -62,7 +62,7 @@ describe("0.2 what counts as a printer finding", () => {
 })
 
 describe("0.2 the printer's fixed point", () => {
-  test("every file prints to itself — the non-fixed points are the baseline's", () => {
+  test("every file prints to itself", () => {
     const measured = census()
     console.log(
       [

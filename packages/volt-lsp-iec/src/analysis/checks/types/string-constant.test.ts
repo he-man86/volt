@@ -127,3 +127,18 @@ test("an ASSIGNMENT's target is the same destination as a declaration's", () => 
     "String constant ''a...' too long for destination type 'STRING(2)'",
   ])
 })
+
+// THE MESSAGE NAMES THE TYPE IN THE COMPILER'S SPELLING, NOT THE ENGINEER'S. A STRING length may be written in `[…]` or
+// with mismatched delimiters (PR2), and the formatter keeps them — but the vendor's message normalises them:
+// `decl_string_brackets` records "...too long for destination type 'STRING(5)'" for `STRING[5]`, and
+// `decl_string_length_constant_brackets` 'STRING(N)' for `STRING[N]` (both vendors). Printing as written made it
+// 'STRING[5]' and 'STRING(5]' (frontend-conformance 2.9 review).
+test("a bracketed or mismatched STRING length is named STRING(n) in the message", () => {
+  const want = ["String constant ''a...' too long for destination type 'STRING(5)'"]
+  expect(sc(`  str : STRING[5] := 'abcdefgh';`)).toEqual(want)
+  expect(sc(`  str : STRING(5] := 'abcdefgh';`)).toEqual(want)
+  expect(sc(`  str : STRING[5) := 'abcdefgh';`)).toEqual(want)
+  expect(sc(`  t : ARRAY[0..1] OF STRING[4] := ['a', 'bcdefg'];`)).toEqual([
+    "String constant ''...' too long for destination type 'STRING(4)'",
+  ])
+})

@@ -25,7 +25,7 @@
  * by construction (the corpus, which compiles clean, never sets them).
  */
 import type { CheckContext } from "../../diagnostics.js"
-import { renderTypeExpr, type TypeDecl } from "../../../frontend/syntax/index.js"
+import { compilerTypeText, type TypeDecl } from "../../../frontend/syntax/index.js"
 import { lookupLocal } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -164,7 +164,7 @@ export function checkHeaderRules(ctx: CheckContext, out: DiagnosticItem[]): void
             for (const decl of section.decls) {
               if (section.sectionKind === "VAR") error(decl.span, ctx.messages.onlyParametersInInterfaceMethods())
               else if (section.sectionKind === "VAR_INPUT")
-                error(decl.span, ctx.messages.inputInPropertyAccessor(`${decl.names.map((n) => n.text).join(", ")} : ${renderTypeExpr(decl.type)}`))
+                error(decl.span, ctx.messages.inputInPropertyAccessor(`${decl.names.map((n) => n.text).join(", ")} : ${compilerTypeText(decl.type)}`))
             }
       // ABSTRACT with FINAL on an interface METHOD, as on a function block's (`unit_interface_method_abstract_final`)
       for (const m of unit.methods)

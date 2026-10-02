@@ -447,8 +447,16 @@ export interface StringType {
   kind: "string_type"
   wide: boolean // WSTRING
   length?: Expr // `STRING(80)` — structured
+  /**
+   * The opener and closer the length was written in, present with `length`: a STRING's length stands in `(…)` or `[…]`
+   * and either closer ends either opener (`decl_string_brackets`, `_mismatched`, `_mismatched_other`) — the printer
+   * writes them back as written (frontend-conformance 2.9, PR2). A WSTRING's is always `()`.
+   */
+  delimiters?: StringLengthDelimiters
   span: Span
 }
+/** Opener then closer; an opener alone when the closer is missing (a parse error). */
+export type StringLengthDelimiters = "()" | "[]" | "(]" | "[)" | "(" | "["
 export interface ImplicitEnumType {
   kind: "implicit_enum_type"
   values: EnumValue[]

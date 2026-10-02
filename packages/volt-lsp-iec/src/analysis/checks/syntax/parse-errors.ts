@@ -16,7 +16,7 @@
  * GRAMMAR GAP to fix, never a shipped false positive — the same gate every semantic check answers to.
  * `scripts/parser-completeness.ts` is the standing proof: both streams record zero errors on the whole corpus.
  */
-import { exprText, initOperatorText, isStBody, bodyStatements, renderTypeExpr, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
+import { exprText, initOperatorText, isStBody, bodyStatements, compilerTypeText, unitBodies, type ParseError, type VarDecl, type VarSectionKind } from "../../../frontend/syntax/index.js"
 import { bodyConditionWorld } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -77,7 +77,7 @@ function sectionInStructMessage(kind: VarSectionKind, messages: CheckContext["me
 function sectionEchoMessage(keyword: string, decls: readonly VarDecl[]): string {
   const lines = decls.map((d) => {
     const init = d.init === undefined ? "" : ` ${initOperatorText(d.initOp)}${d.init.kind === "aggregate_init" ? d.init.tokens.map((t) => t.text).join("") : exprText(d.init)}`
-    return `\t${d.names.map((n) => n.text).join(", ")}:${renderTypeExpr(d.type)}${init};\r\n`
+    return `\t${d.names.map((n) => n.text).join(", ")}:${compilerTypeText(d.type)}${init};\r\n`
   })
   return `Variable declaration expected instead of ${keyword}\r\n${lines.join("")}END_VAR\r\n`
 }

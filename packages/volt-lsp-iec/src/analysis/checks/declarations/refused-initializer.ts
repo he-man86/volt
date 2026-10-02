@@ -20,7 +20,7 @@
  * refuses itself (frontend-conformance 2.2.3, 2.2.5; design.md P7).
  */
 import { compilerExprText } from "../../expr-echo.js"
-import { REFUSED_PLACEHOLDER, renderTypeExpr, walkExpr, type Expr } from "../../../frontend/syntax/index.js"
+import { REFUSED_PLACEHOLDER, compilerTypeText, walkExpr, type Expr } from "../../../frontend/syntax/index.js"
 import { forEachDecl } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -34,7 +34,7 @@ export function checkRefusedInitializer(ctx: CheckContext, out: DiagnosticItem[]
     const error = (message: string, e: Expr): void => {
       out.push({ severity: "error", span: e.span, source: SOURCE, code: "refused-initializer", message })
     }
-    error(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(value)), renderTypeExpr(decl.type)), value)
+    error(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(value)), compilerTypeText(decl.type)), value)
     walkExpr(value, (x) => {
       if (x.kind !== "binary") return
       for (const operand of [x.left, x.right]) if (isPlaceholder(operand)) error(ctx.messages.unknownType(REFUSED_PLACEHOLDER), operand)

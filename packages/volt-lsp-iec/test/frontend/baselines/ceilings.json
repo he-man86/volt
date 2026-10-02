@@ -1,8 +1,8 @@
 {
   "fixed-point": {
-    "findings": 3,
+    "findings": 0,
     "corpus: files not a fixed point": 0,
-    "fixtures: files not a fixed point": 3
+    "fixtures: files not a fixed point": 0
   },
   "parse-census": {
     "findings": 0,
@@ -122,10 +122,10 @@
     "run: initializer does not fold": 33
   },
   "rules": {
-    "GAP area 2": 9,
+    "GAP area 2": 5,
     "GAP area 3": 26,
     "GAP area 4": 28,
-    "GAP total": 63,
+    "GAP total": 59,
     "CV7 explicit pairs no recorded fixture calls": 327
   }
 }

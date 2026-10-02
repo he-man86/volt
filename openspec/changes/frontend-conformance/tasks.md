@@ -1758,12 +1758,36 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       (7158 tests, 194 files, 170 s, rustc cache on with sampled re-proof); agreement CODESYS 3723, TwinCAT 3662 (4032
       fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only). volt-cli
       untouched by 2.8 (no dotnet run).
-- [ ] 2.9 Printer/formatter fixed point (PR1–PR4): STRING[n] and AT-after-type round-trip; parentheses from precedence; modifier
+- [x] 2.9 Printer/formatter fixed point (PR1–PR4): STRING[n] and AT-after-type round-trip; parentheses from precedence; modifier
       order kept.
       Where: syntax/print.ts, services/formatting/print.ts; tests `print.test.ts` "STRING[n] round-trips", "AT after the type
       round-trips", "nested binary gets precedence parentheses"; `services/formatting/print.test.ts` "method modifiers keep their
       order". Acceptance: the four named tests exist and pass; the 0.2 fixed-point baseline is EMPTY; PR1–PR4 are no longer GAP in
       rules.test. Depends on: 2.8.3
+      **Done 2026-10-02.** The printer is Volt's, so no recording decides it (design §4 2.9): rule by rule, each with its named
+      test, written red first. PR1: the last three fixed-point findings (`cc2_var_in_interface`, `hdr_interface_var_input`,
+      `itf_var_section_declaration`) were one root cause — an INTERFACE's VAR section, refused by a check (C0149) and not
+      the parse, was dropped by the formatter; it is printed now, and an interface's members (methods, properties, stray
+      sections — three AST lists) in the order written, by span. `baselines/fixed-point.json` is EMPTY (29 170 corpus,
+      8 064 fixture, 50 library files) and its ceilings 3 → 0. PR2: a STRING's length delimiters are in the AST
+      (`StringType.delimiters`: `()`, `[]`, `(]`, `[)`, or the opener alone when the closer is missing) and printed as
+      written — the formatter rewrote `STRING[80]` to `STRING(80)` (9 occurrences in the corpora); AT after the type is
+      a parse refusal (D10), so its unit is kept verbatim (test pins it, and AT before the colon reprinted as written).
+      PR3: `exprText` parenthesizes a child its parent would capture, by the parser's `BINARY_PRECEDENCE` (left-associative
+      levels; unary then postfix tighter; an inline assignment loosest) — a parsed tree carries its `paren` nodes, so no
+      parsed output moved (fixed point unchanged, snapshot F: only the `ast` aspect of 1837 sources differs, the new
+      `delimiters` field — no errors/tokens/stmts/diagnostics/rust/interp change). PR4: already kept (the parser's ordered
+      modifier list); pinned on METHOD, FB, PROPERTY and interface members, a refused order kept verbatim. Tests:
+      `src/frontend/syntax/print.test.ts` "STRING[n] round-trips", "nested binary gets precedence parentheses";
+      `src/services/formatting/print.test.ts` (new) "AT after the type round-trips", "method modifiers keep their order",
+      "an interface's VAR section survives formatting, in its place". Rules GAP area 2 **9 → 5** (total 63 → 59): PR1–PR4
+      closed with their named tests. No fixture recorded (none decides a printer rule); no known divergence added.
+      **Gate 2.9 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4032 fixtures:
+      confirmed 2348, refused 1452, not-lowered 139, lsp-gap 23, diverges 4, unaskable 66; edges agree 2438 / disagree 0 /
+      not-run 102). `bun test` (serial) 6949 pass / 34 skip / 183 todo / 0 fail (7166 tests, 195 files, 183 s, rustc cache on
+      with sampled re-proof) — +8 tests, +1 file (the new formatting/print.test.ts) over gate 2.8; agreement CODESYS 3723,
+      TwinCAT 3662 (4032 fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only).
+      volt-cli untouched by 2.9 (no dotnet run).
 - [ ] 2.10 Area 2 closed: every §4 2.x rule (L, N, S, A, D, T, U, E, ST, P, R, PR, FMT) has a recorded fixture or named test.
       Where: test/frontend/rules.ts. Acceptance: the rules.test GAP count for area 2 is 0 and pinned as 0; known divergences left
       in area 2 listed here with their reason. Depends on: 2.9

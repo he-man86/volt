@@ -2315,8 +2315,12 @@ export const RULES: readonly Rule[] = [
     section: "2.9",
     rule: "print → parse → print is a fixed point for every construct in 2.1–2.7",
     home: "print.ts + services/formatting",
-    gap: true,
+    gap: false,
     fixtures: [],
+    tests: [
+      { file: "test/frontend/fixed-point.test.ts", title: "every file prints to itself" },
+    ],
+    recheck: "2.9: the baseline is empty (29 170 corpus, 8 064 fixture, 50 library files) and its ceilings are 0 — an interface's stray VAR section, the last three findings, is printed where it was written",
     design: "`test/frontend/fixed-point.test.ts` over everything 0.1 parses — **GAP** until its baseline is empty",
   },
   {
@@ -2325,8 +2329,13 @@ export const RULES: readonly Rule[] = [
     section: "2.9",
     rule: "`STRING[n]` and AT-after-type round-trip as written",
     home: "print.ts",
-    gap: true,
+    gap: false,
     fixtures: [],
+    tests: [
+      { file: "src/frontend/syntax/print.test.ts", title: "STRING[n] round-trips" },
+      { file: "src/services/formatting/print.test.ts", title: "AT after the type round-trips" },
+    ],
+    recheck: "2.9: a STRING's length delimiters are in the AST (`StringType.delimiters`) and printed as written; AT after the type is a parse refusal (D10), so its unit is kept verbatim",
     design: '`print.test.ts` "STRING[n] round-trips", "AT after the type round-trips" — **GAP**',
   },
   {
@@ -2335,8 +2344,12 @@ export const RULES: readonly Rule[] = [
     section: "2.9",
     rule: "a synthesized nested binary prints with the parentheses precedence needs",
     home: "print.ts",
-    gap: true,
+    gap: false,
     fixtures: [],
+    tests: [
+      { file: "src/frontend/syntax/print.test.ts", title: "nested binary gets precedence parentheses" },
+    ],
+    recheck: "2.9: `exprText` parenthesizes a child its parent would capture, by the parser's `BINARY_PRECEDENCE` (unary and postfix tighter, inline assignment loosest)",
     design: '`print.test.ts` "nested binary gets precedence parentheses" — **GAP**',
   },
   {
@@ -2345,8 +2358,12 @@ export const RULES: readonly Rule[] = [
     section: "2.9",
     rule: "METHOD modifier order is kept",
     home: "services/formatting/print.ts",
-    gap: true,
+    gap: false,
     fixtures: [],
+    tests: [
+      { file: "src/services/formatting/print.test.ts", title: "method modifiers keep their order" },
+    ],
+    recheck: "2.9: the parser keeps modifiers as an ordered list and the printer writes them in that order; a refused order is kept verbatim",
     design: '`services/formatting/print.test.ts` "method modifiers keep their order" — **GAP**',
   },
   // ── 2.10 ──

@@ -19,7 +19,7 @@
  * BOTH VENDORS, measured 2026-09-20 (`fb_init_argument_left_out`): TwinCAT reports it and STOPS at the name —
  * "No matching FB_init method found for instantiation of X", with no input count and no suggested syntax.
  */
-import { renderTypeExpr, varInputParams, type Method } from "../../../frontend/syntax/index.js"
+import { compilerTypeText, varInputParams, type Method } from "../../../frontend/syntax/index.js"
 import { forEachDecl, isLibrarySymbol, lookupLocal } from "../../../frontend/symbols/index.js"
 import { resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -39,7 +39,7 @@ export function checkFbInitInstantiation(ctx: CheckContext, out: DiagnosticItem[
     if (init === undefined || isLibrarySymbol(init)) continue
     const extra = varInputParams((init.ast as Method).varSections).slice(IMPLICIT_INPUTS)
     if (extra.length === 0) continue
-    const types = extra.map((p) => renderTypeExpr(p.type)).join(", ")
+    const types = extra.map((p) => compilerTypeText(p.type)).join(", ")
     for (const name of decl.names)
       out.push({
         severity: "error",

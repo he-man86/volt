@@ -15,6 +15,8 @@ import {
   bodyReader,
   type CaseArm,
   type EnumValue,
+  type InterfaceMethod,
+  type InterfaceProperty,
   type PropertyAccessor,
   exprText,
   initOperatorText,
@@ -378,23 +380,33 @@ function modifierText(written: readonly string[]): string {
 // accessors — which is where the push reads it (`StReader.PeelFolderClosing`).
 function printInterface(iface: Extract<TopLevel, { kind: "interface" }>): string {
   const ext = `${namesClause("EXTENDS", iface.extends)}${namesClause("IMPLEMENTS", iface.implementsMisused)}`
-  const methods = iface.methods.map((m) => {
-    const ret = m.returnType ? ` : ${renderTypeExpr(m.returnType)}` : ""
-    const vars = m.varSections.map(printVarSection).join("\n")
-    const head = `${TAB}METHOD ${modifierText(m.modifiers)}${m.name.text}${ret}\n`
-    return `${head}${vars ? vars + "\n" : ""}${folderLine(m.folder)}${TAB}END_METHOD`
-  })
-  const properties = iface.properties.map((p) => {
-    // an accessor that declares VAR sections is written as a block, so they are kept (U21); a bare one as its keyword
-    const accessor = (kw: string, vars: readonly VarSection[]) =>
-      vars.length === 0 ? `\n${TAB}${kw}` : `\n${TAB}${kw}\n${vars.map(printVarSection).join("\n")}\n${TAB}END_${kw}`
-    const getset = `${p.hasGetter ? accessor("GET", p.getterVarSections) : ""}${p.hasSetter ? accessor("SET", p.setterVarSections) : ""}`
-    const folder = p.folder === undefined ? "" : `\n%FOLDER ${p.folder}`
-    const head = `${TAB}PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}`
-    return `${head}${folder}${getset}\n${TAB}END_PROPERTY`
-  })
-  const members = [...methods, ...properties].join("\n")
+  const methods = iface.methods.map((m) => ({ at: m.span.start, text: printInterfaceMethod(m) }))
+  const properties = iface.properties.map((p) => ({ at: p.span.start, text: printInterfaceProperty(p) }))
+  // a VAR section a check refuses (C0149) is the file's text too: reprinted without it, formatting deleted it
+  const stray = (iface.strayVarSections ?? []).map((v) => ({ at: v.span.start, text: printVarSection(v) }))
+  // every member where it was written — the AST keeps them in three lists
+  const members = [...methods, ...properties, ...stray]
+    .sort((x, y) => x.at - y.at)
+    .map((m) => m.text)
+    .join("\n")
   return `INTERFACE ${iface.name.text}${ext}\n${members ? members + "\n" : ""}END_INTERFACE`
+}
+
+function printInterfaceMethod(m: InterfaceMethod): string {
+  const ret = m.returnType ? ` : ${renderTypeExpr(m.returnType)}` : ""
+  const vars = m.varSections.map(printVarSection).join("\n")
+  const head = `${TAB}METHOD ${modifierText(m.modifiers)}${m.name.text}${ret}\n`
+  return `${head}${vars ? vars + "\n" : ""}${folderLine(m.folder)}${TAB}END_METHOD`
+}
+
+function printInterfaceProperty(p: InterfaceProperty): string {
+  // an accessor that declares VAR sections is written as a block, so they are kept (U21); a bare one as its keyword
+  const accessor = (kw: string, vars: readonly VarSection[]) =>
+    vars.length === 0 ? `\n${TAB}${kw}` : `\n${TAB}${kw}\n${vars.map(printVarSection).join("\n")}\n${TAB}END_${kw}`
+  const getset = `${p.hasGetter ? accessor("GET", p.getterVarSections) : ""}${p.hasSetter ? accessor("SET", p.setterVarSections) : ""}`
+  const folder = p.folder === undefined ? "" : `\n%FOLDER ${p.folder}`
+  const head = `${TAB}PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}`
+  return `${head}${folder}${getset}\n${TAB}END_PROPERTY`
 }
 
 // EXTENDS stands on the TYPE line and nowhere else: `STRUCT EXTENDS B` is refused by both vendors

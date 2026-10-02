@@ -22,7 +22,7 @@
 import { compilerExprText } from "../../expr-echo.js"
 import { bareConversionArgument, isHole, literalHoleWithin, passThroughOperand, reported } from "../../hole.js"
 import { dialectMissingType } from "../../resolution.js"
-import { renderTypeExpr, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
+import { compilerTypeText, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
 import { inferExprType, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
@@ -67,7 +67,7 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
   // declared type is written down, so only the source half applies.
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    const into = renderTypeExpr(decl.type)
+    const into = compilerTypeText(decl.type)
     if (hole(decl.init, scope))
       push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(decl.init, metType(scope))), into), decl.init)
   }
