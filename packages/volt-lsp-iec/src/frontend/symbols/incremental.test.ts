@@ -9,7 +9,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource, type FunctionBlock } from "../syntax/index.js"
-import { childScopesByName, findScopeByName, scopeForUnit, type Scope } from "./index.js"
+import { childScopesByName, findScopeByName, lookup, scopeForUnit, type Scope } from "./index.js"
 import { bindFile, buildSymbolTable, relink, unbindFile } from "./incremental.js"
 import { spanIndex } from "./cache.js"
 import type { LibraryManifest } from "../library/index.js"
@@ -193,4 +193,51 @@ test("with library namespaces, a project kept current through random rebinds is 
     for (const u of bound)
       for (const unit of parse(u).parseResult.units) expect(id(scopeForUnit(project, unit))).toBe(id(scopeForUnit(fresh, unit)))
   }
+})
+
+// Rule Y19 (frontend-conformance 3.1.4): binding is ORDER-INDEPENDENT — a unit written after its user binds as one written
+// before it (`sym_order_independent_use_first` / `_use_last`: both vendors build both and run 3 + 4), and the files a
+// project holds give the same answer to every name whatever order they are handed over in — a name two files declare
+// included, which canonical order (`canonicalize`) decides by file, never by arrival.
+test("binding is order-independent: every unit order within a file and every file order answer every name alike (Y19)", () => {
+  const user = "FUNCTION_BLOCK FB_U\nVAR bx : S_T; out : INT; END_VAR\nout := F_X() + bx.v;\nEND_FUNCTION_BLOCK\n"
+  const fun = "FUNCTION F_X : INT\nF_X := 3;\nEND_FUNCTION\n"
+  const dut = "TYPE S_T :\nSTRUCT\n\tv : INT := 4;\nEND_STRUCT\nEND_TYPE\n"
+  const twice = "FUNCTION_BLOCK Twice\nVAR fromFile : INT; END_VAR\nEND_FUNCTION_BLOCK\n"
+  const answer = (files: { uri: string; source: string }[]): string[] => {
+    const project = buildSymbolTable(files.map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) })))
+    const fb = findScopeByName(project, "FB_U")!
+    return [
+      ...["bx", "out", "F_X", "S_T", "Twice"].map((n) => {
+        const hit = lookup(fb, n)
+        return `${n} -> ${hit?.symbol.kind} ${hit?.symbol.uri} in ${hit?.foundIn.name}`
+      }),
+      `Twice scope -> ${findScopeByName(project, "Twice")?.defUri}`,
+      `children -> ${project.children.map((c) => `${c.name}@${c.defUri}`).join(",")}`,
+    ]
+  }
+  const orders = [
+    [user, fun, dut],
+    [dut, fun, user],
+    [fun, user, dut],
+  ].map((units) => units.join("\n"))
+  const expected = answer([{ uri: "a.fb", source: orders[0] }, { uri: "b.fb", source: twice }, { uri: "c.fb", source: twice }])
+  expect(expected.slice(0, 5)).toEqual([
+    "bx -> var a.fb in FB_U",
+    "out -> var a.fb in FB_U",
+    "F_X -> function a.fb in (project)",
+    "S_T -> type a.fb in (project)",
+    "Twice -> function_block b.fb in (project)",
+  ])
+  for (const [i, text] of orders.entries())
+    for (const files of [
+      [{ uri: "a.fb", source: text }, { uri: "b.fb", source: twice }, { uri: "c.fb", source: twice }],
+      [{ uri: "c.fb", source: twice }, { uri: "a.fb", source: text }, { uri: "b.fb", source: twice }],
+      [{ uri: "b.fb", source: twice }, { uri: "c.fb", source: twice }, { uri: "a.fb", source: text }],
+    ]) {
+      const got = answer(files)
+      // the in-file order moves only the order of a.fb's own scopes among themselves
+      expect(got.slice(0, 6)).toEqual(expected.slice(0, 6))
+      if (i === 0) expect(got).toEqual(expected)
+    }
 })

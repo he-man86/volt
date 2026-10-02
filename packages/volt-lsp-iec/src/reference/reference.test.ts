@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test"
-import { lookupReference, renderReferenceHover } from "./index.js"
+import { catalogNames, lookupReference, renderReferenceHover } from "./index.js"
+import { BUILTIN_OPERATOR_NAMES } from "../frontend/types/index.js"
 import { parseSource } from "../frontend/syntax/index.js"
 import { hover } from "../services/index.js"
 import type { Document } from "../services/shared/index.js"
@@ -53,4 +54,15 @@ test("a conversion-shaped name with an unknown type is NOT described", () => {
   expect(lookupReference("TO_MYSTRUCT")).toBeUndefined()
   expect(lookupReference("FOO_TO_BAR")).toBeUndefined()
   expect(lookupReference("INT_TO_NOPE")).toBeUndefined()
+})
+
+// frontend-conformance 3.1.5: the compiler's own names are ONE set, `types/builtins.ts` `BUILTIN_OPERATOR_NAMES` — the
+// search order asks it (`types/names` `resolveBareName`) and this catalog holds the hover text of exactly those names
+test("the catalog's operators and standard functions are exactly the front-end's built-in names", () => {
+  const catalogued = [...BUILTIN_OPERATOR_NAMES].filter((n) => {
+    const kind = lookupReference(n)?.kind
+    return kind === "operator" || kind === "standard-function"
+  })
+  expect(catalogued).toEqual([...BUILTIN_OPERATOR_NAMES])
+  expect(catalogNames().filter((n) => !BUILTIN_OPERATOR_NAMES.has(n))).toEqual([])
 })

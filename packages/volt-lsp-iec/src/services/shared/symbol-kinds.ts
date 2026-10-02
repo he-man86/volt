@@ -38,6 +38,8 @@ export function lspSymbolKind(kind: SymbolKind): Lsp {
       return Lsp.Namespace
     case "namespace":
       return Lsp.Namespace
+    case "device":
+      return Lsp.Object
   }
 }
 
@@ -76,5 +78,7 @@ export function humanKind(kind: SymbolKind): string {
       return "global variable list"
     case "namespace":
       return "namespace"
+    case "device":
+      return "device"
   }
 }

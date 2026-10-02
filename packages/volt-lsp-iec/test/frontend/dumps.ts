@@ -15,24 +15,23 @@
  * temporary worktree compares equal to one taken here.
  */
 import { isAbsolute, join, relative } from "node:path"
-import { messagesFor, parseErrorMessage, vendorReportsParseError, type WorkspaceRefs } from "../../src/analysis/index.js"
-import { lookupReference } from "../../src/reference/index.js"
-import { bodyConditionWorld, lookup, lookupMember, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol } from "../../src/frontend/symbols/index.js"
+import { messagesFor, parseErrorMessage, vendorReportsParseError } from "../../src/analysis/index.js"
+import { bodyConditionWorld, lookupMember, type Scope, scopeForUnit, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
-  CODESYS_ONLY_TYPES,
   constancyOf,
   constEval,
   inferExprType,
-  parseConversionName,
   renderType,
   resolveCallee,
+  resolveBareName,
+  resolveGlobalName,
   resolveMemberChain,
+  type BareName,
   type CalleeInfo,
   type ConstValue,
 } from "../../src/frontend/types/index.js"
 import {
   allUnits,
-  CODESYS_ONLY_KEYWORDS,
   exprText,
   isStBody,
   isTrivia,
@@ -340,11 +339,10 @@ export function firstDifference(a: string, b: string): string {
 
 // ─── 0.3 / 0.4 the bound dumps ───────────────────────────────────────────────────────────────────────────────
 
-/** A parsed source, bound: the project it lives in, and what the workspace scan knows beside it. */
+/** A parsed source, bound: the project it lives in (its library manifests and device instances bound too). */
 export interface Bound {
   parsed: Parsed
   project: Scope
-  refs: WorkspaceRefs
 }
 
 /** Where an expression sits and the scope it resolves against — `undefined` when its unit binds no scope. */
@@ -404,36 +402,32 @@ export function uriId(uri: string): string {
 
 const describe = (s: Symbol): string => `${s.kind} ${s.owner.name}.${s.name} ${uriId(s.uri)}:${s.span.startLine}`
 
-/** The compiler-provided names nobody declares (`analysis/resolution.ts` `COMPILER_PROVIDED_IMPLICITS`). */
-const IMPLICITS: ReadonlySet<string> = new Set(["this", "super", "ioconfig_globals", "type_class"])
+/** The dump's word for each compiler-provided name (`types/builtins` `builtinName`). */
+const BUILTIN_WORD = { "system-operator": "system", conversion: "conversion", implicit: "implicit", operator: "builtin", type: "builtin" } as const
 
 /**
- * What a BARE name binds to, as the front-end sees it: a declaration first (the innermost, `lookup`), then a bare enum
- * member, then each avenue `analysis/resolution.ts` `nameResolves` accepts without a declaration — a system operator,
- * a conversion, a compiler implicit, the reference catalog, a library namespace, a device instance — and NONE.
+ * What a BARE name binds to — the search order's answer (`types/names` `resolveBareName`, rule Y23), in the dump's words:
+ * a declaration (a library namespace's included), a bare enum member, a device instance, a compiler-provided name, NONE.
  */
-export function resolveBare(name: string, scope: Scope | undefined, b: Bound): string {
+export function resolveBare(name: string, scope: Scope | undefined): string {
   if (scope === undefined) return "NOSCOPE"
-  const found = lookup(scope, name)
-  if (found !== undefined) return describe(found.symbol)
-  const member = resolveBareEnumMember(b.project, name)
-  if (member !== undefined) return `enum-member ${describe(member)}`
-  const lower = name.toLowerCase()
-  if (name.startsWith("__"))
-    return b.project.dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(name.toUpperCase()) ? "NONE" : "system"
-  const conversion = parseConversionName(name)
-  if (conversion !== undefined) {
-    const involved = [conversion.to.name, conversion.from?.name]
-    return b.project.dialect === "twincat" &&
-      involved.some((n) => n !== undefined && CODESYS_ONLY_TYPES.has(n.toUpperCase()))
-      ? "NONE"
-      : "conversion"
+  return bareWord(resolveBareName(scope, name))
+}
+
+function bareWord(answer: BareName): string {
+  switch (answer.kind) {
+    case "declared":
+    case "library-namespace":
+      return describe(answer.symbol)
+    case "enum-member":
+      return `enum-member ${describe(answer.symbol)}`
+    case "device":
+      return "device"
+    case "builtin":
+      return BUILTIN_WORD[answer.builtin]
+    case "none":
+      return "NONE"
   }
-  if (IMPLICITS.has(lower)) return "implicit"
-  if (lookupReference(name) !== undefined) return "builtin"
-  if (b.refs.libraryNamespaces.has(lower)) return "library-namespace"
-  if (b.refs.deviceInstances.has(lower)) return "device"
-  return "NONE"
 }
 
 /**
@@ -465,7 +459,7 @@ export function resolutionDump(b: Bound): string[] {
   const walk = (e: Expr, scope: Scope | undefined): void => {
     switch (e.kind) {
       case "ident_expr":
-        out.push(`${at(e.span)} ${e.name} -> ${resolveBare(e.name, scope, b)}`)
+        out.push(`${at(e.span)} ${e.name} -> ${resolveBare(e.name, scope)}`)
         return
       case "literal":
         return
@@ -508,8 +502,7 @@ export function resolutionDump(b: Bound): string[] {
         return
       // `.name`, the global-namespace operator (rule E33): the name in the project scope only
       case "global_expr": {
-        const sym = scope === undefined ? undefined : resolveMemberChain(e, scope, b.project)
-        out.push(`${at(e.name.span)} (global) ${e.name.name} -> ${scope === undefined ? "NOSCOPE" : sym === undefined ? "NONE" : describe(sym)}`)
+        out.push(`${at(e.name.span)} (global) ${e.name.name} -> ${scope === undefined ? "NOSCOPE" : bareWord(resolveGlobalName(b.project, e.name.name))}`)
         return
       }
     }

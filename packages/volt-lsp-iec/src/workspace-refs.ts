@@ -5,25 +5,30 @@
  *
  *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`/`.struct`/`.enum`/`.union`/`.alias`) — the
  *     units the binder cross-indexes, so a type declared in an unopened file still resolves.
- *   - **reference names** the unresolved-identifier check must SKIP (they resolve OUTSIDE the project):
- *       - `.library` files carry a `NAMESPACE <name>` line — the root of a qualified library reference.
- *       - `.device` files are named after a device-tree instance the source reads bare.
+ *   - **what the symbol table binds beside the sources** (`WorkspaceRefs`):
+ *       - `.library` manifests — each library's NAMESPACE, DEPENDENCIES and RESOLUTION (`bindLibraryNamespaces`);
+ *       - `.device` descriptors — each named after a device-tree instance the source may read bare (`ingestDevices`,
+ *         rule Y24). They were a skip SET the analysis read, beside the search order; the binder binds them now, so
+ *         the search order (`types/names` `resolveBareName`) is the one answer.
  *   - **task roots** — the `.task` `Calls:` PROGRAM names (comma-separated) dead-code reachability seeds from.
  *
- * Library namespaces stay skips while devices may one day gain real types, so the two ref sets stay
- * separate. Names are lowercased (PLC identifiers are case-insensitive). Unreadable files/dirs are
- * skipped, never thrown ⇒ an empty scan means "nothing known", which degrades safely.
+ * Unreadable files/dirs are skipped, never thrown ⇒ an empty scan means "nothing known", which degrades safely.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { basename, extname, join } from "node:path"
-import {
-  EMPTY_WORKSPACE_REFS,
-  projectDiagnosticsFrom,
-  type ConfigurableCode,
-  type DiagnosticState,
-  type WorkspaceRefs,
-} from "./analysis/index.js"
+import { projectDiagnosticsFrom, type ConfigurableCode, type DiagnosticState } from "./analysis/index.js"
 import { parseLibraryManifest, type LibraryManifest } from "./frontend/library/index.js"
+import type { DeviceInstance } from "./frontend/symbols/index.js"
+
+/** What a workspace holds beside its sources that the symbol table binds: the referenced libraries' manifests and the
+ *  device tree's instances. */
+export interface WorkspaceRefs {
+  libraryManifests: readonly LibraryManifest[]
+  devices: readonly DeviceInstance[]
+}
+
+/** No workspace reference files known. */
+export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [] }
 import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
@@ -77,9 +82,8 @@ export function readSourceText(file: string): string {
 }
 
 // ─── per-extension name extractors (shared by the single-file loaders + scanWorkspace) ───
-const libraryNamespaceOf = (file: string): string | undefined =>
-  readFileSync(file, "utf8").match(/^NAMESPACE (.+)$/m)?.[1]?.trim()
-const deviceInstanceOf = (file: string): string => basename(file, extname(file))
+/** A `.device` descriptor's instance — the pull names the file after it. */
+const deviceInstanceOf = (file: string): DeviceInstance => ({ kind: "device", name: basename(file, extname(file)), uri: file })
 /** Every PROGRAM on a `.task` `Calls:` line. A task can run several (`Calls: A, B, C`), so split the
  *  comma list — the old single-`\S+` grab captured only `A,` (trailing comma) and dropped B, C. */
 const taskRootsOf = (file: string): string[] =>
@@ -88,30 +92,9 @@ const taskRootsOf = (file: string): string[] =>
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
 
-/** Scan `<root>` for files with `ext`, map each to a name (undefined ⇒ skip), collect them lowercased. */
-function collect(root: string, ext: string, nameOf: (path: string) => string | undefined): Set<string> {
-  const out = new Set<string>()
-  for (const file of walkFiles(root)) {
-    if (extname(file) !== ext) continue
-    let name: string | undefined
-    try {
-      name = nameOf(file)
-    } catch {
-      continue // unreadable ref file — skip
-    }
-    if (name !== undefined && name.length > 0) out.add(name.toLowerCase())
-  }
-  return out
-}
-
-/** Referenced-library namespaces, from each `.library` file's `NAMESPACE` line. */
-export function loadLibraryNamespaces(root: string): Set<string> {
-  return collect(root, ".library", libraryNamespaceOf)
-}
-
-/** Device-tree instance names, from each `.device` file's stem (the instance name is the filename). */
-export function loadDeviceInstances(root: string): Set<string> {
-  return collect(root, ".device", deviceInstanceOf)
+/** The device tree's instances, one per `.device` descriptor (the instance name is the file's stem). */
+export function loadDeviceInstances(root: string): DeviceInstance[] {
+  return walkFiles(root).filter((file) => extname(file) === ".device").map(deviceInstanceOf)
 }
 
 /**
@@ -159,9 +142,8 @@ export function scanWorkspace(root: string): WorkspaceScan {
   const empty: WorkspaceScan = { refs: EMPTY_WORKSPACE_REFS, taskRoots: new Set(), sources: [] }
   let projectDiagnostics: Partial<Record<ConfigurableCode, DiagnosticState>> | undefined
   if (root.length === 0) return empty
-  const libraryNamespaces = new Set<string>()
   const libraryManifests: LibraryManifest[] = []
-  const deviceInstances = new Set<string>()
+  const devices: DeviceInstance[] = []
   const taskRoots = new Set<string>()
   const sources: { path: string; source: string }[] = []
   for (const file of walkFiles(root)) {
@@ -172,12 +154,10 @@ export function scanWorkspace(root: string): WorkspaceScan {
     const ext = extname(file)
     try {
       if (ext === ".library") {
-        const ns = libraryNamespaceOf(file)
-        if (ns) libraryNamespaces.add(ns.toLowerCase())
         const manifest = parseLibraryManifest(file, readFileSync(file, "utf8"))
         if (manifest !== undefined) libraryManifests.push(manifest)
       } else if (ext === ".device") {
-        deviceInstances.add(deviceInstanceOf(file).toLowerCase())
+        devices.push(deviceInstanceOf(file))
       } else if (ext === ".projectsettings") {
         // The project's own compiler-warning configuration — see `projectDiagnosticsFrom`. One per project;
         // a second would mean two projects in one root, which the workspace model does not support anyway.
@@ -193,7 +173,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
     }
   }
   return {
-    refs: { libraryNamespaces, libraryManifests, deviceInstances },
+    refs: { libraryManifests, devices },
     taskRoots,
     sources,
     ...(projectDiagnostics === undefined ? {} : { projectDiagnostics }),

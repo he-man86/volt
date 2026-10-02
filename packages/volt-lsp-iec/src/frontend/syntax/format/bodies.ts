@@ -8,9 +8,11 @@
  * diagnostic of the parser the line names, never re-read as the other language.
  */
 import type { BodySpan, Identifier, TopLevel, TypeExpr, VarSection } from "../ast/nodes.js"
+import { allUnits } from "../ast/walk.js"
 import { bodyReader } from "./implementation-line.js"
 
-/** Every token-body a unit carries (POU body + property accessors). */
+/** Every token-body a unit carries (POU body + property accessors) — a NAMESPACE block's are its units' (rule Y17, through
+ *  `allUnits`: a walk over a file's units reached none of the bodies inside one). */
 export function unitBodies(unit: TopLevel): BodySpan[] {
   switch (unit.kind) {
     case "function_block":
@@ -21,6 +23,8 @@ export function unitBodies(unit: TopLevel): BodySpan[] {
       return [unit.body]
     case "property":
       return [...(unit.getter ? [unit.getter.body] : []), ...(unit.setter ? [unit.setter.body] : [])]
+    case "namespace":
+      return allUnits(unit.units).flatMap(unitBodies)
     default:
       return []
   }
@@ -53,5 +57,5 @@ export function isStBody(body: BodySpan): boolean {
  * resolved scope and parsed statements, is `symbols/scoped-bodies`.
  */
 export function* graphicalBodies(units: readonly TopLevel[]): Generator<{ unit: TopLevel; body: BodySpan }> {
-  for (const unit of units) for (const body of unitBodies(unit)) if (isGraphicalBody(body)) yield { unit, body }
+  for (const unit of allUnits(units)) for (const body of unitBodies(unit)) if (isGraphicalBody(body)) yield { unit, body }
 }

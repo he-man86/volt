@@ -39,9 +39,7 @@ import {
   SOURCE,
   type DiagnosticItem,
   type Messages,
-  type WorkspaceRefs,
 } from "../analysis/index.js"
-import { EMPTY_WORKSPACE_REFS } from "../analysis/index.js"
 import { extendsChain, hasUnresolvedBase, type Scope } from "../frontend/symbols/index.js"
 import { analyzeNetworkText, instanceFb } from "./network-analyze.js"
 import { walkValues, type NetworkName, type NetworkTextNetwork, type NetworkTextStatement, type NetworkValue } from "../network-text/ast.js"
@@ -52,7 +50,6 @@ export function computeNetworkTextDiagnostics(
   doc: Document,
   project: Scope,
   messages: Messages,
-  references: WorkspaceRefs = EMPTY_WORKSPACE_REFS,
 ): DiagnosticItem[] {
   const out: DiagnosticItem[] = []
   for (const { unit, body } of graphicalBodies(doc.parseResult.units)) {
@@ -69,7 +66,7 @@ export function computeNetworkTextDiagnostics(
       checkStatements(network.statements, scope, project, messages, out)
       checkBinaryOps(network.statements, scope, project, messages, out)
       checkConversionArgs(network.statements, scope, project, messages, out)
-      checkUndeclared(network.statements, scope, project, references, messages, out)
+      checkUndeclared(network.statements, scope, project, messages, out)
       checkPins(network.statements, scope, project, messages, out)
       checkHoles(network.statements, scope, project, messages, out) // LAST — it reads what the others found
     }
@@ -93,12 +90,11 @@ function checkUndeclared(
   statements: readonly NetworkTextStatement[],
   scope: Scope,
   project: Scope,
-  references: WorkspaceRefs,
   messages: Messages,
   out: DiagnosticItem[],
 ): void {
   const exprs = operandExprs(statements)
-  for (const ref of unresolvedInExprs(exprs, scope, project, references)) {
+  for (const ref of unresolvedInExprs(exprs, scope)) {
     out.push({
       severity: "error",
       span: ref.span,

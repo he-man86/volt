@@ -1790,6 +1790,7 @@ export const RULES: readonly Rule[] = [
       "expr_global_namespace_array_bound_index",
       "expr_global_namespace_qualified_bound",
       "expr_global_namespace_enum_bound",
+      "sym_global_namespace_dot_skips_local",
     ],
     design: "**GAP**",
     tests: [
@@ -2578,7 +2579,14 @@ export const RULES: readonly Rule[] = [
     rule: "identifiers are case-insensitive",
     home: "symbols/scope",
     gap: false,
-    fixtures: ["sn_case_differs_only", "echo_mixed_case_function_name", "echo_lower_case_function_name"],
+    fixtures: [
+      "sn_case_differs_only",
+      "echo_mixed_case_function_name",
+      "echo_lower_case_function_name",
+      "sym_case_local_ref",
+      "sym_case_type_name",
+      "sym_case_method_call",
+    ],
     design: "sn_case_differs_only, echo_mixed_case_function_name, echo_lower_case_function_name",
   },
   {
@@ -2593,6 +2601,9 @@ export const RULES: readonly Rule[] = [
       "shadowing_method_param_shadows_member",
       "shadowing_method_local_shadows_fb_var",
       "xo3_method_local_shadows_field",
+      "sym_fb_var_shadows_global",
+      "sym_method_local_shadows_global",
+      "sym_method_param_shadows_global",
     ],
     design:
       "shadowing_method_local_shadows_member, shadowing_method_param_shadows_member, shadowing_method_local_shadows_fb_var, xo3_method_local_shadows_field",
@@ -2603,9 +2614,16 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "VAR_IN_OUT vs FB field vs VAR_STAT (transpile-review 19)",
     home: "scope-nav",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "sym_inout_vs_field_vs_stat",
+      "sym_inout_and_stat_same_method",
+      "tr_19_method_inout_shadows_member",
+      "tr_19_method_inout_shadows_var_stat",
+    ],
     design: "**GAP**",
+    recheck:
+      "3.1.1: closed by `sym_inout_vs_field_vs_stat` (one name as an FB field, a METHOD's VAR_IN_OUT and another METHOD's VAR_STAT — each body reads its own, out 157, both vendors build) and `sym_inout_and_stat_same_method` (the in-out and the VAR_STAT in ONE method: \"A local variable named 'x' is already defined in 'M'\"); transpile-review 19's two run fixtures.",
   },
   {
     id: "Y4",
@@ -2620,6 +2638,7 @@ export const RULES: readonly Rule[] = [
       "oop_action_block",
       "xo3_action_method_action",
       "use_self_method_call",
+      "sym_method_after_two_fbs",
     ],
     design:
       "use_fb_method_call_no_args, use_fb_method_returns_value, oop_action_block, xo3_action_method_action, use_self_method_call",
@@ -2631,7 +2650,12 @@ export const RULES: readonly Rule[] = [
     rule: "method VAR_INPUT/OUTPUT/IN_OUT are parameters",
     home: "binder",
     gap: false,
-    fixtures: ["use_fb_method_call_one_input", "use_fb_method_call_named_args", "callshape_method_input_no_default"],
+    fixtures: [
+      "use_fb_method_call_one_input",
+      "use_fb_method_call_named_args",
+      "callshape_method_input_no_default",
+      "sym_method_output_param_bound",
+    ],
     design: "use_fb_method_call_one_input, use_fb_method_call_named_args, callshape_method_input_no_default",
   },
   {
@@ -2656,9 +2680,14 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "the same local name in getter and setter does not collide",
     home: "binder",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "sym_getter_setter_same_local",
+      "sym_setter_reads_getter_local",
+    ],
     design: "**GAP**",
+    recheck:
+      "3.1.1: closed by `sym_getter_setter_same_local` (GET and SET each declare `tmp`: builds, out 6) and `sym_setter_reads_getter_local` (the SET reading the GET's local: \"Identifier 'onlyGet' not defined\"), both vendors.",
   },
   {
     id: "Y8",
@@ -2667,8 +2696,15 @@ export const RULES: readonly Rule[] = [
     rule: "program instance members reachable as `PRG.var`",
     home: "scope-nav.lookupMember",
     gap: false,
-    fixtures: ["callshape_program_instance_from_outside", "callshape_method_on_program"],
+    fixtures: [
+      "callshape_program_instance_from_outside",
+      "callshape_method_on_program",
+      "sym_program_var_write_from_outside",
+      "sym_program_input_write_from_outside",
+    ],
     design: "callshape_program_instance_from_outside, callshape_method_on_program",
+    recheck:
+      "3.1.1: a program's VAR is read from outside but not written (\"'v' is no input of 'PRG_…'\", `sym_program_var_write_from_outside`); its VAR_INPUT is written (`sym_program_input_write_from_outside`, out 4), both vendors.",
   },
   {
     id: "Y9",
@@ -2677,7 +2713,13 @@ export const RULES: readonly Rule[] = [
     rule: "GVL block name = file basename; `GVL.var` resolves",
     home: "binder.gvlName, scope-nav.resolveGvlMember",
     gap: false,
-    fixtures: ["use_gvl_field_access", "xo3_limits_gvl", "xo_gvl_shared_struct", "xo4_gvl_array"],
+    fixtures: [
+      "use_gvl_field_access",
+      "xo3_limits_gvl",
+      "xo_gvl_shared_struct",
+      "xo4_gvl_array",
+      "sym_gvl_unknown_member",
+    ],
     design: "use_gvl_field_access, xo3_limits_gvl, xo_gvl_shared_struct, xo4_gvl_array",
   },
   {
@@ -2697,7 +2739,10 @@ export const RULES: readonly Rule[] = [
     rule: "`qualified_only` GVL: only `GVL.var` resolves",
     home: "binder + attributes",
     gap: false,
-    fixtures: ["fbcall_gvl_qualified"],
+    fixtures: [
+      "fbcall_gvl_qualified",
+      "sym_qualified_only_other_list_bare",
+    ],
     design: "fbcall_gvl_qualified",
   },
   {
@@ -2706,9 +2751,15 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "`qualified_only` applies per unit, not per file",
     home: "attributes",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "sym_qualified_only_one_of_two_gvls_in_file",
+      "sym_qualified_only_other_list_bare",
+      "sym_qualified_only_second_section",
+    ],
     design: "**GAP**",
+    recheck:
+      "3.1.3: closed — `qualified_only` is the list OBJECT's: of two list objects only the attributed one needs its name (`sym_qualified_only_one_of_two_gvls_in_file` runs 3 + 4, `_other_list_bare` refused), and within one object the attribute covers every section (`sym_qualified_only_second_section`: the CONSTANT section's variable read bare is undefined), both vendors. Two VAR_GLOBAL blocks back to back are ONE object (the first recording measured exactly that).",
   },
   {
     id: "Y13",
@@ -2717,8 +2768,15 @@ export const RULES: readonly Rule[] = [
     rule: "VAR_EXTERNAL binds to the same-named global",
     home: "scope-nav (today analysis)",
     gap: false,
-    fixtures: ["var_external_gvl", "var_external_consumer"],
+    fixtures: [
+      "var_external_gvl",
+      "var_external_consumer",
+      "sym_var_external_qualified_only_global",
+      "sym_var_external_in_method",
+    ],
     design: "var_external_gvl, var_external_consumer",
+    recheck:
+      "3.1.3: a VAR_EXTERNAL binds a global a bare name reaches — never a `qualified_only` list's (\"No global definition found for VAR_EXTERNAL g_veqo\", `sym_var_external_qualified_only_global`) — and is allowed in a METHOD (`sym_var_external_in_method`, out 5); `symbols/scope-nav` `externalGlobal`.",
   },
   {
     id: "Y14",
@@ -2727,8 +2785,15 @@ export const RULES: readonly Rule[] = [
     rule: "the same global in two GVLs is ambiguous; VAR_EXTERNAL disambiguates",
     home: "analysis over scope-nav",
     gap: false,
-    fixtures: ["cc6_ambiguous_gvl_one", "cc6_ambiguous_gvl_two", "cc6_ambiguous_global"],
+    fixtures: [
+      "cc6_ambiguous_gvl_one",
+      "cc6_ambiguous_gvl_two",
+      "cc6_ambiguous_global",
+      "sym_var_external_of_ambiguous_global",
+    ],
     design: "cc6_ambiguous_gvl_one, cc6_ambiguous_gvl_two, cc6_ambiguous_global",
+    recheck:
+      "3.1.3: VAR_EXTERNAL does NOT disambiguate: two lists declaring the name are \"Ambiguous use of name\" at the declaration and the use (`sym_var_external_of_ambiguous_global`, both vendors) — a known divergence, niche: accepted loss (0 VAR_EXTERNAL in the corpora).",
   },
   {
     id: "Y15",
@@ -2747,7 +2812,12 @@ export const RULES: readonly Rule[] = [
     rule: "a duplicate declaration in one scope",
     home: "binder + analysis",
     gap: false,
-    fixtures: ["duplicate_declaration"],
+    fixtures: [
+      "duplicate_declaration",
+      "sym_duplicate_input_and_var",
+      "sym_duplicate_method_param_and_local",
+      "sym_inout_and_stat_same_method",
+    ],
     design: "duplicate_declaration",
   },
   {
@@ -2756,9 +2826,14 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "units inside a source NAMESPACE block are scoped and analysed",
     home: "binder.ingestNamespace, scoped-bodies",
-    gap: true,
+    gap: false,
     fixtures: [],
     design: "**GAP**",
+    recheck:
+      "3.1.2: no vendor holds a source NAMESPACE block — a project has no namespace object and the push refuses END_NAMESPACE in a POU's text on both (`sym_namespace_block_unit_checked`, its refusal in `vendorRefuses`, rated unaskable; rule U28). The LSP's reading of a workspace text that holds one is decided by the named test: the units inside are scoped and walked (`scopedBodies`/`unitBodies` through `allUnits`). 0 END_NAMESPACE in the corpora.",
+    tests: [
+      { file: "src/frontend/symbols/scoped-bodies.test.ts", title: "the bodies of units inside a NAMESPACE block are walked, each against its own scope (Y17)" },
+    ],
   },
   {
     id: "Y18",
@@ -2766,9 +2841,14 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "a METHOD after an FB inside a NAMESPACE parents to that FB",
     home: "binder",
-    gap: true,
+    gap: false,
     fixtures: [],
     design: "**GAP**",
+    recheck:
+      "3.1.2: as Y17 — the push refuses the block on both vendors (`sym_namespace_method_parents_to_fb`, unaskable); the named test decides the LSP's reading: the namespace ingest tracks the member host as a file does (`binder` `ingestUnits`).",
+    tests: [
+      { file: "src/frontend/symbols/binder.test.ts", title: "a METHOD, ACTION and PROPERTY after an FB inside a NAMESPACE parent to that FB (Y18)" },
+    ],
   },
   {
     id: "Y19",
@@ -2776,9 +2856,17 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "binding is order-independent",
     home: "incremental.canonicalize",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "sym_order_independent_use_first",
+      "sym_order_independent_use_last",
+    ],
     design: "**GAP** (probe script only)",
+    recheck:
+      "3.1.4: closed by the pair `sym_order_independent_use_first` / `_last` (the FUNCTION and STRUCT an FB uses written after it, then before it: both build and run 3 + 4, both vendors) and the named test (every unit order and every file order answer every name alike — canonical order).",
+    tests: [
+      { file: "src/frontend/symbols/incremental.test.ts", title: "binding is order-independent: every unit order within a file and every file order answer every name alike (Y19)" },
+    ],
   },
   {
     id: "Y20",
@@ -2787,7 +2875,16 @@ export const RULES: readonly Rule[] = [
     rule: "a function's name is its return variable; a method's result",
     home: "binder",
     gap: false,
-    fixtures: ["refuse_method_no_result", "use_fb_method_returns_value"],
+    fixtures: [
+      "refuse_method_no_result",
+      "use_fb_method_returns_value",
+      "sym_function_result_read_in_body",
+      "sym_method_result_read_in_body",
+      "sym_function_local_named_as_function",
+      "sym_function_input_named_as_function",
+      "sym_method_local_named_as_method",
+      "sym_method_input_named_as_method",
+    ],
     design: "refuse_method_no_result, use_fb_method_returns_value",
   },
   {
@@ -2825,9 +2922,26 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "the bare-name search order (`09-shadowing.md`): locals, then the POU's members and inherited members, then local methods before globals, globals before POU/type names, then built-ins and library roots; a library GVL requires qualified access",
     home: "types/names.resolveBareName",
-    gap: true,
-    fixtures: ["shadowing_*"],
+    gap: false,
+    fixtures: [
+      "shadowing_*",
+      "sym_inherited_member_before_global",
+      "sym_method_before_global",
+      "sym_global_before_pou_name",
+      "sym_global_before_pou_name_called",
+      "sym_method_before_pou_name",
+      "sym_library_gvl_needs_qualification",
+      "sym_library_gvl_qualified_by_namespace",
+      "sym_library_gvl_qualified_by_list",
+      "sym_library_gvl_qualified_fully",
+      "sym_global_namespace_dot_skips_local",
+    ],
     design: "shadowing_* (steps 1–2 only) — **GAP** for the intermediate steps",
+    recheck:
+      "3.1.5: closed, step against step — an inherited field before a global (steps 3/5, out 5), the POU's method before a global (4/5, 7) and before a FUNCTION (4/8, 7), a global before a FUNCTION read (5/8, 3) and called (a call of an INT), `.g` past a method local and an FB field (E33, 3); step 7: StringUtils' global is reached neither bare (`sym_library_gvl_needs_qualification`) nor through the namespace (`Stu.HALFSHIFT`), only through its list (`GVL_UTF8.HALFSHIFT`, `Stu.GVL_UTF8.HALFSHIFT`, 10) — those two CODESYS refusals are known divergences, niche: accepted loss (the manifest carries no qualified-access flag; 0 occurrences in the corpora). `types/names` `resolveBareName` is the one home.",
+    tests: [
+      { file: "src/frontend/types/names.test.ts", title: "step 5 before step 8: a global before a POU of its name (sym_global_before_pou_name)" },
+    ],
   },
   {
     id: "Y24",
@@ -2835,9 +2949,13 @@ export const RULES: readonly Rule[] = [
     section: "3.1",
     rule: "a device-tree instance name resolves bare (from the `.device` descriptors)",
     home: "symbols/binder (device ingest) + types/names",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "sym_device_instance_bare",
+    ],
     design: "**GAP**",
+    recheck:
+      "3.1.5: closed by `sym_device_instance_bare` — the fixture project's PLC `Device` named bare builds (`ADR(Device)`, CODESYS); TwinCAT's project has no such device and says so. Device instances are bound by the binder from the `.device` descriptors (`ingestDevices`).",
   },
   // ── 3.2 ──
   {

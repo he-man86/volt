@@ -18,11 +18,10 @@ import {
   deadPousFromInfos,
   deadMemberSpansFromInfos,
   fileReachInfo,
-  EMPTY_WORKSPACE_REFS,
   type FileReachInfo,
   type ResolvedConfig,
-  type WorkspaceRefs,
 } from "../analysis/index.js"
+import { EMPTY_WORKSPACE_REFS, type WorkspaceRefs } from "../workspace-refs.js"
 import { deadNameUniverse, reachDeadEquivalent } from "./dead-code-equivalence.js"
 import type { Document } from "../services/shared/index.js"
 import { NETWORK_TEXT_ENABLED } from "./config.js"
@@ -115,7 +114,8 @@ export class WorkspaceStore {
       // each referenced library's units under the NAMESPACE the source qualifies them with (`bindLibraryNamespaces`)
       // the VENDOR belongs here as much as it does on the parse above — `project.dialect` is what decides that
       // `LDATE` does not resolve on TwinCAT, and omitting it left every such branch dead in the running server
-      this.projectScope = build.buildSymbolTable(docs, this.workspaceRefs.libraryManifests, this.config.vendor)
+      // …and the device-tree instances, from the `.device` descriptors (rule Y24)
+      this.projectScope = build.buildSymbolTable(docs, this.workspaceRefs.libraryManifests, this.config.vendor, undefined, this.workspaceRefs.devices)
       this.boundDocs.clear()
       for (const d of docs) this.boundDocs.set(normalizeKey(d.uri), d)
     }

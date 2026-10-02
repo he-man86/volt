@@ -11,10 +11,62 @@
  */
 import { CODESYS_ONLY_KEYWORDS, type Dialect } from "../syntax/index.js"
 import { isAssignable } from "./compat.js"
-import { elementaryType } from "./elementary.js"
+import { CODESYS_ONLY_TYPES, elementaryType } from "./elementary.js"
 import { elementaryRef, elementaryTypeRef, elemOf, UNKNOWN, type Type } from "./type.js"
 import { parseConversionName } from "./conversion-name.js"
 import { REAL_LITERAL_TYPE } from "./literal.js"
+
+/**
+ * THE COMPILER'S OWN NAMES — the operators and the IEC standard functions every project has without referencing a
+ * library (upper-case). The one home of the set: the bare-name search order asks it (`names.ts` `resolveBareName`), and
+ * the reference catalog (`reference/reference.ts`) holds the hover text of exactly these names and refuses any other. A
+ * LIBRARY'S element is never here — not Standard's LEN or TON: it exists only where a project references its library,
+ * and resolves through that library's materialized declaration.
+ *
+ * `CALC` is the instruction-list conditional call, which CODESYS's ST parser knows too: `calc : INT;` is a CALC whose
+ * `(` is missing, not an undefined name (`ilc_calc_*`). It compiles in no form.
+ */
+export const BUILTIN_OPERATOR_NAMES: ReadonlySet<string> = new Set([
+  // boolean / bitwise, arithmetic, size
+  "AND", "OR", "XOR", "NOT", "AND_THEN", "OR_ELSE", "ADD", "SUB", "MUL", "DIV", "MOD", "MOVE", "INDEXOF", "SIZEOF", "XSIZEOF",
+  // shift / rotate, comparison (function form)
+  "SHL", "SHR", "ROL", "ROR", "GT", "LT", "GE", "LE", "EQ", "NE",
+  // address, math
+  "ADR", "BITADR", "LN", "LOG", "EXP", "EXPT", "SIN", "COS", "TAN", "ASIN", "ACOS", "ATAN",
+  // system operators
+  "CALC", "__NEW", "__DELETE", "__ISVALIDREF", "__QUERYINTERFACE", "__QUERYPOINTER", "__TRY", "__CATCH", "__FINALLY", "__ENDTRY",
+  "__VARINFO", "__POSITION", "__POUNAME", "__CURRENTTASK", "__COMPARE_AND_SWAP", "__XADD", "__POOL", "TEST_AND_SET", "INI",
+  // the IEC standard functions the compiler provides, and the array bounds
+  "ABS", "SQRT", "SEL", "MUX", "MIN", "MAX", "LIMIT", "TRUNC", "TRUNC_INT", "UPPER_BOUND", "LOWER_BOUND",
+])
+
+/**
+ * The compiler-provided names nobody declares: `THIS`/`SUPER` (the instance and its base), `IoConfig_Globals` (the
+ * generated I/O-mapping list) and `TYPE_CLASS` (the system enum of `__VARINFO`). Upper-case.
+ */
+export const COMPILER_IMPLICITS: ReadonlySet<string> = new Set(["THIS", "SUPER", "IOCONFIG_GLOBALS", "TYPE_CLASS"])
+
+/** What kind of compiler-provided name a bare name is (`builtinName`). */
+export type BuiltinName = "system-operator" | "conversion" | "implicit" | "operator" | "type"
+
+/**
+ * `name` as one of the compiler's own names in `dialect`, or undefined. A `__` name is a system operator — except the
+ * CODESYS-only ones on TwinCAT, which has never heard of them ("Identifier '__POSITION' not defined",
+ * `syntax/lex/vocabulary.ts`). A conversion is only as real as the types it names: `DATE_TO_LDATE` is no TwinCAT
+ * operator, LDATE being no TwinCAT type (`TO_LDATE` neither — the parsed conversion is asked, not the spelling).
+ */
+export function builtinName(name: string, dialect: Dialect | undefined): BuiltinName | undefined {
+  const upper = name.toUpperCase()
+  if (upper.startsWith("__")) return dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : "system-operator"
+  const conversion = parseConversionName(name)
+  if (conversion !== undefined)
+    return [conversion.to.name, conversion.from?.name].every((n) => n === undefined || !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(n.toUpperCase())))
+      ? "conversion"
+      : undefined
+  if (COMPILER_IMPLICITS.has(upper)) return "implicit"
+  if (BUILTIN_OPERATOR_NAMES.has(upper)) return "operator"
+  return elementaryType(upper) !== undefined ? "type" : undefined
+}
 
 /**
  * FIXED RESULT TYPES, measured. Without one each of these inferred UNKNOWN, which is assignable to anything, so nothing

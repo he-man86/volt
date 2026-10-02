@@ -38,9 +38,8 @@ function ref(name: string, kind: ReferenceKind, oneLiner: string): ReferenceEntr
   return { name, kind, oneLiner, ...(returnType === undefined ? {} : { returnType }) }
 }
 
-// The catalog doubles as the unresolved-identifier check's "is this a compiler-provided global?" oracle:
-// a body identifier that resolves nowhere in project scope but appears here is a valid built-in, not an error.
-// So this list must cover every operator the compiler provides — and nothing a library provides.
+// The hover text of the compiler's own names — exactly `types/builtins.ts` `BUILTIN_OPERATOR_NAMES`, the set the
+// search order asks (`types/names` `resolveBareName`); nothing a library provides. `reference.test.ts` holds them equal.
 const OPERATORS: ReadonlyArray<ReferenceEntry> = [
   // boolean / bitwise (word form; the symbol form is lexed as its own token)
   ref("AND", "operator", "Boolean / bitwise AND."),
@@ -177,6 +176,12 @@ function conversionEntry(upper: string): ReferenceEntry | undefined {
     returnType: dst.name,
     ...(dst.range === undefined ? {} : { details: `result range ${dst.range.min}..${dst.range.max}` }),
   }
+}
+
+/** The names the catalog holds an operator or standard-function entry for (upper-case) — the front-end's built-in names
+ *  (`types/builtins.ts` `BUILTIN_OPERATOR_NAMES`), and no other: `reference.test.ts` holds the two sets equal. */
+export function catalogNames(): string[] {
+  return [...OPERATORS, ...STANDARD_FUNCTIONS].map((e) => e.name.toUpperCase())
 }
 
 /** Look up a built-in reference entry by name (case-insensitive, alias-aware for types). */

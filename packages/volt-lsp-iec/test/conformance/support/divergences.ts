@@ -751,17 +751,16 @@ const LITERAL_ONE_IS_BIT: readonly string[] = ["decl_struct_init_positional", "d
 /**
  * FRONTEND-CONFORMANCE 2.3.5 (2026-10-01) — a VAR_EXTERNAL section inside a STRUCT: both vendors refuse the section as the
  * LSP does, and then still look its declaration up among the globals: "No global definition found for VAR_EXTERNAL a".
- * The LSP refuses the section at parse and binds nothing from it, so no global lookup runs. The external-global rule's,
- * over a section that is no POU's (task 3.1.3).
+ * The LSP refuses the section at parse and binds nothing from it, so no global lookup runs. Niche: accepted loss (0
+ * occurrences in the corpora — they hold no VAR_EXTERNAL at all; frontend-conformance 3.1.3 counted).
  */
 const EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION: readonly string[] = ["decl_var_external_inside_struct"]
 
-/**
- * FRONTEND-CONFORMANCE 2.3.2 (2026-10-01) — `VAR_GLOBAL NON_RETAIN gNr : INT;`: the declaration is refused as on every
- * other list (the LSP agrees on that message), and `GVL.gNr` is then "'gNr' is no component of 'GVL_…'" with its
- * conversion. The LSP says nothing about a GVL member that does not exist — the GVL member rule's (Y9, task 3.1.3).
+/*
+ * (`GVL_MEMBER_NOT_DECLARED` — `decl_non_retain_in_gvl` — left 2026-10-02, frontend-conformance 3.1.3: `GVL.gNr`, a member the
+ * list does not declare, is "'gNr' is no component of 'GVL_…'" with its conversion, as both vendors say (rule Y9,
+ * `analysis/resolution` `checkMember`). TwinCAT keeps its NON_RETAIN recovery mark.)
  */
-const GVL_MEMBER_NOT_DECLARED: readonly string[] = ["decl_non_retain_in_gvl"]
 
 /**
  * FRONTEND-CONFORMANCE 2.3.4 (2026-10-01) — `[K+L(7)]` with K, L constants: the parser reads `L(7)` as L's call, as both
@@ -860,6 +859,49 @@ const CODESYS_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_for
 const TWINCAT_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_not_in_declaration"]
 
 /**
+ * FRONTEND-CONFORMANCE 3.1 (2026-10-02) — scope and lookup fixtures (`fixtures/names/scopes.ts`) the LSP does not answer as
+ * the vendors do, each niche or a fact the workspace does not hold:
+ *   `sym_var_external_of_ambiguous_global` (both) — a VAR_EXTERNAL naming a global two lists declare: "Ambiguous use of
+ *        name" at the declaration and at the use, the use undefined and its conversion a hole, and on CODESYS alone "No
+ *        global definition found for VAR_EXTERNAL" (TwinCAT words the first in lower case). The LSP binds the external to
+ *        the first list's (`symbols/scope-nav` `externalGlobal`) and says nothing. Niche: accepted loss (0 occurrences in
+ *        the corpora — they hold no VAR_EXTERNAL at all).
+ */
+const SCOPE_DIVERGENCES: readonly string[] = ["sym_var_external_of_ambiguous_global"]
+
+/**
+ *   `sym_library_gvl_needs_qualification` (CODESYS) — StringUtils' global `HALFSHIFT` read bare is "Identifier
+ *        'HALFSHIFT' not defined": the library requires qualified access (search order step 7, `09-shadowing.md`), and
+ *        whether a library does is a property its manifest does not carry (`.library`: NAMESPACE, RESOLUTION, PLACEHOLDER,
+ *        SYSTEM, DEPENDENCIES — no qualified-access flag), so the LSP resolves a library's global bare. A bridge fact to
+ *        export before the rule can be, never guessed per library. Niche: accepted loss (0 occurrences in the corpora: no
+ *        project file reads a library's global bare).
+ *   `sym_library_gvl_qualified_by_namespace` (CODESYS) — `Stu.HALFSHIFT` is "'STRINGUTILS, 3.5.20.0 (SYSTEM)' contains
+ *        no definition for 'HALFSHIFT'": a library's namespace reaches its lists by name (`Stu.GVL_UTF8.HALFSHIFT` builds,
+ *        `sym_library_gvl_qualified_fully`), not their variables. The LSP's namespace holds the variables too and says
+ *        nothing — the message, worded from the library's RESOLUTION, it has never emitted. Niche: accepted loss (0
+ *        occurrences in the corpora of a namespace-qualified library global).
+ */
+const CODESYS_SCOPE_DIVERGENCES: readonly string[] = ["sym_library_gvl_needs_qualification", "sym_library_gvl_qualified_by_namespace"]
+
+/**
+ *   `sym_library_gvl_needs_qualification`, `sym_library_gvl_qualified_by_namespace`, `_by_list`, `_fully` (TwinCAT) —
+ *        TwinCAT's fixture project references no StringUtils, so each is the library's ABSENCE ("Identifier 'Stu' / 'GVL_UTF8'
+ *        / 'HALFSHIFT' not defined"); the replay binds the CODESYS fixture project's libraries for both vendors
+ *        (`support/project-libraries.ts`), as every library fixture does. The question is CODESYS's.
+ *   `sym_device_instance_bare` (TwinCAT) — TwinCAT's project has no device `Device` (its corpus mirror holds no `.device`
+ *        descriptor) and says so as the LSP does, plus a third message for the ADR of the undefined name, "Unknown type:
+ *        'Device'". Niche: accepted loss (0 occurrences in the corpora, which build).
+ */
+const TWINCAT_SCOPE_DIVERGENCES: readonly string[] = [
+  "sym_library_gvl_needs_qualification",
+  "sym_library_gvl_qualified_by_namespace",
+  "sym_library_gvl_qualified_by_list",
+  "sym_library_gvl_qualified_fully",
+  "sym_device_instance_bare",
+]
+
+/**
  * C0033 IS CONFIGURED AS AN ERROR in both recording projects (frontend-conformance 2.10, 2026-10-02). T6's refusal cell
  * `decl_pointer_to_pointer_deref_once_into_int` (`x := pp^;`, a POINTER TO POINTER read once into an INT) is answered
  * by both vendors with "Cannot convert type 'POINTER TO INT' to type 'INT'" — the message the LSP gives, word for word,
@@ -908,7 +950,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_UNIT_DIVERGENCES,
     ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
-    ...GVL_MEMBER_NOT_DECLARED,
     ...CALL_IN_AN_AGGREGATE_INITIALIZER,
     ...TWINCAT_NON_RETAIN_RECOVERY,
     ...TWINCAT_NO_VAR_GENERIC,
@@ -918,6 +959,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...STATEMENT_DIVERGENCES,
     ...PRAGMA_DIVERGENCES,
     ...TWINCAT_PRAGMA_DIVERGENCES,
+    ...SCOPE_DIVERGENCES,
+    ...TWINCAT_SCOPE_DIVERGENCES,
     ...TWINCAT_TRY_NEEDS_CATCH,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
@@ -1039,7 +1082,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...AFTER_A_REFUSED_TYPE.codesys,
     ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
-    ...GVL_MEMBER_NOT_DECLARED,
     ...CALL_IN_AN_AGGREGATE_INITIALIZER,
     ...CODESYS_DECLARATION_DIVERGENCES,
     ...COMPONENT_CARRIED_ON_IN_A_DUT,
@@ -1048,6 +1090,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...STATEMENT_DIVERGENCES,
     ...PRAGMA_DIVERGENCES,
     ...CODESYS_PRAGMA_DIVERGENCES,
+    ...SCOPE_DIVERGENCES,
+    ...CODESYS_SCOPE_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...C0033_CONFIGURED_AS_AN_ERROR,

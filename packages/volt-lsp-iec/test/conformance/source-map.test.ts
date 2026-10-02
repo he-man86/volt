@@ -47,7 +47,10 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // 31 -> 34 (2026-10-02, frontend-conformance 2.6), each read, each a documented class: `stmt_chain_three_targets`'
 // `out := b := c := a` is two chain-temp assignments (`self.c`/`self.b = self.__chain_value_4`), and
 // `stmt_chain_assign_then_set`'s `x := z S= y` sets its latch (`self.z = true`).
-const RENAMED_TARGETS = 34
+// 34 -> 35 (2026-10-02, frontend-conformance 3.1), read, a documented class: `sym_inout_vs_field_vs_stat`'s METHOD
+// `Io` has VAR_IN_OUT `x`, called `Io(x := v)`, so `x := x + INT#100` is specialized to the caller's field
+// (`self.v = …`) — the VAR_IN_OUT substitution, as `callshape_*`.
+const RENAMED_TARGETS = 35
 
 interface Program {
   name: string

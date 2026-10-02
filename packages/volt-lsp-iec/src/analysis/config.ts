@@ -8,34 +8,11 @@
  *   - Plus one non-CODESYS switch: `diagnoseDeadCode`.
  */
 
-import type { LibraryManifest } from "../frontend/library/index.js"
 export type Vendor = "codesys" | "twincat"
 export type VendorSetting = Vendor | "auto"
 
 /** The three states a configurable diagnostic can take — CODESYS's off / warning / error. */
 export type DiagnosticState = "off" | "warning" | "error"
-
-/**
- * Project reference-file names that resolve OUTSIDE the symbol table, so the unresolved-identifier
- * check must skip them (never flag them): referenced-library namespaces (`.library` NAMESPACE lines)
- * and device-tree instance names (`.device` file stems). Both lowercased. Computed once per workspace
- * by the FS loaders in `workspace-refs`; empty when unknown ⇒ every reference is checked as before.
- */
-export interface WorkspaceRefs {
-  libraryNamespaces: ReadonlySet<string>
-  /** The `.library` manifests themselves — what binds each library's units under its NAMESPACE
-   *  (`symbols/bindLibraryNamespaces`). `libraryNamespaces` above stays the skip set the
-   *  unresolved-identifier check reads, which is the same names seen from the other side. */
-  libraryManifests: readonly LibraryManifest[]
-  deviceInstances: ReadonlySet<string>
-}
-
-/** No workspace reference files known — the safe default (nothing skipped on this account). */
-export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = {
-  libraryNamespaces: new Set(),
-  libraryManifests: [],
-  deviceInstances: new Set(),
-}
 
 /**
  * The codes from CODESYS's "Compiler warnings" dialog that Volt implements — each a 3-state control. Keyed by

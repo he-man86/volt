@@ -11,6 +11,7 @@ import { localScope } from "./scope.js"
 export {
   isPouSymbol,
   POU_SYMBOL_KINDS,
+  type DeviceInstance,
   type Scope,
   type ScopeKind,
   type Symbol,
@@ -24,10 +25,13 @@ export { gvlName, type SymbolTableInput } from "./binder.js"
 export {
   childScopesByName,
   enclosingPou,
+  externalGlobal,
   findChildScope,
   findScopeByName,
+  gvlBlockOf,
   hasUnresolvedBase,
   lookup,
+  lookupUnit,
   lookupGlobal,
   lookupMember,
   resolveBareEnumMember,

@@ -1946,23 +1946,47 @@ ONE whole test/conformance + test/frontend + rate:fixtures, and the gate runs ev
 Every task's acceptance is **CA** unless it says otherwise. Area 3 needs the restructure and the 0.3 resolution dump, not the parser
 conformance work; the cross-area edges are named on the tasks that have them.
 
-- [ ] 3.1.1 Scopes and shadowing (Y1–Y8, Y20): record sym_getter_setter_same_local, sym_inout_vs_field_vs_stat.
+- [x] 3.1.1 Scopes and shadowing (Y1–Y8, Y20): record sym_getter_setter_same_local, sym_inout_vs_field_vs_stat.
       Where: binder, scope-nav. Acceptance: CA. Depends on: 1.41, 0.3
-- [ ] 3.1.2 Namespace blocks (Y17–Y18): `scopedBodies` and `unitBodies` recurse via `allUnits` (the sites 1.8 left); ingestNamespace
+- [x] 3.1.2 Namespace blocks (Y17–Y18): `scopedBodies` and `unitBodies` recurse via `allUnits` (the sites 1.8 left); ingestNamespace
       passes the member host. Record sym_namespace_block_unit_checked, sym_namespace_method_parents_to_fb.
       Where: scoped-bodies, format/bodies, binder. Acceptance: CA. Depends on: 3.1.1, 1.8
-- [ ] 3.1.3 GVLs (Y9–Y14): `qualified_only` per unit (from 2.7.2); VAR_EXTERNAL binding in scope-nav. Record
+- [x] 3.1.3 GVLs (Y9–Y14): `qualified_only` per unit (from 2.7.2); VAR_EXTERNAL binding in scope-nav. Record
       sym_qualified_only_one_of_two_gvls_in_file.
       Where: binder, scope-nav, pragmas/attributes. Acceptance: CA. Depends on: 3.1.2, 2.7.2
-- [ ] 3.1.4 Order independence and dialect (Y19, Y22): record sym_order_independent (fixture pair, two file orders).
+- [x] 3.1.4 Order independence and dialect (Y19, Y22): record sym_order_independent (fixture pair, two file orders).
       Where: incremental, scope. Acceptance: CA. Depends on: 3.1.3
-- [ ] 3.1.5 The bare-name search order (Y15, Y23, Y24, E33): analysis `nameResolves` → `types/names.resolveBareName` (tagged answer);
+- [x] 3.1.5 The bare-name search order (Y15, Y23, Y24, E33): analysis `nameResolves` → `types/names.resolveBareName` (tagged answer);
       the built-in NAME set from `types/builtins.ts`; device-tree instances bound by the binder from the `.device` descriptors
       (workspace-refs' `deviceInstances` set is deleted); `.ident` resolves in the global namespace. Record
       sym_method_before_global, sym_global_before_pou_name, sym_library_gvl_needs_qualification, sym_device_instance_bare,
       sym_global_namespace_dot_skips_local.
       Where: types/names.ts, symbols/binder.ts, analysis/resolution.ts (message only). Acceptance: CA; analysis/resolution.ts has no
       `lookupReference` call. Depends on: 3.1.4, 2.5.6
+      **Gate 3.1 (2026-10-02)** — 3.1.1–3.1.5 together. 44 `sym_*` fixtures in `fixtures/names/scopes.ts` (Y1–Y5, Y7–Y9,
+      Y12, Y16–Y20, Y23, Y24), recorded CODESYS + TwinCAT build and CODESYS run; the two Y17/Y18 NAMESPACE fixtures are
+      unaskable (the push refuses the block on both vendors) and decided by named tests (`scoped-bodies.test.ts` Y17,
+      `binder.test.ts` Y18); Y19 by `incremental.test.ts` "binding is order-independent…". 3.1.2: `scopedBodies`/`unitBodies`
+      recurse via `allUnits`. 3.1.3: `GVL_MEMBER_NOT_DECLARED` closed (Y9, `checkMember`). 3.1.5: `types/names.ts`
+      `resolveBareName` (tagged answer), the built-in name set `types/builtins.ts` `BUILTIN_OPERATOR_NAMES` (the reference
+      catalog held equal to it, `reference.test.ts`), device instances bound by the binder from `.device` descriptors
+      (`ingestDevices`, symbol kind `device`; workspace-refs' `deviceInstances` deleted, `lost-declaration.ts` deleted);
+      `analysis/resolution.ts` has no `lookupReference` call (grep). Known divergences added, each niche: accepted loss with
+      its count (`SCOPE_DIVERGENCES` `sym_var_external_of_ambiguous_global`, 0 VAR_EXTERNAL in the corpora;
+      `CODESYS_SCOPE_DIVERGENCES` the library-global qualification pair — the manifest carries no qualified-access flag, 0
+      occurrences; `TWINCAT_SCOPE_DIVERGENCES` StringUtils absent from TwinCAT's project, `sym_device_instance_bare`).
+      Numbers: `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4119 fixtures, +44: confirmed
+      2396, refused 1471, not-lowered 151, lsp-gap 29, diverges 4, unaskable 68; edges agree 2491 / disagree 0 / not-run
+      104). Ceilings (`fixtures.test.ts`): lsp-gap 26 → 29, not-lowered 146 → 151 (reasons at the ceilings). Rules GAP area 3
+      **26 → 18** (total 54 → 46). Resolution dump: corpus member NONE 3602 → 3385, Library Manager member NONE 345 → 313;
+      type dump findings 214 → 213, corpus ident UNKNOWN 469 → 353 (+109 named: a device instance has no type), run path
+      UNKNOWN 42 → 2 (+41 named, H2 → 3.2.3). First full run: 1 fail — `source-map.test.ts` renamed-target ratchet 34 vs 35;
+      read: `sym_inout_vs_field_vs_stat`'s `x := x + INT#100` in METHOD `Io(x := v)` is the documented VAR_IN_OUT
+      specialization class (`self.v = …`), ratchet 34 → 35 with the reading. Second full run (`VOLT_REQUIRE_FULL=1`, rustc
+      cache with sampled re-proof): **7096 pass / 34 skip / 195 todo / 0 fail** (7325 tests, 200 files, 197 s); agreement
+      CODESYS 3757 → **3797**, TwinCAT 3696 → **3732** (floors raised to it; `fixtures.test.ts` 5125 / 0 after). `bun run
+      check` 14 passed, 0 failed; `bun run lint` exit 0; layering gate green. The `.dut` source-extension edits in the tree
+      are push-without-header-check's, not this step's, and are not in this commit.
 - [ ] 3.2.1 INTERFACE EXTENDS bound in the binder (H4–H5): interface scopes get `baseScope`; interface method parameters are bound;
       the 4 consumer re-derivations switch. Record inh_interface_method_param_resolves, inh_interface_extends_member.
       Where: binder, extends. Acceptance: CA. Depends on: 3.1.5

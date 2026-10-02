@@ -106,12 +106,11 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
         source: d.source,
         project: store.project(),
         config: store.config,
-        references: store.workspaceRefs,
         uri: d.uri,
       }).filter((it) => !quiet(it.span))
   return [
     ...items.map(toLspDiagnostic),
-    ...(dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messages, store.workspaceRefs))
+    ...(dead || otherFormat ? [] : computeNetworkTextDiagnostics(d, store.project(), messages))
       .filter((it) => !inDeadMember(it.span, dm))
       .map(toLspDiagnostic),
     ...d.parseResult.errors

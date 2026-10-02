@@ -501,3 +501,20 @@ test("the callee is upper-cased at a call site, as both vendors print it", () =>
 	)
 	expect(messages).toEqual(["'loc' is no input of 'FB_MIXED'"])
 })
+
+// rule Y20: a FUNCTION's or METHOD's name is its result variable, so a VAR_INPUT of that name is no input — both vendors
+// count it out of the signature and refuse one argument with "Function 'F' requires exactly '0' inputs"
+// (`sym_function_input_named_as_function`, `sym_method_input_named_as_method`, 2026-10-02)
+test("an input named as its FUNCTION is no input: one argument is too many", () => {
+  const fn = `FUNCTION F_Same : INT\nVAR_INPUT\n\tF_Same : INT;\nEND_VAR\nF_Same := 3;\nEND_FUNCTION`
+  const prg = `PROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := F_Same(1);\nEND_PROGRAM`
+  expect(codes(fn, prg)).toContain("function-argument-count")
+})
+
+// …but a METHOD with no `: <type>` has no result variable, so its input of its own name IS an input (pro2193
+// `Increment.Rollover(input := position, rollover := 5, …)` builds)
+test("an input named as a METHOD with no result type is an input", () => {
+  const fb = `FUNCTION_BLOCK FB_T\nEND_FUNCTION_BLOCK\nMETHOD PUBLIC Rollover\nVAR_INPUT\n\trollover : INT;\nEND_VAR\nEND_METHOD`
+  const prg = `PROGRAM P\nVAR\n\tfb : FB_T;\nEND_VAR\nfb.Rollover(rollover := 5);\nfb.Rollover(5);\nEND_PROGRAM`
+  expect(codes(fb, prg)).toEqual([])
+})

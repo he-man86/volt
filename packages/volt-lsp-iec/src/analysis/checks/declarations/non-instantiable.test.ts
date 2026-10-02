@@ -21,3 +21,18 @@ test("a variable of a FUNCTION type is flagged; FB / elementary types are fine",
   expect(ni(`PROGRAM P\nVAR inst : FB;\nEND_VAR\nEND_PROGRAM\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK`)).toEqual([])
   expect(ni(`PROGRAM P\nVAR i : INT;\nEND_VAR\nEND_PROGRAM`)).toEqual([])
 })
+
+// A type position names a POU, never a same-named global: `inst : POU` with a global `pou` and a FUNCTION POU is still
+// the FUNCTION, whichever file sorts first (the bare-name search order Y23 is an expression's, frontend-conformance 3.1)
+test("a FUNCTION type is flagged past a same-named global, in either file order", () => {
+  const prg = "PROGRAM P\nVAR inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION"
+  for (const [a, b] of [["A.prg", "GVL.gvl"], ["Z.prg", "GVL.gvl"]] as const) {
+    const pr = parseSource(prg, { networkText: true })
+    const gvl = "VAR_GLOBAL\n  pou : INT;\nEND_VAR"
+    const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true }), source: gvl }])
+    const got = computeSemanticDiagnostics({ parseResult: pr, source: prg, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "not-instantiable")
+      .map((d) => d.message)
+    expect(got).toEqual(["'POU' is of type FUNCTION and cannot be instantiated"])
+  }
+})

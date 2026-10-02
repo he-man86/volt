@@ -221,4 +221,5 @@ const SYMBOL_TYPE: Record<SymbolKind, string> = {
   gvl_var: "variable",
   gvl_block: "namespace",
   namespace: "namespace",
+  device: "variable",
 }

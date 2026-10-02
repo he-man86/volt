@@ -7,33 +7,17 @@
  * `VAR_TEMP` wires over the POU scope). Keeping the rules in one place is what makes the two checks agree by
  * construction — a name ST resolves can never be one the network-text check flags, and vice-versa.
  *
- * Zero-FP is the whole game. A name resolves (is NOT flagged) when it is any of: a `__`-system operator, a
- * conversion call (`<T>_TO_<U>` / `TO_<U>`), a compiler-provided implicit (`THIS`/`SUPER`/`IoConfig_Globals`/
- * `TYPE_CLASS`), a compiler built-in in the reference catalog, a referenced-library namespace or device-tree instance,
- * a bare-accessible enum member, or anything in the given scope (parent chain + EXTENDS bases). A LIBRARY'S element —
- * Standard's LEN or TON included — resolves through the scope, from its materialized declaration, and nowhere else:
- * in a project that does not reference its library it is the unknown name CODESYS says it is.
+ * WHAT A BARE NAME NAMES IS NOT DECIDED HERE: it is the search order's question, answered once by the front-end
+ * (`types/names` `resolveBareName`, rule Y23 — the compiler's own names, the scopes outward, the project's level in
+ * CODESYS's order, device instances, library namespaces, bare enum members). This layer only says what follows when it
+ * names nothing. A LIBRARY'S element — Standard's LEN or TON included — resolves through the scope, from its
+ * materialized declaration, and nowhere else: in a project that does not reference its library it is the unknown name
+ * CODESYS says it is.
  */
-import { CODESYS_ONLY_KEYWORDS, compilerTypeText, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
-import { ANY_FAMILIES, isDialectType } from "../frontend/types/index.js"
-import { lookupReference } from "../reference/index.js"
-import { hasUnresolvedBase, isLibrarySymbol, lookup, lookupLocal, lookupMember, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
-import { inferExprType, parseConversionName } from "../frontend/types/index.js"
-import type { WorkspaceRefs } from "./config.js"
+import { compilerTypeText, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
+import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
+import { ANY_FAMILIES, builtinName, inferExprType, isDialectType, resolveBareName } from "../frontend/types/index.js"
 
-
-/**
- * Compiler-provided implicit references (lowercased) — never declared in project source, always valid:
- *   - `this` / `super` — the OOP self / base-class instance pointers (`THIS^`, `SUPER^.Method()`);
- *   - `ioconfig_globals` — the auto-generated I/O-mapping GVL (`IoConfig_Globals.<Device>.<pin>`);
- *   - `type_class` — the system enum used with `__VARINFO` / type reflection.
- */
-const COMPILER_PROVIDED_IMPLICITS: ReadonlySet<string> = new Set([
-  "this",
-  "super",
-  "ioconfig_globals",
-  "type_class",
-])
 
 export interface BareRef {
   name: string
@@ -83,49 +67,18 @@ function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
   }
 }
 
-/** Every resolution avenue for a bare name; true = valid (skip), false = unresolved (flag). A pure OR, so the
- *  order is a PERF choice, not semantics: cheap O(1) tests + the scope `lookup` (which resolves the vast majority
- *  of references — locals, params, project symbols) come BEFORE `resolveBareEnumMember`, whose per-call scan of
- *  every project enum is the check's hot spot. Reordering cut this check from ~88ms → ~2ms on a large project. */
-export function nameResolves(name: string, scope: Scope, project: Scope, references: WorkspaceRefs): boolean {
-  const lower = name.toLowerCase()
-  // A reserved system operator (`__NEW`, `__ISVALIDREF`, …) — EXCEPT the four TwinCAT does not have, where
-  // the name is an ordinary identifier that resolves nowhere, and TwinCAT says so: "Identifier
-  // '__POSITION' not defined" (`syntax/lex/vocabulary.ts` carries the measurement).
-  if (name.startsWith("__"))
-    return !(project.dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(name.toUpperCase()))
-  // A conversion operator — an implicit token, not a symbol. Only a name CODESYS defines: this matched any `…_TO_…` shape,
-  // so `TIME_OF_DAY_TO_UDINT` (not defined) and a project name like `GO_TO_START` were never flagged (consolidate A4).
-  // …and a conversion is only as real as the TYPES it names: `DATE_TO_LDATE` is a CODESYS operator because LDATE is
-  // a CODESYS type, and TwinCAT answers "Identifier 'DATE_TO_LDATE' not defined" (`types/elementary.ts`).
-  const conversion = parseConversionName(name)
-  if (conversion !== undefined) {
-    // ASK THE PARSED CONVERSION, not the spelling. Splitting on `_TO_` misses the `TO_<Y>` shape entirely — it has
-    // no leading underscore — so `TO_LDATE` stayed resolved on TwinCAT while `DATE_TO_LDATE` did not, which is the
-    // same operator named two ways.
-    const involved = [conversion.to.name, conversion.from?.name]
-    return involved.every((n) => n === undefined || isDialectType(n, project.dialect))
-  }
-  if (COMPILER_PROVIDED_IMPLICITS.has(lower)) return true
-  if (lookupReference(name) !== undefined) return true // built-in operator / std function / std FB / type
-  if (references.libraryNamespaces.has(lower)) return true // referenced-library namespace root
-  if (references.deviceInstances.has(lower)) return true // device-tree instance
-  if (lookup(scope, name) !== undefined) return true // parent chain + EXTENDS bases — resolves most references
-  if (resolveBareEnumMember(project, name) !== undefined) return true // non-qualified_only enum member (last: scans enums)
-  return false
+/** Whether the bare name `name`, written in `scope`, names anything — the search order's answer (`types/names`
+ *  `resolveBareName`, rule Y23), which this layer only words. */
+export function nameResolves(name: string, scope: Scope): boolean {
+  return resolveBareName(scope, name).kind !== "none"
 }
 
 /** The bare identifier references in `exprs` that resolve in NO reachable scope. */
-export function unresolvedInExprs(
-  exprs: Iterable<Expr>,
-  scope: Scope,
-  project: Scope,
-  references: WorkspaceRefs,
-): BareRef[] {
+export function unresolvedInExprs(exprs: Iterable<Expr>, scope: Scope): BareRef[] {
   const out: BareRef[] = []
   for (const e of exprs) {
     collectBareRefs(e, (ref) => {
-      if (!nameResolves(ref.name, scope, project, references)) out.push(ref)
+      if (!nameResolves(ref.name, scope)) out.push(ref)
     })
   }
   return out
@@ -182,6 +135,13 @@ export function unresolvedMembers(exprs: Iterable<Expr>, scope: Scope, project: 
 }
 
 function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | undefined {
+  // `GVL.v` — a variable of THAT list (rule Y9): one it does not declare is "'v' is no component of 'GVL'" on both vendors
+  // (`sym_gvl_unknown_member`). A library's list is skipped as a library type is: its declarations may be partial.
+  const list = gvlBlockOf(m.base, scope, project)
+  if (list !== undefined)
+    return isLibrarySymbol(list) || resolveGvlMember(m, scope, project) !== undefined
+      ? undefined
+      : { member: m.member.name, typeName: list.name, span: m.member.span }
   const t = inferExprType(m.base, scope, project)
   if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum") return undefined
   if (t.scope === undefined) return undefined
@@ -257,10 +217,10 @@ export function unknownTypeName(project: Scope, t: TypeExpr | undefined): string
   if (t?.kind !== "named_type" || t.subrange !== undefined || (t.qualifiers?.length ?? 0) > 0) return undefined
   const name = t.name.text
   const upper = name.toUpperCase()
-  if (name.startsWith("__") || lookupReference(name) !== undefined || ANY_FAMILIES.has(upper) || BUILTIN_NAMED_TYPES.has(upper)) return undefined
-  // a name the compiler provides resolves here as it does in `nameResolves` — bare TYPE_CLASS is a type CODESYS builds
-  // clean (conformance `op_sys_type_class_bare`), so the two verdicts about one name may not differ
-  if (COMPILER_PROVIDED_IMPLICITS.has(name.toLowerCase())) return undefined
+  // a name the compiler provides — a system operator, a built-in, a type, an implicit — resolves here as it does in the
+  // search order (`builtinName`): bare TYPE_CLASS is a type CODESYS builds clean (conformance `op_sys_type_class_bare`),
+  // so the two verdicts about one name may not differ
+  if (builtinName(name, project.dialect) !== undefined || ANY_FAMILIES.has(upper) || BUILTIN_NAMED_TYPES.has(upper)) return undefined
   if (lookupLocal(project, name).length > 0) return undefined
   return name
 }

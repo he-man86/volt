@@ -3,7 +3,7 @@
  * variable of it starts. The enumerators' VALUES are folded by the caller (`EnumeratorValue`): lowering and the LSP
  * fold with different rules today (conformance 4.6.1 makes them one), and this rule must not pick one of them.
  */
-import { isLibrarySymbol, lookup, type Scope, type Symbol } from "../symbols/index.js"
+import { isLibrarySymbol, lookupUnit, type Scope, type Symbol } from "../symbols/index.js"
 import type { EnumBody, Expr, TypeDecl } from "../syntax/index.js"
 import { elementaryType } from "./elementary.js"
 import { elementaryTypeRef, type ElementaryTypeRef, type Type } from "./type.js"
@@ -38,7 +38,7 @@ export function enumBase(body: EnumBody, sym: Symbol): ElementaryTypeRef | undef
  */
 export function enumDefault(project: Scope, t: Type, valueOf: EnumeratorValue): bigint | undefined {
   if (t.kind !== "enum" || t.name === "(implicit)") return undefined
-  const sym = lookup(project, t.name)?.symbol
+  const sym = lookupUnit(project, t.name)?.symbol
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
   return body?.kind === "enum" ? defaultOfValues(body.values, body.init, valueOf) : undefined
 }

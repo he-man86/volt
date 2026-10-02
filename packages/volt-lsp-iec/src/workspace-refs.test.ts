@@ -1,13 +1,13 @@
 /**
- * workspace-refs loaders — the FS scanners that feed dead-code seeding (`.task` `Calls:`) and the
- * identifier-skip sets (`.library` `NAMESPACE`, `.device` stems). Regex/parse bugs here silently break
- * suppression, so pin the extraction + the graceful-empty fallbacks on a hermetic temp workspace.
+ * workspace-refs loaders — the FS scanners that feed dead-code seeding (`.task` `Calls:`) and what the symbol table
+ * binds beside the sources (`.library` manifests, `.device` instances). Regex/parse bugs here silently break
+ * resolution, so pin the extraction + the graceful-empty fallbacks on a hermetic temp workspace.
  */
 import { test, expect, beforeAll, afterAll } from "bun:test"
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { loadTaskRoots, loadLibraryNamespaces, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
+import { loadTaskRoots, loadDeviceInstances, loadWorkspaceRefs, scanWorkspace } from "./workspace-refs.js"
 import { WorkspaceStore } from "./server/workspace-store.js"
 import { documentDiagnostics } from "./server/diagnostics.js"
 import { messagesFor, resolveConfig } from "./analysis/index.js"
@@ -55,27 +55,23 @@ test("loadTaskRoots: `Calls:` PROGRAM names, lowercased, recursive; comma lists 
   )
 })
 
-test("loadLibraryNamespaces: `NAMESPACE` line, lowercased; no-NAMESPACE files skipped", () => {
-  expect(loadLibraryNamespaces(root)).toEqual(new Set(["_3s_license"]))
+test("loadDeviceInstances: one instance per `.device` descriptor, named as the file's stem is spelled", () => {
+  expect(loadDeviceInstances(root)).toEqual([{ kind: "device", name: "EtherCAT_Master", uri: join(root, "EtherCAT_Master.device") }])
 })
 
-test("loadDeviceInstances: `.device` file stems, lowercased", () => {
-  expect(loadDeviceInstances(root)).toEqual(new Set(["ethercat_master"]))
-})
-
-test("loadWorkspaceRefs combines library namespaces + device instances", () => {
+test("loadWorkspaceRefs: the library manifests (each with its NAMESPACE; one without is no manifest) + the device instances", () => {
   const refs = loadWorkspaceRefs(root)
-  expect(refs.libraryNamespaces).toEqual(new Set(["_3s_license"]))
-  expect(refs.deviceInstances).toEqual(new Set(["ethercat_master"]))
+  expect(refs.libraryManifests.map((m) => m.namespace)).toEqual(["_3S_LICENSE"])
+  expect(refs.devices.map((d) => d.name)).toEqual(["EtherCAT_Master"])
 })
 
-test("a missing / empty root yields empty sets, never throws (safe fallback)", () => {
+test("a missing / empty root yields nothing, never throws (safe fallback)", () => {
   const missing = join(root, "does-not-exist")
   expect(loadTaskRoots(missing).size).toBe(0)
-  expect(loadLibraryNamespaces(missing).size).toBe(0)
+  expect(loadDeviceInstances(missing)).toEqual([])
   const empty = loadWorkspaceRefs("")
-  expect(empty.libraryNamespaces.size).toBe(0)
-  expect(empty.deviceInstances.size).toBe(0)
+  expect(empty.libraryManifests).toEqual([])
+  expect(empty.devices).toEqual([])
 })
 
 test("the workspace scan picks up the project's .projectsettings", () => {

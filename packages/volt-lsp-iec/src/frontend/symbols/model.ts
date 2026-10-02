@@ -46,6 +46,7 @@ export type SymbolKind =
   | "gvl_var"
   | "gvl_block"
   | "namespace"
+  | "device"
 
 /** The symbol kinds that are POUs — what a call or an instance names: a FUNCTION, a FUNCTION_BLOCK, a PROGRAM. */
 export const POU_SYMBOL_KINDS: ReadonlySet<SymbolKind> = new Set(["function", "function_block", "program"])
@@ -77,8 +78,23 @@ export interface Symbol {
    * bare-name search path (only `GvlName.varName` resolves). Kept independent of the type system.
    */
   qualifiedOnly?: boolean
-  /** Backing AST node for downstream queries. */
-  ast: TopLevel | VarDecl | EnumValue | InterfaceMethod | InterfaceProperty | Method | Action | Property
+  /** Backing AST node for downstream queries — a device instance's descriptor, which is no ST. */
+  ast: TopLevel | VarDecl | EnumValue | InterfaceMethod | InterfaceProperty | Method | Action | Property | DeviceInstance
+}
+
+/**
+ * A DEVICE-TREE INSTANCE, from its `.device` descriptor: the device object's name is an identifier the application's code
+ * may name bare (rule Y24) — the fixture project's PLC `Device` builds as `ADR(Device)` (`sym_device_instance_bare`,
+ * CODESYS 2026-10-02), a corpus EtherCAT master as `EtherCAT_Master.xRestart`. The pull names each descriptor file after
+ * its instance (`Device.device`), which is all the descriptor says of it: no IEC type, so a device symbol has none and
+ * nothing is checked of what is read through it.
+ */
+export interface DeviceInstance {
+  kind: "device"
+  /** The instance name, as the descriptor file names it. */
+  name: string
+  /** The descriptor's uri. */
+  uri: string
 }
 
 export type ScopeKind =

@@ -22,7 +22,7 @@ import {
   unitBodies,
   walkAllExprs,
 } from "../frontend/syntax/index.js"
-import { lookup, lookupLocal, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
+import { lookup, lookupLocal, lookupUnit, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
 import { resolveMemberChain } from "../frontend/types/index.js"
 import { lookupReference, renderReferenceHover } from "../reference/index.js"
 import {
@@ -125,7 +125,7 @@ export function networkTypeDefinition(doc: Document, project: Scope, offset: num
   const te = networkResolveAt(doc, project, offset)?.typeExpr
   const name = te?.kind === "named_type" ? te.name.text : undefined
   if (name === undefined) return undefined
-  const typeSym = lookup(project, name)?.symbol
+  const typeSym = lookupUnit(project, name)?.symbol
   return typeSym !== undefined ? locationOf(typeSym) : undefined
 }
 

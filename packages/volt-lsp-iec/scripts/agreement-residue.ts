@@ -14,10 +14,10 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
-import { withDependencies } from "../test/conformance/support/fixture-units.js"
+import { splitLists, withDependencies } from "../test/conformance/support/fixture-units.js"
 import { KNOWN_DIVERGENCES } from "../test/conformance/support/divergences.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
-import { PROJECT_LIBRARY, PROJECT_MANIFESTS } from "../test/conformance/support/project-libraries.js"
+import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "../test/conformance/support/project-libraries.js"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../src/network/index.js"
@@ -83,12 +83,17 @@ for (const t of ALL_TESTS) {
   // invents unresolved-name findings that the replay does not have (`op_sys_queryinterface`).
   const own = new Set(fixtures.map((f) => f.name))
   const files = [
-    ...fixtures.map((f) => ({ name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: f.source })),
+    // each list a fixture holds BESIDE its POU (`gvlNames`) is its own object, named as the push names it — as the replay
+    // splits them (`splitLists`); one file holding them all named every list after the POU's file
+    ...fixtures.flatMap((f) => {
+      const { item, lists } = splitLists(f, { name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: f.source })
+      return [item, ...lists]
+    }),
     { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: plc },
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
   ]
-  const project = build.buildSymbolTable(files, PROJECT_MANIFESTS, vendor)
+  const project = build.buildSymbolTable(files, PROJECT_MANIFESTS, vendor, undefined, projectDevices(vendor))
   const lsp: string[] = []
   // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
   // not to be diagnosed, exactly as `fixtures.test.ts` does it. Analyzing them too attributed one fixture's findings

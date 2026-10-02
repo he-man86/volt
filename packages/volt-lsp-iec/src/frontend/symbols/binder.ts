@@ -28,8 +28,8 @@ import type {
   VarSection,
   VarSectionKind,
 } from "../syntax/index.js"
-import { hasFrontendAttribute, type Dialect } from "../syntax/index.js"
-import type { Scope, SymbolKind } from "./model.js"
+import { hasFrontendAttribute, zeroSpan, type Dialect } from "../syntax/index.js"
+import type { DeviceInstance, Scope, SymbolKind } from "./model.js"
 import { createProjectScope, defineSymbol, makeScope } from "./scope.js"
 import { pickForAsker } from "./precedence.js"
 import {
@@ -49,7 +49,7 @@ export interface SymbolTableInput {
   source?: string
 }
 
-export function ingestTopLevel(
+function ingestTopLevel(
   project: Scope,
   unit: TopLevel,
   uri: string,
@@ -94,7 +94,23 @@ function ingestNamespace(project: Scope, ns: Namespace, uri: string): void {
     uri,
     ast: ns,
   })
-  for (const inner of ns.units) ingestTopLevel(nsScope, inner, uri, undefined)
+  ingestUnits(nsScope, ns.units, uri)
+}
+
+/**
+ * A run of units into `parent` — a file's top level, or a NAMESPACE block's — each METHOD/ACTION/PROPERTY parented to the
+ * FB, PROGRAM or INTERFACE written before it in the same run (the workspace one-item-per-file layout: a POU, then its
+ * members as siblings), and a FUNCTION ending that run of members. One home for the rule, so a namespace block follows
+ * it as a file does (rule Y18 — a namespace ingest that passed no host left a METHOD after an FB on the namespace, where
+ * its body resolved none of the FB's members).
+ */
+export function ingestUnits(parent: Scope, units: readonly TopLevel[], uri: string): void {
+  let memberHost: Scope | undefined
+  for (const unit of units) {
+    const scope = ingestTopLevel(parent, unit, uri, memberHost)
+    if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") memberHost = scope
+    if (unit.kind === "function") memberHost = undefined
+  }
 }
 
 function ingestFunctionBlock(project: Scope, fb: FunctionBlock, uri: string): Scope {
@@ -362,6 +378,18 @@ function ingestGlobalVarList(project: Scope, gvl: GlobalVarList, uri: string): v
         })
       }
     }
+  }
+}
+
+/**
+ * The project's device-tree instances, each a project-level symbol of its name (rule Y24) — what the search order reaches
+ * a bare device name through (`types/names` `resolveBareName`). Its descriptor is no ST: the symbol has no span in any
+ * source and no type.
+ */
+export function ingestDevices(project: Scope, devices: readonly DeviceInstance[]): void {
+  for (const device of devices) {
+    const span = zeroSpan()
+    defineSymbol(project, { kind: "device", name: device.name, span, declarationSpan: span, owner: project, uri: device.uri, ast: device })
   }
 }
 

@@ -51,7 +51,7 @@ import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, splitLists, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { RECORDING_ENVIRONMENT } from "./support/recording-environment.js"
-import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./support/project-libraries.js"
+import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS, projectDevices } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache.js"
 import { selectFixtures } from "./support/selection.js"
@@ -1320,7 +1320,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 23 -> 26, FOR MEASUREMENT. frontend-conformance 2.10 (2026-10-02): P14's three `strict` refusals
   // (`prag_strict_enum_int_assign`, `_literal_not_a_member_assign`, `_add_literal`, both vendors) — `strict` is read by the
   // type compatibility of task 4.5.1, which owns it (`deferred.lsp`). Not niche: 56 `{attribute 'strict'}` in the corpora.
-  "lsp-gap": 26,
+  // 26 -> 29, FOR MEASUREMENT. frontend-conformance 3.1 (2026-10-02), new questions, no fixture moved, each niche and accepted
+  // (`deferred.lsp`, 0 occurrences in the corpora): `sym_var_external_of_ambiguous_global` (a VAR_EXTERNAL of a global two
+  // lists declare), `sym_library_gvl_needs_qualification` (a library global read bare — the manifest carries no
+  // qualified-access flag) and `sym_library_gvl_qualified_by_namespace` (`Stu.HALFSHIFT`: a namespace holds no list's
+  // variable).
+  "lsp-gap": 29,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1450,7 +1455,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // six `prag_to_string_*` — under `{attribute 'to_string'}` an enum's STRING conversions print the member's NAME
   // (CODESYS 'On', "On"), which lowering printed as the number: a silent wrong answer, now refused by name
   // (`lower/builtins.ts`; the name table is task 4.5.1's). `prag_to_string_absent` (no attribute, '1') is confirmed.
-  "not-lowered": 146,
+  // 146 -> 151, FOR MEASUREMENT. frontend-conformance 3.1 (2026-10-02) recorded five scope fixtures CODESYS builds and runs
+  // that lowering refuses, each the transpiler's: `sym_global_namespace_dot_skips_local` (`expr-global_expr`, as the
+  // `expr_global_namespace_*`), `sym_method_output_param_bound` (a METHOD's VAR_OUTPUT bound `o => out`,
+  // `call-inout-alias`), `sym_library_gvl_qualified_by_list` and `_fully` (a library's global, `place-not-local`) and
+  // `sym_device_instance_bare` (`ADR(Device)`, a device instance has no storage the lowering knows, `place-not-local`).
+  "not-lowered": 151,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1726,7 +1736,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // INTERFACE, the first CASE arm without its label ("No case label found" — `lit_enum_typed_case_label` agrees with it).
   // 3662 -> 3696 (2026-10-02, frontend-conformance 2.10): area 2's last rules asked — T6's POINTER TO POINTER used, P14's
   // `strict` cells (its refusals are 4.5.1's, `deferred.lsp`), P15's `to_string`, P16's `const_replaced`/`_non_replaced`.
-  { vendor: "twincat", floor: 3696 },
+  // 3696 -> 3732 (2026-10-02, frontend-conformance 3.1): the scope and lookup fixtures (`fixtures/names/scopes.ts`, Y1–Y24)
+  // and the bare-name search order the front-end now owns (`types/names` `resolveBareName`).
+  { vendor: "twincat", floor: 3732 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1860,7 +1872,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // `unit_struct_extends_twice` (the declaration resync resuming at a name).
   // 3707 -> 3723 (2026-10-02, 2.8 review): the same, on CODESYS.
   // 3723 -> 3757 (2026-10-02, frontend-conformance 2.10): the same, on CODESYS.
-  { vendor: "codesys", floor: 3757 },
+  // 3757 -> 3797 (2026-10-02, frontend-conformance 3.1): the same, on CODESYS.
+  { vendor: "codesys", floor: 3797 },
 ]
 
 
@@ -1981,7 +1994,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = build.buildSymbolTable([...CROSS_DECLS, ...LISTS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor, RECORDING_ENVIRONMENT)
+    project = build.buildSymbolTable([...CROSS_DECLS, ...LISTS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor, RECORDING_ENVIRONMENT, projectDevices(vendor))
     SHARED.set(vendor, project)
   }
   return project

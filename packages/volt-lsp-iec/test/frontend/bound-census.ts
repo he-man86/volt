@@ -35,7 +35,7 @@ import {
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { bodyConditionWorld, lookup, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { bodyConditionWorld, gvlBlockOf, lookupLocal, lookupMember, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -46,6 +46,7 @@ import {
   literalCheckType,
   literalErrorType,
   renderType,
+  resolveBareName,
   resolveCallee,
   resolveMemberChain,
   resolveTypeExpr,
@@ -273,6 +274,11 @@ export function boundCensus(): BoundCensus {
         // a GVL's NAME qualifying its variable (`GVL.g`) is no value on either side — it names where `g` is, and has no
         // type to ask for (`use_gvl_field_access`, `decl_at_after_type_in_gvl`, frontend-conformance 2.3)
         else if (type === "?" && shapes.qualifiers.has(where!) && namesAGvl(expr, scope)) tally(c.types, `${group}: ${kind} untyped, a GVL's name qualifying its variable`)
+        // a device-tree instance (rule Y24) is a name its `.device` descriptor states and nothing else, so the front-end has no
+        // type to give it — but the vendor types it (`EtherCAT_Master.xRestart` builds, `sym_device_instance_bare`): a GAP, not
+        // an agreement, so the key says UNKNOWN and is ceilinged like every other one (frontend-conformance 3.1 review)
+        else if (type === "?" && expr.kind === "ident_expr" && scope !== undefined && resolveBareName(scope, expr.name).kind === "device")
+          tally(c.types, `${group}: ${kind} UNKNOWN, a device instance (the front-end lacks the type the vendor gives it)`)
         // what the vendor reports unknown too is that agreement before it is anything else: the SIZEOF/ADR split below
         // is the LSP's own reason, and ahead of this it took agreements out of their measure
         else if (type === "?" && vendor.unknownTypes.has(compilerExprText(expr)))
@@ -685,11 +691,22 @@ function crossCheckRunTypes(f: FixtureSources, plc: Bound, c: BoundCensus): void
       continue
     }
     if (inferred === "?") {
-      tally(c.types, "run: path inferred UNKNOWN")
+      // a member the instance's FB INHERITS, read through the instance (`inst.baseField`): member inference looks in the
+      // FB's own scope and not its bases' — rule H2, task 3.2.3 owns it ("infer/member uses lookupMember"). Counted
+      // apart, its owner named, so the measure it would raise says why (`sym_inherited_member_before_global`, 3.1.5)
+      tally(c.types, inheritedThroughInstance(expr, scope, plc.project) ? "run: path inferred UNKNOWN, an inherited member through an instance (H2, task 3.2.3)" : "run: path inferred UNKNOWN")
       c.typeDisagreements.push(`${name}: run path ${path} is ${recorded}, inferred UNKNOWN`)
     } else if (sameType(recorded, inferred)) tally(c.types, "run: path inferred as recorded")
     else c.typeDisagreements.push(`${name}: run path ${path} is ${recorded}, inferred ${inferred}`)
   }
+}
+
+/** `inst.m` where `m` is no member of the instance's FB itself but of a base it extends. */
+function inheritedThroughInstance(expr: Expr, scope: Scope, project: Scope): boolean {
+  if (expr.kind !== "member") return false
+  const base = inferExprType(expr.base, scope, project)
+  if (base.kind !== "function_block" || base.scope === undefined) return false
+  return lookupLocal(base.scope, expr.member.name).length === 0 && lookupMember(base.scope, expr.member.name) !== undefined
 }
 
 // ─── folds ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -869,10 +886,9 @@ function rootName(e: Expr): Extract<Expr, { kind: "ident_expr" }> | undefined {
 
 /** Whether `expr` is a bare name that binds to a GVL — the list itself, not one of its variables. */
 function namesAGvl(expr: Expr, scope: Scope | undefined): boolean {
-  if (scope === undefined) return false
-  // `.GVL.v` names the list in the global namespace (rule E33): `ARRAY [1...L_MC1P_Constants.gc_Rec_Max]`
-  if (expr.kind === "global_expr") return lookup(rootOf(scope), expr.name.name)?.symbol.kind === "gvl_block"
-  return expr.kind === "ident_expr" && lookup(scope, expr.name)?.symbol.kind === "gvl_block"
+  // `GVL`, `.GVL` in the global namespace (rule E33, `ARRAY [1...L_MC1P_Constants.gc_Rec_Max]`) and `Ns.GVL` in a
+  // library's namespace (`sym_library_gvl_qualified_fully`) — the qualifier `symbols/scope-nav` `gvlBlockOf` reads
+  return scope !== undefined && gvlBlockOf(expr, scope, rootOf(scope)) !== undefined
 }
 
 /** The operators whose result type is made from their operand: SIZEOF's from its size, ADR's from its type. */

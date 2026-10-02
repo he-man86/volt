@@ -27,7 +27,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../src/analysis/index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
 import { call, TARGET } from "./bridge.js"
 import { openFixture } from "./bridge-fixture.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
@@ -53,7 +53,6 @@ function lspMessagesForCode(
     source: repro,
     project,
     config: resolveConfig({ vendor }),
-    references: EMPTY_WORKSPACE_REFS,
   })
     .filter((d) => d.code === ourCode)
     .map((d) => d.message)

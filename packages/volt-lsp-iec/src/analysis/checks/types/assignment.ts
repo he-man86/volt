@@ -60,7 +60,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
     // code that the corpus happens not to contain in this shape.
     if (resolved.kind === "reference") {
       const referenced = resolved.target
-      if (decl.init.kind === "ident_expr" && !nameResolves(decl.init.name, scope, ctx.project, ctx.references)) {
+      if (decl.init.kind === "ident_expr" && !nameResolves(decl.init.name, scope)) {
         if (hasUnresolvedBase(scope)) continue // the base could declare it; `resolution.ts` skips for the same reason
         out.push({
           severity: "error",

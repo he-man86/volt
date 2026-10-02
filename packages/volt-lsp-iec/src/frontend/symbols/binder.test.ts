@@ -163,6 +163,41 @@ test("nested namespaces bind their full scope chain", () => {
   expect(inner && findChildScope(inner, "Deep")?.name).toBe("Deep")
 })
 
+// Rule Y18 (frontend-conformance 3.1.2): a METHOD/ACTION/PROPERTY after an FB INSIDE a namespace block is that FB's, as
+// one after an FB at file level is — the namespace ingest tracks the member host the same way `bindFile` does. No vendor
+// holds a namespace block (the push refuses it, `sym_namespace_method_parents_to_fb`); this is the LSP's reading of a
+// workspace text that has one.
+test("a METHOD, ACTION and PROPERTY after an FB inside a NAMESPACE parent to that FB (Y18)", () => {
+  const src = `NAMESPACE NS
+FUNCTION_BLOCK Foo
+VAR f : INT; END_VAR
+END_FUNCTION_BLOCK
+METHOD M : INT
+M := f;
+END_METHOD
+ACTION A
+f := 1;
+END_ACTION
+PROPERTY P : INT
+GET
+P := f;
+END_GET
+END_PROPERTY
+FUNCTION Fn : INT
+END_FUNCTION
+METHOD Orphan
+END_METHOD
+END_NAMESPACE`
+  const project = build({ uri: "NS.fb", src })
+  const foo = findChildScope(findScopeByName(project, "NS")!, "Foo")!
+  expect(["M", "A", "P"].map((n) => lookupLocal(foo, n)[0]?.kind)).toEqual(["method", "action", "property"])
+  const m = findChildScope(foo, "M")!
+  expect(m.parent).toBe(foo)
+  expect(lookup(m, "f")?.foundIn).toBe(foo) // the method body reaches the FB's field
+  // a FUNCTION ends the host, as at file level: a METHOD after it parents to nobody (the namespace)
+  expect(lookupLocal(foo, "Orphan")).toEqual([])
+})
+
 // `isLibrarySymbol` is the path rule (`library/path.ts` `isLibraryUri`) asked of a symbol's uri — the guard that keeps
 // every check off a referenced library's lossy signatures.
 test("isLibrarySymbol is the library path rule asked of the symbol's uri", () => {

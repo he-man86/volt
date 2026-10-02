@@ -78,9 +78,12 @@ round-trip/formatting without the CST's weight.
 ### B — `frontend/symbols/`
 The binder: the model (`model.ts` `Symbol` · `Scope`), scope construction and the local lookup (`scope.ts`), the lazy
 indices and their one invalidation (`cache.ts`), `binder` (AST → scope tree; property getter/setter each bind their own
-accessor scope), `incremental` (a whole table, and the live server's bind/unbind one file + `relink`), `extends`
+accessor scope; a NAMESPACE block's units bound as a file's are, `ingestUnits`; the device tree's instances from the `.device`
+descriptors, `ingestDevices`), `incremental` (a whole table, and the live server's bind/unbind one file + `relink`), `extends`
 (EXTENDS linking and the base chain), `precedence` (which of several same-named candidates a reference means),
-`library-namespaces`, `scope-nav` (the one scope-tree navigator) and `scoped-bodies` (the one scope-aware "walk every
+`library-namespaces`, `scope-nav` (the one scope-tree navigator — its `lookup` holds the project's level of the bare-name search
+order: globals before POU and type names, the application's before a library's, a VAR_EXTERNAL bound to its global
+or passed over) and `scoped-bodies` (the one scope-aware "walk every
 ST body" iterator — POU bodies **and** property accessor bodies — shared by every analysis check and the language
 services). Its index names the read API; building is the `build` namespace. Contract: name → declaring symbol/scope.
 
@@ -92,7 +95,8 @@ widening rank, aliases, `ANY_*`) with its views (`predicates`, `platform` — th
 `expr`, `member`, `callee`); `compat` (assignability · narrowing · conversion-source, one relation); `arith/` (run-time
 `commonType`/`promoteForRuntime` for the transpiler, checked `checkedMeetType`/`checkedNegationType` for diagnostics,
 temporal arithmetic, and `operators` — every operator's typing rule, the checks keeping only their messages);
-`builtins` (every built-in's result type); `render` (a resolved `Type` → string, in the display or the compiler form —
+`builtins` (every built-in's result type, and the compiler's own NAMES); `names` (the bare-name search order, the one
+answer to "what does this identifier name?" — `resolveBareName`, rule Y23 — which the analysis only words); `render` (a resolved `Type` → string, in the display or the compiler form —
 a declared `TypeExpr` or an expression prints through `syntax/print`). Powers diagnostics, hover, completion,
 navigation, and codegen alike.
 

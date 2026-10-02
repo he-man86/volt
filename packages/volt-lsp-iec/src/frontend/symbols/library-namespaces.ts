@@ -111,7 +111,9 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
       if (list === undefined) symbols.set(key, [sym])
       else list.push(sym)
     }
-    if (scopes.length === 0 && symbols.size === 0) continue
+    // A library that materialized nothing still has its namespace: the manifest says so, and a bare `Ns` is the library's
+    // root in the search order (step 11, `types/names` `resolveBareName`) — it was skipped here, and a separate skip set of
+    // the namespace names (the workspace scan's) stood in for it.
     // the first unit's place, as a COPY: a span is the identity `scopeForUnit` finds a unit's scope by, and the namespace
     // is not that unit's scope
     const first = scopes[0]?.span

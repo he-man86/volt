@@ -10,7 +10,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { withImplementations } from "../../../libraries/index.js"
-import { parseSource } from "../../../src/frontend/syntax/index.js"
+import { parseSource, type Dialect } from "../../../src/frontend/syntax/index.js"
+import type { DeviceInstance } from "../../../src/frontend/symbols/index.js"
+import { loadDeviceInstances } from "../../../src/workspace-refs.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../../src/frontend/library/index.js"
 import { libraryBase, type LibraryBase, type LibraryFile } from "../../../src/transpile/index.js"
 import { walkSources } from "../../corpus/support/project.js"
@@ -38,3 +40,16 @@ export const PROJECT_LOWERING: readonly LibraryFile[] = withImplementations([...
 
 /** Those libraries bound ONCE (`libraryBase`): every fixture lowers on top of them, rather than binding 857 files anew. */
 export const PROJECT_BASE: LibraryBase = libraryBase(PROJECT_LOWERING)
+
+/**
+ * THE FIXTURE PROJECTS' DEVICE TREES — each vendor's recording project's device-tree instances, from the `.device`
+ * descriptors its corpus mirror holds (rule Y24): CODESYS's `CodesysTestProject` has its PLC `Device` (`ADR(Device)` builds,
+ * `sym_device_instance_bare`), TwinCAT's `twincat-project14` none (TwinCAT answers "Identifier 'Device' not defined" there).
+ * Bound into the replay's project as the server binds a workspace's.
+ */
+const CORPUS = join(import.meta.dir, "..", "..", "..", "test-corpus")
+const DEVICES = {
+  codesys: loadDeviceInstances(join(CORPUS, "CodesysTestProject")),
+  twincat: loadDeviceInstances(join(CORPUS, "twincat-project14")),
+} as const satisfies Record<Dialect, readonly DeviceInstance[]>
+export const projectDevices = (vendor: Dialect): readonly DeviceInstance[] => DEVICES[vendor]

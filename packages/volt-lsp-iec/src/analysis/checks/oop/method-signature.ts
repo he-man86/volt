@@ -12,7 +12,7 @@
  * unambiguous mismatch; a same-count/different-type mismatch is (deliberately) not flagged yet. Library
  * bases/interfaces (whose members we can't fully see) are skipped, as are abstract/unresolved cases.
  */
-import { findScopeByName, isLibrarySymbol, lookup, type Scope, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
+import { findScopeByName, isLibrarySymbol, lookupUnit, type Scope, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
 import type { Method, InterfaceMethod, VarSection } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -20,7 +20,7 @@ import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function_block") continue
-    const fbSym = lookup(ctx.project, unit.name.text)?.symbol
+    const fbSym = lookupUnit(ctx.project, unit.name.text)?.symbol
     if (fbSym !== undefined && isLibrarySymbol(fbSym)) continue // a library FB's overrides are the library's concern
     const fbScope = scopeForUnit(ctx.project, unit)
     if (fbScope === undefined) continue
@@ -69,7 +69,7 @@ function methodSymbols(scope: Scope, kind: "method" | "interface_method"): Symbo
 }
 
 const isLibraryName = (ctx: CheckContext, name: string): boolean => {
-  const s = lookup(ctx.project, name)?.symbol
+  const s = lookupUnit(ctx.project, name)?.symbol
   return s !== undefined && isLibrarySymbol(s)
 }
 

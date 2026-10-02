@@ -37,7 +37,7 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
       const exprs = stmtExprs(stmt)
       const callees = new Set<number>()
       for (const e of exprs) walkExpr(e, (x) => { if (x.kind === "call" && x.callee.kind === "ident_expr") callees.add(x.callee.span.start) })
-      for (const ref of unresolvedInExprs(exprs, scope, ctx.project, ctx.references)) {
+      for (const ref of unresolvedInExprs(exprs, scope)) {
         if (unparsed.has(ref.name.toLowerCase())) continue
         out.push({
           severity: "error",
@@ -82,7 +82,7 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
     // an AGGREGATE initializer is a different shape with its own element list, and `struct-init`/`array-init`
     // own it — this is the plain-expression case only
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    for (const ref of unresolvedInExprs([decl.init], scope, ctx.project, ctx.references)) {
+    for (const ref of unresolvedInExprs([decl.init], scope)) {
       if (unparsed.has(ref.name.toLowerCase())) continue
       // …but a `__` name is the compilers' own namespace, and one they do not know never reaches name resolution
       // here at all — the PARSER refuses it leading an initializer (`parse/initializer` `refuseMalformedInit`).

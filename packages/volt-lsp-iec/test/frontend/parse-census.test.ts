@@ -29,7 +29,6 @@ import { checkBaseline, tally, type Baseline } from "./baseline.js"
 import { parse, parseErrors } from "./dumps.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { build } from "../../src/frontend/symbols/index.js"
-import { EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { corpusProjects, fixtureSources, messagePool, type RecordedBuild } from "./sources.js"
@@ -176,7 +175,7 @@ describe("0.1 the parse census", () => {
     // the chain, parsed its taken branch in silence and lost the error the user is shown (frontend-conformance 2.7 review)
     const source = "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\n{IF defined (pou: F)}\nout := ;\n{END_IF}\nEND_FUNCTION_BLOCK"
     const parsed = parse({ id: "F", uri: "file:///F.fb", source }, "codesys")
-    const bound = { parsed, project: build.buildSymbolTable([parsed], undefined, "codesys"), refs: EMPTY_WORKSPACE_REFS }
+    const bound = { parsed, project: build.buildSymbolTable([parsed], undefined, "codesys") }
     expect(parseErrors(bound, "codesys").map((e) => `${e.pass} ${e.at}`)).toEqual(["body 6:7"])
   })
 

@@ -103,6 +103,9 @@ function fbChainSections(fb: FunctionBlock, definedIn: Scope): { sections: VarSe
 const POSITIONAL_SECTIONS = new Set(["VAR_INPUT", "VAR_IN_OUT"]) // VAR_OUTPUT is never bound by position
 const PARAM_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"]) // the name-bindable formal params
 
+/** A FUNCTION, or a METHOD stating `: <type>`, whose name is its result variable (rule Y20). */
+const hasResultVariable = (sym: Symbol): boolean => sym.kind === "function" || (sym.kind === "method" && sym.typeExpr !== undefined)
+
 function calleeInfo(
   sym: Symbol,
   sections: readonly VarSection[],
@@ -116,6 +119,11 @@ function calleeInfo(
     if (!PARAM_SECTIONS.has(sec.sectionKind)) continue // VAR/VAR_TEMP/VAR_STAT locals aren't parameters
     for (const d of sec.decls)
       for (const id of d.names) {
+        // a FUNCTION's or METHOD's name is its result variable (rule Y20): an input of that name is a duplicate of it,
+        // not an input — both vendors count it out of the signature ("Function 'M' requires exactly '0' inputs",
+        // `sym_function_input_named_as_function`, `sym_method_input_named_as_method`, 2026-10-02). A METHOD with no
+        // `: <type>` has no result variable: pro2193's `METHOD PUBLIC Rollover` takes `rollover := 5` and builds
+        if (hasResultVariable(sym) && id.text.toLowerCase() === sym.name.toLowerCase()) continue
         paramNames.add(id.text.toLowerCase())
         if (POSITIONAL_SECTIONS.has(sec.sectionKind))
           positional.push({ name: id, type: d.type, inOut: sec.sectionKind === "VAR_IN_OUT", constant: sec.constant === true })

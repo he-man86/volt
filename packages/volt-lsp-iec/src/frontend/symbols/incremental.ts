@@ -7,25 +7,29 @@
  */
 import type { CompileEnvironment, Dialect } from "../syntax/index.js"
 import type { LibraryManifest } from "../library/index.js"
-import type { Scope } from "./model.js"
+import type { DeviceInstance, Scope } from "./model.js"
 import { createProjectScope, takeProjectKeys, takeUnsortedKeys } from "./scope.js"
 import { invalidate, left, placedTopLevel, takeAppended } from "./cache.js"
-import { ingestTopLevel, type SymbolTableInput } from "./binder.js"
+import { ingestDevices, ingestUnits, type SymbolTableInput } from "./binder.js"
 import { linkExtends, noteTopLevel } from "./extends.js"
 import { bindLibraryNamespaces } from "./library-namespaces.js"
 
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
  *  `manifests` are the referenced libraries' `.library` files (`parseLibraryManifest`), each binding its own
  *  units under the NAMESPACE the source qualifies them with. `environment` is what the CALLER measured of the device and
- *  the project's compile settings (`Scope.environment`); the LSP passes none. */
+ *  the project's compile settings (`Scope.environment`); the LSP passes none. `devices` are the project's device-tree
+ *  instances, from its `.device` descriptors (`ingestDevices`, rule Y24). */
 export function buildSymbolTable(
   files: readonly SymbolTableInput[],
   manifests: readonly LibraryManifest[] = [],
   dialect: Dialect = "codesys",
   environment?: CompileEnvironment,
+  devices: readonly DeviceInstance[] = [],
 ): Scope {
   const project = createProjectScope(dialect, environment)
   for (const file of files) bindFile(project, file)
+  ingestDevices(project, devices)
+  invalidate(project)
   relink(project, manifests)
   bindLibraryNamespaces(project, manifests)
   // ...and into canonical order once more: the namespace scopes are appended, and every later relink (the live server's
@@ -43,18 +47,8 @@ export function buildSymbolTable(
  */
 export function bindFile(project: Scope, { uri, parseResult }: SymbolTableInput): void {
   const start = project.children.length
-  // Track the most recent FB/PROGRAM/INTERFACE scope in THIS file so standalone
-  // methods/actions/properties that follow it (the workspace one-item-per-file layout:
-  // a POU, then its members as top-level siblings) parent to it — else member-var
-  // references in those bodies resolve nowhere.
-  let currentMemberHost: Scope | undefined
-  for (const unit of parseResult.units) {
-    const newScope = ingestTopLevel(project, unit, uri, currentMemberHost)
-    if (unit.kind === "function_block" || unit.kind === "program" || unit.kind === "interface") {
-      currentMemberHost = newScope
-    }
-    if (unit.kind === "function") currentMemberHost = undefined
-  }
+  // standalone methods/actions/properties parent to the POU written before them (`ingestUnits`)
+  ingestUnits(project, parseResult.units, uri)
   // Only makeScope(project, …) appends to project.children, so the new top-level scopes are exactly this
   // slice — tag them with the file URI. Nested member scopes (children of these) need no tag: dropping the
   // top-level scope drops its whole subtree.

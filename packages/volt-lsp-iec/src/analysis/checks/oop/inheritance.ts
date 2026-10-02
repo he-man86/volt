@@ -10,7 +10,7 @@
  * self-cycle (C0091) is flagged before the not-found check so `EXTENDS FB` on `FB` reports the cycle, not a
  * spurious not-found.
  */
-import { isLibrarySymbol, lookup, scopeForUnit } from "../../../frontend/symbols/index.js"
+import { isLibrarySymbol, lookupUnit, scopeForUnit } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { nameResolves } from "../../resolution.js"
@@ -39,7 +39,7 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
     if (unit.kind !== "function_block") continue
     // A library-provided FB's own EXTENDS/IMPLEMENTS is the library's concern — its base may be another
     // library-internal type `nameResolves` can't see. Only user-project FBs are checked (zero-FP).
-    const sym = lookup(ctx.project, unit.name.text)?.symbol
+    const sym = lookupUnit(ctx.project, unit.name.text)?.symbol
     if (sym !== undefined && isLibrarySymbol(sym)) continue
     const scope = scopeForUnit(ctx.project, unit) ?? ctx.project
     if (unit.extends !== undefined) {
@@ -60,7 +60,7 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
         })
       } else if (cycle !== undefined) {
         continue
-      } else if (scope.baseScope === undefined && !nameResolves(unit.extends.text, scope, ctx.project, ctx.references)) {
+      } else if (scope.baseScope === undefined && !nameResolves(unit.extends.text, scope)) {
         // the base the symbol table LINKED is the answer first: a qualified library base (`EXTENDS Standard.TON`,
         // `unit_fb_extends_qualified`) resolves there, through its namespace, where a name lookup has no namespace
         // Two errors for a base: the definition it could not find, and the TYPE it therefore does not have. An
@@ -76,9 +76,9 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
       // Not found, and ALSO found-but-not-an-interface: `IMPLEMENTS FB_Something` is "No definition found for
       // interface 'FB_Something'" all the same (conformance `cc3_interface_misuse`). Only a PROJECT symbol of a POU
       // kind counts as the disproof — a library symbol's kind is flattened and would false-positive.
-      const sym = lookup(scope, iface.text)?.symbol
+      const sym = lookupUnit(scope, iface.text)?.symbol
       const notAnInterface = sym !== undefined && !isLibrarySymbol(sym) && NOT_AN_INTERFACE.has(sym.kind)
-      if (notAnInterface || !nameResolves(iface.text, scope, ctx.project, ctx.references))
+      if (notAnInterface || !nameResolves(iface.text, scope))
         out.push({
           severity: "error",
           span: iface.span,

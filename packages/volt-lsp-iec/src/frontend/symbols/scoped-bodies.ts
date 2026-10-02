@@ -20,6 +20,7 @@
  * flips (another device, project or define).
  */
 import {
+  allUnits,
   isStBody,
   bodyStatements,
   sourceStatements,
@@ -75,9 +76,10 @@ export function* sourceBodies(units: readonly TopLevel[], project: Scope): Gener
   }
 }
 
-/** Every ST body of `units` whose unit's scope resolves, with the scope it resolves against (an accessor's own). */
+/** Every ST body of `units` whose unit's scope resolves, with the scope it resolves against (an accessor's own) — the
+ *  units inside a NAMESPACE block too, each against its own scope (rule Y17: they were never walked). */
 function* scopedBodies(units: readonly TopLevel[], project: Scope): Generator<Omit<UnitBody, "statements">> {
-  for (const unit of units) {
+  for (const unit of allUnits(units)) {
     const unitScope = scopeForUnit(project, unit)
     if (unitScope === undefined) continue
     for (const body of unitBodies(unit)) {
@@ -95,7 +97,7 @@ function* scopedBodies(units: readonly TopLevel[], project: Scope): Generator<Om
  * `bodies()`). Statement-level checks (assignment/narrowing pairs) walk statements directly, not this.
  */
 export function forEachExpr(parseResult: ParseResult, project: Scope, visit: (e: Expr, scope: Scope) => void): void {
-  for (const unit of parseResult.units) {
+  for (const unit of allUnits(parseResult.units)) {
     if (!("varSections" in unit)) continue
     const scope = scopeForUnit(project, unit)
     if (scope === undefined) continue
@@ -116,7 +118,7 @@ export function forEachExpr(parseResult: ParseResult, project: Scope, visit: (e:
  * every unit. Checks needing the section or unit destructure them too.
  */
 export function* forEachDecl(parseResult: ParseResult, project: Scope) {
-  for (const unit of parseResult.units) {
+  for (const unit of allUnits(parseResult.units)) {
     if (!("varSections" in unit)) continue
     const scope = scopeForUnit(project, unit) ?? project
     for (const section of unit.varSections) for (const decl of section.decls) yield { unit, section, decl, scope }

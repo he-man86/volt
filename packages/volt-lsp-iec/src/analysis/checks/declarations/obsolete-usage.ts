@@ -12,7 +12,7 @@
  */
 import type { Attribute, Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
-import { forEachDecl, forEachExpr, lookup, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
+import { forEachDecl, forEachExpr, lookup, lookupUnit, type Scope, type Symbol } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const INSTANCE_KINDS = new Set(["function_block", "program", "interface"])
@@ -30,7 +30,7 @@ export function checkObsoleteUsage(ctx: CheckContext, out: DiagnosticItem[]): vo
     out.push({ severity: "warning", span, source: SOURCE, code: "obsolete-usage", message: ctx.messages.pouObsolete(sym.name, text) })
   /** The obsolete FB/PROGRAM/INTERFACE `typeName` names in `scope`, with its text. */
   const obsoleteType = (scope: Scope, typeName: string): { sym: Symbol; text: string } | undefined => {
-    const sym = lookup(scope, typeName)?.symbol
+    const sym = lookupUnit(scope, typeName)?.symbol
     const text = sym !== undefined && INSTANCE_KINDS.has(sym.kind) ? obsoleteText(sym) : undefined
     return text === undefined ? undefined : { sym: sym!, text }
   }

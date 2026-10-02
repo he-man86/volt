@@ -36,11 +36,56 @@ function lookupInChain(scope: Scope, name: string): LookupResult | undefined {
   let s: Scope | undefined = scope
   while (s !== undefined && !seen.has(s)) {
     seen.add(s)
-    const hit = lookupLocal(s, name).find((h) => h.qualifiedOnly !== true)
+    const hit = s.parent === undefined ? projectLevelHit(lookupLocal(s, name)) : lookupLocal(s, name).find(binds)
     if (hit !== undefined) return { symbol: hit, foundIn: s }
     s = s.baseScope
   }
   return undefined
+}
+
+/**
+ * Whether a declaration below the project's level binds its name. A `qualified_only` list's variable does not (bare);
+ * nor does a VAR_EXTERNAL whose global does not exist (rule Y13, `externalGlobal`): both vendors drop it and answer
+ * "Identifier 'g' not defined" at every use (`cc2_constant_and_external`, `sym_var_external_qualified_only_global`), so
+ * the search goes on past it.
+ */
+function binds(sym: Symbol): boolean {
+  if (sym.qualifiedOnly === true) return false
+  return sym.varSection !== "VAR_EXTERNAL" || externalGlobal(rootOf(sym.owner), sym.name) !== undefined
+}
+
+/**
+ * THE PROJECT'S LEVEL OF THE BARE-NAME SEARCH ORDER (`docs/codesys-reference/09-shadowing.md`, rule Y23): the
+ * application's global variables (step 5) and its device-tree instances, then a referenced library's global variables
+ * (step 7), then the application's POU and type names — a list's name among them (step 8) — then a library's (step 10),
+ * then the library namespaces (step 11). Among one step, the canonical order (`incremental.ts` `canonicalize`).
+ * Measured: a global before a FUNCTION of its name, read (`sym_global_before_pou_name` runs the global's 3) and called
+ * (`sym_global_before_pou_name_called`: a call of an INT), both vendors 2026-10-02 — the first hit by file order had
+ * answered the FUNCTION wherever its file sorted first.
+ */
+function projectLevelHit(hits: readonly Symbol[]): Symbol | undefined {
+  let best: Symbol | undefined
+  let bestStep = Infinity
+  for (const h of hits) {
+    if (h.qualifiedOnly === true) continue
+    const step = searchStep(h)
+    if (step < bestStep) {
+      best = h
+      bestStep = step
+    }
+  }
+  return best
+}
+
+function searchStep(sym: Symbol): number {
+  const library = isLibrarySymbol(sym)
+  if (sym.kind === "gvl_var") return library ? 7 : 5
+  // No vendor measurement orders a device-tree instance against a global of its name. A device has no type and the global
+  // has one, and a `<proj>/Device/...` descriptor sorts before every application file, so a tie at step 5 would hide the
+  // typed global behind the untyped device: the device comes after the application's globals, before a library's.
+  if (sym.kind === "device") return 6
+  if (sym.kind === "namespace") return library ? 11 : 8 // a library's namespace (its manifest's uri), or a source NAMESPACE block
+  return library ? 10 : 8
 }
 
 /** Walk the parent chain from `start` outward; each scope is checked with its EXTENDS base chain. */
@@ -50,6 +95,29 @@ export function lookup(start: Scope, name: string): LookupResult | undefined {
     const hit = lookupInChain(cur, name)
     if (hit !== undefined) return hit
     cur = cur.parent
+  }
+  return undefined
+}
+
+/** The symbol kinds a TYPE position can name: a POU (a FUNCTION too, which a check then refuses), an interface, a type. */
+const UNIT_SYMBOL_KINDS: ReadonlySet<string> = new Set(["function", "function_block", "program", "interface", "type"])
+
+/**
+ * A name in a TYPE position — `inst : POU`, `EXTENDS B`, `IMPLEMENTS I`, an enum type's name — walked outward like `lookup`,
+ * but only a POU, interface or type answers it. The bare-name search order (rule Y23, `projectLevelHit`) is an
+ * EXPRESSION's: `sym_global_before_pou_name` measured a READ, where a global beats a FUNCTION of its name. A type position
+ * names no variable and no device, so a same-named global or device instance must not take the POU or type from it
+ * (`inst : POU` beside a global `pou` is still "'POU' is of type FUNCTION and cannot be instantiated"). Among the
+ * candidates, the application's before a library's (steps 8, 10), then the canonical order.
+ */
+export function lookupUnit(start: Scope, name: string): LookupResult | undefined {
+  for (let cur: Scope | undefined = start; cur !== undefined; cur = cur.parent) {
+    const seen = new Set<Scope>()
+    for (let s: Scope | undefined = cur; s !== undefined && !seen.has(s); s = s.baseScope) {
+      seen.add(s)
+      const hit = projectLevelHit(lookupLocal(s, name).filter((h) => UNIT_SYMBOL_KINDS.has(h.kind)))
+      if (hit !== undefined) return { symbol: hit, foundIn: s }
+    }
   }
   return undefined
 }
@@ -77,15 +145,39 @@ export function lookupGlobal(project: Scope, name: string): Symbol | undefined {
   return lists.size >= 2 ? undefined : found
 }
 
+/**
+ * The global a `VAR_EXTERNAL` of `name` binds (rule Y13) — a list's variable reachable BARE, a referenced library's
+ * included; never a `qualified_only` list's, which is reachable only as `GVL.v` and is no global for VAR_EXTERNAL either
+ * ("No global definition found for VAR_EXTERNAL g", `sym_var_external_qualified_only_global`, both vendors 2026-10-02).
+ * Undefined when no list declares one. Two lists declaring it is the ambiguity check's to say, not this lookup's.
+ */
+export function externalGlobal(project: Scope, name: string): Symbol | undefined {
+  return lookupLocal(project, name).find((s) => s.kind === "gvl_var" && s.qualifiedOnly !== true)
+}
+
 /** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. Type inference and constant
  *  folding both qualify through it (it lived privately in `infer.ts`). `.GVL.field` names the list in the global
  *  namespace only (rule E33): `ARRAY [1...L_MC1P_Constants.gc_Rec_Max]` in a lenze library, `1..` then `.L_MC1P_…`. */
 export function resolveGvlMember(expr: { base: Expr; member: { name: string } }, scope: Scope, project: Scope): Symbol | undefined {
-  const base = expr.base
+  const block = gvlBlockOf(expr.base, scope, project)
+  if (block === undefined) return undefined
+  return lookupLocal(project, expr.member.name).find((sym) => sym.kind === "gvl_var" && sym.uri === block.uri)
+}
+
+/**
+ * The global variable list a qualifier names — `GVL` in `GVL.v`, `.GVL` in the global namespace, or `Ns.GVL` inside a
+ * library's namespace (`Stu.GVL_UTF8.HALFSHIFT` builds, `sym_library_gvl_qualified_fully`) — or undefined.
+ */
+export function gvlBlockOf(base: Expr, scope: Scope, project: Scope): Symbol | undefined {
+  if (base.kind === "member") {
+    const ns = base.base.kind === "ident_expr" ? lookup(scope, base.base.name)?.symbol : undefined
+    if (ns?.kind !== "namespace") return undefined
+    const nsScope = findChildScope(project, ns.name, scope.defUri)
+    return nsScope === undefined ? undefined : lookupLocal(nsScope, base.member.name).find((s) => s.kind === "gvl_block")
+  }
   if (base.kind !== "ident_expr" && base.kind !== "global_expr") return undefined
   const block = base.kind === "global_expr" ? lookupGlobal(project, base.name.name) : lookup(scope, base.name)?.symbol
-  if (block?.kind !== "gvl_block") return undefined
-  return lookupLocal(project, expr.member.name).find((sym) => sym.kind === "gvl_var" && sym.uri === block.uri)
+  return block?.kind === "gvl_block" ? block : undefined
 }
 
 /**

@@ -67,4 +67,5 @@ export {
   operandFamilyRule,
   unaryOperandConversion,
 } from "./arith/operators.js"
-export { BUILTIN_RESULT, exptResultType } from "./builtins.js"
+export { BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, type BuiltinName } from "./builtins.js"
+export { resolveBareName, resolveGlobalName, type BareName } from "./names.js"

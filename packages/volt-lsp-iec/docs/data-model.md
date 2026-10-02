@@ -239,7 +239,7 @@ type SymbolKind =
   | "function_block" | "program" | "function" | "method" | "action"
   | "property" | "interface" | "interface_method" | "interface_property"
   | "type" | "var" | "method_param" | "struct_field" | "enum_value"
-  | "gvl_var" | "gvl_block" | "namespace"
+  | "gvl_var" | "gvl_block" | "namespace" | "device"
 
 interface Symbol {
   kind: SymbolKind; name: string
@@ -248,8 +248,10 @@ interface Symbol {
   owner: Scope; uri: string
   typeExpr?: TypeExpr; varSection?: VarSectionKind
   qualifiedOnly?: boolean // gvl_var behind {attribute 'qualified_only'}
-  ast: TopLevel | VarDecl | EnumValue | InterfaceMethod | InterfaceProperty | Method | Action | Property
+  ast: TopLevel | VarDecl | EnumValue | InterfaceMethod | InterfaceProperty | Method | Action | Property | DeviceInstance
 }
+// a device-tree instance, from its `.device` descriptor: a name and nothing else (no IEC type)
+interface DeviceInstance { kind: "device"; name: string; uri: string }
 
 type ScopeKind = "project" | "pou" | "method" | "accessor" | "interface" | "struct" | "enum" | "gvl" | "namespace"
 interface Scope {
@@ -266,6 +268,12 @@ interface LookupResult { symbol: Symbol; foundIn: Scope }
 ## types
 
 ```ts
+// what a bare identifier names — the search order's answer (`types/names` `resolveBareName`, rule Y23)
+type BareName =
+  | { kind: "declared"; symbol: Symbol; foundIn: Scope } | { kind: "device"; symbol: Symbol }
+  | { kind: "library-namespace"; symbol: Symbol } | { kind: "enum-member"; symbol: Symbol }
+  | { kind: "builtin"; builtin: "system-operator" | "conversion" | "implicit" | "operator" | "type" } | { kind: "none" }
+
 type ResolvedKind = "elementary" | "enum" | "struct" | "function_block" | "alias" | "unknown"
 interface ResolvedType { kind: ResolvedKind; aliasTarget?: TypeExpr; scope?: Scope }
 

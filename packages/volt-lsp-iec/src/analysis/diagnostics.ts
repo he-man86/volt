@@ -9,13 +9,11 @@
 import type { ParseResult, Token } from "../frontend/syntax/index.js"
 import type { Scope } from "../frontend/symbols/index.js"
 import {
-  EMPTY_WORKSPACE_REFS,
   resolveConfig,
   CONFIGURABLE_CODES,
   type AnalysisInitOptions,
   type ConfigurableCode,
   type ResolvedConfig,
-  type WorkspaceRefs,
 } from "./config.js"
 import { messagesFor, type Messages } from "./messages.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
@@ -111,8 +109,6 @@ export interface CheckContext {
   uri?: string
   config: ResolvedConfig
   messages: Messages
-  /** Workspace reference-file names (library namespaces + device instances) the checks may skip. */
-  references: WorkspaceRefs
   /** The source's tokens as the PARSE lexed them (`ParseResult.tokens`: once, with the parse's dialect), shared by
    *  every pragma/attribute-token check. The parser strips pragmas from the tree, so these checks read the stream —
    *  three of them used to re-lex it independently, then one memoized lex did. */
@@ -265,8 +261,6 @@ export interface DiagnosticsArgs {
   project: Scope
   /** Resolved config, or raw init options (resolved here). */
   config?: ResolvedConfig | AnalysisInitOptions
-  /** Workspace reference-file names (computed once per workspace). Defaults to empty. */
-  references?: WorkspaceRefs
   /** The document's URI, so a type name resolves the way it does for the file that wrote it. */
   uri?: string
 }
@@ -300,7 +294,6 @@ export function computeSemanticDiagnostics(args: DiagnosticsArgs): DiagnosticIte
     uri: args.uri,
     config,
     messages: messagesFor(config.vendor),
-    references: args.references ?? EMPTY_WORKSPACE_REFS,
     tokens: () => args.parseResult.tokens,
   }
   const out: DiagnosticItem[] = []

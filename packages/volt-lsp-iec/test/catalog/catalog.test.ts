@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs"
 import { errorCatalog, type ErrorCode } from "./error-codes.js"
 import { parseSource } from "../../src/frontend/syntax/index.js"
 import { build } from "../../src/frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../../src/analysis/index.js"
 
 const catalog = errorCatalog()
 
@@ -33,7 +33,6 @@ function lspMessages(repro: string, extra?: { uri: string; source: string }[]): 
     source: repro,
     project,
     config: resolveConfig({ vendor: "codesys" }),
-    references: EMPTY_WORKSPACE_REFS,
   })
     .filter((d) => d.severity === "error" || d.severity === "warning")
     .map((d) => d.message)

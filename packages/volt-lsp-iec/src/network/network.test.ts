@@ -1,7 +1,8 @@
 import { test, expect } from "bun:test"
 import { type BodySpan, type Expr, graphicalMarkerLanguage, isGraphicalBody, parseSource, unitBodies, walkExpr } from "../frontend/syntax/index.js"
 import { build, type Scope } from "../frontend/symbols/index.js"
-import { messagesFor, type DiagnosticItem, type WorkspaceRefs } from "../analysis/index.js"
+import { messagesFor, type DiagnosticItem } from "../analysis/index.js"
+import type { LibraryManifest } from "../frontend/library/index.js"
 import {
   STRUCTURE_ONLY,
   parseNetworkText,
@@ -38,8 +39,8 @@ function doc(src: string): Document {
   return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
 }
 
-function project(d: Document): Scope {
-  return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
+function project(d: Document, manifests: readonly LibraryManifest[] = []): Scope {
+  return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }], manifests)
 }
 
 /** network-text diagnostics for a single-doc project (codesys wording). */
@@ -342,8 +343,8 @@ END_FUNCTION_BLOCK`
 })
 
 // network-undeclared-identifier — the network-text analogue of ST's unresolved-identifier, sharing its resolution rules.
-const vgUndeclared = (src: string, references?: WorkspaceRefs): string[] =>
-  computeNetworkTextDiagnostics(doc(src), project(doc(src)), messagesFor("codesys"), references)
+const vgUndeclared = (src: string, manifests: readonly LibraryManifest[] = []): string[] =>
+  computeNetworkTextDiagnostics(doc(src), project(doc(src), manifests), messagesFor("codesys"))
     .filter((d) => d.code === "network-undeclared-identifier")
     .map((d) => d.message)
 
@@ -386,7 +387,7 @@ END_FUNCTION_BLOCK`
   expect(vgUndeclared(src.replace("R_EDGE(a)", "R_EDGE(nope)"))).toEqual(["Identifier 'nope' not defined"]) // the operand still is checked
 })
 
-test("network text: a referenced-library namespace is skipped when supplied", () => {
+test("network text: a referenced library's namespace resolves when its manifest is bound", () => {
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
 IMPLEMENTATION FBD
@@ -395,9 +396,8 @@ out := PACK_ML.gFlag;
 END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgUndeclared(src)).toEqual(["Identifier 'PACK_ML' not defined"]) // unknown → flagged
-  const refs: WorkspaceRefs = { libraryManifests: [],
-    libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set() }
-  expect(vgUndeclared(src, refs)).toEqual([]) // known → skipped
+  // the library materialized nothing; its manifest still binds the namespace (`bindLibraryNamespaces`)
+  expect(vgUndeclared(src, [{ uri: "App/Library Manager/PackML/PackML.library", folder: "PackML", namespace: "PACK_ML", library: "PackML", dependencies: [], materialization: 4 }])).toEqual([]) // known → resolves
 })
 
 // network-unknown-member — the network-text analogue of ST's `a.b` member check (wired once the qualified_only binder

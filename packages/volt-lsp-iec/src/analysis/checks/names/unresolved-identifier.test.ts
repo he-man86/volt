@@ -9,18 +9,26 @@
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
-import { computeSemanticDiagnostics, resolveConfig, type WorkspaceRefs } from "../../index.js"
+import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
+import type { LibraryManifest } from "../../../frontend/library/index.js"
+import type { DeviceInstance } from "../../../frontend/symbols/index.js"
 
-/** Diagnostics for one FB source, optionally with workspace reference-file names injected. */
-function diag(src: string, references?: WorkspaceRefs) {
+/** What a workspace binds beside its sources: library manifests and device-tree instances. */
+interface Workspace {
+  manifests?: readonly LibraryManifest[]
+  devices?: readonly DeviceInstance[]
+}
+
+/** Diagnostics for one FB source, in a project optionally binding a workspace's manifests and devices. */
+function diag(src: string, workspace: Workspace = {}) {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
-  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }), references })
+  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], workspace.manifests ?? [], "codesys", undefined, workspace.devices ?? [])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
 /** unresolved-identifier messages only (ignore other checks that may fire on the same snippet). */
-const unresolved = (src: string, references?: WorkspaceRefs): string[] =>
-  diag(src, references)
+const unresolved = (src: string, workspace?: Workspace): string[] =>
+  diag(src, workspace)
     .filter((d) => d.code === "unresolved-identifier")
     .map((d) => d.message)
 
@@ -112,21 +120,26 @@ test("typed-base enum (`) USINT;`) still resolves its qualified members", () => 
   expect(enumUse(dut, qual)).toEqual([])
 })
 
-// Gap: a referenced-library namespace resolves outside the symbol table → skip when known.
-test("a referenced-library namespace is not flagged when supplied", () => {
-  const refs: WorkspaceRefs = { libraryManifests: [],
-    libraryNamespaces: new Set(["pack_ml"]), deviceInstances: new Set() }
+// A referenced library's namespace is bound from its manifest — one whose library materialized nothing too.
+test("a referenced library's namespace resolves when its manifest is bound", () => {
   const src = fb(`VAR a : INT; END_VAR\na := PACK_ML.gConstant;`)
+  const packMl: LibraryManifest = {
+    uri: "App/Library Manager/PackML/PackML.library",
+    folder: "PackML",
+    namespace: "PACK_ML",
+    library: "PackML",
+    dependencies: [],
+    materialization: 4,
+  }
   expect(unresolved(src)).toEqual(["Identifier 'PACK_ML' not defined"]) // unknown → flagged
-  expect(unresolved(src, refs)).toEqual([]) // known library namespace → skipped
+  expect(unresolved(src, { manifests: [packMl] })).toEqual([]) // its library's namespace → resolves
 })
 
-// Gap: a device-tree instance is an implicit global mirrored as a `.device` file → skip when known.
-test("a device-tree instance is not flagged when supplied", () => {
-  const refs: WorkspaceRefs = { libraryManifests: [],
-    libraryNamespaces: new Set(), deviceInstances: new Set(["ethercat_master"]) }
+// A device-tree instance is bound from its `.device` descriptor (rule Y24) and resolves bare.
+test("a device-tree instance resolves when its descriptor is bound", () => {
   const src = fb(`VAR a : INT; END_VAR\na := EtherCAT_Master.wState;`)
-  expect(unresolved(src, refs)).toEqual([])
+  expect(unresolved(src)).toEqual(["Identifier 'EtherCAT_Master' not defined"])
+  expect(unresolved(src, { devices: [{ kind: "device", name: "EtherCAT_Master", uri: "Device/EtherCAT_Master.device" }] })).toEqual([])
 })
 
 // A conditional-compile pragma disables the whole body (no preprocessor → would false-positive on dead branches).
@@ -299,4 +312,23 @@ test("`.g` declared by two global lists names no global (expr_global_namespace_a
     .map((d) => d.message)
     .sort()
   expect(messages).toEqual(["Cannot convert type 'Unknown type: '.gAmb'' to type 'INT'", "There is no global definition for 'gAmb'"])
+})
+
+// frontend-conformance 3.1.3 (rule Y9): `GVL.v` names a variable of THAT list, and one it does not declare is "'nope' is no
+// component of 'GVL_X'", the access then a hole ("Cannot convert type 'Unknown type: 'GVL_X.nope'' to type 'INT'") — both
+// vendors, TwinCAT with the list's name in capitals (`sym_gvl_unknown_member`, `decl_non_retain_in_gvl`, 2026-10-02)
+test("a member a global variable list does not declare is no component of the list, and the access has no type", () => {
+  const gvl = "VAR_GLOBAL\n g_known : INT;\nEND_VAR"
+  const src = fb("VAR a : INT; END_VAR\na := GVL_X.nope;\na := GVL_X.g_known;")
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable(
+    [{ uri: "F.fb", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true }), source: gvl }],
+    [],
+    "codesys",
+  )
+  const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.filter((d) => d.severity === "error").map((d) => d.message).sort()).toEqual([
+    "'nope' is no component of 'GVL_X'",
+    "Cannot convert type 'Unknown type: 'GVL_X.nope'' to type 'INT'",
+  ])
 })

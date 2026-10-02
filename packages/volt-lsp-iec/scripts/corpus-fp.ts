@@ -21,7 +21,7 @@ import {
   inDeadMember,
   ownerPou,
 } from "../src/analysis/index.js"
-import { loadTaskRoots, loadWorkspaceRefs, readSourceText, scanLibraryManifests } from "../src/workspace-refs.js"
+import { loadTaskRoots, loadWorkspaceRefs, readSourceText } from "../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -47,8 +47,8 @@ for (const project of readdirSync(CORPUS)) {
     const source = readSourceText(uri)
     return { uri, source, parseResult: parseDocument(uri, source, { networkText: NETWORK_TEXT_ENABLED }) }
   })
-  const scope = build.buildSymbolTable(inputs, scanLibraryManifests(dir))
   const references = loadWorkspaceRefs(dir)
+  const scope = build.buildSymbolTable(inputs, references.libraryManifests, "codesys", undefined, references.devices)
   const dead = deadPous(inputs, loadTaskRoots(dir))
   const deadMembers = deadMemberSpans(inputs, dead)
   for (const f of inputs) {
@@ -61,7 +61,7 @@ for (const project of readdirSync(CORPUS)) {
     const owner = ownerPou(f.parseResult)
     if (owner !== undefined && dead.has(owner)) continue
     const dm = deadMembers.get(f.uri)
-    for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project: scope, config, references }))
+    for (const d of computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project: scope, config }))
       if (d.severity === "error" && !inDeadMember(d.span, dm))
         (byCode[d.code] ??= []).push(`${project}${f.uri.slice(dir.length)}: ${d.message}`)
   }
