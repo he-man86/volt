@@ -346,8 +346,9 @@ function printArm(a: CaseArm, depth: number): string {
 function printTry(s: Extract<Statement, { kind: "try" }>, depth: number): string {
   const ind = TAB.repeat(depth)
   let out = `${ind}__TRY\n${printStatements(s.tryBody, depth + 1)}`
-  if (s.catchVar !== undefined)
-    out += `\n${ind}__CATCH(${exprText(s.catchVar)})\n${printStatements(s.catchBody ?? [], depth + 1)}`
+  // a catch without its operand is a catch (`stmt_try_catch_without_operand`)
+  if (s.catchBody !== undefined)
+    out += `\n${ind}__CATCH${s.catchVar !== undefined ? `(${exprText(s.catchVar)})` : ""}\n${printStatements(s.catchBody, depth + 1)}`
   if (s.finallyBody !== undefined) out += `\n${ind}__FINALLY\n${printStatements(s.finallyBody, depth + 1)}`
   return `${out}\n${ind}__ENDTRY;`
 }

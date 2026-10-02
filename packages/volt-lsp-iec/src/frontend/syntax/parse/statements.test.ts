@@ -50,7 +50,7 @@ test("so is CAL assigned as a variable (cc_il_name_cal, L15)", () => {
 })
 
 test("the words a statement does start with are not refused", () => {
-  expect(errors("THIS^.n := 1;\nSUPER^();\nn := LIMIT(0, n, 10);\nNOT n;\nTRUE;\n")).toEqual([])
+  expect(errors("THIS^.n := 1;\nSUPER^();\nn := LIMIT(0, n, 10);\n.g := 1;\n")).toEqual([])
 })
 
 test("the cascade stops at GET/SET/OVERRIDE as it stops at any name (lex_cascade_meets_soft_name_get/_set/_override, L12)", () => {
@@ -210,4 +210,64 @@ test("an address with a size and no position is no operand and no target in a bo
     "';' expected instead of '*'", "Unexpected token '*' found", "';' expected instead of '2'", "Unexpected token '2' found",
   ])
   expect(errors("%MW := 1;")).toEqual(refusedAssignment("%MW"))
+})
+
+// ─── the statements, rule by rule (frontend-conformance 2.6, ST1–ST19; both vendors 2026-10-02) ──────────────────────
+
+test("`S=`, `R=` and `REF=` are one operator in any case: `x s= y`, `x r= y`, `rn ref= m` (stmt_s_eq_lower_case, stmt_ref_eq_lower_case, ST2/ST3)", () => {
+  expect(errors("x s= y;\nx r= y;\nrn ref= m;")).toEqual([])
+  expect(statements("x s= y;\nx r= y;\nrn ref= m;").map((s) => (s.kind === "assign" ? s.op : s.kind))).toEqual(["S=", "R=", "REF="])
+})
+
+test("a token no statement starts with is refused where a statement starts, then the resync (stmt_assign_literal_target, stmt_bare_*, stmt_assign_paren_target, ST1/ST5)", () => {
+  expect(errors("1 := a;")).toEqual(["Unexpected token '1' found", "';' expected instead of ':='", "Unexpected token ':=' found", "';' expected instead of 'a'"])
+  expect(errors("5;")).toEqual(["Unexpected token '5' found"])
+  expect(errors("TRUE;")).toEqual(["Unexpected token 'TRUE' found"])
+  expect(errors("NOT x;")).toEqual(["Unexpected token 'NOT' found", "';' expected instead of 'x'"])
+  expect(errors("-a;")).toEqual(["Unexpected token '-' found", "';' expected instead of 'a'"])
+  // `(a);`: the `(` refused, `a` resumes a statement whose `;` is missing at the `)`
+  expect(errors("(a);")).toEqual(["Unexpected token '(' found", "';' expected instead of 'a'", "';' expected instead of ')'", "Unexpected token ')' found"])
+  expect(errors("(out) := a;")).toEqual([
+    "Unexpected token '(' found", "';' expected instead of 'out'",
+    "';' expected instead of ')'", "Unexpected token ')' found", "';' expected instead of ':='", "Unexpected token ':=' found",
+    "';' expected instead of 'a'",
+  ])
+  // `out : = a;` is the label `out:`, then a statement opening with `=`
+  expect(errors("out : = a;")).toEqual(["Unexpected token '=' found", "';' expected instead of 'a'"])
+  expect(statements("out : = a;")[0]).toMatchObject({ kind: "label" })
+})
+
+test("a reserved word before `(` is refused where a statement starts: `LIMIT(0, a, 5);`, `INI(t, TRUE);` (stmt_limit_call_statement, stmt_ini_call, ST5/ST19)", () => {
+  expect(errors("INI(t, TRUE);")).toEqual([
+    "Unexpected token 'INI' found", "';' expected instead of '('", "Unexpected token '(' found", "';' expected instead of 't'",
+    "';' expected instead of ','", "Unexpected token ',' found", "';' expected instead of 'TRUE'", "Unexpected token 'TRUE' found",
+    "';' expected instead of ')'", "Unexpected token ')' found",
+  ])
+  expect(errors("LIMIT(0, a, 5);")).toContain("Unexpected token 'LIMIT' found")
+  // …and in an operand it is the operator it names
+  expect(errors("ok := INI(t, TRUE);\nn := LIMIT(0, a, 5);")).toEqual([])
+})
+
+test("RETURN, EXIT, CONTINUE and JMP without their `;` are the one line, and the next statement is read (stmt_*_no_semicolon, ST14/ST15)", () => {
+  expect(errors("RETURN\nout := 2;")).toEqual(["';' expected instead of 'out'"])
+  expect(errors("FOR i := 1 TO 3 DO\n\tEXIT\n\tout := i;\nEND_FOR")).toEqual(["';' expected instead of 'out'"])
+  expect(errors("FOR i := 1 TO 3 DO\n\tCONTINUE\n\tout := i;\nEND_FOR")).toEqual(["';' expected instead of 'out'"])
+  expect(errors("JMP lbl\nout := 1;\nlbl:\nout := 2;")).toEqual(["';' expected instead of 'out'"])
+  expect(statements("RETURN\nout := 2;").map((s) => s.kind)).toEqual(["return", "assign"])
+})
+
+test("a statement without its `;` before its block's END is the one line (stmt_*_no_semicolon_before_end_*, stmt_assign_no_semicolon_before_end_if, ST14)", () => {
+  expect(errors("IF x THEN\n\tRETURN\nEND_IF")).toEqual(["';' expected instead of 'END_IF'"])
+  expect(errors("FOR i := 1 TO 3 DO\n\tout := i;\n\tEXIT\nEND_FOR")).toEqual(["';' expected instead of 'END_FOR'"])
+  expect(errors("IF x THEN\n\tout := 1\nEND_IF")).toEqual(["';' expected instead of 'END_IF'"])
+})
+
+test("a CASE label list with a trailing comma wants an expression at the colon, and the arm is read (stmt_case_label_trailing_comma, ST7)", () => {
+  expect(errors("CASE a OF\n1, 2,: out := 1;\nEND_CASE")).toEqual(["Expression expected instead of ':'"])
+  expect(statements("CASE a OF\n1, 2,: out := 1;\nEND_CASE")[0]).toMatchObject({ kind: "case", arms: [{ labels: [{}, {}] }] })
+})
+
+test("`__CATCH` without its operand is a catch (stmt_try_catch_without_operand, ST18)", () => {
+  for (const d of ["codesys", "twincat"] as const) expect(errors("__TRY\n\tout := 1;\n__CATCH\n\tout := 2;\n__ENDTRY", d)).toEqual([])
+  expect(statements("__TRY\n\tout := 1;\n__CATCH\n\tout := 2;\n__ENDTRY")[0]).toMatchObject({ kind: "try", catchBody: [{ kind: "assign" }] })
 })

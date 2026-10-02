@@ -328,13 +328,13 @@
     "category": "invalid assignment syntax",
     "cause": "Using '=' instead of ':=' for a statement/assignment makes the statement unparseable.",
     "message": "'<statement>' is no valid statement",
-    "repro": "PROGRAM PLC_PRG\nVAR\n    x : INT;\nEND_VAR\n\nx = 2;",
+    "repro": "PROGRAM PLC_PRG\r\nVAR\r\n    x : INT;\r\nEND_VAR\r\n\r\nx = 2;\r\n",
     "expect": [
-      "'(x = 2); ' is no valid statement"
+      "'(x = 2);\r\n' is no valid statement"
     ],
-    "status": "checkable",
-    "ourCheck": null,
-    "ourCode": null,
+    "status": "implemented",
+    "ourCheck": "checkNoOpStatement",
+    "ourCode": "no-valid-statement",
     "lint": null,
     "verified": {
       "codesys": false,
@@ -342,7 +342,7 @@
     },
     "fix": "x := 2;",
     "triage": "parser",
-    "note": "Parser/decl-structure error â€” the syntax layer already emits a recovery diagnostic here; matching CODESYS's exact wording needs statement-body/declaration parsing, which inverts the single-source design for low marginal value. Deferred (not on the autonomous loop)."
+    "note": "A binary operation as a statement (frontend-conformance 2.6, ST5): stmt_bare_comparison, stmt_bare_binary, stmt_case_nonconst_label, stmt_ref_eq_spaced recorded on both vendors 2026-10-02. Each echo ends in the stored text's CRLF where a line break follows the statement ('(out = a);\\r\\n'), so this repro is the shape the vendor stores and the fixtures record: CRLF, ending in a break. The help page's '(x = 2); ' renders that break as a space. verified stays false: verify-catalog built nothing on 2026-10-02 for any repro (C0139, verified 2026-07-11, came back empty too), so no live run confirms this exact repro."
   },
   {
     "code": "C0022",
@@ -4014,7 +4014,7 @@
   {
     "code": "C0426",
     "url": "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0426.html",
-    "kind": "error",
+    "kind": "warning",
     "category": "empty CASE label",
     "cause": "A CASE statement has a label with no statements between it and the next label.",
     "message": "At least one statement is expected",
@@ -4022,7 +4022,7 @@
     "expect": [
       "At least one statement is expected"
     ],
-    "note": "Verified live CODESYS 3.5.21 (re-verified 2026-07-21). CORRECTS a stale won't-fix: an empty CASE arm (1:\n2:) IS an error; the legal fall-through is a comma list 1,2:. Comment-only/lone-; bodies are legal and not flagged. TC pending.",
+    "note": "An empty CASE arm is a WARNING on both vendors (frontend-conformance 2.6, ST10: stmt_case_empty_arm, _last, _before_else recorded 2026-10-02; they build and run). A note of 2026-07-21 called it an error. It is no fall-through; the comma list 1, 2: shares a body. Comment-only/lone-; bodies are not flagged.",
     "status": "implemented",
     "ourCheck": "checkEmptyBlock",
     "ourCode": "empty-block",

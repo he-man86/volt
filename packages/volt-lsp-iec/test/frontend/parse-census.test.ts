@@ -50,10 +50,15 @@ const EXEC_REFUSALS: ReadonlyMap<string, RecordedBuild> = new Map(
  * syntax refusal — the vendor goes on analysing the body beside it (`expr_super_without_base` reports four messages,
  * `cc_conv_spelled_*` the undefined name too), and the LSP answers it in the analysis (`invalid-call-target`), where the
  * conformance suite holds it (frontend-conformance 2.5.6).
+ * Nor C0013/C0426, "At least one statement is expected": a COUNT of a block's statements, no refusal of a token — on a CASE
+ * arm the vendors give it as a WARNING and the program builds and runs (`stmt_case_empty_arm`, both vendors 2026-10-02),
+ * and the LSP answers it in the analysis (`empty-block`), where the conformance suite holds it (frontend-conformance 2.6).
  */
 const SYNTAX_MESSAGE = /expected|unexpected token/i
 const isSyntaxMessage = (message: string): boolean =>
-  SYNTAX_MESSAGE.test(message) && !message.startsWith("Program name, function or function block instance expected")
+  SYNTAX_MESSAGE.test(message) &&
+  !message.startsWith("Program name, function or function block instance expected") &&
+  message !== "At least one statement is expected"
 
 /** The build's messages as a multiset: each recorded copy matches ONE LSP parse error. */
 const recordedPool = (b: RecordedBuild | undefined) => messagePool((b?.diagnostics ?? []).map((d) => d.message))

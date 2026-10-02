@@ -12,6 +12,7 @@ export const CODESYS_CODE_MAP: Readonly<Record<string, readonly [code: string, u
   "unknown-member": ["C0004", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0004.html"],
   "empty-block": ["C0013", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0013.html"],
   "not-assignment-target": ["C0018", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0018.html"],
+  "no-valid-statement": ["C0020", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0020.html"],
   "operator-operand-count": ["C0022", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0022.html"],
   "at-address": ["C0030", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0030.html"],
   "assignment-type-mismatch": ["C0032", "https://content.helpme-codesys.com/en/CODESYS%20Development%20System/_cds_error_c0032.html"],

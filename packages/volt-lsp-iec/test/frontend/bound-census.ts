@@ -39,6 +39,7 @@ import {
   checkedMeetType,
   classifyConversion,
   constEval,
+  elementaryRef,
   elementaryType,
   inferExprType,
   literalCheckType,
@@ -223,12 +224,31 @@ export function boundCensus(): BoundCensus {
       tally(c.resolution, `${group}: ${shape} ${verdict}`)
       if (pin !== undefined && verdict !== "resolved") c.fixtureUnresolved.push(`${pin}${b.parsed.id} ${line}`)
     }
+    // …and the expressions of a statement the vendor says is NO VALID STATEMENT (`'(a + 1);' is no valid statement`): it
+    // types nothing there — its echo leaves the literal untyped, `(a + 1)`, where a typed operation reads `(a + INT#1)`
+    // (`stmt_bare_binary`, `stmt_case_nonconst_label`, both vendors, frontend-conformance 2.6)
+    const invalidStatement = noValidStatementsIn(b, vendor.says)
     if (!vendor.known)
       for (const { expr, scope, line } of typeRows(b)) {
         const [where, kind, ...rest] = line.split(" ")
         const type = rest.join(" ")
         tally(c.types, `${group}: expressions`)
         if (type !== "?" && type !== "NOSCOPE") continue
+        // a SIGN on an untyped number is that number, context-typed as the literal is (`-1`, the CASE label `-1:`,
+        // `stmt_case_negative_label`, frontend-conformance 2.6). A RECLASSIFICATION, not a fix: the front-end still
+        // types `-1` UNKNOWN, as it types `1` (`literal UNKNOWN`, uncapped: an untyped number's type is area 4's).
+        // Every one of `unary UNKNOWN`'s 246/245 fixture rows was such a number; this key took them, plus the 7 the
+        // 2.6 CASE-label fixtures add (`stmt_case_negative_label`, `_negative_range`, `_plus_label`) — 253/252, a
+        // rise for measurement — and corpus 308 = 173 + 135, Library Manager 658, library 9 (no rise). Capped
+        // (`baselines/ceilings.json`) at that start, so it may only fall from here.
+        if (type === "?" && isSignedUntypedNumber(expr)) {
+          tally(c.types, `${group}: unary UNKNOWN, a signed untyped number (context-typed, as a literal)`)
+          continue
+        }
+        if (invalidStatement(expr)) {
+          tally(c.types, `${group}: ${kind} untyped, no valid statement on the vendor too`)
+          continue
+        }
         // a refused expression (`dumps.ts` `refusedIn`) has no type to ask for; an undefined name the vendor also
         // reports undefined has none either, nor does an index, member or dereference BUILT on it (`vec4[0]` over an
         // undefined `vec4` starts where `vec4` does); and a call to a POU that returns nothing has no value — each
@@ -251,6 +271,11 @@ export function boundCensus(): BoundCensus {
         // types such a call UNKNOWN since frontend-conformance 2.5b, `expr_global_namespace_call_non_callable`)
         else if (type === "?" && expr.kind === "call" && vendor.says?.has(`program name, function or function block instance expected instead of '${compilerExprText(expr.callee).toLowerCase()}'`) === true)
           tally(c.types, `${group}: call untyped, no call target on the vendor too`)
+        // …and a call operator whose OPERANDS the vendor refuses — "'__QUERYINTERFACE' needs exactly '2' operands",
+        // "Operand of __DELETE must be pointer" — gives the call no type there either (`lex_keyword_called_sys_delete`,
+        // `_queryinterface`, `_querypointer`, both vendors, review 2.6)
+        else if (type === "?" && expr.kind === "call" && expr.callee.kind === "ident_expr" && operandsRefused(expr.callee.name, vendor.says))
+          tally(c.types, `${group}: call untyped, its operands refused on the vendor too`)
         // …and SUPER where the vendor does not allow it — a function block that extends nothing: "Expression SUPER is not
         // allowed in this context" (TwinCAT quotes it; `expr_super_without_deref_without_base`, `refuse_super_without_base`)
         else if (
@@ -345,7 +370,12 @@ interface Store {
   printed: string
   /** A comparison operand's store: its two operands' types, `LEFT|RIGHT`. */
   compared?: string
+  /** A store TwinCAT words with its two types swapped (a literal `REF=`). */
+  reversedOnTwincat?: boolean
 }
+
+/** What `S=` and `R=` read and set. */
+const BOOL: Type = elementaryRef("BOOL")
 
 /** Every message a recorded build holds, lower case — what `dumps.ts` `unparsedIn` asks of an LSP parse error; undefined
  *  when there is no build recording (the push refused the fixture). */
@@ -356,7 +386,7 @@ function vendorSays(build: { diagnostics: readonly { message: string }[] } | und
 function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   const out: Store[] = []
   /** `named`: the target as the compiler names it where it is no `Type` — a bare conversion's parameter, `ANY`. */
-  const store = (target: Type, value: Expr, scope: Scope, named?: string, compared?: string): void => {
+  const store = (target: Type, value: Expr, scope: Scope, named?: string, compared?: string, reversedOnTwincat?: boolean): void => {
     const inferred = inferExprType(value, scope, b.project)
     const as = new Set([typeKey(renderType(inferred))])
     for (const t of [literalErrorType(value, target), literalCheckType(value, target)])
@@ -379,6 +409,7 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
       conversion: classifyConversion(target, inferred),
       printed: `${renderType(inferred)} → ${named ?? renderType(target)}`,
       ...(compared !== undefined ? { compared } : {}),
+      ...(reversedOnTwincat === true ? { reversedOnTwincat } : {}),
     })
   }
   /** Stores inside an expression: an operand converts to the type of its operator — for a comparison, whose BOOL is not
@@ -437,6 +468,24 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
         walkStatements(parseStatements(body).statements, (s) => {
           if (s.kind === "assign" && s.op === undefined && s.chained === undefined)
             store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope)
+          // `S=` / `R=` read and set a BOOL — both sides convert to it (`stmt_s_eq_non_bool_*`, frontend-conformance 2.6)
+          if (s.kind === "assign" && (s.op === "S=" || s.op === "R=")) {
+            store(BOOL, s.target, bodyScope)
+            store(BOOL, s.value, bodyScope)
+          }
+          // a literal bound with `REF=` is stored into the reference (`cc3_reference_assign`, `stmt_ref_eq_literal_value`) —
+          // TwinCAT names the pair the other way round (`analysis/messages` `refLiteralCannotConvert`)
+          if (s.kind === "assign" && s.op === "REF=" && s.value.kind === "literal")
+            store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope, undefined, undefined, true)
+          // a FOR counts in ANY_INT: its control variable converts to it (`stmt_for_real_control`, `stmt_for_bool_control`)
+          if (s.kind === "for") store(UNKNOWN, s.controlVar, bodyScope, "ANY_INT")
+          // a typed-literal CASE label converts to the selector (`stmt_case_typed_label_other_type`)
+          if (s.kind === "case") {
+            const selector = inferExprType(s.selector, bodyScope, b.project)
+            for (const arm of s.arms)
+              for (const label of arm.labels)
+                if (label.value.kind === "literal" && label.value.literalKind === "typed") store(selector, label.value, bodyScope)
+          }
         })
       }
     }
@@ -445,6 +494,38 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   visit(b.parsed.parseResult.units)
   for (const s of sites(b)) if (s.scope !== undefined && !unparsed(s.expr)) inner(s.expr, s.scope)
   return out
+}
+
+/** Does the vendor refuse the operands of the call operator `name` — its count, or its operand's kind? */
+function operandsRefused(name: string, says: ReadonlySet<string> | undefined): boolean {
+  const n = name.toLowerCase()
+  return [...(says ?? [])].some((m) => m.startsWith(`'${n}' needs exactly `) || m.startsWith(`'${n}' needs at least `) || m.startsWith(`operand of ${n} must be`))
+}
+
+/** A `-`/`+` on an untyped integer or real literal. */
+function isSignedUntypedNumber(e: Expr): boolean {
+  return e.kind === "unary" && (e.op === "-" || e.op === "+") && e.operand.kind === "literal" &&
+    (e.operand.literalKind === "int" || e.operand.literalKind === "real")
+}
+
+/** Does an expression stand in a bare-expression statement the vendor names "'<echo>;' is no valid statement"? */
+function noValidStatementsIn(b: Bound, says: ReadonlySet<string> | undefined): (e: Expr) => boolean {
+  const echoes = new Set(
+    [...(says ?? [])].flatMap((m) => {
+      const hit = /^'([\s\S]*);\s*' is no valid statement$/.exec(m)
+      return hit === null ? [] : [hit[1]!]
+    }),
+  )
+  if (echoes.size === 0) return () => false
+  const spans: { start: number; end: number }[] = []
+  for (const unit of allUnits(b.parsed.parseResult.units))
+    for (const body of unitBodies(unit)) {
+      if (!isStBody(body)) continue
+      walkStatements(parseStatements(body).statements, (st) => {
+        if (st.kind === "expr_stmt" && echoes.has(compilerExprText(st.expr).toLowerCase())) spans.push(st.expr.span)
+      })
+    }
+  return (e) => spans.some((sp) => e.span.start >= sp.start && e.span.end <= sp.end)
 }
 
 /** The type a recorded run value is printed as, or undefined when its text does not say. */
@@ -492,7 +573,9 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
     if (m === undefined || m === null) continue
     tally(c.types, key("type messages recorded"))
     const [x, y] = [typeKey(m[1]), typeKey(m[2])]
-    const by = [...unused].find((s) => s.target === y && s.value.has(x))
+    const by =
+      [...unused].find((s) => s.target === y && s.value.has(x)) ??
+      (vendor === "twincat" ? [...unused].find((s) => s.reversedOnTwincat === true && s.target === x && s.value.has(y)) : undefined)
     if (by !== undefined) {
       unused.delete(by)
       if (m[0].startsWith("Cannot convert")) refused.add(by)

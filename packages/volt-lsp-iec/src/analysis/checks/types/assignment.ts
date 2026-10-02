@@ -6,11 +6,14 @@
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, hasUnresolvedBase } from "../../../frontend/symbols/index.js"
-import { literalErrorType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
+import { elementaryRef, literalErrorType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { nameResolves } from "../../resolution.js"
 import { assignmentPairError, checkable, checkableType, storeConversionError } from "../../rules.js"
+
+/** What `S=` and `R=` set and read. */
+const BOOL = elementaryRef("BOOL")
 
 /** The target kinds that take an aggregate initializer and refuse a scalar literal. */
 const COMPOSITE: ReadonlySet<string> = new Set(["struct", "function_block"])
@@ -18,7 +21,18 @@ const COMPOSITE: ReadonlySet<string> = new Set(["struct", "function_block"])
 export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
-      if (s.kind !== "assign" || s.op !== undefined) return // S=/R=/REF= have different rules
+      if (s.kind !== "assign") return
+      // `S=` / `R=` SET OR RESET A BOOL FROM A BOOL: an INT target is "Cannot convert type 'INT' to type 'BOOL'", and so is
+      // an INT operand (`stmt_s_eq_non_bool_target`, `stmt_s_eq_non_bool_value`, both vendors 2026-10-02) — each side
+      // converted to BOOL by the one store rule. REF= is `reference-assign`'s.
+      if (s.op === "S=" || s.op === "R=") {
+        for (const side of [s.target, s.value]) {
+          const diag = storeConversionError(BOOL, side, side.span, scope, ctx.project, ctx.messages)
+          if (diag !== undefined) out.push(diag)
+        }
+        return
+      }
+      if (s.op !== undefined) return
       const diag = assignmentPairError(s.target, s.value, scope, ctx.project, ctx.messages)
       if (diag !== undefined) out.push(diag)
     })

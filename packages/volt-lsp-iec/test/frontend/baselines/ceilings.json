@@ -5,9 +5,9 @@
     "fixtures: files not a fixed point": 3
   },
   "parse-census": {
-    "findings": 78,
-    "fixtures codesys: refused with a syntax message, no LSP parse error": 37,
-    "fixtures twincat: refused with a syntax message, no LSP parse error": 40
+    "findings": 76,
+    "fixtures codesys: refused with a syntax message, no LSP parse error": 36,
+    "fixtures twincat: refused with a syntax message, no LSP parse error": 39
   },
   "resolution-dump": {
     "findings": 112,
@@ -33,7 +33,7 @@
     "messages twincat: recorded only": 5
   },
   "type-dump": {
-    "findings": 222,
+    "findings": 220,
     "corpus Library Manager: assign_expr UNKNOWN": 0,
     "corpus Library Manager: binary NOSCOPE": 369,
     "corpus Library Manager: binary UNKNOWN": 794,
@@ -52,7 +52,8 @@
     "corpus Library Manager: paren NOSCOPE": 369,
     "corpus Library Manager: paren UNKNOWN": 794,
     "corpus Library Manager: unary NOSCOPE": 197,
-    "corpus Library Manager: unary UNKNOWN": 658,
+    "corpus Library Manager: unary UNKNOWN": 0,
+    "corpus Library Manager: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 658,
     "corpus: assign_expr UNKNOWN": 0,
     "corpus: binary NOSCOPE": 7,
     "corpus: binary UNKNOWN": 3382,
@@ -68,7 +69,8 @@
     "corpus: member UNKNOWN": 4217,
     "corpus: paren UNKNOWN": 541,
     "corpus: unary NOSCOPE": 4,
-    "corpus: unary UNKNOWN": 308,
+    "corpus: unary UNKNOWN": 173,
+    "corpus: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 135,
     "fixtures codesys: assign_expr UNKNOWN": 0,
     "fixtures codesys: binary UNKNOWN": 1153,
     "fixtures codesys: call UNKNOWN": 398,
@@ -80,7 +82,8 @@
     "fixtures codesys: literal NOSCOPE": 31,
     "fixtures codesys: member UNKNOWN": 52,
     "fixtures codesys: paren UNKNOWN": 67,
-    "fixtures codesys: unary UNKNOWN": 246,
+    "fixtures codesys: unary UNKNOWN": 0,
+    "fixtures codesys: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 253,
     "fixtures twincat: assign_expr UNKNOWN": 0,
     "fixtures twincat: binary UNKNOWN": 1150,
     "fixtures twincat: call UNKNOWN": 408,
@@ -92,7 +95,8 @@
     "fixtures twincat: literal NOSCOPE": 31,
     "fixtures twincat: member UNKNOWN": 52,
     "fixtures twincat: paren UNKNOWN": 67,
-    "fixtures twincat: unary UNKNOWN": 245,
+    "fixtures twincat: unary UNKNOWN": 0,
+    "fixtures twincat: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 252,
     "library: assign_expr UNKNOWN": 0,
     "library: binary UNKNOWN": 89,
     "library: call UNKNOWN": 21,
@@ -102,7 +106,8 @@
     "library: index UNKNOWN": 111,
     "library: member UNKNOWN": 0,
     "library: paren UNKNOWN": 1,
-    "library: unary UNKNOWN": 9,
+    "library: unary UNKNOWN": 0,
+    "library: unary UNKNOWN, a signed untyped number (context-typed, as a literal)": 9,
     "run: path inferred UNKNOWN": 42
   },
   "fold-dump": {
@@ -114,10 +119,10 @@
     "run: initializer does not fold": 33
   },
   "rules": {
-    "GAP area 2": 27,
+    "GAP area 2": 22,
     "GAP area 3": 26,
     "GAP area 4": 28,
-    "GAP total": 81,
+    "GAP total": 76,
     "CV7 explicit pairs no recorded fixture calls": 327
   }
 }

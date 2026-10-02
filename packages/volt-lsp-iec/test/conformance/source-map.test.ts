@@ -44,7 +44,10 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 //     the top of a METHOD (`*o = 0i16`) maps to [125,147) of the GVL file — the middle of the sibling FUNCTION's
 //     `F_CS_out20 := TRUE;`, not the METHOD's own text. Open; this number drops by one when the reset's span is fixed.
 // 34 -> 31: transpile-review task 18 refuses `tr_18_queryinterface_into_global`, so its three are gone.
-const RENAMED_TARGETS = 31
+// 31 -> 34 (2026-10-02, frontend-conformance 2.6), each read, each a documented class: `stmt_chain_three_targets`'
+// `out := b := c := a` is two chain-temp assignments (`self.c`/`self.b = self.__chain_value_4`), and
+// `stmt_chain_assign_then_set`'s `x := z S= y` sets its latch (`self.z = true`).
+const RENAMED_TARGETS = 34
 
 interface Program {
   name: string

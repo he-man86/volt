@@ -906,6 +906,10 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // parser now answers them as the vendor does (`parse/expression.ts`).
     "lex_keyword_assigned_sys_pool",
     "lex_keyword_operand_sys_pool",
+    // …and called where a statement starts, `__pool(n);` (review 2.6, both vendors 2026-10-02): the same member read,
+    // "Identifier expected instead of ''" and the `.` on `!!!'ERROR'!!!` — niche: accepted loss (0 `__POOL(` in the
+    // corpora)
+    "lex_keyword_called_sys_pool",
     // frontend-conformance 2.3.4, recorded 2026-10-01 — an ARRAY OF a function block initialized element by element with
     // no `:=` passes each element's list to the FB's FB_Init, which this FB does not declare: CODESYS "No matching
     // 'FB_Init' method found for instantiation of FB_…" (TwinCAT: a failed build with no message). The grammar now reads
@@ -1288,6 +1292,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `_global` (`__POOL.X` is a lookup in the POUs view, which the workspace does not model) and `expr_inline_assign_operand`
   // (a chain's inner target `1 + a`, ST4's) — each niche, accepted (`deferred.lsp`, 0 occurrences in the corpora). A rise
   // for measurement.
+  // 22 -> 21. frontend-conformance 2.6 (2026-10-02): `expr_inline_assign_operand` agrees — a chain's inner target that is no
+  // name is "no valid assignment target" (`statement-rules`).
+  // 21 -> 22, FOR MEASUREMENT. The 2.6 review (2026-10-02): `lex_keyword_called_sys_pool` — `__pool(n);`, the member read
+  // `__POOL` makes of the next token, which the LSP does not model (`MEASURED_SILENT`; niche, 0 occurrences).
   "lsp-gap": 22,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
@@ -1403,7 +1411,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // refuses: `expr_inline_assign_for_start` (`assign_expr`, as above) and `expr_global_namespace_enum_bound` — an array
   // bounded `E.Up...E.Left` is "not a sized array" (`aggregate-init`), and so it is with `..` and no dot: `constEval`
   // folds no enum value yet (task 4.6.1; 60-odd enum-bounded arrays in the corpora wait on it).
-  "not-lowered": 132,
+  // 132 -> 136, FOR MEASUREMENT. frontend-conformance 2.6 (2026-10-02) recorded four statements CODESYS builds and runs
+  // that lowering refuses, each the transpiler's and not the front-end's: `stmt_try_nested` and
+  // `stmt_try_catch_without_operand` (`__TRY` is lowered nowhere — `try_*` are not either), `stmt_bare_member` (a bare
+  // expression statement, `bx.v;`) and `stmt_label_at_end` (JMP and its label).
+  // 136 -> 137, FOR MEASUREMENT. The 2.6 review (2026-10-02): `stmt_function_own_name_bare` builds and runs (out = 12)
+  // and lowering refuses its bare-name statement, as `stmt_bare_member`'s (the transpiler's).
+  "not-lowered": 137,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1656,7 +1670,16 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // enum, an index past one), `.g` as a CONSTANT target, called, in a CONSTANT's initializer, declared by two lists,
   // SUPER.Get() with no base, an inline assignment as a FOR start (`expr_global_namespace_ambiguous_bare` a niche
   // divergence); a fixture's lists bound as objects of their own (`splitLists`).
-  { vendor: "twincat", floor: 3316 },
+  // 3316 -> 3393 (2026-10-02, frontend-conformance 2.6): the statement fixtures (`grammar/statements.ts`, 85 `stmt_*`) and
+  // the statement rules — a token no statement starts with refused at the start, `s=`/`ref=` in any case, the one-line
+  // missing `;` after RETURN/EXIT/CONTINUE/JMP and before a block's END, a CASE label list's trailing comma, `__CATCH`
+  // without its operand, a binary operation as a statement "no valid statement", an empty CASE arm a warning, S=/R= and
+  // FOR counter and typed-label conversions, a chain's non-name target, TwinCAT's reversed literal REF= and its CASE
+  // range full stop (`cc3_reference_assign` agrees now, `expr_inline_assign_operand` too).
+  // 3393 -> 3508 (2026-10-02, 2.6 review): every reserved word called where a statement starts (`lex_keyword_called_*`),
+  // an assignment without its `;` before every statement and block keyword (`stmt_assign_no_semicolon_before_*`), a
+  // negation as a chain's inner target and as a FOR counter, a FUNCTION's own name bare inside it.
+  { vendor: "twincat", floor: 3508 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1781,7 +1804,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3338 -> 3366 (2026-10-02, frontend-conformance 2.5.6): the THIS/SUPER, inline-assignment, global-namespace and
   // parenthesis fixtures, as on TwinCAT.
   // 3366 -> 3376 (2026-10-02, 2.5b review): the review's cells, as on TwinCAT.
-  { vendor: "codesys", floor: 3376 },
+  // 3376 -> 3454 (2026-10-02, frontend-conformance 2.6): the statement fixtures and rules, as on TwinCAT.
+  // 3454 -> 3569 (2026-10-02, 2.6 review): the review's cells, as on TwinCAT; `__queryinterface(n);` the operand count alone.
+  { vendor: "codesys", floor: 3569 },
 ]
 
 

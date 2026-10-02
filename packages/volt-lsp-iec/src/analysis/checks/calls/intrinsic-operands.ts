@@ -31,6 +31,10 @@ const OP_ARITY: Record<string, { exact?: number; atLeast?: number }> = {
   SIZEOF: { exact: 1 },
   SEL: { exact: 3 },
   MUX: { atLeast: 3 },
+  // `__queryinterface(n);` is the count alone, no operand-kind message (`lex_keyword_called_sys_queryinterface`,
+  // `_querypointer`, CODESYS 2026-10-02)
+  __QUERYINTERFACE: { exact: 2 },
+  __QUERYPOINTER: { exact: 2 },
 }
 const titleCase = (s: string): string => s.charAt(0) + s.slice(1).toLowerCase()
 
@@ -153,7 +157,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       if (t.kind !== "function_block" && t.kind !== "struct" && t.kind !== "unknown")
         push(out, "error", e.callee.span, "ini-needs-instance", ctx.messages.iniNeedsInstance()) // C0070
     }
-    if (name === "__QUERYPOINTER") {
+    if (name === "__QUERYPOINTER" && e.args.length === 2) {
       // Conservative: fire only where the operand is UNAMBIGUOUSLY wrong — an interface ref / FB instance reads as
       // function_block; a reference/struct/unknown is skipped.
       //
@@ -169,7 +173,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       if (second !== undefined && inferExprType(second, scope, ctx.project).kind === "elementary")
         push(out, "error", second.span, "query-pointer-operand", ctx.messages.queryPointerSecond()) // C0241
     }
-    if (name === "__QUERYINTERFACE") {
+    if (name === "__QUERYINTERFACE" && e.args.length === 2) {
       // Same conservative rule (twin of __QueryPointer), but the second operand must be an interface reference,
       // not a pointer — a KNOWN ELEMENTARY is unambiguously wrong for either operand.
       const first = e.args[0]?.value

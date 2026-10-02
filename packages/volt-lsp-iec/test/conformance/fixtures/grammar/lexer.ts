@@ -233,7 +233,9 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
   // is asked, one word and one position per fixture — never a sample the rule is then generalised from:
   //   assigned        `<w> := 1;`      the word as an assignment target;
   //   before a name   `<w> n := 2;`    the word as a statement of its own, a name after it (the `CAL t();` shape);
-  //   operand         `n := <w>;`      the word where a value belongs.
+  //   operand         `n := <w>;`      the word where a value belongs;
+  //   called          `<w>(n);`        the word before `(` where a statement starts (frontend-conformance 2.6, ST5:
+  //                                    `LIMIT(0, a, 5);` and `INI(t, TRUE);` answered the rule; every word is asked it).
   // Undeclared: a declaration is its own question (the `*_as_variable` fixtures above ask it). Not asked: the words a
   // statement opens with (IF … JMP, and THIS/SUPER/TRUE/FALSE/NOT as expressions), GET/SET/OVERRIDE (names), and the
   // unit and declaration structure (the POU shells, TYPE/STRUCT/UNION, the VAR sections, NAMESPACE) — a body holding
@@ -246,6 +248,7 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
       fb(`lex_keyword_assigned_${slug}`, `L9 — the keyword \`${w}\` assigned where a statement starts: \`${w} := 1;\``, "\tn : INT;", `${w} := 1;\nn := 2;`),
       fb(`lex_keyword_before_name_${slug}`, `L9 — the keyword \`${w}\` alone before a name where a statement starts: \`${w} n := 2;\``, "\tn : INT;", `${w} n := 2;`),
       fb(`lex_keyword_operand_${slug}`, `L9 — the keyword \`${w}\` where an operand belongs: \`n := ${w};\``, "\tn : INT;", `n := ${w};`),
+      fb(`lex_keyword_called_${slug}`, `L9/ST5 — the keyword \`${w}\` called where a statement starts: \`${w}(n);\``, "\tn : INT;", `${w}(n);`),
     ]
   }),
   // L15: `cal` DECLARED and used as an operand — the use a refused declaration leaves behind (`cc_il_name_cal` assigns

@@ -67,12 +67,13 @@ export function unaryOperandConversion(op: "-" | "NOT", family: TypeFamily): "no
 /**
  * `NOT x`'s type: THE UNSIGNED INTEGER OF THE OPERAND'S WIDTH — for a bit string and a duration too, not only a signed
  * integer. Measured one type at a time (`uop_not_*`): `NOT BYTE` is USINT, `NOT WORD` is UINT, `NOT DWORD` and
- * `NOT TIME` and `NOT DATE` are UDINT, `NOT LWORD` is ULINT. BOOL is a logical NOT and stays BOOL; a REAL or a STRING
- * passes through (and is reported against ANY_BIT instead).
+ * `NOT TIME` and `NOT DATE` are UDINT, `NOT LWORD` is ULINT. BOOL is a logical NOT and stays BOOL, and so does a BIT
+ * (pro2193 builds `done R= NOT busy;` with both BIT, and `R=` takes a BOOL operand only — frontend-conformance 2.6); a
+ * REAL or a STRING passes through (and is reported against ANY_BIT instead).
  */
 export function notResultType(operand: Type): Type {
   const e = operand.kind === "elementary" ? operand.elem : undefined
-  const widthed = e !== undefined && e.family !== "bool" && e.family !== "real" && e.family !== "string"
+  const widthed = e !== undefined && e.family !== "bool" && e.family !== "real" && e.family !== "string" && e.bits !== 1
   return widthed && e.bits !== undefined ? elementaryTypeRef(integerOfWidth(e.bits, false)) : operand
 }
 

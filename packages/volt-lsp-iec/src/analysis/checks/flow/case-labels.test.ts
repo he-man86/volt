@@ -1,7 +1,6 @@
 /**
  * case-labels (C0216/C0217/C0218/C0219). Const-eval + constancy over CASE selector labels. C0426 (empty arm)
- * lives in the `empty-block` check — an empty arm
- * IS an error (live-verified); the legal fall-through is a comma list `1, 2:`. C0218 uses `constancyOf`, so
+ * lives in the `empty-block` check — a WARNING (both vendors 2026-10-02); a comma list `1, 2:` shares a body. C0218 uses `constancyOf`, so
  * enum/VAR CONSTANT labels stay quiet (the earlier `constEval`-only attempt false-positived on those).
  */
 import { test, expect } from "bun:test"
@@ -39,8 +38,8 @@ test("C0218: a non-constant variable label is flagged; constants/enums are not",
   expect(cs(`  1: i := 1;\n  2..4: i := 2;\n  K: i := 3;\n  5,6: i := 4;`)).toEqual([]) // well-formed
 })
 
-test("an empty CASE arm is an error (C0426, live-verified); comma is the legal fall-through", () => {
-  expect(cs(`  1:\n  2: i := 1;`)).toEqual(["At least one statement is expected"]) // separate empty label → error
+test("an empty CASE arm is no error — a warning, `empty-block`'s (C0426; stmt_case_empty_arm, both vendors 2026-10-02); comma shares a body", () => {
+  expect(cs(`  1:\n  2: i := 1;`)).toEqual([]) // separate empty label → a warning, not an error
   expect(cs(`  1, 2: i := 1;`)).toEqual([]) // comma-shared body → legal
 })
 
@@ -95,4 +94,15 @@ test("a typed integer label is a label; an enum `Type#Value` label is no constan
   const errs = [...pr.errors.map((e) => e.message), ...computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error").map((d) => d.message)]
   expect(errs).toEqual(["CASE label requires literal or symbolic integer constant"])
+})
+
+test("a typed-literal label of a type the selector does not take does not convert; a narrower one does (stmt_case_typed_label_other_type, _narrower, stmt_case_typed_label, ST9)", () => {
+  // both vendors 2026-10-02: `DINT#2:` on an INT selector; `INT#1:`/`INT#2:` on an INT and on a DINT build
+  expect(cs(`  INT#1: i := 1;\n  DINT#2: i := 2;`)).toEqual(["Cannot convert type 'DINT' to type 'INT'"])
+  expect(cs(`  INT#1: i := 1;\n  INT#2: i := 2;`)).toEqual([])
+})
+
+test("TwinCAT ends the inverted-range message with a full stop, as it does for an array's (stmt_case_reversed_range, ST7)", () => {
+  expect(cs(`  3..1: i := 1;`)).toEqual(["Lower border must be lower than upper border"])
+  expect(cs(`  3..1: i := 1;`, "twincat")).toEqual(["Lower border must be lower than upper border."])
 })

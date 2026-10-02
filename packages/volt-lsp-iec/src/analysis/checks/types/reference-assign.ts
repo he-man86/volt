@@ -22,6 +22,10 @@
  *
  * TWO measurements is what this rests on, so it claims nothing wider: a literal whose own type EQUALS the
  * referenced type falls through to C0141, and every other literal keeps the conversion error it already had.
+ *
+ * TwinCAT words that conversion the other way round — "Cannot convert type 'REFERENCE TO INT' to type 'SINT'" — in
+ * both cells asked (`cc3_reference_assign`, `stmt_ref_eq_literal_value`, 2026-10-02); a DECLARATION's `REF=` it words
+ * as CODESYS does (`refdecl_target_wrong_type`), so this is the statement's (`refLiteralCannotConvert`).
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
@@ -64,7 +68,7 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
               span: s.value.span,
               source: SOURCE,
               code: "assignment-type-mismatch",
-              message: ctx.messages.cannotConvert(renderType(from), renderType(target)),
+              message: ctx.messages.refLiteralCannotConvert(renderType(from), renderType(target)),
             })
           return
         }

@@ -88,8 +88,10 @@ FUNCTION_BLOCK FB_A VAR n : INT; END_VAR END_FUNCTION_BLOCK`)
 
 // ─── C.3 const-eval ───
 
+// The expression is carried as an assignment's VALUE: a bare expression is no statement on either vendor (a literal or `(`
+// opening one is refused, a binary operation is "no valid statement" — frontend-conformance 2.6, ST5).
 function evalConst(varDecls: string, exprSrc: string) {
-  const src = `FUNCTION_BLOCK F\n${varDecls}\n${exprSrc};\nEND_FUNCTION_BLOCK`
+  const src = `FUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
   const scope = findChildScope(project, "F")!
@@ -136,7 +138,7 @@ function lastExpr(fb: FunctionBlock): Expr {
 }
 
 function inferExpr(unitsBefore: string, varDecls: string, exprSrc: string): Type {
-  const src = `${unitsBefore}\nFUNCTION_BLOCK F\n${varDecls}\n${exprSrc};\nEND_FUNCTION_BLOCK`
+  const src = `${unitsBefore}\nFUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
   const scope = findChildScope(project, "F")!
@@ -308,4 +310,11 @@ test("infer: a CODESYS partial access is of the part it names (operand_partial_*
   expect(inferExpr("", d, "d.%B1")).toMatchObject({ kind: "elementary", name: "BYTE" })
   expect(inferExpr("", d, "d.%W0")).toMatchObject({ kind: "elementary", name: "WORD" })
   expect(inferExpr("", "VAR\n l : LWORD;\nEND_VAR", "l.%D1")).toMatchObject({ kind: "elementary", name: "DWORD" })
+})
+
+// NOT ON A BIT IS A LOGICAL NOT, as on a BOOL: pro2193 builds `done R= NOT busy;` with both BIT (`ModuleWithStateFB`),
+// and `R=` takes a BOOL operand only (`stmt_s_eq_non_bool_value`, frontend-conformance 2.6) — a 1-bit "unsigned integer"
+// would be USINT, which `R=` refuses.
+test("infer: NOT of a BIT stays a BIT, as NOT of a BOOL stays a BOOL (pro2193 ModuleWithStateFB, ST2)", () => {
+  expect(inferExpr("", "VAR\n b : BIT;\nEND_VAR", "NOT b")).toMatchObject({ kind: "elementary", name: "BIT" })
 })

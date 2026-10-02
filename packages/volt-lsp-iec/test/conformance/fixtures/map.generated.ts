@@ -14,24 +14,29 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2257
- *     refused       1201
- *     not-lowered    132
+ *     confirmed     2283
+ *     refused       1367
+ *     not-lowered    137
  *     lsp-gap         22
  *     diverges         4
- *     unaskable       61
+ *     unaskable       63
  *
  *   tier                     lowered    clean
- *     decl                    578      578
+ *     decl                    581      581
  *     arith                  1278     1277
- *     control                  78       78
- *     aggregate                56       56
- *     call                    233      231
+ *     control                 110      105
+ *     aggregate                57       57
+ *     call                    234      232
  *     indirect                232      228
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
+ *     clippy::match_single_binding               2
  *     clippy::too_many_arguments                 2
+ *     unreachable_patterns                       2
+ *     clippy::assign_op_pattern                  1
+ *     clippy::match_overlapping_arm              1
+ *     clippy::neg_cmp_op_on_partial_ord          1
  *     clippy::nonminimal_bool                    1
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
@@ -50,23 +55,23 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2356
+ *     agree         2390
  *     disagree         0
- *     not-run         99
+ *     not-run        102
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
  *       not-run: no elementary variable to seed or compare       21
- *       not-run: the emitted Rust does not build                  7
+ *       not-run: the emitted Rust does not build                 10
 
  *
- *   pedantic — 26662 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6123
- *     clippy::cast_possible_truncation         4299
- *     clippy::cast_lossless                    3833
+ *   pedantic — 26757 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6193
+ *     clippy::cast_possible_truncation         4303
+ *     clippy::cast_lossless                    3838
  *     clippy::cast_sign_loss                   2977
  *     clippy::uninlined_format_args            2898
  *     clippy::unreadable_literal               2507
- *     clippy::missing_panics_doc                972
- *     clippy::manual_assert                     732
+ *     clippy::missing_panics_doc                978
+ *     clippy::manual_assert                     734
  *     clippy::format_push_string                644
  *     clippy::cast_possible_wrap                350
  *
@@ -82,8 +87,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1379 distinct emission shapes over 2455 lowered fixtures, 1651 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2343 fixtures are improvable, 2266 touch a construct with alternatives.
+ *   shape — 1411 distinct emission shapes over 2492 lowered fixtures, 1662 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2380 fixtures are improvable, 2303 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -673,7 +678,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   cc3_interface_misuse: { evidence: "refused", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 2, shape: "984bbf7989", notes: ["1307e33bbf", "4979768984", "a497507b30", "fbde4d6e1e"] },
   cc3_multiple_inheritance: { evidence: "refused" },
   cc3_pointer_conversions: { evidence: "refused", diverges: { twincat: "known" } },
-  cc3_reference_assign: { evidence: "refused", diverges: { twincat: "triage" } },
+  cc3_reference_assign: { evidence: "refused" },
   cc3_retain_and_var_config: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.4, shape: "6d72e2c0db", notes: ["1307e33bbf"] },
   cc3_unexpected_struct_init: { evidence: "refused" },
   cc4_attribute_value_string: { evidence: "not-lowered" },
@@ -1222,7 +1227,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   expr_inline_assign_if_condition: { evidence: "not-lowered" },
   expr_inline_assign_index: { evidence: "not-lowered" },
   expr_inline_assign_nested: { evidence: "not-lowered" },
-  expr_inline_assign_operand: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  expr_inline_assign_operand: { evidence: "refused" },
   expr_inline_assign_repeat_condition: { evidence: "not-lowered" },
   expr_inline_assign_value: { evidence: "not-lowered" },
   expr_inline_assign_while_condition: { evidence: "not-lowered" },
@@ -1954,6 +1959,104 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_keyword_before_name_wstring: { evidence: "refused" },
   lex_keyword_before_name_xor: { evidence: "refused" },
   lex_keyword_before_name_xsizeof: { evidence: "refused", diverges: { twincat: "known" } },
+  lex_keyword_called_abs: { evidence: "refused" },
+  lex_keyword_called_abstract: { evidence: "refused" },
+  lex_keyword_called_acos: { evidence: "refused" },
+  lex_keyword_called_add: { evidence: "refused" },
+  lex_keyword_called_adr: { evidence: "refused" },
+  lex_keyword_called_and: { evidence: "refused" },
+  lex_keyword_called_and_then: { evidence: "refused" },
+  lex_keyword_called_array: { evidence: "refused" },
+  lex_keyword_called_asin: { evidence: "refused" },
+  lex_keyword_called_at: { evidence: "refused" },
+  lex_keyword_called_atan: { evidence: "refused" },
+  lex_keyword_called_bitadr: { evidence: "refused" },
+  lex_keyword_called_by: { evidence: "refused" },
+  lex_keyword_called_cal: { evidence: "refused" },
+  lex_keyword_called_constant: { evidence: "refused" },
+  lex_keyword_called_cos: { evidence: "refused" },
+  lex_keyword_called_div: { evidence: "refused" },
+  lex_keyword_called_do: { evidence: "refused" },
+  lex_keyword_called_else: { evidence: "refused" },
+  lex_keyword_called_elsif: { evidence: "refused" },
+  lex_keyword_called_end_case: { evidence: "refused" },
+  lex_keyword_called_end_for: { evidence: "refused" },
+  lex_keyword_called_end_if: { evidence: "refused" },
+  lex_keyword_called_end_repeat: { evidence: "refused" },
+  lex_keyword_called_end_while: { evidence: "refused" },
+  lex_keyword_called_eq: { evidence: "refused" },
+  lex_keyword_called_exp: { evidence: "refused" },
+  lex_keyword_called_expt: { evidence: "refused" },
+  lex_keyword_called_extends: { evidence: "refused" },
+  lex_keyword_called_final: { evidence: "refused" },
+  lex_keyword_called_from: { evidence: "refused" },
+  lex_keyword_called_ge: { evidence: "refused" },
+  lex_keyword_called_gt: { evidence: "refused" },
+  lex_keyword_called_implements: { evidence: "refused" },
+  lex_keyword_called_indexof: { evidence: "refused" },
+  lex_keyword_called_ini: { evidence: "refused" },
+  lex_keyword_called_internal: { evidence: "refused" },
+  lex_keyword_called_le: { evidence: "refused" },
+  lex_keyword_called_limit: { evidence: "refused" },
+  lex_keyword_called_ln: { evidence: "refused" },
+  lex_keyword_called_log: { evidence: "refused" },
+  lex_keyword_called_lt: { evidence: "refused" },
+  lex_keyword_called_max: { evidence: "refused" },
+  lex_keyword_called_min: { evidence: "refused" },
+  lex_keyword_called_mod: { evidence: "refused" },
+  lex_keyword_called_move: { evidence: "refused" },
+  lex_keyword_called_mul: { evidence: "refused" },
+  lex_keyword_called_mux: { evidence: "refused" },
+  lex_keyword_called_ne: { evidence: "refused" },
+  lex_keyword_called_of: { evidence: "refused" },
+  lex_keyword_called_or: { evidence: "refused" },
+  lex_keyword_called_or_else: { evidence: "refused" },
+  lex_keyword_called_params: { evidence: "refused" },
+  lex_keyword_called_persistent: { evidence: "refused" },
+  lex_keyword_called_pointer: { evidence: "refused" },
+  lex_keyword_called_private: { evidence: "refused" },
+  lex_keyword_called_protected: { evidence: "refused" },
+  lex_keyword_called_public: { evidence: "refused" },
+  lex_keyword_called_read_only: { evidence: "refused" },
+  lex_keyword_called_read_write: { evidence: "refused" },
+  lex_keyword_called_reference: { evidence: "refused" },
+  lex_keyword_called_retain: { evidence: "refused" },
+  lex_keyword_called_rol: { evidence: "refused" },
+  lex_keyword_called_ror: { evidence: "refused" },
+  lex_keyword_called_sel: { evidence: "refused" },
+  lex_keyword_called_shl: { evidence: "refused" },
+  lex_keyword_called_shr: { evidence: "refused" },
+  lex_keyword_called_sin: { evidence: "refused" },
+  lex_keyword_called_sizeof: { evidence: "refused" },
+  lex_keyword_called_sqrt: { evidence: "refused" },
+  lex_keyword_called_string: { evidence: "refused" },
+  lex_keyword_called_sub: { evidence: "refused" },
+  lex_keyword_called_sys_catch: { evidence: "refused" },
+  lex_keyword_called_sys_compare_and_swap: { evidence: "refused" },
+  lex_keyword_called_sys_currenttask: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  lex_keyword_called_sys_delete: { evidence: "refused" },
+  lex_keyword_called_sys_endtry: { evidence: "refused" },
+  lex_keyword_called_sys_finally: { evidence: "refused" },
+  lex_keyword_called_sys_isvalidref: { evidence: "refused" },
+  lex_keyword_called_sys_new: { evidence: "refused" },
+  lex_keyword_called_sys_pool: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  lex_keyword_called_sys_position: { evidence: "refused" },
+  lex_keyword_called_sys_pouname: { evidence: "refused" },
+  lex_keyword_called_sys_queryinterface: { evidence: "refused" },
+  lex_keyword_called_sys_querypointer: { evidence: "refused" },
+  lex_keyword_called_sys_varinfo: { evidence: "refused" },
+  lex_keyword_called_sys_vector: { evidence: "refused" },
+  lex_keyword_called_sys_xadd: { evidence: "refused" },
+  lex_keyword_called_tan: { evidence: "refused" },
+  lex_keyword_called_test_and_set: { evidence: "refused" },
+  lex_keyword_called_then: { evidence: "refused" },
+  lex_keyword_called_to: { evidence: "refused" },
+  lex_keyword_called_trunc: { evidence: "refused" },
+  lex_keyword_called_trunc_int: { evidence: "refused" },
+  lex_keyword_called_until: { evidence: "refused" },
+  lex_keyword_called_wstring: { evidence: "refused" },
+  lex_keyword_called_xor: { evidence: "refused" },
+  lex_keyword_called_xsizeof: { evidence: "refused", diverges: { twincat: "known" } },
   lex_keyword_operand_abs: { evidence: "refused" },
   lex_keyword_operand_abstract: { evidence: "refused" },
   lex_keyword_operand_acos: { evidence: "refused" },
@@ -3160,33 +3263,134 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   state_routine_outputs: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 17, edge: "agree", size: 2.5, shape: "341e289ef9", notes: ["11f6ad8ec5", "1307e33bbf", "1647895e3b", "1bb6d1cb14", "2421f6476e", "3a7612a7b4", "50ba9519ad", "51ea066d8e", "53bd7d992e", "6713eb5cc0", "7685022caa", "782a04d94c", "821a3bb974", "96a5b25b66"] },
   state_var_inst_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "e5bcd579fc", notes: ["11f6ad8ec5", "1307e33bbf", "4979768984"] },
   state_var_stat_two_instances: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 6, edge: "agree", size: 3.9, shape: "1e4b92d281", notes: ["11f6ad8ec5", "1307e33bbf", "7ef1346b85", "f62e4d99a5"] },
+  stmt_assign_literal_target: { evidence: "refused" },
+  stmt_assign_missing_value: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_assign_no_semicolon_before_case: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_case_else: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_catch: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_continue: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_else: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_elsif: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_end_if: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_end_while: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_endtry: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_exit: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_finally: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_for: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_if: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_repeat: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_return: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_try: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_until: { evidence: "refused" },
+  stmt_assign_no_semicolon_before_while: { evidence: "refused" },
+  stmt_assign_paren_target: { evidence: "refused" },
+  stmt_assign_spaced_operator: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_bare_binary: { evidence: "refused" },
+  stmt_bare_comparison: { evidence: "refused" },
+  stmt_bare_function_name: { evidence: "refused" },
+  stmt_bare_literal: { evidence: "refused" },
+  stmt_bare_member: { evidence: "not-lowered" },
+  stmt_bare_negation: { evidence: "refused" },
+  stmt_bare_not: { evidence: "refused" },
+  stmt_bare_paren_name: { evidence: "refused" },
+  stmt_bare_true: { evidence: "refused" },
+  stmt_cal_instance: { evidence: "refused" },
+  stmt_cal_without_parens: { evidence: "refused" },
   stmt_case_arm_missing_semicolon: { evidence: "refused" },
   stmt_case_boundary_high: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "a02cc74168", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_boundary_low: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "a02cc74168", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_const_expr_label: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_case_const_name_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "59e7929aa6", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_duplicate_label: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::match_overlapping_arm", "unreachable_patterns"], pedantic: 2, edge: "agree", size: 3.3, shape: "ef25a87878", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_else_only: { evidence: "confirmed", tier: "control", rust: "vendor", lints: ["clippy::match_single_binding"], pedantic: 2, edge: "agree", size: 2.9, shape: "7fd31d6c15", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_empty_arm: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "6f33ee8ffc", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_empty_arm_before_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "2994e38a4d", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_empty_arm_last: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 3.3, shape: "83d2b5633b", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_label_trailing_comma: { evidence: "refused" },
   stmt_case_matched: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "0a93b05ae1", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_multi_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "413c2d6922", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_negative_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "dd314053ee", notes: ["0e0d715a81", "1307e33bbf", "ec9a760059"] },
+  stmt_case_negative_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "a87f987ea7", notes: ["0e0d715a81", "1307e33bbf", "ec9a760059"] },
+  stmt_case_no_arms: { evidence: "confirmed", tier: "control", rust: "vendor", lints: ["clippy::match_single_binding"], pedantic: 2, edge: "agree", size: 3.2, shape: "7fd31d6c15", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_no_match_no_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3, shape: "424078b4c9", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_no_match_with_else: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "0a93b05ae1", notes: ["0e0d715a81", "1307e33bbf"] },
-  stmt_case_nonconst_label: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_case_nonconst_label: { evidence: "refused" },
+  stmt_case_overlapping_range: { evidence: "refused", tier: "control", rust: "compiles", lints: ["unreachable_patterns"], pedantic: 2, edge: "agree", size: 3.3, shape: "eb2becf627", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_paren_label: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_case_plus_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "a208c53bd5", notes: ["0e0d715a81", "1307e33bbf"] },
   stmt_case_range: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "60a40a45eb", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_reversed_range: { evidence: "refused" },
+  stmt_case_typed_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "ef25a87878", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_typed_label_narrower: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "d58ef5f104", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "63d29bd1a0"] },
+  stmt_case_typed_label_other_type: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "ef25a87878", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_case_variable_label: { evidence: "refused" },
+  stmt_chain_assign_then_set: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "e1eac26874", notes: ["40fd7317bb", "42897347c4", "687428cc81", "73505351ad", "7a88c529f6", "c7af448b33", "de132e5019", "e7e871371f"] },
+  stmt_chain_literal_inner_target: { evidence: "refused" },
+  stmt_chain_negated_inner_target: { evidence: "refused" },
+  stmt_chain_set_then_assign: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 3.4, shape: "523e245af4", notes: ["40fd7317bb", "42897347c4", "687428cc81", "73505351ad", "7a88c529f6", "c7af448b33", "de132e5019", "e7e871371f"] },
+  stmt_chain_three_targets: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.5, shape: "1e83b2847d", notes: ["1307e33bbf", "40fd7317bb", "5b7909c564", "9e66c9a561", "e7e871371f"] },
+  stmt_continue_no_semicolon: { evidence: "refused" },
+  stmt_continue_outside_loop: { evidence: "refused" },
   stmt_continue_skips: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "028a357097", notes: ["0e0d715a81", "1307e33bbf", "204a887600", "271163608b", "46c17ef7d3", "4979768984", "521ba042ac", "95094bd48a"] },
   stmt_elsif_second: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 2.5, shape: "daa899368d", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
   stmt_exit_inner: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 2.9, shape: "d21a65ad49", notes: ["0e0d715a81", "1307e33bbf", "1ad1ab3163", "46c17ef7d3", "4979768984", "521ba042ac", "93a17fab28"] },
+  stmt_exit_no_semicolon: { evidence: "refused" },
+  stmt_exit_no_semicolon_before_end_for: { evidence: "refused" },
+  stmt_exit_outside_loop: { evidence: "refused" },
+  stmt_for_bool_control: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.3, shape: "00a365e1e5", notes: ["1307e33bbf", "4979768984", "4edbb4135a", "521ba042ac", "687428cc81", "de132e5019"] },
   stmt_for_bound_changed: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 2.8, shape: "4d647a7d3e", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
+  stmt_for_dword_control: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3.3, shape: "9d64463add", notes: ["1307e33bbf", "4979768984", "521ba042ac", "e8954e2b0d"] },
+  stmt_for_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 3.4, shape: "7d9bd1aa8a", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "521ba042ac"] },
+  stmt_for_literal_control: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_for_member_control: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 6, edge: "agree", size: 3.4, shape: "f3d3d37d28", notes: ["1307e33bbf", "4979768984", "521ba042ac", "a29db6178b"] },
+  stmt_for_negated_control: { evidence: "refused" },
   stmt_for_negative_step: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "e331dbf8f4", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac"] },
+  stmt_for_real_control: { evidence: "refused", tier: "control", rust: "compiles", lints: ["clippy::assign_op_pattern", "clippy::neg_cmp_op_on_partial_ord"], pedantic: 5, edge: "agree", size: 3.3, shape: "115eea83be", notes: ["1307e33bbf", "4979768984", "521ba042ac", "5c9bb13706", "74845f98c6"] },
   stmt_for_runs: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "c0a80f365c", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
   stmt_for_step_two: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "c0a80f365c", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
   stmt_for_variable_after: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3.1, shape: "6961df8b1a", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
   stmt_for_variable_after_zero: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "c0a80f365c", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
   stmt_for_zero_times: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 5, edge: "agree", size: 3, shape: "c0a80f365c", notes: ["0e0d715a81", "1307e33bbf", "46c17ef7d3", "4979768984", "521ba042ac"] },
+  stmt_function_call_discarded: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 6, edge: "agree", size: 2.5, shape: "dabfe596e6", notes: ["11f6ad8ec5", "1307e33bbf", "2ea589a8a1", "a5c4faeebd"] },
+  stmt_function_own_name_bare: { evidence: "not-lowered" },
+  stmt_if_else_if_nested: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.5, shape: "65119aee20", notes: ["0e0d715a81", "1307e33bbf", "687428cc81", "de132e5019"] },
+  stmt_if_else_if_two_words: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_if_elsif_after_else: { evidence: "refused" },
+  stmt_if_empty_statement_body: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "2ac997b605", notes: ["0e0d715a81", "1307e33bbf", "de132e5019"] },
+  stmt_if_empty_then: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 2, edge: "agree", size: 3.1, shape: "2ac997b605", notes: ["0e0d715a81", "1307e33bbf", "de132e5019"] },
   stmt_if_not_taken: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "fb67c04244", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
   stmt_if_taken: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "fb67c04244", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  stmt_if_two_else: { evidence: "refused" },
+  stmt_ini_call: { evidence: "refused" },
+  stmt_jmp_no_semicolon: { evidence: "refused" },
+  stmt_label_at_end: { evidence: "not-lowered" },
+  stmt_limit_call_statement: { evidence: "refused" },
+  stmt_r_eq_false_keeps: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "4b19eaff81", notes: ["4edbb4135a", "687428cc81", "de132e5019"] },
+  stmt_r_eq_no_space: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "9e8df2909b", notes: ["4edbb4135a", "687428cc81", "de132e5019"] },
+  stmt_ref_eq_literal_value: { evidence: "refused" },
+  stmt_ref_eq_lower_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "1c83117e86", notes: ["1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e"] },
+  stmt_ref_eq_no_space: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 3, shape: "79413fa7cf", notes: ["0e0d715a81", "1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e"] },
+  stmt_ref_eq_on_non_reference: { evidence: "refused" },
+  stmt_ref_eq_spaced: { evidence: "refused" },
+  stmt_repeat_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 3.1, shape: "e42ca59771", notes: ["0e0d715a81", "1307e33bbf", "521ba042ac", "de132e5019"] },
   stmt_repeat_once: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.7, shape: "59f144bebc", notes: ["0e0d715a81", "1307e33bbf", "3d3b42b24d", "4979768984", "521ba042ac"] },
+  stmt_repeat_until_semicolon: { evidence: "refused" },
   stmt_return_in_loop: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.6, shape: "03542218de", notes: ["0e0d715a81", "1307e33bbf", "271163608b", "46c17ef7d3", "4979768984", "521ba042ac"] },
   stmt_return_midway: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "9a1efbf048", notes: ["0e0d715a81", "1307e33bbf"] },
+  stmt_return_no_semicolon: { evidence: "refused" },
+  stmt_return_no_semicolon_before_end_if: { evidence: "refused" },
+  stmt_s_eq_false_keeps: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "ae230c62c6", notes: ["687428cc81", "73505351ad", "de132e5019"] },
+  stmt_s_eq_lower_case: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "6b4f617872", notes: ["687428cc81", "73505351ad", "de132e5019"] },
+  stmt_s_eq_no_space: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "6b4f617872", notes: ["687428cc81", "73505351ad", "de132e5019"] },
+  stmt_s_eq_non_bool_target: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.2, shape: "5a6be7a6aa", notes: ["1307e33bbf", "73505351ad", "de132e5019"] },
+  stmt_s_eq_non_bool_value: { evidence: "refused", tier: "control", rust: "rejected", pedantic: 0, edge: "not-run", size: 3.2, shape: "6535a20812", notes: ["1307e33bbf", "687428cc81", "73505351ad", "de132e5019"] },
+  stmt_s_eq_spaced: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  stmt_try_catch_without_operand: { evidence: "not-lowered" },
+  stmt_try_finally_only: { evidence: "unaskable", diverges: { twincat: "known" } },
+  stmt_try_nested: { evidence: "not-lowered" },
+  stmt_try_without_catch: { evidence: "unaskable", diverges: { twincat: "known" } },
   stmt_while_counts: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "b49fd90ec3", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "c7ac9a5e64"] },
+  stmt_while_empty_body: { evidence: "refused", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 3.3, shape: "9069692c57", notes: ["0e0d715a81", "1307e33bbf", "521ba042ac", "687428cc81", "de132e5019"] },
   stmt_while_never: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 6, edge: "agree", size: 2.9, shape: "359c73e48b", notes: ["0e0d715a81", "1307e33bbf", "4979768984", "521ba042ac", "e2e0d67858"] },
   str_assign_into_exact: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "df30720f64", notes: ["0a52a768d3", "5d9850550d", "803ee89d4f"] },
   str_assign_into_longer: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.9, shape: "df30720f64", notes: ["0a52a768d3", "5d9850550d", "803ee89d4f"] },

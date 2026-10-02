@@ -32,7 +32,7 @@ test("empty ELSIF / ELSE / FOR / WHILE / REPEAT bodies are each flagged", () => 
 })
 
 test("an empty CASE arm is flagged (C0426); comma fall-through is not", () => {
-  expect(eb("CASE i OF\n1:\n2: i := 1;\nEND_CASE")).toHaveLength(1) // separate empty label → error
+  expect(eb("CASE i OF\n1:\n2: i := 1;\nEND_CASE")).toHaveLength(1) // separate empty label → flagged (a warning, below)
   expect(eb("CASE i OF\n1, 2: i := 1;\nEND_CASE")).toEqual([]) // comma-shared body → legal
 })
 
@@ -48,4 +48,10 @@ test("a comment-only body is legal in CODESYS — not flagged (the FP guard)", (
 test("non-empty bodies are never flagged", () => {
   expect(eb("IF b THEN i := 1; END_IF")).toEqual([])
   expect(eb("FOR i := 0 TO 3 DO i := i; END_FOR")).toEqual([])
+})
+
+test("an empty CASE arm is a WARNING — it builds and runs — where an empty block is an error (stmt_case_empty_arm*, ST10)", () => {
+  // both vendors 2026-10-02: before another arm, last, and before ELSE; `record:exec` runs all three
+  for (const body of ["CASE i OF\n1:\n2: i := 1;\nEND_CASE", "CASE i OF\n1: i := 1;\n2:\nEND_CASE", "CASE i OF\n1: i := 1;\n2:\nELSE\n\ti := 3;\nEND_CASE"])
+    expect(eb(body).map((d) => d.severity)).toEqual(["warning"])
 })

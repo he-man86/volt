@@ -127,7 +127,7 @@ export const RULES: readonly Rule[] = [
     rule: 'a reserved standard-function or type word used as a name → "Unexpected token" cascade',
     home: "parse/errors (today cursor + analysis refused-name)",
     gap: false,
-    fixtures: ["cc4_type_name_bit_as_variable", "cc4_type_name_byte_as_variable", "identifier_double_underscore", "lex_keyword_assigned_*", "lex_keyword_before_name_*", "lex_keyword_operand_*"],
+    fixtures: ["cc4_type_name_bit_as_variable", "cc4_type_name_byte_as_variable", "identifier_double_underscore", "lex_keyword_assigned_*", "lex_keyword_before_name_*", "lex_keyword_operand_*", "lex_keyword_called_*"],
     design: "cc4_type_name_bit_as_variable, cc4_type_name_byte_as_variable, identifier_double_underscore",
   },
   {
@@ -1826,8 +1826,12 @@ export const RULES: readonly Rule[] = [
     rule: "assignment `:=`",
     home: "parse/statements",
     gap: false,
-    fixtures: ["xo_gvl_shared_struct"],
+    fixtures: ["xo_gvl_shared_struct", "stmt_assign_literal_target", "stmt_assign_paren_target", "stmt_assign_missing_value", "stmt_assign_spaced_operator"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "a token no statement starts with is refused where a statement starts, then the resync (stmt_assign_literal_target, stmt_bare_*, stmt_assign_paren_target, ST1/ST5)" },
+    ],
     design: "xo_gvl_shared_struct",
+    recheck: "2.6: a literal or `(` opening a statement is refused there (the parser); an empty value is R5's wording (2.8.1)",
   },
   {
     id: "ST2",
@@ -1836,8 +1840,13 @@ export const RULES: readonly Rule[] = [
     rule: "`S=` / `R=`",
     home: "lex + parse/statements",
     gap: false,
-    fixtures: ["cc_fp_set_reset", "set_reset_basic", "ng_coil_storage"],
+    fixtures: ["cc_fp_set_reset", "set_reset_basic", "ng_coil_storage", "stmt_s_eq_no_space", "stmt_r_eq_no_space", "stmt_s_eq_lower_case", "stmt_s_eq_spaced", "stmt_s_eq_false_keeps", "stmt_r_eq_false_keeps", "stmt_s_eq_non_bool_target", "stmt_s_eq_non_bool_value"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "`S=`, `R=` and `REF=` are one operator in any case: `x s= y`, `x r= y`, `rn ref= m` (stmt_s_eq_lower_case, stmt_ref_eq_lower_case, ST2/ST3)" },
+      { file: "src/analysis/checks/types/assignment.test.ts", title: "`S=` and `R=` set a BOOL from a BOOL: an INT target or operand does not convert (stmt_s_eq_non_bool_target, stmt_s_eq_non_bool_value, ST2)" },
+    ],
     design: "cc_fp_set_reset, set_reset_basic, ng_coil_storage",
+    recheck: "2.6: the operator in any case; BOOL on both sides; `S =` apart is the IL word S (2.8.3)",
   },
   {
     id: "ST3",
@@ -1846,8 +1855,13 @@ export const RULES: readonly Rule[] = [
     rule: "`REF=`",
     home: "lex + parse/statements",
     gap: false,
-    fixtures: ["cc3_reference_assign", "xo_reference_to_fb_call", "cc4_output_reference_type"],
+    fixtures: ["cc3_reference_assign", "xo_reference_to_fb_call", "cc4_output_reference_type", "stmt_ref_eq_on_non_reference", "stmt_ref_eq_no_space", "stmt_ref_eq_lower_case", "stmt_ref_eq_spaced", "stmt_ref_eq_literal_value"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "`S=`, `R=` and `REF=` are one operator in any case: `x s= y`, `x r= y`, `rn ref= m` (stmt_s_eq_lower_case, stmt_ref_eq_lower_case, ST2/ST3)" },
+      { file: "src/analysis/checks/types/reference-assign.test.ts", title: "TwinCAT words a literal REF= the other way round: reference to literal (cc3_reference_assign, stmt_ref_eq_literal_value, ST3)" },
+    ],
     design: "cc3_reference_assign, xo_reference_to_fb_call, cc4_output_reference_type",
+    recheck: "2.6: `REF =` apart is the name REF and a comparison; TwinCAT words a literal REF= reversed",
   },
   {
     id: "ST4",
@@ -1856,8 +1870,12 @@ export const RULES: readonly Rule[] = [
     rule: "chained assignment with mixed operators",
     home: "parse/statements",
     gap: false,
-    fixtures: ["set_reset_chained", "cc_fp_set_reset_chain", "cc5_new_in_expression"],
+    fixtures: ["set_reset_chained", "cc_fp_set_reset_chain", "cc5_new_in_expression", "stmt_chain_assign_then_set", "stmt_chain_set_then_assign", "stmt_chain_literal_inner_target", "stmt_chain_three_targets", "stmt_chain_negated_inner_target", "expr_inline_assign_operand"],
+    tests: [
+      { file: "src/analysis/checks/flow/statement-rules.test.ts", title: "C0018: a chain's inner target and a FOR control variable that are no name are refused, echoed as the compiler does (stmt_chain_literal_inner_target, expr_inline_assign_operand, stmt_for_literal_control, stmt_chain_negated_inner_target, stmt_for_negated_control, ST4/ST11)" },
+    ],
     design: "set_reset_chained, cc_fp_set_reset_chain, cc5_new_in_expression",
+    recheck: "2.6: a chain's inner target that is no name is \"no valid assignment target\"",
   },
   {
     id: "ST5",
@@ -1866,8 +1884,15 @@ export const RULES: readonly Rule[] = [
     rule: "call statement; bare expression statement",
     home: "parse/statements",
     gap: false,
-    fixtures: ["cc5_no_op_statement", "conditional_define_then_if"],
+    fixtures: ["cc5_no_op_statement", "conditional_define_then_if", "stmt_bare_comparison", "stmt_bare_binary", "stmt_bare_literal", "stmt_bare_paren_name", "stmt_bare_not", "stmt_bare_negation", "stmt_bare_true", "stmt_bare_member", "stmt_function_call_discarded", "stmt_limit_call_statement", "stmt_bare_function_name", "stmt_function_own_name_bare", "lex_keyword_called_*"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "a token no statement starts with is refused where a statement starts, then the resync (stmt_assign_literal_target, stmt_bare_*, stmt_assign_paren_target, ST1/ST5)" },
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "a reserved word before `(` is refused where a statement starts: `LIMIT(0, a, 5);`, `INI(t, TRUE);` (stmt_limit_call_statement, stmt_ini_call, ST5/ST19)" },
+      { file: "src/analysis/checks/flow/no-op-statement.test.ts", title: "a binary operation as a statement is no valid statement, an ERROR echoed as the compiler does (stmt_bare_binary, stmt_bare_comparison, ST5)" },
+      { file: "src/analysis/checks/flow/no-op-statement.test.ts", title: "a FUNCTION's name alone as a statement is an error beside the no-op warning (stmt_bare_function_name, ST5)" },
+    ],
     design: "cc5_no_op_statement, conditional_define_then_if",
+    recheck: "2.6: a binary operation is \"no valid statement\" (C0020), a name/member a no-op, a literal/`(`/`-`/NOT/TRUE and a reserved word before `(` refused at the start",
   },
   {
     id: "ST6",
@@ -1876,8 +1901,9 @@ export const RULES: readonly Rule[] = [
     rule: "IF/ELSIF/ELSE",
     home: "parse/statements",
     gap: false,
-    fixtures: ["stmt_elsif_second", "ctrl_if_elsif_else", "cp_empty_statements"],
+    fixtures: ["stmt_elsif_second", "ctrl_if_elsif_else", "cp_empty_statements", "stmt_if_empty_then", "stmt_if_elsif_after_else", "stmt_if_two_else", "stmt_if_else_if_two_words", "stmt_if_else_if_nested", "stmt_if_empty_statement_body"],
     design: "stmt_elsif_second, ctrl_if_elsif_else, cp_empty_statements",
+    recheck: "2.6: `ELSE IF` is two IFs; the open IF at EOF is R2's wording (2.8.2)",
   },
   {
     id: "ST7",
@@ -1886,7 +1912,11 @@ export const RULES: readonly Rule[] = [
     rule: "CASE: multi-label, range, enum label, ELSE",
     home: "parse/statements",
     gap: false,
-    fixtures: ["stmt_case_multi_label", "stmt_case_range", "xo_enum_case_across_objects", "ctrl_case_of_else"],
+    fixtures: ["stmt_case_multi_label", "stmt_case_range", "xo_enum_case_across_objects", "ctrl_case_of_else", "stmt_case_no_arms", "stmt_case_else_only", "stmt_case_duplicate_label", "stmt_case_overlapping_range", "stmt_case_reversed_range", "stmt_case_label_trailing_comma"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "a CASE label list with a trailing comma wants an expression at the colon, and the arm is read (stmt_case_label_trailing_comma, ST7)" },
+      { file: "src/analysis/checks/flow/case-labels.test.ts", title: "TwinCAT ends the inverted-range message with a full stop, as it does for an array's (stmt_case_reversed_range, ST7)" },
+    ],
     design: "stmt_case_multi_label, stmt_case_range, xo_enum_case_across_objects, ctrl_case_of_else",
   },
   {
@@ -1896,7 +1926,7 @@ export const RULES: readonly Rule[] = [
     rule: "CASE: negative label",
     home: "parse/statements",
     gap: false,
-    fixtures: ["tr_37_case_label_wraps_minus_212"],
+    fixtures: ["tr_37_case_label_wraps_minus_212", "stmt_case_negative_label", "stmt_case_negative_range", "stmt_case_plus_label"],
     design: "tr_37_case_label_wraps_minus_212 (unrecorded) — **GAP** (recorded)",
     recheck: "0.5: tr_37_case_label_wraps_minus_212 is recorded now, which is the condition the design states",
   },
@@ -1906,9 +1936,13 @@ export const RULES: readonly Rule[] = [
     section: "2.6",
     rule: "CASE: typed-literal label `INT#1:`, parenthesized and constant-expression labels",
     home: "parse/statements",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["stmt_case_typed_label", "stmt_case_typed_label_other_type", "stmt_case_typed_label_narrower", "stmt_case_const_name_label", "stmt_case_variable_label", "stmt_case_const_expr_label", "stmt_case_paren_label", "stmt_case_nonconst_label", "stmt_case_arm_missing_semicolon"],
+    tests: [
+      { file: "src/analysis/checks/flow/case-labels.test.ts", title: "a typed-literal label of a type the selector does not take does not convert; a narrower one does (stmt_case_typed_label_other_type, _narrower, stmt_case_typed_label, ST9)" },
+    ],
     design: "**GAP**",
+    recheck: "2.6: typed, constant-name and signed labels build; an expression is no label (refused as a statement start); a typed label converts to the selector",
   },
   {
     id: "ST10",
@@ -1916,9 +1950,13 @@ export const RULES: readonly Rule[] = [
     section: "2.6",
     rule: "CASE: empty arm (is an error)",
     home: "parse/statements",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["stmt_case_empty_arm", "stmt_case_empty_arm_last", "stmt_case_empty_arm_before_else"],
+    tests: [
+      { file: "src/analysis/checks/flow/empty-block.test.ts", title: "an empty CASE arm is a WARNING — it builds and runs — where an empty block is an error (stmt_case_empty_arm*, ST10)" },
+    ],
     design: "**GAP**",
+    recheck: "2.6: an empty arm is a WARNING on both vendors and runs (the row's \"is an error\" was the 2026-07-21 note)",
   },
   {
     id: "ST11",
@@ -1927,7 +1965,11 @@ export const RULES: readonly Rule[] = [
     rule: "FOR, FOR BY",
     home: "parse/statements",
     gap: false,
-    fixtures: ["refuse_for_step_calls", "cc4_loop_exit_constant"],
+    fixtures: ["refuse_for_step_calls", "cc4_loop_exit_constant", "stmt_for_member_control", "stmt_for_empty_body", "stmt_for_real_control", "stmt_for_bool_control", "stmt_for_dword_control", "stmt_for_literal_control", "stmt_for_negated_control"],
+    tests: [
+      { file: "src/analysis/checks/flow/statement-rules.test.ts", title: "a FOR counts in an integer: a REAL or a BOOL control variable does not convert to ANY_INT, a DWORD does (stmt_for_real_control, stmt_for_bool_control, stmt_for_dword_control, ST11)" },
+      { file: "src/analysis/checks/flow/statement-rules.test.ts", title: "C0018: a chain's inner target and a FOR control variable that are no name are refused, echoed as the compiler does (stmt_chain_literal_inner_target, expr_inline_assign_operand, stmt_for_literal_control, stmt_chain_negated_inner_target, stmt_for_negated_control, ST4/ST11)" },
+    ],
     design: "refuse_for_step_calls, cc4_loop_exit_constant",
   },
   {
@@ -1937,7 +1979,7 @@ export const RULES: readonly Rule[] = [
     rule: "WHILE / REPEAT",
     home: "parse/statements",
     gap: false,
-    fixtures: ["stmt_repeat_once", "ctrl_repeat_until", "lib_prim_null_cursor"],
+    fixtures: ["stmt_repeat_once", "ctrl_repeat_until", "lib_prim_null_cursor", "stmt_while_empty_body", "stmt_repeat_empty_body", "stmt_repeat_until_semicolon"],
     design: "stmt_repeat_once, ctrl_repeat_until, lib_prim_null_cursor",
   },
   {
@@ -1947,7 +1989,7 @@ export const RULES: readonly Rule[] = [
     rule: "RETURN / EXIT / CONTINUE",
     home: "parse/statements",
     gap: false,
-    fixtures: ["xo4_return_in_every_routine", "stmt_exit_inner", "stmt_continue_skips"],
+    fixtures: ["xo4_return_in_every_routine", "stmt_exit_inner", "stmt_continue_skips", "stmt_exit_outside_loop", "stmt_continue_outside_loop"],
     design: "xo4_return_in_every_routine, stmt_exit_inner, stmt_continue_skips",
   },
   {
@@ -1956,9 +1998,14 @@ export const RULES: readonly Rule[] = [
     section: "2.6",
     rule: "RETURN/EXIT/CONTINUE without `;`",
     home: "parse/statements",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["stmt_return_no_semicolon", "stmt_exit_no_semicolon", "stmt_continue_no_semicolon", "stmt_assign_no_semicolon_before_end_if", "stmt_return_no_semicolon_before_end_if", "stmt_exit_no_semicolon_before_end_for", "stmt_assign_no_semicolon_before_*"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "RETURN, EXIT, CONTINUE and JMP without their `;` are the one line, and the next statement is read (stmt_*_no_semicolon, ST14/ST15)" },
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "a statement without its `;` before its block's END is the one line (stmt_*_no_semicolon_before_end_*, stmt_assign_no_semicolon_before_end_if, ST14)" },
+    ],
     design: "**GAP**",
+    recheck: "2.6: the one line \"';' expected instead of 'X'\", before a name and before a block's END alike — and before EVERY statement and block keyword the list resyncs at (`stmt_assign_no_semicolon_before_*`, both vendors, review 2.6)",
   },
   {
     id: "ST15",
@@ -1967,7 +2014,10 @@ export const RULES: readonly Rule[] = [
     rule: "JMP and `label:`",
     home: "parse/statements",
     gap: false,
-    fixtures: ["ng_label_jmp_resolved", "cc_vg_undefined_label", "err_c0116_duplicate_label"],
+    fixtures: ["ng_label_jmp_resolved", "cc_vg_undefined_label", "err_c0116_duplicate_label", "stmt_jmp_no_semicolon", "stmt_label_at_end"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "RETURN, EXIT, CONTINUE and JMP without their `;` are the one line, and the next statement is read (stmt_*_no_semicolon, ST14/ST15)" },
+    ],
     design: "ng_label_jmp_resolved, cc_vg_undefined_label, err_c0116_duplicate_label",
   },
   {
@@ -1977,7 +2027,7 @@ export const RULES: readonly Rule[] = [
     rule: "empty `;`",
     home: "parse/statements",
     gap: false,
-    fixtures: ["cp_empty_statements", "initprg_reads_earlier"],
+    fixtures: ["cp_empty_statements", "initprg_reads_earlier", "stmt_if_empty_statement_body"],
     design: "cp_empty_statements, initprg_reads_earlier",
   },
   {
@@ -1996,9 +2046,13 @@ export const RULES: readonly Rule[] = [
     section: "2.6",
     rule: "`__TRY` without `__CATCH`/`__FINALLY`; a nested `__TRY`",
     home: "parse/statements",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["stmt_try_without_catch", "stmt_try_finally_only", "stmt_try_nested", "stmt_try_catch_without_operand"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "`__CATCH` without its operand is a catch (stmt_try_catch_without_operand, ST18)" },
+    ],
     design: "**GAP**",
+    recheck: "2.6: CODESYS builds a `__TRY` without `__CATCH` (it does not start), TwinCAT refuses it (niche); `__CATCH` needs no operand",
   },
   {
     id: "ST19",
@@ -2006,9 +2060,13 @@ export const RULES: readonly Rule[] = [
     section: "2.6",
     rule: "`CAL inst(…)` and `INI(…)` in an ST body (the statement half of L15)",
     home: "parse/statements",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["stmt_cal_instance", "stmt_cal_without_parens", "stmt_ini_call"],
+    tests: [
+      { file: "src/frontend/syntax/parse/statements.test.ts", title: "a reserved word before `(` is refused where a statement starts: `LIMIT(0, a, 5);`, `INI(t, TRUE);` (stmt_limit_call_statement, stmt_ini_call, ST5/ST19)" },
+    ],
     design: "**GAP**",
+    recheck: "2.6: CAL starts no statement (the call after it does); INI before `(` is refused where a statement starts",
   },
   // ── 2.7 ──
   {

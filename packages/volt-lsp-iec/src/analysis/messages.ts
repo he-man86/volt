@@ -270,6 +270,12 @@ export interface Messages {
   adrOnBit(): string
   /** A statement expression with no side effect — a WARNING (C0139). verified both vendors. */
   codeHasNoEffect(code: string): string
+  /** A binary operation as a statement, echoed with its `;` and line break (C0020). verified both vendors. */
+  noValidStatement(code: string): string
+  /** A FUNCTION's name alone as a statement. verified both vendors. */
+  functionWithoutParens(name: string): string
+  /** A literal `REF=` into a reference of another type — TwinCAT names the pair reversed. verified both vendors. */
+  refLiteralCannotConvert(from: string, to: string): string
   /** A `VAR_CONFIG` block outside a config list (C0168). verified both vendors. */
   varConfigOnlyInList(): string
   /** A function block invoked by its type name instead of an instance (C0080). verified both vendors. */
@@ -597,7 +603,7 @@ export function messagesFor(vendor: Vendor): Messages {
     initListExpected: (type) => `Initialisation list for ${type} expected`,
     caseLabelDuplicate: () => (tc ? `Case label duplicate` : `CASE label duplicate`),
     caseLabelInRange: (label, lo, hi) => (tc ? `Case label ${label} also contained in range ${lo} .. ${hi}` : `CASE label ${label} also contained in range ${lo} .. ${hi}`),
-    caseRangeInverted: () => `Lower border must be lower than upper border`,
+    caseRangeInverted: () => `Lower border must be lower than upper border${tc ? "." : ""}`,
     caseLabelNonConst: () => (tc ? `Case label requires literal or symbolic integer constant` : `CASE label requires literal or symbolic integer constant`),
     // Live-verified both vendors (2026-07-11): CODESYS ends "loop.", TwinCAT ends "loop!". Cond `<counter> <op> <bound>`.
     loopExitConstantFalse: (condition) => `Loop exit condition '${condition}' is constant FALSE. Possible endless loop${tc ? "!" : "."}`,
@@ -659,6 +665,9 @@ export function messagesFor(vendor: Vendor): Messages {
     bitArrayBase: () => `BIT is not allowed as base type of an array`,
     adrOnBit: () => `A single bit cannot be referenced. A reference to the complete byte will be stored.`,
     codeHasNoEffect: (code) => `The code '${code}' has no effect. Is this the intent?`,
+    noValidStatement: (code) => `'${code}' is no valid statement`,
+    functionWithoutParens: (name) => `FUNCTION '${name}' referenced without parentheses '()'`,
+    refLiteralCannotConvert: (from, to) => (tc ? `Cannot convert type '${to}' to type '${from}'` : `Cannot convert type '${from}' to type '${to}'`),
     varConfigOnlyInList: () => (tc ? `'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list` : `VAR_CONFIG declaration only allowed in VAR_CONFIG  list`),
     fbMustBeInstantiated: (name) => (tc ? `Functionblock '${name}' must be instantiated to be accessed` : `Function block '${name}' must be instantiated to be accessed`),
     interfaceMustBeInstantiated: (name) => `Interface '${name}' must be instantiated to be accessed`,

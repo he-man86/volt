@@ -12,13 +12,15 @@ import { bodies } from "../../../frontend/symbols/index.js"
 import { constEval, inferExprType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
+import { isRefusedCounter } from "../../rules.js"
 
 export function checkLoopExit(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
       if (s.kind !== "for" || s.controlVar.kind !== "ident_expr") return
       const ct = inferExprType(s.controlVar, scope, ctx.project)
-      if (ct.kind !== "elementary" || ct.elem.range === undefined) return
+      // a counter the FOR refuses (`for-control-type`: BOOL, REAL) is no loop to judge — the vendor says only that
+      if (ct.kind !== "elementary" || ct.elem.range === undefined || isRefusedCounter(ct.elem.family)) return
       const step = s.by === undefined ? 1n : constEval(s.by, scope)
       const to = constEval(s.to, scope)
       if (typeof step !== "bigint" || step === 0n || typeof to !== "bigint") return

@@ -149,3 +149,10 @@ test("a reference bound to a name only the shared resolution oracle can excuse i
   // the base is not in the project, so `baseVar` COULD be its member — the oracle skips, and so must this
   expect(codes(fb("\tref_ : REFERENCE TO INT REF= baseVar;"))).toEqual([])
 })
+
+test("`S=` and `R=` set a BOOL from a BOOL: an INT target or operand does not convert (stmt_s_eq_non_bool_target, stmt_s_eq_non_bool_value, ST2)", () => {
+  // both vendors 2026-10-02
+  expect(mismatches("n : INT;\n\ty : BOOL := TRUE;", "n S= y;")).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
+  expect(mismatches("x : BOOL;\n\tn : INT := 1;", "x S= n;")).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
+  expect(mismatches("x : BOOL;\n\ty : BOOL;", "x S= y;\nx R= y;")).toEqual([])
+})

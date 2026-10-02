@@ -42,9 +42,8 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *
  * WHAT IS LEFT, and why each is still open rather than excused:
  *
- *   cc3_reference_assign      TwinCAT reverses the conversion direction for a reference assign — "Cannot
- *                             convert type 'REFERENCE TO INT' to type 'SINT'" where CODESYS says the same
- *                             pair the other way round. ONE cell; a rule built on one cell is a guess.
+ *   (`cc3_reference_assign` left 2026-10-02: a second cell, `stmt_ref_eq_literal_value`, says TwinCAT reverses the
+ *                             pair for EVERY literal `REF=` statement — `refLiteralCannotConvert`.)
  *   cc5_deprecated_functionblock_keyword  The parser's own `unexpected identifier 'FUNCTIONBLOCK' at file
  *                             scope`, which is Volt's wording, where both vendors say nothing about the
  *                             header and complain where the missing FB is USED.
@@ -87,7 +86,6 @@ export const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
 ])
 
 export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
-  "cc3_reference_assign",
   "cc5_deprecated_functionblock_keyword",
 ])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
@@ -121,6 +119,11 @@ const SYSTEM_OPERAND_AT_STATEMENT_START: readonly string[] = [
   "lex_keyword_assigned_sys_pool",
   "lex_keyword_before_name_sys_pool",
   "lex_keyword_operand_sys_pool",
+  // …and CALLED where a statement starts (review 2.6, both vendors 2026-10-02): `__currenttask(n);` and `__pool(n);` are
+  // the same member read of the next token ("The code '__CURRENTTASK.!!!'ERROR'!!!;' has no effect", `__POOL`'s
+  // "Global scope operation '.' …"); the LSP reads a call. Niche, as above (0 in the corpora).
+  "lex_keyword_called_sys_currenttask",
+  "lex_keyword_called_sys_pool",
 ]
 
 /**
@@ -141,6 +144,9 @@ const TWINCAT_XSIZEOF_IS_NO_KEYWORD: readonly string[] = [
   "lex_keyword_assigned_xsizeof",
   "lex_keyword_before_name_xsizeof",
   "lex_keyword_operand_xsizeof",
+  // …and called where a statement starts, `xsizeof(n);`: "Identifier 'xsizeof' not defined" and "Program name, function
+  // or function block instance expected instead of 'xsizeof'" — the LSP refuses CODESYS's reserved word (review 2.6)
+  "lex_keyword_called_xsizeof",
 ]
 
 
@@ -226,15 +232,9 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *                            typed literal, and "Unknown type: '!!!'ERROR'!!!'" for a CALL's operand where
  *                            `refused-initializer` knows a binary operator's. Missing-only; niche: accepted loss (0
  *                            occurrences in the corpora: they build, and a trailing comma in an operator's list does not).
- *   `stmt_case_const_expr_label`, `stmt_case_paren_label` — `2 + 1:` and `(2):` are no CASE label (2026-10-02), but the
- *                            vendors do not read them as the statement before a colon, as they read `a + 1:`
- *                            (`stmt_case_nonconst_label`, which the LSP follows): a literal or `(` there is "Unexpected
- *                            token '2' / '(' found", and the two vendors resync differently after it (CODESYS to
- *                            END_CASE, TwinCAT to the colon). Task 2.6.2's labels; niche: accepted loss (0 occurrences
- *                            in the corpora, which build).
- *   `stmt_case_nonconst_label` — the LSP gives every message but "'(a + 1);' is no valid statement", the bare-expression
- *                            rule's (ST5, task 2.6.1), as after `lex_cascade_meets_soft_name_*`. Missing-only; niche:
- *                            accepted loss (0 occurrences in the corpora).
+ *   (`stmt_case_const_expr_label`, `stmt_case_paren_label`, `stmt_case_nonconst_label` left 2026-10-02, task 2.6: a
+ *                            literal or `(` where a statement starts is refused, and a binary operation as a statement
+ *                            is "no valid statement" — the statements' rules, ST5.)
  *   `expr_pool_qualified_call`, `expr_pool_qualified_global`, `expr_pool_qualified_fb_type` — `__POOL.X` (rule E34,
  *                            task 2.5.6, 2026-10-02) looks X up in the POUs VIEW only, and an object of the APPLICATION
  *                            is not there: `__POOL.F(a, b)` is "Identifier 'F' not defined", the call-target and the
@@ -243,10 +243,7 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *                            does not say which view an object lives in, so the LSP reads `__POOL.X` as X's member
  *                            access (silent) and refuses the type at parse. Niche: accepted loss (0 occurrences of
  *                            `__POOL` in the corpora, in any position).
- *   `expr_inline_assign_operand` — `out := 1 + a := 2;` is a CHAIN whose inner target is `1 + a`: "'(INT#1 + a)' is no
- *                            valid assignment target" on both vendors, where the LSP takes the chain without asking what
- *                            its inner target is — the assignment forms' rule (ST4, task 2.6.1). Missing-only; niche:
- *                            accepted loss (0 occurrences in the corpora: a chain's every target there is a name).
+ *   (`expr_inline_assign_operand` left 2026-10-02, task 2.6: a chain's inner target that is no name is refused, ST4.)
  *   `expr_global_namespace_ambiguous_bare` — a bare `gAmb` two lists declare is "Ambiguous use of name 'gAmb'" AND
  *                            "Identifier 'gAmb' not defined" and the conversion of the hole on both vendors (2026-10-02):
  *                            the name resolves to nothing. The LSP says the first (`names/ambiguous-global`) and resolves
@@ -259,15 +256,59 @@ const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
   "expr_member_named_type_keyword",
   "expr_en_eno_call",
   "expr_trailing_comma_operator_call_in_initializer",
-  "stmt_case_const_expr_label",
-  "stmt_case_paren_label",
-  "stmt_case_nonconst_label",
   "expr_pool_qualified_call",
   "expr_pool_qualified_global",
   "expr_pool_qualified_fb_type",
-  "expr_inline_assign_operand",
   "expr_global_namespace_ambiguous_bare",
 ]
+
+/**
+ * FRONTEND-CONFORMANCE 2.6 (2026-10-02) — statement fixtures (`fixtures/grammar/statements.ts`) whose disagreement is a
+ * rule of a later task or niche. Both vendors answer each identically (TwinCAT's capitals aside), so one list serves both:
+ *   `stmt_assign_missing_value` — `out := ;` is "Expression expected instead of ';'" on both; the LSP's "expected
+ *                            expression, got punct ';'" is Volt's wording for an absent operand — the one token-description
+ *                            wording is task 2.8.1's (R5, `rec_expected_expression`).
+ *   `stmt_if_else_if_two_words` — an IF left open at the end of the body is "Unexpected End-of-file found: 'ELSIF', 'ELSE'
+ *                            or 'END_IF' expected" on both, where the LSP says "'END_IF' expected instead of end of POU" —
+ *                            a missing END_* is R2's, task 2.8.2 (`rec_missing_end_if`). (`ELSE IF` is no ELSIF: two
+ *                            IFs, one END_IF — the parse agrees, `stmt_if_else_if_nested` builds.)
+ *   `stmt_s_eq_spaced` — `x S = y;`: the IL operator S as a WORD is refused where the cascade meets it ("Unexpected token
+ *                            'S' found") and the resync goes on to `y`; the lexer reads `s` as a name, so the LSP resumes a
+ *                            statement there ("'(S = y);' is no valid statement"). The IL operators as words are
+ *                            `refused-name`'s until task 2.8.3 gives the cascade its one home.
+ *   `stmt_assign_spaced_operator` — `out : = a;` is the label `out:` and a refused `=` on both, which the LSP now says, and
+ *                            the vendors add "The label 'OUT' has not been referenced" in a body that did not parse, where
+ *                            the label checks look only at a body that parsed. Missing-only; niche: accepted loss (0
+ *                            occurrences of a `name : =` statement in the corpora, which build).
+ *   `stmt_case_const_expr_label`, `stmt_case_paren_label` — `2 + 1:` and `(2):` are no CASE label: the literal or `(`
+ *                            opening the line is refused as a statement start ("Unexpected token '2' / '(' found"), as
+ *                            the LSP says, and then the two vendors resync differently — CODESYS in silence to END_CASE
+ *                            ("';' expected instead of 'END_CASE'"), TwinCAT on through the colon — where the LSP runs
+ *                            the statement cascade to the `;`. Niche: accepted loss (0 occurrences in the corpora, which
+ *                            build).
+ *   `stmt_for_literal_control` — `FOR 1 := 1 TO 3 DO`: "'1' is no valid assignment target", as the LSP says, and "Cannot
+ *                            convert type 'SINT' to type 'BIT'" (TwinCAT also "'BIT' to type 'BIT'"), a typing of the
+ *                            refused counter no rule explains. Missing-only; niche: accepted loss (0 occurrences of a
+ *                            literal FOR counter in the corpora).
+ */
+const STATEMENT_DIVERGENCES: readonly string[] = [
+  "stmt_assign_missing_value",
+  "stmt_if_else_if_two_words",
+  "stmt_s_eq_spaced",
+  "stmt_assign_spaced_operator",
+  "stmt_for_literal_control",
+  "stmt_case_const_expr_label",
+  "stmt_case_paren_label",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.6 (2026-10-02) — TwinCAT wants a `__CATCH` after the `__TRY` block: `__TRY … __ENDTRY` and
+ * `__TRY … __FINALLY … __ENDTRY` are "Unexpected token '__ENDTRY' / '__FINALLY' found", the resync, and "Unexpected
+ * End-of-file found: '__CATCH', '__FINALLY' or '__ENDTRY' expected", where CODESYS builds both (its application then
+ * fails to start: `execSkip`) and the LSP says nothing. Niche: accepted loss (0 `__TRY` in the TwinCAT corpus, and
+ * every one of the 36 `__TRY` in the CODESYS corpora has its `__CATCH`).
+ */
+const TWINCAT_TRY_NEEDS_CATCH: readonly string[] = ["stmt_try_without_catch", "stmt_try_finally_only"]
 
 const LITERAL_FOLLOW_ON_RULES: readonly string[] = [
   "lit_real_no_leading_digit",
@@ -775,6 +816,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_DRIVER_CUTS_THE_ECHO,
     ...LITERAL_FOLLOW_ON_RULES,
     ...EXPRESSION_NICHE_DIVERGENCES,
+    ...STATEMENT_DIVERGENCES,
+    ...TWINCAT_TRY_NEEDS_CATCH,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
     ...TWINCAT_MALFORMED_ADDRESS_ALIGNMENT,
@@ -917,6 +960,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...COMPONENT_CARRIED_ON_IN_A_DUT,
     ...LITERAL_FOLLOW_ON_RULES,
     ...EXPRESSION_NICHE_DIVERGENCES,
+    ...STATEMENT_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not

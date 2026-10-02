@@ -144,17 +144,17 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
         return parseRepeat(cur)
       case "RETURN": {
         const k = cur.consume()
-        cur.eatPunct(";")
+        endStatement(cur)
         return { kind: "return", span: k.span }
       }
       case "EXIT": {
         const k = cur.consume()
-        cur.eatPunct(";")
+        endStatement(cur)
         return { kind: "exit", span: k.span }
       }
       case "CONTINUE": {
         const k = cur.consume()
-        cur.eatPunct(";")
+        endStatement(cur)
         return { kind: "continue", span: k.span }
       }
       case "__TRY":
@@ -189,19 +189,39 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
  *     `lex_keyword_assigned_*`, `lex_*_as_variable`, `cc_il_name_cal`), or
  *   - a name — the word used as a statement of its own (`CAL t();`, `END_IF n := 2;` — `lex_keyword_before_name_*`,
  *     `lex_cal_keyword`).
- * Only those two are measured; a keyword followed by anything else (`LIMIT(…);`, a call) keeps the expression parse. The
- * statement keywords themselves never reach here — `parseStatement` dispatched them above. The Instruction List operator
- * NAMES (`ld`, `r` …) are identifiers to this lexer and stay `analysis/checks/names/refused-name.ts`'s.
+ *   - a `(` — the word called as a statement (`LIMIT(0, a, 5);`, `INI(t, TRUE);` — `stmt_limit_call_statement`,
+ *     `stmt_ini_call`, both vendors 2026-10-02: in an OPERAND each is the operator it names, `ok := INI(t, TRUE);`) —
+ *     asked of EVERY word of the set, `<w>(n);` (`lex_keyword_called_*`, review 2.6), and every one answered it. The call
+ *     operators outside the set (`__DELETE`, `__QUERYINTERFACE`, `__QUERYPOINTER`, `__CURRENTTASK`, `__POOL`) answer in
+ *     shapes of their own there too.
+ * A keyword followed by anything else is unmeasured and keeps the expression parse. The statement keywords themselves
+ * never reach here — `parseStatement` dispatched them above. The Instruction List operator NAMES (`ld`, `r` …) are
+ * identifiers to this lexer and stay `analysis/checks/names/refused-name.ts`'s.
+ *
+ * And A TOKEN NO STATEMENT STARTS WITH, whatever follows it (frontend-conformance 2.6, both vendors 2026-10-02): a
+ * literal (`5;`, `1 := a;`, `TRUE;`), a punctuation mark but the global-namespace `.` (`(a);`, `(out) := a;`, `-a;`, the
+ * `=` after the label `out :`), and NOT (`NOT x;`) — "Unexpected token 'X' found", then the resync, a name resuming a
+ * statement of its own (`stmt_assign_literal_target`, `stmt_bare_literal`, `stmt_bare_true`, `stmt_bare_paren_name`,
+ * `stmt_assign_paren_target`, `stmt_bare_negation`, `stmt_assign_spaced_operator`, `stmt_bare_not`).
  */
 function refusedAtStatementStart(cur: Cursor): boolean {
   const t = cur.peek()
   // …and an address with a size and NO POSITION assigned to: `%MW := 1;` is refused on the address as a reserved word
   // is (`lit_address_no_position_as_target`, CODESYS 2026-10-01). Only the assignment is measured.
   if (t.kind === "address_lit") return addressShape(t.text).kind === "no-position" && assignOpOf(cur.peek(1)) !== null
-  if (t.kind !== "keyword" || t.keyword === undefined || !REFUSED_AT_STATEMENT_START.has(t.keyword)) return false
+  if (LITERAL_KINDS.has(t.kind)) return true
+  if (t.kind === "punct") return t.text !== "."
+  if (t.kind !== "keyword" || t.keyword === undefined) return false
+  if (t.keyword === "TRUE" || t.keyword === "FALSE" || t.keyword === "NOT") return true
+  if (!REFUSED_AT_STATEMENT_START.has(t.keyword)) return false
   const next = cur.peek(1)
-  return assignOpOf(next) !== null || next.kind === "identifier"
+  return assignOpOf(next) !== null || next.kind === "identifier" || (next.kind === "punct" && next.text === "(")
 }
+
+/** The literal token kinds — none starts a statement. */
+const LITERAL_KINDS: ReadonlySet<string> = new Set([
+  "int_lit", "real_lit", "string_lit", "wstring_lit", "time_lit", "date_lit", "tod_lit", "datetime_lit", "typed_lit",
+])
 
 function parseJmp(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // JMP
@@ -210,15 +230,18 @@ function parseJmp(cur: Cursor): Statement | undefined {
     cur.pushError("expected a label after JMP", cur.peek().span)
     return undefined
   }
-  const semi = cur.eatPunct(";") // lenient like RETURN/EXIT — a missing ';' is caught by the next statement
+  const semi = endStatement(cur) // a missing `;` is the one line, as after RETURN (`stmt_jmp_no_semicolon`, ST15)
   return { kind: "jmp", target, span: joinSpans(kw.span, semi?.span ?? target.span) }
 }
 
-/** The assignment operator a token spells: `"S="`/`"R="`/`"REF="`, `undefined` for `:=`, or `null` when it is not one. */
+/** The assignment operator a token spells: `"S="`/`"R="`/`"REF="`, `undefined` for `:=`, or `null` when it is not one.
+ *  In any case, as the lexer reads it: `x s= y`, `rn ref= m` build (`stmt_s_eq_lower_case`, `stmt_ref_eq_lower_case`,
+ *  both vendors 2026-10-02). */
 function assignOpOf(t: { kind: string; text: string }): "S=" | "R=" | "REF=" | undefined | null {
   if (t.kind !== "punct") return null
   if (t.text === ":=") return undefined
-  return t.text === "S=" || t.text === "R=" || t.text === "REF=" ? t.text : null
+  const op = t.text.toUpperCase()
+  return op === "S=" || op === "R=" || op === "REF=" ? op : null
 }
 
 function parseExprOrAssign(cur: Cursor): Statement | undefined {
@@ -278,10 +301,12 @@ function parseTry(cur: Cursor): Statement | undefined {
   let catchVar: Expr | undefined
   let catchBody: StatementList | undefined
   if (cur.eatKeyword("__CATCH") !== undefined) {
-    if (cur.expectPunct("(") === undefined) return undefined
-    catchVar = parseExpression(cur)
-    if (catchVar === undefined) return undefined
-    if (cur.expectPunct(")") === undefined) return undefined
+    // the operand is optional: `__CATCH` alone builds and runs on both vendors (`stmt_try_catch_without_operand`, ST18)
+    if (cur.eatPunct("(") !== undefined) {
+      catchVar = parseExpression(cur)
+      if (catchVar === undefined) return undefined
+      if (cur.expectPunct(")") === undefined) return undefined
+    }
     catchBody = parseStatementList(cur, (c) => atKeyword(c, "__FINALLY", "__ENDTRY"))
   }
   let finallyBody: StatementList | undefined
@@ -370,8 +395,12 @@ function parseCaseArm(cur: Cursor): CaseArm | undefined {
       sp = joinSpans(value.span, u.span)
     }
     labels.push({ kind: "case_label", value, upper, span: sp })
-    if (cur.eatPunct(",") !== undefined) continue
-    break
+    if (cur.eatPunct(",") === undefined) break
+    // a trailing comma: the label the colon stands in for is wanted, and the arm is read (`stmt_case_label_trailing_comma`)
+    if (atColon(cur)) {
+      cur.pushError(`Expression expected instead of ${vendorTokenText(cur.peek())}`, cur.peek().span)
+      break
+    }
   }
   const colon = cur.expectPunct(":")
   if (colon === undefined) return undefined
@@ -395,9 +424,13 @@ function isArmStart(cur: Cursor): boolean {
   }
   const label = (): boolean => bound() && (ahead.eatPunct("..") === undefined || bound())
   if (!label()) return false
-  while (ahead.eatPunct(",") !== undefined) if (!label()) return false
-  return ahead.getErrors().length === 0 && ahead.peek().kind === "punct" && ahead.peek().text === ":"
+  // …a list ended by a trailing comma is an arm too, refused at its colon (`stmt_case_label_trailing_comma`, both vendors
+  // 2026-10-02: "Expression expected instead of ':'" and nothing else)
+  while (ahead.eatPunct(",") !== undefined) if (!atColon(ahead) && !label()) return false
+  return ahead.getErrors().length === 0 && atColon(ahead)
 }
+
+const atColon = (cur: Cursor): boolean => cur.peek().kind === "punct" && cur.peek().text === ":"
 
 /**
  * WHAT A CASE LABEL CAN BE: a literal (typed too, `INT#5`, `E#V`), a signed one (`-1`), a name or a qualified name
@@ -513,8 +546,11 @@ function endStatement(cur: Cursor): Token | undefined {
  * `out := a ** b ** c;` is a pair for `**`, then `b` read as a statement that itself lacks its `;` — a pair for the
  * second `**` and "The code 'b;' has no effect" — then `c;` (`expr_power_right_assoc`, `cc_power_operator`,
  * `cc_fp_op_ampersand`, `sysop_position_in_expression`, `lit_invalid_digit_hex`, both vendors). End of input is the one
- * line ("';' expected instead of end of POU"), and a block keyword (`END_IF` …) keeps the pair and is left for its
- * block, unmeasured.
+ * line ("';' expected instead of end of POU"), and so is a block keyword (`END_IF` …), left for its block
+ * (`stmt_assign_no_semicolon_before_end_if`, `stmt_return_no_semicolon_before_end_if`,
+ * `stmt_exit_no_semicolon_before_end_for`, both vendors 2026-10-02 — RETURN, EXIT, CONTINUE and JMP end here too) — every
+ * keyword of `STMT_SYNC` but END_REPEAT (no statement stands before it: UNTIL's condition does) asked
+ * (`stmt_assign_no_semicolon_before_*`, review 2.6).
  */
 function resyncAfterMissingSemicolon(cur: Cursor): void {
   const t = cur.peek()
@@ -524,7 +560,6 @@ function resyncAfterMissingSemicolon(cur: Cursor): void {
   }
   if (atStatementSync(t)) {
     cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
-    cur.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
     return
   }
   // where the statement list ends — the next CASE arm's label (`LIST_STOP`): the one line, and the arm is read

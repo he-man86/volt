@@ -76,3 +76,36 @@ test("C0018: a CONSTANT global written as `.g` is flagged as written (expr_globa
   // the local `gc` shadows the global for the bare spelling only
   expect(msgs).toEqual(["'.gc' is no valid assignment target"])
 })
+
+test("C0018: a chain's inner target and a FOR control variable that are no name are refused, echoed as the compiler does (stmt_chain_literal_inner_target, expr_inline_assign_operand, stmt_for_literal_control, stmt_chain_negated_inner_target, stmt_for_negated_control, ST4/ST11)", () => {
+  expect(assign(`i := 1 := ii;`)).toEqual(["'1' is no valid assignment target"])
+  expect(assign(`i := 1 + ii := 2;`)).toEqual(["'(INT#1 + ii)' is no valid assignment target"])
+  expect(assign(`FOR 1 := 1 TO 3 DO\n\ti := i + 1;\nEND_FOR`)).toEqual(["'1' is no valid assignment target"])
+  // …and a NEGATION, as the compiler writes it (`stmt_chain_negated_inner_target`, `stmt_for_negated_control`, CODESYS
+  // 2026-10-02)
+  expect(assign(`i := -ii := 2;`)).toEqual(["'(INT#0 - ii)' is no valid assignment target"])
+  expect(assign(`FOR -ii := 1 TO 3 DO
+	i := ii;
+END_FOR`)).toEqual(["'(INT#0 - ii)' is no valid assignment target"])
+  // …a name, a member, an index stay targets
+  expect(assign(`i := ii := 2;\nFOR ii := 1 TO 3 DO\n\ti := i + 1;\nEND_FOR`)).toEqual([])
+})
+
+test("a FOR counts in an integer: a REAL or a BOOL control variable does not convert to ANY_INT, a DWORD does (stmt_for_real_control, stmt_for_bool_control, stmt_for_dword_control, ST11)", () => {
+  const forType = (decl: string, loop: string): string[] => {
+    const src = `PROGRAM P\nVAR ${decl}; n : INT;\nEND_VAR\n${loop}\nEND_PROGRAM`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "for-control-type" || d.code === "loop-exit-constant")
+      .map((d) => d.message)
+  }
+  // both vendors 2026-10-02 — and nothing else: no endless-loop warning on the refused BOOL counter
+  expect(forType("rv : REAL", "FOR rv := 1.0 TO 3.0 DO\n\tn := n + 1;\nEND_FOR")).toEqual(["Cannot convert type 'REAL' to type 'ANY_INT'"])
+  expect(forType("bv : BOOL", "FOR bv := 0 TO 1 DO\n\tn := n + 1;\nEND_FOR")).toEqual(["Cannot convert type 'BOOL' to type 'ANY_INT'"])
+  expect(forType("dw : DWORD", "FOR dw := 1 TO 3 DO\n\tn := n + 1;\nEND_FOR")).toEqual([])
+})
+
+test("C0018: a direct address is a target, no literal refused (lit_address_in_body, ca_direct_address_expression)", () => {
+  expect(assign(`%MW6 := i;\n%MX7.3 := TRUE;`)).toEqual([])
+})

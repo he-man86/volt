@@ -275,17 +275,6 @@ export const EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   ints("expr_operator_word_before_minus", "E31 — an operator word before a sign: `AND -a`", [5, 0, 0], "AND -a"),
   ints("expr_operator_word_before_plus", "E31 — an operator word before a sign: `MOD +a`", [5, 0, 0], "MOD +a"),
 
-  // ─── the CASE label lookahead (2.5.1 reads a label with the expression grammar): a label that is an EXPRESSION, and a
-  // missing `;` before the next arm (task 2.6.2 names the first two) ─────────────────────────────────────────────────────
-  fb("stmt_case_const_expr_label", "ST8 — a constant expression as a CASE label: `2 + 1:`",
-    "\ta : INT := 3;\n\tout : INT;", "CASE a OF\n1: out := 1;\n2 + 1: out := 2;\nEND_CASE"),
-  fb("stmt_case_paren_label", "ST8 — a parenthesized CASE label: `(2):`",
-    "\ta : INT := 2;\n\tout : INT;", "CASE a OF\n1: out := 1;\n(2): out := 2;\nEND_CASE"),
-  fb("stmt_case_nonconst_label", "ST8 — a non-constant expression as a CASE label: `a + 1:`",
-    "\ta : INT := 3;\n\tout : INT;", "CASE a OF\n1: out := 1;\na + 1: out := 2;\nEND_CASE"),
-  fb("stmt_case_arm_missing_semicolon", "ST8/ST13 — a missing `;` before the next CASE arm",
-    "\ta : INT := 2;\n\tout : INT;", "CASE a OF\n1: out := 2\n2: out := 3;\nEND_CASE"),
-
   // ─── E24 parentheses: a grouping against the precedence, nested, and empty ────────────────────────────────────────
   // (a + b) * c = 20; a + b * c = 14
   ints("expr_paren_overrides_precedence", "E24 — parentheses against the precedence: `(a + b) * c`", [2, 3, 4], "(a + b) * c"),
@@ -320,14 +309,12 @@ export const EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   // …and as an index, where no statement holds it (is `:=` an operator of every expression, or of a condition's?)
   fb("expr_inline_assign_index", "E26 — an inline assignment as an index: `arr[i := 2]`",
     "\tarr : ARRAY[1..3] OF INT := [4, 5, 6];\n\ti : INT;\n\tout : INT;", "out := arr[i := INT#2];"),
-  // …and unparenthesised after a binary operator (the statement's own `:=` stands before it)
-  {
-    ...fb("expr_inline_assign_operand", "E26 — an inline assignment as a binary operator's right operand: `1 + a := 2`",
-      "\ta : INT;\n\tout : INT;", "out := 1 + a := 2;"),
-    deferred: {
-      lsp: "both vendors \"'(INT#1 + a)' is no valid assignment target\": the statement is a CHAIN whose inner target `1 + a` is no name, which the LSP does not ask — the assignment forms' rule (ST4, task 2.6.1); niche: accepted loss (0 occurrences in the corpora) (2026-10-02)",
-    },
-  },
+  // …and unparenthesised after a binary operator (the statement's own `:=` stands before it). Asked first as `1 + a` (both
+  // vendors "'(INT#1 + a)' …", 2026-10-02) and re-asked TYPED with the same answer: the untyped `1` beside an INT is area
+  // 4's question (the vendor types it INT, the front-end UNKNOWN), and asked here it is a `binary UNKNOWN` above that
+  // ceiling — one question per fixture, this one ST4's chain target
+  fb("expr_inline_assign_operand", "E26/ST4 — an inline assignment as a binary operator's right operand: `INT#1 + a := 2`",
+    "\ta : INT;\n\tout : INT;", "out := INT#1 + a := 2;"),
 
   // ─── E27 THIS and SUPER: with and without the `^`, where there is no base, outside a function block ───────────────
   fb("expr_this_deref_member_in_body", "E27 — `THIS^.v` in a function block's own body", "\tv : INT := 4;\n\tout : INT;",

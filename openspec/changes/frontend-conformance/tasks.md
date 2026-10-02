@@ -1371,15 +1371,127 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       disagree 0 / not-run 99). `bun test` 6689 pass / 34 skip / 177 todo / 0 fail (6900 tests, 195 files, 249 s, rustc
       cache on); agreement CODESYS 3376, TwinCAT 3316 (3677 fixtures, = floors). `bun run check` 14 passed, 0 failed;
       `bun run lint` exit 0 (warnings only). volt-cli untouched by 2.5b (no dotnet run).
-- [ ] 2.6.1 Assignment forms (ST1–ST5): record stmt_s_eq_no_space, stmt_ref_eq_on_non_reference.
+- [x] 2.6.1 Assignment forms (ST1–ST5): record stmt_s_eq_no_space, stmt_ref_eq_on_non_reference.
       Where: parse/statements, lex/lexer (S=/R=/REF=). Acceptance: CA. Depends on: 2.5.6
-- [ ] 2.6.2 IF and CASE labels (ST6–ST10): record stmt_case_typed_label, stmt_case_paren_label, stmt_case_const_expr_label,
+- [x] 2.6.2 IF and CASE labels (ST6–ST10): record stmt_case_typed_label, stmt_case_paren_label, stmt_case_const_expr_label,
       stmt_case_negative_label, stmt_case_empty_arm.
       Where: parse/statements. Acceptance: CA. Depends on: 2.6.1
-- [ ] 2.6.3 Loops, jumps, missing `;`, `__TRY` recovery, CAL/INI statements (ST11–ST19): record stmt_return_no_semicolon,
+- [x] 2.6.3 Loops, jumps, missing `;`, `__TRY` recovery, CAL/INI statements (ST11–ST19): record stmt_return_no_semicolon,
       stmt_exit_no_semicolon, stmt_continue_no_semicolon, stmt_try_without_catch, stmt_try_nested, stmt_cal_instance,
       stmt_ini_call.
       Where: parse/statements. Acceptance: CA. Depends on: 2.6.2
+      **Step 2.6 (2026-10-02).** Fixtures: `fixtures/grammar/statements.ts`, 85 `stmt_*` (81 new; `stmt_case_const_expr_label`,
+      `_paren_label`, `_nonconst_label`, `_arm_missing_semicolon` moved from `expressions.ts`) — every name the tasks list and,
+      rule by rule, the cells that separate a rule's readings: ST1 a literal / parenthesized target, an empty value, `: =`;
+      ST2 `S=`/`R=` without spaces, in lower case, written apart, with a FALSE operand, on an INT target or operand; ST3
+      `REF=` on a non-reference, without spaces, in lower case, apart, onto a literal; ST4 mixed chains, a literal inner
+      target, three targets; ST5 a comparison, an arithmetic, a literal, `(a)`, NOT, `-a`, TRUE, a member, a discarded
+      FUNCTION call, `LIMIT(…)`, a FUNCTION's bare name as statements; ST6 an empty THEN, ELSIF after ELSE, two ELSEs,
+      `ELSE IF` with one and two END_IFs, `IF x THEN ;`; ST7 no arms, ELSE only, a duplicate, an overlap, a reversed range,
+      a trailing comma; ST8 `-1:`, `-3..-1:`, `+1:`; ST9 `INT#1:`, `DINT#2:` on an INT, `INT#2:` on a DINT, a constant's and
+      a variable's name; ST10 an empty arm before an arm, last, before ELSE; ST11 a member, a REAL, a BOOL, a DWORD and a
+      literal counter, an empty body; ST12 empty WHILE/REPEAT, a `;` after UNTIL's condition; ST13 EXIT/CONTINUE outside
+      a loop; ST14 RETURN/EXIT/CONTINUE/an assignment without `;` before a statement and before END_IF/END_FOR; ST15 JMP
+      without `;`, a label last; ST18 `__TRY` without `__CATCH`, with `__FINALLY` only, nested in a `__CATCH`, `__CATCH`
+      without its operand; ST19 `CAL t(k := 1);`, `CAL t;`, `INI(t, TRUE);`. Arithmetic operands typed (`out + INT#1`).
+      Recorded `record:language` on CODESYS (one batch of 73, a second of 8 the answers asked for, the 6 re-asked with typed
+      operands) and TwinCAT (one batch of 85, the 6 re-asked), `record:exec` on CODESYS (32 sent, then the 3 re-asked);
+      `expr_inline_assign_operand` re-asked on both as `INT#1 + a := 2` (same answer). Measured (both vendors alike unless
+      said): a statement starts with a name, a statement keyword, THIS/SUPER, `.` or an address — a LITERAL (TRUE too), any
+      other punctuation and NOT are "Unexpected token 'X' found" and the resync, and so is a reserved word before `(`
+      (`LIMIT(0, a, 5);`, `INI(t, TRUE);` — in an operand each is the operator); `out : = a;` is the label `out:` and a
+      refused `=`; `s=`/`r=`/`ref=` are the operators in any case; `S =` apart is the IL word S, `REF =` apart the name REF
+      and a comparison; S=/R= set a BOOL from a BOOL ("Cannot convert type 'INT' to type 'BOOL'", either side), a FALSE
+      operand leaves the target; a binary operation as a statement is the ERROR "'(a + 1);\r\n' is no valid statement"
+      (its literal left untyped in the echo — the vendor types nothing there), a name or member a no-op, a FUNCTION's bare
+      name "FUNCTION 'F' referenced without parentheses '()'" beside the no-op; a chain's inner target and a FOR counter that
+      are no name are "'1' is no valid assignment target" (`'(INT#1 + a)'`); RETURN/EXIT/CONTINUE/JMP without `;` are the
+      one line "';' expected instead of 'X'" before a name AND before a block's END, an assignment before END_IF too (no
+      "Unexpected token"); a CASE label list's trailing comma is "Expression expected instead of ':'" alone; an empty CASE
+      arm is a WARNING ("At least one statement is expected") that builds and runs — the row's "is an error" was the
+      2026-07-21 note; typed, constant-name and signed labels build, `DINT#2:` on an INT is "Cannot convert type 'DINT' to
+      type 'INT'"; a FOR counter converts to ANY_INT (REAL, BOOL refused, DWORD counts, a member counts); `UNTIL c;` is
+      "'END_REPEAT' expected instead of ';'"; `__CATCH` needs no operand; CODESYS builds a `__TRY` without `__CATCH` and its
+      application does not start ("Login failed...", alone, twice each — `execSkip`), TwinCAT refuses it; TwinCAT words a
+      literal REF= reversed ("'REFERENCE TO INT' to type 'SINT'", a second cell beside `cc3_reference_assign`) and ends the
+      inverted CASE range with a full stop. Fixed test-first (`parse/statements.test.ts` 7, `no-op-statement.test.ts` 4,
+      `statement-rules.test.ts` 3, `empty-block.test.ts` 1, `case-labels.test.ts` 2, `assignment.test.ts` 1,
+      `reference-assign.test.ts` 1, `types.test.ts` 1): `parse/statements` — `refusedAtStatementStart` (literals, punctuation
+      but `.`, NOT/TRUE/FALSE, a reserved word before `(`), `assignOpOf` in any case, RETURN/EXIT/CONTINUE/JMP end with
+      `endStatement`, `resyncAfterMissingSemicolon` the one line at a block keyword, a label list's trailing comma
+      (`isArmStart`, `parseCaseArm`), `__CATCH` without operand (`services/formatting/print` prints it); `analysis` —
+      `no-op-statement` gives C0020 `no-valid-statement` (catalog C0020 implemented, verified both) and
+      `function-without-parens`, and warns a statement standing without its `;` in a body that did not parse (not a call
+      operator that took the next token, `lex_keyword_assigned_sys_delete`); `statement-rules` refuses a non-name chain
+      target / FOR counter (an address is a target) and adds `for-control-type` (`rules.isRefusedCounter`, `loop-exit` judges
+      no refused counter); `empty-block` a CASE arm a warning (catalog C0426 kind warning); `case-labels` a typed label's
+      type; `assignment` S=/R= BOOL on both sides; `reference-assign`/`messages` `refLiteralCannotConvert` (TwinCAT
+      reversed), `caseRangeInverted` TwinCAT's full stop; `types/arith/operators` NOT of a BIT stays a BIT (pro2193's
+      `done R= NOT busy`, which the S=/R= rule found). `types.test.ts` carries its probe expressions as an assignment's
+      value (a bare expression is no statement). Divergences closed: `stmt_case_nonconst_label`, `expr_inline_assign_operand`
+      (`EXPRESSION_NICHE_DIVERGENCES`; the latter's `deferred.lsp` dropped), `cc3_reference_assign` (`TWINCAT_TRIAGE`).
+      Opened (`STATEMENT_DIVERGENCES`, both vendors): `stmt_assign_missing_value` (R5 wording, task 2.8.1),
+      `stmt_if_else_if_two_words` (an IF open at EOF, R2, task 2.8.2), `stmt_s_eq_spaced` (the IL word S, task 2.8.3),
+      `stmt_assign_spaced_operator` (the label warning in a body that did not parse; niche: accepted loss, 0 occurrences),
+      `stmt_for_literal_control` (its extra "'SINT' to type 'BIT'"; niche, 0), `stmt_case_const_expr_label` and
+      `stmt_case_paren_label` (moved: the vendors' resync after a refused label differs per vendor; niche, 0);
+      `TWINCAT_TRY_NEEDS_CATCH` (twincat): `stmt_try_without_catch`, `stmt_try_finally_only` (niche: accepted loss — 0 `__TRY`
+      in the TwinCAT corpus, all 36 in the CODESYS corpora have their `__CATCH`). Rules GAP area 2 **27 → 22** (total
+      81 → 76): ST9, ST10, ST14, ST18, ST19 closed; ST1–ST8, ST11–ST13, ST15, ST16 gain recorded cells. Agreement floors
+      CODESYS 3376 → 3454, TwinCAT 3316 → 3393 (3758 fixtures). `rate:fixtures` (3758): confirmed 2283, refused 1251,
+      not-lowered 136, lsp-gap 21, diverges 4, unaskable 63; edges agree 2390 / disagree 0 / not-run 102. Ceilings
+      (`fixtures.test.ts`): lsp-gap 22 → 21; not-lowered 132 → 136 FOR MEASUREMENT (`stmt_try_nested`,
+      `stmt_try_catch_without_operand`, `stmt_bare_member`, `stmt_label_at_end` — the transpiler's); source-map
+      `RENAMED_TARGETS` 31 → 34 (chain temps and an S= latch, documented classes). Measures (each asks what it states):
+      0.1 "At least one statement is expected" is a statement count, no syntax refusal; 0.4 a store for S=/R= (BOOL), a
+      FOR counter (ANY_INT), a typed CASE label (the selector) and a literal REF= (TwinCAT's reversed wording), the
+      expressions of a "no valid statement" untyped on the vendor too, and a sign on an untyped number counted apart as
+      its literal is (a new measure, capped: fixtures 253/252, corpus 135, Library Manager 658, library 9). Ceilings fell:
+      parse findings 78 → 76 (refused with a syntax message CODESYS 37 → 36, TwinCAT 40 → 39), type findings 222 → 220.
+      (`unary UNKNOWN` fixtures 246/245 → 0, corpus 308 → 173, Library Manager 658 → 0, library 9 → 0 is a RECLASSIFICATION,
+      not a fall — see the review fixes below.) F (`frontend-snapshot
+      check --base HEAD`): 3109 aspects over 417 sources — the 85 statement fixtures (own, PLC_PRG, back end),
+      `expr_inline_assign_operand` (re-asked), pro2193's `ModuleWithStateFB.fb` (`types`: NOT of a BIT), and the
+      `stmts` of two TwinCAT recoveries whose body opens with a refused token (`lex_vector_twincat_return_type`,
+      `lit_enum_typed_case_label`, both known divergences); no other corpus or library source moved. Targeted: `bun test
+      src` 1580 / 0, `test/frontend` 29 / 0, `test/conformance` 4959 / 0, `test/corpus` 19 / 0; `tsc --noEmit` clean;
+      lint exit 0.
+      **Review fixes 2.6 (2026-10-02).** 118 cells recorded (`record:language` CODESYS and TwinCAT, one batch each;
+      `record:exec` CODESYS 1). (1) The census's `unary UNKNOWN` → `…, a signed untyped number` split is a
+      RECLASSIFICATION, not a fall: the front-end still types `-1` UNKNOWN, as it types `1` (`literal UNKNOWN`, uncapped,
+      area 4). Every one of the 246/245 fixture rows was such a number; the new key took them plus the 7 the 2.6 CASE-label
+      fixtures add (253/252, a rise for measurement); corpus 308 = 173 + 135, Library Manager 658, library 9 (no rise). Said
+      in `bound-census.ts`. "No valid statement on the vendor too" and the new "its operands refused on the vendor too" are
+      agreement buckets, uncapped as "no call target on the vendor too" is. (2) The two parser rules asked of the vendor,
+      not narrowed: a reserved word before `(` where a statement starts, EVERY word of the statement positions
+      (`lex_keyword_called_*`, 99, in `grammar/lexer.ts` beside the three positions) — all 93 words of
+      `REFUSED_AT_STATEMENT_START` answer "Unexpected token 'W' found" and the resync on both vendors (TwinCAT's `xsizeof`
+      is no keyword, `TWINCAT_XSIZEOF_IS_NO_KEYWORD`); and an assignment without its `;` before every other `STMT_SYNC`
+      keyword (`stmt_assign_no_semicolon_before_*`, 17; END_REPEAT has no statement before it) — the one line on both. The
+      LSP agreed on all of them. (3) `no-op-statement`: inside a FUNCTION its own name is the return variable — `F;` is the
+      no-op alone (`stmt_function_own_name_bare`, CODESYS; fixed test-first). (4) A negation as a chain's inner target and
+      a FOR counter is "'(INT#0 - a)' is no valid assignment target" on both (`stmt_chain_negated_inner_target`,
+      `stmt_for_negated_control`) — the LSP's answer, now pinned. (5) Catalog C0020: the repro is CRLF and ends in a line
+      break, as the vendor stores it and the fixtures record it ("'(x = 2);
+'"); `verified` back to false —
+      `verify-catalog` built nothing for any repro on 2026-10-02 (control C0139 empty too). (6) `expr_inline_assign_operand`
+      stays typed (`INT#1 + a`), said on the fixture: the untyped `1` beside an INT is area 4's question, and asked there
+      it raises `binary UNKNOWN` above its committed ceiling; the six statement fixtures keep their typed operands for the
+      same reason (one question per fixture). Found on the way, fixed test-first: `__queryinterface(n);` /
+      `__querypointer(n);` are "'X' needs exactly '2' operands" alone (`intrinsic-operands`, a CODESYS false positive the
+      sweep found). Divergences opened (both vendors, `SYSTEM_OPERAND_AT_STATEMENT_START`): `lex_keyword_called_sys_currenttask`,
+      `_sys_pool` (niche, 0 in the corpora); `lex_keyword_called_sys_pool` is a `MEASURED_SILENT` lsp-gap. Not fixed, said:
+      `lex_keyword_called_sys_delete` lacks the recording project's "No memory for dynamic object creation" line (as the
+      `newdel_*` fixtures). `rate:fixtures` (3876): confirmed 2283, refused 1367, not-lowered 137, lsp-gap 22, diverges 4,
+      unaskable 63; edges agree 2390 / disagree 0 / not-run 102. Ceilings (`fixtures.test.ts`, FOR MEASUREMENT): lsp-gap
+      21 → 22, not-lowered 136 → 137 (`stmt_function_own_name_bare`). Floors CODESYS 3454 → 3569, TwinCAT 3393 → 3508.
+      Frontend ceilings unchanged. Targeted: `bun test src` 1582 / 0, `test/frontend` 29 / 0, `test/conformance` 4960 / 0,
+      `test/corpus` 19 / 0, `test/catalog` 147 / 0; `tsc --noEmit` clean; lint exit 0.
+      **Gate 2.6 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3876
+      fixtures: confirmed 2283, refused 1367, not-lowered 137, lsp-gap 22, diverges 4, unaskable 63; edges agree 2390 /
+      disagree 0 / not-run 102). `bun test` 6764 pass / 34 skip / 181 todo / 0 fail (6979 tests, 195 files, 267 s, rustc
+      cache on); agreement CODESYS 3569, TwinCAT 3508 (3876 fixtures, = floors). `bun run check` 14 passed, 0 failed;
+      `bun run lint` exit 0 (warnings only). volt-cli untouched by 2.6 (no dotnet run).
 - [ ] 2.7.1 Conditional compilation: ONE statement tree. Every consumer uses `bodyStatements` with pragmas applied; the
       unresolved-identifier skip and the analysis balance stack are removed. The `{IF}` grammar covers P10–P13. Record
       prag_define_in_declaration, prag_if_in_expression_statement, prag_unbalanced_end_if, prag_define_with_value,

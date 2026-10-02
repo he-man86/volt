@@ -70,3 +70,17 @@ test("a DECLARATION bound with REF= on a type that is no reference is refused, a
   expect(decl("v : INT REF= w;")).toEqual(["Initialisation with REF= is only allowed for variables of type REFERENCE TO"])
   expect(decl("v : REFERENCE TO INT REF= w;")).toEqual([])
 })
+
+test("TwinCAT words a literal REF= the other way round: reference to literal (cc3_reference_assign, stmt_ref_eq_literal_value, ST3)", () => {
+  // `rv REF= 5;`: CODESYS "Cannot convert type 'SINT' to type 'REFERENCE TO INT'", TwinCAT "… 'REFERENCE TO INT' to type 'SINT'"
+  const literal = (vendor: "codesys" | "twincat"): string[] => {
+    const src = `FUNCTION_BLOCK F\nVAR rv : REFERENCE TO INT;\nEND_VAR\nrv REF= 5;\nEND_FUNCTION_BLOCK`
+    const pr = parseSource(src, { networkText: true }, vendor)
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], vendor)
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+      .filter((d) => d.code === "assignment-type-mismatch")
+      .map((d) => d.message)
+  }
+  expect(literal("codesys")).toEqual(["Cannot convert type 'SINT' to type 'REFERENCE TO INT'"])
+  expect(literal("twincat")).toEqual(["Cannot convert type 'REFERENCE TO INT' to type 'SINT'"])
+})

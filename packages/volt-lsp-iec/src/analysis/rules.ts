@@ -188,3 +188,10 @@ function elemName(expr: Expr, scope: Scope, project: Scope): string | undefined 
   const t = inferExprType(expr, scope, project)
   return t.kind === "elementary" ? t.name : undefined
 }
+
+/** The control-variable families a FOR refuses, as measured: REAL/LREAL and BOOL — "Cannot convert type 'REAL' to type
+ *  'ANY_INT'" (`stmt_for_real_control`, `stmt_for_bool_control`, both vendors 2026-10-02); an integer or a bit string
+ *  counts (`stmt_for_dword_control`). `statement-rules` refuses the counter, `loop-exit` judges no such loop. */
+export function isRefusedCounter(family: string): boolean {
+  return family === "real" || family === "bool"
+}

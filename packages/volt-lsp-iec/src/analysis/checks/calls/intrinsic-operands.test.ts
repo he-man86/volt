@@ -77,6 +77,17 @@ test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; vali
   expect(qi(`__QueryInterface(inst, itf);`)).toEqual([]) // valid FB instance
 })
 
+test("__QueryInterface / __QueryPointer with ONE operand: the operand count alone, no operand-kind message (lex_keyword_called_sys_queryinterface, _querypointer)", () => {
+  // CODESYS 2026-10-02: `__queryinterface(n);` is "'__QUERYINTERFACE' needs exactly '2' operands" and nothing else
+  const src = `FUNCTION_BLOCK F\nVAR\n n:INT;\nEND_VAR\n__queryinterface(n);\n__querypointer(n);\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const got = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "operator-operand-count" || d.code === "query-interface-operand" || d.code === "query-pointer-operand")
+    .map((d) => d.message)
+  expect(got).toEqual(["'__QUERYINTERFACE' needs exactly '2' operands", "'__QUERYPOINTER' needs exactly '2' operands"])
+})
+
 test("C0022/C0023: wrong intrinsic-operator operand count is flagged; correct arity is not", () => {
   const arity = run("operator-operand-count")
   expect(arity(`pt := ADR(i, 1);`)).toEqual(["'ADR' needs exactly '1' operands"]) // C0022 exact

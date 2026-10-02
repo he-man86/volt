@@ -3,9 +3,10 @@
  * "At least one statement is expected". Verified live against CODESYS 3.5.21 for empty IF-THEN / ELSIF / ELSE /
  * FOR / WHILE / REPEAT bodies AND empty CASE arms.
  *
- * The CASE-arm case corrects a STALE won't-fix: `1:\n2: stmt` (a label with no body before the next label) is an
- * ERROR — the legal way to share a body across values is a comma list `1, 2: stmt`, NOT separate empty labels.
- * (Re-verified 2026-07-21; the old note claimed empty arms were legal fall-through.)
+ * An empty CASE ARM (`1:\n2: stmt`) is a WARNING with the same words: it builds and runs, the arm doing nothing —
+ * before another arm, last, and before ELSE (`stmt_case_empty_arm`, `_last`, `_before_else`, both vendors 2026-10-02,
+ * `record:exec` too). A note of 2026-07-21 called it an error; the recordings say otherwise. It is no fall-through:
+ * a matched empty arm runs nothing (the comma list `1, 2: stmt` shares a body).
  *
  * Zero-FP, two guards:
  *   1. A lone `;` parses to an `empty` statement (body length 1), so `IF b THEN ; END_IF` never fires.
@@ -26,10 +27,10 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
   // `anchor` is where the squiggle goes; `outer` is the enclosing statement span used for the comment guard —
   // a block/branch/arm span ends at its header and does NOT cover the (empty) body region where a comment sits,
   // so the guard must scan the whole enclosing statement (conservative: a comment anywhere in it suppresses).
-  const flag = (body: unknown[], anchor: Span, outer: Span) => {
+  const flag = (body: unknown[], anchor: Span, outer: Span, severity: "error" | "warning" = "error") => {
     if (body.length > 0) return
     if (HAS_COMMENT.test(ctx.source.slice(outer.start, outer.end))) return // comment-only body — legal in CODESYS
-    out.push({ severity: "error", span: anchor, source: SOURCE, code: "empty-block", message: ctx.messages.emptyStatementBlock() })
+    out.push({ severity, span: anchor, source: SOURCE, code: "empty-block", message: ctx.messages.emptyStatementBlock() })
   }
   for (const { statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
@@ -37,7 +38,7 @@ export function checkEmptyBlock(ctx: CheckContext, out: DiagnosticItem[]): void 
         for (const b of s.branches) flag(b.body, b.span, s.span)
         if (s.elseBody !== undefined) flag(s.elseBody, s.span, s.span)
       } else if (s.kind === "case") {
-        for (const arm of s.arms) flag(arm.body, arm.span, s.span)
+        for (const arm of s.arms) flag(arm.body, arm.span, s.span, "warning")
       } else if (s.kind === "for" || s.kind === "while" || s.kind === "repeat") {
         flag(s.body, s.span, s.span)
       }

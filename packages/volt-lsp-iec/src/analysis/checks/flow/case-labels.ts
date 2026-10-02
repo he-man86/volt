@@ -10,8 +10,8 @@
  * neither false-positives (this is what an earlier `constEval`-only attempt got wrong — 207 corpus FPs on
  * enum-driven CASEs).
  *
- * NOT here: C0426 empty arm lives in the `empty-block` check. An empty arm (`1:\n2:`) IS an error (live-verified
- * 2026-07-21) — the legal fall-through is a comma list `1, 2:`, not separate empty labels.
+ * NOT here: C0426 empty arm lives in the `empty-block` check — a WARNING (`stmt_case_empty_arm`, both vendors
+ * 2026-10-02); a comma list `1, 2:` shares a body.
  */
 import { walkStatements, type CaseStatement, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, type Scope } from "../../../frontend/symbols/index.js"
@@ -64,10 +64,17 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
   const inType = (v: bigint): bigint => (typed === undefined ? v : typed.signed ? BigInt.asIntN(typed.bits, v) : BigInt.asUintN(typed.bits, v))
   const outOfType = (e: Expr): boolean => {
     if (typed === undefined) return false
-    const rhs = literalErrorType(e, selector)
+    // …and a TYPED literal of a type the selector does not take: `DINT#2:` on an INT is "Cannot convert type 'DINT' to
+    // type 'INT'", `INT#2:` on a DINT builds (`stmt_case_typed_label_other_type`, `_narrower`, both vendors 2026-10-02)
+    const rhs = literalErrorType(e, selector) ?? typedLiteralType(e)
     if (rhs === undefined || isAssignable(selector, rhs)) return false
     push("case-label-type", e.span, ctx.messages.cannotConvert(renderType(rhs, { form: "compiler" }), renderType(selector, { form: "compiler" })))
     return true
+  }
+  const typedLiteralType = (e: Expr): Type | undefined => {
+    if (e.kind !== "literal" || e.literalKind !== "typed") return undefined
+    const t = inferExprType(e, scope, ctx.project)
+    return t.kind === "elementary" ? t : undefined
   }
   for (const arm of s.arms) {
     for (const label of arm.labels) {
