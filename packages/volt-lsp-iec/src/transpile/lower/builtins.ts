@@ -3,7 +3,8 @@
  * conversions, SIZEOF and the other system operators, and the clock (`TIME()`/`LTIME()`). A library element (`LEN`, `TON`)
  * is an ordinary call of the body the library repo (`libraries/`) supplies.
  */
-import type { Expr, Span } from "../../frontend/syntax/index.js"
+import { hasFrontendAttribute, type Expr, type Span, type TypeDecl } from "../../frontend/syntax/index.js"
+import { lookup } from "../../frontend/symbols/index.js"
 import {
   commonType,
   elementaryRef,
@@ -290,6 +291,17 @@ export function lowerConversion(lw: Lowering, e: Extract<Expr, { kind: "call" }>
   const isInt = (t: Type | undefined, orBits = false): boolean =>
     t !== undefined && (elemOf(t)?.family === "int" || (orBits && elemOf(t)?.family === "bitstring"))
   const isString = (t: Type | undefined): boolean => t !== undefined && elemOf(t)?.family === "string"
+  // `{attribute 'to_string'}` ON AN ENUM makes its STRING conversions print the MEMBER'S NAME — TO_STRING, INT_TO_STRING
+  // and TO_WSTRING of `On` are 'On' (P15, conformance `prag_to_string_*`, CODESYS 2026-10-02), where the same enum without
+  // the attribute prints '1'. Printed as the number it was a silent wrong answer; there is no member-name table yet
+  // (task 4.5.1 reads `to_string` from the AST), so the conversion is refused by name.
+  const operand = e.args.length === 1 ? e.args[0]?.value : undefined
+  if (isString(to) && operand !== undefined) {
+    const t = inferExprType(operand, lw.scope, lw.project)
+    const sym = t.kind === "enum" && t.name !== "(implicit)" ? lookup(lw.project, t.name)?.symbol : undefined
+    if (sym?.kind === "type" && hasFrontendAttribute(sym.ast as TypeDecl, "to_string"))
+      return lw.bail("conversion-type", "a STRING conversion of an enum under {attribute 'to_string'} prints the member's name, which lowering does not model yet", e.span)
+  }
   // DATE, DT and TOD print as their literal, zero-padded, a TOD's milliseconds only when non-zero (`temporal_conversions`)
   // LTIME joins the list: its text is a TIME's with the `LTIME#` prefix and three units below a millisecond, and
   // every component boundary is measured (`conversions/to-string-format.ts`). REAL and LREAL deliberately do NOT —

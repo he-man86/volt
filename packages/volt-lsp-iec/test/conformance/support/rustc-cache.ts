@@ -327,7 +327,9 @@ async function verify(
         const [was, is] = await Promise.all([probe([side, ...args]), probe([exe, ...args])])
         // a panic names the source path compiled into the binary: the stored one was built in `origin`
         was.stderr = was.stderr.split(join(hit.entry.origin, basename(file))).join(file)
-        parts.push([`run [${args.join(" ")}]`, was, is])
+        // …and the OS thread id of the run (`thread 'main' (39996) panicked`), which no two runs share
+        const run = (r: typeof was) => ({ ...r, stderr: r.stderr.replace(/^(thread '[^']*') \(\d+\)/gm, "$1 (<tid>)") })
+        parts.push([`run [${args.join(" ")}]`, run(was), run(is)])
       }
     const differ = parts.find(([, a, b]) => JSON.stringify(a) !== JSON.stringify(b))
     if (differ !== undefined) {

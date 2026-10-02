@@ -160,6 +160,15 @@ export const TYPE_EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   // (declared only — the POINTER TO POINTER used is held out, below)
   inVar("decl_pointer_to_pointer", "T6 — a POINTER TO POINTER declared: `pp : POINTER TO POINTER TO INT;`",
     "\tpp : POINTER TO POINTER TO INT;", "out := 1;"),
+  // the POINTER TO POINTER USED, with no ADR (whose result type is area 4's, task 4.3.4): the dereferences stand in a branch
+  // `go` (FALSE) never takes, so nothing is read through a null pointer — what decides the rule is what each `^` is typed
+  inVar("decl_pointer_to_pointer_deref_typed", "T6 — a POINTER TO POINTER dereferenced: `p := pp^; x := pp^^;` (each `^` one level)",
+    "\tgo : BOOL;\n\tx : INT;\n\tp : POINTER TO INT;\n\tpp : POINTER TO POINTER TO INT;",
+    "IF go THEN\n\tp := pp^;\n\tx := pp^^;\nEND_IF\nout := x;"),
+  inVar("decl_pointer_to_pointer_deref_once_into_int", "T6 — a POINTER TO POINTER dereferenced ONCE into an INT: `x := pp^;`",
+    "\tgo : BOOL;\n\tx : INT;\n\tpp : POINTER TO POINTER TO INT;", "IF go THEN\n\tx := pp^;\nEND_IF\nout := x;"),
+  inVar("decl_pointer_to_pointer_deref_thrice", "T6 — a POINTER TO POINTER dereferenced three times: `x := pp^^^;`",
+    "\tgo : BOOL;\n\tx : INT;\n\tpp : POINTER TO POINTER TO INT;", "IF go THEN\n\tx := pp^^^;\nEND_IF\nout := x;"),
   // THREE FIXTURES HELD OUT, and they need the owner (task 2.3b review, recorded 2026-10-01 on both vendors). The review
   // asked for the forms real code writes, and each was written and recorded — and each would raise a census ceiling
   // (`test/frontend/baselines/ceilings.json`, which may only fall) on BOTH vendors, so, as `literals.ts`'s A2 fixture, it

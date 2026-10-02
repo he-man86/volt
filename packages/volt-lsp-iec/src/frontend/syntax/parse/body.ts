@@ -72,23 +72,20 @@ function consumeBodyUntilAny(
   return { tokens, closer: undefined, stoppedAt: undefined }
 }
 
-/** A property accessor's body: closed by its END_GET/END_SET, or — the sloppy form — by the next GET/SET/END_PROPERTY,
- *  which is left for the property parser. */
-export function collectAccessorBody(c: Cursor, endAccessor: Keyword): BodySpan {
+/** An accessor's body, and whether its own END_GET/END_SET closed it (`closed: false` — it stopped at the next accessor or
+ *  END_PROPERTY, left unconsumed for the property loop, or at the end of the text). */
+export function collectAccessorBody(c: Cursor, endAccessor: Keyword): { body: BodySpan; closed: boolean } {
   const startSpan = c.peek().span
   const { tokens, closer, stoppedAt } = consumeBodyUntilAny(c, {
     consumeEnders: [endAccessor],
     peekStoppers: ["GET", "SET", "END_PROPERTY"],
   })
   if (closer !== undefined) {
-    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "pou-or-accessor", c.dialect)
+    return { body: codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "pou-or-accessor", c.dialect), closed: true }
   }
-  if (stoppedAt !== undefined) {
-    // Sloppy close — stop without consuming; outer recover handles.
-    return codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor", c.dialect)
-  }
-  c.pushError(`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`, startSpan)
-  return codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor", c.dialect)
+  if (stoppedAt === undefined)
+    c.pushError(`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`, startSpan)
+  return { body: codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor", c.dialect), closed: false }
 }
 
 /** The cursor's error list as a file-format report: what `codeBody` reports lands with the parse errors. */

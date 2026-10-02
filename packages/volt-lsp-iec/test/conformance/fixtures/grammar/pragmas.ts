@@ -49,6 +49,25 @@ const box = (name: string): string => `TYPE DUT_LANG_${name} :\nSTRUCT\n\tv : IN
 const fun = (name: string, attribute = ""): string =>
   `${attribute}FUNCTION FUN_LANG_${name} : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nFUN_LANG_${name} := x;\nEND_FUNCTION\n\n`
 
+/**
+ * P14 AS RECORDED (both vendors, 2026-10-02): `strict` refuses a value that is not the enum's own — an INT variable
+ * ("'i' is not a valid value for strict ENUM type 'X'"), a literal no member names ("'5' is not …") — and arithmetic
+ * ("Arithmetics not allowed on strict ENUM type 'X'"). It does NOT refuse a literal a member names (`e := 1`), the enum
+ * read into an INT, a comparison with a literal or an INT, or TO_INT; without `strict` every cell builds. The refusals
+ * are the type compatibility's (task 4.5.1, "`strict` and `to_string` read from the AST attributes"), not this step's.
+ */
+const STRICT_REFUSALS: Record<string, string> = {
+  literal_not_a_member_assign:
+    "both vendors \"'5' is not a valid value for strict ENUM type '…'\": `strict` is read by the type compatibility of task 4.5.1 (CV5, P14), which the LSP has not got yet (2026-10-02)",
+  int_assign:
+    "both vendors \"'i' is not a valid value for strict ENUM type '…'\": `strict` is read by the type compatibility of task 4.5.1 (CV5, P14), which the LSP has not got yet (2026-10-02)",
+  add_literal:
+    "both vendors \"Arithmetics not allowed on strict ENUM type '…'\": `strict` is read by the type compatibility of task 4.5.1 (CV5, P14), which the LSP has not got yet (2026-10-02)",
+}
+
+/** `{attribute 'to_string'}` above an enum (P15). */
+const TO_STRING = "{attribute 'to_string'}\n"
+
 export const PRAGMA_RULE_TESTS: readonly LanguageTest[] = [
   // ─── P3 the conditional structure: where an {IF} may stand, and an unbalanced chain ─────────────────────────────────
   // a = 1: the untaken branch adds 10, the taken one 20 → out = 21
@@ -284,4 +303,91 @@ END_FUNCTION_BLOCK
     `{WARNING 'volt upper warning in a declaration'}\n${OUT}`, "out := 1;"),
   fb("prag_region_unclosed", "P6 — a `{region}` never closed by `{end_region}`", OUT, "{region 'volt open'}\nout := 1;"),
   fb("prag_end_region_orphan", "P6 — an `{end_region}` with no `{region}`", OUT, "out := 1;\n{end_region}"),
+
+  // ─── P14 `{attribute 'strict'}` on an enum: which conversions it refuses, each cell beside its non-strict twin ─────
+  // `e` is the FB's variable of the fixture's own enum (`Off := 0, On := 1`), its members always written qualified, so a
+  // cell measures the conversion and not the access form (`qualified_only` is Y11's); an operand of arithmetic is a TYPED
+  // literal (`INT#1`), so the cell asks about `strict` and not about an untyped literal's type (area 4's)
+  ...strictCells(true),
+  ...strictCells(false),
+
+  // ─── P15 `{attribute 'to_string'}` on an enum: TO_STRING of a member yields its name ──────────────────────────────
+  // the answer is `txt` (`wtxt`) in the run recording, `inst_<name>.txt`
+  enumFb("prag_to_string_member", "P15 — `TO_STRING` of an enum member under `{attribute 'to_string'}`", TO_STRING,
+    "\ttxt : STRING;", "txt := TO_STRING(DUT_LANG_prag_to_string_member.On);\nout := 1;"),
+  enumFb("prag_to_string_variable", "P15 — `TO_STRING` of an enum variable under `{attribute 'to_string'}`", TO_STRING,
+    "\ttxt : STRING;", "e := DUT_LANG_prag_to_string_variable.On;\ntxt := TO_STRING(e);\nout := 1;"),
+  enumFb("prag_to_string_absent", "P15 — `TO_STRING` of an enum member WITHOUT the attribute", "",
+    "\ttxt : STRING;", "txt := TO_STRING(DUT_LANG_prag_to_string_absent.On);\nout := 1;"),
+  enumFb("prag_to_string_wstring", "P15 — `TO_WSTRING` of an enum member under `{attribute 'to_string'}`", TO_STRING,
+    "\twtxt : WSTRING;", "wtxt := TO_WSTRING(DUT_LANG_prag_to_string_wstring.On);\nout := 1;"),
+  enumFb("prag_to_string_not_a_member", "P15 — `TO_STRING` of an enum variable holding a value no member names, under `{attribute 'to_string'}`",
+    TO_STRING, "\ttxt : STRING;", "e := TO_INT(5);\ntxt := TO_STRING(e);\nout := 1;"),
+  enumFb("prag_to_string_implicit", "P15 — an enum member assigned to a STRING with no conversion, under `{attribute 'to_string'}`",
+    TO_STRING, "\ttxt : STRING;", "txt := DUT_LANG_prag_to_string_implicit.On;\nout := 1;"),
+  enumFb("prag_to_string_typed_conversion", "P15 — `INT_TO_STRING` of an enum member under `{attribute 'to_string'}`",
+    TO_STRING, "\ttxt : STRING;", "txt := INT_TO_STRING(DUT_LANG_prag_to_string_typed_conversion.On);\nout := 1;"),
+  enumFb("prag_to_string_with_base", "P15 — `TO_STRING` of a member of an enum with a base type (`) BYTE;`) under `{attribute 'to_string'}`",
+    TO_STRING, "\ttxt : STRING;", "txt := TO_STRING(DUT_LANG_prag_to_string_with_base.On);\nout := 1;", " BYTE"),
+
+  // ─── P16 `{attribute 'const_replaced'}` / `'const_non_replaced'`: is the decorated constant still a constant ───────
+  // where a constant expression is required (a bound, a length, a label, a subrange, another constant), and written to
+  ...constCells("const_replaced"),
+  ...constCells("const_non_replaced"),
+  fb("prag_const_replaced_on_array", "P16 — `{attribute 'const_replaced'}` on an ARRAY constant (documented for scalars only)",
+    `${OUT}\nEND_VAR\nVAR CONSTANT\n\t{attribute 'const_replaced'}\n\tk : ARRAY[0..1] OF INT := [3, 4];`, "out := k[1];"),
 ]
+
+/** An FB holding `e`, a variable of its own enum `DUT_LANG_<name>` (`Off := 0, On := 1`, `base` after the list) with
+ *  `attribute` above it, and `vars` beside `e` and `out`. */
+function enumFb(name: string, feature: string, attribute: string, vars: string, body: string, base = ""): LanguageTest {
+  const dut = `${attribute}TYPE DUT_LANG_${name} :\n(\n\tOff := 0,\n\tOn := 1\n)${base};\nEND_TYPE\n\n`
+  return fb(name, feature, `\te : DUT_LANG_${name};\n${vars ? `${vars}\n` : ""}${OUT}`, body, dut)
+}
+
+/** P14's cells: one conversion each, into or out of a `strict` enum (`strict`) or the same enum without it. */
+function strictCells(strict: boolean): LanguageTest[] {
+  const prefix = strict ? "prag_strict_enum" : "prag_enum_not_strict"
+  const attribute = strict ? "{attribute 'strict'}\n" : ""
+  const what = strict ? "a `{attribute 'strict'}` enum" : "an enum without `strict`"
+  const cell = (suffix: string, feature: string, vars: string, body: (e: string) => string): LanguageTest => {
+    const name = `${prefix}_${suffix}`
+    const t = enumFb(name, `P14 — ${feature}, ${what}`, attribute, vars, body(`DUT_LANG_${name}`))
+    const refusal = strict ? STRICT_REFUSALS[suffix] : undefined
+    return refusal === undefined ? t : { ...t, deferred: { lsp: refusal } }
+  }
+  return [
+    cell("member_assign", "its own member assigned", "", (e) => `e := ${e}.On;\nout := 1;`),
+    cell("literal_assign", "an integer literal assigned", "", () => "e := 1;\nout := 1;"),
+    cell("literal_not_a_member_assign", "an integer literal no member names assigned", "", () => "e := 5;\nout := 1;"),
+    cell("int_assign", "an INT variable assigned", "\ti : INT := 1;", () => "e := i;\nout := 1;"),
+    cell("into_int", "assigned to an INT", "", (e) => `e := ${e}.On;\nout := e;`),
+    // ONE CELL HELD OUT, for the owner: the arithmetic's non-strict twin, `prag_enum_not_strict_add_literal` (`e := E.On;
+    // out := e + INT#1;`) — recorded 2026-10-02, both vendors build it, CODESYS runs out = 2, the LSP agrees and lowering
+    // confirms. It raises the census ceiling `binary UNKNOWN` by 1 per vendor (`test/frontend/baselines/ceilings.json`,
+    // which may only fall): the front-end types an enum operand of arithmetic nowhere yet (CV3–CV5, task 4.5.1). It comes
+    // back with its recordings when 4.5.1 types it or the owner accepts the rise. Its strict twin stays: the vendor
+    // refuses that operation, so it has no type there either (`test/frontend/bound-census.ts`).
+    ...(strict ? [cell("add_literal", "plus an INT literal", "", (e) => `e := ${e}.On;\nout := e + INT#1;`)] : []),
+    cell("compare_literal", "compared with an integer literal", "", (e) => `e := ${e}.On;\nIF e = 1 THEN\n\tout := 1;\nEND_IF`),
+    cell("compare_int", "compared with an INT variable", "\ti : INT := 1;", (e) => `e := ${e}.On;\nIF e = i THEN\n\tout := 1;\nEND_IF`),
+    cell("compare_member", "compared with its own member", "", (e) => `e := ${e}.On;\nIF e = ${e}.On THEN\n\tout := 1;\nEND_IF`),
+    cell("explicit_to_int", "converted by TO_INT", "", (e) => `e := ${e}.On;\nout := TO_INT(e);`),
+  ]
+}
+
+/** P16's cells: a local constant `n : INT := 3` under `{attribute '<attr>'}`, used where a constant is required. */
+function constCells(attr: "const_replaced" | "const_non_replaced"): LanguageTest[] {
+  const cell = (suffix: string, feature: string, constants: string, vars: string, body: string): LanguageTest =>
+    fb(`prag_${attr}_${suffix}`, `P16 — a \`{attribute '${attr}'}\` constant ${feature}`,
+      `${OUT}\nEND_VAR\nVAR CONSTANT\n\t{attribute '${attr}'}\n\tn : INT := 3;${constants}${vars ? `\nEND_VAR\nVAR\n${vars}` : ""}`, body)
+  return [
+    cell("array_bound", "as an ARRAY bound", "", "\ta : ARRAY[0..n] OF INT;", "a[3] := 4;\nout := a[3];"),
+    cell("string_length", "as a STRING length", "", "\ttxt : STRING(n);", "txt := 'abcdef';\nout := LEN(txt);"),
+    cell("case_label", "as a CASE label", "", "\tx : INT := 3;", "CASE x OF\n\tn: out := 1;\nELSE\n\tout := 2;\nEND_CASE"),
+    cell("subrange", "as a subrange bound", "", "\tv : INT(0..n);", "v := 2;\nout := v;"),
+    cell("in_constant", "in another constant's initializer, that one an ARRAY bound", "\n\tm : INT := n + INT#1;",
+      "\ta : ARRAY[0..m] OF INT;", "a[4] := 5;\nout := a[4];"),
+    cell("write", "written to", "", "", "n := 5;\nout := n;"),
+  ]
+}

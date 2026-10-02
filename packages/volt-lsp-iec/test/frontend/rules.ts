@@ -860,11 +860,18 @@ export const RULES: readonly Rule[] = [
     section: "2.3",
     rule: "ARRAY OF ARRAY; POINTER TO POINTER",
     home: "parse/type-expr",
-    // GAP while the POINTER TO POINTER is only DECLARED: the fixture that uses it (ADR, `pp^^`) is held out for the
-    // census ceiling it would raise (`fixtures/grammar/type-expressions.ts`, "THREE FIXTURES HELD OUT"; 2.3b review)
-    gap: true,
-    fixtures: ["decl_array_of_array", "decl_array_of_array_comma_index", "decl_pointer_to_pointer"],
+    gap: false,
+    fixtures: [
+      "decl_array_of_array",
+      "decl_array_of_array_comma_index",
+      "decl_pointer_to_pointer",
+      "decl_pointer_to_pointer_deref_typed",
+      "decl_pointer_to_pointer_deref_once_into_int",
+      "decl_pointer_to_pointer_deref_thrice",
+    ],
     design: "**GAP**",
+    recheck:
+      "2.10: the POINTER TO POINTER USED without ADR (whose result type is 4.3.4's): each `^` one level — `p := pp^; x := pp^^;` builds on both vendors, `x := pp^` is \"Cannot convert type 'POINTER TO INT' to type 'INT'\" (C0033, an error in both recording projects, a warning as shipped: `C0033_CONFIGURED_AS_AN_ERROR`), `pp^^^` \"Dereference requires a pointer\" (TwinCAT \"… Pointer\"). The ADR form stays held out (`grammar/type-expressions.ts`).",
   },
   {
     id: "T7",
@@ -1078,10 +1085,17 @@ export const RULES: readonly Rule[] = [
     section: "2.4",
     rule: "PROPERTY modifiers, accessor modifiers, accessor without END_GET/END_SET",
     home: "parse/units/property",
-    gap: true,
+    gap: false,
     fixtures: ["unit_property_public", "unit_property_private", "unit_property_protected", "unit_property_internal", "unit_property_final", "unit_property_abstract", "unit_property_modifiers", "unit_property_modifiers_reordered", "unit_property_final_twice", "unit_property_abstract_final", "unit_property_accessor_modifier", "unit_property_no_end_get", "unit_property_no_end_get_alone"],
+    tests: [
+      { file: "src/frontend/syntax/parse/units/property.test.ts", title: "an accessor's modifier on the keyword's own line is refused; on the line under it, it is the accessor's declaration" },
+      {
+        file: "src/frontend/syntax/parse/units/property.test.ts",
+        title: "an accessor without END_GET/END_SET is bare: code under it is refused, the bare keyword is not",
+      },
+    ],
     design: "**GAP**",
-    recheck: "2.4.3 / 2.4a review: the MODIFIERS are closed — each one, stacked and reordered; an access modifier first, then ONE of FINAL/ABSTRACT (`FINAL FINAL`, `ABSTRACT FINAL` are \"Unexpected token 'FINAL' found\"). The ACCESSOR cells stay a GAP: no vendor has answered an accessor's modifier or an accessor without END_GET/END_SET as written — the push rewrites all three before either IDE sees them (it drops `GET PRIVATE`'s modifier and closes an unterminated getter as an EMPTY accessor, dropping its body: a bridge data loss, reported), and record:exec loads the parser's own split. `unit_property_accessor_modifier`, `_no_end_get`, `_no_end_get_alone` are rated unaskable; a setter without END_SET has no fixture for the same reason. `unit_property_override` left the row: its push is refused and its exec answer moves with the parser's object naming.",
+    recheck: "2.4.3 / 2.4a review: the MODIFIERS are closed — each one, stacked and reordered; an access modifier first, then ONE of FINAL/ABSTRACT (`FINAL FINAL`, `ABSTRACT FINAL` are \"Unexpected token 'FINAL' found\"). The ACCESSOR cells stay a GAP: no vendor has answered an accessor's modifier or an accessor without END_GET/END_SET as written — the push rewrites all three before either IDE sees them (it drops `GET PRIVATE`'s modifier and closes an unterminated getter as an EMPTY accessor, dropping its body: a bridge data loss, reported), and record:exec loads the parser's own split. `unit_property_accessor_modifier`, `_no_end_get`, `_no_end_get_alone` are rated unaskable; a setter without END_SET has no fixture for the same reason. `unit_property_override` left the row: its push is refused and its exec answer moves with the parser's object naming. 2.10: the accessor cells are VOLT'S FORMAT, decided by named tests (as FMT): in both IDEs a getter and a setter are objects of their own, and the push reads an accessor's DECLARATION from the lines under its keyword line, which it drops whole — the pull writes the accessor's modifier on the line under `GET` (39 such in pro2193, kept and accepted), and a `GET` without END_GET is a BARE accessor (present, empty, closed at its own line). So the parser refuses, by name, a modifier on the keyword's own line and code under an accessor left open, rather than reading what the push drops (0 of either in the corpora: their 366 GET and 86 SET lines are all closed and alone on their line). The push's silent drop itself (`StReader.ReadProperty`) is volt-cli's, still open.",
   },
   {
     id: "U17",
@@ -2218,9 +2232,11 @@ export const RULES: readonly Rule[] = [
     section: "2.7",
     rule: "`{attribute 'strict'}` on an enum: which conversions it refuses (changes CV5)",
     home: "pragmas/attributes + types/compat",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["prag_strict_enum_*", "prag_enum_not_strict_*"],
     design: "**GAP**",
+    recheck:
+      "2.10, recorded on both vendors (they agree on every cell): `strict` refuses an INT variable (\"'i' is not a valid value for strict ENUM type …\"), a literal no member names (\"'5' is not …\") and arithmetic (\"Arithmetics not allowed on strict ENUM type …\"); it does NOT refuse a literal a member names, the enum read into an INT, a comparison with a literal or an INT, or TO_INT. Without `strict` every cell builds. The three refusals are lsp-gap (`deferred.lsp`): `strict` is read by the type compatibility of task 4.5.1, which owns CV5 and P14.",
   },
   {
     id: "P15",
@@ -2228,9 +2244,11 @@ export const RULES: readonly Rule[] = [
     section: "2.7",
     rule: "`{attribute 'to_string'}` on an enum: the enum → STRING conversion yields the member name",
     home: "pragmas/attributes + types/builtins",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["prag_to_string_*"],
     design: "**GAP**",
+    recheck:
+      "2.10, recorded (CODESYS run, both builds): under `to_string` TO_STRING of a member or a variable is the member's NAME (`'On'`), so is INT_TO_STRING and TO_WSTRING (`\"On\"`), and a base type does not change it; without the attribute it is the value (`'1'`); a value no member names prints its number (`'5'`); an enum into a STRING with no conversion is refused (\"Cannot convert type …\"). The LSP agrees on every build. Lowering had printed the number under the attribute — a silent wrong answer, now refused by name (`lower/builtins.ts`, `lower.test.ts`; the member-name table is task 4.5.1's).",
   },
   {
     id: "P16",
@@ -2238,9 +2256,11 @@ export const RULES: readonly Rule[] = [
     section: "2.7",
     rule: "`{attribute 'const_replaced'}` / `'const_non_replaced'`: constancy of the decorated constant",
     home: "pragmas/attributes + types/const/constancy",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["prag_const_replaced_*", "prag_const_non_replaced_*"],
     design: "**GAP**",
+    recheck:
+      "2.10, recorded on both vendors (identical): a `const_replaced` and a `const_non_replaced` constant are each still a CONSTANT everywhere one is required — an ARRAY bound, a STRING length, a CASE label, a subrange bound, another constant's initializer — and \"no valid assignment target\" when written; on an ARRAY constant `const_replaced` is accepted silently. The attribute changes storage (the transpiler's, `lower/bytes.ts`), never constancy. The LSP agrees on every cell.",
   },
   // ── 2.8 ──
   {

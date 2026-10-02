@@ -58,3 +58,14 @@ test("an interface's VAR section survives formatting, in its place", () => {
   const r = format(src, "file:///I.itf")
   expect([r.errors, r.text]).toEqual([0, src])
 })
+
+// An accessor's declaration is the lines UNDER its keyword line, and the push drops that line whole (`StReader`, U16): the
+// pull writes the modifier on the line under `GET` (39 such accessors in pro2193). The printer moved it up beside the
+// keyword — `GET PUBLIC`, a text the push would have written to the IDE as a plain `GET` (frontend-conformance 2.10,
+// found by the fixed point the day the parser refused the modifier there).
+test("an accessor's modifier prints on the line under GET/SET, where the push reads it", () => {
+  const src =
+    "PROPERTY P : INT\nGET\nPUBLIC\nVAR\nEND_VAR\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nSET\nPROTECTED\nIMPLEMENTATION ST\nEND_SET\nEND_PROPERTY\n"
+  const r = format(src, "file:///P.prop")
+  expect({ errors: r.errors, text: r.text }).toEqual({ errors: 0, text: src })
+})

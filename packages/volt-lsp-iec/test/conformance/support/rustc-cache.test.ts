@@ -198,6 +198,19 @@ describe.skipIf(skipRustSuite())("a build through the cache", () => {
     }
   })
 
+  test("a verified hit of a program that PANICS agrees — the panic's thread id is the run's, not the program's", async () => {
+    // rustc ≥ 1.89 prints `thread 'main' (<os thread id>) panicked at …`: two runs of one executable differ there
+    const panics = `fn main() {\n    panic!("guard");\n}\n`
+    await build("panics", panics)
+    verify("1")
+    try {
+      const again = await build("panics", panics)
+      expect([again.b.cached, again.b.exit]).toEqual([false, 0])
+    } finally {
+      verify("0")
+    }
+  })
+
   test("a hit's executable IS the entry's file (a hard link, so the virus scanner's verdict holds) — and a verified hit compiling over that path leaves the entry intact", async () => {
     const first = await build("linked", program("linked"))
     const hit = await build("linked", program("linked"))

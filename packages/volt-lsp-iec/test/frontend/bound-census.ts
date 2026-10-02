@@ -310,6 +310,11 @@ export function boundCensus(): BoundCensus {
         // (`rec_unknown_literal_prefix_cascade`, frontend-conformance 2.8.3); the LSP says the same line
         else if (type === "?" && unknownLiteralComponent(expr, vendor.says))
           tally(c.types, `${group}: ${kind} UNKNOWN, no component on the vendor too`)
+        // …and arithmetic on a `strict` enum, which the vendor refuses — "Arithmetics not allowed on strict ENUM type 'X'"
+        // — so the operation has no type there (`prag_strict_enum_add_literal`, both vendors, frontend-conformance 2.10;
+        // the refusal itself is task 4.5.1's, `deferred.lsp`)
+        else if (type === "?" && expr.kind === "binary" && strictArithmeticRefused(expr, scope, b, vendor.says))
+          tally(c.types, `${group}: binary untyped, arithmetic on a strict enum refused on the vendor too`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     // …and its folds (0.4) are counted, not measured, as its resolution and types are (refinement (c), frontend-conformance
@@ -322,6 +327,15 @@ export function boundCensus(): BoundCensus {
         `${group}: ${where} ${value === "∅" ? "does not fold" : value === "NOSCOPE" ? "NOSCOPE" : "folds"}`,
       )
     }
+  }
+
+  /** Is `expr` an arithmetic operation on an enum the vendor refused as "Arithmetics not allowed on strict ENUM type 'X'"? */
+  function strictArithmeticRefused(expr: Extract<Expr, { kind: "binary" }>, scope: Scope | undefined, b: Bound, says: ReadonlySet<string> | undefined): boolean {
+    if (says === undefined || scope === undefined) return false
+    return [expr.left, expr.right].some((operand) => {
+      const t = inferExprType(operand, scope, b.project)
+      return t.kind === "enum" && says.has(`arithmetics not allowed on strict enum type '${t.name.toLowerCase()}'`)
+    })
   }
 
   /** Does `expr` hold a typed literal `P#V` the vendor refused as "'V' is no component of 'P'"? */
@@ -660,7 +674,16 @@ function crossCheckRunTypes(f: FixtureSources, plc: Bound, c: BoundCensus): void
       c.typeDisagreements.push(`${name}: run path ${path} cannot be read in PLC_PRG`)
       continue
     }
-    const inferred = renderType(inferExprType(expr, scope, plc.project))
+    const type = inferExprType(expr, scope, plc.project)
+    const inferred = renderType(type)
+    // AN ENUM HOLDING A VALUE NO MEMBER NAMES is printed as a literal of its BASE type: `e := 5` leaves `INT#5` where a
+    // member prints `E.On` (`prag_enum_not_strict_literal_not_a_member_assign`, `prag_to_string_not_a_member`, CODESYS
+    // 2026-10-02) — the printed prefix is the value's representation there, not the variable's type. An enum with no base
+    // is INT, so only `INT#…` is its base there; any other prefix is a disagreement.
+    if (type.kind === "enum" && recorded === (type.base === undefined ? "INT" : renderType(type.base))) {
+      tally(c.types, "run: an enum holding a value no member names, printed as its base type")
+      continue
+    }
     if (inferred === "?") {
       tally(c.types, "run: path inferred UNKNOWN")
       c.typeDisagreements.push(`${name}: run path ${path} is ${recorded}, inferred UNKNOWN`)

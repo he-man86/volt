@@ -1317,7 +1317,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 24 -> 23. frontend-conformance 2.8.3 (2026-10-02): `cc_decl_init_dunder_unknown` — the PARSER refuses a `__` identifier
   // leading an initializer (every `__` operator a dialect has is its keyword; the `__SYSTEM` namespace is read through its
   // `.`), where name resolution had answered every `__` name on CODESYS.
-  "lsp-gap": 23,
+  // 23 -> 26, FOR MEASUREMENT. frontend-conformance 2.10 (2026-10-02): P14's three `strict` refusals
+  // (`prag_strict_enum_int_assign`, `_literal_not_a_member_assign`, `_add_literal`, both vendors) — `strict` is read by the
+  // type compatibility of task 4.5.1, which owns it (`deferred.lsp`). Not niche: 56 `{attribute 'strict'}` in the corpora.
+  "lsp-gap": 26,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1442,7 +1445,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // replaced is the project's "Replace constants" option, which the exec world does not state — refused by name, not
   // guessed; P16 is area 4's) and `prag_unknown_attribute_on_union` (a UNION of INT and DINT — `layout-union`, the
   // transpiler's, as `unit_type_extends_on_union`).
-  "not-lowered": 139,
+  // 139 -> 146, FOR MEASUREMENT. frontend-conformance 2.10 (2026-10-02), each the transpiler's: `decl_pointer_to_pointer_deref_typed`
+  // (dereferences in a branch never taken — `pointer-order`, the pointer model wants an address stored before a `^`) and
+  // six `prag_to_string_*` — under `{attribute 'to_string'}` an enum's STRING conversions print the member's NAME
+  // (CODESYS 'On', "On"), which lowering printed as the number: a silent wrong answer, now refused by name
+  // (`lower/builtins.ts`; the name table is task 4.5.1's). `prag_to_string_absent` (no attribute, '1') is confirmed.
+  "not-lowered": 146,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1716,7 +1724,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3645 -> 3662 (2026-10-02, 2.8 review): the refused word in the positions 2.8.3 had not asked (`rec_refused_word_*`: a
   // label, a JMP target, an initializer, a STRUCT/UNION field), the end of the text as a member name, a keyword in an
   // INTERFACE, the first CASE arm without its label ("No case label found" — `lit_enum_typed_case_label` agrees with it).
-  { vendor: "twincat", floor: 3662 },
+  // 3662 -> 3696 (2026-10-02, frontend-conformance 2.10): area 2's last rules asked — T6's POINTER TO POINTER used, P14's
+  // `strict` cells (its refusals are 4.5.1's, `deferred.lsp`), P15's `to_string`, P16's `const_replaced`/`_non_replaced`.
+  { vendor: "twincat", floor: 3696 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1849,7 +1859,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3647 -> 3707 (2026-10-02, frontend-conformance 2.8): the same, on CODESYS, and `unit_struct_extends_after_struct`,
   // `unit_struct_extends_twice` (the declaration resync resuming at a name).
   // 3707 -> 3723 (2026-10-02, 2.8 review): the same, on CODESYS.
-  { vendor: "codesys", floor: 3723 },
+  // 3723 -> 3757 (2026-10-02, frontend-conformance 2.10): the same, on CODESYS.
+  { vendor: "codesys", floor: 3757 },
 ]
 
 

@@ -170,9 +170,15 @@ export class Cursor {
   }
 
   /** The last meaningful token consumed (the first token when nothing was) — where a unit that ends without its closer
-   *  ends (`parse/units/type-decl`). */
-  previous(): Token {
-    for (let i = this.pos - 1; i >= 0; i--) if (!isTrivia(this.tokens[i]!.kind)) return this.tokens[i]!
+   *  ends (`parse/units/type-decl`). `offset` counts further back: `previous(1)` is the one before it (`parse/units/property`
+   *  asks what shares a line with the closer it just consumed). */
+  previous(offset = 0): Token {
+    let seen = 0
+    for (let i = this.pos - 1; i >= 0; i--) {
+      if (isTrivia(this.tokens[i]!.kind)) continue
+      if (seen === offset) return this.tokens[i]!
+      seen += 1
+    }
     return this.tokens[0]!
   }
 

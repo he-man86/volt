@@ -1847,9 +1847,99 @@ ONE whole test/conformance + test/frontend + rate:fixtures, and the gate runs ev
       fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0. volt-cli untouched by 2.Q
       (no dotnet run).
 
-- [ ] 2.10 Area 2 closed: every §4 2.x rule (L, N, S, A, D, T, U, E, ST, P, R, PR, FMT) has a recorded fixture or named test.
+- [x] 2.10 Area 2 closed: every §4 2.x rule (L, N, S, A, D, T, U, E, ST, P, R, PR, FMT) has a recorded fixture or named test.
       Where: test/frontend/rules.ts. Acceptance: the rules.test GAP count for area 2 is 0 and pinned as 0; known divergences left
       in area 2 listed here with their reason. Depends on: 2.9
+      **Done 2026-10-02.** Rule by rule over `rules.ts`, area 2 had five GAP rows left (T6, U16, P14, P15, P16); each now
+      has recorded fixtures or named tests. 44 fixtures written and recorded in one batch per vendor (`record:language`
+      CODESYS + TwinCAT, `record:exec` CODESYS; 4 re-recorded after a fixture fix), 43 kept:
+      - **T6** (`grammar/type-expressions.ts`): the POINTER TO POINTER USED without ADR (whose result type is 4.3.4's) —
+        `decl_pointer_to_pointer_deref_typed` (`p := pp^; x := pp^^;` builds on both; in a branch never taken, so no null
+        read), `_once_into_int` (`x := pp^;` "Cannot convert type 'POINTER TO INT' to type 'INT'", both), `_thrice`
+        (`pp^^^` "Dereference requires a pointer"; TwinCAT "… Pointer"). The LSP gives each message; `_once_into_int`'s is
+        C0033, an ERROR in both recording projects and a warning as shipped — known divergence
+        `C0033_CONFIGURED_AS_AN_ERROR` (both vendors), the reason `cc5_pointer_not_convertible` already has on CODESYS.
+        `_deref_typed` is not-lowered (`pointer-order`, the transpiler's pointer model).
+      - **U16** accessor cells — VOLT'S FORMAT, decided by named tests as FMT is: in both IDEs a getter/setter is an
+        object with a declaration of its own, and the push reads that declaration from the lines UNDER the keyword line,
+        dropping the keyword line whole, and closes a `GET` without END_GET at its own line. Measured in the corpora: the
+        pull writes an accessor's modifier on the line UNDER `GET` (39 in pro2193), never beside it; all 366 GET / 86 SET
+        lines are closed. Fixed test-first (`parse/units/property.ts`; `parse/body.ts` `collectAccessorBody` now says
+        whether its END_ closed it): a modifier on the keyword's own line, and code (or a VAR, or a comment) under an
+        accessor left open, are refused by name — the push would drop them (0 of either in the corpora); the pulled form
+        and a bare `GET` are accepted. Tests: `property.test.ts` "an accessor's modifier on the keyword's own line is
+        refused; on the line under it, it is the accessor's declaration", "an accessor without END_GET/END_SET is bare:
+        code under it is refused, the bare keyword is not". The fixed point then found the FORMATTER printing a pulled
+        accessor modifier beside the keyword (`GET PUBLIC` — a text the push writes to the IDE as `GET`; 21 corpus
+        files): fixed, `services/formatting/print.test.ts` "an accessor's modifier prints on the line under GET/SET, where
+        the push reads it". The three unaskable `unit_property_*` fixtures (recordings of the push-rewritten text) are
+        known divergences `ACCESSOR_TEXT_DROPPED_BY_THE_PUSH` (both vendors). The push's silent drop itself
+        (`StReader.ReadProperty`) is volt-cli's and still open — reported, not touched by this step.
+      - **P14** `strict` (`grammar/pragmas.ts`, `prag_strict_enum_*` and the twins `prag_enum_not_strict_*`, both vendors
+        identical): `strict` refuses an INT variable ("'i' is not a valid value for strict ENUM type …"), a literal no
+        member names ("'5' is not …") and arithmetic ("Arithmetics not allowed on strict ENUM type …"); it accepts a
+        literal a member names, the enum into an INT, a comparison with a literal or an INT, TO_INT. Without it every cell
+        builds. The three refusals are lsp-gap with `deferred.lsp` — `strict` is read by the type compatibility of task
+        4.5.1 (CV5, P14), not this step's; not niche (56 `{attribute 'strict'}` in the corpora). HELD OUT for the owner
+        (as 2.3b's three): `prag_enum_not_strict_add_literal` (`e + INT#1`, both build, CODESYS out = 2, the LSP agrees)
+        raises the census ceiling `binary UNKNOWN` by 1 per vendor — the front-end types an enum operand of arithmetic
+        nowhere yet (4.5.1); documented in the fixture file, its recordings removed. The strict twin's binary is counted
+        as refused on the vendor (`bound-census.ts`, a new key). Arithmetic cells use a TYPED literal, so they ask about
+        `strict` and not about an untyped literal's type.
+      - **P15** `to_string` (`prag_to_string_*`): TO_STRING / INT_TO_STRING / TO_WSTRING of a member or variable is the
+        member's NAME ('On', "On"), a base type changes nothing, without the attribute it is the value ('1'), a value no
+        member names prints its number ('5'), an enum into a STRING unconverted is refused. The LSP agrees on every
+        build. Lowering printed the NUMBER under the attribute — a silent wrong answer the recording exposed: now refused
+        by name (`transpile/lower/builtins.ts`, `lower.test.ts` "a `to_string` enum's STRING conversion is refused by
+        name; the same enum without it prints its value"); the member-name table is 4.5.1's.
+      - **P16** `const_replaced` / `const_non_replaced` (`prag_const_*`, both vendors identical): the decorated constant is
+        still a constant everywhere one is required — ARRAY bound, STRING length, CASE label, subrange bound, another
+        constant's initializer — and "no valid assignment target" when written; `const_replaced` on an ARRAY constant is
+        accepted silently. The attribute changes storage, never constancy; the LSP agrees on every cell.
+      Measurement refinement (an independent recorded fact): the type dump reads an enum holding a value no member names
+      as printed in its base type (`INT#5`, CODESYS run), not as a disagreement. Rules GAP area 2 **5 → 0** (total
+      59 → 54), pinned at 0 twice: `baselines/ceilings.json` and the hard-zero row in `rules.test.ts` "area 2 is closed:
+      every grammar rule has a recorded fixture or a named test (tasks.md 2.10)". `rate:fixtures` (4075 fixtures):
+      confirmed 2376, refused 1457, not-lowered 146, lsp-gap 26, diverges 4, unaskable 66; edges agree 2468 / disagree 0
+      / not-run 102. Ceilings (`fixtures.test.ts`, FOR MEASUREMENT): lsp-gap 23 → 26 (P14's three), not-lowered
+      139 → 146 (`decl_pointer_to_pointer_deref_typed` and six `prag_to_string_*`). Floors CODESYS 3723 → 3757, TwinCAT
+      3662 → 3696. Targeted runs: `bun test test/conformance` 5156 pass / 146 todo / 0 fail (agreement CODESYS
+      3757/4075, TwinCAT 3696/4075), `bun test test/frontend` 31 / 0 (baselines rewritten — counts only; ceilings
+      changed only by the GAP rows), `bun test src` 1639 / 0, corpus "lowering is total" 5 / 0; `bun typecheck` clean,
+      `bun run lint` exit 0.
+      **Known divergences left in area 2**, each with its reason in `test/conformance/support/divergences.ts`: the
+      vendors' RECOVERY after a first refusal the LSP gives (`RECOVERY_DIVERGENCES`, `DECLARATION_RECOVERY`,
+      `TYPE_EXPRESSION_RECOVERY`, `UNIT_HEADER_RECOVERY`, `IMPLICIT_ENUM_LIST_RECOVERY`,
+      `LITERAL_REFUSAL_DECLARATION_RECOVERY`, `AFTER_A_REFUSED_TYPE`, `CALC_CONDITIONAL_CALL`; TwinCAT's
+      `TWINCAT_RECOVERY_DIVERGENCES`, `TWINCAT_STRUCT_EXTENDS_RECOVERY`, `TWINCAT_NON_RETAIN_RECOVERY`,
+      `TWINCAT_NO_VAR_GENERIC`, `TWINCAT_VECTOR_REFUSAL_CASCADE`, `TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL`,
+      `TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST`, `TWINCAT_REFUSED_LDATE_LITERAL_STOPS`, `TWINCAT_WSTRING_ESCAPE_RUNS_TO_END`,
+      `TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD`, `TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR`); a rule of a later
+      task or of analysis (`UNKNOWN_QUALIFIED_TYPE` 3.4.2, `GVL_MEMBER_NOT_DECLARED` Y9, `IMPLICIT_ENUM_TYPE_NAME`
+      3.3/4.7.4, `LITERAL_ONE_IS_BIT` 4.1.3, `ENUM_TO_ENUM_IS_A_WARNING`, `CALL_IN_AN_AGGREGATE_INITIALIZER`,
+      `EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION`, `FB_ACCESS_AT_THE_CALL`, `STATEMENT_DIVERGENCES`,
+      `EXPRESSION_NICHE_DIVERGENCES`, `LITERAL_FOLLOW_ON_RULES`, `STRING_LENGTH_AS_WRITTEN`,
+      `CODESYS_POSITION_IN_AN_INITIALIZER`); niche: accepted loss, 0 occurrences in the corpora
+      (`SYSTEM_OPERAND_AT_STATEMENT_START`, `TWINCAT_XSIZEOF_IS_NO_KEYWORD`, `PRAGMA_DIVERGENCES`,
+      `CODESYS_PRAGMA_DIVERGENCES`, `TWINCAT_PRAGMA_DIVERGENCES`, `COMPONENT_CARRIED_ON_IN_A_DUT`,
+      `TWINCAT_TRY_NEEDS_CATCH`, `TWINCAT_MALFORMED_ADDRESS_ALIGNMENT`); a project or recording fact, not behaviour
+      (`C0033_CONFIGURED_AS_AN_ERROR`, `TWINCAT_DRIVER_CUTS_THE_ECHO`, `TWINCAT_UNIT_DIVERGENCES`); a vendor crash
+      (`CODESYS_DECLARATION_DIVERGENCES`: SP21 throws on a nested aggregate); text the push drops before either IDE sees
+      it (`ACTION_HEADER_DROPPED_BY_THE_PUSH`, `ACCESSOR_TEXT_DROPPED_BY_THE_PUSH`). Plus the `deferred.lsp` lsp-gaps on
+      area-2 fixtures (P14's three strict refusals → 4.5.1; the `__POOL` and declaration-part conditional-pragma cells,
+      niche) and the held-out fixtures waiting on area 4 (2.3b's three, P14's one).
+      **Gate 2.10 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4075
+      fixtures: confirmed 2376, refused 1457, not-lowered 146, lsp-gap 26, diverges 4, unaskable 66; edges agree 2468 /
+      disagree 0 / not-run 102). The first full run was 1 fail: the rustc cache's sampled re-proof hit a harness whose
+      loop guard PANICS (`emit.test.ts` g0_2) and called the entry stale because the panic line carries the run's OS
+      thread id (`thread 'main' (39996)` vs `(53404)`, rustc ≥ 1.89) — a verifier bug, any panicking hit sampled would
+      fail. Fixed test-first: `rustc-cache.test.ts` "a verified hit of a program that PANICS agrees — the panic's thread
+      id is the run's, not the program's" (red, then green), `rustc-cache.ts` compares run stderr with the thread id
+      masked (the source-path normalisation it already did). Second full run (serial, `VOLT_REQUIRE_FULL=1`,
+      `VOLT_FIXTURES` unset): 7022 pass / 34 skip / 190 todo / 0 fail (7246 tests, 197 files, 195 s, rustc cache on
+      with sampled re-proof) — +74 tests over gate 2.Q (the 43 fixtures, the named tests, the cache test); agreement
+      CODESYS 3757, TwinCAT 3696 (4075 fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint`
+      exit 0. volt-cli untouched by 2.10 (no dotnet run).
 
 ## 3. Symbols (symbols/) conformance
 

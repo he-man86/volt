@@ -2612,3 +2612,25 @@ test("the bytes behind a STRING's terminator survive, and a POINTER TO BYTE reac
   runner.scan()
   expect(["digits", "t", "u", "copied"].map((n) => runner.get(n))).toEqual(["4321", "abXdef", "abcBC", "abcBC"])
 })
+
+// `{attribute 'to_string'}` on an enum (frontend-conformance 2.10, P15; `prag_to_string_*`, CODESYS 2026-10-02): TO_STRING,
+// INT_TO_STRING and TO_WSTRING of its member print the member's NAME ('On'), where the same enum without the attribute
+// prints the value ('1'). Lowering printed the value either way — a silent wrong answer. It has no member-name table yet
+// (task 4.5.1 reads `to_string` from the AST), so the conversion is refused by name; without the attribute it lowers.
+test("a `to_string` enum's STRING conversion is refused by name; the same enum without it prints its value", () => {
+  const source = (attribute: string, conversion: string) =>
+    `${attribute}TYPE DUT_Mode :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE\n` +
+    `PROGRAM P\nVAR\n\te : DUT_Mode := DUT_Mode.On;\n\ttxt : STRING;\n\twtxt : WSTRING;\nEND_VAR\n${conversion}\nEND_PROGRAM\n`
+  for (const conversion of ["txt := TO_STRING(DUT_Mode.On);", "txt := TO_STRING(e);", "txt := INT_TO_STRING(DUT_Mode.On);", "wtxt := TO_WSTRING(e);"]) {
+    const refused = lowerSource(source("{attribute 'to_string'}\n", conversion), "P").diagnostics
+    expect([conversion, refused.map((d) => [d.code, d.message])]).toEqual([
+      conversion,
+      [["conversion-type", "a STRING conversion of an enum under {attribute 'to_string'} prints the member's name, which lowering does not model yet"]],
+    ])
+  }
+  const plain = lowerSource(source("", "txt := TO_STRING(e);"), "P")
+  expect(plain.diagnostics).toEqual([])
+  const runner = run(plain.pou!)
+  runner.scan()
+  expect(runner.get("txt")).toBe("1")
+})

@@ -634,6 +634,21 @@ const UNIT_HEADER_RECOVERY: readonly string[] = [
 const ACTION_HEADER_DROPPED_BY_THE_PUSH: readonly string[] = ["unit_action_var_section", "unit_action_modifier"]
 
 /**
+ * FRONTEND-CONFORMANCE 2.10 (2026-10-02) — an accessor's text the PUSH drops, U16's accessor cells: the push reads an
+ * accessor's declaration from the lines UNDER its keyword line and drops that line whole, so `GET PRIVATE` reaches both
+ * IDEs as `GET`; and it closes a `GET` without END_GET at its own line, so the getter's body never reaches them (both
+ * build what they were given, clean). The recordings are of the rewritten text; the LSP refuses the text as written, by
+ * name, because the push would drop it (`parse/units/property.ts`, `property.test.ts`). Volt's format, not a vendor's
+ * rule; the silent drop is the bridge's (reported). Niche: accepted loss (0 occurrences in the corpora — every accessor
+ * line there stands alone and is closed).
+ */
+const ACCESSOR_TEXT_DROPPED_BY_THE_PUSH: readonly string[] = [
+  "unit_property_accessor_modifier",
+  "unit_property_no_end_get",
+  "unit_property_no_end_get_alone",
+]
+
+/**
  * FRONTEND-CONFORMANCE 2.4a (2026-10-01) — a PRIVATE or PROTECTED FUNCTION_BLOCK, CALLED: both vendors add "Cannot access
  * private method ???.FB_…" (TwinCAT "…private Method…") at the call, beside the header's "PRIVATE and PROTECTED may only
  * be applied on methods of function blocks", which the LSP gives (`unit_fb_private_not_called` has the header's alone).
@@ -844,6 +859,16 @@ const PRAGMA_DIVERGENCES: readonly string[] = ["prag_attribute_brace_in_value", 
 const CODESYS_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_forbidden_construct", "prag_if_defined_in_declaration"]
 const TWINCAT_PRAGMA_DIVERGENCES: readonly string[] = ["prag_project_defined_not_in_declaration"]
 
+/**
+ * C0033 IS CONFIGURED AS AN ERROR in both recording projects (frontend-conformance 2.10, 2026-10-02). T6's refusal cell
+ * `decl_pointer_to_pointer_deref_once_into_int` (`x := pp^;`, a POINTER TO POINTER read once into an INT) is answered
+ * by both vendors with "Cannot convert type 'POINTER TO INT' to type 'INT'" — the message the LSP gives, word for word,
+ * from `pointer-conversion`, at the severity C0033 ships with (a warning). The difference is the project's setting, as
+ * `cc5_pointer_not_convertible` already records on CODESYS; what the cell decides — that one `^` of a POINTER TO
+ * POINTER leaves a POINTER TO INT — agrees.
+ */
+const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = ["decl_pointer_to_pointer_deref_once_into_int"]
+
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -877,6 +902,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...AFTER_A_REFUSED_TYPE.twincat,
     ...UNIT_HEADER_RECOVERY,
     ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
+    ...ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,
     ...TWINCAT_UNIT_DIVERGENCES,
@@ -898,6 +924,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_MALFORMED_ADDRESS_ALIGNMENT,
     ...TWINCAT_REFUSED_LDATE_LITERAL_STOPS,
     ...TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL,
+    ...C0033_CONFIGURED_AS_AN_ERROR,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
     ...TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
@@ -1001,6 +1028,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_POSITION_IN_AN_INITIALIZER,
     ...UNIT_HEADER_RECOVERY,
     ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
+    ...ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,
     ...DECLARATION_RECOVERY,
@@ -1022,6 +1050,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_PRAGMA_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
+    ...C0033_CONFIGURED_AS_AN_ERROR,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers

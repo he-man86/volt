@@ -122,10 +122,10 @@
     "run: initializer does not fold": 33
   },
   "rules": {
-    "GAP area 2": 5,
+    "GAP area 2": 0,
     "GAP area 3": 26,
     "GAP area 4": 28,
-    "GAP total": 59,
+    "GAP total": 54,
     "CV7 explicit pairs no recorded fixture calls": 327
   }
 }

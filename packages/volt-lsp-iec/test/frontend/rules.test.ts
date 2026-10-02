@@ -149,6 +149,12 @@ describe("0.5 the rule inventory", () => {
     expect(counts[2] + counts[3] + counts[4]).toBe(TOTAL_GAPS)
   })
 
+  test("area 2 is closed: every grammar rule has a recorded fixture or a named test (tasks.md 2.10)", () => {
+    // A hard zero, not a ceiling: area 2 closed at GAP 0 (2026-10-02) and a rule added to it must arrive answered.
+    expect(RULES.filter((r) => r.area === 2 && r.gap).map((r) => r.id)).toEqual([])
+    expect(GAPS[2]).toBe(0)
+  })
+
   test("CV7: the explicit-conversion pairs no recorded fixture calls are the pinned count", () => {
     const { pairs, missing } = explicitConversionPairs()
     console.log(`explicit conversions (CV7): ${pairs.length} pairs, ${missing.length} called by no recorded fixture`)

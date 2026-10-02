@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2348
- *     refused       1452
- *     not-lowered    139
- *     lsp-gap         23
+ *     confirmed     2376
+ *     refused       1457
+ *     not-lowered    146
+ *     lsp-gap         26
  *     diverges         4
  *     unaskable       66
  *
  *   tier                     lowered    clean
- *     decl                    612      612
- *     arith                  1282     1281
- *     control                 114      109
- *     aggregate                58       58
- *     call                    236      234
- *     indirect                238      234
+ *     decl                    628      628
+ *     arith                  1284     1283
+ *     control                 122      117
+ *     aggregate                63       63
+ *     call                    238      236
+ *     indirect                235      231
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -41,7 +41,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               4725
+ *     dead_code                               4770
  *     clippy::self_assignment                   34
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -55,7 +55,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2438
+ *     agree         2468
  *     disagree         0
  *     not-run        102
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -63,17 +63,17 @@
  *       not-run: the emitted Rust does not build                 10
 
  *
- *   pedantic — 26830 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6291
- *     clippy::cast_possible_truncation         4301
- *     clippy::cast_lossless                    3845
- *     clippy::cast_sign_loss                   2970
- *     clippy::uninlined_format_args            2889
- *     clippy::unreadable_literal               2503
- *     clippy::missing_panics_doc                976
- *     clippy::manual_assert                     732
- *     clippy::format_push_string                642
- *     clippy::cast_possible_wrap                350
+ *   pedantic — 27066 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6362
+ *     clippy::cast_possible_truncation         4334
+ *     clippy::cast_lossless                    3875
+ *     clippy::cast_sign_loss                   3002
+ *     clippy::uninlined_format_args            2916
+ *     clippy::unreadable_literal               2515
+ *     clippy::missing_panics_doc                984
+ *     clippy::manual_assert                     738
+ *     clippy::format_push_string                648
+ *     clippy::cast_possible_wrap                352
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
  *     string_positions_low                          33.5
@@ -87,8 +87,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1423 distinct emission shapes over 2540 lowered fixtures, 1663 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2428 fixtures are improvable, 2352 touch a construct with alternatives.
+ *   shape — 1433 distinct emission shapes over 2570 lowered fixtures, 1665 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2458 fixtures are improvable, 2382 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -973,6 +973,9 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_pointer_missing_to: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   decl_pointer_to_array_star_in_var: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "de5ec83c26", notes: ["013de1dc6a", "0e0d715a81", "1307e33bbf", "75cc82a569"] },
   decl_pointer_to_pointer: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "fd616f016e", notes: ["0e0d715a81", "1307e33bbf", "de8528b197", "fbde4d6e1e"] },
+  decl_pointer_to_pointer_deref_once_into_int: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  decl_pointer_to_pointer_deref_thrice: { evidence: "refused" },
+  decl_pointer_to_pointer_deref_typed: { evidence: "not-lowered" },
   decl_pointer_to_reference: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "de5ec83c26", notes: ["013de1dc6a", "0e0d715a81", "1307e33bbf", "75cc82a569"] },
   decl_ref_init_on_value: { evidence: "refused" },
   decl_reference_to_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 6, edge: "agree", size: 3.9, shape: "e3ef0ffe90", notes: ["1307e33bbf", "ad25627749", "dd94ff18a2", "de8528b197", "fa7d5f176f", "fbde4d6e1e"] },
@@ -2815,6 +2818,19 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_attribute_on_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_attribute_on_property: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.6, shape: "cee570bb96", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
   prag_attribute_on_struct_field: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "8f18df5490", notes: ["1307e33bbf", "a29db6178b"] },
+  prag_const_non_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "4c11d4a0d9", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
+  prag_const_non_replaced_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "53d1b1caf9", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_const_non_replaced_in_constant: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "3062b9e575", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
+  prag_const_non_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "3626bd5fa7", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  prag_const_non_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "4e2ada8dd5", notes: ["1307e33bbf", "a29db6178b"] },
+  prag_const_non_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_const_replaced_array_bound: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "4c11d4a0d9", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
+  prag_const_replaced_case_label: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "53d1b1caf9", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_const_replaced_in_constant: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 8, edge: "agree", size: 2.3, shape: "3062b9e575", notes: ["1307e33bbf", "abe3ae1f0b", "e02b80c3c1"] },
+  prag_const_replaced_on_array: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 5, edge: "agree", size: 2.7, shape: "165dfc6b0f", notes: ["1307e33bbf", "abe3ae1f0b"] },
+  prag_const_replaced_string_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 51, edge: "agree", size: 3.2, shape: "3626bd5fa7", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
+  prag_const_replaced_subrange: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "4e2ada8dd5", notes: ["1307e33bbf", "a29db6178b"] },
+  prag_const_replaced_write: { evidence: "refused", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.6, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_define_case_insensitive: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_define_in_body_seen_by_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.3, shape: "393e585391", notes: ["0e0d715a81", "1307e33bbf", "fb7e9e6ff4"] },
   prag_define_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
@@ -2824,6 +2840,15 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_else_twice: { evidence: "refused" },
   prag_elsif_after_else: { evidence: "refused" },
   prag_end_region_orphan: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_compare_int: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 2.1, shape: "0f09c706d0", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_compare_literal: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.1, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  prag_enum_not_strict_compare_member: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.1, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  prag_enum_not_strict_explicit_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_int_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "6ca4f3b0eb", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_into_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_literal_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_literal_not_a_member_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_enum_not_strict_member_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.2, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_error_upper_case: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_hasattribute_unquoted_elsif_after_taken: { evidence: "refused" },
   prag_hasattribute_unquoted_elsif_asked: { evidence: "refused" },
@@ -2875,6 +2900,24 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   prag_project_defined_in_declaration: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"], diverges: { codesys: "known", twincat: "known" } },
   prag_project_defined_not_in_declaration: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"], diverges: { twincat: "known" } },
   prag_region_unclosed: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.2, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_add_literal: { evidence: "lsp-gap", tier: "arith", rust: "compiles", pedantic: 4, edge: "agree", size: 2.1, shape: "daf2999d0a", notes: ["0e0d715a81", "1307e33bbf", "4979768984"] },
+  prag_strict_enum_compare_int: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 4, edge: "agree", size: 2, shape: "0f09c706d0", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_compare_literal: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  prag_strict_enum_compare_member: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"] },
+  prag_strict_enum_explicit_to_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_int_assign: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "6ca4f3b0eb", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_into_int: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_literal_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_literal_not_a_member_assign: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 2.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_strict_enum_member_assign: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
+  prag_to_string_absent: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 43, edge: "agree", size: 2.2, shape: "1b728ef7d7", notes: ["0e0d715a81", "1307e33bbf", "5d9850550d"] },
+  prag_to_string_implicit: { evidence: "refused" },
+  prag_to_string_member: { evidence: "not-lowered" },
+  prag_to_string_not_a_member: { evidence: "not-lowered" },
+  prag_to_string_typed_conversion: { evidence: "not-lowered" },
+  prag_to_string_variable: { evidence: "not-lowered" },
+  prag_to_string_with_base: { evidence: "not-lowered" },
+  prag_to_string_wstring: { evidence: "not-lowered" },
   prag_unbalanced_end_if: { evidence: "refused" },
   prag_unknown_attribute_on_alias: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
   prag_unknown_attribute_on_enum: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "1f271fb9f1", notes: ["0e0d715a81", "1307e33bbf"] },
@@ -3880,14 +3923,14 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   unit_program_trailing_semicolon: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 4.4, shape: "c28a4c31d4", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
   unit_property_abstract: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 3, edge: "agree", size: 2.7, shape: "d635829e14", notes: ["1307e33bbf"] },
   unit_property_abstract_final: { evidence: "refused" },
-  unit_property_accessor_modifier: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_accessor_modifier: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
   unit_property_final: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
   unit_property_final_twice: { evidence: "refused" },
   unit_property_internal: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
   unit_property_modifiers: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
   unit_property_modifiers_reordered: { evidence: "refused" },
-  unit_property_no_end_get: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.5, shape: "2dac00ee75", notes: ["1307e33bbf"] },
-  unit_property_no_end_get_alone: { evidence: "unaskable", tier: "indirect", rust: "compiles", pedantic: 2, edge: "agree", size: 2.9, shape: "2dac00ee75", notes: ["1307e33bbf"] },
+  unit_property_no_end_get: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
+  unit_property_no_end_get_alone: { evidence: "unaskable", diverges: { codesys: "known", twincat: "known" } },
   unit_property_override: { evidence: "unaskable" },
   unit_property_private: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },
   unit_property_protected: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.7, shape: "2dac00ee75", notes: ["1307e33bbf"] },

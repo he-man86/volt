@@ -441,7 +441,9 @@ function printProperty(p: Extract<TopLevel, { kind: "property" }>): string {
   const acc = (label: string, a: PropertyAccessor | undefined, ender: string) => {
     if (a === undefined) return ""
     const vars = a.varSections.map(printVarSection).join("\n")
-    return `${label}${a.modifiers.map((m) => ` ${m}`).join("")}\n${vars ? vars + "\n" : ""}${printBody(a.body)}${ender}`
+    // the modifier opens the accessor's DECLARATION, the line under GET/SET: the push drops the keyword line whole (U16)
+    const modifiers = a.modifiers.length > 0 ? `${a.modifiers.join(" ")}\n` : ""
+    return `${label}\n${modifiers}${vars ? vars + "\n" : ""}${printBody(a.body)}${ender}`
   }
   const parts = [acc("GET", p.getter, "END_GET"), acc("SET", p.setter, "END_SET")].filter(Boolean).join("\n")
   const head = `PROPERTY ${modifierText(p.modifiers)}${p.name.text} : ${renderTypeExpr(p.dataType)}\n`
