@@ -18,6 +18,12 @@ The former tasks 1.1 (plain-CODESYS source) and 1.2 (one generic source) are don
 - [ ] 1.4 Why PLCAssist sees `1.0.0.0`: an unstamped bundle (no `VOLT_VERSION` at `build-cli.ps1`) or the assembly
       version being read. Settle before choosing what health reports.
 
+- [ ] 1.5 Owner (2026-10-02): the VENDOR must be visible (Lenze, WAGO, Schneider …), not only a product name. Measure ONE
+      generic source of the product's manufacturer (e.g. the host executable's version-info CompanyName, or the
+      product/profile metadata the IDE itself shows in Help → About) on plain CODESYS and on every OEM install at hand.
+      What OEMs expose is unknown until measured: record per install what each source gives; a source that is not
+      readable reports null (an intentional, counted fallback), never a name inferred from paths or file names.
+
 ## 2. Report the identity
 
 - [ ] 2.1 `health` carries `productName` and `productVersion` (nullable) for both vendors beside the existing
@@ -27,6 +33,11 @@ The former tasks 1.1 (plain-CODESYS source) and 1.2 (one generic source) are don
 - [ ] 2.3 `health` carries the bridge's release: the binary's stamped version (the reading `volt --version` uses),
       `(dev)` when unstamped; two different releases never report the same value.
 - [ ] 2.4 The connector (`DetectedProject`, `/status`) and `@volt/control` carry the new fields.
+
+- [ ] 2.5 `health` carries `productVendor` (nullable, from 1.5). @volt/control renders the identity as
+      "<vendor> <product> <productVersion> — CODESYS 3.5 SP<n> Patch <p>", the SP/patch read from `ideVersion`
+      (3.5.21.40 → SP21 Patch 4: CODESYS's own version scheme, formatting only); a null part is shown as unknown, not
+      omitted silently. The SP is what decides compatibility, so it is shown whenever `ideVersion` is known.
 
 ## 3. Field failures moved from codesys-minimum-version (each needs a field log)
 

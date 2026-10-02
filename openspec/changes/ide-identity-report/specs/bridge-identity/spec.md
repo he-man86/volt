@@ -31,3 +31,15 @@ The bridge SHALL report on health the release version stamped into its binary wh
 #### Scenario: two releases
 - **WHEN** two bridges built from different releases report health
 - **THEN** their release values differ, and neither is `1.0.0.0`
+
+### Requirement: the vendor and the CODESYS service pack are visible
+
+The bridge SHALL report the product's manufacturer as `productVendor` when a generic source states it, and null otherwise. Clients SHALL show the vendor, the product and the underlying CODESYS service pack and patch derived from `ideVersion`.
+
+#### Scenario: an OEM IDE
+- **WHEN** the bridge runs in an OEM IDE whose manufacturer is readable and whose platform is CODESYS 3.5.19.50
+- **THEN** health reports that manufacturer as `productVendor`, and the client shows it with "CODESYS 3.5 SP19 Patch 5"
+
+#### Scenario: manufacturer not readable
+- **WHEN** no generic source states the manufacturer
+- **THEN** `productVendor` is null and the client shows the vendor as unknown — no name is inferred
