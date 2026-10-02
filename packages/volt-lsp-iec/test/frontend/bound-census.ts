@@ -132,6 +132,11 @@ export function boundCensus(): BoundCensus {
     // were names in a conditional branch CODESYS does not compile, which the one statement tree no longer holds —
     // frontend-conformance 2.7.1)
     for (const shape of ["bare name", "member"]) c.resolution[`${group}: ${shape} NONE`] ??= 0
+    // …and a named argument's: every NO-CALLEE and NONE of the fixtures came to resolve or agree (frontend-conformance 3.6)
+    if (group.startsWith("fixtures ")) {
+      c.resolution[`${group}: parameter NONE`] ??= 0
+      c.resolution[`${group}: parameter NO-CALLEE`] ??= 0
+    }
     if (vendor.known) {
       tally(c.resolution, `${group}: files of a known divergence (support/divergences.ts), not measured`)
       tally(c.types, `${group}: files of a known divergence (support/divergences.ts), not measured`)
@@ -155,6 +160,9 @@ export function boundCensus(): BoundCensus {
           unparsedSites.add(where)
           // the dump keys a `.name` by its NAME, one column after the `.` its row starts at (`resolutionDump`)
           if (expr.kind === "global_expr") unparsedSites.add(at(expr.name.span))
+          // …and a member by its MEMBER name, where its row is (`__CURRENTTASK^.szName` in a body neither side parses,
+          // `sysop_currenttask_deref_member` — the row read `.szName -> NONE` as a finding, frontend-conformance 3.6)
+          if (expr.kind === "member") unparsedSites.add(at(expr.member.span))
         }
       }
     // A member read off a name the vendor reports undefined (`Gvl.accD` with `Gvl` "not defined",
@@ -183,6 +191,11 @@ export function boundCensus(): BoundCensus {
     for (const { where, name, shape, verdict } of lines)
       if (verdict === "NONE" && (shape === "bare name" || shape === "global name") && vendor.notDefined.has(name.toLowerCase()))
         agreed.add(where)
+    // a named argument's PARAMETER the callee does not declare is looked up as a name and not found, on the vendor too:
+    // `itfRef.M(zz := 5)` is "Identifier 'zz' not defined" (`inh_interface_method_unknown_param`, frontend-conformance 3.6)
+    const parameterName = (name: string): string => name.replace(/ (:=|=>)$/, "").toLowerCase()
+    for (const { where, name, shape, verdict } of lines)
+      if (verdict === "NONE" && shape === "parameter" && vendor.notDefined.has(parameterName(name))) agreed.add(where)
     for (const { line, where, name, shape, verdict } of lines) {
       if (verdict === "NONE" && unparsedSites.has(where)) {
         tally(c.resolution, `${group}: ${shape} NONE, in a body that did not parse`)
@@ -226,7 +239,7 @@ export function boundCensus(): BoundCensus {
         tally(c.resolution, `${group}: member NONE, on a name not defined on the vendor too`)
         continue
       }
-      if (verdict === "NONE" && (shape === "bare name" || shape === "global name") && agreed.has(where)) {
+      if (verdict === "NONE" && (shape === "bare name" || shape === "global name" || shape === "parameter") && agreed.has(where)) {
         tally(c.resolution, `${group}: ${shape} NONE, not defined on the vendor too`)
         continue
       }
@@ -872,7 +885,14 @@ function memberBases(b: Bound): Map<string, string[]> {
     const visit = (e: Expr): void => {
       if (e.kind === "member") {
         const names = [exprText(e.base).toLowerCase()]
-        if (scope !== undefined) names.push(renderType(inferExprType(e.base, scope, b.project)).toLowerCase())
+        if (scope !== undefined) {
+          const t = inferExprType(e.base, scope, b.project)
+          names.push(renderType(t).toLowerCase())
+          // the vendor names a REFERENCE's target, and an interface's member set `<ITF>__Union` (rule M1,
+          // `mem_unknown_member_through_reference`, `mem_unknown_method_of_interface`, frontend-conformance 3.5)
+          if (t.kind === "reference") names.push(renderType(t.target).toLowerCase())
+          if (t.kind === "interface") names.push(`${t.name}__union`.toLowerCase())
+        }
         out.set(at(e.member.span), names)
       }
       const args = e.kind === "call" ? e.args.flatMap((a) => (a.value === undefined ? [] : [a.value])) : []

@@ -46,14 +46,16 @@ export interface CalleeInfo {
  */
 export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): CalleeInfo | undefined {
   const sym = resolveMemberChain(call.callee, scope, project)
-  if (sym === undefined) return undefined
   // Direct callable — a function/method/program declares its own var sections (no inheritance).
-  const direct = (sym.ast as Partial<Method>).varSections
-  if (Array.isArray(direct)) return calleeInfo(sym, direct, true, undefined)
-  // Instance call — the callee is a variable typed as an FB; gather the FB declaration's sections plus every
-  // base's via the EXTENDS chain (so inherited inputs count and resolve), and carry the member scope for
-  // property-name binding.
-  const t = inferExprType(call.callee, scope, project)
+  const direct = (sym?.ast as Partial<Method> | undefined)?.varSections
+  if (sym !== undefined && Array.isArray(direct)) return calleeInfo(sym, direct, true, undefined)
+  // Instance call — the callee is an FB instance; gather the FB declaration's sections plus every base's via the
+  // EXTENDS chain (so inherited inputs count and resolve), and carry the member scope for property-name binding. The
+  // instance is known by its TYPE, which a variable has and so do the callees no symbol names: an array element
+  // `arr[1](…)`, `SUPER^(…)`, and a REFERENCE TO an FB, read through (rule M3: `mem_reference_to_fb_call_unknown_param`,
+  // `mem_array_element_call_unknown_param`, `mem_super_call_unknown_param`, both vendors 2026-10-02)
+  const written = inferExprType(call.callee, scope, project)
+  const t = written.kind === "reference" ? written.target : written
   if (t.kind === "function_block" && t.scope?.parent !== undefined) {
     const fbSym = lookupLocal(t.scope.parent, t.name).find((s) => s.kind === "function_block")
     if (fbSym !== undefined && (fbSym.ast as { kind: string }).kind === "function_block") {

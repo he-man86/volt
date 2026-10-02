@@ -86,7 +86,10 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // an index through a REFERENCE TO an array reads the array (`decl_reference_to_array`, both vendors run `rf[1]`)
       const written = inferExprType(expr.base, scope, project)
       const base = written.kind === "reference" ? written.target : written
-      return base.kind === "array" ? base.element : UNKNOWN
+      if (base.kind === "array") return base.element
+      // …and a POINTER indexed once is its target, `i` elements on (rule M3: `p[2].x` over `p : POINTER TO S` runs 30 in
+      // `mem_pointer_index_struct_array`, both vendors build it); a second index is the arity error C0126, untyped
+      return base.kind === "pointer" && expr.indices.length === 1 ? base.target : UNKNOWN
     }
     case "deref": {
       const base = inferExprType(expr.base, scope, project)
@@ -196,8 +199,9 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
     return declared
   }
   // An element of an array of instances, called (`inst[0]()`), is the instance `inst()` is — typed alike, by the type
-  // the element has; it has no symbol of its own to carry one.
-  if (call.callee.kind === "index") {
+  // the element has; it has no symbol of its own to carry one. So is a dereferenced instance: `SUPER^(…)`, `p^(…)`
+  // (rule M3, `mem_super_call_unknown_param`, `callshape_super_own_fields`).
+  if (call.callee.kind === "index" || call.callee.kind === "deref") {
     const element = inferExprType(call.callee, scope, project)
     if (element.kind === "function_block") return element
   }

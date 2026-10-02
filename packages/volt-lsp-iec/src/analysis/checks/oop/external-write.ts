@@ -20,7 +20,10 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
       if (s.kind !== "assign" || s.op !== undefined) return // plain `:=` only
       if (s.target.kind !== "member") return
       if (isSelfRef(s.target.base)) return // writing your own member (THIS/SUPER) is legal
-      const baseType = inferExprType(s.target.base, scope, ctx.project)
+      // a REFERENCE TO the FB is read through: `rf.k := 5` is no input of it, as `sb.k := 5` is (rule M3,
+      // `mem_reference_to_fb_member_write`, both vendors 2026-10-02)
+      const written = inferExprType(s.target.base, scope, ctx.project)
+      const baseType = written.kind === "reference" ? written.target : written
       if (baseType.kind !== "function_block") return // struct/unknown → skip
       const sym = resolveMemberChain(s.target, scope, ctx.project)
       if (sym === undefined || isLibrarySymbol(sym)) return // library sections are lossy → can't decide

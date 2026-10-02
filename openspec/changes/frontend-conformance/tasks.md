@@ -2241,13 +2241,75 @@ conformance work; the cross-area edges are named on the tasks that have them.
       0 fail** (7481 tests, 201 files, 240 s), no baseline rewritten, `ceilings.json` only falls; agreement CODESYS
       **3868**, TwinCAT **3787**; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0. Committed as
       `feat(lsp): frontend-conformance 3.4 — …`.
-- [ ] 3.5 Members (M1–M6): access modifiers resolve first and are refused after. Record mem_reference_to_fb_member,
+- [x] 3.5 Members (M1–M6): access modifiers resolve first and are refused after. Record mem_reference_to_fb_member,
       mem_reference_to_fb_method, mem_pointer_deref_method, mem_private_member_resolves_then_refused,
       mem_protected_member_from_derived.
       Where: scope-nav, infer/member. Acceptance: CA. Depends on: 3.4.3
-- [ ] 3.6 Area 3 closed: the 0.3 findings are closed; every §4 3.x rule has a recorded fixture or named test.
+      **Step 3.5–3.6 (2026-10-02).** 49 `mem_*` fixtures in `fixtures/names/members.ts`, rule by rule (M1 an unknown member off
+      an FB instance — a variable and a METHOD —, a REFERENCE TO one, a dereferenced POINTER, an interface; M3 through a
+      REFERENCE TO an FB: a VAR read and written, a VAR_INPUT written, a METHOD, a PROPERTY, a STRUCT field, an instance call
+      with an unknown input; a POINTER's METHOD, POINTER TO POINTER, a pointer read without `^`, an array element and SUPER^
+      called with an unknown input, and the named-argument wording by callee — METHOD/FUNCTION with one input, none, one given
+      beside the unknown; M6 PRIVATE/PROTECTED/INTERNAL/PUBLIC METHODs and PROPERTYs from the FB's own body, THIS^, another
+      instance of its type, another METHOD, a derived FB, SUPER^, a grandchild, outside through an instance/REFERENCE/POINTER/
+      interface, and a refused member's result type and parameters; M2/M4/M5 recorded elsewhere), recorded in ONE batch per
+      vendor (plus one follow-up batch of 5 call-wording cells and the 10 `xf_*_call_once` builds, which had none): CODESYS +
+      TwinCAT build (identical answers, TwinCAT's capitals aside), CODESYS run 19 (each value as predicted).
+      Measured: PRIVATE is the declaring FB's alone (refused from a derived FB and through SUPER^, allowed for another instance
+      of its own type), PROTECTED reaches any depth of derived FB and is refused from outside (an inherited one too), INTERNAL
+      and PUBLIC reach the application; the refused member RESOLVES first (its INT result into a BOOL is "Cannot convert"
+      beside "Cannot access private method B.M"); an interface METHOD implemented PRIVATE "must be PUBLIC"; an interface's
+      member set is `<ITF>__Union`; a VAR written from outside through a REFERENCE is "no input of", as directly; a
+      FUNCTION's/METHOD's named arguments are COUNTED first — more `:=` arguments than inputs is "Function 'M1' requires exactly
+      '1' inputs" and every unknown name only "not defined", within the count "'zz' is no input of 'M1'".
+      Code (test-first): `infer/expr` an index of a POINTER is its target (`p[2].x`) and a dereferenced instance called is the
+      FB (`SUPER^(…)`); `infer/callee` `resolveCallee` finds an instance by the callee's TYPE (a REFERENCE read through, an
+      array element, SUPER^) — corpus parameter NO-CALLEE 1914 → 42, corpus FP oracle still clean; `analysis/resolution`
+      `checkMember` reads a REFERENCE through and names an interface `<ITF>__Union`, `pointerMemberBases` ("'p' is no structured
+      variable", `self-not-structured`); `unresolved-identifier` a CALLED unknown member is also C0035; `external-write` reads a
+      REFERENCE through; `call-arguments` the named-argument count (`expr_en_eno_call` LEFT `EXPRESSION_NICHE_DIVERGENCES`; the
+      test that said "'zz' is no input of 'M'" for a METHOD with no input took its premise from an interface METHOD with one).
+      Known divergences opened: `MEMBER_DIVERGENCES` (both vendors, 14: every access refusal and "must be PUBLIC" — no catalog
+      code for a METHOD's refusal, a PROPERTY's C0513/C0515 document another, unverified sentence; niche: accepted loss, 0
+      occurrences in the corpora of a refused access — corrected 2026-10-03: pro2193's own Application declares 525
+      PRIVATE/PROTECTED/INTERNAL members (524 METHODs, 1 PROPERTY), user code, not library code as first written; 12 `deferred.lsp`, the two where the LSP is not silent not), `TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT`
+      (the three `xf_<d>_to_ldate_call_once` first build-recorded here: TwinCAT echoes a user FUNCTION's positional argument
+      formally inside the hole; niche, 0 in the corpora). Named ceiling exceptions (`test/frontend/baseline.ts`): the four
+      pointer cells' `ADR(sb)` (5 per vendor, `call UNKNOWN, SIZEOF or ADR` — task 4.3.4).
+      Numbers: `rate:fixtures` 4259 fixtures (+49): confirmed 2446 (+18), refused 1524 (+18), not-lowered 162 (+1,
+      `mem_private_method_of_same_type_instance`), lsp-gap 55 (+12), diverges 4, unaskable 68; edges agree 2572 / disagree 0 /
+      not-run 110. Ceilings (`fixtures.test.ts`): lsp-gap 43 → 55, not-lowered 161 → 162. Rules GAP area 3 **2 → 0** (total
+      30 → 28; M3, M6 closed — M6 as coverage, its refusal the divergence above). Agreement CODESYS 3868 → **3914**, TwinCAT
+      3787 → **3825** (floors not raised — the gate's). Resolution (0.3) findings 59 + 1 excepted → **29 + 1 excepted**; corpus
+      parameter NO-CALLEE 1914 → 42; fixtures member NONE 16/16 → 13/13, parameter NO-CALLEE 8/8 → 0, parameter NONE 1/1 → 0,
+      TwinCAT bare name NONE 6 → 0; messages both 95 → 111 (CODESYS), 120 → 136 (TwinCAT). Types (0.4): corpus call UNKNOWN
+      1398 → 1270, index 94 → 92, library index UNKNOWN 111 → 49, fixtures call UNKNOWN 391/388 → 383/380; findings unchanged.
+      F diff (base 22917a0677, VOLT_GRAPHICAL=1): 246 aspects changed over 192 sources, resolution and types only (corpus 71 /
+      130, fixture 12 / 20, library types 13), no `diagnostics` aspect; 1877 new (the new fixtures and recordings); 0 gone.
+      Targeted runs green: `bun test src` 1739/0, `test/conformance` 5326/0 (whole), `test/frontend` 33/0 after the
+      parse-census and fixed-point COUNT rewrite, `test/corpus` 19/0, `test/catalog` 147/0, `bun typecheck`, `bun run lint`.
+- [x] 3.6 Area 3 closed: the 0.3 findings are closed; every §4 3.x rule has a recorded fixture or named test.
       Where: test/frontend/rules.ts, resolution-dump baseline. Acceptance: the 0.3 baseline is empty (or each remaining entry is a
       recorded known divergence named here); the rules.test GAP count for area 3 is 0 and pinned. Depends on: 3.5
+      **3.6 (2026-10-02).** Rules GAP area 3 **0**, pinned (`ceilings.json` "rules"). The 0.3 findings 59 + 1 → 29 + 1, closed:
+      the SUPER^ / REFERENCE / array-element calls' NO-CALLEE (10 per vendor, `resolveCallee`), `p[2].x` (2), a named argument
+      the vendor too calls "not defined" (`inh_interface_method_unknown_param`: the census now counts it so, as it counts a
+      bare name), `__CURRENTTASK^.szName` in a body neither side parses (the census keyed a member's row by its expression's
+      start, not its name's), TwinCAT's `<D>_TO_LDATE` / `LDATE_TO_ULINT` NONE (6: never build-recorded; recorded now, they
+      are TwinCAT's "not defined"). REMAINING, each recorded and named:
+        - `lib_ns_type_name_two_libraries` `.WRONG_CONFIGURATION` (1, CODESYS) — the named ceiling exception of 3.4 (bridge
+          library-reference facts);
+        - `.diSize` / `.pValue` of an ANY / ANY_INT input (12 per vendor: `type_any_*`, `state_any_*`, `tr_17_*`, `tr_42_*`,
+          `refuse_interface_any_input`) — members of the compiler's `__SYSTEM.AnyType`, of which the front-end has no
+          declaration (30 such reads in pro2193's own code) → 4.1.3 (ANY groups);
+        - `TYPE_CLASS.TYPE_SUBRANGE` (1 per vendor, `op_sys_type_class_bare`) — a value of the compiler's `__SYSTEM.TYPE_CLASS`,
+          no declaration either → 4.1.3;
+        - TwinCAT "Identifier '' not defined" ×2 and 'In1' (`network_unnamed_target_*`) — network text, not the ST front-end.
+      **Gate 3.5–3.6 (2026-10-03, on HEAD 15d421e57a).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte for
+      byte (4259; confirmed 2446, refused 1524, not-lowered 162, lsp-gap 55, diverges 4, unaskable 68; edges 2572 / 0 / 110);
+      full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7302 pass / 34 skip / 206 todo / 0 fail** (7542 tests, 201
+      files, 233 s); agreement CODESYS **3914**, TwinCAT **3825** — floors raised 3868 → 3914 and 3787 → 3825
+      (`fixtures.test.ts`); `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
 
 ## 4. Types (types/) conformance
 

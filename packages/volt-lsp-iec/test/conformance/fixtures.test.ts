@@ -1366,7 +1366,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `_qualified_access_library_bare`, `_type_name_two_libraries_other_member`, `_direct_dependency_only`,
   // `_library_internal_function_bare`, `_qualified`, `_library_gvl_shared_list_name_bare`); and one closed:
   // `decl_type_unknown_qualified` (a qualifier naming nothing, `unknownQualifiedTypeName`).
-  "lsp-gap": 43,
+  // 43 -> 55, FOR MEASUREMENT. frontend-conformance 3.5 (2026-10-02): 12 member cells both vendors refuse for an access
+  // modifier checked after resolution, the LSP silent — "Cannot access private method B.M", an interface METHOD implemented PRIVATE "must
+  // be PUBLIC" (`deferred.lsp`, `MEMBER_DIVERGENCES`): no catalog code for a METHOD's refusal (a PROPERTY's C0513/C0515
+  // document another, unverified sentence), 0 occurrences in the corpora of a refused access (they build; pro2193's own
+  // Application declares 525 such members, user code — not library code, as first written). No fixture moved.
+  "lsp-gap": 55,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1510,7 +1515,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // namespace's dependency, bare `ERROR`): `lib_ns_type_qualified`, `_type_name_two_libraries`, `_library_member_own_type`,
   // `_own_type_other_enum`, `_same_name_two_libraries`, `_transitive_qualification`, `_transitive_qualification_call`,
   // `_library_gvl_member`, `_library_gvl_shared_list_name` (the transpiler's; src/transpile is not this change's to edit).
-  "not-lowered": 161,
+  // 161 -> 162, FOR MEASUREMENT. frontend-conformance 3.5 (2026-10-02): `mem_private_method_of_same_type_instance` builds
+  // and runs (out 14) — a PRIVATE METHOD through a POINTER TO an instance of its own FB, `pOther := THIS` — and the lowering
+  // refuses it (the transpiler's).
+  "not-lowered": 162,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1794,7 +1802,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // bare member resolved per asker, ambiguity reported, a library member bare where one enum declares it.
   // 3784 -> 3787 (2026-10-02, frontend-conformance 3.4): the library-namespace fixtures (`fixtures/names/libraries.ts`,
   // LB1–LB9) — library precedence per asker, a qualified type in its namespace, the incremental library rebind.
-  { vendor: "twincat", floor: 3787 },
+  // 3787 -> 3825 (2026-10-03, frontend-conformance 3.5): the member fixtures (`fixtures/names/members.ts`, M1–M6) —
+  // callees found by their instance's TYPE (REFERENCE, array element, SUPER^), interface members as `<ITF>__Union`,
+  // the named-argument count; access refusals are MEMBER_DIVERGENCES.
+  { vendor: "twincat", floor: 3825 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1932,7 +1943,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3797 -> 3829 (2026-10-02, frontend-conformance 3.2): the same, on CODESYS.
   // 3829 -> 3854 (2026-10-02, frontend-conformance 3.3): the same, on CODESYS.
   // 3854 -> 3868 (2026-10-02, frontend-conformance 3.4): the same, on CODESYS.
-  { vendor: "codesys", floor: 3868 },
+  // 3868 -> 3914 (2026-10-03, frontend-conformance 3.5): the same, on CODESYS.
+  { vendor: "codesys", floor: 3914 },
 ]
 
 

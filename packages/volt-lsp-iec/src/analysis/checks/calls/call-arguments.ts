@@ -113,11 +113,50 @@ function checkCall(
   // was accepted in silence — while the network-text check beside it already restricted to the pin sections.
   // One question, two answers in one package; `bindableMember` is now the one home, and both vendors say the
   // ST side was the wrong one (`cc_named_arg_non_input`).
+  //
+  // A FUNCTION's or METHOD's named arguments are COUNTED first: more `name := value` arguments than it has inputs is
+  // "Function 'M1' requires exactly '1' inputs" (the declared case), once, and no name is then said to be no input or
+  // output of it — an unknown one is only "Identifier not defined" (`mem_method_unknown_param_beside_known`,
+  // `_no_input`, `mem_function_unknown_param_no_input`, and `expr_en_eno_call`'s `ENO => ok`, both vendors 2026-10-02).
+  // Within the count a name is named (`_one_input`: "'zz' is no input of 'M1'"). An FB is never counted so.
+  // Asked only of the recorded shape (step 3 review, 2026-10-03): plain VAR_INPUTs — no default, whose count CODESYS words
+  // as a range (4b), and no VAR_IN_OUT, which `positionalArity` counts and 4b does not — distinct names, and an unknown
+  // INPUT name among them (every recorded over-count has one: `zz`, `EN`). A repeated known name, a defaulted or in-out
+  // signature are unasked and keep their old answers.
+  const isKnown = (name: string): boolean =>
+    callee.paramNames.has(name) || (callee.scope !== undefined && bindableMember(callee.scope, name) !== undefined)
+  const namedInputs = named.filter((a) => !a.output).map((a) => a.param!.name.toLowerCase())
+  const overCount =
+    callee.complete &&
+    (callee.sym.kind === "function" || callee.sym.kind === "method") &&
+    positional.length === 0 &&
+    callee.positionalArity === callee.params.length &&
+    callee.params.every((p) => !p.hasDefault) &&
+    new Set(namedInputs).size === namedInputs.length &&
+    namedInputs.some((n) => !isKnown(n)) &&
+    namedInputs.length > callee.positionalArity
+  if (overCount)
+    out.push({
+      severity: "error",
+      span: callSpan,
+      source: SOURCE,
+      code: "function-argument-count",
+      message: ctx.messages.functionRequiresInputs(callee.sym.name, callee.positionalArity),
+    })
+  // whether a name was said to be no input or output — the call is then refused for it, and the inputs it left out are
+  // not counted on top (`mem_method_unknown_param_one_input`: "'zz' is no input of 'M1'" and no "requires" for `a`)
+  let namedUnknown = false
   for (const arg of named) {
     const name = arg.param!.name.toLowerCase()
-    const known =
-      callee.paramNames.has(name) || (callee.scope !== undefined && bindableMember(callee.scope, name) !== undefined)
+    const known = isKnown(name)
+    if (overCount && !known) {
+      if (!declaresAnything(callee, name))
+        out.push({ severity: "error", span: arg.param!.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.undefinedIdentifier(arg.param!.name) })
+      continue
+    }
     if (callee.complete && !known) {
+      // an unknown INPUT name only (`mem_method_unknown_param_one_input`); an unknown output binding is unasked
+      if (!arg.output) namedUnknown = true
       // An output binding (`name => target`) that names no output → C0038; an input `name := value` → C0037.
       out.push({
         severity: "error",
@@ -189,7 +228,7 @@ function checkCall(
   // …AND A METHOD'S, identically. This was gated to `function` and the METHOD form had never been asked on its
   // own; `callshape_method_input_no_default` asks it and both vendors answer with the FUNCTION message, naming the
   // method: "Function 'Blend' requires at least '1' and maximum '2' inputs" on CODESYS, "exactly '2'" on TwinCAT.
-  if (callee.complete && (callee.sym.kind === "function" || callee.sym.kind === "method") && !(positional.length > 0 && named.length > 0)) {
+  if (callee.complete && !overCount && !namedUnknown && (callee.sym.kind === "function" || callee.sym.kind === "method") && !(positional.length > 0 && named.length > 0)) {
     const bound = new Set<string>(named.map((a) => a.param!.name.toLowerCase()))
     positional.forEach((_, i) => {
       const p = callee.positional[i]

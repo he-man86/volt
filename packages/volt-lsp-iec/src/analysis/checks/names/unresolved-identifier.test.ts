@@ -332,3 +332,83 @@ test("a member a global variable list does not declare is no component of the li
     "Cannot convert type 'Unknown type: 'GVL_X.nope'' to type 'INT'",
   ])
 })
+
+// ── frontend-conformance 3.5 (rules M1, M3): an unknown member off every base a member is read from ─────────────
+/** Every error message over one source, sorted. */
+const errors = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    .filter((d) => d.severity === "error")
+    .map((d) => d.message)
+    .sort()
+}
+const SUB = "FUNCTION_BLOCK FB_Sub\nVAR\n\tk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nM := k;\nEND_METHOD\n\n"
+
+// `rf.nope` through a REFERENCE TO the FB is no component of the FB, as `sb.nope` is (`mem_unknown_member_through_reference`,
+// both vendors 2026-10-02): the check asked the reference for members
+test("M1/M3: an unknown member through a REFERENCE TO an FB is no component of the FB", () => {
+  const src = `${SUB}FUNCTION_BLOCK F\nVAR\n\tsb : FB_Sub;\n\trf : REFERENCE TO FB_Sub;\n\tout : INT;\nEND_VAR\nrf REF= sb;\nout := rf.nope;\nEND_FUNCTION_BLOCK`
+  expect(errors(src)).toEqual(["'nope' is no component of 'FB_Sub'", "Cannot convert type 'Unknown type: 'rf.nope'' to type 'INT'"])
+})
+
+// a CALLED unknown member is also no call target, named as written (`mem_unknown_method_of_fb_instance`, both vendors)
+test("M1: an unknown METHOD called is no component, no call target, and its result a hole", () => {
+  const src = `${SUB}FUNCTION_BLOCK F\nVAR\n\tsb : FB_Sub;\n\tout : INT;\nEND_VAR\nout := sb.Nope();\nEND_FUNCTION_BLOCK`
+  expect(errors(src)).toEqual([
+    "'Nope' is no component of 'FB_Sub'",
+    "Cannot convert type 'Unknown type: 'sb.Nope()'' to type 'INT'",
+    "Program name, function or function block instance expected instead of 'sb.Nope'",
+  ])
+})
+
+// an INTERFACE's members are no component of `<ITF>__Union`, the vendor's name for the interface's member set
+// (`mem_unknown_method_of_interface`: CODESYS keeps the case, TwinCAT upper-cases it, 2026-10-02)
+test("M1: an unknown METHOD of an INTERFACE is no component of '<interface>__Union'", () => {
+  const src = "INTERFACE I_T\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK F\nVAR\n\ti : I_T;\n\tout : INT;\nEND_VAR\nout := i.Nope();\nEND_FUNCTION_BLOCK"
+  const expected = (u: string) => [
+    `'Nope' is no component of '${u}'`,
+    "Cannot convert type 'Unknown type: 'i.Nope()'' to type 'INT'",
+    "Program name, function or function block instance expected instead of 'i.Nope'",
+  ]
+  expect(errors(src)).toEqual(expected("I_T__Union"))
+  expect(errors(src, "twincat")).toEqual(expected("I_T__UNION"))
+})
+
+// a POINTER read without its `^` has no members (`mem_pointer_member_without_deref`, both vendors 2026-10-02)
+test("M3: a member read off a POINTER without `^` — the pointer is no structured variable", () => {
+  const src = `${SUB}FUNCTION_BLOCK F\nVAR\n\tsb : FB_Sub;\n\tp : POINTER TO FB_Sub;\n\tout : INT;\nEND_VAR\np := ADR(sb);\nout := p.k;\nout := p^.k;\nEND_FUNCTION_BLOCK`
+  expect(errors(src)).toEqual(["'p' is no structured variable", "Cannot convert type 'Unknown type: 'p.k'' to type 'INT'"])
+})
+
+// a pointer that is itself a MEMBER (`h.p.x`) is said once, as the bare `p.k` is — `unknown-source`'s sentence for a
+// non-name base that is a hole is the same words on the same span (step 3 review, 2026-10-03)
+test("M3: a member read off a POINTER that is a member — the pointer is said to be no structured variable ONCE", () => {
+  const src = "TYPE S :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\nTYPE H :\nSTRUCT\n\tp : POINTER TO S;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM P\nVAR\n\th : H;\n\tout : INT;\nEND_VAR\nout := h.p.x;\nEND_PROGRAM"
+  expect(errors(src).filter((m) => m === "'h.p' is no structured variable")).toHaveLength(1)
+})
+
+// a VAR written from outside through a REFERENCE TO the FB is no input of it, as `sb.k := 5` is
+// (`mem_reference_to_fb_member_write`, both vendors 2026-10-02); its VAR_INPUT is written (`mem_reference_to_fb_input_write`)
+test("M3: a VAR written through a REFERENCE TO an FB is no input of the FB; a VAR_INPUT is written", () => {
+  const sub = "FUNCTION_BLOCK FB_Sub\nVAR_INPUT\n\tkin : INT;\nEND_VAR\nVAR\n\tk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n"
+  const src = `${sub}FUNCTION_BLOCK F\nVAR\n\tsb : FB_Sub;\n\trf : REFERENCE TO FB_Sub;\nEND_VAR\nrf REF= sb;\nrf.k := 5;\nrf.kin := 5;\nEND_FUNCTION_BLOCK`
+  expect(errors(src)).toEqual(["'k' is no input of 'FB_Sub'"])
+})
+
+// The called-member C0035 answers only the recorded bases — an FB instance and an interface named as a variable
+// (`mem_unknown_method_of_fb_instance`, `mem_unknown_method_of_interface`). A global list's unknown member called and a
+// dereferenced pointer's are unasked: no recording says the vendor adds the call-target sentence there (step 3 review,
+// 2026-10-03), so the LSP does not.
+test("M1: a called unknown member of a GLOBAL LIST or through a dereferenced POINTER gets no call-target sentence", () => {
+  const gvl = "VAR_GLOBAL\n g : INT;\nEND_VAR"
+  const src = `${SUB}FUNCTION_BLOCK F\nVAR\n\tsb : FB_Sub;\n\tp : POINTER TO FB_Sub;\n\tout : INT;\nEND_VAR\np := ADR(sb);\nout := GVL_X.nope();\nout := p^.Nope();\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable(
+    [{ uri: "F.pou", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true }), source: gvl }],
+    [],
+    "codesys",
+  )
+  const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.map((d) => d.message).filter((m) => m.startsWith("Program name, function or function block instance expected"))).toEqual([])
+})

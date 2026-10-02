@@ -535,7 +535,10 @@ test("an unknown named argument the callee declares nothing of is also 'Identifi
   }
   // each sentence carries ITS rule's code: "is no input of" is C0037's, "Identifier not defined" C0046's
   const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tn : INT;\nEND_VAR\nVAR\n\tloc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\n\tloc2 : INT;\nEND_VAR\nEND_METHOD`
-  expect(messagesOf(fb, caller("fb.M(zz := 1);"))).toEqual(["unknown-named-argument: 'zz' is no input of 'M'", "unresolved-identifier: Identifier 'zz' not defined"])
+  // a METHOD with no input given one named argument is one argument too many, not "no input of"
+  // (`mem_method_unknown_param_no_input`, both vendors 2026-10-02 — this said "'zz' is no input of 'M'", read off
+  // `inh_interface_method_unknown_param`, whose METHOD has an input)
+  expect(messagesOf(fb, caller("fb.M(zz := 1);"))).toEqual(["function-argument-count: Function 'M' requires exactly '0' inputs", "unresolved-identifier: Identifier 'zz' not defined"])
   expect(messagesOf(fb, caller("fb(zz := 1);"))).toEqual(["unknown-named-argument: 'zz' is no input of 'FB_T'", "unresolved-identifier: Identifier 'zz' not defined"])
   expect(messagesOf(fb, caller("fb(loc := 1);"))).toEqual(["unknown-named-argument: 'loc' is no input of 'FB_T'"])
 })
@@ -548,4 +551,66 @@ test("an FB whose base chain runs into a cycle has no authoritative parameter li
   const x = "FUNCTION_BLOCK X EXTENDS A\nVAR_INPUT\n\ti : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
   const call = "PROGRAM P\nVAR\n\tinst : X;\nEND_VAR\ninst(zz := 1);\nEND_PROGRAM"
   expect(codes(a, b, x, call).filter((c) => c === "unknown-named-argument" || c === "unresolved-identifier")).toEqual([])
+})
+
+/** `code: message` of every diagnostic over the sources, each file named after its first unit. */
+function codedMessages(...sources: string[]): string[] {
+  const files = sources.map((source) => {
+    const parseResult = parseSource(source, { networkText: true })
+    const first = parseResult.units.find((u) => "name" in u) as { name: { text: string } }
+    return { uri: `${first.name.text}.pou`, source, parseResult }
+  })
+  const project = build.buildSymbolTable(files, [], "codesys")
+  const config = resolveConfig({ vendor: "codesys" })
+  return files.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }).map((d) => `${d.code}: ${d.message}`))
+}
+
+// A FUNCTION's or METHOD's named arguments are COUNTED before they are named: more `name := value` arguments than the
+// callee has inputs is "Function 'X' requires exactly 'N' inputs" (the declared case), and nothing is said of which name
+// is no input; within the count, a name it does not declare is "'zz' is no input of 'X'". Every unknown name is "Identifier
+// not defined" either way (`mem_method_unknown_param_*`, `mem_function_unknown_param_*`, `expr_en_eno_call`, both vendors
+// 2026-10-02). An FB names each one, whatever the count (`mem_reference_to_fb_call_unknown_param`).
+test("M3/E21: a FUNCTION's or METHOD's named arguments past its input count are 'requires exactly', not 'no input of'", () => {
+  const fb = "FUNCTION_BLOCK FB_T\nVAR\n\tk : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M1 : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nM1 := a;\nEND_METHOD"
+  const call = (b: string) => `PROGRAM P\nVAR\n\tfb : FB_T;\n\tout : INT;\nEND_VAR\n${b}\nEND_PROGRAM`
+  // one input, one unknown name: within the count
+  expect(codedMessages(fb, call("out := fb.M1(zz := 1);"))).toEqual(["unknown-named-argument: 'zz' is no input of 'M1'", "unresolved-identifier: Identifier 'zz' not defined"])
+  // its input given, and an unknown name beside it: past the count
+  expect(codedMessages(fb, call("out := fb.M1(a := 1, zz := 2);"))).toEqual(["function-argument-count: Function 'M1' requires exactly '1' inputs", "unresolved-identifier: Identifier 'zz' not defined"])
+  const fn = (inputs: string) => `FUNCTION F_T : INT\n${inputs}F_T := 3;\nEND_FUNCTION`
+  const prg = "PROGRAM P\nVAR\n\tout : INT;\nEND_VAR\nout := F_T(zz := 1);\nEND_PROGRAM"
+  expect(codedMessages(fn("VAR_INPUT\n\ta : INT;\nEND_VAR\n"), prg)).toEqual(["unknown-named-argument: 'zz' is no input of 'F_T'", "unresolved-identifier: Identifier 'zz' not defined"])
+  expect(codedMessages(fn(""), prg)).toEqual(["function-argument-count: Function 'F_T' requires exactly '0' inputs", "unresolved-identifier: Identifier 'zz' not defined"])
+})
+
+// An FB INSTANCE reached through a REFERENCE TO it, an array element or SUPER^ is called as the instance is: its inputs
+// bound by name, a name it does not declare refused (`mem_reference_to_fb_call_unknown_param`,
+// `mem_array_element_call_unknown_param`, `mem_super_call_unknown_param`, both vendors 2026-10-02). The callee was looked
+// up as a SYMBOL, and none of the three is one, so the call was not checked at all.
+test("M3: an FB instance called through a REFERENCE, an array element or SUPER^ binds its inputs", () => {
+  const sub = "FUNCTION_BLOCK FB_Sub\nVAR_INPUT\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const refused = ["unknown-named-argument: 'zz' is no input of 'FB_SUB'", "unresolved-identifier: Identifier 'zz' not defined"]
+  const prg = (vars: string, body: string) => `PROGRAM P\nVAR\n\tsb : FB_Sub;\n${vars}END_VAR\n${body}\nEND_PROGRAM`
+  expect(codedMessages(sub, prg("\trf : REFERENCE TO FB_Sub;\n", "rf REF= sb;\nrf(zz := 1);"))).toEqual(refused)
+  expect(codedMessages(sub, prg("\trf : REFERENCE TO FB_Sub;\n", "rf REF= sb;\nrf(n := 1);"))).toEqual([])
+  expect(codedMessages(sub, prg("\tarr : ARRAY[1..2] OF FB_Sub;\n", "arr[1](zz := 1);"))).toEqual(refused)
+  const derived = "FUNCTION_BLOCK FB_D EXTENDS FB_Sub\nVAR\n\tj : INT;\nEND_VAR\nSUPER^(zz := 1);\nEND_FUNCTION_BLOCK"
+  expect(codedMessages(sub, derived)).toEqual(refused)
+})
+
+// The count is asked only of the shape the vendors were asked about (step 3 review, 2026-10-03): plain VAR_INPUTs, no
+// default and no VAR_IN_OUT, distinct names, an unknown INPUT name among them. A defaulted input's count is CODESYS's
+// range wording (4b), an in-out is no input of the count, a repeated known name is no unknown one — none is recorded,
+// so none is answered "requires exactly". An unknown OUTPUT binding keeps 4b's count of the inputs left out.
+test("M3/E21: the named-argument count leaves unrecorded shapes alone", () => {
+  const prg = (call: string) => `PROGRAM P\nVAR\n\tout : INT;\n\tx : INT;\nEND_VAR\n${call}\nEND_PROGRAM`
+  const counted = (fn: string, call: string) => codedMessages(fn, prg(call)).filter((m) => m.includes("requires exactly"))
+  const defaulted = "FUNCTION F_T : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT := 1;\nEND_VAR\nF_T := a;\nEND_FUNCTION"
+  expect(counted(defaulted, "out := F_T(a := 1, b := 2, zz := 3);")).toEqual([])
+  const inOut = "FUNCTION F_T : INT\nVAR_IN_OUT\n\tio : INT;\nEND_VAR\nF_T := io;\nEND_FUNCTION"
+  expect(counted(inOut, "out := F_T(io := x, zz := 2);")).toEqual([])
+  const one = "FUNCTION F_T : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nF_T := a;\nEND_FUNCTION"
+  expect(counted(one, "out := F_T(a := 1, a := 2);")).toEqual([])
+  const two = "FUNCTION F_T : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nF_T := a;\nEND_FUNCTION"
+  expect(counted(two, "out := F_T(a := 1, zz => x);")).toEqual(["function-argument-count: Function 'F_T' requires exactly '2' inputs"])
 })

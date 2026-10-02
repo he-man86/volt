@@ -220,10 +220,9 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *                            lexer reads `INT` as a name, so the LSP answers it as an unknown member ("… of
  *                            'DUT_LANG_…'" and the conversion of the unknown type). Niche: accepted loss (0 occurrences:
  *                            no component can be declared with such a name).
- *   `expr_en_eno_call` — EN and ENO on a user FUNCTION called in ST are no parameters there: "Identifier 'EN' not defined",
- *                            "Identifier 'ENO' not defined" and the input count ("requires exactly '2' inputs"), where
- *                            `call-arguments` says "'EN' is no input of …". The call checks' (the LSP review); niche:
- *                            accepted loss (0 occurrences: the corpora's `EN :=` are FB and PROGRAM calls, which build).
+ *   (`expr_en_eno_call` left 2026-10-02, task 3.5: a FUNCTION's or METHOD's named arguments are counted before they are
+ *                            named — more than it has inputs is "requires exactly 'N' inputs" and every unknown name only
+ *                            "not defined", `mem_method_unknown_param_*`.)
  *   `expr_trailing_comma_operator_call_in_initializer` — `c : INT := MAX(1, 2,);`: the LSP refuses the `)` as the vendors
  *                            do ("Expression expected instead of ')'"), and misses the two messages about the value they
  *                            keep, `MAX(MAX(SINT#1, 2), !!!'ERROR'!!!)` — a nested echo of the operator's operands with a
@@ -252,7 +251,6 @@ const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
   "expr_trailing_comma_conversion_call",
   "expr_ampersand_in_argument",
   "expr_member_named_type_keyword",
-  "expr_en_eno_call",
   "expr_trailing_comma_operator_call_in_initializer",
   "expr_pool_qualified_call",
   "expr_pool_qualified_global",
@@ -408,6 +406,21 @@ const TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL: readonly string[] = [
  * '<L-type>_TO_…' not defined" anywhere. Whether TwinCAT checks a POU at all while another fails to parse is unrecorded;
  * it is a FALSE POSITIVE by the parity rule until it is, LSP-only on all five. Build-order recovery, task 2.8.3.
  */
+/**
+ * TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT (frontend-conformance 3.6, 2026-10-02) — the three `xf_<d>_to_ldate_call_once`
+ * whose source has no refused literal, first build-recorded in 3.6: PLC_PRG's `DATE_TO_LDATE(F(calls))` is the hole's
+ * conversion on TwinCAT, and its echo writes the user FUNCTION's positional argument FORMALLY —
+ * `DATE_TO_LDATE(F_LANG_…(calls := calls))` inside the "Unknown type" — as `hdr_function_extends` records (`F(2)` echoed `F(x := INT#2)`); the
+ * LSP echoes the call as written. Every other message agrees (the "not defined" of the conversion the dialect lacks, its
+ * call target, LDATE's "Unknown type"). Not trivial: the echo (`analysis/expr-echo`) would need the callee's parameter
+ * list. Niche: accepted loss (0 occurrences in the corpora — they build, and no build of theirs echoes a hole).
+ */
+const TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT: readonly string[] = [
+  "xf_date_to_ldate_call_once",
+  "xf_dt_to_ldate_call_once",
+  "xf_tod_to_ldate_call_once",
+]
+
 const TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR: readonly string[] = [
   "xf_ldate_to_date_call_once",
   "xf_ldt_to_date_call_once",
@@ -915,6 +928,43 @@ const TWINCAT_SCOPE_DIVERGENCES: readonly string[] = [
 const INHERITANCE_DIVERGENCES: readonly string[] = ["inh_override_final_method", "inh_abstract_method_not_implemented"]
 
 /**
+ * FRONTEND-CONFORMANCE 3.5 (2026-10-02) — member fixtures (`fixtures/names/members.ts`, rule M6) whose refusal the LSP
+ * does not make, both vendors: an access modifier checked AFTER resolution — "Cannot access private method B.M"
+ * (TwinCAT "private Method"), "Cannot access protected property B.P", the declaring FB named — from outside, from a
+ * derived FB for PRIVATE, through a REFERENCE, a POINTER, SUPER^; and an interface METHOD implemented PRIVATE, "must be
+ * PUBLIC". The member still RESOLVES on both sides: its result is typed ("Cannot convert type 'INT' to type 'BOOL'"
+ * beside the refusal) and its parameters bound, as the LSP does. Niche: accepted loss (0 occurrences in the corpora of a
+ * refused access — they build). The modifiers themselves are NOT rare and NOT library-only: pro2193's own Application
+ * declares 525 PRIVATE/PROTECTED/INTERNAL members (524 METHODs — 163 PRIVATE, 350 PROTECTED, 11 INTERNAL — and 1
+ * PROTECTED PROPERTY), 380 under `01 Main`…`04 Physical Interfaces` and 145 in its project-local `99 Library` folder,
+ * none from a referenced library (counted 2026-10-03; the first note said "all library code", which was wrong). So an
+ * edit reaching one from outside is a realistic mistake the LSP stays silent on — the loss is accepted, not absent.
+ * Not trivial: a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug). A METHOD's
+ * refusal ("Cannot access private method B.M") has none. The PROPERTY cells have catalog entries — C0513 private, C0514
+ * internal, C0515 protected property access — but each documents another sentence ("Should not access private property
+ * POU Prop") than the one recorded ("Cannot access private property B.P"), unverified on either vendor (`ide-only`), so
+ * taking their number for the recorded refusal is a guess until a recording ties them; and the check itself needs the
+ * enclosing FB's EXTENDS chain at every member reference (PRIVATE from a derived FB and through SUPER^, PROTECTED
+ * inherited through a derived instance).
+ */
+const MEMBER_DIVERGENCES: readonly string[] = [
+  "mem_private_member_resolves_then_refused",
+  "mem_protected_method_from_outside",
+  "mem_private_method_result_typed",
+  "mem_private_method_unknown_param",
+  "mem_private_method_via_reference",
+  "mem_private_method_via_pointer",
+  "mem_private_method_from_derived",
+  "mem_private_method_via_super",
+  "mem_protected_inherited_from_outside",
+  "mem_private_method_implementing_interface",
+  "mem_private_property_from_outside",
+  "mem_private_property_write_from_outside",
+  "mem_protected_property_from_outside",
+  "mem_private_property_from_derived",
+]
+
+/**
  * FRONTEND-CONFORMANCE 3.3 (2026-10-02) — enum fixtures (`fixtures/names/enums.ts`) the LSP does not answer as the vendors
  * do, both vendors alike (TwinCAT's capitals aside):
  *   `enum_same_member_comparison`, `enum_implicit_member_in_other_pou` — `IF e = x THEN` with `x` a name that names nothing
@@ -1099,6 +1149,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_PRAGMA_DIVERGENCES,
     ...SCOPE_DIVERGENCES,
     ...INHERITANCE_DIVERGENCES,
+    ...MEMBER_DIVERGENCES,
     ...TWINCAT_SCOPE_DIVERGENCES,
     ...ENUM_DIVERGENCES,
     ...TWINCAT_ENUM_DIVERGENCES,
@@ -1111,6 +1162,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL,
     ...C0033_CONFIGURED_AS_AN_ERROR,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
+    ...TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT,
     ...TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...TWINCAT_XSIZEOF_IS_NO_KEYWORD,
@@ -1233,6 +1285,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_PRAGMA_DIVERGENCES,
     ...SCOPE_DIVERGENCES,
     ...INHERITANCE_DIVERGENCES,
+    ...MEMBER_DIVERGENCES,
     ...CODESYS_SCOPE_DIVERGENCES,
     ...ENUM_DIVERGENCES,
     ...CODESYS_ENUM_DIVERGENCES,

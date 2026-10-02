@@ -144,14 +144,32 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
     return isLibrarySymbol(list) || resolveGvlMember(m, scope, project) !== undefined
       ? undefined
       : { member: m.member.name, typeName: list.name, span: m.member.span }
-  const t = inferExprType(m.base, scope, project)
-  if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum") return undefined
+  // a REFERENCE TO a type is read through: `rf.nope` is no component of the FB (rule M3, `mem_unknown_member_through_reference`)
+  const written = inferExprType(m.base, scope, project)
+  const t = written.kind === "reference" ? written.target : written
+  if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum" && t.kind !== "interface") return undefined
   if (t.scope === undefined) return undefined
   const typeSym = lookupLocal(project, t.name)[0]
   if (typeSym !== undefined && isLibrarySymbol(typeSym)) return undefined // library type → signatures lossy, skip
   if (hasUnresolvedBase(t.scope)) return undefined // an unresolved EXTENDS base could hide the member
   if (lookupMember(t.scope, m.member.name) !== undefined) return undefined
-  return { member: m.member.name, typeName: t.name, span: m.member.span }
+  // an INTERFACE's member set is `<ITF>__Union` in the vendor's words: "'Nope' is no component of
+  // 'ITF_LANG_…__Union'" (rule M1, `mem_unknown_method_of_interface`, both vendors 2026-10-02)
+  return { member: m.member.name, typeName: t.kind === "interface" ? `${t.name}__Union` : t.name, span: m.member.span }
+}
+
+/**
+ * The bases of member accesses `p.x` in `exprs` that are a POINTER, read without its `^` — "'p' is no structured
+ * variable" on both vendors, the access then a hole (rule M3, `mem_pointer_member_without_deref`, 2026-10-02). A
+ * pointer has no members of its own; `p^.x` is the target's.
+ */
+export function pointerMemberBases(exprs: Iterable<Expr>, scope: Scope, project: Scope): Expr[] {
+  const out: Expr[] = []
+  for (const e of exprs)
+    walkExpr(e, (x) => {
+      if (x.kind === "member" && inferExprType(x.base, scope, project).kind === "pointer") out.push(x.base)
+    })
+  return out
 }
 
 /**

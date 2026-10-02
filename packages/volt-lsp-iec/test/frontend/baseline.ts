@@ -63,7 +63,28 @@ const LIB_REFERENCE_FACTS =
 const TWO_LIBRARIES_ERROR =
   "bare `ERROR` (Util's, CAA Device Diagnosis') is Util's on CODESYS — DED's is no candidate, a qualified-access fact the manifest does not carry; the LSP ranks the two alike and binds DED's by the URI tiebreak, so `.WRONG_CONFIGURATION` is unresolved. Not a regression: the same input gave the same answer before 3.4, which made it measurable"
 
+const ADR_RESULT_TYPE = "frontend-conformance 4.3.4 (every built-in's result type: ADR's is POINTER TO its operand's)"
+const ADR_IN_A_MEMBER_FIXTURE =
+  "3.5's pointer cells (rule M3) must take an instance's address — `p := ADR(sb)` — to ask what is reached through it; ADR's call is the named class `call UNKNOWN, SIZEOF or ADR`, which no known-divergence list can hold (the replay agrees with both builds)"
+/** The 3.5 member fixtures taking `ADR(sb)`, with how many each carries — one ceiling exception per fixture and vendor. */
+const ADR_CELLS: readonly [string, number][] = [
+  ["mem_unknown_member_through_pointer", 1],
+  ["mem_pointer_deref_method", 1],
+  ["mem_pointer_to_pointer_member", 2],
+  ["mem_pointer_member_without_deref", 1],
+]
+
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
+  ...ADR_CELLS.flatMap(([fixture, by]) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`,
+      by,
+      fixture,
+      task: ADR_RESULT_TYPE,
+      why: ADR_IN_A_MEMBER_FIXTURE,
+    })),
+  ),
   { baseline: "resolution-dump", measure: "findings", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
   { baseline: "resolution-dump", measure: "fixtures codesys: member NONE", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
   { baseline: "type-dump", measure: "fixtures codesys: member UNKNOWN", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },

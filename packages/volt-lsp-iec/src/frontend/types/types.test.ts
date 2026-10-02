@@ -348,6 +348,20 @@ test("a member through a REFERENCE TO an FB or a STRUCT has the member's type", 
   expect(renderType(inferExpr(before, "VAR\n rs : REFERENCE TO S;\nEND_VAR", "rs.w"))).toBe("WORD")
 })
 
+// a POINTER indexed is its target (rule M3): `p[2].x` over `p : POINTER TO S` reads the struct two elements on —
+// `mem_pointer_index_struct_array` builds and runs `viaIndex` 30 on both vendors; the index read the pointer as no array
+test("M3: an index of a POINTER is its target — `p[2].x` has the field's type", () => {
+  const before = "TYPE S :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n\n"
+  expect(renderType(inferExpr(before, "VAR\n p : POINTER TO S;\nEND_VAR", "p[2]"))).toBe("S")
+  expect(renderType(inferExpr(before, "VAR\n p : POINTER TO S;\nEND_VAR", "p[2].x"))).toBe("INT")
+})
+
+// a dereferenced FB instance CALLED is the instance, as an array element called is (`SUPER^(…)`, `p^(…)`; rule M3)
+test("M3: a dereferenced FB instance called has the FB's type", () => {
+  const before = "FUNCTION_BLOCK B\nVAR_INPUT\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n"
+  expect(renderType(inferExpr(before, "VAR\n p : POINTER TO B;\nEND_VAR", "p^(n := 1)"))).toBe("B")
+})
+
 // `Ns.Enum.Member` — a referenced library's enum named through its namespace (rule EN6, `enum_library_namespace_qualified`:
 // `Util.WEEKDAY.THURSDAY` builds and runs 4, CODESYS 2026-10-02): the type a namespace holds is a static base, as the bare
 // `WEEKDAY` is, so the member is that enum's value
