@@ -17,6 +17,7 @@ import type { Scope, Symbol } from "./model.js"
 import { isLibrarySymbol, lookupLocal } from "./scope.js"
 import { pickForAsker } from "./precedence.js"
 import { childIndex, generationOf, spanIndex } from "./cache.js"
+import { ancestry } from "./extends.js"
 
 export interface LookupResult {
   symbol: Symbol
@@ -32,6 +33,14 @@ export interface LookupResult {
  * and can shadow a same-named GVL block (the lenze `Mach1` collision → 197 spurious unknown-member FPs).
  */
 function lookupInChain(scope: Scope, name: string): LookupResult | undefined {
+  // an INTERFACE inherits from each base of its EXTENDS list (rule H4): the whole ancestry, nearest first
+  if (scope.interfaceBases !== undefined) {
+    for (const s of ancestry(scope)) {
+      const hit = lookupLocal(s, name).find(binds)
+      if (hit !== undefined) return { symbol: hit, foundIn: s }
+    }
+    return undefined
+  }
   const seen = new Set<Scope>()
   let s: Scope | undefined = scope
   while (s !== undefined && !seen.has(s)) {
@@ -186,14 +195,12 @@ export function gvlBlockOf(base: Expr, scope: Scope, project: Scope): Symbol | u
  * this to skip (a member could live in the unresolved base) rather than false-positive.
  */
 export function hasUnresolvedBase(scope: Scope): boolean {
-  const seen = new Set<Scope>()
-  let s: Scope | undefined = scope
-  while (s !== undefined && !seen.has(s)) {
-    seen.add(s)
-    if (s.extendsName !== undefined && s.baseScope === undefined) return true
-    s = s.baseScope
-  }
-  return false
+  // an interface's EXTENDS list counts too: a name of it that resolved to nothing has no entry in `interfaceBases`
+  return ancestry(scope).some(
+    (s) =>
+      (s.extendsName !== undefined && s.baseScope === undefined) ||
+      (s.interfaceExtends !== undefined && (s.interfaceBases?.length ?? 0) < s.interfaceExtends.length),
+  )
 }
 
 /** Direct child scopes of `parent` by name (case-insensitive), via a lazy index. Multiple only on same-name

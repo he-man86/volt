@@ -1,7 +1,7 @@
 /**
- * inheritance (oop/) — resolution + structural checks on an FB's inheritance clauses:
- *   C0091 circular-inheritance — `EXTENDS` names the FB itself (a direct cycle).
- *   C0090 base-class-not-found  — `EXTENDS <name>` where `<name>` resolves to no definition.
+ * inheritance (oop/) — resolution + structural checks on an FB's, an interface's and a STRUCT's inheritance clauses:
+ *   C0091 circular-inheritance — an `EXTENDS` cycle, of FBs, interfaces or STRUCTs (`checkCycles`).
+ *   C0090 base-class-not-found  — `EXTENDS <name>` (an FB's, an interface's list's) where `<name>` resolves to no definition.
  *   C0086 interface-not-found   — `IMPLEMENTS <name>` where `<name>` resolves to no definition.
  *
  * C0090/C0086 reuse the SAME `nameResolves` oracle as `unresolved-identifier`, so the library
@@ -10,7 +10,8 @@
  * self-cycle (C0091) is flagged before the not-found check so `EXTENDS FB` on `FB` reports the cycle, not a
  * spurious not-found.
  */
-import { isLibrarySymbol, lookupUnit, scopeForUnit } from "../../../frontend/symbols/index.js"
+import { extendsCycle, isLibrarySymbol, lookupUnit, scopeForUnit, type Scope } from "../../../frontend/symbols/index.js"
+import type { Identifier, TopLevel } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { nameResolves } from "../../resolution.js"
@@ -18,23 +19,79 @@ import { nameResolves } from "../../resolution.js"
 /** POU kinds an `IMPLEMENTS` name must not be — each disproves "this is an interface". */
 const NOT_AN_INTERFACE: ReadonlySet<string> = new Set(["function_block", "function", "program", "dut"])
 
-/** The EXTENDS chain from `start` back to `start`, or undefined when it ends or leaves the project. */
-function cycleFrom(start: string, ctx: CheckContext): string[] | undefined {
-  const declared = new Map<string, string>()
-  for (const u of ctx.parseResult.units) if (u.kind === "function_block" && u.extends !== undefined) declared.set(u.name.text.toUpperCase(), u.extends.text)
-  const path: string[] = [start]
-  const seen = new Set([start.toUpperCase()])
-  for (let next = declared.get(start.toUpperCase()); next !== undefined; next = declared.get(next.toUpperCase())) {
-    if (next.toUpperCase() === start.toUpperCase()) return path
-    if (seen.has(next.toUpperCase())) return undefined // a cycle that does not include `start` — its own FB reports it
-    seen.add(next.toUpperCase())
-    path.push(next)
-  }
+/** The first base a unit's EXTENDS names, written: an FB's, a STRUCT's, an interface's list's first. */
+function firstBase(unit: TopLevel): Identifier | undefined {
+  if (unit.kind === "function_block") return unit.extends
+  if (unit.kind === "interface") return unit.extends?.[0]
+  if (unit.kind === "type_decl" && unit.body.kind === "struct") return unit.body.extends
   return undefined
 }
 
+/**
+ * EXTENDS CYCLES, of every kind that extends (rule H9): FBs, INTERFACEs and STRUCTs are all "Recursion in base function
+ * block list: A -> B -> A" (`inh_extends_cycle`, `inh_interface_extends_cycle`, `inh_struct_extends_cycle`, both
+ * vendors 2026-10-02). The cycle is the one the symbol table LINKED (`extends.ts` `extendsCycle`) — this re-derived
+ * the chain by name from the file's FBs alone, so a cycle through an interface or a struct was never seen. Reported ONCE
+ * per cycle, at the first unit of it in this file, as the IDE reports it once for the chain it compiled.
+ */
+function checkCycles(ctx: CheckContext, out: DiagnosticItem[]): Set<Scope> {
+  const inCycle = new Set<Scope>()
+  for (const unit of ctx.parseResult.units) {
+    const base = firstBase(unit)
+    if (base === undefined) continue
+    const scope = scopeForUnit(ctx.project, unit)
+    if (scope === undefined) continue
+    const cycle = extendsCycle(scope)
+    if (cycle === undefined) continue
+    const seen = cycle.some((s) => inCycle.has(s))
+    for (const s of cycle) inCycle.add(s)
+    if (!seen)
+      out.push({
+        severity: "error",
+        span: base.span,
+        source: SOURCE,
+        code: "circular-inheritance",
+        message: ctx.messages.circularInheritance(cycle.map((s) => s.name).join(" -> ")),
+      })
+  }
+  return inCycle
+}
+
+/**
+ * An INTERFACE base that resolves to nothing (rules H4, H7): "No definition found for base class 'I'" as an FB's, and on
+ * CODESYS "Unknown type: 'I'" too (`inh_interface_extends_unknown`, both vendors 2026-10-02). Unchecked until the
+ * binder linked interface bases.
+ */
+function checkInterfaceBases(ctx: CheckContext, out: DiagnosticItem[]): void {
+  for (const unit of ctx.parseResult.units) {
+    if (unit.kind !== "interface" || unit.extends === undefined) continue
+    const sym = lookupUnit(ctx.project, unit.name.text)?.symbol
+    if (sym !== undefined && isLibrarySymbol(sym)) continue
+    const scope = scopeForUnit(ctx.project, unit)
+    if (scope === undefined) continue
+    const linked = new Set((scope.interfaceBases ?? []).map((b) => b.name.toLowerCase()))
+    for (const b of unit.extends) {
+      const name = b.text.slice(b.text.lastIndexOf(".") + 1).toLowerCase()
+      if (linked.has(name) || nameResolves(b.text, scope)) continue
+      out.push(...baseNotFound(ctx, b))
+    }
+  }
+}
+
+/**
+ * A base nothing declares: "No definition found for base class" (C0090, `base-class-not-found`) and, on CODESYS, "Unknown
+ * type" (C0077, `unknown-type`) — each sentence under ITS rule's code, so a code filter, the docs link and the config
+ * switch name the rule that sentence is. Both went out as `base-class-not-found`, C0090 on the wire for C0077's words.
+ */
+function baseNotFound(ctx: CheckContext, base: { text: string; span: DiagnosticItem["span"] }): DiagnosticItem[] {
+  const at = (code: string, message: string): DiagnosticItem => ({ severity: "error", span: base.span, source: SOURCE, code, message })
+  const notFound = at("base-class-not-found", ctx.messages.baseClassNotFound(base.text))
+  return ctx.config.vendor === "twincat" ? [notFound] : [notFound, at("unknown-type", ctx.messages.unknownType(base.text))]
+}
+
 export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void {
-  const reported = new Set<string>()
+  const inCycle = checkCycles(ctx, out)
+  checkInterfaceBases(ctx, out)
   for (const unit of ctx.parseResult.units) {
     if (unit.kind !== "function_block") continue
     // A library-provided FB's own EXTENDS/IMPLEMENTS is the library's concern — its base may be another
@@ -43,33 +100,16 @@ export function checkInheritance(ctx: CheckContext, out: DiagnosticItem[]): void
     if (sym !== undefined && isLibrarySymbol(sym)) continue
     const scope = scopeForUnit(ctx.project, unit) ?? ctx.project
     if (unit.extends !== undefined) {
-      // An INDIRECT cycle too — `A EXTENDS B` with `B EXTENDS A` — which CODESYS reports as the whole path
-      // (conformance `cc2_circular_inheritance`: "FB_C2_circleA -> FB_C2_circleB -> FB_C2_circleA"). Only the direct
-      // self-cycle was found, so an indirect one fell through to the checks below and came out as nonsense: a
-      // duplicate-variable error naming the FB as its OWN base. Reported ONCE per cycle, at the first FB of it in this
-      // file, as the IDE reports it once for the chain it compiled.
-      const cycle = cycleFrom(unit.name.text, ctx)
-      if (cycle !== undefined && !reported.has(cycle[0]!.toUpperCase())) {
-        for (const name of cycle) reported.add(name.toUpperCase())
-        out.push({
-          severity: "error",
-          span: unit.extends.span,
-          source: SOURCE,
-          code: "circular-inheritance",
-          message: ctx.messages.circularInheritance([...cycle, cycle[0]!].join(" -> ")),
-        })
-      } else if (cycle !== undefined) {
-        continue
-      } else if (scope.baseScope === undefined && !nameResolves(unit.extends.text, scope)) {
+      // a cycle (`checkCycles`) is reported as the whole path, and no unresolved base besides — an indirect cycle
+      // that fell through came out as nonsense: a duplicate-variable error naming the FB as its OWN base
+      if (!inCycle.has(scope) && scope.baseScope === undefined && !nameResolves(unit.extends.text, scope)) {
         // the base the symbol table LINKED is the answer first: a qualified library base (`EXTENDS Standard.TON`,
         // `unit_fb_extends_qualified`) resolves there, through its namespace, where a name lookup has no namespace
         // Two errors for a base: the definition it could not find, and the TYPE it therefore does not have. An
         // unresolved INTERFACE gets only the first (conformance `cc2_base_and_interface_not_found`).
         // TWINCAT REPORTS ONLY THE FIRST — same fixture, its recording 2026-09-20: it says the base class is
         // not found and stops, where CODESYS goes on to say the FB therefore has no type.
-        const both = [ctx.messages.baseClassNotFound(unit.extends.text), ctx.messages.unknownType(unit.extends.text)]
-        for (const message of ctx.config.vendor === "twincat" ? both.slice(0, 1) : both)
-          out.push({ severity: "error", span: unit.extends.span, source: SOURCE, code: "base-class-not-found", message })
+        out.push(...baseNotFound(ctx, unit.extends))
       }
     }
     for (const iface of unit.implements ?? []) {

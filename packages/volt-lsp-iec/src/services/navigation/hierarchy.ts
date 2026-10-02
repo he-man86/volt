@@ -5,7 +5,7 @@
  */
 import type { Range, SymbolKind as LspKind } from "vscode-languageserver-protocol"
 import { type TopLevel, walkAllExprs } from "../../frontend/syntax/index.js"
-import { findScopeByName, lookup, type Scope, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
+import { basesOf, childScopesByName, findScopeByName, lookup, lookupLocal, type Scope, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
 import { resolveMemberChain } from "../../frontend/types/index.js"
 import { lspSymbolKind, rangeFromSpan, resolveAt } from "../shared/index.js"
 import type { Document } from "../shared/index.js"
@@ -30,48 +30,46 @@ export function prepareTypeHierarchy(
   return { item: itemOf(sym), sym }
 }
 
-/** Supertypes: the EXTENDS base + every IMPLEMENTS interface of an FB/interface. */
+/**
+ * Supertypes: what an FB or interface EXTENDS — the bases the symbol table LINKED (`extends.ts`, by precedence among
+ * same-named candidates, rule H8; an interface's whole list, H4) — and every interface an FB IMPLEMENTS.
+ */
 export function typeSupertypes(project: Scope, sym: Symbol): HierItem[] {
-  const ast = sym.ast
-  const names: string[] = []
-  if (ast.kind === "function_block") {
-    if (ast.extends !== undefined) names.push(ast.extends.text)
-    for (const i of ast.implements ?? []) names.push(i.text)
-  } else if (ast.kind === "interface") {
-    for (const i of ast.extends ?? []) names.push(i.text)
+  const out = new Map<Symbol, HierItem>()
+  const scope = scopeOf(sym)
+  for (const b of scope === undefined ? [] : basesOf(scope)) {
+    const s = symbolOf(b)
+    if (s !== undefined) out.set(s, itemOf(s))
   }
+  if (sym.ast.kind === "function_block")
+    for (const i of sym.ast.implements ?? []) {
+      const s = lookup(project, i.text)?.symbol
+      if (s !== undefined) out.set(s, itemOf(s))
+    }
+  return [...out.values()]
+}
+
+/** Subtypes: every FB/interface whose linked base is `sym`'s scope, or that IMPLEMENTS `sym`, across the project. */
+export function typeSubtypes(project: Scope, sym: Symbol): HierItem[] {
+  const target = scopeOf(sym)
+  const name = sym.name.toLowerCase()
   const out: HierItem[] = []
-  for (const name of new Set(names)) {
-    const s = lookup(project, name)?.symbol
-    if (s !== undefined) out.push(itemOf(s))
+  for (const child of project.children) {
+    if (child.kind !== "pou" && child.kind !== "interface") continue
+    const s = symbolOf(child)
+    if (s === undefined) continue
+    const implementsIt = s.ast.kind === "function_block" && (s.ast.implements ?? []).some((i) => i.text.toLowerCase() === name)
+    if ((target !== undefined && basesOf(child).includes(target)) || implementsIt) out.push(itemOf(s))
   }
   return out
 }
 
-/** Subtypes: every FB/interface that EXTENDS or IMPLEMENTS `sym`, across the workspace. */
-export function typeSubtypes(docs: Iterable<Document>, sym: Symbol): HierItem[] {
-  const target = sym.name.toLowerCase()
-  const out: HierItem[] = []
-  for (const d of docs) {
-    for (const unit of d.parseResult.units) {
-      const derived =
-        (unit.kind === "function_block" &&
-          (unit.extends?.text.toLowerCase() === target ||
-            (unit.implements ?? []).some((i) => i.text.toLowerCase() === target))) ||
-        (unit.kind === "interface" && (unit.extends ?? []).some((i) => i.text.toLowerCase() === target))
-      if (derived && "name" in unit) {
-        out.push({
-          name: unit.name.text,
-          kind: lspSymbolKind(unit.kind === "interface" ? "interface" : "function_block"),
-          uri: d.uri,
-          range: rangeFromSpan(unit.span),
-          selectionRange: rangeFromSpan(unit.name.span),
-        })
-      }
-    }
-  }
-  return out
-}
+/** The scope a top-level FB/interface symbol declares (its own span). */
+const scopeOf = (sym: Symbol): Scope | undefined => childScopesByName(sym.owner, sym.name).find((c) => c.span === sym.declarationSpan)
+
+/** The FB/interface symbol a top-level scope is the scope of. */
+const symbolOf = (scope: Scope): Symbol | undefined =>
+  scope.parent === undefined ? undefined : lookupLocal(scope.parent, scope.name).find((s) => s.declarationSpan === scope.span && isTypeLike(s))
 
 // ─── call hierarchy ──────────────────────────────────────────────────────────
 

@@ -1382,7 +1382,14 @@
       "codesys": true,
       "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "reproFiles": [
+      {
+        "uri": "PLC_PRG.prg",
+        "source": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR"
+      }
+    ],
+    "note": "The repro instances the FB in PLC_PRG (reproFiles): the vendors check an override/implementation only in an FB they compile — instanced, or a base of one (frontend-conformance 3.2, recorded inh_override_uninstanced, inh_interface_method_signature_mismatch_uninstanced, inh_implements_derived_missing_base_method_uninstanced)."
   },
   {
     "code": "C0089",
@@ -1403,7 +1410,14 @@
       "codesys": true,
       "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "reproFiles": [
+      {
+        "uri": "PLC_PRG.prg",
+        "source": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR"
+      }
+    ],
+    "note": "The repro instances the FB in PLC_PRG (reproFiles): the vendors check an override/implementation only in an FB they compile — instanced, or a base of one (frontend-conformance 3.2, recorded inh_override_uninstanced, inh_interface_method_signature_mismatch_uninstanced, inh_implements_derived_missing_base_method_uninstanced)."
   },
   {
     "code": "C0090",
@@ -1467,7 +1481,14 @@
       "codesys": true,
       "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "reproFiles": [
+      {
+        "uri": "PLC_PRG.prg",
+        "source": "PROGRAM PLC_PRG\nVAR\n    inst : XY2;\nEND_VAR"
+      }
+    ],
+    "note": "The repro instances the FB in PLC_PRG (reproFiles): the vendors check an override/implementation only in an FB they compile — instanced, or a base of one (frontend-conformance 3.2, recorded inh_override_uninstanced, inh_interface_method_signature_mismatch_uninstanced, inh_implements_derived_missing_base_method_uninstanced)."
   },
   {
     "code": "C0096",
@@ -4691,7 +4712,14 @@
       "codesys": true,
       "twincat": true
     },
-    "fix": null
+    "fix": null,
+    "reproFiles": [
+      {
+        "uri": "PLC_PRG.prg",
+        "source": "PROGRAM PLC_PRG\nVAR\n    inst : XY2;\nEND_VAR"
+      }
+    ],
+    "note": "The repro instances the FB in PLC_PRG (reproFiles): the vendors check an override/implementation only in an FB they compile — instanced, or a base of one (frontend-conformance 3.2, recorded inh_override_uninstanced, inh_interface_method_signature_mismatch_uninstanced, inh_implements_derived_missing_base_method_uninstanced)."
   },
   {
     "code": "C0569",

@@ -328,3 +328,22 @@ test("the parser's elementary type words are every name an elementary type answe
   const names = [...ELEMENTARY_TYPES.keys(), ...ELEM_ALIASES.keys(), ...PLATFORM_ALIASES.keys()].sort()
   expect([...ELEMENTARY_TYPE_WORDS].sort()).toEqual(names)
 })
+
+// rule H2: `inst.baseMember` types through the instance's FB AND its bases (`callshape_inout_base_method_from_outside_derived`
+// was UNKNOWN): the member chain looked in the FB's own scope only
+test("H2: a base FB's member read through a derived instance has the base member's type", () => {
+  const before =
+    "FUNCTION_BLOCK B\nVAR\n\tbx : DINT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Get : LREAL\nEND_METHOD\n\nFUNCTION_BLOCK D EXTENDS B\nEND_FUNCTION_BLOCK\n\n"
+  expect(renderType(inferExpr(before, "VAR\n d : D;\nEND_VAR", "d.bx"))).toBe("DINT")
+  expect(renderType(inferExpr(before, "VAR\n d : D;\nEND_VAR", "d.Get()"))).toBe("LREAL")
+})
+
+// a member read through a REFERENCE TO an FB is the FB's member (`inh_override_reference_only`: `r_….M(a := 1)` both vendors
+// build; `xo_reference_to_fb_call`, `refdecl_to_struct`): the member scope looked at the reference, not its target
+test("a member through a REFERENCE TO an FB or a STRUCT has the member's type", () => {
+  const before =
+    "FUNCTION_BLOCK B\nVAR\n\tbx : DINT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Get : LREAL\nEND_METHOD\n\nTYPE S :\nSTRUCT\n\tw : WORD;\nEND_STRUCT\nEND_TYPE\n\n"
+  expect(renderType(inferExpr(before, "VAR\n rf : REFERENCE TO B;\nEND_VAR", "rf.bx"))).toBe("DINT")
+  expect(renderType(inferExpr(before, "VAR\n rf : REFERENCE TO B;\nEND_VAR", "rf.Get()"))).toBe("LREAL")
+  expect(renderType(inferExpr(before, "VAR\n rs : REFERENCE TO S;\nEND_VAR", "rs.w"))).toBe("WORD")
+})

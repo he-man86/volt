@@ -89,7 +89,9 @@ export function boundCensus(): BoundCensus {
   const c: BoundCensus = {
     resolution: {},
     fixtureUnresolved: [],
-    types: {},
+    // the run paths inferred UNKNOWN are measured at 0 too, so a ceiling that reached 0 stays pinned there (frontend-
+    // conformance 3.2: the inherited-member class closed at 41 → 0, the rest 2 → 0)
+    types: { "run: path inferred UNKNOWN": 0, [INHERITED_THROUGH_INSTANCE]: 0 },
     typeDisagreements: [],
     folds: {},
     foldDisagreements: [],
@@ -621,6 +623,10 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
   // each store explains ONE copy of a message: it is used up by the message it explains
   const unused = new Set(stores)
   const refused = new Set<Store>()
+  // an override whose parameter differs from its base method's: the vendor says the parameter's conversion beside it,
+  // "Cannot convert type 'DINT' to type 'INT'" — a signature, not a store (rule H10, `analysis/checks/oop/method-signature`
+  // says it; `inh_override_signature_mismatch`, `_section_mismatch`, `_pointer_only`, both vendors)
+  const overrides = build.diagnostics.some((d) => /^Interface of overridden method '.+' of base '.+' doesn't match declaration$/.test(d.message))
   for (const d of build.diagnostics) {
     const m = TYPE_MESSAGES.map((r) => r.exec(d.message)).find((x) => x !== null)
     if (m === undefined || m === null) continue
@@ -633,7 +639,9 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
       unused.delete(by)
       if (m[0].startsWith("Cannot convert")) refused.add(by)
       tally(c.types, key("explained by the inferred types"))
-    } else
+    } else if (overrides && m[0].startsWith("Cannot convert"))
+      tally(c.types, key("explained by an override's parameter (H10)"))
+    else
       c.typeDisagreements.push(
         `${vendor} ${name}: build says ${JSON.stringify(d.message)} — ${
           stores.some((s) => s.target === y && s.value.has(x)) ? "once more than" : "no"
@@ -691,15 +699,16 @@ function crossCheckRunTypes(f: FixtureSources, plc: Bound, c: BoundCensus): void
       continue
     }
     if (inferred === "?") {
-      // a member the instance's FB INHERITS, read through the instance (`inst.baseField`): member inference looks in the
-      // FB's own scope and not its bases' — rule H2, task 3.2.3 owns it ("infer/member uses lookupMember"). Counted
-      // apart, its owner named, so the measure it would raise says why (`sym_inherited_member_before_global`, 3.1.5)
-      tally(c.types, inheritedThroughInstance(expr, scope, plc.project) ? "run: path inferred UNKNOWN, an inherited member through an instance (H2, task 3.2.3)" : "run: path inferred UNKNOWN")
+      // a member the instance's FB INHERITS, read through the instance (`inst.baseField`) — counted apart, its owner named,
+      // so a measure it would raise says why; rule H2 closed it (task 3.2.3, `infer/member` `lookupMember`: 41 → 0)
+      tally(c.types, inheritedThroughInstance(expr, scope, plc.project) ? INHERITED_THROUGH_INSTANCE : "run: path inferred UNKNOWN")
       c.typeDisagreements.push(`${name}: run path ${path} is ${recorded}, inferred UNKNOWN`)
     } else if (sameType(recorded, inferred)) tally(c.types, "run: path inferred as recorded")
     else c.typeDisagreements.push(`${name}: run path ${path} is ${recorded}, inferred ${inferred}`)
   }
 }
+
+const INHERITED_THROUGH_INSTANCE = "run: path inferred UNKNOWN, an inherited member through an instance (H2, task 3.2.3)"
 
 /** `inst.m` where `m` is no member of the instance's FB itself but of a base it extends. */
 function inheritedThroughInstance(expr: Expr, scope: Scope, project: Scope): boolean {

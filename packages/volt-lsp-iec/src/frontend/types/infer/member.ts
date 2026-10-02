@@ -8,6 +8,7 @@ import {
   enclosingPou,
   lookup,
   lookupGlobal,
+  lookupMember,
   lookupLocal,
   resolveBareEnumMember,
   resolveGvlMember,
@@ -39,7 +40,9 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
       if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return undefined
       const base = inferExprType(expr.base, scope, project)
       const memberScope = memberScopeOf(base)
-      return memberScope !== undefined ? lookupLocal(memberScope, expr.member.name)[0] : undefined
+      // the member scope AND what it inherits (rule H2): `inst.baseMember` is the base FB's member, an interface's base's
+      // member the derived interface's (`callshape_inout_base_method_from_outside_derived`, `inh_interface_extends_member`)
+      return memberScope !== undefined ? lookupMember(memberScope, expr.member.name) : undefined
     }
     case "paren":
       return resolveMemberChain(expr.inner, scope, project)
@@ -50,8 +53,11 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
   }
 }
 
-/** The member scope of a scoped type (enum, struct, FB, interface), or undefined. Completion kept a copy. */
-export function memberScopeOf(t: Type): Scope | undefined {
+/** The member scope of a scoped type (enum, struct, FB, interface), or undefined. Completion kept a copy. A REFERENCE TO
+ *  one is read through: `r.M(a := 1)` with `r : REFERENCE TO FB` calls the FB's method (`inh_override_reference_only`,
+ *  both vendors build it and refuse only the override). */
+export function memberScopeOf(written: Type): Scope | undefined {
+  const t = written.kind === "reference" ? written.target : written
   return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
 }
 

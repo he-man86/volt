@@ -43,7 +43,7 @@ export {
   visibleNames,
   type LookupResult,
 } from "./scope-nav.js"
-export { baseOf, extendsChain } from "./extends.js"
+export { ancestry, baseOf, basesOf, extendsChain, extendsCycle } from "./extends.js"
 export { libraryRank, pickForAsker, scopeUri } from "./precedence.js"
 export { manifestsByTitle } from "./library-namespaces.js"
 

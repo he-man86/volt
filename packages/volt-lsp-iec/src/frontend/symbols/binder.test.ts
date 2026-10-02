@@ -215,3 +215,21 @@ test("an FB whose header the vendor refuses is declared nowhere; a bodiless TYPE
   expect(lookupLocal(project, "FB_A")).toEqual([])
   expect(lookupLocal(project, "T_X").map((s) => s.kind)).toEqual(["type"])
 })
+
+// ── rules H4/H5: interfaces (`fixtures/names/inheritance.ts`, both vendors 2026-10-02) ─────────────────────────────
+test("H4: an INTERFACE's EXTENDS list is linked — each base's member reaches through the derived interface", () => {
+  const p = build({
+    uri: "I.itf",
+    src: `INTERFACE I_A\nMETHOD Ma : INT\nEND_METHOD\nEND_INTERFACE\n\nINTERFACE I_B\nMETHOD Mb : INT\nEND_METHOD\nEND_INTERFACE\n\nINTERFACE I_D EXTENDS I_A, I_B\nEND_INTERFACE\n`,
+  })
+  const d = findChildScope(p, "I_D")!
+  expect(d.interfaceBases?.map((b) => b.name)).toEqual(["I_A", "I_B"])
+  expect(lookupMember(d, "Mb")?.kind).toBe("interface_method")
+  expect(lookupMember(d, "Ma")?.owner.name).toBe("I_A")
+})
+test("H5: an interface METHOD's parameters are bound in a scope of the method", () => {
+  const p = build({ uri: "I.itf", src: `INTERFACE I\nMETHOD M : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\nEND_METHOD\nEND_INTERFACE\n` })
+  const m = findChildScope(findChildScope(p, "I")!, "M")!
+  expect(m.kind).toBe("method")
+  expect(lookupLocal(m, "a")[0]?.kind).toBe("method_param")
+})

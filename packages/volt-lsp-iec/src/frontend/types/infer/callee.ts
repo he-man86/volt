@@ -2,10 +2,9 @@
  * A CALL'S CALLEE — the function, method or FB instance a call names, with its formal parameters in binding order.
  * Shared by signature help and the call-argument check.
  */
-import { isLibrarySymbol, lookup, lookupLocal, type Scope, type Symbol } from "../../symbols/index.js"
+import { extendsChain, extendsCycle, hasUnresolvedBase, isLibrarySymbol, lookupLocal, type Scope, type Symbol } from "../../symbols/index.js"
 import type {
   CallExpr,
-  FunctionBlock,
   Identifier,
   Method,
   TypeExpr,
@@ -58,7 +57,7 @@ export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): Cal
   if (t.kind === "function_block" && t.scope?.parent !== undefined) {
     const fbSym = lookupLocal(t.scope.parent, t.name).find((s) => s.kind === "function_block")
     if (fbSym !== undefined && (fbSym.ast as { kind: string }).kind === "function_block") {
-      const chain = fbChainSections(fbSym.ast as FunctionBlock, fbSym.owner)
+      const chain = fbChainSections(t.scope)
       return calleeInfo(fbSym, chain.sections, chain.complete, t.scope)
     }
   }
@@ -67,36 +66,30 @@ export function resolveCallee(call: CallExpr, scope: Scope, project: Scope): Cal
 
 /**
  * The var sections of an FB and its EXTENDS base chain, BASE-FIRST (matching positional-binding order), plus
- * whether the chain is fully resolved to project source. `complete` goes false on a cycle, an unresolvable
- * base, or a base from a referenced library (whose flattened signature can't be trusted for arity).
+ * whether the chain is fully resolved to project source. The chain is the one the symbol table LINKED (`extendsChain`
+ * — by precedence among same-named candidates, rule H8); it was looked up by NAME, which under a project FB shadowing a
+ * library's is the library's. `complete` goes false on a cycle (one the chain runs into included), an unresolvable base,
+ * or a base from a referenced library (whose flattened signature can't be trusted for arity) — the chain is cut at the
+ * first such base.
  */
-function fbChainSections(fb: FunctionBlock, definedIn: Scope): { sections: VarSection[]; complete: boolean } {
-  const chain: (readonly VarSection[])[] = []
-  const seen = new Set<string>()
-  let cur: FunctionBlock | undefined = fb
-  let where: Scope = definedIn
-  let complete = true
-  while (cur !== undefined) {
-    chain.push(cur.varSections)
-    const baseName: string | undefined = cur.extends?.text
-    if (baseName === undefined) break
-    if (seen.has(baseName.toLowerCase())) {
-      complete = false // cycle
-      break
-    }
-    seen.add(baseName.toLowerCase())
-    const baseSym: Symbol | undefined = lookup(where, baseName)?.symbol
-    // A library base's uri sits under "Library Manager"; its signature flattens sections, so it can't be
-    // trusted for arity. `isLibrarySymbol` normalizes the `%20` the live server sends (a raw match missed it).
-    if (baseSym === undefined || isLibrarySymbol(baseSym) || baseSym.ast.kind !== "function_block") {
+function fbChainSections(fbScope: Scope): { sections: VarSection[]; complete: boolean } {
+  const chain = extendsChain(fbScope) // base-first
+  // a chain whose most basic scope still HAS a base stopped where it closed on itself — a cycle the FB is on, or one its
+  // chain runs into (X → A → B → A), which `extendsCycle(fbScope)` does not report (it finds only a path back to X)
+  let complete = !hasUnresolvedBase(fbScope) && extendsCycle(fbScope) === undefined && chain[0]?.baseScope === undefined
+  const sections: VarSection[] = []
+  // from the FB outward, so a library BASE (`isLibrarySymbol` normalizes the `%20` the live server sends) cuts it
+  const kept: (readonly VarSection[])[] = []
+  for (let i = chain.length - 1; i >= 0; i--) {
+    const s = chain[i]!
+    const sym = s.parent === undefined ? undefined : lookupLocal(s.parent, s.name).find((x) => x.declarationSpan === s.span)
+    if (sym === undefined || (i < chain.length - 1 && isLibrarySymbol(sym)) || sym.ast.kind !== "function_block") {
       complete = false
       break
     }
-    cur = baseSym.ast
-    where = baseSym.owner
+    kept.push(sym.ast.varSections)
   }
-  const sections: VarSection[] = []
-  for (let i = chain.length - 1; i >= 0; i--) sections.push(...chain[i]) // base-first
+  for (let i = kept.length - 1; i >= 0; i--) sections.push(...kept[i]!)
   return { sections, complete }
 }
 

@@ -121,6 +121,16 @@ export interface Scope {
   extendsName?: string
   /** Resolved base scope (from `EXTENDS`) — inherited members resolve through it. Linked post-pass. */
   baseScope?: Scope
+  /**
+   * An INTERFACE's `EXTENDS` LIST (lowercased, as written), pending resolution by `linkExtends` — an interface extends
+   * several (`INTERFACE I EXTENDS I_a, I_b`, rule H4), where an FB or a STRUCT names one base (`extendsName`).
+   */
+  interfaceExtends?: readonly string[]
+  /**
+   * The interfaces `interfaceExtends` resolved to, in list order — a name that resolved to nothing has no entry, so the
+   * list is shorter than the names (`hasUnresolvedBase`). Linked post-pass; read through `extends.ts` `basesOf`.
+   */
+  interfaceBases?: Scope[]
   /** For an `enum`/`gvl` scope carrying `{attribute 'qualified_only'}`: members are NOT bare-accessible. */
   qualifiedOnly?: boolean
   /**

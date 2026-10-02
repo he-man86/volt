@@ -1,5 +1,5 @@
 /**
- * inheritance — C0091 (self-cycle), C0090 (unknown base class), C0086 (unknown interface).
+ * inheritance — C0091 (self-cycle), C0090 (unknown base class) with C0077 (the type it therefore lacks), C0086 (unknown interface).
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../../frontend/syntax/index.js"
@@ -14,6 +14,12 @@ const codes = (src: string, vendor: "codesys" | "twincat" = "codesys"): { code: 
   )
 }
 const msgs = (src: string, code: string) => codes(src).filter((d) => d.code === code).map((d) => d.message)
+/** The base-not-found pair, each sentence with its own code: "No definition found for base class" is C0090's
+ *  (`base-class-not-found`), "Unknown type" C0077's (`unknown-type`) — one wire code for both named the wrong rule. */
+const baseMsgs = (src: string, vendor: "codesys" | "twincat" = "codesys") =>
+  codes(src, vendor).filter((d) => d.code === "base-class-not-found" || d.code === "unknown-type").map((d) => `${d.code}: ${d.message}`)
+const NOT_FOUND = (name: string) => `base-class-not-found: No definition found for base class '${name}'`
+const UNKNOWN = (name: string) => `unknown-type: Unknown type: '${name}'`
 
 test("C0091: an FB extending itself is flagged (cycle, not not-found)", () => {
   expect(msgs(`FUNCTION_BLOCK FB EXTENDS FB\nEND_FUNCTION_BLOCK`, "circular-inheritance")).toEqual([
@@ -28,12 +34,8 @@ test("C0091: an FB extending itself is flagged (cycle, not not-found)", () => {
 // (`cc2_base_and_interface_not_found`, both recordings 2026-09-20).
 test("C0090: the second message is CODESYS's alone", () => {
   const src = `FUNCTION_BLOCK FB EXTENDS UnknownBase\nEND_FUNCTION_BLOCK`
-  const of = (v: "codesys" | "twincat") => codes(src, v).filter((d) => d.code === "base-class-not-found").map((d) => d.message)
-  expect(of("codesys")).toEqual([
-    "No definition found for base class 'UnknownBase'",
-    "Unknown type: 'UnknownBase'",
-  ])
-  expect(of("twincat")).toEqual(["No definition found for base class 'UnknownBase'"])
+  expect(baseMsgs(src, "codesys")).toEqual([NOT_FOUND("UnknownBase"), UNKNOWN("UnknownBase")])
+  expect(baseMsgs(src, "twincat")).toEqual([NOT_FOUND("UnknownBase")])
 })
 test("C0091: TwinCAT upper-cases the names in the chain", () => {
   const src = `FUNCTION_BLOCK FB_circleA EXTENDS FB_circleA\nEND_FUNCTION_BLOCK`
@@ -44,11 +46,8 @@ test("C0091: TwinCAT upper-cases the names in the chain", () => {
 test("C0090: an EXTENDS base that resolves nowhere is flagged TWICE; a resolved base is not", () => {
   // the definition it could not find, and the TYPE the FB therefore does not have — an unresolved INTERFACE gets
   // only the first (conformance `cc2_base_and_interface_not_found`)
-  expect(msgs(`FUNCTION_BLOCK FB EXTENDS UnknownBase\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([
-    "No definition found for base class 'UnknownBase'",
-    "Unknown type: 'UnknownBase'",
-  ])
-  expect(msgs(`FUNCTION_BLOCK FB EXTENDS B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nEND_FUNCTION_BLOCK`, "base-class-not-found")).toEqual([])
+  expect(baseMsgs(`FUNCTION_BLOCK FB EXTENDS UnknownBase\nEND_FUNCTION_BLOCK`)).toEqual([NOT_FOUND("UnknownBase"), UNKNOWN("UnknownBase")])
+  expect(baseMsgs(`FUNCTION_BLOCK FB EXTENDS B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
 test("C0086: an IMPLEMENTS interface that resolves nowhere is flagged; a resolved one is not", () => {
@@ -68,22 +67,40 @@ test("a qualified library base the symbol table linked is found (`EXTENDS Standa
       [manifest],
     )
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
-      .filter((d) => d.code === "base-class-not-found")
-      .map((d) => d.message)
+      .filter((d) => d.code === "base-class-not-found" || d.code === "unknown-type")
+      .map((d) => `${d.code}: ${d.message}`)
   }
   expect(run("FUNCTION_BLOCK FB EXTENDS Standard.TON\nPT := T#5MS;\nEND_FUNCTION_BLOCK\n")).toEqual([])
-  expect(run("FUNCTION_BLOCK FB EXTENDS NoSuchLib.FB_X\nEND_FUNCTION_BLOCK\n")).toEqual([
-    "No definition found for base class 'NoSuchLib.FB_X'",
-    "Unknown type: 'NoSuchLib.FB_X'",
-  ])
+  expect(run("FUNCTION_BLOCK FB EXTENDS NoSuchLib.FB_X\nEND_FUNCTION_BLOCK\n")).toEqual([NOT_FOUND("NoSuchLib.FB_X"), UNKNOWN("NoSuchLib.FB_X")])
 })
 
 test("a base whose header is refused is not found — it is no FB, as it is no type", () => {
   // the refused FB declares nothing (`headerRefused`): its name is "Unknown type" where it is used, and the same name
   // as a base is the base-class-not-found pair — and the derived body does not reach its members
   const src = `FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n  n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_D EXTENDS FB_A\nVAR\n  out : INT;\nEND_VAR\nout := n;\nEND_FUNCTION_BLOCK`
-  expect(msgs(src, "base-class-not-found")).toEqual([
-    "No definition found for base class 'FB_A'",
-    "Unknown type: 'FB_A'",
-  ])
+  expect(baseMsgs(src)).toEqual([NOT_FOUND("FB_A"), UNKNOWN("FB_A")])
+})
+
+// ── rule H9: every kind that extends closes a cycle, all worded as FBs' (`inh_*_cycle`, both vendors 2026-10-02)
+test("H9: an INTERFACE cycle and a STRUCT cycle are recursion in the base list, reported once", () => {
+  expect(
+    msgs(`INTERFACE I_A EXTENDS I_B\nEND_INTERFACE\n\nINTERFACE I_B EXTENDS I_A\nEND_INTERFACE`, "circular-inheritance"),
+  ).toEqual(["Recursion in base function block list: I_A -> I_B -> I_A"])
+  expect(
+    msgs(`TYPE S_A EXTENDS S_B :\nSTRUCT\n a : INT;\nEND_STRUCT\nEND_TYPE\n\nTYPE S_B EXTENDS S_A :\nSTRUCT\n b : INT;\nEND_STRUCT\nEND_TYPE`, "circular-inheritance"),
+  ).toEqual(["Recursion in base function block list: S_A -> S_B -> S_A"])
+})
+test("H9: a three-FB ring is one path (`inh_extends_cycle`), and a qualified base of the FB's own name is no cycle", () => {
+  expect(
+    msgs(`FUNCTION_BLOCK A EXTENDS B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B EXTENDS C\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK C EXTENDS A\nEND_FUNCTION_BLOCK`, "circular-inheritance"),
+  ).toEqual(["Recursion in base function block list: A -> B -> C -> A"])
+  expect(msgs(`FUNCTION_BLOCK TON EXTENDS Standard.TON\nEND_FUNCTION_BLOCK`, "circular-inheritance")).toEqual([])
+})
+
+// ── rules H4/H7: an interface base nothing declares, as an FB's (`inh_interface_extends_unknown`, both vendors 2026-10-02)
+test("H4: an INTERFACE EXTENDS a name nothing declares — CODESYS twice, TwinCAT once", () => {
+  const src = `INTERFACE I_D EXTENDS I_Missing\nEND_INTERFACE`
+  expect(baseMsgs(src, "codesys")).toEqual([NOT_FOUND("I_Missing"), UNKNOWN("I_Missing")])
+  expect(baseMsgs(src, "twincat")).toEqual([NOT_FOUND("I_Missing")])
+  expect(baseMsgs(`INTERFACE I_B\nEND_INTERFACE\n\nINTERFACE I_D EXTENDS I_B\nEND_INTERFACE`)).toEqual([])
 })

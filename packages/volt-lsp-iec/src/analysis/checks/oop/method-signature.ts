@@ -1,19 +1,45 @@
 /**
- * method-signature (oop/) — an overriding method whose signature doesn't match the one it overrides:
+ * method-signature (oop/) — an overriding member whose signature doesn't match the one it overrides (rule H10):
  *   C0089 — an FB method vs the INTERFACE method it implements ("… of interface '<I>' does not match …").
- *   C0094 / C0568 — an FB method vs the BASE FB method it overrides ("… the overridden … of base '<B>' …").
+ *   C0094 / C0568 — an FB method vs the BASE FB method it overrides ("… the overridden … of base '<B>' …"), and a
+ *           PROPERTY vs the base's, worded as its accessor method (`'__GETP'`).
  *
- * A method (folded after its FB) is registered as a `method` symbol on the FB scope, carrying its `Method` AST;
- * interface methods are `interface_method` symbols on the interface scope. Both expose `varSections`, so we
- * compare the OVERRIDING pair only when both sides exist (a missing method is C0087's job, not ours).
+ * THE SIGNATURE IS THE WHOLE PARAMETER LIST AND THE RESULT TYPE, as both vendors measure it (`fixtures/names/inheritance.ts`,
+ * 2026-10-02): a parameter of another TYPE (`inh_override_signature_mismatch`), another NAME of the same type
+ * (`_param_name_mismatch`), another SECTION (`_section_mismatch`), one more (`_param_count_mismatch`), and another
+ * result type (`_return_type_mismatch`) each mismatch. This compared per-section COUNTS only, so four of the five read
+ * as legal overrides. Every name in the sentence is UPPER-CASED, the method's and the base's (`'FETCH'`, recorded with a
+ * method written `Fetch`).
  *
- * Zero-FP subset: we compare only the per-section PARAMETER COUNTS (VAR_INPUT / VAR_OUTPUT / VAR_IN_OUT). A
- * legal override must have an identical parameter list, hence identical counts, so a count delta is an
- * unambiguous mismatch; a same-count/different-type mismatch is (deliberately) not flagged yet. Library
- * bases/interfaces (whose members we can't fully see) are skipped, as are abstract/unresolved cases.
+ * The base is the one the symbol table LINKED (`extends.ts` — by precedence among same-named candidates, rule H8), the
+ * nearest in the chain that declares the method; it was looked up by NAME, which under a project FB shadowing a
+ * library's (`inh_extends_ambiguous_library_base`) is the library's. Library bases and interfaces (whose materialized
+ * signatures are lossy) are skipped, as is a type nothing resolves (a library type's text is compared as written).
+ *
+ * ONLY AN FB THE VENDOR COMPILES is checked — reached from a PROGRAM, a FUNCTION or a GVL by an instance, a POINTER or a
+ * REFERENCE TO it, or a base of one (`analysis/compiled.ts`): an FB nothing reaches builds whatever its overrides say
+ * (`inh_override_uninstanced`, `_instanced_in_uninstanced_fb`, `inh_interface_method_signature_mismatch_uninstanced`;
+ * pro2193). The lifecycle methods (FB_init, FB_exit, FB_reinit) are each
+ * FB's own and override nothing (a derived FB_init adds the inputs its instance is declared with).
+ *
+ * NOT SAID (frontend-conformance 3.2, known divergences): an override of a FINAL method (`inh_override_final_method`) and
+ * a base's ABSTRACT method left unimplemented (`inh_abstract_method_not_implemented`). Both vendors' words are recorded;
+ * what is missing is the CODESYS code number — a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts`
+ * admits no new slug) and a build message carries none.
  */
-import { findScopeByName, isLibrarySymbol, lookupUnit, type Scope, scopeForUnit, type Symbol } from "../../../frontend/symbols/index.js"
-import type { Method, InterfaceMethod, VarSection } from "../../../frontend/syntax/index.js"
+import {
+  ancestry,
+  findScopeByName,
+  isLibrarySymbol,
+  lookupLocal,
+  lookupUnit,
+  type Scope,
+  scopeForUnit,
+  type Symbol,
+} from "../../../frontend/symbols/index.js"
+import { renderTypeExpr, type Identifier, type InterfaceMethod, type Span, type Method, type Property, type TypeExpr, type VarSection } from "../../../frontend/syntax/index.js"
+import { isSameType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { compiledFbs } from "../../compiled.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -23,49 +49,81 @@ export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]):
     const fbSym = lookupUnit(ctx.project, unit.name.text)?.symbol
     if (fbSym !== undefined && isLibrarySymbol(fbSym)) continue // a library FB's overrides are the library's concern
     const fbScope = scopeForUnit(ctx.project, unit)
-    if (fbScope === undefined) continue
-    const own = ownMethods(fbScope)
-    if (own.size === 0) continue
+    if (fbScope === undefined || !compiledFbs(ctx.project).has(fbScope)) continue
+    const own = ownMembers(fbScope, "method")
+    const ownProps = ownMembers(fbScope, "property")
 
-    // C0089 — vs each implemented interface's methods.
+    // C0089 — vs each implemented interface's methods, its inherited ones included (rule H4)
     for (const ifaceName of unit.implements ?? []) {
       if (isLibraryName(ctx, ifaceName.text)) continue
       const ifaceScope = findScopeByName(ctx.project, ifaceName.text)
       if (ifaceScope === undefined || ifaceScope.kind !== "interface") continue
-      for (const im of methodSymbols(ifaceScope, "interface_method")) {
-        const mine = own.get(im.name.toLowerCase())
-        if (mine === undefined) continue // not implemented here → C0087's concern
-        if (!countsMatch(mine.varSections, (im.ast as InterfaceMethod).varSections))
-          out.push(diag(mine, "override-mismatch-interface", ctx.messages.overrideMismatchInterface(im.name, ifaceName.text)))
-      }
+      for (const declaring of ancestry(ifaceScope))
+        for (const im of ownMembers(declaring, "interface_method").values()) {
+          const mine = own.get(im.name.toLowerCase())
+          if (mine === undefined) continue // not implemented here → C0087's concern
+          const theirs = im.ast as InterfaceMethod
+          const cmp = compare(mine.ast as Method, theirs, mine.owner, im.owner, ctx)
+          if (cmp === undefined) continue
+          const [method, iface] = [im.name.toUpperCase(), declaring.name.toUpperCase()]
+          const span = (mine.ast as Method).name.span
+          out.push(diag(span, "override-mismatch-interface", ctx.messages.overrideMismatchInterface(method, iface)))
+          // CODESYS says which part differs, in a second sentence TwinCAT does not have (`inh_interface_method_*`): at the
+          // differing parameter, or — a parameter COUNT — at the method's declaration
+          if (ctx.config.vendor === "codesys" && cmp.kind === "count")
+            out.push(diag((mine.ast as Method).span, "override-mismatch-interface", ctx.messages.interfaceParamCountMismatch(method, iface)))
+          else if (ctx.config.vendor === "codesys" && cmp.variable !== undefined)
+            out.push(diag(cmp.variable.span, "override-mismatch-interface", ctx.messages.interfaceVariableMismatch(cmp.variable.text, method, iface)))
+        }
     }
 
-    // C0094 / C0568 — vs the base FB's methods.
-    if (unit.extends !== undefined && !isLibraryName(ctx, unit.extends.text)) {
-      const baseScope = findScopeByName(ctx.project, unit.extends.text)
-      if (baseScope !== undefined && baseScope.kind === "pou")
-        for (const bm of methodSymbols(baseScope, "method")) {
-          const mine = own.get(bm.name.toLowerCase())
-          if (mine === undefined) continue
-          if (!countsMatch(mine.varSections, (bm.ast as Method).varSections))
-            out.push(diag(mine, "override-mismatch-base", ctx.messages.overrideMismatchBase(bm.name, unit.extends.text)))
-        }
+    // C0094 / C0568 — vs the nearest base FB declaring the method (the chain the symbol table linked)
+    const bases = ancestry(fbScope).slice(1)
+    for (const mine of own.values()) {
+      const theirs = nearest(bases, "method", mine.name)
+      if (theirs === undefined || isLibrarySymbol(theirs) || LIFECYCLE.has(mine.name.toLowerCase())) continue
+      const base = theirs.owner
+      const span = (mine.ast as Method).name.span
+      const cmp = compare(mine.ast as Method, theirs.ast as Method, mine.owner, base, ctx)
+      if (cmp === undefined) continue
+      out.push(diag(span, "override-mismatch-base", ctx.messages.overrideMismatchBase(mine.name.toUpperCase(), base.name.toUpperCase())))
+      // each parameter at a position whose PASSED type differs is then converted from the override's to the base's
+      // (`inh_override_signature_mismatch`: 'DINT' to 'INT'; `_section_mismatch`: 'REFERENCE TO INT' to 'INT';
+      // `_inout_as_input`: 'INT' to 'REFERENCE TO INT')
+      // — at the override's parameter type, one conversion each (C0032's)
+      for (const c of cmp.conversions) out.push(diag(c.span, "assignment-type-mismatch", ctx.messages.cannotConvert(c.from, c.to)))
+    }
+    // a PROPERTY of another type than the base's: the mismatch of its accessor METHOD (`inh_override_property_type_mismatch`)
+    for (const mine of ownProps.values()) {
+      const theirs = nearest(bases, "property", mine.name)
+      if (theirs === undefined || isLibrarySymbol(theirs) || mine.typeExpr === undefined || theirs.typeExpr === undefined) continue
+      if (sameType(mine.typeExpr, theirs.typeExpr, mine.owner, theirs.owner, ctx)) continue
+      const [p, b] = [mine.ast as Property, theirs.ast as Property]
+      const accessors = [p.getter !== undefined && b.getter !== undefined ? "__GET" : undefined, p.setter !== undefined && b.setter !== undefined ? "__SET" : undefined]
+      for (const a of accessors)
+        if (a !== undefined)
+          out.push(diag(p.name.span, "override-mismatch-base", ctx.messages.overrideMismatchBase(`${a}${mine.name.toUpperCase()}`, theirs.owner.name.toUpperCase())))
     }
   }
 }
 
-/** The FB's own methods (folded `METHOD` units → `method` symbols on the FB scope), by lowercased name. */
-function ownMethods(fbScope: Scope): Map<string, Method> {
-  const map = new Map<string, Method>()
-  for (const syms of fbScope.symbols.values())
-    for (const s of syms) if (s.kind === "method") map.set(s.name.toLowerCase(), s.ast as Method)
+/** The methods every FB declares for itself — no override of its base's. */
+const LIFECYCLE: ReadonlySet<string> = new Set(["fb_init", "fb_exit", "fb_reinit"])
+
+/** The members of one kind a scope declares itself, by lowercased name. */
+function ownMembers(scope: Scope, kind: Symbol["kind"]): Map<string, Symbol> {
+  const map = new Map<string, Symbol>()
+  for (const syms of scope.symbols.values()) for (const s of syms) if (s.kind === kind) map.set(s.name.toLowerCase(), s)
   return map
 }
 
-function methodSymbols(scope: Scope, kind: "method" | "interface_method"): Symbol[] {
-  const out: Symbol[] = []
-  for (const syms of scope.symbols.values()) for (const s of syms) if (s.kind === kind) out.push(s)
-  return out
+/** The member of `kind` and `name` the nearest of `bases` declares. */
+function nearest(bases: readonly Scope[], kind: Symbol["kind"], name: string): Symbol | undefined {
+  for (const b of bases) {
+    const hit = lookupLocal(b, name).find((s) => s.kind === kind)
+    if (hit !== undefined) return hit
+  }
+  return undefined
 }
 
 const isLibraryName = (ctx: CheckContext, name: string): boolean => {
@@ -73,29 +131,72 @@ const isLibraryName = (ctx: CheckContext, name: string): boolean => {
   return s !== undefined && isLibrarySymbol(s)
 }
 
-/** VAR_INPUT / VAR_OUTPUT / VAR_IN_OUT parameter counts match between two method signatures. */
-function countsMatch(a: readonly VarSection[], b: readonly VarSection[]): boolean {
-  const c = counts(a)
-  const d = counts(b)
-  return c[0] === d[0] && c[1] === d[1] && c[2] === d[2]
-}
-function counts(sections: readonly VarSection[]): [number, number, number] {
-  let vin = 0
-  let vout = 0
-  let vinout = 0
-  for (const s of sections) {
-    const n = s.decls.reduce((acc, d) => acc + d.names.length, 0)
-    if (s.sectionKind === "VAR_INPUT") vin += n
-    else if (s.sectionKind === "VAR_OUTPUT") vout += n
-    else if (s.sectionKind === "VAR_IN_OUT") vinout += n
-  }
-  return [vin, vout, vinout]
+interface Param {
+  name: Identifier
+  section: string
+  type: TypeExpr
 }
 
-const diag = (m: Method, code: string, message: string): DiagnosticItem => ({
-  severity: "error",
-  span: m.name.span,
-  source: SOURCE,
-  code,
-  message,
-})
+/** The formal parameters of a signature, in declared order. */
+function params(sections: readonly VarSection[]): Param[] {
+  const out: Param[] = []
+  for (const s of sections)
+    if (s.sectionKind === "VAR_INPUT" || s.sectionKind === "VAR_OUTPUT" || s.sectionKind === "VAR_IN_OUT")
+      for (const d of s.decls) for (const n of d.names) out.push({ name: n, section: s.sectionKind, type: d.type })
+  return out
+}
+
+/** How two signatures differ — the parameter COUNT, a parameter (its name, type or section), or only the result type —
+ *  with the conversions the vendors then report; undefined when they match. */
+type Mismatch = { kind: "count" | "variable" | "result"; variable?: Identifier; conversions: { from: string; to: string; span: Span }[] }
+
+function compare(mine: Method | InterfaceMethod, theirs: Method | InterfaceMethod, myScope: Scope, theirScope: Scope, ctx: CheckContext): Mismatch | undefined {
+  const a = params(mine.varSections)
+  const b = params(theirs.varSections)
+  const conversions: Mismatch["conversions"] = []
+  let variable: Identifier | undefined
+  for (let i = 0; i < Math.min(a.length, b.length); i++) {
+    const [x, y] = [a[i]!, b[i]!]
+    const typeDiffers = !sameType(x.type, y.type, myScope, theirScope, ctx)
+    if (variable === undefined && (typeDiffers || x.section !== y.section || x.name.text.toLowerCase() !== y.name.text.toLowerCase())) variable = x.name
+    // a conversion only where the type PASSED differs: another type, or a VAR_IN_OUT (by reference) against a parameter
+    // passed by value — not a VAR_OUTPUT for a VAR_INPUT of the same type (`inh_override_input_as_output`: the mismatch
+    // alone; "Cannot convert type 'INT' to type 'INT'" was the LSP's own)
+    const [from, to] = [passed(x, myScope, ctx), passed(y, theirScope, ctx)]
+    if ((typeDiffers || x.section !== y.section) && from !== undefined && to !== undefined && from !== to) conversions.push({ from, to, span: x.type.span })
+  }
+  if (a.length !== b.length) return { kind: "count", conversions }
+  if (variable !== undefined) return { kind: "variable", variable, conversions }
+  const [r, s] = [mine.returnType, theirs.returnType]
+  if ((r === undefined) !== (s === undefined) || (r !== undefined && s !== undefined && !sameType(r, s, myScope, theirScope, ctx)))
+    return { kind: "result", conversions }
+  return undefined
+}
+
+/** The type a parameter is passed as — a VAR_IN_OUT by reference — or undefined when its type resolves to nothing. */
+function passed(p: Param, scope: Scope, ctx: CheckContext): string | undefined {
+  const t = resolved(p.type, scope, ctx)
+  return t === undefined ? undefined : `${p.section === "VAR_IN_OUT" ? "REFERENCE TO " : ""}${renderType(t)}`
+}
+
+function resolved(t: TypeExpr, scope: Scope, ctx: CheckContext): Type | undefined {
+  const r = resolveTypeExpr(t, ctx.project, 0, scope)
+  return r.kind === "unknown" ? undefined : r
+}
+
+/**
+ * The same type: written alike (case and spacing aside — an ARRAY, a subrange, a POINTER compare by their text, which
+ * `isSameType` cannot: it compares names), or resolving to the same named type. A type either side cannot resolve is not
+ * compared (a library's, lossy).
+ */
+function sameType(a: TypeExpr, b: TypeExpr, aScope: Scope, bScope: Scope, ctx: CheckContext): boolean {
+  if (written(a) === written(b)) return true
+  const [x, y] = [resolved(a, aScope, ctx), resolved(b, bScope, ctx)]
+  if (x === undefined || y === undefined) return true
+  if (!("name" in x) || !("name" in y)) return true // structural and written differently: not decidable here
+  return isSameType(x, y)
+}
+
+const written = (t: TypeExpr): string => renderTypeExpr(t).replace(/\s+/g, "").toUpperCase()
+
+const diag = (span: DiagnosticItem["span"], code: string, message: string): DiagnosticItem => ({ severity: "error", span, source: SOURCE, code, message })

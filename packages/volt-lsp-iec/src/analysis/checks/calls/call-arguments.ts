@@ -133,6 +133,18 @@ function checkCall(
           ? ctx.messages.unknownNamedOutput(arg.param!.name, callee.sym.name.toUpperCase())
           : ctx.messages.unknownNamedArgument(arg.param!.name, callee.sym.name.toUpperCase()),
       })
+      // …and a name the callee declares NOTHING of is then looked up as an ordinary identifier, and not found either:
+      // `itfRef.M(zz := 5)` is "Identifier 'zz' not defined" besides (`inh_interface_method_unknown_param`, both
+      // vendors 2026-10-02), as a network box's unknown pin is (`cc_vg_unknown_pin`); a member that is no input is not
+      // (`cc_named_arg_non_input`: `inst(loc := 5)` says only the first)
+      if (!arg.output && !declaresAnything(callee, name))
+        out.push({
+          severity: "error",
+          span: arg.param!.span,
+          source: SOURCE,
+          code: "unresolved-identifier", // C0046's sentence, under C0046's code — not the C0037 of the one above
+          message: ctx.messages.undefinedIdentifier(arg.param!.name),
+        })
       continue
     }
     if (arg.output) {
@@ -372,4 +384,12 @@ function argTypeError(
     code: "call-argument-type",
     message: ctx.messages.cannotConvert(renderType(arg, { form: "compiler" }), renderType(target, { form: "compiler" })),
   })
+}
+
+/** Does the callee declare `name` at all — a member of the instance's FB (its chain's), or any variable of a direct
+ *  callable's sections (a local too, which is no parameter)? */
+function declaresAnything(callee: CalleeInfo, name: string): boolean {
+  if (callee.scope !== undefined) return lookupMember(callee.scope, name) !== undefined
+  const sections = (callee.sym.ast as { varSections?: readonly { decls: readonly { names: readonly { text: string }[] }[] }[] }).varSections ?? []
+  return sections.some((s) => s.decls.some((d) => d.names.some((n) => n.text.toLowerCase() === name)))
 }

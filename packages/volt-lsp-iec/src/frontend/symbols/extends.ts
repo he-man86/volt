@@ -43,15 +43,14 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
   const kept = linked.get(project)
   if (kept !== undefined && sameManifests(kept.manifests, manifests)) {
     for (const c of project.children) {
-      if (c.extendsName === undefined || (!kept.added.has(c) && !kept.names.has(baseName(c.extendsName)))) continue
-      c.baseScope = undefined
+      const names = baseNames(c)
+      if (names.length === 0 || (!kept.added.has(c) && !names.some((n) => kept.names.has(baseName(n))))) continue
       linkOne(project, c, manifests, kept.visible)
     }
     kept.names.clear()
     kept.added.clear()
     return
   }
-  for (const c of project.children) c.baseScope = undefined
 
   // PUBLISHED ON THE PROJECT, not kept local: `EXTENDS` is only one of the lookups that can face several
   // candidates for one name, and every one of them has to answer the same way. `precedence.ts` reads this.
@@ -60,11 +59,15 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
   for (const m of manifests) visible.set(m.folder.toLowerCase(), visibleFolders(manifests, m, byTitle))
   setLibVisible(project, visible)
 
-  for (const c of project.children) if (c.extendsName !== undefined) linkOne(project, c, manifests, visible)
+  for (const c of project.children) linkOne(project, c, manifests, visible)
   linked.set(project, { manifests, visible, names: new Set(), added: new Set() })
 }
 
-/** Link `c` (which names a base) to the candidate its file means, if any. */
+/**
+ * Link `c` to the bases it names — its one `EXTENDS` base (an FB, a STRUCT), or each interface of its `EXTENDS` list —
+ * each to the candidate its file means; a name with none stays unlinked. Resets what it links first, so a re-link can
+ * leave no link into a removed scope.
+ */
 function linkOne(
   project: Scope,
   c: Scope,
@@ -75,14 +78,20 @@ function linkOne(
   // off the child-name index (rebuilt once per generation, and every check reads it too) — this built its own
   // lower-cased map of every child on every relink: the largest share of a rebind on the fixture project (2026-10-01).
   const candidates = (key: string): Scope[] => (childIndex(project).get(key) ?? []).filter(isCandidate)
-  const base = pickForAsker(
-    project,
-    (qualifiedCandidates(project, c.extendsName!, manifests, visible) ?? candidates(c.extendsName!)).filter((x) => x !== c),
-    (x) => x.defUri,
-    c.defUri,
-  )
-  if (base !== undefined) c.baseScope = base
+  const pick = (name: string): Scope | undefined =>
+    pickForAsker(
+      project,
+      (qualifiedCandidates(project, name, manifests, visible) ?? candidates(name)).filter((x) => x !== c),
+      (x) => x.defUri,
+      c.defUri,
+    )
+  c.baseScope = c.extendsName === undefined ? undefined : pick(c.extendsName)
+  if (c.interfaceExtends !== undefined) c.interfaceBases = c.interfaceExtends.flatMap((n) => pick(n) ?? [])
 }
+
+/** The base names `c` writes: its `EXTENDS` base, or its interface `EXTENDS` list. */
+const baseNames = (c: Scope): readonly string[] =>
+  c.extendsName !== undefined ? [c.extendsName] : (c.interfaceExtends ?? [])
 
 const isCandidate = (c: Scope): boolean =>
   (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface" || c.kind === "struct") &&
@@ -144,6 +153,58 @@ function qualifiedCandidates(
  *  to nothing. */
 export function baseOf(scope: Scope): Scope | undefined {
   return scope.baseScope
+}
+
+/** Every scope `scope` directly EXTENDS, as `linkExtends` resolved them: an FB's or a STRUCT's one base, an interface's
+ *  list (rule H4). Empty without an EXTENDS. */
+export function basesOf(scope: Scope): readonly Scope[] {
+  return scope.baseScope !== undefined ? [scope.baseScope] : (scope.interfaceBases ?? [])
+}
+
+/**
+ * `scope` and every scope it inherits from, NEAREST FIRST — depth first through each base in the order its `EXTENDS`
+ * names them, each scope once. For an FB or a STRUCT it is `extendsChain` reversed; an interface's list makes it a
+ * graph (`EXTENDS I_a, I_b`), and a member of any base is the derived interface's (`inh_interface_extends_second_base_member`).
+ */
+export function ancestry(scope: Scope): Scope[] {
+  const out: Scope[] = []
+  const seen = new Set<Scope>()
+  const visit = (s: Scope): void => {
+    if (seen.has(s)) return
+    seen.add(s)
+    out.push(s)
+    for (const b of basesOf(s)) visit(b)
+  }
+  visit(scope)
+  return out
+}
+
+/**
+ * The EXTENDS cycle `scope` starts — `scope`, each base after it, back to the scope that closes it — when following its
+ * bases comes back to `scope` itself; undefined otherwise (a chain that ends, or a cycle `scope` only leads into, which
+ * its own members report). Every kind closes one: FBs, interfaces and STRUCTs alike are "Recursion in base function block
+ * list" (`inh_extends_cycle`, `inh_interface_extends_cycle`, `inh_struct_extends_cycle`, both vendors 2026-10-02).
+ */
+export function extendsCycle(scope: Scope): Scope[] | undefined {
+  // a scope naming ITSELF is never linked (`linkOne`: no scope is its own base, so no walk of the bases loops) — and is
+  // the shortest cycle there is (`inh_extends_self`: "FB_LANG_inh_extends_self -> FB_LANG_inh_extends_self", both vendors)
+  if (baseNames(scope).includes(scope.name.toLowerCase())) return [scope, scope] // bare: `TON EXTENDS Standard.TON` is no cycle
+  const path: Scope[] = []
+  const onPath = new Set<Scope>()
+  const visit = (s: Scope): Scope[] | undefined => {
+    if (s === scope && path.length > 0) return [...path, s]
+    if (onPath.has(s)) return undefined
+    path.push(s)
+    onPath.add(s)
+    for (const b of basesOf(s)) {
+      const found = visit(b)
+      if (found !== undefined) return found
+    }
+    path.pop()
+    onPath.delete(s)
+    return undefined
+  }
+  return visit(scope)
 }
 
 /**

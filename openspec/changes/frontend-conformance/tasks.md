@@ -1987,19 +1987,91 @@ conformance work; the cross-area edges are named on the tasks that have them.
       CODESYS 3757 → **3797**, TwinCAT 3696 → **3732** (floors raised to it; `fixtures.test.ts` 5125 / 0 after). `bun run
       check` 14 passed, 0 failed; `bun run lint` exit 0; layering gate green. The `.dut` source-extension edits in the tree
       are push-without-header-check's, not this step's, and are not in this commit.
-- [ ] 3.2.1 INTERFACE EXTENDS bound in the binder (H4–H5): interface scopes get `baseScope`; interface method parameters are bound;
+- [x] 3.2.1 INTERFACE EXTENDS bound in the binder (H4–H5): interface scopes get `baseScope`; interface method parameters are bound;
       the 4 consumer re-derivations switch. Record inh_interface_method_param_resolves, inh_interface_extends_member.
       Where: binder, extends. Acceptance: CA. Depends on: 3.1.5
-- [ ] 3.2.2 Every base resolved through `baseScope`/`extendsChain`, never by name (H8): method-signature, interface-implementation,
+- [x] 3.2.2 Every base resolved through `baseScope`/`extendsChain`, never by name (H8): method-signature, interface-implementation,
       hierarchy and inheritance switch. Record inh_extends_ambiguous_library_base.
       Where: extends; the four consumer sites. Acceptance: CA; no `findScopeByName` for an EXTENDS base outside extends.ts.
       Depends on: 3.2.1
-- [ ] 3.2.3 Inherited members through an instance (H2): infer/member uses `lookupMember`. The fixture exists.
+- [x] 3.2.3 Inherited members through an instance (H2): infer/member uses `lookupMember`. The fixture exists.
       Where: infer/member. Acceptance: CA; the type dump gives callshape_inout_base_method_from_outside_derived a type, not UNKNOWN.
       Depends on: 3.2.2
-- [ ] 3.2.4 Unresolved base, cycle, SUPER, override (H6–H10): record inh_unresolved_base, inh_extends_cycle,
+- [x] 3.2.4 Unresolved base, cycle, SUPER, override (H6–H10): record inh_unresolved_base, inh_extends_cycle,
       inh_override_signature_mismatch.
       Where: extends, scope-nav.hasUnresolvedBase. Acceptance: CA. Depends on: 3.2.3
+      **Step 3.2 (2026-10-02)** — 3.2.1–3.2.4 together. 26 `inh_*` fixtures in `fixtures/names/inheritance.ts` (H4–H10, rule by
+      rule: interface EXTENDS member/list/property/obligation/unknown base, interface method parameters by name/unknown/
+      output, SUPER to the grandparent, unresolved base, the project-vs-library base, four cycles, every override cell),
+      recorded CODESYS + TwinCAT build and CODESYS run (7 run, all as predicted: H8 extends the project's HYSTERESIS, out 42).
+      3.2.1: the binder binds an interface's EXTENDS list (`Scope.interfaceExtends`) and `linkExtends` links it
+      (`interfaceBases`); `extends.ts` `basesOf`/`ancestry`/`extendsCycle`; `lookupInChain`/`hasUnresolvedBase` walk the
+      list; interface METHOD parameters bound in a method scope. 3.2.2: method-signature, interface-implementation, the
+      type hierarchy (`typeSubtypes(project, …)`) and the callee's EXTENDS chain (`fbChainSections` on `extendsChain`) read
+      the linked bases — no `findScopeByName` for an EXTENDS base outside extends.ts (it stays only for IMPLEMENTS). 3.2.3:
+      `infer/member` uses `lookupMember` (type dump: run paths UNKNOWN 2 + 41 inherited → 0). 3.2.4: cycles of FBs,
+      interfaces and STRUCTs and the self-cycle from `extendsCycle`; an interface base nothing declares is "No definition
+      found for base class" (+ CODESYS "Unknown type"); the override signature is the whole parameter list (name, type,
+      section, count) and the result type, names upper-cased, a differing parameter's conversion (C0032), a PROPERTY's as
+      `'__GET<P>'`, CODESYS's second sentence for an interface ("number of inputs/outputs", "The variable 'a' …"); only an
+      FB the vendor compiles — instanced, or a base of one (`analysis/compiled.ts`) — is checked: pro2193 builds with
+      uninstanced FBs whose overrides differ. A named argument the callee declares nothing of is also "Identifier not
+      defined" (`inh_interface_method_unknown_param`, call-arguments). H7: the vendors are not conservative about the
+      derived body (a name only the missing base could declare is "not defined", as the LSP already said).
+      Known divergences opened (`INHERITANCE_DIVERGENCES`, `deferred.lsp`, both vendors): `inh_override_final_method`,
+      `inh_abstract_method_not_implemented` — both vendors' words recorded; blocked on the CODESYS code number (a wire
+      diagnostic is a catalog `Cnnnn`, `server/diagnostic-codes.ts` admits no new slug), 0 occurrences of either refusal
+      in the corpora (7 FINAL, 11 ABSTRACT methods, all built). Numbers: `rate:fixtures` 4145 fixtures (+26): confirmed
+      2402 (+6), refused 1488 (+17), not-lowered 152 (+1, `inh_interface_method_output_param`, the transpiler's
+      `o => out` through an interface), lsp-gap 31 (+2), diverges 4, unaskable 68; edges agree 2510 / disagree 0 / not-run
+      104. Ceilings (`fixtures.test.ts`): lsp-gap 29 → 31, not-lowered 151 → 152 (reasons at the ceilings). Rules GAP area 3
+      **18 → 13** (total 46 → 41; H5, H7, H8, H9, H10 closed). Agreement CODESYS 3797 → **3821**, TwinCAT 3732 → **3756**.
+      Resolution dump: findings 93 → 73, corpus member NONE 3385 → 1595, parameter NO-CALLEE 2059 → 1916, fixtures member
+      NONE 34 → 23; type dump findings 213 → 174 (corpus member UNKNOWN 3980 → 2717, call UNKNOWN 1939 → 1410). Targeted
+      runs green: `src/frontend src/analysis src/services src/network` 1256/0, `test/conformance test/frontend test/corpus`
+      green (corpus FP oracle 0), `bun typecheck`, `bun run lint` exit 0, layering gate, `bun run check` 15/0. F diff (base
+      cfd58c5a19): 1644 sources' aspects changed, all resolution/types/diagnostics (corpus 1315 resolution, 1515 types, 237
+      diagnostics; fixture 72/15; library types 12; back lowering 7) — and 8288 DUT sources absent from the working tree's
+      walk, which is push-without-header-check's uncommitted source-extension edit in the tree, not this step's.
+      **Step-3.2 review fixes (2026-10-02).** 8 fixtures more (`inh_override_input_as_output`, `_inout_as_input`,
+      `_uninstanced`, `_pointer_only`, `_reference_only`, `_instanced_in_uninstanced_fb`,
+      `inh_interface_method_signature_mismatch_uninstanced`, `inh_implements_derived_missing_base_method_uninstanced`),
+      recorded CODESYS + TwinCAT build (identical answers) and CODESYS run; a `__NEW`-only cell was recorded and dropped
+      (CODESYS refuses the override there too, beside the fixture application's "No memory for dynamic object creation").
+      (a) a parameter is converted only where its PASSED type differs — no "Cannot convert type 'INT' to type 'INT'" for a
+      VAR_OUTPUT for a VAR_INPUT; the reverse of `_section_mismatch` is 'INT' to 'REFERENCE TO INT', as the LSP said.
+      (b) `compiled.ts` is a REACH from the PROGRAMs, FUNCTIONs and GVLs through instances, arrays, POINTER and REFERENCE
+      TO (and STRUCT fields), plus bases — an FB instanced only in an FB nothing reaches is not compiled, one reached only
+      by a pointer or a reference is. (c) `interface-implementation` answers only for that set too (the uninstanced FB
+      builds without the inherited method). (d) "Identifier not defined" after "is no input of" goes out as
+      `unresolved-identifier` (C0046), and a base's "Unknown type" as `unknown-type` (C0077), the FB's and the interface's.
+      (e) `fbChainSections` is incomplete for a chain that runs INTO a cycle. (f) H10's recheck no longer says closed:
+      the FINAL / ABSTRACT cells are known divergences, "niche: accepted loss (0 occurrences in the corpora)". Numbers:
+      `rate:fixtures` 4153 (+8), confirmed 2406 (+4), refused 1492 (+4), edge not-run 108 (+4); agreement CODESYS
+      3829 (+8), TwinCAT 3764 (+8) (the floors still read 3797 / 3732). Not staged by this step: `fixtures.test.ts`'s
+      `extFor` hunk (`dut`) is push-without-header-check's — stage only its CEILINGS hunks.
+      **Gate 3.2 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4153; confirmed
+      2406, refused 1492, not-lowered 152, lsp-gap 31, diverges 4, unaskable 68; edges agree 2511 / disagree 0 / not-run
+      108). First full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset, rustc cache sampled): 7143 pass / 9 fail — the
+      review round's 8 fixtures had not been measured by the catalog or the front-end baselines. Repaired here: (1) the
+      catalog repros of C0087, C0089, C0094, C0568 (`docs/codesys-reference/error-catalog.json`) declared an FB nothing
+      instances, which the vendors do not check (recorded `inh_override_uninstanced`, `_interface_method_signature_
+      mismatch_uninstanced`, `inh_implements_derived_missing_base_method_uninstanced`) — each gains a PLC_PRG instancing it
+      (`reproFiles`, a note says why); (2) `infer/member` `memberScopeOf` reads through a REFERENCE TO (`r_….M(a := 1)` in
+      `inh_override_reference_only` was member NONE / NO-CALLEE — cheap; the 3.5 fixtures `mem_reference_to_fb_*` will
+      record it), test `types.test.ts` "a member through a REFERENCE TO…"; (3) the type dump (`bound-census.ts`) tallies a
+      "Cannot convert" beside "Interface of overridden method … doesn't match declaration" as that override's parameter
+      (H10), not a store with no type — 5 per vendor, the 4 baseline findings of that class gone with the 6 new.
+      Baselines rewritten, every ceiling fell: resolution findings 73 → **59**, corpus member NONE 1595 → **1028**,
+      parameter NO-CALLEE 1916 → 1914, fixtures member NONE 23 → 16 (both vendors); type findings 174 → **170**, corpus
+      member UNKNOWN 2717 → 2160, call UNKNOWN 1410 → 1398, index UNKNOWN 168 → 94, binary UNKNOWN 3150 → 3076. Rules GAP
+      area 3 13, total 41 (unchanged by the gate). Second full run: **7153 pass / 34 skip / 196 todo / 0 fail** (7383
+      tests, 201 files, 382 s); agreement CODESYS **3829**, TwinCAT **3764** (floors raised 3797 → 3829, 3732 → 3764).
+      `bun run check` 15 passed, 0 failed; `bun run lint` exit 0; layering gate green. F diff (base cfd58c5a19), sources in
+      both trees: 1398 changed (corpus 1318, fixture 80), aspects resolution and types only; the 82704 aspects gone / 84010
+      new are push-without-header-check's uncommitted DUT renames in the tree plus the new fixtures. Seen in passing (not
+      this step's, not researched): the parser refuses a variable declared `r : INT;` ("Unexpected token 'r' found"), so a
+      unit-test source reading `r.bx` parses as `.bx`; the new test names it `rf`.
 - [ ] 3.3 Enums (EN1–EN6): `resolveBareEnumMember` takes an asker and reports ambiguity. Record enum_same_member_two_enums,
       enum_member_vs_variable, enum_library_bare, enum_library_qualified.
       Where: scope-nav, library-namespaces. Acceptance: CA. Depends on: 3.2.4

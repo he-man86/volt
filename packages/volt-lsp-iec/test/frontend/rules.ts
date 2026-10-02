@@ -3003,7 +3003,7 @@ export const RULES: readonly Rule[] = [
     area: 3,
     section: "3.2",
     rule: "INTERFACE EXTENDS: base members visible through the derived interface",
-    home: "extends (not bound today)",
+    home: "binder (interfaceExtends) + extends.linkExtends (interfaceBases), scope-nav",
     gap: false,
     fixtures: [
       "interface_extends_another",
@@ -3011,9 +3011,16 @@ export const RULES: readonly Rule[] = [
       "xo2_interface_extends",
       "itf_extends_assigns_to_base",
       "xo4_query_between_interfaces",
+      "inh_interface_extends_member",
+      "inh_interface_extends_second_base_member",
+      "inh_interface_extends_property",
+      "inh_implements_derived_missing_base_method",
+      "inh_interface_extends_unknown",
     ],
     design:
       "interface_extends_another, interface_extends_another_impl, xo2_interface_extends, itf_extends_assigns_to_base, xo4_query_between_interfaces",
+    recheck:
+      "3.2.1: the binder binds an interface's EXTENDS list (`interfaceExtends`) and `linkExtends` links each base (`interfaceBases`); a base's method and property reach through the derived interface (`inh_interface_extends_member`, `_second_base_member`, `_property`, both vendors run them), the implementing FB owes the inherited members, named by the interface that declares them (`inh_implements_derived_missing_base_method`), and a base nothing declares is \"No definition found for base class\" as an FB's (`inh_interface_extends_unknown`).",
   },
   {
     id: "H5",
@@ -3021,15 +3028,20 @@ export const RULES: readonly Rule[] = [
     section: "3.2",
     rule: "interface members are symbols of the interface scope; interface method parameters are bound",
     home: "binder",
-    gap: true,
+    gap: false,
     fixtures: [
       "interface_with_method",
       "interface_with_property",
       "itf_property_through_interface",
       "itf_call_dispatches_on_instance",
+      "inh_interface_method_param_resolves",
+      "inh_interface_method_unknown_param",
+      "inh_interface_method_output_param",
     ],
     design:
       "interface_with_method, interface_with_property, itf_property_through_interface, itf_call_dispatches_on_instance — **GAP** for parameters",
+    recheck:
+      "3.2.1: closed — an interface METHOD's parameters are bound in a scope of the method; named arguments through the interface bind by name (`inh_interface_method_param_resolves`, out 52; `_output_param`, out 6) and a name it declares nothing of is \"is no input of\" and \"Identifier not defined\" (`inh_interface_method_unknown_param`, both vendors).",
   },
   {
     id: "H6",
@@ -3045,9 +3057,11 @@ export const RULES: readonly Rule[] = [
       "oop_extends_with_super",
       "inh_super_call_runs_base_body",
       "refuse_super_without_base",
+      "inh_super_reaches_grandparent_method",
     ],
     design:
       "keyword_this_dereference, use_this_member_in_method, fbcall_this_in_program, oop_extends_with_super, inh_super_call_runs_base_body, refuse_super_without_base",
+    recheck: "3.2: `SUPER^.M()` past a base that does not declare M runs the grandparent's (`inh_super_reaches_grandparent_method`, out 4).",
   },
   {
     id: "H7",
@@ -3055,9 +3069,11 @@ export const RULES: readonly Rule[] = [
     section: "3.2",
     rule: "an unresolved EXTENDS base keeps checks conservative",
     home: "scope-nav.hasUnresolvedBase",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["inh_unresolved_base", "inh_unresolved_base_method_call", "inh_interface_extends_unknown"],
     design: "**GAP**",
+    recheck:
+      "3.2.4: closed — the vendors are NOT conservative about the derived body: a name only the missing base could declare is \"Identifier not defined\" (`inh_unresolved_base`, `_method_call`, both vendors), as the LSP says; `hasUnresolvedBase` keeps the obligation checks (interface members, ABSTRACT methods, argument counts) silent and counts an interface's EXTENDS list.",
   },
   {
     id: "H8",
@@ -3065,19 +3081,23 @@ export const RULES: readonly Rule[] = [
     section: "3.2",
     rule: "the base named by EXTENDS under library ambiguity (by precedence, not by the first scope of that name)",
     home: "extends",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["inh_extends_ambiguous_library_base"],
     design: "**GAP**",
+    recheck:
+      "3.2.2: closed — `EXTENDS HYSTERESIS` with a project FB and Util's of that name extends the project's (out 42, CODESYS run), as `linkExtends` links it; method-signature, interface-implementation, the type hierarchy and the callee's EXTENDS chain read the linked base (`baseScope`/`extendsChain`/`ancestry`), no longer `findScopeByName`.",
   },
   {
     id: "H9",
     area: 3,
     section: "3.2",
     rule: "an EXTENDS cycle",
-    home: "extends.extendsChain",
-    gap: true,
-    fixtures: [],
+    home: "extends.extendsCycle",
+    gap: false,
+    fixtures: ["cc2_circular_inheritance", "inh_extends_cycle", "inh_extends_self", "inh_interface_extends_cycle", "inh_struct_extends_cycle"],
     design: "**GAP**",
+    recheck:
+      "3.2.4: closed — FB, interface and STRUCT cycles are each \"Recursion in base function block list: A -> B -> A\" (both vendors, TwinCAT upper-cased); `extendsCycle` finds them on the linked bases, the self-cycle included.",
   },
   {
     id: "H10",
@@ -3085,9 +3105,32 @@ export const RULES: readonly Rule[] = [
     section: "3.2",
     rule: "override and abstract members",
     home: "analysis over extends",
-    gap: true,
-    fixtures: ["oop_abstract_fb", "cc5_abstract_assign_and_output"],
+    gap: false,
+    fixtures: [
+      "oop_abstract_fb",
+      "cc5_abstract_assign_and_output",
+      "inh_override_signature_mismatch",
+      "inh_override_param_count_mismatch",
+      "inh_override_param_name_mismatch",
+      "inh_override_section_mismatch",
+      "inh_override_return_type_mismatch",
+      "inh_override_property_type_mismatch",
+      "inh_override_final_method",
+      "inh_abstract_method_not_implemented",
+      "inh_interface_method_signature_mismatch",
+      "inh_interface_method_param_count_mismatch",
+      "inh_override_input_as_output",
+      "inh_override_inout_as_input",
+      "inh_override_uninstanced",
+      "inh_override_pointer_only",
+      "inh_override_reference_only",
+      "inh_override_instanced_in_uninstanced_fb",
+      "inh_interface_method_signature_mismatch_uninstanced",
+      "inh_implements_derived_missing_base_method_uninstanced",
+    ],
     design: "oop_abstract_fb, cc5_abstract_assign_and_output (partial) — **GAP** for override-signature mismatch",
+    recheck:
+      "3.2.4: every cell recorded; the override SIGNATURE conforms — the whole parameter list (name, type, section, count) and the result type, both names upper-cased, a parameter whose PASSED type differs then converted from the override's to the base's (none for a VAR_OUTPUT for a VAR_INPUT of one type); a PROPERTY's is its accessor's (`'__GETP'`); only an FB the vendor compiles — reached from a PROGRAM, FUNCTION or GVL by an instance, a POINTER or a REFERENCE TO it, or a base of one — is checked, the interface obligation included (`inh_override_*`, `inh_interface_method_*`, `inh_implements_*_uninstanced`). NOT conforming, two cells — known divergences, niche: accepted loss (0 occurrences in the corpora) (`INHERITANCE_DIVERGENCES`, `deferred.lsp`): a FINAL method's override and an ABSTRACT method left unimplemented; both vendors' words are recorded, the CODESYS code number a wire diagnostic needs is not.",
   },
   // ── 3.3 ──
   {

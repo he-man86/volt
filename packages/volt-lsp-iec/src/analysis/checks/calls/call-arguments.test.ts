@@ -518,3 +518,34 @@ test("an input named as a METHOD with no result type is an input", () => {
   const prg = `PROGRAM P\nVAR\n\tfb : FB_T;\nEND_VAR\nfb.Rollover(rollover := 5);\nfb.Rollover(5);\nEND_PROGRAM`
   expect(codes(fb, prg)).toEqual([])
 })
+
+// A named argument the callee declares NOTHING of is also looked up as an ordinary identifier and not found
+// (`inh_interface_method_unknown_param`, both vendors 2026-10-02); a member that is no input is not
+// (`cc_named_arg_non_input`).
+test("an unknown named argument the callee declares nothing of is also 'Identifier not defined'", () => {
+  const messagesOf = (...sources: string[]): string[] => {
+    const files = sources.map((source) => {
+      const parseResult = parseSource(source, { networkText: true })
+      const first = parseResult.units.find((u) => "name" in u) as { name: { text: string } }
+      return { uri: `${first.name.text}.${source.startsWith("PROGRAM") ? "prg" : "fb"}`, source, parseResult }
+    })
+    const project = build.buildSymbolTable(files, [], "codesys")
+    const config = resolveConfig({ vendor: "codesys" })
+    return files.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config }).map((d) => `${d.code}: ${d.message}`))
+  }
+  // each sentence carries ITS rule's code: "is no input of" is C0037's, "Identifier not defined" C0046's
+  const fb = `FUNCTION_BLOCK FB_T\nVAR_INPUT\n\tn : INT;\nEND_VAR\nVAR\n\tloc : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\n\tloc2 : INT;\nEND_VAR\nEND_METHOD`
+  expect(messagesOf(fb, caller("fb.M(zz := 1);"))).toEqual(["unknown-named-argument: 'zz' is no input of 'M'", "unresolved-identifier: Identifier 'zz' not defined"])
+  expect(messagesOf(fb, caller("fb(zz := 1);"))).toEqual(["unknown-named-argument: 'zz' is no input of 'FB_T'", "unresolved-identifier: Identifier 'zz' not defined"])
+  expect(messagesOf(fb, caller("fb(loc := 1);"))).toEqual(["unknown-named-argument: 'loc' is no input of 'FB_T'"])
+})
+
+// An FB whose EXTENDS chain runs INTO a cycle it is not part of (X → A → B → A) is built on a broken hierarchy: its
+// parameter list is not the whole of it, so the unknown-name check stays silent — as it does for an FB on the cycle
+test("an FB whose base chain runs into a cycle has no authoritative parameter list", () => {
+  const a = "FUNCTION_BLOCK A EXTENDS B\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const b = "FUNCTION_BLOCK B EXTENDS A\nVAR\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const x = "FUNCTION_BLOCK X EXTENDS A\nVAR_INPUT\n\ti : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const call = "PROGRAM P\nVAR\n\tinst : X;\nEND_VAR\ninst(zz := 1);\nEND_PROGRAM"
+  expect(codes(a, b, x, call).filter((c) => c === "unknown-named-argument" || c === "unresolved-identifier")).toEqual([])
+})

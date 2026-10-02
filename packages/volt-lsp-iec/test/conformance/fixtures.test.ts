@@ -1325,7 +1325,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // lists declare), `sym_library_gvl_needs_qualification` (a library global read bare — the manifest carries no
   // qualified-access flag) and `sym_library_gvl_qualified_by_namespace` (`Stu.HALFSHIFT`: a namespace holds no list's
   // variable).
-  "lsp-gap": 29,
+  // 29 -> 31, FOR MEASUREMENT. frontend-conformance 3.2 (2026-10-02), new questions, no fixture moved (`deferred.lsp`):
+  // `inh_override_final_method` and `inh_abstract_method_not_implemented` — both vendors' words recorded, the CODESYS code
+  // number unknown (a wire diagnostic is a catalog `Cnnnn`; `server/diagnostic-codes.ts` admits no new slug), 0
+  // occurrences of either refusal in the corpora.
+  "lsp-gap": 31,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1460,7 +1464,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `expr_global_namespace_*`), `sym_method_output_param_bound` (a METHOD's VAR_OUTPUT bound `o => out`,
   // `call-inout-alias`), `sym_library_gvl_qualified_by_list` and `_fully` (a library's global, `place-not-local`) and
   // `sym_device_instance_bare` (`ADR(Device)`, a device instance has no storage the lowering knows, `place-not-local`).
-  "not-lowered": 151,
+  // 151 -> 152, FOR MEASUREMENT. frontend-conformance 3.2 (2026-10-02): `inh_interface_method_output_param` builds and runs
+  // (out = 6) and lowering refuses an interface METHOD's VAR_OUTPUT bound `o => out`, as `sym_method_output_param_bound`
+  // (the transpiler's).
+  "not-lowered": 152,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1738,7 +1745,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // `strict` cells (its refusals are 4.5.1's, `deferred.lsp`), P15's `to_string`, P16's `const_replaced`/`_non_replaced`.
   // 3696 -> 3732 (2026-10-02, frontend-conformance 3.1): the scope and lookup fixtures (`fixtures/names/scopes.ts`, Y1–Y24)
   // and the bare-name search order the front-end now owns (`types/names` `resolveBareName`).
-  { vendor: "twincat", floor: 3732 },
+  // 3732 -> 3764 (2026-10-02, frontend-conformance 3.2): the inheritance fixtures (`fixtures/names/inheritance.ts`,
+  // H4–H10) — interface EXTENDS bound and linked, every base through the link, overrides checked in compiled FBs only.
+  { vendor: "twincat", floor: 3764 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1873,7 +1882,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3707 -> 3723 (2026-10-02, 2.8 review): the same, on CODESYS.
   // 3723 -> 3757 (2026-10-02, frontend-conformance 2.10): the same, on CODESYS.
   // 3757 -> 3797 (2026-10-02, frontend-conformance 3.1): the same, on CODESYS.
-  { vendor: "codesys", floor: 3797 },
+  // 3797 -> 3829 (2026-10-02, frontend-conformance 3.2): the same, on CODESYS.
+  { vendor: "codesys", floor: 3829 },
 ]
 
 

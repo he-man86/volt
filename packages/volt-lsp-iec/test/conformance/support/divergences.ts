@@ -902,6 +902,19 @@ const TWINCAT_SCOPE_DIVERGENCES: readonly string[] = [
 ]
 
 /**
+ * FRONTEND-CONFORMANCE 3.2 (2026-10-02) — inheritance fixtures (`fixtures/names/inheritance.ts`) whose refusal the LSP
+ * does not make, both vendors:
+ *   `inh_override_final_method` — an override of a base METHOD declared FINAL: "Function block 'D': No override possible
+ *        on method B.M with access specifier FINAL" (TwinCAT: "No override possible on Method B.M with attribute FINAL");
+ *   `inh_abstract_method_not_implemented` — a concrete FB leaving its base's ABSTRACT method unimplemented: "There is no
+ *        implementation for ABSTRACT method 'M' defined in function block 'B'" (TwinCAT: "functionblock").
+ * Niche: accepted loss (0 occurrences in the corpora — they build, holding 7 FINAL and 11 ABSTRACT methods). Not trivial:
+ * a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) and a build message carries
+ * none, so emitting either waits for the number from the vendor's help.
+ */
+const INHERITANCE_DIVERGENCES: readonly string[] = ["inh_override_final_method", "inh_abstract_method_not_implemented"]
+
+/**
  * C0033 IS CONFIGURED AS AN ERROR in both recording projects (frontend-conformance 2.10, 2026-10-02). T6's refusal cell
  * `decl_pointer_to_pointer_deref_once_into_int` (`x := pp^;`, a POINTER TO POINTER read once into an INT) is answered
  * by both vendors with "Cannot convert type 'POINTER TO INT' to type 'INT'" — the message the LSP gives, word for word,
@@ -960,6 +973,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...PRAGMA_DIVERGENCES,
     ...TWINCAT_PRAGMA_DIVERGENCES,
     ...SCOPE_DIVERGENCES,
+    ...INHERITANCE_DIVERGENCES,
     ...TWINCAT_SCOPE_DIVERGENCES,
     ...TWINCAT_TRY_NEEDS_CATCH,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
@@ -1091,6 +1105,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...PRAGMA_DIVERGENCES,
     ...CODESYS_PRAGMA_DIVERGENCES,
     ...SCOPE_DIVERGENCES,
+    ...INHERITANCE_DIVERGENCES,
     ...CODESYS_SCOPE_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,

@@ -534,7 +534,7 @@ export function runServer(input: Readable, output: Writable, vendor: Vendor = "c
   })
   conn.onRequest(TypeHierarchySubtypesRequest.type, (p) => {
     const r = reResolve(p.item, prepareTypeHierarchy)
-    return r === undefined ? null : typeSubtypes(workspace(), r.sym)
+    return r === undefined ? null : typeSubtypes(project(), r.sym)
   })
 
   conn.onRequest(WorkspaceSymbolRequest.type, (p) => workspaceSymbols(project(), p.query))

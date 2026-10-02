@@ -399,8 +399,15 @@ export interface Messages {
   fbReInitShape(): string
   /** An FB method whose signature differs from the interface method it implements (C0089). verified both vendors. */
   overrideMismatchInterface(method: string, iface: string): string
-  /** An overriding method whose signature differs from the base FB's method (C0094/C0568). PROVISIONAL. */
+  /** An overriding method whose signature differs from the base FB's method (C0094/C0568), both names upper-cased by
+   *  the caller. verified both vendors (`inh_override_*`, 2026-10-02). */
   overrideMismatchBase(method: string, base: string): string
+  /** CODESYS's second sentence for an implementing method with another parameter COUNT than its interface method.
+   *  verified CODESYS (`inh_interface_method_param_count_mismatch`); TwinCAT says only the first. */
+  interfaceParamCountMismatch(method: string, iface: string): string
+  /** CODESYS's second sentence for an implementing method whose parameter differs from its interface method's.
+   *  verified CODESYS (`inh_interface_method_signature_mismatch`); TwinCAT says only the first. */
+  interfaceVariableMismatch(variable: string, method: string, iface: string): string
   /** A VAR_OUTPUT with an initializer in an abstract/interface method — the default is never used (C0533). verified both vendors. */
   defaultOutputUnused(): string
   /** `JMP` to a non-label destination — a numeric literal or expression (C0114). verified both vendors. */
@@ -522,6 +529,10 @@ export function messagesFor(vendor: Vendor): Messages {
       `Interface of overridden method '${method}' of interface '${iface}' doesn't match declaration`,
     overrideMismatchBase: (method, base) =>
       `Interface of overridden method '${method}' of base '${base}' doesn't match declaration`,
+    interfaceParamCountMismatch: (method, iface) =>
+      `The number of inputs/outputs of the method '${method}' does not correspond to the interface '${iface}'.`,
+    interfaceVariableMismatch: (variable, method, iface) =>
+      `The variable '${variable}' of the method '${method}' does not correspond to the interface '${iface}'.`,
     defaultOutputUnused: () => `The default value for a VAR_OUTPUT is not used in abstract or interface methods`,
     modNotDefined: (type) => (tc ? `'MOD' is not defined for '${type}'` : `MOD is not defined for ${type}`),
     operatorNotPossible: (op, type) => `Operation '${op}' is not possible on type '${type}'`,

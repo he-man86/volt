@@ -18,6 +18,7 @@ import { describe, expect, test } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import type { LibraryManifest } from "../library/index.js"
 import { buildSymbolTable } from "./incremental.js"
+import { ancestry, extendsCycle } from "./extends.js"
 
 const LIB = (folder: string) => `file:///w/Library Manager/${folder}`
 
@@ -134,4 +135,30 @@ test("an FB whose header is refused is no candidate base", () => {
   const derived = file("file:///w/FB_D.fb", "FUNCTION_BLOCK FB_D EXTENDS FB_A\nEND_FUNCTION_BLOCK\n")
   const project = buildSymbolTable([refused, derived], [])
   expect(project.children.find((c) => c.name === "FB_D")!.baseScope).toBeUndefined()
+})
+
+// ── rule H9: cycles, of every kind that extends, and the self-cycle `linkExtends` never links ─────────────────────
+describe("extendsCycle", () => {
+  const top = (src: string, name: string) => {
+    const project = buildSymbolTable([{ uri: "F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }])
+    return project.children.find((c) => c.name === name)!
+  }
+  test("FBs, interfaces and STRUCTs each close one, from any member of it", () => {
+    const fb = top(`FUNCTION_BLOCK A EXTENDS B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B EXTENDS A\nEND_FUNCTION_BLOCK`, "B")
+    expect(extendsCycle(fb)?.map((s) => s.name)).toEqual(["B", "A", "B"])
+    const itf = top(`INTERFACE I_A EXTENDS I_X, I_B\nEND_INTERFACE\nINTERFACE I_B EXTENDS I_A\nEND_INTERFACE`, "I_A")
+    expect(extendsCycle(itf)?.map((s) => s.name)).toEqual(["I_A", "I_B", "I_A"])
+    const st = top(`TYPE S_A EXTENDS S_B :\nSTRUCT\n a : INT;\nEND_STRUCT\nEND_TYPE\nTYPE S_B EXTENDS S_A :\nSTRUCT\n b : INT;\nEND_STRUCT\nEND_TYPE`, "S_A")
+    expect(extendsCycle(st)?.map((s) => s.name)).toEqual(["S_A", "S_B", "S_A"])
+  })
+  test("an FB naming itself is a cycle; a chain that ends, or only leads into a cycle, is not", () => {
+    expect(extendsCycle(top(`FUNCTION_BLOCK A EXTENDS A\nEND_FUNCTION_BLOCK`, "A"))?.map((s) => s.name)).toEqual(["A", "A"])
+    const src = `FUNCTION_BLOCK C EXTENDS A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK A EXTENDS B\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK B EXTENDS A\nEND_FUNCTION_BLOCK`
+    expect(extendsCycle(top(src, "C"))).toBeUndefined()
+    expect(extendsCycle(top(`FUNCTION_BLOCK A\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK D EXTENDS A\nEND_FUNCTION_BLOCK`, "D"))).toBeUndefined()
+  })
+  test("ancestry walks an interface's whole list, nearest first, each once", () => {
+    const d = top(`INTERFACE I_R\nEND_INTERFACE\nINTERFACE I_A EXTENDS I_R\nEND_INTERFACE\nINTERFACE I_B EXTENDS I_R\nEND_INTERFACE\nINTERFACE I_D EXTENDS I_A, I_B\nEND_INTERFACE`, "I_D")
+    expect(ancestry(d).map((s) => s.name)).toEqual(["I_D", "I_A", "I_R", "I_B"])
+  })
 })

@@ -9,8 +9,12 @@ import { parseSource } from "../../../frontend/syntax/index.js"
 import { build } from "../../../frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
-/** missing-interface-implementation messages for one source (codesys). */
-const missing = (src: string): string[] => {
+/** missing-interface-implementation messages for one source (codesys) — with `instanced`, every FB of it INSTANCED by
+ *  a program, as the vendor checks only an FB it compiles (`analysis/compiled.ts`). */
+const missing = (src0: string, instanced = true): string[] => {
+  const fbs = [...src0.matchAll(/^FUNCTION_BLOCK (?:ABSTRACT )?(\w+)/gm)].map((m) => m[1])
+  const vars = instanced ? fbs.map((n, i) => `\tinst${i} : ${n};`).join("\n") : ""
+  const src = `${src0}\n\nPROGRAM P\nVAR\n${vars}\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -47,4 +51,23 @@ test("an ABSTRACT FB itself is not flagged (may leave interface members abstract
 
 test("an unresolvable (library) base is not flagged — it could provide the member", () => {
   expect(missing(`${IGO}FUNCTION_BLOCK F EXTENDS SomeLibraryFB IMPLEMENTS IGo\nEND_FUNCTION_BLOCK`)).toEqual([])
+})
+
+// ── rule H4: the obligation includes what the implemented interface INHERITS, named by the interface that declares it
+test("H4: an FB implementing a derived interface owes the base interface's method (`inh_implements_derived_missing_base_method`)", () => {
+  const src =
+    `INTERFACE I_B\nMETHOD Mb : INT\nEND_METHOD\nEND_INTERFACE\n\nINTERFACE I_D EXTENDS I_B\nMETHOD Md : INT\nEND_METHOD\nEND_INTERFACE\n\n` +
+    `FUNCTION_BLOCK F IMPLEMENTS I_D\nEND_FUNCTION_BLOCK\n\nMETHOD Md : INT\nEND_METHOD`
+  expect(missing(src)).toEqual(["There is no implementation for method 'MB' defined in interface 'I_B'"])
+})
+test("H4: an FB NOTHING instances owes nothing — the vendor compiles it not (`inh_implements_derived_missing_base_method_uninstanced`)", () => {
+  const src =
+    `INTERFACE I_B\nMETHOD Mb : INT\nEND_METHOD\nEND_INTERFACE\n\nINTERFACE I_D EXTENDS I_B\nMETHOD Md : INT\nEND_METHOD\nEND_INTERFACE\n\n` +
+    `FUNCTION_BLOCK F IMPLEMENTS I_D\nEND_FUNCTION_BLOCK\n\nMETHOD Md : INT\nEND_METHOD`
+  expect(missing(src, false)).toEqual([])
+  expect(missing(`${IGO}FUNCTION_BLOCK F IMPLEMENTS IGo\nEND_FUNCTION_BLOCK`, false)).toEqual([])
+})
+test("H4: a base interface nothing declares is unprovable — no obligation is guessed", () => {
+  const src = `INTERFACE I_D EXTENDS I_Missing\nMETHOD Md : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK F IMPLEMENTS I_D\nEND_FUNCTION_BLOCK\n\nMETHOD Md : INT\nEND_METHOD`
+  expect(missing(src)).toEqual([])
 })

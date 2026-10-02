@@ -47,7 +47,7 @@ test("type hierarchy: super = EXTENDS + IMPLEMENTS; sub = implementers", () => {
     .sort()
   expect(supers).toEqual(["Base", "IStep"])
   const base = prepareTypeHierarchy(doc, project, at(OOP, "Base\nEND_FUNCTION_BLOCK"))
-  const subs = typeSubtypes([doc], base!.sym).map((i) => i.name)
+  const subs = typeSubtypes(project, base!.sym).map((i) => i.name)
   expect(subs).toContain("Derived")
 })
 

@@ -258,7 +258,9 @@ interface Scope {
   kind: ScopeKind; name: string; parent?: Scope
   symbols: Map<string, Symbol[]>   // lowercased name → symbols
   children: Scope[]; span?: Span
-  extendsName?: string; baseScope?: Scope   // EXTENDS link (post-pass)
+  extendsName?: string; baseScope?: Scope   // EXTENDS link (post-pass): an FB's, a STRUCT's one base
+  interfaceExtends?: readonly string[]; interfaceBases?: Scope[]   // an INTERFACE's EXTENDS list, linked (rule H4);
+                          // read through symbols/extends `basesOf` / `ancestry` / `extendsCycle`, never by name
   qualifiedOnly?: boolean
   undeclared?: true       // a refused FB header: holds its members, is no base and no type (linkExtends skips it)
 }

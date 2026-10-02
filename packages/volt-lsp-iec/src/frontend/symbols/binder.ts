@@ -231,7 +231,10 @@ function ingestStandaloneProperty(project: Scope, p: Property, uri: string, memb
 }
 
 function ingestInterface(project: Scope, iface: Interface, uri: string): Scope {
-  const ifaceScope = makeScope(project, "interface", iface.name.text, iface.span)
+  // its EXTENDS list, linked to the base interfaces with the FBs' and STRUCTs' bases (`linkExtends`, rule H4): a base's
+  // member is the derived interface's (`inh_interface_extends_member`, both vendors run it)
+  const bases = iface.extends?.map((b) => b.text.toLowerCase())
+  const ifaceScope = makeScope(project, "interface", iface.name.text, iface.span, bases !== undefined && bases.length > 0 ? { interfaceExtends: bases } : undefined)
   defineSymbol(project, {
     kind: "interface",
     name: iface.name.text,
@@ -252,6 +255,9 @@ function ingestInterface(project: Scope, iface: Interface, uri: string): Scope {
       ...(m.returnType !== undefined ? { typeExpr: m.returnType } : {}),
       ast: m,
     })
+    // its parameters, bound in a scope of its own as a METHOD's are (rule H5): `itfRef.M(b := 2, a := 5)` binds each
+    // argument to the interface method's parameter of its name (`inh_interface_method_param_resolves`, both vendors)
+    ingestVarSections(makeScope(ifaceScope, "method", m.name.text, m.span), m.varSections, uri, /* asParams */ true)
   }
   for (const p of iface.properties) {
     defineSymbol(ifaceScope, {
