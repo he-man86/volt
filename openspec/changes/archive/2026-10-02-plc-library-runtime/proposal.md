@@ -51,3 +51,32 @@ A referenced library is **the code behind the compiled library, written in ST**,
   fixture can run on a recorded clock; `fixtures/libraries/library-bodies.ts` holds every repo body to CODESYS.
 - No runtime crate, and no change to the shipping product's behaviour beyond the LSP no longer resolving a library
   element in a project that does not reference its library.
+
+## Close-out (2026-10-02, archived at 23/29)
+
+Built: the library repo (`packages/volt-lsp-iec/libraries/<library>/<version>/`, ST bodies keyed by the manifest's
+RESOLUTION) for Standard 3.5.18.0, Util (BLINK) and StringUtils, recorded against CODESYS and green in the interpreter
+and the emitted Rust; the spec delta was re-checked against the code at archive and describes what was built. Six
+items stay open. They are **backlog for after `transpile-restructure`** (they change transpiler lowering, which that
+change restructures first) and are marked "handed off" (not ticked) in `tasks.md`. Verbatim:
+
+1. Standard64: the W-variants — needs a fixture project that references Standard64 before they can be
+   recorded. Measured meanwhile as ABSENT rather than guessed: `WLEN`/`WLEFT` answer "Identifier 'WLEN' not
+   defined" without the reference, and Standard's `LEN` refuses a WSTRING outright, so `wstring_basic`
+   measures the WSTRING without functions at all.
+2. StringUtils, the rest: the W functions over a BYTE pointer into a WSTRING (`StrLenW`, `StrConcatW`, `StrCpyW`,
+   the W pads, `StrTrimW`) need a byte view of a WORD string; `HelpTrim`/`HelpTrimW` return a cursor, which would
+   carry its string out of the call; the `CharBufferString` family (`StrCmp`, `StrCpy`, `StrFind`, `StrLen`,
+   `StrCpyFrom`, `CharacterAtEquals`) and the formatters are classes. `StrMidA`/`StrTrimA`/`StrReplaceA` wait on
+   the pro2193 re-pull to be materialized at all.
+   *(At hand-off: the pro2193 re-pull is done and `StrMidA`/`StrTrimA`/`StrReplaceA` are written; the rest stands.)*
+3. A string cursor over a GLOBAL is refused (`call-inout-global`, 105 corpus POUs: `StrCpyA(pBuffer :=
+   ADR(<GVL string>), …)`). The emitted Rust cannot lend a field of `g` beside `g` itself; the fix is the callee
+   reaching the global through `g` — a transpiler item, tracked in `transpile-st-to-rust`.
+4. The materialization does not record a reference's ACCESS: a direct reference to StringUtils was qualified-only
+   in CODESYS while the LSP resolved its bare names. The `.library` manifest would need the reference's
+   qualified-only flag for the LSP to refuse a bare `StrCmpA` there, as the compiler does.
+5. TwinCAT materializes its libraries under `References/`, which `libraryOf` does not recognise — so on TwinCAT
+   the library repo is never consulted. Needs a live TwinCAT pull to confirm the folder name.
+6. Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
+   `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.

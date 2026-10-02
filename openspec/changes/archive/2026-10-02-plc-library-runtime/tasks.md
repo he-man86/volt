@@ -23,7 +23,7 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
       `not-lowered` (non-ASCII bytes).
 - [x] A capacity edge measured, not assumed: a `STRING(300)` passed to a `STRING(255)` input —
       `string_input_truncation` asks `LEN`, `LEFT` and `CONCAT` of a 300-character argument.
-- [ ] Standard64: the W-variants — needs a fixture project that references Standard64 before they can be
+- [ ] **Handed off (2026-10-02) to the backlog for after transpile-restructure — not done here.** Standard64: the W-variants — needs a fixture project that references Standard64 before they can be
       recorded. Measured meanwhile as ABSENT rather than guessed: `WLEN`/`WLEFT` answer "Identifier 'WLEN' not
       defined" without the reference, and Standard's `LEN` refuses a WSTRING outright, so `wstring_basic`
       measures the WSTRING without functions at all.
@@ -44,7 +44,7 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
       offset, so `p^`, `p[i]` and `p := p + n` are characters of that string. Library calls through a namespace
       (`Stu.StrTrimA(…)`) lower too. The library ships compiled, so the bodies began as readings of its contract;
       the recordings below corrected six of them.
-- [ ] StringUtils, the rest: the W functions over a BYTE pointer into a WSTRING (`StrLenW`, `StrConcatW`, `StrCpyW`,
+- [ ] **Handed off (2026-10-02) to the backlog for after transpile-restructure — not done here.** StringUtils, the rest: the W functions over a BYTE pointer into a WSTRING (`StrLenW`, `StrConcatW`, `StrCpyW`,
       the W pads, `StrTrimW`) need a byte view of a WORD string; `HelpTrim`/`HelpTrimW` return a cursor, which would
       carry its string out of the call; the `CharBufferString` family (`StrCmp`, `StrCpy`, `StrFind`, `StrLen`,
       `StrCpyFrom`, `CharacterAtEquals`) and the formatters are classes. `StrMidA`/`StrTrimA`/`StrReplaceA` wait on
@@ -78,15 +78,15 @@ unticked long after the code landed — `lowerStandardString` in `transpile/lowe
       StrReplaceA is NOT REPLACE: it moves the tail from `pos + iLengthToReplace` up to `iLengthInput` and copies the
       WHOLE replacement over `pos`, ignoring `iLengthToReplaceWith` — pro2193 passes `iLengthInput := 1` ("Don't know
       function of this parameter") and gets an overwrite, which is exactly what it wants for '.' → '_'.
-- [ ] A string cursor over a GLOBAL is refused (`call-inout-global`, 105 corpus POUs: `StrCpyA(pBuffer :=
+- [ ] **Handed off (2026-10-02) to the backlog for after transpile-restructure — not done here.** A string cursor over a GLOBAL is refused (`call-inout-global`, 105 corpus POUs: `StrCpyA(pBuffer :=
       ADR(<GVL string>), …)`). The emitted Rust cannot lend a field of `g` beside `g` itself; the fix is the callee
       reaching the global through `g` — a transpiler item, tracked in `transpile-st-to-rust`.
-- [ ] The materialization does not record a reference's ACCESS: a direct reference to StringUtils was qualified-only
+- [ ] **Handed off (2026-10-02) to the backlog for after transpile-restructure — not done here.** The materialization does not record a reference's ACCESS: a direct reference to StringUtils was qualified-only
       in CODESYS while the LSP resolved its bare names. The `.library` manifest would need the reference's
       qualified-only flag for the LSP to refuse a bare `StrCmpA` there, as the compiler does.
-- [ ] TwinCAT materializes its libraries under `References/`, which `libraryOf` does not recognise — so on TwinCAT
+- [ ] **Handed off (2026-10-02) to the backlog for after transpile-restructure — not done here.** TwinCAT materializes its libraries under `References/`, which `libraryOf` does not recognise — so on TwinCAT
       the library repo is never consulted. Needs a live TwinCAT pull to confirm the folder name.
-- [ ] Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
+- [ ] **Handed off (2026-10-02) to the backlog for after transpile-restructure — not done here.** Standard64: a fixture project that references it, then `libraries/Standard64/<version>/` — the W-functions,
       `LTON`/`LTOF`/`LTP`, `LCTU`/`LCTD`/`LCTUD`.
 
 ## What tier 1 did NOT decide, and is now worth writing down
@@ -119,3 +119,9 @@ The delta was rewritten to the library repo (it described tier 1's intrinsics). 
       bridge renders them now, and the corpus build gate stays red on that one name until pro2193 is re-pulled.
 - [x] *a library element's behaviour is recorded against the vendor* — met: `fixtures/libraries/library-bodies.ts`,
       20 fixtures, all matching in both backends (the timers on the recorded clock).
+
+## Spec delta re-checked at archive — 2026-10-02
+
+- [x] The five requirements above still hold against the code (`libraries/Standard|StringUtils|Util/<version>/`,
+      `test/libraries/repo.test.ts`, `fixtures/libraries/library-bodies.ts`); nothing in the delta depends on an
+      open item. The six open items are handed off (proposal.md, close-out), not done.
