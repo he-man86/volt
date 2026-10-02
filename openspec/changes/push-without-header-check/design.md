@@ -247,3 +247,179 @@ Order: evidence first, then the red tests, then the swap.
 7. **Wire and consumers.** `RefsFetch.unnamed` goes into `Volt.Contracts`, `docs/wire.html` and the generated
    doc data. The CLI (`IdeTree`) and the TS e2e client are updated; volt-control/desktop/vscode are checked
    (they read CLI output, not the wire).
+
+## Step 5.H — TwinCAT: a walk that never touches a POU whose text declares nothing
+
+(2026-10-02. Design only; no code. Task 5.H.1. DIALECT C2i.)
+
+### Target
+
+After a solution load, the first touch of the tree item of a TwinCAT POU whose text declares no POU kind
+(`Child(i)` on its index, `LookupChild(name)`) kills TcXaeShell: RPC `0x800706BE` to the caller, access violation
+`0xc0000005` in `TwinCAT System Manager.dll` 3.1.0.4384. Volt's walk (`BeckhoffDriver.WalkInner`), every
+engine lookup (`ItemLookup.Walk`, `TreeNav`, `MemberSites`) and the object-model helpers
+(`TcObjectModel.FindLibraryManager`, `TcObjectModel.Task`) enumerate children with `Child(i)`. So one such POU makes
+every `refs`, `fetch`, `pull`, `push` and `build` crash the engineer's IDE. Section 2 makes this reachable from Volt
+itself: a push writes a POU's text as sent, so `pwh_unclosed_comment_fb` pushed to TwinCAT, saved and reloaded is
+exactly this state.
+
+Acceptance: on such a project the walk completes, names every other item, and names the broken POU in
+`unreadable`. XAE stays alive. The POU can be repaired by a push. Nothing in Volt touches its tree item.
+
+### Measured (2026-10-02, TcXaeShell 4024.74 / System Manager 3.1.0.4384)
+
+Scratch probe (`probe-5h.ps1`, in the session scratchpad; it reuses `probe-tc-kind-source.ps1`'s ROT and
+`IVsHierarchy` code). It ran against a copy of the kind-probe's saved Project14 (which holds `VltK_BP`, C2i's POU),
+opened by a TcXaeShell this probe started under `volt-ide-twincat-push-without-header-check`. A census folder
+`VltCensus` was created in-session with the recorded written-as-sent texts, saved, and the solution reloaded
+(`Solution.Close` + `Open`). Each item was then touched ONCE by `LookupChild`, with the read written to a trace file
+first, and XAE's survival checked (Application event 1000 on every crash):
+
+| item (text) | tree code | Solution Explorer caption | first touch after reload |
+|---|---|---|---|
+| `VltK_BP` (C2i: `(* doc` + PROGRAM) | 602 | `VltK_BP` (no suffix) | **crash** (C2i, 4×; not re-touched here) |
+| `VltX_EP`: PROGRAM, empty text | 602 | `VltX_EP` | **crash** (`0xc0000005` at `0x00bc6df8`) |
+| `VltX_PP`: PROGRAM, prose | 602 | `VltX_PP` | **crash** (same) |
+| `VltX_UCF`: `(* doc` + FUNCTION | 603 | `VltX_UCF` | **crash** |
+| `VltX_UCFB`: `pwh_unclosed_comment_fb`'s text | 604 | `VltX_UCFB` | **crash** |
+| `VltX_FP`: `pwh_fb_text_says_program` (604 holding PROGRAM) | 604, reloads 602 | `VltX_FP (PRG)` | ok |
+| `VltX_MB`: FB + METHOD `M` whose text opens `(* doc` | 604 / 609 | `VltX_MB (FB)` / `M` | ok; `Child(1)` = `M` ok |
+| `VltX_UCI`: interface, `(* doc` + INTERFACE | 618 | `VltX_UCI` | ok |
+| `VltX_UCG` / `VltX_PG` / `VltX_EG` = `pwh_unclosed_comment_gvl` / `pwh_prose_gvl` / `pwh_empty_gvl` | 615 | no suffix (a GVL never has one) | ok |
+| DUTs that declare nothing (`VltK_BC/BE/BT`, C2h) | 623 | no suffix | ok |
+
+So the crash is exactly this case: **a POU (`.TcPOU`: PROGRAM / FUNCTION_BLOCK / FUNCTION) whose text the IDE
+does not read as a POU**. That held for 5 of 5 such items, and for none of the 21 other items (GVL, interface, DUT,
+method, a POU whose text declares the other POU kind). Further facts, each measured on the same copy:
+
+- **The VS hierarchy reaches the item without crashing.** `IVsSolution` → `IVsHierarchy` over the DTE's
+  `IServiceProvider`, out of process, listed every node, the crashing POUs included, on every run (8 reads, before
+  and after the reload and after the crashes). Cost: 73–142 ms per full read of the 143-node solution (688–763 ms on
+  the first read in a fresh process).
+- **The caption shows whether the IDE parsed a POU, and it updates at once.** A `.TcPOU` node's caption is
+  `<name> (PRG|FB|FUN)` while the IDE reads a POU from its text, and the bare `<name>` otherwise. Writing `(* doc`
+  before `VltK_P`'s declaration in the live session dropped `(PRG)` immediately; writing the original back
+  restored it. An empty text on `VltK_FB` dropped `(FB)`. A POU recreated with a fixed text read `(PRG)` at once.
+  The design below uses only whether a suffix is PRESENT, never its spelling.
+- **The hierarchy lists a folder's children the way the tree does.** For the PLC project root (13 children:
+  External Types, References, 6 folders, 2 POUs, the task, the `.tmc`), for `VltKind` (18) and for `VltCensus`
+  (10), the hierarchy gave the same names, in the same order, as `Child(1..n)`. A file's canonical name is
+  `<tree name>.<ext>`. A POU's members are child nodes (`X.TcPOU;X.M`).
+- **Siblings are safe.** `Child(i)` read normally for every index of `VltKind` except the crashing one, and for every
+  index of `VltCensus` except its four. So did `LookupChild` of each sibling by name (17 names in C2i's log, 6 here).
+- **The parent's own XML lists no children.** `VltKind.ProduceXml(false)` and `ProduceXml(true)` are
+  byte-identical: 379 characters, `ChildCount 18`, no child name. This is the same as on a property
+  (`InterfacePropertyAccessors`).
+- **The item can be repaired without touching it.** `VltKind.DeleteChild("VltK_BP")` returned, ChildCount went
+  18 → 17, and XAE stayed alive. `CreateChild("VltK_BP", 602, "", "ST")` plus a fixed declaration then gave a
+  normal item: `ItemType 602`, caption `VltK_BP (PRG)`, at index 4 (the tree keeps its order). After that, the full
+  index walk of `VltKind` (1..18) read every item.
+- **In the session that wrote the text, the item is safe to touch.** The census items were created, written and
+  read in-session without a crash, as C2i recorded for `VltK_BP`. The crash risk starts at the next load.
+- **This shape does not occur in the real corpora.** 0 of 16,990 POU files in the six corpora (`test-corpus/*`:
+  awa-palletizer 3642, bakon-nano 3763, CodesysTestProject 529, lenze-mid 4241, pro2193 4592, twincat-project14
+  223) declare no POU kind after leading comments and pragmas. It still does not qualify as "niche: accepted loss":
+  Volt's own push can now produce it (section 2), and the cost is the engineer's IDE crashing on every operation
+  until the file is fixed outside Volt.
+
+### Options, each measured
+
+| option | avoids the crash? | names the item? | verdict |
+|---|---|---|---|
+| A. Guard the read (`try` around `Child(i)`), as the walk does for other faults | ✗ the crash happens inside TcXaeShell; the catch receives `0x800706BE` after XAE has died (5 of 5) | — | rejected: Volt's side has nothing to guard |
+| B. Names and kinds from the parent's `ProduceXml(true)` | — | ✗ no child appears in it | rejected |
+| C. Names from the `.plcproj` `Compile` items; the crash predicted from the `.TcPOU` declaration on disk | ✓ if the prediction is right | ✓ | rejected: Volt would parse a POU's text to decide what it is, which is the read 5.F deletes. It would also be guessing at the vendor's own parse, which the caption already states |
+| D. **The Solution Explorer hierarchy: a `.TcPOU` node whose caption is its bare name is never touched** | ✓ flags 5 of 5, and 0 of the 21 others | ✓ by its hierarchy name | **chosen** |
+| E. D's flag, then skip that INDEX in the ordinary `Child(i)` walk | ✓ (measured: skipping index 4 of 18, and 2/6/7/8 of 10) | ✓ | rejected as the mechanism: safety would depend on the hierarchy's ORDER matching `Child(i)`'s. That held on three folders, but the vendor does not promise it. D addresses siblings by NAME instead, which depends only on the names matching |
+| F. Prevent it at push: after writing a POU text, refuse and restore when the caption loses its suffix | ✓ for Volt's own pushes | — | rejected: it is the header check section 2 removed, answered by the IDE instead of Volt. It does nothing for a project broken in XAE or before Volt. The in-session state is harmless, and the walk guard covers the next load |
+| G. Refuse the whole walk when any POU is flagged | ✓ | ✓ | rejected: one broken POU would block every pull and push of the project |
+| H. Read the item in-process (a VS package in TcXaeShell) | ? | ? | rejected: a new install into the vendor's IDE (N6) |
+
+### Choice
+
+**D: the TwinCAT object model never calls `Child(i)` or `LookupChild` on a POU that the IDE does not parse as a
+POU, and it names that POU instead.**
+
+1. **One snapshot per operation.** `TcObjectModel` reads the Solution Explorer hierarchy of the served PLC project
+   once per operation, at the same reset point as `BeckhoffDriver._declarations` (`WalkItems`, and the start of
+   each op that resolves an item without a walk). It reads it again after any structural write in that op (create,
+   delete, rename, move, text write), because a write can flag or unflag a POU. The snapshot holds, for every tree
+   path, its child names in hierarchy order, and the set of **untouchable** children: `.TcPOU` nodes whose caption
+   equals the node's own name.
+2. **`TcObjectModel.ChildAt` is the single point of control.** It is the only member that calls `.Child[i]` on a
+   PLC node. The walk, the engine's lookups (through `BeckhoffDriver.ChildAt`), `FindLibraryManager` and the task
+   helpers all go through it.
+   - Fast path, which every real project takes: the snapshot has no untouchable item, and `ChildAt` makes exactly
+     today's call, with no extra COM read.
+   - Guarded path, for a parent that holds an untouchable child (identified by its tree `PathName`, which is read
+     only in this case): its children are addressed BY NAME. `ChildAt(parent, i)` becomes
+     `LookupChild(names[i-1])`, after checking that `ChildCount(parent) == names.Count`. For the untouchable name,
+     `ChildAt` throws `UnreadableItemException(name, reason)` without making any COM call. A count mismatch throws
+     an ordinary fault, and the folder is marked unwalked (see below).
+3. **Walk.** `WalkInner` catches `UnreadableItemException` and records `UnreadableObject(name, folder, reason)`.
+   The folder still counts as complete, so deletions elsewhere in it are still derived. `refs`/`fetch` list the item
+   in `unreadable` with this reason: *"TwinCAT does not read 'X' as a POU; touching its tree item crashes
+   TcXaeShell after a load (DIALECT C2i), so Volt does not read it. Push the fixed text with --force."* The CLI
+   keeps the workspace file, as it does for any unreadable item.
+4. **Lookup.** `ItemLookup.Walk` (engine) catches `UnreadableItemException`. If the child IS the name being looked
+   up, the op is refused `UNREADABLE`, by name. For any other name the child is skipped (a POU is never a folder to
+   recurse into), so pushes to its siblings work. Today any child fault refuses the whole lookup; that stays true
+   for every other fault.
+5. **Push.** The existing unreadable rules apply unchanged: a set or delete on that name without `--force` is
+   refused `UNREADABLE`, by name. With `--force`, a delete is the parent's `DeleteChild(name)`, and a set is
+   `DeleteChild(name)` followed by the ordinary create path with the pushed kind and text (both measured above). The
+   driver refuses any write that would need the item's own handle.
+6. **The hierarchy is required.** If it cannot be read (the service is unavailable, or the PLC project node is
+   not found), the operation fails `INTERNAL_ERROR` with this message: "the Solution Explorer hierarchy is
+   unreadable; Volt does not walk the TwinCAT tree without it (DIALECT C2i)". There is no fallback to an unguarded
+   walk.
+
+Counted fallbacks (owner: every fallback is named, tested and counted): **one**, the untouchable POU listed in
+`unreadable`. Among the recorded fixtures it applies only to `pwh_unclosed_comment_fb` (TwinCAT, after a reload).
+In the six corpora it applies to 0 items.
+
+**CODESYS: no change.** Its in-proc object model reads such a POU without harm; what it publishes for one is 5.D's
+subject. The two vendors' wires differ here because of a vendor fact (C2i), which DIALECT records.
+
+### What stays refused, by name
+
+- **An untouchable POU** (above). It is listed in `unreadable`, and any op on its name without `--force` is
+  refused `UNREADABLE`. Volt never reads its text, version or kind.
+- **A folder whose child count disagrees with the hierarchy's** while it holds an untouchable child. That folder
+  is unwalked (no deletions are derived beneath it), and an op that must resolve an item in it is refused
+  `INTERNAL_ERROR`, naming the folder. This has not been seen to occur; it guards the name addressing.
+- **An unreadable hierarchy:** the whole operation fails `INTERNAL_ERROR`, named (choice 6).
+- Not measured, and recorded as such: a TcXaeShell option or UI language that shows no suffix on ANY POU would
+  flag every POU. Every op would then refuse loudly, but nothing would crash. Also not measured: whether opening
+  such a POU's editor in XAE crashes too.
+
+### Migration
+
+1. **Red tests first** (`Volt.Ide.Twincat.Tests`, dynamic doubles as in `TcWalkUnreadableObjectTests`). Add a
+   `Node` double whose `Child[i]`/`LookupChild` on a poisoned child **throws `COMException(0x800706BE)` and kills
+   the double**: every later call on any node throws the same error, as a dead XAE does. Add a hierarchy double
+   (names, captions). The tests assert that:
+   - `WalkItems` completes, never touches the poisoned child, names it in `unreadable` with the reason, and emits
+     every sibling;
+   - `ItemLookup.Find` of a sibling succeeds, and of the poisoned name refuses `UNREADABLE`;
+   - a forced delete calls only `DeleteChild(name)`, and a forced set deletes then creates;
+   - the fast path (nothing flagged) makes no `PathName` or `LookupChild` call;
+   - a count mismatch marks the folder unwalked;
+   - an unreadable hierarchy fails the walk.
+
+   In `Volt.Engine.Tests`, cover `ItemLookup` with a `FakeIde` child that throws `UnreadableItemException`.
+2. **Hierarchy reader.** New file `Ide/TcSolutionExplorer.cs`. It declares the COM interfaces it needs
+   (`IServiceProvider` (OLE), `IVsSolution`, `IVsHierarchy`, `IEnumHierarchies`) locally with `[ComImport]`, so no
+   TcXaeShell assembly is loaded into the net10 worker. It ports the walk from `probe-tc-kind-source.ps1` and
+   produces the snapshot. It is the only place the caption is read.
+3. **`TcObjectModel.ChildAt`** gets the guard (choice 2). `UnreadableItemException` lives in `Volt.Engine/Ide` next
+   to `IProjectTree`, and `IProjectTree.ChildAt`'s documentation says a driver may name a child it must not open.
+4. **`BeckhoffDriver.WalkInner`**, **`ItemLookup.Walk`** and the TwinCAT `Delete`/write paths change as in choices
+   3–5. `PushService`'s forced set on an unreadable TwinCAT item becomes delete + create.
+5. **Docs.** DIALECT C2i gets the census table above and the rule "touched only through the hierarchy".
+   `ARCHITECTURE.md`'s walk section names the snapshot.
+6. **Live check** (task 5.H.1, `ide.ps1 -Instance push5`). Push `pwh_unclosed_comment_fb` as a `.fb` to a
+   Project14 copy, save, then `ide.ps1 down` / `up` on the SAVED copy. Run `volt status` / `refs` and confirm: XAE
+   is alive, the POU is named in `unreadable`, and every other item is present. Then `volt push --force` the fixed
+   text, and confirm `volt pull` names it `.fb` and a further reload walks clean. Repeat for the empty and prose
+   texts.
