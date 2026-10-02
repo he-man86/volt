@@ -77,7 +77,7 @@ public class FetchExclusionTests
 
         var resp = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        var placed = resp.Changed.Where(c => c.Name == "SOMEFB.fb").Select(c => c.Folder).ToList();
+        var placed = resp.Changed.Where(c => c.Name == "SOMEFB.pou").Select(c => c.Folder).ToList();
         Assert.Single(placed);
         Assert.Contains("(unresolved)", placed[0]); // loud, not dropped, not guessed into CAA Types
     }

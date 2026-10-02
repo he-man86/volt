@@ -17,7 +17,7 @@ public class PouMergeWriteTests
 {
     private static FakeIde Fb(string childFolder = "") =>
         new FakeIde(
-            new FakeIde.Item("FB_Test", ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_Test", ItemKind.PlcPou, "", true,
                 "FUNCTION_BLOCK FB_Test\nVAR\n\tn : INT;\nEND_VAR", "n := n + 1;", null, null,
                 Children: new[] { "DoIt" }),
             new FakeIde.Item("DoIt", ItemKind.PlcMethod, childFolder, false,
@@ -38,7 +38,7 @@ public class PouMergeWriteTests
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], SourceText = src } },
+            Ops = new() { new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], SourceText = src } },
         });
         // A rejection here is a test-setup bug 9 times in 10 — surface WHY instead of a bare "expected True".
         Assert.True(resp.Accepted,
@@ -89,7 +89,7 @@ public class PouMergeWriteTests
     public void Every_foldered_child_arrives_with_its_folder()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Two", ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_Two", ItemKind.PlcPou, "", true,
                 "FUNCTION_BLOCK FB_Two\nVAR\n\tn : INT;\nEND_VAR", "n := 1;", null, null,
                 Children: new[] { "One", "Two" }),
             new FakeIde.Item("One", ItemKind.PlcMethod, "", false, "METHOD One : BOOL", "One := TRUE;", null, null),
@@ -102,7 +102,7 @@ public class PouMergeWriteTests
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = "FB_Two.fb", IfVersion = refs.Items["FB_Two.fb"], SourceText = src } },
+            Ops = new() { new SetItemOp { Name = "FB_Two.pou", IfVersion = refs.Items["FB_Two.pou"], SourceText = src } },
         });
         Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
 
@@ -143,14 +143,16 @@ public class PouMergeWriteTests
         var ide = new FakeIde();
         PushOp(ide, new SetItemOp
         {
-            Name = "FB_New.fb",
+            Name = "FB_New.pou",
             SourceText = "FUNCTION_BLOCK FB_New\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
                        + "METHOD First : BOOL\nIMPLEMENTATION ST\nFirst := TRUE;\nEND_METHOD\n\nMETHOD Second : BOOL\nIMPLEMENTATION ST\nSecond := FALSE;\nEND_METHOD\n",
         });
 
         // One CreateChild per member, then ONE content write. The members used to arrive inside the
-        // document, so this was two calls flat; see the cost note in TransportMatrixTests.
-        Assert.Equal(new[] { "create:FB_New", "create:First", "create:Second", "writecontent:FB_New" },
+        // document, so this was two calls flat; see the cost note in TransportMatrixTests. The declaration lands
+        // BEFORE the members are created (openspec push-without-header-check 5.Q.4: which members a POU accepts
+        // follows its text, DIALECT C2k), so a create with members writes it once ahead of them.
+        Assert.Equal(new[] { "create:FB_New", "writecontent:FB_New", "create:First", "create:Second", "writecontent:FB_New" },
                      ide.Recorded.ToArray());
         var doc = FakeIde.AllText(ide.WrittenContent["FB_New"]);
         Assert.Contains("First", doc);
@@ -168,7 +170,7 @@ public class PouMergeWriteTests
     public void A_create_establishes_the_body_language_over_the_seed_CreateChild_laid_down()
     {
         var ide = new FakeIde();
-        PushOp(ide, new SetItemOp { Name = "VG_New.prg", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
+        PushOp(ide, new SetItemOp { Name = "VG_New.pou", SourceText = "PROGRAM VG_New\nVAR\n  c : BOOL;\n  y : BOOL;\nEND_VAR\nIMPLEMENTATION LD\nNETWORK\n  y := c;\nEND_NETWORK\n\nEND_PROGRAM\n" });
 
         Assert.Contains("IMPLEMENTATION LD\nNETWORK", FakeIde.AllText(ide.WrittenContent["VG_New"]));
     }
@@ -180,7 +182,7 @@ public class PouMergeWriteTests
     {
         var ide = Fb();
         var refs = RefsService.Handle(ide);
-        PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
+        PushOp(ide, new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], ToFolder = "Motors" });
 
         Assert.Contains("move:FB_Test->Motors", ide.Recorded);
         // `create:Motors` IS expected — the destination folder is resolved-or-created. What must not appear is a
@@ -198,8 +200,8 @@ public class PouMergeWriteTests
         var refs = RefsService.Handle(ide);
         PushOp(ide, new SetItemOp
         {
-            Name = "FB_Test.fb",
-            IfVersion = refs.Items["FB_Test.fb"],
+            Name = "FB_Test.pou",
+            IfVersion = refs.Items["FB_Test.pou"],
             ToFolder = "Motors",
             SourceText = Source("n := n + 9;", "DoIt := FALSE;"),
         });
@@ -234,7 +236,7 @@ public class PouMergeWriteTests
     {
         var ide = Fb();
         var refs = RefsService.Handle(ide);
-        PushOp(ide, new SetItemOp { Name = "FB_Test.fb", IfVersion = refs.Items["FB_Test.fb"], ToFolder = "Motors" });
+        PushOp(ide, new SetItemOp { Name = "FB_Test.pou", IfVersion = refs.Items["FB_Test.pou"], ToFolder = "Motors" });
 
         Assert.Contains("move:FB_Test->Motors", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
@@ -251,7 +253,7 @@ public class PouMergeWriteTests
     public void A_member_whose_kind_changes_is_deleted_and_recreated()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_K", ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_K", ItemKind.PlcPou, "", true,
                 "FUNCTION_BLOCK FB_K\nVAR\n\tx : INT;\nEND_VAR", "x := 1;", null, null,
                 Children: new[] { "Ready" }),
             new FakeIde.Item("Ready", ItemKind.PlcProp, "", false, "PROPERTY Ready : INT", null, null, null));
@@ -262,7 +264,7 @@ public class PouMergeWriteTests
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = "FB_K.fb", IfVersion = refs.Items["FB_K.fb"], SourceText = src } },
+            Ops = new() { new SetItemOp { Name = "FB_K.pou", IfVersion = refs.Items["FB_K.pou"], SourceText = src } },
         });
 
         Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));
@@ -278,7 +280,7 @@ public class PouMergeWriteTests
     public void A_removed_member_is_deleted_before_any_member_is_created()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_D", ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_D", ItemKind.PlcPou, "", true,
                 "FUNCTION_BLOCK FB_D\nVAR\n\tx : INT;\nEND_VAR", "x := 1;", null, null,
                 Children: new[] { "Gone" }),
             new FakeIde.Item("Gone", ItemKind.PlcMethod, "", false, "METHOD Gone : BOOL", "Gone := TRUE;", null, null));
@@ -289,7 +291,7 @@ public class PouMergeWriteTests
         var resp = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = "FB_D.fb", IfVersion = refs.Items["FB_D.fb"], SourceText = src } },
+            Ops = new() { new SetItemOp { Name = "FB_D.pou", IfVersion = refs.Items["FB_D.pou"], SourceText = src } },
         });
 
         Assert.True(resp.Accepted, string.Join("; ", (resp.Conflicts ?? new()).Select(c => c.Reason)));

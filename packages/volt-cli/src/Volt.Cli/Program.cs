@@ -258,15 +258,15 @@ internal static class Program
         return r.Success ? 0 : 2;
     }
 
-    /// <summary>`FB_Motor.fb:12:4 ` — the location prefix, empty when the diagnostic names neither.
+    /// <summary>`FB_Motor.pou:12:4 ` — the location prefix, empty when the diagnostic names neither.
     ///
     /// <para>The position rides on the NAME and never appears without it. A project-level diagnostic can carry a
     /// line with no item (TwinCAT emits both), and printing that alone gave `[error] :12 message` — a
     /// colon-prefixed number that reads as a truncated path. Column only alongside a line, because a column
     /// without one points nowhere.</para>
     ///
-    /// <para>The MEMBER rides between them - `FB_Motor.fb(Execute):6` - because an error inside a method is in the
-    /// FB's file but the vendor counts its line inside the METHOD (DIALECT D36): printed bare, `FB_Motor.fb:6` would
+    /// <para>The MEMBER rides between them - `FB_Motor.pou(Execute):6` - because an error inside a method is in the
+    /// FB's file but the vendor counts its line inside the METHOD (DIALECT D36): printed bare, `FB_Motor.pou:6` would
     /// send the engineer to the wrong line of the right file.</para></summary>
     private static string Where(Volt.Contracts.BridgeDiagnostic d)
     {

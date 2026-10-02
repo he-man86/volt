@@ -130,7 +130,7 @@ namespace Volt.Ide.Codesys.Tests
             _3S.CoDeSys.Core.SystemInstances.ObjectMgr = manager;
             try
             {
-                var content = new ItemContent(ItemKind.Kinds.FunctionBlock,
+                var content = new ItemContent(ItemKind.Kinds.Pou,
                     "FUNCTION_BLOCK FB_Chart\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\nVAR\nEND_VAR", line,
                     new List<Member>
                     {

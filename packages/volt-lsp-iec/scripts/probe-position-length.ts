@@ -67,7 +67,7 @@ const health = await call("health")
 const selected = (health.projects ?? []).map((p: any) => p.project).find((n: any) => typeof n === "string")
 if (selected !== undefined) await call("connect", { project: selected })
 
-const PLC = "PLC_PRG.prg"
+const PLC = "PLC_PRG.pou"
 
 /** Sources are joined from LINES — no escapes, so nothing in this file can be mangled into a real newline. */
 const NL = String.fromCharCode(10)
@@ -187,7 +187,7 @@ const PROBES: { tag: string; name?: string; varies: string; fb: (name: string) =
 
 for (const p of PROBES) {
   const name = p.name ?? `FB_PP_${p.tag}`
-  const wire = `${name}.fb`
+  const wire = `${name}.pou`
   try {
     await push([{ op: "set", name: wire, toFolder: null, sourceText: markImplementations(p.fb(name)), ifVersion: await version(wire) }])
     const plc = src("PROGRAM PLC_PRG", "VAR", `${TAB}inst : ${name};`, "END_VAR", "inst();", "END_PROGRAM")

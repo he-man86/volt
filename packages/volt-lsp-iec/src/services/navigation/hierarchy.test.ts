@@ -14,7 +14,7 @@ import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src, { networkText: true })
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   return { doc, project }
 }

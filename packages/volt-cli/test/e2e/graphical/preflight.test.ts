@@ -50,8 +50,8 @@ describe(`graphical / the push pre-flight (${BASE})`, () => {
 
 	it("a create refused for an unresolvable FB instance leaves the item before it unwritten", async () => {
 		const firstName = id("pf_ok")
-		const first = fid("pf_ok", "prg")
-		const second = fid("pf_bad", "prg")
+		const first = fid("pf_ok", "pou")
+		const second = fid("pf_bad", "pou")
 
 		const before = (await bridge.refs()).items ?? {}
 		expect(before[first], "the fixture project already holds this item").toBeUndefined()

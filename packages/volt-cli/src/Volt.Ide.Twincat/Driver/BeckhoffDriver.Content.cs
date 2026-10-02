@@ -589,7 +589,12 @@ public sealed partial class BeckhoffDriver
 
     private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, string? ownerDeclaration)
     {
-        var kind = ItemKind.Map(site.Code) ?? ItemKind.Kinds.Method;
+        // The member's kind is its tree CODE (its class), and a code with no kind is refused by name (openspec
+        // `push-without-header-check` 5.Q.7). `?? Kinds.Method` made any member TwinCAT reports under a code Volt does
+        // not know a "method" — the silent default `CodesysDriver.MemberKind` and `ItemKind.MemberCode` already refuse.
+        var kind = ItemKind.Map(site.Code)
+            ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"TwinCAT: member '{site.Name}' has tree item type {site.Code}, a member Volt has no kind for — refusing to treat it as a method");
         var declaration = MemberDeclaration(site);
         // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
         var scope = SourceScopes.Scope(site.Code == ItemKind.PlcAction ? null : declaration, ownerDeclaration);

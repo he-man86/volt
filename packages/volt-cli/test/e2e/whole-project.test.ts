@@ -37,10 +37,10 @@ import { isPouFile } from "@volt/control"
 describe(`whole project (${BASE})`, () => {
 	setDefaultTimeout(600_000)
 	/** One DUT of each subtype, so the sweep provably covers DUTs on a project that has none of its own (neither
-	 *  committed fixture does). The sweep's kind filter once named `.dut`, which no wire message carries since a
-	 *  DUT's wire name became its subtype — every project DUT silently fell out and the suite stayed green. */
+	 *  committed fixture does). Every DUT is `X.dut` whatever its subtype (openspec push-without-header-check 5.P); the
+	 *  sweep once filtered on a kind no wire message carried, and every project DUT silently fell out. */
 	const SEEDED_DUTS = [
-		fid("wp_struct", "struct"), fid("wp_enum", "enum"), fid("wp_union", "union"), fid("wp_alias", "alias"),
+		fid("wp_struct", "dut"), fid("wp_enum", "dut"), fid("wp_union", "dut"), fid("wp_alias", "dut"),
 	]
 	beforeAll(async () => {
 		await requireHealthy()
@@ -71,7 +71,7 @@ describe(`whole project (${BASE})`, () => {
 	 *  a modifier dropped on the way out — fails here, on the item that actually has the shape. */
 	it("every editable item is a fixed point: pull → push its own bytes → pull is identical", async () => {
 		const first: any = await bridge.fetch({ knownItems: {} })
-		// Library artefacts share the same extensions (`RS.fb`, `Global_Version.gvl`) and are READ-ONLY: they are
+		// Library artefacts share the same extensions (`RS.pou`, `Global_Version.gvl`) and are READ-ONLY: they are
 		// rendered signatures, deliberately absent from the refs index and not pushable. Excluded by where they
 		// live, derived from the payload — see `libraryRoots`.
 		const roots = libraryRoots(first.changed as any[])

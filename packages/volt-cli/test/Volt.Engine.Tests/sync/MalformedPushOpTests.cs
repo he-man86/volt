@@ -34,7 +34,7 @@ public class MalformedPushOpTests
         var res = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new PushOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"] } },
+            Ops = new List<PushOp> { new PushOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"] } },
         });
 
         _out.WriteLine($"accepted={res.Accepted} conflicts={string.Join("; ", (res.Conflicts ?? new List<PushConflict>()).ConvertAll(c => c.Reason))}");
@@ -52,7 +52,7 @@ public class MalformedPushOpTests
         var res = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_AlreadyGone.fb", IfVersion = null } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "FB_AlreadyGone.pou", IfVersion = null } },
         });
 
         Assert.True(res.Accepted);

@@ -209,11 +209,11 @@ test("a merge in progress lists each conflicted file", () => {
   s.setSnap({
     ...bound,
     mode: "merging",
-    conflicts: [{ name: "FB_Motor.fb", relPath: "src/FB_Motor.fb" }],
+    conflicts: [{ name: "FB_Motor.pou", relPath: "src/FB_Motor.pou" }],
   })
   s.render()
 
-  expect(s.html()).toContain("FB_Motor.fb")
+  expect(s.html()).toContain("FB_Motor.pou")
 })
 
 // THE SEED, not a pushed snapshot: `render()` with nothing set yet is the first paint, before the main process has

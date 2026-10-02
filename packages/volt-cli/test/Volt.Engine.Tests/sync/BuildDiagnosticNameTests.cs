@@ -30,10 +30,10 @@ public class BuildDiagnosticNameTests
         FakeIde.Item.TextualPou(name, decl, "n := 0;\n");
 
     /// <summary>The kind is NOT the vendor's kind code: `Boiler` is a POU to both IDEs, and only the declaration
-    /// says whether the wire calls it `Boiler.prg` or `Boiler.fb`.</summary>
+    /// says whether the wire calls it `Boiler.pou` or `Boiler.pou`.</summary>
     [Theory]
-    [InlineData(Prog, "Boiler.prg")]
-    [InlineData(Fb, "Boiler.fb")]
+    [InlineData(Prog, "Boiler.pou")]
+    [InlineData(Fb, "Boiler.pou")]
     public void A_bare_name_from_the_vendor_becomes_the_full_wire_name(string decl, string expected)
     {
         var ide = new FakeIde(Pou("Boiler", decl))
@@ -99,7 +99,7 @@ public class BuildDiagnosticNameTests
     /// be promoted takes the member with it: <c>{name: null, member: "Execute"}</c> is a child of nothing, and no client
     /// can tell whose <c>Execute</c> it is.</summary>
     [Theory]
-    [InlineData("Boiler", "Boiler.fb", "Execute")]
+    [InlineData("Boiler", "Boiler.pou", "Execute")]
     [InlineData("SomethingElse", null, null)]
     public void The_member_is_kept_as_the_driver_gave_it(string bare, string? expected, string? expectedMember)
     {
@@ -117,7 +117,7 @@ public class BuildDiagnosticNameTests
         Assert.Equal((expected, expectedMember), (diagnostic.Name, diagnostic.Member));
     }
 
-    /// <summary>THE V71 SHAPE, INSIDE A METHOD. <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> share a bare
+    /// <summary>THE V71 SHAPE, INSIDE A METHOD. <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> share a bare
     /// name, but only one of them CAN hold a method: a diagnostic that carries a member is inside a POU or an interface
     /// (<c>ItemKind.HoldsMembers</c>), never a visualization. The driver knew the parent exactly (CODESYS placed the
     /// child's guid under it); resolving the name to nothing here published the field case's own error as an orphan
@@ -138,7 +138,7 @@ public class BuildDiagnosticNameTests
 
         var diagnostic = Assert.Single(Build(ide).Diagnostics);
 
-        Assert.Equal(("CM_Carrier.fb", "Execute"), (diagnostic.Name, diagnostic.Member));
+        Assert.Equal(("CM_Carrier.pou", "Execute"), (diagnostic.Name, diagnostic.Member));
     }
 
     /// <summary>A fault while naming leaves no orphan member either: the member is the child of a name that was not
@@ -207,8 +207,8 @@ public class BuildDiagnosticNameTests
             },
         };
 
-        Assert.Equal("Boiler.prg", Assert.Single(Build(ide).Diagnostics).Name);
-        Assert.Equal("Boiler.prg", Assert.Single(Build(ide).Diagnostics).Name);
+        Assert.Equal("Boiler.pou", Assert.Single(Build(ide).Diagnostics).Name);
+        Assert.Equal("Boiler.pou", Assert.Single(Build(ide).Diagnostics).Name);
     }
 
     /// <summary>A clean build walks NOTHING — the promotion is the only reason `build` would touch the tree, and
@@ -229,7 +229,7 @@ public class BuildDiagnosticNameTests
     /// <para>`Versioning.VersionedItem` sets `Identity = materialized?.FullName ?? bareName`, so an item whose
     /// body defeats the reader keeps its bare name there — and a FAILING BUILD is exactly when such an item is
     /// present, since an unreadable body is the sort of thing a compiler complains about. Reading `.Identity`
-    /// published `CM_Carrier` where the field promises `CM_Carrier.fb` or nothing, and a client resolving that
+    /// published `CM_Carrier` where the field promises `CM_Carrier.pou` or nothing, and a client resolving that
     /// as a wire name finds no file, or the wrong one.</para></summary>
     [Fact]
     public void An_item_that_cannot_be_materialized_gets_no_name()

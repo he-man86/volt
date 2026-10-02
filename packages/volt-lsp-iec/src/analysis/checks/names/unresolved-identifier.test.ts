@@ -22,7 +22,7 @@ interface Workspace {
 /** Diagnostics for one FB source, in a project optionally binding a workspace's manifests and devices. */
 function diag(src: string, workspace: Workspace = {}) {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], workspace.manifests ?? [], "codesys", undefined, workspace.devices ?? [])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], workspace.manifests ?? [], "codesys", undefined, workspace.devices ?? [])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
@@ -77,7 +77,7 @@ test("a bare-accessible enum member (non-qualified_only) is not flagged", () => 
 const enumUse = (enumDut: string, consumer: string): string[] => {
   const files = [
     { uri: "E.dut", parseResult: parseSource(enumDut, { networkText: true }), source: enumDut },
-    { uri: "F.fb", parseResult: parseSource(consumer, { networkText: true }), source: consumer },
+    { uri: "F.pou", parseResult: parseSource(consumer, { networkText: true }), source: consumer },
   ]
   const project = build.buildSymbolTable(files, [], "codesys")
   return computeSemanticDiagnostics({ parseResult: files[1].parseResult, source: consumer, project, config: resolveConfig({ vendor: "codesys" }) })
@@ -172,7 +172,7 @@ END_FUNCTION_BLOCK`
   const tc = computeSemanticDiagnostics({
     parseResult: parseSource(src, { networkText: true }, "twincat"),
     source: src,
-    project: build.buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src, { networkText: true }, "twincat"), source: src }], [], "twincat"),
+    project: build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }, "twincat"), source: src }], [], "twincat"),
     config: resolveConfig({ vendor: "twincat" }),
   })
     .filter((d) => d.code === "unknown-member")
@@ -237,7 +237,7 @@ test("member access on a LIBRARY-typed base is not flagged (signatures may be lo
   const usePr = parseSource(useSrc, { networkText: true })
   const project = build.buildSymbolTable([
     { uri: "Device/Plc Logic/Application/Library Manager/MyLib/Pt.dut", parseResult: libPr, source: libSrc },
-    { uri: "F.fb", parseResult: usePr, source: useSrc },
+    { uri: "F.pou", parseResult: usePr, source: useSrc },
   ])
   const diags = computeSemanticDiagnostics({ parseResult: usePr, source: useSrc, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(diags.filter((d) => d.code === "unknown-member")).toEqual([]) // Pt is library-defined → skipped
@@ -270,7 +270,7 @@ test("a name that does not resolve and is CALLED is two errors", () => {
   // it is not something you can call (conformance `cc_conv_spelled_source_ok` and its three siblings).
   const src = `FUNCTION_BLOCK F\nVAR\nt : TOD;\nu : UDINT;\nEND_VAR\nu := TIME_OF_DAY_TO_UDINT(t);\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "unresolved-identifier" || d.code === "invalid-call-target")
     .map((d) => d.message)
@@ -303,7 +303,7 @@ test("`.g` declared by two global lists names no global (expr_global_namespace_a
   const files = [
     { uri: "file:///GVL_A.gvl", source: "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n" },
     { uri: "file:///GVL_B.gvl", source: "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n" },
-    { uri: "file:///F.fb", source: "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nout := .gAmb;\nEND_FUNCTION_BLOCK\n" },
+    { uri: "file:///F.pou", source: "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nout := .gAmb;\nEND_FUNCTION_BLOCK\n" },
   ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
   const project = build.buildSymbolTable(files)
   const fb = files[2]!
@@ -322,7 +322,7 @@ test("a member a global variable list does not declare is no component of the li
   const src = fb("VAR a : INT; END_VAR\na := GVL_X.nope;\na := GVL_X.g_known;")
   const parseResult = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable(
-    [{ uri: "F.fb", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true }), source: gvl }],
+    [{ uri: "F.pou", parseResult, source: src }, { uri: "GVL_X.gvl", parseResult: parseSource(gvl, { networkText: true }), source: gvl }],
     [],
     "codesys",
   )

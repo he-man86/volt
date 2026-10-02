@@ -106,7 +106,11 @@ function verify(vendor: "codesys" | "twincat"): number {
   console.log(`\nin the committed recording but NOT in this run: ${dropped.length}`)
   for (const n of dropped) {
     const f = ALL_TESTS.find((x) => x.name === n)
-    const why = f === undefined ? "no longer a fixture" : f.recorderSkip ? "recorderSkip — the old row predates the flag" : "NEEDS A REASON"
+    // A row the push now REFUSES (`vendorRefuses`) is not lost in silence: the refusal is the fixture's own record of
+    // why, and this line says so — but adopting still drops the vendor's older answer, so it is still counted below.
+    const why = f === undefined ? "no longer a fixture" : f.recorderSkip ? "recorderSkip — the old row predates the flag"
+      : f.vendorRefuses?.[vendor] !== undefined ? `vendorRefuses.${vendor} — the push is refused now; the row predates it`
+      : "NEEDS A REASON"
     console.log(`   ${n.padEnd(38)} ${why}`)
   }
 

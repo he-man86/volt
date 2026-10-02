@@ -10,7 +10,7 @@ import { semanticTokensData, SEMANTIC_TOKEN_TYPES } from "./semantic-tokens.js"
 test("an elementary type name colors as `type`, not `variable`", () => {
   const src = `FUNCTION_BLOCK FB\nVAR\n\tn : INT;\n\tb : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const doc = { uri: "file:///F.fb", source: src, parseResult }
+  const doc = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   const data = semanticTokensData(doc, project) as number[]
   const types: string[] = []
@@ -40,7 +40,7 @@ END_FUNCTION_BLOCK
 
 /** token text → semantic type, for the tokens named in `of`. */
 function typesOf(src: string, of: readonly string[]): Record<string, string> {
-  const doc = { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }])
   const data = semanticTokensData(doc as never, project)
   const lines = src.split("\n")
@@ -86,7 +86,7 @@ test("semantic tokens: a wire has its own class, resolved through its network's 
   // the classifier painted it a plain variable of nothing. Every occurrence gets the class: the declaration, the
   // definition and each reference.
   const src = GRAPHICAL
-  const doc = { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc = { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const project = build.buildSymbolTable([{ uri: doc.uri, source: src, parseResult: doc.parseResult }])
   const data = semanticTokensData(doc as never, project)
   const lines = src.split("\n")

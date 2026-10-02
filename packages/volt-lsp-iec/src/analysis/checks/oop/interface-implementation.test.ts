@@ -16,7 +16,7 @@ const missing = (src0: string, instanced = true): string[] => {
   const vars = instanced ? fbs.map((n, i) => `\tinst${i} : ${n};`).join("\n") : ""
   const src = `${src0}\n\nPROGRAM P\nVAR\n${vars}\nEND_VAR\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "missing-interface-implementation")
     .map((d) => d.message)

@@ -43,14 +43,14 @@ public class GitTests
             var sha = Git.WriteBlob(gitDir, "PROGRAM P\nVAR\nEND_VAR\n");
             Assert.Matches("^[0-9a-f]{40}$", sha);
 
-            var tree = Git.BuildTree(gitDir, new[] { new IndexEntry("100644", sha, "src/P.prg") });
+            var tree = Git.BuildTree(gitDir, new[] { new IndexEntry("100644", sha, "src/P.pou") });
             var commit = Git.CommitTree(gitDir, tree, Array.Empty<string>(), "volt: test");
             Assert.Matches("^[0-9a-f]{40}$", commit);
 
             Git.UpdateRef(gitDir, "refs/remotes/volt/ide", commit);
             Assert.Equal(commit, Git.ResolveRef(gitDir, "refs/remotes/volt/ide"));
 
-            Assert.Contains(Git.ListTree(gitDir, tree), e => e.Path == "src/P.prg" && e.Sha == sha);
+            Assert.Contains(Git.ListTree(gitDir, tree), e => e.Path == "src/P.pou" && e.Sha == sha);
 
             // Deterministic: identical content hashes to the same blob, and (with the fixed IDE identity/epoch) the
             // same commit SHA — the property the no-churn skip relies on.
@@ -73,20 +73,20 @@ public class GitTests
             var gitDir = Git.ResolveGitDir(root);
             var inline = new (string Mode, string Path, string Content)[]
             {
-                ("100644", "src/FB_A.fb", "FUNCTION_BLOCK FB_A\nVAR x : INT; END_VAR\n"),
+                ("100644", "src/FB_A.pou", "FUNCTION_BLOCK FB_A\nVAR x : INT; END_VAR\n"),
                 ("100644", "src/Empty.st", ""),                                      // empty (cleared body)
-                ("100644", "src/P.prg", "PROGRAM P\r\nVAR\r\nEND_VAR\r\n"),          // CRLF, not normalized
+                ("100644", "src/P.pou", "PROGRAM P\r\nVAR\r\nEND_VAR\r\n"),          // CRLF, not normalized
                 ("100644", "src/Uni.st", "// ünïcödé\nVAR y : REAL; END_VAR\n"),      // UTF-8 multibyte
                 ("100644", "src/NoNl.st", "END_FUNCTION_BLOCK"),                     // no trailing newline
-                ("100644", "src/Plc Logic/010 PC01/pgMain.prg", "PROGRAM pgMain\nIMPLEMENTATION ST\nEND_PROGRAM\n"), // spaced path
+                ("100644", "src/Plc Logic/010 PC01/pgMain.pou", "PROGRAM pgMain\nIMPLEMENTATION ST\nEND_PROGRAM\n"), // spaced path
                 // A NON-ASCII PATH, not merely non-ASCII content (src/Uni.st above already covers that).
                 // `core.quotepath` is ON by default, so any porcelain reader without -z gets this path back as
-                // the octal-escaped, DOUBLE-QUOTED token "src/W\\303\\244rme/FB_X.fb".
+                // the octal-escaped, DOUBLE-QUOTED token "src/W\\303\\244rme/FB_X.pou".
                 // German folder names are ordinary in this market, and folder names are free text.
-                ("100644", "src/W\u00e4rme/FB_X.fb", "FUNCTION_BLOCK FB_X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n"),
+                ("100644", "src/W\u00e4rme/FB_X.pou", "FUNCTION_BLOCK FB_X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n"),
             };
             var existing = Git.WriteBlob(gitDir, "unchanged-object\n");
-            var byRef = new[] { new IndexEntry("100644", existing, "src/Kept.fb") };
+            var byRef = new[] { new IndexEntry("100644", existing, "src/Kept.pou") };
 
             // Reference path: hash each blob, build the tree the canonical way.
             var oldTree = Git.BuildTree(gitDir,
@@ -115,16 +115,16 @@ public class GitTests
             var gitDir = Git.ResolveGitDir(root);
             var files = new (string Path, string Content)[]
             {
-                ("src/FB_A.fb", "FUNCTION_BLOCK FB_A\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n"),
-                ("src/P.prg", "PROGRAM P\r\nIMPLEMENTATION ST\nEND_PROGRAM\r\n"),          // CRLF — must return raw
+                ("src/FB_A.pou", "FUNCTION_BLOCK FB_A\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n"),
+                ("src/P.pou", "PROGRAM P\r\nIMPLEMENTATION ST\nEND_PROGRAM\r\n"),          // CRLF — must return raw
                 ("src/Uni.st", "// ünïcödé comment\n"),                  // UTF-8 multibyte
-                ("src/Plc Logic/x.prg", "PROGRAM x\nIMPLEMENTATION ST\nEND_PROGRAM\n"),     // spaced path
+                ("src/Plc Logic/x.pou", "PROGRAM x\nIMPLEMENTATION ST\nEND_PROGRAM\n"),     // spaced path
             };
             var entries = files.Select(f => new IndexEntry("100644", Git.WriteBlob(gitDir, f.Content), f.Path)).ToArray();
             var commit = Git.CommitTree(gitDir, Git.BuildTree(gitDir, entries), Array.Empty<string>(), "c");
 
             var specs = files.Select(f => $"{commit}:{f.Path}").ToList();
-            specs.Add($"{commit}:src/does-not-exist.fb"); // missing → omitted, not thrown
+            specs.Add($"{commit}:src/does-not-exist.pou"); // missing → omitted, not thrown
             var batch = Git.ReadBlobsBatch(root, specs);
 
             foreach (var f in files)
@@ -133,7 +133,7 @@ public class GitTests
                 Assert.True(batch.TryGetValue($"{commit}:{f.Path}", out var batched));
                 Assert.Equal(single, batched); // byte-identical
             }
-            Assert.False(batch.ContainsKey($"{commit}:src/does-not-exist.fb"));
+            Assert.False(batch.ContainsKey($"{commit}:src/does-not-exist.pou"));
             Assert.Empty(Git.ReadBlobsBatch(root, Array.Empty<string>())); // empty set → empty
         }
         finally { ForceDelete(root); }
@@ -150,10 +150,10 @@ public class GitTests
             Git.UpdateRef(gitDir, "refs/remotes/volt/ide", baseCommit);
 
             Directory.CreateDirectory(Path.Combine(root, "src"));
-            File.WriteAllText(Path.Combine(root, "src", "FB_Motor.fb"), "FUNCTION_BLOCK FB_Motor\n");
+            File.WriteAllText(Path.Combine(root, "src", "FB_Motor.pou"), "FUNCTION_BLOCK FB_Motor\n");
 
             Assert.Contains(Git.DiffWorktree(root, "refs/remotes/volt/ide", "src"),
-                r => r.Kind == "add" && r.Path == "src/FB_Motor.fb");
+                r => r.Kind == "add" && r.Path == "src/FB_Motor.pou");
         }
         finally { ForceDelete(root); }
     }
@@ -165,12 +165,12 @@ public class GitTests
         try
         {
             Directory.CreateDirectory(Path.Combine(root, "src"));
-            File.WriteAllText(Path.Combine(root, "src", "P.prg"), "PROGRAM P\n");
+            File.WriteAllText(Path.Combine(root, "src", "P.pou"), "PROGRAM P\n");
 
             Assert.Equal(1, Git.AutoCommitSrc(root));
             Assert.NotNull(Git.HeadCommit(root));
 
-            var bytes = Git.GitShowBytes(root, "HEAD", "src/P.prg");
+            var bytes = Git.GitShowBytes(root, "HEAD", "src/P.pou");
             Assert.NotNull(bytes);
             Assert.Equal("PROGRAM P\n", Encoding.UTF8.GetString(bytes!));
 

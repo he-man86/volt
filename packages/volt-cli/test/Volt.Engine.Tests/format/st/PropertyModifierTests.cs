@@ -46,10 +46,10 @@ public class PropertyModifierTests
     [InlineData("PROPERTY INTERNAL FINAL Ready : INT")]
     public void A_property_header_accepts_the_modifiers_a_method_header_does(string header)
     {
-        var ex = Record.Exception(() => StReader.Read(FbWithProperty(header), ItemKind.Kinds.FunctionBlock));
+        var ex = Record.Exception(() => StReader.Read(FbWithProperty(header), ItemKind.Kinds.Pou));
         Assert.True(ex is null, $"'{header}' is ordinary CODESYS and does not parse: {ex?.Message}");
 
-        var item = StReader.Read(FbWithProperty(header), ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(FbWithProperty(header), ItemKind.Kinds.Pou);
         var prop = item.Members.Single(m => m.Name == "Ready");
         Assert.Contains("Ready := x;", prop.Getter?.Body ?? "");
         _out.WriteLine($"{header}  ->  name='{prop.Name}' decl='{prop.Declaration}'");
@@ -61,7 +61,7 @@ public class PropertyModifierTests
     [Fact]
     public void The_modifiers_are_kept_in_the_declaration()
     {
-        var item = StReader.Read(FbWithProperty("PROPERTY PUBLIC ABSTRACT Ready : INT"), ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(FbWithProperty("PROPERTY PUBLIC ABSTRACT Ready : INT"), ItemKind.Kinds.Pou);
         var prop = item.Members.Single(m => m.Name == "Ready");
         Assert.Contains("PUBLIC", prop.Declaration);
         Assert.Contains("ABSTRACT", prop.Declaration);

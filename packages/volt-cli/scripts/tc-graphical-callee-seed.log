@@ -1,0 +1,16 @@
+
+==== 2026-10-02T19:52:19.715Z (pipe volt.bridge.twincat.11332)
+A  one push: FUNCTION callee + FBD caller without ENO
+  FUNCTION VltG_A_F + FBD `r := VltG_A_F(n);`                              ACCEPTED
+  VltG_A_C.pou: fetches back identical
+  build: success=true; diagnostics on VltG_*: none
+B  one push: PROGRAM callee + LD caller with ENO into a named variable
+  PROGRAM VltG_B_P + LD `done := VltG_B_P(EN := go).ENO;`                  REFUSED
+      UNSUPPORTED: TwinCAT: the text reads `.ENO` on the 'VltG_B_P' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Remove `.ENO`, or make the change in the IDE and pull it. — NOTE: 1 of 2 item(s) were already written to the IDE before this one failed, and are not rolled back. Run `volt pull` to take them into the workspace, then push again.
+  build: success=true; diagnostics on VltG_*: none
+C  FUNCTION callee, a build, then an FBD caller with ENO
+  FUNCTION VltG_C_F alone                                                  ACCEPTED
+  build: success=true; diagnostics on VltG_*: none
+  then FBD `ok := VltG_C_F(EN := go, n).ENO;`                              REFUSED
+      UNSUPPORTED: TwinCAT: the text reads `.ENO` on the 'VltG_C_F' box, and the IDE builds that box with no ENO output — the suffix names an output the box does not have. Remove `.ENO`, or make the change in the IDE and pull it.
+  cleaned up: []

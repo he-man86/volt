@@ -5,14 +5,14 @@
  * The two shells each built `name:line` themselves and ignored `member`. That was harmless while no diagnostic named
  * a member; since openspec `codesys-diagnostic-child-names` a diagnostic inside a method/action/property names the
  * PARENT item and carries the child as `member`, and on TwinCAT its `line` is counted inside that member (DIALECT
- * D36). Printed bare, `FB_Motor.fb:6` sends the engineer to the wrong line of the right file.
+ * D36). Printed bare, `FB_Motor.pou:6` sends the engineer to the wrong line of the right file.
  *
  * Neither shell navigates to a build diagnostic (they print it); a future "go to" must treat `line` as a position
  * only together with `member`, never as a line of the item's file.
  */
 import type { BuildDiagnostic } from "../bridge/actions.js"
 
-/** `FB_Motor.fb(Execute):6:2 ` — the location prefix, empty when the diagnostic names no item. The position rides on
+/** `FB_Motor.pou(Execute):6:2 ` — the location prefix, empty when the diagnostic names no item. The position rides on
  *  the NAME (a line with no item reads as a truncated path), the member sits between them because it is the frame of
  *  the line, and a column appears only with a line. */
 export function buildDiagnosticWhere(d: BuildDiagnostic): string {

@@ -10,7 +10,7 @@ public sealed record ExtensionDef(string Ext, Access DefaultAccess);
 /// CLI-side extension registry: maps a workspace filename to its access (rw for source items, r for
 /// references). The extension list + access is NOT re-declared here — it is DERIVED from
 /// <see cref="ItemKind.FileExtensions"/> (the one canonical table), so a new kind is added in exactly one
-/// place. A graphical CFC/SFC body is the same rw .fb/.prg/.fun (a push over it is refused by the bridge on
+/// place. A graphical CFC/SFC body is the same rw .pou (a push over it is refused by the bridge on
 /// live IDE state, not pre-filtered here).
 /// </summary>
 public static class Extensions
@@ -19,7 +19,7 @@ public static class Extensions
         ItemKind.FileExtensions.Select(x => new ExtensionDef(x.Ext, x.IsWritable ? Access.Rw : Access.R)).ToArray();
 
     // ORDINAL, as the engine reads a wire name: a file name IS its wire name, so `FB_New.FB` is not the
-    // `FB_New.fb` the IDE publishes. Matched case-blind here it was pushed under its own spelling and then never
+    // `FB_New.pou` the IDE publishes. Matched case-blind here it was pushed under its own spelling and then never
     // matched by the Ordinal baseline, version guard or removal sweep — a later edit was refused as a create beside
     // itself, and an item deleted in the IDE kept its file. Now it is a foreign file, refused by name before a push.
     private static readonly Dictionary<string, ExtensionDef> ByExt =
@@ -35,7 +35,7 @@ public static class Extensions
         return dot < 0 ? null : GetByExt(baseName.Substring(dot));
     }
 
-    /// <summary>The full filename from a workspace path ("POUs/FB_Motor.fb" → "FB_Motor.fb"). Matches the
+    /// <summary>The full filename from a workspace path ("POUs/FB_Motor.pou" → "FB_Motor.pou"). Matches the
     /// bridge's wire names (which include extensions).
     ///
     /// <para>There was a FOLDER-MARKER arm here that resolved `POUs/.gitkeep` to the folder name `POUs`.
@@ -53,7 +53,7 @@ public static class Extensions
         return GetByExt(baseName.Substring(dot)) == null ? null : baseName;
     }
 
-    /// <summary>The extension definition for a full filename ("PLC_PRG.prg" → { ext:"prg", rw }).</summary>
+    /// <summary>The extension definition for a full filename ("PLC_PRG.pou" → { ext:"pou", rw }).</summary>
     public static ExtensionDef? DefFromName(string fullName)
     {
         var dot = fullName.LastIndexOf('.');

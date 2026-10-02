@@ -58,6 +58,21 @@
  */
 import type { LanguageTest } from "../../types.js"
 
+/**
+ * TWINCAT REFUSES THESE TWO PUSHES SINCE `push-without-header-check` 5.Q — a known divergence (tasks 5.Q.9). Every POU
+ * is now created as a FUNCTION_BLOCK (tree code 604) whatever its text, and TwinCAT keeps that code until a solution
+ * reload (DIALECT C2f/C2h); its graphical layer builds the call box of the just-created PROGRAM / FUNCTION from it, as
+ * a function-block box with no ENO, so the driver refuses the `.ENO` the caller reads. Re-recorded 2026-10-02: both
+ * refused, so nothing new was recorded; the committed TwinCAT rows were taken under the per-kind seeds (`.prg` → 602,
+ * `.fun` → 603), when the box had its ENO, and stay as the vendor's answer for this source. Pinned live by `volt-cli`'s
+ * `test/e2e/graphical/callee-seed-lag.test.ts`. Niche: accepted loss (0 such calls in the TwinCAT corpus; 2 `.ENO`
+ * calls of a project PROGRAM / FUNCTION in the six corpora, all lenze-mid, a CODESYS project).
+ */
+const twincatSeedLag = (callee: string): string =>
+  `TwinCAT: the text reads \`.ENO\` on the '${callee}' box, and the IDE builds that box with no ENO output — the ` +
+  "callee is created in the same push under the one POU seed (604) and TwinCAT builds its box from that tree code " +
+  "until a reload (push-without-header-check 5.Q.9). Niche: accepted loss (0 in the TwinCAT corpus, 2 in the six corpora)."
+
 export const NETWORK_UNRESOLVED_TESTS: readonly LanguageTest[] = [
   {
     name: "network_unnamed_instance",
@@ -183,17 +198,18 @@ END_FUNCTION_BLOCK
       "`network_unnamed_assignment_target` measures `??? := a` and the EN variant `??? := NOT(a)`; both have a " +
       "real value to leave unassigned, and CODESYS errors. A PROGRAM box has NO output pin at all, so there is " +
       "nothing unassigned — and lenze-mid carries four of exactly this (`??? := SpeedCalculationDryer();` and " +
-      "friends, in Mach1_MIDS.prg and AHWF.prg) while its recorded build reports buildSuccess with no such " +
+      "friends, in Mach1_MIDS.pou and AHWF.pou) while its recorded build reports buildSuccess with no such " +
       "error. Volt is faithful here: a plain void call round-trips as `P();`, measured live, so the `???` is " +
       "the vendor's own. ANSWERED: all four are false positives. The compiler answers about the SOURCE over " +
       "any real call, so the target message is one it never emits here — and voidness is not the line, as " +
-      "`network_unnamed_target_of_valued_call` shows. `Mach1_MIDS` is LIVE (`General.prg:29` calls it and " +
+      "`network_unnamed_target_of_valued_call` shows. `Mach1_MIDS` is LIVE (`General.pou:29` calls it and " +
       "`general` is a task root), so the excluded-from-build reading this fixture tested is WRONG. " +
       "RESOLVED 2026-09-19: the compiler never reads network text — the recorder pushes this through the BRIDGE, " +
       "which writes PlcOpen XML. So this measures the XML the bridge makes of a `???`; lenze-mid measures the XML " +
       "its author drew, an unconnected output pin, which is legal. The gap is `volt-cli` round-trip fidelity, not " +
       "an LSP check, and the LSP stays silent so it does not flag the vendor's own drawing.",
     plcPrgBody: "PRG_LANG_network_unnamed_void_caller();",
+    vendorRefuses: { twincat: twincatSeedLag("PRG_LANG_network_unnamed_void_callee") },
     source: `PROGRAM PRG_LANG_network_unnamed_void_callee
 VAR
 	x : BOOL;
@@ -232,6 +248,7 @@ END_PROGRAM
       "the same reason: this is the BRIDGE's XML for a `???`, not the XML a real project carries.",
     plcPrgVar: "fb_nvc : FB_LANG_network_unnamed_valued_call;",
     plcPrgBody: "fb_nvc();",
+    vendorRefuses: { twincat: twincatSeedLag("FUN_LANG_network_unnamed_valued") },
     source: `FUNCTION FUN_LANG_network_unnamed_valued : BOOL
 VAR_INPUT
 	a : BOOL;

@@ -87,7 +87,7 @@ ipcMain.handle("volt:diff", async (_e, workspaceRoot: string, relPath: string, n
 })
 
 // Click a Diagnostics file → open it in the OS-associated editor. On a typical dev box that's VS Code with the Volt
-// extension (which registers .fb/.st/.pou/…), so the file opens with native, jump-to-line diagnostics. If nothing is
+// extension (which registers .pou/.st/.dut/…), so the file opens with native, jump-to-line diagnostics. If nothing is
 // associated, fall back to revealing it in Explorer rather than silently doing nothing.
 ipcMain.handle("volt:openFile", async (_e, filePath: string) => {
   if (!existsSync(filePath)) return

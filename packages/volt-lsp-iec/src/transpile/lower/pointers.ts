@@ -214,7 +214,7 @@ function describePointer(lw: Lowering, pointer: Place): string {
  * to 3, which is what §6 wanted the work list to say: building the tagged handle unlocks three POUs, not five.
  *
  * THE MESSAGE DOES NOT SAY "the vendor does not run this either", though §6 does. That is true of the two §6
- * checked — `Bools_To_Byte` is declared once (`test_IW132` in `General.prg`) and never called — and it was NOT
+ * checked — `Bools_To_Byte` is declared once (`test_IW132` in `General.pou`) and never called — and it was NOT
  * checked for the other five. What is true of all seven is the harness fact: lowered as the ROOT, this input has
  * no caller. A message states what it knows.
  */

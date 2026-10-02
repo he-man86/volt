@@ -10,7 +10,7 @@ import { build } from "../../../frontend/symbols/index.js"
 
 const msgs = (src: string, code: string): string[] => {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === code)
     .map((d) => d.message)
@@ -50,7 +50,7 @@ test("C0149: a VAR section inside an INTERFACE is flagged; a method-only interfa
 
 const all = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   // every message but the object-name one: the sources here are not named after a file
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code !== "signature-name-mismatch")
@@ -136,8 +136,8 @@ const allErrors = (own: { uri: string; source: string }, others: { uri: string; 
 // EXTENDS clause and answers that the base does not exist, although `FB_LANG_oop_base` does — as a function block. A
 // function has no base CLASS, so none is ever found. Nothing else is reported, the call included.
 test("a FUNCTION that EXTENDS: its base class is never found, even one that exists", () => {
-  const base = { uri: "FB_Base.fb", source: "FUNCTION_BLOCK FB_Base\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" }
-  const f = { uri: "F_Ext.fun", source: "FUNCTION F_Ext EXTENDS FB_Base\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
+  const base = { uri: "FB_Base.pou", source: "FUNCTION_BLOCK FB_Base\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n" }
+  const f = { uri: "F_Ext.pou", source: "FUNCTION F_Ext EXTENDS FB_Base\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
   expect(allErrors(f, [base])).toEqual(["No definition found for base class 'FB_Base'"])
 })
 
@@ -146,7 +146,7 @@ test("a FUNCTION that EXTENDS: its base class is never found, even one that exis
 test("C0145 on TwinCAT: 'Functionblocks', as TwinCAT writes it", () => {
   const src = "FUNCTION F_Impl IMPLEMENTS ITF_A\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n"
   const parseResult = parseSource(src, { networkText: true }, "twincat")
-  const project = build.buildSymbolTable([{ uri: "F_Impl.fun", parseResult, source: src }], [], "twincat")
+  const project = build.buildSymbolTable([{ uri: "F_Impl.pou", parseResult, source: src }], [], "twincat")
   const got = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat" }) })
     .filter((d) => d.code === "function-implements")
     .map((d) => d.message)
@@ -161,13 +161,13 @@ test("C0145 on TwinCAT: 'Functionblocks', as TwinCAT writes it", () => {
 // error on the `:`, and "requires exactly '0' inputs" at every call — none of them any vendor's.
 test("a clause before the return type is read whole: only the clause's own message, on the unit and at the call", () => {
   const itf = { uri: "ITF_A.itf", source: "INTERFACE ITF_A\nEND_INTERFACE\n" }
-  const base = { uri: "FB_Base.fb", source: "FUNCTION_BLOCK FB_Base\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" }
+  const base = { uri: "FB_Base.pou", source: "FUNCTION_BLOCK FB_Base\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" }
   const caller = (f: string) => ({
-    uri: "PLC_PRG.prg",
+    uri: "PLC_PRG.pou",
     source: `PROGRAM PLC_PRG\nVAR\n\tnOut : INT;\nEND_VAR\nIMPLEMENTATION ST\nnOut := ${f}(2);\nEND_PROGRAM\n`,
   })
-  const impl = { uri: "F_Impl.fun", source: "FUNCTION F_Impl IMPLEMENTS ITF_A : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Impl := x;\nEND_FUNCTION\n" }
-  const ext = { uri: "F_Ext.fun", source: "FUNCTION F_Ext EXTENDS FB_Base : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Ext := x;\nEND_FUNCTION\n" }
+  const impl = { uri: "F_Impl.pou", source: "FUNCTION F_Impl IMPLEMENTS ITF_A : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Impl := x;\nEND_FUNCTION\n" }
+  const ext = { uri: "F_Ext.pou", source: "FUNCTION F_Ext EXTENDS FB_Base : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nF_Ext := x;\nEND_FUNCTION\n" }
   expect(parseSource(impl.source, { networkText: true }).errors.map((e) => e.message)).toEqual([])
   expect(allErrors(impl, [itf, caller("F_Impl")])).toEqual(["Interfaces can only be implemented by function blocks"])
   expect(allErrors(caller("F_Impl"), [impl, itf])).toEqual([])

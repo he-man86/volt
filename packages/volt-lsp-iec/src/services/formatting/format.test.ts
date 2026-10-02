@@ -39,7 +39,7 @@ function astEqual(a: ParseResult, b: ParseResult): void {
 }
 
 function roundtrips(src: string): void {
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const formatted = formatDocument(doc)
   astEqual(doc.parseResult, parseSource(formatted, { networkText: true }))
 }
@@ -56,7 +56,7 @@ END_VAR
 END_PROGRAM
 `
   roundtrips(src)
-  expect(formatDocument({ uri: "file:///P.prg", source: src, parseResult: parseSource(src, { networkText: true }) })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
+  expect(formatDocument({ uri: "file:///P.pou", source: src, parseResult: parseSource(src, { networkText: true }) })).toContain("Lib.DrawerFB(instanceNo := 1, moduleParent := 0)")
 })
 
 test("roundtrip: a mixed set/reset chain keeps each link's operator", () => {
@@ -258,7 +258,7 @@ test("formatting keeps every body's IMPLEMENTATION line, and a member's %FOLDER 
     },
   }
   for (const [name, { src, kept }] of Object.entries(cases)) {
-    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
     const out = formatDocument(doc)
     for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
     astEqual(doc.parseResult, parseSource(out, { networkText: true }))
@@ -296,7 +296,7 @@ test("formatting keeps a property's and an interface member's %FOLDER, and an in
     },
   }
   for (const [name, { src, kept, gone }] of Object.entries(cases)) {
-    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
     expect({ name, errors: doc.parseResult.errors }).toEqual({ name, errors: [] })
     const out = formatDocument(doc)
     for (const k of kept) expect({ name, out, kept: out.includes(k) }).toEqual({ name, out, kept: true })
@@ -317,7 +317,7 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
     "a commented ST body": "FUNCTION_BLOCK F\r\nVAR\r\n\tx : INT;\r\nEND_VAR\r\nIMPLEMENTATION ST\r\n// c\r\nx := 1;\r\nEND_FUNCTION_BLOCK\r\n",
   }
   for (const [name, src] of Object.entries(cases)) {
-    const out = formatDocument({ uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) })
+    const out = formatDocument({ uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) })
     expect({ name, out, blankLine: /(IMPLEMENTATION [A-Z]+|%FOLDER a)\r?\n\r?\n/.test(out), cr: out.includes("\r") }).toEqual({
       name,
       out,
@@ -335,7 +335,7 @@ test("formatting a CRLF file adds no blank line under the IMPLEMENTATION line or
 test("formatting keeps a comment or pragma between the declaration and the IMPLEMENTATION line", () => {
   for (const between of ["{warning 'keep'}", "// keep me", "(* keep me *)"]) {
     const src = `FUNCTION_BLOCK F\nVAR\n\tx : INT;\nEND_VAR\n${between}\nIMPLEMENTATION ST\nx := 1;\nEND_FUNCTION_BLOCK\n`
-    const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+    const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
     const out = formatDocument(doc)
     expect({ between, out, kept: out.includes(`END_VAR\n${between}\nIMPLEMENTATION ST\n`) }).toEqual({ between, out, kept: true })
     astEqual(doc.parseResult, parseSource(out, { networkText: true }))
@@ -352,7 +352,7 @@ test("formatting keeps a declaration the parser refused, on either vendor (`__VE
   ]
   for (const [decl, dialect] of cases) {
     const src = `FUNCTION_BLOCK FB\nVAR\n${decl}\n\tn : INT;\nEND_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n`
-    const doc: Document = { uri: "file:///x/FB.fb", source: src, parseResult: parseDocument("file:///x/FB.fb", src, { networkText: true }, dialect) }
+    const doc: Document = { uri: "file:///x/FB.pou", source: src, parseResult: parseDocument("file:///x/FB.pou", src, { networkText: true }, dialect) }
     expect(doc.parseResult.errors.length).toBeGreaterThan(0)
     expect({ dialect, whole: formatDocument(doc) }).toEqual({ dialect, whole: src })
     const range = { start: { line: 0, character: 0 }, end: { line: 7, character: 0 } }
@@ -363,7 +363,7 @@ test("formatting keeps a declaration the parser refused, on either vendor (`__VE
 test("formatting keeps a `__VECTOR` as a vector, with its size or without", () => {
   for (const decl of ["v : __VECTOR[4] OF REAL;", "v : __VECTOR[] OF REAL;"]) {
     const src = `FUNCTION_BLOCK FB\nVAR\n\t${decl}\nEND_VAR\nEND_FUNCTION_BLOCK\n`
-    const out = formatDocument({ uri: "file:///x/FB.fb", source: src, parseResult: parseDocument("file:///x/FB.fb", src, { networkText: true }, "codesys") })
+    const out = formatDocument({ uri: "file:///x/FB.pou", source: src, parseResult: parseDocument("file:///x/FB.pou", src, { networkText: true }, "codesys") })
     expect(out).toContain(decl)
   }
 })
@@ -373,7 +373,7 @@ test("formatting keeps a `__VECTOR` as a vector, with its size or without", () =
 // declaration to the vendor — so the formatter writes the form back as it was, operator-less.
 test("formatting keeps an FB array's bracket list without `:=`", () => {
   const src = "PROGRAM P\nVAR\n\tfbs : ARRAY[0..1] OF FB_X [(x := 1), (x := 2)];\n\tn : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n"
-  const doc: Document = { uri: "file:///x/P.prg", source: src, parseResult: parseDocument("file:///x/P.prg", src, { networkText: true }) }
+  const doc: Document = { uri: "file:///x/P.pou", source: src, parseResult: parseDocument("file:///x/P.pou", src, { networkText: true }) }
   expect(doc.parseResult.errors).toEqual([])
   const out = formatDocument(doc)
   expect(out).not.toContain(":= [")
@@ -458,6 +458,6 @@ END_VAR
 n := 1;
 END_FUNCTION_BLOCK`
   roundtrips(src)
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   expect(formatDocument(doc)).not.toContain("END_NAMESPACE")
 })

@@ -116,7 +116,7 @@ END_PROGRAM
 `,
     plcPrgVar: "nOut : INT;",
     plcPrgBody: "FB_LANG_pwh_fb_prg();\nnOut := FB_LANG_pwh_fb_prg.n;",
-    note: "Measured by the e2e twin: CODESYS makes the object a PROGRAM (`refs` names it .prg), TwinCAT keeps the FB tree item (DIALECT C2f); both build it clean.",
+    note: "Measured by the e2e twin: CODESYS makes the object a PROGRAM (its signature says Program; the wire names every POU `.pou` since push-without-header-check 5.Q), TwinCAT keeps the FB tree item (DIALECT C2f); both build it clean.",
   },
   {
     name: "pwh_struct_text_is_enum",

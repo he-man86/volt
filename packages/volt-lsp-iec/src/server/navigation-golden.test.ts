@@ -7,7 +7,7 @@ import { test, expect } from "bun:test"
 import { DefinitionRequest, HoverRequest, ReferencesRequest } from "vscode-languageserver-protocol/node"
 import { CAPS, harness } from "./harness.js"
 
-const URI = "file:///F.fb"
+const URI = "file:///F.pou"
 //                        line0                    line1  line2 (decl)      line3      line4 (usages)
 const SRC = `FUNCTION_BLOCK F\nVAR\n\tcount : INT;\nEND_VAR\ncount := count + 1;\nEND_FUNCTION_BLOCK`
 

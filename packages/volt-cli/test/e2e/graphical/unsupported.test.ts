@@ -14,10 +14,8 @@
  * shape rather than capturing one.</p>
  *
  * <p>Their KIND differs by vendor and deliberately is not unified: CODESYS's `create_pou` defaults to a function
- * block (`.fb`), TwinCAT's `CreateChild(…, 602, …)` makes a program (`.prg`). Nothing here depends on which —
- * the body language is the subject — so the names are RESOLVED from `refs` rather than spelled with an
- * extension. A hardcoded `.prg` would have made this suite silently vendor-specific for a reason that has
- * nothing to do with what it tests.</p>
+ * block, TwinCAT's `CreateChild(…, 602, …)` makes a program. Both are `X.pou` on the wire since 5.Q, and nothing here
+ * depends on which — the body language is the subject — so the names are still RESOLVED from `refs`.</p>
  *
  * <p>They are the only fixture POUs a test must not delete, so this suite never pushes a `deleteItem` for them
  * and never renames them; the shared `cleanup()` ignores them because it only removes names under the test
@@ -37,16 +35,18 @@ setDefaultTimeout(30000)
 
 const CASES = [["CFC", "VltFixtureCfc"], ["SFC", "VltFixtureSfc"]] as const
 
-/** A well-formed ST body of the SAME KIND as the item named — so a push carries only the change under test. */
-function stOfSameKind(fullName: string): string {
-	const [bare, ext] = [fullName.split(".")[0]!, fullName.split(".").pop()!]
-	const kw = ext === "prg" ? "PROGRAM" : ext === "fun" ? "FUNCTION" : "FUNCTION_BLOCK"
+/** A well-formed ST body of the SAME KIND as the item named — so a push carries only the change under test. Every POU
+ *  is `X.pou` (push-without-header-check 5.Q), so the kind is the one the item's own text declares. */
+function stOfSameKind(fullName: string, heldText: string): string {
+	const bare = fullName.split(".")[0]!
+	const kw = /^\s*(PROGRAM|FUNCTION_BLOCK|FUNCTION)\b/m.exec(heldText)?.[1]
+	if (!kw) throw new Error(`${fullName} holds no PROGRAM / FUNCTION_BLOCK / FUNCTION header to match`)
 	const head = kw === "FUNCTION" ? `${kw} ${bare} : INT` : `${kw} ${bare}`
 	return `${head}\nVAR\n\tnHacked : INT;\nEND_VAR\nIMPLEMENTATION ST\nnHacked := 1;\nEND_${kw}\n`
 }
 
 describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () => {
-	// bare fixture name -> full wire name, resolved once (`.fb` on CODESYS, `.prg` on TwinCAT).
+	// bare fixture name -> full wire name, resolved once (`X.pou` on both vendors since 5.Q).
 	const wire = new Map<string, string>()
 	const nameOf = (bare: string) => wire.get(bare) ?? `${bare}.?`
 
@@ -104,11 +104,11 @@ describe(`graphical / unsupported bodies are never overwritten (${BASE})`, () =>
 					// A WELL-FORMED body OF THE ITEM'S OWN KIND. The refusal has to come from the body being a
 					// diagram, and every guard that fires EARLIER hides the one under test:
 					//   - without `END_...` the push is rejected for "Missing END_..." — a parse error;
-					//   - as a `PROGRAM` over these `.fb` fixtures it was rejected for changing the item's KIND,
+					//   - as a `PROGRAM` over a function block it was rejected for changing the item's KIND,
 					//     a correct refusal for the wrong reason; since push-without-header-check the text's
 					//     header is not read, and CODESYS would re-type the object to a program (DIALECT C2f).
-					// So the keyword is derived from the item's extension rather than hard-coded.
-					sourceText: stOfSameKind(name),
+					// So the keyword is the one the item's own text declares rather than hard-coded.
+					sourceText: stOfSameKind(name, before.sourceText),
 					ifVersion: refs.items[name],
 				}],
 			})

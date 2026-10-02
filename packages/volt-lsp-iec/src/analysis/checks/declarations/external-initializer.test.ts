@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const msgs = (src: string): string[] => {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "external-initializer")
     .map((d) => d.message)

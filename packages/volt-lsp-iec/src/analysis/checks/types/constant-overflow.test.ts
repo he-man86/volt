@@ -11,7 +11,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const overflow = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  i : INT;\n  rv : LREAL;\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "constant-too-large")
     .map((d) => d.message)
@@ -37,7 +37,7 @@ test("a typed REAL literal past REAL magnitude names REAL", () => {
 test("variable initializers are checked too", () => {
   const src = `FUNCTION_BLOCK F\nVAR x : INT := INT#99999; END_VAR\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "constant-too-large")
     .map((d) => d.message)
@@ -60,7 +60,7 @@ test("a calendar literal with a field out of range is too large for its type, na
   const cal = (decl: string, body: string) => {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
     const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "constant-too-large")
       .map((d) => d.message)
@@ -77,7 +77,7 @@ test("a 32-bit DATE or DT ends on 2106-02-07; an LDATE does not; hour 24 is out 
   const cal = (decl: string, body: string) => {
     const src = `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\n${body}\nEND_PROGRAM`
     const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "constant-too-large")
       .map((d) => d.message)

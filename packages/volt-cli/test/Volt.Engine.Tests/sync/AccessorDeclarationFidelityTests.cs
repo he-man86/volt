@@ -30,14 +30,14 @@ public class AccessorDeclarationFidelityTests
     /// <summary>A POU with one property whose GET holds the vendor's default empty VAR block and whose SET
     /// holds a modifier above it — the exact pair measured on `CassetteFB.NegativeLimitReachedY`.</summary>
     private static FakeIde WithMeasuredProperty() => new(
-        new FakeIde.Item("FB_Prop", ItemKind.PlcPouFb, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
+        new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
         new FakeIde.Item("Val", ItemKind.PlcProp, "", false, "PROPERTY Val : INT", null, null, null,
                          Children: new[] { "Get", "Set" }),
         new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "VAR\nEND_VAR", "Val := _v;", null, null),
         new FakeIde.Item("Set", ItemKind.PlcPropSet, "", false, "PRIVATE\nVAR\nEND_VAR", "_v := Val;", null, null));
 
     private static string Materialized(FakeIde ide) =>
-        Materializer.Materialize(ide, "FB_Prop", ItemKind.Kinds.FunctionBlock, new ItemRef("FB_Prop")).Text;
+        Materializer.Materialize(ide, "FB_Prop", ItemKind.Kinds.Pou, new ItemRef("FB_Prop")).Text;
 
     [Fact]
     public void A_getters_empty_VAR_block_is_written_because_the_IDE_holds_it()
@@ -67,7 +67,7 @@ public class AccessorDeclarationFidelityTests
     public void A_leading_newline_in_an_accessor_declaration_survives()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Prop", ItemKind.PlcPouFb, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
+            new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
             new FakeIde.Item("Val", ItemKind.PlcProp, "", false, "PROPERTY Val : INT", null, null, null,
                              Children: new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "\nVAR\nEND_VAR\n", "Val := _v;", null, null));
@@ -82,7 +82,7 @@ public class AccessorDeclarationFidelityTests
         // The rule that REMAINS: null or blank is genuinely no declaration, and must not become one. An
         // interface's accessors are bodiless stubs (DIALECT D21) and arrive exactly this way.
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Prop", ItemKind.PlcPouFb, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
+            new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, ParentDecl, "", null, null, Children: new[] { "Val" }),
             new FakeIde.Item("Val", ItemKind.PlcProp, "", false, "PROPERTY Val : INT", null, null, null,
                              Children: new[] { "Get" }),
             new FakeIde.Item("Get", ItemKind.PlcPropGet, "", false, "   ", "Val := _v;", null, null));

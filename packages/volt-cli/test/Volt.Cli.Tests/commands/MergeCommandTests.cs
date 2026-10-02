@@ -12,7 +12,7 @@ public class MergeCommandTests
     private static FakeIde.Item Prg(string impl = "x := 1;") =>
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", impl);
 
-    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
+    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.pou");
 
     /// <summary>Seed, edit both sides of PLC_PRG, and pull → leaves a conflicted merge in progress.</summary>
     private static void ConflictedPull(string root, FakeIde ide, BridgeClient client)
@@ -61,7 +61,7 @@ public class MergeCommandTests
         {
             ConflictedPull(root, ide, client);
 
-            var (rcode, rmsg) = Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
+            var (rcode, rmsg) = Commands.Merge(root, resolve: "PLC_PRG.pou", useTheirs: true);
             Assert.Equal(0, rcode);
             Assert.Contains("using theirs", rmsg);
 
@@ -82,7 +82,7 @@ public class MergeCommandTests
         try
         {
             ConflictedPull(root, ide, client);
-            var (code, msg) = Commands.Merge(root, resolve: "PLC_PRG.prg", useOurs: true);
+            var (code, msg) = Commands.Merge(root, resolve: "PLC_PRG.pou", useOurs: true);
             Assert.Equal(0, code);
             Assert.Contains("using ours", msg);
 

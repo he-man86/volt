@@ -5,20 +5,18 @@
  *
  * An item pushed as `X.ext` is not always held as `X.ext` afterwards, since the push writes a top-level text as sent
  * (`openspec/changes/push-without-header-check`, measured live 2026-09-30):
- *   - CODESYS makes an `.fb` whose text says PROGRAM a program, and `refs` names it `X.prg` (DIALECT C2f);
+ *   - the IDE keeps the spelling of the object it holds, so `x.pou` may come back as `X.pou`;
  *   - a GVL holding a retired `(* @volt-… *)` comment is in the project but listed under `unreadable` by bare name,
  *     and only a FORCED push deletes one (a plain delete is refused UNREADABLE).
  * So each is looked up under its own name first, then under a name the IDE may publish that one object under — the
- * engine's `PushedText.MayBeHeldAs`: the same bare name and another kind of the SAME FAMILY (POU ↔ POU; a DUT has one name, `X.dut`, since 5.P, so it
- * differs only in its case) —
- * then, for a GVL, in `unreadable`. A bare-name match of any OTHER kind is another item (`X.fb` beside
+ * engine's `PushedText.MayBeHeldAs`: the same name in another case. A POU has one name, `X.pou`, since 5.Q (CODESYS
+ * named an `.fb` whose text said PROGRAM `X.prg` until then, DIALECT C2f) and a DUT one, `X.dut`, since 5.P —
+ * then, for a GVL, in `unreadable`. A bare-name match of any OTHER kind is another item (`X.pou` beside
  * `X.visualization` is legitimate) and is never touched. `before` is the project as it stood before the push: what it
  * already held is not the push's to delete — a refused push leaves only that, and a match there is someone else's.
  */
 const FAMILY: Readonly<Record<string, "pou" | "dut">> = {
-  fb: "pou",
-  prg: "pou",
-  fun: "pou",
+  pou: "pou",
   dut: "dut",
 }
 export const extOf = (n: string): string => n.slice(n.lastIndexOf(".") + 1)

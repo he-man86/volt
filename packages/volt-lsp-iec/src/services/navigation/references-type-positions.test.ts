@@ -29,7 +29,7 @@ END_PROGRAM`
 
 const setup = () => {
   const parseResult = parseSource(SRC, { networkText: true })
-  const doc: Document = { uri: "file:///F.fb", source: SRC, parseResult }
+  const doc: Document = { uri: "file:///F.pou", source: SRC, parseResult }
   return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
 }
 const at = (needle: string, n = 1) => {
@@ -48,7 +48,7 @@ test("references on a type include EXTENDS + every `: FB_Base` declaration use",
 test("rename of a type rewrites its type-position uses (no stale `: FB_Base` left)", () => {
   const { doc, project } = setup()
   const edit = rename([doc], project, doc, at("FUNCTION_BLOCK FB_Base") + "FUNCTION_BLOCK ".length, "FB_Renamed")
-  const edits = edit?.changes?.["file:///F.fb"] ?? []
+  const edits = edit?.changes?.["file:///F.pou"] ?? []
   expect(edits).toHaveLength(6)
   // Apply the edits and confirm no "FB_Base" survives and the code still parses.
   const applied = applyEdits(SRC, edits)
@@ -66,12 +66,12 @@ END_VAR
 T := T + 1;
 END_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const doc: Document = { uri: "file:///G.fb", source: src, parseResult }
+  const doc: Document = { uri: "file:///G.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   // Rename the local var `T : INT` — must touch only the var (decl + 2 body uses = 3), never the FB type `T`.
   const varDecl = src.indexOf("T : INT")
   const edit = rename([doc], project, doc, varDecl, "n")
-  expect(edit?.changes?.["file:///G.fb"] ?? []).toHaveLength(3)
+  expect(edit?.changes?.["file:///G.pou"] ?? []).toHaveLength(3)
 })
 
 /** Apply LSP text edits (non-overlapping) to a source string, right-to-left so offsets stay valid. */
@@ -105,13 +105,13 @@ END_VAR
 gv := .gv;
 END_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const doc: Document = { uri: "file:///H.fb", source: src, parseResult }
+  const doc: Document = { uri: "file:///H.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   const bare = src.indexOf("o := gv;") + "o := ".length
   // the global: its declaration, `.gv` and `gv` in F, `.gv` in G — never G's local `gv`
   expect(references([doc], project, doc, bare)).toHaveLength(4)
   const edit = rename([doc], project, doc, bare, "gx")
-  const applied = applyEdits(src, edit?.changes?.["file:///H.fb"] ?? [])
+  const applied = applyEdits(src, edit?.changes?.["file:///H.pou"] ?? [])
   expect(applied).toContain("o := .gx;\no := gx;")
   expect(applied).toContain("gv := .gx;")
   // …and from the `.gv` itself

@@ -102,7 +102,7 @@ if (process.env.VOLT_VERSION) {
   setLspServer(resolve(bin, "volt-lsp-iec" + ext))
   const fx = mkdtempSync(join(tmpdir(), "volt-lsp-smoke-"))
   // `i := b` assigns a BOOL to an INT — a type error the eager crawl must find without opening the file.
-  writeFileSync(join(fx, "F.fb"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK")
+  writeFileSync(join(fx, "F.pou"), "FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\ni := b;\nEND_FUNCTION_BLOCK")
   try {
     const r = await collectDiagnostics(fx, "codesys", { timeoutMs: 30_000 })
     if (r.errors < 1) {

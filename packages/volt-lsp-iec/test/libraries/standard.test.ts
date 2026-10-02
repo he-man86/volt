@@ -47,7 +47,7 @@ function scans(p: Runner, clockMs: readonly number[], reads: readonly string[]):
 
 describe("the repo", () => {
   test("writes every element of Standard 3.5.18.0 (its interface is `repo.test.ts`'s to hold)", () => {
-    expect(readdirSync(REPO).sort()).toEqual(readdirSync(STANDARD).filter((f) => /.(fb|fun)$/.test(f)).sort())
+    expect(readdirSync(REPO).sort()).toEqual(readdirSync(STANDARD).filter((f) => /\.pou$/.test(f)).sort())
   })
 
   test("it answers for the version the project resolved, and a version it has not written stays refused", () => {

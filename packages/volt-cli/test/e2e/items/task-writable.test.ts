@@ -85,7 +85,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 	it("the CALL LIST is content: a POU added to it runs, and the order is kept", async () => {
 		const name = await anyTask()
 		const original = (await fetchItem(name)).sourceText
-		const main = Object.keys((await refs()).items ?? {}).find((n) => n === "PLC_PRG.prg" || n === "MAIN.prg")
+		const main = Object.keys((await refs()).items ?? {}).find((n) => n === "PLC_PRG.pou" || n === "MAIN.pou")
 		expect(main, "no main program to schedule").toBeDefined()
 		const pou = main!.replace(/\.[^.]+$/, "")
 

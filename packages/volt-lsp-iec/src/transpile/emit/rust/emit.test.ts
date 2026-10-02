@@ -191,7 +191,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
   test("a string cursor steps in its own usize — by a literal, or by an INT — and every character is null-checked", () => {
     // Why missed: `P := P + 1` printed `p.wrapping_add(1i8)`, the literal's own SINT, which rustc refuses beside a
     // usize; no Rust test stepped a cursor by a literal until lib_prim_string_cursor_offset did.
-    const lib = { uri: "Library Manager/Lib/CSTEP.fun", source: "FUNCTION CSTEP : BYTE\nVAR_INPUT\n\tP : POINTER TO BYTE;\n\tK : INT;\nEND_VAR\nP := P + 1;\nP := P - K;\nCSTEP := P^;\nEND_FUNCTION\n" }
+    const lib = { uri: "Library Manager/Lib/CSTEP.pou", source: "FUNCTION CSTEP : BYTE\nVAR_INPUT\n\tP : POINTER TO BYTE;\n\tK : INT;\nEND_VAR\nP := P + 1;\nP := P - K;\nCSTEP := P^;\nEND_FUNCTION\n" }
     const { pou, diagnostics } = lowerSource("PROGRAM Steps\nVAR sx : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEP(ADR(sx), 1);\nEND_PROGRAM\n", "Steps", [lib])
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
@@ -691,7 +691,7 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
     ]
     // a library element WITH its body, the shape the library repo (`libraries/`) hands in — a declaration alone is refused
     const len = {
-      uri: "Library Manager/Standard/LEN.fun",
+      uri: "Library Manager/Standard/LEN.pou",
       source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nWHILE STR[LEN] <> 0 DO\n\tLEN := LEN + 1;\nEND_WHILE\nEND_FUNCTION\n",
     }
     // Each POU's output is emitted on its own — its string prelude and its `Globals` with it (emit.ts's ponytail notes) — so

@@ -28,8 +28,8 @@ function obs(src: string, state: DiagnosticState = "warning") {
   const parseResult = parseSource(src, { networkText: true })
   const old = parseSource(OLD, { networkText: true })
   const project = build.buildSymbolTable([
-    { uri: "F.fb", parseResult, source: src },
-    { uri: "Old.fb", parseResult: old, source: OLD },
+    { uri: "F.pou", parseResult, source: src },
+    { uri: "Old.pou", parseResult: old, source: OLD },
   ])
   const config = resolveConfig({ vendor: "codesys", diagnostics: { "obsolete-usage": state } })
   return computeSemanticDiagnostics({ parseResult, source: src, project, config }).filter((d) => d.code === "obsolete-usage")

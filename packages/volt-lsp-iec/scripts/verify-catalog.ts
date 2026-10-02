@@ -44,7 +44,7 @@ function lspMessagesForCode(
   if (ourCode === undefined) return []
   const pr = parseSource(repro, { networkText: NETWORK_TEXT_ENABLED }, vendor)
   const files = [
-    { uri: "R.fb", parseResult: pr, source: repro },
+    { uri: "R.pou", parseResult: pr, source: repro },
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor) })),
   ]
   const project = build.buildSymbolTable(files, [], vendor)
@@ -67,7 +67,7 @@ const TOP = new Set(["function_block", "program", "function", "interface", "glob
 const INSTANTIABLE = new Set(["function_block", "type_decl", "interface"]) // a VAR of this type makes the unit reachable
 function unitExt(u: any): string {
   // every DUT is `dut`, whatever its body (openspec push-without-header-check 5.P)
-  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", type_decl: "dut" }[u.kind as string] ?? "fb"
+  return { function_block: "pou", program: "pou", function: "pou", interface: "itf", global_var_list: "gvl", type_decl: "dut" }[u.kind as string] ?? "pou"
 }
 const TERMINATOR: Record<string, string> = {
   function_block: "END_FUNCTION_BLOCK", program: "END_PROGRAM", function: "END_FUNCTION",
@@ -176,7 +176,7 @@ for (const c of targets) {
   try {
     await fx.reset()
     for (const it of [...items, ...extraItems]) await fx.set(it.wire, it.src)
-    await fx.set("PLC_PRG.prg", plcBody ?? synthPlc(instTypes, calls))
+    await fx.set("PLC_PRG.pou", plcBody ?? synthPlc(instTypes, calls))
     const r = await call("build", { buildType: "full" })
     actual = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning").map((d: any) => `${d.message}`)
     lsp = lspMessagesForCode(c.repro, VENDOR, c.ourCode, c.reproFiles)

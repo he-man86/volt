@@ -36,7 +36,7 @@ public class StatusPartialViewTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             ide.RemoveItem("Deep");
 
-            Assert.Equal(new[] { "Deep.prg" }, Commands.Status(root, client).Incoming.Removed);
+            Assert.Equal(new[] { "Deep.pou" }, Commands.Status(root, client).Incoming.Removed);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -73,8 +73,8 @@ public class StatusPartialViewTests
             ide.UnwalkableFolders = new[] { "Machine" };
 
             var incoming = Commands.Status(root, client).Incoming;
-            Assert.Equal(new[] { "A.prg" }, incoming.Modified);
-            Assert.Equal(new[] { "New.prg" }, incoming.Added);
+            Assert.Equal(new[] { "A.pou" }, incoming.Modified);
+            Assert.Equal(new[] { "New.pou" }, incoming.Added);
             Assert.Empty(incoming.Removed);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }

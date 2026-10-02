@@ -10,7 +10,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 function at(src: string) {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
     (d) => d.code === "at-address",
   )
@@ -19,7 +19,7 @@ const prg = (decl: string) => `PROGRAM PLC_PRG\nVAR\n  ${decl}\nEND_VAR\nEND_PRO
 
 function all(src: string, vendor: "codesys" | "twincat" = "codesys") {
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], undefined, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], undefined, vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.severity === "error")
     .map((d) => d.message)

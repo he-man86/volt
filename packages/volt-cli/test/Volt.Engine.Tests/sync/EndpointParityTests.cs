@@ -24,7 +24,7 @@ public class EndpointParityTests
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
         FakeIde.Item.TextualPou("FB_Motor", "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "y := 2;", "POUs"),
         FakeIde.Item.Library("CmpX", "LIBRARY CmpX\nNAMESPACE CmpX\nRESOLUTION CmpX, 1.0.0.0 (System)"),
-        new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPouFb, "CMs/CM_Carrier", true,
+        new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPou, "CMs/CM_Carrier", true,
             "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR", "nStep := 1;", null, null),
         new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcVisObj, "CMs/CM_Carrier", true,
             "visualization: CM_Carrier", null, null, null));
@@ -36,9 +36,9 @@ public class EndpointParityTests
     public void The_fixture_contains_two_items_that_share_a_bare_name()
     {
         var refs = RefsService.Handle(Mixed());
-        Assert.Contains("CM_Carrier.fb", refs.Items.Keys);
+        Assert.Contains("CM_Carrier.pou", refs.Items.Keys);
         Assert.Contains("CM_Carrier.visualization", refs.Items.Keys);
-        Assert.NotEqual(refs.Items["CM_Carrier.fb"], refs.Items["CM_Carrier.visualization"]);
+        Assert.NotEqual(refs.Items["CM_Carrier.pou"], refs.Items["CM_Carrier.visualization"]);
     }
 
     /// <summary>And EDITING the shadowed one moves the aggregate hash. This is the pull-side half of the same
@@ -53,7 +53,7 @@ public class EndpointParityTests
             FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
             FakeIde.Item.TextualPou("FB_Motor", "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "y := 2;", "POUs"),
             FakeIde.Item.Library("CmpX", "LIBRARY CmpX\nNAMESPACE CmpX\nRESOLUTION CmpX, 1.0.0.0 (System)"),
-            new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPouFb, "CMs/CM_Carrier", true,
+            new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPou, "CMs/CM_Carrier", true,
                 "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR", "nStep := 99;", null, null),
             new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcVisObj, "CMs/CM_Carrier", true,
                 "visualization: CM_Carrier", null, null, null));

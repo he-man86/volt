@@ -9,7 +9,7 @@ against. The tests themselves live in `src/**/*.test.ts` and `test/` — see [`.
 | File | Role |
 |---|---|
 | `bridge.ts` | named-pipe client — `call(op, body)` speaks the Volt wire to a live bridge |
-| `held-as.ts` | where the IDE holds an item the recorder pushed (`X.fb` as `X.prg`) — `record-language.ts`'s cleanup lookup, tested in `held-as.test.ts` |
+| `held-as.ts` | where the IDE holds an item the recorder pushed (`x.pou` as `X.pou`, a GVL as `unreadable`) — `record-language.ts`'s cleanup lookup, tested in `held-as.test.ts` |
 | `bridge-fixture.ts` | `openFixture()` → `{ set, del, reset }` — push items + reset the fixture project between repros |
 
 ## Live tools (a bridge must be up)

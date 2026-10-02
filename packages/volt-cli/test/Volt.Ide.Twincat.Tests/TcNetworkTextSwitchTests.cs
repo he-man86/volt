@@ -31,7 +31,7 @@ public class TcNetworkTextSwitchTests
 
     private static ItemContent Read() =>
         new BeckhoffDriver(new TcObjectModel()).ReadContent(new ItemRef(
-            new TcHiddenBodyWriteTests.Node("PRG_Ladder", ItemKind.PlcPouProg, "PROGRAM PRG_Ladder\nVAR\nEND_VAR", Ladder())));
+            new TcHiddenBodyWriteTests.Node("PRG_Ladder", ItemKind.PlcPou, "PROGRAM PRG_Ladder\nVAR\nEND_VAR", Ladder())));
 
     [Fact]
     public void Off_a_ladder_is_read_as_its_UNSUPPORTED_line_with_the_switchs_reason()

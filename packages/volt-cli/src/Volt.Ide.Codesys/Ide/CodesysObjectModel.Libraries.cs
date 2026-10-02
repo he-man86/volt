@@ -368,15 +368,12 @@ namespace Volt.Ide.Codesys
             var c = IecContainer(parent);
             switch (itemType)
             {
-                case ItemKind.PlcPouProg: return CreatePou(c, name, "Program", language);
-                // A function REQUIRES a non-null return_type at create; CODESYS errors without one. The
-                // VALUE is immaterial — WriteSourceText then sets the real declaration and the return type
-                // with it (same as methods, which create with no return_type and get theirs from the
-                // written declaration). So seed "INT", bound by name (it sits behind optional `language`).
-                case ItemKind.PlcPouFunc: return CreateNamed(c, "create_pou",
-                    ("name", name), ("type", EnumValue("PouType", "Function")), ("return_type", SeedType),
-                    ("language", LanguageArg(language)));
-                case ItemKind.PlcPouFb: return CreatePou(c, name, "FunctionBlock", language);
+                // A POU is ONE kind with ONE seed (openspec `push-without-header-check` 5.Q, design S1): it is created
+                // a FUNCTION_BLOCK whatever its text, and the declaration written next decides what it is — CODESYS
+                // does not retain the creation PouType (DIALECT C2g) and takes the kind from the text (C2f). A
+                // function block needs no seed return type, and accepts every member kind until its text says
+                // otherwise (C2k). (The Program and Function arms went with the `.prg` / `.fun` extensions.)
+                case ItemKind.PlcPou: return CreatePou(c, name, "FunctionBlock", language);
                 // A DUT is one kind: create a neutral Structure skeleton, then WriteSourceText writes the real
                 // TYPE…END_TYPE declaration and CODESYS re-derives the actual subtype (struct/enum/union/alias)
                 // from it — the same "seed then overwrite" pattern as a function's return_type. No subkind is

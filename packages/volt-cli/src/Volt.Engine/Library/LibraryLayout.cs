@@ -16,7 +16,7 @@ namespace Volt.Engine.Library
     /// <para><b>Shared because two places must agree on it.</b> `LibraryFetch` WRITES this tree, and it is the
     /// one library tree with no `.library` stub in it — so every client-side protection, all of which key on
     /// stub presence (`IdeTree.LibraryRoots`), missed it at once: the push read-only guard, the stale-signature
-    /// removal sweep, and the dropped-file check. A `.fb` signature under here was an ordinary writable project
+    /// removal sweep, and the dropped-file check. A `.pou` signature under here was an ordinary writable project
     /// item, so a bare-name collision with a real POU let a declaration-only signature overwrite the engineer's
     /// code in the live PLC. Naming the marker once, here, is what lets the protection recognise it without
     /// anyone fabricating a fake vendor `.library` file to stand in for a library that does not exist.</para></summary>

@@ -77,7 +77,7 @@ the end of the message before parsing.
 **Request** (relay → bridge):
 
 ```json
-{ "id": "<opaque>", "op": "fetch", "body": { "onlyItems": ["FB_Motor.fb"] } }
+{ "id": "<opaque>", "op": "fetch", "body": { "onlyItems": ["FB_Motor.pou"] } }
 ```
 
 `id` is the relay's own, a JSON string; the bridge treats it as opaque and echoes it. Uniqueness is the relay's
@@ -261,7 +261,7 @@ B→R {"id":"r1","result":{"projectVersion":"9f3c…","items":{…},"folders":{�
 R→B {"id":"r2","op":"push","body":{"ops":[…],"expectedProjectVersion":"9f3c…"}}
 R→B {"id":"r3","op":"health"}              a second request, in flight at the same time
 B→R {"id":"r3","result":{"projects":[…]}}  answers immediately; r2 still holds the IDE
-B→R {"id":"r2","result":{"accepted":false,"conflicts":[{"name":"FB_Motor.fb","code":"STALE_ITEM_VERSION",…}]}}
+B→R {"id":"r2","result":{"accepted":false,"conflicts":[{"name":"FB_Motor.pou","code":"STALE_ITEM_VERSION",…}]}}
 
 B→R {"volt":"ping"}
 R→B {"volt":"pong"}

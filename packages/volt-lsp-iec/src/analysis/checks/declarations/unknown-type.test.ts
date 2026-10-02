@@ -25,7 +25,7 @@ function errors(main: File, others: File[] = [], vendor: Vendor = "codesys"): st
 }
 
 const prg = (decls: string, body = ";"): File => ({
-  uri: "PLC_PRG.prg",
+  uri: "PLC_PRG.pou",
   source: `PROGRAM PLC_PRG\nVAR\n\t${decls}\nEND_VAR\nIMPLEMENTATION ST\n${body}\nEND_PROGRAM\n`,
 })
 
@@ -42,7 +42,7 @@ test("…whose object's text is one comment that never closes — `pwh_unclosed_
 })
 
 test("calling an instance of it adds the call target's own message — `pwh_unclosed_comment_fb`", () => {
-  const unclosed = { uri: "FB_Motor.fb", source: "(* Motor\n *\nFUNCTION_BLOCK FB_Motor\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n" }
+  const unclosed = { uri: "FB_Motor.pou", source: "(* Motor\n *\nFUNCTION_BLOCK FB_Motor\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n" }
   expect(errors(prg("v : FB_Motor;", "v();"), [unclosed])).toEqual([
     "Program name, function or function block instance expected instead of 'v'",
     "Unknown type: 'FB_Motor'",
@@ -59,7 +59,7 @@ test("on TwinCAT the LSP cannot know that nothing declares a type, and stays sil
 test("a type the project declares, in whatever object — silent", () => {
   const dut = { uri: "DUT_Mode.dut", source: "TYPE DUT_Mode :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n" }
   expect(errors(prg("v : DUT_Mode;"), [dut])).toEqual([])
-  const fb = { uri: "FB_A.fb", source: "FUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" }
+  const fb = { uri: "FB_A.pou", source: "FUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" }
   expect(errors(prg("v : FB_A;", "v();"), [fb])).toEqual([])
 })
 
@@ -75,7 +75,7 @@ test("what the LSP has no standing to call unknown — silent", () => {
 })
 
 test("the generic ANY types a FUNCTION may take are not unknown", () => {
-  const f = { uri: "F_Any.fun", source: "FUNCTION F_Any : BOOL\nVAR_INPUT\n\tx : ANY;\n\ty : ANY_NUM;\nEND_VAR\nIMPLEMENTATION ST\nF_Any := TRUE;\nEND_FUNCTION\n" }
+  const f = { uri: "F_Any.pou", source: "FUNCTION F_Any : BOOL\nVAR_INPUT\n\tx : ANY;\n\ty : ANY_NUM;\nEND_VAR\nIMPLEMENTATION ST\nF_Any := TRUE;\nEND_FUNCTION\n" }
   expect(errors(f)).toEqual([])
 })
 
@@ -90,7 +90,7 @@ test("a compiler-provided name is no unknown type — bare TYPE_CLASS, as `op_sy
 // line, before anything the body says (`xf_ldt_to_date_call_once` and its four siblings, TwinCAT 2026-10-01: "Unknown
 // type: 'LDT'" at line 1). Only the dialect half is measured there: a bare unknown name as a return type is not.
 test("a FUNCTION returning a CODESYS-only elementary type, on TwinCAT — the return type is a declaration", () => {
-  const f = { uri: "F_Stamp.fun", source: "FUNCTION F_Stamp : LDT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
+  const f = { uri: "F_Stamp.pou", source: "FUNCTION F_Stamp : LDT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
   expect(errors(f, [], "twincat")).toEqual(["Unknown type: 'LDT'"])
   expect(errors(f, [], "codesys")).toEqual([])
 })

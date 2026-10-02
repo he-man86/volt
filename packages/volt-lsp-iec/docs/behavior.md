@@ -129,14 +129,14 @@ rather than failing wholesale.
 
 ### Requirement: The workspace is cross-indexed
 
-The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.fb`, `.prg`, `.fun`, `.itf`, `.gvl`, and every DUT as `.dut`) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
+The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.pou`, `.itf`, `.gvl`, and every DUT as `.dut`) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
 
 #### Scenario: A type in an unopened file resolves
 - **WHEN** a file references a DUT declared in another, unopened file
 - **THEN** go-to-definition and type resolution succeed
 
 #### Scenario: Cross-file resolution works with only the referencing file open
-- **WHEN** the client has opened only `PLC_PRG.prg`, which references `E_Mode` declared in an unopened sibling `E_Mode.dut`
+- **WHEN** the client has opened only `PLC_PRG.pou`, which references `E_Mode` declared in an unopened sibling `E_Mode.dut`
 - **THEN** `E_Mode` resolves and no `Identifier 'E_Mode' not defined` diagnostic is produced
 
 #### Scenario: An open buffer overrides the on-disk version
@@ -398,7 +398,7 @@ models; graphical bodies are simply not analyzed and are edited in the IDE.
 
 The LSP SHALL resolve referenced-library symbols using the materialized artifacts, with NO dedicated
 ambient-scope machinery: (a) library element signature files use the ordinary kind extensions
-(`.fb`/`.fun`/`.dut`/`.gvl`/`.itf`/…), so the existing source scan ingests them into the project
+(`.pou`/`.dut`/`.gvl`/`.itf`/…), so the existing source scan ingests them into the project
 symbol table — a bare or member reference to a library element resolves like any project symbol; (b) each
 `.library` stub's `NAMESPACE` line registers that library's namespace, so a qualified-reference ROOT
 (`PACK_ML.State`, `MEM.LowWord`) is not flagged unresolved. Namespaces are keyed independently of project
@@ -604,10 +604,10 @@ The push never writes such a body (openspec `implementation-keyword`).
 ### Requirement: Content detection covers whole files and inlined graphical methods
 
 `volt-vscode` SHALL highlight network text by a content injection on the `NETWORK` token. Because a POU is named
-by its KIND (`.fb`/`.prg`/`.fun`), an editable graphical POU is stored in a kind-named file, not a
+by its KIND (`.pou`), an editable graphical POU is stored in a kind-named file, not a
 language-named file — so the injection SHALL be keyed purely by the `NETWORK` token (the same
 discriminator the LSP router uses), never by a graphical extension, and SHALL cover both a whole
-graphical POU (e.g. a `.fb` file whose body begins with `NETWORK`) *and* a graphical body inlined
+graphical POU (e.g. a `.pou` file whose body begins with `NETWORK`) *and* a graphical body inlined
 inside a POU (a graphical method). That token decides COLOUR only. What a body IS — and so what the LSP analyzes —
 is its stated language: `IMPLEMENTATION LD|FBD` is network text, `IMPLEMENTATION ST` is ST, and
 `IMPLEMENTATION <LANG> UNSUPPORTED` is read by neither.
@@ -624,18 +624,18 @@ is its stated language: `IMPLEMENTATION LD|FBD` is network text, `IMPLEMENTATION
 
 ### Requirement: Writable source items are named by kind
 
-Every writable source item SHALL materialize with an extension that names its KIND:
-`function_block → .fb`, `program → .prg`, `function → .fun`, `interface → .itf`, `gvl → .gvl`, and every
-DUT (structure, enumeration, union, alias) → `.dut` (the distinction lives in the declaration body, mirroring the
-IDEs' one-DUT-object model; nothing names the subtype — openspec push-without-header-check 5.P). A POU SHALL be named by its
-kind regardless of body language — an editable graphical (FBD/LD) body and a read-only graphical
-(CFC/SFC) body of a function block are both `<name>.fb` — so the extension always reveals what the
-item is. The bridge SHALL choose the extension from the item's kind (`ItemKind.ExtFor`); kind SHALL
-NOT be carried on the wire (it is recovered from content on push).
+Every writable source item SHALL materialize with an extension that names its KIND — what the IDE stores per
+object, its class: every POU (program, function block, function) → `.pou`, `interface → .itf`, `gvl → .gvl`, and every
+DUT (structure, enumeration, union, alias) → `.dut`. Which POU or which DUT shape an item is lives in its declaration
+text, mirroring the IDEs' one-POU-object and one-DUT-object models; nothing names it (openspec
+push-without-header-check 5.P, 5.Q). A POU SHALL be named by its kind regardless of body language — an editable
+graphical (FBD/LD) body and a read-only graphical (CFC/SFC) body are both `<name>.pou` — so the extension always
+reveals what the item is. The bridge SHALL choose the extension from the item's kind (`ItemKind.ExtFor`), and a POU
+file's outer END line mirrors its own header keyword (`END_PROGRAM` / `END_FUNCTION_BLOCK` / `END_FUNCTION`).
 
 #### Scenario: A POU is named by kind, not body language
 - **WHEN** the IDE contains a function block with a textual body, a second with an editable FBD body, and a third with a read-only CFC body
-- **THEN** all three materialize as `<name>.fb`, and a program is `.prg` and a function is `.fun`
+- **THEN** all three materialize as `<name>.pou`, and so do a program and a function
 
 #### Scenario: DUTs, interfaces, and GVLs use their kind extension
 - **WHEN** the IDE contains an enumeration, structure, union, alias, interface, or GVL
@@ -654,7 +654,7 @@ folder SHALL remain a `.gitkeep` marker.
 
 #### Scenario: A CFC POU states its hidden body in content
 - **WHEN** the IDE contains a function block whose body is a CFC chart
-- **THEN** it materializes as `<name>.fb` whose body line is `IMPLEMENTATION CFC UNSUPPORTED` — no `.cfc` extension and no wire flag mark it
+- **THEN** it materializes as `<name>.pou` whose body line is `IMPLEMENTATION CFC UNSUPPORTED` — no `.cfc` extension and no wire flag mark it
 
 #### Scenario: A reference kind keeps its extension and is read-only
 - **WHEN** the IDE contains a library, task, or visualization
@@ -664,16 +664,17 @@ folder SHALL remain a `.gitkeep` marker.
 
 The CLI SHALL derive a POU body's push-ability from its content — a body stated `IMPLEMENTATION <LANG> UNSUPPORTED`
 is never written (its declaration still pushes), a body stated `IMPLEMENTATION ST|LD|FBD` is writable — while
-reference kinds stay read-only by their extension. The bridge SHALL recover an item's kind from file content on
-push-back (the declaration header), never from the extension. The kind-based naming SHALL NOT lose kind or access
+reference kinds stay read-only by their extension. The bridge SHALL take an item's kind from its wire name's
+extension on push-back, never from its declaration header (openspec push-without-header-check): the text is written as
+sent, and what it declares is the IDE's and its build's business. The kind-based naming SHALL NOT lose kind or access
 information.
 
-#### Scenario: Kind is recovered from content on push
-- **WHEN** an agent edits and pushes a `.fb`/`.prg`/`.fun`/`.dut`/`.itf`/`.gvl` file
-- **THEN** the bridge reconstructs the correct kind from the content and applies the push (all four DUT extensions are the one kind `dut`; the IDE derives the subtype from the declaration, as the materializer does to name the file)
+#### Scenario: Kind is the extension on push
+- **WHEN** an agent edits and pushes a `.pou`/`.dut`/`.itf`/`.gvl` file
+- **THEN** the bridge takes the kind from the extension and writes the text as sent (a POU whose text now says PROGRAM where it said FUNCTION_BLOCK is an ordinary update of `<name>.pou`; the IDE derives what it is from the declaration)
 
 #### Scenario: A hidden body is never written
-- **WHEN** a `.fb` file whose body is stated `IMPLEMENTATION CFC UNSUPPORTED` has its declaration edited and is pushed
+- **WHEN** a `.pou` file whose body is stated `IMPLEMENTATION CFC UNSUPPORTED` has its declaration edited and is pushed
 - **THEN** the declaration is pushed and the IDE's chart is left exactly as it was; code added under the line is refused by name
 
 ### Requirement: Library signatures materialize under the Library Manager, not a separate tree
@@ -681,7 +682,7 @@ information.
 Referenced-library public signatures SHALL materialize INTO the mirrored CODESYS tree — each element under
 its owning library's folder in the Library Manager (`…/Library Manager/<LibraryName>/<Element>.<kind>`),
 co-located with that library's `.library` stub — NOT into a separate `libs/` tree. Files SHALL use the same
-kind-based extensions as project source (`.fb`/`.prg`/`.fun`/`.dut`/`.gvl`/`.itf`)
+kind-based extensions as project source (`.pou`/`.dut`/`.gvl`/`.itf`)
 and contain declarations/signatures only (no implementation bodies). They SHALL be **read-only**: never a
 push target, never reconciled to the IDE. They are committed and change only when a referenced library is
 added, removed, or version-bumped.

@@ -489,7 +489,7 @@ public static class PushService
                 return ApplySetTask(ide, name, existing, set);
             case SetItemOp set:
                 return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations);
-            // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.dut` and `X.fb` both
+            // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.dut` and `X.pou` both
             // resolve to the object `X`. So the op's kind is checked against the object's own kind, and a delete of a
             // name of another kind finds nothing, with or without force (force drops a version gate; it never widens
             // what a name means). Every kind has one extension, so the kind and the bare name are the whole wire name.
@@ -925,7 +925,7 @@ public static class PushService
         // (openspec `push-without-header-check`): the text is written as sent, and the IDE's build reports what is
         // wrong with it. This was once handed the BARE name, so `KindForWireName` answered null for every item and
         // the write believed the text's header: a function block's text pushed as `X.dut` over the FB `X` was
-        // written, and the receipt named `X.fb` for an op sent as `X.dut`.
+        // written, and the receipt named `X.pou` for an op sent as `X.dut`.
         var wireKind = ItemKind.KindForWireName(wireName)
             ?? throw new BridgeException(BridgeErrorCodes.BadRequest, $"'{wireName}' is not a wire name: its extension names no item kind");
         var split = StReader.Read(src, wireKind, name);
@@ -964,6 +964,7 @@ public static class PushService
 
         ItemRef pou;
         ItemRef? createdParent = null;   // set only when THIS op creates the item; drives the rollback at the end
+        var declarationLanded = false;   // the item's declaration was written ahead of its members (see below)
         ItemContent? live = null;
         if (existing is not { } existingPou)
         {
@@ -1003,16 +1004,16 @@ public static class PushService
             // must never be overwritten by a textual push, and a UNSUPPORTED line must not be written over one it can.
             live = ide.ReadContent(pou);
 
-            // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME. The IDE's kind comes from the TREE — the object
-            // really is a function block, a program, a DUT — and the op's kind from its wire name's extension. They
-            // are compared here, and nothing else is: the text's header is not read. The TEXT is written as sent, and
-            // CODESYS then takes the kind it declares (DIALECT C2f) — `refs` names the object by it afterwards; what
-            // is refused is a NAME that disagrees with the object the IDE publishes.
+            // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME. The IDE's kind comes from the object's CLASS — it
+            // really is a POU, a DUT, a GVL, an interface — and the op's kind from its wire name's extension. They are
+            // compared here, and nothing else is: the text's header is not read, and the TEXT is written as sent (a POU
+            // whose text now says PROGRAM where it said FUNCTION_BLOCK is still `X.pou`, an ordinary content change).
+            // What is refused is a NAME of another family than the object the IDE publishes: `X.dut` over the POU `X`.
             //
-            // It is reachable from an ordinary edit: renaming `X.fb` to `X.prg` produces `ToName = "X.prg"`
-            // whose BARE name is unchanged, so the rename compare degrades it to a plain content write. And when
-            // git does not pair the two paths as a rename, the ops are `set X.prg` + `delete X.fb`, which land on
-            // the SAME object — the set re-types it and the delete then removes it, under an accepted push.
+            // It is reachable from an ordinary edit: renaming `X.pou` to `X.dut` produces `ToName = "X.dut"` whose
+            // BARE name is unchanged, so the rename compare degrades it to a plain content write. And when git does
+            // not pair the two paths as a rename, the ops are `set X.dut` + `delete X.pou`, which land on the SAME
+            // object — under an accepted push.
             //
             // Delete-and-recreate is the only honest route, and it is the engineer's call because it loses the
             // object's identity. `ReconcileMembers` already reasons exactly this way one level down, for a
@@ -1050,33 +1051,6 @@ public static class PushService
         // declaration, body and accessors, to answer two questions about the same unchanged snapshot.
         live ??= ide.ReadContent(pou);
 
-        // The member SET, for a create and an update alike. A create reaches here with the item existing but
-        // empty, so every member the source declares is new; an update reconciles against what is there.
-        if (ReconcileMembers(ide, pou, live, split))
-            // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: a member is not a
-            // separate file there, so placing one is a round trip through the enclosing POU's own archive
-            // (DIALECT D4j), and the import replaces the item (D4d). The next write through the captured handle
-            // fails with "Unbound tree item" — which is how this surfaced, on 40-odd e2e tests at once. Re-find
-            // from a FRESH tree root, because the PARENT handle dies with it.
-            pou = ItemLookup.Find(ide, name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
-                    "handle the member create invalidated");
-
-        // ONE call, for create and update alike: declaration, body, members and accessors together.
-        //
-        // Everything that used to sit here went with the PLCopen transport, and each piece was a VENDOR fact
-        // wearing engine clothing:
-        //   - `ReadXml` + `PouDocument.Splice` + `WriteXml`: the document round-trip itself.
-        //   - `WriteDeclarations` AFTER the document write. That ordering was measured and real - TwinCAT's
-        //     importer REGENERATES a declaration from the typed <interface> when the document carries no
-        //     verbatim block, so an aspect write placed first was silently undone (`x : INT;` came back
-        //     `x: INT;`) - but it is a fact about one vendor's IMPORTER, and there is no import now.
-        //   - `RestoreChildFolders`: PLCopen carries no folder membership, so its import flattened a POU's
-        //     internal folders and Volt re-placed them from the pushed source. Nothing flattens them now.
-        //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
-        //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
-        //     the driver, which is the only layer that can ask the IDE cheaply.
         // A REFUSED CREATE LEAVES NOTHING BEHIND.
         //
         // The create site above already says this — "a refused push must not leave an orphaned, unlisted stub
@@ -1093,15 +1067,92 @@ public static class PushService
         //
         // Best-effort, and deliberately: the rollback must never replace the REAL refusal with its own failure.
         // The engineer needs the reason the push was refused; a delete that also fails is a second problem, not
-        // a better message.
+        // a better message. It spans the whole sequence below (design 5.Qa, O2): a member the IDE refuses is as
+        // much a refusal of the create as a content write it refuses.
         try
         {
+            // THE ITEM'S OWN DECLARATION BEFORE ITS MEMBERS (openspec `push-without-header-check` 5.Q.4, design O2). Which
+            // members a POU accepts follows its TEXT on CODESYS (DIALECT C2k): FUNCTION text refuses a method, a property,
+            // an action and a transition, and members created before such text lands are KEPT by the IDE afterwards. So the
+            // IDE is shown the text the client sent before any member is created, and judges the members against it — not
+            // against the seed Volt created the item with, nor the text it held before. A create AND an update: an update
+            // that turns a function block's text into FUNCTION text and adds a method is the same silent state otherwise.
+            //
+            // The DECLARATION alone, and only when it changes and a member is about to be created: the declaration is what
+            // the IDE judges a member by, and the BODY must stay last — on TwinCAT a member write rewrites the enclosing
+            // POU's file and loses a body written before it (the order `BeckhoffDriver.WriteContent` documents), so the
+            // body travels with the members in the one write below, which restates the declaration (the same text).
+            if (CreatesMembers(live, split) && Text(live.Declaration) != Text(split.Declaration))
+            {
+                ide.WriteContent(pou, split with { Body = null, Members = new List<Member>() }, pushedDeclarations);
+                declarationLanded = true;
+                // A write may replace the item on a vendor whose handles do not survive a change (TwinCAT, D4d), so the
+                // member reconcile below starts from a fresh handle there, as the content write after it does.
+                if (!ide.HandlesSurviveStructureChange)
+                    pou = ItemLookup.Find(ide, name)
+                        ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                            $"'{name}' cannot be found after its declaration was written — refusing to create its " +
+                            "members through a handle the write invalidated");
+            }
+
+            // The member SET, for a create and an update alike. A create reaches here with the item existing but
+            // empty, so every member the source declares is new; an update reconciles against what is there.
+            if (ReconcileMembers(ide, pou, live, split, MemberRefusal))
+                // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: a member is not a
+                // separate file there, so placing one is a round trip through the enclosing POU's own archive
+                // (DIALECT D4j), and the import replaces the item (D4d). The next write through the captured handle
+                // fails with "Unbound tree item" — which is how this surfaced, on 40-odd e2e tests at once. Re-find
+                // from a FRESH tree root, because the PARENT handle dies with it.
+                pou = ItemLookup.Find(ide, name)
+                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                        $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
+                        "handle the member create invalidated");
+
+            // ONE call, for create and update alike: declaration, body, members and accessors together.
+            //
+            // Everything that used to sit here went with the PLCopen transport, and each piece was a VENDOR fact
+            // wearing engine clothing:
+            //   - `ReadXml` + `PouDocument.Splice` + `WriteXml`: the document round-trip itself.
+            //   - `WriteDeclarations` AFTER the document write. That ordering was measured and real - TwinCAT's
+            //     importer REGENERATES a declaration from the typed <interface> when the document carries no
+            //     verbatim block, so an aspect write placed first was silently undone (`x : INT;` came back
+            //     `x: INT;`) - but it is a fact about one vendor's IMPORTER, and there is no import now.
+            //   - `RestoreChildFolders`: PLCopen carries no folder membership, so its import flattened a POU's
+            //     internal folders and Volt re-placed them from the pushed source. Nothing flattens them now.
+            //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
+            //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
+            //     the driver, which is the only layer that can ask the IDE cheaply.
             ide.WriteContent(pou, OnlyChanged(live, split), pushedDeclarations);
         }
         catch when (createdParent is { } parent && Rollback(ide, parent, name))
         {
             throw;   // unreachable: the filter returns false. Present so the compiler sees a complete catch.
         }
+
+        // What a member the IDE refuses to create is reported with: the IDE's own reason, and what of the item has
+        // already landed — nothing on a create (it is rolled back whole); on an update, the declaration when it was
+        // written first, and every member the reconcile DELETED before it reached the creates (deletes run first, so a
+        // member the push drops is gone from the IDE when a create is refused — 5Qa review).
+        string MemberRefusal(IReadOnlyList<Member> deleted)
+        {
+            if (createdParent is not null) return $"'{name}' is not created (the create is rolled back)";
+            var drops = deleted.Count == 0 ? null
+                : $"its {string.Join(", ", deleted.Select(m => $"{m.Kind.Replace('_', ' ')} '{m.Name}'"))} " +
+                  (deleted.Count == 1 ? "was deleted before it and stays deleted" : "were deleted before it and stay deleted");
+            if (declarationLanded)
+                return $"the declaration of '{name}' was written before it and stays" +
+                       (drops is null ? "; its members and body were not" : $", and {drops}; its other members and body were not written");
+            return drops is null ? $"nothing of '{name}' was written" : $"{drops}; nothing else of '{name}' was written";
+        }
+    }
+
+    /// <summary>Will reconciling <paramref name="pushed"/>'s members against <paramref name="live"/> CREATE one — a
+    /// member the project lacks, or one whose kind changed (deleted and created again)? The question
+    /// <see cref="ReconcileMembers"/> answers by doing it, asked first so the declaration can land before.</summary>
+    private static bool CreatesMembers(ItemContent live, ItemContent pushed)
+    {
+        var liveKind = live.Members.ToDictionary(m => m.Name, m => m.Kind, StringComparer.OrdinalIgnoreCase);
+        return pushed.Members.Any(m => !liveKind.TryGetValue(m.Name, out var k) || k != m.Kind);
     }
 
     /// <summary>Delete an item this push had just created, from an exception FILTER so the original exception
@@ -1115,7 +1166,7 @@ public static class PushService
         try
         {
             ide.Delete(parent, Materializer.Bare(name));
-            VoltLog.Debug($"push: rolled back the create of '{name}' after its content write was refused");
+            VoltLog.Debug($"push: rolled back the create of '{name}' after its write was refused");
         }
         catch (Exception ex)
         {
@@ -1221,8 +1272,10 @@ public static class PushService
     /// the wider "inlined in a POU" set is exactly how a push once deleted every transition of an SFC POU on its
     /// first write, silently.</para></summary>
     /// <returns><c>true</c> when the project was mutated, so the caller knows its handles may be stale.</returns>
-    private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, ItemContent live, ItemContent pushed)
+    private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, ItemContent live, ItemContent pushed,
+                                         Func<IReadOnlyList<Member>, string> landed)
     {
+        var deleted = new List<Member>();
         var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
         var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
 
@@ -1259,14 +1312,27 @@ public static class PushService
             // loudly on every retry with "no child named 'Act' under 'FB_FolderChild'".
             var site = TreeNav.FindFolder(ide, Owner(), m.Folder) ?? Owner();
             ide.Delete(site, m.Name);
+            deleted.Add(m);
             mutated = true;
         }
 
         foreach (var m in pushed.Members)
         {
             if (have.Contains(m.Name) && !retyped.Contains(m.Name)) continue;
-            ide.CreateChild(TreeNav.ResolveFolder(ide, Owner(), m.Folder),
-                            m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m));
+            var site = TreeNav.ResolveFolder(ide, Owner(), m.Folder);
+            // A MEMBER THE IDE WILL NOT TAKE IS REFUSED BY NAME, with the IDE's own reason (openspec
+            // `push-without-header-check` 5.Q.4). Which members a POU accepts follows its TEXT (DIALECT C2k: FUNCTION
+            // text refuses every member kind; text that declares nothing refuses a method and a property), and the
+            // declaration has already been shown to the IDE. ONLY the vendor's own refusal, which the driver recognises
+            // (ChildRefusedException): any other failure — a stale handle, a transport fault — is not the text's doing
+            // and propagates as the fault it is, the create still rolled back by the filter above.
+            try { ide.CreateChild(site, m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m)); }
+            catch (ChildRefusedException ex)
+            {
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{name}': the IDE refused to create its {m.Kind.Replace('_', ' ')} '{m.Name}': {ex.Message} — " +
+                    $"{landed(deleted)}. Which members a POU accepts follows its declaration (a FUNCTION takes none).", ex);
+            }
             mutated = true;
         }
 
@@ -1393,7 +1459,10 @@ public static class PushService
 
     private static int PouKindToCode(string kind) => kind switch
     {
-        ItemKind.Kinds.Program => ItemKind.PlcPouProg, ItemKind.Kinds.Function => ItemKind.PlcPouFunc, ItemKind.Kinds.FunctionBlock => ItemKind.PlcPouFb,
+        // ONE seed per kind (design 5.Qa, S1): every POU is created as a function block whatever its text, as every DUT
+        // is created as a struct — the vendor takes the kind the TEXT declares (DIALECT C2f/C2g; TwinCAT's compiler too,
+        // C2h), and a function block accepts every member kind until the declaration says otherwise (C2k).
+        ItemKind.Kinds.Pou => ItemKind.PlcPou,
         ItemKind.Kinds.Dut => ItemKind.PlcDut, ItemKind.Kinds.Gvl => ItemKind.PlcGvl, ItemKind.Kinds.Interface => ItemKind.PlcItf,
         // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program.
         _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown top-level kind '{kind}'"),

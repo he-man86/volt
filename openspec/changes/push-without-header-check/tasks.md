@@ -472,31 +472,75 @@ transition), and every descriptor/reference kind. The stopped 5.D (POU kind from
 broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's parse agreed with its signature on
 262/262 POUs) is kept outside the repo (scratchpad `push5D-wip/`), the evidence may be re-used in DIALECT.
 
-- [ ] 5.Q.1 One POU extension: `.pou` is the ONLY extension for a PROGRAM / FUNCTION_BLOCK / FUNCTION, in C# `ItemKind`
+- [x] 5.Q.1 One POU extension: `.pou` is the ONLY extension for a PROGRAM / FUNCTION_BLOCK / FUNCTION, in C# `ItemKind`
       (+ every derived map), the LSP (`frontend/syntax/format/source-object.ts`, `source-extensions.ts`), volt-control,
       the VS Code manifest places, `scripts/check-wiring.ts` (`bun run check` parity green); `.prg` / `.fb` / `.fun`
       removed everywhere. `LibSignatureRenderer` names library items through `ItemKind.ExtFor` (no hard-coded
       `".fb"`/`".fun"`/`".itf"`/`".gvl"`). Corpus + fixtures renamed with `git mv` (contents unchanged); recordings keyed by
       fixture name need no re-recording — prove it (conformance numbers identical apart from the names).
-- [ ] 5.Q.2 Kind from the class, never from text or signature: CODESYS `IPOUObject` (incl. `POUObjectCheckFunction`) →
+      DONE (2026-10-02): `ItemKind`: one POU row `(Kinds.Pou, "pou")`, `Kinds.Program/Function/FunctionBlock` deleted,
+      `PlcPou` = 604 (602/603 kept as TwinCAT tree codes, all three `Map` → `pou`); `PushService.PouKindToCode`,
+      `StReader.OuterEndKeywords`, `PushedText.MayBeHeldAs` (case-variants only), `LibSignatureRenderer` (every library
+      item through `ItemKind.ExtFor`, no extension literal). Parity sites: LSP `source-extensions.ts` / `source-object.ts`,
+      volt-control `files.ts`, VS Code `languages.extensions` / tmLanguage `fileTypes` / `volt-icons.json` /
+      `workspaceContains`, the Claude Code plugin; `bun run check` 15 passed / 0 failed. LSP scripts (`record-language.ts`
+      UNIT_EXT/KIND_EXT, `verify-catalog.ts`, `held-as.ts` FAMILY, `fixture-units.ts`, `fixtures.test.ts` extFor,
+      `evidence.ts`, `test/frontend/sources.ts`, `libraries/index.ts`), test URIs (132 LSP files, mechanical, code
+      member accesses like `routine.fb` excluded), `error-catalog.json` repro URIs, `resolution-dump.json` names.
+      Renamed (contents untouched, 17,051 R100): the six corpora's 16,990 POU files, the library repo's 50 bodies,
+      volt-cli's 11 test fixtures — staged with explicit paths; NOTE they were swept into the unrelated commit
+      `36594321c8` (another workflow committed the whole index). Proof, in a scratch worktree of `3c66511693` before and
+      after this step's LSP change: `test/corpus` 19 pass / 1 skip both, output identical line for line; `test/conformance`
+      5260 pass / 152 todo / 1 fail both (the fail is the CRLF-checkout NOTES artifact 5.P saw), output identical but for
+      timings; `test/frontend` 31 / 0 both; `rate:fixtures` leaves `map.generated.ts` byte-identical. Recordings: 0 item
+      names changed; CODESYS needs no re-record (C2g). TwinCAT re-record of the 233 `program`/`function` fixtures: see
+      design 5.Qa "Implemented" — 176 identical, 56 never recorded on TwinCAT before (not merged), **1 differs** — refused now: the TwinCAT seed lag on a graphical `.ENO`, a known divergence (5.Q.9).
+- [x] 5.Q.2 Kind from the class, never from text or signature: CODESYS `IPOUObject` (incl. `POUObjectCheckFunction`) →
       `pou`, `IInterfaceObject` → `itf`; TwinCAT `.TcPOU` → `pou`, 618 → `itf`. Deleted: the header reads in
       `CodesysTypeMap` (`RefinePou`, `LeadingKeyword`, `NeedsDeclaration`, the declaration read in `KindCodeOf`),
       `TcSolutionExplorer.PouKinds` beyond `pou`, the POU re-type guard in `PushService.WriteItemFromSource`,
       `Commands.HeldUnderAnotherName` for POUs. A POU with broken text pulls back as `X.pou` — no unreadable state, no
       `--force` (5.D's question is gone). TwinCAT C2i (5.H) stays guarded.
-- [ ] 5.Q.3 The outer END line (owner: it separates the POU from its children, so it stays): the writer mirrors the
+      DONE (2026-10-02): `CodesysTypeMap` (`RefinePou`, `LeadingKeyword`, `NeedsDeclaration`, the declaration parameter)
+      and the Interface-aspect read in `KindCodeOf` deleted — `IPOUObject` → `PlcPou`; CODESYS `CreateChild`'s Program and
+      Function arms and `SeedType` deleted (one FB seed, S1); TwinCAT's `PlcPouFunc` vInfo arm deleted;
+      `TcSolutionExplorer.PouKinds` = `[pou]`. The re-type guard keeps refusing a name of another FAMILY
+      (`ItemKindIsNotRewritableTests.Renaming_a_pou_to_a_dut_is_refused`, the owner changed the FB→PRG premise).
+      `PouEndLineTests.A_pou_whose_text_declares_nothing_pulls_as_pou`. DIALECT C2f "How Volt relies on it" rewritten;
+      C2j added (5.D's evidence, `probe-pou-kind-{signature,parser}.py` + logs, history only).
+- [x] 5.Q.3 The outer END line (owner: it separates the POU from its children, so it stays): the writer mirrors the
       declaration's header keyword — `PROGRAM` → `END_PROGRAM`, `FUNCTION_BLOCK` → `END_FUNCTION_BLOCK`, `FUNCTION` →
       `END_FUNCTION` — read with the ONE trivia skipper (5.E). The reader accepts any of the three as the boundary.
       A header that names none of them (broken text) gets ONE documented fallback END line, chosen in design and named
       there — an intentional, tested, COUNTED fallback: 0 on every POU the vendor compiles. Table test (comments,
       pragmas, attributes before the keyword; CRLF/BOM; any case).
-- [ ] 5.Q.4 CODESYS create order: the declaration is written before members are created (which children a POU accepts
+      DONE (2026-10-02): `StReader.PouHeaderKeyword` (the first word leading a line's code, in the reader's view —
+      design "Implemented" says why not the first token), `StWriter.EndKeyword` mirrors it, `StWriter.FallbackPouHeader`
+      = `FUNCTION_BLOCK` (F1), logged per item by `Materializer.LogEndLineFallback`. `PouEndLineTests`: 16 mirror rows
+      (round-tripped through the reader), 8 fallback rows, the log. Counted on the six corpora with this C# code:
+      16,990 / 16,990 files mirror the END line they already have, fallback 0.
+- [x] 5.Q.4 CODESYS create order: the declaration is written before members are created (which children a POU accepts
       follows its text — FUNCTION text refuses methods/properties/actions/transitions; measured); a member create the IDE
       refuses is refused by name with the IDE's reason, never a half-created POU without saying so. TwinCAT measured for
       the same (a 603 FUNCTION accepting members?) and recorded in DIALECT.
-- [ ] 5.Q.5 Members: on pull the member's CLASS decides its kind (method / property / action / transition), not its
+      DONE (2026-10-02): `WriteItemFromSource` writes the declaration alone before `ReconcileMembers` when the push
+      creates a member and changes the declaration (design "Implemented"); a member create the IDE refuses is
+      `UNSUPPORTED` naming item, member, kind and the IDE's message — a create rolled back whole (the rollback now spans
+      the sequence), an update saying what landed. `FakeIde.RefusesMembersByText` models C2k; `DeclarationBeforeMembersTests`
+      (5); expected call logs in `PouMergeWriteTests` / `TransportMatrixTests` gain the early write (owner's O2).
+      DIALECT C2k (CODESYS, `probe-kind-audit2.py`) and its TwinCAT column measured live: TwinCAT refuses too ("SubType
+      mismatch"), before and after a reload (`probe-tc-function-members.ts` → `tc-function-members.log`); C2l added.
+- [x] 5.Q.5 Members: on pull the member's CLASS decides its kind (method / property / action / transition), not its
       header keyword; a stored member text whose keyword disagrees with its class (measured possible) is reported by name,
       never round-tripped as a delete + a create of another kind.
+      DONE (2026-10-02): `Materializer.RefuseMemberOfAnotherClass` + `StReader.MemberHeaderKeyword` (the splitter's
+      `ScanContext`): a method whose text opens with PROPERTY / FUNCTION_BLOCK / ACTION, or a property opening METHOD, refuses
+      its item on pull (`UNSUPPORTED`, listed unreadable); `MemberKindIsItsClassTests` (9). `BeckhoffDriver.ReadMember`'s
+      `?? Method` is a failure by name (5.Q.7's, same code). Red check: with the three behaviours (O2, M-a, the mirror)
+      disabled, 22 of the new tests fail. Gates: `WireVocabularyGuardTests` (retired POU kinds and extensions),
+      `CliHoldsNoItemKindLogicTests`. C# suites: Engine 1754 pass / 1 skip, Cli 237, Codesys 198, Twincat 283, Connector
+      113, Contracts 19, Repo.Gates 54 — 0 fail; volt-cli `bun test test/unit` 4/0; volt-control 121/0; volt-vscode 39/0;
+      volt-desktop 28/0; `bun run typecheck` green; lint 0 errors.
 - [ ] 5.Q.6 Merged classes (the extension carries LESS than the IDE stores): a create or re-create that would silently
       downgrade a special class — `VarPersistentObject` / NVL / `ParameterList` / `NetVarProperties` GVLs,
       `TextListEnumerationObject`, `POUObjectCheckFunction`, `AbstractPOUMethodObject` — is refused by name; an update of
@@ -507,6 +551,73 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       Volt inference (a library item has no per-object source) and counted in the library census.
 - [ ] 5.Q.8 PLCAssist note (proposal Impact): wire names change `X.prg`/`X.fb`/`X.fun` → `X.pou` and DUT subtypes →
       `X.dut`, in the same release; the client keys by wire name.
+- [x] 5.Q.9 5Qa review fixes (2026-10-02).
+      (a) **TwinCAT seed lag on a graphical `.ENO` — known divergence, niche: accepted loss.** The re-record's one
+      difference was misread as a FUNCTION callee: `network_unnamed_target_of_void_call`'s callee is a PROGRAM. Measured
+      live (`scripts/probe-tc-graphical-callee-seed.ts` → `tc-graphical-callee-seed.log`, DIALECT C2m): TwinCAT builds a
+      call box from the callee's lagging 604 tree code, so `.ENO` on a box calling a PROGRAM **or** a FUNCTION created in
+      the same session is refused (`network_unnamed_target_of_valued_call` too, never re-recorded on TwinCAT before:
+      refused); a build in between does not re-derive the code; a call WITHOUT `.ENO` is accepted, fetches back
+      identical and builds clean. 0 such calls in the TwinCAT corpus, 2 in the six corpora (lenze-mid, CODESYS: `Alarms_ResetAlarmLogging` and `SidecorrectionCalculation`, both FUNCTIONs).
+      Both fixtures carry `vendorRefuses.twincat` (their committed TwinCAT rows predate S1 and stay as the vendor's
+      answer for the source; `check-recording.ts` names such a dropped row instead of "NEEDS A REASON"); pinned live by
+      `test/e2e/graphical/callee-seed-lag.test.ts` (fails the day TwinCAT takes it). S1 itself stays (owner decision
+      only if this ever matters: a TwinCAT-side remedy; S2 is what the rule forbids).
+      (b) **CODESYS, C2g on the shape that broke** (`RECORD_ONLY` the two fixtures above + `ng_box_output_arrow` + 12
+      function_block fixtures with METHOD/PROPERTY members, one run): 14 / 15 identical, the 15th differs only in the
+      compiler's implicit-temp number (`__…ImpVar15` → `ImpVar19`, a name no run reproduces — `divergences.ts`); not
+      adopted. TwinCAT, the same 12 FB fixtures: 12 / 12 identical (O2 on a live create with members).
+      (c) **e2e, both vendors**, which also found a 5.H bug: TwinCAT `RequireListed` compared a folder's child count
+      against the hierarchy snapshot read at the START of the operation, so a create or delete followed by a lookup in
+      the same push (a create + update + delete batch, every member create's re-find) was refused "holds 2 … the
+      Solution Explorer lists 3". A clean snapshot made stale by Volt's own structural write is now read afresh before a
+      folder is refused (`TcObjectModel._staleSinceWrite`; `TcUntouchablePouTests.A_lookup_after_a_delete_in_the_same_
+      operation_reads_the_hierarchy_afresh`, red before). And a DUT beside a folder of its name (D34) overwrote the
+      folder's listed count with its own 0, hiding the folder's POUs (`ExplorerSnapshot.Collect`;
+      `A_DUT_beside_a_folder_of_its_name_does_not_hide_the_folders_children`, red before). `uc_fb` (a POU whose
+      opening comment never closes) is `unreadable` on TwinCAT in the writing session too — the C2i guard reads the
+      caption — so its e2e row is per vendor and design 5.Qa's "no --force within the session" is corrected. Results:
+      CODESYS 248 pass / 3 fail → the 3 re-run green (two were vendor-parity racing the TwinCAT run, one a stale
+      `.alias`); TwinCAT 230 pass / 10 fail → every failed file re-run green alone (graphical ones were the same race),
+      vendor-parity 11/11 with both bridges up. Stale 5.P DUT names in e2e (`.struct`/`.enum`/`.alias` in
+      `whole-project`, `name-clash`, `vendor-parity`, `kinds/top-level`) → `.dut`.
+      (d) Smaller: M-a reads a member's opening word with `StTrivia.Code` (nesting), not the splitter's `ScanContext`
+      (a nested comment was refused naming 'STILL'); `PouHeaderKeyword` passes over word-led lines that are not a POU
+      keyword (a never-closed comment's prose fell back to END_FUNCTION_BLOCK on a PROGRAM; corpus END lines unchanged by
+      construction — on all 16,990 the first word-led line is the header); a member create is worded as the IDE's
+      refusal only when the driver recognises the vendor's measured answer (`ChildRefusedException`; CODESYS "is not
+      accepted by parent object", TwinCAT "(SubType mismatch)") — any other failure is an unclassified fault, the create
+      still rolled back; `tc-function-members.log` after-reload label corrected (the probe sent K2 + K3); stray BOM in
+      `PushedText.cs`, stale `.prg`/`.fb` mentions (`written-as-sent.ts` note, `volt-desktop/src/main.ts`,
+      `files.test.ts`). Not fixable: the corpus renames sit in commit `36594321c8` (history is not rewritten; bisect
+      across it reads no POU files).
+      (e) Second review round, each red first: a refused member create on an UPDATE names the members the reconcile
+      already DELETED (deletes run first; it said "its members and body were not" / "nothing of 'K' was written" with a
+      method gone — `DeclarationBeforeMembersTests.An_update_that_drops_a_member_…`); a member with a NESTED comment
+      before its keyword is refused on pull by name until 5.E.1 (`StReader.MemberHeaderKeywordAsSplit`, the splitter's
+      own view; (d)'s nesting read alone moved the refusal to every push of the file — the pull test now also reads the
+      file back; 0 such members in the corpora); `PouHeaderKeyword` takes a keyword-led line as the header only when
+      the rest is header-shaped (modifiers, one name, then nothing / `:` / EXTENDS / IMPLEMENTS — prose "Function to
+      compute speed" closed a PROGRAM with END_FUNCTION; all 16,990 corpus END lines still equal it); TwinCAT: a guarded
+      folder holding two children of one name (D34) is refused (unwalked) instead of reading one twice and the other
+      never, and a folder beside a POU of its name is held to the hierarchy's count (`ExplorerSnapshot.InsidePou`: a
+      listed node is not inside a POU) — both niche, 0 in the corpora; the seed-lag count is 2, not 3 (lenze-mid's
+      `Alarms_ResetAlarmLogging` and `SidecorrectionCalculation`; every other `.ENO` callee is an operator or an FB).
+      GATE 5Qa (2026-10-02): run in a scratch worktree of HEAD (`36594321c8`) + exactly the 5Qa paths — the tree also
+      holds the LSP queue's uncommitted frontend-conformance 3.4 work (library namespaces: `names/libraries.ts`, the
+      22 `lib_ns_*` recordings, `scope-nav` / `resolve` / `library-namespaces` / `incremental` / `workspace-store`,
+      `divergences.ts`, `rules.ts`, `baseline.ts`, the ceilings and floors in `fixtures.test.ts`, the dumps' counts), kept
+      out of the gate and out of the commit: each file it shares with 5Qa is committed in its 5Qa form (HEAD with the
+      `.pou` rename; `fixtures.test.ts` the `extFor` line only), so the 3.4 diff stays in the tree on top of this commit.
+      `bun run typecheck` green (5 packages); `dotnet build Volt.sln -c Release` 0 errors (30 warnings, untouched test
+      files). C# suites: Cli 237/0, Engine 1767 pass / 1 skip / 0 fail (5.Q.5: 1754), Connector 113/0, Ide.Twincat 290/0
+      (5.Q.5: 283), Ide.Codesys 202/0 (5.Q.5: 198), Contracts 19/0, Repo.Gates 54/0 (incl. the generated-docs gate).
+      volt-cli `bun test test/unit` 4/0; volt-control 113/0; volt-vscode 39/0; volt-desktop 28/0 (boot test after
+      `bun run build`); `bun run lint` exit 0; `bun run check` 15 passed / 0 failed. `rate:fixtures`: `map.generated.ts`
+      byte-identical to HEAD (4188 fixtures; confirmed 2423, refused 1505, not-lowered 152, lsp-gap 36, diverges 4,
+      unaskable 68; edges agree 2530 / disagree 0 / not-run 110). LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES`
+      unset, rustc cache sampled): **7208 pass / 34 skip / 196 todo / 0 fail** (7438 tests, 201 files, 423 s; 5.P: 7097
+      pass / 195 todo — the 5Qa src tests); agreement CODESYS 3854 / 4188, TwinCAT 3784 / 4188 (floors unchanged).
 
 ### 5.E Child elements (the one place headers stay — made gap-free)
 - [ ] 5.E.1 The child splitter (`StReader.SplitChildren` / `FirstMemberLine` / `FirstCodeLine`) uses ONE trivia skipper

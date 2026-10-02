@@ -167,7 +167,7 @@ public class ImplementationKeywordTests
         "END_SET\n" +
         "END_PROPERTY\n";
 
-    private static ItemContent Motor() => new(ItemKind.Kinds.FunctionBlock, FbDecl, "x := x + 1;", new List<Member>
+    private static ItemContent Motor() => new(ItemKind.Kinds.Pou, FbDecl, "x := x + 1;", new List<Member>
     {
         new(ItemKind.Kinds.Method, "Reset", "METHOD Reset : BOOL", "x := 0;"),
         new(ItemKind.Kinds.Action, "Step", "ACTION Step", "x := x + 2;"),
@@ -182,9 +182,9 @@ public class ImplementationKeywordTests
     }
 
     [Theory]
-    [InlineData(ItemKind.Kinds.Program, "PROGRAM PLC_PRG\nVAR\nEND_VAR", "END_PROGRAM")]
-    [InlineData(ItemKind.Kinds.Function, "FUNCTION F_Add : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR", "END_FUNCTION")]
-    [InlineData(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "END_FUNCTION_BLOCK")]
+    [InlineData(ItemKind.Kinds.Pou, "PROGRAM PLC_PRG\nVAR\nEND_VAR", "END_PROGRAM")]
+    [InlineData(ItemKind.Kinds.Pou, "FUNCTION F_Add : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR", "END_FUNCTION")]
+    [InlineData(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", "END_FUNCTION_BLOCK")]
     public void Every_POU_kind_states_its_language_even_with_an_empty_body(string kind, string decl, string end)
     {
         // An empty body still has a language and still ends a declaration: the line records both.
@@ -228,7 +228,7 @@ public class ImplementationKeywordTests
     [Fact]
     public void The_reader_splits_on_the_keyword_and_the_IDE_never_sees_the_line()
     {
-        var item = StReader.Read(Golden, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(Golden, ItemKind.Kinds.Pou);
 
         Assert.Equal(FbDecl, item.Declaration);
         Assert.Equal("x := x + 1;", item.Body);
@@ -247,13 +247,13 @@ public class ImplementationKeywordTests
 
     [Fact]
     public void The_file_round_trips_byte_for_byte() =>
-        Assert.Equal(Golden, StWriter.Write(StReader.Read(Golden, ItemKind.Kinds.FunctionBlock)));
+        Assert.Equal(Golden, StWriter.Write(StReader.Read(Golden, ItemKind.Kinds.Pou)));
 
     [Fact]
     public void The_keyword_is_matched_case_insensitively_by_the_reader_too()
     {
         var item = StReader.Read("PROGRAM P\nVAR\n\tn : INT;\nEND_VAR\n  implementation   st  \nn := 1;\nEND_PROGRAM\n",
-                                 ItemKind.Kinds.Program);
+                                 ItemKind.Kinds.Pou);
         Assert.Equal("PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", item.Declaration);
         Assert.Equal("n := 1;", item.Body);
     }
@@ -266,7 +266,7 @@ public class ImplementationKeywordTests
         const string st =
             "FUNCTION_BLOCK FB\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
             "METHOD Run\nVAR\n\tx : INT;\nEND_VAR\n// what this does\nIMPLEMENTATION ST\nn := 1;\nEND_METHOD\n";
-        var run = StReader.Read(st, ItemKind.Kinds.FunctionBlock).Members.Single();
+        var run = StReader.Read(st, ItemKind.Kinds.Pou).Members.Single();
         Assert.Equal("METHOD Run\nVAR\n\tx : INT;\nEND_VAR\n// what this does", run.Declaration);
         Assert.Equal("n := 1;", run.Body);
     }
@@ -279,7 +279,7 @@ public class ImplementationKeywordTests
         const string st =
             "FUNCTION_BLOCK FB_Derived\n\tEXTENDS FB_Base\n\tIMPLEMENTS I_Motor\nVAR\n\tn : INT;\nEND_VAR\n" +
             "IMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n";
-        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(st, ItemKind.Kinds.Pou);
         Assert.Equal("FUNCTION_BLOCK FB_Derived\n\tEXTENDS FB_Base\n\tIMPLEMENTS I_Motor\nVAR\n\tn : INT;\nEND_VAR",
                      item.Declaration);
         Assert.Equal("n := 1;", item.Body);
@@ -292,10 +292,10 @@ public class ImplementationKeywordTests
         const string st =
             "FUNCTION_BLOCK FB\nVAR\n\tiCounter : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
             "METHOD Run\nIMPLEMENTATION ST\n{define MY_FLAG}\n{IF defined (MY_FLAG)}\niCounter := 42;\n{ELSE}\nbroken_xyz;\n{END_IF}\nEND_METHOD\n";
-        var run = StReader.Read(st, ItemKind.Kinds.FunctionBlock).Members.Single();
+        var run = StReader.Read(st, ItemKind.Kinds.Pou).Members.Single();
         Assert.Equal("METHOD Run", run.Declaration);
         Assert.Equal("{define MY_FLAG}\n{IF defined (MY_FLAG)}\niCounter := 42;\n{ELSE}\nbroken_xyz;\n{END_IF}", run.Body);
-        Assert.Equal(st, StWriter.Write(StReader.Read(st, ItemKind.Kinds.FunctionBlock)));
+        Assert.Equal(st, StWriter.Write(StReader.Read(st, ItemKind.Kinds.Pou)));
     }
 
     /// <summary>A keyword line inside a COMMENT is the engineer's prose, not the boundary. Unlike the retired
@@ -311,7 +311,7 @@ public class ImplementationKeywordTests
         var decl = $"FUNCTION_BLOCK FB\n{comment}\nVAR\n\tx : INT;\nEND_VAR";
         var st = $"{decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n";
 
-        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(st, ItemKind.Kinds.Pou);
 
         Assert.Equal(decl, item.Declaration);
         Assert.Equal("x := 1;", item.Body);
@@ -319,7 +319,7 @@ public class ImplementationKeywordTests
     }
 
     /// <summary>The comment shapes a line-start scan misses. A block comment may open AFTER code on its line
-    /// (bakon-nano <c>MACH_AUT_Automatic.prg</c>: <c>:= TRUE;(*NOT (</c> spanning lines), and comments NEST — the
+    /// (bakon-nano <c>MACH_AUT_Automatic.pou</c>: <c>:= TRUE;(*NOT (</c> spanning lines), and comments NEST — the
     /// LSP lexer nests them, so a reader that ends the comment at the first <c>*)</c> would disagree with the LSP
     /// about where the body starts and push the rest of the declaration as the body. Every row's only real boundary
     /// is the last keyword line.</summary>
@@ -332,7 +332,7 @@ public class ImplementationKeywordTests
     {
         var st = $"{decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n";
 
-        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(st, ItemKind.Kinds.Pou);
 
         Assert.Equal(decl, item.Declaration);
         Assert.Equal("x := 1;", item.Body);
@@ -349,7 +349,7 @@ public class ImplementationKeywordTests
     {
         var st = $"{decl}\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n";
 
-        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(st, ItemKind.Kinds.Pou);
 
         Assert.Equal(decl, item.Declaration);
         Assert.Equal("x := 1;", item.Body);
@@ -362,7 +362,7 @@ public class ImplementationKeywordTests
         var st = "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
                  $"{methodDecl}\nIMPLEMENTATION ST\ny := x;\nEND_METHOD\n";
 
-        var run = StReader.Read(st, ItemKind.Kinds.FunctionBlock).Members.Single();
+        var run = StReader.Read(st, ItemKind.Kinds.Pou).Members.Single();
 
         Assert.Equal(methodDecl, run.Declaration);
         Assert.Equal("y := x;", run.Body);
@@ -377,7 +377,7 @@ public class ImplementationKeywordTests
         const string body = "x := 1;\n(*\nIMPLEMENTATION LD\n*)\nx := 2;";
         var st = $"FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
 
-        var item = StReader.Read(st, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(st, ItemKind.Kinds.Pou);
 
         Assert.Equal("FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", item.Declaration);
         Assert.Equal(body, item.Body);
@@ -400,7 +400,7 @@ public class ImplementationKeywordTests
     [InlineData("IMPLEMENTATION FBD UNSUPPORTED")]
     public void A_hidden_body_is_its_UNSUPPORTED_line_and_round_trips(string line)
     {
-        var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, line, new List<Member>
+        var item = new ItemContent(ItemKind.Kinds.Pou, FbDecl, line, new List<Member>
         {
             new(ItemKind.Kinds.Method, "Chart", "METHOD Chart", line),
             new(ItemKind.Kinds.Property, "Ready", "PROPERTY Ready : BOOL", "",
@@ -416,7 +416,7 @@ public class ImplementationKeywordTests
         Assert.DoesNotContain("IMPLEMENTATION ST", text);
         Assert.DoesNotContain("@volt", text);
 
-        var back = StReader.Read(text, ItemKind.Kinds.FunctionBlock);
+        var back = StReader.Read(text, ItemKind.Kinds.Pou);
         Assert.Equal(FbDecl, back.Declaration);
         Assert.Equal(line, back.Body);
         Assert.Equal(line, back.Members.Single(m => m.Name == "Chart").Body);
@@ -433,7 +433,7 @@ public class ImplementationKeywordTests
     [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
     public void A_hidden_members_folder_directive_follows_its_line_and_round_trips(string line)
     {
-        var item = new ItemContent(ItemKind.Kinds.FunctionBlock, FbDecl, "", new List<Member>
+        var item = new ItemContent(ItemKind.Kinds.Pou, FbDecl, "", new List<Member>
         {
             new(ItemKind.Kinds.Action, "Chart", "ACTION Chart", line, Folder: "Sub/Deep"),
         });
@@ -444,11 +444,11 @@ public class ImplementationKeywordTests
             $"{FbDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" +
             $"\nACTION Chart\n{line}\n%FOLDER Sub/Deep\nEND_ACTION\n", text);
 
-        var chart = StReader.Read(text, ItemKind.Kinds.FunctionBlock).Members.Single();
+        var chart = StReader.Read(text, ItemKind.Kinds.Pou).Members.Single();
         Assert.Equal("Sub/Deep", chart.Folder);
         Assert.Equal("ACTION Chart", chart.Declaration);
         Assert.Equal(line, chart.Body);
-        Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.FunctionBlock)));
+        Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.Pou)));
     }
 
     // ── 1.3 the stated language decides the reader ────────────────────────────────────────────────────
@@ -464,7 +464,7 @@ public class ImplementationKeywordTests
     [Fact]
     public void LD_and_FBD_bodies_are_network_text_and_an_ST_body_is_not()
     {
-        var item = StReader.Read(Graphical, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(Graphical, ItemKind.Kinds.Pou);
         Assert.Equal("LD", NetworkText.LanguageOf(item.Members.Single(m => m.Name == "Ladder").Body));
         Assert.Equal("FBD", NetworkText.LanguageOf(item.Members.Single(m => m.Name == "Diagram").Body));
         Assert.False(NetworkText.Is(item.Members.Single(m => m.Name == "Text").Body));
@@ -513,7 +513,7 @@ public class ImplementationKeywordTests
     [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR\nIMPLEMENTATION CFC UNSUPPORTED\n\nEND_FUNCTION_BLOCK\n")]
     public void A_marker_spelled_comment_in_a_declaration_is_refused_naming_volt_pull(string text)
     {
-        var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor"));
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.Pou, "FB_Motor"));
         Assert.Contains("volt pull", ex.Message);
         Assert.Contains("FB_Motor", ex.Message);
     }
@@ -531,7 +531,7 @@ public class ImplementationKeywordTests
         var text = "FUNCTION_BLOCK FB_Motor\nVAR\n\tnetwork : REFERENCE TO INT;\n\ty : INT;\nEND_VAR\n" +
                    $"IMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
 
-        var item = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor");
+        var item = StReader.Read(text, ItemKind.Kinds.Pou, "FB_Motor");
 
         Assert.Equal(body, item.Body);
     }
@@ -557,7 +557,7 @@ public class ImplementationKeywordTests
         const string body = "(*\n%FOLDER notes\n*)\nM := TRUE;";
         var text = $"{FbDecl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\n{body}\nEND_METHOD\n";
 
-        var m = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Motor").Members.Single();
+        var m = StReader.Read(text, ItemKind.Kinds.Pou, "FB_Motor").Members.Single();
 
         Assert.Null(m.Folder);
         Assert.Equal(body, m.Body);

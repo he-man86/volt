@@ -29,8 +29,8 @@ public class IdeTreeTests
             // PARENT volt/ide = the IDE's last-known state.
             var parentTree = Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "ide-A-v1"), "src/A.fb"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "ide-B"), "src/B.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "ide-A-v1"), "src/A.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "ide-B"), "src/B.pou"),
                 new IndexEntry("100644", Git.WriteBlob(gitDir, "readme"), "README.md"),
             });
             var parent = Git.CommitTree(gitDir, parentTree, Array.Empty<string>(), "parent ide");
@@ -38,20 +38,20 @@ public class IdeTreeTests
             // HEAD = the user's branch: A and B BOTH edited locally (un-pushed), plus a new local C, plus scaffold.
             var headTree = Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "user-edited-A"), "src/A.fb"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "user-edited-B"), "src/B.fb"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "new-local-C"), "src/C.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "user-edited-A"), "src/A.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "user-edited-B"), "src/B.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "new-local-C"), "src/C.pou"),
                 new IndexEntry("100644", Git.WriteBlob(gitDir, "readme"), "README.md"),
             });
             var head = Git.CommitTree(gitDir, headTree, Array.Empty<string>(), "head");
 
             // The IDE changed only A. B unchanged, C never existed IDE-side.
-            var ideFiles = new List<MaterializedFile> { new("A.fb", "ide-A-v2") };
+            var ideFiles = new List<MaterializedFile> { new("A.pou", "ide-A-v2") };
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, parent, ideFiles, Array.Empty<string>(), librariesRefreshed: false);
 
-            Assert.Equal("ide-A-v2", Blob(root, tree, "src/A.fb"));   // changed item → fresh fetch content
-            Assert.Equal("ide-B", Blob(root, tree, "src/B.fb"));       // UNCHANGED → parent's, NOT "user-edited-B"
-            Assert.False(Has(root, tree, "src/C.fb"));                 // user-added, not IDE-side → left out (outgoing)
+            Assert.Equal("ide-A-v2", Blob(root, tree, "src/A.pou"));   // changed item → fresh fetch content
+            Assert.Equal("ide-B", Blob(root, tree, "src/B.pou"));       // UNCHANGED → parent's, NOT "user-edited-B"
+            Assert.False(Has(root, tree, "src/C.pou"));                 // user-added, not IDE-side → left out (outgoing)
             Assert.Equal("readme", Blob(root, tree, "README.md"));     // scaffold from HEAD, untouched
         }
         finally { TestUtil.ForceDelete(root); }
@@ -66,23 +66,23 @@ public class IdeTreeTests
             var gitDir = Git.ResolveGitDir(root);
             var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/A.fb"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/B.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/A.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/B.pou"),
             }), Array.Empty<string>(), "parent");
 
             // The IDE deleted B; A untouched.
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "B.fb" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { "B.pou" }, librariesRefreshed: false);
 
-            Assert.True(Has(root, tree, "src/A.fb"));  // carried from parent
-            Assert.False(Has(root, tree, "src/B.fb")); // removed → dropped
+            Assert.True(Has(root, tree, "src/A.pou"));  // carried from parent
+            Assert.False(Has(root, tree, "src/B.pou")); // removed → dropped
         }
         finally { TestUtil.ForceDelete(root); }
     }
 
     /// <summary>The same thing for an item in a FOLDER — which is the case that mattered and the one the test
-    /// above could not see. `removedNames` carries bare wire NAMES (`B.fb`), while the tree walk compares against
-    /// src-relative PATHS (`Machine/B.fb`), so a folder made the two never match and the deleted item stayed in
+    /// above could not see. `removedNames` carries bare wire NAMES (`B.pou`), while the tree walk compares against
+    /// src-relative PATHS (`Machine/B.pou`), so a folder made the two never match and the deleted item stayed in
     /// the workspace forever. The root-level test passes precisely because a root item's name IS its path.</summary>
     [Fact]
     public void Removed_items_are_dropped_even_when_they_live_in_a_folder()
@@ -93,16 +93,16 @@ public class IdeTreeTests
             var gitDir = Git.ResolveGitDir(root);
             var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/Machine/A.fb"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/Machine/Deep/B.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/Machine/A.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/Machine/Deep/B.pou"),
             }), Array.Empty<string>(), "parent");
 
             // The IDE deleted B, which lives two folders down. The wire reports the bare name.
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { "B.fb" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { "B.pou" }, librariesRefreshed: false);
 
-            Assert.True(Has(root, tree, "src/Machine/A.fb"));       // untouched, carried from parent
-            Assert.False(Has(root, tree, "src/Machine/Deep/B.fb")); // removed → dropped, folder or not
+            Assert.True(Has(root, tree, "src/Machine/A.pou"));       // untouched, carried from parent
+            Assert.False(Has(root, tree, "src/Machine/Deep/B.pou")); // removed → dropped, folder or not
         }
         finally { TestUtil.ForceDelete(root); }
     }
@@ -123,15 +123,15 @@ public class IdeTreeTests
             var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
             {
                 new IndexEntry("100644", Git.WriteBlob(gitDir, "TYPE X : STRUCT a : INT; END_STRUCT END_TYPE"), "src/DUTs/X.dut"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/DUTs/B.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "B"), "src/DUTs/B.pou"),
             }), Array.Empty<string>(), "parent");
 
             // What `volt pull` passes: the fetch's `Removed`, i.e. the names `refs` published.
             var removed = Materialize.PathToItem("DUTs/X.dut")!.Value.Name;
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                Array.Empty<MaterializedFile>(), new[] { removed, "B.fb" }, librariesRefreshed: false);
+                Array.Empty<MaterializedFile>(), new[] { removed, "B.pou" }, librariesRefreshed: false);
 
-            Assert.False(Has(root, tree, "src/DUTs/B.fb"));
+            Assert.False(Has(root, tree, "src/DUTs/B.pou"));
             Assert.False(Has(root, tree, "src/DUTs/X.dut")); // the IDE deleted it — so must the workspace
         }
         finally { TestUtil.ForceDelete(root); }
@@ -177,14 +177,14 @@ public class IdeTreeTests
             var gitDir = Git.ResolveGitDir(root);
             var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/POUs/A.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "A"), "src/POUs/A.pou"),
             }), Array.Empty<string>(), "parent");
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent,
-                new List<MaterializedFile> { new("Motion/A.fb", "A") }, Array.Empty<string>(), librariesRefreshed: false);
+                new List<MaterializedFile> { new("Motion/A.pou", "A") }, Array.Empty<string>(), librariesRefreshed: false);
 
-            Assert.True(Has(root, tree, "src/Motion/A.fb"));
-            Assert.False(Has(root, tree, "src/POUs/A.fb"));
+            Assert.True(Has(root, tree, "src/Motion/A.pou"));
+            Assert.False(Has(root, tree, "src/POUs/A.pou"));
         }
         finally { TestUtil.ForceDelete(root); }
     }
@@ -192,7 +192,7 @@ public class IdeTreeTests
     [Fact]
     public void Paths_with_spaces_round_trip_into_the_tree()
     {
-        // Real projects nest under folders with spaces (e.g. "Plc Logic/Application/010 PC01/pgPC01.prg").
+        // Real projects nest under folders with spaces (e.g. "Plc Logic/Application/010 PC01/pgPC01.pou").
         // The tree entry's path field must carry them verbatim — a rewrite of the blob/tree writer (e.g. via
         // `git fast-import`, whose `M <mode> <ref> <path>` field is space-sensitive) MUST keep this working.
         var root = TestUtil.NewRepo();
@@ -203,12 +203,12 @@ public class IdeTreeTests
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null,
                 new List<MaterializedFile>
                 {
-                    new("Plc Logic/Application/010 PC01/pgPC01.prg", "PROGRAM pgPC01\nIMPLEMENTATION ST\nEND_PROGRAM\n"),
+                    new("Plc Logic/Application/010 PC01/pgPC01.pou", "PROGRAM pgPC01\nIMPLEMENTATION ST\nEND_PROGRAM\n"),
                     new("Global Vars/GVL Constants.gvl", "VAR_GLOBAL CONSTANT\nEND_VAR\n"),
                 },
                 Array.Empty<string>(), librariesRefreshed: false);
 
-            Assert.Equal("PROGRAM pgPC01\nIMPLEMENTATION ST\nEND_PROGRAM\n", Blob(root, tree, "src/Plc Logic/Application/010 PC01/pgPC01.prg"));
+            Assert.Equal("PROGRAM pgPC01\nIMPLEMENTATION ST\nEND_PROGRAM\n", Blob(root, tree, "src/Plc Logic/Application/010 PC01/pgPC01.pou"));
             Assert.Equal("VAR_GLOBAL CONSTANT\nEND_VAR\n", Blob(root, tree, "src/Global Vars/GVL Constants.gvl"));
         }
         finally { TestUtil.ForceDelete(root); }
@@ -228,11 +228,11 @@ public class IdeTreeTests
             }), Array.Empty<string>(), "scaffold");
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, head, null,
-                new List<MaterializedFile> { new("A.fb", "ide-A"), new("POUs/B.fb", "ide-B") },
+                new List<MaterializedFile> { new("A.pou", "ide-A"), new("POUs/B.pou", "ide-B") },
                 Array.Empty<string>(), librariesRefreshed: false);
 
-            Assert.Equal("ide-A", Blob(root, tree, "src/A.fb"));
-            Assert.Equal("ide-B", Blob(root, tree, "src/POUs/B.fb")); // nested path lands correctly
+            Assert.Equal("ide-A", Blob(root, tree, "src/A.pou"));
+            Assert.Equal("ide-B", Blob(root, tree, "src/POUs/B.pou")); // nested path lands correctly
             Assert.Equal("readme", Blob(root, tree, "README.md"));
         }
         finally { TestUtil.ForceDelete(root); }
@@ -290,25 +290,25 @@ public class IdeTreeTests
             var gitDir = Git.ResolveGitDir(root);
             var parent = Git.CommitTree(gitDir, Git.BuildTree(gitDir, new[]
             {
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "P"), "src/POUs/PLC_PRG.prg"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "P"), "src/POUs/PLC_PRG.pou"),
                 new IndexEntry("100644", Git.WriteBlob(gitDir, "L"), "src/Library Manager/CAA/CAA.library"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "K"), "src/Library Manager/CAA/StillThere.fb"),
-                new IndexEntry("100644", Git.WriteBlob(gitDir, "G"), "src/Library Manager/CAA/Gone.fb"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "K"), "src/Library Manager/CAA/StillThere.pou"),
+                new IndexEntry("100644", Git.WriteBlob(gitDir, "G"), "src/Library Manager/CAA/Gone.pou"),
             }), Array.Empty<string>(), "parent");
 
             // The fetch carries the library folder's CURRENT contents: the stub and StillThere, but not Gone.
             var ideFiles = new[]
             {
                 new MaterializedFile("Library Manager/CAA/CAA.library", "L"),
-                new MaterializedFile("Library Manager/CAA/StillThere.fb", "K"),
+                new MaterializedFile("Library Manager/CAA/StillThere.pou", "K"),
             };
 
             var tree = IdeTree.BuildVoltIdeTree(gitDir, null, parent, ideFiles, Array.Empty<string>(),
                                                 librariesRefreshed: librariesRefreshed);
 
-            Assert.True(Has(root, tree, "src/Library Manager/CAA/StillThere.fb"));  // carried either way
-            Assert.True(Has(root, tree, "src/POUs/PLC_PRG.prg"));                   // project items untouched
-            Assert.Equal(expectStaleKept, Has(root, tree, "src/Library Manager/CAA/Gone.fb"));
+            Assert.True(Has(root, tree, "src/Library Manager/CAA/StillThere.pou"));  // carried either way
+            Assert.True(Has(root, tree, "src/POUs/PLC_PRG.pou"));                   // project items untouched
+            Assert.Equal(expectStaleKept, Has(root, tree, "src/Library Manager/CAA/Gone.pou"));
         }
         finally { TestUtil.ForceDelete(root); }
     }

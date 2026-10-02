@@ -55,10 +55,10 @@ public class RenameBeforeWriteTests
             {
                 new SetItemOp
                 {
-                    Name = "FB_Draw.prg",
-                    ToName = "FB_Renamed.prg",
+                    Name = "FB_Draw.pou",
+                    ToName = "FB_Renamed.pou",
                     SourceText = MalformedBody,
-                    IfVersion = refs.Items["FB_Draw.prg"],
+                    IfVersion = refs.Items["FB_Draw.pou"],
                 },
             },
         });
@@ -90,16 +90,16 @@ public class RenameBeforeWriteTests
             {
                 new SetItemOp
                 {
-                    Name = "FB_Old.prg",
-                    ToName = "FB_New.prg",
+                    Name = "FB_Old.pou",
+                    ToName = "FB_New.pou",
                     SourceText = "PROGRAM FB_New\nVAR\nEND_VAR\nIMPLEMENTATION ST\ny := 2;\nEND_PROGRAM\n",
-                    IfVersion = refs.Items["FB_Old.prg"],
+                    IfVersion = refs.Items["FB_Old.pou"],
                 },
             },
         });
 
         Assert.True(res.Accepted);
         Assert.Contains(ide.Recorded, r => r.StartsWith("rename:", System.StringComparison.Ordinal));
-        Assert.Contains("FB_New.prg", RefsService.Handle(ide).Items.Keys);
+        Assert.Contains("FB_New.pou", RefsService.Handle(ide).Items.Keys);
     }
 }

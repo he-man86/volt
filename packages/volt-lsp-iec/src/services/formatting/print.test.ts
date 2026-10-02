@@ -7,7 +7,7 @@ import { expect, test } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
 import { formatDocument } from "../index.js"
 
-const format = (source: string, uri = "file:///F.fb"): { text: string; errors: number } => {
+const format = (source: string, uri = "file:///F.pou"): { text: string; errors: number } => {
   const parseResult = parseSource(source, { networkText: true })
   return { text: formatDocument({ uri, source, parseResult }), errors: parseResult.errors.length }
 }
@@ -36,7 +36,7 @@ test("method modifiers keep their order", () => {
     ["METHOD PROTECTED FINAL M : INT\nEND_METHOD\n", "file:///M.meth"],
     ["METHOD PUBLIC ABSTRACT M : INT\nEND_METHOD\n", "file:///M.meth"],
     ["METHOD FINAL FINAL M : INT\nEND_METHOD\n", "file:///M.meth"],
-    ["FUNCTION_BLOCK INTERNAL FINAL F\nEND_FUNCTION_BLOCK\n", "file:///F.fb"],
+    ["FUNCTION_BLOCK INTERNAL FINAL F\nEND_FUNCTION_BLOCK\n", "file:///F.pou"],
     ["PROPERTY PROTECTED FINAL P : INT\nGET\nEND_GET\nEND_PROPERTY\n", "file:///P.prop"],
     ["INTERFACE I\n\tMETHOD PUBLIC M : BOOL\n\tEND_METHOD\n\tPROPERTY PUBLIC Q : INT\n\tGET\n\tEND_PROPERTY\nEND_INTERFACE\n", "file:///I.itf"],
   ]

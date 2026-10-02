@@ -25,7 +25,7 @@ public class PushSiblingDeclarationsTests
 
     private static FakeIde TwoItems() => new(
         new FakeIde.Item("Mach1_AuxData", ItemKind.PlcGvl, "", true, "VAR_GLOBAL\nEND_VAR", null, null, null),
-        new FakeIde.Item("Caller", ItemKind.PlcPouFb, "", true, FbDecl, "n := 1;", null, null));
+        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "n := 1;", null, null));
 
     private static PushResponse PushBoth(FakeIde ide)
     {
@@ -39,7 +39,7 @@ public class PushSiblingDeclarationsTests
                 // declaration is written before the sibling's own op runs — and it is the order the bug lived in.
                 new SetItemOp
                 {
-                    Name = "Caller.fb", IfVersion = refs.Items["Caller.fb"],
+                    Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
                     SourceText = FbDecl + "\nIMPLEMENTATION ST\nn := 2;\n\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp

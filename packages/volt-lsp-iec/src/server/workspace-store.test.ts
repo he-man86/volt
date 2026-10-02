@@ -7,7 +7,7 @@ import { resolveConfig } from "../analysis/index.js"
 import { WorkspaceStore } from "./workspace-store.js"
 
 const cfg = () => resolveConfig({ vendor: "codesys" })
-const URI = "file:///F.fb"
+const URI = "file:///F.pou"
 const SRC = `FUNCTION_BLOCK F\nVAR i : INT; END_VAR\ni := i + 1;\nEND_FUNCTION_BLOCK`
 
 test("store: an open document is parsed once per version (cached parseResult identity)", () => {

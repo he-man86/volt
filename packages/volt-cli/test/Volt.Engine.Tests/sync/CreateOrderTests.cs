@@ -63,8 +63,8 @@ public class CreateOrderTests
         var ide = new FakeIde();
 
         Push(ide,
-             Set("UDT_CamControlLS.prg", ""),                       // the object, at the top level
-             Set("sUDT_Calculation.prg", "UDT_CamControlLS"));      // inside a folder of that name
+             Set("UDT_CamControlLS.pou", ""),                       // the object, at the top level
+             Set("sUDT_Calculation.pou", "UDT_CamControlLS"));      // inside a folder of that name
 
         var order = CreateOrder(ide);
         Assert.True(order.IndexOf("sUDT_Calculation") < order.IndexOf("UDT_CamControlLS"),
@@ -79,8 +79,8 @@ public class CreateOrderTests
         var ide = new FakeIde();
 
         Push(ide,
-             Set("Data.prg", "BFU"),
-             Set("Deep.prg", "BFU/Data/Inner"));
+             Set("Data.pou", "BFU"),
+             Set("Deep.pou", "BFU/Data/Inner"));
 
         var order = CreateOrder(ide);
         Assert.True(order.IndexOf("Deep") < order.IndexOf("Data"),
@@ -94,7 +94,7 @@ public class CreateOrderTests
     {
         var ide = new FakeIde();
 
-        Push(ide, Set("Alpha.prg", "F"), Set("Beta.prg", "F"), Set("Gamma.prg", "F"));
+        Push(ide, Set("Alpha.pou", "F"), Set("Beta.pou", "F"), Set("Gamma.pou", "F"));
 
         Assert.Equal(new[] { "Alpha", "Beta", "Gamma" }, CreateOrder(ide));
     }
@@ -106,7 +106,7 @@ public class CreateOrderTests
     {
         var ide = new FakeIde();
 
-        Push(ide, Set("One.prg", ""), Set("Two.prg", ""), Set("Three.prg", ""));
+        Push(ide, Set("One.pou", ""), Set("Two.pou", ""), Set("Three.pou", ""));
 
         Assert.Equal(new[] { "One", "Two", "Three" }, CreateOrder(ide));
     }

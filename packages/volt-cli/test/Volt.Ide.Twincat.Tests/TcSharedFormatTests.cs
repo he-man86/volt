@@ -27,7 +27,7 @@ namespace Volt.Ide.Twincat.Tests;
 ///
 /// <para><b>Member splitting needed its own text, and the corpus had none.</b> Not one of twincat-project14's
 /// ten source files declares a METHOD, ACTION or PROPERTY — so the part of the ST format with the most boundary
-/// rules and the most history of bugs had no TwinCAT-sourced evidence at all. `FB_VltMembers.fb` closes that:
+/// rules and the most history of bugs had no TwinCAT-sourced evidence at all. `FB_VltMembers.pou` closes that:
 /// a POU with a method and a property, PUSHED into a live TwinCAT project and then pulled back from it in a
 /// fresh workspace, so the bytes are the IDE's rather than the ones that were sent.</para>
 ///
@@ -49,13 +49,13 @@ public class TcSharedFormatTests
 
     /// <summary>THE FIXED POINT, on TwinCAT-authored text: <c>Write(Read(x)) == x</c>, exactly.
     ///
-    /// <para><c>FB_PackML_Unit.fb</c> is 266 lines of real IDE output — three VAR sections, ragged alignment
+    /// <para><c>FB_PackML_Unit.pou</c> is 266 lines of real IDE output — three VAR sections, ragged alignment
     /// inside them, a blank line before an <c>END_VAR</c>, and a large CASE body. Its value is that nobody
     /// composed it to be a test.</para></summary>
     [Theory]
-    [InlineData("FB_PackML_Unit.fb")]
-    [InlineData("ladderLabel.prg")]
-    [InlineData("FB_VltMembers.fb")]
+    [InlineData("FB_PackML_Unit.pou")]
+    [InlineData("ladderLabel.pou")]
+    [InlineData("FB_VltMembers.pou")]
     public void Twincat_authored_text_survives_the_st_round_trip(string name)
     {
         var text = Read(name);
@@ -81,7 +81,7 @@ public class TcSharedFormatTests
     /// the ST round trip above cannot, because it treats a graphical body as opaque text and would pass over any
     /// amount of network-level drift.</para>
     ///
-    /// <para><c>ladderLabel.prg</c> earns its place by holding two shapes that are easy to get wrong and that no
+    /// <para><c>ladderLabel.pou</c> earns its place by holding two shapes that are easy to get wrong and that no
     /// hand-written fixture had: a network whose LABEL is its only content (<c>NETWORK LABEL: testLabe2</c> with
     /// nothing between it and <c>END_NETWORK</c>), and a coil with nothing driving it — <c>coil := ;</c>, which
     /// reads back as the TERMINATOR the archive actually holds rather than as a null. The fixture is in network
@@ -91,7 +91,7 @@ public class TcSharedFormatTests
     [Fact]
     public void A_twincat_drawn_ladder_is_canonical_network_text()
     {
-        var pou = StReader.Read(Read("ladderLabel.prg"), ItemKind.Kinds.Program);
+        var pou = StReader.Read(Read("ladderLabel.pou"), ItemKind.Kinds.Pou);
         var body = pou.Body!;
 
         Assert.StartsWith("IMPLEMENTATION LD\n", body);

@@ -9,12 +9,12 @@ namespace Volt.Engine.Tests;
 ///
 /// <para>The protocol is keyed by the item NAME, and two spellings of that name exist with an exact boundary
 /// between them: BELOW the vendor seam the name is BARE (the IDE's own lookup key, which has no extension), and
-/// ON THE WIRE it is FULL — <c>name.kind</c>, e.g. <c>CM_Carrier.fb</c>. <c>Materializer.FullWireName</c>
+/// ON THE WIRE it is FULL — <c>name.kind</c>, e.g. <c>CM_Carrier.pou</c>. <c>Materializer.FullWireName</c>
 /// derives one; <c>Materializer.Bare</c> inverts it. Nothing tested either.</para>
 ///
 /// <para><b>The bug this pins is not hypothetical.</b> The wire's maps were once keyed by the BARE name, on the
 /// reasoning that IEC guarantees unique names. It does not — it guarantees them WITHIN A KIND. A control module
-/// and the visualization that draws it are <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c>, and the
+/// and the visualization that draws it are <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c>, and the
 /// V71_PackML_Hauzer project ships two such pairs. Collapsed onto one bare slot the walk order picked a winner,
 /// so the FB's version was invisible to the aggregate hash (<c>volt pull</c> reported "nothing to pull" over a
 /// real edit) and the push's <c>ifVersion</c> gate answered with the VISUALIZATION's hash — the FB could be
@@ -29,7 +29,7 @@ public class WireIdentityTests
     [Fact]
     public void Two_kinds_sharing_a_bare_name_get_different_wire_names()
     {
-        var fb = Materialize("CM_Carrier", ItemKind.Kinds.FunctionBlock);
+        var fb = Materialize("CM_Carrier", ItemKind.Kinds.Pou);
         var vis = Materialize("CM_Carrier", ItemKind.Kinds.Visualization);
 
         Assert.NotEqual(fb, vis);
@@ -38,11 +38,11 @@ public class WireIdentityTests
     }
 
     /// <summary>AND BOTH INVERT TO THE ONE KEY THE IDE KNOWS. Below the vendor seam there is no extension —
-    /// a driver looking up <c>CM_Carrier.fb</c> finds nothing at all.</summary>
+    /// a driver looking up <c>CM_Carrier.pou</c> finds nothing at all.</summary>
     [Fact]
     public void Both_wire_names_invert_to_the_same_bare_name()
     {
-        Assert.Equal("CM_Carrier", Materializer.Bare(Materialize("CM_Carrier", ItemKind.Kinds.FunctionBlock)));
+        Assert.Equal("CM_Carrier", Materializer.Bare(Materialize("CM_Carrier", ItemKind.Kinds.Pou)));
         Assert.Equal("CM_Carrier", Materializer.Bare(Materialize("CM_Carrier", ItemKind.Kinds.Visualization)));
     }
 
@@ -68,7 +68,7 @@ public class WireIdentityTests
     /// reference does — and `Bare` must take only the last segment, not split on the first.</summary>
     [Fact]
     public void Only_the_last_segment_is_stripped()
-        => Assert.Equal("Tc2_Standard.Blocks", Materializer.Bare("Tc2_Standard.Blocks.fb"));
+        => Assert.Equal("Tc2_Standard.Blocks", Materializer.Bare("Tc2_Standard.Blocks.pou"));
 
     /// <summary>A NAME WITH NO EXTENSION SURVIVES INTACT rather than losing its head. `LastIndexOf` returning
     /// -1 must mean "nothing to strip", not "strip everything".</summary>
@@ -98,8 +98,7 @@ public class WireIdentityTests
 
     private static int Code(string kind) => kind switch
     {
-        ItemKind.Kinds.FunctionBlock => ItemKind.PlcPouFb,
-        ItemKind.Kinds.Program => ItemKind.PlcPouProg,
+        ItemKind.Kinds.Pou => ItemKind.PlcPou,
         ItemKind.Kinds.Visualization => ItemKind.PlcVisObj,
         _ => ItemKind.PlcLibRef,
     };
@@ -108,8 +107,7 @@ public class WireIdentityTests
     /// reference kinds carry a manifest instead.</summary>
     private static string Declaration(string name, string kind) => kind switch
     {
-        ItemKind.Kinds.FunctionBlock => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR",
-        ItemKind.Kinds.Program => $"PROGRAM {name}\nVAR\nEND_VAR",
+        ItemKind.Kinds.Pou => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR",
         _ => $"LIBRARY {name}\nNAMESPACE {name}\n",
     };
 }

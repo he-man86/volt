@@ -63,9 +63,12 @@ internal sealed class ExplorerSnapshot
     public int? ListedChildren(string relPath) => _listed.TryGetValue(relPath, out var n) ? n : null;
 
     /// <summary>Is the node at <paramref name="relPath"/> inside (or itself) a POU? A POU's subtree holds its members,
-    /// never a top-level POU, so nothing beneath one needs the hierarchy's word.</summary>
+    /// never a top-level POU, so nothing beneath one needs the hierarchy's word. A node the hierarchy LISTS outside a
+    /// POU is not inside one, whatever its path: a folder beside a POU of its name has the POU's path, and was waved
+    /// through the count check by it (5Qa review).</summary>
     public bool InsidePou(string relPath)
     {
+        if (_listed.ContainsKey(relPath)) return false;
         for (var path = relPath; path.Length > 0; path = path.Substring(0, Math.Max(0, path.LastIndexOf('^'))))
             if (_pous.Contains(path)) return true;
         return false;
@@ -112,7 +115,9 @@ internal sealed class ExplorerSnapshot
             { untouchable.Add(child.Name); pous.Add(childPath); continue; }
             // A POU's own children are its members, which the tree reaches only through the POU itself.
             if (IsPou(child)) pous.Add(childPath);
-            else Collect(child, childPath, guarded, listed, pous, still);
+            // A DUT and a folder may share a name (DIALECT D34), so two nodes have one path. A childless one (the DUT,
+            // a GVL) states nothing a folder's count needs and must not overwrite it: it hid the folder's POUs (5Qa e2e).
+            else if (child.Children.Count > 0 || !listed.ContainsKey(childPath)) Collect(child, childPath, guarded, listed, pous, still);
         }
         if (untouchable.Count > 0)
             guarded[path] = new Guarded(node.Children.Select(c => c.Name).ToList(), untouchable);
@@ -130,9 +135,10 @@ internal sealed class ExplorerSnapshot
         $"TwinCAT does not read '{name}' as a POU; touching its tree item crashes TcXaeShell after a load " +
         "(DIALECT C2i), so Volt does not read it. Push the fixed text with --force.";
 
-    /// <summary>The wire kinds a <c>.TcPOU</c> can be, which is all that is known without opening it.</summary>
-    public static readonly IReadOnlyList<string> PouKinds =
-        new[] { ItemKind.Kinds.Program, ItemKind.Kinds.FunctionBlock, ItemKind.Kinds.Function };
+    /// <summary>The wire kind a <c>.TcPOU</c> is, known without opening it: a POU is ONE kind, <c>X.pou</c> (openspec
+    /// <c>push-without-header-check</c> 5.Q), so an untouchable POU is named under exactly one name and the CLI matches
+    /// it to its file. (It was three candidates — program, function block, function — while the extension said which.)</summary>
+    public static readonly IReadOnlyList<string> PouKinds = new[] { ItemKind.Kinds.Pou };
 }
 
 /// <summary>

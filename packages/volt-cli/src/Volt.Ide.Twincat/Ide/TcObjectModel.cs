@@ -197,6 +197,13 @@ internal sealed partial class TcObjectModel
                 $"'{PathOf(node)}' holds a POU Volt must not touch (DIALECT C2i), so its children are addressed by " +
                 $"name — and the PLC tree lists {count} of them where the Solution Explorer lists " +
                 $"{guarded.Names.Count}. This folder is not read.");
+        // A DUT and a folder may share a name (DIALECT D34): addressed by name, both indices would answer the one node
+        // LookupChild finds, reading it twice and the other never — a folder's POUs missing in silence (5Qa review).
+        if (guarded.Names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"'{PathOf(node)}' holds a POU Volt must not touch (DIALECT C2i), so its children are addressed by " +
+                $"name — and two of them are named '{twice.Key}' (DIALECT D34), which a name cannot tell apart. This " +
+                "folder is not read.");
         var name = guarded.Names[index1Based - 1];
         if (guarded.Untouchable.Contains(name))
             throw new UnreadableItemException(name, ExplorerSnapshot.Reason(name), ExplorerSnapshot.PouKinds);
@@ -214,6 +221,14 @@ internal sealed partial class TcObjectModel
     {
         if (RelPath(node) is not { } rel || explorer.InsidePou(rel)) return;
         var listed = explorer.ListedChildren(rel);
+        if (listed != count && _staleSinceWrite)
+        {
+            // Volt's own create or delete in this operation is newer than the snapshot: ask a fresh one.
+            ForgetExplorer();
+            explorer = Explorer();
+            if (explorer.InsidePou(rel)) return;
+            listed = explorer.ListedChildren(rel);
+        }
         if (listed != count)
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"'{rel}' holds {count} children in the PLC tree, and the Solution Explorer lists " +
@@ -239,9 +254,20 @@ internal sealed partial class TcObjectModel
     /// <summary>Drop the snapshot, so the next child access reads the hierarchy afresh. Called at the start of every
     /// operation (<c>BeckhoffDriver.MarshalToIdeThread</c>), and after a structural write while something is flagged
     /// (a create or delete changes the names a guarded folder is addressed by).</summary>
-    public void ForgetExplorer() { _explorer = null; _plcRootPath = null; }
+    public void ForgetExplorer() { _explorer = null; _plcRootPath = null; _staleSinceWrite = false; }
 
-    private void StructureChanged() { if (_explorer is { Clean: false }) ForgetExplorer(); }
+    /// <summary>A CLEAN snapshot read before a structural write in this operation: it still lists the old child counts.
+    /// Kept (a clean project addresses children by index and needs nothing else from it), but a count it disagrees on is
+    /// asked again of a fresh read before the folder is refused (<see cref="RequireListed"/>) — the refusal is for a
+    /// hierarchy that came back short, not for one Volt's own create or delete made stale (5Qa review: a create + update
+    /// + delete batch, and every member create's re-find, were refused live "holds 2 … the Solution Explorer lists 3").</summary>
+    private bool _staleSinceWrite;
+
+    private void StructureChanged()
+    {
+        if (_explorer is { Clean: false }) ForgetExplorer();
+        else if (_explorer is not null) _staleSinceWrite = true;
+    }
 
     /// <summary>The snapshot for this operation, read once. REQUIRED: without it Volt cannot know which child would
     /// crash XAE, so an unreadable hierarchy fails the operation — there is no unguarded walk to fall back to.</summary>
@@ -337,9 +363,13 @@ internal sealed partial class TcObjectModel
         // "No task 'X' found in Realtime-Settings!" (DIALECT C19b).
         if (kindCode == ItemKind.PlcTask) { StructureChanged(); return CreatePlcTask(parent, name); }
 
+        // A POU is created as the FUNCTION_BLOCK (604) whatever its text — ONE seed, as the DUT's is the struct
+        // (openspec `push-without-header-check` 5.Q, design S1): the declaration written next is what the compiler
+        // takes (a 604 holding PROGRAM text builds clean as a program, DIALECT C2f), and a reload re-derives the tree
+        // code from it (C2h). Nothing in Volt reads which of 602/603/604 a POU is. (The FUNCTION arm's
+        // `Type.Missing` vInfo went with the `.fun` extension.)
         object? vInfo = kindCode switch
         {
-            ItemKind.PlcPouFunc => System.Type.Missing,
             ItemKind.PlcDutStruct or ItemKind.PlcDutEnum or ItemKind.PlcDutUnion => System.Type.Missing,
             ItemKind.PlcItf => null,
             // A task's POU call is a REFERENCE with no body, so it has no language to be given: the name is the
@@ -413,7 +443,7 @@ internal sealed partial class TcObjectModel
             try { parent = (object?)current.Parent; } catch { return null; }
             if (parent is null) return null;
             var kind = ItemType(parent);
-            if (kind is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb or ItemKind.PlcItf)
+            if (kind is ItemKind.PlcPou or ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcItf)
                 return parent;
             if (kind != ItemKind.PlcFolder) return null;   // left the POU without finding one
             current = parent;
@@ -586,7 +616,7 @@ internal sealed partial class TcObjectModel
         for (var hops = 0; hops < 32; hops++)
         {
             int t = ItemType((object)node);   // shared read: an unreadable node yields ItemKind.Unknown, never 0 (SystemRoot)
-            if (t is ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcPouFb or ItemKind.PlcItf) return node;
+            if (t is ItemKind.PlcPou or ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcItf) return node;
             node = node.Parent;
             if (node == null) return null;
         }

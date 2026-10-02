@@ -44,28 +44,26 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
         // `IMPLEMENTATION LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
 
-        /// <summary>A plain textual (ST) POU — materializes via the declaration/implementation transports.
+        /// <summary>A plain textual (ST) item — materializes via the declaration/implementation transports.
         ///
-        /// <para>The TREE CODE is derived from the declaration HERE, when the fixture is authored — which is
-        /// legitimate, because a fixture is describing a project that already exists. It used to be hard-coded
-        /// <c>PlcPouProg</c> for every one of ~84 fixtures, most of which declare a FUNCTION_BLOCK, and the
-        /// mismatch was hidden by <c>KindOf</c> re-deriving the kind from the declaration TEXT on every read —
-        /// a transformation no driver performs. Deriving once at authoring time keeps the fixture honest AND
-        /// the read path faithful; the two are different jobs and only the second is the driver's.</para></summary>
+        /// <para>The TREE CODE — which CLASS of object the fixture describes — is derived from the declaration HERE,
+        /// when the fixture is authored, which is legitimate: a fixture is describing a project that already exists.
+        /// A POU is one class whatever its text (openspec <c>push-without-header-check</c> 5.Q), so PROGRAM,
+        /// FUNCTION_BLOCK and FUNCTION text all describe the one POU code; an interface, a DUT and a GVL are other
+        /// classes. The read path derives nothing (<c>KindOf</c>); that is the driver's job, and only the second is
+        /// the driver's.</para></summary>
         public static Item TextualPou(string name, string decl, string impl, string folder = "") =>
             new Item(name, CodeForDeclaration(decl), folder, true, decl, impl, null, null);
 
-        /// <summary>The tree code a declaration describes, from its header's leading keyword — what the object a
-        /// fixture describes was created as. (Fixture authoring only: a push never reads a header for this.)</summary>
+        /// <summary>The CLASS a declaration describes, from its header's leading keyword — what the object a fixture
+        /// describes was created as. (Fixture authoring only: a push never reads a header for this.)</summary>
         private static int CodeForDeclaration(string decl) =>
             Volt.Engine.Format.St.CodeHelper.HeaderLine(decl).Split(' ', '\t')[0].ToUpperInvariant() switch
             {
-                "FUNCTION_BLOCK" => ItemKind.PlcPouFb,
-                "FUNCTION" => ItemKind.PlcPouFunc,
                 "INTERFACE" => ItemKind.PlcItf,
                 "TYPE" => ItemKind.PlcDut,
                 "VAR_GLOBAL" or "VAR_CONFIG" => ItemKind.PlcGvl,
-                _ => ItemKind.PlcPouProg,
+                _ => ItemKind.PlcPou,
             };
 
         /// <summary>An item the driver CANNOT read — the offline stand-in for the orphaned LD POU that bricked
@@ -73,7 +71,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         /// element; now it is simply an item whose read throws, which is what any driver does when it cannot
         /// render a body. The POINT of the fixture is unchanged: one bad item must not take the call down.</summary>
         public static Item MalformedGraphical(string name, string folder = "") =>
-            new Item(name, ItemKind.PlcPouProg, folder, true, null, null, "LD",
+            new Item(name, ItemKind.PlcPou, folder, true, null, null, "LD",
                 "the graphical body cannot be read");
 
         /// <summary>A referenced-library ref (`.library`). Its body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/…),
@@ -300,8 +298,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     }
 
     public const string UnopenedReason = "the fake must not open it (DIALECT C2i)";
-    public static readonly IReadOnlyList<string> UnopenedKinds =
-        new[] { ItemKind.Kinds.Program, ItemKind.Kinds.FunctionBlock, ItemKind.Kinds.Function };
+    public static readonly IReadOnlyList<string> UnopenedKinds = new[] { ItemKind.Kinds.Pou };
 
     // ── the tree ABOVE the items, so Engine's tree walks actually run here ────────────────────────────
     // Items carry a folder PATH string, and the fake used to stop there: the root had no children and only a
@@ -418,8 +415,38 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         WrittenTasks[NameOf(task)] = settings;
     }
 
+    /// <summary>Model CODESYS judging a member create against its POU's CURRENT TEXT (DIALECT C2k, measured
+    /// 2026-10-02): a POU whose declaration opens with FUNCTION takes no method, property, action or transition, and
+    /// one whose text declares nothing (no PROGRAM / FUNCTION_BLOCK / FUNCTION) takes no method and no property —
+    /// refused with the IDE's own message. Opt-in, because TwinCAT's answer is the vendor's own (DIALECT C2k) and the
+    /// default fake derives nothing from text.</summary>
+    public bool RefusesMembersByText { get; init; }
+
+    /// <summary>Make a create FAIL for a reason that is NOT the IDE refusing the child — a stale handle, a transport
+    /// fault — given the name and kind code. The engine must not word such a failure as a refusal of the text.</summary>
+    public Func<string, int, Exception?>? FailCreate { get; init; }
+
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
+        if (FailCreate?.Invoke(name, kindCode) is { } failure) throw failure;
+        if (RefusesMembersByText && ItemKind.IsInlinedInPou(kindCode) && FindOrNull(parent) is { KindCode: ItemKind.PlcPou } pouOwner)
+        {
+            var header = Volt.Engine.Format.St.StReader.PouHeaderKeyword(pouOwner.Declaration ?? "");
+            var refused = header == "FUNCTION"
+                || (header is null && kindCode is ItemKind.PlcMethod or ItemKind.PlcProp);
+            if (refused)
+            {
+                var what = kindCode switch
+                {
+                    ItemKind.PlcMethod => "Method", ItemKind.PlcProp => "Property",
+                    ItemKind.PlcAction => "Action", _ => "Transition",
+                };
+                Recorded.Add($"refused:{name}");
+                // As the drivers word it: the vendor's own "not accepted", recognised and thrown as a child refusal.
+                throw new Volt.Engine.Ide.ChildRefusedException(
+                    $"Object '{what}' is not accepted by parent object, or invalid (e. g. missing plugin or device description).");
+            }
+        }
         Recorded.Add($"create:{name}");
         // A LIST, not a dictionary, and not derivable from `CreatedKinds`. A folder and an item may share a
         // NAME — `lenze-mid` has a folder `UDT_CamControlLS/` beside a DUT of that name — so a name-keyed map
@@ -489,8 +516,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// refuses to write a declaration into a document that has nowhere to put one.</summary>
     private static string DefaultDeclaration(int kindCode, string name) => kindCode switch
     {
-        ItemKind.PlcPouFb => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n",
-        ItemKind.PlcPouFunc => $"FUNCTION {name} : INT\nVAR\nEND_VAR\n",
+        // Every POU is created as a function block (the one seed, design 5.Qa S1).
+        ItemKind.PlcPou => $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR\n",
         ItemKind.PlcItf => $"INTERFACE {name}\n",
         ItemKind.PlcDut => $"TYPE {name} :\nSTRUCT\nEND_STRUCT\nEND_TYPE\n",
         ItemKind.PlcGvl => "VAR_GLOBAL\nEND_VAR\n",
@@ -661,7 +688,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <para>A real driver has an authoritative kind code from the IDE; a fixture does not, and most of them are
     /// built with the <c>TextualPou</c> helper, which stamps every item <c>program</c> regardless of what its
     /// declaration says. Reading the header keeps those fixtures meaning what they read as — a
-    /// <c>FUNCTION_BLOCK FB_A</c> materializes as <c>FB_A.fb</c> — which is also what the document-based read
+    /// <c>FUNCTION_BLOCK FB_A</c> materializes as <c>FB_A.pou</c> — which is also what the document-based read
     /// did, since the document carried the real POU type.</para></summary>
     /// <summary>A member's kind, decided by its OWNER — the same rule `CodesysDriver.MemberKind` applies.</summary>
     private static string MemberKind(int code, bool ownerIsInterface) => code switch

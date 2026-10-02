@@ -11,7 +11,7 @@ import { build } from "../frontend/symbols/index.js"
 const diagnostics = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
 }
 

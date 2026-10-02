@@ -19,8 +19,8 @@ const PARSE_ERR = `FUNCTION_BLOCK H\nVAR\n x : ;\nEND_VAR\nEND_FUNCTION_BLOCK`
 test("a mapped check shows the recognisable Cnnnn, once, with a docs link", async () => {
   const h = harness()
   await h.init(CAPS.pull)
-  await h.open("file:///F.fb", C0032)
-  const diags = (await h.pull("file:///F.fb")).filter((d) => d.code === "C0032")
+  await h.open("file:///F.pou", C0032)
+  const diags = (await h.pull("file:///F.pou")).filter((d) => d.code === "C0032")
   expect(diags.length).toBe(1)
   expect(diags[0]?.codeDescription?.href).toMatch(/^https?:\/\//)
   h.dispose()
@@ -30,9 +30,9 @@ test("every diagnostic code is a Cnnnn or a documented exception", async () => {
   const h = harness()
   await h.init(CAPS.pull)
   const docs: [string, string][] = [
-    ["file:///F.fb", C0032],
-    ["file:///G.fb", NETWORK_UNCLOSED],
-    ["file:///H.fb", PARSE_ERR],
+    ["file:///F.pou", C0032],
+    ["file:///G.pou", NETWORK_UNCLOSED],
+    ["file:///H.pou", PARSE_ERR],
   ]
   const offenders: string[] = []
   for (const [uri, text] of docs) {
@@ -47,9 +47,9 @@ test("no two diagnostics on a document share (range, code)", async () => {
   const h = harness()
   await h.init(CAPS.pull)
   const docs: [string, string][] = [
-    ["file:///F.fb", C0032],
-    ["file:///G.fb", NETWORK_UNCLOSED],
-    ["file:///H.fb", PARSE_ERR],
+    ["file:///F.pou", C0032],
+    ["file:///G.pou", NETWORK_UNCLOSED],
+    ["file:///H.pou", PARSE_ERR],
   ]
   const dupes: string[] = []
   for (const [uri, text] of docs) {

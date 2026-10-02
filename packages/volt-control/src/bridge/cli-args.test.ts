@@ -199,11 +199,11 @@ test("mergeResolve maps MINE to --use-ours and IDE to --use-theirs", async () =>
   // the engineer's edit is gone with no error anywhere.
   const dir = boundWorkspace()
   try {
-    await mergeResolve(dir, "POUs/FB_X.fb", "mine")
-    expect(lastArgs).toEqual(["merge", "--resolve", "POUs/FB_X.fb", "--use-ours", "--workspace", dir])
+    await mergeResolve(dir, "POUs/FB_X.pou", "mine")
+    expect(lastArgs).toEqual(["merge", "--resolve", "POUs/FB_X.pou", "--use-ours", "--workspace", dir])
 
-    await mergeResolve(dir, "POUs/FB_X.fb", "ide")
-    expect(lastArgs).toEqual(["merge", "--resolve", "POUs/FB_X.fb", "--use-theirs", "--workspace", dir])
+    await mergeResolve(dir, "POUs/FB_X.pou", "ide")
+    expect(lastArgs).toEqual(["merge", "--resolve", "POUs/FB_X.pou", "--use-theirs", "--workspace", dir])
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
 

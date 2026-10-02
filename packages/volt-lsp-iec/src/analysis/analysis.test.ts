@@ -6,7 +6,7 @@ import { build } from "../frontend/symbols/index.js"
 
 function diag(src: string, vendor: Vendor): DiagnosticItem[] {
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
 }
 
@@ -363,7 +363,7 @@ test("no check opens with a whole-body vendor early return — the registry deci
 test("a parse lexed as one vendor is refused by name when analysed as the other", () => {
   const src = "PROGRAM P\nVAR\n  x : INT;\nEND_VAR\nx := 1;\nEND_PROGRAM"
   const parseResult = parseSource(src, { networkText: true }, "twincat")
-  const project = build.buildSymbolTable([{ uri: "P.prg", parseResult, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "P.pou", parseResult, source: src }], [], "codesys")
   expect(() =>
     computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }),
   ).toThrow(/dialect mismatch: the source was parsed as 'twincat'/)

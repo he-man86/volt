@@ -81,7 +81,7 @@ test("the workspace scan picks up the project's .projectsettings", () => {
       join(dir, "Project.projectsettings"),
       ["Disabled warnings:     C0371", "Replace constants:     on", "Max compiler warnings: 100"].join("\n"),
     )
-    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n")
+    writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nn := 1;\nEND_PROGRAM\n")
     const scan = scanWorkspace(dir)
     expect(scan.projectDiagnostics).toEqual({ "inout-own-access": "off" })
     expect(scan.sources.length).toBe(1) // the settings file is NOT a source unit
@@ -114,7 +114,7 @@ test("the workspace scan reads a file saved with a BOM as the push sends it — 
   const dir = mkdtempSync(join(tmpdir(), "volt-bom-"))
   try {
     writeFileSync(
-      join(dir, "PLC_PRG.prg"),
+      join(dir, "PLC_PRG.pou"),
       "﻿PROGRAM PLC_PRG\nVAR\n\tv : DUT_A;\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := v.nPos + g;\nEND_PROGRAM\n",
     )
     writeFileSync(join(dir, "DUT_A.dut"), "﻿TYPE DUT_A :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n")
@@ -177,7 +177,7 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
     return n
   }
   try {
-    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nIMPLEMENTATION ST\nn;\nEND_PROGRAM\n")
+    writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nVAR\n  n : INT;\nEND_VAR\nIMPLEMENTATION ST\nn;\nEND_PROGRAM\n")
     expect(noOpCount(), "without settings it must fire, or this test proves nothing").toBe(1)
 
     writeFileSync(join(dir, "Project.projectsettings"), "Disabled warnings:     C0139\n")
@@ -190,7 +190,7 @@ test("a disabled warning in .projectsettings actually suppresses the diagnostic,
 test("a workspace with no .projectsettings leaves the editor's settings alone", () => {
   const dir = mkdtempSync(join(tmpdir(), "volt-ps-"))
   try {
-    writeFileSync(join(dir, "Main.prg"), "PROGRAM Main\nEND_PROGRAM\n")
+    writeFileSync(join(dir, "Main.pou"), "PROGRAM Main\nEND_PROGRAM\n")
     expect(scanWorkspace(dir).projectDiagnostics).toBeUndefined()
   } finally {
     rmSync(dir, { recursive: true, force: true })

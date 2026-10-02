@@ -19,9 +19,9 @@ const at = (uri: string, source: string, vendor: Vendor = "codesys"): string[] =
 const MISMATCH = ["The name used in the signature is not identical to the object name"]
 
 test("a POU whose signature names something other than its object", () => {
-  expect(at("FB_Object.fb", `FUNCTION_BLOCK FB_Signature\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual(MISMATCH)
-  expect(at("F_Object.fun", `FUNCTION F_Signature : INT\nF_Signature := 1;\nEND_FUNCTION`)).toEqual(MISMATCH)
-  expect(at("PRG_Object.prg", `PROGRAM PRG_Signature\nVAR\nn : INT;\nEND_VAR\nEND_PROGRAM`)).toEqual(MISMATCH)
+  expect(at("FB_Object.pou", `FUNCTION_BLOCK FB_Signature\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual(MISMATCH)
+  expect(at("F_Object.pou", `FUNCTION F_Signature : INT\nF_Signature := 1;\nEND_FUNCTION`)).toEqual(MISMATCH)
+  expect(at("PRG_Object.pou", `PROGRAM PRG_Signature\nVAR\nn : INT;\nEND_VAR\nEND_PROGRAM`)).toEqual(MISMATCH)
   expect(at("DUT_Object.dut", `TYPE DUT_Signature :\nSTRUCT\nx : INT;\nEND_STRUCT\nEND_TYPE`)).toEqual(MISMATCH)
 })
 
@@ -30,18 +30,18 @@ test("an INTERFACE is exempt — measured with an FB implementing it, not merely
 })
 
 test("agreement, and case-only difference, are silent — IEC names are case-insensitive", () => {
-  expect(at("FB_Same.fb", `FUNCTION_BLOCK FB_Same\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
-  expect(at("FB_Casing.fb", `FUNCTION_BLOCK fb_CASING\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
+  expect(at("FB_Same.pou", `FUNCTION_BLOCK FB_Same\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
+  expect(at("FB_Casing.pou", `FUNCTION_BLOCK fb_CASING\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
 test("a file packing SEVERAL items is not a workspace file, so it is skipped", () => {
   // A conformance fixture inlines its dependencies; the file is named after only one of them.
-  expect(at("FB_One.fb", `FUNCTION_BLOCK FB_One\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_Two\nEND_FUNCTION_BLOCK`)).toEqual([])
+  expect(at("FB_One.pou", `FUNCTION_BLOCK FB_One\nEND_FUNCTION_BLOCK\n\nFUNCTION_BLOCK FB_Two\nEND_FUNCTION_BLOCK`)).toEqual([])
 })
 
 // TWINCAT MEASURED, 2026-09-20: `sn_dut_mismatch_used` — a DUT whose type name disagrees with its object, with
 // one FB declaring a variable of it — records this message on BOTH vendors, word for word. (Unreferenced, it
 // records on neither: that is reachability, and it is in `KNOWN_DIVERGENCES` on both sides.)
 test("TwinCAT reports it too", () => {
-  expect(at("FB_Object.fb", `FUNCTION_BLOCK FB_Signature\nEND_FUNCTION_BLOCK`, "twincat")).toEqual(MISMATCH)
+  expect(at("FB_Object.pou", `FUNCTION_BLOCK FB_Signature\nEND_FUNCTION_BLOCK`, "twincat")).toEqual(MISMATCH)
 })

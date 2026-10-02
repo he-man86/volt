@@ -3,7 +3,7 @@
  *
  * The suite is thorough about what it covers — labels, jumps, returns, titles, comments, EN/ENO, fan-out and
  * Execute boxes, each on CREATE, on the FIXED POINT, and against a real BUILD. What it could not do was say
- * what it had never TRIED, and that is the shape of the bug it missed: `ladderLabel.prg`, pulled from a real
+ * what it had never TRIED, and that is the shape of the bug it missed: `ladderLabel.pou`, pulled from a real
  * TwinCAT project, is a coil with nothing driving it plus a network holding nothing but a label. Pushed into
  * an empty project it came back gutted, with the push reporting success.
  *
@@ -60,7 +60,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 			.filter((k) => !was.includes(k))
 	}
 
-	// ── what ladderLabel.prg lost ────────────────────────────────────────────────────────────────────────
+	// ── what ladderLabel.pou lost ────────────────────────────────────────────────────────────────────────
 
 	/**
 	 * AN UNDRIVEN COIL — `out := ;`, a coil with nothing wired into it.
@@ -72,7 +72,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("a coil with nothing driving it round-trips", async () => {
 		const name = id("ucoil")
-		await expectRoundTrip(fid("ucoil", "prg"), prg(name, "LD", `NETWORK\n  out := ;\nEND_NETWORK\n`))
+		await expectRoundTrip(fid("ucoil", "pou"), prg(name, "LD", `NETWORK\n  out := ;\nEND_NETWORK\n`))
 	})
 
 	/**
@@ -81,18 +81,18 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 * Refusal is a legitimate outcome here and silence is not. PLCopen has no network element (D25), so the
 	 * TwinCAT create route cannot state an empty one, and `LostNetworks` exists to catch exactly that. What
 	 * must not happen is the third thing: accepted, and the network quietly gone — which is what
-	 * `ladderLabel.prg` measured on TwinCAT (`twincat-graphical-create-loss`).
+	 * `ladderLabel.pou` measured on TwinCAT (`twincat-graphical-create-loss`).
 	 */
 	it("an empty network round-trips, or is refused by name", async () => {
 		const name = id("enet")
 		const src = prg(name, "LD", `NETWORK\n  out := (a AND b);\nEND_NETWORK\nNETWORK\nEND_NETWORK\n`)
 
-		const outcome = await expectRoundTripOrRefusal(fid("enet", "prg"), src, "network")
+		const outcome = await expectRoundTripOrRefusal(fid("enet", "pou"), src, "network")
 		console.log(`  [empty network] ${BASE}: ${outcome}`)
 	})
 
 	/**
-	 * AND THE PAIR TOGETHER, which is `ladderLabel.prg` itself — an empty LABELLED network beside an undriven
+	 * AND THE PAIR TOGETHER, which is `ladderLabel.pou` itself — an empty LABELLED network beside an undriven
 	 * coil. Both halves separately above; this is the body that actually lost five things at once, reduced to
 	 * the two constructs that make it.
 	 */
@@ -105,7 +105,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 			"\tout : BOOL;\n",
 		)
 
-		const outcome = await expectRoundTripOrRefusal(fid("lbl0", "prg"), src, "network")
+		const outcome = await expectRoundTripOrRefusal(fid("lbl0", "pou"), src, "network")
 		console.log(`  [labelled empty network + undriven coil] ${BASE}: ${outcome}`)
 	})
 
@@ -124,7 +124,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 		const name = id("rcoil")
 		const before = await diagnostics()
 
-		const back = await expectRoundTrip(fid("rcoil", "prg"), prg(name, "LD", `NETWORK\n  out R= a;\nEND_NETWORK\n`))
+		const back = await expectRoundTrip(fid("rcoil", "pou"), prg(name, "LD", `NETWORK\n  out R= a;\nEND_NETWORK\n`))
 
 		expect(back, "the reset coil came back as something else").toContain("R=")
 		expect(back, "a reset coil must not degrade to a SET coil").not.toContain("S=")
@@ -146,7 +146,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	 */
 	it("a SET and a RESET coil on one wire keep their own storage", async () => {
 		const name = id("srcoil")
-		const item = fid("srcoil", "prg")
+		const item = fid("srcoil", "pou")
 		const src = prg(
 			name,
 			"LD",
@@ -188,7 +188,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	it("a rising edge (R_EDGE) survives a round trip", async () => {
 		const name = id("rise")
 		const back = await expectRoundTrip(
-			fid("rise", "prg"),
+			fid("rise", "pou"),
 			prg(name, "FBD", `NETWORK\n  out := (R_EDGE(a) AND b);\nEND_NETWORK\n`),
 		)
 
@@ -199,7 +199,7 @@ describe(`graphical / shapes nothing had pushed (${BASE})`, () => {
 	it("a falling edge (F_EDGE) survives a round trip", async () => {
 		const name = id("fall")
 		const back = await expectRoundTrip(
-			fid("fall", "prg"),
+			fid("fall", "pou"),
 			prg(name, "FBD", `NETWORK\n  out := (F_EDGE(a) AND b);\nEND_NETWORK\n`),
 		)
 

@@ -26,7 +26,7 @@ test("a variable of a FUNCTION type is flagged; FB / elementary types are fine",
 // the FUNCTION, whichever file sorts first (the bare-name search order Y23 is an expression's, frontend-conformance 3.1)
 test("a FUNCTION type is flagged past a same-named global, in either file order", () => {
   const prg = "PROGRAM P\nVAR inst : POU;\nEND_VAR\nEND_PROGRAM\nFUNCTION POU : INT\nEND_FUNCTION"
-  for (const [a, b] of [["A.prg", "GVL.gvl"], ["Z.prg", "GVL.gvl"]] as const) {
+  for (const [a, b] of [["A.pou", "GVL.gvl"], ["Z.pou", "GVL.gvl"]] as const) {
     const pr = parseSource(prg, { networkText: true })
     const gvl = "VAR_GLOBAL\n  pou : INT;\nEND_VAR"
     const project = build.buildSymbolTable([{ uri: a, parseResult: pr, source: prg }, { uri: b, parseResult: parseSource(gvl, { networkText: true }), source: gvl }])

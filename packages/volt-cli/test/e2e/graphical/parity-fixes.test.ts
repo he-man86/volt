@@ -42,7 +42,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("a wired EN pin either round-trips exactly or is refused — never silently reshaped", async () => {
 		const name = id("pf_en")
-		const full = fid("pf_en", "prg")
+		const full = fid("pf_en", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tgo : BOOL;\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\n` +
 			// The enable is the box's own EN pin and the rung continues from its ENO (network text v2). The ENO form,
@@ -86,7 +86,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("a stateless function call keeps its callee", async () => {
 		const name = id("pf_fn")
-		const full = fid("pf_fn", "prg")
+		const full = fid("pf_fn", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : INT;\n\tb : INT;\n\tout : INT;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  out := MAX(a, b);\nEND_NETWORK\n\n` +
@@ -126,7 +126,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("reordering a call's named pins keeps each value on its own pin", async () => {
 		const name = id("pf_pins")
-		const full = fid("pf_pins", "prg")
+		const full = fid("pf_pins", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\tt1 : TON;\n\tgo : BOOL;\n\tpt : TIME;\nEND_VAR\n` +
 			`IMPLEMENTATION FBD\nNETWORK\n  t1(IN := go, PT := pt);\nEND_NETWORK\n\n` +
@@ -161,7 +161,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("a negated contact stays negated", async () => {
 		const name = id("pf_neg")
-		const full = fid("pf_neg", "prg")
+		const full = fid("pf_neg", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  out := (NOT a AND b);\nEND_NETWORK\n\n` +
@@ -182,7 +182,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("a SET coil stays a SET coil", async () => {
 		const name = id("pf_set")
-		const full = fid("pf_set", "prg")
+		const full = fid("pf_set", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  out S= a;\nEND_NETWORK\n\n` +
@@ -201,7 +201,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("re-pushing what came back is a fixed point", async () => {
 		const name = id("pf_fix")
-		const full = fid("pf_fix", "prg")
+		const full = fid("pf_fix", "pou")
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  out S= (NOT a AND b);\nEND_NETWORK\n\n` +
@@ -227,7 +227,7 @@ describe(`graphical / parity fixes (${BASE})`, () => {
 	 */
 	it("editing one operand leaves every wire name alone", async () => {
 		const name = id("pf_wire")
-		const full = fid("pf_wire", "prg")
+		const full = fid("pf_wire", "pou")
 		const src =
 			`PROGRAM ${name}
 VAR

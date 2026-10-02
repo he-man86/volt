@@ -29,7 +29,7 @@ function hl(text) {
 }
 
 const FILES = {
-  "FB_Conveyor.fb": [
+  "FB_Conveyor.pou": [
     { t: "FUNCTION_BLOCK FB_Conveyor" },
     { t: "VAR" },
     { t: "    speed   : REAL;" },
@@ -42,7 +42,7 @@ const FILES = {
     { t: "    motor.", complete: true },
     { t: "END_IF" },
   ],
-  "PLC_PRG.prg": [
+  "PLC_PRG.pou": [
     { t: "PROGRAM PLC_PRG" },
     { t: "VAR" },
     { t: "    conveyor : FB_Conveyor;" },
@@ -52,7 +52,7 @@ const FILES = {
     { t: "conveyor(speed := 1.5);" },
     { t: "motor(rpm := 1200);" },
   ],
-  "FB_Motor.fb": [
+  "FB_Motor.pou": [
     { t: "FUNCTION_BLOCK FB_Motor" },
     { t: "VAR" },
     { t: "    rpm    : INT;" },
@@ -89,9 +89,9 @@ const EXPLORER = [
         folder: true,
         children: [
           // Explorer drift decorations: the real extension paints an `o`/`i`/`C` badge on files the IDE changed.
-          { id: "FB_Conveyor.fb", label: "FB_Conveyor.fb", ico: "fb", drift: "o" },
-          { id: "FB_Motor.fb", label: "FB_Motor.fb", ico: "fb", drift: "i" },
-          { id: "PLC_PRG.prg", label: "PLC_PRG.prg", ico: "prg" },
+          { id: "FB_Conveyor.pou", label: "FB_Conveyor.pou", ico: "fb", drift: "o" },
+          { id: "FB_Motor.pou", label: "FB_Motor.pou", ico: "fb", drift: "i" },
+          { id: "PLC_PRG.pou", label: "PLC_PRG.pou", ico: "prg" },
           { id: "GVL_Global.gvl", label: "GVL_Global.gvl", ico: "gvl" },
         ],
       },
@@ -107,9 +107,9 @@ const VOLT_SECTIONS = [
     title: "IDE Sync",
     rows: [
       { group: "Incoming (IDE → pull)", n: 1 },
-      { badge: "i", cls: "in", label: "FB_Motor", desc: "FB", file: "FB_Motor.fb" },
+      { badge: "i", cls: "in", label: "FB_Motor", desc: "FB", file: "FB_Motor.pou" },
       { group: "Outgoing (push → IDE)", n: 1 },
-      { badge: "o", cls: "out", label: "FB_Conveyor", desc: "FB", file: "FB_Conveyor.fb" },
+      { badge: "o", cls: "out", label: "FB_Conveyor", desc: "FB", file: "FB_Conveyor.pou" },
     ],
   },
   {
@@ -117,7 +117,7 @@ const VOLT_SECTIONS = [
     title: "Diagnostics",
     rows: [
       { badge: "!", cls: "warn", label: "0 errors, 2 warnings" },
-      { badge: "", label: "FB_Motor.fb", desc: "2⚠", file: "FB_Motor.fb", indent: true },
+      { badge: "", label: "FB_Motor.pou", desc: "2⚠", file: "FB_Motor.pou", indent: true },
     ],
   },
   // NOTE: the "IDE Connection" view leads the container (built dynamically in the component — interactive
@@ -134,7 +134,7 @@ const runCmd = (raw) => {
   if (c === "volt status") return [{ c: "", t: "  2 incoming · 1 outgoing · bridge online" }]
   if (c === "volt pull")
     return [
-      { c: "ok", t: "  ✓ merged FB_Motor.fb" },
+      { c: "ok", t: "  ✓ merged FB_Motor.pou" },
       { c: "dim", t: "  in sync with volt/ide" },
     ]
   if (c === "volt push") return [{ c: "ok", t: "  ✓ pushed FB_Conveyor.fb → IDE" }]
@@ -150,8 +150,8 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   const [ref, inView] = useInView()
   const [view, setView] = useState("volt")
   const [collapsed, setCollapsed] = useState(() => new Set())
-  const [tabs, setTabs] = useState(["FB_Conveyor.fb"])
-  const [active, setActive] = useState("FB_Conveyor.fb")
+  const [tabs, setTabs] = useState(["FB_Conveyor.pou"])
+  const [active, setActive] = useState("FB_Conveyor.pou")
   const [cmpOpen, setCmpOpen] = useState(false)
   const [inserted, setInserted] = useState("")
   // Bridge view: the real connect ⇄ disconnect cycle. VS Code has no in-button spinner (tree rows), so the
@@ -159,7 +159,7 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   const [bridge, setBridge] = useState("connected")
   const bxTimer = useRef(null)
   const [changes, setChanges] = useState([
-    { name: "FB_Conveyor.fb", stat: "M" },
+    { name: "FB_Conveyor.pou", stat: "M" },
     { name: "GVL_Global.gvl", stat: "M" },
   ])
   const [commitMsg, setCommitMsg] = useState("")
@@ -239,16 +239,16 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
   const play = useAutoplay(
     [
       () => setView("explorer"),
-      () => openFile("PLC_PRG.prg"),
+      () => openFile("PLC_PRG.pou"),
       () => setView("scm"),
       () => openFile("GVL_Global.gvl"),
       () => setView("volt"),
       () => disconnect(), // Bridge view: → spinner row → offline (Reconnect)
       () => reconnect(), // → spinner row → connected
-      () => setActive("FB_Conveyor.fb"),
+      () => setActive("FB_Conveyor.pou"),
       () => setCmpOpen(true),
       () => (setInserted("Run();"), setCmpOpen(false)),
-      () => (setInserted(""), setTabs(["FB_Conveyor.fb"])),
+      () => (setInserted(""), setTabs(["FB_Conveyor.pou"])),
     ],
     autoplay && inView,
   )
@@ -416,7 +416,7 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
                 className={"vsc-tab" + (name === active ? " is-active" : "")}
                 onClick={() => setActive(name)}
               >
-                {name === "FB_Conveyor.fb" && <span className="vsc-dot-o" />} {name}
+                {name === "FB_Conveyor.pou" && <span className="vsc-dot-o" />} {name}
               </span>
             ))}
           </div>

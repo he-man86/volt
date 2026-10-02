@@ -94,7 +94,7 @@ public class TcWalkUnreadableObjectTests
     public void A_root_node_whose_kind_faults_marks_its_own_subtree_not_walked()
     {
         var root = new Node("PLC", ItemKind.PlcFolder,
-            new Node("Machine", null, new Node("Main", ItemKind.PlcPouProg)),
+            new Node("Machine", null, new Node("Main", ItemKind.PlcPou)),
             new Node("Data", ItemKind.PlcFolder, new Node("PlcDataType", ItemKind.PlcDut)));
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
             new SysManager(new Tipc(new Plc(root)))));

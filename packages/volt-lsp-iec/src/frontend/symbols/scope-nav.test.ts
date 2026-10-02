@@ -27,28 +27,28 @@ const RUN = "FUNCTION_BLOCK Run\nEND_FUNCTION_BLOCK"
 const ITF = "INTERFACE I_Thing\nMETHOD Go : BOOL\nEND_METHOD\nEND_INTERFACE"
 
 test("the index answers exactly what a depth-first walk answers, including a nested name that shadows a later top-level one", () => {
-  const project = buildSymbolTable([file("a.fb", FB_A), file("b.fb", FB_B), file("run.fb", RUN), file("i.itf", ITF)])
+  const project = buildSymbolTable([file("a.pou", FB_A), file("b.pou", FB_B), file("run.pou", RUN), file("i.itf", ITF)])
   for (const name of ["FB_A", "fb_b", "RUN", "Run", "I_Thing", "Go", "nothing"]) expect(findScopeByName(project, name)).toBe(walk(project, name))
   // `Run` is FB_A's method before it is the top-level FB in pre-order — the index must not prefer the top level
   expect(findScopeByName(project, "Run")?.parent?.name).toBe("FB_A")
 })
 
 test("a bound file is found, and an unbound one is gone — the index never outlives the tree it was built from", () => {
-  const project = buildSymbolTable([file("a.fb", FB_A)])
+  const project = buildSymbolTable([file("a.pou", FB_A)])
   expect(findScopeByName(project, "FB_B")).toBeUndefined()
 
-  bindFile(project, file("b.fb", FB_B))
+  bindFile(project, file("b.pou", FB_B))
   relink(project)
   expect(findScopeByName(project, "FB_B")?.name).toBe("FB_B")
 
-  unbindFile(project, "a.fb")
+  unbindFile(project, "a.pou")
   relink(project)
   expect(findScopeByName(project, "FB_A")).toBeUndefined()
   expect(findScopeByName(project, "Run")?.parent?.name).toBe("FB_B")
 })
 
 test("a scope that is not a project root is still searched within its own subtree", () => {
-  const project = buildSymbolTable([file("a.fb", FB_A), file("b.fb", FB_B)])
+  const project = buildSymbolTable([file("a.pou", FB_A), file("b.pou", FB_B)])
   const fbB = findScopeByName(project, "FB_B")!
   expect(findScopeByName(fbB, "Run")?.parent).toBe(fbB)
   expect(findScopeByName(fbB, "FB_A")).toBeUndefined()
@@ -60,7 +60,7 @@ test("a scope that is not a project root is still searched within its own subtre
 test("a unit that owns no scope has none — a GVL or an alias is never answered with a same-named scope", () => {
   const gvl = file("Run.gvl", "VAR_GLOBAL\ng : INT;\nEND_VAR")
   const alias = file("Run.dut", "TYPE Run : INT; END_TYPE")
-  const project = buildSymbolTable([file("a.fb", FB_A), gvl, alias])
+  const project = buildSymbolTable([file("a.pou", FB_A), gvl, alias])
   expect(findScopeByName(project, "Run")?.kind).toBe("method")
   const units = [...gvl.parseResult.units, ...alias.parseResult.units]
   expect(units.map((u) => u.kind)).toEqual(["global_var_list", "type_decl"])
@@ -86,7 +86,7 @@ test("externalGlobal: a VAR_EXTERNAL binds the bare-reachable global of its name
 test("lookup: a global variable before a POU of the same name, in either file order (Y23 step 5 before 8)", () => {
   const fn = "FUNCTION F_Same : INT\nF_Same := 9;\nEND_FUNCTION"
   const gvl = "VAR_GLOBAL\n F_Same : INT := 3;\nEND_VAR"
-  for (const [a, b] of [["a.fun", "b.gvl"], ["b.fun", "a.gvl"]] as const) {
+  for (const [a, b] of [["a.pou", "b.gvl"], ["b.pou", "a.gvl"]] as const) {
     const project = buildSymbolTable([file(a, fn), file(b, gvl)])
     expect(lookup(project, "f_same")?.symbol.kind).toBe("gvl_var")
   }
@@ -112,7 +112,7 @@ test("resolveGvlMember: a library's list named through the library's namespace (
 test("lookup: a VAR_EXTERNAL binds where its global exists, and is passed over where none does (Y13)", () => {
   const prg = "PROGRAM P\nVAR_EXTERNAL\n g_there : INT;\n g_q : INT;\n g_none : INT;\nEND_VAR\nEND_PROGRAM"
   const project = buildSymbolTable([
-    file("P.prg", prg),
+    file("P.pou", prg),
     file("GVL_A.gvl", "VAR_GLOBAL\n g_there : INT;\nEND_VAR"),
     file("GVL_Q.gvl", "{attribute 'qualified_only'}\nVAR_GLOBAL\n g_q : INT;\nEND_VAR"),
   ])
@@ -128,13 +128,13 @@ test("lookup: a VAR_EXTERNAL binds where its global exists, and is passed over w
 test("lookupUnit: a type position finds the POU or type, past a same-named global or device, in either file order", () => {
   const fn = "FUNCTION POU : INT\nEND_FUNCTION\nTYPE E : (A, B);\nEND_TYPE"
   const gvl = "VAR_GLOBAL\n pou : INT;\n e : INT;\nEND_VAR"
-  for (const [a, b] of [["a.fun", "b.gvl"], ["b.fun", "a.gvl"]] as const) {
+  for (const [a, b] of [["a.pou", "b.gvl"], ["b.pou", "a.gvl"]] as const) {
     const project = buildSymbolTable([file(a, fn), file(b, gvl)], [], "codesys", undefined, [{ kind: "device", name: "E", uri: "0.device" }])
     expect(lookupUnit(project, "pou")?.symbol.kind).toBe("function")
     expect(lookupUnit(project, "e")?.symbol.kind).toBe("type")
     expect(lookup(project, "pou")?.symbol.kind).toBe("gvl_var")
   }
-  const p = buildSymbolTable([file("p.prg", "PROGRAM P\nVAR pou : INT; END_VAR\nEND_PROGRAM"), file("f.fun", fn)])
+  const p = buildSymbolTable([file("p.pou", "PROGRAM P\nVAR pou : INT; END_VAR\nEND_PROGRAM"), file("f.pou", fn)])
   expect(lookupUnit(findScopeByName(p, "P")!, "POU")?.symbol.kind).toBe("function")
 })
 

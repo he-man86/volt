@@ -25,17 +25,17 @@ function statusWith(over: Partial<StatusJson> = {}): StatusJson {
 // ── projectWorkspace ─────────────────────────────────────────────────────────
 test("projectWorkspace: tags A/M/D, strips src/, and reports the vendor as initialized", () => {
   const status = statusWith({
-    incoming: { added: ["New.fb"], modified: ["Edit.fb"], removed: ["Gone.fb"] },
-    pathByName: { "New.fb": "src/POUs/New.fb", "Edit.fb": "src/Edit.fb", "Gone.fb": "src/Gone.fb" },
+    incoming: { added: ["New.pou"], modified: ["Edit.pou"], removed: ["Gone.pou"] },
+    pathByName: { "New.pou": "src/POUs/New.pou", "Edit.pou": "src/Edit.pou", "Gone.pou": "src/Gone.pou" },
   })
   const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" })
   expect(v.initialized).toBe(true)
   expect(v.vendor).toBe("codesys") // 8556 → CODESYS; the UI shows this, not the port
   expect(v.paused).toBeNull()
   expect(v.incoming).toEqual([
-    { name: "New.fb", sub: "A", relPath: "POUs/New.fb" },
-    { name: "Edit.fb", sub: "M", relPath: "Edit.fb" },
-    { name: "Gone.fb", sub: "D", relPath: "Gone.fb" },
+    { name: "New.pou", sub: "A", relPath: "POUs/New.pou" },
+    { name: "Edit.pou", sub: "M", relPath: "Edit.pou" },
+    { name: "Gone.pou", sub: "D", relPath: "Gone.pou" },
   ])
 })
 
@@ -47,8 +47,8 @@ test("projectWorkspace: no vendor ⇒ not initialized", () => {
 
 test("projectWorkspace: a merge pauses and hides drift items", () => {
   const status = statusWith({
-    merging: { projectVersion: "v", conflicts: [{ path: "A.fb", kind: "text", reason: "both" }] },
-    incoming: { added: ["X.fb"], removed: [], modified: [] },
+    merging: { projectVersion: "v", conflicts: [{ path: "A.pou", kind: "text", reason: "both" }] },
+    incoming: { added: ["X.pou"], removed: [], modified: [] },
   })
   const v = projectWorkspace({ workspaceRoot: "/ws", status, health: connected, vendor: "codesys" })
   expect(v.paused).toBe("merging")
@@ -99,23 +99,23 @@ test("connectionAffordance: offline → connect; online → disconnect", () => {
 
 // ── outcome descriptors ──────────────────────────────────────────────────────
 test("describePull: conflict offers Open Conflicts / Finish Merge / Abort; refused offers Force Pull", () => {
-  const conflict = describePull({ kind: "conflict", paths: ["A.fb", "B.fb"] })
+  const conflict = describePull({ kind: "conflict", paths: ["A.pou", "B.pou"] })
   expect(conflict.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
   expect(conflict.actions.find((a) => a.tag === "abort-merge")?.destructive).toBe(true) // Abort confirms first
   const refused = describePull({ kind: "refused", reason: "dirty tree" })
   expect(refused.tone).toBe("warn")
   expect(refused.actions.map((a) => a.tag)).toEqual(["force-pull"])
-  expect(describePull({ kind: "ok", synced: ["A.fb"] }).actions).toEqual([])
+  expect(describePull({ kind: "ok", synced: ["A.pou"] }).actions).toEqual([])
 })
 
 test("describePull: a conflict over network text v1 carries the CLI's note on how to resolve it", () => {
   // MATERIALIZATION 3 can meet an un-pushed v1 edit as a conflict, and keeping our side keeps text no Volt
   // pushes — so the CLI names those files and the resolution, and the toast must not drop that sentence.
-  const note = "1 conflicted file(s) hold network text v1, which this Volt neither reads nor pushes: A.fb. Take the IDE's side."
-  const v1 = describePull({ kind: "conflict", paths: ["A.fb"], message: note })
+  const note = "1 conflicted file(s) hold network text v1, which this Volt neither reads nor pushes: A.pou. Take the IDE's side."
+  const v1 = describePull({ kind: "conflict", paths: ["A.pou"], message: note })
   expect(v1.message).toContain(note)
   expect(v1.actions.map((a) => a.tag)).toEqual(["open-conflicts", "finish-merge", "abort-merge"])
-  expect(describePull({ kind: "conflict", paths: ["A.fb"] }).message).not.toContain("network text v1")
+  expect(describePull({ kind: "conflict", paths: ["A.pou"] }).message).not.toContain("network text v1")
 })
 
 test("describeMerge: done is a clean toast; unresolved keeps the finish/abort affordances", () => {
@@ -139,7 +139,7 @@ test("describePush: empty push explains WHY — IDE-ahead ⇒ pull first, else i
     outgoing: { added: [], removed: [], modified: [] }, pathByName: {}, projectMismatch: null, summary: "",
   })
   // Zero items + the IDE has changes → warn with a Pull First button, not a bare "0".
-  const ahead = describePush({ kind: "ok", items: [] }, idea(["A.fb", "B.fb"]))
+  const ahead = describePush({ kind: "ok", items: [] }, idea(["A.pou", "B.pou"]))
   expect(ahead.tone).toBe("warn")
   expect(ahead.message).toContain("2 change(s)")
   expect(ahead.actions.map((a) => a.tag)).toEqual(["pull-first"])

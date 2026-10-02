@@ -36,22 +36,22 @@ public class StFormatRoundTripTests
     public static TheoryData<string, ItemContent> Shapes => new()
     {
         { "bare program",
-          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", "n := 1;", new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", "n := 1;", new()) },
 
         { "program with no body",
-          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", null, new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\tn : INT;\nEND_VAR", null, new()) },
 
         { "function block with every member kind",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "x := 0;",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "x := 0;",
               new() { Method("Go"), Action("Start"),
                       Property("Speed", new Accessor(null, "Speed := x;"), new Accessor(null, "x := Speed;")) }) },
 
         { "members in folders",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
               new() { Method("Go", folder: "Sub/Deep"), Action("Start", folder: "Other") }) },
 
         { "GET-only property",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
               new() { Property("Ready", new Accessor(null, "Ready := x;"), null) }) },
 
         // The interface case the model change was riskiest for: an accessor that EXISTS and holds no code. It
@@ -62,14 +62,14 @@ public class StFormatRoundTripTests
                       Property("Ready", new Accessor(null, ""), new Accessor(null, "")) }) },
 
         { "a network-text body",
-          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR",
               "IMPLEMENTATION FBD\nNETWORK\n  out := NOT (a);\nEND_NETWORK", new()) },
 
         { "a hidden CFC body",
-          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC UNSUPPORTED", new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION CFC UNSUPPORTED", new()) },
 
         { "a hidden LD body network text cannot represent",
-          new ItemContent(ItemKind.Kinds.Program, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION LD UNSUPPORTED", new()) },
+          new ItemContent(ItemKind.Kinds.Pou, "PROGRAM P\nVAR\nEND_VAR", "IMPLEMENTATION LD UNSUPPORTED", new()) },
 
         { "DUT — declaration only",
           new ItemContent(ItemKind.Kinds.Dut, "TYPE D :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE", null, new()) },
@@ -80,38 +80,38 @@ public class StFormatRoundTripTests
         // ── the shapes that LOOK like structure, which is where a regex/state-machine reader earns its keep ──
 
         { "pragma and comment above the header",
-          new ItemContent(ItemKind.Kinds.FunctionBlock,
+          new ItemContent(ItemKind.Kinds.Pou,
               "{attribute 'no_check'}\n(* what it does *)\nFUNCTION_BLOCK FB\nVAR\nEND_VAR", "", new()) },
 
         { "EXTENDS and IMPLEMENTS on the header",
-          new ItemContent(ItemKind.Kinds.FunctionBlock,
+          new ItemContent(ItemKind.Kinds.Pou,
               "FUNCTION_BLOCK FB EXTENDS Base IMPLEMENTS IOne, ITwo\nVAR\nEND_VAR", "", new()) },
 
         { "a body whose COMMENT contains END_FUNCTION_BLOCK",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\nEND_VAR",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR",
               "(* not really END_FUNCTION_BLOCK here *)\nx := 1;", new()) },
 
         { "a body whose STRING contains METHOD",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\n\ts : STRING;\nEND_VAR",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\ts : STRING;\nEND_VAR",
               "s := 'METHOD Go';", new()) },
 
         { "accessors that carry their own declaration",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
               new() { Property("Speed",
                   new Accessor("VAR\n\ttmp : INT;\nEND_VAR", "Speed := x;"),
                   new Accessor("VAR\n\told : INT;\nEND_VAR", "x := Speed;")) }) },
 
         { "a property in a folder WITH accessors",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
               new() { Property("Speed", new Accessor(null, "Speed := x;"), null, folder: "Props/Deep") }) },
 
         { "many members, emitted in the canonical order",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\n\tx : INT;\nEND_VAR", "",
               new() { Action("Zed"), Method("Alpha"), Property("Yankee", new Accessor(null, "Yankee := x;"), null),
                       Method("Beta"), Action("Charlie") }) },
 
         { "a multi-line method body with blank lines",
-          new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
+          new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
               new() { Method("Go", "IF d > 0 THEN\n\n\tGo := d;\n\nEND_IF") }) },
     };
 
@@ -166,7 +166,7 @@ public class StFormatRoundTripTests
     public void D_a_body_starting_with_the_FOLDER_directive_is_read_as_a_folder
         ()
     {
-        var content = new ItemContent(ItemKind.Kinds.FunctionBlock, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
+        var content = new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB\nVAR\nEND_VAR", "",
             new() { Method("Go", body: "%FOLDER Nope\nx := 1;") });
 
         var back = StReader.Read(StWriter.Write(content), content.Kind);

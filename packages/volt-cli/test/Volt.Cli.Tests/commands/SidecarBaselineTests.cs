@@ -35,7 +35,7 @@ public class SidecarBaselineTests
 
     private static FakeIde.Item EMode() => FakeIde.Item.TextualPou("E_Mode", Enum, "", "DUTs");
 
-    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
+    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.pou");
 
     /// <summary>The baseline as a pre-5.P CLI wrote it: the DUT's entry under its subtype name.</summary>
     private static IdeRefs WithSplitDutKey(IdeRefs refs, string stale)
@@ -104,7 +104,7 @@ public class SidecarBaselineTests
             AssertRefusedByName(Record.Exception(() => Sidecar.LoadPendingIdeRefs(root)),
                 "E_Mode.struct", ".git/volt/pending-ide-refs.json");
 
-            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
+            Commands.Merge(root, resolve: "PLC_PRG.pou", useTheirs: true);
             var (code, msg) = Commands.Merge(root, cont: true);
 
             Assert.False(Git.IsMerging(root), "the git merge did not complete");
@@ -156,7 +156,7 @@ public class SidecarBaselineTests
     /// A complete walk is the whole IDE, so a file whose name it does not list is gone.</summary>
     [Theory]
     [InlineData("E_Mode", "DUTs/E_Mode.dut")]
-    [InlineData("FB_Old", "FB_Old.fb")]
+    [InlineData("FB_Old", "FB_Old.pou")]
     public void A_baseline_less_pull_removes_an_item_the_ide_deleted_since_the_last_pull(string bare, string file)
     {
         var ide = ConnectedIde(Prg(), EMode(), FakeIde.Item.TextualPou("FB_Old", "FUNCTION_BLOCK FB_Old\nVAR\nEND_VAR", ""));
@@ -192,20 +192,20 @@ public class SidecarBaselineTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var file = Path.Combine(root, "src", "POUs", "FB_A.fb");
+            var file = Path.Combine(root, "src", "POUs", "FB_A.pou");
             Assert.True(File.Exists(file), "fixture: the first pull wrote the file");
 
             if (why == "unreadable")
             {
                 ide.RemoveItem("FB_A");
-                ide.AddItem(new FakeIde.Item("FB_A", Volt.Engine.Item.ItemKind.PlcPouFb, "POUs", true,
+                ide.AddItem(new FakeIde.Item("FB_A", Volt.Engine.Item.ItemKind.PlcPou, "POUs", true,
                     decl, null, "LD", "the graphical body cannot be read"));
             }
             else ide.UnwalkableFolders = new[] { "POUs" };
             File.Delete(Config.Paths(root).IdeRefsPath);
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
-            Assert.True(File.Exists(file), $"a baseline-less pull deleted FB_A.fb, which the IDE still holds ({why})");
+            Assert.True(File.Exists(file), $"a baseline-less pull deleted FB_A.pou, which the IDE still holds ({why})");
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -245,7 +245,7 @@ public class SidecarBaselineTests
     }
 
     /// <summary>…and the `unreadable` exemption is the unreadable ITEM's, not its bare name's. Bare names repeat
-    /// across kinds (`CM_Carrier.fb` beside `CM_Carrier.visualization`, CLAUDE.md): with the FB unreadable, a
+    /// across kinds (`CM_Carrier.pou` beside `CM_Carrier.visualization`, CLAUDE.md): with the FB unreadable, a
     /// visualization the IDE deleted must still be retired, or the rebuilt baseline lacks it while its file stays,
     /// and its next edit pushes as a CREATE. Both pulls: with a baseline (the bridge's `removed`) and without one
     /// (the recovery path) — one rule, applied once.</summary>
@@ -256,7 +256,7 @@ public class SidecarBaselineTests
     {
         // FakeIde resolves an item by bare name, first match: the unreadable FB answers every read of
         // `CM_Carrier`, so the visualization reads its (empty) manifest and the FB still throws.
-        FakeIde.Item Fb() => new("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPouFb, "CM", true,
+        FakeIde.Item Fb() => new("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPou, "CM", true,
             null, null, "LD", "the graphical body cannot be read");
         var ide = ConnectedIde(Prg(), Fb(),
             new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcVisObj, "CM", true, null, null, null, null));

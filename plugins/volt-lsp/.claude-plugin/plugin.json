@@ -9,9 +9,7 @@
         "--stdio"
       ],
       "extensionToLanguage": {
-        ".fb": "structured-text",
-        ".prg": "structured-text",
-        ".fun": "structured-text",
+        ".pou": "structured-text",
         ".itf": "structured-text",
         ".gvl": "structured-text",
         ".dut": "structured-text"

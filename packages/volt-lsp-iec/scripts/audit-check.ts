@@ -28,7 +28,7 @@ const key = (d: any): string => `[${d.severity}] ${d.message}`
 
 // LSP side (offline).
 const pr = parseSource(source, { networkText: NETWORK_TEXT_ENABLED }, VENDOR)
-const project = build.buildSymbolTable([{ uri: "S.fb", parseResult: pr, source }], [], VENDOR)
+const project = build.buildSymbolTable([{ uri: "S.pou", parseResult: pr, source }], [], VENDOR)
 const lsp = computeSemanticDiagnostics({ parseResult: pr, source, project, config: resolveConfig({ vendor: VENDOR }) })
   .filter((d) => d.severity === "error" || d.severity === "warning")
   .map(key)
@@ -36,9 +36,9 @@ const lsp = computeSemanticDiagnostics({ parseResult: pr, source, project, confi
 
 // IDE side (live) — push a scratch POU named from the source's first unit, build, diff, delete.
 const unitName = /(?:FUNCTION_BLOCK|PROGRAM|FUNCTION)\s+(\w+)/.exec(source)?.[1] ?? "Scratch_audit"
-const wire = `${unitName}.fb`
+const wire = `${unitName}.pou`
 const refs0 = await call("refs")
-const plcName = ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n])!
+const plcName = ["PLC_PRG.pou", "MAIN.pou"].find((n) => refs0.items[n])!
 const plcOrig = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed.find((i: any) => i.name === plcName).sourceText
 const base = new Set(((await call("build", { buildType: "incremental" })).diagnostics ?? []).map(key))
 

@@ -12,7 +12,7 @@ test("completion after `GVL.` offers the GVL's globals (incl. qualified_only)", 
   const prg = `PROGRAM PLC_PRG\nVAR\n x : INT;\nEND_VAR\nx := GVL.speed;\nEND_PROGRAM`
   const inputs = [
     { uri: "file:///GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) },
-    { uri: "file:///P.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "file:///P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
   ]
   const project = build.buildSymbolTable(inputs)
   const labels = (completion(inputs[1], project, prg.indexOf("GVL.") + 4) ?? []).map((c) => c.label)

@@ -11,7 +11,7 @@ import { CODESYS_CODE_MAP } from "./error-code-map.js"
  */
 const diag = (src: string, opts?: Parameters<typeof resolveConfig>[0]) => {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig(opts) })
 }
 

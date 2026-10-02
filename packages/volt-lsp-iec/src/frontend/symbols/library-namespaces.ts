@@ -100,7 +100,7 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     // WHICH LIBRARY A FILE BELONGS TO IS `libraryOf`'s QUESTION, and this had its own answer to it: a
     // `/library manager/<folder>/` substring on a whole-path-lowercased URI. Three normalizers for one fact —
     // `isLibrarySymbol`, `libraryOf` and this — with this one requiring a LEADING separator the other two do
-    // not, so a repo-relative `Library Manager/Standard/LEN.fun` was a library symbol to both of them and not
+    // not, so a repo-relative `Library Manager/Standard/LEN.pou` was a library symbol to both of them and not
     // to this. Live URIs all carry a separator, which is why nothing broke; the disagreement was real anyway.
     const folders = visibleFolders(manifests, manifest, byTitle)
     const byOrder = (a: { order: number }, b: { order: number }): number => a.order - b.order

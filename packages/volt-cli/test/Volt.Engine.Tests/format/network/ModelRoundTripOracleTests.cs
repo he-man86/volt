@@ -105,7 +105,7 @@ public class ModelRoundTripOracleTests
         public CorpusProject(IEnumerable<string> files)
         {
             foreach (var f in files.OrderBy(f => f, StringComparer.Ordinal))
-                if (!InLibrary(f) && KindOf(f) is ItemKind.Kinds.Program or ItemKind.Kinds.FunctionBlock or ItemKind.Kinds.Function
+                if (!InLibrary(f) && KindOf(f) is ItemKind.Kinds.Pou or ItemKind.Kinds.Pou or ItemKind.Kinds.Pou
                     or ItemKind.Kinds.Interface or ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
                     _files.TryAdd(Path.GetFileNameWithoutExtension(f), f);
         }
@@ -155,7 +155,7 @@ public class ModelRoundTripOracleTests
             var project = new CorpusProject(files);
             foreach (var file in files)
             {
-                if (KindOf(file) is not (ItemKind.Kinds.Program or ItemKind.Kinds.FunctionBlock or ItemKind.Kinds.Function))
+                if (KindOf(file) is not (ItemKind.Kinds.Pou or ItemKind.Kinds.Pou or ItemKind.Kinds.Pou))
                     continue;
                 if (!V2Marker.IsMatch(File.ReadAllText(file))) continue;
                 var rel = Path.GetRelativePath(corpus, file).Replace('\\', '/');

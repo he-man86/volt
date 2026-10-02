@@ -51,7 +51,7 @@ test("C0240/C0241: __QueryPointer operands of the wrong kind are flagged; valid 
   const qp = (body: string) => {
     const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; pt:POINTER TO FB; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "query-pointer-operand")
       .map((d) => d.message)
@@ -66,7 +66,7 @@ test("C0234/C0235: __QueryInterface operands of the wrong kind are flagged; vali
   const qi = (body: string) => {
     const src = `FUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE\nPROGRAM P\nVAR\n a:INT; b:INT; itf:ITF; itf2:ITF; inst:FB;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "query-interface-operand")
       .map((d) => d.message)

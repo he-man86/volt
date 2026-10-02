@@ -5,7 +5,7 @@
  * Execute boxes, each asserted on CREATE, on the FIXED POINT, and against a real BUILD. What it could not tell
  * anyone is what it has never pushed AT ALL — and that is the shape of every bug it has missed.
  *
- * It missed one. `ladderLabel.prg`, pulled from a real TwinCAT project, is two networks: one holding a coil
+ * It missed one. `ladderLabel.pou`, pulled from a real TwinCAT project, is two networks: one holding a coil
  * with nothing driving it (`coil := ;`) and one holding NOTHING but a label. Pushed back into an empty
  * project it came back gutted — declaration gone, LD turned to FBD, both labels gone, one network gone —
  * with `volt push` reporting success (`twincat-graphical-create-loss`). Neither shape appears anywhere in
@@ -179,4 +179,4 @@ if (undrawn.length > 0)
 `,
 	)
 console.log("A GAP is not a failing test — it is a construct nobody has ever asked a live IDE to create.")
-console.log("That is what `ladderLabel.prg` was: two shapes no test pushed, and both lost on a real migration.\n")
+console.log("That is what `ladderLabel.pou` was: two shapes no test pushed, and both lost on a real migration.\n")

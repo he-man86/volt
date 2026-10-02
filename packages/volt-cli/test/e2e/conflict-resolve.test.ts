@@ -86,7 +86,7 @@ describe.skipIf(CLI === undefined)(`conflict → diff → take-a-side → finish
 	/** Create a fresh item, pull the base in, then diverge: MINE (committed in the workspace) vs IDE (live), each
 	 *  editing the same line, then pull into a conflict. Returns the conflicted src-relative path. */
 	async function setupConflict(itemId: string): Promise<string> {
-		const name = `${itemId}.fb`
+		const name = `${itemId}.pou`
 		await createItem(name, fb(itemId, 0)) // base, in the IDE
 		const base = await pull(root)
 		// The REASON, not just the kind: this assertion sat red for a long time saying only "expected ok, got
@@ -112,7 +112,7 @@ describe.skipIf(CLI === undefined)(`conflict → diff → take-a-side → finish
 
 		// The diff the conflict row opens (data-dir="incoming"): HEAD (mine) ↔ BRIDGE (live IDE). Must show the
 		// collision — mine removed, the IDE's added — not two identical panes.
-		const d = await loadDiff(root, rel, `${itemId}.fb`, "incoming")
+		const d = await loadDiff(root, rel, `${itemId}.pou`, "incoming")
 		expect(d.identical).toBe(false)
 		expect(d.lines.some((l) => l.tag === "-" && l.text.includes("222"))).toBe(true)
 		expect(d.lines.some((l) => l.tag === "+" && l.text.includes("111"))).toBe(true)
@@ -126,7 +126,7 @@ describe.skipIf(CLI === undefined)(`conflict → diff → take-a-side → finish
 		expect(text).toContain("val : INT := 111;")
 		expect(text).not.toContain("222")
 		expect(text).not.toContain("<<<<<<<")
-		expect((await loadDiff(root, rel, `${itemId}.fb`, "incoming")).identical).toBe(true)
+		expect((await loadDiff(root, rel, `${itemId}.pou`, "incoming")).identical).toBe(true)
 	})
 
 	it("take MY version keeps the workspace edit through finish", async () => {

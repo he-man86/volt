@@ -30,7 +30,7 @@ internal sealed class ProjectSnapshot
     /// <summary>Wire identity → version — the aggregate-hash source (project/structure version).
     /// <para>Keyed by the SAME identity <see cref="FullVersions"/> publishes, and that is load-bearing. It used to
     /// be keyed by the BARE name, where two items of different kinds sharing one name (a control module and its
-    /// own visualization — <c>CM_Carrier.fb</c> + <c>CM_Carrier.visualization</c>, which is how CODESYS projects
+    /// own visualization — <c>CM_Carrier.pou</c> + <c>CM_Carrier.visualization</c>, which is how CODESYS projects
     /// are normally organised) collapsed onto one slot and the walk order decided which survived. The shadowed
     /// item was then invisible to the aggregate hash, so editing it did not move <c>projectVersion</c> and
     /// <c>volt pull</c> took its "nothing to pull" fast path over a real code change.</para>

@@ -80,10 +80,10 @@ public class TcHiddenBodyWriteTests
         var getter = new Node("Get", ItemKind.PlcPropGet, "VAR\nEND_VAR", GetterArchive);
         var property = new Node("Ready", ItemKind.PlcProp, "PROPERTY Ready : BOOL", "", getter);
         var method = new Node("Step", ItemKind.PlcMethod, "METHOD Step : BOOL", LadderArchive);
-        var pou = new Node("FB_Chart", ItemKind.PlcPouFb, "FUNCTION_BLOCK FB_Chart\nVAR\nEND_VAR", ChartArchive,
+        var pou = new Node("FB_Chart", ItemKind.PlcPou, "FUNCTION_BLOCK FB_Chart\nVAR\nEND_VAR", ChartArchive,
                            method, property);
 
-        var content = new ItemContent(ItemKind.Kinds.FunctionBlock,
+        var content = new ItemContent(ItemKind.Kinds.Pou,
             "FUNCTION_BLOCK FB_Chart\nVAR_INPUT\n\tbStart : BOOL;\nEND_VAR\nVAR\nEND_VAR", line,
             new List<Member>
             {

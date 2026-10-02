@@ -21,7 +21,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onLanguage:structured-text",
-    "workspaceContains:**/*.{fb,prg,fun,itf,gvl,dut,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
+    "workspaceContains:**/*.{pou,itf,gvl,dut,library,library_manager,task,image_pool,text_list,recipe_manager,visualization,visualization_manager,class_diagram,external_types,tmc}"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -66,9 +66,7 @@
           "IEC 61131-3"
         ],
         "extensions": [
-          ".fb",
-          ".prg",
-          ".fun",
+          ".pou",
           ".itf",
           ".gvl",
           ".dut"

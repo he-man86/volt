@@ -46,7 +46,7 @@ public class ItemKindTests
     [Theory]
     [InlineData("transition")]        // real, inlined in the POU, and NOT a member
     [InlineData("property_get")]      // an accessor: read WITH its property, never created as a member
-    [InlineData("function_block")]    // a top-level kind, not a member at all
+    [InlineData("pou")]               // a top-level kind, not a member at all
     [InlineData("")]
     public void An_unknown_member_kind_is_refused(string kind)
         => Assert.Throws<BridgeException>(() => ItemKind.MemberCode(kind));
@@ -124,6 +124,34 @@ public class ItemKindTests
         Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName("X.dut"));
     }
 
+    /// <summary>THE POU KIND HAS ONE EXTENSION, <c>pou</c> (openspec <c>push-without-header-check</c> 5.Q, owner
+    /// 2026-10-02: a wire extension carries only what the IDE stores per object). A program, a function block and a
+    /// function are one kind — CODESYS has one <c>POUObject</c> class whose kind follows its text, TwinCAT re-derives
+    /// its three tree codes from the text on a reload — so every one of TwinCAT's three codes maps to it and it is
+    /// the one writable POU extension.</summary>
+    [Fact]
+    public void The_pou_kind_has_the_one_extension_pou()
+    {
+        var pouExts = ItemKind.SourceKindExtensions.Where(x => x.Kind == ItemKind.Kinds.Pou).Select(x => x.Ext).ToArray();
+
+        Assert.Equal(new[] { "pou" }, pouExts);
+        Assert.Equal("pou", ItemKind.ExtFor(ItemKind.Kinds.Pou));
+        Assert.Contains(ItemKind.FileExtensions, x => x.Ext == "pou" && x.IsSource && x.IsWritable);
+        Assert.Equal(ItemKind.Kinds.Pou, ItemKind.KindForWireName("X.pou"));
+        Assert.All(new[] { ItemKind.PlcPou, ItemKind.PlcPouProg, ItemKind.PlcPouFunc },
+                   code => Assert.Equal(ItemKind.Kinds.Pou, ItemKind.Map(code)));
+    }
+
+    /// <summary>A RETIRED POU NAME NAMES NO KIND (5.Q). <c>X.prg</c> / <c>X.fb</c> / <c>X.fun</c> are foreign names like
+    /// <c>X.foo</c> — no alias of <c>X.pou</c> — so every consumer that routes by the name refuses them, a push with
+    /// <c>BAD_REQUEST</c> (<c>RequireWireNames</c>) and a baseline holding one by name (<c>Sidecar</c>).</summary>
+    [Theory]
+    [InlineData("X.prg")]
+    [InlineData("X.fb")]
+    [InlineData("X.fun")]
+    public void A_retired_pou_name_names_no_kind(string wireName) =>
+        Assert.Null(ItemKind.KindForWireName(wireName));
+
     /// <summary>A SPLIT DUT NAME NAMES NO KIND (5.P). <c>X.struct</c> / <c>X.enum</c> / <c>X.union</c> /
     /// <c>X.alias</c> are foreign names like <c>X.foo</c> — no alias of <c>X.dut</c> (two spellings of one item is the
     /// collapse the item-name invariant forbids), so every consumer that routes by the name refuses them.</summary>
@@ -171,8 +199,9 @@ public class ItemKindTests
     /// <summary>AND A TOP-LEVEL ITEM IS NEITHER. A POU is not inlined in itself, and a walk that thought so
     /// would recurse into the project forever.</summary>
     [Theory]
+    [InlineData(ItemKind.PlcPou)]
     [InlineData(ItemKind.PlcPouProg)]
-    [InlineData(ItemKind.PlcPouFb)]
+    [InlineData(ItemKind.PlcPouFunc)]
     [InlineData(ItemKind.PlcDut)]
     [InlineData(ItemKind.PlcGvl)]
     [InlineData(ItemKind.PlcFolder)]

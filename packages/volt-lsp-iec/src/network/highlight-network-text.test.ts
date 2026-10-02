@@ -20,7 +20,7 @@ END_FUNCTION_BLOCK`
 
 test("highlighting a network-text operand includes its declaration AND its in-network use", () => {
   const parseResult = parseSource(LD, { networkText: true })
-  const doc = { uri: "file:///F.fb", source: LD, parseResult }
+  const doc = { uri: "file:///F.pou", source: LD, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: LD }])
   // Cursor on `a` inside the network `out := (a AND b)`.
   const ranges = documentHighlightsAnywhere(doc, project, LD.indexOf("(a AND") + 1)

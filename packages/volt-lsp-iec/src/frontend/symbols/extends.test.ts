@@ -36,21 +36,21 @@ const file = (uri: string, source: string) => ({ uri, source, parseResult: parse
 
 // Two libraries, each exporting an ETRIG — and they are not the same type.
 const CBM_ETRIG = file(
-  `${LIB("CAA Behaviour Model")}/ETRIG.fb`,
+  `${LIB("CAA Behaviour Model")}/ETRIG.pou`,
   "FUNCTION_BLOCK ETRIG\nVAR\n  fromCbm : BOOL;\nEND_VAR\n",
 )
 const CBML_ETRIG = file(
-  `${LIB("CBML")}/ETRIG.fb`,
+  `${LIB("CBML")}/ETRIG.pou`,
   "FUNCTION_BLOCK ETRIG\nVAR\n  fromCbml : BOOL;\nEND_VAR\n",
 )
 // One extender in a library that depends on CAA Behaviour Model…
 const CAA_FILE_USER = file(
-  `${LIB("CAA File")}/FileUser.fb`,
+  `${LIB("CAA File")}/FileUser.pou`,
   "FUNCTION_BLOCK FileUser EXTENDS ETRIG\nVAR\nEND_VAR\n",
 )
 // …and one in a library that depends on CBML instead.
 const VISU_USER = file(
-  `${LIB("VisuUtils")}/VisuUser.fb`,
+  `${LIB("VisuUtils")}/VisuUser.pou`,
   "FUNCTION_BLOCK VisuUser EXTENDS ETRIG\nVAR\nEND_VAR\n",
 )
 
@@ -88,9 +88,9 @@ describe("EXTENDS with two candidates", () => {
 
   test("a library's OWN export beats a dependency's — rank 0 before rank 1", () => {
     // CBML gains its own ETRIGA *and* depends on a library that has one; its own must win.
-    const own = file(`${LIB("CBML")}/ETRIGA.fb`, "FUNCTION_BLOCK ETRIGA\nVAR\nEND_VAR\n")
-    const dep = file(`${LIB("CAA Behaviour Model")}/ETRIGA.fb`, "FUNCTION_BLOCK ETRIGA\nVAR\nEND_VAR\n")
-    const user = file(`${LIB("CBML")}/CbmlUser.fb`, "FUNCTION_BLOCK CbmlUser EXTENDS ETRIGA\nVAR\nEND_VAR\n")
+    const own = file(`${LIB("CBML")}/ETRIGA.pou`, "FUNCTION_BLOCK ETRIGA\nVAR\nEND_VAR\n")
+    const dep = file(`${LIB("CAA Behaviour Model")}/ETRIGA.pou`, "FUNCTION_BLOCK ETRIGA\nVAR\nEND_VAR\n")
+    const user = file(`${LIB("CBML")}/CbmlUser.pou`, "FUNCTION_BLOCK CbmlUser EXTENDS ETRIGA\nVAR\nEND_VAR\n")
     const project = buildSymbolTable(
       [own, dep, user],
       [...MANIFESTS.slice(0, 2), manifest("CBML", "CBML", "CBML", ["CAA Behaviour Model"])],
@@ -99,11 +99,11 @@ describe("EXTENDS with two candidates", () => {
   })
 
   test("PROJECT source beats a library of the same name", () => {
-    const projectOwn = file("file:///w/POUs/ETRIG.fb", "FUNCTION_BLOCK ETRIG\nVAR\nEND_VAR\n")
-    const user = file("file:///w/POUs/App.fb", "FUNCTION_BLOCK App EXTENDS ETRIG\nVAR\nEND_VAR\n")
+    const projectOwn = file("file:///w/POUs/ETRIG.pou", "FUNCTION_BLOCK ETRIG\nVAR\nEND_VAR\n")
+    const user = file("file:///w/POUs/App.pou", "FUNCTION_BLOCK App EXTENDS ETRIG\nVAR\nEND_VAR\n")
     const project = buildSymbolTable([CBM_ETRIG, CBML_ETRIG, projectOwn, user], MANIFESTS)
     const scope = project.children.find((c) => c.name === "App")
-    expect(scope?.baseScope?.defUri).toBe("file:///w/POUs/ETRIG.fb")
+    expect(scope?.baseScope?.defUri).toBe("file:///w/POUs/ETRIG.pou")
   })
 
   test("with no manifests at all it is still deterministic, just uninformed", () => {
@@ -119,9 +119,9 @@ describe("EXTENDS with two candidates", () => {
 // A QUALIFIED BASE — `EXTENDS Standard.TON` (conformance `unit_fb_extends_qualified`, CODESYS builds it and the derived FB
 // reads the base's `PT`, 2026-10-01): the name before the dot is a library's NAMESPACE, the one after it a unit of it.
 test("a qualified EXTENDS names a unit of a library namespace", () => {
-  const ton = file(`${LIB("Standard")}/TON.fb`, "FUNCTION_BLOCK TON\nVAR_INPUT\n  PT : TIME;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
-  const derived = file("file:///w/FB_D.fb", "FUNCTION_BLOCK FB_D EXTENDS Standard.TON\nEND_FUNCTION_BLOCK\n")
-  const unknown = file("file:///w/FB_U.fb", "FUNCTION_BLOCK FB_U EXTENDS NoSuchLib.TON\nEND_FUNCTION_BLOCK\n")
+  const ton = file(`${LIB("Standard")}/TON.pou`, "FUNCTION_BLOCK TON\nVAR_INPUT\n  PT : TIME;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+  const derived = file("file:///w/FB_D.pou", "FUNCTION_BLOCK FB_D EXTENDS Standard.TON\nEND_FUNCTION_BLOCK\n")
+  const unknown = file("file:///w/FB_U.pou", "FUNCTION_BLOCK FB_U EXTENDS NoSuchLib.TON\nEND_FUNCTION_BLOCK\n")
   const project = buildSymbolTable([ton, derived, unknown], [manifest("Standard", "Standard", "Standard")])
   const child = (name: string) => project.children.find((c) => c.name === name)!
   expect(child("FB_D").baseScope?.defUri).toBe(ton.uri)
@@ -131,8 +131,8 @@ test("a qualified EXTENDS names a unit of a library namespace", () => {
 // A REFUSED FB IS NO BASE — `FUNCTION_BLOCK FINAL PUBLIC FB_A` declares no FB on either vendor (`headerRefused`), so an
 // `EXTENDS FB_A` has nothing to link to: the scope the binder keeps for FB_A's own body is no candidate for anyone.
 test("an FB whose header is refused is no candidate base", () => {
-  const refused = file("file:///w/FB_A.fb", "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n  n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
-  const derived = file("file:///w/FB_D.fb", "FUNCTION_BLOCK FB_D EXTENDS FB_A\nEND_FUNCTION_BLOCK\n")
+  const refused = file("file:///w/FB_A.pou", "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n  n : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n")
+  const derived = file("file:///w/FB_D.pou", "FUNCTION_BLOCK FB_D EXTENDS FB_A\nEND_FUNCTION_BLOCK\n")
   const project = buildSymbolTable([refused, derived], [])
   expect(project.children.find((c) => c.name === "FB_D")!.baseScope).toBeUndefined()
 })
@@ -140,7 +140,7 @@ test("an FB whose header is refused is no candidate base", () => {
 // ── rule H9: cycles, of every kind that extends, and the self-cycle `linkExtends` never links ─────────────────────
 describe("extendsCycle", () => {
   const top = (src: string, name: string) => {
-    const project = buildSymbolTable([{ uri: "F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }])
+    const project = buildSymbolTable([{ uri: "F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }])
     return project.children.find((c) => c.name === name)!
   }
   test("FBs, interfaces and STRUCTs each close one, from any member of it", () => {

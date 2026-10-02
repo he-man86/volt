@@ -14,7 +14,7 @@ test("a VAR CONSTANT initializer warns ONCE in an FB, where a plain VAR warns tw
   const run = (section: string) => {
     const src = `FUNCTION_BLOCK F\n${section}\ncLimit : DINT := 16#80000000;\nEND_VAR\nEND_FUNCTION_BLOCK`
     const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "sign-change-conversion")
       .map((d) => d.message)
@@ -33,7 +33,7 @@ VAR
 END_VAR
 END_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true }, "codesys")
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
   const messages = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "narrowing-conversion")
     .map((d) => d.message)

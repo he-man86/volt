@@ -80,7 +80,7 @@ public class PushWithoutHeaderCheckTests
         const string text = decl + "\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n\n" +
                             "METHOD Reset\nIMPLEMENTATION ST\nn := 0;\nEND_METHOD\n";
         var ide = Project();
-        var resp = Create(ide, "FB_Motor.fb", text);
+        var resp = Create(ide, "FB_Motor.pou", text);
 
         AssertWrittenAsSent(ide, resp, "FB_Motor", decl);
         var written = ide.WrittenContent["FB_Motor"];
@@ -104,14 +104,14 @@ public class PushWithoutHeaderCheckTests
         Assert.Contains("X.dut", RefsService.Handle(ide).Items.Keys);
     }
 
-    /// <summary>The spec's second scenario: <c>FB_X.fb</c> whose text starts <c>PROGRAM FB_X</c> is not refused for its
+    /// <summary>The spec's second scenario: <c>FB_X.pou</c> whose text starts <c>PROGRAM FB_X</c> is not refused for its
     /// header. (What the IDE then does with it is task 1.2's live measurement.)</summary>
     [Fact]
     public void A_function_block_name_over_a_programs_text_is_not_refused_for_its_header()
     {
         const string decl = "PROGRAM FB_X\nVAR\n\tn : INT;\nEND_VAR";
         var ide = Project();
-        var resp = Create(ide, "FB_X.fb", decl + "\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n");
+        var resp = Create(ide, "FB_X.pou", decl + "\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n");
 
         AssertWrittenAsSent(ide, resp, "FB_X", decl);
         Assert.Contains("create:FB_X", ide.Recorded);
@@ -164,7 +164,7 @@ public class PushWithoutHeaderCheckTests
         const string text = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
                             "METHOD 1Reset : INT\nIMPLEMENTATION ST\nEND_METHOD\n";
         var ide = Project();
-        var resp = Create(ide, "FB_A.fb", text);
+        var resp = Create(ide, "FB_A.pou", text);
 
         Assert.False(resp.Accepted);
         var conflict = Assert.Single(resp.Conflicts!);
@@ -182,7 +182,7 @@ public class PushWithoutHeaderCheckTests
         const string text = "FUNCTION_BLOCK FB_B\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
                             "(* resets the count\n *\nMETHOD Reset\nIMPLEMENTATION ST\nEND_METHOD\n";
         var ide = Project();
-        var resp = Create(ide, "FB_B.fb", text);
+        var resp = Create(ide, "FB_B.pou", text);
 
         Assert.False(resp.Accepted);
         var conflict = Assert.Single(resp.Conflicts!);

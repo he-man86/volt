@@ -27,7 +27,7 @@ public class SignatureParseTests
         StReader.Read(
             "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
             signature + "\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\n" + body + "\n" + EndOf(signature) + "\n",
-            ItemKind.Kinds.FunctionBlock)
+            ItemKind.Kinds.Pou)
         .Members.Single();
 
     private static string EndOf(string signature) =>
@@ -122,7 +122,7 @@ public class SignatureParseTests
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(
             "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
             "PROPERTY Ready\nGET\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nReady := TRUE;\nEND_GET\nEND_PROPERTY\n",
-            ItemKind.Kinds.FunctionBlock));
+            ItemKind.Kinds.Pou));
         Assert.Contains("must declare a type", ex.Message);
     }
 

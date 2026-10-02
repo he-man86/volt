@@ -266,7 +266,23 @@ public sealed partial class BeckhoffDriver
     public string Name(ItemRef item) => _om.GetName(item.Native);   // never "" — the name is the wire identity
     public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null) => new(_om.CreateChild(parent.Native, name, kindCode, seed));
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
+    {
+        try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
+        catch (Exception ex) when (ChildRefusal(ex) is { } why) { throw new ChildRefusedException(why, ex); }
+    }
+
+    /// <summary>Is this TwinCAT's own refusal of a child under its parent? Measured wording (TcXaeShell, DIALECT C2k,
+    /// `tc-function-members.log`): "Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node
+    /// type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)" — a method under FUNCTION text. Anything else (an "Unbound
+    /// tree item", a COM fault) is not a refusal and is not reported as one.
+    /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
+    public static string? ChildRefusal(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+            if (e.Message.IndexOf("(SubType mismatch)", StringComparison.Ordinal) >= 0) return e.Message;
+        return null;
+    }
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     /// <summary>Which accessors an INTERFACE property has — by ENUMERATING its children, the same way a
     /// non-interface property is read one file over.

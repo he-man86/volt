@@ -175,7 +175,7 @@ function codesysInstall(): string {
  *
  * <p>Matching only the PREFIX takes whichever IDE answers first, which is fine only while exactly one is
  * running. Leave a CODESYS open on another project and the finder silently migrates into THAT — measured: a
- * stray instance holding a probe's leftovers produced `ENOENT ... VltCollideA.prg` and it was reported as a
+ * stray instance holding a probe's leftovers produced `ENOENT ... VltCollideA.pou` and it was reported as a
  * GAP in the product. A fabricated finding from a real run is worse than no run.</p>
  */
 /** The pipe `ide.ps1 -Wait` reported — the IDE THIS run brought up, which is the only one it may drive.
@@ -240,7 +240,7 @@ function initWorkspace(label: string): { root: string; src: string; dispose: () 
  * CODESYS puts THREE levels first (`<Device>/Plc Logic/Application`); TwinCAT puts NONE, and materializes the PLC
  * project's contents at the top of `src/` (DIALECT N15). Everything under `Application` is the payload, and on
  * TwinCAT that payload IS the root. Normalising only the device SEGMENT — which is what this did — compares
- * `Device/Plc Logic/Application/99 Library/Round.fun` against `99 Library/Round.fun` and calls every item
+ * `Device/Plc Logic/Application/99 Library/Round.pou` against `99 Library/Round.pou` and calls every item
  * MISSING+EXTRA.
  *
  * Returns "" when the vendor has no prefix, which is not an error and must not be treated as one.
@@ -457,7 +457,7 @@ function firstDifference(want: string, got: string): string {
  * THE MIGRATING PUSH, MINUS WHAT THIS VENDOR PAIR CANNOT CARRY.
  *
  * A push that the bridge refuses by NAME is a known vendor limit, not a broken run: TwinCAT cannot re-import an
- * Execute box even in a body TwinCAT itself authored (C20), so `POUexecute.prg` stops a Project14 migration at
+ * Execute box even in a body TwinCAT itself authored (C20), so `POUexecute.pou` stops a Project14 migration at
  * item 7 of 9 and the other eight are never compared. The finder exists to find DRIFT, and it cannot find any
  * in files it never pushed.
  *
@@ -489,9 +489,9 @@ function pushAllItCan(
 		} catch (err) {
 			const message = String((err as Error).message)
 			// MATCHED BY BASE NAME. The bridge names an item the way the WIRE does while the staged map is keyed by
-			// workspace PATH, so the folder has to go: `POUs/POUexecute.prg` against `POUexecute.prg`. The extension
+			// workspace PATH, so the folder has to go: `POUs/POUexecute.pou` against `POUexecute.pou`. The extension
 			// stays: a workspace file's name IS its wire name (a DUT is `X.dut` on both sides), and dropping it
-			// would pair `X.fb` with a refused `X.dut` of the same name.
+			// would pair `X.pou` with a refused `X.dut` of the same name.
 			const lines = refusalLines(message)
 			const base = (n: string) => n.split("/").pop()!
 			const refusedNames = new Set([...lines.keys()].map(base))

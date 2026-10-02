@@ -33,7 +33,7 @@ public class TransportMatrixTests
     /// CREATE makes. Read it as the table it is:
     /// <code>
     ///   kind                     update      create
-    ///   fb/prg/fun/itf/struct/gvl   writexml    create + writexml + decl
+    ///   pou/itf/dut/gvl          writexml    create + writexml + decl
     /// </code>
     /// <b>One row, six kinds</b> — that uniformity IS the agreement, not a coincidence to be preserved by hand.
     /// It used to be three rows: POUs took the document while an interface's members went one COM call at a time
@@ -45,9 +45,10 @@ public class TransportMatrixTests
     /// `create:M` + `write:M`, and it is what this row proves now rides in the document.</para></summary>
     public static TheoryData<int, string, string, string[], string[]> Writable => new()
     {
-        { ItemKind.PlcPouFb,   "fb",  FbSrc,  new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
-        { ItemKind.PlcPouProg, "prg", PrgSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
-        { ItemKind.PlcPouFunc, "fun", FunSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        // A POU is `K.pou` whatever its text says (openspec push-without-header-check 5.Q): three rows, one kind.
+        { ItemKind.PlcPou,     "pou", FbSrc,  new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        { ItemKind.PlcPou,     "pou", PrgSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        { ItemKind.PlcPou,     "pou", FunSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         // The interface row's source DECLARES a method, and the fixture project does not have it — so its
         // update legitimately creates the member first. Member creation used to be invisible (the PLCopen
         // import added children as a side effect of the document write); the engine does it explicitly now,
@@ -151,7 +152,8 @@ public class TransportMatrixTests
     ///
     /// <para>It used to be two calls flat, however many members: the PLCopen import created every child as a
     /// side effect of the document write. There is no document now, so each member is an explicit
-    /// <c>CreateChild</c> — a POU with twenty methods costs 22 calls on CREATE where it cost 2. Nothing here can
+    /// <c>CreateChild</c> — a POU with twenty methods costs 23 calls on CREATE where it cost 2 (the declaration lands
+    /// alone before the members, 5.Q.4). Nothing here can
     /// batch it: creating an object is one scripting call on CODESYS and one COM call on TwinCAT, and neither
     /// exposes a bulk form.</para>
     ///
@@ -165,13 +167,15 @@ public class TransportMatrixTests
         var ide = new FakeIde();
         var recorded = Apply(ide, new SetItemOp
         {
-            Name = "K.fb",
+            Name = "K.pou",
             SourceText = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\n\nEND_FUNCTION_BLOCK\n\n"
                        + "METHOD A : BOOL\nIMPLEMENTATION ST\nA := TRUE;\nEND_METHOD\n\nMETHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n"
                        + "ACTION Act\nIMPLEMENTATION ST\nn := 1;\nEND_ACTION\n",
         });
 
-        Assert.Equal(new[] { "create:K", "create:A", "create:B", "create:Act", "writecontent:K" },
+        // The declaration is written FIRST, alone, so the IDE judges the members against the text that was sent
+        // (openspec push-without-header-check 5.Q.4, DIALECT C2k) — one more call, on a create with members only.
+        Assert.Equal(new[] { "create:K", "writecontent:K", "create:A", "create:B", "create:Act", "writecontent:K" },
                      recorded.ToArray());
         // The point that DOES survive: no per-member content write, and no orphan walk.
         Assert.DoesNotContain(recorded, r => r.StartsWith("write:"));
@@ -261,7 +265,7 @@ public class TransportMatrixTests
     public void The_guards_cost_no_extra_export_on_the_single_document_path()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK K\nVAR\nEND_VAR", "", null, null,
+            new FakeIde.Item("K", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK K\nVAR\nEND_VAR", "", null, null,
                 Children: new[] { "A", "B", "C" }),
             new FakeIde.Item("A", ItemKind.PlcMethod, "", false, "METHOD A : BOOL", "A := TRUE;", null, null),
             new FakeIde.Item("B", ItemKind.PlcMethod, "", false, "METHOD B : BOOL", "B := TRUE;", null, null),
@@ -271,8 +275,8 @@ public class TransportMatrixTests
 
         var recorded = Apply(ide, new SetItemOp
         {
-            Name = "K.fb",
-            IfVersion = refs.Items["K.fb"],
+            Name = "K.pou",
+            IfVersion = refs.Items["K.pou"],
             SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n"
                        + "METHOD A : BOOL\nIMPLEMENTATION ST\nA := FALSE;\nEND_METHOD\n\nMETHOD B : BOOL\nIMPLEMENTATION ST\nB := TRUE;\nEND_METHOD\n\n"
                        + "METHOD C : BOOL\nIMPLEMENTATION ST\nC := TRUE;\nEND_METHOD\n",
@@ -291,7 +295,7 @@ public class TransportMatrixTests
     public void A_refused_push_creates_no_folders()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK K\nVAR\nEND_VAR", "", null, null,
+            new FakeIde.Item("K", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK K\nVAR\nEND_VAR", "", null, null,
                 Children: new[] { "M" }),
             new FakeIde.Item("M", ItemKind.PlcMethod, "", false, "METHOD M : BOOL", "", "CFC", null));
         var refs = RefsService.Handle(ide);
@@ -301,8 +305,8 @@ public class TransportMatrixTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new() { new SetItemOp
             {
-                Name = "K.fb",
-                IfVersion = refs.Items["K.fb"],
+                Name = "K.pou",
+                IfVersion = refs.Items["K.pou"],
                 SourceText = "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n"
                            + "METHOD M : BOOL\nIMPLEMENTATION ST\n%FOLDER Nested/Deep\nM := TRUE;\nEND_METHOD\n",
             } },
@@ -381,10 +385,4 @@ public class TransportMatrixTests
         Assert.All(names.Where(n => n.Contains('.')), n => Assert.EndsWith(".dut", n, System.StringComparison.Ordinal));
     }
 
-    private static string SourceFor(string ext) => ext switch
-    {
-        "fb" => FbSrc, "prg" => PrgSrc, "fun" => FunSrc,
-        "itf" => ItfSrc, "dut" => DutSrc, "gvl" => GvlSrc,
-        _ => throw new System.ArgumentOutOfRangeException(nameof(ext), ext, "not a writable kind in the matrix"),
-    };
 }

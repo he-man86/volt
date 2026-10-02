@@ -111,7 +111,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 		}
 		// Learn each vendor's root by MEASURING it — push one item at `toFolder: ""` and see where it lands —
 		// rather than hardcoding two path strings that would rot the first time a fixture project is rearranged.
-		const probe = `${PREFIX}_par_root.fb`
+		const probe = `${PREFIX}_par_root.pou`
 		;[rootA, rootB] = await Promise.all([a, b].map(async (c) => {
 			const row = await roundTrip(c, probe, fb(`${PREFIX}_par_root`))
 			await removeIfPresent(c, probe)
@@ -122,14 +122,14 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 	// One case per SHAPE, because divergence is shape-specific: it showed up historically in members (TwinCAT
 	// dropped FBs with methods) and in declaration-only kinds (the DUT export that answered E_FAIL).
 	const cases: [string, string, (n: string) => string][] = [
-		["a plain function_block", "fb", (n) => fb(n)],
-		["a program", "prg", (n) => prog(n)],
-		["a function with a non-INT return", "fun", (n) => func(n)],
-		["an FB with a METHOD", "fb", (n) => fb(n, { children: METHOD("Compute") })],
-		["an FB with an ACTION", "fb", (n) => fb(n, { children: ACTION("Step") })],
-		["an FB with a PROPERTY (both accessors)", "fb", (n) => fb(n, { children: PROPERTY("Ready") })],
-		["a struct DUT", "struct", (n) => structDut(n)],
-		["an enum DUT", "enum", (n) => enumDut(n)],
+		["a plain function_block", "pou", (n) => fb(n)],
+		["a program", "pou", (n) => prog(n)],
+		["a function with a non-INT return", "pou", (n) => func(n)],
+		["an FB with a METHOD", "pou", (n) => fb(n, { children: METHOD("Compute") })],
+		["an FB with an ACTION", "pou", (n) => fb(n, { children: ACTION("Step") })],
+		["an FB with a PROPERTY (both accessors)", "pou", (n) => fb(n, { children: PROPERTY("Ready") })],
+		["a struct DUT", "dut", (n) => structDut(n)],
+		["an enum DUT", "dut", (n) => enumDut(n)],
 		["a GVL", "gvl", (n) => gvl(n)],
 	]
 
@@ -171,7 +171,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 	// after a no-op push. Asserted per vendor, on the same source, in the same test.
 	it("an item's version is a function of its content, on both vendors", async () => {
 		const bare = `${PREFIX}_par_hash`
-		const name = `${bare}.fb`
+		const name = `${bare}.pou`
 		const src = fb(bare)
 		try {
 			for (const c of [a, b]) {
@@ -189,7 +189,7 @@ describe.skipIf(!BOTH)("vendor parity — CODESYS vs TwinCAT, same source, same 
 	// rather than textual: same push, same set of names, same kinds.
 	it("refs reports the same name and kind for the same push on both vendors", async () => {
 		const bare = `${PREFIX}_par_refs`
-		const name = `${bare}.fb`
+		const name = `${bare}.pou`
 		try {
 			await Promise.all([
 				roundTrip(a, name, fb(bare, { children: METHOD("M") })),

@@ -10,7 +10,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 function eb(body: string) {
   const src = `PROGRAM PLC_PRG\nVAR b : BOOL; i : INT; END_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter(
     (d) => d.code === "empty-block",
   )

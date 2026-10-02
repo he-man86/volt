@@ -1,0 +1,111 @@
+probe-kind-audit - project C:\Users\marce\AppData\Local\Temp\volt-ide-codesys-kind-audit\Pro2193-94-95-96_COdesys.project
+opened; application Application
+
+==== create_* surface of the application
+
+==== census BEFORE (CLR class, count, interfaces)
+      7  _3S.CoDeSys.ActionObject.ActionObject                                  [IActionObject]  e.g. 'G3_Mapping' 
+      1  _3S.CoDeSys.ApplicationObject.ApplicationObject                        [IApplicationObject+IChildOnlineApplicationObject+IOnlineApplicationObject]  e.g. 'Application' 
+    151  _3S.CoDeSys.DUTObject.DUTObject                                        [IDUTObject+IGenerateableObject]  e.g. 'eExceptionCodes' 
+    363  _3S.CoDeSys.DefaultNavigators.FolderObject                             [IFolderObject]  e.g. '09 Misc' 
+     93  _3S.CoDeSys.DeviceObject.DeviceObject                                  [IDeviceObject+IGenerateableObject]  e.g. 'Device' 
+      2  _3S.CoDeSys.DeviceObject.ExplicitConnector                             []  e.g. 'Kinematics' 
+     13  _3S.CoDeSys.DeviceObject.SlotDeviceObject                              [IDeviceObject+IGenerateableObject+ISlotDeviceObject]  e.g. 'Axis_X' 
+      2  _3S.CoDeSys.Engine.EmbeddedFileObject                                  [IEmbeddedFileObject+IHiddenObject]  e.g. '5ce3da45-db07-42e7-a21c-a00fff4ed8f6|C:\Users\stefan.VDBRINK-LAN\Desktop\2000px-Lenze_Gruppe_Logo.svg.png' 
+      1  _3S.CoDeSys.Engine.WorkspaceObject                                     [IMergeableObject+IWorkspaceObject]  e.g. 'Project Settings' 
+     11  _3S.CoDeSys.GVLObject.GVLObject                                        [IGVLObject+IGenerateableObject]  e.g. 'GVL_Exceptions' PL=False NV=False
+      1  _3S.CoDeSys.GVLObject.VarPersistentObject                              [IGVLObject+IPersistentGVLObject]  e.g. 'PersistentVars' PL=None NV=False
+      2  _3S.CoDeSys.ImagePool.HiddenTransientImagePoolObject                   [IHiddenObject+IImagePoolObject+ITransientObject]  e.g. '__VisualizationStyle' 
+      1  _3S.CoDeSys.ImagePool.ImagePoolObject                                  [IImagePoolObject]  e.g. 'AxisFB_Images' 
+     97  _3S.CoDeSys.InterfaceObject.InterfaceObject                            [IInterfaceObject]  e.g. 'IXYControl_Commands' 
+      2  _3S.CoDeSys.LibManObject.LibManObject                                  [ILibManObject+IMergeableObject]  e.g. 'Library Manager' 
+     10  _3S.CoDeSys.MethodObject.AbstractPOUMethodObject                       [IAbstractPOUMethodObject+IPOUMethodObject]  e.g. 'TakePicture' 
+    182  _3S.CoDeSys.MethodObject.InterfaceMethodObject                         [IInterfaceMethodObject]  e.g. 'GetSampleShotRequest' 
+   1264  _3S.CoDeSys.MethodObject.POUMethodObject                               [IPOUMethodObject]  e.g. 'Initialize' 
+    262  _3S.CoDeSys.POUObject.POUObject                                        [IGenerateableObject+IPOUObject]  e.g. 'GVL_ComponentHardwareCall' 
+     10  _3S.CoDeSys.POUObject.POUObjectCheckFunction                           [IGenerateableObject+IPOUObject]  e.g. 'CheckBounds' 
+      1  _3S.CoDeSys.PlcLogicObject.PlcLogicObject                              [IOnlineApplicationObject+IPlcLogicObject]  e.g. 'Plc Logic' 
+      1  _3S.CoDeSys.ProjectInfoObject.ProjectInfoObject                        [IProjectInfoObject]  e.g. 'Project Information' 
+    112  _3S.CoDeSys.PropertyObject.InterfacePropertyAccessorObject             [IInterfacePropertyAccessorObject]  e.g. 'Get' 
+    330  _3S.CoDeSys.PropertyObject.PropertyAccessorObject                      [IPropertyAccessorObject]  e.g. 'Get' 
+    368  _3S.CoDeSys.PropertyObject.PropertyObject                              [IInterfacePropertyObject+IPropertyObject]  e.g. 'ActState' 
+      3  _3S.CoDeSys.RecipeManObject.RecipeDefinitionObject                     [IRecipeDefinitionObject]  e.g. 'Brink' 
+      1  _3S.CoDeSys.RecipeManObject.RecipeManObject                            [IApplicationChildObject+IRecipeManObject]  e.g. 'RecipeManager' 
+      1  _3S.CoDeSys.SymbolConfigObject.SymbolConfigObject                      [IOnlineApplicationObject+ISymbolConfigObject]  e.g. 'Symbols' 
+      1  _3S.CoDeSys.TaskConfigObject.TaskConfigObject                          [IMergeableObject+ITaskConfigObject]  e.g. 'Task Configuration' 
+      6  _3S.CoDeSys.TaskObject.TaskObject                                      [IGenerateableObject+ITaskObject]  e.g. 'Ethernet' 
+      6  _3S.CoDeSys.TaskObject.TaskPOUCallObject                               [IOnlineUsedTransientObject+ITaskPOUCallObject+ITransientObject]  e.g. 'Server' 
+      1  _3S.CoDeSys.TextList.GlobalTextListObject                              [IGlobalTextListObject+IMergeableObject+ITextListObject]  e.g. 'GlobalTextList' 
+      3  _3S.CoDeSys.TextList.TextListEnumerationObject                         [ITextListEnumerationObject]  e.g. 'IQSlices' 
+     17  _3S.CoDeSys.TraceObject.TraceObject                                    [IDeviceChildObject+IOnlineApplicationObject+ITraceObject]  e.g. 'Trace_States' 
+      1  _3S.CoDeSys.VisualObject.VisualManagerObject                           [IMergeableObject+IVisualManagerObject]  e.g. 'Visualization Manager' 
+     36  _3S.CoDeSys.VisualObject.VisualObject                                  [IGenerateableObject+IVisualObject]  e.g. 'RecipeManagerVisu' 
+
+==== GVL family
+  create_gvl -> VltA_G: clr=_3S.CoDeSys.GVLObject.GVLObject ifaces=[IGVLObject+IGenerateableObject] sig=VarGlobal/Internal ParameterList=False
+     decl: {attribute 'qualified_only'} | VAR_GLOBAL | END_VAR
+  create_persistentvariables: not on the scripting container
+  create_persistent_variables: not on the scripting container
+  create_nvl: not on the scripting container
+  create_parameter_list: not on the scripting container
+  create_paramlist: not on the scripting container
+
+==== text vs class: write a foreign declaration into each family
+  POU created Program: VltA_PI: clr=_3S.CoDeSys.POUObject.POUObject ifaces=[IGenerateableObject+IPOUObject] sig=Program/None impl=STImplementationObject
+    write INTERFACE text: ok
+    -> VltA_PI: clr=_3S.CoDeSys.POUObject.POUObject ifaces=[IGenerateableObject+IPOUObject] sig=Interface/None impl=STImplementationObject
+    write TYPE text: ok
+    -> VltA_PI: clr=_3S.CoDeSys.POUObject.POUObject ifaces=[IGenerateableObject+IPOUObject] sig=Type/Structure impl=STImplementationObject
+    write VAR_GLOBAL text: ok
+    -> VltA_PI: clr=_3S.CoDeSys.POUObject.POUObject ifaces=[IGenerateableObject+IPOUObject] sig=VarGlobal/None impl=STImplementationObject
+    write FUNCTION_BLOCK text: ok
+    -> VltA_PI: clr=_3S.CoDeSys.POUObject.POUObject ifaces=[IGenerateableObject+IPOUObject] sig=FunctionBlock/None impl=STImplementationObject
+  INTERFACE created: VltA_IP: clr=_3S.CoDeSys.InterfaceObject.InterfaceObject ifaces=[IInterfaceObject] sig=Interface/None
+    write PROGRAM text: ok
+    -> VltA_IP: clr=_3S.CoDeSys.InterfaceObject.InterfaceObject ifaces=[IInterfaceObject] sig=Program/None
+    write FUNCTION_BLOCK text: ok
+    -> VltA_IP: clr=_3S.CoDeSys.InterfaceObject.InterfaceObject ifaces=[IInterfaceObject] sig=FunctionBlock/None
+  GVL created: VltA_GX: clr=_3S.CoDeSys.GVLObject.GVLObject ifaces=[IGVLObject+IGenerateableObject] sig=VarGlobal/Internal ParameterList=False
+    write TYPE text: ok
+    -> VltA_GX: clr=_3S.CoDeSys.GVLObject.GVLObject ifaces=[IGVLObject+IGenerateableObject] sig=VarGlobal/Internal ParameterList=False
+    write PROGRAM text: ok
+    -> VltA_GX: clr=_3S.CoDeSys.GVLObject.GVLObject ifaces=[IGVLObject+IGenerateableObject] sig=VarGlobal/Internal ParameterList=False
+    write VAR_GLOBAL PERSISTENT RETAIN text: ok
+    -> VltA_GX: clr=_3S.CoDeSys.GVLObject.GVLObject ifaces=[IGVLObject+IGenerateableObject] sig=VarGlobal/None ParameterList=False
+  DUT created: VltA_DX: clr=_3S.CoDeSys.DUTObject.DUTObject ifaces=[IDUTObject+IGenerateableObject] sig=Type/Structure
+    write VAR_GLOBAL text: ok
+    -> VltA_DX: clr=_3S.CoDeSys.DUTObject.DUTObject ifaces=[IDUTObject+IGenerateableObject] sig=None/None
+    write PROGRAM text: ok
+    -> VltA_DX: clr=_3S.CoDeSys.DUTObject.DUTObject ifaces=[IDUTObject+IGenerateableObject] sig=Program/None
+    write INTERFACE text: ok
+    -> VltA_DX: clr=_3S.CoDeSys.DUTObject.DUTObject ifaces=[IDUTObject+IGenerateableObject] sig=Interface/None
+
+==== members
+  create_method: create_method(self: IScriptIecLanguageMemberContainer, name: str, return_type: str, language: Nullable[Guid]) -> IExtendedObject[IScriptObject]
+  create_property: create_property(self: IScriptIecLanguageMemberContainer, name: str, return_type: str, language: Nullable[Guid]) -> IExtendedObject[IScriptObject]
+  create_action: create_action(self: IScriptIecLanguageMemberContainer, name: str, language: Nullable[Guid]) -> IExtendedObject[IScriptObject]
+  create_transition: create_transition(self: IScriptIecLanguageMemberContainer, name: str, language: Nullable[Guid]) -> IExtendedObject[IScriptObject]
+  method: M1: clr=_3S.CoDeSys.MethodObject.POUMethodObject ifaces=[IPOUMethodObject] sig=Method/None impl=STImplementationObject
+    write PROPERTY text: ok
+    -> M1: clr=_3S.CoDeSys.MethodObject.POUMethodObject ifaces=[IPOUMethodObject] sig=Method/None impl=STImplementationObject
+    write FUNCTION_BLOCK text: ok
+    -> M1: clr=_3S.CoDeSys.MethodObject.POUMethodObject ifaces=[IPOUMethodObject] sig=FunctionBlock/None impl=STImplementationObject
+  property: P1: clr=_3S.CoDeSys.PropertyObject.PropertyObject ifaces=[IInterfacePropertyObject+IPropertyObject] sig=null
+    accessor: Set: clr=_3S.CoDeSys.PropertyObject.PropertyAccessorObject ifaces=[IPropertyAccessorObject] sig=Method/None impl=STImplementationObject
+    accessor: Get: clr=_3S.CoDeSys.PropertyObject.PropertyAccessorObject ifaces=[IPropertyAccessorObject] sig=Method/None impl=STImplementationObject
+    write METHOD text: ok
+    -> P1: clr=_3S.CoDeSys.PropertyObject.PropertyObject ifaces=[IInterfacePropertyObject+IPropertyObject] sig=null
+  action (default lang): A1: clr=_3S.CoDeSys.ActionObject.ActionObject ifaces=[IActionObject] sig=Action/None impl=STImplementationObject
+    decl: None
+  ImplementationLanguages: Equals, GetHashCode, GetType, MemberwiseClone, ReferenceEquals, ToString, cfc, fbd, instruction_list, ladder, page_oriented_cfc, sfc, st, uml_statechart
+  action (cfc/fbd): A2: clr=_3S.CoDeSys.ActionObject.ActionObject ifaces=[IActionObject] sig=Action/None impl=CFCImplementationObject
+  interface method (interface now holds FUNCTION_BLOCK text): IM1: clr=_3S.CoDeSys.MethodObject.InterfaceMethodObject ifaces=[IInterfaceMethodObject] sig=Method/None
+  interface method: IM2: clr=_3S.CoDeSys.MethodObject.InterfaceMethodObject ifaces=[IInterfaceMethodObject] sig=Method/None
+  interface property: IP2: clr=_3S.CoDeSys.PropertyObject.PropertyObject ifaces=[IInterfacePropertyObject+IPropertyObject] sig=null
+    accessor: Set: clr=_3S.CoDeSys.PropertyObject.InterfacePropertyAccessorObject ifaces=[IInterfacePropertyAccessorObject] sig=Method/None
+    accessor: Get: clr=_3S.CoDeSys.PropertyObject.InterfacePropertyAccessorObject ifaces=[IInterfacePropertyAccessorObject] sig=Method/None
+Traceback (most recent call last):
+  File "C:\Users\marce\AppData\Local\Temp\claude\C--Users-marce-Github-volt\e922541b-92e2-41f1-acc3-c0924669eb89\scratchpad\kind-audit\probe-kind-audit.py", line 267, in <module>
+    pm = pou2.create_method("PM")
+SystemError: Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or device description).
+

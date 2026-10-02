@@ -838,10 +838,10 @@ window.VOLT = {
     {
       "code": 602,
       "constant": "PlcPouProg",
-      "kind": "program",
+      "kind": "pou",
       "emitted": true,
       "exts": [
-        "prg"
+        "pou"
       ],
       "source": true,
       "addressable": true,
@@ -852,10 +852,10 @@ window.VOLT = {
     {
       "code": 603,
       "constant": "PlcPouFunc",
-      "kind": "function",
+      "kind": "pou",
       "emitted": true,
       "exts": [
-        "fun"
+        "pou"
       ],
       "source": true,
       "addressable": true,
@@ -865,11 +865,11 @@ window.VOLT = {
     },
     {
       "code": 604,
-      "constant": "PlcPouFb",
-      "kind": "function_block",
+      "constant": "PlcPou",
+      "kind": "pou",
       "emitted": true,
       "exts": [
-        "fb"
+        "pou"
       ],
       "source": true,
       "addressable": true,
@@ -1412,16 +1412,6 @@ window.VOLT = {
       "writable": false
     },
     {
-      "ext": "fb",
-      "source": true,
-      "writable": true
-    },
-    {
-      "ext": "fun",
-      "source": true,
-      "writable": true
-    },
-    {
       "ext": "gvl",
       "source": true,
       "writable": true
@@ -1452,7 +1442,7 @@ window.VOLT = {
       "writable": false
     },
     {
-      "ext": "prg",
+      "ext": "pou",
       "source": true,
       "writable": true
     },

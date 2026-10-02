@@ -44,7 +44,7 @@ public static class Severity
 
 public class BridgeDiagnostic
 {
-    /// <summary>The FULL wire name of the item this diagnostic is about (`FB_Motor.fb`) — null when the vendor
+    /// <summary>The FULL wire name of the item this diagnostic is about (`FB_Motor.pou`) — null when the vendor
     /// did not say which, or when it said something this bridge could not resolve to exactly one item.
     ///
     /// <para>Without it a diagnostic carries a <see cref="Line"/> anchored to nothing: a client has a line
@@ -54,7 +54,7 @@ public class BridgeDiagnostic
     ///
     /// <para>FULL or null, never bare: the wire's names are full names (`Versioning.VersionedItem.Identity`),
     /// and a field that is sometimes one spelling and sometimes the other is worse than an absent one. A bare
-    /// name that matches two items across kinds — `CM_Carrier.fb` and `CM_Carrier.visualization` both exist in
+    /// name that matches two items across kinds — `CM_Carrier.pou` and `CM_Carrier.visualization` both exist in
     /// real projects — resolves to null rather than to a guess.</para></summary>
     [JsonPropertyName("name")]
     public string? Name { get; set; }
@@ -76,7 +76,7 @@ public class BridgeDiagnostic
     ///
     /// <para><b>It is also the frame of <see cref="Line"/>.</b> A vendor counts a child's line inside the CHILD
     /// object (TwinCAT, DIALECT D36), not in the wire file, so `name:line` alone points at the wrong line of the right
-    /// file. A client that prints a position prints the member with it - `FB_Motor.fb(Execute):6`, as `volt build`
+    /// file. A client that prints a position prints the member with it - `FB_Motor.pou(Execute):6`, as `volt build`
     /// does.</para></summary>
     [JsonPropertyName("member")]
     public string? Member { get; set; }

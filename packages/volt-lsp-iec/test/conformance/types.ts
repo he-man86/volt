@@ -32,7 +32,7 @@ export interface LanguageTest {
    *  (`FB_LANG_*`, `GVL_LANG_*`, `DUT_LANG_*`, `ITF_LANG_*`) so the recorder's cleanup sweep catches it — a fixture
    *  named otherwise is left behind in the project and the next run inherits it. */
   pouName: string
-  /** Item kind on the bridge. Every writable source kind materializes as one kind-named file (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`, and every DUT as `.dut` — openspec push-without-header-check 5.P). */
+  /** Item kind on the bridge. Every writable source kind materializes as one kind-named file (`.pou`/`.itf`/`.gvl`, every POU as `.pou` and every DUT as `.dut` — openspec push-without-header-check 5.P). */
   kind: "function_block" | "function" | "program" | "gvl" | "dut" | "interface"
   /** What the test exercises — short label for reports. */
   feature: string

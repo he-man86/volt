@@ -19,7 +19,7 @@ namespace Volt.Engine.Sync;
 /// <b>EVERY key here is the FULL wire name</b> (<c>name.kind</c>) - the aggregate versions included. That is
 /// not a detail: this header used to say the aggregates were keyed by BARE name, and doing that IS the V71
 /// data-loss bug. IEC guarantees unique names within a kind, not across them, so a real project holds
-/// <c>CM_Carrier.fb</c> beside <c>CM_Carrier.visualization</c>; collapsed onto one bare slot the walk order
+/// <c>CM_Carrier.pou</c> beside <c>CM_Carrier.visualization</c>; collapsed onto one bare slot the walk order
 /// picks a winner, the loser's version is invisible to <c>projectVersion</c> (a pull reports "nothing to
 /// pull" over a real edit) and the push's <c>ifVersion</c> gate answers with the OTHER item's hash - so that
 /// item can be pulled and never pushed back. The identity is derived in ONE place,
@@ -79,7 +79,7 @@ public static class FetchService
         // Items the walk SAW but could not read. They exist; they are simply not in this response.
         var unreadableBareNames = new HashSet<string>(System.StringComparer.Ordinal);
         // …and the KINDS each was walked as, which the walk knows even when it cannot read the body. The removal
-        // exemption is the unreadable ITEM's, and bare names repeat across kinds (`CM_Carrier.fb` beside
+        // exemption is the unreadable ITEM's, and bare names repeat across kinds (`CM_Carrier.pou` beside
         // `CM_Carrier.visualization`): keyed by bare name alone, an unreadable FB shielded a visualization the
         // IDE had deleted, whose file then survived the pull and whose next edit pushed as a create.
         var unreadableKinds = new Dictionary<string, HashSet<string>>(System.StringComparer.Ordinal);

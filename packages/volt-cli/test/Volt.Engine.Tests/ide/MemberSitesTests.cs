@@ -28,7 +28,7 @@ public class MemberSitesTests
 
     /// <summary>A POU carrying a method at its root, a method inside `Helpers`, and one nested two deep.</summary>
     private static FakeIde Project() => new(
-        new FakeIde.Item("FB_Host", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
+        new FakeIde.Item("FB_Host", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
                          Children: new[] { "AtRoot", "Helpers" }),
         Node("AtRoot", ItemKind.PlcMethod),
         Node("Helpers", ItemKind.PlcFolder, "Inner", "Deep"),
@@ -82,7 +82,7 @@ public class MemberSitesTests
     public void An_accessor_is_not_a_member()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Host", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
+            new FakeIde.Item("FB_Host", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
                              Children: new[] { "Val" }),
             Node("Val", ItemKind.PlcProp, "Get", "Set"),
             Node("Get", ItemKind.PlcPropGet),
@@ -100,7 +100,7 @@ public class MemberSitesTests
     public void A_transition_is_not_a_member()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Host", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
+            new FakeIde.Item("FB_Host", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
                              Children: new[] { "Step1", "Go" }),
             Node("Step1", ItemKind.PlcTrans),
             Node("Go", ItemKind.PlcMethod));
@@ -118,7 +118,7 @@ public class MemberSitesTests
     public void A_tree_fault_propagates_rather_than_yielding_a_partial_map()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Host", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
+            new FakeIde.Item("FB_Host", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
                              Children: new[] { "AtRoot", "Helpers" }),
             Node("AtRoot", ItemKind.PlcMethod),
             Node("Helpers", ItemKind.PlcFolder, "Inner"),

@@ -30,7 +30,7 @@ public class AccessorReconcileTests
     {
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
-            new("FB_Prop", ItemKind.PlcPouFb, "", true, Decl, "", null, null, Children: new[] { "Val" }),
+            new("FB_Prop", ItemKind.PlcPou, "", true, Decl, "", null, null, Children: new[] { "Val" }),
             new("Val", ItemKind.PlcProp, "", false, "PROPERTY Val : INT", null, null, null,
                 Children: accessors.Length == 0 ? null : accessors),
         };
@@ -59,8 +59,8 @@ public class AccessorReconcileTests
             {
                 new SetItemOp
                 {
-                    Name = "FB_Prop.fb",
-                    IfVersion = refs.Items["FB_Prop.fb"],
+                    Name = "FB_Prop.pou",
+                    IfVersion = refs.Items["FB_Prop.pou"],
                     SourceText = source,
                 },
             },
@@ -148,7 +148,7 @@ public class AccessorReconcileTests
     {
         // The POU declares the property in its source; the project does not carry it yet.
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Prop", ItemKind.PlcPouFb, "", true, Decl, "", null, null));
+            new FakeIde.Item("FB_Prop", ItemKind.PlcPou, "", true, Decl, "", null, null));
 
         Assert.True(Push(ide, Source(get: true, set: true)).Accepted);
 

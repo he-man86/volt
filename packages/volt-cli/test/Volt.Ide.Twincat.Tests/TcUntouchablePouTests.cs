@@ -97,7 +97,7 @@ public class TcUntouchablePouTests
             _xae.Alive();
             using var zip = System.IO.Compression.ZipFile.OpenRead(zipPath);
             var entry = Assert.Single(zip.Entries);
-            var kid = new Node(_xae, System.IO.Path.GetFileNameWithoutExtension(entry.Name), ItemKind.PlcPouFb) { Owner = this };
+            var kid = new Node(_xae, System.IO.Path.GetFileNameWithoutExtension(entry.Name), ItemKind.PlcPou) { Owner = this };
             Kids.Add(kid);
         }
         internal Node Touch(Node k)
@@ -108,12 +108,12 @@ public class TcUntouchablePouTests
         }
         public string Caption => Poisoned ? _name : _type switch
         {
-            ItemKind.PlcPouProg => _name + " (PRG)", ItemKind.PlcPouFb => _name + " (FB)", ItemKind.PlcPouFunc => _name + " (FUN)",
+            ItemKind.PlcPouProg => _name + " (PRG)", ItemKind.PlcPou => _name + " (FB)", ItemKind.PlcPouFunc => _name + " (FUN)",
             _ => _name,
         };
         public string Canonical => _type switch
         {
-            ItemKind.PlcPouProg or ItemKind.PlcPouFb or ItemKind.PlcPouFunc => $@"C:\p\{_name}.TcPOU",
+            ItemKind.PlcPouProg or ItemKind.PlcPou or ItemKind.PlcPouFunc => $@"C:\p\{_name}.TcPOU",
             ItemKind.PlcFolder => $@"C:\p\{_name}\",
             ItemKind.PlcGvl => $@"C:\p\{_name}.TcGVL",
             _ => $@"C:\p\{_name}.TcDUT",
@@ -176,11 +176,11 @@ public class TcUntouchablePouTests
         new(x, "Untitled2 Project", ItemKind.PlcFolder, false,
             new Node(x, "VltCensus", ItemKind.PlcFolder, false,
                 new Node(x, "VltX_EG", ItemKind.PlcGvl),
-                new Node(x, "VltX_UCFB", ItemKind.PlcPouFb, poisoned: true),
+                new Node(x, "VltX_UCFB", ItemKind.PlcPou, poisoned: true),
                 new Node(x, "VltX_FP", ItemKind.PlcPouProg),
                 new Node(x, "VltX_UCI", ItemKind.PlcItf)),
             new Node(x, "Clean", ItemKind.PlcFolder, false,
-                new Node(x, "Motor", ItemKind.PlcPouFb)),
+                new Node(x, "Motor", ItemKind.PlcPou)),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg));
 
     [Fact]
@@ -195,7 +195,7 @@ public class TcUntouchablePouTests
         var named = Assert.Single(walk.UnreadableObjects);
         Assert.Equal(("VltX_UCFB", "VltCensus"), (named.Name, named.Folder));
         Assert.Contains("crashes TcXaeShell", named.Reason);
-        Assert.Equal(new[] { ItemKind.Kinds.Program, ItemKind.Kinds.FunctionBlock, ItemKind.Kinds.Function }, named.Kinds);
+        Assert.Equal(new[] { ItemKind.Kinds.Pou }, named.Kinds);
         Assert.True(walk.Complete, string.Join(",", walk.UnwalkedFolders));   // a POU is no container: its folder was walked whole
         Assert.DoesNotContain("VltX_UCFB", xae.Lookups);
     }
@@ -228,6 +228,97 @@ public class TcUntouchablePouTests
         Assert.DoesNotContain(root.Kids[0].Kids, k => k.Poisoned);
     }
 
+    /// <summary>A STRUCTURAL WRITE INSIDE ONE OPERATION DOES NOT MAKE THE HIERARCHY "SHORT". The snapshot is read once per
+    /// operation; a push that deletes (or creates) a child and then looks another one up in the same folder — a
+    /// create + update + delete batch, a member create followed by the re-find — met a snapshot that still listed the
+    /// old count, and was refused "holds 2 children in the PLC tree, and the Solution Explorer lists 3" (live e2e
+    /// 2026-10-02, 5Qa review: `push.test.ts`, `build-diagnostics.test.ts`, `fetch.test.ts`). The count check is about a
+    /// hierarchy read that came back short, not one Volt itself made stale: after a structural write it reads afresh.</summary>
+    [Fact]
+    public void A_lookup_after_a_delete_in_the_same_operation_reads_the_hierarchy_afresh()
+    {
+        var (driver, _, xae, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
+            new Node(x, "POUs", ItemKind.PlcFolder, false,
+                new Node(x, "Motor1", ItemKind.PlcPou), new Node(x, "Motor2", ItemKind.PlcPou), new Node(x, "Motor3", ItemKind.PlcPou)),
+            new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
+        var motor1 = ItemLookup.Find(driver, "Motor1")!.Value;
+
+        driver.Delete(driver.Parent(motor1), "Motor1");
+
+        Assert.NotNull(ItemLookup.Find(driver, "Motor3"));
+        Assert.False(xae.Dead);
+    }
+
+    /// <summary>A DUT AND A FOLDER OF THE SAME NAME (legal, DIALECT D34) are two hierarchy nodes at one path. The DUT's
+    /// "0 children" overwrote the folder's count, so the folder was refused "holds 1 … lists 0" and its POU vanished from
+    /// refs (live e2e `name-clash.test.ts`, 2026-10-02).</summary>
+    [Fact]
+    public void A_DUT_beside_a_folder_of_its_name_does_not_hide_the_folders_children()
+    {
+        var (driver, _, xae, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
+            new Node(x, "Clash", ItemKind.PlcFolder, false, new Node(x, "Inner", ItemKind.PlcPou)),
+            new Node(x, "Clash", ItemKind.PlcDutStruct),
+            new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
+
+        var walk = driver.WalkItems();
+
+        Assert.Empty(walk.UnwalkedFolders);
+        Assert.Contains("Inner", walk.Items.Select(i => i.Name));
+        Assert.False(xae.Dead);
+    }
+
+    /// <summary>THE SAME SHARED PATH IN A GUARDED FOLDER (5Qa review). Its children are addressed by NAME, and a DUT and a
+    /// folder named <c>X</c> are one name: <c>LookupChild("X")</c> answered the same node for both indices, so one was
+    /// read twice and the other never — the folder's POUs missing from the walk, in silence. A guarded folder whose
+    /// children cannot each be addressed by their own name is refused by name (unwalked: nothing in it reads as
+    /// deleted). Niche: 0 such folders in the corpora.</summary>
+    [Fact]
+    public void A_guarded_folder_with_two_children_of_one_name_is_refused_not_read_twice()
+    {
+        var (driver, _, xae, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
+            new Node(x, "F", ItemKind.PlcFolder, false,
+                new Node(x, "U", ItemKind.PlcPou, poisoned: true),
+                new Node(x, "X", ItemKind.PlcDutStruct),
+                new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou))),
+            new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
+
+        var walk = driver.WalkItems();
+
+        Assert.False(xae.Dead);
+        Assert.Contains("F", walk.UnwalkedFolders);
+        Assert.Contains("PLC_PRG", walk.Items.Select(i => i.Name));
+    }
+
+    /// <summary>A POU BESIDE A FOLDER OF ITS NAME (5Qa review): the folder's path is the POU's, and "inside a POU" (whose
+    /// members the hierarchy does not list) waved the folder through the count check — so a folder the hierarchy lists
+    /// short was read anyway, a POU it does not list among its children. The hierarchy LISTS that folder, so it is held
+    /// to the count like any other. Niche: 0 POU/folder pairs in the corpora.</summary>
+    [Fact]
+    public void A_folder_beside_a_POU_of_its_name_is_still_held_to_the_hierarchys_count()
+    {
+        Node? built = null;
+        var (driver, _, xae, _) = Project(x => built = new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
+                new Node(x, "X", ItemKind.PlcPou),
+                new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou), new Node(x, "Hidden", ItemKind.PlcPou)),
+                new Node(x, "PLC_PRG", ItemKind.PlcPouProg)),
+            (_, name) =>
+            {
+                if (name != "Untitled2 Project") return null;
+                var full = built!.Explorer();
+                var folder = full.Children[1];
+                return full with
+                {
+                    Children = new[] { full.Children[0], folder with { Children = folder.Children.Take(1).ToList() }, full.Children[2] },
+                };
+            });
+
+        var walk = driver.WalkItems();
+
+        Assert.False(xae.Dead);
+        Assert.Contains("X", walk.UnwalkedFolders);
+        Assert.DoesNotContain("Hidden", walk.Items.Select(i => i.Name));
+    }
+
     /// <summary>Every real project: nothing flagged, so every child is opened by index — no LookupChild. The one
     /// added read is a folder's path, once per folder SCAN (the hierarchy must vouch for its child count), never once
     /// per child.</summary>
@@ -236,7 +327,7 @@ public class TcUntouchablePouTests
     {
         var motors = Enumerable.Range(1, 8).Select(i => $"Motor{i}").ToArray();
         var (driver, _, xae, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
-            new Node(x, "POUs", ItemKind.PlcFolder, false, motors.Select(m => new Node(x, m, ItemKind.PlcPouFb)).ToArray()),
+            new Node(x, "POUs", ItemKind.PlcFolder, false, motors.Select(m => new Node(x, m, ItemKind.PlcPou)).ToArray()),
             new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
 
         var walk = driver.WalkItems();
@@ -425,7 +516,7 @@ public class TcUntouchablePouTests
         // Volt deletes it through its parent and creates a new item of the name: that one opens.
         var (_, untouchable) = ItemLookup.Locate(driver, "VltX_UCFB");
         driver.Delete(untouchable!.Parent, untouchable.Name);
-        var fresh = new Node(xae, "VltX_UCFB", ItemKind.PlcPouFb) { Owner = root.Kids[0] };
+        var fresh = new Node(xae, "VltX_UCFB", ItemKind.PlcPou) { Owner = root.Kids[0] };
         root.Kids[0].Kids.Add(fresh);
         hierarchy = root.Explorer();
         model.ForgetExplorer();
@@ -469,8 +560,8 @@ public class TcUntouchablePouTests
         var document = System.IO.File.ReadAllBytes(Fixtures.Path("tc-pou", "MembersHidden.TcPOU"));
         var (driver, _, xae, root) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
             new Node(x, "F", ItemKind.PlcFolder, false,
-                new Node(x, "Broken", ItemKind.PlcPouFb, poisoned: true),
-                new Node(x, "VltProbe_Hidden", ItemKind.PlcPouFb) { Document = document })));
+                new Node(x, "Broken", ItemKind.PlcPou, poisoned: true),
+                new Node(x, "VltProbe_Hidden", ItemKind.PlcPou) { Document = document })));
         var pou = root.Kids[0].Kids[1];
         var ladder = Fixtures.Pou("ladder.TcPOU");
         var start = ladder.IndexOf("<NWL>", StringComparison.Ordinal);

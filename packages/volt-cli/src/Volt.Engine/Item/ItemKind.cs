@@ -26,9 +26,19 @@ public static class ItemKind
 {
     // ── [both] source POU / DUT kinds (full ST text); each named after its official TREEITEMTYPE ──
     public const int PlcFolder = 601;
+    // A POU is ONE internal kind (`Kinds.Pou`) under ONE extension: `X.pou` (openspec `push-without-header-check` 5.Q,
+    // owner 2026-10-02: "a wire extension carries only what the IDE stores PER OBJECT"). Whether a POU is a PROGRAM, a
+    // FUNCTION_BLOCK or a FUNCTION is decided by its TEXT on both vendors — CODESYS has ONE `POUObject` class whose
+    // kind follows the declaration (DIALECT C2f/C2g), and TwinCAT's three tree codes lag an in-place write and are
+    // re-derived from the text on a reload (C2h) — so nothing in Volt reads it: the IDE and its build own it, and the
+    // LSP reads it from the text as analysis. (Until 5.Q the wire named a POU `X.prg` / `X.fb` / `X.fun`, which cost
+    // a header read per POU per walk on CODESYS and a re-type guard for every kind change.)
+    //
+    // 604 is the one POU code a driver hands up for a POU it classifies by CLASS (CODESYS) and the one a push creates
+    // with (the seed on both vendors, as `PlcDut` is the DUT's); 602/603 are TwinCAT tree codes for the same kind.
+    public const int PlcPou = 604;
     public const int PlcPouProg = 602;
     public const int PlcPouFunc = 603;
-    public const int PlcPouFb = 604;
     public const int PlcGvl = 615;
     public const int PlcItf = 618;
     // A DUT is ONE internal kind (`Kinds.Dut`) under ONE extension: `X.dut`, which is also its file name (openspec
@@ -121,9 +131,7 @@ public static class ItemKind
     public static class Kinds
     {
         public const string Folder = "folder";
-        public const string Program = "program";
-        public const string Function = "function";
-        public const string FunctionBlock = "function_block";
+        public const string Pou = "pou";
         public const string Dut = "dut";
         public const string Action = "action";
         public const string Method = "method";
@@ -163,9 +171,7 @@ public static class ItemKind
     public static string? Map(int code) => code switch
     {
         PlcFolder => Kinds.Folder,
-        PlcPouProg => Kinds.Program,
-        PlcPouFunc => Kinds.Function,
-        PlcPouFb => Kinds.FunctionBlock,
+        PlcPou or PlcPouProg or PlcPouFunc => Kinds.Pou,
         PlcDut or PlcDutEnum or PlcDutStruct or PlcDutUnion => Kinds.Dut,
         PlcAction => Kinds.Action,
         PlcMethod => Kinds.Method,
@@ -201,9 +207,9 @@ public static class ItemKind
         _ => null,
     };
 
-    /// <summary>Top-level source kinds (full ST text): FB, function, program, DUTs, GVL, interface.</summary>
+    /// <summary>Top-level source kinds (full ST text): POU, DUT, GVL, interface.</summary>
     public static bool IsTopLevelCrud(int code) =>
-        code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcGvl or PlcItf
+        code is PlcPou or PlcPouProg or PlcPouFunc or PlcGvl or PlcItf
               or PlcDut or PlcDutEnum or PlcDutStruct or PlcDutUnion;
 
     /// <summary>An item the WIRE ADDRESSES BY NAME at top level: every top-level source kind, plus the
@@ -280,7 +286,7 @@ public static class ItemKind
     /// <summary>The item kinds whose tree node holds member objects (methods, properties, actions, transitions) - the
     /// items a CODESYS build diagnostic on a CHILD object is placed under (<c>CodesysDriver.NamesFor</c>), and the only
     /// items a diagnostic that carries a member can be named for (<c>BuildService.PromoteNames</c>).</summary>
-    public static bool HoldsMembers(int code) => code is PlcPouProg or PlcPouFunc or PlcPouFb or PlcItf;
+    public static bool HoldsMembers(int code) => code is PlcPou or PlcPouProg or PlcPouFunc or PlcItf;
 
     public static bool IsInlinedInPou(int code) =>
         code is PlcAction or PlcMethod or PlcItfMeth or PlcProp or PlcItfProp
@@ -293,14 +299,15 @@ public static class ItemKind
     // (Volt.Cli.Sync.Extensions) all derive from it — no second hand-kept list — and
     // scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, control)
     // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
-    // .fb/.prg/.fun as a textual one (graphical by its stated IMPLEMENTATION LD|FBD line), a CFC/SFC body is that kind
-    // extension too (its `IMPLEMENTATION CFC|SFC UNSUPPORTED` line). The extension carries the kind alone — a DUT is
-    // `dut` whatever its shape; a push never reads a top-level item's text for it.
+    // .pou as a textual one (graphical by its stated IMPLEMENTATION LD|FBD line), a CFC/SFC body is `.pou` too (its
+    // `IMPLEMENTATION CFC|SFC UNSUPPORTED` line). The extension carries only what the IDE stores per object — a POU is
+    // `pou` whether its text says PROGRAM, FUNCTION_BLOCK or FUNCTION, a DUT is `dut` whatever its shape; a push never
+    // reads a top-level item's text for it.
 
     /// <summary>Writable source kinds (assembled ST text), each with its file extension.</summary>
     public static readonly IReadOnlyList<(string Kind, string Ext)> SourceKindExtensions = new (string, string)[]
     {
-        (Kinds.FunctionBlock, "fb"), (Kinds.Program, "prg"), (Kinds.Function, "fun"),
+        (Kinds.Pou, "pou"),
         (Kinds.Interface, "itf"), (Kinds.Gvl, "gvl"),
         (Kinds.Dut, "dut"),
     };

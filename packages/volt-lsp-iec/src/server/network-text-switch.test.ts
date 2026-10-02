@@ -23,8 +23,8 @@ async function diagnostics(src: string, graphical: "1" | undefined): Promise<{ c
     import { CAPS, harness } from "./src/server/harness.ts"
     const h = harness()
     await h.init(CAPS.pull)
-    await h.open("file:///F.fb", ${JSON.stringify(src)})
-    const ds = await h.pull("file:///F.fb")
+    await h.open("file:///F.pou", ${JSON.stringify(src)})
+    const ds = await h.pull("file:///F.pou")
     h.dispose()
     console.log(JSON.stringify(ds.map((d) => ({ code: String(d.code), message: typeof d.message === "string" ? d.message : d.message.value }))))
     process.exit(0)

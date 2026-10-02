@@ -14,7 +14,7 @@ public class PullCommandTests
     private static FakeIde.Item Prg(string impl = "x := 1;") =>
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", impl);
 
-    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
+    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.pou");
 
     [Fact]
     public void Pull_seeds_the_workspace_then_reports_in_sync_and_is_idempotent()
@@ -26,11 +26,11 @@ public class PullCommandTests
         {
             var r = Commands.Pull(root, client);
             Assert.Equal("ok", r.Kind);
-            Assert.Contains("PLC_PRG.prg", r.Synced!);
-            Assert.Contains("FB_Motor.fb", r.Synced!);
+            Assert.Contains("PLC_PRG.pou", r.Synced!);
+            Assert.Contains("FB_Motor.pou", r.Synced!);
 
             Assert.True(File.Exists(PrgPath(root)));
-            Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Motor.fb")));
+            Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Motor.pou")));
             Assert.Contains("PROGRAM PLC_PRG", File.ReadAllText(PrgPath(root)));
 
             var s = Commands.Status(root, client);
@@ -58,7 +58,7 @@ public class PullCommandTests
 
             var r = Commands.Pull(root, client);
             Assert.Equal("ok", r.Kind);
-            Assert.Contains("PLC_PRG.prg", r.Synced!);
+            Assert.Contains("PLC_PRG.pou", r.Synced!);
             Assert.Contains("x := 99;", File.ReadAllText(PrgPath(root)));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -75,14 +75,14 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Axis.fb")));
+            Assert.True(File.Exists(Path.Combine(root, "src", "POUs", "FB_Axis.pou")));
 
             ide.RemoveItem("FB_Axis");
             ide.AddItem(FakeIde.Item.TextualPou("FB_Axis", fb, "", "Motion"));
 
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Assert.True(File.Exists(Path.Combine(root, "src", "Motion", "FB_Axis.fb")), "the moved item was not written");
-            Assert.False(File.Exists(Path.Combine(root, "src", "POUs", "FB_Axis.fb")),
+            Assert.True(File.Exists(Path.Combine(root, "src", "Motion", "FB_Axis.pou")), "the moved item was not written");
+            Assert.False(File.Exists(Path.Combine(root, "src", "POUs", "FB_Axis.pou")),
                          "the old path survived — two files for one item");
             Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
         }
@@ -102,7 +102,7 @@ public class PullCommandTests
 
             var r = Commands.Pull(root, client);
             Assert.Equal("conflict", r.Kind);
-            Assert.Contains("PLC_PRG.prg", r.Paths!);
+            Assert.Contains("PLC_PRG.pou", r.Paths!);
             Assert.True(Git.IsMerging(root)); // left mid-merge for the user to resolve
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -129,7 +129,7 @@ public class PullCommandTests
             var r = Commands.Pull(root, client);
             Assert.Equal("conflict", r.Kind);
             Assert.NotNull(r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
             Assert.Contains("network text v1", r.Message);
             Assert.Contains("--theirs", r.Message);
         }
@@ -159,7 +159,7 @@ public class PullCommandTests
             // The premise: git merged the header, so no line of the file is a v1 header any more.
             Assert.DoesNotMatch(@"(?m)^\s*NETWORK\s+\d+", File.ReadAllText(PrgPath(root)));
             Assert.NotNull(r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
             Assert.Contains("network text v1", r.Message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -218,7 +218,7 @@ public class PullCommandTests
             Assert.Equal("ok", r.Kind);
             Assert.Contains("LET g3", File.ReadAllText(PrgPath(root)));      // the premise: a clean, hybrid merge
             Assert.NotNull(r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
             Assert.Contains("network text v1", r.Message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -229,8 +229,8 @@ public class PullCommandTests
     /// them all while an FB's or a function's v1 body went un-noted. The same clean hybrid merge, per kind that can
     /// hold network text.</summary>
     [Theory]
-    [InlineData("FB_Conv", "FUNCTION_BLOCK FB_Conv\nVAR\nEND_VAR", "FB_Conv.fb")]
-    [InlineData("F_Gate", "FUNCTION F_Gate : BOOL\nVAR\nEND_VAR", "F_Gate.fun")]
+    [InlineData("FB_Conv", "FUNCTION_BLOCK FB_Conv\nVAR\nEND_VAR", "FB_Conv.pou")]
+    [InlineData("F_Gate", "FUNCTION F_Gate : BOOL\nVAR\nEND_VAR", "F_Gate.pou")]
     public void A_clean_merge_that_leaves_v1_text_names_the_file_for_every_kind_with_a_body(
         string name, string decl, string file)
     {
@@ -324,9 +324,9 @@ public class PullCommandTests
 
             var r = Commands.Pull(root, client);
             Assert.Equal("conflict", r.Kind);
-            Assert.Contains("PLC_PRG.prg", r.Paths!);
+            Assert.Contains("PLC_PRG.pou", r.Paths!);
             Assert.NotNull(r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
             Assert.Contains("network text v1", r.Message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -356,7 +356,7 @@ public class PullCommandTests
             Assert.Contains("FUNCTION_BLOCK PLC_PRG", merged);   // the premise: a clean merge that no longer splits
             Assert.Contains("LET g3", merged);
             Assert.NotNull(r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -397,7 +397,7 @@ public class PullCommandTests
             Commands.Pull(root, client);                        // base: x := 1
             var pristine = File.ReadAllText(PrgPath(root));
             File.WriteAllText(PrgPath(root), pristine.Replace("x := 1;", "x := 999;"));
-            var stray = Path.Combine(root, "src", "Scratch.prg"); // an untracked file is local work too
+            var stray = Path.Combine(root, "src", "Scratch.pou"); // an untracked file is local work too
             File.WriteAllText(stray, "PROGRAM Scratch\nIMPLEMENTATION ST\nEND_PROGRAM");
 
             var plain = Commands.Pull(root, client);            // a NORMAL pull preserves local work...
@@ -467,7 +467,7 @@ public class PullCommandTests
 
             var r = Commands.Pull(root, client, dryRun: true);
             Assert.Equal("ok", r.Kind);
-            Assert.Contains("PLC_PRG.prg", r.Synced!);
+            Assert.Contains("PLC_PRG.pou", r.Synced!);
             Assert.Equal("dry run — these IDE items would be merged in", r.Message);
             Assert.Contains("x := 1;", File.ReadAllText(PrgPath(root))); // workspace untouched
         }
@@ -511,7 +511,7 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var deep = Path.Combine(root, "src", "Machine", "Deep.prg");
+            var deep = Path.Combine(root, "src", "Machine", "Deep.pou");
             Assert.True(File.Exists(deep), "the first pull did not write the item this test is about");
 
             // The engineer's IDE now refuses to enumerate that folder.
@@ -562,7 +562,7 @@ public class PullCommandTests
     /// <para>`ReadResponse.UnwalkedFolders` says a client seeing it non-empty must conclude nothing from
     /// absence. Replacing the sidecar's item map with the partial one is exactly that conclusion, a layer past
     /// the `removed` list the bridge already suppressed — and the damage lands on the next PUSH, not here. With
-    /// `Deep.prg` gone from the baseline, an edit to it has no known version and goes up as a CREATE, refused
+    /// `Deep.pou` gone from the baseline, an edit to it has no known version and goes up as a CREATE, refused
     /// ITEM_EXISTS; a local delete is skipped by the guard lookup and reported as "nothing to push"; a rename
     /// throws "has no known IDE version" straight past `Commands.Push` to the top-level handler.</para></summary>
     [Fact]
@@ -575,21 +575,21 @@ public class PullCommandTests
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var before = Sidecar.LoadIdeRefs(root)!.Items;
-            Assert.Contains("Deep.prg", before.Keys);
+            Assert.Contains("Deep.pou", before.Keys);
 
             ide.UnwalkableFolders = new[] { "Machine" };
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
             var after = Sidecar.LoadIdeRefs(root)!.Items;
-            Assert.Contains("Deep.prg", after.Keys);
-            Assert.Equal(before["Deep.prg"], after["Deep.prg"]);   // at the version the last COMPLETE walk gave it
+            Assert.Contains("Deep.pou", after.Keys);
+            Assert.Equal(before["Deep.pou"], after["Deep.pou"]);   // at the version the last COMPLETE walk gave it
 
             // …and the push that would have broken now refuses for the RIGHT reason. With the baseline entry
             // dropped, the edit went up as a CREATE and collided (ITEM_EXISTS) — or, with the folder readable
             // again, silently relocated the item. Keeping the entry means the push quotes the real version,
             // the bridge finds the item absent from its own PARTIAL walk, and says so: the item is not gone,
             // the walk could not see it. Refusing is the right outcome; what changed is that it is legible.
-            var file = Path.Combine(root, "src", "Machine", "Deep.prg");
+            var file = Path.Combine(root, "src", "Machine", "Deep.pou");
             File.WriteAllText(file, File.ReadAllText(file).Replace("y := 2;", "y := 7;"));
             Git.CommitAll(root, "edit under the unreadable folder");
 
@@ -623,8 +623,8 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var gone = Path.Combine(root, "src", "POUs", "FB_Gone.fb");
-            var deep = Path.Combine(root, "src", "Machine", "Deep.prg");
+            var gone = Path.Combine(root, "src", "POUs", "FB_Gone.pou");
+            var deep = Path.Combine(root, "src", "Machine", "Deep.pou");
             Assert.True(File.Exists(gone), "the first pull did not write the item this test is about");
 
             ide.RemoveItem("FB_Gone");
@@ -633,9 +633,9 @@ public class PullCommandTests
 
             Assert.Equal("ok", partial.Kind);
             Assert.False(File.Exists(gone), "a partial pull kept the file of an item deleted from a folder it read");
-            Assert.DoesNotContain("FB_Gone.fb", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.DoesNotContain("FB_Gone.pou", Sidecar.LoadIdeRefs(root)!.Items.Keys);
             Assert.True(File.Exists(deep), "the pull DELETED an item it merely could not see");
-            Assert.Contains("FB_Gone.fb", partial.Synced!);
+            Assert.Contains("FB_Gone.pou", partial.Synced!);
 
             ide.UnwalkableFolders = new string[0];
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
@@ -726,9 +726,9 @@ public class PullCommandTests
             var status = Commands.Status(root, client).Incoming;
             var dry = Commands.Pull(root, client, dryRun: true);
 
-            Assert.Equal(new[] { "FB_Gone.fb" }, status.Removed);
+            Assert.Equal(new[] { "FB_Gone.pou" }, status.Removed);
             Assert.Equal(dry.Synced, status.Added.Concat(status.Modified).Concat(status.Removed).OrderBy(x => x, System.StringComparer.Ordinal));
-            Assert.Equal(new[] { "FB_Gone.fb" }, dry.Status!.Incoming.Removed);
+            Assert.Equal(new[] { "FB_Gone.pou" }, dry.Status!.Incoming.Removed);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -758,7 +758,7 @@ public class PullCommandTests
 
             Assert.False(File.Exists(dut), "the deleted DUT survived, shielded by the unreadable item's bare name");
             Assert.DoesNotContain("X.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
-            Assert.True(File.Exists(Path.Combine(root, "src", "Machine", "Deep.prg")), "the pull deleted an unseen item");
+            Assert.True(File.Exists(Path.Combine(root, "src", "Machine", "Deep.pou")), "the pull deleted an unseen item");
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -775,7 +775,7 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var y = Path.Combine(root, "src", "POUs", "Y.prg");
+            var y = Path.Combine(root, "src", "POUs", "Y.pou");
             Assert.True(File.Exists(y));
 
             ide.RemoveItem("Y");
@@ -803,7 +803,7 @@ public class PullCommandTests
     public void A_pull_names_every_UNSUPPORTED_body_and_its_reason()
     {
         var ide = ConnectedIde(
-            new FakeIde.Item("FB_Motor", ItemKind.PlcPouFb, "POUs", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "",
+            new FakeIde.Item("FB_Motor", ItemKind.PlcPou, "POUs", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "",
                              "LD", null, new[] { "Reset", "Chart" }, Unsupported: "a vendor split point"),
             new FakeIde.Item("Reset", ItemKind.PlcMethod, "", false, "METHOD Reset : BOOL", "", "FBD", null,
                              Unsupported: "an ENO output wired to a variable"),
@@ -816,14 +816,14 @@ public class PullCommandTests
 
             Assert.Equal("ok", r.Kind);
             var message = r.Message ?? "";
-            Assert.Contains("POUs/FB_Motor.fb", message);
+            Assert.Contains("POUs/FB_Motor.pou", message);
             Assert.Contains("a vendor split point", message);
             Assert.Contains("'Reset'", message);
             Assert.Contains("an ENO output wired to a variable", message);
             Assert.DoesNotContain("'Chart'", message);          // CFC is a language Volt does not read, not a shape
             Assert.DoesNotContain("PLC_PRG", message);
 
-            var file = File.ReadAllText(Path.Combine(root, "src", "POUs", "FB_Motor.fb"));
+            var file = File.ReadAllText(Path.Combine(root, "src", "POUs", "FB_Motor.pou"));
             Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", file);
             Assert.DoesNotContain("a vendor split point", file);
         }
@@ -838,7 +838,7 @@ public class PullCommandTests
     public void A_pull_with_network_text_off_names_the_switch_and_claims_no_unspellable_shape()
     {
         var ide = ConnectedIde(
-            new FakeIde.Item("FB_Motor", ItemKind.PlcPouFb, "POUs", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "",
+            new FakeIde.Item("FB_Motor", ItemKind.PlcPou, "POUs", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "",
                              "LD", null, Unsupported: NetworkTextSwitch.DisabledReason),
             Prg());
         var (root, host, client) = Bound(ide);
@@ -848,7 +848,7 @@ public class PullCommandTests
 
             Assert.Equal("ok", r.Kind);
             var message = r.Message ?? "";
-            Assert.Contains($"POUs/FB_Motor.fb (LD): {NetworkTextSwitch.DisabledReason}", message);
+            Assert.Contains($"POUs/FB_Motor.pou (LD): {NetworkTextSwitch.DisabledReason}", message);
             Assert.DoesNotContain("no spelling", message);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }

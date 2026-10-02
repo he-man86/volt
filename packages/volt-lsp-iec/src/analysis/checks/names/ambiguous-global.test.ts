@@ -11,7 +11,7 @@ const GVL1 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const GVL2 = "VAR_GLOBAL\n g_i : INT;\nEND_VAR"
 const run = (prg: string, extraGvl2 = true) => {
   const inputs = [
-    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
     { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
     ...(extraGvl2 ? [{ uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) }] : []),
   ]
@@ -40,7 +40,7 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
   const prg = "PROGRAM PLC_PRG\nVAR\n j : INT := g_i;\nEND_VAR\nEND_PROGRAM"
   const prgParse = parseSource(prg, { networkText: true })
   const project = build.buildSymbolTable([
-    { uri: "PLC_PRG.prg", source: prg, parseResult: prgParse },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: prgParse },
     { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
   ])
   const ambiguous = () =>
@@ -57,7 +57,7 @@ test("a GVL an EDIT adds makes the name ambiguous — the incremental re-index k
 const TWO_ENUMS = "TYPE E_A : (en_x := 3, en_y := 4);\nEND_TYPE\nTYPE E_B : (en_x := 5, en_z := 6);\nEND_TYPE"
 const inEnumProject = (prg: string) => {
   const inputs = [
-    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
     { uri: "E.dut", source: TWO_ENUMS, parseResult: parseSource(TWO_ENUMS, { networkText: true }) },
   ]
   return computeSemanticDiagnostics({ parseResult: inputs[0].parseResult, source: prg, project: build.buildSymbolTable(inputs), config: resolveConfig({ vendor: "codesys" }) })
@@ -81,8 +81,8 @@ test("EN3 — qualified, unique, or shadowed by a local: silent", () => {
 const F_OF_G = "FUNCTION F : INT\nVAR_INPUT\n g_i : INT;\nEND_VAR\nF := g_i;\nEND_FUNCTION"
 const runWithF = (prg: string) => {
   const inputs = [
-    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
-    { uri: "F.fun", source: F_OF_G, parseResult: parseSource(F_OF_G, { networkText: true }) },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "F.pou", source: F_OF_G, parseResult: parseSource(F_OF_G, { networkText: true }) },
     { uri: "GVL1.gvl", source: GVL1, parseResult: parseSource(GVL1, { networkText: true }) },
     { uri: "GVL2.gvl", source: GVL2, parseResult: parseSource(GVL2, { networkText: true }) },
   ]

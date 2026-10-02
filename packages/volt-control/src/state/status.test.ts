@@ -105,7 +105,7 @@ test("a workspace src edit triggers a refresh (src watcher closes the outgoing g
 	try {
 		await s.start();
 		spy.mockClear(); // ignore start()'s own initial refresh
-		writeFileSync(join(dir, "src", "POUs", "FB_Motor.fb"), "FUNCTION_BLOCK FB_Motor\nx := 1;");
+		writeFileSync(join(dir, "src", "POUs", "FB_Motor.pou"), "FUNCTION_BLOCK FB_Motor\nx := 1;");
 		await until(() => spy.mock.calls.length > 0);
 		expect(spy.mock.calls.length).toBeGreaterThan(0);
 	} finally {

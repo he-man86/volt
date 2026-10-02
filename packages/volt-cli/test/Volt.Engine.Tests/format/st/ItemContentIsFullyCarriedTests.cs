@@ -65,7 +65,7 @@ public class ItemContentIsFullyCarriedTests
     /// drop is visible. Trailing newlines are deliberately absent: the format joins parts with one, so a
     /// trailing newline is the one thing it genuinely cannot carry (see <c>AccessorDeclaration.Keep</c>).</summary>
     private static ItemContent Maximal() => new(
-        Kind: ItemKind.Kinds.FunctionBlock,
+        Kind: ItemKind.Kinds.Pou,
         Declaration: "FUNCTION_BLOCK FB_Everything\nVAR\n\tnCount : INT := 7;\nEND_VAR",
         Body: "nCount := nCount + 1;",
         Members: new List<Member>
@@ -198,7 +198,7 @@ public class ItemContentIsFullyCarriedTests
     public void A_members_own_body_keeps_its_exact_value(string body)
     {
         var before = new ItemContent(
-            ItemKind.Kinds.FunctionBlock,
+            ItemKind.Kinds.Pou,
             "FUNCTION_BLOCK FB_B\nVAR\nEND_VAR",
             "n := 1;",
             new List<Member>
@@ -233,7 +233,7 @@ public class ItemContentIsFullyCarriedTests
     public void The_fake_ide_can_produce_every_field_the_records_declare()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_Everything", ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_Everything", ItemKind.PlcPou, "", true,
                              "FUNCTION_BLOCK FB_Everything\nVAR\n\tnCount : INT;\nEND_VAR", "nCount := nCount + 1;",
                              null, null, Children: new[] { "DoWork", "Level" }),
             new FakeIde.Item("DoWork", ItemKind.PlcMethod, "Internals", false,

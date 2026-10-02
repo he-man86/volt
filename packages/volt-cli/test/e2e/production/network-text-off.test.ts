@@ -74,7 +74,7 @@ describe.skipIf(!production)(`production / a bridge without VOLT_GRAPHICAL (${BA
 	})
 
 	it("network text pushed is refused naming the switch, and nothing is created", async () => {
-		const name = fid("prod_ld", "prg")
+		const name = fid("prod_ld", "pou")
 		const src =
 			`PROGRAM ${id("prod_ld")}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\n` +
 			`IMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n`

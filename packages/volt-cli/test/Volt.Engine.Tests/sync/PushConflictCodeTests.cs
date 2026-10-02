@@ -51,9 +51,9 @@ public class PushConflictCodeTests
     public void A_stale_item_version_says_so()
     {
         var ide = new FakeIde();
-        Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null });
+        Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null });
 
-        var stale = Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = "not-the-version" });
+        var stale = Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = "not-the-version" });
 
         var conflict = Assert.Single(stale.Conflicts!);
         Assert.False(stale.Accepted);
@@ -67,9 +67,9 @@ public class PushConflictCodeTests
     public void A_create_onto_an_existing_name_says_so()
     {
         var ide = new FakeIde();
-        Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null });
+        Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null });
 
-        var collide = Push(ide, new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null });
+        var collide = Push(ide, new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null });
 
         Assert.False(collide.Accepted);
         Assert.Equal(ConflictCodes.ItemExists, Assert.Single(collide.Conflicts!).Code);
@@ -82,7 +82,7 @@ public class PushConflictCodeTests
     {
         var ide = new FakeIde();
 
-        var gone = Push(ide, new SetItemOp { Name = "Ghost.prg", SourceText = Prg("Ghost"), IfVersion = "some-version" });
+        var gone = Push(ide, new SetItemOp { Name = "Ghost.pou", SourceText = Prg("Ghost"), IfVersion = "some-version" });
 
         Assert.False(gone.Accepted);
         var conflict = Assert.Single(gone.Conflicts!);
@@ -100,7 +100,7 @@ public class PushConflictCodeTests
         var stale = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = "a-lease-from-another-lifetime",
-            Ops = new List<PushOp> { new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
         });
 
         Assert.False(stale.Accepted);
@@ -118,7 +118,7 @@ public class PushConflictCodeTests
 
         var res = Push(ide, new SetItemOp
         {
-            Name = "Broken.prg",
+            Name = "Broken.pou",
             SourceText = "this is not a POU at all",
             IfVersion = null,
         });
@@ -136,7 +136,7 @@ public class PushConflictCodeTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, new SetItemOp { Name = "Ghost.prg", SourceText = null, IfVersion = null });
+        var res = Push(ide, new SetItemOp { Name = "Ghost.pou", SourceText = null, IfVersion = null });
 
         Assert.False(res.Accepted);
         var conflict = Assert.Single(res.Conflicts!);
@@ -155,7 +155,7 @@ public class PushConflictCodeTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, new DeleteItemOp { Name = "NeverExisted.prg", IfVersion = null });
+        var res = Push(ide, new DeleteItemOp { Name = "NeverExisted.pou", IfVersion = null });
 
         Assert.True(res.Accepted);
         Assert.Null(res.Conflicts);
@@ -167,15 +167,15 @@ public class PushConflictCodeTests
     public void No_refusal_on_the_push_path_arrives_without_a_code()
     {
         var ide = new FakeIde();
-        Push(ide, new SetItemOp { Name = "Real.prg", SourceText = Prg("Real"), IfVersion = null });
+        Push(ide, new SetItemOp { Name = "Real.pou", SourceText = Prg("Real"), IfVersion = null });
 
         // A delete is NOT in this list: deleting an absent item is an accepted no-op by design (see the test
         // above), so it refuses nothing and has nothing to carry.
         var refusals = new (string What, PushOp Op)[]
         {
-            ("a body the reader refuses", new SetItemOp { Name = "X.prg", SourceText = "nonsense", IfVersion = null }),
-            ("a create with no source", new SetItemOp { Name = "Y.prg", SourceText = null, IfVersion = null }),
-            ("an empty body on a create", new SetItemOp { Name = "W.prg", SourceText = "", IfVersion = null }),
+            ("a body the reader refuses", new SetItemOp { Name = "X.pou", SourceText = "nonsense", IfVersion = null }),
+            ("a create with no source", new SetItemOp { Name = "Y.pou", SourceText = null, IfVersion = null }),
+            ("an empty body on a create", new SetItemOp { Name = "W.pou", SourceText = "", IfVersion = null }),
         };
 
         foreach (var (what, op) in refusals)
@@ -211,7 +211,7 @@ public class PushConflictCodeTests
         {
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "Shape.prg", SourceText = Prg("Shape"), IfVersion = null },
+                new SetItemOp { Name = "Shape.pou", SourceText = Prg("Shape"), IfVersion = null },
             },
         });
 

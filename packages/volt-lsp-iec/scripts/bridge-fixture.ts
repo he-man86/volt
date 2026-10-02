@@ -40,9 +40,9 @@ export async function openFixture(): Promise<Fixture> {
     await pushOps([{ op: "deleteItem", name, ifVersion: v }])
   }
   const reset = async (): Promise<void> => {
-    await set("PLC_PRG.prg", MINIMAL_PLC)
-    const listed = Object.keys((await call("refs")).items).filter((n) => !BASELINE.has(n) && n !== "PLC_PRG.prg")
-    for (const name of new Set([...listed, ...touched])) if (name !== "PLC_PRG.prg") await del(name)
+    await set("PLC_PRG.pou", MINIMAL_PLC)
+    const listed = Object.keys((await call("refs")).items).filter((n) => !BASELINE.has(n) && n !== "PLC_PRG.pou")
+    for (const name of new Set([...listed, ...touched])) if (name !== "PLC_PRG.pou") await del(name)
     touched = new Set()
   }
   return { set, del, reset }

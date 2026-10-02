@@ -55,11 +55,11 @@ public static class StWriter
         if (item.Kind == ItemKind.Kinds.Interface)
         {
             foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, item.Kind)); }
-            sb.Append('\n').Append('\n').Append(EndKeyword(item.Kind));
+            sb.Append('\n').Append('\n').Append(EndKeyword(item));
         }
         else
         {
-            sb.Append('\n').Append('\n').Append(EndKeyword(item.Kind));
+            sb.Append('\n').Append('\n').Append(EndKeyword(item));
             foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, item.Kind)); }
         }
 
@@ -76,14 +76,27 @@ public static class StWriter
     // later in Materializer — so this fallback was masked, not unreachable). A PULL-side refusal: the item is listed
     // `unreadable`, coded UNSUPPORTED (a kind with no mapping). It was INVALID_CODE_HEADER, which no longer exists: a push
     // reads no top-level header, and a pull refusal is never observable as a code.
-    private static string EndKeyword(string kind) => kind switch
+    //
+    // A POU's END line MIRRORS ITS OWN HEADER (openspec `push-without-header-check` 5.Q.3): `X.pou` is one kind whatever
+    // its text says, so there is no kind to spell the line from, and the owner keeps the line — it is the boundary
+    // between the POU and its members. `PROGRAM` closes with `END_PROGRAM`, `FUNCTION_BLOCK` with `END_FUNCTION_BLOCK`,
+    // `FUNCTION` with `END_FUNCTION`, read by `StReader.PouHeaderKeyword` in the reader's own view; the reader accepts
+    // any of the three as the boundary, so the line decides nothing on the way back in.
+    private static string EndKeyword(ItemContent item) => item.Kind switch
     {
-        ItemKind.Kinds.FunctionBlock => "END_FUNCTION_BLOCK",
-        ItemKind.Kinds.Program => "END_PROGRAM",
-        ItemKind.Kinds.Function => "END_FUNCTION",
+        ItemKind.Kinds.Pou => "END_" + (StReader.PouHeaderKeyword(item.Declaration) ?? FallbackPouHeader),
         ItemKind.Kinds.Interface => "END_INTERFACE",
-        _ => throw new BridgeException(BridgeErrorCodes.Unsupported, $"No END keyword for kind '{kind}'"),
+        _ => throw new BridgeException(BridgeErrorCodes.Unsupported, $"No END keyword for kind '{item.Kind}'"),
     };
+
+    /// <summary>THE ONE END-LINE FALLBACK (design 5.Qa, F1): a POU whose declaration opens with none of PROGRAM /
+    /// FUNCTION_BLOCK / FUNCTION — an empty or prose text, a NAMESPACE, INTERFACE text in a POU object — closes with
+    /// <c>END_FUNCTION_BLOCK</c>: the push's create seed's own END line (every POU is created as a function block) and
+    /// the shape that accepts every member kind. Intentional, tested and COUNTED: the pull logs every item it fires for
+    /// (<c>Materializer</c>), and it fires for no POU a vendor compiles (16,990 / 16,990 corpus POUs open with one of
+    /// the three). Omitting the line would leave a file with members unsplittable; refusing the pull would make a
+    /// broken text that the push lets through unpullable.</summary>
+    public const string FallbackPouHeader = "FUNCTION_BLOCK";
 
     private static int KindOrder(string kind) => kind switch
     {

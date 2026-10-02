@@ -28,8 +28,8 @@ public class PushServiceTests
     public void Set_rename_uses_native_rename_no_recreate()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // refs preserved, not recreated
@@ -41,8 +41,8 @@ public class PushServiceTests
         // The client persists the push receipt as its IDE baseline with no follow-up /refs, so the receipt
         // MUST equal a fresh /refs (the reuse-of-pre-apply-versions optimization broke this for renames).
         var ide = OneProgram(folder: "POUs");
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou" });
         Assert.True(resp.Accepted);
 
         var refs = RefsService.Handle(ide);
@@ -57,12 +57,12 @@ public class PushServiceTests
         // The accepted receipt carries newFolders so the client refreshes its sidecar folder map without a
         // follow-up /refs. It must cover exactly the same full-name space as newItems (the version map).
         var ide = OneProgram(folder: "POUs");
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou" });
         Assert.True(resp.Accepted);
         Assert.NotNull(resp.NewFolders);
         Assert.Equal(resp.NewItems!.Keys.OrderBy(k => k), resp.NewFolders!.Keys.OrderBy(k => k));
-        Assert.Equal("POUs", resp.NewFolders!["MOTOR.prg"]); // a rename keeps the folder
+        Assert.Equal("POUs", resp.NewFolders!["MOTOR.pou"]); // a rename keeps the folder
     }
 
     /// <summary>A move RELOCATES — it does not delete and rebuild. Both drivers have `IProjectTree.Move`, so the
@@ -71,8 +71,8 @@ public class PushServiceTests
     public void Set_move_relocates_into_the_new_folder()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "Sub" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = "Sub" });
         Assert.True(resp.Accepted);
         Assert.Contains("move:PLC_PRG->Sub", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:"));
@@ -82,9 +82,9 @@ public class PushServiceTests
     public void Move_into_a_folder_whose_name_contains_a_slash_creates_ONE_decoded_folder()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
         // The wire folder is the ENCODED form volt-git sends for a folder literally named "Interfaces / Data".
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = FolderPath.Encode("Interfaces / Data") });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = FolderPath.Encode("Interfaces / Data") });
         Assert.True(resp.Accepted);
         Assert.Contains("create:Interfaces / Data", ide.Recorded);   // ONE folder, decoded to its real name
         Assert.DoesNotContain(ide.Recorded, r => r is "create:Interfaces " or "create: Data"); // NOT split on the name's '/'
@@ -103,7 +103,7 @@ public class PushServiceTests
             new FakeIde.Item("App", ItemKind.PlcFolder, "", false, null, null, null, null, Children: System.Array.Empty<string>()))
         { PlcRootName = "App", TreeRootName = "<root>" };
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "New.prg", IfVersion = null, ToFolder = "App", SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "New.pou", IfVersion = null, ToFolder = "App", SourceText = "PROGRAM New\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
         Assert.Contains("create:New", ide.Recorded);
         Assert.DoesNotContain("create:App", ide.Recorded);   // reused the existing spine node — NOT doubled to App/App
@@ -136,8 +136,8 @@ public class PushServiceTests
         // This case passed `ToFolder = ""` and asserted no move, which read the two as the same thing and is
         // what made a move INTO the POU pool inexpressible.
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = null, SourceText = "PROGRAM PLC_PRG\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 9;\n\nEND_PROGRAM\n" });
         Assert.True(resp.Accepted);
         Assert.Contains("writecontent:PLC_PRG", ide.Recorded);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete:") || r.StartsWith("create:")); // in place, not moved
@@ -152,8 +152,8 @@ public class PushServiceTests
         // as "unchanged" it was a silent no-op: the push reported ACCEPTED, the IDE never moved the item, and
         // the next pull put the file back where it started.
         var ide = OneProgram("PLC_PRG", folder: "Device/Plc Logic/Application");
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToFolder = "" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToFolder = "" });
         Assert.True(resp.Accepted);
         Assert.Contains("move:PLC_PRG-><root>", ide.Recorded);   // the TREE root, not the Application
     }
@@ -168,8 +168,8 @@ public class PushServiceTests
         var ide = OneProgram();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var resp = Push(ide, pv,
-            new SetItemOp { Name = "Good.prg", IfVersion = null, ToFolder = "", SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
-            new SetItemOp { Name = "Bad.prg", IfVersion = null, ToFolder = "", SourceText = "not a POU at all" });
+            new SetItemOp { Name = "Good.pou", IfVersion = null, ToFolder = "", SourceText = "PROGRAM Good\nIMPLEMENTATION ST\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "Bad.pou", IfVersion = null, ToFolder = "", SourceText = "not a POU at all" });
 
         Assert.False(resp.Accepted);
         Assert.DoesNotContain("create:Good", ide.Recorded);   // the VALID op ahead of the bad one never ran
@@ -180,9 +180,9 @@ public class PushServiceTests
     public void Set_rename_plus_edit_renames_then_writes_content()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
         var src = "PROGRAM MOTOR\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 2;\n\nEND_PROGRAM\n";
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou", SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("writecontent:MOTOR", ide.Recorded); // content written onto the renamed identity
@@ -192,8 +192,8 @@ public class PushServiceTests
     public void Set_rename_plus_move_does_both_atomically()
     {
         var ide = OneProgram();
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, ToName = "MOTOR.prg", ToFolder = "Sub" });
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, ToName = "MOTOR.pou", ToFolder = "Sub" });
         Assert.True(resp.Accepted);
         Assert.Contains("rename:PLC_PRG->MOTOR", ide.Recorded);
         Assert.Contains("move:MOTOR->Sub", ide.Recorded);   // moved by its NEW name
@@ -204,8 +204,8 @@ public class PushServiceTests
     public void Set_with_stale_version_is_rejected_before_any_mutation()
     {
         var ide = OneProgram();
-        var (_, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = "stale", ToName = "X.prg" });
+        var (_, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = "stale", ToName = "X.pou" });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);
     }
@@ -214,8 +214,8 @@ public class PushServiceTests
     public void Set_create_over_an_existing_item_is_rejected()
     {
         var ide = OneProgram();
-        var (_, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
+        var (_, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = null, SourceText = "PROGRAM PLC_PRG\nIMPLEMENTATION ST\nEND_PROGRAM\n" });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("already exists"));
     }
@@ -266,7 +266,7 @@ public class PushServiceTests
     {
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "Foo.prg", IfVersion = null, SourceText = "   " });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Foo.pou", IfVersion = null, SourceText = "   " });
         Assert.False(resp.Accepted);
         Assert.Empty(ide.Recorded);   // rejected up front — nothing created/written
     }
@@ -291,7 +291,7 @@ public class PushServiceTests
         // DUT's text is no longer read — PushWithoutHeaderCheckTests pins that prose under a DUT name is written.)
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.prg", IfVersion = null, SourceText = "this is not structured text at all" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Junk.pou", IfVersion = null, SourceText = "this is not structured text at all" });
         Assert.False(resp.Accepted);
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.InvalidSt, Assert.Single(resp.Conflicts!).Code);
         Assert.Empty(ide.Recorded);
@@ -310,9 +310,9 @@ public class PushServiceTests
     {
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.fb", IfVersion = null, SourceText = TwoSameNameMethods });
+        var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.pou", IfVersion = null, SourceText = TwoSameNameMethods });
         Assert.False(resp.Accepted);
-        Assert.Contains(resp.Conflicts!, c => c.Name == "FB_Math.fb" && c.Reason.Contains("more than one child named 'Calc'"));
+        Assert.Contains(resp.Conflicts!, c => c.Name == "FB_Math.pou" && c.Reason.Contains("more than one child named 'Calc'"));
         Assert.Empty(ide.Recorded); // guard throws before any CreateChild/WriteText — no half-written FB
     }
 
@@ -322,7 +322,7 @@ public class PushServiceTests
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var twoDistinct = TwoSameNameMethods.Replace("METHOD Calc : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;", "METHOD Calc2 : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;");
-        var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.fb", IfVersion = null, SourceText = twoDistinct });
+        var resp = Push(ide, pv, new SetItemOp { Name = "FB_Math.pou", IfVersion = null, SourceText = twoDistinct });
         Assert.True(resp.Accepted);
     }
 
@@ -332,10 +332,10 @@ public class PushServiceTests
     public void Stale_ifVersion_conflict_carries_the_item_changed_reason()
     {
         var ide = OneProgram();
-        var (_, pv) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.prg", IfVersion = "stale", SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 5;" });
+        var (_, pv) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, pv, new SetItemOp { Name = "PLC_PRG.pou", IfVersion = "stale", SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 5;" });
         Assert.False(resp.Accepted);
-        Assert.Contains(resp.Conflicts!, c => c.Name == "PLC_PRG.prg" && c.Reason == "item changed since you fetched its version");
+        Assert.Contains(resp.Conflicts!, c => c.Name == "PLC_PRG.pou" && c.Reason == "item changed since you fetched its version");
         Assert.Empty(ide.Recorded);
     }
 
@@ -343,8 +343,8 @@ public class PushServiceTests
     public void Wrong_expected_project_version_carries_the_project_conflict_reason()
     {
         var ide = OneProgram();
-        var (v, _) = Ver(ide, "PLC_PRG.prg");
-        var resp = Push(ide, "not-the-current-pv", new SetItemOp { Name = "PLC_PRG.prg", IfVersion = v, SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 7;" });
+        var (v, _) = Ver(ide, "PLC_PRG.pou");
+        var resp = Push(ide, "not-the-current-pv", new SetItemOp { Name = "PLC_PRG.pou", IfVersion = v, SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nn := 7;" });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Name == ConflictCodes.ProjectName && c.Code == ConflictCodes.StaleProjectVersion);
     }
@@ -360,12 +360,12 @@ public class PushServiceTests
         var refs = RefsService.Handle(ide);
         // Derive the update's SourceText from a real fetch so it round-trips in the canonical POU form.
         var prgSrc = FetchService.Handle(ide, new FetchRequest { KnownItems = new() })
-            .Changed.First(c => c.Name == "PLC_PRG.prg").SourceText.Replace("n := 1;", "n := 2;");
+            .Changed.First(c => c.Name == "PLC_PRG.pou").SourceText.Replace("n := 1;", "n := 2;");
 
         var resp = Push(ide, refs.ProjectVersion!,
             new SetItemOp { Name = "ST_New.dut", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
-            new SetItemOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"], SourceText = prgSrc },
-            new DeleteItemOp { Name = "FB_Old.fb", IfVersion = refs.Items["FB_Old.fb"] });
+            new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = prgSrc },
+            new DeleteItemOp { Name = "FB_Old.pou", IfVersion = refs.Items["FB_Old.pou"] });
 
         Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join(",", resp.Conflicts.Select(c => c.Reason)));
         Assert.Contains(ide.Recorded, r => r.StartsWith("create:ST_New"));
@@ -381,11 +381,11 @@ public class PushServiceTests
             FakeIde.Item.TextualPou("B", "PROGRAM B\nVAR\nEND_VAR", "y := 1;"));
         var refs = RefsService.Handle(ide);
         var resp = Push(ide, refs.ProjectVersion!,
-            new SetItemOp { Name = "A.prg", IfVersion = refs.Items["A.prg"], SourceText = "PROGRAM A\nVAR\nEND_VAR\nx := 2;" }, // valid
-            new SetItemOp { Name = "B.prg", IfVersion = "stale", SourceText = "PROGRAM B\nVAR\nEND_VAR\ny := 2;" });          // conflicts
+            new SetItemOp { Name = "A.pou", IfVersion = refs.Items["A.pou"], SourceText = "PROGRAM A\nVAR\nEND_VAR\nx := 2;" }, // valid
+            new SetItemOp { Name = "B.pou", IfVersion = "stale", SourceText = "PROGRAM B\nVAR\nEND_VAR\ny := 2;" });          // conflicts
 
         Assert.False(resp.Accepted);
-        Assert.Contains(resp.Conflicts!, c => c.Name == "B.prg");
+        Assert.Contains(resp.Conflicts!, c => c.Name == "B.pou");
         Assert.Empty(ide.Recorded); // the valid op A was NOT applied — atomic rollback
     }
 
@@ -399,16 +399,16 @@ public class PushServiceTests
     [Fact]
     public void A_push_does_not_delete_the_POUs_transitions()
     {
-        var pou = new FakeIde.Item("SFC_PRG", ItemKind.PlcPouProg, "", true,
+        var pou = new FakeIde.Item("SFC_PRG", ItemKind.PlcPou, "", true,
             "PROGRAM SFC_PRG\nVAR\nEND_VAR", "x := 1;", null, null, new[] { "ACT_A", "T1" });
         var act = new FakeIde.Item("ACT_A", ItemKind.PlcAction, "", false, null, "a := 1;", null, null);
         var trans = new FakeIde.Item("T1", ItemKind.PlcTrans, "", false, null, "TRUE", null, null);
         var ide = new FakeIde(pou, act, trans);
 
-        var (v, pv) = Ver(ide, "SFC_PRG.prg");
+        var (v, pv) = Ver(ide, "SFC_PRG.pou");
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "SFC_PRG.prg",
+            Name = "SFC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM SFC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\n\nEND_PROGRAM\n\nACTION ACT_A\nIMPLEMENTATION ST\na := 1;\nEND_ACTION\n",
         });
@@ -425,13 +425,13 @@ public class PushServiceTests
     [Fact]
     public void A_v1_body_is_refused_naming_a_re_pull_and_nothing_is_written()
     {
-        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", ItemKind.PlcPouProg, "", true,
+        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR", "out := TRUE;", "LD", null));
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
 
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "PLC_PRG.prg",
+            Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
                          "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK\n\nEND_PROGRAM\n",
@@ -455,16 +455,16 @@ public class PushServiceTests
     {
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
-            new("PLC_PRG", ItemKind.PlcPouProg, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
+            new("PLC_PRG", ItemKind.PlcPou, "", true, "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR",
                 "IMPLEMENTATION LD\nNETWORK\n  out := TRUE;\nEND_NETWORK", "LD", null),
         };
         if (withGlobal) items.Add(FakeIde.Item.TextualPou("GVL_Main", "VAR_GLOBAL\n  G7 : BOOL;\nEND_VAR", ""));
         var ide = new FakeIde(items.ToArray());
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
 
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "PLC_PRG.prg",
+            Name = "PLC_PRG.pou",
             IfVersion = v,
             SourceText = "PROGRAM PLC_PRG\nVAR\n  out : BOOL;\nEND_VAR\nIMPLEMENTATION LD\n" +
                          "NETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := TRUE;\n  out := g7;\nEND_NETWORK\n\nEND_PROGRAM\n",
@@ -488,12 +488,12 @@ public class PushServiceTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "n := 1;"))
        ;
-        var (v, pv) = Ver(ide, "PLC_PRG.prg");
+        var (v, pv) = Ver(ide, "PLC_PRG.pou");
 
         // Malformed network text: the splice refuses it, so the whole push must be rejected.
         var resp = Push(ide, pv, new SetItemOp
         {
-            Name = "PLC_PRG.prg",
+            Name = "PLC_PRG.pou",
             IfVersion = v,
             ToFolder = "Machine",
             SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  out := (a AND b);\n\nEND_PROGRAM\n",
@@ -518,13 +518,13 @@ public class PushServiceTests
     public void A_case_only_rename_reaches_the_ide()
     {
         var ide = OneProgram("Calc");
-        var (v, pv) = Ver(ide, "Calc.prg");
+        var (v, pv) = Ver(ide, "Calc.pou");
 
-        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.prg", IfVersion = v, ToName = "calc.prg" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, ToName = "calc.pou" });
 
         Assert.True(resp.Accepted);
         Assert.Contains("rename:Calc->calc", ide.Recorded);
-        Assert.Contains("calc.prg", resp.NewItems!.Keys);
+        Assert.Contains("calc.pou", resp.NewItems!.Keys);
     }
 
     /// <summary>AND A RENAME THE IDE DID NOT APPLY IS REFUSED, not reported as done.
@@ -542,9 +542,9 @@ public class PushServiceTests
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("Calc", "PROGRAM Calc\nVAR\nEND_VAR", "n := 1;"))
         { IgnoreRenames = true };
-        var (v, pv) = Ver(ide, "Calc.prg");
+        var (v, pv) = Ver(ide, "Calc.pou");
 
-        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.prg", IfVersion = v, ToName = "calc.prg" });
+        var resp = Push(ide, pv, new SetItemOp { Name = "Calc.pou", IfVersion = v, ToName = "calc.pou" });
 
         // A per-op refusal comes back as a REJECTION carrying the reason, not as a throw — `PushService`
         // catches per op so one bad op names itself instead of failing the whole batch anonymously.

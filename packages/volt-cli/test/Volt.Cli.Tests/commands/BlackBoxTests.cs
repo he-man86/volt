@@ -60,7 +60,7 @@ public class BlackBoxTests
     private static FakeIde.Item Prg(string impl = "x := 1;") =>
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", impl);
     private static void EditPrg(string root, string to) =>
-        File.WriteAllText(Path.Combine(root, "src", "PLC_PRG.prg"), File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.prg")).Replace("x := 1;", to));
+        File.WriteAllText(Path.Combine(root, "src", "PLC_PRG.pou"), File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.pou")).Replace("x := 1;", to));
 
     /// <summary>`volt rebind --project-name <name>` — the SEPARATE-token form, which is what the desktop's
     /// reconnect list sends (volt-control/src/bridge/actions.ts spawns
@@ -117,7 +117,7 @@ public class BlackBoxTests
             Assert.True(pull.Code == 0, $"pull exit {pull.Code}: {pull.Err}");
             using (var pj = JsonDocument.Parse(pull.Out.Trim()))
                 Assert.Equal("ok", pj.RootElement.GetProperty("kind").GetString());
-            Assert.True(File.Exists(Path.Combine(root, "src", "PLC_PRG.prg")));
+            Assert.True(File.Exists(Path.Combine(root, "src", "PLC_PRG.pou")));
 
             var st = RunVolt(root, pipe, "status", "--json");
             Assert.True(st.Code == 0, $"status exit {st.Code}: {st.Err}");
@@ -182,7 +182,7 @@ public class BlackBoxTests
             var pretty = RunVolt(root, pipe, "pull");
             Assert.Equal(2, pretty.Code);
             Assert.Contains("CONFLICT", pretty.Out);
-            Assert.Contains("PLC_PRG.prg", pretty.Out);
+            Assert.Contains("PLC_PRG.pou", pretty.Out);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -243,9 +243,9 @@ public class BlackBoxTests
             using (var doc = JsonDocument.Parse(j.Out.Trim()))
             {
                 var d = doc.RootElement.GetProperty("diagnostics")[0];
-                Assert.Equal(("PLC_PRG.prg", "Step"), (d.GetProperty("name").GetString(), d.GetProperty("member").GetString()));
+                Assert.Equal(("PLC_PRG.pou", "Step"), (d.GetProperty("name").GetString(), d.GetProperty("member").GetString()));
             }
-            Assert.Contains("PLC_PRG.prg(Step):6 C0578: Unexpected statement", RunVolt(root, pipe, "build").Out);
+            Assert.Contains("PLC_PRG.pou(Step):6 C0578: Unexpected statement", RunVolt(root, pipe, "build").Out);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -354,8 +354,8 @@ public class BlackBoxTests
         try
         {
             RunVolt(root, pipe, "pull");
-            Assert.Equal(0, RunVolt(root, pipe, "show", "WORKSPACE", "PLC_PRG.prg").Code);
-            Assert.Equal(2, RunVolt(root, pipe, "show", "WORKSPACE", "Nope.prg").Code);   // absent item → empty diff pane (not an error)
+            Assert.Equal(0, RunVolt(root, pipe, "show", "WORKSPACE", "PLC_PRG.pou").Code);
+            Assert.Equal(2, RunVolt(root, pipe, "show", "WORKSPACE", "Nope.pou").Code);   // absent item → empty diff pane (not an error)
             Assert.Equal(1, RunVolt(root, pipe, "show").Code);                            // usage error
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -372,7 +372,7 @@ public class BlackBoxTests
             var r = RunVolt(root, pipe, "status", "--porcelain");
             Assert.Equal(0, r.Code);
             Assert.Contains("oM ", r.Out);                 // outgoing-Modified prefix
-            Assert.Contains("PLC_PRG.prg", r.Out);
+            Assert.Contains("PLC_PRG.pou", r.Out);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

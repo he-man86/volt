@@ -11,7 +11,7 @@ namespace Volt.Cli.Tests;
 ///
 /// <para><c>core.quotepath</c> is ON by default, and it applies to <c>ls-tree</c>, <c>status --porcelain</c> and
 /// <c>diff --name-status</c> alike: a path containing anything outside ASCII comes back as a DOUBLE-QUOTED token
-/// with octal escapes — <c>"src/W\303\244rme/FB_X.fb"</c> — not as the path. Volt then treats that token as the
+/// with octal escapes — <c>"src/W\303\244rme/FB_X.pou"</c> — not as the path. Volt then treats that token as the
 /// path, and the consequences are not cosmetic:</para>
 /// <list type="bullet">
 ///   <item>the item is not carried forward into the new <c>volt/ide</c> tree, so the merge DELETES it;</item>
@@ -40,7 +40,7 @@ public class QuotepathTests
         Environment.SetEnvironmentVariable("GIT_COMMITTER_EMAIL", "t@t");
         var root = Directory.CreateTempSubdirectory("volt-quotepath-").FullName;
         Git.GitInit(root);
-        foreach (var rel in new[] { "src/Plain/FB_A.fb", "src/Wärme/FB_X.fb" })
+        foreach (var rel in new[] { "src/Plain/FB_A.pou", "src/Wärme/FB_X.pou" })
         {
             var full = Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
@@ -51,7 +51,7 @@ public class QuotepathTests
         return root;
     }
 
-    private const string Umlaut = "src/Wärme/FB_X.fb";
+    private const string Umlaut = "src/Wärme/FB_X.pou";
 
     [Fact]
     public void ListTree_returns_the_real_path_not_a_quoted_octal_escape()
@@ -60,7 +60,7 @@ public class QuotepathTests
         try
         {
             var paths = Git.ListTree(Git.ResolveGitDir(root), "HEAD").Select(e => e.Path).ToList();
-            Assert.Contains("src/Plain/FB_A.fb", paths);
+            Assert.Contains("src/Plain/FB_A.pou", paths);
             Assert.Contains(Umlaut, paths);
             Assert.DoesNotContain(paths, p => p.Contains('"') || p.Contains("\\303"));
         }
@@ -74,7 +74,7 @@ public class QuotepathTests
         try
         {
             var first = Git.HeadCommit(root)!;
-            File.AppendAllText(Path.Combine(root, "src", "Wärme", "FB_X.fb"), "// edit\n");
+            File.AppendAllText(Path.Combine(root, "src", "Wärme", "FB_X.pou"), "// edit\n");
             Git.StageSrc(root);
             Git.CommitAll(root, "edit");
 
@@ -94,8 +94,8 @@ public class QuotepathTests
     /// <para>Both an ASCII and a non-ASCII rename, because the failure modes are independent: the record shape
     /// breaks every rename, quotepath breaks only the non-ASCII ones.</para></summary>
     [Theory]
-    [InlineData("src/Plain/FB_A.fb", "src/Plain/FB_Renamed.fb")]
-    [InlineData("src/Wärme/FB_X.fb", "src/Wärme/FB_Umbenannt.fb")]
+    [InlineData("src/Plain/FB_A.pou", "src/Plain/FB_Renamed.pou")]
+    [InlineData("src/Wärme/FB_X.pou", "src/Wärme/FB_Umbenannt.pou")]
     public void DiffRefs_reports_a_rename_with_both_sides(string from, string to)
     {
         var root = RepoWithUmlautPath();
@@ -124,7 +124,7 @@ public class QuotepathTests
         var root = RepoWithUmlautPath();
         try
         {
-            File.AppendAllText(Path.Combine(root, "src", "Wärme", "FB_X.fb"), "// dirty\n");
+            File.AppendAllText(Path.Combine(root, "src", "Wärme", "FB_X.pou"), "// dirty\n");
 
             var rows = Git.DiffWorktree(root, Git.HeadCommit(root)!, "src");
             Assert.Contains(rows, r => r.Path == Umlaut);

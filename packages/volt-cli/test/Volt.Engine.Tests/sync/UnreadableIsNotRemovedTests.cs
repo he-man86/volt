@@ -41,19 +41,19 @@ public class UnreadableIsNotRemovedTests
         // The client already holds both, from a pull taken when the POU still read cleanly.
         var known = new Dictionary<string, string>
         {
-            ["PLC_PRG.prg"] = "stale-so-it-re-sends",
-            ["FB_Broken.prg"] = "whatever-it-hashed-to",
+            ["PLC_PRG.pou"] = "stale-so-it-re-sends",
+            ["FB_Broken.pou"] = "whatever-it-hashed-to",
         };
 
         var res = FetchService.Handle(ide, new FetchRequest { KnownItems = known });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
 
-        Assert.DoesNotContain("FB_Broken.prg", res.Removed);
+        Assert.DoesNotContain("FB_Broken.pou", res.Removed);
     }
 
     /// <summary>AN UNREADABLE ITEM SHIELDS ITSELF, NOT EVERY ITEM THAT SHARES ITS BARE NAME. Bare names repeat
     /// across kinds in real projects — a control module and the visualization that draws it are
-    /// <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> (CLAUDE.md, V71_PackML_Hauzer). The exemption was
+    /// <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> (CLAUDE.md, V71_PackML_Hauzer). The exemption was
     /// keyed by bare name alone, so with the FB unreadable, a visualization the IDE had DELETED was never reported
     /// removed: its file survived the pull, the new baseline dropped it, and its next edit pushed as a CREATE —
     /// resurrecting what the engineer deleted. The walk knows the unreadable item's KIND even when it cannot read
@@ -61,17 +61,17 @@ public class UnreadableIsNotRemovedTests
     [Fact]
     public void An_unreadable_item_does_not_shield_a_deleted_item_of_another_kind_with_its_bare_name()
     {
-        var ide = new FakeIde(new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+        var ide = new FakeIde(new FakeIde.Item("CM_Carrier", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             null, null, "LD", "the graphical body cannot be read"));
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["CM_Carrier.fb"] = "v", ["CM_Carrier.visualization"] = "v" },
+            KnownItems = new Dictionary<string, string> { ["CM_Carrier.pou"] = "v", ["CM_Carrier.visualization"] = "v" },
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}] unreadable: [{string.Join(", ", res.Unreadable)}]");
 
         Assert.Equal(new[] { "CM_Carrier" }, res.Unreadable.ToArray());
-        Assert.DoesNotContain("CM_Carrier.fb", res.Removed);
+        Assert.DoesNotContain("CM_Carrier.pou", res.Removed);
         Assert.Contains("CM_Carrier.visualization", res.Removed);
     }
 
@@ -86,15 +86,15 @@ public class UnreadableIsNotRemovedTests
     [InlineData("X.foo")]
     public void An_unreadable_item_does_not_shield_a_known_name_the_engine_cannot_place(string other)
     {
-        var ide = new FakeIde(new FakeIde.Item("X", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+        var ide = new FakeIde(new FakeIde.Item("X", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             null, null, "LD", "the graphical body cannot be read"));
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["X.fb"] = "v", [other] = "v" },
+            KnownItems = new Dictionary<string, string> { ["X.pou"] = "v", [other] = "v" },
         });
 
-        Assert.DoesNotContain("X.fb", res.Removed);
+        Assert.DoesNotContain("X.pou", res.Removed);
         Assert.Contains(other, res.Removed);
     }
 
@@ -141,7 +141,7 @@ public class UnreadableIsNotRemovedTests
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["PLC_PRG.prg"] = "v", ["FB_Hidden.prg"] = "v" },
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["FB_Hidden.pou"] = "v" },
         });
         _out.WriteLine($"removed: [{string.Join(", ", res.Removed)}]");
 
@@ -159,10 +159,10 @@ public class UnreadableIsNotRemovedTests
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["PLC_PRG.prg"] = "v", ["FB_Hidden.prg"] = "v" },
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["FB_Hidden.pou"] = "v" },
         });
 
-        Assert.Contains("FB_Hidden.prg", res.Removed);
+        Assert.Contains("FB_Hidden.pou", res.Removed);
     }
 
     /// <summary>The genuine case still works: a name the client knows and the walk did NOT see is removed.
@@ -175,9 +175,9 @@ public class UnreadableIsNotRemovedTests
 
         var res = FetchService.Handle(ide, new FetchRequest
         {
-            KnownItems = new Dictionary<string, string> { ["PLC_PRG.prg"] = "v", ["FB_Deleted.fb"] = "v" },
+            KnownItems = new Dictionary<string, string> { ["PLC_PRG.pou"] = "v", ["FB_Deleted.pou"] = "v" },
         });
 
-        Assert.Contains("FB_Deleted.fb", res.Removed);
+        Assert.Contains("FB_Deleted.pou", res.Removed);
     }
 }

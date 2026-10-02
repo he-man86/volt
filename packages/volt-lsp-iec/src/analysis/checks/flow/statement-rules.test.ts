@@ -46,7 +46,7 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
   // silent before: only EXIT was checked (conformance `cc2_exit_outside_loop`, which records both).
   const src = `FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nn := 1;\nEXIT;\nCONTINUE;\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "exit-outside-loop")
     .map((d) => d.message)
@@ -58,7 +58,7 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
     computeSemanticDiagnostics({
       parseResult: okParse,
       source: ok,
-      project: build.buildSymbolTable([{ uri: "F.fb", parseResult: okParse, source: ok }]),
+      project: build.buildSymbolTable([{ uri: "F.pou", parseResult: okParse, source: ok }]),
       config: resolveConfig({ vendor: "codesys" }),
     }).filter((d) => d.code === "exit-outside-loop"),
   ).toEqual([])

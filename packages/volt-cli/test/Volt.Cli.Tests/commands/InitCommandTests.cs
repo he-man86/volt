@@ -43,8 +43,8 @@ public class InitCommandTests
             Assert.True(r.Pulled >= 2);
 
             Assert.True(Config.ConfigExists(ws));
-            Assert.True(File.Exists(Path.Combine(ws, "src", "PLC_PRG.prg")));
-            Assert.True(File.Exists(Path.Combine(ws, "src", "POUs", "FB_Motor.fb")));
+            Assert.True(File.Exists(Path.Combine(ws, "src", "PLC_PRG.pou")));
+            Assert.True(File.Exists(Path.Combine(ws, "src", "POUs", "FB_Motor.pou")));
             Assert.True(File.Exists(Path.Combine(ws, "README.md")));
             Assert.True(File.Exists(Path.Combine(ws, ".gitattributes")));
 
@@ -60,7 +60,7 @@ public class InitCommandTests
     public void Init_names_every_UNSUPPORTED_body_and_its_reason()
     {
         var (host, client) = HostFor(ConnectedIde(
-            new FakeIde.Item("FB_Motor", Volt.Engine.Item.ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR",
+            new FakeIde.Item("FB_Motor", Volt.Engine.Item.ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR",
                              "", "FBD", null, Unsupported: "a flag on a box input pin")), out _);
         var parent = Directory.CreateTempSubdirectory("volt-init-").FullName;
         try
@@ -68,7 +68,7 @@ public class InitCommandTests
             var r = Commands.Init(parent, client);
 
             Assert.Equal("ok", r.Kind);
-            Assert.Contains("FB_Motor.fb", r.Note ?? "");
+            Assert.Contains("FB_Motor.pou", r.Note ?? "");
             Assert.Contains("a flag on a box input pin", r.Note ?? "");
         }
         finally { host.Dispose(); TestUtil.ForceDelete(parent); }
@@ -82,7 +82,7 @@ public class InitCommandTests
         try
         {
             var ws = Commands.Init(parent, client).Workspace!; // a real bound workspace on "Demo"
-            var prg = Path.Combine(ws, "src", "PLC_PRG.prg");
+            var prg = Path.Combine(ws, "src", "PLC_PRG.pou");
             var before = File.ReadAllText(prg);
 
             var err = Commands.Rebind(ws, "codesys", "Renamed"); // re-point to a different name

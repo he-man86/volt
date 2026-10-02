@@ -40,7 +40,7 @@ public static class IdeTree
         string? SrcRel(string path) => path.StartsWith(Files.SrcDir + "/", StringComparison.Ordinal) ? path.Substring(Files.SrcDir.Length + 1) : null;
         var replaced = new HashSet<string>(ideFiles.Select(f => f.Path));
 
-        // BARE WIRE NAMES ("Foo.fb"), not paths — the fetch reports what the IDE deleted, and an item's identity
+        // BARE WIRE NAMES ("Foo.pou"), not paths — the fetch reports what the IDE deleted, and an item's identity
         // is its name (the whole wire is keyed that way). `replaced` above IS a path set, which is why only this
         // one needed the distinction spelt out: comparing names against src-relative paths silently matched
         // nothing for any item in a folder, so a deletion in the IDE never reached the workspace unless the item

@@ -31,7 +31,7 @@ END_PROGRAM`
 
 const setup = () => {
   const parseResult = parseSource(SRC, { networkText: true })
-  const doc: Document = { uri: "file:///F.fb", source: SRC, parseResult }
+  const doc: Document = { uri: "file:///F.pou", source: SRC, parseResult }
   return { doc, project: build.buildSymbolTable([{ uri: doc.uri, parseResult, source: SRC }]) }
 }
 

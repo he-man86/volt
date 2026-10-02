@@ -13,7 +13,7 @@ import { build } from "../../frontend/symbols/index.js"
 
 function setup(src: string) {
   const parseResult = parseSource(src, { networkText: true })
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
   return { doc, project }
 }
@@ -60,7 +60,7 @@ FUNCTION_BLOCK FB
 END_FUNCTION_BLOCK
 METHOD M
 END_METHOD`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
   const kw = (needle: string, prefix: string) =>
     (hover(doc, project, src.indexOf(needle) + prefix.length)?.contents as { value: string } | undefined)?.value ?? ""
@@ -84,14 +84,14 @@ test("hover: whitespace / unknown token yields nothing", () => {
 
 test("pragma hover: an {attribute '<name>'} name describes the attribute", () => {
   const src = `{attribute 'qualified_only'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const h = pragmaHover(doc, src.indexOf("qualified_only") + 2)
   expect((h?.contents as { value: string }).value).toMatch(/qualified_only[\s\S]*attribute/i)
 })
 
 test("pragma hover: a directive word describes the directive; an unknown one yields nothing", () => {
   const src = `FUNCTION_BLOCK F\nVAR x : INT; END_VAR\n{IF defined(FOO)}\nx := 1;\n{END_IF}\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const onIf = pragmaHover(doc, src.indexOf("{IF") + 1)
   expect((onIf?.contents as { value: string }).value).toMatch(/[Cc]onditional/)
   expect(pragmaHover(doc, src.indexOf("x : INT"))).toBeUndefined() // not a pragma
@@ -99,7 +99,7 @@ test("pragma hover: a directive word describes the directive; an unknown one yie
 
 test("completion: inside {attribute '…'} offers the known attribute names, not scope symbols", () => {
   const src = `{attribute 'qual'}\nFUNCTION_BLOCK F\nEND_FUNCTION_BLOCK`
-  const doc: Document = { uri: "file:///F.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///F.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
   const project = build.buildSymbolTable([{ uri: doc.uri, parseResult: doc.parseResult, source: src }])
   const items = completion(doc, project, src.indexOf("qual") + 4)
   const labels = items.map((i) => i.label)

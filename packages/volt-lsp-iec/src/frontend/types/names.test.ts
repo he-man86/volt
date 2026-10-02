@@ -22,7 +22,7 @@ M_mbg := 7;
 END_METHOD`
 
 function project(...extra: { uri: string; source: string }[]): Scope {
-  return build.buildSymbolTable([file("FB_U.fb", FB), ...extra.map((f) => file(f.uri, f.source))], [], "codesys", undefined, [
+  return build.buildSymbolTable([file("FB_U.pou", FB), ...extra.map((f) => file(f.uri, f.source))], [], "codesys", undefined, [
     { kind: "device", name: "Device", uri: "Device/Device.device" },
   ])
 }
@@ -36,7 +36,7 @@ test("steps 1–4: a method's local, its FB's variable, its FB's method — befo
 })
 
 test("step 5 before step 8: a global before a POU of its name (sym_global_before_pou_name)", () => {
-  const p = project({ uri: "a.fun", source: "FUNCTION F_Same : INT\nEND_FUNCTION" }, { uri: "z.gvl", source: "VAR_GLOBAL\n F_Same : INT;\nEND_VAR" })
+  const p = project({ uri: "a.pou", source: "FUNCTION F_Same : INT\nEND_FUNCTION" }, { uri: "z.gvl", source: "VAR_GLOBAL\n F_Same : INT;\nEND_VAR" })
   expect(tag(resolveBareName(method(p), "F_Same"))).toBe("declared gvl_var in project")
 })
 
@@ -58,7 +58,7 @@ test("the compiler's own names: system operators, conversions, implicits, operat
 })
 
 test("a dialect's own vocabulary: TwinCAT has no __POSITION and no conversion to LDATE", () => {
-  const p = build.buildSymbolTable([file("FB_U.fb", FB)], [], "twincat")
+  const p = build.buildSymbolTable([file("FB_U.pou", FB)], [], "twincat")
   const m = findScopeByName(p, "M_mbg")!
   expect(tag(resolveBareName(m, "__POSITION"))).toBe("none")
   expect(tag(resolveBareName(m, "DATE_TO_LDATE"))).toBe("none")
@@ -74,7 +74,7 @@ test("a referenced library's namespace resolves bare, as a library namespace —
     dependencies: [],
     materialization: 4,
   }
-  const p = build.buildSymbolTable([file("FB_U.fb", FB)], [manifest], "codesys")
+  const p = build.buildSymbolTable([file("FB_U.pou", FB)], [manifest], "codesys")
   expect(tag(resolveBareName(findScopeByName(p, "M_mbg")!, "emptyns"))).toBe("library-namespace")
 })
 
@@ -110,7 +110,7 @@ test("EN5: a variable of the member's name is the declaration the name means (en
 
 test("EN6: a referenced library's member resolves bare where one enum declares it (enum_library_bare); a project enum's of its name first (enum_library_member_vs_project_enum)", () => {
   const p = build.buildSymbolTable([
-    file("FB_U.fb", FB),
+    file("FB_U.pou", FB),
     file("App/Library Manager/Util/GEN_MODE.dut", "TYPE GEN_MODE : (SAWTOOTH_RISE := 2, COSINUS := 6);\nEND_TYPE"),
     file("E.dut", "TYPE E_P : (COSINUS := 9);\nEND_TYPE"),
   ], [UTIL], "codesys")
@@ -123,7 +123,7 @@ test("EN6: a referenced library's member resolves bare where one enum declares i
 
 test("EN3/EN6: a member two of a library's enums declare names nothing, and unsaid — only \"not defined\" (enum_library_same_member_one_library)", () => {
   const p = build.buildSymbolTable([
-    file("FB_U.fb", FB),
+    file("FB_U.pou", FB),
     file("App/Library Manager/Util/WEEKDAY.dut", "TYPE WEEKDAY : (UNKNOWN := 0, MONDAY := 1);\nEND_TYPE"),
     file("App/Library Manager/Util/PERIOD.dut", "TYPE PERIOD : (UNKNOWN := 0, DAILY := 1);\nEND_TYPE"),
   ], [UTIL], "codesys")
@@ -139,7 +139,7 @@ test("EN3/EN6: a member two of a library's enums declare names nothing, and unsa
 test("precedence rank 0 (unmeasured): inside the library that declares it, the member is reached bare", () => {
   const p = build.buildSymbolTable([
     file("App/Library Manager/Util/WEEKDAY.dut", "TYPE WEEKDAY : (MONDAY := 1);\nEND_TYPE"),
-    file("App/Library Manager/Util/F_Day.fun", "FUNCTION F_Day : INT\nVAR d : WEEKDAY; END_VAR\nd := MONDAY;\nEND_FUNCTION"),
+    file("App/Library Manager/Util/F_Day.pou", "FUNCTION F_Day : INT\nVAR d : WEEKDAY; END_VAR\nd := MONDAY;\nEND_FUNCTION"),
   ], [UTIL], "codesys")
   expect(tag(resolveBareName(findScopeByName(p, "F_Day")!, "monday"))).toBe("enum-member")
 })

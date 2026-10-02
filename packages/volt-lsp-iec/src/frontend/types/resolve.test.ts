@@ -35,8 +35,8 @@ const file = (uri: string, source: string) => ({ uri, source, parseResult: parse
 
 // The two ETRIGs are not the same function block: only one has `fromCbm`.
 const FILES = [
-  file(`${LIB("CAA Behaviour Model")}/ETRIG.fb`, "FUNCTION_BLOCK ETRIG\nVAR\n  fromCbm : BOOL;\nEND_VAR\n"),
-  file(`${LIB("CBML")}/ETRIG.fb`, "FUNCTION_BLOCK ETRIG\nVAR\n  fromCbml : BOOL;\nEND_VAR\n"),
+  file(`${LIB("CAA Behaviour Model")}/ETRIG.pou`, "FUNCTION_BLOCK ETRIG\nVAR\n  fromCbm : BOOL;\nEND_VAR\n"),
+  file(`${LIB("CBML")}/ETRIG.pou`, "FUNCTION_BLOCK ETRIG\nVAR\n  fromCbml : BOOL;\nEND_VAR\n"),
 ]
 
 const MANIFESTS = [
@@ -56,8 +56,8 @@ const membersSeenFrom = (project: ReturnType<typeof build.buildSymbolTable>, ask
 describe("a type name with two candidates", () => {
   test("resolves through the asking file's own library dependencies", () => {
     const project = build.buildSymbolTable(FILES, MANIFESTS)
-    expect(membersSeenFrom(project, `${LIB("CAA File")}/Reader.fb`)).toEqual(["fromcbm"])
-    expect(membersSeenFrom(project, `${LIB("VisuUtils")}/Widget.fb`)).toEqual(["fromcbml"])
+    expect(membersSeenFrom(project, `${LIB("CAA File")}/Reader.pou`)).toEqual(["fromcbm"])
+    expect(membersSeenFrom(project, `${LIB("VisuUtils")}/Widget.pou`)).toEqual(["fromcbml"])
   })
 
   test("a file resolves its OWN library's export before a dependency's", () => {
@@ -65,21 +65,21 @@ describe("a type name with two candidates", () => {
       ...MANIFESTS.slice(0, 2),
       manifest("CBML", "CBML", "CBML", ["CAA Behaviour Model"]),
     ])
-    expect(membersSeenFrom(project, `${LIB("CBML")}/Widget.fb`)).toEqual(["fromcbml"])
+    expect(membersSeenFrom(project, `${LIB("CBML")}/Widget.pou`)).toEqual(["fromcbml"])
   })
 
   test("project source prefers a project type over any library's", () => {
-    const own = file("file:///w/POUs/ETRIG.fb", "FUNCTION_BLOCK ETRIG\nVAR\n  fromProject : BOOL;\nEND_VAR\n")
+    const own = file("file:///w/POUs/ETRIG.pou", "FUNCTION_BLOCK ETRIG\nVAR\n  fromProject : BOOL;\nEND_VAR\n")
     const project = build.buildSymbolTable([...FILES, own], MANIFESTS)
-    expect(membersSeenFrom(project, "file:///w/POUs/App.fb")).toEqual(["fromproject"])
+    expect(membersSeenFrom(project, "file:///w/POUs/App.pou")).toEqual(["fromproject"])
   })
 
   test("the answer does not depend on the order the files were bound", () => {
     const forward = build.buildSymbolTable(FILES, MANIFESTS)
     const reverse = build.buildSymbolTable([...FILES].reverse(), MANIFESTS)
-    for (const asker of [`${LIB("CAA File")}/Reader.fb`, `${LIB("VisuUtils")}/Widget.fb`])
+    for (const asker of [`${LIB("CAA File")}/Reader.pou`, `${LIB("VisuUtils")}/Widget.pou`])
       expect(membersSeenFrom(reverse, asker)).toEqual(membersSeenFrom(forward, asker))
-    expect(membersSeenFrom(reverse, `${LIB("VisuUtils")}/Widget.fb`)).toEqual(["fromcbml"])
+    expect(membersSeenFrom(reverse, `${LIB("VisuUtils")}/Widget.pou`)).toEqual(["fromcbml"])
   })
 
   test("with no asker it is still stable — the same answer every time, just uninformed", () => {

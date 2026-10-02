@@ -10,12 +10,12 @@ import { constantSlotType, constEval, elementaryType } from "../index.js"
 
 const LISTS = [
   { uri: "file:///p/GVL_Constants.gvl", source: "{attribute 'qualified_only'}\nVAR_GLOBAL CONSTANT\n  Count : INT := 12;\nEND_VAR\nVAR_GLOBAL\n  plain : INT := 3;\nEND_VAR\n" },
-  { uri: "file:///p/XiUnits.prg", source: "PROGRAM XiUnits\nVAR\n  runs : INT := 4;\nEND_VAR\nVAR CONSTANT\n  MaxVacuums : USINT := GVL_Constants.Count - 2;\nEND_VAR\nEND_PROGRAM\n" },
+  { uri: "file:///p/XiUnits.pou", source: "PROGRAM XiUnits\nVAR\n  runs : INT := 4;\nEND_VAR\nVAR CONSTANT\n  MaxVacuums : USINT := GVL_Constants.Count - 2;\nEND_VAR\nEND_PROGRAM\n" },
 ]
 
 /** The value of `n := <value>;` in an FB beside `files`. */
 function folded(value: string, files: readonly { uri: string; source: string }[] = LISTS): unknown {
-  const all = [...files, { uri: "file:///p/F.fb", source: `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK\n` }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
+  const all = [...files, { uri: "file:///p/F.pou", source: `FUNCTION_BLOCK F\nVAR\n  n : INT;\nEND_VAR\nn := ${value};\nEND_FUNCTION_BLOCK\n` }].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
   const project = build.buildSymbolTable(all)
   for (const { scope, statements } of bodies(all.at(-1)!.parseResult.units, project)) {
     const s = statements[0]
@@ -38,7 +38,7 @@ test("a variable named through its GVL or its PROGRAM does not fold", () => {
 // Review of the batch (adversarial verify), each reproduced before its fix. Why missed: every test constant was an
 // integer, acyclic, and alone of its name.
 test("a cycle does not fold — it recursed forever, freezing the editor's diagnostics", () => {
-  expect(folded("P.N", [{ uri: "file:///p/P.prg", source: "PROGRAM P\nVAR CONSTANT\n  N : INT := P.N;\nEND_VAR\nEND_PROGRAM\n" }])).toBeUndefined()
+  expect(folded("P.N", [{ uri: "file:///p/P.pou", source: "PROGRAM P\nVAR CONSTANT\n  N : INT := P.N;\nEND_VAR\nEND_PROGRAM\n" }])).toBeUndefined()
   const lists = [
     { uri: "file:///p/GA.gvl", source: "VAR_GLOBAL CONSTANT\n  X : INT := GB.Y;\nEND_VAR\n" },
     { uri: "file:///p/GB.gvl", source: "VAR_GLOBAL CONSTANT\n  Y : INT := GA.X;\nEND_VAR\n" },
@@ -49,7 +49,7 @@ test("a cycle does not fold — it recursed forever, freezing the editor's diagn
 })
 
 test("a REAL constant written as an integer is a REAL — `RC / 4` is 2.5, not 2", () => {
-  const real = [{ uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  RC : REAL := 10;\nEND_VAR\n" }, { uri: "file:///p/P.prg", source: "PROGRAM P\nVAR CONSTANT\n  RP : LREAL := 10;\nEND_VAR\nEND_PROGRAM\n" }]
+  const real = [{ uri: "file:///p/G.gvl", source: "VAR_GLOBAL CONSTANT\n  RC : REAL := 10;\nEND_VAR\n" }, { uri: "file:///p/P.pou", source: "PROGRAM P\nVAR CONSTANT\n  RP : LREAL := 10;\nEND_VAR\nEND_PROGRAM\n" }]
   expect(folded("G.RC / 4", real)).toBe(2.5)
   expect(folded("P.RP / 4", real)).toBe(2.5)
   expect(folded("RC / 4", real)).toBe(2.5)
@@ -104,7 +104,7 @@ test("an expression over REAL folds wide and rounds once to float32; an LREAL co
 // VAR_INPUT CONSTANT is a PARAMETER holding the caller's argument, so its default is not a compile-time constant.
 test("a VAR_INPUT CONSTANT parameter does not fold to its default; a VAR CONSTANT beside it does", () => {
   const source = "FUNCTION F : INT\nVAR_INPUT CONSTANT\n  n : INT := 1;\nEND_VAR\nVAR CONSTANT\n  K : INT := 2;\nEND_VAR\nF := n;\nF := K;\nEND_FUNCTION\n"
-  const all = [{ uri: "file:///p/F.fun", source, parseResult: parseSource(source, { networkText: true }) }]
+  const all = [{ uri: "file:///p/F.pou", source, parseResult: parseSource(source, { networkText: true }) }]
   const project = build.buildSymbolTable(all)
   const [{ scope, statements }] = [...bodies(all[0]!.parseResult.units, project)]
   const values = statements.map((s) => (s.kind === "assign" ? constEval(s.value, scope) : null))

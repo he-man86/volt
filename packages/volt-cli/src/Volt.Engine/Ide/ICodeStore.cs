@@ -29,7 +29,7 @@ namespace Volt.Engine.Ide;
 ///
 /// <para><b>What a driver now owns</b> is everything between its IDE and <see cref="ItemContent"/>: reading a
 /// declaration, deciding a body's language, rendering a graphical body to network text, and putting all of it
-/// back. What the ENGINE owns is unchanged and is Volt's own: the canonical <c>.fb</c> layout, network text,
+/// back. What the ENGINE owns is unchanged and is Volt's own: the canonical <c>.pou</c> layout, network text,
 /// the model, and sync. <c>BodyLanguage</c> is gone from the contract because the language now arrives INSIDE
 /// the content — a second round-trip to ask "what language is this" was the transport leaking upward.</para>
 /// </summary>

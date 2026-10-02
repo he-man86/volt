@@ -189,7 +189,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	for (const [lang, buildSrc] of [["FBD", fbdProgram], ["LD", ldProgram]] as [string, (n: string) => string][]) {
 		it(`creates a ${lang} program from scratch and round-trips byte-identical`, async () => {
 			const name = id(`net_${lang.toLowerCase()}`)
-			const fullName = fid(`net_${lang.toLowerCase()}`, "prg")   // graphical PROGRAM POUs are .prg (kept graphical by content)
+			const fullName = fid(`net_${lang.toLowerCase()}`, "pou")   // a graphical PROGRAM is X.pou like every POU (kept graphical by content)
 			const src = buildSrc(name)
 			expect(src).toContain("NETWORK")
 
@@ -199,7 +199,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 			const after = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
 			expect(after).toBeDefined()
-			expect(after.name.endsWith(".prg")).toBe(true)                        // named by KIND (program); graphical-ness is in the content
+			expect(after.name.endsWith(".pou")).toBe(true)                        // named by KIND (pou); graphical-ness is in the content
 			expect(after.sourceText).toContain(`IMPLEMENTATION ${lang}`)   // stayed ${lang}, not flattened to ST
 			expectNoOperandsLost(src, after.sourceText)   // …and nothing in the diagram was dropped on the way
 
@@ -234,7 +234,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	it("creates an FBD program with an Execute box (ST-in-FBD) and round-trips it byte-identical", async () => {
 		const name = id("net_execute")
-		const fullName = fid("net_execute", "prg")
+		const fullName = fid("net_execute", "pou")
 
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: executeProgram(name), ifVersion: null }] })
@@ -283,7 +283,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	// was invisible to the whole live tier: an empty snippet came back as `EXECUTE();` and nothing asked.
 	it("an Execute box with EMPTY ST stays an Execute box", async () => {
 		const name = id("net_execute_empty")
-		const fullName = fid("net_execute_empty", "prg")
+		const fullName = fid("net_execute_empty", "pou")
 
 		const refs = await bridge.refs()
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: emptyExecuteProgram(name), ifVersion: null }] })
@@ -332,14 +332,14 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	] as [string, (n: string) => string, boolean][]) {
 		it(`LD featureset (${label}) round-trips to a stable LD body`, async () => {
 			const name = id(`net_ld_${label}`)
-			const fullName = fid(`net_ld_${label}`, "prg")
+			const fullName = fid(`net_ld_${label}`, "pou")
 			const refs = await bridge.refs()
 			const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: buildSrc(name), ifVersion: null }] })
 			expect(r.accepted).toBe(true)
 
 			const v1 = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
 			expect(v1).toBeDefined()
-			expect(v1.name.endsWith(".prg")).toBe(true)                // graphical program POU is a .prg file
+			expect(v1.name.endsWith(".pou")).toBe(true)                // a graphical program is a .pou file like any POU
 			expect(v1.sourceText).toContain("IMPLEMENTATION LD")   // stayed ladder (LD), not flattened to ST
 			expectNoOperandsLost(buildSrc(name), v1.sourceText)          // and every element survived the write
 			if (exact) expect(v1.sourceText).toBe(buildSrc(name))        // …and it came back exactly as pushed
@@ -379,7 +379,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// IDE relocates the object whole, so this is now a supported operation — and the body must survive it
 		// byte-identical, which is the whole reason the old path refused rather than tried.
 		const name = id("net_move")
-		const fullName = fid("net_move", "prg")
+		const fullName = fid("net_move", "pou")
 		await createItem(fullName, fbdProgram(name), "")
 		const before = (await fetchItem(fullName)).sourceText
 
@@ -407,7 +407,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		// POU that already lives in the project. (CFC/SFC unsupported behaviour is covered vendor-agnostically
 		// by GraphicalCodeTests.Cfc_/Sfc_body_is_a_read_only_marker — no live fixture needed.)
 		const name = id("net_existing")
-		const fullName = fid("net_existing", "prg")
+		const fullName = fid("net_existing", "pou")
 		const refs0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: refs0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 
@@ -428,11 +428,11 @@ describe(`graphical / round-trip (${BASE})`, () => {
 	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
 	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
 		const name = id("net_guard_st")
-		const fullName = fid("net_guard_st", "prg")
+		const fullName = fid("net_guard_st", "pou")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))
-		expect(before.name.endsWith(".prg")).toBe(true)                 // .prg file holding an FBD body
+		expect(before.name.endsWith(".pou")).toBe(true)                 // .pou file holding an FBD body
 		expect(before.sourceText).toContain("IMPLEMENTATION FBD")
 
 		const r1 = await bridge.refs()
@@ -453,7 +453,7 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	it("refuses a malformed graphical body (missing END_NETWORK) and leaves the item untouched", async () => {
 		const name = id("net_guard_malformed")
-		const fullName = fid("net_guard_malformed", "prg")
+		const fullName = fid("net_guard_malformed", "pou")
 		const r0 = await bridge.refs()
 		expect((await bridge.push({ expectedProjectVersion: r0.projectVersion, ops: [{ op: "set", name: fullName, toFolder: "", sourceText: fbdProgram(name), ifVersion: null }] })).accepted).toBe(true)
 		const before = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name.startsWith(name + "."))

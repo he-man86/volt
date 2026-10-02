@@ -1,7 +1,7 @@
 /**
  * THE PROJECT AS A TEST SUBJECT — naming, readiness, item CRUD and cleanup.
  *
- * <p>Everything here speaks FULL wire names. The wire is keyed by `name.kind` (`CM_Carrier.fb`) everywhere —
+ * <p>Everything here speaks FULL wire names. The wire is keyed by `name.kind` (`CM_Carrier.pou`) everywhere —
  * `refs`, `fetch`, every push op — so the suite does no bare↔full resolution anywhere. `id()` is the bare IEC
  * identifier that goes INSIDE source text; `fid()` is the full name every op and lookup uses.</p>
  */
@@ -17,10 +17,9 @@ export function id(s: string): string {
 	return `${PREFIX}_${s}`
 }
 
-/** The FULL wire name: IEC name + KIND extension. A POU is named by kind — default `.fb`; pass
- *  `prg`/`fun`/`itf`/`gvl` for others. A DUT is named by its SUBTYPE — `struct`/`enum`/`union`/`alias` — the
- *  name the engine mints from its declaration, which is also the workspace file's name. */
-export function fid(s: string, ext = "fb"): string {
+/** The FULL wire name: IEC name + KIND extension. A POU is `.pou` whatever its text says (the default); pass
+ *  `itf`/`gvl`/`dut` for others. The name is the engine's, which is also the workspace file's name. */
+export function fid(s: string, ext = "pou"): string {
 	return `${id(s)}.${ext}`
 }
 
@@ -213,8 +212,8 @@ let _mainProgram: string | null = null
 export async function mainProgram(): Promise<string | null> {
 	if (_mainProgram !== null) return _mainProgram || null
 	const items = Object.keys((await bridge.refs()).items ?? {})
-	const prgs = items.filter((n) => n.endsWith(".prg") && !n.startsWith(PREFIX))
-	const preferred = prgs.find((n) => /^(PLC_PRG|MAIN)\./i.test(n)) ?? prgs[0] ?? ""
+	// Every POU is `X.pou` (push-without-header-check 5.Q), so the entry program is found by its vendor default name.
+	const preferred = items.find((n) => /^(PLC_PRG|MAIN)\.pou$/i.test(n) && !n.startsWith(PREFIX)) ?? ""
 	_mainProgram = preferred
 	return preferred || null
 }

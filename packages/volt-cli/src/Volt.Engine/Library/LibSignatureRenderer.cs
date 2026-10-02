@@ -92,7 +92,7 @@ public static class LibSignatureRenderer
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(Block("VAR", internals))
                     .Concat(new[] { "END_FUNCTION_BLOCK" })
                     .Concat(MethodBlocks(s.Methods));
-                return (".fb", string.Join("\n", lines));
+                return File(ItemKind.Kinds.Pou, string.Join("\n", lines));
             }
             case "Function":
             {
@@ -105,19 +105,19 @@ public static class LibSignatureRenderer
                 // A FUNCTION WITH NO RETURN TYPE IS REAL CODESYS, and it renders as what it is: `FUNCTION name`.
                 // This was skipped (and before that thrown on) on the reading that IEC has no void FUNCTION, so
                 // there was no honest text for one. CODESYS has one — project source declares it and builds
-                // (lenze-mid's `Scale_Offset_Dint.fun`), and StringUtils' `StrTrimA`, `StrMidA` and `StrReplaceA`
+                // (lenze-mid's `Scale_Offset_Dint.pou`), and StringUtils' `StrTrimA`, `StrMidA` and `StrReplaceA`
                 // are return-less functions called as statements. Skipping them left names pro2193 calls
                 // unresolvable, which the LSP papered over with a hardcoded list of library names; that list is
                 // gone (a library is known through its materialization, nothing else).
                 var lines = new[] { ret is null ? $"FUNCTION {name}" : $"FUNCTION {name} : {ret}" }
                     .Concat(Block("VAR_INPUT", s.Inputs)).Concat(Block("VAR_OUTPUT", outs))
                     .Concat(Block("VAR_IN_OUT", s.InOuts)).Concat(new[] { "END_FUNCTION" });
-                return (".fun", string.Join("\n", lines));
+                return File(ItemKind.Kinds.Pou, string.Join("\n", lines));
             }
             case "Interface":
             {
                 var lines = new[] { $"INTERFACE {name}", "END_INTERFACE" }.Concat(MethodBlocks(s.Methods));
-                return (".itf", string.Join("\n", lines));
+                return File(ItemKind.Kinds.Interface, string.Join("\n", lines));
             }
             case "VarGlobal":
             {
@@ -132,7 +132,7 @@ public static class LibSignatureRenderer
                     var members = mem.Select(v => "\t" + v.Name + (string.IsNullOrEmpty(v.Initial) ? "" : $" := {v.Initial}"));
                     return Dut($"TYPE {name} :\n(\n{string.Join(",\n", members)}\n);\nEND_TYPE");
                 }
-                return (".gvl", string.Join("\n", new[] { "VAR_GLOBAL" }.Concat(mem.Select(v => $"\t{VarDecl(v)};")).Concat(new[] { "END_VAR" })));
+                return File(ItemKind.Kinds.Gvl, string.Join("\n", new[] { "VAR_GLOBAL" }.Concat(mem.Select(v => $"\t{VarDecl(v)};")).Concat(new[] { "END_VAR" })));
             }
             case "Type":
             {
@@ -148,7 +148,11 @@ public static class LibSignatureRenderer
     }
 
     /// <summary>A library DUT's (extension, text): every DUT is <c>.dut</c>, whatever shape the vendor's flags gave
-    /// the text (openspec <c>push-without-header-check</c> 5.P) — the extension is <see cref="ItemKind"/>'s, read
-    /// from the table, never spelt here.</summary>
-    private static (string Ext, string Text) Dut(string text) => ("." + ItemKind.ExtFor(ItemKind.Kinds.Dut), text);
+    /// the text (openspec <c>push-without-header-check</c> 5.P).</summary>
+    private static (string Ext, string Text) Dut(string text) => File(ItemKind.Kinds.Dut, text);
+
+    /// <summary>A library item's (extension, text) for its KIND — the extension is <see cref="ItemKind"/>'s, read from
+    /// the table and never spelt here, so a library function block and a library function are both <c>.pou</c>, as a
+    /// project's are (openspec <c>push-without-header-check</c> 5.Q).</summary>
+    private static (string Ext, string Text) File(string kind, string text) => ("." + ItemKind.ExtFor(kind), text);
 }

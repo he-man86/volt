@@ -9,14 +9,15 @@
 import type { ParseResult } from "../frontend/syntax/index.js"
 
 const EXT: Record<string, string> = {
-  function_block: "fb",
-  program: "prg",
-  function: "fun",
+  // Every POU is `.pou` whatever its text says (openspec push-without-header-check 5.Q).
+  function_block: "pou",
+  program: "pou",
+  function: "pou",
   interface: "itf",
   global_var_list: "gvl",
 }
 
-/** `FB_Name.fb` for the first named top-level unit, or `unit.st` when the source declares nothing named. */
+/** `FB_Name.pou` for the first named top-level unit, or `unit.st` when the source declares nothing named. */
 export function uriFor(parseResult: ParseResult, fallback = "unit"): string {
   const unit = parseResult.units.find((u) => "name" in u && EXT[u.kind] !== undefined)
   if (unit === undefined) return `${fallback}.st`

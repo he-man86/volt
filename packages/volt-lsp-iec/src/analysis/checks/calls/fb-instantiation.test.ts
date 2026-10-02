@@ -35,7 +35,7 @@ test("a member reached through a TYPE name needs an instance too", () => {
   // `cc2_fb_not_instantiated`).
   const src = `FUNCTION_BLOCK FB_plain\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Get : INT\nGet := n;\nEND_METHOD\n\nFUNCTION_BLOCK FB_user\nVAR\ntaken : INT;\nEND_VAR\ntaken := FB_plain.Get();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-not-instantiated")
     .map((d) => d.message)
@@ -45,7 +45,7 @@ test("a member reached through a TYPE name needs an instance too", () => {
 test("CALLING an interface by its type name says so twice; reaching into one says it once", () => {
   const src = `INTERFACE ITF_run\nMETHOD Run : INT\nEND_METHOD\nEND_INTERFACE\n\nFUNCTION_BLOCK FB_c\nVAR\nn : INT;\nEND_VAR\nITF_run();\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "interface-not-instantiated" || d.code === "invalid-call-target")
     .map((d) => d.message)

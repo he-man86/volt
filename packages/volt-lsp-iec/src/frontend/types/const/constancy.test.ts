@@ -54,7 +54,7 @@ test("a constant from a library file resolves as non-variable under a live `%20`
   const usePr = parseSource(useSrc, { networkText: true })
   const project = build.buildSymbolTable([
     { uri: libUri, parseResult: libPr, source: libSrc },
-    { uri: "file:///F.fb", parseResult: usePr, source: useSrc },
+    { uri: "file:///F.pou", parseResult: usePr, source: useSrc },
   ])
   for (const { scope, statements } of bodies(usePr.units, project)) {
     const s = statements[0]

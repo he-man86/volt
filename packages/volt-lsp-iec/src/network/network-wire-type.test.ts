@@ -11,8 +11,8 @@ import { computeNetworkTextDiagnostics } from "./index.js"
 
 const messages = (source: string): string[] => {
   const parseResult = parseSource(source, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source }])
-  return computeNetworkTextDiagnostics({ uri: "F.fb", source, parseResult }, project, messagesFor("codesys")).map((d) => d.message)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source }])
+  return computeNetworkTextDiagnostics({ uri: "F.pou", source, parseResult }, project, messagesFor("codesys")).map((d) => d.message)
 }
 
 test("a wire declared STRING(10) keeps the length a message prints", () => {

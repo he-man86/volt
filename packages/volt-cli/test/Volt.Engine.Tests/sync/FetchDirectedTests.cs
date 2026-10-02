@@ -33,7 +33,7 @@ public class FetchDirectedTests
             PushService.Handle(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-                Ops = new List<PushOp> { new SetItemOp { Name = $"{n}.prg", SourceText = Prg(n), IfVersion = null } },
+                Ops = new List<PushOp> { new SetItemOp { Name = $"{n}.pou", SourceText = Prg(n), IfVersion = null } },
             });
         return ide;
     }
@@ -50,7 +50,7 @@ public class FetchDirectedTests
         var res = FetchService.Handle(ide, new FetchRequest
         {
             KnownItems = Baseline(ide),
-            OnlyItems = new List<string> { "A.prg" },
+            OnlyItems = new List<string> { "A.pou" },
         });
 
         Assert.Empty(res.Removed);
@@ -66,12 +66,12 @@ public class FetchDirectedTests
         PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "B.prg", IfVersion = before["B.prg"] } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "B.pou", IfVersion = before["B.pou"] } },
         });
 
         var res = FetchService.Handle(ide, new FetchRequest { KnownItems = before });
 
-        Assert.Equal(new[] { "B.prg" }, res.Removed);
+        Assert.Equal(new[] { "B.pou" }, res.Removed);
     }
 
     /// <summary>`onlyItems: []` MEANS ZERO ITEMS, not "everything".
@@ -104,9 +104,9 @@ public class FetchDirectedTests
         var res = FetchService.Handle(ide, new FetchRequest
         {
             KnownItems = new Dictionary<string, string>(),
-            OnlyItems = new List<string> { "A.prg", "C.prg" },
+            OnlyItems = new List<string> { "A.pou", "C.pou" },
         });
 
-        Assert.Equal(new[] { "A.prg", "C.prg" }, res.Changed.Select(c => c.Name).OrderBy(x => x).ToArray());
+        Assert.Equal(new[] { "A.pou", "C.pou" }, res.Changed.Select(c => c.Name).OrderBy(x => x).ToArray());
     }
 }

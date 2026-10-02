@@ -27,7 +27,7 @@ public class PushedTextTests
     {
         static string Prg(string s) =>
             "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
-        Assert.Equal(same, PushedText.SameExceptLayout("P.prg", Prg("  out := (a AND b);"), Prg(statement)));
+        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := (a AND b);"), Prg(statement)));
     }
 
     /// <summary>The extension is the kind wherever a wire name exists (the ST reader's contract), and the text's header
@@ -37,36 +37,37 @@ public class PushedTextTests
     public void An_item_is_read_at_its_wire_kind()
     {
         const string prg = "PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM\n";
-        Assert.True(PushedText.SameExceptLayout("P.fb", prg, prg));
-        Assert.False(PushedText.SameExceptLayout("P.fb", prg, prg.Replace("x := 1;", "x := 2;")));
+        Assert.True(PushedText.SameExceptLayout("P.pou", prg, prg));
+        Assert.False(PushedText.SameExceptLayout("P.pou", prg, prg.Replace("x := 1;", "x := 2;")));
     }
 
-    /// <summary>The outer END line is a token of the text, not layout. TwinCAT keeps a function block's tree kind when
-    /// the text pushed under <c>X.fb</c> says <c>PROGRAM … END_PROGRAM</c>, and gives it back as
-    /// <c>PROGRAM … END_FUNCTION_BLOCK</c> (DIALECT C2f, measured 2026-09-30). Both read to the same declaration and
-    /// body, so "same but for layout" adopted the IDE's text into the working tree and rewrote the engineer's
-    /// <c>END_PROGRAM</c> unseen. Its case is layout, as any keyword's is.</summary>
-    /// <summary>Which name the IDE may publish a pushed object under instead (DIALECT C2f): another kind of the same
-    /// family, same bare name in any case. Across families it is another item, and a name is never "held as" itself. A
-    /// DUT has one name, <c>X.dut</c> (openspec <c>push-without-header-check</c> 5.P — this used to pair <c>X.struct</c>
-    /// with <c>X.enum</c>), so only its spelling's case can differ.</summary>
+    /// <summary>Which name the IDE may publish a pushed object under instead: the same name in another case, nothing
+    /// else. Across families it is another item, and a name is never "held as" itself. A POU has one name, <c>X.pou</c>
+    /// (openspec <c>push-without-header-check</c> 5.Q — this used to pair <c>X.fb</c> with <c>X.prg</c> and <c>X.fun</c>,
+    /// the names CODESYS re-typed a POU to by its text, DIALECT C2f), and a DUT one, <c>X.dut</c> (5.P), so only the
+    /// spelling's case can differ.</summary>
     [Theory]
-    [InlineData("X.fb", "X.prg", true)]
-    [InlineData("X.fb", "x.fun", true)]
+    [InlineData("X.pou", "x.pou", true)]
     [InlineData("X.dut", "x.dut", true)]
     [InlineData("X.dut", "X.dut", false)]
-    [InlineData("X.fb", "X.fb", false)]
-    [InlineData("X.fb", "X.dut", false)]
-    [InlineData("X.fb", "Y.prg", false)]
-    [InlineData("X.gvl", "X.prg", false)]
+    [InlineData("X.pou", "X.pou", false)]
+    [InlineData("X.pou", "X.dut", false)]
+    [InlineData("X.pou", "Y.pou", false)]
+    [InlineData("X.gvl", "X.pou", false)]
     public void A_pushed_object_may_be_held_under_another_kind_of_its_family(string pushed, string held, bool may) =>
         Assert.Equal(may, PushedText.MayBeHeldAs(pushed, held));
 
+    /// <summary>The outer END line is a token of the text, not layout. A pull writes it from the declaration's own
+    /// header (openspec <c>push-without-header-check</c> 5.Q.3), so text pushed as <c>PROGRAM … END_FUNCTION_BLOCK</c>
+    /// comes back <c>PROGRAM … END_PROGRAM</c> — and, before that, TwinCAT gave <c>PROGRAM … END_PROGRAM</c> pushed under
+    /// an FB back as <c>… END_FUNCTION_BLOCK</c> (DIALECT C2f). Both read to the same declaration and body, so "same but
+    /// for layout" would adopt the IDE's text into the working tree and rewrite the engineer's END line unseen. Its
+    /// case is layout, as any keyword's is.</summary>
     [Fact]
     public void The_outer_END_keyword_is_a_token_not_layout()
     {
         const string pushed = "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n";
-        Assert.False(PushedText.SameExceptLayout("X.fb", pushed, pushed.Replace("END_PROGRAM", "END_FUNCTION_BLOCK")));
-        Assert.True(PushedText.SameExceptLayout("X.fb", pushed, pushed.Replace("END_PROGRAM", "end_program")));
+        Assert.False(PushedText.SameExceptLayout("X.pou", pushed, pushed.Replace("END_PROGRAM", "END_FUNCTION_BLOCK")));
+        Assert.True(PushedText.SameExceptLayout("X.pou", pushed, pushed.Replace("END_PROGRAM", "end_program")));
     }
 }

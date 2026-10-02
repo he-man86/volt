@@ -74,7 +74,7 @@ public class TcLibrarySignaturesTests
         var rendered = LibSignatureRenderer.Render(concat);
 
         Assert.NotNull(rendered);
-        Assert.Equal(".fun", rendered!.Value.Ext);
+        Assert.Equal(".pou", rendered!.Value.Ext);
         Assert.Contains("FUNCTION CONCAT : STRING(255)", rendered.Value.Text);
         Assert.Contains("STR1 : STRING(255)", rendered.Value.Text);
         Assert.DoesNotContain("VAR_OUTPUT", rendered.Value.Text);

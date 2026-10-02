@@ -1207,8 +1207,10 @@ IDE decides members against the text that was sent; a member's kind is its class
 - **TwinCAT.** 602/603/604 → `Kinds.Pou`; the in-session lag (C2f/C2h) becomes invisible because nothing reads which of
   the three it is. **C2i stays guarded (5.H):** after a reload a `.TcPOU` the IDE does not parse is still never touched
   and still listed `unreadable` — but under exactly ONE name, `X.pou` (`PouKinds` collapses to one), so the CLI
-  matches it to its file; its forced repair is unchanged. "No `--force`" therefore holds on CODESYS, and on TwinCAT
-  within the session that wrote the text.
+  matches it to its file; its forced repair is unchanged. "No `--force`" therefore holds on CODESYS only. (This read
+  "and on TwinCAT within the session that wrote the text" — measured false by the 5Qa review e2e: the guard reads the
+  Solution Explorer caption, which carries no `(FB)` for an unparsed text in the writing session too, so `uc_fb` is
+  `unreadable` on TwinCAT at once; the e2e row says so per vendor.)
 - **The re-type guard** keeps refusing a NAME of another family (`X.pou` over interface or DUT `X`); its POU arm and its
   C2f rationale go with the three kinds. `PushedText.MayBeHeldAs` and `Commands.HeldUnderAnotherName` keep only the
   case-variant pairing (`x.pou` / `X.pou`), as 5.P left the DUT's.
@@ -1280,3 +1282,46 @@ Order: evidence, red tests, then the swap — the 5.P pattern, every parity site
    both vendors). **Knock-on for 5.F.1:** `NetworkScope`'s `IsCallableHeader` / `IsFunctionBlockType` cannot swap to
    "the known item kind" — `pou` no longer says FB or FUNCTION — so they stay a read of the callee's DECLARATION, which
    is analysis (network-text scope), not naming; 5.F.2's gate allow-lists them for that reason.
+
+### Implemented (2026-10-02) — where reality refined the choice
+
+- **E1, the keyword's position.** "The first code token is the keyword" cannot hold in the reader's view: a never-closed
+  `(*` is neutralised (it opens nothing), so the comment's own words become CODE — `pwh_unclosed_comment_fb`'s first
+  code token is `Motor`, and the mirror would fall back where the design says it reads `FUNCTION_BLOCK`. The rule is
+  therefore **the first word that LEADS a line's code** — the position the structure scan reads every keyword at
+  (`LineStartsWithKeyword`); a line whose code opens with anything else (the stand-in of a never-closed comment, its
+  `*` continuation lines) names nothing and is passed over (`StReader.PouHeaderKeyword`). Measured with the C# code
+  over the six corpora: **16,990 / 16,990** POU files mirror the END line they already have, fallback **0**.
+- **O2, what moves first.** The DECLARATION alone lands before the members, and only when the push creates a member
+  AND changes the declaration (`CreatesMembers`); the body and the members still travel in the one content write after
+  the reconcile, which restates the declaration. Reason: on TwinCAT a member write rewrites the enclosing POU's file and
+  loses a body written before it (the order `BeckhoffDriver.WriteContent` documents), and the declaration is all the IDE
+  judges a member by. An unchanged declaration (the seed already says FUNCTION_BLOCK) is not written early. On a vendor
+  whose handles do not survive a write the item is re-found after the early write. The rollback filter spans the whole
+  sequence on a create; a refused member on an update names what landed (`MemberRefusal`).
+- **C2k on TwinCAT, measured** (`scripts/probe-tc-function-members.ts` → `tc-function-members.log`): TwinCAT judges by
+  the TEXT too — a 604 holding FUNCTION text refuses a METHOD ("SubType mismatch"), keeps a method created before the
+  text, and refuses again after a reload (code re-derived to 603). No TwinCAT special case is needed for the order.
+- **M-a reads the member's opening word with the child splitter's `ScanContext`**; a member declaration holding no code
+  opens with no keyword and is not checked (the push refuses such a file on its own). `Materializer.RefuseMemberOfAnotherClass`.
+- **`ItemKind`** keeps 602 / 603 as TwinCAT tree codes beside `PlcPou` (= 604); all three `Map` to `pou`, as the four DUT
+  codes map to `dut`. `PushedText.MayBeHeldAs` / `Commands.HeldUnderAnotherName` keep the case-variant pairing only.
+- **The double:** `FakeIde.RefusesMembersByText` models C2k (opt-in); `DeclarationBeforeMembersTests`,
+  `MemberKindIsItsClassTests`, `PouEndLineTests` were red with the three behaviours disabled (22 failing) and green with them.
+- **OPEN — the TwinCAT re-record is NOT empty for one fixture (the step's stop condition).** `RECORD_ONLY=` the 233
+  `program` / `function` fixtures on TwinCAT: 176 re-recorded with diagnostics identical to the committed recording,
+  56 had no TwinCAT recording before (not merged — the committed file was restored), and **1 differs:**
+  `network_unnamed_target_of_void_call` — its push is now REFUSED ("the text reads `.ENO` on the
+  'PRG_LANG_network_unnamed_void_callee' box, and the IDE builds that box with no ENO output"), where it was accepted
+  before. Reading: the callee is a FUNCTION created by the same push; under S1 it is a 604 (function block) holding
+  FUNCTION text, and TwinCAT's graphical layer builds the call box from the lagging tree code (C2f/C2h) until a reload —
+  an FB box, no ENO. Under the old `.fun` seed (603) the box had ENO. So S1 is not neutral on TwinCAT for a graphical
+  call of a FUNCTION created in the same session. Owner decision needed (S1 kept with this as a known divergence, or a
+  TwinCAT-side remedy; S2 — seed from the header — is what the rule forbids).
+- **RESOLVED by the 5Qa review (tasks 5.Q.9) — a known divergence, niche: accepted loss.** The reading above was half
+  wrong: `network_unnamed_target_of_void_call`'s callee is a PROGRAM, not a FUNCTION. Measured (DIALECT C2m,
+  `tc-graphical-callee-seed.log`): TwinCAT builds the call box of a PROGRAM **or** FUNCTION created in the same session
+  from its lagging 604 code, so a `.ENO` on it is refused (`network_unnamed_target_of_valued_call` likewise); a build
+  does not re-derive the code; a call without `.ENO` is accepted, round-trips and builds clean. 0 such calls in the
+  TwinCAT corpus (2 in the six corpora, all lenze-mid, CODESYS). S1 stays; both fixtures carry
+  `vendorRefuses.twincat`, and `test/e2e/graphical/callee-seed-lag.test.ts` fails the day TwinCAT takes the shape.

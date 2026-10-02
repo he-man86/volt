@@ -4,7 +4,6 @@ using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Item;
-using Volt.Engine.Format.St;
 
 namespace Volt.Ide.Codesys
 {
@@ -12,15 +11,16 @@ namespace Volt.Ide.Codesys
     /// CODESYS-specific classification: maps an object-model <c>IObject</c> to a
     /// shared <see cref="ItemKind"/> code by its implemented interfaces
     /// (<c>IPOUObject</c>, <c>IGVLObject</c>, <c>IDUTObject</c>, …) — the same basis
-    /// CODESYS uses internally, NOT type GUIDs. POU/DUT kinds refine via the
-    /// declaration's leading IEC keyword. Code values and kind strings themselves
-    /// live in <see cref="ItemKind"/> (shared with Beckhoff).
+    /// CODESYS uses internally, NOT type GUIDs. The CLASS decides, and nothing else:
+    /// no kind is refined from the object's text (openspec <c>push-without-header-check</c>
+    /// 5.Q — a wire extension carries only what the IDE stores per object). Code values
+    /// and kind strings themselves live in <see cref="ItemKind"/> (shared with Beckhoff).
     /// </summary>
     internal static class CodesysTypeMap
     {
-        /// <summary>Classify from the IObject's interface-name set (+ folder flag, +
-        /// declaration for POU/DUT keyword refinement).</summary>
-        public static int CodeForObject(HashSet<string> ifaces, bool isFolder, string? name, string? declaration)
+        /// <summary>Classify from the IObject's interface-name set (+ folder flag, + the name an accessor is
+        /// told apart by). Never from the object's text.</summary>
+        public static int CodeForObject(HashSet<string> ifaces, bool isFolder, string? name)
         {
             if (isFolder) return ItemKind.PlcFolder;
 
@@ -49,8 +49,13 @@ namespace Volt.Ide.Codesys
             if (Has(ifaces, "ITransitionObject")) return ItemKind.PlcTrans;
             if (Has(ifaces, "IActionObject")) return ItemKind.PlcAction;
 
-            // Top-level source.
-            if (Has(ifaces, "IPOUObject")) return RefinePou(declaration);
+            // Top-level source. A POU is ONE kind, `X.pou`, by its class (`POUObject`, `POUObjectCheckFunction` — both
+            // `IPOUObject`): CODESYS takes whether it is a program, a function block or a function from its TEXT (DIALECT
+            // C2f/C2g), and nothing in Volt reads that. This used to read the Interface aspect of every POU on every walk
+            // (272 reads on Pro2193) to refine the kind from the declaration's first keyword, falling back to
+            // FUNCTION_BLOCK when it found none — and turned a POUObject holding INTERFACE text into an interface, a kind
+            // its class does not have. An `InterfaceObject` implements `IInterfaceObject` alone, below.
+            if (Has(ifaces, "IPOUObject")) return ItemKind.PlcPou;
             if (Has(ifaces, "IGVLObject") || Has(ifaces, "INVLObject")) return ItemKind.PlcGvl;
             // IDUTObject is the usual struct/enum/union/alias. ITextListEnumerationObject is a text-list-backed
             // enumeration — a normal `TYPE X : (…)` enum whose members map to a text list, surfaced by CODESYS
@@ -132,16 +137,6 @@ namespace Volt.Ide.Codesys
                 $"unrecognized CODESYS object type (skipped): name='{name}' interfaces=[{sig}]");
         }
 
-        /// <summary>True when the node's kind is REFINED from its declaration text — only a POU (keyword →
-        /// fb/func/prog/itf). A DUT is NOT refined on a read (it is one internal kind, published `X.dut`; nothing
-        /// reads its subtype), so it does not need the declaration here. This is a SUPERSET of the RefinePou branch in <see cref="CodeForObject"/>: that
-        /// branch sits behind ten earlier returns, so a node carrying IPOUObject alongside an earlier-matching
-        /// interface reads a declaration that classification then ignores — safe, but not free. Keeping the predicate
-        /// in this file is what stops it drifting BELOW the branch (the failure that matters: a POU whose kind
-        /// then refines from a null declaration).</summary>
-        public static bool NeedsDeclaration(HashSet<string> ifaces) =>
-            Has(ifaces, "IPOUObject");
-
         /// <summary>Containers we recurse into but never emit. Device is deliberately NOT here: the walk
         /// handles it earlier and EMITS a `.device` descriptor as well as recursing.</summary>
         public static bool IsRecurseOnlyContainer(int code) =>
@@ -163,35 +158,7 @@ namespace Volt.Ide.Codesys
 
         private static bool Has(HashSet<string> ifaces, string name) => ifaces.Contains(name);
 
-        private static int RefinePou(string? decl)
-        {
-            var k = LeadingKeyword(decl);
-            // Ordinal like the rest of this file — these are IEC keywords, never culture-sensitive text.
-            if (k.StartsWith("FUNCTION_BLOCK", StringComparison.Ordinal)) return ItemKind.PlcPouFb;
-            if (k.StartsWith("INTERFACE", StringComparison.Ordinal)) return ItemKind.PlcItf;
-            if (k.StartsWith("FUNCTION", StringComparison.Ordinal)) return ItemKind.PlcPouFunc;
-            if (k.StartsWith("PROGRAM", StringComparison.Ordinal)) return ItemKind.PlcPouProg;
-            return ItemKind.PlcPouFb; // default
-        }
-
         private static int RefineAccessor(string? name) =>
             string.Equals(name, "Set", StringComparison.OrdinalIgnoreCase) ? ItemKind.PlcPropSet : ItemKind.PlcPropGet;
-
-        /// <summary>The declaration's leading keyword, read from the line Core says is the HEADER — not from a
-        /// bare <c>TrimStart()</c>. That distinction is the whole fix: a declaration opening with
-        /// <c>{attribute 'qualified_only'}</c> or a doc comment starts with a non-word character, so the old
-        /// first-token read returned <c>""</c> and <see cref="RefinePou"/> fell to its FUNCTION_BLOCK default —
-        /// reporting a PROGRAM as <c>function_block</c> on refs/fetch.
-        /// <para><see cref="CodeHelper.HeaderLine"/> is TOTAL, so this stays total and RefinePou keeps its
-        /// default arm. The classifier must never throw mid-walk: the CODESYS tree walk's try/catch wraps only
-        /// GetChildren, so a throw here would abort every fetch/refs/init/push for the whole project.</para></summary>
-        private static string LeadingKeyword(string? decl)
-        {
-            var s = CodeHelper.HeaderLine(decl);
-            if (s.Length == 0) return "";
-            int end = 0;
-            while (end < s.Length && (char.IsLetterOrDigit(s[end]) || s[end] == '_')) end++;
-            return s.Substring(0, end).ToUpperInvariant();
-        }
     }
 }

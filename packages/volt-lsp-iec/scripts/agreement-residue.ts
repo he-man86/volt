@@ -89,7 +89,7 @@ for (const t of ALL_TESTS) {
       const { item, lists } = splitLists(f, { name: f.name, uri: `${f.pouName}.st`, parseResult: parseSource(f.source, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: f.source })
       return [item, ...lists]
     }),
-    { name: `${t.name}__plcprg`, uri: "plc_prg.prg", parseResult: parseSource(plc, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: plc },
+    { name: `${t.name}__plcprg`, uri: "plc_prg.pou", parseResult: parseSource(plc, { networkText: NETWORK_TEXT_ENABLED }, vendor), source: plc },
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
   ]

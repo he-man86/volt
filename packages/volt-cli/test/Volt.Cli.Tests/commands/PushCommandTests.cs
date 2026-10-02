@@ -16,7 +16,7 @@ public class PushCommandTests
 
     private static void EditPrg(string root, string from, string to)
     {
-        var path = Path.Combine(root, "src", "PLC_PRG.prg");
+        var path = Path.Combine(root, "src", "PLC_PRG.pou");
         File.WriteAllText(path, File.ReadAllText(path).Replace(from, to));
     }
 
@@ -32,7 +32,7 @@ public class PushCommandTests
 
             var r = Commands.Push(root, client);
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
-            Assert.Contains("PLC_PRG.prg", r.Items!);
+            Assert.Contains("PLC_PRG.pou", r.Items!);
             Assert.Contains(ide.Recorded, x => x.StartsWith("writecontent:PLC_PRG"));
 
             Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
@@ -53,9 +53,9 @@ public class PushCommandTests
         const string chart = "<the IDE's own CFC chart>";
         const string ladder = "<the IDE's own ladder>";
         var ide = ConnectedIde(
-            new FakeIde.Item("FB_Chart", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_Chart", Volt.Engine.Item.ItemKind.PlcPou, "", true,
                              "FUNCTION_BLOCK FB_Chart\nVAR\nEND_VAR", chart, "CFC", null),
-            new FakeIde.Item("FB_Motor", Volt.Engine.Item.ItemKind.PlcPouFb, "", true,
+            new FakeIde.Item("FB_Motor", Volt.Engine.Item.ItemKind.PlcPou, "", true,
                              "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "", null, null, new[] { "Reset" }),
             new FakeIde.Item("Reset", Volt.Engine.Item.ItemKind.PlcMethod, "", false, "METHOD Reset : BOOL", ladder, "LD",
                              null, Unsupported: "a vendor split point"),
@@ -64,8 +64,8 @@ public class PushCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var chartFile = Path.Combine(root, "src", "FB_Chart.fb");
-            var motorFile = Path.Combine(root, "src", "FB_Motor.fb");
+            var chartFile = Path.Combine(root, "src", "FB_Chart.pou");
+            var motorFile = Path.Combine(root, "src", "FB_Motor.pou");
             Assert.Contains("IMPLEMENTATION CFC UNSUPPORTED", File.ReadAllText(chartFile));
             Assert.Contains("IMPLEMENTATION LD UNSUPPORTED", File.ReadAllText(motorFile));
             File.WriteAllText(chartFile, File.ReadAllText(chartFile)
@@ -95,13 +95,13 @@ public class PushCommandTests
     public void A_hand_wrapped_graphical_call_is_adopted_in_the_IDEs_layout_after_the_push()
     {
         const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
-        var ide = ConnectedIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
+        var ide = ConnectedIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\nEND_VAR", canonical, "LD", null));
         var (root, host, client) = Bound(ide);
         try
         {
             Commands.Pull(root, client);
-            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var path = Path.Combine(root, "src", "PLC_PRG.pou");
             var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
             Assert.Contains(canonical, pulled);
 
@@ -131,7 +131,7 @@ public class PushCommandTests
     public void A_pushed_body_the_IDE_holds_as_other_tokens_is_not_adopted_as_a_layout()
     {
         const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
-        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
+        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
             HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
@@ -141,7 +141,7 @@ public class PushCommandTests
         try
         {
             Commands.Pull(root, client);
-            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var path = Path.Combine(root, "src", "PLC_PRG.pou");
             var pulled = File.ReadAllText(path).Replace("\r\n", "\n");
             var edited = pulled.Replace("t1(IN := a, PT := pt);", "t1(IN := b, PT := pt);");
             File.WriteAllText(path, edited);
@@ -150,10 +150,10 @@ public class PushCommandTests
 
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
             Assert.Equal(edited, File.ReadAllText(path).Replace("\r\n", "\n"));
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
             var again = Commands.Pull(root, client);
             Assert.Equal("ok", again.Kind);
-            Assert.Contains("PLC_PRG.prg", again.Synced!);
+            Assert.Contains("PLC_PRG.pou", again.Synced!);
             Assert.Contains("t1(IN := b);", File.ReadAllText(path).Replace("\r\n", "\n"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -167,7 +167,7 @@ public class PushCommandTests
     public void A_pushed_item_whose_text_the_IDE_does_not_give_back_is_not_claimed_as_another_program()
     {
         const string canonical = "IMPLEMENTATION LD\nNETWORK\n  t1(IN := a, PT := pt);\nEND_NETWORK";
-        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPouProg, "", true,
+        var ide = new FakeIde(new FakeIde.Item("PLC_PRG", Volt.Engine.Item.ItemKind.PlcPou, "", true,
             "PROGRAM PLC_PRG\nVAR\n  t1 : TON;\n  a : BOOL;\n  pt : TIME;\n  b : BOOL;\nEND_VAR", canonical, "LD", null))
         {
             HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
@@ -177,7 +177,7 @@ public class PushCommandTests
         try
         {
             Commands.Pull(root, client);
-            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var path = Path.Combine(root, "src", "PLC_PRG.pou");
             var edited = File.ReadAllText(path).Replace("\r\n", "\n").Replace("t1(IN := a, PT := pt);", "t1(IN := b, PT := pt);");
             File.WriteAllText(path, edited);
             // The receipt's walk reads the item once after the write and hashes what the IDE holds; the directed
@@ -194,7 +194,7 @@ public class PushCommandTests
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
             Assert.NotNull(r.Message);
             Assert.DoesNotContain("another program", r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Message);
+            Assert.Contains("PLC_PRG.pou", r.Message);
             Assert.Equal(edited, File.ReadAllText(path).Replace("\r\n", "\n"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -249,7 +249,7 @@ public class PushCommandTests
         try
         {
             Commands.Pull(root, client);
-            var path = Path.Combine(root, "src", "PLC_PRG.prg");
+            var path = Path.Combine(root, "src", "PLC_PRG.pou");
             // Exactly what an editor's "UTF-8 with signature" save produces: EF BB BF, then the unchanged text.
             File.WriteAllText(path, File.ReadAllText(path).Replace("x := 1;", "x := 2;"),
                 new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
@@ -349,7 +349,7 @@ public class PushCommandTests
             var r = Commands.Push(root, client, dryRun: true);
             Assert.Equal("ok", r.Kind);
             Assert.Equal("dry run — would push these item(s)", r.Message);
-            Assert.Contains("PLC_PRG.prg", r.Items!);
+            Assert.Contains("PLC_PRG.pou", r.Items!);
             Assert.Empty(ide.Recorded); // the bridge was never called
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -431,7 +431,7 @@ public class PushCommandTests
         try
         {
             Commands.Pull(root, client);
-            File.Delete(Path.Combine(root, "src", "POUs", "FB_Motor.fb"));
+            File.Delete(Path.Combine(root, "src", "POUs", "FB_Motor.pou"));
 
             var r = Commands.Push(root, client);
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
@@ -450,7 +450,7 @@ public class PushCommandTests
         {
             Commands.Pull(root, client);
             var dir = Path.Combine(root, "src", "POUs");
-            File.Move(Path.Combine(dir, "FB_Motor.fb"), Path.Combine(dir, "FB_Drive.fb"));
+            File.Move(Path.Combine(dir, "FB_Motor.pou"), Path.Combine(dir, "FB_Drive.pou"));
 
             var r = Commands.Push(root, client);
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
@@ -459,42 +459,41 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>A PUSHED ITEM THE IDE NOW PUBLISHES UNDER ANOTHER NAME (openspec <c>push-without-header-check</c> 3.2).
-    /// The text is written as sent, and CODESYS takes a POU's kind from it (DIALECT C2f): <c>X.fb</c> whose text says
-    /// <c>PROGRAM</c> is held as ONE object that <c>refs</c> names <c>X.prg</c>. The receipt has no <c>X.fb</c>, and the
-    /// baseline used to keep neither name on a create — so the next pull brought <c>X.prg</c> in beside the <c>X.fb</c>
-    /// file that volt/ide still carried: two files for one IDE object, after a push that reported plain success. The
-    /// push says where the IDE holds it, and the next pull moves the file there as the IDE-side change it is.</summary>
+    /// <summary>A POU WHOSE TEXT CHANGES KIND IS ONE FILE THROUGHOUT (openspec <c>push-without-header-check</c> 5.Q). The
+    /// text is written as sent, and CODESYS takes a POU's kind from it (DIALECT C2f) — but the wire names the object by
+    /// its CLASS, so <c>X.pou</c> whose text now says <c>PROGRAM</c> is still <c>X.pou</c>: a plain content update, with
+    /// no other name to report and no file to move. (Until 5.Q CODESYS published it as <c>X.prg</c> after a push of
+    /// <c>X.fb</c>, and this test pinned the push naming the other name and the pull moving the file; the owner changed
+    /// that premise with the one POU extension.) Its END line follows its header on the way back.</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void A_pushed_item_the_IDE_publishes_under_another_kind_is_one_file_after_the_pull(bool existed)
+    public void A_pou_whose_text_changes_kind_is_one_file_after_the_push_and_the_pull(bool existed)
     {
         var items = new System.Collections.Generic.List<FakeIde.Item> { Prg() };
         if (existed) items.Add(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\n\tn : INT;\nEND_VAR", "n := 5;"));
         var ide = new FakeIde(items.ToArray())
         {
             HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
-            RetypesFromDeclaration = decl => decl.StartsWith("PROGRAM ") ? Volt.Engine.Item.ItemKind.PlcPouProg : null,
         };
         var (root, host, client) = Bound(ide);
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var dir = Path.Combine(root, "src");
-            var fb = Path.Combine(dir, "X.fb");
-            File.WriteAllText(fb, "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n");
+            var file = Path.Combine(dir, "X.pou");
+            File.WriteAllText(file, "PROGRAM X\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n");
 
             var r = Commands.Push(root, client);
 
             Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
-            Assert.NotNull(r.Message);
-            Assert.Contains("X.fb", r.Message);
-            Assert.Contains("X.prg", r.Message);
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("delete:") || x.StartsWith("rename:"));
 
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Assert.False(File.Exists(fb), "the pull left X.fb beside the X.prg the IDE holds");
-            Assert.Contains("n := 6;", File.ReadAllText(Path.Combine(dir, "X.prg")));
+            Assert.Equal(new[] { "X.pou" }, Directory.GetFiles(dir, "X.*").Select(Path.GetFileName).ToArray());
+            var held = File.ReadAllText(file);
+            Assert.Contains("n := 6;", held);
+            Assert.EndsWith("END_PROGRAM\n", held.Replace("\r\n", "\n"));
             Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -554,19 +553,19 @@ public class PushCommandTests
             ide.AddItem(FakeIde.Item.TextualPou("Newcomer", "PROGRAM Newcomer\nVAR\nEND_VAR", "y := 2;"));
 
             // A local edit, pushed with --force (which sends no lease).
-            var file = Path.Combine(root, "src", "PLC_PRG.prg");
+            var file = Path.Combine(root, "src", "PLC_PRG.pou");
             File.WriteAllText(file, File.ReadAllText(file).Replace("x := 1;", "x := 42;"));
             Git.CommitAll(root, "edit");
             Assert.Equal("ok", Commands.Push(root, client, force: true).Kind);
 
             // The IDE's own POU must still be waiting to be pulled.
             var status = Commands.Status(root, client);
-            Assert.Contains("Newcomer.prg", status.Incoming.Added);
-            Assert.False(File.Exists(Path.Combine(root, "src", "Newcomer.prg")));
+            Assert.Contains("Newcomer.pou", status.Incoming.Added);
+            Assert.False(File.Exists(Path.Combine(root, "src", "Newcomer.pou")));
 
             // …and pulling it actually brings it in, which is the whole point of not hiding it.
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Assert.True(File.Exists(Path.Combine(root, "src", "Newcomer.prg")));
+            Assert.True(File.Exists(Path.Combine(root, "src", "Newcomer.pou")));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

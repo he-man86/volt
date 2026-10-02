@@ -17,7 +17,7 @@ function errors(type: string, value: string, vendor: Vendor = "codesys"): string
   const enumParse = parseSource(ENUM, { networkText: true }, vendor)
   const project = build.buildSymbolTable(
     [
-      { uri: "F.fb", parseResult, source: src },
+      { uri: "F.pou", parseResult, source: src },
       { uri: "E_Mode.dut", parseResult: enumParse, source: ENUM },
     ],
     [],
@@ -129,7 +129,7 @@ test("…and as a bare conversion's argument it is converted to ANY, while the c
 /** The "no component" errors of one object's source, alone in its project. */
 function componentErrors(src: string): string[] {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "X.fb", parseResult, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "X.pou", parseResult, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "typed-literal")
     .map((d) => d.message)

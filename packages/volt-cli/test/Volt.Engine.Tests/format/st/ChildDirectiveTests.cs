@@ -28,7 +28,7 @@ public class ChildDirectiveTests
     public void Folder_and_language_round_trip_as_directives()
     {
         var pou = new ItemContent(
-            Kind: "function_block",
+            Kind: ItemKind.Kinds.Pou,
             Declaration: "FUNCTION_BLOCK FB",
             Body: "",
             Members: new List<Member>
@@ -92,7 +92,7 @@ public class ChildDirectiveTests
         var st = "PROGRAM POU\nVAR\n  out1 : BOOL;\n  R_TRIG_0 : R_TRIG;\nEND_VAR\n\n" +
                  "IMPLEMENTATION FBD\nNETWORK\n  VAR_TEMP\n    g1 : BOOL;\n  END_VAR\n" +
                  "  g1 := (a AND a);\n  out1 := g1;\nEND_NETWORK\n\nEND_PROGRAM\n";
-        var s = StReader.Read(st, ItemKind.Kinds.Program);
+        var s = StReader.Read(st, ItemKind.Kinds.Pou);
         Assert.Contains("PROGRAM POU", s.Declaration);
         Assert.Contains("out1 : BOOL;", s.Declaration);
         Assert.DoesNotContain("VAR_TEMP", s.Declaration);   // network text temps never leak into the decl
@@ -124,7 +124,7 @@ public class ChildDirectiveTests
         const string ld = "IMPLEMENTATION LD\nNETWORK\n  out := a;\nEND_NETWORK";
         const string fbd = "IMPLEMENTATION FBD\nNETWORK\n  Speed := a;\nEND_NETWORK";
         var pou = new ItemContent(
-            Kind: "function_block",
+            Kind: ItemKind.Kinds.Pou,
             Declaration: "FUNCTION_BLOCK FB\nVAR\n  a : BOOL;\n  out : BOOL;\nEND_VAR",
             Body: "out := NOT a;",
             Members: new List<Member>

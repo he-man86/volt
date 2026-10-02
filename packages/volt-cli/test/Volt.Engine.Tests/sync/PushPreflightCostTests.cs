@@ -30,7 +30,7 @@ public class PushPreflightCostTests
         foreach (var n in new[] { "A", "B", "C" })
             PushService.Handle(ide, new PushRequest
             {
-                Ops = new List<PushOp> { new SetItemOp { Name = $"{n}.prg", SourceText = Prg(n), IfVersion = null } },
+                Ops = new List<PushOp> { new SetItemOp { Name = $"{n}.pou", SourceText = Prg(n), IfVersion = null } },
             });
         return ide;
     }
@@ -58,7 +58,7 @@ public class PushPreflightCostTests
         var (res, reads) = PushCountingPreflight(Project(), new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
         });
 
         Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
@@ -77,7 +77,7 @@ public class PushPreflightCostTests
         {
             Force = true,
             ExpectedProjectVersion = lease,
-            Ops = new List<PushOp> { new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
         });
 
         Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
@@ -93,7 +93,7 @@ public class PushPreflightCostTests
         {
             Force = true,
             ExpectedProjectVersion = "a-lease-from-another-lifetime",
-            Ops = new List<PushOp> { new SetItemOp { Name = "A.prg", SourceText = Prg("A"), IfVersion = null } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "A.pou", SourceText = Prg("A"), IfVersion = null } },
         });
 
         Assert.False(res.Accepted);
@@ -109,7 +109,7 @@ public class PushPreflightCostTests
 
         PushService.Handle(Project(), new PushRequest
         {
-            Ops = new List<PushOp> { new SetItemOp { Name = "D.prg", SourceText = Prg("D"), IfVersion = null } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "D.pou", SourceText = Prg("D"), IfVersion = null } },
         }, frames.Add);
 
         Assert.Equal("checking", frames[0].Phase);

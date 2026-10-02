@@ -30,12 +30,12 @@ public class NetworkTextSwitchTests
     private static string Drawn(string lang) => $"x := {lang.Length};";
 
     private static FakeIde Ide(string? rungUnsupported = null) => new(
-        new FakeIde.Item("FB_Mix", ItemKind.PlcPouFb, "", true, Decl, "x := 1;", null, null, new[] { "Rung", "Box" }),
+        new FakeIde.Item("FB_Mix", ItemKind.PlcPou, "", true, Decl, "x := 1;", null, null, new[] { "Rung", "Box" }),
         new FakeIde.Item("Rung", ItemKind.PlcMethod, "", false, "METHOD Rung : BOOL", Drawn("LD"), "LD", null, null, rungUnsupported),
         new FakeIde.Item("Box", ItemKind.PlcMethod, "", false, "METHOD Box : BOOL", Drawn("FBD"), "FBD", null));
 
     private static string Pulled(FakeIde ide) =>
-        Materializer.Materialize(ide, "FB_Mix", ItemKind.Kinds.FunctionBlock, new ItemRef("FB_Mix")).Text;
+        Materializer.Materialize(ide, "FB_Mix", ItemKind.Kinds.Pou, new ItemRef("FB_Mix")).Text;
 
     private static PushResponse Update(FakeIde ide, string source)
     {
@@ -43,7 +43,7 @@ public class NetworkTextSwitchTests
         return PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "FB_Mix.fb", SourceText = source, IfVersion = refs.Items["FB_Mix.fb"] } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "FB_Mix.pou", SourceText = source, IfVersion = refs.Items["FB_Mix.pou"] } },
         });
     }
 
@@ -124,7 +124,7 @@ public class NetworkTextSwitchTests
 
         Assert.False(resp.Accepted, "a production bridge must refuse network text");
         var conflict = Assert.Single(resp.Conflicts!);
-        Assert.Equal("FB_Mix.fb", conflict.Name);
+        Assert.Equal("FB_Mix.pou", conflict.Name);
         Assert.Contains("LD and FBD are not enabled in this build", conflict.Reason);
         // The first network-text body the push meets is the one named — the ladder or the diagram, both refused.
         Assert.Matches("stated 'IMPLEMENTATION (LD|FBD)'", conflict.Reason);

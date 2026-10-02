@@ -11,8 +11,8 @@ namespace Volt.Engine.Tests;
 ///
 /// It used to. `StReader.Read` took the source alone and called `CodeHelper.ParseCodeHeader` on it, and
 /// `PushService` created the object from that (`PouKindToCode(split.Kind)`). Measured against live SP21
-/// (2026-09-17): pushing an item named `KindTest.fb` whose text said `PROGRAM` was ACCEPTED and produced
-/// `KindTest.prg`.
+/// (2026-09-17): pushing an item named `KindTest.pou` whose text said `PROGRAM` was ACCEPTED and produced
+/// `KindTest.pou`.
 ///
 /// The first fix read the header anyway and REFUSED a text whose header disagreed with the extension. That is
 /// gone too (openspec `push-without-header-check`): a top-level item's header is never read — not for the kind,
@@ -27,8 +27,8 @@ public class KindFromExtensionTests
     [Fact]
     public void The_wire_name_decides_the_kind_not_the_text()
     {
-        Assert.Equal(ItemKind.Kinds.Program, StReader.Read(ProgramText, ItemKind.KindForWireName("KindTest.prg")!).Kind);
-        Assert.Equal(ItemKind.Kinds.FunctionBlock, StReader.Read(FbText, ItemKind.KindForWireName("KindTest.fb")!).Kind);
+        Assert.Equal(ItemKind.Kinds.Pou, StReader.Read(ProgramText, ItemKind.KindForWireName("KindTest.pou")!).Kind);
+        Assert.Equal(ItemKind.Kinds.Pou, StReader.Read(FbText, ItemKind.KindForWireName("KindTest.pou")!).Kind);
     }
 
     /// <summary>A text whose header disagrees with the extension is read AS the extension's kind, its declaration
@@ -36,9 +36,9 @@ public class KindFromExtensionTests
     [Fact]
     public void A_text_that_disagrees_with_the_extension_is_read_as_the_extension_says()
     {
-        var item = StReader.Read(ProgramText, ItemKind.Kinds.FunctionBlock);
+        var item = StReader.Read(ProgramText, ItemKind.Kinds.Pou);
 
-        Assert.Equal(ItemKind.Kinds.FunctionBlock, item.Kind);
+        Assert.Equal(ItemKind.Kinds.Pou, item.Kind);
         Assert.Equal("PROGRAM KindTest\nVAR\n\tn : INT;\nEND_VAR", item.Declaration);
         Assert.Equal("n := n + 1;", item.Body);
     }

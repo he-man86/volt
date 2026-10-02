@@ -75,7 +75,7 @@ test("an ST file with IMPLEMENTATION ST on every body parses clean", () => {
   expect(parseSource(MOTOR, { networkText: true }).units.map((u) => u.kind)).toEqual(["function_block", "method", "action", "property"])
 })
 
-/** Found by the re-pulled pro2193 corpus (`LedFB.fb`): `METHOD PROTECTED Override` with no return type and no VAR, so
+/** Found by the re-pulled pro2193 corpus (`LedFB.pou`): `METHOD PROTECTED Override` with no return type and no VAR, so
  *  its keyword line comes straight after the header. The header parser takes a modifier keyword as a modifier only when
  *  a name follows it, and `IMPLEMENTATION` is an identifier token — so `Override` became a modifier, the method was
  *  named `IMPLEMENTATION` (reserved) and `ST THIS^…` a syntax error. The retired comment was trivia and hid it. The

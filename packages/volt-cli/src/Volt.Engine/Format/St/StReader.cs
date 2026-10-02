@@ -146,11 +146,11 @@ public static class StReader
 	/// <summary>The END keyword that closes a POU's or an interface's outer block — which of the lines
 	/// <see cref="OuterEndKeywords"/> accepts the text SPELLS — or null for a DUT or a GVL, which Volt does not read.
 	///
-	/// <para>Not part of <see cref="ItemContent"/>: the IDE writes the END line from the object's own kind, so it
-	/// carries nothing a push writes. It is still a TOKEN of the text, and the post-push comparison
-	/// (<see cref="Volt.Engine.Sync.PushedText"/>) needs it: TwinCAT keeps a function block's tree kind when the pushed
-	/// text says <c>PROGRAM … END_PROGRAM</c> and gives back <c>PROGRAM … END_FUNCTION_BLOCK</c> (DIALECT C2f), which
-	/// reads to the same declaration and body. Upper case — a keyword's case is layout.</para></summary>
+	/// <para>Not part of <see cref="ItemContent"/>: the IDE stores no END line — a pull writes it from the declaration's
+	/// own header (<see cref="PouHeaderKeyword"/>, <see cref="StWriter"/>) — so it carries nothing a push writes. It is
+	/// still a TOKEN of the text, and the post-push comparison (<see cref="Volt.Engine.Sync.PushedText"/>) needs it: text
+	/// pushed as <c>PROGRAM … END_FUNCTION_BLOCK</c> comes back <c>PROGRAM … END_PROGRAM</c>, which reads to the same
+	/// declaration and body. Upper case — a keyword's case is layout.</para></summary>
 	public static string? OuterEndKeyword(string sourceText, string kind)
 	{
 		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
@@ -160,6 +160,119 @@ public static class StReader
 		var unclosed = StTrivia.UnterminatedOpenings(original);
 		var lines = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0 ? Neutralized(original, unclosed) : original;
 		return FindOuterBlock(lines, OuterEndKeywords(kind), $"this {kind}").keyword.ToUpperInvariant();
+	}
+
+	/// <summary>The POU header keywords a pulled file's outer END line mirrors (<see cref="PouHeaderKeyword"/>).</summary>
+	private static readonly string[] PouHeaderKeywords = { "PROGRAM", "FUNCTION_BLOCK", "FUNCTION" };
+
+	/// <summary>Which of <c>PROGRAM</c> / <c>FUNCTION_BLOCK</c> / <c>FUNCTION</c> a POU's DECLARATION opens with, upper
+	/// case — or null when it opens with none of them (an empty or prose text, a <c>NAMESPACE</c>, INTERFACE text in a
+	/// POU object). The ONE place Volt looks at a POU's header keyword, and it decides nothing about the item: the
+	/// pulled file's outer END line MIRRORS it (<see cref="StWriter"/>, openspec <c>push-without-header-check</c> 5.Q.3),
+	/// so the file ends the way its own declaration opens. The kind is the object's class (<c>X.pou</c>); which of the
+	/// three the text says is the IDE's and its build's business.
+	///
+	/// <para>Read in the READER'S OWN VIEW, so the writer and every reader of the file agree by construction: a
+	/// never-closed <c>(*</c> opens nothing (as in <see cref="Read"/>), then <see cref="StTrivia.Code"/> blanks every
+	/// comment (nested ones included), string and pragma — the trivia skipper the child splitter uses. The keyword is
+	/// the first word that LEADS a line's code, the position the structure scan reads every keyword at
+	/// (<c>LineStartsWithKeyword</c>) — of the FIRST line whose code leads with one of the three. Every other line is passed
+	/// over: one that opens with no word (the stand-in of a never-closed comment, its <c>*</c> continuation lines) and one
+	/// that opens with another word (that comment's own prose, which the neutralisation turns into code — reading the
+	/// first word alone made <c>(* doc / Motor control / PROGRAM P</c> fall back to END_FUNCTION_BLOCK, 5Qa review). And
+	/// a line that leads with one of the three is the header only when the rest is HEADER-SHAPED
+	/// (<see cref="IsHeaderShaped"/>): prose that starts "Function to compute…" is still prose (5Qa review).
+	/// Measured over the six corpora: on every one of the 16,990 POU files the first word-led line already IS the
+	/// header, so this changes no corpus END line. Any case; a BOM is no code.</para></summary>
+	public static string? PouHeaderKeyword(string declaration)
+	{
+		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
+		var original = NormalizeLines(declaration.TrimStart('﻿'));
+		var unclosed = StTrivia.UnterminatedOpenings(original);
+		var lines = unclosed.Count > 0 && declaration.IndexOf(UnclosedStandIn[0]) < 0 ? Neutralized(original, unclosed) : original;
+		foreach (var code in StTrivia.Code(lines))
+		{
+			var trimmed = code.TrimStart();
+			if (trimmed.Length == 0) continue;
+			int end = 0;
+			while (end < trimmed.Length && (char.IsLetterOrDigit(trimmed[end]) || trimmed[end] == '_')) end++;
+			if (end == 0 || char.IsDigit(trimmed[0])) continue;
+			var word = trimmed.Substring(0, end).ToUpperInvariant();
+			if (Array.IndexOf(PouHeaderKeywords, word) >= 0 && IsHeaderShaped(trimmed.Substring(end))) return word;
+		}
+		return null;
+	}
+
+	/// <summary>The FB modifiers that may stand between <c>FUNCTION_BLOCK</c> and its name.</summary>
+	private static readonly string[] HeaderModifiers = { "PUBLIC", "INTERNAL", "PRIVATE", "PROTECTED", "ABSTRACT", "FINAL" };
+
+	/// <summary>Does the code after a POU keyword read as a header's rest — modifiers, ONE name, then nothing, a return
+	/// type (<c>:</c>) or <c>EXTENDS</c> / <c>IMPLEMENTS</c>? A never-closed comment's prose turns into code (the
+	/// neutralisation), and a prose line can lead with "Function" or "Program" (5Qa review: <c>(* doc / Function to compute
+	/// speed / PROGRAM P</c> was closed with END_FUNCTION); prose has more words after its second. An empty rest (the
+	/// name on the next line) is a header.</summary>
+	private static bool IsHeaderShaped(string rest)
+	{
+		var words = new List<string>();
+		int i = 0;
+		while (true)
+		{
+			while (i < rest.Length && char.IsWhiteSpace(rest[i])) i++;
+			if (i == rest.Length) break;
+			int start = i;
+			while (i < rest.Length && (char.IsLetterOrDigit(rest[i]) || rest[i] == '_')) i++;
+			if (i == start) break;   // a non-word character: `:` (return type) or anything else ends the words
+			words.Add(rest.Substring(start, i - start).ToUpperInvariant());
+		}
+		if (words.Count == 0) return rest.Trim().Length == 0;   // "Program: …" / "Function, …" name no POU
+		var at = 0;
+		while (at < words.Count && Array.IndexOf(HeaderModifiers, words[at]) >= 0) at++;
+		if (at < words.Count) at++;   // the name
+		return at == words.Count || words[at] is "EXTENDS" or "IMPLEMENTS";
+	}
+
+	/// <summary>The word a MEMBER's declaration opens with, as the child splitter reads it — upper case — or null when it
+	/// holds no code at all. The splitter knows a member block by the keyword that leads its first line of code
+	/// (<see cref="FirstMemberLine"/>: METHOD / ACTION / PROPERTY), so this is the keyword the push would read the member
+	/// as. Comments, strings and pragmas are skipped by <see cref="StTrivia.Code"/> — the ONE trivia skipper, which NESTS
+	/// comments (<c>(* a (* b *) c *)</c> is one comment); the splitter's own <see cref="ScanContext"/> does not yet
+	/// (5.E.1), and reading with it refused such a member on pull naming a word from inside the comment (5Qa review).
+	/// The PULL holds it to the member's CLASS (openspec <c>push-without-header-check</c> 5.Q.5, <c>Materializer</c>): an IDE can store a
+	/// method whose text opens with <c>PROPERTY</c> (DIALECT C2l), and a file carrying it would be read back as a
+	/// property — a delete of the method and a create of a property, under an ordinary push.</summary>
+	public static string? MemberHeaderKeyword(string declaration)
+	{
+		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
+		foreach (var line in StTrivia.Code(NormalizeLines(declaration.TrimStart('﻿'))))
+		{
+			var code = line.TrimStart();
+			if (code.Length == 0) continue;
+			int end = 0;
+			while (end < code.Length && (char.IsLetterOrDigit(code[end]) || code[end] == '_')) end++;
+			return end == 0 ? code.Substring(0, 1) : code.Substring(0, end).ToUpperInvariant();
+		}
+		return null;
+	}
+
+	/// <summary>The word a member's declaration opens with as the child splitter's OWN <see cref="ScanContext"/> reads it,
+	/// which does not nest comments yet (5.E.1). Differs from <see cref="MemberHeaderKeyword"/> only when a nested comment
+	/// stands before the keyword — and then a file carrying the member cannot be split by any push, not even unchanged, so
+	/// the pull refuses it (<c>Materializer</c>, 5Qa review). Deleted with 5.E.1, when the splitter reads with
+	/// <see cref="StTrivia"/> too.</summary>
+	public static string? MemberHeaderKeywordAsSplit(string declaration)
+	{
+		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
+		var ctx = new ScanContext();
+		foreach (var line in NormalizeLines(declaration.TrimStart('﻿')))
+		{
+			ctx.Update(line);
+			var code = ctx.Code.TrimStart();
+			if (code.Length == 0) continue;
+			int end = 0;
+			while (end < code.Length && (char.IsLetterOrDigit(code[end]) || code[end] == '_')) end++;
+			return end == 0 ? code.Substring(0, 1) : code.Substring(0, end).ToUpperInvariant();
+		}
+		return null;
 	}
 
 	/// <summary>A POU's or an interface's structure: the outer block, the declaration/body split, the children.</summary>
@@ -348,14 +461,13 @@ public static class StReader
 
 	// ─── Outer-block boundary detection ──────────────────────────────
 
-	/// <summary>The lines that can close the outer block of <paramref name="kind"/>. A program, a function and a function
-	/// block share one shape — declaration, boundary, body, END line, then members — so any of their three END lines
-	/// closes any of them: which one the text spells is its header's business, and the header is not read. An
+	/// <summary>The lines that can close the outer block of <paramref name="kind"/>. A POU — program, function or function
+	/// block, one kind (<c>X.pou</c>) — has one shape: declaration, boundary, body, END line, then members, so any of the
+	/// three END lines closes it: which one the text spells is its header's business, and the push does not read it. An
 	/// interface has a shape of its own (its members sit INSIDE the block), so only END_INTERFACE closes it.</summary>
 	private static string[] OuterEndKeywords(string kind) => kind switch
 	{
-		ItemKind.Kinds.FunctionBlock or ItemKind.Kinds.Program or ItemKind.Kinds.Function =>
-			new[] { "END_FUNCTION_BLOCK", "END_PROGRAM", "END_FUNCTION" },
+		ItemKind.Kinds.Pou => new[] { "END_FUNCTION_BLOCK", "END_PROGRAM", "END_FUNCTION" },
 		ItemKind.Kinds.Interface => new[] { "END_INTERFACE" },
 		_ => throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Unexpected composite POU kind: {kind}"),
 	};

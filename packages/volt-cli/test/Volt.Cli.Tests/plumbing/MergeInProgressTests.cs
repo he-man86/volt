@@ -44,7 +44,7 @@ public class MergeInProgressTests
 
         var root = Directory.CreateTempSubdirectory("volt-merge-").FullName;
         Git.GitInit(root);
-        var file = Path.Combine(root, "src", "FB_A.fb");
+        var file = Path.Combine(root, "src", "FB_A.pou");
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
 
         File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nIMPLEMENTATION ST\nbase\nEND_FUNCTION_BLOCK\n");
@@ -73,7 +73,7 @@ public class MergeInProgressTests
         try
         {
             Assert.True(Git.IsMerging(root), "MERGE_HEAD must exist or the rest of this file proves nothing");
-            var body = File.ReadAllText(Path.Combine(root, "src", "FB_A.fb"));
+            var body = File.ReadAllText(Path.Combine(root, "src", "FB_A.pou"));
             Assert.Contains("<<<<<<<", body);
             Assert.Contains(">>>>>>>", body);
         }
@@ -120,7 +120,7 @@ public class MergeInProgressTests
             var after = Git.HeadCommit(root);
 
             if (before == after) return;                   // nothing was committed — the correct outcome
-            var committed = Git.GitShowBytes(root, after!, "src/FB_A.fb");
+            var committed = Git.GitShowBytes(root, after!, "src/FB_A.pou");
             Assert.NotNull(committed);
             var text = System.Text.Encoding.UTF8.GetString(committed!);
             Assert.DoesNotContain("<<<<<<<", text);

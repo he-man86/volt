@@ -1385,7 +1385,7 @@
     "fix": null,
     "reproFiles": [
       {
-        "uri": "PLC_PRG.prg",
+        "uri": "PLC_PRG.pou",
         "source": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR"
       }
     ],
@@ -1413,7 +1413,7 @@
     "fix": null,
     "reproFiles": [
       {
-        "uri": "PLC_PRG.prg",
+        "uri": "PLC_PRG.pou",
         "source": "PROGRAM PLC_PRG\nVAR\n    inst : FB;\nEND_VAR"
       }
     ],
@@ -1484,7 +1484,7 @@
     "fix": null,
     "reproFiles": [
       {
-        "uri": "PLC_PRG.prg",
+        "uri": "PLC_PRG.pou",
         "source": "PROGRAM PLC_PRG\nVAR\n    inst : XY2;\nEND_VAR"
       }
     ],
@@ -4715,7 +4715,7 @@
     "fix": null,
     "reproFiles": [
       {
-        "uri": "PLC_PRG.prg",
+        "uri": "PLC_PRG.pou",
         "source": "PROGRAM PLC_PRG\nVAR\n    inst : XY2;\nEND_VAR"
       }
     ],

@@ -277,7 +277,7 @@ export function bitPlace(lw: Lowering, e: Extract<Expr, { kind: "member" }>, not
   const base = lowerPlace(lw, e.base, notABit)
   if (base === undefined) return undefined
   // A bit of something that is not an integer says what it is instead: `slice.0` with `slice : REFERENCE TO BYTE`
-  // (pro2193 MapperInputs.fb) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
+  // (pro2193 MapperInputs.pou) is aliasing — phase 4 — and a `bit-index` there sent the reader to the wrong phase.
   if (base.type.kind !== "elementary") return lw.bail(`bit-on-${base.type.kind}`, `bit ${index} of a ${base.type.kind}`, e.span)
   const t = base.type.elem
   if (t.rank === undefined || (t.family !== "int" && t.family !== "bitstring") || index >= t.bits)

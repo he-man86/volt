@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const run = (prg: string, gvl?: string) => {
   const inputs = [
-    { uri: "PLC_PRG.prg", source: prg, parseResult: parseSource(prg, { networkText: true }) },
+    { uri: "PLC_PRG.pou", source: prg, parseResult: parseSource(prg, { networkText: true }) },
     ...(gvl ? [{ uri: "GVL.gvl", source: gvl, parseResult: parseSource(gvl, { networkText: true }) }] : []),
   ]
   const project = build.buildSymbolTable(inputs)

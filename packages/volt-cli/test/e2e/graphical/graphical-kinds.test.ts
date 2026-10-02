@@ -2,7 +2,7 @@
  * FBD and LD on every element that can hold a body — the coverage neither language had.
  *
  * `graphical/roundtrip.test.ts` proves both languages thoroughly, but only ever on a PROGRAM: its featureset
- * matrix, its fixed-point checks and its Execute-box test are all `.prg`, plus one FUNCTION_BLOCK created to
+ * matrix, its fixed-point checks and its Execute-box test are all PROGRAMs, plus one FUNCTION_BLOCK created to
  * build-verify. That everything else works rested on the offline suite and on FBD/LD sharing a code path — an
  * inference, not a measurement, and the two are not the same thing here.
  *
@@ -109,16 +109,17 @@ for (const lang of ["FBD", "LD"]) {
 		beforeEach(async () => { await fixPlcPrg(); await cleanup(); await savePlcPrg() })
 		afterEach(async () => { await restorePlcPrg() })
 
-		for (const [kind, ext] of [["function_block", "fb"], ["program", "prg"], ["function", "fun"]] as const) {
+		// Every POU is `X.pou` (push-without-header-check 5.Q); the text says which kind it is.
+		for (const [kind, key] of [["function_block", "fb"], ["program", "prg"], ["function", "fun"]] as const) {
 			it(`a ${lang} ${kind} round-trips`, async () => {
-				const name = id(`net_${tag}_${ext}`)
-				const full = fid(`net_${tag}_${ext}`, ext)
-				await createItem(full, src[ext](name), "")
+				const name = id(`net_${tag}_${key}`)
+				const full = fid(`net_${tag}_${key}`, "pou")
+				await createItem(full, src[key](name), "")
 
 				const v1 = await fetchItem(full)
 				expect(networkLangs(v1.sourceText)).toEqual([lang])   // stayed graphical, not flattened to ST
 				expect(v1.sourceText).toContain("(a AND b)")
-				expectNoOperandsLost(src[ext](name), v1.sourceText)
+				expectNoOperandsLost(src[key](name), v1.sourceText)
 				await isFixedPoint(full, v1)
 			})
 		}
@@ -126,7 +127,7 @@ for (const lang of ["FBD", "LD"]) {
 		for (const [what, key, coil] of [["METHOD", "method", "M_G"], ["ACTION", "action", "out"]] as const) {
 			it(`an FB with a textual body and a ${lang} ${what} round-trips and compiles`, async () => {
 				const name = id(`net_${tag}_${key}`)
-				const full = fid(`net_${tag}_${key}`, "fb")
+				const full = fid(`net_${tag}_${key}`, "pou")
 				await createItem(full, src[key](name), "")
 
 				const v1 = await fetchItem(full)
@@ -141,7 +142,7 @@ for (const lang of ["FBD", "LD"]) {
 
 		it(`an FB whose PROPERTY has ${lang} in BOTH accessors round-trips and compiles`, async () => {
 			const name = id(`net_${tag}_prop`)
-			const full = fid(`net_${tag}_prop`, "fb")
+			const full = fid(`net_${tag}_prop`, "pou")
 			await createItem(full, src.property(name), "")
 
 			const v1 = await fetchItem(full)
@@ -181,7 +182,7 @@ for (const lang of ["FBD", "LD"]) {
 		for (const [what, key] of [["METHOD", "methodFbCall"], ["ACTION", "actionFbCall"]] as const) {
 			it(`a ${lang} ${what} may call an FB instance declared in the OWNER`, async () => {
 				const name = id(`net_${tag}_${key}`)
-				const full = fid(`net_${tag}_${key}`, "fb")
+				const full = fid(`net_${tag}_${key}`, "pou")
 				await createItem(full, (src as any)[key](name), "")
 
 				const v1 = await fetchItem(full)
@@ -193,7 +194,7 @@ for (const lang of ["FBD", "LD"]) {
 
 		it(`a ${lang} function_block compiles when referenced — build-verified on BOTH vendors`, async () => {
 			const name = id(`net_${tag}_compile`)
-			await createItem(fid(`net_${tag}_compile`, "fb"), src.fb(name), "")
+			await createItem(fid(`net_${tag}_compile`, "pou"), src.fb(name), "")
 			await ensureCompiles(name)
 		})
 	})

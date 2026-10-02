@@ -164,7 +164,7 @@ test("and the folds that must keep working, do", () => {
  * `c.eatPunct(":=") ?? c.eatPunct("REF=")` accepted both and recorded neither, so `r : REFERENCE TO UDINT REF= v`
  * arrived at lowering as an ordinary assignment: no target was recorded, and every later read of `r` was refused
  * `pointer-order`. That was the single largest line in its histogram — 141 corpus POUs, all of them reaching
- * `ONTIME.fb`'s `refSeconds`. Recording `initOp` took `pointer-order`'s reach from 177 POUs to 105.
+ * `ONTIME.pou`'s `refSeconds`. Recording `initOp` took `pointer-order`'s reach from 177 POUs to 105.
  *
  * The statement form (`r REF= v;`) was always measured and always worked; only the DECLARATION form was lost. So
  * what is asserted here is that the two agree — and the values, not merely that it lowers.

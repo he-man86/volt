@@ -72,7 +72,7 @@ public class StFixedPointTests
     [Fact]
     public void A_wrapped_header_is_declaration_not_body()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-header-no-var-section.fb")), KindOfFile("wrapped-header-no-var-section.fb"));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-header-no-var-section.pou")), KindOfFile("wrapped-header-no-var-section.pou"));
 
         Assert.Contains("EXTENDS Cylinder_52ValveFB", item.Declaration);
         Assert.Contains("IMPLEMENTS IActuator", item.Declaration);
@@ -107,7 +107,7 @@ public class StFixedPointTests
     [Fact]
     public void An_actions_trailing_comment_is_body_because_an_action_has_no_declaration()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "action-with-a-leading-comment.fb")), KindOfFile("action-with-a-leading-comment.fb"));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "action-with-a-leading-comment.pou")), KindOfFile("action-with-a-leading-comment.pou"));
 
         var action = item.Members.Single(m => m.Kind == ItemKind.Kinds.Action);
         Assert.Equal("ACTION Reset", action.Declaration);
@@ -124,7 +124,7 @@ public class StFixedPointTests
     [Fact]
     public void A_wrapped_return_type_is_declaration_not_the_first_line_of_the_body()
     {
-        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-return-type-no-var-section.fun")), KindOfFile("wrapped-return-type-no-var-section.fun"));
+        var item = StReader.Read(Read(Path.Combine(FixtureDir, "wrapped-return-type-no-var-section.pou")), KindOfFile("wrapped-return-type-no-var-section.pou"));
 
         Assert.Contains(": REAL", item.Declaration);
         Assert.DoesNotContain("REAL", item.Body ?? "");
@@ -145,7 +145,7 @@ public class StFixedPointTests
             "FUNCTION_BLOCK Machine\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_FUNCTION_BLOCK\n\n" +
             "PROPERTY PUBLIC Ready : BOOL\t// TRUE once every axis has homed\n" +
             "GET\nIMPLEMENTATION ST\nReady := TRUE;\nEND_GET\n" +
-            "END_PROPERTY\n", ItemKind.Kinds.FunctionBlock);
+            "END_PROPERTY\n", ItemKind.Kinds.Pou);
 
         var ready = item.Members.Single(m => m.Name == "Ready");
         Assert.Equal("BOOL", ready.DataType);
@@ -161,7 +161,7 @@ public class StFixedPointTests
     /// its blank line, and the comment has moved.</para>
     ///
     /// <para><b>Why no reader rule fixes it.</b> One blank line cannot encode two different facts. The corpus
-    /// proves both assignments are real: `member-comment-after-end-var.prg` and `trailing-space-on-a-boundary-line.fb`
+    /// proves both assignments are real: `member-comment-after-end-var.pou` and `trailing-space-on-a-boundary-line.pou`
     /// are the same text at the two levels with OPPOSITE correct answers, because a member is joined with a single
     /// newline and a top-level item with two. The fix is writer-side (emit the declaration's own trailing newline
     /// count) or an explicit boundary marker in the file, like the `%FOLDER` and `NETWORK` markers already there —
@@ -183,7 +183,7 @@ public class StFixedPointTests
             "// this comment sits against END_VAR, with no blank line under it\n" +
             "IMPLEMENTATION ST\nstep := 0;\n\nEND_FUNCTION_BLOCK\n";
 
-        Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.FunctionBlock)));
+        Assert.Equal(text, StWriter.Write(StReader.Read(text, ItemKind.Kinds.Pou)));
     }
 
     /// <summary>The sweep, over whatever `VOLT_CORPUS` points at. Skipped — not failed — when it is unset, which

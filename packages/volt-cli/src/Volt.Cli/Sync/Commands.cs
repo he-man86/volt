@@ -482,7 +482,7 @@ public static class Commands
         // A referenced library's files are read-only by LOCATION, not by extension. The element signatures the
         // bridge renders beside each `.library` stub carry ordinary SOURCE extensions, so `Extensions.IsReadOnly`,
         // which keys on the extension alone, calls them WRITABLE. Pushing one is never right and is destructive,
-        // because a push op is keyed by NAME: `Library Manager/Util/BLINK.fb` pushes as item "BLINK.fb", which
+        // because a push op is keyed by NAME: `Library Manager/Util/BLINK.pou` pushes as item "BLINK.pou", which
         // either creates junk inside the Library Manager or OVERWRITES the project's own item of that name.
         var libraryRoots = IdeTree.LibraryRoots(Git.ListTree(gitDir, IdeTree.Range).Select(e => e.Path));
         var readOnly = affected.Where(p => Extensions.IsReadOnly(p) || IdeTree.IsUnderLibraryRoot(p, libraryRoots)).ToList();
@@ -784,10 +784,12 @@ public static class Commands
     /// THE PUSHED ITEMS THE IDE NOW PUBLISHES UNDER ANOTHER NAME — each with that name and the version of the text
     /// that was pushed, for the baseline to keep under the pushed name.
     ///
-    /// <para><b>How a push re-names an item.</b> A push writes the text as sent and never reads its header (openspec
-    /// <c>push-without-header-check</c>), and the wire names an item by what the IDE holds, which the text can change
-    /// (DIALECT C2e, C2f). The receipt then names the ONE object otherwise and has no entry under the name pushed.
-    /// Which names the IDE may publish one object under is the engine's answer (<see cref="PushedText.MayBeHeldAs"/>).</para>
+    /// <para><b>How a push re-names an item.</b> The IDE keeps the spelling of the object it holds, so a name pushed
+    /// in another case may be published in the IDE's: the receipt then names the ONE object otherwise and has no entry
+    /// under the name pushed. A TEXT no longer re-names anything — an item's name is a function of its class, whatever
+    /// its text declares (openspec <c>push-without-header-check</c> 5.P/5.Q; until then CODESYS re-published a POU under
+    /// the name of the kind its text declared, DIALECT C2f). Which names the IDE may publish one object under is the
+    /// engine's answer (<see cref="PushedText.MayBeHeldAs"/>).</para>
     ///
     /// <para>Only a name this client neither had nor pushed, and only one: a pushed name absent with no such sibling is
     /// not claimed here — an unreadable or unwalked item is absent too, and what is gone is the next fetch's answer.</para>

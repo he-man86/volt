@@ -17,9 +17,7 @@
   "folder": "_folder",
   "folderExpanded": "_folder_open",
   "fileExtensions": {
-    "fb": "_st",
-    "prg": "_st",
-    "fun": "_st",
+    "pou": "_st",
     "itf": "_st",
     "gvl": "_st",
     "dut": "_st"

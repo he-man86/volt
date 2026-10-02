@@ -35,7 +35,7 @@ public class GraphicalChildGuardTests
 
     /// <summary>A POU with one child whose body language is <paramref name="childLang"/> in the IDE.</summary>
     private static FakeIde IdeWithChild(string childName, string? childLang, string childImpl = "x := 1;") => new(
-        new FakeIde.Item(Bare, ItemKind.PlcPouFb, "", true, PouDecl, "", null, null,
+        new FakeIde.Item(Bare, ItemKind.PlcPou, "", true, PouDecl, "", null, null,
             new[] { childName }),
         new FakeIde.Item(childName, ItemKind.PlcMethod, "", false, $"METHOD {childName} : INT\nVAR\nEND_VAR",
             childImpl, childLang, null));
@@ -66,7 +66,7 @@ public class GraphicalChildGuardTests
     /// <summary>IDE items carry BARE names; the extension is added by materialization from the kind, and push
     /// ops are bare-keyed internally. The wire name is the full one.</summary>
     private const string Bare = "FB_WithGraphicalChild";
-    private const string Name = Bare + ".fb";
+    private const string Name = Bare + ".pou";
 
     /// <summary>Pushing the marker BACK over a matching unsupported child is the ordinary round-trip: ACCEPTED, the
     /// root is written, and the child is left alone.

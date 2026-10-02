@@ -21,7 +21,7 @@ public class ContainerManagerTests
     public void Manager_kinds_are_container_managers(int code) => Assert.True(ItemKind.IsContainerManager(code));
 
     [Theory]
-    [InlineData(ItemKind.PlcPouFb)]     // source
+    [InlineData(ItemKind.PlcPou)]     // source
     [InlineData(ItemKind.PlcLibRef)]    // a library reference (the manager's CHILD) IS emitted
     [InlineData(ItemKind.PlcDevice)]    // a real descriptor
     [InlineData(ItemKind.PlcTextList)]  // a leaf, not a container

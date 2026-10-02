@@ -6,9 +6,9 @@ import { isPouFile, readStateMtime } from "./files";
 
 describe("isPouFile", () => {
 	test("matches the kind-named source extensions", () => {
-		expect(isPouFile("Foo.fb")).toBe(true);
-		expect(isPouFile("PLC_PRG.prg")).toBe(true);
-		expect(isPouFile("Fun_Calc.fun")).toBe(true);
+		expect(isPouFile("Foo.pou")).toBe(true);
+		expect(isPouFile("PLC_PRG.pou")).toBe(true);
+		expect(isPouFile("Fun_Calc.pou")).toBe(true);
 		expect(isPouFile("IMotor.itf")).toBe(true);
 		expect(isPouFile("GVL_Config.gvl")).toBe(true);
 		// Every DUT is `.dut`, whatever its shape (openspec push-without-header-check 5.P, owner: this listed the four
@@ -20,7 +20,7 @@ describe("isPouFile", () => {
 		expect(isPouFile("T_Handle.alias")).toBe(false);
 	});
 
-	// Exact, as the CLI's classifier is: a file name IS its wire name, so `Foo.FB` is not the `Foo.fb` the IDE
+	// Exact, as the CLI's classifier is: a file name IS its wire name, so `Foo.FB` is not the `Foo.pou` the IDE
 	// publishes and `volt push` refuses it as a foreign file. The case of an extension is the case of the file on
 	// disk (every filesystem Volt runs on preserves it), so there is no mixed-case spelling to forgive — only a
 	// file Volt will never push, which must not count as a tracked source file here.
@@ -43,15 +43,15 @@ describe("isPouFile", () => {
 	});
 
 	test("handles full absolute paths", () => {
-		expect(isPouFile("C:\\Users\\foo\\src\\POUs\\FB_Motor.fb")).toBe(true);
-		expect(isPouFile("/home/foo/src/POUs/FB_Motor.fb")).toBe(true);
+		expect(isPouFile("C:\\Users\\foo\\src\\POUs\\FB_Motor.pou")).toBe(true);
+		expect(isPouFile("/home/foo/src/POUs/FB_Motor.pou")).toBe(true);
 	});
 
 	test("only the rightmost extension counts", () => {
 		// ide-refs.json.bak - .bak isn't a PLC extension.
 		expect(isPouFile("ide-refs.json.bak")).toBe(false);
-		// foo.fb.bak - last segment is .bak, not .fb.
-		expect(isPouFile("foo.fb.bak")).toBe(false);
+		// foo.pou.bak - last segment is .bak, not .pou.
+		expect(isPouFile("foo.pou.bak")).toBe(false);
 	});
 });
 
@@ -132,7 +132,7 @@ describe("outgoing detection gap", () => {
 		// An out-of-editor outgoing change: the agent / a terminal / an external editor writes a tracked POU.
 		const srcDir = join(testDir, "src", "POUs");
 		mkdirSync(srcDir, { recursive: true });
-		const pou = join(srcDir, "FB_Motor.fb");
+		const pou = join(srcDir, "FB_Motor.pou");
 		writeFileSync(pou, "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR\nx := 1;");
 		// Bump the POU's mtime far into the future to rule out any filesystem resolution race.
 		const future = new Date(Date.now() + 10_000);

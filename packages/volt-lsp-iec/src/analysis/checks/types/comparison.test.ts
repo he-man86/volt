@@ -10,7 +10,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const cmp = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  i : INT; re : REAL; str : STRING; b : BOOL; w : WORD;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "incompatible-comparison")
     .map((d) => d.message)
@@ -54,7 +54,7 @@ test("C0354: comparing two different enumeration types is flagged; same-enum and
   const run = (body: string) => {
     const src = `${enums}PROGRAM P\nVAR b : BOOL; e1 : ENUM1; ea : ENUM1; e2 : ENUM2; i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "enum-comparison")
       .map((d) => d.message)
@@ -71,7 +71,7 @@ test("C0354 upper-cases both names, skips two enum VALUES, and treats a re-cased
   const run = (body: string) => {
     const src = `${enums}PROGRAM P\nVAR b : BOOL; ea : E_Cmp_A; eb : E_Cmp_B; ec : e_cmp_a;\nEND_VAR\n${body}\nEND_PROGRAM`
     const pr = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], "codesys")
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], "codesys")
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "enum-comparison")
       .map((d) => d.message)

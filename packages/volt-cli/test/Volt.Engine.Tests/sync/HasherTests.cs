@@ -68,13 +68,13 @@ public class HasherTests
     public void The_push_late_check_hashes_an_item_exactly_as_Versioning_does()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_H", ItemKind.PlcPouFb, "POUs", true,
+            new FakeIde.Item("FB_H", ItemKind.PlcPou, "POUs", true,
                 "FUNCTION_BLOCK FB_H\nVAR\n\tx : INT;\nEND_VAR", "x := 1;", null, null));
 
         var item = ide.WalkItems().Items.Single(i => i.Name == "FB_H");
 
         // What refs/fetch record for it.
-        var authoritative = Versioning.Materialize(ide, "FB_H", ItemKind.Kinds.FunctionBlock, item.Item, item.Folder).Version;
+        var authoritative = Versioning.Materialize(ide, "FB_H", ItemKind.Kinds.Pou, item.Item, item.Folder).Version;
 
         // What the push computes from the content it already read.
         var live = ide.ReadContent(item.Item);
@@ -92,11 +92,11 @@ public class HasherTests
     {
         var forward = new Dictionary<string, string>
         {
-            ["A.fb"] = "1111111111111111", ["B.fb"] = "2222222222222222", ["C.fb"] = "3333333333333333",
+            ["A.pou"] = "1111111111111111", ["B.pou"] = "2222222222222222", ["C.pou"] = "3333333333333333",
         };
         var backward = new Dictionary<string, string>
         {
-            ["C.fb"] = "3333333333333333", ["B.fb"] = "2222222222222222", ["A.fb"] = "1111111111111111",
+            ["C.pou"] = "3333333333333333", ["B.pou"] = "2222222222222222", ["A.pou"] = "1111111111111111",
         };
 
         Assert.Equal(Hasher.ComputeProjectVersion(forward), Hasher.ComputeProjectVersion(backward));

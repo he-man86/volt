@@ -136,7 +136,7 @@ public static class Git
 
     /// <summary>Recursive blob listing of a tree/commit (no subtree rows).
     /// <para><c>-z</c> is load-bearing, not tidiness. Without it <c>core.quotepath</c> — ON by default — hands
-    /// back a non-ASCII path as a DOUBLE-QUOTED, octal-escaped token: <c>"src/W\\303\\244rme/FB_X.fb"</c>.
+    /// back a non-ASCII path as a DOUBLE-QUOTED, octal-escaped token: <c>"src/W\\303\\244rme/FB_X.pou"</c>.
     /// That token then travels as if it WERE the path, so the item is not carried forward into the new
     /// <c>volt/ide</c> tree — the merge deletes it — and it is re-added under a path containing a literal
     /// quote, which Windows refuses to check out: the pull dies with <c>invalid path</c> and the workspace can

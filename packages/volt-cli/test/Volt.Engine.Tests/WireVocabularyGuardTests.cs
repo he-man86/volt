@@ -80,7 +80,7 @@ public class WireVocabularyGuardTests
             new HashSet<string> { "BuildModels.cs", "Types.cs", "LogWindow.cs", "PipeClient.cs", "PipeMessages.cs" }),
 
         ("item kinds (ItemKind.Kinds)",
-            new[] { "program", "function_block", "function", "dut", "gvl", "interface", "action", "method",
+            new[] { "pou", "dut", "gvl", "interface", "action", "method",
                     "property", "library", "device", "task", "folder", "transition", "library_manager",
                     "visualization", "visualization_manager", "text_list", "image_pool", "parameter_list",
                     "class_diagram", "recipe_manager", "task_call_reference", "external_types", "tmc_file",
@@ -105,6 +105,16 @@ public class WireVocabularyGuardTests
             // `AllowKey` strips the suffix - see its own summary for why.
             new HashSet<string> { "ItemKind.cs", "NetworkTextReader.cs", "BeckhoffDriver.cs",
                                   "TcPlcOpenWriter.cs" }),
+
+        // THE RETIRED POU KINDS AND EXTENSIONS (openspec push-without-header-check 5.Q). A program, a function block
+        // and a function are ONE kind, `pou`, under one extension, `.pou`: whether a POU is which is its TEXT's on both
+        // vendors, and an extension carries only what the IDE stores per object. A literal `"program"` /
+        // `"function_block"` / `"function"` kind, or `"fb"` / `"prg"` / `"fun"` extension, in src is that split coming
+        // back. TcPlcOpenWriter spells TC6's own `pouType="program"` and `CallType` `function` — a PLCopen vocabulary
+        // that shares the words, not an item kind.
+        ("retired POU kinds and extensions (5.Q)",
+            new[] { "program", "function_block", "function", "fb", "prg", "fun", ".fb", ".prg", ".fun" },
+            new HashSet<string> { "TcPlcOpenWriter.cs" }),
     };
 
     [Fact]

@@ -48,7 +48,7 @@ describe(`graphical / rebuild after an edit (${BASE})`, () => {
 	 */
 	it("an edited network still compiles after being rebuilt", async () => {
 		const name = id("rb_edit")
-		const full = fid("rb_edit", "fb")
+		const full = fid("rb_edit", "pou")
 
 		const src =
 			`FUNCTION_BLOCK ${name}
@@ -100,7 +100,7 @@ END_FUNCTION_BLOCK
 	 */
 	it("editing one network leaves its neighbour untouched", async () => {
 		const name = id("rb_scope")
-		const full = fid("rb_scope", "fb")
+		const full = fid("rb_scope", "pou")
 
 		const src =
 			`FUNCTION_BLOCK ${name}
@@ -174,7 +174,7 @@ END_FUNCTION_BLOCK
 	 */
 	it("a network's title, label and comment survive an edit to its logic", async () => {
 		const name = id("rb_meta")
-		const full = fid("rb_meta", "fb")
+		const full = fid("rb_meta", "pou")
 
 		const src =
 			`FUNCTION_BLOCK ${name}

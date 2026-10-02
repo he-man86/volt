@@ -31,28 +31,28 @@ mock.module("@volt/control", () => ({
 const { buildUri, parseUri, VoltContentProvider } = await import("./content.js")
 
 test("buildUri/parseUri round-trips ref, path and workspaceRoot", () => {
-	const p = parseUri(buildUri("C:/ws", "HEAD", "POUs/Foo.fb"))
-	expect(p).toEqual({ workspaceRoot: "C:/ws", ref: "HEAD", path: "POUs/Foo.fb" })
+	const p = parseUri(buildUri("C:/ws", "HEAD", "POUs/Foo.pou"))
+	expect(p).toEqual({ workspaceRoot: "C:/ws", ref: "HEAD", path: "POUs/Foo.pou" })
 })
 
 test("provideTextDocumentContent runs `volt show <ref> <path> --workspace <root>` for the parsed uri", async () => {
 	nextResult = { code: 0, stdout: Buffer.from("BODY"), stderr: "" }
-	const out = await new VoltContentProvider().provideTextDocumentContent(buildUri("C:/ws", "BRIDGE", "POUs/Foo.fb"))
+	const out = await new VoltContentProvider().provideTextDocumentContent(buildUri("C:/ws", "BRIDGE", "POUs/Foo.pou"))
 	expect(out).toBe("BODY")
-	expect(lastArgs?.args).toEqual(["show", "BRIDGE", "POUs/Foo.fb", "--workspace", "C:/ws"])
+	expect(lastArgs?.args).toEqual(["show", "BRIDGE", "POUs/Foo.pou", "--workspace", "C:/ws"])
 	expect(lastArgs?.opts).toEqual({ binary: true })
 })
 
 // The fix: an ABSENT item (added/removed → exit 2) must render as an empty pane, NOT "volt show failed: …".
 test("exit code 2 (absent item) renders an empty pane", async () => {
-	nextResult = { code: 2, stdout: Buffer.from(""), stderr: "Added.fb not found at HEAD" }
-	const out = await new VoltContentProvider().provideTextDocumentContent(buildUri("C:/ws", "HEAD", "POUs/Added.fb"))
+	nextResult = { code: 2, stdout: Buffer.from(""), stderr: "Added.pou not found at HEAD" }
+	const out = await new VoltContentProvider().provideTextDocumentContent(buildUri("C:/ws", "HEAD", "POUs/Added.pou"))
 	expect(out).toBe("")
 })
 
 test("a genuine non-zero exit renders the error", async () => {
 	nextResult = { code: 1, stdout: Buffer.from(""), stderr: "boom" }
-	const out = await new VoltContentProvider().provideTextDocumentContent(buildUri("C:/ws", "BRIDGE", "POUs/Foo.fb"))
+	const out = await new VoltContentProvider().provideTextDocumentContent(buildUri("C:/ws", "BRIDGE", "POUs/Foo.pou"))
 	expect(out).toBe("volt show failed: boom")
 })
 

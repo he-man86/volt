@@ -36,7 +36,7 @@ public class PartialWalkTests
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp>
                 {
-                    new SetItemOp { Name = $"{name}.prg", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
+                    new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
                 },
             });
         return ide;
@@ -51,7 +51,7 @@ public class PartialWalkTests
         var refs = RefsService.Handle(ide);
 
         Assert.Equal(new[] { "Machine" }, refs.UnwalkedFolders);
-        Assert.DoesNotContain("Deep.prg", refs.Items.Keys);   // it really is missing from the map
+        Assert.DoesNotContain("Deep.pou", refs.Items.Keys);   // it really is missing from the map
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class PartialWalkTests
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
         var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
 
-        Assert.Equal(new[] { "B.prg" }, fetch.Removed);
+        Assert.Equal(new[] { "B.pou" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
     }
 
@@ -95,7 +95,7 @@ public class PartialWalkTests
         var baseline = RefsService.Handle(ide);
         ide.RemoveItem("B");
         ide.UnwalkableFolders = new[] { "Machine" };
-        var folders = baseline.Folders.Where(kv => kv.Key != "B.prg").ToDictionary(kv => kv.Key, kv => kv.Value);
+        var folders = baseline.Folders.Where(kv => kv.Key != "B.pou").ToDictionary(kv => kv.Key, kv => kv.Value);
 
         Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = folders }).Removed);
         Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = folders }).Removed);
@@ -108,8 +108,8 @@ public class PartialWalkTests
     {
         var ide = WithHiddenFolder();
         var baseline = RefsService.Handle(ide);
-        var known = new Dictionary<string, string>(baseline.Items) { ["X.dut"] = "v", ["X.prg"] = "w" };
-        var knownFolders = new Dictionary<string, string>(baseline.Folders) { ["X.dut"] = "DUTs", ["X.prg"] = "POUs" };
+        var known = new Dictionary<string, string>(baseline.Items) { ["X.dut"] = "v", ["X.pou"] = "w" };
+        var knownFolders = new Dictionary<string, string>(baseline.Folders) { ["X.dut"] = "DUTs", ["X.pou"] = "POUs" };
         ide.AddItem(FakeIde.Item.MalformedGraphical("X", "POUs"));
         ide.UnwalkableFolders = new[] { "Machine" };
 
@@ -146,7 +146,7 @@ public class PartialWalkTests
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
         var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
 
-        Assert.Equal(new[] { "Deep.prg" }, fetch.Removed);
+        Assert.Equal(new[] { "Deep.pou" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
         Assert.Empty(RefsService.Handle(ide).Removed);
     }

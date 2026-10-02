@@ -28,7 +28,7 @@
 <p>
   The stream is <b>newline-delimited JSON</b> in both directions. A request is one object:
 </p>
-<pre>{ "op": "fetch", "body": { "knownItems": {}, "onlyItems": ["FB_Motor.fb"] } }</pre>
+<pre>{ "op": "fetch", "body": { "knownItems": {}, "onlyItems": ["FB_Motor.pou"] } }</pre>
 <p>
   A response is a run of frames on the same connection: zero or more <code>progress</code> frames, then exactly
   one terminal <code>result</code> or <code>error</code>. Each frame carries a single key.
@@ -57,9 +57,9 @@
 <p>
   <b>The item NAME is the identity.</b> <code>refs</code>, <code>fetch</code>'s <code>knownItems</code>, every
   push op and the one-item-per-file layout are all keyed by it. On the wire that name is <b>full</b> —
-  <code>name.kind</code>, e.g. <code>CM_Carrier.fb</code> — because IEC guarantees unique names <i>within</i> a
+  <code>name.kind</code>, e.g. <code>CM_Carrier.pou</code> — because IEC guarantees unique names <i>within</i> a
   kind, not across them: a control module and the visualization that draws it are legitimately
-  <code>CM_Carrier.fb</code> and <code>CM_Carrier.visualization</code> in the same project. Below the vendor
+  <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code> in the same project. Below the vendor
   seam the same item is addressed by its <b>bare</b> name, which is the IDE's own lookup key.
 </p>
 <table>
@@ -104,13 +104,24 @@
   <i>that push</i> emptied, recursively up the chain, and never a vendor container.
 </p>
 
+<h3 id="pou">A POU is <code>X.pou</code></h3>
+<p>
+  Every PROGRAM, FUNCTION_BLOCK and FUNCTION travels as <code>X.pou</code> (<a href="items.html#pou">items</a>), so a
+  push that changes what a POU's text declares — a PROGRAM rewritten as a FUNCTION_BLOCK — is an ordinary content
+  update of <code>X.pou</code>, gated by its <code>ifVersion</code> like any update. The text is written as sent and
+  never read for a kind. A create seeds a function block and writes the declaration before it creates the members, so
+  a member the IDE will not take under that text (a METHOD under FUNCTION text) is refused <code>UNSUPPORTED</code> with
+  the IDE's own message — a create leaves nothing behind, an update says its declaration landed. The retired names
+  <code>X.prg</code> / <code>X.fb</code> / <code>X.fun</code> name no kind and are refused <code>BAD_REQUEST</code>.
+</p>
+
 <h3 id="dut">A DUT is <code>X.dut</code></h3>
 <p>
   Every DUT travels as <code>X.dut</code>, whatever its shape (<a href="items.html#dut">items</a>), so a push that
   changes a DUT's subtype — a struct rewritten as an enum — is an ordinary content update of <code>X.dut</code>,
   gated by its <code>ifVersion</code> like any update. A DUT op's body is <b>not</b> checked against anything: the
   text is written as sent and the IDE's build reports what is wrong with it. A <code>delete</code> names one wire item
-  by its kind: <code>delete X.dut</code> never deletes an <code>X</code> that is a function block, forced or not. An
+  by its kind: <code>delete X.dut</code> never deletes an <code>X</code> that is a POU, forced or not. An
   op under a name with no kind extension — <code>X</code>, <code>X.foo</code>, and the retired split names
   <code>X.struct</code> / <code>X.enum</code> / <code>X.union</code> / <code>X.alias</code> — is refused
   <code>BAD_REQUEST</code> before anything is read.
@@ -127,7 +138,7 @@
   <tr><td class="name">PLC_DISCONNECTED</td><td>No project is bound, or the bridge is paused by <code>disconnect</code>.</td><td>Send <code>connect</code>.</td></tr>
   <tr><td class="name">IDE_UNSUPPORTED</td><td>The IDE the bridge runs in lacks something the bridge needs, so it serves nothing: every op but <code>health</code> answers with it. The message is fixed English naming the platform version and what is missing — <code>CODESYS 3.5.17.0 is not supported: it lacks …</code> — and <code>health</code> carries the same sentence as <code>unsupported</code>, beside <code>ideVersion</code>. Refused by capability, never by version number.</td><td>Show the message; do not retry. The IDE has to change, not the call.</td></tr>
   <tr><td class="name">WRONG_PROJECT</td><td>The bound project is not the one the request named.</td><td>Rebind, or refuse — never merge.</td></tr>
-  <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, or a name with no kind extension (<a href="#dut">a DUT is <code>X.dut</code></a>).</td><td>Fix the caller. The message names the op and the body type.</td></tr>
+  <tr><td class="name">BAD_REQUEST</td><td>A request frame that is not valid JSON, a body that does not deserialize, an unknown <code>op</code>, or a push op the engine cannot route — a create with no <code>sourceText</code>, an unknown member kind, or a name with no kind extension (<a href="#pou">a POU is <code>X.pou</code></a>, <a href="#dut">a DUT <code>X.dut</code></a>).</td><td>Fix the caller. The message names the op and the body type.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The named item does not exist in the project.</td><td>Re-read <code>refs</code>.</td></tr>
   <tr><td class="name">UNSUPPORTED</td><td>A shape this vendor cannot write, a member kind with no mapping, or a descriptor field the vendor has no counterpart for. The message says what. Also raised on a READ — a CODESYS member whose type code has no kind, or an item whose kind has no canonical text form. (<code>INVALID_CODE_HEADER</code> is gone: a push never reads a top-level item's header, so nothing raises it.)</td><td>Surface it: a real limit, not a transient. No retry and no edit will change it.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>A create collided with something already there.</td><td>Rename, or update instead of create.</td></tr>

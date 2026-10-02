@@ -3,9 +3,7 @@
   "name": "Structured Text",
   "scopeName": "source.structured-text",
   "fileTypes": [
-    "fb",
-    "prg",
-    "fun",
+    "pou",
     "itf",
     "gvl",
     "dut"

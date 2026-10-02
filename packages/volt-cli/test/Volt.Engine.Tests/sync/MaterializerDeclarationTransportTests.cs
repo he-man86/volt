@@ -44,9 +44,9 @@ public class MaterializerDeclarationTransportTests
     public void A_pou_materializes_when_the_export_omits_the_plaintext_block()
     {
         var ide = new FakeIde { OmitsPlaintextDeclaration = true };
-        ide.AddItem(new FakeIde.Item("FB_P", ItemKind.PlcPouFb, "", true, Awkward, "x := 1;", null, null));
+        ide.AddItem(new FakeIde.Item("FB_P", ItemKind.PlcPou, "", true, Awkward, "x := 1;", null, null));
 
-        var ex = Record.Exception(() => Materializer.Materialize(ide, "FB_P", "function_block", new ItemRef("FB_P")));
+        var ex = Record.Exception(() => Materializer.Materialize(ide, "FB_P", ItemKind.Kinds.Pou, new ItemRef("FB_P")));
         Assert.True(ex is null,
             "a POU whose export omits the OPTIONAL interfaceasplaintext block is unreadable — this is live " +
             $"TwinCAT, on every POU: {ex?.Message}");
@@ -59,9 +59,9 @@ public class MaterializerDeclarationTransportTests
     public void The_declaration_is_the_engineers_text_not_a_rendering()
     {
         var ide = new FakeIde { OmitsPlaintextDeclaration = true };
-        ide.AddItem(new FakeIde.Item("FB_P", ItemKind.PlcPouFb, "", true, Awkward, "x := 1;", null, null));
+        ide.AddItem(new FakeIde.Item("FB_P", ItemKind.PlcPou, "", true, Awkward, "x := 1;", null, null));
 
-        var text = Materializer.Materialize(ide, "FB_P", "function_block", new ItemRef("FB_P")).Text;
+        var text = Materializer.Materialize(ide, "FB_P", ItemKind.Kinds.Pou, new ItemRef("FB_P")).Text;
         _out.WriteLine(text);
 
         Assert.Contains("xEmergencyStop  : BOOL;", text);            // the alignment
@@ -74,9 +74,9 @@ public class MaterializerDeclarationTransportTests
     public void A_pou_whose_export_carries_the_block_is_unaffected()
     {
         var ide = new FakeIde();   // emits interfaceasplaintext, as CODESYS does
-        ide.AddItem(new FakeIde.Item("FB_Q", ItemKind.PlcPouFb, "", true, Awkward, "x := 1;", null, null));
+        ide.AddItem(new FakeIde.Item("FB_Q", ItemKind.PlcPou, "", true, Awkward, "x := 1;", null, null));
 
-        var text = Materializer.Materialize(ide, "FB_Q", "function_block", new ItemRef("FB_Q")).Text;
+        var text = Materializer.Materialize(ide, "FB_Q", ItemKind.Kinds.Pou, new ItemRef("FB_Q")).Text;
         Assert.Contains("xEmergencyStop  : BOOL;", text);
     }
 }

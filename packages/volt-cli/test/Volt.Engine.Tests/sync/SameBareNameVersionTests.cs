@@ -11,14 +11,14 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// AN FB THAT SHARES ITS BARE NAME WITH ITS OWN VISUALIZATION MUST STILL BE PUSHABLE.
 ///
-/// <para>Found by sweeping a real customer project (V71_PackML_Hauzer): <c>CM_Carrier.fb</c> and
+/// <para>Found by sweeping a real customer project (V71_PackML_Hauzer): <c>CM_Carrier.pou</c> and
 /// <c>CM_Carrier.visualization</c> sit in the same folder — a control module and the visu that draws it, which is
 /// how CODESYS projects are normally organised. Volt pulled the FB and then refused its own text with
 /// "item changed since you fetched its version", quoting a <c>currentVersion</c> that was the VISUALIZATION's
 /// hash. Two items, one version slot: the FB could be pulled and never pushed, forever.</para>
 ///
 /// <para>The cause is that the two halves of the wire were keyed by DIFFERENT identities. <c>refs</c>/<c>fetch</c>
-/// publish <c>Items</c> keyed by the FULL wire name (<c>CM_Carrier.fb</c>), so that is the only identity a client
+/// publish <c>Items</c> keyed by the FULL wire name (<c>CM_Carrier.pou</c>), so that is the only identity a client
 /// can quote back. The push built its pre-apply version map keyed by the BARE name, where the two items collide
 /// and the walk order decides which survives — so the <c>ifVersion</c> gate compared the FB's version against
 /// whatever item happened to be walked last.</para>
@@ -36,7 +36,7 @@ public class SameBareNameVersionTests
     /// <summary>The exact Hauzer shape: an FB and a visualization of the same bare name, in one folder.</summary>
     private static FakeIde ControlModuleWithItsVisu() => new FakeIde(
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"),
-        new FakeIde.Item("CM_Carrier", ItemKind.PlcPouFb, "02_ControlModules/CM_Carrier", true,
+        new FakeIde.Item("CM_Carrier", ItemKind.PlcPou, "02_ControlModules/CM_Carrier", true,
             "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR", "nStep := 1;", null, null),
         new FakeIde.Item("CM_Carrier", ItemKind.PlcVisObj, "02_ControlModules/CM_Carrier", true,
             "visualization: CM_Carrier", null, null, null));
@@ -53,7 +53,7 @@ public class SameBareNameVersionTests
 
         // The two items DO hash differently — otherwise the collision would be invisible and this test would
         // pass for the wrong reason.
-        Assert.NotEqual(refs.Items["CM_Carrier.fb"], refs.Items["CM_Carrier.visualization"]);
+        Assert.NotEqual(refs.Items["CM_Carrier.pou"], refs.Items["CM_Carrier.visualization"]);
 
         var res = PushService.Handle(ide, new PushRequest
         {
@@ -62,10 +62,10 @@ public class SameBareNameVersionTests
             {
                 new SetItemOp
                 {
-                    Name = "CM_Carrier.fb",
+                    Name = "CM_Carrier.pou",
                     ToFolder = "02_ControlModules/CM_Carrier",
                     SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\n\tnStep : INT;\nEND_VAR\nIMPLEMENTATION ST\nnStep := 2;\nEND_FUNCTION_BLOCK\n",
-                    IfVersion = refs.Items["CM_Carrier.fb"],
+                    IfVersion = refs.Items["CM_Carrier.pou"],
                 },
             },
         });
@@ -93,7 +93,7 @@ public class SameBareNameVersionTests
             {
                 new SetItemOp
                 {
-                    Name = "CM_Carrier.fb",
+                    Name = "CM_Carrier.pou",
                     ToFolder = "02_ControlModules/CM_Carrier",
                     SourceText = "FUNCTION_BLOCK CM_Carrier\nVAR\nEND_VAR\nIMPLEMENTATION ST\nnStep := 3;\nEND_FUNCTION_BLOCK\n",
                     IfVersion = "stale0000deadbeef",
@@ -103,9 +103,9 @@ public class SameBareNameVersionTests
 
         Assert.False(res.Accepted);
         var conflict = Assert.Single(res.Conflicts!);
-        Assert.Equal("CM_Carrier.fb", conflict.Name);
+        Assert.Equal("CM_Carrier.pou", conflict.Name);
         // …and it quotes the FB's OWN current version, not its neighbour's.
-        Assert.Equal(refs.Items["CM_Carrier.fb"], conflict.CurrentVersion);
+        Assert.Equal(refs.Items["CM_Carrier.pou"], conflict.CurrentVersion);
     }
 
     /// <summary>The other half of the collision: the VISUALIZATION's slot is not the FB's either. A visualization
@@ -121,7 +121,7 @@ public class SameBareNameVersionTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new List<PushOp>
             {
-                new DeleteItemOp { Name = "CM_Carrier.visualization", IfVersion = refs.Items["CM_Carrier.fb"] },
+                new DeleteItemOp { Name = "CM_Carrier.visualization", IfVersion = refs.Items["CM_Carrier.pou"] },
             },
         });
 

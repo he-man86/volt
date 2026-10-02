@@ -7,9 +7,9 @@ function file(name: string, source: string): ReachabilityInput {
   return { uri: `file:///${name}`, parseResult: parseSource(source, { networkText: true }) }
 }
 
-const PRG = (name: string, body: string) => file(`${name}.prg`, `PROGRAM ${name}\n${body}\nEND_PROGRAM`)
+const PRG = (name: string, body: string) => file(`${name}.pou`, `PROGRAM ${name}\n${body}\nEND_PROGRAM`)
 const FB = (name: string, decl: string, body = "") =>
-  file(`${name}.fb`, `FUNCTION_BLOCK ${name}\n${decl}\n${body}\nEND_FUNCTION_BLOCK`)
+  file(`${name}.pou`, `FUNCTION_BLOCK ${name}\n${decl}\n${body}\nEND_FUNCTION_BLOCK`)
 
 test("a PROGRAM → FB call chain keeps the FB live", () => {
   const dead = deadPous([
@@ -45,14 +45,14 @@ test("an FB implementing a referenced interface is live (uncertain dynamic dispa
   const dead = deadPous([
     PRG("Main", "VAR\n p : IFoo;\nEND_VAR\np.Go();"),
     file("IFoo.itf", "INTERFACE IFoo\nMETHOD Go\nEND_METHOD\nEND_INTERFACE"),
-    file("FB_Impl.fb", "FUNCTION_BLOCK FB_Impl IMPLEMENTS IFoo\nEND_FUNCTION_BLOCK"),
+    file("FB_Impl.pou", "FUNCTION_BLOCK FB_Impl IMPLEMENTS IFoo\nEND_FUNCTION_BLOCK"),
   ])
   expect(dead.has("fb_impl")).toBe(false)
   // Sanity: with IFoo referenced nowhere, the implementer really is dead.
   const dead2 = deadPous([
     PRG("Main", "x := 1;"),
     file("IFoo.itf", "INTERFACE IFoo\nMETHOD Go\nEND_METHOD\nEND_INTERFACE"),
-    file("FB_Impl.fb", "FUNCTION_BLOCK FB_Impl IMPLEMENTS IFoo\nEND_FUNCTION_BLOCK"),
+    file("FB_Impl.pou", "FUNCTION_BLOCK FB_Impl IMPLEMENTS IFoo\nEND_FUNCTION_BLOCK"),
   ])
   expect(dead2.has("fb_impl")).toBe(true)
 })
@@ -151,7 +151,7 @@ END_METHOD
 METHOD Island2
 y := 1;
 END_METHOD`
-  const dead = deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.fb", src)])
+  const dead = deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.pou", src)])
   expect(dead.has("island1")).toBe(true)
   expect(dead.has("island2")).toBe(true)
   expect(dead.has("live1")).toBe(false)
@@ -168,14 +168,14 @@ END_ACTION
 ACTION DeadAction
 y := 1;
 END_ACTION`
-  const dead = deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.fb", src)])
+  const dead = deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.pou", src)])
   expect(dead.has("deadaction")).toBe(true)
   expect(dead.has("liveaction")).toBe(false)
 })
 
 test("a member called CROSS-FILE (fbB.Method) stays live; a truly-unused sibling is dead", () => {
-  const a = file("FB_A.fb", `FUNCTION_BLOCK FB_A\nVAR b : FB_B; END_VAR\nb.DoThing();\nEND_FUNCTION_BLOCK`)
-  const b = file("FB_B.fb", `FUNCTION_BLOCK FB_B\nEND_FUNCTION_BLOCK\nMETHOD DoThing\nz := 1;\nEND_METHOD\nMETHOD Unused\nw := 1;\nEND_METHOD`)
+  const a = file("FB_A.pou", `FUNCTION_BLOCK FB_A\nVAR b : FB_B; END_VAR\nb.DoThing();\nEND_FUNCTION_BLOCK`)
+  const b = file("FB_B.pou", `FUNCTION_BLOCK FB_B\nEND_FUNCTION_BLOCK\nMETHOD DoThing\nz := 1;\nEND_METHOD\nMETHOD Unused\nw := 1;\nEND_METHOD`)
   const dead = deadMembers([PRG("Main", "VAR a : FB_A; END_VAR\na();"), a, b])
   expect(dead.has("dothing")).toBe(false) // reached via the cross-file call edge
   expect(dead.has("unused")).toBe(true)
@@ -189,19 +189,19 @@ METHOD FB_Init : BOOL
 VAR_INPUT bInitRetains : BOOL; bInCopyCode : BOOL; END_VAR
 x := 1;
 END_METHOD`
-  expect(deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.fb", src)]).has("fb_init")).toBe(false)
+  expect(deadMembers([PRG("Main", "VAR i : F; END_VAR\ni();"), file("F.pou", src)]).has("fb_init")).toBe(false)
 })
 
 test("a method matching an interface method (dispatch) is NOT dead", () => {
   const iface = file("IGo.itf", "INTERFACE IGo\nMETHOD Go\nEND_METHOD\nEND_INTERFACE")
-  const fb = file("F.fb", `FUNCTION_BLOCK F IMPLEMENTS IGo\nEND_FUNCTION_BLOCK\nMETHOD Go\nx := 1;\nEND_METHOD`)
+  const fb = file("F.pou", `FUNCTION_BLOCK F IMPLEMENTS IGo\nEND_FUNCTION_BLOCK\nMETHOD Go\nx := 1;\nEND_METHOD`)
   // Main references IGo (keeps the interface + implementer live); Go is never called by name.
   const dead = deadMembers([PRG("Main", "VAR p : IGo; i : F; END_VAR\ni();"), iface, fb])
   expect(dead.has("go")).toBe(false)
 })
 
 test("a method of a DEAD FB is not double-reported (whole file already suppressed)", () => {
-  const dead = deadMembers([PRG("Main", "x := 1;"), file("Orphan.fb", `FUNCTION_BLOCK Orphan\nEND_FUNCTION_BLOCK\nMETHOD M\ny();\nEND_METHOD`)])
+  const dead = deadMembers([PRG("Main", "x := 1;"), file("Orphan.pou", `FUNCTION_BLOCK Orphan\nEND_FUNCTION_BLOCK\nMETHOD M\ny();\nEND_METHOD`)])
   expect(dead.has("m")).toBe(false) // Orphan is dead at the POU level; its members aren't separately listed
 })
 

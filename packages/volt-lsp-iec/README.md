@@ -18,7 +18,7 @@ live PLC IDE  ──HTTP──  bridge (C#)  ──HTTP wire──  volt-git (TS
 ```
 
 The LSP reads the kind-named source tree that `volt-bridge` materializes and `volt-git` reconciles — POUs
-(`.fb`/`.prg`/`.fun`), DUTs (`.dut`, whatever their shape), `.itf`, `.gvl`, plus read-only library
+(`.pou`, whatever their text declares), DUTs (`.dut`, whatever their shape), `.itf`, `.gvl`, plus read-only library
 signatures and `.device`/`.library` stubs — entirely offline. It never talks to the bridge at runtime; the
 bridge/CLI own the on-disk layout, the LSP consumes it.
 

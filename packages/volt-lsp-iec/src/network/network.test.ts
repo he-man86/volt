@@ -36,7 +36,7 @@ function vgBody(src: string): BodySpan {
 }
 
 function doc(src: string): Document {
-  return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  return { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
 }
 
 function project(d: Document, manifests: readonly LibraryManifest[] = []): Scope {
@@ -423,12 +423,12 @@ test("network text: a qualified_only GVL chain does NOT false-positive (lenze Ma
     "file:///Mach1.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tGenflags : UDT_GeneralFlags;\nEND_VAR`,
     "file:///HMI.gvl": `{attribute 'qualified_only'}\nVAR_GLOBAL\n\tMach1 : sUDT_HMIVar_Mach1;\nEND_VAR`,
     "file:///Types.dut": `TYPE UDT_GeneralFlags : STRUCT bReady : BOOL; END_STRUCT END_TYPE\nTYPE sUDT_HMIVar_Mach1 : STRUCT other : BOOL; END_STRUCT END_TYPE`,
-    "file:///FB_User.fb": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD
+    "file:///FB_User.pou": `FUNCTION_BLOCK FB_User\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD
 NETWORK\nx := Mach1.Genflags.bReady;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
   const proj = build.buildSymbolTable(docs)
-  const fbDoc = docs.find((d) => d.uri === "file:///FB_User.fb")!
+  const fbDoc = docs.find((d) => d.uri === "file:///FB_User.pou")!
   const diags = computeNetworkTextDiagnostics(fbDoc, proj, messagesFor("codesys"))
   expect(diags.filter((d) => d.code === "network-unknown-member")).toEqual([])
   expect(diags.filter((d) => d.code === "network-undeclared-identifier")).toEqual([])
@@ -726,8 +726,8 @@ test("network text: a hidden body's line hover explains the body (F.2e)", () => 
 function crossBodyProject() {
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
-    "file:///FB_ST.fb": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
-    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
+    "file:///FB_ST.pou": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
+    "file:///FB_VG.pou": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
 NETWORK\nx := Flag;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
@@ -736,27 +736,27 @@ NETWORK\nx := Flag;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
 
 test("network text references: a global read in a network-text operand is found from an ST cursor", () => {
   const { docs, project, by } = crossBodyProject()
-  const st = by("file:///FB_ST.fb")
+  const st = by("file:///FB_ST.pou")
   const locs = referencesAnywhere(docs, project, st, st.source.indexOf("Flag"))
   const uris = new Set(locs?.map((l) => l.uri))
   // declaration (GVL) + the ST use + the network-text operand use — the network-text body must not be missed
-  expect(uris).toEqual(new Set(["file:///G.gvl", "file:///FB_ST.fb", "file:///FB_VG.fb"]))
+  expect(uris).toEqual(new Set(["file:///G.gvl", "file:///FB_ST.pou", "file:///FB_VG.pou"]))
 })
 
 test("network text rename: renaming from a network-text operand edits every ST and network text occurrence", () => {
   const { docs, project, by } = crossBodyProject()
-  const vg = by("file:///FB_VG.fb")
+  const vg = by("file:///FB_VG.pou")
   const edit = renameAnywhere(docs, project, vg, vg.source.indexOf("Flag"), "Enabled")
   const changed = Object.keys(edit?.changes ?? {}).sort()
-  expect(changed).toEqual(["file:///FB_ST.fb", "file:///FB_VG.fb", "file:///G.gvl"])
+  expect(changed).toEqual(["file:///FB_ST.pou", "file:///FB_VG.pou", "file:///G.gvl"])
   // the network-text operand edit lands on `Flag` within the LD network
-  const vgEdits = edit!.changes!["file:///FB_VG.fb"]!
+  const vgEdits = edit!.changes!["file:///FB_VG.pou"]!
   expect(vgEdits.every((e) => e.newText === "Enabled")).toBe(true)
 })
 
 test("network text references: a cursor outside any symbol resolves to nothing", () => {
   const { docs, project, by } = crossBodyProject()
-  const vg = by("file:///FB_VG.fb")
+  const vg = by("file:///FB_VG.pou")
   expect(referencesAnywhere(docs, project, vg, vg.source.indexOf("NETWORK"))).toBeUndefined()
 })
 
@@ -1019,21 +1019,21 @@ END_FUNCTION_BLOCK`
 test("network text rename: a new name that is a word of the text is backticked where the text reads it bare", () => {
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
-    "file:///FB_ST.fb": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
-    "file:///FB_VG.fb": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
+    "file:///FB_ST.pou": `FUNCTION_BLOCK FB_ST\nFlag := TRUE;\nEND_FUNCTION_BLOCK`,
+    "file:///FB_VG.pou": `FUNCTION_BLOCK FB_VG\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION LD
 NETWORK\nx := Flag;\nFlag := x;\nx := \`Flag OR x\`;\nEND_NETWORK\nEND_FUNCTION_BLOCK`,
   }
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
   const proj = build.buildSymbolTable(docs)
-  const vg = docs.find((d) => d.uri === "file:///FB_VG.fb")!
+  const vg = docs.find((d) => d.uri === "file:///FB_VG.pou")!
   const edit = renameAnywhere(docs, proj, vg, vg.source.indexOf("Flag"), "Execute")!
   // ST and a declaration take the name as it is; inside backticked text it is verbatim ST, so it is not backticked again.
   expect(edit.changes!["file:///G.gvl"]!.map((e) => e.newText)).toEqual(["Execute"])
-  expect(edit.changes!["file:///FB_ST.fb"]!.map((e) => e.newText)).toEqual(["Execute"])
-  expect(edit.changes!["file:///FB_VG.fb"]!.map((e) => e.newText)).toEqual(["`Execute`", "`Execute`", "Execute"])
+  expect(edit.changes!["file:///FB_ST.pou"]!.map((e) => e.newText)).toEqual(["Execute"])
+  expect(edit.changes!["file:///FB_VG.pou"]!.map((e) => e.newText)).toEqual(["`Execute`", "`Execute`", "Execute"])
   // …and the renamed network reads clean.
   const lines = vg.source.split("\n")
-  for (const e of [...edit.changes!["file:///FB_VG.fb"]!].reverse()) {
+  for (const e of [...edit.changes!["file:///FB_VG.pou"]!].reverse()) {
     const l = lines[e.range.start.line]!
     lines[e.range.start.line] = l.slice(0, e.range.start.character) + e.newText + l.slice(e.range.end.character)
   }
@@ -1057,15 +1057,15 @@ test("network text: a marker line with trailing blanks is the marker — the bri
   // body read no networks at all, so rename and references skipped it and a rename left the old name behind.
   const files: Record<string, string> = {
     "file:///G.gvl": `VAR_GLOBAL\n\tFlag : BOOL;\nEND_VAR`,
-    "file:///S.prg": `PROGRAM S\nFlag := TRUE;\nEND_PROGRAM`,
-    "file:///P.prg": `PROGRAM P\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
+    "file:///S.pou": `PROGRAM S\nFlag := TRUE;\nEND_PROGRAM`,
+    "file:///P.pou": `PROGRAM P\nVAR x : BOOL; END_VAR\nIMPLEMENTATION FBD \t\nNETWORK\nx := Flag;\nEND_NETWORK\nEND_PROGRAM`,
   }
-  expect(projectDiags(files, "file:///P.prg")).toEqual([])
+  expect(projectDiags(files, "file:///P.pou")).toEqual([])
   const docs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
   const proj = build.buildSymbolTable(docs)
-  const s = docs.find((d) => d.uri === "file:///S.prg")!
+  const s = docs.find((d) => d.uri === "file:///S.pou")!
   const edit = renameAnywhere(docs, proj, s, s.source.indexOf("Flag"), "Enabled")
-  expect(Object.keys(edit?.changes ?? {}).sort()).toEqual(["file:///G.gvl", "file:///P.prg", "file:///S.prg"])
+  expect(Object.keys(edit?.changes ?? {}).sort()).toEqual(["file:///G.gvl", "file:///P.pou", "file:///S.pou"])
 })
 
 test("network text: a call of an instance whose FB TYPE is a construct word is refused, as the bridge refuses it", () => {
@@ -1074,23 +1074,23 @@ test("network text: a call of an instance whose FB TYPE is a construct word is r
   const call = (decl: string, statement: string) =>
     `PROGRAM P\nVAR a : BOOL; ${decl} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n${statement}\nEND_NETWORK\nEND_PROGRAM`
   const refusal = "a POU named R_EDGE: the text reads R_EDGE(…) as its own construct, so a call of it has no spelling."
-  expect(projectDiags({ "file:///R.fb": edgeFb, "file:///P.prg": call("e1 : R_EDGE;", "e1(CLK := a);") }, "file:///P.prg")).toEqual([
+  expect(projectDiags({ "file:///R.pou": edgeFb, "file:///P.pou": call("e1 : R_EDGE;", "e1(CLK := a);") }, "file:///P.pou")).toEqual([
     `NETWORK_UNSUPPORTED [e1] ${refusal}`,
   ])
   // …through a path too: the instance a GVL declares (`GVL.e1`), which the bridge resolves by the same question.
   expect(
     projectDiags(
       {
-        "file:///R.fb": edgeFb,
+        "file:///R.pou": edgeFb,
         "file:///GVL.gvl": `VAR_GLOBAL\n\te1 : R_EDGE;\nEND_VAR`,
-        "file:///P.prg": call("", "GVL.e1(CLK := a);"),
+        "file:///P.pou": call("", "GVL.e1(CLK := a);"),
       },
-      "file:///P.prg",
+      "file:///P.pou",
     ),
   ).toEqual([`NETWORK_UNSUPPORTED [GVL.e1] ${refusal}`])
   // An INSTANCE named like a construct, backticked, is named as the instance it is.
   const tmr = `FUNCTION_BLOCK TMR\nVAR_INPUT IN : BOOL; END_VAR\nEND_FUNCTION_BLOCK`
-  expect(projectDiags({ "file:///T.fb": tmr, "file:///P.prg": call("R_EDGE : TMR;", "`R_EDGE`(IN := a);") }, "file:///P.prg")).toEqual([
+  expect(projectDiags({ "file:///T.pou": tmr, "file:///P.pou": call("R_EDGE : TMR;", "`R_EDGE`(IN := a);") }, "file:///P.pou")).toEqual([
     "NETWORK_UNSUPPORTED [`R_EDGE`] an instance named R_EDGE: the text reads it as its own construct.",
   ])
 })

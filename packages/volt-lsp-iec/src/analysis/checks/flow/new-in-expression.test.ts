@@ -13,7 +13,7 @@ const MSG =
 const msgs = (body: string): string[] => {
   const src = `TYPE stv : STRUCT\n x:INT;\nEND_STRUCT\nEND_TYPE\nPROGRAM P\nVAR\n p : POINTER TO stv;\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "new-in-expression")
     .map((d) => d.message)

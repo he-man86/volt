@@ -42,7 +42,7 @@ test("a DUT or a GVL is held to none of the file format's POU rules", () => {
 
 test("a POU still is — and so is text read with no object", () => {
   const retired = "(* @volt-impl *)\nFUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_FUNCTION_BLOCK\n"
-  expect(read("FB_A.fb", retired).errors).toHaveLength(1)
+  expect(read("FB_A.pou", retired).errors).toHaveLength(1)
   expect(parseSource(retired, { networkText: true }).errors).toHaveLength(1)
   // …and a DUT's text read as no object keeps today's reading: a fixture packs several units into one text
   expect(parseSource("this is not structured text\nTYPE DUT_A :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n", { networkText: true }).units.map((u) => u.kind)).toEqual(["type_decl"])

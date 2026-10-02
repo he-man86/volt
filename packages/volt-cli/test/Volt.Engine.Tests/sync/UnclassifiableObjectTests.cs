@@ -31,7 +31,7 @@ public class UnclassifiableObjectTests
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
                 Ops = new List<PushOp>
                 {
-                    new SetItemOp { Name = $"{name}.prg", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
+                    new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
                 },
             });
         return ide;
@@ -46,9 +46,9 @@ public class UnclassifiableObjectTests
         var refs = RefsService.Handle(ide);
 
         Assert.Equal(new[] { "SER_OperationModeType" }, refs.Unreadable);
-        Assert.Contains("A.prg", refs.Items.Keys);
-        Assert.Contains("B.prg", refs.Items.Keys);
-        Assert.DoesNotContain("SER_OperationModeType.prg", refs.Items.Keys);
+        Assert.Contains("A.pou", refs.Items.Keys);
+        Assert.Contains("B.pou", refs.Items.Keys);
+        Assert.DoesNotContain("SER_OperationModeType.pou", refs.Items.Keys);
         Assert.Equal(new[] { "Data", "Data/SER_OperationModeType" }, refs.UnwalkedFolders);   // its folder AND its own subtree
     }
 
@@ -98,7 +98,7 @@ public class UnclassifiableObjectTests
             FakeIde.Item.TextualPou("Device", "PROGRAM Device\nVAR\nEND_VAR\n", "n := 0;\n"),
             FakeIde.Item.TextualPou("Main", "PROGRAM Main\nVAR\nEND_VAR\n", "n := 0;\n", "Device/Plc Logic/Application"));
         var baseline = RefsService.Handle(ide);
-        Assert.Contains("Main.prg", baseline.Items.Keys);
+        Assert.Contains("Main.pou", baseline.Items.Keys);
         ide.UnclassifiableItems = new[] { "Device" };
 
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
@@ -155,20 +155,20 @@ public class UnclassifiableObjectTests
     public void An_update_of_an_object_that_cannot_be_classified_is_refused_as_unreadable()
     {
         var ide = Project();
-        var v = RefsService.Handle(ide).Items["SER_OperationModeType.prg"];
+        var v = RefsService.Handle(ide).Items["SER_OperationModeType.pou"];
         ide.UnclassifiableItems = new[] { "SER_OperationModeType" };
 
         var push = PushService.Handle(ide, new PushRequest
         {
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "SER_OperationModeType.prg", SourceText = Prg("SER_OperationModeType"), IfVersion = v },
+                new SetItemOp { Name = "SER_OperationModeType.pou", SourceText = Prg("SER_OperationModeType"), IfVersion = v },
             },
         });
 
         Assert.False(push.Accepted);
         var c = Assert.Single(push.Conflicts!);
-        Assert.Equal(("SER_OperationModeType.prg", BridgeErrorCodes.Unreadable, (string?)null),
+        Assert.Equal(("SER_OperationModeType.pou", BridgeErrorCodes.Unreadable, (string?)null),
                      (c.Name, c.Code, c.CurrentVersion));
     }
 
@@ -184,7 +184,7 @@ public class UnclassifiableObjectTests
         {
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "SER_OperationModeType.fb", ToFolder = "Data", IfVersion = null,
+                new SetItemOp { Name = "SER_OperationModeType.pou", ToFolder = "Data", IfVersion = null,
                                 SourceText = "FUNCTION_BLOCK SER_OperationModeType\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n" },
             },
         });

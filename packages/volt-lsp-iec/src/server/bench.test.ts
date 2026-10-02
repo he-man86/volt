@@ -78,10 +78,10 @@ test.skipIf(process.env.LSP_BENCH !== "1")(
     store.taskRoots = loadTaskRoots(dir)
     store.seedDisk(files.map((p) => ({ uri: pathToFileURL(p).href, source: readFileSync(p, "utf8") })))
 
-    // Edit target: the largest PROJECT POU (.fb/.prg/.fun, not a library file) — a representative real edit.
+    // Edit target: the largest PROJECT POU (.pou, not a library file) — a representative real edit.
     // NOT the largest file overall: that's a generated ~400 KB library DUT (OPCUA_NODEIDS) nobody edits, and
     // on a bodyless DUT the query falls to the declaration path, measuring library-file size, not edit latency.
-    const editable = files.filter((p) => /\.(fb|prg|fun)$/i.test(p) && !/Library Manager/i.test(p))
+    const editable = files.filter((p) => /\.pou$/i.test(p) && !/Library Manager/i.test(p))
     const target = (editable.length > 0 ? editable : files)
       .map((p) => ({ p, src: readFileSync(p, "utf8") }))
       .sort((a, b) => b.src.length - a.src.length)[0]!

@@ -42,9 +42,10 @@ public static class CodeHelper
     /// skipped any line STARTING with <c>(*</c> — so <c>(* doc *) FUNCTION_BLOCK FB</c>, where the comment closes
     /// and the declaration follows, was skipped whole and <see cref="HeaderLine"/> answered with the NEXT line.
     /// <c>StReader</c>'s scanner called that same line CODE, which is correct. Two answers to one question, and
-    /// the wrong one was the one <c>CodesysTypeMap.LeadingKeyword</c> reads: it is TOTAL by design and falls back
-    /// to FUNCTION_BLOCK, so a PROGRAM written that way was reported as <c>function_block</c> on refs/fetch —
-    /// the same failure the leading-<c>{attribute}</c> case was fixed for, arriving through the other trivia.</para>
+    /// the wrong one was the one <c>CodesysTypeMap.LeadingKeyword</c> read (deleted with openspec
+    /// <c>push-without-header-check</c> 5.Q — a POU's kind is its class now): it was TOTAL by design and fell back to
+    /// FUNCTION_BLOCK, so a PROGRAM written that way was reported as <c>function_block</c> on refs/fetch — the same
+    /// failure the leading-<c>{attribute}</c> case was fixed for, arriving through the other trivia.</para>
     ///
     /// <para>It LOOPS rather than testing the head once, so a line may carry several comments before its code
     /// (<c>(* a *) (* b *) PROGRAM P</c>) and a block comment may close mid-line with code after it. Each pass

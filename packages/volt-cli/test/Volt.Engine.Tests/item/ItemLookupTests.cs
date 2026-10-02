@@ -18,7 +18,7 @@ public class ItemLookupTests
     private static FakeIde Ide(params FakeIde.Item[] items) => new(items);
 
     private static FakeIde.Item Pou(string name, string folder = "") =>
-        new(name, ItemKind.PlcPouFb, folder, true, $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR", "", null, null);
+        new(name, ItemKind.PlcPou, folder, true, $"FUNCTION_BLOCK {name}\nVAR\nEND_VAR", "", null, null);
 
     [Fact]
     public void A_finds_a_top_level_item_at_the_root()
@@ -62,7 +62,7 @@ public class ItemLookupTests
     public void D_a_POU_member_is_not_a_top_level_item()
     {
         var ide = Ide(
-            new FakeIde.Item("FB_Host", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
+            new FakeIde.Item("FB_Host", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_Host", "", null, null,
                 Children: new[] { "Go" }),
             new FakeIde.Item("Go", ItemKind.PlcMethod, "", false, "METHOD Go : BOOL", "", null, null));
 

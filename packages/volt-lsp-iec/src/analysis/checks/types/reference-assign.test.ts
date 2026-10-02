@@ -50,7 +50,7 @@ test("C0141: `REF= 0` (null idiom) and `REF= <writable var>` are valid", () => {
 test("a LITERAL on the right of REF= is a TYPE error, not the write-access one", () => {
   const src = `FUNCTION_BLOCK F\nVAR\nbound : REFERENCE TO INT;\nEND_VAR\nbound REF= 7;\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch" || d.code.startsWith("reference-assign"))
     .map((d) => d.message)

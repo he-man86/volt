@@ -10,7 +10,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const bits = (body: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n  w : WORD; b : BOOL; d : DWORD; re : REAL;\nEND_VAR\n${body}\nEND_PROGRAM`
   const pr = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult: pr, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "invalid-bit-number")
     .map((d) => d.message)

@@ -9,9 +9,8 @@ import { sourceObjectOf } from "./frontend/syntax/index.js"
 
 test("every writable-source extension names its object; nothing else does", () => {
   expect(Object.fromEntries(SOURCE_EXTENSIONS.map((e) => [e, sourceObjectOf(`file:///w/X${e}`)]))).toEqual({
-    ".fb": "pou",
-    ".prg": "pou",
-    ".fun": "pou",
+    // every POU, whatever its text says (openspec push-without-header-check 5.Q: `.prg` / `.fb` / `.fun` are gone)
+    ".pou": "pou",
     ".itf": "interface",
     ".gvl": "gvl",
     // every DUT, whatever its shape (openspec push-without-header-check 5.P: the four subtype extensions are gone)
@@ -19,6 +18,8 @@ test("every writable-source extension names its object; nothing else does", () =
   })
   // …and a split DUT name is a foreign file, like any extension no kind claims
   for (const e of [".struct", ".enum", ".union", ".alias"]) expect(sourceObjectOf(`file:///w/X${e}`)).toBeUndefined()
+  // …and so is a retired POU name (5.Q)
+  for (const e of [".prg", ".fb", ".fun"]) expect(sourceObjectOf(`file:///w/X${e}`)).toBeUndefined()
   // EXACT, as the crawl (`workspace-refs.ts`) and the CLI's classifier read extensions: `X.DUT` is a foreign file
   // `volt push` refuses, never the `X.dut` the IDE publishes. (This said "case-insensitive, as the crawl reads
   // extensions" — the crawl never did, so an open `X.GVL` was read as a GVL here and ignored there.)

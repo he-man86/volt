@@ -99,7 +99,7 @@ public static class Versioning
 /// <para><b>The identity is DERIVED here and nowhere else.</b> Three walks produce version maps (<c>refs</c> via
 /// <see cref="ProjectSnapshot"/>, <c>fetch</c>, and the push's own lease walk), and each used to key its map with
 /// the bare item name it happened to be holding. Bare names are NOT unique across kinds: a control module and the
-/// visualization that draws it are <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> — two files, two
+/// visualization that draws it are <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> — two files, two
 /// objects in the project tree, one shared slot in every one of those maps, with the walk order deciding which
 /// survived. The consequences were a pull that reported "nothing to pull" over a real edit (the shadowed item did
 /// not move the aggregate hash) and a push that refused an item by quoting its NEIGHBOUR'S version, so the FB

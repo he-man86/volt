@@ -17,7 +17,7 @@ const msgs = (src0: string, codes: string | readonly string[], vendor: "codesys"
   const src = `${src0}\n\nPROGRAM P\nVAR\n${vars}\nEND_VAR\nEND_PROGRAM`
   const wanted = typeof codes === "string" ? [codes] : codes
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => wanted.includes(d.code))
     .map((d) => d.message)
@@ -117,7 +117,7 @@ test("the base compared is the nearest in the LINKED chain that declares the met
 test("an FB nothing instances is not checked — the vendor compiles it not (pro2193's uninstanced overrides build)", () => {
   const src = base("METHOD Fetch : INT\nEND_METHOD") + "METHOD Fetch : DINT\nEND_METHOD"
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const found = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(found.filter((d) => d.code === "override-mismatch-base")).toEqual([])
 })
@@ -126,7 +126,7 @@ test("an FB reached only through a POINTER TO it is checked (`inh_override_point
   const run = (tail: string) => {
     const src = `${src0}\n\n${tail}`
     const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "override-mismatch-base")
       .map((d) => d.message)

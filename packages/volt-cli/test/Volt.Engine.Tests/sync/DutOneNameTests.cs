@@ -84,7 +84,7 @@ public class DutOneNameTests
     public void Deleting_an_unreadable_dut_takes_the_generic_unreadable_path(bool force, string? ifVersion, bool deleted)
     {
         var dut = new FakeIde(new FakeIde.Item("X", ItemKind.PlcDut, "DUTs", true, Struct, null, null, "read failed (COM)"));
-        var pou = new FakeIde(new FakeIde.Item("X", ItemKind.PlcPouFb, "DUTs", true,
+        var pou = new FakeIde(new FakeIde.Item("X", ItemKind.PlcPou, "DUTs", true,
             "FUNCTION_BLOCK X\nVAR\nEND_VAR", "", null, "read failed (COM)"));
 
         PushResponse Delete(FakeIde ide, string name) => PushService.Handle(ide, new PushRequest
@@ -95,7 +95,7 @@ public class DutOneNameTests
         });
 
         var dutPush = Delete(dut, "X.dut");
-        var pouPush = Delete(pou, "X.fb");
+        var pouPush = Delete(pou, "X.pou");
 
         Assert.Equal(pouPush.Accepted, dutPush.Accepted);
         Assert.Equal(pouPush.Conflicts?.Select(c => c.Code), dutPush.Conflicts?.Select(c => c.Code));

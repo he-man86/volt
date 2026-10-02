@@ -16,8 +16,10 @@ public static class Materializer
         if (ItemKind.IsSourceKind(kind))
         {
             var build = BuildSource(ide, item, kind);
+            RefuseMemberOfAnotherClass(name, build);
             var text = StWriter.Write(build);
             RefuseRetiredComment(name, text);
+            LogEndLineFallback(name, build);
             return new WorkspaceItem(text, FullWireName(name, build.Kind), UnsupportedIn(build));
         }
         return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind),
@@ -38,6 +40,57 @@ public static class Materializer
             $"'{name}' holds '{retired.Text}' in the IDE, a comment of a Volt from before bodies were stated by an " +
             $"{ImplementationMarker.Keyword} line. A workspace file cannot carry it (a push of one is refused), so " +
             "the item is not pulled until the comment is removed in the IDE.");
+    }
+
+    /// <summary>A member's KIND is its CLASS — the driver reports it from the IDE object (a method, a property, an
+    /// action), never from its text — and the file must say the same, because the push reads a member's kind from the
+    /// keyword that opens its block (<see cref="StReader.MemberHeaderKeyword"/>). CODESYS stores whatever text a method
+    /// is given and keeps it a method (DIALECT C2l): one holding <c>PROPERTY</c> text pulled verbatim would come back on
+    /// the next push as a property — the method deleted and a property created (<c>PushService.ReconcileMembers</c>,
+    /// a member whose kind changed), under a push that changed nothing. So the item is refused here, as
+    /// <see cref="RefuseRetiredComment"/> refuses a text no file can carry: listed unreadable, the workspace file left
+    /// alone, the reason naming the member, its class and the keyword its text opens with (openspec
+    /// <c>push-without-header-check</c> 5.Q.5, M-a). An action carries no declaration of its own (its <c>ACTION</c> line
+    /// is written from its class), and a declaration with no code opens with no keyword to disagree.</summary>
+    private static void RefuseMemberOfAnotherClass(string name, ItemContent content)
+    {
+        foreach (var m in content.Members)
+        {
+            var expected = m.Kind switch
+            {
+                ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod => "METHOD",
+                ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty => "PROPERTY",
+                _ => null,
+            };
+            if (expected is null || StReader.MemberHeaderKeyword(m.Declaration) is not { } opens) continue;
+            if (opens == expected)
+            {
+                // The class and the text agree — but a NESTED comment before the keyword is read by the push's child
+                // splitter, which does not nest yet (5.E.1), as code: the file it would carry could never be pushed
+                // back, not even unchanged (5Qa review). Refused here until the splitter nests, naming the comment.
+                if (StReader.MemberHeaderKeywordAsSplit(m.Declaration) == opens) continue;
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}' has a nested comment ((* … (* … *) … *)) before " +
+                    $"its {expected} keyword. A push does not yet read nested comments between members (openspec " +
+                    "push-without-header-check 5.E.1), so a file carrying it could not be pushed back; the item is not " +
+                    "pulled until that comment is un-nested in the IDE.");
+            }
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}' holds text that opens with '{opens}', not {expected}. " +
+                $"A member's kind is its class in the IDE, and a file opening the member with '{opens}' would be read back " +
+                $"by a push as another kind of member (the {m.Kind.Replace('_', ' ')} deleted and another created), so the " +
+                $"item is not pulled until the member's text opens with {expected} in the IDE.");
+        }
+    }
+
+    /// <summary>Count the ONE END-line fallback (<see cref="StWriter.FallbackPouHeader"/>): a POU whose declaration
+    /// opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION was closed with <c>END_FUNCTION_BLOCK</c>. Logged per item,
+    /// so the fallback is never silent; it fires for no POU a vendor compiles.</summary>
+    private static void LogEndLineFallback(string name, ItemContent content)
+    {
+        if (content.Kind != ItemKind.Kinds.Pou || StReader.PouHeaderKeyword(content.Declaration) is not null) return;
+        VoltLog.Info($"pull: '{name}' — its declaration opens with no PROGRAM / FUNCTION_BLOCK / FUNCTION, so its file " +
+                     $"closes with the fallback END_{StWriter.FallbackPouHeader} (counted fallback, push-without-header-check 5.Q.3)");
     }
 
     /// <summary>Every body of the item the driver read as <c>IMPLEMENTATION LD|FBD UNSUPPORTED</c>, with its reason —

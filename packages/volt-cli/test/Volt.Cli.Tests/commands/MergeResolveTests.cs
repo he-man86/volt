@@ -36,7 +36,7 @@ public class MergeResolveTests
         p.WaitForExit();
     }
 
-    /// <summary>A MODIFY/DELETE conflict: ours edits `src/FB_A.fb`, theirs deletes it.</summary>
+    /// <summary>A MODIFY/DELETE conflict: ours edits `src/FB_A.pou`, theirs deletes it.</summary>
     private static string RepoWithModifyDeleteConflict()
     {
         foreach (var (k, v) in new[] { ("GIT_AUTHOR_NAME", "t"), ("GIT_AUTHOR_EMAIL", "t@t"),
@@ -45,7 +45,7 @@ public class MergeResolveTests
 
         var root = Directory.CreateTempSubdirectory("volt-resolve-").FullName;
         Git.GitInit(root);
-        var file = Path.Combine(root, "src", "FB_A.fb");
+        var file = Path.Combine(root, "src", "FB_A.pou");
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         File.WriteAllText(file, "FUNCTION_BLOCK FB_A\nIMPLEMENTATION ST\nbase\nEND_FUNCTION_BLOCK\n");
         Git.StageSrc(root); Git.CommitAll(root, "base");
@@ -89,11 +89,11 @@ public class MergeResolveTests
         var root = RepoWithModifyDeleteConflict();
         try
         {
-            var (code, msg) = Commands.Merge(root, resolve: "FB_A.fb", useTheirs: true);
+            var (code, msg) = Commands.Merge(root, resolve: "FB_A.pou", useTheirs: true);
             _out.WriteLine($"code={code} msg={msg}");
 
             Assert.Equal(0, code);
-            Assert.False(File.Exists(Path.Combine(root, "src", "FB_A.fb")),
+            Assert.False(File.Exists(Path.Combine(root, "src", "FB_A.pou")),
                 "resolving to THEIRS, which deleted the file, must leave it deleted");
             Assert.Empty(Git.StructuralConflictFiles(root));   // and the conflict is actually resolved
         }
@@ -107,10 +107,10 @@ public class MergeResolveTests
         var root = RepoWithModifyDeleteConflict();
         try
         {
-            var (code, _) = Commands.Merge(root, resolve: "FB_A.fb", useOurs: true);
+            var (code, _) = Commands.Merge(root, resolve: "FB_A.pou", useOurs: true);
 
             Assert.Equal(0, code);
-            Assert.Contains("OURS EDIT", File.ReadAllText(Path.Combine(root, "src", "FB_A.fb")));
+            Assert.Contains("OURS EDIT", File.ReadAllText(Path.Combine(root, "src", "FB_A.pou")));
             Assert.Empty(Git.StructuralConflictFiles(root));
         }
         finally { try { Directory.Delete(root, true); } catch { } }
@@ -125,7 +125,7 @@ public class MergeResolveTests
         var root = RepoWithModifyDeleteConflict();
         try
         {
-            var (code, msg) = Commands.Merge(root, resolve: "FB_A.fb");
+            var (code, msg) = Commands.Merge(root, resolve: "FB_A.pou");
             _out.WriteLine($"code={code} msg={msg}");
 
             Assert.NotEqual(0, code);
@@ -154,11 +154,11 @@ public class MergeResolveTests
         try
         {
             Directory.CreateDirectory(Path.Combine(root, "src"));
-            var file = Path.Combine(root, "src", "PLC_PRG.prg");
+            var file = Path.Combine(root, "src", "PLC_PRG.pou");
             File.WriteAllText(file, "PROGRAM PLC_PRG\nVAR\nEND_VAR\n");
             Git.CommitAll(root, "seed");
 
-            var (code, message) = Commands.Merge(root, resolve: "PLC_PRG.prg", useOurs: true);
+            var (code, message) = Commands.Merge(root, resolve: "PLC_PRG.pou", useOurs: true);
 
             Assert.Equal(1, code);
             Assert.Contains("no merge in progress", message);
@@ -175,10 +175,10 @@ public class MergeResolveTests
         var root = RepoWithModifyDeleteConflict();
         try
         {
-            var bystander = Path.Combine(root, "src", "Bystander.prg");
+            var bystander = Path.Combine(root, "src", "Bystander.pou");
             File.WriteAllText(bystander, "PROGRAM Bystander\nVAR\nEND_VAR\n");
 
-            var (code, message) = Commands.Merge(root, resolve: "Bystander.prg", useOurs: true);
+            var (code, message) = Commands.Merge(root, resolve: "Bystander.pou", useOurs: true);
 
             Assert.Equal(1, code);
             Assert.Contains("not conflicted", message);

@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../../in
 
 const lifecycle = (src: string, vendor: Vendor): string[] => {
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "fb-lifecycle-signature")
     .map((d) => d.message)
@@ -36,7 +36,7 @@ test("a correct FB_Init signature is not flagged", () => {
 
 const reinit = (src: string): string[] => {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "fb-reinit-shape")
     .map((d) => d.message)

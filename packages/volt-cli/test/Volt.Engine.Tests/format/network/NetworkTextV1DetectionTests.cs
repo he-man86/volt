@@ -14,7 +14,7 @@ public class NetworkTextV1DetectionTests
 {
     /// <summary>A PROGRAM whose body is <paramref name="body"/>, as a pull writes it: a graphical body opens with its own
     /// <c>IMPLEMENTATION LD|FBD</c> line, any other body follows <c>IMPLEMENTATION ST</c>.</summary>
-    private static bool Holds(string body) => NetworkText.FileHoldsV1("P.prg",
+    private static bool Holds(string body) => NetworkText.FileHoldsV1("P.pou",
         "PROGRAM P\nVAR\nEND_VAR\n" +
         (body.StartsWith("IMPLEMENTATION ", System.StringComparison.Ordinal) ? "" : "IMPLEMENTATION ST\n") +
         body + "\n\nEND_PROGRAM\n");
@@ -25,9 +25,9 @@ public class NetworkTextV1DetectionTests
     /// and a name no kind claims cannot. The CLI's pull note (`V1Note`) asked this with its own kind logic —
     /// `KindForWireName`, `IsSourceKind`, `ImplementationMarker.AppliesTo` — before it asked the engine.</summary>
     [Theory]
-    [InlineData("X.fb", true)]
-    [InlineData("X.prg", true)]
-    [InlineData("X.fun", true)]
+    [InlineData("X.pou", true)]
+    [InlineData("X.pou", true)]
+    [InlineData("X.pou", true)]
     [InlineData("X.gvl", false)]
     [InlineData("X.dut", false)]
     [InlineData("X.struct", false)]
@@ -41,7 +41,7 @@ public class NetworkTextV1DetectionTests
     /// <summary>…and the v1 question is asked by the same name, so the caller never resolves a kind to pass in.</summary>
     [Fact]
     public void The_v1_question_is_asked_by_the_files_name() =>
-        Assert.True(NetworkText.FileHoldsV1("P.prg",
+        Assert.True(NetworkText.FileHoldsV1("P.pou",
             "PROGRAM P\nVAR\nEND_VAR\nIMPLEMENTATION LD\nNETWORK 0 LD\n  out := a;\nEND_NETWORK\n\nEND_PROGRAM\n"));
 
     [Fact]
@@ -83,7 +83,7 @@ public class NetworkTextV1DetectionTests
             n => n == "FB" ? "FUNCTION_BLOCK FB\nVAR_INPUT\n  Let : BOOL;\nEND_VAR\n" : null,
             () => System.Array.Empty<string>());
         Assert.True(NetworkTextGate.Validate(body, scope).Ok);   // the premise: the push accepts it
-        Assert.False(NetworkText.FileHoldsV1("P.prg", decl + body + "\n\nEND_PROGRAM\n"));
+        Assert.False(NetworkText.FileHoldsV1("P.pou", decl + body + "\n\nEND_PROGRAM\n"));
     }
 
     /// <summary>…and it refuses <c>LET</c> at a statement start that is not a line start.</summary>
@@ -151,8 +151,8 @@ public class NetworkTextV1DetectionTests
     public void A_source_file_is_judged_by_its_bodies_not_its_declaration()
     {
         const string decl = "PROGRAM P\n(*\nNETWORK 2 drives the conveyor\n*)\nVAR\nEND_VAR\n";
-        Assert.False(NetworkText.FileHoldsV1("P.prg", decl + "IMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n"));
-        Assert.True(NetworkText.FileHoldsV1("P.prg",
+        Assert.False(NetworkText.FileHoldsV1("P.pou", decl + "IMPLEMENTATION ST\nx := 1;\n\nEND_PROGRAM\n"));
+        Assert.True(NetworkText.FileHoldsV1("P.pou",
             decl + "IMPLEMENTATION LD\nNETWORK 0 LD\n  x := a;\nEND_NETWORK\n\nEND_PROGRAM\n"));
     }
 
@@ -162,6 +162,6 @@ public class NetworkTextV1DetectionTests
         const string src =
             "FUNCTION_BLOCK FB\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\n" +
             "METHOD M\nVAR\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK 0 FBD\n  x := a;\nEND_NETWORK\nEND_METHOD\n";
-        Assert.True(NetworkText.FileHoldsV1("F.fb", src));
+        Assert.True(NetworkText.FileHoldsV1("F.pou", src));
     }
 }

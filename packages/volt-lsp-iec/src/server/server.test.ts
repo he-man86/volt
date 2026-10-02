@@ -62,7 +62,7 @@ VAR
 END_VAR
 count := count + 1;
 END_FUNCTION_BLOCK`
-const URI = "file:///F.fb"
+const URI = "file:///F.pou"
 
 async function openF(client: ReturnType<typeof connect>) {
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
@@ -170,7 +170,7 @@ test("server: a dead FB's diagnostics are suppressed by default, emitted with di
   // NOT surface by default (matches the compiler, which never compiles it).
   const mainSrc = `PROGRAM Main\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM`
   const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
-  const deadUri = "file:///FB_Dead.fb"
+  const deadUri = "file:///FB_Dead.pou"
 
   async function diagsFor(diagnoseDeadCode: boolean): Promise<{ code?: unknown }[]> {
     const client = connect()
@@ -186,7 +186,7 @@ test("server: a dead FB's diagnostics are suppressed by default, emitted with di
       initializationOptions: { diagnoseDeadCode },
     })
     await client.sendNotification(DidOpenTextDocumentNotification.type, {
-      textDocument: { uri: "file:///Main.prg", languageId: "iecst", version: 1, text: mainSrc },
+      textDocument: { uri: "file:///Main.pou", languageId: "iecst", version: 1, text: mainSrc },
     })
     await client.sendNotification(DidOpenTextDocumentNotification.type, {
       textDocument: { uri: deadUri, languageId: "iecst", version: 1, text: deadSrc },
@@ -361,10 +361,10 @@ const PRG = `PROGRAM PLC_PRG\nVAR\n\tmode : E_Mode;\nEND_VAR\nIMPLEMENTATION ST\
 const ENUM = `TYPE E_Mode : (Idle, Run); END_TYPE`
 
 test("server: a type in an unopened sibling file resolves (eager disk index)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.pou": PRG, "E_Mode.dut": ENUM })
   const client = connect()
   await initInDir(client, dir)
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const diags = onceDiag(client, prgUri)
   // Open ONLY the referencing file; E_Mode lives in an unopened sibling on disk.
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
@@ -387,7 +387,7 @@ test("server: an open buffer overrides the on-disk version", async () => {
   })
   await diags // just ensure the buffer is analyzed, not disk
   // Now a referencing file should NOT see E_Mode (the buffer shadows the disk decl).
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const prgDiags = onceDiag(client, prgUri)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
@@ -398,10 +398,10 @@ test("server: an open buffer overrides the on-disk version", async () => {
 })
 
 test("server: a newly added file re-indexes on didChangeWatchedFiles (create)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG }) // no E_Mode yet
+  const dir = tempWorkspace({ "PLC_PRG.pou": PRG }) // no E_Mode yet
   const client = connect()
   await initInDir(client, dir)
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const before = onceDiag(client, prgUri)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
@@ -420,10 +420,10 @@ test("server: a newly added file re-indexes on didChangeWatchedFiles (create)", 
 })
 
 test("server: a deleted file re-indexes on didChangeWatchedFiles (delete)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.pou": PRG, "E_Mode.dut": ENUM })
   const client = connect()
   await initInDir(client, dir)
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const before = onceDiag(client, prgUri)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
@@ -442,10 +442,10 @@ test("server: a deleted file re-indexes on didChangeWatchedFiles (delete)", asyn
 })
 
 test("server: a closed declaring file stays indexed from disk", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.pou": PRG, "E_Mode.dut": ENUM })
   const client = connect()
   await initInDir(client, dir)
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const enumUri = pathToFileURL(join(dir, "E_Mode.dut")).href
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
@@ -466,10 +466,10 @@ test("server: a closed declaring file stays indexed from disk", async () => {
 })
 
 test("server: a file open AND on disk contributes its symbols once (definition is single)", async () => {
-  const dir = tempWorkspace({ "PLC_PRG.prg": PRG, "E_Mode.dut": ENUM })
+  const dir = tempWorkspace({ "PLC_PRG.pou": PRG, "E_Mode.dut": ENUM })
   const client = connect()
   await initInDir(client, dir)
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const enumUri = pathToFileURL(join(dir, "E_Mode.dut")).href
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: prgUri, languageId: "iecst", version: 1, text: PRG },
@@ -496,7 +496,7 @@ END_FUNCTION
 FUNCTION Caller : INT
 Caller := Helper();
 END_FUNCTION`
-const CALLS_URI = "file:///Calls.fun"
+const CALLS_URI = "file:///Calls.pou"
 
 async function openCalls(client: ReturnType<typeof connect>) {
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
@@ -604,7 +604,7 @@ const OOP = `FUNCTION_BLOCK Base
 END_FUNCTION_BLOCK
 FUNCTION_BLOCK Derived EXTENDS Base
 END_FUNCTION_BLOCK`
-const OOP_URI = "file:///Oop.fb"
+const OOP_URI = "file:///Oop.pou"
 
 test("server: type hierarchy — supertypes and subtypes span the workspace", async () => {
   const client = connect()
@@ -701,11 +701,11 @@ test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)"
   const client = connect()
   const mainSrc = `PROGRAM Main\nIMPLEMENTATION ST\nx := 1;\nEND_PROGRAM`
   const deadSrc = `FUNCTION_BLOCK FB_Dead\nVAR b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
-  const deadUri = "file:///FB_Dead.fb"
+  const deadUri = "file:///FB_Dead.pou"
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: null, capabilities: {} })
   const initial = onceDiag(client, deadUri)
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
-    textDocument: { uri: "file:///Main.prg", languageId: "iecst", version: 1, text: mainSrc },
+    textDocument: { uri: "file:///Main.pou", languageId: "iecst", version: 1, text: mainSrc },
   })
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
     textDocument: { uri: deadUri, languageId: "iecst", version: 1, text: deadSrc },
@@ -719,13 +719,13 @@ test("server: didChangeConfiguration live-toggles diagnoseDeadCode (no restart)"
 
 test("server: workspace/diagnostic reports errors in unopened files (eager index)", async () => {
   const badFb = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
-  const dir = tempWorkspace({ "F.fb": badFb })
+  const dir = tempWorkspace({ "F.pou": badFb })
   const client = connect()
-  await initInDir(client, dir) // crawls F.fb without opening it
+  await initInDir(client, dir) // crawls F.pou without opening it
   const report = (await client.sendRequest(WorkspaceDiagnosticRequest.type, { previousResultIds: [] })) as {
     items: { uri: string; items: { code?: unknown }[] }[]
   }
-  const fUri = pathToFileURL(join(dir, "F.fb")).href
+  const fUri = pathToFileURL(join(dir, "F.pou")).href
   const fReport = report.items.find((r) => r.uri === fUri)
   expect(fReport?.items.some((d) => d.code === "C0032")).toBe(true)
   client.dispose()
@@ -740,7 +740,7 @@ test("server: a library an older bridge materialized is told to re-pull — on i
   const dir = tempWorkspace({
     "Library Manager/Old/Old.library": lib("Old", ""),
     "Library Manager/New/New.library": lib("New", `MATERIALIZATION ${MATERIALIZATION}\n`),
-    "PLC_PRG.prg": PRG,
+    "PLC_PRG.pou": PRG,
     "E_Mode.dut": ENUM,
   })
   const client = connect()
@@ -791,13 +791,13 @@ test("server: a workspace an OLDER Volt pulled is told once, on its manifests �
   // workspace's own number in hand, the mismatch is named where the repair is decided, and the bodies stay quiet.
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 2\n"),
-    "F.fb": V1_BODY,
+    "F.pou": V1_BODY,
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
   expect(manifest[0]!.message).toContain("network text v1")
   expect(manifest[0]!.message).toContain("volt pull")
-  expect(diags.get("F.fb") ?? []).toEqual([])
+  expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
 test("server: a workspace format 3 pulled is told once that its bodies state no language — its ladders are not ST errors", async () => {
@@ -805,13 +805,13 @@ test("server: a workspace format 3 pulled is told once that its bodies state no 
   // parse error. The manifest names the re-pull, and the bodies that state no language stay quiet.
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt("MATERIALIZATION 3\n"),
-    "F.fb": RETIRED_MARKER_BODY,
+    "F.pou": RETIRED_MARKER_BODY,
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["library-stale"])
   expect(manifest[0]!.message).toContain("IMPLEMENTATION line")
   expect(manifest[0]!.message).not.toContain("network text v1")
-  expect(diags.get("F.fb") ?? []).toEqual([])
+  expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
 test("server: a workspace a NEWER Volt pulled names the language server as the stale side", async () => {
@@ -821,28 +821,28 @@ test("server: a workspace a NEWER Volt pulled names the language server as the s
   // either way, and the suppression would go untested.
   const atOwnFormat = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION}\n`),
-    "F.fb": V2_FLAWED_BODY,
+    "F.pou": V2_FLAWED_BODY,
   })
-  expect((atOwnFormat.get("F.fb") ?? []).length).toBeGreaterThan(0)
+  expect((atOwnFormat.get("F.pou") ?? []).length).toBeGreaterThan(0)
 
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION + 1}\n`),
-    "F.fb": V2_FLAWED_BODY,
+    "F.pou": V2_FLAWED_BODY,
   })
   const manifest = diags.get("Standard.library") ?? []
   expect(manifest.map((d) => d.code)).toEqual(["materialization-newer"])
   expect(manifest[0]!.message).toContain("newer Volt")
   expect(manifest[0]!.message).toContain(`format ${MATERIALIZATION + 1}`)
-  expect(diags.get("F.fb") ?? []).toEqual([])
+  expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
 test("server: a workspace at the LSP's own materialization says nothing about it", async () => {
   const diags = await workspaceDiagnostics({
     "Library Manager/Standard/Standard.library": libAt(`MATERIALIZATION ${MATERIALIZATION}\n`),
-    "F.fb": V2_BODY,
+    "F.pou": V2_BODY,
   })
   expect(diags.get("Standard.library") ?? []).toEqual([])
-  expect(diags.get("F.fb") ?? []).toEqual([])
+  expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
 test("server: without a manifest, a file an older Volt pulled is told to `volt pull` on its comment — its ladder is not ST errors", async () => {
@@ -851,7 +851,7 @@ test("server: without a manifest, a file an older Volt pulled is told to `volt p
   // wherever it stands. The LSP says the same on the comment. The body under it states no language, so read as ST
   // every rung would be a parse error meaning only "this file is from an older Volt": those stay quiet.
   for (const [format, body] of [["format 2 (v1)", V1_BODY], ["format 3", RETIRED_MARKER_BODY]] as const) {
-    const messages = [...new Set(((await workspaceDiagnostics({ "F.fb": body })).get("F.fb") ?? []).map((d) => d.message))]
+    const messages = [...new Set(((await workspaceDiagnostics({ "F.pou": body })).get("F.pou") ?? []).map((d) => d.message))]
     expect({ format, count: messages.length, pull: messages[0]?.includes("volt pull") }).toEqual({ format, count: 1, pull: true })
   }
 })
@@ -859,16 +859,16 @@ test("server: without a manifest, a file an older Volt pulled is told to `volt p
 test("server: network text v1 under a stated LD line is refused as v1, naming the re-pull — as the push refuses it", async () => {
   // Not a shape any Volt wrote (v1 files carry the retired comment, above), but one an engineer can: the bridge's
   // `NetworkText.V1Refusal` meets it wherever the network-text reader reads, and so does the LSP.
-  const diags = await workspaceDiagnostics({ "F.fb": V1_BODY.replace("(* @volt-implementation *)", "IMPLEMENTATION LD") })
-  expect((diags.get("F.fb") ?? []).some((d) => d.message.includes("re-pull"))).toBe(true)
+  const diags = await workspaceDiagnostics({ "F.pou": V1_BODY.replace("(* @volt-implementation *)", "IMPLEMENTATION LD") })
+  expect((diags.get("F.pou") ?? []).some((d) => d.message.includes("re-pull"))).toBe(true)
 })
 
 test("server: diagnostics are GATED until the workspace is indexed (no startup false-error flicker)", async () => {
   // PLC_PRG references E_Mode, defined in a SIBLING file — resolvable ONLY after the cross-file crawl. Before the
   // crawl the store holds just the open buffer, so E_Mode reads as "not defined": exactly the false error the gate
   // must suppress. (Removing the gate makes the first pull below report that error and this test fails.)
-  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.prg": PRG })
-  const prgUri = pathToFileURL(join(dir, "PLC_PRG.prg")).href
+  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.pou": PRG })
+  const prgUri = pathToFileURL(join(dir, "PLC_PRG.pou")).href
   const client = connect()
   await client.sendRequest(InitializeRequest.type, { processId: null, rootUri: pathToFileURL(dir).href, capabilities: {} })
   await client.sendNotification(DidOpenTextDocumentNotification.type, {
@@ -884,7 +884,7 @@ test("server: diagnostics are GATED until the workspace is indexed (no startup f
 })
 
 test("server: workspaceSymbol finds a DUT in an unopened file and narrows by query", async () => {
-  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.prg": PRG })
+  const dir = tempWorkspace({ "E_Mode.dut": ENUM, "PLC_PRG.pou": PRG })
   const client = connect()
   await initInDir(client, dir) // eager crawl indexes both files without opening them
   const all = (await client.sendRequest(WorkspaceSymbolRequest.type, { query: "E_Mode" })) as {

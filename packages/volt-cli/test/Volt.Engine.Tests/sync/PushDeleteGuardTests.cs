@@ -36,7 +36,7 @@ public class PushDeleteGuardTests
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = $"{name}.prg", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
+                new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Prg(name), IfVersion = null },
             },
         });
         return ide;
@@ -61,10 +61,10 @@ public class PushDeleteGuardTests
         var ide = WithItem("Gone");
         var refs = RefsService.Handle(ide);
 
-        var res = Delete(ide, "Gone.prg", refs.Items["Gone.prg"], refs.ProjectVersion);
+        var res = Delete(ide, "Gone.pou", refs.Items["Gone.pou"], refs.ProjectVersion);
 
         Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
-        Assert.DoesNotContain("Gone.prg", RefsService.Handle(ide).Items.Keys);
+        Assert.DoesNotContain("Gone.pou", RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>THE RACE, and the reason this file needs a seam at all. The version is current when the push
@@ -91,12 +91,12 @@ public class PushDeleteGuardTests
             fake.EditImplementation("Racy", "n := 999;   // the engineer's edit");
         };
 
-        var res = Delete(ide, "Racy.prg", refs.Items["Racy.prg"], refs.ProjectVersion);
+        var res = Delete(ide, "Racy.pou", refs.Items["Racy.pou"], refs.ProjectVersion);
 
         Assert.False(res.Accepted, "the delete destroyed an edit made while the push was running");
         var conflict = Assert.Single(res.Conflicts!);
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
-        Assert.Contains("Racy.prg", RefsService.Handle(ide).Items.Keys);
+        Assert.Contains("Racy.pou", RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>`--force` is the caller saying "I know, do it anyway", so the guard is skipped exactly as it is
@@ -108,10 +108,10 @@ public class PushDeleteGuardTests
         var ide = WithItem("Forced");
         var lease = RefsService.Handle(ide).ProjectVersion;
 
-        var res = Delete(ide, "Forced.prg", "a-version-that-is-long-gone", lease, force: true);
+        var res = Delete(ide, "Forced.pou", "a-version-that-is-long-gone", lease, force: true);
 
         Assert.True(res.Accepted, res.Conflicts is null ? "" : string.Join(" | ", res.Conflicts.Select(c => c.Reason)));
-        Assert.DoesNotContain("Forced.prg", RefsService.Handle(ide).Items.Keys);
+        Assert.DoesNotContain("Forced.pou", RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>AN UNKNOWN FOLDER IS NOT THE ROOT FOLDER.
@@ -129,7 +129,7 @@ public class PushDeleteGuardTests
     public void A_delete_of_an_item_the_walk_could_not_see_is_not_blamed_on_a_race()
     {
         var ide = WithItem("Hidden", folder: "Machine");
-        var version = RefsService.Handle(ide).Items["Hidden.prg"];
+        var version = RefsService.Handle(ide).Items["Hidden.pou"];
 
         // The folder stops enumerating: the pre-apply walk misses the item, `ItemLookup.Find` still resolves it.
         ide.UnwalkableFolders = new[] { "Machine" };
@@ -137,7 +137,7 @@ public class PushDeleteGuardTests
         // from the complete walk — is satisfied and the delete guard is the only thing left that can refuse.
         var lease = RefsService.Handle(ide).ProjectVersion;
 
-        var res = Delete(ide, "Hidden.prg", version, lease);
+        var res = Delete(ide, "Hidden.pou", version, lease);
 
         // Refused is right — a partial walk cannot verify anything. What must NOT happen is the delete guard
         // inventing a hash mismatch and reporting a concurrent edit.

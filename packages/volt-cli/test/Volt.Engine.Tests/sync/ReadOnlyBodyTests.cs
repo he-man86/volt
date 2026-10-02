@@ -35,7 +35,7 @@ public class ReadOnlyBodyTests
     private static string Held(string lang) => $"<the IDE's own {lang} body>";
 
     private static FakeIde.Item Pou(string? lang, string? unsupported = null, params string[] children) =>
-        new("FB_Chart", ItemKind.PlcPouFb, "", true, Decl, lang is null ? "" : Held(lang), lang, null,
+        new("FB_Chart", ItemKind.PlcPou, "", true, Decl, lang is null ? "" : Held(lang), lang, null,
             children.Length == 0 ? null : children, unsupported);
 
     private static FakeIde.Item Method(string name, string? lang, string? unsupported = null, string folder = "") =>
@@ -46,7 +46,7 @@ public class ReadOnlyBodyTests
     private static string Line(string language) => $"IMPLEMENTATION {language} UNSUPPORTED";
 
     private static string Pulled(FakeIde ide) =>
-        Materializer.Materialize(ide, "FB_Chart", ItemKind.Kinds.FunctionBlock, new ItemRef("FB_Chart")).Text;
+        Materializer.Materialize(ide, "FB_Chart", ItemKind.Kinds.Pou, new ItemRef("FB_Chart")).Text;
 
     private static PushResponse Update(FakeIde ide, string source)
     {
@@ -54,7 +54,7 @@ public class ReadOnlyBodyTests
         return PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "FB_Chart.fb", SourceText = source, IfVersion = refs.Items["FB_Chart.fb"] } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "FB_Chart.pou", SourceText = source, IfVersion = refs.Items["FB_Chart.pou"] } },
         });
     }
 
@@ -262,8 +262,8 @@ public class ReadOnlyBodyTests
             {
                 new SetItemOp
                 {
-                    Name = "FB_Chart.fb", ToName = renamed ? "FB_Moved.fb" : null, ToFolder = "Sub",
-                    SourceText = pushed, IfVersion = refs.Items["FB_Chart.fb"],
+                    Name = "FB_Chart.pou", ToName = renamed ? "FB_Moved.pou" : null, ToFolder = "Sub",
+                    SourceText = pushed, IfVersion = refs.Items["FB_Chart.pou"],
                 },
             },
         });
@@ -271,7 +271,7 @@ public class ReadOnlyBodyTests
         Assert.True(resp.Accepted, "push refused: " + Why(resp));
         var pou = renamed ? "FB_Moved" : "FB_Chart";
         Assert.Contains($"move:{pou}->Sub", ide.Recorded);                       // the move happened…
-        Assert.Equal("Sub", RefsService.Handle(ide).Folders[pou + ".fb"]);
+        Assert.Equal("Sub", RefsService.Handle(ide).Folders[pou + ".pou"]);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:" + pou) || r.StartsWith("delete:"));
         Assert.Equal(Held(language), ide.StoredImplementation(pou));             // …and wrote no hidden body
         Assert.Equal(Held(language), ide.StoredImplementation("Step"));
@@ -378,7 +378,7 @@ public class ReadOnlyBodyTests
         var text = Pulled(ide);
 
         Assert.EndsWith($"\nMETHOD Step : BOOL\n{line}\n%FOLDER Sub/Deep\nEND_METHOD\n", text);
-        var step = StReader.Read(text, ItemKind.Kinds.FunctionBlock, "FB_Chart").Members.Single();
+        var step = StReader.Read(text, ItemKind.Kinds.Pou, "FB_Chart").Members.Single();
         Assert.Equal("Sub/Deep", step.Folder);
         Assert.Equal("METHOD Step : BOOL", step.Declaration);
         Assert.Equal(line, step.Body);
@@ -478,7 +478,7 @@ public class ReadOnlyBodyTests
     {
         var src = $"FUNCTION_BLOCK FB_S\nVAR\n\ts : STRING;\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n{code}\n\nEND_FUNCTION_BLOCK\n";
 
-        var item = StReader.Read(src, ItemKind.Kinds.FunctionBlock, "FB_S");
+        var item = StReader.Read(src, ItemKind.Kinds.Pou, "FB_S");
 
         Assert.Equal(code, item.Body);
     }
@@ -553,7 +553,7 @@ public class ReadOnlyBodyTests
     [InlineData(Decl, "(* note (* @volt-graphical: CFC *) *)\nx := 1;")]
     public void An_IDE_item_holding_a_volt_comment_is_refused_on_pull_naming_the_comment(string declaration, string body)
     {
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, declaration, body, null, null));
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, declaration, body, null, null));
 
         var ex = Assert.Throws<BridgeException>(() => Pulled(ide));
         Assert.Contains("FB_Chart", ex.Message);
@@ -577,7 +577,7 @@ public class ReadOnlyBodyTests
     [InlineData("x := 1;\nIMPLEMENTATION ST\ny := 2;")]
     public void An_ST_body_holding_a_keyword_line_is_refused_on_pull_not_relabelled(string body)
     {
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, Decl, body, null, null));
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, Decl, body, null, null));
 
         var ex = Assert.Throws<BridgeException>(() => Pulled(ide));
         Assert.Contains("IMPLEMENTATION", ex.Message);
@@ -591,7 +591,7 @@ public class ReadOnlyBodyTests
     [Fact]
     public void An_ST_body_with_the_keyword_in_a_comment_pulls_as_ST()
     {
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, Decl,
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, Decl,
                                                "(*\nIMPLEMENTATION CFC UNSUPPORTED\n*)\nx := 1;", null, null));
 
         Assert.Equal($"{Decl}\nIMPLEMENTATION ST\n(*\nIMPLEMENTATION CFC UNSUPPORTED\n*)\nx := 1;\n\nEND_FUNCTION_BLOCK\n", Pulled(ide));

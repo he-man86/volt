@@ -76,8 +76,8 @@ public class PushDeclarationTransportTests
     /// merely "a write happened", which is all the recorded call name proves.</summary>
     [Theory]
     // kind                    ext    the ORIGINAL declaration                  body       terminator
-    [InlineData(ItemKind.PlcPouFb,   "fb",  "FUNCTION_BLOCK K\nVAR\nEND_VAR",   "n := 1;", "END_FUNCTION_BLOCK")]
-    [InlineData(ItemKind.PlcPouProg, "prg", "PROGRAM K\nVAR\nEND_VAR",          "n := 1;", "END_PROGRAM")]
+    [InlineData(ItemKind.PlcPou, "pou", "FUNCTION_BLOCK K\nVAR\nEND_VAR",   "n := 1;", "END_FUNCTION_BLOCK")]
+    [InlineData(ItemKind.PlcPou, "pou", "PROGRAM K\nVAR\nEND_VAR",          "n := 1;", "END_PROGRAM")]
     [InlineData(ItemKind.PlcDut,     "dut", "TYPE K :\nSTRUCT\nEND_STRUCT\nEND_TYPE", "", null)]
     [InlineData(ItemKind.PlcGvl,     "gvl", "VAR_GLOBAL\nEND_VAR",              "",        null)]
     public void A_declaration_edit_reaches_the_aspect(int code, string ext, string decl, string body, string? terminator)
@@ -105,9 +105,9 @@ public class PushDeclarationTransportTests
     public void A_declaration_edit_lands_on_an_unsupported_language_POU(string language)
     {
         const string decl = "FUNCTION_BLOCK K\nVAR\nEND_VAR";
-        var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, decl, "", language, null));
+        var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPou, "", true, decl, "", language, null));
 
-        Push(ide, "K.fb", Source(PlusOneVar(decl), ImplementationMarker.Unsupported(language), "END_FUNCTION_BLOCK"));
+        Push(ide, "K.pou", Source(PlusOneVar(decl), ImplementationMarker.Unsupported(language), "END_FUNCTION_BLOCK"));
 
         Assert.Contains("vltAdded", ide.WrittenContent["K"].Declaration);
     }
@@ -121,9 +121,9 @@ public class PushDeclarationTransportTests
     public void An_unchanged_declaration_is_not_written_back()
     {
         const string decl = "FUNCTION_BLOCK K\nVAR\n\tn : INT;\nEND_VAR";
-        var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPouFb, "", true, decl, "n := 1;", null, null));
+        var ide = new FakeIde(new FakeIde.Item("K", ItemKind.PlcPou, "", true, decl, "n := 1;", null, null));
 
-        Push(ide, "K.fb", Source(decl, "n := 1;", "END_FUNCTION_BLOCK"));
+        Push(ide, "K.pou", Source(decl, "n := 1;", "END_FUNCTION_BLOCK"));
 
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("write:"));
     }

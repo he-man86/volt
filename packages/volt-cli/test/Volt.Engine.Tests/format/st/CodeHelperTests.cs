@@ -20,7 +20,7 @@ public class CodeHelperTests
     /// That line is the header, and it was being skipped entirely.
     /// <para><c>HeaderLine</c> treated any line STARTING with <c>(*</c> as trivia, so it returned the NEXT line
     /// (<c>VAR</c>). The suite only ever covered the comment on its own line, which is the shape that works.</para>
-    /// <para>It is not a parsing nicety. <c>CodesysTypeMap.LeadingKeyword</c> reads exactly this line to classify
+    /// <para>It is not a parsing nicety. <c>CodesysTypeMap.LeadingKeyword</c> (deleted with push-without-header-check 5.Q) read exactly this line to classify
     /// an item, is TOTAL by design (the classifier must never throw mid-walk), and falls back to FUNCTION_BLOCK —
     /// so a PROGRAM written this way is reported as <c>function_block</c> on refs/fetch. That is the same failure
     /// the leading-<c>{attribute}</c> case was fixed for, arriving through the other kind of trivia.</para>

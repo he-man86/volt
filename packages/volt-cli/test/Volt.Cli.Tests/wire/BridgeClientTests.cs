@@ -29,7 +29,7 @@ public class BridgeClientTests
         var resp = new BridgeClient(pipe).FetchChanges(new FetchRequest { KnownItems = new Dictionary<string, string>() }, _ => frames++);
 
         Assert.True(resp.Items.Count >= 60);                        // full version map (typed)
-        Assert.Contains(resp.Changed, c => c.Name == "P0.prg");     // materialized wire name
+        Assert.Contains(resp.Changed, c => c.Name == "P0.pou");     // materialized wire name
         Assert.True(frames >= 1);                                   // progress forwarded as typed ProgressFrame
     }
 
@@ -77,7 +77,7 @@ public class BridgeClientTests
         {
             var refs = new BridgeClient(pipe).GetRefs();
             Assert.False(string.IsNullOrEmpty(refs.ProjectVersion));
-            Assert.Contains("PLC_PRG.prg", refs.Items.Keys);
+            Assert.Contains("PLC_PRG.pou", refs.Items.Keys);
         }
     }
 
@@ -91,11 +91,11 @@ public class BridgeClientTests
             var refs = client.GetRefs();
             // Derive the edit from a real fetch so the SourceText round-trips in the canonical POU form.
             var src = client.FetchChanges(new FetchRequest { KnownItems = new Dictionary<string, string>() })
-                .Changed.First(c => c.Name == "PLC_PRG.prg").SourceText.Replace("x := 1", "x := 2");
+                .Changed.First(c => c.Name == "PLC_PRG.pou").SourceText.Replace("x := 1", "x := 2");
             var resp = client.PushBatch(new PushRequest
             {
                 ExpectedProjectVersion = refs.ProjectVersion,
-                Ops = new() { new SetItemOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"], SourceText = src } },
+                Ops = new() { new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = src } },
             });
             Assert.True(resp.Accepted);
             Assert.False(string.IsNullOrEmpty(resp.NewProjectVersion));
@@ -113,7 +113,7 @@ public class BridgeClientTests
             var resp = client.PushBatch(new PushRequest
             {
                 ExpectedProjectVersion = "stale-pv",
-                Ops = new() { new SetItemOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"], SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nx := 2;" } },
+                Ops = new() { new SetItemOp { Name = "PLC_PRG.pou", IfVersion = refs.Items["PLC_PRG.pou"], SourceText = "PROGRAM PLC_PRG\nVAR\nEND_VAR\nx := 2;" } },
             });
             Assert.False(resp.Accepted);
             Assert.Contains(resp.Conflicts!, c => c.Name == "<project>");

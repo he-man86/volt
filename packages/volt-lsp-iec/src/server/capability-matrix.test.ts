@@ -7,7 +7,7 @@
 import { test, expect } from "bun:test"
 import { CAPS, harness } from "./harness.js"
 
-const URI = "file:///F.fb"
+const URI = "file:///F.pou"
 // A genuine type error (C0032) so every event has something to deliver.
 const BAD = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b;\nEND_FUNCTION_BLOCK`
 const BAD2 = `FUNCTION_BLOCK F\nVAR\n b : BOOL; i : INT;\nEND_VAR\nIMPLEMENTATION ST\ni := b; i := b;\nEND_FUNCTION_BLOCK`

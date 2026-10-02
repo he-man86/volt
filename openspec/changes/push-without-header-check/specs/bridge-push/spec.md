@@ -9,7 +9,7 @@ The push path SHALL take an item's kind from its wire name's extension and SHALL
 - **THEN** it is pushed, and a later build reports the error
 
 #### Scenario: header of another kind
-- **WHEN** `FB_X.fb` is pushed whose text starts `PROGRAM FB_X`
+- **WHEN** `FB_X.pou`, a function block in the IDE, is pushed whose text starts `PROGRAM FB_X`
 - **THEN** it is not refused for its header
 
 ### Requirement: every DUT is named `.dut`

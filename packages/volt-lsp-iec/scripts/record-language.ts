@@ -48,14 +48,14 @@ const TOP = new Set(["function_block", "program", "function", "interface", "glob
 // A unit's wire extension, from its unit kind. Every DUT is `dut`, whatever its body (openspec
 // push-without-header-check 5.P) — nothing is read to name it. An unknown kind fails loud instead of defaulting: a
 // guessed extension is a wrong wire name.
-const UNIT_EXT: Record<string, string> = { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", namespace: "namespace", type_decl: "dut" }
+const UNIT_EXT: Record<string, string> = { function_block: "pou", program: "pou", function: "pou", interface: "itf", global_var_list: "gvl", namespace: "namespace", type_decl: "dut" }
 function unitExt(u: any): string {
   const ext = UNIT_EXT[u.kind as string]
   if (!ext) throw new Error(`a "${u.kind}" unit has no wire extension`)
   return ext
 }
 /** The wire extension for a FIXTURE's declared kind — the identity it states, not the one the parser infers. */
-const KIND_EXT: Record<string, string> = { function_block: "fb", program: "prg", function: "fun", interface: "itf", gvl: "gvl", namespace: "namespace", dut: "dut" }
+const KIND_EXT: Record<string, string> = { function_block: "pou", program: "pou", function: "pou", interface: "itf", gvl: "gvl", namespace: "namespace", dut: "dut" }
 function extForKind(kind: string): string {
   const ext = KIND_EXT[kind]
   if (!ext) throw new Error(`fixture kind "${kind}" has no wire extension`)
@@ -182,7 +182,7 @@ selected = (health.projects ?? []).map((p: any) => p.project).find((n: any) => t
 if (selected !== undefined) await call("connect", { project: selected })
 const refs0 = await refs()
 const plcName: string =
-  ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n]) ??
+  ["PLC_PRG.pou", "MAIN.pou"].find((n) => refs0.items[n]) ??
   (() => {
     throw new Error("no PLC_PRG/MAIN in project")
   })()
@@ -245,8 +245,8 @@ const fixtureItems = new Set(
   ]),
 )
 /**
- * DELETE THE ITEMS PUSHED AS `wires`, WHEREVER THE IDE NOW HOLDS THEM — the lookup (an item pushed as `X.ext` may be
- * held as `X.prg` or `X.dut`, or listed `unreadable`) is `held-as.ts`, documented and tested there.
+ * DELETE THE ITEMS PUSHED AS `wires`, WHEREVER THE IDE NOW HOLDS THEM — the lookup (an item pushed as `x.pou` may be
+ * held as `X.pou`, or listed `unreadable`) is `held-as.ts`, documented and tested there.
  */
 async function removeItems(wires: readonly string[], before: Held): Promise<void> {
   const r = await refs()
@@ -256,9 +256,9 @@ async function removeItems(wires: readonly string[], before: Held): Promise<void
   if (!p.accepted) throw new Error(`could not delete ${JSON.stringify(wires)}: ${JSON.stringify(p.conflicts ?? p)}`)
 }
 
-// a fixture wire held under its own name OR under the name the IDE re-typed it to (`X.fb` held as `X.prg`, DIALECT
-// C2f) — keyed on the exact names alone, a killed run's re-typed leftover was never
-// swept, and since it then sat in every later fixture's `before`, never deleted after that fixture either
+// a fixture wire held under its own name OR under the name the IDE holds that one object under (`held-as.ts`) —
+// keyed on the exact names alone, a killed run's re-named leftover was never swept, and since it then sat in every
+// later fixture's `before`, never deleted after that fixture either
 const orphans = orphansIn(fixtureItems, refs0)
 if (orphans.length > 0) {
   console.log(`sweeping ${orphans.length} orphan(s) left by an earlier killed run: ${orphans.join(', ')}`)

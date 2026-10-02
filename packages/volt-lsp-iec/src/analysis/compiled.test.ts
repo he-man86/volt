@@ -12,7 +12,7 @@ import { compiledFbs } from "./compiled.js"
 
 const compiled = (src: string): string[] => {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], "codesys")
   return [...compiledFbs(project)].map((s) => s.name).sort()
 }
 const fb = (name: string, vars = "", header = "") => `FUNCTION_BLOCK ${name}${header}\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK\n`

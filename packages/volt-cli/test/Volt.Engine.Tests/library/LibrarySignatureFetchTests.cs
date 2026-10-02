@@ -27,7 +27,7 @@ public class LibrarySignatureFetchTests
     [Fact]
     public void LibrariesUnchanged_decision()
     {
-        var known = new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1", ["PLC_PRG.prg"] = "p" };
+        var known = new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1", ["PLC_PRG.pou"] = "p" };
         Assert.True(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1" }, known));
         Assert.False(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v2", ["B.library"] = "v1" }, known)); // bump
         Assert.False(LibraryFetch.LibrariesUnchanged(new Dictionary<string, string> { ["A.library"] = "v1", ["B.library"] = "v1", ["C.library"] = "v1" }, known)); // added
@@ -103,7 +103,7 @@ public class LibrarySignatureFetchTests
     {
         var ide = OneLib();
         // The client knows the POU but has never seen CmpX.library → a library appeared → extract.
-        FetchService.Handle(ide, new FetchRequest { KnownItems = new() { ["PLC_PRG.prg"] = "whatever" } });
+        FetchService.Handle(ide, new FetchRequest { KnownItems = new() { ["PLC_PRG.pou"] = "whatever" } });
         Assert.Equal(1, ide.ExtractCalls);
     }
 
@@ -122,7 +122,7 @@ public class LibrarySignatureFetchTests
     public void OnlyItems_with_libraries_skips_the_precompile()
     {
         var ide = OneLib(); // has a library, but a directed preview never extracts
-        FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.prg" } });
+        FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.pou" } });
         Assert.Equal(0, ide.ExtractCalls);
     }
 

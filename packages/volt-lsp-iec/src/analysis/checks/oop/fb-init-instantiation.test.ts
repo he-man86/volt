@@ -32,9 +32,9 @@ END_FUNCTION_BLOCK
 
 function diagnose(plc: string, vendor: Vendor = "codesys") {
   const files = [
-    { uri: "file:///c/FB_Needs.fb", source: FB, parseResult: parseSource(FB, { networkText: true }, vendor) },
-    { uri: "file:///c/FB_Plain.fb", source: PLAIN, parseResult: parseSource(PLAIN, { networkText: true }, vendor) },
-    { uri: "file:///c/PLC_PRG.prg", source: plc, parseResult: parseSource(plc, { networkText: true }, vendor) },
+    { uri: "file:///c/FB_Needs.pou", source: FB, parseResult: parseSource(FB, { networkText: true }, vendor) },
+    { uri: "file:///c/FB_Plain.pou", source: PLAIN, parseResult: parseSource(PLAIN, { networkText: true }, vendor) },
+    { uri: "file:///c/PLC_PRG.pou", source: plc, parseResult: parseSource(plc, { networkText: true }, vendor) },
   ]
   const project = build.buildSymbolTable(files, [], vendor)
   const f = files[2]!

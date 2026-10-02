@@ -28,7 +28,7 @@ describe(`graphical / titles and comments (${BASE})`, () => {
 		(await bridge.fetch({ knownItems: {}, onlyItems: [item] })).changed.find((i: any) => i.name === item)
 
 	it("a network's title and comment survive a round trip", async () => {
-		const name = id("cmt"), item = fid("cmt", "prg")
+		const name = id("cmt"), item = fid("cmt", "pou")
 		await clean(item)
 
 		// A title on the header, a two-line comment inside, and a second network with NEITHER - so a body that

@@ -671,17 +671,17 @@ const REACHED_CODES = 77
  * pair that collides, and the name says where to look.
  */
 const AMBIGUOUS: readonly string[] = [
-  "lenze-mid/Device/Plc Logic/Application/OEE/Local/L_OEEA_MachinePerformance/OEE_POUs/L_OEE_Input_IF.fb :: WEEKDAY",
+  "lenze-mid/Device/Plc Logic/Application/OEE/Local/L_OEEA_MachinePerformance/OEE_POUs/L_OEE_Input_IF.pou :: WEEKDAY",
   "lenze-mid/Device/Plc Logic/Application/OEE/Local/_FirstErrorCapture/GVL_FirstErrCapture.gvl :: scErrorData_base",
-  "lenze-mid/Device/Plc Logic/Application/OEE/ProductionDataInputs.prg :: WEEKDAY",
-  "pro2193/Device/Plc Logic/Application/01 Main/HMI.prg :: State",
-  "pro2193/Device/Plc Logic/Application/01 Main/HMI_BFU.prg :: State",
-  "pro2193/Device/Plc Logic/Application/04 Physical Interfaces/Ethernet/PNOZMulti2/PNOZMulti2.prg :: ERROR",
-  "pro2193/Device/Plc Logic/Application/99 Library/Function Blocks/Fanuc FB/FanucFB.fb :: State",
-  "pro2193/Device/Plc Logic/Application/99 Library/Function Blocks/ProductionStatsFB.fb :: State",
-  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.prg :: GetDateAndTime",
-  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.prg :: SetDateAndTime",
-  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.prg :: SetTimeZoneInformation",
+  "lenze-mid/Device/Plc Logic/Application/OEE/ProductionDataInputs.pou :: WEEKDAY",
+  "pro2193/Device/Plc Logic/Application/01 Main/HMI.pou :: State",
+  "pro2193/Device/Plc Logic/Application/01 Main/HMI_BFU.pou :: State",
+  "pro2193/Device/Plc Logic/Application/04 Physical Interfaces/Ethernet/PNOZMulti2/PNOZMulti2.pou :: ERROR",
+  "pro2193/Device/Plc Logic/Application/99 Library/Function Blocks/Fanuc FB/FanucFB.pou :: State",
+  "pro2193/Device/Plc Logic/Application/99 Library/Function Blocks/ProductionStatsFB.pou :: State",
+  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.pou :: GetDateAndTime",
+  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.pou :: SetDateAndTime",
+  "pro2193/Device/Plc Logic/Application/99 Library/Programs/TimeSettings.pou :: SetTimeZoneInformation",
 ]
 
 describe.skipIf(!hasCorpus)("3. lowering is total, and its documented reach is measured", () => {

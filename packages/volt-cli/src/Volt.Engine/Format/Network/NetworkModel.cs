@@ -178,7 +178,7 @@ public sealed record Box(
     /// unconnected pin — see <c>NetworkTextReader.IsEmptyOperand</c>).
     ///
     /// <para><b>Such a box still has a real TYPE, and network text could not carry it.</b> Measured on
-    /// `Lenze_MID-S100`'s `POU.prg` (<c>scripts/probe-nwl-dump.py</c>): four boxes, each
+    /// `Lenze_MID-S100`'s `POU.pou` (<c>scripts/probe-nwl-dump.py</c>): four boxes, each
     /// <c>BoxType='L_MC1P_AxisBasicControlV2'</c> / <c>'L_TT1P_BasicMotionBase'</c> / … with
     /// <c>Instance='???'</c>. The format names an FB call ONCE — the instance — and the push recovers the type
     /// from the declaration that instance is declared in. <c>???</c> is declared nowhere, so the type was lost

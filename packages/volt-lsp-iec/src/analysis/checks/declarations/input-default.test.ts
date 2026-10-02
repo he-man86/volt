@@ -9,7 +9,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 
 const msgs = (src: string, vendor: "codesys" | "twincat" = "codesys"): string[] => {
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "input-default-composite")
     .map((d) => d.message)

@@ -3,7 +3,7 @@
  *
  * Every reference fixture in the suite binds with a STATEMENT (`ref_ REF= p;` — `calls/call-shapes.ts`,
  * `cross-object/cross-object.ts`, `types/advanced-type.ts`). The DECLARATION form had no recording at all, and it
- * is not a rare spelling: `ONTIME.fb` declares `refSeconds : REFERENCE TO UDINT REF= udiSeconds`, and 141 corpus
+ * is not a rare spelling: `ONTIME.pou` declares `refSeconds : REFERENCE TO UDINT REF= udiSeconds`, and 141 corpus
  * POUs reach it — the single largest line in `pointer-order`'s histogram (pointer-model.md §7b).
  *
  * It was ALSO the shape that exposed a parser hole. `var-section.ts` wrote `c.eatPunct(":=") ?? c.eatPunct("REF=")`

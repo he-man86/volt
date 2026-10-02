@@ -63,7 +63,7 @@ test("a qualified library base the symbol table linked is found (`EXTENDS Standa
   const run = (src: string) => {
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable(
-      [{ uri: "file:///w/F.fb", parseResult: pr, source: src }, { uri: `${lib}/TON.fb`, parseResult: parseSource(ton, { networkText: true }), source: ton }],
+      [{ uri: "file:///w/F.pou", parseResult: pr, source: src }, { uri: `${lib}/TON.pou`, parseResult: parseSource(ton, { networkText: true }), source: ton }],
       [manifest],
     )
     return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })

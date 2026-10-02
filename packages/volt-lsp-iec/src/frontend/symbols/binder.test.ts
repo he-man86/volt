@@ -19,7 +19,7 @@ function build(...files: { uri: string; src: string }[]): Scope {
 
 test("binder builds the scope tree: POU symbol + child scope + members", () => {
   const project = build({
-    uri: "FB_X.fb",
+    uri: "FB_X.pou",
     src: `FUNCTION_BLOCK FB_X
 VAR
   count : INT;
@@ -43,7 +43,7 @@ END_METHOD`,
 
 test("lookup: innermost shadow wins, then walks outward", () => {
   const project = build({
-    uri: "P.prg",
+    uri: "P.pou",
     src: `PROGRAM P
 VAR
   x : INT;
@@ -58,8 +58,8 @@ END_PROGRAM`,
 
 test("linkExtends: inherited members resolve through the base chain", () => {
   const project = build(
-    { uri: "Base.fb", src: `FUNCTION_BLOCK Base\nVAR\n baseVar : INT;\nEND_VAR\nEND_FUNCTION_BLOCK` },
-    { uri: "Derived.fb", src: `FUNCTION_BLOCK Derived EXTENDS Base\nVAR\n own : INT;\nEND_VAR\nEND_FUNCTION_BLOCK` },
+    { uri: "Base.pou", src: `FUNCTION_BLOCK Base\nVAR\n baseVar : INT;\nEND_VAR\nEND_FUNCTION_BLOCK` },
+    { uri: "Derived.pou", src: `FUNCTION_BLOCK Derived EXTENDS Base\nVAR\n own : INT;\nEND_VAR\nEND_FUNCTION_BLOCK` },
   )
   const derived = findChildScope(project, "Derived")!
   expect(derived.baseScope?.name).toBe("Base")
@@ -127,7 +127,7 @@ test("a commented-out qualified_only attribute is ignored — members stay bare-
 
 test("implicit enumeration introduces bare value constants into the enclosing scope", () => {
   const project = build({
-    uri: "F.fb",
+    uri: "F.pou",
     src: `FUNCTION_BLOCK F\nVAR\n state : (Idle, Running, Halted);\nEND_VAR\nEND_FUNCTION_BLOCK`,
   })
   const fb = findChildScope(project, "F")!
@@ -138,7 +138,7 @@ test("implicit enumeration introduces bare value constants into the enclosing sc
 test("an ARRAY OF an implicit enumeration introduces its values too", () => {
   // `decl_implicit_enum_in_array` (`a : ARRAY[0..1] OF (ia_a, ia_b); a[1] := ia_b;`) builds and runs on both vendors
   const project = build({
-    uri: "F.fb",
+    uri: "F.pou",
     src: `FUNCTION_BLOCK F
 VAR
  a : ARRAY[0..1] OF ARRAY[0..1] OF (ia_a, ia_b);
@@ -156,7 +156,7 @@ TYPE E : (A, B); END_TYPE
 END_NAMESPACE`
 
 test("the binder makes a namespace scope + a project-level namespace symbol; qualified nav resolves", () => {
-  const project = buildSymbolTable([{ uri: "NS.fb", parseResult: parseSource(NS, { networkText: true }), source: NS }])
+  const project = buildSymbolTable([{ uri: "NS.pou", parseResult: parseSource(NS, { networkText: true }), source: NS }])
   expect(lookupLocal(project, "NS").map((s) => s.kind)).toEqual(["namespace"])
   const ns = findScopeByName(project, "NS")
   expect(ns?.kind).toBe("namespace")
@@ -166,7 +166,7 @@ test("the binder makes a namespace scope + a project-level namespace symbol; qua
 
 test("nested namespaces bind their full scope chain", () => {
   const src = `NAMESPACE Outer\nNAMESPACE Inner\nFUNCTION_BLOCK Deep\nEND_FUNCTION_BLOCK\nEND_NAMESPACE\nEND_NAMESPACE`
-  const project = buildSymbolTable([{ uri: "X.fb", parseResult: parseSource(src, { networkText: true }), source: src }])
+  const project = buildSymbolTable([{ uri: "X.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
   const outer = findScopeByName(project, "Outer")
   const inner = outer && findChildScope(outer, "Inner")
   expect(inner?.kind).toBe("namespace")
@@ -198,7 +198,7 @@ END_FUNCTION
 METHOD Orphan
 END_METHOD
 END_NAMESPACE`
-  const project = build({ uri: "NS.fb", src })
+  const project = build({ uri: "NS.pou", src })
   const foo = findChildScope(findScopeByName(project, "NS")!, "Foo")!
   expect(["M", "A", "P"].map((n) => lookupLocal(foo, n)[0]?.kind)).toEqual(["method", "action", "property"])
   const m = findChildScope(foo, "M")!
@@ -211,15 +211,15 @@ END_NAMESPACE`
 // `isLibrarySymbol` is the path rule (`library/path.ts` `isLibraryUri`) asked of a symbol's uri — the guard that keeps
 // every check off a referenced library's lossy signatures.
 test("isLibrarySymbol is the library path rule asked of the symbol's uri", () => {
-  expect(isLibrarySymbol({ uri: "file:///C:/proj/src/Application/Library%20Manager/Util/X.fb" })).toBe(true)
-  expect(isLibrarySymbol({ uri: "file:///C:/proj/src/Main.prg" })).toBe(false)
+  expect(isLibrarySymbol({ uri: "file:///C:/proj/src/Application/Library%20Manager/Util/X.pou" })).toBe(true)
+  expect(isLibrarySymbol({ uri: "file:///C:/proj/src/Main.pou" })).toBe(false)
 })
 
 test("an FB whose header the vendor refuses is declared nowhere; a bodiless TYPE is declared, with no members", () => {
   // `unit_fb_final_public_order`: an access modifier after FINAL leaves no FB on either vendor ("Unknown type" where it
   // is used); `unit_type_no_body`: a TYPE with a refused body is no unknown type where it is used
   const project = build(
-    { uri: "A.fb", src: "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" },
+    { uri: "A.pou", src: "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" },
     { uri: "T.alias", src: "TYPE T_X :\nEND_TYPE\n" },
   )
   expect(lookupLocal(project, "FB_A")).toEqual([])

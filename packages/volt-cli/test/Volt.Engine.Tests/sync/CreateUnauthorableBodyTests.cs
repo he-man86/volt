@@ -30,7 +30,7 @@ namespace Volt.Engine.Tests;
 public class CreateUnauthorableBodyTests
 {
     private const string Bare = "FB_Cfc";
-    private const string Name = Bare + ".fb";
+    private const string Name = Bare + ".pou";
     private const string Decl = "FUNCTION_BLOCK " + Bare + "\nVAR\nEND_VAR";
 
     private static string Marker(string lang) => Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang);

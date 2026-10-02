@@ -1921,7 +1921,7 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
 
 
 function extFor(kind: string): string {
-  const map: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", interface: "itf", dut: "dut" }
+  const map: Record<string, string> = { function_block: "pou", function: "pou", program: "pou", gvl: "gvl", interface: "itf", dut: "dut" }
   const ext = map[kind]
   if (!ext) throw new Error(`fixture kind "${kind}" has no file extension`)
   return ext
@@ -1960,10 +1960,10 @@ const CROSS_DECLS = SPLIT.map(({ item: p }) => ({
 const PLC_PRGS = ALL_TESTS.map((t) => {
   if (t.plcPrgVar === undefined && t.plcPrgBody === undefined) return undefined
   const source = plcPrgSource(t)
-  // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.prg`, as a workspace has it.
-  // It used to be `<fixture>__plcprg.fb`, which made every synthesized PLC_PRG look like a POU whose signature
+  // A DIRECTORY per fixture, so the file's BASE NAME is the object's name — `PLC_PRG.pou`, as a workspace has it.
+  // It used to be `<fixture>__plcprg.pou`, which made every synthesized PLC_PRG look like a POU whose signature
   // disagrees with its object name (`signature-name`), and that is a real CODESYS error, not a harness detail.
-  return { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source, parseResult: parseSource(source, { networkText: true }) }
+  return { uri: `file:///conformance/${t.name}/PLC_PRG.pou`, source, parseResult: parseSource(source, { networkText: true }) }
 })
 
 /**

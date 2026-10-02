@@ -237,8 +237,8 @@ VOLT_VENDOR=codesys bun test test/e2e/production
 **`graphical/unsupported.test.ts` runs on both**, but only because both fixture projects carry a committed
 CFC and SFC POU (`VltFixtureCfc` / `VltFixtureSfc`). Volt can never create one — a diagram has no text form to
 push — so each IDE authored its own: CODESYS via `create_pou(language=cfc|sfc)` in a `--runscript`, TwinCAT via
-`CreateChild(name, 602, "", "CFC")` over the COM ROT. Their KIND differs by vendor (`.fb` on CODESYS, `.prg` on
-TwinCAT) and the suite resolves the wire names from `refs` rather than assuming an extension. **If you ever
+`CreateChild(name, 602, "", "CFC")` over the COM ROT. Their KIND differs by vendor (a function block on CODESYS, a program on
+TwinCAT; both `X.pou` on the wire since 5.Q) and the suite resolves the wire names from `refs` rather than assuming an extension. **If you ever
 regenerate a fixture project, these two POUs must survive** — without them the suite fails loudly rather than
 skipping, which is deliberate: silently losing the only live coverage of a data-loss guard is the failure mode
 worth being noisy about.

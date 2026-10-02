@@ -17,7 +17,7 @@ import type { Document } from "../services/shared/index.js"
  */
 
 function doc(src: string): Document {
-  return { uri: "file:///FB.fb", source: src, parseResult: parseSource(src, { networkText: true }) }
+  return { uri: "file:///FB.pou", source: src, parseResult: parseSource(src, { networkText: true }) }
 }
 function project(d: Document): Scope {
   return build.buildSymbolTable([{ uri: d.uri, source: d.source, parseResult: d.parseResult }])
@@ -259,7 +259,7 @@ test("the label/comment ordering question no longer exists", () => {
 
 test("`??? : TYPE(PIN := v)` parses as a call, so the box's pins are still resolved", () => {
   // The format spells the type inline for exactly this instance: `???` is declared nowhere, so the push has
-  // no declaration to read the type off (Lenze_MID-S100 `POU.prg`, four such boxes). Parsing it as a call is
+  // no declaration to read the type off (Lenze_MID-S100 `POU.pou`, four such boxes). Parsing it as a call is
   // what keeps the PINS analyzed — read as an unknown statement, an undeclared operand inside one would go
   // unreported.
   const got = diags(wrap("IMPLEMENTATION FBD\nNETWORK\n  ??? : TON(IN := notDeclaredAnywhere, PT := );\nEND_NETWORK"))

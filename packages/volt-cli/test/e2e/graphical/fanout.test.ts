@@ -26,7 +26,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 
 	it("a wire feeding two consumers survives create → pull → push → pull", async () => {
 		const name = id("fanout")
-		const wire = fid("fanout", "prg")
+		const wire = fid("fanout", "pou")
 
 		// Clean with the item's REAL version, falling back to the UNREADABLE sentinel. A delete keyed only on
 		// the sentinel is rejected for an item that IS readable ("item changed since you fetched its version"),
@@ -94,7 +94,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 	 */
 	it("a data wire comes back declared as pushed, pushes again, and builds", async () => {
 		const name = id("fanint")
-		const wire = fid("fanint", "prg")
+		const wire = fid("fanint", "pou")
 		const clean = async () => {
 			const items = (await bridge.refs()).items ?? {}
 			await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
@@ -139,7 +139,7 @@ describe(`graphical / fan-out (${BASE})`, () => {
 	 */
 	it("a wire fed by a leaf round-trips on CODESYS and is refused by name before TwinCAT's import", async () => {
 		const name = id("fanleaf")
-		const wire = fid("fanleaf", "prg")
+		const wire = fid("fanleaf", "pou")
 		const items = (await bridge.refs()).items ?? {}
 		await pushOps([{ op: "deleteItem", name: wire, ifVersion: items[wire] ?? "UNREADABLE000000" }])
 

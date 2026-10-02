@@ -13,9 +13,9 @@ public class DomainTests
     [Fact]
     public void Extensions_lookups_match_the_registry()
     {
-        Assert.Equal("FB_Motor.fb", Extensions.FullNameFromPath("POUs/FB_Motor.fb"));
-        Assert.Equal("prg", Extensions.DefFromName("PLC_PRG.prg")!.Ext);
-        Assert.True(Extensions.IsPushable("POUs/FB_Motor.fb"));                 // source = rw
+        Assert.Equal("FB_Motor.pou", Extensions.FullNameFromPath("POUs/FB_Motor.pou"));
+        Assert.Equal("pou", Extensions.DefFromName("PLC_PRG.pou")!.Ext);
+        Assert.True(Extensions.IsPushable("POUs/FB_Motor.pou"));                 // source = rw
         Assert.True(Extensions.IsReadOnly("Library Manager/Standard.library")); // reference = r
         Assert.False(Extensions.IsPushable("Library Manager/Standard.library"));
         // A `.gitkeep` is NOT tracked. It was, as a legacy folder marker, while `IsPushable` said no — so one
@@ -31,14 +31,14 @@ public class DomainTests
     [Fact]
     public void Materialize_maps_a_source_item_to_a_file_and_back()
     {
-        var files = Materialize.MaterializeItem(new FetchedItem { Name = "FB_Motor.fb", Folder = "POUs", SourceText = "FUNCTION_BLOCK FB_Motor\n" });
+        var files = Materialize.MaterializeItem(new FetchedItem { Name = "FB_Motor.pou", Folder = "POUs", SourceText = "FUNCTION_BLOCK FB_Motor\n" });
         var f = Assert.Single(files);
-        Assert.Equal("POUs/FB_Motor.fb", f.Path);
+        Assert.Equal("POUs/FB_Motor.pou", f.Path);
         Assert.Equal("FUNCTION_BLOCK FB_Motor\n", f.Content);
 
-        var item = Materialize.PathToItem("POUs/FB_Motor.fb");
+        var item = Materialize.PathToItem("POUs/FB_Motor.pou");
         Assert.NotNull(item);
-        Assert.Equal("FB_Motor.fb", item!.Value.Name);
+        Assert.Equal("FB_Motor.pou", item!.Value.Name);
         Assert.Equal("POUs", item.Value.Folder);
         Assert.Null(Materialize.PathToItem("README.md")); // untracked
     }
@@ -111,14 +111,14 @@ public class DomainTests
             var refs = new IdeRefs
             {
                 ProjectVersion = "v1",
-                Items = new() { ["FB_Motor.fb"] = "h1", ["PLC_PRG.prg"] = "h2" },
-                Folders = new() { ["FB_Motor.fb"] = "POUs" },
+                Items = new() { ["FB_Motor.pou"] = "h1", ["PLC_PRG.pou"] = "h2" },
+                Folders = new() { ["FB_Motor.pou"] = "POUs" },
             };
             Sidecar.SaveIdeRefs(root, refs);
             var loaded = Sidecar.LoadIdeRefs(root)!;
             Assert.Equal("v1", loaded.ProjectVersion);
-            Assert.Equal("h1", loaded.Items["FB_Motor.fb"]);
-            Assert.Equal("POUs", loaded.Folders["FB_Motor.fb"]);
+            Assert.Equal("h1", loaded.Items["FB_Motor.pou"]);
+            Assert.Equal("POUs", loaded.Folders["FB_Motor.pou"]);
         }
         finally { TestUtil.ForceDelete(root); }
     }

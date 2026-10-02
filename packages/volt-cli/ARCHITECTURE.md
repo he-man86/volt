@@ -384,8 +384,8 @@ marked in the code with its reason — a `ponytail:` comment — rather than lef
     typed `<interface>`, so the write was accepted and changed nothing. The document layer that hosted all five
     is deleted, and the rule outlived it: **address the object, never search under it.** `ICodeStore` now takes an
     `ItemRef` per item and `WriteMembers` resolves each member by NAME from one map.
-12. **A name is not a path.** Wire item names are bare (`Foo.fb`); workspace entries are src-relative paths
-    (`Folder/Foo.fb`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
+12. **A name is not a path.** Wire item names are bare (`Foo.pou`); workspace entries are src-relative paths
+    (`Folder/Foo.pou`). `IdeTree` matched a set of NAMES against PATHS, so an item deleted in the IDE never left
     the workspace unless it sat in the project root — and the one test covering it used a root item. Two auditors
     found this independently from opposite sides of the call. If a set crosses that boundary, convert at the
     boundary and name the variable for what it holds.

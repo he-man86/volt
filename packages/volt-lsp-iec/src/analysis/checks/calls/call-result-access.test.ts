@@ -13,7 +13,7 @@ const MSG =
 const msgs = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n i:INT; a:ARRAY[0..3] OF INT;\nEND_VAR\n${body}\nEND_PROGRAM\nFUNCTION F : INT\nEND_FUNCTION`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "call-result-access")
     .map((d) => d.message)

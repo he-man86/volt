@@ -144,7 +144,23 @@ public sealed partial class CodesysDriver
     // it the null it deliberately maps 692 to.
     public int KindCode(ItemRef item) => KindCodeOf(item.Native);
 
-    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null) => new(_om.CreateChild(parent.Native, name, kindCode, seed));
+    public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
+    {
+        try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
+        catch (Exception ex) when (ChildRefusal(ex) is { } why) { throw new ChildRefusedException(why, ex); }
+    }
+
+    /// <summary>Is this CODESYS's own refusal of a child under its parent? Measured wording (SP21, DIALECT C2k,
+    /// `kind-audit2.log`): "Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or
+    /// device description)" — for a member under FUNCTION text, and a method or property under text that declares
+    /// nothing. Anything else (a stale handle, a transport fault) is not a refusal and is not reported as one.
+    /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
+    public static string? ChildRefusal(Exception ex)
+    {
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+            if (e.Message.IndexOf("is not accepted by parent object", StringComparison.Ordinal) >= 0) return e.Message;
+        return null;
+    }
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     /// <summary>Enumerated directly — in-process CODESYS has no problem with it, unlike TwinCAT's COM.</summary>
     public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)
@@ -171,11 +187,9 @@ public sealed partial class CodesysDriver
         if (node is LibRefNode) return ItemKind.PlcLibRef;
         if (_om.IsFolder(node)) return ItemKind.PlcFolder;
         var iobj = _om.ReadObject(node);
-        var ifaces = _om.ObjectInterfaceNames(iobj);
-        // Read the Interface aspect only for kinds whose classification refines from the declaration —
-        // CodesysTypeMap owns that list (NeedsDeclaration), so the two never drift.
-        string? decl = CodesysTypeMap.NeedsDeclaration(ifaces) ? CodesysObjectModel.ReadAspectText(iobj, "Interface") : null;
-        return CodesysTypeMap.CodeForObject(ifaces, false, _om.GetName(node), decl);
+        // The CLASS decides, and no aspect is read: a POU is `X.pou` whatever its text says (openspec
+        // `push-without-header-check` 5.Q), so the walk no longer opens a POU's declaration to name it.
+        return CodesysTypeMap.CodeForObject(_om.ObjectInterfaceNames(iobj), false, _om.GetName(node));
     }
 }
 

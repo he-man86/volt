@@ -64,7 +64,7 @@ public class AccessorPreflightTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, Set("First.prg", Prg("First")), Set("FB_Axis.fb", Fb("FB_Axis", NonCanonical)));
+        var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", Fb("FB_Axis", NonCanonical)));
 
         Assert.False(res.Accepted);
         Assert.Empty(ide.CreatedItems);
@@ -78,7 +78,7 @@ public class AccessorPreflightTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, Set("First.prg", Prg("First")), Set("FB_Axis.fb", Fb("FB_Axis", Canonical)));
+        var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", Fb("FB_Axis", Canonical)));
 
         Assert.True(res.Accepted, "push refused: " + (res.Conflicts is null
             ? "(none)"
@@ -94,7 +94,7 @@ public class AccessorPreflightTests
         var src = "FUNCTION_BLOCK FB_Axis\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
                   $"PROPERTY Ready : BOOL\nSET\n{NonCanonical}\nEND_SET\nEND_PROPERTY\n";
 
-        var res = Push(ide, Set("First.prg", Prg("First")), Set("FB_Axis.fb", src));
+        var res = Push(ide, Set("First.pou", Prg("First")), Set("FB_Axis.pou", src));
 
         Assert.False(res.Accepted);
         Assert.Empty(ide.CreatedItems);
@@ -116,8 +116,8 @@ public class AccessorPreflightTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, Set("First.prg", Prg("First")),
-                            Set("FB_Cfc.fb", Cfc));
+        var res = Push(ide, Set("First.pou", Prg("First")),
+                            Set("FB_Cfc.pou", Cfc));
 
         Assert.False(res.Accepted);
         Assert.Empty(ide.CreatedItems);
@@ -133,7 +133,7 @@ public class AccessorPreflightTests
         // The live body IS the marker — which is what makes pushing one back a no-op. (A marker over a body
         // the IDE says is TEXTUAL stays a refusal, from `BodyFormatGuard`'s live-state rule; that is a
         // different check and this hoist does not touch it.)
-        var ide = new FakeIde(new FakeIde.Item("FB_Cfc", ItemKind.PlcPouFb, "", true,
+        var ide = new FakeIde(new FakeIde.Item("FB_Cfc", ItemKind.PlcPou, "", true,
                                                "FUNCTION_BLOCK FB_Cfc", "", "CFC", null));
         var refs = RefsService.Handle(ide);
 
@@ -144,9 +144,9 @@ public class AccessorPreflightTests
             {
                 new SetItemOp
                 {
-                    Name = "FB_Cfc.fb",
+                    Name = "FB_Cfc.pou",
                     SourceText = Cfc,
-                    IfVersion = refs.Items["FB_Cfc.fb"],
+                    IfVersion = refs.Items["FB_Cfc.pou"],
                 },
             },
         });

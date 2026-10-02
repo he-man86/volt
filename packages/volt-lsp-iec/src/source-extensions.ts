@@ -1,6 +1,6 @@
 /**
- * The kind-named writable-source extensions Volt materializes on disk — POUs (`.fb`/`.prg`/`.fun`),
- * interface (`.itf`), every DUT (`.dut`), and GVL (`.gvl`). This is the LSP-side single source of truth
+ * The kind-named writable-source extensions Volt materializes on disk — every POU (`.pou`), interface
+ * (`.itf`), every DUT (`.dut`), and GVL (`.gvl`). This is the LSP-side single source of truth
  * for "is this a Volt source file", shared by the workspace crawl, the running server, the corpus tests and
  * the maintenance scripts — so the set is defined once, not copied per consumer.
  *
@@ -9,13 +9,12 @@
  * transitively load the analysis layer. (It named `detect-vendor` as the consumer that needed that; that
  * module is gone — see `consolidate-lsp-structure` C8 — and the property is still worth keeping.)
  * The ENGINE names every item, and the file name is that wire name (`Materializer.FullWireName` in `volt-cli`;
- * every DUT is `.dut`, whatever its shape). This mirrors the engine's writable-source table,
+ * every POU is `.pou` and every DUT `.dut`, whatever their text says). This mirrors the engine's writable-source table,
  * `ItemKind.SourceKindExtensions`, and is cross-checked against it and every other copy by `scripts/check-wiring.ts`.
  */
 export const SOURCE_EXTENSIONS: readonly string[] = [
-  ".fb",
-  ".prg",
-  ".fun",
+  // Every POU — program, function block or function — whatever its text says (openspec push-without-header-check 5.Q).
+  ".pou",
   ".itf",
   ".gvl",
   // Every DUT, whatever its shape (openspec push-without-header-check 5.P); the file name IS the wire name.

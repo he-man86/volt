@@ -25,7 +25,7 @@ const LANGS = ["LD", "FBD"] as const
 const ADDED = "VAR_INPUT\n\tbVoltHiddenProbe : BOOL;\nEND_VAR\n"
 
 const bareOf = (lang: string) => id(`hidnet_${lang.toLowerCase()}`)
-const itemOf = (lang: string) => fid(`hidnet_${lang.toLowerCase()}`, "prg")
+const itemOf = (lang: string) => fid(`hidnet_${lang.toLowerCase()}`, "pou")
 
 /** A PROGRAM whose body is one network in `lang` — the shape both vendors create and read back (graphical-kinds). */
 const created = (lang: string) =>

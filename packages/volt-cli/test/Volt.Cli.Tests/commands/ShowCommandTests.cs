@@ -14,9 +14,9 @@ public class ShowCommandTests
     private static FakeIde.Item Prg(string impl = "x := 1;") =>
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", impl);
 
-    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
+    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.pou");
     private static string ShowText(string root, BridgeClient c, string @ref) =>
-        Encoding.UTF8.GetString(Commands.Show(root, c, @ref, "PLC_PRG.prg").Bytes!);
+        Encoding.UTF8.GetString(Commands.Show(root, c, @ref, "PLC_PRG.pou").Bytes!);
 
     [Fact]
     public void Show_reads_each_ref()
@@ -65,7 +65,7 @@ public class ShowCommandTests
         try
         {
             Commands.Pull(root, client);
-            var (bytes, err, absent) = Commands.Show(root, client, "HEAD", "Added.prg");
+            var (bytes, err, absent) = Commands.Show(root, client, "HEAD", "Added.pou");
             Assert.Null(bytes);
             Assert.True(absent);                       // → CmdShow exits 2 → the content provider renders ""
             Assert.Contains("not found at HEAD", err);
@@ -97,7 +97,7 @@ public class ShowCommandTests
         try
         {
             Commands.Pull(root, client);
-            var (bytes, err, _) = Commands.Show(root, client, "WORKSPACE", "Nope.prg");
+            var (bytes, err, _) = Commands.Show(root, client, "WORKSPACE", "Nope.pou");
             Assert.Null(bytes);
             Assert.Contains("not in the workspace", err);
         }
@@ -112,7 +112,7 @@ public class ShowCommandTests
         try
         {
             Commands.Pull(root, client);
-            var (bytes, err, _) = Commands.Show(root, client, "BRIDGE", "Nope.prg");
+            var (bytes, err, _) = Commands.Show(root, client, "BRIDGE", "Nope.pou");
             Assert.Null(bytes);
             Assert.Contains("bridge has no item", err);
         }
@@ -157,7 +157,7 @@ public class ShowCommandTests
         var (root, host, client) = Bound(ide);
         try
         {
-            var ex = Assert.Throws<PipeCallException>(() => Commands.Show(root, client, "BRIDGE", "PLC_PRG.prg"));
+            var ex = Assert.Throws<PipeCallException>(() => Commands.Show(root, client, "BRIDGE", "PLC_PRG.pou"));
 
             Assert.Equal(BridgeErrorCodes.WrongProject, ex.Code);
         }

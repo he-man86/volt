@@ -202,7 +202,7 @@ public class InterfaceRoundTripTests
             ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St),
             "END_METHOD");
 
-        var split = StReader.Read(src, ItemKind.Kinds.FunctionBlock);
+        var split = StReader.Read(src, ItemKind.Kinds.Pou);
 
         var member = Assert.Single(split.Members);
         Assert.Equal(name, member.Name);

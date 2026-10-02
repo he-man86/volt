@@ -88,14 +88,14 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 */
 	it("a box with an unconnected input survives, or is refused", async () => {
 		const name = id("rp_pin")
-		await survivesOrIsRefused(fid("rp_pin", "prg"), program(name, "LD", `NETWORK\n  n := ( * m * 6);\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pin", "pou"), program(name, "LD", `NETWORK\n  n := ( * m * 6);\nEND_NETWORK\n`))
 	})
 
 	/** The same fact in the other syntax — an FB call whose pins are declared but unwired, which is how a
 	 *  half-finished block sits in a live project. */
 	it("an FB call with unwired named pins survives, or is refused", async () => {
 		const name = id("rp_pins")
-		await survivesOrIsRefused(fid("rp_pins", "prg"), program(name, "FBD", `NETWORK\n  t1(IN := , PT := );\nEND_NETWORK\n`))
+		await survivesOrIsRefused(fid("rp_pins", "pou"), program(name, "FBD", `NETWORK\n  t1(IN := , PT := );\nEND_NETWORK\n`))
 	})
 
 	/**
@@ -111,7 +111,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	it("a wire with a single consumer survives, or is refused", async () => {
 		const name = id("rp_wire")
 		await survivesOrIsRefused(
-			fid("rp_wire", "prg"),
+			fid("rp_wire", "pou"),
 			program(name, "LD", `NETWORK\n  VAR_TEMP g0 : BOOL; END_VAR\n  g0 := (a AND b);\n  out := g0;\nEND_NETWORK\n`),
 		)
 	})
@@ -125,7 +125,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 */
 	it("a call whose output goes nowhere round-trips", async () => {
 		const name = id("rp_stmt")
-		const full = fid("rp_stmt", "prg")
+		const full = fid("rp_stmt", "pou")
 		const src = program(name, "LD", `NETWORK\n  MOVE(a, b);\nEND_NETWORK\n`)
 
 		expect(await roundTrip(full, src)).toBe(src)
@@ -138,10 +138,10 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 */
 	it("a NOT box and a negated operand stay different", async () => {
 		const boxSrc = program(id("rp_notbox"), "FBD", `NETWORK\n  out := NOT(a);\nEND_NETWORK\n`)
-		expect(await roundTrip(fid("rp_notbox", "prg"), boxSrc)).toBe(boxSrc)
+		expect(await roundTrip(fid("rp_notbox", "pou"), boxSrc)).toBe(boxSrc)
 
 		const flagSrc = program(id("rp_notflag"), "FBD", `NETWORK\n  out := NOT a;\nEND_NETWORK\n`)
-		expect(await roundTrip(fid("rp_notflag", "prg"), flagSrc)).toBe(flagSrc)
+		expect(await roundTrip(fid("rp_notflag", "pou"), flagSrc)).toBe(flagSrc)
 	})
 
 	/**
@@ -149,7 +149,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * back changed: the title truncated at its own quote, the comment flattened to the left margin.
 	 */
 	it("a quoted title and an indented comment come back as written", async () => {
-		const full = fid("rp_text", "prg")
+		const full = fid("rp_text", "pou")
 		const src = program(
 			id("rp_text"),
 			"LD",
@@ -175,7 +175,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * pushed, and the second push then failed on a count change the archive writer will not make.
 	 */
 	it("pushing back what came out changes nothing", async () => {
-		const full = fid("rp_fix", "prg")
+		const full = fid("rp_fix", "pou")
 		const src = program(
 			id("rp_fix"),
 			"LD",
@@ -198,7 +198,7 @@ describe(`graphical / real-project shapes (${BASE})`, () => {
 	 * located (4.5's open item) — so none travels in the census round trip, and this is where a pushed Parallel is proved.
 	 */
 	it("a Parallel round-trips on CODESYS and is refused by name before TwinCAT's import", async () => {
-		const full = fid("rp_par", "prg")
+		const full = fid("rp_par", "pou")
 		const src = program(
 			id("rp_par"),
 			"LD",

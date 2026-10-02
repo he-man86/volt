@@ -73,7 +73,7 @@ test("healthDisplay maps each kind", () => {
 
 test("an unwalked folder outranks drift, because the counts cannot be trusted", () => {
   const ws: WorkspaceState = {
-    status: status({ incoming: { added: ["A.fb"], modified: [], removed: [] }, unwalkedFolders: ["Machine"] }),
+    status: status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, unwalkedFolders: ["Machine"] }),
     health: connected,
   }
   const d = aggregate([ws])
@@ -84,7 +84,7 @@ test("an unwalked folder outranks drift, because the counts cannot be trusted", 
 test("an unreadable item is reported but does not take the actionable step away", () => {
   // It is absent from BOTH sides of the diff, so every count is exactly right and "pull" is still the advice.
   const drifting: WorkspaceState = {
-    status: status({ incoming: { added: ["A.fb"], modified: [], removed: [] }, unreadable: ["Broken"] }),
+    status: status({ incoming: { added: ["A.pou"], modified: [], removed: [] }, unreadable: ["Broken"] }),
     health: connected,
   }
   expect(aggregate([drifting]).severity).toBe("drift")

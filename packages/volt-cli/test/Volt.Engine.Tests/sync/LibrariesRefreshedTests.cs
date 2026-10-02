@@ -79,7 +79,7 @@ public class LibrariesRefreshedTests
     {
         var ide = Project();
 
-        var resp = Fetch(ide, new FetchRequest { OnlyItems = new List<string> { "PLC_PRG.prg" } });
+        var resp = Fetch(ide, new FetchRequest { OnlyItems = new List<string> { "PLC_PRG.pou" } });
 
         Assert.False(resp.LibrariesRefreshed);
     }
@@ -90,7 +90,7 @@ public class LibrariesRefreshedTests
     [Fact]
     public void A_targeted_fetch_with_no_known_items_still_does_not_refresh()
         => Assert.False(Fetch(Project(),
-            new FetchRequest { OnlyItems = new List<string> { "PLC_PRG.prg" }, KnownItems = new() })
+            new FetchRequest { OnlyItems = new List<string> { "PLC_PRG.pou" }, KnownItems = new() })
             .LibrariesRefreshed);
 
     /// <summary>THE FLAG AND THE PAYLOAD AGREE. Asserting the boolean alone would pass over a service that set

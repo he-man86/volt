@@ -24,27 +24,27 @@ const cases: Case[] = [
   {
     code: "C0187",
     note: "external PROGRAM, CALLED from PLC_PRG (reachable)",
-    items: { "extProg.prg": "{external}\nPROGRAM extProg\nVAR\n  x : INT;\nEND_VAR\nEND_PROGRAM\n" },
+    items: { "extProg.pou": "{external}\nPROGRAM extProg\nVAR\n  x : INT;\nEND_VAR\nEND_PROGRAM\n" },
     plc: `PROGRAM PLC_PRG\nVAR\nEND_VAR\nextProg();\n${PROBE};\nEND_PROGRAM\n`,
   },
   // C0543 — soft-reserved keyword as identifier. F1 is instantiated + called; its body has the positive control.
   {
     code: "C0543-STEP",
     note: "var named STEP; F1 reachable + probed",
-    items: { "F1.fb": `FUNCTION_BLOCK F1\nVAR\n  STEP : INT;\nEND_VAR\n${PROBE};\nEND_FUNCTION_BLOCK\n` },
+    items: { "F1.pou": `FUNCTION_BLOCK F1\nVAR\n  STEP : INT;\nEND_VAR\n${PROBE};\nEND_FUNCTION_BLOCK\n` },
     plc: "PROGRAM PLC_PRG\nVAR\n  f : F1;\nEND_VAR\nf();\nEND_PROGRAM\n",
   },
   {
     code: "C0543-TRANSITION",
     note: "var named TRANSITION; F4 reachable + probed",
-    items: { "F4.fb": `FUNCTION_BLOCK F4\nVAR\n  TRANSITION : INT;\nEND_VAR\n${PROBE};\nEND_FUNCTION_BLOCK\n` },
+    items: { "F4.pou": `FUNCTION_BLOCK F4\nVAR\n  TRANSITION : INT;\nEND_VAR\n${PROBE};\nEND_FUNCTION_BLOCK\n` },
     plc: "PROGRAM PLC_PRG\nVAR\n  f : F4;\nEND_VAR\nf();\nEND_PROGRAM\n",
   },
   // C0561 — mutual recursion between two FUNCTIONs, both reachable via PLC_PRG (isolated run, clean reset).
   {
     code: "C0561-mutual",
     note: "A()<->B() mutual recursion, both called",
-    items: { "A.fun": "FUNCTION A : INT\nA := B();\nEND_FUNCTION\n", "B.fun": "FUNCTION B : INT\nB := A();\nEND_FUNCTION\n" },
+    items: { "A.pou": "FUNCTION A : INT\nA := B();\nEND_FUNCTION\n", "B.pou": "FUNCTION B : INT\nB := A();\nEND_FUNCTION\n" },
     plc: "PROGRAM PLC_PRG\nVAR\n  r : INT;\nEND_VAR\nr := A();\nEND_PROGRAM\n",
   },
   // C0564 — init order. Vars live in PLC_PRG itself (always tasked/built); probe confirms compilation.
@@ -61,7 +61,7 @@ for (const c of cases) {
   try {
     await fx.reset()
     for (const [name, src] of Object.entries(c.items)) await fx.set(name, src)
-    await fx.set("PLC_PRG.prg", c.plc)
+    await fx.set("PLC_PRG.pou", c.plc)
     const r = await call("build", { buildType: "full" })
     const diags = (r.diagnostics ?? []).filter((d: any) => d.severity === "error" || d.severity === "warning")
     const compiled = diags.some((d: any) => String(d.message).includes(PROBE))

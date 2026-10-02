@@ -13,14 +13,14 @@ describe(`kinds / top-level (${BASE})`, () => {
 
 	// function create: works on CODESYS; on TwinCAT it needs the omitted-vInfo create (see vendor-notes).
 	it("creates a function with a non-INT return type that survives (WriteText corrects the create seed)", async () => {
-		const name = id("k_func"), wire = fid("k_func", "fun")
+		const name = id("k_func"), wire = fid("k_func", "pou")
 		await createItem(wire, func(name))
 		const item = await fetchItem(wire)
 		expect(item.sourceText).toMatch(/FUNCTION \w+ : BOOL/)
 	})
 
 	it("creates an alias with a non-INT base type that survives", async () => {
-		const name = id("k_alias"), wire = fid("k_alias", "alias")
+		const name = id("k_alias"), wire = fid("k_alias", "dut")
 		await createItem(wire, aliasDut(name))
 		const item = await fetchItem(wire)
 		expect(item.sourceText).toContain("DWORD")

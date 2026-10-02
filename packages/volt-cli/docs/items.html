@@ -39,7 +39,7 @@
 <p>
   <b>The item NAME is the identity, and on the wire it is full</b> — <code>name.kind</code>. IEC guarantees
   unique names within a kind, not across them: a control module and the visualization that draws it are
-  <code>CM_Carrier.fb</code> and <code>CM_Carrier.visualization</code>, and a real customer project ships two
+  <code>CM_Carrier.pou</code> and <code>CM_Carrier.visualization</code>, and a real customer project ships two
   such pairs. Collapsed onto one bare slot, the walk order picked a winner — the FB's version was invisible to
   the aggregate hash, and the push's <code>ifVersion</code> gate answered with the <i>visualization's</i> hash,
   which meant the FB could be pulled and never pushed back.
@@ -55,12 +55,36 @@
   place; an item that could not be materialized has no full name and keeps its bare one there.
 </p>
 <p>
-  A file's extension carries the <b>kind</b> and nothing else. A body's language is not in the extension: an
-  editable FBD/LD body is the same <code>.fb</code>/<code>.prg</code>/<code>.fun</code> as a textual one — the
+  A file's extension carries the <b>kind</b> — what the IDE stores per object, its class — and nothing else. A
+  body's language is not in the extension: an editable FBD/LD body is the same <code>.pou</code> as a textual one — the
   language rides on the body's <a href="network-text.html#body-line">IMPLEMENTATION line</a> in the content,
   <code>IMPLEMENTATION ST</code>, <code>IMPLEMENTATION FBD</code> or <code>IMPLEMENTATION LD</code> — and a
   CFC/SFC/IL body is that kind's extension too, materialized as its line <code>IMPLEMENTATION CFC UNSUPPORTED</code>
   (and so on) with no implementation under it.
+</p>
+
+<h3 id="pou">The POU: one class, one kind, one wire name</h3>
+<p>
+  A program, a function block and a function are <b>one item kind</b>, <code>pou</code>, published, stored, pushed
+  and analysed as <b><code>X.pou</code></b> on both vendors. Whether a POU is a PROGRAM, a FUNCTION_BLOCK or a
+  FUNCTION is decided by its <b>text</b> on both: CODESYS has one <code>POUObject</code> class whose kind follows its
+  declaration, and TwinCAT's three tree codes (602 / 603 / 604) lag an in-place write and are re-derived from the
+  text on a reload (DIALECT C2f, C2g, C2h). An extension carries only what the IDE stores per object, so nothing in
+  Volt reads which of the three a POU is — the IDE and its build own it, and the LSP reads it from the text as
+  analysis. A PROGRAM rewritten as a FUNCTION_BLOCK is an ordinary content update of <code>X.pou</code>.
+</p>
+<p>
+  The file's outer END line <b>mirrors its own header</b>: <code>PROGRAM</code> closes with <code>END_PROGRAM</code>,
+  <code>FUNCTION_BLOCK</code> with <code>END_FUNCTION_BLOCK</code>, <code>FUNCTION</code> with <code>END_FUNCTION</code>
+  — the keyword read with comments, strings and pragmas skipped. A declaration that opens with none of the three (an
+  empty or prose text, a <code>NAMESPACE</code>) closes with <code>END_FUNCTION_BLOCK</code>, the one fallback, and
+  the pull logs it by item name; it fires for no POU a vendor compiles. A push creates every POU as a function block
+  and writes its declaration before its members, so the IDE judges each member against the text that was sent
+  (DIALECT C2k). A member's kind is its class too, and a member whose text opens with another keyword than its
+  class's is refused on pull by name (C2l). (openspec <code>push-without-header-check</code> 5.Q — until then the wire
+  named a POU <code>X.prg</code> / <code>X.fb</code> / <code>X.fun</code> from its text. Those names are no extension
+  any more: a workspace that still holds such files sees them as foreign files and <code>X.pou</code> as added on its
+  next pull, and a baseline keyed by them is refused by name — delete <code>.git/volt/ide-refs.json</code> and pull.)
 </p>
 
 <h3 id="dut">The DUT: four codes, one kind, one wire name</h3>
@@ -187,7 +211,7 @@
 </p>
 <table>
   <tr><th>interfaces</th><th>becomes</th></tr>
-  <tr><td class="name">IPOUObject</td><td>program / function / function_block — refined from the declaration text</td></tr>
+  <tr><td class="name">IPOUObject</td><td>pou — by the class alone; the declaration text is not read (<a href="#pou">one POU kind</a>)</td></tr>
   <tr><td class="name">IDUTObject · ITextListEnumerationObject</td><td>dut — the second is a text-list-backed enum, which CODESYS models as its own object kind</td></tr>
   <tr><td class="name">IGVLObject · INVLObject</td><td>gvl</td></tr>
   <tr><td class="name">IInterfaceObject</td><td>interface</td></tr>

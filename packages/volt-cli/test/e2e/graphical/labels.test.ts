@@ -41,7 +41,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	}
 
 	it("a labelled network survives a round trip", async () => {
-		const name = id("lbl"), item = fid("lbl", "prg")
+		const name = id("lbl"), item = fid("lbl", "pou")
 		await clean(item)
 
 		// Two networks, the second LABELLED. No jump yet - the label alone must survive, because it is the half
@@ -79,7 +79,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * and disagreed with the vendor. Only a BUILD is outside that loop, so the build is part of the test now.
 	 */
 	it("a JMP to another network's label survives a round trip AND compiles", async () => {
-		const name = id("jmp"), item = fid("jmp", "prg")
+		const name = id("jmp"), item = fid("jmp", "pou")
 		await clean(item)
 		const before = await problems()
 
@@ -120,7 +120,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * and the conditional one was compared against the archive as though a return had outputs.
 	 */
 	it("a conditional RETURN survives a round trip AND compiles", async () => {
-		const name = id("ret"), item = fid("ret", "prg")
+		const name = id("ret"), item = fid("ret", "pou")
 		await clean(item)
 		const before = await problems()
 
@@ -163,7 +163,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	 * instead of letting the vendor's null-reference reach the engineer.
 	 */
 	it("an unconditional RETURN round-trips, or is refused with a reason", async () => {
-		const name = id("uret"), item = fid("uret", "prg")
+		const name = id("uret"), item = fid("uret", "pou")
 		await clean(item)
 
 		const src =
@@ -187,7 +187,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 
 	/** The same fact for an unconditional JMP, which shared both bugs and both fixes. */
 	it("an unconditional JMP round-trips, or is refused with a reason", async () => {
-		const name = id("ujmp"), item = fid("ujmp", "prg")
+		const name = id("ujmp"), item = fid("ujmp", "pou")
 		await clean(item)
 
 		const src =
@@ -224,7 +224,7 @@ describe(`graphical / labels and jumps (${BASE})`, () => {
 	]
 	for (const [key, nets] of SHAPES) {
 		it(`the IDE holds a label shape (${key}): it round-trips exactly`, async () => {
-			const name = id(`lbl_${key}`), item = fid(`lbl_${key}`, "prg")
+			const name = id(`lbl_${key}`), item = fid(`lbl_${key}`, "pou")
 			await clean(item)
 			const src =
 				`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tout : BOOL;\n\tq : BOOL;\nEND_VAR\n` +

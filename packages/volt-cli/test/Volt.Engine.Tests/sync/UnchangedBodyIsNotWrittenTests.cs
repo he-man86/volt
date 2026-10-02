@@ -35,7 +35,7 @@ public class UnchangedBodyIsNotWrittenTests
     private static string Source(string body) => $"{Decl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n";
 
     private static FakeIde WithBody(string? body) =>
-        new(new FakeIde.Item("FB_X", ItemKind.PlcPouFb, "", true, Decl, body, null, null));
+        new(new FakeIde.Item("FB_X", ItemKind.PlcPou, "", true, Decl, body, null, null));
 
     /// <summary>Push <paramref name="source"/> at the existing item and hand back what the driver was asked to
     /// write — or null if nothing reached it.</summary>
@@ -45,7 +45,7 @@ public class UnchangedBodyIsNotWrittenTests
         var res = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = refs.ProjectVersion,
-            Ops = new() { new SetItemOp { Name = "FB_X.fb", SourceText = source, IfVersion = refs.Items["FB_X.fb"] } },
+            Ops = new() { new SetItemOp { Name = "FB_X.pou", SourceText = source, IfVersion = refs.Items["FB_X.pou"] } },
         });
         Assert.True(res.Accepted, "push refused: " + (res.Conflicts is null
             ? "(none)"

@@ -11,7 +11,7 @@ import { build } from "../../../frontend/symbols/index.js"
 // The check is ON by default; pass it explicitly to be robust to the default flipping.
 const diag = (src: string) => {
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
 }
 
@@ -48,7 +48,7 @@ test("a method touching a plain local (not a VAR_IN_OUT) does NOT warn", () => {
 test("ON by default (CODESYS default; hardly any project disables it) — fires without opting in", () => {
   const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.filter((d) => d.code === "inout-own-access").length).toBe(1)
 })
@@ -56,7 +56,7 @@ test("ON by default (CODESYS default; hardly any project disables it) — fires 
 test("a project that disabled the warning can turn it off (lints.inoutOwnAccess=false)", () => {
   const src = `FUNCTION_BLOCK FB\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD Meth : BOOL\nio := 5;\nEND_METHOD`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys", diagnostics: { "inout-own-access": "off" } }) })
   expect(ds.filter((d) => d.code === "inout-own-access")).toEqual([])
 })
@@ -66,7 +66,7 @@ test("a call argument's PARAMETER name is not a reference — one access, one wa
   // (conformance `xo3_inout_chain_four_deep`).
   const src = `FUNCTION F_mark : BOOL\nVAR_IN_OUT\nbook : INT;\nEND_VAR\nF_mark := TRUE;\nEND_FUNCTION\n\nFUNCTION_BLOCK FB_inner\nVAR_IN_OUT\nbook : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD Deeper\nF_mark(book := book);\nEND_METHOD`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   const msgs = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "inout-own-access")
     .map((d) => d.message)

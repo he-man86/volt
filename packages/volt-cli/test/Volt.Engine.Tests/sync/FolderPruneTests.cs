@@ -87,7 +87,7 @@ public class FolderPruneTests
     public void The_fake_can_express_a_folder_that_holds_nothing()
     {
         var ide = new FakeIde();
-        Push(ide, Create("A.prg", "Keep"));
+        Push(ide, Create("A.pou", "Keep"));
         Assert.True(HasFolder(ide, "Keep"));
 
         ide.Delete(ide.GetTreeRoot(), "A");     // the ITEM only — no prune involved
@@ -99,10 +99,10 @@ public class FolderPruneTests
     public void A_delete_that_empties_a_folder_removes_it()
     {
         var ide = new FakeIde();
-        Push(ide, Create("Gone.prg", "Empties"));
+        Push(ide, Create("Gone.pou", "Empties"));
         Assert.True(HasFolder(ide, "Empties"));
 
-        Push(ide, new DeleteItemOp { Name = "Gone.prg", IfVersion = VersionOf(ide, "Gone.prg") });
+        Push(ide, new DeleteItemOp { Name = "Gone.pou", IfVersion = VersionOf(ide, "Gone.pou") });
 
         Assert.False(HasFolder(ide, "Empties"), "the folder the delete emptied was left behind");
     }
@@ -113,9 +113,9 @@ public class FolderPruneTests
     public void A_move_out_removes_the_origin_and_keeps_the_destination()
     {
         var ide = new FakeIde();
-        Push(ide, Create("Trav.prg", "From"));
+        Push(ide, Create("Trav.pou", "From"));
 
-        Push(ide, new SetItemOp { Name = "Trav.prg", ToFolder = "To", IfVersion = VersionOf(ide, "Trav.prg") });
+        Push(ide, new SetItemOp { Name = "Trav.pou", ToFolder = "To", IfVersion = VersionOf(ide, "Trav.pou") });
 
         Assert.False(HasFolder(ide, "From"), "the folder the move emptied was left behind");
         Assert.True(HasFolder(ide, "To"), "the destination was pruned, and it holds the item");
@@ -128,10 +128,10 @@ public class FolderPruneTests
     public void The_ancestors_a_prune_empties_go_too()
     {
         var ide = new FakeIde();
-        Push(ide, Create("Deep.prg", "Chain/Mid/Leaf"));
+        Push(ide, Create("Deep.pou", "Chain/Mid/Leaf"));
         Assert.True(HasFolder(ide, "Chain/Mid/Leaf"));
 
-        Push(ide, new DeleteItemOp { Name = "Deep.prg", IfVersion = VersionOf(ide, "Deep.prg") });
+        Push(ide, new DeleteItemOp { Name = "Deep.pou", IfVersion = VersionOf(ide, "Deep.pou") });
 
         Assert.False(HasFolder(ide, "Chain/Mid/Leaf"));
         Assert.False(HasFolder(ide, "Chain/Mid"), "the chain was pruned one level and stopped");
@@ -145,9 +145,9 @@ public class FolderPruneTests
     public void A_folder_that_still_holds_something_is_left_alone()
     {
         var ide = new FakeIde();
-        Push(ide, Create("Stays.prg", "Parent"), Create("Leaves.prg", "Parent/Child"));
+        Push(ide, Create("Stays.pou", "Parent"), Create("Leaves.pou", "Parent/Child"));
 
-        Push(ide, new DeleteItemOp { Name = "Leaves.prg", IfVersion = VersionOf(ide, "Leaves.prg") });
+        Push(ide, new DeleteItemOp { Name = "Leaves.pou", IfVersion = VersionOf(ide, "Leaves.pou") });
 
         Assert.False(HasFolder(ide, "Parent/Child"), "the emptied child folder survived");
         Assert.True(HasFolder(ide, "Parent"), "the parent was pruned while it still held an item");
@@ -160,12 +160,12 @@ public class FolderPruneTests
     public void A_folder_that_was_already_empty_is_not_touched()
     {
         var ide = new FakeIde();
-        Push(ide, Create("Elsewhere.prg", "Other"));
+        Push(ide, Create("Elsewhere.pou", "Other"));
         ide.CreateChild(ide.GetTreeRoot(), "Untouched", ItemKind.PlcFolder);
         Assert.True(HasFolder(ide, "Untouched"));
 
         // A push that has nothing to do with it — and must therefore leave it exactly as it found it.
-        Push(ide, new DeleteItemOp { Name = "Elsewhere.prg", IfVersion = VersionOf(ide, "Elsewhere.prg") });
+        Push(ide, new DeleteItemOp { Name = "Elsewhere.pou", IfVersion = VersionOf(ide, "Elsewhere.pou") });
 
         Assert.True(HasFolder(ide, "Untouched"), "a folder this push did not empty was removed anyway");
     }

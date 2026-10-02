@@ -33,7 +33,7 @@
   <tr><td class="name">connector-YYYY-MM-DD.log</td><td>The connector / supervisor. A supervised worker's stdout rides in here too, tagged with its own source.</td></tr>
 </table>
 <p>Every line is <code>[timestamp][source][level] message</code>:</p>
-<pre>[2026-09-23 11:04:18.221][twincat][info] push 3 ops — accepted [created: FooFB.fb] (139 items) (215ms)</pre>
+<pre>[2026-09-23 11:04:18.221][twincat][info] push 3 ops — accepted [created: FooFB.pou] (139 items) (215ms)</pre>
 <p>To collect a session, zip that folder.</p>
 
 <h2 id="levels">Levels, and what is on by default</h2>
@@ -52,7 +52,7 @@
 
 <h2 id="lines">The lines worth knowing</h2>
 <h3 id="push-receipt">The push receipt — Info</h3>
-<pre>push 3 ops — accepted [created: FooFB.fb; updated: Bar.gvl; deleted: Gone.st] (139 items) (215ms)
+<pre>push 3 ops — accepted [created: FooFB.pou; updated: Bar.gvl; deleted: Gone.st] (139 items) (215ms)
 push 1 ops — REJECTED (Bar.gvl: item changed since you fetched its version, 0 already applied) (12ms)</pre>
 <p>
   An accepted push <b>names exactly what it wrote</b>, grouped by action. A rejected one names the item and the

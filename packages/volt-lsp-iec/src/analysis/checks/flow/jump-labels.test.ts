@@ -10,7 +10,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const codes = (body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "PLC_PRG.prg", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
 }
 
@@ -43,7 +43,7 @@ test("a keyword or a refused word as the destination: invalid, and the label 'IN
     const msgs = (body: string): string[] => {
       const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
       const parseResult = parseSource(src, { networkText: true }, vendor)
-      const project = build.buildSymbolTable([{ uri: "PLC_PRG.prg", parseResult, source: src }], [], vendor)
+      const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }], [], vendor)
       return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
     }
     const dot = vendor === "twincat" ? "." : ""

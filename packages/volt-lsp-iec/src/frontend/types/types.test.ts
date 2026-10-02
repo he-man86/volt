@@ -67,7 +67,7 @@ test("derived views match the legacy explicit sets", () => {
 // ─── C.2 resolve ───
 
 function proj(src: string): Scope {
-  return build.buildSymbolTable([{ uri: "F.fb", parseResult: parseSource(src, { networkText: true }), source: src }])
+  return build.buildSymbolTable([{ uri: "F.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
 }
 
 test("resolve: elementary carries facts; alias follows; FB/enum/struct carry scope", () => {
@@ -93,7 +93,7 @@ FUNCTION_BLOCK FB_A VAR n : INT; END_VAR END_FUNCTION_BLOCK`)
 function evalConst(varDecls: string, exprSrc: string) {
   const src = `FUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
   const scope = findChildScope(project, "F")!
   const e = lastExpr(pr.units[0] as FunctionBlock)
   return constEval(e, scope)
@@ -140,7 +140,7 @@ function lastExpr(fb: FunctionBlock): Expr {
 function inferExpr(unitsBefore: string, varDecls: string, exprSrc: string): Type {
   const src = `${unitsBefore}\nFUNCTION_BLOCK F\n${varDecls}\nprobe := ${exprSrc};\nEND_FUNCTION_BLOCK`
   const pr = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult: pr, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
   const scope = findChildScope(project, "F")!
   return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), scope, project)
 }
@@ -358,7 +358,7 @@ test("infer: a library enum's member through namespace and type is that enum's v
   const pr = parseSource(src, { networkText: true })
   const project = build.buildSymbolTable([
     { uri: lib, source: libSrc, parseResult: parseSource(libSrc, { networkText: true }) },
-    { uri: "F.fb", parseResult: pr, source: src },
+    { uri: "F.pou", parseResult: pr, source: src },
   ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
   const t = inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project)
   expect(renderType(t)).toBe("WEEKDAY")
@@ -374,9 +374,9 @@ test("infer: a POU a namespace holds is no static base — `Ns.Func`, `Ns.FB.x` 
     const src = `FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := ${rhs};\nEND_FUNCTION_BLOCK`
     const pr = parseSource(src, { networkText: true })
     const project = build.buildSymbolTable([
-      { uri: "App/Library Manager/Util/F_Void.fun", source: libFun, parseResult: parseSource(libFun, { networkText: true }) },
-      { uri: "App/Library Manager/Util/FB_T.fb", source: libFb, parseResult: parseSource(libFb, { networkText: true }) },
-      { uri: "F.fb", parseResult: pr, source: src },
+      { uri: "App/Library Manager/Util/F_Void.pou", source: libFun, parseResult: parseSource(libFun, { networkText: true }) },
+      { uri: "App/Library Manager/Util/FB_T.pou", source: libFb, parseResult: parseSource(libFb, { networkText: true }) },
+      { uri: "F.pou", parseResult: pr, source: src },
     ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
     return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project).kind
   }

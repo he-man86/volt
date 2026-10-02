@@ -54,13 +54,13 @@ const assigns = TYPES.flatMap((dst) => TYPES.map((src) => `  v_${dst} := v_${src
 const source = `FUNCTION_BLOCK ConvMatrix\nVAR\n${decls}\nEND_VAR\n${assigns}\nEND_FUNCTION_BLOCK\n`
 
 const refs0 = await call("refs")
-const plcName = ["PLC_PRG.prg", "MAIN.prg"].find((n) => refs0.items[n]) ?? "PLC_PRG.prg"
+const plcName = ["PLC_PRG.pou", "MAIN.pou"].find((n) => refs0.items[n]) ?? "PLC_PRG.pou"
 const plcItem0 = (await call("fetch", { knownItems: {}, onlyItems: [plcName] })).changed?.[0]
 const plcFolder = plcItem0?.folder ?? ""
 const plcOriginal: string = plcItem0?.sourceText ?? ""
-const prg = plcName.replace(".prg", "")
+const prg = plcName.replace(".pou", "")
 
-await pushOps([{ op: "set", name: "ConvMatrix.fb", toFolder: plcFolder, sourceText: source, ifVersion: null }])
+await pushOps([{ op: "set", name: "ConvMatrix.pou", toFolder: plcFolder, sourceText: source, ifVersion: null }])
 await pushOps([
   {
     op: "set",
@@ -113,4 +113,4 @@ if (disagreements.length) {
 await pushOps([
   { op: "set", name: plcName, toFolder: null, sourceText: plcOriginal, ifVersion: await version(plcName) },
 ])
-await pushOps([{ op: "deleteItem", name: "ConvMatrix.fb", ifVersion: await version("ConvMatrix.fb") }])
+await pushOps([{ op: "deleteItem", name: "ConvMatrix.pou", ifVersion: await version("ConvMatrix.pou") }])

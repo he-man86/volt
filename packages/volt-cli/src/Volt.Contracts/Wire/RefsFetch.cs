@@ -50,7 +50,7 @@ public class FetchRequest : BoundRequest
 
 public class FetchedItem
 {
-    /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.prg", "Foo.fb") — see
+    /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.pou", "Foo.pou") — see
     /// <c>Volt.Engine.Sync.Materializer.FullWireName</c> for a project item, and <c>Volt.Engine.Library.LibraryFetch</c>
     /// for a library element (its extension from <c>LibSignatureRenderer</c>). A DUT is "E_Mode.dut" whatever its
     /// shape, so the file a client writes is this name as given. A graphical FBD/LD body keeps its kind extension (language rides in the content), not a

@@ -15,17 +15,18 @@ namespace Volt.Engine.Sync;
 public static class PushedText
 {
     /// <summary>Whether the IDE can publish the ONE object pushed as <paramref name="pushedWireName"/> under
-    /// <paramref name="heldWireName"/> instead: the same bare name (IEC names are case-insensitive) and another kind of
-    /// the same family, the two a text write moves an object between. A push writes the text as sent and never reads
-    /// its header (openspec <c>push-without-header-check</c>), and the wire names an object by what the IDE holds:
-    /// CODESYS takes a POU's kind from its text (DIALECT C2f) — <c>X.fb</c> whose text says <c>PROGRAM</c> is published
-    /// as <c>X.prg</c>. A DUT is <c>X.dut</c> whatever its text (openspec 5.P), so it has no other name to be held as.
-    /// Any other pair is two items (<c>X.fb</c> beside <c>X.dut</c>, the item-name invariant).</summary>
+    /// <paramref name="heldWireName"/> instead: the same bare name in another CASE (IEC names are case-insensitive, and
+    /// the IDE keeps the spelling of the object it holds) and the same kind. A push writes the text as sent and never
+    /// reads its header (openspec <c>push-without-header-check</c>), and a POU is <c>X.pou</c> and a DUT <c>X.dut</c>
+    /// whatever their text says (5.Q, 5.P), so a text write moves no object to another name: the case-variant pair is
+    /// all that is left. (Until 5.Q, CODESYS published <c>X.fb</c> whose text said PROGRAM as <c>X.prg</c>, DIALECT C2f,
+    /// and this paired the three POU extensions.) Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
+    /// item-name invariant).</summary>
     public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
     {
         static string? Family(string wireName) => ItemKind.KindForWireName(wireName) switch
         {
-            ItemKind.Kinds.FunctionBlock or ItemKind.Kinds.Program or ItemKind.Kinds.Function => ItemKind.Kinds.Program,
+            ItemKind.Kinds.Pou => ItemKind.Kinds.Pou,
             ItemKind.Kinds.Dut => ItemKind.Kinds.Dut,
             _ => null,
         };
@@ -49,9 +50,10 @@ public static class PushedText
             ?? throw new System.ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName));
         var a = StReader.Read(pushed, kind);
         var b = StReader.Read(held, kind);
-        // The outer END line is a token the item content does not carry (the IDE writes it from the object's kind),
-        // so it is compared on its own: TwinCAT gives `PROGRAM X … END_PROGRAM` pushed under `X.fb` back as
-        // `… END_FUNCTION_BLOCK` (DIALECT C2f), which is not the pushed text laid out otherwise.
+        // The outer END line is a token the item content does not carry (the IDE stores no END line; a pull writes it
+        // from the declaration's own header, `StWriter`), so it is compared on its own: a pushed END line that does not
+        // match its header (`PROGRAM X … END_FUNCTION_BLOCK`) comes back as `… END_PROGRAM`, which is not the pushed
+        // text laid out otherwise — the client is told, and the next pull brings the IDE's text in.
         return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)
                && StReader.OuterEndKeyword(pushed, kind) == StReader.OuterEndKeyword(held, kind)
                && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same);

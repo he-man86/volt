@@ -39,7 +39,7 @@ describe(`endpoints / refs (${BASE})`, () => {
 		await createItem(fid("r_maps"), fb(name), await plcFolder("POUs/Sub"))
 		await ensureCompiles(name)
 		const r = await bridge.refs()
-		const fullName = name + ".fb"
+		const fullName = name + ".pou"
 		expect(r.items[fullName]).toBeDefined()
 		expect(r.folders[fullName]).toBe(await plcFolder("POUs/Sub"))
 	})

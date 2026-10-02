@@ -19,8 +19,8 @@ const KEYWORD_LINE = 6
 async function diagnostics(src: string): Promise<Diagnostic[]> {
   const h = harness()
   await h.init(CAPS.pull)
-  await h.open("file:///F.fb", src)
-  const diags = await h.pull("file:///F.fb")
+  await h.open("file:///F.pou", src)
+  const diags = await h.pull("file:///F.pou")
   h.dispose()
   return diags
 }
@@ -160,25 +160,25 @@ test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the d
   const cases: { what: string; uri: string; src: string; line: number }[] = [
     {
       what: "a method-local variable",
-      uri: "file:///F.fb",
+      uri: "file:///F.pou",
       src: head + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n",
       line: 9,
     },
     {
       what: "a method's name",
-      uri: "file:///F.fb",
+      uri: "file:///F.pou",
       src: head + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n",
       line: 7,
     },
     {
       what: "a property's name",
-      uri: "file:///F.fb",
+      uri: "file:///F.pou",
       src: head + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n",
       line: 7,
     },
     {
       what: "the POU's own name",
-      uri: "file:///Implementation.fb",
+      uri: "file:///Implementation.pou",
       src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n",
       line: 0,
     },

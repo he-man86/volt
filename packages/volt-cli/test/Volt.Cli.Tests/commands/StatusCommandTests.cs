@@ -12,7 +12,7 @@ public class StatusCommandTests
     private static FakeIde.Item Prg(string impl = "x := 1;") =>
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", impl);
 
-    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
+    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.pou");
 
     [Fact]
     public void Status_shows_a_local_edit_as_outgoing_and_recommends_push()
@@ -25,7 +25,7 @@ public class StatusCommandTests
             File.WriteAllText(PrgPath(root), "PROGRAM PLC_PRG\n(* edited locally *)\n");
 
             var s = Commands.Status(root, client);
-            Assert.Contains("PLC_PRG.prg", s.Outgoing.Modified);
+            Assert.Contains("PLC_PRG.pou", s.Outgoing.Modified);
             Assert.Equal("volt push", s.Recommend);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -42,7 +42,7 @@ public class StatusCommandTests
             ide.MutateImplementation("PLC_PRG", "x := 99;");
 
             var s = Commands.Status(root, client);
-            Assert.Contains("PLC_PRG.prg", s.Incoming.Modified);
+            Assert.Contains("PLC_PRG.pou", s.Incoming.Modified);
             Assert.Equal("volt pull", s.Recommend);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
@@ -144,8 +144,8 @@ public class StatusCommandTests
         {
             Commands.Pull(root, client);
             ide.MutateImplementation("PLC_PRG", "x := 42;");        // the IDE moves → a real INCOMING change
-            File.WriteAllText(Path.Combine(root, "src", "PLC_PRG.prg"),
-                File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.prg")) + "\n// local edit\n");
+            File.WriteAllText(Path.Combine(root, "src", "PLC_PRG.pou"),
+                File.ReadAllText(Path.Combine(root, "src", "PLC_PRG.pou")) + "\n// local edit\n");
 
             var full = Commands.Status(root, client);
             Assert.False(full.IncomingStale);
@@ -226,7 +226,7 @@ public class StatusCommandTests
 
             Assert.Empty(s.Incoming.Removed);
             Assert.True(s.IncomingStale);
-            Assert.DoesNotContain("A.prg", s.Incoming.Removed);
+            Assert.DoesNotContain("A.pou", s.Incoming.Removed);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

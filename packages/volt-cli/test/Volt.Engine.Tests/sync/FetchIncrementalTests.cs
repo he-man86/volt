@@ -26,7 +26,7 @@ public class FetchIncrementalTests
         var full = Fetch(ide, new()).Items;                      // learn the baseline versions
         var resp = Fetch(ide, new Dictionary<string, string>(full)); // nothing changed since
         Assert.Empty(resp.Changed);
-        Assert.Contains("PLC_PRG.prg", resp.Items.Keys);         // still in the full version map
+        Assert.Contains("PLC_PRG.pou", resp.Items.Keys);         // still in the full version map
     }
 
     [Fact]
@@ -36,17 +36,17 @@ public class FetchIncrementalTests
         var full = Fetch(ide, new()).Items;
         ide.MutateImplementation("PLC_PRG", "x := 42;");
         var resp = Fetch(ide, new Dictionary<string, string>(full));
-        Assert.Contains(resp.Changed, c => c.Name == "PLC_PRG.prg" && c.SourceText.Contains("x := 42;"));
-        Assert.DoesNotContain(resp.Changed, c => c.Name == "FB_Motor.fb"); // untouched stays excluded
+        Assert.Contains(resp.Changed, c => c.Name == "PLC_PRG.pou" && c.SourceText.Contains("x := 42;"));
+        Assert.DoesNotContain(resp.Changed, c => c.Name == "FB_Motor.pou"); // untouched stays excluded
     }
 
     [Fact]
     public void OnlyItems_restricts_the_walk_to_the_named_subset()
     {
         var ide = TwoItem();
-        var resp = FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.prg" } });
-        Assert.Contains(resp.Changed, c => c.Name == "PLC_PRG.prg");
-        Assert.DoesNotContain(resp.Changed, c => c.Name == "FB_Motor.fb");
+        var resp = FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.pou" } });
+        Assert.Contains(resp.Changed, c => c.Name == "PLC_PRG.pou");
+        Assert.DoesNotContain(resp.Changed, c => c.Name == "FB_Motor.pou");
     }
 
     // A directed fetch (onlyItems) — the VS Code diff preview — discards everything but the named items, so it must
@@ -55,7 +55,7 @@ public class FetchIncrementalTests
     public void OnlyItems_skips_the_library_build()
     {
         var ide = TwoItem();
-        FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.prg" } });
+        FetchService.Handle(ide, new FetchRequest { OnlyItems = new() { "PLC_PRG.pou" } });
         Assert.Equal(0, ide.ExtractCalls);
     }
 
@@ -76,8 +76,8 @@ public class FetchIncrementalTests
         var full = Fetch(ide, new()).Items;
         ide.RemoveItem("FB_Motor");                              // the engineer deletes it in the IDE
         var resp = Fetch(ide, new Dictionary<string, string>(full));
-        Assert.Contains("FB_Motor.fb", resp.Removed);
-        Assert.DoesNotContain("FB_Motor.fb", resp.Items.Keys);
+        Assert.Contains("FB_Motor.pou", resp.Removed);
+        Assert.DoesNotContain("FB_Motor.pou", resp.Items.Keys);
     }
 
     [Fact]

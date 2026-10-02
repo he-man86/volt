@@ -45,7 +45,7 @@ describe(`graphical / the ??? marker (${BASE})`, () => {
 	 */
 	async function roundTrips(slug: string, lang: "FBD" | "LD", body: string, vars: string, tcCannotCreate?: string): Promise<void> {
 		const name = id(slug)
-		const item = fid(slug, "prg")
+		const item = fid(slug, "pou")
 		await clean(item)
 		// THE MARKER GOES AFTER `END_VAR`, and it took this suite's two failures to notice it was not.
 		//

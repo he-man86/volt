@@ -45,8 +45,8 @@ const METHOD = `METHOD Compute : INT\nVAR\n x : INT;\nEND_VAR\nCompute := x + b;
 
 function seed(store: WorkspaceStore) {
   store.seedDisk([
-    { uri: "file:///Base.fb", source: `${BASE}\n${METHOD}` }, // Base + its standalone method (same file)
-    { uri: "file:///Derived.fb", source: DERIVED },
+    { uri: "file:///Base.pou", source: `${BASE}\n${METHOD}` }, // Base + its standalone method (same file)
+    { uri: "file:///Derived.pou", source: DERIVED },
     { uri: "file:///GVL.gvl", source: GVL },
     { uri: "file:///Color.dut", source: ENUM },
   ])
@@ -61,28 +61,28 @@ test("incremental index ≡ full rebuild across a sequence of edits", () => {
   const derived = store.project().children.find((c) => c.name === "Derived")
   expect(derived?.baseScope?.name).toBe("Base")
 
-  store.openDocument("file:///Derived.fb", "iecst", 1, DERIVED)
+  store.openDocument("file:///Derived.pou", "iecst", 1, DERIVED)
   assertEquivalent(store, "after open Derived")
 
-  store.changeDocument("file:///Derived.fb", 2, [{ text: `${DERIVED}\nVAR x : REAL; END_VAR` }])
+  store.changeDocument("file:///Derived.pou", 2, [{ text: `${DERIVED}\nVAR x : REAL; END_VAR` }])
   assertEquivalent(store, "after change Derived (new var)")
 
   // Open a brand-new file not on disk.
-  store.openDocument("file:///New.fb", "iecst", 1, `FUNCTION_BLOCK New EXTENDS Base\nEND_FUNCTION_BLOCK`)
+  store.openDocument("file:///New.pou", "iecst", 1, `FUNCTION_BLOCK New EXTENDS Base\nEND_FUNCTION_BLOCK`)
   assertEquivalent(store, "after open New (new file, extends Base)")
 
   // Edit Base to drop `b` — Derived/New still EXTENDS it, the link must survive, and `b` must vanish.
-  store.openDocument("file:///Base.fb", "iecst", 1, `FUNCTION_BLOCK Base\nEND_FUNCTION_BLOCK\n${METHOD}`)
+  store.openDocument("file:///Base.pou", "iecst", 1, `FUNCTION_BLOCK Base\nEND_FUNCTION_BLOCK\n${METHOD}`)
   assertEquivalent(store, "after Base loses var b")
 
-  store.closeDocument("file:///New.fb")
+  store.closeDocument("file:///New.pou")
   assertEquivalent(store, "after close New (drops it)")
 
-  store.closeDocument("file:///Base.fb") // reverts to the on-disk Base (with b + method)
+  store.closeDocument("file:///Base.pou") // reverts to the on-disk Base (with b + method)
   assertEquivalent(store, "after close Base (reverts to disk)")
   expect(store.project().children.find((c) => c.name === "Base")?.symbols.has("b")).toBe(true)
 
-  store.closeDocument("file:///Derived.fb") // reverts to disk Derived
+  store.closeDocument("file:///Derived.pou") // reverts to disk Derived
   assertEquivalent(store, "after close Derived (reverts to disk)")
 })
 
@@ -90,7 +90,7 @@ test("incremental index ≡ full rebuild after a full disk reseed", () => {
   const store = new WorkspaceStore(resolveConfig({ vendor: "codesys" }))
   seed(store)
   store.project() // build once
-  store.openDocument("file:///Derived.fb", "iecst", 1, `${DERIVED}\nVAR y : INT; END_VAR`)
+  store.openDocument("file:///Derived.pou", "iecst", 1, `${DERIVED}\nVAR y : INT; END_VAR`)
   seed(store) // wholesale reseed while a buffer is open — open buffer must still win after rebuild
   assertEquivalent(store, "after reseed with an open buffer")
 })

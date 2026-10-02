@@ -43,7 +43,7 @@ describe(`graphical / importer grouping (${BASE})`, () => {
 		for (const [label, vars, body] of SHAPES) {
 			const tag = label.replace(/[^a-z]/gi, "").slice(0, 10)
 			const name = id(tag)
-			const item = fid(tag, "prg")
+			const item = fid(tag, "pou")
 
 			const clean = async () => {
 				const items = (await bridge.refs()).items ?? {}

@@ -24,19 +24,19 @@ const cyclicUnit = (pr: ReturnType<typeof parseSource>) => pr.units.find((u) => 
 test("a rebound file's method still resolves to its OWN FB, not a same-named sibling's", () => {
   const prB = parseSource(B, { networkText: true })
   const project = buildSymbolTable([
-    { uri: "A.fb", parseResult: parseSource(A, { networkText: true }), source: A },
-    { uri: "B.fb", parseResult: prB, source: B },
+    { uri: "A.pou", parseResult: parseSource(A, { networkText: true }), source: A },
+    { uri: "B.pou", parseResult: prB, source: B },
   ])
 
   // Prime the span index (what any diagnostic pass does before the first edit).
   expect(scopeForUnit(project, cyclicUnit(prB))!.parent!.name).toBe("UnitB")
 
   // Simulate didOpen on B as the server does it: unbind its disk contribution, bind a freshly-parsed buffer (new span
-  // objects), relink (canonicalize + linkExtends). B is rebound because canonical order puts A.fb FIRST: a stale-index
+  // objects), relink (canonicalize + linkExtends). B is rebound because canonical order puts A.pou FIRST: a stale-index
   // name-walk for the fresh `Cyclic` would grab UnitA's.
   const prB2 = parseSource(B, { networkText: true })
-  unbindFile(project, "B.fb")
-  bindFile(project, { uri: "B.fb", parseResult: prB2, source: B })
+  unbindFile(project, "B.pou")
+  bindFile(project, { uri: "B.pou", parseResult: prB2, source: B })
   relink(project)
 
   const scope = scopeForUnit(project, cyclicUnit(prB2))
@@ -58,7 +58,7 @@ test("a project kept current through random rebinds is the project a fresh build
   for (let i = 0; i < 24; i++) {
     const base = i % 5 === 0 ? "" : ` EXTENDS FB_${(i * 7) % 24}` // forward and backward bases, and a cycle or two
     const dup = i % 6 === 0 ? `\nFUNCTION_BLOCK Dup\nEND_FUNCTION_BLOCK` : "" // one name in several files
-    sources.set(`file:///p/f${String(i).padStart(2, "0")}.fb`, `FUNCTION_BLOCK FB_${i}${base}\nVAR v${i} : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Run\nEND_METHOD${dup}`)
+    sources.set(`file:///p/f${String(i).padStart(2, "0")}.pou`, `FUNCTION_BLOCK FB_${i}${base}\nVAR v${i} : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Run\nEND_METHOD${dup}`)
   }
   sources.set("file:///p/g.gvl", "VAR_GLOBAL\nv1 : INT;\nEND_VAR")
   sources.set("file:///p/a.dut", "TYPE Run : INT; END_TYPE")
@@ -134,14 +134,14 @@ test("a bare name a project unit and a library unit share finds the project's un
 // with namespace aliases, qualified `EXTENDS LA.X`, and a project unit named like a namespace.
 test("with library namespaces, a project kept current through random rebinds is the project a fresh build makes", () => {
   const sources = new Map<string, string>()
-  sources.set("file:///p/Library%20Manager/LibA/FB_Base.fb", "FUNCTION_BLOCK FB_Base\nVAR a : INT; END_VAR\nEND_FUNCTION_BLOCK")
-  sources.set("file:///p/Library%20Manager/LibB/FB_Base.fb", "FUNCTION_BLOCK FB_Base\nVAR b : INT; END_VAR\nEND_FUNCTION_BLOCK")
-  sources.set("file:///p/Library%20Manager/LibB/FB_Mid.fb", "FUNCTION_BLOCK FB_Mid EXTENDS FB_Base\nEND_FUNCTION_BLOCK")
+  sources.set("file:///p/Library%20Manager/LibA/FB_Base.pou", "FUNCTION_BLOCK FB_Base\nVAR a : INT; END_VAR\nEND_FUNCTION_BLOCK")
+  sources.set("file:///p/Library%20Manager/LibB/FB_Base.pou", "FUNCTION_BLOCK FB_Base\nVAR b : INT; END_VAR\nEND_FUNCTION_BLOCK")
+  sources.set("file:///p/Library%20Manager/LibB/FB_Mid.pou", "FUNCTION_BLOCK FB_Mid EXTENDS FB_Base\nEND_FUNCTION_BLOCK")
   const projUris: string[] = []
   for (let i = 0; i < 16; i++) {
     const ext = [" EXTENDS FB_Base", " EXTENDS LA.FB_Base", " EXTENDS LB.FB_Mid", ` EXTENDS FB_${(i * 5) % 16}`, ""][i % 5]
     const extra = i % 4 === 0 ? `\nFUNCTION_BLOCK FB_Base\nEND_FUNCTION_BLOCK` : i % 4 === 1 ? `\nFUNCTION_BLOCK LA\nEND_FUNCTION_BLOCK` : ""
-    const uri = `file:///p/src/f${String(i).padStart(2, "0")}.fb`
+    const uri = `file:///p/src/f${String(i).padStart(2, "0")}.pou`
     sources.set(uri, `FUNCTION_BLOCK FB_${i}${ext}\nVAR v : INT; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD M_${i % 3}\nEND_METHOD${extra}`)
     projUris.push(uri)
   }
@@ -221,22 +221,22 @@ test("binding is order-independent: every unit order within a file and every fil
     [dut, fun, user],
     [fun, user, dut],
   ].map((units) => units.join("\n"))
-  const expected = answer([{ uri: "a.fb", source: orders[0] }, { uri: "b.fb", source: twice }, { uri: "c.fb", source: twice }])
+  const expected = answer([{ uri: "a.pou", source: orders[0] }, { uri: "b.pou", source: twice }, { uri: "c.pou", source: twice }])
   expect(expected.slice(0, 5)).toEqual([
-    "bx -> var a.fb in FB_U",
-    "out -> var a.fb in FB_U",
-    "F_X -> function a.fb in (project)",
-    "S_T -> type a.fb in (project)",
-    "Twice -> function_block b.fb in (project)",
+    "bx -> var a.pou in FB_U",
+    "out -> var a.pou in FB_U",
+    "F_X -> function a.pou in (project)",
+    "S_T -> type a.pou in (project)",
+    "Twice -> function_block b.pou in (project)",
   ])
   for (const [i, text] of orders.entries())
     for (const files of [
-      [{ uri: "a.fb", source: text }, { uri: "b.fb", source: twice }, { uri: "c.fb", source: twice }],
-      [{ uri: "c.fb", source: twice }, { uri: "a.fb", source: text }, { uri: "b.fb", source: twice }],
-      [{ uri: "b.fb", source: twice }, { uri: "c.fb", source: twice }, { uri: "a.fb", source: text }],
+      [{ uri: "a.pou", source: text }, { uri: "b.pou", source: twice }, { uri: "c.pou", source: twice }],
+      [{ uri: "c.pou", source: twice }, { uri: "a.pou", source: text }, { uri: "b.pou", source: twice }],
+      [{ uri: "b.pou", source: twice }, { uri: "c.pou", source: twice }, { uri: "a.pou", source: text }],
     ]) {
       const got = answer(files)
-      // the in-file order moves only the order of a.fb's own scopes among themselves
+      // the in-file order moves only the order of a.pou's own scopes among themselves
       expect(got.slice(0, 6)).toEqual(expected.slice(0, 6))
       if (i === 0) expect(got).toEqual(expected)
     }

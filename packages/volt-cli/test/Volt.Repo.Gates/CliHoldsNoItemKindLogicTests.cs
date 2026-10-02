@@ -42,7 +42,7 @@ public class CliHoldsNoItemKindLogicTests
     /// <summary>A kind's extension hard-coded in CODE — `rel.EndsWith(".library")`, `"task"` — is a second copy of
     /// the engine's table: when the engine's spelling changes, the CLI silently stops recognising the kind. The
     /// extensions are read from that ONE table (<c>ItemKind.SourceKindExtensions</c> / <c>ReferenceKindExtensions</c>)
-    /// so the gate keeps no third copy. Comments are exempt here: a doc example (`"POUs/FB_Motor.fb"`) names a
+    /// so the gate keeps no third copy. Comments are exempt here: a doc example (`"POUs/FB_Motor.pou"`) names a
     /// file, it decides nothing.</summary>
     private static readonly Lazy<Regex> KindExtensionLiteral = new(() =>
     {
@@ -51,7 +51,7 @@ public class CliHoldsNoItemKindLogicTests
         var exts = Regex.Matches(itemKind, @"\(Kinds\.\w+,\s*""([a-z_]+)""\)").Select(m => m.Groups[1].Value)
             .Distinct(StringComparer.Ordinal).ToList();
         // A table that parsed to nothing would pass every file for the wrong reason.
-        Assert.True(exts.Count >= 20 && exts.Contains("library") && exts.Contains("fb") && exts.Contains("dut"),
+        Assert.True(exts.Count >= 20 && exts.Contains("library") && exts.Contains("pou") && exts.Contains("dut"),
             $"read {exts.Count} extension(s) from ItemKind.cs — the gate no longer understands the engine's table.");
         var alt = string.Join("|", exts.Select(Regex.Escape));
         // Case-blind: `.LIBRARY` under OrdinalIgnoreCase is the same kind check `.library` is — and case-folded
@@ -165,9 +165,9 @@ public class CliHoldsNoItemKindLogicTests
     [InlineData("if (rel.EndsWith(\"union\")) x();")]
     [InlineData("private static bool IsLibraryStub(string rel) => rel.EndsWith(\".library\", StringComparison.Ordinal);")]
     [InlineData("if (kind == Kinds.Dut) return;")]
-    [InlineData("if (!name.EndsWith(\".prg\", StringComparison.Ordinal)) continue;")]
+    [InlineData("if (!name.EndsWith(\".pou\", StringComparison.Ordinal)) continue;")]
     [InlineData("if (rel.EndsWith(\".LIBRARY\", StringComparison.OrdinalIgnoreCase)) x();")]
-    [InlineData("if (name.EndsWith(\".Fb\")) x();")]
+    [InlineData("if (name.EndsWith(\".Pou\")) x();")]
     public void The_gate_catches_a_kind_decision_in_any_spelling(string line) =>
         Assert.True(DecidesKind(line), $"the gate let a kind decision through: {line}");
 
@@ -175,7 +175,7 @@ public class CliHoldsNoItemKindLogicTests
     /// table used as a table, an engine question asked by the wire name.</summary>
     [Theory]
     [InlineData("foreach (var x in ItemKind.FileExtensions) { } // enumerate the table")]
-    [InlineData("    /// <summary>The full filename from a workspace path (\"POUs/FB_Motor.fb\" → \"FB_Motor.fb\").</summary>")]
+    [InlineData("    /// <summary>The full filename from a workspace path (\"POUs/FB_Motor.pou\" → \"FB_Motor.pou\").</summary>")]
     [InlineData("if (!Volt.Engine.Format.Network.NetworkText.CanHold(name)) continue;")]
     [InlineData("private enum Mode { A, B }")]
     public void The_gate_passes_what_decides_no_kind(string line) =>

@@ -37,7 +37,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 	it("a TWO-network body creates as two real networks", async () => {
 		const name = id("twonet")
-		const item = fid("twonet", "prg")
+		const item = fid("twonet", "pou")
 		await clean(item)
 
 		const src =
@@ -79,7 +79,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 	 */
 	it("a box's embedded OUTPUT pin survives a create", async () => {
 		const name = id("boxout")
-		const item = fid("boxout", "prg")
+		const item = fid("boxout", "pou")
 		await clean(item)
 
 		const src =
@@ -125,7 +125,7 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 	it("a function-block CALL keeps its instance, not just its type", async () => {
 		const name = id("fbcall")
-		const item = fid("fbcall", "prg")
+		const item = fid("fbcall", "pou")
 		await clean(item)
 
 		const src =

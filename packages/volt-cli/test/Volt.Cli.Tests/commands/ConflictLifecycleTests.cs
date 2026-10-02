@@ -13,7 +13,7 @@ public class ConflictLifecycleTests
 {
     private static FakeIde.Item Prg(string impl = "x := 1;") =>
         FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", impl);
-    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
+    private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.pou");
 
     /// <summary>Seed, edit both sides of PLC_PRG differently, pull → a conflicted git merge; returns the IDE's
     /// post-conflict projectVersion (the baseline a finalise should land on).</summary>
@@ -54,7 +54,7 @@ public class ConflictLifecycleTests
         try
         {
             var resolvedBaseline = Conflict(root, ide, client);
-            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
+            Commands.Merge(root, resolve: "PLC_PRG.pou", useTheirs: true);
             Assert.Equal(0, Commands.Merge(root, cont: true).Code);
 
             Assert.False(Git.IsMerging(root));
@@ -72,7 +72,7 @@ public class ConflictLifecycleTests
         try
         {
             Conflict(root, ide, client);
-            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true); // take the IDE side
+            Commands.Merge(root, resolve: "PLC_PRG.pou", useTheirs: true); // take the IDE side
             Commands.Merge(root, cont: true);
 
             var s = Commands.Status(root, client);
@@ -91,7 +91,7 @@ public class ConflictLifecycleTests
         try
         {
             Conflict(root, ide, client);
-            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
+            Commands.Merge(root, resolve: "PLC_PRG.pou", useTheirs: true);
             Commands.Merge(root, cont: true);
 
             // A follow-up local edit pushes cleanly — the baseline is correct, so no phantom "IDE changed".
@@ -165,7 +165,7 @@ public class ConflictLifecycleTests
         try
         {
             Commands.Pull(root, client);
-            File.Delete(Path.Combine(root, "src", "POUs", "FB_Motor.fb")); // ours: delete
+            File.Delete(Path.Combine(root, "src", "POUs", "FB_Motor.pou")); // ours: delete
             ide.MutateImplementation("FB_Motor", "y := 99;");              // theirs: modify
             Assert.Equal("conflict", Commands.Pull(root, client).Kind);
 
@@ -175,7 +175,7 @@ public class ConflictLifecycleTests
             Assert.True(Git.IsMerging(root)); // NOT auto-committed
 
             // Explicit resolution then finalises.
-            Commands.Merge(root, resolve: "POUs/FB_Motor.fb", useTheirs: true);
+            Commands.Merge(root, resolve: "POUs/FB_Motor.pou", useTheirs: true);
             Assert.Equal(0, Commands.Merge(root, cont: true).Code);
             Assert.False(Git.IsMerging(root));
         }
@@ -207,7 +207,7 @@ public class ConflictLifecycleTests
         {
             Commands.Pull(root, client);
             var prg = PrgPath(root);
-            var fb = Path.Combine(root, "src", "POUs", "FB_Motor.fb");
+            var fb = Path.Combine(root, "src", "POUs", "FB_Motor.pou");
             File.WriteAllText(prg, File.ReadAllText(prg).Replace("x := 1;", "x := 2;"));   // ours (prg)
             File.WriteAllText(fb, File.ReadAllText(fb).Replace("y := 1;", "y := 2;"));      // ours (fb)
             ide.MutateImplementation("PLC_PRG", "x := 99;");                                // theirs (prg)
@@ -215,8 +215,8 @@ public class ConflictLifecycleTests
             Assert.Equal("conflict", Commands.Pull(root, client).Kind);
 
             // Resolve ONE BY ONE: keep the IDE's PLC_PRG, keep MY FB_Motor.
-            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
-            Commands.Merge(root, resolve: "POUs/FB_Motor.fb", useOurs: true);
+            Commands.Merge(root, resolve: "PLC_PRG.pou", useTheirs: true);
+            Commands.Merge(root, resolve: "POUs/FB_Motor.pou", useOurs: true);
             Assert.Equal(0, Commands.Merge(root, cont: true).Code);
 
             Assert.False(Git.IsMerging(root));

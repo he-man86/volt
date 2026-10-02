@@ -562,7 +562,7 @@ export interface VarDecl {
    *
    * The parser accepted both and recorded neither, so `r : REFERENCE TO UDINT REF= v` reached every consumer as
    * an ordinary assignment. Lowering then bound no target and refused every read of `r` as `pointer-order` — the
-   * single largest line in that refusal's histogram (141 corpus POUs, `ONTIME.fb`'s `refSeconds`). The
+   * single largest line in that refusal's histogram (141 corpus POUs, `ONTIME.pou`'s `refSeconds`). The
    * information was in the source and the AST dropped it.
    *
    * `FB_Init` — a `[(…), (…)]` list written straight after the type with NO operator: each element is one array

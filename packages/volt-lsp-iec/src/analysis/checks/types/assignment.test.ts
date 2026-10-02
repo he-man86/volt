@@ -11,7 +11,7 @@ import { computeSemanticDiagnostics, resolveConfig } from "../../index.js"
 const mismatches = (vars: string, body: string): string[] => {
   const src = `PROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -25,7 +25,7 @@ test("an LTIME literal into a TIME does not convert — it was silent", () => {
 const enumInto = (target: string, base = ""): string[] => {
   const src = `TYPE E_Mode :\n(\n\tIdle := 0,\n\tBusy := 1\n)${base};\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tx : ${target};\nEND_VAR\nx := E_Mode.Busy;\nEND_PROGRAM`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.prg", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -47,7 +47,7 @@ test("an enum with a written base type is unmeasured, so it stays silent", () =>
 const initMismatches = (vars: string): string[] => {
   const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\nEND_FUNCTION_BLOCK`
   const parseResult = parseSource(src, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.code === "assignment-type-mismatch")
     .map((d) => d.message)
@@ -141,7 +141,7 @@ test("a reference bound to a name only the shared resolution oracle can excuse i
     `${header}\nVAR\n${decls}\nEND_VAR\n;\nEND_FUNCTION_BLOCK`
   const codes = (src: string): string[] => {
     const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "assignment-type-mismatch")
       .map((d) => d.message)

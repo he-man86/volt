@@ -30,10 +30,6 @@ namespace Volt.Ide.Codesys
     {
         private const BindingFlags BF = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-        // Placeholder type CODESYS requires at create-time for a function (return_type);
-        // immaterial because WriteSourceText immediately sets the real declaration (and type) afterward.
-        private const string SeedType = "INT";
-
         private readonly object? _projects;
         private readonly object? _objMgr;   // _3S.CoDeSys.Core.Objects.IObjectManager (SystemInstances.ObjectMgr)
 

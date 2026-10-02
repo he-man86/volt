@@ -24,7 +24,7 @@ const catalog = errorCatalog()
 function lspMessages(repro: string, extra?: { uri: string; source: string }[]): string[] {
   const parseResult = parseSource(repro, { networkText: true })
   const files = [
-    { uri: "F.fb", parseResult, source: repro },
+    { uri: "F.pou", parseResult, source: repro },
     ...(extra ?? []).map((f) => ({ uri: f.uri, source: f.source, parseResult: parseSource(f.source, { networkText: true }) })),
   ]
   const project = build.buildSymbolTable(files)

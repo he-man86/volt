@@ -2,19 +2,19 @@
  * THE LIBRARY REPO — the code behind a compiled library, written in ST.
  *
  * A project references a library, and `volt pull` materializes it under `Library Manager/<folder>/` as DECLARATIONS:
- * one `.fb`/`.fun` per element, no bodies, plus a `<folder>.library` manifest whose RESOLUTION line names the library
+ * one `.pou` (or `.dut`, `.gvl`, …) per element, no bodies, plus a `<folder>.library` manifest whose RESOLUTION line names the library
  * and the version the project resolved (`RESOLUTION Standard, 3.5.18.0 (System)`). A declaration is enough to type a
  * call and not enough to run one, so the transpiler refuses a bodyless library element (`call-library`).
  *
- * This folder holds the bodies: `<library>/<version>/<element>.fb|.fun`, each file the materialized declaration with
+ * This folder holds the bodies: `<library>/<version>/<element>.pou`, each file the materialized declaration with
  * its body written in, so the transpiler lowers it exactly as it lowers the project's own POUs — a library element is
  * not anything else. `withImplementations` is the whole lookup:
  *
  *     project  Library Manager/Standard/Standard.library   RESOLUTION Standard, 3.5.18.0
- *              Library Manager/Standard/TON.fb             the declaration
+ *              Library Manager/Standard/TON.pou            the declaration
  *        │  (library, version) → libraries/Standard/3.5.18.0/
  *        ▼
- *              Library Manager/Standard/TON.fb             the SAME uri, now with its body
+ *              Library Manager/Standard/TON.pou            the SAME uri, now with its body
  *
  * Keyed by the RESOLVED version, never the folder alone: a project on a version this repo has not written keeps its
  * bodyless declarations and stays refused, rather than running another version's code as if it were its own.
@@ -68,7 +68,7 @@ export function withImplementations(files: readonly LibraryFile[]): LibraryFile[
     const dir = resolved && implementationDir(resolved.library, resolved.version)
     if (dir === undefined) continue
     const folder = manifest.uri.slice(0, manifest.uri.length - manifest.uri.split(/[\\/]/).at(-1)!.length)
-    for (const name of readdirSync(dir).filter((n) => /\.(fb|fun)$/.test(n))) {
+    for (const name of readdirSync(dir).filter((n) => /\.pou$/.test(n))) {
       const file = { uri: folder + name, source: readFileSync(join(dir, name), "utf8") }
       const at = out.findIndex((f) => key(f.uri) === key(file.uri))
       if (at >= 0) out[at] = file

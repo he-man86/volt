@@ -20,8 +20,8 @@
  * `X.dut` (see `DUT_PUBLISHED_AS_DUT`).</p>
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { BASE } from "../lib/pipe"
-import { bridge, expectVendorDifference } from "../lib/bridge"
+import { BASE, VENDOR } from "../lib/pipe"
+import { bridge } from "../lib/bridge"
 import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
 
@@ -37,8 +37,8 @@ const DUT_PUBLISHED_AS_DUT = "push-without-header-check 5.B: no-subtype DUT publ
 /** The extension each unreadable name was pushed under: `unreadable` lists BARE names, and a forced delete reaches
  *  the object only under its own kind (a GVL is not reached as `.dut`). */
 const pushedAs = new Map<string, string>(
-	[["uc_struct", "dut"], ["uc_enum", "dut"], ["uc_gvl", "gvl"], ["uc_fb", "fb"], ["st_enum", "dut"], ["fb_prg", "fb"],
-	 ["upd", "fb"], ["empty", "dut"], ["prose", "dut"], ["implm", "dut"], ["retired", "gvl"]].map(([k, e]) => [id(KEY + k), e]),
+	[["uc_struct", "dut"], ["uc_enum", "dut"], ["uc_gvl", "gvl"], ["uc_fb", "pou"], ["st_enum", "dut"], ["fb_prg", "pou"],
+	 ["upd", "pou"], ["empty", "dut"], ["prose", "dut"], ["implm", "dut"], ["retired", "gvl"]].map(([k, e]) => [id(KEY + k), e]),
 )
 
 /** Delete every item this file made, readable or not. */
@@ -150,8 +150,11 @@ describe(`items / push without header check (${BASE})`, () => {
 		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
 		{ key: "uc_gvl", ext: "gvl", text: (b) => `(* Globals\n *\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, ref: (b) => ({ decl: "v : INT;", body: `v := ${b}_g;` }),
 		  errors: (b, m) => [`${m}: Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'`, `${m}: Identifier '${b}_g' not defined`], held: "fetched" },
-		{ key: "uc_fb", ext: "fb", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`, `${m}: Program name, function or function block instance expected instead of 'v'`], held: "fetched" },
+		{ key: "uc_fb", ext: "pou", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
+		  // TwinCAT does not parse this text as a POU, so its Solution Explorer caption carries no (FB) and the C2i guard
+		  // (5.H) never opens it: listed unreadable as `X.pou`, IN the session that wrote it too (measured 2026-10-02,
+		  // 5Qa review). CODESYS reads its class and fetches the text back.
+		  errors: (b, m) => [`${m}: Unknown type: '${b}'`, `${m}: Program name, function or function block instance expected instead of 'v'`], held: VENDOR === "twincat" ? "unreadable" : "fetched" },
 	]
 	for (const s of unclosed) {
 		it(`${s.ext} whose opening comment never closes: pushed as written, and the build reports it${s.known ? ` [known: ${s.known}]` : ""}`, async () => {
@@ -178,68 +181,61 @@ describe(`items / push without header check (${BASE})`, () => {
 		expect((await fetchItem(`${bare}.dut`)).sourceText.trimEnd()).toBe(text)
 	})
 
-	/** Measured 2026-09-30 (push-without-header-check 1.2/3.2): a POU text that contradicts its object's kind is held
-	 *  as ONE object on both vendors, but which kind it then IS differs. CODESYS takes the text's kind (the object
-	 *  becomes a PROGRAM, `refs` names it `.prg`); TwinCAT keeps the tree item it created or had (`refs` still names it
-	 *  `.fb`, and a pull renders the declaration it holds under the object's END line: `PROGRAM X … END_FUNCTION_BLOCK`)
-	 *  — the POU counterpart of DIALECT C2e's DUT tree code. */
-	const TEXT_KIND_WHY = "push-without-header-check 1.2/3.2 (measured 2026-09-30); cf. DIALECT C2e (TwinCAT keeps the tree kind)"
-	const heldAs = (bare: string, codesysExt: string, twincatExt: string) =>
-		expectVendorDifference(TEXT_KIND_WHY, { codesys: () => `${bare}.${codesysExt}`, twincat: () => `${bare}.${twincatExt}` })
-
+	/** A POU text whose kind differs from the object's (push-without-header-check 1.2/3.2, measured 2026-09-30) is held
+	 *  as ONE object on both vendors, and since 5.Q it is `X.pou` on both: the wire names a POU by its class, never by
+	 *  what its text declares (CODESYS takes the text's kind, TwinCAT's tree code lags it until a reload — DIALECT C2f —
+	 *  and neither is read). The pulled file's END line mirrors the header it holds: `PROGRAM X … END_PROGRAM`. */
 	/** The spec's second scenario: not refused, one object, and it builds when the main program calls it. */
-	it("X.fb whose text says PROGRAM is not refused for its header: one item, and it builds", async () => {
+	it("X.pou whose text says PROGRAM is not refused for its header: one item, and it builds", async () => {
 		const bare = id(KEY + "fb_prg")
 		const r = await pushReferenceBuild(
-			`${bare}.fb`,
+			`${bare}.pou`,
 			`PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 1;\nEND_PROGRAM\n`,
 			{ body: `${bare}();` },
 		)
 		expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 		expect(r.errors).toEqual([])
-		expect(Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))).toEqual([heldAs(bare, "prg", "fb")])
+		expect(Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
+		expect((await fetchItem(`${bare}.pou`)).sourceText.trimEnd()).toMatch(/\nEND_PROGRAM$/)
 	})
 
 	/** The same on an UPDATE of a live function block — the case the removed re-type guard's comment said made
 	 *  CODESYS clear the body. Measured on both vendors: the body is KEPT, the folder too, the object is never lost or
-	 *  duplicated, and pushing the fixed text under the name `refs` now publishes gives back the function block.
+	 *  duplicated, and pushing the fixed text gives back the function block.
 	 *
-	 *  <p>That is the name a user's workspace pushes it under: the CLI names the pushed item the IDE now publishes
-	 *  under another name, and the next pull moves the file there (CODESYS; `Commands.HeldUnderAnotherName`), or
-	 *  brings the IDE's text in as the change it is (TwinCAT; `PushedText.SameExceptLayout` reads the END line).
-	 *  A push of the fixed text under the ORIGINAL name at the version the client held before is refused by the
-	 *  version gate — the item is not there under that name (CODESYS) or changed (TwinCAT) — so it is a "pull first",
-	 *  never the re-type guard's "delete and create it", and nothing is written.</p> */
+	 *  <p>Since 5.Q the name never changes: it is `X.pou` throughout, an ordinary content update each time. A push of
+	 *  the fixed text at the version the client held BEFORE the PROGRAM text is refused by the version gate on both
+	 *  vendors — the item changed — so it is a "pull first", and nothing is written.</p> */
 	it("an FB updated with PROGRAM text keeps its body and one identity; the fixed text restores it", async () => {
 		const bare = id(KEY + "upd")
 		const fbText = (n: number) => `FUNCTION_BLOCK ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := ${n};\nEND_FUNCTION_BLOCK\n`
 		const folder = await plcFolder("POUs")
-		expect((await pushOps([{ op: "set", name: `${bare}.fb`, toFolder: folder, sourceText: fbText(5), ifVersion: null }])).accepted).toBe(true)
+		expect((await pushOps([{ op: "set", name: `${bare}.pou`, toFolder: folder, sourceText: fbText(5), ifVersion: null }])).accepted).toBe(true)
 
 		let refs = await bridge.refs()
-		const heldBefore = refs.items[`${bare}.fb`]
+		const heldBefore = refs.items[`${bare}.pou`]
 		const prgText = `PROGRAM ${bare}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := 6;\nEND_PROGRAM\n`
-		const r = await pushOps([{ op: "set", name: `${bare}.fb`, sourceText: prgText, ifVersion: heldBefore }])
+		const r = await pushOps([{ op: "set", name: `${bare}.pou`, sourceText: prgText, ifVersion: heldBefore }])
 		expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
 		refs = await bridge.refs()
-		const heldName = heldAs(bare, "prg", "fb")
+		const heldName = `${bare}.pou`
 		expect(Object.keys(refs.items).filter((n) => n.startsWith(bare))).toEqual([heldName])
 		const held = await fetchItem(heldName)
 		expect(held.sourceText).toMatch(/^PROGRAM /)
+		expect(held.sourceText.trimEnd()).toMatch(/\nEND_PROGRAM$/)
 		expect(held.sourceText).toMatch(/n := 6;/)
 		expect(held.folder).toBe(folder)
 
 		// Under the original name, at the version held before: refused by the gate, and nothing is written.
-		const stale = await bridge.push({ ops: [{ op: "set", name: `${bare}.fb`, sourceText: fbText(7), ifVersion: heldBefore }] })
+		const stale = await bridge.push({ ops: [{ op: "set", name: `${bare}.pou`, sourceText: fbText(7), ifVersion: heldBefore }] })
 		expect(stale.accepted).toBe(false)
-		expect(stale.conflicts.map((c: any) => [c.name, c.code])).toEqual([[`${bare}.fb`,
-			expectVendorDifference(TEXT_KIND_WHY, { codesys: () => "ITEM_MISSING", twincat: () => "STALE_ITEM_VERSION" })]])
+		expect(stale.conflicts.map((c: any) => [c.name, c.code])).toEqual([[`${bare}.pou`, "STALE_ITEM_VERSION"]])
 		expect((await bridge.refs()).items[heldName]).toBe(refs.items[heldName])
 
 		const fixed = await pushOps([{ op: "set", name: heldName, sourceText: fbText(7), ifVersion: refs.items[heldName] }])
 		expect(fixed.accepted, `refused: ${JSON.stringify(fixed.conflicts)}`).toBe(true)
-		expect(Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))).toEqual([`${bare}.fb`])
-		const back = await fetchItem(`${bare}.fb`)
+		expect(Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))).toEqual([`${bare}.pou`])
+		const back = await fetchItem(`${bare}.pou`)
 		expect(back.sourceText).toMatch(/^FUNCTION_BLOCK /)
 		expect(back.sourceText).toMatch(/n := 7;/)
 		expect(back.folder).toBe(folder)

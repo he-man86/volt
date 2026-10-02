@@ -37,7 +37,7 @@ public class ImplementationLanguagePushTests
     private static string Motor(string methodImpl) =>
         $"{Decl}\nIMPLEMENTATION ST\nout := a;\n\nEND_FUNCTION_BLOCK\n\nMETHOD DoReset : BOOL\n{methodImpl}\nEND_METHOD\n";
 
-    private static PushResponse Create(FakeIde ide, string source, string name = "FB_Motor.fb")
+    private static PushResponse Create(FakeIde ide, string source, string name = "FB_Motor.pou")
     {
         var refs = RefsService.Handle(ide);
         return PushService.Handle(ide, new PushRequest
@@ -275,17 +275,17 @@ public class ImplementationLanguagePushTests
     /// <summary>Reserved means reserved EVERYWHERE a workspace file names something, not only in the POU's own VAR
     /// block: a check hung on one declaration path passes the row above and lets every other position through.</summary>
     [Theory]
-    [InlineData("FB_Motor.fb", "Implementation",   // a method-local variable
+    [InlineData("FB_Motor.pou", "Implementation",   // a method-local variable
         FbHead + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n")]
-    [InlineData("FB_Motor.fb", "Implementation",   // a method's name
+    [InlineData("FB_Motor.pou", "Implementation",   // a method's name
         FbHead + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n")]
-    [InlineData("FB_Motor.fb", "implementation",   // an action's name
+    [InlineData("FB_Motor.pou", "implementation",   // an action's name
         FbHead + "ACTION implementation\nIMPLEMENTATION ST\n\nEND_ACTION\n")]
-    [InlineData("FB_Motor.fb", "Implementation",   // a property's name
+    [InlineData("FB_Motor.pou", "Implementation",   // a property's name
         FbHead + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n")]
-    [InlineData("Implementation.fb", "Implementation",   // the POU's own name
+    [InlineData("Implementation.pou", "Implementation",   // the POU's own name
         "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FB_Motor.fb", "IMPLEMENTATION",   // the same shape in a POU's own VAR block, above its boundary
+    [InlineData("FB_Motor.pou", "IMPLEMENTATION",   // the same shape in a POU's own VAR block, above its boundary
         "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
     public void IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position(string op, string name, string source)
     {
@@ -331,9 +331,9 @@ public class ImplementationLanguagePushTests
     [InlineData("SFC", "IMPLEMENTATION ST\n\nx := 1;")]
     public void An_ST_body_over_a_read_only_chart_is_refused_and_the_chart_is_kept(string language, string impl)
     {
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, ChartDecl, "", language, null));
 
-        var reason = Reason(Update(ide, "FB_Chart.fb", $"{ChartDecl}\n{impl}\n\nEND_FUNCTION_BLOCK\n"));
+        var reason = Reason(Update(ide, "FB_Chart.pou", $"{ChartDecl}\n{impl}\n\nEND_FUNCTION_BLOCK\n"));
 
         Assert.Contains(language, reason);
         Assert.Empty(ide.WrittenContent);
@@ -386,16 +386,16 @@ public class ImplementationLanguagePushTests
     }
 
     /// <summary>The exact pre-change shape of a body Volt cannot write — the retired comment, THEN the old marker
-    /// comment — is what the corpora hold today (<c>VltFixtureCfc.fb</c>, <c>VltFixtureSfc.fb</c>, lenze-mid
-    /// <c>Mach1_MIDS.prg</c>). It is a file from before the change like any other: refused, naming <c>volt pull</c>.</summary>
+    /// comment — is what the corpora hold today (<c>VltFixtureCfc.pou</c>, <c>VltFixtureSfc.pou</c>, lenze-mid
+    /// <c>Mach1_MIDS.pou</c>). It is a file from before the change like any other: refused, naming <c>volt pull</c>.</summary>
     [Theory]
     [InlineData("CFC")]
     [InlineData("SFC")]
     public void An_old_unsupported_POU_body_is_refused_naming_volt_pull(string language)
     {
-        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPouFb, "", true, ChartDecl, "", language, null));
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, ChartDecl, "", language, null));
 
-        var reason = Reason(Update(ide, "FB_Chart.fb",
+        var reason = Reason(Update(ide, "FB_Chart.pou",
             $"{ChartDecl}\n(* @volt-implementation *)\n(* @volt-graphical: {language} *)\n\nEND_FUNCTION_BLOCK\n"));
 
         Assert.Contains("volt pull", reason);
@@ -414,7 +414,7 @@ public class ImplementationLanguagePushTests
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, source, "F.fb"));
+        var reason = Reason(Create(ide, source, "F.pou"));
 
         Assert.Contains("volt pull", reason);
         AssertNothingWritten(ide);
@@ -442,12 +442,12 @@ public class ImplementationLanguagePushTests
     public void An_old_unsupported_member_body_in_a_folder_is_refused_naming_volt_pull()
     {
         var ide = new FakeIde(
-            new FakeIde.Item("FB_X", ItemKind.PlcPouFb, "", true, "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR", "", null, null, Children: new[] { "M" }),
+            new FakeIde.Item("FB_X", ItemKind.PlcPou, "", true, "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR", "", null, null, Children: new[] { "M" }),
             new FakeIde.Item("M", ItemKind.PlcMethod, "", false, "METHOD M : INT\nVAR\nEND_VAR", "", "CFC", null));
         var src = "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
                   "METHOD M : INT\nVAR\nEND_VAR\n(* @volt-implementation *)\n%FOLDER Sub\n(* @volt-graphical: CFC *)\nEND_METHOD\n";
 
-        var reason = Reason(Update(ide, "FB_X.fb", src));
+        var reason = Reason(Update(ide, "FB_X.pou", src));
 
         Assert.Contains("volt pull", reason);
         Assert.Empty(ide.WrittenContent);

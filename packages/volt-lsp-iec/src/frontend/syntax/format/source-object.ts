@@ -14,7 +14,7 @@
  *     reserved word are rules about splitting a POU's declaration from its body; a DUT or a GVL has no body, the push
  *     reads nothing of it, and CODESYS builds a member named IMPLEMENTATION and a GVL holding such a comment clean.
  *
- * A POU (`.fb`/`.prg`/`.fun`) and an interface (`.itf`) are split by the push, so the file format's rules hold there.
+ * A POU (`.pou`) and an interface (`.itf`) are split by the push, so the file format's rules hold there.
  * Text that is no workspace file — a conformance fixture packing several units, the library repo — has no object and
  * is read as before.
  *
@@ -24,9 +24,9 @@
 export type SourceObject = "pou" | "interface" | "dut" | "gvl"
 
 const BY_EXTENSION: Readonly<Record<string, SourceObject>> = {
-  ".fb": "pou",
-  ".prg": "pou",
-  ".fun": "pou",
+  // Every POU, whatever its text says (openspec push-without-header-check 5.Q): the extension carries only what the
+  // IDE stores per object, and whether a POU is a program, a function block or a function is its text's.
+  ".pou": "pou",
   ".itf": "interface",
   ".gvl": "gvl",
   // Every DUT, whatever its shape (openspec push-without-header-check 5.P). A text that does not open with TYPE
@@ -49,7 +49,7 @@ export function sourceObjectOf(uri: string): SourceObject | undefined {
 /**
  * The PATH a document is named by. A URI's object is its path's, never the last `.` of the whole string: the client's
  * selector is language-only, so an SCM diff's HEAD side arrives as `git:/…/DUT_A.dut?{"path":…,"ref":"HEAD"}`,
- * whose query ends inside encoded JSON. A scheme is two or more characters, so a drive letter (`C:\w\X.fb`) and a
+ * whose query ends inside encoded JSON. A scheme is two or more characters, so a drive letter (`C:\w\X.pou`) and a
  * bare path stay the path they are.
  */
 function pathOf(uri: string): string {

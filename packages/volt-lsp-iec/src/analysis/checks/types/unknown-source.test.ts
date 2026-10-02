@@ -14,7 +14,7 @@ import type { Vendor } from "../../config.js"
 // is a harness that cannot fail for the shapes this file is about.
 function msgs(src: string, vendor: Vendor = "codesys"): string[] {
   const parseResult = parseSource(src, { networkText: true }, vendor)
-  const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }], [], vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
   return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
     .filter((d) => d.code === "unknown-source")
     .map((d) => d.message)

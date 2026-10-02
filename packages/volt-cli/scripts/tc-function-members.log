@@ -1,0 +1,26 @@
+
+==== 2026-10-02T18:51:56.003Z phase create (pipe volt.bridge.twincat.19796)
+  entry program: PLC_PRG.pou in ""
+  create FUNCTION text + METHOD M (one create)                     REFUSED
+      UNSUPPORTED: 'VltQ_FunM': the IDE refused to create its method 'M': TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)\nParentPath: 'TIPC^Untitled2^Untitled2 Project^VltQ_FunM' (ITcSmTreeItem:CreateChild — 'VltQ_FunM' is not created (the create is rolled back). Which memb
+  create FUNCTION text alone                                       ACCEPTED
+  update: add METHOD M under FUNCTION text                         REFUSED
+      UNSUPPORTED: 'VltQ_FunM': the IDE refused to create its method 'M': TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)\nParentPath: 'TIPC^Untitled2^Untitled2 Project^VltQ_FunM' (ITcSmTreeItem:CreateChild — nothing of 'VltQ_FunM' was written. Which members a POU accepts fo
+  create FUNCTION_BLOCK text + METHOD KM                           ACCEPTED
+  update: FUNCTION text, keeping METHOD KM                         ACCEPTED
+  update: FUNCTION text, adding METHOD K2                          REFUSED
+      UNSUPPORTED: 'VltQ_FbKeep': the IDE refused to create its method 'K2': TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)\nParentPath: 'TIPC^Untitled2^Untitled2 Project^VltQ_FbKeep' (ITcSmTreeItem:CreateChild — nothing of 'VltQ_FbKeep' was written. Which members a POU acc
+  VltQ_FunM.pou: FUNCTION VltQ_FunM : INT | END_FUNCTION
+  VltQ_FbKeep.pou: FUNCTION VltQ_FbKeep : INT | END_FUNCTION | METHOD KM : BOOL
+  build: success=true; diagnostics on VltQ_*: none
+
+==== 2026-10-02T18:53:29.961Z phase reload (pipe volt.bridge.twincat.25548)
+  entry program: PLC_PRG.pou in ""
+  after reload: VltQ_FunM.pou published, VltQ_FbKeep.pou published; unreadable: []
+  VltQ_FunM.pou: FUNCTION VltQ_FunM : INT | END_FUNCTION
+  VltQ_FbKeep.pou: FUNCTION VltQ_FbKeep : INT | END_FUNCTION | METHOD KM : BOOL
+  after reload: update KEEP adding METHODs K2 + K3 under FUNCTION text   REFUSED   [label corrected 2026-10-02: the probe sent KM + K2 + K3 and was labelled "adding METHOD K3"; K2 is new too (refused before the reload) and is the first create, so the refusal names K2]
+      UNSUPPORTED: 'VltQ_FbKeep': the IDE refused to create its method 'K2': TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type 'TREEITEMTYPE_PLCPOUFUNC' (SubType mismatch)\nParentPath: 'TIPC^Untitled2^Untitled2 Project^VltQ_FbKeep' (ITcSmTreeItem:CreateChild — nothing of 'VltQ_FbKeep' was written. Which members a POU a
+  VltQ_FbKeep.pou: FUNCTION VltQ_FbKeep : INT | END_FUNCTION | METHOD KM : BOOL
+  build: success=true; diagnostics on VltQ_*: none
+  cleaned up: []

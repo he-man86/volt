@@ -2,14 +2,12 @@ import { statSync } from "node:fs"
 import { join } from "node:path"
 
 // The kind-named writable-source extensions (POU/DUT/GVL/interface, textual or editable graphical).
-// Every DUT is `dut` whatever its shape, and the file name IS the wire name. Bare (no leading dot), matching
+// Every POU is `pou` and every DUT `dut` whatever their text says, and the file name IS the wire name. Bare (no leading dot), matching
 // how the CLI/bridge name wire files. volt-control can't cleanly depend on the LSP for this
 // (wrong-direction coupling), so it keeps its own copy; `scripts/check-wiring.ts` cross-checks it
 // against every other copy to prevent drift.
 export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
-  "fb",
-  "prg",
-  "fun",
+  "pou",
   "itf",
   "gvl",
   "dut",

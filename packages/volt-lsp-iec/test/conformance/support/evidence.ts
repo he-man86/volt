@@ -102,7 +102,7 @@ function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dia
       return [split.item, ...split.lists]
     })
   const plcText = plcPrgSource(t)
-  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText, { networkText: true }, vendor) }
+  const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.pou`, source: plcText, parseResult: parseSource(plcText, { networkText: true }, vendor) }
   const files = [own, ...lists, plc, ...deps]
   // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
   let project = lspBase.get(vendor)
@@ -167,7 +167,7 @@ const CONFIGURABLE_SEVERITY: ReadonlySet<string> = new Set(["pointer-not-convert
 
 /** The file extension a fixture's kind materializes as — one object per file, as the wire keys them. */
 function extFor(kind: LanguageTest["kind"]): string {
-  return kind === "function_block" ? "fb" : kind === "function" ? "fun" : kind === "program" ? "prg" : kind === "gvl" ? "gvl" : kind === "interface" ? "itf" : kind
+  return kind === "function_block" || kind === "function" || kind === "program" ? "pou" : kind === "gvl" ? "gvl" : kind === "interface" ? "itf" : kind
 }
 
 /** The fixture project's libraries parsed as `vendor` — as `fixtures.test.ts` `standardLibrary` parses them. */

@@ -70,7 +70,7 @@ public class CreateRollbackTests
     {
         var ide = Refusing();
 
-        var res = Push(ide, "FB_New.fb", Source, null);
+        var res = Push(ide, "FB_New.pou", Source, null);
         Assert.False(res.Accepted, "the push must be refused");
 
         Assert.False(ide.Exists("FB_New"),
@@ -86,7 +86,7 @@ public class CreateRollbackTests
 
         // A refusal is a CONFLICT on the response, not an exception — that is the wire contract, so a push of
         // many ops can report which one failed and why rather than losing the batch to a stack trace.
-        var res = Push(ide, "FB_New.fb", Source, null);
+        var res = Push(ide, "FB_New.pou", Source, null);
 
         Assert.False(res.Accepted);
         var reason = Reasons(res);
@@ -98,10 +98,10 @@ public class CreateRollbackTests
     [Fact]
     public void An_existing_item_survives_a_refused_write()
     {
-        var ide = Refusing(new FakeIde.Item("FB_New", ItemKind.PlcPouFb, "", true, Decl, "n := 0;", null, null));
+        var ide = Refusing(new FakeIde.Item("FB_New", ItemKind.PlcPou, "", true, Decl, "n := 0;", null, null));
 
         var refs = RefsService.Handle(ide);
-        var res = Push(ide, "FB_New.fb", Source, refs.Items["FB_New.fb"]);
+        var res = Push(ide, "FB_New.pou", Source, refs.Items["FB_New.pou"]);
 
         Assert.False(res.Accepted, "the write was refused");
         Assert.True(ide.Exists("FB_New"), "a refused UPDATE must leave the engineer's item alone");
@@ -114,7 +114,7 @@ public class CreateRollbackTests
     {
         var ide = new FakeIde();
 
-        var res = Push(ide, "FB_New.fb", Source, null);
+        var res = Push(ide, "FB_New.pou", Source, null);
 
         Assert.True(res.Accepted);
         Assert.True(ide.Exists("FB_New"));

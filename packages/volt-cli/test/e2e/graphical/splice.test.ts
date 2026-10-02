@@ -52,7 +52,7 @@ describe(`graphical / splice (${BASE})`, () => {
 
 	it("a body where only ONE network changed imports cleanly and keeps the other verbatim", async () => {
 		const name = id("splice_two")
-		const full = fid("splice_two", "prg")
+		const full = fid("splice_two", "pou")
 		await createItem(full, twoNetworks(name), "")
 
 		const v1 = (await fetchItem(full)).sourceText
@@ -85,7 +85,7 @@ describe(`graphical / splice (${BASE})`, () => {
 		// used because TwinCAT skips unreferenced POUs, and `ensureCompiles` declares an instance in the main
 		// program so the body is actually reached on both vendors.
 		const name = id("splice_build")
-		const full = fid("splice_build", "fb")
+		const full = fid("splice_build", "pou")
 		const src = `FUNCTION_BLOCK ${name}
 VAR
 \ta : BOOL;
@@ -118,7 +118,7 @@ END_FUNCTION_BLOCK
 
 	it("re-pushing a spliced body is a fixed point — the splice does not drift on repeat", async () => {
 		const name = id("splice_stable")
-		const full = fid("splice_stable", "prg")
+		const full = fid("splice_stable", "pou")
 		await createItem(full, twoNetworks(name), "")
 
 		const v1 = (await fetchItem(full)).sourceText

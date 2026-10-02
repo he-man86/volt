@@ -42,7 +42,7 @@ plugin — a plugin is Claude Code's only mechanism for registering a language s
 /plugin install volt-lsp@volt
 ```
 
-That registers `volt-lsp-iec` for `.fb`, `.prg`, `.fun`, `.itf`, `.gvl` and the DUT files (`.dut`), so Claude sees the same diagnostics your editor does instead of writing Structured Text blind.
+That registers `volt-lsp-iec` for the POU files (`.pou`), `.itf`, `.gvl` and the DUT files (`.dut`), so Claude sees the same diagnostics your editor does instead of writing Structured Text blind.
 
 It is worth gating the commands that write to your PLC. In your project's `.claude/settings.json`:
 

@@ -11,7 +11,7 @@ import { elementaryType, elementaryTypeRef } from "../../frontend/types/index.js
 test("an instance-path STRING holds Device.Application and the instance's path; refused outside a project tree", () => {
   const source =
     "PROGRAM PLC_PRG\nVAR outer : FB_Outer; direct : FB_Path; END_VAR\nouter();\nEND_PROGRAM\nFUNCTION_BLOCK FB_Outer\nVAR inner : FB_Path; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Path\nVAR\n\t{attribute 'instance-path'}\n\t{attribute 'noinit'}\n\tsPath : STRING(255);\nEND_VAR\nEND_FUNCTION_BLOCK\n"
-  const { pou, diagnostics } = lowerSource(source, "PLC_PRG", [], "C:/work/Line1/Device/Plc Logic/Application/PLC_PRG.prg")
+  const { pou, diagnostics } = lowerSource(source, "PLC_PRG", [], "C:/work/Line1/Device/Plc Logic/Application/PLC_PRG.pou")
   expect(diagnostics).toEqual([])
   const runner = run(pou!)
   expect([runner.get("direct.sPath"), runner.get("outer.inner.sPath")]).toEqual(["Device.Application.PLC_PRG.direct", "Device.Application.PLC_PRG.outer.inner"])
@@ -743,7 +743,7 @@ test("a root PROGRAM calls its own METHODs and ACTIONs bare, on its one instance
   // (`Device.Application.P.P.outer.inner`): the instance slot IS the program.
   const pathed =
     "PROGRAM P\nVAR outer : FB_Outer; END_VAR\nNop();\nEND_PROGRAM\nMETHOD Nop\nEND_METHOD\nFUNCTION_BLOCK FB_Outer\nVAR inner : FB_Path; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB_Path\nVAR\n\t{attribute 'instance-path'}\n\t{attribute 'noinit'}\n\tsPath : STRING(255);\nEND_VAR\nEND_FUNCTION_BLOCK\n"
-  const pathLowered = lowerSource(pathed, "P", [], "C:/work/Line1/Device/Plc Logic/Application/P.prg")
+  const pathLowered = lowerSource(pathed, "P", [], "C:/work/Line1/Device/Plc Logic/Application/P.pou")
   expect(pathLowered.diagnostics).toEqual([])
   expect(run(pathLowered.pou!).get("P.outer.inner.sPath")).toEqual("Device.Application.P.outer.inner")
   // An FB_Init argument naming the program's own VAR (recorded `fb_init_argument_from_variable`: 4) was refused once the
@@ -1044,7 +1044,7 @@ describe("lower — total, never silently wrong", () => {
   })
 
   test("bit access through a REFERENCE names the aliasing blocker, not a bad bit index", () => {
-    // pro2193 MapperInputs.fb: `slice : REFERENCE TO BYTE; bit1 := slice.0;` — phase 4, and its code must say so
+    // pro2193 MapperInputs.pou: `slice : REFERENCE TO BYTE; bit1 := slice.0;` — phase 4, and its code must say so
     const { diagnostics } = lowerSource("PROGRAM P\nVAR_INPUT slice : REFERENCE TO BYTE; END_VAR\nVAR b : BOOL; w : WORD; END_VAR\nb := slice.0;\nEND_PROGRAM\n")
     expect(diagnostics.map((d) => d.code)).toEqual(["bit-on-reference"])
     const beyond = lowerSource("PROGRAM P\nVAR b : BOOL; w : WORD; END_VAR\nb := w.16;\nEND_PROGRAM\n")
@@ -1528,9 +1528,9 @@ END_PROGRAM
   })
 })
 
-/** The Standard library as the bridge materializes it (`Library Manager/Standard/LEN.fun`) — only what these call. */
+/** The Standard library as the bridge materializes it (`Library Manager/Standard/LEN.pou`) — only what these call. */
 const STANDARD_LEN = {
-  uri: "Device/Plc Logic/Application/Library Manager/Standard/LEN.fun",
+  uri: "Device/Plc Logic/Application/Library Manager/Standard/LEN.pou",
   source: "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION\n",
 }
 
@@ -1695,9 +1695,9 @@ test("a duration CONSTANT divided by an integer VARIABLE computes in the duratio
  * elements are ordinary library units, run from the repo's ST (`test/libraries/standard.test.ts`).
  */
 describe("a library declaration without a body", () => {
-  const BODYLESS_FB = { uri: "file:///p/Library Manager/MyLib/VendorFB.fb", source: "FUNCTION_BLOCK VendorFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }
-  const SOURCED_FB = { uri: "file:///p/Library Manager/MyLib/RealFB.fb", source: "FUNCTION_BLOCK RealFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nQ := IN;\nEND_FUNCTION_BLOCK\n" }
-  const BODYLESS_FN = { uri: "file:///p/Library Manager/MyLib/VendorCalc.fun", source: "FUNCTION VendorCalc : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION\n" }
+  const BODYLESS_FB = { uri: "file:///p/Library Manager/MyLib/VendorFB.pou", source: "FUNCTION_BLOCK VendorFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n" }
+  const SOURCED_FB = { uri: "file:///p/Library Manager/MyLib/RealFB.pou", source: "FUNCTION_BLOCK RealFB\nVAR_INPUT\n\tIN : BOOL;\nEND_VAR\nVAR_OUTPUT\n\tQ : BOOL;\nEND_VAR\nQ := IN;\nEND_FUNCTION_BLOCK\n" }
+  const BODYLESS_FN = { uri: "file:///p/Library Manager/MyLib/VendorCalc.pou", source: "FUNCTION VendorCalc : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nEND_FUNCTION\n" }
 
   test("an FB call is refused rather than run as a no-op", () => {
     const r = lowerSource("PROGRAM PLC_PRG\nVAR\n\tf : VendorFB;\n\tq : BOOL;\nEND_VAR\nf(IN := TRUE);\nq := f.Q;\nEND_PROGRAM\n", "PLC_PRG", [BODYLESS_FB])
@@ -1988,7 +1988,7 @@ describe("lower — the clock, TIME() and LTIME()", () => {
 
 describe("lower — a STRING CURSOR (a character pointer a caller fills with a string's address)", () => {
   /** A library function over a character pointer, as the library repo writes one — `uri` keeps it a library unit. */
-  const lib = (name: string, source: string) => ({ uri: `Library Manager/Lib/${name}.fun`, source })
+  const lib = (name: string, source: string) => ({ uri: `Library Manager/Lib/${name}.pou`, source })
   const LEN = lib("CLEN", "FUNCTION CLEN : DINT\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nWHILE P^ <> 0 DO\n\tCLEN := CLEN + 1;\n\tP := P + 1;\nEND_WHILE\nEND_FUNCTION\n")
   // hands its cursor on, one byte in: the callee walks the same string from where this one stands
   const TAIL = lib("CTAIL", "FUNCTION CTAIL : DINT\nVAR_INPUT\n\tP : POINTER TO BYTE;\nEND_VAR\nP := P + 1;\nCTAIL := CLEN(P);\nEND_FUNCTION\n")
@@ -2106,9 +2106,9 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
 
 describe("lower — a LIBRARY BASE (libraries bound once, each program bound on top and taken off)", () => {
   const lib = (name: string, source: string) => ({ uri: `Library Manager/Lib/${name}`, source })
-  const F = lib("F.fun", "FUNCTION F : INT\nF := 7;\nEND_FUNCTION\n")
-  const BASE_FB = lib("B.fb", "FUNCTION_BLOCK B\nVAR_OUTPUT n : INT; END_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n")
-  const DERIVED = lib("D.fb", "FUNCTION_BLOCK D EXTENDS B\nn := 2;\nEND_FUNCTION_BLOCK\n")
+  const F = lib("F.pou", "FUNCTION F : INT\nF := 7;\nEND_FUNCTION\n")
+  const BASE_FB = lib("B.pou", "FUNCTION_BLOCK B\nVAR_OUTPUT n : INT; END_VAR\nn := 1;\nEND_FUNCTION_BLOCK\n")
+  const DERIVED = lib("D.pou", "FUNCTION_BLOCK D EXTENDS B\nn := 2;\nEND_FUNCTION_BLOCK\n")
   const PROGRAM = "PROGRAM P\nVAR x : INT; d : D; y : INT; END_VAR\nx := F();\nd();\ny := d.n;\nEND_PROGRAM\n"
   /** What a base's table IS, as lowering reads it: its units in order, and what each one extends. */
   const shape = (base: ReturnType<typeof libraryBase>) => base.prepared.project.children.map((c) => `${c.defUri}:${c.name}->${c.baseScope?.defUri ?? "-"}`)
@@ -2116,7 +2116,7 @@ describe("lower — a LIBRARY BASE (libraries bound once, each program bound on 
   test("a program lowers against it as against the files handed in whole — and leaves it as it was", () => {
     const base = libraryBase([F, BASE_FB, DERIVED])
     const before = shape(base)
-    const onBase = lowerSource(PROGRAM, "P", [], "p.prg", base)
+    const onBase = lowerSource(PROGRAM, "P", [], "p.pou", base)
     expect(onBase.diagnostics).toEqual([])
     expect(shape(base)).toEqual(before)
     const p = run(onBase.pou!)
@@ -2129,17 +2129,17 @@ describe("lower — a LIBRARY BASE (libraries bound once, each program bound on 
     // that is gone once it is taken off (a library's own B would win the link, which would prove nothing)
     const base = libraryBase([F, DERIVED])
     const before = shape(base)
-    lowerSource("FUNCTION_BLOCK B\nVAR_OUTPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + PROGRAM, "P", [], "p.prg", base)
+    lowerSource("FUNCTION_BLOCK B\nVAR_OUTPUT n : INT; END_VAR\nEND_FUNCTION_BLOCK\n" + PROGRAM, "P", [], "p.pou", base)
     expect(shape(base)).toEqual(before)
   })
 
   test("a file already in the base, or a manifest beside it, is a caller's mistake — said, not left to corrupt it", () => {
     const base = libraryBase([F])
-    expect(() => lowerSource(PROGRAM, "P", [F], "p.prg", base)).toThrow("already bound in the library base")
+    expect(() => lowerSource(PROGRAM, "P", [F], "p.pou", base)).toThrow("already bound in the library base")
     const manifest = { uri: "Library Manager/Lib/Lib.library", source: "LIBRARY Lib\nNAMESPACE Lib\nRESOLUTION Lib, 1.0.0.0 (x)\n" }
-    expect(() => lowerSource(PROGRAM, "P", [manifest], "p.prg", base)).toThrow(".library manifest")
+    expect(() => lowerSource(PROGRAM, "P", [manifest], "p.pou", base)).toThrow(".library manifest")
     // and the base is whole after both
-    expect(lowerSource("PROGRAM P\nVAR x : INT; END_VAR\nx := F();\nEND_PROGRAM\n", "P", [], "p.prg", base).diagnostics).toEqual([])
+    expect(lowerSource("PROGRAM P\nVAR x : INT; END_VAR\nx := F();\nEND_PROGRAM\n", "P", [], "p.pou", base).diagnostics).toEqual([])
   })
 })
 
@@ -2536,11 +2536,11 @@ test("a namespace-qualified FUNCTION and a project FUNCTION of the same name are
   const LIB = "C:/p/Device/Plc Logic/Application/Library Manager/LibScale"
   const libraries = [
     { uri: `${LIB}/LibScale.library`, source: "LIBRARY LibScale\nNAMESPACE LSC\nRESOLUTION LibScale, 1.0.0.0 (Acme)\n" },
-    { uri: `${LIB}/F_Scale.fun`, source: "FUNCTION F_Scale : INT\nVAR_INPUT x : INT; END_VAR\nF_Scale := x * 10 + 1000;\nEND_FUNCTION\n" },
+    { uri: `${LIB}/F_Scale.pou`, source: "FUNCTION F_Scale : INT\nVAR_INPUT x : INT; END_VAR\nF_Scale := x * 10 + 1000;\nEND_FUNCTION\n" },
   ]
   const fn = "FUNCTION F_Scale : INT\nVAR_INPUT x : INT; END_VAR\nF_Scale := x + 1;\nEND_FUNCTION\n"
   for (const body of ["a := LSC.F_Scale(2);\nb := F_Scale(2);", "b := F_Scale(2);\na := LSC.F_Scale(2);"]) {
-    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR a : INT; b : INT; END_VAR\n${body}\nEND_PROGRAM\n${fn}`, "P", libraries, "C:/p/Device/Plc Logic/Application/P.prg")
+    const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR a : INT; b : INT; END_VAR\n${body}\nEND_PROGRAM\n${fn}`, "P", libraries, "C:/p/Device/Plc Logic/Application/P.pou")
     expect(diagnostics).toEqual([])
     const runner = run(pou!)
     runner.scan()

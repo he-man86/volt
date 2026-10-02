@@ -37,11 +37,11 @@ public class MaterializerChildDeclTests
         var child = new FakeIde.Item("DoWork", ItemKind.PlcMethod, "", false,
             childDecl, null, "CFC", MethodExportWithParentInterfaceFirst(parentDecl));
         // Parent FB (textual body) owning the one CFC method child.
-        var parent = new FakeIde.Item("P", ItemKind.PlcPouFb, "", true,
+        var parent = new FakeIde.Item("P", ItemKind.PlcPou, "", true,
             parentDecl, null, null, null, Children: new[] { "DoWork" });
 
         var ide = new FakeIde(parent, child);
-        var text = Materializer.Materialize(ide, "P", "function_block", new ItemRef("P")).Text;
+        var text = Materializer.Materialize(ide, "P", ItemKind.Kinds.Pou, new ItemRef("P")).Text;
 
         // The child block carries the METHOD signature and its UNSUPPORTED keyword line.
         Assert.Contains("METHOD PRIVATE DoWork : BOOL", text);

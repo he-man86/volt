@@ -31,7 +31,7 @@ public class UnopenedItemTests
             PushService.Handle(ide, new PushRequest
             {
                 ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-                Ops = new List<PushOp> { new SetItemOp { Name = $"{name}.fb", ToFolder = folder, SourceText = Fb(name) } },
+                Ops = new List<PushOp> { new SetItemOp { Name = $"{name}.pou", ToFolder = folder, SourceText = Fb(name) } },
             });
         var baseline = RefsService.Handle(ide);
         ide.UnopenedItems.Add("Broken");
@@ -47,7 +47,7 @@ public class UnopenedItemTests
         var refs = RefsService.Handle(ide);
 
         Assert.Equal(new[] { "Broken" }, refs.Unreadable);
-        Assert.Equal(new[] { "A.fb", "B.fb" }, refs.Items.Keys.OrderBy(k => k).ToArray());
+        Assert.Equal(new[] { "A.pou", "B.pou" }, refs.Items.Keys.OrderBy(k => k).ToArray());
         Assert.Empty(refs.UnwalkedFolders);
         Assert.Empty(ide.OpenedUnopened);
     }
@@ -63,8 +63,8 @@ public class UnopenedItemTests
         var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = baseline.Items, KnownFolders = baseline.Folders });
 
-        Assert.Equal(new[] { "B.fb" }, refs.Removed);
-        Assert.Equal(new[] { "B.fb" }, fetch.Removed);
+        Assert.Equal(new[] { "B.pou" }, refs.Removed);
+        Assert.Equal(new[] { "B.pou" }, fetch.Removed);
         Assert.Equal(new[] { "Broken" }, fetch.Unreadable);
         Assert.Empty(ide.OpenedUnopened);
     }
@@ -90,12 +90,12 @@ public class UnopenedItemTests
         var set = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.fb", SourceText = Fb("Broken") } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.pou", SourceText = Fb("Broken") } },
         });
         var delete = PushService.Handle(ide, new PushRequest
         {
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.fb" } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.pou" } },
         });
 
         Assert.False(set.Accepted);
@@ -120,16 +120,16 @@ public class UnopenedItemTests
             ExpectedProjectVersion = RefsService.Handle(ide).ProjectVersion,
             Ops = new List<PushOp>
             {
-                new SetItemOp { Name = "A.fb", IfVersion = baseline.Items["A.fb"],
+                new SetItemOp { Name = "A.pou", IfVersion = baseline.Items["A.pou"],
                                 SourceText = Fb("A").Replace("n := 0;", "n := 1;") },
-                new DeleteItemOp { Name = "Broken.fb" },
+                new DeleteItemOp { Name = "Broken.pou" },
             },
         });
 
         Assert.False(push.Accepted);
         var conflict = Assert.Single(push.Conflicts!);
         Assert.Equal(BridgeErrorCodes.Unreadable, conflict.Code);
-        Assert.Equal("Broken.fb", conflict.Name);
+        Assert.Equal("Broken.pou", conflict.Name);
         Assert.DoesNotContain("already written", conflict.Reason);
         Assert.Empty(ide.Recorded);
         Assert.Empty(ide.OpenedUnopened);
@@ -143,7 +143,7 @@ public class UnopenedItemTests
         var push = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.fb" } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.pou" } },
         });
 
         Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
@@ -162,7 +162,7 @@ public class UnopenedItemTests
         var push = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.fb", SourceText = Fb("Broken") } },
+            Ops = new List<PushOp> { new SetItemOp { Name = "Broken.pou", SourceText = Fb("Broken") } },
         });
 
         Assert.True(push.Accepted, string.Join("; ", (push.Conflicts ?? new List<PushConflict>()).Select(c => c.Reason)));
@@ -171,7 +171,7 @@ public class UnopenedItemTests
         Assert.Equal("create:Broken", touched[1]);
         var refs = RefsService.Handle(ide);
         Assert.Empty(refs.Unreadable);
-        Assert.Equal("Data", refs.Folders["Broken.fb"]);
+        Assert.Equal("Data", refs.Folders["Broken.pou"]);
         Assert.Empty(ide.OpenedUnopened);
     }
 

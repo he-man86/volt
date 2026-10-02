@@ -20,7 +20,7 @@ public class LibSignatureRendererTests
     {
         var r = LibSignatureRenderer.Render(Fn("GETVERSION", new[] { new LibVar("GETVERSION", "VERSION") }, null));
         Assert.NotNull(r);
-        Assert.Equal(".fun", r!.Value.Ext);
+        Assert.Equal(".pou", r!.Value.Ext);
         Assert.Equal("FUNCTION GETVERSION : VERSION\nEND_FUNCTION", r.Value.Text);
     }
 
@@ -139,7 +139,7 @@ public class LibSignatureRendererTests
         var s = new LibSignature("UnitModeManager", "lib", "FunctionBlock",
             new LibVar[0], new LibVar[0], new LibVar[0], new LibVar[0], null, null, null, "", new[] { m });
         var r = LibSignatureRenderer.Render(s);
-        Assert.Equal(".fb", r!.Value.Ext);
+        Assert.Equal(".pou", r!.Value.Ext);
         Assert.Equal(
             "FUNCTION_BLOCK UnitModeManager\nEND_FUNCTION_BLOCK\n\n" +
             "METHOD SwitchUnitMode : BOOL\nVAR_INPUT\n\tNewMode : STRING;\nEND_VAR\nEND_METHOD",

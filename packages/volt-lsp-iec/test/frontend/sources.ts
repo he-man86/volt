@@ -8,7 +8,7 @@
  *             and TwinCAT build recordings;
  *   library   every ST body of the library repo (`libraries/<library>/<version>/`), which no IDE built: Volt wrote them.
  *
- * Ids are RELATIVE and slash-separated (`corpus/pro2193/…`, `fixture/<name>/<file>`, `library/Standard/3.5.18.0/TON.fb`),
+ * Ids are RELATIVE and slash-separated (`corpus/pro2193/…`, `fixture/<name>/<file>`, `library/Standard/3.5.18.0/TON.pou`),
  * so a dump taken in a temporary worktree (snapshot F, design.md P9) compares equal to one taken here.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
@@ -114,21 +114,17 @@ const buildRecordings = (vendor: Dialect): BuildRecordings =>
 
 /** The file extension a fixture's kind materializes as — as `support/evidence.ts` names it. */
 export function fixtureExtension(kind: LanguageTest["kind"]): string {
-  return kind === "function_block"
-    ? "fb"
-    : kind === "function"
-      ? "fun"
-      : kind === "program"
-        ? "prg"
-        : kind === "gvl"
-          ? "gvl"
-          : kind === "interface"
-            ? "itf"
-            : kind
+  return kind === "function_block" || kind === "function" || kind === "program"
+    ? "pou"
+    : kind === "gvl"
+      ? "gvl"
+      : kind === "interface"
+        ? "itf"
+        : kind
 }
 
 export const fixtureUri = (t: LanguageTest): string => `file:///conformance/${t.pouName}.${fixtureExtension(t.kind)}`
-export const plcUri = (t: LanguageTest): string => `file:///conformance/${t.name}/PLC_PRG.prg`
+export const plcUri = (t: LanguageTest): string => `file:///conformance/${t.name}/PLC_PRG.pou`
 
 let fixtureCache: FixtureSources[] | undefined
 /** Every fixture, in `ALL_TESTS` order, with its two build recordings. */
@@ -145,7 +141,7 @@ export function fixtureSources(): FixtureSources[] {
   fixtureCache = ALL_TESTS.map((t) => ({
     test: t,
     own: { id: `fixture/${t.name}/${t.pouName}.${fixtureExtension(t.kind)}`, uri: fixtureUri(t), source: t.source },
-    plc: { id: `fixture/${t.name}/PLC_PRG.prg`, uri: plcUri(t), source: plcPrgSource(t) },
+    plc: { id: `fixture/${t.name}/PLC_PRG.pou`, uri: plcUri(t), source: plcPrgSource(t) },
     codesys: recorded(codesys, t.name),
     twincat: recorded(twincat, t.name),
   }))
@@ -156,7 +152,7 @@ export function fixtureSources(): FixtureSources[] {
 
 /** Every ST body the library repo holds, in path order. */
 export function libraryRepoFiles(): SourceFile[] {
-  return walkSources(LIBRARY_REPO, new Set([".fb", ".fun"])).map((path) => ({
+  return walkSources(LIBRARY_REPO, new Set([".pou"])).map((path) => ({
     id: `library/${rel(path).slice("libraries/".length)}`,
     uri: path,
     source: readFileSync(path, "utf8"),

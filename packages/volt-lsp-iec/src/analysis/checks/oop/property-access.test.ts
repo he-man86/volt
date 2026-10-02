@@ -46,7 +46,7 @@ test("writing a set-only property is not flagged; reading a get-only property is
 test("the owning FB's own body names its property BARE — but the accessor's own value is not a read", () => {
   const run = (src: string) => {
     const parseResult = parseSource(src, { networkText: true })
-    const project = build.buildSymbolTable([{ uri: "F.fb", parseResult, source: src }])
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
     return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
       .filter((d) => d.code === "property-lacks-getter")
       .map((d) => d.message)

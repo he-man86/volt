@@ -91,7 +91,7 @@ public static class BuildService
     /// <c>Versioning.SafeVersion(...).Identity</c> every other map on this wire is keyed by.</para>
     ///
     /// <para>AMBIGUITY RESOLVES TO NULL, not to a guess. IEC guarantees unique names within a kind, not across
-    /// them: <c>CM_Carrier.fb</c> and <c>CM_Carrier.visualization</c> both exist in real projects, and a bare
+    /// them: <c>CM_Carrier.pou</c> and <c>CM_Carrier.visualization</c> both exist in real projects, and a bare
     /// `CM_Carrier` from the vendor names one of them without saying which. Publishing either would point a
     /// client's editor at the wrong file. A diagnostic that carries a <see cref="BridgeDiagnostic.Member"/> is the
     /// exception that is not a guess: it is inside a method, property or action, and only an item whose kind HOLDS

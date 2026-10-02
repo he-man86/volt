@@ -61,7 +61,7 @@ const SHAPES: readonly Shape[] = [
 		refusedBy: [],
 		items: [
 			{
-				name: "VltRefJump.fb",
+				name: "VltRefJump.pou",
 				source: `FUNCTION_BLOCK VltRefJump
 VAR
 \tout : BOOL;
@@ -86,7 +86,7 @@ END_FUNCTION_BLOCK
 		refusedBy: [],   // same swap as the JMP above, same day
 		items: [
 			{
-				name: "VltRefReturn.fb",
+				name: "VltRefReturn.pou",
 				source: `FUNCTION_BLOCK VltRefReturn
 VAR
 \tcond : BOOL;
@@ -118,7 +118,7 @@ END_FUNCTION_BLOCK
 		refusedBy: ["twincat"],
 		items: [
 			{
-				name: "VltRefExecute.fb",
+				name: "VltRefExecute.pou",
 				source: `FUNCTION_BLOCK VltRefExecute
 VAR
 \tbRun : BOOL;
@@ -144,7 +144,7 @@ END_FUNCTION_BLOCK
 		refusedBy: ["twincat"],
 		items: [
 			{
-				name: "VltRefSplit.fun",
+				name: "VltRefSplit.pou",
 				source: `FUNCTION VltRefSplit : INT
 VAR_INPUT
 \tsource : INT;
@@ -160,7 +160,7 @@ END_FUNCTION
 `,
 			},
 			{
-				name: "VltRefArrow.fb",
+				name: "VltRefArrow.pou",
 				source: `FUNCTION_BLOCK VltRefArrow
 VAR
 \tsrc : INT := 5;
@@ -209,7 +209,7 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 				// …AND NOTHING LANDED. The refusals here are decided by the driver's PLCopen writer, which is a pure
 				// function of the parsed body — so `ICodeStore.ValidateSource` runs it in the push PRE-FLIGHT and the
 				// whole family is refused before the first write. Until that existed, this shape wrote
-				// `VltRefSplit.fun` and then refused `VltRefArrow.fb`: a push the caller was told had failed, with
+				// `VltRefSplit.pou` and then refused `VltRefArrow.pou`: a push the caller was told had failed, with
 				// half of it in the project.
 				const after = await versions()
 				const added = Object.keys(after).filter((n) => before[n] === undefined)
@@ -297,7 +297,7 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 	]
 
 	for (const c of EDITS) {
-		const item = fid(c.key, "prg")
+		const item = fid(c.key, "pou")
 
 		it(`${c.what}: an UPDATE is refused too, or the body round-trips`, async () => {
 			await removeItem(item).catch(() => {})
