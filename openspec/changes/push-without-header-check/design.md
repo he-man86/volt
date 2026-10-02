@@ -623,3 +623,217 @@ the six corpora **8175 DUT files, 0 published `.dut`, 0 whose answer disagrees w
 (awa-palletizer 1738, bakon-nano 1784, CodesysTestProject 168, lenze-mid 2344, pro2193 2127, twincat-project14 14).
 The fixture rows are the table above (4 written-as-sent shapes → `.dut`; `pwh_prose_then_struct` the listed interim
 `struct`).
+
+## Step 5.C — TwinCAT: one total DUT-subtype classifier in the driver, on the shared trivia skipper
+
+(2026-10-02. Design only; no code. Tasks 5.C.1–5.C.3. 5.A.2 settled that TwinCAT needs this: no text-free source of
+the subtype is always right there (C2e, C2h). CODESYS gets its answer from the signature in 5.D and has no classifier.)
+
+### Target
+
+`BeckhoffDriver.DutSubtypeOf` stops calling the engine stand-in `CodeHelper.TryDutSubtype`. It calls ONE function in
+`Volt.Ide.Twincat` instead, `TcDutSubtype.Classify(string declaration) → DutSubtype?`. That function:
+
+1. **Is total.** Every string maps to exactly one answer, `Struct | Enum | Union | Alias` or null (published `name.dut`).
+   It never throws, and anything it cannot classify with certainty is null, never a guessed subtype.
+2. **Agrees with the vendor.** Its oracle is CODESYS's precompile signature on the same text (TwinCAT runs the same
+   3S compiler core, C2h). Over every corpus DUT, every fixture DUT, every table row and a fuzz set, it is **never a
+   subtype CODESYS denies** (hard 0). It is null where CODESYS answers only on shapes named below, each counted.
+3. **Reads trivia through the ONE skipper** that the child splitter also uses (5.E). There is no second copy, and that
+   skipper is the one that matches the vendors on nested comments (measured below).
+
+### Measured (2026-10-02)
+
+**The corpora do not separate the options.** Scratch prototypes (`c5/proto.py`, `c5/census.py` in the session
+scratchpad, not the repo) ran each candidate over the 8175 DUT files of the six corpora. These are **304 project DUTs**
+(awa 18, bakon 44, lenze 74, pro2193 154, twincat-project14 14) plus 7871 library DUTs that `LibSignatureRenderer`
+wrote (1957 distinct texts once the name is normalised). **Every option below agrees with every file's extension**
+(8175/8175, 0 null). The census shows why: real DUT heads are plain. Counted over the 8175 files:
+
+| shape | files | shape | files |
+|---|---|---|---|
+| body keyword on the line after `TYPE X :` | 7790 | `TYPE X : STRUCT` on one line | 2 |
+| `//` comment before `TYPE` | 44 | pragma before `TYPE` | 98 |
+| trivia between `:` and the body (`Gonio_Settings`) | 2 | trivia between `TYPE`, name and `:` | 0 |
+| nested `(* (* *) *)` anywhere | 2 (bodies) | unclosed `(*` | 0 |
+| conditional pragma (`{IF …}`) anywhere | 0 | lower/mixed-case keyword | 17 |
+| `EXTENDS` | 11 (all one base) | `EXTENDS A, B` | 0 |
+| enum with base type / with initial values | 33 / 1727 | attribute inside an enum | 0 |
+| alias: subrange / `POINTER TO` / `ARRAY` / `STRING(n)` / other | 39 / 45 / 13 / 22 / 301 | `REFERENCE TO` alias | 0 |
+| several types in one TYPE block | 0 | TYPE without END_TYPE | 0 |
+| BOM / CRLF in the file | 0 / 0 (pulled files are LF) | tabs / trailing spaces | 7178 / 63 |
+
+**The fixtures and the recorded build separate them.** The 4145 fixtures hold 253 DUT texts (13 pushed as sent).
+Options differ only on these, and the vendor facts that decide them are already recorded:
+
+| text (fixture) | vendor fact (recording) | S0 stand-in | C1 strict | **C5 chosen** |
+|---|---|---|---|---|
+| `pwh_prose_then_struct` (prose, then a valid STRUCT) | both builds: declares nothing (`Unknown type`) | `struct` ✗ | null ✓ | null ✓ |
+| `unit_type_no_body` (`TYPE X :` / `END_TYPE`) | CODESYS signature `Type`+`Alias` (C2g); TwinCAT reloads it as 623 alias (C2h) | null ✗ | null ✗ | `alias` ✓ |
+| `unit_type_missing_colon` (`TYPE X` / `STRUCT …`) | both builds: `': or EXTENDS' expected instead of 'STRUCT'` | `alias` ✗ | null | null |
+| `unit_struct_extends_list` (`EXTENDS A, B :`) | both builds: `':' expected instead of ','` | `struct` | `struct` | null |
+| `pwh_unclosed_comment_*`, `pwh_empty_struct`, `pwh_prose_struct` | signature `None` (C2g) | null ✓ | null ✓ | null ✓ |
+| `pwh_struct_text_is_enum`, `pwh_enum_text_is_struct`, `pwh_struct_missing_semicolon`, `pwh_struct_then_prose`, `pwh_struct_member_implementation` | signature `Enum` / `Structure` ×4 (body errors do not change it: `badmember` is `Structure`, C2g) | ✓ | ✓ | ✓ |
+| the other 237 fixture DUT texts | build as the shape they state | ✓ | ✓ | ✓ |
+
+**Both vendors nest block comments.** `lex_nested_block_comment` (`(* outer (* inner *) n := 99; still inside *)`)
+builds clean on CODESYS and on TwinCAT. A scanner that does not nest would read `n := 99;` as code. So would a
+classifier on it: `(* a (* b *) TYPE X : STRUCT …` answers `struct` (S0 and C3 do) where the vendor sees one unclosed
+comment and answers `None`. Two scanners exist in the engine today. `CodeHelper.CodeOn` skips LEADING trivia per line
+and does NOT nest (its own doc says so). It is what the splitter (`StReader.ScanContext`) and the stand-in use.
+`StTrivia` nests, blanks strings and pragmas, and is what the boundary rules use. Only `StTrivia` is right.
+
+**Everything else in 5.C.2's table has no vendor answer yet**: comments between every two head tokens, conditional
+pragmas, an unclosed pragma, a BOM, `TYPE X : ;`, `TYPE X : 5;`, `X : STRUCT` with no `TYPE`, `TYPE X : STRUCT EXTENDS B`
+(`unit_struct_extends_after_struct`: the build refuses it after the keyword), several types in one block, TYPE
+without END_TYPE, `TYPE X :` at end of text. The design does not guess these. The recorder below answers them before
+any classifier code is written.
+
+### Options
+
+**Grammar** (each measured in the table above):
+
+| option | rule | verdict |
+|---|---|---|
+| S0. keep the stand-in | first colon anywhere, non-nesting `CodeOn`, any token-led rest | rejected: 2 wrong subtypes on recorded fixtures (`pwh_prose_then_struct`, `unit_type_missing_colon`), wrong under nesting |
+| C1. strict head | `TYPE name [EXTENDS b {, b}] : X`, END_TYPE after the colon → null | rejected: `.dut` where both vendors say alias (`unit_type_no_body`), and it answers `struct` for an EXTENDS list both vendors refuse |
+| C3. C1 on `CodeOn` | as C1, non-nesting trivia | rejected: wrong subtype when a nested comment hides the head |
+| C4. C1 ignoring conditional pragmas | evaluates nothing, skips `{IF}` as trivia | rejected: which branch is live depends on defines the text does not hold, and TwinCAT's defines are not CODESYS's. Skipping them can answer the dead branch |
+| **C5. strict head, single base, END_TYPE → alias** | below | **chosen**: right on every recorded row, 0 null on the corpora |
+
+**Where the skipper lives** (5.C.1 says one skipper, shared with 5.E's splitter):
+
+| option | verdict |
+|---|---|
+| **K1. `StTrivia` (Engine), made public, with a token cursor over its one scan loop** | **chosen.** It already nests. The engine's splitter and the TwinCAT driver both reference `Volt.Engine`. `InternalsVisibleTo` reaches only the test assemblies, so the class becomes `public` |
+| K2. `CodeHelper.CodeOn` | rejected: does not nest (L3), line-leading only, so it cannot see a comment opened after code |
+| K3. a tokenizer inside `Volt.Ide.Twincat` | rejected by 5.C.1 (a second copy); the splitter is in the engine and could not share it |
+| K4. the LSP lexer | rejected: another process and language; Volt's C# engine never calls into it |
+
+**Oracle for 5.C.3:**
+
+| option | verdict |
+|---|---|
+| **G1. a recording of CODESYS's signature for every case text** | **chosen**: the vendor's own answer per text, the oracle 5.A.2 named |
+| G2. the corpus file extensions | rejected: Volt's own text read minted them (circular), and they say nothing about fuzz cases |
+| G3. the build recordings | used as a cross-check only: they say "declares nothing" or "builds", never the subtype |
+| G4. TwinCAT's own `ItemType` after a reload / its caption | rejected as oracle (owner, 5.A.2): the caption cannot tell alias from nothing, and a reload is minutes per batch. 5.G.1 checks TwinCAT live |
+
+### Choice
+
+1. **The skipper: `StTrivia`, one scan loop, two views.** The loop that builds `OpenAtStart`/`Code`/`Openings`/`Unclosed`
+   is refactored into a state machine that also yields a lazy token stream. The new public view is
+   `StTrivia.Tokens(string text)`, which yields `StToken(Kind, Text, Line, Column)` with `Kind` one of:
+   - `Code`: an identifier, a number or one punctuation character;
+   - `Pragma`: the whole `{…}`, yielded rather than dropped, so a caller can see `{IF`;
+   - `UnclosedComment`: the last token, when a `(*` never closes.
+
+   Comments (nested `(* *)`, `//`) and strings are skipped as they are now. A BOM at offset 0 is trivia, which is
+   `CodeOn`'s rule moved into the one skipper. The existing array views are unchanged, so their callers
+   (`ImplementationMarker`, `NetworkText`, `StReader`'s unclosed checks) see no change. 5.E moves the splitter
+   (`ScanContext`, `FirstCodeLine`, `FirstMemberLine`, `BackOverMemberTrivia`) and `StDeclaration` off `CodeOn` onto
+   this stream, and deletes `CodeOn`. Until then `CodeOn` stays, documented as 5.E's to remove. The 5.F.2 allow-list
+   names `StTrivia` and the classifier.
+2. **The classifier: `Volt.Ide.Twincat/Driver/TcDutSubtype.cs`**, `internal static DutSubtype? Classify(string
+   declaration)`. It reads code tokens, stopping at the body token (a whole body is never scanned):
+   `TYPE name [EXTENDS base] : X`, keywords in any case, `base` possibly dotted (`Lib.T`). Then X decides:
+   - `STRUCT` → Struct, `UNION` → Union, `(` → Enum;
+   - `END_TYPE` → Alias (CODESYS's own reading, C2g; TwinCAT reloads it 623, C2h);
+   - any other identifier-led token (`INT`, `ARRAY`, `POINTER`, `REFERENCE`, `STRING`, a user type) → Alias.
+
+   **Everything else is null**:
+   - the first token is not `TYPE` (prose, a POU or GVL text, an unclosed comment, an empty text);
+   - a missing name or colon;
+   - a second `EXTENDS` base (`,`);
+   - a number, punctuation, a string or the end of text where X stands;
+   - a `Pragma` token whose body starts with `IF`/`ELSIF`/`ELSE`/`END_IF` anywhere before X;
+   - an `UnclosedComment` before X.
+
+   Other pragmas (`{attribute …}`) are trivia anywhere in the head. Totality is structural: no index is read without a
+   bounds check and no parse throws. The fuzz test proves it.
+3. **No answer for a shape → the recording decides before code.** The rows with no vendor answer today (listed under
+   Measured) are recorded in the first batch. The rule above is adjusted only in one direction: a row where CODESYS
+   answers None or another subtype becomes null in the classifier (narrowing is always possible, so a wrong subtype is
+   never an accepted loss). A row where CODESYS answers a subtype and the classifier says null is fixed if the fix
+   stays inside the head grammar. Otherwise it is listed in "Counted nulls" as `niche: accepted loss (N occurrences in
+   the corpora)`. Several types in one block is decided this way: the first type's subtype if CODESYS agrees,
+   otherwise null by a top-level scan for a second `name :` (0 occurrences).
+4. **The case set and the recording (5.C.3).**
+   - **Inputs:** `packages/volt-cli/test/dut-subtype/cases.json`, generated by `packages/volt-cli/scripts/dut-subtype-cases.ts`
+     (bun; it can import the TS fixtures and read the corpora). Each case is `{ id, origin, text }` with `origin` one of
+     `table:<row>`, `corpus:<path>`, `fixture:<name>` or `fuzz:<seed-id>:<mutation>`. Fuzz takes every project and fixture
+     DUT and applies a fixed-seed PRNG mutation at each head-token gap and each head offset: insert `(* c *)`,
+     `(* (* n *) *)`, an unclosed `(*`, a `// c` line, `{attribute 'x'}`, `{IF defined(X)}`, or truncate there; also case
+     flips, CRLF and BOM. A deterministic sample of 2000 is recorded. The full generated set (tens of thousands) runs
+     offline for "never throws". The table rows (5.C.2) are authored in that script with their reason text, so a row
+     has one home. `volt-cli`'s `bun test test/unit` regenerates the file and fails on drift.
+   - **Recorder:** `packages/volt-cli/scripts/record-dut-subtype.ps1` + `.py` (IronPython, `--runscript`). It starts its
+     OWN CODESYS SP21 on a scratch copy of `CodesysTestProject.project`, with a timeout on every wait, and never stops a
+     process it did not start. It creates one DUT per case (`create_dut(Structure)` + `textual_declaration.replace`,
+     the C2g seed-independence makes the seed irrelevant), reads `GetSignature`, and deletes it. It writes
+     `test/dut-subtype/codesys.json` as `{ casesSha, recorded, answers: { id: { pouType, flags } } }`. Distinct texts
+     are deduplicated, about 4.5k signatures. The run time has not been measured; the probe made 20 in seconds, and
+     the recorder logs per-case ms. One batch per change of `cases.json`, `RECORD_ONLY=<ids>` for a partial re-run.
+   - **Mapping:** `Type`+`Structure` → Struct, `Type`+`Structure, Union` → Union, `Type`+`Alias` → Alias,
+     `VarGlobal`+`Enum` → Enum, `None` → null. Any other combination fails the gate by name (vendor contract, as in
+     step 5's refusal list). `HasErrors` is ignored (C2g).
+5. **Tests, in `Volt.Ide.Twincat.Tests`.**
+   - `TcDutSubtypeTableTests`: one `[Theory]` row per table case. The expected value is the recorded CODESYS answer,
+     except rows listed as counted nulls, which assert null and name their reason.
+   - `TcDutSubtypeAgreementTests`: every recorded case. It asserts 0 cases where the classifier answers a subtype
+     CODESYS does not, and 0 nulls outside the counted list. The `.dut` cases are printed with their origin. On
+     corpus and fixture DUTs that build, the `.dut` count must be 0. It fails loud if `casesSha` does not match
+     `cases.json` (a stale recording).
+   - `TcDutSubtypeFuzzTests`: the full generated set, offline. It never throws, and on recorded ids it is never a
+     subtype CODESYS denies.
+
+   `StTrivia.Tokens` gets its own table in `Volt.Engine.Tests`: nesting, `(*` in `//`, `//` in `(* *)`, a string
+   holding `(*`, pragmas yielded, unclosed comment and unclosed pragma, BOM, CRLF.
+
+### Counted nulls (`.dut` where the text has a subtype a human could read)
+
+Named and counted now; the recording may add rows under choice 3, never silently:
+
+- **A conditional pragma in the head** (`{IF defined(X)}` around the body or a keyword): `niche: accepted loss (0
+  occurrences in the corpora)` if CODESYS answers a subtype. Which branch is live depends on defines that are not in
+  the text, so no text read can be certain.
+- **An `EXTENDS` list** (`EXTENDS A, B`): both builds refuse the syntax. Null unless the recording shows CODESYS still
+  answers `Structure`. In that case it is cheap to accept (a list of bases), and it is fixed rather than listed.
+
+Not nulls (they are the vendor's own "no answer", counted by 5.B already): unclosed comment, empty, prose,
+prose-then-TYPE, a POU or GVL text in a DUT object. On the corpora: 0 nulls.
+
+### What stays refused, by name
+
+- **A recording that does not match `cases.json`**: the agreement gate fails, naming the stale file. It never runs on
+  an old oracle.
+- **A signature outside the five mapped combinations**: the gate fails, naming the case. It is never mapped to a
+  nearest subtype.
+- **A classifier answer CODESYS denies**: no accepted-loss mark exists for this. The rule narrows to null instead.
+- **TwinCAT's POU kind** is not this function's. It stays the tree code (C2f/C2h), and an untouchable POU stays 5.H's.
+- **Library DUTs** are not this function's. `LibSignatureRenderer` writes their text from the signature (5.D.2). On
+  TwinCAT, `TcLibrarySignatures` names a library `Type` with no subtype (C2h), so 5.D.2 must decide the TwinCAT library
+  case from the signature's shape. That is recorded here as 5.D.2's open input, not solved by this classifier.
+
+### Migration
+
+1. **Cases and recording first (no product code).** Add `dut-subtype-cases.ts` with the 5.C.2 table rows, its drift
+   unit test and `cases.json`. Run `record-dut-subtype.ps1` once (own CODESYS) and commit `codesys.json`. Settle every
+   unknown row by choice 3 and write the outcome into this section ("Recorded").
+2. **Red.** `TcDutSubtypeTableTests` / `AgreementTests` / `FuzzTests` against a `TcDutSubtype.Classify` that still
+   forwards to `CodeHelper.TryDutSubtype`. Expected red: `pwh_prose_then_struct`, `unit_type_no_body`,
+   `unit_type_missing_colon`, every nested-comment and `TYPE`-less fuzz case. `StTrivia.Tokens` tests red (no API).
+3. **Skipper.** `StTrivia` becomes public, gets one state machine and the `Tokens` view, and strips a BOM. The array
+   views stay byte-identical (their existing tests plus `ImplementationMarker`/`NetworkText` suites).
+4. **Classifier.** `TcDutSubtype.Classify` on `StTrivia.Tokens`. `BeckhoffDriver.DutSubtypeOf` calls it.
+   `CodeHelper.TryDutSubtype` stays, called by `CodesysDriver` alone, until 5.D replaces it and 5.F deletes it (its
+   doc comment drops "5.C swaps TwinCAT"). `TcDutSubtypeReadTests` (5.B) keep their premise (the driver sets the field
+   from its declaration). A row that pinned an interim answer changes only where the recording says so, and says so
+   in its summary.
+5. **Docs.** DIALECT C2h gains "How Volt relies on it: `TcDutSubtype.Classify`, proven against CODESYS's signature
+   (`test/dut-subtype/codesys.json`)". Step 5.B's two TwinCAT interim rows above (`pwh_prose_then_struct`, `TYPE X :
+   END_TYPE`) and the two unmeasured shapes are closed for TwinCAT and stay open for CODESYS until 5.D. `wire.html`
+   `#dut-subtype` names the TwinCAT source (regenerated, `VOLT_WRITE_DOCS=1` if a generated table moves).
+6. **FakeIde** keeps its test-side `DutAnswerFor`. `Volt.Engine.Tests` cannot reference the TwinCAT driver, and the
+   fake models the vendor answer, not this classifier. Its two documented differences (`^TYPE name`,
+   identifier-led token) already match C5. Its END_TYPE row is aligned to `alias` (CODESYS and C5) in the same commit.
