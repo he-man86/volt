@@ -36,7 +36,7 @@ namespace Volt.Ide.Codesys.Tests
 
                 const string pushed = "TYPE SER_Mode :\n(\n\tAuto := 0,\n\tManual,\n\tService\n);\nEND_TYPE";
                 driver.WriteContent(item, new ItemContent(ItemKind.Kinds.Dut, pushed, null, new List<Member>()),
-                                    new Dictionary<string, string>());
+                                    Volt.Engine.Ide.PushedDeclarations.None);
                 Assert.Equal(pushed, node.Object!.Interface.TextDocument.Text);
                 Assert.Equal(1, mgr.Commits);
             }

@@ -285,17 +285,18 @@ public class NetworkScopeTests
         Assert.Equal("TOF", scope.InstanceType("tRoot"));
     }
 
-    /// <summary>A pushed GVL is a global list by its first CODE line, the rule a callable header is read by: one
-    /// opening with a multi-line block comment is still a GVL. The push's scope lost every name it declared (the
-    /// comment's second line was taken for the first code line), while the pull found the same GVL by its tree kind
-    /// — the writer's and the reader's scopes apart again.</summary>
+    /// <summary>A pushed GVL opening with a multi-line block comment is a global list. The push's scope once lost every
+    /// name it declared (the comment's second line was taken for the first code line), while the pull found the same
+    /// GVL by its tree kind — the writer's and the reader's scopes apart again. Since openspec
+    /// <c>push-without-header-check</c> 5.Q.7 a pushed GVL is one by its WIRE KIND, as a pulled one is by its class,
+    /// and its text is not read for that at all (<c>GlobalsByWireKindTests</c>).</summary>
     [Fact]
     public void A_pushed_GVL_opening_with_a_block_comment_is_a_global_list()
     {
-        var pushed = new Dictionary<string, string>
+        var pushed = Volt.Engine.Ide.PushedDeclarations.FromWire(new[]
         {
-            ["GVL_Timers"] = "(* shared\n   timers *)\nVAR_GLOBAL\n  t1 : TON;\nEND_VAR",
-        };
+            ("GVL_Timers", (string?)Volt.Engine.Item.ItemKind.Kinds.Gvl, "(* shared\n   timers *)\nVAR_GLOBAL\n  t1 : TON;\nEND_VAR"),
+        });
 
         var scope = new FakeIde().NetworkScopeFor("PROGRAM P\nVAR\n  go : BOOL;\nEND_VAR", pushed);
 

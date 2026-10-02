@@ -111,6 +111,12 @@ interfaces and Interface aspect read between them — `dut-subtype-push.log`, in
 change, and re-derives on reload; a DUT created by push is 606 whatever its body in the live session, its reload unmeasured — `tc-dut-codes.log`). All
 DIALECT C2e.
 
+**Merged classes** — `probe-merged-classes.py` + `.ts` (CODESYS, the BRIDGE path like `probe-dut-subtype-push`: the `.py` is the
+`--runscript` read timer, the `.ts` pushes over the pipe and asks for a read after every step — the text written in place, a rename,
+a rename back + a move, the move home — of a check function, a persistent list, a text-list enum, an NVL and an abstract method; every
+one keeps its GUID and CLR class, and the delete+set batch that lost them before 5.Qb is in the transcript — `merged-classes.log`,
+DIALECT C2n).
+
 **Structure** — `probe-tc-name-collision` (TwinCAT refuses to CREATE a folder whose name an object at that
 level already has, in either kind — but the two may COEXIST, so it is an ORDER constraint, DIALECT D34).
 

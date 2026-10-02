@@ -30,9 +30,18 @@ namespace Volt.Ide.Twincat;
 /// </summary>
 internal static class TcLibrarySignatures
 {
+    /// <summary>What one parse did beside emitting signatures: the entries the vendor names only (<c>NoBody</c>), the
+    /// entries of a kind Volt does not model (<c>Unknown</c>), and the VarGlobal signatures Volt READ as enums
+    /// (<c>InferredEnums</c>, <see cref="InferredEnum"/>) — a Volt inference, not a vendor fact, so it is counted.</summary>
+    internal readonly record struct Tally(int NoBody, int Unknown, int InferredEnums);
+
     /// <summary>Every signature the vendor described well enough to render.</summary>
-    public static IReadOnlyList<LibSignature> Parse(string? xml)
+    public static IReadOnlyList<LibSignature> Parse(string? xml) => Parse(xml, out _);
+
+    /// <summary><see cref="Parse(string?)"/>, handing back its <see cref="Tally"/>.</summary>
+    internal static IReadOnlyList<LibSignature> Parse(string? xml, out Tally tally)
     {
+        tally = default;
         if (string.IsNullOrWhiteSpace(xml)) return Array.Empty<LibSignature>();
 
         // ONE synthetic root, because the vendor concatenates its libraries. Wrapping is the whole fix — the
@@ -48,6 +57,7 @@ internal static class TcLibrarySignatures
 
         var sigs = new List<LibSignature>();
         var noBody = 0;
+        var inferredEnums = 0;
         var unknown = new List<string>();
 
         foreach (var lib in root.Elements("Library"))
@@ -79,14 +89,11 @@ internal static class TcLibrarySignatures
                     case "VarGlobal":
                     {
                         var constants = Vars(ts.Element("Constants"), "Constant");
-                        // TwinCAT has no enum flag: it sends a library ENUM as a VarGlobal whose every constant is
-                        // typed as the container itself (`eWATCHDOG_TIME_DISABLED : E_WATCHDOG_TIME_CONFIG`), and
-                        // that self-typing is the vendor's only statement of one. It is translated HERE, into the
-                        // `Enum` flag CODESYS sends for the same thing, so the renderer keeps one vendor-neutral
-                        // rule. Read as a GVL instead, the constants are typed by a type no file declares, and
-                        // every library FB taking one (`FB_FileOpen`'s `E_OpenPath`) resolves to nothing.
-                        var isEnum = constants.Count > 0 &&
-                                     constants.All(c => string.Equals(c.Type, name, StringComparison.OrdinalIgnoreCase));
+                        // A VOLT INFERENCE, not a vendor fact (`InferredEnum`, DIALECT D27): translated HERE into the
+                        // `Enum` flag CODESYS sends for the same thing, so the renderer keeps one vendor-neutral rule,
+                        // and counted in the tally.
+                        var isEnum = InferredEnum(constants, name);
+                        if (isEnum) inferredEnums++;
                         sigs.Add(Signature(name, path, kind,
                             Array.Empty<LibVar>(), Array.Empty<LibVar>(), Array.Empty<LibVar>(),
                             members: constants, flags: isEnum ? "Enum" : ""));
@@ -122,9 +129,25 @@ internal static class TcLibrarySignatures
         if (unknown.Count > 0)
             VoltLog.Warn($"twincat lib signatures: {unknown.Count} entries have a TypeSignature kind Volt does " +
                          $"not model ({string.Join(", ", unknown.Distinct().Take(5))}) — they are not emitted");
+        if (inferredEnums > 0)
+            VoltLog.Debug($"twincat lib signatures: {inferredEnums} enums inferred from shape (a VarGlobal whose every " +
+                          "constant is typed as itself — Volt's reading, the vendor states no enum; DIALECT D27)");
 
+        tally = new Tally(noBody, unknown.Count, inferredEnums);
         return sigs;
     }
+
+    /// <summary>WHETHER A LIBRARY VARGLOBAL IS READ AS AN ENUM — a Volt inference, labelled as one (openspec
+    /// <c>push-without-header-check</c> 5.Q.7, DIALECT D27).
+    ///
+    /// <para>TwinCAT has no enum flag in this surface: it sends a library ENUM as a <c>VarGlobal</c> whose every constant is
+    /// typed as the container itself (<c>eWATCHDOG_TIME_DISABLED : E_WATCHDOG_TIME_CONFIG</c>), and a library item has no
+    /// per-object source to ask. A GVL whose constants all take its own name as their type cannot exist without a type of
+    /// that name, so the rule has no known false positive — 12 of the 18 VarGlobal signatures in <c>twincat-project14</c>,
+    /// all <c>Tc2_System</c>. Read as a GVL instead, the constants are typed by a type no file declares, and every library
+    /// FB taking one (<c>FB_FileOpen</c>'s <c>E_OpenPath</c>) resolves to nothing.</para></summary>
+    private static bool InferredEnum(IReadOnlyList<LibVar> constants, string name) =>
+        constants.Count > 0 && constants.All(c => string.Equals(c.Type, name, StringComparison.OrdinalIgnoreCase));
 
     private static LibSignature Signature(
         string name, string libraryPath, string pouType,

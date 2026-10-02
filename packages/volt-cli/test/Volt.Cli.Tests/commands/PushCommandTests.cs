@@ -459,6 +459,80 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A FILE MOVED AND REWRITTEN PAST GIT'S RENAME THRESHOLD IS ONE MOVE+EDIT (openspec
+    /// <c>push-without-header-check</c> 5.Q.6, design 5.Qb Q2). Git reports it as a <c>Delete</c> row plus an <c>Add</c>
+    /// row; both map to the SAME item name, and the name is the identity, so the CLI pairs them into one
+    /// <c>set</c> carrying the new folder, the text and the baseline's version. It used to send
+    /// <c>deleteItem FB_Motor.pou</c> + <c>set FB_Motor.pou</c>, a batch that names one item twice and, forced, lost
+    /// the object (and with it a class the wire does not carry: a check function, a persistent list — DIALECT C2n).</summary>
+    [Fact]
+    public void A_file_moved_and_rewritten_past_the_rename_threshold_pushes_one_move_and_edit()
+    {
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("FB_Motor", "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR", "y := 2;", "POUs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var from = Path.Combine(root, "src", "POUs", "FB_Motor.pou");
+            Directory.CreateDirectory(Path.Combine(root, "src", "Drives"));
+            File.Delete(from);
+            // Nothing of the old text survives, so git cannot call it a rename.
+            File.WriteAllText(Path.Combine(root, "src", "Drives", "FB_Motor.pou"),
+                "FUNCTION_BLOCK FB_Motor\nVAR_INPUT\n\tbEnable : BOOL;\n\tnSpeedSetpoint : DINT;\nEND_VAR\n" +
+                "VAR_OUTPUT\n\tbRunning : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbRunning := bEnable AND nSpeedSetpoint > 0;\n" +
+                "END_FUNCTION_BLOCK\n");
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("delete:FB_Motor"));
+            Assert.Contains(ide.Recorded, x => x.StartsWith("move:FB_Motor"));
+            Assert.Contains(ide.Recorded, x => x.StartsWith("writecontent:FB_Motor"));
+            Assert.Contains("bRunning := bEnable", ide.StoredImplementation("FB_Motor"));
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>GIT'S RENAME PAIRING IS NOT THE IDENTITY — THE NAME IS. The engineer deletes <c>FB_Alpha</c> and moves
+    /// <c>FB_Beta</c> to another folder, rewriting it to closely resemble <c>FB_Alpha</c>'s old text. Git's similarity
+    /// pairing then reports <c>Rename Alpha/FB_Alpha.pou → Drives/FB_Beta.pou</c> + <c>Delete Beta/FB_Beta.pou</c>, and
+    /// taken at its word that is <c>set FB_Alpha.pou toName FB_Beta.pou</c> + <c>deleteItem FB_Beta.pou</c>: one name in
+    /// two ops, refused by the bridge, with a remedy ("two pushes") a <c>volt push</c> cannot follow. By name it is
+    /// <c>FB_Alpha</c> deleted and <c>FB_Beta</c> moved and edited, so a rename whose names another row also names is
+    /// split back into its delete and its add, and paired by name like any other move+edit.</summary>
+    [Fact]
+    public void A_rename_that_git_paired_across_two_names_pushes_by_name()
+    {
+        const string alphaDecl = "FUNCTION_BLOCK FB_Alpha\nVAR_INPUT\n\tbEnable : BOOL;\n\tnSpeedSetpoint : DINT;\n\tnRamp : DINT;\nEND_VAR\nVAR_OUTPUT\n\tbRunning : BOOL;\n\tnActual : DINT;\nEND_VAR";
+        const string alphaBody = "IF bEnable THEN\n\tnActual := nActual + nRamp;\n\tIF nActual > nSpeedSetpoint THEN\n\t\tnActual := nSpeedSetpoint;\n\tEND_IF\nELSE\n\tnActual := 0;\nEND_IF\nbRunning := nActual > 0;";
+        var ide = ConnectedIde(Prg(),
+            FakeIde.Item.TextualPou("FB_Alpha", alphaDecl, alphaBody, "Alpha"),
+            FakeIde.Item.TextualPou("FB_Beta", "FUNCTION_BLOCK FB_Beta\nVAR\n\tq : WORD;\nEND_VAR", "q := q + 1;", "Beta"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            var alpha = Path.Combine(root, "src", "Alpha", "FB_Alpha.pou");
+            var betaText = File.ReadAllText(alpha).Replace("FB_Alpha", "FB_Beta");
+            File.Delete(alpha);
+            File.Delete(Path.Combine(root, "src", "Beta", "FB_Beta.pou"));
+            Directory.CreateDirectory(Path.Combine(root, "src", "Drives"));
+            File.WriteAllText(Path.Combine(root, "src", "Drives", "FB_Beta.pou"), betaText);
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Contains(ide.Recorded, x => x == "delete:FB_Alpha");
+            Assert.DoesNotContain(ide.Recorded, x => x.StartsWith("delete:FB_Beta") || x.StartsWith("rename:"));
+            Assert.Contains(ide.Recorded, x => x.StartsWith("move:FB_Beta"));
+            Assert.Contains("nActual := nActual + nRamp", ide.StoredImplementation("FB_Beta"));
+            Assert.Equal(0, Commands.Status(root, client).Outgoing.Count);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A POU WHOSE TEXT CHANGES KIND IS ONE FILE THROUGHOUT (openspec <c>push-without-header-check</c> 5.Q). The
     /// text is written as sent, and CODESYS takes a POU's kind from it (DIALECT C2f) — but the wire names the object by
     /// its CLASS, so <c>X.pou</c> whose text now says <c>PROGRAM</c> is still <c>X.pou</c>: a plain content update, with

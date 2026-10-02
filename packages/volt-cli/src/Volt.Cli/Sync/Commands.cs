@@ -505,11 +505,59 @@ public static class Commands
         string HeadSrc(string rel) =>
             blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b).TrimStart('﻿') : "";
 
+        // A FILE MOVED AND EDITED PAST GIT'S RENAME THRESHOLD is a `Delete` row and an `Add` row whose paths map to the
+        // SAME item name — and the name is the identity, so the two rows are one item that moved, not a delete and a
+        // create. They are paired into ONE set (new folder, text, the baseline's version): exactly what git would have
+        // reported as a rename had the edit stayed under its threshold. Sent as two ops, the batch named one item twice,
+        // which the bridge refuses (one op per item); before that, forced, it LOST the object and with it any class the
+        // wire does not carry (openspec push-without-header-check 5.Q.6, DIALECT C2n). Name logic only — no kind.
+        //
+        // Git's rename pairing is by SIMILARITY, not by name, so it can pair two DIFFERENT items: delete `A`, move and
+        // rewrite `X` to resemble `A`, and git reports `Rename A → X` + `Delete X` — sent as is, `X` in two ops. A
+        // rename whose names another row ALSO names is therefore split back into its delete and its add before the
+        // pairing below, which then reads the batch by name (chains and swaps — `A → B` + `B → C` — included).
+        string? NameAt(string path) => Materialize.PathToItem(Files.StripSrcPrefix(path))?.Name;
+        IEnumerable<string> NamesOf(DiffRow r) => (r.Kind == DiffKinds.Rename ? new[] { NameAt(r.OldPath), NameAt(r.NewPath) }
+                : new[] { NameAt(r.Path) }).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase);
+        var rowsNaming = rows.SelectMany(NamesOf).GroupBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+        rows = rows.SelectMany(r => r.Kind == DiffKinds.Rename && NamesOf(r).Any(n => rowsNaming[n] > 1)
+            ? new[] { new DiffRow(DiffKinds.Delete, Path: r.OldPath), new DiffRow(DiffKinds.Add, Path: r.NewPath) }
+            : new[] { r }).ToList();
+
+        var deletedByName = new Dictionary<string, (string Name, string Folder)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows.Where(r => r.Kind == DiffKinds.Delete))
+        {
+            var rel = Files.StripSrcPrefix(row.Path);
+            if (Materialize.PathToItem(rel) is { } gone && Extensions.IsPushable(rel) && guardItems.ContainsKey(gone.Name))
+                deletedByName[gone.Name] = (gone.Name, gone.Folder);
+        }
+        var movedNames = new HashSet<string>(rows
+            .Where(r => r.Kind != DiffKinds.Delete && r.Kind != DiffKinds.Rename)
+            .Select(r => Files.StripSrcPrefix(r.Path))
+            .Where(Extensions.IsPushable)
+            .Select(rel => Materialize.PathToItem(rel)?.Name)
+            .OfType<string>()
+            .Where(deletedByName.ContainsKey), StringComparer.OrdinalIgnoreCase);
+
         var ops = new List<PushOp>();
         void SetForChange(string rel)
         {
             var item = Materialize.PathToItem(rel);
             if (item is null || !Extensions.IsPushable(rel)) return;
+            if (movedNames.Contains(item.Value.Name))
+            {
+                var old = deletedByName[item.Value.Name];
+                ops.Add(new SetItemOp
+                {
+                    Name = old.Name,
+                    ToName = old.Name != item.Value.Name ? item.Value.Name : null,
+                    ToFolder = old.Folder != item.Value.Folder ? item.Value.Folder : null,
+                    SourceText = HeadSrc(rel),
+                    IfVersion = guardItems[old.Name],
+                });
+                return;
+            }
             var ifVersion = guardItems.TryGetValue(item.Value.Name, out var v) ? v : null;
             ops.Add(new SetItemOp
             {
@@ -527,6 +575,7 @@ public static class Commands
                 var rel = Files.StripSrcPrefix(row.Path);
                 var item = Materialize.PathToItem(rel);
                 if (item is null || !Extensions.IsPushable(rel)) continue;
+                if (movedNames.Contains(item.Value.Name)) continue;   // the other half of a move+edit, sent as one set
                 if (guardItems.TryGetValue(item.Value.Name, out var v))
                     ops.Add(new DeleteItemOp { Name = item.Value.Name, IfVersion = v });
             }

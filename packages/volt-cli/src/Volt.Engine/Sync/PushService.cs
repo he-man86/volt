@@ -98,6 +98,7 @@ public static class PushService
         try
         {
             RequireWireNames(ops);
+            RequireOneOpPerItem(ops);
         }
         catch (PushRefusal refusal)
         {
@@ -382,12 +383,15 @@ public static class PushService
     /// <para>BARE names, because that is the key the resolver walks with — the IDE's own lookup key. The wire
     /// carries FULL names (`Mach1_AuxData.gvl`), converted here exactly as <see cref="ApplyOp"/> does.</para>
     ///
-    /// <para>Built ONCE per push. A same-name collision keeps the FIRST: two ops naming the same item is a
-    /// malformed request that <see cref="ApplyOp"/> is the right place to fail on, and silently letting the
-    /// later one win here would resolve types against a declaration the push never applies.</para></summary>
-    private static Dictionary<string, string> DeclarationsIn(IReadOnlyList<PushOp> ops)
+    /// <para>Each item carries its WIRE KIND too, so a pushed GVL is a global list by its extension, never by its
+    /// first code line (openspec <c>push-without-header-check</c> 5.Q.7, <see cref="PushedDeclarations"/>).</para>
+    ///
+    /// <para>Built ONCE per push, after the pre-flight refused two ops on one wire name
+    /// (<see cref="RequireOneOpPerItem"/>). Two KINDS of one bare name can still both be here; the first keeps the
+    /// name.</para></summary>
+    private static PushedDeclarations DeclarationsIn(IReadOnlyList<PushOp> ops)
     {
-        var byName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var items = new List<(string Name, string? Kind, string Declaration)>();
         foreach (var op in ops)
         {
             if (op is not SetItemOp { SourceText: { } src } set) continue;
@@ -396,15 +400,15 @@ public static class PushService
             var wireName = set.ToName ?? set.Name;
             if (ItemKind.IsTaskWireName(wireName)) continue;   // a descriptor declares nothing
             var name = Materializer.Bare(wireName);
-            if (byName.ContainsKey(name)) continue;
+            var kind = ItemKind.KindForWireName(wireName)!;   // a wire name, checked by RequireWireNames
 
             // A source text that does not parse is NOT failed here. This index is a lookup, and the op that
             // carries the bad text is the one that must report it — with its own name, its own line number and
             // the whole apply loop's error handling around it. Failing here would blame the first item pushed.
-            try { byName[name] = StReader.Read(src, ItemKind.KindForWireName(wireName)!).Declaration; }
+            try { items.Add((name, kind, StReader.Read(src, kind).Declaration)); }
             catch (Exception) { /* the op's own write reports it */ }
         }
-        return byName;
+        return PushedDeclarations.FromWire(items);
     }
 
     /// <summary>REFUSE IF THE ITEM MOVED UNDER US — the last-moment check, against the state the IDE is in
@@ -468,7 +472,7 @@ public static class PushService
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyDictionary<string, string> notOpened,
-        PushOp op, bool force, IReadOnlyDictionary<string, string> pushedDeclarations)
+        PushOp op, bool force, PushedDeclarations pushedDeclarations)
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
@@ -543,7 +547,7 @@ public static class PushService
     /// not reach it: the name means another item, and force never widens what a name means.</para></summary>
     private static string ApplyToUnopened(IIdeDriver ide, ItemLookup.Untouchable u,
         IReadOnlyDictionary<string, string> notOpened, PushOp op, bool force,
-        IReadOnlyDictionary<string, string> pushedDeclarations)
+        PushedDeclarations pushedDeclarations)
     {
         if (!force)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
@@ -609,6 +613,50 @@ public static class PushService
                         $"'{name}' is not a wire name: its extension names no item kind. A push names each item " +
                         "exactly as refs/fetch published it, so this op could only be " +
                         "applied by guessing which item it means. Pull, and push the names the workspace holds.");
+    }
+
+    /// <summary>ONE OP PER WIRE IDENTITY (openspec <c>push-without-header-check</c> 5.Q.6, design 5.Qb Q2). The identities
+    /// an op touches are its <c>name</c> and a set's <c>toName</c>, compared case-insensitively as identity is everywhere
+    /// else; a second op touching one is refused, before anything is applied.
+    ///
+    /// <para><b>Why.</b> The apply resolves each op from the PRE-APPLY walk's cache, which a delete never updates. So
+    /// <c>deleteItem X</c> + <c>set X</c> wrote through the handle of the object it had just deleted, and <c>set X</c> +
+    /// <c>deleteItem X</c> wrote it and then deleted it: either way the object was GONE, and with it the class the wire
+    /// does not carry — measured forced on a Pro2193 copy (<c>scripts/merged-classes.log</c>): a persistent list deleted
+    /// and the push failing on its dead GUID, a check function deleted under an ACCEPTED push. The CLI sent this batch
+    /// for a file moved and edited past git's rename threshold; it pairs the two rows into one move+edit now.</para>
+    ///
+    /// <para>Two kinds of one BARE name (<c>deleteItem X.pou</c> + <c>set X.dut</c>, either order) are two wire
+    /// identities, but the apply's cache is keyed by the BARE name — the IDE's own lookup key — so the set resolved
+    /// the handle of the POU the delete had just removed: a push REJECTED with one item already written. That pair
+    /// is refused here too, by name. Writing a re-type in one push is <c>bridge-refusal-review</c>'s (its 4.32
+    /// "re-type route"); two SETS of one bare name are not this rule's (a fb and its visualization are two IDE
+    /// objects, and a set never touches a visualization).</para></summary>
+    private static void RequireOneOpPerItem(IEnumerable<PushOp> ops)
+    {
+        var touchedBy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var deletedBare = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // bare → wire name
+        var setBare = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var op in ops)
+            foreach (var name in new[] { op.Name, (op as SetItemOp)?.ToName }.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (name is null) continue;
+                var verb = op is DeleteItemOp ? "deleteItem" : "set";
+                if (touchedBy.TryGetValue(name, out var first))
+                    throw new PushRefusal(op.Name,
+                        $"'{name}' is named by two ops in this push ({first}, {verb}). One op per item: an update, a " +
+                        "rename and a move are one `set`; a delete and a create of the same name are two pushes.");
+                touchedBy[name] = verb;
+
+                var bare = Materializer.Bare(name);
+                var (mine, other) = op is DeleteItemOp ? (deletedBare, setBare) : (setBare, deletedBare);
+                if (other.TryGetValue(bare, out var otherName))
+                    throw new PushRefusal(op.Name,
+                        $"'{otherName}' and '{name}' are one IDE object '{bare}' (the IDE names an object without its " +
+                        "kind), and this push deletes one and sets the other. A re-type in one push is not written: " +
+                        "delete in one push, create in the next.");
+                if (!mine.ContainsKey(bare)) mine[bare] = name;
+            }
     }
 
     /// <summary>Create or update a TASK from its descriptor — the one non-source kind a push may write.
@@ -682,7 +730,7 @@ public static class PushService
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
     private static string ApplySetItem(IIdeDriver ide, string name, ItemRef? existing,
                                    string currentFolder, SetItemOp op, bool force,
-                                   IReadOnlyDictionary<string, string> pushedDeclarations)
+                                   PushedDeclarations pushedDeclarations)
     {
         // An EMPTY sourceText is not refused here: a DUT or a GVL is written as sent, empty or not, and a POU or an
         // interface with no text was already refused by the pre-flight's read (it has nothing to split).
@@ -793,7 +841,7 @@ public static class PushService
     /// delete whose re-create then failed left a DUPLICATE rather than a no-op. It was "the arm only TwinCAT
     /// takes", and TwinCAT has a move now (DIALECT D4f), so it models a driver that does not exist.</para></summary>
     private static void MoveItem(IIdeDriver ide, string name, string wireName, ItemRef item, string newFolder,
-                                 string? sourceText, IReadOnlyDictionary<string, string> pushedDeclarations)
+                                 string? sourceText, PushedDeclarations pushedDeclarations)
     {
         var kind = ItemKind.Map(ide.KindCode(item));
         if (kind == null || !ItemKind.IsSourceKind(kind))
@@ -858,7 +906,7 @@ public static class PushService
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
     private static void ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
-                                              IReadOnlyDictionary<string, string> pushedDeclarations, string wireKind)
+                                              PushedDeclarations pushedDeclarations, string wireKind)
     {
         var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
@@ -918,7 +966,7 @@ public static class PushService
     /// name the op lands under (its <c>toName</c> for a rename), whose extension is the kind.</summary>
     private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, ItemRef? existing,
                                         string src, string? folder,
-                                        IReadOnlyDictionary<string, string> pushedDeclarations,
+                                        PushedDeclarations pushedDeclarations,
                                         string? ifVersion = null)
     {
         // THE WIRE KIND DECIDES, create or update — read off the FULL name, and the text's header is never read

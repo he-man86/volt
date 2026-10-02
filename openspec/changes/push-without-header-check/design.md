@@ -1428,10 +1428,14 @@ not a fact the vendor states, and the 5.Q rule asks for that to be labelled.
 | Q4. carry the class on the wire (one extension per class) | the rule allows it (the class IS stored per object). But three classes have no create, the abstract method is compiler-equivalent (recorded), and it touches every parity site for ≈ 30 objects | rejected |
 | Q5. document only (niche: accepted loss) | Q2 is cheap (one pre-flight pass plus a CLI pairing), and the check-function loss is a recorded semantic change | rejected: cheap, so fixed |
 
-Q2 does not touch two-op batches across KINDS (`deleteItem X.pou` + `set X.dut`, the re-type route the re-type guard
-names), because they are two wire identities. The apply resolves both by the same BARE name, though, so they hit the
-same dead-handle path described above. That is a re-type, not a class downgrade, and it is outside 5.Q.6: it is
-recorded for `bridge-refusal-review` and not built here.
+Two-op batches across KINDS (`deleteItem X.pou` + `set X.dut`, the re-type route) are two wire identities, but the
+apply resolves both by the same BARE name, so they hit the same dead-handle path described above (review, 2026-10-02).
+The pre-flight refuses that pair too, by name (a `deleteItem` and a `set` sharing a bare name). Whether a re-type in
+one push should be WRITTEN is `bridge-refusal-review` 4.32; the move into a non-folder node seen on the way is 4.31.
+
+The CLI's pairing is by NAME, and git's rename pairing is by similarity, so git can pair two different items
+(`Rename A → X` + `Delete X`, or chains and swaps). A `Rename` row whose names another row also names is split back
+into its `Delete` and `Add` before the pairing, so the batch is read by name.
 
 **5.Q.7 (a): Globals**
 
@@ -1491,8 +1495,8 @@ recorded for `bridge-refusal-review` and not built here.
   - a create of a new name where a special class would have been needed. It is made plain; DIALECT C2n says so, and the
     implicit-checks recording is that answer;
   - a delete of a special-class object, because the client asked for it;
-  - a re-type across families as delete + create in one push. These are two identities; see the dead-handle note
-    above, recorded for `bridge-refusal-review`.
+  - (moved to refused, review 2026-10-02) a re-type across families as delete + create in one push: two identities,
+    one bare name, the dead-handle path above. Refused by name; writing it is `bridge-refusal-review` 4.32.
 
 ### Migration
 

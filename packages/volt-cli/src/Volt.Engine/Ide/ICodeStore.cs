@@ -49,14 +49,14 @@ public interface ICodeStore
     /// implementations, so emptying a body silently kept the old code.</para>
     ///
     /// <para><paramref name="pushedDeclarations"/> is EVERY OTHER ITEM'S declaration arriving in the same push,
-    /// by bare name. A graphical box can call through a name this item does not declare — a qualified path
+    /// by bare name, with which of them are global variable lists by wire kind. A graphical box can call through a name this item does not declare — a qualified path
     /// (`Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives`) walks a GVL, then a struct, to reach the timer — and the
     /// driver has to know the TYPE to write into the box. Asking the IDE alone answers only for items that are
     /// ALREADY there, which on a push that creates a whole project depends on op order: pushing Lenze's
     /// MID-S100 into an empty project failed on `Mach1_Drives` because the struct it walks through was two
     /// hundred ops away. The push is also the newer truth for an item it is updating, so it is consulted FIRST
     /// and the IDE answers for everything the push does not carry.</para></summary>
-    void WriteContent(ItemRef item, ItemContent content, IReadOnlyDictionary<string, string> pushedDeclarations);
+    void WriteContent(ItemRef item, ItemContent content, PushedDeclarations pushedDeclarations);
 
     /// <summary>The item's MANIFEST: a canonical text body for a NON-SOURCE item (library ref, task, device,
     /// project info, trace, recipe, symbol config) — the vendor's metadata rendered as deterministic text. It is
@@ -97,7 +97,7 @@ public interface ICodeStore
     /// there rather than as a default interface member because this engine still targets net48 for the CODESYS
     /// host, which has no such thing.)</para></summary>
     void ValidateSource(string wireName, string sourceText,
-                        IReadOnlyDictionary<string, string> pushedDeclarations);
+                        PushedDeclarations pushedDeclarations);
 
     /// <summary>The scope a graphical body resolves against: its own declarations (<paramref name="declaration"/>,
     /// innermost first — <see cref="SourceScopes.Scope"/>), the project's other items and its globals, the push's
@@ -105,5 +105,5 @@ public interface ICodeStore
     /// engine's pre-flight reads a body exactly as the driver will (network text v2, task 3.9) — a pre-flight
     /// with a smaller scope would refuse an undeclared-looking wire the write accepts.</summary>
     Volt.Engine.Format.Network.NetworkScope NetworkScopeFor(string? declaration,
-                                                            IReadOnlyDictionary<string, string> pushedDeclarations);
+                                                            PushedDeclarations pushedDeclarations);
 }

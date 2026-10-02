@@ -1682,7 +1682,7 @@ window.VOLT = {
         {
           "name": "WriteContent",
           "kind": "method",
-          "signature": "void WriteContent(ItemRef item, ItemContent content, IReadOnlyDictionary\u003Cstring, string\u003E pushedDeclarations)"
+          "signature": "void WriteContent(ItemRef item, ItemContent content, PushedDeclarations pushedDeclarations)"
         },
         {
           "name": "ReadManifest",
@@ -1697,12 +1697,12 @@ window.VOLT = {
         {
           "name": "ValidateSource",
           "kind": "method",
-          "signature": "void ValidateSource(string wireName, string sourceText, IReadOnlyDictionary\u003Cstring, string\u003E pushedDeclarations)"
+          "signature": "void ValidateSource(string wireName, string sourceText, PushedDeclarations pushedDeclarations)"
         },
         {
           "name": "NetworkScopeFor",
           "kind": "method",
-          "signature": "NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary\u003Cstring, string\u003E pushedDeclarations)"
+          "signature": "NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations)"
         }
       ]
     }

@@ -166,3 +166,58 @@ public class TcLibrarySignaturesTests
         Assert.Contains("did not parse", ex.Message);
     }
 }
+
+/// <summary>
+/// THE LIBRARY ENUM IS VOLT'S INFERENCE, LABELLED AND COUNTED (openspec <c>push-without-header-check</c> 5.Q.7, design I1).
+/// TwinCAT states no enum (D27): a library item has no per-object source, only the signature document, and a
+/// <c>VarGlobal</c> whose every constant is typed as the container itself is READ as an enum
+/// (<c>TcLibrarySignatures.InferredEnum</c>). The rule has no known false positive (12 of 18 VarGlobal signatures
+/// in <c>twincat-project14</c>), but it is not a fact the vendor states, so the parse counts it beside what it did not emit.
+/// </summary>
+public class TcLibraryInferredEnumTests
+{
+    private const string Lib = "<Library><LibraryName>Tc2_System</LibraryName><Version>3.10.1.0</Version>" +
+                               "<Distributor>Beckhoff Automation GmbH</Distributor><TypeSignatures>{0}</TypeSignatures></Library>";
+
+    private static string VarGlobal(string name, params (string Name, string Type)[] constants) =>
+        $"<TypeSignature type=\"VarGlobal\"><Name>{name}</Name><Constants>" +
+        string.Concat(System.Linq.Enumerable.Select(constants, c => $"<Constant><Name>{c.Name}</Name><DataType>{c.Type}</DataType></Constant>")) +
+        "</Constants></TypeSignature>";
+
+    [Fact]
+    public void The_tally_counts_the_enums_inferred_from_shape()
+    {
+        TcLibrarySignatures.Parse(Fixtures.Pou("library-signatures.xml"), out var tally);
+
+        Assert.Equal(1, tally.InferredEnums);   // E_WATCHDOG_TIME_CONFIG
+        Assert.Equal(2, tally.NoBody);          // the Type and the Interface the vendor names only
+        Assert.Equal(0, tally.Unknown);
+    }
+
+    /// <summary>ONE constant typed as something else makes the whole signature a GVL: the inference needs EVERY constant
+    /// to take the container's name.</summary>
+    [Fact]
+    public void A_var_global_with_one_constant_of_another_type_is_a_gvl()
+    {
+        var xml = string.Format(Lib, VarGlobal("E_Mixed", ("eA", "E_Mixed"), ("eB", "E_Mixed"), ("nOther", "INT")));
+
+        var sigs = TcLibrarySignatures.Parse(xml, out var tally);
+
+        Assert.Equal(0, tally.InferredEnums);
+        Assert.Equal(".gvl", LibSignatureRenderer.Render(System.Linq.Enumerable.Single(sigs))!.Value.Ext);
+    }
+
+    [Theory]
+    [InlineData(1, "E_X", "E_X", "e_x")]       // every constant takes the container's name (any case)
+    [InlineData(0, "E_X", "E_X", "INT")]       // one does not
+    [InlineData(0, "E_X")]                     // no constants: nothing to read an enum from
+    public void An_enum_is_inferred_when_every_constant_is_typed_as_the_container(int expected, string name, params string[] types)
+    {
+        var xml = string.Format(Lib, VarGlobal(name,
+            System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(types, (t, i) => ("c" + i, t)))));
+
+        TcLibrarySignatures.Parse(xml, out var tally);
+
+        Assert.Equal(expected, tally.InferredEnums);
+    }
+}

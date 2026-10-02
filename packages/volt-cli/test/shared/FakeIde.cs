@@ -38,8 +38,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public sealed record Item(
         string Name, int KindCode, string Folder, bool IsTopLevel,
         string? Declaration, string? Implementation, string? BodyLang, string? UnreadableReason,
-        string[]? Children = null, string? Unsupported = null)
+        string[]? Children = null, string? Unsupported = null, string? Class = null)
     {
+        // `Class`: a LABEL for the vendor class the wire does not name (a check function, a text-list enum, a persistent
+        // list, an NVL, a GVL with network properties, an abstract method — DIALECT C2n). The double keeps it on every
+        // in-place write, rename and move, and `CreateChild` makes the plain class (null), as both vendors do
+        // (`scripts/merged-classes.log`), so a push that replaced an object instead of writing it shows as a lost label.
+
         // `Unsupported`: the IDE holds an LD/FBD body (`BodyLang`) that network text cannot represent, and this is the
         // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
         // `IMPLEMENTATION LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
@@ -633,6 +638,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     /// <summary>The sibling declarations each <see cref="WriteContent"/> was handed, by item name.</summary>
     public Dictionary<string, IReadOnlyDictionary<string, string>> PushedDeclarations { get; } = new();
+    /// <summary>The pushed GLOBAL LISTS each write saw (by wire kind — openspec <c>push-without-header-check</c> 5.Q.7).</summary>
+    public Dictionary<string, List<string>> PushedGlobals { get; } = new();
 
     /// <summary>Every piece of text a written <see cref="ItemContent"/> carries — declaration, body, and the
     /// same for each member and accessor. Assertions used to read <c>WrittenXml[name]</c> and search the
@@ -767,7 +774,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// (<see cref="Volt.Engine.Ide.ProjectDeclarations"/>) — fresh on every call, because a test edits the fake's
     /// items between calls and a driver-lifetime cache would answer for the item before the edit.</summary>
     public Volt.Engine.Format.Network.NetworkScope NetworkScopeFor(string? declaration,
-                                                                   IReadOnlyDictionary<string, string> pushedDeclarations) =>
+                                                                   Volt.Engine.Ide.PushedDeclarations pushedDeclarations) =>
         new Volt.Engine.Ide.ProjectDeclarations(this, r => Find(r).Declaration).ScopeFor(declaration, pushedDeclarations);
 
     private IEnumerable<Member> MembersOf(Item owner)
@@ -840,13 +847,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// visible through any transport the fake records.</summary>
     public bool Exists(string bareName) => _items.Any(i => i.Name == bareName);
 
+    /// <summary>The class label (<see cref="Item.Class"/>) of the item called <paramref name="bareName"/> — null for the
+    /// plain class, and for an item that is not there.</summary>
+    public string? ClassOf(string bareName) => _items.SingleOrDefault(i => i.Name == bareName)?.Class;
+
     /// <summary>The body the IDE STORES for an item — its own bytes, not what a read materializes from them. A body Volt
     /// does not show reads back as its UNSUPPORTED line whatever the fake stores, so "the push never wrote it" is only
     /// visible here.</summary>
     public string? StoredImplementation(string bareName) => _items.Single(i => i.Name == bareName).Implementation;
 
     public void WriteContent(ItemRef item, ItemContent content,
-                             IReadOnlyDictionary<string, string> pushedDeclarations)
+                             Volt.Engine.Ide.PushedDeclarations pushedDeclarations)
     {
         if (RefuseContentWrite?.Invoke(item) is { } refusal) throw refusal;
 
@@ -858,7 +869,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // by walking OTHER items' declarations; the push carries them so the answer does not depend on op
         // order (see `PushService.DeclarationsIn`). Passing an empty one would be invisible here and would show
         // up live as a refused body, which is exactly how it was found.
-        PushedDeclarations[name] = pushedDeclarations;
+        PushedDeclarations[name] = pushedDeclarations.ByName;
+        PushedGlobals[name] = pushedDeclarations.Globals.ToList();
 
         var owner = FindOrNull(item);
         if (owner is not null)
@@ -895,7 +907,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                            Held(m.Body, Volt.Engine.Ide.SourceScopes.Scope(
                                m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration),
                                pushedDeclarations),
-                           null, null);
+                           null, null) { Class = existing?.Class };   // written in place: the class is kept (C2l)
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
         }
@@ -909,7 +921,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// model materialized, in the canonical layout, whatever layout was pushed (network text compares TOKENS, so a
     /// hand-wrapped call is accepted). Storing the pushed bytes instead would make this fake hold a text no IDE
     /// holds, and hide the one case the CLI's post-push adoption exists for. Any other body is stored as sent.</summary>
-    private string? Held(string? body, string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations)
+    private string? Held(string? body, string? declaration, Volt.Engine.Ide.PushedDeclarations pushedDeclarations)
     {
         if (body is null || !Volt.Engine.Format.Network.NetworkText.Is(body)) return body;
         var scope = NetworkScopeFor(declaration, pushedDeclarations);

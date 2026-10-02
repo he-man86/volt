@@ -25,7 +25,7 @@ public abstract class DriverBase : IIdeSession
     /// driver whose refusals need the live project leaves it alone rather than guessing at them here; TwinCAT
     /// overrides it, because its PLCopen writer decides several of them from the parsed body alone.</summary>
     public virtual void ValidateSource(string wireName, string sourceText,
-                                       System.Collections.Generic.IReadOnlyDictionary<string, string> pushedDeclarations)
+                                       PushedDeclarations pushedDeclarations)
     { }
 
 

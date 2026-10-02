@@ -97,6 +97,17 @@
   project's own POU pool. Reading empty as absent once made a drag out of the Application report ACCEPTED,
   move nothing, and put the file back on the next pull.
 </div>
+<div class="note">
+  <b>One op per item.</b> A push names each item in at most ONE op — by its <code>name</code> or a
+  <code>set</code>'s <code>toName</code>, compared case-insensitively. A second op on the same wire name
+  (<code>deleteItem X.gvl</code> beside <code>set X.gvl</code>, in either order, or a rename onto a name another op
+  sets) is refused <code>BAD_REQUEST</code> before anything is applied: an update, a rename and a move are one
+  <code>set</code>; a delete and a create of the same name are two pushes. That batch used to replace the object —
+  and with it what the IDE stores beside the text (a check function, a persistent list, an NVL's network settings)
+  — or delete it outright. <code>X.pou</code> and <code>X.dut</code> are two items, but ONE IDE object name
+  (the IDE names an object without its kind): a <code>deleteItem</code> of one beside a <code>set</code> of the other
+  is a re-type in one push, and is refused the same way.
+</div>
 <p>
   <b>Folders are not entities.</b> There is no folder op, because Volt models structure the way git does: a
   folder is the path an item lives in, created on demand from an item's <code>toFolder</code>, and a push

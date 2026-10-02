@@ -43,7 +43,7 @@ public sealed partial class CodesysDriver
     }
 
     public void WriteContent(ItemRef item, ItemContent content,
-                             IReadOnlyDictionary<string, string> pushedDeclarations)
+                             PushedDeclarations pushedDeclarations)
     {
         // A graphical body is validated BEFORE anything is written, so a refusal leaves the item untouched.
         var scope = NetworkScopeFor(content.Declaration, pushedDeclarations);
@@ -309,7 +309,7 @@ public sealed partial class CodesysDriver
     private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText);
     private ProjectDeclarations? _declarations;
 
-    public NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations) =>
+    public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>
         Declarations.ScopeFor(declaration, pushedDeclarations);
 
     /// <summary>A graphical body into <paramref name="node"/>, inside one modify transaction.</summary>
@@ -338,7 +338,7 @@ public sealed partial class CodesysDriver
 
 
     private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, string? ownerDeclaration,
-                              IReadOnlyDictionary<string, string> pushedDeclarations)
+                              PushedDeclarations pushedDeclarations)
     {
         if (members.Count == 0) return;
 
@@ -409,7 +409,7 @@ public sealed partial class CodesysDriver
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor, bool ownerIsInterface,
-                               IReadOnlyDictionary<string, string> pushedDeclarations,
+                               PushedDeclarations pushedDeclarations,
                                string? ownerDeclaration)
     {
         if (accessor is null) return;

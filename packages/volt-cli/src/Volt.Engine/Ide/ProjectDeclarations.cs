@@ -58,9 +58,9 @@ public sealed class ProjectDeclarations
 
     /// <summary>The declaration of the top-level item named <paramref name="name"/> — the pushed one first, else
     /// the IDE's — or null when neither has such an item.</summary>
-    public string? Of(IReadOnlyDictionary<string, string> pushed, string name)
+    public string? Of(PushedDeclarations pushed, string name)
     {
-        if (pushed.TryGetValue(name, out var incoming) && !string.IsNullOrWhiteSpace(incoming)) return incoming;
+        if (pushed.ByName.TryGetValue(name, out var incoming) && !string.IsNullOrWhiteSpace(incoming)) return incoming;
         if (_declarationOf.TryGetValue(name, out var cached)) return cached;
 
         var declaration = Index.TryGetValue(name, out var hit) ? _read(hit.Item) : null;
@@ -68,25 +68,26 @@ public sealed class ProjectDeclarations
     }
 
     /// <summary>Every global variable list's declaration: each the push carries, and each the IDE holds that the
-    /// push does not replace.</summary>
-    public IEnumerable<string> Globals(IReadOnlyDictionary<string, string> pushed)
+    /// push does not replace. Both are taken by KIND — the IDE's by class, the push's by
+    /// wire kind (<see cref="PushedDeclarations"/>) — never by a first code line (openspec <c>push-without-header-check</c>
+    /// 5.Q.7).</summary>
+    public IEnumerable<string> Globals(PushedDeclarations pushed)
     {
         _globals ??= Index.Where(kv => kv.Value.Kind == ItemKind.PlcGvl)
             .Select(kv => (kv.Key, Of(NoPush, kv.Key) ?? ""))
             .ToList();
-        foreach (var kv in pushed)
-            if (Format.St.StDeclaration.IsGlobalListHeader(kv.Value)) yield return kv.Value;
+        foreach (var declaration in pushed.Globals) yield return declaration;
         foreach (var (name, declaration) in _globals)
-            if (!pushed.ContainsKey(name)) yield return declaration;
+            if (!pushed.ByName.ContainsKey(name)) yield return declaration;
     }
 
     /// <summary>What a pull pushes: nothing. The IDE's own globals are read as no push would replace them, and a pulled
     /// body is written against the IDE's declarations alone (<see cref="ScopeForPull"/>).</summary>
-    private static readonly IReadOnlyDictionary<string, string> NoPush = new Dictionary<string, string>();
+    private static readonly PushedDeclarations NoPush = PushedDeclarations.None;
 
     /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
     /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
-    public NetworkScope ScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushed) =>
+    public NetworkScope ScopeFor(string? declaration, PushedDeclarations pushed) =>
         NetworkScope.FromDeclarations(declaration, n => Of(pushed, n), () => Globals(pushed));
 
     /// <summary>The scope a PULL writes a body against: the IDE's declarations alone, since a pull pushes nothing.</summary>

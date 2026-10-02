@@ -50,4 +50,9 @@ the `IMPLEMENTATION` line, to split a declaration from its body. The DUT subtype
 ## Impact
 
 - The call sites above, and the tests that assert `INVALID_CODE_HEADER` on push.
-- Clients: none required.
+- Clients — **PLCAssist** (design 5.Qb N1): the wire names change in ONE release. Every POU is `X.pou` (was
+  `X.prg` / `X.fb` / `X.fun`, 5.Qa) and every DUT is `X.dut` (was `X.struct` / `X.enum` / `X.union` / `X.alias`,
+  5.P). An old name is refused `BAD_REQUEST` by name and never mapped to the new one — two spellings of one item is
+  the collapse the item-name invariant forbids. The client keys by wire name, so after upgrading it re-reads `refs`
+  and renames its keys. And a push names each item in at most one op (5.Q.6): a delete and a create of one name are
+  two pushes.

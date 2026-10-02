@@ -54,7 +54,7 @@ public sealed partial class BeckhoffDriver
     /// <para>It deliberately stops there. The IMPORT that follows in a real write can still fail on something
     /// only the live project knows, and pretending otherwise here would be a pre-flight that lies.</para></summary>
     public override void ValidateSource(string wireName, string sourceText,
-                               IReadOnlyDictionary<string, string> pushedDeclarations)
+                               PushedDeclarations pushedDeclarations)
     {
         var split = StReader.Read(sourceText, ItemKind.KindForWireName(wireName)
             ?? throw new ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName)));
@@ -68,7 +68,7 @@ public sealed partial class BeckhoffDriver
     }
 
     public void WriteContent(ItemRef item, ItemContent content,
-                             IReadOnlyDictionary<string, string> pushedDeclarations)
+                             PushedDeclarations pushedDeclarations)
     {
         // MEMBERS FIRST, THE POU ITSELF LAST — and the order is load-bearing on this vendor.
         //
@@ -187,7 +187,7 @@ public sealed partial class BeckhoffDriver
     /// <para>Validation still runs before anything is touched, so a refusal costs nothing.</para></summary>
     private void Collect(List<(string[] Path, string Nwl)> into,
                          string[] path, ItemRef? site, string? body, string? declaration,
-                         IReadOnlyDictionary<string, string> pushedDeclarations)
+                         PushedDeclarations pushedDeclarations)
     {
         if (body is not { } b || !NetworkText.Is(b)) return;
         var model = NetworkText.Validate(b, NetworkScopeFor(declaration, pushedDeclarations));   // refuse BEFORE touching the IDE
@@ -357,7 +357,7 @@ public sealed partial class BeckhoffDriver
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
-                          IReadOnlyDictionary<string, string> pushedDeclarations)
+                          PushedDeclarations pushedDeclarations)
     {
         if (body is { } b && NetworkText.Is(b))
         {
@@ -396,7 +396,7 @@ public sealed partial class BeckhoffDriver
     /// identical question — and answering it in two places let them drift: the member path took the create arm
     /// every time, without reading the live body at all.</para></summary>
     private string? ResolveBody(string? existing, NetworkBody model, string? declaration,
-                                IReadOnlyDictionary<string, string> pushedDeclarations)
+                                PushedDeclarations pushedDeclarations)
     {
         // The scope the body was read against: the in-place writer's change gate renders the live network with it.
         var scope = NetworkScopeFor(declaration, pushedDeclarations);
@@ -587,7 +587,7 @@ public sealed partial class BeckhoffDriver
     // ── members ───────────────────────────────────────────────────────────────────────────────────
 
 
-    private Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, string? ownerDeclaration)
+    internal Member ReadMember(Volt.Engine.Ide.MemberSites.Site site, string? ownerDeclaration)
     {
         // The member's kind is its tree CODE (its class), and a code with no kind is refused by name (openspec
         // `push-without-header-check` 5.Q.7). `?? Kinds.Method` made any member TwinCAT reports under a code Volt does
@@ -645,7 +645,7 @@ public sealed partial class BeckhoffDriver
         _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native));
     private ProjectDeclarations? _declarations;
 
-    public NetworkScope NetworkScopeFor(string? declaration, IReadOnlyDictionary<string, string> pushedDeclarations) =>
+    public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>
         Declarations.ScopeFor(declaration, pushedDeclarations);
 
     /// <summary><b>An ACTION is the one member with no declaration to read</b>: IEC gives an action a name and
@@ -676,7 +676,7 @@ public sealed partial class BeckhoffDriver
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor,
-                               IReadOnlyDictionary<string, string> pushedDeclarations)
+                               PushedDeclarations pushedDeclarations)
     {
         if (accessor is null) return;
 

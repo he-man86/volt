@@ -147,6 +147,21 @@
 - [ ] 4.29 D29 — measure `ErrorList.ErrorItems` on TcXaeShell; read diagnostics structurally or record why not.
 - [ ] 4.30 D30 — `LibraryManifestFromXml` requires the members the vendor XML always carries (measure which); a
       missing one makes the manifest unreadable.
+- [ ] 4.31 (from `push-without-header-check` 5Qb, live: `packages/volt-cli/scripts/merged-classes.log` lines 112, 229)
+      A move into a tree node that is NOT a folder — `Device` on Pro2193, `Task Configuration` on Bakon Nano — is
+      ACCEPTED as "moved" while the object stays where it was: the workspace says the new folder, the IDE disagrees,
+      and the next pull moves the file back. CODESYS refuses such a move in its own UI. Test-first: a `set` whose
+      `toFolder` resolves to a non-folder node is refused by name before anything is applied (on both vendors; TwinCAT
+      has no `Task Configuration` node — measure what its move does with a non-folder target), and `MoveItem`'s
+      post-condition (`PushService` "Move post-condition", 2.35) catches an IDE that ignored the move.
+- [ ] 4.32 (from `push-without-header-check` 5Qb) THE RE-TYPE ROUTE in one push: `deleteItem X.pou` + `set X.dut`
+      (either order). Two wire identities, one IDE object name; the apply's `itemCache` is keyed by the BARE name and a
+      delete never updates it, so the set resolved the deleted POU's dead handle (rejected, one item already written).
+      5Qb REFUSES the pair `BAD_REQUEST` in the pre-flight (`PushService.RequireOneOpPerItem`, `OneOpPerItemTests`).
+      Decide (owner) whether a re-type in one push is written instead — delete, drop the cache entry, create — or stays
+      refused ("delete in one push, create in the next"; the CLI sends both rows of a re-typed file in one `volt push`,
+      so today's remedy needs two commits). Either way the single-op re-type guard (proposal: `PushService` "a write
+      cannot re-type") keeps its message.
 
 ## 5. LSP parity (`packages/volt-lsp-iec`)
 

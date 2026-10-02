@@ -541,16 +541,78 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       `CliHoldsNoItemKindLogicTests`. C# suites: Engine 1754 pass / 1 skip, Cli 237, Codesys 198, Twincat 283, Connector
       113, Contracts 19, Repo.Gates 54 — 0 fail; volt-cli `bun test test/unit` 4/0; volt-control 121/0; volt-vscode 39/0;
       volt-desktop 28/0; `bun run typecheck` green; lint 0 errors.
-- [ ] 5.Q.6 Merged classes (the extension carries LESS than the IDE stores): a create or re-create that would silently
+- [x] 5.Q.6 Merged classes (the extension carries LESS than the IDE stores): a create or re-create that would silently
       downgrade a special class — `VarPersistentObject` / NVL / `ParameterList` / `NetVarProperties` GVLs,
       `TextListEnumerationObject`, `POUObjectCheckFunction`, `AbstractPOUMethodObject` — is refused by name; an update of
       the text keeps the class. Documented in DIALECT; tests per class on the doubles.
-- [ ] 5.Q.7 Smaller fixes from the audit: `ProjectDeclarations.Globals(pushed)` keys pushed GVLs by the wire kind, not
+      DONE (2026-10-02, design 5.Qb Q2): evidence first, live through the shipped push (`ide.ps1 -Instance
+      push-without-header-check -RunScript probe-merged-classes.py` + `probe-merged-classes.ts` → `merged-classes.log`), a
+      Pro2193 copy and a Bakon Nano copy: `PersistentVars` (`VarPersistentObject`), `CheckBounds` ×2
+      (`POUObjectCheckFunction`, `KindOfCheckFunction=CheckBounds`; a plain POU reads `None`), `IQSlices`
+      (`TextListEnumerationObject`), `CAN_TO_PLC` (`NVLObject`, `NetVarProperties` unchanged) and the abstract
+      `TakePicture` through its owner — update in place, rename, rename back + move, move home + original text: the same
+      GUID and CLR class after every one of the 4 × 6 steps, so the design's assumption holds. The batch that lost them,
+      on the pre-5Qb bridge: `[deleteItem, set]` → `ITEM_MISSING` (version gate), `[set, deleteItem]` → half-applied;
+      FORCED, `PersistentVars` deleted + the set failing on its dead GUID, `CheckBounds` deleted under an ACCEPTED push.
+      Code: `PushService.RequireOneOpPerItem` (pre-flight beside `RequireWireNames`, `BAD_REQUEST` "'X' is named by two
+      ops in this push (…). One op per item: …", nothing applied; identities = each op's `name` + a set's `toName`,
+      OrdinalIgnoreCase); `Commands.Push` pairs a `Delete` row and an `Add`/`Modify` row of one item name into ONE
+      `SetItemOp { ToFolder, SourceText, IfVersion }` (name logic only). Tests, red first: `OneOpPerItemTests` (8: both
+      orders forced and not, rename onto a set name, case variants, `X.pou`+`X.dut` NOT refused, one-op batch accepted —
+      6 red with the guard off), `MergedClassKeptTests` (16: update / rename / move-with-edit × 5 classes + the abstract
+      method through its owner; `FakeIde.Item.Class` label kept in place, lost on a create),
+      `PushCommandTests.A_file_moved_and_rewritten_past_the_rename_threshold_pushes_one_move_and_edit` (red against HEAD's
+      `Commands.cs`). DIALECT **C2n** (classes, corpus counts 15 / 3 / 1 (≤ 11 by text) / 1 / 0 / 10, what a plain create
+      loses, the measurements); `docs/wire.html` "One op per item". Not refused (by design): a create of a NEW name is the
+      plain class. Seen on the way, recorded for `bridge-refusal-review`: a move into a non-folder node (`Device` on
+      Pro2193, `Task Configuration` on Bakon) is ACCEPTED as "moved" and leaves the object where it was.
+      Review fixes (2026-10-02): both seen-on-the-way defects are now `bridge-refusal-review` 4.31 (non-folder move) and
+      4.32 (re-type in one push); `deleteItem X.pou` + `set X.dut` (either order) is REFUSED in the pre-flight now — the
+      apply's bare-name cache sent the set through the deleted POU's dead handle (`OneOpPerItemTests`, the former
+      "NOT refused" test replaced, red first); `Commands.Push` splits a git `Rename` whose names another row also
+      names back into Delete + Add before pairing by name
+      (`PushCommandTests.A_rename_that_git_paired_across_two_names_pushes_by_name`, red first: BAD_REQUEST "named by two
+      ops"); `ide.ps1` `Wait-ForPipe` returns only a pipe served by a process this `-Instance` recorded (`Test-Ours`).
+- [x] 5.Q.7 Smaller fixes from the audit: `ProjectDeclarations.Globals(pushed)` keys pushed GVLs by the wire kind, not
       `IsGlobalListHeader` (deleted); `BeckhoffDriver.ReadMember`'s `ItemKind.Map(code) ?? Method` silent fallback
       becomes a failure by name; `TcLibrarySignatures`' enum-from-shape decision is labelled in code and DIALECT as a
       Volt inference (a library item has no per-object source) and counted in the library census.
-- [ ] 5.Q.8 PLCAssist note (proposal Impact): wire names change `X.prg`/`X.fb`/`X.fun` → `X.pou` and DUT subtypes →
+      DONE (2026-10-02, design G2 + I1): `Ide/PushedDeclarations` (`ByName` + the bare names whose WIRE kind is `gvl`,
+      built by `PushService.DeclarationsIn` through `FromWire`) is the type of every `pushedDeclarations` parameter
+      (`ICodeStore`, `DriverBase`, `ProjectDeclarations`, `PushService`, both drivers, `FakeIde`); `Globals(pushed)` yields
+      `pushed.Globals` then the IDE's GVLs the push does not replace; `StDeclaration.IsGlobalListHeader` deleted (0
+      callers left). `GlobalsByWireKindTests` (5: `VAR_CONFIG` GVL, unclosed-`(*` GVL, a POU opening `VAR_GLOBAL` is
+      not one, the IDE half by class, end to end through a push); `NetworkScopeTests`' block-comment GVL premise
+      re-worded to the wire kind (owner rule, not the code). The corpus count the change fixes: 1 GVL whose first code
+      line is not `VAR_GLOBAL` (bakon-nano `Variable_Configuration.gvl`), 0 non-GVLs opening with it. `ReadMember`
+      (internal now) pinned by `TcMemberKindTests` (code 9999 → `UNSUPPORTED` naming the member and code; unreachable
+      through `MemberSites`, which yields `IsMember` codes only, all mapped). `TcLibrarySignatures.InferredEnum` + the
+      parse's `Tally(NoBody, Unknown, InferredEnums)` and a Debug line "N enums inferred from shape"; DIALECT D27 names
+      it Volt's inference — 12 of 18 VarGlobal signatures in `twincat-project14` (re-counted on the corpus: 12 `.dut` in
+      `References/Tc2_System`, 6 `.gvl` across Tc2_System 3 / Tc2_Standard 1 / Tc3_Module 2).
+      `TcLibraryInferredEnumTests` (5: the fixture's tally 1 / 2 / 0, a mixed VarGlobal is a GVL, the rule's table).
+- [x] 5.Q.8 PLCAssist note (proposal Impact): wire names change `X.prg`/`X.fb`/`X.fun` → `X.pou` and DUT subtypes →
       `X.dut`, in the same release; the client keys by wire name.
+      DONE (2026-10-02, design N1): proposal.md Impact — "Clients: none required" replaced by the PLCAssist note (one
+      release, old names refused `BAD_REQUEST` never mapped, re-read `refs` and rename keys, one op per item).
+      GATE 5Qb (5.Q.6–5.Q.8, 2026-10-03): run in a scratch worktree of HEAD (`22917a0677`) + exactly the 34 5Qb paths —
+      the tree also holds the LSP queue's uncommitted frontend-conformance 3.5 work (`call-arguments`,
+      `unresolved-identifier`, `external-write`, `resolution`, `infer/*`, `names/members.ts`, recordings, divergences,
+      ceilings, dumps, `map.generated.ts`), kept out of the gate and the commit; 5Qb touches no LSP file. `bun run
+      typecheck` green (5 packages); `dotnet build Volt.sln -c Release` 0 errors (30 warnings). C# suites: Cli 239/0
+      (5Qa: 237), Engine 1797 pass / 1 skip / 0 fail (5Qa: 1767), Connector 113/0, Ide.Twincat 296/0 (5Qa: 290),
+      Ide.Codesys 202/0, Contracts 19/0, Repo.Gates 54/0 (incl. the generated-docs gate). volt-cli `bun test test/unit`
+      4/0; volt-control 113/0; volt-vscode 39/0; volt-desktop 28/0; `bun run lint` exit 0; `bun run check` 15 passed /
+      0 failed. No fixture or transpiler change: `rate:fixtures` rewrites `map.generated.ts` byte-identical to HEAD (4210
+      fixtures; confirmed 2428, refused 1506, not-lowered 161, lsp-gap 43, diverges 4, unaskable 68; edges agree 2540 /
+      disagree 0 / not-run 110). LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset, rustc cache sampled):
+      7241 pass / 34 skip / 205 todo / 1 fail (7481 tests, 201 files, 672 s) — the one fail the map-NOTES check on the
+      worktree's fresh CRLF checkout (`core.autocrlf=true`; `map.endsWith(section)`), gone once `rate:fixtures` wrote the
+      file LF; `test/conformance/fixtures.test.ts` re-run in full: 5203 pass / 161 todo / 0 fail, so **7242 pass / 34
+      skip / 205 todo / 0 fail**; agreement CODESYS 3868 / 4210, TwinCAT 3787 / 4210 (the 3.4 library fixtures; floors
+      unchanged). Seen, not 5Qb's: root `bun run build` fails in this environment — `@volt/cli` finds no .NET SDK on the
+      default `dotnet` (the SDK-path gotcha) and `@volt/lsp-iec`'s `tsc` build type-checks `test/` without Bun types
+      (HEAD's; the LSP files are HEAD's in the worktree).
 - [x] 5.Q.9 5Qa review fixes (2026-10-02).
       (a) **TwinCAT seed lag on a graphical `.ENO` — known divergence, niche: accepted loss.** The re-record's one
       difference was misread as a FUNCTION callee: `network_unnamed_target_of_void_call`'s callee is a PROGRAM. Measured
@@ -634,6 +696,8 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       `IsCallableHeader` / `IsFunctionBlockType` in `NetworkScope` read other items' kinds from the known item kinds
       instead of their header (a lookup swap only — network text itself is parked). The stale e2e tests for subtype
       changes (`dut-subtype-change.test.ts`) are deleted; `held: "unreadable"` DUT rows become plain `.dut` rows.
+      (First item DONE in 5Qb / 5.Q.7: `StDeclaration.IsGlobalListHeader` deleted, `ProjectDeclarations` takes pushed
+      GVLs from the wire kind.)
 - [ ] 5.F.2 Repo gate (`Volt.Repo.Gates`): no code outside the child splitter reads a declaration's first code line or
       matches `TYPE` / `STRUCT` / `UNION` / `FUNCTION_BLOCK` / `PROGRAM` / `VAR_GLOBAL` to decide a kind or a name;
       no source mentions `.struct` / `.enum` / `.alias` / `.union` / `.prg` / `.fb` / `.fun` as an extension; no kind is

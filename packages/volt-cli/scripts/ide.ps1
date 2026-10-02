@@ -200,12 +200,20 @@ function Wait-ForPipe([string]$vendor, [int[]]$before) {
     # Opening a real project takes MINUTES; the pipe is the only honest "ready" signal. Report the pipe that
     # appeared during THIS call, not whatever was already serving — otherwise `up` on a second instance
     # instantly "succeeds" by finding the first one's pipe.
+    #
+    # NEW IS NOT ENOUGH — it must be OURS (Test-Ours against this -Instance's record). Another session's IDE that
+    # finishes loading while this one waits is new too, and `up -Wait` once handed a probe ANOTHER workflow's live
+    # pipe, which it would then have pushed into (openspec push-without-header-check 5Qb review).
     for ($i = 0; $i -lt 120; $i++) {
-        $fresh = @(Get-BridgePipes $vendor | Where-Object { $before -notcontains [int](($_ -split '\.')[-1]) })
+        $records = @(Read-Records $pidFile)
+        $fresh = @(Get-BridgePipes $vendor | Where-Object {
+            $servedBy = [int](($_ -split '\.')[-1])
+            $before -notcontains $servedBy -and (Test-Ours $servedBy $records)
+        })
         if ($fresh.Count -gt 0) { return $fresh[0] }
         Start-Sleep -Seconds 5
     }
-    throw "$vendor IDE launched but no NEW pipe after 10 minutes - see: ide.ps1 logs -Vendor $vendor"
+    throw "$vendor IDE launched but no NEW pipe of ours after 10 minutes - see: ide.ps1 logs -Vendor $vendor"
 }
 
 # ── serve a COPY ───────────────────────────────────────────────────────────────────────────────────────────

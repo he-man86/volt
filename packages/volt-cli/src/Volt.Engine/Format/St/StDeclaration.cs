@@ -90,13 +90,6 @@ public static class StDeclaration
     public static bool IsCallableHeader(string? declaration) =>
         CallableHeader.IsMatch(CodeHelper.HeaderLine(declaration?.Replace("\r", "")));
 
-    /// <summary>Whether a declaration is a global variable list, by the same first code line. A second, weaker rule
-    /// once stood beside this one — it skipped only lines STARTING with <c>(*</c>, so the second line of a multi-line
-    /// block comment was taken for the first code line and a pushed GVL opening with one was no global at all.</summary>
-    public static bool IsGlobalListHeader(string? declaration) =>
-        CodeHelper.HeaderLine(declaration?.Replace("\r", "")).TrimStart()
-            .StartsWith("VAR_GLOBAL", StringComparison.OrdinalIgnoreCase);
-
     /// <summary>The language's name for a call to the base implementation. Not an instance, and not a variable
     /// anything declares — which is exactly why looking it up as one failed.</summary>
     public const string SuperCall = "SUPER^";
