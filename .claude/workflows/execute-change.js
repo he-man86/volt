@@ -81,9 +81,10 @@ const stopAt = args.stopAfter ? steps.findIndex(s => s.id === args.stopAfter) : 
 if (stopAt >= 0) steps = steps.slice(0, stopAt + 1)
 if (args.maxSteps) steps = steps.slice(0, args.maxSteps)
 // Group consecutive structure/fix/lean/measure steps (never model, conformance or design-first steps).
-const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure'])
+const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure', 'conformance'])
 // Group sizes by risk: mechanical moves 5; fixes and lean items 3 (an agent gets sloppier after ~4-5 substantial items).
-const GROUP_MAX = { structure: 5, measure: 3, fix: 3, lean: 3 }
+// Conformance: two sub-steps (<= 10 tasks) share one implement/review/gate cycle and one recorder batch per vendor (2026-10-02).
+const GROUP_MAX = { structure: 5, measure: 3, fix: 3, lean: 3, conformance: 2 }
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
@@ -140,25 +141,27 @@ REVIEW step ${s.id} (uncommitted in the working tree) with the DATA lens: can an
 (for structure/lean steps) than before, on any input? Was a test or a recording adapted to the code? Is anything silently dropped?
 Is every rule of the area covered (conformance)? READ-ONLY; every finding needs a repro. Implementer's report:
 ${impl}`, { label: `review:${s.id}`, phase: 'Review', schema: FIND }))?.findings ?? []
-  const fix = findings.length ? await agent(`${RULES}
+  // Measured 2026-10-02 (frontend-conformance, 27.7 agent-h): implement 59%, fix 27%, gate 9%, review 5%. A separate fix
+  // agent re-read the whole context and re-ran the tests the gate then ran again; the GATE now fixes ordinary findings itself.
+  // Only a HIGH finding keeps the separate fix + second review (independent eyes on the risky change).
+  let pending = findings
+  if (findings.some(f => f.severity === 'high')) {
+    const fix = await agent(`${RULES}
 
 FIX the confirmed findings for step ${s.id} (failing test first; skip a wrong one with the reason). Do not commit.
-${JSON.stringify(findings, null, 1)}`, { label: `fix:${s.id}`, phase: 'Review' }) : 'no findings'
-  if (findings.some(f => f.severity === 'high')) {
-    const again = (await agent(`${RULES}
+${JSON.stringify(findings, null, 1)}`, { label: `fix:${s.id}`, phase: 'Review' })
+    pending = (await agent(`${RULES}
 
 SECOND data-lens review of step ${s.id} after these fixes. READ-ONLY, a repro per finding.
 ${fix}`, { label: `review:${s.id}:r2`, phase: 'Review', schema: FIND }))?.findings ?? []
-    if (again.length) await agent(`${RULES}
-
-FIX these for step ${s.id} (failing test first). Do not commit.
-${JSON.stringify(again, null, 1)}`, { label: `fix:${s.id}:r2`, phase: 'Review' })
   }
 
   phase('Gate')
   let gate = await agent(`${RULES}
 
-GATE step ${s.id}. Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green,
+GATE step ${s.id}. ${pending.length ? `FIRST fix these review findings (failing test first; skip a wrong one with the reason, written under its task):
+${JSON.stringify(pending, null, 1)}
+Then: ` : ''}Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green,
 run with VOLT_REQUIRE_FULL=1 and VOLT_FIXTURES unset (a partial run skips the project-wide totals and still reads 0 fail; VOLT_REQUIRE_FULL=1 refuses it).
 Write the step's numbers/delta under its tasks in tasks.md and tick what is done. ${s.parts ? 'This was a group: make ONE COMMIT PER STEP in the group, in order (only the paths of that step each), so bisect and revert stay per step. ' : ''}Commit exactly the step's paths as
 "<type>(<scope>): ${args.change} ${s.id} — <what>". If it cannot get green, do NOT commit: restore the tree to the last commit and write
