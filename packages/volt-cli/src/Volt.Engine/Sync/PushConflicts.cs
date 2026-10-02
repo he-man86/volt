@@ -47,6 +47,17 @@ internal static class PushConflicts
             // absent from refs, so no client holds a version for it; the fallback exists only so a CREATE cannot
             // land on top of one.
             var key = pending.ContainsKey(name) ? name : bare;
+            // A DUT UPDATE REACHES THE LIVE DUT BY ITS BARE IDENTITY (openspec `push-without-header-check` 5.B.3). A
+            // DUT's extension is the subtype its VENDOR states, which changes without the client: `E_Mode.dut` (no
+            // answer) becomes `E_Mode.enum` once the IDE's text is fixed. The apply resolves by bare name anyway, so an
+            // update quoting a version is gated against THAT object's version — the version hashes folder and text,
+            // never the name, so an equal one proves the client's file holds exactly the IDE's content. Equal → an
+            // ordinary update (no refusal, no --force); different → STALE_ITEM_VERSION with the live version, never
+            // ITEM_MISSING. Updates only: a create is gated below, and a delete reaches only the live name
+            // (`PushService.NamesThisItem`) — a delete cannot be undone, and only a set's version proves the content.
+            if (op is SetItemOp && clientVersion != null && !pending.ContainsKey(name) && DutSubtypeChanges.IsDut(name)
+                && LiveDut(pending, bare) is { } liveDut)
+                key = liveDut;
             var currentVersion = pending.TryGetValue(key, out var v) ? v : null;
 
             // AN OBJECT THE WALK COULD NOT CLASSIFY, under the bare name this op names. Its kind is unknown, so an op on
@@ -72,20 +83,17 @@ internal static class PushConflicts
             {
                 if (clientVersion == null)            // create
                 {
-                    // A DUT IS ONE OBJECT UNDER FOUR NAMES. `X.struct` is absent from the map when the IDE's `X` is
-                    // an enum — its identity there is `X.enum` — yet the apply resolves the op by BARE name, finds
-                    // that enum and writes the struct over it with no version check. So a DUT create also looks for
-                    // the object under its other subtype names: a create must not land on an item that is there,
-                    // whatever subtype it has now. DUT names only: `X.fb` beside `X.struct` is two items (the
-                    // item-name invariant), never one object.
-                    if (currentVersion == null && DutSubtypeChanges.IsDut(name)
-                        && pending.FirstOrDefault(kv => DutSubtypeChanges.IsDut(kv.Key)
-                               && string.Equals(Materializer.Bare(kv.Key), bare, StringComparison.OrdinalIgnoreCase))
-                           is { Key: { } sibling } hit)
+                    // A DUT IS ONE OBJECT UNDER FIVE NAMES (its four subtypes and `.dut`). `X.struct` is absent from
+                    // the map when the IDE's `X` is an enum — its identity there is `X.enum` — yet the apply resolves
+                    // the op by BARE name, finds that enum and writes the struct over it with no version check. So a
+                    // DUT create also looks for the object under its other DUT names: a create must not land on an
+                    // item that is there, whatever name it has now. DUT names only: `X.fb` beside `X.struct` is two
+                    // items (the item-name invariant), never one object.
+                    if (currentVersion == null && DutSubtypeChanges.IsDut(name) && LiveDut(pending, bare) is { } sibling)
                     {
                         conflicts.Add(new PushConflict
                         {
-                            Name = name, YourVersion = null, CurrentVersion = hit.Value,
+                            Name = name, YourVersion = null, CurrentVersion = pending[sibling],
                             Code = ConflictCodes.ItemExists,
                             Reason = $"expected to create new item but the IDE already holds this DUT as '{sibling}' " +
                                      "(a DUT's subtype names are one object). Pull it first; to change its subtype, " +
@@ -159,6 +167,12 @@ internal static class PushConflicts
         }
         return conflicts;
     }
+
+    /// <summary>The DUT name the version map holds for the bare name <paramref name="bare"/>, or null. One object has
+    /// one identity, so there is at most one; an unreadable item is keyed bare (no DUT name) and is not it.</summary>
+    private static string? LiveDut(Dictionary<string, string?> pending, string bare) =>
+        pending.Keys.FirstOrDefault(k => DutSubtypeChanges.IsDut(k)
+            && string.Equals(Materializer.Bare(k), bare, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>The two ways an <c>ifVersion</c> gate fails, told apart BY CODE and not only by which version
     /// field happens to be null.

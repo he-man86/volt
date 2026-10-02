@@ -22,13 +22,19 @@ namespace Volt.Engine.Item;
 /// refused it — and null for every other body. The file does not carry it (the line says only that the body is
 /// hidden), so it is set by the driver that read the body, for the pull to report, and is null on a body read from
 /// a file. It is not content: nothing compares it, and the version is the file's.</para>
+/// <para><b><c>DutSubtype</c></b>: for a DUT, the VENDOR's answer to "which subtype is it" (<see cref="Item.DutSubtype"/>),
+/// and null when the vendor has none — the item is then published as <c>name.dut</c>. Null for every other kind (a
+/// subtype on a non-DUT breaks the driver contract and is refused where the wire name is minted, <c>Materializer</c>).
+/// The same rule as <c>Unsupported</c>: a driver sets it on read, the ST reader never does, and no write path reads
+/// it — the text is written as sent and the IDE takes the shape it gives.</para>
 /// </summary>
 public sealed record ItemContent(
     string Kind,
     string Declaration,
     string? Body,
     List<Member> Members,
-    string? Unsupported = null);
+    string? Unsupported = null,
+    DutSubtype? DutSubtype = null);
 
 /// <summary>A method, action or property. A PROPERTY is a member like any other — it used to be a member in two of
 /// the four models and a separate list in the third, which forced <c>PouDocument.Splice</c> to union them back

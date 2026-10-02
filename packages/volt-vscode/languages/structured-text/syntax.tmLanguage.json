@@ -11,7 +11,8 @@
     "struct",
     "enum",
     "union",
-    "alias"
+    "alias",
+    "dut"
   ],
   "patterns": [
     {

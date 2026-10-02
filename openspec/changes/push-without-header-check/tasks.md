@@ -330,14 +330,44 @@ Replaces the parked 5.1–5.3 and their three open decisions. Owner decisions (2
       (5H touches no TypeScript; the LSP tree's uncommitted edits belong to another change and are not in this commit).
 
 ### 5.B Contract (both vendors, red first)
-- [ ] 5.B.1 `IIdeDriver` reports kind plus an optional DUT subtype (`null` = no vendor answer). `Materializer.FullWireName`
+- [x] 5.B.1 `IIdeDriver` reports kind plus an optional DUT subtype (`null` = no vendor answer). `Materializer.FullWireName`
       uses it: subtype → `name.<subtype>`, null → `name.dut`. Red tests (FakeIde gets a per-item subtype answer): a DUT
       with no answer publishes `.dut`; with an answer `.enum` etc.; the bare name is identical either way.
-- [ ] 5.B.2 `.dut` is a writable source extension everywhere: C# `ItemKind`, the LSP, volt-control, the four VS Code
+      DONE (2026-10-02), design B1. `Volt.Engine.Item.DutSubtype` (Struct|Enum|Union|Alias); `ItemContent.DutSubtype`
+      (last, optional; set by `ReadContent`, never by `StReader`); `ItemKind.DutExtension` reads the one table;
+      `FullWireName` no longer reads text and refuses a subtype on a non-DUT by name. Both drivers' `ReadContent` set it
+      through the interim `CodeHelper.TryDutSubtype` (called only there; 5.C/5.D/5.F replace and delete it).
+      `FakeIde.Item.DutAnswer` + `DutAnswers` pins. Tests: `DutSubtypeAnswerTests` (10), `CodesysDutSubtypeReadTests`
+      (9), `TcDutSubtypeReadTests` (8). Counted fallback `.dut`: 0 of 8175 corpus DUTs (design "Implemented").
+- [x] 5.B.2 `.dut` is a writable source extension everywhere: C# `ItemKind`, the LSP, volt-control, the four VS Code
       manifest places — `bun run check` parity green. Push accepts `.dut` for any DUT and writes the text as sent.
-- [ ] 5.B.3 Renames: a pull that names `E_Mode.dut` as `E_Mode.enum` (text fixed in the IDE) is a git rename the CLI
+      DONE (2026-10-02): `(Kinds.Dut, "dut")` row; LSP `source-extensions.ts` + `source-object.ts`; volt-control
+      `files.ts`; VS Code `languages.extensions`, tmLanguage `fileTypes`, `volt-icons.json`, `workspaceContains`.
+      `bun run check` 14 passed / 0 failed. Docs regenerated (`VOLT_WRITE_DOCS=1`: `data.js`), `items.html#dut` /
+      `#dut-migration` and `wire.html#dut-subtype` rewritten. Create/update/delete under `.dut`:
+      `DutBareIdentityPushTests`.
+- [x] 5.B.3 Renames: a pull that names `E_Mode.dut` as `E_Mode.enum` (text fixed in the IDE) is a git rename the CLI
       handles like any rename; a push of `E_Mode.dut` over an IDE item now answering `.enum` is accepted (same bare
       identity, DUT kind) — no refusal, no `--force`. Tests at both layers (transport + CLI).
+      DONE (2026-10-02): `PushConflicts` resolves an update under a DUT name absent from the version map to the live
+      DUT of the same bare name and gates it by that item's version (equal → update; else `STALE_ITEM_VERSION`, never
+      `ITEM_MISSING`); create → `ITEM_EXISTS`; delete reaches only the live name. Transport: `DutBareIdentityPushTests`
+      (service), `DutNameTransportTests` (pipe). CLI: `DutSubtypeFileTests` — pull `.dut` → `.enum` → `.dut`; push of
+      fixed text under `E_Mode.dut` (receipt `E_Mode.enum`, next pull renames); an edit of `E_Mode.dut` while the IDE
+      fixed it (held by the project LEASE, not a DUT refusal; the pull's rename carries the edit; push lands; design
+      "Implemented"). Red shown with the 5.B behaviour neutralized: 19/25 engine and 6/6 CLI new tests fail.
+      Tests whose premise the owner decision changed, each saying so in its summary: `ItemKindTests`,
+      `DutSubtypeCodeTests` (2), `DutSubtypeChangePushTests` (3), `DutSubtypeFileTests` (5), `DutBaselineMigrationTests`
+      (3), `ExtensionListTextTests` (2), `WireVocabularyGuardTests`, `DocDataTests`, `BlackBoxTests` (fixture only),
+      volt-control `files.test.ts`, LSP `source-extensions.test.ts`.
+      GATE 5B (2026-10-02): `dotnet build Volt.sln -c Release` 0 errors (28 warnings, all in untouched test files —
+      none in a 5B path). C# suites: Cli 280/0 fail (5H: 274), Engine 1871 pass / 1 skip / 0 fail (5H: 1848), Connector
+      113/0, Ide.Twincat 291/0 (5H: 283), Ide.Codesys 206/0 (5H: 197), Contracts 19/0, Repo.Gates 54/0. volt-cli
+      `bun test test/unit` 4/0; volt-control 121/0; volt-vscode 39/0; `bun run typecheck` green (5 packages);
+      `bun run check` 15 passed / 0 failed (5H: 14 — the new Claude Code plugin `extensionToLanguage` parity site).
+      LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset): 7096 pass / 34 skip / 195 todo / 0 fail across
+      200 files (incl. `scripts/held-as.test.ts`). No fixture, recording or transpiler file changed, so no fixture-map
+      regeneration.
 
 ### 5.C The total classifier (ONLY where 5.A.2 says a vendor needs it)
 - [ ] 5.C.1 One function in that vendor's driver (not Engine, not CLI), built on ONE trivia skipper shared with the child

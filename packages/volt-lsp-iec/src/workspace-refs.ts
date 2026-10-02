@@ -3,7 +3,7 @@
  *
  * `volt pull` mirrors the IDE project as text files. This module crawls that tree once and returns:
  *
- *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`/`.struct`/`.enum`/`.union`/`.alias`) — the
+ *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`/`.struct`/`.enum`/`.union`/`.alias`/`.dut`) — the
  *     units the binder cross-indexes, so a type declared in an unopened file still resolves.
  *   - **what the symbol table binds beside the sources** (`WorkspaceRefs`):
  *       - `.library` manifests — each library's NAMESPACE, DEPENDENCIES and RESOLUTION (`bindLibraryNamespaces`);

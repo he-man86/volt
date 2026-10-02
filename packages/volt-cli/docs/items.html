@@ -63,21 +63,28 @@
   (and so on) with no implementation under it.
 </p>
 
-<h3 id="dut">The DUT: four codes, one kind, four wire names</h3>
+<h3 id="dut">The DUT: four codes, one kind, five wire names</h3>
 <p>
   A DUT is <b>one item kind</b> inside the engine (<code>dut</code>). TwinCAT stores four tree codes for it
   (605 enum / 606 struct / 607 union, and 623 alias); CODESYS classifies every <code>IDUTObject</code> onto one
   and creates with one call. All of them map to <code>dut</code>.
 </p>
 <p>
-  On the wire and on disk it is named by its <b>subtype</b> — <code>X.struct</code> / <code>X.enum</code> /
-  <code>X.union</code> / <code>X.alias</code> — read from the declaration text by the one subtype reader
-  (<code>CodeHelper.DutSubtype</code>) at the one place a full wire name is minted
-  (<code>Materializer.FullWireName</code>). Never from the tree code: TwinCAT's code lags an in-place change
-  (<a href="../src/Volt.Engine/Ide/DIALECT.md">DIALECT C2e</a>). A library's DUTs are named by the same reader,
-  so a library enum and a project enum carry the same extension. The file name <i>is</i> the wire name: no
-  client maps one extension to another. A declaration that states no subtype is published as
-  <code>unreadable</code>, never under a guessed one.
+  On the wire and on disk it is named by its <b>subtype as its vendor states it</b> — <code>X.struct</code> /
+  <code>X.enum</code> / <code>X.union</code> / <code>X.alias</code>. The driver hands the vendor's answer up with
+  the item's content (<code>ItemContent.DutSubtype</code>), and the one place a full wire name is minted
+  (<code>Materializer.FullWireName</code>) spells it; the engine never reads a DUT's text for it. Never from the
+  tree code either: TwinCAT's code lags an in-place change
+  (<a href="../src/Volt.Engine/Ide/DIALECT.md">DIALECT C2e</a>). A DUT whose vendor states <b>no</b> subtype is
+  published as <code>X.dut</code> — the one fallback: tracked, pulled and pushed like the other four, never
+  <code>unreadable</code> for want of a subtype and never named by a guess. The file name <i>is</i> the wire name:
+  no client maps one extension to another.
+</p>
+<p class="note">
+  <b>Interim</b> (openspec <code>push-without-header-check</code>, steps 5.C/5.D): until CODESYS answers from its
+  precompile signature and TwinCAT from its own classifier, both drivers answer through the engine's old text
+  reader, which states nothing where it used to refuse. A library's DUTs are still named by that reader until
+  step 5.D.2 takes them from the library signature's flags.
 </p>
 <p>
   Below the vendor seam the four names are <b>one object</b>, the bare name <code>X</code>. So a subtype change
@@ -92,13 +99,13 @@
 
 <h3 id="dut-migration">Upgrading a workspace from <code>.dut</code></h3>
 <p>
-  The previous Volt named a DUT <code>X.dut</code> on the wire, and a workspace's baseline
-  (<code>.git/volt/ide-refs.json</code>) is keyed by wire name. <b>After upgrading, delete
-  <code>.git/volt/ide-refs.json</code> and run <code>volt pull</code> once.</b> Until then every command that loads
-  the baseline — <code>volt pull</code> included, since it cannot rebuild a baseline it first has to load — refuses
-  it by name, naming the key, the file to delete and <code>volt pull</code>; nothing is sent to the IDE. There is no
-  translation of old keys. A merge still pending over an old baseline is not promoted by
-  <code>volt merge --continue</code> (it exits 1 and names <code>volt pull</code>).
+  A Volt from before the subtype reached the wire named every DUT <code>X.dut</code>, and a workspace's baseline
+  (<code>.git/volt/ide-refs.json</code>) is keyed by wire name. <b>After upgrading, run <code>volt pull</code>
+  once</b>; if a command refuses the baseline by name, delete <code>.git/volt/ide-refs.json</code> and pull. An old
+  <code>X.dut</code> key is <i>not</i> refused: <code>.dut</code> is a wire name again (a DUT whose vendor states
+  no subtype), so the two cannot be told apart. That is safe — an update quoting the version such a key holds
+  reaches the live DUT only if it equals that DUT's content version, and the pull renames the key to the name the
+  IDE publishes. There is no translation of old keys.
 </p>
 <p>
   <b>Most files keep their names — not all.</b> The previous Volt already wrote DUT files as <code>.struct</code> /
@@ -132,15 +139,14 @@
   rename detection in the merge.
 </p>
 <p>
-  A declaration that <b>states no subtype</b> was <code>X.alias</code>; it is now <b>unreadable</b>. That covers no
-  colon at all (<code>TYPE X END_TYPE</code>), a colon with no type (<code>TYPE X : ;</code>), and a colon straight
-  into <code>END_TYPE</code>. Such a DUT is listed in the pull's <code>unreadable</code>, its file is left where it
-  is, the baseline keeps its last name, and every push of it is refused <b>unless forced</b>:
-  <code>volt push --force</code> is the way past an unreadable item, so a forced push reaches the IDE's DUT —
-  a forced push of the file's local deletion deletes the DUT from the IDE. When the declaration says what it is, the
-  next pull writes the file under the name it states — the same name, or, if it is now another subtype, the new name
-  with the old one removed. The same happens outside an upgrade: a subtype change typed in the IDE passes through a
-  moment with no subtype, and a pull taken then is an ordinary one.
+  A declaration the vendor gives <b>no subtype</b> was <code>X.alias</code>; it is now <code>X.dut</code>. That
+  covers no colon at all (<code>TYPE X END_TYPE</code>), a colon with no type (<code>TYPE X : ;</code>), and an
+  unclosed comment that swallows the body. The pull shows it as a <b>rename</b> of its file to <code>X.dut</code>
+  (the old name removed), and every push of it is an ordinary one — no <code>--force</code>. When the declaration
+  says what it is, the next pull renames the file to the subtype; a push of <code>X.dut</code> over a DUT the IDE
+  now names <code>X.enum</code> reaches it by the version it quotes (<a href="wire.html#dut-subtype">the push
+  rule</a>). The same happens outside an upgrade: a subtype change typed in the IDE passes through a moment with no
+  subtype, and a pull taken then is an ordinary one.
 </p>
 
 <h3 id="writable">Source, addressable, writable — three different questions</h3>

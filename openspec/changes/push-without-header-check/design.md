@@ -470,7 +470,14 @@ publishes, so the measurements below are about that.
   | `pwh_struct_text_is_enum`, `pwh_enum_text_is_struct`, `pwh_struct_then_prose`, `pwh_struct_missing_semicolon`, `pwh_struct_member_implementation` | `Enum` / `Structure` / `Structure` / `Structure` / `Structure` | same | `.enum` / `.struct` ×4 (unchanged) |
 
   Four fixture shapes move from `unreadable` to `.dut`. Two still disagree with the vendor during the interim, and
-  they are the reason 5.C and 5.D exist.
+  they are the reason 5.C and 5.D exist. Two more interim shapes, found in the 5.B review, have no fixture and no
+  vendor measurement; both are 0 of the 8175 corpus DUTs (counted 2026-10-02: no DUT file lacks a `TYPE` line, none
+  has a digit after its type colon), so they are niche, accepted until 5.C/5.D replace the stand-in:
+
+  | shape (no fixture) | CODESYS signature | interim stand-in | FakeIde (`DutAnswerFor`) |
+  |---|---|---|---|
+  | `X : STRUCT a : INT; END_STRUCT END_TYPE` (no `TYPE` keyword) | unmeasured, probably `None` | `struct` (takes the first colon) | null (requires `^TYPE name`) |
+  | `TYPE X : 5; END_TYPE` (digit where a type stands) | unmeasured, probably `None` | `alias` (a digit-led token passes) | null (requires an identifier-led token) |
 - **What each way of carrying the answer costs.** `Materializer.Materialize` is the only path that names an item
   (`Versioning.SafeVersion` for refs/fetch/receipts, and `PushService.NamesThisItem`). It always calls
   `ReadContent`, which already holds the declaration in both drivers (`BeckhoffDriver.ReadContent`,
@@ -590,3 +597,29 @@ default is introduced. A non-DUT with a subtype, or a DUT op that would need a g
    That stays safe: an `ifVersion` such a key quotes reaches the live DUT only if it equals that DUT's content
    version (choice 5), and the next pull renames the key. The e2e `held: "unreadable"` DUT rows move in 5.F.3, not
    here.
+
+### Implemented (2026-10-02) — where reality refined the choice
+
+Built as chosen (B1, choices 1–8). Three refinements, none changing a choice:
+
+- **At the CLI, an answer that changed before the push meets the project lease first.** `expectedProjectVersion` hashes
+  the published NAMES, so when the IDE's answer for `E_Mode` moves from `.dut` to `.enum` between a pull and a push,
+  `volt push` is held by the ordinary lease ("the IDE changed since your last sync — run `volt pull` first"), never by a
+  DUT refusal. The pull then carries a local edit of `E_Mode.dut` through git's rename into `E_Mode.enum`, and the push
+  lands — no `--force` at any step (`DutSubtypeFileTests.An_edit_of_dot_dut_while_the_ide_fixed_it_follows_the_rename…`).
+  Choice 5's bare-identity gate is what the wire guarantees (`DutBareIdentityPushTests`, over the pipe
+  `DutNameTransportTests`): it serves any client that quotes the item version without a stale lease, and the CLI meets
+  it when its own push makes the IDE re-answer (`E_Mode.dut` pushed with fixed text, receipt `E_Mode.enum`, recorded
+  through `HeldUnderAnotherName`, renamed by the next pull). Making the lease name-free was not done: it guards renames
+  too, and is not this step's to change.
+- **The fake re-answers on both write transports.** `FakeIde.Item.DutAnswer` is a record property initialised from the
+  declaration at construction (authoring); `WriteContent` AND the declaration-aspect `WriteText` re-answer from the
+  written text; `DutAnswers[name]` pins any answer, null included.
+- **`ItemContent.DutSubtype` is a documented format exception** (`ItemContentIsFullyCarriedTests.NotCarried`): the answer
+  travels as the wire name's extension, never in the text — B1's own rule, now held by the gate that lists every field.
+
+Counted fallback, measured on the code that ships (both drivers through the interim `CodeHelper.TryDutSubtype`): over
+the six corpora **8175 DUT files, 0 published `.dut`, 0 whose answer disagrees with the file's extension**
+(awa-palletizer 1738, bakon-nano 1784, CodesysTestProject 168, lenze-mid 2344, pro2193 2127, twincat-project14 14).
+The fixture rows are the table above (4 written-as-sent shapes → `.dut`; `pwh_prose_then_struct` the listed interim
+`struct`).

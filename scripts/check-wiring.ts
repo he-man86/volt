@@ -181,6 +181,9 @@ const copies: Array<{ name: string; get: () => string[]; superset?: boolean }> =
 	{ name: "volt-vscode language extensions", get: () => jsonAt("packages/volt-vscode/package.json", (o) => o.contributes?.languages?.find((l: any) => l.id === "structured-text")?.extensions) },
 	{ name: "volt-vscode tmLanguage fileTypes", get: () => jsonAt("packages/volt-vscode/languages/structured-text/syntax.tmLanguage.json", (o) => o.fileTypes) },
 	{ name: "volt-vscode icon fileExtensions", get: () => normExts(Object.keys(JSON.parse(readRepo("packages/volt-vscode/icons/volt-icons.json")).fileExtensions ?? {})) },
+	// Claude Code's plugin registers the LSP per extension. It was not a parity site, and 5.B's `.dut` (openspec
+	// push-without-header-check) reached every copy above but this one — a published `X.dut` got no LSP in Claude Code.
+	{ name: "claude-code plugin extensionToLanguage", get: () => normExts(Object.keys(JSON.parse(readRepo("plugins/volt-lsp/.claude-plugin/plugin.json")).lspServers?.["volt-lsp-iec"]?.extensionToLanguage ?? {})) },
 	{ name: "volt-vscode workspaceContains glob", get: () => workspaceContainsExts(JSON.parse(readRepo("packages/volt-vscode/package.json"))), superset: true },
 ];
 

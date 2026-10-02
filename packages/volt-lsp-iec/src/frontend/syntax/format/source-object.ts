@@ -33,6 +33,9 @@ const BY_EXTENSION: Readonly<Record<string, SourceObject>> = {
   ".enum": "dut",
   ".union": "dut",
   ".alias": "dut",
+  // A DUT whose vendor states no subtype (openspec push-without-header-check 5.B). Read like every DUT: a text that
+  // does not open with TYPE declares nothing, and reports nothing.
+  ".dut": "dut",
 }
 
 /**

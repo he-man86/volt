@@ -13,10 +13,11 @@
  * (`Unknown type: '<name>'`, `Identifier '<name>_g' not defined`): the item's text read as one comment declares
  * nothing.</p>
  *
- * <p><b>Cleanup is forced.</b> A DUT whose text states no subtype is written, but cannot be read back: `refs` lists
- * it under `unreadable`, not `items`, so `cleanup()` does not see it and a plain delete is refused UNREADABLE ("push
- * with --force to delete it"). Pulling such a DUT back under its extension is task 5.1; until then this file sweeps
- * its own names with `force`.</p>
+ * <p><b>Cleanup is forced.</b> An item the reader refuses (a GVL holding a retired comment) is written, but cannot be
+ * read back: `refs` lists it under `unreadable`, not `items`, so `cleanup()` does not see it and a plain delete is
+ * refused UNREADABLE ("push with --force to delete it"); this file sweeps its own names with `force`. A DUT whose
+ * text states no subtype was unreadable too when the rows below were recorded; since 5.B `refs` publishes it as
+ * `X.dut` (see `DUT_PUBLISHED_AS_DUT`).</p>
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
 import { BASE } from "../lib/pipe"
@@ -25,6 +26,13 @@ import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX 
 import { withMainProgramRestored } from "../lib/compile"
 
 const KEY = "nohdr_"
+
+/** KNOWN DIVERGENCE until task 5.F.3: a DUT whose text states no subtype was listed `unreadable` when these rows were
+ *  recorded (2026-09-30); since 5.B the driver has no subtype answer for it and `refs` publishes it as `X.dut`. The
+ *  rows keep their recorded `held: "unreadable"`; only that ONE assertion is marked (`expectHeldOrKnown`) — the push
+ *  receipt and the build's error list stay asserted. 5.F.3 re-records them as `.dut` rows and removes this mark (a
+ *  marked assertion that starts matching fails the test). */
+const DUT_PUBLISHED_AS_DUT = "push-without-header-check 5.B: no-subtype DUT published as X.dut; rows move in 5.F.3"
 
 /** The extension each unreadable name was pushed under: `unreadable` lists BARE names, and a forced delete reaches
  *  the object only under its own kind (a GVL is not reached as `.struct`; a DUT is, under any DUT subtype). */
@@ -56,7 +64,9 @@ async function sweep(): Promise<void> {
 /** What the IDE holds after `text` was pushed as `bare.ext` — the half of "pushed as written" an `accepted` cannot
  *  say. `fetched`: `refs` names it `bare.ext` and its text is the text sent (a POU comes back with the blank line
  *  the writer puts above its END line, so blank lines are not compared). `unreadable`: it is in the project — listed
- *  under `unreadable`, as a DUT whose text states no subtype is until task 5.1 — and has no readable name. */
+ *  under `unreadable` (a GVL whose text the reader refuses) — and has no readable name. A DUT whose text states no
+ *  subtype is no longer unreadable: since 5.B `refs` publishes it as `bare.dut` (rows recorded before that carry
+ *  `DUT_PUBLISHED_AS_DUT`). */
 async function expectHeld(bare: string, ext: string, text: string, held: "fetched" | "unreadable"): Promise<void> {
 	const refs = await bridge.refs()
 	const names = Object.keys(refs.items).filter((n) => n.slice(0, n.lastIndexOf(".")) === bare)
@@ -68,6 +78,22 @@ async function expectHeld(bare: string, ext: string, text: string, held: "fetche
 	expect({ names, unreadable }).toEqual({ names: [`${bare}.${ext}`], unreadable: [] })
 	const noBlanks = (t: string) => t.replace(/\n[ \t]*(?=\n)/g, "").trimEnd()
 	expect(noBlanks((await fetchItem(`${bare}.${ext}`)).sourceText)).toBe(noBlanks(text))
+}
+
+/** `expectHeld`, or — for a row carrying a known divergence — the assertion that it STILL diverges: the recorded
+ *  `held` must fail, and the test fails the day it matches (remove the mark then). Only this line is marked, so
+ *  the row's other assertions keep their teeth. */
+async function expectHeldOrKnown(
+	bare: string, ext: string, text: string, held: "fetched" | "unreadable", known?: string,
+): Promise<void> {
+	if (!known) return expectHeld(bare, ext, text, held)
+	let matched = true
+	try {
+		await expectHeld(bare, ext, text, held)
+	} catch {
+		matched = false
+	}
+	expect(matched, `known divergence now matches its recording — remove the mark: ${known}`).toBe(false)
 }
 
 async function errors(): Promise<any[]> {
@@ -113,28 +139,28 @@ describe(`items / push without header check (${BASE})`, () => {
 	// `errors` is the build's EXACT answer (message and the item it is reported on), recorded live 2026-09-30 — the
 	// oracle LSP parity (tasks 4.1/4.2) is held to. Every one lands on the main program's reference: the item's own
 	// text is one comment and declares nothing. `held` is how the item comes back: a DUT whose text states no subtype
-	// is listed `unreadable` (task 5.1); a GVL or a POU is fetched back and must be the text sent.
+	// was listed `unreadable` when recorded (now `X.dut`, marked); a GVL or a POU is fetched back and must be the text sent.
 	const unclosed: {
 		key: string; ext: string; text: (b: string) => string; ref: (b: string) => { decl?: string; body?: string }
-		errors: (b: string, main: string) => string[]; held: "unreadable" | "fetched"
+		errors: (b: string, main: string) => string[]; held: "unreadable" | "fetched"; known?: string
 	}[] = [
 		{ key: "uc_struct", ext: "struct", text: (b) => `(* Carrier state\n *\nTYPE ${b} :\nSTRUCT\n\tnPos : INT; (* mm *)\nEND_STRUCT\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable" },
+		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
 		{ key: "uc_enum", ext: "enum", text: (b) => `(* Modes\n *\nTYPE ${b} :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable" },
+		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
 		{ key: "uc_gvl", ext: "gvl", text: (b) => `(* Globals\n *\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, ref: (b) => ({ decl: "v : INT;", body: `v := ${b}_g;` }),
 		  errors: (b, m) => [`${m}: Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'`, `${m}: Identifier '${b}_g' not defined`], held: "fetched" },
 		{ key: "uc_fb", ext: "fb", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
 		  errors: (b, m) => [`${m}: Unknown type: '${b}'`, `${m}: Program name, function or function block instance expected instead of 'v'`], held: "fetched" },
 	]
 	for (const s of unclosed) {
-		it(`${s.ext} whose opening comment never closes: pushed as written, and the build reports it`, async () => {
+		it(`${s.ext} whose opening comment never closes: pushed as written, and the build reports it${s.known ? ` [known: ${s.known}]` : ""}`, async () => {
 			const bare = id(KEY + s.key)
 			const main = await mainProgram()
 			const r = await pushReferenceBuild(`${bare}.${s.ext}`, s.text(bare), s.ref(bare))
 			expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 			expect(r.errors.map((e: any) => `${e.name}: ${e.message}`).sort()).toEqual(s.errors(bare, main!).sort())
-			await expectHeld(bare, s.ext, s.text(bare), s.held)
+			await expectHeldOrKnown(bare, s.ext, s.text(bare), s.held, s.known)
 		})
 	}
 
@@ -221,19 +247,20 @@ describe(`items / push without header check (${BASE})`, () => {
 	// ── a DUT or a GVL is not read at all: nothing about its text is a reason to refuse ─────────────
 
 	// `held` recorded live 2026-09-30: a struct member named IMPLEMENTATION is read back byte for byte; an empty text,
-	// prose and a GVL holding a retired comment are in the project but listed `unreadable` (task 5.1).
-	const unread: { key: string; ext: string; text: (b: string) => string; held: "fetched" | "unreadable" }[] = [
-		{ key: "empty", ext: "struct", text: () => "", held: "unreadable" },
-		{ key: "prose", ext: "struct", text: () => "this is not structured text at all", held: "unreadable" },
+	// prose and a GVL holding a retired comment are in the project but listed `unreadable` (empty and prose are `X.dut`
+	// since 5.B — marked).
+	const unread: { key: string; ext: string; text: (b: string) => string; held: "fetched" | "unreadable"; known?: string }[] = [
+		{ key: "empty", ext: "struct", text: () => "", held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
+		{ key: "prose", ext: "struct", text: () => "this is not structured text at all", held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
 		{ key: "implm", ext: "struct", text: (b) => `TYPE ${b} :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE`, held: "fetched" },
 		{ key: "retired", ext: "gvl", text: (b) => `(* @volt-impl *)\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, held: "unreadable" },
 	]
 	for (const s of unread) {
-		it(`${s.key} under .${s.ext} is pushed as written`, async () => {
+		it(`${s.key} under .${s.ext} is pushed as written${s.known ? ` [known: ${s.known}]` : ""}`, async () => {
 			const bare = id(KEY + s.key)
 			const r = await pushOps([{ op: "set", name: `${bare}.${s.ext}`, toFolder: await plcFolder("POUs"), sourceText: s.text(bare), ifVersion: null }])
 			expect(r.accepted, `refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
-			await expectHeld(bare, s.ext, s.text(bare), s.held)
+			await expectHeldOrKnown(bare, s.ext, s.text(bare), s.held, s.known)
 		})
 	}
 })

@@ -72,9 +72,9 @@ public class CliHoldsNoItemKindLogicTests
         (!dutSpellingAllowed && DutSpelling.IsMatch(line)) || KindDecision.IsMatch(line)
         || KindExtensionLiteral.Value.IsMatch(CodeOf(line));
 
-    /// <summary>The one place the CLI must NAME the retired `X.dut` key: the sidecar refusal that tells an engineer
-    /// upgrading from an older Volt what is wrong with their baseline. It refuses by the generic unknown-extension
-    /// rule; only its doc says what such a key was.</summary>
+    /// <summary>The one place the CLI NAMES an `X.dut` key: the sidecar's doc, which says why a key from an older Volt is
+    /// no longer refused (openspec push-without-header-check 5.B: `.dut` is a wire name again). It refuses by the generic
+    /// unknown-extension rule; only its doc spells the name.</summary>
     private static readonly string[] Allowed = { "Sidecar.cs" };
 
     [Fact]

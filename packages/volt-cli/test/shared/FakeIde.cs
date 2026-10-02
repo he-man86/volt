@@ -44,6 +44,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         // fact the writer refuses — what a real driver catches as `UnrepresentableBodyException` and reads back as
         // `IMPLEMENTATION LD|FBD UNSUPPORTED`, with this as the reason the pull reports.
 
+        /// <summary>The subtype this item's VENDOR states (<see cref="ItemContent.DutSubtype"/>; null = no answer, the
+        /// item publishes <c>name.dut</c>), STATED by the fixture, never derived on read (openspec
+        /// <c>push-without-header-check</c> 5.B choice 8). Authored once, when the item is constructed, from its
+        /// declaration (<see cref="DutAnswerFor"/> — fixture authoring, like <c>CodeForDeclaration</c>); a
+        /// <see cref="WriteContent"/> re-answers from the written text. A test pins any other answer, null included,
+        /// through <see cref="DutAnswers"/>.</summary>
+        public DutSubtype? DutAnswer { get; init; } = ItemKind.Map(KindCode) == ItemKind.Kinds.Dut ? DutAnswerFor(Declaration) : null;
+
         /// <summary>A plain textual (ST) POU — materializes via the declaration/implementation transports.
         ///
         /// <para>The TREE CODE is derived from the declaration HERE, when the fixture is authored — which is
@@ -82,6 +90,70 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         public static Item Library(string name, string manifest, string folder = "Library Manager") =>
             new Item(name, ItemKind.PlcLibRef, folder, true, manifest, null, null, null);
     }
+
+    /// <summary>The fixture's model of the VENDOR'S DUT subtype answer for a declaration: what both vendors answer for
+    /// the shapes the offline suite authors — CODESYS's signature follows the text at once (DIALECT C2g), and TwinCAT's
+    /// answer is a text-pure classification (5.A.2). <c>TYPE name [EXTENDS base] :</c> then <c>STRUCT</c>,
+    /// <c>UNION</c>, <c>(</c> (enum) or a type name (alias), comments and pragmas skipped; anything else — no TYPE, an
+    /// unclosed comment, nothing or <c>END_TYPE</c> after the colon — is no answer (null). Test-side on purpose: the
+    /// engine's own text reader is legacy that 5.F deletes, and a fake must not lean on what it is testing.</summary>
+    public static DutSubtype? DutAnswerFor(string? declaration)
+    {
+        var code = StripTrivia(declaration ?? "");
+        if (code is null) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(code,
+            @"^\s*TYPE\s+[A-Za-z_]\w*(\s+EXTENDS\s+[\w.]+)?\s*:\s*(?<rest>.*)$",
+            System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+        var rest = m.Groups["rest"].Value;
+        if (rest.StartsWith("(")) return DutSubtype.Enum;
+        var token = System.Text.RegularExpressions.Regex.Match(rest, @"^[A-Za-z_]\w*").Value.ToUpperInvariant();
+        return token switch
+        {
+            "" or "END_TYPE" => null,
+            "STRUCT" => DutSubtype.Struct,
+            "UNION" => DutSubtype.Union,
+            _ => DutSubtype.Alias,
+        };
+
+        // Comments (nested `(* *)`, `//`) and `{…}` pragmas removed; null when a `(*` is never closed (the whole rest
+        // is a comment to both vendors, so nothing is declared).
+        static string? StripTrivia(string s)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (var i = 0; i < s.Length; i++)
+            {
+                if (s[i] == '(' && i + 1 < s.Length && s[i + 1] == '*')
+                {
+                    var depth = 1; i += 2;
+                    for (; i < s.Length && depth > 0; i++)
+                    {
+                        if (s[i] == '(' && i + 1 < s.Length && s[i + 1] == '*') { depth++; i++; }
+                        else if (s[i] == '*' && i + 1 < s.Length && s[i + 1] == ')') { depth--; i++; }
+                    }
+                    if (depth > 0) return null;
+                    i--; sb.Append(' '); continue;
+                }
+                if (s[i] == '/' && i + 1 < s.Length && s[i + 1] == '/')
+                {
+                    while (i < s.Length && s[i] != '\n') i++;
+                    sb.Append('\n'); continue;
+                }
+                if (s[i] == '{')
+                {
+                    var close = s.IndexOf('}', i);
+                    if (close < 0) return null;
+                    i = close; sb.Append(' '); continue;
+                }
+                sb.Append(s[i]);
+            }
+            return sb.ToString();
+        }
+    }
+
+    /// <summary>A pinned vendor DUT subtype answer per item name, overriding <see cref="Item.DutAnswer"/> — <c>null</c>
+    /// included, so a test states "the vendor has no answer" for any text.</summary>
+    public Dictionary<string, DutSubtype?> DutAnswers { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly List<Item> _items;
     public FakeIde(params Item[] items) => _items = items.ToList();
@@ -586,6 +658,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             {
                 Declaration = declaration ?? it.Declaration,
                 Implementation = implementation ?? it.Implementation,
+                DutAnswer = ItemKind.Map(it.KindCode) == ItemKind.Kinds.Dut ? DutAnswerFor(declaration ?? it.Declaration) : null,
             };
         }
     }
@@ -654,7 +727,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             it.Declaration ?? "",
             BodyTextOf(it),
             MembersOf(it).ToList(),
-            UnsupportedOf(it));
+            UnsupportedOf(it),
+            DutAnswers.TryGetValue(it.Name, out var pinned) ? pinned : it.DutAnswer);
     }
 
     /// <summary>The item's kind, from its DECLARATION HEADER where it has one.
@@ -839,6 +913,10 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             {
                 KindCode = RetypesFromDeclaration?.Invoke(content.Declaration) ?? owner.KindCode,
                 Declaration = content.Declaration,
+                // The vendor's answer follows the written text at once (CODESYS's signature, C2g; TwinCAT's text-pure
+                // classification, 5.A.2) — re-answered here, as authoring answered it.
+                DutAnswer = ItemKind.Map(RetypesFromDeclaration?.Invoke(content.Declaration) ?? owner.KindCode) == ItemKind.Kinds.Dut
+                    ? DutAnswerFor(content.Declaration) : null,
                 Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), content.Declaration, pushedDeclarations) ?? owner.Implementation,
                 // The member SET is not this call's to change: `CreateChild` adds a member and `Delete` removes one,
                 // as on both drivers, and a member absent from `content` is one the push LEFT ALONE (PushService's

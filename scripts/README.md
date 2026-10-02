@@ -82,8 +82,8 @@ editor for the LSP's own switch. `Volt.Repo.Gates/NetworkTextSwitchTests` fails 
 ## The wiring check
 
 `bun run check` (`check-wiring.ts`) — built binaries, product-version parity, and **source-extension parity across
-every runtime that declares the writable-source set** (C#, the LSP, volt-control, and four separate places in the
-VS Code extension manifest), and **materialization parity** — the format number the C# CLI writes on every library
+every runtime that declares the writable-source set** (C#, the LSP, volt-control, four separate places in the
+VS Code extension manifest, and the Claude Code plugin's `extensionToLanguage` in `plugins/volt-lsp`), and **materialization parity** — the format number the C# CLI writes on every library
 manifest (`LibraryManifest.Materialization`) against the one the LSP reads (`MATERIALIZATION`), since a mismatch
 silences every network-text diagnostic. Offline and key-free, so **CI runs it on every push/PR**.
 

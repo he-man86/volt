@@ -443,16 +443,18 @@ public class DutSubtypeChangePushTests
         Assert.Empty(ide.Recorded);
     }
 
-    /// <summary>A DUT WHOSE IDE DECLARATION STATES NO SUBTYPE (an engineer half-typed <c>TYPE X :</c>) has no wire
-    /// name — it is published unreadable — so whether a <c>delete X.struct</c> names it cannot be read from it.
-    /// That must be decided BEFORE the first write: it used to throw <c>BAD_REQUEST</c> from inside the apply loop,
-    /// after the batch's earlier ops had landed (a partial write reported as a rejection). Without force the push
-    /// is refused whole as an unreadable item; with <c>--force</c> — the documented way past an unreadable item —
-    /// the delete removes it, as a forced delete of <c>X.dut</c> did before the subtype reached the wire.</summary>
+    /// <summary>A DUT WHOSE VENDOR STATES NO SUBTYPE (an engineer half-typed <c>TYPE X :</c>) HAS A WIRE NAME:
+    /// <c>X.dut</c>. So a <c>delete X.struct</c> does not name it — a no-op, forced or not, the batch's other ops
+    /// written — and a <c>delete X.dut</c> does.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> Such a
+    /// DUT used to have no wire name (published unreadable), so whether a delete named it could not be read: refused
+    /// unforced as UNREADABLE, and under force the delete removed it. The vendor's missing answer now publishes
+    /// <c>X.dut</c>, the one counted fallback, and a delete reaches a DUT only under the name it has.</para></summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void A_delete_of_a_dut_whose_declaration_states_no_subtype_is_decided_before_any_write(bool force)
+    public void A_delete_of_a_dut_whose_vendor_states_no_subtype_reaches_it_only_as_dot_dut(bool force)
     {
         var ide = new FakeIde(
             new FakeIde.Item("X", ItemKind.PlcDut, "DUTs", true, "TYPE X :\nEND_TYPE\n", null, null, null),
@@ -467,23 +469,23 @@ public class DutSubtypeChangePushTests
             },
             new DeleteItemOp { Name = "X.struct" },
         };
-        var resp = PushService.Handle(ide, new PushRequest { Force = force, Ops = ops });
+        Assert.Equal(new[] { "A.fb", "X.dut" }, refs.Items.Keys.OrderBy(k => k).ToArray());
 
-        if (force)
+        var resp = PushService.Handle(ide, new PushRequest { Force = force, Ops = ops });
+        Assert.True(resp.Accepted, Reasons(resp));
+        Assert.Contains("writecontent:A", ide.Recorded);
+        Assert.DoesNotContain("delete:X", ide.Recorded);
+        Assert.True(ide.Exists("X"), "delete X.struct deleted the DUT published as X.dut");
+
+        var now = RefsService.Handle(ide);
+        var del = PushService.Handle(ide, new PushRequest
         {
-            Assert.True(resp.Accepted, Reasons(resp));
-            Assert.Contains("delete:X", ide.Recorded);
-            Assert.Contains("writecontent:A", ide.Recorded);
-        }
-        else
-        {
-            Assert.False(resp.Accepted);
-            var conflict = Assert.Single(resp.Conflicts!);
-            Assert.Equal("X.struct", conflict.Name);
-            Assert.Equal(BridgeErrorCodes.Unreadable, conflict.Code);
-            Assert.DoesNotContain("already written", conflict.Reason);
-            Assert.Empty(ide.Recorded);
-        }
+            Force = force, ExpectedProjectVersion = force ? null : now.ProjectVersion,
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "X.dut", IfVersion = now.Items["X.dut"] } },
+        });
+        Assert.True(del.Accepted, Reasons(del));
+        Assert.Contains("delete:X", ide.Recorded);
+        Assert.False(ide.Exists("X"));
     }
 
     /// <summary>…AND A DUT THAT CANNOT BE READ AT ALL IS THE SAME UNREADABLE ITEM. A read failure other than a
@@ -624,15 +626,16 @@ public class DutSubtypeChangePushTests
 
     // ── section 3 review, round 3: names the wire never published, and an update posing as a create ──
 
-    /// <summary>A PUSH OP'S NAME IS A WIRE NAME, or the push is refused before anything is read or written. Since the
-    /// DUT is named by its subtype, <c>X.dut</c> — what the previous CLI and unmigrated scripts still send — names no
-    /// kind; neither does a bare <c>X</c> or <c>X.foo</c>. The gate found none of them in the version map and let the
+    /// <summary>A PUSH OP'S NAME IS A WIRE NAME, or the push is refused before anything is read or written. A bare
+    /// <c>X</c> or <c>X.foo</c> names no kind. The gate found none of them in the version map and let the
     /// op through as a CREATE; the apply then resolved it by BARE name, found the live DUT and wrote over it with no
     /// version check (forced, it also moved it). Refused <c>BAD_REQUEST</c> naming the op, forced or not: force drops
-    /// a version gate, it never makes a name mean something.</summary>
+    /// a version gate, it never makes a name mean something.
+    ///
+    /// <para>The <c>X.dut</c> rows left this test (owner, openspec <c>push-without-header-check</c> 5.B): <c>.dut</c> is
+    /// a DUT wire name again — the DUT whose vendor states no subtype — so a create under it over a live <c>X.struct</c>
+    /// is <c>ITEM_EXISTS</c> like any other DUT name (<c>DutBareIdentityPushTests</c>).</para></summary>
     [Theory]
-    [InlineData("X.dut", false)]
-    [InlineData("X.dut", true)]
     [InlineData("X", false)]
     [InlineData("X", true)]
     [InlineData("X.foo", false)]
@@ -669,13 +672,14 @@ public class DutSubtypeChangePushTests
     public void A_rename_to_a_name_that_is_no_wire_name_is_refused_and_writes_nothing()
     {
         var (ide, refs) = StructInDuts();
+        // `X.foo`, not `X.dut`: `.dut` is a DUT wire name since 5.B (owner), and a rename to it is a DUT rename.
         var resp = Push(ide, refs,
-            new SetItemOp { Name = "X.struct", ToName = "X.dut", IfVersion = refs.Items["X.struct"], SourceText = Struct });
+            new SetItemOp { Name = "X.struct", ToName = "X.foo", IfVersion = refs.Items["X.struct"], SourceText = Struct });
 
         Assert.False(resp.Accepted);
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
-        Assert.Contains("'X.dut'", conflict.Reason);
+        Assert.Contains("'X.foo'", conflict.Reason);
         Assert.Empty(ide.Recorded);
     }
 

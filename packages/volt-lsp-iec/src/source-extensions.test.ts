@@ -18,6 +18,8 @@ test("every writable-source extension names its object; nothing else does", () =
     ".enum": "dut",
     ".union": "dut",
     ".alias": "dut",
+    // a DUT whose vendor states no subtype (openspec push-without-header-check 5.B)
+    ".dut": "dut",
   })
   // EXACT, as the crawl (`workspace-refs.ts`) and the CLI's classifier read extensions: `X.STRUCT` is a foreign file
   // `volt push` refuses, never the `X.struct` the IDE publishes. (This said "case-insensitive, as the crawl reads

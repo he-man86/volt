@@ -39,13 +39,23 @@ public sealed partial class CodesysDriver
 
         // No separate language field: a graphical body's text LEADS with its `IMPLEMENTATION FBD|LD` line
         // (its stated language), so the language is already in the content and a second copy could only disagree.
+        var kind = KindOf(item);
         return new ItemContent(
-            KindOf(item),
+            kind,
             declaration.TrimEnd('\n'),
             body,
             members,
-            unsupported);
+            unsupported,
+            DutSubtypeOf(kind, declaration));
     }
+
+    /// <summary>A DUT's subtype as this vendor states it (<see cref="ItemContent.DutSubtype"/>; null = no answer, the
+    /// item is published <c>name.dut</c>), and null for every other kind.
+    /// <para><b>INTERIM</b> (openspec <c>push-without-header-check</c> 5.B choice 7): the engine's stand-in
+    /// <c>CodeHelper.TryDutSubtype</c> until 5.D answers from CODESYS's precompile signature
+    /// (<c>Type</c>+<c>Structure</c> / <c>+Union</c> / <c>Alias</c>, <c>VarGlobal</c>+<c>Enum</c>; DIALECT C2g).</para></summary>
+    private static DutSubtype? DutSubtypeOf(string kind, string declaration) =>
+        kind == ItemKind.Kinds.Dut ? CodeHelper.TryDutSubtype(declaration) : null;
 
     public void WriteContent(ItemRef item, ItemContent content,
                              IReadOnlyDictionary<string, string> pushedDeclarations)

@@ -206,9 +206,9 @@ public static class PushService
         foreach (var op in ops)
         {
             // A DUT DELETE WHOSE TARGET CANNOT BE READ is decided HERE, before anything is written. Whether
-            // `delete X.struct` names the IDE's DUT `X` is read from `X`'s declaration (`NamesThisItem`; no other
-            // kind needs a read — each has one extension, so its kind names it), and one
-            // that does not materialize — no subtype stated, or any read fault — has no wire name to compare
+            // `delete X.struct` names the IDE's DUT `X` is read from `X`'s content (`NamesThisItem`: the subtype the
+            // driver states, or `.dut` for none; no other kind needs a read — each has one extension, so its kind
+            // names it), and one that does not materialize — any read fault — has no wire name to compare
             // with. Asked first inside the apply loop, that
             // refused after the batch's earlier ops had landed. Without force the item is UNREADABLE — refused
             // whole, as a create over one is (`PushConflicts`); with force, the documented way past an unreadable
@@ -609,9 +609,9 @@ public static class PushService
     /// disagree with what <c>refs</c> published. A DUT that cannot be materialized has NO wire name: null, since no
     /// name can be shown to be its, with the read's own reason in <paramref name="unreadable"/>.
     ///
-    /// <para><b>EVERY read failure, not only a declaration that states no subtype.</b> The walk that built
-    /// <c>refs</c> (<see cref="Versioning.SafeVersion"/>) publishes any item that fails to materialize — a missing
-    /// subtype, a COM error, a driver throw — as unreadable, keyed bare. Catching less here made the push disagree
+    /// <para><b>EVERY read failure.</b> The walk that built <c>refs</c> (<see cref="Versioning.SafeVersion"/>)
+    /// publishes any item that fails to materialize — a COM error, a driver throw — as unreadable, keyed bare (a DUT
+    /// whose vendor states no subtype is not one: it materializes as <c>X.dut</c>). Catching less here made the push disagree
     /// with that: a COM failure escaped the pre-flight as a raw exception (no response), and under force threw from
     /// the apply after earlier ops had landed, leaving a DUT no push could delete. The reason is carried, not
     /// swallowed: it is what the refusal names.</para></summary>
@@ -628,8 +628,8 @@ public static class PushService
 
     /// <summary>Does a <c>delete</c> of <paramref name="wireName"/> reach the IDE's object? Only when it is that
     /// object's wire name — or, under force, when the object is a DUT that has none: a DUT that cannot be
-    /// materialized is an UNREADABLE item, and force is the documented way past one (a forced <c>delete X.dut</c>
-    /// removed it before the subtype reached the wire). Without force the pre-flight refused it already
+    /// materialized (its content could not be read at all) is an UNREADABLE item, and force is the documented way
+    /// past one. A DUT whose vendor states no subtype is NOT that: it has the wire name <c>X.dut</c>. Without force the pre-flight refused it already
     /// (<see cref="UnreadableDut"/>); reaching it here unforced means the IDE changed mid-push, refused the same way.</summary>
     private static bool DeleteReaches(IIdeDriver ide, string bare, ItemRef item, string wireName, bool force) =>
         NamesThisItem(ide, bare, item, wireName, out var unreadable)
@@ -640,11 +640,12 @@ public static class PushService
     /// <c>BAD_REQUEST</c> before a read or a write, forced or not.
     ///
     /// <para><b>Why a name with no kind cannot just be tried.</b> The apply resolves an op by its BARE name, so
-    /// <c>X.dut</c>, <c>X</c> or <c>X.foo</c> reaches whatever object is called <c>X</c>, while every check keyed by
-    /// the full name misses it: the version gate finds no such key and passes a set as a create, and the kind check
-    /// has no kind to hold the text to. So a <c>set X.dut</c> — the name the previous CLI and unmigrated scripts
-    /// still send, now that a DUT is named by its subtype — overwrote the live DUT with no version check (forced, it
-    /// also moved it). Force drops a version gate; it never makes a name mean something.</para></summary>
+    /// <c>X</c> or <c>X.foo</c> reaches whatever object is called <c>X</c>, while every check keyed by the full name
+    /// misses it: the version gate finds no such key and passes a set as a create, and the kind check has no kind to
+    /// hold the text to — so such a set overwrote the live object with no version check (forced, it also moved it).
+    /// Force drops a version gate; it never makes a name mean something. (<c>X.dut</c> HAS a kind — the DUT published
+    /// when its vendor states no subtype, openspec <c>push-without-header-check</c> 5.B — and an update under it
+    /// reaches the live DUT through its version, <c>PushConflicts</c>.)</para></summary>
     private static void RequireWireNames(IEnumerable<PushOp> ops)
     {
         foreach (var op in ops)

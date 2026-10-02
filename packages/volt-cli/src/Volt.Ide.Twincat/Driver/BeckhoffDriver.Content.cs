@@ -38,8 +38,18 @@ public sealed partial class BeckhoffDriver
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, declaration));
 
-        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported);
+        var kind = KindOf(item);
+        return new ItemContent(kind, declaration.TrimEnd('\n'), body, members, unsupported, DutSubtypeOf(kind, declaration));
     }
+
+    /// <summary>A DUT's subtype as this vendor states it (<see cref="ItemContent.DutSubtype"/>; null = no answer, the
+    /// item is published <c>name.dut</c>), and null for every other kind. Classified from the declaration this read
+    /// already holds — no second COM read (design step 5.B, option B1).
+    /// <para><b>INTERIM</b> (openspec <c>push-without-header-check</c> 5.B choice 7): the engine's stand-in
+    /// <c>CodeHelper.TryDutSubtype</c> until 5.C's total classifier, proven against CODESYS's signature, replaces it
+    /// in this driver (TwinCAT stores no subtype a text-free read can trust; DIALECT C2e/C2h).</para></summary>
+    private static DutSubtype? DutSubtypeOf(string kind, string declaration) =>
+        kind == ItemKind.Kinds.Dut ? CodeHelper.TryDutSubtype(declaration) : null;
 
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
     ///

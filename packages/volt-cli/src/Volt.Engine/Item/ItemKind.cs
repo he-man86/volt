@@ -32,12 +32,13 @@ public static class ItemKind
     public const int PlcGvl = 615;
     public const int PlcItf = 618;
     // A DUT is ONE internal kind (`Kinds.Dut`) named on the wire by its SUBTYPE: `X.struct` / `X.enum` / `X.union`
-    // / `X.alias`, which is also its file name. The subtype lives solely in the declaration body, and the COMPILER
-    // takes each DUT as its declared shape. The IDE's tree does not reliably say it: CODESYS classifies every
-    // IDUTObject as PlcDut and creates with one create_dut call, and TwinCAT's tree code lags the declaration
-    // (below; DIALECT C2e). So the engine reads the same text the IDE reads — `CodeHelper.DutSubtype`, minted into
-    // the wire name once in `Materializer` — and a struct rewritten as an enum is ONE object whose wire name
-    // changes: `PushService` takes that as a content update of the same object, never a delete plus a create.
+    // / `X.alias`, which is also its file name — or `X.dut` when the VENDOR states no subtype for it (openspec
+    // `push-without-header-check` 5.B). The subtype is the vendor's answer, carried up by the driver on
+    // `ItemContent.DutSubtype` and minted into the wire name once in `Materializer`; the engine never reads a DUT's
+    // text for it. The IDE's tree code does not reliably say it: CODESYS classifies every IDUTObject as PlcDut and
+    // creates with one create_dut call, and TwinCAT's tree code lags the declaration (below; DIALECT C2e). A struct
+    // rewritten as an enum is ONE object whose wire name changes: `PushService` takes that as a content update of
+    // the same object, never a delete plus a create.
     //
     // But it is FOUR tree codes on TwinCAT, not one, and that correction cost real data. This used to say
     // "605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — NEVER PRODUCED, never needed", and every walk that
@@ -50,7 +51,7 @@ public static class ItemKind
     // 623 is TREEITEMTYPE_PLCDUTALIAS, not a generic DUT (DIALECT C2b): a push-create seeds 606 whatever the body
     // (`TcObjectModel.CreateChild`), and an in-place write of another shape keeps the OLD code live until a reload
     // (C2e) — so the code is never a subtype source. All four map to the one internal kind; the wire name comes
-    // from the declaration alone.
+    // from the driver's subtype answer alone.
     public const int PlcDut = 623;
     public const int PlcDutEnum = 605;
     public const int PlcDutStruct = 606;
@@ -295,19 +296,37 @@ public static class ItemKind
     // scripts/check-wiring.ts cross-checks the TS/JSON copies (LSP, VS Code, control)
     // against it. A POU's body LANGUAGE is never in the extension: an editable FBD/LD body is the same
     // .fb/.prg/.fun as a textual one (graphical by its stated IMPLEMENTATION LD|FBD line), a CFC/SFC body is that kind
-    // extension too (its `IMPLEMENTATION CFC|SFC UNSUPPORTED` line). Kind is recovered from file
-    // content on push, so the extension carries kind alone.
+    // extension too (its `IMPLEMENTATION CFC|SFC UNSUPPORTED` line). The extension carries the kind alone (and, for a
+    // DUT, the subtype its vendor states); a push never reads a top-level item's text for either.
 
     /// <summary>Writable source kinds (assembled ST text), each with its file extension.</summary>
     public static readonly IReadOnlyList<(string Kind, string Ext)> SourceKindExtensions = new (string, string)[]
     {
         (Kinds.FunctionBlock, "fb"), (Kinds.Program, "prg"), (Kinds.Function, "fun"),
         (Kinds.Interface, "itf"), (Kinds.Gvl, "gvl"),
-        // A DUT is ONE kind under FOUR extensions — its subtype, read from the declaration
-        // (`CodeHelper.DutSubtype`) and minted into the wire name by `Materializer`. They are ordinary source
-        // extensions: the wire name IS the file name, so a client maps nothing. There is no `dut` extension.
-        (Kinds.Dut, "struct"), (Kinds.Dut, "enum"), (Kinds.Dut, "union"), (Kinds.Dut, "alias"),
+        // A DUT is ONE kind under FIVE extensions — the four subtypes its vendor can state
+        // (`ItemContent.DutSubtype`), and `dut` for a DUT whose vendor states none — minted into the wire name by
+        // `Materializer` (`DutExtension`). They are ordinary source extensions: the wire name IS the file name, so a
+        // client maps nothing, and a push accepts any of them for any DUT (the text is written as sent).
+        (Kinds.Dut, "struct"), (Kinds.Dut, "enum"), (Kinds.Dut, "union"), (Kinds.Dut, "alias"), (Kinds.Dut, "dut"),
     };
+
+    /// <summary>The extension of a DUT whose vendor answered <paramref name="subtype"/> — null (no answer) gives
+    /// <c>dut</c>, the one counted fallback (openspec <c>push-without-header-check</c> 5.B). Read from
+    /// <see cref="SourceKindExtensions"/>, so each extension is spelt in that table alone.</summary>
+    public static string DutExtension(DutSubtype? subtype) => subtype switch
+    {
+        null => DutExtensions[4],
+        DutSubtype.Struct => DutExtensions[0],
+        DutSubtype.Enum => DutExtensions[1],
+        DutSubtype.Union => DutExtensions[2],
+        DutSubtype.Alias => DutExtensions[3],
+        _ => throw new ArgumentOutOfRangeException(nameof(subtype), subtype, "no DUT extension for this subtype"),
+    };
+
+    // The DUT rows of the table, in table order: struct, enum, union, alias, dut.
+    private static readonly string[] DutExtensions =
+        SourceKindExtensions.Where(x => x.Kind == Kinds.Dut).Select(x => x.Ext).ToArray();
 
     /// <summary>Read-only reference kinds (opaque manifests / descriptors), each with its file extension.</summary>
     public static readonly IReadOnlyList<(string Kind, string Ext)> ReferenceKindExtensions = new (string, string)[]
@@ -377,7 +396,7 @@ public static class ItemKind
     private static readonly HashSet<string> SourceKinds =
         new(SourceKindExtensions.Select(x => x.Kind), StringComparer.Ordinal);
 
-    // Kinds with ONE extension. The DUT kind has four and is absent, so `ExtFor` cannot pick one for it.
+    // Kinds with ONE extension. The DUT kind has five and is absent, so `ExtFor` cannot pick one for it.
     private static readonly Dictionary<string, string> ExtByKind =
         SourceKindExtensions.Concat(ReferenceKindExtensions)
             .GroupBy(x => x.Kind, StringComparer.Ordinal)
@@ -388,7 +407,7 @@ public static class ItemKind
     /// `volt init` colours it) and whether a push may WRITE it. Those are different questions — see
     /// <see cref="WritableReferenceKinds"/> — and the CLI's <c>Volt.Cli.Sync.Extensions</c> registry is built
     /// from this, so access and the extension list live in ONE place. File extension == wire extension for every
-    /// kind (a DUT's four subtype extensions included), so this is the table, entry for entry.</summary>
+    /// kind (a DUT's five extensions included), so this is the table, entry for entry.</summary>
     public static IEnumerable<(string Ext, bool IsSource, bool IsWritable)> FileExtensions =>
         SourceKindExtensions.Select(x => (Ext: x.Ext, IsSource: true, IsWritable: true))
             .Concat(ReferenceKindExtensions.Select(
@@ -399,14 +418,14 @@ public static class ItemKind
     /// SEGMENT, never a file, and both driver walks recurse it without emitting an item — the old <c>folder → ""</c>
     /// arm was left from the era when folders WERE emitted, and produced a bare-trailing-dot name ("POUs.").
     ///
-    /// <para><b>And <see cref="Kinds.Dut"/></b>: it has four extensions, one per subtype, and which one is a fact
-    /// about the DECLARATION, not the kind. Answering "the" DUT extension is what minted the old <c>X.dut</c> wire
-    /// name; a DUT's name comes from <c>Materializer</c>, which reads the subtype.</para></summary>
+    /// <para><b>And <see cref="Kinds.Dut"/></b>: it has five extensions, and which one is a fact the VENDOR states
+    /// about the object (its subtype, or none), not the kind. A DUT's name comes from <c>Materializer</c>, through
+    /// <see cref="DutExtension"/>.</para></summary>
     public static string ExtFor(string kind) =>
         ExtByKind.TryGetValue(kind, out var ext) ? ext
         : kind == Kinds.Dut
             ? throw new ArgumentException(
-                $"kind '{kind}' has one extension per subtype — its name comes from its declaration (Materializer)")
+                $"kind '{kind}' has one extension per vendor-stated subtype — its name comes from the driver's answer (Materializer)")
             : throw new ArgumentException(
                 $"No extension for kind '{kind}' — add it to ItemKind.SourceKindExtensions/ReferenceKindExtensions");
 }

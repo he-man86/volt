@@ -34,12 +34,16 @@ public static class Sidecar
     }
 
     /// <summary>A BASELINE KEY THAT IS NO WIRE NAME IS REFUSED BY NAME, NEVER TRANSLATED. The baseline is keyed by
-    /// the names the IDE publishes, and a workspace from an older Volt holds names it no longer does — its DUTs
-    /// as `X.dut`, from before the wire carried the subtype. Every `ifVersion` such a key quotes names no item and
-    /// every comparison against it is wrong, so the baseline is refused exactly as a malformed one is: the file to
-    /// delete, and `volt pull`, which rebuilds it from what the wire says now. A translator would have to re-derive
-    /// a subtype the old key never held, and would be item-kind knowledge in the CLI. "No wire name" is asked of the
-    /// one extension table (`Extensions`), so no retired spelling is listed here.</summary>
+    /// the names the IDE publishes, and a key whose extension names no kind (a hand-edited or foreign baseline) has
+    /// no item to stand for. Every `ifVersion` such a key quotes names no item and every comparison against it is
+    /// wrong, so the baseline is refused exactly as a malformed one is: the file to delete, and `volt pull`, which
+    /// rebuilds it from what the wire says now. A translator would be item-kind knowledge in the CLI. "No wire name"
+    /// is asked of the one extension table (`Extensions`), so no spelling is listed here.
+    ///
+    /// <para>An `X.dut` key from before the wire carried the subtype is NOT refused any more: `.dut` is a wire name
+    /// again — the DUT whose vendor states no subtype (openspec `push-without-header-check` 5.B) — so the two cannot
+    /// be told apart. That stays safe: an `ifVersion` such a key quotes reaches the live DUT only if it equals that
+    /// DUT's content version (the bare-DUT update gate), and the next pull renames the key.</para></summary>
     private static void RefuseUnknownNames(IdeRefs refs, string file)
     {
         var stale = refs.Items.Keys.Concat(refs.Folders.Keys)

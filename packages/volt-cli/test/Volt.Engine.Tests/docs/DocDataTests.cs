@@ -782,13 +782,18 @@ public class DocDataTests
             $"docs/{page} does not say there are {n} ops, and the wire has {n}.");
     }
 
-    /// <summary>NO DOC STILL SAYS A DUT TRAVELS AS <c>.dut</c> (openspec <c>dut-subtype-on-the-wire</c>, 5.1–5.3).
-    /// A DUT is named on the wire by its subtype — <c>X.struct</c>/<c>.enum</c>/<c>.union</c>/<c>.alias</c> — and
-    /// <c>.dut</c> names nothing any more: no file, no wire item. The prose that said otherwise ("one wire kind",
-    /// "the wire identity keeps <c>.dut</c>") is exactly what a generated table cannot correct, so the pages and
-    /// comments a reader or a host config is built from are held here. The one place <c>.dut</c> may still be
-    /// spelt is the upgrade note (<c>items.html#dut-migration</c>), which exists to name the old key a baseline
-    /// is refused for — so the check also requires that note to be there and to name the fix.
+    /// <summary>NO DOC STILL SAYS EVERY DUT TRAVELS AS ONE <c>.dut</c> KIND (openspec <c>dut-subtype-on-the-wire</c>,
+    /// 5.1–5.3), AND NONE SAYS <c>.dut</c> NAMES NOTHING. A DUT is named on the wire by the subtype its vendor states —
+    /// <c>X.struct</c>/<c>.enum</c>/<c>.union</c>/<c>.alias</c> — and <c>X.dut</c> when the vendor states none. The
+    /// prose of the first era ("one wire kind", "the wire identity keeps <c>.dut</c>") is exactly what a generated
+    /// table cannot correct, so the pages and comments a reader or a host config is built from are held here; the
+    /// upgrade note (<c>items.html#dut-migration</c>) must be there and name the fix.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> This
+    /// held "<c>.dut</c> names nothing any more" and forbade the spelling outside the upgrade note; it also required
+    /// that note to call a subtype-less DUT unreadable and name <c>--force</c>. <c>.dut</c> is a wire name again —
+    /// the one counted fallback — and such a DUT is pushed without force, so the check forbids the stale CLAIMS
+    /// instead of the name, and the docs that describe <c>.dut</c> must say what it means.</para>
     ///
     /// <para>Presence and absence of names, not wording: a clearer sentence is never a failure here.</para></summary>
     [Theory]
@@ -817,27 +822,28 @@ public class DocDataTests
             Assert.Contains(".git/volt/ide-refs.json", migration.Value, StringComparison.Ordinal);
             Assert.Contains("volt pull", migration.Value, StringComparison.Ordinal);
             // The previous CLI read a DUT's subtype by PREFIX (`Struct_Alarm` → struct), took a comment after the
-            // colon for the body token, and answered alias for a declaration that stated none. The current reader
-            // does none of that, so the recovery pull can RENAME a file (removal + git's rename detection) or leave
-            // it UNREADABLE and unpushable. A note promising the files do not move sends the engineer into a tree
-            // they did not change without a word of why.
+            // colon for the body token, and answered alias for a declaration that stated none. The recovery pull can
+            // therefore RENAME a file (removal + git's rename detection). A note promising the files do not move
+            // sends the engineer into a tree they did not change without a word of why.
             Assert.DoesNotContain("files do not change", migration.Value, StringComparison.Ordinal);
             Assert.Contains("rename", migration.Value, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("unreadable", migration.Value, StringComparison.Ordinal);
-            // An unreadable DUT is NOT push-safe: PushService refuses its push only UNFORCED, and a forced local
-            // delete removes the live DUT (DutSubtypeChangePushTests pins that). A note that says "every push is
-            // refused" hides the one path by which the push reaches the object, so it must name --force.
-            Assert.Contains("--force", migration.Value, StringComparison.Ordinal);
+            // A subtype-less DUT is `X.dut` now (5.B), not unreadable: a note that still sends the engineer to
+            // `--force` for it describes a refusal that no longer exists.
+            Assert.DoesNotContain("unless forced", migration.Value, StringComparison.Ordinal);
         }
         var rest = migration.Success ? text.Remove(migration.Index, migration.Length) : text;
 
         var stale = System.Text.RegularExpressions.Regex.Matches(
-                rest, @"\.dut\b|one wire kind|remains the wire kind",
+                rest, @"one wire kind|remains the wire kind|there is no [`'""]?\.?dut\b|retired spelling of the DUT|\.dut\b[^.\n]{0,40}names nothing",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase)
             .Select(m => m.Value).ToList();
         Assert.True(stale.Count == 0,
             $"{relative} still describes the retired DUT wire name: {string.Join(", ", stale)} — a DUT is named on "
-            + "the wire by its subtype (X.struct/.enum/.union/.alias).");
+            + "the wire by the subtype its vendor states (X.struct/.enum/.union/.alias), or X.dut when it states none.");
+        // A doc that names `.dut` outside the upgrade note says what it is: the DUT whose vendor states no subtype.
+        if (System.Text.RegularExpressions.Regex.IsMatch(rest, @"\.dut\b"))
+            Assert.Matches(new System.Text.RegularExpressions.Regex(@"(states|stated|gives|has)\s+(<[bi]>)?(no(</[bi]>)?\s+subtype|none)|no vendor answer",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase), rest);
     }
 
     /// <summary>THE WIRE NAME'S CONTRACT COMMENT NAMES EVERY PLACE A WIRE NAME IS MINTED. <c>FetchedItem.Name</c> is

@@ -52,9 +52,9 @@ public class FetchedItem
 {
     /// <summary>Full workspace filename including its KIND extension (e.g. "PLC_PRG.prg", "Foo.fb") — see
     /// <c>Volt.Engine.Sync.Materializer.FullWireName</c> for a project item, and <c>Volt.Engine.Library.LibraryFetch</c>
-    /// for a library element (its extension from <c>LibSignatureRenderer</c>) — two minting sites, one subtype reader
-    /// (<c>CodeHelper.DutSubtype</c>). A DUT is named by its declaration's subtype ("E_Mode.enum", "ST_Axis.struct",
-    /// ".union", ".alias"), so the file a client writes is this name as given. A graphical FBD/LD body keeps its kind extension (language rides in the content), not a
+    /// for a library element (its extension from <c>LibSignatureRenderer</c>). A DUT is named by the subtype its VENDOR
+    /// states ("E_Mode.enum", "ST_Axis.struct", ".union", ".alias"), or "E_Mode.dut" when the vendor states none, so
+    /// the file a client writes is this name as given. A graphical FBD/LD body keeps its kind extension (language rides in the content), not a
     /// distinct one.</summary>
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";

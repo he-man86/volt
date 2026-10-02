@@ -22,6 +22,11 @@ namespace Volt.Cli.Tests;
 /// <para>A subtype change is a REMOVED name plus an ADDED one on the wire, so the pull's ordinary removal sweep
 /// retires the old file; and a push of either git shape (rename, or delete + add) is ONE update of the same IDE
 /// object, decided in the engine — see <c>DutSubtypeChangePushTests</c> for that half.</para>
+///
+/// <para><b>And <c>.dut</c></b> (openspec <c>push-without-header-check</c> 5.B, owner 2026-10-02): a DUT whose vendor
+/// states no subtype is published <c>X.dut</c> — a fifth ordinary extension, written, tracked and pushed like the
+/// other four. <c>.dut</c> ↔ subtype is a rename like any other, on pull and on push; the CLI holds no DUT logic for
+/// it (the engine reaches the live DUT by its bare identity, gated by the version).</para>
 /// </summary>
 public class DutSubtypeFileTests
 {
@@ -74,30 +79,37 @@ public class DutSubtypeFileTests
     [Fact]
     public void The_round_trip_closes_for_every_subtype()
     {
-        foreach (var name in new[] { "X.struct", "X.enum", "X.union", "X.alias" })
+        foreach (var name in new[] { "X.struct", "X.enum", "X.union", "X.alias", "X.dut" })
         {
             var path = Assert.Single(Materialize.MaterializeItem(Dut(name, Struct))).Path;
             Assert.Equal(name, Materialize.PathToItem(path)!.Value.Name);
         }
     }
 
+    /// <summary>A <c>.dut</c> FILE IS A TRACKED, PUSHABLE DUT FILE — written under the wire name and read back as it.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B).</b> This was
+    /// "no path produces or recognizes a dut FILE": no wire message carried <c>.dut</c>. One does now — a DUT whose
+    /// vendor states no subtype — so the file is recognized like the other four DUT extensions.</para></summary>
     [Fact]
-    public void No_path_produces_or_recognizes_a_dut_FILE()
+    public void A_dut_file_is_produced_and_recognized_like_every_dut_extension()
     {
-        // No wire message carries `.dut`, so no file is named that way and none is recognized.
-        Assert.False(Extensions.IsTrackedPath("POUs/X.dut"));
-        Assert.False(Extensions.IsPushable("POUs/X.dut"));
-        Assert.Null(Materialize.PathToItem("POUs/X.dut"));
+        Assert.True(Extensions.IsTrackedPath("POUs/X.dut"));
+        Assert.True(Extensions.IsPushable("POUs/X.dut"));
+        Assert.False(Extensions.IsReadOnly("POUs/X.dut"));
+        Assert.Equal("POUs/X.dut", Assert.Single(Materialize.MaterializeItem(Dut("X.dut", "TYPE X :\nEND_TYPE", "POUs"))).Path);
+        Assert.Equal("X.dut", Materialize.PathToItem("POUs/X.dut")!.Value.Name);
     }
 
     /// <summary>A wire name the CLI cannot file — now most likely the engine minting an extension its own table lacks —
     /// is refused naming THAT table. The message used to say "add it to Extensions.cs", a file that holds no list
-    /// since the extensions derive from the engine's: it sent the fix into the one layer that must hold no kinds.</summary>
+    /// since the extensions derive from the engine's: it sent the fix into the one layer that must hold no kinds.
+    /// (Its example was <c>X.dut</c> until 5.B made that a DUT extension; <c>X.foo</c> names no kind.)</summary>
     [Fact]
     public void An_unfileable_wire_name_is_refused_naming_the_engines_kind_table()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() => Materialize.MaterializeItem(Dut("X.dut", Struct)));
-        Assert.Contains("\"X.dut\"", ex.Message);
+        var ex = Assert.Throws<InvalidOperationException>(() => Materialize.MaterializeItem(Dut("X.foo", Struct)));
+        Assert.Contains("\"X.foo\"", ex.Message);
         Assert.Contains("ItemKind.FileExtensions", ex.Message);
         Assert.DoesNotContain("Extensions.cs", ex.Message);
     }
@@ -107,6 +119,7 @@ public class DutSubtypeFileTests
     [InlineData("enum")]
     [InlineData("union")]
     [InlineData("alias")]
+    [InlineData("dut")]
     public void Every_subtype_extension_is_pushable_source_not_a_read_only_reference(string ext)
     {
         Assert.True(Extensions.IsTrackedPath($"POUs/X.{ext}"), ext);
@@ -227,8 +240,8 @@ public class DutSubtypeFileTests
     // ── a DUT whose text states no subtype ─────────────────────────────────────────────────────────
 
     /// <summary>A DUT whose declaration states no subtype — reachable live: an engineer mid-way through typing
-    /// `TYPE X :` in the IDE — is ONE item, and one item never takes the whole pull down. The spec publishes it as
-    /// unreadable (the engine's per-item refusal); whatever it becomes, every OTHER item is still pulled. Making
+    /// `TYPE X :` in the IDE — is ONE item, and one item never takes the whole pull down. It is published as
+    /// `X.dut` since 5.B (it was unreadable); whatever it becomes, every OTHER item is still pulled. Making
     /// the subtype reader throw before the engine had a per-item place to catch it aborted the pull with a
     /// FormatException and wrote nothing.</summary>
     [Fact]
@@ -250,11 +263,13 @@ public class DutSubtypeFileTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>…and it is written under NO name. A declaration that states no subtype is published unreadable,
-    /// never under a guessed one; the CLI writes what the wire names, so no `DUTs/X.*` file appears. Reading the
-    /// declaration here wrote `X.alias` — `END_TYPE` read as the first token after the colon.</summary>
+    /// <summary>…and it is written as `X.dut`, never under a guessed subtype. The CLI writes what the wire names.
+    /// Reading the declaration here once wrote `X.alias` — `END_TYPE` read as the first token after the colon.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B).</b> It was written under
+    /// NO name (the item was unreadable); "no vendor answer" now publishes <c>X.dut</c>.</para></summary>
     [Fact]
-    public void A_dut_whose_text_states_no_subtype_is_not_written_under_a_guessed_subtype()
+    public void A_dut_whose_text_states_no_subtype_is_written_as_dot_dut_never_a_guessed_subtype()
     {
         var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR", "x := 1;"));
         var (root, host, client) = Bound(ide);
@@ -267,20 +282,24 @@ public class DutSubtypeFileTests
 
             var duts = Path.Combine(root, "src", "DUTs");
             var written = Directory.Exists(duts) ? Directory.GetFiles(duts).Select(Path.GetFileName).ToArray() : new string?[0];
-            Assert.True(written.Length == 0, $"a subtype-less DUT was written as {string.Join(", ", written)}");
+            Assert.Equal(new[] { "X.dut" }, written);
+            Assert.Contains("X.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
     /// <summary>A DUT THE WORKSPACE ALREADY HOLDS, TURNED SUBTYPE-LESS IN THE IDE — an engineer half-way through
-    /// retyping `X`. The item is still in the IDE, just unreadable, so the pull keeps `DUTs/X.struct` with its
-    /// last content and writes no guessed `X.alias` beside it. Today's pull wrote `X.alias` holding the half-typed
-    /// text and swept `X.struct` as the item's replaced file. Both pulls: with a baseline, and without one (the
-    /// recovery path, which rebuilds the known names from the previous `volt/ide` tree).</summary>
+    /// retyping `X`. The pull RENAMES its file to `X.dut` holding the IDE's text: one file for the one DUT, never a
+    /// guessed `X.alias` beside it, never the DUT dropped. Both pulls: with a baseline, and without one (the recovery
+    /// path, which rebuilds the known names from the previous `volt/ide` tree).
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B).</b> The item was
+    /// unreadable, so the pull KEPT `X.struct` with its last content. "No vendor answer" now publishes
+    /// <c>X.dut</c>, so the honest pull is the rename — still exactly one file.</para></summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void A_held_dut_whose_text_loses_its_subtype_keeps_its_file(bool withBaseline)
+    public void A_held_dut_whose_text_loses_its_subtype_is_renamed_to_dot_dut(bool withBaseline)
     {
         const string held = "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE";
         var ide = ConnectedIde(
@@ -292,16 +311,17 @@ public class DutSubtypeFileTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var file = Path.Combine(root, "src", "DUTs", "X.struct");
             Assert.True(File.Exists(file), "fixture: the first pull wrote X.struct");
-            var before = File.ReadAllText(file);
 
             ide.RemoveItem("X");
             ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
             if (!withBaseline) File.Delete(Config.Paths(root).IdeRefsPath);
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
-            Assert.True(File.Exists(file), "the pull deleted X.struct for a DUT still in the IDE");
-            Assert.Equal(before, File.ReadAllText(file));
-            Assert.Equal(new[] { "X.struct" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+            Assert.Equal(new[] { "X.dut" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+            Assert.Contains("TYPE X :", File.ReadAllText(Path.Combine(root, "src", "DUTs", "X.dut")));
+            var keys = Sidecar.LoadIdeRefs(root)!.Items.Keys;
+            Assert.Contains("X.dut", keys);
+            Assert.DoesNotContain("X.struct", keys);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -343,9 +363,10 @@ public class DutSubtypeFileTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>…and the same window crossed by a PUSH of another item. The receipt is a fresh walk and lists an
-    /// unreadable item under no full name, so adopting the receipt dropped `X.struct` from the baseline exactly as
-    /// the pull did — and the pull after the retype landed `X.enum` beside it.</summary>
+    /// <summary>…and the same window crossed by a PUSH of another item. The receipt is a fresh walk; when the DUT was
+    /// unreadable it listed it under no full name, so adopting the receipt dropped `X.struct` from the baseline — and
+    /// the pull after the retype landed `X.enum` beside it. Since 5.B (owner) the subtype-less DUT is `X.dut`, so the
+    /// baseline holds it under that name, and the retype still leaves one file.</summary>
     [Fact]
     public void A_push_while_a_held_dut_is_subtype_less_keeps_it_known()
     {
@@ -365,8 +386,8 @@ public class DutSubtypeFileTests
             File.WriteAllText(prg, File.ReadAllText(prg).Replace("x := 1;", "x := 2;"));
             var pushed = Commands.Push(root, client);
             Assert.True(pushed.Kind == "ok", $"push {pushed.Kind}: {pushed.Reason}");
-            Assert.True(Sidecar.LoadIdeRefs(root)!.Items.ContainsKey("X.struct"),
-                "the push forgot X.struct, an item still in the IDE that it neither deleted nor renamed");
+            Assert.True(Sidecar.LoadIdeRefs(root)!.Items.ContainsKey("X.dut"),
+                "the push forgot X.dut, an item still in the IDE that it neither deleted nor renamed");
 
             ide.RemoveItem("X");
             ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X : (A, B);\nEND_TYPE", "", "DUTs"));
@@ -402,6 +423,107 @@ public class DutSubtypeFileTests
             Assert.NotNull(Sidecar.LoadIdeRefs(ws));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(parent); }
+    }
+
+    // ── `.dut` ↔ subtype, through the commands (5.B.3) ────────────────────────────────────────────
+
+    private const string Broken = "TYPE E_Mode :\n(* never closed\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE";
+
+    /// <summary>A PULL THAT NAMES `E_Mode.dut` AS `E_Mode.enum` — its text fixed in the IDE — IS A GIT RENAME, handled
+    /// like any rename: one file, the baseline under the new name, in sync. And back again when the text breaks.</summary>
+    [Fact]
+    public void A_pull_renames_dot_dut_to_its_subtype_and_back()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("E_Mode", Broken, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var dir = Path.Combine(root, "src", "DUTs");
+            Assert.Equal(new[] { "E_Mode.dut" }, Directory.GetFiles(dir).Select(Path.GetFileName).ToArray());
+
+            ide.RemoveItem("E_Mode");
+            ide.AddItem(FakeIde.Item.TextualPou("E_Mode", Enum, "", "DUTs"));
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.Equal(new[] { "E_Mode.enum" }, Directory.GetFiles(dir).Select(Path.GetFileName).ToArray());
+            Assert.Equal(new[] { "E_Mode.enum" }, Sidecar.LoadIdeRefs(root)!.Items.Keys.ToArray());
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+
+            ide.RemoveItem("E_Mode");
+            ide.AddItem(FakeIde.Item.TextualPou("E_Mode", Broken, "", "DUTs"));
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.Equal(new[] { "E_Mode.dut" }, Directory.GetFiles(dir).Select(Path.GetFileName).ToArray());
+            Assert.Equal(new[] { "E_Mode.dut" }, Sidecar.LoadIdeRefs(root)!.Items.Keys.ToArray());
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>A PUSH OF `E_Mode.dut` WHOSE TEXT THE IDE THEN ANSWERS AS `.enum` IS ACCEPTED — same bare identity, DUT
+    /// kind — with no refusal and no `--force`. The engineer fixes the broken text in `E_Mode.dut` and pushes; the
+    /// receipt names the item `E_Mode.enum`, the CLI records that through its ordinary held-under-another-name path
+    /// (`HeldUnderAnotherName`, DUT family), and the next pull moves the file.</summary>
+    [Fact]
+    public void A_push_of_dot_dut_over_an_ide_item_now_answering_its_subtype_is_accepted_without_force()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("E_Mode", Broken, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var file = Path.Combine(root, "src", "DUTs", "E_Mode.dut");
+            Assert.True(File.Exists(file), "fixture: the pull wrote E_Mode.dut");
+
+            File.WriteAllText(file, Enum + "\n");            // the engineer fixes the text in the workspace
+            var r = Commands.Push(root, client);
+            Assert.True(r.Kind == "ok", $"push {r.Kind}: {r.Reason}");
+            Assert.Contains("writecontent:E_Mode", ide.Recorded);
+            Assert.DoesNotContain(ide.Recorded, x => x is "delete:E_Mode" or "create:E_Mode");
+            Assert.Equal(new[] { "E_Mode.enum" }, RefsService.Handle(ide).Items.Keys.ToArray());
+
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.Equal(new[] { "E_Mode.enum" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
+    /// <summary>…AND WHEN THE IDE'S ANSWER CHANGED FIRST (its text fixed in the IDE) while the engineer edited
+    /// `E_Mode.dut`: the push is held by the ordinary project lease ("the IDE changed since your last sync"), never by
+    /// a DUT refusal; the pull carries the edit through git's rename into `E_Mode.enum`, and the push then lands. No
+    /// `--force` at any step.</summary>
+    [Fact]
+    public void An_edit_of_dot_dut_while_the_ide_fixed_it_follows_the_rename_and_lands_without_force()
+    {
+        var ide = ConnectedIde(FakeIde.Item.TextualPou("E_Mode", Broken, "", "DUTs"));
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var file = Path.Combine(root, "src", "DUTs", "E_Mode.dut");
+
+            ide.RemoveItem("E_Mode");                        // fixed in the IDE: now an enum
+            ide.AddItem(FakeIde.Item.TextualPou("E_Mode", Enum, "", "DUTs"));
+            File.WriteAllText(file, File.ReadAllText(file) + "\n// note\n");   // the engineer's own edit
+
+            var held = Commands.Push(root, client);
+            Assert.Equal("rejected", held.Kind);
+            Assert.Contains("volt pull", held.Reason);
+            Assert.DoesNotContain(ide.Recorded, x => x.EndsWith(":E_Mode"));
+
+            var pulled = Commands.Pull(root, client);
+            Assert.True(pulled.Kind == "ok", $"pull {pulled.Kind}: {pulled.Reason}");
+            Assert.False(File.Exists(file), "the pull left E_Mode.dut beside the renamed file");
+            var renamed = Path.Combine(root, "src", "DUTs", "E_Mode.enum");
+            Assert.True(File.Exists(renamed), "the pull did not rename to E_Mode.enum");
+            Assert.Contains("// note", File.ReadAllText(renamed));   // the edit followed the rename
+
+            var pushed = Commands.Push(root, client);
+            Assert.True(pushed.Kind == "ok", $"push {pushed.Kind}: {pushed.Reason}");
+            Assert.Contains("writecontent:E_Mode", ide.Recorded);
+            Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
     // ── a subtype change pushed as delete + add ────────────────────────────────────────────────────

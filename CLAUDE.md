@@ -166,7 +166,7 @@ bun run check      # built binaries + source-extension parity + product-version 
 ```
 
 Offline and key-free, so CI runs it on every push. It asserts the writable-source extension set agrees across
-every runtime that declares it (C#, the LSP, volt-control, and four separate places in the VS Code manifest) —
+every runtime that declares it (C#, the LSP, volt-control, four separate places in the VS Code manifest, and the Claude Code plugin's `extensionToLanguage`) —
 a new source kind can't be added in one place and silently missed in another.
 
 > This replaced `bun run compat`, a two-step gate whose real purpose was `verify-opencode.ts`: driving the

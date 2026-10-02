@@ -20,8 +20,12 @@ namespace Volt.Engine.Tests;
 /// <para><b>The name half is why the CLI holds no DUT logic.</b> The subtype used to be hidden from the wire
 /// (<c>X.dut</c>) and re-derived in the CLI to name the file, which put item-kind knowledge in the one layer
 /// whose job is git. The engine names the item once, where every other wire name is minted, and a client maps
-/// file name == wire name. The name comes from the DECLARATION and never from the tree code: TwinCAT's code lags
-/// the declaration after an in-place change and a push-create seeds 606 whatever the body (DIALECT C2e).</para>
+/// file name == wire name. The name never comes from the tree code: TwinCAT's code lags the declaration after an
+/// in-place change and a push-create seeds 606 whatever the body (DIALECT C2e).</para>
+/// <para><b>Since openspec <c>push-without-header-check</c> 5.B the subtype is the VENDOR's answer</b>
+/// (<c>ItemContent.DutSubtype</c>), and no answer publishes <c>X.dut</c>. The fake states the answer its vendor
+/// would give for each declaration below (<c>FakeIde.DutAnswerFor</c>, fixture authoring), so these tests pin the
+/// shapes on the wire; <c>DutSubtypeAnswerTests</c> pins that the engine takes the answer and never the text.</para>
 /// </summary>
 public class DutSubtypeCodeTests
 {
@@ -167,32 +171,38 @@ public class DutSubtypeCodeTests
     public void DutSubtype_reads_the_first_code_token_after_the_colon(string decl, string subtype) =>
         Assert.Equal(subtype, Volt.Engine.Format.St.CodeHelper.DutSubtype(decl));
 
-    /// <summary>…and on the wire that refusal is an UNREADABLE item — tracked, named in `unreadable`, its file
-    /// kept by every client — rather than an item published under a subtype its text never states.</summary>
+    /// <summary>…and on the wire a DUT whose vendor states no subtype is <c>X.dut</c> — tracked, writable, never
+    /// published under a subtype its text never states.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> This
+    /// asserted the item UNREADABLE (named in <c>unreadable</c>, absent from <c>items</c>), which made every op on it
+    /// need <c>--force</c>. "No answer" now publishes <c>X.dut</c>, the one counted fallback.</para></summary>
     [Theory]
     [InlineData("TYPE X\nEND_TYPE")]
     [InlineData("TYPE X : ;\nEND_TYPE")]
-    public void A_dut_whose_declaration_states_no_subtype_is_unreadable_not_a_guessed_alias(string decl)
+    public void A_dut_whose_vendor_states_no_subtype_is_published_as_dot_dut_never_a_guessed_alias(string decl)
     {
         var ide = OneDut(ItemKind.PlcDut, decl);
 
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new() });
 
-        Assert.Equal(new[] { "X" }, fetch.Unreadable.ToArray());
-        Assert.Empty(fetch.Items);
-        Assert.Empty(fetch.Changed);
+        Assert.Empty(fetch.Unreadable);
+        Assert.Equal(new[] { "X.dut" }, fetch.Items.Keys.ToArray());
+        Assert.Equal("X.dut", Assert.Single(fetch.Changed).Name);
     }
 
-    /// <summary>…"ITS FILE KEPT" is the half that loses data, and it needs a DUT the client ALREADY HOLDS: an
-    /// engineer half-way through retyping `X` in the IDE leaves `TYPE X :` with nothing after the colon. The item
-    /// is still there, so the client's `X.struct` must not be reported removed — or the pull deletes the file for
-    /// a DUT sitting in the IDE — and it is published under no name at all, since any name would be a guess.
-    /// The known map is whatever `refs` published for the struct, so this holds before and after the rename of
-    /// the wire name.</summary>
+    /// <summary>A DUT THE CLIENT ALREADY HOLDS, whose vendor answer is lost — an engineer half-way through retyping
+    /// `X` in the IDE leaves `TYPE X :` with nothing after the colon — fetches as a RENAME: `X.struct` removed and
+    /// `X.dut` changed, the same shape as any subtype change, so the client's ordinary sweep moves the file and the
+    /// DUT never disappears from the workspace.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> This
+    /// asserted the item unreadable and NOT removed (its file kept under the old name), because "no subtype" had no
+    /// name. It has one now — <c>X.dut</c> — so the item is published, and the old name honestly removed.</para></summary>
     [Theory]
     [InlineData("TYPE X :\nEND_TYPE")]
     [InlineData("TYPE X :")]
-    public void A_known_dut_whose_declaration_loses_its_subtype_is_unreadable_and_not_removed(string decl)
+    public void A_known_dut_whose_vendor_answer_is_lost_fetches_as_a_rename_to_dot_dut(string decl)
     {
         var ide = OneDut(ItemKind.PlcDut, Struct);
         var before = RefsService.Handle(ide);
@@ -201,9 +211,9 @@ public class DutSubtypeCodeTests
         ide.AddItem(new FakeIde.Item("X", ItemKind.PlcDut, "DUTs", true, decl, null, null, null));
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = new(before.Items) });
 
-        Assert.Equal(new[] { "X" }, fetch.Unreadable.ToArray());
-        Assert.Empty(fetch.Removed);
-        Assert.Empty(fetch.Changed);
+        Assert.Empty(fetch.Unreadable);
+        Assert.Equal(new[] { "X.struct" }, fetch.Removed.ToArray());
+        Assert.Equal("X.dut", Assert.Single(fetch.Changed).Name);
     }
 
     /// <summary>A SUBTYPE CHANGE IN THE IDE IS A REMOVED NAME PLUS AN ADDED ONE. That is what lets a client's

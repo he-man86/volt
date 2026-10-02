@@ -18,9 +18,9 @@ public static class Materializer
             var build = BuildSource(ide, item, kind);
             var text = StWriter.Write(build);
             RefuseRetiredComment(name, text);
-            return new WorkspaceItem(text, FullWireName(name, build.Kind, build.Declaration), UnsupportedIn(build));
+            return new WorkspaceItem(text, FullWireName(name, build), UnsupportedIn(build));
         }
-        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind, declaration: null),
+        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind, dutSubtype: null),
                                  Array.Empty<UnsupportedBody>());
     }
 
@@ -76,21 +76,27 @@ public static class Materializer
     /// <b>The one place a full wire name is minted</b>: <c>VersionedItem.Identity</c>, and through it every
     /// <c>refs</c>/<c>fetch</c>/receipt map and every push gate, keys on what this returns.
     ///
-    /// <para><b>A DUT is named by its SUBTYPE</b> — <c>X.struct</c> / <c>X.enum</c> / <c>X.union</c> /
-    /// <c>X.alias</c> — read from its declaration (<see cref="CodeHelper.DutSubtype"/>), never from the tree code,
-    /// which on TwinCAT lags an in-place change (DIALECT C2e). It used to travel as <c>X.dut</c> and be re-derived
-    /// in the CLI to name the file, which put item-kind knowledge in the one layer whose job is git; a client now
-    /// writes the wire name as the file name. A declaration that states no subtype throws here, and the caller
-    /// (<c>Versioning.SafeVersion</c>) publishes the item as unreadable rather than under a guessed name.</para>
+    /// <para><b>A DUT is named by the subtype its VENDOR states</b> — <c>X.struct</c> / <c>X.enum</c> /
+    /// <c>X.union</c> / <c>X.alias</c> — carried up by the driver on <see cref="ItemContent.DutSubtype"/>; the engine
+    /// never reads the DUT's text for it, and never the tree code, which on TwinCAT lags an in-place change (DIALECT
+    /// C2e). <b>No answer publishes <c>X.dut</c></b> (openspec <c>push-without-header-check</c> 5.B, the one counted
+    /// fallback): the item is tracked and writable under that name, never unreadable for want of a subtype and never
+    /// named by a guess. A subtype on a non-DUT is a driver that broke the contract and is refused, naming the
+    /// item. A client writes the wire name as the file name.</para>
     ///
     /// <para>PRIVATE, and it stays that way: <see cref="Materialize"/> is the public path and every item goes
     /// through it, so a test has no reason to reach past it. Making this public to test it directly is what
     /// `NoTestOnlyCodeInSrcTests` exists to catch — and it did.</para></summary>
-    private static string FullWireName(string bareName, string kind, string? declaration)
+    private static string FullWireName(string bareName, ItemContent content) =>
+        FullWireName(bareName, content.Kind, content.DutSubtype);
+
+    private static string FullWireName(string bareName, string kind, DutSubtype? dutSubtype)
     {
-        var ext = kind == ItemKind.Kinds.Dut
-            ? CodeHelper.DutSubtype(declaration ?? throw new ArgumentException($"DUT '{bareName}' has no declaration to name it by"))
-            : ItemKind.ExtFor(kind);
+        if (kind != ItemKind.Kinds.Dut && dutSubtype is { } stray)
+            throw new InvalidOperationException(
+                $"the driver read '{bareName}' as a {kind} with the DUT subtype '{stray}' — a subtype is the answer for a DUT " +
+                "and null for every other kind");
+        var ext = kind == ItemKind.Kinds.Dut ? ItemKind.DutExtension(dutSubtype) : ItemKind.ExtFor(kind);
         return IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
     }
 

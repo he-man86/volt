@@ -113,43 +113,46 @@ public class ItemKindTests
         Assert.All(ItemKind.ReferenceKindExtensions, x => Assert.False(flags[x.Ext]));
     }
 
-    /// <summary>THE FOUR DUT SUBTYPES ARE ORDINARY SOURCE EXTENSIONS OF THE ONE DUT KIND, and <c>dut</c> is not
-    /// an extension at all — nothing writes a <c>.dut</c> file and no wire message carries one.</summary>
+    /// <summary>THE DUT KIND IS LISTED UNDER FIVE ORDINARY, WRITABLE SOURCE EXTENSIONS: the four subtypes its vendor
+    /// can state, and <c>dut</c> for a DUT whose vendor states none.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> This
+    /// asserted "four, and never <c>dut</c>": the engine read every DUT's subtype from its text and refused a text that
+    /// stated none (unreadable). The owner decided the subtype is the VENDOR's answer and no answer publishes
+    /// <c>X.dut</c> — so <c>dut</c> is a wire name and a file again, and writable like the other four.</para></summary>
     [Fact]
-    public void The_dut_kind_is_listed_under_its_four_subtype_extensions_and_never_dut()
+    public void The_dut_kind_is_listed_under_its_four_subtype_extensions_and_dut()
     {
         var dutExts = ItemKind.SourceKindExtensions.Where(x => x.Kind == ItemKind.Kinds.Dut).Select(x => x.Ext)
                               .OrderBy(e => e, StringComparer.Ordinal).ToArray();
 
-        Assert.Equal(new[] { "alias", "enum", "struct", "union" }, dutExts);
-        Assert.DoesNotContain(ItemKind.FileExtensions, x => x.Ext == "dut");
+        Assert.Equal(new[] { "alias", "dut", "enum", "struct", "union" }, dutExts);
+        Assert.Contains(ItemKind.FileExtensions, x => x.Ext == "dut" && x.IsSource && x.IsWritable);
     }
 
-    /// <summary>A SUBTYPE WIRE NAME READS AS THE DUT KIND, and <c>.dut</c> reads as no kind. Every engine
-    /// consumer that routes a push op by its name (<c>PushedText</c>, <c>StReader</c> via <c>PushService</c>)
-    /// asks this, and a <c>.struct</c> name used to answer null — so the reader's kind check silently stood down
-    /// for every DUT.</summary>
+    /// <summary>EVERY DUT WIRE NAME READS AS THE DUT KIND — the four subtypes and <c>.dut</c> (owner, 5.B: it used to
+    /// read as no kind). Every engine consumer that routes a push op by its name (<c>PushedText</c>, <c>StReader</c>
+    /// via <c>PushService</c>) asks this, and a <c>.struct</c> name used to answer null — so the reader's kind check
+    /// silently stood down for every DUT.</summary>
     [Theory]
     [InlineData("X.struct")]
     [InlineData("X.enum")]
     [InlineData("X.union")]
     [InlineData("X.alias")]
+    [InlineData("X.dut")]
     public void A_dut_subtype_wire_name_is_the_dut_kind(string wireName) =>
         Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(wireName));
 
-    [Fact]
-    public void A_dut_wire_name_is_no_kind_at_all() => Assert.Null(ItemKind.KindForWireName("X.dut"));
-
-    /// <summary>NOTHING MINTS `.dut`. The DUT kind has four extensions, so "the" extension for it is not a
-    /// question the table can answer, and <c>ExtFor</c> refuses it rather than picking one (or answering
-    /// <c>dut</c>, which is what minted the old wire name).</summary>
+    /// <summary>"THE" DUT EXTENSION IS NOT A QUESTION THE TABLE CAN ANSWER. The DUT kind has five extensions and which
+    /// one an item has is its vendor's answer (<c>ItemKind.DutExtension</c>, from <c>Materializer</c>), so
+    /// <c>ExtFor</c> refuses it rather than picking one.</summary>
     [Fact]
     public void ExtFor_refuses_the_dut_kind_rather_than_mint_an_extension_for_it() =>
         Assert.ThrowsAny<Exception>(() => ItemKind.ExtFor(ItemKind.Kinds.Dut));
 
     /// <summary>AND EVERY KIND WITH ONE EXTENSION RESOLVES THROUGH `ExtFor` to the extension the table gives
     /// it — the table and its lookup cannot disagree, which is the whole reason there is only one table. (The DUT
-    /// kind has four, and is refused above.)</summary>
+    /// kind has five, and is refused above.)</summary>
     [Fact]
     public void ExtFor_agrees_with_the_table_for_every_kind_with_one_extension()
     {

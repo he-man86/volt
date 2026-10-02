@@ -142,14 +142,11 @@ public static class CodeHelper
 
     /// <summary>Which SUBTYPE a DUT declaration is — <c>struct</c> / <c>enum</c> / <c>union</c> / <c>alias</c>.
     ///
-    /// <para><b>THE one subtype reader, and the subtype is a WIRE IDENTITY.</b> A DUT is one internal kind
-    /// (<see cref="ItemKind.Kinds.Dut"/>) and is named on the wire by its subtype — <c>X.struct</c>,
-    /// <c>X.enum</c>, … — minted from this answer in <c>Materializer</c>, the one place a wire name is minted;
-    /// <c>LibSignatureRenderer</c> names a library DUT from the same answer. It is asked of what the IDE HOLDS,
-    /// never of a pushed text — a push writes a DUT's text as sent (openspec <c>push-without-header-check</c>), and
-    /// <c>PushService</c> asks this only of the IDE's DUT, to tell whether a delete names it. The IDE's tree cannot say it (TwinCAT's code lags the declaration, DIALECT C2e), and
-    /// both vendors create every DUT with one call and let this same text decide the shape — so Volt reads what the
-    /// IDE reads, and nothing else.</para>
+    /// <para><b>Legacy, on its way out (openspec <c>push-without-header-check</c> 5.F).</b> A project DUT's wire name
+    /// is the subtype its VENDOR states (<see cref="ItemContent.DutSubtype"/>), never this read. Two callers are left:
+    /// <c>LibSignatureRenderer</c> (until 5.D.2 takes a library DUT's subtype from its signature flags) and the
+    /// drivers' interim stand-in <see cref="TryDutSubtype"/> (until 5.C/5.D). It is asked of what the IDE HOLDS,
+    /// never of a pushed text — a push writes a DUT's text as sent.</para>
     ///
     /// <para>The rule is the grammar's: after the type name's <c>:</c>, a DUT body opens with <c>STRUCT</c>,
     /// <c>UNION</c>, or <c>(</c> for an enumeration; anything else is an alias (<c>TYPE T : INT (0..10);</c>,
@@ -166,11 +163,40 @@ public static class CodeHelper
     /// <para><b>A declaration that states no subtype is REFUSED</b> (<see cref="FormatException"/>) — no colon,
     /// nothing after it, <c>END_TYPE</c> straight after it, or punctuation where a type would stand
     /// (<c>TYPE X : ;</c>): an alias NAMES a type, so it opens with one. It used to answer <c>alias</c>, "the shape that
-    /// assumes least", which on the wire publishes <c>X.alias</c> for a text that never says so. The refusal is
-    /// per item: the materializer's caller (<c>Versioning.SafeVersion</c>) turns it into an UNREADABLE item, so
-    /// the one DUT an engineer is half-way through typing surfaces in <c>unreadable</c> and the rest of the fetch
-    /// goes on.</para></summary>
+    /// assumes least", which on the wire publishes <c>X.alias</c> for a text that never says so. The only caller of
+    /// this throwing form is <c>LibSignatureRenderer</c>; the materializer never reaches it — a project DUT's
+    /// subtype comes from its driver (<see cref="TryDutSubtype"/> for now), whose "no answer" publishes
+    /// <c>X.dut</c>, so no project DUT becomes unreadable through this refusal.</para></summary>
     public static string DutSubtype(string code)
+    {
+        return DutSubtypeOrNull(code) ?? throw new FormatException(
+            "the DUT declaration states no subtype — nothing after its 'TYPE <name> :' says whether it is a " +
+            "STRUCT, UNION, enumeration or alias");
+    }
+
+    /// <summary><b>INTERIM — the drivers' DUT subtype answer until the vendor's own source replaces it</b> (openspec
+    /// <c>push-without-header-check</c>, design step 5.B choice 7): 5.D swaps CODESYS to its precompile signature, 5.C
+    /// swaps TwinCAT to its total classifier, and 5.F deletes this, guarded by 5.F.2's repo gate. Called ONLY from the
+    /// two drivers' <c>ReadContent</c>, below the vendor seam — never from the engine, which takes the answer as the
+    /// driver hands it up (<see cref="ItemContent.DutSubtype"/>).
+    ///
+    /// <para><see cref="DutSubtype(string)"/>'s rule, answering null where that throws: a declaration that states no
+    /// subtype is "no answer", and the item is published <c>name.dut</c>. Known interim disagreements with the vendor
+    /// (CODESYS's signature) are listed in design.md step 5.B: a text with prose before a valid struct answers
+    /// <c>struct</c> where the signature answers <c>None</c>, and <c>TYPE X : END_TYPE</c> answers null where it
+    /// answers <c>Alias</c>. Two more, unmeasured on the vendor and 0 of 8175 corpus DUTs: the colon is taken without a
+    /// <c>TYPE</c> before it (<c>X : STRUCT … END_TYPE</c> answers <c>struct</c>), and a digit-led token is a type
+    /// (<c>TYPE X : 5; END_TYPE</c> answers <c>alias</c>); both probably declare nothing on the vendor.</para></summary>
+    public static Item.DutSubtype? TryDutSubtype(string declaration) => DutSubtypeOrNull(declaration) switch
+    {
+        "struct" => Item.DutSubtype.Struct,
+        "enum" => Item.DutSubtype.Enum,
+        "union" => Item.DutSubtype.Union,
+        "alias" => Item.DutSubtype.Alias,
+        _ => null,
+    };
+
+    private static string? DutSubtypeOrNull(string code)
     {
         var rest = AfterTypeColon(code ?? "");
         if (rest.StartsWith("(", StringComparison.Ordinal)) return "enum";
@@ -182,10 +208,7 @@ public static class CodeHelper
         // Anything else is an alias only when a TYPE stands there — an identifier-led token (`INT`, `ARRAY`,
         // `POINTER`, a user type). Nothing, `END_TYPE`, or punctuation (`TYPE X : ;`) names no type, and calling it an
         // alias would mint `X.alias` for a text that never says so.
-        if (first.Length == 0 || first.Equals("END_TYPE", StringComparison.OrdinalIgnoreCase))
-            throw new FormatException(
-                "the DUT declaration states no subtype — nothing after its 'TYPE <name> :' says whether it is a " +
-                "STRUCT, UNION, enumeration or alias");
+        if (first.Length == 0 || first.Equals("END_TYPE", StringComparison.OrdinalIgnoreCase)) return null;
         return "alias";
     }
 

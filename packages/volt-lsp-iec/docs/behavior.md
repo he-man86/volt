@@ -129,7 +129,7 @@ rather than failing wholesale.
 
 ### Requirement: The workspace is cross-indexed
 
-The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.fb`, `.prg`, `.fun`, `.itf`, `.gvl`, and a DUT under its subtype — `.struct`, `.enum`, `.union`, `.alias`) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
+The server SHALL cross-index the whole workspace so that types declared in unopened files resolve. This SHALL hold for the **running server**, not only the binder or offline corpus loads: on `initialize` (when a workspace root is provided) the server SHALL crawl the workspace for kind-named source files (`.fb`, `.prg`, `.fun`, `.itf`, `.gvl`, and a DUT under its subtype — `.struct`, `.enum`, `.union`, `.alias` — or `.dut` when the vendor states no subtype) and seed the project symbol table from disk. For any file the client has opened, the open document SHALL take precedence over its on-disk contents (open buffer wins), so an unsaved edit still drives analysis. The eager index SHALL NOT introduce any diagnostic on valid code that would not have been produced when every file was open — the zero-false-positive guarantee holds unchanged.
 
 #### Scenario: A type in an unopened file resolves
 - **WHEN** a file references a DUT declared in another, unopened file
@@ -627,7 +627,8 @@ is its stated language: `IMPLEMENTATION LD|FBD` is network text, `IMPLEMENTATION
 Every writable source item SHALL materialize with an extension that names its KIND:
 `function_block → .fb`, `program → .prg`, `function → .fun`, `interface → .itf`, `gvl → .gvl`, and every
 DUT (structure, enumeration, union, alias) → one file per subtype, `.struct`/`.enum`/`.union`/`.alias` (the distinction
-lives in the declaration body, mirroring the IDEs' one-DUT-object model). A POU SHALL be named by its
+lives in the declaration body, mirroring the IDEs' one-DUT-object model; the vendor states the subtype), and a DUT
+whose text states no subtype (empty, prose, a never-closed comment) → `.dut`. A POU SHALL be named by its
 kind regardless of body language — an editable graphical (FBD/LD) body and a read-only graphical
 (CFC/SFC) body of a function block are both `<name>.fb` — so the extension always reveals what the
 item is. The bridge SHALL choose the extension from the item's kind (`ItemKind.ExtFor`); kind SHALL
@@ -639,7 +640,7 @@ NOT be carried on the wire (it is recovered from content on push).
 
 #### Scenario: DUTs, interfaces, and GVLs use their kind extension
 - **WHEN** the IDE contains an enumeration, structure, union, alias, interface, or GVL
-- **THEN** every DUT materializes under its subtype (`.struct`/`.enum`/`.union`/`.alias`), and interface/GVL as `.itf`/`.gvl`
+- **THEN** every DUT materializes under its subtype (`.struct`/`.enum`/`.union`/`.alias`, or `.dut` when its text states none), and interface/GVL as `.itf`/`.gvl`
 
 ### Requirement: Read-only graphical POUs are marked in content, not by extension
 

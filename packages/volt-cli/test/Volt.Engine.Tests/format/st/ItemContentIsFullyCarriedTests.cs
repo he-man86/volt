@@ -56,6 +56,11 @@ public class ItemContentIsFullyCarriedTests
         [$"{nameof(ItemContent)}.{nameof(ItemContent.Unsupported)}"] = UnsupportedIsNotInTheFile,
         [$"{nameof(Member)}.{nameof(Member.Unsupported)}"] = UnsupportedIsNotInTheFile,
         [$"{nameof(Accessor)}.{nameof(Accessor.Unsupported)}"] = UnsupportedIsNotInTheFile,
+        // openspec push-without-header-check 5.B (design option B1): a DUT's subtype is the VENDOR's answer, set by the
+        // driver on a read and carried on the WIRE NAME (`Materializer`, `X.enum` / `X.dut`), never in the text — the
+        // ST reader never sets it and no write reads it. That the fake produces it is DutSubtypeAnswerTests' subject.
+        [$"{nameof(ItemContent)}.{nameof(ItemContent.DutSubtype)}"] =
+            "The vendor's DUT subtype answer travels as the wire name's extension, not in the file's text.",
     };
 
     private const string UnsupportedIsNotInTheFile =

@@ -17,7 +17,8 @@
         ".struct": "structured-text",
         ".enum": "structured-text",
         ".union": "structured-text",
-        ".alias": "structured-text"
+        ".alias": "structured-text",
+        ".dut": "structured-text"
       }
     }
   }

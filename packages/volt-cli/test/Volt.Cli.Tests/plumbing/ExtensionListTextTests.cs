@@ -41,7 +41,8 @@ public class ExtensionListTextTests
             // The file list is the part after the colon-newline; the advice is the line before it.
             var advice = r.Reason!.Split('\n')[0];
             Assert.Equal(Writable(), Tokens(advice));
-            Assert.DoesNotMatch(new Regex(@"\bdut\b", RegexOptions.IgnoreCase), advice);
+            // It also asserted no `dut` here. `.dut` is a writable DUT extension since openspec push-without-header-check
+            // 5.B (owner: the DUT whose vendor states no subtype), so the table — and therefore this list — names it.
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -58,7 +59,7 @@ public class ExtensionListTextTests
             // `.git`/`.vscode`/`.claude` are directories the README describes, not item extensions.
             var named = Tokens(readme).Except(new[] { "git", "vscode", "claude" }).ToArray();
             Assert.Equal(ItemKind.FileExtensions.Select(x => x.Ext).Distinct().OrderBy(x => x).ToArray(), named);
-            Assert.DoesNotMatch(new Regex(@"\bdut\b", RegexOptions.IgnoreCase), readme);
+            // No `dut` assertion any more: `.dut` is a table extension since push-without-header-check 5.B (owner).
         }
         finally { TestUtil.ForceDelete(root); }
     }

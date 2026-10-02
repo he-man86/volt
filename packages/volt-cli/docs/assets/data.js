@@ -886,7 +886,8 @@ window.VOLT = {
         "struct",
         "enum",
         "union",
-        "alias"
+        "alias",
+        "dut"
       ],
       "source": true,
       "addressable": true,
@@ -903,7 +904,8 @@ window.VOLT = {
         "struct",
         "enum",
         "union",
-        "alias"
+        "alias",
+        "dut"
       ],
       "source": true,
       "addressable": true,
@@ -920,7 +922,8 @@ window.VOLT = {
         "struct",
         "enum",
         "union",
-        "alias"
+        "alias",
+        "dut"
       ],
       "source": true,
       "addressable": true,
@@ -1117,7 +1120,8 @@ window.VOLT = {
         "struct",
         "enum",
         "union",
-        "alias"
+        "alias",
+        "dut"
       ],
       "source": true,
       "addressable": true,
@@ -1417,6 +1421,11 @@ window.VOLT = {
       "ext": "device",
       "source": false,
       "writable": false
+    },
+    {
+      "ext": "dut",
+      "source": true,
+      "writable": true
     },
     {
       "ext": "enum",

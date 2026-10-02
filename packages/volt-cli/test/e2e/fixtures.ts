@@ -56,8 +56,9 @@ export const LIFECYCLE_KINDS: LifecycleKind[] = [
 	{ key: "fb", ext: "fb", create: n => fb(n, { body: "x := 1;" }), edit: n => fb(n, { body: "x := 999;" }), editToken: /x := 999/, nameInSource: true },
 	{ key: "prog", ext: "prg", create: n => prog(n, "n := 1;"), edit: n => prog(n, "n := 888;"), editToken: /n := 888/, nameInSource: true },
 	{ key: "gvl", ext: "gvl", create: n => gvl(n), edit: n => `VAR_GLOBAL\n\t${n}_g : INT := 42;\nEND_VAR\n`, editToken: /42/, nameInSource: false },
-	// A DUT's wire name carries its SUBTYPE (`X.struct`/`.enum`/`.union`/`.alias`), minted by the engine from the
-	// declaration — so each row names the extension its body implies, and a mismatch is refused by the bridge.
+	// A DUT's wire name carries the SUBTYPE its driver states for what the IDE holds (`X.struct`/`.enum`/`.union`/
+	// `.alias`, or `X.dut` when it states none) — so each row names the extension its body implies. A push does not
+	// check the text against the extension (push-without-header-check): the text is written as sent.
 	{ key: "struct", ext: "struct", create: n => structDut(n), edit: n => `TYPE ${n} :\nSTRUCT\n\ta : INT;\n\tb : BOOL;\n\tc : REAL;\nEND_STRUCT\nEND_TYPE\n`, editToken: /c : REAL/, nameInSource: true },
 	{ key: "enum", ext: "enum", create: n => enumDut(n), edit: n => `TYPE ${n} :\n(\n\tRed,\n\tGreen,\n\tBlue,\n\tAmber\n);\nEND_TYPE\n`, editToken: /Amber/, nameInSource: true },
 	{ key: "union", ext: "union", create: n => unionDut(n), edit: n => `TYPE ${n} :\nUNION\n\ti : INT;\n\trv : REAL;\n\tb : BYTE;\nEND_UNION\nEND_TYPE\n`, editToken: /b : BYTE/, nameInSource: true },

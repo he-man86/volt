@@ -147,28 +147,25 @@ public class WireVocabularyGuardTests
             "that vocabulary's allowlist in this test:\n  " + string.Join("\n  ", offenders));
     }
 
-    /// <summary>NOTHING IN THE TOOLCHAIN MINTS OR SPELLS THE `.dut` WIRE NAME.
+    /// <summary>THE `.dut` WIRE NAME IS SPELT IN THE KIND TABLE ALONE AND MINTED IN <c>Materializer</c> ALONE.
     ///
-    /// <para>A DUT's wire name is its subtype name (openspec <c>dut-subtype-on-the-wire</c>): the engine mints
-    /// it once, in <c>Materializer</c>, from the declaration. The old wire name was minted by asking the kind
-    /// table for "the" DUT extension — <c>ExtFor(Kinds.Dut)</c>, which answered <c>dut</c> — and the CLI asked
-    /// the same question to recognise one and translate it. Either spelling surviving anywhere in <c>src</c> is
-    /// a second minting site or a translator, i.e. DUT logic outside the engine.</para>
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> This
+    /// guard used to hold "nothing mints or spells <c>.dut</c>": a DUT was named by the subtype the engine read from
+    /// its text, and <c>.dut</c> was a retired name. The owner decided the subtype is the VENDOR's answer and no answer
+    /// publishes <c>X.dut</c> — so <c>dut</c> is a row of the extension table again, and
+    /// <c>ItemKind.DutExtension</c> (called from <c>Materializer</c>, the one minting site) reads it from there.
+    /// What the guard still forbids is unchanged in spirit: a SECOND spelling or a SECOND minting site — any other
+    /// literal <c>.dut</c> / <c>"dut"</c> in <c>src</c>, the old translator helpers, or asking the table for "the"
+    /// DUT extension (<c>ExtFor(Kinds.Dut)</c>) — is DUT logic outside the engine's one table.</para>
     ///
-    /// <para>The one legitimate literal is the SIDECAR's refusal of a baseline still keyed by the old name — it
-    /// has to recognise <c>.dut</c> to refuse it by name (the spec's migration rule).</para>
-    ///
-    /// <para><b>What each arm catches, and what it leaves to a behavioural test.</b> The old name had three
-    /// sources, and a guard that saw only the literal <c>.dut</c> missed all of them: the kind table's entry
-    /// <c>(Kinds.Dut, "dut")</c> (a bare <c>"dut"</c> used as an EXTENSION — the internal kind constant
-    /// <c>Kinds.Dut = "dut"</c> is the one line allowed to spell it), the translator's helpers
-    /// (<c>WireExtFor</c>, <c>IsDutFileExtension</c>, <c>DutFileExtensions</c> — named anywhere, they are DUT
-    /// logic outside the one minting site), and the explicit <c>ExtFor(Kinds.Dut)</c>. A GENERIC call —
+    /// <para><b>What each arm catches, and what it leaves to a behavioural test.</b> A bare <c>"dut"</c> used as an
+    /// extension, or a <c>.dut</c> inside a literal, outside <c>ItemKind.cs</c> (whose two spellings are the internal
+    /// kind constant and the table row); the translator's helpers (<c>WireExtFor</c>, <c>IsDutFileExtension</c>,
+    /// <c>DutFileExtensions</c>), named anywhere; and the explicit <c>ExtFor(Kinds.Dut)</c>. A GENERIC call —
     /// <c>ExtFor(resolvedKind)</c>, which reaches the DUT kind at run time — cannot be seen in source; that is
-    /// <c>ItemKindTests.ExtFor_refuses_the_dut_kind_rather_than_mint_an_extension_for_it</c>'s job, which makes
-    /// every such call throw instead of minting.</para></summary>
+    /// <c>ItemKindTests.ExtFor_refuses_the_dut_kind_rather_than_mint_an_extension_for_it</c>'s job.</para></summary>
     [Fact]
-    public void Nothing_mints_or_spells_the_dut_wire_name()
+    public void The_dut_wire_name_is_spelt_only_in_the_kind_table()
     {
         var mint = new Regex(@"ExtFor\(\s*(ItemKind\.)?Kinds\.Dut\s*\)|\b(WireExtFor|IsDutFileExtension|DutFileExtensions)\b");
         // A bare `"dut"` literal is the DUT EXTENSION spelt out, except where it defines the internal kind.
@@ -190,7 +187,7 @@ public class WireVocabularyGuardTests
         Assert.Matches(mint, "return ItemKind.IsDutFileExtension(ext) ? a : b;");
         Assert.Matches(mint, "var w = ItemKind.WireExtFor(ext);");
         Assert.DoesNotMatch(mint, "var e = ItemKind.ExtFor(resolvedKind);");
-        var allowLiteral = new HashSet<string> { "Sidecar.cs" };
+        var allowLiteral = new HashSet<string> { "ItemKind.cs" };
         var offenders = new List<string>();
 
         foreach (var file in EnumerateCs(FindSrcDir()))
@@ -207,8 +204,8 @@ public class WireVocabularyGuardTests
         }
 
         Assert.True(offenders.Count == 0,
-            "The `.dut` wire name is gone — a DUT is named on the wire by its subtype, minted once in " +
-            "Materializer. These lines mint or spell the old name:\n  " + string.Join("\n  ", offenders));
+            "The `.dut` wire name is spelt once, in ItemKind's extension table, and minted once, in Materializer " +
+            "(ItemKind.DutExtension). These lines spell or mint it a second time:\n  " + string.Join("\n  ", offenders));
     }
 
     /// <summary>A DUT SUBTYPE IS CLASSIFIED IN ONE PLACE (openspec <c>dut-subtype-on-the-wire</c>, tasks 2.6/3.4).

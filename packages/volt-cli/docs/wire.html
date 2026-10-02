@@ -106,9 +106,10 @@
 
 <h3 id="dut-subtype">A DUT that changes subtype</h3>
 <p>
-  A DUT's wire name carries its subtype — <code>X.struct</code>, <code>X.enum</code>, <code>X.union</code> or
-  <code>X.alias</code>, read from its declaration (<a href="items.html#dut">items</a>) — but below the vendor seam
-  those four names are <b>one object</b>, the bare <code>X</code>. So a push that only changes the subtype updates
+  A DUT's wire name carries the subtype its vendor states — <code>X.struct</code>, <code>X.enum</code>,
+  <code>X.union</code> or <code>X.alias</code>, or <code>X.dut</code> when the vendor states none
+  (<a href="items.html#dut">items</a>) — but below the vendor seam those five names are <b>one object</b>, the bare
+  <code>X</code>. So a push that only changes the subtype updates
   that object's content and never deletes or creates it; it keeps its folder, and the next <code>refs</code>
   lists the new name and not the old one. Two shapes of op say that, because git reports a rewrite either way:
 </p>
@@ -124,8 +125,17 @@
   declaration is an enum lands, and the receipt and the next <code>refs</code> name the item <code>X.enum</code>. A
   rename that changes the subtype and carries no body is refused <code>BAD_REQUEST</code>. A <code>delete</code> names one
   wire item: <code>delete X.struct</code> never deletes an <code>X</code> that is an enum, forced or not. An op
-  under a name with no kind extension — <code>X</code>, <code>X.foo</code>, or the retired spelling of the DUT
-  kind — is refused <code>BAD_REQUEST</code> before anything is read.
+  under a name with no kind extension — <code>X</code>, <code>X.foo</code> — is refused <code>BAD_REQUEST</code>
+  before anything is read.
+</p>
+<p>
+  Because the vendor's answer can change without the client — <code>X.dut</code> becomes <code>X.enum</code> once
+  the IDE's text is fixed — an <b>update</b> under any DUT name the IDE does not publish reaches the live DUT of the
+  same bare name, gated by its <code>ifVersion</code>: the version hashes folder and text, never the name, so an equal
+  one proves the client holds that exact content and the update is accepted; a different one is
+  <code>STALE_ITEM_VERSION</code> with the live version, never <code>ITEM_MISSING</code>. A <b>create</b> under any DUT
+  name over a live DUT of the same bare name is <code>ITEM_EXISTS</code>, and a <b>delete</b> reaches only the live
+  name.
 </p>
 
 <h2 id="errors">Error codes</h2>

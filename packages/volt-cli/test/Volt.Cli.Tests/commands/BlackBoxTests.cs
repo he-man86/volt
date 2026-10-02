@@ -315,10 +315,14 @@ public class BlackBoxTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>THE UNREADABLE WARNING DOES NOT SAY A HELD ITEM HAS NO FILE. A DUT caught mid-retype (its text
-    /// states no subtype) is unreadable, yet the pull keeps its last-read file and its baseline entry — it is
-    /// HELD. `volt status` said every unreadable item has "NO file here" while `src/DUTs/X.struct` sat on disk,
-    /// sending the engineer after a missing file instead of telling them the one there is stale and unpushable.</summary>
+    /// <summary>THE UNREADABLE WARNING DOES NOT SAY A HELD ITEM HAS NO FILE. A DUT the IDE cannot read is
+    /// unreadable, yet the pull keeps its last-read file and its baseline entry — it is HELD. `volt status` said
+    /// every unreadable item has "NO file here" while `src/DUTs/X.struct` sat on disk, sending the engineer after a
+    /// missing file instead of telling them the one there is stale and unpushable.
+    ///
+    /// <para>The fixture's unreadable DUT used to be one caught mid-retype (its text stating no subtype). Since openspec
+    /// <c>push-without-header-check</c> 5.B (owner) such a DUT is published as <c>X.dut</c>, not unreadable, so the
+    /// held item is now a DUT whose read FAILS — the unreadable case that remains; the subject is unchanged.</para></summary>
     [Fact]
     public void Status_warning_does_not_deny_a_held_unreadable_items_file()
     {
@@ -328,7 +332,7 @@ public class BlackBoxTests
         {
             Assert.Equal(0, RunVolt(root, pipe, "pull").Code);
             ide.RemoveItem("X");
-            ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\nEND_TYPE", "", "DUTs"));
+            ide.AddItem(new FakeIde.Item("X", Volt.Engine.Item.ItemKind.PlcDut, "DUTs", true, DutStruct, null, null, "read failed (COM)"));
             Assert.Equal(0, RunVolt(root, pipe, "pull").Code);
             Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "X.struct")), "fixture: the pull holds X.struct");
 

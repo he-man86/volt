@@ -16,8 +16,9 @@ describe("isPouFile", () => {
 		expect(isPouFile("E_Mode.enum")).toBe(true);
 		expect(isPouFile("U_Bits.union")).toBe(true);
 		expect(isPouFile("T_Handle.alias")).toBe(true);
-		// `.dut` names nothing — a DUT's file and wire name carry its subtype — so nothing recognizes one.
-		expect(isPouFile("DUT_Data.dut")).toBe(false);
+		// `.dut` is the DUT whose vendor states no subtype (openspec push-without-header-check 5.B, owner): it used to
+		// name nothing; it is a tracked source file now, like the four subtype extensions.
+		expect(isPouFile("DUT_Data.dut")).toBe(true);
 	});
 
 	// Exact, as the CLI's classifier is: a file name IS its wire name, so `Foo.FB` is not the `Foo.fb` the IDE

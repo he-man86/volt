@@ -36,6 +36,7 @@ import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call, requireNetworkText } from "./bridge.js"
+import { deleteOpsFor, heldIn, orphansIn, type Held } from "./held-as.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -252,76 +253,21 @@ const fixtureItems = new Set(
   ]),
 )
 /**
- * DELETE THE ITEMS PUSHED AS `wires`, WHEREVER THE IDE NOW HOLDS THEM.
- *
- * An item pushed as `X.ext` is not always held as `X.ext` afterwards, since the push writes a top-level text as sent
- * (`openspec/changes/push-without-header-check`, measured live 2026-09-30):
- *   - CODESYS makes an `.fb` whose text says PROGRAM a program, and `refs` names it `X.prg` (DIALECT C2f);
- *   - a DUT whose text states no subtype (a never-closed `(*`, an empty or prose text) and a GVL holding a retired
- *     `(* @volt-… *)` comment are in the project but listed under `unreadable` by bare name, and only a FORCED push
- *     deletes one (a plain delete is refused UNREADABLE).
- * So each is looked up under its own name first, then under a name the IDE may publish that one object under — the
- * engine's `PushedText.MayBeHeldAs`: the same bare name and another kind of the SAME FAMILY (POU ↔ POU, DUT ↔ DUT) —
- * then, for a DUT or a GVL, in `unreadable`. A bare-name match of any OTHER kind is another item (`X.fb` beside
- * `X.visualization` is legitimate) and is never touched. `before` is the project as it stood before the push: what it
- * already held is not the push's to delete — a refused push leaves only that, and a match there is someone else's.
+ * DELETE THE ITEMS PUSHED AS `wires`, WHEREVER THE IDE NOW HOLDS THEM — the lookup (an item pushed as `X.ext` may be
+ * held as `X.prg` or `X.dut`, or listed `unreadable`) is `held-as.ts`, documented and tested there.
  */
-const FAMILY: Readonly<Record<string, "pou" | "dut">> = {
-  fb: "pou",
-  prg: "pou",
-  fun: "pou",
-  struct: "dut",
-  enum: "dut",
-  union: "dut",
-  alias: "dut",
-}
-const extOf = (n: string): string => n.slice(n.lastIndexOf(".") + 1)
-const bareOf = (n: string): string => n.slice(0, n.lastIndexOf(".")).toLowerCase()
-function mayBeHeldAs(pushed: string, held: string): boolean {
-  const family = FAMILY[extOf(pushed)]
-  return pushed !== held && family !== undefined && FAMILY[extOf(held)] === family && bareOf(pushed) === bareOf(held)
-}
-/** The kinds a push may leave listed only as `unreadable` (measured 2026-09-30: a DUT with no subtype, a GVL). */
-const MAY_BE_UNREADABLE = new Set(["struct", "enum", "union", "alias", "gvl"])
-
-interface Held {
-  items: ReadonlySet<string>
-  unreadable: ReadonlySet<string>
-}
-const heldIn = (r: { items: Record<string, unknown>; unreadable?: string[] }): Held => ({
-  items: new Set(Object.keys(r.items)),
-  unreadable: new Set((r.unreadable ?? []).map((n) => n.toLowerCase())),
-})
-
 async function removeItems(wires: readonly string[], before: Held): Promise<void> {
   const r = await refs()
-  const now = heldIn(r)
-  const ops: unknown[] = []
-  let force = false
-  for (const wire of wires) {
-    const held = (now.items.has(wire) ? [wire] : [...now.items].filter((n) => mayBeHeldAs(wire, n))).filter(
-      (n) => !before.items.has(n),
-    )
-    for (const n of held) ops.push({ op: "deleteItem", name: n, ifVersion: r.items[n] })
-    const bare = bareOf(wire)
-    if (held.length === 0 && MAY_BE_UNREADABLE.has(extOf(wire)) && now.unreadable.has(bare) && !before.unreadable.has(bare)) {
-      ops.push({ op: "deleteItem", name: wire, ifVersion: null })
-      force = true
-    }
-  }
+  const { ops, force } = deleteOpsFor(wires, r, before)
   if (ops.length === 0) return
   const p = await call("push", { expectedProjectVersion: r.projectVersion, force, ops })
   if (!p.accepted) throw new Error(`could not delete ${JSON.stringify(wires)}: ${JSON.stringify(p.conflicts ?? p)}`)
 }
 
-const orphans = [
-  // a fixture wire held under its own name OR under the kind the IDE re-typed it to (`X.fb` held as `X.prg`, DIALECT
-  // C2f) — keyed on the exact names alone, a killed run's re-typed leftover was never swept, and since it then sat in
-  // every later fixture's `before`, never deleted after that fixture either
-  ...[...fixtureItems].filter((w) => Object.keys(refs0.items).some((n) => n === w || mayBeHeldAs(w, n))),
-  // an unreadable one is listed by BARE name; any fixture wire with that bare name reaches it
-  ...[...fixtureItems].filter((w) => (refs0.unreadable ?? []).some((u: string) => u.toLowerCase() === w.slice(0, w.lastIndexOf(".")).toLowerCase())),
-]
+// a fixture wire held under its own name OR under the name the IDE re-typed it to (`X.fb` held as `X.prg`, DIALECT
+// C2f; `X.struct` held as `X.dut`, 5.B) — keyed on the exact names alone, a killed run's re-typed leftover was never
+// swept, and since it then sat in every later fixture's `before`, never deleted after that fixture either
+const orphans = orphansIn(fixtureItems, refs0)
 if (orphans.length > 0) {
   console.log(`sweeping ${orphans.length} orphan(s) left by an earlier killed run: ${orphans.join(', ')}`)
   // every one is a fixture's own name, so none of them is the project's: nothing counts as held before

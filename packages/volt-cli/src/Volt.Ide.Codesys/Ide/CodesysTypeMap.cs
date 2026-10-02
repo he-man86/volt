@@ -56,9 +56,10 @@ namespace Volt.Ide.Codesys
             // enumeration — a normal `TYPE X : (…)` enum whose members map to a text list, surfaced by CODESYS
             // as its OWN object kind (not IDUTObject); without it, a text-list enum drops to Unknown and every
             // reference is unresolved (real cases: SER_OperationModeType, IQSlices, enumRecipeCommandResult).
-            // A DUT is ONE internal kind — its struct/enum/union/alias SUBTYPE is NOT computed here: the engine reads
-            // it from the declaration when it mints the wire name (`Materializer`, `CodeHelper.DutSubtype`), and
-            // CODESYS creates every DUT with one `create_dut` call, so the walk needs no declaration read.
+            // A DUT is ONE internal kind — its struct/enum/union/alias SUBTYPE is NOT computed here: the driver
+            // states it on `ItemContent.DutSubtype` when the content is read (`CodesysDriver.ReadContent`), the engine
+            // mints the wire name from that answer (`Materializer`), and CODESYS creates every DUT with one
+            // `create_dut` call, so the walk needs no declaration read.
             if (Has(ifaces, "IDUTObject") || Has(ifaces, "ITextListEnumerationObject")) return ItemKind.PlcDut;
             if (Has(ifaces, "IInterfaceObject")) return ItemKind.PlcItf;
 

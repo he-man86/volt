@@ -25,7 +25,8 @@
     "struct": "_st",
     "enum": "_st",
     "union": "_st",
-    "alias": "_st"
+    "alias": "_st",
+    "dut": "_st"
   },
   "languageIds": {
     "structured-text": "_st"
