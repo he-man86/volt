@@ -1325,3 +1325,201 @@ Order: evidence, red tests, then the swap — the 5.P pattern, every parity site
   does not re-derive the code; a call without `.ENO` is accepted, round-trips and builds clean. 0 such calls in the
   TwinCAT corpus (2 in the six corpora, all lenze-mid, CODESYS). S1 stays; both fixtures carry
   `vendorRefuses.twincat`, and `test/e2e/graphical/callee-seed-lag.test.ts` fails the day TwinCAT takes the shape.
+
+## Step 5.Qb — Pivot 2 (part 2): merged classes; audit fixes (Globals by wire kind, ReadMember, TC library enums); PLCAssist note
+
+(2026-10-02. Design only; no code. Tasks 5.Q.6–5.Q.8. Same owner rule as 5.Qa: a wire extension carries only what the
+IDE stores per object. 5.Q.6 is the other side of that rule. Where the IDE stores MORE per object than the extension
+says, a push must never silently turn the richer object into the plain one.)
+
+### Target
+
+1. **5.Q.6.** No push replaces an IDE object of a special class with a plain object of the same wire name. An update,
+   a rename and a move keep the object, and with it the class. The one batch shape that deletes an object and then
+   addresses it again under the same wire name is refused by name before anything is applied. The CLI stops producing
+   that shape for an ordinary move+edit. Each special class is written down in DIALECT with what a plain create would
+   lose.
+2. **5.Q.7.** `ProjectDeclarations.Globals(pushed)` takes a pushed item as a global variable list from its WIRE KIND
+   (`gvl`), never from its first code line (`StDeclaration.IsGlobalListHeader`, deleted). `BeckhoffDriver.ReadMember`
+   refuses a member code with no kind (no `?? Method`). `TcLibrarySignatures`' enum-from-shape decision is labelled in
+   code and DIALECT as a Volt inference, and counted in its own tally.
+3. **5.Q.8.** The proposal's Impact tells PLCAssist what changes on the wire and when.
+
+### Measured against the recorded fixtures, the corpora and the kind audit (2026-10-02)
+
+**The special classes and how many exist.** Classes come from the Pro2193 census (`scripts/kind-audit.log`, committed in
+5Qa). Counts are from the six corpora (`packages/volt-lsp-iec/test-corpus`, project code only, with `Library Manager/`
+and `References/` excluded; scratch `5Qb/measure.ts`, which skips nested comments, pragmas and strings). A pulled
+corpus file does not carry its class. Where no census gives the class, the count is the text signal, given as an upper
+bound.
+
+| class (CODESYS) | Volt kind / how it is told apart | in the corpora | what a plain create (`create_*`) would lose |
+|---|---|---|---|
+| `POUObjectCheckFunction` ("POU for implicit checks") | `pou`; CLR class only. Its interfaces are the same as `POUObject`'s (`IGenerateableObject+IPOUObject`) | **15**: pro2193 10 (= census), bakon-nano 5 (`// Implicitly generated code` header) | **the check itself. Recorded:** `conversions/implicit-checks.ts` pushes `FUNCTION CheckBounds` / `CheckDivDInt` as a plain POU, and CODESYS calls it **0 times**. An out-of-range write lands in the next variable, `10 MOD 0` is 0, and a division by zero stops the application |
+| `TextListEnumerationObject` | `dut`; `ITextListEnumerationObject` | **3** (pro2193 census: `IQSlices`, `SER_OperationModeType`, `enumRecipeCommandResult`). Text cannot identify it (12 pro2193 DUTs carry `to_string`) | the text-list binding of its members. The enum itself survives (C2g: its signature is the same as a plain enum's) |
+| `VarPersistentObject` | `gvl`; `IPersistentGVLObject` | **1** by class (pro2193 `PersistentVars`). **≤ 11** by text (`VAR_GLOBAL … PERSISTENT`: awa 1, bakon 1, lenze-mid 7, pro2193 1). lenze-mid builds with 7, so most of these are plain GVLs holding PERSISTENT text | the object type. What the compiler does with PERSISTENT text in a plain GVL is **unrecorded**. The kind audit wrote it into `VltA_GX`: accepted, class kept `GVLObject`, signature flag `Internal` → `None`; not built |
+| NVL (`INVLObject`) | `gvl` | **1** (bakon-nano `CAN_TO_PLC`, header "received via the network") | the network settings (protocol, sender), which are not in the text |
+| GVL with `NetVarProperties` / `ParameterList` | `gvl`; object properties of a `GVLObject` | **0** known (pro2193: all 11 `NV=False PL=False`); unknown for the other corpora | the network / parameter-list properties |
+| `AbstractPOUMethodObject` | `method`; `IAbstractPOUMethodObject` | **10** by class (pro2193); **11** `METHOD … ABSTRACT` texts in pro2193 | **nothing the compiler sees. Recorded:** a method created by `create_method` (a `POUMethodObject`) with ABSTRACT text compiles as abstract on both vendors: `inh_abstract_method_not_implemented` ("There is no implementation for ABSTRACT method 'M'…"), `cc5_abstract_assign_and_output` ("The default value for a VAR_OUTPUT is not used in abstract or interface methods"), `unit_method_abstract_final`. In the kind audit, a plain method given `METHOD ABSTRACT` text gets signature `Method/Abstract`. pro2193 holds 11 ABSTRACT texts but only 10 abstract-class methods, so a real, building project carries a `POUMethodObject` with ABSTRACT text |
+
+`create_persistentvariables`, `create_nvl` and `create_parameter_list` (and their spelling variants) are **not on the
+scripting container** (kind audit). So no Volt create could make three of these classes even if the wire named them.
+On TwinCAT, GVL 615 is one tree code, and a parameter list has its own code 629 and its own kind (`parameter_list`), so
+nothing merges. TwinCAT check functions and text-list enums are not measured; there are **0** in `twincat-project14`.
+
+**Where a push can create an object under a name the IDE already holds** (by reading `PushService`, both vendors):
+
+- **An update, a rename or a move** (`ApplySetItem`) is written in place: `WriteItemFromSource` writes the text into
+  the existing object, and `ide.Rename` and `ide.Move` relocate it whole. The class is kept by construction. This is
+  measured for the text-list enum (`dut-subtype-push.log`: `IQSlices` written with other subtypes' text is "still
+  ITextListEnumerationObject") and for a member's class (C2l). It is unmeasured for a check function, a persistent
+  list and an NVL (Migration 1).
+- **A member rename or re-type** (`ReconcileMembers`) deletes one member and creates ANOTHER: another name, or another
+  kind the client asked for. The same identity is never re-created. For the abstract method, the one special member
+  class, the new plain method is compiler-equivalent (table above).
+- **A batch naming one wire name in two ops** (`deleteItem X.gvl` + `set X.gvl`, in either order). **No guard exists**:
+  `RequireWireNames` checks each name, not how many ops use it. The apply resolves the set from the PRE-APPLY walk's
+  cache (`itemCache`), which a delete never updates. So delete-then-set writes through the handle of the object it has
+  just deleted, and set-then-delete writes the object and then deletes it. Either way the object is GONE, and the push
+  either fails half-applied or reports the set as landed. This happens in practice, because **the CLI emits it**. A file
+  moved to another folder AND edited past git's rename threshold is a `Delete` row plus an `Add` row with the same item
+  name, and `Commands.Push` turns them into `DeleteItemOp X.gvl` + `SetItemOp X.gvl`. The set takes its ifVersion from
+  the sidecar, so it is an update with no `ToFolder`. A grep of the C# suites finds **0** tests that send one wire name
+  twice.
+- **A forced set over an object the driver does not open** (`ApplyToUnopened`, TwinCAT C2i only): Volt deletes the
+  `.TcPOU` and creates a 604. This is a true re-create, but of a TwinCAT POU, where no special class is measured (0
+  check functions in the TwinCAT corpus).
+- **A delete in one push and a create of the same name in a later one** makes two objects. Nothing links them, and the
+  first push's delete is what the client asked for.
+- **A create of a new name** makes the plain class (`create_pou` / `create_dut` / `create_gvl`). The wire carries no
+  class, and the rule forbids guessing one from the name or the text. The implicit-checks fixture has exactly this
+  shape, and its recorded answer stands.
+
+So on CODESYS, the two-ops-one-name batch is the only place a push can lose an existing special-class object. It loses
+the object there for every class. The special classes only make the loss worse: a check function, for example,
+silently stops being called.
+
+**5.Q.7 (a): `Globals` by header vs by wire kind** (same corpora, every file). GVL files whose first code line is not
+`VAR_GLOBAL`: **1** (bakon-nano `Variable_Configuration.gvl`, which opens with `VAR_CONFIG`). Non-GVL files whose first
+code line is `VAR_GLOBAL`: **0**. So today a PUSHED `Variable_Configuration.gvl` is left out of the network scope,
+while the same list read from the IDE is in it (`_globals` already keys by `Kind == PlcGvl`). The two halves of
+`Globals` disagree on exactly that file, and on any GVL whose text is broken (an unclosed `(*`). The pushed map is
+keyed by BARE name (`DeclarationsIn`), so the wire kind is lost at the one place it was known.
+
+**5.Q.7 (b): `ReadMember`** has been a failure by name since 5.Q.5 (`BeckhoffDriver.Content.cs`, `UNSUPPORTED`
+"member '…' has tree item type N, a member Volt has no kind for"). No test pins it (grep: 0).
+
+**5.Q.7 (c): TwinCAT library enums.** `ProduceAllLibrarySignatures` has no enum flag (D27). `TcLibrarySignatures`
+calls a `VarGlobal` signature an enum when every constant is typed as the container itself. In `twincat-project14`,
+that rule renders **12** library DUTs as enums (all `Tc2_System`, `E_AdsErr` … `FW_NoOfByte`; one, `E_TcEventPriority`,
+has a single member), and **6** VarGlobal signatures as GVLs. A GVL whose constants all take its own name as their type
+cannot exist without a type of that name, so the rule has no known false positive. But it is Volt's reading of a shape,
+not a fact the vendor states, and the 5.Q rule asks for that to be labelled.
+
+### Options
+
+**5.Q.6: the merged classes**
+
+| option | measured | verdict |
+|---|---|---|
+| Q1. per-class refusal at the re-create: the driver states, per object, "a class `CreateChild` cannot make", and the push refuses a create over such an object | on CODESYS the only reachable re-create is the two-ops-one-name batch (above), which loses EVERY object, special or not. Q1 would refuse it for 15 + 3 + ≤ 12 objects and let it destroy all the others | rejected: a class-shaped patch over a bug that has nothing to do with class. The driver read it needs would guard nothing else |
+| **Q2. one op per wire identity. In the pre-flight, a batch naming one wire name in two ops is refused `BAD_REQUEST` by name, and nothing is applied. The name is an op's `name` or a set's `toName`, compared case-insensitively, as identity is everywhere else. The CLI pairs a `Delete` row and an `Add` row of the SAME item name into one move+edit `SetItemOp` (`ToFolder`, `SourceText`, `IfVersion`)** | closes the only CODESYS path that loses a special object, for every class at once. The CLI's unpaired move+edit becomes the move it really is: the name is the identity, so the pairing is exact, with no similarity guess. 0 C# tests send one name twice | **chosen** |
+| Q3. re-create with the old object's class (object-model factories, e.g. `DUTObjectFactory.WillBeTextListEnumerationObject`, `kind-source.log`) | three of the classes have no scripting create (kind audit). An NVL's network settings and a GVL's properties would have to be copied from state Volt does not read | rejected |
+| Q4. carry the class on the wire (one extension per class) | the rule allows it (the class IS stored per object). But three classes have no create, the abstract method is compiler-equivalent (recorded), and it touches every parity site for ≈ 30 objects | rejected |
+| Q5. document only (niche: accepted loss) | Q2 is cheap (one pre-flight pass plus a CLI pairing), and the check-function loss is a recorded semantic change | rejected: cheap, so fixed |
+
+Q2 does not touch two-op batches across KINDS (`deleteItem X.pou` + `set X.dut`, the re-type route the re-type guard
+names), because they are two wire identities. The apply resolves both by the same BARE name, though, so they hit the
+same dead-handle path described above. That is a re-type, not a class downgrade, and it is outside 5.Q.6: it is
+recorded for `bridge-refusal-review` and not built here.
+
+**5.Q.7 (a): Globals**
+
+| option | measured | verdict |
+|---|---|---|
+| G0. keep `IsGlobalListHeader` for pushed items | 1 corpus GVL (`VAR_CONFIG`) and every broken-text GVL disagree with the IDE-side half | rejected (5.Q rule) |
+| G1. key the pushed map by FULL wire name | `Of(pushed, n)` is called with BARE names taken from text (a call head, a type), so it would have to try every extension | rejected |
+| **G2. the pushed map carries its wire kind. `DeclarationsIn` returns a `PushedDeclarations`: bare name → declaration as today, plus the bare names whose wire kind is `gvl`. Every `pushedDeclarations` parameter takes this type (27 sites: `ICodeStore`, `DriverBase`, both drivers' content code, `ProjectDeclarations`, `PushService`, `FakeIde`)** | the IDE half and the pushed half both decide by kind. A pushed `Variable_Configuration.gvl` is treated the same as a pulled one | **chosen** |
+| G3. ask the IDE's index for each pushed name's kind | a GVL CREATED by this push is not in the index | rejected |
+
+**5.Q.7 (c): library enums**
+
+| option | measured | verdict |
+|---|---|---|
+| **I1. keep the shape rule, labelled: a named method (`InferredEnum`), a DIALECT row saying it is a Volt inference (a library item has no per-object source), and its count in the parse's tally next to `noBody` / `unknown`** | 12 / 18 in `twincat-project14`, no known false positive | **chosen** |
+| I2. render every library VarGlobal as a GVL | the 12 enums' constants are then typed by a type no file declares, and every library FB taking one (`FB_FileOpen`'s `E_OpenPath`) resolves to nothing | rejected |
+| I3. read the library's own objects | on TwinCAT a library item has no per-object source (D27); only the signature document exists | impossible |
+
+**5.Q.8: PLCAssist**
+
+| option | verdict |
+|---|---|
+| **N1. a note in the proposal's Impact. `X.prg` / `X.fb` / `X.fun` → `X.pou` (5.Qa) and `X.struct` / `.enum` / `.union` / `.alias` → `X.dut` (5.P) ship in ONE release. An old name is refused `BAD_REQUEST` by name and never mapped. The client keys by wire name, so it re-reads `refs` and renames its keys** | **chosen** |
+| N2. accept the old names as aliases | rejected, as 5.P's P4 was: two spellings of one item is the collapse the item-name invariant forbids, and there are no fallbacks |
+
+### Choice
+
+**Q2 + G2 + I1 + N1.** 5.Q.7 (b) closes with a test.
+
+- **One op per wire identity** (`PushService`, pre-flight, next to `RequireWireNames`). The identities a batch touches
+  are each op's `Name` and each set's `ToName`. When two ops touch the same one (OrdinalIgnoreCase), the second op is
+  refused `BAD_REQUEST`: "'X.gvl' is named by two ops in this push (deleteItem, set). One op per item: an update, a
+  rename and a move are one `set`; a delete and a create of the same name are two pushes." A set renaming `A` to `B`
+  next to an op on `B` gets the same refusal.
+- **CLI pairing** (`Commands.Push`). A `Delete` row and an `Add` / `Modify` row whose paths map to the SAME item name
+  become one `SetItemOp { Name, ToFolder = the new folder, SourceText, IfVersion }`. That is what git would have sent
+  as a rename if the edit had stayed under its similarity threshold. This is name logic only; the CLI still holds no
+  kind logic.
+- **The special classes are kept because nothing re-creates them.** On both vendors, an update, a rename and a move
+  happen in place. A create of a new name makes the plain class and is not refused (no class on the wire; no name or
+  text is read). DIALECT **C2n** lists each class, its count, what a plain create loses, and the two measured facts
+  that make the abstract method harmless.
+- **G2:** `PushedDeclarations` (`ByName`, `Globals`). `Globals(pushed)` yields the pushed declarations of `gvl` items,
+  then the IDE's GVLs the push does not replace. `StDeclaration.IsGlobalListHeader` is deleted (which is also the first
+  item of 5.F.1).
+- **I1:** `TcLibrarySignatures.InferredEnum(constants, name)`. The tally line reads `… N enums inferred from shape`.
+  DIALECT D27 gains a sentence and the 12 / 18 count.
+- **N1:** the proposal.md Impact is rewritten: "Clients: none required" becomes the PLCAssist note.
+
+### What stays refused, by name
+
+- **One wire name in two ops of one push**: `BAD_REQUEST`, pre-flight, nothing applied (new).
+- **A member code with no kind** on TwinCAT: `UNSUPPORTED`, naming the member and its code (5.Q.5; now pinned by a test).
+- **An old POU / DUT-subtype extension** from a client: `BAD_REQUEST` (`RequireWireNames`, 5.P / 5.Qa), never mapped.
+- Everything 5.Qa refuses, unchanged.
+- **Not refused:**
+  - a create of a new name where a special class would have been needed. It is made plain; DIALECT C2n says so, and the
+    implicit-checks recording is that answer;
+  - a delete of a special-class object, because the client asked for it;
+  - a re-type across families as delete + create in one push. These are two identities; see the dead-handle note
+    above, recorded for `bridge-refusal-review`.
+
+### Migration
+
+1. **Evidence (CODESYS, live, `ide.ps1 -Instance push-without-header-check`, on a Pro2193 copy, plus a bakon-nano copy
+   for the NVL).** One probe (`scripts/probe-merged-classes.py` + log) writes the text of `PersistentVars`,
+   `CheckBounds`, `IQSlices`, `CAN_TO_PLC` and an abstract method in place, then renames and moves each one, and reads
+   back the CLR class after every step (expected: kept). It also reads `KindOfCheckFunction` on `CheckBounds` and on a
+   plain POU, for DIALECT. DIALECT C2n is written from the log and the table above. If any class is not kept, the step
+   stops, because the design assumes it is.
+2. **Red tests** (offline, red against HEAD):
+   - `OneOpPerItemTests` (FakeIde): delete + set of `X.gvl` in both orders, set `A→B` next to a set of `B`, and
+     case-variant names are refused `BAD_REQUEST` naming the item, with `ide.Recorded` empty. `deleteItem X.pou` +
+     `set X.dut` is not refused by this rule.
+   - FakeIde gains a per-item `Class`: a label the double keeps on an in-place write, rename and move, and sets to the
+     plain class on `CreateChild`. For each class (check function, text-list enum, persistent list, NVL, GVL with
+     network properties, abstract method), update, rename and move keep it, and no `Delete` / `CreateChild` is recorded.
+   - CLI (`Volt.Cli.Tests`, a git workspace): a file that is moved and rewritten past the rename threshold pushes ONE
+     `SetItemOp` with `ToFolder`, `SourceText` and the sidecar's `IfVersion`, and no `DeleteItemOp`.
+   - `ProjectDeclarations`: a pushed `X.gvl` opening with `VAR_CONFIG`, and one opening with an unclosed `(*`, are in
+     `Globals`. A pushed `X.pou` whose text opens with `VAR_GLOBAL` is not.
+   - TwinCAT (`Volt.Ide.Twincat.Tests`, dynamic doubles): a member with an unknown code gives `UNSUPPORTED` naming it.
+   - `TcLibrarySignaturesTests`: the tally includes the inferred-enum count, and a VarGlobal with one constant of
+     another type is a GVL.
+3. **Code:** the pre-flight pass; the CLI pairing; `PushedDeclarations` through the 27 parameter sites (`FakeIde`
+   included); `IsGlobalListHeader` deleted; `InferredEnum` + the tally; the proposal Impact (N1).
+4. **Docs:** DIALECT C2n and D27; `docs/wire.html` (push: one op per item), through the generated-docs gate if its
+   data names the rule; tasks 5.Q.6–5.Q.8 and the first item of 5.F.1 ticked with the numbers.
+
+5Qb changes nothing in the LSP, so it needs no LSP recording and no `rate:fixtures` run. The gate runs the C# suites,
+volt-cli `bun test test/unit`, `bun run check` / typecheck / lint, and the LSP suite once, as the queue requires.
