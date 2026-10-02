@@ -70,11 +70,11 @@ test("linkExtends: inherited members resolve through the base chain", () => {
 })
 
 test("enum members: bare-accessible unless qualified_only", () => {
-  const open = build({ uri: "Color.enum", src: `TYPE Color : (Red, Green, Blue); END_TYPE` })
+  const open = build({ uri: "Color.dut", src: `TYPE Color : (Red, Green, Blue); END_TYPE` })
   expect(bareEnumMember(open, "Green")?.kind).toBe("enum_value")
 
   const qualified = build({
-    uri: "Mode.enum",
+    uri: "Mode.dut",
     src: `{attribute 'qualified_only'}\nTYPE Mode : (Auto, Manual); END_TYPE`,
   })
   expect(findChildScope(qualified, "Mode")?.qualifiedOnly).toBe(true)
@@ -220,7 +220,7 @@ test("an FB whose header the vendor refuses is declared nowhere; a bodiless TYPE
   // is used); `unit_type_no_body`: a TYPE with a refused body is no unknown type where it is used
   const project = build(
     { uri: "A.pou", src: "FUNCTION_BLOCK FINAL PUBLIC FB_A\nVAR\n\tn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n" },
-    { uri: "T.alias", src: "TYPE T_X :\nEND_TYPE\n" },
+    { uri: "T.dut", src: "TYPE T_X :\nEND_TYPE\n" },
   )
   expect(lookupLocal(project, "FB_A")).toEqual([])
   expect(lookupLocal(project, "T_X").map((s) => s.kind)).toEqual(["type"])

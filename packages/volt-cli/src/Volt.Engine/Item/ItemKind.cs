@@ -31,7 +31,7 @@ public static class ItemKind
     // FUNCTION_BLOCK or a FUNCTION is decided by its TEXT on both vendors — CODESYS has ONE `POUObject` class whose
     // kind follows the declaration (DIALECT C2f/C2g), and TwinCAT's three tree codes lag an in-place write and are
     // re-derived from the text on a reload (C2h) — so nothing in Volt reads it: the IDE and its build own it, and the
-    // LSP reads it from the text as analysis. (Until 5.Q the wire named a POU `X.prg` / `X.fb` / `X.fun`, which cost
+    // LSP reads it from the text as analysis. (Until 5.Q the wire gave each of the three its own extension, which cost
     // a header read per POU per walk on CODESYS and a re-type guard for every kind change.)
     //
     // 604 is the one POU code a driver hands up for a POU it classifies by CLASS (CODESYS) and the one a push creates
@@ -45,9 +45,8 @@ public static class ItemKind
     // `push-without-header-check` 5.P, owner 2026-10-02: "keep it simple"). Its subtype (struct / enum / union /
     // alias) is not part of its name: nothing in Volt reads, carries or spells it — the IDE and its build own it, and
     // the LSP reads the shape from the text as analysis. So a struct rewritten as an enum is an ordinary content
-    // update of `X.dut`. (Until 5.P the wire named a DUT by the subtype its vendor stated — `X.struct` / `X.enum` /
-    // `X.union` / `X.alias` — which cost a parse per vendor, a fallback name beside them, and rename handling for
-    // every subtype change.)
+    // update of `X.dut`. (Until 5.P the wire named a DUT by the subtype its vendor stated, one extension per subtype,
+    // which cost a parse per vendor, a fallback name beside them, and rename handling for every subtype change.)
     //
     // But it is FOUR tree codes on TwinCAT, not one, and that correction cost real data. This used to say
     // "605/606/607 = the old PLCDUTENUM/STRUCT/UNION codes — NEVER PRODUCED, never needed", and every walk that

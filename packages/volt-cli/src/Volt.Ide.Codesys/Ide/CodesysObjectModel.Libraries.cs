@@ -372,7 +372,7 @@ namespace Volt.Ide.Codesys
                 // a FUNCTION_BLOCK whatever its text, and the declaration written next decides what it is — CODESYS
                 // does not retain the creation PouType (DIALECT C2g) and takes the kind from the text (C2f). A
                 // function block needs no seed return type, and accepts every member kind until its text says
-                // otherwise (C2k). (The Program and Function arms went with the `.prg` / `.fun` extensions.)
+                // otherwise (C2k). (The Program and Function arms went with the per-kind POU extensions.)
                 case ItemKind.PlcPou: return CreatePou(c, name, "FunctionBlock", language);
                 // A DUT is one kind: create a neutral Structure skeleton, then WriteSourceText writes the real
                 // TYPE…END_TYPE declaration and CODESYS re-derives the actual subtype (struct/enum/union/alias)

@@ -19,8 +19,11 @@ public static class CodeHelper
     /// <c>function_block</c> on the wire. Two ways to find a header line is one too many; this is the one.</para>
     /// <para><b>Never asked on a push.</b> Its strict sibling <c>ParseCodeHeader</c>, which turned "no header" into
     /// <c>INVALID_CODE_HEADER</c>, is DELETED: it classified a pushed text by its header, and a top-level item's kind is
-    /// its wire name's extension (openspec <c>push-without-header-check</c>). What reads a header now reads it from the
-    /// IDE, to classify what the IDE holds.</para></summary>
+    /// its wire name's extension (openspec <c>push-without-header-check</c>).</para>
+    /// <para><b>Decides no kind and no name.</b> Its one caller is network-text scope (<c>StDeclaration</c>'s
+    /// <c>IsCallableHeader</c> / <c>IsFunctionBlockType</c>): whether a callee's declaration is a POU a call can name, or
+    /// a function block — analysis, which the item's kind (<c>pou</c>) cannot answer (5.Qa). The repo gate
+    /// <c>NoKindFromTextTests</c> keeps every other header read out (5.F.2).</para></summary>
     public static string HeaderLine(string? code)
     {
         if (string.IsNullOrWhiteSpace(code)) return "";
@@ -63,7 +66,7 @@ public static class CodeHelper
     ///
     /// <para><b>Not the splitter's.</b> The child splitter (<c>StReader</c>) reads through <see cref="StTrivia"/>, which
     /// NESTS comments and sees one opened after code (openspec <c>push-without-header-check</c> 5.E.1); this one does
-    /// neither. What still asks it is <see cref="HeaderLine"/> (other items' headers, retired by 5.F.1) and
+    /// neither. What still asks it is <see cref="HeaderLine"/> (network-text scope, above) and
     /// <c>StDeclaration</c>'s variable and EXTENDS readers (network text, parked).</para></summary>
     public static string CodeOn(string line, ref bool inBlockComment)
     {

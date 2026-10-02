@@ -57,7 +57,7 @@ test("the object is read from a URI's path, not its query or fragment", () => {
   expect(sourceObjectOf("file:///c%3A/w/src/DUT_A.dut")).toBe("dut")
   expect(sourceObjectOf(head)).toBe("dut")
   expect(sourceObjectOf("file:///c%3A/w/src/GVL_A.gvl#L3")).toBe("gvl")
-  expect(sourceObjectOf("file:///c%3A/w/src/notes.txt?x=A.struct")).toBeUndefined()
+  expect(sourceObjectOf("file:///c%3A/w/src/notes.txt?x=A.dut")).toBeUndefined()
   expect(read(head, "TYPE DUT_A :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE\n")).toEqual({ units: ["type_decl"], errors: [] })
 })
 

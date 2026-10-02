@@ -137,7 +137,7 @@ const runCmd = (raw) => {
       { c: "ok", t: "  ✓ merged FB_Motor.pou" },
       { c: "dim", t: "  in sync with volt/ide" },
     ]
-  if (c === "volt push") return [{ c: "ok", t: "  ✓ pushed FB_Conveyor.fb → IDE" }]
+  if (c === "volt push") return [{ c: "ok", t: "  ✓ pushed FB_Conveyor.pou → IDE" }]
   return [{ c: "dim", t: `  volt: '${c}' — try: status, pull, push` }]
 }
 
@@ -167,7 +167,7 @@ export function VSCode({ autoplay = false, zoom = 1 }) {
     { c: "dim", t: "~/MyMachine" },
     { c: "head", t: "● your AI agent · volt on PATH" },
     { c: "you", t: "› Add a running flag to FB_Conveyor" },
-    { c: "act", t: "  ✎ edit FB_Conveyor.fb  +2" },
+    { c: "act", t: "  ✎ edit FB_Conveyor.pou  +2" },
     { c: "ok", t: "  ⚙ build CODESYS  ✓ 0 errors" },
   ])
   const [draft, setDraft] = useState("")

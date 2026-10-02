@@ -19,8 +19,8 @@ public static class PushedText
     /// the IDE keeps the spelling of the object it holds) and the same kind. A push writes the text as sent and never
     /// reads its header (openspec <c>push-without-header-check</c>), and a POU is <c>X.pou</c> and a DUT <c>X.dut</c>
     /// whatever their text says (5.Q, 5.P), so a text write moves no object to another name: the case-variant pair is
-    /// all that is left. (Until 5.Q, CODESYS published <c>X.fb</c> whose text said PROGRAM as <c>X.prg</c>, DIALECT C2f,
-    /// and this paired the three POU extensions.) Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
+    /// all that is left. (Until 5.Q, CODESYS re-published a function block whose text said PROGRAM under the program's
+    /// extension, DIALECT C2f, and this paired the three POU extensions.) Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
     /// item-name invariant).</summary>
     public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
     {

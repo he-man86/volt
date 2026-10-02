@@ -5,8 +5,9 @@ using Volt.Engine.Format.St;
 
 namespace Volt.Engine.Tests;
 
-/// <summary>The header helpers that remain: <c>HeaderLine</c> (the TOTAL "which line is the header", read by the
-/// IDE-side classifier) and <c>CodeOn</c> (THE trivia scanner).
+/// <summary>The header helpers that remain: <c>HeaderLine</c> (the TOTAL "which line is the header", read by
+/// network-text scope alone — no kind or name is decided from it, gate <c>NoKindFromTextTests</c>) and <c>CodeOn</c>
+/// (the per-line trivia scanner).
 ///
 /// <para>The strict <c>ParseCodeHeader</c>, and every test of its CLASSIFICATION, are deleted with it: it classified a
 /// PUSHED text by its header, and a push no longer reads a top-level item's header — the kind is the wire name's
@@ -34,7 +35,7 @@ public class CodeHelperTests
     public void A_declaration_sharing_its_line_with_a_closing_comment_IS_the_header(string src, string expected) =>
         Assert.Equal(expected, CodeHelper.HeaderLine(src));
 
-    // ── HeaderLine: the TOTAL half, extracted so a classifier that must not throw can share it ──
+    // ── HeaderLine: TOTAL, so network-text scope can ask it of any callee's declaration without a throw ──
     // The CODESYS driver found its keyword with a bare TrimStart() + first-token read, which returns "" for any
     // declaration opening with a non-word character. A PROGRAM behind a pragma therefore fell to RefinePou's
     // FUNCTION_BLOCK default and was reported as `function_block` on refs/fetch. These pin the shared answer.

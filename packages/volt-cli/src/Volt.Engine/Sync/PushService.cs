@@ -601,9 +601,9 @@ public static class PushService
     /// <c>X</c> or <c>X.foo</c> reaches whatever object is called <c>X</c>, while every check keyed by the full name
     /// misses it: the version gate finds no such key and passes a set as a create, and the kind check has no kind to
     /// hold the text to — so such a set overwrote the live object with no version check (forced, it also moved it).
-    /// Force drops a version gate; it never makes a name mean something. <c>X.struct</c> / <c>X.enum</c> /
-    /// <c>X.union</c> / <c>X.alias</c> are such names: a DUT is <c>X.dut</c> (openspec <c>push-without-header-check</c>
-    /// 5.P).</para></summary>
+    /// Force drops a version gate; it never makes a name mean something. The retired per-subtype DUT names and
+    /// per-kind POU names are such names: a DUT is <c>X.dut</c> and a POU <c>X.pou</c> (openspec
+    /// <c>push-without-header-check</c> 5.P, 5.Q).</para></summary>
     private static void RequireWireNames(IEnumerable<PushOp> ops)
     {
         foreach (var op in ops)

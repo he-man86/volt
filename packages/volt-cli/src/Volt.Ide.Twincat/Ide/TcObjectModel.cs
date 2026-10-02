@@ -367,7 +367,7 @@ internal sealed partial class TcObjectModel
         // (openspec `push-without-header-check` 5.Q, design S1): the declaration written next is what the compiler
         // takes (a 604 holding PROGRAM text builds clean as a program, DIALECT C2f), and a reload re-derives the tree
         // code from it (C2h). Nothing in Volt reads which of 602/603/604 a POU is. (The FUNCTION arm's
-        // `Type.Missing` vInfo went with the `.fun` extension.)
+        // `Type.Missing` vInfo went with the per-kind POU extensions.)
         object? vInfo = kindCode switch
         {
             ItemKind.PlcDutStruct or ItemKind.PlcDutEnum or ItemKind.PlcDutUnion => System.Type.Missing,

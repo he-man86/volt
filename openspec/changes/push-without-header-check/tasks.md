@@ -732,7 +732,7 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       do not measure this step.
 
 ### 5.F No legacy
-- [ ] 5.F.1 Deleted: `StDeclaration.IsGlobalListHeader` (`ProjectDeclarations` takes GVLs from the item kind); every
+- [x] 5.F.1 Deleted: `StDeclaration.IsGlobalListHeader` (`ProjectDeclarations` takes GVLs from the item kind); every
       comment/doc that describes reading a kind or subtype from text or naming DUTs by subtype (`ItemKind.cs`,
       `RefsFetch.cs`, `CodeHelper.cs`, `StWriter.cs`, DIALECT rows that only served the subtype — kept as history notes,
       the wire docs and generated doc data via VOLT_WRITE_DOCS=1, CLAUDE.md/README mentions of `.enum`/`.struct`).
@@ -741,10 +741,59 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       changes (`dut-subtype-change.test.ts`) are deleted; `held: "unreadable"` DUT rows become plain `.dut` rows.
       (First item DONE in 5Qb / 5.Q.7: `StDeclaration.IsGlobalListHeader` deleted, `ProjectDeclarations` takes pushed
       GVLs from the wire kind.)
-- [ ] 5.F.2 Repo gate (`Volt.Repo.Gates`): no code outside the child splitter reads a declaration's first code line or
+      DONE (2026-10-03): no product code changed — every remaining item was a comment, a doc or a test. Comments that
+      spelt a retired extension reworded as history in words (`ItemKind.cs` ×2, `PushedText.cs`, `PushService.cs`
+      `RequireWireNames`, `CodesysObjectModel.Libraries.cs`, `TcObjectModel.cs`); `CodeHelper.HeaderLine`'s doc no longer
+      claims it "classifies what the IDE holds" (its one caller is network-text scope, allow-listed by 5.F.2; the
+      design's 5.Qa knock-on keeps `IsCallableHeader` / `IsFunctionBlockType` a read of the callee's declaration, since
+      `pou` cannot say FB or FUNCTION). DIALECT C2g / C2h (the rows that only served the subtype) gain a "How Volt relies
+      on it (history)" note; C2e/C2f/C2j already carried one. `RefsFetch.cs`, `StWriter.cs`, CLAUDE.md and every README
+      held no subtype/kind-from-text wording any more (CLAUDE.md said `CM_Carrier.pou` already); the website mockup
+      (`volt-web` `VSCode.jsx`) printed `FB_Conveyor.fb` twice → `.pou`. Generated doc data unchanged (`DocDataTests`
+      green, nothing to regenerate: no fact table moved). `dut-subtype-change.test.ts` was already deleted in 5.P. The
+      e2e `held: "unreadable"` DUT rows (`uc_struct`, `uc_enum`, `empty`, `prose`) RE-RECORDED LIVE on both vendors
+      (own fixture copies, `ide.ps1 -Instance push-without-header-check`; TwinCAT on a worker built from this tree,
+      since the shared Release bin was locked by another session's worker): all four are `fetched` as `X.dut` with the
+      text sent; the `DUT_PUBLISHED_AS_DUT` mark, `expectHeldOrKnown` and the DUT entries of the sweep's kind map are
+      deleted (CODESYS 11/11, TwinCAT 11/11, run twice). LSP: `binder.test.ts`' three `.enum` / `.alias` URIs and
+      `source-object.test.ts`' query-string row now say `.dut` (24/24).
+- [x] 5.F.2 Repo gate (`Volt.Repo.Gates`): no code outside the child splitter reads a declaration's first code line or
       matches `TYPE` / `STRUCT` / `UNION` / `FUNCTION_BLOCK` / `PROGRAM` / `VAR_GLOBAL` to decide a kind or a name;
       no source mentions `.struct` / `.enum` / `.alias` / `.union` / `.prg` / `.fb` / `.fun` as an extension; no kind is
       derived from a signature or a text where the class states it. Grep-based, allow-list in the test.
+      DONE (2026-10-03): `NoKindFromTextTests` (23 tests). Rule 1 — in `volt-cli/src`, a header reader
+      (`HeaderLine` / `FirstCodeLine` / `FirstMemberLine` / `PouHeaderKeyword` / `MemberHeaderKeyword` / `CodeOn`) or a
+      header keyword (`TYPE` / `STRUCT` / `UNION` / `FUNCTION_BLOCK` / `PROGRAM` / `VAR_GLOBAL`) in a string, in code
+      (comments stripped by a small C#/script scanner), only in the allow-listed files, each with its reason: readers
+      StReader (splitter + END mirror), StWriter (END mirror), Materializer (member text held to its class, END
+      fallback log), CodeHelper, StDeclaration (network-text scope); keywords StReader, StWriter, StDeclaration,
+      Materializer, LibSignatureRenderer (writes from the vendor signature), NetworkTextReader / CodesysNetworkWriter
+      (refusal messages). Rule 2 — the deleted kind sources and CODESYS's per-object parse / precompile signature
+      (`IsGlobalListHeader`, `TryDutSubtype`, `DutSubtype`, `TcDutSubtype`, `RefinePou`, `LeadingKeyword`,
+      `ParseCodeHeader`, `GetSignature`, `FindSignature`, `ParseInterface`, `POUType`) named nowhere in `src` code.
+      Rule 3 — no product source (every package's `src`, `volt-web/app`, CLAUDE.md, READMEs, ARCHITECTURE.md; 500+
+      files) spells `.struct` / `.enum` / `.union` / `.alias` / `.prg` / `.fb` / `.fun` in a comment or a string
+      (interpolations are code: `routine.fb`, `${n.fb}` pass); allowed: DIALECT.md (history rows), the two refusal
+      tests (`source-extensions.test.ts`, volt-control `files.test.ts`). Every allow-list entry must still match. Red on
+      HEAD: 10 offenders (ItemKind ×3, PushService ×2, binder.test.ts ×3, VSCode.jsx ×2), green after; the theory rows
+      pin each shape caught and passed. `InferredEnum` (TwinCAT library enums, 5Qb I1) is no kind decision where a
+      class states it — a library item has no class — and is not flagged. Volt.Repo.Gates 77/77.
+      GATE 5F (2026-10-03): run in a scratch worktree of HEAD (`b257b5c4f1`) + exactly the 5F paths. The tree also
+      holds another workflow's uncommitted LSP frontend-types WIP, which stays out of the gate and out of the commit.
+      Gate fix, red on a clean checkout: `NoKindFromTextTests` read `packages/volt-desktop/main.mjs`, which is gitignored
+      build output, so it threw FileNotFound wherever nothing had been built. Its source `volt-desktop/src/main.ts` is
+      already scanned, so the entry is removed. `bun run typecheck` green (5 packages). `dotnet build Volt.sln -c Release`
+      0 errors (31 warnings). C# suites: Cli 239/0, Engine 1867 pass / 1 skip / 0 fail, Connector 113/0, Ide.Twincat
+      296/0, Ide.Codesys 202/0, Contracts 19/0, Repo.Gates 92/0 (5E: 54; +23 `NoKindFromTextTests` cases and their theory rows).
+      volt-cli `bun test test/unit` 4/0; volt-control 123/0; volt-vscode 39/0; volt-desktop 28/0 (after `bun run build`);
+      `bun run lint` exit 0; `bun run check` 15 passed / 0 failed. 5F touches no fixture and no transpiler, so the map
+      does not move: `rate:fixtures` content matches HEAD (4259 fixtures; confirmed 2446, refused 1524, not-lowered
+      162, lsp-gap 55, diverges 4, unaskable 68; edges agree 2572 / disagree 0 / not-run 110). LSP full suite
+      (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset, rustc cache sampled): **7302 pass / 34 skip / 206 todo / 0 fail**
+      (7542 tests, 201 files, 646 s). The first run reported 1 fail, the map NOTES check. It was a worktree artifact:
+      `core.autocrlf` had checked the map out with CRLF. After `rate:fixtures` rewrote it with LF and no content diff,
+      `fixtures.test.ts` re-ran in full at 5251 pass / 162 todo / 0 fail. Agreement: CODESYS 3914 / 4259, TwinCAT
+      3825 / 4259.
 
 ### 5.G Verify
 - [ ] 5.G.1 Live on both vendors (fixture copies, `ide.ps1 -Instance push5`): every 5.A.1 shape incl. the broken-text
