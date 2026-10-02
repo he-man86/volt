@@ -238,6 +238,12 @@ Replaces the parked 5.1–5.3 and their three open decisions. Owner decisions (2
   one answer, and anything it cannot classify with certainty is `.dut` — never a wrong subtype, never a throw.
 - **No legacy after the refactor** (5.F): every other header/text read that decides a kind is deleted, and a repo gate
   keeps it that way.
+- **No guessing, only intentional fallbacks** (owner, 2026-10-02). After this change no code picks a kind, subtype or
+  name that the IDE did not state. The ONE fallback is `.dut`, and it is an exception, not a default: it appears only for
+  a DUT whose subtype NO source can state (the vendor itself cannot classify the text). Every fallback in the change is
+  named in design.md, has a test that triggers it, and is counted. Acceptance for the whole section: on every DUT that
+  the vendor compiles (all six corpora, every fixture, the live 5.G shapes) the `.dut` count is **0**; `.dut` appears
+  only for the broken-text shapes, and each one is listed.
 
 ### 5.A Evidence (running 2026-10-02: the vendor kind-source investigation)
 - [ ] 5.A.1 Per vendor, every item type created on a fixture copy (each DUT subtype incl. enum with base type and
