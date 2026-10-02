@@ -1,3 +1,8 @@
+> **Re-baseline before working on DUT items (note 2026-10-02).** `push-without-header-check` §5 pivoted (2026-10-02)
+> to ONE DUT extension `.dut` — no subtype on the wire, no classifier. Every refusal or finding below that concerns
+> DUT naming, the DUT subtype or `INVALID_CODE_HEADER` must be re-baselined against the code AFTER §5 lands, before
+> it is worked on: its file, line, code or premise may no longer exist.
+
 ## 0. Order and method
 
 - [ ] 0.1 Start after `push-without-header-check` (its header removal is done; do not repeat it). Its 4.1 fixtures
