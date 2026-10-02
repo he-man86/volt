@@ -1042,3 +1042,241 @@ P1 with R1, as chosen. Refinements, each forced by the code once the subtype was
   baseline version, unforced → version conflict; unguarded → deleted (as a POU is); forced → deleted.
 - **LSP:** `src/frontend/symbols/binder.test.ts` still names three test URIs `.enum` / `.alias` — the file carries the
   LSP queue's uncommitted work, the tests pass (binding never reads the extension), and 5.F.2's gate will find them.
+
+## Step 5.Qa — Pivot 2 (part 1): one POU extension `.pou`; kind from the class; the END line mirrors the header; CODESYS create order; member kind from the class
+
+(2026-10-02. Design only; no code. Tasks 5.Q.1–5.Q.5. Owner rule, 2026-10-02: **a wire extension carries only what
+the IDE stores PER OBJECT** — its class or tree item type — never what is decided by parsing the object's text.)
+
+### Target
+
+Every PROGRAM, FUNCTION_BLOCK and FUNCTION is published, stored, pushed and analysed as **`name.pou`**, on both vendors,
+always. "It is a POU" comes from the object's class (CODESYS `IPOUObject`, `POUObjectCheckFunction` included; TwinCAT a
+`.TcPOU` tree item, codes 602/603/604 alike). Nothing in Volt decides whether a POU is a program, a function block or a
+function — the IDE and its build own that, and the LSP reads it from the text as analysis. After 5.Qa:
+
+1. `ItemKind.SourceKindExtensions` has ONE POU row, `(Kinds.Pou, "pou")`; `Kinds.Program` / `Kinds.Function` /
+   `Kinds.FunctionBlock` are deleted. `Map(602|603|604)` → `Kinds.Pou`, as `Map(605|606|607|623)` → `Kinds.Dut`.
+2. The pulled file's outer END line is written from the declaration's own header keyword (`PROGRAM` → `END_PROGRAM`,
+   `FUNCTION_BLOCK` → `END_FUNCTION_BLOCK`, `FUNCTION` → `END_FUNCTION`), never from a kind. The reader already
+   accepts any of the three as the boundary (`StReader.OuterEndKeywords`).
+3. A push writes the item's own declaration BEFORE it creates members, so which members the IDE accepts follows the
+   text the client sent (CODESYS, measured below) — not a seed Volt chose.
+4. A member's kind on pull is its CLASS (already true in both drivers' `ReadMember`); a member whose stored text opens
+   with a keyword its class does not have is refused on pull by name, never round-tripped as a delete + create.
+
+### Measured against the recorded fixtures, the corpora and the live kind audit (2026-10-02)
+
+- **Corpora** (the six under `packages/volt-lsp-iec/test-corpus`; scratch script `5Qa/measure.ts`, nested `(* *)`,
+  `//`, strings and `{…}` pragmas skipped): **16,990 POU files — 119 `.prg`, 6,933 `.fb`, 9,938 `.fun`** (16,317 of
+  them library renders under `Library Manager/`), 0 `.pou`. Renaming each to `bare.pou` gives **0 collisions**
+  (case-insensitive folder + bare name, library folders included). On **16,990 / 16,990** the header's leading keyword
+  is one of the three, agrees with the file's extension, and its mirrored END line is **the END line the file already
+  has** — so the mirror changes no corpus byte, and the END-line fallback below fires on **0**. 0 of them has a
+  FUNCTION header with members. Member blocks (`5Qa/members.ts`, POU + interface files): **57,275** blocks, **0** whose
+  opening keyword disagrees with its END keyword.
+- **Recordings.** `codesys.build.json`, `codesys.run.json`, `twincat.build.json` are keyed by FIXTURE name: **0** item
+  names with `.prg` / `.fb` / `.fun` in them. The recorder names a pushed unit from its parser kind (`UNIT_EXT`) or the
+  fixture's `kind` (`KIND_EXT`): 4,109 POU fixtures (3,876 `function_block`, 195 `program`, 38 `function`), 24 of them
+  as-sent. The fixture `kind` stays (it is the unit kind the harness wraps, not a wire name); only the two maps change
+  to `pou`.
+- **Does the create seed change a recorded answer?** After 5.Qa every POU create uses ONE seed (below), where today a
+  `.prg` seeds a program and a `.fun` a function.
+  - CODESYS: no. The creation seed is not retained (C2g point 1); the kind follows the text (C2f), and the kind audit
+    created `VltB_FBasFUN` (FB seed, FUNCTION text) → signature `Function`, `VltB_FUNasFB` → `FunctionBlock`.
+  - TwinCAT, PRG/FB: no. `pwh_fb_text_says_program` (a 604 holding PROGRAM text, called as a program) and
+    `pwh_prg_text_says_function_block` (a 602 holding FUNCTION_BLOCK text, instantiated) build **clean on both
+    vendors** — TwinCAT's compiler takes the text, as it does for DUTs (C2e).
+  - TwinCAT, a 604 holding FUNCTION text: **not recorded** (no fixture pushes a FUNCTION under another seed). The 38
+    `function` and 195 `program` fixtures are re-recorded on TwinCAT in ONE batch on the swapped code (Migration 1) and
+    must give identical diagnostics; a difference stops the step.
+- **The END-line fallback on the fixtures** (`5Qa/fx.ts`): of the 24 as-sent POU texts, **8** open with no
+  PROGRAM/FUNCTION_BLOCK/FUNCTION keyword when comments are skipped (`pwh_unclosed_comment_fb` — before neutralisation,
+  see E1 — five `NAMESPACE` texts, one stray line). The 3 of them that have a build recording **fail the build on both
+  vendors** (`Unknown type: '<name>'`); the other 5 are not recorded. Non-as-sent fixtures are split by the parser into
+  units that open with their keyword by construction. So the fallback fires on **0 POUs a vendor compiles**.
+- **CODESYS: which members a POU accepts follows its TEXT** (live SP21, Pro2193 copy; scratchpad
+  `kind-audit/probe-kind-audit{,2}.py` + logs, committed as evidence in Migration 1):
+
+  | POU (seed → text) | signature | method / property / action / transition |
+  |---|---|---|
+  | FB → FB, PRG → PRG, FUN → FB | `FunctionBlock` / `Program` / `FunctionBlock` | accepted ×4 |
+  | FUN → FUN, FB → FUN | `Function` | **refused ×4**: "Object 'Method' is not accepted by parent object, or invalid" |
+  | FB → INTERFACE text | `Interface` | method, property refused; action, transition accepted |
+  | FB → unclosed `(*` (declares nothing) | `None` | method, property refused; action, transition accepted |
+  | FB with method `KM`, then FUNCTION text written | `Function` | `KM` **kept** — the IDE does not remove it |
+
+  So TODAY's order (create with the extension's seed → create members → write the declaration) hides the text from the
+  IDE at the one moment it decides: a `.fb` whose text says FUNCTION is created with methods the IDE would have
+  refused, and the last row shows nothing undoes them afterwards.
+- **CODESYS: a member keeps its class whatever its text** (same probe): a `POUMethodObject` given `PROPERTY` text stays a
+  method (signature `Method`); given `FUNCTION_BLOCK` text it stays that class with signature `FunctionBlock`; an
+  `AbstractPOUMethodObject` given plain `METHOD` text stays abstract; a `PropertyObject` given METHOD text stays a
+  property. So a stored member text CAN disagree with its class (scripting wrote it; whether the editor lets a user is
+  unmeasured), and the corpora hold 0 such members.
+- **Where Volt reads a POU's text for its kind today** (the code 5.Qa deletes): `CodesysTypeMap.RefinePou` +
+  `LeadingKeyword` (FUNCTION_BLOCK default — bridge-refusal-review D2) + `NeedsDeclaration` + the Interface-aspect read
+  in `CodesysDriver.Tree.KindCodeOf` (one aspect read per POU per walk: 272 on Pro2193). RefinePou also turns a
+  POUObject holding INTERFACE text into `.itf`, a kind its class does not have. Further: `TcSolutionExplorer.PouKinds`
+  (three candidate names for one unreadable `.TcPOU`), `StWriter.EndKeyword`'s three POU arms,
+  `PushService.PouKindToCode`'s three POU arms, `PushedText.MayBeHeldAs`'s POU family, and the C2f rationale of the
+  re-type guard and of `Commands.HeldUnderAnotherName`.
+
+### Options
+
+**5.Q.1 — the internal kind**
+
+| option | measured | verdict |
+|---|---|---|
+| **K1. one internal kind `Kinds.Pou = "pou"`, one extension** | CODESYS has one `POUObject` class (C2g); 16,990/16,990 renames, 0 collisions | **chosen** |
+| K2. keep `program`/`function`/`function_block` internally, all spelt `.pou` | needs the PRG/FB/FUN answer on CODESYS — the text (RefinePou) or the signature (stopped 5.D) — the parse the rule forbids; and `KindByFileExt` cannot invert three kinds onto one extension | rejected |
+| K3. keep three extensions, kind from the CODESYS signature (5.D) | the extension carries what the IDE decides by parsing the text, against the owner rule; a broken POU needed `--force` | rejected (owner; superseded) |
+
+**5.Q.2 — the create seed** (a create must hand the IDE a type: CODESYS `create_pou(PouType)`, TwinCAT `CreateChild(code)`)
+
+| option | measured | verdict |
+|---|---|---|
+| **S1. one seed, FUNCTION_BLOCK (604 / `PouType.FunctionBlock`)** | CODESYS: the seed is not retained; TwinCAT: a 604 holding PROGRAM text builds clean; CODESYS accepts every member kind under it; it needs no seed return type (the Function arm's `SeedType` goes) | **chosen**; TwinCAT FUNCTION text confirmed by the Migration-1 re-record |
+| S2. seed from the header keyword | a top-level header read on push — what the proposal deletes | rejected |
+| S3. PROGRAM seed / S4. FUNCTION seed | S3: the same evidence as S1, no gain; S4: refuses members until the text is written and needs a dummy return type | rejected |
+
+**5.Q.3 — the outer END line**
+
+| option | measured | verdict |
+|---|---|---|
+| **E1. mirror the header keyword, read in the reader's own view; one fallback** | 16,990/16,990 corpus END lines unchanged; fallback 0 on compiled POUs | **chosen** |
+| E2. END from the kind | there is no PRG/FB/FUN kind any more (K1) | impossible |
+| E3. no outer END line | the owner keeps it: it is the boundary between the POU and its members | rejected (owner) |
+| E4. remember the END the client pushed | the IDE has nowhere to store it (C2g); Volt keeps no state | rejected |
+
+The fallback, for a header that names none of the three: **F1 `END_FUNCTION_BLOCK`** — the seed's own END line (S1)
+and the shape that accepts every member kind. F2 `END_PROGRAM` has nothing for it; F3 refusing the pull (`unreadable`)
+breaks the spec scenario ("still published as `name.pou`, without an unreadable state"); F4 omitting the line makes a
+file with members unsplittable. **F1 chosen**; it is the ONE documented fallback 5.Q.3 allows, logged per item on pull
+(the count), and 0 on every POU a vendor compiles (above).
+
+"The reader's own view" is the text with an unclosed `(*` neutralised exactly as `StReader.OuterEndKeyword` /
+`ReadStructure` already do (`StTrivia.UnterminatedOpenings` + `Neutralized`), then `StTrivia.Code` — the ONE trivia
+skipper 5.E.1 names (nested comments, strings, pragmas); the first code token is the keyword. Consequence:
+`pwh_unclosed_comment_fb` (`(* doc` + `FUNCTION_BLOCK …`) mirrors `END_FUNCTION_BLOCK` from its keyword, not by
+fallback, so the writer and the post-push comparison (`PushedText.SameExceptLayout`, which reads the END token through
+that same view) agree by construction: a broken text pushed with the END line matching its keyword round-trips with no
+END-line diff. The fallback is left for a text with no such keyword at all (empty, prose, `NAMESPACE`, INTERFACE text
+in a POUObject). The keyword matches in any case and is written upper case (keyword case is layout; `OuterEndKeyword`
+already upper-cases).
+
+**5.Q.4 — the order of a POU write** (vendor-neutral, `PushService.WriteItemFromSource`)
+
+| option | measured | verdict |
+|---|---|---|
+| O1. today: create → members → declaration | CODESYS creates methods under FUNCTION text it would refuse, and keeps them (table above) | rejected |
+| **O2. create → the item's own declaration + body → members → member contents** | the IDE judges members against the pushed text; on the corpora (0 FUNCTION-with-members) and every recorded POU fixture the final state equals O1's; no aspect is written twice (the second write is `OnlyChanged` against the first) | **chosen**, for a create AND an update |
+| O3. O2 on a create only | an update FB → FUNCTION text that adds a method is accepted under the old text — the same silent state as O1 | rejected |
+
+A member create the IDE refuses is a `BridgeException` naming the item, the member, its kind and the IDE's own message
+(`UNSUPPORTED`). On a CREATE the existing rollback (`Rollback`, the exception filter) is widened from the content write
+to the whole sequence — declaration, members, member contents — so no shell is left (today a refused member leaves one:
+the `push-keeps-what-landed` repro). On an UPDATE the root declaration has already landed when a member is refused; the
+refusal SAYS so by name ("the declaration of 'X' was written; member 'M' was refused: …"). Restoring the old
+declaration is `push-keeps-what-landed` §2 and is not built here. TwinCAT is held to the same order; whether a 604
+holding FUNCTION text accepts members there is measured in 5.Q.4 and recorded in DIALECT — if it accepts, the build
+reports the result, which is the proposal's rule.
+
+**5.Q.5 — member kind**
+
+| option | measured | verdict |
+|---|---|---|
+| M0. nothing more (class on pull already; the reader takes the child header on push) | a method holding PROPERTY text pulls as `PROPERTY M …` and its push re-types it — `ReconcileMembers` deletes the method and creates a property (`retyped`); FUNCTION_BLOCK text makes the file unsplittable | rejected |
+| **M-a. on pull, each member's header keyword — read by the child splitter's own member rule — must be its class's (`METHOD` for method / interface method, `PROPERTY` for property / interface property; an action has no declaration of its own)** | 0 of 57,275 corpus member blocks disagree; one pass over strings already in hand | **chosen** |
+| M-b. read the whole assembled file back with `StReader.Read` and compare member lists | also refuses on pull every item whose file the push would refuse for ANY other reason — a wider change than this step owns, uncounted | rejected |
+| M-c. rewrite the member's keyword from its class | changes the IDE's text on the way out: the round trip writes text nobody wrote | rejected |
+
+A disagreeing member refuses the ITEM on pull, as `Materializer.RefuseRetiredComment` already refuses a text no file
+can carry: `UNSUPPORTED`, listed `unreadable`, the workspace file left alone, the reason naming the member, its class
+and the keyword its text opens with, and the one fix (correct the member in the IDE).
+
+### Choice
+
+**K1 + S1 + E1/F1 + O2 + M-a.** Every POU is `name.pou`; its kind is its class; its END line is its own header's; the
+IDE decides members against the text that was sent; a member's kind is its class.
+
+- **CODESYS.** `IPOUObject` (`POUObject`, `POUObjectCheckFunction`) → one code; `IInterfaceObject` → `PlcItf` (a
+  POUObject holding INTERFACE text is now `.pou`, as its class says; END by fallback). `KindCodeOf` reads no aspect.
+  The one POU code is a named constant `ItemKind.PlcPou` (= 604, the seed on both vendors, as `PlcDut` is the DUT's);
+  602/603 stay TwinCAT tree codes that `Map` to `Kinds.Pou`.
+- **TwinCAT.** 602/603/604 → `Kinds.Pou`; the in-session lag (C2f/C2h) becomes invisible because nothing reads which of
+  the three it is. **C2i stays guarded (5.H):** after a reload a `.TcPOU` the IDE does not parse is still never touched
+  and still listed `unreadable` — but under exactly ONE name, `X.pou` (`PouKinds` collapses to one), so the CLI
+  matches it to its file; its forced repair is unchanged. "No `--force`" therefore holds on CODESYS, and on TwinCAT
+  within the session that wrote the text.
+- **The re-type guard** keeps refusing a NAME of another family (`X.pou` over interface or DUT `X`); its POU arm and its
+  C2f rationale go with the three kinds. `PushedText.MayBeHeldAs` and `Commands.HeldUnderAnotherName` keep only the
+  case-variant pairing (`x.pou` / `X.pou`), as 5.P left the DUT's.
+- **Library items** are named through `ItemKind.ExtFor` (`LibSignatureRenderer`: no `".fb"` / `".fun"` / `".itf"` /
+  `".gvl"` literal), so the 16,317 library renders become `.pou`.
+- **Editor:** one POU icon in `volt-icons.json` (the per-kind icons go, as the DUT's did).
+
+### What stays refused, by name
+
+- **A name with no kind** — now including `X.prg` / `X.fb` / `X.fun`: `RequireWireNames` → `BAD_REQUEST`;
+  `Sidecar.RefuseUnknownNames` refuses such a baseline key, so a workspace bound before 5.Qa is refused by name until
+  `.git/volt/ide-refs.json` is deleted and `volt pull` rebuilds it (old files removed, `X.pou` added — plain git, no
+  migration code; the 5.P precedent).
+- **Another family over a POU** (`X.dut` / `X.gvl` / `X.itf` over POU `X`, or `X.pou` over one of them): the re-type
+  guard, unchanged.
+- **A member create the IDE refuses** (FUNCTION text with a METHOD; a text declaring nothing with a PROPERTY):
+  `UNSUPPORTED` with the IDE's message; a create rolls back whole, an update says the declaration landed.
+- **A member whose text's keyword is not its class's**: refused on pull (M-a).
+- **A TwinCAT `.TcPOU` the IDE does not parse, after a reload** (C2i): `unreadable` as `X.pou`; `--force` repairs it.
+- **Not refused:** any POU TEXT. A text that declares nothing, or another POU kind than before, is pushed as sent and
+  pulled back as `X.pou` (END by its keyword or by the fallback); the build reports it.
+
+### Migration
+
+Order: evidence, red tests, then the swap — the 5.P pattern, every parity site in one commit.
+
+1. **Evidence.** Commit `kind-audit/probe-kind-audit{,2}.py` + logs to `packages/volt-cli/scripts/`. DIALECT gains
+   **C2j** (5.D's evidence: CODESYS's parse agreed with its signature on 262/262 POUs — history, not used), **C2k**
+   (the members a POU accepts follow its TEXT — the table above; a FUNCTION rewrite keeps existing members) and **C2l**
+   (a member keeps its class whatever its text); C2f's "How Volt relies on it" is rewritten (nothing reads the POU
+   kind). TwinCAT, live (`ide.ps1 -Instance push-without-header-check`): a 604 holding FUNCTION text, a member create
+   under it, before and after a reload (C2k's TwinCAT column). After step 3, ONE TwinCAT `record:language` run with
+   `RECORD_ONLY=` the 38 `function` + 195 `program` fixtures, diffed against the committed recording (diagnostics only,
+   `durationMs` excluded): it must be empty. CODESYS needs no re-record (C2g).
+2. **Red tests** (offline, `FakeIde`; red against HEAD):
+   - `ItemKind`: `X.pou` → `Kinds.Pou`; `X.prg` / `X.fb` / `X.fun` → no kind;
+   - the END mirror table (`StWriter`): `PROGRAM` / `FUNCTION_BLOCK` / `FUNCTION` behind `//`, `(* *)`, nested
+     `(* (* *) *)`, `{attribute …}`, a pragma with code after it on its line, CRLF, BOM, lower/mixed case, an unclosed
+     `(*` before the keyword → mirrored; empty, prose, `NAMESPACE`, `INTERFACE` → `END_FUNCTION_BLOCK` (fallback), and
+     the pull logs each fallback by item name;
+   - order: on the double (which refuses members per the text, like C2k), a POU created with FUNCTION text and a METHOD
+     is refused `UNSUPPORTED` naming the method and leaves NO item; the update case names the landed declaration; the
+     call log shows the declaration write before `CreateChild(method)`;
+   - M-a: a method whose declaration opens `PROPERTY`, and one opening `FUNCTION_BLOCK`, are refused on pull naming the
+     member; a push of an unchanged file never deletes + creates a member;
+   - a POU whose text declares nothing pulls as `X.pou`, never `unreadable` (CODESYS double); e2e 3.2's rows likewise.
+3. **The swap (5.Q.1 + 5.Q.2), one commit.**
+   - C#: `ItemKind` (one POU row, `Kinds.Pou`, `PlcPou`, `Map`), `PushService.PouKindToCode`, `StWriter.EndKeyword`
+     (POU → mirror), `StReader.OuterEndKeywords` (`Kinds.Pou` arm), `PushedText` (family arm), `LibSignatureRenderer`,
+     `TcLibrarySignatures`' naming; deleted: `RefinePou` / `LeadingKeyword` / `NeedsDeclaration` and the aspect read in
+     `KindCodeOf`, CODESYS `CreateChild`'s Program/Function arms and TwinCAT's `PlcPouFunc` vInfo arm (dead under S1);
+     `TcSolutionExplorer.PouKinds` → one kind.
+   - Parity sites (`bun run check` green): LSP `source-extensions.ts`, `source-object.ts` (`.pou` → `"pou"`),
+     volt-control `state/files.ts`, volt-vscode `languages[structured-text].extensions`, tmLanguage `fileTypes`,
+     `volt-icons.json`, `workspaceContains`, the Claude Code plugin's `extensionToLanguage`.
+   - LSP scripts: `record-language.ts` (`UNIT_EXT` / `KIND_EXT` POU rows → `pou`), `verify-catalog.ts`,
+     `fixture-units.ts` (library regex `\.(pou|itf|dut)$`), `fixtures.test.ts` `extFor`, `held-as.ts` FAMILY.
+   - Corpora: `git mv` of the 16,990 files to `bare.pou`, contents untouched, one scripted commit (5.P's R1; a re-pull is
+     rejected for the same reason). Conformance and corpus numbers must be identical to HEAD's; `rate:fixtures` leaves
+     `map.generated.ts` byte-identical.
+4. **Order (5.Q.4)** in `WriteItemFromSource`: root write, `ReconcileMembers`, member write; the rollback filter spans all
+   three on a create; the member-create refusal message.
+5. **Members (5.Q.5)**: the M-a check in `Materializer`, beside `RefuseRetiredComment`, using the child splitter's
+   member rule; `BeckhoffDriver.ReadMember`'s `?? Method` becomes a failure by name (5.Q.7; cheap, same code).
+6. **Docs + gates.** `docs/items.html` / `wire.html` (one POU section; `pou` in the wire vocabulary), `data.js`
+   regenerated (`VOLT_WRITE_DOCS=1`); `WireVocabularyGuardTests` (no `program` / `function` / `function_block` kind
+   string, no `"fb"` / `"prg"` / `"fun"` literal); the LSP README, `docs/behavior.md`, `volt-vscode/README.md`,
+   `agents.mdx`; e2e `push-without-header-check.test.ts` (`X.fb` with PROGRAM text is now `X.pou` with `END_PROGRAM` on
+   both vendors). **Knock-on for 5.F.1:** `NetworkScope`'s `IsCallableHeader` / `IsFunctionBlockType` cannot swap to
+   "the known item kind" — `pou` no longer says FB or FUNCTION — so they stay a read of the callee's DECLARATION, which
+   is analysis (network-text scope), not naming; 5.F.2's gate allow-lists them for that reason.
