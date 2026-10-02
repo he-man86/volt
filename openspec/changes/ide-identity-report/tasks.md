@@ -5,6 +5,10 @@ each row's `version`; the product name read (`CodesysDriver.ProductName` / `OemP
 refusal `IDE_UNSUPPORTED` end to end; the `bound:` assembly log. Commits `5a27779448`, `14fe21dd70`, `e4652fdfc9`.
 The former tasks 1.1 (plain-CODESYS source) and 1.2 (one generic source) are done there and are not repeated.
 
+**Report only — nothing blocks on identity (owner, 2026-10-02).** No version, vendor or product value decides whether
+the bridge serves: it is shown and logged, never gated on. What OEMs expose is learned from user logs after release
+(no OEM IDE is installed here). The ONLY refusal stays the existing capability check (`IDE_UNSUPPORTED`, a missing API).
+
 ## 1. Measure
 
 - [ ] 1.1 OEM check of the existing source: on any OEM install at hand (e.g. WAGO, Lenze, Machine Expert), only that
