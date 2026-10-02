@@ -1788,6 +1788,28 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       with sampled re-proof) — +8 tests, +1 file (the new formatting/print.test.ts) over gate 2.8; agreement CODESYS 3723,
       TwinCAT 3662 (4032 fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only).
       volt-cli untouched by 2.9 (no dotnet run).
+### 2.Q Targeted runs cost what they check (workflow timing, owner 2026-10-02: "optimise without losing quality")
+
+Measured over the 39 agents of steps 2.4a–2.8 (17.7 agent-hours): 28% went to three repeated runs that do far more than
+the agent looks at — `bun test test/frontend` 144× (median 53 s, 2.2 h), `bun run rate:fixtures` 67× (77 s, 1.4 h),
+`bun test test/conformance -t <names>` 57× (62 s, 1.3 h: a -t filter still registers every fixture and runs the whole
+Rust before-all phase). The GATE keeps every full run; only the inner loop gets cheaper. Risk accepted: a partial run
+cannot see a change breaking OTHER fixtures — the same blind spot -t has today; each implement/fix agent still ends with
+ONE whole test/conformance + test/frontend + rate:fixtures, and the gate runs everything.
+
+- [ ] 2.Q.1 `VOLT_FIXTURES=<name,name,…>` (exact names; unknown name → throw, never "0 tests ran = green"): fixtures.test.ts
+      registers, LSP-runs and Rust-builds ONLY those fixtures (the before-all phase included); every per-fixture check
+      is the same code path as the full run. A loud line says the run is partial. CI/`VOLT_REQUIRE_FULL=1` refuses it.
+      Test: a named run of 3 fixtures executes the same assertions as the full run for those 3 (titles + verdicts equal).
+      Acceptance: a 3-fixture run in seconds (was ~62 s), written here.
+- [ ] 2.Q.2 test/frontend: each baseline file runnable alone and cheap (census, resolution, type, fold, fixed-point,
+      rules); measure where its 53 s goes (corpus read/parse once per process — already memoized? — or per file) and
+      remove repeated work with the same output. Acceptance: per-file times before/after written here; outputs identical.
+- [ ] 2.Q.3 TESTING.md documents VOLT_FIXTURES and the per-file baseline runs (the inner loop), and that a gate/close
+      never uses them. (The executor's own rules are updated by the owner's session, not by this step.)
+      Not done on purpose: a partial `rate:fixtures` — the map has project-wide totals and a partial rewrite would leave
+      them stale; agents run the full `rate:fixtures` ONCE at the end of their work instead of after every edit.
+
 - [ ] 2.10 Area 2 closed: every §4 2.x rule (L, N, S, A, D, T, U, E, ST, P, R, PR, FMT) has a recorded fixture or named test.
       Where: test/frontend/rules.ts. Acceptance: the rules.test GAP count for area 2 is 0 and pinned as 0; known divergences left
       in area 2 listed here with their reason. Depends on: 2.9
