@@ -32,7 +32,11 @@ one-file truth about fixtures. Tests from the package directory, never the repo 
 any stray .exe/.pdb/.rs you create in the repo. No fallbacks or defaults that hide a missing fact; fail loud, refuse by name.
 SPEED (measured 2026-10-01: a full LSP suite is ~8.5 min and steps ran it ~10 times; recordings ran one fixture at a time):
 - ONLY the GATE runs the FULL suite. Implement and fix agents run TARGETED tests: the tests next to the files they changed, and
-  bun test test/conformance -t "<fixture names>" for the fixtures they touched.
+  for the fixtures they touched VOLT_FIXTURES=<name,name> bun test test/conformance (if fixtures.test.ts supports VOLT_FIXTURES;
+  otherwise bun test test/conformance -t "<fixture names>"); of test/frontend only the baseline FILE(S) their change affects.
+- INNER LOOP vs END: while working, never re-run the whole test/frontend, the whole test/conformance or rate:fixtures after
+  each edit. At the END of an implement/fix agent's work, run each of those three ONCE (then fix and re-run only what failed).
+  A gate or close never uses VOLT_FIXTURES.
 - RECORD IN ONE BATCH per vendor: write all of the step's fixtures first, then record them in ONE recorder run per vendor
   (RECORD_ONLY with the comma-separated list), not one run per fixture.
 - The rustc cache (VOLT_RUSTC_CACHE) speeds up gates; it is verified by sampling on every run. The CLOSE step of a change runs
