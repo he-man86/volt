@@ -62,3 +62,10 @@ Estimated effect if all land:
 - The ALLOWED lint list in `support/transpile-confidence.ts` can shrink (dead_code, unused_mut, unused_variables,
   unused_assignments) once groups 1 and 7 land.
 - No IR semantics change is intended. Group 2 moves folding into lowering, which the interpreter shares.
+
+## Close-out (2026-10-02, archived unapplied)
+
+**Superseded by `transpile-restructure`: every lean group is a task there; nothing implemented here.** No task in
+`tasks.md` was started. The spec delta was removed before archiving: its requirement ("one ST construct has one
+shortest emitted form") describes an emitter that was never built, and archiving it would file a false requirement.
+The groups, their evidence and their ordering constraints live on as `transpile-restructure` tasks.
