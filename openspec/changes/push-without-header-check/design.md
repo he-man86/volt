@@ -426,6 +426,9 @@ subject. The two vendors' wires differ here because of a vendor fact (C2i), whic
 
 ## Step 5.B — Contract: the driver states a DUT's subtype; no answer publishes `name.dut`
 
+> **Superseded by step 5.P** (owner, 2026-10-02): every DUT is `name.dut`; the subtype answer, its contract field and
+> the bare-identity push path below are deleted. Kept as the record of what shipped in ec0152fe0f.
+
 (2026-10-02. Design only; no code. Tasks 5.B.1–5.B.3. Builds on the owner decisions of section 5 and 5.A.2.)
 
 ### Target
@@ -625,6 +628,9 @@ The fixture rows are the table above (4 written-as-sent shapes → `.dut`; `pwh_
 `struct`).
 
 ## Step 5.C — TwinCAT: one total DUT-subtype classifier in the driver, on the shared trivia skipper
+
+> **Superseded by step 5.P and never built** (owner, 2026-10-02). Its WIP is kept outside the repo and is not to be
+> revived. The `StTrivia` token view it designed is 5.E's to decide on its own merits (the child splitter).
 
 (2026-10-02. Design only; no code. Tasks 5.C.1–5.C.3. 5.A.2 settled that TwinCAT needs this: no text-free source of
 the subtype is always right there (C2e, C2h). CODESYS gets its answer from the signature in 5.D and has no classifier.)
@@ -837,3 +843,167 @@ prose-then-TYPE, a POU or GVL text in a DUT object. On the corpora: 0 nulls.
 6. **FakeIde** keeps its test-side `DutAnswerFor`. `Volt.Engine.Tests` cannot reference the TwinCAT driver, and the
    fake models the vendor answer, not this classifier. Its two documented differences (`^TYPE name`,
    identifier-led token) already match C5. Its END_TYPE row is aligned to `alias` (CODESYS and C5) in the same commit.
+
+## Step 5.P — Pivot: one DUT extension, `.dut`; the subtype leaves the wire, the contract, the CLI and the LSP
+
+(2026-10-02. Design only; no code. Tasks 5.P.1–5.P.4. Owner decision, 2026-10-02: "keep it simple". The separate
+extensions are not worth the parsing complexity, its risks and the `.dut` fallback beside them.)
+
+### Target
+
+Every DUT is published, stored, pushed and analysed as **`name.dut`**, on both vendors, always. The KIND (DUT) comes
+from the IDE's object type, which both vendors keep apart from the text (5.A: CODESYS `IDUTObject` /
+`ITextListEnumerationObject`; TwinCAT tree codes 605/606/607/623 all map to `Kinds.Dut`). So naming a DUT reads no
+text and asks for no vendor parse. Nothing in Volt decides a DUT's subtype any more: the IDE and its build own it.
+The LSP still reads a DUT's shape from its text, but that is analysis, not naming. After 5.P:
+
+1. `ItemKind.SourceKindExtensions` has ONE DUT row, `(Kinds.Dut, "dut")`. `ExtFor(Kinds.Dut)` returns `"dut"` like
+   every other kind (its DUT throw goes), and `Materializer.FullWireName` is `bare + "." + ExtFor(kind)` for every
+   kind.
+2. The contract carries no subtype: `ItemContent.DutSubtype` and `Volt.Engine.Item.DutSubtype` are gone.
+3. A subtype change (a struct rewritten as an enum) is an ordinary content update of `X.dut`. There is no rename, no
+   op normalisation and no bare-identity resolution.
+4. `.struct` / `.enum` / `.union` / `.alias` are no longer extensions anywhere. A file named that way is a foreign
+   file to every consumer, like `X.foo`.
+
+### Measured against the recorded fixtures and the corpora (2026-10-02)
+
+- **Corpora.** The six committed corpora (`packages/volt-lsp-iec/test-corpus`, 30,167 tracked files) hold **8175
+  DUT files: 5524 `.struct`, 2060 `.enum`, 210 `.union`, 381 `.alias`, 0 `.dut`**. After 5.P all 8175 are `.dut`.
+  Renaming them to `bare.dut` causes no collision: there are **0** case-insensitive duplicate (folder, bare name)
+  pairs among them, and 0 existing `.dut` files. `expected-build.codesys.json` names no DUT file (0 hits), so no build
+  expectation moves.
+- **Recordings.** `codesys.build.json`, `codesys.run.json` and `twincat.build.json` are keyed by FIXTURE name. **0**
+  item names with a subtype extension appear in them. The vendor's compile does not depend on the DUT's wire name.
+  CODESYS keeps no kind outside the text (C2g: the creation seed is not retained). A push-create takes
+  `Kinds.Dut → PlcDut` for any DUT name, which is the same driver path every time (TwinCAT seeds 606 whatever the
+  body, C2e). So pushing a fixture as `X.dut` instead of `X.struct` cannot change a recorded answer, and **no
+  re-record is needed**. 5.G.1 checks the live round trip.
+- **Fixtures.** There are 4145 fixtures. 53 primary DUT fixtures state a subtype as their `kind` (`struct` 36, `enum`
+  8, `alias` 6, `union` 3), and the fixtures hold 253 DUT texts in all, sibling units included. The recorder names a
+  sibling DUT from the PARSER's body kind (`record-language.ts` `unitExt`, which throws on any other body kind) and a
+  primary DUT from the fixture's `kind` (`KIND_EXT`). Both become `dut`, and the throw goes, because nothing is read to
+  name a DUT.
+- **LSP analysis already ignores the DUT extension.** `source-object.ts` maps all five DUT extensions to the one
+  object `"dut"`, and `workspace-refs.ts` crawls by `SOURCE_EXTENSION_SET`. No check reads a DUT's subtype from its
+  file name. So the rename leaves diagnostics, symbols and the transpiler unchanged. Only these move: the extension
+  tables, the fixture kinds, the library-element regex in `fixture-units.ts`, and the DUT-name scripts (`held-as.ts`,
+  `record-language.ts`).
+- **What the split names cost today** (the code 5.P deletes):
+  - `DutSubtypeChanges.cs` (153 lines) and `DutSubtype.cs`;
+  - `CodeHelper.DutSubtype` / `TryDutSubtype` / `DutSubtypeOrNull`, and `ItemKind.DutExtension`;
+  - the `FullWireName` subtype branch and its contract refusal;
+  - `PushConflicts`' bare-DUT resolution (`LiveDut` and the two `IsDut` arms);
+  - in `PushService`, the `Normalize` call and `UnreadableDut` (2 sites). `NamesThisItem` has to MATERIALIZE a DUT to
+    compare names, so deleting a DUT reads its content and can fail on that read;
+  - both drivers' `DutSubtypeOf`;
+  - the `CodeHelper.DutSubtype(text)` call in `LibSignatureRenderer.Dut`;
+  - 12 test files (2918 lines) whose whole subject is the subtype name.
+
+  With one extension, `NamesThisItem` is a kind comparison for every kind, so a DUT delete makes 0 content reads
+  instead of 1.
+
+### Options
+
+| option | what it does | measured | verdict |
+|---|---|---|---|
+| **P1. `.dut` only; the subtype is removed from the wire, the contract, the CLI and the LSP** | one DUT row, no subtype anywhere | 8175/8175 corpus DUTs `.dut`; 0 recording changes; 0 collisions; deletes the code listed above | **chosen** |
+| P2. keep 5.B and make both drivers answer null | every DUT is published `.dut` through the "no answer" branch | the same names as P1 | rejected: it leaves a contract field nobody sets, four dead extensions, and `DutSubtypeChanges` and the bare-identity path still live. That is the legacy 5.F forbids, and a future driver could start answering a subtype again |
+| P3. `.dut` on the wire, with the subtype kept on `ItemContent` (or in a `refs` side map) for the editor's icons | the driver still classifies | needs the 5.C classifier or the CODESYS signature again | rejected: it brings back exactly the parse the owner dropped, and nothing needs it (the LSP reads the text) |
+| P4. accept the split names as legacy aliases on push and pull | `.struct` etc. still map to `Kinds.Dut` on input | — | rejected: no backward compatibility (owner: nobody uses the split names yet; PLCAssist follows the wire names and is told). Two spellings of one item is the collapse the item-name invariant forbids |
+
+**Migrating the committed data:**
+
+| option | verdict |
+|---|---|
+| **R1. `git mv` every corpus DUT file to `bare.dut`** (one scripted commit, contents untouched) | **chosen.** The name is now a pure function of the kind (`bare + ".dut"`), and every one of the 8175 files is a DUT by its old extension, so the rename gives exactly the name a re-pull would. It causes no collision (measured). Verified by the LSP corpus suite (numbers unchanged) and `bun run check` |
+| R2. re-pull the six corpora from live IDEs | rejected: it takes hours on both vendors, and a re-pull also brings every unrelated drift since the last pull into the same commit, so the rename could not be reviewed as a rename |
+
+### Choice
+
+**P1 with R1.** Every DUT is `name.dut`, and no code reads, carries or spells a subtype. The one counted fallback of
+5.B disappears with it: `.dut` is no longer the exception for "no answer", it is the DUT's only name. Step 5's
+acceptance ("`.dut` count 0 on compiled DUTs") is replaced by "every DUT is `.dut`, on every corpus, every fixture and
+every live 5.G shape", which is 8175/8175 on the corpora.
+
+- **CODESYS text-list enum** (`ITextListEnumerationObject`): Volt classifies it as `PlcDut` today (`CodesysTypeMap`
+  line 63) and writes it through its `Interface` aspect. C2e measured this through the bridge: struct, union and alias
+  were written in place, and the guid and interface were kept. That behaviour stays unchanged under `X.dut`: it is a
+  writable DUT, read and pushed like any other. 5.P.1 re-checks it with a test row, and nothing makes it read-only.
+- **Library DUTs**: `LibSignatureRenderer` keeps rendering the TEXT from the signature (the shape from `Flags`) and
+  names the file `X.dut`. 5.C's open input (a TwinCAT library `Type` with no subtype flag) is now a question about
+  rendering the text, not about naming, and stays as it is today.
+- **Editor**: `volt-icons.json` loses the per-subtype icons and keeps one DUT icon for `.dut`. The owner accepted this
+  with the decision.
+
+### What stays refused, by name
+
+- **A name with no kind** (`X`, `X.foo`), which now includes `X.struct` / `X.enum` / `X.union` / `X.alias`.
+  `RequireWireNames` refuses them `BAD_REQUEST`, and `Sidecar.RefuseUnknownNames` refuses such a baseline key. The
+  refusal message no longer says "a DUT by its subtype". A workspace that still holds split-name files sees them as
+  foreign files and `name.dut` as added on its next pull. That is plain git, with no migration code (5.P.3).
+- **Another family over a DUT** (`X.fb` / `X.gvl` over DUT `X`): the re-type guard, unchanged.
+- **A create of `X.dut` over a live DUT `X`**: `ITEM_EXISTS`, from the ordinary create check (no sibling scan any
+  more).
+- **Two ops on one DUT in one push**: the ordinary duplicate-op rule every item has. The DUT-specific pairing rules of
+  `DutSubtypeChanges` go (rename/pair coalescing, "body-less subtype rename"), because there is no subtype rename to
+  pair.
+- **A DUT whose content cannot be read at all** (COM error, driver throw): `unreadable` + `--force`, unchanged. One
+  difference: a delete of `X.dut` no longer reads content to decide whether it names the item (it compares kinds
+  only). So an unreadable DUT can be deleted by its name, like an unreadable POU, under the generic unreadable rule,
+  and `UnreadableDut` goes.
+- **Nothing refuses a DUT's TEXT.** A text that declares nothing is pushed as sent, and the build reports it.
+
+### Migration
+
+1. **5.P.1: the table, in every parity site at once (`bun run check` green).**
+   - C#: `ItemKind.SourceKindExtensions` gets one DUT row, `ExtFor` becomes total, and `DutExtension` is deleted.
+   - LSP: `source-extensions.ts` and `source-object.ts` keep `.dut` only.
+   - volt-control: `state/files.ts`.
+   - volt-vscode: `languages[structured-text].extensions`, tmLanguage `fileTypes`, `volt-icons.json` and
+     `workspaceContains`.
+   - The Claude Code plugin's `extensionToLanguage` site.
+   - A test row for the text-list enum.
+2. **5.P.2: engine and drivers.**
+   - Deleted:
+     - `DutSubtype`, and `ItemContent.DutSubtype` (with its `ItemContentIsFullyCarriedTests.NotCarried` exception);
+     - `CodeHelper.DutSubtype` / `TryDutSubtype` / `DutSubtypeOrNull`;
+     - `DutSubtypeChanges`, with its `Normalize` call;
+     - `PushConflicts.LiveDut` and its two arms;
+     - `UnreadableDut` and the DUT branch of `NamesThisItem`;
+     - both drivers' `DutSubtypeOf`;
+     - `FakeIde.Item.DutAnswer` / `DutAnswers` / `DutAnswerFor`.
+   - `LibSignatureRenderer.Dut` returns `.dut`.
+   - Test files deleted because their subject is gone: `DutSubtypeChangePushTests`, `DutBareIdentityPushTests`,
+     `DutSubtypeAnswerTests`, `DutSubtypeCodeTests`, `CodesysDutSubtypeReadTests`, `TcDutSubtypeReadTests`,
+     `DutNameTransportTests`, `LibraryDutExtensionParityTests`.
+   - Tests rewritten to `.dut` where their subject is something else (`IdeTreeTests`, `PullCommandTests`,
+     `PartialWalkTests`, `PushServiceTests`, `BlackBoxTests`, `TransportMatrixTests`, `ItemKindTests`,
+     `WireVocabularyGuardTests`, `DocDataTests`, …). Each says in its summary that the owner changed the premise.
+   - New tests, red first:
+     - a struct→enum text change of `X.dut` is one content update, and the name does not change;
+     - `X.struct` is refused `BAD_REQUEST`;
+     - a delete of an unreadable DUT by `X.dut` takes the generic unreadable path.
+3. **5.P.3: CLI.** `DutSubtypeFileTests` and `DutBaselineMigrationTests` are deleted, and so is `Sidecar`'s `X.dut`
+   note. The black-box tests at both layers name DUTs `.dut`. No migration code.
+4. **5.P.4: LSP.** Touch only the extension tables, fixture kinds, fixture names and DUT-name scripts. The LSP queue's
+   uncommitted work in `src/analysis` and `src/frontend` is not this step's.
+   - The fixture `kind` union: the four subtypes become `"dut"` (53 fixtures, `types.ts`).
+   - `record-language.ts`: `KIND_EXT` and `unitExt` give `dut` for every `type_decl`, and the subtype throw is
+     deleted.
+   - `held-as.ts`: FAMILY keeps `dut` only.
+   - `fixture-units.ts`: the library regex becomes `\.(fun|fb|itf|dut)$`.
+   - The R1 corpus `git mv` (8175 files, one commit).
+   - `bun run rate:fixtures`, if the map shows kinds.
+
+   Conformance numbers must stay identical: the same diagnostics, on renamed files.
+5. **Docs.**
+   - `docs/items.html` and `wire.html`: the DUT section gets one extension, and `#dut-subtype` and `#dut-migration`
+     are removed. The generated data is regenerated (`VOLT_WRITE_DOCS=1`, gated by `DocDataTests`).
+   - DIALECT C2e/C2g/C2h keep their vendor facts. Their "How Volt relies on it" now says Volt no longer reads a DUT's
+     subtype.
+   - `volt-lsp-iec/README.md`, `docs/behavior.md`, `volt-vscode/README.md` and `volt-web/app/docs/agents.mdx`.
+   - Comments in `RefsFetch.cs`, `Removal.cs`, `PushedText.cs`, `BeckhoffDriver.Tree.cs` and `FetchService.cs`.
+   - The probe logs under `volt-cli/scripts` are history and stay.
+
+   After this, 5.F.2's gate forbids `.struct` / `.enum` / `.union` / `.alias` as an extension in source.
