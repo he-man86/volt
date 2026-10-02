@@ -158,7 +158,8 @@ ${JSON.stringify(again, null, 1)}`, { label: `fix:${s.id}:r2`, phase: 'Review' }
   phase('Gate')
   let gate = await agent(`${RULES}
 
-GATE step ${s.id}. Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green.
+GATE step ${s.id}. Typecheck; regenerate the fixture map if fixtures or the transpiler changed; the FULL suites the change names — green,
+run with VOLT_REQUIRE_FULL=1 and VOLT_FIXTURES unset (a partial run skips the project-wide totals and still reads 0 fail; VOLT_REQUIRE_FULL=1 refuses it).
 Write the step's numbers/delta under its tasks in tasks.md and tick what is done. ${s.parts ? 'This was a group: make ONE COMMIT PER STEP in the group, in order (only the paths of that step each), so bisect and revert stay per step. ' : ''}Commit exactly the step's paths as
 "<type>(<scope>): ${args.change} ${s.id} — <what>". If it cannot get green, do NOT commit: restore the tree to the last commit and write
 in the task what blocks it. Return: committed yes/no, hash, the numbers.`, { label: `gate:${s.id}`, phase: 'Gate', schema: GATE })
@@ -171,7 +172,7 @@ in the task what blocks it. Return: committed yes/no, hash, the numbers.`, { lab
 REPAIR step ${s.id}: its gate was not green. Gate report:
 ${JSON.stringify(gate)}
 Bring back the step's work if the gate set it aside (git stash apply of ITS stash — never git stash -u, which would sweep other
-sessions' untracked files), then fix the failures: decide on grounds independent of the code whether product or test is wrong;
+sessions' untracked files), then fix the failures (every full suite run with VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset): decide on grounds independent of the code whether product or test is wrong;
 baseline ceilings may only fall. When everything is green, tick and commit as the gate would have. Otherwise leave the tree clean
 and say what blocks it.`, { label: `repair:${s.id}`, phase: 'Gate', schema: GATE })
   }
@@ -185,7 +186,7 @@ if (closeOpen && (!steps.length || steps[steps.length - 1]?.kind === 'close' || 
   phase('Close')
   done.push(await agent(`${RULES}
 
-CLOSE ${args.change}. If every other step is ticked: run the FULL suite COLD once (VOLT_RUSTC_CACHE=0) — green; the docs the change names are updated; a final review with the SPEC and LAYERING
+CLOSE ${args.change}. If every other step is ticked: run the FULL suite COLD once (VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) — green; the docs the change names are updated; a final review with the SPEC and LAYERING
 lenses over the whole change (fix what it finds, test-first); archive it (npx --yes openspec archive ${args.change} -y), delete the
 recreated openspec/specs/, and commit. If a step is still open, say which and stop.`, { label: 'close', phase: 'Close' }))
 }
