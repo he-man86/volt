@@ -6,7 +6,7 @@
 import { expect, test } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import type { Scope } from "./model.js"
-import { findScopeByName } from "./index.js"
+import { findScopeByName, scopeForUnit } from "./index.js"
 import { bindFile, buildSymbolTable, relink, unbindFile } from "./incremental.js"
 
 const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
@@ -52,4 +52,17 @@ test("a scope that is not a project root is still searched within its own subtre
   const fbB = findScopeByName(project, "FB_B")!
   expect(findScopeByName(fbB, "Run")?.parent).toBe(fbB)
   expect(findScopeByName(fbB, "FB_A")).toBeUndefined()
+})
+
+// A GVL and an alias DUT own no scope (the binder defines their symbols on the project), so no span entry exists for
+// them. `scopeForUnit` fell back to a NAME search for the alias and answered with whatever scope shared its name — here a
+// method; a GVL carries no name, and must stay without a scope too.
+test("a unit that owns no scope has none — a GVL or an alias is never answered with a same-named scope", () => {
+  const gvl = file("Run.gvl", "VAR_GLOBAL\ng : INT;\nEND_VAR")
+  const alias = file("Run.dut", "TYPE Run : INT; END_TYPE")
+  const project = buildSymbolTable([file("a.fb", FB_A), gvl, alias])
+  expect(findScopeByName(project, "Run")?.kind).toBe("method")
+  const units = [...gvl.parseResult.units, ...alias.parseResult.units]
+  expect(units.map((u) => u.kind)).toEqual(["global_var_list", "type_decl"])
+  for (const unit of units) expect(scopeForUnit(project, unit)).toBeUndefined()
 })

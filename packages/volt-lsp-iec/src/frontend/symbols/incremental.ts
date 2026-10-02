@@ -8,10 +8,10 @@
 import type { CompileEnvironment, Dialect } from "../syntax/index.js"
 import type { LibraryManifest } from "../library/index.js"
 import type { Scope } from "./model.js"
-import { createProjectScope } from "./scope.js"
-import { invalidate } from "./cache.js"
+import { createProjectScope, takeProjectKeys, takeUnsortedKeys } from "./scope.js"
+import { invalidate, left, placedTopLevel, takeAppended } from "./cache.js"
 import { ingestTopLevel, type SymbolTableInput } from "./binder.js"
-import { linkExtends } from "./extends.js"
+import { linkExtends, noteTopLevel } from "./extends.js"
 import { bindLibraryNamespaces } from "./library-namespaces.js"
 
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
@@ -28,6 +28,11 @@ export function buildSymbolTable(
   for (const file of files) bindFile(project, file)
   relink(project, manifests)
   bindLibraryNamespaces(project, manifests)
+  // ...and into canonical order once more: the namespace scopes are appended, and every later relink (the live server's
+  // first keystroke) moved them to the front — so a built project and the same project one edit later disagreed on the
+  // order every first-match lookup reads, and that first edit paid for re-answering every name a namespace holds
+  // (~30 ms on pro2193, 2026-10-02). Nothing to re-link: a namespace scope is no base.
+  relink(project, manifests)
   return project
 }
 
@@ -53,7 +58,12 @@ export function bindFile(project: Scope, { uri, parseResult }: SymbolTableInput)
   // Only makeScope(project, …) appends to project.children, so the new top-level scopes are exactly this
   // slice — tag them with the file URI. Nested member scopes (children of these) need no tag: dropping the
   // top-level scope drops its whole subtree.
-  for (let i = start; i < project.children.length; i++) project.children[i]!.defUri = uri
+  const tops = project.children.slice(start)
+  for (const top of tops) top.defUri = uri
+  let files = topsByFile.get(project)
+  if (files === undefined) topsByFile.set(project, (files = new Map()))
+  files.set(uri, [...(files.get(uri) ?? []), ...tops])
+  noteTopLevel(project, tops, true)
   invalidate(project) // children changed: every lazy index and every project-wide memo
 }
 
@@ -63,14 +73,29 @@ export function bindFile(project: Scope, { uri, parseResult }: SymbolTableInput)
  * `relink` so any base pointer into a removed scope is dropped.
  */
 export function unbindFile(project: Scope, uri: string): void {
-  project.children = project.children.filter((c) => c.defUri !== uri)
-  for (const [key, arr] of project.symbols) {
+  const files = topsByFile.get(project)
+  const removed = files?.get(uri) ?? []
+  files?.delete(uri)
+  for (const top of removed) {
+    const at = project.children.lastIndexOf(top)
+    if (at < 0) throw new Error(`${uri}: a top-level scope it bound is no longer among the project's children`)
+    project.children.splice(at, 1)
+    left(project, top)
+  }
+  noteTopLevel(project, removed, false)
+  for (const key of takeProjectKeys(project, uri)) {
+    const arr = project.symbols.get(key)
+    if (arr === undefined) continue
     const kept = arr.filter((s) => s.uri !== uri)
     if (kept.length === 0) project.symbols.delete(key)
     else if (kept.length !== arr.length) project.symbols.set(key, kept)
   }
   invalidate(project)
 }
+
+/** Each project's top-level scopes by the file that bound them — what `unbindFile` takes out, without a pass over every
+ *  child of the project. */
+const topsByFile = new WeakMap<Scope, Map<string, Scope[]>>()
 
 /** Canonical order, then EXTENDS linking — the one re-link after files were bound or unbound. */
 export function relink(project: Scope, manifests: readonly LibraryManifest[] = []): void {
@@ -101,19 +126,49 @@ export function relink(project: Scope, manifests: readonly LibraryManifest[] = [
  * once at the end, `workspace-store` after each `bindFile`/`unbindFile`. Apart, they would be a second thing to
  * remember, and the first caller to forget it would reintroduce exactly this bug.
  */
+//
+// <b>It costs the change, not the project</b> (a rebind re-sorted every array: ~5 ms of each keystroke on pro2193,
+// 2026-10-02), and the order it leaves is exactly the stable sort's. Children: an unbind takes scopes out (order kept) and
+// a bind appends, so the array is a sorted prefix and the suffix appended since the last call (`takeAppended`); each of
+// those is inserted after every scope that sorts equal to it, in the order appended — which is where a stable sort puts
+// it. A long suffix (a whole build) is sorted. Symbols: only the keys that gained a symbol since the last sort can be out
+// of order (`takeUnsortedKeys`).
 function canonicalize(project: Scope): void {
   const at = (u: string | undefined): string => u ?? ""
-  project.children.sort(
-    (a, b) =>
-      (at(a.defUri) < at(b.defUri) ? -1 : at(a.defUri) > at(b.defUri) ? 1 : 0) ||
-      (a.span?.start ?? 0) - (b.span?.start ?? 0),
-  )
-  for (const syms of project.symbols.values())
-    syms.sort(
-      (a, b) =>
-        (at(a.uri) < at(b.uri) ? -1 : at(a.uri) > at(b.uri) ? 1 : 0) ||
-        (a.span?.start ?? 0) - (b.span?.start ?? 0),
-    )
+  const byPlace = (a: Scope, b: Scope): number =>
+    (at(a.defUri) < at(b.defUri) ? -1 : at(a.defUri) > at(b.defUri) ? 1 : 0) || (a.span?.start ?? 0) - (b.span?.start ?? 0)
+  const children = project.children
+  const tail = takeAppended(project)
+  const sorted = children.length - tail.length
+  if (tail.some((scope, i) => children[sorted + i] !== scope))
+    throw new Error("the scopes appended to the project since its last canonical order are not the end of its children")
+  if (tail.length > SORT_TAIL) {
+    children.sort(byPlace)
+    placedTopLevel(project, "all", byPlace)
+  } else if (tail.length > 0) {
+    children.length = sorted
+    for (const scope of tail) {
+      let lo = 0
+      let hi = children.length
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1
+        if (byPlace(children[mid], scope) <= 0) lo = mid + 1
+        else hi = mid
+      }
+      children.splice(lo, 0, scope)
+    }
+    placedTopLevel(project, tail, byPlace)
+  }
+  for (const key of takeUnsortedKeys(project))
+    project.symbols
+      .get(key)
+      ?.sort(
+        (a, b) =>
+          (at(a.uri) < at(b.uri) ? -1 : at(a.uri) > at(b.uri) ? 1 : 0) || (a.span?.start ?? 0) - (b.span?.start ?? 0),
+      )
   // The lazy indices are built off these orders, so they cannot survive a reorder.
   invalidate(project)
 }
+
+/** A suffix longer than this is sorted with the rest rather than inserted scope by scope (the same order either way). */
+const SORT_TAIL = 64

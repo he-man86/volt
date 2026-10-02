@@ -10,6 +10,7 @@
  * phase flipping in the scan it runs out, and OUT kept as it was once ENABLE falls.
  */
 import { describe, expect, test } from "bun:test"
+import { buildRust } from "../conformance/support/rustc-cache.js"
 import { readdirSync, readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -65,9 +66,8 @@ describe("BLINK", () => {
     try {
       const file = join(dir, "blink.rs")
       const exe = join(dir, `blink${process.platform === "win32" ? ".exe" : ""}`)
-      await Bun.write(file, program)
-      const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-      expect(build.stderr.toString()).toBe("")
+      const build = await buildRust([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, program)
+      expect(build.stderr).toBe("")
       const got = Bun.spawnSync([exe], { stdout: "pipe" }).stdout.toString().trim().split(/\r?\n/)
       expect(got).toEqual(interpreted(pou))
     } finally {

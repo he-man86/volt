@@ -11,6 +11,7 @@
  * fills to the size it is given — and this pins the same answers offline.
  */
 import { describe, expect, test } from "bun:test"
+import { buildRust } from "../conformance/support/rustc-cache.js"
 import { readdirSync, readFileSync } from "node:fs"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -109,9 +110,8 @@ describe("StringUtils", () => {
     try {
       const file = join(dir, "stu.rs")
       const exe = join(dir, `stu${process.platform === "win32" ? ".exe" : ""}`)
-      await Bun.write(file, program)
-      const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-      expect(build.stderr.toString()).toBe("")
+      const build = await buildRust([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, program)
+      expect(build.stderr).toBe("")
       const got = Bun.spawnSync([exe], { stdout: "pipe" }).stdout.toString().trim().split(/\r?\n/)
       const p = run(pou)
       p.scan()

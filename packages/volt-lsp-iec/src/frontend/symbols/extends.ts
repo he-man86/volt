@@ -4,7 +4,7 @@
  */
 import { libraryOf, type LibraryManifest } from "../library/index.js"
 import type { Scope } from "./model.js"
-import { setLibVisible } from "./cache.js"
+import { childIndex, setLibVisible } from "./cache.js"
 import { manifestsByTitle, visibleFolders } from "./library-namespaces.js"
 import { pickForAsker } from "./precedence.js"
 
@@ -34,19 +34,24 @@ import { pickForAsker } from "./precedence.js"
  * beyond determinism: the live server re-links incrementally as files open and change, so a bind-order rule
  * could hand the same workspace different bases between two keystrokes.
  */
+//
+// <b>A relink after an edit links only what the edit can have changed</b> (linking every scope was ~3 ms of each keystroke
+// on pro2193, 2026-10-02). A scope's base is picked from the candidates under its base name and the published
+// visibility, so with the same manifests it can change only when a top-level scope of that name was bound or unbound
+// (`noteTopLevel`) — or when the scope itself is new.
 export function linkExtends(project: Scope, manifests: readonly LibraryManifest[] = []): void {
-  for (const c of project.children) c.baseScope = undefined
-
-  const candidates = new Map<string, Scope[]>()
-  for (const c of project.children) {
-    if (c.extendsName === undefined && c.kind !== "pou" && c.kind !== "interface" && c.kind !== "struct")
-      continue
-    if (c.undeclared === true) continue // a refused FB is no base (`FB_D EXTENDS FB_A`, FB_A's header refused)
-    const key = c.name.toLowerCase()
-    const list = candidates.get(key)
-    if (list === undefined) candidates.set(key, [c])
-    else list.push(c)
+  const kept = linked.get(project)
+  if (kept !== undefined && sameManifests(kept.manifests, manifests)) {
+    for (const c of project.children) {
+      if (c.extendsName === undefined || (!kept.added.has(c) && !kept.names.has(baseName(c.extendsName)))) continue
+      c.baseScope = undefined
+      linkOne(project, c, manifests, kept.visible)
+    }
+    kept.names.clear()
+    kept.added.clear()
+    return
   }
+  for (const c of project.children) c.baseScope = undefined
 
   // PUBLISHED ON THE PROJECT, not kept local: `EXTENDS` is only one of the lookups that can face several
   // candidates for one name, and every one of them has to answer the same way. `precedence.ts` reads this.
@@ -55,15 +60,57 @@ export function linkExtends(project: Scope, manifests: readonly LibraryManifest[
   for (const m of manifests) visible.set(m.folder.toLowerCase(), visibleFolders(manifests, m, byTitle))
   setLibVisible(project, visible)
 
-  for (const c of project.children) {
-    if (c.extendsName === undefined) continue
-    const base = pickForAsker(
-      project,
-      (qualifiedCandidates(project, c.extendsName, manifests, visible) ?? candidates.get(c.extendsName) ?? []).filter((x) => x !== c),
-      (x) => x.defUri,
-      c.defUri,
-    )
-    if (base !== undefined) c.baseScope = base
+  for (const c of project.children) if (c.extendsName !== undefined) linkOne(project, c, manifests, visible)
+  linked.set(project, { manifests, visible, names: new Set(), added: new Set() })
+}
+
+/** Link `c` (which names a base) to the candidate its file means, if any. */
+function linkOne(
+  project: Scope,
+  c: Scope,
+  manifests: readonly LibraryManifest[],
+  visible: ReadonlyMap<string, ReadonlySet<string>>,
+): void {
+  // The candidates for a bare base name: the project's children under it, in project order, that can be a base. Read
+  // off the child-name index (rebuilt once per generation, and every check reads it too) — this built its own
+  // lower-cased map of every child on every relink: the largest share of a rebind on the fixture project (2026-10-01).
+  const candidates = (key: string): Scope[] => (childIndex(project).get(key) ?? []).filter(isCandidate)
+  const base = pickForAsker(
+    project,
+    (qualifiedCandidates(project, c.extendsName!, manifests, visible) ?? candidates(c.extendsName!)).filter((x) => x !== c),
+    (x) => x.defUri,
+    c.defUri,
+  )
+  if (base !== undefined) c.baseScope = base
+}
+
+const isCandidate = (c: Scope): boolean =>
+  (c.extendsName !== undefined || c.kind === "pou" || c.kind === "interface" || c.kind === "struct") &&
+  c.undeclared !== true // a refused FB is no base (`FB_D EXTENDS FB_A`, FB_A's header refused)
+
+/** The unit a base name names: the name after a qualifying namespace. */
+const baseName = (extendsName: string): string => extendsName.slice(extendsName.lastIndexOf(".") + 1)
+
+/** A default `[]` is a new array per call, and still the same (no) manifests. */
+const sameManifests = (a: readonly LibraryManifest[], b: readonly LibraryManifest[]): boolean =>
+  a === b || (a.length === 0 && b.length === 0)
+
+/** What each project was last fully linked with, and what changed among its top-level scopes since. */
+const linked = new WeakMap<
+  Scope,
+  { manifests: readonly LibraryManifest[]; visible: Map<string, Set<string>>; names: Set<string>; added: Set<Scope> }
+>()
+
+/**
+ * Top-level scopes were bound into (`added`) or unbound from `project` — `bindFile` / `unbindFile` say so, so the next
+ * link revisits every scope whose base name is one of theirs. Nothing to note before the first full link.
+ */
+export function noteTopLevel(project: Scope, scopes: readonly Scope[], added: boolean): void {
+  const kept = linked.get(project)
+  if (kept === undefined) return
+  for (const s of scopes) {
+    kept.names.add(s.name.toLowerCase())
+    if (added) kept.added.add(s)
   }
 }
 

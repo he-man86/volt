@@ -1135,7 +1135,7 @@ Profile (dev c85441f40f, report in the session scratchpad prof/): full serial su
 Product bugs are fixed in the product, test-first with a measured size sweep; never hidden by a harness cache. Caching
 LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
 
-- [ ] 2.P.1 A1: `findScopeByName` (symbols/scope-nav.ts:110-121) is a full DFS per call; callers method-signature.ts:33,45,
+- [x] 2.P.1 A1: `findScopeByName` (symbols/scope-nav.ts:110-121) is a full DFS per call; callers method-signature.ts:33,45,
       interface-implementation.ts:32,74, services/navigation/hierarchy.ts:150 and the `scopeForUnit` fallback (scope-nav.ts:136,
       fires for EVERY global_var_list/type_decl unit — they never have a span-index entry). Fix: a per-project name index
       (memoByProject) or findChildScope; no fallback for unit kinds that never own a scope. Test: lookup cost flat across the
@@ -1144,7 +1144,11 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       **Done in 79e9c44c47** (name index per generation, merged from per-file subtree indexes; scope-nav.test.ts keeps the
       walk as oracle): bench p50 212 → 66 ms, p95 ~270 → 93 ms (budget 90 — the rest is 2.P.2). Left for this task: verify
       the PROFILE_CHECKS numbers and the GVL/DUT fallback, then tick together with 2.P.2 once the bench is green.
-- [ ] 2.P.2 A2: re-binding one file is O(project) (workspace-store.ts:134 promises O(changed file)): unbindFile
+      **Step 2.P (2026-10-02):** pro2193 PROFILE_CHECKS interface-implementation + method-signature 52 + 4 ms (was
+      1,863 + 1,318; < 200 ✓). The fallback fired for an ALIAS or refused DUT only (a GVL has no name; a struct, union or
+      enum DUT has a span entry) and answered it with any same-named scope — now none, test-first (scope-nav.test.ts, red
+      on the old code: the alias got a method `Run`). LSP_BENCH=1: p50 29 ms (was 44 at HEAD), p95 60–68 ms (budget 90).
+- [x] 2.P.2 A2: re-binding one file is O(project) (workspace-store.ts:134 promises O(changed file)): unbindFile
       (symbols/incremental.ts:63) filters every array, relink (:74) re-sorts every array and re-links every EXTENDS,
       invalidate bumps the project generation so compositionGraph / ambiguousGlobals / span + child indexes all rebuild.
       Fix: children and symbols indexed by file, relink only the affected scopes, per-file invalidation of the memos that
@@ -1158,19 +1162,36 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       candidate lists identical on all corpora; random-rebind equivalence on twincat-project14 + fixtures. NOT yet proven:
       old-vs-new state after the same edit sequence on the five CODESYS corpora — do that first, then apply. Known and
       harmless: a relink moves library namespace scopes to the front (old code too).
-- [ ] 2.P.3 Harness: the rustc cache runs a hit's executable IN PLACE from a stable path inside the cache entry instead of
+      **Step 2.P (2026-10-02): done.** The patch applied, then the rest of the rebind made O(file): unbind takes the
+      file's own top-level scopes (kept per file) and keys; `canonicalize` inserts what was appended since the last sort
+      (a stable sort's exact order) and re-sorts only the keys that gained a symbol; `linkExtends` re-links only scopes
+      whose base name was bound or unbound (`noteTopLevel`), the visibility map once per manifest set; the project's span
+      index and child index are KEPT (makeScope enters, unbindFile leaves, canonicalize places; a size mismatch throws);
+      the name index re-answers only touched names. `buildSymbolTable` now relinks after `bindLibraryNamespaces`, so a
+      built project already has the order one edit later gives it (the namespaces at the front) — corpus + fixture output
+      identical, and the first keystroke no longer re-answers every namespace name (100 → 71 ms on pro2193). Proven:
+      old-vs-new ordered state + every index after random edit sequences on all six corpora (300 ops each, two seeds);
+      identical diagnostics on all 3,959 fixtures (rebind sweep) and the six corpora (+40 replayed keystrokes each);
+      incremental.test.ts gains an order-sensitive random-rebind ≡ fresh-build test (red when the link or sort skips are
+      broken). Sweep per call 400/800/1,600/3,279/3,959 fixtures: 0.99/0.64/0.62/0.76/0.80 ms (HEAD 2.58/2.53/3.24/
+      5.45/—; flat ✓). Rebind alone on pro2193 5.6 → 0.47 ms.
+- [x] 2.P.3 Harness: the rustc cache runs a hit's executable IN PLACE from a stable path inside the cache entry instead of
       copying it to a fresh temp path (Defender scans every new exe on first run: 60 fresh copies 3.1–3.5 s vs 0.37 s in
       place; ~2,250 + 2,350 runs per suite). Keep sampled verification. Acceptance: fixtures.test.ts before-all Rust phase
       measured before/after (was 165 s + 23 s); same verdicts.
       **Done in af655724ea** (hard link; verify renames the link aside first — test red on the old code; EXDEV copies):
       Rust phase 165 → 69 s, fixtures.test.ts 366 → 242 s. Tick after the gate re-confirms.
-- [ ] 2.P.4 Harness memos (same tests, same failures): `runLsp` per (fixture, vendor) — the "LSP emits NO error on a
+- [x] 2.P.4 Harness memos (same tests, same failures): `runLsp` per (fixture, vendor) — the "LSP emits NO error on a
       fixture the simulator built" test (31 s) reuses the registration loop's result; `lspErrors` memoized (~7 s);
       backends.test.ts (and emit + libraries) compile through `buildRust` with its lanes and cache, not raw serial
       spawnSync(rustc) (backends.test.ts:328,430; ~18 s). Acceptance: per-file times before/after written here.
       **Done in 992f2c1bfa** (runLsp + lspErrors memo, ~30 s) **and b2ef9a5aba** (backends via the cache on lanes,
       26.7 → 9.8 s cold). Left: emit + libraries tests through buildRust if still raw; then tick.
-- [ ] 2.P.5 Harness walks: `walkSources` (test/corpus/support/project.ts:34) withFileTypes + one pre-keyed sort, same order
+      **Step 2.P (2026-10-02):** emit.test.ts (4 compiles), libraries/{standard,stringutils,util} and backends' probe
+      compareCase now build through `buildRust` (the metadata-only crate check stays raw: it makes no executable). The
+      six rust-building files in one process, warm cache: 17.8–19.7 → 14.2–14.5 s. (Run alone each is slower — the
+      toolchain identity is hashed once per process — so the saving is in-suite.)
+- [x] 2.P.5 Harness walks: `walkSources` (test/corpus/support/project.ts:34) withFileTypes + one pre-keyed sort, same order
       (2.2 s → 0.17 s per walk, ~8 walks); `projectDocuments` (test/corpus/support/diagnostics.ts:65) reuses scanWorkspace's
       refs/roots/sources; `loadWorkspaceRefs` (src/workspace-refs.ts:165) walks once (A3: 10.2 s vs scanWorkspace 5.2 s over
       the six corpora). Then re-measure corpus.test's "corpus is present" (144 s in-suite vs 30 s alone) and write the cause.
@@ -1179,6 +1200,24 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       **Mostly done:** dd5c7efaea (walkSources 4.1 → 0.29 s per round), 2c677b85d4 (loadWorkspaceRefs reuses scanWorkspace,
       byte-identical on six corpora). Full serial suite 691 → 390 s (6,767 tests, 0 fail), ~370 s after b2ef9a5aba.
       Left: projectDocuments reuse, the corpus "is present" inflation cause, the --parallel re-measure (after 2.P.2).
+      **Step 2.P (2026-10-02):** projectDocuments seeds from scanWorkspace's sources (the server's own seeding; identical
+      file sets, no BOM in the corpora, identical diagnostics; ~2 s of walk + read saved). "Corpus is present" is the
+      first test to run `pass()` (parse, format, bind and lower all six corpora): 144 s in-suite at c85441f40f, 21.9 s
+      in-suite in the run after the 2026-10-01 perf commits (79e9c44c47 … a298c777d4), 14.4 s alone now — the inflation
+      is gone. Which commit removed it is NOT isolated (pass() itself never calls findScopeByName, so the walk is no
+      proven cause); the residual in-suite/alone ratio (~1.5×) fits a larger heap to collect. Left for the GATE:
+      the full serial suite time and the --parallel re-measure.
+      **Gate 2.P (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3959
+      fixtures: confirmed 2348, refused 1381, not-lowered 139, lsp-gap 24, diverges 4, unaskable 63; edges agree 2458 /
+      disagree 0 / not-run 102 — unchanged from Gate 2.7). `bun test` (serial) 6927 pass / 34 skip / 183 todo / 0 fail
+      (7144 tests, 195 files, 183 s, rustc cache on with sampled re-proof; `rate:fixtures` ran alongside for its first
+      83 s) — was 691 s at c85441f40f, 288 s at Gate 2.7; target ≤ 350 s ✓. Agreement CODESYS 3647, TwinCAT 3592 (= the
+      floors). 2.P.3 re-confirmed: the cache's hard-linked hits gave the same verdicts (agreement and map unchanged).
+      `LSP_BENCH=1` bench green: diagnostics p50 29.6 ms / p95 63.6 ms (budget 90), definition p50 0.1 / p95 2.9 ms.
+      `bun test --parallel` re-measured with the 5 s / 120 s limits untouched: green, same counts, 117 s — one green run
+      under load; NOT adopted as the default `test` script on a single sample (the gates keep the serial suite; adopt
+      after it stays green across the next gates). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings
+      only). volt-cli untouched by 2.P (no dotnet run).
 
 - [x] 2.5.1 Precedence and associativity (E1, E3, E4, E6–E9): record expr_power_right_assoc, expr_neg_power,
       expr_comparison_chain, expr_mod_precedence. The CASE lookahead (statements `isArmStart`) uses the expression grammar.

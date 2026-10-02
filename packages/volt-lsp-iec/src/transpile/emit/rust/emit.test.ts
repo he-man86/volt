@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { buildRust } from "../../../../test/conformance/support/rustc-cache.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -436,9 +437,8 @@ describe.skipIf(skipRustSuite())("emit/rust — no iteration cap, compiled", () 
         const code = rust(`PROGRAM P\nVAR i : DINT; cnt : DINT; END_VAR\n${body}\nEND_PROGRAM\n`)
         const file = join(dir, `${name}.rs`)
         const exe = join(dir, process.platform === "win32" ? `${name}.exe` : name)
-        await Bun.write(file, `${code}\nfn main() {\n    let mut p = P::new();\n    p.scan();\n    println!("{}", p.cnt);\n}\n`)
-        const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-        expect(build.stderr.toString()).toBe("")
+        const build = await buildRust([RUSTC!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, `${code}\nfn main() {\n    let mut p = P::new();\n    p.scan();\n    println!("{}", p.cnt);\n}\n`)
+        expect(build.stderr).toBe("")
         const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe", timeout: 30_000 })
         expect([name, ran.exitCode, ran.stdout.toString().trim()]).toEqual([name, 0, String(cnt)])
       }
@@ -465,15 +465,14 @@ END_PROGRAM
           const code = emitRust(pou!, { loopGuard }).code
           const file = join(dir, `g${k}_${loopGuard}.rs`)
           const exe = join(dir, process.platform === "win32" ? `g${k}_${loopGuard}.exe` : `g${k}_${loopGuard}`)
-          await Bun.write(file, `${code}
+          const build = await buildRust([RUSTC!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, `${code}
 fn main() {
     let mut p = P::new();
     p.scan();
     println!("{}", p.cnt);
 }
 `)
-          const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-          expect(build.stderr.toString()).toBe("")
+          expect(build.stderr).toBe("")
           const ran = Bun.spawnSync([exe], { stdout: "pipe", stderr: "pipe" })
           expect([body, loopGuard, ran.exitCode === 0]).toEqual([body, loopGuard, loopGuard === 3])
           if (loopGuard === 3) expect(ran.stdout.toString().trim()).toBe("3")
@@ -926,9 +925,8 @@ describe.skipIf(skipRustSuite())("emit/rust — LREAL_TO_STRING rounds a tie hal
     const dir = await mkdtemp(join(tmpdir(), "volt-lreal-"))
     const file = join(dir, "lreal_tie.rs")
     const exe = join(dir, process.platform === "win32" ? "lreal_tie.exe" : "lreal_tie")
-    await Bun.write(file, fn + main)
-    const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-o", exe, file])
-    expect(build.stderr.toString()).toBe("")
+    const build = await buildRust([RUSTC!, "--edition", "2021", "-o", exe, file], file, exe, fn + main)
+    expect(build.stderr).toBe("")
     const run = Bun.spawnSync([exe])
     await rm(dir, { recursive: true, force: true })
     expect(run.stdout.toString().trim().split(/\r?\n/)).toEqual(recorded.map(([, text]) => text))
@@ -962,9 +960,8 @@ describe.skipIf(skipRustSuite())("emit/rust — LDT/LDATE/LTOD_TO_STRING", () =>
     const dir = await mkdtemp(join(tmpdir(), "volt-ldt-"))
     const file = join(dir, "long_dates.rs")
     const exe = join(dir, process.platform === "win32" ? "long_dates.exe" : "long_dates")
-    await Bun.write(file, `#![allow(dead_code)]\n${STRING_PRELUDE}\n${main}`)
-    const build = Bun.spawnSync([RUSTC!, "--edition", "2021", "-o", exe, file])
-    expect(build.stderr.toString()).toBe("")
+    const build = await buildRust([RUSTC!, "--edition", "2021", "-o", exe, file], file, exe, `#![allow(dead_code)]\n${STRING_PRELUDE}\n${main}`)
+    expect(build.stderr).toBe("")
     const run = Bun.spawnSync([exe])
     await rm(dir, { recursive: true, force: true })
     expect(run.stdout.toString().trim().split(/\r?\n/)).toEqual(recorded.map(([, , text]) => text))

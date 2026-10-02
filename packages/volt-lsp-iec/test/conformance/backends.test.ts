@@ -325,9 +325,8 @@ async function compareCase(c: Case, dir: string): Promise<{ divergences: string[
   if (b === undefined) return { divergences: [], compared: 0, faultedBoth: false }
   const file = join(dir, `${c.name}.rs`)
   const exe = join(dir, `${c.name}${process.platform === "win32" ? ".exe" : ""}`)
-  await Bun.write(file, rustProgram(c))
-  const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-  if (build.exitCode !== 0) return { divergences: [], compared: 0, faultedBoth: false }
+  const build = await buildRust([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, rustProgram(c))
+  if (build.exit !== 0) return { divergences: [], compared: 0, faultedBoth: false }
   // A TIMEOUT, because the failure this gate exists to catch can be a HANG: the emitted Rust bounds no loop
   // (CODESYS bounds none), so a harness that did not time it would meet a runaway loop by hanging, which in CI is
   // indistinguishable from a slow suite. A run that had to be killed is a fault, and reported as one.

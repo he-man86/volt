@@ -112,7 +112,10 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
       else list.push(sym)
     }
     if (scopes.length === 0 && symbols.size === 0) continue
-    const span: Span = scopes[0]?.span ?? zeroSpan()
+    // the first unit's place, as a COPY: a span is the identity `scopeForUnit` finds a unit's scope by, and the namespace
+    // is not that unit's scope
+    const first = scopes[0]?.span
+    const span: Span = first !== undefined ? { ...first } : zeroSpan()
     const ns = makeScope(project, "namespace", namespace, span)
     ns.children.push(...scopes)
     for (const [key, syms] of symbols) ns.symbols.set(key, syms)

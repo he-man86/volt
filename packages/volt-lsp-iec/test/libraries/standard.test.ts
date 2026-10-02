@@ -13,6 +13,7 @@
  * cheap to run and to read.
  */
 import { describe, expect, test } from "bun:test"
+import { buildRust } from "../conformance/support/rustc-cache.js"
 import { mkdtemp, rm } from "node:fs/promises"
 import { readdirSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -176,9 +177,8 @@ describe.skipIf(skipRustSuite())("the emitted Rust", () => {
     try {
       const file = join(dir, "ton.rs")
       const exe = join(dir, `ton${process.platform === "win32" ? ".exe" : ""}`)
-      await Bun.write(file, program)
-      const build = Bun.spawnSync([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], { stderr: "pipe" })
-      expect(build.stderr.toString()).toBe("")
+      const build = await buildRust([rustc!, "--edition", "2021", "-A", "warnings", "-o", exe, file], file, exe, program)
+      expect(build.stderr).toBe("")
       const out = Bun.spawnSync([exe], { stdout: "pipe" }).stdout.toString().trim().split(/\r?\n/)
       const expected = scans(run(pou!), clock, ["t.Q", "t.ET"]).map(([q, et]) => `${String(q)} ${String(et)}`)
       expect(out).toEqual(expected)
