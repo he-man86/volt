@@ -6,7 +6,7 @@
 import type { Identifier } from "../ast/nodes.js"
 import type { Token } from "../lex/tokens.js"
 import { ACCESS_MODIFIERS, MEMBER_MODIFIERS, type Keyword } from "../lex/vocabulary.js"
-import { vendorTokenText } from "./errors.js"
+import { expectedInsteadOf, vendorTokenText } from "./errors.js"
 import { joinSpans } from "../span.js"
 import type { Cursor } from "./cursor.js"
 
@@ -146,7 +146,7 @@ export function readPropertyModifiers(c: Cursor): Keyword[] {
   const refused = refusedPropertyModifier(written)
   if (refused !== undefined) {
     c.pushError(`Unexpected token '${refused.text}' found`, refused.span, refused.text)
-    c.pushError(`';' expected instead of ${vendorTokenText(c.peek())}`, c.peek().span)
+    c.pushError(expectedInsteadOf("';'", c.peek()), c.peek().span)
   }
   return written.map((m) => m.keyword!)
 }

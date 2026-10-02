@@ -20,7 +20,7 @@ mechanism from the `Unexpected token` family above, which is exactly what the mi
 **This is not about supporting IL.** Volt does not implement Instruction List and does not intend to. It is about
 ST: `r : BOOL;` is a compiler error, and an LSP that accepts it silently has the gap running the worst way.
 
-## They are reserved, by `checks/names/refused-name.ts`
+## They are reserved, by the parser (`syntax/lex/vocabulary.ts` `IL_OPERATOR_WORDS`)
 
 All sixteen are reported today — at the DECLARATION and at every USE, with the vendor's wording and its resync
 cascade:
@@ -32,8 +32,9 @@ Unexpected token 'r' found          ';' expected instead of ':'      Unexpected 
 ';' expected instead of 'INT'       Unexpected token 'INT' found     … and the same for the use
 ```
 
-That landed in `b6003672d9` ("two more name families the CODESYS parser refuses — agreement 757 → 761") and
-`refused-name.test.ts` holds it. **There is no gap here.**
+That landed in `b6003672d9` ("two more name families the CODESYS parser refuses — agreement 757 → 761") as the analysis
+check `refused-name`, and frontend-conformance 2.8.3 moved it into the parser, where the vendors refuse them
+(`Cursor.refusedWord`, the declaration's `expectName`; `parse/statements.test.ts` holds it). **There is no gap here.**
 
 ## The keyword table is deliberately NOT the mechanism, and this is what happens if you try
 
@@ -51,7 +52,8 @@ Tried on 2026-09-19, and each of these cost real time to find:
 - **The messages DOUBLE.** With the names in the table the parser reports them and `refused-name` reports them
   again; CODESYS agreement went 863 → 849 on exactly the fourteen `cc_il_name_*` fixtures.
 
-A semantic check can say "this name is refused here" while leaving the lexer alone. The keyword table cannot.
+The parser can say "this word is refused here" while the lexer still reads it as a name (`Cursor.refusedWord`, since
+frontend-conformance 2.8.3; an analysis check did it before). The keyword table cannot.
 
 ## What the attempt did leave behind
 
@@ -74,7 +76,7 @@ above. But `added := ADD(a, b);` is IL, and CODESYS refuses it where it accepts 
 statement, measured 2026-09-19 (`operator_call_form_arithmetic`, `_comparison`, `_extensible`). They parsed clean
 here because the expression parser accepts any non-operator keyword as a name, which is what lets `LTIME()` work.
 
-`refused-name.ts` now reports them from `ST_OPERATOR_CALLS`, as a **callee** — the one position the type-name
+The parser reports them as a **callee** (rule E31, `NOT_AN_OPERAND` before `(`) — the one position the type-name
 exclusion beside it deliberately waves through.
 
 That work also fixed the resync cascade: a token that could START a statement gets `';' expected instead of 'x'`

@@ -211,3 +211,10 @@ test("an interface member's modifiers are refused where a function block's are (
   ])
   expect(errors("METHOD PUBLIC FINAL Get : INT\nEND_METHOD\nPROPERTY PUBLIC ABSTRACT Val : INT\nGET\nEND_GET\nEND_PROPERTY")).toEqual([])
 })
+
+test("a token no member starts with inside an INTERFACE is refused as a statement start, the `;` then wanted at the object's end (rec_interface_stray_keyword, both vendors)", () => {
+  // END_INTERFACE is a line of Volt's file format the push strips: where it stands is the end of the POU
+  const pr = parse("INTERFACE I\nEND_IF\nEND_INTERFACE")
+  expect(pr.errors.map((e) => e.message)).toEqual(["Unexpected token 'END_IF' found", "';' expected instead of end of POU"])
+  expect(pr.errors[0]!.unexpectedToken).toBe("END_IF")
+})

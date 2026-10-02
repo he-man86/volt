@@ -88,23 +88,23 @@ test("roundtrip: control flow (IF / CASE / FOR / WHILE / REPEAT)", () => {
   roundtrips(`FUNCTION_BLOCK F
 VAR
 	i : INT;
-	s : INT;
+	sx : INT;
 END_VAR
-IF s > 0 THEN
-	s := 1;
-ELSIF s < 0 THEN
-	s := 2;
+IF sx > 0 THEN
+	sx := 1;
+ELSIF sx < 0 THEN
+	sx := 2;
 ELSE
-	s := 0;
+	sx := 0;
 END_IF
-CASE s OF
+CASE sx OF
 	1: i := 1;
 	2..4: i := 2;
 ELSE
 	i := 0;
 END_CASE
 FOR i := 0 TO 10 BY 2 DO
-	s := s + i;
+	sx := sx + i;
 END_FOR
 WHILE i > 0 DO
 	i := i - 1;

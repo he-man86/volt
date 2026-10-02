@@ -1654,16 +1654,110 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       cache on); agreement CODESYS 3647, TwinCAT 3592 (3959 fixtures) — the floors raised to them (3640 → 3647, 3585 →
       3592: the review's cells), re-confirmed by the agreement tests. `bun run check` 14 passed, 0 failed; `bun run lint`
       exit 0 (warnings only). volt-cli untouched by 2.7 (no dotnet run).
-- [ ] 2.8.1 One token-description wording (the vendor's): the named forms from 1.16 collapse to the recorded ones. Record
+- [x] 2.8.1 One token-description wording (the vendor's): the named forms from 1.16 collapse to the recorded ones. Record
       rec_file_scope_stray, rec_expected_expression.
       Where: parse/errors, parse/parser. Acceptance: CA. Depends on: 2.7.3
-- [ ] 2.8.2 Recovery (R1–R2): record rec_missing_then, rec_missing_of, rec_missing_do, rec_missing_end_if, rec_missing_end_case,
+      **Done 2026-10-02** (the three 2.8 tasks were one CONFORMANCE pass, rule by rule over R1–R6, one fixture file
+      `fixtures/grammar/recovery.ts`, 55 `rec_*`; recorded in ONE batch per vendor and two follow-up batches the first
+      answers asked for — `record:language` both vendors, 52 recorded, 3 refused by the PUSH on both, `vendorRefuses` +
+      `execSkip`; nothing builds, so no `record:exec`). `parse/errors`: ONE wording, the vendors' — `plainTokenText`,
+      `typeTokenText`, `expressionExpected` deleted; "Expression expected instead of 'X'" for every token
+      (`rec_expected_expression*`: `;` `)` `*` `,` `]`; the end of the body is "';' expected instead of end of POU" + "Expression
+      expected instead of ''"), "Type definition expected instead of 'X'" for every token (`rec_type_expected_literal`), the END
+      of the text quoted `''` everywhere but after `';'` ("end of POU", 146 recorded — `expectedInsteadOf`), `atObjectEnd` one
+      helper. R4 (`parse/parser`): a POU text opening with a NAME declares nothing and says nothing (`rec_file_scope_stray_
+      before_unit`, `cc5_deprecated_functionblock_keyword` — both vendors); text AFTER a unit is the push's refusal on both
+      vendors ("expected METHOD/ACTION/PROPERTY, got: X" — `rec_file_scope_stray`, `_semicolon`, `_keyword`), worded so; after
+      a DUT/GVL "Unexpected token 'X' found". Units' recovery in the vendors' words: an unclosed STRUCT/UNION reads END_TYPE as
+      a field name (`rec_unterminated_struct`, `_union`), an unclosed VAR section wants END_VAR instead of '' where the
+      declaration part ends — its IMPLEMENTATION line too (`rec_unterminated_var`) — echoing a VAR section it meets as a
+      STRUCT does (`rec_unterminated_var_before_section`), a name in an INTERFACE is a declaration's (`rec_interface_stray`),
+      a member name missing takes the next token (`rec_member_name_expected`), `JMP;` takes its `;` for the destination
+      (`rec_jmp_without_label`; the label checks now read a body that did not parse cleanly, `symbols` `bodiesThroughErrors`),
+      `IF THEN` is the one line (`rec_expected_expression_condition`). Tests (test-first for R2/R6, in `statements.test.ts`
+      18, `parser.test.ts` 2, `initializer-names.test.ts`, `types.test.ts` 1). Premises the recordings overturned, corrected:
+      `parser.test` "unterminated section", `conditional.test`, `parse-errors.test` (a variable named INT), the error catalog's
+      C0008/C0010/C0027/C0189/C0211/C0213 expectations (Volt wordings, now the vendors').
+- [x] 2.8.2 Recovery (R1–R2): record rec_missing_then, rec_missing_of, rec_missing_do, rec_missing_end_if, rec_missing_end_case,
       rec_missing_end_for.
       Where: parse/statements, parse/errors. Acceptance: CA. Depends on: 2.8.1
-- [ ] 2.8.3 The vendor cascades in one place (R3, R6): analysis/resync.ts and refused-name's cascade are folded into parse/errors.
+      **Done 2026-10-02.** R1 agreed already (`rec_missing_semicolon_*`, 4). R2 (`parse/statements`): a block keyword missing is
+      its one line (`rec_missing_then*`, `_of`, `_to`, `_do*` agreed); a block's list ends at every block CLOSER
+      (`BLOCK_CLOSERS`), its own or another's, and at the end of the body — a block whose list ended elsewhere is LEFT OPEN,
+      "Unexpected End-of-file found: <list> expected" (one list per block whatever part is open: IF 'ELSIF', 'ELSE' or
+      'END_IF', CASE 'END_CASE', FOR, WHILE, REPEAT 'END_REPEAT' — also when its UNTIL never came —, __TRY '__CATCH',
+      '__FINALLY' or '__ENDTRY'), every block around it leaves too, and the body's list refuses the closer as a statement
+      start (`rec_missing_end_*`, `rec_end_while_closes_if`, `rec_stray_closer_*`); an ELSE/ELSIF after the ELSE is refused
+      inside the ELSE branch (`stmt_if_two_else`). The resync's end of the text is "';' expected instead of end of POU".
+- [x] 2.8.3 The vendor cascades in one place (R3, R6): analysis/resync.ts and refused-name's cascade are folded into parse/errors.
       Record rec_refused_name_cascade_type_word, rec_refused_name_cascade_function_word, rec_unknown_literal_prefix_cascade.
       Where: parse/errors. Acceptance: CA; the 0.1 parse-census baseline is empty (every finding closed or a recorded known
       divergence named here). Depends on: 2.8.2
+      **Done 2026-10-02.** `analysis/checks/names/refused-name.ts` (+ test), `analysis/resync.ts` and
+      `analysis/checks/declarations/system-initializer.ts` DELETED, their rules the parser's: `lex/vocabulary`
+      `IL_OPERATOR_WORDS`, `ELEMENTARY_TYPE_WORDS` (held to `types/elementary` by a test), `CODESYS_ONLY_TYPE_WORDS` (moved
+      from `types`), `isRefusedWord`/`isRefusedDeclaredName`; a refused word is the word where a declaration's name (with
+      `__` names), a statement start or an operand belongs, and the resync PAIRS it (`Cursor.refusedWord`, only in a BODY —
+      `BodySpan.dialect`, the body's vocabulary, now carried; `frontend-snapshot` leaves it out of the AST it hashes); a callee
+      (`LTIME()`) and a lone argument (`XSIZEOF(DINT)`) are names. The declaration cascade RESUMES a declaration at a name and a
+      refused `;` takes the declaration after it (`rec_refused_name_declared_fb_type`), which closed `unit_struct_extends_*` on
+      CODESYS. An intrinsic's `.` ends the expression (`op_sys_varinfo`), and a `__` identifier leading an initializer is
+      refused (`cc_decl_init_dunder_unknown`, TwinCAT's `__POSITION`; the `__SYSTEM` namespace through its `.`). Test sources
+      that declared IL operators or type names as variables (`s`, `r`, `word`, `__clock` — refused by both vendors, recorded)
+      renamed: `transpile/lower/{lower,calls,init-sequence}.test.ts`, `interp.test.ts`, `emit/rust/emit.test.ts` (test
+      files only), `services/assist`, `formatting`, `analysis/checks/types/*`, `network-wire-type`, `types.test`.
+      **Parse census (0.1): findings 70 → 0** (baseline empty): 43 closed by the parser (the refused words, `op_sys_varinfo`,
+      cc5); the TwinCAT `__POSITION` initializer pair and `cc_decl_init_dunder_unknown` now parse errors; three messages the
+      census's pattern matched by their words are name/type answers (`cc2_type_name_and_method_without_parens` "Type name …
+      not expected", `cc3_unexpected_struct_init`, `decl_nested_aggregate` "Unexpected structure/array initialisation") and
+      a network body's refusals are the network reader's (`network_unnamed_*`) — both now said in the census, with reasons;
+      the rest are known divergences named below.
+      **Divergences opened** (`support/divergences.ts`): `RECOVERY_DIVERGENCES` `rec_refused_name_cascade_il_word` (both; the
+      rebuilt "'(n + !!!'ERROR'!!!);' is no valid statement", niche: accepted loss (0 occurrences in the corpora));
+      `TWINCAT_RECOVERY_DIVERGENCES` `rec_interface_stray`, `rec_refused_name_declared_fb_type` (TwinCAT's own recovery,
+      niche: accepted loss (0 occurrences in the corpora)); `rec_unterminated_var_before_section` into
+      `TWINCAT_DRIVER_CUTS_THE_ECHO`; `CALC_CONDITIONAL_CALL` `cc_il_name_calc`, `ilc_calc_*` (4) (both; the conditional
+      call's cascade, niche: accepted loss (0 occurrences in the corpora — two comments)); `CODESYS_POSITION_IN_AN_INITIALIZER`
+      `sysop_position_initializer` (from the CODESYS triage backlog, niche: accepted loss (0 occurrences in the corpora));
+      `cp_xsizeof` into `TWINCAT_XSIZEOF_IS_NO_KEYWORD`; `unit_struct_extends_after_struct`, `_twice` kept on TwinCAT only.
+      **Closed**: `stmt_assign_missing_value`, `stmt_if_else_if_two_words`, `stmt_s_eq_spaced`, `stmt_assign_spaced_operator`,
+      `lit_time_fraction_ms` (both), `cc5_deprecated_functionblock_keyword` (CODESYS known + the TwinCAT triage backlog, now
+      empty), `unit_struct_extends_after_struct`, `_twice` (CODESYS).
+      **Numbers.** Rules GAP area 2 **13 → 9** (total 67 → 63): R2, R4, R5, R6 closed; R1, R3 gain recorded cells.
+      Agreement CODESYS 3647 → 3707, TwinCAT 3592 → 3645 (4014 fixtures; floors raised). `rate:fixtures` (4014): confirmed
+      2348, refused 1381 → 1434, not-lowered 139, lsp-gap 24 → 23 (ceiling lowered), diverges 4, unaskable 63 → 66; edges agree
+      2438 / disagree 0 / not-run 102. Frontend baselines rewritten (no finding added; one census bucket: an expression over a
+      typed literal whose prefix names no type, "no component on the vendor too"). F (`frontend-snapshot check --base HEAD`):
+      2493 aspects over 403 sources — the 55 new fixtures, and 513 aspects over 184 sources outside them, each a source holding
+      a refused word, a recovery or a wording of R1–R6 (the cc_il/cc_reserved/cc4/identifier families, `op_sys_varinfo`, the
+      pwh/unit/decl recoveries, the transpile `back/` rows of the newly refused sources). Targeted: `bun test src` 1616 / 0,
+      `test/frontend` 30 / 0, `test/catalog` 147 / 0, `test/corpus` 19 / 0, conformance (`-t` the touched fixtures, "LSP
+      against", the table, the ratchet) 166 / 0, `suite` + `support` 58 / 0; `tsc` clean; lint exit 0; `bun run check` 14 / 0.
+      **Review 2.8 (2026-10-02).** The positions 2.8.3 had not asked, recorded in one batch per vendor (18 fixtures in
+      `recovery.ts`, both vendors): a refused word as a statement or CASE label (`rec_refused_word_case_label*`,
+      `_body_label_*` — refused as a statement start now, no invented label warning; the FIRST arm without its label is
+      "No CASE label found" / "No case label found", a `noCaseLabel` fact, which also closed TwinCAT's
+      `lit_enum_typed_case_label`), a keyword or refused word as a JMP target (`rec_refused_word_jmp_target`,
+      `rec_jmp_keyword_target` — the invalid destination, as `JMP;`; "expected a label after JMP" deleted), a refused word
+      in an initializer (`rec_refused_word_initializer*` — the malformed-literal pair and placeholder), the end of the text
+      as a member name (`rec_member_name_at_end` — "'' is no component"; "expected member name after '.'" deleted), a keyword
+      in an INTERFACE (`rec_interface_stray_keyword` — "unexpected 'X' inside INTERFACE" deleted). Confirmed as built, no
+      change: STRUCT/UNION fields named a refused word (`rec_refused_word_struct_field*`, `_union_field`), the `.name`
+      resume and a punctuation member (`rec_refused_word_member_cascade`, `rec_member_name_punct`), and `__TRY_CAST`
+      leading an initializer refused on BOTH vendors (`rec_dunder_try_cast_initializer`). Known divergences, niche: accepted
+      loss (0 occurrences in the corpora): `rec_refused_word_for_variable`, `rec_type_name_dot_dangling` (both vendors read
+      the VAR section away; the LSP's "expected identifier after '.'" stays there). The error catalog's C0011 expectation
+      (a Volt wording, never verified) is the documented "No CASE label found". Agreement CODESYS 3723, TwinCAT 3662 (4032
+      fixtures; floors raised); `rate:fixtures` refused 1434 → 1452; frontend baselines rewritten (no finding added).
+      **Gate 2.8 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4032
+      fixtures: confirmed 2348, refused 1452, not-lowered 139, lsp-gap 23, diverges 4, unaskable 66; edges agree 2438 /
+      disagree 0 / not-run 102). The first full run had 2 failures, both test sources declaring the IL operator words as
+      variables (`s : SR`, `r : RS` in `test/libraries/standard.test.ts`; `s : STRING` in `stringutils.test.ts`) — refused by
+      both vendors (recorded in 2.8.3), the same rename 2.8.3 made in `src/` and missed under `test/libraries/` (test files
+      only; the premise was wrong on the vendors' grounds). `bun test` (serial) 6941 pass / 34 skip / 183 todo / 0 fail
+      (7158 tests, 194 files, 170 s, rustc cache on with sampled re-proof); agreement CODESYS 3723, TwinCAT 3662 (4032
+      fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0 (warnings only). volt-cli
+      untouched by 2.8 (no dotnet run).
 - [ ] 2.9 Printer/formatter fixed point (PR1–PR4): STRING[n] and AT-after-type round-trip; parentheses from precedence; modifier
       order kept.
       Where: syntax/print.ts, services/formatting/print.ts; tests `print.test.ts` "STRING[n] round-trips", "AT after the type

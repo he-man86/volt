@@ -7,7 +7,7 @@
  * is case-insensitive (IEC identifiers).
  */
 import { walkStatements, type Expr, type Span } from "../../../frontend/syntax/index.js"
-import { bodies } from "../../../frontend/symbols/index.js"
+import { bodiesThroughErrors } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -15,7 +15,8 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
   const push = (code: string, span: Span, message: string) =>
     out.push({ severity: "error", span, source: SOURCE, code, message })
 
-  for (const { statements } of bodies(ctx.parseResult.units, ctx.project)) {
+  // a body that did not parse cleanly too: the vendor checks its labels (`bodiesThroughErrors`)
+  for (const { statements } of bodiesThroughErrors(ctx.parseResult.units, ctx.project)) {
     const labels = new Map<string, { name: string; span: Span }[]>() // upper-cased name → occurrences
     const jmps: Expr[] = []
     walkStatements(statements, (s) => {
@@ -24,6 +25,11 @@ export function checkJumpLabels(ctx: CheckContext, out: DiagnosticItem[]): void 
         const occ = labels.get(key) ?? []
         occ.push({ name: s.name.text, span: s.name.span })
         labels.set(key, occ)
+      } else if (s.kind === "jmp" && s.refusedDestination !== undefined) {
+        // the token the vendor took for the destination (`JMP;`): an invalid one, and the label it names is "INVALID: ;"
+        // (`rec_jmp_without_label`, both vendors 2026-10-02)
+        push("jump-invalid-destination", s.target.span, ctx.messages.jumpInvalidDestination(s.refusedDestination))
+        push("jump-label-undefined", s.target.span, ctx.messages.jumpLabelUndefined(`INVALID: ${s.refusedDestination}`))
       } else if (s.kind === "jmp") {
         jmps.push(s.target)
       }

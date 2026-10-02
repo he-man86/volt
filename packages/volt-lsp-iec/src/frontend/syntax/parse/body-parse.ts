@@ -34,10 +34,10 @@ const isConditional = (body: BodySpan): boolean => body.tokens.some((t) => t.kin
  *  never guessed; what lies outside that chain keeps its errors and messages. */
 export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD): BodyParse {
   const e = entryOf(body)
-  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens))
+  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens, body.dialect))
   const byWorld = (e.byWorld ??= new WeakMap())
   let parsed = byWorld.get(world)
-  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(body.tokens, world)))
+  if (parsed === undefined) byWorld.set(world, (parsed = parseStatementTokens(body.tokens, body.dialect, world)))
   return parsed
 }
 
@@ -45,6 +45,6 @@ export function bodyStatements(body: BodySpan, world: ConditionWorld = NO_WORLD)
  *  the source services; a body with no conditional directive has one tree, and this is it (`bodyStatements`). */
 export function sourceStatements(body: BodySpan): BodyParse {
   const e = entryOf(body)
-  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens))
-  return (e.source ??= parseSourceStatementTokens(body.tokens))
+  if (!isConditional(body)) return (e.plain ??= parseStatementTokens(body.tokens, body.dialect))
+  return (e.source ??= parseSourceStatementTokens(body.tokens, body.dialect))
 }

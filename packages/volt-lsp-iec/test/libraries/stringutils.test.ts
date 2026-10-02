@@ -94,7 +94,7 @@ describe("StringUtils", () => {
   })
 
   test("the materialization alone is refused, not run as an empty body", () => {
-    const { diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING; n : DINT; END_VAR\nn := StrLenA(ADR(s));\nEND_PROGRAM\n", "P", materialized)
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR txt : STRING; n : DINT; END_VAR\nn := StrLenA(ADR(txt));\nEND_PROGRAM\n", "P", materialized)
     expect(diagnostics.map((d) => d.code)).toEqual(["call-library"])
   })
 

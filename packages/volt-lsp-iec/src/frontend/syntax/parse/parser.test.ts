@@ -16,7 +16,7 @@ function firstDecl(src: string): VarDecl {
 function stmts(body: string) {
   const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect: "codesys" } satisfies BodySpan)
 }
 
 test("parses an FB with modifiers, EXTENDS, IMPLEMENTS, a method", () => {
@@ -209,16 +209,26 @@ test("same for a STRUCT and a UNION field — a field is a declaration, and resy
   expect(messages("TYPE U :\nUNION\n  Min : INT;\nEND_UNION\nEND_TYPE\n")).toEqual(cascade("Min"))
 })
 
-test("a genuinely unterminated section still blames the header, with no cascade", () => {
-  // the four ways a decl list really ends early — each must stay ONE error on the section keyword
-  expect(messages("PROGRAM P\nVAR\n  a : INT;\nEND_PROGRAM\n")).toEqual(["unterminated VAR section: expected END_VAR"])
+test("an unterminated section wants its END_VAR where the declaration part ends, with no cascade (rec_unterminated_var, rec_unterminated_var_before_section, R4)", () => {
+  // the four ways a decl list really ends early — each ONE error, quoting the end of the object as '' (both vendors 2026-10-02)
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\nEND_PROGRAM\n")).toEqual(["'END_VAR' expected instead of ''"])
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\nIMPLEMENTATION ST\na := 1;\nEND_PROGRAM\n")).toEqual(["'END_VAR' expected instead of ''"])
   expect(messages("PROGRAM P\nVAR\n  a : INT;\nVAR_INPUT\n  b : INT;\nEND_VAR\nEND_PROGRAM\n")).toEqual([
-    "unterminated VAR section: expected END_VAR",
+    "Variable declaration expected instead of VAR_INPUT",
+    "'END_VAR' expected instead of ''",
   ])
-  expect(messages("PROGRAM P\nVAR\n  a : INT;\nPROGRAM Q\nEND_PROGRAM\n")).toEqual([
-    "unterminated VAR section: expected END_VAR",
-  ])
-  expect(messages("TYPE T :\nSTRUCT\n  a : INT;\nEND_TYPE\n")).toEqual(["unterminated STRUCT: expected END_STRUCT"])
+  expect(messages("PROGRAM P\nVAR\n  a : INT;\nPROGRAM Q\nEND_PROGRAM\n")).toEqual(["'END_VAR' expected instead of ''"])
+})
+
+test("a STRUCT without its END_STRUCT reads the TYPE's END_TYPE as a field's name (rec_unterminated_struct, rec_unterminated_union, R4)", () => {
+  const unclosed = (closer: string) => [
+    "Unexpected token 'END_TYPE' found",
+    "';' expected instead of end of POU",
+    `'${closer}' expected instead of ''`,
+    "'END_TYPE' expected instead of ''",
+  ]
+  expect(messages("TYPE T :\nSTRUCT\n  a : INT;\nEND_TYPE\n")).toEqual(unclosed("END_STRUCT"))
+  expect(messages("TYPE T :\nUNION\n  a : INT;\nEND_TYPE\n")).toEqual(unclosed("END_UNION"))
 })
 
 test("a soft keyword is a legal PARAMETER name in a call, as it is in a declaration", () => {

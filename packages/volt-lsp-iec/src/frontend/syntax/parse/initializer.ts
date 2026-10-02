@@ -7,8 +7,9 @@ import type { Token } from "../lex/tokens.js"
 import { eofSpan, joinSpans, zeroSpan } from "../span.js"
 import { Cursor } from "./cursor.js"
 import { parseExpression, parseExprFromTokens } from "./expression.js"
-import { vendorExpressionExpected, vendorTokenText } from "./errors.js"
+import { expectedInsteadOf, vendorExpressionExpected } from "./errors.js"
 import { collectUntilTopLevel } from "./scan.js"
+import { isRefusedWord } from "../lex/vocabulary.js"
 
 /**
  * Collect an initializer's RHS tokens, depth-aware over `()`/`[]`, up to a top-level
@@ -29,18 +30,50 @@ export function collectInitTokens(cur: Cursor, stopAtEndType = false): Token[] {
  * `lit_init_bool_typed_true`), `(1 + !!!'ERROR'!!!)` after an operator (`lit_init_malformed_not_leading`). Inside an
  * open `[` aggregate it is the AGGREGATE that wants its next token — "',, ( or ]' expected instead of 'X'" — and there is
  * no value to convert (`lit_init_malformed_in_aggregate`). Undefined when there is no malformed literal.
+ *
+ * A SYSTEM NAME THE DIALECT DOES NOT HAVE leading the initializer is refused the same way: `n : DINT := __NO_SUCH_THING;`
+ * (`cc_decl_init_dunder_unknown`, both vendors) and, on TwinCAT, which has no `__POSITION`, `here : DINT := __POSITION;` and
+ * `… := __POSITION();` (`sysop_position_initializer`, `sysop_position_value`). Every `__` operator a dialect has is its
+ * KEYWORD, so the name is an IDENTIFIER spelled `__…` — but the `__SYSTEM` namespace, read through its `.` (corpus:
+ * `M_TYPE : __SYSTEM.TYPE_CLASS := __SYSTEM.TYPE_CLASS.TYPE_NONE`). `analysis/checks/declarations/system-initializer`
+ * held this until frontend-conformance 2.8.3, from name resolution, which answered every `__` name on CODESYS. The one
+ * operator the vocabulary does not list that a vendor documents, TwinCAT's `__TRY_CAST`, is refused there too, on both
+ * vendors (`rec_dunder_try_cast_initializer`, 2026-10-02): leading an initializer it is no operator either compiler has.
+ *
+ * And A REFUSED WORD (`isRefusedWord`, rule R6) as an operand: `x : INT := dint;`, `x : INT := 1 + word;` — the same
+ * pair and placeholder (`rec_refused_word_initializer_alone`, `rec_refused_word_initializer`, both vendors 2026-10-02).
+ * A callee (`LTIME()`), a lone argument (`XSIZEOF(DINT)`) and a member after a `.` are names, as in a body.
  */
 export function refuseMalformedInit(cur: Cursor, tokens: readonly Token[]): RefusedInit | undefined {
-  const at = tokens.findIndex((t) => t.malformed)
+  const at = tokens.findIndex((t, i) => t.malformed || (i === 0 && isUnknownSystemName(tokens)) || isRefusedOperand(cur, tokens, i))
   if (at < 0) return undefined
   const bad = tokens[at]!
   const before = tokens.slice(0, at)
   const inAggregate = before.reduce((depth, t) => depth + (t.kind === "punct" ? (t.text === "[" ? 1 : t.text === "]" ? -1 : 0) : 0), 0) > 0
-  cur.pushError(`${inAggregate ? "',, ( or ]'" : "';'"} expected instead of ${vendorTokenText(bad)}`, bad.span)
+  cur.pushError(expectedInsteadOf(inAggregate ? "',, ( or ]'" : "';'", bad), bad.span)
   cur.pushError(vendorExpressionExpected(bad), bad.span)
   if (inAggregate) return { span: bad.span }
   const value = parseExprFromTokens([...before, { kind: "identifier", text: REFUSED_PLACEHOLDER, span: bad.span }])
   return value === undefined ? { span: bad.span } : { span: bad.span, value }
+}
+
+/** Is `tokens[i]` a refused word standing as an operand — not a callee, a lone argument or a member (`refuseMalformedInit`)? */
+function isRefusedOperand(cur: Cursor, tokens: readonly Token[], i: number): boolean {
+  const t = tokens[i]!
+  if (t.kind !== "identifier" || !isRefusedWord(t.text, cur.dialect)) return false
+  const before = tokens[i - 1]
+  const after = tokens[i + 1]
+  const punct = (x: Token | undefined, ...texts: string[]): boolean => x?.kind === "punct" && texts.includes(x.text)
+  if (punct(after, "(") || punct(before, ".")) return false
+  return !(punct(before, "(", ",") && punct(after, ")", ","))
+}
+
+/** An initializer leading with a `__` IDENTIFIER — no system operator the dialect has (those are keywords) — that is not
+ *  read through a `.` as the `__SYSTEM` namespace is (`refuseMalformedInit`). */
+function isUnknownSystemName(tokens: readonly Token[]): boolean {
+  const first = tokens[0]
+  const next = tokens[1]
+  return first?.kind === "identifier" && first.text.startsWith("__") && !(next?.kind === "punct" && next.text === ".")
 }
 
 /**

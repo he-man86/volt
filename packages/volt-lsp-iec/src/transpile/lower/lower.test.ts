@@ -91,14 +91,14 @@ test("a stepped pointer names the byte view when there is no array, and the elem
 // UNION (conformance `type_dut_union`, little-endian overlay): it had no layout at all (`layout-struct`).
 test("a UNION member's store shows through every member it overlays; a write the copy cannot follow is refused", () => {
   const union = (body: string, member = "wide : DWORD;") =>
-    `PROGRAM P\nVAR u : U_W; n : INT; out : WORD; inst : FB_O; END_VAR\n${body}\nEND_PROGRAM\nTYPE U_W :\nUNION\n\tword : WORD;\n\tbytes : ARRAY[1..2] OF BYTE;\n\t${member}\nEND_UNION\nEND_TYPE\nFUNCTION_BLOCK FB_O\nVAR_OUTPUT q : WORD; END_VAR\nq := 16#1234;\nEND_FUNCTION_BLOCK\n`
-  const runner = run(ir(union("u.wide := 16#11223344;\nu.word := 16#ABCD;\nout := u.word;\nu.bytes[2] := 16#EE;"), "P"))
+    `PROGRAM P\nVAR u : U_W; n : INT; out : WORD; inst : FB_O; END_VAR\n${body}\nEND_PROGRAM\nTYPE U_W :\nUNION\n\twd : WORD;\n\tbytes : ARRAY[1..2] OF BYTE;\n\t${member}\nEND_UNION\nEND_TYPE\nFUNCTION_BLOCK FB_O\nVAR_OUTPUT q : WORD; END_VAR\nq := 16#1234;\nEND_FUNCTION_BLOCK\n`
+  const runner = run(ir(union("u.wide := 16#11223344;\nu.wd := 16#ABCD;\nout := u.wd;\nu.bytes[2] := 16#EE;"), "P"))
   runner.scan()
   // the DWORD's upper bytes survive the WORD store; the BYTE store shows through both wider members
-  expect([runner.get("u.bytes[1]"), runner.get("u.bytes[2]"), runner.get("u.word"), runner.get("u.wide"), runner.get("out")]).toEqual([0xcdn, 0xeen, 0xeecdn, 0x1122eecdn, 0xabcdn])
+  expect([runner.get("u.bytes[1]"), runner.get("u.bytes[2]"), runner.get("u.wd"), runner.get("u.wide"), runner.get("out")]).toEqual([0xcdn, 0xeen, 0xeecdn, 0x1122eecdn, 0xabcdn])
   const codes = (body: string, member?: string) => lowerSource(union(body, member), "P").diagnostics.map((d) => d.code)
-  expect(codes("inst(q => u.word);")).toEqual(["union-write"])
-  expect(codes("FOR n := 1 TO 2 DO u.word := 1; END_FOR", "wide : REAL;")).toContain("layout-union")
+  expect(codes("inst(q => u.wd);")).toEqual(["union-write"])
+  expect(codes("FOR n := 1 TO 2 DO u.wd := 1; END_FOR", "wide : REAL;")).toContain("layout-union")
 })
 
 // Interfaces (conformance `itf_*`): an interface variable had no representation (`slot-interface`), so nothing called
@@ -868,7 +868,7 @@ test("an instance inside a PROGRAM: a PROPERTY, a runtime index, a body reaching
 // SUPER^, read from a METHOD, or lent as a copy; each of those lowered silently once the slice became representable.
 test("review of ARRAY[*]: whole values, addresses, unions, SUPER^ rebinding, METHOD reads and copies are refused", () => {
   const codes = (source: string) => lowerSource(source, "P").diagnostics.map((d) => d.code)
-  const union = "TYPE U_W :\nUNION\n\tword : WORD;\n\tbytes : ARRAY[1..2] OF BYTE;\nEND_UNION\nEND_TYPE\n"
+  const union = "TYPE U_W :\nUNION\n\twd : WORD;\n\tbytes : ARRAY[1..2] OF BYTE;\nEND_UNION\nEND_TYPE\n"
   const program = (body: string) =>
     `PROGRAM P\nVAR row : ARRAY[2..5] OF INT; words : ARRAY[0..1] OF U_W; rv : INT; END_VAR\nrv := F(numbers := row, us := words);\nEND_PROGRAM\n` +
     `FUNCTION F : INT\nVAR_IN_OUT numbers : ARRAY[*] OF INT; us : ARRAY[*] OF U_W; END_VAR\nVAR tmp : ARRAY[2..5] OF INT; p : POINTER TO INT; END_VAR\n${body}\nEND_FUNCTION\n` +
@@ -882,7 +882,7 @@ test("review of ARRAY[*]: whole values, addresses, unions, SUPER^ rebinding, MET
   // the store vanished with no diagnostic
   expect(codes(program("p := ADR(numbers[2]);"))).toContain("pointer-shape")
   // the overlay walk stopped at the open index: no copy made, no refusal
-  expect(codes(program("us[0].word := 16#ABCD;"))).toContain("union-write")
+  expect(codes(program("us[0].wd := 16#ABCD;"))).toContain("union-write")
   // SUPER^ rebinding an open in-out overwrote the bounds the derived body indexes its own by
   const inherit = (binding: string) =>
     `PROGRAM P\nVAR d : FB_D; g : ARRAY[1..3] OF INT; h : ARRAY[10..12] OF INT; END_VAR\nd(data := g, other := h);\nEND_PROGRAM\n` +
@@ -1975,10 +1975,14 @@ describe("lower — the clock, TIME() and LTIME()", () => {
     expect(p.get("t")).toBe(7n)
   })
 
-  test("the clock is keyed by a name no identifier can spell, so a GVL variable called like it stays its own", () => {
+  test("the clock is keyed by a name no identifier can spell, and no GVL variable can be called like it", () => {
+    // `__clock` is no name a declaration may hold: both vendors refuse a name with consecutive underscores
+    // (`identifier_double_underscore`), and since frontend-conformance 2.8.3 so does the parser — the GVL does not parse
     const gvl = { uri: "GVL.gvl", source: "VAR_GLOBAL\n\t__clock : INT := 3;\nEND_VAR\n" }
-    const { pou } = lowerSource("PROGRAM P\nVAR a : INT; t : TIME; END_VAR\na := __clock;\nt := TIME();\nEND_PROGRAM\n", "P", [gvl])
-    expect(pou!.globals.map((g) => g.type.kind === "elementary" && g.type.name)).toEqual(["INT", "LTIME"])
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR a : INT; t : TIME; END_VAR\nt := TIME();\nEND_PROGRAM\n", "P", [gvl])
+    expect([pou, diagnostics.map((d) => d.message)]).toEqual([undefined, ["GVL.gvl did not parse: Unexpected token '__clock' found"]])
+    const alone = lowerSource("PROGRAM P\nVAR a : INT; t : TIME; END_VAR\nt := TIME();\nEND_PROGRAM\n", "P").pou!
+    expect(alone.globals.map((g) => g.type.kind === "elementary" && g.type.name)).toEqual(["LTIME"])
   })
 })
 
@@ -2011,21 +2015,21 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
   }
 
   test("ADR(s) binds the caller's string, and the pointer steps it byte by byte", () => {
-    expect(scanned("s : STRING := 'hello'; n : DINT;", "n := CLEN(ADR(s));").get("n")).toBe(5n)
+    expect(scanned("sv : STRING := 'hello'; n : DINT;", "n := CLEN(ADR(sv));").get("n")).toBe(5n)
   })
 
   test("a cursor handed on carries on from where it stands", () => {
-    expect(scanned("s : STRING := 'hello'; n : DINT;", "n := CTAIL(ADR(s));").get("n")).toBe(4n)
+    expect(scanned("sv : STRING := 'hello'; n : DINT;", "n := CTAIL(ADR(sv));").get("n")).toBe(4n)
   })
 
   test("a pointer VARIABLE given the string's address binds that string", () => {
-    expect(scanned("s : STRING := 'hello'; ps : POINTER TO STRING; n : DINT;", "ps := ADR(s);\nn := CLEN(ps);").get("n")).toBe(5n)
+    expect(scanned("sv : STRING := 'hello'; ps : POINTER TO STRING; n : DINT;", "ps := ADR(sv);\nn := CLEN(ps);").get("n")).toBe(5n)
   })
 
   test("a write goes through to the caller's string, cut at the CALLER's capacity", () => {
-    expect(scanned("s : STRING(8);", "CFILL(ADR(s), 3);").get("s")).toBe("xxx")
+    expect(scanned("sv : STRING(8);", "CFILL(ADR(sv), 3);").get("sv")).toBe("xxx")
     // the routine is lowered for a STRING(3) here, so its capacity — not a default — is where a store faults
-    expect(() => scanned("s : STRING(3);", "CFILL(ADR(s), 5);")).toThrow(RangeError)
+    expect(() => scanned("sv : STRING(3);", "CFILL(ADR(sv), 5);")).toThrow(RangeError)
   })
 
   test("a WORD cursor walks a WSTRING, and steps by the two bytes a WORD is", () => {
@@ -2033,32 +2037,32 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
   })
 
   test("a POINTER TO STRING(255) takes a shorter string as it is, and p^ is that string", () => {
-    expect(scanned("s : STRING(20) := 'abc'; c : BYTE;", "c := CFIRST(ADR(s));").get("c")).toBe(97n)
+    expect(scanned("sv : STRING(20) := 'abc'; c : BYTE;", "c := CFIRST(ADR(sv));").get("c")).toBe(97n)
   })
 
   test("a whole-string pointer handed a byte cursor that walked: p^[i] counts from where it stands", () => {
-    expect(scanned("s : STRING := 'abc'; a : BYTE; b : BYTE;", "a := CFIRST(ADR(s)); b := CFROMBYTE(ADR(s));").get("b")).toBe(98n)
+    expect(scanned("sv : STRING := 'abc'; a : BYTE; b : BYTE;", "a := CFIRST(ADR(sv)); b := CFROMBYTE(ADR(sv));").get("b")).toBe(98n)
   })
 
   test("its whole p^ is the string from there, which the model holds no place for — refused, not read from the start", () => {
-    const { diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING := 'abc'; n : INT; END_VAR\nn := CWHOLEFROMBYTE(ADR(s));\nEND_PROGRAM\n", "P", LIBS)
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR sv : STRING := 'abc'; n : INT; END_VAR\nn := CWHOLEFROMBYTE(ADR(sv));\nEND_PROGRAM\n", "P", LIBS)
     expect(diagnostics.map((d) => d.code)).toContain("pointer-value")
     // handed the string's address, it stands at the start: the whole string
-    expect(scanned("s : STRING := 'abc'; n : INT;", "n := CWHOLELEN(ADR(s));").get("n")).toBe(97n)
+    expect(scanned("sv : STRING := 'abc'; n : INT;", "n := CWHOLELEN(ADR(sv));").get("n")).toBe(97n)
   })
 
   test("a POINTER TO STRING cursor moved along its string is refused", () => {
-    const { diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEPWHOLE(ADR(s));\nEND_PROGRAM\n", "P", LIBS)
+    const { diagnostics } = lowerSource("PROGRAM P\nVAR sv : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEPWHOLE(ADR(sv));\nEND_PROGRAM\n", "P", LIBS)
     expect(diagnostics.map((d) => d.code)).toContain("pointer-value")
   })
 
   test("a NULL pointer variable reaches the callee as 0 — its `IF p = 0 THEN RETURN` answers, and a dereference faults", () => {
-    expect(scanned("s : STRING := 'abc'; ps : POINTER TO STRING; n : DINT; m : DINT;", "ps := ADR(s);\nn := CLENOR(ps);\nps := 0;\nm := CLENOR(ps);").get("m")).toBe(-1n)
-    expect(() => scanned("s : STRING := 'abc'; ps : POINTER TO STRING; c : BYTE;", "ps := ADR(s);\nps := 0;\nc := CDEREF(ps);")).toThrow("null pointer")
+    expect(scanned("sv : STRING := 'abc'; ps : POINTER TO STRING; n : DINT; m : DINT;", "ps := ADR(sv);\nn := CLENOR(ps);\nps := 0;\nm := CLENOR(ps);").get("m")).toBe(-1n)
+    expect(() => scanned("sv : STRING := 'abc'; ps : POINTER TO STRING; c : BYTE;", "ps := ADR(sv);\nps := 0;\nc := CDEREF(ps);")).toThrow("null pointer")
   })
 
   test("a STRING stored into a character is refused while lowering — CODESYS does not convert it", () => {
-    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR s : STRING := 'abc'; END_VAR\ns[0] := 'X';\nEND_PROGRAM\n", "P")
+    const { pou, diagnostics } = lowerSource("PROGRAM P\nVAR sv : STRING := 'abc'; END_VAR\nsv[0] := 'X';\nEND_PROGRAM\n", "P")
     expect([pou, diagnostics.map((d) => d.code)]).toEqual([undefined, ["assign-string"]])
   })
 
@@ -2071,27 +2075,27 @@ describe("lower — a STRING CURSOR (a character pointer a caller fills with a s
       const { pou, diagnostics } = lowerSource(`PROGRAM P\nVAR ${vars} END_VAR\n${body}\nEND_PROGRAM\n${extra}`, "P")
       return { lowered: pou !== undefined, codes: diagnostics.map((d) => d.code) }
     }
-    const NW = "narrow : STRING := 'abc'; wide : WSTRING := \"abc\"; intoWide : WSTRING; intoNarrow : STRING; same : BOOL; r : REAL; n : INT;"
+    const NW = "narrow : STRING := 'abc'; wide : WSTRING := \"abc\"; intoWide : WSTRING; intoNarrow : STRING; same : BOOL; rv : REAL; n : INT;"
     test("a STRING stored into a WSTRING", () => expect(codes(NW, "intoWide := narrow;")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("a WSTRING stored into a STRING", () => expect(codes(NW, "intoNarrow := wide;")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("a STRING compared with a WSTRING", () => expect(codes(NW, "same := narrow = wide;")).toEqual({ lowered: false, codes: ["string-op"] }))
-    test("a REAL stored into a STRING (uop_neg_real)", () => expect(codes(NW, "intoNarrow := -r;")).toEqual({ lowered: false, codes: ["assign-string"] }))
+    test("a REAL stored into a STRING (uop_neg_real)", () => expect(codes(NW, "intoNarrow := -rv;")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("an INT stored into a STRING", () => expect(codes(NW, "intoNarrow := n;")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("a chain link that would convert a STRING into a WSTRING", () =>
       expect(codes(NW, "intoWide := intoNarrow := narrow;")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("an INT argument for a STRING input", () =>
-      expect(codes(NW, "intoNarrow := F(n);", "FUNCTION F : STRING\nVAR_INPUT s : STRING; END_VAR\nF := s;\nEND_FUNCTION\n")).toEqual({ lowered: false, codes: ["assign-string"] }))
+      expect(codes(NW, "intoNarrow := F(n);", "FUNCTION F : STRING\nVAR_INPUT sv : STRING; END_VAR\nF := sv;\nEND_FUNCTION\n")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("a WSTRING argument for an FB's STRING input", () =>
-      expect(codes(`${NW} fb : FB;`, "fb(s := wide);", "FUNCTION_BLOCK FB\nVAR_INPUT s : STRING; END_VAR\nEND_FUNCTION_BLOCK\n")).toEqual({ lowered: false, codes: ["assign-string"] }))
+      expect(codes(`${NW} fb : FB;`, "fb(sv := wide);", "FUNCTION_BLOCK FB\nVAR_INPUT sv : STRING; END_VAR\nEND_FUNCTION_BLOCK\n")).toEqual({ lowered: false, codes: ["assign-string"] }))
     test("the explicit conversions stay legal", () =>
       expect(codes(NW, "intoWide := STRING_TO_WSTRING(narrow); intoNarrow := WSTRING_TO_STRING(wide); intoNarrow := INT_TO_STRING(n); same := narrow = 'abc';")).toEqual({ lowered: true, codes: [] }))
   })
 
   test("two pointers into ONE string share it, each at its own offset — StrMidA(pst := s, pstResult := s)", () => {
-    expect(scanned("s : STRING := 'Device.Main';", "CSHIFT(ADR(s), 7, ADR(s));").get("s")).toBe("Main")
+    expect(scanned("sv : STRING := 'Device.Main';", "CSHIFT(ADR(sv), 7, ADR(sv));").get("sv")).toBe("Main")
     // into two strings, each is its own
-    const p = scanned("s : STRING := 'Device.Main'; t : STRING(20);", "CSHIFT(ADR(s), 7, ADR(t));")
-    expect([p.get("s"), p.get("t")]).toEqual(["Device.Main", "Main"])
+    const p = scanned("sv : STRING := 'Device.Main'; t : STRING(20);", "CSHIFT(ADR(sv), 7, ADR(t));")
+    expect([p.get("sv"), p.get("t")]).toEqual(["Device.Main", "Main"])
   })
 
   test("anything but a string's address, a cursor or a pointer to a string is refused, not guessed", () => {
@@ -2307,9 +2311,9 @@ test("a VAR_TEMP with a non-constant initializer re-evaluates it on every run of
   expect(["fb1", "fb2", "own2", "g"].map((v) => runner.get(v))).toEqual([14n, 15n, 29n, 28n])
   // one reading a VAR_TEMP declared after it (or itself) reads a value no recording gives: refused
   const later = (init: string) => lowerSource(`PROGRAM P
-VAR g : INT; r : INT; END_VAR
+VAR g : INT; rv : INT; END_VAR
 VAR_TEMP ${init} END_VAR
-r := a;
+rv := a;
 END_PROGRAM
 `, "P").diagnostics.map((d) => d.code)
   expect(later("a : INT := g + b; b : INT := 1;")).toEqual(["init-reads-later"])
@@ -2352,7 +2356,7 @@ test("SIZEOF of an FB skips a replaced scalar VAR CONSTANT and adds a pointer pe
   expect(sized("VAR CONSTANT c : T_K := (wide := 5, narrow := 6); END_VAR")).toBe(32n)
   expect(sized("", "I_A")).toBe(24n)
   expect(sized("", "I_A, I_B")).toBe(32n)
-  expect(sized("VAR CONSTANT s : STRING := 'abc'; END_VAR")).toEqual(["sizeof-unmeasured"])
+  expect(sized("VAR CONSTANT sv : STRING := 'abc'; END_VAR")).toEqual(["sizeof-unmeasured"])
 })
 
 // transpile-review 11: STRING<->WSTRING and STRING->number conversions cut the operand to 80 characters, and a
@@ -2419,7 +2423,7 @@ test("an ANY input's pValue dereferenced through a pointer of another type is re
   const codes = (pointee: string, arg: string) =>
     lowerSource(
       `FUNCTION F : LREAL\nVAR_INPUT v : ANY; END_VAR\nVAR pr : POINTER TO ${pointee}; END_VAR\npr := v.pValue;\nF := pr^;\nEND_FUNCTION\n` +
-        `PROGRAM P\nVAR d : ${arg}; r : LREAL; END_VAR\nr := F(v := d);\nEND_PROGRAM\n`,
+        `PROGRAM P\nVAR d : ${arg}; rv : LREAL; END_VAR\nrv := F(v := d);\nEND_PROGRAM\n`,
       "P",
     ).diagnostics.map((d) => d.code)
   expect(codes("REAL", "DINT")).toEqual(["pointer-type"])
@@ -2467,7 +2471,7 @@ test("a literal FOR limit the counter's type cannot hold is compared unnarrowed"
 // 'SINT'" for 300 / -212 on a SINT, "Lower border must be lower than upper border" for 5..1 and 0..200.
 test("a CASE label outside the selector's type, or an inverted range, is refused", () => {
   const codes = (label: string) =>
-    lowerSource(`PROGRAM P\nVAR sv : SINT := 44; r : INT; END_VAR\nCASE sv OF ${label}: r := 1; ELSE r := 2; END_CASE\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
+    lowerSource(`PROGRAM P\nVAR sv : SINT := 44; rv : INT; END_VAR\nCASE sv OF ${label}: rv := 1; ELSE rv := 2; END_CASE\nEND_PROGRAM\n`, "P").diagnostics.map((d) => d.code)
   expect(codes("300")).toEqual(["case-label-type"])
   expect(codes("-212")).toEqual(["case-label-type"])
   expect(codes("5..1")).toEqual(["case-label-type"])

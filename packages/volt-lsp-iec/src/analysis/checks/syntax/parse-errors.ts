@@ -42,6 +42,7 @@ export function parseErrorMessage(e: ParseError, messages: CheckContext["message
   if (e.unexpectedToken !== undefined) return messages.unexpectedToken(e.unexpectedToken)
   if (e.orphanPragma !== undefined) return messages.orphanPragma(e.orphanPragma)
   if (e.unterminatedConditional === true) return messages.unterminatedConditional()
+  if (e.noCaseLabel === true) return messages.noCaseLabel()
   if (e.attributeValueString !== undefined) return messages.attributeValueString(e.attributeValueString)
   if (e.directAddressExpected !== undefined) return messages.directAddressExpectedAt(e.directAddressExpected)
   if (e.sectionInStruct !== undefined) return sectionInStructMessage(e.sectionInStruct, messages)

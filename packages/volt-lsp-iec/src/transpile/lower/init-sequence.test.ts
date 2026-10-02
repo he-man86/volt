@@ -106,7 +106,7 @@ test("a GLOBAL whose initializer is refused is reported, not cached at its defau
 test("a STRUCT FIELD whose initializer is refused is reported too — and never deferred", () => {
   // A layout has no init step, so deferring a field would queue a statement nothing emits: the same silent default.
   const r = lowerSource(
-    `${F_GET}TYPE T_S :\nSTRUCT\n\ta : INT := F_Get();\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tn : INT := SHL(INT#1, SIZEOF(T_S));\n\ts : T_S;\n\tout : INT;\nEND_VAR\nout := s.a;\nEND_PROGRAM\n`,
+    `${F_GET}TYPE T_S :\nSTRUCT\n\ta : INT := F_Get();\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tn : INT := SHL(INT#1, SIZEOF(T_S));\n\tsx : T_S;\n\tout : INT;\nEND_VAR\nout := sx.a;\nEND_PROGRAM\n`,
     "PLC_PRG",
   )
   expect(r.diagnostics.map((d) => d.code)).toContain("init-not-constant")
@@ -187,7 +187,7 @@ test("a REFERENCE bound at its declaration reads and writes its target, per inst
 test("a REFERENCE field bound at its declaration is per INSTANCE, not shared", () => {
   const src =
     `PROGRAM PLC_PRG\nVAR a : FB_R; b : FB_R; END_VAR\na();\na();\nb();\nEND_PROGRAM\n\n` +
-    `FUNCTION_BLOCK FB_R\nVAR n : UDINT := 0; r : REFERENCE TO UDINT REF= n; END_VAR\nr := r + 1;\nEND_FUNCTION_BLOCK\n`
+    `FUNCTION_BLOCK FB_R\nVAR n : UDINT := 0; rx : REFERENCE TO UDINT REF= n; END_VAR\nrx := rx + 1;\nEND_FUNCTION_BLOCK\n`
   const r = lowerSource(src, "PLC_PRG")
   expect(r.diagnostics).toEqual([])
   const p = run(r.pou!)

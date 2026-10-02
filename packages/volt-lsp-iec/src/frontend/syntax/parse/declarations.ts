@@ -102,6 +102,28 @@ export function endAfterType(c: Cursor, global: boolean): Token | undefined {
   return c.eatPunct(";")
 }
 
+/**
+ * A VAR section left without its END_VAR: "'END_VAR' expected instead of ''" — the vendor reads the section on to the
+ * end of the declaration part, whatever ends the list here: its `IMPLEMENTATION` line, a unit's own closer (which the IDE
+ * never receives), the end of the text (`rec_unterminated_var`), the next VAR section (`rec_unterminated_var_before_section`,
+ * where each vendor first reads that section back as a STRUCT does a section in its fields: "Variable declaration
+ * expected instead of VAR_INPUT\r\n\tk:INT;\r\nEND_VAR\r\n" — `refuseSectionInStruct`'s echo, TwinCAT's recording cut at
+ * the first line break; both vendors 2026-10-02). The token is left for the caller, which reads that section as its own:
+ * neither vendor calls its names undefined.
+ */
+function unclosedSection(c: Cursor): void {
+  const next = c.peek()
+  if (atVarSection(c)) {
+    // read on a fork: the echo needs the section's declarations, and the unit still declares them
+    const section = parseVarSection(c.fork())
+    if (section !== undefined) {
+      const keyword = section.sectionKind === "VAR_INST" || section.sectionKind === "VAR_CONFIG" ? "" : next.text
+      c.pushParseError({ message: `Variable declaration expected instead of ${keyword}`, span: next.span, sectionEcho: { keyword, decls: section.decls } })
+    }
+  }
+  c.pushError("'END_VAR' expected instead of ''", next.span)
+}
+
 /** Returns true if the next meaningful token starts a VAR section. */
 export function atVarSection(c: Cursor): boolean {
   const t = c.peek()
@@ -151,10 +173,11 @@ export function parseVarSection(c: Cursor): VarSection | undefined {
     // the unit's closer, drawing a third "unterminated <unit>" from the unit parser.
     // Any OTHER non-name token is a reserved word used as a variable name (`Limit : INT;`) — a bad decl, not
     // an unterminated section. Fall through: `parseVarDecl` reports it on the name and recovers to the `;`.
-    if (c.atDeclListEnd()) break
+    // …and so does the `IMPLEMENTATION <LANG>` line: the declaration part ends there, as the IDE receives it
+    if (c.atDeclListEnd() || c.opensImplementationLine()) break
     if (!parseDeclInto(c, list, section.decls)) break
   }
-  c.pushError("unterminated VAR section: expected END_VAR", header.span)
+  unclosedSection(c)
   return section
 }
 
@@ -173,7 +196,8 @@ export function parseDeclInto(c: Cursor, list: DeclList, decls: VarDecl[]): bool
   }
   if (decl === "bad-name") {
     c.consume()
-    reportBrokenDeclaration(c, list.ends)
+    // the cascade stopped at a NAME: the next declaration starts there (`reportBrokenDeclaration`)
+    if (reportBrokenDeclaration(c, list.ends) === "resumed") return true
   }
   if (!c.recoverTo({ keywords: list.ends, puncts: [";"] })) return false
   c.eatPunct(";") // consume the ';' anchor if that's what we landed on
@@ -204,13 +228,18 @@ function refuseAtOperand(c: Cursor, tokens: readonly Token[]): boolean {
 /**
  * A NAME WHERE `,`, `AT` OR `:` BELONGS — the next word after a declaration's name. Both vendors: "',, AT or :' expected
  * instead of 'x'", and the declaration is gone to its `;` — `VAR NON_RETAIN x : T;` declares neither (NON_RETAIN is a
- * name, `lex/vocabulary`; `var_non_retain`, `decl_non_retain_in_*`, `decl_retain_non_retain`, 2026-10-01). Only that
- * measured shape — a name — is worded so; anything else is `expectPunct(":")`'s as before. True when refused.
+ * name, `lex/vocabulary`; `var_non_retain`, `decl_non_retain_in_*`, `decl_retain_non_retain`, 2026-10-01). So is a `;`
+ * there — and the refused `;` is passed, so the recovery runs to the NEXT one and the declaration after it is gone too:
+ * `ld : TON; out : INT;` resumes a declaration at `TON` and loses `out` ("Identifier 'out' not defined",
+ * `rec_refused_name_declared_fb_type`, CODESYS 2026-10-02). Anything else is `expectPunct(":")`'s as before. True when
+ * refused.
  */
 function refuseNameAfterName(c: Cursor): boolean {
   const next = c.peek()
-  if (next.kind !== "identifier") return false
+  const semicolon = next.kind === "punct" && next.text === ";"
+  if (next.kind !== "identifier" && !semicolon) return false
   c.pushError(`',, AT or :' expected instead of '${next.text}'`, next.span)
+  if (semicolon) c.consume()
   return true
 }
 
@@ -225,9 +254,8 @@ function readAccessPath(c: Cursor): AccessPath | undefined {
 function parseVarDecl(c: Cursor, list: DeclList): VarDecl | DeclFailure | undefined {
   // `expectName` (not `expectIdent`): the soft keywords GET/SET/OVERRIDE are legal variable names — the Standard `RS`
   // FB literally declares `SET : BOOL`, and CODESYS accepts it (`lex_soft_keyword_name_*`), in a STRUCT too
-  // (`decl_struct_field_soft_name`). An IL operator or `__` name is refused by `analysis/checks/names/refused-name.ts`
-  // until conformance 2.8.3 gives the two declaration cascades one home: they differ on `s : ST_Foo;`, which no
-  // recording decides.
+  // (`decl_struct_field_soft_name`). An IL operator, an elementary type's name or a `__` name is refused there too
+  // (`isRefusedDeclaredName`, rule R6, frontend-conformance 2.8.3).
   // The token that could not be a name is REMEMBERED, not just reported: a declaration that fails binds nothing,
   // and without this every later mention of the name is "not defined" where CODESYS stops at the parse error.
   // See `ParseResult.failedDeclarations`.
@@ -258,7 +286,7 @@ function parseVarDecl(c: Cursor, list: DeclList): VarDecl | DeclFailure | undefi
       tokens.push(c.consume())
     }
     atRefused = refuseAtOperand(c, tokens)
-    at = bodySpanFromTokens(tokens, atKw.span)
+    at = bodySpanFromTokens(tokens, atKw.span, c.dialect)
   }
 
   const colon = c.expectPunct(":")

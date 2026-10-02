@@ -295,6 +295,57 @@ export type UnitStarter = (typeof UNIT_STARTERS)[number]
 export const SOFT_NAME_KEYWORDS: ReadonlySet<string> = new Set(["GET", "SET", "OVERRIDE"])
 
 /**
+ * THE WORDS THE PARSER REFUSES WHERE A NAME OR AN OPERAND BELONGS, though the lexer reads them as names — the Instruction
+ * List operators and the elementary type names (frontend-conformance 2.8.3, rule R6: the analysis check `refused-name`
+ * held them until then, with a cascade of its own). `ld : INT;` is "Unexpected token 'ld' found" and the declaration's
+ * cascade (`cc_il_name_*`, `cc_reserved_name_*`, `cc4_type_name_*`, `rec_refused_name_cascade_declaration`); where a
+ * statement starts `dword := n + 1;` is the same word and the statement's resync (`rec_refused_name_cascade_type_word_start`);
+ * as an operand `n + dint + 1` is "Expression expected instead of 'dint'" and the resync from the word
+ * (`rec_refused_name_cascade_type_word`); and the resync PAIRS each of them as the token no statement starts with that it
+ * is, never resuming a statement there (`rec_refused_name_cascade_il_word`) — both vendors, 2026-09-20 and 2026-10-02.
+ *
+ * Not refused: a call's CALLEE (`LTIME()` reads the clock — corpus pro2193 `StopwatchFB`) and a lone ARGUMENT
+ * (`XSIZEOF(DINT)` names a type), nor a member's name (`bx.INT`, rule E32). `CAL` is a keyword (`KEYWORDS`); `CALC` is
+ * none of these — it parses as a conditional call (`analysis/checks/names/conditional-call.ts`).
+ */
+export const IL_OPERATOR_WORDS: ReadonlySet<string> = new Set([
+  "R", "S", "LD", "LDN", "ST", "STN", "RET", "RETC", "RETCN", "JMPC", "JMPCN", "CALCN", "ANDN", "ORN", "XORN",
+])
+
+/** The elementary type names — their short and long forms, and the platform integers. `types/elementary.ts` holds what
+ *  each type is; `types/types.test.ts` holds the two lists to each other. */
+export const ELEMENTARY_TYPE_WORDS: ReadonlySet<string> = new Set([
+  "BOOL", "BIT", "BYTE", "WORD", "DWORD", "LWORD", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
+  "REAL", "LREAL", "TIME", "LTIME", "DATE", "TOD", "DT", "LDATE", "LTOD", "LDT", "STRING", "WSTRING",
+  "TIME_OF_DAY", "DATE_AND_TIME", "LDATE_AND_TIME", "LTIME_OF_DAY", "__XINT", "__UXINT", "__XWORD",
+])
+
+/**
+ * THE 64-BIT DATE TYPES ARE CODESYS'S ALONE. TwinCAT has `LTIME` and does NOT have `LDATE`, `LTOD`/`LTIME_OF_DAY` or
+ * `LDT`/`LDATE_AND_TIME`: it answers "Unknown type: 'LDATE'" for a declaration, and "Identifier 'DATE_TO_LDATE' not
+ * defined" for the conversions that would carry them (39 messages across 13 fixtures in its recording, and none in
+ * CODESYS's — 2026-09-20) — and `ldate : INT;` is a name it declares. The lexer reads them alike on both vendors; type
+ * resolution refuses them (`types/resolve.ts` `isDialectType`) and the parser lets them stand as names (`isRefusedWord`).
+ */
+export const CODESYS_ONLY_TYPE_WORDS: ReadonlySet<string> = new Set(["LDATE", "LTOD", "LTIME_OF_DAY", "LDT", "LDATE_AND_TIME"])
+
+/** A word the parser refuses where a name or an operand belongs, in `dialect` (`IL_OPERATOR_WORDS`, `ELEMENTARY_TYPE_WORDS`):
+ *  a type name only where the type exists. */
+export function isRefusedWord(text: string, dialect: Dialect): boolean {
+  const word = text.toUpperCase()
+  if (IL_OPERATOR_WORDS.has(word)) return true
+  return ELEMENTARY_TYPE_WORDS.has(word) && !(dialect === "twincat" && CODESYS_ONLY_TYPE_WORDS.has(word))
+}
+
+/** A name a DECLARATION refuses: a refused word (`isRefusedWord`), or one holding CONSECUTIVE UNDERSCORES (`foo__bar`,
+ *  `__systemReserved`), which the compiler reserves for itself (`identifier_consecutive_underscores`,
+ *  `identifier_double_underscore`, `rec_refused_name_cascade_initializer`, both vendors) — in a declaration only:
+ *  `__NEW`, `__QUERYINTERFACE` and the rest are compiler operators whose uses are legitimate. */
+export function isRefusedDeclaredName(text: string, dialect: Dialect): boolean {
+  return isRefusedWord(text, dialect) || text.includes("__")
+}
+
+/**
  * Keywords a UNIT header may take as its name (a function block, method, property or interface): the variable names
  * above and the six modifiers too. Not because CODESYS accepts them there — it refuses to CREATE a method called
  * `public` ("The name 'public' is not valid for this object.", `lex_soft_keyword_method_name_*`), and an FB called

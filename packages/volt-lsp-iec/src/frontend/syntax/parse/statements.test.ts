@@ -12,7 +12,7 @@ import { bodyStatements } from "./body-parse.js"
 function errors(body: string, dialect: Dialect = "codesys"): string[] {
   const toks = lex(body, dialect).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).errors.map((e) => e.message)
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect } satisfies BodySpan).errors.map((e) => e.message)
 }
 
 const refusedAssignment = (name: string): string[] => [
@@ -162,7 +162,7 @@ const refusedLiteral = (text: string): string[] => [
 function statements(body: string) {
   const toks = lex(body, "codesys").filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan).statements
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect: "codesys" } satisfies BodySpan).statements
 }
 
 test("a malformed literal is refused whole, and the tokens after it resync as after a refused word (lit_*)", () => {
@@ -270,4 +270,176 @@ test("a CASE label list with a trailing comma wants an expression at the colon, 
 test("`__CATCH` without its operand is a catch (stmt_try_catch_without_operand, ST18)", () => {
   for (const d of ["codesys", "twincat"] as const) expect(errors("__TRY\n\tout := 1;\n__CATCH\n\tout := 2;\n__ENDTRY", d)).toEqual([])
   expect(statements("__TRY\n\tout := 1;\n__CATCH\n\tout := 2;\n__ENDTRY")[0]).toMatchObject({ kind: "try", catchBody: [{ kind: "assign" }] })
+})
+
+// ─── 2.8 error recovery (R1, R2, R5), the recorded answers (`fixtures/grammar/recovery.ts`, both vendors 2026-10-02) ───
+
+test("an operand missing is the vendors' one wording for every token (rec_expected_expression*, R5)", () => {
+  expect(errors("out := 1 + ;")).toEqual(["Expression expected instead of ';'"])
+  expect(errors("out := (1 + );")).toEqual(["Expression expected instead of ')'"])
+  expect(errors("out := * 2;")).toEqual(["Expression expected instead of '*'"])
+  expect(errors("out := F(, 2);")).toEqual(["Expression expected instead of ','"])
+  expect(errors("out := arr[];")).toEqual(["Expression expected instead of ']'"])
+})
+
+test("an operand the end of the body took is the `;` and the operand, the end quoted '' (rec_expected_expression_end_of_pou, R5)", () => {
+  expect(errors("out := 1 +")).toEqual(["';' expected instead of end of POU", "Expression expected instead of ''"])
+})
+
+test("IF with no condition is the one line on THEN, and the IF reads on (rec_expected_expression_condition, R5)", () => {
+  expect(errors("IF THEN\n\tout := 1;\nEND_IF")).toEqual(["Expression expected instead of 'THEN'"])
+})
+
+test("a block left open at the end of the body says what it still expects (rec_missing_end_*, R2)", () => {
+  expect(errors("IF x THEN\n\tout := 1;")).toEqual(["Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected"])
+  expect(errors("CASE a OF\n1: out := 1;")).toEqual(["Unexpected End-of-file found: 'END_CASE' expected"])
+  expect(errors("FOR i := 1 TO 3 DO\n\tout := out + i;")).toEqual(["Unexpected End-of-file found: 'END_FOR' expected"])
+  expect(errors("WHILE x DO\n\tx := FALSE;")).toEqual(["Unexpected End-of-file found: 'END_WHILE' expected"])
+})
+
+test("a REPEAT whose UNTIL has no END_REPEAT wants it instead of '' (rec_missing_end_repeat, R2)", () => {
+  expect(errors("REPEAT\n\tout := 1;\nUNTIL x")).toEqual(["'END_REPEAT' expected instead of ''"])
+})
+
+test("another block's closer leaves every open block, and is refused where no block is open (rec_end_while_closes_if, rec_missing_end_if_in_for, rec_missing_until, R2)", () => {
+  expect(errors("IF x THEN\n\tout := 1;\nEND_WHILE")).toEqual([
+    "Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected",
+    "Unexpected token 'END_WHILE' found",
+    "';' expected instead of end of POU",
+  ])
+  expect(errors("FOR i := 1 TO 3 DO\n\tIF x THEN\n\t\tout := i;\nEND_FOR")).toEqual([
+    "Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected",
+    "Unexpected End-of-file found: 'END_FOR' expected",
+    "Unexpected token 'END_FOR' found",
+    "';' expected instead of end of POU",
+  ])
+  expect(errors("REPEAT\n\tout := 1;\nEND_REPEAT")).toEqual([
+    "Unexpected End-of-file found: 'END_REPEAT' expected",
+    "Unexpected token 'END_REPEAT' found",
+    "';' expected instead of end of POU",
+  ])
+})
+
+test("a block keyword missing is its one line, and the block reads on (rec_missing_then, _of, _to, _do, R2)", () => {
+  expect(errors("IF x\n\tout := 1;\nEND_IF")).toEqual(["'THEN' expected instead of 'out'"])
+  expect(errors("CASE a\n1: out := 1;\nEND_CASE")).toEqual(["'OF' expected instead of '1'"])
+  expect(errors("FOR i := 1 3 DO\n\tout := i;\nEND_FOR")).toEqual(["'TO' expected instead of '3'"])
+  expect(errors("FOR i := 1 TO 3\n\tout := out + i;\nEND_FOR")).toEqual(["'DO' expected instead of 'out'"])
+  expect(errors("WHILE x\n\tx := FALSE;\nEND_WHILE")).toEqual(["'DO' expected instead of 'x'"])
+})
+
+test("a statement without its `;` is the one line before a name, a keyword, a closer, the end (rec_missing_semicolon_*, R1)", () => {
+  expect(errors("out := 1\nn := 2;")).toEqual(["';' expected instead of 'n'"])
+  expect(errors("out := 1\nIF x THEN\n\tout := 2;\nEND_IF")).toEqual(["';' expected instead of 'IF'"])
+  expect(errors("IF x THEN\n\tout := 1\nEND_IF")).toEqual(["';' expected instead of 'END_IF'"])
+  expect(errors("out := 1")).toEqual(["';' expected instead of end of POU"])
+})
+
+test("one line per block, whichever part is open (rec_missing_end_if_after_*, rec_missing_end_case_after_else, rec_missing_end_try*, R2)", () => {
+  const ifOpen = ["Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected"]
+  expect(errors("IF x THEN\n\tout := 1;\nELSE\n\tout := 2;")).toEqual(ifOpen)
+  expect(errors("IF x THEN\n\tout := 1;\nELSIF y THEN\n\tout := 2;")).toEqual(ifOpen)
+  expect(errors("CASE a OF\n1: out := 1;\nELSE\n\tout := 2;")).toEqual(["Unexpected End-of-file found: 'END_CASE' expected"])
+  const tryOpen = ["Unexpected End-of-file found: '__CATCH', '__FINALLY' or '__ENDTRY' expected"]
+  expect(errors("__TRY\n\tout := 1;")).toEqual(tryOpen)
+  expect(errors("__TRY\n\tout := 1;\n__CATCH\n\tout := 2;")).toEqual(tryOpen)
+  expect(errors("__TRY\n\tout := 1;\n__CATCH\n\tout := 2;\n__FINALLY\n\tout := 3;")).toEqual(tryOpen)
+})
+
+test("a closer where no block is open is refused as a statement start, then the resync (rec_stray_closer_*, R2)", () => {
+  expect(errors("out := 1;\nEND_IF\nout := 2;")).toEqual(["Unexpected token 'END_IF' found", "';' expected instead of 'out'"])
+  expect(errors("out := 1;\nEND_FOR;")).toEqual(["Unexpected token 'END_FOR' found"])
+})
+
+// ─── 2.8.3 the refused words in the parser (R6) — `analysis/checks/names/refused-name` held them until then ───
+
+test("an elementary type's name as an operand is refused on the word, then a pair per token to the `;` (rec_refused_name_cascade_type_word, R6)", () => {
+  expect(errors("out := n + dint + 1;\nn := 2;")).toEqual([
+    "Expression expected instead of 'dint'",
+    "';' expected instead of 'dint'",
+    "Unexpected token 'dint' found",
+    "';' expected instead of '+'",
+    "Unexpected token '+' found",
+    "';' expected instead of '1'",
+    "Unexpected token '1' found",
+  ])
+})
+
+test("a refused word opening a statement is the word and the resync, which resumes at a name (rec_refused_name_cascade_type_word_start, R6)", () => {
+  expect(errors("dword := n + 1;\nn := 2;")).toEqual([
+    "Unexpected token 'dword' found",
+    "';' expected instead of ':='",
+    "Unexpected token ':=' found",
+    "';' expected instead of 'n'",
+  ])
+})
+
+test("the resync pairs a refused word, never resuming a statement at it (rec_refused_name_cascade_il_word, R6)", () => {
+  expect(errors("ld := n + st;\nn := 2;")).toEqual([
+    "Unexpected token 'ld' found",
+    "';' expected instead of ':='",
+    "Unexpected token ':=' found",
+    "';' expected instead of 'n'",
+    "Expression expected instead of 'st'",
+    "';' expected instead of 'st'",
+    "Unexpected token 'st' found",
+  ])
+})
+
+test("a refused word called, or the whole argument of a call, is a name (corpus StopwatchFB `LTIME()`, `XSIZEOF(DINT)`, R6)", () => {
+  expect(errors("t := LTIME();\nn := XSIZEOF(DINT);\nn := F(a := INT, BOOL);")).toEqual([])
+})
+
+test("a type name TwinCAT does not have is a name there (`CODESYS_ONLY_TYPE_WORDS`, R6)", () => {
+  expect(errors("n := ldate + 1;", "twincat")).toEqual([])
+  expect(errors("n := ldate + 1;", "codesys")[0]).toBe("Expression expected instead of 'ldate'")
+})
+
+test("a `.` on an intrinsic's result ends the expression, and `.size;` is read on as a statement (op_sys_varinfo)", () => {
+  expect(errors("wSize := __VARINFO(iValue).size;")).toEqual(["';' expected instead of '.'"])
+})
+
+test("a member name missing after `.` takes the next token for it (rec_member_name_expected)", () => {
+  expect(errors("out := bx.;")).toEqual(["';' is no component of 'bx'", "';' expected instead of end of POU"])
+})
+
+test("an ELSE or an ELSIF after the IF's ELSE is refused inside the ELSE branch, and END_IF closes the IF (stmt_if_two_else, stmt_if_elsif_after_else, R2)", () => {
+  expect(errors("IF x THEN\n\tout := 1;\nELSE\n\tout := 2;\nELSE\n\tout := 3;\nEND_IF")).toEqual([
+    "Unexpected token 'ELSE' found",
+    "';' expected instead of 'out'",
+  ])
+})
+
+test("a refused word is no statement label: the word refused, the `:` paired, the statement after it read on (rec_refused_word_body_label_type, _il, both vendors)", () => {
+  for (const w of ["dint", "st"])
+    expect(errors(`${w}: out := 1;`)).toEqual([`Unexpected token '${w}' found`, "';' expected instead of ':'", "Unexpected token ':' found", "';' expected instead of 'out'"])
+})
+
+test("nor a CASE arm's label after an arm: it is a statement of the arm before (rec_refused_word_case_label, both vendors)", () => {
+  expect(errors("CASE n OF\n1: out := 1;\ndint: out := 2;\nEND_CASE")).toEqual([
+    "Unexpected token 'dint' found",
+    "';' expected instead of ':'",
+    "Unexpected token ':' found",
+    "';' expected instead of 'out'",
+  ])
+})
+
+test("the FIRST arm's label missing is \"No CASE label found\", and what stands there is that arm's statements (rec_refused_word_case_label_first, both vendors)", () => {
+  expect(errors("CASE n OF\nint: out := 1;\nEND_CASE")).toEqual([
+    "No CASE label found",
+    "Unexpected token 'int' found",
+    "';' expected instead of ':'",
+    "Unexpected token ':' found",
+    "';' expected instead of 'out'",
+  ])
+})
+
+test("a keyword or a refused word as a JMP target is its invalid destination, the JMP ending at its `;` (rec_jmp_keyword_target, rec_refused_word_jmp_target, both vendors)", () => {
+  // the analysis words the destination ("Invalid destination ld for JMP", "No such label 'INVALID: LD' …"); the parser says nothing
+  expect(errors("JMP ld;\nout := 1;")).toEqual([])
+  expect(errors("JMP END_IF;\nout := 1;")).toEqual([])
+})
+
+test("the end of the text where a member name belongs is taken for it: \"'' is no component\" and the `;` wanted (rec_member_name_at_end, both vendors)", () => {
+  expect(errors("out := bx.")).toEqual(["'' is no component of 'bx'", "';' expected instead of end of POU"])
 })

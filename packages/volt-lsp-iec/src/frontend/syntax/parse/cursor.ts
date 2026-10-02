@@ -13,8 +13,8 @@ import { isTrivia, type Token } from "../lex/tokens.js"
 import type { Span } from "../span.js"
 import type { ParseError } from "../ast/nodes.js"
 import { opensKeywordLine } from "../format/implementation-line.js"
-import { DECL_LIST_ENDERS, SOFT_NAME_KEYWORDS, UNIT_NAME_KEYWORDS, type Dialect, type Keyword } from "../lex/vocabulary.js"
-import { nameExpected, unexpectedTokenOf, vendorTokenText } from "./errors.js"
+import { DECL_LIST_ENDERS, isRefusedDeclaredName, isRefusedWord, SOFT_NAME_KEYWORDS, UNIT_NAME_KEYWORDS, type Dialect, type Keyword } from "../lex/vocabulary.js"
+import { expectedInsteadOf, nameExpected, unexpectedTokenOf, vendorTokenText } from "./errors.js"
 
 export class Cursor {
   private pos = 0
@@ -28,7 +28,19 @@ export class Cursor {
   constructor(
     private readonly tokens: readonly Token[],
     private readonly vocabulary?: Dialect,
+    /** Whether the tokens are a BODY's statements — where a refused word is refused as a name and an operand
+     *  (`refusedWord`). A declaration's initializer and a contained expression are no body. */
+    private readonly body = false,
   ) {}
+
+  /** Is `t` a word refused where a name or an operand of a body belongs — an IL operator, an elementary type's name
+   *  (`syntax/lex/vocabulary.ts` `isRefusedWord`, rule R6)? Only in a body; the other places a refused word is refused
+   *  ask the vocabulary themselves — a declared name, a STRUCT/UNION field's included (`expectName`,
+   *  `rec_refused_word_struct_field*`), and an initializer's operand (`initializer` `refuseMalformedInit`,
+   *  `rec_refused_word_initializer*`), both vendors 2026-10-02. */
+  refusedWord(t: Token): boolean {
+    return this.body && t.kind === "identifier" && isRefusedWord(t.text, this.dialect)
+  }
 
   /** The dialect the tokens were lexed with — thrown for, by name, on a cursor that was given none. */
   get dialect(): Dialect {
@@ -186,7 +198,7 @@ export class Cursor {
   /** A cursor at this position over the same tokens, with errors of its own: a speculative parse that leaves this
    *  cursor untouched (`statements.ts` `isArmStart`). */
   fork(): Cursor {
-    const ahead = new Cursor(this.tokens, this.vocabulary)
+    const ahead = new Cursor(this.tokens, this.vocabulary, this.body)
     ahead.pos = this.pos
     return ahead
   }
@@ -237,7 +249,7 @@ export class Cursor {
     const t = this.eatKeyword(kw)
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`'${kw}' expected instead of ${vendorTokenText(next)}`, next.span)
+      this.pushError(expectedInsteadOf(`'${kw}'`, next), next.span)
     }
     return t
   }
@@ -246,7 +258,7 @@ export class Cursor {
     const t = this.eatPunct(text)
     if (t === undefined) {
       const next = this.peek()
-      this.pushError(`'${text}' expected instead of ${vendorTokenText(next)}`, next.span)
+      this.pushError(expectedInsteadOf(`'${text}'`, next), next.span)
     }
     return t
   }
@@ -265,6 +277,13 @@ export class Cursor {
    * (`SOFT_NAME_KEYWORDS`). The token's `.text` keeps its source casing, so it reads as the name.
    */
   expectName(): Token | undefined {
+    // a name a declaration refuses (`isRefusedDeclaredName`: `ld`, `byte`, `foo__bar`) is the word a reserved one is,
+    // left unconsumed for the declaration's cascade (rule R6, `cc_il_name_*`, `identifier_double_underscore`)
+    const t = this.peek()
+    if (t.kind === "identifier" && isRefusedDeclaredName(t.text, this.dialect)) {
+      this.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
+      return undefined
+    }
     return this.expectNameOf(SOFT_NAME_KEYWORDS)
   }
 

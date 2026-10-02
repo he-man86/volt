@@ -243,7 +243,7 @@ describe("an undecided chain leaves only its own branches out: the text outside 
     expect(parsed.ok).toBe(false)
     expect(parsed.refused).toContain("IsSimulationMode")
     // the `n := ;` after the chain, which the vendor compiles whatever the device (before the review: no error at all)
-    expect(parsed.errors.map((e) => [e.message, e.span.start >= source.indexOf("n := ;")])).toEqual([["expected expression, got punct ';'", true]])
+    expect(parsed.errors.map((e) => [e.message, e.span.start >= source.indexOf("n := ;")])).toEqual([["Expression expected instead of ';'", true]])
     expect(parsed.statements.map((s) => source.slice(s.span.start, s.span.end).trim())[0]).toBe("IF n > 1 THEN n := 2; END_IF")
   })
 

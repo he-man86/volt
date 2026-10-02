@@ -18,7 +18,7 @@ import { parseTypeExpression } from "../type-expr.js"
 import { atVarSection, collectVarSections, parseVarSection } from "../declarations.js"
 import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
-import { plainTokenText } from "../errors.js"
+import { atObjectEnd, vendorTokenText } from "../errors.js"
 import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
 import { identFromToken, readHeaderNames, readModifiers, readPropertyModifiers, refusedAccessModifier } from "../names.js"
 
@@ -87,8 +87,22 @@ export function parseInterface(c: Cursor): Interface | undefined {
       if (p !== undefined) properties.push(p)
       continue
     }
-    // Unknown — record and skip
-    c.pushError(`unexpected ${plainTokenText(next)} inside INTERFACE`, next.span)
+    // A NAME where a member belongs is read as a declaration's name, and the `,`, AT or `:` it wants is missing: "',, AT
+    // or :' expected instead of ''" before END_INTERFACE, which the push strips (`rec_interface_stray`, CODESYS 2026-10-02;
+    // TwinCAT first reads the declaration back, "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected instead of stray:;",
+    // a known divergence). ANY OTHER TOKEN is refused as a statement start is, and the statement it would open then wants
+    // its `;` where the object ends: "Unexpected token 'END_IF' found", "';' expected instead of end of POU"
+    // (`rec_interface_stray_keyword`, both vendors 2026-10-02). What stands between it and the object's end is unmeasured.
+    if (next.kind === "identifier") {
+      c.consume()
+      const after = c.peek()
+      c.pushError(`',, AT or :' expected instead of ${atObjectEnd(after) ? "''" : vendorTokenText(after)}`, after.span)
+    } else {
+      c.consume()
+      c.pushError(`Unexpected token ${vendorTokenText(next)} found`, next.span, next.text)
+      const after = c.peek()
+      if (atObjectEnd(after)) c.pushError("';' expected instead of end of POU", after.span)
+    }
     if (!c.recoverTo({ keywords: ["END_INTERFACE", "METHOD", "PROPERTY"] })) break
   }
 

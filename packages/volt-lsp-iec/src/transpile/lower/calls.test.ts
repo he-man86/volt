@@ -44,7 +44,7 @@ describe("a type that contains itself", () => {
    */
   test("an FB declaring an instance of ITSELF is refused, not chased", () => {
     const source = st(
-      "FUNCTION_BLOCK FB_R", "VAR", T + "r : FB_R;", "END_VAR", "r();", "END_FUNCTION_BLOCK", "",
+      "FUNCTION_BLOCK FB_R", "VAR", T + "rx : FB_R;", "END_VAR", "rx();", "END_FUNCTION_BLOCK", "",
       "PROGRAM PLC_PRG", "VAR", T + "x : FB_R;", "END_VAR", "x();", "END_PROGRAM",
     )
     expect(codesFor(source)).toContain("layout-recursive")
@@ -88,7 +88,7 @@ describe("what a call may bind", () => {
   test("an FB called with a POSITIONAL argument is refused — a body call names its parameters", () => {
     const source = st(
       "FUNCTION_BLOCK FB_S", "VAR_INPUT", T + "n : INT;", "END_VAR", "END_FUNCTION_BLOCK", "",
-      "PROGRAM PLC_PRG", "VAR", T + "s : FB_S;", "END_VAR", "s(5);", "END_PROGRAM",
+      "PROGRAM PLC_PRG", "VAR", T + "sx : FB_S;", "END_VAR", "sx(5);", "END_PROGRAM",
     )
     expect(codesFor(source)).toContain("call-positional")
   })
@@ -97,7 +97,7 @@ describe("what a call may bind", () => {
     const source = st(
       "FUNCTION_BLOCK FB_S", "VAR_INPUT", T + "n : INT;", "END_VAR", "VAR_OUTPUT", T + "seen : INT;", "END_VAR",
       "seen := n;", "END_FUNCTION_BLOCK", "",
-      "PROGRAM PLC_PRG", "VAR", T + "s : FB_S;", T + "a : INT;", "END_VAR", "s(n := 5);", "a := s.seen;", "END_PROGRAM",
+      "PROGRAM PLC_PRG", "VAR", T + "sx : FB_S;", T + "a : INT;", "END_VAR", "sx(n := 5);", "a := sx.seen;", "END_PROGRAM",
     )
     expect(valueOf(source, "a")).toBe(5n)
   })
@@ -134,8 +134,8 @@ test("an ANY input instantiates once per array type — element, bounds and nest
       "END_FUNCTION",
       "PROGRAM P",
       "VAR ai : ARRAY[0..3] OF INT; ab : ARRAY[0..9] OF BYTE; ad : ARRAY[1..4] OF INT; ai2 : ARRAY[0..3] OF INT;",
-      "n : ARRAY[0..1] OF ARRAY[0..1] OF INT; m : ARRAY[0..1] OF ARRAY[0..2] OF INT; s : ARRAY[0..5] OF DINT; END_VAR",
-      "s[0] := F(ai); s[1] := F(ab); s[2] := F(ad); s[3] := F(n); s[4] := F(m); s[5] := F(ai2);",
+      "n : ARRAY[0..1] OF ARRAY[0..1] OF INT; m : ARRAY[0..1] OF ARRAY[0..2] OF INT; sx : ARRAY[0..5] OF DINT; END_VAR",
+      "sx[0] := F(ai); sx[1] := F(ab); sx[2] := F(ad); sx[3] := F(n); sx[4] := F(m); sx[5] := F(ai2);",
       "END_PROGRAM",
     ),
     "P",
@@ -145,5 +145,5 @@ test("an ANY input instantiates once per array type — element, bounds and nest
   expect(r.pou!.routines.length).toBe(5)
   const p = run(r.pou!)
   p.scan()
-  expect([0, 1, 2, 3, 4, 5].map((i) => p.get(`s[${i}]`))).toEqual([8n, 10n, 8n, 8n, 12n, 8n])
+  expect([0, 1, 2, 3, 4, 5].map((i) => p.get(`sx[${i}]`))).toEqual([8n, 10n, 8n, 8n, 12n, 8n])
 })

@@ -64,6 +64,9 @@ function json(value: unknown): string {
       const out: Record<string, unknown> = {}
       for (const k of Object.keys(x).sort()) {
         const v = (x as Record<string, unknown>)[k]
+        // a body's `dialect` is its file's (`ParseResult.dialect`), carried for its statement parse (frontend-conformance
+        // 2.8.3) — no fact of the tree a snapshot compares
+        if (k === "dialect" && (x as { kind?: unknown }).kind === "body") continue
         if (v !== undefined && typeof v !== "function") out[k] = norm(v)
       }
       return out

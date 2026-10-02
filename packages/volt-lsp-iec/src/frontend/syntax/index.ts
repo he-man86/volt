@@ -9,7 +9,7 @@ export { spanContains, zeroSpan, type Span } from "./span.js"
 export { isSelfRef, sameName, selfRefKind } from "./identifier.js"
 
 // the vocabulary and the lexer
-export { CODESYS_ONLY_KEYWORDS, TWINCAT_LITERAL_PREFIXES, KEYWORDS, type Dialect } from "./lex/vocabulary.js"
+export { CODESYS_ONLY_KEYWORDS, CODESYS_ONLY_TYPE_WORDS, ELEMENTARY_TYPE_WORDS, TWINCAT_LITERAL_PREFIXES, KEYWORDS, type Dialect } from "./lex/vocabulary.js"
 export { isTrivia, type Token, type TokenKind } from "./lex/tokens.js"
 export { lex } from "./lex/lexer.js"
 

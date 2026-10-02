@@ -33,7 +33,7 @@ test("bodyStatements never throws on mutated bodies", () => {
     for (const m of mutations(sample)) {
       const tokens = lex(m, "codesys").filter((t) => t.kind !== "eof")
       const span = { start: 0, end: m.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-      expect(() => bodyStatements({ kind: "body", tokens, span })).not.toThrow()
+      expect(() => bodyStatements({ kind: "body", tokens, span, dialect: "codesys" })).not.toThrow()
     }
   }
 })

@@ -21,9 +21,9 @@ import type { Token } from "../lex/tokens.js"
 import { Cursor } from "./cursor.js"
 import { parseAssignable, parseExpression } from "./expression.js"
 import { REFUSED_PLACEHOLDER, type CaseArm, type CaseLabel, type Expr, type IfBranch, type ParseError, type Statement, type StatementList } from "../ast/nodes.js"
-import { REFUSED_AT_STATEMENT_START, type Keyword } from "../lex/vocabulary.js"
+import { REFUSED_AT_STATEMENT_START, type Dialect, type Keyword } from "../lex/vocabulary.js"
 import { addressShape } from "../literal/address.js"
-import { reportStatementCascade, vendorTokenText } from "./errors.js"
+import { expectedInsteadOf, reportStatementCascade, vendorTokenText } from "./errors.js"
 import { identFromToken } from "./names.js"
 import { directiveOf, evaluateCondition, type ConditionError, type ConditionParse, type ConditionWorld, type MessageSeverity } from "../pragmas/conditional.js"
 
@@ -94,8 +94,8 @@ const PRAGMAS = new WeakMap<Cursor, PragmaState>()
 
 /** A body's statement tokens parsed as a statement list — uncached; `body-parse.ts` is where a body is parsed once. Its
  *  conditional pragmas are applied against `world` (`pragmas/conditional.ts`). */
-export function parseStatementTokens(toks: readonly Token[], world: ConditionWorld = {}): BodyParse {
-  return parseTokens(toks, { world, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], textErrors: [] })
+export function parseStatementTokens(toks: readonly Token[], dialect: Dialect, world: ConditionWorld = {}): BodyParse {
+  return parseTokens(toks, dialect, { world, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], textErrors: [] })
 }
 
 /**
@@ -108,18 +108,18 @@ export function parseStatementTokens(toks: readonly Token[], world: ConditionWor
  * every chain, or a chain's orphan/unterminated structure, still does. Its errors and messages are that reading's; no
  * check reads them.
  */
-export function parseSourceStatementTokens(toks: readonly Token[]): BodyParse {
-  return parseTokens(toks, { world: {}, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], source: true, textErrors: [] })
+export function parseSourceStatementTokens(toks: readonly Token[], dialect: Dialect): BodyParse {
+  return parseTokens(toks, dialect, { world: {}, defines: new Map(), uncertain: new Set(), messages: [], applied: new Set(), silent: [], source: true, textErrors: [] })
 }
 
-function parseTokens(toks: readonly Token[], state: PragmaState | undefined): BodyParse {
+function parseTokens(toks: readonly Token[], dialect: Dialect, state: PragmaState | undefined): BodyParse {
   // The tokens are a slice with no EOF sentinel; append one so the cursor's peek()/atEof() terminate correctly at the
   // body's end.
   const last = toks[toks.length - 1]
   const end: Span = last ? eofSpan(last.span) : zeroSpan()
-  const cur = new Cursor([...toks, { kind: "eof", text: "", span: end }])
+  const cur = new Cursor([...toks, { kind: "eof", text: "", span: end }], dialect, true)
   if (state !== undefined) PRAGMAS.set(cur, state)
-  const statements = parseStatementList(cur, () => false)
+  const statements = parseStatementList(cur, () => false, false)
   const errors = state === undefined || state.textErrors.length === 0 ? cur.getErrors() : [...cur.getErrors(), ...state.textErrors].sort((a, b) => a.span.start - b.span.start)
   const refused = state?.refused
   const parsed = errors.length === 0 && cur.atEof()
@@ -245,6 +245,75 @@ const STMT_SYNC: readonly Keyword[] = [
 /** Where a refused statement's cascade stops in silence: a recovery anchor of `STMT_SYNC`. */
 const atStatementSync = (t: Token): boolean => t.kind === "keyword" && t.keyword !== undefined && STMT_SYNC.includes(t.keyword)
 
+/**
+ * The keywords of a block's parts — a next part or a closer. Where no part of an open block is looked for, each is refused
+ * as a statement start (`refusedAtStatementStart`): a closer where no block is open (`rec_stray_closer_*`), and an ELSE or
+ * an ELSIF after the IF's ELSE, which its ELSE branch refuses and reads on from (`stmt_if_two_else`,
+ * `stmt_if_elsif_after_else`) — both vendors.
+ */
+const BLOCK_ENDERS: ReadonlySet<string> = new Set([
+  "END_IF", "ELSIF", "ELSE", "END_CASE", "END_FOR", "END_WHILE", "END_REPEAT", "UNTIL", "__CATCH", "__FINALLY", "__ENDTRY",
+])
+
+/**
+ * The CLOSERS among them end EVERY block's list, its own or another block's: an IF whose list meets END_WHILE, or END_FOR
+ * inside a FOR, is left open (`rec_end_while_closes_if`, `rec_missing_end_if_in_for`; a REPEAT meeting END_REPEAT before
+ * its UNTIL, `rec_missing_until` — both vendors 2026-10-02).
+ */
+const BLOCK_CLOSERS: ReadonlySet<string> = new Set(["END_IF", "END_CASE", "END_FOR", "END_WHILE", "END_REPEAT", "__ENDTRY"])
+
+const atBlockCloser = (cur: Cursor): boolean => {
+  const t = cur.peek()
+  return t.kind === "keyword" && BLOCK_CLOSERS.has(t.keyword ?? "")
+}
+
+/** The cursors whose innermost block was just LEFT OPEN — every block around it leaves too (`parseStatementList`). */
+const LEFT_OPEN = new WeakSet<Cursor>()
+
+/**
+ * What each block still expects where its list ended, in the vendors' words — "Unexpected End-of-file found: <list>
+ * expected", the same whether the text ended or another block's ender stood there (`rec_missing_end_*`, both vendors
+ * 2026-10-02). One line per block, whichever part is open: an IF in its ELSIF or its ELSE still lists all three, a CASE in
+ * its ELSE names END_CASE, a __TRY in its __CATCH or its __FINALLY lists all three (`rec_missing_end_if_after_*`,
+ * `rec_missing_end_case_after_else`, `rec_missing_end_try*`). A REPEAT that never reached its UNTIL names its END_REPEAT
+ * (`rec_missing_until`).
+ */
+const STILL_EXPECTED = {
+  if: "'ELSIF', 'ELSE' or 'END_IF'",
+  case: "'END_CASE'",
+  for: "'END_FOR'",
+  while: "'END_WHILE'",
+  repeat: "'END_REPEAT'",
+  try: "'__CATCH', '__FINALLY' or '__ENDTRY'",
+} as const
+
+/** Is the block whose list just ended LEFT OPEN — a block inside it left, the text ended, or another block's ender stands
+ *  where its next part belongs? Any other token ends no list: the block's own refusal words it. */
+function leftOpen(cur: Cursor): boolean {
+  return LEFT_OPEN.has(cur) || cur.atEof() || atBlockCloser(cur)
+}
+
+/** Leave the block: the vendors' line for what it still expected (`STILL_EXPECTED`), and every block around it leaves. */
+function leaveOpen(cur: Cursor, expected: string): void {
+  cur.pushError(`Unexpected End-of-file found: ${expected} expected`, cur.peek().span)
+  LEFT_OPEN.add(cur)
+}
+
+/** The block's closer, and the `;` after it; a block whose list ended elsewhere is left open (`leaveOpen`), and a token
+ *  no list ends at is the closer's "'END_X' expected instead of 'T'". */
+function closeBlock(cur: Cursor, closer: Keyword, expected: string): Token | undefined {
+  if (!LEFT_OPEN.has(cur)) {
+    const end = cur.eatKeyword(closer)
+    if (end !== undefined) {
+      cur.eatPunct(";")
+      return end
+    }
+  }
+  if (leftOpen(cur)) leaveOpen(cur, expected)
+  else cur.expectKeyword(closer)
+  return undefined
+}
+
 /** A statement the parser refused and already resynced past (`reportStatementCascade`) — nothing to add, nothing to skip. */
 const RESYNCED = Symbol("resynced")
 
@@ -255,24 +324,38 @@ const RESYNCED = Symbol("resynced")
  */
 const LIST_STOP = new WeakMap<Cursor, (cur: Cursor) => boolean>()
 
-function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
+/**
+ * A statement list ending at `stop` — a block's part when `nested` (the default), the body's own list when not.
+ *
+ * A BLOCK'S LIST ENDS AT EVERY BLOCK CLOSER (`BLOCK_CLOSERS`), its own or another block's, and at the end of the text; a
+ * block whose list ends on anything but its own next part is LEFT OPEN (`closeBlock`) — and so is every block around it,
+ * whatever stands there: the vendor leaves them all, and the body's list refuses the ender as a statement start
+ * (`rec_missing_end_if_in_for`: END_FOR under an open IF in a FOR is "Unexpected End-of-file found: 'END_FOR' expected",
+ * the IF's, "Unexpected token 'END_FOR' found" and "';' expected instead of end of POU" — both vendors 2026-10-02).
+ */
+function parseStatementList(cur: Cursor, stop: (cur: Cursor) => boolean, nested = true): StatementList {
   const outer = LIST_STOP.get(cur)
   LIST_STOP.set(cur, stop)
   try {
-    return parseStatementsUntil(cur, stop)
+    return parseStatementsUntil(cur, stop, nested)
   } finally {
     if (outer === undefined) LIST_STOP.delete(cur)
     else LIST_STOP.set(cur, outer)
   }
 }
 
-function parseStatementsUntil(cur: Cursor, stop: (cur: Cursor) => boolean): StatementList {
+function parseStatementsUntil(cur: Cursor, stop: (cur: Cursor) => boolean, nested: boolean): StatementList {
   const out: Statement[] = []
   const st = PRAGMAS.get(cur)
   const chains: Chain[] = []
   for (;;) {
     if (st !== undefined) applyPragmas(cur, st, chains)
-    if (cur.atEof() || stop(cur)) break
+    // a block left open leaves every block around it; the body's own list reads on from where it stopped
+    if (LEFT_OPEN.has(cur)) {
+      if (nested) break
+      LEFT_OPEN.delete(cur)
+    }
+    if (cur.atEof() || stop(cur) || (nested && atBlockCloser(cur))) break
     const compiled = compiledOf(chains.map((c) => c.compiled))
     if (st !== undefined && compiled !== "on") {
       // a branch not taken, or undecided: parsed in silence, and dropped — kept in the source reading
@@ -281,6 +364,8 @@ function parseStatementsUntil(cur: Cursor, stop: (cur: Cursor) => boolean): Stat
         cur.silently(() => parseListStatement(cur, st.source ? out : []))
       } finally {
         st.silent.pop()
+        // a block left open in silence leaves nothing around it: its errors were not said
+        LEFT_OPEN.delete(cur)
       }
       continue
     }
@@ -305,7 +390,7 @@ function parseListStatement(cur: Cursor, out: Statement[]): void {
   // after it; anything else — the token a parenthesis wanted its `)` before, a prefix `&` — is the resync after a
   // missing `;` (`expr_paren_stray_name`, `expr_prefix_ampersand`).
   if (cur.takeRefusedOperand()) {
-    if (cur.peek().kind === "keyword") {
+    if (cur.peek().kind === "keyword" || cur.refusedWord(cur.peek())) {
       const word = cur.consume()
       cur.pushError(`';' expected instead of ${vendorTokenText(word)}`, word.span)
       cur.pushError(`Unexpected token ${vendorTokenText(word)} found`, word.span, word.text)
@@ -362,7 +447,10 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
   }
   // A jump label — `name:` at statement start: an identifier followed by ':' (NOT ':=', a distinct token, so
   // assignment never collides; CASE labels are parsed by parseCaseArm, not here).
-  if (t.kind === "identifier") {
+  // A REFUSED WORD is no label: `dint:` / `st:` is the word refused and the resync — "Unexpected token 'dint' found", the
+  // `:` paired, the statement after it read on (`rec_refused_word_body_label_type`, `_il`), in a CASE arm too
+  // (`rec_refused_word_case_label`, both vendors 2026-10-02).
+  if (t.kind === "identifier" && !cur.refusedWord(t)) {
     const after = cur.peek(1)
     if (after.kind === "punct" && after.text === ":") {
       const nameTok = cur.consume()
@@ -392,8 +480,9 @@ function parseStatement(cur: Cursor): Statement | typeof RESYNCED | undefined {
  *     operators outside the set (`__DELETE`, `__QUERYINTERFACE`, `__QUERYPOINTER`, `__CURRENTTASK`, `__POOL`) answer in
  *     shapes of their own there too.
  * A keyword followed by anything else is unmeasured and keeps the expression parse. The statement keywords themselves
- * never reach here — `parseStatement` dispatched them above. The Instruction List operator NAMES (`ld`, `r` …) are
- * identifiers to this lexer and stay `analysis/checks/names/refused-name.ts`'s.
+ * never reach here — `parseStatement` dispatched them above. The Instruction List operators and the elementary type names
+ * (`ld`, `r`, `dword` …) are identifiers to this lexer and refused as WORDS here, whatever follows but a call's `(`
+ * (`isRefusedWord`, rule R6, frontend-conformance 2.8.3).
  *
  * And A TOKEN NO STATEMENT STARTS WITH, whatever follows it (frontend-conformance 2.6, both vendors 2026-10-02): a
  * literal (`5;`, `1 := a;`, `TRUE;`), a punctuation mark but the global-namespace `.` (`(a);`, `(out) := a;`, `-a;`, the
@@ -408,8 +497,13 @@ function refusedAtStatementStart(cur: Cursor): boolean {
   if (t.kind === "address_lit") return addressShape(t.text).kind === "no-position" && assignOpOf(cur.peek(1)) !== null
   if (LITERAL_KINDS.has(t.kind)) return true
   if (t.kind === "punct") return t.text !== "."
+  // a REFUSED WORD — an IL operator or an elementary type's name (`isRefusedWord`, rule R6) — whatever follows, but the
+  // `(` of a call: `LTIME()` is a function (`rec_refused_name_cascade_type_word_start`, `cc_il_name_*`, both vendors)
+  if (cur.refusedWord(t)) return !(cur.peek(1).kind === "punct" && cur.peek(1).text === "(")
   if (t.kind !== "keyword" || t.keyword === undefined) return false
   if (t.keyword === "TRUE" || t.keyword === "FALSE" || t.keyword === "NOT") return true
+  // a block's part here is one no open block looks for — a block's own list ends before its own (`BLOCK_ENDERS`)
+  if (BLOCK_ENDERS.has(t.keyword)) return true
   if (!REFUSED_AT_STATEMENT_START.has(t.keyword)) return false
   const next = cur.peek(1)
   return assignOpOf(next) !== null || next.kind === "identifier" || (next.kind === "punct" && next.text === "(")
@@ -422,11 +516,21 @@ const LITERAL_KINDS: ReadonlySet<string> = new Set([
 
 function parseJmp(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // JMP
-  const target = parseExpression(cur)
-  if (target === undefined) {
-    cur.pushError("expected a label after JMP", cur.peek().span)
-    return undefined
+  // A `;` WHERE THE LABEL BELONGS IS TAKEN FOR IT: `JMP;` is an invalid destination `;` (the analysis words it, with the
+  // label it then lacks) and a JMP still wanting its `;` — "';' expected instead of 'out'" before the next statement,
+  // which is read on (`rec_jmp_without_label`, both vendors 2026-10-02).
+  // …and so is a KEYWORD or a REFUSED WORD: `JMP ld;`, `JMP END_IF;` are "Invalid destination ld for JMP" and "No such
+  // label 'INVALID: LD'", the statement then ending at its own `;` (`rec_refused_word_jmp_target`,
+  // `rec_jmp_keyword_target`, both vendors 2026-10-02).
+  const dest = cur.peek()
+  if ((dest.kind === "punct" && dest.text === ";") || dest.kind === "keyword" || cur.refusedWord(dest)) {
+    cur.consume()
+    const semi = endStatement(cur)
+    const placeholder: Expr = { kind: "ident_expr", name: REFUSED_PLACEHOLDER, span: dest.span }
+    return { kind: "jmp", target: placeholder, refusedDestination: dest.text, span: joinSpans(kw.span, semi?.span ?? dest.span) }
   }
+  const target = parseExpression(cur)
+  if (target === undefined) return undefined // parseExpression said why, in the vendors' words
   const semi = endStatement(cur) // a missing `;` is the one line, as after RETURN (`stmt_jmp_no_semicolon`, ST15)
   return { kind: "jmp", target, span: joinSpans(kw.span, semi?.span ?? target.span) }
 }
@@ -497,7 +601,7 @@ function parseTry(cur: Cursor): Statement | undefined {
   const tryBody = parseStatementList(cur, (c) => atKeyword(c, "__CATCH", "__FINALLY", "__ENDTRY"))
   let catchVar: Expr | undefined
   let catchBody: StatementList | undefined
-  if (cur.eatKeyword("__CATCH") !== undefined) {
+  if (!LEFT_OPEN.has(cur) && cur.eatKeyword("__CATCH") !== undefined) {
     // the operand is optional: `__CATCH` alone builds and runs on both vendors (`stmt_try_catch_without_operand`, ST18)
     if (cur.eatPunct("(") !== undefined) {
       catchVar = parseExpression(cur)
@@ -507,11 +611,10 @@ function parseTry(cur: Cursor): Statement | undefined {
     catchBody = parseStatementList(cur, (c) => atKeyword(c, "__FINALLY", "__ENDTRY"))
   }
   let finallyBody: StatementList | undefined
-  if (cur.eatKeyword("__FINALLY") !== undefined) {
+  if (!LEFT_OPEN.has(cur) && cur.eatKeyword("__FINALLY") !== undefined) {
     finallyBody = parseStatementList(cur, (c) => atKeyword(c, "__ENDTRY"))
   }
-  const end = cur.expectKeyword("__ENDTRY") // missing closer: record, keep the parsed bodies
-  cur.eatPunct(";")
+  const end = closeBlock(cur, "__ENDTRY", STILL_EXPECTED.try) // missing closer: record, keep the parsed bodies
   return {
     kind: "try",
     tryBody,
@@ -528,22 +631,22 @@ function parseIf(cur: Cursor): Statement | undefined {
   const first = parseIfBranch(cur)
   if (first === undefined) return undefined
   branches.push(first)
-  while (cur.eatKeyword("ELSIF") !== undefined) {
+  while (!LEFT_OPEN.has(cur) && cur.eatKeyword("ELSIF") !== undefined) {
     const b = parseIfBranch(cur)
     if (b === undefined) return undefined
     branches.push(b)
   }
   let elseBody: StatementList | undefined
-  if (cur.eatKeyword("ELSE") !== undefined) {
+  if (!LEFT_OPEN.has(cur) && cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_IF"))
   }
-  const end = cur.expectKeyword("END_IF") // missing closer: record, but keep the parsed branches
-  cur.eatPunct(";")
+  // missing closer: record, but keep the parsed branches
+  const end = closeBlock(cur, "END_IF", STILL_EXPECTED.if)
   return { kind: "if", branches, elseBody, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 function parseIfBranch(cur: Cursor): IfBranch | undefined {
-  const cond = parseAssignable(cur) ?? refusedCondition(cur, "THEN") // `IF x := f() THEN` — inline assignment (CODESYS)
+  const cond = missingCondition(cur, "THEN") ?? parseAssignable(cur) ?? refusedCondition(cur, "THEN") // `IF x := f() THEN` — inline assignment (CODESYS)
   if (cond === undefined) return undefined
   // Missing-token recovery (Roslyn-style): record the absent THEN but DON'T abandon the branch — parse the
   // body anyway and let the IF consume its END_IF. Bailing here instead dumps the body + END_IF back to the
@@ -563,18 +666,29 @@ function parseCase(cur: Cursor): Statement | undefined {
   if (selector === undefined) return undefined
   cur.expectKeyword("OF") // missing-token recovery — parse the arms regardless (see parseIfBranch)
   const arms: CaseArm[] = []
-  while (!cur.atEof() && !atKeyword(cur, "ELSE", "END_CASE")) {
-    if (!isArmStart(cur)) break // not a label header — let END_CASE expectation fail → fallback
+  while (!cur.atEof() && !LEFT_OPEN.has(cur) && !atKeyword(cur, "ELSE", "END_CASE")) {
+    if (!isArmStart(cur)) {
+      // THE FIRST ARM'S LABEL MISSING: "No CASE label found", and what stands there is read as that arm's statements
+      // (`rec_refused_word_case_label_first`, both vendors 2026-10-02 — `CASE n OF int: …` refuses `int` as a statement
+      // start). After an arm, a token no arm starts with ended that arm's list, so it is no label header — the END_CASE
+      // expectation words it (`closeBlock`).
+      if (arms.length > 0) break
+      const at = cur.peek()
+      cur.pushParseError({ message: "No CASE label found", span: at.span, noCaseLabel: true })
+      const body = parseStatementList(cur, (c) => atKeyword(c, "ELSE", "END_CASE") || isArmStart(c))
+      arms.push({ kind: "case_arm", labels: [], body, span: joinSpans(at.span, lastSpan(body, at.span)) })
+      continue
+    }
     const arm = parseCaseArm(cur)
     if (arm === undefined) return undefined
     arms.push(arm)
   }
   let elseBody: StatementList | undefined
-  if (cur.eatKeyword("ELSE") !== undefined) {
+  if (!LEFT_OPEN.has(cur) && cur.eatKeyword("ELSE") !== undefined) {
     elseBody = parseStatementList(cur, (c) => atKeyword(c, "END_CASE"))
   }
-  const end = cur.expectKeyword("END_CASE") // missing closer: record, but keep the parsed arms
-  cur.eatPunct(";")
+  // missing closer: record, but keep the parsed arms
+  const end = closeBlock(cur, "END_CASE", STILL_EXPECTED.case)
   return { kind: "case", selector, arms, elseBody, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
@@ -652,13 +766,25 @@ function isLabelShape(e: Expr): boolean {
  */
 function refusedCondition(cur: Cursor, kw: Keyword): Expr | undefined {
   const at = cur.peek()
-  if (at.kind === "keyword" || !cur.takeRefusedOperand()) return undefined
+  if (at.kind === "keyword" || cur.refusedWord(at) || !cur.takeRefusedOperand()) return undefined
   const ahead = keywordAhead(cur, kw)
   if (ahead === undefined) {
     cur.refuseOperand()
     return undefined
   }
   for (let k = 0; k < ahead; k++) cur.consume()
+  return { kind: "ident_expr", name: REFUSED_PLACEHOLDER, span: at.span }
+}
+
+/**
+ * A CONDITION LEFT OUT, its keyword where it belongs: `IF THEN` is "Expression expected instead of 'THEN'" and nothing
+ * else — the IF reads its THEN and its branch (`rec_expected_expression_condition`, both vendors 2026-10-02). Measured on
+ * IF; ELSIF is the same branch. The condition is the refused one's placeholder, a name no scope declares.
+ */
+function missingCondition(cur: Cursor, kw: Keyword): Expr | undefined {
+  if (!atKeyword(cur, kw)) return undefined
+  const at = cur.peek()
+  cur.pushError(`Expression expected instead of ${vendorTokenText(at)}`, at.span)
   return { kind: "ident_expr", name: REFUSED_PLACEHOLDER, span: at.span }
 }
 
@@ -696,8 +822,7 @@ function parseFor(cur: Cursor): Statement | undefined {
   }
   cur.expectKeyword("DO") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_FOR"))
-  const end = cur.expectKeyword("END_FOR") // missing closer: record, but keep the parsed body
-  cur.eatPunct(";")
+  const end = closeBlock(cur, "END_FOR", STILL_EXPECTED.for) // missing closer: record, but keep the parsed body
   return { kind: "for", controlVar, from, to, by, body, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
@@ -707,15 +832,23 @@ function parseWhile(cur: Cursor): Statement | undefined {
   if (cond === undefined) return undefined
   cur.expectKeyword("DO") // missing-token recovery — parse the body regardless (see parseIfBranch)
   const body = parseStatementList(cur, (c) => atKeyword(c, "END_WHILE"))
-  const end = cur.expectKeyword("END_WHILE") // missing closer: record, but keep the parsed body
-  cur.eatPunct(";")
+  const end = closeBlock(cur, "END_WHILE", STILL_EXPECTED.while) // missing closer: record, but keep the parsed body
   return { kind: "while", cond, body, span: joinSpans(kw.span, end?.span ?? kw.span) }
 }
 
 function parseRepeat(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // REPEAT
   const body = parseStatementList(cur, (c) => atKeyword(c, "UNTIL"))
-  if (cur.expectKeyword("UNTIL") === undefined) return undefined
+  // a list that ended short of its UNTIL leaves the REPEAT open; the condition it never reached is the placeholder
+  if (LEFT_OPEN.has(cur) || !atKeyword(cur, "UNTIL")) {
+    if (!leftOpen(cur)) {
+      cur.expectKeyword("UNTIL")
+      return undefined
+    }
+    leaveOpen(cur, STILL_EXPECTED.repeat)
+    return { kind: "repeat", body, until: { kind: "ident_expr", name: REFUSED_PLACEHOLDER, span: cur.peek().span }, span: kw.span }
+  }
+  cur.consume() // UNTIL
   const until = parseAssignable(cur)
   if (until === undefined) return undefined
   const end = cur.expectKeyword("END_REPEAT") // missing closer: record, keep the parsed body
@@ -752,16 +885,16 @@ function endStatement(cur: Cursor): Token | undefined {
 function resyncAfterMissingSemicolon(cur: Cursor): void {
   const t = cur.peek()
   if (t.kind === "eof") {
-    cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    cur.pushError(expectedInsteadOf("';'", t), t.span)
     return
   }
   if (atStatementSync(t)) {
-    cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    cur.pushError(expectedInsteadOf("';'", t), t.span)
     return
   }
   // where the statement list ends — the next CASE arm's label (`LIST_STOP`): the one line, and the arm is read
   if (LIST_STOP.get(cur)?.(cur) === true) {
-    cur.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    cur.pushError(expectedInsteadOf("';'", t), t.span)
     return
   }
   reportStatementCascade(cur, atStatementSync)

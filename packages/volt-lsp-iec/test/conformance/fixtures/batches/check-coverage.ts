@@ -275,13 +275,10 @@ END_FUNCTION_BLOCK
   fb("cc_decl_init_own_constant", "a plain literal initializer, the control that says the shape itself is fine", "n : DINT := 7;"),
   {
     ...fb("cc_decl_init_dunder_unknown", "`n : DINT := __NO_SUCH_THING;` — a `__` name NEITHER vendor has", "n : DINT := __NO_SUCH_THING;"),
-    // DELIBERATELY UNANSWERED (2026-09-21), and this cell is what makes the silence visible. `nameResolves`
-    // treats EVERY `__` name as resolved unless the dialect table names it as missing — a blanket that exists
-    // so an unlisted system operator is never a false positive, and the reference catalog is not complete
-    // enough to drop it. So `system-initializer` fires for `__POSITION` on TwinCAT, where the table HAS a
-    // verdict, and stays quiet here, where it does not. Closing it means completing the `__` catalog on both
-    // vendors first; until then this records what both compilers say and the LSP does not.
-    deferred: { lsp: "`nameResolves` accepts any unlisted `__` name; completing the operator catalog is the prerequisite (2026-09-21)" },
+    // UNANSWERED from 2026-09-21 to 2026-10-02: `nameResolves` treats every `__` name as resolved unless the dialect table
+    // names it missing, so the analysis stayed quiet here. Answered by the PARSER since frontend-conformance 2.8.3
+    // (`parse/initializer` `refuseMalformedInit`): every `__` operator a dialect has is its KEYWORD, so a `__` IDENTIFIER
+    // leading an initializer is one it does not have — but the `__SYSTEM` namespace, read through its `.`.
   },
   fb("cc_ltime_literal_into_time", "an LTIME literal into a TIME → ?", "t1 : TIME;", "t1 := LTIME#1S;"),
   fb("cc_fp_ltime_literal_into_ltime", "an LTIME literal into an LTIME → accepted", "lt1 : LTIME;", "lt1 := LTIME#1S;"),

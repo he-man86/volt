@@ -46,8 +46,8 @@ test("an array index keeps its parentheses, because `as` binds tighter than the 
 test("a loop test over REALs is negated, not flipped — NaN makes every ordering false", () => {
   // Flipping `<=` to `>` is negation only over a total order. With a NaN operand both are false, so
   // `WHILE r <= 10.0` exits at once in the interpreter (`!false`) and never exits in the emitted Rust.
-  const real = rust("PROGRAM P\nVAR r : REAL; n : INT; END_VAR\nWHILE r <= 10.0 DO\n n := n + 1;\n r := r + 1.0;\nEND_WHILE\nEND_PROGRAM\n")
-  expect(real).toContain("if !(self.r <= 10.0f32) { break; }")
+  const real = rust("PROGRAM P\nVAR rx : REAL; n : INT; END_VAR\nWHILE rx <= 10.0 DO\n n := n + 1;\n rx := rx + 1.0;\nEND_WHILE\nEND_PROGRAM\n")
+  expect(real).toContain("if !(self.rx <= 10.0f32) { break; }")
 
   // an integer comparison is a total order, so it still flips — that is what removed 39 `nonminimal_bool`
   const int = rust("PROGRAM P\nVAR i : INT; END_VAR\nWHILE i <= 10 DO\n i := i + 1;\nEND_WHILE\nEND_PROGRAM\n")
@@ -192,7 +192,7 @@ test("a loop test over REALs is negated, not flipped — NaN makes every orderin
     // Why missed: `P := P + 1` printed `p.wrapping_add(1i8)`, the literal's own SINT, which rustc refuses beside a
     // usize; no Rust test stepped a cursor by a literal until lib_prim_string_cursor_offset did.
     const lib = { uri: "Library Manager/Lib/CSTEP.fun", source: "FUNCTION CSTEP : BYTE\nVAR_INPUT\n\tP : POINTER TO BYTE;\n\tK : INT;\nEND_VAR\nP := P + 1;\nP := P - K;\nCSTEP := P^;\nEND_FUNCTION\n" }
-    const { pou, diagnostics } = lowerSource("PROGRAM Steps\nVAR s : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEP(ADR(s), 1);\nEND_PROGRAM\n", "Steps", [lib])
+    const { pou, diagnostics } = lowerSource("PROGRAM Steps\nVAR sx : STRING := 'abc'; c : BYTE; END_VAR\nc := CSTEP(ADR(sx), 1);\nEND_PROGRAM\n", "Steps", [lib])
     expect(diagnostics).toEqual([])
     const code = emitRust(pou!).code
     expect(code).toContain("p = p.wrapping_add(1);")
@@ -597,7 +597,7 @@ describe.skipIf(skipRustSuite())("emit/rust — compiles", () => {
       // two-dimensional array row by row, an FB instance through its inputs — `initOf` built only `new()` and `[x; N]`.
       "PROGRAM Aggregates\nVAR part : T_AP := (y := 7); pts : ARRAY[0..2] OF T_AP := [(x := 1), (tag := 'bc')]; grid : ARRAY[1..2, 1..3] OF INT := [1, 2(7), 4]; fb : FB_AS := (offset := 7); END_VAR\nfb();\nEND_PROGRAM\nTYPE T_AP : STRUCT x : INT := 5; y : REAL; tag : STRING(8) := 'p'; END_STRUCT END_TYPE\nFUNCTION_BLOCK FB_AS\nVAR_INPUT factor : INT := 2; offset : INT; END_VAR\nVAR_OUTPUT result : INT; END_VAR\nresult := factor * 10 + offset;\nEND_FUNCTION_BLOCK\n",
       // UNION (phase 3½): a store into one member copied byte by byte into the others — `u64` division and remainder.
-      "PROGRAM Unions\nVAR u : U_WB; END_VAR\nu.word := 16#ABCD;\nu.bytes[1] := 16#EE;\nEND_PROGRAM\nTYPE U_WB :\nUNION\n\tword : WORD;\n\tbytes : ARRAY[0..1] OF BYTE;\n\twide : LWORD;\nEND_UNION\nEND_TYPE\n",
+      "PROGRAM Unions\nVAR u : U_WB; END_VAR\nu.wrd := 16#ABCD;\nu.bytes[1] := 16#EE;\nEND_PROGRAM\nTYPE U_WB :\nUNION\n\twrd : WORD;\n\tbytes : ARRAY[0..1] OF BYTE;\n\twide : LWORD;\nEND_UNION\nEND_TYPE\n",
       // Interfaces (phase 5): a call and a property set and get dispatched on the tag, a copy between interfaces, and
       // __QUERYINTERFACE as a `match` — the arms borrow one instance field each.
       "PROGRAM Interfaces\nVAR sq : FB_Sq; rc : FB_Rc; shapeRef : I_Shape; baseRef : I_Base; found : BOOL; a1 : INT; seen : INT; END_VAR\nIF baseRef <> 0 THEN a1 := baseRef.Area(); END_IF\nshapeRef := sq;\nshapeRef.Size := 5;\nseen := shapeRef.Size;\nbaseRef := shapeRef;\nfound := __QUERYINTERFACE(baseRef, shapeRef);\nbaseRef := rc;\nEND_PROGRAM\nINTERFACE I_Base\nMETHOD Area : INT\nEND_METHOD\nEND_INTERFACE\nINTERFACE I_Shape EXTENDS I_Base\nPROPERTY Size : INT\nGET\nEND_GET\nSET\nEND_SET\nEND_PROPERTY\nEND_INTERFACE\nFUNCTION_BLOCK FB_Sq IMPLEMENTS I_Shape\nVAR side : INT := 3; END_VAR\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := side * side;\nEND_METHOD\nPROPERTY Size : INT\nGET\nSize := side;\nEND_GET\nSET\nside := Size;\nEND_SET\nEND_PROPERTY\nFUNCTION_BLOCK FB_Rc IMPLEMENTS I_Base\nEND_FUNCTION_BLOCK\nMETHOD Area : INT\nArea := 7;\nEND_METHOD\n",
@@ -814,7 +814,7 @@ describe("emit/rust — routine names are unique within an impl block", () => {
       ["Try_Into", "try_into_"],
       ["Clone_Into", "clone_into_"],
     ] as const) {
-      const code = rust(`PROGRAM PLC_PRG\nVAR\n\tb : FB_T;\n\tr : INT;\nEND_VAR\nr := b.${method}();\nEND_PROGRAM\n\nFUNCTION_BLOCK FB_T\nVAR\n\tv : INT := 100;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD ${method} : INT\n${method} := v;\nEND_METHOD\n`)
+      const code = rust(`PROGRAM PLC_PRG\nVAR\n\tb : FB_T;\n\trx : INT;\nEND_VAR\nrx := b.${method}();\nEND_PROGRAM\n\nFUNCTION_BLOCK FB_T\nVAR\n\tv : INT := 100;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD ${method} : INT\n${method} := v;\nEND_METHOD\n`)
       expect(code).toContain(`pub fn ${fn}(&mut self)`)
       expect(code).toContain(`self.b.${fn}()`)
     }
@@ -859,12 +859,12 @@ describe("emit/rust — a negative constant keeps its sign inside a method call"
 describe("emit/rust — a VAR_TEMP reset", () => {
   test("an initialized array or struct in VAR_TEMP is reset to its initializer, not to zero", () => {
     const code = rust(
-      "TYPE ST_P :\nSTRUCT\n\ta : INT;\n\tb : INT := 4;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB\nVAR_TEMP\n\tarr : ARRAY[0..2] OF INT := [5, 6, 7];\n\ts : ST_P := (a := 9);\nEND_VAR\nVAR\n\tout : INT;\nEND_VAR\nout := arr[1] + s.a;\nEND_FUNCTION_BLOCK\n",
+      "TYPE ST_P :\nSTRUCT\n\ta : INT;\n\tb : INT := 4;\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB\nVAR_TEMP\n\tarr : ARRAY[0..2] OF INT := [5, 6, 7];\n\tsx : ST_P := (a := 9);\nEND_VAR\nVAR\n\tout : INT;\nEND_VAR\nout := arr[1] + sx.a;\nEND_FUNCTION_BLOCK\n",
     )
     // the reset at the top of `call`, not the declaration in `new()`
     const call = code.slice(code.indexOf("pub fn call("))
     expect(call).toContain("self.arr = [5i16, 6i16, 7i16];")
-    expect(call).toContain("self.s = { let mut v = ST_P::new(); v.a = 9i16; v };")
+    expect(call).toContain("self.sx = { let mut v = ST_P::new(); v.a = 9i16; v };")
   })
 })
 
@@ -877,10 +877,10 @@ describe("emit/rust — a VAR_TEMP reset", () => {
 describe("emit/rust — a BIT converts as a BOOL", () => {
   test("TO_STRING, BIT_TO_REAL, TO_LREAL and INT_TO_BIT on BIT fields", () => {
     const code = rust(
-      "TYPE ST_B :\nSTRUCT\n\tb : BIT;\n\tc : BIT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tbits : ST_B;\n\ti : INT := 2;\n\ts : STRING;\n\tr : REAL;\n\tl : LREAL;\nEND_VAR\ns := TO_STRING(bits.b);\nr := BIT_TO_REAL(bits.b);\nl := TO_LREAL(bits.b);\nbits.c := INT_TO_BIT(i);\nEND_PROGRAM\n",
+      "TYPE ST_B :\nSTRUCT\n\tb : BIT;\n\tc : BIT;\nEND_STRUCT\nEND_TYPE\n\nPROGRAM PLC_PRG\nVAR\n\tbits : ST_B;\n\ti : INT := 2;\n\tsx : STRING;\n\trx : REAL;\n\tl : LREAL;\nEND_VAR\nsx := TO_STRING(bits.b);\nrx := BIT_TO_REAL(bits.b);\nl := TO_LREAL(bits.b);\nbits.c := INT_TO_BIT(i);\nEND_PROGRAM\n",
     )
     expect(code).toContain(`(if self.bits.b { "TRUE" } else { "FALSE" })`)
-    expect(code).toContain("self.r = (self.bits.b as u8) as f32;")
+    expect(code).toContain("self.rx = (self.bits.b as u8) as f32;")
     expect(code).toContain("self.l = (self.bits.b as u8) as f64;")
     expect(code).toContain("self.bits.c = self.i != 0;")
     expect(code).not.toMatch(/as bool/)
@@ -895,7 +895,7 @@ describe("emit/rust — a BIT converts as a BOOL", () => {
 describe("emit/rust — LTIME_TO_STRING is unsigned", () => {
   test("the LTIME goes to iec_ltime_text uncast, and the helper takes a u64", () => {
     const code = rust(
-      "PROGRAM PLC_PRG\nVAR\n\tt : LTIME := LTIME#106752D;\n\ts : STRING;\nEND_VAR\ns := LTIME_TO_STRING(t);\nEND_PROGRAM\n",
+      "PROGRAM PLC_PRG\nVAR\n\tt : LTIME := LTIME#106752D;\n\tsx : STRING;\nEND_VAR\nsx := LTIME_TO_STRING(t);\nEND_PROGRAM\n",
     )
     expect(code).toContain("iec_ltime_text(self.t)")
     expect(code).toContain("fn iec_ltime_text(ns: u64)")

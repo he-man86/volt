@@ -29,6 +29,7 @@
 import type { BodySpan, ImplementationLine, ImplementationStatement } from "../ast/nodes.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
 import { joinSpans, type Span } from "../span.js"
+import type { Dialect } from "../lex/vocabulary.js"
 import { peelFolder } from "./folder.js"
 import { lineAround, nextSignificant, type ReportAt } from "./lines.js"
 import { opensNetwork } from "./network-header.js"
@@ -255,13 +256,13 @@ export function implementationWords(body: BodySpan): readonly Token[] {
  * Build a BodySpan from a list of tokens. Falls back to `fallback`
  * span if the list is empty.
  */
-export function bodySpanFromTokens(tokens: Token[], fallback: Span): BodySpan {
+export function bodySpanFromTokens(tokens: Token[], fallback: Span, dialect: Dialect): BodySpan {
   if (tokens.length === 0) {
-    return { kind: "body", tokens, span: fallback }
+    return { kind: "body", tokens, span: fallback, dialect }
   }
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
-  return { kind: "body", tokens, span: joinSpans(first.span, last.span) }
+  return { kind: "body", tokens, span: joinSpans(first.span, last.span), dialect }
 }
 
 /**
@@ -269,8 +270,8 @@ export function bodySpanFromTokens(tokens: Token[], fallback: Span): BodySpan {
  * code left as the body (`splitImplementation`), and every problem with the line reported through `report` (the parse cursor's errors) — the
  * one place a POU body is built, so no unit kind can skip the line.
  */
-export function codeBody(report: ReportAt, tokens: Token[], fallback: Span, owner: BodyOwner): BodySpan {
+export function codeBody(report: ReportAt, tokens: Token[], fallback: Span, owner: BodyOwner, dialect: Dialect): BodySpan {
   const { tokens: code, implementation } = splitImplementation(tokens, owner, report)
-  const body = bodySpanFromTokens(code, fallback)
+  const body = bodySpanFromTokens(code, fallback, dialect)
   return implementation === undefined ? body : { ...body, implementation }
 }

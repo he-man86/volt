@@ -16,8 +16,8 @@
  * unrelated declarations would turn one refusal into a cascade of false positives; reporting the refusal itself
  * is the fact.
  *
- * `CALC` is why `refused-name.ts` stops at fifteen names: it alone of the IL operators parses as something, so
- * the `Unexpected token` family does not describe it.
+ * `CALC` is why the parser's refused IL operators stop at fifteen names (`syntax/lex/vocabulary.ts` `IL_OPERATOR_WORDS`): it
+ * alone of the IL operators parses as something, so the `Unexpected token` family does not describe it.
  *
  * BOTH VENDORS, measured 2026-09-20 (`cc_il_name_calc`, `ilc_calc_*`): TwinCAT reports the same two things,
  * hyphenating "call-statement" and capitalising "Declaration part".

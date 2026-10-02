@@ -47,7 +47,7 @@ export { manifestsByTitle } from "./library-namespaces.js"
 export { bodyConditionWorld, conditionWorld } from "./condition-world.js"
 
 // the bodies analysed, each in its scope
-export { bodies, bodiesAt, forEachDecl, forEachExpr, sourceBodies, type UnitBody } from "./scoped-bodies.js"
+export { bodies, bodiesAt, bodiesThroughErrors, forEachDecl, forEachExpr, sourceBodies, type UnitBody } from "./scoped-bodies.js"
 
 /**
  * BUILDING THE TABLE — a whole project from its files (`buildSymbolTable`); the incremental unit of work the live

@@ -37,3 +37,17 @@ test("a well-formed JMP↔label pair is silent (zero-FP)", () => {
 test("case-insensitive matching — JMP LBL reaches label lbl", () => {
   expect(codes("lbl:\ni := 1;\nJMP LBL;")).toEqual([])
 })
+
+test("a keyword or a refused word as the destination: invalid, and the label 'INVALID: X' missing (rec_jmp_keyword_target, rec_refused_word_jmp_target, both vendors)", () => {
+  for (const [vendor, jmp] of [["codesys", "JMP"], ["twincat", "JUMP"]] as const) {
+    const msgs = (body: string): string[] => {
+      const src = `PROGRAM PLC_PRG\nVAR i : INT;\nEND_VAR\n${body}\nEND_PROGRAM`
+      const parseResult = parseSource(src, { networkText: true }, vendor)
+      const project = build.buildSymbolTable([{ uri: "PLC_PRG.prg", parseResult, source: src }], [], vendor)
+      return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) }).map((d) => d.message)
+    }
+    const dot = vendor === "twincat" ? "." : ""
+    expect(msgs("JMP ld;\ni := 1;")).toEqual([`Invalid destination ld for ${jmp}`, `No such label 'INVALID: LD' within the scope of the JMP statement${dot}`])
+    expect(msgs("JMP END_IF;\ni := 1;")).toEqual([`Invalid destination END_IF for ${jmp}`, `No such label 'INVALID: END_IF' within the scope of the JMP statement${dot}`])
+  }
+})

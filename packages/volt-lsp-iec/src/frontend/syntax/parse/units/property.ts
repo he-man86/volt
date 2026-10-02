@@ -15,7 +15,7 @@ import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
 import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
-import { plainTokenText } from "../errors.js"
+import { vendorTokenText } from "../errors.js"
 import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../format/folder.js"
 import { collectVarSections } from "../declarations.js"
 import { identFromToken, readModifiers, readPropertyModifiers } from "../names.js"
@@ -79,7 +79,7 @@ export function parseProperty(c: Cursor): Property | undefined {
     }
     // Unknown content inside PROPERTY — record and skip to next anchor
     const stray = c.peek()
-    c.pushError(`unexpected ${plainTokenText(stray)} inside PROPERTY body`, stray.span)
+    c.pushError(`unexpected ${vendorTokenText(stray)} inside PROPERTY body`, stray.span)
     if (!c.recoverTo({ keywords: ["END_PROPERTY", "GET", "SET"] })) break
   }
 

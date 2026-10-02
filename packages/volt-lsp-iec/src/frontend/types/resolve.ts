@@ -140,7 +140,8 @@ export function resolveNamedType(
 /**
  * Is `name` a type in `dialect`'s vocabulary? Every name is but the 64-bit date types on TwinCAT, which has `LTIME` and
  * does NOT have `LDATE`, `LTOD`/`LTIME_OF_DAY` or `LDT`/`LDATE_AND_TIME` (`elementary.ts` `CODESYS_ONLY_TYPES`). The
- * one copy of that gate: resolution, the conversion names and the refused-name cascade all ask here.
+ * one copy of that gate: resolution and the conversion names ask here; the parser's refused type names read the same list
+ * (`syntax/lex/vocabulary.ts` `CODESYS_ONLY_TYPE_WORDS`, `isRefusedWord`).
  */
 export function isDialectType(name: string, dialect: Dialect | undefined): boolean {
   return !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(name.toUpperCase()))

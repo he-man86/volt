@@ -54,8 +54,9 @@ test("declaration-structure errors surface precisely (the parser's decl stream, 
   expect(syntaxErrors(inStruct("VAR_GLOBAL\n a : INT;\nEND_VAR"))[0]).toBe("VAR_GLOBAL declaration only allowed in global variable list")
   expect(syntaxErrors(inStruct("VAR_CONFIG\n a : INT;\nEND_VAR"))[0]).toBe("VAR_CONFIG declaration only allowed in VAR_CONFIG  list")
   expect(syntaxErrors(inStruct("VAR_EXTERNAL\n a : INT;\nEND_VAR"))).toEqual(["Variable declaration expected instead of VAR_EXTERNAL\r\n\ta:INT;\r\nEND_VAR\r\n"])
-  // A var name with no ':' type — a declaration-structure error surfaced from the decl stream (C0189).
-  expect(syntaxErrors(`PROGRAM P\nVAR\n INT\nEND_VAR\nEND_PROGRAM`)).toContain("':' expected instead of 'END_VAR'")
+  // A type's name where a variable's belongs — a declaration-structure error surfaced from the decl stream: both vendors
+  // refuse an elementary type name as a name (`cc4_type_name_*`, rule R6), which the parser says since frontend-conformance 2.8.3.
+  expect(syntaxErrors(`PROGRAM P\nVAR\n INT\nEND_VAR\nEND_PROGRAM`)).toContain("Unexpected token 'INT' found")
 })
 
 test("valid declarations produce NO syntax-error diagnostics (decl zero-FP contract)", () => {

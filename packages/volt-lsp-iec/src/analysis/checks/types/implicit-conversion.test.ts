@@ -90,7 +90,7 @@ test("a LIBRARY enum stays silent — real builds store one into a WORD without 
 })
 
 test("narrowing (LREAL→REAL) warns 'possible loss of information'", () => {
-  const d = conv("r : REAL; l : LREAL;", "r := l;")
+  const d = conv("rx : REAL; l : LREAL;", "rx := l;")
   expect(d).toHaveLength(1)
   expect(d[0]).toMatchObject({ severity: "warning", code: "narrowing-conversion" })
   expect(d[0]?.message).toBe("Implicit conversion from 'LREAL' to 'REAL': Possible loss of information")

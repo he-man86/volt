@@ -289,7 +289,7 @@ test("renderType / renderTypeExpr", () => {
   expect(renderType(resolveNamedType("INT", p))).toBe("INT")
   expect(renderType(resolveTypeExpr(declType("a : ARRAY[0..9] OF INT;"), p))).toBe("ARRAY [0..9] OF INT") // the IDE's spelling (conformance `cc6_function_input_array_default`)
   expect(renderType(resolveTypeExpr(declType("q : POINTER TO REAL;"), p))).toBe("POINTER TO REAL")
-  expect(renderTypeExpr(declType("s : STRING(80);"))).toBe("STRING(80)")
+  expect(renderTypeExpr(declType("sx : STRING(80);"))).toBe("STRING(80)")
   expect(renderTypeExpr(declType("x : INT(0..100);"))).toBe("INT(0..100)")
   expect(renderTypeExpr(declType("p : POINTER TO INT;"))).toBe("POINTER TO INT")
 })
@@ -317,4 +317,14 @@ test("infer: a CODESYS partial access is of the part it names (operand_partial_*
 // would be USINT, which `R=` refuses.
 test("infer: NOT of a BIT stays a BIT, as NOT of a BOOL stays a BOOL (pro2193 ModuleWithStateFB, ST2)", () => {
   expect(inferExpr("", "VAR\n b : BIT;\nEND_VAR", "NOT b")).toMatchObject({ kind: "elementary", name: "BIT" })
+})
+
+test("the parser's elementary type words are every name an elementary type answers to (frontend-conformance 2.8.3, R6)", async () => {
+  // `syntax/lex/vocabulary.ts` `ELEMENTARY_TYPE_WORDS` is what the parser refuses where a name belongs; the syntax layer
+  // may not import this one, so the two lists are held to each other here
+  const { ELEMENTARY_TYPE_WORDS } = await import("../syntax/index.js")
+  const { ELEMENTARY_TYPES, ELEM_ALIASES } = await import("./elementary.js")
+  const { PLATFORM_ALIASES } = await import("./platform.js")
+  const names = [...ELEMENTARY_TYPES.keys(), ...ELEM_ALIASES.keys(), ...PLATFORM_ALIASES.keys()].sort()
+  expect([...ELEMENTARY_TYPE_WORDS].sort()).toEqual(names)
 })

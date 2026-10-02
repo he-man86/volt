@@ -1,7 +1,8 @@
 /**
- * system-initializer — a `__` name the compiler does not know is a PARSE refusal inside a declaration's
- * initializer, and an ordinary undefined identifier anywhere else. Measured on both live IDEs 2026-09-21
- * (`cc_decl_init_unknown_name`, `cc_decl_init_sibling_var`, `cc_decl_init_dunder_unknown`,
+ * NAMES IN AN INITIALIZER — a `__` name the compiler does not know is a PARSE refusal inside a declaration's
+ * initializer (`parse/initializer` `refuseMalformedInit` since frontend-conformance 2.8.3; the analysis check
+ * `system-initializer` held it before), and an ordinary undefined identifier anywhere else. Measured on both live IDEs
+ * 2026-09-21 (`cc_decl_init_unknown_name`, `cc_decl_init_sibling_var`, `cc_decl_init_dunder_unknown`,
  * `sysop_position_initializer`).
  */
 import { test, expect } from "bun:test"
@@ -23,12 +24,22 @@ const decl = (d: string) => `FUNCTION_BLOCK F\nVAR\n\t${d}\nEND_VAR\nEND_FUNCTIO
 // one rule — which is the shape every vendor difference in this repo is supposed to have.
 test("a `__` name the DIALECT lacks is refused by the parser, in an initializer", () => {
   const src = decl("here : DINT := __POSITION;")
-  expect(msgs(src, "twincat", ["system-initializer"])).toEqual([
+  expect(msgs(src, "twincat", ["syntax-error", "refused-initializer"])).toEqual([
+    // the analysis says its line before the parse errors are reported (order is no fact the vendors record)
+    "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'DINT'",
     "';' expected instead of '__POSITION'",
     "Expression expected instead of '__POSITION'",
-    "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'DINT'",
   ])
-  expect(msgs(src, "codesys", ["system-initializer"])).toEqual([])
+  expect(msgs(src, "codesys", ["syntax-error", "refused-initializer"])).toEqual([])
+  // …and one NEITHER dialect has, on both (`cc_decl_init_dunder_unknown`); the `__SYSTEM` namespace is read through its `.`
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(msgs(decl("n : DINT := __NO_SUCH_THING;"), vendor, ["syntax-error", "refused-initializer"])).toEqual([
+      "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'DINT'",
+      "';' expected instead of '__NO_SUCH_THING'",
+      "Expression expected instead of '__NO_SUCH_THING'",
+    ])
+    expect(msgs(decl("t : __SYSTEM.TYPE_CLASS := __SYSTEM.TYPE_CLASS.TYPE_NONE;"), vendor, ["syntax-error", "refused-initializer"])).toEqual([])
+  }
 })
 
 // …and it is NOT reported as an undefined identifier beside that, because the compiler never gets that far.
@@ -45,7 +56,7 @@ test("an ordinary name in an initializer is resolved like any other", () => {
   for (const vendor of ["codesys", "twincat"] as const) {
     expect(msgs(decl("n : DINT := nope;"), vendor, ["unresolved-identifier"])).toEqual(["Identifier 'nope' not defined"])
     expect(msgs(decl("other : DINT;\n\tn : DINT := other;"), vendor, ["unresolved-identifier"])).toEqual([])
-    expect(msgs(decl("n : DINT := 7;"), vendor, ["unresolved-identifier", "system-initializer"])).toEqual([])
+    expect(msgs(decl("n : DINT := 7;"), vendor, ["unresolved-identifier", "syntax-error", "refused-initializer"])).toEqual([])
   }
 })
 

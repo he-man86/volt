@@ -165,7 +165,7 @@
     "message": "Unexpected end-of-file found: '<operator>', '<operator>', or '<operator>' expected",
     "repro": "PROGRAM P\nVAR b:BOOL;x:INT;\nEND_VAR\nIF b THEN\n x:=1;\nEND_PROGRAM",
     "expect": [
-      "'END_IF' expected instead of end of POU"
+      "Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected"
     ],
     "fix": null,
     "status": "implemented",
@@ -211,7 +211,7 @@
     "message": "Unexpected end-of-file found: '<token>' expected",
     "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nFOR i:=0 TO 10 DO\n i:=i;\nEND_PROGRAM",
     "expect": [
-      "'END_FOR' expected instead of end of POU"
+      "Unexpected End-of-file found: 'END_FOR' expected"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
@@ -234,8 +234,7 @@
     "message": "No 'CASE' label found",
     "repro": "PROGRAM P\nVAR i:INT;\nEND_VAR\nCASE i OF\n i := 9;\nEND_CASE\nEND_PROGRAM",
     "expect": [
-      "'END_CASE' expected instead of 'i'",
-      "';' expected instead of end of POU"
+      "No CASE label found"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parse-errors",
@@ -419,9 +418,9 @@
     "category": "missing string size",
     "cause": "A STRING type declaration opens a size specifier with '(' but does not supply the numeric length.",
     "message": "size of string expected after '('",
-    "repro": "PROGRAM P\nVAR s : STRING();\nEND_VAR\nEND_PROGRAM",
+    "repro": "PROGRAM P\nVAR str : STRING();\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "expected expression, got punct ')'"
+      "Expression expected instead of ')'"
     ],
     "status": "implemented",
     "ourCheck": "syntax/type-decl",
@@ -2673,9 +2672,9 @@
     "category": "missing semicolon",
     "cause": "A statement is missing its terminating semicolon, so the parser reaches an unexpected token where ';' was required.",
     "message": "';' expected instead of '<token>'",
-    "repro": "PROGRAM PLC_PRG\nVAR\n INT\nEND_VAR\nEND_PROGRAM",
+    "repro": "PROGRAM P\nVAR x : INT;\nEND_VAR\nx := 1\nEND_PROGRAM",
     "expect": [
-      "':' expected instead of 'END_VAR'"
+      "';' expected instead of end of POU"
     ],
     "status": "implemented",
     "ourCheck": "syntax/var-section",
@@ -3027,7 +3026,7 @@
     "message": "Variable declaration expected instead of <expression>",
     "repro": "PROGRAM PLC_PRG\nVAR\n   VAR\n   END_VAR\nEND_VAR\nEND_PROGRAM",
     "expect": [
-      "unterminated VAR section: expected END_VAR",
+      "'END_VAR' expected instead of ''",
       "';' expected instead of end of POU"
     ],
     "status": "implemented",
@@ -3077,7 +3076,7 @@
     "message": "VAR_GLOBAL or VAR_CONFIG expected instead of <declaration>",
     "repro": "VAR_GLOBAL\nEND_VAR\ni : INT;",
     "expect": [
-      "unexpected identifier 'i' at file scope"
+      "Unexpected token 'i' found"
     ],
     "status": "implemented",
     "ourCheck": "syntax/parser",

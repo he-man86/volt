@@ -16,6 +16,7 @@
  */
 
 import { canonicalElem } from "./platform.js"
+import { CODESYS_ONLY_TYPE_WORDS } from "../syntax/index.js"
 
 export type TypeFamily = "bool" | "int" | "bitstring" | "real" | "time" | "date" | "string"
 
@@ -103,21 +104,11 @@ export const ELEM_ALIASES: ReadonlyMap<string, string> = new Map([
 ])
 
 /**
- * THE 64-BIT DATE TYPES ARE CODESYS'S ALONE. TwinCAT has `LTIME` and does NOT have `LDATE`, `LTOD`/
- * `LTIME_OF_DAY` or `LDT`/`LDATE_AND_TIME`: it answers "Unknown type: 'LDATE'" for a declaration, and
- * "Identifier 'DATE_TO_LDATE' not defined" for the conversions that would carry them (39 messages across 13
- * fixtures in its recording, and none in CODESYS's — 2026-09-20).
- *
- * Kept here rather than in `syntax/lex/vocabulary.ts` with the CODESYS-only KEYWORDS, because these are type NAMES:
- * the lexer is right to treat them the same either way, and it is resolution that has to refuse them.
+ * THE 64-BIT DATE TYPES ARE CODESYS'S ALONE (`syntax/lex/vocabulary.ts` `CODESYS_ONLY_TYPE_WORDS`, which says why). The
+ * list lives with the vocabulary since the PARSER asks it too — a refused type name is refused only where the type
+ * exists (frontend-conformance 2.8.3) — and resolution refuses the type by it (`resolve.ts` `isDialectType`).
  */
-export const CODESYS_ONLY_TYPES: ReadonlySet<string> = new Set([
-  "LDATE",
-  "LTOD",
-  "LTIME_OF_DAY",
-  "LDT",
-  "LDATE_AND_TIME",
-])
+export const CODESYS_ONLY_TYPES: ReadonlySet<string> = CODESYS_ONLY_TYPE_WORDS
 /** Canonical short form → the full name, the inverse of ELEM_ALIASES (so the two cannot drift apart). */
 const DISPLAY_NAMES: ReadonlyMap<string, string> = new Map([...ELEM_ALIASES].map(([full, short]) => [short, full]))
 

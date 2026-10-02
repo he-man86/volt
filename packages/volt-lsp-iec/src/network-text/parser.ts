@@ -1196,7 +1196,7 @@ class Parser {
   private stStatements(from: number, to: number): { statements: StatementList; ok: boolean } {
     const toks = this.stTokens(from, to)
     const span = this.span(from, to)
-    const parsed = bodyStatements({ kind: "body", tokens: toks, span })
+    const parsed = bodyStatements({ kind: "body", tokens: toks, span, dialect: this.dialect })
     return { statements: parsed.statements, ok: parsed.ok }
   }
 

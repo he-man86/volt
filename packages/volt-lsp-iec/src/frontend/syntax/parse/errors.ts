@@ -1,24 +1,34 @@
 /**
  * THE PARSER'S MESSAGES — every way a token is described in an error, and the errors that are more than one line of
  * text. One home (openspec frontend-conformance design.md §3.2): a parser file that words a token itself is a second
- * copy. Two wordings live here side by side, named apart — the vendors' (`vendorTokenText`) and Volt's own
- * (`plainTokenText`, `typeTokenText`); which one the parser keeps is conformance 2.8.1's to decide.
+ * copy. ONE wording, the vendors' (`vendorTokenText`, frontend-conformance 2.8.1): Volt's own forms — "keyword 'X'",
+ * "identifier 'x'", "end of input", "expected expression, got punct ';'", "expected type, got '5'" — are gone, each
+ * replaced by the recorded one (`rec_expected_expression*`, `rec_type_expected_literal`, both vendors 2026-10-02).
  */
 import type { Span } from "../span.js"
 import type { Token } from "../lex/tokens.js"
-import { SOFT_NAME_KEYWORDS, type Keyword } from "../lex/vocabulary.js"
+import { isRefusedDeclaredName, SOFT_NAME_KEYWORDS, UNIT_STARTERS, type Dialect, type Keyword } from "../lex/vocabulary.js"
 
 /** What an error needs of the cursor it resyncs — the cursor itself satisfies it. */
 export interface ErrorCursor {
-  peek(): Token
+  peek(offset?: number): Token
   consume(): Token
   pushError(message: string, span: Span, unexpectedToken?: string): void
   markResumed(): void
+  /** The vocabulary the tokens were lexed with. */
+  readonly dialect: Dialect
+  /** A word refused where a body's name or operand belongs (`Cursor.refusedWord`, rule R6). */
+  refusedWord(t: Token): boolean
 }
 
-/** A token as CODESYS and TwinCAT quote it in a message: bare-quoted (`'x'`, `';'`, `'TO'`), EOF as "end of POU". */
+/**
+ * A token as CODESYS and TwinCAT quote it in a message: bare-quoted (`'x'`, `';'`, `'TO'`), the END of the text as `''`.
+ * Every recorded "X expected instead of <end>" quotes `''` — "'END_VAR' expected instead of ''", "Expression expected
+ * instead of ''", "Type definition expected instead of ''", "'END_REPEAT' expected instead of ''" (`rec_missing_end_repeat`)
+ * — but one: the `;`, which both vendors want "instead of end of POU" (146 recorded, `expectedInsteadOf`).
+ */
 export function vendorTokenText(t: Token): string {
-  if (t.kind === "eof") return "end of POU"
+  if (t.kind === "eof") return "''"
   // AS WRITTEN. CODESYS echoes the token exactly as it is typed, asked directly with the same word in four
   // spellings (`echo_*_case_*`, recorded 2026-09-18): `Limit` -> `'Limit'`, `limit` -> `'limit'`, `Lt` -> `'Lt'`,
   // `LT` -> `'LT'`. Printing the canonical keyword made every mention that was not already upper-case disagree on
@@ -32,45 +42,42 @@ export function vendorTokenText(t: Token): string {
   return `'${t.text.length > 20 ? `${t.text.slice(0, 20)}…` : t.text}'`
 }
 
-/** A token as the Volt-worded messages describe it ("keyword 'X'", "identifier 'x'", "end of input") — the form no
- *  vendor message uses; conformance 2.8.1 chooses one wording. */
-export function plainTokenText(t: Token): string {
-  if (t.kind === "eof") return "end of input"
-  if (t.kind === "keyword") return `keyword '${t.keyword ?? t.text}'`
-  if (t.kind === "identifier") return `identifier '${t.text}'`
-  if (t.kind === "punct") return `'${t.text}'`
-  return `${t.kind} '${t.text}'`
+/**
+ * THE END OF THE OBJECT as the IDE holds its text, which both vendors quote as `''`: the end of the text, the next unit's
+ * start (a workspace file holds one object; a fixture packs several — a VAR section keyword is no such start, it is the
+ * object's own text), or a POU's or an interface's END_* line, which the push strips (`rec_unterminated_var`,
+ * `rec_interface_stray`, both vendors 2026-10-02). A DUT's END_TYPE is no such line: its text is written as sent.
+ */
+export function atObjectEnd(t: Token): boolean {
+  return t.kind === "eof" || (t.kind === "keyword" && OBJECT_ENDS.has(t.keyword ?? ""))
 }
+const OBJECT_ENDS: ReadonlySet<string> = new Set([
+  ...UNIT_STARTERS.filter((k) => k !== "VAR_GLOBAL" && k !== "VAR_CONFIG" && k !== "VAR_ACCESS"),
+  "END_FUNCTION_BLOCK", "END_PROGRAM", "END_FUNCTION", "END_METHOD", "END_ACTION", "END_PROPERTY", "END_INTERFACE",
+])
 
-/** A token that is not a keyword as the type parser's Volt-worded message names it (a keyword gets the vendors' form). */
-function typeTokenText(t: Token): string {
-  if (t.kind === "eof") return "end of input"
-  return `'${t.text}'`
+/** "<expected> expected instead of <t>" — `expected` as the message quotes it (`"';'"`, `"'END_IF'"`, `"',' or ')'"`). The
+ *  END of the text is `''` but after the `;`, which both vendors want "instead of end of POU" (`vendorTokenText`). */
+export function expectedInsteadOf(expected: string, t: Token): string {
+  return `${expected} expected instead of ${expected === "';'" && t.kind === "eof" ? "end of POU" : vendorTokenText(t)}`
 }
 
 /**
- * A type position holding something else. For a KEYWORD or a PUNCTUATION MARK it is the vendors' "Type definition
- * expected instead of 'X'", echoed as written — both vendors for `v : Public;` (`lex_soft_keyword_as_type_*`), `v : ;`
- * (`decl_type_missing`) and `v : END_IF;` (`decl_type_keyword`), TwinCAT for `END_VAR` where the type was missing
- * (`var_non_retain`). Any other token keeps Volt's "expected type, got …" until a recording words it (conformance 2.8.1).
+ * A type position holding something else: "Type definition expected instead of 'X'", echoed as written, for every kind of
+ * token — a keyword (`v : Public;`, `lex_soft_keyword_as_type_*`; `v : END_IF;`, `decl_type_keyword`), a punctuation mark
+ * (`v : ;`, `decl_type_missing`), a literal (`v : 5;`, `rec_type_expected_literal`, both vendors 2026-10-02), the end of
+ * the text (`''`, `pwh_gvl_then_prose` on TwinCAT).
  */
 export function typeExpected(t: Token): string {
-  if (t.kind === "keyword" || t.kind === "punct") return `Type definition expected instead of ${vendorTokenText(t)}`
-  return `expected type, got ${typeTokenText(t)}`
+  return `Type definition expected instead of ${vendorTokenText(t)}`
 }
 
 /**
- * An expression position holding something else. For a KEYWORD it is the vendors' "Expression expected instead of 'X'",
- * echoed as written — `n := cal;`, `n := and;` (`lex_keyword_operand_*`, 2026-09-30, every keyword asked). Any other
- * token keeps Volt's "expected expression, got …" until a recording words it in that position (conformance 2.8.1);
- * `vendorExpressionExpected` is the vendors' form where one has.
+ * An expression position holding something else: "Expression expected instead of 'X'", echoed as written, for every kind
+ * of token — a keyword (`n := cal;`, `lex_keyword_operand_*`, every keyword asked; `IF THEN`,
+ * `rec_expected_expression_condition`), a punctuation mark (`;` `)` `]` `,` `*` — `rec_expected_expression*`, both vendors
+ * 2026-10-02). The END of the text is `expressionAtEnd`'s.
  */
-export function expressionExpected(t: Token): string {
-  if (t.kind === "keyword") return vendorExpressionExpected(t)
-  return `expected expression, got ${t.kind} '${t.text}'`
-}
-
-/** "Expression expected instead of 'X'" — the vendors' words for any token, used where a recording has them. */
 export function vendorExpressionExpected(t: Token): string {
   return `Expression expected instead of ${vendorTokenText(t)}`
 }
@@ -112,16 +119,22 @@ export function unexpectedTokenOf(t: Token): string | undefined {
  * declaration half reported the name and recovered quietly — four messages short every time (`cc_il_name_cal`
  * records all ten for a declaration AND a use).
  *
+ * A NAME in the way is where the vendor RESUMES a declaration, as the statement cascade resumes a statement: `ld : TON;`
+ * is "';' expected instead of 'TON'" and nothing more about it — `TON` is read as the next declaration's name, and that
+ * declaration then wants its `,`, AT or `:` (`rec_refused_name_declared_fb_type`, CODESYS 2026-10-02). A refused name
+ * (`isRefusedDeclaredName`: `INT`, `bit`) is a token like any other there. "resumed" says the cursor stands at that name.
+ *
  * Only for a BAD NAME. `x : INT := 5 abc;` is ONE message on CODESYS (`cc_decl_init_trailing_ident`) and keeps the
  * quiet recovery; see the caller.
  */
-export function reportBrokenDeclaration(c: ErrorCursor, stop: readonly Keyword[]): void {
+export function reportBrokenDeclaration(c: ErrorCursor, stop: readonly Keyword[]): "resumed" | "ended" {
   for (;;) {
     const t = c.peek()
-    if (t.kind === "eof") return
-    if (t.kind === "punct" && t.text === ";") return
-    if (t.kind === "keyword" && t.keyword !== undefined && stop.includes(t.keyword)) return
+    if (t.kind === "eof") return "ended"
+    if (t.kind === "punct" && t.text === ";") return "ended"
+    if (t.kind === "keyword" && t.keyword !== undefined && stop.includes(t.keyword)) return "ended"
     c.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
+    if (t.kind === "identifier" && !isRefusedDeclaredName(t.text, c.dialect)) return "resumed"
     c.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
     c.consume()
   }
@@ -145,15 +158,26 @@ export function reportBrokenDeclaration(c: ErrorCursor, stop: readonly Keyword[]
 export function reportStatementCascade(c: ErrorCursor, stop: (t: Token) => boolean): void {
   for (;;) {
     const t = c.peek()
-    if (t.kind === "eof" || stop(t)) return
+    // the end of the text where the `;` is wanted is that line too: "';' expected instead of end of POU" after a refused
+    // closer the body ends with (`rec_end_while_closes_if`, `rec_missing_until`, both vendors 2026-10-02)
+    if (t.kind === "eof") {
+      c.pushError(expectedInsteadOf("';'", t), t.span)
+      return
+    }
+    if (stop(t)) return
     if (t.kind === "punct" && t.text === ";") {
       c.consume()
       return
     }
     c.pushError(`';' expected instead of ${vendorTokenText(t)}`, t.span)
     // the vendor starts a statement at the name — one it warns about as a bare statement whether or not anything
-    // declares the name (`cc_time_nanosecond_literal`: "The code 'NS;' has no effect"), so the statement is marked
-    if (t.kind === "identifier" || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))) {
+    // declares the name (`cc_time_nanosecond_literal`: "The code 'NS;' has no effect"), so the statement is marked.
+    // A REFUSED WORD is no name there (`rec_refused_name_cascade_il_word`: `st` is paired, rule R6); the GLOBAL-NAMESPACE
+    // `.` before a name starts one (`op_sys_varinfo`: `__VARINFO(v).size` ends at the `.`, "The code '.size;' has no
+    // effect", both vendors).
+    const name = (t.kind === "identifier" && !c.refusedWord(t)) || (t.kind === "keyword" && SOFT_NAME_KEYWORDS.has(t.keyword ?? ""))
+    const globalName = t.kind === "punct" && t.text === "." && c.peek(1).kind === "identifier"
+    if (name || globalName) {
       c.markResumed()
       return
     }

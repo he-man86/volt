@@ -77,3 +77,27 @@ test("a refused literal inside an aggregate initializer: the aggregate wants its
   expect(got).toContain("Expression expected instead of 'T#1500'")
   expect(got.filter((m) => m.startsWith("Cannot convert") || m.startsWith("';' expected instead of 'T#1500'"))).toEqual([])
 })
+
+test("a refused word as an initializer's operand is refused as a malformed literal is (rec_refused_word_initializer_alone, rec_refused_word_initializer, both vendors)", () => {
+  for (const vendor of ["codesys", "twincat"] as const) {
+    expect(msgs("x : INT := dint;", vendor)).toEqual(refused("dint", "INT"))
+    expect(msgs("x : INT := 1 + word;", vendor)).toEqual(
+      [
+        "';' expected instead of 'word'",
+        "Expression expected instead of 'word'",
+        "Cannot convert type 'Unknown type: '(1 + !!!'ERROR'!!!)'' to type 'INT'",
+        "Unknown type: '!!!'ERROR'!!!'",
+      ].sort(),
+    )
+  }
+})
+
+test("a refused word that is a callee or a lone argument is a name there, as in a body", () => {
+  expect(msgs("x : LTIME := LTIME();")).toEqual([])
+  expect(msgs("x : DINT := TO_DINT(SIZEOF(DINT));")).toEqual([])
+})
+
+test("an unlisted `__` operator leading an initializer — TwinCAT's documented `__TRY_CAST` — is refused on both vendors (rec_dunder_try_cast_initializer)", () => {
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(msgs("a : POINTER TO INT;\n\tb : POINTER TO INT;\n\tp : POINTER TO INT := __TRY_CAST(a, b);", vendor)).toEqual(refused("__TRY_CAST", "POINTER TO INT"))
+})

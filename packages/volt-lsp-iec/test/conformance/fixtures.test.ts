@@ -1304,7 +1304,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // supported in declaration part", CODESYS) and `prag_project_defined_in_declaration` (a declaration under an unset
   // `project_defined` dropped) — the declaration parser applies no conditional pragma (`MEASURED_SILENT`, both
   // `KNOWN_DIVERGENCES`; niche: accepted loss, 0 conditional directives in any declaration part of the corpora).
-  "lsp-gap": 24,
+  // 24 -> 23. frontend-conformance 2.8.3 (2026-10-02): `cc_decl_init_dunder_unknown` — the PARSER refuses a `__` identifier
+  // leading an initializer (every `__` operator a dialect has is its keyword; the `__SYSTEM` namespace is read through its
+  // `.`), where name resolution had answered every `__` name on CODESYS.
+  "lsp-gap": 23,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1696,7 +1699,14 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // message pragmas only where said; attributes in the AST (obsolete per use, a METHOD's its own); and the 49 fixtures the
   // recorder had pushed without the pragmas above their units, re-recorded (the five TwinCAT `newdel_*` agree now).
   // 3585 -> 3592 (2026-10-02, 2.7 review): the message words in upper/mixed case, the unquoted `hasattribute` cells.
-  { vendor: "twincat", floor: 3592 },
+  // 3592 -> 3645 (2026-10-02, frontend-conformance 2.8): the error-recovery fixtures (`grammar/recovery.ts`, 55 `rec_*`) —
+  // one token wording, a block left open, the refused words and their cascades in the parser — and the cells they closed
+  // (`stmt_assign_missing_value`, `stmt_if_else_if_two_words`, `stmt_s_eq_spaced`, `stmt_assign_spaced_operator`,
+  // `lit_time_fraction_ms`, `cc5_deprecated_functionblock_keyword`).
+  // 3645 -> 3662 (2026-10-02, 2.8 review): the refused word in the positions 2.8.3 had not asked (`rec_refused_word_*`: a
+  // label, a JMP target, an initializer, a STRUCT/UNION field), the end of the text as a member name, a keyword in an
+  // INTERFACE, the first CASE arm without its label ("No case label found" — `lit_enum_typed_case_label` agrees with it).
+  { vendor: "twincat", floor: 3662 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1826,7 +1836,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3569 -> 3640 (2026-10-02, frontend-conformance 2.7): the same, on CODESYS — and with the pragmas pushed, an unknown
   // attribute on any DUT warns, `deprecated` is no CODESYS attribute, `abstract` on an FB warns, `pingroup` on a unit.
   // 3640 -> 3647 (2026-10-02, 2.7 review): the same, on CODESYS.
-  { vendor: "codesys", floor: 3647 },
+  // 3647 -> 3707 (2026-10-02, frontend-conformance 2.8): the same, on CODESYS, and `unit_struct_extends_after_struct`,
+  // `unit_struct_extends_twice` (the declaration resync resuming at a name).
+  // 3707 -> 3723 (2026-10-02, 2.8 review): the same, on CODESYS.
+  { vendor: "codesys", floor: 3723 },
 ]
 
 

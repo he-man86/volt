@@ -30,7 +30,7 @@ import { isTrivia } from "../lex/tokens.js"
 import { attachAttributes } from "../pragmas/attributes.js"
 import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } from "../format/source-object.js"
 import { UNIT_STARTERS, type Dialect, type UnitStarter } from "../lex/vocabulary.js"
-import { plainTokenText } from "./errors.js"
+import { vendorTokenText } from "./errors.js"
 import { readFolderLine, reportMisplacedFolder } from "../format/folder.js"
 import { reportRetiredComments } from "../format/retired-comments.js"
 import { reportReservedNames } from "../format/reserved-names.js"
@@ -73,6 +73,13 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
     if (first?.keyword === undefined || !OPENING_KEYWORDS[object].includes(first.keyword))
       return { units: [], errors: [], failedDeclarations: [], tokens, dialect }
   }
+  // A POU whose text opens with a NAME where its keyword belongs declares nothing either, and the IDE says nothing about
+  // it: the push takes it, and the build reports only the USE of the POU it was meant to declare — "Unknown type: 'FB_x'"
+  // and the call (`rec_file_scope_stray_before_unit`, a name before `FUNCTION_BLOCK`; `cc5_deprecated_functionblock_keyword`,
+  // `FUNCTIONBLOCK` for the keyword — both vendors, frontend-conformance 2.8.1). A keyword or a mark there (a `%FOLDER`
+  // line, which the push refuses) is unmeasured and keeps the parse.
+  if (object === "pou" && tokens.find((t) => !isTrivia(t.kind))?.kind === "identifier")
+    return { units: [], errors: [], failedDeclarations: [], tokens, dialect }
   const c = new Cursor(tokens, dialect)
   const units: TopLevel[] = []
 
@@ -89,11 +96,10 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
     if (unit !== undefined) {
       units.push(unit)
     } else {
-      // Unrecognized token at file scope — record + skip to a
-      // known dispatch keyword to keep going.
+      // A token outside every unit — recorded once, and the parse resumes at the next unit starter (`strayAtFileScope`).
       const stray = c.peek()
       if (stray.kind === "eof") break
-      c.pushError(`unexpected ${plainTokenText(stray)} at file scope`, stray.span)
+      c.pushError(strayAtFileScope(stray, units.at(-1), object), stray.span)
       c.recoverTo({ keywords: UNIT_STARTERS })
       if (c.peek().kind === "eof") break
     }
@@ -109,6 +115,21 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
   if (!options.networkText) for (const unit of allUnits(units)) unitBodies(unit).forEach(readNoNetworkText)
   attachAttributes(units, tokens)
   return { units, errors: c.getErrors(), failedDeclarations: c.getFailedDeclarations(), tokens, dialect }
+}
+
+/**
+ * A TOKEN OUTSIDE EVERY UNIT, as what reads the text answers it (frontend-conformance 2.8.1, rule R4):
+ *   - after a POU's (or an interface's) END_*, THE PUSH refuses it: a workspace file holds the unit's METHODs, ACTIONs
+ *     and PROPERTYs there and nothing else — "expected METHOD/ACTION/PROPERTY, got: stray" for a name, a `;`, a keyword
+ *     alike (`rec_file_scope_stray*`, both vendors 2026-10-02: no IDE sees the text);
+ *   - after a DUT's or a GVL's, whose text the push writes as sent, the IDE reads it, each vendor in a shape of its own
+ *     (`pwh_struct_then_prose`, `pwh_gvl_then_prose`, known divergences): the vendors' word for a token no rule takes;
+ *   - before every unit, in text that is no POU file (a POU file opening with a name declares nothing, above), the same.
+ */
+function strayAtFileScope(stray: Token, after: TopLevel | undefined, object: SourceObject | undefined): string {
+  const asSent = isWrittenAsSent(object) || after === undefined || after.kind === "type_decl" || after.kind === "global_var_list"
+  if (asSent) return `Unexpected token ${vendorTokenText(stray)} found`
+  return `${vendorTokenText(stray)} stands after the unit, where a workspace file holds only its METHODs, ACTIONs and PROPERTYs: the push refuses the text ("expected METHOD/ACTION/PROPERTY, got: ${stray.text}"). Remove it.`
 }
 
 /** The `IMPLEMENTATION` tokens the body splitter owns — each body's boundary keyword, and every keyword opening a line

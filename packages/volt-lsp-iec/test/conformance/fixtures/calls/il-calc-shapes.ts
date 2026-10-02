@@ -1,12 +1,12 @@
 /**
  * `CALC` — the one instruction-list operator name CODESYS does NOT refuse the way it refuses the others.
  *
- * WHY THESE EXIST. `refused-name` covers the IL operator names, and `cc_il_name_cal`, `_calcn` and `_jmpc` all
+ * WHY THESE EXIST. The parser refuses the IL operator names (`syntax/lex/vocabulary.ts` `IL_OPERATOR_WORDS`), and `cc_il_name_cal`, `_calcn` and `_jmpc` all
  * record the SAME uniform ten messages: the name, then a `';' expected` / `Unexpected token` pair for every token
  * to the next `;`, at the declaration and again at the use. `calc` records nine ENTIRELY DIFFERENT ones —
  * `'(' expected instead of ':'`, `Second parameter of conditional call must be a valid call statement` twice,
  * `This code is not supported in declaration part`, `'END_VAR' expected instead of ''` — because the parser reads
- * it as a CONDITIONAL CALL and keeps trying to parse one. The check's header says so and leaves it unmodelled.
+ * it as a CONDITIONAL CALL and keeps trying to parse one. Unmodelled — a known divergence, `CALC_CONDITIONAL_CALL`.
  *
  * Three siblings agreeing and `calc` differing is good evidence it is genuinely special. It is not enough to
  * write a RULE from: `cc_il_name_calc` is a single sample, so any emission built on it would be fitted to one

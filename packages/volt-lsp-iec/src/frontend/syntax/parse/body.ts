@@ -26,10 +26,10 @@ export function collectBodyUntilAny(c: Cursor, enders: readonly Keyword[], conte
   const startSpan = c.peek().span
   const { tokens, closer } = consumeBodyUntilAny(c, { consumeEnders: enders })
   if (closer !== undefined) {
-    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), owner)
+    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), owner, c.dialect)
   }
   c.pushError(`unterminated ${context}: expected ${enders.join(" or ")}`, startSpan)
-  return codeBody(reportOn(c), tokens, startSpan, owner)
+  return codeBody(reportOn(c), tokens, startSpan, owner, c.dialect)
 }
 
 /**
@@ -81,14 +81,14 @@ export function collectAccessorBody(c: Cursor, endAccessor: Keyword): BodySpan {
     peekStoppers: ["GET", "SET", "END_PROPERTY"],
   })
   if (closer !== undefined) {
-    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "pou-or-accessor")
+    return codeBody(reportOn(c), tokens, joinSpans(startSpan, closer.span), "pou-or-accessor", c.dialect)
   }
   if (stoppedAt !== undefined) {
     // Sloppy close — stop without consuming; outer recover handles.
-    return codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor")
+    return codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor", c.dialect)
   }
   c.pushError(`unterminated property accessor: expected ${endAccessor} (or next GET/SET/END_PROPERTY)`, startSpan)
-  return codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor")
+  return codeBody(reportOn(c), tokens, startSpan, "pou-or-accessor", c.dialect)
 }
 
 /** The cursor's error list as a file-format report: what `codeBody` reports lands with the parse errors. */

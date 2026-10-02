@@ -131,18 +131,6 @@ export function unresolvedInExprs(
   return out
 }
 
-/**
- * The `__`-PREFIXED NAMES THIS DIALECT DOES NOT HAVE, in source order. `__` is the compilers' own namespace for
- * system operators, and one they do not know is not an undefined identifier — in a declaration's initializer it
- * is a PARSE refusal (`checks/declarations/system-initializer`), on both vendors.
- *
- * <p>It is exactly the unresolved names that begin with `__`, and that is not a coincidence to be tidied away:
- * `nameResolves` already answers TRUE for every system operator the dialect HAS, membership included, so a `__`
- * name reaching here has been ruled out by the same table that rules `__POSITION` in on CODESYS.</p>
- */
-export function refusedSystemNames(exprs: Iterable<Expr>, scope: Scope, project: Scope, references: WorkspaceRefs): BareRef[] {
-  return unresolvedInExprs(exprs, scope, project, references).filter((r) => r.name.startsWith("__"))
-}
 
 /**
  * CAN A CALL BIND THIS NAME? An FB's INPUTS, OUTPUTS and IN-OUTS can, and so can a PROPERTY; nothing else can.

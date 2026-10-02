@@ -114,10 +114,10 @@ test("an LTIME literal into an LTIME is clean — typed TIME, it was a false pos
  * reference bound correctly is the overwhelmingly common case.
  */
 test("a reference declaration type-checks its target, and a valid bind stays silent", () => {
-  const decl = (init: string) => `\tv : INT;\n\ts : STRING;\n\td : DINT;\n\tref_ : REFERENCE TO INT ${init};`
+  const decl = (init: string) => `\tv : INT;\n\tsx : STRING;\n\td : DINT;\n\tref_ : REFERENCE TO INT ${init};`
   expect(mismatches(decl("REF= v"), ";")).toEqual([])
   expect(mismatches(decl(":= v"), ";")).toEqual([]) // both spellings bind, and both are legal
-  expect(mismatches(decl("REF= s"), ";")).toEqual(["Cannot convert type 'STRING' to type 'REFERENCE TO INT'"])
+  expect(mismatches(decl("REF= sx"), ";")).toEqual(["Cannot convert type 'STRING' to type 'REFERENCE TO INT'"])
   expect(mismatches(decl("REF= nope"), ";")).toEqual([
     "Cannot convert type 'Unknown type: 'nope'' to type 'REFERENCE TO INT'",
   ])

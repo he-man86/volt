@@ -47,7 +47,7 @@ test("a declaration the producer rule does not confirm is not the uses' type: th
   // …through a wire that forwards another, too.
   expect(messages(fbd("i : INT; j : INT;", "VAR_TEMP g1 : STRING; g2 : STRING; END_VAR\ng1 := i;\ng2 := g1;\nj := g2;"))).toEqual([])
   // A producer the build DOES type the consumer by is still checked: `j := s` is the build's own error.
-  expect(messages(fbd("s : STRING; j : INT;", "VAR_TEMP g1 : INT; END_VAR\ng1 := s;\nj := g1;"))).toContain(
+  expect(messages(fbd("sx : STRING; j : INT;", "VAR_TEMP g1 : INT; END_VAR\ng1 := sx;\nj := g1;"))).toContain(
     "Cannot convert type 'STRING' to type 'INT'",
   )
 })

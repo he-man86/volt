@@ -12,7 +12,7 @@ import { bodyStatements } from "./body-parse.js"
 function parse(body: string, dialect: Dialect = "codesys") {
   const toks = lex(body, dialect).filter((t) => t.kind !== "eof")
   const span = { start: 0, end: body.length, startLine: 1, startCol: 0, endLine: 1, endCol: 0 }
-  return bodyStatements({ kind: "body", tokens: toks, span } satisfies BodySpan)
+  return bodyStatements({ kind: "body", tokens: toks, span, dialect } satisfies BodySpan)
 }
 
 /** The errors a body snippet parses with. */

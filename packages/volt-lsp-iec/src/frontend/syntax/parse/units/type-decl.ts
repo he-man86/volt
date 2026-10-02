@@ -38,12 +38,12 @@ import type {
   VarDecl,
 } from "../../ast/nodes.js"
 import type { Token } from "../../lex/tokens.js"
-import { DECL_LIST_ENDERS, UNIT_STARTERS } from "../../lex/vocabulary.js"
+import { DECL_LIST_ENDERS } from "../../lex/vocabulary.js"
 import type { Cursor } from "../cursor.js"
 import { parseEnumBase, parseEnumValues, parseTypeExpression } from "../type-expr.js"
 import { atSectionInStruct, FIELD_LIST, parseDeclInto, refuseSectionInStruct } from "../declarations.js"
 import { joinSpans } from "../../span.js"
-import { vendorTokenText } from "../errors.js"
+import { atObjectEnd, vendorTokenText } from "../errors.js"
 import { identFromToken, readHeaderName } from "../names.js"
 import { collectInitTokens, initializerFromTokens, refuseMalformedInit } from "../initializer.js"
 
@@ -89,16 +89,6 @@ export function parseTypeDecl(c: Cursor): TypeDecl | undefined {
     span: joinSpans(start.span, endType?.span ?? c.previous().span),
   }
 }
-
-/** The end of the object, as both vendors quote it in a TYPE: '' — the end of the text, or the next POU's or TYPE's start
- *  (a workspace holds one object per file; a fixture several). A VAR section keyword is no such start: inside a broken
- *  STRUCT it is the DUT's own text (`decl_var_access_inside_struct`), and a GVL follows no TYPE in one file. */
-function atObjectEnd(t: Token): boolean {
-  return t.kind === "eof" || (t.kind === "keyword" && OBJECT_STARTERS.has(t.keyword ?? ""))
-}
-const OBJECT_STARTERS: ReadonlySet<string> = new Set(
-  UNIT_STARTERS.filter((k) => k !== "VAR_GLOBAL" && k !== "VAR_CONFIG" && k !== "VAR_ACCESS"),
-)
 
 /** "`<expected>` expected instead of 'T'", and the token CONSUMED — the vendor's recovery in a TYPE (`consumeRefused`).
  *  The end of the object is quoted as ''. */
@@ -152,17 +142,37 @@ function parseStructBody(c: Cursor): StructBody {
       refuseSectionInStruct(c)
       continue
     }
-    // A list-ending keyword here (e.g. the outer `END_TYPE` when `END_STRUCT` is missing) means the struct
-    // wasn't closed — stop with ONE "unterminated STRUCT" error and leave the token for the TYPE parser,
-    // instead of choking the field parser on it AND letting recovery eat the `END_TYPE` the outer parser
-    // needs. Any other non-name token is a bad field name — reported there, not on the header (see
-    // `atDeclListEnd`).
+    // A list-ending keyword here means the struct wasn't closed (`unclosedFieldList`). Any other non-name token is a bad
+    // field name — reported there, not on the header (see `atDeclListEnd`).
     if (c.atDeclListEnd()) break
     // a field is a declaration (`parse/declarations`, one parser for both)
     if (!parseDeclInto(c, FIELD_LIST, fields)) break
   }
-  c.pushError("unterminated STRUCT: expected END_STRUCT", start.span)
+  unclosedFieldList(c, "END_STRUCT")
   return { kind: "struct", fields, span: start.span }
+}
+
+/**
+ * A STRUCT's or a UNION's field list left without its closer, as both vendors read it (`rec_unterminated_struct`,
+ * `rec_unterminated_union`, 2026-10-02): the list reads on, so the TYPE's own END_TYPE, followed by the end of the object,
+ * is a FIELD'S NAME it refuses — "Unexpected token 'END_TYPE' found" and the `;` it then wants, "';' expected instead of
+ * end of POU" — and the closer is "'END_STRUCT' expected instead of ''" (the TYPE then says the same of its END_TYPE). A
+ * list ending anywhere else is unmeasured past the closer's line: the token is left for the TYPE parser.
+ */
+function unclosedFieldList(c: Cursor, closer: "END_STRUCT" | "END_UNION"): void {
+  const t = c.peek()
+  if (t.kind === "keyword" && t.keyword === "END_TYPE" && atObjectEnd(c.peek(1))) {
+    c.consume()
+    c.pushError(`Unexpected token ${vendorTokenText(t)} found`, t.span, t.text)
+    c.pushError("';' expected instead of end of POU", c.peek().span)
+  }
+  refuseKeepingToken(c, `'${closer}'`)
+}
+
+/** `refuse` without consuming — the token is the next part's to read. */
+function refuseKeepingToken(c: Cursor, expected: string): void {
+  const t = c.peek()
+  c.pushError(`${expected} expected instead of ${atObjectEnd(t) ? "''" : vendorTokenText(t)}`, t.span)
 }
 
 function parseUnionBody(c: Cursor): UnionBody {
@@ -172,10 +182,10 @@ function parseUnionBody(c: Cursor): UnionBody {
     if (c.eatPunct(";") !== undefined) continue // stray/empty field — CODESYS accepts `x : T;;`
     const endUnion = c.eatKeyword("END_UNION")
     if (endUnion !== undefined) return { kind: "union", fields, span: joinSpans(start.span, endUnion.span) }
-    if (c.atDeclListEnd()) break // list-ending keyword → unterminated union; leave it for the TYPE parser (see struct)
+    if (c.atDeclListEnd()) break // list-ending keyword → an unclosed union (`unclosedFieldList`)
     if (!parseDeclInto(c, FIELD_LIST, fields)) break
   }
-  c.pushError("unterminated UNION: expected END_UNION", start.span)
+  unclosedFieldList(c, "END_UNION")
   return { kind: "union", fields, span: start.span }
 }
 

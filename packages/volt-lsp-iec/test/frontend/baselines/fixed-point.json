@@ -2,7 +2,7 @@
   "counts": {
     "corpus: files": 29170,
     "corpus: files not a fixed point": 0,
-    "fixtures: files": 7918,
+    "fixtures: files": 8064,
     "fixtures: files not a fixed point": 3,
     "fixtures: format-ast-changed": 3,
     "library: files": 50,

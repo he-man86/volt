@@ -128,6 +128,8 @@ export interface Messages {
   orphanPragma(directive: string): string
   /** A `{IF}` conditional-compile block never closed by `{END_IF}`. Byte-identical on both vendors (confirmed against live). */
   unterminatedConditional(): string
+  /** A CASE whose first arm has no label: CODESYS "CASE", TwinCAT "case" (`rec_refused_word_case_label_first`, 2026-10-02). */
+  noCaseLabel(): string
   /**
    * An `{attribute '<name>'}` the compiler doesn't recognize. CODESYS's exact wording — note the DOUBLE
    * space before "compiler" and the unquoted name (a compiler quirk, matched byte-for-byte). TwinCAT has no
@@ -563,6 +565,7 @@ export function messagesFor(vendor: Vendor): Messages {
     orphanPragma: (directive) => `Unexpected ${tc ? "Pragma" : "pragma"}: '${directive}' found without matching 'if'`,
     // Confirmed byte-identical on both vendors via live /build (CODESYS + TwinCAT, 2026-07-07).
     unterminatedConditional: () => `Unexpected End-of-file found: 'ELSIF', 'ELSE' or 'END_IF' expected`,
+    noCaseLabel: () => `No ${tc ? "case" : "CASE"} label found`,
     // CODESYS byte-identical (double space + unquoted name). TwinCAT never emits this (live /build: compiles
     // an unknown attribute clean), so the lint is CODESYS-gated and this builder is CODESYS-only in practice.
     unknownAttribute: (name) => `The attribute ${name} is unknown and will be ignored by the  compiler.`,

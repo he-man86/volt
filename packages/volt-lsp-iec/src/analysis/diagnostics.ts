@@ -72,7 +72,6 @@ import { checkInoutExternalAccess } from "./checks/oop/inout-external-access.js"
 import { checkInoutOwnAccess } from "./checks/oop/inout-own-access.js"
 import { checkConditionalCall } from "./checks/names/conditional-call.js"
 import { checkUnknownType } from "./checks/declarations/unknown-type.js"
-import { checkSystemInitializer } from "./checks/declarations/system-initializer.js"
 import { checkRefusedInitializer } from "./checks/declarations/refused-initializer.js"
 import { checkDynamicCreation } from "./checks/declarations/dynamic-creation.js"
 import { checkFbInitInout } from "./checks/oop/fb-init-inout.js"
@@ -88,7 +87,6 @@ import { checkUnresolvedIdentifiers } from "./checks/names/unresolved-identifier
 import { checkAmbiguousGlobal } from "./checks/names/ambiguous-global.js"
 import { checkTypeAsValue } from "./checks/names/type-as-value.js"
 import { checkReservedKeyword } from "./checks/names/reserved-keyword.js"
-import { checkRefusedName } from "./checks/names/refused-name.js"
 import { checkUnknownSource } from "./checks/types/unknown-source.js"
 import { checkSignatureName } from "./checks/declarations/signature-name.js"
 import { checkUnaryOperand } from "./checks/types/unary-operand.js"
@@ -187,7 +185,6 @@ const CHECKS: readonly Check[] = [
   checkAmbiguousGlobal,
   checkTypeAsValue,
   checkReservedKeyword,
-  checkRefusedName,
   // declarations/
   checkVarSectionPlacement,
   checkInoutInitializer,
@@ -197,7 +194,6 @@ const CHECKS: readonly Check[] = [
   checkInoutOwnAccess,
   checkConditionalCall,
   checkUnknownType,
-  checkSystemInitializer,
   checkRefusedInitializer,
   checkDynamicCreation,
   checkFbInitInout,
@@ -224,7 +220,7 @@ const CHECKS: readonly Check[] = [
  * The checks that run for CODESYS only — one list, where each used to open with its own `if (vendor !== "codesys") return`
  * (consolidate-lsp-structure C6). A rule gate INSIDE a check (one message of several) stays in that check.
  *
- * SIX OF THESE WERE NOT VENDOR DIFFERENCES AT ALL. `checkRefusedName`, `checkTimeLiteralUnit` (since moved into the lexer),
+ * SIX OF THESE WERE NOT VENDOR DIFFERENCES AT ALL. `checkRefusedName` (since moved into the parser), `checkTimeLiteralUnit` (into the lexer),
  * `checkUnaryOperand`, `checkUnsupportedOperator`, `checkUnknownSource` and `checkSignatureName` each sat here
  * with the note "TwinCAT unmeasured" — a placeholder from when TwinCAT's recording covered 280 fixtures. It
  * covers 2524 now, and every one of them AGREES: an IL operator used as a name cascades identically on both,

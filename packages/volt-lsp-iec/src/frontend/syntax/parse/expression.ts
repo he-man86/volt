@@ -18,7 +18,7 @@ import { Cursor } from "./cursor.js"
 import type { CallArg, CallExpr, Expr, IdentExpr, Literal, LiteralKind } from "../ast/nodes.js"
 import { parseLiteralValue } from "../literal/value.js"
 import { addressShape } from "../literal/address.js"
-import { expressionExpected, vendorExpressionExpected, vendorTokenText } from "./errors.js"
+import { expectedInsteadOf, vendorExpressionExpected, vendorTokenText } from "./errors.js"
 import { CALL_OPERATOR_OPERANDS, NOT_AN_OPERAND, SOFT_NAME_KEYWORDS } from "../lex/vocabulary.js"
 
 // ─── Precedence table (task 1.3) — lowest binding first ──────────────
@@ -170,6 +170,9 @@ function parseUnary(cur: Cursor): Expr | undefined {
   return parsePostfix(cur)
 }
 
+/** A call of a compiler intrinsic — a callee whose name starts `__` (`__VARINFO(v)`, `__QUERYINTERFACE(…)`). */
+const isIntrinsicCall = (e: Expr): boolean => e.kind === "call" && e.callee.kind === "ident_expr" && e.callee.name.startsWith("__")
+
 function parsePostfix(cur: Cursor): Expr | undefined {
   const head = cur.peek()
   let base = parsePrimary(cur)
@@ -184,8 +187,13 @@ function parsePostfix(cur: Cursor): Expr | undefined {
     // (`analysis/checks/calls/call-result-access`), not here: the vendor goes on analysing the body after it — an
     // undefined name in the next statement is still reported (`expr_call_result_index_beside_undefined`, both vendors
     // 2026-10-01) — and a parse error here stops the body's analysis.
+    // …but a `.` on a compiler INTRINSIC's result (a `__`-named callee) ENDS the expression: `__VARINFO(v).size` is the
+    // call, and the statement then lacks its `;` before the `.` — "';' expected instead of '.'", and `.size;` read on as
+    // a statement of its own that has no effect (`op_sys_varinfo`, both vendors; `analysis/resync.ts` modelled it until
+    // frontend-conformance 2.8.3 folded it here).
+    if (t.text === "." && isIntrinsicCall(base)) break
     if (t.text === ".") {
-      cur.consume()
+      const dot = cur.consume()
       // CODESYS bit access `x.0` .. `x.63` — the member is a numeric bit index, not a name.
       const bitTok = cur.peek()
       if (bitTok.kind === "int_lit") {
@@ -199,18 +207,20 @@ function parsePostfix(cur: Cursor): Expr | undefined {
       // access: the `%` is the member, no component of anything — answered as a keyword member is — and the specifier
       // after it is left over for the statement: "'%' is no component of 'd'", "';' expected instead of 'W0'", "The
       // code 'W0;' has no effect" (`accepts_partial_access`, `operand_partial_*`, TwinCAT 2026-09-21).
+      // ANY OTHER TOKEN where the name belongs is taken for it the same way: `bx.;` is "';' is no component of 'bx'", and
+      // the `;` gone, "';' expected instead of end of POU" (`rec_member_name_expected`, both vendors 2026-10-02). The END
+      // of the text is taken for it too, left in place: `bx.` ending the body is "'' is no component of 'bx'" and
+      // "';' expected instead of end of POU" (`rec_member_name_at_end`, both vendors 2026-10-02) — at the `.`, which the
+      // expression then ends with (the end of the text has no width to hold the refusal).
       const pct = cur.peek()
-      const nameTok = pct.kind === "punct" && pct.text === "%" ? cur.consume() : eatName(cur)
-      if (nameTok === undefined) {
-        cur.pushError("expected member name after '.'", cur.peek().span)
-        return undefined
-      }
+      const nameTok = pct.kind === "punct" ? cur.consume() : (eatName(cur) ?? (pct.kind === "eof" ? pct : cur.consume()))
       // …a PARSE refusal: nothing else in the body is analysed, an undefined name beside it included
       // (`expr_member_named_keyword_beside_undefined`, both vendors).
-      if (nameTok.kind === "punct" || isReservedMemberName(nameTok))
-        cur.pushError(`'${nameTok.text}' is no component of '${cur.textOf(base.span)}'`, nameTok.span)
-      const member: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span }
-      base = { kind: "member", base, member, span: joinSpans(base.span, nameTok.span) }
+      const at = nameTok.kind === "eof" ? dot.span : nameTok.span
+      if ((nameTok.kind !== "identifier" && nameTok.kind !== "keyword") || isReservedMemberName(nameTok))
+        cur.pushError(`'${nameTok.text}' is no component of '${cur.textOf(base.span)}'`, at)
+      const member: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: at }
+      base = { kind: "member", base, member, span: joinSpans(base.span, at) }
     } else if (t.text === "[") {
       cur.consume()
       // Every index is an expression: an empty list `arr[]` and a trailing comma `arr[1,]` are "Expression expected
@@ -329,14 +339,23 @@ function parseCallArg(cur: Cursor): CallArg | undefined {
       if (after.kind === "punct" && (after.text === "," || after.text === ")")) {
         return { kind: "call_arg", param, output, span: joinSpans(nameTok.span, opTok.span) }
       }
-      const value = parseExpression(cur)
+      const value = loneRefusedWord(cur) ?? parseExpression(cur)
       if (value === undefined) return undefined
       return { kind: "call_arg", param, output, value, span: joinSpans(nameTok.span, value.span) }
     }
   }
-  const value = parseExpression(cur)
+  const value = loneRefusedWord(cur) ?? parseExpression(cur)
   if (value === undefined) return undefined
   return { kind: "call_arg", output: false, value, span: value.span }
+}
+
+/** A refused word that IS the whole argument — `XSIZEOF(DINT)` names a type — taken as the name it is (rule R6). */
+function loneRefusedWord(cur: Cursor): IdentExpr | undefined {
+  const t = cur.peek()
+  const after = cur.peek(1)
+  if (!cur.refusedWord(t) || after.kind !== "punct" || (after.text !== "," && after.text !== ")")) return undefined
+  cur.consume()
+  return { kind: "ident_expr", name: t.text, span: t.span }
 }
 
 const isOpenParen = (t: Token): boolean => t.kind === "punct" && t.text === "("
@@ -370,6 +389,15 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     cur.consume()
     return makeLiteral("bool", t)
   }
+  // A REFUSED WORD as an operand (`isRefusedWord`, rule R6) is refused as a keyword that is no operand is, and left where
+  // it stands for the statement's resync from it: `n + dint + 1` is "Expression expected instead of 'dint'", then the pair
+  // for `dint` and a pair per token to the `;` (`rec_refused_name_cascade_type_word`, `cc4_type_name_*`, both vendors).
+  // A callee is none (`LTIME()`); a lone argument neither (`parseCallArg`).
+  if (cur.refusedWord(t) && !isOpenParen(cur.peek(1))) {
+    cur.pushError(vendorExpressionExpected(t), t.span)
+    cur.refuseOperand()
+    return undefined
+  }
   if (t.kind === "identifier") {
     cur.consume()
     return { kind: "ident_expr", name: t.text, span: t.span }
@@ -384,7 +412,7 @@ function parsePrimary(cur: Cursor): Expr | undefined {
   // 'ADD'", then the pair for it and the statement resync over `(a, b)` (`operator_call_form_*`,
   // `expr_operator_call_form_lower_case`, both vendors).
   if (t.kind === "keyword" && t.keyword !== undefined && NOT_AN_OPERAND.has(t.keyword) && followed) {
-    cur.pushError(expressionExpected(t), t.span)
+    cur.pushError(vendorExpressionExpected(t), t.span)
     cur.refuseOperand()
     return undefined
   }
@@ -426,7 +454,7 @@ function parsePrimary(cur: Cursor): Expr | undefined {
   // and its five siblings). Its IL call form is that too: `MOD(a, b)` reads `(a` as the operand — "')' expected instead
   // of ','" and the statement's resync from the `,` (`expr_operator_call_form_mod`, `_and`, both vendors).
   if (t.kind === "keyword" && binaryOp(t) !== undefined && followed) {
-    cur.pushError(expressionExpected(t), t.span)
+    cur.pushError(vendorExpressionExpected(t), t.span)
     cur.consume()
     const operand = cur.peek()
     if (operand.kind === "punct" && !OPERAND_STARTS.has(operand.text)) cur.pushError(vendorExpressionExpected(operand), operand.span)
@@ -462,10 +490,7 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     // Both name the END of the input whatever stood in the way, so the compiler runs off the end of the POU on
     // this token and nothing after it is read. The parse CONTINUES here rather than doing that: the two messages
     // are the whole answer, and swallowing the rest of the unit would invent a cascade CODESYS does not report.
-    if (t.keyword === "__CURRENTTASK") {
-      cur.pushError("';' expected instead of end of POU", t.span)
-      cur.pushError("Expression expected instead of ''", t.span)
-    }
+    if (t.keyword === "__CURRENTTASK") pushEndOfText(cur, t)
     return { kind: "ident_expr", name: t.text, span: t.span }
   }
   // THE GLOBAL-NAMESPACE OPERATOR, a leading dot: `.gv` (rule E33, `GlobalExpr`) — a space may stand between the two
@@ -504,8 +529,18 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     cur.refuseOperand()
     return undefined
   }
-  cur.pushError(expressionExpected(t), t.span)
+  // THE END OF THE TEXT where an operand belongs is the vendors' two lines, the `;` first: `out := 1 +` at the end of
+  // the body is "';' expected instead of end of POU" and "Expression expected instead of ''"
+  // (`rec_expected_expression_end_of_pou`, both vendors 2026-10-02) — `__CURRENTTASK`'s pair, below.
+  if (t.kind === "eof") pushEndOfText(cur, t)
+  else cur.pushError(vendorExpressionExpected(t), t.span)
   return undefined
+}
+
+/** The vendors' two lines for an operand the end of the text took the place of. */
+function pushEndOfText(cur: Cursor, at: Token): void {
+  cur.pushError(expectedInsteadOf("';'", { ...at, kind: "eof" }), at.span)
+  cur.pushError(vendorExpressionExpected({ ...at, kind: "eof" }), at.span)
 }
 
 /** Build a `Literal` node with its value parsed up front (kills re-lexing downstream). */

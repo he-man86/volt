@@ -44,9 +44,8 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *
  *   (`cc3_reference_assign` left 2026-10-02: a second cell, `stmt_ref_eq_literal_value`, says TwinCAT reverses the
  *                             pair for EVERY literal `REF=` statement — `refLiteralCannotConvert`.)
- *   cc5_deprecated_functionblock_keyword  The parser's own `unexpected identifier 'FUNCTIONBLOCK' at file
- *                             scope`, which is Volt's wording, where both vendors say nothing about the
- *                             header and complain where the missing FB is USED.
+ *   (`cc5_deprecated_functionblock_keyword` left 2026-10-02, frontend-conformance 2.8.1: a POU's text opening with a name
+ *                             declares nothing and the parser says nothing about it, as both vendors — `parse/parser`.)
  *
  * THE RULE HERE IS THAT IT ONLY SHRINKS. A fixture not in this list may not emit an LSP-only message, and a
  * fixture that stops emitting one must leave the list — both are asserted below, so this cannot quietly grow
@@ -64,8 +63,9 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *   meet_bool_mod_int        the LSP says "MOD is not defined for BOOL"; CODESYS compiles it. The meet-type
  *                            table refuses a pair the vendor accepts.
  *   sysop_position_call_form  `__POSITION` typed as plain STRING where CODESYS names a SIZED one —
- *   sysop_position_initializer  "Cannot convert type 'STRING(INT#23)' to type 'DINT'" in an implementation and
- *                             `STRING(INT#13)` in a declaration.
+ *                             "Cannot convert type 'STRING(INT#23)' to type 'DINT'" in an implementation and
+ *                             `STRING(INT#13)` in a declaration (`sysop_position_initializer`, a known divergence since
+ *                             frontend-conformance 2.8.3: `CODESYS_POSITION_IN_AN_INITIALIZER`).
  *
  * THE MEASUREMENT IS NO LONGER WHAT IS MISSING. `scripts/probe-position-length.ts` pinned the model with twelve
  * probes and the simulator then handed over the text itself: the length is `21 + digits(line) + digits(column)`
@@ -82,12 +82,9 @@ import type { Vendor } from "../../../src/analysis/index.js"
  */
 export const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
   "sysop_position_call_form",
-  "sysop_position_initializer",
 ])
 
-export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
-  "cc5_deprecated_functionblock_keyword",
-])
+export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set<string>([])
 /** Fixtures that legitimately do NOT match, each with a documented reason. Empty until a real divergence
  *  is confirmed against a recording (not a not-yet-ported check — those are tracked by the ratchet). */
 // subrange is NO LONGER a divergence: the check now emits the compilers' own type-CONVERSION wording
@@ -141,6 +138,9 @@ const SYSTEM_OPERAND_AT_STATEMENT_START: readonly string[] = [
  * reading the vocabulary does not have.
  */
 const TWINCAT_XSIZEOF_IS_NO_KEYWORD: readonly string[] = [
+  // the call of a TYPE, named in the note above and held here since frontend-conformance 2.8.3 emptied the parse census:
+  // the lone type argument stands only in a KEYWORD operator's call, which XSIZEOF is to the LSP on both vendors
+  "cp_xsizeof",
   "lex_keyword_assigned_xsizeof",
   "lex_keyword_before_name_xsizeof",
   "lex_keyword_operand_xsizeof",
@@ -200,10 +200,8 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *                            they answer "Identifier expected instead of '5'" and "Global scope operation '.' is not
  *                            valid on expression '!!!'ERROR'!!!'". The `.name` primary is E33 (task 2.5.6); the LSP's
  *                            "expected expression, got punct '.'" is Volt's wording until then.
- *   `lit_time_fraction_ms` — the literal is refused as the vendors refuse it (`T#1.5m`, `Token.malformed`), and the `s`
- *                            left after it is the IL operator S, which they refuse as a WORD ("Unexpected token 's'
- *                            found") where the LSP lexes a name and warns `s;` has no effect. The IL operators as
- *                            words are `refused-name`'s until task 2.8.3 gives the cascade its one home.
+ *   (`lit_time_fraction_ms` left 2026-10-02, task 2.8.3: the IL operator S left after the literal is refused as a WORD
+ *                            in the resync, `parse/errors` `reportStatementCascade`.)
  */
 /**
  * FRONTEND-CONFORMANCE 2.5 (2026-10-01) — expression fixtures (`fixtures/grammar/expressions.ts`) whose disagreement is a
@@ -265,21 +263,10 @@ const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
 /**
  * FRONTEND-CONFORMANCE 2.6 (2026-10-02) — statement fixtures (`fixtures/grammar/statements.ts`) whose disagreement is a
  * rule of a later task or niche. Both vendors answer each identically (TwinCAT's capitals aside), so one list serves both:
- *   `stmt_assign_missing_value` — `out := ;` is "Expression expected instead of ';'" on both; the LSP's "expected
- *                            expression, got punct ';'" is Volt's wording for an absent operand — the one token-description
- *                            wording is task 2.8.1's (R5, `rec_expected_expression`).
- *   `stmt_if_else_if_two_words` — an IF left open at the end of the body is "Unexpected End-of-file found: 'ELSIF', 'ELSE'
- *                            or 'END_IF' expected" on both, where the LSP says "'END_IF' expected instead of end of POU" —
- *                            a missing END_* is R2's, task 2.8.2 (`rec_missing_end_if`). (`ELSE IF` is no ELSIF: two
- *                            IFs, one END_IF — the parse agrees, `stmt_if_else_if_nested` builds.)
- *   `stmt_s_eq_spaced` — `x S = y;`: the IL operator S as a WORD is refused where the cascade meets it ("Unexpected token
- *                            'S' found") and the resync goes on to `y`; the lexer reads `s` as a name, so the LSP resumes a
- *                            statement there ("'(S = y);' is no valid statement"). The IL operators as words are
- *                            `refused-name`'s until task 2.8.3 gives the cascade its one home.
- *   `stmt_assign_spaced_operator` — `out : = a;` is the label `out:` and a refused `=` on both, which the LSP now says, and
- *                            the vendors add "The label 'OUT' has not been referenced" in a body that did not parse, where
- *                            the label checks look only at a body that parsed. Missing-only; niche: accepted loss (0
- *                            occurrences of a `name : =` statement in the corpora, which build).
+ *   (`stmt_assign_missing_value`, `stmt_if_else_if_two_words`, `stmt_s_eq_spaced`, `stmt_assign_spaced_operator` left
+ *                            2026-10-02, frontend-conformance 2.8: the one operand wording (R5), the block left open (R2),
+ *                            the IL operator S refused as a word in the resync (R6), the label checks reading a body that
+ *                            did not parse cleanly — `symbols` `bodiesThroughErrors`.)
  *   `stmt_case_const_expr_label`, `stmt_case_paren_label` — `2 + 1:` and `(2):` are no CASE label: the literal or `(`
  *                            opening the line is refused as a statement start ("Unexpected token '2' / '(' found"), as
  *                            the LSP says, and then the two vendors resync differently — CODESYS in silence to END_CASE
@@ -292,10 +279,6 @@ const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
  *                            literal FOR counter in the corpora).
  */
 const STATEMENT_DIVERGENCES: readonly string[] = [
-  "stmt_assign_missing_value",
-  "stmt_if_else_if_two_words",
-  "stmt_s_eq_spaced",
-  "stmt_assign_spaced_operator",
   "stmt_for_literal_control",
   "stmt_case_const_expr_label",
   "stmt_case_paren_label",
@@ -312,7 +295,6 @@ const TWINCAT_TRY_NEEDS_CATCH: readonly string[] = ["stmt_try_without_catch", "s
 
 const LITERAL_FOLLOW_ON_RULES: readonly string[] = [
   "lit_real_no_leading_digit",
-  "lit_time_fraction_ms",
 ]
 
 /**
@@ -361,19 +343,19 @@ const TWINCAT_MALFORMED_ADDRESS_ALIGNMENT: readonly string[] = ["lit_address_two
 /**
  * FRONTEND-CONFORMANCE 2.2b (2026-10-01) — TwinCAT, a refused `<word>#` (its lexer refuses every word it has no literal
  * for, `TWINCAT_LITERAL_PREFIXES`) where the parser is INSIDE something that is not a statement: a call's argument list,
- * a CASE label, an aggregate, a STRUCT field's or an enum value's initializer. Both sides refuse the token ("Expression
+ * an aggregate, a STRUCT field's or an enum value's initializer (a CASE label left the set in review 2.8: "No case label found" is
+ * the first arm's missing label, `rec_refused_word_case_label_first`). Both sides refuse the token ("Expression
  * expected instead of 'CHAR#'"); TwinCAT then words the refusal by the place — "',' or ')' expected" in `ABS(…)`, "')'
- * expected" in a one-parameter `TO_INT(…)`, "No case label found", "', or )' expected" in an enum's list — and recovers
+ * expected" in a one-parameter `TO_INT(…)`, "', or )' expected" in an enum's list — and recovers
  * by that place's rule: it closes the VAR block or the TYPE ("'END_VAR' expected instead of ''"), carries the refused
  * value on as `!!!'ERROR'!!!` into a conversion, and checks the next enum value against it. The LSP resyncs as from a
  * refused statement. Both missing and LSP-only; recovery, R2/R3's (task 2.8.3). CODESYS reads none of these as a refused
- * token (they are an enum literal or a component there): it agrees on the first four, and the two DUT ones are
+ * token (they are an enum literal or a component there): it agrees on the first three, and the two DUT ones are
  * `COMPONENT_CARRIED_ON_IN_A_DUT`'s.
  */
 const TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST: readonly string[] = [
   "lit_enum_typed_as_argument",
   "lit_enum_typed_as_conversion_argument",
-  "lit_enum_typed_case_label",
   "lit_char_typed_in_array_init",
   "lit_char_typed_in_struct_field",
   "lit_char_typed_in_enum_value",
@@ -555,15 +537,79 @@ const UNKNOWN_QUALIFIED_TYPE: readonly string[] = ["decl_type_unknown_qualified"
  *     of 'END_VAR'" on TwinCAT) and every variable it held lost ("Identifier 'x' not defined");
  *   `unit_method_final_private_order`, `unit_method_two_access` — the method's object name no longer its signature's
  *     ("The name used in the signature is not identical to the object name") and the method not declared;
- *   `unit_struct_extends_after_struct`, `unit_struct_extends_twice` — the base read as a field name ("',, AT or :'
- *     expected instead of 'b'"), the next field lost; TwinCAT also loses the END_STRUCT. The LSP's field resync names
- *     each token in its way — LSP-only messages, accepted with the cell;
  *   `unit_struct_extends_list` — the bodiless type has no component ("'c' is no component of …"); the LSP types a
  *     refused body as nothing, and says nothing of its members.
  * Niche: accepted loss (0 occurrences in the corpora — no clause after a FUNCTION's return type, IMPLEMENTS before
  * EXTENDS, IMPLEMENTS list ending in a comma, access modifier after another modifier, STRUCT EXTENDS or EXTENDS list in
  * any of the six).
  */
+/**
+ * FRONTEND-CONFORMANCE 2.8.3 (2026-10-02) — `unit_struct_extends_after_struct`, `unit_struct_extends_twice`: the base read
+ * as a field name ("',, AT or :' expected instead of 'b'"), the next field lost — the LSP reads it so since the declaration
+ * resync resumes at a name and a refused `;` takes the declaration after it (`parse/errors` `reportBrokenDeclaration`,
+ * `rec_refused_name_declared_fb_type`), and CODESYS agrees exactly. TwinCAT also loses the END_STRUCT, its own recovery.
+ * Niche: accepted loss (0 STRUCT EXTENDS in the corpora).
+ */
+const TWINCAT_STRUCT_EXTENDS_RECOVERY: readonly string[] = ["unit_struct_extends_after_struct", "unit_struct_extends_twice"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.8 (2026-10-02) — the error-recovery fixtures (`fixtures/grammar/recovery.ts`) whose one
+ * disagreement is left, each niche:
+ *   `rec_refused_name_cascade_il_word` (both) — `ld := n + st;`: the resync resumes a statement at `n` and refuses `st`
+ *                            in it as both vendors do; they then judge the statement they rebuilt with the refused operand
+ *                            as its placeholder, "'(n + !!!'ERROR'!!!);' is no valid statement", where the parser keeps no
+ *                            statement with a refused operand. Missing-only; niche: accepted loss (0 occurrences in the
+ *                            corpora — no IL operator or type name stands as an operand in a body that builds).
+ *   `rec_refused_word_for_variable` — `FOR int := 1 TO 3 DO`: both vendors read the FOR on — "'TO' expected instead of
+ *                            'int'", "'DO' expected instead of 'int'", "Counter initialisation expected" — before the
+ *                            refused word's cascade, and leave the FOR's list where the IDE stops reporting; the LSP pairs
+ *                            the word as an operand and closes the FOR at END_FOR. Both missing and LSP-only; niche:
+ *                            accepted loss (0 occurrences in the corpora — review 2.8, 2026-10-02).
+ *   `rec_type_name_dot_dangling` — `v : DUT.;`: both vendors refuse the TYPE ("Type definition expected instead of
+ *                            'DUT'") and abandon the VAR section ("'END_VAR' expected instead of ''"), so the declarations
+ *                            after it are lost ("Identifier 'out' not defined", "'out' is no valid assignment target");
+ *                            the LSP says "expected identifier after '.'" and keeps the section. Both missing and
+ *                            LSP-only; niche: accepted loss (0 occurrences in the corpora — review 2.8, 2026-10-02).
+ * TwinCAT alone:
+ *   `rec_interface_stray` — a name inside an INTERFACE: TwinCAT reads the declaration back first ("VAR, VAR_INPUT,
+ *                            VAR_OUTPUT or VAR_INOUT expected instead of stray:;", "Type definition expected instead of
+ *                            ''"), where the LSP says CODESYS's one line. Missing-only; niche: accepted loss (0 stray
+ *                            tokens in the corpora's interfaces).
+ *   `rec_refused_name_declared_fb_type` — `ld : TON; out : INT;`: after CODESYS's lines, which the LSP says, TwinCAT's own
+ *                            recovery adds "Type definition expected instead of 'END_VAR'" and "'END_VAR' expected instead
+ *                            of ''". Missing-only; niche: accepted loss (0 refused declared names in the corpora).
+ */
+const RECOVERY_DIVERGENCES: readonly string[] = ["rec_refused_name_cascade_il_word", "rec_refused_word_for_variable", "rec_type_name_dot_dangling"]
+
+/**
+ * FRONTEND-CONFORMANCE 2.8.3 (2026-10-02) — the CONDITIONAL CALL `CALC` (the IL operator that parses as a call where every
+ * other refused word is a word, `lex/vocabulary` `IL_OPERATOR_WORDS`): its cascade is the vendors' own and unmodelled.
+ * `calc : INT;` is read as a conditional call in the declaration part ("'(' expected instead of ':'", "This code is not
+ * supported in declaration part", "Second parameter of conditional call must be a valid call statement" …, which the LSP
+ * says) and then runs off the end of it ("';' expected instead of 'END_VAR'", "'END_VAR' expected instead of ''", "';'
+ * expected instead of end of POU", and "The code '!!!'ERROR'!!!;' has no effect" — `cc_il_name_calc`); `CALC(flag, n :=
+ * 2);` and its three siblings say the second-parameter error, which the LSP says, then a pair per token of the rest and a
+ * warning for `flag` (`ilc_calc_*`). Missing-only, both vendors; niche: accepted loss (0 occurrences of CALC as code in
+ * the corpora — two comments).
+ */
+const CALC_CONDITIONAL_CALL: readonly string[] = [
+  "cc_il_name_calc",
+  "ilc_calc_called_properly",
+  "ilc_calc_declared_unused",
+  "ilc_calc_other_type",
+  "ilc_calc_used_not_declared",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 2.8.3 (2026-10-02) — CODESYS, `here : DINT := __POSITION;` (`sysop_position_initializer`, from the
+ * CODESYS triage backlog): the position's SIZED string type ("Cannot convert type 'STRING(INT#13)' to type 'DINT'", the
+ * LSP's 'STRING' — the seam the backlog note describes) and, in an INITIALIZER, `__POSITION` without its `(` eating the
+ * `;` as it does in a body — "';' expected instead of 'END_VAR'" and "'END_VAR' expected instead of ''", the declaration
+ * running to the end of the part. Both one fixture each; niche: accepted loss (0 `__POSITION` in the corpora).
+ */
+const CODESYS_POSITION_IN_AN_INITIALIZER: readonly string[] = ["sysop_position_initializer"]
+const TWINCAT_RECOVERY_DIVERGENCES: readonly string[] = ["rec_interface_stray", "rec_refused_name_declared_fb_type"]
+
 const UNIT_HEADER_RECOVERY: readonly string[] = [
   "unit_function_implements",
   "unit_function_extends_after_return",
@@ -571,8 +617,6 @@ const UNIT_HEADER_RECOVERY: readonly string[] = [
   "unit_fb_implements_trailing_comma",
   "unit_method_final_private_order",
   "unit_method_two_access",
-  "unit_struct_extends_after_struct",
-  "unit_struct_extends_twice",
   "unit_struct_extends_list",
   // 2.4a review (2026-10-01): an access modifier after FINAL on an INTERFACE method — the LSP gives the vendors' first
   // message, "Identifier expected instead of 'PUBLIC'"; both go on to read the object name '' (the signature, the
@@ -751,6 +795,8 @@ const TWINCAT_NO_VAR_GENERIC: readonly string[] = [
  * to fix and re-record, not something for the LSP to match. Every placement message before the echo agrees.
  */
 const TWINCAT_DRIVER_CUTS_THE_ECHO: readonly string[] = [
+  // …and the section an unclosed VAR section meets, read back the same way (`rec_unterminated_var_before_section`, 2.8)
+  "rec_unterminated_var_before_section",
   "decl_var_inside_struct",
   "decl_var_inside_struct_init",
   "decl_var_inside_struct_names",
@@ -819,6 +865,10 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
   twincat: new Set<string>([
+    ...RECOVERY_DIVERGENCES,
+    ...CALC_CONDITIONAL_CALL,
+    ...TWINCAT_RECOVERY_DIVERGENCES,
+    ...TWINCAT_STRUCT_EXTENDS_RECOVERY,
     ...DECLARATION_RECOVERY,
     ...IMPLICIT_ENUM_LIST_RECOVERY,
     ...IMPLICIT_ENUM_TYPE_NAME,
@@ -928,8 +978,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            resolves no project settings, so it is a warning here. Configuration, not behaviour.
   //   `cc5_new_in_expression` — the recording device has no memory configured for dynamic creation, so the IDE
   //                            reports that instead and never reaches the nesting rule.
-  //   `cc5_deprecated_functionblock_keyword` — the IDE does not report the spelling at all: it parses `FUNCTIONBLOCK`
-  //                            as something else and reports "Unknown type". Both LSP messages are Volt's own.
   //   `sn_dut_mismatch_used` — THE RECORDING IS OF A PROJECT BUILD; A DIAGNOSTIC IS PER FILE. The fixture is an FB
   //                            holding `held : DUT_SN_signature`, and its recorded error — "The name used in the
   //                            signature is not identical to the object name" — is about the DUT, which is a
@@ -948,6 +996,9 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            What actually separates every one of these is REACHABILITY, which a per-file
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
+    ...RECOVERY_DIVERGENCES,
+    ...CALC_CONDITIONAL_CALL,
+    ...CODESYS_POSITION_IN_AN_INITIALIZER,
     ...UNIT_HEADER_RECOVERY,
     ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
@@ -1046,7 +1097,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "decl_retain_persistent_counts",
     "decl_retain_persistent_initialized",
     "decl_persistent_retain",
-    "cc5_deprecated_functionblock_keyword",
     //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
     //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.
     "cc6_loop_cannot_exit",

@@ -30,6 +30,7 @@ import {
   bodyStatements,
   unitBodies,
   walkStatements,
+  walkExpr,
   exprText,
   type Expr,
   type TopLevel,
@@ -147,7 +148,11 @@ export function boundCensus(): BoundCensus {
       for (const { expr, line } of typeRows(b)) {
         const where = line.slice(0, line.indexOf(" "))
         if (expr.kind === "ident_expr" && refused(expr)) refusedNames.add(where)
-        if (unparsed(expr)) unparsedSites.add(where)
+        if (unparsed(expr)) {
+          unparsedSites.add(where)
+          // the dump keys a `.name` by its NAME, one column after the `.` its row starts at (`resolutionDump`)
+          if (expr.kind === "global_expr") unparsedSites.add(at(expr.name.span))
+        }
       }
     // A member read off a name the vendor reports undefined (`Gvl.accD` with `Gvl` "not defined",
     // `decl_var_access_used`) starts where its root does, as 0.4 already counts it. The root is the AST's
@@ -300,6 +305,11 @@ export function boundCensus(): BoundCensus {
         // recorder had dropped their pragma) and their calls came to be measured: a reclassification, not a rise
         else if (type === "?" && expr.kind === "call" && expr.callee.kind === "ident_expr" && /^__(new|delete)$/i.test(expr.callee.name))
           tally(c.types, `${group}: call UNKNOWN, __NEW or __DELETE (no result type yet, task 4.3.4)`)
+        // …and an expression over a TYPED LITERAL whose prefix names no type: `FOO#5 + n` is "'5' is no component of 'FOO'"
+        // on CODESYS and nothing more — the operand has no type there, and neither has what is built on it
+        // (`rec_unknown_literal_prefix_cascade`, frontend-conformance 2.8.3); the LSP says the same line
+        else if (type === "?" && unknownLiteralComponent(expr, vendor.says))
+          tally(c.types, `${group}: ${kind} UNKNOWN, no component on the vendor too`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     // …and its folds (0.4) are counted, not measured, as its resolution and types are (refinement (c), frontend-conformance
@@ -312,6 +322,18 @@ export function boundCensus(): BoundCensus {
         `${group}: ${where} ${value === "∅" ? "does not fold" : value === "NOSCOPE" ? "NOSCOPE" : "folds"}`,
       )
     }
+  }
+
+  /** Does `expr` hold a typed literal `P#V` the vendor refused as "'V' is no component of 'P'"? */
+  function unknownLiteralComponent(expr: Expr, says: ReadonlySet<string> | undefined): boolean {
+    if (says === undefined) return false
+    let found = false
+    walkExpr(expr, (x) => {
+      if (x.kind !== "literal") return
+      const hash = x.text.indexOf("#")
+      if (hash > 0 && says.has(`'${x.text.slice(hash + 1)}' is no component of '${x.text.slice(0, hash)}'`.toLowerCase())) found = true
+    })
+    return found
   }
 
   for (const project of corpusProjects())
@@ -335,7 +357,7 @@ export function boundCensus(): BoundCensus {
         // (`member|base`, lower case — `memberBases`)
         const noComponent = new Set(
           ((vendor === "codesys" ? f.codesys : f.twincat)?.diagnostics ?? []).flatMap((d) => {
-            const m = /^'(.+)' is no component of '(.+)'$/.exec(d.message)
+            const m = /^'(.*)' is no component of '(.+)'$/.exec(d.message) // the member may be '': the end of the text (`rec_member_name_at_end`)
             return m === null ? [] : [`${m[1]!.toLowerCase()}|${m[2]!.toLowerCase()}`]
           }),
         )

@@ -54,6 +54,16 @@ export function* bodies(units: readonly TopLevel[], project: Scope): Generator<U
   }
 }
 
+/** `bodies()` WITH THE BODIES THAT DID NOT PARSE CLEANLY too — their statements as far as the parser read them (a refused
+ *  statement's cascade left out, `parse/statements`). For the checks the vendor runs on such a body as well: its jump
+ *  labels (`rec_jmp_without_label`, `stmt_assign_spaced_operator`, both vendors). */
+export function* bodiesThroughErrors(units: readonly TopLevel[], project: Scope): Generator<UnitBody> {
+  for (const { unit, body, scope } of scopedBodies(units, project)) {
+    const parsed = bodyStatements(body, conditionWorld(project, scope))
+    if (parsed.refused === undefined) yield { unit, body, scope, statements: parsed.statements }
+  }
+}
+
 /** `bodies()` AS WRITTEN: every branch of every conditional chain in, whatever a condition says or whether the LSP can
  *  decide it (`sourceStatements`) — the walk of the services that edit and navigate the text (references, rename,
  *  highlight, hover, definition, signature help, call hierarchy, inlay hints). Never a check's: a branch not taken is

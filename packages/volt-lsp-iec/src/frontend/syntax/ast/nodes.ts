@@ -36,6 +36,9 @@ export interface BodySpan {
   /** A POU body's CODE: what the IDE holds, its keyword line (and a member's `%FOLDER` under it) taken out. */
   tokens: Token[]
   span: Span
+  /** The vocabulary the tokens were lexed with — the statement parser refuses a type name only where the type exists
+   *  (`syntax/lex/vocabulary.ts` `isRefusedWord`). */
+  dialect: Dialect
   /** The `IMPLEMENTATION <LANG>` line that opened the body — absent for a body that opens with anything else
    *  (`syntax/format/implementation-line`). */
   implementation?: ImplementationLine
@@ -370,6 +373,9 @@ export interface EmptyStatement {
 export interface JmpStatement {
   kind: "jmp"
   target: Expr
+  /** The token the vendor took for the destination where no label stands — `JMP;` takes its `;` (`rec_jmp_without_label`);
+   *  `target` is then the refused placeholder. The analysis words it (`checks/flow/jump-labels`). */
+  refusedDestination?: string
   span: Span
 }
 /** A jump label `<name>:` at statement start (distinct from `:=` assignment and CASE labels). */
@@ -844,6 +850,9 @@ export interface ParseError {
   /** A conditional `{IF}` chain left open where its statement list ends — "Unexpected End-of-file found: 'ELSIF', 'ELSE'
    *  or 'END_IF' expected" (byte-identical on both vendors); a fact so the analysis gives it its own code. */
   unterminatedConditional?: true
+  /** A CASE whose first arm has no label — "No CASE label found" (CODESYS) / "No case label found" (TwinCAT,
+   *  `rec_refused_word_case_label_first`, 2026-10-02); a fact like `unexpectedToken`, worded by the analysis layer. */
+  noCaseLabel?: true
   /** A `hasattribute` condition whose attribute is no quoted string, by the text found — "Single byte string expected for
    *  an attribute value instead of 'X'" (`cc6_attribute_value_unquoted`, both vendors); a fact so the analysis keeps the
    *  rule its own code (`attribute-value-string`). */

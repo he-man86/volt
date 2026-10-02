@@ -324,7 +324,8 @@ function printStatement(s: Statement, depth: number): string {
     case "try":
       return printTry(s, depth)
     case "jmp":
-      return `${ind}JMP ${exprText(s.target)};`
+      // a refused destination prints as written (`JMP END_IF;`, `JMP;` — `rec_jmp_keyword_target`, `rec_jmp_without_label`)
+      return s.refusedDestination === undefined ? `${ind}JMP ${exprText(s.target)};` : `${ind}JMP ${s.refusedDestination};`
     case "label":
       return `${ind}${s.name.text}:`
   }

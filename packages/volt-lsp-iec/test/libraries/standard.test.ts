@@ -98,9 +98,9 @@ describe("the clock-free blocks", () => {
   })
 
   test("SR is set-dominant and RS reset-dominant", () => {
-    const p = load("\ts : SR;\n\tr : RS;\n", "s(SET1 := TRUE, RESET := TRUE);\nr(SET := TRUE, RESET1 := TRUE);\n")
+    const p = load("\tsetDom : SR;\n\tresetDom : RS;\n", "setDom(SET1 := TRUE, RESET := TRUE);\nresetDom(SET := TRUE, RESET1 := TRUE);\n")
     p.scan()
-    expect([p.get("s.Q1"), p.get("r.Q1")]).toEqual([true, false])
+    expect([p.get("setDom.Q1"), p.get("resetDom.Q1")]).toEqual([true, false])
   })
 })
 

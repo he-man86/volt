@@ -30,16 +30,16 @@ END_METHOD
 FUNCTION_BLOCK F
 VAR
 	lib : Lib;
-	r : INT;
+	rx : INT;
 END_VAR
-r := lib.Compute(1, 2);
+rx := lib.Compute(1, 2);
 END_FUNCTION_BLOCK`
 
 test("hover: a variable shows its reconstructed declaration + kind label", () => {
   const { doc, project } = setup(SRC)
-  const h = hover(doc, project, SRC.indexOf("r : INT") )
+  const h = hover(doc, project, SRC.indexOf("rx : INT") )
   const value = (h?.contents as { value: string }).value
-  expect(value).toContain("r : INT")
+  expect(value).toContain("rx : INT")
   expect(value).toContain("_variable_")
 })
 
@@ -72,7 +72,7 @@ END_METHOD`
 
 test("hover: a built-in type falls back to the reference catalog", () => {
   const { doc, project } = setup(SRC)
-  const h = hover(doc, project, SRC.indexOf("r : INT") + "r : ".length)
+  const h = hover(doc, project, SRC.indexOf("rx : INT") + "rx : ".length)
   expect(h).toBeDefined()
   expect((h?.contents as { value: string }).value).toMatch(/INT/)
 })
@@ -110,7 +110,7 @@ test("completion: inside {attribute '…'} offers the known attribute names, not
 
 test("completion: outside a pragma falls back to scope completion", () => {
   const { doc, project } = setup(SRC)
-  const items = completion(doc, project, SRC.indexOf("r := lib") )
+  const items = completion(doc, project, SRC.indexOf("rx := lib") )
   expect(items.some((i) => i.label === "lib")).toBe(true) // scope symbol, not an attribute
 })
 

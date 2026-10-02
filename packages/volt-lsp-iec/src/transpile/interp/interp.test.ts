@@ -1179,7 +1179,7 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
   // `s[i]` — the one primitive the Standard library's string functions are written in (`ir/values.ts` charAt/setChar).
   // Counted from 0 and a BYTE: `string_non_ascii_bytes` records `text[0]` of 'caf…' as BYTE#99.
   test("s[i] reads a character from 0, and the terminator at the length", () => {
-    const pou = scanned("s : STRING := 'abc'; first : BYTE; last : BYTE; end : BYTE;", "first := s[0]; last := s[2]; end := s[3];")
+    const pou = scanned("sx : STRING := 'abc'; first : BYTE; last : BYTE; end : BYTE;", "first := sx[0]; last := sx[2]; end := sx[3];")
     expect([pou.get("first"), pou.get("last"), pou.get("end")]).toEqual([97n, 99n, 0n])
   })
 
@@ -1190,8 +1190,8 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
 
   test("s[i] reaches every byte of the variable — past the length it reads 0, and a store there leaves the string", () => {
     // recorded: lib_prim_char_past_length — `buf[SIZEOF(buf) - 1] := 0` on a short string runs in CODESYS
-    const pou = scanned("s : STRING(10) := 'ab'; x : BYTE; y : BYTE;", "x := s[4]; s[5] := 88; s[10] := 0; y := s[10];")
-    expect([pou.get("x"), pou.get("s"), pou.get("y")]).toEqual([0n, "ab", 0n])
+    const pou = scanned("sx : STRING(10) := 'ab'; x : BYTE; y : BYTE;", "x := sx[4]; sx[5] := 88; sx[10] := 0; y := sx[10];")
+    expect([pou.get("x"), pou.get("sx"), pou.get("y")]).toEqual([0n, "ab", 0n])
   })
 
   test("a literal with an embedded $00 ends at the NUL; its bytes are stored, compared and copied as CODESYS holds them", () => {
@@ -1207,11 +1207,11 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
   })
 
   test("s[i] outside the variable faults — past the capacity, or a character where only the terminator fits", () => {
-    expect(() => scanned("s : STRING(3) := 'abc'; x : BYTE;", "x := s[4];")).toThrow(RangeError)
-    expect(() => scanned("s : STRING(3) := 'abc';", "s[3] := 100;")).toThrow(RangeError)
-    expect(() => scanned("s : STRING := 'abc';", "s[-1] := 100;")).toThrow(RangeError)
+    expect(() => scanned("sx : STRING(3) := 'abc'; x : BYTE;", "x := sx[4];")).toThrow(RangeError)
+    expect(() => scanned("sx : STRING(3) := 'abc';", "sx[3] := 100;")).toThrow(RangeError)
+    expect(() => scanned("sx : STRING := 'abc';", "sx[-1] := 100;")).toThrow(RangeError)
     // a 0 AT the capacity is the terminator CODESYS already holds there: nothing changes
-    expect(scanned("s : STRING(3) := 'abc';", "s[3] := 0;").get("s")).toBe("abc")
+    expect(scanned("sx : STRING(3) := 'abc';", "sx[3] := 0;").get("sx")).toBe("abc")
   })
 
   test("s[i] on a WSTRING is a WORD", () => {
@@ -1221,8 +1221,8 @@ describe("interp — STRING (design §18; every expectation recorded in conforma
 
   test("STRING_TO_REAL reads a decimal prefix after spaces and tabs — and nothing numeric is 0", () => {
     const pou = scanned(
-      "dotFirst : STRING := '.5'; bareExp : STRING := '$T1.5E'; word : STRING := 'abc'; x : REAL; y : REAL; z : REAL;",
-      "x := STRING_TO_REAL(dotFirst); y := STRING_TO_REAL(bareExp); z := STRING_TO_REAL(word);",
+      "dotFirst : STRING := '.5'; bareExp : STRING := '$T1.5E'; wrd : STRING := 'abc'; x : REAL; y : REAL; z : REAL;",
+      "x := STRING_TO_REAL(dotFirst); y := STRING_TO_REAL(bareExp); z := STRING_TO_REAL(wrd);",
     )
     expect([pou.get("x"), pou.get("y"), pou.get("z")]).toEqual([0.5, 1.5, 0])
   })

@@ -27,7 +27,7 @@
 import type { Namespace, TopLevel } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { joinSpans, type Span } from "../../span.js"
-import { plainTokenText } from "../errors.js"
+import { vendorTokenText } from "../errors.js"
 import { identFromToken } from "../names.js"
 
 export function parseNamespace(c: Cursor, parseInner: (c: Cursor) => TopLevel | undefined): Namespace | undefined {
@@ -58,7 +58,7 @@ export function parseNamespace(c: Cursor, parseInner: (c: Cursor) => TopLevel | 
     // Unknown token inside namespace — consume one and continue. END_NAMESPACE is no advice: in a POU the
     // push refuses that line (`reportNamespaceClosers`).
     c.pushError(
-      `unexpected ${plainTokenText(t)} inside NAMESPACE — expected POU, TYPE or VAR_GLOBAL`,
+      `unexpected ${vendorTokenText(t)} inside NAMESPACE — expected POU, TYPE or VAR_GLOBAL`,
       t.span,
     )
     c.consume()

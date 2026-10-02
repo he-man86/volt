@@ -85,7 +85,7 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
     for (const ref of unresolvedInExprs([decl.init], scope, ctx.project, ctx.references)) {
       if (unparsed.has(ref.name.toLowerCase())) continue
       // …but a `__` name is the compilers' own namespace, and one they do not know never reaches name resolution
-      // here at all — it is a PARSE refusal. `checks/declarations/system-initializer` owns it.
+      // here at all — the PARSER refuses it leading an initializer (`parse/initializer` `refuseMalformedInit`).
       if (ref.name.startsWith("__")) continue
       // …and a name declared in THIS VERY SCOPE resolves bare even under `{attribute 'qualified_only'}`. That
       // attribute governs access from OUTSIDE the list, and `lookup` drops such a symbol at every level

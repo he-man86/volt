@@ -79,9 +79,9 @@ test("a STRUCT's initializer naming a field the struct lacks: undefined, and no 
       .filter((d) => d.code === "unknown-struct-field")
       .map((d) => d.message)
   }
-  expect(unknown(`  s : sv := (c := 1);`)).toEqual(["Identifier 'c' not defined", "'c' is no valid assignment target"])
-  expect(unknown(`  s : sv := (p1 := 1, c := 2);`)).toEqual(["Identifier 'c' not defined", "'c' is no valid assignment target"])
-  expect(unknown(`  s : sv := (p1 := 1);`)).toEqual([])
+  expect(unknown(`  sx : sv := (c := 1);`)).toEqual(["Identifier 'c' not defined", "'c' is no valid assignment target"])
+  expect(unknown(`  sx : sv := (p1 := 1, c := 2);`)).toEqual(["Identifier 'c' not defined", "'c' is no valid assignment target"])
+  expect(unknown(`  sx : sv := (p1 := 1);`)).toEqual([])
 })
 
 // A struct that EXTENDS a base the LSP cannot resolve (a library struct): the base could declare the field, so a name

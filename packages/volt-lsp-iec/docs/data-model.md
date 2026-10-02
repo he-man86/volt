@@ -161,7 +161,7 @@ interface Identifier { kind: "identifier"; text: string; span: Span }
 
 // An unparsed token range (initializers, addresses, bounds); carries slice + tokens
 // so later passes walk without re-lexing.
-interface BodySpan { kind: "body"; tokens: Token[]; span: Span }
+interface BodySpan { kind: "body"; tokens: Token[]; span: Span; dialect: Dialect; implementation?: ImplementationLine }  // dialect: the vocabulary its statements are parsed with (refused words, frontend-conformance 2.8.3)
 ```
 
 ### AST — expression tree (POU bodies, parsed on demand)

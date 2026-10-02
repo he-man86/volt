@@ -211,5 +211,5 @@ test("an operator's trailing comma in an initializer is refused at the `)`, as i
   expect(decls(src)[1]?.names[0]?.text).toBe("x")
   // a user function's list takes one, and an aggregate is not asked
   expect(messages(inVar("c : INT := F(1, 2,);"))).toEqual([])
-  expect(messages(inVar("s : T := STRUCT(a := 1, b := 2);"))).toEqual([])
+  expect(messages(inVar("v : T := STRUCT(a := 1, b := 2);"))).toEqual([]) // not `s`: an IL operator, refused (`cc_reserved_name_s_string`)
 })

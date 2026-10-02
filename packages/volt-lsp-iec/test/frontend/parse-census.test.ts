@@ -56,12 +56,29 @@ const EXEC_REFUSALS: ReadonlyMap<string, RecordedBuild> = new Map(
  * Nor C0013/C0426, "At least one statement is expected": a COUNT of a block's statements, no refusal of a token — on a CASE
  * arm the vendors give it as a WARNING and the program builds and runs (`stmt_case_empty_arm`, both vendors 2026-10-02),
  * and the LSP answers it in the analysis (`empty-block`), where the conformance suite holds it (frontend-conformance 2.6).
+ * Nor, found by frontend-conformance 2.8.3 emptying this list, three messages the pattern only matched by their WORDS, each a
+ * question of NAMES or TYPES no parser can answer, beside which the vendor goes on analysing the body:
+ *   "Type name 'X' not expected in this place" — X is a type's name where a value belongs (`cc2_type_name_and_method_without
+ *     _parens`, with "Cannot convert type 'VALUE' …" beside it), answered by the analysis (`type-as-value`);
+ *   "Unexpected structure initialisation" / "Unexpected array initialisation" — an aggregate for a type that is no struct /
+ *     no array (`cc3_unexpected_struct_init` with six more messages beside it, `decl_nested_aggregate`), answered by the
+ *     analysis (`struct-init`, `array-init`); "Unexpected" matched the pattern's "expected".
  */
 const SYNTAX_MESSAGE = /expected|unexpected token/i
+const NAME_OR_TYPE_MESSAGES = /^Type name '[^']*' not expected in this place$|^Unexpected (structure|array) initialisation$/
 const isSyntaxMessage = (message: string): boolean =>
   SYNTAX_MESSAGE.test(message) &&
   !message.startsWith("Program name, function or function block instance expected") &&
-  message !== "At least one statement is expected"
+  message !== "At least one statement is expected" &&
+  !NAME_OR_TYPE_MESSAGES.test(message)
+
+/**
+ * A fixture whose body is NETWORK TEXT (`IMPLEMENTATION LD|FBD`) is read by the network-text reader, not the ST parser this
+ * census measures: its refusals ("Expression expected instead of '?'" for an unnamed pin — `network_unnamed_*`) are the
+ * reader's and `network-analysis`'s, where the conformance suite holds them. Its declarations are still the parser's, so
+ * only the other direction — a refusal the parser does not share — skips it (frontend-conformance 2.8.3).
+ */
+const hasNetworkBody = (source: string): boolean => /^\s*IMPLEMENTATION\s+(LD|FBD)\b/im.test(source)
 
 /** The build's messages as a multiset: each recorded copy matches ONE LSP parse error. */
 const recordedPool = (b: RecordedBuild | undefined) => messagePool((b?.diagnostics ?? []).map((d) => d.message))
@@ -91,6 +108,8 @@ function census(): Baseline {
 
   for (const vendor of ["codesys", "twincat"] as const satisfies readonly Dialect[]) {
     const key = `fixtures ${vendor}`
+    // a measure with a ceiling is reported at zero too: frontend-conformance 2.8.3 brought this one there
+    counts[`${key}: refused with a syntax message, no LSP parse error`] = 0
     for (const f of fixtureSources()) {
       const rec =
         f[vendor] ?? (vendor === "codesys" && f.test.vendorRefuses?.codesys !== undefined ? EXEC_REFUSALS.get(f.test.name) : undefined)
@@ -122,7 +141,7 @@ function census(): Baseline {
       }
       tally(counts, `${key}: refused, ${lsp}`)
       const syntax = rec.diagnostics.find((d) => d.severity === "error" && isSyntaxMessage(d.message))
-      if (errors.length === 0 && syntax !== undefined) {
+      if (errors.length === 0 && syntax !== undefined && !hasNetworkBody(f.test.source)) {
         // the other direction: the vendor refuses what the parser accepts — a different answer, pinned line by line
         tally(counts, `${key}: refused with a syntax message, no LSP parse error`)
         findings.push(`${vendor} fixture/${f.test.name} — ${vendor} refuses it with "${syntax.message}", the LSP reports no parse error`)
