@@ -38,7 +38,7 @@ public static class CodeHelper
     /// removed — or <c>""</c> when the line is trivia all the way through. <paramref name="inBlockComment"/>
     /// carries <c>(* … *)</c> state across lines and is updated in place.
     ///
-    /// <para><b>THE one trivia scanner.</b> There were two, and they disagreed about the same line. This one
+    /// <para><b>One trivia scanner per line.</b> There were two, and they disagreed about the same line. This one
     /// skipped any line STARTING with <c>(*</c> — so <c>(* doc *) FUNCTION_BLOCK FB</c>, where the comment closes
     /// and the declaration follows, was skipped whole and <see cref="HeaderLine"/> answered with the NEXT line.
     /// <c>StReader</c>'s scanner called that same line CODE, which is correct. Two answers to one question, and
@@ -61,50 +61,10 @@ public static class CodeHelper
     /// about the same line. An unclosed <c>{</c> is still trivia to the end of the line: the multi-line pragma
     /// that would need real tracking is not valid IEC 61131-3.</para>
     ///
-    /// <para><b>THE one scanner still</b>: <see cref="WithoutComments"/> answers a different question (the line
-    /// with EVERY comment removed, trailing ones included), and every "where does the code start" question —
-    /// <see cref="HeaderLine"/>, <c>StReader</c>, <c>StDeclaration</c> — asks this.</para></summary>
-    /// <summary>The line with its comments removed — a TRAILING <c>// …</c> and any complete
-    /// <c>(* … *)</c> span, wherever they sit.
-    ///
-    /// <para><b>Not the same question as <see cref="CodeOn"/>.</b> That one answers "does this line START with
-    /// code", which is what a block scanner needs; it leaves a trailing comment attached. A SIGNATURE parser
-    /// needs the other answer, because its patterns anchor at end-of-line: an engineer documenting a method on
-    /// its own signature line — <c>METHOD INTERNAL _mStrConcatA //Concats string to sContent</c>, which is
-    /// exactly how CODESYS stores it — failed the match outright, so Volt pulled the POU and then refused its
-    /// own text.</para>
-    ///
-    /// <para>String literals are respected, so a <c>//</c> inside <c>'http://x'</c> is not a comment.</para>
-    /// </summary>
-    public static string WithoutComments(string line)
-    {
-        var sb = new System.Text.StringBuilder(line.Length);
-        var inString = false;
-        var quote = '\0';
-        for (var i = 0; i < line.Length; i++)
-        {
-            var c = line[i];
-            if (inString)
-            {
-                sb.Append(c);
-                if (c == quote) inString = false;
-                continue;
-            }
-            if (c == '\'' || c == '"') { inString = true; quote = c; sb.Append(c); continue; }
-            if (c == '/' && i + 1 < line.Length && line[i + 1] == '/') break;          // to end of line
-            if (c == '(' && i + 1 < line.Length && line[i + 1] == '*')
-            {
-                var close = line.IndexOf("*)", i + 2, System.StringComparison.Ordinal);
-                if (close < 0) break;                                                  // unterminated: the rest is comment
-                sb.Append(' ');                                                        // a span may sit BETWEEN tokens
-                i = close + 1;
-                continue;
-            }
-            sb.Append(c);
-        }
-        return sb.ToString().Trim();
-    }
-
+    /// <para><b>Not the splitter's.</b> The child splitter (<c>StReader</c>) reads through <see cref="StTrivia"/>, which
+    /// NESTS comments and sees one opened after code (openspec <c>push-without-header-check</c> 5.E.1); this one does
+    /// neither. What still asks it is <see cref="HeaderLine"/> (other items' headers, retired by 5.F.1) and
+    /// <c>StDeclaration</c>'s variable and EXTENDS readers (network text, parked).</para></summary>
     public static string CodeOn(string line, ref bool inBlockComment)
     {
         // U+FEFF is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header keyword and

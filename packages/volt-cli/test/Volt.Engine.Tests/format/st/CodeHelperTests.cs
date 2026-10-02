@@ -25,7 +25,7 @@ public class CodeHelperTests
     /// so a PROGRAM written this way is reported as <c>function_block</c> on refs/fetch. That is the same failure
     /// the leading-<c>{attribute}</c> case was fixed for, arriving through the other kind of trivia.</para>
     /// <para>And the repo already disagreed with itself about it: <c>StReader</c>'s own scanner calls this line
-    /// CODE (<c>Text/StReader.cs</c>, <c>ScanContext.Update</c>), which is correct. Two scanners, one question.</para></summary>
+    /// CODE (then its <c>ScanContext</c>; since push-without-header-check 5.E.1 <c>StTrivia</c>), which is correct. Two scanners, one question.</para></summary>
     [Theory]
     [InlineData("(* doc *) FUNCTION_BLOCK FB\nVAR\nEND_VAR", "FUNCTION_BLOCK FB")]
     [InlineData("(* a *) (* b *) PROGRAM P", "PROGRAM P")]

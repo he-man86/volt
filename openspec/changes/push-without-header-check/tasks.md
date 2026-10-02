@@ -682,11 +682,54 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       pass / 195 todo — the 5Qa src tests); agreement CODESYS 3854 / 4188, TwinCAT 3784 / 4188 (floors unchanged).
 
 ### 5.E Child elements (the one place headers stay — made gap-free)
-- [ ] 5.E.1 The child splitter (`StReader.SplitChildren` / `FirstMemberLine` / `FirstCodeLine`) uses ONE trivia skipper
+- [x] 5.E.1 The child splitter (`StReader.SplitChildren` / `FirstMemberLine` / `FirstCodeLine`) uses ONE trivia skipper
       (`StTrivia`) and gets a table test, one row per case: comments, pragmas and attributes before and between
       `METHOD` / `PROPERTY` / `ACTION` / `TRANSITION` lines; nested and unclosed comments; a keyword inside a comment or
       a string; `//` vs `(* *)` mixes; CRLF/BOM; every modifier order (`METHOD PUBLIC ABSTRACT`); `END_METHOD` on the
       same line. An unsplittable file is refused by name with its line, never split wrong.
+      DONE (2026-10-03): `ScanContext` deleted; `SplitChildren`, `ReadMethodOrAction`, `ReadProperty`,
+      `FirstMemberLine`, `FirstCodeLine`, `BackOverMemberTrivia`, `FindOuterBlock` and the member signature read
+      (`ParseSignature`, was `CodeHelper.WithoutComments`, deleted) all read `StTrivia.Code` over the whole region in
+      ONE forward pass. `StTrivia`: a BOM at the start of the text is trivia; a string keeps its quotes in the code view
+      (its text blanked), so a line holding one stays a code line, as it was to `CodeOn`. Refused by name with the file
+      line, never split wrong: an END line after code on its line (`A := 1; END_METHOD`, `METHOD A : INT END_METHOD`,
+      `END_GET`/`END_SET`/`END_PROPERTY`, the outer END) — it let a member run on and swallow the next one (an interface
+      member silently); a member keyword leading a line inside an open member; comments/pragmas after the last member
+      (dropped in silence before). The 5Qa interim pull refusal (`MemberHeaderKeywordAsSplit`, Materializer's nested-
+      comment refusal) is deleted; `MemberKindIsItsClassTests` now pulls and reads such a member back.
+      `ChildSplitterTableTests`: 39 rows + 3 body rows + the outer-END row, 43 tests (17 of the first 41 red on the old splitter; the 2 trailing-comment rows were written with their fix). Corpus census (reflection
+      over `FindOuterBlock` + `SplitChildren`, signatures only — the corpora predate the IMPLEMENTATION line): 19,699
+      POU/interface files, 56,997 members, byte-identical before/after (names, kinds, types, declaration hashes),
+      0 refusals before and after; 0 corpus files hold text after their last END line. `CodeHelper.CodeOn` stays for
+      `HeaderLine` (5.F.1) and `StDeclaration`'s variable/EXTENDS readers (network text, parked).
+      REVIEW FIXES (2026-10-03): (a) text AFTER an END keyword on its line (`END_METHOD // note`,
+      `END_FUNCTION_BLOCK (* note *)`, a comment opened there running over the next member) — and after an accessor's
+      GET / SET — is refused naming the line (`StReader.RefuseTextAfter`): the IDE stores no such line, so it was dropped
+      in silence, or landed in the next member as orphaned text. (b) A U+FEFF anywhere but the text's first character is
+      refused naming its line (a sliced region read it as a BOM while the whole text read it as code). (c) The PULL reads
+      its own file back through the splitter alone (`StReader.SplitMembers`, `Materializer.RefuseUnreadableBack`) and
+      refuses the item — listed unreadable — unless every member comes back as itself: an IDE member holding a shape the
+      splitter refuses, or a comment one member leaves open and the next closes (which swallowed the member between),
+      no longer pulls into a file the push refuses or splits into other members. Split only — the body checks stay the
+      push's (a full `Read` would refuse every network body the writer and reader still disagree on). Fixtures fixed
+      on independent grounds: `TransportMatrixTests` / `FetchExclusionTests` served an IDE declaration holding Volt's
+      `IMPLEMENTATION` line and END line, which no IDE stores. Table: 59 rows (+ 3 body rows, 3 outer-END-beside rows,
+      the outer-END-after-code row); new coverage rows for END_SET / END_PROPERTY after code, PROPERTY / METHOD / ACTION
+      opened inside a method, accessor or property declaration. Corpus: 0 lines with text after an END keyword, 0
+      mid-text U+FEFF, `SplitMembers` refuses 0 of the corpora's .pou files (the 2,114 library .itf refusals are the
+      pre-boundary interface layout with members after END_INTERFACE, refused before this change too).
+      Known divergences: a comment BEFORE an END keyword on its line (`(* x *) END_GET`) is still dropped —
+      `StReaderTriviaBoundaryTests.An_accessor_closed_on_a_commented_line_keeps_its_body` pins its acceptance, so it is
+      left to the owner — niche: accepted loss (0 occurrences in the corpora). A HAND-WRITTEN file whose comments nest
+      across members (`(* a (* b *)` in one, a stray `*)` in the next) is read as one comment, as both vendors read one
+      text — niche: accepted loss (0 occurrences in the corpora); the pull side of it is closed by (c).
+      GATE 5E (2026-10-03): C# suites green (Debug; the Release build of the solution is blocked only by a running
+      TwinCAT worker holding `Volt.Ide.Twincat\bin\Release` — not ours, not killed): Volt.Engine.Tests 1867 pass / 1 skip
+      (1868), Volt.Cli.Tests 239, Volt.Connector.Tests 113, Volt.Ide.Twincat.Tests 296, Volt.Ide.Codesys.Tests 202,
+      Volt.Contracts.Tests 19, Volt.Repo.Gates 54 — 0 fail. volt-cli `bun test test/unit` 4/4; `bun run check` green.
+      5E touches no TypeScript and no fixture/transpiler (no `rate:fixtures`); the LSP typecheck/suite in the tree at
+      gate time carried another workflow's uncommitted frontend-types WIP (2 TS2554 in files 5E does not touch), so they
+      do not measure this step.
 
 ### 5.F No legacy
 - [ ] 5.F.1 Deleted: `StDeclaration.IsGlobalListHeader` (`ProjectDeclarations` takes GVLs from the item kind); every

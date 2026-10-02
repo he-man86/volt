@@ -10,8 +10,8 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// A structural keyword must be found on a line that also carries a comment.
 ///
-/// <para><c>ScanContext.Update</c> calls <c>CodeHelper.CodeOn</c> — the repo's one trivia scanner — and then
-/// throws the stripped code away, keeping only whether it was empty. Every keyword test then runs against the RAW
+/// <para>The splitter's scan (then <c>ScanContext.Update</c> over <c>CodeHelper.CodeOn</c>; since 5.E.1 <c>StTrivia</c>) used to
+/// throw the stripped code away, keeping only whether it was empty. Every keyword test then ran against the RAW
 /// line. So <c>(* restore *) END_GET</c> is correctly judged to CONTAIN code, and just as correctly fails to
 /// match <c>END_GET</c>, because the raw line starts with <c>(*</c>.</para>
 ///

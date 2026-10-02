@@ -62,7 +62,8 @@ namespace Volt.Engine.Format.St;
 /// full ST parser lives in the `volt-lsp-iec` LSP; the push path
 /// only needs the structural skeleton, not statement semantics.
 /// Block comments `(* ... *)`, line comments `// ...` and pragmas
-/// `{ ... }` are skipped from the keyword-search (see ScanContext).
+/// `{ ... }` are skipped from the keyword-search through the ONE trivia skipper, StTrivia
+/// (nested comments, comments opened after code, strings).
 /// </summary>
 public static class StReader
 {
@@ -125,22 +126,53 @@ public static class StReader
 				$"before bodies were stated by an {ImplementationMarker.Keyword} line. Run `volt pull` once to rewrite the " +
 				"workspace in the current format.");
 
-		// 3. The structure, read with every never-closed `(*` opening nothing (see the summary). Neutralized in a COPY,
-		// by a stand-in of the same length that no scanner reads as trivia, and put back in everything that leaves.
+		// 3. The structure.
+		var item = ReadStructureOf(sourceText, original, kind, what, splitOnly: false);
+		RefuseReservedNames(original);
+		RefuseLinesInDeclarations(item, what);
+		return item;
+	}
+
+	/// <summary>The members — kind and name — a push reads out of this text through the CHILD SPLITTER alone: every
+	/// refusal of the split (an END line after code or with text after it, a member keyword inside an open member,
+	/// trivia after the last member, a stray BOM) and none of the checks on what a body or a declaration holds.
+	///
+	/// <para>The PULL's half of the split (<c>Materializer</c>): the IDE stores each member's text on its own, and a
+	/// member whose stored text holds one of those shapes — or a comment one member leaves open and the next closes —
+	/// is written into a file the push refuses or splits into OTHER members. So the pull reads its own file back
+	/// through this and refuses the item unless every member comes back as itself. Only the split: what a body holds
+	/// is not the splitter's question (network text has its own round-trip gate).</para></summary>
+	internal static IReadOnlyList<Member> SplitMembers(string sourceText, string kind, string name)
+	{
+		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut) return Array.Empty<Member>();
+		return ReadStructureOf(sourceText, NormalizeLines(sourceText), kind, $"'{name}'", splitOnly: true).Members;
+	}
+
+	/// <summary>The structure, read with every never-closed `(*` opening nothing (see <see cref="Read"/>). Neutralized in
+	/// a COPY, by a stand-in of the same length that no scanner reads as trivia, and put back in everything that
+	/// leaves. <paramref name="splitOnly"/>: the members' kinds and names alone (<see cref="SplitMembers"/>).</summary>
+	private static ItemContent ReadStructureOf(string sourceText, List<string> original, string kind, string what, bool splitOnly)
+	{
+		// A BOM is a BOM only as the text's first character (StTrivia blanks it there). Anywhere else it is a character
+		// of its line — and a SLICE of the text that starts on that line would read it as a BOM while the whole text
+		// reads it as code, so the splitter's scans would disagree about it. 0 in the six corpora; refused naming the line.
+		for (int l = 0; l < original.Count; l++)
+			if (original[l].IndexOf('\uFEFF', l == 0 ? Math.Min(1, original[l].Length) : 0) >= 0)
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{what}, line {l + 1}: holds U+FEFF (a byte-order mark) after the start of the text, where it is no " +
+					"byte-order mark but an invisible character. Remove it.");
+
 		var unclosed = StTrivia.UnterminatedOpenings(original);
 		var neutralize = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0;
 		var lines = neutralize ? Neutralized(original, unclosed) : original;
 
 		ItemContent item;
-		try { item = ReadStructure(lines, kind, what); }
+		try { item = ReadStructure(lines, kind, what, splitOnly); }
 		catch (BridgeException ex) when (neutralize)
 		{
 			throw new BridgeException(ex.ErrorCode, Restored(ex.Message)!, ex);
 		}
-		RefuseReservedNames(original);
-		if (neutralize) item = Restored(item);
-		RefuseLinesInDeclarations(item, what);
-		return item;
+		return neutralize ? Restored(item) : item;
 	}
 
 	/// <summary>The END keyword that closes a POU's or an interface's outer block — which of the lines
@@ -187,7 +219,7 @@ public static class StReader
 	public static string? PouHeaderKeyword(string declaration)
 	{
 		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
-		var original = NormalizeLines(declaration.TrimStart('﻿'));
+		var original = NormalizeLines(declaration.TrimStart('\uFEFF'));
 		var unclosed = StTrivia.UnterminatedOpenings(original);
 		var lines = unclosed.Count > 0 && declaration.IndexOf(UnclosedStandIn[0]) < 0 ? Neutralized(original, unclosed) : original;
 		foreach (var code in StTrivia.Code(lines))
@@ -233,17 +265,16 @@ public static class StReader
 
 	/// <summary>The word a MEMBER's declaration opens with, as the child splitter reads it — upper case — or null when it
 	/// holds no code at all. The splitter knows a member block by the keyword that leads its first line of code
-	/// (<see cref="FirstMemberLine"/>: METHOD / ACTION / PROPERTY), so this is the keyword the push would read the member
-	/// as. Comments, strings and pragmas are skipped by <see cref="StTrivia.Code"/> — the ONE trivia skipper, which NESTS
-	/// comments (<c>(* a (* b *) c *)</c> is one comment); the splitter's own <see cref="ScanContext"/> does not yet
-	/// (5.E.1), and reading with it refused such a member on pull naming a word from inside the comment (5Qa review).
-	/// The PULL holds it to the member's CLASS (openspec <c>push-without-header-check</c> 5.Q.5, <c>Materializer</c>): an IDE can store a
-	/// method whose text opens with <c>PROPERTY</c> (DIALECT C2l), and a file carrying it would be read back as a
-	/// property — a delete of the method and a create of a property, under an ordinary push.</summary>
+	/// (<see cref="SplitChildren"/>: METHOD / ACTION / PROPERTY), read through the same <see cref="StTrivia.Code"/> — the ONE
+	/// trivia skipper, which NESTS comments (<c>(* a (* b *) c *)</c> is one comment) — so this is the keyword the push
+	/// would read the member as. The PULL holds it to the member's CLASS (openspec <c>push-without-header-check</c> 5.Q.5,
+	/// <c>Materializer</c>): an IDE can store a method whose text opens with <c>PROPERTY</c> (DIALECT C2l), and a file
+	/// carrying it would be read back as a property — a delete of the method and a create of a property, under an ordinary
+	/// push. A line that opens with a string opens with its quote.</summary>
 	public static string? MemberHeaderKeyword(string declaration)
 	{
 		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
-		foreach (var line in StTrivia.Code(NormalizeLines(declaration.TrimStart('﻿'))))
+		foreach (var line in StTrivia.Code(NormalizeLines(declaration)))
 		{
 			var code = line.TrimStart();
 			if (code.Length == 0) continue;
@@ -254,29 +285,8 @@ public static class StReader
 		return null;
 	}
 
-	/// <summary>The word a member's declaration opens with as the child splitter's OWN <see cref="ScanContext"/> reads it,
-	/// which does not nest comments yet (5.E.1). Differs from <see cref="MemberHeaderKeyword"/> only when a nested comment
-	/// stands before the keyword — and then a file carrying the member cannot be split by any push, not even unchanged, so
-	/// the pull refuses it (<c>Materializer</c>, 5Qa review). Deleted with 5.E.1, when the splitter reads with
-	/// <see cref="StTrivia"/> too.</summary>
-	public static string? MemberHeaderKeywordAsSplit(string declaration)
-	{
-		if (declaration is null) throw new ArgumentNullException(nameof(declaration));
-		var ctx = new ScanContext();
-		foreach (var line in NormalizeLines(declaration.TrimStart('﻿')))
-		{
-			ctx.Update(line);
-			var code = ctx.Code.TrimStart();
-			if (code.Length == 0) continue;
-			int end = 0;
-			while (end < code.Length && (char.IsLetterOrDigit(code[end]) || code[end] == '_')) end++;
-			return end == 0 ? code.Substring(0, 1) : code.Substring(0, end).ToUpperInvariant();
-		}
-		return null;
-	}
-
 	/// <summary>A POU's or an interface's structure: the outer block, the declaration/body split, the children.</summary>
-	private static ItemContent ReadStructure(List<string> lines, string kind, string what)
+	private static ItemContent ReadStructure(List<string> lines, string kind, string what, bool splitOnly)
 	{
 		// Find the outer END_X to split the POU from its children. INTERFACE is special — no implementation body, and
 		// its method/property signatures live INSIDE the INTERFACE block, not as siblings after END_INTERFACE like an
@@ -297,12 +307,13 @@ public static class StReader
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"{at.Line(i)}: nothing may follow END_INTERFACE (an interface's members sit inside its block), got: " +
 						Truncate(trailing[i].Trim(), 80));
-			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines, what);
+			var (interfaceDecl, interfaceChildren) = SplitInterfaceBody(pouLines, what, splitOnly);
 			return new ItemContent(kind, interfaceDecl, "", interfaceChildren);
 		}
 
-		var (pouDecl, pouImpl) = SplitDeclImpl(pouLines, what);
-		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), childrenStart, what, marked: true);
+		// Split only: the POU's own declaration and body are no question of the split (SplitMembers).
+		var (pouDecl, pouImpl) = splitOnly ? ("", "") : SplitDeclImpl(pouLines, what);
+		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), childrenStart, what, marked: true, splitOnly);
 		return new ItemContent(kind, pouDecl, pouImpl, children);
 	}
 
@@ -337,21 +348,23 @@ public static class StReader
 		}).ToList(),
 	};
 
-	/// <summary>The index of the first line that OPENS a member block, or -1 when there is none. Trivia-aware,
-	/// so a `METHOD` inside a comment does not count.</summary>
+	/// <summary>The index of the first line at or after <paramref name="from"/> that OPENS a member block, or -1 when there
+	/// is none. Read over the whole text's code (<see cref="StTrivia"/>), so a `METHOD` inside a comment — nested, or
+	/// opened after code — does not count.</summary>
 	private static int FirstMemberLine(IList<string> lines, int from)
 	{
-		var ctx = new ScanContext();
-		for (int i = 0; i < lines.Count; i++)
-		{
-			ctx.Update(lines[i]);
-			if (i < from || ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(ctx.Code, "METHOD") ||
-				LineStartsWithKeyword(ctx.Code, "ACTION") ||
-				LineStartsWithKeyword(ctx.Code, "PROPERTY")) return i;
-		}
+		var code = StTrivia.Code(lines);
+		for (int i = from; i < lines.Count; i++)
+			if (MemberKeywordLeading(code[i]) is not null) return i;
 		return -1;
 	}
+
+	/// <summary>The member keywords a block opens with — the one place a push reads a header.</summary>
+	private static readonly string[] MemberKeywords = { "METHOD", "ACTION", "PROPERTY" };
+
+	/// <summary>Which of <see cref="MemberKeywords"/> leads this line of CODE, or null.</summary>
+	private static string? MemberKeywordLeading(string code) =>
+		MemberKeywords.FirstOrDefault(k => LineStartsWithKeyword(code, k));
 
 	/// <summary>Walk back from a member's keyword line over the comments and pragmas written ABOVE it, and
 	/// answer where that member's block really begins. Those lines document the member, not the declaration —
@@ -359,7 +372,7 @@ public static class StReader
 	private static int BackOverMemberTrivia(IList<string> lines, int keywordLine)
 	{
 		// The trivia map is built in ONE FORWARD PASS, because a per-line probe cannot see block comments. It used
-		// to start a fresh ScanContext on each line walked back, so ` *)` — the TAIL of a comment opened twenty
+		// to start a fresh scan on each line walked back, so ` *)` — the TAIL of a comment opened twenty
 		// lines earlier — read as code and stopped the walk dead. `IModuleBase` then kept its 23-line usage
 		// example in the INTERFACE's declaration instead of on the method it documents, and the interface came
 		// back from a round trip with a blank line inserted above that method.
@@ -367,15 +380,14 @@ public static class StReader
 		// block comment is part of that comment, and treating it as a separator stopped the walk in the middle of
 		// `IModuleBase`'s usage example, handing SplitChildren a region that opens on ` *)` and refusing the file
 		// outright ("Expected METHOD/ACTION/PROPERTY").
+		var open = StTrivia.OpenAtStart(lines);
+		var code = StTrivia.Code(lines);
 		var trivia = new bool[lines.Count];
 		var separator = new bool[lines.Count];
-		var inBlockComment = false;
 		for (int i = 0; i < lines.Count; i++)
 		{
-			var openBefore = inBlockComment;
-			var code = CodeHelper.CodeOn(lines[i], ref inBlockComment);
-			trivia[i] = code.Trim().Length == 0;
-			separator[i] = !openBefore && string.IsNullOrWhiteSpace(lines[i]);
+			trivia[i] = IsTrivia(code[i]);
+			separator[i] = !open[i] && string.IsNullOrWhiteSpace(lines[i]);
 		}
 
 		int start = keywordLine;
@@ -393,7 +405,7 @@ public static class StReader
 	/// including END_INTERFACE) into the header-only declaration and
 	/// any METHOD/PROPERTY/ACTION signature children that live inside.
 	/// </summary>
-	private static (string decl, List<Member> children) SplitInterfaceBody(IList<string> bodyLines, string what)
+	private static (string decl, List<Member> children) SplitInterfaceBody(IList<string> bodyLines, string what, bool splitOnly)
 	{
 		// Find the INTERFACE header line — first non-trivia line.
 		int interfaceHeaderLineIdx = FirstCodeLine(bodyLines);
@@ -445,7 +457,7 @@ public static class StReader
 		// interface read from the IDE reported `interface_method` - and StWriter, knowing only the latter,
 		// threw "No END keyword for POU child kind 'interface_method'". The whole interface then materialized
 		// as UNREADABLE: created in the project, accepted by push, and absent from /refs.
-		var children = SplitChildren(childRegion, interfaceHeaderLineIdx + 1, what, marked: false).Select(InterfaceMember).ToList();
+		var children = SplitChildren(childRegion, interfaceHeaderLineIdx + 1, what, marked: false, splitOnly).Select(InterfaceMember).ToList();
 		return (decl, children);
 	}
 
@@ -482,17 +494,19 @@ public static class StReader
 	{
 		int? endIdx = null;
 		string? keyword = null;
-		var ctx = new ScanContext();
+		var code = StTrivia.Code(lines);
+		var at = new ChildSite(what, 0);
 		for (int i = 0; i < lines.Count; i++)
 		{
-			ctx.Update(lines[i]);
-			if (ctx.InsideTrivia) continue;
-			keyword = outerEnds.FirstOrDefault(end => LineStartsWithKeyword(ctx.Code, end));
+			if (IsTrivia(code[i])) continue;
+			keyword = outerEnds.FirstOrDefault(end => LineStartsWithKeyword(code[i], end));
 			if (keyword is not null)
 			{
+				RefuseTextAfter(lines[i], code[i], keyword, at, i);
 				endIdx = i;
 				break;
 			}
+			foreach (var end in outerEnds) RefuseEndAfterCode(code[i], end, at, i);
 		}
 		if (endIdx is null)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
@@ -687,9 +701,12 @@ public static class StReader
 	/// (<paramref name="owner"/>) and the line IN THE FILE — <paramref name="offset"/> is where <paramref name="after"/>
 	/// starts in it. These used to count from the start of the child region, so "line 1" was the line under the POU's
 	/// END line, and named no item at all.</summary>
-	private static List<Member> SplitChildren(IList<string> after, int offset, string owner, bool marked)
+	private static List<Member> SplitChildren(IList<string> after, int offset, string owner, bool marked, bool splitOnly)
 	{
 		var at = new ChildSite(owner, offset);
+		// ONE forward pass over the whole region through the ONE trivia skipper: a comment that opens in one member
+		// and closes in the next is one comment, wherever the blocks start.
+		var code = StTrivia.Code(after);
 		var children = new List<Member>();
 		int i = 0;
 		while (i < after.Count)
@@ -700,20 +717,32 @@ public static class StReader
 
 			// Capture pragmas/comments preceding the keyword as part of the child.
 			int blockStart = i;
-			var ctx = new ScanContext();
+			var read = false;
 			while (i < after.Count)
 			{
-				ctx.Update(after[i]);
-				if (!ctx.InsideTrivia)
+				if (!IsTrivia(code[i]))
 				{
-					if (LineStartsWithKeyword(ctx.Code, "METHOD")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD", marked, at)); break; }
-					if (LineStartsWithKeyword(ctx.Code, "ACTION")) { children.Add(ReadMethodOrAction(after, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION", marked, at)); break; }
-					if (LineStartsWithKeyword(ctx.Code, "PROPERTY")) { children.Add(ReadProperty(after, ref i, blockStart, marked, at)); break; }
-					throw new BridgeException(BridgeErrorCodes.InvalidSt,
-						$"{at.Line(i)}: expected METHOD/ACTION/PROPERTY, got: {Truncate(after[i].Trim(), 80)}");
+					switch (MemberKeywordLeading(code[i]))
+					{
+						case "METHOD": children.Add(ReadMethodOrAction(after, code, ref i, blockStart, ItemKind.Kinds.Method, "END_METHOD", marked, splitOnly, at)); break;
+						case "ACTION": children.Add(ReadMethodOrAction(after, code, ref i, blockStart, ItemKind.Kinds.Action, "END_ACTION", marked, splitOnly, at)); break;
+						case "PROPERTY": children.Add(ReadProperty(after, code, ref i, blockStart, marked, splitOnly, at)); break;
+						default:
+							throw new BridgeException(BridgeErrorCodes.InvalidSt,
+								$"{at.Line(i)}: expected METHOD/ACTION/PROPERTY, got: {Truncate(after[i].Trim(), 80)}");
+					}
+					read = true;
+					break;
 				}
 				i++;
 			}
+			// Comments or pragmas with no member under them: the IDE has nowhere to keep them (a member's leading
+			// trivia is written into its declaration; this is no member's), so writing the rest would drop them in
+			// silence and the next pull would delete them from the file. Refused naming the line.
+			if (!read)
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{at.Line(blockStart)}: '{Truncate(after[blockStart].Trim(), 80)}' stands after the last member and belongs " +
+					"to none, so the IDE has nowhere to keep it. Move it above a member, or into one.");
 		}
 		return children;
 	}
@@ -726,24 +755,24 @@ public static class StReader
 		public ChildSite(string owner, int offset) { _owner = owner; _offset = offset; }
 
 		/// <summary>"'FB_A', line 7" for the region's line <paramref name="index"/>.</summary>
-		public string Line(int index) => $"{_owner}, line {_offset + index + 1}";
+		public string Line(int index) => $"{_owner}, line {Number(index)}";
+
+		/// <summary>The file line number of the region's line <paramref name="index"/>.</summary>
+		public int Number(int index) => _offset + index + 1;
 	}
 
-	private static Member ReadMethodOrAction(IList<string> lines, ref int i, int blockStart, string kind, string endKw, bool marked, ChildSite at)
+	private static Member ReadMethodOrAction(IList<string> lines, string[] code, ref int i, int blockStart, string kind, string endKw, bool marked, bool splitOnly, ChildSite at)
 	{
 		int sigLine = i; // line with the keyword
 		// Find the matching end keyword — at any indentation (see LineStartsWithKeyword), not column 0.
-		var ctx = new ScanContext();
-		// Re-walk from blockStart to sigLine to bring scan context up to
-		// date (the pragmas/comments above the keyword).
-		for (int k = blockStart; k <= sigLine; k++) ctx.Update(lines[k]);
-
+		RefuseEndAfterCode(code[sigLine], endKw, at, sigLine);
 		int? endLine = null;
 		for (int j = sigLine + 1; j < lines.Count; j++)
 		{
-			ctx.Update(lines[j]);
-			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(ctx.Code, endKw)) { endLine = j; break; }
+			if (IsTrivia(code[j])) continue;
+			if (LineStartsWithKeyword(code[j], endKw)) { RefuseTextAfter(lines[j], code[j], endKw, at, j); endLine = j; break; }
+			RefuseOpenedInside(code[j], kind, endKw, at, j, sigLine);
+			RefuseEndAfterCode(code[j], endKw, at, j);
 		}
 		if (endLine is null)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"{at.Line(sigLine)}: missing {endKw} for the {kind} starting there");
@@ -751,8 +780,8 @@ public static class StReader
 		i = endLine.Value + 1;
 
 		// Parse header of the signature line for name + return type.
-		var sig = lines[sigLine];
-		var (name, returnType) = ParseMethodOrActionSignature(sig, kind, at.Line(sigLine));
+		var (name, returnType) = ParseMethodOrActionSignature(lines[sigLine], code[sigLine], kind, at.Line(sigLine));
+		if (splitOnly) return new Member(kind, name, "", "", ReturnType: returnType);
 
 		// Split decl from impl inside the block (excluding the sigLine's
 		// own line and the trailing END_X). Re-scan to find last END_VAR.
@@ -770,15 +799,14 @@ public static class StReader
 		var (decl, impl, line) = SplitAtBoundary(inner, what);
 		// %FOLDER (the child's sub-folder) is the first line under the boundary when there is one, and is peeled off
 		// before the body is checked against the language its line states.
-		var (folder, code) = PeelFolderUnder(impl);
-		return new Member(kind, name, decl, Body(line, code, what), Folder: folder, ReturnType: returnType);
+		var (folder, bodyCode) = PeelFolderUnder(impl);
+		return new Member(kind, name, decl, Body(line, bodyCode, what), Folder: folder, ReturnType: returnType);
 	}
 
-	private static Member ReadProperty(IList<string> lines, ref int i, int blockStart, bool marked, ChildSite at)
+	private static Member ReadProperty(IList<string> lines, string[] code, ref int i, int blockStart, bool marked, bool splitOnly, ChildSite at)
 	{
 		int sigLine = i;
-		var ctx = new ScanContext();
-		for (int k = blockStart; k <= sigLine; k++) ctx.Update(lines[k]);
+		RefuseEndAfterCode(code[sigLine], "END_PROPERTY", at, sigLine);
 
 		int? endLine = null;
 		var accessorBoundaries = new List<(int start, int end, string kind)>(); // GET/SET ranges within property
@@ -786,13 +814,15 @@ public static class StReader
 		string? currentAccessorKind = null;
 		for (int j = sigLine + 1; j < lines.Count; j++)
 		{
-			ctx.Update(lines[j]);
-			if (ctx.InsideTrivia) continue;
-			if (LineStartsWithKeyword(ctx.Code, "END_PROPERTY")) { endLine = j; break; }
-			var opens = LineStartsWithKeyword(ctx.Code, "GET") ? "get"
-					  : LineStartsWithKeyword(ctx.Code, "SET") ? "set" : null;
+			if (IsTrivia(code[j])) continue;
+			if (LineStartsWithKeyword(code[j], "END_PROPERTY")) { RefuseTextAfter(lines[j], code[j], "END_PROPERTY", at, j); endLine = j; break; }
+			RefuseOpenedInside(code[j], ItemKind.Kinds.Property, "END_PROPERTY", at, j, sigLine);
+			foreach (var end in PropertyEnds) RefuseEndAfterCode(code[j], end, at, j);
+			var opens = LineStartsWithKeyword(code[j], "GET") ? "get"
+					  : LineStartsWithKeyword(code[j], "SET") ? "set" : null;
 			if (opens is not null)
 			{
+				RefuseTextAfter(lines[j], code[j], opens.ToUpperInvariant(), at, j);
 				// A new accessor keyword while one is still OPEN closes the previous one as BARE (bodiless) —
 				// `GET` immediately followed by `SET` is two empty accessors, not one accessor swallowing the
 				// other. Before, the second keyword was simply ignored and that accessor was lost.
@@ -802,8 +832,9 @@ public static class StReader
 				currentAccessorKind = opens;
 				continue;
 			}
-			if (LineStartsWithKeyword(ctx.Code, "END_GET") || LineStartsWithKeyword(ctx.Code, "END_SET"))
+			if (LineStartsWithKeyword(code[j], "END_GET") || LineStartsWithKeyword(code[j], "END_SET"))
 			{
+				RefuseTextAfter(lines[j], code[j], LineStartsWithKeyword(code[j], "END_GET") ? "END_GET" : "END_SET", at, j);
 				if (currentAccessorStart is not null && currentAccessorKind is not null)
 				{
 					accessorBoundaries.Add((currentAccessorStart.Value, j, currentAccessorKind));
@@ -828,8 +859,8 @@ public static class StReader
 
 		i = endLine.Value + 1;
 
-		var sig = lines[sigLine];
-		var (name, dataType) = ParsePropertySignature(sig, at.Line(sigLine));
+		var (name, dataType) = ParsePropertySignature(lines[sigLine], code[sigLine], at.Line(sigLine));
+		if (splitOnly) return new Member(ItemKind.Kinds.Property, name, "", "", DataType: dataType);
 
 		// Declaration of the property itself: from blockStart up to (but
 		// excluding) the first accessor or END_PROPERTY — whichever is first.
@@ -906,7 +937,7 @@ public static class StReader
 	/// <param name="keyword">The keyword the line must open with — the caller already knows it from the block it
 	/// is standing in, so this CHECKS rather than discovers.</param>
 	/// <param name="where">The item and file line, for the refusal (a child has no name to be called by until this reads it).</param>
-	private static (string name, string? type) ParseSignature(string sig, string keyword, string where)
+	private static (string name, string? type) ParseSignature(string sig, string code, string keyword, string where)
 	{
 		// COMMENTS OFF FIRST. An engineer documents a member on its signature line — `METHOD INTERNAL
 		// _mStrConcatA //Concats string to sContent` — and CODESYS stores it exactly there. The old patterns
@@ -914,9 +945,9 @@ public static class StReader
 		// its own text, which means the POU could be pulled and never pushed back. Found by sweeping a real
 		// customer project; 207 of pro2193's method signatures carry one.
 		//
-		// `CodeHelper.WithoutComments` is the one definition of "the code on this line" — re-implementing the
-		// strip here is how the two would drift.
-		var clean = CodeHelper.WithoutComments(sig).Trim();
+		// The line's CODE is the splitter's own view of it (StTrivia): comments — nested ones too, where a per-line
+		// strip left `c *)` of `(* a (* b *) c *)` in the TYPE — and pragmas blanked.
+		var clean = code.Trim();
 
 		// A TRAILING SEMICOLON is real, not slop: `METHOD PRIVATE CheckValidRefs : BOOL;` and
 		// `PROPERTY Results : ARRAY[0..GVL_Constants.MaxRejectReasonsCamera] OF BOOL;` are both pro2193, as
@@ -973,23 +1004,23 @@ public static class StReader
 		new BridgeException(BridgeErrorCodes.InvalidSt,
 			$"{where}: Cannot parse {keyword} signature: {why} — {Truncate(sig.Trim(), 80)}");
 
-	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string kind, string where)
+	private static (string name, string? returnType) ParseMethodOrActionSignature(string sig, string code, string kind, string where)
 	{
-		if (kind == ItemKind.Kinds.Method) return ParseSignature(sig, "METHOD", where);
+		if (kind == ItemKind.Kinds.Method) return ParseSignature(sig, code, "METHOD", where);
 
 		// AN ACTION HAS NO RETURN TYPE — it is a named body sharing the POU's variables. A `:` on the line is a
 		// method signature under the wrong keyword, and taking the name and dropping the rest would write it as
 		// an action the IDE then cannot call.
-		var (name, type) = ParseSignature(sig, "ACTION", where);
+		var (name, type) = ParseSignature(sig, code, "ACTION", where);
 		if (type != null) throw BadSignature(sig, "ACTION", "an action has no return type", where);
 		return (name, null);
 	}
 
-	private static (string name, string dataType) ParsePropertySignature(string sig, string where)
+	private static (string name, string dataType) ParsePropertySignature(string sig, string code, string where)
 	{
 		// A PROPERTY's type is MANDATORY where a method's is optional — the one real difference between the two
 		// lines, and the reason they were ever two patterns.
-		var (name, type) = ParseSignature(sig, "PROPERTY", where);
+		var (name, type) = ParseSignature(sig, code, "PROPERTY", where);
 		if (type == null) throw BadSignature(sig, "PROPERTY", "a property must declare a type", where);
 		return (name, type);
 	}
@@ -1026,52 +1057,67 @@ public static class StReader
 
 	// ─── Line scanning helpers ───────────────────────────────────────
 
-	/// <summary>
-	/// Track whether the next characters are inside `(* block comment *)`
-	/// since block comments span multiple lines. Single-line `// ...` and
-	/// pragma `{ ... }` reset per line. String literals don't cross
-	/// lines in well-formed ST.
-	/// </summary>
-	private sealed class ScanContext
-	{
-		private bool _inBlockComment;
-		public bool InsideTrivia { get; private set; }
-
-		/// <summary>The CODE on the line just scanned — comments and pragmas removed, block-comment state
-		/// carried across lines. Empty exactly when <see cref="InsideTrivia"/> is true.
-		/// <para>This used to be computed and thrown away, and every structural keyword test then ran against the
-		/// RAW line. So <c>(* restore *) END_GET</c> was correctly judged to contain code and just as correctly
-		/// failed to match <c>END_GET</c> — the accessor was never closed, the next keyword closed it as BARE, and
-		/// a bare accessor means "exists, holds no code". The getter's body was discarded on READ, before any push
-		/// was involved. The same miss moved a method's whole VAR_INPUT block into its implementation.</para></summary>
-		public string Code { get; private set; } = "";
-
-		/// <summary>Advance over one line. Delegates to <see cref="CodeHelper.CodeOn"/> — THE trivia scanner —
-		/// so this cannot drift from the one <c>HeaderLine</c> uses. It had: this copy called
-		/// <c>(* doc *) FUNCTION_BLOCK FB</c> code (correctly) while <c>HeaderLine</c> skipped the line whole, and it
-		/// did not strip a BOM. Same question, two answers, and the wrong one classified items on the wire.</summary>
-		public void Update(string line)
-		{
-			Code = CodeHelper.CodeOn(line, ref _inBlockComment);
-			InsideTrivia = Code.Length == 0;
-		}
-	}
+	/// <summary>Is this line of CODE (<see cref="StTrivia.Code"/>) trivia — blank, a comment, a pragma, or the inside
+	/// of one? A string is code (its quotes stay in the view).</summary>
+	private static bool IsTrivia(string code) => code.Trim().Length == 0;
 
 	/// <summary>Index of the first line that is real code (not blank / comment / pragma), or -1 if the
 	/// whole range is trivia.</summary>
-	private static int FirstCodeLine(IList<string> lines)
+	private static int FirstCodeLine(IList<string> lines) => Array.FindIndex(StTrivia.Code(lines), c => !IsTrivia(c));
+
+	/// <summary>The END lines a property's block holds.</summary>
+	private static readonly string[] PropertyEnds = { "END_PROPERTY", "END_GET", "END_SET" };
+
+	/// <summary>An END line stands at the START of its own line — that is where the splitter reads it. The same word
+	/// after code on a line (<c>A := 1; END_METHOD</c>, <c>METHOD A : INT END_METHOD</c>) is no END line to it, so the
+	/// block would run on to the NEXT member's END and swallow that member. Refused naming the line instead: the word can
+	/// be nothing else there (it is reserved, and comments and strings are already blanked).</summary>
+	private static void RefuseEndAfterCode(string code, string endKw, ChildSite at, int line)
 	{
-		var ctx = new ScanContext();
-		for (int i = 0; i < lines.Count; i++)
+		var lead = code.Length - code.TrimStart().Length;
+		for (int from = lead + 1; from < code.Length;)
 		{
-			ctx.Update(lines[i]);
-			if (!ctx.InsideTrivia) return i;
+			var k = code.IndexOf(endKw, from, StringComparison.OrdinalIgnoreCase);
+			if (k < 0) return;
+			var afterIdx = k + endKw.Length;
+			if (!IsWordChar(code[k - 1]) && (afterIdx == code.Length || !IsWordChar(code[afterIdx])))
+				throw new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{at.Line(line)}: {endKw} stands after code on its line. An END line opens its own line, which is where " +
+					"the push reads it; put it on a line of its own.");
+			from = afterIdx;
 		}
-		return -1;
+
+		static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+	}
+
+	/// <summary>Nothing follows an END line's keyword — nor an accessor's GET / SET — on its line. The IDE stores none of
+	/// these lines (a pull writes them), so a comment after one (<c>END_METHOD // note</c>, <c>END_GET (* x *)</c>) would
+	/// be dropped in silence; and one OPENED there runs over the lines below it, which then land in the next member as
+	/// orphaned text with no <c>(*</c>. Refused naming the line. Read off the RAW line after the keyword (the code view,
+	/// which keeps columns, says where the keyword stands): the code view has every comment blanked, which is exactly
+	/// what this asks about. Spaces and tabs are layout. 0 such lines in the six corpora.</summary>
+	private static void RefuseTextAfter(string line, string code, string keyword, ChildSite at, int index)
+	{
+		var after = code.Length - code.TrimStart().Length + keyword.Length;
+		if (line.Substring(after).Trim().Length == 0) return;
+		throw new BridgeException(BridgeErrorCodes.InvalidSt,
+			$"{at.Line(index)}: '{Truncate(line.Trim(), 80)}' — an END line holds its END keyword alone (a GET / SET line its " +
+			$"keyword). The IDE stores no such line, so anything after {keyword} would be lost; put it on a line of its own.");
+	}
+
+	/// <summary>A member keyword leading a line INSIDE an open member block: the block above it was never closed. Read as
+	/// the old block's text, the new member would vanish into it — an interface member has no boundary line to refuse it
+	/// later — so the file is refused naming both lines.</summary>
+	private static void RefuseOpenedInside(string code, string kind, string endKw, ChildSite at, int line, int sigLine)
+	{
+		if (MemberKeywordLeading(code) is not { } opens) return;
+		throw new BridgeException(BridgeErrorCodes.InvalidSt,
+			$"{at.Line(line)}: {opens} opens a member inside the {kind} starting at line {at.Number(sigLine)}, which has no " +
+			$"{endKw} before it. Close that {kind} with {endKw} on a line of its own.");
 	}
 
 	/// <summary>Does this line's CODE begin with <paramref name="keyword"/> as a whole word?
-	/// <para>Callers pass <c>ScanContext.Code</c>, never the raw line: a structural keyword is still structural
+	/// <para>Callers pass the line's CODE (<see cref="StTrivia.Code"/>), never the raw line: a structural keyword is still structural
 	/// when a closed comment precedes it on the same line, which is exactly where engineers put the note
 	/// explaining what an accessor is for.</para></summary>
 	private static bool LineStartsWithKeyword(string code, string keyword)

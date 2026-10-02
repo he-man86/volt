@@ -60,11 +60,21 @@ public class TransportMatrixTests
         { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
     };
 
+    /// <summary>What the IDE holds as K's declaration: the text above the boundary line. The IDE never stores Volt's
+    /// <c>IMPLEMENTATION</c> line, or the body under it, in a declaration — a fixture that did described a project
+    /// whose pulled file does not read back, which the pull refuses (5.E.1).</summary>
+    private static string IdeDeclaration(string src)
+    {
+        var head = src.Split("\n\n")[0];
+        var boundary = head.IndexOf("\nIMPLEMENTATION ", System.StringComparison.Ordinal);
+        return boundary < 0 ? head : head.Substring(0, boundary);
+    }
+
     private static FakeIde Ide(int code, string src, params FakeIde.Item[] extra)
     {
         var items = new List<FakeIde.Item>
         {
-            new("K", code, "", true, src.Split("\n\n")[0], "n := 1;", null, null),
+            new("K", code, "", true, IdeDeclaration(src), "n := 1;", null, null),
         };
         items.AddRange(extra);
         return new FakeIde(items.ToArray());
@@ -81,7 +91,7 @@ public class TransportMatrixTests
         var items = new List<FakeIde.Item>
         {
             // An INTERFACE has no body of its own, only members.
-            new("K", code, "", true, src.Split("\n\n")[0], code == ItemKind.PlcItf ? null : "n := 1;", null, null,
+            new("K", code, "", true, IdeDeclaration(src), code == ItemKind.PlcItf ? null : "n := 1;", null, null,
                 Children: members.Select(m => m.Name).ToArray()),
         };
         foreach (var (name, mcode) in members)

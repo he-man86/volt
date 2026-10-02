@@ -12,7 +12,7 @@ namespace Volt.Engine.Tests;
 public class FetchExclusionTests
 {
     private static FakeIde.Item Pou(string name) =>
-        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n", "");
+        FakeIde.Item.TextualPou(name, $"FUNCTION_BLOCK {name}", "");
 
     /// <summary>Dead (uncalled) project POUs are ordinary source — the bridge always returns them. Reachability
     /// is the LSP's job, so there is no fetch flag and no compiled-POU dependency to drop them.</summary>

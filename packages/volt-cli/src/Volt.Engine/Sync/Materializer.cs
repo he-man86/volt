@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Item;
 using Volt.Engine.Ide;
@@ -19,6 +20,7 @@ public static class Materializer
             RefuseMemberOfAnotherClass(name, build);
             var text = StWriter.Write(build);
             RefuseRetiredComment(name, text);
+            RefuseUnreadableBack(name, build, text);
             LogEndLineFallback(name, build);
             return new WorkspaceItem(text, FullWireName(name, build.Kind), UnsupportedIn(build));
         }
@@ -42,6 +44,43 @@ public static class Materializer
             "the item is not pulled until the comment is removed in the IDE.");
     }
 
+    /// <summary>What a pull writes, a push reads back — WITH THE SAME MEMBERS. The IDE stores each member's text on its
+    /// own; the push reads them back out of ONE file through the child splitter, which refuses a text it cannot split
+    /// right (an END keyword after code on its line, text after an END keyword, a member keyword inside an open member).
+    /// An IDE member whose stored text holds such a shape would be pulled into a file no push accepts, not even
+    /// unchanged — and a comment one member leaves open and another closes reads as ONE comment in the file, swallowing
+    /// the member between them, which the next push deletes. So the pull reads its own text back through the splitter
+    /// (<see cref="StReader.SplitMembers"/> — the split alone, not what a body holds) and refuses the item unless it
+    /// gets every member back as itself (kind and name): listed unreadable, the workspace file left alone (openspec
+    /// <c>push-without-header-check</c> 5.E.1). 0 such items in the six corpora.</summary>
+    private static void RefuseUnreadableBack(string name, ItemContent pulled, string text)
+    {
+        IReadOnlyList<Member> back;
+        try { back = StReader.SplitMembers(text, pulled.Kind, name); }
+        catch (BridgeException ex)
+        {
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{name}': the file a pull would write does not read back on a push ({ex.Message}), so the item is not " +
+                "pulled until its text is changed in the IDE.");
+        }
+        var got = back.Select(Label).ToList();
+        foreach (var m in pulled.Members)
+        {
+            if (got.Remove(Label(m))) continue;
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{name}': its {Label(m)} does not read back from the file a pull would write (read back: " +
+                $"{(back.Count == 0 ? "no members" : string.Join(", ", back.Select(Label)))}) — a comment " +
+                "one member leaves open and another closes is one comment in the file. A push of it would delete that " +
+                "member, so the item is not pulled until its text is changed in the IDE.");
+        }
+        if (got.Count > 0)
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{name}': the file a pull would write reads back with {string.Join(", ", got)}, which the IDE does not " +
+                "hold, so the item is not pulled until its text is changed in the IDE.");
+
+        static string Label(Member m) => $"{m.Kind.Replace('_', ' ')} '{m.Name}'";
+    }
+
     /// <summary>A member's KIND is its CLASS — the driver reports it from the IDE object (a method, a property, an
     /// action), never from its text — and the file must say the same, because the push reads a member's kind from the
     /// keyword that opens its block (<see cref="StReader.MemberHeaderKeyword"/>). CODESYS stores whatever text a method
@@ -62,19 +101,7 @@ public static class Materializer
                 ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty => "PROPERTY",
                 _ => null,
             };
-            if (expected is null || StReader.MemberHeaderKeyword(m.Declaration) is not { } opens) continue;
-            if (opens == expected)
-            {
-                // The class and the text agree — but a NESTED comment before the keyword is read by the push's child
-                // splitter, which does not nest yet (5.E.1), as code: the file it would carry could never be pushed
-                // back, not even unchanged (5Qa review). Refused here until the splitter nests, naming the comment.
-                if (StReader.MemberHeaderKeywordAsSplit(m.Declaration) == opens) continue;
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}' has a nested comment ((* … (* … *) … *)) before " +
-                    $"its {expected} keyword. A push does not yet read nested comments between members (openspec " +
-                    "push-without-header-check 5.E.1), so a file carrying it could not be pushed back; the item is not " +
-                    "pulled until that comment is un-nested in the IDE.");
-            }
+            if (expected is null || StReader.MemberHeaderKeyword(m.Declaration) is not { } opens || opens == expected) continue;
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}' holds text that opens with '{opens}', not {expected}. " +
                 $"A member's kind is its class in the IDE, and a file opening the member with '{opens}' would be read back " +

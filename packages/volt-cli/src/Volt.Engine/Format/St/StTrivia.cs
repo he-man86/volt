@@ -7,20 +7,23 @@ namespace Volt.Engine.Format.St;
 /// Where the comments, strings and pragmas of a text are, across lines — the question a WHOLE-LINE rule needs
 /// answered: does this line start inside a comment, and what code does the text hold outside all of them?
 ///
-/// <para><b>Not <see cref="CodeHelper.CodeOn"/>.</b> That one finds where a line's code STARTS, skipping only
-/// LEADING trivia, which is what the structure scan needs; it does not see a comment opened after code on its line,
-/// and it does not nest. A boundary line inside either would then read as the boundary and split the file inside
-/// the comment (bakon-nano's <c>:= TRUE;(*NOT (</c> spans lines; the LSP lexer nests <c>(* (* *) *)</c>), so the
-/// boundary and the reserved-name rule ask this instead. A <c>(*</c> inside a <c>//</c> comment, a string or a
-/// pragma opens nothing.</para>
+/// <para><b>THE trivia skipper of the ST format</b> — the boundary rule, the reserved-name rule, the END-line mirror
+/// and the CHILD SPLITTER (<c>StReader</c>: where each METHOD / ACTION / PROPERTY block opens and closes, openspec
+/// <c>push-without-header-check</c> 5.E.1) all read through it. Comments NEST, as both vendors' do
+/// (<c>lex_nested_block_comment</c>, <c>(* outer (* inner *) n := 99; still inside *)</c>, builds clean on CODESYS and
+/// TwinCAT), and a comment opened AFTER code on its line is seen (bakon-nano's <c>:= TRUE;(*NOT (</c> spans lines).
+/// <c>CodeHelper.CodeOn</c>, which the splitter used to read through, did neither: a word after an inner <c>*)</c> was
+/// code and an <c>END_METHOD</c> inside a comment ended the member there. A <c>(*</c> inside a <c>//</c> comment, a
+/// string or a pragma opens nothing; a BOM at the start of the text is no code.</para>
 /// </summary>
 internal static class StTrivia
 {
     /// <summary>Per line: true when the line starts inside a block comment.</summary>
     public static bool[] OpenAtStart(IList<string> lines) => Scan(lines).OpenAtStart;
 
-    /// <summary>Per line: the line with every comment, string literal and pragma blanked to spaces — the code
-    /// alone, at its columns.</summary>
+    /// <summary>Per line: the CODE alone, at its columns — every comment and pragma blanked to spaces, and every
+    /// string's TEXT blanked between its quotes, which stay: a string is code, so a line holding one is no trivia line,
+    /// but nothing inside it is a keyword or opens a comment.</summary>
     public static string[] Code(IList<string> lines) => Scan(lines).Code;
 
     /// <summary>Where each block comment opens — its line and the column of its <c>(*</c> — in order, NESTED ones
@@ -60,17 +63,21 @@ internal static class StTrivia
                 }
                 if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth = 1; sb.Append("  "); j++; continue; }
                 if (c == '/' && next == '/') { sb.Append(' ', line.Length - j); break; }
+                if (i == 0 && j == 0 && c == '﻿') { sb.Append(' '); continue; }   // a BOM opens no code
                 if (c == '\'' || c == '"' || c == '{')
                 {
                     // A string ends at its own quote (`$` escapes the next character, `$'` included); a pragma at
                     // its `}`. Neither crosses a line in valid ST, so an unclosed one ends with the line.
-                    var close = c == '{' ? '}' : c;
-                    sb.Append(' ');
+                    // A PRAGMA is trivia and is blanked whole. A STRING is code: its text is blanked (no keyword and
+                    // no comment opener inside it counts) but its quotes stay, so a line holding one is a code line.
+                    var pragma = c == '{';
+                    var close = pragma ? '}' : c;
+                    sb.Append(pragma ? ' ' : c);
                     for (j++; j < line.Length; j++)
                     {
+                        if (!pragma && line[j] == '$' && j + 1 < line.Length) { sb.Append("  "); j++; continue; }
+                        if (line[j] == close) { sb.Append(pragma ? ' ' : close); break; }
                         sb.Append(' ');
-                        if (c != '{' && line[j] == '$' && j + 1 < line.Length) { sb.Append(' '); j++; continue; }
-                        if (line[j] == close) break;
                     }
                     continue;
                 }

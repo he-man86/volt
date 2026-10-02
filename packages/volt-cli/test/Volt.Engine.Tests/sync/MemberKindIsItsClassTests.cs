@@ -74,24 +74,20 @@ public class MemberKindIsItsClassTests
         Assert.Equal("method", Assert.Single(back.Members).Kind);
     }
 
-    /// <summary>A NESTED COMMENT BEFORE <c>METHOD</c> (5Qa review). Comments nest (<c>StTrivia</c>), so the member's
-    /// class and its text agree — but the push's child splitter does not nest yet (5.E.1) and reads the word after the
-    /// inner <c>*)</c> as code. Accepting it on pull wrote a file no push could read back, not even unchanged; every edit
-    /// of the POU was blocked. Until 5.E.1 the pull refuses it, naming the nested comment — never naming 'STILL' as the
-    /// keyword the text opens with, which is what reading the class check in the splitter's view alone said.</summary>
+    /// <summary>A NESTED COMMENT BEFORE <c>METHOD</c> (5Qa review, 5.E.1). Comments nest, so the member's class and its
+    /// text agree, and the push's child splitter reads through the same skipper (<c>StTrivia</c>): the member pulls and
+    /// its file is read back with the method in it. Until 5.E.1 the splitter did not nest, read the word after the inner
+    /// <c>*)</c> as code, and the pull had to refuse the item, since no push could read its file back.</summary>
     [Fact]
-    public void A_method_after_a_nested_comment_is_refused_on_pull_until_the_splitter_nests()
+    public void A_method_after_a_nested_comment_pulls_and_reads_back()
     {
-        var ide = WithMethod("(* outer (* inner *) still comment *)\nMETHOD M : INT");
+        var item = Materializer.Materialize(WithMethod("(* outer (* inner *) still comment *)\nMETHOD M : INT"), "K",
+            ItemKind.Kinds.Pou, new ItemRef("K"));
 
-        var ex = Assert.Throws<BridgeException>(() =>
-            Materializer.Materialize(ide, "K", ItemKind.Kinds.Pou, new ItemRef("K")));
-
-        Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
-        Assert.Contains("method 'M'", ex.Message);
-        Assert.Contains("nested comment", ex.Message);
-        Assert.DoesNotContain("opens with 'STILL'", ex.Message);
-        Assert.Contains("K", RefsService.Handle(ide).Unreadable);
+        var back = Volt.Engine.Format.St.StReader.Read(item.Text, ItemKind.Kinds.Pou, "K");
+        var m = Assert.Single(back.Members);
+        Assert.Equal(("method", "M"), (m.Kind, m.Name));
+        Assert.StartsWith("(* outer (* inner *) still comment *)", m.Declaration);
     }
 
     /// <summary>A property is held to PROPERTY the same way.</summary>
