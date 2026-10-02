@@ -2072,9 +2072,67 @@ conformance work; the cross-area edges are named on the tasks that have them.
       new are push-without-header-check's uncommitted DUT renames in the tree plus the new fixtures. Seen in passing (not
       this step's, not researched): the parser refuses a variable declared `r : INT;` ("Unexpected token 'r' found"), so a
       unit-test source reading `r.bx` parses as `.bx`; the new test names it `rf`.
-- [ ] 3.3 Enums (EN1–EN6): `resolveBareEnumMember` takes an asker and reports ambiguity. Record enum_same_member_two_enums,
+- [x] 3.3 Enums (EN1–EN6): `resolveBareEnumMember` takes an asker and reports ambiguity. Record enum_same_member_two_enums,
       enum_member_vs_variable, enum_library_bare, enum_library_qualified.
       Where: scope-nav, library-namespaces. Acceptance: CA. Depends on: 3.2.4
+      **Step 3.3 (2026-10-02).** 28 `enum_*` fixtures in `fixtures/names/enums.ts`, rule by rule (EN1 qualified_only bare /
+      qualified / beside an open enum; EN3 a member two enums declare stored to either enum, to an INT, compared, as a CASE
+      label, qualified, a unique member beside it; EN4 an implicit enum's value in a METHOD, in another POU, over a DUT
+      enum's; EN5 the member against an FB variable, a METHOD local, a store to the enum, a global, a FUNCTION; EN6 a
+      library member bare, into an INT, by type, by namespace and type, two enums of one library, of two, a library global
+      of its name, a project enum's of its name, in an uninstanced FB; plus a name nothing declares in an uninstanced FB),
+      recorded CODESYS + TwinCAT build and CODESYS run (16 build and run, each value as predicted). Measured: a member two of the asker's
+      own enums declare is "Ambiguous use of name" + "Identifier not defined" + the hole's conversion in EVERY context (no
+      expected-type pick), as a CASE label also "requires literal or symbolic integer constant"; a referenced library's
+      member resolves bare where one enum declares it (Util's `SAWTOOTH_RISE`), two library enums (one library or two)
+      are only "not defined"; a project enum's member beats a library's of its name (out 9). The first recording of EN6
+      used Util's WEEKDAY bare and was confounded — Util's list DAY_FLAGS declares MONDAY … SUNDAY as globals — so the
+      cells were re-asked with GEN_MODE; CommFB's `IO_SYSTEM_TYPE` is "Unknown type" bare (a transitive library, LB2 →
+      3.4.2), so the two-library cell uses Util/StringUtils' `DONE`. Code: `scope-nav` `resolveBareEnumMember(asker,
+      name)` → `{member}` | `{ambiguous, candidates, said}` (candidates grouped by `precedence` `libraryRank`, the
+      asker's own first; `said` only at rank 0) and `bareEnumMember` (the unique member, for the 9 callers that took the
+      first); `types/names` `resolveBareName` answers `ambiguous`; `analysis/resolution` `nameResolves` counts it as
+      naming nothing; `ambiguous-global` says "Ambiguous use of name" for a said one (and no longer reads a named
+      argument's parameter as a bare name); `case-labels` refuses an ambiguous label; `infer/expr` types `Ns.E` as the
+      static base `E` (`Util.WEEKDAY.THURSDAY` had no type — corpus member NONE 1028 → 620). Corpus census (project files,
+      bare names whose candidates include an enum member): 220 to one project enum, 47 to one library enum (pro2193's
+      uninstanced `Magazine_BeursFB`, `i`), 0 ambiguous among project or library enums, 0 project global or POU named like
+      a project member. Known divergences (`ENUM_DIVERGENCES`, both vendors; `deferred.lsp` where the LSP is silent): the
+      condition's "Expression of type 'BOOL' expected" after an untyped comparison (`enum_same_member_comparison`,
+      `enum_implicit_member_in_other_pou` — no catalog code), a project global of a member's name is ambiguous
+      (`enum_member_vs_global`), the member before a FUNCTION of its name (`enum_member_vs_function_name`), Util's
+      `TUESDAY` member beside its DAY_FLAGS global (`enum_library_member_vs_library_global`, CODESYS) — each niche:
+      accepted loss (0 occurrences in the corpora); `enum_undeclared_name_uninstanced` (an uncompiled POU has no
+      diagnostics; the replay analyses the file it is given); TwinCAT's project references no Util
+      (`TWINCAT_ENUM_DIVERGENCES`). EN4's implicit-enum TYPE NAME stays `IMPLICIT_ENUM_TYPE_NAME` (4.7.4's render; the
+      owner is the binder's already: the value's `owner` scope and its declaration). The run comparison numbers a library
+      enum's displayed value (`fixtures.test.ts` `enumsOf` over the project's libraries). Numbers: `rate:fixtures` 4181
+      fixtures (+28): confirmed 2422 (+16), refused 1501 (+9), not-lowered 152, lsp-gap 34 (+3), diverges 4, unaskable 68;
+      edges agree 2527 / disagree 0 / not-run 110. Ceilings: lsp-gap 31 → 34 (`fixtures.test.ts`). Rules GAP area 3
+      **13 → 10** (total 41 → 38; EN3, EN5, EN6 closed). Agreement CODESYS 3829 → **3851**, TwinCAT 3764 → **3780**
+      (floors not yet raised — the gate's). Baselines rewritten, every ceiling fell, findings unchanged (resolution 59,
+      types 170): corpus member NONE 1028 → 620, Library Manager member NONE 313 → 209, corpus member UNKNOWN 2160 → 1343,
+      Library Manager member UNKNOWN 417 → 209. Targeted runs green: `bun test src` 1710/0, `test/frontend` 31/0,
+      `test/corpus` 19/0 (FP oracle clean), `test/conformance` on the 28 fixtures 145/0, the replay over all fixtures
+      (`-t "recorded build|lsp-gap|diverge|table is total|ratchet"`) 56/0; `bun typecheck` clean, `bun run lint` exit 0.
+      **Review fixes (2026-10-02).** 7 cells recorded in one batch per vendor (CODESYS + TwinCAT build, CODESYS run):
+      `enum_library_member_direct_vs_caa` (Util `_STATE` vs CAA Device Diagnosis `PROC_STATE`, `ABORTED`) is "not defined" on
+      CODESYS — the mixed direct/CAA tie refuses as the LSP does (the first ask, `NO_ERROR`, collided with a fixture enum in
+      the replay); `sym_named_argument_beside_ambiguous_global` builds, out 8 (the named-argument skip is right; tests in
+      `ambiguous-global.test.ts`); EN3 as a VAR initializer / named argument / array index: the three messages everywhere —
+      the initializer destination is now the resolved type upper-cased (`unknown-source`), the argument and index
+      conversions are `ENUM_DIVERGENCES` (niche, 0 in the corpora); EN5 across the library boundary: CODESYS takes Util's
+      member before a project FUNCTION / PROGRAM of its name — `CODESYS_ENUM_DIVERGENCES` + `MEASURED_SILENT` (LB2 → 3.4.2:
+      pro2193's 87 clean POU names forbid refusing without knowing which libraries are open). `infer/expr` types `Ns.X` only
+      for an ENUM (no FB/FUNCTION typing from a namespace). The library-internal EN6 test is renamed as an unmeasured
+      precedence choice. lsp-gap ceiling 34 → 36; agreement CODESYS 3854, TwinCAT 3784.
+      **Gate 3.3 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4188; confirmed
+      2423, refused 1505, not-lowered 152, lsp-gap 36, diverges 4, unaskable 68; edges agree 2530 / disagree 0 / not-run
+      110). Full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset, rustc cache sampled): **7207 pass / 34 skip / 196 todo /
+      0 fail** (7437 tests, 201 files, 240 s); agreement CODESYS **3854**, TwinCAT **3784** (floors raised 3829 → 3854,
+      3764 → 3784). `bun run check` 15 passed, 0 failed; `bun run lint` exit 0; layering gate green. Rules GAP area 3 10,
+      total 38. F diff (base 461b70fc4d, VOLT_GRAPHICAL=1): 135 aspects changed over 68 sources (corpus 63, fixture 5),
+      aspects resolution and types only; 1337 aspects new — the 35 new fixtures (34 `enum_*`, 1 `sym_*`); 0 gone.
 - [ ] 3.4.1 Library precedence everywhere (LB3, LB5, LB6): `lookup`, `lookupMember`, `resolveBareEnumMember` and `findScopeByName`
       apply `pickForAsker`. Record lib_ns_same_name_two_libraries, lib_ns_own_library_first, lib_ns_type_name_two_libraries.
       Where: scope-nav, precedence, types/resolve. Acceptance: CA. Depends on: 3.3

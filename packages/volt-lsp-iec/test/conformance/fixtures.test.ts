@@ -153,9 +153,26 @@ function runSource(c: LanguageTest): string {
 }
 
 /** Each `Type.Value` a case's enums declare, as the number it is: the written `:= n`, else one more than the value
- *  before it, from 0 — how CODESYS numbers them (conformance `type_dut_enum_*`). */
+ *  before it, from 0 — how CODESYS numbers them (conformance `type_dut_enum_*`). A referenced library's enum displays
+ *  the same way (`enum_library_bare`: `GEN_MODE.SAWTOOTH_RISE`), so the fixture project's libraries' are numbered too,
+ *  and a fixture's own enum of a library enum's name is the one it means. */
 function enumsOf(c: LanguageTest): Map<string, bigint> {
-  const out = new Map<string, bigint>()
+  const out = new Map<string, bigint>(libraryEnums())
+  numberEnums(out, parseSource(runSource(c), { networkText: true }).units)
+  return out
+}
+
+let libraryEnumsCache: ReadonlyMap<string, bigint> | undefined
+const libraryEnums = (): ReadonlyMap<string, bigint> => {
+  if (libraryEnumsCache === undefined) {
+    const out = new Map<string, bigint>()
+    numberEnums(out, PROJECT_LIBRARY.flatMap((f) => f.parseResult?.units ?? []))
+    libraryEnumsCache = out
+  }
+  return libraryEnumsCache
+}
+
+function numberEnums(out: Map<string, bigint>, units: readonly import("../../src/frontend/syntax/index.js").TopLevel[]): void {
   const number = (prefix: string, values: readonly { name: { text: string }; value?: import("../../src/frontend/syntax/index.js").Expr }[]) => {
     let next = 0n
     for (const v of values) {
@@ -169,7 +186,7 @@ function enumsOf(c: LanguageTest): Map<string, bigint> {
       next = value + 1n
     }
   }
-  for (const unit of parseSource(runSource(c), { networkText: true }).units) {
+  for (const unit of units) {
     if (unit.kind === "type_decl" && unit.body.kind === "enum") number(unit.name.text, unit.body.values)
     // an implicit enumeration displays under a name of the IDE's making: `Implicit_Enum__FB_LANG_implicit_enum__eState.Running`
     if ("varSections" in unit && "name" in unit && unit.name !== undefined)
@@ -182,7 +199,6 @@ function enumsOf(c: LanguageTest): Map<string, bigint> {
           if (type.kind === "implicit_enum_type") for (const n of decl.names) number(`Implicit_Enum__${unit.name.text}__${n.text}`, type.values)
         }
   }
-  return out
 }
 
 // ─── the vendor's display formats ────────────────────────────────────────────────────────────────────────────
@@ -937,6 +953,12 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     // frontend-conformance 2.7: a conditional pragma in a declaration part (the declaration parser applies none)
     "prag_if_defined_in_declaration",
     "prag_project_defined_in_declaration",
+    // frontend-conformance 3.3 review, recorded 2026-10-02 — CODESYS takes an open library's enum member (Util's GEN_MODE)
+    // before a project FUNCTION / PROGRAM of its name; which libraries' members are candidates is LB2's (task 3.4.2), and
+    // pro2193's 87 clean POU names beside other libraries' members forbid refusing without it (`support/divergences.ts`
+    // `CODESYS_ENUM_DIVERGENCES`)
+    "enum_library_member_vs_project_function",
+    "enum_library_member_vs_project_program",
   ])
 
   test("each is either written down on the fixture or a known measured silence", () => {
@@ -1329,7 +1351,15 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `inh_override_final_method` and `inh_abstract_method_not_implemented` — both vendors' words recorded, the CODESYS code
   // number unknown (a wire diagnostic is a catalog `Cnnnn`; `server/diagnostic-codes.ts` admits no new slug), 0
   // occurrences of either refusal in the corpora.
-  "lsp-gap": 31,
+  // 31 -> 34, FOR MEASUREMENT. frontend-conformance 3.3 (2026-10-02), new questions, no fixture moved, each niche and accepted
+  // (`deferred.lsp`, 0 occurrences in the corpora): `enum_member_vs_global` (a project global and a project enum member of
+  // one name are ambiguous), `enum_member_vs_function_name` (the member before a FUNCTION of its name) and
+  // `enum_library_member_vs_library_global` (Util's `TUESDAY`, a WEEKDAY member and a DAY_FLAGS global).
+  // 34 -> 36, FOR MEASUREMENT. frontend-conformance 3.3 review (2026-10-02), new questions, no fixture moved (`MEASURED_SILENT`,
+  // LB2 → 3.4.2): `enum_library_member_vs_project_function` / `_program` — CODESYS takes Util's member before a project
+  // POU of its name; which libraries are open (their members candidates at all) is not in the manifest, and pro2193's 87
+  // clean POU names beside qualified-access libraries' members say the LSP must not refuse without it.
+  "lsp-gap": 36,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1747,7 +1777,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // and the bare-name search order the front-end now owns (`types/names` `resolveBareName`).
   // 3732 -> 3764 (2026-10-02, frontend-conformance 3.2): the inheritance fixtures (`fixtures/names/inheritance.ts`,
   // H4–H10) — interface EXTENDS bound and linked, every base through the link, overrides checked in compiled FBs only.
-  { vendor: "twincat", floor: 3764 },
+  // 3764 -> 3784 (2026-10-02, frontend-conformance 3.3): the enum fixtures (`fixtures/names/enums.ts`, EN1–EN6) — a
+  // bare member resolved per asker, ambiguity reported, a library member bare where one enum declares it.
+  { vendor: "twincat", floor: 3784 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1883,7 +1915,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3723 -> 3757 (2026-10-02, frontend-conformance 2.10): the same, on CODESYS.
   // 3757 -> 3797 (2026-10-02, frontend-conformance 3.1): the same, on CODESYS.
   // 3797 -> 3829 (2026-10-02, frontend-conformance 3.2): the same, on CODESYS.
-  { vendor: "codesys", floor: 3829 },
+  // 3829 -> 3854 (2026-10-02, frontend-conformance 3.3): the same, on CODESYS.
+  { vendor: "codesys", floor: 3854 },
 ]
 
 

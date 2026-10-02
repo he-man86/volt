@@ -407,7 +407,8 @@ const BUILTIN_WORD = { "system-operator": "system", conversion: "conversion", im
 
 /**
  * What a BARE name binds to — the search order's answer (`types/names` `resolveBareName`, rule Y23), in the dump's words:
- * a declaration (a library namespace's included), a bare enum member, a device instance, a compiler-provided name, NONE.
+ * a declaration (a library namespace's included), a bare enum member, a device instance, a compiler-provided name,
+ * NONE — `NONE ambiguous: …` for a member two enums declare (rule EN3).
  */
 export function resolveBare(name: string, scope: Scope | undefined): string {
   if (scope === undefined) return "NOSCOPE"
@@ -425,6 +426,9 @@ function bareWord(answer: BareName): string {
       return "device"
     case "builtin":
       return BUILTIN_WORD[answer.builtin]
+    case "ambiguous":
+      // it names nothing, as both vendors say ("Identifier not defined" beside "Ambiguous use of name"): NONE, with why
+      return `NONE ambiguous: ${answer.candidates.map(describe).join(" | ")}`
     case "none":
       return "NONE"
   }

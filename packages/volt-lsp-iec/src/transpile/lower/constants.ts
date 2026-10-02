@@ -2,7 +2,7 @@
  * Literals, enum values and folded constants — every value lowering knows before the program runs.
  */
 import { calendarNanoseconds, decodeStringLiteral, type Expr, type TypeDecl } from "../../frontend/syntax/index.js"
-import { findChildScope, lookup, lookupMember, resolveBareEnumMember } from "../../frontend/symbols/index.js"
+import { bareEnumMember, findChildScope, lookup, lookupMember } from "../../frontend/symbols/index.js"
 import {
   constEval,
   elementaryRef,
@@ -44,7 +44,7 @@ export const enumeratorValue = (lw: Lowering) => (e: Expr): bigint | undefined =
  * `type_dut_enum_explicit_values`), typed as its enum's storage. Undefined for anything that is not one.
  */
 export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefined {
-  let sym: ReturnType<typeof resolveBareEnumMember>
+  let sym: ReturnType<typeof bareEnumMember>
   if (e.kind === "member" && e.base.kind === "ident_expr") {
     const owner = lookup(lw.scope, e.base.name)?.symbol
     const scope = owner?.kind === "type" ? findChildScope(lw.project, owner.name) : undefined
@@ -59,7 +59,7 @@ export function enumConstant(lw: Lowering, e: Expr, depth = 0): IrExpr | undefin
     sym = scope === undefined ? undefined : lookupMember(scope, e.member.name)
   } else if (e.kind === "ident_expr") {
     const found = lookup(lw.scope, e.name)?.symbol
-    sym = found?.kind === "enum_value" ? found : found === undefined ? resolveBareEnumMember(lw.project, e.name) : undefined
+    sym = found?.kind === "enum_value" ? found : found === undefined ? bareEnumMember(lw.scope, e.name) : undefined
   }
   if (sym?.kind !== "enum_value") return undefined
   // an implicit enumeration's value (`eState : (Idle, Running)`) lives in the POU's scope, its declaration the variable's;

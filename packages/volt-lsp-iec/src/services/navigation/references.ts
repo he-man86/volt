@@ -12,7 +12,7 @@
  */
 import { allUnits, type IdentExpr, walkAllExprs } from "../../frontend/syntax/index.js"
 import { unitTypeNameRefs } from "./type-refs.js"
-import { lookup, resolveBareEnumMember, type Scope, scopeForUnit, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
+import { bareEnumMember, lookup, type Scope, scopeForUnit, sourceBodies, type Symbol } from "../../frontend/symbols/index.js"
 import { resolveMemberChain } from "../../frontend/types/index.js"
 import { rangeFromSpan } from "../shared/index.js"
 import type { Location, Range } from "vscode-languageserver-protocol"
@@ -41,7 +41,7 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
           // `.g` — the global past every local (rule E33): renaming `g` without it leaves "no global definition for 'g'"
           if (resolveMemberChain(e, scope, project) === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.name.span) })
         } else if (e.kind === "ident_expr" && !memberNames.has(e)) {
-          const s = lookup(scope, e.name)?.symbol ?? resolveBareEnumMember(project, e.name)
+          const s = lookup(scope, e.name)?.symbol ?? bareEnumMember(scope, e.name)
           if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
         }
       })

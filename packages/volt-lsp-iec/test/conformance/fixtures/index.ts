@@ -106,6 +106,7 @@ import { PRAGMA_RULE_TESTS } from "./grammar/pragmas.js"
 import { RECOVERY_TESTS } from "./grammar/recovery.js"
 import { SCOPE_RULE_TESTS } from "./names/scopes.js"
 import { INHERITANCE_RULE_TESTS } from "./names/inheritance.js"
+import { ENUM_RULE_TESTS } from "./names/enums.js"
 
 export interface CategoryGroup {
   name: string
@@ -223,6 +224,7 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "grammar-recovery", tests: RECOVERY_TESTS },
   { name: "names-scopes", tests: SCOPE_RULE_TESTS },
   { name: "names-inheritance", tests: INHERITANCE_RULE_TESTS },
+  { name: "names-enums", tests: ENUM_RULE_TESTS },
 ]
 
 /**

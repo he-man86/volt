@@ -11,7 +11,11 @@
  *                              bases', its methods, then the project's level — globals before POU and type names, the
  *                              application's before a library's (`projectLevelHit`); a device-tree instance (Y24) and a
  *                              library namespace (step 11) answer there too, each tagged;
- *   an enum member             a bare member of an enum that is not `qualified_only` (rule EN2, after every declaration).
+ *   an enum member             a bare member of an enum that is not `qualified_only`, the asker's own enums before a
+ *                              referenced library's (rules EN1, EN2, EN6), after every declaration; one that TWO such
+ *                              enums declare is AMBIGUOUS (EN3) — it names nothing, "Identifier not defined", and among
+ *                              the asker's own enums the vendors say "Ambiguous use of name" too (`symbols/scope-nav`
+ *                              `resolveBareEnumMember`).
  *
  * In `types/` because one step asks about built-in TYPE names (design.md "Why no member resolution in symbols").
  */
@@ -24,6 +28,7 @@ export type BareName =
   | { kind: "device"; symbol: Symbol }
   | { kind: "library-namespace"; symbol: Symbol }
   | { kind: "enum-member"; symbol: Symbol }
+  | { kind: "ambiguous"; candidates: readonly Symbol[]; said: boolean }
   | { kind: "builtin"; builtin: BuiltinName }
   | { kind: "none" }
 
@@ -36,8 +41,9 @@ export function resolveBareName(scope: Scope, name: string): BareName {
   if (builtin !== undefined) return { kind: "builtin", builtin }
   const found = lookup(scope, name)
   if (found !== undefined) return tagged(found.symbol, found.foundIn)
-  const member = resolveBareEnumMember(project, name)
-  return member !== undefined ? { kind: "enum-member", symbol: member } : NONE
+  const member = resolveBareEnumMember(scope, name)
+  if (member === undefined) return NONE
+  return member.kind === "member" ? { kind: "enum-member", symbol: member.symbol } : { kind: "ambiguous", candidates: member.candidates, said: member.said }
 }
 
 /**

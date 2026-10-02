@@ -83,3 +83,63 @@ test("E33: `.name` names the global past every local and member (sym_global_name
   expect(tag(resolveGlobalName(p, "mloc"))).toBe("declared gvl_var in project")
   expect(tag(resolveGlobalName(p, "loc"))).toBe("none")
 })
+
+// ─── the enum members (rules EN1–EN6, frontend-conformance 3.3, `fixtures/names/enums.ts`, both vendors 2026-10-02) ───
+const enums = (source: string, uri = "E.dut") => ({ uri, source })
+const UTIL: LibraryManifest = { uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }
+const TWO = "TYPE E_A : (en_x := 3, en_y := 4);\nEND_TYPE\nTYPE E_B : (en_x := 5, en_z := 6);\nEND_TYPE"
+
+test("EN2/EN3: a member one enum declares names that member; one two enums declare is ambiguous (enum_same_member_two_enums)", () => {
+  const m = method(project(enums(TWO)))
+  expect(tag(resolveBareName(m, "en_y"))).toBe("enum-member")
+  const x = resolveBareName(m, "EN_X")
+  expect(x.kind === "ambiguous" ? x.candidates.map((c) => c.owner.name).sort() : x.kind).toEqual(["E_A", "E_B"])
+})
+
+test("EN1/EN3: a qualified_only enum's member is no candidate — beside an open enum's it is that one's (enum_same_member_one_qualified_only)", () => {
+  const m = method(project(enums("{attribute 'qualified_only'}\nTYPE E_Q : (en_x := 3);\nEND_TYPE\nTYPE E_B : (en_x := 5);\nEND_TYPE")))
+  const x = resolveBareName(m, "en_x")
+  expect(x.kind === "enum-member" ? x.symbol.owner.name : x.kind).toBe("E_B")
+})
+
+test("EN5: a variable of the member's name is the declaration the name means (enum_member_vs_variable, enum_member_vs_method_local)", () => {
+  const m = method(project(enums("TYPE E_A : (loc := 3, mloc := 4);\nEND_TYPE")))
+  expect(tag(resolveBareName(m, "loc"))).toBe("declared var in pou")
+  expect(tag(resolveBareName(m, "mloc"))).toBe("declared var in method")
+})
+
+test("EN6: a referenced library's member resolves bare where one enum declares it (enum_library_bare); a project enum's of its name first (enum_library_member_vs_project_enum)", () => {
+  const p = build.buildSymbolTable([
+    file("FB_U.fb", FB),
+    file("App/Library Manager/Util/GEN_MODE.dut", "TYPE GEN_MODE : (SAWTOOTH_RISE := 2, COSINUS := 6);\nEND_TYPE"),
+    file("E.dut", "TYPE E_P : (COSINUS := 9);\nEND_TYPE"),
+  ], [UTIL], "codesys")
+  const m = findScopeByName(p, "M_mbg")!
+  const rise = resolveBareName(m, "sawtooth_rise")
+  expect(rise.kind === "enum-member" ? rise.symbol.owner.name : rise.kind).toBe("GEN_MODE")
+  const cos = resolveBareName(m, "COSINUS")
+  expect(cos.kind === "enum-member" ? cos.symbol.owner.name : cos.kind).toBe("E_P")
+})
+
+test("EN3/EN6: a member two of a library's enums declare names nothing, and unsaid — only \"not defined\" (enum_library_same_member_one_library)", () => {
+  const p = build.buildSymbolTable([
+    file("FB_U.fb", FB),
+    file("App/Library Manager/Util/WEEKDAY.dut", "TYPE WEEKDAY : (UNKNOWN := 0, MONDAY := 1);\nEND_TYPE"),
+    file("App/Library Manager/Util/PERIOD.dut", "TYPE PERIOD : (UNKNOWN := 0, DAILY := 1);\nEND_TYPE"),
+  ], [UTIL], "codesys")
+  const u = resolveBareName(findScopeByName(p, "M_mbg")!, "UNKNOWN")
+  expect(u.kind === "ambiguous" ? u.said : u.kind).toBe(false)
+  const own = resolveBareName(method(project(enums(TWO))), "en_x")
+  expect(own.kind === "ambiguous" ? own.said : own.kind).toBe(true)
+})
+
+// NOT A MEASURED RULE — `precedence` rank 0 applied inside a library: no fixture can author a library body, so no recording
+// says how a library reaches its OWN enum's members. A library ships compiled by the vendor and the LSP must not refuse a
+// name in it that resolves at all; this pins that design choice, not EN6 (which asks only the application's side)
+test("precedence rank 0 (unmeasured): inside the library that declares it, the member is reached bare", () => {
+  const p = build.buildSymbolTable([
+    file("App/Library Manager/Util/WEEKDAY.dut", "TYPE WEEKDAY : (MONDAY := 1);\nEND_TYPE"),
+    file("App/Library Manager/Util/F_Day.fun", "FUNCTION F_Day : INT\nVAR d : WEEKDAY; END_VAR\nd := MONDAY;\nEND_FUNCTION"),
+  ], [UTIL], "codesys")
+  expect(tag(resolveBareName(findScopeByName(p, "F_Day")!, "monday"))).toBe("enum-member")
+})

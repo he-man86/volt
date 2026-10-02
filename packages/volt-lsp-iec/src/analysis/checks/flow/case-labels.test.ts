@@ -106,3 +106,14 @@ test("TwinCAT ends the inverted-range message with a full stop, as it does for a
   expect(cs(`  3..1: i := 1;`)).toEqual(["Lower border must be lower than upper border"])
   expect(cs(`  3..1: i := 1;`, "twincat")).toEqual(["Lower border must be lower than upper border."])
 })
+
+// Rule EN3 (frontend-conformance 3.3, `enum_same_member_case_label`, both vendors 2026-10-02): a label that is a member two
+// enums declare names nothing — "Ambiguous use of name", "Identifier not defined", and as a label no constant either
+test("C0218: a label two enums declare is no constant", () => {
+  const src = "TYPE E_A : (en_x := 3);\nEND_TYPE\nTYPE E_B : (en_x := 5, en_z := 6);\nEND_TYPE\n" +
+    "PROGRAM PLC_PRG\nVAR\n  e : E_B;\nEND_VAR\nCASE e OF\n  en_x: e := E_B.en_z;\n  en_z: ;\nEND_CASE\nEND_PROGRAM"
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }])
+  const said = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.message)
+  expect(said.filter((m) => m.startsWith("CASE label"))).toEqual(["CASE label requires literal or symbolic integer constant"])
+})

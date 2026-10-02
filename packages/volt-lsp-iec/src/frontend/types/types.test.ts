@@ -347,3 +347,39 @@ test("a member through a REFERENCE TO an FB or a STRUCT has the member's type", 
   expect(renderType(inferExpr(before, "VAR\n rf : REFERENCE TO B;\nEND_VAR", "rf.Get()"))).toBe("LREAL")
   expect(renderType(inferExpr(before, "VAR\n rs : REFERENCE TO S;\nEND_VAR", "rs.w"))).toBe("WORD")
 })
+
+// `Ns.Enum.Member` — a referenced library's enum named through its namespace (rule EN6, `enum_library_namespace_qualified`:
+// `Util.WEEKDAY.THURSDAY` builds and runs 4, CODESYS 2026-10-02): the type a namespace holds is a static base, as the bare
+// `WEEKDAY` is, so the member is that enum's value
+test("infer: a library enum's member through namespace and type is that enum's value", () => {
+  const lib = "App/Library Manager/Util/WEEKDAY.dut"
+  const libSrc = "TYPE WEEKDAY :\n(\n\tMONDAY := 1,\n\tTHURSDAY := 4\n);\nEND_TYPE"
+  const src = "FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := Util.WEEKDAY.THURSDAY;\nEND_FUNCTION_BLOCK"
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([
+    { uri: lib, source: libSrc, parseResult: parseSource(libSrc, { networkText: true }) },
+    { uri: "F.fb", parseResult: pr, source: src },
+  ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
+  const t = inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project)
+  expect(renderType(t)).toBe("WEEKDAY")
+})
+
+// …and only an ENUM: the namespace step is EN6's, and no recording asks `Ns.Func` (no call) or `Ns.FB.x`. A FUNCTION a
+// namespace holds is not an FB instance (a VOID one has no value at all), so neither gets a type from it
+// (step 3.3 review: pro2193's `EdgePcLogging.GenerateProductionCountersPlcDataTypesConfig` was typed as an FB)
+test("infer: a POU a namespace holds is no static base — `Ns.Func`, `Ns.FB.x` stay untyped", () => {
+  const libFun = "FUNCTION F_Day : INT\nF_Day := 1;\nEND_FUNCTION"
+  const libFb = "FUNCTION_BLOCK FB_T\nVAR\n x : INT;\nEND_VAR\nEND_FUNCTION_BLOCK"
+  const typed = (rhs: string): string => {
+    const src = `FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := ${rhs};\nEND_FUNCTION_BLOCK`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([
+      { uri: "App/Library Manager/Util/F_Void.fun", source: libFun, parseResult: parseSource(libFun, { networkText: true }) },
+      { uri: "App/Library Manager/Util/FB_T.fb", source: libFb, parseResult: parseSource(libFb, { networkText: true }) },
+      { uri: "F.fb", parseResult: pr, source: src },
+    ], [{ uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 4 }])
+    return inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project).kind
+  }
+  expect(typed("Util.F_Void")).toBe(UNKNOWN.kind)
+  expect(typed("Util.FB_T.x")).toBe(UNKNOWN.kind)
+})

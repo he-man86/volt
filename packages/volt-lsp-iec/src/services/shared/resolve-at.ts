@@ -11,7 +11,7 @@ import {
   type ParseResult,
   spanContains,
 } from "../../frontend/syntax/index.js"
-import { bodiesAt, lookup, resolveBareEnumMember, type Scope, scopeForUnit, type Symbol, symbolDefinedAt } from "../../frontend/symbols/index.js"
+import { bareEnumMember, bodiesAt, lookup, type Scope, scopeForUnit, type Symbol, symbolDefinedAt } from "../../frontend/symbols/index.js"
 import { resolveMemberChain } from "../../frontend/types/index.js"
 import type { Document } from "./document.js"
 import { exprAtOffset, memberAtOffset, tokenAtOffset } from "./positions.js"
@@ -27,7 +27,7 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
     }
     const expr = exprAtOffset(statements, offset)
     if (expr?.kind === "ident_expr") {
-      return lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
+      return lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
     }
     // `.g` — the global past every local (rule E33)
     if (expr?.kind === "global_expr") return resolveMemberChain(expr, scope, project)
@@ -39,7 +39,7 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
   const tok = tokenAtOffset(doc.parseResult.tokens, offset)
   if (tok !== undefined && (tok.kind === "identifier" || tok.kind === "keyword")) {
     const scope = unitScopeAtOffset(doc.parseResult, project, offset)
-    return lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)
+    return lookup(scope, tok.text)?.symbol ?? bareEnumMember(scope, tok.text)
   }
   return undefined
 }

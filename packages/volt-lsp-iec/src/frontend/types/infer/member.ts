@@ -10,7 +10,7 @@ import {
   lookupGlobal,
   lookupMember,
   lookupLocal,
-  resolveBareEnumMember,
+  bareEnumMember,
   resolveGvlMember,
   rootOf,
   type Scope,
@@ -95,7 +95,7 @@ function implicitEnumOf(sym: Symbol): TypeExpr | undefined {
 export function isEnumValueRef(expr: Expr, scope: Scope, project: Scope): boolean {
   const sym =
     expr.kind === "ident_expr"
-      ? (lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
+      ? (lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name))
       : expr.kind === "member"
         ? resolveMemberChain(expr, scope, project)
         : undefined

@@ -124,3 +124,11 @@ END_FUNCTION_BLOCK`)).toEqual([])
 test("a bracketed STRING destination is named STRING(n)", () => {
   expect(msgs(fb("str : STRING[5] := nope;", ""))).toEqual(["Cannot convert type 'Unknown type: 'nope'' to type 'STRING(5)'"])
 })
+
+// A NAMED destination is the type the name resolves to, in the compiler's spelling — as an assignment's target is:
+// `e : E_a := nope;` is "… to type 'E_A'" on both vendors (`enum_same_member_var_initializer`, 2026-10-02); the name as
+// written was echoed before
+test("an initializer's named destination is the resolved type, upper-cased like an assignment's", () => {
+  const src = "TYPE E_a : (ea_x := 3, ea_y := 4);\nEND_TYPE\n\n" + fb("e : E_a := nope;\n\td : dint := nope;", "")
+  expect(msgs(src)).toEqual(["Cannot convert type 'Unknown type: 'nope'' to type 'E_A'", "Cannot convert type 'Unknown type: 'nope'' to type 'DINT'"])
+})

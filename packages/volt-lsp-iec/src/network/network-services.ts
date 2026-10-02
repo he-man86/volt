@@ -22,7 +22,7 @@ import {
   unitBodies,
   walkAllExprs,
 } from "../frontend/syntax/index.js"
-import { lookup, lookupLocal, lookupUnit, resolveBareEnumMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
+import { bareEnumMember, lookup, lookupLocal, lookupUnit, type Scope, type Symbol } from "../frontend/symbols/index.js"
 import { resolveMemberChain } from "../frontend/types/index.js"
 import { lookupReference, renderReferenceHover } from "../reference/index.js"
 import {
@@ -168,7 +168,7 @@ export function allReferences(docs: Iterable<Document>, project: Scope, target: 
             if (resolveMemberChain(e, scope, project) === target)
               out.push({ uri: doc.uri, range: rangeFromSpan(e.member.span) })
           } else if (e.kind === "ident_expr" && !memberNames.has(e)) {
-            const s = lookup(scope, e.name)?.symbol ?? resolveBareEnumMember(project, e.name)
+            const s = lookup(scope, e.name)?.symbol ?? bareEnumMember(scope, e.name)
             if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })
           }
         })
@@ -290,7 +290,7 @@ function networkSymbolAt(
     if (sym !== undefined) return hit(sym)
   }
   const expr = exprAtOffset(stmts, offset)
-  if (expr?.kind === "ident_expr") return hit(lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name))
+  if (expr?.kind === "ident_expr") return hit(lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name))
   return undefined
 }
 

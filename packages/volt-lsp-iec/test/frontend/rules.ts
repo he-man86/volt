@@ -3140,8 +3140,16 @@ export const RULES: readonly Rule[] = [
     rule: "`qualified_only` enum: only `Enum.Member` resolves",
     home: "binder, scope-nav.resolveBareEnumMember",
     gap: false,
-    fixtures: ["xo_mode_enum", "xo_enum_case_across_objects"],
+    fixtures: [
+      "xo_mode_enum",
+      "xo_enum_case_across_objects",
+      "enum_qualified_only_bare",
+      "enum_qualified_only_qualified",
+      "enum_same_member_one_qualified_only",
+    ],
     design: "xo_mode_enum, xo_enum_case_across_objects",
+    recheck:
+      "3.3: a `qualified_only` enum's member bare is \"Identifier not defined\" and the hole's conversion (`enum_qualified_only_bare`), qualified it builds (`_qualified`, out 4), and it is no candidate beside an open enum's of its name — the bare name is that one's (`enum_same_member_one_qualified_only`, out 5), both vendors.",
   },
   {
     id: "EN2",
@@ -3150,7 +3158,7 @@ export const RULES: readonly Rule[] = [
     rule: "non-qualified enum members resolve bare, after locals",
     home: "scope-nav",
     gap: false,
-    fixtures: ["type_dut_enum_simple", "xo2_grade_enum", "xo2_case_ranges_over_enum"],
+    fixtures: ["type_dut_enum_simple", "xo2_grade_enum", "xo2_case_ranges_over_enum", "enum_member_unique_beside_shared"],
     design: "type_dut_enum_simple, xo2_grade_enum, xo2_case_ranges_over_enum",
   },
   {
@@ -3159,9 +3167,28 @@ export const RULES: readonly Rule[] = [
     section: "3.3",
     rule: "two enums declaring the same bare member → ambiguity",
     home: "scope-nav",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "enum_same_member_two_enums",
+      "enum_same_member_two_enums_into_b",
+      "enum_same_member_into_int",
+      "enum_same_member_comparison",
+      "enum_same_member_case_label",
+      "enum_same_member_qualified",
+      "enum_same_member_var_initializer",
+      "enum_same_member_call_argument",
+      "enum_same_member_array_index",
+      "enum_library_same_member_one_library",
+      "enum_library_same_member_two_libraries",
+      "enum_library_member_direct_vs_caa",
+    ],
+    tests: [
+      { file: "src/frontend/types/names.test.ts", title: "EN2/EN3: a member one enum declares names that member; one two enums declare is ambiguous (enum_same_member_two_enums)" },
+      { file: "src/analysis/checks/names/ambiguous-global.test.ts", title: "EN3 — a member two enums declare, written bare, is ambiguous and not defined" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.3: closed — a member two of the asker's own enums declare names nothing, in every context (a store to either enum, to an INT, a comparison, a CASE label): \"Ambiguous use of name\", \"Identifier not defined\", the hole's conversion, and as a label \"CASE label requires literal or symbolic integer constant\" — no expected-type pick (`scope-nav` `resolveBareEnumMember`, `ambiguous-global`, `case-labels`). Qualified it builds (`enum_same_member_qualified`, out 5). Among a referenced library's enums (one library or two) only \"Identifier not defined\" (`said: false`). The comparison's \"Expression of type 'BOOL' expected\" is a known divergence (no catalog code; niche, `ENUM_DIVERGENCES`). 3.3 review: the same three messages as a VAR initializer (`enum_same_member_var_initializer`, the destination upper-cased as an assignment's), a named argument and an array index (the conversion INTO the parameter's type and INTO 'AnyInt'); the LSP misses those two conversions (niche: accepted loss, `ENUM_DIVERGENCES`). A Util member a CAA library's enum declares too ties (`enum_library_member_direct_vs_caa`, `ABORTED`: \"not defined\", CODESYS).",
   },
   {
     id: "EN4",
@@ -3170,8 +3197,16 @@ export const RULES: readonly Rule[] = [
     rule: "an implicit enum introduces its values into the enclosing scope",
     home: "binder",
     gap: false,
-    fixtures: ["type_implicit_enum_inline", "var_inline_enum_decl"],
+    fixtures: [
+      "type_implicit_enum_inline",
+      "var_inline_enum_decl",
+      "enum_implicit_member_in_method",
+      "enum_implicit_member_in_other_pou",
+      "enum_implicit_vs_type_enum",
+    ],
     design: "type_implicit_enum_inline, var_inline_enum_decl",
+    recheck:
+      "3.3: the values are the declaring POU's — read in its METHOD (`enum_implicit_member_in_method`, out 7), over a DUT enum's member of the name (`enum_implicit_vs_type_enum`, out 1), \"Identifier not defined\" in another POU (`enum_implicit_member_in_other_pou`), both vendors. The implicit enum's TYPE NAME (`Implicit_Enum__<POU>__<var>`) is 4.7.4's render; its owner is the binder's already (the value's `owner` scope and its declaration `ast`).",
   },
   {
     id: "EN5",
@@ -3179,9 +3214,20 @@ export const RULES: readonly Rule[] = [
     section: "3.3",
     rule: "an enum member vs a variable of the same name",
     home: "scope-nav",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "enum_member_vs_variable",
+      "enum_member_vs_method_local",
+      "enum_member_vs_variable_enum_store",
+      "enum_member_vs_global",
+      "enum_member_vs_function_name",
+      "enum_library_member_vs_project_function",
+      "enum_library_member_vs_project_program",
+    ],
+    tests: [{ file: "src/frontend/types/names.test.ts", title: "EN5: a variable of the member's name is the declaration the name means (enum_member_vs_variable, enum_member_vs_method_local)" }],
     design: "**GAP**",
+    recheck:
+      "3.3: closed — an FB's variable or a METHOD's local is what the name means, over the member (out 5, 6; stored to the enum it is the variable's value, `enum_member_vs_variable_enum_store` out 4). Two cells are known divergences, niche: accepted loss (0 occurrences in the corpora) (`ENUM_DIVERGENCES`): a project GLOBAL of the member's name is \"Ambiguous use of name\" (the members sit at the globals' step), and a FUNCTION of its name is passed over for the member. 3.3 review: across the library boundary CODESYS takes Util's member before a project FUNCTION / PROGRAM of its name (`enum_library_member_vs_project_function`, `_program`); the LSP answers the POU until LB2 (3.4.2) says which libraries' members are candidates — pro2193 builds clean with 87 POU names beside other libraries' members (`CODESYS_ENUM_DIVERGENCES`, `MEASURED_SILENT`).",
   },
   {
     id: "EN6",
@@ -3189,9 +3235,24 @@ export const RULES: readonly Rule[] = [
     section: "3.3",
     rule: "a library enum's members, bare and qualified",
     home: "scope-nav + library-namespaces",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "enum_library_bare",
+      "enum_library_bare_into_int",
+      "enum_library_qualified",
+      "enum_library_namespace_qualified",
+      "enum_library_member_vs_project_enum",
+      "enum_library_same_member_one_library",
+      "enum_library_same_member_two_libraries",
+      "enum_library_member_vs_library_global",
+      "enum_library_bare_uninstanced",
+    ],
+    tests: [
+      { file: "src/frontend/types/names.test.ts", title: "EN6: a referenced library's member resolves bare where one enum declares it (enum_library_bare); a project enum's of its name first (enum_library_member_vs_project_enum)" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.3: closed on CODESYS — a referenced library's member resolves bare where one enum declares it (Util's `SAWTOOTH_RISE`, out 2; stored to an INT, 3), by its type and by namespace and type (out 3, 4); the asker's own enums first, so a project enum's member of the name is the project's (`enum_library_member_vs_project_enum`, out 9); two library enums declaring it are only \"Identifier not defined\". `resolveBareEnumMember` takes the asker (`precedence` rank). Known divergences: Util's `TUESDAY`, also a global of its list DAY_FLAGS (CODESYS \"not defined\", niche: accepted loss, 0 occurrences); TwinCAT's project references no Util (`TWINCAT_ENUM_DIVERGENCES`). Which libraries are DIRECT references (CommFB's enum is \"Unknown type\" bare) is LB2's, 3.4.2.",
   },
   // ── 3.4 ──
   {

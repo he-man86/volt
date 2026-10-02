@@ -13,11 +13,11 @@
     "findings": 59,
     "corpus Library Manager: bare name NONE": 81,
     "corpus Library Manager: bare name NOSCOPE": 1939,
-    "corpus Library Manager: member NONE": 313,
+    "corpus Library Manager: member NONE": 209,
     "corpus Library Manager: member NOSCOPE": 441,
     "corpus: bare name NONE": 326,
     "corpus: bare name NOSCOPE": 439,
-    "corpus: member NONE": 1028,
+    "corpus: member NONE": 620,
     "corpus: member NOSCOPE": 419,
     "corpus: parameter NO-CALLEE": 1914,
     "corpus: parameter NONE": 19,
@@ -52,7 +52,7 @@
     "corpus Library Manager: index UNKNOWN": 0,
     "corpus Library Manager: literal NOSCOPE": 19971,
     "corpus Library Manager: member NOSCOPE": 441,
-    "corpus Library Manager: member UNKNOWN": 417,
+    "corpus Library Manager: member UNKNOWN": 209,
     "corpus Library Manager: paren NOSCOPE": 369,
     "corpus Library Manager: paren UNKNOWN": 794,
     "corpus Library Manager: unary NOSCOPE": 197,
@@ -71,7 +71,7 @@
     "corpus: index UNKNOWN": 94,
     "corpus: literal NOSCOPE": 973,
     "corpus: member NOSCOPE": 419,
-    "corpus: member UNKNOWN": 2160,
+    "corpus: member UNKNOWN": 1343,
     "corpus: paren UNKNOWN": 519,
     "corpus: unary NOSCOPE": 4,
     "corpus: unary UNKNOWN": 87,
@@ -129,9 +129,9 @@
   },
   "rules": {
     "GAP area 2": 0,
-    "GAP area 3": 13,
+    "GAP area 3": 10,
     "GAP area 4": 28,
-    "GAP total": 41,
+    "GAP total": 38,
     "CV7 explicit pairs no recorded fixture calls": 327
   }
 }

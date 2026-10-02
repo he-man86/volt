@@ -24,7 +24,7 @@ import { bareConversionArgument, isHole, literalHoleWithin, passThroughOperand, 
 import { dialectMissingType } from "../../resolution.js"
 import { compilerTypeText, stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookup } from "../../../frontend/symbols/index.js"
-import { inferExprType, renderType } from "../../../frontend/types/index.js"
+import { inferExprType, renderType, resolveTypeExpr, UNKNOWN } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -67,9 +67,12 @@ export function checkUnknownSource(ctx: CheckContext, out: DiagnosticItem[]): vo
   // declared type is written down, so only the source half applies.
   for (const { decl, scope } of forEachDecl(ctx.parseResult, ctx.project)) {
     if (decl.init === undefined || decl.init.kind === "aggregate_init") continue
-    const into = compilerTypeText(decl.type)
-    if (hole(decl.init, scope))
-      push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(decl.init, metType(scope))), into), decl.init)
+    if (!hole(decl.init, scope)) continue
+    // a NAMED type is the type it resolves to, in the compiler's spelling, as an assignment's target is: `e : E_a := nope`
+    // is "… to type 'E_A'" (`enum_same_member_var_initializer`, both vendors 2026-10-02)
+    const named = decl.type.kind === "named_type" ? resolveTypeExpr(decl.type, ctx.project, 0, scope) : UNKNOWN
+    const into = named.kind === "unknown" ? compilerTypeText(decl.type) : renderType(named, { form: "compiler" })
+    push(ctx.messages.cannotConvert(ctx.messages.unknownType(compilerExprText(decl.init, metType(scope))), into), decl.init)
   }
 
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {

@@ -34,6 +34,7 @@ export {
   lookupUnit,
   lookupGlobal,
   lookupMember,
+  bareEnumMember,
   resolveBareEnumMember,
   resolveGvlMember,
   resolveQualifiedConst,
@@ -41,6 +42,7 @@ export {
   scopeForUnit,
   symbolDefinedAt,
   visibleNames,
+  type BareEnumMember,
   type LookupResult,
 } from "./scope-nav.js"
 export { ancestry, baseOf, basesOf, extendsChain, extendsCycle } from "./extends.js"

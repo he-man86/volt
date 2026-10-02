@@ -7,7 +7,7 @@ import { test, expect } from "bun:test"
 import { parseSource } from "../syntax/index.js"
 import type { SymbolTableInput } from "./binder.js"
 import type { Scope } from "./model.js"
-import { findChildScope, findScopeByName, lookup, lookupMember, resolveBareEnumMember } from "./scope-nav.js"
+import { bareEnumMember, findChildScope, findScopeByName, lookup, lookupMember, resolveBareEnumMember } from "./scope-nav.js"
 import { isLibrarySymbol, lookupLocal } from "./scope.js"
 import { buildSymbolTable } from "./incremental.js"
 
@@ -71,7 +71,7 @@ test("linkExtends: inherited members resolve through the base chain", () => {
 
 test("enum members: bare-accessible unless qualified_only", () => {
   const open = build({ uri: "Color.enum", src: `TYPE Color : (Red, Green, Blue); END_TYPE` })
-  expect(resolveBareEnumMember(open, "Green")?.kind).toBe("enum_value")
+  expect(bareEnumMember(open, "Green")?.kind).toBe("enum_value")
 
   const qualified = build({
     uri: "Mode.enum",
@@ -79,6 +79,16 @@ test("enum members: bare-accessible unless qualified_only", () => {
   })
   expect(findChildScope(qualified, "Mode")?.qualifiedOnly).toBe(true)
   expect(resolveBareEnumMember(qualified, "Auto")).toBeUndefined() // only Mode.Auto resolves
+})
+
+// Rule EN3 (frontend-conformance 3.3, `enum_same_member_two_enums`): two open enums declaring a member make it ambiguous
+test("enum members: one two open enums declare is ambiguous — no member is picked", () => {
+  const two = build({ uri: "E.dut", src: `TYPE E_A : (Red, Green); END_TYPE
+TYPE E_B : (Red, Blue); END_TYPE` })
+  const red = resolveBareEnumMember(two, "red")
+  expect(red?.kind === "ambiguous" ? red.candidates.map((c) => c.owner.name) : red?.kind).toEqual(["E_A", "E_B"])
+  expect(bareEnumMember(two, "red")).toBeUndefined()
+  expect(resolveBareEnumMember(two, "Blue")?.kind).toBe("member")
 })
 
 test("GVL vars are gvl_var symbols on the project; qualified_only is flagged", () => {

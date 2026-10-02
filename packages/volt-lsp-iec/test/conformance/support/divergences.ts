@@ -915,6 +915,74 @@ const TWINCAT_SCOPE_DIVERGENCES: readonly string[] = [
 const INHERITANCE_DIVERGENCES: readonly string[] = ["inh_override_final_method", "inh_abstract_method_not_implemented"]
 
 /**
+ * FRONTEND-CONFORMANCE 3.3 (2026-10-02) — enum fixtures (`fixtures/names/enums.ts`) the LSP does not answer as the vendors
+ * do, both vendors alike (TwinCAT's capitals aside):
+ *   `enum_same_member_comparison`, `enum_implicit_member_in_other_pou` — `IF e = x THEN` with `x` a name that names nothing
+ *        (a member two enums declare; another POU's implicit enum's value): the LSP says what the vendors say of `x`, and
+ *        misses "Expression of type 'BOOL' expected in this place" for the condition the hole leaves untyped. Not trivial:
+ *        a wire diagnostic is a catalog `Cnnnn` (`server/diagnostic-codes.ts` admits no new slug) and the message has none
+ *        in the catalog. Niche: accepted loss (0 occurrences in the corpora — they build).
+ *   `enum_member_vs_global` — a project global and a project enum member of one name: "Ambiguous use of name", "Identifier
+ *        not defined" and the hole's conversion — the members sit at the globals' step of the search order, where the
+ *        LSP's `lookup` answers the global before the members are asked (`types/names` `resolveBareName`). Niche: accepted
+ *        loss (0 occurrences in the corpora of a project global named like a project enum's member).
+ *   `enum_member_vs_function_name` — `F()` where an enum member is named `F` too: the member is what the name means ("Program
+ *        name, function or function block instance expected instead of 'F'"), before the POU name; the LSP calls the
+ *        FUNCTION. Niche: accepted loss (0 occurrences in the corpora of a project POU named like a project enum's member).
+ *   `enum_library_member_vs_library_global` (CODESYS) — Util's `TUESDAY`, a WEEKDAY member and a global of its list
+ *        DAY_FLAGS: "Identifier 'TUESDAY' not defined" (the library's ambiguity, or a list requiring qualified access — the
+ *        manifest carries no such flag, 3.1's `sym_library_gvl_needs_qualification`); the LSP's `lookup` answers the global.
+ *        Niche: accepted loss (0 occurrences in the corpora of a library global named like a library enum's member).
+ *   `enum_same_member_call_argument`, `enum_same_member_array_index` (step 3.3 review, 2026-10-02) — a member two enums
+ *        declare as a named argument, as an array index: the vendors add the hole's conversion INTO the parameter's type
+ *        ('… to type ''DUT_…_A'') and INTO 'AnyInt' for the index, and say nothing of the store `arr[x]` sits in. The
+ *        LSP gives the name's two messages, no conversion for the argument, and for the index treats `arr[x]` itself as
+ *        the hole ('Unknown type: ''arr[x]''' into the INT). Not trivial (`hole.ts` decides what a hole is for every
+ *        check). Niche: accepted loss (0 occurrences in the corpora — no bare name two project enums declare).
+ *   `enum_library_member_vs_project_function`, `_program` (CODESYS, step 3.3 review, 2026-10-02) — Util's GEN_MODE member
+ *        before a project FUNCTION / PROGRAM of its name: "Program name, function or function block instance expected
+ *        instead of 'SINE'". The LSP answers the POU: which libraries' members are candidates at all (open, direct) is not in
+ *        the manifest (LB2, task 3.4.2), and pro2193 builds clean with 87 project POU names beside other libraries' members
+ *        (CAA Device Diagnosis' `HMI`, a Lenze `Round`) — refusing without that fact would refuse all 87. TwinCAT's
+ *        project references no Util and builds both, as the LSP answers.
+ *   `enum_undeclared_name_uninstanced` — an FB nothing instances reads a name nothing declares: both vendors build it clean,
+ *        an uncompiled POU has no diagnostics (`ir_initializer_warning_no_instance`'s reason); the replay analyses the file
+ *        it is given, as an editor must — the server's dead-unit suppression (`analysis/reachability.ts`) is not the
+ *        replay's.
+ */
+const ENUM_DIVERGENCES: readonly string[] = [
+  "enum_same_member_comparison",
+  "enum_implicit_member_in_other_pou",
+  "enum_member_vs_global",
+  "enum_member_vs_function_name",
+  "enum_undeclared_name_uninstanced",
+  "enum_same_member_call_argument",
+  "enum_same_member_array_index",
+]
+const CODESYS_ENUM_DIVERGENCES: readonly string[] = [
+  "enum_library_member_vs_library_global",
+  "enum_library_member_vs_project_function",
+  "enum_library_member_vs_project_program",
+]
+
+/**
+ *   every `enum_library_*` cell but the project-enum one, the two project-POU ones and the uninstanced one (TwinCAT) — TwinCAT's fixture project
+ *        references no Util (and no StringUtils), so each is the library's ABSENCE ("Unknown type: 'GEN_MODE'", "Identifier
+ *        'SAWTOOTH_RISE' not defined"); the replay binds the CODESYS fixture project's libraries for both vendors
+ *        (`support/project-libraries.ts`), as `TWINCAT_SCOPE_DIVERGENCES` says. The question is CODESYS's.
+ */
+const TWINCAT_ENUM_DIVERGENCES: readonly string[] = [
+  "enum_library_bare",
+  "enum_library_qualified",
+  "enum_library_namespace_qualified",
+  "enum_library_bare_into_int",
+  "enum_library_same_member_two_libraries",
+  "enum_library_same_member_one_library",
+  "enum_library_member_vs_library_global",
+  "enum_library_member_direct_vs_caa",
+]
+
+/**
  * C0033 IS CONFIGURED AS AN ERROR in both recording projects (frontend-conformance 2.10, 2026-10-02). T6's refusal cell
  * `decl_pointer_to_pointer_deref_once_into_int` (`x := pp^;`, a POINTER TO POINTER read once into an INT) is answered
  * by both vendors with "Cannot convert type 'POINTER TO INT' to type 'INT'" — the message the LSP gives, word for word,
@@ -975,6 +1043,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...SCOPE_DIVERGENCES,
     ...INHERITANCE_DIVERGENCES,
     ...TWINCAT_SCOPE_DIVERGENCES,
+    ...ENUM_DIVERGENCES,
+    ...TWINCAT_ENUM_DIVERGENCES,
     ...TWINCAT_TRY_NEEDS_CATCH,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
@@ -1107,6 +1177,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...SCOPE_DIVERGENCES,
     ...INHERITANCE_DIVERGENCES,
     ...CODESYS_SCOPE_DIVERGENCES,
+    ...ENUM_DIVERGENCES,
+    ...CODESYS_ENUM_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...C0033_CONFIGURED_AS_AN_ERROR,

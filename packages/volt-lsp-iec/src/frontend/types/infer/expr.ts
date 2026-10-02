@@ -6,7 +6,7 @@
  *
  * What a name or a member chain denotes is `member.ts`; a call's callee and its parameters `callee.ts`.
  */
-import { isLibrarySymbol, lookup, resolveBareEnumMember, type Scope } from "../../symbols/index.js"
+import { bareEnumMember, isLibrarySymbol, lookup, type Scope } from "../../symbols/index.js"
 import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
 import { checkedMeetType, checkedNegationType } from "../arith/checked.js"
 import { temporalResultType } from "../arith/temporal.js"
@@ -25,7 +25,7 @@ import { elementaryRef, UNKNOWN, type Type } from "../type.js"
 import { canonicalElem } from "../platform.js"
 import { literalType, typedLiteralSum } from "../literal.js"
 import { BITWISE_OPERATORS, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
-import { resolveMemberChain, enumValueType, staticScopeType, superType, thisType } from "./member.js"
+import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
 const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
@@ -44,7 +44,7 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // `__POSITION` has a value without its parentheses (`builtins.ts` `bareBuiltinType`).
       const bare = bareBuiltinType(expr.name, project.dialect)
       if (bare !== undefined) return bare
-      const sym = lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
+      const sym = lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
       // The declaring file is the asker: `v : ETRIG;` written inside CBML means CBML's ETRIG, no matter
       // which file is reading `v` now.
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
@@ -69,7 +69,14 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return UNKNOWN
       const sym = resolveMemberChain(expr, scope, project)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
-      return (sym === undefined ? undefined : enumValueType(sym, project)) ?? UNKNOWN
+      const value = sym === undefined ? undefined : enumValueType(sym, project)
+      if (value !== undefined) return value
+      // `Ns.E` — an ENUM a namespace holds is a static base, as the bare `E` is (rule EN6: `Util.WEEKDAY.THURSDAY`,
+      // `enum_library_namespace_qualified`, builds and runs 4). Only an enum: no recording asks `Ns.Func` or `Ns.FB.x`,
+      // and `staticScopeType` would call a FUNCTION an FB instance
+      const holder = memberScopeOf(inferExprType(expr.base, scope, project))
+      const held = holder?.kind === "namespace" ? staticScopeType(holder, expr.member.name) : undefined
+      return held?.kind === "enum" ? held : UNKNOWN
     }
     case "index": {
       // an index through a REFERENCE TO an array reads the array (`decl_reference_to_array`, both vendors run `rf[1]`)

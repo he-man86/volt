@@ -15,7 +15,7 @@
  */
 import { walkStatements, type CaseStatement, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, type Scope } from "../../../frontend/symbols/index.js"
-import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, renderType, type Type } from "../../../frontend/types/index.js"
+import { constancyOf, constEval, elemOf, inferExprType, isAssignable, literalErrorType, renderType, resolveBareName, type Type } from "../../../frontend/types/index.js"
 import type { Span } from "../../../frontend/syntax/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -52,7 +52,9 @@ function checkOneCase(s: CaseStatement, scope: Scope, ctx: CheckContext, out: Di
     // An enum's `Type#Value` is no constant either: CODESYS gives it no type (`analysis/hole`), and as a label it says
     // exactly this (`lit_enum_typed_case_label`, 2026-10-01).
     const enumLiteral = e.kind === "literal" && e.literalKind === "typed" && enumTypedLiteral(e.text, ctx.project)
-    if (enumLiteral || constancyOf(e, scope) === "variable") push("case-label-non-const", e.span, ctx.messages.caseLabelNonConst())
+    // …nor is a member two enums declare, which names nothing (rule EN3, `enum_same_member_case_label`, both vendors)
+    const ambiguous = e.kind === "ident_expr" && resolveBareName(scope, e.name).kind === "ambiguous"
+    if (enumLiteral || ambiguous || constancyOf(e, scope) === "variable") push("case-label-non-const", e.span, ctx.messages.caseLabelNonConst())
   }
   // The selector's type, when it is an elementary integer or bit string: a label is a value OF it (transpile-review 37,
   // `tr_37_case_*`). A literal outside it does not wrap in — `300` / `-212` on a SINT are "Cannot convert type 'INT' to

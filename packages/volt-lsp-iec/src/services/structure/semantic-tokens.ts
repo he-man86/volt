@@ -17,7 +17,7 @@ import {
   type TopLevel,
   unitBodies,
 } from "../../frontend/syntax/index.js"
-import { lookup, resolveBareEnumMember, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
+import { bareEnumMember, lookup, type Scope, type SymbolKind } from "../../frontend/symbols/index.js"
 import { isKnownPrimitive } from "../../frontend/types/index.js"
 import { scopeAtOffset } from "../shared/index.js"
 import { NETWORK_TEXT_KEYWORDS } from "../../network-text/parser.js"
@@ -137,7 +137,7 @@ function classify(tok: Token, doc: Document, project: Scope, graphical: readonly
   if (tok.kind !== "identifier") return undefined
   // Identifier — refine by the symbol it names in scope, else an elementary type name, else a plain variable.
   const scope = scopeAtOffset(doc, project, tok.span.start)
-  const sym = lookup(scope, tok.text)?.symbol ?? resolveBareEnumMember(project, tok.text)
+  const sym = lookup(scope, tok.text)?.symbol ?? bareEnumMember(scope, tok.text)
   if (sym !== undefined) return SYMBOL_TYPE[sym.kind]
   // A network-text keyword. These are syntax of the FBD/LD sublanguage but NOT of ST, so the lexer returns
   // them as identifiers and `NETWORK`/`END_NETWORK`/`PARALLEL` painted the same as a variable. Only inside a

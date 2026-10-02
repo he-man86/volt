@@ -176,7 +176,8 @@ export function boundCensus(): BoundCensus {
               : / (:=|=>)$/.test(name)
                 ? "parameter"
                 : "bare name"
-          const verdict = binding === "NONE" || binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
+          // `NONE ambiguous: …` is a NONE (`dumps.ts` `bareWord`, rule EN3)
+          const verdict = binding === "NONE" || binding.startsWith("NONE ") ? "NONE" : binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
           return { line, where, name, shape, verdict }
         })
     for (const { where, name, shape, verdict } of lines)

@@ -223,6 +223,11 @@ export const SCOPE_RULE_TESTS: readonly LanguageTest[] = [
   withLists(fb("sym_global_before_pou_name_called", "Y23 — a global and a FUNCTION of one name, CALLED bare",
     "\tout : INT;", "out := FUN_LANG_sym_gbpnc();",
     "FUNCTION FUN_LANG_sym_gbpnc : INT\nFUN_LANG_sym_gbpnc := 9;\nEND_FUNCTION\n\n"), [list("\tFUN_LANG_sym_gbpnc : INT := 3;")]),
+  // a NAMED ARGUMENT's parameter beside a global two lists declare: the parameter is the callee's, no bare reference
+  withLists(fb("sym_named_argument_beside_ambiguous_global", "Y14 — `F(g := 4)` where two lists declare `g` and F's VAR_INPUT is `g`: the argument (out 8) or ambiguous?",
+    "\tout : INT;", "out := FUN_LANG_sym_naag(g_naag := 4);",
+    "FUNCTION FUN_LANG_sym_naag : INT\nVAR_INPUT\n\tg_naag : INT;\nEND_VAR\nFUN_LANG_sym_naag := g_naag + g_naag;\nEND_FUNCTION\n\n"),
+    [list("\tg_naag : INT := 3;"), list("\tg_naag : INT := 5;")]),
   // step 4 (the POU's methods) before step 8 (POU names): a METHOD and a FUNCTION of one name
   fb("sym_method_before_pou_name", "Y23 — `FUN_LANG_sym_mbpn()` in an FB with a METHOD of that name and a FUNCTION of it: the method (7) or the function (9)?",
     "\tout : INT;", "out := FUN_LANG_sym_mbpn();",

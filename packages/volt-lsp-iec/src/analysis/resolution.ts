@@ -68,9 +68,11 @@ function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
 }
 
 /** Whether the bare name `name`, written in `scope`, names anything — the search order's answer (`types/names`
- *  `resolveBareName`, rule Y23), which this layer only words. */
+ *  `resolveBareName`, rule Y23), which this layer only words. An AMBIGUOUS name names nothing: a member two enums declare
+ *  is "Identifier not defined" beside "Ambiguous use of name" on both vendors (rule EN3, `enum_same_member_*`). */
 export function nameResolves(name: string, scope: Scope): boolean {
-  return resolveBareName(scope, name).kind !== "none"
+  const kind = resolveBareName(scope, name).kind
+  return kind !== "none" && kind !== "ambiguous"
 }
 
 /** The bare identifier references in `exprs` that resolve in NO reachable scope. */
