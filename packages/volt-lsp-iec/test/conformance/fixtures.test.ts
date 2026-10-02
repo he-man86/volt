@@ -54,6 +54,14 @@ import { RECORDING_ENVIRONMENT } from "./support/recording-environment.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
 import { buildRust } from "./support/rustc-cache.js"
+import { selectFixtures } from "./support/selection.js"
+
+/** The fixtures this run covers — all of them, or the ones `VOLT_FIXTURES` names (`support/selection.ts`). Every
+ *  per-fixture row walks THIS; `ALL_TESTS` stays the universe a fixture is assembled, rated and bound in, so a named
+ *  fixture is checked against exactly the project the full run checks it against. */
+const SELECTION = selectFixtures(ALL_TESTS)
+/** A project-wide total — a partial run cannot answer it, and skips it (the loud line says so). */
+const whole = test.skipIf(SELECTION.partial)
 
 /** What a harness binary is run with — the recorded scan, and the edge run. A re-proved cache hit runs both builds on
  *  each (`support/rustc-cache.ts`). */
@@ -316,7 +324,7 @@ function compareInterp(c: LanguageTest, rec: RunRecorded): void {
 /** Every fixture under the rating it stores. A rating with no fixtures is not an error; a fixture with a rating
  *  this file has no row for IS, and the last test in the table says so. */
 const BY_RATING = new Map<Evidence, LanguageTest[]>(EVIDENCE_ORDER.map((r) => [r, []]))
-for (const t of ALL_TESTS) BY_RATING.get(t.evidence as Evidence)?.push(t)
+for (const t of SELECTION.selected) BY_RATING.get(t.evidence as Evidence)?.push(t)
 const rated = (r: Evidence): LanguageTest[] => BY_RATING.get(r) ?? []
 
 /** Every fixture by name — the lint ratchet looked one up per case, which is 1,900 x 2,600 string compares a run. */
@@ -654,7 +662,7 @@ describe.skipIf(skipRustSuite())("confirmed — the same values out of the emitt
  */
 describe.skipIf(skipRustSuite())("the rest of the lowered fixtures — the emitted Rust builds, or says why not", () => {
   const seen = new Set(rated("confirmed").filter((c) => RUNS[c.name]?.values !== undefined).map((c) => c.name))
-  const rest = ALL_TESTS.filter((t) => !seen.has(t.name) && t.transpile?.tier !== undefined)
+  const rest = SELECTION.selected.filter((t) => !seen.has(t.name) && t.transpile?.tier !== undefined)
   const built = new Map<string, { ok: boolean; why: string } & Measured>()
 
   beforeAll(async () => {
@@ -779,7 +787,7 @@ describe("not-lowered — the vendor runs it and lowering refuses", () => {
     test.todo(`${c.name} — not lowered: ${code}`, () => {})
   }
 
-  test("what blocks them, by code — the work list's input", () => {
+  whole("what blocks them, by code — the work list's input", () => {
     const blockers = new Map<string, number>()
     for (const c of rated("not-lowered")) {
       const code = lowering(c).diagnostics[0]?.code ?? "unknown"
@@ -937,7 +945,7 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
       .map((c) => c.name)
     expect(unaccounted).toEqual([])
     // and the other direction — one that gains a check should leave the set rather than rot in it
-    expect([...MEASURED_SILENT].filter((n) => !rated("lsp-gap").some((c) => c.name === n))).toEqual([])
+    expect([...MEASURED_SILENT].filter((n) => SELECTION.has(n) && !rated("lsp-gap").some((c) => c.name === n))).toEqual([])
   })
 })
 
@@ -961,7 +969,7 @@ describe("unaskable — the oracle cannot ask it", () => {
  * instead of 'FBD'". Those fixtures carry `execSkip` and are never sent; one arriving here slipped past it.
  */
 test("no fixture the BUILD recording compiled was refused by the simulator", () => {
-  const disagreed = ALL_TESTS.filter(
+  const disagreed = SELECTION.selected.filter(
     (c) => RUNS[c.name]?.error?.startsWith("does not compile") === true && BUILDS.codesys.tests[c.name]?.buildSuccess === true,
   ).map((c) => `${c.name}: ${RUNS[c.name]!.error}`)
   expect(disagreed).toEqual([])
@@ -1117,7 +1125,7 @@ describe("the map's measured columns — the pure halves", () => {
 
 describe("the table is total", () => {
   test("every fixture carries a rating this file has a row for", () => {
-    const unknown = ALL_TESTS.filter((t) => !EVIDENCE_ORDER.includes(t.evidence as Evidence)).map(
+    const unknown = SELECTION.selected.filter((t) => !EVIDENCE_ORDER.includes(t.evidence as Evidence)).map(
       (t) => `${t.name}: ${t.evidence ?? "(none)"}`,
     )
     expect(unknown).toEqual([])
@@ -1125,7 +1133,7 @@ describe("the table is total", () => {
 
   test("the stored rating on every fixture matches the computed one", () => {
     // The whole reason `evidence` can live in a generated file: a stale entry is a red test, not a quiet lie.
-    const stale = ALL_TESTS.map((t) => [t, rateFixture(t, ALL_TESTS)] as const)
+    const stale = SELECTION.selected.map((t) => [t, rateFixture(t, ALL_TESTS)] as const)
       .filter(([t, rating]) => t.evidence !== rating)
       .map(([t, rating]) => `${t.name}: stored ${t.evidence ?? "(none)"}, computed ${rating}`)
     if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
@@ -1140,7 +1148,7 @@ describe("the table is total", () => {
     // `declarationIndex(all)` per fixture, which LOOKS like O(n) per call. It is memoized on the identity of
     // `all`, and `parsed` caches per fixture, so the walk is O(its own dependencies). There is no hidden term —
     // this is the work the gate exists to do.
-  }, Math.max(30_000, ALL_TESTS.length * 10))
+  }, Math.max(30_000, SELECTION.selected.length * 10))
 
   /**
    * THE OTHER HALF OF THE SAME ROW. `tier` and `rust` are derived from the lowered IR and the recordings — no
@@ -1149,7 +1157,7 @@ describe("the table is total", () => {
    */
   test("the stored tier and oracle on every fixture match the computed ones", () => {
     const stale: string[] = []
-    for (const t of ALL_TESTS) {
+    for (const t of SELECTION.selected) {
       const { pou } = lowering(t)
       const tier = pou === undefined ? undefined : tierOf(pou, t.pouName)
       if (tier !== t.transpile?.tier) stale.push(`${t.name}: tier stored ${t.transpile?.tier ?? "(none)"}, computed ${tier ?? "(none)"}`)
@@ -1175,7 +1183,7 @@ describe("the table is total", () => {
     }
     if (stale.length > 0) console.log("  [fixtures] run `bun run rate:fixtures`")
     expect(stale).toEqual([])
-  }, Math.max(30_000, ALL_TESTS.length * 10))
+  }, Math.max(30_000, SELECTION.selected.length * 10))
 
   /**
    * THE COLUMNS THAT NEED NO COMPILER — the emission's `shape`, its `size`, and the ids of its constructs `NOTES`
@@ -1186,7 +1194,7 @@ describe("the table is total", () => {
   test("the stored shape, size and notes on every fixture, and the map's NOTES section, match the computed ones", () => {
     const stale: string[] = []
     const lines = new Map<string, string>()
-    for (const t of ALL_TESTS) {
+    for (const t of SELECTION.selected) {
       const { pou } = lowering(t)
       if (pou === undefined) continue
       const code = emitRust(pou).code
@@ -1200,18 +1208,20 @@ describe("the table is total", () => {
     }
     if (stale.length > 0) console.log("  [fixtures] the emitted Rust changed — run `bun run rate:fixtures`")
     expect(stale).toEqual([])
+    // the section renders the construct lines of EVERY fixture — a project-wide total a partial run cannot answer
+    if (SELECTION.partial) return
     const map = readFileSync(join(import.meta.dir, "fixtures", "map.generated.ts"), "utf8")
     const section = renderNotes(NOTES, lines)
     if (!map.endsWith(section)) console.log("  [fixtures] the map's NOTES section is stale — run `bun run rate:fixtures`")
     expect(map.endsWith(section)).toBe(true)
-  }, Math.max(30_000, ALL_TESTS.length * 10))
+  }, Math.max(30_000, SELECTION.selected.length * 10))
 
   /**
    * A NOTE ABOUT A CONSTRUCT NOBODY EMITS IS A NOTE ABOUT NOTHING — the refusal the generator makes for a dead
    * `ALLOWED` entry, made for `NOTES` here as well, so an emitter change that retires a construct cannot leave its
    * review note behind looking like open work.
    */
-  test("every note names a construct some fixture still emits, and says something", () => {
+  whole("every note names a construct some fixture still emits, and says something", () => {
     expect(() => assertNotes()).not.toThrow()
     const emitted = new Set<string>()
     for (const t of ALL_TESTS) {
@@ -1445,7 +1455,7 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
 }
 
 describe("the evidence ratchet", () => {
-  test("the distribution, printed so a status report quotes a measured number", () => {
+  whole("the distribution, printed so a status report quotes a measured number", () => {
     const total = ALL_TESTS.length
     const pct = (n: number): string => `${((n / total) * 100).toFixed(1)}%`
     console.log(`  [fixtures] ${total} fixtures`)
@@ -1462,7 +1472,7 @@ describe("the evidence ratchet", () => {
     expect(total).toBeGreaterThan(900)
   })
 
-  test("each rating stays within its ceiling, and the ones that matter are named", () => {
+  whole("each rating stays within its ceiling, and the ones that matter are named", () => {
     console.log(`  [fixtures] diverges: ${rated("diverges").map((c) => c.name).join(", ") || "none"}`)
     console.log(`  [fixtures] not-lowered: ${rated("not-lowered").length} the vendor runs and lowering refuses`)
     console.log(`  [fixtures] unasked: ${rated("unasked").length} have no recording — run \`bun run record:exec\``)
@@ -2052,6 +2062,7 @@ for (const { vendor, floor } of FLOORS) {
     }
     for (let i = 0; i < ALL_TESTS.length; i++) {
       const t = ALL_TESTS[i] as (typeof ALL_TESTS)[number]
+      if (!SELECTION.has(t.name)) continue
       const rec = expected.tests[t.name]
       if (rec === undefined) continue
       const lsp = runLsp(i, vendor)
@@ -2100,14 +2111,14 @@ for (const { vendor, floor } of FLOORS) {
       // ...and an entry that no longer fires must LEAVE the list, or the list becomes a place things go to hide.
       const firing = new Set(falsePositives.map((f) => f.slice(0, f.indexOf(":"))))
       console.log(`  [${vendor}] LSP-only on ${firing.size} fixture(s) — the triage backlog`)
-      expect([...triaged].filter((n) => !firing.has(n))).toEqual([])
+      expect([...triaged].filter((n) => SELECTION.has(n) && !firing.has(n))).toEqual([])
     })
 
     test("every known divergence still diverges (a marked fixture that agrees must lose its mark)", () => {
       expect(stale).toEqual([])
     })
 
-    test(`agreement does not regress (>= ${floor})`, () => {
+    whole(`agreement does not regress (>= ${floor})`, () => {
       console.log(`  [${vendor}] exact agreement: ${agree}/${ALL_TESTS.length} fixtures`)
       expect(agree).toBeGreaterThanOrEqual(floor)
     })
@@ -2132,6 +2143,7 @@ for (const { vendor, floor } of FLOORS) {
 test("the LSP emits NO error on a fixture the simulator built and executed", () => {
   const falsePositives: string[] = []
   for (const [i, t] of ALL_TESTS.entries()) {
+    if (!SELECTION.has(t.name)) continue
     const rec = RUNS[t.name]
     if (rec === undefined || rec.error !== undefined || t.source === "" || t.recorderSkip === true) continue
     if (KNOWN_DIVERGENCES.codesys.has(t.name)) continue

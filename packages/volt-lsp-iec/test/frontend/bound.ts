@@ -22,13 +22,20 @@ import { parse, type Bound, type Parsed } from "./dumps.js"
 import { fixtureUri, libraryRepoFiles, type CorpusProject, type FixtureSources } from "./sources.js"
 import type { LanguageTest } from "../conformance/types.js"
 
-/** Every file of a corpus project, parsed and bound together. */
+/** Every file of a corpus project, parsed and bound together — ONCE PER PROCESS: the parse census and the bound census
+ *  both walk it in one `bun test test/frontend` run, and binding the six projects is ~4 s a time (2026-10-02).
+ *  Read-only to every caller, like `corpusProjects`. */
 export function boundCorpus(p: CorpusProject): Bound[] {
-  const parsed = p.files.map((f) => parse(f, p.vendor))
-  const project = build.buildSymbolTable(parsed, scanLibraryManifests(p.dir), p.vendor)
-  const refs = loadWorkspaceRefs(p.dir)
-  return parsed.map((f) => ({ parsed: f, project, refs }))
+  let bound = boundCorpora.get(p)
+  if (bound === undefined) {
+    const parsed = p.files.map((f) => parse(f, p.vendor))
+    const project = build.buildSymbolTable(parsed, scanLibraryManifests(p.dir), p.vendor)
+    const refs = loadWorkspaceRefs(p.dir)
+    boundCorpora.set(p, (bound = parsed.map((f) => ({ parsed: f, project, refs }))))
+  }
+  return bound
 }
+const boundCorpora = new WeakMap<CorpusProject, Bound[]>()
 
 const libraryProjects = new Map<Dialect, Scope>()
 /** The fixture project's libraries, parsed and bound as `vendor` once — what every fixture is bound on top of. */

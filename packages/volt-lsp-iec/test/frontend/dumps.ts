@@ -66,9 +66,18 @@ export interface Parsed {
   parseResult: ParseResult
 }
 
+/** Parsed ONCE per file object and dialect: the corpus's files and each fixture's own item and PLC_PRG are the same
+ *  objects to every measurement (`sources.ts` reads them once), and the printer census, the parse census and the bound
+ *  census each parsed them again (2026-10-02). A parse is read-only to every caller — the replay rebinds one too. */
 export function parse(file: { id: string; uri: string; source: string }, dialect: Dialect): Parsed {
-  return { ...file, dialect, parseResult: parseDocument(file.uri, file.source, { networkText: true }, dialect) }
+  let byDialect = parses.get(file)
+  if (byDialect === undefined) parses.set(file, (byDialect = new Map()))
+  let parsed = byDialect.get(dialect)
+  if (parsed === undefined)
+    byDialect.set(dialect, (parsed = { ...file, dialect, parseResult: parseDocument(file.uri, file.source, { networkText: true }, dialect) }))
+  return parsed
 }
+const parses = new WeakMap<object, Map<Dialect, Parsed>>()
 
 // ─── 0.1 parse errors ────────────────────────────────────────────────────────────────────────────────────────
 

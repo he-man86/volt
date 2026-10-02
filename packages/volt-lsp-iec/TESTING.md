@@ -138,3 +138,32 @@ bun test -t "C0357"            # one code across the suite
 bun run typecheck              # everything: src + test + scripts (tsconfig.json). Build = tsconfig.build.json
 bun run lint                   # the layering check
 ```
+
+### The inner loop — runs that cost what they check
+
+While a step is being worked on, run only what it touches. **A gate, a close and CI never use these** — they run
+the whole suite (and a close runs it cold, `VOLT_RUSTC_CACHE=0`).
+
+```bash
+# the fixture contract for the NAMED fixtures only — registered, LSP-run and Rust-built alone (~3 s for three)
+VOLT_FIXTURES=bit_or_bool,decl_subrange_unsigned bun test test/conformance/fixtures.test.ts
+# one front-end baseline file (test/frontend): census, resolution, type, fold, fixed point, rules
+bun test test/frontend/parse-census.test.ts
+bun test test/frontend/type-dump.test.ts test/frontend/fold-dump.test.ts test/frontend/resolution-dump.test.ts
+```
+
+- **`VOLT_FIXTURES=<name,name,…>`** (`test/conformance/support/selection.ts`) — exact names; an unknown one throws, so a
+  typo is never a green run of nothing. Each named fixture goes through the same code the full run gives it, against
+  the same project (every other fixture's declarations stay bound). What only the whole suite can answer — the
+  evidence ceilings, the agreement floors, the map's NOTES section and dead notes — is skipped, and the run prints
+  `PARTIAL RUN`. `CI` or `VOLT_REQUIRE_FULL=1` refuse it (a gate and a close set `VOLT_REQUIRE_FULL=1`).
+  `test/conformance/partial-run.test.ts` holds that a partial run answers what the full run does for what it names:
+  every row it EXECUTES either names a selected fixture or is listed there as scoped to the selection — a new
+  project-wide row written as plain `test()` instead of `whole()` fails it by title. `-t "<names>"` is no substitute: it filters which tests
+  run *after* every fixture was registered and the whole Rust before-all phase ran (~73 s for three fixtures).
+- **One baseline file** runs alone. `type-dump`, `fold-dump` and `resolution-dump` read one census
+  (`bound-census.ts`, ~13 s), built once per process — name them in ONE `bun test` call to pay it once. Measured
+  alone (2026-10-02): parse-census ~10 s, fixed-point ~10 s, type-dump / fold-dump ~16 s, resolution-dump ~27 s (it
+  also runs the server's pass over the corpus), rules / bound-census / baseline / layering < 1 s; the whole folder ~36 s.
+- **`bun run rate:fixtures` once, at the end** of a piece of work, not after every edit: the map carries project-wide
+  totals, so there is no partial rewrite.

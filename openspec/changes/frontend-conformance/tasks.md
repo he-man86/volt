@@ -1797,18 +1797,55 @@ Rust before-all phase). The GATE keeps every full run; only the inner loop gets 
 cannot see a change breaking OTHER fixtures — the same blind spot -t has today; each implement/fix agent still ends with
 ONE whole test/conformance + test/frontend + rate:fixtures, and the gate runs everything.
 
-- [ ] 2.Q.1 `VOLT_FIXTURES=<name,name,…>` (exact names; unknown name → throw, never "0 tests ran = green"): fixtures.test.ts
+- [x] 2.Q.1 `VOLT_FIXTURES=<name,name,…>` (exact names; unknown name → throw, never "0 tests ran = green"): fixtures.test.ts
       registers, LSP-runs and Rust-builds ONLY those fixtures (the before-all phase included); every per-fixture check
       is the same code path as the full run. A loud line says the run is partial. CI/`VOLT_REQUIRE_FULL=1` refuses it.
       Test: a named run of 3 fixtures executes the same assertions as the full run for those 3 (titles + verdicts equal).
       Acceptance: a 3-fixture run in seconds (was ~62 s), written here.
-- [ ] 2.Q.2 test/frontend: each baseline file runnable alone and cheap (census, resolution, type, fold, fixed-point,
+      **Done (2026-10-02).** `test/conformance/support/selection.ts` (`selectFixtures`, tested in `selection.test.ts`: unset
+      → all; named → those, in suite order, one `PARTIAL RUN` line; unknown or empty → throw; `CI` / `VOLT_REQUIRE_FULL=1`
+      → throw). `fixtures.test.ts` walks `SELECTION.selected` for every per-fixture row — the rating rows, both Rust
+      before-alls, the table-is-total rows, the build-recording replay, the simulator gate — while `ALL_TESTS` stays the
+      universe a fixture is assembled, rated and bound in (every other fixture's declarations stay in the shared project,
+      so a named fixture is checked against the project the full run checks it against). Project-wide totals are skipped
+      in a partial run (`whole`): the not-lowered blocker report, dead notes, the map's NOTES section, the evidence
+      distribution and ceilings, the two agreement floors; the reverse-direction checks (a MEASURED_SILENT / triage entry
+      that no longer fires) are held for the named fixtures. Measured: `bun test test/conformance -t "bit_or_bool|
+      cc_conv_short_source_mismatch|decl_implicit_enum_with_base_into_byte"` **73 s** (2323 Rust cases compiled) →
+      `VOLT_FIXTURES=<the three> bun test test/conformance/fixtures.test.ts` **2.6–2.8 s** (3 runs; 1 + 2 Rust cases).
+      Equivalence, by the JUnit reports of a full run (5023 pass, 139 todo, 0 fail — green with the change) and the
+      partial one: the 3 rows titled by a named fixture are present in both with the same verdict, and every one of the
+      44 partial rows is a full-run title with the same verdict (pass), the 6 `whole` totals skipped. A diverges fixture
+      alone (`decl_subrange_unsigned`) runs its expected failure with its Rust half; `bit_or_boool` exits 1 naming it.
+- [x] 2.Q.2 test/frontend: each baseline file runnable alone and cheap (census, resolution, type, fold, fixed-point,
       rules); measure where its 53 s goes (corpus read/parse once per process — already memoized? — or per file) and
       remove repeated work with the same output. Acceptance: per-file times before/after written here; outputs identical.
-- [ ] 2.Q.3 TESTING.md documents VOLT_FIXTURES and the per-file baseline runs (the inner loop), and that a gate/close
+      **Done (2026-10-02).** Where it goes, measured phase by phase: reading the corpus 1.6 s (already once per process);
+      `boundCorpus` over the six projects 6.0 s (2.2 s parse + binding) — NOT memoized, paid by the parse census AND the
+      bound census; the printer census parsed the corpus a third time (2.2 s of its 7.7 s); `withBoundFixture` × 2
+      vendors 1.0 s; the bound census 13.5 s (once per process already, shared by type/fold/resolution); resolution-dump's
+      own `lspErrors` × 2 vendors 4.7 s and the server pass over the corpus (`projectDocuments`) ~8 s — the oracle the
+      measurement is about, not repeatable work. Fixed: `boundCorpus` once per project per process (`bound.ts`), and
+      `dumps.ts` `parse` once per file object and dialect (the corpus files and each fixture's own item and PLC_PRG are
+      the same objects to every measurement). Per file, alone, before → after: parse-census 10.6 → 10.2 s,
+      resolution-dump 27.9 → 27.0 s, type-dump 16.2 → 16.2 s, fold-dump 15.9 → 16.2 s, fixed-point 10.0 → 10.4 s, rules
+      0.37 → 0.36 s, bound-census 0.59 → 0.49 s, baseline 0.67 → 0.65 s, layering 0.29 → 0.28 s — each file alone had no
+      repeated work left to remove (its cost is its one measurement); the repeat was ACROSS files: the folder
+      **44.5 → 36.0 s**, and type + fold + resolution named in one call 27.4 s (one census) against 59 s run one by one.
+      Outputs identical: the folder's printed counts byte-equal before/after, and `VOLT_WRITE_BASELINE=1` rewrote every
+      `baselines/*.json` (and `ceilings.json`) with no content change.
+- [x] 2.Q.3 TESTING.md documents VOLT_FIXTURES and the per-file baseline runs (the inner loop), and that a gate/close
       never uses them. (The executor's own rules are updated by the owner's session, not by this step.)
+      **Done (2026-10-02):** TESTING.md "Running" → "The inner loop — runs that cost what they check".
       Not done on purpose: a partial `rate:fixtures` — the map has project-wide totals and a partial rewrite would leave
       them stale; agents run the full `rate:fixtures` ONCE at the end of their work instead of after every edit.
+      **Gate 2.Q (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4032 fixtures:
+      confirmed 2348, refused 1452, not-lowered 139, lsp-gap 23, diverges 4, unaskable 66; edges agree 2438 / disagree 0 /
+      not-run 102). `bun test` (serial, `VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) 6955 pass / 34 skip / 183 todo /
+      0 fail (7172 tests, 197 files, 162 s, rustc cache on with sampled re-proof) — +6 tests, +2 files
+      (`partial-run.test.ts`, `support/selection.test.ts`) over gate 2.9; agreement CODESYS 3723, TwinCAT 3662 (4032
+      fixtures, = the floors). `bun run check` 14 passed, 0 failed; `bun run lint` exit 0. volt-cli untouched by 2.Q
+      (no dotnet run).
 
 - [ ] 2.10 Area 2 closed: every §4 2.x rule (L, N, S, A, D, T, U, E, ST, P, R, PR, FMT) has a recorded fixture or named test.
       Where: test/frontend/rules.ts. Acceptance: the rules.test GAP count for area 2 is 0 and pinned as 0; known divergences left
