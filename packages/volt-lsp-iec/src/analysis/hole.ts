@@ -16,15 +16,20 @@ import type { DiagnosticItem } from "./diagnostic-item.js"
 /** The findings that mean the expression has NO TYPE — the ST codes and their network-text counterparts. */
 const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
   "unresolved-identifier", "unknown-member", "deref-non-pointer", "indexing-non-array", "this-not-allowed",
-  "super-not-allowed", "call-recursion", "network-undeclared-identifier", "network-unknown-member",
+  "super-not-allowed", "self-not-structured", "call-recursion", "network-undeclared-identifier", "network-unknown-member",
+  // a call of what is no call target has no type (`types/infer` `callReturnType`), and the C0035 names why: `out :=
+  // .gCall(1)` is "Cannot convert type 'Unknown type: '.gCall(1)'' to type 'INT'" beside it
+  // (`expr_global_namespace_call_non_callable`, both vendors 2026-10-02)
+  "invalid-call-target",
 ])
 
 /**
  * The names the compiler refuses OUTRIGHT, so nothing built on one has a type either however well the LSP resolves
- * it: THIS/SUPER out of context, a VAR_EXTERNAL the project has no global for, a function calling itself.
+ * it: THIS/SUPER out of context or read without their `^`, a VAR_EXTERNAL the project has no global for, a function
+ * calling itself.
  */
 const REFUSED_OUTRIGHT: ReadonlySet<string> = new Set([
-  "this-not-allowed", "super-not-allowed", "unresolved-identifier", "call-recursion", "network-undeclared-identifier",
+  "this-not-allowed", "super-not-allowed", "self-not-structured", "unresolved-identifier", "call-recursion", "network-undeclared-identifier",
 ])
 
 /** A view of what the earlier checks found, which is the only evidence a hole is reported on. */

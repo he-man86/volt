@@ -7,13 +7,15 @@ import {
   childScopesByName,
   enclosingPou,
   lookup,
+  lookupGlobal,
   lookupLocal,
   resolveBareEnumMember,
   resolveGvlMember,
+  rootOf,
   type Scope,
   type Symbol,
 } from "../../symbols/index.js"
-import type { Expr, TypeExpr } from "../../syntax/index.js"
+import { selfRefKind, type Expr, type TypeExpr } from "../../syntax/index.js"
 import { resolveNamedType } from "../resolve.js"
 import { UNKNOWN, type Type } from "../type.js"
 import { inferExprType } from "./expr.js"
@@ -26,10 +28,15 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
   switch (expr.kind) {
     case "ident_expr":
       return lookup(scope, expr.name)?.symbol
+    // `.g` — the global namespace only, every local scope passed over (rule E33, `GlobalExpr`)
+    case "global_expr":
+      return lookupGlobal(project, expr.name.name)
     case "member": {
       // Static GVL member `GVL.field`: GVL vars are flat at project scope, tagged by block uri.
       const gvlMember = resolveGvlMember(expr, scope, project)
       if (gvlMember !== undefined) return gvlMember
+      // `THIS.v`, `SUPER.Get` — the pointers themselves have no members (`expr_this_member_without_deref`)
+      if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return undefined
       const base = inferExprType(expr.base, scope, project)
       const memberScope = memberScopeOf(base)
       return memberScope !== undefined ? lookupLocal(memberScope, expr.member.name)[0] : undefined
@@ -89,10 +96,19 @@ export function isEnumValueRef(expr: Expr, scope: Scope, project: Scope): boolea
   return sym?.kind === "enum_value"
 }
 
-/** `THIS` — the enclosing FB carrying its member scope. */
+/** `THIS` — the enclosing FB carrying its member scope; nothing in a FUNCTION or a PROGRAM, which has no instance: `THIS^.v`
+ *  there is "Unknown type: 'THIS^.v'" (`expr_this_in_function`, `cc_self_this_in_program`, both vendors). */
 export function thisType(scope: Scope): Type {
   const pou = enclosingPou(scope)
-  return pou !== undefined ? { kind: "function_block", name: pou.name, scope: pou } : UNKNOWN
+  if (pou === undefined || !lookupLocal(rootOf(pou), pou.name).some((s) => s.kind === "function_block")) return UNKNOWN
+  return { kind: "function_block", name: pou.name, scope: pou }
+}
+
+/** `SUPER` — the enclosing FB's BASE carrying its member scope (`SUPER^.Get()`, `expr_super_deref_call`, both vendors run
+ *  it), UNKNOWN where the FB extends nothing or its base did not resolve (`expr_super_without_base` is refused). */
+export function superType(scope: Scope): Type {
+  const base = enclosingPou(scope)?.baseScope
+  return base !== undefined ? { kind: "function_block", name: base.name, scope: base } : UNKNOWN
 }
 
 /** A bare name that names a GVL/enum/namespace/POU/struct scope (a static member base like `E.Idle`). */

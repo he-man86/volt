@@ -34,7 +34,7 @@ import {
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { lookup, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { lookup, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -51,6 +51,11 @@ import {
   type Type,
 } from "../../src/frontend/types/index.js"
 import { tally } from "./baseline.js"
+
+/** Every kind of `Expr`, for the UNKNOWN counts (`summarize`). */
+const EXPR_KINDS: readonly Expr["kind"][] = [
+  "ident_expr", "literal", "binary", "unary", "member", "index", "deref", "call", "paren", "assign_expr", "global_expr",
+]
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
@@ -115,6 +120,9 @@ export function boundCensus(): BoundCensus {
       says: new Set(),
     },
   ): void => {
+    // an expression kind whose UNKNOWNs all came to be typed is a count of 0, not a measure gone missing — its ceiling
+    // must still be able to say so (`assign_expr`, typed by its target since frontend-conformance 2.5.6)
+    for (const kind of EXPR_KINDS) c.types[`${group}: ${kind} UNKNOWN`] ??= 0
     if (vendor.known) {
       tally(c.resolution, `${group}: files of a known divergence (support/divergences.ts), not measured`)
       tally(c.types, `${group}: files of a known divergence (support/divergences.ts), not measured`)
@@ -148,12 +156,19 @@ export function boundCensus(): BoundCensus {
           const [lhs, binding] = line.split(" -> ") as [string, string]
           const where = lhs.slice(0, lhs.indexOf(" "))
           const name = lhs.slice(lhs.indexOf(" ") + 1)
-          const shape = name.startsWith(".") ? "member" : / (:=|=>)$/.test(name) ? "parameter" : "bare name"
+          const shape = name.startsWith("(global) ")
+            ? "global name"
+            : name.startsWith(".")
+              ? "member"
+              : / (:=|=>)$/.test(name)
+                ? "parameter"
+                : "bare name"
           const verdict = binding === "NONE" || binding === "NOSCOPE" || binding === "NO-CALLEE" ? binding : "resolved"
           return { line, where, name, shape, verdict }
         })
     for (const { where, name, shape, verdict } of lines)
-      if (verdict === "NONE" && shape === "bare name" && vendor.notDefined.has(name.toLowerCase())) agreed.add(where)
+      if (verdict === "NONE" && (shape === "bare name" || shape === "global name") && vendor.notDefined.has(name.toLowerCase()))
+        agreed.add(where)
     for (const { line, where, name, shape, verdict } of lines) {
       if (verdict === "NONE" && unparsedSites.has(where)) {
         tally(c.resolution, `${group}: ${shape} NONE, in a body that did not parse`)
@@ -170,12 +185,35 @@ export function boundCensus(): BoundCensus {
         tally(c.resolution, `${group}: member NONE, no component on the vendor too`)
         continue
       }
+      // …and a member read off a base the vendor reports has NONE — "'SUPER^' is no structured variable", "'THIS' is no
+      // structured variable" (`expr_super_without_base`, `expr_this_member_without_deref`, frontend-conformance 2.5.6)
+      if (
+        verdict === "NONE" &&
+        shape === "member" &&
+        (bases.get(where) ?? []).some((base) => vendor.says?.has(`'${base}' is no structured variable`) === true)
+      ) {
+        tally(c.resolution, `${group}: member NONE, no structured variable on the vendor too`)
+        continue
+      }
+      // …or off a SUPER the vendor does not allow at all — a function block that extends nothing: "Expression SUPER is
+      // not allowed in this context" (TwinCAT quotes it), and `SUPER.Get` resolves on neither side
+      // (`expr_super_without_deref_without_base`, frontend-conformance 2.5b)
+      if (
+        verdict === "NONE" &&
+        shape === "member" &&
+        (bases.get(where) ?? []).includes("super") &&
+        (vendor.says?.has("expression super is not allowed in this context") === true ||
+          vendor.says?.has("expression 'super' is not allowed in this context") === true)
+      ) {
+        tally(c.resolution, `${group}: member NONE, SUPER not allowed on the vendor too`)
+        continue
+      }
       if (verdict === "NONE" && shape === "member" && agreed.has(shapes.rootOf.get(where) ?? "")) {
         tally(c.resolution, `${group}: member NONE, on a name not defined on the vendor too`)
         continue
       }
-      if (verdict === "NONE" && shape === "bare name" && agreed.has(where)) {
-        tally(c.resolution, `${group}: bare name NONE, not defined on the vendor too`)
+      if (verdict === "NONE" && (shape === "bare name" || shape === "global name") && agreed.has(where)) {
+        tally(c.resolution, `${group}: ${shape} NONE, not defined on the vendor too`)
         continue
       }
       if (verdict === "NONE" && shape === "bare name" && refusedNames.has(where)) {
@@ -203,17 +241,35 @@ export function boundCensus(): BoundCensus {
         else if (type === "?" && returnsNothing(expr, scope, b)) tally(c.types, `${group}: call with no return value`)
         // a GVL's NAME qualifying its variable (`GVL.g`) is no value on either side — it names where `g` is, and has no
         // type to ask for (`use_gvl_field_access`, `decl_at_after_type_in_gvl`, frontend-conformance 2.3)
-        else if (type === "?" && shapes.qualifiers.has(where!) && namesAGvl(expr, scope)) tally(c.types, `${group}: ident_expr untyped, a GVL's name qualifying its variable`)
+        else if (type === "?" && shapes.qualifiers.has(where!) && namesAGvl(expr, scope)) tally(c.types, `${group}: ${kind} untyped, a GVL's name qualifying its variable`)
         // what the vendor reports unknown too is that agreement before it is anything else: the SIZEOF/ADR split below
         // is the LSP's own reason, and ahead of this it took agreements out of their measure
         else if (type === "?" && vendor.unknownTypes.has(compilerExprText(expr)))
           tally(c.types, `${group}: ${kind} UNKNOWN, unknown on the vendor too`)
+        // a call of what the vendor says is no call target — "Program name, function or function block instance expected
+        // instead of 'plain'" — has no result there either, as a statement too (`cc5_invalid_call_target`; the front-end
+        // types such a call UNKNOWN since frontend-conformance 2.5b, `expr_global_namespace_call_non_callable`)
+        else if (type === "?" && expr.kind === "call" && vendor.says?.has(`program name, function or function block instance expected instead of '${compilerExprText(expr.callee).toLowerCase()}'`) === true)
+          tally(c.types, `${group}: call untyped, no call target on the vendor too`)
+        // …and SUPER where the vendor does not allow it — a function block that extends nothing: "Expression SUPER is not
+        // allowed in this context" (TwinCAT quotes it; `expr_super_without_deref_without_base`, `refuse_super_without_base`)
+        else if (
+          type === "?" &&
+          expr.kind === "ident_expr" &&
+          expr.name.toUpperCase() === "SUPER" &&
+          (vendor.says?.has("expression super is not allowed in this context") === true ||
+            vendor.says?.has("expression 'super' is not allowed in this context") === true)
+        )
+          tally(c.types, `${group}: ident_expr untyped, SUPER not allowed on the vendor too`)
         else if (type === "?" && operandTyped(expr, scope, b) === false) tally(c.types, `${group}: call UNKNOWN, on an untyped operand`)
         else if (type === "?" && operandTyped(expr, scope, b) === true)
           tally(c.types, `${group}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
-    for (const line of foldDump(b)) {
+    // …and its folds (0.4) are counted, not measured, as its resolution and types are (refinement (c), frontend-conformance
+    // 2.1; the fold count had been left out of it — `expr_pool_qualified_global`'s global, 2.5.6)
+    if (vendor.known) tally(c.folds, `${group}: files of a known divergence (support/divergences.ts), not measured`)
+    else for (const line of foldDump(b)) {
       const [, where, value] = line.split(" ")
       tally(
         c.folds,
@@ -233,7 +289,10 @@ export function boundCensus(): BoundCensus {
         const notDefined = new Set(
           ((vendor === "codesys" ? f.codesys : f.twincat)?.diagnostics ?? []).flatMap((d) => {
             const m = /^Identifier '(.+)' not defined$/.exec(d.message)
-            return m === null ? [] : [m[1].toLowerCase()]
+            if (m !== null) return [m[1].toLowerCase()]
+            // …and `.name` no GLOBAL declares — "There is no global definition for 'loc'" (rule E33): the dump's `(global) loc`
+            const g = /^There is no global definition for '(.+)'$/.exec(d.message)
+            return g === null ? [] : [`(global) ${g[1].toLowerCase()}`]
           }),
         )
         // "'<member>' is no component of '<base>'": each member the vendor found on no component, with the base it names
@@ -627,7 +686,7 @@ export function memberShapes(exprs: readonly Expr[]): { rootOf: Map<string, stri
     if (e.kind === "member") {
       const root = rootName(e)
       if (root !== undefined) rootOf.set(at(e.member.span), at(root.span))
-      if (e.base.kind === "ident_expr") qualifiers.add(at(e.base.span))
+      if (e.base.kind === "ident_expr" || e.base.kind === "global_expr") qualifiers.add(at(e.base.span))
     }
     // a callee is no value (`valueChildren`), but a member called (`GVL.f()`) is a member all the same
     const args = e.kind === "call" ? e.args.flatMap((a) => (a.value === undefined ? [] : [a.value])) : []
@@ -671,7 +730,10 @@ function rootName(e: Expr): Extract<Expr, { kind: "ident_expr" }> | undefined {
 
 /** Whether `expr` is a bare name that binds to a GVL — the list itself, not one of its variables. */
 function namesAGvl(expr: Expr, scope: Scope | undefined): boolean {
-  return expr.kind === "ident_expr" && scope !== undefined && lookup(scope, expr.name)?.symbol.kind === "gvl_block"
+  if (scope === undefined) return false
+  // `.GVL.v` names the list in the global namespace (rule E33): `ARRAY [1...L_MC1P_Constants.gc_Rec_Max]`
+  if (expr.kind === "global_expr") return lookup(rootOf(scope), expr.name.name)?.symbol.kind === "gvl_block"
+  return expr.kind === "ident_expr" && lookup(scope, expr.name)?.symbol.kind === "gvl_block"
 }
 
 /** The operators whose result type is made from their operand: SIZEOF's from its size, ADR's from its type. */

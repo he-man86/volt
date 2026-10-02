@@ -58,7 +58,7 @@ export function inlineEnumDefault(
 /** Zero when zero is one of the values, else the FIRST — or the member a type-level `:= Name` default names. */
 function defaultOfValues(
   values: readonly { name: { text: string }; value?: Expr }[],
-  init: { kind: string; name?: string } | undefined,
+  init: { kind: string; name?: unknown } | undefined,
   valueOf: EnumeratorValue,
 ): bigint | undefined {
   let next = 0n
@@ -77,6 +77,6 @@ function defaultOfValues(
   // A TYPE-LEVEL default names one of its own members: `TYPE E : (Idle, Busy) := Busy` starts every E at Busy
   // (`type_enum_type_level_default`, recorded 1). Read from the value list rather than resolved as an expression —
   // the name is a member of THIS enum, and a bare one does not resolve in the declaring scope.
-  if (init !== undefined) return init.kind === "ident_expr" && init.name !== undefined ? byName.get(init.name.toUpperCase()) : undefined
+  if (init !== undefined) return init.kind === "ident_expr" && typeof init.name === "string" ? byName.get(init.name.toUpperCase()) : undefined
   return hasZero ? 0n : first
 }

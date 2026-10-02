@@ -63,3 +63,16 @@ test("CONTINUE outside a loop is reported too, and the compiler names the statem
     }).filter((d) => d.code === "exit-outside-loop"),
   ).toEqual([])
 })
+
+// A CONSTANT global written through the global-namespace dot is the same refusal, quoting the target as written:
+// "'.gcTarget' is no valid assignment target" (`expr_global_namespace_constant_target`, both vendors 2026-10-02).
+test("C0018: a CONSTANT global written as `.g` is flagged as written (expr_global_namespace_constant_target, E33)", () => {
+  const src = `VAR_GLOBAL CONSTANT\ngc : INT := 7;\nEND_VAR\nVAR_GLOBAL\ngv : INT;\nEND_VAR\nFUNCTION_BLOCK F\nVAR gc : INT;\nEND_VAR\n.gc := 5;\n.gv := 5;\ngc := 5;\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "not-assignment-target")
+    .map((d) => d.message)
+  // the local `gc` shadows the global for the bare spelling only
+  expect(msgs).toEqual(["'.gc' is no valid assignment target"])
+})

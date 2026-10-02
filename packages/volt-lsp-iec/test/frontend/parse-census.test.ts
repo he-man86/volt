@@ -44,8 +44,16 @@ const EXEC_REFUSALS: ReadonlyMap<string, RecordedBuild> = new Map(
   ),
 )
 
-/** A recorded message that reads as a syntax refusal — to count the refusals the parser does not share (the other direction). */
+/**
+ * A recorded message that reads as a syntax refusal — to count the refusals the parser does not share (the other direction).
+ * Not C0035, "Program name, function or function block instance expected instead of 'X'": it says "expected" and is no
+ * syntax refusal — the vendor goes on analysing the body beside it (`expr_super_without_base` reports four messages,
+ * `cc_conv_spelled_*` the undefined name too), and the LSP answers it in the analysis (`invalid-call-target`), where the
+ * conformance suite holds it (frontend-conformance 2.5.6).
+ */
 const SYNTAX_MESSAGE = /expected|unexpected token/i
+const isSyntaxMessage = (message: string): boolean =>
+  SYNTAX_MESSAGE.test(message) && !message.startsWith("Program name, function or function block instance expected")
 
 /** The build's messages as a multiset: each recorded copy matches ONE LSP parse error. */
 const recordedPool = (b: RecordedBuild | undefined) => messagePool((b?.diagnostics ?? []).map((d) => d.message))
@@ -103,7 +111,7 @@ function census(): Baseline {
         continue
       }
       tally(counts, `${key}: refused, ${lsp}`)
-      const syntax = rec.diagnostics.find((d) => d.severity === "error" && SYNTAX_MESSAGE.test(d.message))
+      const syntax = rec.diagnostics.find((d) => d.severity === "error" && isSyntaxMessage(d.message))
       if (errors.length === 0 && syntax !== undefined) {
         // the other direction: the vendor refuses what the parser accepts — a different answer, pinned line by line
         tally(counts, `${key}: refused with a syntax message, no LSP parse error`)

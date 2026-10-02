@@ -59,11 +59,31 @@ export function lookupMember(scope: Scope, name: string): Symbol | undefined {
   return lookupInChain(scope, name)?.symbol
 }
 
+/**
+ * `.name` — what the GLOBAL namespace holds under the name (rule E33), every local passed over; undefined where TWO of
+ * the project's lists declare it bare: `.gAmb` is then "There is no global definition for 'gAmb'", as a name nothing
+ * declares is (`expr_global_namespace_ambiguous`, both vendors 2026-10-02 — the bare `gAmb` is "Ambiguous use of name").
+ * A library's lists flatten into the project scope and repeat names (ERR_OK), so only the project's are counted, as
+ * `analysis/checks/names/ambiguous-global` counts them.
+ */
+export function lookupGlobal(project: Scope, name: string): Symbol | undefined {
+  const found = lookup(project, name)?.symbol
+  if (found?.kind !== "gvl_var") return found
+  const lists = new Set(
+    lookupLocal(project, name)
+      .filter((s) => s.kind === "gvl_var" && s.qualifiedOnly !== true && !isLibrarySymbol(s))
+      .map((s) => s.uri),
+  )
+  return lists.size >= 2 ? undefined : found
+}
+
 /** `GVL.field` → the flat project-level `gvl_var` sharing the block's uri, or undefined. Type inference and constant
- *  folding both qualify through it (it lived privately in `infer.ts`). */
+ *  folding both qualify through it (it lived privately in `infer.ts`). `.GVL.field` names the list in the global
+ *  namespace only (rule E33): `ARRAY [1...L_MC1P_Constants.gc_Rec_Max]` in a lenze library, `1..` then `.L_MC1P_…`. */
 export function resolveGvlMember(expr: { base: Expr; member: { name: string } }, scope: Scope, project: Scope): Symbol | undefined {
-  if (expr.base.kind !== "ident_expr") return undefined
-  const block = lookup(scope, expr.base.name)?.symbol
+  const base = expr.base
+  if (base.kind !== "ident_expr" && base.kind !== "global_expr") return undefined
+  const block = base.kind === "global_expr" ? lookupGlobal(project, base.name.name) : lookup(scope, base.name)?.symbol
   if (block?.kind !== "gvl_block") return undefined
   return lookupLocal(project, expr.member.name).find((sym) => sym.kind === "gvl_var" && sym.uri === block.uri)
 }
@@ -208,9 +228,11 @@ export const rootOf = (scope: Scope): Scope => (scope.parent === undefined ? sco
  * value, `const/fold`).
  */
 export function resolveQualifiedConst(expr: Extract<Expr, { kind: "member" }>, scope: Scope): Symbol | undefined {
-  if (expr.base.kind !== "ident_expr") return undefined
+  const named = expr.base
+  if (named.kind !== "ident_expr" && named.kind !== "global_expr") return undefined
   const project = rootOf(scope)
-  const base = lookup(scope, expr.base.name)?.symbol
+  // `.List.Const` names the list in the global namespace only (rule E33)
+  const base = named.kind === "global_expr" ? lookupGlobal(project, named.name.name) : lookup(scope, named.name)?.symbol
   if (base === undefined || isLibrarySymbol(base)) return undefined
   const programScope = base.kind === "program" ? findChildScope(project, base.name) : undefined
   const target =

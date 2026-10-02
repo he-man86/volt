@@ -6,7 +6,7 @@
  *
  * Integers stay `bigint` (exact for the 64-bit types); reals are `number`.
  */
-import { lookup, lookupLocal, resolveQualifiedConst, rootOf, type Scope, type Symbol } from "../../symbols/index.js"
+import { lookup, lookupGlobal, lookupLocal, resolveQualifiedConst, rootOf, type Scope, type Symbol } from "../../symbols/index.js"
 import type { Expr, TypeExpr, VarDecl } from "../../syntax/index.js"
 import { elementaryType, type ElementaryType } from "../elementary.js"
 import { integerOfWidth, wrapToWidth } from "../width.js"
@@ -72,6 +72,11 @@ function fold(expr: Expr, scope: Scope, ctx: FoldContext): Folded {
     }
     case "ident_expr":
       return constRef(expr.name, scope, ctx)
+    // `.Const` — the global namespace only (rule E33)
+    case "global_expr": {
+      const symbol = lookupGlobal(rootOf(scope), expr.name.name)
+      return symbol === undefined ? NONE : initialValue(symbol, ctx)
+    }
     case "member":
       return qualifiedConstRef(expr, scope, ctx)
     default:

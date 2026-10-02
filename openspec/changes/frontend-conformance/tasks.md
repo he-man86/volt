@@ -1283,10 +1283,94 @@ LSP outputs keyed on LSP source is NOT allowed (it would have hidden both bugs).
       disagree 0 / not-run 98). `bun test` 6660 pass / 34 skip / 158 todo / 0 fail (6852 tests, 195 files, 239 s, rustc
       cache on); agreement CODESYS 3338, TwinCAT 3278 (3635 fixtures, = floors). `bun run check` 14 passed, 0 failed;
       `bun run lint` exit 0 (warnings only). volt-cli untouched by 2.5a (no dotnet run).
-- [ ] 2.5.6 THIS/SUPER, system operands, global-namespace and pool qualifiers (E24–E30, E33, E34): a leading-dot primary `.ident`.
+- [x] 2.5.6 THIS/SUPER, system operands, global-namespace and pool qualifiers (E24–E30, E33, E34): a leading-dot primary `.ident`.
       Record expr_inline_assign_if_condition, expr_inline_assign_while_condition, expr_global_namespace_dot,
       expr_global_namespace_shadowed_local, expr_pool_qualified_call.
       Where: parse/expression, parse/statements. Acceptance: CA. Depends on: 2.5.5
+      **Step 2.5b (2026-10-02).** Fixtures: `fixtures/grammar/expressions.ts`, 31 new `expr_*` — every name the task lists and per
+      rule the cells that separate its readings: E24 `(a + b) * c`, `((a + b)) * c`, `()`; E25 an inline assignment's value
+      `(a := b + INT#1) * INT#2` and nested; E26 an inline assignment bare as an IF, ELSIF, WHILE, REPEAT condition, a CASE
+      selector, a FOR bound, an index, and after a binary operator; E27 `THIS^.v` in an FB body, `THIS.v`, `p := THIS`,
+      `SUPER.Get()`, `SUPER^.Get()`, `SUPER^` in a base-less FB, `THIS^` in a FUNCTION; E33 `.g` read, past a shadowing
+      local, as an assignment target, as a member base, before a FUNCTION's call, with a space after the dot, naming nothing,
+      naming only a local; E34 `__POOL.F()`, `__POOL.g`, `inner : __POOL.FB`. Operands typed (`INT#n`), globals without an
+      initializer (a VAR_GLOBAL list has no scope in the census). Recorded `record:language` on CODESYS and TwinCAT (one batch
+      of 29 + 2 and 31, then the 11 re-asked with typed literals and uninitialised globals) and `record:exec` on CODESYS (21,
+      then 11). Measured: an inline assignment stands bare in every read position asked — a condition, a CASE selector, a
+      FOR bound, an index (not only IF/WHILE/REPEAT; the FOR start value was asked in the review below), and after a binary operator it is a chain whose inner target is
+      `(INT#1 + a)`; its value is its target's (`(a := b + 1) * 2` runs 8); `.g` reads the GLOBAL past a local (0, not 3),
+      a space may follow the dot, `.loc`/`.nope` are "There is no global definition for 'X'" and the conversion of the hole;
+      SUPER in a base-less FB is "Expression SUPER is not allowed in this context" plus, where called, "Program name … instead
+      of '<callee as written>'" ('SUPER^.Get'), not a fixed 'SUPER^'; THIS/SUPER without `^` are "'THIS' is no structured
+      variable"; THIS in a FUNCTION is untyped; `__POOL.X` looks in the POUs view only (an application object is "Identifier
+      'X' not defined") yet `__POOL.FB` as a declared type builds. Fixed test-first (`parse/expression.test.ts` 3 tests,
+      `unresolved-identifier.test.ts` 1, `this-super-context.test.ts` 2): `syntax/ast` — `GlobalExpr` (`global_expr`), its
+      name no child of the tree (every name walker resolves locals first); `parse/expression` — the leading-dot primary,
+      `()` the vendors' "Expression expected instead of ')'", an index reads `parseAssignable`, `parseExprFromTokens(…,
+      assignable)`; `parse/statements` — CASE selector and FOR TO/BY read `parseAssignable`; `types/infer` — `global_expr`
+      in the project scope, an inline assignment typed by its target, SUPER typed by the enclosing FB's base (`superType`),
+      THIS only in a FUNCTION_BLOCK, no member off a bare THIS/SUPER; `symbols/scope-nav` — `.GVL.v` and `.List.Const`
+      qualify through the global list; `types/const/fold` — `.Const`; `analysis` — `noGlobalDefinition`,
+      `this-super-context` (`super-without-base` and its fixed message DELETED; `self-not-structured` a hole), `print`.
+      Corpora: `.g` is NOT niche — 26 occurrences, every one an array bound written `1...X.c` (`..` then `.X.c`: L_MC1P
+      libraries in four projects, pro2193's `CassetteDefinition`), whose UPPER BOUND the parser dropped (`ast` had no
+      `upper`); all 26 resolve now. Divergences opened (`EXPRESSION_NICHE_DIVERGENCES`, both vendors, `deferred.lsp` on the
+      lsp-gaps): `expr_pool_qualified_call`, `_global`, `_fb_type` (niche: accepted loss, 0 `__POOL` in the corpora — the
+      workspace does not model the POUs view; `SYSTEM_OPERAND_AT_STATEMENT_START` stays, same reason), `expr_inline_assign_operand`
+      (ST4's chain target, task 2.6.1; niche, 0). Closed: `refuse_super_without_base` now agrees on both vendors. Rules GAP
+      area 2 **30 → 27** (total 84 → 81): E26, E33, E34 answered; E24, E25, E27, E30 gain cells. `rate:fixtures` (3666):
+      confirmed 2255, refused 1194, not-lowered 130, lsp-gap 22, diverges 4, unaskable 61; edges agree 2353 / disagree 0 /
+      not-run 98. Ceilings (`fixtures.test.ts`, FOR MEASUREMENT, new questions only, no fixture moved): lsp-gap 19 → 22,
+      not-lowered 113 → 130 (`assign_expr` and `global_expr` are lowered nowhere; `expr_this_as_pointer`,
+      `expr_pool_qualified_fb_type`). Agreement floors CODESYS 3338 → 3366, TwinCAT 3278 → 3306. Measures (each asks what it
+      states): 0.1 C0035 "Program name … expected" is no syntax message; 0.2 an expression re-parses in the grammar of its
+      place; 0.3 `.g` dumped as `(global) g`, agreeing with "There is no global definition", and a member NONE where the
+      vendor says "'X' is no structured variable"; 0.4 a GVL qualifier written `.GVL`, folds of a known divergence counted
+      not measured, zero UNKNOWN counts seeded. Ceilings all fell: fixed-point findings 6 → 3 (corpus not a fixed point
+      3 → 0), parse findings 114 → 78 (refused with a syntax message CODESYS 47 → 37, TwinCAT 66 → 40), resolution findings
+      126 → 112 (corpus member NONE 3709 → 3602, fixtures member NONE 42 → 35 each — SUPER), type findings 226 → 222 (corpus
+      deref UNKNOWN 185 → 20, ident_expr 634 → 469, call 2036 → 1939, assign_expr 9 → 0), folds decl NOSCOPE 32 → 31. F
+      (`frontend-snapshot check --base HEAD`): 1342 aspects over 250 sources — the new fixtures, the 13 corpus files with a
+      `1...X` bound (`ast`, `folds`), SUPER's `resolution`/`types` in corpus and fixtures, THIS in a PROGRAM, and one back
+      end (`cc5_new_in_expression`, still refused, now at the pointer comparison); no corpus `errors`, `stmts` or
+      `diagnostics` moved. Targeted: `bun test src` 1552 / 0, `test/frontend` 29 / 0, `test/conformance` 4904 / 0,
+      `test/corpus` 19 / 0; `tsc --noEmit` clean; lint exit 0.
+      **Review fixes 2.5b (2026-10-02).** 11 cells recorded (`record:language` CODESYS and TwinCAT, one batch each, then the
+      three bound fixtures re-asked without UPPER_BOUND — TwinCAT refuses it on a fixed array — and the two-list pair once
+      a STRUCT stood between the lists: back to back, two VAR_GLOBAL blocks are ONE list's sections; `record:exec` 4 + 3):
+      `expr_global_namespace_array_bound`, `_array_bound_index`, `_qualified_bound`, `_enum_bound` (the corpora's only E33
+      form, `1...X.c` / `E.Up...E.Left`: all build, `a[3]` runs 6, `a[4]` past `1...gnIndex` is "The constant index '4' is
+      not within the range from '1' to '3'" on both), `_constant_target` ("'.gcTarget' is no valid assignment target"),
+      `_call_non_callable` ("… instead of '.gCall'" and the hole), `_variable_in_constant` ("Initialisation of constant
+      variable 'k' not constant"), `_ambiguous` (`.gAmb` two lists declare: "There is no global definition" and the hole),
+      `_ambiguous_bare` (bare: "Ambiguous use of name", "Identifier 'gAmb' not defined" and the hole),
+      `expr_super_without_deref_without_base` (SUPER.Get() with no base: not allowed, the call target ONCE, the hole — no
+      "no structured variable"), `expr_inline_assign_for_start` (`FOR i := m := 1 TO 3 DO` builds, runs out 6). Fixed
+      test-first: `parse/statements` the FOR start value reads `parseAssignable`; `symbols/scope-nav` `lookupGlobal` — the
+      ONE `.name` lookup (member, fold, constancy, the `.GVL` qualifier): a name two project lists declare is none;
+      `types/const/constancy` `.g` has the constancy of its global; `types/infer` a call of a non-constant project VALUE
+      whose type is no call target is UNKNOWN (it had the value's type); `analysis` — `statement-rules` refuses a CONSTANT
+      `.g` target as written, `non-callable-call` names `.g` as written, `hole` an invalid call target explains a hole,
+      `this-super-context` no structured-variable message and no second call target for a base-less SUPER;
+      `services` — references/rename/definition see `.g` (`references.ts`, `resolve-at.ts`). Harness (each asks what the
+      push sends): a fixture's lists are objects of their own under `gvlNames` (`fixture-units` `splitLists`) in the
+      replay, the rating, the census and `assembleFixture` — bound inside the fixture's file they were named after it, so
+      `.GVL.c` reached nothing and two lists were one. Census: a call the vendor says is no call target and a SUPER it does
+      not allow are untyped on both sides; a member off that SUPER NONE on both. Divergence opened
+      (`EXPRESSION_NICHE_DIVERGENCES`, both vendors): `expr_global_namespace_ambiguous_bare` — the LSP resolves the bare
+      name to the first list's, so it gives "Ambiguous use" without the not-defined and the hole; niche: accepted loss (0
+      occurrences in the corpora, which build). Not fixed, said: `expr_global_namespace_enum_bound` is not lowered —
+      `constEval` folds no enum value, with `..` as with `...` (task 4.6.1); a call argument is not asked for E26 (`F(m :=
+      1)` is a formal argument). `rate:fixtures` (3677): confirmed 2257, refused 1201, not-lowered 132, lsp-gap 22,
+      diverges 4, unaskable 61. Ceilings: not-lowered 130 → 132 FOR MEASUREMENT (`expr_inline_assign_for_start`,
+      `_enum_bound`); lsp-gap unchanged. Floors CODESYS 3366 → 3376, TwinCAT 3306 → 3316. Frontend ceilings fell: fixtures
+      call UNKNOWN 400 → 398 / 411 → 408, ident_expr UNKNOWN 44 → 43 / 55 → 54. Targeted: `bun test src` 1560 / 0,
+      `test/frontend` 29 / 0, `test/conformance` 4908 / 0, `test/corpus` 19 / 0; `tsc --noEmit` clean; lint exit 0.
+      **Gate 2.5b (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (3677
+      fixtures: confirmed 2257, refused 1201, not-lowered 132, lsp-gap 22, diverges 4, unaskable 61; edges agree 2356 /
+      disagree 0 / not-run 99). `bun test` 6689 pass / 34 skip / 177 todo / 0 fail (6900 tests, 195 files, 249 s, rustc
+      cache on); agreement CODESYS 3376, TwinCAT 3316 (3677 fixtures, = floors). `bun run check` 14 passed, 0 failed;
+      `bun run lint` exit 0 (warnings only). volt-cli untouched by 2.5b (no dotnet run).
 - [ ] 2.6.1 Assignment forms (ST1–ST5): record stmt_s_eq_no_space, stmt_ref_eq_on_non_reference.
       Where: parse/statements, lex/lexer (S=/R=/REF=). Acceptance: CA. Depends on: 2.5.6
 - [ ] 2.6.2 IF and CASE labels (ST6–ST10): record stmt_case_typed_label, stmt_case_paren_label, stmt_case_const_expr_label,

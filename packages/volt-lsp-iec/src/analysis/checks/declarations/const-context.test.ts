@@ -58,3 +58,16 @@ END_VAR`)).toEqual(["String length 'n' is no constant value"])
 VAR str:STRING(N); w:WSTRING(N); END_VAR`)).toEqual([])
   expect(strlen(`VAR str:STRING(2+3); END_VAR`)).toEqual([])
 })
+
+// A mutable global read through the global-namespace dot is no constant either: "Initialisation of constant variable 'k'
+// not constant" (`expr_global_namespace_variable_in_constant`, both vendors 2026-10-02) — `constancyOf` had no case for
+// `.g` and answered "unknown"; a CONSTANT global through the dot stays quiet.
+test("C0227: a VAR CONSTANT initialised from `.g` — a variable global flagged, a constant one not (expr_global_namespace_variable_in_constant, E33)", () => {
+  const src = `VAR_GLOBAL\ngInit : INT;\nEND_VAR\nVAR_GLOBAL CONSTANT\ngConst : INT := 3;\nEND_VAR\nFUNCTION_BLOCK F\nVAR CONSTANT\nk : INT := .gInit;\nkc : INT := .gConst;\nEND_VAR\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "const-init-non-const")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["Initialisation of constant variable 'k' not constant"])
+})

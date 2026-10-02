@@ -14,11 +14,12 @@ import { EMPTY_WORKSPACE_REFS } from "../../src/analysis/index.js"
 import { parseSource, type Dialect } from "../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../src/frontend/symbols/index.js"
 import { loadWorkspaceRefs, scanLibraryManifests } from "../../src/workspace-refs.js"
-import { withDependencies } from "../conformance/support/fixture-units.js"
+import { splitLists, withDependencies } from "../conformance/support/fixture-units.js"
 import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS } from "../conformance/support/project-libraries.js"
 import { ALL_TESTS } from "../conformance/fixtures/index.js"
 import { parse, type Bound, type Parsed } from "./dumps.js"
 import { fixtureUri, libraryRepoFiles, type CorpusProject, type FixtureSources } from "./sources.js"
+import type { LanguageTest } from "../conformance/types.js"
 
 /** Every file of a corpus project, parsed and bound together. */
 export function boundCorpus(p: CorpusProject): Bound[] {
@@ -46,6 +47,10 @@ function fixtureBase(vendor: Dialect): Scope {
 /**
  * Visit one fixture bound as the replay binds it for `vendor`: its own item and PLC_PRG, parsed as that vendor, and
  * every fixture it depends on, on top of the libraries. The binding is undone after `visit`, whatever it throws.
+ *
+ * A fixture's GLOBAL LISTS are objects of their own (`fixture-units` `splitLists`), bound as the replay binds them and
+ * handed to `visit` beside the dependencies, which are not counted: a list's declarations have no scope in the census
+ * (`dumps.ts` `sites`), so their rows were NOSCOPE, never a measurement.
  */
 export function withBoundFixture<T>(
   f: FixtureSources,
@@ -53,17 +58,20 @@ export function withBoundFixture<T>(
   visit: (own: Bound, plc: Bound, deps: readonly Bound[]) => T,
 ): T {
   const project = fixtureBase(vendor)
-  const own = parse(f.own, vendor)
+  const { item: own, lists } = named(f.test, parse(f.own, vendor))
   const plc = parse(f.plc, vendor)
   const deps: Parsed[] = withDependencies(f.test, ALL_TESTS)
     .filter((d) => d.name !== f.test.name && d.source !== "")
-    .map((d) => parse({ id: d.name, uri: fixtureUri(d), source: d.source }, vendor))
-  const files = [own, plc, ...deps]
+    .flatMap((d) => {
+      const split = named(d, parse({ id: d.name, uri: fixtureUri(d), source: d.source }, vendor))
+      return [split.item, ...split.lists]
+    })
+  const files = [own, plc, ...lists, ...deps]
   for (const file of files) build.bindFile(project, file)
   build.relink(project, PROJECT_MANIFESTS)
   try {
     const bound = (parsed: Parsed): Bound => ({ parsed, project, refs: EMPTY_WORKSPACE_REFS })
-    return visit(bound(own), bound(plc), deps.map(bound))
+    return visit(bound(own), bound(plc), [...lists, ...deps].map(bound))
   } finally {
     for (const file of files) build.unbindFile(project, file.uri)
     build.relink(project, PROJECT_MANIFESTS)
@@ -91,4 +99,10 @@ export function boundLibrary(): Bound[] {
     if (at === undefined) throw new Error(`${r.id} is not among the bodies the fixture project resolves`)
     return { parsed: { ...at, id: r.id }, project, refs: EMPTY_WORKSPACE_REFS }
   })
+}
+
+/** `splitLists`, each list's id its object's. */
+function named(t: LanguageTest, parsed: Parsed): { item: Parsed; lists: Parsed[] } {
+  const { item, lists } = splitLists(t, parsed)
+  return { item, lists: lists.map((l) => ({ ...l, id: `fixture/${t.name}/${l.uri.slice(l.uri.lastIndexOf("/") + 1)}` })) }
 }

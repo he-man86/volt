@@ -1,6 +1,5 @@
 /**
- * THE EXPRESSIONS, RULE BY RULE — design.md §4 2.5 of openspec `frontend-conformance` (E1–E23, E28, E31, E32; tasks
- * 2.5.1–2.5.5), each rule put to the vendor by fixtures of its own: `record:language` for accept/refuse and the vendor's
+ * THE EXPRESSIONS, RULE BY RULE — design.md §4 2.5 of openspec `frontend-conformance` (E1–E34; tasks 2.5.1–2.5.6), each rule put to the vendor by fixtures of its own: `record:language` for accept/refuse and the vendor's
  * words, `record:exec` for the VALUE an expression computes (every fixture below that builds copies its expression into
  * `out`, a variable of the FB, so the run recording holds `inst_<name>.out`). Rows already decided by a recorded fixture
  * elsewhere keep those fixtures; what is here is the cells that separate a rule's readings — for a precedence or an
@@ -59,6 +58,46 @@ function box(name: string): string {
 /** `fb` reading member `member` of a `DUT_LANG_<name>` box: `out := bx.<member>;`. */
 function member(name: string, feature: string, memberText: string): LanguageTest {
   return fb(name, feature, `\tbx : DUT_LANG_${name};\n\tout : INT;`, `out := bx.${memberText};`, box(name))
+}
+
+/** A function block `FB_LANG_<name>` written whole by the caller (`source`, its methods after it). */
+function fbSource(name: string, feature: string, source: string, extra: Partial<LanguageTest> = {}): LanguageTest {
+  const pouName = `FB_LANG_${name}`
+  return {
+    name,
+    pouName,
+    kind: "function_block",
+    feature,
+    fromDoc: doc,
+    plcPrgVar: `inst_${name} : ${pouName};`,
+    plcPrgBody: `inst_${name}();`,
+    source,
+    ...extra,
+  }
+}
+
+/** `fb` with a global variable list `GVL_LANG_<name>` holding `globals` ahead of it (and `before` between them). */
+function withGlobals(name: string, feature: string, globals: string, vars: string, body: string, before = ""): LanguageTest {
+  return {
+    ...fb(name, feature, vars, body, `VAR_GLOBAL
+${globals}
+END_VAR
+
+${before}`),
+    gvlNames: [`GVL_LANG_${name}`],
+  }
+}
+
+/** `fb` reading `gAmb`, which two global lists `GVL_LANG_<name>_a` and `_b` declare, a STRUCT between them. */
+function twoLists(name: string, feature: string, body: string): LanguageTest {
+  const list = "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n\n"
+  return { ...fb(name, feature, "\tout : INT;", body, list + box(name) + list), gvlNames: [`GVL_LANG_${name}_a`, `GVL_LANG_${name}_b`] }
+}
+
+/** `withGlobals` whose list is `VAR_GLOBAL CONSTANT`. */
+function withConstGlobals(name: string, feature: string, globals: string, vars: string, body: string, before = ""): LanguageTest {
+  const t = withGlobals(name, feature, globals, vars, body, before)
+  return { ...t, source: t.source.replace(/^VAR_GLOBAL\n/, "VAR_GLOBAL CONSTANT\n") }
 }
 
 export const EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
@@ -246,4 +285,133 @@ export const EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
     "\ta : INT := 3;\n\tout : INT;", "CASE a OF\n1: out := 1;\na + 1: out := 2;\nEND_CASE"),
   fb("stmt_case_arm_missing_semicolon", "ST8/ST13 — a missing `;` before the next CASE arm",
     "\ta : INT := 2;\n\tout : INT;", "CASE a OF\n1: out := 2\n2: out := 3;\nEND_CASE"),
+
+  // ─── E24 parentheses: a grouping against the precedence, nested, and empty ────────────────────────────────────────
+  // (a + b) * c = 20; a + b * c = 14
+  ints("expr_paren_overrides_precedence", "E24 — parentheses against the precedence: `(a + b) * c`", [2, 3, 4], "(a + b) * c"),
+  ints("expr_paren_nested", "E24 — parentheses twice: `((a + b)) * c`", [2, 3, 4], "((a + b)) * c"),
+  fb("expr_paren_empty", "E24 — empty parentheses: `()`", "\tout : INT;", "out := ();"),
+
+  // ─── E25 an inline assignment `(x := v)`: its value, nested ───────────────────────────────────────────────────────
+  // a := 4, out := 8
+  fb("expr_inline_assign_value", "E25 — an inline assignment's value in an operand: `(a := b + 1) * 2`",
+    "\ta : INT;\n\tb : INT := 3;\n\tout : INT;", "out := (a := b + INT#1) * INT#2;"),
+  fb("expr_inline_assign_nested", "E25 — an inline assignment inside an inline assignment: `(a := (b := 3))`",
+    "\ta : INT;\n\tb : INT;\n\tout : INT;", "out := (a := (b := INT#3));"),
+
+  // ─── E26 an inline assignment WITHOUT parentheses as a statement's condition (or selector) ─────────────────────────
+  fb("expr_inline_assign_if_condition", "E26 — an inline assignment as an IF condition: `IF x := b THEN`",
+    "\tx : BOOL;\n\tb : BOOL := TRUE;\n\tout : INT;", "IF x := b THEN\n\tout := 1;\nEND_IF"),
+  fb("expr_inline_assign_elsif_condition", "E26 — an inline assignment as an ELSIF condition: `ELSIF x := b THEN`",
+    "\tx : BOOL;\n\tb : BOOL := TRUE;\n\tn : INT;\n\tout : INT;", "IF n > INT#5 THEN\n\tout := 1;\nELSIF x := b THEN\n\tout := 2;\nEND_IF"),
+  // three passes: out = 3, ok FALSE
+  fb("expr_inline_assign_while_condition", "E26 — an inline assignment as a WHILE condition: `WHILE ok := (n < 3) DO`",
+    "\tok : BOOL;\n\tn : INT;\n\tout : INT;", "WHILE ok := (n < INT#3) DO\n\tn := n + INT#1;\nEND_WHILE\nout := n;"),
+  fb("expr_inline_assign_repeat_condition", "E26 — an inline assignment as a REPEAT condition: `UNTIL done := (n >= 3)`",
+    "\tdone : BOOL;\n\tn : INT;\n\tout : INT;", "REPEAT\n\tn := n + INT#1;\nUNTIL done := (n >= INT#3)\nEND_REPEAT\nout := n;"),
+  fb("expr_inline_assign_case_selector", "E26 — an inline assignment as a CASE selector: `CASE a := b OF`",
+    "\ta : INT;\n\tb : INT := 2;\n\tout : INT;", "CASE a := b OF\n2: out := 1;\nEND_CASE"),
+  // …and as a FOR loop's bound (the one statement expression left)
+  fb("expr_inline_assign_for_bound", "E26 — an inline assignment as a FOR bound: `FOR i := 1 TO m := 3 DO`",
+    "\ti : INT;\n\tm : INT;\n\tout : INT;", "FOR i := INT#1 TO m := INT#3 DO\n\tout := out + i;\nEND_FOR"),
+  // …and as its start value, after the control variable's own `:=`
+  fb("expr_inline_assign_for_start", "E26 — an inline assignment as a FOR start value: `FOR i := m := 1 TO 3 DO`",
+    "\ti : INT;\n\tm : INT;\n\tout : INT;", "FOR i := m := INT#1 TO INT#3 DO\n\tout := out + i;\nEND_FOR"),
+  // …and as an index, where no statement holds it (is `:=` an operator of every expression, or of a condition's?)
+  fb("expr_inline_assign_index", "E26 — an inline assignment as an index: `arr[i := 2]`",
+    "\tarr : ARRAY[1..3] OF INT := [4, 5, 6];\n\ti : INT;\n\tout : INT;", "out := arr[i := INT#2];"),
+  // …and unparenthesised after a binary operator (the statement's own `:=` stands before it)
+  {
+    ...fb("expr_inline_assign_operand", "E26 — an inline assignment as a binary operator's right operand: `1 + a := 2`",
+      "\ta : INT;\n\tout : INT;", "out := 1 + a := 2;"),
+    deferred: {
+      lsp: "both vendors \"'(INT#1 + a)' is no valid assignment target\": the statement is a CHAIN whose inner target `1 + a` is no name, which the LSP does not ask — the assignment forms' rule (ST4, task 2.6.1); niche: accepted loss (0 occurrences in the corpora) (2026-10-02)",
+    },
+  },
+
+  // ─── E27 THIS and SUPER: with and without the `^`, where there is no base, outside a function block ───────────────
+  fb("expr_this_deref_member_in_body", "E27 — `THIS^.v` in a function block's own body", "\tv : INT := 4;\n\tout : INT;",
+    "out := THIS^.v;"),
+  fb("expr_this_member_without_deref", "E27 — THIS without its `^`: `THIS.v`", "\tv : INT := 4;\n\tout : INT;", "out := THIS.v;"),
+  fb("expr_this_as_pointer", "E27 — THIS as a pointer value: `p := THIS`",
+    "\tp : POINTER TO FB_LANG_expr_this_as_pointer;\n\tv : INT := 4;\n\tout : INT;", "p := THIS;\nout := p^.v;"),
+  fbSource("expr_super_without_deref", "E27 — SUPER without its `^`: `SUPER.Get()`",
+    "FUNCTION_BLOCK FB_LANG_expr_super_without_deref_base\nEND_FUNCTION_BLOCK\n\nMETHOD Get : INT\nGet := 4;\nEND_METHOD\n\n" +
+      "FUNCTION_BLOCK FB_LANG_expr_super_without_deref EXTENDS FB_LANG_expr_super_without_deref_base\nVAR\n\tout : INT;\nEND_VAR\nout := SUPER.Get();\nEND_FUNCTION_BLOCK\n"),
+  fbSource("expr_super_deref_call", "E27 — `SUPER^.Get()` from the derived function block's body",
+    "FUNCTION_BLOCK FB_LANG_expr_super_deref_call_base\nEND_FUNCTION_BLOCK\n\nMETHOD Get : INT\nGet := 4;\nEND_METHOD\n\n" +
+      "FUNCTION_BLOCK FB_LANG_expr_super_deref_call EXTENDS FB_LANG_expr_super_deref_call_base\nVAR\n\tout : INT;\nEND_VAR\nout := SUPER^.Get();\nEND_FUNCTION_BLOCK\n"),
+  fb("expr_super_without_base", "E27 — `SUPER^` in a function block that extends nothing", "\tout : INT;",
+    "out := SUPER^.Get();"),
+  fb("expr_super_without_deref_without_base", "E27 — `SUPER.Get()` (no `^`) in a function block that extends nothing",
+    "\tout : INT;", "out := SUPER.Get();"),
+  fb("expr_this_in_function", "E27 — `THIS^` in a FUNCTION", "\tout : INT;", "out := FUN_LANG_expr_this_in_function();",
+    "FUNCTION FUN_LANG_expr_this_in_function : INT\nVAR\n\tv : INT := 4;\nEND_VAR\nFUN_LANG_expr_this_in_function := THIS^.v;\nEND_FUNCTION\n\n"),
+
+  // ─── E33 the global-namespace operator: a leading `.` ─────────────────────────────────────────────────────────────
+  withGlobals("expr_global_namespace_dot", "E33 — a leading dot names the global: `.gDot`", "\tgDot : INT;",
+    "\tout : INT;", "out := .gDot;"),
+  // out = 0 (the global), not 3 (the local)
+  withGlobals("expr_global_namespace_shadowed_local", "E33 — `.gShadow` past a local of the same name",
+    "\tgShadow : INT;", "\tgShadow : INT := 3;\n\tout : INT;", "out := .gShadow;"),
+  withGlobals("expr_global_namespace_assign_target", "E33 — a leading dot as a statement's assignment target: `.gTarget := 5;`",
+    "\tgTarget : INT;", "\tgTarget : INT := 3;\n\tout : INT;", ".gTarget := 5;\nout := .gTarget + gTarget;"),
+  withGlobals("expr_global_namespace_member", "E33 — a member after a leading dot: `.gBox.v`",
+    "\tgBox : DUT_LANG_expr_global_namespace_member;", "\tout : INT;", "out := .gBox.v;", box("expr_global_namespace_member")),
+  fb("expr_global_namespace_undefined", "E33 — a leading dot before a name nothing declares: `.nope`", "\tout : INT;",
+    "out := .nope;"),
+  fb("expr_global_namespace_local_only", "E33 — a leading dot before a name only a local declares: `.loc`",
+    "\tloc : INT := 3;\n\tout : INT;", "out := .loc;"),
+  fb("expr_global_namespace_function_call", "E33 — a leading dot before a FUNCTION's call: `.F(a, b)`",
+    "\ta : INT := 1;\n\tb : INT := 2;\n\tout : INT;", "out := .FUN_LANG_expr_global_namespace_function_call(a, b);",
+    adder("expr_global_namespace_function_call")),
+  withGlobals("expr_global_namespace_space", "E33 — a leading dot apart from its name: `. gSpace`", "\tgSpace : INT;",
+    "\tout : INT;", "out := . gSpace;"),
+  // …as a constant global the statement writes, a global two lists declare, one called, one in a constant's initializer
+  withConstGlobals("expr_global_namespace_constant_target", "E33 — a CONSTANT global written through a leading dot: `.gcTarget := 5;`",
+    "\tgcTarget : INT := 7;", "\tout : INT;", ".gcTarget := 5;\nout := .gcTarget;"),
+  // …two lists are two OBJECTS only with a unit between them: back to back, two VAR_GLOBAL blocks are one list's sections
+  twoLists("expr_global_namespace_ambiguous", "E33 — a leading dot before a global two lists declare: `.gAmb`", "out := .gAmb;"),
+  twoLists("expr_global_namespace_ambiguous_bare", "E33 — the bare name of a global two lists declare: `gAmb`", "out := gAmb;"),
+  withGlobals("expr_global_namespace_call_non_callable", "E33 — a leading dot before a variable called: `.gCall(1)`",
+    "\tgCall : INT;", "\tout : INT;", "out := .gCall(1);"),
+  withGlobals("expr_global_namespace_variable_in_constant", "E33 — a leading dot before a variable in a CONSTANT's initializer",
+    "\tgInit : INT;", "\tout : INT;\nEND_VAR\nVAR CONSTANT\n\tk : INT := .gInit;", "out := k;"),
+  // …and in a DECLARATION: the corpora's only form (26), an array bound written `1...X` — `..` then `.X`
+  // out = 6 — the array holds its three values, the third read (UPPER_BOUND is no probe: TwinCAT refuses it on a fixed array)
+  withConstGlobals("expr_global_namespace_array_bound", "E33 — an array bound through the global namespace: `ARRAY[1...gnBound]`",
+    "\tgnBound : INT := 3;", "\ta : ARRAY[1...gnBound] OF INT := [4, 5, 6];\n\tout : INT;", "out := a[3];"),
+  withConstGlobals("expr_global_namespace_array_bound_index", "E33 — an index past an array bound written `1...gnIndex`: `a[4]`",
+    "\tgnIndex : INT := 3;", "\ta : ARRAY[1...gnIndex] OF INT;\n\tout : INT;", "out := a[4];"),
+  // out = 6
+  withConstGlobals("expr_global_namespace_qualified_bound", "E33 — an array bound through a list: `ARRAY[1...GVL.gqBound]`",
+    "\tgqBound : INT := 3;",
+    "\ta : ARRAY[1...GVL_LANG_expr_global_namespace_qualified_bound.gqBound] OF INT := [4, 5, 6];\n\tout : INT;",
+    "out := a[3];"),
+  // out = 6
+  fb("expr_global_namespace_enum_bound", "E33 — enum bounds `ARRAY[E.Up...E.Left]` (pro2193's `CassetteDefinition`)",
+    "\ta : ARRAY[E_LANG_expr_global_namespace_enum_bound.Up...E_LANG_expr_global_namespace_enum_bound.Left] OF INT := [4, 5, 6];\n\tout : INT;",
+    "out := a[2];",
+    "TYPE E_LANG_expr_global_namespace_enum_bound :\n(\n\tUp := 0,\n\tDown := 1,\n\tLeft := 2\n);\nEND_TYPE\n\n"),
+
+  // ─── E34 the pool qualifier `__POOL.` ─────────────────────────────────────────────────────────────────────────────
+  // …each fixture's objects live in the APPLICATION, not the POUs view the qualifier names
+  {
+    ...fb("expr_pool_qualified_call", "E34 — `__POOL.F(a, b)`: a FUNCTION of the application through the pool qualifier",
+      "\ta : INT := 1;\n\tb : INT := 2;\n\tout : INT;", "out := __POOL.FUN_LANG_expr_pool_qualified_call(a, b);",
+      adder("expr_pool_qualified_call")),
+    deferred: {
+      lsp: "both vendors \"Identifier 'FUN_LANG_expr_pool_qualified_call' not defined\": `__POOL.X` looks in the POUs view only, which the workspace does not model; niche: accepted loss (0 occurrences of `__POOL` in the corpora) (2026-10-02)",
+    },
+  },
+  {
+    ...withGlobals("expr_pool_qualified_global", "E34 — `__POOL.gPool`: a global variable through the pool qualifier",
+      "\tgPool : INT := 7;", "\tout : INT;", "out := __POOL.gPool;"),
+    deferred: {
+      lsp: "both vendors \"Identifier 'gPool' not defined\": `__POOL.X` looks in the POUs view only, which the workspace does not model; niche: accepted loss (0 occurrences of `__POOL` in the corpora) (2026-10-02)",
+    },
+  },
+  fb("expr_pool_qualified_fb_type", "E34 — `__POOL.FB` as a declared type: `inner : __POOL.FB_x;`",
+    "\tinner : __POOL.FB_LANG_expr_pool_qualified_fb_type_inner;\n\tout : INT;", "inner();\nout := inner.q;",
+    "FUNCTION_BLOCK FB_LANG_expr_pool_qualified_fb_type_inner\nVAR_OUTPUT\n\tq : INT := 4;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n"),
 ]

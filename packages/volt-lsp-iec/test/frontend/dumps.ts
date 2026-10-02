@@ -267,7 +267,9 @@ export function printFindings(p: Parsed): PrintFinding[] {
     // error — the rule the formatter above already follows, for the second printer (0.1 measures the refusal).
     if (refused(e)) continue
     const text = exprText(e)
-    const again = parseExprFromTokens(exprTokens(text, p.dialect))
+    // …in the grammar of its place: an inline assignment printed bare (`IF x := b THEN`, rule E26) is an expression where
+    // a condition, a selector, a bound or an index stands, and nowhere else
+    const again = parseExprFromTokens(exprTokens(text, p.dialect), e.kind === "assign_expr")
     if (again === undefined) out.push({ kind: "expr-reprint-fails", at: at(e.span), detail: text })
     else if (exprText(again) !== text)
       out.push({ kind: "expr-not-fixed", at: at(e.span), detail: `${text} → ${exprText(again)}` })
@@ -407,6 +409,7 @@ export function resolveBare(name: string, scope: Scope | undefined, b: Bound): s
  *   `<at> .<member> -> <binding>`      a member name, through `resolveMemberChain`; `%X0`/`%W1` partial access and a bit
  *                                      number (`x.3`) are named as such and are not looked up
  *   `<at> <param> := -> <binding>`     a named argument's parameter, through the callee `resolveCallee` finds
+ *   `<at> (global) <name> -> <binding>` a `.name` (the global-namespace operator, rule E33), in the project scope only
  */
 export function resolutionDump(b: Bound): string[] {
   const out: string[] = []
@@ -469,6 +472,12 @@ export function resolutionDump(b: Bound): string[] {
         walk(e.target, scope)
         walk(e.value, scope)
         return
+      // `.name`, the global-namespace operator (rule E33): the name in the project scope only
+      case "global_expr": {
+        const sym = scope === undefined ? undefined : resolveMemberChain(e, scope, b.project)
+        out.push(`${at(e.name.span)} (global) ${e.name.name} -> ${scope === undefined ? "NOSCOPE" : sym === undefined ? "NONE" : describe(sym)}`)
+        return
+      }
     }
   }
   for (const s of sites(b)) walk(s.expr, s.scope)

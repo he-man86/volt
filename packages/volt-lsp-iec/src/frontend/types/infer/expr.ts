@@ -6,12 +6,8 @@
  *
  * What a name or a member chain denotes is `member.ts`; a call's callee and its parameters `callee.ts`.
  */
-import { lookup, resolveBareEnumMember, type Scope } from "../../symbols/index.js"
-import type {
-  BinaryExpr,
-  CallExpr,
-  Expr,
-} from "../../syntax/index.js"
+import { isLibrarySymbol, lookup, resolveBareEnumMember, type Scope } from "../../symbols/index.js"
+import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
 import { checkedMeetType, checkedNegationType } from "../arith/checked.js"
 import { temporalResultType } from "../arith/temporal.js"
 import {
@@ -29,7 +25,7 @@ import { elementaryRef, UNKNOWN, type Type } from "../type.js"
 import { canonicalElem } from "../platform.js"
 import { literalType, typedLiteralSum } from "../literal.js"
 import { BITWISE_OPERATORS, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
-import { resolveMemberChain, enumValueType, staticScopeType, thisType } from "./member.js"
+import { resolveMemberChain, enumValueType, staticScopeType, superType, thisType } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
 const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
@@ -43,6 +39,8 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     case "ident_expr": {
       // THIS denotes the enclosing FB instance — resolve to its member scope so `THIS^.field` navigates.
       if (expr.name.toUpperCase() === "THIS") return thisType(scope)
+      // …and SUPER its base's, so `SUPER^.Get()` navigates (rule E27)
+      if (expr.name.toUpperCase() === "SUPER") return superType(scope)
       // `__POSITION` has a value without its parentheses (`builtins.ts` `bareBuiltinType`).
       const bare = bareBuiltinType(expr.name, project.dialect)
       if (bare !== undefined) return bare
@@ -55,11 +53,20 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // Static base: the name denotes a GVL/enum/namespace/POU scope (`E_State.Idle`), not a typed var.
       return staticScopeType(project, expr.name) ?? UNKNOWN
     }
+    case "global_expr": {
+      // `.g` names the global past every local (rule E33): what the project scope holds under the name
+      const sym = resolveMemberChain(expr, scope, project)
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+      return (sym === undefined ? undefined : enumValueType(sym, project)) ?? staticScopeType(project, expr.name.name) ?? UNKNOWN
+    }
     case "member": {
       // CODESYS's PARTIAL ACCESS `d.%W0` is of the part it names: %X a BOOL, %B a BYTE, %W a WORD, %D a DWORD
       // (`operand_partial_*`, `accepts_partial_access`, `expr_partial_access_beside_undefined` build into those)
       const part = PARTIAL_ACCESS.exec(expr.member.name)?.[1]?.toUpperCase()
       if (part !== undefined) return elementaryRef(PARTIAL_ACCESS_TYPE[part]!)
+      // THIS and SUPER without their `^` are the pointers, which have no members: `THIS.v` has no type
+      // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors)
+      if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return UNKNOWN
       const sym = resolveMemberChain(expr, scope, project)
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
       return (sym === undefined ? undefined : enumValueType(sym, project)) ?? UNKNOWN
@@ -100,8 +107,10 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       return binaryResultType(expr, scope, project)
     case "paren":
       return inferExprType(expr.inner, scope, project)
+    // an inline assignment is worth what its TARGET then holds: `(a := b + INT#1) * INT#2` runs a * 2
+    // (`expr_inline_assign_value`), and an untyped literal stored there is the target's type (`(b := 3)`)
     case "assign_expr":
-      return inferExprType(expr.value, scope, project)
+      return inferExprType(expr.target, scope, project)
   }
 }
 
@@ -155,10 +164,26 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
 /** The value functions whose result is the meet of their arguments — measured for these two only. */
 const SELECTS_BY_MEET: ReadonlySet<string> = new Set(["MIN", "MAX"])
 
+/** The symbols that hold a value — a call of one calls what its type is. */
+const VALUE_SYMBOLS: ReadonlySet<string> = new Set(["var", "gvl_var", "struct_field", "method_param"])
+/** The types a value can have that are no call target. */
+const NOT_CALLABLE: ReadonlySet<string> = new Set(["elementary", "enum", "struct", "array"])
+
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
-  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+  if (sym?.typeExpr !== undefined) {
+    const declared = resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+    // a VALUE that is no call target has no result: `.gCall(1)` over an INT is "Unknown type: '.gCall(1)'" on both
+    // vendors (`expr_global_namespace_call_non_callable`). A reference or pointer is judged by its target, as
+    // `analysis/checks/calls/non-callable-call` judges it — a REFERENCE TO an FB is called (`xo_reference_to_fb_call`).
+    // A CONSTANT is not asked: "called" in an aggregate it is a repeat count, `[L_UM1P_Internal.c_MaxTask(-1)]` (a
+    // lenze library), which the parser reads as a call — its value is the element's, not nothing. Nor is a library's
+    // value, whose declaration may be partial (that list's CONSTANT is not in its signature).
+    const target = declared.kind === "pointer" || declared.kind === "reference" ? declared.target : declared
+    if (VALUE_SYMBOLS.has(sym.kind) && sym.constant !== true && !isLibrarySymbol(sym) && NOT_CALLABLE.has(target.kind)) return UNKNOWN
+    return declared
+  }
   // An element of an array of instances, called (`inst[0]()`), is the instance `inst()` is — typed alike, by the type
   // the element has; it has no symbol of its own to carry one.
   if (call.callee.kind === "index") {

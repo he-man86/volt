@@ -19,6 +19,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type BodySpan } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, lookupLocal } from "../../../frontend/symbols/index.js"
+import { resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { unresolvedInExprs, unresolvedMembers } from "../../resolution.js"
@@ -59,6 +60,13 @@ export function checkUnresolvedIdentifiers(ctx: CheckContext, out: DiagnosticIte
             message: ctx.messages.callTargetExpected(ref.name),
           })
       }
+      // `.name`, the global-namespace operator: the GLOBAL namespace only, so a local of the name does not answer it
+      // (rule E33, `GlobalExpr`; `expr_global_namespace_undefined`, `_local_only`, both vendors 2026-10-02)
+      for (const e of exprs)
+        walkExpr(e, (x) => {
+          if (x.kind !== "global_expr" || resolveMemberChain(x, scope, ctx.project) !== undefined) return
+          out.push({ severity: "error", span: x.span, source: SOURCE, code: "unresolved-identifier", message: ctx.messages.noGlobalDefinition(x.name.name) })
+        })
       for (const ref of unresolvedMembers(exprs, scope, ctx.project)) {
         out.push({
           severity: "error",

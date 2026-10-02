@@ -112,7 +112,8 @@ export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set([
  * (task 2.5.6), which this recording is evidence for. `__POOL` as a bare OPERAND (`n := __pool;`) is the same rule:
  * CODESYS "Identifier expected instead of ''", TwinCAT "Expression expected instead of ''", and the LSP reads a name.
  * NICHE: ACCEPTED LOSS (0 occurrences in the corpora — neither word appears in any of the six, in any position; owner
- * triage 2026-09-30). They stay pinned here, and leave only if task 2.5.6 fixes them on the way.
+ * triage 2026-09-30). Task 2.5.6 (2026-10-02) asked `__POOL` where it qualifies a name (`expr_pool_qualified_*`, pinned
+ * with the expressions below): a lookup in the POUs view, which the workspace does not model — they stay pinned.
  */
 const SYSTEM_OPERAND_AT_STATEMENT_START: readonly string[] = [
   "lex_keyword_assigned_sys_currenttask",
@@ -234,6 +235,23 @@ const TWINCAT_VECTOR_REFUSAL_CASCADE: readonly string[] = ["lex_vector_twincat_r
  *   `stmt_case_nonconst_label` — the LSP gives every message but "'(a + 1);' is no valid statement", the bare-expression
  *                            rule's (ST5, task 2.6.1), as after `lex_cascade_meets_soft_name_*`. Missing-only; niche:
  *                            accepted loss (0 occurrences in the corpora).
+ *   `expr_pool_qualified_call`, `expr_pool_qualified_global`, `expr_pool_qualified_fb_type` — `__POOL.X` (rule E34,
+ *                            task 2.5.6, 2026-10-02) looks X up in the POUs VIEW only, and an object of the APPLICATION
+ *                            is not there: `__POOL.F(a, b)` is "Identifier 'F' not defined", the call-target and the
+ *                            conversion messages (TwinCAT adds "Identifier 'a'/'b' not defined"), `__POOL.gPool` the same
+ *                            for a global — yet `inner : __POOL.FB_x;` as a declared TYPE builds on both. The workspace
+ *                            does not say which view an object lives in, so the LSP reads `__POOL.X` as X's member
+ *                            access (silent) and refuses the type at parse. Niche: accepted loss (0 occurrences of
+ *                            `__POOL` in the corpora, in any position).
+ *   `expr_inline_assign_operand` — `out := 1 + a := 2;` is a CHAIN whose inner target is `1 + a`: "'(INT#1 + a)' is no
+ *                            valid assignment target" on both vendors, where the LSP takes the chain without asking what
+ *                            its inner target is — the assignment forms' rule (ST4, task 2.6.1). Missing-only; niche:
+ *                            accepted loss (0 occurrences in the corpora: a chain's every target there is a name).
+ *   `expr_global_namespace_ambiguous_bare` — a bare `gAmb` two lists declare is "Ambiguous use of name 'gAmb'" AND
+ *                            "Identifier 'gAmb' not defined" and the conversion of the hole on both vendors (2026-10-02):
+ *                            the name resolves to nothing. The LSP says the first (`names/ambiguous-global`) and resolves
+ *                            the name to the first list's, so it types it — the `.gAmb` beside it agrees (`lookupGlobal`).
+ *                            Missing-only; niche: accepted loss (0 occurrences in the corpora, which build).
  */
 const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
   "expr_trailing_comma_conversion_call",
@@ -244,6 +262,11 @@ const EXPRESSION_NICHE_DIVERGENCES: readonly string[] = [
   "stmt_case_const_expr_label",
   "stmt_case_paren_label",
   "stmt_case_nonconst_label",
+  "expr_pool_qualified_call",
+  "expr_pool_qualified_global",
+  "expr_pool_qualified_fb_type",
+  "expr_inline_assign_operand",
+  "expr_global_namespace_ambiguous_bare",
 ]
 
 const LITERAL_FOLLOW_ON_RULES: readonly string[] = [

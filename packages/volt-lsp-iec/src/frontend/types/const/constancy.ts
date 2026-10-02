@@ -2,7 +2,7 @@
  * CONSTANCY — whether an expression is a compile-time constant, a variable, or undecidable, and which symbols are
  * compile-time constants at all. The VALUE of a constant is `fold.ts`'s.
  */
-import { isLibrarySymbol, lookup, type Scope, type Symbol } from "../../symbols/index.js"
+import { isLibrarySymbol, lookup, lookupGlobal, rootOf, type Scope, type Symbol } from "../../symbols/index.js"
 import type { Expr } from "../../syntax/index.js"
 
 /**
@@ -29,19 +29,23 @@ export function constancyOf(expr: Expr, scope: Scope): Constancy {
       if (l === "variable" || r === "variable") return "variable"
       return l === "constant" && r === "constant" ? "constant" : "unknown"
     }
-    case "ident_expr": {
-      const found = lookup(scope, expr.name)
-      if (found === undefined) return "unknown" // unresolved — could be a library constant or a typo
-      const sym = found.symbol
-      if (isLibrarySymbol(sym)) return "unknown" // library symbol — may be a constant we can't see (normalizes %20)
-      if (sym.kind === "enum_value" || sym.constant === true) return "constant"
-      if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var")
-        return "variable"
-      return "unknown" // a function/type/namespace name is not a value in this position
-    }
+    case "ident_expr":
+      return symbolConstancy(lookup(scope, expr.name)?.symbol)
+    // `.g` — the global namespace only, every local passed over (rule E33; `expr_global_namespace_variable_in_constant`)
+    case "global_expr":
+      return symbolConstancy(lookupGlobal(rootOf(scope), expr.name.name))
     default:
       return "unknown" // member / index / call / deref — undecidable
   }
+}
+
+/** The constancy of the symbol a name resolved to. */
+function symbolConstancy(sym: Symbol | undefined): Constancy {
+  if (sym === undefined) return "unknown" // unresolved — could be a library constant or a typo
+  if (isLibrarySymbol(sym)) return "unknown" // library symbol — may be a constant we can't see (normalizes %20)
+  if (sym.kind === "enum_value" || sym.constant === true) return "constant"
+  if (sym.kind === "var" || sym.kind === "method_param" || sym.kind === "struct_field" || sym.kind === "gvl_var") return "variable"
+  return "unknown" // a function/type/namespace name is not a value in this position
 }
 
 /**

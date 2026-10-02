@@ -1,17 +1,14 @@
 {
   "counts": {
-    "corpus: expr-reprint-fails": 3,
     "corpus: files": 29170,
-    "corpus: files not a fixed point": 3,
-    "fixtures: files": 7270,
+    "corpus: files not a fixed point": 0,
+    "fixtures: files": 7354,
     "fixtures: files not a fixed point": 3,
     "fixtures: format-ast-changed": 3,
-    "library: files": 50
+    "library: files": 50,
+    "library: files not a fixed point": 0
   },
   "findings": [
-    "corpus/pro2193/Device/Plc Logic/Application/02 Processes/21 SER/2120 - Transfer Control/Products/TransferProducts_ChainToZFB.fb expr-reprint-fails 166:5 result[1] := zUnit.GetProducts(data)",
-    "corpus/pro2193/Device/Plc Logic/Application/02 Processes/21 SER/2130 - Chain Control/ChainControlFB.fb expr-reprint-fails 385:3 result := transferRejects.ExecuteTransfer()",
-    "corpus/pro2193/Device/Plc Logic/Application/03 Hardware Units/31 SER/31.03 - Sticker Units/StickerUnits.prg expr-reprint-fails 47:5 debuggingResult := Unit[1].ApplySticker()",
     "fixture/cc2_var_in_interface/FB_C2_itfUser.fb format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
     "fixture/hdr_interface_var_input/ITF_LANG_hdr_var_input.itf format-ast-changed - @286: \"ut\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ut\\\"},\\\"properties\\\":[]},{\\\"body\\\":{\\\"kind\\\":\\\"body\\\",\\\"i…",
     "fixture/itf_var_section_declaration/ITF_IV_withVar.itf format-ast-changed - @280: \"ar\\\"},\\\"properties\\\":[],\\\"strayVarSections\\\":[{\\\"decls\\\":[{\\\"kind\\\":\\\"\" vs \"ar\\\"},\\\"properties\\\":[]}]\""

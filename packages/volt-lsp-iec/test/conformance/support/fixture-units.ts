@@ -346,14 +346,64 @@ function pragmasBefore(source: string, from: number, to: number): string {
  * to its own object on the wire and `lowerSource` reads globals from the files it is handed, not from the main text.
  * `plcPrgSource` goes last: it is what makes the fixture's POU reachable, and CODESYS only compiles what the
  * application reaches.
+ *
+ * …and so is a list a fixture holds BESIDE its POU (`gvlNames`): its own object, named as the push names it. Left in the
+ * main text it had no name, so `ARRAY[1...GVL.c]` sized nothing (`expr_global_namespace_qualified_bound`, frontend-
+ * conformance 2.5b).
  */
 export function assembleFixture(
   t: LanguageTest,
   all: readonly LanguageTest[],
 ): { source: string; gvls: { uri: string; source: string }[] } {
   const fixtures = withDependencies(t, all).filter((f) => f.source !== "")
+  const split = fixtures.filter((f) => f.kind !== "gvl").map(withoutLists)
   return {
-    source: [...fixtures.filter((f) => f.kind !== "gvl").map((f) => f.source), plcPrgSource(t)].join("\n"),
-    gvls: fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source })),
+    source: [...split.map((f) => f.source), plcPrgSource(t)].join("\n"),
+    gvls: [
+      ...fixtures.filter((f) => f.kind === "gvl").map((f) => ({ uri: `${f.pouName}.gvl`, source: f.source })),
+      ...split.flatMap((f) => f.lists),
+    ],
   }
+}
+
+/**
+ * A FIXTURE'S LISTS ARE OBJECTS OF THEIR OWN. A fixture holding a POU and the global lists it reads names each list
+ * (`gvlNames`, in order), and the push sends each as one object under that name — a list's name is its object's
+ * (`symbols/binder` `gvlName`). Bound inside the fixture's file, every list was named after the FILE, so `GVL.c` and
+ * `.GVL.c` reached nothing the vendor reaches, and two lists were one: `.gAmb` declared by both answered as if one did
+ * (`expr_global_namespace_qualified_bound`, `expr_global_namespace_ambiguous`, frontend-conformance 2.5b).
+ *
+ * The parsed file without its lists, and each list as a file of its own over the SAME source and parse — every span
+ * where it was. A GVL fixture is a list already. A count that does not match the names is the fixture's error, said.
+ */
+export function splitLists<F extends { uri: string; source: string; parseResult: ParseResult }>(
+  t: LanguageTest,
+  file: F,
+): { item: F; lists: F[] } {
+  const names = t.gvlNames
+  if (names === undefined || t.kind === "gvl") return { item: file, lists: [] }
+  const units = file.parseResult.units
+  const lists = units.filter((u) => u.kind === "global_var_list")
+  if (lists.length !== names.length) throw new Error(`${t.name}: ${lists.length} global list(s), ${names.length} gvlNames`)
+  return {
+    item: { ...file, parseResult: { ...file.parseResult, units: units.filter((u) => u.kind !== "global_var_list") } },
+    lists: lists.map((u, i) => ({
+      ...file,
+      uri: `file:///conformance/${names[i]}.gvl`,
+      parseResult: { ...file.parseResult, units: [u], errors: [] },
+    })),
+  }
+}
+
+/** A fixture's text with the lists it names (`gvlNames`) blanked out — lines kept, so spans stay — and each list's object. */
+function withoutLists(f: LanguageTest): { source: string; lists: { uri: string; source: string }[] } {
+  if (f.gvlNames === undefined) return { source: f.source, lists: [] }
+  const lists = fixtureUnits(f).filter((u) => u.kind === "gvl")
+  const spans = parseSource(f.source, { networkText: true }).units.filter((u) => u.kind === "global_var_list").map((u) => u.span)
+  let source = f.source
+  for (const span of [...spans].reverse()) {
+    const end = span.end + (/^\s*END_\w+;?/i.exec(source.slice(span.end))?.[0].length ?? 0)
+    source = source.slice(0, span.start) + source.slice(span.start, end).replace(/[^\n]/g, " ") + source.slice(end)
+  }
+  return { source, lists: lists.map((u) => ({ uri: `${u.name}.gvl`, source: u.declaration })) }
 }

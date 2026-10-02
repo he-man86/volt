@@ -23,6 +23,9 @@ const clip = (s: string): string => (s.length > 140 ? `${s.slice(0, 140)}…` : 
 function census(): Baseline {
   const counts: Record<string, number> = {}
   const findings: string[] = []
+  // a group whose every file came to print to itself counts 0, not a measure gone missing (the corpus, frontend-conformance
+  // 2.5.6: its three bare inline assignments re-parse in the grammar of their place)
+  for (const group of ["corpus", "fixtures", "library"]) counts[`${group}: files not a fixed point`] = 0
   const measure = (group: string, p: Parsed): void => {
     tally(counts, `${group}: files`)
     const found = printFindings(p)

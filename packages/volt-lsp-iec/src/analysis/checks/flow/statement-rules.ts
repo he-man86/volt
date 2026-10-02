@@ -18,7 +18,8 @@ export function checkStatementRules(ctx: CheckContext, out: DiagnosticItem[]): v
     walkStatements(statements, (s) => {
       if (s.kind !== "assign") return
       // C0018 — writing to a constant.
-      if (s.target.kind === "ident_expr" && constancyOf(s.target, scope) === "constant")
+      // …a bare name or one through the global-namespace dot, quoted as written (`expr_global_namespace_constant_target`)
+      if ((s.target.kind === "ident_expr" || s.target.kind === "global_expr") && constancyOf(s.target, scope) === "constant")
         out.push({
           severity: "error",
           span: s.target.span,

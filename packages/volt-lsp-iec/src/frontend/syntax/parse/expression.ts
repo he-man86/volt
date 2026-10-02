@@ -222,7 +222,8 @@ function parsePostfix(cur: Cursor): Expr | undefined {
           cur.pushError(vendorExpressionExpected(next), next.span)
           return undefined
         }
-        const idx = parseExpression(cur)
+        // …an inline assignment among them: `arr[i := 2]` (`expr_inline_assign_index`, both vendors build it, E26)
+        const idx = parseAssignable(cur)
         if (idx === undefined) {
           // a parenthesis left open INSIDE the index (`arr[(1 2)]`): its "')' expected instead of '2'", then the index
           // list's own "',' or ']' expected instead of '2'", which takes the `2` — and the statement resyncs from the
@@ -467,8 +468,22 @@ function parsePrimary(cur: Cursor): Expr | undefined {
     }
     return { kind: "ident_expr", name: t.text, span: t.span }
   }
+  // THE GLOBAL-NAMESPACE OPERATOR, a leading dot: `.gv` (rule E33, `GlobalExpr`) — a space may stand between the two
+  // (`expr_global_namespace_space`, both vendors). Measured before a name only.
+  if (t.kind === "punct" && t.text === "." && cur.peek(1).kind === "identifier") {
+    const dot = cur.consume()
+    const nameTok = cur.consume()
+    const name: IdentExpr = { kind: "ident_expr", name: nameTok.text, span: nameTok.span }
+    return { kind: "global_expr", name, span: joinSpans(dot.span, nameTok.span) }
+  }
   if (t.kind === "punct" && t.text === "(") {
     const open = cur.consume()
+    // `()` is the one "Expression expected instead of ')'" (`expr_paren_empty`, both vendors)
+    const empty = cur.peek()
+    if (empty.kind === "punct" && empty.text === ")") {
+      cur.pushError(vendorExpressionExpected(empty), empty.span)
+      return undefined
+    }
     // Allow an inline assignment `(x := value)` inside the parens (CODESYS).
     const inner = parseAssignable(cur)
     if (inner === undefined) return undefined
@@ -511,14 +526,15 @@ function makeLiteral(literalKind: LiteralKind, tok: Token): Literal {
  * failure never pollutes the caller's error list. Returns the `Expr` only if it consumes
  * every token cleanly; otherwise `undefined` (the caller decides the fallback). Used for
  * structured-but-tolerant bounds (subrange/array-dim) and scalar initializers.
+ * `assignable` reads it as a condition is read (`parseAssignable`): an inline assignment stands bare.
  */
-export function parseExprFromTokens(tokens: readonly Token[]): Expr | undefined {
+export function parseExprFromTokens(tokens: readonly Token[], assignable = false): Expr | undefined {
   if (tokens.length === 0) return undefined
   const first = tokens[0]
   const last = tokens[tokens.length - 1]
   const span = joinSpans(first.span, last.span)
   const eof: Token = { kind: "eof", text: "", span: eofSpan(span) }
   const cur = new Cursor([...tokens, eof])
-  const expr = parseExpression(cur)
+  const expr = assignable ? parseAssignable(cur) : parseExpression(cur)
   return expr !== undefined && cur.atEof() && cur.getErrors().length === 0 ? expr : undefined
 }

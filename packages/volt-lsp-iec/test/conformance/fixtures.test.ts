@@ -48,7 +48,7 @@ import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrPou, type 
 import { lowerCodeKind } from "../../src/transpile/ir/codes.js"
 import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
 import { ALL_TESTS } from "./fixtures/index.js"
-import { assembleFixture, withDependencies } from "./support/fixture-units.js"
+import { assembleFixture, splitLists, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./support/project-libraries.js"
 import { CLIPPY, RUSTC as rustc, skipLintCheck, skipRustSuite } from "./support/rustc.js"
@@ -1284,7 +1284,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 18 -> 19. frontend-conformance 2.5 (2026-10-01): `expr_trailing_comma_conversion_call` — `INT_TO_DINT(a,)` is "')'
   // expected instead of ','" on both vendors (a conversion takes ONE argument), which the parser cannot tell from a user
   // function named like one; niche, accepted (`deferred.lsp`, 0 occurrences in the corpora). A rise for measurement.
-  "lsp-gap": 19,
+  // 19 -> 22. frontend-conformance 2.5.6 (2026-10-02), new questions, no fixture moved: `expr_pool_qualified_call` and
+  // `_global` (`__POOL.X` is a lookup in the POUs view, which the workspace does not model) and `expr_inline_assign_operand`
+  // (a chain's inner target `1 + a`, ST4's) — each niche, accepted (`deferred.lsp`, 0 occurrences in the corpora). A rise
+  // for measurement.
+  "lsp-gap": 22,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1390,7 +1394,16 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // `Standard.TON` — its base has no layout lowering reaches, `layout-base`; 0 qualified library bases in the corpora)
   // and `unit_type_extends_on_union` (a UNION of INT and DINT — `layout-union`, its overlaid bytes unmeasured; the
   // EXTENDS is only the warning's).
-  "not-lowered": 113,
+  // 113 -> 130, FOR MEASUREMENT. frontend-conformance 2.5.6 (2026-10-02) recorded 17 expressions CODESYS builds and runs
+  // that lowering refuses, each the transpiler's and not the front-end's: nine inline assignments (`expr_inline_assign_*`
+  // — `assign_expr` is lowered nowhere, `cp_inline_assignment` is not either), six global-namespace reads, writes and
+  // calls (`expr_global_namespace_*`, the new `global_expr` node: "global_expr is not lowered yet"),
+  // `expr_this_as_pointer` (`p := THIS`) and `expr_pool_qualified_fb_type` (whose `__POOL.` type the parser refuses).
+  // 130 -> 132, FOR MEASUREMENT. The 2.5b review (2026-10-02) recorded two more CODESYS builds and runs that lowering
+  // refuses: `expr_inline_assign_for_start` (`assign_expr`, as above) and `expr_global_namespace_enum_bound` — an array
+  // bounded `E.Up...E.Left` is "not a sized array" (`aggregate-init`), and so it is with `..` and no dot: `constEval`
+  // folds no enum value yet (task 4.6.1; 60-odd enum-bounded arrays in the corpora wait on it).
+  "not-lowered": 132,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1634,7 +1647,16 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3268 -> 3278 (2026-10-02, 2.5a review): the review's cells — a parenthesis left open in an IF/WHILE condition and in
   // an index, a one-operand operator's trailing comma (with its operand count), `&` in ABS, an operator word before a
   // sign, `d.%W0` beside an undefined name, a missing `;` before a CASE arm.
-  { vendor: "twincat", floor: 3278 },
+  // 3278 -> 3306 (2026-10-02, frontend-conformance 2.5.6): the THIS/SUPER, inline-assignment, global-namespace and
+  // parenthesis fixtures (`expr_this_*`, `expr_super_*`, `expr_inline_assign_*`, `expr_global_namespace_*`,
+  // `expr_paren_*`), with a leading-dot primary (`global_expr`), an inline assignment as a CASE selector, a FOR bound and
+  // an index, SUPER typed by its base and refused as the vendors refuse it in a base-less FB (`refuse_super_without_base`
+  // agrees now), and THIS/SUPER without their `^` no structured variable.
+  // 3306 -> 3316 (2026-10-02, 2.5b review): the review's cells — the corpora's `1...X` array bounds (bare, list-qualified,
+  // enum, an index past one), `.g` as a CONSTANT target, called, in a CONSTANT's initializer, declared by two lists,
+  // SUPER.Get() with no base, an inline assignment as a FOR start (`expr_global_namespace_ambiguous_bare` a niche
+  // divergence); a fixture's lists bound as objects of their own (`splitLists`).
+  { vendor: "twincat", floor: 3316 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1756,7 +1778,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3259 -> 3260 (2026-10-01, 2.4.6): `unit_namespace_opening_only` — no word about a text opening with NAMESPACE.
   // 3260 -> 3328 (2026-10-01, frontend-conformance 2.5): the expression fixtures and the parser moves, as on TwinCAT.
   // 3328 -> 3338 (2026-10-02, 2.5a review): the review's cells, as on TwinCAT.
-  { vendor: "codesys", floor: 3338 },
+  // 3338 -> 3366 (2026-10-02, frontend-conformance 2.5.6): the THIS/SUPER, inline-assignment, global-namespace and
+  // parenthesis fixtures, as on TwinCAT.
+  // 3366 -> 3376 (2026-10-02, 2.5b review): the review's cells, as on TwinCAT.
+  { vendor: "codesys", floor: 3376 },
 ]
 
 
@@ -1778,7 +1803,11 @@ const PARSED = ALL_TESTS.map((t) => {
   const uri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
   return { uri, source: t.source, parseResult: parseDocument(uri, t.source, { networkText: true }) }
 })
-const CROSS_DECLS = PARSED.map((p) => ({
+// A list a fixture holds beside its POU is an item of its own, under the name the push gives it (`splitLists`): bound
+// once with the declarations, and analysed with its fixture.
+const SPLIT = PARSED.map((p, i) => splitLists(ALL_TESTS[i]!, p))
+const LISTS = SPLIT.flatMap((s) => s.lists)
+const CROSS_DECLS = SPLIT.map(({ item: p }) => ({
   uri: p.uri,
   source: p.source,
   parseResult: {
@@ -1873,7 +1902,7 @@ const SHARED = new Map<Vendor, Scope>()
 function sharedProject(vendor: Vendor): Scope {
   let project = SHARED.get(vendor)
   if (project === undefined) {
-    project = build.buildSymbolTable([...CROSS_DECLS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor)
+    project = build.buildSymbolTable([...CROSS_DECLS, ...LISTS, ...standardLibrary(vendor)], PROJECT_MANIFESTS, vendor)
     SHARED.set(vendor, project)
   }
   return project
@@ -1903,7 +1932,7 @@ function runLsp(testIdx: number, vendor: Vendor): string[] {
   return hit
 }
 function runLspNow(testIdx: number, vendor: Vendor): string[] {
-  const own = asVendor(PARSED[testIdx] as (typeof PARSED)[number], vendor)
+  const { item: own, lists } = splitLists(ALL_TESTS[testIdx]!, asVendor(PARSED[testIdx] as (typeof PARSED)[number], vendor))
   const plc0 = PLC_PRGS[testIdx]
   const plc = plc0 === undefined ? undefined : asVendor(plc0, vendor)
   const project = sharedProject(vendor)
@@ -1924,6 +1953,7 @@ function runLspNow(testIdx: number, vendor: Vendor): string[] {
   const config = resolveConfig({ vendor })
   const diags = computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config })
   if (plc) diags.push(...computeSemanticDiagnostics({ parseResult: plc.parseResult, source: plc.source, project, config }))
+  for (const list of lists) diags.push(...computeSemanticDiagnostics({ parseResult: list.parseResult, source: list.source, project, config }))
   // Graphical (network text) bodies: the semantic pass skips them; run the network text checks too so network text fixtures are covered.
   diags.push(...computeNetworkTextDiagnostics({ uri: own.uri, source: own.source, parseResult: own.parseResult }, project, messagesFor(vendor)))
   // No separate `parseResult.errors` here: `checkParseErrors` already reports them. Pushing them again counted every

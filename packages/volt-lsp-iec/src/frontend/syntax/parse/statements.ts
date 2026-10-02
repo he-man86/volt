@@ -336,7 +336,8 @@ function parseIfBranch(cur: Cursor): IfBranch | undefined {
 
 function parseCase(cur: Cursor): Statement | undefined {
   const kw = cur.consume() // CASE
-  const selector = parseExpression(cur)
+  // an inline assignment is a selector as it is a condition: `CASE a := b OF` (`expr_inline_assign_case_selector`, E26)
+  const selector = parseAssignable(cur)
   if (selector === undefined) return undefined
   cur.expectKeyword("OF") // missing-token recovery — parse the arms regardless (see parseIfBranch)
   const arms: CaseArm[] = []
@@ -451,14 +452,16 @@ function parseFor(cur: Cursor): Statement | undefined {
   const controlVar = parseExpression(cur)
   if (controlVar === undefined) return undefined
   if (cur.expectPunct(":=") === undefined) return undefined
-  const from = parseExpression(cur)
+  // an inline assignment is a start value as it is a bound: `FOR i := m := 1 TO 3 DO` (`expr_inline_assign_for_start`, E26)
+  const from = parseAssignable(cur)
   if (from === undefined) return undefined
   cur.expectKeyword("TO") // missing-token recovery — the upper bound follows regardless (see parseIfBranch)
-  const to = parseExpression(cur)
+  // …and a bound: `FOR i := 1 TO m := 3 DO` (`expr_inline_assign_for_bound`, both vendors build it, E26)
+  const to = parseAssignable(cur)
   if (to === undefined) return undefined
   let by: Expr | undefined
   if (cur.eatKeyword("BY") !== undefined) {
-    by = parseExpression(cur)
+    by = parseAssignable(cur)
     if (by === undefined) return undefined
   }
   cur.expectKeyword("DO") // missing-token recovery — parse the body regardless (see parseIfBranch)

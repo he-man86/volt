@@ -74,6 +74,8 @@ export function exprText(e: Expr): string {
       return `${exprText(e.callee)}(${e.args.map(callArgText).join(", ")})`
     case "assign_expr":
       return `${exprText(e.target)} := ${exprText(e.value)}`
+    case "global_expr":
+      return `.${e.name.name}`
   }
 }
 

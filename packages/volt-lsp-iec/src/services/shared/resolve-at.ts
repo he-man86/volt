@@ -29,6 +29,8 @@ export function resolveAt(doc: Document, project: Scope, offset: number): Symbol
     if (expr?.kind === "ident_expr") {
       return lookup(scope, expr.name)?.symbol ?? resolveBareEnumMember(project, expr.name)
     }
+    // `.g` — the global past every local (rule E33)
+    if (expr?.kind === "global_expr") return resolveMemberChain(expr, scope, project)
   }
 
   // Declaration path — the cursor is on a defining identifier, a type name, or a modifier.

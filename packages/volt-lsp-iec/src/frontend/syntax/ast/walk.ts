@@ -33,6 +33,9 @@ export function exprChildren(e: Expr): Expr[] {
     case "ident_expr":
     case "literal":
       return []
+    // the name after the dot is no child: a walker that resolves names resolves them locals first (`GlobalExpr`)
+    case "global_expr":
+      return []
     case "binary":
       return [e.left, e.right]
     case "unary":

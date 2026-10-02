@@ -169,7 +169,7 @@ interface BodySpan { kind: "body"; tokens: Token[]; span: Span }
 ```ts
 type Expr =
   | IdentExpr | Literal | BinaryExpr | UnaryExpr | MemberExpr
-  | IndexExpr | DerefExpr | CallExpr | ParenExpr | AssignExpr
+  | IndexExpr | DerefExpr | CallExpr | ParenExpr | AssignExpr | GlobalExpr
 
 interface IdentExpr { kind: "ident_expr"; name: string; span: Span }
 
@@ -184,7 +184,9 @@ interface DerefExpr  { kind: "deref"; base: Expr; span: Span }
 interface CallExpr   { kind: "call"; callee: Expr; args: CallArg[]; span: Span }
 interface CallArg    { kind: "call_arg"; param?: IdentExpr; output: boolean; value?: Expr; span: Span }  // p:=v | p=>t
 interface ParenExpr  { kind: "paren"; inner: Expr; span: Span }
-interface AssignExpr { kind: "assign_expr"; target: Expr; value: Expr; span: Span }  // CODESYS `(x := v)`
+interface AssignExpr { kind: "assign_expr"; target: Expr; value: Expr; span: Span }  // CODESYS `(x := v)`; bare as a
+                                                                                       // condition, selector, FOR bound, index
+interface GlobalExpr { kind: "global_expr"; name: IdentExpr; span: Span }  // `.g`: the global namespace only; `name` is no child
 ```
 
 ### AST — statement tree

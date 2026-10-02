@@ -102,6 +102,9 @@ export interface Messages {
   unresolvedOperandToken(): string
   unresolvedAssignTarget(): string
   undefinedIdentifier(name: string): string
+  /** `.name` (the global-namespace operator) that no GLOBAL declares, a local of that name or not — both vendors alike
+   *  (`expr_global_namespace_undefined`, `_local_only`, 2026-10-02). */
+  noGlobalDefinition(name: string): string
   /** A bare global declared in 2+ GVLs — ambiguous unqualified reference (C0136). verified both vendors. */
   ambiguousGlobalName(name: string): string
   /** A type name used where a value is expected — `value := MyEnum` (C0230). verified both vendors. */
@@ -285,8 +288,6 @@ export interface Messages {
   thisNotAllowed(): string
   /** `SUPER` used in a POU where it is not valid (C0122). verified both vendors. */
   superNotAllowed(): string
-  /** `SUPER^` in a function block that EXTENDS nothing — there is no base to name. */
-  superWithoutBase(): string
   /** `INDEXOF`, which SP21 removed outright. */
   indexofRemoved(): string
   /** A `VAR_OUTPUT` declared as `REFERENCE TO` (C0222). verified both vendors. */
@@ -525,6 +526,7 @@ export function messagesFor(vendor: Vendor): Messages {
     unresolvedOperandToken: () => (tc ? "Unexpected Token '?' found" : "Unexpected token '?' found"),
     unresolvedAssignTarget: () => (tc ? "Assignment target not specified" : "The assignment target is not specified."),
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
+    noGlobalDefinition: (name) => `There is no global definition for '${name}'`,
     // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".
     ambiguousGlobalName: (name) => `${tc ? "ambiguous" : "Ambiguous"} use of name '${name}'`,
     typeNameNotExpected: (name) => `Type name '${name}' not expected in this place`,
@@ -666,9 +668,6 @@ export function messagesFor(vendor: Vendor): Messages {
     retainNotAllowedHere: () => (tc ? `'RETAIN' or 'PERSISTENT' not allowed in this place` : `RETAIN or PERSISTENT not allowed in this place`),
     thisNotAllowed: () => (tc ? `Expression 'THIS' is not allowed in this context` : `Expression THIS is not allowed in this context`),
     superNotAllowed: () => (tc ? `Expression 'SUPER' is not allowed in this context` : `Expression SUPER is not allowed in this context`),
-    // Measured on CODESYS (`refuse_super_without_base`): the compiler does not say "there is no base", it says the
-    // thing in call position is not callable — because with nothing to extend, `SUPER^` names nothing at all.
-    superWithoutBase: () => `Program name, function or function block instance expected instead of 'SUPER^'`,
     // Both vendors removed it and both say so; they disagree on nothing but capitalisation (`atomic_indexof_variable`,
     // `operand_indexof`, measured on both recordings 2026-09-20).
     indexofRemoved: () =>

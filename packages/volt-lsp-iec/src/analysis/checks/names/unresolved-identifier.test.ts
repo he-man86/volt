@@ -266,3 +266,37 @@ test("a name that does not resolve and is CALLED is two errors", () => {
     "Program name, function or function block instance expected instead of 'TIME_OF_DAY_TO_UDINT'",
   ])
 })
+
+// THE GLOBAL-NAMESPACE OPERATOR (rule E33; `expr_global_namespace_*`, both vendors 2026-10-02): `.g` looks in the global
+// namespace only — a local of the same name is passed over, and a name only a local declares is "There is no global
+// definition for 'loc'", as is one nothing declares, beside the conversion of the hole it leaves.
+test("`.g` resolves the GLOBAL past a local, and names no global as the vendors do (expr_global_namespace_*, E33)", () => {
+  const withGlobal = (body: string, vars = "") =>
+    `VAR_GLOBAL\n\tgv : INT := 7;\nEND_VAR\n\nFUNCTION_BLOCK F\nVAR\n${vars}\tout : INT;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
+  const messages = (src: string): string[] => diag(src).filter((d) => d.severity === "error").map((d) => d.message)
+  expect(messages(withGlobal("out := .gv;"))).toEqual([])
+  expect(messages(withGlobal("out := .gv;", "\tgv : INT := 3;\n"))).toEqual([])
+  expect(messages(withGlobal(".gv := 5;"))).toEqual([])
+  expect(messages(withGlobal("out := .nope;")).sort()).toEqual(
+    ["Cannot convert type 'Unknown type: '.nope'' to type 'INT'", "There is no global definition for 'nope'"])
+  expect(messages(withGlobal("out := .loc;", "\tloc : INT := 3;\n")).sort()).toEqual(
+    ["Cannot convert type 'Unknown type: '.loc'' to type 'INT'", "There is no global definition for 'loc'"])
+})
+
+// …and a name TWO global lists declare is no global definition through the dot either: `.gAmb` is "There is no global
+// definition for 'gAmb'" and the conversion of the hole, where the bare `gAmb` is "Ambiguous use of name"
+// (`expr_global_namespace_ambiguous`, `_bare`, both vendors 2026-10-02). The dot took the first list's.
+test("`.g` declared by two global lists names no global (expr_global_namespace_ambiguous, E33)", () => {
+  const files = [
+    { uri: "file:///GVL_A.gvl", source: "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n" },
+    { uri: "file:///GVL_B.gvl", source: "VAR_GLOBAL\n\tgAmb : INT;\nEND_VAR\n" },
+    { uri: "file:///F.fb", source: "FUNCTION_BLOCK F\nVAR\n\tout : INT;\nEND_VAR\nout := .gAmb;\nEND_FUNCTION_BLOCK\n" },
+  ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: true }) }))
+  const project = build.buildSymbolTable(files)
+  const fb = files[2]!
+  const messages = computeSemanticDiagnostics({ parseResult: fb.parseResult, source: fb.source, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.severity === "error")
+    .map((d) => d.message)
+    .sort()
+  expect(messages).toEqual(["Cannot convert type 'Unknown type: '.gAmb'' to type 'INT'", "There is no global definition for 'gAmb'"])
+})

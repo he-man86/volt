@@ -19,7 +19,7 @@ import { parseDocument, parseSource, type Dialect } from "../../../src/frontend/
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
-import { assembleFixture, withDependencies } from "./fixture-units.js"
+import { assembleFixture, splitLists, withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
 import { PROJECT_LIBRARY, PROJECT_BASE, PROJECT_MANIFESTS } from "./project-libraries.js"
 import type { LanguageTest } from "../types.js"
@@ -90,17 +90,19 @@ function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dia
   // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
   // packing its dependencies inline — so it stayed silent and four measured refusals read as `lsp-gap`.
+  // …and a list the fixture holds beside its POU is an item of its own too (`splitLists`)
   const ownUri = `file:///conformance/${t.pouName}.${extFor(t.kind)}`
-  const own = { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, { networkText: true }, vendor) }
+  const { item: own, lists } = splitLists(t, { uri: ownUri, source: t.source, parseResult: parseDocument(ownUri, t.source, { networkText: true }, vendor) })
   const deps = withDependencies(t, all)
     .filter((f) => f.name !== t.name && f.source !== "")
-    .map((f) => {
+    .flatMap((f) => {
       const uri = `file:///conformance/${f.pouName}.${extFor(f.kind)}`
-      return { uri, source: f.source, parseResult: parseDocument(uri, f.source, { networkText: true }, vendor) }
+      const split = splitLists(f, { uri, source: f.source, parseResult: parseDocument(uri, f.source, { networkText: true }, vendor) })
+      return [split.item, ...split.lists]
     })
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.prg`, source: plcText, parseResult: parseSource(plcText, { networkText: true }, vendor) }
-  const files = [own, plc, ...deps]
+  const files = [own, ...lists, plc, ...deps]
   // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
   let project = lspBase.get(vendor)
   if (project === undefined) {

@@ -5,7 +5,7 @@
  */
 import { test, expect } from "bun:test"
 import { parseSource } from "../../frontend/syntax/index.js"
-import { references, rename } from "./index.js"
+import { definition, references, rename } from "./index.js"
 import type { Document } from "../shared/index.js"
 import { build } from "../../frontend/symbols/index.js"
 
@@ -83,3 +83,39 @@ function applyEdits(src: string, edits: { range: { start: { line: number; charac
   for (const e of sorted) out = out.slice(0, off(e.range.start)) + e.newText + out.slice(off(e.range.end))
   return out
 }
+
+// A GLOBAL named through the global-namespace dot (`.gv`, rule E33) is a reference to it like the bare name: rename,
+// references and go-to-definition each matched only `ident_expr`, so a rename of `gv` left `.gv` behind — which the LSP
+// itself then reports "There is no global definition for 'gv'". And `.gv` resolves past a local of the same name.
+test("rename, references and definition see `.gv` (the global-namespace dot, E33)", () => {
+  const src = `VAR_GLOBAL
+    gv : INT;
+END_VAR
+FUNCTION_BLOCK F
+VAR
+    o : INT;
+END_VAR
+o := .gv;
+o := gv;
+END_FUNCTION_BLOCK
+FUNCTION_BLOCK G
+VAR
+    gv : INT;
+END_VAR
+gv := .gv;
+END_FUNCTION_BLOCK`
+  const parseResult = parseSource(src, { networkText: true })
+  const doc: Document = { uri: "file:///H.fb", source: src, parseResult }
+  const project = build.buildSymbolTable([{ uri: doc.uri, parseResult, source: src }])
+  const bare = src.indexOf("o := gv;") + "o := ".length
+  // the global: its declaration, `.gv` and `gv` in F, `.gv` in G — never G's local `gv`
+  expect(references([doc], project, doc, bare)).toHaveLength(4)
+  const edit = rename([doc], project, doc, bare, "gx")
+  const applied = applyEdits(src, edit?.changes?.["file:///H.fb"] ?? [])
+  expect(applied).toContain("o := .gx;\no := gx;")
+  expect(applied).toContain("gv := .gx;")
+  // …and from the `.gv` itself
+  const dotted = src.indexOf(".gv;") + 1
+  expect(definition(doc, project, dotted)?.range.start.line).toBe(1)
+  expect(references([doc], project, doc, dotted)).toHaveLength(4)
+})

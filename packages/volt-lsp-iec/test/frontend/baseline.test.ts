@@ -59,7 +59,7 @@ describe("ceilings — a measure may only fall", () => {
   test("every disagreement count a baseline pins has a ceiling", () => {
     const ceilings = readCeilings()
     const agreement =
-      /, (unknown on the vendor too|not defined on the vendor too|on a name not defined on the vendor too|no component on the vendor too|a refused expression|in a body that did not parse)$/
+      /, (unknown on the vendor too|not defined on the vendor too|on a name not defined on the vendor too|no component on the vendor too|no structured variable on the vendor too|SUPER not allowed on the vendor too|a refused expression|in a body that did not parse)$/
     const uncapped: string[] = []
     for (const [name, section] of Object.entries(ceilings)) {
       if (name === "rules") continue

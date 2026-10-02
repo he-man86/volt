@@ -28,6 +28,7 @@ export {
   findScopeByName,
   hasUnresolvedBase,
   lookup,
+  lookupGlobal,
   lookupMember,
   resolveBareEnumMember,
   resolveGvlMember,

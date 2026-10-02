@@ -23,8 +23,10 @@ import { unknownTypeName } from "../../resolution.js"
 const CALLABLE_KINDS = new Set(["function_block", "function", "method", "program", "action", "interface_method", "interface"])
 const NON_CALLABLE_TYPE = new Set(["elementary", "enum", "struct", "array", "pointer", "reference"])
 
-/** The invoked name for the C0035 message (`i` in `i()`, the member in `a.b()`). */
+/** The invoked name for the C0035 message (`i` in `i()`, the member in `a.b()`, `.g` as written in `.g()`). */
 function calleeName(e: Expr): string {
+  // `.gCall(1)` is "… instead of '.gCall'", the dot kept (`expr_global_namespace_call_non_callable`, both vendors)
+  if (e.kind === "global_expr") return `.${e.name.name}`
   return e.kind === "ident_expr" ? e.name : e.kind === "member" ? e.member.name : e.kind === "paren" ? calleeName(e.inner) : "?"
 }
 

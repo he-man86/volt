@@ -85,10 +85,26 @@ export type Expr =
   | CallExpr
   | ParenExpr
   | AssignExpr
+  | GlobalExpr
 
 export interface IdentExpr {
   kind: "ident_expr"
   name: string
+  span: Span
+}
+
+/**
+ * THE GLOBAL-NAMESPACE OPERATOR — a leading dot, `.gv`: the name looked up past every local scope, in the global one only
+ * (rule E33; `expr_global_namespace_*`, both vendors 2026-10-02: `.gShadow` reads the global past a local of the same
+ * name, `.loc` naming only a local is "There is no global definition for 'loc'", a space may stand after the dot). Its
+ * own node, not a flag on `IdentExpr`: every reader that resolves an `ident_expr` resolves it LOCALS FIRST, which is the
+ * one thing this name is not — so `name` is no CHILD of the tree (`exprChildren` stops here), and a reader that does not
+ * know the node has to say so rather than resolve it the wrong way.
+ */
+export interface GlobalExpr {
+  kind: "global_expr"
+  /** The name after the dot, with its own span. */
+  name: IdentExpr
   span: Span
 }
 

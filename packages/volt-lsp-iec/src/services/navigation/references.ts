@@ -3,7 +3,8 @@
  * occurrences that bind to the SAME symbol (by identity) — so `motor.Start` doesn't match every `Start`.
  * This is what makes rename safe. Powers references, highlight, and rename.
  *
- * A member-access chain resolves through `types/resolveMemberChain`; a bare ident through scope lookup.
+ * A member-access chain (and a `.g` through the global namespace) resolves through `types/resolveMemberChain`; a bare
+ * ident through scope lookup.
  * The `.member` IdentExpr of a chain is NOT counted as a standalone ident (it's covered by the member node).
  */
 import { allUnits, type IdentExpr, walkAllExprs } from "../../frontend/syntax/index.js"
@@ -33,6 +34,9 @@ export function findReferences(docs: Iterable<Document>, project: Scope, target:
           if (resolveMemberChain(e, scope, project) === target) {
             out.push({ uri: doc.uri, range: rangeFromSpan(e.member.span) })
           }
+        } else if (e.kind === "global_expr") {
+          // `.g` — the global past every local (rule E33): renaming `g` without it leaves "no global definition for 'g'"
+          if (resolveMemberChain(e, scope, project) === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.name.span) })
         } else if (e.kind === "ident_expr" && !memberNames.has(e)) {
           const s = lookup(scope, e.name)?.symbol ?? resolveBareEnumMember(project, e.name)
           if (s === target) out.push({ uri: doc.uri, range: rangeFromSpan(e.span) })

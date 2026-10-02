@@ -280,3 +280,54 @@ test("TwinCAT's `d.%W0` is a parse refusal: nothing after it in the body is anal
   expect(parse("out := d.%W0;\nq := nope;", "twincat").ok).toBe(false)
   expect(errors("out := d.%W0;\nq := nope;")).toEqual([])
 })
+
+// ─── task 2.5.6: E24, E26, E33 (`fixtures/grammar/expressions.ts`, both vendors 2026-10-02) ─────────────────────────
+
+test("empty parentheses are the vendors' one \"Expression expected instead of ')'\" (expr_paren_empty, E24)", () => {
+  expect(errors("out := ();")).toEqual(["Expression expected instead of ')'"])
+  expect(errors("out := ();", "twincat")).toEqual(["Expression expected instead of ')'"])
+})
+
+test("an inline assignment stands unparenthesised wherever an expression is read: a CASE selector, a FOR bound, an index (expr_inline_assign_case_selector, _for_bound, _index, E26)", () => {
+  expect(errors("CASE a := b OF\n2: out := 1;\nEND_CASE")).toEqual([])
+  expect(errors("FOR i := 1 TO m := 3 DO\n\tout := out + i;\nEND_FOR")).toEqual([])
+  expect(errors("FOR i := 1 TO 9 BY m := 3 DO\n\tout := out + i;\nEND_FOR")).toEqual([])
+  expect(errors("out := arr[i := 2];")).toEqual([])
+  const s = parse("CASE a := b OF\n2: out := 1;\nEND_CASE").statements[0]
+  if (s?.kind !== "case") throw new Error("not a CASE")
+  expect(s.selector.kind).toBe("assign_expr")
+})
+
+test("a leading dot names the GLOBAL: `.g` is one global_expr, as an operand, an assignment target, a member base and a callee, a space after the dot allowed (expr_global_namespace_*, E33)", () => {
+  for (const dialect of ["codesys", "twincat"] as const) {
+    expect(errors("out := .gDot;", dialect)).toEqual([])
+    expect(errors("out := . gSpace;", dialect)).toEqual([])
+    expect(errors(".gTarget := 5;\nout := .gTarget + gTarget;", dialect)).toEqual([])
+    expect(errors("out := .gBox.v;", dialect)).toEqual([])
+    expect(errors("out := .F(a, b);", dialect)).toEqual([])
+  }
+  const value = (body: string): Expr => {
+    const s = parse(body).statements[0]
+    if (s?.kind !== "assign") throw new Error(`not an assignment: ${body}`)
+    return s.value
+  }
+  const g = value("out := .gDot;")
+  expect(g.kind).toBe("global_expr")
+  if (g.kind === "global_expr") expect(g.name.name).toBe("gDot")
+  const m = value("out := .gBox.v;")
+  expect(m.kind === "member" && m.base.kind).toBe("global_expr")
+  const c = value("out := .F(a, b);")
+  expect(c.kind === "call" && c.callee.kind).toBe("global_expr")
+  const t = parse(".gTarget := 5;").statements[0]
+  expect(t?.kind === "assign" && t.target.kind).toBe("global_expr")
+})
+
+// …and as a FOR loop's START value, after the control variable's own `:=`: `FOR i := m := 1 TO 3 DO` builds and runs
+// (m 1, i 4, out 6 — `expr_inline_assign_for_start`, both vendors 2026-10-02). It was refused with three syntax errors.
+test("an inline assignment as a FOR start value: `FOR i := m := 1 TO 3 DO` (expr_inline_assign_for_start, E26)", () => {
+  for (const dialect of ["codesys", "twincat"] as const)
+    expect(errors("FOR i := m := INT#1 TO INT#3 DO\n\tout := out + i;\nEND_FOR", dialect)).toEqual([])
+  const s = parse("FOR i := m := 1 TO 3 DO\nEND_FOR").statements[0]
+  if (s?.kind !== "for") throw new Error("not a FOR")
+  expect(s.from.kind).toBe("assign_expr")
+})

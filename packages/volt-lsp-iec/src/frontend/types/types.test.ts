@@ -151,6 +151,18 @@ test("infer: literals and variables", () => {
   expect(inferExpr("", "", "42")).toEqual(UNKNOWN) // bare int literal is context-dependent width
 })
 
+// A CALL OF WHAT IS NO CALL TARGET has no result: `out := .gCall(1)` is "Cannot convert type 'Unknown type: '.gCall(1)''
+// to type 'INT'" on both vendors (`expr_global_namespace_call_non_callable`, 2026-10-02) — the call was typed as the
+// variable it calls.
+test("infer: a call of a variable that is no call target is untyped (expr_global_namespace_call_non_callable, E33)", () => {
+  const globals = `VAR_GLOBAL
+ gq : INT;
+END_VAR`
+  expect(inferExpr(globals, "VAR\n o : INT;\nEND_VAR", "o := .gq(1)")).toEqual(UNKNOWN)
+  expect(inferExpr(globals, "VAR\n o : INT;\nEND_VAR", "o := gq(1)")).toEqual(UNKNOWN)
+  expect(inferExpr("TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE", "VAR\n p : Pt; o : INT;\nEND_VAR", "o := p()")).toEqual(UNKNOWN)
+})
+
 test("infer: member chain, array index, comparison, temporal arithmetic", () => {
   const structSrc = `TYPE Pt : STRUCT x : INT; END_STRUCT END_TYPE`
   expect(inferExpr(structSrc, "VAR\n p : Pt;\nEND_VAR", "p.x")).toMatchObject({ kind: "elementary", name: "INT" })

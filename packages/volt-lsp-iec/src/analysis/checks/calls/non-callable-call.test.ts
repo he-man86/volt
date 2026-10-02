@@ -58,3 +58,17 @@ test("a REFERENCE TO / POINTER TO an FB is callable; one to a plain value is not
   // a reference to something that is not callable still is not
   expect(codes("num(1);")).toEqual(["Program name, function or function block instance expected instead of 'num'"])
 })
+
+// A variable called through the global-namespace dot is named AS WRITTEN, dot and all, and the call has no type:
+// "… instead of '.gCall'" and "Cannot convert type 'Unknown type: '.gCall(1)'' to type 'INT'"
+// (`expr_global_namespace_call_non_callable`, both vendors 2026-10-02). The name was the placeholder '?'.
+test("C0035 — a global variable called as `.g(1)`: named as written, and the call a hole (expr_global_namespace_call_non_callable, E33)", () => {
+  const ds = one("VAR_GLOBAL\n gq : INT;\nEND_VAR\nFUNCTION_BLOCK F\nVAR\n out : INT;\nEND_VAR\nout := .gq(1);\nEND_FUNCTION_BLOCK")
+    .filter((d) => d.code === "invalid-call-target" || d.code === "unknown-source")
+    .map((d) => d.message)
+    .sort()
+  expect(ds).toEqual([
+    "Cannot convert type 'Unknown type: '.gq(1)'' to type 'INT'",
+    "Program name, function or function block instance expected instead of '.gq'",
+  ])
+})
