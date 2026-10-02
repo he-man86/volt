@@ -83,8 +83,9 @@ if (args.maxSteps) steps = steps.slice(0, args.maxSteps)
 // Group consecutive structure/fix/lean/measure steps (never model, conformance or design-first steps).
 const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure', 'conformance'])
 // Group sizes by risk: mechanical moves 5; fixes and lean items 3 (an agent gets sloppier after ~4-5 substantial items).
-// Conformance: two sub-steps (<= 10 tasks) share one implement/review/gate cycle and one recorder batch per vendor (2026-10-02).
-const GROUP_MAX = { structure: 5, measure: 3, fix: 3, lean: 3, conformance: 2 }
+// Owner 2026-10-02: bigger chunks per cycle — up to ~15 tasks share one implement/review/gate cycle and one recorder batch
+// per vendor (sub-steps keep their own commits). The 2026-09-30 cap (one agent ran 41 tasks) stays: never a whole phase.
+const GROUP_MAX = { structure: 8, measure: 4, fix: 5, lean: 5, conformance: 3 }
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
