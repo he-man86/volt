@@ -1,0 +1,1013 @@
+probe-kind-source.py - project C:\Users\marce\AppData\Local\Temp\volt-ide-codesys-kind-probe\Pro2193-94-95-96_COdesys.project
+opened: C:\Users\marce\AppData\Local\Temp\volt-ide-codesys-kind-probe\Pro2193-94-95-96_COdesys.project; application Application
+probe timer armed; request file: C:\Users\marce\AppData\Local\volt-bridge\kind-probe.req
+
+>> create
+create_dut: create_dut(self: IScriptIecLanguageObjectContainer, name: str, type: DutType, baseType: str) -> IExtendedObject[IScriptObject]
+created VltK_S as DutType.Structure, declaration 'struct' written
+created VltK_E as DutType.Enumeration, declaration 'enum' written
+created VltK_EB as DutType.Enumeration, declaration 'enumb' written
+created VltK_U as DutType.Union, declaration 'union' written
+created VltK_A as DutType.Alias, declaration 'alias' written
+created VltK_VE as DutType.Structure, declaration 'enum' written
+created VltK_VU as DutType.Structure, declaration 'union' written
+created VltK_VA as DutType.Structure, declaration 'alias' written
+created VltK_BC as DutType.Structure, declaration 'unclosed' written
+created VltK_BT as DutType.Structure, declaration 'typeend' written
+created VltK_BE as DutType.Structure, declaration 'empty' written
+created VltK_BX as DutType.Structure, declaration 'prose' written
+created VltK_P as PouType.Program
+created VltK_F as PouType.Function
+created VltK_FB as PouType.FunctionBlock
+created VltK_BP as PouType.Program
+created VltK_PF as PouType.Program
+created VltK_FP as PouType.FunctionBlock
+created VltK_I (create_interface)
+created VltK_G (create_gvl)
+DUTObjectFactory.WillBeTextListEnumerationObject(['VltK_TL']) -> True False
+DUTObjectFactory.WillBeTextListEnumerationObject(['VltK_TL', 'Enumeration', '', 'TextList']) -> True False
+DUTObjectFactory.WillBeTextListEnumerationObject(['VltK_TL', '2', '', 'True']) -> True False
+<< done create
+
+>> dump after create (live, no build)
+
+==== after create (live, no build)  (precompile context: yes)
+   IObject properties that differ across items: AddAttributeSubsequent, CheckDummy, CompilerDefinesEnabled, EnableSystemCallEnabled, ExcludeFromBuildEnabled, ExternalEnabled, KindOfCheckFunction, Level, LinkAlwaysEnabled, MemoryReserveForOnlineChangeEnabled, Namespace, NeedsContextForLanguageModelProvision, NetVarProperties, ParameterList, ShowPropertiesDialog, UndefinesEnabled
+   IMetaObject properties that differ across items: EmbeddedObjectTypeGuids, ModificationCounter, Namespace, ObjectLastAccessTime, ObjectTypeGuid
+   signature properties that differ across items: BaseExpression, CalleesArray, CalleesArray2, CallersArray, Comment, Flags, FlagsToSave, FlagsToSaveLong, HasErrors, NextPrecompileId, NumVariables, POUType, PrecompileBaseSignatureId, VersionFreeSearchName, _BaseSignature, m_alCallers, m_hashCallees, m_htDeclarers, m_htVariablesById, m_iBaseSignatureid, m_nId, m_qneBaseSignature
+
+-- VltK_S  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416159156967; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_S' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_S; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31264; m_qneBaseSignature=null
+   GetLanguageModel: len 347: language-model data-type interface
+   declaration: TYPE VltK_S : | STRUCT | alpha : INT;
+
+-- VltK_E  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416160107472; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_E' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=3; NumVariables=3; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_E; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31265; m_qneBaseSignature=null
+   GetLanguageModel: len 335: language-model data-type interface
+   declaration: TYPE VltK_E : | ( | Red,
+
+-- VltK_EB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416160257216; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_EB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_EB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31266; m_qneBaseSignature=null
+   GetLanguageModel: len 400: language-model data-type interface
+   declaration: {attribute 'qualified_only'} | {attribute 'strict'} | TYPE VltK_EB :
+
+-- VltK_U  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416160382949; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_U' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_U; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31267; m_qneBaseSignature=null
+   GetLanguageModel: len 339: language-model data-type interface
+   declaration: TYPE VltK_U : | UNION | i : INT;
+
+-- VltK_A  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416160625947; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_A' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_A; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31268; m_qneBaseSignature=null
+   GetLanguageModel: len 291: language-model data-type interface
+   declaration: TYPE VltK_A : STRING(80); | END_TYPE
+
+-- VltK_VE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416160765882; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_VE' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=3; NumVariables=3; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_VE; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31269; m_qneBaseSignature=null
+   GetLanguageModel: len 334: language-model data-type interface
+   declaration: TYPE VltK_VE : | ( | Red,
+
+-- VltK_VU  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416160875871; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_VU' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_VU; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31270; m_qneBaseSignature=null
+   GetLanguageModel: len 341: language-model data-type interface
+   declaration: TYPE VltK_VU : | UNION | i : INT;
+
+-- VltK_VA  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161007133; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_VA' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_VA; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31271; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_VA : STRING(80); | END_TYPE
+
+-- VltK_BC  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161107755; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31272; m_qneBaseSignature=null
+   GetLanguageModel: len 310: language-model data-type interface
+   declaration: (* doc | TYPE VltK_BC : | STRUCT
+
+-- VltK_BT  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161252945; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_BT' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_BT; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31273; m_qneBaseSignature=null
+   GetLanguageModel: len 276: language-model data-type interface
+   declaration: TYPE VltK_BT : END_TYPE
+
+-- VltK_BE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161362985; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31274; m_qneBaseSignature=null
+   GetLanguageModel: len 247: language-model data-type interface
+   declaration: 
+
+-- VltK_BX  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161479401; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31275; m_qneBaseSignature=null
+   GetLanguageModel: len 278: language-model data-type interface
+   declaration: this is not a declaration
+
+-- VltK_P  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161688218; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_P' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_P; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31276; m_qneBaseSignature=null
+   GetLanguageModel: len 320: language-model pou interface body
+   declaration: PROGRAM VltK_P | VAR | END_VAR
+
+-- VltK_F  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161803322; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Function Flags=None Name='VLTK_F' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Function; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_F; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31277; m_qneBaseSignature=null
+   GetLanguageModel: len 334: language-model pou interface body
+   declaration: FUNCTION VltK_F : INT | VAR_INPUT | END_VAR
+
+-- VltK_FB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416161923811; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_FB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_FB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31278; m_qneBaseSignature=null
+   GetLanguageModel: len 332: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_FB | VAR | END_VAR
+
+-- VltK_BP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416162045810; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31279; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model pou interface body
+   declaration: (* doc | PROGRAM VltK_BP | VAR
+
+-- VltK_PF  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416162156235; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_PF' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_PF; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31280; m_qneBaseSignature=null
+   GetLanguageModel: len 329: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_PF | VAR | END_VAR
+
+-- VltK_FP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416162259345; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_FP' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_FP; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31281; m_qneBaseSignature=null
+   GetLanguageModel: len 325: language-model pou interface body
+   declaration: PROGRAM VltK_FP | VAR | END_VAR
+
+-- VltK_I  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.InterfaceObject.InterfaceObject  ifaces=IInterfaceObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.InterfaceObject.InterfaceObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=2; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416162389622; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Interface Flags=None Name='VLTK_I' msgs=0
+   signature varying: BaseExpression=-; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=Interface; PrecompileBaseSignatureId=72; VersionFreeSearchName=VLTK_I; _BaseSignature=-; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=72; m_nId=31282; m_qneBaseSignature=-
+   GetLanguageModel: len 238: language-model pou interface
+   declaration: INTERFACE VltK_I EXTENDS __System.IQueryInterface
+
+-- VltK_G  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.GVLObject.GVLObject  ifaces=IGVLObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.GVLObject.GVLObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=False; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=null; ParameterList=False; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265416162575909; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=None Name='VLTK_G' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=4; NumVariables=4; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_G; _BaseSignature=null; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31283; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model global-interface interface
+   declaration: VAR_GLOBAL | vS : VltK_S; | vE : VltK_E;
+
+-- IQSlices  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.TextList.TextListEnumerationObject  ifaces=ITextListEnumerationObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.TextList.TextListEnumerationObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=-; EnableSystemCallEnabled=-; ExcludeFromBuildEnabled=-; ExternalEnabled=-; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=-; MemoryReserveForOnlineChangeEnabled=-; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; NeedsContextForLanguageModelProvision=True; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=-; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=-; ModificationCounter=0; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; ObjectLastAccessTime=639265416162736815; ObjectTypeGuid=40989022-e4d2-4dc7-89d2-9a412930b20e
+   signature: POUType=VarGlobal Flags=Enum Name='IQSLICES' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment= -----------------------------------------------------------------------------
+ This file is auto-generated by xlsx_read_adv.py
+ Date of creation: 2025-10-06 12:26
+ Name of Excel input file: IO excel v7.xlsx
+ Do not edit this file manually. Any changes will be overwritten.
+ -----------------------------------------------------------------------------
+ Order of slices is important!; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=69; NumVariables=69; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=IQSLICES; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=-; m_iBaseSignatureid=-1; m_nId=314; m_qneBaseSignature=null
+   GetLanguageModel: len 2520: language-model data-type interface global-interface interface
+   declaration: // ----------------------------------------------------------------------------- | // This file is auto-generated by xlsx_read_adv.py | // Date of creation: 2025-10-06 12:26
+<< done dump
+
+>> change
+in place: VltK_S <- enum declaration
+in place: VltK_E <- struct declaration
+in place: VltK_U <- alias declaration
+in place: VltK_A <- struct declaration
+in place: VltK_VE <- struct declaration
+in place: VltK_EB <- union declaration
+in place: VltK_P <- FUNCTION_BLOCK VltK_P
+in place: VltK_FB <- PROGRAM VltK_FB
+<< done change
+
+>> dump after in-place change (live, no build)
+
+==== after in-place change (live, no build)  (precompile context: yes)
+   IObject properties that differ across items: AddAttributeSubsequent, CheckDummy, CompilerDefinesEnabled, EnableSystemCallEnabled, ExcludeFromBuildEnabled, ExternalEnabled, KindOfCheckFunction, Level, LinkAlwaysEnabled, MemoryReserveForOnlineChangeEnabled, Namespace, NeedsContextForLanguageModelProvision, NetVarProperties, ParameterList, ShowPropertiesDialog, UndefinesEnabled
+   IMetaObject properties that differ across items: EmbeddedObjectTypeGuids, ModificationCounter, Namespace, ObjectLastAccessTime, ObjectTypeGuid
+   signature properties that differ across items: BaseExpression, CalleesArray, CalleesArray2, CallersArray, Comment, Flags, FlagsToSave, FlagsToSaveLong, HasErrors, NextId, NextPrecompileId, NumVariables, POUType, PrecompileBaseSignatureId, SerializableVariableIdManagement, VersionFreeSearchName, _BaseSignature, m_alCallers, m_hashCallees, m_htDeclarers, m_htVariablesById, m_iBaseSignatureid, m_nId, m_qneBaseSignature
+
+-- VltK_S  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417096982373; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_S' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextId=0; NextPrecompileId=3; NumVariables=3; POUType=VarGlobal; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_S; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31264; m_qneBaseSignature=null
+   GetLanguageModel: len 336: language-model data-type interface
+   declaration: TYPE VltK_S : | ( | Red,
+
+-- VltK_E  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097103362; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_E' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextId=0; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_E; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31265; m_qneBaseSignature=null
+   GetLanguageModel: len 351: language-model data-type interface
+   declaration: TYPE VltK_E : | STRUCT | alpha : INT;
+
+-- VltK_EB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097203350; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_EB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextId=0; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_EB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31266; m_qneBaseSignature=null
+   GetLanguageModel: len 345: language-model data-type interface
+   declaration: TYPE VltK_EB : | UNION | i : INT;
+
+-- VltK_U  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097303403; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_U' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextId=0; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_U; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31267; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_U : STRING(80); | END_TYPE
+
+-- VltK_A  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097419570; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_A' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextId=0; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_A; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31268; m_qneBaseSignature=null
+   GetLanguageModel: len 346: language-model data-type interface
+   declaration: TYPE VltK_A : | STRUCT | alpha : INT;
+
+-- VltK_VE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097521318; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_VE' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextId=0; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_VE; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31269; m_qneBaseSignature=null
+   GetLanguageModel: len 353: language-model data-type interface
+   declaration: TYPE VltK_VE : | STRUCT | alpha : INT;
+
+-- VltK_VU  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097635271; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_VU' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextId=1; NextPrecompileId=3; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_VU; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31270; m_qneBaseSignature=null
+   GetLanguageModel: len 341: language-model data-type interface
+   declaration: TYPE VltK_VU : | UNION | i : INT;
+
+-- VltK_VA  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417097735280; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_VA' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextId=1; NextPrecompileId=2; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_VA; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31271; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_VA : STRING(80); | END_TYPE
+
+-- VltK_BC  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098006430; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31272; m_qneBaseSignature=null
+   GetLanguageModel: len 310: language-model data-type interface
+   declaration: (* doc | TYPE VltK_BC : | STRUCT
+
+-- VltK_BT  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098103231; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_BT' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=True; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_BT; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31273; m_qneBaseSignature=null
+   GetLanguageModel: len 276: language-model data-type interface
+   declaration: TYPE VltK_BT : END_TYPE
+
+-- VltK_BE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098223335; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31274; m_qneBaseSignature=null
+   GetLanguageModel: len 247: language-model data-type interface
+   declaration: 
+
+-- VltK_BX  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098334749; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31275; m_qneBaseSignature=null
+   GetLanguageModel: len 278: language-model data-type interface
+   declaration: this is not a declaration
+
+-- VltK_P  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098460910; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_P' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=0; NextPrecompileId=0; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_P; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31276; m_qneBaseSignature=null
+   GetLanguageModel: len 329: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_P | VAR | END_VAR
+
+-- VltK_F  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098574111; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Function Flags=None Name='VLTK_F' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=2; NumVariables=1; POUType=Function; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_F; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31277; m_qneBaseSignature=null
+   GetLanguageModel: len 334: language-model pou interface body
+   declaration: FUNCTION VltK_F : INT | VAR_INPUT | END_VAR
+
+-- VltK_FB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098704226; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_FB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=0; NextPrecompileId=0; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=1; VersionFreeSearchName=VLTK_FB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31278; m_qneBaseSignature=null
+   GetLanguageModel: len 325: language-model pou interface body
+   declaration: PROGRAM VltK_FB | VAR | END_VAR
+
+-- VltK_BP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098834168; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31279; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model pou interface body
+   declaration: (* doc | PROGRAM VltK_BP | VAR
+
+-- VltK_PF  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417098990037; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_PF' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_PF; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31280; m_qneBaseSignature=null
+   GetLanguageModel: len 329: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_PF | VAR | END_VAR
+
+-- VltK_FP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417099096890; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_FP' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_FP; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31281; m_qneBaseSignature=null
+   GetLanguageModel: len 325: language-model pou interface body
+   declaration: PROGRAM VltK_FP | VAR | END_VAR
+
+-- VltK_I  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.InterfaceObject.InterfaceObject  ifaces=IInterfaceObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.InterfaceObject.InterfaceObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=2; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417099206907; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Interface Flags=None Name='VLTK_I' msgs=0
+   signature varying: BaseExpression=-; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=Interface; PrecompileBaseSignatureId=72; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_I; _BaseSignature=-; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=72; m_nId=31282; m_qneBaseSignature=-
+   GetLanguageModel: len 238: language-model pou interface
+   declaration: INTERFACE VltK_I EXTENDS __System.IQueryInterface
+
+-- VltK_G  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.GVLObject.GVLObject  ifaces=IGVLObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.GVLObject.GVLObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=False; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=null; ParameterList=False; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417099306945; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=None Name='VLTK_G' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=5; NumVariables=4; POUType=VarGlobal; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_G; _BaseSignature=null; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31283; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model global-interface interface
+   declaration: VAR_GLOBAL | vS : VltK_S; | vE : VltK_E;
+
+-- IQSlices  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.TextList.TextListEnumerationObject  ifaces=ITextListEnumerationObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.TextList.TextListEnumerationObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=-; EnableSystemCallEnabled=-; ExcludeFromBuildEnabled=-; ExternalEnabled=-; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=-; MemoryReserveForOnlineChangeEnabled=-; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; NeedsContextForLanguageModelProvision=True; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=-; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=-; ModificationCounter=0; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; ObjectLastAccessTime=639265417099417495; ObjectTypeGuid=40989022-e4d2-4dc7-89d2-9a412930b20e
+   signature: POUType=VarGlobal Flags=Enum Name='IQSLICES' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment= -----------------------------------------------------------------------------
+ This file is auto-generated by xlsx_read_adv.py
+ Date of creation: 2025-10-06 12:26
+ Name of Excel input file: IO excel v7.xlsx
+ Do not edit this file manually. Any changes will be overwritten.
+ -----------------------------------------------------------------------------
+ Order of slices is important!; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextId=1; NextPrecompileId=70; NumVariables=69; POUType=VarGlobal; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=IQSLICES; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=-; m_iBaseSignatureid=-1; m_nId=314; m_qneBaseSignature=null
+   GetLanguageModel: len 2520: language-model data-type interface global-interface interface
+   declaration: // ----------------------------------------------------------------------------- | // This file is auto-generated by xlsx_read_adv.py | // Date of creation: 2025-10-06 12:26
+<< done dump
+
+>> build
+
+==== build: 0 error(s) naming a VltK_ item
+<< done build
+
+>> dump after build
+
+==== after build  (precompile context: yes)
+   IObject properties that differ across items: AddAttributeSubsequent, CheckDummy, CompilerDefinesEnabled, EnableSystemCallEnabled, ExcludeFromBuildEnabled, ExternalEnabled, KindOfCheckFunction, Level, LinkAlwaysEnabled, MemoryReserveForOnlineChangeEnabled, Namespace, NeedsContextForLanguageModelProvision, NetVarProperties, ParameterList, ShowPropertiesDialog, UndefinesEnabled
+   IMetaObject properties that differ across items: EmbeddedObjectTypeGuids, ModificationCounter, Namespace, ObjectLastAccessTime, ObjectTypeGuid
+   signature properties that differ across items: BaseExpression, CalleesArray, CalleesArray2, CallersArray, Comment, Flags, FlagsToSave, FlagsToSaveLong, HasErrors, NextId, NextPrecompileId, NumVariables, POUType, PrecompileBaseSignatureId, SerializableVariableIdManagement, VersionFreeSearchName, _BaseSignature, m_alCallers, m_hashCallees, m_htDeclarers, m_htVariablesById, m_iBaseSignatureid, m_nId, m_qneBaseSignature
+
+-- VltK_S  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707275343; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_S' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextId=1; NextPrecompileId=4; NumVariables=3; POUType=VarGlobal; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_S; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31264; m_qneBaseSignature=null
+   GetLanguageModel: len 336: language-model data-type interface
+   declaration: TYPE VltK_S : | ( | Red,
+
+-- VltK_E  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707375339; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_E' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextId=1; NextPrecompileId=3; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_E; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31265; m_qneBaseSignature=null
+   GetLanguageModel: len 351: language-model data-type interface
+   declaration: TYPE VltK_E : | STRUCT | alpha : INT;
+
+-- VltK_EB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707487096; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_EB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextId=1; NextPrecompileId=3; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_EB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31266; m_qneBaseSignature=null
+   GetLanguageModel: len 345: language-model data-type interface
+   declaration: TYPE VltK_EB : | UNION | i : INT;
+
+-- VltK_U  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707573246; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_U' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextId=1; NextPrecompileId=2; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_U; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31267; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_U : STRING(80); | END_TYPE
+
+-- VltK_A  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707693319; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_A' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextId=1; NextPrecompileId=3; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_A; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31268; m_qneBaseSignature=null
+   GetLanguageModel: len 346: language-model data-type interface
+   declaration: TYPE VltK_A : | STRUCT | alpha : INT;
+
+-- VltK_VE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707783345; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_VE' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextId=1; NextPrecompileId=3; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_VE; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31269; m_qneBaseSignature=null
+   GetLanguageModel: len 353: language-model data-type interface
+   declaration: TYPE VltK_VE : | STRUCT | alpha : INT;
+
+-- VltK_VU  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707883335; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_VU' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextId=2; NextPrecompileId=4; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_VU; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31270; m_qneBaseSignature=null
+   GetLanguageModel: len 341: language-model data-type interface
+   declaration: TYPE VltK_VU : | UNION | i : INT;
+
+-- VltK_VA  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417707969652; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_VA' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextId=2; NextPrecompileId=3; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_VA; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31271; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_VA : STRING(80); | END_TYPE
+
+-- VltK_BC  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708110553; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31272; m_qneBaseSignature=null
+   GetLanguageModel: len 310: language-model data-type interface
+   declaration: (* doc | TYPE VltK_BC : | STRUCT
+
+-- VltK_BT  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708210552; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_BT' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=True; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=Type; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_BT; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31273; m_qneBaseSignature=null
+   GetLanguageModel: len 276: language-model data-type interface
+   declaration: TYPE VltK_BT : END_TYPE
+
+-- VltK_BE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708310594; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31274; m_qneBaseSignature=null
+   GetLanguageModel: len 247: language-model data-type interface
+   declaration: 
+
+-- VltK_BX  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708416698; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31275; m_qneBaseSignature=null
+   GetLanguageModel: len 278: language-model data-type interface
+   declaration: this is not a declaration
+
+-- VltK_P  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708512691; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_P' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_P; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31276; m_qneBaseSignature=null
+   GetLanguageModel: len 329: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_P | VAR | END_VAR
+
+-- VltK_F  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708623887; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Function Flags=None Name='VLTK_F' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=2; NextPrecompileId=3; NumVariables=1; POUType=Function; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_F; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31277; m_qneBaseSignature=null
+   GetLanguageModel: len 334: language-model pou interface body
+   declaration: FUNCTION VltK_F : INT | VAR_INPUT | END_VAR
+
+-- VltK_FB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=4; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708723890; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_FB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=1; NextPrecompileId=1; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=2; VersionFreeSearchName=VLTK_FB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31278; m_qneBaseSignature=null
+   GetLanguageModel: len 325: language-model pou interface body
+   declaration: PROGRAM VltK_FB | VAR | END_VAR
+
+-- VltK_BP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708834018; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31279; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model pou interface body
+   declaration: (* doc | PROGRAM VltK_BP | VAR
+
+-- VltK_PF  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417708915408; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_PF' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_PF; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31280; m_qneBaseSignature=null
+   GetLanguageModel: len 329: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_PF | VAR | END_VAR
+
+-- VltK_FP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417709011553; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_FP' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_FP; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31281; m_qneBaseSignature=null
+   GetLanguageModel: len 325: language-model pou interface body
+   declaration: PROGRAM VltK_FP | VAR | END_VAR
+
+-- VltK_I  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.InterfaceObject.InterfaceObject  ifaces=IInterfaceObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.InterfaceObject.InterfaceObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=2; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417709112915; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Interface Flags=None Name='VLTK_I' msgs=0
+   signature varying: BaseExpression=-; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=2; NextPrecompileId=2; NumVariables=0; POUType=Interface; PrecompileBaseSignatureId=72; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_I; _BaseSignature=-; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=72; m_nId=31282; m_qneBaseSignature=-
+   GetLanguageModel: len 238: language-model pou interface
+   declaration: INTERFACE VltK_I EXTENDS __System.IQueryInterface
+
+-- VltK_G  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.GVLObject.GVLObject  ifaces=IGVLObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.GVLObject.GVLObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=False; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=null; ParameterList=False; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265417709214712; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=None Name='VLTK_G' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextId=2; NextPrecompileId=6; NumVariables=4; POUType=VarGlobal; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=VLTK_G; _BaseSignature=null; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31283; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model global-interface interface
+   declaration: VAR_GLOBAL | vS : VltK_S; | vE : VltK_E;
+
+-- IQSlices  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.TextList.TextListEnumerationObject  ifaces=ITextListEnumerationObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.TextList.TextListEnumerationObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=-; EnableSystemCallEnabled=-; ExcludeFromBuildEnabled=-; ExternalEnabled=-; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=-; MemoryReserveForOnlineChangeEnabled=-; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; NeedsContextForLanguageModelProvision=True; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=-; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=-; ModificationCounter=0; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; ObjectLastAccessTime=639265417709304758; ObjectTypeGuid=40989022-e4d2-4dc7-89d2-9a412930b20e
+   signature: POUType=VarGlobal Flags=Enum Name='IQSLICES' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment= -----------------------------------------------------------------------------
+ This file is auto-generated by xlsx_read_adv.py
+ Date of creation: 2025-10-06 12:26
+ Name of Excel input file: IO excel v7.xlsx
+ Do not edit this file manually. Any changes will be overwritten.
+ -----------------------------------------------------------------------------
+ Order of slices is important!; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextId=2; NextPrecompileId=71; NumVariables=69; POUType=VarGlobal; PrecompileBaseSignatureId=-1; SerializableVariableIdManagement=3; VersionFreeSearchName=IQSLICES; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=-; m_iBaseSignatureid=-1; m_nId=314; m_qneBaseSignature=null
+   GetLanguageModel: len 2520: language-model data-type interface global-interface interface
+   declaration: // ----------------------------------------------------------------------------- | // This file is auto-generated by xlsx_read_adv.py | // Date of creation: 2025-10-06 12:26
+<< done dump
+
+>> libflags
+
+==== library signatures (AllPrecompiledSignatures, IsLibraryObject, POUType Type|VarGlobal): POUType/subtype-flags
+   Type/Alias                94   e.g. LOGRECORDARRAY, STRINGLOGRECORDARRAY, STRINGLOGCACHE, LOGCACHE
+   Type/Structure          1278   e.g. IEC_ANYTYPE, MESSAGEBOX_STRUCT, MEMBERSTOREDUCESTACKSIZE, RECIPESTORE
+   Type/Structure+Union      51   e.g. NUMBERUNION, ANYNUMBER, RTS_IEC_CWCHAR, L_MC2P_ARRAYOFCHAR
+   VarGlobal/-              374   e.g. __GLOBALTEXTLIST__GVL, GVL, VARIABLES, GVL_RECIPECONSTANTS
+   VarGlobal/Enum           550   e.g. STATE, IEC_DATATYPE, INFOVALUES, PERSISTANTLOADTYPE
+<< done libflags
+
+>> exit
+
+######## session 2 (a fresh copy): shapes that declare a subtype but carry an error, and the raw GetLanguageModel()
+probe-kind-source.py - project C:\Users\marce\AppData\Local\Temp\volt-ide-codesys-kind-probe\Pro2193-94-95-96_COdesys.project
+opened: C:\Users\marce\AppData\Local\Temp\volt-ide-codesys-kind-probe\Pro2193-94-95-96_COdesys.project; application Application
+probe timer armed; request file: C:\Users\marce\AppData\Local\volt-bridge\kind-probe.req
+
+>> create
+create_dut: create_dut(self: IScriptIecLanguageObjectContainer, name: str, type: DutType, baseType: str) -> IExtendedObject[IScriptObject]
+created VltK_S as DutType.Structure, declaration 'struct' written
+created VltK_E as DutType.Enumeration, declaration 'enum' written
+created VltK_EB as DutType.Enumeration, declaration 'enumb' written
+created VltK_U as DutType.Union, declaration 'union' written
+created VltK_A as DutType.Alias, declaration 'alias' written
+created VltK_VE as DutType.Structure, declaration 'enum' written
+created VltK_VU as DutType.Structure, declaration 'union' written
+created VltK_VA as DutType.Structure, declaration 'alias' written
+created VltK_BC as DutType.Structure, declaration 'unclosed' written
+created VltK_BT as DutType.Structure, declaration 'typeend' written
+created VltK_BE as DutType.Structure, declaration 'empty' written
+created VltK_BX as DutType.Structure, declaration 'prose' written
+created VltK_P as PouType.Program
+created VltK_F as PouType.Function
+created VltK_FB as PouType.FunctionBlock
+created VltK_BP as PouType.Program
+created VltK_PF as PouType.Program
+created VltK_FP as PouType.FunctionBlock
+created VltK_I (create_interface)
+created VltK_G (create_gvl)
+DUTObjectFactory.WillBeTextListEnumerationObject(['VltK_TL']) -> True False
+DUTObjectFactory.WillBeTextListEnumerationObject(['VltK_TL', 'Enumeration', '', 'TextList']) -> True False
+DUTObjectFactory.WillBeTextListEnumerationObject(['VltK_TL', '2', '', 'True']) -> True False
+<< done create
+
+>> extra
+created VltK_XS (Structure seed), declaration 'badmember' written
+created VltK_XA (Structure seed), declaration 'badalias' written
+created VltK_XE (Structure seed), declaration 'dupenum' written
+created VltK_XP (Program) with an unknown variable type
+<< done extra
+
+>> dump session 2 (live, no build)
+
+==== session 2 (live, no build)  (precompile context: yes)
+   IObject properties that differ across items: AddAttributeSubsequent, CheckDummy, CompilerDefinesEnabled, EnableSystemCallEnabled, ExcludeFromBuildEnabled, ExternalEnabled, KindOfCheckFunction, Level, LinkAlwaysEnabled, MemoryReserveForOnlineChangeEnabled, Namespace, NeedsContextForLanguageModelProvision, NetVarProperties, ParameterList, ShowPropertiesDialog, UndefinesEnabled
+   IMetaObject properties that differ across items: EmbeddedObjectTypeGuids, ModificationCounter, Namespace, ObjectLastAccessTime, ObjectTypeGuid
+   signature properties that differ across items: BaseExpression, CalleesArray, CalleesArray2, CallersArray, Comment, Flags, FlagsToSave, FlagsToSaveLong, HasErrors, NextPrecompileId, NumVariables, POUType, PrecompileBaseSignatureId, VersionFreeSearchName, _BaseSignature, m_alCallers, m_hashCallees, m_htDeclarers, m_htVariablesById, m_iBaseSignatureid, m_nId, m_qneBaseSignature
+
+-- VltK_S  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425548512814; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_S' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_S; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31264; m_qneBaseSignature=null
+   GetLanguageModel: len 347: language-model data-type interface
+   declaration: TYPE VltK_S : | STRUCT | alpha : INT;
+
+-- VltK_E  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425549645019; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_E' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=3; NumVariables=3; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_E; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31265; m_qneBaseSignature=null
+   GetLanguageModel: len 335: language-model data-type interface
+   declaration: TYPE VltK_E : | ( | Red,
+
+-- VltK_EB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425549836680; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_EB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_EB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31266; m_qneBaseSignature=null
+   GetLanguageModel: len 400: language-model data-type interface
+   declaration: {attribute 'qualified_only'} | {attribute 'strict'} | TYPE VltK_EB :
+
+-- VltK_U  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425550005287; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_U' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_U; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31267; m_qneBaseSignature=null
+   GetLanguageModel: len 339: language-model data-type interface
+   declaration: TYPE VltK_U : | UNION | i : INT;
+
+-- VltK_A  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425550230735; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_A' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_A; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31268; m_qneBaseSignature=null
+   GetLanguageModel: len 291: language-model data-type interface
+   declaration: TYPE VltK_A : STRING(80); | END_TYPE
+
+-- VltK_VE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425550404290; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_VE' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=3; NumVariables=3; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_VE; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31269; m_qneBaseSignature=null
+   GetLanguageModel: len 334: language-model data-type interface
+   declaration: TYPE VltK_VE : | ( | Red,
+
+-- VltK_VU  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425550595732; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure, Union Name='VLTK_VU' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure, Union; FlagsToSave=Structure, Union; FlagsToSaveLong=16385; HasErrors=False; NextPrecompileId=2; NumVariables=2; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_VU; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31270; m_qneBaseSignature=null
+   GetLanguageModel: len 341: language-model data-type interface
+   declaration: TYPE VltK_VU : | UNION | i : INT;
+
+-- VltK_VA  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425550740844; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_VA' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_VA; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31271; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_VA : STRING(80); | END_TYPE
+
+-- VltK_BC  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425550906188; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31272; m_qneBaseSignature=null
+   GetLanguageModel: len 310: language-model data-type interface
+   declaration: (* doc | TYPE VltK_BC : | STRUCT
+
+-- VltK_BT  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425551058834; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_BT' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_BT; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31273; m_qneBaseSignature=null
+   GetLanguageModel: len 276: language-model data-type interface
+   declaration: TYPE VltK_BT : END_TYPE
+
+-- VltK_BE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425551224083; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31274; m_qneBaseSignature=null
+   GetLanguageModel: len 247: language-model data-type interface
+   declaration: 
+
+-- VltK_BX  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425551389371; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31275; m_qneBaseSignature=null
+   GetLanguageModel: len 278: language-model data-type interface
+   declaration: this is not a declaration
+
+-- VltK_P  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425551618020; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_P' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_P; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31276; m_qneBaseSignature=null
+   GetLanguageModel: len 320: language-model pou interface body
+   declaration: PROGRAM VltK_P | VAR | END_VAR
+
+-- VltK_F  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425551743048; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Function Flags=None Name='VLTK_F' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Function; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_F; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31277; m_qneBaseSignature=null
+   GetLanguageModel: len 334: language-model pou interface body
+   declaration: FUNCTION VltK_F : INT | VAR_INPUT | END_VAR
+
+-- VltK_FB  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425551883050; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_FB' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_FB; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31278; m_qneBaseSignature=null
+   GetLanguageModel: len 332: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_FB | VAR | END_VAR
+
+-- VltK_BP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552013962; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=None Flags=None Name='' msgs=3
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=True; NextPrecompileId=0; NumVariables=0; POUType=None; PrecompileBaseSignatureId=-1; VersionFreeSearchName=; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31279; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model pou interface body
+   declaration: (* doc | PROGRAM VltK_BP | VAR
+
+-- VltK_PF  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552136370; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=FunctionBlock Flags=None Name='VLTK_PF' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=FunctionBlock; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_PF; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31280; m_qneBaseSignature=null
+   GetLanguageModel: len 329: language-model pou interface body
+   declaration: FUNCTION_BLOCK VltK_PF | VAR | END_VAR
+
+-- VltK_FP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552279337; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_FP' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=Program; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_FP; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31281; m_qneBaseSignature=null
+   GetLanguageModel: len 325: language-model pou interface body
+   declaration: PROGRAM VltK_FP | VAR | END_VAR
+
+-- VltK_I  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.InterfaceObject.InterfaceObject  ifaces=IInterfaceObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.InterfaceObject.InterfaceObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=2; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552427960; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Interface Flags=None Name='VLTK_I' msgs=0
+   signature varying: BaseExpression=-; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=0; NumVariables=0; POUType=Interface; PrecompileBaseSignatureId=72; VersionFreeSearchName=VLTK_I; _BaseSignature=-; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=72; m_nId=31282; m_qneBaseSignature=-
+   GetLanguageModel: len 238: language-model pou interface
+   declaration: INTERFACE VltK_I EXTENDS __System.IQueryInterface
+
+-- VltK_G  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.GVLObject.GVLObject  ifaces=IGVLObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.GVLObject.GVLObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=False; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=null; ParameterList=False; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552662607; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=None Name='VLTK_G' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=-; CalleesArray2=-; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=4; NumVariables=4; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_G; _BaseSignature=null; m_alCallers=null; m_hashCallees=-; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31283; m_qneBaseSignature=null
+   GetLanguageModel: len 314: language-model global-interface interface
+   declaration: VAR_GLOBAL | vS : VltK_S; | vE : VltK_E;
+
+-- VltK_XS  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552792600; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Structure Name='VLTK_XS' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Structure; FlagsToSave=Structure; FlagsToSaveLong=1; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_XS; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31625; m_qneBaseSignature=null
+   GetLanguageModel: len 336: language-model data-type interface
+   declaration: TYPE VltK_XS : | STRUCT | alpha : NoSuchType;
+
+-- VltK_XA  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425552940070; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Type Flags=Alias Name='VLTK_XA' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Alias; FlagsToSave=Alias; FlagsToSaveLong=4; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Type; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_XA; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31626; m_qneBaseSignature=null
+   GetLanguageModel: len 293: language-model data-type interface
+   declaration: TYPE VltK_XA : NoSuchType; | END_TYPE
+
+-- VltK_XE  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.DUTObject.DUTObject  ifaces=IDUTObject+IGenerateableObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.DUTObject.DUTObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=False; EnableSystemCallEnabled=False; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=False; MemoryReserveForOnlineChangeEnabled=-; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425553068906; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=VarGlobal Flags=Enum Name='VLTK_XE' msgs=1
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=True; NextPrecompileId=1; NumVariables=1; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_XE; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31627; m_qneBaseSignature=null
+   GetLanguageModel: len 319: language-model data-type interface
+   declaration: TYPE VltK_XE : | ( | Red,
+
+-- VltK_XP  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.POUObject.POUObject  ifaces=IGenerateableObject+IPOUObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.POUObject.POUObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=False; CheckDummy=None; CompilerDefinesEnabled=False; EnableSystemCallEnabled=True; ExcludeFromBuildEnabled=True; ExternalEnabled=True; KindOfCheckFunction=None; Level=Standard; LinkAlwaysEnabled=True; MemoryReserveForOnlineChangeEnabled=True; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; NeedsContextForLanguageModelProvision=-; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=True; UndefinesEnabled=False
+   IMetaObject varying: EmbeddedObjectTypeGuids=null; ModificationCounter=3; Namespace=e5b60c93-5445-4e40-ada9-cd9c005549b4; ObjectLastAccessTime=639265425553244103; ObjectTypeGuid=00000000-0000-0000-0000-000000000000
+   signature: POUType=Program Flags=None Name='VLTK_XP' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=null; Comment=null; Flags=None; FlagsToSave=None; FlagsToSaveLong=0; HasErrors=False; NextPrecompileId=1; NumVariables=1; POUType=Program; PrecompileBaseSignatureId=-1; VersionFreeSearchName=VLTK_XP; _BaseSignature=null; m_alCallers=null; m_hashCallees=null; m_htDeclarers=null; m_htVariablesById=null; m_iBaseSignatureid=-1; m_nId=31628; m_qneBaseSignature=null
+   GetLanguageModel: len 344: language-model pou interface body
+   declaration: PROGRAM VltK_XP | VAR | v : NoSuchType;
+
+-- IQSlices  [ExtendedObject[IScriptObject]]
+   IObject: _3S.CoDeSys.TextList.TextListEnumerationObject  ifaces=ITextListEnumerationObject  TypeGuid=None  meta.ObjectType=_3S.CoDeSys.TextList.TextListEnumerationObject  meta.Properties=[SVFoldersProperty]
+   IObject varying: AddAttributeSubsequent=-; CheckDummy=-; CompilerDefinesEnabled=-; EnableSystemCallEnabled=-; ExcludeFromBuildEnabled=-; ExternalEnabled=-; KindOfCheckFunction=-; Level=-; LinkAlwaysEnabled=-; MemoryReserveForOnlineChangeEnabled=-; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; NeedsContextForLanguageModelProvision=True; NetVarProperties=-; ParameterList=-; ShowPropertiesDialog=-; UndefinesEnabled=-
+   IMetaObject varying: EmbeddedObjectTypeGuids=-; ModificationCounter=0; Namespace=e16e44a9-e4d0-4cee-9a84-62a1469fca3d; ObjectLastAccessTime=639265425553465042; ObjectTypeGuid=40989022-e4d2-4dc7-89d2-9a412930b20e
+   signature: POUType=VarGlobal Flags=Enum Name='IQSLICES' msgs=0
+   signature varying: BaseExpression=null; CalleesArray=null; CalleesArray2=null; CallersArray=-; Comment= -----------------------------------------------------------------------------
+ This file is auto-generated by xlsx_read_adv.py
+ Date of creation: 2025-10-06 12:26
+ Name of Excel input file: IO excel v7.xlsx
+ Do not edit this file manually. Any changes will be overwritten.
+ -----------------------------------------------------------------------------
+ Order of slices is important!; Flags=Enum; FlagsToSave=Enum; FlagsToSaveLong=2; HasErrors=False; NextPrecompileId=69; NumVariables=69; POUType=VarGlobal; PrecompileBaseSignatureId=-1; VersionFreeSearchName=IQSLICES; _BaseSignature=null; m_alCallers=-; m_hashCallees=null; m_htDeclarers=-; m_htVariablesById=-; m_iBaseSignatureid=-1; m_nId=314; m_qneBaseSignature=null
+   GetLanguageModel: len 2520: language-model data-type interface global-interface interface
+   declaration: // ----------------------------------------------------------------------------- | // This file is auto-generated by xlsx_read_adv.py | // Date of creation: 2025-10-06 12:26
+<< done dump
+
+>> lmraw VltK_S,VltK_E,VltK_U,VltK_A,VltK_BC,VltK_BT,VltK_P
+
+-- GetLanguageModel(VltK_S):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><data-type id="e0ea80b2-e261-45ed-a05a-c5e006506b2c" name="VltK_S"><interface>{p 6}TYPE VltK_S :
+{p 7}STRUCT
+{p 8}	alpha : INT;
+{p 9}	beta : BOOL;
+{p 10}END_STRUCT
+{p 11}END_TYPE
+{p 1}
+</interface></data-type></language-model>
+
+-- GetLanguageModel(VltK_E):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><data-type id="1b6d39a2-43c9-4269-a1ba-bbe6ab146b94" name="VltK_E"><interface>{p 9}TYPE VltK_E :
+{p 10}(
+{p 11}	Red,
+{p 12}	Green,
+{p 13}	Blue
+{p 14});
+{p 15}END_TYPE
+{p 1}
+</interface></data-type></language-model>
+
+-- GetLanguageModel(VltK_U):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><data-type id="03917c81-f67b-41cd-8352-68822482c5b6" name="VltK_U"><interface>{p 6}TYPE VltK_U :
+{p 7}UNION
+{p 8}	i : INT;
+{p 9}	rv : REAL;
+{p 10}END_UNION
+{p 11}END_TYPE
+{p 1}
+</interface></data-type></language-model>
+
+-- GetLanguageModel(VltK_A):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><data-type id="b345c8c3-8be0-4f6d-b0f5-1d5c2e001686" name="VltK_A"><interface>{p 3}TYPE VltK_A : STRING(80);
+{p 4}END_TYPE
+{p 1}
+</interface></data-type></language-model>
+
+-- GetLanguageModel(VltK_BC):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><data-type id="1908fa57-d7b4-420a-8a2f-a49e40b86906" name="VltK_BC"><interface>{p 6}(* doc
+TYPE VltK_BC :
+STRUCT
+	alpha : INT;
+END_STRUCT
+END_TYPE
+
+</interface></data-type></language-model>
+
+-- GetLanguageModel(VltK_BT):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><data-type id="0d016217-9665-469b-8a29-20372be2b46a" name="VltK_BT"><interface>{p 6}TYPE VltK_BT : END_TYPE
+{p 1}
+</interface></data-type></language-model>
+
+-- GetLanguageModel(VltK_P):
+<language-model application-id="2c3a178e-3319-4e66-a685-225c552d3253" plclogic-id="6a228e44-0c9a-41f4-8b1f-63634104dd7a"><pou id="11e1b91e-e08c-4d93-b6ff-7dc9d05305d7" name="VltK_P"><interface>{p 6}PROGRAM VltK_P
+{p 7}VAR
+{p 8}END_VAR
+{p 1}
+
+</interface><body>{ST_IMPLEMENTATION}
+{p 5}
+
+</body></pou></language-model>
+<< done lmraw
+
+>> exit

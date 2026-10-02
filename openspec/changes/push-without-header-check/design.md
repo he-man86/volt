@@ -148,6 +148,75 @@ compilers. ✗ means it breaks acceptance or disagrees with the build recording.
    as `X.alias`, not under `.struct`. The proposal already accepts "a renamed item that `refs` then reports".
    TwinCAT's answer for this shape has not been recorded.
 
+**Owner decision (2026-10-02): a DUT with no vendor subtype answer is published as a generic `.dut`, not
+*unnamed*.** It IS a DUT; only the subtype is unknown. This replaces choice 4 and owner decision 2 for DUTs (POUs
+with no answer are not covered by it and stay open). Consequences for the implementation (not done here): push
+accepts `X.dut` for any DUT (create, update, delete); once the text parses again the next pull names it
+`.enum`/`.struct`/`.union`/`.alias`, a rename in git (`Commands.HeldUnderAnotherName`, as for C2f); `.dut` joins the
+writable-source extension set everywhere `bun run check` gates parity (C#, the LSP, volt-control, the four places in
+the VS Code manifest). How often `.dut` appears is what the evidence below decides.
+
+### Vendor evidence (2026-10-02)
+
+Measured live on both vendors, every item kind created in a fixture copy and every reachable source dumped side by
+side: `scripts/probe-kind-source.py` + `kind-source.log` (CODESYS SP21, Pro2193 copy), `scripts/probe-tc-kind-source.ps1`
++ `tc-kind-source.log` (TcXaeShell 4024.74, Project14 copy). DIALECT C2g (CODESYS), C2h (TwinCAT), C2i (TwinCAT crash);
+C2f corrected. This supersedes the TwinCAT paragraph above, which was recorded, not re-measured.
+
+**CODESYS** — ✓ right, ✗ wrong, — carries nothing.
+
+| item (text) | object / meta / icon / `GetLanguageModel` | navigator caption | precompile signature (no build) | after build |
+|---|---|---|---|---|
+| struct / enum / union / alias, created by own `DutType` or Volt's `Structure` seed | — (one class, one icon, text only) | `(STRUCT)` `(ENUM)`; union, alias none | ✓ `Type`+`Structure` / `VarGlobal`+`Enum` / `Type`+`Structure, Union` / `Type`+`Alias` | ✓ same |
+| any of those changed in place | — | follows | ✓ at once | ✓ |
+| text-list enum (`IQSlices`) | own class `TextListEnumerationObject` (family) | `(ENUM)` | ✓ `VarGlobal`+`Enum` | ✓ |
+| unclosed `(*`, empty, prose (DUT or POU) | — | none | `None`/`None`, `HasErrors` → no answer (`.dut`) | same |
+| `TYPE X : END_TYPE` | — | none | `Type`+`Alias`, `HasErrors=True` (CODESYS's own reading) | same |
+| PRG / FB / FUN / interface / GVL, and a PRG holding FB text | class = family | `(PRG)` `(FB)` `(FUN)`; itf, GVL none | ✓ `POUType` follows the text (C2f) | ✓ |
+| library DUTs | | | `LibSignature.Flags` carries the subtype for every library `Type` (1278 struct, 51 union, 94 alias, 550 enum; no `Type` without a flag) | |
+
+**Conclusion, CODESYS: yes — the precompile signature is a text-free source that is always the IDE's answer**, current
+without a build. `.dut` appears only for a text that declares nothing. `HasErrors` must not be read as "no answer":
+a duplicate enum member is `Enum` with `HasErrors=True`.
+
+**TwinCAT**
+
+| source | in-session create (own code) | Volt 606 seed + other body | in-place subtype change | text declares nothing | after reload | reachable |
+|---|---|---|---|---|---|---|
+| `ItemType` / `ItemSubTypeName` / `ProduceXml` | ✓ | ✗ (606) | ✗ lags | ✗ 606 in session | ✓ re-derived; ✗ nothing-declared → **623 alias** | COM |
+| `ItemSubType` | 0 for every item | | | | | COM |
+| `DocumentXml`, `.TcDUT`/`.TcPOU`, `.plcproj` | — | — | — | — | — | COM / disk |
+| icon (`VSHPROPID_IconHandle`) | one icon for all DUTs | | | | | VS hierarchy |
+| `ITcPlcProjectInternal.LanguageModel` | empty | | | | empty | COM (reflection) |
+| Solution Explorer caption (`VSHPROPID_Caption`) | ✓ `(STRUCT)` `(ENUM)` `(UNION)` | ✓ | ✓ at once | no suffix | ✓ | VS hierarchy, out of process |
+| ... for an alias | no suffix (= nothing-declared) | no suffix | no suffix | | no suffix | |
+| TMC `<DataType>` | build only, only types a symbol uses; union only inferable from offsets | | | absent | | disk |
+| `_CompileInfo/*.compileinfo` | build only, binary 3S signatures, compiled items only | | | | | disk |
+| POU kind: tree code 602/603/604 | ✓ | — | stays (C2f) | stays; **after reload the item CRASHES XAE on access (C2i)** | ✓ re-derived from text | COM |
+| POU kind: caption | `(PRG)` `(FB)` `(FUN)` | | follows the text | no suffix | ✓ | VS hierarchy |
+
+**Conclusion, TwinCAT: no text-free source is always right.** The 3S language model exists inside TcXaeShell (same
+plugin GUIDs as CODESYS), but no automation call exposes a project item's signature; reaching it needs code in that
+32-bit process (a VS package, N6), which Volt does not have and which would be a new install into the vendor's IDE.
+The best non-text option is the **caption** read through `IVsHierarchy` — the IDE's own parse, current without reload
+or build — combined with the tree code for the one case it cannot name:
+
+- caption `(STRUCT)`/`(ENUM)`/`(UNION)` → that subtype ✓ always (measured in every phase);
+- no suffix and `ItemType` 623 → `.alias`: right for every real alias after a load or an IDE-authored alias; ✗ for a
+  text that declares nothing after a reload (C2h: it reloads as 623), which would publish as `.alias`;
+- no suffix and 605/606/607 → only in the session that wrote the text: either a Volt-created alias (606 seed) or a
+  text that declares nothing — the caption cannot tell them apart. Here `.dut` (the owner decision) is honest but
+  hits **every alias Volt creates until the solution is reloaded**.
+
+Failure cases of the caption itself: it is a display string (`"Name (ENUM)"`), so reading it is parsing UI text —
+localization and any XAE option that hides the suffix are UNMEASURED; it needs the VS shell interop and a walk of the
+hierarchy to map file → node. A driver-owned text read ("opens with TYPE", choice 3) would still be needed only to
+separate *alias* from *declares nothing* in the session that wrote it, and to avoid publishing a broken text as
+`.alias` after a reload. And independently of the subtype question: **a TwinCAT POU whose text declares nothing makes
+the next solution load crash on access (C2i)** — so on TwinCAT the push of such a POU text is not merely "unnamed on
+pull", it breaks the project for every tree walk, and acceptance 5.1/5.3's "a POU pushed with an unclosed `(*` pulls
+back" cannot hold there across a reload.
+
 ### Migration
 
 Order: evidence first, then the red tests, then the swap.
