@@ -460,12 +460,53 @@ subtype any more — the IDE and its build own it.
       byte-identical to HEAD, and `fixtures.test.ts` re-run in full: 5125 pass / 151 todo / 0 fail). `rate:fixtures`:
       `map.generated.ts` unchanged.
 
-### 5.D CODESYS: no Volt text read for a kind
-- [ ] 5.D.1 The POU kind comes from the IDE object, not the header: `CodesysTypeMap.RefinePou`, `LeadingKeyword`,
-      `NeedsDeclaration` and the declaration read in `CodesysDriver.Tree.KindCodeOf` are deleted. A broken `.prg` pulls
-      back as `.prg`. (DUTs need nothing: they are `.dut` by object type.) Push pre-flight timing shows the object read
-      is not slower than the text read it replaces (numbers written here). TwinCAT: the POU kind from its tree code
-      (the vendor's answer, C2f) — no header read either.
+### 5.Q PIVOT 2 (owner, 2026-10-02): ONE POU extension, `.pou` — an extension carries only what the IDE stores per object
+
+Rule (owner): **a wire extension may only carry what the IDE stores PER OBJECT** (its class / tree item type), never
+what is decided by parsing the object's text. Kind audit (2026-10-02, scratchpad `kind-audit/` probes + logs; Pro2193
+class census) — only `.prg` / `.fb` / `.fun` broke it: CODESYS has ONE `POUObject` class whose PRG/FB/FUN-ness follows
+the text (C2f/C2g), TwinCAT's 602/603/604 lag in-session and are re-derived from the text on reload (C2h). Per object on
+both vendors and therefore KEPT: `.itf` (`InterfaceObject` / 618 — stays that class even with PROGRAM text), `.gvl`
+(`GVLObject` / 615), `.dut` (5.P), every member class (method / interface method / property / accessor / action /
+transition), and every descriptor/reference kind. The stopped 5.D (POU kind from the CODESYS signature, `--force` for a
+broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's parse agreed with its signature on
+262/262 POUs) is kept outside the repo (scratchpad `push5D-wip/`), the evidence may be re-used in DIALECT.
+
+- [ ] 5.Q.1 One POU extension: `.pou` is the ONLY extension for a PROGRAM / FUNCTION_BLOCK / FUNCTION, in C# `ItemKind`
+      (+ every derived map), the LSP (`frontend/syntax/format/source-object.ts`, `source-extensions.ts`), volt-control,
+      the VS Code manifest places, `scripts/check-wiring.ts` (`bun run check` parity green); `.prg` / `.fb` / `.fun`
+      removed everywhere. `LibSignatureRenderer` names library items through `ItemKind.ExtFor` (no hard-coded
+      `".fb"`/`".fun"`/`".itf"`/`".gvl"`). Corpus + fixtures renamed with `git mv` (contents unchanged); recordings keyed by
+      fixture name need no re-recording — prove it (conformance numbers identical apart from the names).
+- [ ] 5.Q.2 Kind from the class, never from text or signature: CODESYS `IPOUObject` (incl. `POUObjectCheckFunction`) →
+      `pou`, `IInterfaceObject` → `itf`; TwinCAT `.TcPOU` → `pou`, 618 → `itf`. Deleted: the header reads in
+      `CodesysTypeMap` (`RefinePou`, `LeadingKeyword`, `NeedsDeclaration`, the declaration read in `KindCodeOf`),
+      `TcSolutionExplorer.PouKinds` beyond `pou`, the POU re-type guard in `PushService.WriteItemFromSource`,
+      `Commands.HeldUnderAnotherName` for POUs. A POU with broken text pulls back as `X.pou` — no unreadable state, no
+      `--force` (5.D's question is gone). TwinCAT C2i (5.H) stays guarded.
+- [ ] 5.Q.3 The outer END line (owner: it separates the POU from its children, so it stays): the writer mirrors the
+      declaration's header keyword — `PROGRAM` → `END_PROGRAM`, `FUNCTION_BLOCK` → `END_FUNCTION_BLOCK`, `FUNCTION` →
+      `END_FUNCTION` — read with the ONE trivia skipper (5.E). The reader accepts any of the three as the boundary.
+      A header that names none of them (broken text) gets ONE documented fallback END line, chosen in design and named
+      there — an intentional, tested, COUNTED fallback: 0 on every POU the vendor compiles. Table test (comments,
+      pragmas, attributes before the keyword; CRLF/BOM; any case).
+- [ ] 5.Q.4 CODESYS create order: the declaration is written before members are created (which children a POU accepts
+      follows its text — FUNCTION text refuses methods/properties/actions/transitions; measured); a member create the IDE
+      refuses is refused by name with the IDE's reason, never a half-created POU without saying so. TwinCAT measured for
+      the same (a 603 FUNCTION accepting members?) and recorded in DIALECT.
+- [ ] 5.Q.5 Members: on pull the member's CLASS decides its kind (method / property / action / transition), not its
+      header keyword; a stored member text whose keyword disagrees with its class (measured possible) is reported by name,
+      never round-tripped as a delete + a create of another kind.
+- [ ] 5.Q.6 Merged classes (the extension carries LESS than the IDE stores): a create or re-create that would silently
+      downgrade a special class — `VarPersistentObject` / NVL / `ParameterList` / `NetVarProperties` GVLs,
+      `TextListEnumerationObject`, `POUObjectCheckFunction`, `AbstractPOUMethodObject` — is refused by name; an update of
+      the text keeps the class. Documented in DIALECT; tests per class on the doubles.
+- [ ] 5.Q.7 Smaller fixes from the audit: `ProjectDeclarations.Globals(pushed)` keys pushed GVLs by the wire kind, not
+      `IsGlobalListHeader` (deleted); `BeckhoffDriver.ReadMember`'s `ItemKind.Map(code) ?? Method` silent fallback
+      becomes a failure by name; `TcLibrarySignatures`' enum-from-shape decision is labelled in code and DIALECT as a
+      Volt inference (a library item has no per-object source) and counted in the library census.
+- [ ] 5.Q.8 PLCAssist note (proposal Impact): wire names change `X.prg`/`X.fb`/`X.fun` → `X.pou` and DUT subtypes →
+      `X.dut`, in the same release; the client keys by wire name.
 
 ### 5.E Child elements (the one place headers stay — made gap-free)
 - [ ] 5.E.1 The child splitter (`StReader.SplitChildren` / `FirstMemberLine` / `FirstCodeLine`) uses ONE trivia skipper
@@ -484,10 +525,12 @@ subtype any more — the IDE and its build own it.
       changes (`dut-subtype-change.test.ts`) are deleted; `held: "unreadable"` DUT rows become plain `.dut` rows.
 - [ ] 5.F.2 Repo gate (`Volt.Repo.Gates`): no code outside the child splitter reads a declaration's first code line or
       matches `TYPE` / `STRUCT` / `UNION` / `FUNCTION_BLOCK` / `PROGRAM` / `VAR_GLOBAL` to decide a kind or a name;
-      no source mentions `.struct` / `.enum` / `.alias` / `.union` as an extension. Grep-based, allow-list in the test.
+      no source mentions `.struct` / `.enum` / `.alias` / `.union` / `.prg` / `.fb` / `.fun` as an extension; no kind is
+      derived from a signature or a text where the class states it. Grep-based, allow-list in the test.
 
 ### 5.G Verify
 - [ ] 5.G.1 Live on both vendors (fixture copies, `ide.ps1 -Instance push5`): every 5.A.1 shape incl. the broken-text
-      ones — push as sent, pull, push the fixed text, pull: every DUT is `name.dut` throughout, every POU keeps its kind,
+      ones — push as sent, pull, push the fixed text, pull: every DUT is `name.dut` and every POU `name.pou` throughout (a PROGRAM rewritten as a FUNCTION_BLOCK
+      in place is a content change, its END line follows),
       a subtype change (struct → enum in place) is an ordinary content change, the TwinCAT broken-POU case survives (5.H).
 - [ ] 5.G.2 Full C# suites, `bun test test/unit` (volt-cli), the LSP suite, `bun run check`; docs regenerated.

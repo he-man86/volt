@@ -23,3 +23,15 @@ The bridge SHALL publish every DUT, on both vendors, as `name.dut`, taking "it i
 #### Scenario: a DUT whose text declares nothing
 - **WHEN** a DUT's text is an unclosed comment
 - **THEN** it is still published as `name.dut`, and the IDE's build reports the error
+
+### Requirement: every POU is named `.pou`
+
+The bridge SHALL publish every PROGRAM, FUNCTION_BLOCK and FUNCTION, on both vendors, as `name.pou`, taking "it is a POU" from the IDE object's class. A wire extension SHALL carry only what the IDE stores per object; interfaces stay `.itf` and global variable lists `.gvl` because each is its own object class.
+
+#### Scenario: a POU whose text is broken
+- **WHEN** a POU's text is an unclosed comment
+- **THEN** it is still published as `name.pou`, without an unreadable state or `--force`, and the IDE's build reports the error
+
+#### Scenario: the END line mirrors the header
+- **WHEN** `X.pou` is pulled and its declaration opens with `FUNCTION_BLOCK`
+- **THEN** the file's outer END line is `END_FUNCTION_BLOCK`, and its members follow below it
