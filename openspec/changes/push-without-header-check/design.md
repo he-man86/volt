@@ -423,3 +423,170 @@ subject. The two vendors' wires differ here because of a vendor fact (C2i), whic
    is alive, the POU is named in `unreadable`, and every other item is present. Then `volt push --force` the fixed
    text, and confirm `volt pull` names it `.fb` and a further reload walks clean. Repeat for the empty and prose
    texts.
+
+## Step 5.B — Contract: the driver states a DUT's subtype; no answer publishes `name.dut`
+
+(2026-10-02. Design only; no code. Tasks 5.B.1–5.B.3. Builds on the owner decisions of section 5 and 5.A.2.)
+
+### Target
+
+Today `Materializer.FullWireName` mints a DUT's extension from `CodeHelper.DutSubtype(declaration)`: the ENGINE reads
+the text, and a text that states no subtype throws, so `Versioning.SafeVersion` lists the item `unreadable` and every
+op on it needs `--force` (e2e 3.2). After 5.B:
+
+1. **The driver states the subtype, the engine only spells it.** `ReadContent` hands up the vendor's answer, one of
+   `struct | enum | union | alias`, or **null = the vendor has no answer**. `FullWireName` maps it to the extension;
+   null gives **`name.dut`**. The engine never reads a DUT's text for its name again.
+2. **`.dut` is a wire name and a writable source extension everywhere** (C#, the CLI registry, the LSP, volt-control,
+   the four VS Code manifest places), so `bun run check` parity holds and a push accepts `X.dut` for any DUT
+   (create, update, delete), writing the text as sent.
+3. **`.dut` ↔ subtype is a rename, never a refusal.** A pull that finds `E_Mode.dut` published as `E_Mode.enum` (the
+   text was fixed in the IDE) is an ordinary git rename. A push of `E_Mode.dut` over the IDE item that now answers
+   `.enum` reaches it by its bare DUT identity, gated by the version it quotes. No refusal, and no `--force`.
+
+The bare name, the folder and the version (`Hasher.ComputeItemVersion(folder, text)`) are identical either way. Only
+the extension follows the vendor's answer.
+
+### Measured against the recorded fixtures and the corpora
+
+Where the answer comes from is decided by 5.C (TwinCAT) and 5.D (CODESYS). 5.B fixes how it travels and what null
+publishes, so the measurements below are about that.
+
+- **How often `.dut` is published.** A scratch scan (`dutscan.py`, in the session scratchpad, not the repo) applied
+  the subtype rule (`TYPE name [EXTENDS …] :` then STRUCT / UNION / `(` / a type, trivia and pragmas skipped) to every
+  DUT file in the six corpora: **8175 DUTs** (awa-palletizer 1738, bakon-nano 1784, CodesysTestProject 168,
+  lenze-mid 2344, pro2193 2127, twincat-project14 14; 28% of the 29,170 source files). **All 8175 state a subtype,
+  and every one agrees with its file's extension. That is 0 `.dut`**, matching the section's acceptance for compiled
+  DUTs. Of the recorded conformance DUTs (33 struct, 9 enum, 6 alias, 3 union fixtures, plus `data-type.ts`), only
+  the written-as-sent shapes that declare nothing have no answer:
+
+  | fixture (pushed as) | CODESYS signature (5.A, design above) | interim stand-in (below) | published after 5.B |
+  |---|---|---|---|
+  | `pwh_unclosed_comment_struct` (`.struct`) | `None` | null | `.dut` (was `unreadable`) |
+  | `pwh_unclosed_comment_enum` (`.enum`) | `None` | null | `.dut` (was `unreadable`) |
+  | `pwh_empty_struct`, `pwh_prose_struct` | `None` | null | `.dut` (was `unreadable`) |
+  | `pwh_prose_then_struct` (`.struct`) | `None` (build: declares nothing; not probed) | `struct` ✗ | `.struct` until 5.C/5.D, then `.dut` |
+  | `TYPE X : END_TYPE` (5.A.1 shape, no fixture yet) | `Alias` | null | `.dut` until 5.D (CODESYS → `.alias`); TwinCAT per 5.C.3 |
+  | `pwh_struct_text_is_enum`, `pwh_enum_text_is_struct`, `pwh_struct_then_prose`, `pwh_struct_missing_semicolon`, `pwh_struct_member_implementation` | `Enum` / `Structure` / `Structure` / `Structure` / `Structure` | same | `.enum` / `.struct` ×4 (unchanged) |
+
+  Four fixture shapes move from `unreadable` to `.dut`. Two still disagree with the vendor during the interim, and
+  they are the reason 5.C and 5.D exist.
+- **What each way of carrying the answer costs.** `Materializer.Materialize` is the only path that names an item
+  (`Versioning.SafeVersion` for refs/fetch/receipts, and `PushService.NamesThisItem`). It always calls
+  `ReadContent`, which already holds the declaration in both drivers (`BeckhoffDriver.ReadContent`,
+  `CodesysDriver.ReadContent`). No path needs a DUT's wire name without reading its content. `KindCode` is called at
+  11 engine sites, every child of every lookup walk among them. A DUT has no body and no members, so its
+  `ReadContent` makes one TwinCAT declaration read (`_om.ReadDeclaration`).
+
+### Options
+
+| option | where the answer travels | cost per DUT per refs | verdict |
+|---|---|---|---|
+| **B1. `ItemContent.DutSubtype`** (`DutSubtype?`, set by `ReadContent`) | with the content the materializer already reads | +0 calls. TwinCAT classifies the declaration it just read. CODESYS makes one signature lookup inside the same call | **chosen** |
+| B2. A new `ICodeStore`/`IProjectTree` member `DutSubtype(ItemRef)` | a second driver call | +1 call. On TwinCAT a second `ReadDeclaration` (1 → 2 COM reads per DUT, ×8175 on the corpora) unless a per-op cache is added. That cache would be a second copy of `_declarations` with its own invalidation | rejected: it doubles the TwinCAT read for no new fact |
+| B3. Encode the subtype in `KindCode` (605/606/607/623, plus a new "unknown" code) | the tree code | an answer on every walk step and lookup (11 sites), not only on materialize. CODESYS would make a signature lookup per DUT per lookup | rejected: `KindCode` is the VENDOR's tree code. TwinCAT's code lags (C2e), and 623 also means "declares nothing after a reload" (C2h), so a driver would have to return a code the vendor does not hold. It also leaks into `CreateChild`'s seed (TwinCAT creates 606 for every DUT) |
+| B4. The driver returns the extension or the full wire name | `ReadContent` | +0 | rejected: `Materializer.FullWireName` is the one place a wire name is minted (`VersionedItem.Identity` keys on it). A string extension from a driver could be anything, so the engine would have to re-validate it |
+
+B1's one objection is that `ItemContent` is the model shared by both directions (the reader builds one from text on
+push). There is precedent: `Unsupported` is the same kind of fact. A driver sets it on read; it is null from a file,
+and nothing on the write path reads it. `DutSubtype` follows that rule: `StReader` never sets it, and `WriteContent`
+never reads it.
+
+### Choice
+
+1. **Type.** `Volt.Engine.Item.DutSubtype` is an enum: `Struct | Enum | Union | Alias`. A closed set, so a driver
+   cannot invent an extension. A CODESYS text-list enum (`ITextListEnumerationObject`, signature `VarGlobal`+`Enum`,
+   C2g) answers `Enum`.
+2. **Contract.** `ItemContent` gains `DutSubtype? DutSubtype` (last, optional, like `Unsupported`). Its documentation
+   on `ICodeStore.ReadContent` says: for a DUT it is the VENDOR's answer, and null means the vendor has none. For
+   every other kind it is null.
+3. **Minting.** `FullWireName(bare, content)` uses `ItemKind.DutExtension(DutSubtype?)`, which reads from the one
+   extension table: `Struct → struct`, …, `null → dut`. It no longer calls `CodeHelper.DutSubtype`, and the
+   "DUT has no declaration" `ArgumentException` goes. A **non-null subtype on a non-DUT kind** breaks the driver
+   contract and is refused (`InvalidOperationException`, naming the item), the same way `UnsupportedIn` refuses a
+   reason without its line. The non-source path (`ReadManifest`) never names a DUT.
+4. **The extension table.** `ItemKind.SourceKindExtensions` gains `(Kinds.Dut, "dut")` as a fifth DUT row. That gives
+   `KindForWireName("X.dut") == dut`, a writable source in `FileExtensions` and so in the CLI's `Extensions`
+   registry, the DUT family in `PushedText.MayBeHeldAs`, and the create-collision check in `PushConflicts` (it
+   matches any DUT name). Creating an item takes `Kinds.Dut → PlcDut` (`PushService` ~1448) for any DUT name, so
+   `create X.dut` takes the same driver path as `create X.struct` (TwinCAT 606 seed, CODESYS `create_dut(Structure)`),
+   and the text is then written as sent. `ExtFor(Kinds.Dut)` still throws: a DUT still has more than one extension.
+5. **Push: bare DUT identity, proven by version (5.B.3).** In `PushConflicts`, an unforced `set` whose name is a DUT
+   name NOT in the version map resolves to the live DUT of the same bare name under its published name (`.dut` or a
+   subtype; there is at most one, since one object has one identity). Its `ifVersion` is compared with THAT item's
+   version: equal → accepted as an update; different → `STALE_ITEM_VERSION` with the live version, so the client
+   pulls. It is never `ITEM_MISSING`. The version hashes the folder and the text, not the name, so an equal version
+   proves the client's file holds that exact content. Apply resolves by bare name already, and the re-type guard sees
+   DUT = DUT. `RequireUnchanged` re-hashes the live content, which is name-free. The receipt names the item by the
+   IDE's answer after the write, and the CLI's `HeldUnderAnotherName` records the rename (DUT family). A `set X.dut
+   → X.enum` (a git rename) and a `delete X.dut` + `set X.enum` pair already go through `DutSubtypeChanges`
+   unchanged: the rename lands on bare `X`, and the pair is coalesced because the extensions differ.
+6. **Pull (5.B.3).** No CLI code. The baseline holds `E_Mode.dut`, refs publish `E_Mode.enum`, the removal sweep
+   retires the old name, fetch writes the new one, and git records a rename (`DutSubtypeFileTests`' shape for
+   `.struct → .enum`). The reverse (`.enum → .dut` after the IDE text breaks) is the same.
+7. **Interim driver answer, until 5.C and 5.D.** Both drivers implement the field in 5.B through one engine stand-in,
+   `CodeHelper.TryDutSubtype(declaration)`: today's `DutSubtype`, answering null where it throws now. It is called
+   ONLY from the two drivers' `ReadContent` (below the seam), and its comment names the change that replaces it.
+   5.D swaps CODESYS to the signature's `Flags`, 5.C swaps TwinCAT to the total classifier, and 5.F deletes the
+   stand-in, guarded by 5.F.2's gate. Until then the two ✗ rows above are known interim disagreements, listed here
+   and nowhere hidden.
+8. **FakeIde.** `Item` gains `DutSubtype? DutAnswer`. The fake must state what its vendor answers, not derive it on
+   read. Authoring derives it once from the declaration (`TextualPou`, the same rule and legitimacy as
+   `CodeForDeclaration`), through a test-side helper in `test/shared` (not `CodeHelper`, which 5.F deletes). A
+   `WriteContent` to a DUT re-answers from the written text through the same helper, which models both vendors'
+   answer following the text at once: CODESYS's signature (C2g), and TwinCAT's text-pure classifier (5.A.2). A test
+   pins a vendor answer with `DutAnswers[name] = …`, `null` included. 5.F.2's gate scans `src/`, and the test helper
+   is fixture authoring.
+
+### Counted fallbacks
+
+**One: `.dut`, for a DUT whose subtype the vendor does not state.** Named here, triggered by the 5.B.1 red tests
+(FakeIde answer null → `X.dut`; answer `Enum` → `X.enum`; the same bare name, folder and version), and counted. It is
+0 of 8175 corpus DUTs, and 4 recorded fixture shapes (the table above, every one of which declares nothing). No other
+default is introduced. A non-DUT with a subtype, or a DUT op that would need a guessed name, is refused.
+
+### What stays refused, by name
+
+- **A name with no kind** (`X`, `X.foo`): `RequireWireNames`, unchanged. `.dut` now HAS a kind, so it leaves that
+  list, and its message no longer cites `X.dut` as the example.
+- **A delete whose name is not the live name**: unchanged. `NamesThisItem` still compares the op's name with the
+  materialized one, so `delete X.dut` over a live `X.enum` is a no-op, forced or not. A delete cannot be undone, and
+  5.B.3 widens only `set`, where the version proves the content.
+- **Another family over a DUT** (`X.fb` / `X.gvl` over DUT `X`): the re-type guard, unchanged.
+- **A create of any DUT name over a live DUT of the same bare name** (`create X.dut` over `X.enum`, and the reverse):
+  `ITEM_EXISTS`, naming the live name (the existing sibling check now matches `.dut` too).
+- **Two ops on one DUT** other than a rename or a delete + create pair: `DutSubtypeChanges`, unchanged. `.dut` counts
+  as a subtype name.
+- **A DUT whose content cannot be read at all** (COM error, driver throw): `unreadable` + `--force`, unchanged. Only
+  "no subtype stated" stops being unreadable.
+
+### Migration
+
+1. **Red first.** `Volt.Engine.Tests`: the `Materialize` tests for null / each subtype / a non-DUT with a subtype
+   (refused), and `PushConflicts`/`PushService` tests for `set X.dut` over `X.enum` (equal version accepted, stale →
+   `STALE_ITEM_VERSION`, no `ITEM_MISSING`), `create X.dut` over `X.enum` (`ITEM_EXISTS`), `delete X.dut` over
+   `X.enum` (no-op), and a create of `X.dut` written as sent. `Volt.Cli.Tests`: a pull rename `.dut → .enum` and back,
+   a push of `E_Mode.dut` with the IDE answering `.enum` (no conflict, the file renamed through
+   `HeldUnderAnotherName`), and `Extensions.IsTrackedPath/IsPushable("X.dut")`. The tests assert against FakeIde
+   answers, never against a text read.
+2. **Engine.** `DutSubtype` enum, `ItemContent.DutSubtype`, the `.dut` table row, `ItemKind.DutExtension`,
+   `FullWireName`, and `PushConflicts`' bare-DUT resolution for an update. `CodeHelper.TryDutSubtype` (the interim) is
+   called by the drivers only. `LibSignatureRenderer.Dut` keeps `CodeHelper.DutSubtype` until 5.D.2.
+3. **Drivers.** `CodesysDriver.ReadContent` and `BeckhoffDriver.ReadContent` set `DutSubtype` for a DUT kind, through
+   the interim.
+4. **Docs and comments that say "there is no `dut` extension" are rewritten:** `ItemKind.cs` (the table and
+   `ExtFor`), `Materializer.cs`, `RefsFetch.cs`, `PushService.RequireWireNames`, `Sidecar.RefuseUnknownNames`,
+   `source-extensions.ts`, and volt-control `files.ts`. `docs/wire.html` and `items.html` are regenerated
+   (`VOLT_WRITE_DOCS=1`, gated by `DocDataTests`).
+5. **Parity sites (`bun run check`):** `packages/volt-lsp-iec/src/source-extensions.ts` and `source-object.ts`
+   (`".dut": "dut"`; a DUT text that does not open with TYPE declares nothing, the 4.2(a) rule, so a `.dut` that
+   declares nothing reports nothing on the LSP either); `packages/volt-control/src/state/files.ts`; and
+   `packages/volt-vscode`'s `languages[structured-text].extensions`, tmLanguage `fileTypes`, `volt-icons.json`
+   `fileExtensions` and the `workspaceContains` glob.
+6. **Tests whose premise the owner decision changed, so they change and say so in their summary:**
+   `DutSubtypeFileTests` ("no file is named `.dut`"), `ExtensionListTextTests`, `ItemKindTests`, and
+   **`DutBaselineMigrationTests`**. A baseline key `X.dut` from before `dut-subtype-on-the-wire` (archived
+   2026-09-28) can no longer be told apart from a current `.dut` name, so `RefuseUnknownNames` stops refusing it.
+   That stays safe: an `ifVersion` such a key quotes reaches the live DUT only if it equals that DUT's content
+   version (choice 5), and the next pull renames the key. The e2e `held: "unreadable"` DUT rows move in 5.F.3, not
+   here.
