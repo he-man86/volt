@@ -224,7 +224,7 @@ Pre-existing, not this step (files unmodified since before the change): the pack
 `services/structure/semantic-tokens.ts → network/network-analyze.js`, and `bun run build` reports `Bun` /
 `import.meta.dir` type errors in `test/conformance/support/{rustc,transpile-confidence,fixture-units}.ts` (it emits).
 
-## 5. Pull names every item from the IDE, never from Volt's parse; unknown DUT subtype = `.dut` (owner, 2026-10-02)
+## 5. Pull names every item from the IDE, never from Volt's parse — every DUT is .dut (pivot 5.P); was: unknown DUT subtype = `.dut` (owner, 2026-10-02)
 
 Replaces the parked 5.1–5.3 and their three open decisions. Owner decisions (2026-10-02):
 - **The kind is the IDE's.** An item's kind (POU / DUT / GVL / interface …) comes from the IDE object — both vendors keep
@@ -369,51 +369,63 @@ Replaces the parked 5.1–5.3 and their three open decisions. Owner decisions (2
       200 files (incl. `scripts/held-as.test.ts`). No fixture, recording or transpiler file changed, so no fixture-map
       regeneration.
 
-### 5.C The total classifier (ONLY where 5.A.2 says a vendor needs it)
-- [ ] 5.C.1 One function in that vendor's driver (not Engine, not CLI), built on ONE trivia skipper shared with the child
-      splitter (5.E) — not a second copy. Grammar it accepts:
-      `[trivia] TYPE [trivia] name [trivia] [EXTENDS base] [trivia] : [trivia] X` where X = `STRUCT` → struct,
-      `UNION` → union, `(` → enum, any other type expression → alias; everything else → `null` (→ `.dut`).
-- [ ] 5.C.2 Its table test — every row is a test, each with the vendor's recorded answer where 5.A has one:
-      comments before TYPE and between every two tokens; nested `(* (* *) *)`; `//` line comments; `(*` inside a `//`
-      comment and `//` inside `(* *)`; an UNCLOSED `(*` anywhere; pragmas and attributes (`{attribute 'strict'}`,
-      `{attribute 'qualified_only'}`) before TYPE and between `:` and the body; conditional pragmas (`{IF defined(X)}`
-      around the body or a keyword → `.dut` unless the vendor answers); keywords in any case; tabs, CRLF, BOM, trailing
-      spaces; enum with base type `(A,B) UINT`, with initial values, with an attribute inside; `STRUCT` / `UNION` on the
-      next line; struct EXTENDS; alias of every 5.A.1 shape incl. subrange; several types in one TYPE block; TYPE without
-      END_TYPE; empty text; only comments; a text that is a POU or a GVL (→ `null`; the kind came from the IDE).
-- [ ] 5.C.3 Agreement gate: over all six corpora and every fixture DUT, the classifier's answer equals the vendor's own
-      answer wherever one exists (CODESYS language model as the oracle) — 0 disagreements, every `.dut` counted and
-      listed. A fuzz pass (random truncations / comment insertions of real DUTs): never throws, never a subtype the
-      vendor denies.
+### 5.P PIVOT (owner, 2026-10-02): ONE DUT extension, `.dut` — no subtype on the wire, no classifier
 
-### 5.D CODESYS: no Volt text read at all
-- [ ] 5.D.1 POU kind and DUT subtype from the IDE (object type + language-model signature, the `ExtractLibrarySignatures`
-      path); `CodesysTypeMap.RefinePou`, `LeadingKeyword`, `NeedsDeclaration` and the declaration read in
-      `CodesysDriver.Tree.KindCodeOf` are deleted. A broken `.prg` pulls back as `.prg`. The push pre-flight timing shows
-      the lookup is not slower than the read it replaces (numbers written here).
-- [ ] 5.D.2 Library DUTs: `LibSignatureRenderer.Dut` takes the subtype from `LibSignature.Flags` (5.A.1), not the text.
+"Keep it simple": the separate `.struct` / `.enum` / `.alias` / `.union` extensions are not worth the parsing complexity,
+its risks and a `.dut` fallback beside them. Every DUT is `name.dut`, on both vendors, always — the kind (DUT) is the
+IDE's object type (5.A), so naming a DUT needs no text and no vendor parse at all. This supersedes 5.A.2's subtype
+sources and the classifier (5.C, stopped mid-work and DELETED; its WIP is kept outside the repo, not to be revived), and
+reverses the archived `dut-subtype-on-the-wire` naming. No backward compatibility (no users of the split names yet;
+PLCAssist follows the wire names and is told). No migration code. Still no guessing: nothing in Volt decides a DUT's
+subtype any more — the IDE and its build own it.
 
-### 5.E Child elements (the one place headers stay — made gap-free too)
-- [ ] 5.E.1 The child splitter (`StReader.SplitChildren` / `FirstMemberLine` / `FirstCodeLine`) uses the same trivia skipper
-      as 5.C and gets the same table treatment: comments, pragmas and attributes before and between `METHOD` / `PROPERTY` /
-      `ACTION` / `TRANSITION` lines; nested and unclosed comments; a keyword inside a comment or a string; CRLF/BOM; every
-      modifier order (`METHOD PUBLIC ABSTRACT`); `END_METHOD` on the same line. Each row tested; an unsplittable file is
-      refused by name with its line, never split wrong.
+- [ ] 5.P.1 One DUT kind: `.dut` is the ONLY DUT extension in C# `ItemKind` (and every map derived from it), the LSP's
+      source-extension set, volt-control, and the four VS Code manifest places; `.struct` / `.enum` / `.alias` / `.union`
+      removed everywhere (`bun run check` parity green). Library DUTs render as `.dut`. A CODESYS text-list enum is a
+      DUT too: measure what Volt does with it today (5.A: its own class `TextListEnumerationObject`) and keep that
+      behaviour under `.dut` (read-only if push cannot write it — say so by name, never silently).
+- [ ] 5.P.2 Engine and drivers: the subtype leaves the contract — `IIdeDriver` reports the kind only; `Materializer`
+      names a DUT `name.dut`; deleted: `CodeHelper.DutSubtype`, 5.B's subtype answer (`DutSubtypeAnswer`, the
+      no-answer `.dut` branch — now there is no branch), `DutSubtypeChanges`, the `UnreadableDut` sentinel paths,
+      `DutBareIdentity` special cases (a subtype change is no longer a rename: the name stays `name.dut`), the
+      CODESYS signature-subtype lookup and `LibSignatureRenderer.Dut`'s subtype (always `.dut`). Tests that pinned the
+      split names are deleted or rewritten to `.dut` (tests change only because the owner changed the premise).
+- [ ] 5.P.3 CLI: no subtype logic anywhere (`IdeTree`, pull, push, status); `DutBaselineMigration` and any `.enum`/
+      `.struct` file handling deleted. A repo that still has split-name files simply sees them as removed + `name.dut`
+      added on the next pull (plain git; no special code). Black-box tests at both layers name DUTs `.dut`.
+- [ ] 5.P.4 LSP: every DUT file is `.dut`; the fixtures, scripts and recordings' item names that state a subtype
+      (dut-subtype 4.8, 6aecd5d476) go back to `.dut`; the LSP reads a DUT's shape from its text as it always does
+      (that is analysis, not naming). Conformance numbers unchanged apart from the renames. Coordinate with the running
+      LSP queue: touch only extension tables, fixture names and DUT-name scripts.
+
+### 5.D CODESYS: no Volt text read for a kind
+- [ ] 5.D.1 The POU kind comes from the IDE object, not the header: `CodesysTypeMap.RefinePou`, `LeadingKeyword`,
+      `NeedsDeclaration` and the declaration read in `CodesysDriver.Tree.KindCodeOf` are deleted. A broken `.prg` pulls
+      back as `.prg`. (DUTs need nothing: they are `.dut` by object type.) Push pre-flight timing shows the object read
+      is not slower than the text read it replaces (numbers written here). TwinCAT: the POU kind from its tree code
+      (the vendor's answer, C2f) — no header read either.
+
+### 5.E Child elements (the one place headers stay — made gap-free)
+- [ ] 5.E.1 The child splitter (`StReader.SplitChildren` / `FirstMemberLine` / `FirstCodeLine`) uses ONE trivia skipper
+      (`StTrivia`) and gets a table test, one row per case: comments, pragmas and attributes before and between
+      `METHOD` / `PROPERTY` / `ACTION` / `TRANSITION` lines; nested and unclosed comments; a keyword inside a comment or
+      a string; `//` vs `(* *)` mixes; CRLF/BOM; every modifier order (`METHOD PUBLIC ABSTRACT`); `END_METHOD` on the
+      same line. An unsplittable file is refused by name with its line, never split wrong.
 
 ### 5.F No legacy
-- [ ] 5.F.1 Deleted: `CodeHelper.DutSubtype` (all callers); the `UnreadableDut` sentinel paths and the `DutSubtypeChanges`
-      text logic in push; `StDeclaration.IsGlobalListHeader` (`ProjectDeclarations` takes GVLs from the item kind); the
-      "unnamed" design text; every comment/doc that describes reading a kind from text (`ItemKind.cs`, `RefsFetch.cs`,
-      `CodeHelper.cs`, `StWriter.cs`, the wire docs and generated doc data via VOLT_WRITE_DOCS=1). `IsCallableHeader` /
-      `IsFunctionBlockType` in `NetworkScope` read other items' kinds from the known item kinds instead of their header
-      (a lookup swap only — network text itself is parked).
-- [ ] 5.F.2 Repo gate (`Volt.Repo.Gates`): no code outside an allow-list (the child splitter; the 5.C classifier if it
-      exists) reads a declaration's first code line or matches `TYPE` / `STRUCT` / `FUNCTION_BLOCK` / `PROGRAM` /
-      `VAR_GLOBAL` to decide a kind. Grep-based, the allow-list inside the test.
-- [ ] 5.F.3 e2e 3.2's `held: "unreadable"` DUT rows become `.dut` rows; the forced cleanup becomes a plain delete.
+- [ ] 5.F.1 Deleted: `StDeclaration.IsGlobalListHeader` (`ProjectDeclarations` takes GVLs from the item kind); every
+      comment/doc that describes reading a kind or subtype from text or naming DUTs by subtype (`ItemKind.cs`,
+      `RefsFetch.cs`, `CodeHelper.cs`, `StWriter.cs`, DIALECT rows that only served the subtype — kept as history notes,
+      the wire docs and generated doc data via VOLT_WRITE_DOCS=1, CLAUDE.md/README mentions of `.enum`/`.struct`).
+      `IsCallableHeader` / `IsFunctionBlockType` in `NetworkScope` read other items' kinds from the known item kinds
+      instead of their header (a lookup swap only — network text itself is parked). The stale e2e tests for subtype
+      changes (`dut-subtype-change.test.ts`) are deleted; `held: "unreadable"` DUT rows become plain `.dut` rows.
+- [ ] 5.F.2 Repo gate (`Volt.Repo.Gates`): no code outside the child splitter reads a declaration's first code line or
+      matches `TYPE` / `STRUCT` / `UNION` / `FUNCTION_BLOCK` / `PROGRAM` / `VAR_GLOBAL` to decide a kind or a name;
+      no source mentions `.struct` / `.enum` / `.alias` / `.union` as an extension. Grep-based, allow-list in the test.
 
 ### 5.G Verify
-- [ ] 5.G.1 Live on both vendors (fixture copies, `ide.ps1 -Instance push5`): every 5.A.1 shape — push as sent, pull, push
-      the fixed text, pull: name, kind and subtype right at every step (`.dut` exactly while the vendor has no answer).
-- [ ] 5.G.2 Full C# suites, `bun test test/unit` (volt-cli), the LSP suite for `.dut`, `bun run check`; docs regenerated.
+- [ ] 5.G.1 Live on both vendors (fixture copies, `ide.ps1 -Instance push5`): every 5.A.1 shape incl. the broken-text
+      ones — push as sent, pull, push the fixed text, pull: every DUT is `name.dut` throughout, every POU keeps its kind,
+      a subtype change (struct → enum in place) is an ordinary content change, the TwinCAT broken-POU case survives (5.H).
+- [ ] 5.G.2 Full C# suites, `bun test test/unit` (volt-cli), the LSP suite, `bun run check`; docs regenerated.
