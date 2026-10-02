@@ -66,11 +66,8 @@ const CATALOG = join(import.meta.dir, "..", "docs", "codesys-reference", "error-
 const TOP = new Set(["function_block", "program", "function", "interface", "global_var_list", "type_decl", "namespace"])
 const INSTANTIABLE = new Set(["function_block", "type_decl", "interface"]) // a VAR of this type makes the unit reachable
 function unitExt(u: any): string {
-  if (u.kind === "type_decl") {
-    const bk = u.body?.kind
-    return bk === "struct" ? "struct" : bk === "enum" ? "enum" : bk === "union" ? "union" : "alias"
-  }
-  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl" }[u.kind as string] ?? "fb"
+  // every DUT is `dut`, whatever its body (openspec push-without-header-check 5.P)
+  return { function_block: "fb", program: "prg", function: "fun", interface: "itf", global_var_list: "gvl", type_decl: "dut" }[u.kind as string] ?? "fb"
 }
 const TERMINATOR: Record<string, string> = {
   function_block: "END_FUNCTION_BLOCK", program: "END_PROGRAM", function: "END_FUNCTION",

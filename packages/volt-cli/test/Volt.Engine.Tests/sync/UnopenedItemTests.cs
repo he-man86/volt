@@ -175,7 +175,7 @@ public class UnopenedItemTests
         Assert.Empty(ide.OpenedUnopened);
     }
 
-    /// <summary>Force drops a version gate; it never widens what a name means. `Broken.struct` names a DUT, and the
+    /// <summary>Force drops a version gate; it never widens what a name means. `Broken.dut` names a DUT, and the
     /// IDE's `Broken` is a POU — it is not deleted.</summary>
     [Fact]
     public void A_forced_op_naming_a_kind_it_cannot_be_does_not_reach_it()
@@ -185,7 +185,7 @@ public class UnopenedItemTests
         var push = PushService.Handle(ide, new PushRequest
         {
             Force = true,
-            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.struct" } },
+            Ops = new List<PushOp> { new DeleteItemOp { Name = "Broken.dut" } },
         });
 
         Assert.False(push.Accepted);

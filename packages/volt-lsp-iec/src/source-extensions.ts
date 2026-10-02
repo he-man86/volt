@@ -1,6 +1,6 @@
 /**
  * The kind-named writable-source extensions Volt materializes on disk — POUs (`.fb`/`.prg`/`.fun`),
- * interface (`.itf`), every DUT (`.struct`/`.enum`/`.union`/`.alias`/`.dut`), and GVL (`.gvl`). This is the LSP-side single source of truth
+ * interface (`.itf`), every DUT (`.dut`), and GVL (`.gvl`). This is the LSP-side single source of truth
  * for "is this a Volt source file", shared by the workspace crawl, the running server, the corpus tests and
  * the maintenance scripts — so the set is defined once, not copied per consumer.
  *
@@ -9,7 +9,7 @@
  * transitively load the analysis layer. (It named `detect-vendor` as the consumer that needed that; that
  * module is gone — see `consolidate-lsp-structure` C8 — and the property is still worth keeping.)
  * The ENGINE names every item, and the file name is that wire name (`Materializer.FullWireName` in `volt-cli`;
- * a DUT's extension is the subtype its vendor states, `.dut` when it states none). This mirrors the engine's writable-source table,
+ * every DUT is `.dut`, whatever its shape). This mirrors the engine's writable-source table,
  * `ItemKind.SourceKindExtensions`, and is cross-checked against it and every other copy by `scripts/check-wiring.ts`.
  */
 export const SOURCE_EXTENSIONS: readonly string[] = [
@@ -18,12 +18,7 @@ export const SOURCE_EXTENSIONS: readonly string[] = [
   ".fun",
   ".itf",
   ".gvl",
-  // A DUT is named on the wire — and so on disk — by the subtype its vendor states, and `.dut` when the vendor
-  // states none (openspec push-without-header-check 5.B); the file name IS the wire name.
-  ".struct",
-  ".enum",
-  ".union",
-  ".alias",
+  // Every DUT, whatever its shape (openspec push-without-header-check 5.P); the file name IS the wire name.
   ".dut",
 ]
 

@@ -87,7 +87,7 @@ END_INTERFACE
   {
     name: "sn_dut_mismatch",
     pouName: "DUT_SN_object",
-    kind: "struct",
+    kind: "dut",
     feature: "a DUT whose `TYPE <name> :` names something other than its object — is a type held to the same rule?",
     fromDoc: doc,
     note: "Genuinely unknown before recording. A DUT names itself in the type header rather than a POU signature, and the message speaks of a 'signature', so the compiler may well not apply it here.",

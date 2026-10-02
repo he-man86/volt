@@ -356,7 +356,7 @@ END_ACTION
     name: "xo2_grade_enum",
     plcPrgVar: "x2Grade : DUT_X2_grade;",
     pouName: "DUT_X2_grade",
-    kind: "enum",
+    kind: "dut",
     feature: "an enum with gaps in its values, in its own object",
     fromDoc: doc,
     source: `TYPE DUT_X2_grade :

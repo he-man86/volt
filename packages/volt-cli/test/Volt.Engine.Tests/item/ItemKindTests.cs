@@ -66,21 +66,19 @@ public class ItemKindTests
 
     // ── the table's own consistency ────────────────────────────────────────────────────────────
 
-    /// <summary>NO EXTENSION IS CLAIMED BY TWO KINDS, and no kind appears twice but the DUT. A duplicated extension
-    /// makes the workspace ambiguous in the direction that matters most: kind is recovered from the file's
-    /// extension on push, so two kinds sharing one would make a pushed file's kind unknowable.
+    /// <summary>NO EXTENSION IS CLAIMED BY TWO KINDS, and no kind appears twice. A duplicated extension makes the
+    /// workspace ambiguous in the direction that matters most: kind is recovered from the file's extension on push,
+    /// so two kinds sharing one would make a pushed file's kind unknowable.
     ///
-    /// <para>The DUT kind is the one many-to-one row, by design (openspec <c>dut-subtype-on-the-wire</c>): its wire
-    /// name carries its subtype, so it is listed under its four subtype extensions
-    /// (<see cref="The_dut_kind_is_listed_under_its_four_subtype_extensions_and_never_dut"/>) — which still leaves
-    /// every EXTENSION naming exactly one kind.</para></summary>
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.P, 2026-10-02).</b> The DUT
+    /// was the one many-to-one row (its subtype names); every DUT is <c>X.dut</c> now, so the table is one-to-one in
+    /// both directions with no exception.</para></summary>
     [Fact]
     public void The_extension_table_is_one_to_one()
     {
         var all = ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions).ToArray();
-        var notDut = all.Where(x => x.Kind != ItemKind.Kinds.Dut).ToArray();
 
-        Assert.Equal(notDut.Length, notDut.Select(x => x.Kind).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(all.Length, all.Select(x => x.Kind).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(all.Length, all.Select(x => x.Ext).Distinct(StringComparer.Ordinal).Count());
     }
 
@@ -98,11 +96,7 @@ public class ItemKindTests
     /// <summary>`FileExtensions` is the two lists, and the writable flag matches which list a kind came from.
     /// The CLI's own extension registry is built from this projection, so a kind that arrived with the wrong flag
     /// would make a read-only descriptor pushable — or a real source file refused.
-    ///
-    /// <para><b>No split any more.</b> This used to project a DUT's ONE table entry (<c>dut</c>, the wire kind)
-    /// onto four file extensions, because the wire hid the subtype and the file carried it. The wire carries it
-    /// now (openspec <c>dut-subtype-on-the-wire</c>), so file extension == wire extension for every kind and the
-    /// projection is the table, entry for entry.</para></summary>
+    /// File extension == wire extension for every kind, so the projection is the table, entry for entry.</summary>
     [Fact]
     public void FileExtensions_reports_writability_from_the_list_a_kind_came_from()
     {
@@ -113,52 +107,41 @@ public class ItemKindTests
         Assert.All(ItemKind.ReferenceKindExtensions, x => Assert.False(flags[x.Ext]));
     }
 
-    /// <summary>THE DUT KIND IS LISTED UNDER FIVE ORDINARY, WRITABLE SOURCE EXTENSIONS: the four subtypes its vendor
-    /// can state, and <c>dut</c> for a DUT whose vendor states none.
+    /// <summary>THE DUT KIND HAS ONE EXTENSION, <c>dut</c> — an ordinary, writable source extension, and what
+    /// <c>ExtFor</c> answers for it like for every other kind.
     ///
-    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.B, 2026-10-02).</b> This
-    /// asserted "four, and never <c>dut</c>": the engine read every DUT's subtype from its text and refused a text that
-    /// stated none (unreadable). The owner decided the subtype is the VENDOR's answer and no answer publishes
-    /// <c>X.dut</c> — so <c>dut</c> is a wire name and a file again, and writable like the other four.</para></summary>
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.P, 2026-10-02: "keep it
+    /// simple").</b> This asserted five DUT extensions — the four subtypes a vendor could state, and <c>dut</c> for
+    /// none — and that <c>ExtFor</c> refused the DUT kind. The subtype left the wire.</para></summary>
     [Fact]
-    public void The_dut_kind_is_listed_under_its_four_subtype_extensions_and_dut()
+    public void The_dut_kind_has_the_one_extension_dut()
     {
-        var dutExts = ItemKind.SourceKindExtensions.Where(x => x.Kind == ItemKind.Kinds.Dut).Select(x => x.Ext)
-                              .OrderBy(e => e, StringComparer.Ordinal).ToArray();
+        var dutExts = ItemKind.SourceKindExtensions.Where(x => x.Kind == ItemKind.Kinds.Dut).Select(x => x.Ext).ToArray();
 
-        Assert.Equal(new[] { "alias", "dut", "enum", "struct", "union" }, dutExts);
+        Assert.Equal(new[] { "dut" }, dutExts);
+        Assert.Equal("dut", ItemKind.ExtFor(ItemKind.Kinds.Dut));
         Assert.Contains(ItemKind.FileExtensions, x => x.Ext == "dut" && x.IsSource && x.IsWritable);
+        Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName("X.dut"));
     }
 
-    /// <summary>EVERY DUT WIRE NAME READS AS THE DUT KIND — the four subtypes and <c>.dut</c> (owner, 5.B: it used to
-    /// read as no kind). Every engine consumer that routes a push op by its name (<c>PushedText</c>, <c>StReader</c>
-    /// via <c>PushService</c>) asks this, and a <c>.struct</c> name used to answer null — so the reader's kind check
-    /// silently stood down for every DUT.</summary>
+    /// <summary>A SPLIT DUT NAME NAMES NO KIND (5.P). <c>X.struct</c> / <c>X.enum</c> / <c>X.union</c> /
+    /// <c>X.alias</c> are foreign names like <c>X.foo</c> — no alias of <c>X.dut</c> (two spellings of one item is the
+    /// collapse the item-name invariant forbids), so every consumer that routes by the name refuses them.</summary>
     [Theory]
     [InlineData("X.struct")]
     [InlineData("X.enum")]
     [InlineData("X.union")]
     [InlineData("X.alias")]
-    [InlineData("X.dut")]
-    public void A_dut_subtype_wire_name_is_the_dut_kind(string wireName) =>
-        Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(wireName));
+    public void A_split_dut_name_names_no_kind(string wireName) =>
+        Assert.Null(ItemKind.KindForWireName(wireName));
 
-    /// <summary>"THE" DUT EXTENSION IS NOT A QUESTION THE TABLE CAN ANSWER. The DUT kind has five extensions and which
-    /// one an item has is its vendor's answer (<c>ItemKind.DutExtension</c>, from <c>Materializer</c>), so
-    /// <c>ExtFor</c> refuses it rather than picking one.</summary>
+    /// <summary>AND EVERY KIND RESOLVES THROUGH `ExtFor` to the extension the table gives it — the table and its
+    /// lookup cannot disagree, which is the whole reason there is only one table.</summary>
     [Fact]
-    public void ExtFor_refuses_the_dut_kind_rather_than_mint_an_extension_for_it() =>
-        Assert.ThrowsAny<Exception>(() => ItemKind.ExtFor(ItemKind.Kinds.Dut));
-
-    /// <summary>AND EVERY KIND WITH ONE EXTENSION RESOLVES THROUGH `ExtFor` to the extension the table gives
-    /// it — the table and its lookup cannot disagree, which is the whole reason there is only one table. (The DUT
-    /// kind has five, and is refused above.)</summary>
-    [Fact]
-    public void ExtFor_agrees_with_the_table_for_every_kind_with_one_extension()
+    public void ExtFor_agrees_with_the_table_for_every_kind()
     {
         var table = ItemKind.SourceKindExtensions.Concat(ItemKind.ReferenceKindExtensions).ToList();
-        Assert.All(table.Where(x => table.Count(y => y.Kind == x.Kind) == 1),
-                   x => Assert.Equal(x.Ext, ItemKind.ExtFor(x.Kind)));
+        Assert.All(table, x => Assert.Equal(x.Ext, ItemKind.ExtFor(x.Kind)));
     }
 
     // ── the member / inlined split ─────────────────────────────────────────────────────────────

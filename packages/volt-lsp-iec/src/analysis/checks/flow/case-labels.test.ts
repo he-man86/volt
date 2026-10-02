@@ -90,7 +90,7 @@ test("a typed integer label is a label; an enum `Type#Value` label is no constan
   const enumSrc = "TYPE E_Mode :\n(\n\tIdle,\n\tRunning\n);\nEND_TYPE\n"
   const pr = parseSource(src, { networkText: true })
   const er = parseSource(enumSrc, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }, { uri: "file:///E_Mode.enum", parseResult: er, source: enumSrc }], [], "codesys")
+  const project = build.buildSymbolTable([{ uri: uriFor(pr), parseResult: pr, source: src }, { uri: "file:///E_Mode.dut", parseResult: er, source: enumSrc }], [], "codesys")
   const errs = [...pr.errors.map((e) => e.message), ...computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
     .filter((d) => d.severity === "error").map((d) => d.message)]
   expect(errs).toEqual(["CASE label requires literal or symbolic integer constant"])

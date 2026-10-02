@@ -77,7 +77,8 @@ public class UnreadableIsNotRemovedTests
 
     /// <summary>…and the same holds for a known name whose extension the engine does not read as any kind. The
     /// exemption used to cover every such name by bare name alone, so with FB `X` unreadable a known `X.struct`
-    /// (no DUT `X` in the IDE at all) was never reported removed — the resurrection above, reached through the
+    /// (a split DUT name from before every DUT was `X.dut`, openspec push-without-header-check 5.P — no kind at all
+    /// now) was never reported removed — the resurrection above, reached through the
     /// "no kind" arm instead. A name the engine cannot place is not the unreadable item; `X.foo` pins it for an
     /// extension no kind will ever claim.</summary>
     [Theory]

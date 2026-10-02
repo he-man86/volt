@@ -254,7 +254,7 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>…and a kind that holds no body — a GVL, a DUT under its subtype name — is not judged at all, even when
+    /// <summary>…and a kind that holds no body — a GVL, a DUT — is not judged at all, even when
     /// its declaration carries v1-looking text an IDE-side change brought in: no note, and no "does not split"
     /// unreadable entry either (it was never parsed as a POU).
     ///
@@ -264,8 +264,8 @@ public class PullCommandTests
     /// read and changes no answer.</para></summary>
     [Theory]
     [InlineData("GVL_Io", "VAR_GLOBAL\n  a : BOOL;\nEND_VAR", "GVL_Io.gvl")]
-    [InlineData("ST_Io", "TYPE ST_Io :\nSTRUCT\n  a : BOOL;\nEND_STRUCT\nEND_TYPE", "ST_Io.struct")]
-    [InlineData("E_Io", "TYPE E_Io :\n(\n  a := 0\n);\nEND_TYPE", "E_Io.enum")]
+    [InlineData("ST_Io", "TYPE ST_Io :\nSTRUCT\n  a : BOOL;\nEND_STRUCT\nEND_TYPE", "ST_Io.dut")]
+    [InlineData("E_Io", "TYPE E_Io :\n(\n  a := 0\n);\nEND_TYPE", "E_Io.dut")]
     public void A_pull_judges_no_v1_in_a_kind_without_a_body(string name, string decl, string file)
     {
         var ide = ConnectedIde(FakeIde.Item.TextualPou(name, decl, ""));
@@ -646,12 +646,11 @@ public class PullCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>The same hole, reached by a DUT whose subtype the IDE changed during a partial walk: the IDE now
-    /// publishes `X.enum`, and `X.struct` is a removed name like any other. Its file must go with it — left
-    /// behind, an edit to it was refused ITEM_EXISTS forever and `volt push --force` wrote the stale STRUCT over
-    /// the IDE's live ENUM.</summary>
+    /// <summary>A DUT whose subtype the IDE changed during a partial walk is an ORDINARY CONTENT CHANGE of `X.dut`:
+    /// the file keeps its name and takes the new text, and nothing is removed. (Premise changed by the owner, openspec
+    /// push-without-header-check 5.P: this pinned that `X.struct` was retired when the IDE published `X.enum`.)</summary>
     [Fact]
-    public void A_pull_over_an_unreadable_folder_retires_the_old_name_of_a_dut_whose_subtype_changed()
+    public void A_pull_over_an_unreadable_folder_takes_a_dut_subtype_change_as_a_content_change()
     {
         var ide = ConnectedIde(Prg(),
             FakeIde.Item.TextualPou("X", "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "", "DUTs"),
@@ -660,32 +659,31 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var structFile = Path.Combine(root, "src", "DUTs", "X.struct");
-            var enumFile = Path.Combine(root, "src", "DUTs", "X.enum");
-            Assert.True(File.Exists(structFile));
+            var dutFile = Path.Combine(root, "src", "DUTs", "X.dut");
+            Assert.True(File.Exists(dutFile));
 
             ide.RemoveItem("X");
             ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\n(\n\tA := 0,\n\tB\n);\nEND_TYPE", "", "DUTs"));
             ide.UnwalkableFolders = new[] { "Machine" };
-            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var pull = Commands.Pull(root, client);
+            Assert.Equal("ok", pull.Kind);
 
-            Assert.True(File.Exists(enumFile));
-            Assert.False(File.Exists(structFile), "the DUT's old subtype file survived beside its new one");
+            Assert.Contains("(\n\tA := 0,", File.ReadAllText(dutFile).Replace("\r\n", "\n"));
+            Assert.Equal(new[] { "X.dut" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName));
 
             ide.UnwalkableFolders = new string[0];
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Assert.False(File.Exists(structFile));
             Assert.Equal("in sync with the IDE", Commands.Status(root, client).Summary);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>…and when the unread folder is the one the OLD name last sat in. The IDE retyped `X` and moved it
-    /// out of `Old`, and `Old` now faults. Absence under an unread folder proves nothing — but this walk did not
-    /// merely miss `X`: it found the one object under its new name, `X.enum`. Two files for one IDE object is what
-    /// the spec forbids, and the stale `X.struct` could be force-pushed over the live enum.</summary>
+    /// <summary>…and when the DUT also moved out of a folder that now faults. Absence under an unread folder proves
+    /// nothing — but this walk did not miss `X`: it found the one object, `X.dut`, in another folder, so the moved
+    /// item supersedes its old file wherever it sat. Two files for one IDE object is what the spec forbids. (Premise
+    /// changed by the owner, 5.P: the object used to come back under a new subtype name, `X.enum` for `X.struct`.)</summary>
     [Fact]
-    public void A_pull_retires_the_old_subtype_name_even_when_its_own_folder_went_unread()
+    public void A_pull_retires_a_moved_duts_old_file_even_when_its_own_folder_went_unread()
     {
         var ide = ConnectedIde(Prg(),
             FakeIde.Item.TextualPou("X", "TYPE X :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", "", "Old"));
@@ -693,8 +691,8 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var structFile = Path.Combine(root, "src", "Old", "X.struct");
-            var enumFile = Path.Combine(root, "src", "DUTs", "X.enum");
+            var structFile = Path.Combine(root, "src", "Old", "X.dut");
+            var enumFile = Path.Combine(root, "src", "DUTs", "X.dut");
             Assert.True(File.Exists(structFile));
 
             ide.RemoveItem("X");
@@ -703,8 +701,8 @@ public class PullCommandTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
             Assert.True(File.Exists(enumFile));
-            Assert.False(File.Exists(structFile), "the DUT's old subtype file survived beside its new one");
-            Assert.DoesNotContain("X.struct", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.False(File.Exists(structFile), "the moved DUT's old file survived beside its new one");
+            Assert.Equal("DUTs", Sidecar.LoadIdeRefs(root)!.Folders["X.dut"]);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
@@ -739,7 +737,7 @@ public class PullCommandTests
     /// holds an unreadable PROGRAM `X` — another item of the same bare name. A rule keyed by bare name kept the
     /// DUT's file (and its baseline entry) for as long as a folder kept faulting: the same shielding the complete
     /// walk's kind check already refuses. (FakeIde resolves a read by bare name, so it cannot hold both at once;
-    /// the program arriving as the DUT leaves is the same wire answer — `unreadable: [X]`, no `X.struct`.)</summary>
+    /// the program arriving as the DUT leaves is the same wire answer — `unreadable: [X]`, no `X.dut`.)</summary>
     [Fact]
     public void A_partial_pull_retires_a_deleted_dut_beside_an_unreadable_item_of_its_name()
     {
@@ -750,7 +748,7 @@ public class PullCommandTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var dut = Path.Combine(root, "src", "DUTs", "X.struct");
+            var dut = Path.Combine(root, "src", "DUTs", "X.dut");
             Assert.True(File.Exists(dut), "fixture: the first pull wrote the DUT");
 
             ide.RemoveItem("X");
@@ -759,7 +757,7 @@ public class PullCommandTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
             Assert.False(File.Exists(dut), "the deleted DUT survived, shielded by the unreadable item's bare name");
-            Assert.DoesNotContain("X.struct", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.DoesNotContain("X.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
             Assert.True(File.Exists(Path.Combine(root, "src", "Machine", "Deep.prg")), "the pull deleted an unseen item");
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }

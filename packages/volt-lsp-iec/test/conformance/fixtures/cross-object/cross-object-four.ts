@@ -100,7 +100,7 @@ END_FUNCTION_BLOCK
     name: "xo4_slot_struct",
     plcPrgVar: "x4Slot : DUT_X4_slot;",
     pouName: "DUT_X4_slot",
-    kind: "struct",
+    kind: "dut",
     feature: "the struct the shared array holds",
     fromDoc: doc,
     source: `TYPE DUT_X4_slot :

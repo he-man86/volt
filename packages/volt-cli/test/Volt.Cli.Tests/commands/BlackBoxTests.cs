@@ -250,14 +250,14 @@ public class BlackBoxTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    // ── a DUT's file name is its wire name (openspec dut-subtype-on-the-wire) ───────────────────────
+    // ── a DUT's file name is its wire name, X.dut (openspec push-without-header-check 5.P) ──────────
 
     private const string DutStruct =
         "TYPE X :\nSTRUCT\n\talpha : INT;\n\tbeta : BOOL;\n\tgamma : REAL;\n\tdelta : STRING(80);\n\tepsilon : TIME;\nEND_STRUCT\nEND_TYPE";
 
     /// <summary>`volt status --json` names the REAL file for an IDE-side DUT edit, and `volt show BRIDGE` on that
-    /// path answers with the IDE's text. With `.dut` on the wire `pathByName` said `DUTs/X.dut` — a file that does
-    /// not exist, so the extension's drift colouring and the diff pane both missed the real `X.struct`.</summary>
+    /// path answers with the IDE's text. When the wire and the file spelt a DUT differently, `pathByName` named a
+    /// file that did not exist, so the extension's drift colouring and the diff pane both missed the real one.</summary>
     [Fact]
     public void Status_json_and_show_BRIDGE_name_a_duts_real_file()
     {
@@ -272,41 +272,44 @@ public class BlackBoxTests
             var st = RunVolt(root, pipe, "status", "--json");
             Assert.True(st.Code == 0, $"status exit {st.Code}: {st.Err}");
             using (var sj = JsonDocument.Parse(st.Out.Trim()))
-                Assert.Equal("DUTs/X.struct", sj.RootElement.GetProperty("pathByName").GetProperty("X.struct").GetString());
+                Assert.Equal("DUTs/X.dut", sj.RootElement.GetProperty("pathByName").GetProperty("X.dut").GetString());
 
-            var show = RunVolt(root, pipe, "show", "BRIDGE", "DUTs/X.struct");
+            var show = RunVolt(root, pipe, "show", "BRIDGE", "DUTs/X.dut");
             Assert.True(show.Code == 0, $"show exit {show.Code}: {show.Err}");
             Assert.Contains("alpha : DINT;", show.Out);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>THE 1.1 FORCE CASE, through the real binary. `git rm X.struct` + a new `X.{enum|union}` is a
-    /// delete plus an add; `volt push --force` in either git path order (`X.enum` sorts before `X.struct`,
-    /// `X.union` after) must land as one update of the same DUT. Measured before the change: one order was
-    /// ACCEPTED with the DUT deleted from the IDE (and status then read in sync over the loss), the other deleted
-    /// it and failed.</summary>
+    /// <summary>A DUT SUBTYPE REWRITE IS AN ORDINARY EDIT, through the real binary: the engineer rewrites `X.dut`'s
+    /// struct as an enum or a union and runs a plain `volt push` — one content update of the same DUT, no
+    /// `--force`, no rename, and status reads in sync on the same file.
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.P).</b> This was the
+    /// 1.1 force case: `git rm X.struct` plus a new `X.{enum|union}` had to land as one update in either git path
+    /// order. With one DUT extension there is no second file and no pairing to get wrong.</para></summary>
     [Theory]
-    [InlineData("enum", "TYPE X :\n(\n\tRed := 0,\n\tGreen := 1,\n\tBlue := 2,\n\tCyan := 3,\n\tMagenta := 4\n);\nEND_TYPE")]
-    [InlineData("union", "TYPE X :\nUNION\n\tasWord : WORD;\n\tasBytes : ARRAY[0..1] OF BYTE;\n\tasInt : INT;\nEND_UNION\nEND_TYPE")]
-    public void Push_force_of_a_dut_subtype_rewrite_keeps_the_dut(string subtype, string text)
+    [InlineData("TYPE X :\n(\n\tRed := 0,\n\tGreen := 1,\n\tBlue := 2,\n\tCyan := 3,\n\tMagenta := 4\n);\nEND_TYPE")]
+    [InlineData("TYPE X :\nUNION\n\tasWord : WORD;\n\tasBytes : ARRAY[0..1] OF BYTE;\n\tasInt : INT;\nEND_UNION\nEND_TYPE")]
+    public void Push_of_a_dut_subtype_rewrite_is_an_ordinary_update(string text)
     {
         var ide = ConnectedIde(FakeIde.Item.TextualPou("X", DutStruct, "", "DUTs"));
         var (root, host, pipe) = Boot(ide);
         try
         {
             Assert.Equal(0, RunVolt(root, pipe, "pull").Code);
-            var dir = Path.Combine(root, "src", "DUTs");
-            File.Delete(Path.Combine(dir, "X.struct"));
-            File.WriteAllText(Path.Combine(dir, $"X.{subtype}"), text + "\n");
+            var file = Path.Combine(root, "src", "DUTs", "X.dut");
+            File.WriteAllText(file, text + "\n");
 
-            var push = RunVolt(root, pipe, "push", "--force");
-            Assert.True(push.Code == 0, $"push --force exit {push.Code}: {push.Err}");
+            var push = RunVolt(root, pipe, "push");
+            Assert.True(push.Code == 0, $"push exit {push.Code}: {push.Err}");
 
-            Assert.True(ide.Exists("X"), "push --force deleted the DUT from the IDE");
+            Assert.Contains("writecontent:X", ide.Recorded);
+            Assert.DoesNotContain("delete:X", ide.Recorded);
+            Assert.DoesNotContain("create:X", ide.Recorded);
             var refs = Volt.Engine.Sync.RefsService.Handle(ide);
-            Assert.Equal(new[] { $"X.{subtype}" }, refs.Items.Keys.ToArray());
-            Assert.Equal("DUTs", refs.Folders[$"X.{subtype}"]);
+            Assert.Equal(new[] { "X.dut" }, refs.Items.Keys.ToArray());
+            Assert.Equal("DUTs", refs.Folders["X.dut"]);
 
             var st = RunVolt(root, pipe, "status", "--json");
             using var sj = JsonDocument.Parse(st.Out.Trim());
@@ -317,12 +320,12 @@ public class BlackBoxTests
 
     /// <summary>THE UNREADABLE WARNING DOES NOT SAY A HELD ITEM HAS NO FILE. A DUT the IDE cannot read is
     /// unreadable, yet the pull keeps its last-read file and its baseline entry — it is HELD. `volt status` said
-    /// every unreadable item has "NO file here" while `src/DUTs/X.struct` sat on disk, sending the engineer after a
+    /// every unreadable item has "NO file here" while `src/DUTs/X.dut` sat on disk, sending the engineer after a
     /// missing file instead of telling them the one there is stale and unpushable.
     ///
     /// <para>The fixture's unreadable DUT used to be one caught mid-retype (its text stating no subtype). Since openspec
-    /// <c>push-without-header-check</c> 5.B (owner) such a DUT is published as <c>X.dut</c>, not unreadable, so the
-    /// held item is now a DUT whose read FAILS — the unreadable case that remains; the subject is unchanged.</para></summary>
+    /// <c>push-without-header-check</c> 5.B (owner) nothing about a DUT's text makes it unreadable, so the held item
+    /// is a DUT whose read FAILS — the unreadable case that remains; the subject is unchanged.</para></summary>
     [Fact]
     public void Status_warning_does_not_deny_a_held_unreadable_items_file()
     {
@@ -334,7 +337,7 @@ public class BlackBoxTests
             ide.RemoveItem("X");
             ide.AddItem(new FakeIde.Item("X", Volt.Engine.Item.ItemKind.PlcDut, "DUTs", true, DutStruct, null, null, "read failed (COM)"));
             Assert.Equal(0, RunVolt(root, pipe, "pull").Code);
-            Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "X.struct")), "fixture: the pull holds X.struct");
+            Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "X.dut")), "fixture: the pull holds X.dut");
 
             var st = RunVolt(root, pipe, "status");
             Assert.True(st.Code == 0, $"status exit {st.Code}: {st.Err}");

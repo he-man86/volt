@@ -490,8 +490,8 @@ function pushAllItCan(
 			const message = String((err as Error).message)
 			// MATCHED BY BASE NAME. The bridge names an item the way the WIRE does while the staged map is keyed by
 			// workspace PATH, so the folder has to go: `POUs/POUexecute.prg` against `POUexecute.prg`. The extension
-			// stays: a workspace file's name IS its wire name (a DUT is `X.struct` on both sides), and dropping it
-			// would pair `X.fb` with a refused `X.struct` of the same name.
+			// stays: a workspace file's name IS its wire name (a DUT is `X.dut` on both sides), and dropping it
+			// would pair `X.fb` with a refused `X.dut` of the same name.
 			const lines = refusalLines(message)
 			const base = (n: string) => n.split("/").pop()!
 			const refusedNames = new Set([...lines.keys()].map(base))

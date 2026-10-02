@@ -38,12 +38,8 @@ public static class Sidecar
     /// no item to stand for. Every `ifVersion` such a key quotes names no item and every comparison against it is
     /// wrong, so the baseline is refused exactly as a malformed one is: the file to delete, and `volt pull`, which
     /// rebuilds it from what the wire says now. A translator would be item-kind knowledge in the CLI. "No wire name"
-    /// is asked of the one extension table (`Extensions`), so no spelling is listed here.
-    ///
-    /// <para>An `X.dut` key from before the wire carried the subtype is NOT refused any more: `.dut` is a wire name
-    /// again — the DUT whose vendor states no subtype (openspec `push-without-header-check` 5.B) — so the two cannot
-    /// be told apart. That stays safe: an `ifVersion` such a key quotes reaches the live DUT only if it equals that
-    /// DUT's content version (the bare-DUT update gate), and the next pull renames the key.</para></summary>
+    /// is asked of the one extension table (`Extensions`), so no spelling is listed here — a key from a Volt whose
+    /// wire spelt one kind under several extensions (openspec `push-without-header-check` 5.P) is such a key.</summary>
     private static void RefuseUnknownNames(IdeRefs refs, string file)
     {
         var stale = refs.Items.Keys.Concat(refs.Folders.Keys)

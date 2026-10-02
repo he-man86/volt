@@ -940,11 +940,17 @@ every live 5.G shape", which is 8175/8175 on the corpora.
 
 - **A name with no kind** (`X`, `X.foo`), which now includes `X.struct` / `X.enum` / `X.union` / `X.alias`.
   `RequireWireNames` refuses them `BAD_REQUEST`, and `Sidecar.RefuseUnknownNames` refuses such a baseline key. The
-  refusal message no longer says "a DUT by its subtype". A workspace that still holds split-name files sees them as
-  foreign files and `name.dut` as added on its next pull. That is plain git, with no migration code (5.P.3).
+  refusal message no longer says "a DUT by its subtype". A workspace bound under 5.B or `dut-subtype-on-the-wire`
+  holds such keys in its baseline, so its next `volt pull` (and `volt push`) is REFUSED by name: the key, the file to
+  delete (`.git/volt/ide-refs.json`) and `volt pull`, which rebuilds the baseline from the wire. `volt merge
+  --continue` refuses a pending baseline holding one the same way: the merge stands, the baseline is not advanced, exit
+  1. After that rebuild the old split-name files are files the IDE does not publish and `name.dut` arrives as added:
+  plain git, with no migration code (5.P.3). Pinned by `SidecarBaselineTests` (both doors).
 - **Another family over a DUT** (`X.fb` / `X.gvl` over DUT `X`): the re-type guard, unchanged.
 - **A create of `X.dut` over a live DUT `X`**: `ITEM_EXISTS`, from the ordinary create check (no sibling scan any
-  more).
+  more). Under a case variant too (`x.dut` over `X.dut`, and `fb_x.fb` over `FB_X.fb` for every kind): the gate
+  resolves the op's name case-insensitively when the exact spelling misses, as the apply does
+  (`CaseVariantNameGateTests`).
 - **Two ops on one DUT in one push**: the ordinary duplicate-op rule every item has. The DUT-specific pairing rules of
   `DutSubtypeChanges` go (rename/pair coalescing, "body-less subtype rename"), because there is no subtype rename to
   pair.
@@ -1007,3 +1013,32 @@ every live 5.G shape", which is 8175/8175 on the corpora.
    - The probe logs under `volt-cli/scripts` are history and stay.
 
    After this, 5.F.2's gate forbids `.struct` / `.enum` / `.union` / `.alias` as an extension in source.
+
+### Implemented (2026-10-02) — where reality refined the choice
+
+P1 with R1, as chosen. Refinements, each forced by the code once the subtype was gone:
+
+- **`Removal.SeenUnderAnotherName` deleted too** (not in the list above). It retired a known name when the walk
+  published the same bare name and kind under ANOTHER wire name — reachable only through a DUT's subtype rename. With
+  one extension per kind, same bare name + same kind IS the same wire name, so the arm was dead; its test
+  (`PartialWalkTests…removes_the_old_subtype_name…`) went with it. The CLI-layer test that leaned on it became the
+  ordinary "moved item supersedes its old file" case under a partial walk (`PullCommandTests…moved_duts_old_file…`).
+- **`PushedText.MayBeHeldAs` keeps its DUT arm.** The family rule now pairs `X.dut` only with a case variant of itself
+  (`x.dut`), exactly as the POU family covers case; dropping the arm would have changed case handling, which 5.P does
+  not own.
+- **`ExtFor(Kinds.Dut)` is the way to ask for the DUT extension** (`LibSignatureRenderer.Dut`), so
+  `WireVocabularyGuardTests` no longer forbids that call; it still forbids any second spelling of `dut`. Its sibling
+  guard now allows NO lower-case subtype literal in `src` (the allow-list of `CodeHelper.cs` / `ItemKind.cs` went with
+  the reader and the rows).
+- **The CLI gate's one allowance went.** `CliHoldsNoItemKindLogicTests` allowed `Sidecar.cs` to spell `X.dut` in a doc;
+  the doc is reworded kind-neutrally and the allowance is deleted.
+- **Docs tests.** `DocDataTests` now checks that no doc names a DUT by a split name or keeps `#dut-subtype` /
+  `#dut-migration` (DIALECT.md left that list: its history keeps the old names, and 5.F.2's gate owns the source-wide
+  rule); the migration-note and wire-subtype-rule tests were deleted with the sections they guarded.
+- **`test/e2e/items/dut-subtype-change.test.ts` deleted here, not in 5.F.1:** every assertion in it pinned a split
+  name. `push-without-header-check.test.ts` and `fixtures.ts` name DUTs `.dut`; their `held: "unreadable"` rows and the
+  `DUT_PUBLISHED_AS_DUT` mark stay for 5.F.1 / 5.G.1 (live only).
+- **The delete of an unreadable DUT** behaves as the POU's in every combination (`DutOneNameTests`): guarded by a
+  baseline version, unforced → version conflict; unguarded → deleted (as a POU is); forced → deleted.
+- **LSP:** `src/frontend/symbols/binder.test.ts` still names three test URIs `.enum` / `.alias` — the file carries the
+  LSP queue's uncommitted work, the tests pass (binding never reads the extension), and 5.F.2's gate will find them.

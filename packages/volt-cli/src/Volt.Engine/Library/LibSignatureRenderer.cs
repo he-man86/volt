@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using Volt.Engine.Format.St;
+using Volt.Engine.Item;
 using Volt.Engine.Library;
 
 namespace Volt.Engine.Library;
@@ -137,7 +138,7 @@ public static class LibSignatureRenderer
             {
                 var fields = s.Members.Where(v => OkName(v.Name)).Select(v => $"\t{VarDecl(v)};");
                 // A UNION shares the struct shape but with UNION/END_UNION (overlapping members); a STRUCT is the
-                // default. The vendor flag picks the KEYWORDS; the name comes from the text they make (`Dut`).
+                // default. The vendor flag picks the KEYWORDS.
                 var (open, close) = s.Flags.Contains("Union") ? ("UNION", "END_UNION") : ("STRUCT", "END_STRUCT");
                 return Dut(string.Join("\n", new[] { $"TYPE {name} :", open }.Concat(fields).Concat(new[] { close, "END_TYPE" })));
             }
@@ -146,9 +147,8 @@ public static class LibSignatureRenderer
         }
     }
 
-    /// <summary>A library DUT's (extension, text), named by the ONE subtype reader — the same answer the project
-    /// materializer mints a DUT's wire name from, so a library enum and a project enum carry the same extension.
-    /// This renderer used to spell `.enum`/`.struct`/`.union`/`.alias` itself from the vendor's flags: a second
-    /// classifier of one shape, free to disagree with the reader about the very text it had just written.</summary>
-    private static (string Ext, string Text) Dut(string text) => ("." + CodeHelper.DutSubtype(text), text);
+    /// <summary>A library DUT's (extension, text): every DUT is <c>.dut</c>, whatever shape the vendor's flags gave
+    /// the text (openspec <c>push-without-header-check</c> 5.P) — the extension is <see cref="ItemKind"/>'s, read
+    /// from the table, never spelt here.</summary>
+    private static (string Ext, string Text) Dut(string text) => ("." + ItemKind.ExtFor(ItemKind.Kinds.Dut), text);
 }

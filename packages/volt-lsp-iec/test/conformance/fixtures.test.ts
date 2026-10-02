@@ -1878,7 +1878,7 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
 
 
 function extFor(kind: string): string {
-  const map: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", interface: "itf", struct: "struct", enum: "enum", union: "union", alias: "alias" }
+  const map: Record<string, string> = { function_block: "fb", function: "fun", program: "prg", gvl: "gvl", interface: "itf", dut: "dut" }
   const ext = map[kind]
   if (!ext) throw new Error(`fixture kind "${kind}" has no file extension`)
   return ext

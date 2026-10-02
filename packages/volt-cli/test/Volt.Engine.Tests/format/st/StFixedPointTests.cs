@@ -211,8 +211,8 @@ public class StFixedPointTests
             // Source-ness from the ONE extension table's own flag, keyed by the FILE extension. This sweep once asked
             // `KindForWireName` about a file extension while the wire spelt every DUT `.dut` — so it answered null
             // for every `.struct`/`.enum`/`.union`/`.alias` and silently skipped 290 of the corpus's 902 files, a
-            // third of the evidence, while reporting a pass. The flag is true for the four DUT extensions whether or
-            // not the wire carries the subtype, so no DUT file can drop out of the sweep again.
+            // third of the evidence, while reporting a pass. The flag is the table's, so no DUT file can drop out of the
+            // sweep again (every DUT is `.dut` now, openspec push-without-header-check 5.P).
             var ext = Path.GetExtension(file).TrimStart('.').ToLowerInvariant();
             if (!ItemKind.FileExtensions.Any(x => x.IsSource && x.Ext == ext)) { skipped++; continue; }
 

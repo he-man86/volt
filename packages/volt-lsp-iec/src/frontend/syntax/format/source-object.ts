@@ -29,19 +29,15 @@ const BY_EXTENSION: Readonly<Record<string, SourceObject>> = {
   ".fun": "pou",
   ".itf": "interface",
   ".gvl": "gvl",
-  ".struct": "dut",
-  ".enum": "dut",
-  ".union": "dut",
-  ".alias": "dut",
-  // A DUT whose vendor states no subtype (openspec push-without-header-check 5.B). Read like every DUT: a text that
-  // does not open with TYPE declares nothing, and reports nothing.
+  // Every DUT, whatever its shape (openspec push-without-header-check 5.P). A text that does not open with TYPE
+  // declares nothing, and reports nothing.
   ".dut": "dut",
 }
 
 /**
  * The object a workspace file holds, by its extension — `undefined` for text that is no workspace source file. EXACT,
- * never case-folded, as the crawl (`workspace-refs.ts`) and the CLI classify it: `E_Mode.Enum` is a foreign file
- * `volt push` refuses, not the `E_Mode.enum` the IDE publishes.
+ * never case-folded, as the crawl (`workspace-refs.ts`) and the CLI classify it: `E_Mode.Dut` is a foreign file
+ * `volt push` refuses, not the `E_Mode.dut` the IDE publishes.
  */
 export function sourceObjectOf(uri: string): SourceObject | undefined {
   const path = pathOf(uri)
@@ -52,7 +48,7 @@ export function sourceObjectOf(uri: string): SourceObject | undefined {
 
 /**
  * The PATH a document is named by. A URI's object is its path's, never the last `.` of the whole string: the client's
- * selector is language-only, so an SCM diff's HEAD side arrives as `git:/…/DUT_A.struct?{"path":…,"ref":"HEAD"}`,
+ * selector is language-only, so an SCM diff's HEAD side arrives as `git:/…/DUT_A.dut?{"path":…,"ref":"HEAD"}`,
  * whose query ends inside encoded JSON. A scheme is two or more characters, so a drive letter (`C:\w\X.fb`) and a
  * bare path stay the path they are.
  */

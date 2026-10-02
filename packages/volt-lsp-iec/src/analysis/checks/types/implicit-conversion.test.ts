@@ -82,7 +82,7 @@ test("a LIBRARY enum stays silent — real builds store one into a WORD without 
   const libResult = parseSource(lib, { networkText: true })
   const pr = parseSource(src, { networkText: true })
   const p = build.buildSymbolTable([
-    { uri: "Application/Library Manager/Lib/E_Lib.enum", parseResult: libResult, source: lib },
+    { uri: "Application/Library Manager/Lib/E_Lib.dut", parseResult: libResult, source: lib },
     { uri: "F.fb", parseResult: pr, source: src },
   ])
   const d = computeSemanticDiagnostics({ parseResult: pr, source: src, project: p, config: resolveConfig({ vendor: "codesys" }) })

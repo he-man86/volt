@@ -153,7 +153,7 @@ END_ACTION
     name: "xo3_alias_type",
     plcPrgVar: "x3Counter : DUT_X3_counter;",
     pouName: "DUT_X3_counter",
-    kind: "alias",
+    kind: "dut",
     feature: "an ALIAS type with its own initial value, in its own object",
     fromDoc: doc,
     source: `TYPE DUT_X3_counter : UDINT := 100;

@@ -288,7 +288,7 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
   {
     name: "lex_vector_twincat_struct_field",
     pouName: "DUT_LANG_vector_field",
-    kind: "struct",
+    kind: "dut",
     feature: "L11 — a struct field `v : __VECTOR[4] OF REAL;` beside `n : INT;`, the struct used through `n`",
     fromDoc: doc,
     plcPrgVar: "s_vec : DUT_LANG_vector_field;",

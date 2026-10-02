@@ -49,8 +49,8 @@ const fixture = (name: string): Parsed => {
 }
 
 describe("0.2 what counts as a printer finding", () => {
-  test("the re-parse reads the formatted text as the same source object — a byte-identical .struct is no finding", () => {
-    // `.struct` reads the IMPLEMENTATION-named member as written; a bare `parseSource` does not know the object.
+  test("the re-parse reads the formatted text as the same source object — a byte-identical .dut is no finding", () => {
+    // `.dut` reads the IMPLEMENTATION-named member as written; a bare `parseSource` does not know the object.
     const p = fixture("pwh_struct_member_implementation")
     expect(printFindings(p)).toEqual([])
   })

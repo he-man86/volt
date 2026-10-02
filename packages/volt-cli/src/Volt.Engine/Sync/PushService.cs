@@ -93,14 +93,11 @@ public static class PushService
         // a rejection is not the hot path, and paying for it there costs nothing a successful push notices.
         string? currentProjectVersion = needVersions ? Hasher.ComputeProjectVersion(gatedVersions) : null;
 
-        // EVERY NAME AN OP CARRIES IS A WIRE NAME, checked before anything reads the ops. Then a DUT SUBTYPE CHANGE
-        // BECOMES ONE UPDATE, before the version gate below, so the pair's guard is the delete's `ifVersion` exactly
-        // as an update's would be. Every later pass sees the normalized ops and nothing else (`DutSubtypeChanges`).
-        List<PushOp> ops;
+        // EVERY NAME AN OP CARRIES IS A WIRE NAME, checked before anything reads the ops.
+        var ops = request.Ops;
         try
         {
-            RequireWireNames(request.Ops);
-            ops = DutSubtypeChanges.Normalize(request.Ops, request.Force);
+            RequireWireNames(ops);
         }
         catch (PushRefusal refusal)
         {
@@ -205,25 +202,6 @@ public static class PushService
 
         foreach (var op in ops)
         {
-            // A DUT DELETE WHOSE TARGET CANNOT BE READ is decided HERE, before anything is written. Whether
-            // `delete X.struct` names the IDE's DUT `X` is read from `X`'s content (`NamesThisItem`: the subtype the
-            // driver states, or `.dut` for none; no other kind needs a read — each has one extension, so its kind
-            // names it), and one that does not materialize — any read fault — has no wire name to compare
-            // with. Asked first inside the apply loop, that
-            // refused after the batch's earlier ops had landed. Without force the item is UNREADABLE — refused
-            // whole, as a create over one is (`PushConflicts`); with force, the documented way past an unreadable
-            // item, the apply deletes it. Resolved from the walk's cache only, like `WillCreate`: no per-op walk.
-            // Inside the reject path like every other pre-flight read: a fault asking the IDE (its tree code) is a
-            // refusal with nothing written, never an exception out of `Handle`.
-            try
-            {
-                if (op is DeleteItemOp && !request.Force
-                    && itemCache.TryGetValue(Materializer.Bare(op.Name), out var target)
-                    && NamesThisItem(ide, Materializer.Bare(op.Name), target.Item, op.Name, out var unreadable) is null)
-                    return Reject(op, UnreadableDut(op.Name, Materializer.Bare(op.Name), unreadable!));
-            }
-            catch (Exception ex) { return Reject(op, ex); }
-
             // AN ITEM THE DRIVER MUST NOT OPEN (DIALECT C2i) is refused here too, without force, by name. The gate lets
             // a delete of it through as idempotent — it has no version entry — and the pre-flight's other checks read
             // `itemCache`, which never holds it; so the first refusal used to be `ApplyToUnopened`'s, from the apply
@@ -511,13 +489,11 @@ public static class PushService
                 return ApplySetTask(ide, name, existing, set);
             case SetItemOp set:
                 return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations);
-            // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.struct`, `X.enum` and
-            // `X.fb` all resolve to the object `X`. So the op's name is checked against the object's own wire name,
-            // and a delete of a name the IDE's `X` does not have — a stale file from before a subtype change, a name
-            // of another kind — finds nothing, with or without force (force drops a version gate; it never widens
-            // what a name means). Checked for DUT subtype names only, `delete X.fb` destroyed the DUT `X` that
-            // `delete X.enum` could not.
-            case DeleteItemOp when existing is { } found && !DeleteReaches(ide, name, found, op.Name, force):
+            // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.dut` and `X.fb` both
+            // resolve to the object `X`. So the op's kind is checked against the object's own kind, and a delete of a
+            // name of another kind finds nothing, with or without force (force drops a version gate; it never widens
+            // what a name means). Every kind has one extension, so the kind and the bare name are the whole wire name.
+            case DeleteItemOp when existing is { } found && !NamesThisItem(ide, found, op.Name):
                 return "no-op";
             case DeleteItemOp when existing is { } del:
                 // THE SAME LAST-MOMENT CHECK THE SET ARM DOES, and for a stronger reason: this is the one op
@@ -603,37 +579,15 @@ public static class PushService
     }
 
     /// <summary>Is <paramref name="wireName"/> the wire name of <paramref name="item"/>, the object the bare lookup
-    /// resolved it to? The kinds must agree first — the tree says what the object IS, the extension what the op
-    /// names. Every kind but the DUT has ONE extension, so there the kind and the bare name are the whole wire name.
-    /// A DUT's is read through <see cref="Materializer"/>, the one place a wire name is minted, so this cannot
-    /// disagree with what <c>refs</c> published. A DUT that cannot be materialized has NO wire name: null, since no
-    /// name can be shown to be its, with the read's own reason in <paramref name="unreadable"/>.
-    ///
-    /// <para><b>EVERY read failure.</b> The walk that built <c>refs</c> (<see cref="Versioning.SafeVersion"/>)
-    /// publishes any item that fails to materialize — a COM error, a driver throw — as unreadable, keyed bare (a DUT
-    /// whose vendor states no subtype is not one: it materializes as <c>X.dut</c>). Catching less here made the push disagree
-    /// with that: a COM failure escaped the pre-flight as a raw exception (no response), and under force threw from
-    /// the apply after earlier ops had landed, leaving a DUT no push could delete. The reason is carried, not
-    /// swallowed: it is what the refusal names.</para></summary>
-    private static bool? NamesThisItem(IIdeDriver ide, string bare, ItemRef item, string wireName, out string? unreadable)
+    /// resolved it to? The kinds must agree — the tree says what the object IS, the extension what the op names. Every
+    /// kind has ONE extension (a DUT is <c>X.dut</c>, openspec <c>push-without-header-check</c> 5.P), so the kind and
+    /// the bare name are the whole wire name: no content is read, and an item whose content cannot be read is
+    /// deleted by its name under the generic unreadable rule like any other.</summary>
+    private static bool NamesThisItem(IIdeDriver ide, ItemRef item, string wireName)
     {
-        unreadable = null;
         var kind = ItemKind.Map(ide.KindCode(item));
-        if (kind is null || kind != ItemKind.KindForWireName(wireName)) return false;
-        if (kind != ItemKind.Kinds.Dut) return true;
-        try { return string.Equals(Materializer.Materialize(ide, bare, kind, item).FullName, wireName,
-                                   StringComparison.OrdinalIgnoreCase); }
-        catch (Exception ex) { unreadable = ex.Message; return null; }
+        return kind is not null && kind == ItemKind.KindForWireName(wireName);
     }
-
-    /// <summary>Does a <c>delete</c> of <paramref name="wireName"/> reach the IDE's object? Only when it is that
-    /// object's wire name — or, under force, when the object is a DUT that has none: a DUT that cannot be
-    /// materialized (its content could not be read at all) is an UNREADABLE item, and force is the documented way
-    /// past one. A DUT whose vendor states no subtype is NOT that: it has the wire name <c>X.dut</c>. Without force the pre-flight refused it already
-    /// (<see cref="UnreadableDut"/>); reaching it here unforced means the IDE changed mid-push, refused the same way.</summary>
-    private static bool DeleteReaches(IIdeDriver ide, string bare, ItemRef item, string wireName, bool force) =>
-        NamesThisItem(ide, bare, item, wireName, out var unreadable)
-        ?? (force ? true : throw UnreadableDut(wireName, bare, unreadable!));
 
     /// <summary>EVERY NAME A PUSH OP CARRIES — its <c>name</c> and a set's <c>toName</c> — IS A WIRE NAME: its
     /// extension names an item kind, as every name <c>refs</c>/<c>fetch</c> publish does. Anything else is refused
@@ -643,9 +597,9 @@ public static class PushService
     /// <c>X</c> or <c>X.foo</c> reaches whatever object is called <c>X</c>, while every check keyed by the full name
     /// misses it: the version gate finds no such key and passes a set as a create, and the kind check has no kind to
     /// hold the text to — so such a set overwrote the live object with no version check (forced, it also moved it).
-    /// Force drops a version gate; it never makes a name mean something. (<c>X.dut</c> HAS a kind — the DUT published
-    /// when its vendor states no subtype, openspec <c>push-without-header-check</c> 5.B — and an update under it
-    /// reaches the live DUT through its version, <c>PushConflicts</c>.)</para></summary>
+    /// Force drops a version gate; it never makes a name mean something. <c>X.struct</c> / <c>X.enum</c> /
+    /// <c>X.union</c> / <c>X.alias</c> are such names: a DUT is <c>X.dut</c> (openspec <c>push-without-header-check</c>
+    /// 5.P).</para></summary>
     private static void RequireWireNames(IEnumerable<PushOp> ops)
     {
         foreach (var op in ops)
@@ -653,15 +607,9 @@ public static class PushService
                 if (name is not null && ItemKind.KindForWireName(name) is null)
                     throw new PushRefusal(op.Name,
                         $"'{name}' is not a wire name: its extension names no item kind. A push names each item " +
-                        "exactly as refs/fetch published it (a DUT by its subtype), so this op could only be " +
+                        "exactly as refs/fetch published it, so this op could only be " +
                         "applied by guessing which item it means. Pull, and push the names the workspace holds.");
     }
-
-    private static BridgeException UnreadableDut(string wireName, string bare, string reason) =>
-        new(BridgeErrorCodes.Unreadable,
-            $"cannot tell whether '{wireName}' names the IDE's DUT '{bare}': it could not be read ({reason}), so it " +
-            "has no wire name (it is listed in `unreadable` by every refs/fetch). Fix it in the IDE, or push with " +
-            "--force to delete it.");
 
     /// <summary>Create or update a TASK from its descriptor — the one non-source kind a push may write.
     ///
@@ -976,8 +924,8 @@ public static class PushService
         // THE WIRE KIND DECIDES, create or update — read off the FULL name, and the text's header is never read
         // (openspec `push-without-header-check`): the text is written as sent, and the IDE's build reports what is
         // wrong with it. This was once handed the BARE name, so `KindForWireName` answered null for every item and
-        // the write believed the text's header: a function block's text pushed as `X.struct` over the FB `X` was
-        // written, and the receipt named `X.fb` for an op sent as `X.struct`.
+        // the write believed the text's header: a function block's text pushed as `X.dut` over the FB `X` was
+        // written, and the receipt named `X.fb` for an op sent as `X.dut`.
         var wireKind = ItemKind.KindForWireName(wireName)
             ?? throw new BridgeException(BridgeErrorCodes.BadRequest, $"'{wireName}' is not a wire name: its extension names no item kind");
         var split = StReader.Read(src, wireKind, name);

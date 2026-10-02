@@ -46,14 +46,17 @@ public class PushedTextTests
     /// <c>PROGRAM … END_FUNCTION_BLOCK</c> (DIALECT C2f, measured 2026-09-30). Both read to the same declaration and
     /// body, so "same but for layout" adopted the IDE's text into the working tree and rewrote the engineer's
     /// <c>END_PROGRAM</c> unseen. Its case is layout, as any keyword's is.</summary>
-    /// <summary>Which name the IDE may publish a pushed object under instead (DIALECT C2e, C2f): another kind of the same
-    /// family, same bare name in any case. Across families it is another item, and a name is never "held as" itself.</summary>
+    /// <summary>Which name the IDE may publish a pushed object under instead (DIALECT C2f): another kind of the same
+    /// family, same bare name in any case. Across families it is another item, and a name is never "held as" itself. A
+    /// DUT has one name, <c>X.dut</c> (openspec <c>push-without-header-check</c> 5.P — this used to pair <c>X.struct</c>
+    /// with <c>X.enum</c>), so only its spelling's case can differ.</summary>
     [Theory]
     [InlineData("X.fb", "X.prg", true)]
     [InlineData("X.fb", "x.fun", true)]
-    [InlineData("X.struct", "X.enum", true)]
+    [InlineData("X.dut", "x.dut", true)]
+    [InlineData("X.dut", "X.dut", false)]
     [InlineData("X.fb", "X.fb", false)]
-    [InlineData("X.fb", "X.struct", false)]
+    [InlineData("X.fb", "X.dut", false)]
     [InlineData("X.fb", "Y.prg", false)]
     [InlineData("X.gvl", "X.prg", false)]
     public void A_pushed_object_may_be_held_under_another_kind_of_its_family(string pushed, string held, bool may) =>

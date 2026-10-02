@@ -5,8 +5,8 @@ import { LanguageClient, type LanguageClientOptions, type ServerOptions, Transpo
 import { workspaceFolders } from "./workspace.js"
 import { resolveVendor, type ConfiguredVendor } from "./vendor.js"
 
-// Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.gvl, and a DUT under its
-// subtype .struct/.enum/.union/.alias, or .dut when the vendor states none) carrying Structured Text.
+// Every writable PLC source item is one kind-named file (.fb/.prg/.fun/.itf/.gvl, and every DUT as .dut)
+// carrying Structured Text.
 // A network-text (FBD/LD) body is detected by content (a leading NETWORK token) and highlighted via a TextMate injection; the server routes per-body. Diagnostics
 // flow to the host's native Problems panel automatically via the language client.
 const LANGUAGE_IDS = ["structured-text"]

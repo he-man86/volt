@@ -303,7 +303,7 @@ export const LITERAL_RULE_TESTS: readonly LanguageTest[] = [
   {
     name: "lit_char_typed_in_struct_field",
     pouName: "DUT_LANG_lit_char_struct_field",
-    kind: "struct",
+    kind: "dut",
     feature: "S10 — `CHAR#'A'` as a STRUCT field's initializer",
     fromDoc: doc,
     plcPrgVar: "s_lit_char_struct_field : DUT_LANG_lit_char_struct_field;",
@@ -313,7 +313,7 @@ export const LITERAL_RULE_TESTS: readonly LanguageTest[] = [
   {
     name: "lit_char_typed_in_enum_value",
     pouName: "DUT_LANG_lit_char_enum_value",
-    kind: "enum",
+    kind: "dut",
     feature: "S10 — `CHAR#'A'` as an enum value's initializer",
     fromDoc: doc,
     plcPrgVar: "e_lit_char_enum_value : DUT_LANG_lit_char_enum_value;",

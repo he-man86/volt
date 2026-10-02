@@ -329,8 +329,8 @@ internal sealed partial class TcObjectModel
         // DECLARED shape (an enum body in the 606 seed is an enum to it). One seed, no per-subtype dispatch.
         // The TREE CODE does not follow: a DUT created this way reads 606 whatever its body in the live session
         // (DIALECT C2e, which corrects C2b — C2b's "an enum declaration becomes 605" was measured on the deleted
-        // PLCopen import path; what a reload does to a CREATED DUT's code is unmeasured). So the subtype is read
-        // from the declaration, never from the code this seeds.
+        // PLCopen import path; what a reload does to a CREATED DUT's code is unmeasured). Volt reads no subtype
+        // at all: every DUT is `X.dut` (openspec `push-without-header-check` 5.P).
         if (kindCode == ItemKind.PlcDut) kindCode = ItemKind.PlcDutStruct;
 
         // A task is TWO items and the SYSTEM one comes first — measured, from the vendor's own refusal:

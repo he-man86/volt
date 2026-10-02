@@ -2,8 +2,7 @@ import { statSync } from "node:fs"
 import { join } from "node:path"
 
 // The kind-named writable-source extensions (POU/DUT/GVL/interface, textual or editable graphical).
-// A DUT is named on the wire by the subtype its vendor states (struct/enum/union/alias), or `dut` when the vendor
-// states none, and the file name IS the wire name, so its five extensions are ordinary entries here. Bare (no leading dot), matching
+// Every DUT is `dut` whatever its shape, and the file name IS the wire name. Bare (no leading dot), matching
 // how the CLI/bridge name wire files. volt-control can't cleanly depend on the LSP for this
 // (wrong-direction coupling), so it keeps its own copy; `scripts/check-wiring.ts` cross-checks it
 // against every other copy to prevent drift.
@@ -13,15 +12,11 @@ export const SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
   "fun",
   "itf",
   "gvl",
-  "struct",
-  "enum",
-  "union",
-  "alias",
   "dut",
 ])
 
 // EXACT, never case-folded: a file name IS its item's wire name, and the CLI classifies an extension Ordinally,
-// so `E_Mode.Enum` is a foreign file `volt push` refuses. Folded here it counted as a tracked source file — the
+// so `E_Mode.Dut` is a foreign file `volt push` refuses. Folded here it counted as a tracked source file — the
 // watcher, `isTrackedFile` and the Diagnostics view all treated a file Volt will never push as Volt's.
 export function isPouFile(path: string): boolean {
 	const dot = path.lastIndexOf(".")

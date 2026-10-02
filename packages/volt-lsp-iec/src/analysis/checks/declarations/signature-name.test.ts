@@ -22,7 +22,7 @@ test("a POU whose signature names something other than its object", () => {
   expect(at("FB_Object.fb", `FUNCTION_BLOCK FB_Signature\nVAR\nn : INT;\nEND_VAR\nEND_FUNCTION_BLOCK`)).toEqual(MISMATCH)
   expect(at("F_Object.fun", `FUNCTION F_Signature : INT\nF_Signature := 1;\nEND_FUNCTION`)).toEqual(MISMATCH)
   expect(at("PRG_Object.prg", `PROGRAM PRG_Signature\nVAR\nn : INT;\nEND_VAR\nEND_PROGRAM`)).toEqual(MISMATCH)
-  expect(at("DUT_Object.struct", `TYPE DUT_Signature :\nSTRUCT\nx : INT;\nEND_STRUCT\nEND_TYPE`)).toEqual(MISMATCH)
+  expect(at("DUT_Object.dut", `TYPE DUT_Signature :\nSTRUCT\nx : INT;\nEND_STRUCT\nEND_TYPE`)).toEqual(MISMATCH)
 })
 
 test("an INTERFACE is exempt — measured with an FB implementing it, not merely unreferenced", () => {

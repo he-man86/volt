@@ -104,7 +104,7 @@ public class TcLibrarySignaturesTests
         var rendered = LibSignatureRenderer.Render(sig);
 
         Assert.NotNull(rendered);
-        Assert.Equal(".enum", rendered!.Value.Ext);
+        Assert.Equal(".dut", rendered!.Value.Ext);   // every DUT is .dut (openspec push-without-header-check 5.P)
         Assert.Equal("TYPE E_WATCHDOG_TIME_CONFIG :\n(\n\teWATCHDOG_TIME_DISABLED,\n\teWATCHDOG_TIME_SECONDS,\n" +
                      "\teWATCHDOG_TIME_MINUTES\n);\nEND_TYPE", rendered.Value.Text);
     }

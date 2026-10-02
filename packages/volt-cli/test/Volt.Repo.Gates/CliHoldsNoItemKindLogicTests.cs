@@ -51,7 +51,7 @@ public class CliHoldsNoItemKindLogicTests
         var exts = Regex.Matches(itemKind, @"\(Kinds\.\w+,\s*""([a-z_]+)""\)").Select(m => m.Groups[1].Value)
             .Distinct(StringComparer.Ordinal).ToList();
         // A table that parsed to nothing would pass every file for the wrong reason.
-        Assert.True(exts.Count >= 20 && exts.Contains("library") && exts.Contains("fb") && exts.Contains("struct"),
+        Assert.True(exts.Count >= 20 && exts.Contains("library") && exts.Contains("fb") && exts.Contains("dut"),
             $"read {exts.Count} extension(s) from ItemKind.cs — the gate no longer understands the engine's table.");
         var alt = string.Join("|", exts.Select(Regex.Escape));
         // Case-blind: `.LIBRARY` under OrdinalIgnoreCase is the same kind check `.library` is — and case-folded
@@ -68,14 +68,9 @@ public class CliHoldsNoItemKindLogicTests
         return c < 0 ? line : line.Substring(0, c);
     }
 
-    private static bool DecidesKind(string line, bool dutSpellingAllowed = false) =>
-        (!dutSpellingAllowed && DutSpelling.IsMatch(line)) || KindDecision.IsMatch(line)
+    private static bool DecidesKind(string line) =>
+        DutSpelling.IsMatch(line) || KindDecision.IsMatch(line)
         || KindExtensionLiteral.Value.IsMatch(CodeOf(line));
-
-    /// <summary>The one place the CLI NAMES an `X.dut` key: the sidecar's doc, which says why a key from an older Volt is
-    /// no longer refused (openspec push-without-header-check 5.B: `.dut` is a wire name again). It refuses by the generic
-    /// unknown-extension rule; only its doc spells the name.</summary>
-    private static readonly string[] Allowed = { "Sidecar.cs" };
 
     [Fact]
     public void Volt_Cli_spells_no_dut_subtype_and_decides_no_kind()
@@ -91,12 +86,11 @@ public class CliHoldsNoItemKindLogicTests
         var offenders = new List<string>();
         foreach (var f in files)
         {
-            var allowed = Allowed.Contains(Path.GetFileName(f), StringComparer.Ordinal);
             var n = 0;
             foreach (var line in File.ReadLines(f))
             {
                 n++;
-                if (DecidesKind(line, allowed))
+                if (DecidesKind(line))
                     offenders.Add($"{Path.GetRelativePath(cli, f)}:{n}: {line.Trim()}");
             }
         }

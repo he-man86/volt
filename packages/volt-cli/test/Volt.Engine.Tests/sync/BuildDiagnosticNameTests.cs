@@ -51,16 +51,16 @@ public class BuildDiagnosticNameTests
         Assert.Equal(12, diagnostic.Line);   // the position the vendor gave is untouched
     }
 
-    /// <summary>A DUT'S DIAGNOSTIC IS NAMED BY ITS SUBTYPE. The build response is a wire message carrying full
-    /// wire names, so it follows the one naming rule (openspec <c>dut-subtype-on-the-wire</c>: no wire message
-    /// carries <c>.dut</c>) — and a compile error in a DUT is the ordinary case, so the name has to be the file
-    /// an editor can open.</summary>
+    /// <summary>A DUT'S DIAGNOSTIC IS NAMED <c>X.dut</c>, WHATEVER ITS SHAPE. The build response is a wire message
+    /// carrying full wire names, so it follows the one naming rule — and a compile error in a DUT is the ordinary
+    /// case, so the name has to be the file an editor can open. (Premise changed by the owner, openspec
+    /// <c>push-without-header-check</c> 5.P: this expected the subtype names.)</summary>
     [Theory]
-    [InlineData("TYPE Boiler :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n", "Boiler.struct")]
-    [InlineData("TYPE Boiler :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n", "Boiler.enum")]
-    [InlineData("TYPE Boiler :\nUNION\n\tb : BYTE;\n\tw : WORD;\nEND_UNION\nEND_TYPE\n", "Boiler.union")]
-    [InlineData("TYPE Boiler : STRING(80);\nEND_TYPE\n", "Boiler.alias")]
-    public void A_dut_diagnostic_carries_the_duts_subtype_name(string decl, string expected)
+    [InlineData("TYPE Boiler :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n", "Boiler.dut")]
+    [InlineData("TYPE Boiler :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n", "Boiler.dut")]
+    [InlineData("TYPE Boiler :\nUNION\n\tb : BYTE;\n\tw : WORD;\nEND_UNION\nEND_TYPE\n", "Boiler.dut")]
+    [InlineData("TYPE Boiler : STRING(80);\nEND_TYPE\n", "Boiler.dut")]
+    public void A_dut_diagnostic_carries_the_duts_name_whatever_its_shape(string decl, string expected)
     {
         var ide = new FakeIde(new FakeIde.Item("Boiler", Volt.Engine.Item.ItemKind.PlcDut, "DUTs", true, decl, null, null, null))
         {

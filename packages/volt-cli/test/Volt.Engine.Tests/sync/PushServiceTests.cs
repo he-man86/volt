@@ -230,37 +230,37 @@ public class PushServiceTests
     public void Create_struct_from_valid_content_lands_as_a_dut()
     {
         // The exact thing the PackML session wanted: a struct pushed as canonical ST, under the name the wire
-        // gives a struct DUT — and published back under that same name, so the workspace file and the item agree.
+        // gives every DUT — and published back under that same name, so the workspace file and the item agree.
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
         var src = "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n";
-        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Contains("create:ST_Foo", ide.Recorded);
-        Assert.Equal(new[] { "ST_Foo.struct" }, RefsService.Handle(ide).Items.Keys.ToArray());
+        Assert.Equal(new[] { "ST_Foo.dut" }, RefsService.Handle(ide).Items.Keys.ToArray());
     }
 
     [Theory]
-    [InlineData("ST_Foo", "struct", "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n")]
-    [InlineData("E_Mode", "enum", "{attribute 'qualified_only'}\nTYPE E_Mode :\n(\n\tIDLE := 0,\n\tRUN := 1\n) USINT;\nEND_TYPE\n")]
-    [InlineData("U_Val", "union", "TYPE U_Val :\nUNION\n\ti : INT;\n\tr : REAL;\nEND_UNION\nEND_TYPE\n")]
-    [InlineData("Handle", "alias", "TYPE Handle : __XWORD;\nEND_TYPE\n")]
-    public void Every_dut_variant_creates_with_the_single_dut_code(string name, string subtype, string src)
+    [InlineData("ST_Foo", "TYPE ST_Foo :\nSTRUCT\n\tn : INT;\nEND_STRUCT\nEND_TYPE\n")]
+    [InlineData("E_Mode", "{attribute 'qualified_only'}\nTYPE E_Mode :\n(\n\tIDLE := 0,\n\tRUN := 1\n) USINT;\nEND_TYPE\n")]
+    [InlineData("U_Val", "TYPE U_Val :\nUNION\n\ti : INT;\n\tr : REAL;\nEND_UNION\nEND_TYPE\n")]
+    [InlineData("Handle", "TYPE Handle : __XWORD;\nEND_TYPE\n")]
+    public void Every_dut_variant_creates_with_the_single_dut_code(string name, string src)
     {
-        // The wire NAME carries the subtype; the CREATE does not. Both vendors create a DUT with one call and take
-        // its shape from the written declaration (CODESYS `create_dut`; TwinCAT seeds 606 whatever the body,
-        // DIALECT C2e), so the engine asks for the one internal DUT code whatever the subtype.
+        // Neither the wire NAME nor the CREATE carries a subtype (openspec push-without-header-check 5.P: every DUT
+        // is `X.dut`). Both vendors create a DUT with one call and take its shape from the written declaration
+        // (CODESYS `create_dut`; TwinCAT seeds 606 whatever the body, DIALECT C2e).
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = $"{name}.{subtype}", IfVersion = null, SourceText = src });
+        var resp = Push(ide, pv, new SetItemOp { Name = $"{name}.dut", IfVersion = null, SourceText = src });
         Assert.True(resp.Accepted);
         Assert.Equal(ItemKind.PlcDut, ide.CreatedKinds[name]);
-        Assert.Equal(new[] { $"{name}.{subtype}" }, RefsService.Handle(ide).Items.Keys.ToArray());
+        Assert.Equal(new[] { $"{name}.dut" }, RefsService.Handle(ide).Items.Keys.ToArray());
     }
 
     /// <summary>A POU with no text has nothing to split, so it is refused before anything is created. (A DUT or a GVL
     /// is written as sent, empty or not — openspec <c>push-without-header-check</c>; this used to push an empty
-    /// <c>.struct</c>, whose refusal was a check on the text that is gone.)</summary>
+    /// struct DUT, whose refusal was a check on the text that is gone.)</summary>
     [Fact]
     public void Create_with_empty_sourceText_is_rejected_before_any_mutation()
     {
@@ -276,7 +276,7 @@ public class PushServiceTests
     {
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
-        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.struct", IfVersion = null, SourceText = null });
+        var resp = Push(ide, pv, new SetItemOp { Name = "ST_Foo.dut", IfVersion = null, SourceText = null });
         Assert.False(resp.Accepted);
         Assert.Contains(resp.Conflicts!, c => c.Reason.Contains("needs sourceText"));
         Assert.Empty(ide.Recorded);
@@ -287,7 +287,7 @@ public class PushServiceTests
     {
         // An AI that pastes prose or a wrong-language body instead of ST: reject with a structured error,
         // never a half-created item. A POU's text has no IMPLEMENTATION line or END line to split on, so the reader
-        // refuses it INVALID_ST before any IDE mutation. (This pushed `Junk.struct` and leaned on the header parse; a
+        // refuses it INVALID_ST before any IDE mutation. (This pushed a struct DUT named `Junk` and leaned on the header parse; a
         // DUT's text is no longer read — PushWithoutHeaderCheckTests pins that prose under a DUT name is written.)
         var ide = new FakeIde();
         var pv = RefsService.Handle(ide).ProjectVersion!;
@@ -363,7 +363,7 @@ public class PushServiceTests
             .Changed.First(c => c.Name == "PLC_PRG.prg").SourceText.Replace("n := 1;", "n := 2;");
 
         var resp = Push(ide, refs.ProjectVersion!,
-            new SetItemOp { Name = "ST_New.struct", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
+            new SetItemOp { Name = "ST_New.dut", IfVersion = null, SourceText = "TYPE ST_New :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" },
             new SetItemOp { Name = "PLC_PRG.prg", IfVersion = refs.Items["PLC_PRG.prg"], SourceText = prgSrc },
             new DeleteItemOp { Name = "FB_Old.fb", IfVersion = refs.Items["FB_Old.fb"] });
 

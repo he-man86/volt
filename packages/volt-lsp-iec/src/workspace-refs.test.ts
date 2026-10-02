@@ -91,16 +91,16 @@ test("the workspace scan picks up the project's .projectsettings", () => {
 })
 
 // A source unit is a file whose extension is EXACTLY a source extension, as the CLI's classifier decides it: a
-// file name IS its wire name, so `E_Mode.Enum` is not the `E_Mode.enum` the IDE publishes and `volt push` refuses
+// file name IS its wire name, so `E_Mode.Dut` is not the `E_Mode.dut` the IDE publishes and `volt push` refuses
 // it as a foreign file. Indexed here, the LSP resolved `E_Mode` from a file Volt will never push.
 test("the workspace scan takes a source file only under its exact extension", () => {
   const dir = mkdtempSync(join(tmpdir(), "volt-case-"))
   try {
-    writeFileSync(join(dir, "E_Mode.Enum"), "TYPE E_Mode : (Idle, Run);\nEND_TYPE\n")
+    writeFileSync(join(dir, "E_Mode.Dut"), "TYPE E_Mode : (Idle, Run);\nEND_TYPE\n")
     writeFileSync(join(dir, "FB_New.FB"), "FUNCTION_BLOCK FB_New\nVAR\nEND_VAR\n")
-    writeFileSync(join(dir, "E_State.enum"), "TYPE E_State : (Off, On);\nEND_TYPE\n")
+    writeFileSync(join(dir, "E_State.dut"), "TYPE E_State : (Off, On);\nEND_TYPE\n")
     const scan = scanWorkspace(dir)
-    expect(scan.sources.map((s) => s.path)).toEqual([join(dir, "E_State.enum")])
+    expect(scan.sources.map((s) => s.path)).toEqual([join(dir, "E_State.dut")])
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
@@ -117,7 +117,7 @@ test("the workspace scan reads a file saved with a BOM as the push sends it — 
       join(dir, "PLC_PRG.prg"),
       "﻿PROGRAM PLC_PRG\nVAR\n\tv : DUT_A;\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := v.nPos + g;\nEND_PROGRAM\n",
     )
-    writeFileSync(join(dir, "DUT_A.struct"), "﻿TYPE DUT_A :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n")
+    writeFileSync(join(dir, "DUT_A.dut"), "﻿TYPE DUT_A :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n")
     writeFileSync(join(dir, "GVL.gvl"), "﻿VAR_GLOBAL\n\tg : INT;\nEND_VAR\n")
     const scan = scanWorkspace(dir)
     expect(scan.sources.every((s) => !s.source.startsWith("﻿"))).toBe(true)
@@ -139,7 +139,7 @@ test("the workspace scan strips every leading BOM, as the push does", () => {
   const dir = mkdtempSync(join(tmpdir(), "volt-bom2-"))
   try {
     const text = "TYPE DUT_B :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n"
-    writeFileSync(join(dir, "DUT_B.struct"), "\uFEFF\uFEFF" + text)
+    writeFileSync(join(dir, "DUT_B.dut"), "\uFEFF\uFEFF" + text)
     expect(scanWorkspace(dir).sources.map((s) => s.source)).toEqual([text])
   } finally {
     rmSync(dir, { recursive: true, force: true })

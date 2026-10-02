@@ -254,7 +254,7 @@ const exprTokens = (text: string, dialect: Dialect) =>
 export function printFindings(p: Parsed): PrintFinding[] {
   const out: PrintFinding[] = []
   const once = formatDocument({ uri: p.uri, source: p.source, parseResult: p.parseResult })
-  // Re-parsed as the SAME source object (the uri decides how `.struct`/`.gvl`/… are read), as the LSP would read it.
+  // Re-parsed as the SAME source object (the uri decides how `.dut`/`.gvl`/… are read), as the LSP would read it.
   const reparsed = parseDocument(p.uri, once, { networkText: true }, p.dialect)
   // Only an error the formatter INTRODUCED is its failure: one the original already has, reproduced, is the source's.
   const own = new Map<string, number>()

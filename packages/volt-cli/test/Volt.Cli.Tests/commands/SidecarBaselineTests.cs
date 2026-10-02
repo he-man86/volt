@@ -8,35 +8,25 @@ using static Volt.Cli.Tests.CommandHarness;
 namespace Volt.Cli.Tests;
 
 /// <summary>
-/// A BASELINE KEYED BY THE OLD <c>.dut</c> WIRE NAME IS NO LONGER REFUSED — AND STAYS SAFE (openspec
-/// <c>push-without-header-check</c> 5.B; it was <c>dut-subtype-on-the-wire</c>'s "a baseline keyed by the old wire
-/// name is refused").
+/// THE BASELINE (<c>.git/volt/ide-refs.json</c>): what a key that is no wire name does, and what a pull with no
+/// baseline must still get right.
 ///
-/// <para><b>Premise changed by the owner (2026-10-02).</b> <c>.dut</c> is a wire name again: the DUT whose vendor
-/// states no subtype. A baseline key <c>X.dut</c> from before the subtype reached the wire can no longer be told
-/// apart from a current one, so <c>Sidecar.RefuseUnknownNames</c> does not refuse it (it still refuses a key whose
-/// extension names no kind). What made the refusal necessary is closed elsewhere: an <c>ifVersion</c> such a key
-/// quotes reaches the live DUT only if it equals that DUT's content version (the engine's bare-DUT update gate), and
-/// the next pull renames the key to the name the IDE publishes. The tests below that pinned the refusal now pin
-/// that: nothing is refused, nothing is lost, and the key is renamed.</para>
-///
-/// <para>What follows is the original rationale, kept for the history of the rule:</para>
-///
-/// <para>The sidecar (<c>.git/volt/ide-refs.json</c>) is keyed by wire name, and a workspace from the previous CLI
-/// holds its DUTs as <c>X.dut</c>. The wire no longer publishes that name, so every <c>ifVersion</c> such a
-/// baseline quotes names an item that does not exist and every comparison against it is wrong — a DUT would read
-/// as deleted-and-added on every status. There is no translator (it would be DUT logic in the CLI, and it would
-/// have to re-derive a subtype the old key never held): the refusal is the malformed sidecar's — it names the
-/// key, the file to delete (<c>.git/volt/ide-refs.json</c>) and <c>volt pull</c>, which then rebuilds the baseline
-/// from what the wire says now. <c>volt pull</c> ALONE is refused too: it loads the same baseline before it can
-/// rebuild one. Workspace FILES are unaffected — they were already <c>X.struct</c> etc.</para>
+/// <para><b>A baseline key that is no wire name is refused by name, never translated</b>
+/// (<c>Sidecar.RefuseUnknownNames</c>). Since openspec <c>push-without-header-check</c> 5.P every DUT is <c>X.dut</c>,
+/// so a workspace bound under 5.B or <c>dut-subtype-on-the-wire</c> holds baseline keys <c>X.struct</c> /
+/// <c>X.enum</c> / <c>X.union</c> / <c>X.alias</c>, extensions that name no kind. Every <c>ifVersion</c> such a key
+/// quotes names no item, so <c>volt pull</c> and <c>volt push</c> both refuse the baseline: the key, the file to
+/// delete, and <c>volt pull</c>, which rebuilds it. There is no translator: it would be item-kind knowledge in the
+/// CLI.</para>
 ///
 /// <para><b>Two doors</b>, and the second is the easy one to miss: the PENDING baseline a conflicted pull stashes
-/// (<c>pending-ide-refs.json</c>) is promoted straight into the live sidecar by <c>volt merge --continue</c>, with
-/// no load-time check on that path — so a refusal only at <c>LoadIdeRefs</c> would let a <c>.dut</c> key back in
-/// through the merge.</para>
+/// (<c>pending-ide-refs.json</c>) is promoted straight into the live sidecar by <c>volt merge --continue</c>, so a
+/// refusal only at <c>LoadIdeRefs</c> would let the key back in through the merge.</para>
+///
+/// <para>The rest of the file pins the recovery the refusal names, a pull with NO baseline. These rows lived in
+/// <c>DutBaselineMigrationTests</c>, whose DUT-key premise 5.P removed; they were never DUT facts.</para>
 /// </summary>
-public class DutBaselineMigrationTests
+public class SidecarBaselineTests
 {
     private const string Enum = "TYPE E_Mode :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE";
 
@@ -47,63 +37,90 @@ public class DutBaselineMigrationTests
 
     private static string PrgPath(string root) => Path.Combine(root, "src", "PLC_PRG.prg");
 
-    /// <summary>The baseline as the previous CLI wrote it: E_Mode's entry under <c>E_Mode.dut</c>.</summary>
-    private static IdeRefs WithOldDutKey(IdeRefs refs)
+    /// <summary>The baseline as a pre-5.P CLI wrote it: the DUT's entry under its subtype name.</summary>
+    private static IdeRefs WithSplitDutKey(IdeRefs refs, string stale)
     {
-        var key = refs.Items.Keys.Single(k => k.StartsWith("E_Mode.", StringComparison.Ordinal));
-        var items = refs.Items.Where(kv => kv.Key != key).ToDictionary(kv => kv.Key, kv => kv.Value);
-        var folders = refs.Folders.Where(kv => kv.Key != key).ToDictionary(kv => kv.Key, kv => kv.Value);
-        items["E_Mode.dut"] = refs.Items[key];
-        folders["E_Mode.dut"] = refs.Folders[key];
+        var items = refs.Items.Where(kv => kv.Key != "E_Mode.dut").ToDictionary(kv => kv.Key, kv => kv.Value);
+        var folders = refs.Folders.Where(kv => kv.Key != "E_Mode.dut").ToDictionary(kv => kv.Key, kv => kv.Value);
+        items[stale] = refs.Items["E_Mode.dut"];
+        folders[stale] = refs.Folders["E_Mode.dut"];
         return new IdeRefs { ProjectVersion = refs.ProjectVersion, Items = items, Folders = folders };
     }
 
-    /// <summary>A PUSH OVER AN OLD <c>.dut</c>-KEYED BASELINE is not refused (5.B, owner): it pushes the edited item and
-    /// never touches the DUT the stale key stands for — no delete, no write.</summary>
-    [Fact]
-    public void A_push_over_a_dut_keyed_baseline_is_not_refused_and_leaves_the_dut_alone()
+    private static void AssertRefusedByName(Exception? e, string stale, string file)
+    {
+        Assert.NotNull(e);
+        Assert.IsType<InvalidOperationException>(e);
+        Assert.Contains($"{file} holds \"{stale}\"", e!.Message);
+        Assert.Contains("delete .git/volt/ide-refs.json", e.Message);
+        Assert.Contains("volt pull", e.Message);
+    }
+
+    /// <summary>A PULL AND A PUSH OVER A SPLIT-NAME BASELINE are refused by name, and nothing reaches the IDE.</summary>
+    [Theory]
+    [InlineData("E_Mode.struct", "pull")]
+    [InlineData("E_Mode.enum", "pull")]
+    [InlineData("E_Mode.union", "push")]
+    [InlineData("E_Mode.alias", "push")]
+    public void A_baseline_keyed_by_a_split_dut_name_is_refused_by_name(string stale, string verb)
     {
         var ide = ConnectedIde(Prg(), EMode());
         var (root, host, client) = Bound(ide);
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Sidecar.SaveIdeRefs(root, WithOldDutKey(Sidecar.LoadIdeRefs(root)!));
+            Sidecar.SaveIdeRefs(root, WithSplitDutKey(Sidecar.LoadIdeRefs(root)!, stale));
             File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;"));
+            var recordedBefore = ide.Recorded.Count;
 
-            var r = Commands.Push(root, client);
-            Assert.True(r.Kind == "ok", $"push {r.Kind}: {r.Reason}");
-            Assert.Contains(ide.Recorded, x => x.StartsWith("writecontent:PLC_PRG"));
-            Assert.DoesNotContain(ide.Recorded, x => x.EndsWith(":E_Mode"));
-            Assert.True(ide.Exists("E_Mode"));
+            var e = Record.Exception(() =>
+            {
+                if (verb == "pull") Commands.Pull(root, client);
+                else Commands.Push(root, client);
+            });
+
+            AssertRefusedByName(e, stale, ".git/volt/ide-refs.json");
+            Assert.DoesNotContain(ide.Recorded.Skip(recordedBefore), x => x.StartsWith("write") || x.StartsWith("delete"));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>A PULL OVER AN OLD <c>.dut</c>-KEYED BASELINE is not refused (5.B, owner): it renames the key to the name
-    /// the IDE publishes and leaves the one file the DUT has.</summary>
+    /// <summary>THE MERGE DOOR. A pending baseline holding a split-name key is refused, not promoted: the git merge
+    /// stands, the stash is dropped, the live baseline is NOT advanced, and the exit is 1 with the refusal named.</summary>
     [Fact]
-    public void A_pull_over_a_dut_keyed_baseline_renames_the_key_to_the_published_name()
+    public void A_split_name_pending_baseline_is_refused_and_never_promoted_by_merge_continue()
     {
         var ide = ConnectedIde(Prg(), EMode());
         var (root, host, client) = Bound(ide);
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Sidecar.SaveIdeRefs(root, WithOldDutKey(Sidecar.LoadIdeRefs(root)!));
+            var before = Sidecar.LoadIdeRefs(root)!.ProjectVersion;
+            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;")); // ours
+            ide.MutateImplementation("PLC_PRG", "x := 99;");                                                   // theirs
+            Assert.Equal("conflict", Commands.Pull(root, client).Kind);
 
-            var r = Commands.Pull(root, client);
-            Assert.True(r.Kind == "ok", $"pull {r.Kind}: {r.Reason}");
-            var keys = Sidecar.LoadIdeRefs(root)!.Items.Keys;
-            Assert.Contains("E_Mode.enum", keys);
-            Assert.DoesNotContain("E_Mode.dut", keys);
-            Assert.Equal(new[] { "E_Mode.enum" }, Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray());
+            Sidecar.SavePendingIdeRefs(root, WithSplitDutKey(Sidecar.LoadPendingIdeRefs(root)!, "E_Mode.struct"));
+            AssertRefusedByName(Record.Exception(() => Sidecar.LoadPendingIdeRefs(root)),
+                "E_Mode.struct", ".git/volt/pending-ide-refs.json");
+
+            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
+            var (code, msg) = Commands.Merge(root, cont: true);
+
+            Assert.False(Git.IsMerging(root), "the git merge did not complete");
+            Assert.True(code == 1, $"merge --continue exit {code}: {msg}");
+            Assert.Contains("the IDE baseline was NOT synced", msg);
+            Assert.Contains("\"E_Mode.struct\"", msg);
+            var live = Sidecar.LoadIdeRefs(root)!;
+            Assert.Equal(before, live.ProjectVersion);
+            Assert.DoesNotContain("E_Mode.struct", live.Items.Keys);
+            Assert.Null(Sidecar.LoadPendingIdeRefs(root));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>…and the fix it names WORKS: with the old baseline deleted, `volt pull` rebuilds one from the wire,
-    /// after which no key is `.dut` and the same push goes through.</summary>
+    /// <summary>…and the fix it names WORKS: with the refused baseline deleted, `volt pull` rebuilds one from the
+    /// wire, after which every key is a wire name (the DUT is `E_Mode.dut`) and the push goes through.</summary>
     [Fact]
     public void Deleting_the_refused_baseline_and_pulling_rebuilds_it_and_the_push_then_lands()
     {
@@ -112,14 +129,14 @@ public class DutBaselineMigrationTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Sidecar.SaveIdeRefs(root, WithOldDutKey(Sidecar.LoadIdeRefs(root)!));
+            Sidecar.SaveIdeRefs(root, WithSplitDutKey(Sidecar.LoadIdeRefs(root)!, "E_Mode.enum"));
 
             File.Delete(Config.Paths(root).IdeRefsPath);
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var rebuilt = Sidecar.LoadIdeRefs(root)!;
-            Assert.DoesNotContain(rebuilt.Items.Keys, k => k.EndsWith(".dut", StringComparison.OrdinalIgnoreCase));
-            Assert.Contains("E_Mode.enum", rebuilt.Items.Keys);
-            Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "E_Mode.enum")));
+            Assert.DoesNotContain("E_Mode.enum", rebuilt.Items.Keys);
+            Assert.Contains("E_Mode.dut", rebuilt.Items.Keys);
+            Assert.True(File.Exists(Path.Combine(root, "src", "DUTs", "E_Mode.dut")));
 
             File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;"));
             var r = Commands.Push(root, client);
@@ -138,7 +155,7 @@ public class DutBaselineMigrationTests
     /// fact: any baseline-less pull (a malformed sidecar deleted as told) did it to any item, hence both rows.
     /// A complete walk is the whole IDE, so a file whose name it does not list is gone.</summary>
     [Theory]
-    [InlineData("E_Mode", "DUTs/E_Mode.enum")]
+    [InlineData("E_Mode", "DUTs/E_Mode.dut")]
     [InlineData("FB_Old", "FB_Old.fb")]
     public void A_baseline_less_pull_removes_an_item_the_ide_deleted_since_the_last_pull(string bare, string file)
     {
@@ -208,14 +225,14 @@ public class DutBaselineMigrationTests
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            var file = Path.Combine(root, "src", "Machine", "E_Mode.enum");
+            var file = Path.Combine(root, "src", "Machine", "E_Mode.dut");
             Assert.True(File.Exists(file), "fixture: the first pull wrote the file");
 
             File.Delete(Config.Paths(root).IdeRefsPath);
             ide.UnwalkableFolders = new[] { "Machine" };
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             Assert.True(File.Exists(file), "the recovery pull deleted a file under a folder it could not read");
-            Assert.Contains("E_Mode.enum", Sidecar.LoadIdeRefs(root)!.Items.Keys);
+            Assert.Contains("E_Mode.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
 
             ide.RemoveItem("E_Mode");
             ide.UnwalkableFolders = new string[0];
@@ -331,9 +348,9 @@ public class DutBaselineMigrationTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>…and the subtype variant: the IDE rewrote `E_Mode` from an enum to a struct since the last pull.
-    /// With no baseline the fetch cannot report `E_Mode.enum` removed, so the ordinary sweep never sees it — the
-    /// pull must still leave exactly ONE file for the one DUT.</summary>
+    /// <summary>…and a subtype change: the IDE rewrote `E_Mode` from an enum to a struct since the last pull. Under
+    /// 5.P the name does not move (`E_Mode.dut`), so a baseline-less pull leaves exactly ONE file for the one DUT,
+    /// holding the new text.</summary>
     [Fact]
     public void A_baseline_less_pull_after_an_ide_subtype_change_leaves_one_dut_file()
     {
@@ -349,40 +366,8 @@ public class DutBaselineMigrationTests
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
 
             var duts = Directory.GetFiles(Path.Combine(root, "src", "DUTs")).Select(Path.GetFileName).ToArray();
-            Assert.Equal(new[] { "E_Mode.struct" }, duts);
-        }
-        finally { host.Dispose(); TestUtil.ForceDelete(root); }
-    }
-
-    /// <summary>THE MERGE DOOR. A pending baseline holding an old `.dut` key is promoted like any other since 5.B
-    /// (owner): `.dut` is a wire name, so the key is a name the IDE may publish. The merge completes and the baseline
-    /// is synced (exit 0); the next pull renames the key to the name the IDE publishes.</summary>
-    [Fact]
-    public void A_dut_keyed_pending_baseline_is_promoted_and_the_next_pull_renames_the_key()
-    {
-        var ide = ConnectedIde(Prg(), EMode());
-        var (root, host, client) = Bound(ide);
-        try
-        {
-            Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            File.WriteAllText(PrgPath(root), File.ReadAllText(PrgPath(root)).Replace("x := 1;", "x := 2;")); // ours
-            ide.MutateImplementation("PLC_PRG", "x := 99;");                                                   // theirs
-            Assert.Equal("conflict", Commands.Pull(root, client).Kind);
-
-            Sidecar.SavePendingIdeRefs(root, WithOldDutKey(Sidecar.LoadPendingIdeRefs(root)!));
-
-            Commands.Merge(root, resolve: "PLC_PRG.prg", useTheirs: true);
-            var (code, msg) = Commands.Merge(root, cont: true);
-
-            Assert.False(Git.IsMerging(root), "the git merge did not complete");
-            Assert.True(code == 0, $"merge --continue exit {code}: {msg}");
-            Assert.Contains("E_Mode.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
-
-            var r = Commands.Pull(root, client);
-            Assert.True(r.Kind == "ok", $"pull {r.Kind}: {r.Reason}");
-            Assert.DoesNotContain("E_Mode.dut", Sidecar.LoadIdeRefs(root)!.Items.Keys);
-            Assert.Contains("E_Mode.enum", Sidecar.LoadIdeRefs(root)!.Items.Keys);
-            Assert.True(ide.Exists("E_Mode"));
+            Assert.Equal(new[] { "E_Mode.dut" }, duts);
+            Assert.Contains("STRUCT", File.ReadAllText(Path.Combine(root, "src", "DUTs", "E_Mode.dut")));
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }

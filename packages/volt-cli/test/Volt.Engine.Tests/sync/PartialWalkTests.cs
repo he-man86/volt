@@ -102,55 +102,33 @@ public class PartialWalkTests
     }
 
     /// <summary>…and the unreadable exemption on a partial walk is the SAME kind-aware one a complete walk uses:
-    /// an unreadable program `X` does not shield a DUT `X.struct` the IDE deleted.</summary>
+    /// an unreadable program `X` does not shield a DUT `X.dut` the IDE deleted.</summary>
     [Fact]
     public void A_partial_walk_exempts_an_unreadable_item_by_its_kind_not_its_bare_name()
     {
         var ide = WithHiddenFolder();
         var baseline = RefsService.Handle(ide);
-        var known = new Dictionary<string, string>(baseline.Items) { ["X.struct"] = "v", ["X.prg"] = "w" };
-        var knownFolders = new Dictionary<string, string>(baseline.Folders) { ["X.struct"] = "DUTs", ["X.prg"] = "POUs" };
+        var known = new Dictionary<string, string>(baseline.Items) { ["X.dut"] = "v", ["X.prg"] = "w" };
+        var knownFolders = new Dictionary<string, string>(baseline.Folders) { ["X.dut"] = "DUTs", ["X.prg"] = "POUs" };
         ide.AddItem(FakeIde.Item.MalformedGraphical("X", "POUs"));
         ide.UnwalkableFolders = new[] { "Machine" };
 
         var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders });
         var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders });
 
-        Assert.Equal(new[] { "X.struct" }, fetch.Removed);
+        Assert.Equal(new[] { "X.dut" }, fetch.Removed);
         Assert.Equal(fetch.Removed, refs.Removed);
     }
 
-    /// <summary>…and a known name the walk found under ANOTHER wire name of the same kind is gone, whatever folder
-    /// it last sat in. A DUT is one object under its bare name; retyped (and moved out of a folder that now
-    /// faults), the walk publishes `X.enum`. `X.struct` is not "unseen" — the one object was seen, under its new
-    /// name — so keeping it would leave two workspace files and two baseline keys for one IDE object.</summary>
-    [Fact]
-    public void A_partial_walk_removes_the_old_subtype_name_of_a_dut_it_found_retyped()
-    {
-        var ide = new FakeIde();
-        ide.AddItem(FakeIde.Item.TextualPou("X", "TYPE X :\n(\n\tA := 0,\n\tB\n);\nEND_TYPE", "", "DUTs"));
-        ide.UnwalkableFolders = new[] { "Old" };
-        var known = new Dictionary<string, string> { ["X.struct"] = "v" };
-        var knownFolders = new Dictionary<string, string> { ["X.struct"] = "Old" };
-
-        var fetch = FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders });
-        var refs = RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders });
-
-        Assert.Contains("X.enum", fetch.Items.Keys);
-        Assert.Equal(new[] { "X.struct" }, fetch.Removed);
-        Assert.Equal(fetch.Removed, refs.Removed);
-    }
-
-    /// <summary>The rule is one object under two names of ONE kind — an FB `X` the walk found says nothing about a
-    /// known `X.struct` whose folder it could not read (CLAUDE.md, the item-name invariant).</summary>
+    /// <summary>An FB `X` the walk found says nothing about a known `X.dut` whose folder it could not read (CLAUDE.md, the item-name invariant).</summary>
     [Fact]
     public void A_partial_walk_does_not_retire_a_name_because_another_kind_shares_its_bare_name()
     {
         var ide = new FakeIde();
         ide.AddItem(FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", "", "POUs"));
         ide.UnwalkableFolders = new[] { "Old" };
-        var known = new Dictionary<string, string> { ["X.struct"] = "v" };
-        var knownFolders = new Dictionary<string, string> { ["X.struct"] = "Old" };
+        var known = new Dictionary<string, string> { ["X.dut"] = "v" };
+        var knownFolders = new Dictionary<string, string> { ["X.dut"] = "Old" };
 
         Assert.Empty(FetchService.Handle(ide, new FetchRequest { KnownItems = known, KnownFolders = knownFolders }).Removed);
         Assert.Empty(RefsService.Handle(ide, new RefsRequest { KnownItems = known, KnownFolders = knownFolders }).Removed);

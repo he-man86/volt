@@ -20,7 +20,7 @@ import { documentDiagnostics } from "../src/server/diagnostics.js"
 import { loadWorkspaceRefs, loadTaskRoots, scanWorkspace } from "../src/workspace-refs.js"
 
 const CORPUS = join(import.meta.dir, "..", "test-corpus")
-const SOURCE = /\.(prg|fb|fun|itf|gvl|struct|enum|union|alias)$/i
+const SOURCE = /\.(prg|fb|fun|itf|gvl|dut)$/i
 
 function walk(dir: string, out: string[] = []): string[] {
 	for (const e of readdirSync(dir, { withFileTypes: true })) {

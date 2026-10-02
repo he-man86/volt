@@ -38,7 +38,7 @@ test("a struct (non-FB) init is left alone — no FP", () => {
   const p1 = parseSource(src, { networkText: true })
   const main = `PROGRAM PLC_PRG\nVAR\n stIo : ST_Io := (io := 3);\nEND_VAR\nEND_PROGRAM`
   const p2 = parseSource(main, { networkText: true })
-  const project = build.buildSymbolTable([{ uri: "s.struct", parseResult: p1, source: src }, { uri: uriFor(p2), parseResult: p2, source: main }])
+  const project = build.buildSymbolTable([{ uri: "s.dut", parseResult: p1, source: src }, { uri: uriFor(p2), parseResult: p2, source: main }])
   const ds = computeSemanticDiagnostics({ parseResult: p2, source: main, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.code)).toEqual([])
 })

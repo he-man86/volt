@@ -18,9 +18,9 @@ public static class Materializer
             var build = BuildSource(ide, item, kind);
             var text = StWriter.Write(build);
             RefuseRetiredComment(name, text);
-            return new WorkspaceItem(text, FullWireName(name, build), UnsupportedIn(build));
+            return new WorkspaceItem(text, FullWireName(name, build.Kind), UnsupportedIn(build));
         }
-        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind, dutSubtype: null),
+        return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind),
                                  Array.Empty<UnsupportedBody>());
     }
 
@@ -76,27 +76,16 @@ public static class Materializer
     /// <b>The one place a full wire name is minted</b>: <c>VersionedItem.Identity</c>, and through it every
     /// <c>refs</c>/<c>fetch</c>/receipt map and every push gate, keys on what this returns.
     ///
-    /// <para><b>A DUT is named by the subtype its VENDOR states</b> — <c>X.struct</c> / <c>X.enum</c> /
-    /// <c>X.union</c> / <c>X.alias</c> — carried up by the driver on <see cref="ItemContent.DutSubtype"/>; the engine
-    /// never reads the DUT's text for it, and never the tree code, which on TwinCAT lags an in-place change (DIALECT
-    /// C2e). <b>No answer publishes <c>X.dut</c></b> (openspec <c>push-without-header-check</c> 5.B, the one counted
-    /// fallback): the item is tracked and writable under that name, never unreadable for want of a subtype and never
-    /// named by a guess. A subtype on a non-DUT is a driver that broke the contract and is refused, naming the
-    /// item. A client writes the wire name as the file name.</para>
+    /// <para><b>A DUT is <c>X.dut</c></b>, whatever its shape (openspec <c>push-without-header-check</c> 5.P): the
+    /// name is a pure function of the kind for every kind, so nothing here reads the item's text, its subtype or a
+    /// vendor parse. A client writes the wire name as the file name.</para>
     ///
     /// <para>PRIVATE, and it stays that way: <see cref="Materialize"/> is the public path and every item goes
     /// through it, so a test has no reason to reach past it. Making this public to test it directly is what
     /// `NoTestOnlyCodeInSrcTests` exists to catch — and it did.</para></summary>
-    private static string FullWireName(string bareName, ItemContent content) =>
-        FullWireName(bareName, content.Kind, content.DutSubtype);
-
-    private static string FullWireName(string bareName, string kind, DutSubtype? dutSubtype)
+    private static string FullWireName(string bareName, string kind)
     {
-        if (kind != ItemKind.Kinds.Dut && dutSubtype is { } stray)
-            throw new InvalidOperationException(
-                $"the driver read '{bareName}' as a {kind} with the DUT subtype '{stray}' — a subtype is the answer for a DUT " +
-                "and null for every other kind");
-        var ext = kind == ItemKind.Kinds.Dut ? ItemKind.DutExtension(dutSubtype) : ItemKind.ExtFor(kind);
+        var ext = ItemKind.ExtFor(kind);
         return IsVerbatimKind(bareName, ext) ? bareName : $"{bareName}.{ext}";
     }
 

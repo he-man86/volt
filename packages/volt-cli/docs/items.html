@@ -63,91 +63,29 @@
   (and so on) with no implementation under it.
 </p>
 
-<h3 id="dut">The DUT: four codes, one kind, five wire names</h3>
+<h3 id="dut">The DUT: four codes, one kind, one wire name</h3>
 <p>
   A DUT is <b>one item kind</b> inside the engine (<code>dut</code>). TwinCAT stores four tree codes for it
-  (605 enum / 606 struct / 607 union, and 623 alias); CODESYS classifies every <code>IDUTObject</code> onto one
-  and creates with one call. All of them map to <code>dut</code>.
+  (605 enum / 606 struct / 607 union, and 623 alias); CODESYS classifies every <code>IDUTObject</code> — and a
+  text-list enumeration, <code>ITextListEnumerationObject</code> — onto one and creates with one call. All of them
+  map to <code>dut</code>.
 </p>
 <p>
-  On the wire and on disk it is named by its <b>subtype as its vendor states it</b> — <code>X.struct</code> /
-  <code>X.enum</code> / <code>X.union</code> / <code>X.alias</code>. The driver hands the vendor's answer up with
-  the item's content (<code>ItemContent.DutSubtype</code>), and the one place a full wire name is minted
-  (<code>Materializer.FullWireName</code>) spells it; the engine never reads a DUT's text for it. Never from the
-  tree code either: TwinCAT's code lags an in-place change
-  (<a href="../src/Volt.Engine/Ide/DIALECT.md">DIALECT C2e</a>). A DUT whose vendor states <b>no</b> subtype is
-  published as <code>X.dut</code> — the one fallback: tracked, pulled and pushed like the other four, never
-  <code>unreadable</code> for want of a subtype and never named by a guess. The file name <i>is</i> the wire name:
-  no client maps one extension to another.
-</p>
-<p class="note">
-  <b>Interim</b> (openspec <code>push-without-header-check</code>, steps 5.C/5.D): until CODESYS answers from its
-  precompile signature and TwinCAT from its own classifier, both drivers answer through the engine's old text
-  reader, which states nothing where it used to refuse. A library's DUTs are still named by that reader until
-  step 5.D.2 takes them from the library signature's flags.
-</p>
-<p>
-  Below the vendor seam the four names are <b>one object</b>, the bare name <code>X</code>. So a subtype change
-  — a struct rewritten as an enum — is <b>one update of that object</b>, never a delete plus a create: the push
-  decides it, whichever shape git gave the change. See <a href="wire.html#dut-subtype">the push rule</a>.
+  On the wire and on disk every DUT is <b><code>X.dut</code></b>, whatever its shape — struct, enumeration, union
+  or alias, a library's DUT included. The name is a pure function of the kind, so naming a DUT reads no text and
+  asks for no vendor parse; nothing in Volt decides a DUT's subtype (the IDE and its build own it, and the LSP reads
+  the shape from the text as analysis). A struct rewritten as an enum is therefore an ordinary content update of
+  <code>X.dut</code>: no rename, no special push rule. The file name <i>is</i> the wire name: no client maps one
+  extension to another. (openspec <code>push-without-header-check</code> 5.P — until then the wire named a DUT by
+  its subtype, <code>X.struct</code> and so on. Those names are no extension any more: a workspace that still holds
+  such files sees them as foreign files and <code>X.dut</code> as added on its next pull, and a baseline keyed by
+  them is refused by name — delete <code>.git/volt/ide-refs.json</code> and pull.)
 </p>
 <div class="note">
   <b>This row used to read "not used by Volt".</b> 605/606/607 were therefore unmapped, so every DUT authored
   in the TwinCAT IDE — the ordinary case — was invisible to <code>refs</code> and <code>fetch</code>. Absent
   means deleted to a pull.
 </div>
-
-<h3 id="dut-migration">Upgrading a workspace from <code>.dut</code></h3>
-<p>
-  A Volt from before the subtype reached the wire named every DUT <code>X.dut</code>, and a workspace's baseline
-  (<code>.git/volt/ide-refs.json</code>) is keyed by wire name. <b>After upgrading, run <code>volt pull</code>
-  once</b>; if a command refuses the baseline by name, delete <code>.git/volt/ide-refs.json</code> and pull. An old
-  <code>X.dut</code> key is <i>not</i> refused: <code>.dut</code> is a wire name again (a DUT whose vendor states
-  no subtype), so the two cannot be told apart. That is safe — an update quoting the version such a key holds
-  reaches the live DUT only if it equals that DUT's content version, and the pull renames the key to the name the
-  IDE publishes. There is no translation of old keys.
-</p>
-<p>
-  <b>Most files keep their names — not all.</b> The previous Volt already wrote DUT files as <code>.struct</code> /
-  <code>.enum</code> / <code>.union</code> / <code>.alias</code>, but its subtype reader was looser than the one
-  that now names the wire, and a DUT it read differently comes back from the recovery pull under a new name. It
-  matched the body keyword as a <b>prefix</b>, and it looked for trivia only at the <b>start of a line</b>: a
-  block comment there was stepped over, but a pragma there <b>took the whole line with it</b>, code and all. So any
-  comment or pragma between the type's colon and its body token was read AS the body token (a block comment's
-  <code>(*</code> as an enumeration's <code>(</code>, anything else as an alias), a colon inside a comment was taken
-  for the type's own, and a pragma that starts the <code>TYPE</code> line dropped the type's colon, so a member's
-  colon (<code>a : INT;</code>, or an initializer's <code>:=</code>) stood in for it — or none was found — and the
-  answer was alias. The current reader matches whole tokens and steps over every comment and pragma, keeping the
-  code beside it. The shapes that move:
-</p>
-<table>
-  <tr><th>declaration</th><th>was</th><th>is now</th></tr>
-  <tr><td><code>TYPE T : Struct_Alarm;</code> — an alias of a type whose name begins with STRUCT or UNION</td><td><code>T.struct</code></td><td><code>T.alias</code></td></tr>
-  <tr><td><code>TYPE S : // note</code>, then <code>STRUCT</code> on the next line</td><td><code>S.alias</code></td><td><code>S.struct</code></td></tr>
-  <tr><td><code>TYPE S : (* note *) STRUCT</code> — a block comment before the body</td><td><code>S.enum</code></td><td><code>S.struct</code></td></tr>
-  <tr><td><code>TYPE T : (* note *) INT (0..10);</code> — a block comment before an alias's type</td><td><code>T.enum</code></td><td><code>T.alias</code></td></tr>
-  <tr><td><code>TYPE E : {attribute 'strict'} (A, B);</code> — a pragma before an enumeration</td><td><code>E.alias</code></td><td><code>E.enum</code></td></tr>
-  <tr><td><code>TYPE C (* a : colon *) :</code>, then <code>STRUCT</code> — a colon inside a comment</td><td><code>C.alias</code></td><td><code>C.struct</code></td></tr>
-  <tr><td><code>{attribute 'pack_mode' := '1'} TYPE P :</code>, then <code>STRUCT</code> — a pragma starting the TYPE line</td><td><code>P.alias</code></td><td><code>P.struct</code></td></tr>
-  <tr><td><code>{attribute 'strict'} TYPE E :</code>, then <code>(A, B);</code> or one value per line — the same, on an enumeration</td><td><code>E.alias</code></td><td><code>E.enum</code></td></tr>
-</table>
-<p>
-  The same holds for <code>UNION</code> behind a comment, and for a pragma that starts the body's own line
-  (<code>TYPE E :</code>, then <code>{attribute 'strict'} (A, B);</code>) — the previous reader dropped that whole
-  line and read the <code>END_TYPE</code> after it as an alias. The pull shows such a DUT as a <b>rename</b> the engineer did not make: the old name is gone from the IDE, so it is
-  removed, and the new one is written. Nothing is lost — a local edit to the old file follows it through git's
-  rename detection in the merge.
-</p>
-<p>
-  A declaration the vendor gives <b>no subtype</b> was <code>X.alias</code>; it is now <code>X.dut</code>. That
-  covers no colon at all (<code>TYPE X END_TYPE</code>), a colon with no type (<code>TYPE X : ;</code>), and an
-  unclosed comment that swallows the body. The pull shows it as a <b>rename</b> of its file to <code>X.dut</code>
-  (the old name removed), and every push of it is an ordinary one — no <code>--force</code>. When the declaration
-  says what it is, the next pull renames the file to the subtype; a push of <code>X.dut</code> over a DUT the IDE
-  now names <code>X.enum</code> reaches it by the version it quotes (<a href="wire.html#dut-subtype">the push
-  rule</a>). The same happens outside an upgrade: a subtype change typed in the IDE passes through a moment with no
-  subtype, and a pull taken then is an ordinary one.
-</p>
 
 <h3 id="writable">Source, addressable, writable — three different questions</h3>
 <table>
@@ -204,8 +142,7 @@
 </p>
 <div data-render="extensions"></div>
 <p class="lede">
-  <code>dut</code> is the engine's kind, not an extension: it names no file and no wire item
-  (both carry the subtype). A DUT's four extensions are ordinary rows here, each mapping to that kind.
+  Every kind has exactly one extension; a DUT's is <code>dut</code>, whatever its shape.
 </p>
 
 <h2 id="vendors">How each vendor classifies</h2>

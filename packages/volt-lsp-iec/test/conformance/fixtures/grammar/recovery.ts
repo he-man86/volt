@@ -138,7 +138,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   {
     name: "rec_unterminated_struct",
     pouName: "DUT_LANG_rec_unterminated_struct",
-    kind: "struct",
+    kind: "dut",
     feature: "R4 — a STRUCT without its END_STRUCT",
     fromDoc: doc,
     source: "TYPE DUT_LANG_rec_unterminated_struct :\nSTRUCT\n\tv : INT;\nEND_TYPE\n",
@@ -147,7 +147,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   {
     name: "rec_unterminated_union",
     pouName: "DUT_LANG_rec_unterminated_union",
-    kind: "union",
+    kind: "dut",
     feature: "R4 — a UNION without its END_UNION",
     fromDoc: doc,
     source: "TYPE DUT_LANG_rec_unterminated_union :\nUNION\n\tv : INT;\n\tw : WORD;\nEND_TYPE\n",
@@ -156,7 +156,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   {
     name: "rec_missing_end_type",
     pouName: "DUT_LANG_rec_missing_end_type",
-    kind: "struct",
+    kind: "dut",
     feature: "R4 — a STRUCT type without its END_TYPE",
     fromDoc: doc,
     source: "TYPE DUT_LANG_rec_missing_end_type :\nSTRUCT\n\tv : INT;\nEND_STRUCT\n",
@@ -216,7 +216,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   {
     name: "rec_refused_word_struct_field",
     pouName: "DUT_LANG_rec_refused_word_struct_field",
-    kind: "struct",
+    kind: "dut",
     feature: "R6 — an elementary type name as a STRUCT field's name",
     fromDoc: doc,
     source: "TYPE DUT_LANG_rec_refused_word_struct_field :\nSTRUCT\n\tword : WORD;\n\tb : BYTE;\nEND_STRUCT\nEND_TYPE\n",
@@ -225,7 +225,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   {
     name: "rec_refused_word_struct_field_il",
     pouName: "DUT_LANG_rec_refused_word_struct_field_il",
-    kind: "struct",
+    kind: "dut",
     feature: "R6 — an IL operator as a STRUCT field's name",
     fromDoc: doc,
     source: "TYPE DUT_LANG_rec_refused_word_struct_field_il :\nSTRUCT\n\tr : INT;\n\tb : BYTE;\nEND_STRUCT\nEND_TYPE\n",
@@ -234,7 +234,7 @@ export const RECOVERY_TESTS: LanguageTest[] = [
   {
     name: "rec_refused_word_union_field",
     pouName: "DUT_LANG_rec_refused_word_union_field",
-    kind: "union",
+    kind: "dut",
     feature: "R6 — an elementary type name as a UNION field's name",
     fromDoc: doc,
     source: "TYPE DUT_LANG_rec_refused_word_union_field :\nUNION\n\tword : WORD;\n\tb : BYTE;\nEND_UNION\nEND_TYPE\n",

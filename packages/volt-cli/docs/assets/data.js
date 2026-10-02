@@ -883,10 +883,6 @@ window.VOLT = {
       "kind": "dut",
       "emitted": true,
       "exts": [
-        "struct",
-        "enum",
-        "union",
-        "alias",
         "dut"
       ],
       "source": true,
@@ -901,10 +897,6 @@ window.VOLT = {
       "kind": "dut",
       "emitted": true,
       "exts": [
-        "struct",
-        "enum",
-        "union",
-        "alias",
         "dut"
       ],
       "source": true,
@@ -919,10 +911,6 @@ window.VOLT = {
       "kind": "dut",
       "emitted": true,
       "exts": [
-        "struct",
-        "enum",
-        "union",
-        "alias",
         "dut"
       ],
       "source": true,
@@ -1117,10 +1105,6 @@ window.VOLT = {
       "kind": "dut",
       "emitted": true,
       "exts": [
-        "struct",
-        "enum",
-        "union",
-        "alias",
         "dut"
       ],
       "source": true,
@@ -1408,11 +1392,6 @@ window.VOLT = {
   ],
   "extensions": [
     {
-      "ext": "alias",
-      "source": true,
-      "writable": true
-    },
-    {
       "ext": "class_diagram",
       "source": false,
       "writable": false
@@ -1424,11 +1403,6 @@ window.VOLT = {
     },
     {
       "ext": "dut",
-      "source": true,
-      "writable": true
-    },
-    {
-      "ext": "enum",
       "source": true,
       "writable": true
     },
@@ -1503,11 +1477,6 @@ window.VOLT = {
       "writable": false
     },
     {
-      "ext": "struct",
-      "source": true,
-      "writable": true
-    },
-    {
       "ext": "symbols",
       "source": false,
       "writable": false
@@ -1531,11 +1500,6 @@ window.VOLT = {
       "ext": "trace",
       "source": false,
       "writable": false
-    },
-    {
-      "ext": "union",
-      "source": true,
-      "writable": true
     },
     {
       "ext": "visualization",

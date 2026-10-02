@@ -164,7 +164,7 @@ function itfProperty(name: string, feature: string, mods: string, accessor = "GE
 
 /** A DUT that is the whole fixture, pushed AS SENT (the parser cannot split it: it has no body the parser reads), and
  *  declared in PLC_PRG so the build reaches it. */
-function bareType(name: string, feature: string, kind: "alias" | "struct", source: string): LanguageTest {
+function bareType(name: string, feature: string, kind: "dut", source: string): LanguageTest {
   return {
     name,
     pouName: `DUT_LANG_${name}`,
@@ -422,7 +422,7 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
   // AS SENT, one TYPE: its header is refused, so the parser has no subtype to push it under; the bases are
   // `type_dut_struct_extends`'s two structs, and PLC_PRG reads a field of it
   {
-    ...bareType("unit_struct_extends_list", "U22 — a STRUCT extending two: `TYPE X EXTENDS A, B : STRUCT`", "struct",
+    ...bareType("unit_struct_extends_list", "U22 — a STRUCT extending two: `TYPE X EXTENDS A, B : STRUCT`", "dut",
       "TYPE DUT_LANG_unit_struct_extends_list EXTENDS DUT_LANG_struct_base, DUT_LANG_struct_extends :\nSTRUCT\n\tc : INT := 4;\nEND_STRUCT\nEND_TYPE\n"),
     plcPrgVar: "v_unit_struct_extends_list : DUT_LANG_unit_struct_extends_list;\n\tseen_unit_struct_extends_list : INT;",
     plcPrgBody: "seen_unit_struct_extends_list := v_unit_struct_extends_list.c;",
@@ -460,9 +460,9 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
   withVar(fb("unit_union_end_semicolon", "U24 — a `;` after END_UNION: `END_UNION;`", "<name>", "u.x := 2;\nout := u.x;", "",
     "TYPE DUT_LANG_unit_union_end_semicolon :\nUNION\n\tx : INT;\n\ty : DINT;\nEND_UNION;\nEND_TYPE\n\n"),
     "\tu : DUT_LANG_unit_union_end_semicolon;"),
-  bareType("unit_type_no_body", "U27 — a TYPE with nothing after its colon: `TYPE X : END_TYPE`", "alias",
+  bareType("unit_type_no_body", "U27 — a TYPE with nothing after its colon: `TYPE X : END_TYPE`", "dut",
     "TYPE DUT_LANG_unit_type_no_body :\nEND_TYPE\n"),
-  bareType("unit_type_missing_colon", "U22/U27 — a TYPE with no colon before its body: `TYPE X STRUCT … END_STRUCT`", "struct",
+  bareType("unit_type_missing_colon", "U22/U27 — a TYPE with no colon before its body: `TYPE X STRUCT … END_STRUCT`", "dut",
     "TYPE DUT_LANG_unit_type_missing_colon\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n"),
 
   // ─── U28 NAMESPACE … END_NAMESPACE (task 2.4.6) ─────────────────────────────────────────────────────────────────────

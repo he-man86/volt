@@ -15,12 +15,13 @@ what a DUT was.
 ## The rule (owner, 2026-09-29)
 
 **The header is parsed ONLY for child elements.** A top-level item's kind is its wire name's extension (`.fb`, `.prg`,
-`.fun`, `.itf`, `.gvl`, `.struct`/`.enum`/`.union`/`.alias`), so its header is never read, never checked against the
+`.fun`, `.itf`, `.gvl`, `.dut` — every DUT is `.dut` since 5.P), so its header is never read, never checked against the
 extension, and never a reason to refuse. A CHILD element inside an item's file — METHOD, ACTION, PROPERTY with its
 GET/SET, an interface's METHOD/PROPERTY — has no extension of its own: its header line is what names it, says what it
 is, and delimits it. That is the one place a header is parsed on push. The only other thing push reads from the text is
 the `IMPLEMENTATION` line, to split a declaration from its body. The DUT subtype check on push
-(`Sync/DutSubtypeChanges.cs:140`, "a DUT's name must agree with its body") goes too: the extension is the subtype.
+(`Sync/DutSubtypeChanges.cs:140`, "a DUT's name must agree with its body") goes too — and with 5.P (owner,
+2026-10-02) the whole subtype naming goes: a DUT's extension names its kind only.
 
 ## What Changes
 

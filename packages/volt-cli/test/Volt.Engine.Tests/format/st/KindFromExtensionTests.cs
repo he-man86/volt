@@ -43,20 +43,18 @@ public class KindFromExtensionTests
         Assert.Equal("n := n + 1;", item.Body);
     }
 
+    /// <summary>`.dut` hands the reader the DUT kind, and the text is a DUT's one declaration handed over as sent —
+    /// even when it is not a DUT at all: the IDE's build judges it. Premise changed by the owner (openspec
+    /// `push-without-header-check` 5.P): this walked the four subtype names; every DUT is `.dut` now.</summary>
     [Fact]
-    public void A_DUT_is_the_DUT_kind_whichever_subtype_name_it_travels_under_and_its_text_is_not_read()
+    public void A_DUT_is_the_DUT_kind_and_its_text_is_not_read()
     {
-        // `.struct`/`.enum`/`.union`/`.alias` are the four WIRE names of the one DUT kind, so each must hand the
-        // reader the DUT kind. They used to answer NO kind (only `.dut` was in the table). The text is a DUT's one
-        // declaration and is handed over as sent — even when it is not a DUT at all: the IDE's build judges it.
         const string st = "TYPE DUT_X :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE";
-        foreach (var name in new[] { "DUT_X.struct", "DUT_X.enum", "DUT_X.union", "DUT_X.alias" })
-        {
-            Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(name));
-            Assert.Equal(st, StReader.Read(st, ItemKind.KindForWireName(name)!).Declaration);
-            var program = StReader.Read(ProgramText, ItemKind.KindForWireName(name)!);
-            Assert.Equal(ItemKind.Kinds.Dut, program.Kind);
-            Assert.Equal(ProgramText, program.Declaration);
-        }
+        const string name = "DUT_X.dut";
+        Assert.Equal(ItemKind.Kinds.Dut, ItemKind.KindForWireName(name));
+        Assert.Equal(st, StReader.Read(st, ItemKind.KindForWireName(name)!).Declaration);
+        var program = StReader.Read(ProgramText, ItemKind.KindForWireName(name)!);
+        Assert.Equal(ItemKind.Kinds.Dut, program.Kind);
+        Assert.Equal(ProgramText, program.Declaration);
     }
 }

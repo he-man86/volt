@@ -35,10 +35,10 @@ const KEY = "nohdr_"
 const DUT_PUBLISHED_AS_DUT = "push-without-header-check 5.B: no-subtype DUT published as X.dut; rows move in 5.F.3"
 
 /** The extension each unreadable name was pushed under: `unreadable` lists BARE names, and a forced delete reaches
- *  the object only under its own kind (a GVL is not reached as `.struct`; a DUT is, under any DUT subtype). */
+ *  the object only under its own kind (a GVL is not reached as `.dut`). */
 const pushedAs = new Map<string, string>(
-	[["uc_struct", "struct"], ["uc_enum", "enum"], ["uc_gvl", "gvl"], ["uc_fb", "fb"], ["st_enum", "struct"], ["fb_prg", "fb"],
-	 ["upd", "fb"], ["empty", "struct"], ["prose", "struct"], ["implm", "struct"], ["retired", "gvl"]].map(([k, e]) => [id(KEY + k), e]),
+	[["uc_struct", "dut"], ["uc_enum", "dut"], ["uc_gvl", "gvl"], ["uc_fb", "fb"], ["st_enum", "dut"], ["fb_prg", "fb"],
+	 ["upd", "fb"], ["empty", "dut"], ["prose", "dut"], ["implm", "dut"], ["retired", "gvl"]].map(([k, e]) => [id(KEY + k), e]),
 )
 
 /** Delete every item this file made, readable or not. */
@@ -144,9 +144,9 @@ describe(`items / push without header check (${BASE})`, () => {
 		key: string; ext: string; text: (b: string) => string; ref: (b: string) => { decl?: string; body?: string }
 		errors: (b: string, main: string) => string[]; held: "unreadable" | "fetched"; known?: string
 	}[] = [
-		{ key: "uc_struct", ext: "struct", text: (b) => `(* Carrier state\n *\nTYPE ${b} :\nSTRUCT\n\tnPos : INT; (* mm *)\nEND_STRUCT\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
+		{ key: "uc_struct", ext: "dut", text: (b) => `(* Carrier state\n *\nTYPE ${b} :\nSTRUCT\n\tnPos : INT; (* mm *)\nEND_STRUCT\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
 		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
-		{ key: "uc_enum", ext: "enum", text: (b) => `(* Modes\n *\nTYPE ${b} :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
+		{ key: "uc_enum", ext: "dut", text: (b) => `(* Modes\n *\nTYPE ${b} :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE`, ref: (b) => ({ decl: `v : ${b};` }),
 		  errors: (b, m) => [`${m}: Unknown type: '${b}'`], held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
 		{ key: "uc_gvl", ext: "gvl", text: (b) => `(* Globals\n *\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, ref: (b) => ({ decl: "v : INT;", body: `v := ${b}_g;` }),
 		  errors: (b, m) => [`${m}: Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'`, `${m}: Identifier '${b}_g' not defined`], held: "fetched" },
@@ -166,15 +166,16 @@ describe(`items / push without header check (${BASE})`, () => {
 
 	// ── the header is not checked against the extension ─────────────────────────────────────────────
 
-	it("X.struct whose text is an enum pushes as written; refs names it by what it holds", async () => {
+	// Every DUT is `X.dut` (openspec push-without-header-check 5.P): this pushed `X.struct` and expected `X.enum`.
+	it("X.dut whose text is an enum pushes as written and keeps its name", async () => {
 		const bare = id(KEY + "st_enum")
 		const text = `TYPE ${bare} :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE`
-		const r = await pushReferenceBuild(`${bare}.struct`, text, { decl: `v : ${bare};` })
+		const r = await pushReferenceBuild(`${bare}.dut`, text, { decl: `v : ${bare};` })
 		expect(r.push.accepted, `refused: ${JSON.stringify(r.push.conflicts)}`).toBe(true)
 		expect(r.errors).toEqual([])
 		const names = Object.keys((await bridge.refs()).items).filter((n) => n.startsWith(bare))
-		expect(names).toEqual([`${bare}.enum`])
-		expect((await fetchItem(`${bare}.enum`)).sourceText.trimEnd()).toBe(text)
+		expect(names).toEqual([`${bare}.dut`])
+		expect((await fetchItem(`${bare}.dut`)).sourceText.trimEnd()).toBe(text)
 	})
 
 	/** Measured 2026-09-30 (push-without-header-check 1.2/3.2): a POU text that contradicts its object's kind is held
@@ -250,9 +251,9 @@ describe(`items / push without header check (${BASE})`, () => {
 	// prose and a GVL holding a retired comment are in the project but listed `unreadable` (empty and prose are `X.dut`
 	// since 5.B — marked).
 	const unread: { key: string; ext: string; text: (b: string) => string; held: "fetched" | "unreadable"; known?: string }[] = [
-		{ key: "empty", ext: "struct", text: () => "", held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
-		{ key: "prose", ext: "struct", text: () => "this is not structured text at all", held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
-		{ key: "implm", ext: "struct", text: (b) => `TYPE ${b} :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE`, held: "fetched" },
+		{ key: "empty", ext: "dut", text: () => "", held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
+		{ key: "prose", ext: "dut", text: () => "this is not structured text at all", held: "unreadable", known: DUT_PUBLISHED_AS_DUT },
+		{ key: "implm", ext: "dut", text: (b) => `TYPE ${b} :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE`, held: "fetched" },
 		{ key: "retired", ext: "gvl", text: (b) => `(* @volt-impl *)\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, held: "unreadable" },
 	]
 	for (const s of unread) {

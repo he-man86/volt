@@ -18,7 +18,7 @@ function errors(type: string, value: string, vendor: Vendor = "codesys"): string
   const project = build.buildSymbolTable(
     [
       { uri: "F.fb", parseResult, source: src },
-      { uri: "E_Mode.enum", parseResult: enumParse, source: ENUM },
+      { uri: "E_Mode.dut", parseResult: enumParse, source: ENUM },
     ],
     [],
     vendor,

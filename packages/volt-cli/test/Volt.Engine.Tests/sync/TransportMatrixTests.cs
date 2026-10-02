@@ -53,9 +53,9 @@ public class TransportMatrixTests
         // import added children as a side effect of the document write); the engine does it explicitly now,
         // which is why it appears here and nowhere else in the table.
         { ItemKind.PlcItf,     "itf", ItfSrc, new[] { "create:M", "writecontent:K" }, new[] { "create:K", "create:M", "writecontent:K" } },
-        // A DUT's wire extension is its SUBTYPE (openspec dut-subtype-on-the-wire): `DutSrc` is a struct, so
-        // `K.struct`. The row is still the one-document row every other kind uses.
-        { ItemKind.PlcDut,     "struct", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
+        // A DUT is `K.dut` whatever its shape (openspec push-without-header-check 5.P). The row is the one-document
+        // row every other kind uses.
+        { ItemKind.PlcDut,     "dut", DutSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
         { ItemKind.PlcGvl,     "gvl", GvlSrc, new[] { "writecontent:K" }, new[] { "create:K", "writecontent:K" } },
     };
 
@@ -331,14 +331,16 @@ public class TransportMatrixTests
     // method here, but N calls for N members, which is what the document arm collapsed.
 
 
-    // ── no `.dut` on the wire ───────────────────────────────────────────────────────────────────────
+    // ── every DUT is `.dut` on the wire ─────────────────────────────────────────────────────────────
 
-    /// <summary>NO WIRE MESSAGE CARRIES `.dut` — not `refs`, not `fetch`, not a push op the engine accepts, not
-    /// the push receipt. A DUT's wire name is its subtype name (openspec <c>dut-subtype-on-the-wire</c>); a
-    /// single `.dut` left on any one message is a name no client file maps to, so the client would either need
-    /// DUT logic to translate it back — the thing that change removes from the CLI — or lose the item.</summary>
+    /// <summary>EVERY WIRE MESSAGE NAMES EVERY DUT `X.dut` — `refs`, `fetch`, a push op the engine accepts and the
+    /// push receipt — whatever its shape and whatever tree code the vendor reports for it (TwinCAT's 605/606/607/623).
+    ///
+    /// <para><b>Premise changed by the owner (openspec <c>push-without-header-check</c> 5.P, 2026-10-02).</b> This
+    /// asserted the opposite — no message carries `.dut`, every DUT is named by its subtype. A split name left on
+    /// any one message now is a name no kind table knows, so the client would lose the item.</para></summary>
     [Fact]
-    public void No_wire_message_carries_a_dut_name()
+    public void Every_wire_message_names_every_dut_dot_dut()
     {
         var ide = new FakeIde(
             new FakeIde.Item("S", ItemKind.PlcDut, "DUTs", true, "TYPE S :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE", null, null, null),
@@ -363,9 +365,9 @@ public class TransportMatrixTests
             ExpectedProjectVersion = refs.ProjectVersion,
             Ops = new()
             {
-                new SetItemOp { Name = "S.struct", IfVersion = refs.Items["S.struct"],
+                new SetItemOp { Name = "S.dut", IfVersion = refs.Items["S.dut"],
                                 SourceText = "TYPE S :\nSTRUCT\n\ta : DINT;\nEND_STRUCT\nEND_TYPE\n" },
-                new SetItemOp { Name = "N.enum", IfVersion = null, ToFolder = "DUTs",
+                new SetItemOp { Name = "N.dut", IfVersion = null, ToFolder = "DUTs",
                                 SourceText = "TYPE N :\n(\n\tX := 0\n);\nEND_TYPE\n" },
             },
         });
@@ -374,15 +376,15 @@ public class TransportMatrixTests
         names.AddRange(push.NewItems!.Keys);
         names.AddRange(push.NewFolders!.Keys);
 
-        Assert.Equal(new[] { "A.alias", "E.enum", "N.enum", "S.struct", "U.union" },
+        Assert.Equal(new[] { "A.dut", "E.dut", "N.dut", "S.dut", "U.dut" },
                      push.NewItems!.Keys.OrderBy(k => k, System.StringComparer.Ordinal).ToArray());
-        Assert.DoesNotContain(names, n => n.EndsWith(".dut", System.StringComparison.OrdinalIgnoreCase));
+        Assert.All(names.Where(n => n.Contains('.')), n => Assert.EndsWith(".dut", n, System.StringComparison.Ordinal));
     }
 
     private static string SourceFor(string ext) => ext switch
     {
         "fb" => FbSrc, "prg" => PrgSrc, "fun" => FunSrc,
-        "itf" => ItfSrc, "struct" => DutSrc, "gvl" => GvlSrc,
+        "itf" => ItfSrc, "dut" => DutSrc, "gvl" => GvlSrc,
         _ => throw new System.ArgumentOutOfRangeException(nameof(ext), ext, "not a writable kind in the matrix"),
     };
 }

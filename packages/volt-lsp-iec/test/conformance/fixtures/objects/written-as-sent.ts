@@ -29,7 +29,7 @@ export const WRITTEN_AS_SENT_TESTS: readonly LanguageTest[] = [
   {
     name: "pwh_unclosed_comment_struct",
     pouName: "DUT_LANG_pwh_uc_struct",
-    kind: "struct",
+    kind: "dut",
     feature: "a STRUCT whose opening comment never closes — the whole text is one comment",
     fromDoc: doc,
     asSent,
@@ -46,7 +46,7 @@ END_TYPE
   {
     name: "pwh_unclosed_comment_enum",
     pouName: "DUT_LANG_pwh_uc_enum",
-    kind: "enum",
+    kind: "dut",
     feature: "an ENUM whose opening comment never closes",
     fromDoc: doc,
     asSent,
@@ -121,8 +121,8 @@ END_PROGRAM
   {
     name: "pwh_struct_text_is_enum",
     pouName: "DUT_LANG_pwh_st_enum",
-    kind: "struct",
-    feature: "a .struct whose text is an ENUM",
+    kind: "dut",
+    feature: "a .dut whose text is an ENUM (pushed as .struct before push-without-header-check 5.P; a DUT has one name now)",
     fromDoc: doc,
     asSent,
     source: `TYPE DUT_LANG_pwh_st_enum :
@@ -139,8 +139,8 @@ END_TYPE
   {
     name: "pwh_empty_struct",
     pouName: "DUT_LANG_pwh_empty",
-    kind: "struct",
-    feature: "a .struct whose text is EMPTY",
+    kind: "dut",
+    feature: "a .dut whose text is EMPTY",
     fromDoc: doc,
     asSent,
     source: "",
@@ -149,8 +149,8 @@ END_TYPE
   {
     name: "pwh_prose_struct",
     pouName: "DUT_LANG_pwh_prose",
-    kind: "struct",
-    feature: "a .struct whose text is prose, not structured text",
+    kind: "dut",
+    feature: "a .dut whose text is prose, not structured text",
     fromDoc: doc,
     asSent,
     source: "this is not structured text at all\n",
@@ -159,7 +159,7 @@ END_TYPE
   {
     name: "pwh_struct_member_implementation",
     pouName: "DUT_LANG_pwh_implm",
-    kind: "struct",
+    kind: "dut",
     feature: "a STRUCT member named IMPLEMENTATION — the word Volt's file format uses for its body line",
     fromDoc: doc,
     asSent,
@@ -194,7 +194,7 @@ END_VAR
   {
     name: "pwh_prose_then_struct",
     pouName: "DUT_LANG_pwh_prose_first",
-    kind: "struct",
+    kind: "dut",
     feature: "a prose line ABOVE a well-formed STRUCT",
     fromDoc: doc,
     asSent,
@@ -210,7 +210,7 @@ END_TYPE
   {
     name: "pwh_struct_then_prose",
     pouName: "DUT_LANG_pwh_prose_after",
-    kind: "struct",
+    kind: "dut",
     feature: "a prose line BELOW a well-formed STRUCT's END_TYPE",
     fromDoc: doc,
     asSent,
@@ -226,7 +226,7 @@ a note about the carrier
   {
     name: "pwh_struct_missing_semicolon",
     pouName: "DUT_LANG_pwh_no_semi",
-    kind: "struct",
+    kind: "dut",
     feature: "a STRUCT member missing its `;` — a syntax error INSIDE a DUT declaration",
     fromDoc: doc,
     asSent,
@@ -328,12 +328,12 @@ END_VAR
     plcPrgBody: "v := g_pwh_no_semi_b;",
   },
 
-  // ─── a text of another kind, the other way round ───
+  // ─── a DUT whose text is a STRUCT: the enum row's twin ───
   {
     name: "pwh_enum_text_is_struct",
     pouName: "DUT_LANG_pwh_enum_struct",
-    kind: "enum",
-    feature: "an .enum whose text is a STRUCT",
+    kind: "dut",
+    feature: "a .dut whose text is a STRUCT (pushed as .enum before push-without-header-check 5.P; a DUT has one name now)",
     fromDoc: doc,
     asSent,
     source: `TYPE DUT_LANG_pwh_enum_struct :

@@ -416,7 +416,7 @@ STRUCT
 END_STRUCT
 END_TYPE`
   roundtrips(src)
-  const doc: Document = { uri: "file:///S.struct", source: src, parseResult: parseSource(src, { networkText: true }) }
+  const doc: Document = { uri: "file:///S.dut", source: src, parseResult: parseSource(src, { networkText: true }) }
   expect(formatDocument(doc)).toContain("TYPE S EXTENDS Base :\nSTRUCT\n")
   roundtrips(`TYPE A EXTENDS S : INT := 5;
 END_TYPE`)

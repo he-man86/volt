@@ -51,7 +51,7 @@ public class PushWithoutHeaderCheckTests
     {
         const string text = "(* Carrier state\n *\nTYPE ST_Carrier :\nSTRUCT\n\tnPos : INT; (* mm *)\nEND_STRUCT\nEND_TYPE";
         var ide = Project();
-        AssertWrittenAsSent(ide, Create(ide, "ST_Carrier.struct", text), "ST_Carrier", text);
+        AssertWrittenAsSent(ide, Create(ide, "ST_Carrier.dut", text), "ST_Carrier", text);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class PushWithoutHeaderCheckTests
     {
         const string text = "(* Modes\n *\nTYPE E_Mode :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE";
         var ide = Project();
-        AssertWrittenAsSent(ide, Create(ide, "E_Mode.enum", text), "E_Mode", text);
+        AssertWrittenAsSent(ide, Create(ide, "E_Mode.dut", text), "E_Mode", text);
     }
 
     [Fact]
@@ -92,15 +92,16 @@ public class PushWithoutHeaderCheckTests
 
     // ── the header is not checked against the extension ─────────────────────────────────────────────
 
-    /// <summary>The extension is the subtype. <c>X.struct</c> whose text is an enum is written as sent — the IDE takes
-    /// the shape the text gives it, and <c>refs</c> then names the item by what it holds.</summary>
+    /// <summary>A DUT's extension says nothing about its shape: <c>X.dut</c> with an enum's text is written as sent —
+    /// the IDE takes the shape the text gives it — and <c>refs</c> names it <c>X.dut</c>. (Premise changed by the
+    /// owner, openspec <c>push-without-header-check</c> 5.P: this pushed <c>X.struct</c> and expected <c>X.enum</c>.)</summary>
     [Fact]
-    public void A_struct_name_over_an_enums_text_pushes_as_written()
+    public void A_dut_with_an_enums_text_pushes_as_written_and_keeps_its_name()
     {
         const string text = "TYPE X :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE";
         var ide = Project();
-        AssertWrittenAsSent(ide, Create(ide, "X.struct", text), "X", text);
-        Assert.Contains("X.enum", RefsService.Handle(ide).Items.Keys);
+        AssertWrittenAsSent(ide, Create(ide, "X.dut", text), "X", text);
+        Assert.Contains("X.dut", RefsService.Handle(ide).Items.Keys);
     }
 
     /// <summary>The spec's second scenario: <c>FB_X.fb</c> whose text starts <c>PROGRAM FB_X</c> is not refused for its
@@ -122,7 +123,7 @@ public class PushWithoutHeaderCheckTests
     public void An_empty_struct_pushes_without_refusal()
     {
         var ide = Project();
-        AssertWrittenAsSent(ide, Create(ide, "ST_Empty.struct", ""), "ST_Empty", "");
+        AssertWrittenAsSent(ide, Create(ide, "ST_Empty.dut", ""), "ST_Empty", "");
     }
 
     /// <summary>A comment of a Volt from before the IMPLEMENTATION keyword is refused in a POU (its boundary is what the
@@ -142,7 +143,7 @@ public class PushWithoutHeaderCheckTests
     {
         const string text = "TYPE ST_Doc :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE";
         var ide = Project();
-        AssertWrittenAsSent(ide, Create(ide, "ST_Doc.struct", text), "ST_Doc", text);
+        AssertWrittenAsSent(ide, Create(ide, "ST_Doc.dut", text), "ST_Doc", text);
     }
 
     [Fact]
@@ -150,7 +151,7 @@ public class PushWithoutHeaderCheckTests
     {
         const string text = "this is not structured text at all";
         var ide = Project();
-        AssertWrittenAsSent(ide, Create(ide, "Junk.struct", text), "Junk", text);
+        AssertWrittenAsSent(ide, Create(ide, "Junk.dut", text), "Junk", text);
     }
 
     // ── a CHILD's header is the one header push reads ───────────────────────────────────────────────

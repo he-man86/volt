@@ -1194,7 +1194,7 @@ END_PROGRAM
     const LIB = "C:/p/Device/Plc Logic/Application/Library Manager/LibSeverity"
     const libraries = [
       { uri: `${LIB}/LibSeverity.library`, source: "LIBRARY LibSeverity\nNAMESPACE LSEV\nRESOLUTION LibSeverity, 1.0.0.0 (Acme)\n" },
-      { uri: `${LIB}/E_SEVERITY.enum`, source: "TYPE E_Severity :\n(\n\tLow := 2,\n\tHigh := 30\n);\nEND_TYPE\n" },
+      { uri: `${LIB}/E_SEVERITY.dut`, source: "TYPE E_Severity :\n(\n\tLow := 2,\n\tHigh := 30\n);\nEND_TYPE\n" },
     ]
     // `level` states its own start. E_Local's first enumerator is Quiet = 2, and where a variable of such an enum
     // starts is unmeasured (`refuseUnmeasuredEnumDefault`) — a question this test is not about. What it measures is

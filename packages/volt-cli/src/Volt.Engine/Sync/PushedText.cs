@@ -19,8 +19,8 @@ public static class PushedText
     /// the same family, the two a text write moves an object between. A push writes the text as sent and never reads
     /// its header (openspec <c>push-without-header-check</c>), and the wire names an object by what the IDE holds:
     /// CODESYS takes a POU's kind from its text (DIALECT C2f) — <c>X.fb</c> whose text says <c>PROGRAM</c> is published
-    /// as <c>X.prg</c> — and a DUT is named by its declaration's subtype on both vendors (C2e). Any other pair is two
-    /// items (<c>X.fb</c> beside <c>X.struct</c>, the item-name invariant).</summary>
+    /// as <c>X.prg</c>. A DUT is <c>X.dut</c> whatever its text (openspec 5.P), so it has no other name to be held as.
+    /// Any other pair is two items (<c>X.fb</c> beside <c>X.dut</c>, the item-name invariant).</summary>
     public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
     {
         static string? Family(string wireName) => ItemKind.KindForWireName(wireName) switch

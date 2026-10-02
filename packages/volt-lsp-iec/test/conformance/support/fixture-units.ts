@@ -113,7 +113,7 @@ function libraryElements(): Set<string> {
   for (const library of readdirSync(LIBRARY_MANAGER, { withFileTypes: true }))
     if (library.isDirectory())
       for (const file of readdirSync(join(LIBRARY_MANAGER, library.name))) {
-        const element = /^(.*)\.(fun|fb|itf|struct|enum|alias|union)$/i.exec(file)
+        const element = /^(.*)\.(fun|fb|itf|dut)$/i.exec(file)
         if (element !== null) libraryNames.add(element[1]!.toUpperCase())
       }
   return libraryNames

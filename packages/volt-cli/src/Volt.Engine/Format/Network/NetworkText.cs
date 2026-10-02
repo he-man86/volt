@@ -258,8 +258,8 @@ public static class NetworkText
     }
 
     /// <summary>Can a workspace file named <paramref name="wireName"/> hold network text at all? Only a source kind
-    /// with an implementation to separate (<see cref="ImplementationMarker.AppliesTo"/>) has a body — a GVL, a DUT of
-    /// any subtype, an interface or a descriptor has none. Asked by NAME because the file name IS the wire name: a
+    /// with an implementation to separate (<see cref="ImplementationMarker.AppliesTo"/>) has a body — a GVL, a DUT, an
+    /// interface or a descriptor has none. Asked by NAME because the file name IS the wire name: a
     /// client (the pull's v1 note) asks this and resolves no kind of its own — the kind table is the engine's.</summary>
     public static bool CanHold(string wireName) =>
         Volt.Engine.Item.ItemKind.KindForWireName(wireName) is { } kind

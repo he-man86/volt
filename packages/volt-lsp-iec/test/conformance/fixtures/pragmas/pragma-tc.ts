@@ -59,7 +59,7 @@ function structAttr(slug: string, attr: string): LanguageTest {
   return {
     name: slug,
     pouName: dut,
-    kind: "struct",
+    kind: "dut",
     feature: `{attribute '${attr}'} on a DUT is a TwinCAT-only Tc attribute`,
     fromDoc: "07-pragmas.md#tc-attributes",
     plcPrgVar: `inst : ${dut};`,

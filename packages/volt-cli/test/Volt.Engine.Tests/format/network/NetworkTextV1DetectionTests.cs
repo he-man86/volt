@@ -21,7 +21,7 @@ public class NetworkTextV1DetectionTests
 
     /// <summary>WHICH FILES CAN HOLD NETWORK TEXT is a question about the file's NAME, answered here once — the wire
     /// name IS the file name, so a client asks by name and knows no kind. Only a kind with an implementation to
-    /// separate (a POU and its members) can hold a body; a GVL, a DUT of every subtype, an interface, a descriptor
+    /// separate (a POU and its members) can hold a body; a GVL, a DUT, an interface, a descriptor
     /// and a name no kind claims cannot. The CLI's pull note (`V1Note`) asked this with its own kind logic —
     /// `KindForWireName`, `IsSourceKind`, `ImplementationMarker.AppliesTo` — before it asked the engine.</summary>
     [Theory]
@@ -29,14 +29,12 @@ public class NetworkTextV1DetectionTests
     [InlineData("X.prg", true)]
     [InlineData("X.fun", true)]
     [InlineData("X.gvl", false)]
+    [InlineData("X.dut", false)]
     [InlineData("X.struct", false)]
-    [InlineData("X.enum", false)]
-    [InlineData("X.union", false)]
-    [InlineData("X.alias", false)]
     [InlineData("X.itf", false)]
     [InlineData("X.task", false)]
     [InlineData("X", false)]
-    [InlineData("X.Enum", false)]
+    [InlineData("X.Dut", false)]
     public void Whether_a_file_can_hold_network_text_is_asked_by_its_name(string wireName, bool can) =>
         Assert.Equal(can, NetworkText.CanHold(wireName));
 

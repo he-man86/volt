@@ -5,7 +5,7 @@
  * Source: 06-data-types.md.
  *
  * Each entry is a single DUT (`kind: "dut"`) materialized as one
- * kind-named file (a DUT under its subtype — `.struct`/`.enum`/`.union`/`.alias`), like every writable source kind. PLC_PRG instantiates the
+ * kind-named file (every DUT is `.dut`), like every writable source kind. PLC_PRG instantiates the
  * type so TC analyses it (dead code is skipped by the compiler).
  *
  * Same LanguageTest shape as pragmas — see pragma-tests.ts for field docs.
@@ -18,7 +18,7 @@ export const DATA_TYPE_TESTS: readonly LanguageTest[] = [
   {
     name: "type_dut_struct_simple",
     pouName: "DUT_LANG_struct_simple",
-    kind: "struct",
+    kind: "dut",
     feature: "STRUCT — simple record with two fields",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_simple : DUT_LANG_struct_simple;",
@@ -40,7 +40,7 @@ END_TYPE
     name: "type_dut_struct_base",
     plcPrgVar: "structBase : DUT_LANG_struct_base;",
     pouName: "DUT_LANG_struct_base",
-    kind: "struct",
+    kind: "dut",
     feature: "STRUCT base record — extended by type_dut_struct_extends",
     fromDoc: "06-data-types.md",
     source: `TYPE DUT_LANG_struct_base :
@@ -55,7 +55,7 @@ END_TYPE
   {
     name: "type_dut_struct_extends",
     pouName: "DUT_LANG_struct_extends",
-    kind: "struct",
+    kind: "dut",
     feature: "STRUCT EXTENDS — derived record over a separate base DUT item",
     fromDoc: "06-data-types.md",
     note: "Pure DUT inheritance — no FB involved. Both CODESYS (doc 06 L299) and TC support `EXTENDS DUT_Base`. Base is a separate item (DUT_LANG_struct_base).",
@@ -74,7 +74,7 @@ END_TYPE
     name: "type_dut_struct_inner",
     plcPrgVar: "structInner : DUT_LANG_struct_inner;",
     pouName: "DUT_LANG_struct_inner",
-    kind: "struct",
+    kind: "dut",
     feature: "STRUCT inner record — nested inside type_dut_struct_nested",
     fromDoc: "06-data-types.md",
     source: `TYPE DUT_LANG_struct_inner :
@@ -89,7 +89,7 @@ END_TYPE
   {
     name: "type_dut_struct_nested",
     pouName: "DUT_LANG_struct_nested",
-    kind: "struct",
+    kind: "dut",
     feature: "STRUCT with a nested STRUCT field (separate inner DUT item)",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_nest : DUT_LANG_struct_nested;",
@@ -108,7 +108,7 @@ END_TYPE
   {
     name: "type_dut_enum_simple",
     pouName: "DUT_LANG_enum_simple",
-    kind: "enum",
+    kind: "dut",
     feature: "ENUM — simple value list (default INT base)",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_enum : DUT_LANG_enum_simple;",
@@ -126,7 +126,7 @@ END_TYPE
   {
     name: "type_dut_enum_with_base",
     pouName: "DUT_LANG_enum_with_base",
-    kind: "enum",
+    kind: "dut",
     feature: "ENUM with explicit BYTE base type",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_enum_b : DUT_LANG_enum_with_base;",
@@ -144,7 +144,7 @@ END_TYPE
   {
     name: "type_dut_enum_explicit_values",
     pouName: "DUT_LANG_enum_explicit_values",
-    kind: "enum",
+    kind: "dut",
     feature: "ENUM with explicit value assignments",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_enum_e : DUT_LANG_enum_explicit_values;",
@@ -232,7 +232,7 @@ END_TYPE
   {
     name: "type_dut_alias_int",
     pouName: "DUT_LANG_alias_int",
-    kind: "alias",
+    kind: "dut",
     feature: "ALIAS — UDINT alias",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_alias_id : DUT_LANG_alias_int;",
@@ -245,7 +245,7 @@ END_TYPE
   {
     name: "type_dut_alias_string",
     pouName: "DUT_LANG_alias_string",
-    kind: "alias",
+    kind: "dut",
     feature: "ALIAS — STRING(80) alias",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_alias_str : DUT_LANG_alias_string;",
@@ -260,7 +260,7 @@ END_TYPE
   {
     name: "type_dut_union",
     pouName: "DUT_LANG_union",
-    kind: "union",
+    kind: "dut",
     feature: "UNION — overlapping variants",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_u : DUT_LANG_union;",
@@ -280,7 +280,7 @@ END_TYPE
     name: "type_dut_subrange",
     execSkip: "the online read refuses a subrange: \"Type 'Subrange' is not a literal type.\" (measured 2026-09-14) — there is no value the IDE will hand back",
     pouName: "DUT_LANG_subrange",
-    kind: "alias",
+    kind: "dut",
     feature: "SUBRANGE — INT constrained to 0..100",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_pct : DUT_LANG_subrange := 50;",
@@ -471,7 +471,7 @@ END_METHOD
   {
     name: "type_dut_struct_with_bit_fields",
     pouName: "DUT_LANG_struct_bit_fields",
-    kind: "struct",
+    kind: "dut",
     feature: "STRUCT with BIT fields — packed flags",
     fromDoc: "06-data-types.md",
     note: "BIT is only allowed in STRUCT field declarations (not standalone VAR), per the CODESYS BIT page.",
@@ -494,7 +494,7 @@ END_TYPE
   {
     name: "type_dut_alias_with_init",
     pouName: "DUT_LANG_alias_with_init",
-    kind: "alias",
+    kind: "dut",
     feature: "TYPE alias with initial value — alias body init path in DUT parser",
     fromDoc: "06-data-types.md",
     plcPrgVar: "dut_awi : DUT_LANG_alias_with_init;",

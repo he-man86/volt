@@ -3,7 +3,7 @@
  *
  * `volt pull` mirrors the IDE project as text files. This module crawls that tree once and returns:
  *
- *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`/`.struct`/`.enum`/`.union`/`.alias`/`.dut`) — the
+ *   - **source files** (`.fb`/`.prg`/`.fun`/`.itf`/`.gvl`/`.dut`) — the
  *     units the binder cross-indexes, so a type declared in an unopened file still resolves.
  *   - **what the symbol table binds beside the sources** (`WorkspaceRefs`):
  *       - `.library` manifests — each library's NAMESPACE, DEPENDENCIES and RESOLUTION (`bindLibraryNamespaces`);
@@ -148,8 +148,8 @@ export function scanWorkspace(root: string): WorkspaceScan {
   const sources: { path: string; source: string }[] = []
   for (const file of walkFiles(root)) {
     // EXACT, never case-folded — here and in every loader above. A file name IS its item's wire name, and the
-    // CLI classifies an extension Ordinally: `E_Mode.Enum` is a foreign file `volt push` refuses, not the
-    // `E_Mode.enum` the IDE publishes. Folded, the LSP indexed it as a source unit and resolved names from a file
+    // CLI classifies an extension Ordinally: `E_Mode.Dut` is a foreign file `volt push` refuses, not the
+    // `E_Mode.dut` the IDE publishes. Folded, the LSP indexed it as a source unit and resolved names from a file
     // Volt will never push.
     const ext = extname(file)
     try {

@@ -8,10 +8,6 @@
     "fun",
     "itf",
     "gvl",
-    "struct",
-    "enum",
-    "union",
-    "alias",
     "dut"
   ],
   "patterns": [

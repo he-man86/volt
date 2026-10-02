@@ -30,7 +30,7 @@ export const INITIALIZER_TESTS: readonly LanguageTest[] = [
   {
     name: "init_struct_by_field",
     pouName: "DUT_INIT_point",
-    kind: "struct",
+    kind: "dut",
     feature: "a struct initialized by field name — and a field left out keeps its TYPE's initial value, or starts at 0",
     fromDoc: doc,
     source: TYPES,
@@ -41,7 +41,7 @@ export const INITIALIZER_TESTS: readonly LanguageTest[] = [
   {
     name: "init_array_of_structs",
     pouName: "DUT_INIT_pair",
-    kind: "struct",
+    kind: "dut",
     feature: "an array of structs initialized element by element, one element left out",
     fromDoc: doc,
     source: `TYPE DUT_INIT_pair :

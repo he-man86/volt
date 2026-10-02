@@ -11,14 +11,13 @@ describe("isPouFile", () => {
 		expect(isPouFile("Fun_Calc.fun")).toBe(true);
 		expect(isPouFile("IMotor.itf")).toBe(true);
 		expect(isPouFile("GVL_Config.gvl")).toBe(true);
-		// A DUT is named by its declaration's subtype — four extensions, all source.
-		expect(isPouFile("DUT_Data.struct")).toBe(true);
-		expect(isPouFile("E_Mode.enum")).toBe(true);
-		expect(isPouFile("U_Bits.union")).toBe(true);
-		expect(isPouFile("T_Handle.alias")).toBe(true);
-		// `.dut` is the DUT whose vendor states no subtype (openspec push-without-header-check 5.B, owner): it used to
-		// name nothing; it is a tracked source file now, like the four subtype extensions.
+		// Every DUT is `.dut`, whatever its shape (openspec push-without-header-check 5.P, owner: this listed the four
+		// subtype extensions as source; they name no kind any more).
 		expect(isPouFile("DUT_Data.dut")).toBe(true);
+		expect(isPouFile("DUT_Data.struct")).toBe(false);
+		expect(isPouFile("E_Mode.enum")).toBe(false);
+		expect(isPouFile("U_Bits.union")).toBe(false);
+		expect(isPouFile("T_Handle.alias")).toBe(false);
 	});
 
 	// Exact, as the CLI's classifier is: a file name IS its wire name, so `Foo.FB` is not the `Foo.fb` the IDE
@@ -28,8 +27,8 @@ describe("isPouFile", () => {
 	test("matches the extension exactly — a case variant is not a source file", () => {
 		expect(isPouFile("Foo.FB")).toBe(false);
 		expect(isPouFile("FB_Motor.Prg")).toBe(false);
-		expect(isPouFile("E_Mode.Enum")).toBe(false);
-		expect(isPouFile("C:\\Users\\Foo\\SRC\\DUTs\\E_Mode.enum")).toBe(true);
+		expect(isPouFile("E_Mode.Dut")).toBe(false);
+		expect(isPouFile("C:\\Users\\Foo\\SRC\\DUTs\\E_Mode.dut")).toBe(true);
 	});
 
 	test("rejects non-source extensions", () => {

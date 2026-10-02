@@ -465,7 +465,7 @@ public class ReadOnlyBodyTests
     /// refusal.</summary>
     [Theory]
     [InlineData("gvl", "VAR_GLOBAL\n\tn : INT; (* @volt-graphical: CFC *)\nEND_VAR")]
-    [InlineData("struct", "TYPE ST_A :\nSTRUCT\n\t(* @volt-implementation *)\n\tn : INT;\nEND_STRUCT\nEND_TYPE")]
+    [InlineData("dut", "TYPE ST_A :\nSTRUCT\n\t(* @volt-implementation *)\n\tn : INT;\nEND_STRUCT\nEND_TYPE")]
     public void A_volt_comment_in_a_declaration_only_kind_is_its_text_like_any_other(string ext, string source) =>
         Assert.Equal(source, StReader.Read(source + "\n", ext == "gvl" ? ItemKind.Kinds.Gvl : ItemKind.Kinds.Dut, "X").Declaration);
 

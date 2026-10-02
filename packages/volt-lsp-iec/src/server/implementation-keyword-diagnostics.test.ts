@@ -200,8 +200,8 @@ test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the d
  *  while the push refused it; the push no longer does, so the premise changed with it. */
 test("IMPLEMENTATION in a DUT or a GVL is a name like any other: no diagnostic", async () => {
   const cases: { uri: string; src: string }[] = [
-    { uri: "file:///E.enum", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
-    { uri: "file:///S.struct", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
+    { uri: "file:///E.dut", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
+    { uri: "file:///S.dut", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
     { uri: "file:///G.gvl", src: "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n" },
   ]
   for (const c of cases) {

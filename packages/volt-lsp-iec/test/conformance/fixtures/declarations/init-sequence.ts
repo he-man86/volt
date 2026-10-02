@@ -165,7 +165,7 @@ export const INIT_SEQUENCE_TESTS: readonly LanguageTest[] = [
   {
     name: "initseq_struct_type",
     pouName: "ST_LANG_initseq",
-    kind: "struct" as const,
+    kind: "dut" as const,
     feature: "the struct the member probe reads",
     fromDoc: "06-data-types.md",
     source: "TYPE ST_LANG_initseq :\nSTRUCT\n\tcap : INT;\nEND_STRUCT\nEND_TYPE\n",

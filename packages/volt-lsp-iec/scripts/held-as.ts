@@ -1,18 +1,16 @@
 /**
  * WHERE THE IDE HOLDS AN ITEM THE RECORDER PUSHED — the pure half of `record-language.ts`'s cleanup, here so it is
- * tested without a bridge (openspec `push-without-header-check` 5.B: a no-subtype DUT left behind poisoned every later
- * fixture's build, and nothing caught it because the lookup lived inside a script with top-level await).
+ * tested without a bridge (openspec `push-without-header-check` 5.B: a DUT left behind under another name poisoned
+ * every later fixture's build, and nothing caught it because the lookup lived inside a script with top-level await).
  *
  * An item pushed as `X.ext` is not always held as `X.ext` afterwards, since the push writes a top-level text as sent
  * (`openspec/changes/push-without-header-check`, measured live 2026-09-30):
  *   - CODESYS makes an `.fb` whose text says PROGRAM a program, and `refs` names it `X.prg` (DIALECT C2f);
- *   - a DUT whose text states no subtype (a never-closed `(*`, an empty or prose text) is published as `X.dut`
- *     (5.B: the driver has no subtype answer, and null mints `name.dut`), so a fixture pushed as `X.struct` is held
- *     as `X.dut`;
  *   - a GVL holding a retired `(* @volt-… *)` comment is in the project but listed under `unreadable` by bare name,
  *     and only a FORCED push deletes one (a plain delete is refused UNREADABLE).
  * So each is looked up under its own name first, then under a name the IDE may publish that one object under — the
- * engine's `PushedText.MayBeHeldAs`: the same bare name and another kind of the SAME FAMILY (POU ↔ POU, DUT ↔ DUT) —
+ * engine's `PushedText.MayBeHeldAs`: the same bare name and another kind of the SAME FAMILY (POU ↔ POU; a DUT has one name, `X.dut`, since 5.P, so it
+ * differs only in its case) —
  * then, for a GVL, in `unreadable`. A bare-name match of any OTHER kind is another item (`X.fb` beside
  * `X.visualization` is legitimate) and is never touched. `before` is the project as it stood before the push: what it
  * already held is not the push's to delete — a refused push leaves only that, and a match there is someone else's.
@@ -21,10 +19,6 @@ const FAMILY: Readonly<Record<string, "pou" | "dut">> = {
   fb: "pou",
   prg: "pou",
   fun: "pou",
-  struct: "dut",
-  enum: "dut",
-  union: "dut",
-  alias: "dut",
   dut: "dut",
 }
 export const extOf = (n: string): string => n.slice(n.lastIndexOf(".") + 1)
@@ -35,8 +29,8 @@ export function mayBeHeldAs(pushed: string, held: string): boolean {
 }
 /**
  * The kinds a push may leave listed only as `unreadable`: a GVL (measured 2026-09-30). A DUT with no subtype was one
- * too until 5.B; it is now published as `X.dut` and found through FAMILY above. A DUT is listed `unreadable` only when
- * its content cannot be read at all (a driver/COM error), which no fixture push produces.
+ * too until 5.B; every DUT is `X.dut` now. A DUT is listed `unreadable` only when its content cannot be read at all (a
+ * driver/COM error), which no fixture push produces.
  */
 const MAY_BE_UNREADABLE = new Set(["gvl"])
 

@@ -23,7 +23,7 @@ export const CROSS_OBJECT_TESTS: readonly LanguageTest[] = [
     name: "xo_tally_struct",
     plcPrgVar: "xoTally : DUT_XO_tally;",
     pouName: "DUT_XO_tally",
-    kind: "struct",
+    kind: "dut",
     feature: "the struct the shared GVL holds",
     fromDoc: doc,
     source: `TYPE DUT_XO_tally :
@@ -301,7 +301,7 @@ END_FUNCTION_BLOCK
     name: "xo_mode_enum",
     plcPrgVar: "xoMode : DUT_XO_mode;",
     pouName: "DUT_XO_mode",
-    kind: "enum",
+    kind: "dut",
     feature: "a qualified_only enum with explicit values and a BYTE base, in its own object",
     fromDoc: doc,
     source: `{attribute 'qualified_only'}

@@ -379,24 +379,86 @@ reverses the archived `dut-subtype-on-the-wire` naming. No backward compatibilit
 PLCAssist follows the wire names and is told). No migration code. Still no guessing: nothing in Volt decides a DUT's
 subtype any more — the IDE and its build own it.
 
-- [ ] 5.P.1 One DUT kind: `.dut` is the ONLY DUT extension in C# `ItemKind` (and every map derived from it), the LSP's
+- [x] 5.P.1 One DUT kind: `.dut` is the ONLY DUT extension in C# `ItemKind` (and every map derived from it), the LSP's
       source-extension set, volt-control, and the four VS Code manifest places; `.struct` / `.enum` / `.alias` / `.union`
       removed everywhere (`bun run check` parity green). Library DUTs render as `.dut`. A CODESYS text-list enum is a
       DUT too: measure what Volt does with it today (5.A: its own class `TextListEnumerationObject`) and keep that
       behaviour under `.dut` (read-only if push cannot write it — say so by name, never silently).
-- [ ] 5.P.2 Engine and drivers: the subtype leaves the contract — `IIdeDriver` reports the kind only; `Materializer`
+      DONE (2026-10-02): `ItemKind.SourceKindExtensions` has one DUT row; `ExtFor` is total (one extension per kind,
+      `ToDictionary` throws on a second row); `DutExtension` deleted. LSP `source-extensions.ts` + `source-object.ts`,
+      volt-control `files.ts`, VS Code `languages.extensions` / tmLanguage `fileTypes` / `volt-icons.json` (one DUT icon)
+      / `workspaceContains`, the Claude Code plugin's `extensionToLanguage`: `.dut` only. `bun run check` 15 passed / 0
+      failed. Library DUTs: `LibSignatureRenderer.Dut` → `ItemKind.ExtFor(Kinds.Dut)`. Text-list enum measured: it is
+      classified `PlcDut`, read and written through its `Interface` aspect (C2e) — kept, writable, `X.dut`
+      (`CodesysTextListEnumTests`, new). Split names refused: `ItemKindTests.A_split_dut_name_names_no_kind`,
+      `DutOneNameTests` (BAD_REQUEST, forced or not).
+- [x] 5.P.2 Engine and drivers: the subtype leaves the contract — `IIdeDriver` reports the kind only; `Materializer`
       names a DUT `name.dut`; deleted: `CodeHelper.DutSubtype`, 5.B's subtype answer (`DutSubtypeAnswer`, the
       no-answer `.dut` branch — now there is no branch), `DutSubtypeChanges`, the `UnreadableDut` sentinel paths,
       `DutBareIdentity` special cases (a subtype change is no longer a rename: the name stays `name.dut`), the
       CODESYS signature-subtype lookup and `LibSignatureRenderer.Dut`'s subtype (always `.dut`). Tests that pinned the
       split names are deleted or rewritten to `.dut` (tests change only because the owner changed the premise).
-- [ ] 5.P.3 CLI: no subtype logic anywhere (`IdeTree`, pull, push, status); `DutBaselineMigration` and any `.enum`/
-      `.struct` file handling deleted. A repo that still has split-name files simply sees them as removed + `name.dut`
-      added on the next pull (plain git; no special code). Black-box tests at both layers name DUTs `.dut`.
-- [ ] 5.P.4 LSP: every DUT file is `.dut`; the fixtures, scripts and recordings' item names that state a subtype
+      DONE (2026-10-02): deleted `Item/DutSubtype.cs`, `ItemContent.DutSubtype`, `CodeHelper.DutSubtype` /
+      `TryDutSubtype` / `DutSubtypeOrNull` (and its private scanner), `Sync/DutSubtypeChanges.cs` and its `Normalize`
+      call, `PushConflicts.LiveDut` + both arms, `PushService.UnreadableDut` + the DUT pre-flight; `NamesThisItem` is a
+      kind comparison (no content read; `DeleteReaches` gone), both drivers' `DutSubtypeOf`, `FakeIde.DutAnswer` /
+      `DutAnswers` / `DutAnswerFor`; `Materializer.FullWireName(bare, kind)` for every kind. Also `Removal.SeenUnderAnotherName`
+      (dead with one extension per kind; design "Implemented"). Test files deleted (subject gone): `DutSubtypeChangePushTests`,
+      `DutBareIdentityPushTests`, `DutSubtypeAnswerTests`, `DutSubtypeCodeTests`, `CodesysDutSubtypeReadTests`,
+      `TcDutSubtypeReadTests`, `DutNameTransportTests`, `LibraryDutExtensionParityTests` (+ CLI `DutSubtypeFileTests`,
+      `DutBaselineMigrationTests`, 5.P.3): 12 files, 2786 lines. Rewritten to `.dut`, each saying the owner changed the
+      premise: `ItemKindTests`, `KindFromExtensionTests`, `TransportMatrixTests`, `PushServiceTests`, `PushedTextTests`,
+      `PushWithoutHeaderCheckTests`, `PushDeclarationTransportTests`, `ImplementationLanguagePushTests`, `PartialWalkTests`,
+      `BuildDiagnosticNameTests`, `LibSignatureRendererTests`, `TcLibrarySignaturesTests`, `WireVocabularyGuardTests`,
+      `DocDataTests`, `UnopenedItemTests`, `ReadOnlyBodyTests`, `FetchExclusionTests`, `NetworkTextV1DetectionTests`,
+      `CodeHelperTests`, `ItemContentIsFullyCarriedTests`, `CliHoldsNoItemKindLogicTests`. New, red first
+      (`DutOneNameTests`, 9 cases; run against HEAD in a scratch worktree: 6 red — the struct→enum update renamed to
+      `X.enum`, the 4 split names were accepted, the unguarded unreadable-DUT delete was refused `UnreadableDut`
+      where the POU's is deleted): struct→enum is one `writecontent:X` under `X.dut`; `X.struct`/`.enum`/`.union`/
+      `.alias` refused `BAD_REQUEST`, nothing written; an unreadable DUT's delete matches an unreadable POU's in all four
+      force × ifVersion combinations. Docs: `items.html#dut` / `wire.html#dut` rewritten, `#dut-subtype` and
+      `#dut-migration` removed, `data.js` regenerated (`VOLT_WRITE_DOCS=1`), DIALECT C2e "How Volt relies on it".
+- [x] 5.P.3 CLI: no subtype logic anywhere (`IdeTree`, pull, push, status); `DutBaselineMigration` and any `.enum`/
+      `.struct` file handling deleted. A repo bound before 5.P has split-name baseline keys, so its next pull/push is
+      refused by name until `.git/volt/ide-refs.json` is deleted; the rebuilding pull then sees the split-name files as
+      removed + `name.dut` added (plain git; no special code). Black-box tests at both layers name DUTs `.dut`.
+      DONE (2026-10-02): the CLI held no subtype code (5.B had removed it); `DutSubtypeFileTests` and
+      `DutBaselineMigrationTests` deleted (review fix: its non-DUT baseline-less pull rows and the refusal of a split-name
+      key at both doors, `LoadIdeRefs` and the pending baseline `volt merge --continue` promotes, live on in
+      `SidecarBaselineTests`, red against a no-op `RefuseUnknownNames`); `Sidecar`'s `X.dut` note reworded kind-neutrally (a split-name baseline key is
+      refused by the generic unknown-name rule) and the CLI gate's `Sidecar.cs` allowance deleted. Rewritten to `.dut`:
+      `IdeTreeTests` (the subtype-sweep test deleted), `PullCommandTests` (a subtype change over a partial walk is a
+      content change of `X.dut`; a moved DUT's old file is retired), `BlackBoxTests` (a subtype rewrite is a plain
+      `volt push`, no `--force`, `writecontent:X` only), `PushCommandTests`, `ExtensionListTextTests`. Transport layer:
+      `DutOneNameTests`, `TransportMatrixTests`. e2e (live, not run here): `dut-subtype-change.test.ts` deleted,
+      `push-without-header-check.test.ts` / `fixtures.ts` name DUTs `.dut`.
+- [x] 5.P.4 LSP: every DUT file is `.dut`; the fixtures, scripts and recordings' item names that state a subtype
       (dut-subtype 4.8, 6aecd5d476) go back to `.dut`; the LSP reads a DUT's shape from its text as it always does
       (that is analysis, not naming). Conformance numbers unchanged apart from the renames. Coordinate with the running
       LSP queue: touch only extension tables, fixture names and DUT-name scripts.
+      DONE (2026-10-02): fixture `kind` union → `"dut"` (53 fixtures: 49 rows in 15 files + `units.ts`' `bareType`, 3
+      calls); `record-language.ts` (`KIND_EXT` / `UNIT_EXT` give `dut`, the subtype throw deleted), `verify-catalog.ts`,
+      `held-as.ts` (FAMILY: `dut` only; its test rewritten), `fixture-units.ts` library regex `\.(fun|fb|itf|dut)$`,
+      `fixtures.test.ts` `extFor` (one line), `probe-projectsettings-effect.ts`; test URIs `X.struct`/`.enum`/… → `X.dut`
+      in 15 src test files (43 names). R1: the six corpora's 8175 DUT files (5524 `.struct`, 2060 `.enum`, 210 `.union`,
+      381 `.alias`) renamed to `bare.dut`, contents untouched — 8175/8175 R100 in the index, 0 collisions, 0 left.
+      Recordings: 0 item names changed, no re-record. `rate:fixtures` leaves `map.generated.ts` byte-identical.
+      Numbers unchanged: `test/corpus` output identical line for line to HEAD's (run in a scratch worktree), 19 pass / 1
+      skip; `test/conformance` 5214 pass / 152 todo / 0 fail; `test/frontend` 31 pass / 0 fail.
+      Docs: LSP README, `docs/behavior.md`, `volt-vscode/README.md`, `agents.mdx`. Left: `src/frontend/symbols/binder.test.ts`
+      (three `.enum`/`.alias` test URIs; carries the LSP queue's uncommitted work; passes).
+      GATE 5.P (2026-10-02): run in a scratch worktree of HEAD + exactly the 5.P paths (the tree also holds the LSP
+      queue's uncommitted frontend-conformance 3.2 work — inheritance, hierarchy, recordings, baselines,
+      `fixtures.test.ts` ceilings — kept out of the gate and out of the commit). `bun run typecheck` green (5 packages);
+      `dotnet build Volt.sln -c Release` 0 errors (28 warnings, as 5B). C# suites: Cli 237/0 fail (5B: 280 — the
+      deleted DUT-subtype/migration tests), Engine 1711 pass / 1 skip / 0 fail (5B: 1871), Connector 113/0,
+      Ide.Twincat 283/0 (5B: 291), Ide.Codesys 198/0 (5B: 206), Contracts 19/0, Repo.Gates 54/0. volt-cli
+      `bun test test/unit` 4/0; volt-control 113/0 (5B: 121); volt-vscode 39/0; `bun run lint` 0 errors;
+      `bun run check` 15 passed / 0 failed. LSP full suite (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset): 7097 pass /
+      34 skip / 195 todo / 0 fail across 200 files (5B: 7096 — the first run's one failure was the map's NOTES
+      `endsWith` reading a CRLF checkout of `map.generated.ts` in the fresh worktree; `rate:fixtures` rewrote it
+      byte-identical to HEAD, and `fixtures.test.ts` re-run in full: 5125 pass / 151 todo / 0 fail). `rate:fixtures`:
+      `map.generated.ts` unchanged.
 
 ### 5.D CODESYS: no Volt text read for a kind
 - [ ] 5.D.1 The POU kind comes from the IDE object, not the header: `CodesysTypeMap.RefinePou`, `LeadingKeyword`,

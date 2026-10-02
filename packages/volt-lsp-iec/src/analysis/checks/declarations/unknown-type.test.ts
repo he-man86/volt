@@ -31,13 +31,13 @@ const prg = (decls: string, body = ";"): File => ({
 
 test("a variable of a type nothing declares — `pwh_empty_struct`, `pwh_prose_struct`", () => {
   expect(errors(prg("v : DUT_Missing;"))).toEqual(["Unknown type: 'DUT_Missing'"])
-  expect(errors(prg("v : DUT_Missing;"), [{ uri: "DUT_Missing.struct", source: "this is not structured text at all\n" }])).toEqual([
+  expect(errors(prg("v : DUT_Missing;"), [{ uri: "DUT_Missing.dut", source: "this is not structured text at all\n" }])).toEqual([
     "Unknown type: 'DUT_Missing'",
   ])
 })
 
 test("…whose object's text is one comment that never closes — `pwh_unclosed_comment_struct`/`_enum`", () => {
-  const unclosed = { uri: "DUT_Carrier.struct", source: "(* Carrier state\n *\nTYPE DUT_Carrier :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n" }
+  const unclosed = { uri: "DUT_Carrier.dut", source: "(* Carrier state\n *\nTYPE DUT_Carrier :\nSTRUCT\n\tnPos : INT;\nEND_STRUCT\nEND_TYPE\n" }
   expect(errors(prg("v : DUT_Carrier;"), [unclosed])).toEqual(["Unknown type: 'DUT_Carrier'"])
 })
 
@@ -57,7 +57,7 @@ test("on TwinCAT the LSP cannot know that nothing declares a type, and stays sil
 })
 
 test("a type the project declares, in whatever object — silent", () => {
-  const dut = { uri: "DUT_Mode.struct", source: "TYPE DUT_Mode :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n" }
+  const dut = { uri: "DUT_Mode.dut", source: "TYPE DUT_Mode :\n(\n\tIdle := 0,\n\tRun\n);\nEND_TYPE\n" }
   expect(errors(prg("v : DUT_Mode;"), [dut])).toEqual([])
   const fb = { uri: "FB_A.fb", source: "FUNCTION_BLOCK FB_A\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n" }
   expect(errors(prg("v : FB_A;", "v();"), [fb])).toEqual([])

@@ -302,9 +302,9 @@ public class ImplementationLanguagePushTests
     /// <c>push-without-header-check</c>): a name spelled <c>IMPLEMENTATION</c> in one is the IDE's to judge, and the text
     /// is written as sent. These four rows used to sit in the theory above.</summary>
     [Theory]
-    [InlineData("E.enum", "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE")]            // an enum value
-    [InlineData("S.struct", "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE")] // a struct member
-    [InlineData("E.enum", "TYPE E :\n(\n\ta,\n\tIMPLEMENTATION\n);\nEND_TYPE")]               // alone on its line
+    [InlineData("E.dut", "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE")]             // an enum value
+    [InlineData("S.dut", "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE")] // a struct member
+    [InlineData("E.dut", "TYPE E :\n(\n\ta,\n\tIMPLEMENTATION\n);\nEND_TYPE")]               // alone on its line
     [InlineData("G.gvl", "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR")]             // a global alone on its line
     public void IMPLEMENTATION_in_a_gvl_or_a_dut_is_written_as_sent(string op, string source)
     {
