@@ -230,7 +230,7 @@ public sealed partial class BeckhoffDriver
     /// <para>The bodies arrive RESOLVED, from <see cref="Collect"/>. Resolving imports a scratch POU each time,
     /// and every import between reading a handle and using it is a chance to invalidate it — so all of that is
     /// behind us before the parent below is read.</para></summary>
-    private ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Nwl)> resolved)
+    internal ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Nwl)> resolved)
     {
         var parent = _om.Parent(item.Native)
             ?? throw new BridgeException(BridgeErrorCodes.NotFound,
@@ -241,13 +241,8 @@ public sealed partial class BeckhoffDriver
 
         // The POU was deleted and re-imported, so every handle into it is dead. The PARENT was not replaced,
         // so it is still good to walk.
-        var parentRef = new ItemRef(parent);
-        for (int i = 1; i <= ChildCount(parentRef); i++)
-        {
-            var child = ChildAt(parentRef, i);
-            if (string.Equals(_om.GetName(child.Native), pouName, StringComparison.OrdinalIgnoreCase))
-                return child;
-        }
+        // The parent is a FOLDER, so it may hold a POU Volt must not open (DIALECT C2i): `ChildNamed` passes it over.
+        if (ChildNamed(new ItemRef(parent), pouName) is { } live) return live;
 
         throw new BridgeException(BridgeErrorCodes.NotFound,
             $"'{pouName}' is not under its parent after the archive re-import — refusing to write through a " +

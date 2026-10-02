@@ -268,12 +268,66 @@ Replaces the parked 5.1–5.3 and their three open decisions. Owner decisions (2
       - **POU kind:** CODESYS from the object/signature (5.D); TwinCAT from its tree code (the vendor's answer, C2f).
 
 ### 5.H TwinCAT crash on a broken POU (C2i — found by 5.A, must be fixed before 5.G)
-- [ ] 5.H.1 After a solution load, touching the tree item of a TwinCAT POU whose text declares nothing (`Child(i)` /
+- [x] 5.H.1 After a solution load, touching the tree item of a TwinCAT POU whose text declares nothing (`Child(i)` /
       `LookupChild`) kills TcXaeShell (RPC 0x800706BE, access violation in `TwinCAT System Manager.dll`; reproduced 4×).
       Volt's pull walk would do exactly that. Measure a walk that never touches such an item's tree object (e.g. names and
       kinds from the parent's export / the project file, then a guarded per-item read), red test on a double that
       throws like the vendor, live repro on a fixture copy (`-Instance push5`) proving the walk survives and names the item.
       If no safe walk exists, the item is refused by name in `refs` (an intentional fallback, counted) — never a crash.
+
+      DONE (2026-10-02), design choice D. `TcObjectModel.ChildAt` is the single point that opens a PLC tree child; it
+      reads the Solution Explorer hierarchy once per op (`TcSolutionExplorer`, `[ComImport]` interop, no XAE
+      assembly loaded) and never opens a `.TcPOU` captioned with its bare name: the child answers
+      `UnreadableItemException` (Engine) with no COM call. Fast path (nothing flagged) = plain `Child[i]`, no
+      `PathName`/`LookupChild`. Guarded folder = addressed by `LookupChild(name)` after a child-count check (mismatch →
+      the folder is unwalked). Walk names it in `unreadable` with `UnreadableObject.Kinds` = prg/fb/fun, so its
+      folder stays walked and `Removal` keeps its known file; `ItemLookup` skips it for other names and refuses it
+      `UNREADABLE` by name (`Locate` answers it for forced ops); `TreeNav`, `FindLibraryManager`, the task scan before
+      a delete and `Move`'s confirm pass it over. Push: unforced set/delete refused `UNREADABLE`; forced delete =
+      parent `DeleteChild(name)`; forced set = delete + create in the walk's folder (`ApplyToUnopened`); a forced op
+      whose extension names a non-POU kind is refused. Unreadable hierarchy or no PLC node → `INTERNAL_ERROR`, named.
+      One deviation from the design: the snapshot is dropped at every op start (`MarshalToIdeThread`) and at
+      `WalkItems`, and after a structural write only while something is flagged (a text write never re-reads it: the
+      in-session item is safe, measured) — so a clean project pays one hierarchy read per op and nothing per write.
+      Tests: `Volt.Ide.Twincat.Tests/TcUntouchablePouTests` (9: a double that throws `0x800706BE` and DIES on the
+      poisoned touch — walk, lookup, delete-by-name, fast path, count mismatch, unreadable hierarchy, missing PLC node,
+      the flag rule), `Volt.Engine.Tests/sync/UnopenedItemTests` (7: refs/fetch naming and removal, lookup, unforced
+      refusals, forced delete, forced set in the same folder, wrong-kind refusal; `FakeIde.UnopenedItems`).
+      `TcHiddenBodyWriteTests` now drives a BOUND driver (`TcUntouchablePouTests.BoundDriver`): every write runs bound
+      in production, and the guard reads the bound project's hierarchy.
+      Live (own XAE, `-Instance push-without-header-check`, worker built from this tree): on a reloaded Project14 copy
+      holding 4 such POUs (`VltX_EP/PP/UCF/UCFB`) `refs` named all 4 in `unreadable`, walked every other item,
+      `unwalkedFolders` [] — XAE alive, 0 Application-1000 events; 742 ms (first hierarchy read in a fresh worker
+      ≈ 0.7 s, then 112 ms per refs). Forced push repaired `VltX_UCFB` (same folder) and deleted `VltX_PP`. Volt's
+      own push of `pwh_unclosed_comment_fb`'s text created the shape (named unreadable at once, in session); saved
+      and reloaded: alive, named. Forced push of fixed texts for it and `VltX_EP`/`VltX_UCF` → `fetch` names
+      `FB_LANG_pwh_uc_fb.fb` in `VltCensus`; saved and reloaded: `refs` walks clean (only the three 5.B DUTs remain
+      unreadable). Counted fallback: 1 (the untouchable POU in `unreadable`); 0 of 16,990 corpus POU files.
+      Review fixes (2026-10-02): (1) an unforced op on an untouchable POU is refused in the PUSH PRE-FLIGHT (the gate
+      let a delete through as idempotent, so earlier ops of the batch had landed) — `UnopenedItemTests`
+      `Without_force_an_op_on_it_refuses_the_whole_push_before_an_earlier_op_is_written`; (2) the re-find after a
+      graphical member-body archive write passes an untouchable sibling over (`BeckhoffDriver.ChildNamed`, shared
+      with Move's confirm) — `Re_finding_a_POU_after_its_member_bodies_are_written_passes_an_untouchable_sibling_over`;
+      (3) the guard no longer fails OPEN: every hierarchy read inside the PLC project is checked (a failed name,
+      caption, canonical or child-list read refuses by name instead of reading as "" or ending the list; the depth
+      cutoff too), and the PLC project and every PLC folder outside a POU must be listed with the tree's exact child
+      count (`TcObjectModel.ChildCount`) — so a short or lazily-filled hierarchy refuses that folder (unwalked) before
+      a child is opened. Live (own XAE on a Project14 copy, worker built from this tree): `GetCanonicalName` answers
+      E_NOTIMPL for the PLC project node (so a failure is recorded per node, refused only where the snapshot
+      classifies); fixture refs 17 items, 0 unwalked, 95 ms warm; with a broken-at-load `VltX_B`: named, 0 unwalked,
+      XAE alive, 0 Application-1000. (4) The in-place-repair premise is unmeasured, so a POU flagged once stays
+      untouchable for the worker session until Volt deletes it through its parent
+      (`A_POU_flagged_once_stays_unopened_after_its_caption_heals_until_Volt_deletes_it`). (5) Red-before-fix shown on
+      a scratch copy with the 5.H routing neutralized (ChildAt always `Child[i]`, the engine's C2i catches/routing and
+      `Kinds` removal handling off): all 8 `UnopenedItemTests` and every routing test of `TcUntouchablePouTests` fail;
+      the hierarchy-read tests were shown red against the lenient reader.
+      GATE 5H (2026-10-02): `dotnet build Volt.sln` 0 errors / 0 warnings (Debug; the Release build is blocked only by
+      a running `VoltBridgeTwincat` worker holding its own bin dir — not started by the gate, left alone). C# suites: Cli
+      274/0 fail, Engine 1848 pass / 1 skip / 0 fail (incl. the 8 new `UnopenedItemTests`), Connector 113/0, Ide.Twincat
+      283/0 (incl. the 14 new `TcUntouchablePouTests`), Ide.Codesys 197/0, Contracts 19/0, Repo.Gates 54/0. volt-cli `bun test
+      test/unit` 4/0; `bun run typecheck` green (5 packages); `bun run check` 14 passed / 0 failed + DIALECT citation
+      gates green. No fixture, recording or transpiler file changed, so no fixture-map regeneration and no LSP suite run
+      (5H touches no TypeScript; the LSP tree's uncommitted edits belong to another change and are not in this commit).
 
 ### 5.B Contract (both vendors, red first)
 - [ ] 5.B.1 `IIdeDriver` reports kind plus an optional DUT subtype (`null` = no vendor answer). `Materializer.FullWireName`

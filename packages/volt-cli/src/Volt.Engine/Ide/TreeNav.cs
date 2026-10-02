@@ -177,16 +177,24 @@ internal static class TreeNav
     }
 
     internal static ItemRef? FindChild(IIdeDriver ide, ItemRef parent, string name) =>
-        FirstChild(ide, parent, c => NameIs(ide, c, name));
+        FirstChild(ide, parent, c => NameIs(ide, c, name), wanted: name);
 
     /// <summary>The one 1-based child scan every lookup here shares: first child matching
-    /// <paramref name="match"/>, or null.</summary>
-    private static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match)
+    /// <paramref name="match"/>, or null.
+    /// <para>A child the driver must not open (<see cref="UnreadableItemException"/>, DIALECT C2i) is a top-level POU:
+    /// never a folder, a task configuration or a member, so it matches no scan here and is passed over — unless it IS
+    /// the <paramref name="wanted"/> name, which no answer here can honestly give, so the refusal propagates.</para></summary>
+    private static ItemRef? FirstChild(IIdeDriver ide, ItemRef parent, Func<ItemRef, bool> match, string? wanted = null)
     {
         int count = ide.ChildCount(parent);
         for (int i = 1; i <= count; i++)
         {
-            var child = ide.ChildAt(parent, i);
+            ItemRef child;
+            try { child = ide.ChildAt(parent, i); }
+            catch (UnreadableItemException u) when (!string.Equals(u.Name, wanted, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
             if (match(child)) return child;
         }
         return null;

@@ -26,6 +26,10 @@ public interface IProjectTree
     // disagree about case sensitivity and about which kinds count. See ItemLookup for what each got wrong.
 
     int ChildCount(ItemRef item);
+    /// <summary>The child at <paramref name="index1Based"/>. A driver may NAME a child it must not open, by throwing
+    /// <see cref="UnreadableItemException"/> without touching it (TwinCAT, DIALECT C2i: a POU whose tree item crashes
+    /// the IDE after a load). That is not a read fault: the walk names it in <c>unreadable</c>, a lookup skips it for any
+    /// other name, and only a forced push reaches it — through its parent, by name.</summary>
     ItemRef ChildAt(ItemRef parent, int index1Based);
     /// <summary>The item's parent. Called only on an item the walk/lookup already found, and only rootward of it
     /// (<c>PushService</c>'s delete + move-recreate), so the contract has no no-parent case.

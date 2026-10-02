@@ -48,7 +48,8 @@ public static class Versioning
     /// name, so the push's <c>ifVersion</c> gate cannot resolve an op onto it (an op on such a name is refused as
     /// unreadable by <c>PushConflicts</c>, by name).</para></summary>
     public static System.Collections.Generic.IReadOnlyList<string> CountUnclassifiable(
-        WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions)
+        WalkResult walk, System.Collections.Generic.IDictionary<string, string> versions,
+        System.Collections.Generic.Dictionary<string, System.Collections.Generic.HashSet<string>>? unreadableKinds = null)
     {
         var names = new System.Collections.Generic.List<string>();
         var seen = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal);
@@ -57,6 +58,10 @@ public static class Versioning
             var path = FolderPath.Append(o.Folder, o.Name);
             seen[path] = seen.TryGetValue(path, out var n) ? n + 1 : 0;
             versions[UnclassifiableKey(path, seen[path])] = Unreadable;
+            // Its kind family is known though it was never read (UnreadableObject.Kinds): the removal pass keeps a known
+            // name of those kinds, as it does for an item that failed to materialize, since its folder counts as walked.
+            if (unreadableKinds is not null && o.Kinds is { } kinds)
+                foreach (var k in kinds) Removal.AddUnreadable(unreadableKinds, o.Name, k);
             names.Add(o.Name);
         }
         return names;

@@ -33,8 +33,11 @@ public sealed class WalkResult
         // OWN subtree, which the walk never entered (its kind is unknown, so it may be a container: CODESYS's root
         // children are the Device node(s)). The parent alone is not enough at the root: for a root-level object
         // that is "", and the subtree is named explicitly so the unwalked list says where the walk stopped.
+        // NOT for an object whose kind FAMILY the vendor stated without it being read (<see cref="UnreadableObject.Kinds"/>):
+        // it is no container, so its folder was walked whole and absence beside it still means deleted; its own known
+        // name is kept by the removal pass, which matches it by those kinds.
         UnwalkedFolders = unwalkedFolders
-            .Concat(unreadableObjects.SelectMany(o => new[] { o.Folder, FolderPath.Append(o.Folder, o.Name) }))
+            .Concat(unreadableObjects.Where(o => o.Kinds is null).SelectMany(o => new[] { o.Folder, FolderPath.Append(o.Folder, o.Name) }))
             .Distinct().ToList();
     }
 
@@ -55,5 +58,9 @@ public sealed class WalkResult
 
 }
 
-/// <summary>An object the walk found at <paramref name="Folder"/> and could not read the kind of, and why.</summary>
-public sealed record UnreadableObject(string Name, string Folder, string Reason);
+/// <summary>An object the walk found at <paramref name="Folder"/> and could not read the kind of, and why.
+/// <para><paramref name="Kinds"/>: null when nothing is known of what it is (it may even be a container). Set when the
+/// vendor names the object's kind family WITHOUT the object being read — a TwinCAT POU Volt must not touch (DIALECT
+/// C2i) is a program, a function block or a function. Then its folder counts as walked, and a known name of one of
+/// these kinds is kept, never read as deleted (<c>Removal</c>).</para></summary>
+public sealed record UnreadableObject(string Name, string Folder, string Reason, IReadOnlyList<string>? Kinds = null);

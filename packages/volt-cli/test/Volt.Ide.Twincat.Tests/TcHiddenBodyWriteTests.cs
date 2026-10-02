@@ -92,7 +92,8 @@ public class TcHiddenBodyWriteTests
                     Getter: new Accessor("VAR\n\tb : BOOL;\nEND_VAR", line), Setter: null),
             });
 
-        new BeckhoffDriver(new TcObjectModel()).WriteContent(new ItemRef(pou), content, new Dictionary<string, string>());
+        // Bound, as every production write is: each child access passes the C2i guard (TcUntouchablePouTests).
+        TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou), content, new Dictionary<string, string>());
 
         Assert.Contains("bStart : BOOL;", pou.DeclarationText);
         Assert.Contains("n : INT;", method.DeclarationText);

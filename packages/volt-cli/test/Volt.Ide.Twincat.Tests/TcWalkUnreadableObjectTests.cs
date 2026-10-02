@@ -30,11 +30,18 @@ public class TcWalkUnreadableObjectTests
     public sealed class Node
     {
         private readonly int? _type;
+        private readonly Node[] _children;
+        private Node? _owner;
         public Node(string name, int? type, params Node[] children)
         {
-            Name = name; _type = type; Child = new Children(children); ChildCount = children.Length;
+            Name = name; _type = type; Child = new Children(children); ChildCount = children.Length; _children = children;
+            foreach (var c in children) c._owner = this;
         }
         public string Name { get; }
+        public string PathName => _owner is null ? "TIPC^PLC^" + Name : _owner.PathName + "^" + Name;
+        /// <summary>The Solution Explorer's view of this subtree, listing every node — so the C2i guard flags nothing and
+        /// vouches for every folder (TcUntouchablePouTests owns that guard).</summary>
+        internal ExplorerNode Explorer() => new(Name, "", Name, _children.Select(c => c.Explorer()).ToList());
         /// <summary>Null: the COM read of the kind faults, as a broken node's does.</summary>
         public int ItemType => _type ?? throw new COMException("ItemType unreadable", unchecked((int)0x80004005));
         public int ChildCount { get; }
@@ -69,7 +76,7 @@ public class TcWalkUnreadableObjectTests
                 new Node("PlcDataType", ItemKind.PlcDut)));
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
             new SysManager(new Tipc(new Plc(root)))));
-        var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window });
+        var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => root.Explorer() });
         driver.Connect(xaePid: 1);
 
         var walk = driver.WalkItems();
@@ -91,7 +98,7 @@ public class TcWalkUnreadableObjectTests
             new Node("Data", ItemKind.PlcFolder, new Node("PlcDataType", ItemKind.PlcDut)));
         var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14",
             new SysManager(new Tipc(new Plc(root)))));
-        var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window });
+        var driver = new BeckhoffDriver(new TcObjectModel { BindWindow = _ => window, ReadExplorer = (_, _) => root.Explorer() });
         driver.Connect(xaePid: 1);
 
         var walk = driver.WalkItems();

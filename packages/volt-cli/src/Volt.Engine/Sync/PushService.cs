@@ -73,6 +73,11 @@ public static class PushService
             currentVersions[v.Identity] = version;
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
         }
+        // Where each object the driver NAMES but must not open sits (UnreadableObject.Kinds: a TwinCAT POU, DIALECT
+        // C2i). A forced set recreates such an item, and keeps it in this folder unless the op moves it.
+        var notOpened = walk.UnreadableObjects.Where(o => o.Kinds is not null)
+            .GroupBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Folder, StringComparer.OrdinalIgnoreCase);
         // An object the walk could not classify counts here exactly as on refs and fetch, or the gate would refuse
         // every push quoting refs' projectVersion while it stays unreadable.
         if (needVersions)
@@ -219,6 +224,17 @@ public static class PushService
             }
             catch (Exception ex) { return Reject(op, ex); }
 
+            // AN ITEM THE DRIVER MUST NOT OPEN (DIALECT C2i) is refused here too, without force, by name. The gate lets
+            // a delete of it through as idempotent — it has no version entry — and the pre-flight's other checks read
+            // `itemCache`, which never holds it; so the first refusal used to be `ApplyToUnopened`'s, from the apply
+            // loop, after the batch's earlier ops had landed.
+            if (!request.Force && notOpened.ContainsKey(Materializer.Bare(op.Name)))
+            {
+                var u = walk.UnreadableObjects.First(o => o.Kinds is not null
+                    && string.Equals(o.Name, Materializer.Bare(op.Name), StringComparison.OrdinalIgnoreCase));
+                return Reject(op, new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}"));
+            }
+
             if (op is not SetItemOp { SourceText: { } text } set) continue;
             // A `.task` is a DESCRIPTOR, not assembled ST, so it is gated by its own format. Routing it
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
@@ -254,7 +270,7 @@ public static class PushService
         {
             // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source
             // line; any other throw is reason-only. `Reject` handles both, and is shared with the pre-flight.
-            try { applied.Add((ApplyOp(ide, itemCache, op, request.Force, pushedDeclarations), op.Name)); }
+            try { applied.Add((ApplyOp(ide, itemCache, notOpened, op, request.Force, pushedDeclarations), op.Name)); }
             catch (Exception ex) { return Reject(op, ex); }
             // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = applied.Count, Total = opTotal });
@@ -473,13 +489,20 @@ public static class PushService
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide,
-        Dictionary<string, (ItemRef Item, string Folder)> itemCache, PushOp op, bool force,
-        IReadOnlyDictionary<string, string> pushedDeclarations)
+        Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyDictionary<string, string> notOpened,
+        PushOp op, bool force, IReadOnlyDictionary<string, string> pushedDeclarations)
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
         var inCache = itemCache.TryGetValue(name, out var cached);
-        ItemRef? existing = inCache ? cached.Item : ItemLookup.Find(ide, name);
+        ItemRef? existing = null;
+        if (inCache) existing = cached.Item;
+        else
+        {
+            var (found, untouchable) = ItemLookup.Locate(ide, name);
+            if (untouchable is { } u) return ApplyToUnopened(ide, u, notOpened, op, force, pushedDeclarations);
+            existing = found;
+        }
         var currentFolder = inCache ? cached.Folder : "";
 
         switch (op)
@@ -530,6 +553,52 @@ public static class PushService
                 throw new BridgeException(BridgeErrorCodes.BadRequest,
                     $"push op for '{name}' has no recognised 'op' discriminator — expected \"set\" or " +
                     "\"deleteItem\" (lower-camel, exactly). The op was ignored rather than applied.");
+        }
+    }
+
+    /// <summary>An op on an item the driver names but must not OPEN (<see cref="ItemLookup.Untouchable"/>: a TwinCAT POU
+    /// whose text the IDE does not read as a POU, whose tree item crashes TcXaeShell after a load — DIALECT C2i).
+    ///
+    /// <para>Without force it is refused UNREADABLE, by name, like every unreadable item (the pre-flight already
+    /// refused a set; a delete reaches here). With force — the documented way past an unreadable item — it is
+    /// handled through the PARENT, by name, never through the item's own handle: a delete is the parent's delete, and
+    /// a set deletes it and creates the pushed item in its place (the same folder unless the op moves it). Both were
+    /// measured to leave the IDE alive. An op whose extension names a kind the object cannot be (it is a POU) does
+    /// not reach it: the name means another item, and force never widens what a name means.</para></summary>
+    private static string ApplyToUnopened(IIdeDriver ide, ItemLookup.Untouchable u,
+        IReadOnlyDictionary<string, string> notOpened, PushOp op, bool force,
+        IReadOnlyDictionary<string, string> pushedDeclarations)
+    {
+        if (!force)
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"'{u.Name}' is not read: {u.Reason}");
+        if (ItemKind.KindForWireName(op.Name) is not { } kind || !u.Kinds.Contains(kind))
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"'{op.Name}' names a {ItemKind.KindForWireName(op.Name) ?? "?"}, and the IDE's '{u.Name}' is a POU that is " +
+                $"not read ({u.Reason}). Delete or replace it under its own kind.");
+
+        switch (op)
+        {
+            case DeleteItemOp:
+                ide.Delete(u.Parent, u.Name);
+                return "deleted";
+            case SetItemOp set:
+                if (set.SourceText is null)
+                    throw new BridgeException(BridgeErrorCodes.BadRequest,
+                        $"set '{set.Name}': '{u.Name}' is replaced, not updated, so the op needs sourceText");
+                // The folder it sits in comes from the walk that named it; without it the recreate would land at the
+                // root — a move nobody asked for.
+                var folder = set.ToFolder ?? (notOpened.TryGetValue(u.Name, out var f) ? f
+                    : throw new BridgeException(BridgeErrorCodes.InternalError,
+                        $"'{u.Name}' is not opened, and this push's walk did not say which folder it sits in"));
+                var wireName = set.ToName ?? set.Name;
+                ide.Delete(u.Parent, u.Name);
+                WriteItemFromSource(ide, Materializer.Bare(wireName), wireName, existing: null, set.SourceText, folder,
+                                    pushedDeclarations);
+                return "replaced";
+            default:
+                throw new BridgeException(BridgeErrorCodes.BadRequest,
+                    $"push op for '{u.Name}' has no recognised 'op' discriminator — expected \"set\" or \"deleteItem\".");
         }
     }
 

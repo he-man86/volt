@@ -33,6 +33,11 @@ public sealed partial class BeckhoffDriver
         // it: an item created or renamed since the last one must be in the scope network text is written and read
         // against (ProjectDeclarations), or a pulled call through it would go to the marker as undeclared.
         _declarations = null;
+        // The Solution Explorer snapshot is read FIRST, outside the per-node catches below: without it the walk cannot
+        // know which child would crash XAE, so an unreadable hierarchy fails the walk rather than being swallowed as a
+        // child fault (DIALECT C2i).
+        _om.ForgetExplorer();
+        _om.Explorer();
         var items = new List<ProjectItem>();
         var unwalked = new List<string>();
         var unreadable = new List<UnreadableObject>();
@@ -62,6 +67,14 @@ public sealed partial class BeckhoffDriver
         {
             object child;
             try { child = _om.ChildAt(node, i); }
+            catch (UnreadableItemException untouchable)
+            {
+                // NAMED, never opened: a POU the IDE does not read as a POU, whose tree item crashes XAE after a load
+                // (DIALECT C2i). Its kind family is known, so it is no container and this folder still counts as walked.
+                VoltLog.Warn($"walk: '{untouchable.Name}' at folder='{folderPath}' is not opened: {untouchable.Reason}");
+                unreadable.Add(new UnreadableObject(untouchable.Name, folderPath, untouchable.Reason, untouchable.Kinds));
+                continue;
+            }
             catch (Exception ex)
             {
                 // One child lost rather than a subtree — still enough to make absence meaningless.
@@ -333,9 +346,30 @@ public sealed partial class BeckhoffDriver
         // The archive round trip returns no handle and reports success by side effect, so CONFIRM it: a move that
         // silently landed nowhere would otherwise be indistinguishable from one that worked, and the caller has
         // already written the item's content by this point.
-        if (!Enumerable.Range(1, ChildCount(target)).Any(i => Name(ChildAt(target, i)) == name))
+        if (!HoldsChildNamed(target, name))
             throw new BridgeException(BridgeErrorCodes.NotFound,
                 $"moved '{name}' but it is not under the target folder afterwards");
+    }
+
+    /// <summary>Does <paramref name="folder"/> hold a child named <paramref name="name"/>?</summary>
+    private bool HoldsChildNamed(ItemRef folder, string name) => ChildNamed(folder, name) is not null;
+
+    /// <summary><paramref name="folder"/>'s child named <paramref name="name"/> (case-insensitive, as IEC names are), or
+    /// null. A child Volt must not open (DIALECT C2i) is passed over, unless it is that name: an item this session just
+    /// wrote — moved, or re-imported through its archive — never lands as one, so that refusal propagates.</summary>
+    private ItemRef? ChildNamed(ItemRef folder, string name)
+    {
+        var n = ChildCount(folder);
+        for (var i = 1; i <= n; i++)
+        {
+            try
+            {
+                var child = ChildAt(folder, i);
+                if (string.Equals(Name(child), name, StringComparison.OrdinalIgnoreCase)) return child;
+            }
+            catch (UnreadableItemException u) when (!string.Equals(u.Name, name, StringComparison.OrdinalIgnoreCase)) { }
+        }
+        return null;
     }
 
     // TwinCAT has FOUR DUT tree codes, not one: 605/606/607/623 = TREEITEMTYPE_PLCDUTENUM/STRUCT/UNION/ALIAS

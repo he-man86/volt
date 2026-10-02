@@ -61,7 +61,11 @@ internal sealed partial class TcObjectModel
         var n = ChildCount(parent);
         for (var i = 1; i <= n; i++)
         {
-            var child = ChildAt(parent, i);
+            object child;
+            // A POU Volt must not open (DIALECT C2i) is no task — and deleting it, by name, is exactly how it is
+            // repaired, so it must not stop this scan.
+            try { child = ChildAt(parent, i); }
+            catch (Volt.Engine.Ide.UnreadableItemException) { continue; }
             if (ItemType(child) != ItemKind.PlcTask) continue;
             if (!string.Equals(GetName(child), name, StringComparison.OrdinalIgnoreCase)) continue;
             return TcTaskSchedule.LinkedTaskPath(ProduceXml(child));

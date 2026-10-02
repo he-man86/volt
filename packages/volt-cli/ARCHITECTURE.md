@@ -267,6 +267,22 @@ These are irreducible differences between how the two IDEs are reached, **not** 
 - **Beckhoff's tree walk keeps per-node `try/catch`** (skip a child that faults mid-walk) where CODESYS's doesn't
   — cross-process COM throws far more readily than the in-proc object model. That defensive catching is part of
   the walk; don't strip it for symmetry.
+- **Beckhoff opens a PLC tree child only through `TcObjectModel.ChildAt`, behind a Solution Explorer snapshot**
+  (DIALECT C2i). After a load, touching the tree item of a POU whose text the IDE does not read as a POU kills
+  TcXaeShell, so no `try` can guard it. Each operation reads the VS hierarchy once (`TcSolutionExplorer`, ~0.1 s;
+  dropped at the start of every op and after a structural write while something is flagged): a `.TcPOU` node
+  captioned with its bare name is UNTOUCHABLE. Fast path (nothing flagged — every real project): plain `Child[i]`.
+  A folder holding one is addressed by name, and the flagged child answers `UnreadableItemException` without a COM
+  call — the walk names it in `unreadable` (`UnreadableObject.Kinds` = the POU kinds, so its folder stays walked and
+  its known file is kept), `ItemLookup` skips it for other names and refuses it by name, and a forced push deletes
+  it through the parent (a set then recreates it in the same folder). An unreadable hierarchy fails the op —
+  there is no unguarded walk. The snapshot must VOUCH for what it clears: a node inside the PLC project with a
+  failed read (name, caption, canonical name, child list) refuses the op by name; the PLC project and every PLC
+  folder outside a POU must be listed with exactly the tree's child count (`ChildCount` checks it, so a short or
+  lazily-filled hierarchy refuses that folder — unwalked — before a child of it is opened); and a POU flagged once
+  in a worker session stays untouchable after its caption heals, until Volt deletes it through its parent (a repair
+  in the editor keeps the tree item that was loaded broken; unmeasured whether that one is safe). CODESYS reads such
+  a POU in-process without harm and has no snapshot.
 
 Pipes — the topology is now SYMMETRIC (one pipe per running IDE, keyed by pid); the remaining asymmetry is
 LIFECYCLE (who owns the host), and mirrors InIdeLoad vs ExternalAttach — **do not unify the lifecycle**:

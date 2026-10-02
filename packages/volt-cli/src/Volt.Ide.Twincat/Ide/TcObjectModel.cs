@@ -6,6 +6,7 @@ using Volt.Engine;
 using Volt.Contracts;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Host;
+using Volt.Engine.Ide;
 using Volt.Engine.Item;
 
 namespace Volt.Ide.Twincat;
@@ -124,7 +125,13 @@ internal sealed partial class TcObjectModel
 
         var n = ChildCount(node);
         for (int i = 1; i <= n; i++)
-            if (FindLibraryManager(ChildAt(node, i), depth + 1) is { } hit) return hit;
+        {
+            object child;
+            // A POU Volt must not open (DIALECT C2i) is not the library manager, nor holds it.
+            try { child = ChildAt(node, i); }
+            catch (UnreadableItemException) { continue; }
+            if (FindLibraryManager(child, depth + 1) is { } hit) return hit;
+        }
 
         return null;
     }
@@ -156,8 +163,134 @@ internal sealed partial class TcObjectModel
 
     // Raw COM reads — these THROW on failure; the tree-walk callers catch and skip/continue (that
     // skip-on-failure is part of the walk algorithm, so it stays in the facet, not here).
-    public int ChildCount(object node) => (int)((dynamic)node).ChildCount;
-    public object ChildAt(object node, int index1Based) => (object)((dynamic)node).Child[index1Based];
+    /// <summary>A node's child count — and, for a PLC folder, the check that the Solution Explorer snapshot lists
+    /// exactly that many (<see cref="RequireListed"/>). Every scan reads the count before any child, so a folder the
+    /// snapshot cannot vouch for refuses there, before a child of it is opened: the walk reports its whole subtree
+    /// unwalked, a lookup fails named.</summary>
+    public int ChildCount(object node)
+    {
+        var count = RawChildCount(node);
+        if (ItemType(node) == ItemKind.PlcFolder) RequireListed(Explorer(), node, count);
+        return count;
+    }
+
+    private static int RawChildCount(object node) => (int)((dynamic)node).ChildCount;
+    /// <summary>THE single point where a PLC tree child is opened — every walk, lookup and helper reaches children
+    /// through here (DIALECT C2i).
+    ///
+    /// <para>Fast path, which every real project takes: the Solution Explorer snapshot flags nothing, and this is the
+    /// plain <c>Child[i]</c>. Guarded path, for a folder that holds a POU the IDE does not read as a POU: its children
+    /// are addressed BY NAME (<c>LookupChild</c>, after checking its child count against the hierarchy's), and the
+    /// flagged name is answered with <see cref="UnreadableItemException"/> without any call into XAE — touching it
+    /// would kill TcXaeShell, and a <c>try</c> here would only catch the corpse. Addressing by name rather than
+    /// skipping an index keeps the safety off the assumption that the hierarchy's ORDER matches the tree's (it did
+    /// on the three folders measured; the vendor does not promise it).</para></summary>
+    public object ChildAt(object node, int index1Based)
+    {
+        var explorer = Explorer();
+        if (explorer.Clean || GuardedAt(explorer, node) is not { } guarded)
+            return (object)((dynamic)node).Child[index1Based];
+
+        var count = RawChildCount(node);
+        if (count != guarded.Names.Count)
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"'{PathOf(node)}' holds a POU Volt must not touch (DIALECT C2i), so its children are addressed by " +
+                $"name — and the PLC tree lists {count} of them where the Solution Explorer lists " +
+                $"{guarded.Names.Count}. This folder is not read.");
+        var name = guarded.Names[index1Based - 1];
+        if (guarded.Untouchable.Contains(name))
+            throw new UnreadableItemException(name, ExplorerSnapshot.Reason(name), ExplorerSnapshot.PouKinds);
+        return (object)((dynamic)node).LookupChild(name);
+    }
+
+    /// <summary>THE SNAPSHOT MUST LIST WHAT THE TREE HOLDS, or it cannot vouch for it. A folder's flags come from the
+    /// hierarchy alone, so a folder the hierarchy lists short — or not at all (a read that came back incomplete, a
+    /// project system that fills children lazily) — would look like a folder with nothing to avoid, and the fast path
+    /// would open a broken POU in it: XAE dies (C2i). So a PLC folder outside any POU must be listed with exactly the
+    /// tree's child count, or it is refused, named, and not read (the walk reports it unwalked: nothing beneath it reads
+    /// as deleted). Only a FOLDER can hold a top-level POU; the PLC project node itself is checked once per snapshot
+    /// (<see cref="Explorer"/>).</summary>
+    private void RequireListed(ExplorerSnapshot explorer, object node, int count)
+    {
+        if (RelPath(node) is not { } rel || explorer.InsidePou(rel)) return;
+        var listed = explorer.ListedChildren(rel);
+        if (listed != count)
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"'{rel}' holds {count} children in the PLC tree, and the Solution Explorer lists " +
+                $"{(listed is { } n ? n.ToString() : "no such folder")}. Volt reads a folder only when the hierarchy " +
+                "vouches for every child — a POU it does not list could be one that crashes TcXaeShell (DIALECT C2i). " +
+                "This folder is not read.");
+    }
+
+    /// <summary>Reads the PLC project's Solution Explorer node; replaceable so the offline suite can hand in a
+    /// hierarchy (the DTE there is a plain double, not an OLE service provider).</summary>
+    internal Func<object, string, ExplorerNode?> ReadExplorer { get; set; } = TcSolutionExplorer.ReadPlcProject;
+
+    private ExplorerSnapshot? _explorer;
+    private string? _plcRootPath;
+
+    /// <summary>Every POU flagged in this session (keyed <c>plcProject|folder^name</c>) that Volt has not since deleted
+    /// through its parent. Its caption can heal while it stays the tree item that was loaded broken — the engineer
+    /// fixes the text in the editor — and nothing measured says the crash follows the caption rather than the load
+    /// (every measured repair made a NEW item: delete + create). So it stays unopened, refused by name, until Volt
+    /// itself replaces it (a forced push).</summary>
+    private readonly HashSet<string> _flaggedThisSession = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Drop the snapshot, so the next child access reads the hierarchy afresh. Called at the start of every
+    /// operation (<c>BeckhoffDriver.MarshalToIdeThread</c>), and after a structural write while something is flagged
+    /// (a create or delete changes the names a guarded folder is addressed by).</summary>
+    public void ForgetExplorer() { _explorer = null; _plcRootPath = null; }
+
+    private void StructureChanged() { if (_explorer is { Clean: false }) ForgetExplorer(); }
+
+    /// <summary>The snapshot for this operation, read once. REQUIRED: without it Volt cannot know which child would
+    /// crash XAE, so an unreadable hierarchy fails the operation — there is no unguarded walk to fall back to.</summary>
+    public ExplorerSnapshot Explorer()
+    {
+        if (_explorer is { } known) return known;
+        var plcProject = GetName(PlcRoot());
+        ExplorerNode? node;
+        try { node = ReadExplorer(_dte!, plcProject); }
+        catch (Exception ex)
+        {
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                "the Solution Explorer hierarchy is unreadable; Volt does not walk the TwinCAT tree without it " +
+                $"(DIALECT C2i): {ex.Message}");
+        }
+        if (node is null)
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"the Solution Explorer hierarchy has no node for the PLC project '{plcProject}'; Volt does not walk " +
+                "the TwinCAT tree without it (DIALECT C2i)");
+        var key = plcProject + "|";
+        var snapshot = ExplorerSnapshot.From(node, _flaggedThisSession.Where(k => k.StartsWith(key, StringComparison.OrdinalIgnoreCase))
+                                                                      .Select(k => k.Substring(key.Length)).ToList());
+        var rootCount = RawChildCount(PlcRoot());
+        if (snapshot.ListedChildren("") != rootCount)
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"the PLC project '{plcProject}' holds {rootCount} children in the PLC tree, and the Solution Explorer " +
+                $"lists {snapshot.ListedChildren("")}; Volt does not walk the TwinCAT tree on a hierarchy that does not " +
+                "vouch for every child (DIALECT C2i)");
+        _explorer = snapshot;
+        foreach (var path in snapshot.UntouchablePaths) _flaggedThisSession.Add(key + path);
+        if (!_explorer.Clean)
+            VoltLog.Warn($"twincat: {plcProject} holds POUs the IDE does not read as POUs - not opened (DIALECT C2i)");
+        return _explorer;
+    }
+
+    /// <summary>The guarded folder <paramref name="node"/> is, or null. Its tree path is read only here, on a project
+    /// that has something flagged.</summary>
+    private ExplorerSnapshot.Guarded? GuardedAt(ExplorerSnapshot explorer, object node) =>
+        RelPath(node) is { } rel ? explorer.At(rel) : null;
+
+    /// <summary><paramref name="node"/>'s path below the PLC project (<c>""</c> for the project itself), in the
+    /// snapshot's spelling; null for a node outside it.</summary>
+    private string? RelPath(object node)
+    {
+        var root = _plcRootPath ??= PathOf(PlcRoot());
+        var path = PathOf(node);
+        if (string.Equals(path, root, StringComparison.Ordinal)) return "";
+        return path.StartsWith(root + "^", StringComparison.Ordinal) ? path.Substring(root.Length + 1) : null;
+    }
     public object Parent(object node) => (object)((dynamic)node).Parent;
     public string GetName(object node) => (string)((dynamic)node).Name ?? "";
 
@@ -202,7 +335,7 @@ internal sealed partial class TcObjectModel
 
         // A task is TWO items and the SYSTEM one comes first — measured, from the vendor's own refusal:
         // "No task 'X' found in Realtime-Settings!" (DIALECT C19b).
-        if (kindCode == ItemKind.PlcTask) return CreatePlcTask(parent, name);
+        if (kindCode == ItemKind.PlcTask) { StructureChanged(); return CreatePlcTask(parent, name); }
 
         object? vInfo = kindCode switch
         {
@@ -221,6 +354,7 @@ internal sealed partial class TcObjectModel
             ItemKind.PlcItfPropGet or ItemKind.PlcItfPropSet => "ST",
             _ => lang,
         };
+        StructureChanged();
         return (object)((dynamic)parent).CreateChild(name, kindCode, "", vInfo);
     }
     /// <summary>Remove a child. A TASK takes its SYSTEM task with it — the PLC item is only a reference, so
@@ -229,30 +363,43 @@ internal sealed partial class TcObjectModel
     public void DeleteChild(object parent, string name)
     {
         var linked = LinkedTaskOfChild(parent, name);
+        // Replaced by Volt: a recreated item of the name is a new tree item, and opens normally.
+        if (_flaggedThisSession.Count > 0 && RelPath(parent) is { } rel)
+            _flaggedThisSession.Remove(GetName(PlcRoot()) + "|" + (rel.Length == 0 ? name : rel + "^" + name));
+        StructureChanged();
         ((dynamic)parent).DeleteChild(name);
         if (linked is { } path) DeleteSystemTask(path);
     }
-    public void Rename(object node, string newName) => ((dynamic)node).Name = newName;
+    public void Rename(object node, string newName) { StructureChanged(); ((dynamic)node).Name = newName; }
 
     /// <summary>Relocate a child whole. TwinCAT's tree item has no <c>Move</c>/<c>Reparent</c> member — the full
     /// dispatch surface of <c>ITcSmTreeItem</c> was enumerated off the shipped type library to settle that, rather
     /// than inferred from a handful of name guesses — but <see cref="TcItemArchive"/> builds one out of the
     /// export/import pair, which carries children and graphical bodies. See DIALECT D4f.</summary>
-    public void Move(object parent, object target, string name) =>
+    public void Move(object parent, object target, string name)
+    {
+        StructureChanged();
         TcItemArchive.Move((dynamic)parent, (dynamic)target, name);
+    }
 
     /// <summary>Place a POU MEMBER into a folder inside its own POU. Delegates to
     /// <see cref="TcItemArchive.MoveMember"/>, which rewrites the POU's own <c>.TcPOU</c> — a member is not a
     /// separate file, so it has no archive of its own to move.</summary>
-    public void MoveMember(object pouParent, string pouName, string memberName, string folderPath) =>
+    public void MoveMember(object pouParent, string pouName, string memberName, string folderPath)
+    {
+        StructureChanged();
         TcItemArchive.MoveMember((dynamic)pouParent, pouName, memberName, folderPath);
+    }
 
     /// <summary>Give POU MEMBERS graphical bodies. Delegates to <see cref="TcItemArchive.SetMemberBodies"/>,
     /// which rewrites the POU's own <c>.TcPOU</c> and re-imports it — the only route that works, because
     /// assigning an NWL archive to a member's <c>ImplementationText</c> stores it as ST TEXT (D32).</summary>
     public void SetMemberBodies(object pouParent, string pouName,
-                                System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies) =>
+                                System.Collections.Generic.IReadOnlyList<(string[] Path, string Nwl)> bodies)
+    {
+        StructureChanged();
         TcItemArchive.SetMemberBodies((dynamic)pouParent, pouName, bodies);
+    }
 
     /// <summary>The POU that ENCLOSES <paramref name="node"/>, or null when the node is not inside one — the test
     /// that separates a top-level item (which has its own file, and moves by archive) from a member (which does

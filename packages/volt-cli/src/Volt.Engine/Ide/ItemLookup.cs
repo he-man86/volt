@@ -35,14 +35,35 @@ public static class ItemLookup
     /// tree starts.</para></summary>
     public static ItemRef? Find(IProjectTree tree, string name)
     {
+        var (item, untouchable) = Locate(tree, name);
+        if (untouchable is { } u)
+            throw new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}");
+        return item;
+    }
+
+    /// <summary>A top-level item the driver names but must not open (<see cref="UnreadableItemException"/>), with the
+    /// parent it sits under — the one handle through which it can still be deleted, by name, without being touched.</summary>
+    public sealed record Untouchable(ItemRef Parent, string Name, string Reason, System.Collections.Generic.IReadOnlyList<string> Kinds);
+
+    /// <summary>Like <see cref="Find"/>, but an item the driver must not open is ANSWERED rather than refused: the
+    /// handle, or the <see cref="Untouchable"/> it is, or neither (absent). For the push's forced ops, the only callers
+    /// allowed past an unreadable item: they delete it through its parent, by name.</summary>
+    public static (ItemRef? Item, Untouchable? Untouchable) Locate(IProjectTree tree, string name)
+    {
         ItemRef? hit = null;
+        Untouchable? untouchable = null;
         Walk(tree, tree.GetTreeRoot(), $"looking for '{name}'", 0, (item, itemName, _) =>
         {
             if (!string.Equals(itemName, name, System.StringComparison.OrdinalIgnoreCase)) return true;
             hit = item;
             return false;
+        }, (parent, u) =>
+        {
+            if (!string.Equals(u.Name, name, System.StringComparison.OrdinalIgnoreCase)) return true;
+            untouchable = new Untouchable(parent, u.Name, u.Reason, u.Kinds);
+            return false;
         });
-        return hit;
+        return (hit, untouchable);
     }
 
     /// <summary>Every top-level item — its handle, name and tree kind — in ONE walk. For a caller asking about many
@@ -54,7 +75,10 @@ public static class ItemLookup
         {
             found.Add((item, name, kind));
             return true;
-        });
+        },
+        // An item the driver must not open is not listed: nothing can be read from it, and every walk names it in
+        // `unreadable` already. It is a POU, never a folder, so nothing is hidden beneath it.
+        (_, _) => true);
         return found;
     }
 
@@ -76,7 +100,8 @@ public static class ItemLookup
     /// top-level item is what keeps this off a POU's methods — the walk that made TwinCAT's version cheap,
     /// generalized.</para>
     /// </summary>
-    private static bool Walk(IProjectTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit)
+    private static bool Walk(IProjectTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit,
+                             System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable)
     {
         if (depth > MaxDepth) return true;
         int count;
@@ -97,6 +122,14 @@ public static class ItemLookup
                 child = tree.ChildAt(node, i);
                 kind = tree.KindCode(child);
             }
+            // NOT a read fault: the driver named a child it must not open (DIALECT C2i) and made no call. It is known to
+            // exist and to be a top-level item, so the lookup does not refuse over it: it is the answer when it is the
+            // name asked for, and skipped otherwise, so the items beside it stay reachable.
+            catch (UnreadableItemException untouchable)
+            {
+                if (!visitUntouchable(node, untouchable)) return false;
+                continue;
+            }
             catch (System.Exception ex)
             {
                 throw new BridgeException(BridgeErrorCodes.InternalError,
@@ -106,7 +139,7 @@ public static class ItemLookup
 
             if (!ItemKind.IsAddressableItem(kind))
             {
-                if (!Walk(tree, child, doing, depth + 1, visit)) return false;
+                if (!Walk(tree, child, doing, depth + 1, visit, visitUntouchable)) return false;
                 continue;
             }
 

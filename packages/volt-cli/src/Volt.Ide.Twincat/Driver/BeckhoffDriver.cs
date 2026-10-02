@@ -52,7 +52,10 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     /// <summary>The STA message loop the bridge's dedicated thread runs (started from <c>Program.cs</c>).</summary>
     public void RunStaMessageLoop(CancellationToken cancel) => _dispatcher.RunMessageLoop(cancel);
 
-    protected override T MarshalToIdeThread<T>(Func<T> func) => _dispatcher.Run(func);
+    // Every operation reads the Solution Explorer snapshot afresh (lazily, on its first child access): the engineer
+    // may have broken or fixed a POU in XAE since the last op, and which children are safe to open is decided by it
+    // (DIALECT C2i). Dropping it costs nothing; an op that opens no child never reads it.
+    protected override T MarshalToIdeThread<T>(Func<T> func) => _dispatcher.Run(() => { _om.ForgetExplorer(); return func(); });
 
     // ── health ──────────────────────────────────────────────────────
     // DriverBase composes the response (cached list + live overlay) and owns the probe's single-flight/failure

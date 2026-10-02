@@ -112,7 +112,7 @@ internal sealed class ProjectSnapshot
         }
         // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the
         // one rule every walk applies (Versioning.CountUnclassifiable), so refs, fetch and the push gate agree.
-        snap.Unreadable.AddRange(Versioning.CountUnclassifiable(walk, snap.Versions));
+        snap.Unreadable.AddRange(Versioning.CountUnclassifiable(walk, snap.Versions, snap.UnreadableKinds));
         snap.ProjectVersion = Hasher.ComputeProjectVersion(snap.Versions);
         return snap;
     }

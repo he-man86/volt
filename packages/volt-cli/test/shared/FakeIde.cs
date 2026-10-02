@@ -138,7 +138,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     private ItemRef Ref(string name) => new ItemRef(new Handle(name, _generation));
 
-    private Item Find(ItemRef r) => _items.First(i => i.Name == NameOf(r));
+    private Item Find(ItemRef r)
+    {
+        if (NameOf(r) is { } n && UnopenedItems.Contains(n)) OpenedUnopened.Add(n);
+        return _items.First(i => i.Name == NameOf(r));
+    }
     // Tolerant lookup: refs that never entered _items (a freshly CreateChild'd POU, a folder, "<root>") have
     // no children — return 0 rather than throw, matching the pre-children hard-coded ChildCount => 0.
     private Item? FindOrNull(ItemRef r) => _items.FirstOrDefault(i => i.Name == NameOf(r));
@@ -214,6 +218,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// <see cref="UnwalkableFolders"/>: the object exists first and becomes unreadable afterwards.</summary>
     public IReadOnlyCollection<string> UnclassifiableItems { get; set; } = System.Array.Empty<string>();
 
+    /// <summary>Items (by bare name) the driver NAMES but must not open — TwinCAT's POU whose tree item crashes XAE after a
+    /// load (DIALECT C2i). <see cref="ChildAt"/> answers <see cref="UnreadableItemException"/> for them, as
+    /// <c>TcObjectModel.ChildAt</c> does, and the walk names them with their kind family, keeping their folder walked.
+    /// Deleting one through its parent is allowed (by name); once deleted, a recreated item of the name opens normally,
+    /// as the real snapshot re-read after a structural write finds it parsed.</summary>
+    public HashSet<string> UnopenedItems { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Every time code tried to OPEN an item in <see cref="UnopenedItems"/> by any other route (a read, a
+    /// write, a kind) — on XAE that call would have been the crash. Must stay empty.</summary>
+    public List<string> OpenedUnopened { get; } = new();
+
     /// <summary>Tree nodes whose <see cref="ChildCount"/> FAULTS — a COM read failing mid-lookup, without a live
     /// IDE to fail. Distinct from <see cref="UnwalkableFolders"/>, which models a WALK skipping a subtree; this
     /// models a single-item lookup hitting a fault, where "I could not read" and "it is not there" are different
@@ -245,12 +260,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var walked = _items
             .Where(i => !UnwalkableFolders.Any(f => Under(i.Folder, f)) && !unclassifiedSubtrees.Any(s => Under(i.Folder, s)))
             .ToList();
-        var items = walked.Where(i => !UnclassifiableItems.Contains(i.Name))
+        var items = walked.Where(i => !UnclassifiableItems.Contains(i.Name) && !UnopenedItems.Contains(i.Name))
             .Select(i => new ProjectItem(i.Name, Ref(i.Name), i.KindCode, i.Folder))
             .ToList();
         var unreadable = walked.Where(i => UnclassifiableItems.Contains(i.Name))
             .Select(i => new UnreadableObject(i.Name, i.Folder, "the fake refused to classify it"))
             .ToList();
+        unreadable.AddRange(walked.Where(i => UnopenedItems.Contains(i.Name))
+            .Select(i => new UnreadableObject(i.Name, i.Folder, UnopenedReason, UnopenedKinds)));
         return new WalkResult(items, UnwalkableFolders, unreadable);
     }
     /// <summary>Folder paths that are the vendor's TASK CONTAINER rather than a plain user folder. A real tree
@@ -273,9 +290,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) =>
         IsTreeNode(item) ? LastSegment(NameOf(item)) : Find(item).Name;
-    public ItemRef ChildAt(ItemRef parent, int index1Based) =>
-        IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
-                           : Ref(Find(parent).Children![index1Based - 1]);
+    public ItemRef ChildAt(ItemRef parent, int index1Based)
+    {
+        var child = IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
+                                       : Ref(Find(parent).Children![index1Based - 1]);
+        if (NameOf(child) is { } n && UnopenedItems.Contains(n))
+            throw new UnreadableItemException(n, UnopenedReason, UnopenedKinds);
+        return child;
+    }
+
+    public const string UnopenedReason = "the fake must not open it (DIALECT C2i)";
+    public static readonly IReadOnlyList<string> UnopenedKinds =
+        new[] { ItemKind.Kinds.Program, ItemKind.Kinds.FunctionBlock, ItemKind.Kinds.Function };
 
     // ── the tree ABOVE the items, so Engine's tree walks actually run here ────────────────────────────
     // Items carry a folder PATH string, and the fake used to stop there: the root had no children and only a
@@ -477,6 +503,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public void Delete(ItemRef parent, string name)
     {
         Recorded.Add($"delete:{name}");
+        UnopenedItems.Remove(name);
         // A FOLDER IS NOT AN ITEM, so it is not in `_items` and the item path below would silently no-op on
         // one. Deleting a folder is what `PruneEmptied` does, so the fake has to honour it — including the
         // descendants, which a real IDE removes with it.
