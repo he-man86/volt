@@ -516,10 +516,10 @@ const STRING_LENGTH_AS_WRITTEN: readonly string[] = [
 ]
 
 /**
- * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — `v : NoSuchLib.T;`: both vendors "Unknown type: 'NoSuchLib.T'". The LSP's
- * unknown-type verdict (`analysis/resolution.ts` `unknownTypeName`) judges a BARE name only: a qualified one needs the
- * library namespaces' own type lists, which is the qualification rule's (LB1–LB9, task 3.4.2). NOT niche as a construct
- * — 9006 qualified type references in the corpora — so it waits for the rule that can answer every one of them.
+ * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — `v : NoSuchLib.T;`: both vendors "Unknown type: 'NoSuchLib.T'". Closed on
+ * CODESYS by 3.4.2 (2026-10-02): a qualifier that names nothing is the unknown name (`analysis/resolution.ts`
+ * `unknownQualifiedTypeName`). TWINCAT ONLY now: the unknown-type verdict is CODESYS's alone — TwinCAT's materialization
+ * (`References/`) does not carry every type its compiler knows (`unknownTypeName`).
  */
 const UNKNOWN_QUALIFIED_TYPE: readonly string[] = ["decl_type_unknown_qualified"]
 
@@ -942,7 +942,7 @@ const INHERITANCE_DIVERGENCES: readonly string[] = ["inh_override_final_method",
  *   `enum_library_member_vs_project_function`, `_program` (CODESYS, step 3.3 review, 2026-10-02) — Util's GEN_MODE member
  *        before a project FUNCTION / PROGRAM of its name: "Program name, function or function block instance expected
  *        instead of 'SINE'". The LSP answers the POU: which libraries' members are candidates at all (open, direct) is not in
- *        the manifest (LB2, task 3.4.2), and pro2193 builds clean with 87 project POU names beside other libraries' members
+ *        the manifest (LB2 — 3.4.2 recorded it a bridge fact, `CODESYS_LIBRARY_DIVERGENCES`), and pro2193 builds clean with 87 project POU names beside other libraries' members
  *        (CAA Device Diagnosis' `HMI`, a Lenze `Round`) — refusing without that fact would refuse all 87. TwinCAT's
  *        project references no Util and builds both, as the LSP answers.
  *   `enum_undeclared_name_uninstanced` — an FB nothing instances reads a name nothing declares: both vendors build it clean,
@@ -980,6 +980,63 @@ const TWINCAT_ENUM_DIVERGENCES: readonly string[] = [
   "enum_library_same_member_one_library",
   "enum_library_member_vs_library_global",
   "enum_library_member_direct_vs_caa",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 3.4 (2026-10-02) — library fixtures (`fixtures/names/libraries.ts`) CODESYS refuses and the LSP
+ * accepts, each a fact the workspace does not hold, each niche: accepted loss (0 occurrences in the corpora, which build):
+ *   `lib_ns_transitive_bare`, `lib_ns_transitive_namespace`, `lib_ns_qualified_access_library_bare` — CommFB's enum bare or
+ *        by CommFB's own namespace, DED's `DEVICE_STATE` bare: "Unknown type". CommFB is a dependency of CAA Device
+ *        Diagnosis, no reference of the APPLICATION, and DED's elements are reached only qualified; the manifest carries
+ *        neither fact (`.library`: NAMESPACE, RESOLUTION, PLACEHOLDER, SYSTEM, DEPENDENCIES).
+ *   `lib_ns_type_name_two_libraries_other_member` — bare `ERROR` is Util's, DED's no candidate (the same fact): DED's
+ *        `TIME_OUT` "is no component of 'ERROR'". The LSP ranks Util and DED alike and takes DED's by the URI tiebreak.
+ *   `lib_ns_direct_dependency_only` — `DED.IO_SYSTEM_TYPE`: DED's namespace does not reach CommFB, a dependency it does not
+ *        PUBLISH, while 51 corpus references reach a published dependency's element through a namespace
+ *        (`L_IE1P.L_IE1P_SeverityLevel`); which dependencies are published the manifest does not say (rule LB2).
+ *   `lib_ns_library_internal_function_bare`, `_qualified` — Util's LEAPYEARS is INTERNAL ("Identifier 'LEAPYEARS' not
+ *        defined"; "Cannot access internal object LeapYears of library util, 3.5.21.0 (system)"); its materialized
+ *        declaration does not say so.
+ *   `lib_ns_library_gvl_shared_list_name_bare` — `CONSTANTS.v`, a list name Util's and StringUtils' lists both carry:
+ *        "Ambiguous use of name 'CONSTANTS'"; which libraries' lists are candidates is the application's references.
+ */
+const CODESYS_LIBRARY_DIVERGENCES: readonly string[] = [
+  "lib_ns_transitive_bare",
+  "lib_ns_transitive_namespace",
+  "lib_ns_qualified_access_library_bare",
+  "lib_ns_type_name_two_libraries_other_member",
+  "lib_ns_direct_dependency_only",
+  "lib_ns_library_internal_function_bare",
+  "lib_ns_library_internal_function_qualified",
+  "lib_ns_library_gvl_shared_list_name_bare",
+]
+
+/**
+ *   every `lib_ns_*` cell but the three a project unit answers (TwinCAT) — TwinCAT's fixture project references none of
+ *        these libraries (no Util, no CAA Device Diagnosis), so each is the library's ABSENCE ("Unknown type: 'Util.ERROR'",
+ *        "Identifier 'Util' not defined"); the replay binds the CODESYS fixture project's libraries for both vendors
+ *        (`support/project-libraries.ts`), as `TWINCAT_SCOPE_DIVERGENCES` says. The question is CODESYS's.
+ */
+const TWINCAT_LIBRARY_DIVERGENCES: readonly string[] = [
+  "lib_ns_type_qualified",
+  "lib_ns_type_qualified_other_library",
+  "lib_ns_type_name_two_libraries",
+  "lib_ns_type_name_two_libraries_other_member",
+  "lib_ns_qualified_access_library_bare",
+  "lib_ns_qualified_access_library_qualified",
+  "lib_ns_library_member_own_type",
+  "lib_ns_library_member_own_type_other_enum",
+  "lib_ns_library_internal_function_bare",
+  "lib_ns_library_internal_function_qualified",
+  "lib_ns_same_name_two_libraries",
+  "lib_ns_transitive_bare",
+  "lib_ns_direct_dependency_only",
+  "lib_ns_transitive_namespace",
+  "lib_ns_transitive_qualification",
+  "lib_ns_transitive_qualification_call",
+  "lib_ns_library_gvl_member",
+  "lib_ns_library_gvl_shared_list_name",
+  "lib_ns_library_gvl_shared_list_name_bare",
 ]
 
 /**
@@ -1045,6 +1102,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_SCOPE_DIVERGENCES,
     ...ENUM_DIVERGENCES,
     ...TWINCAT_ENUM_DIVERGENCES,
+    ...TWINCAT_LIBRARY_DIVERGENCES,
     ...TWINCAT_TRY_NEEDS_CATCH,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...TWINCAT_WSTRING_ESCAPE_RUNS_TO_END,
@@ -1162,7 +1220,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...IMPLICIT_ENUM_LIST_RECOVERY,
     ...IMPLICIT_ENUM_TYPE_NAME,
     ...STRING_LENGTH_AS_WRITTEN,
-    ...UNKNOWN_QUALIFIED_TYPE,
     ...AFTER_A_REFUSED_TYPE.codesys,
     ...LITERAL_ONE_IS_BIT,
     ...EXTERNAL_LOOKUP_IN_A_REFUSED_SECTION,
@@ -1179,6 +1236,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_SCOPE_DIVERGENCES,
     ...ENUM_DIVERGENCES,
     ...CODESYS_ENUM_DIVERGENCES,
+    ...CODESYS_LIBRARY_DIVERGENCES,
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...C0033_CONFIGURED_AS_AN_ERROR,

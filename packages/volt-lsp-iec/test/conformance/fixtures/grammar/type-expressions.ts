@@ -63,13 +63,8 @@ export const TYPE_EXPRESSION_RULE_TESTS: readonly LanguageTest[] = [
   inVar("decl_type_open_bracket", "T1 — a `[` where the type stands: `v : [;`", "\tv : [;", "out := 1;"),
   inVar("decl_type_missing_before_init", "T1 — an initializer where the type stands: `v : := 5;`", "\tv : := 5;", "out := 1;"),
   inVar("decl_type_keyword", "T1 — a keyword where the type stands: `v : END_IF;`", "\tv : END_IF;", "out := 1;"),
-  {
-    ...inVar("decl_type_unknown_qualified", "T1 — a qualified type naming no library: `v : NoSuchLib.T;`",
-      "\tv : NoSuchLib.T;", "out := 1;"),
-    deferred: {
-      lsp: "both vendors \"Unknown type: 'NoSuchLib.T'\"; `unknownTypeName` judges a bare name only, a qualified one needs the library namespaces' type lists — LB1–LB9, task 3.4.2 (2026-10-01)",
-    },
-  },
+  inVar("decl_type_unknown_qualified", "T1 — a qualified type naming no library: `v : NoSuchLib.T;`",
+    "\tv : NoSuchLib.T;", "out := 1;"),
 
   // ─── T2 subranges ───────────────────────────────────────────────────────────────────────────────────────────────────
   inVar("decl_subrange_reversed", "T2 — a subrange whose bounds are reversed: `INT(10..0)`", "\tv : INT(10..0);", "out := v;"),

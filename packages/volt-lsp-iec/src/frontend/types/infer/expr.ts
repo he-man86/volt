@@ -71,6 +71,10 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
       const value = sym === undefined ? undefined : enumValueType(sym, project)
       if (value !== undefined) return value
+      // `Ns.Dep` — the namespace of a library `Ns` depends on, which `Ns` holds (rule LB8: `DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO`
+      // builds and runs 2, `Util.Standard.LEN('abcd')` runs 4, `lib_ns_transitive_qualification*`, CODESYS 2026-10-02): a
+      // static base, as the bare `Ns` is
+      if (sym?.kind === "namespace") return staticScopeType(project, sym.name) ?? UNKNOWN
       // `Ns.E` — an ENUM a namespace holds is a static base, as the bare `E` is (rule EN6: `Util.WEEKDAY.THURSDAY`,
       // `enum_library_namespace_qualified`, builds and runs 4). Only an enum: no recording asks `Ns.Func` or `Ns.FB.x`,
       // and `staticScopeType` would call a FUNCTION an FB instance

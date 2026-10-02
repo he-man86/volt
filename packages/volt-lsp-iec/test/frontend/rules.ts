@@ -3262,7 +3262,7 @@ export const RULES: readonly Rule[] = [
     rule: "a library element is reachable qualified through its manifest NAMESPACE",
     home: "library-namespaces",
     gap: false,
-    fixtures: ["tr_21_namespace_qualified_first", "tr_21_namespace_bare_first"],
+    fixtures: ["tr_21_namespace_qualified_first", "tr_21_namespace_bare_first", "lib_ns_type_qualified", "lib_ns_type_qualified_other_library", "lib_ns_qualified_access_library_qualified"],
     design: "tr_21_namespace_qualified_first, tr_21_namespace_bare_first",
   },
   {
@@ -3271,29 +3271,60 @@ export const RULES: readonly Rule[] = [
     section: "3.4",
     rule: "a namespace sees only its direct DEPENDENCIES",
     home: "library-namespaces.visibleFolders",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "lib_ns_transitive_bare",
+      "lib_ns_direct_dependency_only",
+      "lib_ns_transitive_namespace",
+      "lib_ns_qualified_access_library_bare",
+      "lib_ns_qualified_access_library_qualified",
+    ],
+    tests: [
+      { file: "src/analysis/checks/declarations/unknown-type.test.ts", title: "a qualified type whose first qualifier names something — silent" },
+    ],
     design: "**GAP**",
+    recheck:
+      "RECORDED, NOT IMPLEMENTED — `gap: false` is coverage (recorded fixtures decide the row), not conformance: the LSP does the opposite of the rule text and every refusing cell runs as a known divergence. 3.4.2: recorded, a known divergence where it refuses (`CODESYS_LIBRARY_DIVERGENCES`, niche: accepted loss, 0 occurrences in the corpora). CODESYS: CommFB — a dependency of CAA Device Diagnosis, no reference of the application — is \"Unknown type\" bare, by its own namespace and through DED's (`DED.IO_SYSTEM_TYPE`), and DED's own `DEVICE_STATE` is \"Unknown type\" bare and builds qualified. Which references are the application's, which require qualified access and which a namespace PUBLISHES (51 corpus references reach a published dependency's element through a namespace, `L_IE1P.L_IE1P_SeverityLevel`) the manifest does not carry — a bridge fact; the namespace keeps its dependencies' elements and the unknown-type verdict judges only a first qualifier that names nothing.",
   },
   {
     id: "LB3",
     area: 3,
     section: "3.4",
     rule: "same-name candidates: own library > dependency > project > other, then the URI tiebreak",
-    home: "precedence (applied by linkExtends, findChildScope, resolve — not by lookup)",
-    gap: true,
-    fixtures: [],
+    home: "precedence (applied by linkExtends, findChildScope, resolve, lookup, lookupMember, findScopeByName)",
+    gap: false,
+    fixtures: [
+      "lib_ns_own_library_first",
+      "lib_ns_library_member_own_type",
+      "lib_ns_library_member_own_type_other_enum",
+      "lib_ns_type_qualified_other_library",
+    ],
+    tests: [
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "LB3: a name looked up in a library's NAMESPACE is that library's own element before a dependency's" },
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "LB3: findScopeByName, given the asker, answers the asker's own library's scope of a name two libraries declare" },
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "LB3: a library asker's own library before the PROJECT's element of the name — every search step, lookup and lookupUnit alike" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.4.1: closed — a project FUNCTION before two libraries' of its name (out 7); Util's DATETIMEFROMWEEK output `EERRORID : ERROR`, written in Util's file, is Util's ERROR (into a `Util.ERROR` out 1; into a `DED.ERROR` CODESYS warns \"Implicit conversion from one enumeration type (ERROR (util …)) to another (ERROR (caa device diagnosis …))\"); `DED.ERROR` is DED's, not that of CAA Types, a dependency of it (out 3). `lookup`/`lookupUnit` pick among one search step by the asker (`projectLevelHit`), a library namespace answers its own library first (`namespaceHit`), `findScopeByName` takes the asker (the IMPLEMENTS checks pass it). 3.4 review: a LIBRARY asker ranks by library BEFORE the search step (`projectLevelHit`) — the steps are the application's order, and stepping first gave a library body the application's element of its own name (step 8 before 10; lenze-mid `scProductionMode` is both a project DUT and L_OEEA_Library's); unrecorded on the vendor side, the rule's own order.",
   },
   {
     id: "LB4",
     area: 3,
     section: "3.4",
     rule: "a project unit wins over a library namespace of the same name",
-    home: "library-namespaces",
-    gap: true,
-    fixtures: [],
+    home: "library-namespaces + incremental.relink",
+    gap: false,
+    fixtures: [
+      "lib_ns_project_unit_shadows_namespace",
+      "lib_ns_project_type_shadows_namespace",
+    ],
+    tests: [
+      { file: "src/frontend/symbols/incremental.test.ts", title: "library rebind equals whole rebuild" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.4.2: closed — a project PROGRAM `BPLog` is what `BPLog.v` means (out 12), a project STRUCT `CmpApp` what `rec : CmpApp` declares (out 6), both vendors. The rule held for a whole build only: a unit bound later under a namespace's name left the namespace in place (the replay binds fixtures onto the libraries: `.v` was NONE) — `relink` rebinds the namespaces when such a unit comes or goes (LB7).",
   },
   {
     id: "LB5",
@@ -3301,9 +3332,19 @@ export const RULES: readonly Rule[] = [
     section: "3.4",
     rule: "the type name exported by two libraries (kind first, then asker)",
     home: "types/resolve + precedence",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "lib_ns_type_name_two_libraries",
+      "lib_ns_type_name_two_libraries_other_member",
+      "lib_ns_type_qualified",
+      "lib_ns_type_qualified_other_library",
+    ],
+    tests: [
+      { file: "src/frontend/types/resolve.test.ts", title: "LB1/LB5: `Ns.T` is the namespace's type — Util's ERROR, DED's ERROR, whichever sorts first" },
+    ],
     design: "**GAP** (unit test resolve.test.ts only)",
+    recheck:
+      "3.4.2: recorded. `Util.ERROR` / `DED.ERROR` are their namespace's (out 2, 3) — a qualified type resolved its last name BARE, so `Util.ERROR` was DED's (`resolveQualifiedType`). Bare `ERROR` is Util's on CODESYS (out 2; DED's `TIME_OUT` \"is no component of 'ERROR'\"): DED's is no candidate, a qualified-access fact the manifest does not carry — the LSP ranks the two alike and takes DED's by the URI tiebreak: `_other_member` a known divergence (niche: 0 bare project type names two libraries export), `lib_ns_type_name_two_libraries` a 0.3 finding (`.WRONG_CONFIGURATION -> NONE`).",
   },
   {
     id: "LB6",
@@ -3311,29 +3352,54 @@ export const RULES: readonly Rule[] = [
     section: "3.4",
     rule: "bare `lookup` of a name several libraries export uses precedence",
     home: "scope-nav.lookup",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "lib_ns_same_name_two_libraries",
+      "lib_ns_library_internal_function_bare",
+      "lib_ns_library_internal_function_qualified",
+      "lib_ns_library_gvl_shared_list_name_bare",
+    ],
+    tests: [
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "LB6: a bare name two libraries export is the asker's OWN library's, then its dependency's — never the first by URI" },
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "LB6: the answer does not depend on the order the files were bound" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.4.1: closed — `lookup` picks among one search step by the asker (own library, dependency, then the URI tiebreak — the canonical order's own answer for project source). CODESYS: `ISLIBRELEASED()` (Util's and CommFB's) builds and runs 1; Util's INTERNAL `LEAPYEARS` is \"not defined\" bare and \"Cannot access internal object\" qualified, and a list name Util's and StringUtils' lists carry is \"Ambiguous use of name 'CONSTANTS'\" — known divergences, niche (INTERNAL is not in the materialized declaration; which libraries' lists are candidates is the application's references).",
   },
   {
     id: "LB7",
     area: 3,
     section: "3.4",
     rule: "an incremental rebind of a library file equals a whole rebuild",
-    home: "incremental + library-namespaces",
-    gap: true,
+    home: "incremental.relink + library-namespaces",
+    gap: false,
     fixtures: [],
-    design: 'unit test `symbols/incremental.test.ts` "library rebind equals whole rebuild" — **GAP** until written',
+    tests: [
+      { file: "src/frontend/symbols/incremental.test.ts", title: "library rebind equals whole rebuild" },
+    ],
+    design: "unit test `symbols/incremental.test.ts` \"library rebind equals whole rebuild\" — **GAP** until written",
+    recheck:
+      "3.4.3: closed — `relink` unbinds and rebinds the library namespaces when a library file, a unit of a namespace's name or the manifests changed (`namespacesStale`); `workspace-store` no longer rebuilds the whole table for a file under `Library Manager/`. The test rebinds library and project files at random, 150 operations, against a fresh build (tree, symbols, every unit's scope).",
   },
   {
     id: "LB8",
     area: 3,
     section: "3.4",
     rule: "transitive library qualification `lib0.lib1.sym`",
-    home: "library-namespaces + scope-nav",
-    gap: true,
-    fixtures: [],
+    home: "library-namespaces + scope-nav + types/resolve.namespaceOf",
+    gap: false,
+    fixtures: [
+      "lib_ns_transitive_qualification",
+      "lib_ns_transitive_qualification_call",
+    ],
+    tests: [
+      { file: "src/frontend/types/resolve.test.ts", title: "LB8: `Ns.Dep.T` reaches the type through the namespace of a library `Ns` depends on" },
+      { file: "src/frontend/types/types.test.ts", title: "infer: a dependency's namespace through a library's namespace is a static base (`DED.CommFB.E.m`, `Util.Standard.F()`)" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.4.2: closed — `DED.CommFB.IO_SYSTEM_TYPE` declares and reads CommFB's enum (out 2), `Util.Standard.LEN('abcd')` calls Standard's (out 4). A namespace held the namespace symbols only of the libraries bound before it (two passes now), a qualified type dropped its qualifiers, and `Ns.Dep` had no type.",
   },
   {
     id: "LB9",
@@ -3341,9 +3407,18 @@ export const RULES: readonly Rule[] = [
     section: "3.4",
     rule: "a library GVL member `lib.gvl.var`",
     home: "library-namespaces + scope-nav.resolveGvlMember",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: [
+      "lib_ns_library_gvl_member",
+      "lib_ns_library_gvl_shared_list_name",
+      "sym_library_gvl_qualified_fully",
+    ],
+    tests: [
+      { file: "src/frontend/symbols/scope-nav.test.ts", title: "resolveGvlMember: a library's list named through the library's namespace (`Ns.GVL.v`)" },
+    ],
     design: "**GAP**",
+    recheck:
+      "3.4.2: closed — `Util.DAY_FLAGS.TUESDAY` (out 2) and `Util.CONSTANTS.GC_AUSIWEEKDAY[1]`, a list name five libraries carry, qualified by Util's namespace (out 3); the LSP agreed (3.1's `gvlBlockOf`). Bare `CONSTANTS.…` is ambiguous on CODESYS (LB6's divergence).",
   },
   // ── 3.5 ──
   {

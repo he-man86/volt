@@ -68,8 +68,6 @@ test("what the LSP has no standing to call unknown — silent", () => {
   expect(errors(prg("a : INT; b : STRING(10); c : __XWORD;"))).toEqual([])
   // the compilers' own named struct, built by both vendors with no library (`type_codesys_version`)
   expect(errors(prg("v : VERSION;"))).toEqual([])
-  // a namespace-qualified name: the library floor
-  expect(errors(prg("t : Tc2_Standard.TON;"))).toEqual([])
   // a wrapper around an unknown name is a different shape, and unmeasured
   expect(errors(prg("a : ARRAY[1..2] OF DUT_Missing; p : POINTER TO DUT_Missing;"))).toEqual([])
 })
@@ -93,4 +91,29 @@ test("a FUNCTION returning a CODESYS-only elementary type, on TwinCAT — the re
   const f = { uri: "F_Stamp.pou", source: "FUNCTION F_Stamp : LDT\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n" }
   expect(errors(f, [], "twincat")).toEqual(["Unknown type: 'LDT'"])
   expect(errors(f, [], "codesys")).toEqual([])
+})
+
+// A QUALIFIED name (frontend-conformance 3.4.2, rules LB1/LB8). Measured, both vendors 2026-10-01: `v : NoSuchLib.T;` is
+// "Unknown type: 'NoSuchLib.T'" (`decl_type_unknown_qualified`) — a qualifier that names nothing. This test said a
+// namespace-qualified name was "the library floor" and stayed silent: a deliberate narrowness from before the vendor was
+// asked, which the recording answers.
+test("a qualified type whose qualifier names nothing — `decl_type_unknown_qualified`", () => {
+  expect(errors(prg("v : NoSuchLib.T;"))).toEqual(["Unknown type: 'NoSuchLib.T'"])
+  expect(errors(prg("t : Tc2_Standard.TON;"))).toEqual(["Unknown type: 'Tc2_Standard.TON'"])
+})
+
+test("a qualified type whose first qualifier names something — silent", () => {
+  // the compiler's own namespace (corpus: `M_TYPE : __SYSTEM.TYPE_CLASS`)
+  expect(errors(prg("m : __SYSTEM.TYPE_CLASS;"))).toEqual([])
+  // a library namespace — whatever it holds: a library's namespace reaches the elements of a dependency it PUBLISHES
+  // (corpus: `L_IE1P.L_IE1P_SeverityLevel`, 51 such references in two projects that build) and not those of one it does
+  // not (`DED.IO_SYSTEM_TYPE` is "Unknown type", `lib_ns_direct_dependency_only`); the manifest does not say which (LB2)
+  const lib = { uri: "w/Library Manager/Lib/T.dut", source: "TYPE T :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE\n" }
+  const files = [prg("a : Ns.T; b : Ns.Elsewhere;"), lib].map((f) => ({ ...f, parseResult: parseDocument(f.uri, f.source, { networkText: true }, "codesys") }))
+  const project = build.buildSymbolTable(files, [{ uri: "w/Library Manager/Lib/Lib.library", folder: "Lib", namespace: "Ns", library: "Lib", dependencies: [], materialization: 4 }])
+  const own = files[0]!
+  const said = computeSemanticDiagnostics({ parseResult: own.parseResult, source: own.source, project, config: resolveConfig({ vendor: "codesys" }), uri: own.uri })
+  expect(said.filter((d) => d.severity === "error").map((d) => d.message)).toEqual([])
+  // on TwinCAT the LSP cannot know that nothing declares a type (its materialization is partial), qualified or not
+  expect(errors(prg("v : NoSuchLib.T;"), [], "twincat")).toEqual([])
 })

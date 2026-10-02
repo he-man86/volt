@@ -241,3 +241,56 @@ test("binding is order-independent: every unit order within a file and every fil
       if (i === 0) expect(got).toEqual(expected)
     }
 })
+
+// Rule LB7 (frontend-conformance 3.4.3): a library NAMESPACE aliases its library's units (`library-namespaces.ts`), and
+// was bound once, by `buildSymbolTable` — an incremental rebind of a LIBRARY file left the namespace holding the unbound
+// scopes (the server rebuilt the whole table instead: `workspace-store` `rebindKey`), and a project unit bound later under
+// a namespace's name did not take the name from it (rule LB4: a project PROGRAM `BPLog` is what `BPLog.v` means,
+// `lib_ns_project_unit_shadows_namespace` runs 12, CODESYS 2026-10-02). `relink` rebinds the namespaces when a library
+// file or a unit of a namespace's name came or went.
+test("library rebind equals whole rebuild", () => {
+  const sources = new Map<string, string>()
+  const lib = (folder: string, file: string) => `file:///p/Library%20Manager/${folder}/${file}`
+  sources.set(lib("LibA", "FB_Base.pou"), "FUNCTION_BLOCK FB_Base\nVAR a : INT; END_VAR\nEND_FUNCTION_BLOCK")
+  sources.set(lib("LibA", "T_A.dut"), "TYPE T_A :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE")
+  sources.set(lib("LibA", "GVL_A.gvl"), "VAR_GLOBAL\n\tgA : INT;\nEND_VAR")
+  sources.set(lib("LibB", "FB_Base.pou"), "FUNCTION_BLOCK FB_Base\nVAR b : INT; END_VAR\nEND_FUNCTION_BLOCK")
+  sources.set(lib("LibB", "FB_Mid.pou"), "FUNCTION_BLOCK FB_Mid EXTENDS FB_Base\nEND_FUNCTION_BLOCK")
+  sources.set(lib("LibB", "E_B.dut"), "TYPE E_B :\n(\n\tb_one := 1\n);\nEND_TYPE")
+  sources.set("file:///p/src/LA.pou", "PROGRAM LA\nVAR v : INT := 12; END_VAR\nEND_PROGRAM")
+  sources.set("file:///p/src/LB.dut", "TYPE LB :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE")
+  sources.set("file:///p/src/FB_App.pou", "FUNCTION_BLOCK FB_App EXTENDS LA.FB_Base\nVAR m : LB.FB_Mid; END_VAR\nEND_FUNCTION_BLOCK")
+  const uris = [...sources.keys()]
+  const parse = (uri: string) => ({ uri, source: sources.get(uri)!, parseResult: parseSource(sources.get(uri)!, { networkText: true }) })
+  const id = (s: Scope | undefined) => (s === undefined ? "-" : `${s.kind}|${s.name}|${s.defUri ?? ""}|${s.libraryUri ?? ""}|${s.span?.start}`)
+  // each name's candidates in order, the names themselves in any: a namespace's keys arrive in its binding's order, which
+  // no lookup reads
+  const tree = (s: Scope, d = 0): string[] =>
+    s.children.flatMap((c) => [`${" ".repeat(d)}${id(c)} base=${id(c.baseScope)} syms=${[...c.symbols].map(([k, a]) => `${k}:${a.map((x) => x.uri).join("+")}`).sort().join(",")}`, ...(d < 1 ? tree(c, d + 1) : [])])
+  const state = (p: Scope) => [...tree(p), ...[...p.symbols].map(([k, arr]) => `${k}=${arr.map((s) => `${s.kind}|${s.uri}|${s.span.start}`).join(",")}`).sort()]
+
+  // the parse each bound file was bound from: a fresh build of the same objects must find every unit's scope alike
+  const docs = new Map(uris.map((u) => [u, parse(u)]))
+  const bound = new Set(uris)
+  const project = buildSymbolTable([...docs.values()], MANIFESTS)
+  expect(state(project)).toEqual(state(buildSymbolTable(uris.map(parse), MANIFESTS)))
+  let seed = 7
+  const rnd = (n: number) => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff), seed % n)
+  for (let op = 0; op < 150; op++) {
+    const uri = uris[rnd(uris.length)]!
+    if (bound.has(uri)) unbindFile(project, uri)
+    if (!bound.has(uri) || rnd(3) !== 0) {
+      docs.set(uri, parse(uri))
+      bindFile(project, docs.get(uri)!)
+      bound.add(uri)
+    } else bound.delete(uri)
+    relink(project, MANIFESTS)
+    const fresh = buildSymbolTable([...bound].map((u) => docs.get(u)!), MANIFESTS)
+    expect(state(project), `op ${op}: ${uri}`).toEqual(state(fresh))
+    // …and every bound unit still finds its own scope (a namespace's unbind once forgot its library's spans)
+    for (const u of bound)
+      for (const unit of docs.get(u)!.parseResult.units) expect(id(scopeForUnit(project, unit)), `op ${op} ${u}`).toBe(id(scopeForUnit(fresh, unit)))
+    for (const name of ["la", "lb", "fb_base", "fb_mid", "t_a", "e_b", "fb_app"])
+      expect(childScopesByName(project, name).map(id), `op ${op} ${name}`).toEqual(childScopesByName(fresh, name).map(id))
+  }
+})

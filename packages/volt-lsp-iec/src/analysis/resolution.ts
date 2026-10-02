@@ -14,7 +14,7 @@
  * materialized declaration, and nowhere else: in a project that does not reference its library it is the unknown name
  * CODESYS says it is.
  */
-import { compilerTypeText, walkExpr, type Expr, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
+import { compilerTypeText, walkExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
 import { ANY_FAMILIES, builtinName, inferExprType, isDialectType, resolveBareName } from "../frontend/types/index.js"
 
@@ -194,9 +194,9 @@ export function dialectMissingType(project: Scope, t: TypeExpr | undefined): str
  * a library's element resolves through the scope, from its materialized declaration, so a BARE name that nothing in
  * the project, no referenced library and no compiler built-in declares is the unknown name CODESYS says it is.</p>
  *
- * <p>Deliberately narrow where it is unmeasured: only a bare named type — a namespace-qualified name (`Lib.T`) is the
- * library floor, and a wrapper around an unknown name (`ARRAY OF X`, `POINTER TO X`) is a different shape nobody has
- * recorded. A name some symbol DOES carry is left alone even when that symbol is no type: that is a different
+ * <p>Deliberately narrow where it is unmeasured: a bare named type, and a qualified one whose first qualifier names
+ * nothing (`unknownQualifiedTypeName`) — a wrapper around an unknown name (`ARRAY OF X`, `POINTER TO X`) is a different
+ * shape nobody has recorded. A name some symbol DOES carry is left alone even when that symbol is no type: that is a different
  * error, not this one. A CODESYS-only elementary type on TwinCAT is `dialectMissingType`'s.</p>
  *
  * <p>CODESYS ONLY, and measured so: TwinCAT answers the same message for the same shapes, but its library
@@ -216,7 +216,8 @@ export function unknownTypeName(project: Scope, t: TypeExpr | undefined): string
   const dialect = dialectMissingType(project, t)
   if (dialect !== undefined) return dialect
   if (project.dialect !== "codesys") return undefined
-  if (t?.kind !== "named_type" || t.subrange !== undefined || (t.qualifiers?.length ?? 0) > 0) return undefined
+  if (t?.kind !== "named_type" || t.subrange !== undefined) return undefined
+  if ((t.qualifiers?.length ?? 0) > 0) return unknownQualifiedTypeName(project, t.qualifiers!, t.name)
   const name = t.name.text
   const upper = name.toUpperCase()
   // a name the compiler provides — a system operator, a built-in, a type, an implicit — resolves here as it does in the
@@ -225,4 +226,27 @@ export function unknownTypeName(project: Scope, t: TypeExpr | undefined): string
   if (builtinName(name, project.dialect) !== undefined || ANY_FAMILIES.has(upper) || BUILTIN_NAMED_TYPES.has(upper)) return undefined
   if (lookupLocal(project, name).length > 0) return undefined
   return name
+}
+
+/**
+ * `Q.….T` whose FIRST qualifier names nothing at all — no namespace, no unit, no symbol of any kind: "Unknown type:
+ * 'NoSuchLib.T'", both vendors (`decl_type_unknown_qualified`, 2026-10-01), the written name as the message's. The same
+ * bet as the bare verdict: a referenced library's namespace is bound from its manifest (`library-namespaces`), so a
+ * qualifier nothing carries is no library the project references.
+ *
+ * <p>Only the first qualifier is judged. A namespace the project HAS is left alone whatever it holds (rule LB2): it reaches
+ * the elements of a dependency it publishes — corpus `L_IE1P.L_IE1P_SeverityLevel`, 51 references in two projects that
+ * build — and not those of one it does not (`DED.IO_SYSTEM_TYPE` is "Unknown type", `lib_ns_direct_dependency_only`), and
+ * the manifest does not say which. The compiler's own `__SYSTEM` namespace is a `__` name, no symbol's.</p>
+ *
+ * <p>KNOWN DIVERGENCE, niche: accepted loss (0 occurrences in the corpora — every `Library Manager/` folder of the six
+ * carries its `.library` manifest, `(unresolved)/` aside, whose interface libraries no qualifier names by folder): when
+ * the bridge skips a reference's manifest (`CodesysObjectModel.Libraries.cs` logs "library ref … skipped — no .library
+ * item will materialize") while its units still materialize, the bet fails, and a `Ns.T` CODESYS builds is "Unknown
+ * type" here, blaming the code rather than the missing manifest.</p>
+ */
+function unknownQualifiedTypeName(project: Scope, qualifiers: readonly Identifier[], name: Identifier): string | undefined {
+  const first = qualifiers[0]!.text
+  if (first.startsWith("__") || lookupLocal(project, first).length > 0) return undefined
+  return [...qualifiers, name].map((q) => q.text).join(".")
 }

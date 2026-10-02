@@ -12,7 +12,8 @@ import { createProjectScope, takeProjectKeys, takeUnsortedKeys } from "./scope.j
 import { invalidate, left, placedTopLevel, takeAppended } from "./cache.js"
 import { ingestDevices, ingestUnits, type SymbolTableInput } from "./binder.js"
 import { linkExtends, noteTopLevel } from "./extends.js"
-import { bindLibraryNamespaces } from "./library-namespaces.js"
+import { bindLibraryNamespaces, unbindLibraryNamespaces } from "./library-namespaces.js"
+import { libraryOf } from "../library/index.js"
 
 /** Build one project scope from a set of parsed files, then link EXTENDS bases across all of them.
  *  `manifests` are the referenced libraries' `.library` files (`parseLibraryManifest`), each binding its own
@@ -30,12 +31,7 @@ export function buildSymbolTable(
   for (const file of files) bindFile(project, file)
   ingestDevices(project, devices)
   invalidate(project)
-  relink(project, manifests)
-  bindLibraryNamespaces(project, manifests)
-  // ...and into canonical order once more: the namespace scopes are appended, and every later relink (the live server's
-  // first keystroke) moved them to the front — so a built project and the same project one edit later disagreed on the
-  // order every first-match lookup reads, and that first edit paid for re-answering every name a namespace holds
-  // (~30 ms on pro2193, 2026-10-02). Nothing to re-link: a namespace scope is no base.
+  // the library namespaces are bound here too: the manifests are new to this project (`namespacesStale`)
   relink(project, manifests)
   return project
 }
@@ -54,6 +50,7 @@ export function bindFile(project: Scope, { uri, parseResult }: SymbolTableInput)
   // top-level scope drops its whole subtree.
   const tops = project.children.slice(start)
   for (const top of tops) top.defUri = uri
+  touched(project, uri, tops)
   let files = topsByFile.get(project)
   if (files === undefined) topsByFile.set(project, (files = new Map()))
   files.set(uri, [...(files.get(uri) ?? []), ...tops])
@@ -77,6 +74,7 @@ export function unbindFile(project: Scope, uri: string): void {
     left(project, top)
   }
   noteTopLevel(project, removed, false)
+  touched(project, uri, removed)
   for (const key of takeProjectKeys(project, uri)) {
     const arr = project.symbols.get(key)
     if (arr === undefined) continue
@@ -91,10 +89,65 @@ export function unbindFile(project: Scope, uri: string): void {
  *  child of the project. */
 const topsByFile = new WeakMap<Scope, Map<string, Scope[]>>()
 
-/** Canonical order, then EXTENDS linking — the one re-link after files were bound or unbound. */
+/**
+ * Canonical order, the library namespaces where they are stale, then EXTENDS linking — the one re-link after files were
+ * bound or unbound.
+ *
+ * THE NAMESPACES ARE REBOUND HERE (rule LB7). A namespace aliases its library's units, and was bound once, by
+ * `buildSymbolTable`: a rebind of a library file left it holding the scopes it unbound (`workspace-store` rebuilt the whole
+ * table instead), and a project unit bound later under a namespace's name did not take the name from it (rule LB4). Only
+ * when it can matter — a library file came or went, a top-level unit of a namespace's name did, or the manifests changed
+ * — since binding them is the cost of the whole project's libraries (~26 ms for the fixture project's 31), not an edit's.
+ * Then canonical order once more: the namespace scopes are appended, and sort to the front.
+ */
 export function relink(project: Scope, manifests: readonly LibraryManifest[] = []): void {
   canonicalize(project)
+  if (namespacesStale(project, manifests)) {
+    unbindLibraryNamespaces(project)
+    bindLibraryNamespaces(project, manifests)
+    canonicalize(project)
+  }
   linkExtends(project, manifests)
+}
+
+/** What was bound or unbound since the last `relink` that can change the library namespaces, per project. */
+interface NamespaceChange {
+  /** a library file came or went */
+  library: boolean
+  /** the lower-cased names of the project's top-level units that came or went */
+  names: Set<string>
+  /** the manifests the namespaces were last bound from, as `manifestKey` writes them */
+  boundFrom: string | undefined
+}
+const namespaceChanges = new WeakMap<Scope, NamespaceChange>()
+const changeOf = (project: Scope): NamespaceChange => {
+  let change = namespaceChanges.get(project)
+  if (change === undefined) namespaceChanges.set(project, (change = { library: false, names: new Set(), boundFrom: undefined }))
+  return change
+}
+
+/** `uri`'s top-level scopes `tops` came or went. */
+function touched(project: Scope, uri: string, tops: readonly Scope[]): void {
+  const change = changeOf(project)
+  if (libraryOf({ uri }) !== undefined) change.library = true
+  else for (const top of tops) change.names.add(top.name.toLowerCase())
+}
+
+const manifestKey = (manifests: readonly LibraryManifest[]): string =>
+  manifests.map((m) => `${m.uri}|${m.namespace}|${m.library}|${m.dependencies.join(",")}`).join("\n")
+
+/** Whether the namespaces must be bound afresh — and the change consumed, as `relink` is about to. */
+function namespacesStale(project: Scope, manifests: readonly LibraryManifest[]): boolean {
+  const change = changeOf(project)
+  const key = manifestKey(manifests)
+  const stale =
+    change.boundFrom !== key ||
+    change.library ||
+    (change.names.size > 0 && manifests.some((m) => change.names.has(m.namespace.toLowerCase())))
+  change.library = false
+  change.names.clear()
+  change.boundFrom = key
+  return stale
 }
 
 /**

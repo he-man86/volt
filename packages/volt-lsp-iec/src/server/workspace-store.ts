@@ -134,14 +134,9 @@ export class WorkspaceStore {
    *  first `project()` builds fresh). O(changed file), not O(project). */
   private rebindKey(key: string): void {
     if (this.projectScope === undefined) return
-    // A library namespace scope ALIASES the library's top-level scopes and symbols (`bindLibraryNamespaces`), so
-    // unbinding one of those files would leave the namespace holding what the project no longer has. Rebuild whole;
-    // a file under `Library Manager/` is read-only in practice, so this never costs an edit loop.
-    if (key.includes("library manager/") || key.includes("library manager\\")) {
-      this.projectScope = undefined
-      this.boundDocs.clear()
-      return
-    }
+    // A library file rebinds like any other: `relink` binds the library namespaces afresh when one came or went (rule
+    // LB7). This rebuilt the whole table for a file under `Library Manager/` — the namespaces, bound once, would have
+    // held what the project no longer had.
     const old = this.boundDocs.get(key)
     if (old !== undefined) build.unbindFile(this.projectScope, old.uri)
     const desired = this.mergedDoc(key)

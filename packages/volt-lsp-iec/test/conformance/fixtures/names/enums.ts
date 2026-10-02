@@ -179,7 +179,7 @@ export const ENUM_RULE_TESTS: readonly LanguageTest[] = [
   // Measured (CODESYS 2026-10-02): the open library's MEMBER is what the name means, before the project POU — "Program
   // name, function or function block instance expected instead of 'SINE'", as `enum_member_vs_function_name` is for a
   // project enum. pro2193 builds clean with 87 such names, so those libraries' members are no candidates there (CAA
-  // Device Diagnosis, a Lenze library — qualified access, unmeasured) — a fact the manifest does not carry (LB2, 3.4.2). Implementing the
+  // Device Diagnosis, a Lenze library — qualified access, unmeasured) — a fact the manifest does not carry (LB2: 3.4.2 recorded it a bridge fact). Implementing the
   // member-first rule without it would refuse all 87 (`fixtures.test.ts` `MEASURED_SILENT`, `support/divergences.ts`
   // `CODESYS_ENUM_DIVERGENCES`; TwinCAT, which references no Util, builds both).
   fb("enum_library_member_vs_project_function", "EN5/EN6 — `SINE()` where a project FUNCTION `SINE` and Util's GEN_MODE member `SINE` share the name: the function (out 11)?",
@@ -187,7 +187,7 @@ export const ENUM_RULE_TESTS: readonly LanguageTest[] = [
   fb("enum_library_member_vs_project_program", "EN5/EN6 — `RECTANGLE.v` where a project PROGRAM `RECTANGLE` and Util's GEN_MODE member `RECTANGLE` share the name: the program's variable (out 12)?",
     "\tout : INT;", "RECTANGLE();\nout := RECTANGLE.v;", "PROGRAM RECTANGLE\nVAR\n\tv : INT := 12;\nEND_VAR\nEND_PROGRAM\n\n"),
   // A member a DIRECT open library's enum declares (Util's _STATE) and a CAA one too (CAA Device Diagnosis' PROC_STATE):
-  // whether a CAA library's members are candidates at all, and which libraries are direct, is LB2's (3.4.2). The first
+  // whether a CAA library's members are candidates at all, and which libraries are direct, is LB2's (3.4.2: a bridge fact the manifest does not carry). The first
   // recording asked `NO_ERROR` (Util's ERROR, CAA Device Diagnosis' and the dependency-only CAA Types'): CODESYS said
   // "Identifier 'NO_ERROR' not defined" — but a fixture's project enum (`DUT_CS_kernelError`) declares it too, so the
   // replay could not ask it; `ABORTED` is no fixture's

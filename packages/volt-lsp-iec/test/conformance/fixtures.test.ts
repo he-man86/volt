@@ -1359,7 +1359,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // LB2 → 3.4.2): `enum_library_member_vs_project_function` / `_program` — CODESYS takes Util's member before a project
   // POU of its name; which libraries are open (their members candidates at all) is not in the manifest, and pro2193's 87
   // clean POU names beside qualified-access libraries' members say the LSP must not refuse without it.
-  "lsp-gap": 36,
+  // 36 -> 43, FOR MEASUREMENT. frontend-conformance 3.4 (2026-10-02): 8 new library questions CODESYS refuses
+  // (`deferred.lsp`, `CODESYS_LIBRARY_DIVERGENCES`, each niche: 0 occurrences in the corpora) — which libraries the
+  // APPLICATION references, which require qualified access, which dependencies a namespace publishes, and which POUs are
+  // INTERNAL are facts the manifest does not carry (`lib_ns_transitive_bare`, `_transitive_namespace`,
+  // `_qualified_access_library_bare`, `_type_name_two_libraries_other_member`, `_direct_dependency_only`,
+  // `_library_internal_function_bare`, `_qualified`, `_library_gvl_shared_list_name_bare`); and one closed:
+  // `decl_type_unknown_qualified` (a qualifier naming nothing, `unknownQualifiedTypeName`).
+  "lsp-gap": 43,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1497,7 +1504,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 151 -> 152, FOR MEASUREMENT. frontend-conformance 3.2 (2026-10-02): `inh_interface_method_output_param` builds and runs
   // (out = 6) and lowering refuses an interface METHOD's VAR_OUTPUT bound `o => out`, as `sym_method_output_param_bound`
   // (the transpiler's).
-  "not-lowered": 152,
+  // 152 -> 161, FOR MEASUREMENT. frontend-conformance 3.4 (2026-10-02): 9 new library cells CODESYS builds and runs and the
+  // lowering refuses — library elements it has no body or place for (`ISLIBRELEASED`, `DATETIMEFROMWEEK`, a library's
+  // globals `Util.DAY_FLAGS.TUESDAY` / `Util.CONSTANTS.…`, `Util.Standard.LEN`, a library enum through a namespace or a
+  // namespace's dependency, bare `ERROR`): `lib_ns_type_qualified`, `_type_name_two_libraries`, `_library_member_own_type`,
+  // `_own_type_other_enum`, `_same_name_two_libraries`, `_transitive_qualification`, `_transitive_qualification_call`,
+  // `_library_gvl_member`, `_library_gvl_shared_list_name` (the transpiler's; src/transpile is not this change's to edit).
+  "not-lowered": 161,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1779,7 +1792,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // H4–H10) — interface EXTENDS bound and linked, every base through the link, overrides checked in compiled FBs only.
   // 3764 -> 3784 (2026-10-02, frontend-conformance 3.3): the enum fixtures (`fixtures/names/enums.ts`, EN1–EN6) — a
   // bare member resolved per asker, ambiguity reported, a library member bare where one enum declares it.
-  { vendor: "twincat", floor: 3784 },
+  // 3784 -> 3787 (2026-10-02, frontend-conformance 3.4): the library-namespace fixtures (`fixtures/names/libraries.ts`,
+  // LB1–LB9) — library precedence per asker, a qualified type in its namespace, the incremental library rebind.
+  { vendor: "twincat", floor: 3787 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1916,7 +1931,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3757 -> 3797 (2026-10-02, frontend-conformance 3.1): the same, on CODESYS.
   // 3797 -> 3829 (2026-10-02, frontend-conformance 3.2): the same, on CODESYS.
   // 3829 -> 3854 (2026-10-02, frontend-conformance 3.3): the same, on CODESYS.
-  { vendor: "codesys", floor: 3854 },
+  // 3854 -> 3868 (2026-10-02, frontend-conformance 3.4): the same, on CODESYS.
+  { vendor: "codesys", floor: 3868 },
 ]
 
 

@@ -39,6 +39,9 @@ export function scopeUri(scope: Scope | undefined): string | undefined {
 const folderOf = (uri: string | undefined): string | undefined =>
   uri === undefined ? undefined : libraryOf({ uri })?.toLowerCase()
 
+/** Whether a file sits in a library (`Library Manager/<folder>/`): a library asker ranks before it steps (`scope-nav`). */
+export const isLibraryAsker = (uri: string | undefined): boolean => folderOf(uri) !== undefined
+
 /**
  * How well `candidateUri` answers a reference made from `askerUri`. Lower is better; see the ranks above.
  *

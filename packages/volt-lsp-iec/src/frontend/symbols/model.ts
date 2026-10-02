@@ -158,6 +158,11 @@ export interface Scope {
    * states the recording projects' (`symbols/condition-world.ts`).
    */
   environment?: CompileEnvironment
+  /**
+   * For a referenced library's `namespace` scope only (`library-namespaces`): its manifest's URI — the library whose OWN
+   * elements a name looked up in the namespace means before its dependencies' (rule LB3, `scope-nav` `namespaceHit`).
+   */
+  libraryUri?: string
   /** For a TOP-LEVEL project child only: the URI of the file that contributed it. Set by `bindFile`, read
    *  by `unbindFile` to surgically drop one file's scopes on an incremental re-index. Undefined elsewhere. */
   defUri?: string

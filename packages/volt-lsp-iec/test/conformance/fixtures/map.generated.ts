@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2423
- *     refused       1505
- *     not-lowered    152
- *     lsp-gap         36
+ *     confirmed     2428
+ *     refused       1506
+ *     not-lowered    161
+ *     lsp-gap         43
  *     diverges         4
  *     unaskable       68
  *
  *   tier                     lowered    clean
- *     decl                    642      642
+ *     decl                    647      647
  *     arith                  1285     1284
- *     control                 132      127
- *     aggregate                64       64
- *     call                    244      242
- *     indirect                273      269
+ *     control                 134      129
+ *     aggregate                65       65
+ *     call                    245      243
+ *     indirect                274      270
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -55,7 +55,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2530
+ *     agree         2540
  *     disagree         0
  *     not-run        110
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -63,10 +63,10 @@
  *       not-run: the emitted Rust does not build                 10
 
  *
- *   pedantic — 27299 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               6533
+ *   pedantic — 27325 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               6557
  *     clippy::cast_possible_truncation         4352
- *     clippy::cast_lossless                    3912
+ *     clippy::cast_lossless                    3914
  *     clippy::cast_sign_loss                   3002
  *     clippy::uninlined_format_args            2916
  *     clippy::unreadable_literal               2515
@@ -87,8 +87,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1470 distinct emission shapes over 2640 lowered fixtures, 1691 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2520 fixtures are improvable, 2444 touch a construct with alternatives.
+ *   shape — 1471 distinct emission shapes over 2650 lowered fixtures, 1691 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2530 fixtures are improvable, 2454 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -1050,7 +1050,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   decl_type_missing: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   decl_type_missing_before_init: { evidence: "refused" },
   decl_type_open_bracket: { evidence: "refused" },
-  decl_type_unknown_qualified: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  decl_type_unknown_qualified: { evidence: "refused", diverges: { twincat: "known" } },
   decl_union_init_unknown_field: { evidence: "refused" },
   decl_var_access: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 1, edge: "agree", size: 2.6, shape: "11a0606b96", notes: ["1307e33bbf"] },
   decl_var_access_in_fb: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
@@ -2284,6 +2284,28 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   lex_vector_twincat_pointer_to: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "de5ec83c26", notes: ["013de1dc6a", "0e0d715a81", "1307e33bbf", "75cc82a569"] },
   lex_vector_twincat_return_type: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 2, edge: "not-run", size: 2.3, shape: "2e4559e909", notes: ["11f6ad8ec5"], diverges: { twincat: "known" } },
   lex_vector_twincat_struct_field: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "241688deb2", notes: ["1307e33bbf"] },
+  lib_ns_direct_dependency_only: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"], diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_library_gvl_member: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_library_gvl_shared_list_name: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_library_gvl_shared_list_name_bare: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_library_internal_function_bare: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_library_internal_function_qualified: { evidence: "lsp-gap", diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_library_member_own_type: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_library_member_own_type_other_enum: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_own_library_first: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 3, edge: "agree", size: 3.1, shape: "e02eeccdf3", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  lib_ns_project_type_shadows_namespace: { evidence: "confirmed", tier: "aggregate", rust: "vendor", pedantic: 3, edge: "agree", size: 3.2, shape: "77e902665d", notes: ["1307e33bbf"] },
+  lib_ns_project_unit_shadows_namespace: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 4, edge: "agree", size: 4.6, shape: "41144b905c", notes: ["1307e33bbf", "58a7e6289b", "a29db6178b", "abf2bb6e4e"] },
+  lib_ns_qualified_access_library_bare: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"], diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_qualified_access_library_qualified: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.3, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"], diverges: { twincat: "known" } },
+  lib_ns_same_name_two_libraries: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_transitive_bare: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"], diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_transitive_namespace: { evidence: "lsp-gap", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.3, shape: "66f8b65fce", notes: ["0e0d715a81", "1307e33bbf", "a29db6178b"], diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_transitive_qualification: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_transitive_qualification_call: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_type_name_two_libraries: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_type_name_two_libraries_other_member: { evidence: "lsp-gap", tier: "control", rust: "compiles", pedantic: 3, edge: "agree", size: 2.9, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"], diverges: { codesys: "known", twincat: "known" } },
+  lib_ns_type_qualified: { evidence: "not-lowered", diverges: { twincat: "known" } },
+  lib_ns_type_qualified_other_library: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 3, edge: "agree", size: 2.9, shape: "b6cc73752e", notes: ["0e0d715a81", "1307e33bbf", "271163608b"], diverges: { twincat: "known" } },
   lib_prim_char_past_length: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 55, edge: "agree", size: 3.3, shape: "9d8a37f7b2", notes: ["0d14fd327c", "11f6ad8ec5", "1307e33bbf", "185a887a57", "21ef64a1e0", "2506fd8442", "318cfd770d", "4c9f4e33f4", "521ba042ac", "5d9850550d", "803ee89d4f", "98ba0d2e70", "a573b540d2", "dbcd1088a5"] },
   lib_prim_null_cursor: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 47, edge: "agree", size: 2.2, shape: "688961967a", notes: ["06bb3a6005", "0969e59592", "11f6ad8ec5", "44d286d05b", "521ba042ac", "5d9850550d", "63d29bd1a0", "8539587ea0", "ad25627749", "dd94ff18a2", "de8528b197", "fbde4d6e1e"] },
   lib_prim_string_cursor_offset: { evidence: "confirmed", tier: "call", rust: "vendor", pedantic: 46, edge: "agree", size: 2.4, shape: "82c140754c", notes: ["11f6ad8ec5", "1dec9ffb7e", "43aad8296c", "5d9850550d", "7cfee53212", "7e45a342fc", "9c1d0c1a6e", "dd94ff18a2"] },

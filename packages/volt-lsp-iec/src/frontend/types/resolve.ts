@@ -6,10 +6,12 @@
 import {
   childScopesByName,
   findChildScope,
+  isLibrarySymbol,
   lookupLocal,
   pickForAsker,
   scopeUri,
   type Scope,
+  type Symbol,
 } from "../symbols/index.js"
 import type { Dialect, TypeDecl, TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const/fold.js"
@@ -41,6 +43,7 @@ export function resolveTypeExpr(
       // valueScope is WHO IS ASKING, and it decides the answer when a name has more than one candidate —
       // two referenced libraries exporting the same element (see symbols/precedence.ts). It was dropped here
       // while every other arm threaded it, so the one lookup that can be ambiguous was the one without it.
+      if ((t.qualifiers?.length ?? 0) > 0) return resolveQualifiedType(t.qualifiers!.map((q) => q.text), t.name.text, project, depth, askerUri)
       return resolveNamedType(t.name.text, project, depth, askerUri)
     case "string_type": {
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
@@ -106,8 +109,57 @@ export function resolveNamedType(
   // does not get to decide what the question is.
   const syms = lookupLocal(project, name).filter((x) => TYPE_SYMBOL_KINDS.has(x.kind))
   if (syms.length === 0) return UNKNOWN
-  const from = askerUri
-  const sym = pickForAsker(project, syms, (x) => x.uri, from)!
+  return typeOfSymbol(pickForAsker(project, syms, (x) => x.uri, askerUri)!, name, project, depth, askerUri)
+}
+
+/**
+ * The namespace scope a qualifier chain names (rules LB1, LB8): `Ns` a referenced library's namespace (or a source
+ * NAMESPACE block), then each further name a namespace THAT one holds — the namespace symbol of a library it depends on
+ * (`DED.CommFB`, measured: `DED.CommFB.IO_SYSTEM_TYPE` builds and is CommFB's enum, `lib_ns_transitive_qualification`).
+ * Undefined when a name of the chain is no namespace there.
+ */
+export function namespaceOf(qualifiers: readonly string[], project: Scope, askerUri: string | undefined): Scope | undefined {
+  const [first, ...rest] = qualifiers
+  if (first === undefined) return undefined
+  let ns = findChildScope(project, first, askerUri)
+  for (const q of rest) {
+    if (ns?.kind !== "namespace") return undefined
+    const held = lookupLocal(ns, q).find((x) => x.kind === "namespace")
+    ns = held === undefined ? undefined : childScopesByName(project, held.name).find((c) => c.kind === "namespace")
+  }
+  return ns?.kind === "namespace" ? ns : undefined
+}
+
+/**
+ * `Ns.T` — the type `T` of the namespace the qualifiers name, its library's own before a dependency's (rule LB3: `DED.ERROR`
+ * is CAA Device Diagnosis', not CAA Types'). The qualifier was dropped here and `T` resolved bare, so `Util.ERROR` was
+ * whichever ERROR sorted first — CAA Device Diagnosis' (`lib_ns_type_qualified` holds Util's WRONG_CONFIGURATION,
+ * CODESYS 2026-10-02).
+ *
+ * <p>A NAMESPACE THAT DOES NOT HOLD `T` AS MATERIALIZED is not a namespace without it, and `T` is then the name as the
+ * project holds it. Measured over the corpora (2026-10-02): 130 library references in pro2193 alone name a type their
+ * namespace's folder does not hold — an interface library materialized under `(unresolved)/`
+ * (`IIoDrvProfibus.DP_StationStatus1`), an element of a dependency the library publishes, an element not materialized
+ * at all (`STU.DateFormatter`) — and every one builds. Which of those the vendor would refuse is what the manifest does
+ * not carry (rule LB2). Every one of them is a LIBRARY's element, so only a library's answers: `Util.AppStruct`, an
+ * APPLICATION type behind a library's namespace, is UNKNOWN (unrecorded; it had resolved silently to the project's type).
+ * The compiler's own `__SYSTEM` namespace holds compiler names, read bare.
+ * A qualifier naming nothing (`NoSuchLib.T`) is UNKNOWN — "Unknown type" (`analysis/resolution` `unknownQualifiedTypeName`).</p>
+ */
+function resolveQualifiedType(qualifiers: readonly string[], name: string, project: Scope, depth: number, askerUri: string | undefined): Type {
+  if (qualifiers[0]!.startsWith("__")) return resolveNamedType(name, project, depth, askerUri)
+  const ns = namespaceOf(qualifiers, project, askerUri)
+  if (ns === undefined) return UNKNOWN
+  const syms = lookupLocal(ns, name).filter((x) => TYPE_SYMBOL_KINDS.has(x.kind))
+  if (syms.length > 0) return typeOfSymbol(pickForAsker(project, syms, (x) => x.uri, ns.libraryUri ?? askerUri)!, name, project, depth, askerUri)
+  // only a LIBRARY's element: each of the 130 is one, and a library namespace holds no application type
+  const elsewhere = lookupLocal(project, name).filter((x) => TYPE_SYMBOL_KINDS.has(x.kind) && isLibrarySymbol(x))
+  if (elsewhere.length === 0) return UNKNOWN
+  return typeOfSymbol(pickForAsker(project, elsewhere, (x) => x.uri, ns.libraryUri ?? askerUri)!, name, project, depth, askerUri)
+}
+
+/** The Type a POU, interface or type symbol `sym` (named `name`) stands for. */
+function typeOfSymbol(sym: Symbol, name: string, project: Scope, depth: number, from: string | undefined): Type {
 
   // The scope of THE SYMBOL CHOSEN, not of the name — with two candidates they are different scopes, and
   // handing back the other one's members is the same bug wearing a different hat.

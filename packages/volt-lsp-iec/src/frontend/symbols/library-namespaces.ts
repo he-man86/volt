@@ -20,9 +20,9 @@
 import { zeroSpan, type Namespace, type Span } from "../syntax/index.js"
 import { libraryOf, type LibraryManifest } from "../library/index.js"
 import type { Scope, Symbol } from "./model.js"
-import { defineSymbol, makeScope } from "./scope.js"
+import { defineSymbol, makeScope, takeProjectKeys } from "./scope.js"
 import { findChildScope } from "./scope-nav.js"
-import { invalidate } from "./cache.js"
+import { invalidate, left } from "./cache.js"
 
 /** `value` appended to `key`'s list in `map`. */
 function file<T>(map: Map<string, T[]>, key: string, value: T): void {
@@ -65,6 +65,29 @@ export const manifestsByTitle = (
   new Map(manifests.filter((m) => m.library !== "").map((m) => [m.library.toLowerCase(), m]))
 
 /**
+ * Take every library namespace off the project — its scope and its symbol — so `bindLibraryNamespaces` can bind them
+ * afresh (rule LB7, `incremental` `relink`). A namespace holds ALIASES of its library's scopes and symbols, so a rebind
+ * of a library file, or a project unit taking or giving up a namespace's name (rule LB4), changes what it must hold.
+ */
+export function unbindLibraryNamespaces(project: Scope): void {
+  const namespaces = project.children.filter((c) => c.libraryUri !== undefined)
+  if (namespaces.length === 0) return
+  for (const ns of namespaces) {
+    project.children.splice(project.children.indexOf(ns), 1)
+    // its children are ALIASES of its library's scopes, which stay: `left` forgets a subtree's spans, so they go first
+    ns.children.length = 0
+    left(project, ns)
+    // the namespace symbol is the one project symbol its manifest's uri defines
+    for (const key of takeProjectKeys(project, ns.libraryUri!)) {
+      const kept = (project.symbols.get(key) ?? []).filter((s) => s.uri !== ns.libraryUri)
+      if (kept.length === 0) project.symbols.delete(key)
+      else project.symbols.set(key, kept)
+    }
+  }
+  invalidate(project)
+}
+
+/**
  * Give each manifest's library a namespace scope over the units it materialized. Call after every file is bound.
  * A namespace a project unit already owns is left alone — the project's own name wins, as it does everywhere else.
  */
@@ -94,23 +117,24 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     if (lib !== undefined) file(symbolsOf, lib, { key, sym, order: order++ })
   }
   for (const [key, syms] of project.symbols) for (const sym of syms) own(key, sym)
+  // TWO PASSES. Every namespace SYMBOL is filed under its library first, so a namespace that sees a library sees that
+  // library's namespace symbol whatever the manifests' order — `DED.CommFB.IO_SYSTEM_TYPE` (rule LB8) reaches CommFB's
+  // namespace through DED's, and DED's manifest sorts before CommFB's: a one-pass bind gave a namespace only the namespace
+  // symbols of libraries bound before it.
+  const bound: { manifest: LibraryManifest; sym: Symbol; scopes: Scope[] }[] = []
+  const taken = new Set<string>()
+  const byOrder = (a: { order: number }, b: { order: number }): number => a.order - b.order
   for (const manifest of manifests) {
     const { namespace } = manifest
-    if (findChildScope(project, namespace) !== undefined) continue
+    if (taken.has(namespace.toLowerCase()) || findChildScope(project, namespace) !== undefined) continue
+    taken.add(namespace.toLowerCase())
     // WHICH LIBRARY A FILE BELONGS TO IS `libraryOf`'s QUESTION, and this had its own answer to it: a
     // `/library manager/<folder>/` substring on a whole-path-lowercased URI. Three normalizers for one fact —
     // `isLibrarySymbol`, `libraryOf` and this — with this one requiring a LEADING separator the other two do
     // not, so a repo-relative `Library Manager/Standard/LEN.pou` was a library symbol to both of them and not
     // to this. Live URIs all carry a separator, which is why nothing broke; the disagreement was real anyway.
     const folders = visibleFolders(manifests, manifest, byTitle)
-    const byOrder = (a: { order: number }, b: { order: number }): number => a.order - b.order
     const scopes = [...folders].flatMap((f) => scopesOf.get(f) ?? []).sort(byOrder).map((o) => o.child)
-    const symbols = new Map<string, Symbol[]>()
-    for (const { key, sym } of [...folders].flatMap((f) => symbolsOf.get(f) ?? []).sort(byOrder)) {
-      const list = symbols.get(key)
-      if (list === undefined) symbols.set(key, [sym])
-      else list.push(sym)
-    }
     // A library that materialized nothing still has its namespace: the manifest says so, and a bare `Ns` is the library's
     // root in the search order (step 11, `types/names` `resolveBareName`) — it was skipped here, and a separate skip set of
     // the namespace names (the workspace scan's) stood in for it.
@@ -118,16 +142,27 @@ export function bindLibraryNamespaces(project: Scope, manifests: readonly Librar
     // is not that unit's scope
     const first = scopes[0]?.span
     const span: Span = first !== undefined ? { ...first } : zeroSpan()
-    const ns = makeScope(project, "namespace", namespace, span)
-    ns.children.push(...scopes)
-    for (const [key, syms] of symbols) ns.symbols.set(key, syms)
     // the manifest is not ST, so the symbol carries a namespace node standing for it — `units` stays empty, the real
     // ones being `ns.children`, which is where every consumer of a namespace scope reads them
     const ast: Namespace = { kind: "namespace", name: { kind: "identifier", text: namespace, span }, units: [], span }
     const sym: Symbol = { kind: "namespace", name: namespace, span, declarationSpan: span, owner: project, uri: manifest.uri, ast }
-    defineSymbol(project, sym)
-    // a later namespace that sees this library sees its namespace symbol too, as the whole-project scan did
+    // a namespace that sees this library sees its namespace symbol too, as the whole-project scan did
     own(namespace.toLowerCase(), sym)
+    bound.push({ manifest, sym, scopes })
+  }
+  for (const { manifest, sym, scopes } of bound) {
+    const folders = visibleFolders(manifests, manifest, byTitle)
+    const symbols = new Map<string, Symbol[]>()
+    for (const { key, sym: s } of [...folders].flatMap((f) => symbolsOf.get(f) ?? []).sort(byOrder)) {
+      const list = symbols.get(key)
+      if (list === undefined) symbols.set(key, [s])
+      else list.push(s)
+    }
+    const ns = makeScope(project, "namespace", manifest.namespace, sym.span)
+    ns.libraryUri = manifest.uri
+    ns.children.push(...scopes)
+    for (const [key, syms] of symbols) ns.symbols.set(key, syms)
+    defineSymbol(project, sym)
     added = true
   }
   // `makeScope` and `defineSymbol` both changed the project's children/symbols — the lazy indices must go

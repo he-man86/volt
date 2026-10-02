@@ -19,7 +19,7 @@ is a visible gap rather than an invisible one. That is the whole reason for the 
 | `cross-object/` | one fixture reaching another object: GVLs, DUTs, signature names |
 | `semantics/` | whole-program behaviour that is not one construct — execution order, catalog wording |
 | `grammar/` | the front-end's grammar, rule by rule — one file per area of openspec `frontend-conformance` design.md §4 (`lexer.ts` is L1–L15, `literals.ts` N1–N25, S1–S13, A1–A2, `declarations.ts` D1–D19 and U23, `pragmas.ts` P1–P13) |
-| `names/` | the front-end's name rules, rule by rule — one file per area of openspec `frontend-conformance` design.md §4 3.x (`scopes.ts` is Y1–Y24: scopes, GVLs, namespace blocks, the bare-name search order, device instances; `inheritance.ts` H1–H10: EXTENDS of FBs, interfaces and structs, overrides) |
+| `names/` | the front-end's name rules, rule by rule — one file per area of openspec `frontend-conformance` design.md §4 3.x (`scopes.ts` is Y1–Y24: scopes, GVLs, namespace blocks, the bare-name search order, device instances; `inheritance.ts` H1–H10: EXTENDS of FBs, interfaces and structs, overrides; `enums.ts` EN1–EN6; `libraries.ts` LB1–LB9: namespaces, precedence, qualification) |
 | `batches/` | **not a topic.** See below. |
 
 ## `batches/` is the honest name for what is left

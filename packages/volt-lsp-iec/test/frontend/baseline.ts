@@ -38,21 +38,67 @@ export function ceilingsOf(name: string, ceilings: Ceilings = readCeilings()): R
   return section
 }
 
-/** Held against a measurement: what rose above its ceiling, what fell below it (stale), what it does not measure. */
+/**
+ * A NAMED CEILING EXCEPTION — a rise the ratchet accepts because it is ONE known wrong answer that no known-divergence
+ * list can hold (the replay agrees with the vendor's build, so a mark would trip) and whose root fix lives in a named task
+ * elsewhere. It does not raise the ceiling: the file never rises (`ceilingRises`), the check allows `by` above it while
+ * the fixture's finding is measured, and the exception goes STALE — failing — the moment the fixture stops producing it.
+ * Remove it in the change that lands `task`.
+ */
+export interface CeilingException {
+  /** The baseline's name (`resolution-dump`, `type-dump`). */
+  baseline: string
+  /** The ceiling key it lifts (`findings` for the finding count). */
+  measure: string
+  by: number
+  /** The fixture the excepted answer is measured on — some finding (or, without one, the measure) must still carry it. */
+  fixture: string
+  /** Where the root fix is tracked. */
+  task: string
+  why: string
+}
+
+const LIB_REFERENCE_FACTS =
+  "the bridge exports each library reference's qualified-only, publish and direct-reference facts into the `.library` manifest (volt-cli `CodesysObjectModel.Libraries.cs` `ToLibRef`)"
+const TWO_LIBRARIES_ERROR =
+  "bare `ERROR` (Util's, CAA Device Diagnosis') is Util's on CODESYS — DED's is no candidate, a qualified-access fact the manifest does not carry; the LSP ranks the two alike and binds DED's by the URI tiebreak, so `.WRONG_CONFIGURATION` is unresolved. Not a regression: the same input gave the same answer before 3.4, which made it measurable"
+
+export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
+  { baseline: "resolution-dump", measure: "findings", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
+  { baseline: "resolution-dump", measure: "fixtures codesys: member NONE", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
+  { baseline: "type-dump", measure: "fixtures codesys: member UNKNOWN", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
+]
+
+/** Per measure, how far `name`'s exceptions lift its ceiling. */
+export function allowanceOf(name: string, exceptions: readonly CeilingException[] = CEILING_EXCEPTIONS): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const e of exceptions) if (e.baseline === name) out[e.measure] = (out[e.measure] ?? 0) + e.by
+  return out
+}
+
+/** Held against a measurement: what rose above its ceiling (plus a named exception's allowance), what fell below it
+ *  (stale), what it does not measure. A `findings` exception whose fixture no finding names is stale. */
 export function ceilingReport(
   section: Record<string, number>,
   actual: Baseline,
+  allow: Record<string, number> = {},
+  exceptions: readonly CeilingException[] = [],
 ): { rises: string[]; stale: string[]; missing: string[] } {
   if ("findings" in actual.counts) throw new Error(`a count named "findings" shadows the finding count`)
   const rises: string[] = []
   const stale: string[] = []
   const missing: string[] = []
-  for (const [key, max] of Object.entries(section)) {
+  for (const [key, ceiling] of Object.entries(section)) {
+    const max = ceiling + (allow[key] ?? 0)
+    const shown = allow[key] === undefined ? `${max}` : `${ceiling} + ${allow[key]} excepted`
     const now = key === "findings" ? actual.findings.length : actual.counts[key]
     if (now === undefined) missing.push(key)
-    else if (now > max) rises.push(`${key}: ${max} → ${now}`)
-    else if (now < max) stale.push(`${key}: ${max} → ${now}`)
+    else if (now > max) rises.push(`${key}: ${shown} → ${now}`)
+    else if (now < max) stale.push(`${key}: ${shown} → ${now}`)
   }
+  for (const e of exceptions)
+    if (e.measure === "findings" && !actual.findings.some((f) => f.includes(`/${e.fixture}/`)))
+      stale.push(`exception for ${e.fixture} (${e.measure}): no finding names it — remove it`)
   return { rises, stale, missing }
 }
 
@@ -73,7 +119,8 @@ export function checkBaseline(name: string, actual: Baseline): void {
   const path = join(DIR, `${name}.json`)
   const sorted: Baseline = { counts: sortKeys(actual.counts), findings: [...actual.findings].sort() }
   const ceilings = readCeilings()
-  const ceiling = ceilingReport(ceilingsOf(name, ceilings), sorted)
+  const allow = allowanceOf(name)
+  const ceiling = ceilingReport(ceilingsOf(name, ceilings), sorted, allow, CEILING_EXCEPTIONS.filter((e) => e.baseline === name))
   if (process.env.VOLT_WRITE_BASELINE === "1") {
     if (ceiling.rises.length > 0 || ceiling.missing.length > 0)
       throw new Error(
@@ -87,7 +134,7 @@ export function checkBaseline(name: string, actual: Baseline): void {
     writeFileSync(path, `${JSON.stringify(sorted, null, 2)}\n`)
     // the ratchet: every ceiling comes down to what was measured
     const lowered = Object.fromEntries(
-      Object.keys(ceilings[name]).map((k) => [k, k === "findings" ? sorted.findings.length : sorted.counts[k]]),
+      Object.keys(ceilings[name]).map((k) => [k, (k === "findings" ? sorted.findings.length : sorted.counts[k]) - (allow[k] ?? 0)]),
     )
     writeFileSync(CEILINGS_PATH, `${JSON.stringify({ ...ceilings, [name]: lowered }, null, 2)}\n`)
     return

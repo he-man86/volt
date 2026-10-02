@@ -2133,18 +2133,114 @@ conformance work; the cross-area edges are named on the tasks that have them.
       3764 → 3784). `bun run check` 15 passed, 0 failed; `bun run lint` exit 0; layering gate green. Rules GAP area 3 10,
       total 38. F diff (base 461b70fc4d, VOLT_GRAPHICAL=1): 135 aspects changed over 68 sources (corpus 63, fixture 5),
       aspects resolution and types only; 1337 aspects new — the 35 new fixtures (34 `enum_*`, 1 `sym_*`); 0 gone.
-- [ ] 3.4.1 Library precedence everywhere (LB3, LB5, LB6): `lookup`, `lookupMember`, `resolveBareEnumMember` and `findScopeByName`
+- [x] 3.4.1 Library precedence everywhere (LB3, LB5, LB6): `lookup`, `lookupMember`, `resolveBareEnumMember` and `findScopeByName`
       apply `pickForAsker`. Record lib_ns_same_name_two_libraries, lib_ns_own_library_first, lib_ns_type_name_two_libraries.
       Where: scope-nav, precedence, types/resolve. Acceptance: CA. Depends on: 3.3
-- [ ] 3.4.2 Visibility, qualification and the project-over-namespace rule (LB1, LB2, LB4, LB8, LB9): record
+      **Step 3.4 (3.4.1–3.4.3, 2026-10-02).** 22 `lib_ns_*` fixtures in `fixtures/names/libraries.ts`, rule by rule (LB1 a type
+      qualified by either library's namespace, a qualified-access library's type qualified, an INTERNAL POU qualified; LB2 a
+      dependency's element bare, by its own namespace, through the depending library's namespace, a qualified-access library's
+      element bare; LB3 a project FUNCTION before two libraries', a library FUNCTION's output typed in its own file stored to its
+      own and to another library's ERROR; LB4 a project PROGRAM / STRUCT named like a namespace; LB5 a type name three libraries
+      export, bare, with a member only one declares (each side); LB6 a FUNCTION two libraries export bare, an INTERNAL one bare,
+      a list name five libraries carry bare; LB8 a type and a FUNCTION through a namespace to its dependency's; LB9 a library
+      list's variable through namespace and list, a shared list name qualified), recorded in ONE batch per vendor: CODESYS +
+      TwinCAT build (22 each), CODESYS run 14 (each value as predicted). Three cells were re-asked after the first recording
+      confounded them (`s : CmpApp` — `S` is reserved; TIMERSWITCH's `no_assign`; LEAPYEARS is INTERNAL, now its own two cells).
+      Measured (CODESYS 2026-10-02): a library's own element first — `DED.ERROR` is DED's, not CAA Types' (a dependency of DED,
+      out 3), Util's `EERRORID : ERROR` is Util's (stored to a `DED.ERROR`: "Implicit conversion from one enumeration type (ERROR
+      (util …)) to another (ERROR (caa device diagnosis …))"); a project FUNCTION before two libraries' (out 7); `ISLIBRELEASED()`
+      (Util's, CommFB's) builds (out 1); bare `ERROR` is Util's (out 2), DED's `TIME_OUT` "is no component of 'ERROR'".
+      Code (test-first, `scope-nav.test.ts` "LB6: …", "LB3: …"): `lookup`/`lookupUnit` pick among one search step by the asker
+      (`projectLevelHit` → `pickForAsker`; for project source every library ranks alike, so the URI tiebreak — the canonical
+      order's own answer); a library namespace scope carries its manifest (`Scope.libraryUri`) and answers its own library before
+      a dependency's (`namespaceHit`, used by `lookupMember`); `findScopeByName(project, name, askerUri?)` and the two IMPLEMENTS
+      checks pass the asker; `resolveBareEnumMember` already ranked by `libraryRank` (3.3). Rules LB3, LB5, LB6 closed.
+- [x] 3.4.2 Visibility, qualification and the project-over-namespace rule (LB1, LB2, LB4, LB8, LB9): record
       lib_ns_direct_dependency_only, lib_ns_project_unit_shadows_namespace, lib_ns_transitive_qualification,
       lib_ns_library_gvl_member.
       Where: library-namespaces, scope-nav. Acceptance: CA. Depends on: 3.4.1
-- [ ] 3.4.3 Incremental library rebind (LB7): `bindLibraryNamespaces` re-runs on an incremental rebind; workspace-store drops its
+      **3.4.2.** Measured: `DED.CommFB.IO_SYSTEM_TYPE` builds (out 2), `Util.Standard.LEN('abcd')` runs 4 (LB8); a project PROGRAM
+      `BPLog` / STRUCT `CmpApp` is what the name means over the namespace (out 12, 6, both vendors; LB4); `Util.DAY_FLAGS.TUESDAY`,
+      `Util.CONSTANTS.GC_AUSIWEEKDAY[1]` (out 2, 3; LB9); CommFB's enum is "Unknown type" bare, as `CommFB.T` and as `DED.T`, and
+      DED's `DEVICE_STATE` bare (LB2). Code: a qualified type resolves in its namespace (`types/resolve` `namespaceOf`,
+      `resolveQualifiedType` — it dropped the qualifiers, so `Util.ERROR` was DED's), a namespace that does not hold the name as
+      materialized resolving it as the project holds it (130 pro2193 library references name a type their namespace's folder
+      does not hold — `(unresolved)/` interface libraries, published dependencies — and build); a qualifier that names nothing is
+      "Unknown type: 'NoSuchLib.T'" (`analysis/resolution` `unknownQualifiedTypeName`; `decl_type_unknown_qualified` closed on
+      CODESYS, `UNKNOWN_QUALIFIED_TYPE` TwinCAT only now — unit test "a qualified type whose qualifier names nothing"; the test
+      that called `Tc2_Standard.TON` "the library floor" was a narrowness the recording answers); the library namespaces bind in
+      two passes, so a namespace holds the namespace symbols of every library it sees, whatever the manifests' order (LB8 was
+      order-dependent); `infer/expr` types `Ns.Dep` as the dependency's namespace (static base). Corpus census for the rule
+      choices: namespace-qualified references in project files — 691 to the namespace's own element, 51 to a dependency's
+      (published: `L_IE1P.L_IE1P_SeverityLevel`), 4 to a dependency's namespace (`L_TT1P.L_MC4P.…`); 0 bare `L.v` with `L` a
+      list name two libraries carry; 0 bare project type names two libraries export. KNOWN DIVERGENCES (`CODESYS_LIBRARY_DIVERGENCES`
+      + `deferred.lsp`, each niche: accepted loss, 0 occurrences in the corpora — facts the manifest does not carry: which
+      references are the application's, which require qualified access, which dependencies a namespace publishes, which POUs are
+      INTERNAL): `lib_ns_transitive_bare`, `_transitive_namespace`, `_qualified_access_library_bare`,
+      `_type_name_two_libraries_other_member`, `_direct_dependency_only`, `_library_internal_function_bare`, `_qualified`,
+      `_library_gvl_shared_list_name_bare`; TwinCAT references none of these libraries (`TWINCAT_LIBRARY_DIVERGENCES`, 19 cells).
+      **OPEN for the gate (held by a named ceiling exception, review fixes under 3.4.3):** `lib_ns_type_name_two_libraries` builds on both sides of the replay and the LSP resolves it wrongly
+      (bare `ERROR` → DED's by the URI tiebreak; CODESYS: Util's, DED's no candidate) — the same qualified-access fact — so the
+      0.3/0.4 dumps carry one new finding (`.WRONG_CONFIGURATION -> NONE`: resolution findings 59 → 60, fixtures codesys member
+      NONE 16 → 17, member UNKNOWN 40 → 41) that no known-divergence list can hold (the replay agrees) and the ceilings refuse.
+      Root fix: the bridge exports each library reference's `qualified_only`, `publish` and direct-reference facts into the
+      `.library` manifest (volt-cli), which closes this and the eight divergences above.
+- [x] 3.4.3 Incremental library rebind (LB7): `bindLibraryNamespaces` re-runs on an incremental rebind; workspace-store drops its
       whole-rebuild workaround.
       Where: incremental, library-namespaces, server/workspace-store. Acceptance: the unit test `symbols/incremental.test.ts`
       "library rebind equals whole rebuild" exists and passes; LB7 is no longer GAP; F diff limited to the server's rebuild path.
       Depends on: 3.4.2
+      **3.4.3.** `relink` unbinds and rebinds the library namespaces when a library file, a top-level unit of a namespace's name, or
+      the manifests changed since the last relink (`incremental` `namespacesStale`, `library-namespaces` `unbindLibraryNamespaces` —
+      the aliases' spans kept); `buildSymbolTable` binds them through the same path; `workspace-store` `rebindKey` no longer
+      rebuilds the whole table for a file under `Library Manager/`. The unit test "library rebind equals whole rebuild" rebinds
+      library and project files at random, 150 operations, against a fresh build — tree, symbols and every unit's scope (it caught
+      an unbind that forgot the library scopes' spans). It closes LB4 on the replay's incremental path too (`BPLog.v` was NONE).
+      **Numbers (3.4).** `rate:fixtures` 4210 fixtures (+22): confirmed 2428 (+5), refused 1506 (+1), not-lowered 161 (+9),
+      lsp-gap 43 (+8 new, `decl_type_unknown_qualified` −1), diverges 4, unaskable 68; edges agree 2540 / disagree 0 / not-run
+      110. Ceilings (`fixtures.test.ts`): lsp-gap 36 → 43, not-lowered 152 → 161 (library elements the lowering has no body or
+      place for — the transpiler's). Rules GAP area 3 **10 → 2** (total 38 → 30; LB2–LB9 closed; `ceilings.json` "rules" pinned).
+      Agreement CODESYS 3854 → **3868**, TwinCAT 3784 → **3787** (floors not raised — the gate's). Dumps (clean worktree at
+      3c66511693 + this step): corpus member NONE 620 → 616, Library Manager member NONE 209 → 159, corpus member UNKNOWN 1343 →
+      1338, Library Manager member UNKNOWN 209 → 159; the one RISE is the OPEN cell above. F diff (base 9b840e5b7e, VOLT_GRAPHICAL=1):
+      208 aspects changed over 153 sources, resolution and types only (corpus Library Manager 180, corpus 28), no fixture
+      aspect and no corpus `diagnostics` changed; 834 new aspects (the 22 fixtures); 0 gone. Targeted runs green: `bun test src`
+      1726/0 before the concurrent `.pou` rename landed in the tree, the touched suites 207/0 after; `test/corpus` 19/0 (FP
+      oracle clean); the replay over all fixtures (`-t "recorded build|lsp-gap|diverge|table is total|ratchet|lib_ns_|…"`) 82/0
+      with the ceilings above; `rules.test` 9/0; `bun typecheck` clean; `bun run lint` exit 0.
+      **Review fixes (3.4).** (1) LB3 for a LIBRARY asker: `projectLevelHit` ranked by search step before the asker, so a
+      library body got the APPLICATION's element of its own name (project POU step 8 before its own step 10; lenze-mid's
+      `scProductionMode` is a project DUT and L_OEEA_Library's) while `resolveTypeExpr` answered the library's. A library
+      asker now ranks by library first, then by step (`precedence` `isLibraryAsker`; test "LB3: a library asker's own
+      library before the PROJECT's element …"; corpus Library Manager member NONE/UNKNOWN 159 → 157). (2)
+      `resolveQualifiedType`'s path for a namespace that misses the name answers only a LIBRARY's element (each of the 130
+      is one): `Util.AppEnum` is UNKNOWN, not the project's type (unrecorded; UNKNOWN reports nothing). (3) `enumDefault`
+      reads the declaration the type RESOLVED to (its scope's file), not the first of its bare name: `v : B.E` starts at
+      B's default. (4) The OPEN cell `lib_ns_type_name_two_libraries` is a named ceiling exception (`test/frontend/baseline.ts`
+      `CEILING_EXCEPTIONS`: +1 resolution findings, +1 fixtures codesys member NONE, +1 type-dump fixtures codesys member
+      UNKNOWN) that points at the bridge task. The ceilings file does not rise, and the exception goes stale when the
+      fixture stops producing the finding. The bridge export (qualified-only, publish and direct-reference facts in the
+      `.library` manifest) is deferred: `Walk` flattens the application's references and every dependency into one list,
+      and the manifest's `SYSTEM` is no proxy (DED is `SYSTEM true` in CodesysTestProject and `false` in pro2193). (5) A
+      skipped manifest whose units still materialize: niche: accepted loss (0 occurrences in the corpora), noted at
+      `unknownQualifiedTypeName`. (6) Rules LB2 now says plainly that it is recorded, not implemented (`gap: false` is
+      coverage).
+      **Gate 3.4 (2026-10-02).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte-identically (4210; confirmed
+      2428, refused 1506, not-lowered 161, lsp-gap 43, diverges 4, unaskable 68; edges agree 2540 / disagree 0 / not-run
+      110). First full run: 3 fail — the parse-census, fixed-point and fold-dump baselines were never rewritten for the 22
+      fixtures (COUNT moves only: files 8376 → 8420, known-divergence files, recorded run values 7843 → 7869; findings
+      unchanged, 0 / 0 / 53); rewritten with `VOLT_WRITE_BASELINE=1`, `ceilings.json` unchanged. Full run (`VOLT_REQUIRE_FULL=1`,
+      `VOLT_FIXTURES` unset, rustc cache sampled): **7242 pass / 34 skip / 205 todo / 0 fail** (7481 tests, 201 files,
+      249 s); agreement CODESYS **3868**, TwinCAT **3787** (floors raised 3854 → 3868, 3784 → 3787). `bun run check` 15
+      passed, 0 failed; `bun run lint` exit 0; `rules.test` 9/0 (GAP area 3 2, total 30).
+      The first commit attempt was blocked: the step was measured against the then-uncommitted push-without-header-check
+      5.Q `.pou` rename, which shared 17 of its files. **Re-gate on HEAD f7eb383f47 (5Qa committed, 2026-10-02):** the
+      3.4 diff holds no rename hunk (its `.pou` names are its own new tests); `bun typecheck` clean; `rate:fixtures`
+      reproduces the same counts (4210; confirmed 2428, refused 1506, not-lowered 161, lsp-gap 43, diverges 4, unaskable
+      68; edges 2540 / 0 / 110); full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7242 pass / 34 skip / 205 todo /
+      0 fail** (7481 tests, 201 files, 240 s), no baseline rewritten, `ceilings.json` only falls; agreement CODESYS
+      **3868**, TwinCAT **3787**; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0. Committed as
+      `feat(lsp): frontend-conformance 3.4 — …`.
 - [ ] 3.5 Members (M1–M6): access modifiers resolve first and are refused after. Record mem_reference_to_fb_member,
       mem_reference_to_fb_method, mem_pointer_deref_method, mem_private_member_resolves_then_refused,
       mem_protected_member_from_derived.

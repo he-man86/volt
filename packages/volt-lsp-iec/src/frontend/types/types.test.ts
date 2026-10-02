@@ -383,3 +383,29 @@ test("infer: a POU a namespace holds is no static base — `Ns.Func`, `Ns.FB.x` 
   expect(typed("Util.F_Void")).toBe(UNKNOWN.kind)
   expect(typed("Util.FB_T.x")).toBe(UNKNOWN.kind)
 })
+
+// `Ns.Dep.X` — through a library's namespace to the namespace of a library it depends on (rule LB8, frontend-conformance
+// 3.4.2: `DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO` builds and runs 2, `Util.Standard.LEN('abcd')` runs 4, CODESYS
+// 2026-10-02): the dependency's namespace is a static base, as the bare one is — its enum's member is that enum's value,
+// its FUNCTION's call that function's result
+test("infer: a dependency's namespace through a library's namespace is a static base (`DED.CommFB.E.m`, `Util.Standard.F()`)", () => {
+  const enumSrc = "TYPE IO_SYSTEM_TYPE :\n(\n\tPROFIBUS_DP := 1,\n\tPROFINET_IO := 2\n);\nEND_TYPE"
+  const lenSrc = "FUNCTION LEN : INT\nVAR_INPUT\n\tSTR : STRING(255);\nEND_VAR\nEND_FUNCTION"
+  const typed = (rhs: string): string => {
+    const src = `FUNCTION_BLOCK F\nVAR\n probe : INT;\nEND_VAR\nprobe := ${rhs};\nEND_FUNCTION_BLOCK`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([
+      { uri: "App/Library Manager/CommFB/IO_SYSTEM_TYPE.dut", source: enumSrc, parseResult: parseSource(enumSrc, { networkText: true }) },
+      { uri: "App/Library Manager/Standard/LEN.pou", source: lenSrc, parseResult: parseSource(lenSrc, { networkText: true }) },
+      { uri: "F.pou", parseResult: pr, source: src },
+    ], [
+      { uri: "App/Library Manager/CAA Device Diagnosis/CAA Device Diagnosis.library", folder: "CAA Device Diagnosis", namespace: "DED", library: "CAA Device Diagnosis", dependencies: ["CommFB"], materialization: 4 },
+      { uri: "App/Library Manager/CommFB/CommFB.library", folder: "CommFB", namespace: "CommFB", library: "CommFB", dependencies: [], materialization: 4 },
+      { uri: "App/Library Manager/Util/Util.library", folder: "Util", namespace: "Util", library: "Util", dependencies: ["Standard"], materialization: 4 },
+      { uri: "App/Library Manager/Standard/Standard.library", folder: "Standard", namespace: "Standard", library: "Standard", dependencies: [], materialization: 4 },
+    ])
+    return renderType(inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "F")!, project))
+  }
+  expect(typed("DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO")).toBe("IO_SYSTEM_TYPE")
+  expect(typed("Util.Standard.LEN('abcd')")).toBe("INT")
+})

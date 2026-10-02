@@ -6,7 +6,7 @@
 import { expect, test } from "bun:test"
 import { bodyStatements, parseSource } from "../syntax/index.js"
 import type { Scope } from "./model.js"
-import { externalGlobal, findScopeByName, lookup, lookupUnit, resolveGvlMember, scopeForUnit } from "./index.js"
+import { externalGlobal, findChildScope, findScopeByName, lookup, lookupMember, lookupUnit, resolveGvlMember, scopeForUnit } from "./index.js"
 import { bindFile, buildSymbolTable, relink, unbindFile } from "./incremental.js"
 
 const file = (uri: string, source: string) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) })
@@ -146,4 +146,109 @@ test("lookup: an application global before a same-named device instance, whateve
     { kind: "device", name: "L_i750", uri: "z/Device/L_i750.device" },
   ])
   expect(lookup(project, "l_i750")?.symbol.kind).toBe("gvl_var")
+})
+
+// ─── LIBRARY PRECEDENCE EVERYWHERE (rules LB3, LB6; frontend-conformance 3.4.1) ─────────────────────────────────────
+// Two libraries export one name. Which one a name means depends on WHO asks (`precedence.ts`): a library's own element,
+// then one of its DEPENDENCIES, before anything else. `resolve` and `linkExtends` applied that; `lookup`, `lookupMember`
+// and `findScopeByName` took the first candidate in canonical (URI) order, so a library whose folder sorts later lost its
+// own name to another library's. Measured on the application's side: Util's FUNCTION DATETIMEFROMWEEK declares its
+// output `EERRORID : ERROR` in Util's file, and that ERROR is Util's — DED's (CAA Device Diagnosis) sorts first and
+// exports an ERROR too ("Implicit conversion from one enumeration type (ERROR (util …)) to another (ERROR (caa device
+// diagnosis …))", `lib_ns_library_member_own_type_other_enum`, CODESYS 2026-10-02).
+const LM = "App/Library Manager"
+const manifest = (folder: string, namespace: string, dependencies: string[] = []) => ({
+  uri: `${LM}/${folder}/${folder}.library`, folder, namespace, library: folder, dependencies, materialization: 4,
+})
+const TWO_ERRORS = () =>
+  buildSymbolTable(
+    [
+      file(`${LM}/CAA Device Diagnosis/ERROR.dut`, "TYPE ERROR :\n(\n\tNO_ERROR := 0,\n\tTIME_OUT := 1301\n);\nEND_TYPE"),
+      file(`${LM}/CAA Device Diagnosis/F_Lib.pou`, "FUNCTION F_Lib : INT\nF_Lib := 1;\nEND_FUNCTION"),
+      file(`${LM}/Util/ERROR.dut`, "TYPE ERROR :\n(\n\tNO_ERROR := 0,\n\tWRONG_CONFIGURATION := 2\n);\nEND_TYPE"),
+      file(`${LM}/Util/F_Lib.pou`, "FUNCTION F_Lib : INT\nF_Lib := 2;\nEND_FUNCTION"),
+      file(`${LM}/Util/DATETIMEFROMWEEK.pou`, "FUNCTION DATETIMEFROMWEEK : ULINT\nVAR_OUTPUT\n\tEERRORID : ERROR;\nEND_VAR\nEND_FUNCTION"),
+      file(`${LM}/Tools/USER.pou`, "FUNCTION USER : INT\nUSER := F_Lib();\nEND_FUNCTION"),
+      file("App/PLC_PRG.pou", "PROGRAM PLC_PRG\nEND_PROGRAM"),
+    ],
+    [manifest("CAA Device Diagnosis", "DED"), manifest("Util", "Util"), manifest("Tools", "Tools", ["Util"])],
+  )
+
+test("LB6: a bare name two libraries export is the asker's OWN library's, then its dependency's — never the first by URI", () => {
+  const project = TWO_ERRORS()
+  const own = (folder: string, name: string) => lookup(findScopeByName(project, name)!, "ERROR")?.symbol.uri
+  // written in Util's file: Util's ERROR, though DED's sorts first
+  expect(own("Util", "DATETIMEFROMWEEK")).toBe(`${LM}/Util/ERROR.dut`)
+  // written in a library that DEPENDS on Util: Util's F_Lib
+  expect(lookup(findScopeByName(project, "USER")!, "F_Lib")?.symbol.uri).toBe(`${LM}/Util/F_Lib.pou`)
+  // the application: every library is rank 2 — the URI tiebreak, as canonical order always gave
+  expect(lookup(findScopeByName(project, "PLC_PRG")!, "F_Lib")?.symbol.uri).toBe(`${LM}/CAA Device Diagnosis/F_Lib.pou`)
+})
+
+test("LB6: the answer does not depend on the order the files were bound", () => {
+  const a = TWO_ERRORS()
+  const files = ["Util/ERROR.dut", "CAA Device Diagnosis/ERROR.dut", "Util/DATETIMEFROMWEEK.pou"].map((f) => `${LM}/${f}`)
+  const sources = {
+    [files[0]!]: "TYPE ERROR :\n(\n\tNO_ERROR := 0\n);\nEND_TYPE",
+    [files[1]!]: "TYPE ERROR :\n(\n\tNO_ERROR := 0\n);\nEND_TYPE",
+    [files[2]!]: "FUNCTION DATETIMEFROMWEEK : ULINT\nEND_FUNCTION",
+  }
+  const b = buildSymbolTable(files.map((f) => file(f, sources[f]!)), [manifest("CAA Device Diagnosis", "DED"), manifest("Util", "Util")])
+  expect(lookup(findScopeByName(b, "DATETIMEFROMWEEK")!, "ERROR")?.symbol.uri).toBe(`${LM}/Util/ERROR.dut`)
+  expect(lookup(findScopeByName(a, "DATETIMEFROMWEEK")!, "ERROR")?.symbol.uri).toBe(`${LM}/Util/ERROR.dut`)
+})
+
+test("LB3: a name looked up in a library's NAMESPACE is that library's own element before a dependency's", () => {
+  // DED depends on CAA Types, and both export ERROR: `DED.ERROR` is DED's (`lib_ns_type_qualified_other_library` runs
+  // DED's TIME_OUT, 1301), though the namespace sees CAA Types' too
+  const project = buildSymbolTable(
+    [
+      file(`${LM}/CAA Types/ERROR.dut`, "TYPE ERROR :\n(\n\tNO_ERROR\n);\nEND_TYPE"),
+      file(`${LM}/Device Diagnosis/ERROR.dut`, "TYPE ERROR :\n(\n\tNO_ERROR := 0,\n\tTIME_OUT := 1301\n);\nEND_TYPE"),
+    ],
+    [manifest("CAA Types", "CAA"), manifest("Device Diagnosis", "DED", ["CAA Types"])],
+  )
+  const ded = findChildScope(project, "DED")!
+  expect(ded.kind).toBe("namespace")
+  expect(lookupMember(ded, "ERROR")?.uri).toBe(`${LM}/Device Diagnosis/ERROR.dut`)
+  expect(lookupMember(findChildScope(project, "CAA")!, "ERROR")?.uri).toBe(`${LM}/CAA Types/ERROR.dut`)
+})
+
+test("LB3: a library asker's own library before the PROJECT's element of the name — every search step, lookup and lookupUnit alike", () => {
+  // own library > dependency > project > other: the application's F_Help (step 8) and its STRUCT T must not take the name from
+  // the library's own (step 10) when the library asks — `resolveTypeExpr` already answered so, `lookup`/`lookupUnit` did not
+  const project = buildSymbolTable(
+    [
+      file(`${LM}/Util/F_Help.pou`, "FUNCTION F_Help : INT\nF_Help := 2;\nEND_FUNCTION"),
+      file(`${LM}/Util/F_User.pou`, "FUNCTION F_User : INT\nF_User := F_Help();\nEND_FUNCTION"),
+      file(`${LM}/Util/T.dut`, "TYPE T :\nSTRUCT\n\ta : INT;\nEND_STRUCT\nEND_TYPE"),
+      file(`${LM}/Util/G.gvl`, "VAR_GLOBAL\n\tgShared : INT;\nEND_VAR"),
+      file("App/F_Help.pou", "FUNCTION F_Help : INT\nF_Help := 1;\nEND_FUNCTION"),
+      file("App/T.dut", "TYPE T :\nSTRUCT\n\tb : INT;\nEND_STRUCT\nEND_TYPE"),
+      file("App/GVL.gvl", "VAR_GLOBAL\n\tgShared : INT;\nEND_VAR"),
+      file("App/PLC_PRG.pou", "PROGRAM PLC_PRG\nEND_PROGRAM"),
+    ],
+    [manifest("Util", "Util")],
+  )
+  const user = findScopeByName(project, "F_User", `${LM}/Util/F_User.pou`)!
+  expect(lookup(user, "F_Help")?.symbol.uri).toBe(`${LM}/Util/F_Help.pou`)
+  expect(lookupUnit(user, "T")?.symbol.uri).toBe(`${LM}/Util/T.dut`)
+  expect(lookup(user, "gShared")?.symbol.uri).toBe(`${LM}/Util/G.gvl`)
+  // the application keeps the search order (rule Y23): its own POU and type, its own global
+  const prg = findScopeByName(project, "PLC_PRG")!
+  expect(lookup(prg, "F_Help")?.symbol.uri).toBe("App/F_Help.pou")
+  expect(lookupUnit(prg, "T")?.symbol.uri).toBe("App/T.dut")
+  expect(lookup(prg, "gShared")?.symbol.uri).toBe("App/GVL.gvl")
+})
+
+test("LB3: findScopeByName, given the asker, answers the asker's own library's scope of a name two libraries declare", () => {
+  const itf = "INTERFACE I_Thing\nMETHOD Go : BOOL\nEND_METHOD\nEND_INTERFACE"
+  const project = buildSymbolTable(
+    [file(`${LM}/A/I_Thing.itf`, itf), file(`${LM}/B/I_Thing.itf`, itf), file(`${LM}/B/FB_X.pou`, "FUNCTION_BLOCK FB_X IMPLEMENTS I_Thing\nEND_FUNCTION_BLOCK")],
+    [manifest("A", "A"), manifest("B", "B")],
+  )
+  expect(findScopeByName(project, "I_Thing", `${LM}/B/FB_X.pou`)?.defUri).toBe(`${LM}/B/I_Thing.itf`)
+  expect(findScopeByName(project, "I_Thing", `${LM}/A/Other.pou`)?.defUri).toBe(`${LM}/A/I_Thing.itf`)
+  // no asker: the first by URI, as before
+  expect(findScopeByName(project, "I_Thing")?.defUri).toBe(`${LM}/A/I_Thing.itf`)
 })

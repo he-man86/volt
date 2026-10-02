@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { basename, join } from "node:path"
-import { CEILINGS_PATH, ceilingReport, ceilingRises, readCeilings, type Baseline, type Ceilings } from "./baseline.js"
+import { allowanceOf, CEILING_EXCEPTIONS, CEILINGS_PATH, ceilingReport, ceilingRises, readCeilings, type Baseline, type Ceilings } from "./baseline.js"
 
 const DIR = join(import.meta.dir, "baselines")
 const at = (counts: Record<string, number>, findings: string[] = []): Baseline => ({ counts, findings })
@@ -30,6 +30,18 @@ describe("ceilings — a measure may only fall", () => {
     expect(ceilingReport({ "y NONE": 1 }, at({ "x NONE": 1 })).missing).toEqual(["y NONE"])
   })
 
+  test("a named exception lifts its measure by its allowance, and is stale once no finding names its fixture", () => {
+    const ex = [{ baseline: "b", measure: "findings", by: 1, fixture: "fx", task: "t", why: "w" }]
+    expect(ceilingReport({ findings: 1 }, at({}, ["a", "codesys fixture/fx/F.pou 1:1 .m -> NONE"]), allowanceOf("b", ex), ex)).toEqual({ rises: [], stale: [], missing: [] })
+    expect(ceilingReport({ findings: 1 }, at({}, ["a", "b", "c"]), allowanceOf("b", ex), ex).rises).toEqual(["findings: 1 + 1 excepted → 3"])
+    expect(ceilingReport({ findings: 1 }, at({}, ["a", "b"]), allowanceOf("b", ex), ex).stale).toEqual(["exception for fx (findings): no finding names it — remove it"])
+  })
+
+  test("every named exception points at a ceiling its baseline has", () => {
+    const ceilings = readCeilings()
+    expect(CEILING_EXCEPTIONS.filter((e) => ceilings[e.baseline]?.[e.measure] === undefined)).toEqual([])
+  })
+
   test("a count named 'findings' would shadow the finding count — refused", () => {
     expect(() => ceilingReport({}, at({ findings: 1 }))).toThrow(/findings/)
   })
@@ -46,7 +58,7 @@ describe("ceilings — a measure may only fall", () => {
     for (const [name, section] of Object.entries(ceilings)) {
       if (name === "rules") continue // rules.test.ts holds these to rules.ts and the conversion matrix
       const pinned = JSON.parse(readFileSync(join(DIR, `${name}.json`), "utf8")) as Baseline
-      const r = ceilingReport(section, pinned)
+      const r = ceilingReport(section, pinned, allowanceOf(name), CEILING_EXCEPTIONS.filter((e) => e.baseline === name))
       problems.push(...r.rises, ...r.stale, ...r.missing.map((k) => `${name}: no measure ${k}`))
     }
     expect(problems).toEqual([])

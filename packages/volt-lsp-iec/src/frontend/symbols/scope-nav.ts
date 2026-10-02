@@ -16,7 +16,7 @@
 import { spanContains, type Expr, type TopLevel } from "../syntax/index.js"
 import type { Scope, Symbol } from "./model.js"
 import { isLibrarySymbol, lookupLocal } from "./scope.js"
-import { libraryRank, pickForAsker, scopeUri } from "./precedence.js"
+import { isLibraryAsker, libraryRank, pickForAsker, scopeUri } from "./precedence.js"
 import { childIndex, generationOf, spanIndex } from "./cache.js"
 import { ancestry } from "./extends.js"
 
@@ -33,7 +33,7 @@ export interface LookupResult {
  * which uses `lookupLocal` directly). Without this, a qualified-only global leaks into the bare namespace
  * and can shadow a same-named GVL block (the lenze `Mach1` collision → 197 spurious unknown-member FPs).
  */
-function lookupInChain(scope: Scope, name: string): LookupResult | undefined {
+function lookupInChain(scope: Scope, name: string, askerUri: string | undefined): LookupResult | undefined {
   // an INTERFACE inherits from each base of its EXTENDS list (rule H4): the whole ancestry, nearest first
   if (scope.interfaceBases !== undefined) {
     for (const s of ancestry(scope)) {
@@ -46,7 +46,12 @@ function lookupInChain(scope: Scope, name: string): LookupResult | undefined {
   let s: Scope | undefined = scope
   while (s !== undefined && !seen.has(s)) {
     seen.add(s)
-    const hit = s.parent === undefined ? projectLevelHit(lookupLocal(s, name)) : lookupLocal(s, name).find(binds)
+    const hit =
+      s.parent === undefined
+        ? projectLevelHit(s, lookupLocal(s, name), askerUri)
+        : s.libraryUri !== undefined
+          ? namespaceHit(s, s.libraryUri, lookupLocal(s, name).filter(binds))
+          : lookupLocal(s, name).find(binds)
     if (hit !== undefined) return { symbol: hit, foundIn: s }
     s = s.baseScope
   }
@@ -73,18 +78,37 @@ function binds(sym: Symbol): boolean {
  * (`sym_global_before_pou_name_called`: a call of an INT), both vendors 2026-10-02 — the first hit by file order had
  * answered the FUNCTION wherever its file sorted first.
  */
-function projectLevelHit(hits: readonly Symbol[]): Symbol | undefined {
-  let best: Symbol | undefined
+function projectLevelHit(project: Scope, hits: readonly Symbol[], askerUri: string | undefined): Symbol | undefined {
+  let best: Symbol[] = []
   let bestStep = Infinity
-  for (const h of hits) {
-    if (h.qualifiedOnly === true) continue
+  // A LIBRARY asks by library first (rule LB3: own library > dependency > project > other), then by step: the steps above
+  // are the APPLICATION's search order. Stepping first handed a library body the application's F_Help (step 8) over its
+  // own (step 10), while `resolveTypeExpr`, which ranks every candidate, answered the library's own T for the same name.
+  const bound = hits.filter((h) => h.qualifiedOnly !== true)
+  const rankFloor = isLibraryAsker(askerUri)
+    ? Math.min(...bound.map((h) => libraryRank(project, h.uri, askerUri)))
+    : undefined
+  for (const h of bound) {
+    if (rankFloor !== undefined && libraryRank(project, h.uri, askerUri) !== rankFloor) continue
     const step = searchStep(h)
-    if (step < bestStep) {
-      best = h
-      bestStep = step
-    }
+    if (step < bestStep) [best, bestStep] = [[h], step]
+    else if (step === bestStep) best.push(h)
   }
-  return best
+  // AMONG ONE STEP, WHO IS ASKING (rules LB3, LB6, `precedence.ts`): a library's own element, then a dependency's, then the
+  // URI tiebreak — the canonical order's own answer for project source, where every library ranks alike. It took the first
+  // by URI for every asker, so a name written in a library whose folder sorts late meant another library's element:
+  // Util's `EERRORID : ERROR` is Util's ERROR, not CAA Device Diagnosis' (`lib_ns_library_member_own_type_other_enum`).
+  return pickForAsker(project, best, (h) => h.uri, askerUri)
+}
+
+/**
+ * A name in a library's NAMESPACE (`Ns.X`), which holds its library's elements and its dependencies' (`library-namespaces`):
+ * the library's own first, as a name written in that library would mean it (rule LB3) — `DED.ERROR` is CAA Device
+ * Diagnosis' ERROR, not that of CAA Types, a dependency of it whose folder sorts first (`lib_ns_type_qualified_other_library`
+ * runs DED's TIME_OUT, CODESYS 2026-10-02).
+ */
+function namespaceHit(ns: Scope, libraryUri: string, hits: readonly Symbol[]): Symbol | undefined {
+  return pickForAsker(rootOf(ns), hits, (h) => h.uri, libraryUri)
 }
 
 function searchStep(sym: Symbol): number {
@@ -98,11 +122,13 @@ function searchStep(sym: Symbol): number {
   return library ? 10 : 8
 }
 
-/** Walk the parent chain from `start` outward; each scope is checked with its EXTENDS base chain. */
+/** Walk the parent chain from `start` outward; each scope is checked with its EXTENDS base chain. The file `start` sits
+ *  in is who asks, where two libraries hold the name (`projectLevelHit`). */
 export function lookup(start: Scope, name: string): LookupResult | undefined {
+  const askerUri = scopeUri(start)
   let cur: Scope | undefined = start
   while (cur !== undefined) {
-    const hit = lookupInChain(cur, name)
+    const hit = lookupInChain(cur, name, askerUri)
     if (hit !== undefined) return hit
     cur = cur.parent
   }
@@ -121,20 +147,22 @@ const UNIT_SYMBOL_KINDS: ReadonlySet<string> = new Set(["function", "function_bl
  * candidates, the application's before a library's (steps 8, 10), then the canonical order.
  */
 export function lookupUnit(start: Scope, name: string): LookupResult | undefined {
+  const askerUri = scopeUri(start)
   for (let cur: Scope | undefined = start; cur !== undefined; cur = cur.parent) {
     const seen = new Set<Scope>()
     for (let s: Scope | undefined = cur; s !== undefined && !seen.has(s); s = s.baseScope) {
       seen.add(s)
-      const hit = projectLevelHit(lookupLocal(s, name).filter((h) => UNIT_SYMBOL_KINDS.has(h.kind)))
+      const hit = projectLevelHit(rootOf(s), lookupLocal(s, name).filter((h) => UNIT_SYMBOL_KINDS.has(h.kind)), askerUri)
       if (hit !== undefined) return { symbol: hit, foundIn: s }
     }
   }
   return undefined
 }
 
-/** A member name within `scope` + its EXTENDS base chain (does NOT walk outward to parents). */
-export function lookupMember(scope: Scope, name: string): Symbol | undefined {
-  return lookupInChain(scope, name)?.symbol
+/** A member name within `scope` + its EXTENDS base chain (does NOT walk outward to parents). On the project itself,
+ *  `askerUri` is who asks (`projectLevelHit`); a library namespace answers its own library first (`namespaceHit`). */
+export function lookupMember(scope: Scope, name: string, askerUri: string | undefined = scopeUri(scope)): Symbol | undefined {
+  return lookupInChain(scope, name, askerUri)?.symbol
 }
 
 /**
@@ -235,7 +263,11 @@ export function findChildScope(parent: Scope, name: string, askerUri?: string): 
  * largest FB (2026-10-01). Every mutation of the tree ends in `invalidate(project)`, which is what the index checks. A
  * scope that is not a project root has no generation of its own, so it is still walked.
  */
-export function findScopeByName(project: Scope, name: string): Scope | undefined {
+export function findScopeByName(project: Scope, name: string, askerUri?: string): Scope | undefined {
+  // several TOP-LEVEL scopes of the name — two libraries' `I_Thing` — are the asker's to choose between (rule LB3), as
+  // `findChildScope` chooses; without an asker, the first in pre-order as ever
+  if (askerUri !== undefined && project.parent === undefined && childScopesByName(project, name).length > 1)
+    return findChildScope(project, name, askerUri)
   if (project.parent === undefined) return scopesByName(project).get(name.toLowerCase())
   return walkForScope(project, name.toLowerCase())
 }
@@ -431,7 +463,8 @@ export type BareEnumMember = { kind: "member"; symbol: Symbol } | { kind: "ambig
  *     beside a referenced library's of its name is the project's (`enum_library_member_vs_project_enum`, EN6);
  *   - else a referenced library's member resolves bare when ONE enum declares it (Util's `SAWTOOTH_RISE`,
  *     `enum_library_bare`), and is only "Identifier not defined" when several do, of one library or of two.
- * Which libraries are referenced DIRECTLY (a transitive one's enum is "Unknown type" bare) is LB2's question, task 3.4.2.
+ * Which libraries are referenced DIRECTLY (a transitive one's enum is "Unknown type" bare) is LB2's question — a bridge fact the
+ * manifest does not carry (3.4.2, `lib_ns_transitive_bare`), so every referenced library's enums are candidates.
  */
 export function resolveBareEnumMember(asker: Scope, name: string): BareEnumMember | undefined {
   const project = rootOf(asker)

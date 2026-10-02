@@ -30,6 +30,7 @@ import {
   isLibrarySymbol,
   lookupLocal,
   scopeForUnit,
+  scopeUri,
   type Scope,
 } from "../../../frontend/symbols/index.js"
 import type { FunctionBlock } from "../../../frontend/syntax/index.js"
@@ -51,7 +52,7 @@ export function checkInterfaceImplementations(ctx: CheckContext, out: Diagnostic
     if (chain.slice(1).some((b) => isAbstractFb(ctx.project, b))) continue // unprovable → skip (see header)
     const provided = providedNames(chain)
     for (const ifaceName of implementsList) {
-      const ifaceScope = findScopeByName(ctx.project, ifaceName.text)
+      const ifaceScope = findScopeByName(ctx.project, ifaceName.text, scopeUri(fbScope))
       if (ifaceScope === undefined || ifaceScope.kind !== "interface") continue // typo → unresolved handles it
       if (hasUnresolvedBase(ifaceScope)) continue // a base interface nothing declares could declare anything
       for (const declaring of ancestry(ifaceScope))

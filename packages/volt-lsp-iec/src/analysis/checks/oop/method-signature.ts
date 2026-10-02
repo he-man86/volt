@@ -35,6 +35,7 @@ import {
   lookupUnit,
   type Scope,
   scopeForUnit,
+  scopeUri,
   type Symbol,
 } from "../../../frontend/symbols/index.js"
 import { renderTypeExpr, type Identifier, type InterfaceMethod, type Span, type Method, type Property, type TypeExpr, type VarSection } from "../../../frontend/syntax/index.js"
@@ -56,7 +57,7 @@ export function checkMethodSignatures(ctx: CheckContext, out: DiagnosticItem[]):
     // C0089 — vs each implemented interface's methods, its inherited ones included (rule H4)
     for (const ifaceName of unit.implements ?? []) {
       if (isLibraryName(ctx, ifaceName.text)) continue
-      const ifaceScope = findScopeByName(ctx.project, ifaceName.text)
+      const ifaceScope = findScopeByName(ctx.project, ifaceName.text, scopeUri(fbScope))
       if (ifaceScope === undefined || ifaceScope.kind !== "interface") continue
       for (const declaring of ancestry(ifaceScope))
         for (const im of ownMembers(declaring, "interface_method").values()) {

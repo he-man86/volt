@@ -3,7 +3,7 @@
  * variable of it starts. The enumerators' VALUES are folded by the caller (`EnumeratorValue`): lowering and the LSP
  * fold with different rules today (conformance 4.6.1 makes them one), and this rule must not pick one of them.
  */
-import { isLibrarySymbol, lookupUnit, type Scope, type Symbol } from "../symbols/index.js"
+import { isLibrarySymbol, lookupLocal, type Scope, type Symbol } from "../symbols/index.js"
 import type { EnumBody, Expr, TypeDecl } from "../syntax/index.js"
 import { elementaryType } from "./elementary.js"
 import { elementaryTypeRef, type ElementaryTypeRef, type Type } from "./type.js"
@@ -38,7 +38,10 @@ export function enumBase(body: EnumBody, sym: Symbol): ElementaryTypeRef | undef
  */
 export function enumDefault(project: Scope, t: Type, valueOf: EnumeratorValue): bigint | undefined {
   if (t.kind !== "enum" || t.name === "(implicit)") return undefined
-  const sym = lookupUnit(project, t.name)?.symbol
+  // THE DECLARATION THE TYPE RESOLVED TO, by its scope's file: a bare `lookupUnit` again lost who asked and which
+  // namespace — `v : B.E` took the first `E` by URI (another library's), whose default can differ
+  const uri = t.scope?.defUri
+  const sym = uri === undefined ? undefined : lookupLocal(project, t.name).find((s) => s.kind === "type" && s.uri === uri)
   const body = sym?.kind === "type" ? (sym.ast as TypeDecl).body : undefined
   return body?.kind === "enum" ? defaultOfValues(body.values, body.init, valueOf) : undefined
 }
