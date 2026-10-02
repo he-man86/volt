@@ -246,13 +246,34 @@ Replaces the parked 5.1–5.3 and their three open decisions. Owner decisions (2
   only for the broken-text shapes, and each one is listed.
 
 ### 5.A Evidence (running 2026-10-02: the vendor kind-source investigation)
-- [ ] 5.A.1 Per vendor, every item type created on a fixture copy (each DUT subtype incl. enum with base type and
+- [x] 5.A.1 Per vendor, every item type created on a fixture copy (each DUT subtype incl. enum with base type and
       attributes; alias of each shape — elementary, STRING(n), ARRAY, POINTER TO, REFERENCE TO, subrange; union; struct;
       struct EXTENDS; CODESYS text-list enum; PRG/FB/FUN; interface; GVL) plus each with BROKEN text (unclosed `(*`,
       `TYPE X : END_TYPE`, missing END_TYPE, empty). A full dump of every exposed fact per item; the table
       "item × source → correct / wrong / lags / unavailable" in DIALECT.md; whether each source follows an in-place
       subtype change without a reload. Library DUTs: does `LibSignature.Flags` carry the subtype.
-- [ ] 5.A.2 Decision recorded per vendor in design.md: which source (1)/(2)/(3) applies, and whether 5.C is needed at all.
+      Evidence: f09722f327 (DIALECT C2g/C2h/C2i, C2f corrected; design.md "Vendor evidence (2026-10-02)";
+      probe-kind-source.py + probe-tc-kind-source.ps1 with their logs).
+- [x] 5.A.2 Decided (owner, 2026-10-02):
+      - **CODESYS:** source (2) — the precompile signature (`Type`+`Structure` / `+Union` / `Alias`, `VarGlobal`+`Enum`),
+        current without a build, no text read. The object/class/icon carry nothing (one `DUTObject`); the text-list enum
+        has its own class. `HasErrors` is NOT "no answer" (a duplicate member still answers `Enum`); "no answer" =
+        signature `None`. `TYPE X : END_TYPE` is CODESYS's own `Alias`. `.dut` only where the signature is `None`.
+      - **Library DUTs:** `LibSignature.Flags` (1278 struct, 51 union, 94 alias, 550 enum; none without a flag).
+      - **TwinCAT:** no text-free source is always right (tree code lags and re-derives from text on reload; files, XML,
+        icon carry nothing; LanguageModel empty; the caption is a UI string and cannot tell alias from nothing). Owner
+        chose the **total classifier (5.C)** in the TwinCAT driver, PROVEN against CODESYS's signature on the same texts
+        (TwinCAT runs the same compiler core): 5.C.3's oracle is the CODESYS precompile signature. Not chosen: the
+        Solution Explorer caption; an in-proc VS package.
+      - **POU kind:** CODESYS from the object/signature (5.D); TwinCAT from its tree code (the vendor's answer, C2f).
+
+### 5.H TwinCAT crash on a broken POU (C2i — found by 5.A, must be fixed before 5.G)
+- [ ] 5.H.1 After a solution load, touching the tree item of a TwinCAT POU whose text declares nothing (`Child(i)` /
+      `LookupChild`) kills TcXaeShell (RPC 0x800706BE, access violation in `TwinCAT System Manager.dll`; reproduced 4×).
+      Volt's pull walk would do exactly that. Measure a walk that never touches such an item's tree object (e.g. names and
+      kinds from the parent's export / the project file, then a guarded per-item read), red test on a double that
+      throws like the vendor, live repro on a fixture copy (`-Instance push5`) proving the walk survives and names the item.
+      If no safe walk exists, the item is refused by name in `refs` (an intentional fallback, counted) — never a crash.
 
 ### 5.B Contract (both vendors, red first)
 - [ ] 5.B.1 `IIdeDriver` reports kind plus an optional DUT subtype (`null` = no vendor answer). `Materializer.FullWireName`
