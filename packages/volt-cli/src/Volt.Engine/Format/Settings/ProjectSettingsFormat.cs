@@ -13,8 +13,9 @@ namespace Volt.Engine.Format.Settings;
 ///
 /// <para>Warning ids are the BARE INTEGERS both vendors store (CODESYS <c>GetDisabledWarningIds</c> → 371, TwinCAT
 /// <c>DisabledWarningIds</c> → <c>"33,371"</c>). <see cref="MaxCompilerWarnings"/> and <see cref="ProjectDefines"/>
-/// are the vendor's own spelling, rendered as given: whether the same value is spelled — and means — the same on both
-/// vendors is UNMEASURED (D38).</para></summary>
+/// are the vendor's own spelling, rendered as given — and measured live to agree (D38, openspec
+/// <c>twincat-project-settings</c> 3.4): both vendors store the defines as typed, and the same warning limit drops the
+/// same warnings on both.</para></summary>
 public sealed record ProjectSettings(
     IReadOnlyCollection<int>? DisabledWarnings,
     IReadOnlyCollection<int>? WarningsAsErrors,

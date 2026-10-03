@@ -144,16 +144,61 @@
       the tree belong to another change and are not part of this commit).
 
 ## 3. Verify
-- [ ] 3.1 Live on TwinCAT: disable a warning in XAE, pull, the descriptor shows it; the LSP stops reporting that warning
+- [x] 3.1 Live on TwinCAT: disable a warning in XAE, pull, the descriptor shows it; the LSP stops reporting that warning
       on the pulled project (one LSP test on the pulled text).
-- [ ] 3.2 Full C# suites, `bun test test/unit` (volt-cli), `bun run check`.
-- [ ] 3.3 (gate 1, review finding 2) Live on TwinCAT: disable C0033 only, Save All, re-enable it, Save All (the file
+      **Done 2026-10-03** (own TcXaeShell 15.0 / 4024.74, pid 42444, Project14 copy, `ide.ps1 up -Instance e2e-verify`,
+      bridge built from the worktree of `62bcb30d65`). `probe-tc-project-settings-gui.ps1 -Warnings C0371 -State Disabled`
+      → saved `.plcproj` `DisabledWarningIds` = `371` (verified by the probe's read-back); `volt init --vendor twincat` on
+      the served project pulled 252 files, and `TwinCAT Project14/src/Project Settings.projectsettings` is
+      `Disabled warnings:     C0371\nReplace constants:     off\nMax compiler warnings: 100\n` — the first line
+      byte-identical to pro2193's CODESYS file. LSP test on those exact bytes: volt-lsp-iec `src/analysis/config.test.ts`
+      "the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own-access warning" (TwinCAT dialect: the
+      trigger reports `inout-own-access` with no project settings, nothing with them); `config.test.ts` 17/17.
+      Probe defect found and fixed: the GUI probe assumed Solution Explorer's `PLC` node expanded — on a fresh `ide.ps1`
+      copy it is collapsed, `ByName` found nothing and PowerShell threw "Cannot index into a null array"; it now expands
+      `PLC` and the PLC project first.
+- [x] 3.2 Full C# suites, `bun test test/unit` (volt-cli), `bun run check`.
+      **Done 2026-10-03** (worktree of `62bcb30d65` + this change + push-keeps-what-landed 3.1): C# Engine 1916 pass /
+      1 skip, Cli 251, Contracts 31, Connector 115, Ide.Twincat 329, Ide.Codesys 226 (net48), Relay 46, Repo.Gates 94 —
+      3008 pass, 0 fail; volt-cli `bun test test/unit` 4/4; `bun run check` 15 passed, 0 failed (after `bun run build`).
+      e2e on own IDEs: CODESYS 248 pass / 24 skip / 0 fail (272 tests, 280 s); TwinCAT 248 pass / 24 skip / 0 fail (272 tests, 1041 s, Project14 — Project13's XAE had exited).
+- [x] 3.3 (gate 1, review finding 2) Live on TwinCAT: disable C0033 only, Save All, re-enable it, Save All (the file
       keeps `"33"`, D37); WITHOUT reopening, plant a C0033 trigger and build. Whether the build reports it decides
       whether the file or the page is the oracle for the open session; record it in D37 (and whether the defect
       reproduces). Until then the descriptor reads the file and D37 names the gap.
-- [ ] 3.4 (gate 1, review finding 1 + 6) Measure before 2.3 asserts byte identity on these rows: (a) what TwinCAT's
+      **Done 2026-10-03 — the PAGE is the open session's oracle; the defect REPRODUCED** (same XAE, recorded in D37).
+      C0033 has no warning trigger on this target: the pointer conversion the LSP maps to C0033 (`w := p` with
+      `p : POINTER TO INT; w : WORD`) is a TwinCAT ERROR here ("Cannot convert type 'POINTER TO INT' to type 'WORD'"),
+      reported identically with C0033 disabled or enabled — so C0371 stood in, with a trigger measured to fire (FB
+      `VltPrb_c33`: VAR_IN_OUT `io`, METHOD `M` writing it, called from PLC_PRG; "Access to VAR_IN_OUT 'io' declared
+      in 'VltPrb_c33' from external context 'M'."). Sequence (each build after an edit of the trigger POU, so it
+      recompiles): C0371 disabled on page + file (`33,371`) → no warning; C0033 re-enabled → file `371` → no warning;
+      C0371 re-enabled (the LAST id) + Save All → the probe failed by name: the file KEEPS `371` (defect reproduced, a
+      second time on 4024.74) → the build, without reopening, REPORTS the C0371 warning (twice). Control: with another
+      id disabled and saved, the file drops `371` and the same build reports the warning. So between that unpersisted
+      clear and the next warning save or reload, the descriptor (read from the file) says C0371 disabled while the open
+      IDE's build gives it; the warning list has no other source (D37), so the descriptor keeps reading the file and D37
+      names the window. Seen once more as a side effect: a later ConsumeXml + build saved the project and the file then
+      matched the page (no disabled id).
+- [x] 3.4 (gate 1, review finding 1 + 6) Measure before 2.3 asserts byte identity on these rows: (a) what TwinCAT's
       `MaxWarnings=0` means (the page offers only `<no limit>`) against CODESYS's `MaxCompilerWarnings` for the same
       number; (b) a CODESYS project with two defines — the `Project defines` line CODESYS writes, against TwinCAT's
       stored `A,B`; (c) (gate 2) Replace constants: a CODESYS project with it `off` (no corpus has one) against the
       TwinCAT project's `false`, or a TwinCAT `true` against CODESYS's `on`. Until measured, 2.3's parity test covers
       Disabled warnings only and names the other three rows as unmeasured.
+      **Done 2026-10-03 — all three agree byte for byte; the parity facts now assert four rows** (`scripts/compile-options.log`,
+      D38). CODESYS SP21 (own instance `e2e-verify-opts`, CodesysTestProject copy, `ide.ps1 -RunScript
+      probe-codesys-compile-options.py`, which sets the descriptor's own `CompileOptions` object — Boolean / Int32 /
+      String, all settable; raw `codesys-compile-options.log`) and TwinCAT (pid 42444, `probe-tc-compile-options.ps1`,
+      ConsumeXml), each bridge then serving the descriptor and building an FB with three VAR_IN_OUT accesses.
+      (a) the limit means the same: CODESYS 100 → 6 warnings (each access listed twice), 3 → 3 + "More than 3 warnings
+      occured: Skipping all further warning messages", 1 → 1 + that line, **0 → 0** + that line; TwinCAT 100 → 3, 2 → 2,
+      1 → 1, **0 → 0** (no summary line) — TwinCAT's page calls 0 `<no limit>`, its build shows none; both descriptors
+      `Max compiler warnings: N` for each N. (b) both store the defines AS TYPED: `A,B` → `Project defines:       A,B`
+      and `A, B` → `Project defines:       A, B` from both bridges. (c) `ReplaceConstants` false → `Replace constants:
+      off`, true → `on`, from both. Tests: `ProjectSettingsFacts.SharedRows` = Disabled warnings + `Replace constants:
+      off` + `Max compiler warnings: 100` (both doubles), `UnmeasuredRows` deleted; `DefinesRow` `Project defines:
+      A, B` asserted by `ProjectSettingsParityTests.The_defines_row_matches_the_cross_driver_fact` (CODESYS double)
+      and `TcProjectSettingsTests.The_defines_row_matches_the_cross_driver_fact` over a MEASURED NestedProject
+      (`fixtures/tc-project-settings/nested-project-defines.xml`, ProduceXml after the probe set `A, B`). Ide.Twincat
+      ProjectSettings 12/12, Ide.Codesys 8/8.

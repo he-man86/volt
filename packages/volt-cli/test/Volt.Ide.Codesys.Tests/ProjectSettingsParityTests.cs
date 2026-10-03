@@ -35,7 +35,7 @@ public class ProjectSettingsParityTests
         public bool UTF8Encoding => false;
         public int MaxCompilerWarnings => 100;
         public bool EnableBreakpointLogging => true;
-        public string ProjectDefines => "";
+        public string ProjectDefines { get; set; } = "";
     }
 
     [Fact]
@@ -47,6 +47,15 @@ public class ProjectSettingsParityTests
         var text = ProjectSettingsFormat.Write(settings);
 
         Assert.Equal(ProjectSettingsFacts.SharedRows, ProjectSettingsFacts.SharedRowsOf(text));
+    }
+
+    /// <summary>Task 3.4: the defines row, as the CODESYS bridge served it live for <c>ProjectDefines = "A, B"</c>.</summary>
+    [Fact]
+    public void The_defines_row_matches_the_cross_driver_fact()
+    {
+        var text = ProjectSettingsFormat.Write(CodesysObjectModel.ReadProjectSettings(
+            new FakeWarnings(null), new FakeOptions { ProjectDefines = ProjectSettingsFacts.Defines }));
+        Assert.Contains(ProjectSettingsFacts.DefinesRow + "\n", text);
     }
 
     /// <summary>The whole file, against the pro2193 corpus bytes the CODESYS bridge wrote live on SP21: moving the

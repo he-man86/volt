@@ -163,7 +163,7 @@ answers them, LIVE, and as the `.plcproj` stores them, SAVED) with `probe-tc-pro
 warnings to `-State Disabled|Enabled` on the Compiler Warnings page — the warning list has no automation surface, so
 a real click is the only writer; that click is a blind toggle, so the script reads the saved `.plcproj` before,
 refuses a warning already in the requested state, and fails by name when the file read back after Save All
-disagrees; the checkbox offset is measured at 125% scaling only; `tc-project-settings.log`, DIALECT D37–D39, openspec `twincat-project-settings` 1.1).
+disagrees; the checkbox offset is measured at 125% scaling only, and since 3.3 it expands Solution Explorer's `PLC` node first; `tc-project-settings.log`, DIALECT D37–D39, openspec `twincat-project-settings` 1.1). `probe-codesys-compile-options.py` (a `-RunScript` for `ide.ps1 up -Vendor codesys`: sets CODESYS's `CompileOptions` — the object the descriptor reads — from a request file) and `probe-tc-compile-options.ps1` (the same three options on TwinCAT, by ConsumeXml): the limit, defines and Replace-constants rows measured to agree byte for byte (`codesys-compile-options.log`, `compile-options.log`, DIALECT D38, openspec `twincat-project-settings` 3.4).
 
 ## Running one
 

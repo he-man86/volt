@@ -128,3 +128,19 @@ test("the two slug→Cnnnn tables agree on every configurable code", () => {
 	}
 	expect(disagree).toEqual([])
 })
+
+// openspec `twincat-project-settings` 3.1 — the descriptor a LIVE TwinCAT bridge materialized after C0371 was unchecked
+// on the Compiler Warnings page and saved (TcXaeShell 15.0 / TwinCAT 3.1.4024.74, a Project14 fixture copy, pulled by
+// `volt init` 2026-10-03), byte for byte. The LSP is vendor-blind: the TwinCAT file turns the C0371 check off exactly
+// as pro2193's CODESYS file does.
+test("the pulled TwinCAT descriptor with C0371 disabled stops the VAR_IN_OUT own-access warning", () => {
+  const pulled = "Disabled warnings:     C0371\nReplace constants:     off\nMax compiler warnings: 100\n"
+  const src = `FUNCTION_BLOCK FB_Test\nVAR_IN_OUT\n io : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nMETHOD METH : BOOL\nVAR\n x : INT;\nEND_VAR\nio := x;\nEND_METHOD`
+  const parseResult = parseSource(src, { networkText: true }, "twincat")
+  const project = build.buildSymbolTable([{ uri: "FB_Test.pou", parseResult, source: src }], undefined, "twincat")
+  const run = (diagnostics: ReturnType<typeof projectDiagnosticsFrom>) =>
+    computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "twincat", diagnostics }) }).map((d) => d.code)
+  expect(run({}), "the trigger must fire without the project's settings").toEqual(["inout-own-access"])
+  expect(projectDiagnosticsFrom(pulled)).toEqual({ "inout-own-access": "off" })
+  expect(run(projectDiagnosticsFrom(pulled))).toEqual([])
+})

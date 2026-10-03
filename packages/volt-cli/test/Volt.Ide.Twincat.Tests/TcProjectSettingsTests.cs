@@ -27,6 +27,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <item><c>nested-project.xml</c> — <c>ProduceXml()</c> of the PLC project's <c>NestedProject</c> (type 600),
 /// identical before and after the clicks: <c>CompilerSettings</c> answers ReplaceConstants=false, MaxWarnings=100,
 /// empty CompilerDefines (D38).</item>
+/// <item><c>nested-project-defines.xml</c> — the same <c>ProduceXml()</c> after <c>probe-tc-compile-options.ps1</c> set ReplaceConstants=true and CompilerDefines=<c>A, B</c> (task 3.4).</item>
 /// <item><c>plc-project-item.xml</c> — <c>ProduceXml()</c> of the PLC project item (<c>TIPC^Untitled2</c>, type 56),
 /// whose <c>PlcProjectDef/ProjectPath</c> names the <c>.plcproj</c>. The one edit: the measured path (a temp dir under
 /// the user's profile) is replaced by <c>%PROJECT_PATH%</c>, which the driver test fills with a copy it owns.</item>
@@ -170,6 +171,18 @@ public class TcProjectSettingsTests
             Assert.DoesNotContain(label + ":", text);
     }
 
+    /// <summary>Task 3.4: the defines row from the MEASURED <c>NestedProject</c> of a project whose defines were set to
+    /// <c>A, B</c> (<c>nested-project-defines.xml</c>, TcXaeShell 15.0 / 4024.74, 2026-10-03,
+    /// <c>probe-tc-compile-options.ps1</c>) — the line the CODESYS bridge served for the same string.</summary>
+    [Fact]
+    public void The_defines_row_matches_the_cross_driver_fact()
+    {
+        using var project = new SettingsProject("untouched.plcproj.xml", "nested-project-defines.xml");
+        var driver = project.Driver();
+        var item = driver.WalkItems().Items.Single(i => i.KindCode == ItemKind.PlcProjectSettings);
+        Assert.Contains(ProjectSettingsFacts.DefinesRow + "\n", driver.ReadManifest(item.Item, ItemKind.Kinds.ProjectSettings));
+    }
+
     // ── doubles ─────────────────────────────────────────────────────────
 
     /// <summary>A TwinCAT window with one PLC project whose <c>.plcproj</c> is a temp copy of a measured fixture.
@@ -179,8 +192,11 @@ public class TcProjectSettingsTests
         private readonly string _dir = Path.Combine(Path.GetTempPath(), "volt-tc-settings-" + Guid.NewGuid().ToString("N"));
         private readonly string _plcproj;
 
-        public SettingsProject(string fixture)
+        private readonly string _nested;
+
+        public SettingsProject(string fixture, string nested = "nested-project.xml")
         {
+            _nested = nested;
             Directory.CreateDirectory(_dir);
             _plcproj = Path.Combine(_dir, "Untitled2.plcproj");
             Save(fixture);
@@ -191,7 +207,7 @@ public class TcProjectSettingsTests
 
         public BeckhoffDriver Driver()
         {
-            var root = new Node("Untitled2 Project", ItemKind.PlcFolder, Fixture("nested-project.xml"),
+            var root = new Node("Untitled2 Project", ItemKind.PlcFolder, Fixture(_nested),
                 new Node("PLC_PRG", ItemKind.PlcPou, ""));
             var plc = new Plc(root, Fixture("plc-project-item.xml").Replace("%PROJECT_PATH%", _plcproj));
             var window = new TcAttachTests.Dte(new TcAttachTests.Project("TwinCAT Project14", new SysManager(new Tipc(plc))));

@@ -118,7 +118,16 @@ foreach ($w in $Warnings) {
 }
 
 # 1. Open the PLC project's property document: select "<plc> Project" in Solution Explorer, Project.Properties.
-$node = (ByName "$PlcProject Project")[0]
+#    The node exists in UIA only once its parents are EXPANDED: a freshly opened solution shows "PLC" collapsed (measured
+#    2026-10-03 on an `ide.ps1 up` copy - ByName found nothing, and indexing the empty answer threw "Cannot index into a
+#    null array"). Expand "PLC", then the PLC project, in Solution Explorer's tree.
+foreach ($parent in @("PLC", $PlcProject)) {
+    $treeItem = ByName $parent | Where-Object { $_.Current.ControlType -eq [System.Windows.Automation.ControlType]::TreeItem } | Select-Object -First 1
+    if ($null -eq $treeItem) { throw "no '$parent' tree item in Solution Explorer" }
+    $ec = $treeItem.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($ec.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) { $ec.Expand(); Start-Sleep 1 }
+}
+$node = ByName "$PlcProject Project" | Select-Object -First 1
 if ($null -eq $node) { throw "no '$PlcProject Project' node in Solution Explorer" }
 $node.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
 $dte.ExecuteCommand("Project.Properties"); Start-Sleep 3

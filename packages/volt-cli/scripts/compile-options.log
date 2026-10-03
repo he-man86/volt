@@ -1,0 +1,21 @@
+openspec twincat-project-settings 3.4 — the compile options no corpus holds, set live on both vendors and read back
+through each bridge (descriptor + build). 2026-10-03.
+CODESYS SP21 (CodesysTestProject copy, ide.ps1 -Instance e2e-verify-opts -RunScript probe-codesys-compile-options.py;
+raw: codesys-compile-options.log). TwinCAT: TcXaeShell 15.0 / 3.1.4024.74 (Project14 copy, instance e2e-verify,
+probe-tc-compile-options.ps1 = NestedProject.ConsumeXml).
+Trigger: FB VltPrb_mw with VAR_IN_OUT io and three methods writing it, called from PLC_PRG (C0371 x3; CODESYS lists
+each access twice, 6 warnings at the default limit; TwinCAT 3).
+
+setting                           CODESYS descriptor line            CODESYS build                 TwinCAT descriptor line            TwinCAT build
+MaxCompilerWarnings/MaxWarnings 100 Max compiler warnings: 100       6 warnings                    Max compiler warnings: 100         3 warnings
+                              3   Max compiler warnings: 3           3 + "More than 3 warnings…"   (2) Max compiler warnings: 2       2 warnings
+                              1   Max compiler warnings: 1           1 + "More than 1 warnings…"   Max compiler warnings: 1           1 warning
+                              0   Max compiler warnings: 0           0 + "More than 0 warnings…"   Max compiler warnings: 0           0 warnings
+ReplaceConstants false            Replace constants:     off                                       Replace constants:     off
+ReplaceConstants true             Replace constants:     on                                        Replace constants:     on
+defines "A,B"                     Project defines:       A,B                                       Project defines:       A,B
+defines "A, B"                    Project defines:       A, B                                      Project defines:       A, B
+
+CODESYS CompileOptions member types (logged): ReplaceConstants Boolean, MaxCompilerWarnings Int32, ProjectDefines String
+(all settable). Verdict: the same setting gives the same line on both vendors, and the same limit drops the same
+warnings (0 shows none on both; TwinCAT's page label "<no limit>" for 0 is not what its build does).
