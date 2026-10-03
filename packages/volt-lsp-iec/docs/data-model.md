@@ -5,7 +5,12 @@ structure. Definitions are lightly cleaned (doc-comments trimmed, shape preserve
 the build works to; the **Rebuild refinements** at the end list where the clean design intentionally changes
 these shapes.
 
-## syntax (tokens + AST)
+The first three sections are the front-end, `src/frontend/` (`architecture.md` "The front-end"): `frontend/syntax`,
+`frontend/symbols`, `frontend/types`, with `frontend/library` (the Volt library format: path layout, manifest,
+materialization) a leaf beside them. A consumer reaches each through its sub-layer's `index.ts` only (rule F2), so the
+shapes below are the ones those indexes export.
+
+## frontend/syntax (tokens + AST)
 
 ### Lexer
 
@@ -50,6 +55,7 @@ interface Token {
   keyword?: Keyword   // canonical keyword when kind==="keyword"
   text: string        // source text, original casing
   span: Span
+  malformed?: true    // a literal the vendor refuses whole (`3#…`, `INT#` with no body, `5.`): lexed as far as the vendor lexes
 }
 ```
 
@@ -174,7 +180,16 @@ type Expr =
 interface IdentExpr { kind: "ident_expr"; name: string; span: Span }
 
 type LiteralKind = "int" | "real" | "string" | "wstring" | "time" | "date" | "tod" | "datetime" | "typed" | "bool" | "address"
-interface Literal { kind: "literal"; literalKind: LiteralKind; text: string; span: Span }  // value NOT parsed
+interface DurationValue { kind: "duration"; ns: bigint }
+type LiteralValue = bigint | number | string | boolean | DurationValue | undefined   // undefined: malformed text
+interface Literal {
+  kind: "literal"; literalKind: LiteralKind; text: string
+  value: LiteralValue   // parsed by frontend/syntax/literal (ints, reals, bool, string body, duration in ns)
+  prefix?: string       // typed/address literals: the type/prefix as written (`INT`, `%IX`)
+  span: Span
+}
+// No `type` field, on purpose: an untyped literal takes its type from context. frontend/types/literal answers it
+// (`literalType`, `literalOwnType`, `literalCapacityType`, `literalCheckType`, `literalErrorType`).
 
 interface BinaryExpr { kind: "binary"; op: string; left: Expr; right: Expr; span: Span }  // op canonical upper/punct
 interface UnaryExpr  { kind: "unary"; op: string; operand: Expr; span: Span }
@@ -229,10 +244,15 @@ interface EmptyStatement  { kind: "empty"; span: Span }  // lone `;`
 
 ```ts
 interface ParseError { message: string; span: Span }
-interface ParseResult { units: TopLevel[]; errors: ParseError[] }
+interface ParseResult {
+  units: TopLevel[]; errors: ParseError[]
+  failedDeclarations: string[]   // lower-cased names a broken declaration tried to declare (silences their later uses)
+  tokens: readonly Token[]       // the stream the parse lexed — consumers never re-lex
+  dialect: Dialect
+}
 ```
 
-## symbols
+## frontend/symbols
 
 ```ts
 type SymbolKind =
@@ -267,7 +287,7 @@ interface Scope {
 interface LookupResult { symbol: Symbol; foundIn: Scope }
 ```
 
-## types
+## frontend/types
 
 ```ts
 // what a bare identifier names — the search order's answer (`types/names` `resolveBareName`, rule Y23)
@@ -276,12 +296,24 @@ type BareName =
   | { kind: "library-namespace"; symbol: Symbol } | { kind: "enum-member"; symbol: Symbol }
   | { kind: "builtin"; builtin: "system-operator" | "conversion" | "implicit" | "operator" | "type" } | { kind: "none" }
 
-type ResolvedKind = "elementary" | "enum" | "struct" | "function_block" | "alias" | "unknown"
-interface ResolvedType { kind: ResolvedKind; aliasTarget?: TypeExpr; scope?: Scope }
-
-interface InferredType {          // lean, name-based (see Rebuild refinements)
-  kind: ResolvedKind; name?: string; scope?: Scope; typeExpr?: TypeExpr
+// the ONE type model (frontend/types/type) — resolve (TypeExpr → Type) and infer (Expr → Type) both answer it
+type Type =
+  | ElementaryTypeRef | EnumType | StructType | FunctionBlockType | InterfaceType
+  | ArrayTypeInfo | PointerTypeInfo | ReferenceTypeInfo | StaticType | UnknownType
+interface ElementaryTypeRef {
+  kind: "elementary"; name: string; elem: ElementaryType     // the facts, embedded
+  length?: number; unfoldedLength?: true; lengthText?: string // STRING(n) / WSTRING(n)
+  subrange?: { lower: bigint; upper: bigint }                 // INT(lo..hi)
 }
+interface EnumType          { kind: "enum"; name: string; scope?: Scope; base?: ElementaryTypeRef }
+interface StructType        { kind: "struct"; name: string; scope?: Scope; union?: true }
+interface FunctionBlockType { kind: "function_block"; name: string; scope?: Scope; byName?: true }
+interface InterfaceType     { kind: "interface"; name: string; scope?: Scope }
+interface ArrayTypeInfo     { kind: "array"; element: Type; dims: readonly ArrayDim[]; bounds?: readonly { lower: bigint; upper: bigint }[] }
+interface PointerTypeInfo   { kind: "pointer"; target: Type }
+interface ReferenceTypeInfo { kind: "reference"; target: Type }
+interface StaticType        { kind: "static"; denotes: "gvl" | "namespace" | "struct" | "interface" | "function" | "method"; name: string; scope?: Scope }
+interface UnknownType       { kind: "unknown" }   // UNKNOWN — the total, conservative answer: a check skips it
 
 type TypeFamily = "bool" | "int" | "bitstring" | "real" | "time" | "date" | "string"
 interface ElementaryType {        // the checkable-facts table (already built)
@@ -407,7 +439,7 @@ interface ExpectedRecording { recorded: { at: string; bridgeVersion?: string } |
 
 The deltas the clean design makes to the shapes above (facts-first, structured-not-textual):
 
-- **`InferredType` → a rich discriminated `Type`.** Today it is name-based (`kind` + a canonical `name`
+- **`InferredType` → a rich discriminated `Type`.** *(As built: `frontend/types/type` `Type`, above.)* It was name-based (`kind` + a canonical `name`
   string) and returns unknown on any unresolved sub-part. Replace with a union that *carries facts*: elementary
   → `ElementaryType` inline (family/bits/signed/range/rank); enum/struct/FB → member scope; array → element
   `Type` + bounds; pointer/reference → target `Type`. Kills the re-derive-from-name pattern at every check.
@@ -415,14 +447,15 @@ The deltas the clean design makes to the shapes above (facts-first, structured-n
   `StringType.length`, and the `init?`/`at?` fields are opaque `BodySpan`s re-parsed ad hoc. Parse them into
   structured nodes: subrange `{ lo: Expr; hi: Expr }`, array dims as evaluated numeric bounds (or const-expr
   nodes), a structured string length; add a vector/multi-dim distinction.
-- **`Literal` gains value + type.** Today `{ literalKind, text }` with the value never parsed. Attach a parsed
-  `value` (bigint/number/duration) + inferred literal `Type`, so const-eval and range/overflow checks stop
-  re-lexing `text`.
+- **`Literal` gains its value — and NOT its type.** *(As built: `Literal.value`, above.)* It was `{ literalKind, text }`
+  with the value never parsed; the parsed `value` (bigint/number/string/bool/duration) means const-eval and
+  range/overflow checks stop re-lexing `text`. The earlier plan to attach an inferred literal `Type` too was wrong: an
+  untyped IEC literal is polymorphic (`n / 2` divides in `n`'s type; `x := 300` checks against `x`), so its type is a
+  question with a context, answered by `frontend/types/literal`, never a fact on the node.
 - **Unify the two `Vendor` types.** Reference uses `"shared" | "codesys" | "twincat"`; config uses
   `"codesys" | "twincat"`. Express "shared" as an applicability flag on entries; the resolved-config `Vendor`
   is the one source of truth.
-- **Fold `ResolvedType` + `InferredType` into one `Type`** — they overlap heavily; resolve and infer become one
-  engine.
+- **Fold `ResolvedType` + `InferredType` into one `Type`** — *(as built)* resolve and infer answer the one `Type`.
 - **Network-text operands are ST `Expr`, not a `NetworkOperand`/`NetworkGroup` tree** — Network-text operands are fully-parenthesised ST
   expressions, so they parse into the ST `Expr` tree and reuse the ONE type engine / `resolveMemberChain` /
   nav / hover. There is no network-text-specific operand tree or infer/resolve stack; operator info is the `Expr`

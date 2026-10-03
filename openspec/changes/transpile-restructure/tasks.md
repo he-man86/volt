@@ -2005,7 +2005,9 @@ task that owns each is in brackets.
   / `elementaryTypeOn` with the target the project states (4.1.1; `workspace-refs` `MEASURED_DEVICE_TARGETS` for real
   projects). [1.1.6 or 6.B]
 - **H10 — identifier equality** (P6 interp `sameName`). `interp/interp.ts` `sameName` :467 → `syntax/identifier.ts`
-  `sameName`. [1.1.1]
+  `sameName`; and the self-reference spellings `lower/calls.ts` `isSuper` :84 and `lower/places.ts` :156
+  (`name.toUpperCase() === "SUPER"` / `"THIS"`, found by the frontend-conformance close review) → `syntax/identifier.ts`
+  `selfRefKind`. [1.1.1]
 - **H11 — attribute maps** (frontend-conformance 1.23 "T, 5.3"). `lower/lower.ts` `attributesOf` :733 and
   `lowering.ts` `attributes` :261 rebuild per-file maps from `unitAttributes`/`memberAttributes`/`declarationAttributes`;
   since frontend-conformance 2.7.2 every unit, member and declaration node carries `attributes` in the AST (the three

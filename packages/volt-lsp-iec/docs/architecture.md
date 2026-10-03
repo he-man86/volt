@@ -14,7 +14,10 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
   independent backends: the LSP features (`analysis` + `services`), the graphical sublanguage, and the Rust
   transpiler. Each asks a different question of the same core; none is a parallel stack.
 - **The AST models the language completely.** Type expressions carry structured bounds/lengths; literals carry
-  value + type; initializers are expression trees. Consumers read structured nodes, never re-parse spans.
+  their parsed value (and a typed literal its prefix as written); initializers are expression trees. Consumers read
+  structured nodes, never re-parse spans. A literal's TYPE is deliberately NOT on the node: an untyped IEC literal is
+  polymorphic and takes its type from its context, so `frontend/types/literal` answers it (`literalType`,
+  `literalOwnType`, `literalCheckType`, …) — the AST holds what the text says, the type layer what it means.
 - **One source of truth per concern** — type facts, compatibility, rendering, scope navigation, symbol
   resolution, kind labels. A second list is a bug.
 - **Conservative & non-authoritative.** Types are inferred to make diagnostics accurate; the IDE compiler
@@ -42,11 +45,47 @@ A  syntax        vocabulary · lexer · complete AST · parser · literals · pr
 ### The front-end — `frontend/`
 Layers A–C are ONE layer, `src/frontend/` (openspec `frontend-conformance`): `syntax → symbols → types`, with `library`
 beside them — the Volt library format (the `Library Manager/<folder>` path layout, the `.library` manifest, the
-materialization format), a leaf that imports nothing. Nothing in `frontend/` imports a consumer; a consumer imports a
-sub-layer's `index.ts` and nothing beside it, and each index names its exports one by one — the export list IS the
-public API. `scripts/check-layering.ts` holds both (rules F1–F6, run inside `bun test` by
-`test/frontend/layering.test.ts`). Every move inside `frontend/` is proved output-neutral by snapshot F
-(`scripts/frontend-snapshot.ts`).
+materialization format), a leaf that imports nothing.
+
+```
+            library   (imports nothing; a leaf)
+            ↑      ↑
+syntax  ←  symbols  ←  types
+(nothing)  (syntax,    (syntax, symbols, library)
+            library)
+```
+
+The four sub-layers are `frontend/library/`, `frontend/syntax/`, `frontend/symbols/` and `frontend/types/` (A–C below,
+and the library format). The consumers are `analysis`, `services`, `server`, `network`, `network-text`, `reference`,
+`transpile`, the top-level workspace modules, `libraries/`, the tests and the scripts.
+
+**Indexes.** Each sub-layer has one curated `index.ts` that names its exports one by one (no `export *`): the export
+list IS the public API, and it holds exactly the names something outside the sub-layer imports — a name nobody outside
+uses is file-private. `syntax/index.ts` — the lexer, the AST node types, the parse entry points, the walks, the literal
+values, the pragmas and the workspace-format surface; `symbols/index.ts` — the read API (lookup, scope navigation,
+EXTENDS chains, precedence, the scoped-body iterator) plus a `build` namespace (`buildSymbolTable`, `bindFile`,
+`unbindFile`, `relink`, `localScope`), so a reader and a builder cannot be confused; `types/index.ts` — every type
+fact, rule and engine a consumer asks; `library/index.ts` — the path layout, the manifest and the materialization
+format. `frontend/index.ts` re-exports the three language indexes for the package barrel (`src/index.ts`) alone.
+
+**Import rules** (`scripts/check-layering.ts`, over `src/`, `test/`, `scripts/` and `libraries/`, tests included; run
+inside `bun test` by `test/frontend/layering.test.ts`, which fails on a new violation and on a listed one that has
+gone — the known-violation list is empty):
+
+- **F1** — nothing under `frontend/` imports outside `frontend/`: the front-end imports no consumer.
+- **F2** — outside a front-end sub-layer, only its `index.js` (or `frontend/index.js`) is imported; a test colocated
+  inside a sub-layer may import its own sub-layer's files.
+- **F3** — inside the front-end, `library` imports nothing, `syntax` nothing but itself, `symbols` `syntax` and
+  `library`, `types` `syntax`, `symbols` and `library` — each through the other's index. Inside `syntax` the folders
+  are ranked too: `lex` imports `span` and itself; `ast` `lex`, `span`; `literal` `ast`, `lex/vocabulary`; `format` and
+  `pragmas` `lex`, `ast`, `span`; `parse` everything in `syntax` but `print.ts`.
+- **F4** — no sanctioned upward edge exists (there is no `ALLOWED_UPWARD`).
+- **F5** — the front-end reads no environment (`process.env`): a parse takes `ParseOptions`, the server reads the
+  environment and passes the answer in.
+- **F6** — no import cycle inside `syntax`.
+
+Every move inside `frontend/` was proved output-neutral by snapshot F (`scripts/frontend-snapshot.ts`, the working tree
+against its parent commit).
 
 ### A — `frontend/syntax/`
 Text to a tree, and nothing about meaning. `lex/` — the token model, the vocabulary (`vocabulary.ts`: every keyword, the
@@ -83,7 +122,8 @@ descriptors, `ingestDevices`), `incremental` (a whole table, and the live server
 (EXTENDS linking and the base chain), `precedence` (which of several same-named candidates a reference means),
 `library-namespaces`, `scope-nav` (the one scope-tree navigator — its `lookup` holds the project's level of the bare-name search
 order: globals before POU and type names, the application's before a library's, a VAR_EXTERNAL bound to its global
-or passed over) and `scoped-bodies` (the one scope-aware "walk every
+or passed over), `condition-world` (what a conditional pragma may ask of the project — `defined`, `hasattribute`,
+`hastype`, `hasconstantvalue` — answered from the scope tree) and `scoped-bodies` (the one scope-aware "walk every
 ST body" iterator — POU bodies **and** property accessor bodies — shared by every analysis check and the language
 services). Its index names the read API; building is the `build` namespace. Contract: name → declaring symbol/scope.
 
@@ -143,7 +183,7 @@ Every advertised capability has a registered handler — an invariant guarded by
 "The LSP-3.17 conformance surface is declared and kept in capability↔handler parity").
 
 ### Backend — `transpile/`
-A compiler backend, sibling consumer of the frontend (`syntax ← symbols ← types`), not of the LSP.
+A compiler backend, sibling consumer of the frontend (`frontend/`: `syntax ← symbols ← types`, through their indexes), not of the LSP.
 
 ```
 AST ──lower/──> ir/ ──┬── interp/       runs it — the oracle
@@ -170,7 +210,7 @@ same frame. The emitted struct's `&mut self` is the only borrow in the output, w
 coverage reachable rather than a wall at the first aliasing construct.
 
 *The IR carries the semantics.* Implicit widening is an explicit `convert` node, CASE ranges are resolved
-constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `types/` —
+constant bounds, FOR/WHILE/REPEAT are one `loop`, and every node carries a resolved `Type` from `frontend/types/` —
 not a second type model. **If a backend ever has to decide something, the lowering is incomplete.**
 
 Note the frontend split this forces: `inferExprType` answers the LSP's question and returns `UNKNOWN` wherever

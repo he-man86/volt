@@ -2936,8 +2936,33 @@ cross-area edges are named on the tasks that have them.
 
 ## 6. Close
 
-- [ ] 6.1 docs/architecture.md and data-model.md describe the front-end layer (`src/frontend/`), its sub-layers, its indexes and
+- [x] 6.1 docs/architecture.md and data-model.md describe the front-end layer (`src/frontend/`), its sub-layers, its indexes and
       its import rules; the stale "literals carry a type" claim is corrected.
       Acceptance: the docs name every sub-layer and rule F1–F4. Depends on: 5.3
-- [ ] 6.2 Final review (spec + layering); fix; archive; delete the recreated openspec/specs/.
+      **6.1 (2026-10-03).** architecture.md "The front-end": the sub-layer diagram, the four sub-layers and the consumers,
+      the indexes (curated, named, exactly the names imported from outside; `symbols`' `build` namespace; `frontend/index.ts`
+      for the package barrel only) and rules F1–F6 spelled out (with the `syntax` folder table); B names `condition-world`;
+      the Principles line now says literals carry their VALUE (and prefix), and why their type is `frontend/types/literal`'s
+      answer, not a node field. data-model.md: the three sections are `frontend/syntax|symbols|types` (+ `library`) reached
+      by index; `Literal` (`value`, `prefix`, `LiteralValue`), `Token.malformed`, `ParseResult` (`failedDeclarations`,
+      `tokens`, `dialect`) and the one `Type` union as built (the name-based `ResolvedType`/`InferredType` removed); the
+      refinement "`Literal` gains value + type" corrected to value only, with the polymorphic-literal reason.
+- [x] 6.2 Final review (spec + layering); fix; archive; delete the recreated openspec/specs/.
       Acceptance: `openspec/changes/archive/<date>-frontend-conformance` exists; `openspec/specs/` absent. Depends on: 6.1
+      **6.2 (2026-10-03).** Review, two lenses over the whole change. LAYERING: `check-layering.ts` clean (the only listed
+      violation is the pre-existing `services → network` one, outside the front-end); no deep front-end import outside
+      `frontend/`, no `process.env` and no `lookupReference` in `src/frontend`; the consumer re-lexers left
+      (`network-analyze`, `network-text/parser`) pass the project's dialect. Finding L1: the gate was only ever shown to
+      find NOTHING on the real tree — no test proved it fires, so the spec scenario "a back-end reaching into the front-end
+      … fails naming both files" was unpinned. Fixed test-first: `test/frontend/layering.test.ts` plants one violation per
+      case in a scratch package (F2 transpile deep import, its index-only twin, F1, F3, F5), red until
+      `layeringViolations(pkg)` took the package root to scan. SPEC: each requirement's scenario is pinned
+      (parse: `test/frontend` parse census + fixed point; shadowing: `tr_19_method_inout_shadows_member`,
+      `shadowing_method_param_shadows_member`; mixed sign: `meet_mixed_sign_wider_unsigned`,
+      `same_width_mixed_sign_order`; layer: L1). Finding S1: P6's self-reference row was handed off for the interpreter's
+      `sameName` only — the transpiler's own `toUpperCase() === "THIS"/"SUPER"` spellings (`lower/calls.ts` `isSuper`,
+      `lower/places.ts`) were in no hand-off row; added to transpile-restructure H10 (`selfRefKind`).
+      **Close gate (2026-10-03, COLD: `VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset).** **7998 pass /
+      34 skip / 333 todo / 0 fail** (8365 tests, 205 files, 577 s; vs gate 5 +5 pass, +5 tests — L1); agreement CODESYS
+      **4531**, TwinCAT **4437** of 4897 (floors unchanged); type dump 0 findings, fold dump 0 disagreements; LT14 corpus 78
+      / fixtures 79 / library 0 (unchanged); `bun typecheck` clean; `bun run lint` exit 0.

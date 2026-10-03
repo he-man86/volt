@@ -25,7 +25,6 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 
 const PACKAGE = resolve(import.meta.dir, "..")
-const SRC = join(PACKAGE, "src")
 /** The trees the front-end rules cover (rules 0–5 cover production `src/` only). */
 const ROOTS = ["src", "test", "scripts", "libraries"]
 
@@ -133,9 +132,13 @@ const isHelper = (rel: string): boolean => (rel.split("/")[3] ?? "").startsWith(
 // Matches `import x from "y"`, `export * from "y"`, and bare side-effect `import "y"`.
 const IMPORT_RE = /(?:import|export)\s+(?:[^'"`;]*?\bfrom\s*)?["']([^"']+)["']/g
 
-/** Every layering violation in the package, as stable strings (no line numbers). */
-export function layeringViolations(): string[] {
+/**
+ * Every layering violation in the package, as stable strings (no line numbers). `pkg` is the package root to scan —
+ * this package by default; the gate's own tests scan a scratch package with one planted violation.
+ */
+export function layeringViolations(pkg: string = PACKAGE): string[] {
   const violations: string[] = []
+  const SRC = join(pkg, "src")
 
   // Rule 0: a folder the rules do not know is checked by nothing.
   for (const name of readdirSync(SRC))
@@ -150,8 +153,8 @@ export function layeringViolations(): string[] {
   const syntaxGraph = new Map<string, string[]>()
 
   for (const root of ROOTS)
-    for (const file of walk(join(PACKAGE, root))) {
-      const relPkg = slash(relative(PACKAGE, file))
+    for (const file of walk(join(pkg, root))) {
+      const relPkg = slash(relative(pkg, file))
       const inSrc = relPkg.startsWith("src/")
       const relFrom = inSrc ? relPkg.slice(4) : relPkg
       const isTest = file.endsWith(".test.ts")
@@ -176,7 +179,7 @@ export function layeringViolations(): string[] {
         const spec = m[1]!
         if (!spec.startsWith(".")) continue // external / package import — not our concern
         const targetFile = resolve(dirname(file), spec)
-        const tsTarget = slash(relative(PACKAGE, targetFile)).replace(/\.js$/, ".ts")
+        const tsTarget = slash(relative(pkg, targetFile)).replace(/\.js$/, ".ts")
         const targetInSrc = tsTarget.startsWith("src/")
         const relTo = targetInSrc ? tsTarget.slice(4) : tsTarget
         const to: Place = targetInSrc ? placeOf(relTo) : { layer: null }
@@ -212,7 +215,7 @@ export function layeringViolations(): string[] {
         }
 
         if (!production) continue
-        if (targetInSrc && existsSync(join(PACKAGE, tsTarget))) {
+        if (targetInSrc && existsSync(join(pkg, tsTarget))) {
           edges.push(relTo)
           if (from.layer === "syntax" && to.layer === "syntax") syntaxEdges.push(relTo)
         }
