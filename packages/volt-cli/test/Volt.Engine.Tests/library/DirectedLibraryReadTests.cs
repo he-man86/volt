@@ -361,22 +361,231 @@ public class DirectedLibraryReadTests
             $"no Warn names both claimants and the path; warnings were:\n{string.Join("\n", warns)}");
     }
 
-    // ── 2.3: one extraction per read, no session cache ─────────────────────────────────────────────────────
+    /// <summary>One WILDCARD ref whose title + company match TWO compiled versions (`cmpiomgr interfaces, 3.5.19.30` and
+    /// `…, 3.5.20.0`) has no one library to own: writing both beside it would declare every element twice in one folder.
+    /// The other face of the different-RESOLUTION refusal (design.md "Two refs, one library": "or two compiled versions
+    /// of X"); 0 occurrences in the corpora. A directed read naming the ref refuses by name; a full fetch keeps both paths
+    /// `(unresolved)` and warns.</summary>
+    private static FakeIde TwoVersionsProject()
+    {
+        var ide = Project();
+        ide.LibSignatures = ide.LibSignatures.Append(Fn("IoMgrGetConfigApplication", "cmpiomgr interfaces, 3.5.20.0 (system)", "UDINT")).ToArray();
+        return ide;
+    }
 
-    /// <summary>No bridge cache (archived <c>cache-library-signatures</c> D1, 0.1 R5): two directed reads in a row each
-    /// run the vendor's own extraction — CODESYS keeps its precompile warm by itself, TwinCAT has no build in the path
-    /// (1.2). A directed read naming two libraries extracts once.</summary>
     [Fact]
-    public void Each_directed_library_read_extracts_once_and_nothing_is_cached()
+    public void A_directed_read_of_a_wildcard_ref_matching_two_compiled_versions_refuses_by_name()
+    {
+        var ex = Assert.Throws<BridgeException>(() => Directed(TwoVersionsProject(), IoMgrItf));
+
+        Assert.Contains(IoMgrItf, ex.Message);
+        Assert.Contains("cmpiomgr interfaces, 3.5.19.30 (system)", ex.Message);
+        Assert.Contains("cmpiomgr interfaces, 3.5.20.0 (system)", ex.Message);
+    }
+
+    [Fact]
+    public void A_full_fetch_keeps_two_compiled_versions_of_one_wildcard_ref_unresolved_and_warns()
+    {
+        string log;
+        FetchResponse full;
+        using (var capture = new LogCapture())
+        {
+            full = Full(TwoVersionsProject());
+            log = capture.Read();
+        }
+
+        var fns = full.Changed.Where(c => c.Name == "IoMgrGetConfigApplication.pou").ToList();
+        Assert.Equal(2, fns.Count);
+        Assert.All(fns, f => Assert.Contains(LibraryLayout.UnresolvedFolder, f.Folder!));
+        Assert.Contains(full.Changed, c => c.Name == "TON.pou" && c.Folder == FolderOf(full, Standard));
+        Assert.True(WarnLines(log).Any(l => l.Contains(IoMgrItf, StringComparison.Ordinal)
+                                            && l.Contains("cmpiomgr interfaces, 3.5.20.0 (system)", StringComparison.Ordinal)),
+            $"no Warn names the wildcard ref and both versions; the log was:\n{log}");
+    }
+
+    /// <summary>A signature path that carries NO company (`cmpiomgr interfaces, 3.5.19.30`) is not claimed by a wildcard
+    /// ref (gate step 3, finding 3 — the gate's ruling on the narrowing of design §0): the wildcard rule is title AND
+    /// company, recorded on live strings where every path carries a company (tasks.md 1.1). A company-less path has no
+    /// recording, so matching it on the title alone would be a guess; it stays loudly `(unresolved)`, and a directed read
+    /// of the wildcard does not return it. 0 occurrences in the recordings.</summary>
+    [Fact]
+    public void A_wildcard_ref_does_not_claim_a_path_without_a_company()
+    {
+        FakeIde P() { var p = Project(); p.LibSignatures = p.LibSignatures.Append(Fn("IoMgrNoCompany", "cmpiomgr interfaces, 3.5.19.30", "BOOL")).ToArray(); return p; }
+
+        var full = Full(P());
+        Assert.Contains(LibraryLayout.UnresolvedFolder, full.Changed.Single(c => c.Name == "IoMgrNoCompany.pou").Folder!);
+        Assert.Equal(FolderOf(full, IoMgrItf), full.Changed.Single(c => c.Name == "IoMgrGetConfigApplication.pou").Folder);
+
+        var directed = Directed(P(), IoMgrItf);
+        Assert.DoesNotContain(directed.Changed, c => c.Name == "IoMgrNoCompany.pou");
+        Assert.Contains(directed.Changed, c => c.Name == "IoMgrGetConfigApplication.pou");
+    }
+
+    /// <summary>ONE full name in TWO folders with ONE RESOLUTION (Pro2193's root and Application Library Managers, tasks.md
+    /// 1.1 F5 — there with different RESOLUTIONs, 0 occurrences with one) keeps the signatures beside the stub that
+    /// SURVIVES (gate step 3, finding 1). `DedupeByFullName` keeps the LAST-walked `.library` of a name, and CODESYS walks
+    /// the root Library Manager last; an owner tie-broken by folder instead (`Device/…` &lt; `Library Manager/…`) put the
+    /// signatures in a folder whose stub was deduped away — no `IdeTree.LibraryRoots` root, so they lost the read-only
+    /// guard and the removal exemption. Same on a directed read.</summary>
+    [Fact]
+    public void Two_copies_of_one_library_name_keep_the_signatures_beside_the_surviving_stub()
+    {
+        FakeIde P() => new(
+            FakeIde.Item.Library("X", LibraryManifest.Build("X", "X", "X, 1.0 (S)", placeholder: true, system: false), LibMan),
+            FakeIde.Item.Library("X", LibraryManifest.Build("X", "X", "X, 1.0 (S)", placeholder: true, system: false), "Library Manager"))
+        {
+            LibSignatures = new[] { Fn("XFn", "x, 1.0 (s)", "BOOL") },
+        };
+
+        foreach (var res in new[] { Full(P()), Directed(P(), "X.library") })
+        {
+            var stub = res.Changed.Single(c => c.Name == "X.library");
+            Assert.Equal("Library Manager/X", stub.Folder);
+            Assert.Equal(stub.Folder, res.Changed.Single(c => c.Name == "XFn.pou").Folder);
+        }
+    }
+
+    // ── 2.3 / design §3 Choice 2: a per-RESOLUTION session cache for directed reads ─────────────────────────
+
+    /// <summary>The owner's recorded decision (proposal: "the extraction is cached per library RESOLUTION in the session,
+    /// so repeated reads cost one extraction"), confirmed by 1.2: on CODESYS every extraction runs <c>Build(app)</c>
+    /// (22.4-22.9 s after one edit on Pro2193) and REPLACES the engineer's message view, while the precompiled library set
+    /// is untouched by an edit or a Clean (7229 → 7229). So two directed reads with no library change extract ONCE —
+    /// whichever libraries they name, alone or together — and the later reads answer the full fetch's bytes.
+    /// (This replaced <c>Each_directed_library_read_extracts_once_and_nothing_is_cached</c>, which encoded §0's
+    /// no-cache default that the owner's decision overrides.)</summary>
+    [Fact]
+    public void Two_directed_reads_with_no_library_change_extract_once()
+    {
+        var ide = Project();
+        var full = Full(Project());
+
+        Directed(ide, Standard);
+        var second = Directed(ide, IoMgrItf);
+        var third = Directed(ide, Standard, IoMgrItf);
+
+        Assert.Equal(1, ide.ExtractCalls);
+        Assert.Equal(InFolder(full, FolderOf(full, IoMgrItf)), second.Changed.Select(Describe).OrderBy(s => s, StringComparer.Ordinal).ToArray());
+        Assert.Contains(third.Changed, c => c.Name == "TON.pou" && c.Folder == FolderOf(full, Standard));
+    }
+
+    /// <summary>The key is the NAMED library's `.library` version — the change signal D1 already trusts for the full
+    /// fetch: a named library whose version moved (an upgrade re-resolves it) extracts again, and the answer is the new
+    /// extraction's.</summary>
+    [Fact]
+    public void A_directed_read_of_a_library_whose_version_moved_extracts_again()
+    {
+        var ide = Project();
+        Directed(ide, Standard);
+
+        ide.RemoveItem("Standard");
+        ide.AddItem(Ref("Standard", "Standard", "Standard, 3.5.19.0 (System)"));
+        var ton19 = Fb("TON", "standard, 3.5.19.0 (system)", new[] { V("IN", "BOOL"), V("PT", "LTIME") }, new[] { V("Q", "BOOL"), V("ET", "LTIME") });
+        ide.LibSignatures = new[] { ton19, IoMgrFn, CallbackFn, FacadeOrphan };
+        var res = Directed(ide, Standard);
+
+        Assert.Equal(2, ide.ExtractCalls);
+        Assert.Contains("PT : LTIME", res.Changed.Single(c => c.Name == "TON.pou").SourceText);
+    }
+
+    /// <summary>A version that moved on a library nobody NAMED voids the cache too (gate step 3, finding 2). The answer
+    /// depends on every ref, not only the named ones: the matcher is built over every walked ref, and both refusals
+    /// (different RESOLUTIONs on one path, one wildcard over two compiled versions) depend on which compiled paths the
+    /// extraction holds. So the key is every walked ref's version — the full fetch's own signal (D1: ANY `.library`
+    /// version change re-extracts). (This replaced <c>A_moved_version_of_an_unnamed_library_does_not_extract_again</c>,
+    /// whose premise — a per-NAMED-library key — let a reused extraction answer differently from a full fetch, against
+    /// the spec's "the same items a full fetch writes".)</summary>
+    [Fact]
+    public void A_moved_version_of_an_unnamed_library_extracts_again()
+    {
+        var ide = Project();
+        Directed(ide, Standard);
+
+        ide.RemoveItem("CmpEventMgr");
+        ide.AddItem(Ref("CmpEventMgr", "CmpEventMgr", "CmpEventMgr, 3.5.19.0 (System)"));
+        Directed(ide, Standard);
+
+        Assert.Equal(2, ide.ExtractCalls);
+    }
+
+    /// <summary>The finding's repro: a wildcard ref resolved to 3.5.17.0, then an UNNAMED exact ref to 3.5.19.30 is added
+    /// with its compiled library. A fresh directed read of the wildcard refuses (the 3.5.19.30 path is claimed by two
+    /// RESOLUTIONs, and the wildcard matches two compiled versions); the session that had cached the 3.5.17.0 extraction
+    /// must answer the same, not the stale signatures.</summary>
+    [Fact]
+    public void A_directed_read_after_an_unnamed_library_was_added_answers_as_a_fresh_read()
+    {
+        var io17 = Fn("IoMgrGetConfigApplication", "cmpiomgr interfaces, 3.5.17.0 (system)", "UDINT");
+        var io19 = Fn("IoMgrGetConfigApplication", "cmpiomgr interfaces, 3.5.19.30 (system)", "UDINT");
+        FakeIde Before() { var p = Project(); p.LibSignatures = new[] { Ton, RTrig, io17, CallbackFn, FacadeOrphan }; return p; }
+        void Upgrade(FakeIde p)
+        {
+            p.AddItem(Ref("CmpIoMgr Interfaces 3519", "CmpIoMgr Interfaces", "CmpIoMgr Interfaces, 3.5.19.30 (System)"));
+            p.LibSignatures = p.LibSignatures.Append(io19).ToArray();
+        }
+
+        var fresh = Before();
+        Upgrade(fresh);
+        var freshEx = Assert.Throws<BridgeException>(() => Directed(fresh, IoMgrItf));
+
+        var session = Before();
+        Directed(session, IoMgrItf);
+        Upgrade(session);
+        var sessionEx = Assert.Throws<BridgeException>(() => Directed(session, IoMgrItf));
+
+        Assert.Equal(freshEx.Message, sessionEx.Message);
+        Assert.Equal(2, session.ExtractCalls);
+    }
+
+    /// <summary>The full fetch is unchanged (D1: it extracts iff a library moved, always on init) — it never READS the
+    /// cache, and its extraction refreshes it, so a directed read after it extracts nothing.</summary>
+    [Fact]
+    public void A_full_fetch_never_reads_the_cache_and_refreshes_it()
+    {
+        var ide = Project();
+        Directed(ide, Standard);
+
+        Full(ide);
+        Assert.Equal(2, ide.ExtractCalls);
+
+        Directed(ide, IoMgrItf);
+        Assert.Equal(2, ide.ExtractCalls);
+    }
+
+    /// <summary>The cache belongs to ONE bound project: after the bridge serves another project, a directed read extracts
+    /// again even where the `.library` version is the same (a wildcard ref's manifest does not name the version it
+    /// resolved to).</summary>
+    [Fact]
+    public void A_directed_read_after_the_served_project_changed_extracts_again()
+    {
+        var ide = Project();
+        Directed(ide, Standard);
+
+        ide.HealthProjectName = "OtherProject";
+        Directed(ide, Standard);
+
+        Assert.Equal(2, ide.ExtractCalls);
+    }
+
+    /// <summary>`volt show BRIDGE` asks for the manifest only (design §3 Choice 3, R3): the incoming diff pane of a
+    /// drifted library compares the manifest, so it neither extracts nor touches the cache.</summary>
+    [Fact]
+    public void A_manifest_only_directed_read_extracts_nothing_and_answers_the_manifest()
     {
         var ide = Project();
 
-        Directed(ide, Standard);
-        Directed(ide, IoMgrItf);
-        Assert.Equal(2, ide.ExtractCalls);
+        var res = FetchService.Handle(ide, new FetchRequest
+        {
+            KnownItems = new Dictionary<string, string>(), OnlyItems = new() { Standard }, LibraryManifestOnly = true,
+        });
 
-        Directed(ide, Standard, IoMgrItf);
-        Assert.Equal(3, ide.ExtractCalls);
+        Assert.Equal(0, ide.ExtractCalls);
+        Assert.Equal(new[] { Standard }, res.Changed.Select(c => c.Name).ToArray());
+        Assert.Equal(Describe(Full(Project()).Changed.Single(c => c.Name == Standard)), Describe(res.Changed.Single()));
+
+        Directed(ide, Standard);
+        Assert.Equal(1, ide.ExtractCalls);   // nothing was cached by the manifest-only read
     }
 
     /// <summary>A directed read naming TWO libraries answers both folders exactly as the full fetch writes them — neither

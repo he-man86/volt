@@ -251,7 +251,7 @@ async function main() {
 		const still = unmatched.filter((u) => !claimed.has(u.path))
 		out(`  matching neither exactly nor by the wildcard rule: ${still.length} paths (${still.reduce((a, x) => a + x.n, 0)} signatures)`)
 		for (const u of still) out(`    ${u.n}\t${JSON.stringify(u.path)}`)
-		// Every path against EVERY ref — exact RESOLUTION (case-insensitive, as libByResolution compares) or the
+		// Every path against EVERY ref — exact RESOLUTION (case-insensitive, as the engine's LibraryMatcher compares) or the
 		// wildcard rule — so a path two refs claim is printed, whichever rule each claim comes from.
 		out(`  paths claimed by more than one ref (exact or wildcard):`)
 		let multi = 0
@@ -266,7 +266,8 @@ async function main() {
 	}
 
 	// Refs that repeat a RESOLUTION, and refs that share a title + company at different versions: which folder holds
-	// the signatures today (libByResolution is keyed by RESOLUTION, last write wins).
+	// the signatures (before directed-library-signatures 3.1 the ref walked LAST won; LibraryMatcher now picks the
+	// ordinal-least full name).
 	{
 		const sigsIn = (folder?: string) => all.filter((s) => isLibFile(s, i1.res.items) && s.folder === folder).length
 		const tkey = (r: string) => {

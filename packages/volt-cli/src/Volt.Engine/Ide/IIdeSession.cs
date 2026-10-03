@@ -106,4 +106,9 @@ public interface IIdeSession
     /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT parses its library
     /// manager's `ProduceAllLibrarySignatures()`.</summary>
     IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
+
+    /// <summary>This session's last extraction, which a DIRECTED <c>.library</c> read reuses while every library it names
+    /// keeps its version (<see cref="Library.LibrarySignatureCache"/>). Engine-held and vendor-neutral: a driver supplies
+    /// nothing for it beyond <see cref="ExtractLibrarySignatures"/>.</summary>
+    Library.LibrarySignatureCache LibrarySignatureCache { get; }
 }

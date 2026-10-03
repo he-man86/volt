@@ -32,8 +32,10 @@ is a wildcard (`CmpEventMgr Interfaces, * (System)`): its signatures carry the r
 today a full fetch folders them under `(unresolved)` and a directed read would return the manifest alone. That is
 about 10% of each CODESYS corpus's library API (688-713 of 6238-7408 files; 25-27 libraries per real corpus, counts
 in tasks.md 0.1 R1). The join gets a second rule, in one place, for both fetches: a wildcard ref matches the
-signatures whose `LibraryPath` names the same library title (and company, when `LibraryPath` carries it; pinned
-on recorded strings in 1.1). So the full fetch writes those elements beside their `.library` too, and directed ==
+signatures whose `LibraryPath` names the same library title AND company (pinned on recorded strings in 1.1, where
+every path carries a company; gate step 3 ruled that a company-less path — no recording has one — is NOT
+wildcard-claimed and stays `(unresolved)`, since a title-only match would be a guess; pinned by
+`A_wildcard_ref_does_not_claim_a_path_without_a_company`). So the full fetch writes those elements beside their `.library` too, and directed ==
 full holds.
 
 **Two refs, one library (gate step 1).** Refs that repeat ONE RESOLUTION are real and common: 4 of the 5 CODESYS
@@ -45,7 +47,10 @@ reached LAST (`FetchService.cs:158`), an order nobody chose. **Decided (default,
 gives such a RESOLUTION one owner, the ref with the ordinal-least FULL name (`CAA Callback Extern.library`,
 `SysTimeCore, 3.5.17.0 (System).library` — the folders the corpora already show), so the signatures are written
 ONCE (writing them beside both would declare every element twice in one namespace), and a directed read naming
-EITHER ref returns them in the owner's folder (the same bytes as the full fetch; no zero-match Warn for the other).
+EITHER ref returns them in the owner's folder (the same bytes as the full fetch; no zero-match Warn for the other). One
+full name in TWO folders with one RESOLUTION (Pro2193's root and Application Library Managers; 0 occurrences — its 13
+pairs differ in RESOLUTION) is tie-broken by the rule that picks the surviving stub, `DedupeByFullName`'s LAST walked,
+so the signatures never land in a folder whose stub was deduped away (gate step 3, finding 1).
 Refused by name, by contrast: one signature path claimed by refs with DIFFERENT RESOLUTIONs, which only the wildcard
 rule can produce (`X, * (V)` beside an `X` ref of another version, or two compiled versions of X). None of the five
 corpora has a wildcard ref sharing its title + company with any other ref; the signature side of that check is
@@ -85,11 +90,16 @@ extraction is cached per library RESOLUTION in the session, so repeated reads co
 only as a default pending 1.2, and 1.2 measured exactly the case the cache removes: the precompiled library set is
 untouched by an edit and by Clean (7229 → 7229), so the API a read returns cannot have moved — only the build is paid.
 - Shape: an engine-held `LibrarySignatureCache` on the pipe host's session (vendor-neutral, so `BeckhoffDriver`
-  needs nothing beyond its existing `ExtractLibrarySignatures`): the last raw extraction plus the `.library`
-  {full name → version} it was taken against. A directed read reuses it iff every NAMED library's live version
-  equals the recorded one; otherwise it extracts once and replaces it. Matching, Warns and counts run fresh each read.
-- The key is the `.library` version — the same change signal D1 already trusts for the full fetch, no new hole
-  (a wildcard re-resolving mid-session without a manifest change is missed exactly as the full fetch misses it).
+  needs nothing beyond its existing `ExtractLibrarySignatures`): the last raw extraction plus the {folder/full name →
+  version} of EVERY walked `.library` it was taken against. A directed read reuses it iff that whole map is unchanged
+  (none added, removed or moved) and the bound project is the same; otherwise it extracts once and replaces it.
+  Matching, Warns and counts run fresh each read.
+- The key is every `.library` version — exactly the change signal D1 trusts for the full fetch. It was first keyed on
+  the NAMED refs only, and gate step 3 (finding 2) showed that a new hole: the matcher runs over every ref plus the
+  extraction's paths, so after an UNNAMED library was added or upgraded a reused extraction could answer signatures
+  where a fresh read refuses (two RESOLUTIONs on one path; a wildcard over two compiled versions) and a full fetch keeps
+  them `(unresolved)` (0 occurrences in the corpora; fixed because it was cheap). The hole D1 has stays, and is the only
+  one: a wildcard re-resolving mid-session without any manifest change is missed exactly as the full fetch misses it.
 - The full fetch is unchanged (D1: extracts iff `knownItems` says a library moved); its extraction refreshes the
   cache, it never reads it.
 - Rejected: no cache (§0's default) — every per-item client read pays the build and rewrites the message view;
@@ -106,7 +116,19 @@ false, the same convention as `Init`): set, a directed `.library` read neither e
 **Stays refused by name.** A library element addressed on its own (`onlyItems: ["TON.fb"]`); one signature path
 claimed by refs with DIFFERENT RESOLUTIONs on a directed read (a full fetch Warns and keeps it `(unresolved)`).
 
-**Migration.** Response shape unchanged; one optional request field. `RefsFetch.cs` docs (`OnlyItems`,
+**Migration.** Response shape unchanged; one optional request field. **The full fetch changes too, not only the
+directed read** (gate step 3, finding 4): with the wildcard rule a full fetch writes each wildcard ref's signatures
+beside its `.library` (688-713 files, 25-27 libraries per real CODESYS corpus) instead of under `(unresolved)/<title>`.
+A workspace pulled before this change keeps the old `(unresolved)` tree on every later `volt pull` — signatures are
+re-rendered only when a `.library` version moves (`librariesRefreshed`), and the manifest bytes did not move — while a
+fresh `volt init` of the same project writes the new layout. Nothing is lost, and the two converge on the next library
+change (its refresh drops the old tree), but until then two workspaces of one project disagree and nothing says so.
+Not forced here: the volt-native repair is a `LibraryManifest.Materialization` bump (it moves every `.library`
+version, so the next pull refreshes, and the LSP names a stale workspace) — but it also marks all six committed
+corpora (695 format-4 manifests in `packages/volt-lsp-iec/test-corpus`) stale, which silences their network-text
+diagnostics until each is re-pulled live; a bridge-side "a known `(unresolved)` folder a wildcard could claim" trigger
+would rebuild on every pull wherever the folder stays unresolved (another company, two compiled versions). **Left for
+the owner** (bump + corpus re-pull, or accept convergence on the next library change). `RefsFetch.cs` docs (`OnlyItems`,
 `LibrariesRefreshed`, the new field) and `docs/volt-bridge.openrpc.json` regenerated. The 2.3 test
 `Each_directed_library_read_extracts_once_and_nothing_is_cached` and the spec scenario "a second read is warm …
 without a session cache" encoded §0's default, which the owner's recorded decision overrides (a premise wrong on

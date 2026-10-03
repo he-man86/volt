@@ -1029,6 +1029,11 @@ public static class Commands
             {
                 KnownItems = new() { [name] = "" },
                 OnlyItems = new() { name },
+                // The pane shows the `.library` file — its manifest. Without this a directed `.library` read also
+                // returns every signature of that library, and an extraction the session cache cannot answer is, on
+                // CODESYS, a build of the application that rewrites the engineer's message view — paid and thrown
+                // away on every diff open (openspec directed-library-signatures, design §3 Choice 3).
+                LibraryManifestOnly = true,
                 ExpectedPlatform = bound?.Platform,
                 ExpectedProjectName = bound?.ProjectName,
             });

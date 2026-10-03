@@ -38,8 +38,23 @@ public class FetchRequest : BoundRequest
     [JsonPropertyName("knownFolders")]
     public Dictionary<string, string>? KnownFolders { get; set; }
 
+    /// <summary>A directed read: answer only the items named here (bare or full name), and judge nothing outside them
+    /// removed. Naming a <c>.library</c> returns its manifest AND every signature of that library, in the folder and
+    /// with the bytes a full fetch writes them (unless <see cref="LibraryManifestOnly"/>); the signatures come from one
+    /// extraction, cached for the session against every <c>.library</c>'s version, so the FIRST such read of a
+    /// session pays the vendor's extraction (on CODESYS a build of the application, which writes the IDE's message
+    /// view, as <c>volt init</c> does) and later reads with no library added, removed or moved do not. A named library that matched no
+    /// signature is named in a warning; one signature path claimed by refs with different RESOLUTIONs refuses by name.
+    /// A library element on its own (<c>TON.pou</c>) is not addressable: signatures are identified by path, not name —
+    /// read its library. A directed read never sets <see cref="FetchResponse.LibrariesRefreshed"/>.</summary>
     [JsonPropertyName("onlyItems")]
     public List<string>? OnlyItems { get; set; }
+
+    /// <summary>With <see cref="OnlyItems"/>: a named <c>.library</c> answers its manifest alone — no extraction, and the
+    /// session's signature cache is neither read nor written. For a caller that compares the manifest only (<c>volt show
+    /// BRIDGE</c>, the incoming diff pane of a drifted library). Absent = false.</summary>
+    [JsonPropertyName("libraryManifestOnly")]
+    public bool LibraryManifestOnly { get; set; }
 
     /// <summary>Bootstrap mode: return every item regardless of knownItems. This is how <c>volt init</c> seeds
     /// the first workspace. A <c>fetch</c> with neither <c>knownItems</c> nor <c>onlyItems</c> nor this flag is
@@ -103,8 +118,11 @@ public class FetchResponse : ReadResponse
     /// (two libraries legitimately export the same short name), so it is absent from <c>items</c> and
     /// <see cref="Removed"/> can never name one — meaning a signature whose element disappeared (library
     /// upgraded, or the reference deleted) stayed in the workspace forever and kept resolving in the LSP. When
-    /// this is set the client replaces the library folders wholesale; when it is not, it leaves them alone,
-    /// because the fetch skipped the precompile and carries no signatures at all.</para></summary>
+    /// this is set the client replaces the library folders wholesale; when it is not, it leaves them alone.</para>
+    /// <para>False on every directed read (<see cref="FetchRequest.OnlyItems"/>), including one that names a
+    /// <c>.library</c> and so carries that library's signatures: the answer is complete for the NAMED libraries' folders
+    /// only, and treating it as complete for every folder would delete the libraries nobody named. False on a full fetch
+    /// whose libraries did not move, which carries no signatures at all.</para></summary>
     [JsonPropertyName("librariesRefreshed")]
     public bool LibrariesRefreshed { get; set; }
 }

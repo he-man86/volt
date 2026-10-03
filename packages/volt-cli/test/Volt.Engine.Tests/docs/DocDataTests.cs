@@ -155,8 +155,12 @@ public class DocDataTests
             "project/structure versions. This is what a client compares against to decide what to fetch."),
         (Ops.Fetch, typeof(FetchRequest), typeof(FetchResponse),
             "Item CONTENT. `knownItems` narrows the answer to what changed; `onlyItems` restricts the walk to a " +
-            "named subset. Graphical bodies arrive as network text — the bridge materializes them, so a client " +
-            "never sees a vendor's own form."),
+            "named subset. Naming a `.library` returns its manifest and every signature of that library, in the " +
+            "folder and with the bytes a full fetch writes; the first such read of a session pays the vendor's " +
+            "extraction (on CODESYS a build of the application, which writes the IDE's message view), later ones " +
+            "with no library change reuse it, and `libraryManifestOnly` answers the manifest alone. A directed read " +
+            "never sets `librariesRefreshed`. Graphical bodies arrive as network text — the bridge materializes " +
+            "them, so a client never sees a vendor's own form."),
         (Ops.Push, typeof(PushRequest), typeof(PushResponse),
             "Apply ops to the IDE. Every text-decidable refusal runs in a PRE-FLIGHT before the first write, so " +
             "a push that cannot land in full lands nothing. `expectedProjectVersion` is the lease; per-item " +

@@ -89,6 +89,39 @@ public class ShowCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    // The incoming diff pane of a DRIFTED library (volt-control view/diff.ts) shows the live `.library` — its manifest.
+    // A directed `.library` read now also returns the library's signatures (openspec directed-library-signatures), and on
+    // CODESYS each extraction the session cache cannot answer is a build of the application that rewrites the engineer's
+    // message view; so `volt show BRIDGE` asks for the manifest only (design §3 Choice 3) and never extracts.
+    [Fact]
+    public void Show_BRIDGE_of_a_library_reads_the_manifest_only_and_never_extracts()
+    {
+        static FakeIde.Item Std(string version) => FakeIde.Item.Library("Standard",
+            Volt.Engine.Library.LibraryManifest.Build("Standard", "Standard", $"Standard, {version} (System)", placeholder: true, system: false));
+        var ide = ConnectedIde(Prg(), Std("3.5.18.0"));
+        ide.LibSignatures = new[]
+        {
+            new Volt.Engine.Library.LibSignature("TON", "standard, 3.5.19.0 (system)", "FunctionBlock",
+                new[] { new Volt.Engine.Library.LibVar("IN", "BOOL") }, new Volt.Engine.Library.LibVar[0],
+                new Volt.Engine.Library.LibVar[0], new Volt.Engine.Library.LibVar[0], null, null),
+        };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Commands.Pull(root, client);
+            ide.RemoveItem("Standard");
+            ide.AddItem(Std("3.5.19.0"));            // the library drifted in the IDE: the session cache cannot answer
+            var extractsBefore = ide.ExtractCalls;
+
+            var (bytes, err, _) = Commands.Show(root, client, "BRIDGE", "Library Manager/Standard/Standard.library");
+
+            Assert.True(bytes is not null, err);
+            Assert.Contains("RESOLUTION Standard, 3.5.19.0 (System)", Encoding.UTF8.GetString(bytes!));
+            Assert.Equal(extractsBefore, ide.ExtractCalls);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     [Fact]
     public void Show_errors_on_a_missing_workspace_file()
     {

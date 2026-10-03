@@ -140,7 +140,7 @@ window.VOLT = {
       },
       {
         "name": "fetch",
-        "summary": "Item CONTENT. \u0060knownItems\u0060 narrows the answer to what changed; \u0060onlyItems\u0060 restricts the walk to a named subset. Graphical bodies arrive as network text \u2014 the bridge materializes them, so a client never sees a vendor\u0027s own form.",
+        "summary": "Item CONTENT. \u0060knownItems\u0060 narrows the answer to what changed; \u0060onlyItems\u0060 restricts the walk to a named subset. Naming a \u0060.library\u0060 returns its manifest and every signature of that library, in the folder and with the bytes a full fetch writes; the first such read of a session pays the vendor\u0027s extraction (on CODESYS a build of the application, which writes the IDE\u0027s message view), later ones with no library change reuse it, and \u0060libraryManifestOnly\u0060 answers the manifest alone. A directed read never sets \u0060librariesRefreshed\u0060. Graphical bodies arrive as network text \u2014 the bridge materializes them, so a client never sees a vendor\u0027s own form.",
         "paramStructure": "by-name",
         "params": [
           {
@@ -407,6 +407,9 @@ window.VOLT = {
               "items": {
                 "type": "string"
               }
+            },
+            "libraryManifestOnly": {
+              "type": "boolean"
             },
             "init": {
               "type": "boolean"
@@ -1633,6 +1636,11 @@ window.VOLT = {
           "name": "ExtractLibrarySignatures",
           "kind": "method",
           "signature": "IReadOnlyList\u003CLibSignature\u003E ExtractLibrarySignatures()"
+        },
+        {
+          "name": "LibrarySignatureCache",
+          "kind": "property",
+          "signature": "LibrarySignatureCache LibrarySignatureCache { get; }"
         }
       ]
     },

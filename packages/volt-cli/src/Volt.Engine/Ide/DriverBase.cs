@@ -155,6 +155,9 @@ public abstract class DriverBase : IIdeSession
     /// driver that forgot the override would have shipped "no library has an API" in silence.</para></summary>
     public abstract IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
 
+    /// <summary>The session's signature cache for directed <c>.library</c> reads — one per driver, i.e. per pipe host.</summary>
+    public Library.LibrarySignatureCache LibrarySignatureCache { get; } = new();
+
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). A probe failure never faults the /health request — but
     /// it is never swallowed either: see <see cref="OnProbeFailed"/>.</summary>

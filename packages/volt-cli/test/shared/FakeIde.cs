@@ -198,7 +198,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public string HealthPlatform { get; init; } = "";
     // Default non-null so a bare `new FakeIde(...)` models a connected bridge WITH a project loaded (serving). A test
     // that wants "connected to the IDE but no project" sets this to null explicitly (then nothing serves).
-    public string? HealthProjectName { get; init; } = "FakeProject";
+    public string? HealthProjectName { get; set; } = "FakeProject";
     // The name on the CACHED health row, independent of the LIVE served name above. Defaults to HealthProjectName (the
     // two agree, as they normally do), and is settable APART so a test can model the snapshot naming a DIFFERENT
     // project than the one actually served — the mis-binding that was unrepresentable while one knob fed both.

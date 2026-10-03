@@ -24,9 +24,25 @@ The bridge SHALL answer a directed fetch that names a `.library` item with that 
 - **WHEN** a directed read names a library to which no extracted signature could be attributed
 - **THEN** the bridge names that library in a warning instead of answering the manifest alone in silence
 
-#### Scenario: a second read is warm
-- **WHEN** a client reads two libraries one after the other with no library change between
-- **THEN** the second read costs a warm extraction (no cold precompile), without a session cache in the bridge
+#### Scenario: a second read costs no extraction
+- **WHEN** a client reads two libraries one after the other with no `.library` added, removed or moved in between
+- **THEN** the bridge extracts once for the session and the second read reuses that extraction, answering the same items a full fetch writes
+
+#### Scenario: a moved library extracts again
+- **WHEN** any `.library` — named or not — was added, removed or moved since the session's extraction was taken, or the bridge now serves another project
+- **THEN** the bridge extracts again and answers from the new extraction
+
+#### Scenario: the manifest alone, on request
+- **WHEN** a directed read names a library with `libraryManifestOnly` set (the CLI's `volt show BRIDGE`)
+- **THEN** the answer is the manifest alone, and the bridge neither extracts nor reads or writes the session's extraction
+
+#### Scenario: a wildcard claims only a path that names its company
+- **WHEN** a signature's library path carries no company and a wildcard reference shares its title
+- **THEN** the wildcard does not claim it: a full fetch keeps those signatures under `(unresolved)` and a directed read of the wildcard reference does not return them
+
+#### Scenario: one compiled library per reference
+- **WHEN** one signature path is claimed by references with different RESOLUTIONs, or one wildcard RESOLUTION matches more than one compiled library
+- **THEN** a directed read naming such a reference refuses by name (the references and the path), and a full fetch keeps those signatures under `(unresolved)` and names the references and the path in a warning
 
 ### Requirement: every readable extension is readable by a directed fetch
 

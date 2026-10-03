@@ -55,9 +55,11 @@ public static class FetchService
         var folders = new Dictionary<string, string>();
         var changed = new List<FetchedItem>();
 
-        // Normalized library RESOLUTION → the .library ref's (folder, bare name), captured from the ref items in
-        // THIS walk, so each element signature is foldered right beside its own .library file.
-        var libByResolution = new Dictionary<string, (string Folder, string Name)>(System.StringComparer.OrdinalIgnoreCase);
+        // EVERY walked `.library` ref — named or not — so each element signature is foldered right beside its owning
+        // .library file by the ONE matcher (LibraryMatcher). Captured BEFORE the onlyItems skip: the owner of a repeated
+        // RESOLUTION and the different-RESOLUTION refusal both need the refs a directed read did not name.
+        var libRefs = new List<LibraryRef>();
+        var namedLibRefs = new List<LibraryRef>();
 
         var sw = Stopwatch.StartNew();
 
@@ -145,23 +147,26 @@ public static class FetchService
                 continue;
             }
             var fullName = mat.FullName;
-
-            if (onlyItems != null && !onlyItems.Contains(it.Name) && !onlyItems.Contains(fullName)) continue;
-
-            fullVersions[fullName] = version;
-            folders[fullName] = folder;
+            var named = onlyItems == null || onlyItems.Contains(it.Name) || onlyItems.Contains(fullName);
 
             if (kind == ItemKind.Kinds.Library)
             {
-                // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Capture
-                // RESOLUTION → (folder, name) so each library's signatures land under `<folder>/<name>/`, beside
-                // its `.library` file.
+                // A library ref's body IS its manifest (LIBRARY/NAMESPACE/RESOLUTION/DEPENDENCIES…). Its RESOLUTION
+                // is what the matcher joins each signature's LibraryPath to, so the library's signatures land under
+                // `<folder>/<name>/`, beside its `.library` file.
                 var res = LibraryFetch.ResolutionLine.Match(mat.Text).Groups[1].Value.Trim();
-                if (res.Length > 0) libByResolution[res] = (walkedFolder, it.Name);
+                var libRef = new LibraryRef(fullName, it.Name, walkedFolder, res, version);
+                libRefs.Add(libRef);
+                if (onlyItems != null && named) namedLibRefs.Add(libRef);
                 // The .library file's version IS the change signal for its library (the manifest encodes the
                 // resolved name+version); collect it to decide whether the signatures need re-extracting.
                 liveLibVersions[fullName] = version;
             }
+
+            if (!named) continue;
+
+            fullVersions[fullName] = version;
+            folders[fullName] = folder;
 
             var item = new FetchedItem
             {
@@ -222,24 +227,48 @@ public static class FetchService
 
         var projectChanged = changed.Count;
 
-        // Extract the referenced-library signatures ONLY when they're needed: never for a directed onlyItems preview,
-        // never on a fetch whose .library versions all match the client's knownItems (no library changed — a
-        // library's API is immutable per version, so the client's existing signature files still stand), and always
-        // on init. This is the whole optimization: the precompile (Build) runs iff a .library version changed.
+        // Extract the referenced-library signatures ONLY when they're needed: on a full fetch, never when its .library
+        // versions all match the client's knownItems (no library changed — a library's API is immutable per version,
+        // so the client's existing signature files still stand), and always on init. This is the whole optimization:
+        // the precompile (Build) runs iff a .library version changed.
         // ONE decision, named — because the RESPONSE has to tell the client which of the two worlds it is in.
         // Signatures re-rendered ⇒ Changed carries the complete set per library folder, so anything the client
         // still holds there is gone. Not re-rendered ⇒ Changed carries no signatures at all, so the client must
         // keep what it has. Without this flag the client cannot tell the cases apart and had to keep them
         // always — which is why a removed library's signatures were immortal.
-        IReadOnlyList<LibSignature> libSigs = librariesRefreshed
-            ? ide.ExtractLibrarySignatures()
-            : Array.Empty<LibSignature>();
+        //
+        // A DIRECTED read that names a `.library` returns that library's signatures too (openspec
+        // directed-library-signatures): the same extraction — neither vendor has a per-library call (DIALECT C2c) — taken
+        // from the session's cache when every walked library's version is the one it was extracted against (on CODESYS
+        // every extraction is a `Build(app)` that rewrites the engineer's message view), and only the NAMED libraries'
+        // signatures rendered. `librariesRefreshed` stays false on it: the answer is complete for the named folders
+        // only. `LibraryManifestOnly` (volt show BRIDGE) answers the manifest alone and touches nothing.
+        var project = $"{bound.Vendor}\n{bound.ProjectName}";
+        var directedLibraries = onlyItems != null && namedLibRefs.Count > 0 && !request.LibraryManifestOnly;
+        IReadOnlyList<LibSignature> libSigs;
+        if (librariesRefreshed)
+        {
+            libSigs = ide.ExtractLibrarySignatures();
+            ide.LibrarySignatureCache.Store(project, libRefs, libSigs);
+        }
+        else if (directedLibraries)
+        {
+            if (ide.LibrarySignatureCache.Reuse(project, libRefs) is { } cached) libSigs = cached;
+            else
+            {
+                libSigs = ide.ExtractLibrarySignatures();
+                ide.LibrarySignatureCache.Store(project, libRefs, libSigs);
+            }
+        }
+        else libSigs = Array.Empty<LibSignature>();
         total = done + libSigs.Count; // fold the (now known) signature count into the bar's tail
 
         // EVERY referenced-library element signature rides through as a read-only item (no referenced-only gate —
         // the AI gets the full public API of the used libraries). Render the signatures now, ticking the SAME
         // progress bar (no separate phase); `done` == walked.Count here (the walk finished).
-        var (libRenderNull, libUnmatched) = LibraryFetch.AppendLibrarySignatures(libSigs, libByResolution, changed, onProgress, done, total);
+        var (libRenderNull, libUnmatched) = directedLibraries
+            ? LibraryFetch.AppendNamed(libSigs, libRefs, namedLibRefs, changed, onProgress, done, total)
+            : LibraryFetch.AppendAll(libSigs, libRefs, changed, onProgress, done, total);
         var librarySignatures = changed.Count - projectChanged; // read-only library API files, written beside each .library
 
         // "Known to the client, and this walk produced no version for it" — MINUS the items the walk saw and

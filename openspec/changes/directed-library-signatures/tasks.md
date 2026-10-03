@@ -384,10 +384,100 @@
 
 ## 3. Build
 
-- [ ] 3.1 The chosen route (0.2) with the one RESOLUTION matcher that learns the wildcard (R1) and gives a repeated RESOLUTION one owner (1.3 F1), the zero-match Warn,
+- [x] 3.1 The chosen route (0.2) with the one RESOLUTION matcher that learns the wildcard (R1) and gives a repeated RESOLUTION one owner (1.3 F1), the zero-match Warn,
       the wire type and its `onlyItems`/`librariesRefreshed` doc (`RefsFetch.cs:100-108`), `volt show BRIDGE` asking
-      for the manifest only (R3), regenerated docs. No session cache (0.1 / R5). Blocked on 1.2's R2 answer.
-- [ ] 3.2 TwinCAT: the same route through `BeckhoffDriver`; both vendors' answers identical in shape.
+      for the manifest only (R3), regenerated docs. ~~No session cache (0.1 / R5). Blocked on 1.2's R2 answer.~~ R2 is
+      answered by the owner's recorded decision (design.md §3 Choice 2): a per-RESOLUTION session cache for directed reads.
+      **Done (2026-10-03, by code; offline — the live repeat is 4.1 / 4.3):**
+      - `Volt.Engine/Library/LibraryFetch.cs`: `LibraryRef` (one walked `.library`: full/bare name, folder, RESOLUTION,
+        version) and **`LibraryMatcher`, the ONE matcher both fetches use** — exact RESOLUTION (case-insensitive), then
+        a WILDCARD ref (`X, * (V)`) claims the path with the same title (before the first comma) AND company (last
+        parenthesis); a path with no company is not wildcard-claimed (no recorded path lacks one, so it stays
+        `(unresolved)` rather than matching on the title alone — a narrowing of design §0's "and company, when
+        `LibraryPath` carries it", named here for the gate). Refs with ONE RESOLUTION share a path: owner = ordinal-least
+        full name (then folder), whatever the walk order. AMBIGUOUS (no owner): one path claimed by refs with different
+        RESOLUTIONs, and — new test, design's "or two compiled versions of X" — one wildcard RESOLUTION matching more than
+        one compiled path. `AppendAll` (full fetch: ambiguous → `(unresolved)` + one Warn per reason naming refs and
+        path(s)) and `AppendNamed` (directed: only paths a NAMED ref claims, in the owner's folder; ambiguous →
+        `BridgeException` `UNSUPPORTED` naming the named refs, every claimant and the path; Warn per named ref that
+        claims nothing; Info `N extracted signatures claimed by no named library (of M)`).
+      - `FetchService.cs`: the walk captures EVERY `.library` ref before the `onlyItems` skip; `librariesRefreshed`
+        unchanged (false on any directed read); a directed read naming ≥1 `.library` (and not `libraryManifestOnly`)
+        reuses the session cache or extracts once and stores it; the full fetch's extraction stores it, never reads it.
+      - `Volt.Engine/Library/LibrarySignatureCache.cs` (new): last raw extraction + `{folder/full name → version}` of
+        every walked ref + the bound project (vendor + name); reuse iff same project and every NAMED ref has its recorded
+        version. Held by the session: `IIdeSession.LibrarySignatureCache`, implemented once in `DriverBase` — no driver
+        code (3.2).
+      - Wire: `FetchRequest.LibraryManifestOnly` (`libraryManifestOnly`, bool, absent = false); `OnlyItems` and
+        `LibrariesRefreshed` docs rewritten (`RefsFetch.cs`); the fetch method summary in `DocDataTests.cs` updated;
+        `docs/volt-bridge.openrpc.json` + `docs/assets/data.js` regenerated (`VOLT_WRITE_DOCS=1`).
+      - `volt show BRIDGE` (`Commands.Show`) sends `LibraryManifestOnly = true`.
+      - Tests (red first, each for its reason): the 2.3 test `Each_directed_library_read_extracts_once_and_nothing_is_cached`
+        is REPLACED per design §3 (its premise, §0's no-cache default, is overridden by the owner's recorded decision) by
+        `Two_directed_reads_with_no_library_change_extract_once`, `A_directed_read_of_a_library_whose_version_moved_extracts_again`,
+        `A_moved_version_of_an_unnamed_library_does_not_extract_again`, `A_full_fetch_never_reads_the_cache_and_refreshes_it`,
+        `A_directed_read_after_the_served_project_changed_extracts_again`, `A_manifest_only_directed_read_extracts_nothing_and_answers_the_manifest`;
+        plus `A_directed_read_of_a_wildcard_ref_matching_two_compiled_versions_refuses_by_name` and
+        `A_full_fetch_keeps_two_compiled_versions_of_one_wildcard_ref_unresolved_and_warns` (DirectedLibraryReadTests),
+        and `ShowCommandTests.Show_BRIDGE_of_a_library_reads_the_manifest_only_and_never_extracts` (Cli; red: one
+        extraction on a drifted library). `FakeIde.HealthProjectName` became settable for the project-switch case.
+        Spec delta: "a second read is warm … without a session cache" replaced by the cache scenarios, the manifest-only
+        scenario and the one-compiled-library refusal.
+      - Not fixed (niche, 0 occurrences in the corpora): two compiled versions under one wildcard ref both land in ONE
+        `(unresolved)/<title>` folder with the same file names (`UnresolvedNameFor` drops the version) — the same as any
+        two unresolved versions of one title today.
+- [x] 3.2 TwinCAT: the same route through `BeckhoffDriver`; both vendors' answers identical in shape.
+      **Done:** no driver code — the route and the cache are engine-held; `BeckhoffDriver.ExtractLibrarySignatures` is
+      the only vendor input. `TcDirectedLibraryReadTests` (real `ProduceAllLibrarySignatures` excerpt) 4/4 green (3 were
+      red), and `DirectedReadPerKindTests`' library row is green in BOTH vendor shapes.
+      **Step 3 numbers:** Engine 2154 pass + 1 skip / 2155 (was 2129 + 1 skip + 18 red / 2148; +7 tests, 0 red);
+      Ide.Twincat 428/428 (3 red → green); Cli 260/260 (+1); Ide.Codesys 297/297 (net48); Connector 115/115; Contracts
+      39/39; Repo.Gates 108/108; volt-cli `bun test test/unit` 24/24; `dotnet build Volt.sln -c Release` 0 errors; `bun run
+      typecheck` 0 errors; `bun run lint` exit 0 (warnings only); `bun run check` 15/15 smoke with the same pre-existing ✗
+      (6 `D7` citations, `bridge-refusal-review` 6.0). No fixture or transpiler change, so no LSP suite / fixture-map run.
+- [x] 3.3 Gate step 3 — review findings on 3.1 / 3.2 (2026-10-04). Four findings, all CONFIRMED; three fixed in code
+      red-first (each new test run red against the step-3 code for the reason it exists), one documented and left
+      for the owner.
+      - H1 (low, `LibraryFetch.cs`) — CONFIRMED and FIXED. The owner tie-break among claimants with ONE full name in TWO
+        folders was `ThenBy(Folder)`, so `Device/…` beat `Library Manager/…` while `DedupeByFullName` keeps the LAST
+        walked stub (CODESYS walks the root Library Manager last, 1.1 F5): signatures went into a folder whose stub had
+        been deduped away (no `IdeTree.LibraryRoots` root → no read-only guard / removal exemption). Now the owner is the
+        LAST walked ref with the ordinal-least full name — the stub that survives. Test
+        `Two_copies_of_one_library_name_keep_the_signatures_beside_the_surviving_stub` (full AND directed; red: signature
+        in `Device/Plc Logic/Application/Library Manager/X`, stub in `Library Manager/X`). 0 occurrences in the corpora
+        (Pro2193's 13 pairs differ in RESOLUTION); fixed because it was one line.
+      - H2 (low, `LibrarySignatureCache.cs`) — CONFIRMED and FIXED (cheap, so not left as niche). The cache is now keyed
+        on EVERY walked ref's {folder/full name → version} (none added, removed or moved) plus the project — exactly D1's
+        full-fetch signal — not on the NAMED refs only. Test `A_directed_read_after_an_unnamed_library_was_added_answers_as_a_fresh_read`
+        (the finding's repro: the session's directed read of the wildcard throws the same UNSUPPORTED message as a fresh
+        IDE's; red: no exception, stale 3.5.17.0 signatures). `A_moved_version_of_an_unnamed_library_does_not_extract_again`
+        is REPLACED by `A_moved_version_of_an_unnamed_library_extracts_again`: its premise (a per-named-library key) is
+        wrong on grounds independent of the code — the spec's "answering the same items a full fetch writes", which the
+        repro shows a per-named key breaks. Cache doc, design §3 Choice 2 ("no new hole" → the hole D1 has, and only
+        it), the `OnlyItems` wire doc and the two spec cache scenarios reworded. 0 occurrences in the corpora.
+      - H3 (low, `LibraryFetch.cs`) — CONFIRMED; the gate RULES for the narrowing: a path with no company is NOT
+        wildcard-claimed (stays `(unresolved)`). The rule is title AND company as recorded (1.1: every recorded path
+        carries one); a title-only match on an unrecorded shape would be a guess. Pinned by
+        `A_wildcard_ref_does_not_claim_a_path_without_a_company` (full: `(unresolved)`; directed: not returned) — green
+        on the code, red if `{ Company: { } company }` is removed (checked); design §0 and a new spec scenario say so.
+      - H4 (low, `FetchService.cs`) — CONFIRMED, documented, **left for the owner** (not cheap to force correctly). A
+        workspace pulled before step 3 keeps wildcard refs' signatures under `(unresolved)/<title>` until the next
+        `.library` version move, while a fresh `volt init` writes them beside the ref (688-713 files per real CODESYS
+        corpus; all five CODESYS corpora are in the old layout). design "Migration" now says the full fetch changes too.
+        The volt-native force — a `LibraryManifest.Materialization` bump (moves every `.library` version → one refresh,
+        LSP names the stale workspace) — would also mark the 695 format-4 manifests of the six committed corpora stale
+        and silence their network-text diagnostics until each is re-pulled live; a bridge-side "a known `(unresolved)`
+        folder a wildcard could claim" trigger would rebuild on EVERY pull where the folder stays unresolved (other
+        company, two compiled versions) — a `Build(app)` per pull on CODESYS. Owner: bump + corpus re-pull, or accept
+        convergence on the next library change.
+      **Gate step 3 numbers (2026-10-04):** Engine 2157 pass + 1 skip / 2158 (was 2154 + 1 / 2155: +4 tests, 1 replaced
+      → +3; `DirectedLibraryReadTests` 32 cases); Cli 260/260; Connector 115/115; Ide.Twincat 428/428; Ide.Codesys 297/297
+      (net48); Contracts 39/39; Repo.Gates 108/108; volt-cli `bun test test/unit` 24/24; `dotnet build Volt.sln -c
+      Release` 0 errors; `bun run typecheck` 0 errors; `bun run lint` exit 0 (warnings only); `openspec validate
+      directed-library-signatures` valid; `bun run check` exit 0 (15/15 smoke) with the same pre-existing ✗ (6 `D7`
+      citations, `bridge-refusal-review` 6.0). `VOLT_WRITE_DOCS=1` regeneration: no change from these fixes (the
+      `onlyItems` text is not in the generated docs). No fixture, LSP or transpiler change, so no LSP suite /
+      fixture-map run (the change names the C# suites and `bun run check`, 4.2).
 
 ## 4. Verify
 
