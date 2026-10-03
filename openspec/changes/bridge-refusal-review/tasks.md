@@ -321,6 +321,10 @@ NETWORK_UNSUPPORTED ×2, STALE_PROJECT_VERSION, ITEM_EXISTS, INVALID_ST) of the 
 paths live almost only in the offline C# doubles, which cannot show what the real IDE does. After V.1–V.4 settle the
 codes, every code is proven against both live IDEs.
 
+**Out of scope here (owner, 2026-10-03):** live tests for network text (LD/FBD) — the `NETWORK_*` codes, graphical
+bodies, 4.3's FB-vs-FUNCTION network call — need design work first (the LD/FBD coverage change). Those rows are
+listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted as gaps by 8.3.
+
 - [ ] 8.1 One live negative matrix (`test/e2e/refusals/`), both vendors, data-driven (a table: trigger → expected code,
       message fragment, and the state after): for EVERY code in BridgeErrorCodes/ConflictCodes that a client can
       receive, one minimal trigger. Each row asserts (a) the exact code, (b) the message names the item, (c) the
@@ -330,7 +334,7 @@ codes, every code is proven against both live IDEs.
       silently.
 - [ ] 8.2 The behaviour changes of this change get a live negative test each: the removed code checks now ACCEPT
       (1.x: the IDE's own build reports the error instead), the silent drops now REFUSE (4.26 body without a slot,
-      4.31 move into a non-folder, D27 unknown view mode/language no longer drops the POU), the wrong FB/FUNCTION
-      body is built right (4.3).
+      4.31 move into a non-folder, D27 unknown view mode/language no longer drops the POU). (4.3's network body: deferred,
+      see above.)
 - [ ] 8.3 Gate (`Volt.Repo.Gates`, beside V.4): every client-visible code appears in the 8.1 table; a code added
       later without a live row fails the gate.
