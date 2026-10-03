@@ -349,6 +349,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         var subFolders = new List<string>();
         foreach (var it in _items)
         {
+            if (HiddenItems.Contains(it.Name)) continue;
             var folder = it.Folder ?? "";
             if (folder == basePath) { kids.Add(Ref(it.Name)); continue; }
             if (basePath.Length > 0 && !folder.StartsWith(basePath + "/", StringComparison.Ordinal)) continue;
@@ -369,6 +370,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         foreach (var f in subFolders) { _folderPaths.Add(f); kids.Add(Ref(f)); }
         return kids;
     }
+    /// <summary>Items that EXIST (readable, deletable by name) but that no tree scan returns — the stale tree a TwinCAT
+    /// lookup can hit right after a mutation: an item renamed or created a moment ago that a re-find under its parent
+    /// does not see. Lets a test reach the engine's "it cannot be found after …" refusals offline.</summary>
+    public HashSet<string> HiddenItems { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     // Both default to the same synthetic root, so the whole tree is flat. A test that models a spine (the tree
     // root ABOVE the PLC-project root, e.g. CODESYS Device/Plc Logic/Application) sets these apart to prove push
     // descends the full path from the tree root instead of re-creating the spine under the PLC-project root.
@@ -421,9 +427,20 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         _items.Add(new Item(bareName, ItemKind.PlcTask, "", true,
                             "Type:     Cyclic\nInterval: 10ms\nPriority: 1\n", null, null, null));
 
+    /// <summary>A task write that is NOT atomic, as neither vendor's is: given the task's descriptor and the pushed
+    /// settings, the descriptor the task holds when <see cref="RefuseTaskWrite"/>'s refusal comes (TwinCAT lands the
+    /// schedule and empties the call list before refusing the calls; CODESYS sets <c>kind_of_task</c> before a later
+    /// member refuses). Null: a refusal lands nothing.</summary>
+    public Func<string, TaskSettings, string>? TaskWriteLandsBeforeRefusal { get; init; }
+
     public void WriteTask(ItemRef task, TaskSettings settings)
     {
-        if (RefuseTaskWrite?.Invoke(task) is { } refusal) throw refusal;
+        if (RefuseTaskWrite?.Invoke(task) is { } refusal)
+        {
+            if (TaskWriteLandsBeforeRefusal is { } lands && FindOrNull(task) is { } t)
+                _items[_items.IndexOf(t)] = t with { Declaration = lands(t.Declaration ?? "", settings) };
+            throw refusal;
+        }
 
         Recorded.Add($"writetask:{NameOf(task)}");
         WrittenTasks[NameOf(task)] = settings;

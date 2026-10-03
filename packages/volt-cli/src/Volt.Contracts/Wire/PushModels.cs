@@ -112,6 +112,33 @@ public class PushConflict
     /// <summary>1-based source line within the pushed body, when the diagnostic knows it.</summary>
     [JsonPropertyName("line")]
     public int? Line { get; set; }
+
+    /// <summary><c>true</c> when the live IDE refused this op AFTER part of it landed, and that part stays in the project:
+    /// an update's declaration or a member it deleted, created or moved, part of a task's settings, a move+edit's text, a
+    /// folder a create or a move made, a native rename that ran first (<see cref="RenamedTo"/>), the delete before a
+    /// forced replace, a create whose rollback failed (<see cref="Remains"/>). <b>Absent</b> when nothing of the op stays — never <c>false</c>. A client re-reads the
+    /// item before retrying exactly when this is set; re-sending the op unchanged is wrong then (its name may be gone,
+    /// its version is stale). <see cref="Reason"/> says WHAT stays, in words (openspec <c>push-keeps-what-landed</c>);
+    /// this is the same fact as a field, so a caller never parses the prose (openspec
+    /// <c>push-partially-applied-flag</c>). Additive: an older bridge never sends it.</summary>
+    [JsonPropertyName("partiallyApplied")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? PartiallyApplied { get; set; }
+
+    /// <summary>The FULL wire name (<c>name.kind</c>) the item has NOW, when a native rename ran before the op was refused
+    /// and stays: the item is no longer under <see cref="Name"/>. Absent otherwise.</summary>
+    [JsonPropertyName("renamedTo")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RenamedTo { get; set; }
+
+    /// <summary><c>true</c> when this op CREATED the item and the rollback of that create failed: the object stays in the
+    /// project under the name the op created it with — the op's <c>toName</c> when it carries one (a forced replace that
+    /// also renames creates under <c>toName</c>, and the original under <see cref="Name"/> is gone), else
+    /// <see cref="Name"/> — so a re-sent create would collide with it. Absent otherwise (a rolled-back create leaves
+    /// nothing).</summary>
+    [JsonPropertyName("remains")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? Remains { get; set; }
 }
 
 public class PushResponse
