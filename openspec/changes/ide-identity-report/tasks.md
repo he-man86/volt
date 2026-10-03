@@ -1,3 +1,55 @@
+## Parked (2026-10-03) — reopen when PLCAssist has field logs (~Nov 2026)
+
+Everything that can be done without a field log is done (1, 2, 4, 5, 6). The two open tasks — **3.1** (what failed on
+CODESYS 3.5.17) and **3.2** (refuse when another Volt build is already loaded?) — stay open, unchanged, and are
+answered by READING field evidence, not by more code. Do NOT archive until both are settled.
+
+**Where the evidence is.**
+- **The bridge log** (only on the user's machine): `%LOCALAPPDATA%\Volt\logs\codesys-YYYY-MM-DD.log` (TwinCAT:
+  `twincat-…`), one daily file shared by every CODESYS process, kept 14 days. Nothing uploads it — PLCAssist must
+  ask the user for the file (a bridge bundle has no connector; on an install the tray's log window "Open logs" opens
+  the folder). One session's block starts at `in-proc bridge starting on pipe volt.bridge.codesys.<pid> (CODESYS pid
+  <pid>)`.
+- **What PLCAssist itself receives** over the relay (it records these per chat; it must also KEEP the new ones):
+  `hello.volt` = `health.bridgeVersion` (the release, or `(dev) <commit>` — never `1.0.0.0` from a bundle built since
+  `2b1590fece`); `health.productName` / `productVersion` / `productVendor` / `ideVersion`; **`health.loadConflicts`**
+  (absent when clean — store it when present); and the **message of every `INTERNAL_ERROR`** frame, now
+  `<ExceptionType>: <message> [loaded: …]` or `… [load conflict: …]` for a binding failure.
+- **The CODESYS message window**: the start line `Volt bridge started on pipe … (…, <OEM> on CODESYS <platform>)`,
+  with ` — WARNING, load conflict (see the Volt log): …` appended when there is one.
+
+**What to collect per affected user**: the CODESYS / OEM version (Help → About), that day's `codesys-*.log` (the
+whole file), and from PLCAssist the chat's health frame and error messages. Ask whether they had two CODESYS windows
+open, re-ran the start script, or have another Volt / PLCAssist bridge folder.
+
+**How to read it for 3.1** (the 3.5.17 `MissingMethodException: …PipeClient.Call(…Action`1[JsonElement]…)`):
+1. `CODESYS platform <v>; product name as stated: …; exe product … version … vendor …; bridge <release>` — the
+   install and the bridge build.
+2. `bound: System.Text.Json <ver> (file …, product …[, GAC]) at <path> [bound]` — **more than one
+   `bound: System.Text.Json` line (`[ALSO LOADED]`)**, or `bound: Volt.Wire.PipeClient.Call binds System.Text.Json …`
+   / `… WireJson.Write binds …` naming another path than the `[bound]` line → two STJ instances: hypothesis 3.1 (a/b/d)
+   CONFIRMED, and the paths say where the second came from (`GAC_MSIL\…` = the GAC case (d); a folder other than the
+   staged `%TEMP%\Volt\codesys-bridge\<pid>` = another loader). One copy of each REFUTES it.
+3. The failure itself: `relay: '<op>' failed on pipe … — System.MissingMethodException: …` (or `pipe …: '<op>' failed
+   — …`), then the stack, `loaded at the failure:` (every copy at that moment) and `load conflicts:`. A conflict seen
+   only there, or in a `LOAD CONFLICT (after start, pid N)` line, means the second copy loaded LATER (3.2 fact 4,
+   `_prune`).
+4. A `MissingMethodException` / `TypeLoadException` naming a `Volt.Engine` member instead (network-text
+   `Box`/`Demux`…, `BridgeRelease`, `ProjectSettings` — 3.1 (c)) → two Volt builds mixed, not STJ: read 3.2.
+
+**How to read it for 3.2** (decide the refusal):
+1. `bound: Volt builds loaded: <n> — product <ProductVersion> (<assemblies>) at <folder>; …` — n > 1 (with
+   `LOAD CONFLICT: <n> Volt builds loaded: …`) is the case; the ProductVersions name the builds (`1.0.0+<commit>` or a
+   release), the folders say whose (another pid's staged dir = a second session or a re-run script; a PLCAssist
+   bundle folder; an install).
+2. `LOAD CONFLICT: Volt.<X> loaded 2 times: …` — one build from two folders (same code, but the `_prune` /
+   second-loader signature).
+3. How often: `health.loadConflicts` across PLCAssist's chats — on how many, and did those chats then fail? A refusal
+   is worth it only if conflicts predict failures.
+4. Not a conflict, by design: CODESYS's own side-by-side framework copies (System.Memory ×3,
+   Microsoft.Bcl.AsyncInterfaces ×2, System.Threading.Tasks.Extensions ×2 on SP21 Patch 4) — listed in `bound:` lines,
+   never flagged (`LoadedCopies.CanConflict`).
+
 ## 0. Already built — do not redo (codesys-minimum-version, archived 2026-10-02)
 
 The CODESYS platform version (`CodesysPlatform.ReadVersion`, DIALECT V1) as `IdeVersion` on `health.ideVersion` and
@@ -328,4 +380,71 @@ the bridge serves: it is shown and logged, never gated on. What OEMs expose is l
 
 ## 5. Verify
 
-- [ ] 5.1 Live on CODESYS 3.5.21 and one OEM install if available, and on TwinCAT: health shows the expected fields.
+- [x] 5.1 Live on CODESYS 3.5.21 and one OEM install if available, and on TwinCAT: health shows the expected fields.
+      *Done 2026-10-03* (a worktree build of `2b1590fece` + step 6, `ide.ps1 up -Instance identity`, fixtures
+      `CodesysTestProject` and `TwinCAT Project14`). **No OEM install exists here** (1.1): none checked; nothing blocks
+      on identity (report only).
+      CODESYS 3.5.21.40 (pid 3076) — health:
+      `{"projects":[{"vendor":"codesys","version":"3.5.21.40","project":"CodesysTestProject",…}],"networkText":true,
+      "ideVersion":"3.5.21.40","productName":"CODESYS","productVersion":"3.5.21.40","productVendor":"CODESYS
+      Development GmbH","bridgeVersion":"(dev) 2b1590fece1bb33e05cff70d9751aaf72602eef0"}` (no `loadConflicts`);
+      `@volt/control` `ideIdentity` over it → **`CODESYS Development GmbH CODESYS 3.5.21.40 — CODESYS 3.5 SP21 Patch 4`**.
+      Start log (`<staged>` = `%TEMP%\Volt\codesys-bridge\3076`, commits shortened):
+      ```
+      [info] in-proc bridge starting on pipe volt.bridge.codesys.3076 (CODESYS pid 3076)
+      [info] bound: Volt.Wire 1.0.0.0 (file 1.0.0.0, product 1.0.0+2b1590fece1b…) at <staged>\Volt.Wire.dll [bound]
+      [info] bound: Volt.Contracts 1.0.0.0 (file 1.0.0.0, product 1.0.0+2b1590fece1b…) at <staged>\Volt.Contracts.dll [bound]
+      [info] bound: System.Text.Json 10.0.0.12 (file 10.0.1226.42308, product 10.0.12+95017c71…) at <staged>\System.Text.Json.dll [bound]
+      [info] bound: System.Memory 4.0.1.1 (…) at C:\Program Files\CODESYS 3.5.21.40\CODESYS\LacBinaries\GAC_MSIL\System.Memory\…
+      [info] bound: System.Memory 4.0.1.2 (…, GAC) at C:\WINDOWS\Microsoft.Net\assembly\GAC_MSIL\System.Memory\…
+      [info] bound: System.Memory 4.0.5.0 (file 4.600.325.20307, product 4.6.3+f62ca000…) at <staged>\System.Memory.dll
+      [info] bound: Volt.Wire.PipeClient.Call binds System.Text.Json 10.0.0.12 (…) at <staged>\System.Text.Json.dll
+      [info] bound: Volt.Contracts.WireJson.Write binds System.Text.Json 10.0.0.12 (…) at <staged>\System.Text.Json.dll
+      [info] bound: Volt builds loaded: 1 — product 1.0.0+2b1590fece1b… (Volt.Contracts, Volt.Engine, Volt.Engine.Host, Volt.Ide.Codesys, Volt.Wire) at <staged>
+      [info] bound: load conflicts: none
+      [info] CODESYS platform 3.5.21.40; product name as stated: "CODESYS"; exe product "CODESYS" version "3.5.21.40" vendor "CODESYS Development GmbH"; bridge (dev) 2b1590fece1bb33e05cff70d9751aaf72602eef0
+      [info] loaded after start (pid 3076): Volt.Relay 1.0.0.0 (file 1.0.0.0, product 1.0.0+2b1590fece1b…) at <staged>\Volt.Relay.dll
+      [info] CODESYS bridge ready on volt.bridge.codesys.3076 (connected to IDE)
+      ```
+      The FIRST live run (pid 13972) flagged `LOAD CONFLICT: System.Memory loaded 3 times`, `Microsoft.Bcl.AsyncInterfaces
+      loaded 2 times` (5.0.0.0 LacBinaries / 10.0.0.12 ours) and `System.Threading.Tasks.Extensions loaded 2 times`
+      (4.2.0.1 / 4.2.4.0) on a healthy install: CODESYS ships its own framework copies. Conflicts are now Volt +
+      System.Text.Json only (`CanConflict`; test `CODESYS_own_side_by_side_framework_copies_are_listed_not_flagged`).
+      TwinCAT 3.1.4024.74 / TcXaeShell 15.0 (xae pid 51456) — health:
+      `{"projects":[{"vendor":"twincat","version":"3.1.4024.74","project":"TwinCAT Project14",…}],"networkText":true,
+      "ideVersion":"3.1.4024.74","productName":"TcXaeShell","productVersion":"15.0","productVendor":"Beckhoff",
+      "bridgeVersion":"(dev) 2b1590fece1bb33e05cff70d9751aaf72602eef0"}`; `ideIdentity` → **`Beckhoff TcXaeShell 15.0 —
+      TwinCAT 3.1.4024.74`**. Log: `twincat bridge serving on pipe volt.bridge.twincat.51456 (xae pid 51456), bridge (dev)
+      2b1590fece…` / `attached to TcXaeShell 15.0 by Beckhoff (xae pid 51456)` / `twincat build (TcRemoteManager.Version):
+      3.1.4024.74`. The rendering was run over the live health; the connector stamps the same fields per row
+      (`WireProjects.Flatten`, control e2e). Found on the way: `ide.ps1 up -Vendor twincat` waited for the pre-step-2
+      attach words and killed attached workers (fixed on dev in `f94e56985e`; now pinned by
+      `TcIdentityTests.The_attach_line_is_the_one_ide_ps1_waits_for`). The first TwinCAT `up` (old `ide.ps1`) left a
+      "TcXaeShell Recovered Files" dialog on the next XAE (cleared by the coordinator; the clean-close `ide.ps1`
+      `fa396309a9` closed it the second time). Both IDEs stopped (`down -Instance identity`).
+
+## 6. Field-log readiness (2026-10-03, for 3.1/3.2)
+
+- [x] 6.1 Audit, and the gaps fixed test-first. Found: (a) every unstamped Volt file is 1.0.0.0 by assembly AND file
+      version, so the `bound:` lines could not tell two builds apart → each copy reads `<ver> (file …, product
+      <ProductVersion>[, GAC]) at <path>` (`LoadedCopies`); (b) no line named the Volt builds loaded, nor a copy loaded
+      AFTER start → `bound: Volt builds loaded: …`, `bound: load conflicts: none` / `LOAD CONFLICT: …`, and an
+      `AssemblyLoad` watch (`loaded after start (pid N)`, `LOAD CONFLICT (after start, pid N)`); (c) the start header was
+      Debug with no pid while every CODESYS appends to one log → Info with the pid; (d) `PipeServer` logged NO uncoded
+      failure, wrote its error frame with the `WireJson.Write` a binding failure takes away, and `Handle`'s own JIT
+      failure would escape onto a thread-pool thread (fatal to CODESYS) → logged first with the whole exception and the
+      loaded copies (`CallFailure`), `Serve` catches; (e) the relay — the caller of `PipeClient.Call` — logged only the
+      message, at Warn → Error with the exception and the pipe; (f) PLCAssist got a bare OS-localized message and
+      nothing about copies → `INTERNAL_ERROR` messages are `<Type>: <message>` (+ load evidence for a binding failure),
+      and `health.loadConflicts`. Already complete, not changed: the identity line (platform, product name, exe
+      product/version/vendor, release). Deliberately not changed (the 3.2 decision): `start_volt_codesys.py`'s `_prune`
+      — the live run pointed `TEMP` at a scratch dir so its `_prune` could not reach another agent's live CODESYS.
+      Tests, red first: `BridgeStartLogTests` 3 (the real `PipeHost` start over a driver on doubles; a second copy
+      before and after start, in its own AppDomain), `CallFailureEvidenceTests` 3, `LoadEvidenceRelayTests` 3 (end to
+      end through the tunnel), `LoadEvidenceTests` 8.
+- [x] 6.2 Release stamping (1.4's conclusion) for what ships: release `0.1.17248`'s CI log shows `stamping version
+      0.1.17248 into every binary`; `BridgePackagingTests` proves the stamp lands in each bundle's `Volt.Engine.Host.dll`
+      (the file `bridgeVersion` reads); `scripts/test-install.ts` (promote's install gate) now checks that DLL beside the
+      TwinCAT worker and in `codesys-scriptcommands`. Not measured here: the installer's payload itself (no Inno
+      extractor, and installing would change this machine's PATH). The PLCAssist bundles read `1.0.0.0` because they
+      are LOCAL unstamped builds — PLCAssist must build with `VOLT_VERSION` set, or ship a release.
