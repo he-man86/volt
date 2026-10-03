@@ -827,4 +827,29 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       `VOLT_PIPE_<VENDOR>` pinned to the push5 pipes): CODESYS 244 pass / 24 skip / 0 fail (268 tests, 49 files; run
       twice, before and after the 5.G review fixes), TwinCAT 244 pass / 24 skip / 0 fail (824 s, after the fixes);
       `vendor-parity` with both bridges up 11 / 0.
-- [ ] 5.G.2 Full C# suites, `bun test test/unit` (volt-cli), the LSP suite, `bun run check`; docs regenerated.
+- [x] 5.G.2 Full C# suites, `bun test test/unit` (volt-cli), the LSP suite, `bun run check`; docs regenerated.
+      DONE (2026-10-03), in the scratch worktree on the final tree (HEAD `a313c74b38` + 5.G.1 + the 5.G review fixes).
+      `dotnet build Volt.sln -c Release` 0 errors (31 warnings, as 5F). C# suites: Engine 1870 pass / 1 skip / 0 fail
+      (5F: 1867 — the review's 3 new `MayBeHeldAs` rows), Cli 239/0, Connector 113/0, Ide.Twincat 296/0, Ide.Codesys
+      202/0, Contracts 19/0, Repo.Gates 92/0 (incl. the generated-docs and `NoKindFromTextTests` gates). volt-cli
+      `bun test test/unit` 4/0. `bun run check` 15 passed / 0 failed (after building `volt-lsp-iec` and `volt-vscode`
+      in the fresh worktree; the LSP `tsc` build still reports the pre-existing `import.meta.dir` type errors in
+      `test/`, seen in 5Qb). `bun run lint` exit 0. Docs: `VOLT_WRITE_DOCS=1` `DocDataTests` 20/20 rewrote `data.js` and
+      `volt-bridge.openrpc.json` with line-ending changes only — content unchanged, nothing to commit. LSP full suite
+      (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset), after `rate:fixtures` rewrote the worktree's CRLF map with LF and
+      no content diff (4259 fixtures; edges agree 2572 / disagree 0 / not-run 110): **7302 pass / 34 skip / 206 todo /
+      0 fail** (7542 tests, 201 files, 514 s) — equal to 5F.
+      CLOSE (2026-10-03). Cold LSP suite (`VOLT_RUSTC_CACHE=0`, `VOLT_REQUIRE_FULL=1`): **7302 pass / 34 skip / 206
+      todo / 0 fail** (484 s). Final review of the whole change. SPEC lens: `specs/bridge-push/spec.md` rewritten to
+      what was built — kind from the class for every item, member kind from its class, retired names `BAD_REQUEST`,
+      the END mirror and its one fallback, one op per item, declaration before members — and its false scenario "a
+      broken POU ... without an unreadable state or `--force`" replaced by the TwinCAT C2i scenario (5.H; nothing about
+      the stopped classifier, subtypes or an unnamed state was left in it); `proposal.md`'s rule listed `.fb`/`.prg`/
+      `.fun` → `.pou`. LAYERING lens (no vendor fact above the seam, no kind logic in the CLI, no Format→Sync
+      dependency found): `PushedText.MayBeHeldAs` kept a POU/DUT whitelist from the three-POU-extension era, so a GVL or
+      interface published in another case was never paired with its push (fixed: any equal kind; `PushedTextTests`
+      rows red first); `Materializer.RefuseMemberOfAnotherClass` held its own member-keyword table (now
+      `StReader.MemberKeywordFor`, the splitter's vocabulary); the TwinCAT driver's two enclosing-POU walks inlined
+      `ItemKind.HoldsMembers`; the unopened-item refusal said "a POU" instead of its kinds. Left as is (acceptable):
+      `ItemKind` keeps TwinCAT codes 602/603 (TwinCAT-canonical by design, all map to `pou`);
+      `UnreadableItemException.Kinds` stays a list (one producer today).
