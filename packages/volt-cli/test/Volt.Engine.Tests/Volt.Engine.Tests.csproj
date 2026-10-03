@@ -21,6 +21,7 @@
     <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+    <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <Using Include="Volt.Tests.Shared" />   <!-- so every file sees the shared double, as before -->
   </ItemGroup>
   <ItemGroup>

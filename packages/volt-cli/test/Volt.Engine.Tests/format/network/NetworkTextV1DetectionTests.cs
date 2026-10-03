@@ -81,7 +81,7 @@ public class NetworkTextV1DetectionTests
         const string body = "IMPLEMENTATION FBD\nNETWORK\nf(\n  Let := x);\nEND_NETWORK";
         var scope = NetworkScope.FromDeclarations(decl,
             n => n == "FB" ? "FUNCTION_BLOCK FB\nVAR_INPUT\n  Let : BOOL;\nEND_VAR\n" : null,
-            () => System.Array.Empty<string>());
+            () => System.Array.Empty<string>(), n => n == "FB" ? Volt.Engine.Item.ItemKind.Kinds.Pou : null, Scopes.RefusedPouName);
         Assert.True(NetworkTextGate.Validate(body, scope).Ok);   // the premise: the push accepts it
         Assert.False(NetworkText.FileHoldsV1("P.pou", decl + body + "\n\nEND_PROGRAM\n"));
     }

@@ -30,16 +30,17 @@ public sealed partial class CodesysDriver
     {
         var declaration = ReadDeclarationText(item);
         var iobj = _om.ReadObject(item.Native);
-        var (body, unsupported) = ReadBody(iobj, declaration);
+        var (body, unsupported, stated) = ReadBody(iobj, declaration);
 
         var members = new List<Member>();
         var ownerIsInterface = KindCode(item) == ItemKind.PlcItf;
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, ownerIsInterface, declaration));
 
-        // No separate language field: a graphical body's text LEADS with its `IMPLEMENTATION FBD|LD` line
-        // (its stated language), so the language is already in the content and a second copy could only disagree.
-        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported);
+        // The body's language travels as the FACT this read took it from (the aspect class and its view mode), beside
+        // the text that spells it — the push's guard compares the fact and reads no text (openspec
+        // bridge-refusal-review D6). ReadBody makes both from the one aspect, so they cannot disagree.
+        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported, stated);
     }
 
     public void WriteContent(ItemRef item, ItemContent content,
@@ -70,8 +71,9 @@ public sealed partial class CodesysDriver
             // TextDocument on its Implementation aspect, so the write failed loudly with
             // "the write would be accepted and land nothing" and a whole project holding one diagram could
             // never be pushed again.
-            _om.WriteSourceText(item.Native, content.Declaration,
-                                ImplementationMarker.Written(content.Body));
+            var written = ImplementationMarker.Written(content.Body);
+            _om.WriteSourceText(item.Native, content.Declaration, written,
+                                NewBodyAspect(item.Native, KindOf(item), written, content.Stated));
         }
         else
         {
@@ -79,8 +81,9 @@ public sealed partial class CodesysDriver
             // nothing re-imports the item, so nothing can regenerate the declaration behind the write. (The
             // ordering rule that used to live in PushService was about TwinCAT's IMPORTER, and there is no
             // import on this path at all.)
+            var aspect = NewBodyAspect(item.Native, KindOf(item), content.Body, content.Stated);
             _om.WriteSourceText(item.Native, content.Declaration, null);
-            WriteGraph(item.Native, graph, scope);
+            WriteGraph(item.Native, graph, scope, aspect);
         }
 
         WriteMembers(item, content.Members, content.Declaration, pushedDeclarations);
@@ -118,11 +121,12 @@ public sealed partial class CodesysDriver
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
     /// <returns>The body as workspace text, and — for an LD or FBD body that reads as <c>IMPLEMENTATION LD|FBD
     /// UNSUPPORTED</c> (network text is off, or cannot represent it: <see cref="NetworkText.Pulled"/>) — why, for the
-    /// pull to report; null for every other body.</returns>
-    private (string? Body, string? Unsupported) ReadBody(object? iobj, string? declaration)
+    /// pull to report; null for every other body — and the language the body's line states, from the aspect
+    /// (<see cref="StatedLanguage"/>, D6), null exactly where there is no body text.</returns>
+    private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(object? iobj, string? declaration)
     {
         var impl = iobj is null ? null : NwlInterop.Get(iobj, "Implementation");
-        if (impl is null) return (null, null);
+        if (impl is null) return (null, null, null);
 
         switch (impl.GetType().Name)
         {
@@ -130,7 +134,9 @@ public sealed partial class CodesysDriver
             {
                 // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the
                 // language is known, rather than read back from the file as the language it states.
-                return (BodyText(CodesysObjectModel.ReadAspectText(iobj, "Implementation")) is { } st ? ImplementationMarker.RequireStBody(st) : null, null);
+                return BodyText(CodesysObjectModel.ReadAspectText(iobj, "Implementation")) is { } st
+                    ? (ImplementationMarker.RequireStBody(st), null, StatedLanguage.St)
+                    : (null, null, null);
             }
 
             case "NWLImplementationObject":
@@ -145,7 +151,8 @@ public sealed partial class CodesysDriver
                 // same answer under its own name (`IMPLEMENTATION <VIEW> UNSUPPORTED`, `IMPLEMENTATION NWL UNSUPPORTED`:
                 // NetworkText.ViewLanguage, D27, openspec bridge-refusal-review 2.23) — it threw here too.
                 var stated = NetworkText.ViewLanguage(ViewModeText(impl));
-                if (NetworkText.LanguageNamed(stated) is not { } view) return (ImplementationMarker.Unsupported(stated), null);
+                if (NetworkText.LanguageNamed(stated) is not { } view)
+                    return (ImplementationMarker.Unsupported(stated), null, StatedLanguage.HiddenIn(stated));
 
                 // A BODY THE READER CANNOT REPRESENT IS `IMPLEMENTATION LD|FBD UNSUPPORTED`, NOT A MISSING POU — and so
                 // is every LD and FBD body while network text is off in this process. `NetworkText.Pulled` decides both,
@@ -179,7 +186,10 @@ public sealed partial class CodesysDriver
                 // CFC, SFC, and an aspect Volt has never seen: a language Volt does not read, so the body is its
                 // UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`) and an engineer gets a file that says so rather than
                 // an editable-looking approximation of a diagram.
-                return (ImplementationMarker.Unsupported(UnreadLanguage(impl.GetType().Name)), null);
+            {
+                var language = UnreadLanguage(impl.GetType().Name);
+                return (ImplementationMarker.Unsupported(language), null, StatedLanguage.HiddenIn(language));
+            }
         }
     }
 
@@ -217,7 +227,7 @@ public sealed partial class CodesysDriver
         var declaration = MemberDeclaration(site);
         // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
         var scope = SourceScopes.Scope(site.Code == ItemKind.PlcAction ? null : declaration, ownerDeclaration);
-        var (body, unsupported) = ReadBody(iobj, scope);
+        var (body, unsupported, stated) = ReadBody(iobj, scope);
 
         Accessor? getter = null, setter = null;
         if (kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
@@ -232,7 +242,8 @@ public sealed partial class CodesysDriver
             }
         }
 
-        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported);
+        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported,
+                          Stated: stated);
     }
 
     /// <summary>A member's kind, decided by its OWNER rather than by the object's interfaces alone.
@@ -271,8 +282,8 @@ public sealed partial class CodesysDriver
     {
         var iobj = _om.ReadObject(acc.Native);
         var declaration = AccessorDeclaration.Keep(CodesysObjectModel.ReadAspectText(iobj, "Interface"));
-        var (body, unsupported) = ReadBody(iobj, SourceScopes.Scope(declaration, propertyScope));
-        return new Accessor(declaration, body, unsupported);
+        var (body, unsupported, stated) = ReadBody(iobj, SourceScopes.Scope(declaration, propertyScope));
+        return new Accessor(declaration, body, unsupported, stated);
     }
 
     /// <summary>A member's declaration, from the member's OWN declaration aspect.
@@ -308,15 +319,74 @@ public sealed partial class CodesysDriver
     /// call's type from the declarations before the write, for v1's text-derived <c>Box(Type: instance)</c>. The v2
     /// reader resolves the type from this same scope, so the engine's pre-flight (which reads every body against
     /// <see cref="NetworkScopeFor"/>) covers it, and the override went with the resolver.</para></summary>
-    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText);
+    private ProjectDeclarations Declarations => _declarations ??= new ProjectDeclarations(this, ReadDeclarationText, RefusedPouName);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>
         Declarations.ScopeFor(declaration, pushedDeclarations);
 
-    /// <summary>A graphical body into <paramref name="node"/>, inside one modify transaction.</summary>
-    private void WriteGraph(object node, NetworkBody graph, NetworkScope scope) =>
-        _om.ModifyObject(node, iobj => CodesysNetworkWriter.Write(iobj, graph, scope));
+    /// <summary>A graphical body into <paramref name="node"/>, inside one modify transaction — on a fresh network body
+    /// aspect first when <paramref name="newBodyAspect"/> names one (a body that changes language, D7), so a write that
+    /// fails rolls the swap back with it.</summary>
+    private void WriteGraph(object node, NetworkBody graph, NetworkScope scope, string? newBodyAspect = null) =>
+        _om.ModifyObject(node, iobj =>
+        {
+            if (newBodyAspect != null) CodesysObjectModel.PutNewBodyAspect(iobj, newBodyAspect);
+            CodesysNetworkWriter.Write(iobj, graph, scope);
+        });
+
+    /// <summary>The body aspect to put on <paramref name="node"/> before its body is written — when the pushed body
+    /// changes language (ST ⇄ LD/FBD) against the aspect the IDE holds — or null when it does not (openspec
+    /// <c>bridge-refusal-review</c> D7). The same predicate the push's guard asks (<see cref="RefusedLanguageChange"/>)
+    /// decides whether it may: a site it refuses is refused HERE too, so the guard and the write cannot disagree.
+    /// <para><paramref name="written"/> is the body text this write puts on the object. <b>No body written, no swap</b>
+    /// (review of step 4a): the push writes a declaration first and alone (<c>Body = null</c>) when it creates a member,
+    /// and that copy still states the body's language — swapping on it committed an EMPTY aspect of the new language,
+    /// and the IDE's body was lost when anything before the real body write threw. The pushed language is read by the
+    /// guard's own rule (<see cref="BodyFormatGuard.PushedLanguage"/>): an empty body stating nothing is ST.</para>
+    /// A hidden body changes nothing: an UNSUPPORTED body is never written, and a live CFC / SFC / IL body the guard
+    /// refuses before any write.</summary>
+    private string? NewBodyAspect(object node, string site, string? written, StatedLanguage? stated)
+    {
+        if (written is null) return null;
+        var pushed = BodyFormatGuard.PushedLanguage($"'{site}'", written, stated);
+        if (pushed is null || pushed.Hidden) return null;
+        var impl = NwlInterop.Get(_om.ReadObject(node) ?? throw new InvalidOperationException(
+                       $"CODESYS: the object of '{site}' could not be obtained to read its body's language"), "Implementation");
+        if (impl is null) return null;
+        var live = impl.GetType().Name switch
+        {
+            "STImplementationObject" => Languages.St,
+            "NWLImplementationObject" => NetworkText.ViewLanguage(ViewModeText(impl)),
+            _ => null,
+        };
+        if (live is null || (live != Languages.St && !Languages.IsNetwork(live))) return null;
+        var toSt = pushed.Language == Languages.St;
+        if ((live == Languages.St) == toSt) return null;
+        if (RefusedLanguageChange(site, live, pushed.Language) is { } why)
+            throw new BridgeException(BridgeErrorCodes.Unsupported, $"CODESYS: {why}");
+        return toSt ? CodesysObjectModel.StBodyAspect : CodesysObjectModel.NetworkBodyAspect;
+    }
+
+    /// <summary>The push's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>). Measured (DIALECT N24,
+    /// <c>scripts/body-language-change.log</c> and <c>member-language-change.log</c>): a POU's own body, a METHOD's, an
+    /// ACTION's and a property's GET and SET each take a freshly constructed aspect of the other language in place — ST
+    /// over LD/FBD and LD/FBD over ST, the guid unchanged — and the swapped body built and RAN. A site outside those is
+    /// no body this driver was measured on, and is refused by name.</summary>
+    public override string? RefusedLanguageChange(string site, string from, string to) =>
+        MeasuredLanguageChangeSites.Contains(site)
+            ? null
+            : $"changing a {site.Replace('_', ' ')} body's language in place (from {from} to {to}) is not measured on " +
+              "CODESYS — DIALECT N24 measured a POU's, a method's, an action's and a property accessor's body — so it is " +
+              "refused rather than guessed writable.";
+
+    /// <summary>The body sites N24 measured a language change on (the guard's sites: an item's kind, a member's kind,
+    /// an accessor's).</summary>
+    private static readonly HashSet<string> MeasuredLanguageChangeSites = new HashSet<string>(StringComparer.Ordinal)
+    {
+        ItemKind.Kinds.Pou, ItemKind.Kinds.Method, ItemKind.Kinds.Action,
+        ItemKind.Kinds.PropertyGet, ItemKind.Kinds.PropertySet,
+    };
 
 
     /// <summary>The item's KIND, from the TREE — never from its text.
@@ -371,14 +441,17 @@ public sealed partial class CodesysDriver
             NetworkBody? graph = m.Body is { } b && NetworkText.Is(b) ? NetworkText.Validate(b, scope) : null;
             if (graph is null)
             {
+                var written = ImplementationMarker.Written(m.Body);   // an UNSUPPORTED body is never written back
                 _om.WriteSourceText(target.Native,
                     m.Kind == ItemKind.Kinds.Action ? null : m.Declaration,
-                    ImplementationMarker.Written(m.Body));   // an UNSUPPORTED body is never written back
+                    written,
+                    NewBodyAspect(target.Native, m.Kind, written, m.Stated));
             }
             else
             {
+                var aspect = NewBodyAspect(target.Native, m.Kind, m.Body, m.Stated);
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                WriteGraph(target.Native, graph, scope);
+                WriteGraph(target.Native, graph, scope, aspect);
             }
 
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
@@ -475,16 +548,22 @@ public sealed partial class CodesysDriver
                 // no-op that keeps the enclosing POU pushable at all), and writing it into a CFC aspect
                 // throws — after the POU's declaration and earlier members have already committed. That
                 // POU could then never be pushed again while the CFC accessor existed.
-                _om.WriteSourceText(child.Native, accessor.Declaration,
-                                    ImplementationMarker.Written(accessor.Code));
+                var written = ImplementationMarker.Written(accessor.Code);
+                _om.WriteSourceText(child.Native, accessor.Declaration, written,
+                                    NewBodyAspect(child.Native, AccessorSite(code), written, accessor.Stated));
                 return;
             }
 
+            var aspect = NewBodyAspect(child.Native, AccessorSite(code), accessor.Code, accessor.Stated);
             _om.WriteSourceText(child.Native, accessor.Declaration, null);
-            WriteGraph(child.Native, graph, scope);
+            WriteGraph(child.Native, graph, scope, aspect);
             return;
         }
     }
+
+    /// <summary>The language-change site of a property accessor, by the code this vendor gives it.</summary>
+    private static string AccessorSite(int code) =>
+        code == ItemKind.PlcPropGet ? ItemKind.Kinds.PropertyGet : ItemKind.Kinds.PropertySet;
 
     // ── non-source manifest ──
     /// <summary>Kinds this SESSION has already reported as having no descriptor reader. Instance-scoped, not

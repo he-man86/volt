@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Ide;
+using Volt.Engine.Item;
 using Volt.Tests.Shared;
 using Xunit;
 using static Volt.Engine.Tests.NetworkModels;
@@ -34,11 +35,25 @@ public class NetworkScopeTests
         ["R_EDGE"] = REdge,
     };
 
-    static NetworkScope ScopeOf(string? declaration, bool withEdgeFunction = false) =>
-        NetworkScope.FromDeclarations(declaration,
-            name => (withEdgeFunction || !string.Equals(name, "R_EDGE", StringComparison.OrdinalIgnoreCase))
-                    && Items.TryGetValue(name, out var d) ? d : null,
-            () => Items.Values.Where(d => d.StartsWith("VAR_GLOBAL", StringComparison.Ordinal)));
+    /// <summary>Each item's WIRE KIND — what the push's wire name or the IDE's class says it is (D3).</summary>
+    static readonly Dictionary<string, string> Kinds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["GVL_Main"] = ItemKind.Kinds.Gvl,
+        ["Machine"] = ItemKind.Kinds.Gvl,
+        ["ST_Timers"] = ItemKind.Kinds.Dut,
+        ["R_EDGE"] = ItemKind.Kinds.Pou,
+    };
+
+    static NetworkScope ScopeOf(string? declaration, bool withEdgeFunction = false)
+    {
+        bool InProject(string name) =>
+            withEdgeFunction || !string.Equals(name, "R_EDGE", StringComparison.OrdinalIgnoreCase);
+        return NetworkScope.FromDeclarations(declaration,
+            name => InProject(name) && Items.TryGetValue(name, out var d) ? d : null,
+            () => Items.Where(kv => Kinds[kv.Key] == ItemKind.Kinds.Gvl).Select(kv => kv.Value),
+            name => InProject(name) && Kinds.TryGetValue(name, out var k) ? k : null,
+            Scopes.RefusedPouName);
+    }
 
     /// <summary>A method's body sees its own declarations, then its FB's.</summary>
     static NetworkScope InMethod => ScopeOf(SourceScopes.Scope(Method, Owner));
@@ -137,6 +152,22 @@ public class NetworkScopeTests
         Assert.Equal("LIMIT", box.Type);
     }
 
+    /// <summary>The engine's scopes take the PRODUCTION fact — every word both vendors refuse as a POU name — not a
+    /// stand-in (review of <c>bridge-refusal-review</c> 4a): types the 25-word stand-in lacked and both drivers refuse
+    /// are common in the corpus declarations (counts beside each), and a variable of one is no FB instance on either
+    /// vendor, so it is none in the corpus oracle either.</summary>
+    [Theory]
+    [InlineData("DATE_AND_TIME")]   // 164
+    [InlineData("__XWORD")]         // 981
+    [InlineData("BIT")]             // 396
+    [InlineData("__SYSTEM")]        // 272
+    [InlineData("__UXINT")]         // 121
+    [InlineData("TIME_OF_DAY")]     // 59
+    [InlineData("__XINT")]          // 51
+    [InlineData("ANY_INT")]         // 7
+    public void A_variable_of_a_type_both_vendors_refuse_is_no_instance(string type) =>
+        Assert.Null(Scopes.Of($"VAR\n    x : {type};\nEND_VAR").InstanceType("x"));
+
     // ── a POU named like a construct (task 3.6) ─────────────────────────────────────────────────
 
     /// <summary>Spec, "a POU named like an edge word": with a FUNCTION named <c>R_EDGE</c> in the project, both the
@@ -230,7 +261,9 @@ public class NetworkScopeTests
     static NetworkScope Inheriting(string? declaration) =>
         NetworkScope.FromDeclarations(declaration,
             n => string.Equals(n, "FB_Base", StringComparison.OrdinalIgnoreCase) ? Base : null,
-            () => Array.Empty<string>());
+            () => Array.Empty<string>(),
+            n => string.Equals(n, "FB_Base", StringComparison.OrdinalIgnoreCase) ? ItemKind.Kinds.Pou : null,
+            Scopes.RefusedPouName);
 
     public static TheoryData<string> InheritingBodies() => new() { "body", "method" };
 
@@ -285,7 +318,7 @@ public class NetworkScopeTests
             ["FB_Root"] = "FUNCTION_BLOCK FB_Root EXTENDS FB_Mid\nVAR\n    tRoot : TOF;\nEND_VAR",
         };
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB_Leaf EXTENDS FB_Mid\nVAR\nEND_VAR",
-            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>());
+            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
 
         Assert.True(scope.Contains("mid"));
         Assert.Equal("TOF", scope.InstanceType("tRoot"));
@@ -326,15 +359,64 @@ public class NetworkScopeTests
     [InlineData("f : FB_Motor;", "f", "FB_Motor")]
     public void Only_a_variable_of_a_function_block_type_is_an_instance(string line, string name, string? expected)
     {
-        var items = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["ST_Timers"] = Timers,
-            ["FB_Motor"] = "FUNCTION_BLOCK FB_Motor\nVAR_INPUT\n    x : INT;\nEND_VAR",
-        };
-        var scope = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n    " + line + "\nEND_VAR",
-            n => items.TryGetValue(n, out var d) ? d : null, () => Array.Empty<string>());
+        Assert.Equal(expected, InProgram(line).InstanceType(name));
+    }
 
-        Assert.Equal(expected, scope.InstanceType(name));
+    /// <summary>A program declaring <paramref name="line"/>, in a project holding a DUT <c>ST_Timers</c>, a function
+    /// block <c>FB_Motor</c>, a FUNCTION <c>F_Calc</c>, and <c>FB_Broken</c> — a function block whose declaration opens
+    /// a comment it never closes, so its text declares nothing and has no header to read.</summary>
+    static NetworkScope InProgram(string line)
+    {
+        var items = new Dictionary<string, (string Kind, string Declaration)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ST_Timers"] = (ItemKind.Kinds.Dut, Timers),
+            ["FB_Motor"] = (ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_Motor\nVAR_INPUT\n    x : INT;\nEND_VAR"),
+            ["F_Calc"] = (ItemKind.Kinds.Pou, "FUNCTION F_Calc : INT\nVAR_INPUT\n    x : INT;\nEND_VAR"),
+            ["FB_Broken"] = (ItemKind.Kinds.Pou, "(* doc\nFUNCTION_BLOCK FB_Broken\nVAR_INPUT\n    IN : BOOL;\nEND_VAR"),
+        };
+        return NetworkScope.FromDeclarations("PROGRAM P\nVAR\n    " + line + "\n    a : BOOL;\n    o : INT;\nEND_VAR",
+            n => items.TryGetValue(n, out var d) ? d.Declaration : null, () => Array.Empty<string>(),
+            n => items.TryGetValue(n, out var d) ? d.Kind : null, Scopes.RefusedPouName);
+    }
+
+    // ── D3 (openspec bridge-refusal-review 4.3): FB or FUNCTION by KIND, never by the callee's header ──────
+
+    /// <summary>The D3 bug: an FB instance whose FB's declaration does not parse (it opens a comment it never closes)
+    /// was read as a FUNCTION call named <c>t1</c> — the callee's header did not read as FUNCTION_BLOCK — and the
+    /// wrong NWL body was WRITTEN. The FB is a POU by its KIND, so <c>t1</c> is its instance whatever its text says,
+    /// and no callee header is read (spec, "callee whose header does not parse").</summary>
+    [Fact]
+    public void An_instance_of_an_FB_whose_declaration_does_not_parse_is_an_instance()
+    {
+        var scope = InProgram("t1 : FB_Broken;");
+        Assert.Equal("FB_Broken", scope.InstanceType("t1"));
+
+        var r = NetworkTextGate.Validate(LdSrc("t1(IN := a);"), scope);
+
+        Assert.True(r.Ok, Diagnostics(r));
+        var box = Assert.IsType<Box>(r.Body!.Networks[0].Trees[0]);
+        Assert.Equal(("t1", "FB_Broken", CallKind.FunctionBlock), (box.Instance!.Text, box.Type, box.Kind));
+    }
+
+    /// <summary>A variable typed by a project FUNCTION is an instance box of that type: the box is what the text says
+    /// (a call of the variable), neither shape compiles, and the build reports it — no refusal, no guess (design
+    /// D3, the one answer that changes; 0 occurrences in the six corpora).</summary>
+    [Fact]
+    public void A_variable_typed_by_a_project_function_is_an_instance_box_the_build_judges() =>
+        Assert.Equal("F_Calc", InProgram("f : F_Calc;").InstanceType("f"));
+
+    /// <summary>A POU is one by its KIND: a project item of kind <c>pou</c> named like an edge word makes the edge
+    /// unspellable whatever its text, and an item of another kind of that name (a DUT) does not.</summary>
+    [Theory]
+    [InlineData("pou", true)]
+    [InlineData("dut", false)]
+    public void A_POU_is_one_by_its_kind_not_its_header(string kind, bool callable)
+    {
+        var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    x : BOOL;\n    out : BOOL;\nEND_VAR",
+            n => n == "R_EDGE" ? "(* unreadable" : null, () => Array.Empty<string>(),
+            n => n == "R_EDGE" ? kind : null, Scopes.RefusedPouName);
+
+        Assert.Equal(callable, scope.IsCallable("R_EDGE"));
     }
 
     /// <summary>…so a call headed by such a variable is read as the LSP reads it — a call of that name, no instance —
@@ -343,7 +425,7 @@ public class NetworkScopeTests
     public void A_call_headed_by_a_variable_of_an_elementary_type_is_no_instance_box()
     {
         var scope = NetworkScope.FromDeclarations("FUNCTION_BLOCK FB\nVAR\n    k : INT;\n    x : INT;\n    out : INT;\nEND_VAR",
-            _ => null, () => Array.Empty<string>());
+            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
 
         var r = NetworkTextGate.Validate(Src("out := k(x);"), scope);
 
@@ -364,7 +446,7 @@ public class NetworkScopeTests
     {
         var scope = NetworkScope.FromDeclarations(
             $"FUNCTION_BLOCK FB\nVAR\n    {word} : BOOL;\n    x : BOOL;\n    out : BOOL;\nEND_VAR",
-            _ => null, () => Array.Empty<string>());
+            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
 
         Assert.False(scope.IsCallable(word));
         var r = NetworkTextGate.Validate(Src("out := R_EDGE(x);"), scope);

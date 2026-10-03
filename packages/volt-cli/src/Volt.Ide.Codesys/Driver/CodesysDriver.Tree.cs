@@ -162,6 +162,11 @@ public sealed partial class CodesysDriver
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
     public override string? RefusedName(string kind, string name) => NameRefusal(kind, name);
 
+    /// <summary>Whether CODESYS refuses <paramref name="name"/> as a POU's name (<see cref="NameRefusal"/>, measured).
+    /// Network scope asks it of a variable's declared type: a word no POU can be named is no function block a body
+    /// calls (openspec <c>bridge-refusal-review</c> D4) — <c>INT</c>, <c>ARRAY</c>, and on CODESYS <c>LDT</c>.</summary>
+    internal static bool RefusedPouName(string name) => NameRefusal(ItemKind.Kinds.Pou, name) is not null;
+
     /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): a `Type:` the vendor's
     /// <c>KindOfTask</c> does not NAME — BAD_REQUEST, by the same lookup the descriptor write makes, so the batch's earlier
     /// ops are not written before the request's own fault is found.</summary>

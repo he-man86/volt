@@ -15,7 +15,7 @@
  *
  *   evidence
  *     confirmed     2713
- *     refused       1781
+ *     refused       1782
  *     not-lowered    338
  *     lsp-gap         74
  *     diverges         5
@@ -3090,6 +3090,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   named_const_literal_wrap: { evidence: "confirmed", tier: "control", rust: "vendor", pedantic: 2, edge: "agree", size: 6.8, shape: "5e91c8782e", notes: ["06bb3a6005", "0e0d715a81", "1307e33bbf", "63d29bd1a0", "6f9ae8fd3a", "b501abe431", "ec9a760059"] },
   narrowing_lreal_to_real: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "3cbfe9dd16", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6", "8cca954ad7"] },
   negative_literal_constant_fold: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 6.5, shape: "9d95229a47", notes: ["4a6baf16b3", "57a8f5a4c8", "870b70e195"] },
+  network_unknown_fb_type: { evidence: "refused" },
   network_unnamed_assignment_target: { evidence: "refused" },
   network_unnamed_group_operand: { evidence: "refused" },
   network_unnamed_input_pin: { evidence: "refused" },

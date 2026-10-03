@@ -306,6 +306,22 @@ public sealed partial class BeckhoffDriver
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
     public override string? RefusedName(string kind, string name) => NameRefusal(kind, name);
 
+    /// <summary>Whether TwinCAT refuses <paramref name="name"/> as a POU's name (<see cref="NameRefusal"/>, measured).
+    /// Network scope asks it of a variable's declared type: a word no POU can be named is no function block a body
+    /// calls (openspec <c>bridge-refusal-review</c> D4) — <c>INT</c>, <c>ARRAY</c>; <c>LDT</c> TwinCAT takes as a
+    /// name, so on TwinCAT it can be one.</summary>
+    internal static bool RefusedPouName(string name) => NameRefusal(ItemKind.Kinds.Pou, name) is not null;
+
+    /// <summary>The push's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>): TwinCAT has NO in-place
+    /// route, at any site (DIALECT N24, measured live on TcXaeShell): ST text assigned over a graphical body is refused
+    /// by the IDE, which parses it as the archive; an archive assigned over an ST body is taken and stored as ST TEXT
+    /// that does not compile. The one route that changes the language recreates the object (export, rewrite, delete,
+    /// import), which loses its identity — the engineer's call, so not taken for them.</summary>
+    public override string? RefusedLanguageChange(string site, string from, string to) =>
+        $"TwinCAT has no route to change an existing body's language in place (from {from} to {to}): ST text over a " +
+        "graphical body is refused by the IDE (\"Data at the root level is invalid\"), and a graphical body over an ST " +
+        "body is stored as ST text that does not compile (DIALECT N24).";
+
     /// <summary>The push pre-flight's create-argument refusal (<c>ICodeStore.RefusedMemberCreate</c>): an interface
     /// member TwinCAT cannot create because it states no type (see <see cref="CreateChild"/>).</summary>
     public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>

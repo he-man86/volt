@@ -426,7 +426,10 @@ describe(`graphical / round-trip (${BASE})`, () => {
 
 	// ── format guard: a malformed/mismatched push is REFUSED and the IDE item is left untouched (the
 	//    bridge is the last line of defence — never lose code). Self-provisioned, runs on both bridges. ──
-	it("refuses to overwrite a graphical body with textual ST and leaves it untouched", async () => {
+	// A textual push over a graphical body is a LANGUAGE CHANGE (openspec bridge-refusal-review D7, DIALECT N24): CODESYS
+	// writes it in place — the body becomes ST, `language-change.test.ts` — so only TwinCAT, which has no in-place route,
+	// still refuses it. The premise "the push refuses it" was Volt's own refusal, disproved on CODESYS by measurement.
+	it("refuses to overwrite a graphical body with textual ST where the vendor cannot (TwinCAT) and leaves it untouched", async () => {
 		const name = id("net_guard_st")
 		const fullName = fid("net_guard_st", "pou")
 		const r0 = await bridge.refs()
@@ -438,6 +441,12 @@ describe(`graphical / round-trip (${BASE})`, () => {
 		const r1 = await bridge.refs()
 		const stSrc = `PROGRAM ${name}\nVAR\n\tx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nx := TRUE;\nEND_PROGRAM\n`
 		const r = await bridge.push({ expectedProjectVersion: r1.projectVersion, ops: [{ op: "set", name: fullName, sourceText: stSrc, ifVersion: r1.items[before.name] }] })
+		if (VENDOR === "codesys") {
+			expect(r.accepted, `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
+			const st = (await bridge.fetch({ knownItems: {}, onlyItems: [fullName] })).changed.find((i: any) => i.name === fullName)
+			expect(st.sourceText).toContain("IMPLEMENTATION ST\nx := TRUE;")
+			return
+		}
 		expect(r.accepted).toBe(false)
 		// Clear, actionable reason — and it names BOTH languages. It used to assert the word "graphical", which
 		// was a proxy for "the refusal explains itself"; the refusal now comes from the body codec, which knows

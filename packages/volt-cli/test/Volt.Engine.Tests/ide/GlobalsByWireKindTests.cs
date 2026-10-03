@@ -24,7 +24,7 @@ public class GlobalsByWireKindTests
     private const string GlobalText = "VAR_GLOBAL\n\tnInPou : INT;\nEND_VAR";
 
     private static IEnumerable<string> Globals(PushedDeclarations pushed) =>
-        new ProjectDeclarations(new FakeIde(), _ => null).Globals(pushed);
+        new ProjectDeclarations(new FakeIde(), _ => null, Scopes.RefusedPouName).Globals(pushed);
 
     [Fact]
     public void A_pushed_gvl_opening_with_VAR_CONFIG_is_a_global_list()
@@ -55,7 +55,7 @@ public class GlobalsByWireKindTests
         var ide = new FakeIde(
             new FakeIde.Item("Live", ItemKind.PlcGvl, "", true, "VAR_GLOBAL\n\tnLive : INT;\nEND_VAR", null, null, null),
             new FakeIde.Item("Variable_Configuration", ItemKind.PlcGvl, "", true, "VAR_CONFIG\nEND_VAR", null, null, null));
-        var declarations = new ProjectDeclarations(ide, r => ide.ReadDeclaration(r));
+        var declarations = new ProjectDeclarations(ide, r => ide.ReadDeclaration(r), Scopes.RefusedPouName);
         var pushed = PushedDeclarations.FromWire(new[] { ("Variable_Configuration", (string?)ItemKind.Kinds.Gvl, VarConfig) });
 
         var globals = declarations.Globals(pushed).ToList();

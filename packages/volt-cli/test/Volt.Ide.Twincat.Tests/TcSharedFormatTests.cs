@@ -100,7 +100,7 @@ public class TcSharedFormatTests
 
         // Throws NetworkTextException naming the canonical form if it would not round-trip.
         var model = NetworkText.Validate(body,
-            NetworkScope.FromDeclarations(pou.Declaration, _ => null, () => Array.Empty<string>()));
+            NetworkScope.FromDeclarations(pou.Declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, BeckhoffDriver.RefusedPouName));
 
         Assert.Equal(2, model.Networks.Count);
         Assert.Empty(model.Networks[1].Trees);          // the label-only network really is empty

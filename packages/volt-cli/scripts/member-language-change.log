@@ -1,0 +1,30 @@
+project copy of: C:\Users\marce\Github\volt\packages\volt-cli\test\fixtures\CodesysTestProject.project
+aspect classes: _3S.CoDeSys.NWLObject.NWLImplementationObject | _3S.CoDeSys.STObject.STImplementationObject
+
+=== 0. the ST members, built: CLEAN
+   run (all TRUE): {'qs': 'TRUE', 'qa': 'TRUE', 'qg': 'TRUE', 'qm': 'TRUE'}
+
+=== 1. each member: ST -> a FRESH NWLImplementationObject, network `x := na`, view Fbd ===
+   method        swap: committed; aspect now NWLImplementationObject; same guid: True
+   method        network written: 1 network(s), view Fbd
+   action        swap: committed; aspect now NWLImplementationObject; same guid: True
+   action        network written: 1 network(s), view Fbd
+   property_get  swap: committed; aspect now NWLImplementationObject; same guid: True
+   property_get  network written: 1 network(s), view Fbd
+   property_set  swap: committed; aspect now NWLImplementationObject; same guid: True
+   property_set  network written: 1 network(s), view Fbd
+   build: CLEAN
+   run (all FALSE: the new network bodies run): {'qs': 'FALSE', 'qa': 'FALSE', 'qg': 'FALSE', 'qm': 'FALSE'}
+
+=== 2. each member: network -> a FRESH STImplementationObject, text `x := a;` ===
+   method        swap: committed; aspect now STImplementationObject; same guid: True
+   method        write 'qm := a;': committed
+   action        swap: committed; aspect now STImplementationObject; same guid: True
+   action        write 'qa := a;': committed
+   property_get  swap: committed; aspect now STImplementationObject; same guid: True
+   property_get  write 'Prop := a;': committed
+   property_set  swap: committed; aspect now STImplementationObject; same guid: True
+   property_set  write 'qs := a;': committed
+   build: CLEAN
+   run (all TRUE: the new ST bodies run): {'qs': 'TRUE', 'qa': 'TRUE', 'qg': 'TRUE', 'qm': 'TRUE'}
+done

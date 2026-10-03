@@ -10,32 +10,10 @@ namespace Volt.Engine.Format.St;
 
 public static class CodeHelper
 {
-    /// <summary>The first line of a declaration that is actually a HEADER — skipping blank lines, `{…}` pragmas,
-    /// `//` comments and `(* … *)` blocks. Returns <c>""</c> when there is none.
-    /// <para><b>TOTAL by contract: it never throws.</b> That is what lets a classifier consume it. The CODESYS
-    /// driver used to find its keyword with a bare <c>TrimStart()</c> + first-token read, which yields <c>""</c>
-    /// for any declaration opening with a pragma or a doc comment — so a `PROGRAM` behind
-    /// <c>{attribute 'qualified_only'}</c> fell to the FUNCTION_BLOCK default and was reported as
-    /// <c>function_block</c> on the wire. Two ways to find a header line is one too many; this is the one.</para>
-    /// <para><b>Never asked on a push.</b> Its strict sibling <c>ParseCodeHeader</c>, which turned "no header" into
-    /// <c>INVALID_CODE_HEADER</c>, is DELETED: it classified a pushed text by its header, and a top-level item's kind is
-    /// its wire name's extension (openspec <c>push-without-header-check</c>).</para>
-    /// <para><b>Decides no kind and no name.</b> Its one caller is network-text scope (<c>StDeclaration</c>'s
-    /// <c>IsCallableHeader</c> / <c>IsFunctionBlockType</c>): whether a callee's declaration is a POU a call can name, or
-    /// a function block — analysis, which the item's kind (<c>pou</c>) cannot answer (5.Qa). The repo gate
-    /// <c>NoKindFromTextTests</c> keeps every other header read out (5.F.2).</para></summary>
-    public static string HeaderLine(string? code)
-    {
-        if (string.IsNullOrWhiteSpace(code)) return "";
-
-        var inBlockComment = false;
-        foreach (var line in code!.Split('\n'))
-        {
-            var onLine = CodeOn(line, ref inBlockComment);
-            if (onLine.Length > 0) return onLine;
-        }
-        return "";
-    }
+    // `HeaderLine` (a declaration's first code line) is DELETED with its last caller (openspec bridge-refusal-review
+    // D3): network-text scope read a callee's header to decide "FB instance or FUNCTION call", and wrote the wrong body
+    // when the header did not read. Scope asks the item's KIND and the vendor's refused names now. The repo gates
+    // NoKindFromTextTests and NoCodeCheckLeftTests keep a header read out of the bridge.
 
     /// <summary>The CODE on one line — the line with leading trivia (blank, <c>//</c>, <c>(* … *)</c>, a pragma)
     /// removed — or <c>""</c> when the line is trivia all the way through. <paramref name="inBlockComment"/>
@@ -66,8 +44,8 @@ public static class CodeHelper
     ///
     /// <para><b>Not the splitter's.</b> The child splitter (<c>StReader</c>) reads through <see cref="StTrivia"/>, which
     /// NESTS comments and sees one opened after code (openspec <c>push-without-header-check</c> 5.E.1); this one does
-    /// neither. What still asks it is <see cref="HeaderLine"/> (network-text scope, above) and
-    /// <c>StDeclaration</c>'s variable and EXTENDS readers (network text, parked).</para></summary>
+    /// neither. What still asks it is <see cref="HeaderLine"/> and <c>StDeclaration</c>'s EXTENDS reader (network
+    /// text); its variable reader reads by statement through <see cref="StTrivia"/> (D5).</para></summary>
     public static string CodeOn(string line, ref bool inBlockComment)
     {
         // U+FEFF is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header keyword and

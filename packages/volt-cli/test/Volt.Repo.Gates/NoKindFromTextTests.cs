@@ -69,9 +69,9 @@ public class NoKindFromTextTests
             "writes the END line that mirrors the declaration's own header (5.Q.3) — file format, no kind"),
         ["Volt.Engine/Sync/Materializer.cs"] = new(2,
             "holds a member's text to its CLASS (5.Q.5) and logs the END-line fallback; decides nothing"),
-        ["Volt.Engine/Format/St/CodeHelper.cs"] = new(3, "HeaderLine / CodeOn themselves"),
-        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(5,
-            "network-text scope: is a callee callable / a function block (analysis, 5.Qa knock-on)"),
+        ["Volt.Engine/Format/St/CodeHelper.cs"] = new(1, "CodeOn itself (HeaderLine is deleted, bridge-refusal-review D3)"),
+        ["Volt.Engine/Format/St/StDeclaration.cs"] = new(1,
+            "network-text scope's EXTENDS reader (the bases an FB's body sees); decides no kind"),
     };
 
     /// <summary>Where a header keyword in a string is not a read that decides a kind — path as above.</summary>
@@ -80,7 +80,8 @@ public class NoKindFromTextTests
         ["Volt.Engine/Format/St/StReader.cs"] = new(1, "the END line mirror's three keywords (PouHeaderKeyword)"),
         ["Volt.Engine/Format/St/StWriter.cs"] = new(1, "the END line's fallback keyword"),
         ["Volt.Engine/Format/St/StDeclaration.cs"] = new(2,
-            "network-text scope's callable / function-block header patterns"),
+            "network-text scope's statement reader: the block words (VAR_GLOBAL, STRUCT, UNION …) that end a variable " +
+            "statement (D5) — it reads names and types, no header and no kind"),
         ["Volt.Engine/Sync/Materializer.cs"] = new(1, "a log line naming the END-line fallback"),
         ["Volt.Engine/Library/LibSignatureRenderer.cs"] = new(8,
             "WRITES a library item's text from the vendor's signature; reads no text"),
@@ -92,6 +93,8 @@ public class NoKindFromTextTests
             "the NAMES CODESYS refuses for a POU or member (FUNCTION, PROGRAM, TYPE … are among them) — a word list, read by no header"),
         ["Volt.Ide.Twincat/Driver/TcRefusedNames.cs"] = new(7,
             "the NAMES TwinCAT refuses for a POU or member (FUNCTION, PROGRAM, TYPE … are among them) — a word list, read by no header"),
+        ["Volt.Engine/Ide/BothVendorsRefusedNames.cs"] = new(7,
+            "the NAMES both vendors refuse (the two lists above, intersected) — a word list, read by no header"),
     };
 
     // ── rule 2: the deleted classifiers and the per-object vendor parse ─────────────────────────────────────────

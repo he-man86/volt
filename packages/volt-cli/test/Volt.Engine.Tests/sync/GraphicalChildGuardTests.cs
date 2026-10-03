@@ -131,8 +131,11 @@ public class GraphicalChildGuardTests
         AssertNothingMutated(ide);
     }
 
-    /// <summary>A textual push over an EDITABLE graphical child (FBD/LD) would also flatten it — same refusal as the
-    /// root POU's "a textual push would overwrite it" case.</summary>
+    /// <summary>A textual push over an EDITABLE graphical child (FBD/LD) changes the body's language, which a vendor
+    /// with no in-place route cannot write (the fake's default answer, TwinCAT's: DIALECT N24) — refused by name, with
+    /// the vendor's reason, both languages and the route that exists, and nothing written. (It said "a textual push
+    /// would overwrite it", a refusal of Volt's own; since D7 the one language-change comparison asks the vendor,
+    /// <see cref="LanguageChangeGuardTests"/>.)</summary>
     [Theory]
     [InlineData("FBD")]
     [InlineData("LD")]
@@ -142,7 +145,10 @@ public class GraphicalChildGuardTests
 
         var resp = Push(ide, "y := 2;");
 
-        Assert.Contains("would overwrite it", Assert.Single(resp.Conflicts!).Reason);
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
+        Assert.Contains($"'M' is {lang} in the IDE and pushed as ST: FakeIde: no route", conflict.Reason);
+        Assert.Contains("delete it and push it again", conflict.Reason);
         AssertNothingMutated(ide);
     }
 
@@ -176,7 +182,7 @@ public class GraphicalChildGuardTests
         Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
         Assert.DoesNotContain("not created by push", conflict.Reason);
         Assert.Contains("delete it and push it again", conflict.Reason);
-        Assert.Contains("(IDE: ST | pushed: FBD)", conflict.Reason);
+        Assert.Contains("'M' is ST in the IDE and pushed as FBD", conflict.Reason);
         AssertNothingMutated(ide);
     }
 

@@ -240,3 +240,37 @@ back unchanged, and a network body pushed as its own hidden line.
    one batch. Reword the spec scenario.
 4. The corpus oracle (`ModelRoundTripOracleTests`, 34 bodies / 157 networks) must stay at its pinned tallies. The
    scratch measurement above predicts no change.
+
+### As built (step 4a) — where reality forced a different choice, and why
+
+- **D7 runs at the item's guard, not in the batch pre-flight.** The comparison needs the LIVE body's language, which only
+  a `ReadContent` of the item gives. The batch pre-flight reads the project in ONE walk and no item (a per-op lookup was
+  measured to take the live TwinCAT suite from ~5 to over 20 minutes, `PushService.WillCreate`), and a per-op content read
+  costs more than a lookup. The apply loop already reads `live` once per item for the guard, the reconciler and the write
+  filter, so the comparison runs there — before the item's FIRST write, so a refused change writes nothing of that item;
+  an earlier op of the batch that landed is reported as landed (push-keeps-what-landed). "Pre-flight" in the task reads as
+  "before the write", which this holds.
+- **The member sites were measured live, and all write.** `scripts/probe-member-language-change.py` (its own script and
+  log, so N24's `body-language-change.log` stays the record of the POU case): a METHOD's, an ACTION's, a GET's and a SET's
+  body each took a fresh aspect of the other language in both directions, same guid, built clean and ran. CODESYS answers
+  null for those five sites (POU, method, action, property_get, property_set); any other site is refused by name. No
+  site stays "not measured".
+- **The CODESYS swap rides the write's own transaction.** `WriteSourceText(…, newBodyAspect)` and `WriteGraph(…, aspect)`
+  put the fresh aspect on the checked-out object and write into it before the one `SetObject`, so a write that fails rolls
+  the swap back with it and the old body stays. N24 measured the swap and the write in two transactions; the single
+  transaction is measured by the live e2e (`graphical/language-change.test.ts`: a POU ST → LD → ST and a method
+  ST → FBD → ST, each pulled back and built clean on CODESYS; refused untouched on TwinCAT).
+- **`Stated` is null exactly where there is no body text** (D6), on both vendors: TwinCAT stores an empty ST body as no
+  text, so neither driver states a language for an empty body, and the guard reads "no live text" as an empty ST body —
+  every graphical and hidden body has text (its keyword line). A body WITH text and no stated language is refused loud
+  (`InvalidOperationException`): a reader that forgot the fact. The CLI's `SameBody` asks no kind and no refused name (it
+  holds no project and links no driver); it reads both texts in one scope, so they read alike.
+- **D4's unmeasured TwinCAT limit is measured: there is none.** `network_unknown_fb_type`, recorded on CODESYS SP21 and
+  TwinCAT Project13 in one batch each: both write the box and both builds answer the same two errors (`Unknown type:
+  'FB_LANG_NoSuchType'`, `Program name, function or function block instance expected instead of 't1'`; DIALECT N26). No
+  refusal; the LSP flags the source as the build does (rating `refused`).
+- **`CodeHelper.HeaderLine` is deleted** with its last product caller (the repo gate `NoTestOnlyCodeInSrcTests` named it
+  test-only). The test double reads a fixture's first code line through `CodeOn` itself.
+- **D5's statement reader reads through `StTrivia`**, not `CodeOn`: comments nest, a comment opened after code on its line
+  is seen, and string text is blanked — so a trailing `// …` or `(* … *)` is no part of the next statement. The corpus
+  oracle stayed at its pinned tallies.

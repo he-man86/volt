@@ -13,8 +13,8 @@ const SFC = (vars: string, body = "IMPLEMENTATION SFC UNSUPPORTED") => `PROGRAM 
 function ask(sfc: string, reads: string[]): { type: string; step: boolean }[] {
   const q = `PROGRAM Q\nVAR\n\tv : BOOL;\nEND_VAR\nIMPLEMENTATION ST\n${reads.map((r) => `v := ${r};`).join("\n")}\nEND_PROGRAM\n`
   const files = [
-    { uri: "P.prg", source: sfc },
-    { uri: "Q.prg", source: q },
+    { uri: "P.pou", source: sfc },
+    { uri: "Q.pou", source: q },
   ].map((f) => ({ ...f, parseResult: parseSource(f.source, { networkText: false }) }))
   const project = build.buildSymbolTable(files, [], "codesys")
   const unit = files[1]!.parseResult.units[0] as Program

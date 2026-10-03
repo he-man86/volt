@@ -249,7 +249,7 @@ public class NetworkTextGateTests
     public void A_wire_shaped_variable_declared_AT_an_address_is_a_variable_operand()
     {
         var scope = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n\tg5 AT %IX0.0 : BOOL;\n\tout : BOOL;\nEND_VAR",
-            _ => null, () => Array.Empty<string>());
+            _ => null, () => Array.Empty<string>(), Scopes.NoItem, Scopes.RefusedPouName);
         var r = NetworkTextReader.Read(Src("out := g5;"), scope);
         Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
         var assign = Assert.IsType<Assign>(Assert.Single(Assert.Single(r.Body!.Networks).Trees));

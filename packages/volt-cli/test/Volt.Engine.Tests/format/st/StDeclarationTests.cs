@@ -42,4 +42,48 @@ public class StDeclarationTests
     [InlineData(null, "t1")]
     public void Answers_null_when_it_is_not_declared(string? declaration, string name) =>
         Assert.Null(StDeclaration.TypeOfCallTarget(declaration, name, NoProject));
+
+    // ── D5 (openspec bridge-refusal-review 4.5): the declaration is read by STATEMENT, not by line ──────────
+
+    /// <summary>A declaration is read up to each <c>;</c>, comments and pragmas blanked, so the three shapes the
+    /// one-line rule lost are names with their types: a list wrapped over lines (<c>a,</c> / <c>t2 : TON;</c> — the
+    /// first name was lost, and <c>a(IN := b)</c> silently became a FUNCTION box <c>a</c>), a located variable
+    /// (<c>g5 AT %IX0.0 : BOOL;</c>), and a one-line block (<c>VAR_INPUT x : BOOL; END_VAR</c>). A trailing comment
+    /// or pragma on a line is no part of the next statement.</summary>
+    [Theory]
+    [InlineData("VAR\n\ta,\n\tt2 : TON;\nEND_VAR", "a", "TON")]
+    [InlineData("VAR\n\ta,\n\tt2 : TON;\nEND_VAR", "t2", "TON")]
+    [InlineData("VAR\n\tg5 AT %IX0.0 : BOOL;\nEND_VAR", "g5", "BOOL")]
+    [InlineData("VAR\n\tq AT %Q* : BOOL;\nEND_VAR", "q", "BOOL")]
+    [InlineData("FUNCTION_BLOCK FB\nVAR_INPUT x : BOOL; END_VAR\nVAR t1 : TON; END_VAR", "x", "BOOL")]
+    [InlineData("FUNCTION_BLOCK FB\nVAR_INPUT x : BOOL; END_VAR\nVAR t1 : TON; END_VAR", "t1", "TON")]
+    [InlineData("VAR\n\tx : INT; // the count\n\tt1 : TON;\nEND_VAR", "t1", "TON")]
+    [InlineData("VAR\n\tx : INT; (* doc *)\n\tt1 : TON;\nEND_VAR", "t1", "TON")]
+    [InlineData("VAR\n\t{attribute 'hide'} t1 : TON;\nEND_VAR", "t1", "TON")]
+    [InlineData("VAR CONSTANT\n\tt1 : TON;\nEND_VAR", "t1", "TON")]
+    [InlineData("VAR RETAIN PERSISTENT t1 : TON; END_VAR", "t1", "TON")]
+    [InlineData("VAR\n\ts : STRING := 'a;b';\n\tt1 : TON;\nEND_VAR", "t1", "TON")]
+    [InlineData("TYPE ST_T :\nSTRUCT\n\toff : TOF;\nEND_STRUCT\nEND_TYPE", "off", "TOF")]
+    [InlineData("VAR\n\tvariable : TON;\nEND_VAR", "variable", "TON")]
+    public void Reads_the_declaration_by_statement(string declaration, string name, string expected) =>
+        Assert.Equal(expected, StDeclaration.TypeOfCallTarget(declaration, name, NoProject));
+
+    /// <summary>A header is no statement that declares: <c>METHOD Run : BOOL</c>, <c>FUNCTION F : INT</c>,
+    /// <c>PROPERTY P : INT</c> and <c>TYPE A : INT;</c> name no variable.</summary>
+    [Theory]
+    [InlineData("METHOD Run : BOOL\nVAR_INPUT\n\tx : INT;\nEND_VAR", "Run")]
+    [InlineData("FUNCTION F : INT\nVAR_INPUT\n\tx : INT;\nEND_VAR", "F")]
+    [InlineData("PROPERTY P : INT", "P")]
+    [InlineData("TYPE A : INT;\nEND_TYPE", "A")]
+    public void A_header_declares_no_variable(string declaration, string name) =>
+        Assert.Null(StDeclaration.TypeOfCallTarget(declaration, name, NoProject));
+
+    /// <summary>The names and the types are one rule: every name <see cref="StDeclaration.DeclaredNames"/> gives,
+    /// the type read resolves.</summary>
+    [Fact]
+    public void Declared_names_are_the_statement_rule()
+    {
+        const string decl = "FUNCTION_BLOCK FB\nVAR_INPUT x : BOOL; END_VAR\nVAR\n\ta,\n\tt2 : TON;\n\tg5 AT %IX0.0 : BOOL; // in\nEND_VAR";
+        Assert.Equal(new[] { "x", "a", "t2", "g5" }, StDeclaration.DeclaredNames(decl));
+    }
 }

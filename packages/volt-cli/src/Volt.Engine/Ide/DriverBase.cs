@@ -40,6 +40,12 @@ public abstract class DriverBase : IIdeSession
     /// <summary>No task refused from its settings — see <c>ICodeStore.ValidateTask</c>.</summary>
     public virtual void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings) { }
 
+    /// <summary>Whether this vendor writes a body's language change in place — see
+    /// <c>ICodeStore.RefusedLanguageChange</c>. ABSTRACT, with no default: "writes it" would let a driver that has no
+    /// route accept a change and land the text in the old language's slot, and "refuses it" would be Volt's own refusal
+    /// of a write the vendor performs (DIALECT N24: CODESYS does). Each driver states its measured answer.</summary>
+    public abstract string? RefusedLanguageChange(string site, string from, string to);
+
 
 
     private volatile bool _isDegraded;

@@ -23,6 +23,32 @@ build reports that error and the LSP reports the same.
 - **WHEN** CODESYS network text reads `.ENO` on a box with no EN
 - **THEN** it is written, and the build reports "Missing EN pin"
 
+#### Scenario: FB instance of a type nothing declares
+- **WHEN** network text calls `t1(IN := a)` and `t1`'s declared type is named by no project item, no library and no
+  word the vendor refuses as a POU name
+- **THEN** it is written as an instance box of that type on both vendors, and the build reports the unknown type
+
+#### Scenario: instance declared in a list wrapped over two lines
+- **WHEN** a declaration reads `a,` / `t2 : TON;` and network text calls `a(IN := b)`
+- **THEN** `a` is read as an instance of `TON` (the declaration is read by statement), never as a FUNCTION named `a`
+
+### Requirement: a body's language changes where the vendor writes it
+
+The bridge SHALL decide in ONE comparison that a pushed body changes an existing body's language (ST ⇄ LD/FBD), from
+the languages the driver and the ST reader state as facts, never from the body text. It SHALL write the change where
+the vendor writes it in place (CODESYS: a POU's, a method's, an action's and a property accessor's body — DIALECT N24)
+and SHALL refuse it `UNSUPPORTED` where the vendor cannot (TwinCAT), naming both languages, the vendor's reason and
+the route that exists, before the item's first write. LD ⇄ FBD is a view change and is written on both vendors.
+
+#### Scenario: ST over an LD body on CODESYS
+- **WHEN** an existing POU or method whose body is LD in CODESYS is pushed with an `IMPLEMENTATION ST` body
+- **THEN** it is written on the same object, the next pull states `IMPLEMENTATION ST`, and the project builds
+
+#### Scenario: a language change on TwinCAT
+- **WHEN** an existing TwinCAT body is pushed in the other language (ST ⇄ LD/FBD)
+- **THEN** the push is refused `UNSUPPORTED` naming both languages and "delete it and push it again", and the item is
+  unchanged
+
 ### Requirement: canonical form is not a refusal
 
 The bridge SHALL write a network-text body or a task descriptor that reads into a complete, writable model, whatever
@@ -64,4 +90,5 @@ or list the item by name.
 
 #### Scenario: callee whose header does not parse
 - **WHEN** network text calls a function block whose declaration opens with an unclosed `(*`
-- **THEN** the call is built as an FB instance from the IDE's POU type, not as a FUNCTION call guessed from the header
+- **THEN** the call is built as an FB instance of the variable's declared type; no callee header is read (the callee
+  is a POU by its kind — the push's wire kind, else the IDE's class)

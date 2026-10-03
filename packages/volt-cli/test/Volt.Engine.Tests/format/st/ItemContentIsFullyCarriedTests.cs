@@ -75,7 +75,8 @@ public class ItemContentIsFullyCarriedTests
                 Declaration: "METHOD PUBLIC DoWork : BOOL\nVAR_INPUT\n\tbGo : BOOL;\nEND_VAR",
                 Body: "DoWork := bGo;",
                 Folder: "Internals",
-                ReturnType: "BOOL"),
+                ReturnType: "BOOL",
+                Stated: StatedLanguage.St),
             new(Kind: ItemKind.Kinds.Property,
                 Name: "Level",
                 Declaration: "PROPERTY PUBLIC Level : INT",
@@ -83,10 +84,12 @@ public class ItemContentIsFullyCarriedTests
                 Folder: "Exposed",
                 // Both accessors present, with DIFFERENT declarations — the exact asymmetry that made the
                 // dropped getter declaration visible to a human reader in the first place.
-                Getter: new Accessor("VAR\nEND_VAR", "Level := nCount;"),
-                Setter: new Accessor("PRIVATE\nVAR\nEND_VAR", "nCount := Level;"),
+                Getter: new Accessor("VAR\nEND_VAR", "Level := nCount;", Stated: StatedLanguage.St),
+                Setter: new Accessor("PRIVATE\nVAR\nEND_VAR", "nCount := Level;", Stated: StatedLanguage.St),
                 DataType: "INT"),
-        });
+        },
+        // The language each body's line states (D6): the file carries it as the line, and the reader states it back.
+        Stated: StatedLanguage.St);
 
     // ── the reflection half ────────────────────────────────────────────────────────────────────────────────
 
@@ -152,6 +155,7 @@ public class ItemContentIsFullyCarriedTests
         Assert.Equal(before.Kind, after.Kind);
         Assert.Equal(before.Declaration, after.Declaration);
         Assert.Equal(before.Body, after.Body);
+        Assert.Equal(before.Stated, after.Stated);
         Assert.Equal(before.Members.Select(m => m.Name), after.Members.Select(m => m.Name));
 
         foreach (var (b, a) in before.Members.Zip(after.Members))
@@ -168,7 +172,10 @@ public class ItemContentIsFullyCarriedTests
             if (b.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
                 Assert.Equal(b.Body ?? "", a.Body ?? "");
             else
+            {
                 Assert.Equal(b.Body, a.Body);
+                Assert.Equal(b.Stated, a.Stated);
+            }
             AssertAccessor(b.Name + ".Getter", b.Getter, a.Getter);
             AssertAccessor(b.Name + ".Setter", b.Setter, a.Setter);
         }
@@ -184,6 +191,7 @@ public class ItemContentIsFullyCarriedTests
 
         Assert.Equal(before.Declaration, after!.Declaration);
         Assert.Equal(before.Body, after.Body);
+        Assert.Equal(before.Stated, after.Stated);
     }
 
     /// <summary>A body that EXISTS is preserved to the character, null stays null and empty stays empty.

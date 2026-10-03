@@ -33,13 +33,13 @@ public sealed partial class BeckhoffDriver
     public ItemContent ReadContent(ItemRef item)
     {
         var declaration = _om.ReadDeclaration(item.Native);
-        var (body, unsupported) = ReadBody(item, declaration);
+        var (body, unsupported, stated) = ReadBody(item, declaration);
 
         var members = new List<Member>();
         foreach (var site in Volt.Engine.Ide.MemberSites.Of(this, item))
             members.Add(ReadMember(site, declaration));
 
-        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported);
+        return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported, stated);
     }
 
     /// <summary>The push PRE-FLIGHT: refuse a body this driver could not write, before anything is written.
@@ -178,11 +178,11 @@ public sealed partial class BeckhoffDriver
             // Each body against its OWN scope, the one `SourceScopes.BodiesOf` gives the pre-flight: an action
             // has no declaration of its own, and an accessor sees its property's and then the POU's.
             var memberScope = SourceScopes.Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration);
-            Collect(graphical, new[] { m.Name }, site, m.Body, memberScope, pushedDeclarations);
-            Collect(graphical, new[] { m.Name, "Get" },
+            Collect(graphical, new[] { m.Name }, m.Kind, site, m.Body, memberScope, pushedDeclarations);
+            Collect(graphical, new[] { m.Name, "Get" }, ItemKind.Kinds.PropertyGet,
                     AccessorSite(site, itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet),
                     m.Getter?.Body, SourceScopes.Scope(m.Getter?.Declaration, memberScope), pushedDeclarations);
-            Collect(graphical, new[] { m.Name, "Set" },
+            Collect(graphical, new[] { m.Name, "Set" }, ItemKind.Kinds.PropertySet,
                     AccessorSite(site, itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet),
                     m.Setter?.Body, SourceScopes.Scope(m.Setter?.Declaration, memberScope), pushedDeclarations);
         }
@@ -234,7 +234,7 @@ public sealed partial class BeckhoffDriver
     ///
     /// <para>Validation still runs before anything is touched, so a refusal costs nothing.</para></summary>
     private void Collect(List<(string[] Path, string Nwl)> into,
-                         string[] path, ItemRef? site, string? body, string? declaration,
+                         string[] path, string kind, ItemRef? site, string? body, string? declaration,
                          PushedDeclarations pushedDeclarations)
     {
         if (body is not { } b || !NetworkText.Is(b)) return;
@@ -243,6 +243,7 @@ public sealed partial class BeckhoffDriver
         // A null site is an accessor the property does not carry. Collecting nothing leaves the report to
         // `WriteAccessor`, which is where that case is already decided.
         var existing = site is { } s ? _om.ReadImplementation(s.Native) : null;
+        RefuseLanguageChange(kind, existing, LanguageOf(model));
         if (ResolveBody(existing, model, declaration, pushedDeclarations) is { } nwl) into.Add((path, nwl));
     }
 
@@ -305,10 +306,10 @@ public sealed partial class BeckhoffDriver
     /// (<see cref="SourceScopes.Scope"/>) — a graphical body is written against its <see cref="NetworkScope"/>.</param>
     /// <returns>The body, and — for an LD or FBD body that reads as its UNSUPPORTED line (network text is off, or cannot
     /// represent it: <see cref="NetworkText.Pulled"/>) — why, for the pull to report; null for every other body.</returns>
-    private (string? Body, string? Unsupported) ReadBody(ItemRef item, string? declaration)
+    private (string? Body, string? Unsupported, StatedLanguage? Stated) ReadBody(ItemRef item, string? declaration)
     {
         var raw = _om.ReadImplementation(item.Native);
-        if (string.IsNullOrWhiteSpace(raw)) return (null, null);
+        if (string.IsNullOrWhiteSpace(raw)) return (null, null, null);
 
         if (TcArchive.Root(raw) is { } impl)
         {
@@ -317,7 +318,7 @@ public sealed partial class BeckhoffDriver
             // An unknown or missing view threw here, outside `Pulled`, which took the whole POU out of refs and fetch
             // (D27, openspec bridge-refusal-review 2.29).
             var stated = NetworkText.ViewLanguage(TcArchive.ViewMode(impl));
-            if (NetworkText.LanguageNamed(stated) is not { } view) return (ImplementationMarker.Unsupported(stated), null);
+            if (NetworkText.LanguageNamed(stated) is not { } view) return (ImplementationMarker.Unsupported(stated), null, StatedLanguage.HiddenIn(stated));
 
             // EVERY LD AND FBD BODY GOES THROUGH `NetworkText.Pulled`, as on CODESYS: while network text is off in this
             // process it is the UNSUPPORTED line with the switch's reason, and nothing below is read; on, it is network
@@ -367,12 +368,12 @@ public sealed partial class BeckhoffDriver
         // CFC and SFC are graphical and unsupported: each is its UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`), so an engineer
         // gets a file that says so rather than an editable-looking approximation of a diagram they would then push back.
         var lang = TcArchive.UnreadLanguage(raw);
-        if (lang != null) return (ImplementationMarker.Unsupported(lang), null);
+        if (lang != null) return (ImplementationMarker.Unsupported(lang), null, StatedLanguage.HiddenIn(lang));
 
         // ST, in memory, carries no line — so a keyword-shaped line in its text is refused here, where the language is
         // known, rather than read back from the file as the language it states.
         var body = raw.TrimEnd('\n');
-        return (body.Length == 0 ? null : ImplementationMarker.RequireStBody(body), null);
+        return body.Length == 0 ? (null, null, null) : (ImplementationMarker.RequireStBody(body), null, StatedLanguage.St);
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
@@ -382,6 +383,7 @@ public sealed partial class BeckhoffDriver
         {
             var model = NetworkText.Validate(b, NetworkScopeFor(declaration, pushedDeclarations));   // refuse BEFORE touching the IDE
             var existing = _om.ReadImplementation(item.Native);
+            RefuseLanguageChange(kind, existing, LanguageOf(model));
 
             // CREATE takes the other door. The archive writer cannot BUILD a body - a BoxTreeBox carries
             // members the IDE RESOLVES (InputParam, CallType, EN, ENO, Id) and guessing them wrote twenty
@@ -404,9 +406,32 @@ public sealed partial class BeckhoffDriver
         // TwinCAT's COM object does not expose the member at all — writing to it throws
         // "'System.__ComObject' does not contain a definition for 'ImplementationText'". PushService used to
         // make this decision from the item's kind code; it moved here with the rest of the write.
-        _om.WriteText(item.Native, declaration,
-                      HasBodySlot(kind) ? ImplementationMarker.Written(body) : null);
+        var written = HasBodySlot(kind) ? ImplementationMarker.Written(body) : null;
+        if (written is not null) RefuseLanguageChange(kind, _om.ReadImplementation(item.Native), Languages.St);
+        _om.WriteText(item.Native, declaration, written);
     }
+
+    /// <summary>THE WRITE'S OWN LANGUAGE-CHANGE CHECK — the predicate the push's guard asks
+    /// (<see cref="RefusedLanguageChange"/>, <c>ICodeStore.RefusedLanguageChange</c>), asked again where the body is
+    /// written, so the guard and the write cannot disagree on this vendor either (review of <c>bridge-refusal-review</c>
+    /// 4a: only CODESYS's write asked it). TwinCAT refuses every change (N24), and without this a write that skipped the
+    /// guard met the IDE instead: ST over an archive is a raw vendor throw, an archive over ST is stored as ST text that
+    /// does not compile. <paramref name="existing"/> is the live implementation: blank is no body yet (a create, in
+    /// any language), and a hidden live body (CFC, SFC, IL) is the guard's refusal, not a language change.</summary>
+    private void RefuseLanguageChange(string site, string? existing, string to)
+    {
+        if (string.IsNullOrWhiteSpace(existing)) return;
+        var from = TcArchive.Root(existing) is { } impl
+            ? NetworkText.ViewLanguage(TcArchive.ViewMode(impl))
+            : TcArchive.UnreadLanguage(existing) ?? Languages.St;
+        if (from != Languages.St && !Languages.IsNetwork(from)) return;
+        if ((from == Languages.St) == (to == Languages.St)) return;
+        if (RefusedLanguageChange(site, from, to) is { } why)
+            throw new BridgeException(BridgeErrorCodes.Unsupported, $"TwinCAT: {why}");
+    }
+
+    private static string LanguageOf(NetworkBody model) =>
+        model.Language == BodyLanguage.Ld ? Languages.Ld : Languages.Fbd;
 
     /// <summary>THE ONE PLACE that decides what a graphical body becomes: a freshly BUILT archive when the item
     /// has none yet, an in-place EDIT when it does, and NULL when the archive already says exactly this.
@@ -642,15 +667,15 @@ public sealed partial class BeckhoffDriver
             }
         }
 
-        var (body, unsupported) = ReadBody(site.Ref, scope);
-        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported);
+        var (body, unsupported, stated) = ReadBody(site.Ref, scope);
+        return new Member(kind, site.Name, declaration, body, site.Folder, getter, setter, Unsupported: unsupported, Stated: stated);
     }
 
     private Accessor ReadAccessor(ItemRef acc, string? propertyScope)
     {
         var declaration = AccessorDeclaration.Keep(_om.ReadDeclaration(acc.Native));
-        var (body, unsupported) = ReadBody(acc, SourceScopes.Scope(declaration, propertyScope));
-        return new Accessor(declaration, body, unsupported);
+        var (body, unsupported, stated) = ReadBody(acc, SourceScopes.Scope(declaration, propertyScope));
+        return new Accessor(declaration, body, unsupported, stated);
     }
 
     /// <summary>Another top-level item's declaration, by name — the vendor half of
@@ -662,7 +687,7 @@ public sealed partial class BeckhoffDriver
     /// then a struct, then reaches the timer; <c>SUPER^</c> reaches the EXTENDS clause. Each hop is one more
     /// item's declaration, and only the driver can ask its IDE for one.</para></summary>
     private ProjectDeclarations Declarations =>
-        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native));
+        _declarations ??= new ProjectDeclarations(this, item => _om.ReadDeclaration(item.Native), RefusedPouName);
     private ProjectDeclarations? _declarations;
 
     public NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations) =>

@@ -63,13 +63,22 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         /// <summary>The CLASS a declaration describes, from its header's leading keyword — what the object a fixture
         /// describes was created as. (Fixture authoring only: a push never reads a header for this.)</summary>
         private static int CodeForDeclaration(string decl) =>
-            Volt.Engine.Format.St.CodeHelper.HeaderLine(decl).Split(' ', '\t')[0].ToUpperInvariant() switch
+            FirstCodeLine(decl).Split(' ', '\t')[0].ToUpperInvariant() switch
             {
                 "INTERFACE" => ItemKind.PlcItf,
                 "TYPE" => ItemKind.PlcDut,
                 "VAR_GLOBAL" or "VAR_CONFIG" => ItemKind.PlcGvl,
                 _ => ItemKind.PlcPou,
             };
+
+        /// <summary>The first line of <paramref name="decl"/> holding code, leading trivia skipped.</summary>
+        private static string FirstCodeLine(string decl)
+        {
+            var inBlockComment = false;
+            foreach (var line in decl.Replace("\r", "").Split('\n'))
+                if (Volt.Engine.Format.St.CodeHelper.CodeOn(line, ref inBlockComment) is { Length: > 0 } code) return code;
+            return "";
+        }
 
         /// <summary>An item the driver CANNOT read — the offline stand-in for the orphaned LD POU that bricked
         /// <c>/refs</c> for a whole project. What made it unreadable used to be a PLCopen export with no body
@@ -438,6 +447,17 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     public override string? RefusedName(string kind, string name) => RefusesName?.Invoke(kind, name);
 
+    /// <summary>The driver's language-change answer (<c>ICodeStore.RefusedLanguageChange</c>), given the site, the live
+    /// language and the pushed one: the vendor's reason, or null where it writes the change (CODESYS for a POU's own
+    /// body, DIALECT N24). Unset, the fake has no in-place route at any site — TwinCAT's answer — so a test that wants
+    /// a written change states it.</summary>
+    public Func<string, string, string, string?>? RefusesLanguageChange { get; init; }
+
+    public override string? RefusedLanguageChange(string site, string from, string to) =>
+        RefusesLanguageChange is { } answer
+            ? answer(site, from, to)
+            : $"FakeIde: no route to change an existing body's language in place (from {from} to {to}).";
+
     /// <summary>The driver's create-argument refusals (<c>ICodeStore.RefusedMemberCreate</c>), given the member kind, name
     /// and seed. <see cref="CreateChild"/> refuses the same creates with a <c>NotSupportedException</c>, as TwinCAT's
     /// driver does. Unset, the fake refuses none — as <c>DriverBase</c>.</summary>
@@ -775,7 +795,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             it.Declaration ?? "",
             BodyTextOf(it),
             MembersOf(it).ToList(),
-            UnsupportedOf(it));
+            UnsupportedOf(it),
+            StatedOf(it));
     }
 
     /// <summary>The item's kind, from its DECLARATION HEADER where it has one.
@@ -819,24 +840,28 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// hands up with it — and null for every other body.</summary>
     private static string? UnsupportedOf(Item it) => BodyOf(it).Unsupported;
 
+    /// <summary>The language the body's line states, as the drivers hand it up beside the text (openspec
+    /// <c>bridge-refusal-review</c> D6) — null exactly where there is no body text.</summary>
+    private static StatedLanguage? StatedOf(Item it) => BodyOf(it).Stated;
+
     /// <summary>The body and, for a hidden LD or FBD body, why — read as both drivers read one: every LD and FBD body
     /// through <see cref="Volt.Engine.Format.Network.NetworkText.Pulled"/>, so the production switch and a refusal
     /// (<c>Unsupported</c>, what a driver's reader or writer raises as <c>UnrepresentableBodyException</c>) reach the
     /// fake exactly as they reach a vendor.</summary>
-    private static (string? Body, string? Unsupported) BodyOf(Item it)
+    private static (string? Body, string? Unsupported, StatedLanguage? Stated) BodyOf(Item it)
     {
         // No `BodyLang` is ST — or a network body this fake stored from a push, which it keeps as its network text
         // (`WriteContent` records no language). ST goes up the drivers' ST arm: a keyword-shaped line in it is refused.
         if (it.BodyLang is not { } lang)
         {
-            if (it.Implementation is not { } text) return (null, null);
+            if (it.Implementation is not { } text) return (null, null, null);
             if (Volt.Engine.Format.Network.NetworkText.LanguageOf(text) is { } stored)
                 return Pulled(stored, () => text);
-            return (Volt.Engine.Format.St.ImplementationMarker.RequireStBody(text), null);
+            return (Volt.Engine.Format.St.ImplementationMarker.RequireStBody(text), null, StatedLanguage.St);
         }
         // A language Volt cannot author has no text form at all.
         if (!Volt.Engine.Format.Body.Languages.IsNetwork(lang))
-            return (Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang), null);
+            return (Volt.Engine.Format.St.ImplementationMarker.Unsupported(lang), null, StatedLanguage.HiddenIn(lang));
         // An FBD/LD body comes back as NETWORK TEXT. A fixture that sets BodyLang but stores plain text is
         // describing "the IDE holds a diagram", so render one — returning the raw text would make a graphical
         // body look textual to the format guard, and the guard would wave through the very overwrite it exists
@@ -851,7 +876,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         });
     }
 
-    private static (string? Body, string? Unsupported) Pulled(string lang, Func<string> read) =>
+    private static (string? Body, string? Unsupported, StatedLanguage? Stated) Pulled(string lang, Func<string> read) =>
         Volt.Engine.Format.Network.NetworkText.Pulled(
             Volt.Engine.Format.Network.NetworkText.LanguageNamed(lang)
                 ?? throw new InvalidOperationException($"FakeIde: '{lang}' is no network-text language"),
@@ -862,7 +887,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// items between calls and a driver-lifetime cache would answer for the item before the edit.</summary>
     public Volt.Engine.Format.Network.NetworkScope NetworkScopeFor(string? declaration,
                                                                    Volt.Engine.Ide.PushedDeclarations pushedDeclarations) =>
-        new Volt.Engine.Ide.ProjectDeclarations(this, r => Find(r).Declaration).ScopeFor(declaration, pushedDeclarations);
+        new Volt.Engine.Ide.ProjectDeclarations(this, r => Find(r).Declaration,
+                n => RefusedName(ItemKind.Kinds.Pou, n) is not null).ScopeFor(declaration, pushedDeclarations);
 
     private IEnumerable<Member> MembersOf(Item owner)
     {
@@ -885,7 +911,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 string.IsNullOrEmpty(child.Folder) ? null : child.Folder,
                 AccessorOf(child, ItemKind.PlcPropGet),
                 AccessorOf(child, ItemKind.PlcPropSet),
-                Unsupported: UnsupportedOf(child));
+                Unsupported: UnsupportedOf(child),
+                Stated: StatedOf(child));
         }
     }
 
@@ -905,7 +932,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         {
             var acc = FindOrNull(Ref(name));
             if (acc is null || acc.KindCode != accessorKind) continue;
-            return new Accessor(AccessorDeclaration.Keep(acc.Declaration), BodyTextOf(acc), UnsupportedOf(acc));
+            return new Accessor(AccessorDeclaration.Keep(acc.Declaration), BodyTextOf(acc), UnsupportedOf(acc), StatedOf(acc));
         }
         return null;
     }
@@ -966,6 +993,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 KindCode = RetypesFromDeclaration?.Invoke(content.Declaration) ?? owner.KindCode,
                 Declaration = content.Declaration,
                 Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), content.Declaration, pushedDeclarations) ?? owner.Implementation,
+                // A WRITTEN body is held as written, in the language written (a POU's body may change language where
+                // the driver writes it: `RefusesLanguageChange`, openspec bridge-refusal-review D7). A body not written
+                // (none, or its UNSUPPORTED line) keeps the IDE's language and why it is hidden.
+                BodyLang = Volt.Engine.Format.St.ImplementationMarker.Written(content.Body) is null ? owner.BodyLang : null,
+                Unsupported = Volt.Engine.Format.St.ImplementationMarker.Written(content.Body) is null ? owner.Unsupported : null,
                 // The member SET is not this call's to change: `CreateChild` adds a member and `Delete` removes one,
                 // as on both drivers, and a member absent from `content` is one the push LEFT ALONE (PushService's
                 // `OnlyChanged` drops the unchanged). Replacing the list with the written members made every

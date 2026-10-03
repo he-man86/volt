@@ -70,13 +70,17 @@ public static class PushedText
     /// <c>bridge-refusal-review</c> 2.12) — the same canonical text. The canonical form is read against the body's own
     /// declarations only (<paramref name="declaration"/>): the CLI has no project to resolve against, and both texts are
     /// read in that one scope, so equal canonical renderings are one model. A text that does not read in it is not
-    /// claimed to be the same.</summary>
+    /// claimed to be the same. For the same reason the CLI asks no item's kind (it holds no project). It links no driver,
+    /// so the names no POU can have are the words BOTH vendors refuse (<see cref="BothVendorsRefusedNames"/>): with none
+    /// at all, a BOOL named <c>R_EDGE</c> was an "instance" that took the edge construct, neither text read, and one
+    /// program spelled twice was called two (review of <c>bridge-refusal-review</c> 4a).</summary>
     private static bool SameBody(string? x, string? y, string? declaration)
     {
         if (x == y) return true;
         if (x is null || y is null || !NetworkText.Is(x) || !NetworkText.Is(y)) return false;
         if (NetworkTextGate.SameTokens(x, y)) return true;
-        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => System.Array.Empty<string>());
+        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => System.Array.Empty<string>(),
+                                                  kindOf: _ => null, isRefusedPouName: BothVendorsRefusedNames.Contains);
         var cx = NetworkTextGate.Validate(x, scope);
         var cy = NetworkTextGate.Validate(y, scope);
         return cx.Canonical is { } canonicalX && cy.Canonical is { } canonicalY && canonicalX == canonicalY;

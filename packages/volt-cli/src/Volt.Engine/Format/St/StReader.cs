@@ -314,9 +314,9 @@ public static class StReader
 		}
 
 		// Split only: the POU's own declaration and body are no question of the split (SplitMembers).
-		var (pouDecl, pouImpl) = splitOnly ? ("", "") : SplitDeclImpl(pouLines, what);
+		var (pouDecl, pouImpl, pouStated) = splitOnly ? ("", "", null) : SplitDeclImpl(pouLines, what);
 		var children = SplitChildren(SliceLines(lines, childrenStart, lines.Count - 1), childrenStart, what, marked: true, splitOnly);
-		return new ItemContent(kind, pouDecl, pouImpl, children);
+		return new ItemContent(kind, pouDecl, pouImpl, children, Stated: pouStated);
 	}
 
 	/// <summary>What stands in for a never-closed <c>(*</c> while the structure is read: two Unicode NONCHARACTERS,
@@ -566,10 +566,11 @@ public static class StReader
 	/// halves are re-joined on read, so a file split in the wrong place round-trips byte for byte while the project
 	/// holds it broken. A GRAPHICAL body carries its own VAR_TEMP blocks, which an END_VAR scan pulled into the POU's
 	/// declaration; with the boundary stated, network text is its own line and what follows it.</para></summary>
-	private static (string decl, string impl) SplitDeclImpl(IList<string> pouLines, string what)
+	private static (string decl, string impl, StatedLanguage stated) SplitDeclImpl(IList<string> pouLines, string what)
 	{
 		var (decl, impl, line) = SplitAtBoundary(pouLines, what);
-		return (decl, Body(line, impl, what));
+		var (body, stated) = Body(line, impl, what);
+		return (decl, body, stated);
 	}
 
 	/// <summary>The body a boundary line and the text under it make — checked against what the line STATES, which
@@ -583,8 +584,10 @@ public static class StReader
 	/// <item>code under an UNSUPPORTED line (<c>IMPLEMENTATION CFC|SFC|IL|LD|FBD UNSUPPORTED</c>) —
 	/// that body has no text form, the drivers write nothing for it, so the code would be dropped without a word and
 	/// overwritten by the next pull.</item>
-	/// </list></summary>
-	private static string Body(string line, string code, string what)
+	/// </list>
+	/// With the body, the language the line STATES (<see cref="StatedLanguage"/>, openspec <c>bridge-refusal-review</c>
+	/// D6): the fact this reader already parsed, carried on the record so the push's guard reads no text to learn it.</summary>
+	private static (string Body, StatedLanguage Stated) Body(string line, string code, string what)
 	{
 		var stated = line.Trim();
 		if (ImplementationMarker.IsUnsupported(line))
@@ -594,7 +597,8 @@ public static class StReader
 					$"{what} holds code under '{stated}'. Volt shows no implementation for that body and never writes it, " +
 					"so the code has nowhere to go and would be dropped. Remove it, and edit the body in the IDE (the " +
 					"declaration above the line is yours to edit here).");
-			return ImplementationMarker.Join(line, "");
+			var hidden = ImplementationMarker.Join(line, "");
+			return (hidden, StatedLanguage.HiddenIn(ImplementationMarker.UnsupportedLanguageOf(hidden)!));
 		}
 
 		var word = ImplementationMarker.Stated(line)!;
@@ -623,7 +627,7 @@ public static class StReader
 		// 1.1, 2.3): an ST body is ST whatever it holds — `NETWORK … END_NETWORK` under `IMPLEMENTATION ST` is written
 		// as sent and the IDE's build reports it — and an LD/FBD body is network text, which the NETWORK reader reads and
 		// refuses with its own code and line (NETWORK_PARSE for text that is no network).
-		return ImplementationMarker.Join(line, code);
+		return (ImplementationMarker.Join(line, code), StatedLanguage.Shown(lang));
 	}
 
 	/// <summary>A DECLARATION is written into the IDE verbatim, so a line of Volt's own that ends up in one would
@@ -776,7 +780,8 @@ public static class StReader
 		// %FOLDER (the child's sub-folder) is the first line under the boundary when there is one, and is peeled off
 		// before the body is checked against the language its line states.
 		var (folder, bodyCode) = PeelFolderUnder(impl);
-		return new Member(kind, name, decl, Body(line, bodyCode, what), Folder: folder, ReturnType: returnType);
+		var (body, stated) = Body(line, bodyCode, what);
+		return new Member(kind, name, decl, body, Folder: folder, ReturnType: returnType, Stated: stated);
 	}
 
 	private static Member ReadProperty(IList<string> lines, string[] code, ref int i, int blockStart, bool marked, bool splitOnly, ChildSite at)
@@ -874,7 +879,8 @@ public static class StReader
 		// An INTERFACE's accessors are signatures — no body, so no marker and nothing to split.
 		if (!marked) return new Accessor(string.Join("\n", inner).TrimEnd('\n'), "");
 		var (decl, impl, line) = SplitAtBoundary(inner, what);
-		return new Accessor(decl, Body(line, impl, what));
+		var (body, stated) = Body(line, impl, what);
+		return new Accessor(decl, body, Stated: stated);
 	}
 
 	/// <summary>A region that does not say where its declaration ends. Refused, never guessed — see

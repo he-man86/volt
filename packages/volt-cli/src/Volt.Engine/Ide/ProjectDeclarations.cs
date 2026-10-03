@@ -30,12 +30,16 @@ public sealed class ProjectDeclarations
 {
     private readonly IProjectTree _tree;
     private readonly Func<ItemRef, string?> _read;
+    private readonly Func<string, bool> _isRefusedPouName;
     private readonly Dictionary<string, string?> _declarationOf = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, (ItemRef Item, int Kind)>? _index;
     private List<(string Name, string Declaration)>? _globals;
 
-    /// <summary>The project's top-level items by name — the first of a name wins, as <see cref="ItemLookup.Find"/>'s
-    /// walk order has it.</summary>
+    /// <summary>The project's top-level SOURCE items by name — the items a body can name (POU, DUT, GVL, interface) —
+    /// the first of a name winning, as <see cref="ItemLookup.Find"/>'s walk order has it. A descriptor (a task) declares
+    /// nothing a body calls and is left out: walked first, a task <c>Motor</c> made <see cref="KindOf"/> answer
+    /// <c>task</c> for the function block <c>Motor</c>, and <c>m : Motor;</c> stopped being an instance (review of
+    /// <c>bridge-refusal-review</c> 4a). The push's own index skips tasks for the same reason.</summary>
     private Dictionary<string, (ItemRef Item, int Kind)> Index
     {
         get
@@ -43,18 +47,28 @@ public sealed class ProjectDeclarations
             if (_index is not null) return _index;
             _index = new Dictionary<string, (ItemRef, int)>(StringComparer.OrdinalIgnoreCase);
             foreach (var (item, name, kind) in ItemLookup.All(_tree))
-                if (!_index.ContainsKey(name)) _index[name] = (item, kind);
+                if (ItemKind.IsTopLevelCrud(kind) && !_index.ContainsKey(name)) _index[name] = (item, kind);
             return _index;
         }
     }
 
     /// <param name="tree">The project tree the items are found in.</param>
     /// <param name="readDeclaration">The vendor's read of one item's declaration text.</param>
-    public ProjectDeclarations(IProjectTree tree, Func<ItemRef, string?> readDeclaration)
+    /// <param name="isRefusedPouName">Whether the vendor refuses a word as a POU's name — its measured list
+    /// (<c>ICodeStore.RefusedName</c>): a word no POU can be named is no FB type a body calls (openspec
+    /// <c>bridge-refusal-review</c> D4).</param>
+    public ProjectDeclarations(IProjectTree tree, Func<ItemRef, string?> readDeclaration, Func<string, bool> isRefusedPouName)
     {
         _tree = tree ?? throw new ArgumentNullException(nameof(tree));
         _read = readDeclaration ?? throw new ArgumentNullException(nameof(readDeclaration));
+        _isRefusedPouName = isRefusedPouName ?? throw new ArgumentNullException(nameof(isRefusedPouName));
     }
+
+    /// <summary>The WIRE KIND of the top-level item named <paramref name="name"/> — the pushed one's, else the IDE's
+    /// class (<see cref="ItemKind.Map"/>) — or null when neither holds such an item. By kind, never by the item's text
+    /// (openspec <c>bridge-refusal-review</c> D3).</summary>
+    public string? KindOf(PushedDeclarations pushed, string name) =>
+        pushed.KindOf(name) ?? (Index.TryGetValue(name, out var hit) ? ItemKind.Map(hit.Kind) : null);
 
     /// <summary>The declaration of the top-level item named <paramref name="name"/> — the pushed one first, else
     /// the IDE's — or null when neither has such an item.</summary>
@@ -88,7 +102,8 @@ public sealed class ProjectDeclarations
     /// <summary>The scope of a body whose own declarations are <paramref name="declaration"/> (innermost first:
     /// <see cref="SourceScopes.Scope"/>), seeing <paramref name="pushed"/> before the IDE's items.</summary>
     public NetworkScope ScopeFor(string? declaration, PushedDeclarations pushed) =>
-        NetworkScope.FromDeclarations(declaration, n => Of(pushed, n), () => Globals(pushed));
+        NetworkScope.FromDeclarations(declaration, n => Of(pushed, n), () => Globals(pushed), n => KindOf(pushed, n),
+                                      _isRefusedPouName);
 
     /// <summary>The scope a PULL writes a body against: the IDE's declarations alone, since a pull pushes nothing.</summary>
     public NetworkScope ScopeForPull(string? declaration) => ScopeFor(declaration, NoPush);

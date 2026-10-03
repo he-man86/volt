@@ -34,6 +34,22 @@ public class PushedTextTests
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := (a AND b);"), Prg(statement)));
     }
 
+    /// <summary>A variable of an elementary type is no FB instance to the CLI either (review of
+    /// <c>bridge-refusal-review</c> 4a): the comparison's scope takes the words BOTH vendors refuse as a POU name
+    /// (<c>BothVendorsRefusedNames</c>). Read with no refused name at all, a BOOL named <c>R_EDGE</c> was an "instance"
+    /// that took the edge construct, neither text read, and two spellings of one program were called different.</summary>
+    [Theory]
+    [InlineData("  out := (R_EDGE(a) AND b);", "  out := AND(R_EDGE(a), b);", true)]
+    [InlineData("  out := (a AND b);", "  out := AND(a, b);", true)]
+    [InlineData("  out := (R_EDGE(a) AND b);", "  out := OR(R_EDGE(a), b);", false)]
+    public void An_elementary_typed_variable_named_like_a_construct_is_no_instance(string x, string y, bool same)
+    {
+        static string Prg(string s) =>
+            "PROGRAM P\nVAR\n  R_EDGE : BOOL;\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s +
+            "\nEND_NETWORK\nEND_PROGRAM\n";
+        Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg(x), Prg(y)));
+    }
+
     /// <summary>A wire block written late is the same program as the canonical one at the network's head (2.7).</summary>
     [Fact]
     public void A_late_wire_block_is_the_same_body()

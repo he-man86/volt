@@ -1331,7 +1331,7 @@ public static class PushService
             // extra IDE round trip — the helper takes it rather than reading again.
             RequireUnchanged(name, folder, live, ifVersion);
 
-            BodyFormatGuard.RequireWritable(live, split);
+            BodyFormatGuard.RequireWritable(live, split, ide.RefusedLanguageChange);
         }
 
         // ONE read of the live item, used by all three of the guard, the reconciler and the write filter. These

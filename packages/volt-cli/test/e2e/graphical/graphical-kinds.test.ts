@@ -22,7 +22,7 @@
  *      graphical POU once landed with an empty VAR section, its contacts referencing undeclared variables.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, setDefaultTimeout } from "bun:test"
-import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, expectNoOperandsLost } from "../harness"
+import { bridge, id, fid, cleanup, createItem, fetchItem, ensureCompiles, requireHealthy, savePlcPrg, restorePlcPrg, fixPlcPrg, BASE, VENDOR, expectNoOperandsLost } from "../harness"
 
 // A TwinCAT full build is ~9s, past bun's 5s default, and the compile assertions here build the project.
 setDefaultTimeout(30000)
@@ -160,14 +160,24 @@ for (const lang of ["FBD", "LD"]) {
 			// own network TEXT and read straight back, so everything above was a fixed point over a body that had
 			// already been destroyed — `networkLangs` and `isFixedPoint` both passed, on both vendors, while doing it.
 			//
-			// A body that is genuinely graphical must REFUSE a textual push. That refusal is the wire-visible
-			// difference between a real diagram and its text sitting in an <ST>; a flattened accessor accepts it.
+			// A textual push over the accessors is a LANGUAGE CHANGE (openspec bridge-refusal-review D7, DIALECT N24).
+			// Where the vendor has no in-place route (TwinCAT) a genuinely graphical body REFUSES it — the wire-visible
+			// difference between a real diagram and its text sitting in an <ST>, which a flattened accessor accepts.
+			// CODESYS writes the change in place (N24, measured on a GET and a SET), so there the proof is the build
+			// above — network text stored as ST does not compile — and the change lands as ST
+			// (`language-change.test.ts`). The premise "the push refuses it" was Volt's own refusal, disproved on
+			// CODESYS by measurement.
 			const refs = await bridge.refs()
 			const flat = src.property(name).replace(new RegExp(`IMPLEMENTATION ${lang}\\nNETWORK[^]*?END_NETWORK`, "g"), "IMPLEMENTATION ST\nP_G := a;")
 			const r = await bridge.push({
 				expectedProjectVersion: refs.projectVersion,
 				ops: [{ op: "set", name: full, ifVersion: refs.items[full], sourceText: flat }],
 			})
+			if (VENDOR === "codesys") {
+				expect(r.accepted, `CODESYS refused a language change it writes (N24): ${JSON.stringify(r.conflicts)}`).toBe(true)
+				expect(networkLangs((await fetchItem(full)).sourceText)).toEqual([])
+				return
+			}
 			expect(r.accepted).toBe(false)
 			expect(JSON.stringify(r.conflicts ?? r)).toContain(lang)
 			expect((await fetchItem(full)).sourceText).toBe(v1.sourceText)   // and the refusal changed nothing

@@ -529,7 +529,7 @@ public class CodesysCoilFlagTests
     private static (Network Model, NetworkScope Scope) Pushed(string statement)
     {
         const string declaration = "PROGRAM P\nVAR\n  x : BOOL;\n  c : BOOL;\n  a : INT;\n  b : INT;\n  n : INT;\n  lamp : BOOL;\n  sv : INT;\nEND_VAR";
-        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>());
+        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => Array.Empty<string>(), Volt.Tests.Shared.Scopes.NoItem, CodesysDriver.RefusedPouName);
         return (NetworkText.Validate("IMPLEMENTATION FBD\nNETWORK\n  " + statement + "\nEND_NETWORK\n", scope).Networks[0], scope);
     }
 

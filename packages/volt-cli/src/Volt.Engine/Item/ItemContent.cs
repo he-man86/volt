@@ -22,13 +22,49 @@ namespace Volt.Engine.Item;
 /// refused it — and null for every other body. The file does not carry it (the line says only that the body is
 /// hidden), so it is set by the driver that read the body, for the pull to report, and is null on a body read from
 /// a file. It is not content: nothing compares it, and the version is the file's.</para>
+/// <para><b><c>Stated</c></b>, here and on <see cref="Member"/> and <see cref="Accessor"/>: the body's language as a
+/// FACT (<see cref="StatedLanguage"/>, openspec <c>bridge-refusal-review</c> D6) — set by whoever knows it, a driver
+/// from the vendor's own aspect or archive, the ST reader from the line it parsed — and null exactly where there is no
+/// body text. The push's guard compares it (<c>BodyFormatGuard</c>) instead of decoding the language back out of the
+/// text. Like <c>Unsupported</c> it is not content: nothing hashes it, and the version is the file's.</para>
 /// </summary>
 public sealed record ItemContent(
     string Kind,
     string Declaration,
     string? Body,
     List<Member> Members,
-    string? Unsupported = null);
+    string? Unsupported = null,
+    StatedLanguage? Stated = null);
+
+/// <summary>
+/// A body's language, as its <c>IMPLEMENTATION</c> line states it: <see cref="Language"/> in its one spelling (<c>ST</c>,
+/// <c>LD</c>, <c>FBD</c>, or a hidden body's <c>CFC</c> / <c>SFC</c> / <c>IL</c> / the vendor's own word), and whether
+/// Volt shows it (<see cref="Hidden"/>: the body is its <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c> line).
+///
+/// <para><b>Why a record and not the text (D6).</b> The driver knows a body's language as a vendor fact — CODESYS from
+/// the aspect class and its view mode, TwinCAT from its archive — and encoded it into the text (no line for ST, the
+/// keyword line for network text, the UNSUPPORTED line for a hidden body), and the push's guard decoded it back. That
+/// held only while every reader kept the encoding lossless, in three places; one that forgot made the guard misjudge
+/// silently. The fact travels as a fact now.</para>
+/// </summary>
+public sealed record StatedLanguage(string Language, bool Hidden)
+{
+    /// <summary>A body Volt shows as ST.</summary>
+    public static readonly StatedLanguage St = new(Volt.Engine.Format.Body.Languages.St, false);
+
+    /// <summary>A body Volt shows in <paramref name="language"/> (ST, LD or FBD).</summary>
+    public static StatedLanguage Shown(string language) => new(language, false);
+
+    /// <summary>A body Volt hides — its UNSUPPORTED line names <paramref name="language"/>.</summary>
+    public static StatedLanguage HiddenIn(string language) => new(language, true);
+
+    /// <summary>Whether Volt shows this body as network text (LD or FBD).</summary>
+    public bool IsNetwork => !Hidden && Volt.Engine.Format.Body.Languages.IsNetwork(Language);
+
+    /// <summary>The language as its line states it: <c>LD</c>, or <c>IMPLEMENTATION CFC UNSUPPORTED</c> for a hidden body.</summary>
+    public override string ToString() =>
+        Hidden ? Volt.Engine.Format.St.ImplementationMarker.Unsupported(Language) : Language;
+}
 
 /// <summary>A method, action or property. A PROPERTY is a member like any other — it used to be a member in two of
 /// the four models and a separate list in the third, which forced <c>PouDocument.Splice</c> to union them back
@@ -46,7 +82,8 @@ public sealed record Member(
     Accessor? Setter = null,
     string? ReturnType = null,
     string? DataType = null,
-    string? Unsupported = null);
+    string? Unsupported = null,
+    StatedLanguage? Stated = null);
 
 /// <summary>A property's GET or SET. <b>Presence is the object</b> — null means the property has no such accessor,
 /// and a push of that REMOVES it. That used to be a two-field convention on the read side (a getter existed if
@@ -77,7 +114,7 @@ public static class AccessorDeclaration
         string.IsNullOrWhiteSpace(decl) ? null : decl!.TrimEnd('\n');
 }
 
-public sealed record Accessor(string? Declaration, string? Body, string? Unsupported = null)
+public sealed record Accessor(string? Declaration, string? Body, string? Unsupported = null, StatedLanguage? Stated = null)
 {
     /// <summary>The code to WRITE for this accessor — never null, because the accessor exists.
     /// <para>This exists to keep one hazard closed. On the write path a null body means "remove the accessor",

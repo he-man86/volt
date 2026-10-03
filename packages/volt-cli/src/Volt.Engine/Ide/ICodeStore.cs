@@ -149,6 +149,16 @@ public interface ICodeStore
     /// disagree.</summary>
     void ValidateTask(TaskSettings settings);
 
+    /// <summary>Why the IDE cannot change an EXISTING body's language in place — from <paramref name="from"/> to
+    /// <paramref name="to"/>, ST ⇄ LD/FBD — at a body of <paramref name="site"/>: the item's own body (its kind,
+    /// <c>pou</c>), a member's (<c>method</c>, <c>action</c>), or a property accessor's (<c>property_get</c> /
+    /// <c>property_set</c>) — or null when the driver writes the change. ONE comparison decides that a body changes
+    /// language (<c>BodyFormatGuard</c>, openspec <c>bridge-refusal-review</c> D7); the vendor answers whether it can write
+    /// it, and the driver's own write asks the same predicate, so the two cannot disagree. Measured (DIALECT N24): CODESYS
+    /// swaps a POU's body aspect in place; TwinCAT has no in-place route. A site no measurement covered is refused by
+    /// name, never guessed writable.</summary>
+    string? RefusedLanguageChange(string site, string from, string to);
+
     /// <summary>The scope a graphical body resolves against: its own declarations (<paramref name="declaration"/>,
     /// innermost first — <see cref="SourceScopes.Scope"/>), the project's other items and its globals, the push's
     /// own declarations answering before the IDE's. The SAME scope the driver writes a pulled body against, so the

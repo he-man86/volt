@@ -4,6 +4,7 @@ using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.St;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Format.Network;
 
@@ -50,13 +51,17 @@ public static class NetworkText
     /// not read is hidden for the same reason as every other — or when the body holds a fact the text has no spelling
     /// for (<see cref="UnrepresentableBodyException"/>, raised by the reader or the writer). That is never a missing
     /// POU: an escaping throw costs the whole item (<c>Versioning.SafeVersion</c> stamps it unreadable and the fetch
-    /// drops it, declaration and siblings with it).</para></summary>
-    public static (string Body, string? Unsupported) Pulled(BodyLanguage language, Func<string> read)
+    /// drops it, declaration and siblings with it).</para>
+    ///
+    /// <para>With it, the language the body's line states as a fact (<see cref="StatedLanguage"/>, openspec
+    /// <c>bridge-refusal-review</c> D6): shown or hidden is decided HERE, so it is carried, not read back off the text.</para></summary>
+    public static (string Body, string? Unsupported, StatedLanguage Stated) Pulled(BodyLanguage language, Func<string> read)
     {
-        var hidden = ImplementationMarker.Unsupported(Spelling(language));
-        if (!NetworkTextSwitch.Enabled) return (hidden, NetworkTextSwitch.DisabledReason);
-        try { return (read(), null); }
-        catch (UnrepresentableBodyException ex) { return (hidden, ex.Reason); }
+        var spelled = Spelling(language);
+        var hidden = ImplementationMarker.Unsupported(spelled);
+        if (!NetworkTextSwitch.Enabled) return (hidden, NetworkTextSwitch.DisabledReason, StatedLanguage.HiddenIn(spelled));
+        try { return (read(), null, StatedLanguage.Shown(spelled)); }
+        catch (UnrepresentableBodyException ex) { return (hidden, ex.Reason, StatedLanguage.HiddenIn(spelled)); }
     }
 
     /// <summary>How a body language is spelled — on its <c>IMPLEMENTATION</c> line, and in the vendor-neutral language

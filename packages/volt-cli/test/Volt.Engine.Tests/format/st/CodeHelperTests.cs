@@ -5,21 +5,32 @@ using Volt.Engine.Format.St;
 
 namespace Volt.Engine.Tests;
 
-/// <summary>The header helpers that remain: <c>HeaderLine</c> (the TOTAL "which line is the header", read by
-/// network-text scope alone — no kind or name is decided from it, gate <c>NoKindFromTextTests</c>) and <c>CodeOn</c>
-/// (the per-line trivia scanner).
+/// <summary>The trivia scanner that remains: <c>CodeOn</c>, the code on one line with its leading trivia removed, its
+/// block-comment state carried across lines (the EXTENDS reader asks it). <c>HeaderLine</c>, the first code line of a
+/// text, is deleted with its last caller (openspec <c>bridge-refusal-review</c> D3: network scope read a callee's header
+/// to decide "FB instance or FUNCTION"); its shapes are asked of <c>CodeOn</c> line by line here (<see cref="FirstCode"/>).
 ///
 /// <para>The strict <c>ParseCodeHeader</c>, and every test of its CLASSIFICATION, are deleted with it: it classified a
 /// PUSHED text by its header, and a push no longer reads a top-level item's header — the kind is the wire name's
-/// extension (openspec <c>push-without-header-check</c>). The header SHAPES those tests covered — a comment before or
-/// beside the keyword, a pragma, blank lines — are what <c>HeaderLine</c> is still asked about below.</para></summary>
+/// extension (openspec <c>push-without-header-check</c>).</para></summary>
 public class CodeHelperTests
 {
+    /// <summary>The first line <c>CodeOn</c> finds code on, carrying its comment state — how a caller walks a text with
+    /// it.</summary>
+    static string FirstCode(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var inBlockComment = false;
+        foreach (var line in text!.Split('\n'))
+            if (CodeHelper.CodeOn(line, ref inBlockComment) is { Length: > 0 } code) return code;
+        return "";
+    }
+
     // ---- a comment and the declaration on ONE line ----
 
     /// <summary>`(* doc *) FUNCTION_BLOCK FB` — the comment CLOSES and the declaration follows on the same line.
     /// That line is the header, and it was being skipped entirely.
-    /// <para><c>HeaderLine</c> treated any line STARTING with <c>(*</c> as trivia, so it returned the NEXT line
+    /// <para><c>CodeOn</c> treated any line STARTING with <c>(*</c> as trivia, so it returned the NEXT line
     /// (<c>VAR</c>). The suite only ever covered the comment on its own line, which is the shape that works.</para>
     /// <para>It is not a parsing nicety. <c>CodesysTypeMap.LeadingKeyword</c> (deleted with push-without-header-check 5.Q) read exactly this line to classify
     /// an item, is TOTAL by design (the classifier must never throw mid-walk), and falls back to FUNCTION_BLOCK —
@@ -33,9 +44,9 @@ public class CodeHelperTests
     [InlineData("(* multi\n   line *) INTERFACE ITest", "INTERFACE ITest")]
     [InlineData("{attribute 'x'}\n(* doc *) TYPE T :", "TYPE T :")]
     public void A_declaration_sharing_its_line_with_a_closing_comment_IS_the_header(string src, string expected) =>
-        Assert.Equal(expected, CodeHelper.HeaderLine(src));
+        Assert.Equal(expected, FirstCode(src));
 
-    // ── HeaderLine: TOTAL, so network-text scope can ask it of any callee's declaration without a throw ──
+    // ── TOTAL: walking any text with CodeOn never throws ──
     // The CODESYS driver found its keyword with a bare TrimStart() + first-token read, which returns "" for any
     // declaration opening with a non-word character. A PROGRAM behind a pragma therefore fell to RefinePou's
     // FUNCTION_BLOCK default and was reported as `function_block` on refs/fetch. These pin the shared answer.
@@ -47,9 +58,9 @@ public class CodeHelperTests
     [InlineData("\n\n   \nPROGRAM Spaced", "PROGRAM Spaced")]
     [InlineData("PROGRAM Plain", "PROGRAM Plain")]
     [InlineData("{attribute 'qualified_only'}\n// note\nPROGRAM Main\nVAR\nEND_VAR", "PROGRAM Main")]
-    public void HeaderLine_skips_pragmas_comments_and_blanks_to_the_real_header(string decl, string expected)
+    public void FirstCode_skips_pragmas_comments_and_blanks_to_the_real_header(string decl, string expected)
     {
-        Assert.Equal(expected, CodeHelper.HeaderLine(decl));
+        Assert.Equal(expected, FirstCode(decl));
     }
 
     /// <summary>A PRAGMA IS TRIVIA UP TO ITS `}`, the way a closed `(* … *)` is — code after it on the line is
@@ -73,10 +84,10 @@ public class CodeHelperTests
     [InlineData("")]
     [InlineData("   \n\t\n")]
     [InlineData("{attribute 'x'}\n// only skippable lines\n(* and a comment *)")]
-    public void HeaderLine_is_TOTAL_returning_empty_rather_than_throwing(string? decl)
+    public void FirstCode_is_TOTAL_returning_empty_rather_than_throwing(string? decl)
     {
         // Load-bearing: the CODESYS tree walk's try/catch wraps only GetChildren, so a throw from the classifier
         // would abort WalkItems and with it every fetch/refs/init/push for the whole project.
-        Assert.Equal("", CodeHelper.HeaderLine(decl));
+        Assert.Equal("", FirstCode(decl));
     }
 }

@@ -271,4 +271,33 @@ END_NETWORK
 END_FUNCTION_BLOCK
 `,
   },
+  {
+    name: "network_unknown_fb_type",
+    pouName: "FB_LANG_network_unknown_fb_type",
+    kind: "function_block",
+    feature: "an FB instance box whose TYPE neither the project nor a library declares",
+    fromDoc: "network-text.html#fb",
+    note:
+      "openspec bridge-refusal-review D4. The push used to decide 'instance or function' from a hand copy of IEC type " +
+      "words (`NonBlockTypeWords`, deleted); now a variable's type is no block only where the VENDOR refuses that word " +
+      "as a POU name (its measured list) or names a project item of another kind. Any other type is a library's as far " +
+      "as the push can tell, so the box is written as sent — and this asks what each IDE then does with a box whose " +
+      "type nothing resolves: write it and let the build report it (CODESYS keeps the parameters Volt appends, DIALECT " +
+      "N21), or refuse it (TwinCAT takes a box's pins from its callee, C2m).",
+    plcPrgVar: "fb_nuft : FB_LANG_network_unknown_fb_type;",
+    plcPrgBody: "fb_nuft();",
+    source: `FUNCTION_BLOCK FB_LANG_network_unknown_fb_type
+VAR
+	t1 : FB_LANG_NoSuchType;
+	a : BOOL;
+END_VAR
+
+IMPLEMENTATION FBD
+NETWORK
+  t1(IN := a);
+END_NETWORK
+
+END_FUNCTION_BLOCK
+`,
+  },
 ]

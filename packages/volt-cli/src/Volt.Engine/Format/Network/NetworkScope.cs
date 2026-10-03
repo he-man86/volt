@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Format.Network;
 
@@ -74,16 +75,26 @@ public sealed class NetworkScope
     /// <param name="declaration">The declarations the body resolves against, innermost first — for a member its own
     /// then its owner's (<c>SourceScopes.Scope</c>), so an inner name shadows an outer one exactly as IEC says.</param>
     /// <param name="declarationOf">Another item's declaration by NAME (a POU, a GVL, a DUT), or null when the
-    /// project has no such item: the vendor seam — only a driver can ask its IDE. It answers the POUs a body can
-    /// call and the hops of a qualified instance path (<c>GVL.timers.t1</c>).</param>
+    /// project has no such item: the vendor seam — only a driver can ask its IDE. It answers the hops of a qualified
+    /// instance path (<c>GVL.timers.t1</c>) and an FB's inherited members.</param>
     /// <param name="globals">Every global variable list's declaration. Read LAZILY and at most once: a global
     /// only matters to a name shaped like a wire (<c>g&lt;digits&gt;</c>) and to a call head the local declarations
     /// do not name, so a body with neither never pays for the walk that finds them.</param>
+    /// <param name="kindOf">The WIRE KIND of the top-level item of that name (<c>pou</c>, <c>dut</c>, <c>gvl</c>,
+    /// <c>interface</c>, …) — the pushed item's own, else the IDE's class — or null when the project holds no item of
+    /// that name. Never read off the item's text (openspec <c>bridge-refusal-review</c> D3).</param>
+    /// <param name="isRefusedPouName">Whether the VENDOR refuses a word as the name of a POU: its measured name list
+    /// (<c>ICodeStore.RefusedName</c>), below the seam (D4). A word no POU can be named is no function block's type —
+    /// <c>INT</c>, <c>STRING</c>, the heads <c>ARRAY</c>, <c>POINTER</c>, <c>REFERENCE</c>; on CODESYS also <c>LDT</c>,
+    /// which TwinCAT takes as a name.</param>
     public static NetworkScope FromDeclarations(string? declaration, Func<string, string?> declarationOf,
-                                                Func<IEnumerable<string>> globals)
+                                                Func<IEnumerable<string>> globals, Func<string, string?> kindOf,
+                                                Func<string, bool> isRefusedPouName)
     {
         if (declarationOf is null) throw new ArgumentNullException(nameof(declarationOf));
         if (globals is null) throw new ArgumentNullException(nameof(globals));
+        if (kindOf is null) throw new ArgumentNullException(nameof(kindOf));
+        if (isRefusedPouName is null) throw new ArgumentNullException(nameof(isRefusedPouName));
         // An FB's inherited members are its own names too (EXTENDS, followed to the root), after its own so a nearer
         // declaration still wins.
         declaration = St.StDeclaration.WithInherited(declaration, declarationOf);
@@ -94,16 +105,17 @@ public sealed class NetworkScope
             return (new HashSet<string>(St.StDeclaration.DeclaredNames(text), StringComparer.OrdinalIgnoreCase), text);
         });
 
-        bool IsPou(string name) =>
-            NetworkSpelling.IsName(name) && St.StDeclaration.IsCallableHeader(declarationOf(name));
+        // A POU is an item whose KIND is `pou` — the pushed item's wire kind, else the IDE's class — never a header read
+        // off its text (D3; the move 5Qb made for GVLs): an FB whose declaration does not parse is a POU all the same.
+        bool IsPou(string name) => NetworkSpelling.IsName(name) && kindOf(name) == ItemKind.Kinds.Pou;
 
         // An FB instance is a NAME a declaration makes: a local or owner variable first, then a global, then a
         // qualified path through a GVL and its structs. A head that is no name (`fbs[1]`, `SUPER^`) is none — census
         // 1.12, spec "an FB instance that is an expression": the text cannot say which instance it is.
         //
-        // And only a variable whose type is a FUNCTION BLOCK is an instance (the LSP's `instanceFb`, the other side of
-        // the parity). Any variable's type was taken once: a BOOL named R_EDGE counted as a callable, so every edge in
-        // its POU was refused on push and went to the marker on pull, and `k(x)` with `k : INT` became a box of an
+        // And only a variable whose type can be a FUNCTION BLOCK is an instance (the LSP's `instanceFb`, the other side
+        // of the parity). Any variable's type was taken once: a BOOL named R_EDGE counted as a callable, so every edge
+        // in its POU was refused on push and went to the marker on pull, and `k(x)` with `k : INT` became a box of an
         // FB named INT that the gate let through.
         string? InstanceType(string head)
         {
@@ -112,7 +124,18 @@ public sealed class NetworkScope
                        ?? (head.IndexOf('.') < 0 && global.Value.Names.Contains(head)
                            ? St.StDeclaration.TypeOfCallTarget(global.Value.Text, head, declarationOf)
                            : null);
-            return type is not null && St.StDeclaration.IsFunctionBlockType(type, declarationOf) ? type : null;
+            return type is not null && CanBeBlock(type) ? type : null;
+        }
+
+        // D3 + D4 — by KIND and by the vendor's refused NAMES, never by a callee's text: a word the vendor refuses as a
+        // POU name is no block on that vendor; a project item of another kind (a DUT, an interface, a GVL) is none; a
+        // project POU of any kind, and a type the project does not hold (a library's: `TON`, `Standard.TON`), is one —
+        // its box is written as sent, and the build judges it. A qualified type names a library's through its
+        // namespace, which is no POU name to ask the vendor about.
+        bool CanBeBlock(string type)
+        {
+            if (type.IndexOf('.') < 0 && isRefusedPouName(type)) return false;
+            return kindOf(type) is not { } kind || kind == ItemKind.Kinds.Pou;
         }
 
         bool Contains(string name) =>

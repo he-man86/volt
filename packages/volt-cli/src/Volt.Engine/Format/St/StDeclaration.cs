@@ -10,14 +10,43 @@ namespace Volt.Engine.Format.St;
 /// </summary>
 public static class StDeclaration
 {
-    // `t1 : TON;`, `t1 : TON := (...);`, `a, t1 : TON;`, `t1:TON;`, `t2 : Standard.TON;`. The type is the name after
-    // the colon — a QUALIFIED one whole: a library type is declared through its namespace (`Standard.TON` in three
-    // corpus projects, `Tc2_Standard.TON` on TwinCAT), and reading only its first identifier made the type the
-    // namespace, so a push built a box of type `Standard`. Anything after the name (array bounds, an initializer, a
-    // string length) is not the type name.
-    private static readonly Regex VarLine = new(
-        @"^\s*(?<names>[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*:\s*(?<type>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)",
-        RegexOptions.Compiled);
+    // ONE variable statement: `t1 : TON`, `t1 : TON := (...)`, `a, t1 : TON`, `t1:TON`, `t2 : Standard.TON`,
+    // `g5 AT %IX0.0 : BOOL`. The type is the name after the colon — a QUALIFIED one whole: a library type is declared
+    // through its namespace (`Standard.TON` in three corpus projects, `Tc2_Standard.TON` on TwinCAT), and reading only
+    // its first identifier made the type the namespace, so a push built a box of type `Standard`. Anything after the
+    // name (array bounds, an initializer, a string length, `TO T`) is not the type name.
+    private static readonly Regex VarStatement = new(
+        @"^\s*(?<names>[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?:\bAT\s+%\S+?\s*)?:\s*(?<type>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    // What ends a statement besides its `;`: the words that open or close a block of them, and a section's qualifiers.
+    // Each stands alone in a declaration (none can be a variable's name), so a block opened or closed on a statement's
+    // line (`VAR_INPUT x : BOOL; END_VAR`), a qualifier (`VAR CONSTANT`, `VAR RETAIN PERSISTENT`) and a header
+    // (`TYPE ST_T :` before `STRUCT`) are never part of the statement beside them.
+    private static readonly Regex StatementEnd = new(
+        @";|\b(?:VAR|VAR_INPUT|VAR_OUTPUT|VAR_IN_OUT|VAR_GLOBAL|VAR_TEMP|VAR_STAT|VAR_INST|VAR_CONFIG|VAR_EXTERNAL|" +
+        @"VAR_ACCESS|END_VAR|CONSTANT|RETAIN|NON_RETAIN|PERSISTENT|STRUCT|END_STRUCT|UNION|END_UNION|END_TYPE)\b",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    /// <summary>Every variable statement of a declaration, in order: its names and its type (openspec
+    /// <c>bridge-refusal-review</c> D5). Read by STATEMENT — the code up to each <c>;</c> — with every comment and
+    /// pragma blanked and every string's text blanked (<see cref="StTrivia"/>, which nests comments as both vendors
+    /// do), so a list wrapped over lines (<c>a,</c> / <c>t2 : TON;</c>), a located variable and a one-line block are
+    /// read whole, and a trailing comment is no part of the next statement. The one-line rule this replaced lost all
+    /// three, and a lost name at a call head wrote a FUNCTION box where the text called an instance, without a word.
+    /// A header (<c>METHOD Run : BOOL</c>, <c>FUNCTION F : INT</c>) declares nothing: two words stand before its
+    /// colon.</summary>
+    private static IEnumerable<(string[] Names, string Type)> Statements(string? declaration)
+    {
+        if (string.IsNullOrEmpty(declaration)) yield break;
+        var code = string.Join("\n", StTrivia.Code(declaration!.Replace("\r", "").Split('\n')));
+        foreach (var statement in StatementEnd.Split(code))
+        {
+            var m = VarStatement.Match(statement);
+            if (!m.Success) continue;
+            yield return (m.Groups["names"].Value.Split(',').Select(n => n.Trim()).ToArray(), m.Groups["type"].Value);
+        }
+    }
 
     /// <summary>Whether a DECLARED type and a box's stored type name one type. IEC names are case-insensitive, and a
     /// declaration may name a library type through its namespace (<c>Standard.TON</c>) where the vendor's box holds
@@ -42,53 +71,19 @@ public static class StDeclaration
     /// commented-out declaration cannot answer for a live one.</para></summary>
     private static string? TypeOfVariable(string? declaration, string name)
     {
-        if (string.IsNullOrEmpty(declaration) || string.IsNullOrEmpty(name)) return null;
-
-        var inBlockComment = false;
-        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
-        {
-            var line = CodeHelper.CodeOn(raw, ref inBlockComment);
-            if (line.Length == 0) continue;
-
-            var m = VarLine.Match(line);
-            if (!m.Success) continue;
-
-            foreach (var declared in m.Groups["names"].Value.Split(','))
-                if (string.Equals(declared.Trim(), name, StringComparison.OrdinalIgnoreCase))
-                    return m.Groups["type"].Value;
-        }
+        if (string.IsNullOrEmpty(name)) return null;
+        foreach (var (names, type) in Statements(declaration))
+            foreach (var declared in names)
+                if (string.Equals(declared, name, StringComparison.OrdinalIgnoreCase))
+                    return type;
         return null;
     }
 
     /// <summary>Every variable a declaration declares (<c>a, t1 : TON;</c> → <c>a</c>, <c>t1</c>), comments
     /// stripped — the names a graphical body's wires must not collide with (network text, <c>NetworkScope</c>).
-    /// The same line rule as <see cref="TypeOfVariable"/>, so a name one finds the other resolves.</summary>
-    public static IEnumerable<string> DeclaredNames(string? declaration)
-    {
-        if (string.IsNullOrEmpty(declaration)) yield break;
-
-        var inBlockComment = false;
-        foreach (var raw in declaration!.Replace("\r", "").Split('\n'))
-        {
-            var line = CodeHelper.CodeOn(raw, ref inBlockComment);
-            if (line.Length == 0) continue;
-            var m = VarLine.Match(line);
-            if (!m.Success) continue;
-            foreach (var declared in m.Groups["names"].Value.Split(','))
-                yield return declared.Trim();
-        }
-    }
-
-    // `FUNCTION F : BOOL`, `FUNCTION_BLOCK FB EXTENDS …`, `PROGRAM P` — a header a call can name, attributes and
-    // comments stripped first.
-    private static readonly Regex CallableHeader = new(
-        @"^\s*(FUNCTION_BLOCK|FUNCTION|PROGRAM)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    /// <summary>Whether a declaration is a POU a call can name — a FUNCTION, FUNCTION_BLOCK or PROGRAM — by its
-    /// first code line (<see cref="CodeHelper.HeaderLine"/>, the one rule: comments, block comments across lines and
-    /// pragmas skipped). A GVL, a DUT or an interface of the same name is no callable; null is no item at all.</summary>
-    public static bool IsCallableHeader(string? declaration) =>
-        CallableHeader.IsMatch(CodeHelper.HeaderLine(declaration?.Replace("\r", "")));
+    /// The same statement rule as <see cref="TypeOfVariable"/>, so a name one finds the other resolves.</summary>
+    public static IEnumerable<string> DeclaredNames(string? declaration) =>
+        Statements(declaration).SelectMany(s => s.Names);
 
     /// <summary>The language's name for a call to the base implementation. Not an instance, and not a variable
     /// anything declares — which is exactly why looking it up as one failed.</summary>
@@ -154,33 +149,6 @@ public static class StDeclaration
         // The path named a container and stopped there. A GVL is not something a box can call, and answering
         // with its name would put a non-type in `BoxType` — the very failure the refusal exists to prevent.
         return null;
-    }
-
-    // The type words no function block can be named: IEC's elementary types (CODESYS's and TwinCAT's own included)
-    // and the heads of a composite type (`ARRAY[..] OF`, `POINTER TO`, `REFERENCE TO`), which VarLine reads as the
-    // type name. None is a POU a project or a library declares.
-    private static readonly HashSet<string> NonBlockTypeWords = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "BOOL", "BIT", "BYTE", "WORD", "DWORD", "LWORD", "SINT", "INT", "DINT", "LINT", "USINT", "UINT", "UDINT", "ULINT",
-        "REAL", "LREAL", "TIME", "LTIME", "DATE", "LDATE", "TIME_OF_DAY", "TOD", "LTIME_OF_DAY", "LTOD",
-        "DATE_AND_TIME", "DT", "LDATE_AND_TIME", "LDT", "STRING", "WSTRING", "__XWORD", "__UXINT", "__XINT",
-        "ARRAY", "POINTER", "REFERENCE",
-    };
-
-    private static readonly Regex FunctionBlockHeader = new(
-        @"^\s*FUNCTION_BLOCK\b", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-
-    /// <summary>Whether a declared type is a function block — what makes a variable of it an FB instance. A type
-    /// word no block can be named is none; a project item is one only when its first code line is FUNCTION_BLOCK (a
-    /// DUT, an interface, a function is not). A type the project declares nowhere is a LIBRARY type (<c>TON</c>,
-    /// <c>Standard.TON</c>), and the bridge can read no library's declarations: every library-typed call head the
-    /// corpus holds is a function block's instance, so it stays one. A library DUT variable called like a block is
-    /// no program the IDE compiles either way; the build, not this read, is what reports it.</summary>
-    public static bool IsFunctionBlockType(string type, Func<string, string?> declarationOf)
-    {
-        if (NonBlockTypeWords.Contains(type)) return false;
-        return declarationOf(type) is not { } declaration
-               || FunctionBlockHeader.IsMatch(CodeHelper.HeaderLine(declaration.Replace("\r", "")));
     }
 
     /// <summary>

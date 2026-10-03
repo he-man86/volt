@@ -173,7 +173,15 @@ namespace Volt.Ide.Codesys
 
         // ── source text (write) — the inverse, one GetObjectToModify/SetObject
         //    transaction per object (same as ScriptDriverProjects internally) ────
-        public void WriteSourceText(object node, string? declaration, string? implementation)
+        public void WriteSourceText(object node, string? declaration, string? implementation) =>
+            WriteSourceText(node, declaration, implementation, newBodyAspect: null);
+
+        /// <summary><see cref="WriteSourceText(object, string?, string?)"/>, first putting a fresh body aspect of the
+        /// type <paramref name="newBodyAspect"/> names on the object — in the SAME transaction, so a write that fails
+        /// rolls the swap back with it and the old body stays (openspec <c>bridge-refusal-review</c> D7, DIALECT N24:
+        /// <c>IPOUObject.Implementation</c> is writable, and a freshly constructed aspect takes the driver's own text
+        /// write). Null swaps nothing.</summary>
+        public void WriteSourceText(object node, string? declaration, string? implementation, string? newBodyAspect)
         {
             if (_objMgr == null) throw new InvalidOperationException("CODESYS ObjectManager unavailable");
             var meta = InvokeMethod(_objMgr, "GetObjectToModify", HandleOf(node), GuidOf(node))
@@ -181,6 +189,7 @@ namespace Volt.Ide.Codesys
             var iobj = GetMember(meta, "Object");
             try
             {
+                if (newBodyAspect != null) PutNewBodyAspect(iobj, newBodyAspect);
                 if (declaration != null) SetAspectText(iobj, "Interface", declaration);
                 if (implementation != null) SetAspectText(iobj, "Implementation", implementation);
                 InvokeMethod(_objMgr, "SetObject", meta, true, null);   // commit
@@ -193,6 +202,26 @@ namespace Volt.Ide.Codesys
                 try { InvokeMethod(_objMgr, "SetObject", meta, false, null); } catch { }
                 throw;
             }
+        }
+
+        /// <summary>The body aspect of an ST body — the class CODESYS SP21 holds an ST POU's Implementation in (measured,
+        /// <c>scripts/body-language-change.log</c>).</summary>
+        public const string StBodyAspect = "_3S.CoDeSys.STObject.STImplementationObject";
+
+        /// <summary>The body aspect of an LD / FBD body (the view decides which, DIALECT N23).</summary>
+        public const string NetworkBodyAspect = "_3S.CoDeSys.NWLObject.NWLImplementationObject";
+
+        /// <summary>Put a FRESHLY CONSTRUCTED body aspect of <paramref name="aspectType"/> on the checked-out object
+        /// (DIALECT N24: <c>Activator.CreateInstance</c>, no donor in the project; the object keeps its guid). The type
+        /// is the measured one by its full name; one that is not loaded is refused by name, never substituted.</summary>
+        public static void PutNewBodyAspect(object? iobj, string aspectType)
+        {
+            var type = Reflection.FindType(aspectType)
+                ?? throw new InvalidOperationException(
+                    $"CODESYS: the body aspect class '{aspectType}' is not loaded in this IDE — it was measured on SP21 " +
+                    "(DIALECT N24); refusing to change the body's language with any other class.");
+            SetMember(iobj ?? throw new InvalidOperationException("CODESYS: the checked-out object is null"),
+                      "Implementation", Activator.CreateInstance(type));
         }
 
         /// <summary>Run a mutation inside ONE <c>GetObjectToModify</c>/<c>SetObject</c> transaction — the same

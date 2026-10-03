@@ -1757,6 +1757,11 @@ window.VOLT = {
           "signature": "void ValidateTask(TaskSettings settings)"
         },
         {
+          "name": "RefusedLanguageChange",
+          "kind": "method",
+          "signature": "string? RefusedLanguageChange(string site, string from, string to)"
+        },
+        {
           "name": "NetworkScopeFor",
           "kind": "method",
           "signature": "NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations)"

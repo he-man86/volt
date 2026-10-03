@@ -453,23 +453,89 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [x] 4.1 D1 — gone: `ec0152fe0f` + `b6822e9751`. A DUT has one extension `.dut`; the subtype is not on the wire, so
       it has no second source; `push-without-header-check` 1.2 holds for DUTs.
 - [x] 4.2 D2 — gone: `f7eb383f47`. One POU extension `.pou`, kind from the IDE class; `PlcPouFb` default deleted.
-- [ ] 4.3 D3 — **Changed.** `IsGlobalListHeader` is gone (`15d421e57a`: `ProjectDeclarations` / `PushedDeclarations`
+- [x] 4.3 D3 — **Changed.** `IsGlobalListHeader` is gone (`15d421e57a`: `ProjectDeclarations` / `PushedDeclarations`
       select Globals by wire kind). Left: `StDeclaration.IsCallableHeader` (:90), `IsFunctionBlockType` (:179),
       `FunctionBlockHeader` (:170) via `CodeHelper.HeaderLine`, called from `NetworkScope.cs:98,115`. An FB instance
       still becomes a FUNCTION call when the FB's declaration header does not read — the wrong body is written. The
       kind on the wire is now `pou` for all three, so "FB or FUNCTION" must come from the IDE's POU type (DIALECT
       C2g/C2h), carried on the declarations the scope is built from; then delete the three.
-- [ ] 4.4 D4 — a call-target type neither the project nor the library manifest names is refused by name; delete
+      **Done (step 4a, design D3 option 3 — the IDE's POU type was measured out: a pushed callee has none until it is
+      written, and an unclosed `(*` declares nothing on either vendor).** A POU is one by KIND (`kindOf`: the push's wire
+      kind, else the IDE class, `ProjectDeclarations.KindOf`); a variable is an instance unless its type is a vendor-refused
+      POU name or a project item of another kind. `IsCallableHeader`, `CallableHeader`, `IsFunctionBlockType`,
+      `FunctionBlockHeader` and `CodeHelper.HeaderLine` deleted; ratchet counts → 0. Tests: `NetworkScopeTests` +4 (the
+      unclosed-`(*` callee is an instance — the D3 bug; a project-FUNCTION-typed variable is an instance box; a POU by kind
+      not header ×2); existing rows unchanged but for the two new arguments. Corpus oracle at its pinned tallies.
+- [x] 4.4 D4 — a call-target type neither the project nor the library manifest names is refused by name; delete
       `NonBlockTypeWords` (`StDeclaration.cs:162`; still misses `WCHAR`).
-- [ ] 4.5 D5 — no refusal depends on the regex scope (closed by 1.3, 2.10, 2.11); if a name set is still needed,
+      **Done (design D4 option 3).** `NonBlockTypeWords` deleted; the type words come from the vendor's measured
+      refused-name list (`CodesysDriver/BeckhoffDriver.RefusedPouName`). "Misses `WCHAR`" was a false premise (both
+      vendors take `WCHAR` as a name). No new refusal: `network_unknown_fb_type` recorded on both vendors in one batch each
+      — both write the box, both builds say `Unknown type` + `…instance expected instead of 't1'` (DIALECT N26); rating
+      `refused`. Tests: `CodesysScopeFactsTests` (6), `TcScopeFactsTests` (7: `LDT`/`LDATE`/`LTOD`/`LTIME_OF_DAY`/
+      `LDATE_AND_TIME` are instances on TwinCAT, not on CODESYS).
+- [x] 4.5 D5 — no refusal depends on the regex scope (closed by 1.3, 2.10, 2.11); if a name set is still needed,
       take it from the IDE (`StDeclaration.VarLine`).
-- [ ] 4.6 D6 — carry the live body language on `ItemContent`/`Member` from the driver; `BodyFormatGuard` stops
+      **Done (design D5 option 3).** `VarLine` replaced by a statement reader over `StTrivia` (one rule for
+      `DeclaredNames` and the type read): wrapped lists, `AT` addresses, one-line blocks, trailing comments. Tests:
+      `StDeclarationTests` +19 (7 red before). `REFERENCE TO T` stays no instance — niche: accepted loss (0 occurrences in
+      the corpora).
+- [x] 4.6 D6 — carry the live body language on `ItemContent`/`Member` from the driver; `BodyFormatGuard` stops
       sniffing text (`ShapeOf`, `BodyFormatGuard.cs:32`).
-- [ ] 4.7 D7 — one language-change comparison in `BodyFormatGuard`, pre-flight, UNSUPPORTED, same on both vendors;
+      **Done.** `StatedLanguage(Language, Hidden)` on `ItemContent`/`Member`/`Accessor` (`Stated`, null exactly where
+      there is no body text), set by both drivers' `ReadBody`, `NetworkText.Pulled`, `FakeIde` and `StReader.Body`.
+      `ShapeOf`, `LanguageOf`, `Saw` deleted; `RequireAuthorable` asks `Stated` too. A body with text and no stated
+      language is refused loud. `RequireStBody` stays (the file needs it). Tests: `LanguageChangeGuardTests` (D6 rows),
+      `ItemContentIsFullyCarriedTests` carries `Stated`, driver read rows in `CodesysLanguageChangeTests` /
+      `TcLanguageChangeTests`.
+- [x] 4.7 D7 — one language-change comparison in `BodyFormatGuard`, pre-flight, UNSUPPORTED, same on both vendors;
       `RefuseViewModeChange` leaves the drivers (`CodesysNetworkWriter.cs:51`, `TcNetworkWriter.cs:165`); CODESYS's raw
       member error replaced by the named refusal.
       Half done (2e/2f): the view change is WRITTEN on both vendors (3.5), so `RefuseViewModeChange` left the drivers and
       the engine; the ST ⇄ graphical comparison in `BodyFormatGuard` (3.3/3.4) is what remains.
+      **Done (design D7 option 3; as-built note: it runs at the item's guard before its first write, not in the batch
+      pre-flight — the live language needs a content read).** `ICodeStore.RefusedLanguageChange(site, from, to)`, abstract
+      on `DriverBase`. Members measured live (`scripts/probe-member-language-change.py` → `member-language-change.log`):
+      method, action, GET, SET all change in place, build and run — CODESYS answers null for pou/method/action/
+      property_get/property_set and swaps the aspect inside the write's own transaction; TwinCAT refuses every site with
+      N24's reason. Live e2e `graphical/language-change.test.ts` (POU ST→LD→ST, method ST→FBD→ST): CODESYS 2/2 pass,
+      TwinCAT 2/2 refused untouched. `roundtrip.test.ts`'s "refuses ST over FBD" premise (Volt's own refusal) disproved
+      by N24 on CODESYS: split by vendor. `GraphicalChildGuardTests` messages updated (the refusal is the vendor's now).
+      Census vs HEAD: 563 → 570 sites (7 gone: the guard's two language-change refusals and five rewordings; 14 new:
+      the rewordings, the vendor-asked refusal, the no-stated-language refusal, 3 arg-null, 4 CODESYS swap guards).
+      **Step 4a gate — review fixes (7 findings, all fixed, none skipped; each test red before its fix):**
+      (1, medium) CODESYS swapped the body aspect on a write that carried NO body — the push's declaration-only write
+      (`Body = null`, the member-create path) still states the language, so an EMPTY aspect of the new language was
+      committed and the IDE's body was lost when anything before the real body write threw. `NewBodyAspect` now takes the
+      text written and swaps only when a body is written (`CodesysLanguageChangeTests.A_write_without_a_body_swaps_nothing…`).
+      (2) The write and the guard read an empty body stating nothing differently (ST to the guard, nothing to the write,
+      which then set "" on the network aspect mid-apply): `BodyFormatGuard.PushedLanguage` is the one rule, asked by the
+      CODESYS write (`…An_empty_body_stating_no_language_is_ST_to_the_write_as_to_the_guard`). (3) `ProjectDeclarations`'
+      index held tasks, so a task walked before an FB of its name made `KindOf` answer `task` and `m : Motor;` no instance:
+      the index holds the top-level source kinds only (`ProjectDeclarationsKindTests`, 2, over a flat tree — `FakeIde`
+      cannot hold two items of one name). (4, 5) The CLI's `SameBody` read with no refused name (a BOOL named `R_EDGE`
+      took the edge construct, one program spelled twice was called two) and the engine tests ran on a 25-word stand-in:
+      both now ask `Volt.Engine/Ide/BothVendorsRefusedNames.cs` (933 words, the two drivers' measured lists intersected,
+      GENERATED and held to the probe logs by `RefusedNamesMatchTheLogsTests.The_engines_word_list_…`; exempt in
+      `NoKindFromTextTests` like the drivers' lists). Tests: `PushedTextTests` +3, `NetworkScopeTests` +8 (`DATE_AND_TIME`,
+      `__XWORD`, `BIT`, `__SYSTEM`, `__UXINT`, `TIME_OF_DAY`, `__XINT`, `ANY_INT` are no instance); the corpus oracle stays
+      at its pinned tallies under the production list. (6) TwinCAT's write never asked `RefusedLanguageChange`: it does now
+      where it writes a body (`RefuseLanguageChange` in `WriteOne` and `Collect`; blank = a create, a hidden live body is
+      the guard's), so the ICodeStore contract holds on both vendors (`TcLanguageChangeTests` +2; DIALECT N24 says so).
+      (7) Live e2e through Volt's own write path for an ACTION (ST→LD→ST) and a property's GET+SET (ST→LD→ST, the LD view
+      on members): `language-change.test.ts` 4 cases. `graphical-kinds.test.ts`'s "a graphical accessor refuses a textual
+      push" premise was Volt's own refusal, disproved on CODESYS by N24 (as `roundtrip.test.ts` in 4.7): split by vendor.
+      Also: the repo gate `No_product_source_spells_a_retired_extension` was red at HEAD on two LSP tests from
+      `lsp-sfc-step-names` (`P.prg`, `FB.fb`, `S_Fun.fun` as file keys) — renamed to `.pou`, both files green.
+      **Numbers:** C# Engine 2018 (+1 skipped; +13), Cli 254 (= HEAD; its testhost hangs AFTER the last test at HEAD too —
+      measured in a HEAD worktree, Release, `--blame-hang-timeout`), Codesys 292 (+2), Twincat 419 (+2), Connector 115,
+      Contracts 39, Relay 49, Repo.Gates 108 (+1). LSP full (`VOLT_REQUIRE_FULL=1`): 8050 pass, 34 skip, 382 todo, 0 fail;
+      fixture map unchanged (`rate:fixtures`); typecheck green. Live e2e (fixture IDEs, instance `bridge-refusal-review`):
+      CODESYS full 254 pass / 24 skip / 0 fail; language-change 4/4 on both vendors (TwinCAT: refused untouched).
+      TwinCAT full 254 pass / 24 skip / 0 fail. (A first TwinCAT full run lost its XAE in `hidden-members` — PLC_DISCONNECTED,
+      the process gone, 45 cascading timeouts; that file passed 6/6 alone on a fresh XAE and the full rerun is the green
+      one above, so it was not reproduced.)
+      Census vs HEAD: 563 → 571 (7 gone, 15 new: 4.7's 14 and TwinCAT's write-side language-change refusal).
 - [ ] 4.8 D8 — pre-flight validates each network body once and passes the `NetworkBody` model to the write; drivers
       take a model, never text; the create-arm copies go (`PushService.cs:1180`).
 - [ ] 4.9 D9 — StReader content scans gone (1.2, 2.1); one message for empty text and Unmarked; `Shape`
