@@ -443,7 +443,7 @@ internal sealed partial class TcObjectModel
             try { parent = (object?)current.Parent; } catch { return null; }
             if (parent is null) return null;
             var kind = ItemType(parent);
-            if (kind is ItemKind.PlcPou or ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcItf)
+            if (ItemKind.HoldsMembers(kind))
                 return parent;
             if (kind != ItemKind.PlcFolder) return null;   // left the POU without finding one
             current = parent;
@@ -616,7 +616,7 @@ internal sealed partial class TcObjectModel
         for (var hops = 0; hops < 32; hops++)
         {
             int t = ItemType((object)node);   // shared read: an unreadable node yields ItemKind.Unknown, never 0 (SystemRoot)
-            if (t is ItemKind.PlcPou or ItemKind.PlcPouProg or ItemKind.PlcPouFunc or ItemKind.PlcItf) return node;
+            if (ItemKind.HoldsMembers(t)) return node;
             node = node.Parent;
             if (node == null) return null;
         }

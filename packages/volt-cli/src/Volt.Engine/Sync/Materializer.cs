@@ -95,12 +95,7 @@ public static class Materializer
     {
         foreach (var m in content.Members)
         {
-            var expected = m.Kind switch
-            {
-                ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod => "METHOD",
-                ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty => "PROPERTY",
-                _ => null,
-            };
+            var expected = StReader.MemberKeywordFor(m.Kind);
             if (expected is null || StReader.MemberHeaderKeyword(m.Declaration) is not { } opens || opens == expected) continue;
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"'{name}': its {m.Kind.Replace('_', ' ')} '{m.Name}' holds text that opens with '{opens}', not {expected}. " +

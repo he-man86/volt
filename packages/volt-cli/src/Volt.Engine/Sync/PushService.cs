@@ -554,7 +554,7 @@ public static class PushService
                 $"'{u.Name}' is not read: {u.Reason}");
         if (ItemKind.KindForWireName(op.Name) is not { } kind || !u.Kinds.Contains(kind))
             throw new BridgeException(BridgeErrorCodes.Unreadable,
-                $"'{op.Name}' names a {ItemKind.KindForWireName(op.Name) ?? "?"}, and the IDE's '{u.Name}' is a POU that is " +
+                $"'{op.Name}' names a {ItemKind.KindForWireName(op.Name) ?? "?"}, and the IDE's '{u.Name}' is a {string.Join(" or ", u.Kinds)} that is " +
                 $"not read ({u.Reason}). Delete or replace it under its own kind.");
 
         switch (op)

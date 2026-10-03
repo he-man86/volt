@@ -20,18 +20,13 @@ public static class PushedText
     /// reads its header (openspec <c>push-without-header-check</c>), and a POU is <c>X.pou</c> and a DUT <c>X.dut</c>
     /// whatever their text says (5.Q, 5.P), so a text write moves no object to another name: the case-variant pair is
     /// all that is left. (Until 5.Q, CODESYS re-published a function block whose text said PROGRAM under the program's
-    /// extension, DIALECT C2f, and this paired the three POU extensions.) Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
+    /// extension, DIALECT C2f, and this paired the three POU extensions; it kept a POU/DUT whitelist after that, which left a
+    /// GVL or an interface in another case unpaired.) Any other pair is two items (<c>X.pou</c> beside <c>X.dut</c>, the
     /// item-name invariant).</summary>
     public static bool MayBeHeldAs(string pushedWireName, string heldWireName)
     {
-        static string? Family(string wireName) => ItemKind.KindForWireName(wireName) switch
-        {
-            ItemKind.Kinds.Pou => ItemKind.Kinds.Pou,
-            ItemKind.Kinds.Dut => ItemKind.Kinds.Dut,
-            _ => null,
-        };
         return !string.Equals(pushedWireName, heldWireName, System.StringComparison.Ordinal)
-               && Family(pushedWireName) is { } family && Family(heldWireName) == family
+               && ItemKind.KindForWireName(pushedWireName) is { } kind && ItemKind.KindForWireName(heldWireName) == kind
                && string.Equals(Materializer.Bare(pushedWireName), Materializer.Bare(heldWireName),
                                 System.StringComparison.OrdinalIgnoreCase);
     }

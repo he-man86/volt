@@ -45,10 +45,13 @@ public class PushedTextTests
     /// else. Across families it is another item, and a name is never "held as" itself. A POU has one name, <c>X.pou</c>
     /// (openspec <c>push-without-header-check</c> 5.Q — this used to pair <c>X.fb</c> with <c>X.prg</c> and <c>X.fun</c>,
     /// the names CODESYS re-typed a POU to by its text, DIALECT C2f), and a DUT one, <c>X.dut</c> (5.P), so only the
-    /// spelling's case can differ.</summary>
+    /// spelling's case can differ — for every kind (review 5.G: a GVL or an interface in another case was never paired).</summary>
     [Theory]
     [InlineData("X.pou", "x.pou", true)]
     [InlineData("X.dut", "x.dut", true)]
+    [InlineData("X.gvl", "x.gvl", true)]
+    [InlineData("X.itf", "x.itf", true)]
+    [InlineData("X.gvl", "x.dut", false)]
     [InlineData("X.dut", "X.dut", false)]
     [InlineData("X.pou", "X.pou", false)]
     [InlineData("X.pou", "X.dut", false)]

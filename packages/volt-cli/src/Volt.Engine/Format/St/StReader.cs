@@ -271,6 +271,17 @@ public static class StReader
 	/// <c>Materializer</c>): an IDE can store a method whose text opens with <c>PROPERTY</c> (DIALECT C2l), and a file
 	/// carrying it would be read back as a property — a delete of the method and a create of a property, under an ordinary
 	/// push. A line that opens with a string opens with its quote.</summary>
+	/// <summary>The keyword the child splitter reads a member of <paramref name="kind"/> by, when its DECLARATION opens
+	/// with one: METHOD for a method, PROPERTY for a property (interface members too). Null for a kind whose block line is
+	/// written from its class (an action, a transition) or that is no member. The splitter's own vocabulary
+	/// (<see cref="MemberKeywords"/>), so the pull's class check (<c>Materializer</c>) reads the same words the push does.</summary>
+	public static string? MemberKeywordFor(string kind) => kind switch
+	{
+		ItemKind.Kinds.Method or ItemKind.Kinds.InterfaceMethod => "METHOD",
+		ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty => "PROPERTY",
+		_ => null,
+	};
+
 	public static string? MemberHeaderKeyword(string declaration)
 	{
 		if (declaration is null) throw new ArgumentNullException(nameof(declaration));

@@ -14,8 +14,8 @@ what a DUT was.
 
 ## The rule (owner, 2026-09-29)
 
-**The header is parsed ONLY for child elements.** A top-level item's kind is its wire name's extension (`.fb`, `.prg`,
-`.fun`, `.itf`, `.gvl`, `.dut` — every DUT is `.dut` since 5.P), so its header is never read, never checked against the
+**The header is parsed ONLY for child elements.** A top-level item's kind is its wire name's extension (`.pou`, `.itf`,
+`.gvl`, `.dut` — every DUT is `.dut` since 5.P, every PROGRAM / FUNCTION_BLOCK / FUNCTION `.pou` since 5.Q), so its header is never read, never checked against the
 extension, and never a reason to refuse. A CHILD element inside an item's file — METHOD, ACTION, PROPERTY with its
 GET/SET, an interface's METHOD/PROPERTY — has no extension of its own: its header line is what names it, says what it
 is, and delimits it. That is the one place a header is parsed on push. The only other thing push reads from the text is
