@@ -1394,7 +1394,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // LSP silent (`ALIAS_INITIALIZER_NOT_CHECKED` `dt_alias_init_out_of_range`, `dt_alias_init_wrong_type`: an alias's
   // initializer is checked as often as the alias is used, a project-wide count) — niche, 0 occurrences in the corpora. No
   // fixture moved.
-  "lsp-gap": 65,
+  // 65 -> 72, FOR MEASUREMENT. lsp-sfc-step-names 1.1 (2026-10-03): 7 SFC step cells CODESYS refuses, the LSP wording them
+  // otherwise or silent because no step of the chart is in scope (`deferred.lsp` on each, `SFC_STEPS_NOT_IN_SCOPE`): an
+  // unknown member of a step, the step as a value, `.t` as TIME and `.x` as BOOL into an INT, a variable of the step's name,
+  // a step written from outside, an action's `.x`. Fixed by 2.1, which lowers this again. No fixture moved.
+  // 72 -> 74, FOR MEASUREMENT. lsp-sfc-step-names 1 review (2026-10-03): the default step `Init`'s `.t` into an INT and its
+  // unknown member `.y` — CODESYS refuses both, the LSP binds bare `Init` to a transitive library's enum member (LB2) and is
+  // silent. Fixed by 2.1. No fixture moved.
+  "lsp-gap": 74,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1560,7 +1567,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 287 -> 289, FOR MEASUREMENT. frontend-conformance 4.7.4 (2026-10-03): `dt_this_into_pointer` (`p := THIS`, "THIS does
   // not resolve" as a place) and `dt_this_deref_identity_values` (`SUPER^.v`, "deref is not a lowerable storage location
   // yet") — the transpiler's, handed to transpile-restructure (task 5.3).
-  "not-lowered": 289,
+  // 289 -> 300, FOR MEASUREMENT. lsp-sfc-step-names 1.1 (2026-10-03): 11 SFC cells CODESYS builds and runs; an SFC body has no
+  // ST to lower ("graphical-body", `lower/lower.ts`) — not a transpiler gap this change closes, and no wrong value.
+  // 300 -> 330, FOR MEASUREMENT. lsp-sfc-step-names 1 review (2026-10-03): 30 more SFC cells CODESYS builds and runs — the
+  // default step `Init`, a step beside a global, an enum member and a FUNCTION of its name, and the SFC flag variables
+  // declared with their type and another. Same reason: an SFC body has no ST to lower.
+  "not-lowered": 330,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -2296,12 +2308,27 @@ for (const { vendor, floor } of FLOORS) {
  */
 test("the LSP emits NO error on a fixture the simulator built and executed", () => {
   const falsePositives: string[] = []
+  const stale: string[] = []
   for (const [i, t] of ALL_TESTS.entries()) {
     if (!SELECTION.has(t.name)) continue
     const rec = RUNS[t.name]
     if (rec === undefined || rec.error !== undefined || t.source === "" || t.recorderSkip === true) continue
-    if (KNOWN_DIVERGENCES.codesys.has(t.name)) continue
-    for (const m of runLsp(i, "codesys")) if (m.startsWith("[error]")) falsePositives.push(`${t.name}: ${m}`)
+    const errors = runLsp(i, "codesys").filter((m) => m.startsWith("[error]"))
+    if (KNOWN_DIVERGENCES.codesys.has(t.name)) {
+      // A marked fixture with a BUILD recording is held to it by the build row. One WITHOUT — the push cannot create it,
+      // so this row is its only CODESYS oracle — is an expected failure HERE. It was skipped, so such a mark could outlive
+      // its false positive with nothing to notice (lsp-sfc-step-names 1.1: the SFC fixtures are only run-recorded).
+      if (BUILDS.codesys.tests[t.name] === undefined) {
+        try {
+          expectStillDiverges(t.name, "KNOWN_DIVERGENCES.codesys", [() => expect(errors).toEqual([])], "the CODESYS run")
+        } catch (error) {
+          stale.push((error as Error).message)
+        }
+      }
+      continue
+    }
+    for (const m of errors) falsePositives.push(`${t.name}: ${m}`)
   }
   expect(falsePositives).toEqual([])
+  expect(stale).toEqual([])
 }, 60_000)

@@ -13,7 +13,7 @@
     "fixtures codesys: decl NOSCOPE": 18,
     "fixtures codesys: decl does not fold": 641,
     "fixtures codesys: decl folds": 3041,
-    "fixtures codesys: files of a known divergence (support/divergences.ts), not measured": 380,
+    "fixtures codesys: files of a known divergence (support/divergences.ts), not measured": 398,
     "fixtures twincat: body does not fold": 78,
     "fixtures twincat: body folds": 410,
     "fixtures twincat: decl NOSCOPE": 18,

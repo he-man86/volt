@@ -98,6 +98,16 @@ export interface LanguageTest {
    */
   execSkip?: string
   /**
+   * THE STEP OF THE SFC CHART this fixture's SFC POU is recorded with — required of a fixture whose POU states
+   * `IMPLEMENTATION SFC UNSUPPORTED`, refused on any other. The text holds no chart (Volt does not materialize one), so
+   * `record:exec` creates the POU in SFC, which gives the chart CODESYS makes for a new SFC POU — one initial step `Init`, a
+   * TRUE transition, a jump back — and, where this names another step, renames that one step through CODESYS's own
+   * PLCopen export and import (measured 2026-10-03, SP21). Nothing else of the chart changes, and nothing is drawn.
+   * A step named `Init` collides with a transitive library's enum member (Component Manager's `RUNTIME_LICENSE_STATE.INIT`,
+   * which the LSP reaches bare — LB2), so the fixtures name theirs (openspec lsp-sfc-step-names 1.1).
+   */
+  sfcStep?: string
+  /**
    * Paths whose recorded value is the IDE's WALL CLOCK at the moment it was recorded — `TIME()` read into a variable.
    * No run can reproduce that instant: the transpiler reads the clock its harness sets (`CLOCK`), never a wall clock.
    * The replays compare every other path, and hold these only to having been produced.

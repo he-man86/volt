@@ -45,6 +45,15 @@ export interface LoadUnit {
   declaration: string
   implementation: string
   members: LoadMember[]
+  /**
+   * `"sfc"` for a POU whose text states `IMPLEMENTATION SFC UNSUPPORTED` — the form Volt materializes an SFC body in.
+   * The text holds no chart, so the recorder creates the POU in SFC: the chart CODESYS creates for a new SFC POU, ONE
+   * initial step `Init`, a `TRUE` transition and a jump back to it (measured 2026-10-03, SP21,
+   * `create_pou(language=ImplementationLanguages.sfc)` exported as PLCopen), with that step named `step` (the fixture's
+   * `sfcStep`) — nothing else is drawn (openspec lsp-sfc-step-names 1.1).
+   */
+  language?: "sfc"
+  step?: string
 }
 
 export function fixtureUnits(t: LanguageTest): LoadUnit[] {
@@ -66,6 +75,7 @@ export function fixtureUnits(t: LanguageTest): LoadUnit[] {
   }
   // An AS-SENT text is ONE object, whatever the parser makes of it. A never-closed `(*`, an empty or a prose text parses
   // to no unit at all, and loading nothing in its place would run a program that is not the one the IDE was given.
+  requireSfcStep(t)
   if (t.asSent !== undefined && out.length !== 1)
     throw new Error(`${t.name}: its as-sent text parses to ${out.length} objects, not the one the push writes — it cannot be loaded from its units`)
   return out
@@ -92,7 +102,23 @@ export function withDependencies(t: LanguageTest, all: readonly LanguageTest[]):
     order.push(f)
   }
   visit(t)
+  for (const f of order) requireSfcStep(f)
   return order
+}
+
+/**
+ * `sfcStep` IS REQUIRED OF EXACTLY THE FIXTURES HOLDING AN SFC POU (`types.ts`): one whose body states `IMPLEMENTATION SFC
+ * UNSUPPORTED` names the step its chart is recorded with, and no other fixture names one. Asked wherever a fixture is
+ * loaded (`fixtureUnits`) or assembled (`withDependencies`, under every suite path) — it lived in `fixtureUnits` alone, so a
+ * stray or a lost `sfcStep` passed the contract suite until the next `record:exec` (lsp-sfc-step-names 1, review).
+ */
+function requireSfcStep(t: LanguageTest): void {
+  const sfc = parsed(t).units.some((u) => {
+    const stated = "body" in u && u.body.kind === "body" ? u.body.implementation?.statement : undefined
+    return stated?.kind === "unsupported" && stated.language.toUpperCase() === "SFC"
+  })
+  if (t.sfcStep !== undefined && !sfc) throw new Error(`${t.name}: names an sfcStep and holds no SFC POU to draw it in`)
+  if (t.sfcStep === undefined && sfc) throw new Error(`${t.name}: holds an SFC POU and the fixture names no sfcStep for its chart`)
 }
 
 // ─── dependency resolution ────────────────────────────────────────────────────
@@ -207,14 +233,19 @@ function asUnit(t: LanguageTest, source: string, unit: TopLevel, pragmas: string
   switch (unit.kind) {
     case "function_block":
     case "program":
-    case "function":
-      return {
-        kind: unit.kind,
-        name: unit.name.text,
-        declaration: pragmas + declarationText(source, unit.span.start, unit.body),
-        implementation: codeText(source, unit.body),
-        members: [],
+    case "function": {
+      const declaration = pragmas + declarationText(source, unit.span.start, unit.body)
+      const stated = unit.body.implementation?.statement
+      if (stated?.kind === "unsupported") {
+        // A body Volt does not show has no text to load. Only an SFC one has a chart CODESYS makes by itself; any other
+        // would be a POU loaded without the body the fixture is about — refused by name rather than loaded empty.
+        if (stated.language.toUpperCase() !== "SFC")
+          throw new Error(`${t.name}: '${unit.name.text}' states IMPLEMENTATION ${stated.language} UNSUPPORTED — only an SFC body can be loaded without its text`)
+        if (t.sfcStep === undefined) throw new Error(`${t.name}: '${unit.name.text}' is an SFC POU and the fixture names no sfcStep for its chart`)
+        return { kind: unit.kind, name: unit.name.text, declaration, implementation: "", members: [], language: "sfc", step: t.sfcStep }
       }
+      return { kind: unit.kind, name: unit.name.text, declaration, implementation: codeText(source, unit.body), members: [] }
+    }
     case "type_decl":
       return { kind: "dut", name: unit.name.text, declaration: pragmas + withEnd(source, unit.span), implementation: "", members: [] }
     case "interface": {

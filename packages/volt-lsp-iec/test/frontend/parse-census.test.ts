@@ -29,22 +29,7 @@ import { checkBaseline, tally, type Baseline } from "./baseline.js"
 import { parse, parseErrors } from "./dumps.js"
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { build } from "../../src/frontend/symbols/index.js"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-import { corpusProjects, fixtureSources, messagePool, type RecordedBuild } from "./sources.js"
-
-/** CODESYS's `record:exec` refusals ("does not compile: a | b"), by fixture — the answer to a fixture whose push is refused. */
-const EXEC_REFUSALS: ReadonlyMap<string, RecordedBuild> = new Map(
-  Object.entries(
-    (JSON.parse(readFileSync(join(import.meta.dir, "..", "conformance", "recordings", "codesys.run.json"), "utf8")) as {
-      tests: Record<string, { error?: string }>
-    }).tests,
-  ).flatMap(([name, r]) =>
-    r.error?.startsWith("does not compile: ") === true
-      ? [[name, { buildSuccess: false, diagnostics: r.error.slice("does not compile: ".length).split(" | ").map((message) => ({ severity: "error", message })) }] as const]
-      : [],
-  ),
-)
+import { corpusProjects, fixtureSources, messagePool, unanswered, type RecordedBuild } from "./sources.js"
 
 /**
  * A recorded message that reads as a syntax refusal — to count the refusals the parser does not share (the other direction).
@@ -110,8 +95,8 @@ function census(): Baseline {
     // a measure with a ceiling is reported at zero too: frontend-conformance 2.8.3 brought this one there
     counts[`${key}: refused with a syntax message, no LSP parse error`] = 0
     for (const f of fixtureSources()) {
-      const rec =
-        f[vendor] ?? (vendor === "codesys" && f.test.vendorRefuses?.codesys !== undefined ? EXEC_REFUSALS.get(f.test.name) : undefined)
+      // the build recording, or CODESYS's `record:exec` refusal of a fixture whose push is refused (`sources.ts`)
+      const rec = f[vendor]
       // A fixture `support/divergences.ts` pins as disagreeing with this vendor's build is held there — the suite replays
       // it as an expected failure and fails the day it agrees — so it is counted here, not measured twice.
       if (rec !== undefined && KNOWN_DIVERGENCES[vendor].has(f.test.name)) {
@@ -123,7 +108,7 @@ function census(): Baseline {
         [own, plc].flatMap((b) => parseErrors(b, vendor).map((e) => ({ ...e, id: b.parsed.id }))),
       )
       const lsp = errors.length > 0 ? "LSP parse error" : "no LSP parse error"
-      if (rec === undefined && f.test.vendorRefuses?.[vendor] !== undefined) {
+      if (unanswered(f, vendor)) {
         tally(counts, `${key}: the push refuses it, ${lsp}`)
         continue
       }

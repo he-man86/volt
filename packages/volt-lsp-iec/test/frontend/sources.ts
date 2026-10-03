@@ -60,9 +60,21 @@ export interface FixtureSources {
   /** The fixture's own item, under the uri the replay reads it as (`evidence.ts` `lspErrors`). */
   own: SourceFile
   plc: SourceFile
+  /** The vendor's answer: its build recording — or, on CODESYS, for a fixture whose push is refused, `record:exec`'s refusal
+   *  ("does not compile: a | b"), which loads it without the push (`unit_method_override`, the SFC fixtures). */
   codesys: RecordedBuild | undefined
   twincat: RecordedBuild | undefined
 }
+
+/**
+ * A fixture whose PUSH this vendor refuses with no messages recorded for it — no build recording and (CODESYS) no refusal
+ * from `record:exec`; a run that BUILT records values, not the build's warnings. The push's refusal is all there is to
+ * compare with, so the fixture is counted, not measured: a finding there is neither one a recording could remove nor one
+ * the front-end could (the parse census's rule; the bound census applies it to the SFC fixtures alone — an SFC POU no push can
+ * create, answered on CODESYS by `record:exec` alone — and measures every other push-refused fixture as before).
+ */
+export const unanswered = (f: FixtureSources, vendor: Dialect): boolean =>
+  f[vendor] === undefined && f.test.vendorRefuses?.[vendor] !== undefined
 
 // ─── corpus ──────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -126,12 +138,25 @@ export function fixtureExtension(kind: LanguageTest["kind"]): string {
 export const fixtureUri = (t: LanguageTest): string => `file:///conformance/${t.pouName}.${fixtureExtension(t.kind)}`
 export const plcUri = (t: LanguageTest): string => `file:///conformance/${t.name}/PLC_PRG.pou`
 
+/** CODESYS's `record:exec` refusals ("does not compile: a | b"), by fixture. */
+function execRefusals(): ReadonlyMap<string, RecordedBuild> {
+  const runs = (JSON.parse(readFileSync(join(RECORDINGS, "codesys.run.json"), "utf8")) as { tests: Record<string, { error?: string }> }).tests
+  return new Map(
+    Object.entries(runs).flatMap(([name, r]) =>
+      r.error?.startsWith("does not compile: ") === true
+        ? [[name, { buildSuccess: false, diagnostics: r.error.slice("does not compile: ".length).split(" | ").map((message) => ({ severity: "error", message })) }] as const]
+        : [],
+    ),
+  )
+}
+
 let fixtureCache: FixtureSources[] | undefined
 /** Every fixture, in `ALL_TESTS` order, with its two build recordings. */
 export function fixtureSources(): FixtureSources[] {
   if (fixtureCache !== undefined) return fixtureCache
   const codesys = buildRecordings("codesys")
   const twincat = buildRecordings("twincat")
+  const refusals = execRefusals()
   const recorded = (rec: BuildRecordings, name: string): RecordedBuild | undefined => {
     const r = rec[name]
     if (r === undefined) return undefined
@@ -142,7 +167,7 @@ export function fixtureSources(): FixtureSources[] {
     test: t,
     own: { id: `fixture/${t.name}/${t.pouName}.${fixtureExtension(t.kind)}`, uri: fixtureUri(t), source: t.source },
     plc: { id: `fixture/${t.name}/PLC_PRG.pou`, uri: plcUri(t), source: plcPrgSource(t) },
-    codesys: recorded(codesys, t.name),
+    codesys: recorded(codesys, t.name) ?? (t.vendorRefuses?.codesys !== undefined ? refusals.get(t.name) : undefined),
     twincat: recorded(twincat, t.name),
   }))
   return fixtureCache

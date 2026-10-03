@@ -78,23 +78,61 @@ def write(obj, declaration_text, implementation_text):
         obj.textual_implementation.replace(implementation_text)
 
 
+def pou_language(u):
+    # An SFC body has no text: the POU is created in SFC and keeps the chart CODESYS makes for it (one initial step
+    # `Init`, a TRUE transition, a jump back - measured 2026-10-03), its step renamed by `named_step`. `write` then
+    # leaves the implementation alone, since the unit's is empty. Any other language here is a loader bug, refused.
+    lang = u.get("language")
+    if lang is None:
+        return ImplementationLanguages.st
+    if lang == "sfc":
+        return ImplementationLanguages.sfc
+    raise Exception("no create for a %s body" % lang)
+
+
+def named_step(app, obj, u):
+    # The default chart's one step is `Init`. Another name goes through CODESYS's OWN PLCopen round trip - export the
+    # POU, rename that step (its name, its attribute text and the jump's target; the SFC settings' `<Init .../>` flag
+    # element is a tag, not text, and is left alone), remove the POU, import the document - which builds and resolves
+    # `<POU>.<step>.x` (measured 2026-10-03, SP21). Nothing else of the chart is touched.
+    if u.get("language") != "sfc" or u["step"] == "Init":
+        return obj
+    path = os.path.join(tempfile.gettempdir(), "volt-exec-oracle-sfc.xml")
+    projects.primary.export_xml([obj], path, True)
+    obj.remove()
+    step = u["step"]
+    # `with`, each: IronPython closes a file only when collected, and the write that followed an unclosed read was
+    # refused ("being used by another process", measured 2026-10-03)
+    with open(path) as f:
+        text = f.read()
+    text = text.replace(">Init<", ">%s<" % step).replace('name="Init"', 'name="%s"' % step).replace('targetName="Init"', 'targetName="%s"' % step)
+    with open(path, "w") as f:
+        f.write(text)
+    app.import_xml(path)
+    found = [o for o in app.get_children() if o.get_name() == u["name"]]
+    if len(found) != 1:
+        raise Exception("the imported SFC POU %s is not found once under the application (%d)" % (u["name"], len(found)))
+    return found[0]
+
+
 def create_unit(app, u):
     kind = u["kind"]
     if kind == "dut":
         obj = app.create_dut(u["name"], DutType.Structure)
     elif kind == "function_block":
-        obj = app.create_pou(name=u["name"], type=PouType.FunctionBlock, language=ImplementationLanguages.st)
+        obj = app.create_pou(name=u["name"], type=PouType.FunctionBlock, language=pou_language(u))
     elif kind == "program":
-        obj = app.create_pou(name=u["name"], type=PouType.Program, language=ImplementationLanguages.st)
+        obj = app.create_pou(name=u["name"], type=PouType.Program, language=pou_language(u))
     elif kind == "function":
         # a function REQUIRES a return type at create; the written declaration then sets the real one
-        obj = app.create_pou(name=u["name"], type=PouType.Function, language=ImplementationLanguages.st, return_type="INT")
+        obj = app.create_pou(name=u["name"], type=PouType.Function, language=pou_language(u), return_type="INT")
     elif kind == "gvl":
         obj = app.create_gvl(u["name"])
     elif kind == "interface":
         obj = app.create_interface(u["name"])
     else:
         raise Exception("no create for a %s" % kind)
+    obj = named_step(app, obj, u)
     write(obj, u["declaration"], u["implementation"])
     for m in u["members"]:
         if m["kind"] == "method":

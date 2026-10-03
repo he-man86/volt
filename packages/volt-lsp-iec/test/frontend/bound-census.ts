@@ -83,7 +83,7 @@ const EXPR_KINDS: readonly Expr["kind"][] = [
 import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, undecidedExprCount, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
-import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
+import { corpusProjects, fixtureSources, isLibraryManagerFile, unanswered, type FixtureSources } from "./sources.js"
 import { compilerTypeText, type Dialect, type TypeExpr } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
 import { bareConversionArgument } from "../../src/analysis/hole.js"
@@ -215,6 +215,8 @@ export function boundCensus(): BoundCensus {
     for (const { where, name, shape, verdict } of lines)
       if (verdict === "NONE" && (shape === "bare name" || shape === "global name") && vendor.notDefined.has(name.toLowerCase()))
         agreed.add(where)
+    // the members the vendor reports no component of their base, by the member's site: no type on either side (0.4 below)
+    const noComponentSites = new Set<string>()
     // a named argument's PARAMETER the callee does not declare is looked up as a name and not found, on the vendor too:
     // `itfRef.M(zz := 5)` is "Identifier 'zz' not defined" (`inh_interface_method_unknown_param`, frontend-conformance 3.6)
     const parameterName = (name: string): string => name.replace(/ (:=|=>)$/, "").toLowerCase()
@@ -234,6 +236,7 @@ export function boundCensus(): BoundCensus {
         (bases.get(where) ?? []).some((base) => vendor.noComponent.has(`${name.slice(1).toLowerCase()}|${base}`))
       ) {
         tally(c.resolution, `${group}: member NONE, no component on the vendor too`)
+        noComponentSites.add(where)
         continue
       }
       // …and a member read off a base the vendor reports has NONE — "'SUPER^' is no structured variable", "'THIS' is no
@@ -330,6 +333,10 @@ export function boundCensus(): BoundCensus {
         // is the LSP's own reason, and ahead of this it took agreements out of their measure
         else if (type === "?" && vendor.unknownTypes.has(compilerExprText(expr)))
           tally(c.types, `${group}: ${kind} UNKNOWN, unknown on the vendor too`)
+        // a member the vendor reports no component of its base (0.3's `member NONE, no component on the vendor too`) has no
+        // type there either, where the vendor names no unknown type for it: `PRG.S_Bot` is "'S_Bot' is no component of 'PRG_…'" (`sfc_step_typo_qualified`, lsp-sfc-step-names 1.1)
+        else if (type === "?" && expr.kind === "member" && noComponentSites.has(at(expr.member.span)))
+          tally(c.types, `${group}: member UNKNOWN, no component on the vendor too`)
         // …and a variable whose DECLARED TYPE the vendor names unknown — LDATE, LDT and LTOD on TwinCAT, which has none of
         // them ("Unknown type: 'LDATE'", the explicit-pair fixtures `xp_*ldate*`, `xp_*ldt*`, `xp_*ltod*`, task 4.5.3)
         else if (type === "?" && expr.kind === "ident_expr" && scope !== undefined && declaredTypeUnknown(expr.name, scope, vendor.unknownTypes))
@@ -423,7 +430,16 @@ export function boundCensus(): BoundCensus {
       summarize(isLibraryManagerFile(b.parsed.id) ? "corpus Library Manager" : "corpus", b, undefined)
 
   for (const vendor of ["codesys", "twincat"] as const)
-    for (const f of fixtureSources())
+    for (const f of fixtureSources()) {
+      // an SFC fixture the push refuses and no build or refusal answers — TwinCAT's, which no recorder can create, and CODESYS's
+      // that build (a run records values, not the build's messages): counted, not measured (`sources.ts` `unanswered`). ONLY
+      // the SFC fixtures: every other push-refused fixture was measured here before them and still is — its names, types and
+      // folds are the census's to hold (lsp-sfc-step-names 1, review: the rule taken whole dropped 45 fixture/vendor pairs).
+      if (f.test.sfcStep !== undefined && unanswered(f, vendor)) {
+        tally(c.resolution, `fixtures ${vendor}: SFC files the push refuses, no build or refusal recorded, not measured`, 2)
+        tally(c.types, `fixtures ${vendor}: SFC files the push refuses, no build or refusal recorded, not measured`, 2)
+        continue
+      }
       withBoundFixture(f, vendor, (own, plc, deps) => {
         const known = KNOWN_DIVERGENCES[vendor].has(f.test.name)
         const notDefined = new Set(
@@ -457,6 +473,7 @@ export function boundCensus(): BoundCensus {
           crossCheckFolds(f, plc, [own, plc, ...deps], c)
         }
       })
+    }
 
   for (const b of boundLibrary()) summarize("library", b, "")
   cached = c

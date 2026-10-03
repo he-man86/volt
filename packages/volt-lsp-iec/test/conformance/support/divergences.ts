@@ -1019,6 +1019,44 @@ const ENUM_DIVERGENCES: readonly string[] = [
   "enum_same_member_call_argument",
   "enum_same_member_array_index",
 ]
+/**
+ * THE SFC CHART IS NOT IN THE TEXT — openspec `lsp-sfc-step-names` 1.1, recorded 2026-10-03 (`fixtures/names/sfc-steps.ts`).
+ * A POU whose body is SFC has its chart's step names in scope, each an `IecSfc.SFCStepType`; Volt materializes the body as
+ * `IMPLEMENTATION SFC UNSUPPORTED`, so the LSP reads no step and answers every use as an unknown name — "Identifier 'S_Boot'
+ * not defined" inside the POU, "'S_Boot' is no component of 'PRG_LANG_…'" through its program or instance (the field's
+ * `'S_Boot' is no component of 'PRG0_Main'`, PLCAssist 2026-09-30). CODESYS builds and RUNS each of these (the run
+ * recording; the push cannot create an SFC body, so there is no build recording — the run-oracle row holds them as
+ * expected failures). The REFUSALS the LSP words differently for the same reason — what a step IS (its type, its members,
+ * a variable of its name), a step written from outside, an action's flags — are here too, each carrying `deferred.lsp` on
+ * the fixture, which holds it as an expected failure in the lsp-gap row; here they are counted, not measured, by the
+ * front-end census. 2.1 removes what it fixes. CODESYS only: TwinCAT has no recorder that can create an SFC POU, so its
+ * side is unanswered (`test/frontend/sources.ts` `unanswered`).
+ */
+const SFC_STEPS_NOT_IN_SCOPE: readonly string[] = [
+  "sfc_step_flag_in_action",
+  "sfc_step_internal_in_action",
+  "sfc_step_qualified",
+  "sfc_step_qualified_internal",
+  "sfc_step_fb_instance",
+  "sfc_step_fb_action",
+  "sfc_step_fb_method",
+  "sfc_step_case_insensitive",
+  "sfc_step_written_in_action",
+  "sfc_step_sizeof_adr",
+  "sfc_step_written_from_outside",
+  "sfc_step_unknown_member",
+  "sfc_step_bare_value",
+  "sfc_step_t_is_time",
+  "sfc_step_x_is_bool",
+  "sfc_step_declared_as_variable",
+  "sfc_step_action_flag",
+  // review of 1.1: the default step's refusals (the LSP binds bare `Init` to a transitive library's enum member, LB2, and is
+  // silent on its members), and a step beside a project enum member of its name — CODESYS binds the step, the LSP the enum
+  // member, and reports `.x` / `.t` no component of the enum
+  "sfc_step_init_t_is_time",
+  "sfc_step_init_unknown_member",
+  "sfc_step_shadow_enum_in_action",
+]
 const CODESYS_ENUM_DIVERGENCES: readonly string[] = [
   "enum_library_member_vs_library_global",
   "enum_library_member_vs_project_function",
@@ -1453,6 +1491,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                            analysis does not have and should not guess at.
   codesys: new Set<string>([
     ...RECOVERY_DIVERGENCES,
+    ...SFC_STEPS_NOT_IN_SCOPE,
     ...CALC_CONDITIONAL_CALL,
     ...CODESYS_POSITION_IN_AN_INITIALIZER,
     ...UNIT_HEADER_RECOVERY,
