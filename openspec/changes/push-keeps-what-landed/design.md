@@ -199,3 +199,162 @@ part-way, stop, and REPORT what landed in structure — `accepted:true` + a conf
   `Accepted == false`) stay as they are.
 - `tasks.md`: 1.2 / 2.1 change from "per item applied" to "every refusal named, nothing written"; 2.2 becomes
   "stop, report, receipt"; 2.3 is already true (record, no code); 2.5 is the NOTE only.
+
+## Step 2 — Per-item outcome: the mechanism
+
+Step 0 settled WHAT is built (1a/1b/1c/2b are not; 2a, 3, 4 and the apply-time half of 5 are). This section settles
+HOW, one decision at a time, each option measured against what step 1 recorded.
+
+### The measurements every option is held against
+
+- **Offline, tree at `21ea20cfce`** (`dotnet test` of `PushKeepsWhatLandedTests`, `DeclarationBeforeMembersTests`,
+  `CreateRollbackTests`, `UnopenedItemTests`, `PushServiceTests`, `PushConflictCodeTests`): 67 pass, 5 red — exactly
+  the five step-1 tests, each failing on the change's assertion. The 67 are the oracles every option must keep green.
+- **Live, CODESYS SP21 and TwinCAT XAE** (step 1.1 / 1.G F3, own instances, fixture copies):
+  `[enum VltE2E_pk_E, struct VltE2E_pk_ST, FB VltE2E_pk_FB + METHOD Log]` → `accepted:false`, one conflict
+  `VltE2E_pk_FB.pou [INTERNAL_ERROR]` + NOTE, no receipt, refs after = the two DUTs, **no FB shell on either vendor**.
+  The vendor words: CODESYS "The name 'Log' is not valid for this object."; TwinCAT "… Creating the child named 'Log'
+  is not possible on node (Name mismatch) …". Neither matches today's `ChildRefusal` patterns ("is not accepted by
+  parent object" / "(SubType mismatch)"), which is why both arrive unclassified.
+- **Pre-flight** (1.2, offline and both vendors): `[Good1, Bad, Bad2, Good2]` → one conflict `Bad`, nothing written.
+- **Read from the code** (the control flow is unconditional, so no fixture is needed): `PushService.Handle` returns
+  the gate's `RejectedResult` (line 118) before the pre-flight loop runs, so `[stale A, malformed B]` names only `A`;
+  the pre-flight loop returns at its first `Reject`; on any apply-time refusal `Reject` returns before
+  `FlushPendingWrites` (TwinCAT `SaveAll`), the prune and the receipt walk.
+
+### D1 — the pre-flight collects every refusal (task 2.1)
+
+| option | `[Good1,Bad,Bad2,Good2]` | `[stale A, malformed B]` | oracles | verdict |
+|---|---|---|---|---|
+| A. gate per-item ∪ pre-flight over the ops the gate did NOT name; one conflict per op | `Bad`, `Bad2` | `A`, `B` | 67 green (they assert "nothing written" and the first op's code, both kept) | **chosen** |
+| B. pre-flight over EVERY op, gate-refused ones too | `Bad`, `Bad2` | `A` can appear twice (gate + text) | green | rejected — two rows for one op breaks "one conflict per op", and a gate-refused op's text is about to be replaced by the pull its code asks for, so validating it reports on text the client will not send |
+| C. today (first refusal) | `Bad` | `A` | green | rejected — the proposal's two-round-trip defect |
+
+Details of A:
+- **Order:** conflicts in REQUEST order, each op at most once (the gate's and the pre-flight's merged by op index), so
+  a client reading the list top-down meets its ops in the order it sent them.
+- **The lease:** when the gate holds `STALE_PROJECT_VERSION` the gate's list is returned as today (`DetectConflicts`
+  already puts the lease and any per-item conflicts in one list) and the pre-flight does NOT run — the client must
+  pull before any item's verdict means anything. "Answered alone" in the spec means "without the pre-flight".
+- **`BAD_REQUEST`** for the request's own shape (`RequireWireNames`, `RequireOneOpPerItem`) stays first-offender and
+  runs before the gate: with two ops on one item there is no per-op verdict to collect.
+- **The unopened-item refusal** (`UNREADABLE`, DIALECT C2i, inside the pre-flight loop) is collected like any other.
+- `Reject(op, ex)` splits into `ConflictFor(op, ex) → PushConflict` (the code mapping, unchanged) and the response
+  builders; the pre-flight appends, and builds one `RejectedResult` after the loop.
+
+### D2 — the apply loop: stop, and say exactly what of the refused op the IDE kept (task 2.2)
+
+**Stop** at the refused op, as today (step 0, 1c). The open question is how the rollback's OUTCOME reaches the
+reason. Three red tests need it (`An_unclassified_member_create_failure_…` wants "'F' is not created (the create is
+rolled back)" on an INTERNAL_ERROR; the two `…rollback_delete_…fails…` tests want "'F' remains" and NOT "rolled
+back)"), and today `MemberRefusal` words the rollback inside the member-refusal message, before `Rollback` has run.
+
+| option | the 3 red tests | `DeclarationBeforeMembersTests` (Contains "'F' is not created", "refused to create its method 'M'", "is not accepted by parent object") | keeps the original exception (type, code, `Line`, stack) | verdict |
+|---|---|---|---|---|
+| A. catch-and-wrap at each create site: run the rollback, throw a new exception = original message + outcome | green | green | **no** — a `NetworkTextException` loses its own `Code`/`Line` unless rebuilt per type; the `Rollback` filter exists precisely so a stray `throw ex;` cannot lose the reason | rejected |
+| B. the rollback RECORDS its outcome on a per-op holder; `ConflictFor` appends one sentence; `MemberRefusal` stops wording the create | green | green (the sentence is still in the reason; only its position moves after the hint) | yes — the filter still returns false | **chosen** |
+| C. `Rollback` throws an `AggregateException(original, deleteFault)` when the delete fails | green | green | no — every consumer must unwrap; the code mapping sees the aggregate | rejected |
+
+Details of B:
+- `ApplyOp` takes an `OpOutcome` (a small mutable holder: `Created` = the create began, `RollbackFault` = the
+  delete's exception or null). `Rollback(ide, parent, name, outcome)` sets it and still returns false. Every create
+  path uses it: the item create (`WriteItemFromSource`) and the task create (`ApplySetTask`).
+- `ConflictFor` appends, only when `outcome.Created`: either "'F' is not created (the create is rolled back)" or
+  "'F' was created and could not be removed (<delete fault>) — 'F' remains in the project, empty". ONE place words
+  it, for a classified and an unclassified refusal alike (the measured live `Log` refusal was unclassified and WAS
+  rolled back — today its reason says nothing of it).
+- `MemberRefusal` keeps its UPDATE wording (declaration landed / members deleted — pinned) and returns nothing for a
+  create; the `ChildRefusedException` wrapper then omits its " — {landed}" fragment.
+- `VoltLog.Warn` on a failed rollback stays (the log is not the client's channel, but it stays a log fact).
+
+**Classifying the measured name refusals (gate F1).**
+
+| option | live `Log` → code | the hint "Which members a POU accepts follows its declaration (a FUNCTION takes none)" | verdict |
+|---|---|---|---|
+| A. extend each driver's `ChildRefusal` pattern; same `ChildRefusedException` | `UNSUPPORTED` | printed — and FALSE for a name refusal (the FB's declaration accepts methods; it is the NAME that is refused) | rejected as is |
+| B. as A, plus `ChildRefusedException.Cause` = `Kind` or `Name`, set by the classifier; the declaration hint only for `Kind` | `UNSUPPORTED` | only where true | **chosen** |
+| C. a new code (`NAME_REFUSED`) | new code | — | rejected — a vendor refusing a child is one class (DIALECT C2k) and the CLI chooses advice by code; a code per vendor reason grows the vocabulary for no client branch |
+
+Patterns, measured wording only (no guessed reserved-word list): CODESYS `is not valid for this object`, TwinCAT
+`(Name mismatch)`. The driver tests (`CodesysChildRefusalTests` / `TcChildRefusalTests` name tests) go green.
+**A top-level create** reaches the same `CreateChild`, so an item NAMED like a refused identifier would now raise
+`ChildRefusedException` in `WriteItemFromSource` before `createdParent` is set, so no rollback sentence. Whether a
+top-level `LOG` is refused at all is UNMEASURED; 2.2 measures it on one CODESYS (own instance) and, if refused,
+wraps it there as "the IDE refused to create '<name>': <vendor words>" (the item's refusal, not a member's).
+Unmeasured, no wrapper is added — the vendor's words still arrive as `UNSUPPORTED`, which is correct.
+
+### D3 — the response (task 2.4)
+
+Shape A of step 0 (`accepted:true` + receipt + conflicts). What this step fixes:
+
+- **When:** `accepted:true` iff `applied.Count > 0` at the refusal. With 0, `RejectedResult` as today minus the
+  NOTE — the single partly-landed update stays `accepted:false` (the `MemberRefusal` oracles, step 0 R1).
+- **Which rows:** the refused op with its code, then `NOT_ATTEMPTED` for each op after it in APPLY order
+  (`InFolderDepthOrder` — not request order: an op earlier in the request can come later in the apply), reason
+  "not applied: the push stopped at '<refused op name>'". Every conflict is keyed by the op's `Name` (the source name
+  of a rename), the key the client sent.
+- **Before the receipt** the partial path runs what the full path runs: `FlushPendingWrites` (on TwinCAT the applied
+  ops are otherwise not saved — today's rejection skips it), `PruneEmptied` over the APPLIED ops only (a refused or
+  unattempted delete empties nothing), then the receipt walk.
+- **`ConflictCodes.NotAttempted = "NOT_ATTEMPTED"`** in `Volt.Contracts` (an op-level push outcome; NOT in
+  `ConflictCodes.Gate`, NOT a `BridgeErrorCodes` value — it is never an error frame).
+
+| option for "which ops landed" | an old reader | verdict |
+|---|---|---|
+| A. `ops − conflicts[].name` (every op not landed has a row) | PLCAssist reads exactly this today | **chosen** |
+| B. an explicit `applied: [names]` field | ignored | rejected — two statements of one fact that can disagree; A already makes it exact |
+
+### D4 — the CLI adopts what landed (task 2.4b)
+
+| option for `volt/ide` on a partial push | next `volt status` | next `volt pull` | verdict |
+|---|---|---|---|
+| A. commit = previous `volt/ide` tree + the APPLIED ops' rows from HEAD; parent = previous `volt/ide` only | refused edits outgoing | 3-way merge; applied rows identical on both sides → clean | **chosen** |
+| B. as A but with HEAD as a second parent | refused edits outgoing | merge-base = HEAD, so merging a later IDE change fast-forwards the workspace to a tree WITHOUT the refused edits — silently reverted | rejected |
+| C. leave `volt/ide` unchanged | applied edits ALSO outgoing; the next push re-creates them → `ITEM_EXISTS` | — | rejected — the defect the proposal names, moved into the CLI |
+
+Details of A: built with `IdeTree.BuildVoltIdeTree` from the previous `volt/ide` with the applied items and removals,
+committed by `CommitVoltIde(…, parent: previous volt/ide, …)`; `Rematerialized` and `HeldUnderAnotherName` over the
+applied ops only; baseline = receipt versions for (sidecar-known ∪ produced by applied ops) − every conflicted name
+(step 0 R3); `retiredByPush` from applied ops; every conflicted name keeps its old sidecar entry and folder. No
+working-tree merge: HEAD already holds every pushed file.
+**The CLI result** gets a new kind **`partial`** (`ResultKinds.Partial`, `PushResult.Partial(landed, status,
+reason)`): `rejected` is wrong (volt-control's outcome for it offers "pull first or force", and `--force` would
+re-send landed items over themselves), `ok` is wrong (exit 0 on a push that did not land in full). Non-zero exit;
+the reason lists each conflict with the CLI's OWN advice by code (`NOT_ATTEMPTED` → push again; `UNSUPPORTED` →
+change the text; a partly landed op → pull first). volt-control's push outcome union (`bridge/actions.ts`) and
+`view/outcomes.ts` gain the case.
+
+### D5 — reasons carry no CLI instruction (task 2.5)
+
+One option only — delete the words; the CLI renders advice by code (D4). Removed: the NOTE in `Reject`; "Pull
+first, then push again." (`RequireUnchanged`, `RequireUnchangedBeforeDelete`); "Pull first," in
+`BodyFormatGuard.RequireWritable` ("change it in the IDE" stays — it names no client command); "Push the fixed text
+with --force" in `ExplorerSnapshot.Reason` (TcSolutionExplorer.cs) when raised inside the apply loop.
+Kept (raised before the first write, pinned, owner): `StReader` "Run `volt pull`", `PushConflicts` "--force".
+
+### What stays refused, by name
+
+- Whole batch, nothing written, ONE answer naming every refused op: gate per-item (`STALE_ITEM_VERSION`,
+  `ITEM_EXISTS`, `ITEM_MISSING`, `ITEM_UNVERIFIED`, `UNREADABLE`) ∪ pre-flight (`INVALID_ST`, `NETWORK_*`,
+  `UNSUPPORTED`, `DUPLICATE_CHILD`, `UNREADABLE` for an unopened item, the driver's `ValidateSource`).
+- Whole batch, answered without the pre-flight: `STALE_PROJECT_VERSION` (with the gate's own list).
+- Whole batch, first offender: `BAD_REQUEST` for the request's shape.
+- After earlier ops landed: the live IDE's refusal of one op — the push stops, `accepted:true`, the op named with its
+  code, every later op `NOT_ATTEMPTED`. Nothing landed → `accepted:false`, including a single update whose
+  declaration landed (stated in its reason).
+- Not built (owner): per-item application (1a/1b), continuing past a refusal (1c), restoring an update (2b), the
+  pinned pre-write remedies (5), `accepted:true` for a single partly-landed op.
+
+### Migration
+
+| file | change |
+|---|---|
+| `Volt.Engine/Sync/PushService.cs` | `Reject` → `ConflictFor` + builders; no early return for gate per-item conflicts unless the lease is stale; the pre-flight collects; the apply loop builds the partial result (flush, prune applied, receipt, conflicts + `NOT_ATTEMPTED`); `OpOutcome` through `ApplyOp`; `Rollback` records; `MemberRefusal`'s create branch removed; the NOTE and the apply-time CLI advice deleted |
+| `Volt.Engine/Ide/ChildRefusedException.cs` | `Cause` (`Kind` or `Name`) |
+| `Volt.Ide.Codesys/Driver/CodesysDriver.Tree.cs`, `Volt.Ide.Twincat/Driver/BeckhoffDriver.Tree.cs` | `ChildRefusal` also matches the measured name wording and returns the cause |
+| `BodyFormatGuard.cs`, `TcSolutionExplorer.cs` | advice words removed (D5) |
+| `Volt.Contracts` | `ConflictCodes.NotAttempted`; `PushResponse` doc: an accepted push may carry conflicts, one per op not landed |
+| `Volt.Cli/Sync/Commands.cs`, `Types.cs` | D4: partial `volt/ide`, filtered adoption, `ResultKinds.Partial` — ONE commit with the engine's `accepted:true`, CLI test red first (R6) |
+| volt-control `bridge/actions.ts`, `view/outcomes.ts` | the `partial` outcome |
+| `docs/wire.html`, `logs.html`, `index.html`; the `DocDataTests` fact "The reason says how many" | the partial push and `NOT_ATTEMPTED`; the NOTE fact rewritten to the receipt (regenerated with `VOLT_WRITE_DOCS=1`) |
+| tests | the five step-1 reds go green (plus the two driver reds); new reds first: `[stale A, malformed B]` (2.1), a `NOT_ATTEMPTED` row after a mid-batch refusal in apply order (2.4), the CLI baseline / rename / partly-landed cases (2.4b), the race reason (2.5); the 67 oracles unchanged |
