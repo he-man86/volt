@@ -281,10 +281,50 @@ the bridge serves: it is shown and logged, never gated on. What OEMs expose is l
 
 ## 4. Tests
 
-- [ ] 4.1 Driver doubles: plain CODESYS (name, product version, platform version), an OEM with a readable platform,
+- [x] 4.1 Driver doubles: plain CODESYS (name, product version, platform version), an OEM with a readable platform,
       TwinCAT (shell as product, build as `ideVersion`); red before, green after.
-- [ ] 4.2 Packaging test: the release in health matches the build that produced the bundle; an unstamped build says
+      *Done:* the doubles were written test-first in step 2 (`CodesysIdentityTests` plain/OEM/empty/unreadable + health
+      over the pipe; `IdeIdentityTests` OEM-shaped wire + `ideVersion` never the product version; `TcIdentityTests`
+      shell/build/vendor-by-pid/empty-or-throwing remote manager). Missing was TwinCAT over the WIRE: added
+      `TcIdentityTests.Health_through_the_pipe_carries_the_shell_as_product_and_the_build_as_ide_version` (real
+      `BridgePipeHost` + `PipeClient`: product `TcXaeShell 15.0`, vendor `Beckhoff`, `ideVersion` and every row's
+      `version` = `3.1.4024.74`; with an empty remote manager `ideVersion` is absent, never `15.0`).
+      *Gate 4:* the rows are asserted NON-EMPTY (`Assert.All` passes on an empty array) and, with no build stated, every
+      row's `version` is asserted ABSENT too — the tray's multi-instance label reads it. Red shown by mutation (each
+      restored): a row `version` falling back to the shell (`own.Version ?? ProductVersion`) → this test FAILS (row
+      `version` `15.0`; before gate 4 it stayed green); the host not stamping ProductName/ProductVersion/ProductVendor
+      → FAILS; `_ideVersion = null` instead of the remote manager's build → FAILS (with 4 other TcIdentityTests).
+- [x] 4.2 Packaging test: the release in health matches the build that produced the bundle; an unstamped build says
       `(dev)`.
+      *Done:* `Volt.Cli.Tests/wire/BridgePackagingTests` builds `Volt.Engine.Host` with the stamping arguments READ
+      FROM `build-cli.ps1` (`$VERARGS`, so a change there is what is tested), each build under its own configuration
+      (`PackagingStamped` / `PackagingDev`, `--no-restore`, never the tree's Debug/Release), loads the built host into
+      its own `AssemblyLoadContext`, serves `health` from it over a real pipe (a `DispatchProxy` over the built
+      `IIdeDriver` answering only health's members) and reads `bridgeVersion`: stamped `0.4.2.4242` → `0.4.2.4242`;
+      unstamped → `(dev) <git rev-parse HEAD>` (the full commit), not `1.0.0.0`. Mutation: `$VERARGS` reduced to
+      `/p:InformationalVersion=$VER` → the stamped case FAILS (script restored). Both builds ~4 s warm.
+      *Gate 4:* it built `Volt.Engine.Host.csproj` directly, so it never saw the lines that PRODUCE the bundles. Now it
+      runs, per bundle (`Volt.Ide.Codesys`, `Volt.Ide.Twincat`), THAT bundle's own `build-cli.ps1` line — verb,
+      project and flags read from the script, `@VERARGS` expanded from `$VERARGS`, only `-c`/`-o` redirected — and
+      serves `health` from the `Volt.Engine.Host.dll` that landed in that bundle, so the stamp must cross the
+      ProjectReference; a static row asserts every shipped `build|publish` line (Cli, Connector, Codesys, Twincat)
+      carries `@VERARGS`. Mutations (restored), all red before none: `@VERARGS` dropped from the CODESYS line (line
+      71) → the static row and the CODESYS stamped case FAIL (`(dev) 62bcb30d…`, not `0.4.2.4242`);
+      `GlobalPropertiesToRemove="Version;FileVersion"` on the host's ProjectReference in Volt.Ide.Codesys.csproj → the
+      CODESYS stamped case FAILS. Concurrency: builds are serialized by a machine-wide mutex (the in-tree
+      `obj/Packaging*` folders are shared) and each writes to its own `%TEMP%olt-packaging\<pid>-…` folder; only
+      folders of exited processes are swept. Two runs started at once: both 5/5 green (before the pid-scoped sweep,
+      one run deleted the other's not-yet-loaded output — both TwinCAT cases red with `bridgeVersion` null). The
+      DispatchProxy base type is now loaded into each bundle's context: with it in the default context, the second
+      bundle's proxy implemented the first bundle's `IIdeDriver` (MissingMethodException). ~20 s for the 5 rows.
+      Numbers (gate 4, full suites, `VOLT_REQUIRE_FULL=1`): Volt.Cli.Tests 256 (253 +3: +1 static row, the two cases
+      now a theory over two bundles), Volt.Ide.Twincat.Tests 319, Volt.Ide.Codesys.Tests 214, Volt.Contracts.Tests 31,
+      Volt.Engine.Tests 1912 (+1 skipped, unchanged), Volt.Connector.Tests 115, Volt.Repo.Gates 92 — 0 fail;
+      `bun run typecheck` green. No LSP file, fixture, recording or transpiler touched: no fixture-map regeneration
+      and no LSP suite delta.
+      Numbers: Volt.Cli.Tests 253 (251 +2), Volt.Ide.Twincat.Tests 319 (318 +1), Volt.Ide.Codesys.Tests 214,
+      Volt.Contracts.Tests 31, Volt.Repo.Gates 92 — 0 fail. No LSP file, fixture or recording touched: the LSP suites,
+      the fixture map and the recorders have no delta.
 
 ## 5. Verify
 

@@ -143,6 +143,44 @@ public class TcIdentityTests
         Assert.All(released, r => Assert.Same(window.Remote, r));
     }
 
+    /// <summary>Task 4.1: the TwinCAT identity as a client reads it — over the shared host's real pipe, the shell is
+    /// the product and the build is <c>ideVersion</c>; the shell's <c>15.0</c> never reaches <c>ideVersion</c>, and
+    /// with no build stated the field — top level AND every row's <c>version</c> — is ABSENT (null), not the shell version.</summary>
+    [Fact]
+    public void Health_through_the_pipe_carries_the_shell_as_product_and_the_build_as_ide_version()
+    {
+        var window = new Dte(Tc("TwinCAT Project14"));
+        var h = HealthOverPipe(Attached(window, pid: 9112));
+
+        Assert.Equal("TcXaeShell", h.GetProperty("productName").GetString());
+        Assert.Equal("15.0", h.GetProperty("productVersion").GetString());
+        Assert.Equal("Beckhoff", h.GetProperty("productVendor").GetString());
+        Assert.Equal("3.1.4024.74", h.GetProperty("ideVersion").GetString());
+        var rows = h.GetProperty("projects").EnumerateArray().ToList();
+        Assert.NotEmpty(rows);                                                // Assert.All passes on an empty array
+        Assert.All(rows, p => Assert.Equal("3.1.4024.74", p.GetProperty("version").GetString()));
+        Assert.False(string.IsNullOrEmpty(h.GetProperty("bridgeVersion").GetString()));
+
+        var empty = new Dte(Tc("TwinCAT Project14"));
+        empty.Remote.Version = "";
+        var none = HealthOverPipe(Attached(empty));
+        Assert.False(none.TryGetProperty("ideVersion", out _));            // absent on the wire means null
+        Assert.Equal("15.0", none.GetProperty("productVersion").GetString());
+        // The rows too: the tray's multi-instance label reads a row's `version`, and with no build stated it is absent —
+        // never the shell's 15.0 (or anything else) in its place.
+        var noneRows = none.GetProperty("projects").EnumerateArray().ToList();
+        Assert.NotEmpty(noneRows);
+        Assert.All(noneRows, p => Assert.False(p.TryGetProperty("version", out _), $"row version is {p}"));
+    }
+
+    private static System.Text.Json.JsonElement HealthOverPipe(BeckhoffDriver driver)
+    {
+        var pipe = "volt.test." + Guid.NewGuid().ToString("N");
+        using var host = new Volt.Engine.Host.BridgePipeHost(driver, pipe);
+        host.Start();
+        return new Volt.Wire.PipeClient(pipe).Call("health");
+    }
+
     /// <summary>Review gate 2: a field log names the TwinCAT build — at the first read and whenever it changes, not on
     /// every poll (the attach line names the shell, which is not the build).</summary>
     [Fact]
