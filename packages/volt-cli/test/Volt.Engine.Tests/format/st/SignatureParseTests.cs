@@ -36,17 +36,40 @@ public class SignatureParseTests
     private static BridgeException Refused(string signature, string body = "x := 1;") =>
         Assert.Throws<BridgeException>(() => Only(signature, body));
 
-    /// <summary>HAZARD ONE: <c>\w</c> IS UNICODE IN .NET. `METHOD Ünit` matched, and `Ünit` then became the
-    /// name Volt asks <c>CreateChild</c> for — an object CODESYS will not create, so the failure landed in the
-    /// middle of a write instead of before it. An IEC identifier is ASCII.</summary>
+    /// <summary>THE NAME IS READ AS WRITTEN; WHETHER THE IDE TAKES IT IS THE DRIVER'S MEASURED ANSWER (openspec
+    /// bridge-refusal-review 3.1). This reader refused a name that was no ASCII identifier ("not a valid IEC
+    /// identifier", <c>IsIdentifier</c>) on the belief, never measured, that the vendor would not create it. Measured
+    /// since: both vendors refuse every such shape themselves with their name refusal, and CODESYS CREATES a
+    /// backtick-quoted name the check refused (<c>scripts/identifier-names.log</c>, <c>tc-refusal-measure-names.log</c>).
+    /// The pre-flight asks the driver (<c>ICodeStore.RefusedName</c>), so the batch still stops before its first write.
+    /// (The premise of the test this replaces — the reader judges the name — was the unmeasured belief.)</summary>
     [Theory]
-    [InlineData("METHOD Ünit")]
-    [InlineData("METHOD Привет")]
-    [InlineData("METHOD 2Fast")]
-    [InlineData("METHOD My-Name")]
-    public void A_name_the_vendor_would_refuse_is_refused_here_first(string signature)
+    [InlineData("METHOD Ünit", "Ünit")]
+    [InlineData("METHOD Привет", "Привет")]
+    [InlineData("METHOD 2Fast", "2Fast")]
+    [InlineData("METHOD My-Name", "My-Name")]
+    [InlineData("METHOD `quoted`", "`quoted`")]
+    public void A_name_is_read_as_written_and_left_to_the_vendor(string signature, string name)
     {
-        Assert.Contains("not a valid IEC identifier", Refused(signature).Message);
+        Assert.Equal(name, Only(signature).Name);
+    }
+
+    /// <summary>A BACKTICK-QUOTED NAME IS ONE NAME, whatever stands between the backticks (review 3a+3b). CODESYS creates
+    /// <c>`a b`</c> for all six kinds and builds it clean (<c>identifier-names.log</c>, "backtick, space inside"); the
+    /// reader split the line at the space and refused it, INVALID_ST "'`a' is not an access modifier" — a CODESYS
+    /// member that could be pulled and never pushed back. A colon inside the backticks is the name's too, not the start
+    /// of the type.</summary>
+    [Theory]
+    [InlineData("METHOD `a b` : INT", "`a b`", "INT")]
+    [InlineData("METHOD PUBLIC `a\tb` : INT", "`a\tb`", "INT")]
+    [InlineData("METHOD `a:b` : INT", "`a:b`", "INT")]
+    [InlineData("METHOD `a b`", "`a b`", null)]
+    [InlineData("METHOD `a`b : BOOL", "`a`b", "BOOL")]
+    public void A_backtick_quoted_name_is_one_name(string signature, string name, string? type)
+    {
+        var m = Only(signature);
+        Assert.Equal(name, m.Name);
+        Assert.Equal(type, m.ReturnType);
     }
 
     [Theory]

@@ -431,11 +431,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// fault — given the name and kind code. The engine must not word such a failure as a refusal of the text.</summary>
     public Func<string, int, Exception?>? FailCreate { get; init; }
 
-    /// <summary>The driver's measured NAME refusals (<c>ICodeStore.RefusedName</c>): the reason for a refused word, null
-    /// for a word it does not refuse. Unset, the fake refuses no name — as <c>DriverBase</c>.</summary>
-    public Func<string, string?>? RefusesName { get; init; }
+    /// <summary>The driver's measured NAME refusals (<c>ICodeStore.RefusedName</c>), given the kind created and the name:
+    /// the reason for a refused name, null for one it does not refuse. Unset, the fake refuses no name — as
+    /// <c>DriverBase</c>.</summary>
+    public Func<string, string, string?>? RefusesName { get; init; }
 
-    public override string? RefusedName(string name) => RefusesName?.Invoke(name);
+    public override string? RefusedName(string kind, string name) => RefusesName?.Invoke(kind, name);
 
     /// <summary>The driver's create-argument refusals (<c>ICodeStore.RefusedMemberCreate</c>), given the member kind, name
     /// and seed. <see cref="CreateChild"/> refuses the same creates with a <c>NotSupportedException</c>, as TwinCAT's

@@ -987,7 +987,11 @@ public static class NetworkTextReader
         /// <summary>Spec, "a hand-edited type": each wire's declared type against what its producer says, by the rule
         /// the writer declares with (<see cref="NetworkSpelling.ProducerType"/>) — the vendor's Demux has no field that
         /// would keep a type the producer contradicts. Run once the network is read, because a leaf's type is
-        /// decided by how the wire is used.</summary>
+        /// decided by how the wire is used.
+        /// <para>A vendor-limit refusal, KEPT (openspec bridge-refusal-review 3.2, DIALECT N25): the one producer that takes a
+        /// stored type — a comparison box — keeps a contradicting one and the build ignores it (it judges by the box's real
+        /// type and never names the declaration), so written, the text would state a type the network does not
+        /// compute.</para></summary>
         private void CheckWireTypes(IReadOnlyList<Node> trees)
         {
             foreach (var d in trees.OfType<Demux>().Where(d => d.Input is not null))

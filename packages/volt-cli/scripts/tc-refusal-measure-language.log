@@ -1,0 +1,122 @@
+﻿probe-tc-refusal-measure.ps1 -Phase language - 2026-10-03 14:42
+XAE pid 40780: C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14.sln
+--- baseline: the fixture with the three new POUs, nothing changed yet ---
+   build: success=true, 1 diagnostic(s), 0 naming /VltLc_/
+FBD POU as created: implementation starts '<NWL><XmlArchive><Data><o xml:space="preserve" t="NWLImplementationObject">\u000'
+
+--- 3.3: ST text assigned to the FBD POU's ImplementationText ---
+   assignment: REFUSED: Data at the root level is invalid. Line 1, position 1.
+   read back: '<NWL><XmlArchive><Data><o xml:space="preserve" t="NWLImplementationObject">\u000d\u000a              <v n="NetworkListComment">""<'
+
+--- 3.4: the donor's NWL archive assigned to the ST POU's ImplementationText ---
+   assignment: taken
+   read back: '<NWL><XmlArchive><Data><o xml:space="preserve" t="NWLImplementationObject">\u000a              <v n="NetworkListComment">""</'
+   read back equals the archive (line ends normalized): True
+
+--- build (the PLC task calls nothing of these; MAIN gets the calls) ---
+   build: success=false, 104 diagnostic(s), 104 naming /VltLc_/
+     {"name":"VltLc_St.pou","severity":"error","message":"Unexpected Token '<' found","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'NWL'","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'xml'","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'((((((NWL > !!!'ERROR'!!!) < XmlArchive) > !!!'ERROR'!!!) < Data) > !!!'ERROR'!!!) < o);\r\n' is no valid statement","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"warning","message":"The label 'XML' has not been referenced","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 't'","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(space = \"preserve\");\r\n' is no valid statement","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":8,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((t = \"NWLImplementationObject\") > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":7,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":8,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":9,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"NetworkListComment\") > \"\") < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":8,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":8,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":9,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":10,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"DefaultViewMode\") > \"Fbd\") < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < l2);\r\n' is no valid statement","line":9,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":9,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":10,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'cet'","line":10,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(n = \"NetworkList\");\r\n' is no valid statement","line":10,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":12,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((cet = \"Network\") > !!!'ERROR'!!!) < o) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":10,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":11,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":12,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":13,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"ILActive\") > FALSE) < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":12,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":12,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":13,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":14,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"FBDValid\") > FALSE) < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":13,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":13,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":14,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":15,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"ILValid\") > FALSE) < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < l2);\r\n' is no valid statement","line":14,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":14,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":15,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":16,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = (\"ILLines\" / !!!'ERROR'!!!)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":15,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '>'","line":15,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":16,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":17,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"Comment\") > \"\") < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":16,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":16,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":17,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":18,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"Title\") > \"\") < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":17,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":17,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":18,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":19,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"Label\") > \"\") < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":18,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":18,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":19,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":20,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"OutCommented\") > FALSE) < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < l2);\r\n' is no valid statement","line":19,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":19,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":20,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":21,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = (\"NetworkItems\" / !!!'ERROR'!!!)) > !!!'ERROR'!!!) < l2);\r\n' is no valid statement","line":20,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '>'","line":20,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":21,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":22,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = (\"Connectors\" / !!!'ERROR'!!!)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":21,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '>'","line":21,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":22,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'L'","line":22,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'((n = \"Id\") > 8);\r\n' is no valid statement","line":22,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":25,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((((L < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < (!!!'ERROR'!!! / o)) > !!!'ERROR'!!!) < (!!!'ERROR'!!! / l2)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":22,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":22,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":23,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":23,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":24,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":24,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":25,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":26,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((n = \"BranchCounter\") > 1) < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < v);\r\n' is no valid statement","line":25,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":25,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":26,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'Type'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((((((((n = \"ValidIds\") > TRUE) < (!!!'ERROR'!!! / v)) > !!!'ERROR'!!!) < (!!!'ERROR'!!! / o)) > !!!'ERROR'!!!) < (!!!'ERROR'!!! / Data)) > !!!'ERROR'!!!) < TypeList) > !!!'ERROR'!!!) < !!!'ERROR'!!!);\r\n' is no valid statement","line":26,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":26,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '<'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of '/'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of 'Type'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Unexpected Token 'Type' found","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'n'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = \"Boolean\") > System.Boolean) < (!!!'ERROR'!!! / !!!'ERROR'!!!));\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of '>'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Unexpected Token '>' found","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of '<'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Unexpected Token '<' found","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = \"Int32\") > System.Int32) < (!!!'ERROR'!!! / !!!'ERROR'!!!));\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = \"Int64\") > System.Int64) < (!!!'ERROR'!!! / !!!'ERROR'!!!));\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = \"Network\") > !!!'ERROR'!!!) < (!!!'ERROR'!!! / !!!'ERROR'!!!));\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = \"NWLImplementationObject\") > !!!'ERROR'!!!) < (!!!'ERROR'!!! / !!!'ERROR'!!!));\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((n = \"String\") > System.'null') < (!!!'ERROR'!!! / !!!'ERROR'!!!));\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'String' is no component of 'System'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of '/'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Unexpected Token '/' found","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of 'TypeList'","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"';' expected instead of end of POU","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"'(((((TypeList > !!!'ERROR'!!!) < (!!!'ERROR'!!! / XmlArchive)) > !!!'ERROR'!!!) < (!!!'ERROR'!!! / NWL)) > !!!'ERROR'!!!);\r\n' is no valid statement","line":27,"column":0}
+     {"name":"VltLc_St.pou","severity":"error","message":"Expression expected instead of ''","line":27,"column":0}
+done

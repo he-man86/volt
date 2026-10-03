@@ -160,7 +160,7 @@ public sealed partial class CodesysDriver
     /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
     /// 3.1): a word CODESYS was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="CodesysRefusedNames"/>, the
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
-    public override string? RefusedName(string name) => NameRefusal(name);
+    public override string? RefusedName(string kind, string name) => NameRefusal(kind, name);
 
     /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): a `Type:` the vendor's
     /// <c>KindOfTask</c> does not NAME — BAD_REQUEST, by the same lookup the descriptor write makes, so the batch's earlier
@@ -168,10 +168,21 @@ public sealed partial class CodesysDriver
     public override void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings) =>
         CodesysObjectModel.TaskKind(settings.Type);
 
-    internal static string? NameRefusal(string name) =>
-        CodesysRefusedNames.Words.Contains(name)
+    /// <summary>A measured word (for the kinds the words were asked on), or a name SHAPE SP21 refused for every kind
+    /// (openspec <c>bridge-refusal-review</c> 3.1, <c>scripts/identifier-names.log</c>): no ASCII identifier and no
+    /// backtick-quoted name. Both answer with the same vendor sentence — measured, the IDE words them alike.</summary>
+    internal static string? NameRefusal(string kind, string name) =>
+        (Volt.Engine.Ide.MeasuredNames.WordMeasuredFor(kind, name) && CodesysRefusedNames.Words.Contains(name))
+        || !(Volt.Engine.Ide.MeasuredNames.IsAsciiIdentifier(name) || IsBacktickQuoted(name))
             ? $"CODESYS does not take '{name}' as a name (\"The name '{name}' is not valid for this object.\")"
             : null;
+
+    /// <summary>CODESYS CREATES a name that opens with a backtick and holds a second one — whatever stands between them
+    /// (a hyphen, a space, a keyword, nothing) and after (<c>`a`b</c>) — for all six kinds, and builds it clean; one that
+    /// never closes (<c>`ab</c>) or a backtick inside a plain name (<c>a`b</c>) is refused (measured, 3.1). TwinCAT refuses
+    /// every backtick name. The ST reader keeps a quoted name whole — a blank or a colon between the backticks is the
+    /// name's (<c>StReader.Words</c>) — so every such name reaches this answer.</summary>
+    private static bool IsBacktickQuoted(string name) => name.Length >= 2 && name[0] == '`' && name.IndexOf('`', 1) > 0;
 
     /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
     /// "The name 'Log' is not valid for this object." — a METHOD named <c>Log</c> under a function block (SP21, openspec

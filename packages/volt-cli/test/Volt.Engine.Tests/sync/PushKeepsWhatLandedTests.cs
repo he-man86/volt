@@ -687,7 +687,7 @@ public class PushKeepsWhatLandedTests
     /// drivers answer from their measured lists (<c>ICodeStore.RefusedName</c>).</summary>
     private static FakeIde RefusingLog(params FakeIde.Item[] items) => new(items)
     {
-        RefusesName = name => string.Equals(name, "Log", System.StringComparison.OrdinalIgnoreCase)
+        RefusesName = (_, name) => string.Equals(name, "Log", System.StringComparison.OrdinalIgnoreCase)
             ? $"the IDE does not take the name '{name}'" : null,
     };
 
@@ -763,6 +763,50 @@ public class PushKeepsWhatLandedTests
 
         Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.True(ide.Exists("F"));
+    }
+
+    /// <summary>bridge-refusal-review 3.1: a name whose SHAPE the IDE refuses (no ASCII identifier) is the driver's
+    /// measured answer for an INTERFACE member too — both vendors refused all six kinds — so the pre-flight asks the
+    /// driver for interface members, with the member's kind. It was the reader's unmeasured INVALID_ST before.</summary>
+    [Fact]
+    public void An_interface_member_named_in_a_shape_the_IDE_refuses_is_refused_before_the_first_write()
+    {
+        var asked = new List<(string Kind, string Name)>();
+        var ide = new FakeIde
+        {
+            RefusesName = (kind, name) =>
+            {
+                asked.Add((kind, name));
+                return name == "My-Name" ? $"the IDE does not take the name '{name}'" : null;
+            },
+        };
+
+        var resp = Push(ide, Create("E_A.dut", Enum),
+            Create("I_X.itf", "INTERFACE I_X\nMETHOD Fine : BOOL\nEND_METHOD\nPROPERTY My-Name : INT\nEND_PROPERTY\nEND_INTERFACE"));
+
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("I_X.itf", conflict.Name);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
+        Assert.Contains("interface_property 'My-Name'", conflict.Reason);
+        Assert.Contains((ItemKind.Kinds.InterfaceMethod, "Fine"), asked);
+        Assert.Contains((ItemKind.Kinds.InterfaceProperty, "My-Name"), asked);
+    }
+
+    /// <summary>bridge-refusal-review 3.1: the POU create is asked with its kind, so a driver answers its words only where
+    /// they were measured.</summary>
+    [Fact]
+    public void The_name_pre_flight_asks_with_the_kind_it_creates()
+    {
+        var asked = new List<(string Kind, string Name)>();
+        var ide = new FakeIde { RefusesName = (kind, name) => { asked.Add((kind, name)); return null; } };
+
+        var resp = Push(ide, Create("F.pou", FbWithMethod));
+
+        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.Contains((ItemKind.Kinds.Pou, "F"), asked);
+        Assert.Contains((ItemKind.Kinds.Method, "M"), asked);
     }
 
     // ── bridge-refusal-review 2.4/2.6 (1+2d review): a member create the IDE refuses from its ARGUMENT ─────────────────

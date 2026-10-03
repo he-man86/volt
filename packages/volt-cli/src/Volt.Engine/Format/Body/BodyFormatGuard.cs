@@ -160,13 +160,22 @@ public static class BodyFormatGuard
                 $"{what} is '{liveBody!.Trim()}' in the IDE, a body Volt does not " +
                 "support — edit it in the IDE, not via push.");
 
+        // THE TWO LANGUAGE CHANGES (ST over LD/FBD, LD/FBD over ST), measured (openspec bridge-refusal-review 3.3/3.4,
+        // DIALECT N24): CODESYS takes a body of the other language IN PLACE (a fresh Implementation aspect on the same
+        // object, which compiles and runs); TwinCAT has no in-place route — ST text over an archive is refused by the
+        // IDE, and an archive over an ST body is stored as ST TEXT that does not compile (D32's shape, on a POU). So the
+        // refusal is a vendor limit on TwinCAT and Volt's own on CODESYS; one comparison for both vendors is design
+        // issue D7 (task 4.7). Until then the route that exists on both is named: a push CREATES a body in either
+        // language.
         if (live == Shape.Network)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
-                $"{what} is a graphical body in the IDE — a textual push would overwrite it. " +
-                "Edit it in the IDE, or delete it first to replace it. " + Saw(liveBody, pushedBody));
+                $"{what} is a graphical body in the IDE — a textual push would overwrite it, and a push does not change an " +
+                "existing body's language. Edit it in the IDE, or delete it and push it again to create it in the new " +
+                "language. " + Saw(liveBody, pushedBody));
 
         throw new BridgeException(BridgeErrorCodes.Unsupported,
-            $"{what} is a textual body — graphical bodies are authored in the IDE, not created by push.");
+            $"{what} is a textual body in the IDE — a push does not change an existing body's language. Change it in the " +
+            "IDE, or delete it and push it again: a push creates a graphical body. " + Saw(liveBody, pushedBody));
     }
 
     /// <summary>The two LANGUAGES the guard compared. A refusal that names only its verdict cannot be

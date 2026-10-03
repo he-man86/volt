@@ -1,0 +1,52 @@
+project copy of: C:\Users\marce\Github\volt\packages\volt-cli\scripts\..\test\fixtures\CodesysTestProject.project
+VltWt_Control: control: GT(a, zz) - an undeclared operand (must NOT build clean)
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['BOOL']
+   build:       
+      [Error] Cannot convert type 'Unknown type: '(a > zz)'' to type 'BOOL'
+      [Error] Unknown type: 'zz'
+      [Error] Identifier 'zz' not defined
+   after build: OutputParams.Types=['BOOL']
+VltWt_GtBool: g1 : BOOL; g1 := GT(a, b); out := g1;  - declared as the producer says (control, clean)
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['BOOL']
+   build:       CLEAN
+   after build: OutputParams.Types=['BOOL']
+VltWt_GtIntToInt: g1 : INT; g1 := GT(a, b); n := g1;  - declared INT, read into an INT
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['INT']
+   build:       
+      [Error] Cannot convert type 'BOOL' to type 'INT'
+   after build: OutputParams.Types=['INT']
+VltWt_GtIntToBool: g1 : INT; g1 := GT(a, b); out := g1;  - declared INT, read into a BOOL
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['INT']
+   build:       CLEAN
+   after build: OutputParams.Types=['INT']
+VltWt_GtRealToInt: g1 : REAL; g1 := GT(a, b); n := g1;  - declared REAL, read into an INT
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['REAL']
+   build:       
+      [Error] Cannot convert type 'BOOL' to type 'INT'
+   after build: OutputParams.Types=['REAL']
+VltWt_GtRealToReal: g1 : REAL; g1 := GT(a, b); rv := g1;  - declared REAL, read into a REAL
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['REAL']
+   build:       
+      [Error] Cannot convert type 'BOOL' to type 'REAL'
+   after build: OutputParams.Types=['REAL']
+VltWt_EqIntToInt: g1 : INT; g1 := EQ(a, b); n := g1;  - another comparison, declared INT
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['INT']
+   build:       
+      [Error] Cannot convert type 'BOOL' to type 'INT'
+   after build: OutputParams.Types=['INT']
+VltWt_GtUntypedToInt: GT with NO stored type feeding a wire read into an INT (what the build checks by)
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=[]
+   build:       
+      [Error] Cannot convert type 'BOOL' to type 'INT'
+   after build: OutputParams.Types=[]
+VltWt_GtBoolToInt: g1 : BOOL; g1 := GT(a, b); n := g1;  - declared as the producer says, read into an INT
+   committed:   trees=None producer=BoxTreeBox OutputParams.Types=['BOOL']
+   build:       
+      [Error] Cannot convert type 'BOOL' to type 'INT'
+   after build: OutputParams.Types=['BOOL']
+
+=== run: each clean case's consumer after one cycle (GT(3,2) = TRUE, EQ(3,2) = FALSE) ===
+   build of all kept: CLEAN
+   VltWt_GtBool           out=TRUE  n=INT#0  rv=REAL#0
+   VltWt_GtIntToBool      out=TRUE  n=INT#0  rv=REAL#0
+done

@@ -1739,7 +1739,7 @@ window.VOLT = {
         {
           "name": "RefusedName",
           "kind": "method",
-          "signature": "string? RefusedName(string name)"
+          "signature": "string? RefusedName(string kind, string name)"
         },
         {
           "name": "RefusedMemberCreate",

@@ -945,8 +945,11 @@ public static class StReader
 		// and it is the IDE that refuses a type that is wrong. NOTHING after the colon is the build's declaration error
 		// too, so it reads as an empty type and the line is written as sent (openspec bridge-refusal-review 2.4); the one
 		// create that needs the type as an argument — a TwinCAT interface member — is refused by that driver, by name.
+		//
+		// A colon INSIDE BACKTICKS is the name's: CODESYS creates a backtick-quoted name whatever stands between the
+		// backticks (DIALECT C28), so `METHOD `a:b` : INT` names `a:b` and types INT.
 		string? type = null;
-		var colon = clean.IndexOf(':');
+		var colon = OutsideBackticks(clean).IndexOf(':');
 		if (colon >= 0)
 		{
 			type = clean.Substring(colon + 1).Trim();
@@ -955,34 +958,53 @@ public static class StReader
 
 		// KEYWORD [modifier …] NAME — the name is last because everything between is a modifier, and a word
 		// there that is NOT one is a malformed line, not a second name to pick from.
-		var words = clean.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+		var words = Words(clean);
 		if (words.Length < 2 || !string.Equals(words[0], keyword, StringComparison.OrdinalIgnoreCase))
 			throw BadSignature(sig, keyword, $"it does not begin with '{keyword}' and a name", where);
 		for (var i = 1; i < words.Length - 1; i++)
 			if (!Modifiers.Contains(words[i]))
 				throw BadSignature(sig, keyword, $"'{words[i]}' is not an access modifier", where);
 
-		var name = words[words.Length - 1];
-		if (!IsIdentifier(name))
-			throw BadSignature(sig, keyword, $"'{Truncate(name, 40)}' is not a valid IEC identifier", where);
-		return (name, type);
+		// The name is taken AS WRITTEN. Whether the IDE takes it is the driver's measured answer, asked by the push
+		// pre-flight (`ICodeStore.RefusedName`): both vendors refuse every non-identifier shape themselves, and CODESYS
+		// creates a backtick-quoted name — an ASCII check here refused that valid name and judged the rest unmeasured
+		// (openspec bridge-refusal-review 3.1).
+		return (words[words.Length - 1], type);
 	}
 
-	/// <summary>An IEC 61131-3 identifier: an ASCII letter or underscore, then letters, digits and underscores.
-	/// <para>ASCII deliberately. This name becomes the member's identity — it is what
-	/// <c>IIdeDriver.CreateChild</c> is asked for — so accepting one the vendor will refuse only moves the
-	/// failure to the middle of a write. <c>\w</c>, which the pattern here used to be, accepts every Unicode
-	/// letter and every connector punctuation mark.</para></summary>
-	private static bool IsIdentifier(string s)
+	/// <summary>The line's words, split at blanks OUTSIDE backticks: a backtick-quoted name is one word whatever stands
+	/// between the backticks — CODESYS creates <c>`a b`</c> for all six kinds and builds it clean (DIALECT C28,
+	/// <c>scripts/identifier-names.log</c>). Split at every blank, it read as the words <c>`a</c> and <c>b`</c> and was
+	/// refused as a modifier: a member CODESYS holds that could be pulled and never pushed back (review 3a+3b). A
+	/// backtick that never closes runs to the end of the line; the driver's name refusal judges that shape.</summary>
+	private static string[] Words(string line)
 	{
-		if (s.Length == 0) return false;
-		if (!IsAsciiLetter(s[0]) && s[0] != '_') return false;
-		for (var i = 1; i < s.Length; i++)
-			if (!IsAsciiLetter(s[i]) && (s[i] < '0' || s[i] > '9') && s[i] != '_') return false;
-		return true;
+		var masked = OutsideBackticks(line);
+		var words = new List<string>();
+		var start = -1;
+		for (var i = 0; i <= line.Length; i++)
+		{
+			var blank = i == line.Length || masked[i] == ' ' || masked[i] == '\t';
+			if (blank && start >= 0) { words.Add(line.Substring(start, i - start)); start = -1; }
+			else if (!blank && start < 0) start = i;
+		}
+		return words.ToArray();
 	}
 
-	private static bool IsAsciiLetter(char c) => (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+	/// <summary>The line with every character between a backtick and the next one (the backticks kept) replaced by
+	/// <c>x</c>, so a search for a blank or a colon finds only the ones outside a quoted name. Same length, same
+	/// positions.</summary>
+	private static string OutsideBackticks(string line)
+	{
+		var chars = line.ToCharArray();
+		var quoted = false;
+		for (var i = 0; i < chars.Length; i++)
+		{
+			if (chars[i] == '`') quoted = !quoted;
+			else if (quoted) chars[i] = 'x';
+		}
+		return new string(chars);
+	}
 
 	/// <summary>The refusal. It names the line AND what is wrong with it — a member signature is something the
 	/// engineer typed, so "Cannot parse" alone sends them looking at the whole file.</summary>

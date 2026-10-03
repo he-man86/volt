@@ -1,0 +1,325 @@
+﻿probe-tc-refusal-measure.ps1 -Phase names - 2026-10-03 14:33
+XAE pid 40780: C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14.sln
+== control Run   (Run)
+   pou          CREATED as Run
+   method       CREATED as Run
+   action       CREATED as Run
+   property     CREATED as Run
+   itf_method   CREATED as Run
+   itf_property CREATED as Run
+== control _lead   (_lead)
+   pou          CREATED as _lead
+   method       CREATED as _lead
+   action       CREATED as _lead
+   property     CREATED as _lead
+   itf_method   CREATED as _lead
+   itf_property CREATED as _lead
+== control Trail_   (Trail_)
+   pou          CREATED as Trail_
+   method       CREATED as Trail_
+   action       CREATED as Trail_
+   property     CREATED as Trail_
+   itf_method   CREATED as Trail_
+   itf_property CREATED as Trail_
+== latin-1 Foo-umlaut   (F\u00f6\u00f6bar)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'F\u00f6\u00f6bar' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'F\u00f6\u00f6bar' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'F\u00f6\u00f6bar' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'F\u00f6\u00f6bar' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'F\u00f6\u00f6bar' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'F\u00f6\u00f6bar' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== latin-1 capital U-umlaut   (\u00dcnit)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u00dcnit' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u00dcnit' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u00dcnit' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u00dcnit' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u00dcnit' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u00dcnit' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== cyrillic   (\u041f\u0440\u0438)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u041f\u0440\u0438' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u041f\u0440\u0438' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u041f\u0440\u0438' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u041f\u0440\u0438' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u041f\u0440\u0438' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u041f\u0440\u0438' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== greek   (\u03b1\u03b2)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u03b1\u03b2' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u03b1\u03b2' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u03b1\u03b2' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u03b1\u03b2' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u03b1\u03b2' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u03b1\u03b2' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== cjk   (\u540d\u524d)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u540d\u524d' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u540d\u524d' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u540d\u524d' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u540d\u524d' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u540d\u524d' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '\u540d\u524d' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== arabic-indic digit   (a\u0663)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u0663' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u0663' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u0663' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u0663' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u0663' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u0663' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== leading digit   (2Fast)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '2Fast' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '2Fast' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '2Fast' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '2Fast' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '2Fast' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '2Fast' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== hyphen   (My-Name)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'My-Name' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'My-Name' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'My-Name' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'My-Name' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'My-Name' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'My-Name' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== dot   (a.b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a.b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a.b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a.b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a.b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a.b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a.b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== dollar   (a$b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a$b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a$b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a$b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a$b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a$b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a$b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== hash   (a#b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a#b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a#b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a#b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a#b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a#b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a#b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== at   (@ab)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '@ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '@ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '@ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '@ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '@ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '@ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== plus   (a+b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a+b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a+b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a+b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a+b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a+b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a+b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== slash   (a/b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a/b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a/b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a/b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a/b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a/b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a/b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backslash   (a\b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== quote   (a'b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a'b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a'b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a'b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a'b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a'b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a'b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== dquote   (a"b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a"b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a"b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a"b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a"b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a"b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a"b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== percent   (a%b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a%b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a%b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a%b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a%b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a%b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a%b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== ampersand   (a&b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a&b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a&b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a&b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a&b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a&b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a&b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== paren   (a(b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a(b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a(b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a(b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a(b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a(b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a(b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== bracket   (a[b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a[b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a[b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a[b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a[b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a[b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a[b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== brace   (a{b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a{b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a{b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a{b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a{b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a{b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a{b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== semicolon   (a;b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a;b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a;b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a;b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a;b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a;b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a;b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== comma   (a,b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a,b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a,b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a,b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a,b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a,b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a,b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== equals   (a=b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a=b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a=b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a=b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a=b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a=b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a=b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== star   (a*b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a*b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a*b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a*b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a*b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a*b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a*b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== bang   (a!b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a!b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a!b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a!b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a!b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a!b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a!b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== question   (a?b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a?b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a?b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a?b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a?b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a?b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a?b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== caret   (a^b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a^b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a^b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a^b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a^b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a^b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a^b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== tilde   (a~b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a~b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a~b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a~b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a~b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a~b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a~b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== pipe   (a|b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a|b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a|b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a|b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a|b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a|b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a|b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== lt   (a<b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a<b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a<b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a<b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a<b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a<b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a<b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== no-break space   (a\u00a0b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u00a0b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u00a0b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u00a0b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u00a0b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u00a0b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u00a0b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== zero-width space   (a\u200bb)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u200bb' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u200bb' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u200bb' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u200bb' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u200bb' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a\u200bb' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== lone underscore   (_)
+   pou          CREATED as _
+   method       CREATED as _
+   action       CREATED as _
+   property     CREATED as _
+   itf_method   CREATED as _
+   itf_property CREATED as _
+== double underscore   (a__b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a__b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a__b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a__b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a__b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a__b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a__b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick ab   (`ab`)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick a-b   (`a-b`)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a-b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a-b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a-b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a-b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a-b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a-b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick 2Fast   (`2Fast`)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`2Fast`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`2Fast`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`2Fast`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`2Fast`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`2Fast`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`2Fast`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick a b   (`a b`)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`a b`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick INT   (`INT`)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`INT`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`INT`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`INT`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`INT`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`INT`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`INT`' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick unbalanced   (`ab)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named '`ab' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+== backtick inside   (a`b)
+   pou          REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a`b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project' (ITcSmTreeItem:CreateChild
+   method       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a`b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_method' (ITcSmTreeItem:CreateChild
+   action       REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a`b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_action' (ITcSmTreeItem:CreateChild
+   property     REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a`b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdFb_property' (ITcSmTreeItem:CreateChild
+   itf_method   REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a`b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_method' (ITcSmTreeItem:CreateChild
+   itf_property REFUSED: TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'a`b' is not possible on node (Name mismatch)\nPath: 'TIPC^Untitled2^Untitled2 Project^VltIdItf_itf_property' (ITcSmTreeItem:CreateChild
+done

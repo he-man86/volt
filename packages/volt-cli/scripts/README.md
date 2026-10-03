@@ -126,6 +126,19 @@ as a METHOD, ~220 also as ACTION / PROPERTY / top-level FB, plus three context c
 and `member-name-refusal-rule.ts` (one rule on the word describes all 5066 IDE verdicts — a description of the measured
 words, not a pre-flight; `member-name-refusal-rule.log`; openspec `push-keeps-what-landed` tasks 3.1 / 3.G). The drivers' pre-flight word lists (`CodesysRefusedNames` / `TcRefusedNames`) are those logs' refused words, held to them by Repo.Gates `RefusedNamesMatchTheLogsTests` (`VOLT_WRITE_REFUSED_NAMES=1` regenerates).
 
+**Refusals measured (openspec `bridge-refusal-review` section 3)** — `probe-identifier-names.py` (CODESYS, `--noUI
+--runscript` on a fixture copy: every non-identifier name shape is refused for a POU and all five member kinds with the
+word refusal's sentence, and a backtick-quoted name is created and builds — `identifier-names.log`, DIALECT C28, 3.1);
+`probe-wire-type-build.py` (a comparison box whose stored output type contradicts it: kept, and ignored by the build —
+built and run in simulation, `wire-type-build.log`, N25, 3.2); `probe-body-language-change.py` (an existing body takes an
+Implementation aspect of the other language in place, compiles and runs — `body-language-change.log`, N24, 3.3/3.4);
+`probe-interface-accessor-write.py` (an interface accessor's declaration takes the driver's write and the build judges
+it; it has no body slot — `interface-accessor-write.log`, D41, 3.6); `probe-tc-refusal-measure.ps1 -Phase
+names|language|priority` (TwinCAT, COM on an `ide.ps1 -Instance bridge-refusal-review` copy, its DTE taken from the ROT by
+that XAE's pid: the same name shapes, all refused (C28); ST over an archive refused and an archive over ST stored as text
+(N24); every task priority coerced to a UINT16 without a word (C19c) — `tc-refusal-measure-<phase>.log`; the language
+phase builds through the bridge's own `build` op).
+
 **Session** — `probe-tc-project-object` (a solution project is told apart by what it can ANSWER: an unknown member on a COM object comes back null, so only a `LookupTreeItem` call discriminates — DIALECT D35).
 
 **IDE identity** — `probe-ide-identity.py` (CODESYS, read-only `--noUI --runscript`, no project: what a running IDE states

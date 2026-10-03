@@ -304,7 +304,7 @@ public sealed partial class BeckhoffDriver
     /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
     /// 3.1): a word TwinCAT was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="TcRefusedNames"/>, the
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
-    public override string? RefusedName(string name) => NameRefusal(name);
+    public override string? RefusedName(string kind, string name) => NameRefusal(kind, name);
 
     /// <summary>The push pre-flight's create-argument refusal (<c>ICodeStore.RefusedMemberCreate</c>): an interface
     /// member TwinCAT cannot create because it states no type (see <see cref="CreateChild"/>).</summary>
@@ -326,8 +326,11 @@ public sealed partial class BeckhoffDriver
               "states no type, and TwinCAT creates an interface member with its type as the create argument. Give it a type."
             : null;
 
-    internal static string? NameRefusal(string name) =>
-        TcRefusedNames.Words.Contains(name)
+    /// <summary>A measured word (for the kinds the words were asked on), or a name that is no ASCII identifier — refused
+    /// by TcXaeShell for every kind asked, backtick-quoted names included (openspec <c>bridge-refusal-review</c> 3.1,
+    /// <c>scripts/tc-refusal-measure-names.log</c>: 42 shapes x 6 kinds, every one "Name mismatch").</summary>
+    internal static string? NameRefusal(string kind, string name) =>
+        (MeasuredNames.WordMeasuredFor(kind, name) && TcRefusedNames.Words.Contains(name)) || !MeasuredNames.IsAsciiIdentifier(name)
             ? $"TwinCAT does not take '{name}' as a name (\"Creating the child named '{name}' is not possible on node (Name mismatch)\")"
             : null;
 

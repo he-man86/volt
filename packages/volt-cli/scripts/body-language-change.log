@@ -1,0 +1,68 @@
+project copy of: C:\Users\marce\Github\volt\packages\volt-cli\scripts\..\test\fixtures\CodesysTestProject.project
+
+=== 1. the scripting surface ===
+   FBD before                 guid=fbfa3077-4edc-4633-89bd-7c97d98ffcc4 aspect=NWLImplementationObject textual_implementation=<raised 'ScriptObject' object has no attribute 'textual_implementati>
+   LD before                  guid=b2f0aaf7-0bd9-45fa-ba0b-e09ac1762692 aspect=NWLImplementationObject textual_implementation=<raised 'ScriptObject' object has no attribute 'textual_implementati>
+   ST before                  guid=344d70d8-bc80-4358-9c48-a82d99ace54e aspect=STImplementationObject textual_implementation='q := a;\n'
+
+=== 2. the object model: is the Implementation aspect writable? ===
+   POU object class: _3S.CoDeSys.POUObject.POUObject
+   IPOUObject.Implementation IImplementationObject WRITABLE
+   POUObject.Implementation IImplementationObject WRITABLE
+
+--- FBD -> ST (3.3): the ST donor's aspect onto the FBD POU ---
+   FBD->ST: Implementation SET (a STImplementationObject)
+   FBD->ST: committed=True
+   FBD after                  guid=fbfa3077-4edc-4633-89bd-7c97d98ffcc4 aspect=STImplementationObject textual_implementation=<raised 'ScriptObject' object has no attribute 'textual_implementati>
+   same object: True
+--- LD -> ST (3.3) ---
+   LD->ST: Implementation SET (a STImplementationObject)
+   LD->ST: committed=True
+   LD after                   guid=b2f0aaf7-0bd9-45fa-ba0b-e09ac1762692 aspect=STImplementationObject textual_implementation=<raised 'ScriptObject' object has no attribute 'textual_implementati>
+--- ST -> FBD (3.4): the FBD donor's aspect onto the ST POU ---
+   ST->FBD: Implementation SET (a NWLImplementationObject)
+   ST->FBD: committed=True
+   ST after                   guid=344d70d8-bc80-4358-9c48-a82d99ace54e aspect=NWLImplementationObject textual_implementation=<raised '_3S.CoDeSys.NWLObject.NWLImplementationObject' does not con>
+
+=== build, every case called ===
+   build: CLEAN
+
+=== 2b. the swapped ST body, through the driver's write (aspect TextDocument.Text) ===
+   VltLc_Fbd body now: 'q := NOT a;\n'
+   write 'q := zz;'  -> committed, read back 'q := zz;\n'
+   build (must name zz): [Error] Cannot convert type 'Unknown type: 'zz'' to type 'BOOL' | [Error] Identifier 'zz' not defined
+   write 'q := NOT a;' -> committed, read back 'q := NOT a;\n'
+   a FRESH script object's textual_implementation: 'q := NOT a;\n'
+
+=== 2c. a FRESH aspect, constructed (no donor in the project) ===
+   LD -> new STImplementationObject: committed (same guid: True)
+   LD2 after                  guid=9c7e7061-89c1-44a3-8a13-ff722df6cc12 aspect=STImplementationObject textual_implementation=<raised 'ScriptObject' object has no attribute 'textual_implementati>
+   write 'q := a;' -> committed, read back 'q := a;\n'
+   ST -> new NWLImplementationObject: committed (same guid: True)
+   ST2 after                  guid=c7366ed3-9be9-4f94-b258-99058ea15fbd aspect=NWLImplementationObject textual_implementation=<raised '_3S.CoDeSys.NWLObject.NWLImplementationObject' does not con>
+
+=== 2d. the swapped graphical bodies get a network (q := a), LD view on one ===
+   VltLc_St: network written, 1 network(s), view Fbd
+   VltLc_St2: network written, 1 network(s), view Ld
+   build: CLEAN
+
+=== run: a = TRUE; Fbd (now ST 'q := NOT a') = FALSE, Ld (ST donor 'q := NOT a') = FALSE,
+         St (now FBD 'q := a') = TRUE, Ld2 (fresh ST 'q := a') = TRUE, St2 (fresh NWL, LD view 'q := a') = TRUE ===
+   VltLc_Fbd  q=FALSE
+   VltLc_Ld   q=FALSE
+   VltLc_St   q=TRUE
+   VltLc_Ld2  q=TRUE
+   VltLc_St2  q=TRUE
+
+=== 3. discovery: methods naming a language or a conversion ===
+   POU object: IDeferrableLanguageModelProvider.DeferLanguageModelProvision() -> Boolean
+   POU object: ILanguageModelProvider.GetLanguageModel() -> String
+   POU object: IStructuredLanguageModelProvider.GetStructuredLanguageModel(ILanguageModelBuilder) -> ILanguageModel
+   POU object: POUObject.DeferLanguageModelProvision() -> Boolean
+   POU object: POUObject.GetLanguageModel() -> String
+   POU object: POUObject.GetStructuredLanguageModel(ILanguageModelBuilder) -> ILanguageModel
+   NWL aspect: ILanguageModelSnippetProvider.GetImplementationSnippet() -> String
+   NWL aspect: IStructuredLanguageModelSnippetProvider.GetStructuredImplementationSnippet(ILanguageModelBuilder) -> ISequenceStatement
+   NWL aspect: NWLImplementationObject.GetImplementationSnippet() -> String
+   NWL aspect: NWLImplementationObject.GetStructuredImplementationSnippet(ILanguageModelBuilder) -> ISequenceStatement
+done

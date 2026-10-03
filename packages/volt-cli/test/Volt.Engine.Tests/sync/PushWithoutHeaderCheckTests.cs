@@ -157,12 +157,15 @@ public class PushWithoutHeaderCheckTests
     // ── a CHILD's header is the one header push reads ───────────────────────────────────────────────
 
     /// <summary>A child has no extension: its header line names it and says what it is. One that cannot be read is
-    /// refused naming the item AND the line in the file, before anything is written.</summary>
+    /// refused naming the item AND the line in the file, before anything is written.
+    /// <para>The header here states no NAME. It was <c>METHOD 1Reset</c>, a name that is no identifier, which the reader
+    /// refused unmeasured; measured since (openspec bridge-refusal-review 3.1, DIALECT C28), such a name is the IDE's
+    /// name refusal, answered by the driver in the pre-flight (<c>PushKeepsWhatLandedTests</c>) — that header reads.</para></summary>
     [Fact]
     public void A_child_whose_header_cannot_be_read_is_refused_naming_the_item_and_the_line()
     {
         const string text = "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +
-                            "METHOD 1Reset : INT\nIMPLEMENTATION ST\nEND_METHOD\n";
+                            "METHOD : INT\nIMPLEMENTATION ST\nEND_METHOD\n";
         var ide = Project();
         var resp = Create(ide, "FB_A.pou", text);
 

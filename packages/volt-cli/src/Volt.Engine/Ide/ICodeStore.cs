@@ -108,16 +108,19 @@ public interface ICodeStore
     /// <c>bridge-refusal-review</c> 2.28, D21).</para></summary>
     void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies);
 
-    /// <summary>Why the IDE refuses <paramref name="name"/> for a NEW POU or a new METHOD / ACTION / PROPERTY — or null
-    /// when the driver has no measured refusal of that word. Asked by the push PRE-FLIGHT for every name a set op would
-    /// create, so a refusal the vendor decides from the word alone lands before the first write instead of after the
-    /// batch's earlier ops (openspec <c>push-keeps-what-landed</c> 3.1).
+    /// <summary>Why the IDE refuses <paramref name="name"/> for a NEW object of <paramref name="kind"/> (an
+    /// <see cref="ItemKind.Kinds"/> value: a POU, or a METHOD / ACTION / PROPERTY / interface METHOD / interface
+    /// PROPERTY) — or null when the driver has no measured refusal of it. Asked by the push PRE-FLIGHT for every name a
+    /// set op would create, so a refusal the vendor decides from the name alone lands before the first write instead of
+    /// after the batch's earlier ops (openspec <c>push-keeps-what-landed</c> 3.1).
     ///
-    /// <para>The words are the VENDOR's, and each driver answers only the ones its IDE was MEASURED to refuse —
-    /// case-insensitively (measured), whatever the member kind (measured: the verdict is the word's), and whatever the
-    /// project (measured: a name colliding with a variable or another POU is accepted). A word nobody asked is not
-    /// guessed at: it reaches the IDE, whose apply-time refusal the push reports as what it is.</para></summary>
-    string? RefusedName(string name);
+    /// <para>The refusals are the VENDOR's, and each driver answers only what its IDE was MEASURED to refuse, for the
+    /// kinds it was measured on: reserved WORDS — case-insensitively (measured), whatever the POU / METHOD / ACTION /
+    /// PROPERTY (measured: the verdict is the word's; on an interface member only the words asked there), and whatever the project
+    /// (measured: a name colliding with a variable or another POU is accepted) — and name SHAPES that are no identifier,
+    /// for all six kinds (openspec <c>bridge-refusal-review</c> 3.1; they were the reader's unmeasured INVALID_ST). A name
+    /// nobody asked is not guessed at: it reaches the IDE, whose apply-time refusal the push reports as what it is.</para></summary>
+    string? RefusedName(string kind, string name);
 
     /// <summary>Why the IDE cannot CREATE a member of <paramref name="memberKind"/> named <paramref name="name"/> with the
     /// create argument <paramref name="seed"/> (<c>PushService.CreateSeed</c>: an interface member's declared type, any

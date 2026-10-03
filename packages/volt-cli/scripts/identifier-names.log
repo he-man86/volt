@@ -1,0 +1,367 @@
+project copy of: C:\Users\marce\Github\volt\packages\volt-cli\scripts\..\test\fixtures\CodesysTestProject.project
+baseline build (FBs alone): CLEAN
+
+== control Run   (Run)
+   pou          CREATED as Run
+   method       CREATED as Run
+   action       CREATED as Run
+   property     CREATED as Run
+   itf_method   CREATED as Run
+   itf_property CREATED as Run
+   build: CLEAN
+== control _lead   (_lead)
+   pou          CREATED as _lead
+   method       CREATED as _lead
+   action       CREATED as _lead
+   property     CREATED as _lead
+   itf_method   CREATED as _lead
+   itf_property CREATED as _lead
+   build: CLEAN
+== control With9   (With9)
+   pou          CREATED as With9
+   method       CREATED as With9
+   action       CREATED as With9
+   property     CREATED as With9
+   itf_method   CREATED as With9
+   itf_property CREATED as With9
+   build: CLEAN
+== control trailing underscore   (Trail_)
+   pou          CREATED as Trail_
+   method       CREATED as Trail_
+   action       CREATED as Trail_
+   property     CREATED as Trail_
+   itf_method   CREATED as Trail_
+   itf_property CREATED as Trail_
+   build: CLEAN
+== latin-1 letters F\u00f6\u00f6bar   (F\xf6\xf6bar)
+   pou          REFUSED: StandardError: The name \'F\xf6\xf6bar\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'F\xf6\xf6bar\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'F\xf6\xf6bar\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'F\xf6\xf6bar\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'F\xf6\xf6bar\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'F\xf6\xf6bar\' is not valid for this object.
+== latin-1 capital \u00dcnit   (\xdcnit)
+   pou          REFUSED: StandardError: The name \'\xdcnit\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'\xdcnit\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'\xdcnit\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'\xdcnit\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'\xdcnit\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'\xdcnit\' is not valid for this object.
+== cyrillic \u041f\u0440\u0438   (\u041f\u0440\u0438\u0432\u0435\u0442)
+   pou          REFUSED: StandardError: The name \'\u041f\u0440\u0438\u0432\u0435\u0442\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'\u041f\u0440\u0438\u0432\u0435\u0442\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'\u041f\u0440\u0438\u0432\u0435\u0442\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'\u041f\u0440\u0438\u0432\u0435\u0442\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'\u041f\u0440\u0438\u0432\u0435\u0442\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'\u041f\u0440\u0438\u0432\u0435\u0442\' is not valid for this object.
+== greek \u03b1\u03b2   (\u03b1\u03b2)
+   pou          REFUSED: StandardError: The name \'\u03b1\u03b2\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'\u03b1\u03b2\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'\u03b1\u03b2\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'\u03b1\u03b2\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'\u03b1\u03b2\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'\u03b1\u03b2\' is not valid for this object.
+== cjk \u540d\u524d   (\u540d\u524d)
+   pou          REFUSED: StandardError: The name \'\u540d\u524d\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'\u540d\u524d\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'\u540d\u524d\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'\u540d\u524d\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'\u540d\u524d\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'\u540d\u524d\' is not valid for this object.
+== ascii + arabic-indic digit a\u0663   (a\u0663)
+   pou          REFUSED: StandardError: The name \'a\u0663\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a\u0663\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a\u0663\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a\u0663\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a\u0663\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a\u0663\' is not valid for this object.
+== leading digit 2Fast   (2Fast)
+   pou          REFUSED: StandardError: The name \'2Fast\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'2Fast\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'2Fast\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'2Fast\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'2Fast\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'2Fast\' is not valid for this object.
+== hyphen My-Name   (My-Name)
+   pou          REFUSED: StandardError: The name \'My-Name\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'My-Name\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'My-Name\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'My-Name\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'My-Name\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'My-Name\' is not valid for this object.
+== dot a.b   (a.b)
+   pou          REFUSED: StandardError: The name \'a.b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a.b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a.b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a.b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a.b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a.b\' is not valid for this object.
+== dollar a$b   (a$b)
+   pou          REFUSED: StandardError: The name \'a$b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a$b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a$b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a$b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a$b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a$b\' is not valid for this object.
+== hash a#b   (a#b)
+   pou          REFUSED: StandardError: The name \'a#b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a#b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a#b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a#b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a#b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a#b\' is not valid for this object.
+== at @ab   (@ab)
+   pou          REFUSED: StandardError: The name \'@ab\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'@ab\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'@ab\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'@ab\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'@ab\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'@ab\' is not valid for this object.
+== plus a+b   (a+b)
+   pou          REFUSED: StandardError: The name \'a+b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a+b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a+b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a+b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a+b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a+b\' is not valid for this object.
+== slash a/b   (a/b)
+   pou          REFUSED: StandardError: The name \'a/b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a/b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a/b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a/b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a/b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a/b\' is not valid for this object.
+== backslash a\b   (a\\b)
+   pou          REFUSED: StandardError: The name \'a\\b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a\\b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a\\b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a\\b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a\\b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a\\b\' is not valid for this object.
+== quote a'b   (a\'b)
+   pou          REFUSED: StandardError: The name \'a\'b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a\'b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a\'b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a\'b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a\'b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a\'b\' is not valid for this object.
+== dquote a"b   (a"b)
+   pou          REFUSED: StandardError: The name \'a"b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a"b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a"b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a"b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a"b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a"b\' is not valid for this object.
+== percent a%b   (a%b)
+   pou          REFUSED: StandardError: The name \'a%b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a%b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a%b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a%b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a%b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a%b\' is not valid for this object.
+== ampersand a&b   (a&b)
+   pou          REFUSED: StandardError: The name \'a&b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a&b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a&b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a&b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a&b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a&b\' is not valid for this object.
+== paren a(b   (a(b)
+   pou          REFUSED: StandardError: The name \'a(b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a(b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a(b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a(b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a(b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a(b\' is not valid for this object.
+== bracket a[b   (a[b)
+   pou          REFUSED: StandardError: The name \'a[b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a[b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a[b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a[b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a[b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a[b\' is not valid for this object.
+== brace a{b   (a{b)
+   pou          REFUSED: StandardError: The name \'a{b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a{b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a{b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a{b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a{b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a{b\' is not valid for this object.
+== semicolon a;b   (a;b)
+   pou          REFUSED: StandardError: The name \'a;b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a;b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a;b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a;b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a;b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a;b\' is not valid for this object.
+== comma a,b   (a,b)
+   pou          REFUSED: StandardError: The name \'a,b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a,b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a,b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a,b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a,b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a,b\' is not valid for this object.
+== equals a=b   (a=b)
+   pou          REFUSED: StandardError: The name \'a=b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a=b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a=b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a=b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a=b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a=b\' is not valid for this object.
+== star a*b   (a*b)
+   pou          REFUSED: StandardError: The name \'a*b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a*b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a*b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a*b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a*b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a*b\' is not valid for this object.
+== bang a!b   (a!b)
+   pou          REFUSED: StandardError: The name \'a!b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a!b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a!b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a!b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a!b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a!b\' is not valid for this object.
+== question a?b   (a?b)
+   pou          REFUSED: StandardError: The name \'a?b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a?b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a?b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a?b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a?b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a?b\' is not valid for this object.
+== caret a^b   (a^b)
+   pou          REFUSED: StandardError: The name \'a^b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a^b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a^b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a^b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a^b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a^b\' is not valid for this object.
+== tilde a~b   (a~b)
+   pou          REFUSED: StandardError: The name \'a~b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a~b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a~b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a~b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a~b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a~b\' is not valid for this object.
+== pipe a|b   (a|b)
+   pou          REFUSED: StandardError: The name \'a|b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a|b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a|b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a|b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a|b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a|b\' is not valid for this object.
+== lt a<b   (a<b)
+   pou          REFUSED: StandardError: The name \'a<b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a<b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a<b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a<b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a<b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a<b\' is not valid for this object.
+== backtick `ab`   (`ab`)
+   pou          CREATED as `ab`
+   method       CREATED as `ab`
+   action       CREATED as `ab`
+   property     CREATED as `ab`
+   itf_method   CREATED as `ab`
+   itf_property CREATED as `ab`
+   build: CLEAN
+== no-break space a\u00a0b   (a\xa0b)
+   pou          REFUSED: StandardError: The name \'a\xa0b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a\xa0b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a\xa0b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a\xa0b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a\xa0b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a\xa0b\' is not valid for this object.
+== zero-width space a\u200bb   (a\u200bb)
+   pou          REFUSED: StandardError: The name \'a\u200bb\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a\u200bb\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a\u200bb\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a\u200bb\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a\u200bb\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a\u200bb\' is not valid for this object.
+== lone underscore _   (_)
+   pou          CREATED as _
+   method       CREATED as _
+   action       CREATED as _
+   property     CREATED as _
+   itf_method   CREATED as _
+   itf_property CREATED as _
+   build: CLEAN
+== double underscore a__b (measured refused, push-keeps-what-landed 3.1)   (a__b)
+   pou          REFUSED: StandardError: The name \'a__b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a__b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a__b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a__b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a__b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a__b\' is not valid for this object.
+== backtick, hyphen inside `a-b`   (`a-b`)
+   pou          CREATED as `a-b`
+   method       CREATED as `a-b`
+   action       CREATED as `a-b`
+   property     CREATED as `a-b`
+   itf_method   CREATED as `a-b`
+   itf_property CREATED as `a-b`
+   build: CLEAN
+== backtick, latin-1 inside `Foo` with o-umlauts   (`F\xf6\xf6bar`)
+   pou          CREATED as `F\xf6\xf6bar`
+   method       CREATED as `F\xf6\xf6bar`
+   action       CREATED as `F\xf6\xf6bar`
+   property     CREATED as `F\xf6\xf6bar`
+   itf_method   CREATED as `F\xf6\xf6bar`
+   itf_property CREATED as `F\xf6\xf6bar`
+   build: CLEAN
+== backtick, leading digit `2Fast`   (`2Fast`)
+   pou          CREATED as `2Fast`
+   method       CREATED as `2Fast`
+   action       CREATED as `2Fast`
+   property     CREATED as `2Fast`
+   itf_method   CREATED as `2Fast`
+   itf_property CREATED as `2Fast`
+   build: CLEAN
+== backtick, space inside `a b`   (`a b`)
+   pou          CREATED as `a b`
+   method       CREATED as `a b`
+   action       CREATED as `a b`
+   property     CREATED as `a b`
+   itf_method   CREATED as `a b`
+   itf_property CREATED as `a b`
+   build: CLEAN
+== backtick, keyword `INT`   (`INT`)
+   pou          CREATED as `INT`
+   method       CREATED as `INT`
+   action       CREATED as `INT`
+   property     CREATED as `INT`
+   itf_method   CREATED as `INT`
+   itf_property CREATED as `INT`
+   build: CLEAN
+== backtick, empty ``   (``)
+   pou          CREATED as ``
+   method       CREATED as ``
+   action       CREATED as ``
+   property     CREATED as ``
+   itf_method   CREATED as ``
+   itf_property CREATED as ``
+   build: CLEAN
+== backtick, unbalanced `ab   (`ab)
+   pou          REFUSED: StandardError: The name \'`ab\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'`ab\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'`ab\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'`ab\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'`ab\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'`ab\' is not valid for this object.
+== backtick, inside a`b   (a`b)
+   pou          REFUSED: StandardError: The name \'a`b\' is not valid for this object.
+   method       REFUSED: StandardError: The name \'a`b\' is not valid for this object.
+   action       REFUSED: StandardError: The name \'a`b\' is not valid for this object.
+   property     REFUSED: StandardError: The name \'a`b\' is not valid for this object.
+   itf_method   REFUSED: StandardError: The name \'a`b\' is not valid for this object.
+   itf_property REFUSED: StandardError: The name \'a`b\' is not valid for this object.
+== backtick, then text `a`b   (`a`b)
+   pou          CREATED as `a`b
+   method       CREATED as `a`b
+   action       CREATED as `a`b
+   property     CREATED as `a`b
+   itf_method   CREATED as `a`b
+   itf_property CREATED as `a`b
+   build: CLEAN
+done

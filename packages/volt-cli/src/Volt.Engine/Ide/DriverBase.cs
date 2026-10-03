@@ -29,7 +29,7 @@ public abstract class DriverBase : IIdeSession
 
     /// <summary>No measured name refusal — see <c>ICodeStore.RefusedName</c>. A driver without measurements refuses
     /// nothing rather than guessing.</summary>
-    public virtual string? RefusedName(string name) => null;
+    public virtual string? RefusedName(string kind, string name) => null;
 
     /// <summary>No member create refused from its argument — see <c>ICodeStore.RefusedMemberCreate</c>.</summary>
     public virtual string? RefusedMemberCreate(string memberKind, string name, string? seed) => null;

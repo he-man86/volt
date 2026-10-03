@@ -1082,12 +1082,16 @@ public static class PushService
         // project and the member kind, and only the driver knows its vendor's measured words. Measured live the refusal
         // came from the apply loop, after the batch's earlier ops had landed. Every member the text carries is asked, on
         // an update too: an existing member can not hold a word its IDE refuses to create, so only a NEW one can be refused.
-        if (isCreate && wireKind == ItemKind.Kinds.Pou && ide.RefusedName(name) is { } pouRefusal)
+        // A name that is no identifier is the same refusal by the same door (bridge-refusal-review 3.1: measured on both
+        // vendors for all six kinds; it was the reader's unmeasured INVALID_ST). Each name is asked with the kind it
+        // creates: a driver answers its words only for the kinds they were measured on.
+        if (isCreate && wireKind == ItemKind.Kinds.Pou && ide.RefusedName(ItemKind.Kinds.Pou, name) is { } pouRefusal)
             throw new ChildRefusedException($"the IDE refuses to create '{name}': {pouRefusal}", ChildRefusalCause.Name);
         foreach (var m in split.Members)
         {
             if (m.Kind is ItemKind.Kinds.Method or ItemKind.Kinds.Action or ItemKind.Kinds.Property
-                && ide.RefusedName(m.Name) is { } memberRefusal)
+                    or ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty
+                && ide.RefusedName(m.Kind, m.Name) is { } memberRefusal)
                 throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {memberRefusal}",
                                                 ChildRefusalCause.Name);
         }

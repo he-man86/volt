@@ -302,17 +302,68 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 ## 3. Measure (live; record the outcome in DIALECT.md, then keep or change)
 
-- [ ] 3.1 **Changed.** `StReader.cs:996` (was 809) — the IEC/ASCII identifier check. Half measured since: the names
+- [x] 3.1 **Changed.** `StReader.cs:996` (was 809) — the IEC/ASCII identifier check. Half measured since: the names
       each vendor REFUSES for a new POU or member were measured live (`scripts/member-name-refusal*.log`) and are
       pre-flighted by name (`CodesysRefusedNames.cs` / `TcRefusedNames.cs` via `ICodeStore.RefusedName`,
       `PushService.cs:1053-1059`, `ChildRefusedException` cause `Name`). Still unmeasured: what `CreateChild` does with
       a non-ASCII or non-identifier name (`Fööbar`, `a-b`). Clean vendor refusal → add it to the measured lists and
       delete `IsIdentifier`; otherwise `IsIdentifier` becomes the vendor's measured rule, beside the name lists.
-- [ ] 3.2 `NetworkTextReader.cs:1036` — does the build report a declared wire type contradicting its producer?
+      Done (step 3a) — MEASURED, CHANGED: a clean vendor refusal on both, so `IsIdentifier` is deleted and the shape is
+      the drivers' measured rule beside the word lists. CODESYS (`scripts/probe-identifier-names.py` ->
+      `identifier-names.log`): 37 non-identifier shapes x 6 kinds (POU, METHOD, ACTION, PROPERTY, interface METHOD,
+      interface PROPERTY) = 222 refusals, all "The name 'X' is not valid for this object."; a backtick-quoted name
+      (`` `ab` ``, `` `a b` ``, `` `INT` ``, `` `a`b ``) is CREATED for all six and builds clean — a valid name
+      `IsIdentifier` refused. TwinCAT (`probe-tc-refusal-measure.ps1 -Phase names` -> `tc-refusal-measure-names.log`):
+      42 shapes x 6 = 252 refusals, all "Name mismatch", backtick names included. Both create `_`. DIALECT C28.
+      `ICodeStore.RefusedName(kind, name)` (was `(name)`): the words for POU/METHOD/ACTION/PROPERTY only (where they were
+      measured), the shape for all six; the pre-flight now asks interface members too (they had only the reader's check).
+      Shared parts: `Volt.Engine/Ide/MeasuredNames.cs`. Code INVALID_ST -> UNSUPPORTED (`ChildRefusedException`, cause
+      Name), still before the first write. Tests: `CodesysNameRefusalTests` (+3 theories), `TcNameRefusalTests` (+3),
+      `PushKeepsWhatLandedTests` (+2: an interface member refused before the first write; asked with the kind),
+      `SignatureParseTests` (rewritten: its premise was the unmeasured belief), `PushWithoutHeaderCheckTests` (header
+      example `METHOD 1Reset` -> `METHOD : INT`, same reason). Live through the rebuilt bridges: `METHOD My-Name` and
+      `ACTION Fööbar` refused pre-flight on both; a backtick-quoted METHOD created on CODESYS, refused on TwinCAT.
+      Corpora: 0 backtick member names in the six.
+      **Review 3a+3b (gate), fixed:** (low) a backtick name holding a blank or a colon (`` `a b` ``, `` `a:b` ``) never
+      reached `RefusedName` — `StReader.ParseSignature` split the line at every blank and cut the type at the first colon,
+      so `METHOD `a b` : INT` was INVALID_ST "'`a' is not an access modifier", a member CODESYS creates (C28) that could be
+      pulled and never pushed back. Cheap, so fixed rather than marked niche (0 in the corpora): the reader splits words and
+      finds the colon OUTSIDE backticks (`StReader.Words` / `OutsideBackticks`); `SignatureParseTests.A_backtick_quoted_
+      name_is_one_name` +5, red before (the CODESYS driver doc now says the reader keeps a quoted name whole). (low) the
+      `a__b` measured on interface members was unused — `MeasuredNames.WordsMeasuredFor` excluded both interface kinds, so
+      an interface METHOD/PROPERTY `a__b` passed the pre-flight and was refused mid-batch: now `WordMeasuredFor(kind,
+      word)` answers the listed words for a POU/METHOD/ACTION/PROPERTY and, for an interface member, the words ASKED there
+      (`a__b`, both vendors refused it); `Codesys`/`TcNameRefusalTests.A_word_asked_on_an_interface_member_is_refused_
+      there` +3 each, red before. `Log` on an interface member stays unasked (its test stands).
+- [x] 3.2 `NetworkTextReader.cs:1036` — does the build report a declared wire type contradicting its producer?
       Yes → remove and record; silently kept → vendor-limit, keep.
-- [ ] 3.3 `BodyFormatGuard.cs:164` — can FBD/LD → ST be written in place on either vendor?
-- [ ] 3.4 `BodyFormatGuard.cs:168` — can ST → LD/FBD be written on an existing body? Fix the message either way
+      Done (step 3a) — MEASURED, KEPT (vendor-limit): `scripts/probe-wire-type-build.py` -> `wire-type-build.log`,
+      DIALECT N25. The one producer the reader can contradict that stores a declared type is a comparison box; `GT` stored
+      `INT` feeding a BOOL builds CLEAN and runs TRUE, the stored type stays `INT`; into an INT the build answers "Cannot
+      convert type 'BOOL' to type 'INT'" word for word as for an untyped box. The build never names the declaration, so
+      written it would round-trip a type the network does not compute. Doc on `NetworkTextReader.CheckWireTypes`; no code
+      change, no new test (the refusal and its tests stand).
+- [x] 3.3 `BodyFormatGuard.cs:164` — can FBD/LD → ST be written in place on either vendor?
+      Done (step 3a) — MEASURED (DIALECT N24): CODESYS YES — `IPOUObject.Implementation` is writable; an FBD and an LD POU
+      took a freshly constructed `STImplementationObject`, an ST POU an `NWLImplementationObject`, same guid, and the
+      driver's text and network writes then landed, built and RAN (`body-language-change.log`). TwinCAT NO in place — ST
+      text over an archive is refused by the IDE ("Data at the root level is invalid"), body unchanged
+      (`tc-refusal-measure-language.log`). Refusal kept (vendor limit on TwinCAT, Volt's own on CODESYS); writing the
+      CODESYS change is 4.7 (D7). The message names the route that exists (delete, push again).
+- [x] 3.4 `BodyFormatGuard.cs:168` — can ST → LD/FBD be written on an existing body? Fix the message either way
       (graphical bodies ARE created by push).
+      Done (step 3a) — MEASURED (N24): CODESYS YES (above). TwinCAT: an archive assigned to an ST POU's
+      `ImplementationText` is TAKEN and read back verbatim but stored as ST TEXT — the build answers 104 errors on that POU
+      (D32's shape, on a POU). Kept; message FIXED test-first (`GraphicalChildGuardTests.Network_text_over_a_textual_child_
+      is_refused_naming_the_route_that_exists`, red before): no more "graphical bodies are authored in the IDE, not created
+      by push" — "a push does not change an existing body's language … delete it and push it again: a push creates a
+      graphical body", with the two languages.
+      **Step 3a numbers:** census against `4ebeb61c98`: 563 -> 563 sites; 3a's rows: gone `IsIdentifier`'s `BadSignature`
+      and the two `BodyFormatGuard` messages, new the two reworded messages (the name shapes are `RefusedName` strings,
+      not throw sites). C# (3a+3b tree): Engine 1964 (+1 skipped), Cli 259, Codesys 268, Twincat 393, Contracts 39,
+      Connector 115, Repo.Gates 106/107 — the one red is `NoKindFromTextTests` on the parallel `lsp-sfc-step-names`
+      session's uncommitted `unresolved-identifier.test.ts`, as at gate 2e+2g. `docs/assets/data.js` regenerated (the
+      `RefusedName` signature). volt-cli `bun test test/unit` 9; `bun run check` 15/15.
 - [x] 3.5 `NetworkText.cs:148` — can DefaultViewMode be set on an update on live CODESYS (TwinCAT: on create already)?
       Measured 2026-10-03: yes on both — DIALECT N23. Written (2.22, 2.31).
 - [ ] 3.6 `CodesysDriver.Content.cs:436` (was 441) — CODESYS interface-accessor write: taken, refused or crash? (D28)

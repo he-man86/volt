@@ -146,6 +146,40 @@ public class GraphicalChildGuardTests
         AssertNothingMutated(ide);
     }
 
+    /// <summary>NETWORK TEXT OVER A TEXTUAL CHILD changes an existing body's language (ST to FBD), which the push does not
+    /// write (openspec bridge-refusal-review 3.4, DIALECT N24; measured: CODESYS takes a new aspect in place, TwinCAT
+    /// stores an archive over an ST body as ST text that does not compile — no in-place route there). The message said "graphical
+    /// bodies are authored in the IDE, not created by push", which is false: a push CREATES graphical bodies. It names
+    /// the route that exists — delete and push again — and the two languages.</summary>
+    [Fact]
+    public void Network_text_over_a_textual_child_is_refused_naming_the_route_that_exists()
+    {
+        var ide = IdeWithChild("M", childLang: null);
+        var refs = RefsService.Handle(ide);
+
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new List<PushOp>
+            {
+                new SetItemOp
+                {
+                    Name = Name,
+                    IfVersion = refs.Items[Name],
+                    SourceText = $"{PouDecl}\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nVAR\n\ta : BOOL;\n\tq : BOOL;\nEND_VAR\n" +
+                                 "IMPLEMENTATION FBD\nNETWORK\n  q := a;\nEND_NETWORK\nEND_METHOD\n",
+                },
+            },
+        });
+
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
+        Assert.DoesNotContain("not created by push", conflict.Reason);
+        Assert.Contains("delete it and push it again", conflict.Reason);
+        Assert.Contains("(IDE: ST | pushed: FBD)", conflict.Reason);
+        AssertNothingMutated(ide);
+    }
+
     /// <summary>The guard must not become a blanket refusal: an ordinary TEXTUAL child still pushes.</summary>
     [Fact]
     public void A_textual_child_still_pushes()
