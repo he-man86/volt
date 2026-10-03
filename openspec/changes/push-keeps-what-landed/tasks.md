@@ -281,6 +281,100 @@
 
 - [ ] 3.1 If a live IDE shows a member-name refusal is decidable from the text (e.g. `Log`), add it to pre-flight with
       the measurement recorded; otherwise leave it to 2.2.
+      **Measured 2026-10-03 (step 3, no product code changed) — DECIDABLE from the word alone, on both vendors.**
+      Probe `packages/volt-cli/scripts/probe-member-name-refusal.ts` (one push per word, each a new FB `VltPkn_<i>`
+      with `METHOD <word>`, deleted again when it landed), own instances only (`ide.ps1 up/down -Instance
+      push-keeps-what-landed`, fixture copies; CODESYS SP21 pid 13812, TcXaeShell pid 33724). Logs beside it:
+      `member-name-refusal.log` / `-tc.log` (vocabulary run: 274 words = LSP `KEYWORDS` ∪ `IL_OPERATOR_WORDS` ∪
+      `ELEMENTARY_TYPE_WORDS` ∪ 46 standard-library / system names ∪ 7 casing variants ∪ 24 ordinary controls, then
+      every refused word + 12 accepted + casing again as ACTION, PROPERTY and TOP-LEVEL FB, ~220 words × 3) and
+      `member-name-refusal-families.log` / `-families-tc.log` (1201 words: every `X_TO_Y` over the 33 elementary
+      type words, `TO_<T>`, `TRUNC_<T>`, 16 `ANY_*`, underscore shapes, 40 IEC/system words no list here holds).
+      CODESYS 131 s + 206 s; TwinCAT 684 s + 1588 s.
+      Numbers. CODESYS vocabulary run: METHOD 208 refused by the IDE (`UNSUPPORTED`, "The name '<w>' is not valid for
+      this object.", rolled back) / 2 refused by Volt's pre-flight first (`INVALID_ST`: `END_METHOD`, `IMPLEMENTATION`)
+      / 64 accepted; families run 889 refused / 312 accepted. TwinCAT: vocabulary 792 IDE-refused rows of 913 (all
+      kinds), families 742 refused / 459 accepted ("Creating the child named '<w>' is not possible on node (Name
+      mismatch)"). 4235 IDE verdicts in all.
+      (1) **Context-free**: a METHOD named like the FB's own variable (`x`), the FB itself, or an existing project POU
+      (`PLC_PRG`) is ACCEPTED on both — the refusal does not depend on the project. (2) **Per word, not per member
+      kind**: the IDE's verdict is the same for METHOD / ACTION / PROPERTY / top-level FB on every cross-checked word
+      (CODESYS 222 words, 0 disagree; TwinCAT 213, the only 2 "disagreements" were Volt's own `INVALID_ST`, below — since gate 3 they reach
+      the IDE and agree: TwinCAT accepts `METHOD END_METHOD` and `PROPERTY END_PROPERTY` as it does the other kinds).
+      (3) **Case-insensitive** — first asked of 7 words (`log` `Log` `lOg` `LOG` `sin` `Min` `public`), then (gate 3
+      verify run) of every vocabulary word the IDE refused, lower-cased, and of `to_<t>` / `To_<T>` / `int_to_<t>` /
+      `<t>_to_int` / `Int_To_<T>` / `<T>_To_Int` over all 33 type words: every verdict matched the upper-case word's.
+      (4) **One rule reproduces all 5066 IDE verdicts (distinct vendor × kind × word), 0 wrong**
+      (`scripts/member-name-refusal-rule.ts` → `member-name-refusal-rule.log`): refused iff
+      the word (upper-cased) contains `__` (`__Foo`, `a__b`, `__TYPEOF`, `BOOL_TO___XINT` … — while `_Foo`, `Foo_`
+      are accepted); or is an LSP `KEYWORD` except `GET SET END_GET END_SET OVERRIDE NAMESPACE END_NAMESPACE`
+      (accepted on both) and, on TwinCAT only, except `END_METHOD END_PROPERTY END_INTERFACE XSIZEOF VAR_GENERIC`; or
+      is an `IL_OPERATOR_WORD`, `CALC`, an elementary type word (TwinCAT: minus `CODESYS_ONLY_TYPE_WORDS`), or one of
+      `ANY ANY_INT ANY_NUM ANY_REAL ANY_BIT ANY_STRING ANY_DATE` (the other 13 `ANY_*` probed are accepted); or is a
+      conversion operator `<S>_TO_<T>` (S ≠ T) / `TO_<S>` over the SHORT type words of that vendor (all 812 short×short
+      pairs refused on CODESYS; the long spellings are no stem — `TIME_OF_DAY_TO_INT`, `TO_DATE_AND_TIME`, and every
+      `TRUNC_<T>` except the keyword `TRUNC_INT` are accepted, as are `BCD_TO_INT`, `LEN`, `TON`, `FB_init`, `N`,
+      `XINT`). `<T>_TO_<T>` is NO conversion name: `INT_TO_INT`, `REAL_TO_REAL` … (22 on CODESYS, 21 on TwinCAT) are
+      ACCEPTED on both; only `TOD_TO_TOD`, `DT_TO_DT` (and on CODESYS `LTOD_TO_LTOD`, `LDT_TO_LDT`) are refused. (The
+      first fit refused every short `<T>_TO_<T>` unasked — the families run skipped a == b; the gate 3 review caught
+      it, the verify run measured it, 43 verdicts were wrong.) Every CODESYS↔TwinCAT difference is a `CODESYS_ONLY`
+      type (`LDATE`/`LTOD`/`LDT`, their conversions) or one of the five TwinCAT-accepted keywords above.
+      **Every ACCEPTED is read back** (gate 3): the probe now fetches the item after an accepted push and requires
+      exactly one member of the pushed kind named EXACTLY the word (top level: the header names it, no member), else
+      it logs `LANDED-OTHER`. The verify run (`PROBE_SET=verify`, `member-name-refusal-verify.log` / `-verify-tc.log`)
+      re-asked every row the first runs logged ACCEPTED: CODESYS 411 of 411, TwinCAT 569 of 569 landed exactly as
+      pushed (0 `LANDED-OTHER`), so the accept carve-outs (`GET` … `END_NAMESPACE`, TwinCAT's `END_METHOD` …
+      `VAR_GENERIC`, every family accept) stand on read-back rows. The three context controls were re-asked too
+      (accepted, read back). CODESYS 845 rows in 220 s; TwinCAT 994 rows in ~33 min over two runs (the first stopped
+      at a STALE_PROJECT_VERSION on a delete — TcXaeShell moved its project version on its own; the probe now re-asks
+      a stale push, up to 5 times, and never logs one as a verdict; resumed with `PROBE_RESUME`).
+      What is NOT shown: the rule is FITTED to these words. Its families half was a real prediction (5 conversions
+      seen in run 1 → 812 + 66 predicted, all held); its `<T>_TO_<T>` extension was a wrong one (above). So the rule
+      is a DESCRIPTION of the measured words, not a pre-flight: a word outside them reaches the IDE and gets 2.2's
+      exact apply-time report — a pre-flight built on this refuses ONLY the words an IDE refused in these logs (per
+      vendor, any case — case-insensitivity is measured), never a word the rule merely predicts. The vendors' own
+      lists are not reachable by API (none probed).
+      Corpus (six real corpora, `packages/volt-lsp-iec/test-corpus`): 0 of 29170 items and 0 of 57275 METHOD / ACTION
+      / PROPERTY declarations carry a name the rule refuses (projects pulled from an IDE cannot hold one).
+      Finding beside it (Volt's own pre-flight, not the IDE) — **FIXED in gate 3**: a unit NAMED after its own END
+      keyword (`METHOD END_METHOD`, `ACTION END_ACTION`, `PROPERTY END_PROPERTY`, top-level `END_FUNCTION_BLOCK` /
+      `END_PROGRAM` / `END_FUNCTION`) was refused `INVALID_ST` "END_METHOD stands after code on its line …", a mistake
+      the text does not hold. See 3.G.
+      **Verdict:** FITS (design item 6) — a per-vendor, word-only check in the driver's `ValidateSource` (CODESYS and
+      TwinCAT each with the words its IDE refused in these logs, `UNSUPPORTED` with the vendor's measured words) would
+      move every measured `Log`-class refusal before the first write. Not built in this step (MEASURE); the box stays
+      open for it.
+- [x] 3.G Gate step 3 — review findings (2026-10-03), four, all valid:
+      F1 (ACCEPTED never read back) — `probe-member-name-refusal.ts` `readBack`: an accepted push is fetched
+      (`onlyItems`) and must hold exactly one member of the pushed kind named exactly the word, else `LANDED-OTHER`.
+      `PROBE_SET=verify` re-asked every earlier ACCEPTED row live on both vendors: CODESYS 411/411, TwinCAT 569/569
+      landed as pushed, 0 `LANDED-OTHER` (numbers in 3.1). No carve-out changed.
+      F2 (rule refuses unmeasured names) — measured instead of argued: the verify run asked all 33 `<T>_TO_<T>` and
+      ~370 lower / mixed-case words per vendor. Case-insensitivity HELD on every one; `<T>_TO_<T>` did NOT: 43 of the
+      rule's refusals were wrong (INT_TO_INT … accepted on both). The rule now refuses `<T>_TO_<T>` only for the four
+      measured date-and-time stems and reads 5066 verdicts, 0 wrong; its header and 3.1 say it describes the measured
+      words and that a pre-flight refuses only the logged ones.
+      F3 (TwinCAT "accepts" `METHOD END_METHOD` / `PROPERTY END_PROPERTY` written as a measurement) — now measured: with
+      F4's fix both reach TcXaeShell and are ACCEPTED, read back (`member-name-refusal-verify-tc.log`).
+      F4 (Volt's own pre-flight misdiagnoses a unit named after its END keyword; filed niche without a cost) — cheap,
+      so fixed: `StReader.RefuseEndAfterCode` skips the header's NAME position (`HeaderNameAt`: the word after the
+      member keyword — or, for the outer block, after the header its END closes — and any access modifiers); any other
+      occurrence on the line is still refused. Tests first (red 10 of 78): `ChildSplitterTableTests` rows "a METHOD
+      named END_METHOD", "… with a modifier named end_method", "an ACTION named END_ACTION", "a PROPERTY named
+      END_PROPERTY", "interface: a METHOD named END_METHOD", "… with END_METHOD after it on the line" (still refused),
+      `An_item_named_after_its_outer_END_keyword_reads` ×5, `…_still_refuses_that_END_after_code`. Live: CODESYS now
+      answers its own `UNSUPPORTED` "The name 'END_METHOD' is not valid for this object." for all six (was Volt's
+      `INVALID_ST`); TwinCAT ACCEPTS `METHOD END_METHOD` and `PROPERTY END_PROPERTY` (Volt refused them before) and
+      itself refuses `ACTION END_ACTION` and the three top-level END words. Left: a member named END_METHOD still can
+      not be referenced from a member body (`x := END_METHOD();` reads as an END after code, refused naming the line)
+      — niche: accepted loss (0 occurrences in the corpora: 0 of 57275 member declarations carry such a name).
+      `IMPLEMENTATION` as a name stays Volt's deliberate `INVALID_ST` (the body marker; accurate reason).
+      Also fixed: the two step-3 scripts imported the LSP's vocabulary statically, which failed volt-cli's typecheck
+      (TS6059, rootDir) — now a typed dynamic import.
+      Suites: Engine 1903 / 1 skip, Cli 246, Contracts 19, Connector 113, Ide.Twincat 298, Ide.Codesys 205, Relay 46,
+      Repo.Gates 92 — 0 fail; volt-cli `bun test test/unit` 4/4, `tsc` clean; volt-control 122/122; root `typecheck`
+      clean, `lint` exit 0. LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 7856 pass / 34 skip / 330 todo /
+      0 fail (203 files). No fixture / transpiler file touched → fixture map not regenerated.
 
 ## 4. Verify
 

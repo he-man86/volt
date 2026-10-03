@@ -117,6 +117,16 @@ public class ChildSplitterTableTests
             "METHOD A : INT\nIMPLEMENTATION ST\nA := 1; END_METHOD\n\n" + M("METHOD B : INT"),
             "!line 10|END_METHOD"),
         Row("END_METHOD on the signature line", "pou", "METHOD A : INT END_METHOD\n", "!line 8|END_METHOD"),
+        // A member NAMED after its own END keyword: the word stands in the header's NAME position, where it is the name,
+        // not an END line (openspec push-keeps-what-landed 3.G). The IDE answers for the name \u2014 not a false "after code"
+        // from Volt.
+        Row("a METHOD named END_METHOD", "pou", M("METHOD END_METHOD : INT") + M("METHOD B"), "method:END_METHOD=INT,method:B"),
+        Row("a METHOD with a modifier named end_method", "pou", M("METHOD PUBLIC end_method"), "method:end_method"),
+        Row("an ACTION named END_ACTION", "pou", "ACTION END_ACTION\nIMPLEMENTATION ST\n;\nEND_ACTION\n", "action:END_ACTION"),
+        Row("a PROPERTY named END_PROPERTY", "pou",
+            "PROPERTY PUBLIC END_PROPERTY : INT\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "property:END_PROPERTY=INT"),
+        Row("a METHOD named END_METHOD with END_METHOD after it on the line", "pou",
+            "METHOD END_METHOD : INT END_METHOD\n", "!line 8|END_METHOD stands after code"),
         Row("END_GET after code on the same line", "pou",
             "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1; END_GET\nEND_PROPERTY\n", "!line 11|END_GET"),
         Row("END_ACTION after code on the same line", "pou",
@@ -169,6 +179,8 @@ public class ChildSplitterTableTests
             "interface_method:M"),
         Row("interface: END_METHOD on the signature line", "interface",
             "\nMETHOD A : INT END_METHOD\nMETHOD B : INT\nEND_METHOD\nEND_INTERFACE\n", "!line 3|END_METHOD"),
+        Row("interface: a METHOD named END_METHOD", "interface",
+            "\nMETHOD END_METHOD : INT\nEND_METHOD\nEND_INTERFACE\n", "interface_method:END_METHOD=INT"),
         Row("interface: a member opened before the last one closed", "interface",
             "\nMETHOD A : INT\n\nMETHOD B : INT\nEND_METHOD\nEND_INTERFACE\n", "!line 5|METHOD"),
         Row("interface: BOM at the start of the text", "interface",
@@ -245,6 +257,30 @@ public class ChildSplitterTableTests
         var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, kind, "FB"));
         Assert.Contains(line, ex.Message);
         Assert.Contains("holds its END keyword alone", ex.Message);
+    }
+
+    /// <summary>An item NAMED after its own outer END keyword: the word stands in the header's NAME position, where it is
+    /// the name (openspec push-keeps-what-landed 3.G). It used to be refused INVALID_ST "stands after code", a diagnosis of
+    /// a mistake the text does not hold; the IDE answers for the name itself.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK END_FUNCTION_BLOCK\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", "pou")]
+    [InlineData("PROGRAM End_Program\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_PROGRAM\n", "pou")]
+    [InlineData("FUNCTION END_FUNCTION : INT\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION\n", "pou")]
+    [InlineData("FUNCTION_BLOCK PUBLIC END_FUNCTION_BLOCK\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n", "pou")]
+    [InlineData("INTERFACE END_INTERFACE\nMETHOD A : INT\nEND_METHOD\nEND_INTERFACE\n", "interface")]
+    public void An_item_named_after_its_outer_END_keyword_reads(string text, string kind)
+    {
+        var item = StReader.Read(text, kind, "X");
+        Assert.StartsWith(text.Substring(0, text.IndexOf('\n')), item.Declaration);
+    }
+
+    [Fact]
+    public void An_item_named_after_its_outer_END_keyword_still_refuses_that_END_after_code()
+    {
+        var ex = Assert.Throws<BridgeException>(() =>
+            StReader.Read("FUNCTION_BLOCK END_FUNCTION_BLOCK END_FUNCTION_BLOCK\n", ItemKind.Kinds.Pou, "X"));
+        Assert.Contains("'X', line 1", ex.Message);
+        Assert.Contains("END_FUNCTION_BLOCK stands after code", ex.Message);
     }
 
     [Fact]

@@ -506,6 +506,9 @@ public static class StReader
 		int? endIdx = null;
 		string? keyword = null;
 		var code = StTrivia.Code(lines);
+		// The header each outer END closes (END_FUNCTION_BLOCK → FUNCTION_BLOCK): the line the item's NAME stands on, where
+		// that word is the name and no END line (HeaderNameAt).
+		var headers = outerEnds.Select(e => e.Substring("END_".Length)).ToArray();
 		var at = new ChildSite(what, 0);
 		for (int i = 0; i < lines.Count; i++)
 		{
@@ -517,7 +520,8 @@ public static class StReader
 				endIdx = i;
 				break;
 			}
-			foreach (var end in outerEnds) RefuseEndAfterCode(code[i], end, at, i);
+			var nameAt = HeaderNameAt(code[i], headers);
+			foreach (var end in outerEnds) RefuseEndAfterCode(code[i], end, at, i, nameAt);
 		}
 		if (endIdx is null)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
@@ -776,14 +780,14 @@ public static class StReader
 	{
 		int sigLine = i; // line with the keyword
 		// Find the matching end keyword — at any indentation (see LineStartsWithKeyword), not column 0.
-		RefuseEndAfterCode(code[sigLine], endKw, at, sigLine);
+		RefuseEndAfterCode(code[sigLine], endKw, at, sigLine, HeaderNameAt(code[sigLine], MemberKeywords));
 		int? endLine = null;
 		for (int j = sigLine + 1; j < lines.Count; j++)
 		{
 			if (IsTrivia(code[j])) continue;
 			if (LineStartsWithKeyword(code[j], endKw)) { RefuseTextAfter(lines[j], code[j], endKw, at, j); endLine = j; break; }
 			RefuseOpenedInside(code[j], kind, endKw, at, j, sigLine);
-			RefuseEndAfterCode(code[j], endKw, at, j);
+			RefuseEndAfterCode(code[j], endKw, at, j, nameAt: -1);
 		}
 		if (endLine is null)
 			throw new BridgeException(BridgeErrorCodes.InvalidSt, $"{at.Line(sigLine)}: missing {endKw} for the {kind} starting there");
@@ -817,7 +821,7 @@ public static class StReader
 	private static Member ReadProperty(IList<string> lines, string[] code, ref int i, int blockStart, bool marked, bool splitOnly, ChildSite at)
 	{
 		int sigLine = i;
-		RefuseEndAfterCode(code[sigLine], "END_PROPERTY", at, sigLine);
+		RefuseEndAfterCode(code[sigLine], "END_PROPERTY", at, sigLine, HeaderNameAt(code[sigLine], MemberKeywords));
 
 		int? endLine = null;
 		var accessorBoundaries = new List<(int start, int end, string kind)>(); // GET/SET ranges within property
@@ -828,7 +832,7 @@ public static class StReader
 			if (IsTrivia(code[j])) continue;
 			if (LineStartsWithKeyword(code[j], "END_PROPERTY")) { RefuseTextAfter(lines[j], code[j], "END_PROPERTY", at, j); endLine = j; break; }
 			RefuseOpenedInside(code[j], ItemKind.Kinds.Property, "END_PROPERTY", at, j, sigLine);
-			foreach (var end in PropertyEnds) RefuseEndAfterCode(code[j], end, at, j);
+			foreach (var end in PropertyEnds) RefuseEndAfterCode(code[j], end, at, j, nameAt: -1);
 			var opens = LineStartsWithKeyword(code[j], "GET") ? "get"
 					  : LineStartsWithKeyword(code[j], "SET") ? "set" : null;
 			if (opens is not null)
@@ -1082,8 +1086,13 @@ public static class StReader
 	/// <summary>An END line stands at the START of its own line — that is where the splitter reads it. The same word
 	/// after code on a line (<c>A := 1; END_METHOD</c>, <c>METHOD A : INT END_METHOD</c>) is no END line to it, so the
 	/// block would run on to the NEXT member's END and swallow that member. Refused naming the line instead: the word can
-	/// be nothing else there (it is reserved, and comments and strings are already blanked).</summary>
-	private static void RefuseEndAfterCode(string code, string endKw, ChildSite at, int line)
+	/// be nothing else there (it is reserved, and comments and strings are already blanked).
+	/// <para>The one place the word is NOT an END line is a header's NAME position (<paramref name="nameAt"/>, from
+	/// <see cref="HeaderNameAt"/>): <c>METHOD END_METHOD : INT</c> names a method END_METHOD. It used to be refused as
+	/// "END_METHOD stands after code", a mistake the text does not hold — and the name is the IDE's to take or refuse
+	/// (TcXaeShell takes END_METHOD as a method name, CODESYS refuses it; openspec push-keeps-what-landed 3.G). Any OTHER
+	/// occurrence on that line is still refused.</para></summary>
+	private static void RefuseEndAfterCode(string code, string endKw, ChildSite at, int line, int nameAt)
 	{
 		var lead = code.Length - code.TrimStart().Length;
 		for (int from = lead + 1; from < code.Length;)
@@ -1091,7 +1100,7 @@ public static class StReader
 			var k = code.IndexOf(endKw, from, StringComparison.OrdinalIgnoreCase);
 			if (k < 0) return;
 			var afterIdx = k + endKw.Length;
-			if (!IsWordChar(code[k - 1]) && (afterIdx == code.Length || !IsWordChar(code[afterIdx])))
+			if (k != nameAt && !IsWordChar(code[k - 1]) && (afterIdx == code.Length || !IsWordChar(code[afterIdx])))
 				throw new BridgeException(BridgeErrorCodes.InvalidSt,
 					$"{at.Line(line)}: {endKw} stands after code on its line. An END line opens its own line, which is where " +
 					"the push reads it; put it on a line of its own.");
@@ -1099,6 +1108,34 @@ public static class StReader
 		}
 
 		static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+	}
+
+
+	/// <summary>Where a header's NAME starts on this line of CODE — the first word after a leading
+	/// <paramref name="keywords"/> word and any access modifiers (<see cref="Modifiers"/>) — or -1 when the line leads with
+	/// none of them. Only the position: the name itself is read by <see cref="ParseSignature"/> (members) or not at all
+	/// (an item's name is its file's).</summary>
+	private static int HeaderNameAt(string code, string[] keywords)
+	{
+		int i = code.Length - code.TrimStart().Length;
+		var first = WordAt(code, i);
+		if (first is null || Array.FindIndex(keywords, k => string.Equals(k, first, StringComparison.OrdinalIgnoreCase)) < 0) return -1;
+		i += first.Length;
+		while (true)
+		{
+			while (i < code.Length && char.IsWhiteSpace(code[i])) i++;
+			var word = WordAt(code, i);
+			if (word is null) return -1;
+			if (!Modifiers.Contains(word)) return i;
+			i += word.Length;
+		}
+
+		static string? WordAt(string s, int from)
+		{
+			int end = from;
+			while (end < s.Length && (char.IsLetterOrDigit(s[end]) || s[end] == '_')) end++;
+			return end == from ? null : s.Substring(from, end - from);
+		}
 	}
 
 	/// <summary>Nothing follows an END line's keyword — nor an accessor's GET / SET — on its line. The IDE stores none of

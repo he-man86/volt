@@ -1,0 +1,9 @@
+5066 IDE verdicts checked (distinct vendor × kind × word), 8 still refused by Volt's own pre-flight (INVALID_ST), 0 landed as something else, 0 the rule gets wrong
+  pre-flight: codesys METHOD IMPLEMENTATION
+  pre-flight: codesys ACTION IMPLEMENTATION
+  pre-flight: codesys PROPERTY IMPLEMENTATION
+  pre-flight: codesys TOPLEVEL IMPLEMENTATION
+  pre-flight: twincat METHOD IMPLEMENTATION
+  pre-flight: twincat ACTION IMPLEMENTATION
+  pre-flight: twincat PROPERTY IMPLEMENTATION
+  pre-flight: twincat TOPLEVEL IMPLEMENTATION

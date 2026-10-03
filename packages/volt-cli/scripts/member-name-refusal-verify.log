@@ -1,0 +1,857 @@
+pipe volt.bridge.codesys.40788 · 2026-10-03T03:40:06.286Z · 421 words
+
+== 0. read-back: 421 rows the earlier runs logged ACCEPTED or INVALID_ST ==
+METHOD    END_METHOD             REFUSED   [UNSUPPORTED] 'VltPkn_1': the IDE refused to create its method 'END_METHOD': The name 'END_METHOD' is not valid for this object. — 'VltPkn_1' is not created (the create is rolled back)
+METHOD    END_GET                ACCEPTED 
+METHOD    END_SET                ACCEPTED 
+METHOD    OVERRIDE               ACCEPTED 
+METHOD    GET                    ACCEPTED 
+METHOD    SET                    ACCEPTED 
+METHOD    NAMESPACE              ACCEPTED 
+METHOD    END_NAMESPACE          ACCEPTED 
+METHOD    LEN                    ACCEPTED 
+METHOD    LEFT                   ACCEPTED 
+METHOD    RIGHT                  ACCEPTED 
+METHOD    MID                    ACCEPTED 
+METHOD    CONCAT                 ACCEPTED 
+METHOD    INSERT                 ACCEPTED 
+METHOD    DELETE                 ACCEPTED 
+METHOD    REPLACE                ACCEPTED 
+METHOD    FIND                   ACCEPTED 
+METHOD    TON                    ACCEPTED 
+METHOD    TOF                    ACCEPTED 
+METHOD    TP                     ACCEPTED 
+METHOD    CTU                    ACCEPTED 
+METHOD    CTD                    ACCEPTED 
+METHOD    CTUD                   ACCEPTED 
+METHOD    R_TRIG                 ACCEPTED 
+METHOD    F_TRIG                 ACCEPTED 
+METHOD    SR                     ACCEPTED 
+METHOD    RS                     ACCEPTED 
+METHOD    RTC                    ACCEPTED 
+METHOD    TRUNC_DINT             ACCEPTED 
+METHOD    NOW                    ACCEPTED 
+METHOD    PVOID                  ACCEPTED 
+METHOD    XINT                   ACCEPTED 
+METHOD    UXINT                  ACCEPTED 
+METHOD    XWORD                  ACCEPTED 
+METHOD    N                      ACCEPTED 
+METHOD    FB_init                ACCEPTED 
+METHOD    FB_exit                ACCEPTED 
+METHOD    FB_reinit              ACCEPTED 
+METHOD    USING                  ACCEPTED 
+METHOD    WITH                   ACCEPTED 
+METHOD    NON_RETAIN             ACCEPTED 
+METHOD    IMPLEMENTATION         REFUSED   [INVALID_ST] 'IMPLEMENTATION' (line 9) is reserved: IMPLEMENTATION is the line that states where a body starts and what language it is in, so nothing in a workspace may be named it. Rename it.
+METHOD    Foo                    ACCEPTED 
+METHOD    Logger                 ACCEPTED 
+METHOD    LogMsg                 ACCEPTED 
+METHOD    Log2                   ACCEPTED 
+METHOD    Logx                   ACCEPTED 
+METHOD    MyLog                  ACCEPTED 
+METHOD    Sine                   ACCEPTED 
+METHOD    Minimum                ACCEPTED 
+METHOD    DoIt                   ACCEPTED 
+METHOD    Run                    ACCEPTED 
+METHOD    Execute                ACCEPTED 
+METHOD    Init                   ACCEPTED 
+METHOD    Reset                  ACCEPTED 
+METHOD    Start                  ACCEPTED 
+METHOD    Stop                   ACCEPTED 
+METHOD    Get_                   ACCEPTED 
+METHOD    Set_                   ACCEPTED 
+METHOD    Value                  ACCEPTED 
+METHOD    Name                   ACCEPTED 
+METHOD    Count                  ACCEPTED 
+METHOD    Main                   ACCEPTED 
+METHOD    Update                 ACCEPTED 
+METHOD    Error                  ACCEPTED 
+METHOD    Status                 ACCEPTED 
+TOPLEVEL  END_FUNCTION_BLOCK     REFUSED   [UNSUPPORTED] the IDE refused to create 'END_FUNCTION_BLOCK': The name 'END_FUNCTION_BLOCK' is not valid for this object.
+TOPLEVEL  END_PROGRAM            REFUSED   [UNSUPPORTED] the IDE refused to create 'END_PROGRAM': The name 'END_PROGRAM' is not valid for this object.
+TOPLEVEL  END_FUNCTION           REFUSED   [UNSUPPORTED] the IDE refused to create 'END_FUNCTION': The name 'END_FUNCTION' is not valid for this object.
+ACTION    END_ACTION             REFUSED   [UNSUPPORTED] 'VltPkn_67': the IDE refused to create its action 'END_ACTION': The name 'END_ACTION' is not valid for this object. — 'VltPkn_67' is not created (the create is rolled back)
+PROPERTY  END_PROPERTY           REFUSED   [UNSUPPORTED] 'VltPkn_68': the IDE refused to create its property 'END_PROPERTY': The name 'END_PROPERTY' is not valid for this object. — 'VltPkn_68' is not created (the create is rolled back)
+ACTION    IMPLEMENTATION         REFUSED   [INVALID_ST] 'IMPLEMENTATION' (line 9) is reserved: IMPLEMENTATION is the line that states where a body starts and what language it is in, so nothing in a workspace may be named it. Rename it.
+PROPERTY  IMPLEMENTATION         REFUSED   [INVALID_ST] 'IMPLEMENTATION' (line 9) is reserved: IMPLEMENTATION is the line that states where a body starts and what language it is in, so nothing in a workspace may be named it. Rename it.
+TOPLEVEL  IMPLEMENTATION         REFUSED   [INVALID_ST] 'IMPLEMENTATION' (line 1) is reserved: IMPLEMENTATION is the line that states where a body starts and what language it is in, so nothing in a workspace may be named it. Rename it.
+ACTION    END_GET                ACCEPTED 
+PROPERTY  END_GET                ACCEPTED 
+TOPLEVEL  END_GET                ACCEPTED 
+ACTION    END_SET                ACCEPTED 
+PROPERTY  END_SET                ACCEPTED 
+TOPLEVEL  END_SET                ACCEPTED 
+ACTION    OVERRIDE               ACCEPTED 
+PROPERTY  OVERRIDE               ACCEPTED 
+TOPLEVEL  OVERRIDE               ACCEPTED 
+ACTION    GET                    ACCEPTED 
+PROPERTY  GET                    ACCEPTED 
+TOPLEVEL  GET                    ACCEPTED 
+ACTION    SET                    ACCEPTED 
+PROPERTY  SET                    ACCEPTED 
+TOPLEVEL  SET                    ACCEPTED 
+ACTION    NAMESPACE              ACCEPTED 
+PROPERTY  NAMESPACE              ACCEPTED 
+TOPLEVEL  NAMESPACE              ACCEPTED 
+ACTION    END_NAMESPACE          ACCEPTED 
+PROPERTY  END_NAMESPACE          ACCEPTED 
+TOPLEVEL  END_NAMESPACE          ACCEPTED 
+ACTION    LEN                    ACCEPTED 
+PROPERTY  LEN                    ACCEPTED 
+TOPLEVEL  LEN                    ACCEPTED 
+ACTION    LEFT                   ACCEPTED 
+PROPERTY  LEFT                   ACCEPTED 
+TOPLEVEL  LEFT                   ACCEPTED 
+ACTION    RIGHT                  ACCEPTED 
+PROPERTY  RIGHT                  ACCEPTED 
+TOPLEVEL  RIGHT                  ACCEPTED 
+ACTION    MID                    ACCEPTED 
+PROPERTY  MID                    ACCEPTED 
+TOPLEVEL  MID                    ACCEPTED 
+ACTION    CONCAT                 ACCEPTED 
+PROPERTY  CONCAT                 ACCEPTED 
+TOPLEVEL  CONCAT                 ACCEPTED 
+METHOD    BOOL_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    BOOL_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    BOOL_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    BOOL_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    BIT_TO_TIME_OF_DAY     ACCEPTED 
+METHOD    BIT_TO_DATE_AND_TIME   ACCEPTED 
+METHOD    BIT_TO_LDATE_AND_TIME  ACCEPTED 
+METHOD    BIT_TO_LTIME_OF_DAY    ACCEPTED 
+METHOD    BYTE_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    BYTE_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    BYTE_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    BYTE_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    WORD_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    WORD_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    WORD_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    WORD_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    DWORD_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    DWORD_TO_DATE_AND_TIME ACCEPTED 
+METHOD    DWORD_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    DWORD_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    LWORD_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    LWORD_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LWORD_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LWORD_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    SINT_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    SINT_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    SINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    SINT_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    INT_TO_TIME_OF_DAY     ACCEPTED 
+METHOD    INT_TO_DATE_AND_TIME   ACCEPTED 
+METHOD    INT_TO_LDATE_AND_TIME  ACCEPTED 
+METHOD    INT_TO_LTIME_OF_DAY    ACCEPTED 
+METHOD    DINT_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    DINT_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    DINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    DINT_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    LINT_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    LINT_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    LINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LINT_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    USINT_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    USINT_TO_DATE_AND_TIME ACCEPTED 
+METHOD    USINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    USINT_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    UINT_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    UINT_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    UINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    UINT_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    UDINT_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    UDINT_TO_DATE_AND_TIME ACCEPTED 
+METHOD    UDINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    UDINT_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    ULINT_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    ULINT_TO_DATE_AND_TIME ACCEPTED 
+METHOD    ULINT_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    ULINT_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    REAL_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    REAL_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    REAL_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    REAL_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    LREAL_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    LREAL_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LREAL_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LREAL_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    TIME_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    TIME_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    TIME_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    TIME_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    LTIME_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    LTIME_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LTIME_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LTIME_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    DATE_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    DATE_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    DATE_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    DATE_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    TOD_TO_TIME_OF_DAY     ACCEPTED 
+METHOD    TOD_TO_DATE_AND_TIME   ACCEPTED 
+METHOD    TOD_TO_LDATE_AND_TIME  ACCEPTED 
+METHOD    TOD_TO_LTIME_OF_DAY    ACCEPTED 
+METHOD    DT_TO_TIME_OF_DAY      ACCEPTED 
+METHOD    DT_TO_DATE_AND_TIME    ACCEPTED 
+METHOD    DT_TO_LDATE_AND_TIME   ACCEPTED 
+METHOD    DT_TO_LTIME_OF_DAY     ACCEPTED 
+METHOD    LDATE_TO_TIME_OF_DAY   ACCEPTED 
+METHOD    LDATE_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LDATE_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LDATE_TO_LTIME_OF_DAY  ACCEPTED 
+METHOD    LTOD_TO_TIME_OF_DAY    ACCEPTED 
+METHOD    LTOD_TO_DATE_AND_TIME  ACCEPTED 
+METHOD    LTOD_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LTOD_TO_LTIME_OF_DAY   ACCEPTED 
+METHOD    LDT_TO_TIME_OF_DAY     ACCEPTED 
+METHOD    LDT_TO_DATE_AND_TIME   ACCEPTED 
+METHOD    LDT_TO_LDATE_AND_TIME  ACCEPTED 
+METHOD    LDT_TO_LTIME_OF_DAY    ACCEPTED 
+METHOD    STRING_TO_TIME_OF_DAY  ACCEPTED 
+METHOD    STRING_TO_DATE_AND_TIME ACCEPTED 
+METHOD    STRING_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    STRING_TO_LTIME_OF_DAY ACCEPTED 
+METHOD    WSTRING_TO_TIME_OF_DAY ACCEPTED 
+METHOD    WSTRING_TO_DATE_AND_TIME ACCEPTED 
+METHOD    WSTRING_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    WSTRING_TO_LTIME_OF_DAY ACCEPTED 
+METHOD    TIME_OF_DAY_TO_BOOL    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_BIT     ACCEPTED 
+METHOD    TIME_OF_DAY_TO_BYTE    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_WORD    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_DWORD   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LWORD   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_SINT    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_INT     ACCEPTED 
+METHOD    TIME_OF_DAY_TO_DINT    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LINT    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_USINT   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_UINT    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_UDINT   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_ULINT   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_REAL    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LREAL   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_TIME    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LTIME   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_DATE    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_TOD     ACCEPTED 
+METHOD    TIME_OF_DAY_TO_DT      ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LDATE   ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LTOD    ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LDT     ACCEPTED 
+METHOD    TIME_OF_DAY_TO_STRING  ACCEPTED 
+METHOD    TIME_OF_DAY_TO_WSTRING ACCEPTED 
+METHOD    TIME_OF_DAY_TO_DATE_AND_TIME ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    TIME_OF_DAY_TO_LTIME_OF_DAY ACCEPTED 
+METHOD    DATE_AND_TIME_TO_BOOL  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_BIT   ACCEPTED 
+METHOD    DATE_AND_TIME_TO_BYTE  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_WORD  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_DWORD ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LWORD ACCEPTED 
+METHOD    DATE_AND_TIME_TO_SINT  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_INT   ACCEPTED 
+METHOD    DATE_AND_TIME_TO_DINT  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LINT  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_USINT ACCEPTED 
+METHOD    DATE_AND_TIME_TO_UINT  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_UDINT ACCEPTED 
+METHOD    DATE_AND_TIME_TO_ULINT ACCEPTED 
+METHOD    DATE_AND_TIME_TO_REAL  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LREAL ACCEPTED 
+METHOD    DATE_AND_TIME_TO_TIME  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LTIME ACCEPTED 
+METHOD    DATE_AND_TIME_TO_DATE  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_TOD   ACCEPTED 
+METHOD    DATE_AND_TIME_TO_DT    ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LDATE ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LTOD  ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LDT   ACCEPTED 
+METHOD    DATE_AND_TIME_TO_STRING ACCEPTED 
+METHOD    DATE_AND_TIME_TO_WSTRING ACCEPTED 
+METHOD    DATE_AND_TIME_TO_TIME_OF_DAY ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    DATE_AND_TIME_TO_LTIME_OF_DAY ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_BOOL ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_BIT  ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_BYTE ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_WORD ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_DWORD ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LWORD ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_SINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_INT  ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_DINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_USINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_UINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_UDINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_ULINT ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_REAL ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LREAL ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_TIME ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LTIME ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_DATE ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_TOD  ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_DT   ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LDATE ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LTOD ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LDT  ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_STRING ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_WSTRING ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_TIME_OF_DAY ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LTIME_OF_DAY ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_BOOL   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_BIT    ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_BYTE   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_WORD   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_DWORD  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LWORD  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_SINT   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_INT    ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_DINT   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LINT   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_USINT  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_UINT   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_UDINT  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_ULINT  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_REAL   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LREAL  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_TIME   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LTIME  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_DATE   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_TOD    ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_DT     ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LDATE  ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LTOD   ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LDT    ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_STRING ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_WSTRING ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_TIME_OF_DAY ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    TO_TIME_OF_DAY         ACCEPTED 
+METHOD    TO_DATE_AND_TIME       ACCEPTED 
+METHOD    TO_LDATE_AND_TIME      ACCEPTED 
+METHOD    TO_LTIME_OF_DAY        ACCEPTED 
+METHOD    TRUNC_BOOL             ACCEPTED 
+METHOD    TRUNC_BIT              ACCEPTED 
+METHOD    TRUNC_BYTE             ACCEPTED 
+METHOD    TRUNC_WORD             ACCEPTED 
+METHOD    TRUNC_DWORD            ACCEPTED 
+METHOD    TRUNC_LWORD            ACCEPTED 
+METHOD    TRUNC_SINT             ACCEPTED 
+METHOD    TRUNC_LINT             ACCEPTED 
+METHOD    TRUNC_USINT            ACCEPTED 
+METHOD    TRUNC_UINT             ACCEPTED 
+METHOD    TRUNC_UDINT            ACCEPTED 
+METHOD    TRUNC_ULINT            ACCEPTED 
+METHOD    TRUNC_REAL             ACCEPTED 
+METHOD    TRUNC_LREAL            ACCEPTED 
+METHOD    TRUNC_TIME             ACCEPTED 
+METHOD    TRUNC_LTIME            ACCEPTED 
+METHOD    TRUNC_DATE             ACCEPTED 
+METHOD    TRUNC_TOD              ACCEPTED 
+METHOD    TRUNC_DT               ACCEPTED 
+METHOD    TRUNC_LDATE            ACCEPTED 
+METHOD    TRUNC_LTOD             ACCEPTED 
+METHOD    TRUNC_LDT              ACCEPTED 
+METHOD    TRUNC_STRING           ACCEPTED 
+METHOD    TRUNC_WSTRING          ACCEPTED 
+METHOD    TRUNC_TIME_OF_DAY      ACCEPTED 
+METHOD    TRUNC_DATE_AND_TIME    ACCEPTED 
+METHOD    TRUNC_LDATE_AND_TIME   ACCEPTED 
+METHOD    TRUNC_LTIME_OF_DAY     ACCEPTED 
+METHOD    ANY_ELEMENTARY         ACCEPTED 
+METHOD    ANY_DERIVED            ACCEPTED 
+METHOD    ANY_MAGNITUDE          ACCEPTED 
+METHOD    ANY_SIGNED             ACCEPTED 
+METHOD    ANY_UNSIGNED           ACCEPTED 
+METHOD    ANY_DURATION           ACCEPTED 
+METHOD    ANY_CHAR               ACCEPTED 
+METHOD    ANY_CHARS              ACCEPTED 
+METHOD    ANY_INTEGER            ACCEPTED 
+METHOD    ANY_FLOAT              ACCEPTED 
+METHOD    ANY_TYPE               ACCEPTED 
+METHOD    ANY_POINTER            ACCEPTED 
+METHOD    ANY_FOO                ACCEPTED 
+METHOD    CHAR                   ACCEPTED 
+METHOD    WCHAR                  ACCEPTED 
+METHOD    UCHAR                  ACCEPTED 
+METHOD    UTF8                   ACCEPTED 
+METHOD    _Foo                   ACCEPTED 
+METHOD    Foo_                   ACCEPTED 
+METHOD    EN                     ACCEPTED 
+METHOD    ENO                    ACCEPTED 
+METHOD    NIL                    ACCEPTED 
+METHOD    NULL                   ACCEPTED 
+METHOD    LABEL                  ACCEPTED 
+METHOD    CONFIGURATION          ACCEPTED 
+METHOD    END_CONFIGURATION      ACCEPTED 
+METHOD    RESOURCE               ACCEPTED 
+METHOD    END_RESOURCE           ACCEPTED 
+METHOD    TASK                   ACCEPTED 
+METHOD    STEP                   ACCEPTED 
+METHOD    END_STEP               ACCEPTED 
+METHOD    INITIAL_STEP           ACCEPTED 
+METHOD    TRANSITION             ACCEPTED 
+METHOD    END_TRANSITION         ACCEPTED 
+METHOD    ON                     ACCEPTED 
+METHOD    PRIORITY               ACCEPTED 
+METHOD    SINGLE                 ACCEPTED 
+METHOD    INTERVAL               ACCEPTED 
+METHOD    OVERLAP                ACCEPTED 
+METHOD    ROUND                  ACCEPTED 
+METHOD    FLOOR                  ACCEPTED 
+METHOD    CEIL                   ACCEPTED 
+METHOD    SIGN                   ACCEPTED 
+METHOD    ATAN2                  ACCEPTED 
+METHOD    LAZY                   ACCEPTED 
+METHOD    UNION_                 ACCEPTED 
+METHOD    BOOL_                  ACCEPTED 
+METHOD    INT2                   ACCEPTED 
+METHOD    TO_                    ACCEPTED 
+METHOD    TO_FOO                 ACCEPTED 
+METHOD    FOO_TO_INT             ACCEPTED 
+METHOD    INT_TO_FOO             ACCEPTED 
+METHOD    DINT_TO                ACCEPTED 
+METHOD    TRUNC_                 ACCEPTED 
+METHOD    TRUNC_FOO              ACCEPTED 
+METHOD    BCD_TO_INT             ACCEPTED 
+METHOD    INT_TO_BCD             ACCEPTED 
+METHOD    BCD_TO_DINT            ACCEPTED 
+METHOD    DWORD_TO_BCD           ACCEPTED 
+
+== 1. METHOD <word> on a new FB (the words the rule decided unasked) ==
+METHOD    BOOL_TO_BOOL           ACCEPTED 
+METHOD    BIT_TO_BIT             ACCEPTED 
+METHOD    BYTE_TO_BYTE           ACCEPTED 
+METHOD    WORD_TO_WORD           ACCEPTED 
+METHOD    DWORD_TO_DWORD         ACCEPTED 
+METHOD    LWORD_TO_LWORD         ACCEPTED 
+METHOD    SINT_TO_SINT           ACCEPTED 
+METHOD    INT_TO_INT             ACCEPTED 
+METHOD    DINT_TO_DINT           ACCEPTED 
+METHOD    LINT_TO_LINT           ACCEPTED 
+METHOD    USINT_TO_USINT         ACCEPTED 
+METHOD    UINT_TO_UINT           ACCEPTED 
+METHOD    UDINT_TO_UDINT         ACCEPTED 
+METHOD    ULINT_TO_ULINT         ACCEPTED 
+METHOD    REAL_TO_REAL           ACCEPTED 
+METHOD    LREAL_TO_LREAL         ACCEPTED 
+METHOD    TIME_TO_TIME           ACCEPTED 
+METHOD    LTIME_TO_LTIME         ACCEPTED 
+METHOD    DATE_TO_DATE           ACCEPTED 
+METHOD    TOD_TO_TOD             REFUSED   [UNSUPPORTED] 'VltPkn_425': the IDE refused to create its method 'TOD_TO_TOD': The name 'TOD_TO_TOD' is not valid for this object. — 'VltPkn_425' is not created (the create is rolled back)
+METHOD    DT_TO_DT               REFUSED   [UNSUPPORTED] 'VltPkn_426': the IDE refused to create its method 'DT_TO_DT': The name 'DT_TO_DT' is not valid for this object. — 'VltPkn_426' is not created (the create is rolled back)
+METHOD    LDATE_TO_LDATE         ACCEPTED 
+METHOD    LTOD_TO_LTOD           REFUSED   [UNSUPPORTED] 'VltPkn_428': the IDE refused to create its method 'LTOD_TO_LTOD': The name 'LTOD_TO_LTOD' is not valid for this object. — 'VltPkn_428' is not created (the create is rolled back)
+METHOD    LDT_TO_LDT             REFUSED   [UNSUPPORTED] 'VltPkn_429': the IDE refused to create its method 'LDT_TO_LDT': The name 'LDT_TO_LDT' is not valid for this object. — 'VltPkn_429' is not created (the create is rolled back)
+METHOD    STRING_TO_STRING       ACCEPTED 
+METHOD    WSTRING_TO_WSTRING     ACCEPTED 
+METHOD    TIME_OF_DAY_TO_TIME_OF_DAY ACCEPTED 
+METHOD    DATE_AND_TIME_TO_DATE_AND_TIME ACCEPTED 
+METHOD    LDATE_AND_TIME_TO_LDATE_AND_TIME ACCEPTED 
+METHOD    LTIME_OF_DAY_TO_LTIME_OF_DAY ACCEPTED 
+METHOD    __XINT_TO___XINT       REFUSED   [UNSUPPORTED] 'VltPkn_436': the IDE refused to create its method '__XINT_TO___XINT': The name '__XINT_TO___XINT' is not valid for this object. — 'VltPkn_436' is not created (the create is rolled back)
+METHOD    __UXINT_TO___UXINT     REFUSED   [UNSUPPORTED] 'VltPkn_437': the IDE refused to create its method '__UXINT_TO___UXINT': The name '__UXINT_TO___UXINT' is not valid for this object. — 'VltPkn_437' is not created (the create is rolled back)
+METHOD    __XWORD_TO___XWORD     REFUSED   [UNSUPPORTED] 'VltPkn_438': the IDE refused to create its method '__XWORD_TO___XWORD': The name '__XWORD_TO___XWORD' is not valid for this object. — 'VltPkn_438' is not created (the create is rolled back)
+METHOD    function_block         REFUSED   [UNSUPPORTED] 'VltPkn_439': the IDE refused to create its method 'function_block': The name 'function_block' is not valid for this object. — 'VltPkn_439' is not created (the create is rolled back)
+METHOD    end_function_block     REFUSED   [UNSUPPORTED] 'VltPkn_440': the IDE refused to create its method 'end_function_block': The name 'end_function_block' is not valid for this object. — 'VltPkn_440' is not created (the create is rolled back)
+METHOD    program                REFUSED   [UNSUPPORTED] 'VltPkn_441': the IDE refused to create its method 'program': The name 'program' is not valid for this object. — 'VltPkn_441' is not created (the create is rolled back)
+METHOD    end_program            REFUSED   [UNSUPPORTED] 'VltPkn_442': the IDE refused to create its method 'end_program': The name 'end_program' is not valid for this object. — 'VltPkn_442' is not created (the create is rolled back)
+METHOD    function               REFUSED   [UNSUPPORTED] 'VltPkn_443': the IDE refused to create its method 'function': The name 'function' is not valid for this object. — 'VltPkn_443' is not created (the create is rolled back)
+METHOD    end_function           REFUSED   [UNSUPPORTED] 'VltPkn_444': the IDE refused to create its method 'end_function': The name 'end_function' is not valid for this object. — 'VltPkn_444' is not created (the create is rolled back)
+METHOD    method                 REFUSED   [UNSUPPORTED] 'VltPkn_445': the IDE refused to create its method 'method': The name 'method' is not valid for this object. — 'VltPkn_445' is not created (the create is rolled back)
+METHOD    action                 REFUSED   [UNSUPPORTED] 'VltPkn_446': the IDE refused to create its method 'action': The name 'action' is not valid for this object. — 'VltPkn_446' is not created (the create is rolled back)
+METHOD    end_action             REFUSED   [UNSUPPORTED] 'VltPkn_447': the IDE refused to create its method 'end_action': The name 'end_action' is not valid for this object. — 'VltPkn_447' is not created (the create is rolled back)
+METHOD    property               REFUSED   [UNSUPPORTED] 'VltPkn_448': the IDE refused to create its method 'property': The name 'property' is not valid for this object. — 'VltPkn_448' is not created (the create is rolled back)
+METHOD    end_property           REFUSED   [UNSUPPORTED] 'VltPkn_449': the IDE refused to create its method 'end_property': The name 'end_property' is not valid for this object. — 'VltPkn_449' is not created (the create is rolled back)
+METHOD    interface              REFUSED   [UNSUPPORTED] 'VltPkn_450': the IDE refused to create its method 'interface': The name 'interface' is not valid for this object. — 'VltPkn_450' is not created (the create is rolled back)
+METHOD    end_interface          REFUSED   [UNSUPPORTED] 'VltPkn_451': the IDE refused to create its method 'end_interface': The name 'end_interface' is not valid for this object. — 'VltPkn_451' is not created (the create is rolled back)
+METHOD    type                   REFUSED   [UNSUPPORTED] 'VltPkn_452': the IDE refused to create its method 'type': The name 'type' is not valid for this object. — 'VltPkn_452' is not created (the create is rolled back)
+METHOD    end_type               REFUSED   [UNSUPPORTED] 'VltPkn_453': the IDE refused to create its method 'end_type': The name 'end_type' is not valid for this object. — 'VltPkn_453' is not created (the create is rolled back)
+METHOD    struct                 REFUSED   [UNSUPPORTED] 'VltPkn_454': the IDE refused to create its method 'struct': The name 'struct' is not valid for this object. — 'VltPkn_454' is not created (the create is rolled back)
+METHOD    end_struct             REFUSED   [UNSUPPORTED] 'VltPkn_455': the IDE refused to create its method 'end_struct': The name 'end_struct' is not valid for this object. — 'VltPkn_455' is not created (the create is rolled back)
+METHOD    union                  REFUSED   [UNSUPPORTED] 'VltPkn_456': the IDE refused to create its method 'union': The name 'union' is not valid for this object. — 'VltPkn_456' is not created (the create is rolled back)
+METHOD    end_union              REFUSED   [UNSUPPORTED] 'VltPkn_457': the IDE refused to create its method 'end_union': The name 'end_union' is not valid for this object. — 'VltPkn_457' is not created (the create is rolled back)
+METHOD    var                    REFUSED   [UNSUPPORTED] 'VltPkn_458': the IDE refused to create its method 'var': The name 'var' is not valid for this object. — 'VltPkn_458' is not created (the create is rolled back)
+METHOD    var_input              REFUSED   [UNSUPPORTED] 'VltPkn_459': the IDE refused to create its method 'var_input': The name 'var_input' is not valid for this object. — 'VltPkn_459' is not created (the create is rolled back)
+METHOD    var_output             REFUSED   [UNSUPPORTED] 'VltPkn_460': the IDE refused to create its method 'var_output': The name 'var_output' is not valid for this object. — 'VltPkn_460' is not created (the create is rolled back)
+METHOD    var_in_out             REFUSED   [UNSUPPORTED] 'VltPkn_461': the IDE refused to create its method 'var_in_out': The name 'var_in_out' is not valid for this object. — 'VltPkn_461' is not created (the create is rolled back)
+METHOD    var_temp               REFUSED   [UNSUPPORTED] 'VltPkn_462': the IDE refused to create its method 'var_temp': The name 'var_temp' is not valid for this object. — 'VltPkn_462' is not created (the create is rolled back)
+METHOD    var_stat               REFUSED   [UNSUPPORTED] 'VltPkn_463': the IDE refused to create its method 'var_stat': The name 'var_stat' is not valid for this object. — 'VltPkn_463' is not created (the create is rolled back)
+METHOD    var_inst               REFUSED   [UNSUPPORTED] 'VltPkn_464': the IDE refused to create its method 'var_inst': The name 'var_inst' is not valid for this object. — 'VltPkn_464' is not created (the create is rolled back)
+METHOD    var_external           REFUSED   [UNSUPPORTED] 'VltPkn_465': the IDE refused to create its method 'var_external': The name 'var_external' is not valid for this object. — 'VltPkn_465' is not created (the create is rolled back)
+METHOD    var_global             REFUSED   [UNSUPPORTED] 'VltPkn_466': the IDE refused to create its method 'var_global': The name 'var_global' is not valid for this object. — 'VltPkn_466' is not created (the create is rolled back)
+METHOD    var_config             REFUSED   [UNSUPPORTED] 'VltPkn_467': the IDE refused to create its method 'var_config': The name 'var_config' is not valid for this object. — 'VltPkn_467' is not created (the create is rolled back)
+METHOD    var_access             REFUSED   [UNSUPPORTED] 'VltPkn_468': the IDE refused to create its method 'var_access': The name 'var_access' is not valid for this object. — 'VltPkn_468' is not created (the create is rolled back)
+METHOD    end_var                REFUSED   [UNSUPPORTED] 'VltPkn_469': the IDE refused to create its method 'end_var': The name 'end_var' is not valid for this object. — 'VltPkn_469' is not created (the create is rolled back)
+METHOD    constant               REFUSED   [UNSUPPORTED] 'VltPkn_470': the IDE refused to create its method 'constant': The name 'constant' is not valid for this object. — 'VltPkn_470' is not created (the create is rolled back)
+METHOD    retain                 REFUSED   [UNSUPPORTED] 'VltPkn_471': the IDE refused to create its method 'retain': The name 'retain' is not valid for this object. — 'VltPkn_471' is not created (the create is rolled back)
+METHOD    persistent             REFUSED   [UNSUPPORTED] 'VltPkn_472': the IDE refused to create its method 'persistent': The name 'persistent' is not valid for this object. — 'VltPkn_472' is not created (the create is rolled back)
+METHOD    private                REFUSED   [UNSUPPORTED] 'VltPkn_473': the IDE refused to create its method 'private': The name 'private' is not valid for this object. — 'VltPkn_473' is not created (the create is rolled back)
+METHOD    protected              REFUSED   [UNSUPPORTED] 'VltPkn_474': the IDE refused to create its method 'protected': The name 'protected' is not valid for this object. — 'VltPkn_474' is not created (the create is rolled back)
+METHOD    internal               REFUSED   [UNSUPPORTED] 'VltPkn_475': the IDE refused to create its method 'internal': The name 'internal' is not valid for this object. — 'VltPkn_475' is not created (the create is rolled back)
+METHOD    final                  REFUSED   [UNSUPPORTED] 'VltPkn_476': the IDE refused to create its method 'final': The name 'final' is not valid for this object. — 'VltPkn_476' is not created (the create is rolled back)
+METHOD    abstract               REFUSED   [UNSUPPORTED] 'VltPkn_477': the IDE refused to create its method 'abstract': The name 'abstract' is not valid for this object. — 'VltPkn_477' is not created (the create is rolled back)
+METHOD    read_only              REFUSED   [UNSUPPORTED] 'VltPkn_478': the IDE refused to create its method 'read_only': The name 'read_only' is not valid for this object. — 'VltPkn_478' is not created (the create is rolled back)
+METHOD    read_write             REFUSED   [UNSUPPORTED] 'VltPkn_479': the IDE refused to create its method 'read_write': The name 'read_write' is not valid for this object. — 'VltPkn_479' is not created (the create is rolled back)
+METHOD    extends                REFUSED   [UNSUPPORTED] 'VltPkn_480': the IDE refused to create its method 'extends': The name 'extends' is not valid for this object. — 'VltPkn_480' is not created (the create is rolled back)
+METHOD    implements             REFUSED   [UNSUPPORTED] 'VltPkn_481': the IDE refused to create its method 'implements': The name 'implements' is not valid for this object. — 'VltPkn_481' is not created (the create is rolled back)
+METHOD    array                  REFUSED   [UNSUPPORTED] 'VltPkn_482': the IDE refused to create its method 'array': The name 'array' is not valid for this object. — 'VltPkn_482' is not created (the create is rolled back)
+METHOD    of                     REFUSED   [UNSUPPORTED] 'VltPkn_483': the IDE refused to create its method 'of': The name 'of' is not valid for this object. — 'VltPkn_483' is not created (the create is rolled back)
+METHOD    reference              REFUSED   [UNSUPPORTED] 'VltPkn_484': the IDE refused to create its method 'reference': The name 'reference' is not valid for this object. — 'VltPkn_484' is not created (the create is rolled back)
+METHOD    pointer                REFUSED   [UNSUPPORTED] 'VltPkn_485': the IDE refused to create its method 'pointer': The name 'pointer' is not valid for this object. — 'VltPkn_485' is not created (the create is rolled back)
+METHOD    to                     REFUSED   [UNSUPPORTED] 'VltPkn_486': the IDE refused to create its method 'to': The name 'to' is not valid for this object. — 'VltPkn_486' is not created (the create is rolled back)
+METHOD    at                     REFUSED   [UNSUPPORTED] 'VltPkn_487': the IDE refused to create its method 'at': The name 'at' is not valid for this object. — 'VltPkn_487' is not created (the create is rolled back)
+METHOD    string                 REFUSED   [UNSUPPORTED] 'VltPkn_488': the IDE refused to create its method 'string': The name 'string' is not valid for this object. — 'VltPkn_488' is not created (the create is rolled back)
+METHOD    wstring                REFUSED   [UNSUPPORTED] 'VltPkn_489': the IDE refused to create its method 'wstring': The name 'wstring' is not valid for this object. — 'VltPkn_489' is not created (the create is rolled back)
+METHOD    if                     REFUSED   [UNSUPPORTED] 'VltPkn_490': the IDE refused to create its method 'if': The name 'if' is not valid for this object. — 'VltPkn_490' is not created (the create is rolled back)
+METHOD    then                   REFUSED   [UNSUPPORTED] 'VltPkn_491': the IDE refused to create its method 'then': The name 'then' is not valid for this object. — 'VltPkn_491' is not created (the create is rolled back)
+METHOD    elsif                  REFUSED   [UNSUPPORTED] 'VltPkn_492': the IDE refused to create its method 'elsif': The name 'elsif' is not valid for this object. — 'VltPkn_492' is not created (the create is rolled back)
+METHOD    else                   REFUSED   [UNSUPPORTED] 'VltPkn_493': the IDE refused to create its method 'else': The name 'else' is not valid for this object. — 'VltPkn_493' is not created (the create is rolled back)
+METHOD    end_if                 REFUSED   [UNSUPPORTED] 'VltPkn_494': the IDE refused to create its method 'end_if': The name 'end_if' is not valid for this object. — 'VltPkn_494' is not created (the create is rolled back)
+METHOD    case                   REFUSED   [UNSUPPORTED] 'VltPkn_495': the IDE refused to create its method 'case': The name 'case' is not valid for this object. — 'VltPkn_495' is not created (the create is rolled back)
+METHOD    end_case               REFUSED   [UNSUPPORTED] 'VltPkn_496': the IDE refused to create its method 'end_case': The name 'end_case' is not valid for this object. — 'VltPkn_496' is not created (the create is rolled back)
+METHOD    for                    REFUSED   [UNSUPPORTED] 'VltPkn_497': the IDE refused to create its method 'for': The name 'for' is not valid for this object. — 'VltPkn_497' is not created (the create is rolled back)
+METHOD    by                     REFUSED   [UNSUPPORTED] 'VltPkn_498': the IDE refused to create its method 'by': The name 'by' is not valid for this object. — 'VltPkn_498' is not created (the create is rolled back)
+METHOD    do                     REFUSED   [UNSUPPORTED] 'VltPkn_499': the IDE refused to create its method 'do': The name 'do' is not valid for this object. — 'VltPkn_499' is not created (the create is rolled back)
+METHOD    end_for                REFUSED   [UNSUPPORTED] 'VltPkn_500': the IDE refused to create its method 'end_for': The name 'end_for' is not valid for this object. — 'VltPkn_500' is not created (the create is rolled back)
+METHOD    while                  REFUSED   [UNSUPPORTED] 'VltPkn_501': the IDE refused to create its method 'while': The name 'while' is not valid for this object. — 'VltPkn_501' is not created (the create is rolled back)
+METHOD    end_while              REFUSED   [UNSUPPORTED] 'VltPkn_502': the IDE refused to create its method 'end_while': The name 'end_while' is not valid for this object. — 'VltPkn_502' is not created (the create is rolled back)
+METHOD    repeat                 REFUSED   [UNSUPPORTED] 'VltPkn_503': the IDE refused to create its method 'repeat': The name 'repeat' is not valid for this object. — 'VltPkn_503' is not created (the create is rolled back)
+METHOD    until                  REFUSED   [UNSUPPORTED] 'VltPkn_504': the IDE refused to create its method 'until': The name 'until' is not valid for this object. — 'VltPkn_504' is not created (the create is rolled back)
+METHOD    end_repeat             REFUSED   [UNSUPPORTED] 'VltPkn_505': the IDE refused to create its method 'end_repeat': The name 'end_repeat' is not valid for this object. — 'VltPkn_505' is not created (the create is rolled back)
+METHOD    return                 REFUSED   [UNSUPPORTED] 'VltPkn_506': the IDE refused to create its method 'return': The name 'return' is not valid for this object. — 'VltPkn_506' is not created (the create is rolled back)
+METHOD    exit                   REFUSED   [UNSUPPORTED] 'VltPkn_507': the IDE refused to create its method 'exit': The name 'exit' is not valid for this object. — 'VltPkn_507' is not created (the create is rolled back)
+METHOD    continue               REFUSED   [UNSUPPORTED] 'VltPkn_508': the IDE refused to create its method 'continue': The name 'continue' is not valid for this object. — 'VltPkn_508' is not created (the create is rolled back)
+METHOD    jmp                    REFUSED   [UNSUPPORTED] 'VltPkn_509': the IDE refused to create its method 'jmp': The name 'jmp' is not valid for this object. — 'VltPkn_509' is not created (the create is rolled back)
+METHOD    and                    REFUSED   [UNSUPPORTED] 'VltPkn_510': the IDE refused to create its method 'and': The name 'and' is not valid for this object. — 'VltPkn_510' is not created (the create is rolled back)
+METHOD    and_then               REFUSED   [UNSUPPORTED] 'VltPkn_511': the IDE refused to create its method 'and_then': The name 'and_then' is not valid for this object. — 'VltPkn_511' is not created (the create is rolled back)
+METHOD    or                     REFUSED   [UNSUPPORTED] 'VltPkn_512': the IDE refused to create its method 'or': The name 'or' is not valid for this object. — 'VltPkn_512' is not created (the create is rolled back)
+METHOD    or_else                REFUSED   [UNSUPPORTED] 'VltPkn_513': the IDE refused to create its method 'or_else': The name 'or_else' is not valid for this object. — 'VltPkn_513' is not created (the create is rolled back)
+METHOD    not                    REFUSED   [UNSUPPORTED] 'VltPkn_514': the IDE refused to create its method 'not': The name 'not' is not valid for this object. — 'VltPkn_514' is not created (the create is rolled back)
+METHOD    xor                    REFUSED   [UNSUPPORTED] 'VltPkn_515': the IDE refused to create its method 'xor': The name 'xor' is not valid for this object. — 'VltPkn_515' is not created (the create is rolled back)
+METHOD    mod                    REFUSED   [UNSUPPORTED] 'VltPkn_516': the IDE refused to create its method 'mod': The name 'mod' is not valid for this object. — 'VltPkn_516' is not created (the create is rolled back)
+METHOD    div                    REFUSED   [UNSUPPORTED] 'VltPkn_517': the IDE refused to create its method 'div': The name 'div' is not valid for this object. — 'VltPkn_517' is not created (the create is rolled back)
+METHOD    true                   REFUSED   [UNSUPPORTED] 'VltPkn_518': the IDE refused to create its method 'true': The name 'true' is not valid for this object. — 'VltPkn_518' is not created (the create is rolled back)
+METHOD    false                  REFUSED   [UNSUPPORTED] 'VltPkn_519': the IDE refused to create its method 'false': The name 'false' is not valid for this object. — 'VltPkn_519' is not created (the create is rolled back)
+METHOD    add                    REFUSED   [UNSUPPORTED] 'VltPkn_520': the IDE refused to create its method 'add': The name 'add' is not valid for this object. — 'VltPkn_520' is not created (the create is rolled back)
+METHOD    sub                    REFUSED   [UNSUPPORTED] 'VltPkn_521': the IDE refused to create its method 'sub': The name 'sub' is not valid for this object. — 'VltPkn_521' is not created (the create is rolled back)
+METHOD    mul                    REFUSED   [UNSUPPORTED] 'VltPkn_522': the IDE refused to create its method 'mul': The name 'mul' is not valid for this object. — 'VltPkn_522' is not created (the create is rolled back)
+METHOD    shl                    REFUSED   [UNSUPPORTED] 'VltPkn_523': the IDE refused to create its method 'shl': The name 'shl' is not valid for this object. — 'VltPkn_523' is not created (the create is rolled back)
+METHOD    shr                    REFUSED   [UNSUPPORTED] 'VltPkn_524': the IDE refused to create its method 'shr': The name 'shr' is not valid for this object. — 'VltPkn_524' is not created (the create is rolled back)
+METHOD    rol                    REFUSED   [UNSUPPORTED] 'VltPkn_525': the IDE refused to create its method 'rol': The name 'rol' is not valid for this object. — 'VltPkn_525' is not created (the create is rolled back)
+METHOD    ror                    REFUSED   [UNSUPPORTED] 'VltPkn_526': the IDE refused to create its method 'ror': The name 'ror' is not valid for this object. — 'VltPkn_526' is not created (the create is rolled back)
+METHOD    sel                    REFUSED   [UNSUPPORTED] 'VltPkn_527': the IDE refused to create its method 'sel': The name 'sel' is not valid for this object. — 'VltPkn_527' is not created (the create is rolled back)
+METHOD    mux                    REFUSED   [UNSUPPORTED] 'VltPkn_528': the IDE refused to create its method 'mux': The name 'mux' is not valid for this object. — 'VltPkn_528' is not created (the create is rolled back)
+METHOD    min                    REFUSED   [UNSUPPORTED] 'VltPkn_529': the IDE refused to create its method 'min': The name 'min' is not valid for this object. — 'VltPkn_529' is not created (the create is rolled back)
+METHOD    max                    REFUSED   [UNSUPPORTED] 'VltPkn_530': the IDE refused to create its method 'max': The name 'max' is not valid for this object. — 'VltPkn_530' is not created (the create is rolled back)
+METHOD    limit                  REFUSED   [UNSUPPORTED] 'VltPkn_531': the IDE refused to create its method 'limit': The name 'limit' is not valid for this object. — 'VltPkn_531' is not created (the create is rolled back)
+METHOD    gt                     REFUSED   [UNSUPPORTED] 'VltPkn_532': the IDE refused to create its method 'gt': The name 'gt' is not valid for this object. — 'VltPkn_532' is not created (the create is rolled back)
+METHOD    lt                     REFUSED   [UNSUPPORTED] 'VltPkn_533': the IDE refused to create its method 'lt': The name 'lt' is not valid for this object. — 'VltPkn_533' is not created (the create is rolled back)
+METHOD    ge                     REFUSED   [UNSUPPORTED] 'VltPkn_534': the IDE refused to create its method 'ge': The name 'ge' is not valid for this object. — 'VltPkn_534' is not created (the create is rolled back)
+METHOD    le                     REFUSED   [UNSUPPORTED] 'VltPkn_535': the IDE refused to create its method 'le': The name 'le' is not valid for this object. — 'VltPkn_535' is not created (the create is rolled back)
+METHOD    eq                     REFUSED   [UNSUPPORTED] 'VltPkn_536': the IDE refused to create its method 'eq': The name 'eq' is not valid for this object. — 'VltPkn_536' is not created (the create is rolled back)
+METHOD    ne                     REFUSED   [UNSUPPORTED] 'VltPkn_537': the IDE refused to create its method 'ne': The name 'ne' is not valid for this object. — 'VltPkn_537' is not created (the create is rolled back)
+METHOD    abs                    REFUSED   [UNSUPPORTED] 'VltPkn_538': the IDE refused to create its method 'abs': The name 'abs' is not valid for this object. — 'VltPkn_538' is not created (the create is rolled back)
+METHOD    sqrt                   REFUSED   [UNSUPPORTED] 'VltPkn_539': the IDE refused to create its method 'sqrt': The name 'sqrt' is not valid for this object. — 'VltPkn_539' is not created (the create is rolled back)
+METHOD    ln                     REFUSED   [UNSUPPORTED] 'VltPkn_540': the IDE refused to create its method 'ln': The name 'ln' is not valid for this object. — 'VltPkn_540' is not created (the create is rolled back)
+METHOD    exp                    REFUSED   [UNSUPPORTED] 'VltPkn_541': the IDE refused to create its method 'exp': The name 'exp' is not valid for this object. — 'VltPkn_541' is not created (the create is rolled back)
+METHOD    expt                   REFUSED   [UNSUPPORTED] 'VltPkn_542': the IDE refused to create its method 'expt': The name 'expt' is not valid for this object. — 'VltPkn_542' is not created (the create is rolled back)
+METHOD    cos                    REFUSED   [UNSUPPORTED] 'VltPkn_543': the IDE refused to create its method 'cos': The name 'cos' is not valid for this object. — 'VltPkn_543' is not created (the create is rolled back)
+METHOD    tan                    REFUSED   [UNSUPPORTED] 'VltPkn_544': the IDE refused to create its method 'tan': The name 'tan' is not valid for this object. — 'VltPkn_544' is not created (the create is rolled back)
+METHOD    asin                   REFUSED   [UNSUPPORTED] 'VltPkn_545': the IDE refused to create its method 'asin': The name 'asin' is not valid for this object. — 'VltPkn_545' is not created (the create is rolled back)
+METHOD    acos                   REFUSED   [UNSUPPORTED] 'VltPkn_546': the IDE refused to create its method 'acos': The name 'acos' is not valid for this object. — 'VltPkn_546' is not created (the create is rolled back)
+METHOD    atan                   REFUSED   [UNSUPPORTED] 'VltPkn_547': the IDE refused to create its method 'atan': The name 'atan' is not valid for this object. — 'VltPkn_547' is not created (the create is rolled back)
+METHOD    adr                    REFUSED   [UNSUPPORTED] 'VltPkn_548': the IDE refused to create its method 'adr': The name 'adr' is not valid for this object. — 'VltPkn_548' is not created (the create is rolled back)
+METHOD    bitadr                 REFUSED   [UNSUPPORTED] 'VltPkn_549': the IDE refused to create its method 'bitadr': The name 'bitadr' is not valid for this object. — 'VltPkn_549' is not created (the create is rolled back)
+METHOD    move                   REFUSED   [UNSUPPORTED] 'VltPkn_550': the IDE refused to create its method 'move': The name 'move' is not valid for this object. — 'VltPkn_550' is not created (the create is rolled back)
+METHOD    indexof                REFUSED   [UNSUPPORTED] 'VltPkn_551': the IDE refused to create its method 'indexof': The name 'indexof' is not valid for this object. — 'VltPkn_551' is not created (the create is rolled back)
+METHOD    sizeof                 REFUSED   [UNSUPPORTED] 'VltPkn_552': the IDE refused to create its method 'sizeof': The name 'sizeof' is not valid for this object. — 'VltPkn_552' is not created (the create is rolled back)
+METHOD    xsizeof                REFUSED   [UNSUPPORTED] 'VltPkn_553': the IDE refused to create its method 'xsizeof': The name 'xsizeof' is not valid for this object. — 'VltPkn_553' is not created (the create is rolled back)
+METHOD    trunc                  REFUSED   [UNSUPPORTED] 'VltPkn_554': the IDE refused to create its method 'trunc': The name 'trunc' is not valid for this object. — 'VltPkn_554' is not created (the create is rolled back)
+METHOD    trunc_int              REFUSED   [UNSUPPORTED] 'VltPkn_555': the IDE refused to create its method 'trunc_int': The name 'trunc_int' is not valid for this object. — 'VltPkn_555' is not created (the create is rolled back)
+METHOD    ini                    REFUSED   [UNSUPPORTED] 'VltPkn_556': the IDE refused to create its method 'ini': The name 'ini' is not valid for this object. — 'VltPkn_556' is not created (the create is rolled back)
+METHOD    cal                    REFUSED   [UNSUPPORTED] 'VltPkn_557': the IDE refused to create its method 'cal': The name 'cal' is not valid for this object. — 'VltPkn_557' is not created (the create is rolled back)
+METHOD    __new                  REFUSED   [UNSUPPORTED] 'VltPkn_558': the IDE refused to create its method '__new': The name '__new' is not valid for this object. — 'VltPkn_558' is not created (the create is rolled back)
+METHOD    __delete               REFUSED   [UNSUPPORTED] 'VltPkn_559': the IDE refused to create its method '__delete': The name '__delete' is not valid for this object. — 'VltPkn_559' is not created (the create is rolled back)
+METHOD    __isvalidref           REFUSED   [UNSUPPORTED] 'VltPkn_560': the IDE refused to create its method '__isvalidref': The name '__isvalidref' is not valid for this object. — 'VltPkn_560' is not created (the create is rolled back)
+METHOD    __queryinterface       REFUSED   [UNSUPPORTED] 'VltPkn_561': the IDE refused to create its method '__queryinterface': The name '__queryinterface' is not valid for this object. — 'VltPkn_561' is not created (the create is rolled back)
+METHOD    __querypointer         REFUSED   [UNSUPPORTED] 'VltPkn_562': the IDE refused to create its method '__querypointer': The name '__querypointer' is not valid for this object. — 'VltPkn_562' is not created (the create is rolled back)
+METHOD    __try                  REFUSED   [UNSUPPORTED] 'VltPkn_563': the IDE refused to create its method '__try': The name '__try' is not valid for this object. — 'VltPkn_563' is not created (the create is rolled back)
+METHOD    __catch                REFUSED   [UNSUPPORTED] 'VltPkn_564': the IDE refused to create its method '__catch': The name '__catch' is not valid for this object. — 'VltPkn_564' is not created (the create is rolled back)
+METHOD    __finally              REFUSED   [UNSUPPORTED] 'VltPkn_565': the IDE refused to create its method '__finally': The name '__finally' is not valid for this object. — 'VltPkn_565' is not created (the create is rolled back)
+METHOD    __endtry               REFUSED   [UNSUPPORTED] 'VltPkn_566': the IDE refused to create its method '__endtry': The name '__endtry' is not valid for this object. — 'VltPkn_566' is not created (the create is rolled back)
+METHOD    __varinfo              REFUSED   [UNSUPPORTED] 'VltPkn_567': the IDE refused to create its method '__varinfo': The name '__varinfo' is not valid for this object. — 'VltPkn_567' is not created (the create is rolled back)
+METHOD    __currenttask          REFUSED   [UNSUPPORTED] 'VltPkn_568': the IDE refused to create its method '__currenttask': The name '__currenttask' is not valid for this object. — 'VltPkn_568' is not created (the create is rolled back)
+METHOD    __position             REFUSED   [UNSUPPORTED] 'VltPkn_569': the IDE refused to create its method '__position': The name '__position' is not valid for this object. — 'VltPkn_569' is not created (the create is rolled back)
+METHOD    __pouname              REFUSED   [UNSUPPORTED] 'VltPkn_570': the IDE refused to create its method '__pouname': The name '__pouname' is not valid for this object. — 'VltPkn_570' is not created (the create is rolled back)
+METHOD    __compare_and_swap     REFUSED   [UNSUPPORTED] 'VltPkn_571': the IDE refused to create its method '__compare_and_swap': The name '__compare_and_swap' is not valid for this object. — 'VltPkn_571' is not created (the create is rolled back)
+METHOD    __xadd                 REFUSED   [UNSUPPORTED] 'VltPkn_572': the IDE refused to create its method '__xadd': The name '__xadd' is not valid for this object. — 'VltPkn_572' is not created (the create is rolled back)
+METHOD    __pool                 REFUSED   [UNSUPPORTED] 'VltPkn_573': the IDE refused to create its method '__pool': The name '__pool' is not valid for this object. — 'VltPkn_573' is not created (the create is rolled back)
+METHOD    test_and_set           REFUSED   [UNSUPPORTED] 'VltPkn_574': the IDE refused to create its method 'test_and_set': The name 'test_and_set' is not valid for this object. — 'VltPkn_574' is not created (the create is rolled back)
+METHOD    __vector               REFUSED   [UNSUPPORTED] 'VltPkn_575': the IDE refused to create its method '__vector': The name '__vector' is not valid for this object. — 'VltPkn_575' is not created (the create is rolled back)
+METHOD    var_generic            REFUSED   [UNSUPPORTED] 'VltPkn_576': the IDE refused to create its method 'var_generic': The name 'var_generic' is not valid for this object. — 'VltPkn_576' is not created (the create is rolled back)
+METHOD    params                 REFUSED   [UNSUPPORTED] 'VltPkn_577': the IDE refused to create its method 'params': The name 'params' is not valid for this object. — 'VltPkn_577' is not created (the create is rolled back)
+METHOD    this                   REFUSED   [UNSUPPORTED] 'VltPkn_578': the IDE refused to create its method 'this': The name 'this' is not valid for this object. — 'VltPkn_578' is not created (the create is rolled back)
+METHOD    super                  REFUSED   [UNSUPPORTED] 'VltPkn_579': the IDE refused to create its method 'super': The name 'super' is not valid for this object. — 'VltPkn_579' is not created (the create is rolled back)
+METHOD    from                   REFUSED   [UNSUPPORTED] 'VltPkn_580': the IDE refused to create its method 'from': The name 'from' is not valid for this object. — 'VltPkn_580' is not created (the create is rolled back)
+METHOD    r                      REFUSED   [UNSUPPORTED] 'VltPkn_581': the IDE refused to create its method 'r': The name 'r' is not valid for this object. — 'VltPkn_581' is not created (the create is rolled back)
+METHOD    s                      REFUSED   [UNSUPPORTED] 'VltPkn_582': the IDE refused to create its method 's': The name 's' is not valid for this object. — 'VltPkn_582' is not created (the create is rolled back)
+METHOD    ld                     REFUSED   [UNSUPPORTED] 'VltPkn_583': the IDE refused to create its method 'ld': The name 'ld' is not valid for this object. — 'VltPkn_583' is not created (the create is rolled back)
+METHOD    ldn                    REFUSED   [UNSUPPORTED] 'VltPkn_584': the IDE refused to create its method 'ldn': The name 'ldn' is not valid for this object. — 'VltPkn_584' is not created (the create is rolled back)
+METHOD    st                     REFUSED   [UNSUPPORTED] 'VltPkn_585': the IDE refused to create its method 'st': The name 'st' is not valid for this object. — 'VltPkn_585' is not created (the create is rolled back)
+METHOD    stn                    REFUSED   [UNSUPPORTED] 'VltPkn_586': the IDE refused to create its method 'stn': The name 'stn' is not valid for this object. — 'VltPkn_586' is not created (the create is rolled back)
+METHOD    ret                    REFUSED   [UNSUPPORTED] 'VltPkn_587': the IDE refused to create its method 'ret': The name 'ret' is not valid for this object. — 'VltPkn_587' is not created (the create is rolled back)
+METHOD    retc                   REFUSED   [UNSUPPORTED] 'VltPkn_588': the IDE refused to create its method 'retc': The name 'retc' is not valid for this object. — 'VltPkn_588' is not created (the create is rolled back)
+METHOD    retcn                  REFUSED   [UNSUPPORTED] 'VltPkn_589': the IDE refused to create its method 'retcn': The name 'retcn' is not valid for this object. — 'VltPkn_589' is not created (the create is rolled back)
+METHOD    jmpc                   REFUSED   [UNSUPPORTED] 'VltPkn_590': the IDE refused to create its method 'jmpc': The name 'jmpc' is not valid for this object. — 'VltPkn_590' is not created (the create is rolled back)
+METHOD    jmpcn                  REFUSED   [UNSUPPORTED] 'VltPkn_591': the IDE refused to create its method 'jmpcn': The name 'jmpcn' is not valid for this object. — 'VltPkn_591' is not created (the create is rolled back)
+METHOD    calcn                  REFUSED   [UNSUPPORTED] 'VltPkn_592': the IDE refused to create its method 'calcn': The name 'calcn' is not valid for this object. — 'VltPkn_592' is not created (the create is rolled back)
+METHOD    andn                   REFUSED   [UNSUPPORTED] 'VltPkn_593': the IDE refused to create its method 'andn': The name 'andn' is not valid for this object. — 'VltPkn_593' is not created (the create is rolled back)
+METHOD    orn                    REFUSED   [UNSUPPORTED] 'VltPkn_594': the IDE refused to create its method 'orn': The name 'orn' is not valid for this object. — 'VltPkn_594' is not created (the create is rolled back)
+METHOD    xorn                   REFUSED   [UNSUPPORTED] 'VltPkn_595': the IDE refused to create its method 'xorn': The name 'xorn' is not valid for this object. — 'VltPkn_595' is not created (the create is rolled back)
+METHOD    bool                   REFUSED   [UNSUPPORTED] 'VltPkn_596': the IDE refused to create its method 'bool': The name 'bool' is not valid for this object. — 'VltPkn_596' is not created (the create is rolled back)
+METHOD    bit                    REFUSED   [UNSUPPORTED] 'VltPkn_597': the IDE refused to create its method 'bit': The name 'bit' is not valid for this object. — 'VltPkn_597' is not created (the create is rolled back)
+METHOD    byte                   REFUSED   [UNSUPPORTED] 'VltPkn_598': the IDE refused to create its method 'byte': The name 'byte' is not valid for this object. — 'VltPkn_598' is not created (the create is rolled back)
+METHOD    word                   REFUSED   [UNSUPPORTED] 'VltPkn_599': the IDE refused to create its method 'word': The name 'word' is not valid for this object. — 'VltPkn_599' is not created (the create is rolled back)
+METHOD    dword                  REFUSED   [UNSUPPORTED] 'VltPkn_600': the IDE refused to create its method 'dword': The name 'dword' is not valid for this object. — 'VltPkn_600' is not created (the create is rolled back)
+METHOD    lword                  REFUSED   [UNSUPPORTED] 'VltPkn_601': the IDE refused to create its method 'lword': The name 'lword' is not valid for this object. — 'VltPkn_601' is not created (the create is rolled back)
+METHOD    sint                   REFUSED   [UNSUPPORTED] 'VltPkn_602': the IDE refused to create its method 'sint': The name 'sint' is not valid for this object. — 'VltPkn_602' is not created (the create is rolled back)
+METHOD    int                    REFUSED   [UNSUPPORTED] 'VltPkn_603': the IDE refused to create its method 'int': The name 'int' is not valid for this object. — 'VltPkn_603' is not created (the create is rolled back)
+METHOD    dint                   REFUSED   [UNSUPPORTED] 'VltPkn_604': the IDE refused to create its method 'dint': The name 'dint' is not valid for this object. — 'VltPkn_604' is not created (the create is rolled back)
+METHOD    lint                   REFUSED   [UNSUPPORTED] 'VltPkn_605': the IDE refused to create its method 'lint': The name 'lint' is not valid for this object. — 'VltPkn_605' is not created (the create is rolled back)
+METHOD    usint                  REFUSED   [UNSUPPORTED] 'VltPkn_606': the IDE refused to create its method 'usint': The name 'usint' is not valid for this object. — 'VltPkn_606' is not created (the create is rolled back)
+METHOD    uint                   REFUSED   [UNSUPPORTED] 'VltPkn_607': the IDE refused to create its method 'uint': The name 'uint' is not valid for this object. — 'VltPkn_607' is not created (the create is rolled back)
+METHOD    udint                  REFUSED   [UNSUPPORTED] 'VltPkn_608': the IDE refused to create its method 'udint': The name 'udint' is not valid for this object. — 'VltPkn_608' is not created (the create is rolled back)
+METHOD    ulint                  REFUSED   [UNSUPPORTED] 'VltPkn_609': the IDE refused to create its method 'ulint': The name 'ulint' is not valid for this object. — 'VltPkn_609' is not created (the create is rolled back)
+METHOD    real                   REFUSED   [UNSUPPORTED] 'VltPkn_610': the IDE refused to create its method 'real': The name 'real' is not valid for this object. — 'VltPkn_610' is not created (the create is rolled back)
+METHOD    lreal                  REFUSED   [UNSUPPORTED] 'VltPkn_611': the IDE refused to create its method 'lreal': The name 'lreal' is not valid for this object. — 'VltPkn_611' is not created (the create is rolled back)
+METHOD    time                   REFUSED   [UNSUPPORTED] 'VltPkn_612': the IDE refused to create its method 'time': The name 'time' is not valid for this object. — 'VltPkn_612' is not created (the create is rolled back)
+METHOD    ltime                  REFUSED   [UNSUPPORTED] 'VltPkn_613': the IDE refused to create its method 'ltime': The name 'ltime' is not valid for this object. — 'VltPkn_613' is not created (the create is rolled back)
+METHOD    date                   REFUSED   [UNSUPPORTED] 'VltPkn_614': the IDE refused to create its method 'date': The name 'date' is not valid for this object. — 'VltPkn_614' is not created (the create is rolled back)
+METHOD    tod                    REFUSED   [UNSUPPORTED] 'VltPkn_615': the IDE refused to create its method 'tod': The name 'tod' is not valid for this object. — 'VltPkn_615' is not created (the create is rolled back)
+METHOD    dt                     REFUSED   [UNSUPPORTED] 'VltPkn_616': the IDE refused to create its method 'dt': The name 'dt' is not valid for this object. — 'VltPkn_616' is not created (the create is rolled back)
+METHOD    ldate                  REFUSED   [UNSUPPORTED] 'VltPkn_617': the IDE refused to create its method 'ldate': The name 'ldate' is not valid for this object. — 'VltPkn_617' is not created (the create is rolled back)
+METHOD    ltod                   REFUSED   [UNSUPPORTED] 'VltPkn_618': the IDE refused to create its method 'ltod': The name 'ltod' is not valid for this object. — 'VltPkn_618' is not created (the create is rolled back)
+METHOD    ldt                    REFUSED   [UNSUPPORTED] 'VltPkn_619': the IDE refused to create its method 'ldt': The name 'ldt' is not valid for this object. — 'VltPkn_619' is not created (the create is rolled back)
+METHOD    time_of_day            REFUSED   [UNSUPPORTED] 'VltPkn_620': the IDE refused to create its method 'time_of_day': The name 'time_of_day' is not valid for this object. — 'VltPkn_620' is not created (the create is rolled back)
+METHOD    date_and_time          REFUSED   [UNSUPPORTED] 'VltPkn_621': the IDE refused to create its method 'date_and_time': The name 'date_and_time' is not valid for this object. — 'VltPkn_621' is not created (the create is rolled back)
+METHOD    ldate_and_time         REFUSED   [UNSUPPORTED] 'VltPkn_622': the IDE refused to create its method 'ldate_and_time': The name 'ldate_and_time' is not valid for this object. — 'VltPkn_622' is not created (the create is rolled back)
+METHOD    ltime_of_day           REFUSED   [UNSUPPORTED] 'VltPkn_623': the IDE refused to create its method 'ltime_of_day': The name 'ltime_of_day' is not valid for this object. — 'VltPkn_623' is not created (the create is rolled back)
+METHOD    __xint                 REFUSED   [UNSUPPORTED] 'VltPkn_624': the IDE refused to create its method '__xint': The name '__xint' is not valid for this object. — 'VltPkn_624' is not created (the create is rolled back)
+METHOD    __uxint                REFUSED   [UNSUPPORTED] 'VltPkn_625': the IDE refused to create its method '__uxint': The name '__uxint' is not valid for this object. — 'VltPkn_625' is not created (the create is rolled back)
+METHOD    __xword                REFUSED   [UNSUPPORTED] 'VltPkn_626': the IDE refused to create its method '__xword': The name '__xword' is not valid for this object. — 'VltPkn_626' is not created (the create is rolled back)
+METHOD    int_to_real            REFUSED   [UNSUPPORTED] 'VltPkn_627': the IDE refused to create its method 'int_to_real': The name 'int_to_real' is not valid for this object. — 'VltPkn_627' is not created (the create is rolled back)
+METHOD    real_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_628': the IDE refused to create its method 'real_to_int': The name 'real_to_int' is not valid for this object. — 'VltPkn_628' is not created (the create is rolled back)
+METHOD    to_int                 REFUSED   [UNSUPPORTED] 'VltPkn_629': the IDE refused to create its method 'to_int': The name 'to_int' is not valid for this object. — 'VltPkn_629' is not created (the create is rolled back)
+METHOD    to_real                REFUSED   [UNSUPPORTED] 'VltPkn_630': the IDE refused to create its method 'to_real': The name 'to_real' is not valid for this object. — 'VltPkn_630' is not created (the create is rolled back)
+METHOD    bool_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_631': the IDE refused to create its method 'bool_to_int': The name 'bool_to_int' is not valid for this object. — 'VltPkn_631' is not created (the create is rolled back)
+METHOD    any                    REFUSED   [UNSUPPORTED] 'VltPkn_632': the IDE refused to create its method 'any': The name 'any' is not valid for this object. — 'VltPkn_632' is not created (the create is rolled back)
+METHOD    any_int                REFUSED   [UNSUPPORTED] 'VltPkn_633': the IDE refused to create its method 'any_int': The name 'any_int' is not valid for this object. — 'VltPkn_633' is not created (the create is rolled back)
+METHOD    any_num                REFUSED   [UNSUPPORTED] 'VltPkn_634': the IDE refused to create its method 'any_num': The name 'any_num' is not valid for this object. — 'VltPkn_634' is not created (the create is rolled back)
+METHOD    any_real               REFUSED   [UNSUPPORTED] 'VltPkn_635': the IDE refused to create its method 'any_real': The name 'any_real' is not valid for this object. — 'VltPkn_635' is not created (the create is rolled back)
+METHOD    calc                   REFUSED   [UNSUPPORTED] 'VltPkn_636': the IDE refused to create its method 'calc': The name 'calc' is not valid for this object. — 'VltPkn_636' is not created (the create is rolled back)
+METHOD    __system               REFUSED   [UNSUPPORTED] 'VltPkn_637': the IDE refused to create its method '__system': The name '__system' is not valid for this object. — 'VltPkn_637' is not created (the create is rolled back)
+METHOD    to_bool                REFUSED   [UNSUPPORTED] 'VltPkn_638': the IDE refused to create its method 'to_bool': The name 'to_bool' is not valid for this object. — 'VltPkn_638' is not created (the create is rolled back)
+METHOD    to_bit                 REFUSED   [UNSUPPORTED] 'VltPkn_639': the IDE refused to create its method 'to_bit': The name 'to_bit' is not valid for this object. — 'VltPkn_639' is not created (the create is rolled back)
+METHOD    to_byte                REFUSED   [UNSUPPORTED] 'VltPkn_640': the IDE refused to create its method 'to_byte': The name 'to_byte' is not valid for this object. — 'VltPkn_640' is not created (the create is rolled back)
+METHOD    to_word                REFUSED   [UNSUPPORTED] 'VltPkn_641': the IDE refused to create its method 'to_word': The name 'to_word' is not valid for this object. — 'VltPkn_641' is not created (the create is rolled back)
+METHOD    to_dword               REFUSED   [UNSUPPORTED] 'VltPkn_642': the IDE refused to create its method 'to_dword': The name 'to_dword' is not valid for this object. — 'VltPkn_642' is not created (the create is rolled back)
+METHOD    to_lword               REFUSED   [UNSUPPORTED] 'VltPkn_643': the IDE refused to create its method 'to_lword': The name 'to_lword' is not valid for this object. — 'VltPkn_643' is not created (the create is rolled back)
+METHOD    to_sint                REFUSED   [UNSUPPORTED] 'VltPkn_644': the IDE refused to create its method 'to_sint': The name 'to_sint' is not valid for this object. — 'VltPkn_644' is not created (the create is rolled back)
+METHOD    to_dint                REFUSED   [UNSUPPORTED] 'VltPkn_645': the IDE refused to create its method 'to_dint': The name 'to_dint' is not valid for this object. — 'VltPkn_645' is not created (the create is rolled back)
+METHOD    to_lint                REFUSED   [UNSUPPORTED] 'VltPkn_646': the IDE refused to create its method 'to_lint': The name 'to_lint' is not valid for this object. — 'VltPkn_646' is not created (the create is rolled back)
+METHOD    to_usint               REFUSED   [UNSUPPORTED] 'VltPkn_647': the IDE refused to create its method 'to_usint': The name 'to_usint' is not valid for this object. — 'VltPkn_647' is not created (the create is rolled back)
+METHOD    to_uint                REFUSED   [UNSUPPORTED] 'VltPkn_648': the IDE refused to create its method 'to_uint': The name 'to_uint' is not valid for this object. — 'VltPkn_648' is not created (the create is rolled back)
+METHOD    to_udint               REFUSED   [UNSUPPORTED] 'VltPkn_649': the IDE refused to create its method 'to_udint': The name 'to_udint' is not valid for this object. — 'VltPkn_649' is not created (the create is rolled back)
+METHOD    to_ulint               REFUSED   [UNSUPPORTED] 'VltPkn_650': the IDE refused to create its method 'to_ulint': The name 'to_ulint' is not valid for this object. — 'VltPkn_650' is not created (the create is rolled back)
+METHOD    to_lreal               REFUSED   [UNSUPPORTED] 'VltPkn_651': the IDE refused to create its method 'to_lreal': The name 'to_lreal' is not valid for this object. — 'VltPkn_651' is not created (the create is rolled back)
+METHOD    to_time                REFUSED   [UNSUPPORTED] 'VltPkn_652': the IDE refused to create its method 'to_time': The name 'to_time' is not valid for this object. — 'VltPkn_652' is not created (the create is rolled back)
+METHOD    to_ltime               REFUSED   [UNSUPPORTED] 'VltPkn_653': the IDE refused to create its method 'to_ltime': The name 'to_ltime' is not valid for this object. — 'VltPkn_653' is not created (the create is rolled back)
+METHOD    to_date                REFUSED   [UNSUPPORTED] 'VltPkn_654': the IDE refused to create its method 'to_date': The name 'to_date' is not valid for this object. — 'VltPkn_654' is not created (the create is rolled back)
+METHOD    to_tod                 REFUSED   [UNSUPPORTED] 'VltPkn_655': the IDE refused to create its method 'to_tod': The name 'to_tod' is not valid for this object. — 'VltPkn_655' is not created (the create is rolled back)
+METHOD    to_dt                  REFUSED   [UNSUPPORTED] 'VltPkn_656': the IDE refused to create its method 'to_dt': The name 'to_dt' is not valid for this object. — 'VltPkn_656' is not created (the create is rolled back)
+METHOD    to_ldate               REFUSED   [UNSUPPORTED] 'VltPkn_657': the IDE refused to create its method 'to_ldate': The name 'to_ldate' is not valid for this object. — 'VltPkn_657' is not created (the create is rolled back)
+METHOD    to_ltod                REFUSED   [UNSUPPORTED] 'VltPkn_658': the IDE refused to create its method 'to_ltod': The name 'to_ltod' is not valid for this object. — 'VltPkn_658' is not created (the create is rolled back)
+METHOD    to_ldt                 REFUSED   [UNSUPPORTED] 'VltPkn_659': the IDE refused to create its method 'to_ldt': The name 'to_ldt' is not valid for this object. — 'VltPkn_659' is not created (the create is rolled back)
+METHOD    to_string              REFUSED   [UNSUPPORTED] 'VltPkn_660': the IDE refused to create its method 'to_string': The name 'to_string' is not valid for this object. — 'VltPkn_660' is not created (the create is rolled back)
+METHOD    to_wstring             REFUSED   [UNSUPPORTED] 'VltPkn_661': the IDE refused to create its method 'to_wstring': The name 'to_wstring' is not valid for this object. — 'VltPkn_661' is not created (the create is rolled back)
+METHOD    to_time_of_day         ACCEPTED 
+METHOD    to_date_and_time       ACCEPTED 
+METHOD    to_ldate_and_time      ACCEPTED 
+METHOD    to_ltime_of_day        ACCEPTED 
+METHOD    to___xint              REFUSED   [UNSUPPORTED] 'VltPkn_666': the IDE refused to create its method 'to___xint': The name 'to___xint' is not valid for this object. — 'VltPkn_666' is not created (the create is rolled back)
+METHOD    to___uxint             REFUSED   [UNSUPPORTED] 'VltPkn_667': the IDE refused to create its method 'to___uxint': The name 'to___uxint' is not valid for this object. — 'VltPkn_667' is not created (the create is rolled back)
+METHOD    to___xword             REFUSED   [UNSUPPORTED] 'VltPkn_668': the IDE refused to create its method 'to___xword': The name 'to___xword' is not valid for this object. — 'VltPkn_668' is not created (the create is rolled back)
+METHOD    To_Bool                REFUSED   [UNSUPPORTED] 'VltPkn_669': the IDE refused to create its method 'To_Bool': The name 'To_Bool' is not valid for this object. — 'VltPkn_669' is not created (the create is rolled back)
+METHOD    To_Bit                 REFUSED   [UNSUPPORTED] 'VltPkn_670': the IDE refused to create its method 'To_Bit': The name 'To_Bit' is not valid for this object. — 'VltPkn_670' is not created (the create is rolled back)
+METHOD    To_Byte                REFUSED   [UNSUPPORTED] 'VltPkn_671': the IDE refused to create its method 'To_Byte': The name 'To_Byte' is not valid for this object. — 'VltPkn_671' is not created (the create is rolled back)
+METHOD    To_Word                REFUSED   [UNSUPPORTED] 'VltPkn_672': the IDE refused to create its method 'To_Word': The name 'To_Word' is not valid for this object. — 'VltPkn_672' is not created (the create is rolled back)
+METHOD    To_Dword               REFUSED   [UNSUPPORTED] 'VltPkn_673': the IDE refused to create its method 'To_Dword': The name 'To_Dword' is not valid for this object. — 'VltPkn_673' is not created (the create is rolled back)
+METHOD    To_Lword               REFUSED   [UNSUPPORTED] 'VltPkn_674': the IDE refused to create its method 'To_Lword': The name 'To_Lword' is not valid for this object. — 'VltPkn_674' is not created (the create is rolled back)
+METHOD    To_Sint                REFUSED   [UNSUPPORTED] 'VltPkn_675': the IDE refused to create its method 'To_Sint': The name 'To_Sint' is not valid for this object. — 'VltPkn_675' is not created (the create is rolled back)
+METHOD    To_Int                 REFUSED   [UNSUPPORTED] 'VltPkn_676': the IDE refused to create its method 'To_Int': The name 'To_Int' is not valid for this object. — 'VltPkn_676' is not created (the create is rolled back)
+METHOD    To_Dint                REFUSED   [UNSUPPORTED] 'VltPkn_677': the IDE refused to create its method 'To_Dint': The name 'To_Dint' is not valid for this object. — 'VltPkn_677' is not created (the create is rolled back)
+METHOD    To_Lint                REFUSED   [UNSUPPORTED] 'VltPkn_678': the IDE refused to create its method 'To_Lint': The name 'To_Lint' is not valid for this object. — 'VltPkn_678' is not created (the create is rolled back)
+METHOD    To_Usint               REFUSED   [UNSUPPORTED] 'VltPkn_679': the IDE refused to create its method 'To_Usint': The name 'To_Usint' is not valid for this object. — 'VltPkn_679' is not created (the create is rolled back)
+METHOD    To_Uint                REFUSED   [UNSUPPORTED] 'VltPkn_680': the IDE refused to create its method 'To_Uint': The name 'To_Uint' is not valid for this object. — 'VltPkn_680' is not created (the create is rolled back)
+METHOD    To_Udint               REFUSED   [UNSUPPORTED] 'VltPkn_681': the IDE refused to create its method 'To_Udint': The name 'To_Udint' is not valid for this object. — 'VltPkn_681' is not created (the create is rolled back)
+METHOD    To_Ulint               REFUSED   [UNSUPPORTED] 'VltPkn_682': the IDE refused to create its method 'To_Ulint': The name 'To_Ulint' is not valid for this object. — 'VltPkn_682' is not created (the create is rolled back)
+METHOD    To_Real                REFUSED   [UNSUPPORTED] 'VltPkn_683': the IDE refused to create its method 'To_Real': The name 'To_Real' is not valid for this object. — 'VltPkn_683' is not created (the create is rolled back)
+METHOD    To_Lreal               REFUSED   [UNSUPPORTED] 'VltPkn_684': the IDE refused to create its method 'To_Lreal': The name 'To_Lreal' is not valid for this object. — 'VltPkn_684' is not created (the create is rolled back)
+METHOD    To_Time                REFUSED   [UNSUPPORTED] 'VltPkn_685': the IDE refused to create its method 'To_Time': The name 'To_Time' is not valid for this object. — 'VltPkn_685' is not created (the create is rolled back)
+METHOD    To_Ltime               REFUSED   [UNSUPPORTED] 'VltPkn_686': the IDE refused to create its method 'To_Ltime': The name 'To_Ltime' is not valid for this object. — 'VltPkn_686' is not created (the create is rolled back)
+METHOD    To_Date                REFUSED   [UNSUPPORTED] 'VltPkn_687': the IDE refused to create its method 'To_Date': The name 'To_Date' is not valid for this object. — 'VltPkn_687' is not created (the create is rolled back)
+METHOD    To_Tod                 REFUSED   [UNSUPPORTED] 'VltPkn_688': the IDE refused to create its method 'To_Tod': The name 'To_Tod' is not valid for this object. — 'VltPkn_688' is not created (the create is rolled back)
+METHOD    To_Dt                  REFUSED   [UNSUPPORTED] 'VltPkn_689': the IDE refused to create its method 'To_Dt': The name 'To_Dt' is not valid for this object. — 'VltPkn_689' is not created (the create is rolled back)
+METHOD    To_Ldate               REFUSED   [UNSUPPORTED] 'VltPkn_690': the IDE refused to create its method 'To_Ldate': The name 'To_Ldate' is not valid for this object. — 'VltPkn_690' is not created (the create is rolled back)
+METHOD    To_Ltod                REFUSED   [UNSUPPORTED] 'VltPkn_691': the IDE refused to create its method 'To_Ltod': The name 'To_Ltod' is not valid for this object. — 'VltPkn_691' is not created (the create is rolled back)
+METHOD    To_Ldt                 REFUSED   [UNSUPPORTED] 'VltPkn_692': the IDE refused to create its method 'To_Ldt': The name 'To_Ldt' is not valid for this object. — 'VltPkn_692' is not created (the create is rolled back)
+METHOD    To_String              REFUSED   [UNSUPPORTED] 'VltPkn_693': the IDE refused to create its method 'To_String': The name 'To_String' is not valid for this object. — 'VltPkn_693' is not created (the create is rolled back)
+METHOD    To_Wstring             REFUSED   [UNSUPPORTED] 'VltPkn_694': the IDE refused to create its method 'To_Wstring': The name 'To_Wstring' is not valid for this object. — 'VltPkn_694' is not created (the create is rolled back)
+METHOD    To_Time_of_day         ACCEPTED 
+METHOD    To_Date_and_time       ACCEPTED 
+METHOD    To_Ldate_and_time      ACCEPTED 
+METHOD    To_Ltime_of_day        ACCEPTED 
+METHOD    To___xint              REFUSED   [UNSUPPORTED] 'VltPkn_699': the IDE refused to create its method 'To___xint': The name 'To___xint' is not valid for this object. — 'VltPkn_699' is not created (the create is rolled back)
+METHOD    To___uxint             REFUSED   [UNSUPPORTED] 'VltPkn_700': the IDE refused to create its method 'To___uxint': The name 'To___uxint' is not valid for this object. — 'VltPkn_700' is not created (the create is rolled back)
+METHOD    To___xword             REFUSED   [UNSUPPORTED] 'VltPkn_701': the IDE refused to create its method 'To___xword': The name 'To___xword' is not valid for this object. — 'VltPkn_701' is not created (the create is rolled back)
+METHOD    int_to_bool            REFUSED   [UNSUPPORTED] 'VltPkn_702': the IDE refused to create its method 'int_to_bool': The name 'int_to_bool' is not valid for this object. — 'VltPkn_702' is not created (the create is rolled back)
+METHOD    Int_To_Bool            REFUSED   [UNSUPPORTED] 'VltPkn_703': the IDE refused to create its method 'Int_To_Bool': The name 'Int_To_Bool' is not valid for this object. — 'VltPkn_703' is not created (the create is rolled back)
+METHOD    Bool_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_704': the IDE refused to create its method 'Bool_To_Int': The name 'Bool_To_Int' is not valid for this object. — 'VltPkn_704' is not created (the create is rolled back)
+METHOD    int_to_bit             REFUSED   [UNSUPPORTED] 'VltPkn_705': the IDE refused to create its method 'int_to_bit': The name 'int_to_bit' is not valid for this object. — 'VltPkn_705' is not created (the create is rolled back)
+METHOD    bit_to_int             REFUSED   [UNSUPPORTED] 'VltPkn_706': the IDE refused to create its method 'bit_to_int': The name 'bit_to_int' is not valid for this object. — 'VltPkn_706' is not created (the create is rolled back)
+METHOD    Int_To_Bit             REFUSED   [UNSUPPORTED] 'VltPkn_707': the IDE refused to create its method 'Int_To_Bit': The name 'Int_To_Bit' is not valid for this object. — 'VltPkn_707' is not created (the create is rolled back)
+METHOD    Bit_To_Int             REFUSED   [UNSUPPORTED] 'VltPkn_708': the IDE refused to create its method 'Bit_To_Int': The name 'Bit_To_Int' is not valid for this object. — 'VltPkn_708' is not created (the create is rolled back)
+METHOD    int_to_byte            REFUSED   [UNSUPPORTED] 'VltPkn_709': the IDE refused to create its method 'int_to_byte': The name 'int_to_byte' is not valid for this object. — 'VltPkn_709' is not created (the create is rolled back)
+METHOD    byte_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_710': the IDE refused to create its method 'byte_to_int': The name 'byte_to_int' is not valid for this object. — 'VltPkn_710' is not created (the create is rolled back)
+METHOD    Int_To_Byte            REFUSED   [UNSUPPORTED] 'VltPkn_711': the IDE refused to create its method 'Int_To_Byte': The name 'Int_To_Byte' is not valid for this object. — 'VltPkn_711' is not created (the create is rolled back)
+METHOD    Byte_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_712': the IDE refused to create its method 'Byte_To_Int': The name 'Byte_To_Int' is not valid for this object. — 'VltPkn_712' is not created (the create is rolled back)
+METHOD    int_to_word            REFUSED   [UNSUPPORTED] 'VltPkn_713': the IDE refused to create its method 'int_to_word': The name 'int_to_word' is not valid for this object. — 'VltPkn_713' is not created (the create is rolled back)
+METHOD    word_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_714': the IDE refused to create its method 'word_to_int': The name 'word_to_int' is not valid for this object. — 'VltPkn_714' is not created (the create is rolled back)
+METHOD    Int_To_Word            REFUSED   [UNSUPPORTED] 'VltPkn_715': the IDE refused to create its method 'Int_To_Word': The name 'Int_To_Word' is not valid for this object. — 'VltPkn_715' is not created (the create is rolled back)
+METHOD    Word_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_716': the IDE refused to create its method 'Word_To_Int': The name 'Word_To_Int' is not valid for this object. — 'VltPkn_716' is not created (the create is rolled back)
+METHOD    int_to_dword           REFUSED   [UNSUPPORTED] 'VltPkn_717': the IDE refused to create its method 'int_to_dword': The name 'int_to_dword' is not valid for this object. — 'VltPkn_717' is not created (the create is rolled back)
+METHOD    dword_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_718': the IDE refused to create its method 'dword_to_int': The name 'dword_to_int' is not valid for this object. — 'VltPkn_718' is not created (the create is rolled back)
+METHOD    Int_To_Dword           REFUSED   [UNSUPPORTED] 'VltPkn_719': the IDE refused to create its method 'Int_To_Dword': The name 'Int_To_Dword' is not valid for this object. — 'VltPkn_719' is not created (the create is rolled back)
+METHOD    Dword_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_720': the IDE refused to create its method 'Dword_To_Int': The name 'Dword_To_Int' is not valid for this object. — 'VltPkn_720' is not created (the create is rolled back)
+METHOD    int_to_lword           REFUSED   [UNSUPPORTED] 'VltPkn_721': the IDE refused to create its method 'int_to_lword': The name 'int_to_lword' is not valid for this object. — 'VltPkn_721' is not created (the create is rolled back)
+METHOD    lword_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_722': the IDE refused to create its method 'lword_to_int': The name 'lword_to_int' is not valid for this object. — 'VltPkn_722' is not created (the create is rolled back)
+METHOD    Int_To_Lword           REFUSED   [UNSUPPORTED] 'VltPkn_723': the IDE refused to create its method 'Int_To_Lword': The name 'Int_To_Lword' is not valid for this object. — 'VltPkn_723' is not created (the create is rolled back)
+METHOD    Lword_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_724': the IDE refused to create its method 'Lword_To_Int': The name 'Lword_To_Int' is not valid for this object. — 'VltPkn_724' is not created (the create is rolled back)
+METHOD    int_to_sint            REFUSED   [UNSUPPORTED] 'VltPkn_725': the IDE refused to create its method 'int_to_sint': The name 'int_to_sint' is not valid for this object. — 'VltPkn_725' is not created (the create is rolled back)
+METHOD    sint_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_726': the IDE refused to create its method 'sint_to_int': The name 'sint_to_int' is not valid for this object. — 'VltPkn_726' is not created (the create is rolled back)
+METHOD    Int_To_Sint            REFUSED   [UNSUPPORTED] 'VltPkn_727': the IDE refused to create its method 'Int_To_Sint': The name 'Int_To_Sint' is not valid for this object. — 'VltPkn_727' is not created (the create is rolled back)
+METHOD    Sint_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_728': the IDE refused to create its method 'Sint_To_Int': The name 'Sint_To_Int' is not valid for this object. — 'VltPkn_728' is not created (the create is rolled back)
+METHOD    int_to_dint            REFUSED   [UNSUPPORTED] 'VltPkn_729': the IDE refused to create its method 'int_to_dint': The name 'int_to_dint' is not valid for this object. — 'VltPkn_729' is not created (the create is rolled back)
+METHOD    dint_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_730': the IDE refused to create its method 'dint_to_int': The name 'dint_to_int' is not valid for this object. — 'VltPkn_730' is not created (the create is rolled back)
+METHOD    Int_To_Dint            REFUSED   [UNSUPPORTED] 'VltPkn_731': the IDE refused to create its method 'Int_To_Dint': The name 'Int_To_Dint' is not valid for this object. — 'VltPkn_731' is not created (the create is rolled back)
+METHOD    Dint_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_732': the IDE refused to create its method 'Dint_To_Int': The name 'Dint_To_Int' is not valid for this object. — 'VltPkn_732' is not created (the create is rolled back)
+METHOD    int_to_lint            REFUSED   [UNSUPPORTED] 'VltPkn_733': the IDE refused to create its method 'int_to_lint': The name 'int_to_lint' is not valid for this object. — 'VltPkn_733' is not created (the create is rolled back)
+METHOD    lint_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_734': the IDE refused to create its method 'lint_to_int': The name 'lint_to_int' is not valid for this object. — 'VltPkn_734' is not created (the create is rolled back)
+METHOD    Int_To_Lint            REFUSED   [UNSUPPORTED] 'VltPkn_735': the IDE refused to create its method 'Int_To_Lint': The name 'Int_To_Lint' is not valid for this object. — 'VltPkn_735' is not created (the create is rolled back)
+METHOD    Lint_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_736': the IDE refused to create its method 'Lint_To_Int': The name 'Lint_To_Int' is not valid for this object. — 'VltPkn_736' is not created (the create is rolled back)
+METHOD    int_to_usint           REFUSED   [UNSUPPORTED] 'VltPkn_737': the IDE refused to create its method 'int_to_usint': The name 'int_to_usint' is not valid for this object. — 'VltPkn_737' is not created (the create is rolled back)
+METHOD    usint_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_738': the IDE refused to create its method 'usint_to_int': The name 'usint_to_int' is not valid for this object. — 'VltPkn_738' is not created (the create is rolled back)
+METHOD    Int_To_Usint           REFUSED   [UNSUPPORTED] 'VltPkn_739': the IDE refused to create its method 'Int_To_Usint': The name 'Int_To_Usint' is not valid for this object. — 'VltPkn_739' is not created (the create is rolled back)
+METHOD    Usint_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_740': the IDE refused to create its method 'Usint_To_Int': The name 'Usint_To_Int' is not valid for this object. — 'VltPkn_740' is not created (the create is rolled back)
+METHOD    int_to_uint            REFUSED   [UNSUPPORTED] 'VltPkn_741': the IDE refused to create its method 'int_to_uint': The name 'int_to_uint' is not valid for this object. — 'VltPkn_741' is not created (the create is rolled back)
+METHOD    uint_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_742': the IDE refused to create its method 'uint_to_int': The name 'uint_to_int' is not valid for this object. — 'VltPkn_742' is not created (the create is rolled back)
+METHOD    Int_To_Uint            REFUSED   [UNSUPPORTED] 'VltPkn_743': the IDE refused to create its method 'Int_To_Uint': The name 'Int_To_Uint' is not valid for this object. — 'VltPkn_743' is not created (the create is rolled back)
+METHOD    Uint_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_744': the IDE refused to create its method 'Uint_To_Int': The name 'Uint_To_Int' is not valid for this object. — 'VltPkn_744' is not created (the create is rolled back)
+METHOD    int_to_udint           REFUSED   [UNSUPPORTED] 'VltPkn_745': the IDE refused to create its method 'int_to_udint': The name 'int_to_udint' is not valid for this object. — 'VltPkn_745' is not created (the create is rolled back)
+METHOD    udint_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_746': the IDE refused to create its method 'udint_to_int': The name 'udint_to_int' is not valid for this object. — 'VltPkn_746' is not created (the create is rolled back)
+METHOD    Int_To_Udint           REFUSED   [UNSUPPORTED] 'VltPkn_747': the IDE refused to create its method 'Int_To_Udint': The name 'Int_To_Udint' is not valid for this object. — 'VltPkn_747' is not created (the create is rolled back)
+METHOD    Udint_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_748': the IDE refused to create its method 'Udint_To_Int': The name 'Udint_To_Int' is not valid for this object. — 'VltPkn_748' is not created (the create is rolled back)
+METHOD    int_to_ulint           REFUSED   [UNSUPPORTED] 'VltPkn_749': the IDE refused to create its method 'int_to_ulint': The name 'int_to_ulint' is not valid for this object. — 'VltPkn_749' is not created (the create is rolled back)
+METHOD    ulint_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_750': the IDE refused to create its method 'ulint_to_int': The name 'ulint_to_int' is not valid for this object. — 'VltPkn_750' is not created (the create is rolled back)
+METHOD    Int_To_Ulint           REFUSED   [UNSUPPORTED] 'VltPkn_751': the IDE refused to create its method 'Int_To_Ulint': The name 'Int_To_Ulint' is not valid for this object. — 'VltPkn_751' is not created (the create is rolled back)
+METHOD    Ulint_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_752': the IDE refused to create its method 'Ulint_To_Int': The name 'Ulint_To_Int' is not valid for this object. — 'VltPkn_752' is not created (the create is rolled back)
+METHOD    Int_To_Real            REFUSED   [UNSUPPORTED] 'VltPkn_753': the IDE refused to create its method 'Int_To_Real': The name 'Int_To_Real' is not valid for this object. — 'VltPkn_753' is not created (the create is rolled back)
+METHOD    Real_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_754': the IDE refused to create its method 'Real_To_Int': The name 'Real_To_Int' is not valid for this object. — 'VltPkn_754' is not created (the create is rolled back)
+METHOD    int_to_lreal           REFUSED   [UNSUPPORTED] 'VltPkn_755': the IDE refused to create its method 'int_to_lreal': The name 'int_to_lreal' is not valid for this object. — 'VltPkn_755' is not created (the create is rolled back)
+METHOD    lreal_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_756': the IDE refused to create its method 'lreal_to_int': The name 'lreal_to_int' is not valid for this object. — 'VltPkn_756' is not created (the create is rolled back)
+METHOD    Int_To_Lreal           REFUSED   [UNSUPPORTED] 'VltPkn_757': the IDE refused to create its method 'Int_To_Lreal': The name 'Int_To_Lreal' is not valid for this object. — 'VltPkn_757' is not created (the create is rolled back)
+METHOD    Lreal_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_758': the IDE refused to create its method 'Lreal_To_Int': The name 'Lreal_To_Int' is not valid for this object. — 'VltPkn_758' is not created (the create is rolled back)
+METHOD    int_to_time            REFUSED   [UNSUPPORTED] 'VltPkn_759': the IDE refused to create its method 'int_to_time': The name 'int_to_time' is not valid for this object. — 'VltPkn_759' is not created (the create is rolled back)
+METHOD    time_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_760': the IDE refused to create its method 'time_to_int': The name 'time_to_int' is not valid for this object. — 'VltPkn_760' is not created (the create is rolled back)
+METHOD    Int_To_Time            REFUSED   [UNSUPPORTED] 'VltPkn_761': the IDE refused to create its method 'Int_To_Time': The name 'Int_To_Time' is not valid for this object. — 'VltPkn_761' is not created (the create is rolled back)
+METHOD    Time_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_762': the IDE refused to create its method 'Time_To_Int': The name 'Time_To_Int' is not valid for this object. — 'VltPkn_762' is not created (the create is rolled back)
+METHOD    int_to_ltime           REFUSED   [UNSUPPORTED] 'VltPkn_763': the IDE refused to create its method 'int_to_ltime': The name 'int_to_ltime' is not valid for this object. — 'VltPkn_763' is not created (the create is rolled back)
+METHOD    ltime_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_764': the IDE refused to create its method 'ltime_to_int': The name 'ltime_to_int' is not valid for this object. — 'VltPkn_764' is not created (the create is rolled back)
+METHOD    Int_To_Ltime           REFUSED   [UNSUPPORTED] 'VltPkn_765': the IDE refused to create its method 'Int_To_Ltime': The name 'Int_To_Ltime' is not valid for this object. — 'VltPkn_765' is not created (the create is rolled back)
+METHOD    Ltime_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_766': the IDE refused to create its method 'Ltime_To_Int': The name 'Ltime_To_Int' is not valid for this object. — 'VltPkn_766' is not created (the create is rolled back)
+METHOD    int_to_date            REFUSED   [UNSUPPORTED] 'VltPkn_767': the IDE refused to create its method 'int_to_date': The name 'int_to_date' is not valid for this object. — 'VltPkn_767' is not created (the create is rolled back)
+METHOD    date_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_768': the IDE refused to create its method 'date_to_int': The name 'date_to_int' is not valid for this object. — 'VltPkn_768' is not created (the create is rolled back)
+METHOD    Int_To_Date            REFUSED   [UNSUPPORTED] 'VltPkn_769': the IDE refused to create its method 'Int_To_Date': The name 'Int_To_Date' is not valid for this object. — 'VltPkn_769' is not created (the create is rolled back)
+METHOD    Date_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_770': the IDE refused to create its method 'Date_To_Int': The name 'Date_To_Int' is not valid for this object. — 'VltPkn_770' is not created (the create is rolled back)
+METHOD    int_to_tod             REFUSED   [UNSUPPORTED] 'VltPkn_771': the IDE refused to create its method 'int_to_tod': The name 'int_to_tod' is not valid for this object. — 'VltPkn_771' is not created (the create is rolled back)
+METHOD    tod_to_int             REFUSED   [UNSUPPORTED] 'VltPkn_772': the IDE refused to create its method 'tod_to_int': The name 'tod_to_int' is not valid for this object. — 'VltPkn_772' is not created (the create is rolled back)
+METHOD    Int_To_Tod             REFUSED   [UNSUPPORTED] 'VltPkn_773': the IDE refused to create its method 'Int_To_Tod': The name 'Int_To_Tod' is not valid for this object. — 'VltPkn_773' is not created (the create is rolled back)
+METHOD    Tod_To_Int             REFUSED   [UNSUPPORTED] 'VltPkn_774': the IDE refused to create its method 'Tod_To_Int': The name 'Tod_To_Int' is not valid for this object. — 'VltPkn_774' is not created (the create is rolled back)
+METHOD    int_to_dt              REFUSED   [UNSUPPORTED] 'VltPkn_775': the IDE refused to create its method 'int_to_dt': The name 'int_to_dt' is not valid for this object. — 'VltPkn_775' is not created (the create is rolled back)
+METHOD    dt_to_int              REFUSED   [UNSUPPORTED] 'VltPkn_776': the IDE refused to create its method 'dt_to_int': The name 'dt_to_int' is not valid for this object. — 'VltPkn_776' is not created (the create is rolled back)
+METHOD    Int_To_Dt              REFUSED   [UNSUPPORTED] 'VltPkn_777': the IDE refused to create its method 'Int_To_Dt': The name 'Int_To_Dt' is not valid for this object. — 'VltPkn_777' is not created (the create is rolled back)
+METHOD    Dt_To_Int              REFUSED   [UNSUPPORTED] 'VltPkn_778': the IDE refused to create its method 'Dt_To_Int': The name 'Dt_To_Int' is not valid for this object. — 'VltPkn_778' is not created (the create is rolled back)
+METHOD    int_to_ldate           REFUSED   [UNSUPPORTED] 'VltPkn_779': the IDE refused to create its method 'int_to_ldate': The name 'int_to_ldate' is not valid for this object. — 'VltPkn_779' is not created (the create is rolled back)
+METHOD    ldate_to_int           REFUSED   [UNSUPPORTED] 'VltPkn_780': the IDE refused to create its method 'ldate_to_int': The name 'ldate_to_int' is not valid for this object. — 'VltPkn_780' is not created (the create is rolled back)
+METHOD    Int_To_Ldate           REFUSED   [UNSUPPORTED] 'VltPkn_781': the IDE refused to create its method 'Int_To_Ldate': The name 'Int_To_Ldate' is not valid for this object. — 'VltPkn_781' is not created (the create is rolled back)
+METHOD    Ldate_To_Int           REFUSED   [UNSUPPORTED] 'VltPkn_782': the IDE refused to create its method 'Ldate_To_Int': The name 'Ldate_To_Int' is not valid for this object. — 'VltPkn_782' is not created (the create is rolled back)
+METHOD    int_to_ltod            REFUSED   [UNSUPPORTED] 'VltPkn_783': the IDE refused to create its method 'int_to_ltod': The name 'int_to_ltod' is not valid for this object. — 'VltPkn_783' is not created (the create is rolled back)
+METHOD    ltod_to_int            REFUSED   [UNSUPPORTED] 'VltPkn_784': the IDE refused to create its method 'ltod_to_int': The name 'ltod_to_int' is not valid for this object. — 'VltPkn_784' is not created (the create is rolled back)
+METHOD    Int_To_Ltod            REFUSED   [UNSUPPORTED] 'VltPkn_785': the IDE refused to create its method 'Int_To_Ltod': The name 'Int_To_Ltod' is not valid for this object. — 'VltPkn_785' is not created (the create is rolled back)
+METHOD    Ltod_To_Int            REFUSED   [UNSUPPORTED] 'VltPkn_786': the IDE refused to create its method 'Ltod_To_Int': The name 'Ltod_To_Int' is not valid for this object. — 'VltPkn_786' is not created (the create is rolled back)
+METHOD    int_to_ldt             REFUSED   [UNSUPPORTED] 'VltPkn_787': the IDE refused to create its method 'int_to_ldt': The name 'int_to_ldt' is not valid for this object. — 'VltPkn_787' is not created (the create is rolled back)
+METHOD    ldt_to_int             REFUSED   [UNSUPPORTED] 'VltPkn_788': the IDE refused to create its method 'ldt_to_int': The name 'ldt_to_int' is not valid for this object. — 'VltPkn_788' is not created (the create is rolled back)
+METHOD    Int_To_Ldt             REFUSED   [UNSUPPORTED] 'VltPkn_789': the IDE refused to create its method 'Int_To_Ldt': The name 'Int_To_Ldt' is not valid for this object. — 'VltPkn_789' is not created (the create is rolled back)
+METHOD    Ldt_To_Int             REFUSED   [UNSUPPORTED] 'VltPkn_790': the IDE refused to create its method 'Ldt_To_Int': The name 'Ldt_To_Int' is not valid for this object. — 'VltPkn_790' is not created (the create is rolled back)
+METHOD    int_to_string          REFUSED   [UNSUPPORTED] 'VltPkn_791': the IDE refused to create its method 'int_to_string': The name 'int_to_string' is not valid for this object. — 'VltPkn_791' is not created (the create is rolled back)
+METHOD    string_to_int          REFUSED   [UNSUPPORTED] 'VltPkn_792': the IDE refused to create its method 'string_to_int': The name 'string_to_int' is not valid for this object. — 'VltPkn_792' is not created (the create is rolled back)
+METHOD    Int_To_String          REFUSED   [UNSUPPORTED] 'VltPkn_793': the IDE refused to create its method 'Int_To_String': The name 'Int_To_String' is not valid for this object. — 'VltPkn_793' is not created (the create is rolled back)
+METHOD    String_To_Int          REFUSED   [UNSUPPORTED] 'VltPkn_794': the IDE refused to create its method 'String_To_Int': The name 'String_To_Int' is not valid for this object. — 'VltPkn_794' is not created (the create is rolled back)
+METHOD    int_to_wstring         REFUSED   [UNSUPPORTED] 'VltPkn_795': the IDE refused to create its method 'int_to_wstring': The name 'int_to_wstring' is not valid for this object. — 'VltPkn_795' is not created (the create is rolled back)
+METHOD    wstring_to_int         REFUSED   [UNSUPPORTED] 'VltPkn_796': the IDE refused to create its method 'wstring_to_int': The name 'wstring_to_int' is not valid for this object. — 'VltPkn_796' is not created (the create is rolled back)
+METHOD    Int_To_Wstring         REFUSED   [UNSUPPORTED] 'VltPkn_797': the IDE refused to create its method 'Int_To_Wstring': The name 'Int_To_Wstring' is not valid for this object. — 'VltPkn_797' is not created (the create is rolled back)
+METHOD    Wstring_To_Int         REFUSED   [UNSUPPORTED] 'VltPkn_798': the IDE refused to create its method 'Wstring_To_Int': The name 'Wstring_To_Int' is not valid for this object. — 'VltPkn_798' is not created (the create is rolled back)
+METHOD    int_to_time_of_day     ACCEPTED 
+METHOD    time_of_day_to_int     ACCEPTED 
+METHOD    Int_To_Time_of_day     ACCEPTED 
+METHOD    Time_of_day_To_Int     ACCEPTED 
+METHOD    int_to_date_and_time   ACCEPTED 
+METHOD    date_and_time_to_int   ACCEPTED 
+METHOD    Int_To_Date_and_time   ACCEPTED 
+METHOD    Date_and_time_To_Int   ACCEPTED 
+METHOD    int_to_ldate_and_time  ACCEPTED 
+METHOD    ldate_and_time_to_int  ACCEPTED 
+METHOD    Int_To_Ldate_and_time  ACCEPTED 
+METHOD    Ldate_and_time_To_Int  ACCEPTED 
+METHOD    int_to_ltime_of_day    ACCEPTED 
+METHOD    ltime_of_day_to_int    ACCEPTED 
+METHOD    Int_To_Ltime_of_day    ACCEPTED 
+METHOD    Ltime_of_day_To_Int    ACCEPTED 
+METHOD    int_to___xint          REFUSED   [UNSUPPORTED] 'VltPkn_815': the IDE refused to create its method 'int_to___xint': The name 'int_to___xint' is not valid for this object. — 'VltPkn_815' is not created (the create is rolled back)
+METHOD    __xint_to_int          REFUSED   [UNSUPPORTED] 'VltPkn_816': the IDE refused to create its method '__xint_to_int': The name '__xint_to_int' is not valid for this object. — 'VltPkn_816' is not created (the create is rolled back)
+METHOD    Int_To___xint          REFUSED   [UNSUPPORTED] 'VltPkn_817': the IDE refused to create its method 'Int_To___xint': The name 'Int_To___xint' is not valid for this object. — 'VltPkn_817' is not created (the create is rolled back)
+METHOD    __xint_To_Int          REFUSED   [UNSUPPORTED] 'VltPkn_818': the IDE refused to create its method '__xint_To_Int': The name '__xint_To_Int' is not valid for this object. — 'VltPkn_818' is not created (the create is rolled back)
+METHOD    int_to___uxint         REFUSED   [UNSUPPORTED] 'VltPkn_819': the IDE refused to create its method 'int_to___uxint': The name 'int_to___uxint' is not valid for this object. — 'VltPkn_819' is not created (the create is rolled back)
+METHOD    __uxint_to_int         REFUSED   [UNSUPPORTED] 'VltPkn_820': the IDE refused to create its method '__uxint_to_int': The name '__uxint_to_int' is not valid for this object. — 'VltPkn_820' is not created (the create is rolled back)
+METHOD    Int_To___uxint         REFUSED   [UNSUPPORTED] 'VltPkn_821': the IDE refused to create its method 'Int_To___uxint': The name 'Int_To___uxint' is not valid for this object. — 'VltPkn_821' is not created (the create is rolled back)
+METHOD    __uxint_To_Int         REFUSED   [UNSUPPORTED] 'VltPkn_822': the IDE refused to create its method '__uxint_To_Int': The name '__uxint_To_Int' is not valid for this object. — 'VltPkn_822' is not created (the create is rolled back)
+METHOD    int_to___xword         REFUSED   [UNSUPPORTED] 'VltPkn_823': the IDE refused to create its method 'int_to___xword': The name 'int_to___xword' is not valid for this object. — 'VltPkn_823' is not created (the create is rolled back)
+METHOD    __xword_to_int         REFUSED   [UNSUPPORTED] 'VltPkn_824': the IDE refused to create its method '__xword_to_int': The name '__xword_to_int' is not valid for this object. — 'VltPkn_824' is not created (the create is rolled back)
+METHOD    Int_To___xword         REFUSED   [UNSUPPORTED] 'VltPkn_825': the IDE refused to create its method 'Int_To___xword': The name 'Int_To___xword' is not valid for this object. — 'VltPkn_825' is not created (the create is rolled back)
+METHOD    __xword_To_Int         REFUSED   [UNSUPPORTED] 'VltPkn_826': the IDE refused to create its method '__xword_To_Int': The name '__xword_To_Int' is not valid for this object. — 'VltPkn_826' is not created (the create is rolled back)
+
+== 2. context: the FB's own variable, the FB's own name, an existing project POU ==
+METHOD    x (FB var)             ACCEPTED 
+METHOD    VltPkn_827 (own FB)    ACCEPTED 
+METHOD    PLC_PRG (project)      ACCEPTED 
+
+== summary (METHOD) ==
+ACCEPTED (50): BOOL_TO_BOOL BIT_TO_BIT BYTE_TO_BYTE WORD_TO_WORD DWORD_TO_DWORD LWORD_TO_LWORD SINT_TO_SINT INT_TO_INT DINT_TO_DINT LINT_TO_LINT USINT_TO_USINT UINT_TO_UINT UDINT_TO_UDINT ULINT_TO_ULINT REAL_TO_REAL LREAL_TO_LREAL TIME_TO_TIME LTIME_TO_LTIME DATE_TO_DATE LDATE_TO_LDATE STRING_TO_STRING WSTRING_TO_WSTRING TIME_OF_DAY_TO_TIME_OF_DAY DATE_AND_TIME_TO_DATE_AND_TIME LDATE_AND_TIME_TO_LDATE_AND_TIME LTIME_OF_DAY_TO_LTIME_OF_DAY to_time_of_day to_date_and_time to_ldate_and_time to_ltime_of_day To_Time_of_day To_Date_and_time To_Ldate_and_time To_Ltime_of_day int_to_time_of_day time_of_day_to_int Int_To_Time_of_day Time_of_day_To_Int int_to_date_and_time date_and_time_to_int Int_To_Date_and_time Date_and_time_To_Int int_to_ldate_and_time ldate_and_time_to_int Int_To_Ldate_and_time Ldate_and_time_To_Int int_to_ltime_of_day ltime_of_day_to_int Int_To_Ltime_of_day Ltime_of_day_To_Int
+REFUSED UNSUPPORTED (371): TOD_TO_TOD DT_TO_DT LTOD_TO_LTOD LDT_TO_LDT __XINT_TO___XINT __UXINT_TO___UXINT __XWORD_TO___XWORD function_block end_function_block program end_program function end_function method action end_action property end_property interface end_interface type end_type struct end_struct union end_union var var_input var_output var_in_out var_temp var_stat var_inst var_external var_global var_config var_access end_var constant retain persistent private protected internal final abstract read_only read_write extends implements array of reference pointer to at string wstring if then elsif else end_if case end_case for by do end_for while end_while repeat until end_repeat return exit continue jmp and and_then or or_else not xor mod div true false add sub mul shl shr rol ror sel mux min max limit gt lt ge le eq ne abs sqrt ln exp expt cos tan asin acos atan adr bitadr move indexof sizeof xsizeof trunc trunc_int ini cal __new __delete __isvalidref __queryinterface __querypointer __try __catch __finally __endtry __varinfo __currenttask __position __pouname __compare_and_swap __xadd __pool test_and_set __vector var_generic params this super from r s ld ldn st stn ret retc retcn jmpc jmpcn calcn andn orn xorn bool bit byte word dword lword sint int dint lint usint uint udint ulint real lreal time ltime date tod dt ldate ltod ldt time_of_day date_and_time ldate_and_time ltime_of_day __xint __uxint __xword int_to_real real_to_int to_int to_real bool_to_int any any_int any_num any_real calc __system to_bool to_bit to_byte to_word to_dword to_lword to_sint to_dint to_lint to_usint to_uint to_udint to_ulint to_lreal to_time to_ltime to_date to_tod to_dt to_ldate to_ltod to_ldt to_string to_wstring to___xint to___uxint to___xword To_Bool To_Bit To_Byte To_Word To_Dword To_Lword To_Sint To_Int To_Dint To_Lint To_Usint To_Uint To_Udint To_Ulint To_Real To_Lreal To_Time To_Ltime To_Date To_Tod To_Dt To_Ldate To_Ltod To_Ldt To_String To_Wstring To___xint To___uxint To___xword int_to_bool Int_To_Bool Bool_To_Int int_to_bit bit_to_int Int_To_Bit Bit_To_Int int_to_byte byte_to_int Int_To_Byte Byte_To_Int int_to_word word_to_int Int_To_Word Word_To_Int int_to_dword dword_to_int Int_To_Dword Dword_To_Int int_to_lword lword_to_int Int_To_Lword Lword_To_Int int_to_sint sint_to_int Int_To_Sint Sint_To_Int int_to_dint dint_to_int Int_To_Dint Dint_To_Int int_to_lint lint_to_int Int_To_Lint Lint_To_Int int_to_usint usint_to_int Int_To_Usint Usint_To_Int int_to_uint uint_to_int Int_To_Uint Uint_To_Int int_to_udint udint_to_int Int_To_Udint Udint_To_Int int_to_ulint ulint_to_int Int_To_Ulint Ulint_To_Int Int_To_Real Real_To_Int int_to_lreal lreal_to_int Int_To_Lreal Lreal_To_Int int_to_time time_to_int Int_To_Time Time_To_Int int_to_ltime ltime_to_int Int_To_Ltime Ltime_To_Int int_to_date date_to_int Int_To_Date Date_To_Int int_to_tod tod_to_int Int_To_Tod Tod_To_Int int_to_dt dt_to_int Int_To_Dt Dt_To_Int int_to_ldate ldate_to_int Int_To_Ldate Ldate_To_Int int_to_ltod ltod_to_int Int_To_Ltod Ltod_To_Int int_to_ldt ldt_to_int Int_To_Ldt Ldt_To_Int int_to_string string_to_int Int_To_String String_To_Int int_to_wstring wstring_to_int Int_To_Wstring Wstring_To_Int int_to___xint __xint_to_int Int_To___xint __xint_To_Int int_to___uxint __uxint_to_int Int_To___uxint __uxint_To_Int int_to___xword __xword_to_int Int_To___xword __xword_To_Int
+elapsed 220 s
