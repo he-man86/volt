@@ -66,3 +66,50 @@ the library. TwinCAT is in scope because its signatures exist.
 
 **Migration.** Wire shape unchanged (same `FetchedItem`s, same flag). Only a directed `.library` read gets more items.
 `docs/volt-bridge.openrpc.json` updates the `onlyItems` description. PLCAssist can drop its "manifest only" note.
+
+## 3. Build (2026-10-03)
+
+**Target.** §0's route, on both vendors: a directed read naming `X.library` returns X's manifest plus X's signatures,
+the bytes and folder a full fetch writes; the 2.1 / 2.2 / 2.4 red tests go green; `librariesRefreshed` stays false.
+
+**Choice 1 — the matcher sees every ref, the answer only the named ones.** The walk captures the RESOLUTION of EVERY
+walked `.library` before the `onlyItems` skip (`FetchService.cs:148`), because the ordinal-least owner of a repeated
+RESOLUTION and the different-RESOLUTION refusal both need the refs nobody named. One `LibraryFetch` matcher (exact,
+then wildcard title + company) serves both fetches; the directed answer keeps only the named refs' folders, then Warns
+per named zero-match library and logs `N extracted signatures … claimed by no named library`.
+
+**Choice 2 — a per-RESOLUTION session cache for directed reads (R2 answered by the owner's recorded decision).**
+1.2 sent 3.1 to the owner: on CODESYS every extraction runs `Build(app)` — 22.4-22.9 s after one edit on Pro2193 —
+and REPLACES the engineer's compiler message view. The owner had already decided this in the proposal ("the
+extraction is cached per library RESOLUTION in the session, so repeated reads cost one extraction"); §0 overrode it
+only as a default pending 1.2, and 1.2 measured exactly the case the cache removes: the precompiled library set is
+untouched by an edit and by Clean (7229 → 7229), so the API a read returns cannot have moved — only the build is paid.
+- Shape: an engine-held `LibrarySignatureCache` on the pipe host's session (vendor-neutral, so `BeckhoffDriver`
+  needs nothing beyond its existing `ExtractLibrarySignatures`): the last raw extraction plus the `.library`
+  {full name → version} it was taken against. A directed read reuses it iff every NAMED library's live version
+  equals the recorded one; otherwise it extracts once and replaces it. Matching, Warns and counts run fresh each read.
+- The key is the `.library` version — the same change signal D1 already trusts for the full fetch, no new hole
+  (a wildcard re-resolving mid-session without a manifest change is missed exactly as the full fetch misses it).
+- The full fetch is unchanged (D1: extracts iff `knownItems` says a library moved); its extraction refreshes the
+  cache, it never reads it.
+- Rejected: no cache (§0's default) — every per-item client read pays the build and rewrites the message view;
+  precompiled read without `Build(app)` — "complete for the named library" has no fact to stand on (facade refs
+  match zero by nature, so it would build on every facade read anyway); a cache per signature path — the vendor
+  extracts all libraries in one call (DIALECT C2c), so a finer key saves nothing.
+- First read per session still pays the build and writes build output, as `volt init` does today; stated in the
+  `onlyItems` doc, not hidden.
+
+**Choice 3 — `volt show BRIDGE` asks for the manifest only (R3).** `FetchRequest.LibraryManifestOnly` (bool, absent =
+false, the same convention as `Init`): set, a directed `.library` read neither extracts nor touches the cache. Only
+`volt show` sets it; PLCAssist and every other caller get the owner's "a `.library` read returns everything".
+
+**Stays refused by name.** A library element addressed on its own (`onlyItems: ["TON.fb"]`); one signature path
+claimed by refs with DIFFERENT RESOLUTIONs on a directed read (a full fetch Warns and keeps it `(unresolved)`).
+
+**Migration.** Response shape unchanged; one optional request field. `RefsFetch.cs` docs (`OnlyItems`,
+`LibrariesRefreshed`, the new field) and `docs/volt-bridge.openrpc.json` regenerated. The 2.3 test
+`Each_directed_library_read_extracts_once_and_nothing_is_cached` and the spec scenario "a second read is warm …
+without a session cache" encoded §0's default, which the owner's recorded decision overrides (a premise wrong on
+grounds independent of the code): they become "two directed reads with no library change extract ONCE; a moved
+`.library` version extracts again". TwinCAT (3.2) runs the same engine path; its answers are compared in shape to
+CODESYS's by the 2.4 table.
