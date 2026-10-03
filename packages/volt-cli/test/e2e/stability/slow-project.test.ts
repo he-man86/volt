@@ -11,8 +11,9 @@
  *  - The heavy ops COMPLETE and agree: `fetch` returns the same item set `refs` listed; `build` returns a verdict;
  *    nothing throws, nothing flips the bridge to `degraded` across the whole run.
  *
- * Run against the large project (from packages/volt-cli), after `ide.ps1 up -Vendor codesys -Fixture <the .project>`:
- *   VOLT_PIPE=volt.bridge.codesys.<pid> bun test test/e2e/stability --timeout 120000
+ * Run against the large project (from packages/volt-cli), after `ide.ps1 up -Vendor codesys -Instance slow -Fixture <the .project>`:
+ *   VOLT_E2E_INSTANCE=slow bun test test/e2e/stability --timeout 120000
+ * (The harness drives only an `ide.ps1` fixture instance — see `lib/fixture-ide.ts`.)
  */
 import { test, expect, beforeAll } from "bun:test"
 import { bridge, healthStatus, BASE } from "../harness"

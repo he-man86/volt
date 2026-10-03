@@ -10,14 +10,19 @@
  *   ide.ps1 up -Vendor codesys -Instance b -Fixture test\fixtures\Pro2193-94-95-96_COdesys.project   # 9.9 MB -> SLOW
  *   VOLT_PIPE_SLOW=volt.bridge.codesys.<bigPid> VOLT_PIPE_FAST=volt.bridge.codesys.<smallPid> \
  *     bun test test/e2e/stability/parallel-instances.test.ts --timeout 300000
- * Skips cleanly when the two pipes aren't set (so the normal single-pipe suite is unaffected).
+ * Skips cleanly when the two pipes aren't set (so the normal single-pipe suite is unaffected). Each pipe must belong to
+ * an `ide.ps1` fixture instance (`lib/fixture-ide.ts`) — a pipe that does not is REFUSED at load, so this suite can
+ * never drive an engineer's own CODESYS however the variables are set.
  */
 import { test, expect, describe, beforeAll } from "bun:test"
 import { connect } from "node:net"
+import { fixturePipesFor } from "../lib/fixture-ide"
 
 const SLOW = process.env.VOLT_PIPE_SLOW // the large project's pipe
 const FAST = process.env.VOLT_PIPE_FAST // a normal project's pipe
 const OP_TIMEOUT = 180_000
+// Verified BEFORE anything is called: throws "refusing to touch <pipe> (project …)" for a pipe no fixture instance owns.
+for (const p of [SLOW, FAST]) if (p) fixturePipesFor("codesys", p)
 
 /** One request per connection over a SPECIFIC pipe (the harness's client is hardcoded to one pipe). */
 function call(pipe: string, op: string, body?: unknown): Promise<any> {

@@ -28,25 +28,26 @@ import { fb, prog, func, METHOD, ACTION, PROPERTY, structDut, enumDut, gvl } fro
 setDefaultTimeout(60000)
 
 /**
- * The pipe to use for a vendor. `VOLT_PIPE_CODESYS` / `VOLT_PIPE_TWINCAT` name one explicitly; otherwise the
- * single live one is taken.
+ * The pipe to use for a vendor — ONLY an `ide.ps1` fixture IDE (`lib/fixture-ide.ts`): `VOLT_PIPE_CODESYS` /
+ * `VOLT_PIPE_TWINCAT` name one exactly and are VERIFIED, otherwise the `VOLT_E2E_INSTANCE` instance's own pipe.
  *
- * <p>This was `livePipesFor(v)[0]`, and with two instances of a vendor up it picks ARBITRARILY. Measured: with
- * a second CODESYS serving the 9.9 MB `Pro2193…` fixture (the deliberately SLOW instance
- * `parallel-instances` needs), this suite bound to THAT one and every case timed out at 60s — a five-minute red
- * whose message was "timeout" and whose cause was the environment. An ambiguous pick now SAYS it is ambiguous
- * instead of guessing.</p>
+ * <p>This was `livePipesFor(v)[0]` — every `volt.bridge.<vendor>.*` on the machine, first one wins — and on
+ * 2026-10-03 it created and deleted `VltE2E_par_*` items in an engineer's 881-item project that happened to sort
+ * first. Before that it bound to the deliberately slow `Pro2193…` instance and timed out every case. A vendor with no
+ * fixture IDE of ours is now a SKIP that says what it refused, never a guess.</p>
  */
 function pipeFor(vendor: "codesys" | "twincat"): string | undefined {
-	const explicit = process.env[`VOLT_PIPE_${vendor.toUpperCase()}`]
-	const live = livePipesFor(vendor)
-	if (explicit) return live.includes(explicit) ? explicit : undefined
-	if (live.length > 1)
-		console.log(
-			`vendor-parity: ${live.length} live ${vendor} bridges (${live.join(", ")}). Set ` +
-				`VOLT_PIPE_${vendor.toUpperCase()} to pick one — guessing risks binding the slow instance.`,
-		)
-	return live.length === 1 ? live[0] : undefined
+	try {
+		const ours = livePipesFor(vendor)
+		if (ours.length > 1)
+			console.log(`vendor-parity: ${ours.length} fixture ${vendor} pipes (${ours.join(", ")}); using ${ours[0]}.`)
+		return ours[0]
+	} catch (e) {
+		// A pipe the caller NAMED that is not a fixture is a failure, not a skip: they asked for it by name.
+		if (process.env[`VOLT_PIPE_${vendor.toUpperCase()}`]) throw e
+		console.log(`vendor-parity: ${vendor}: ${(e as Error).message}`)
+		return undefined
+	}
 }
 
 const cs = pipeFor("codesys")
@@ -55,11 +56,12 @@ const BOTH = cs !== undefined && tc !== undefined
 
 // Not a capability claim, and not permanent: this is the one suite that needs BOTH IDEs, and a normal run has
 // one. It prints why rather than vanishing — a silent skip is how the TwinCAT move test stayed off for an entire
-// implementation. Run it with `scripts/ide.ps1 up -Vendor codesys` AND `scripts/ide.ps1 up -Vendor twincat` together.
+// implementation. Run it with `scripts/ide.ps1 up -Vendor codesys` AND `scripts/ide.ps1 up -Vendor twincat` together
+// (the same `-Instance` for both, named by `VOLT_E2E_INSTANCE`).
 if (!BOTH)
 	console.log(
 		`vendor-parity: SKIPPED — needs both bridges up (codesys: ${cs ?? "down"}, twincat: ${tc ?? "down"}). ` +
-			`Start both, then re-run.`,
+			`Start both with scripts/ide.ps1 (instance ${process.env.VOLT_E2E_INSTANCE || "(default)"}), then re-run.`,
 	)
 
 /** Push one item, read it back. Returns the fetched wire row. */

@@ -74,6 +74,10 @@ $work     = Join-Path $env:LOCALAPPDATA "volt-bridge"
 if (-not (Test-Path $work)) { New-Item -ItemType Directory -Force $work | Out-Null }
 $sfx      = if ($Instance) { "-$Instance" } else { "" }
 $pidFile  = Join-Path $work "$Vendor-ide$sfx.pids"
+# The project(s) this instance's `up` OPENED, one full path per line. The e2e harness reads it with the pid file to
+# prove a pipe is a fixture COPY's before it touches it (test/e2e/lib/fixture-ide.ts): it refuses any pipe whose
+# instance did not open a project under %TEMP%\volt-ide-<vendor>[-<Instance>]\ — an -InPlace run included.
+$projFile = Join-Path $work "$Vendor-ide$sfx.projects"
 
 # The SDK that can target what the solution targets. "Has an SDK" is not enough — this machine carries several
 # dotnet installs and the .NET 8 one fails net10.0 with NETSDK1045 (see build-cli.ps1, same trap).
@@ -573,6 +577,11 @@ function Copy-FixtureOut([string]$path, [string]$vendor) {
     return $dst
 }
 
+# What `up` opened, for the harness (see $projFile). Written without a BOM: it is read by another runtime.
+function Save-Projects([string[]]$paths) {
+    [System.IO.File]::WriteAllLines($projFile, [string[]]@($paths | ForEach-Object { (Resolve-Path $_).Path }))
+}
+
 # ── codesys: in-proc host ──────────────────────────────────────────────────────────────────────────────────
 
 function Up-Codesys {
@@ -585,6 +594,7 @@ function Up-Codesys {
     if (-not (Test-Path $exe))     { throw "CODESYS.exe not found: $exe" }
     if (-not (Test-Path $project)) { throw "Fixture project not found: $project" }   # the CALLER's path, before the copy
     $project = Copy-FixtureOut $project "codesys"
+    Save-Projects @($project)
     Build-Bridge "codesys"
     if (-not (Test-Path $dll))     { throw "Bridge DLL missing (build Volt.Ide.Codesys): $dll" }
 
@@ -647,6 +657,7 @@ function Up-Twincat {
         if (-not (Test-Path $open[$k])) { throw "solution missing: $($open[$k])" }
         $open[$k] = Copy-FixtureOut $open[$k] "twincat"
     }
+    Save-Projects @($open.Values)
 
     $already = @(Get-Process TcXaeShell -ErrorAction SilentlyContinue | ForEach-Object { $_.MainWindowTitle })
     foreach ($k in $open.Keys) {
@@ -704,8 +715,12 @@ function Up-Twincat {
 
 switch ($Action) {
     "pipe" {
-        $p = Get-BridgePipes $Vendor
-        if ($p.Count -gt 0) { $p } else { Write-Error "no volt.bridge.$Vendor.* pipe - is an IDE up?" }
+        # THIS instance's pipes only — the ones its `up` started (Test-Ours). It printed every volt.bridge.<vendor>.*
+        # on the machine, and a caller that took the first line drove whichever IDE sorted first: an engineer's own,
+        # on 2026-10-03 (an e2e run created and deleted items in a project that was nobody's fixture).
+        $records = @(Read-Records $pidFile)
+        $p = @(Get-BridgePipes $Vendor | Where-Object { Test-Ours ([int](($_ -split '\.')[-1])) $records })
+        if ($p.Count -gt 0) { $p } else { Write-Error "no pipe of instance $(if ($Instance) { $Instance } else { '(default)' }) for $Vendor - start it with: ide.ps1 up -Vendor $Vendor$(if ($Instance) { " -Instance $Instance" }) -Wait" }
     }
     "logs" {
         $log = if ($Vendor -eq "codesys") { Join-Path $work "bridge-launcher.log" }
@@ -723,7 +738,7 @@ switch ($Action) {
         # And it used to close by Stop-Process -Force, which left the XAE's recovery dialog for the next start; an IDE
         # is now closed through its own shutdown first (Close-Ours).
         [void](Close-Instance $Vendor -DryRun:$DryRun)
-        if (-not $DryRun) { Remove-Item $pidFile -Force -ErrorAction SilentlyContinue }
+        if (-not $DryRun) { Remove-Item $pidFile, $projFile -Force -ErrorAction SilentlyContinue }
     }
     "up" {
         # LD and FBD network text ON for what this launches (openspec implementation-keyword 3c). The bridge reads the
@@ -738,7 +753,7 @@ switch ($Action) {
         # to open shows a modal recovery dialog and the worker attaches to nothing. One `up` owns its instance: a second
         # `up` on the same -Instance replaces the first (use `-Fixture both`, or a second -Instance, for two windows).
         [void](Close-Instance $Vendor -Quiet)
-        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        Remove-Item $pidFile, $projFile -Force -ErrorAction SilentlyContinue
         Clear-InstanceLeftovers $Vendor
         $before = Get-ServingPids $Vendor
         if ($Vendor -eq "codesys") { Up-Codesys } else { Up-Twincat }

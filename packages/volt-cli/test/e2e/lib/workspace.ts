@@ -7,6 +7,7 @@
  */
 import { expect } from "bun:test"
 import { bridge, healthStatus } from "./bridge"
+import { currentPipe } from "./pipe"
 
 /** Every item this suite creates is named `VltE2E_*`, which is what makes an unattended sweep safe. */
 export const PREFIX = "VltE2E"
@@ -78,14 +79,18 @@ async function sweepOnce(): Promise<void> {
  * harmless re-confirm.</p>
  */
 export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
+	// Resolve FIRST, outside the retry: a refusal ("no fixture IDE for instance X; refusing to touch …") is not a
+	// still-loading IDE, and swallowing it into the loop below would turn it into a minute-long wait and a message
+	// that names neither the instance nor the foreign pipes it refused.
+	currentPipe()
 	const t0 = Date.now()
 	let lastProject: string | undefined
 	while (Date.now() - t0 < timeoutMs) {
 		const h = await bridge.health().catch(() => ({ projects: [] }))
 		if (healthStatus(h) === "healthy") {
-			// SAY WHICH PROJECT, not just which pipe. `ide.ps1 up` opens TWO XAE windows and discovery takes the
-			// first live pipe by name — i.e. by pid string order — so which project a run measures is not
-			// something the run chooses, and the two are not interchangeable. It has cost real time twice: the
+			// SAY WHICH PROJECT, not just which pipe. `ide.ps1 up` opens TWO XAE windows and the harness drives
+			// the first of the instance's fixture pipes by name — i.e. by pid string order — so which project a run
+			// measures is not something the run chooses, and the two are not interchangeable. It has cost real time twice: the
 			// latency baselines were recorded on the smaller one and read 8x worse on the larger, and the two
 			// disagree about where the PLC root is, so the default `POUs` folder resolved to `POUs/POUs` and
 			// fifty-eight tests failed with a vendor path error that named neither cause.

@@ -36,15 +36,36 @@ disk and IDE disagreeing about the same project, and the next save undoes the re
 after a bridge-clean and an orderly shutdown the fixture came back with **zero modified files**, including the
 `LineIds` churn that had looked unavoidable while restoring under a live IDE.
 
-**Pick a vendor with `VOLT_VENDOR`; the harness does the rest.** It **discovers the live per-pid pipe** by prefix
-(so an IDE that restarts with a new pid is followed — no need to hunt for `volt.bridge.<vendor>.<pid>`), and
-`requireHealthy()` **selects the detected project and waits for it to serve** (CODESYS serves its project by default;
-a TwinCAT XAE starts every project `idle` and must be told which to serve — the harness does that). `VOLT_PIPE` still
-overrides for a specific pipe/prefix. One command per vendor:
+**Pick a vendor with `VOLT_VENDOR`; the harness does the rest — but ONLY against an IDE `ide.ps1` started on a
+fixture copy.** It resolves its pipe from an `ide.ps1` **instance** (`lib/fixture-ide.ts`), never from the pipe
+namespace: `VOLT_E2E_INSTANCE` names the instance (unset = the default one, `ide.ps1 up` with no `-Instance`), and the
+harness takes the `volt.bridge.<vendor>.<pid>` pipe whose pid that instance's pid file records (or a child of one —
+CODESYS re-execs), whose recorded project lies under that instance's copy root `%TEMP%\volt-ide-<vendor>[-<Instance>]\`,
+and — on TwinCAT — whose XAE's own command line names a `.sln` there. An explicit `VOLT_PIPE` must be one exact per-pid
+pipe, and is accepted only if some instance proves it the same way. Anything else is **refused**, naming the pipes it
+will not touch and what they serve:
+
+```
+no fixture IDE for instance 'e2e-hygiene' (codesys): ide.ps1 has no record of one — start it with `pwsh scripts/ide.ps1
+up -Vendor codesys -Instance e2e-hygiene -Wait`. Refusing to touch pipe(s): volt.bridge.codesys.11548 (project
+Pro2193-94-95-96_COdesys.project* - CODESYS )
+```
+
+> **Why (2026-10-03).** The harness used to discover the pipe BY PREFIX and take the first. With several IDEs open that
+> is whichever pid sorts first: `vendor-parity` created and deleted `VltE2E_par_*` items in an 881-item project that was
+> not a fixture copy. A prefix cannot tell a fixture from an engineer's project; the launcher's record can. There is no
+> fallback and no "first pipe found" — `-InPlace` (the committed tree, not a copy) is refused too.
+
+Once resolved, a pipe is kept while it EXISTS (a TwinCAT worker outlives its XAE and must answer `PLC_DISCONNECTED`);
+when it disappears the instance is resolved again, which follows an IDE that restarted with a new pid.
+`requireHealthy()` then **selects the detected project and waits for it to serve** (CODESYS serves its project by
+default; a TwinCAT XAE starts every project `idle` and must be told which to serve — the harness does that). One
+command per vendor:
 
 ```bash
 bun run test:e2e:codesys      # = VOLT_VENDOR=codesys bun test test/e2e
 bun run test:e2e:twincat      # = VOLT_VENDOR=twincat bun test test/e2e
+# an -Instance:  $env:VOLT_E2E_INSTANCE="a"; bun run test:e2e:codesys
 ```
 
 ## Fixtures (committed, deterministic)
@@ -96,7 +117,7 @@ pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
 pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Instance a
 pwsh packages/volt-cli/scripts/ide.ps1 down -Vendor codesys          # (add -Instance a to stop that one)
 
-bun run test:e2e:codesys   # discovers the live codesys pipe + runs the suite
+bun run test:e2e:codesys   # drives the default instance's fixture pipe (VOLT_E2E_INSTANCE=a for -Instance a)
 ```
 
 **There is one way to serve CODESYS, and it is the way users do it.** There used to be three — `-Ui`, and a
@@ -137,10 +158,10 @@ TwinCAT has **no in-proc host and no headless mode** (TcXaeShell is Visual-Studi
 
 ```powershell
 pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat            # both fixtures = the multi-XAE scenario
-pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Which 13  # just one
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Fixture 13  # just one
 pwsh packages/volt-cli/scripts/ide.ps1 down -Vendor twincat          # close the ones it opened
 
-# TcXaeShell takes ~30-60s to load; the runner discovers the pipe + selects the project + waits, so just:
+# TcXaeShell takes ~30-60s to load; the runner resolves the instance's pipe + selects the project + waits, so just:
 bun run test:e2e:twincat
 ```
 
@@ -203,7 +224,7 @@ the two it was, so read the SKIP count as part of the result, not as noise.
 
 ## The suites that need more than one plain development bridge
 
-Every file here drives ONE development bridge, chosen by `VOLT_VENDOR`/`VOLT_PIPE` — except a few, and each says so
+Every file here drives ONE development bridge — the `VOLT_VENDOR` fixture IDE of the `VOLT_E2E_INSTANCE` instance — except a few, and each says so
 on stdout when it skips rather than vanishing quietly. A silent skip is how the TwinCAT graphical-move test stayed off
 through the entire implementation of the move it was skipping.
 
@@ -212,11 +233,12 @@ diffs what comes back, which is the invariant `ARCHITECTURE.md` opens with and w
 `child-roundtrip-parity` runs the same assertions against one bridge at a time, so it catches an absolute failure
 (TwinCAT dropping FBs with methods) but not a difference the two vendors both handle plausibly — a stray blank
 line, a reordered VAR block — which passes twice and is invisible. Run both launchers, then either vendor's
-command; the suite finds the other pipe itself via `livePipesFor`.
+command; the suite resolves the other vendor's pipe from the SAME instance (`VOLT_PIPE_CODESYS` / `VOLT_PIPE_TWINCAT`
+name one exactly, verified the same way). A vendor with no fixture IDE of ours is a skip that prints what it refused.
 
 ```bash
 pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
-pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Which 13
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Fixture 13
 bun run test:e2e:twincat        # vendor-parity runs; everything else drives TwinCAT
 ```
 
