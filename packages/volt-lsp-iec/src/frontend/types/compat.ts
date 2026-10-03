@@ -20,21 +20,36 @@ import type { ElementaryTypeRef, Type } from "./type.js"
 import { isIsolated } from "./predicates.js"
 
 /** How `rhs` converts into `lhs`. `identity` also covers the conservative skips (unknown / non-elementary). */
-export type ConversionKind = "identity" | "widen" | "narrow" | "sign-change" | "incompatible"
+export type ConversionKind = "identity" | "widen" | "narrow" | "sign-change" | "enum-change" | "incompatible"
 
-/** Classify an implicit conversion of `rhs` → `lhs`. The single source of truth for every conversion decision. */
-export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
+/**
+ * Classify an implicit conversion of `rhs` → `lhs`. The single source of truth for every conversion decision. `target`
+ * decides an integer stored into a pointer (`integerIntoPointer`); without it that pair is unjudged.
+ */
+export function classifyConversion(lhs0: Type, rhs0: Type, target?: Target): ConversionKind {
+  // A REFERENCE converts as what it refers to, on either side (rule DT14, `dt_reference_into_narrower`,
+  // `cv_reference_to_other_reference`, `cv_reference_to_pointer`, CODESYS 2026-10-03) — the message still names it as
+  // the reference, which is the caller's rendering, not this relation's
+  const lhs = lhs0.kind === "reference" ? lhs0.target : lhs0
+  const rhs = rhs0.kind === "reference" ? rhs0.target : rhs0
   if (lhs.kind === "unknown" || rhs.kind === "unknown") return "identity" // conservative skip
+  if (lhs.kind === "pointer" && rhs.kind === "elementary") return integerIntoPointer(rhs, target)
 
-  // Enum rules: two different enums are incompatible. An enum VALUE stored into a scalar converts as its base type —
-  // measured for an enum without one, which is INT (conformance `cc_enum_into_*`): silent into INT/DINT/LINT/REAL/LREAL,
-  // "Cannot convert" into SINT/USINT/BYTE, "change of sign" into UINT/UDINT/WORD/DWORD. This used to widen into every
-  // numeric type. A scalar into an enum, and an explicit base type, are unmeasured: only isolated families reject them.
+  // Enum rules. A value of ANOTHER enum converts with the warning "Implicit conversion from one enumeration type (A) to
+  // another (B)" (`enum-change`; `cv_enum_into_other_enum`, `unit_enum_extends_enum`, both vendors) — it was refused. An
+  // enum converts AS ITS BASE, both ways (`enums.ts` `enumBase`: the written one, else INT): stored into a scalar
+  // (`cc_enum_into_*`, `cv_enum_base_*_into_scalars`) and a scalar stored into it (`cv_scalars_into_enum`,
+  // `cv_scalars_into_enum_with_base`, CODESYS 2026-10-03: into a plain enum a DINT, a REAL, a BOOL are refused, a UINT
+  // taken). An enum without a measured base (a library's) is unjudged but for the isolated families.
   if (lhs.kind === "enum" || rhs.kind === "enum") {
-    if (lhs.kind === "enum" && rhs.kind === "enum") return isSameType(lhs, rhs) ? "identity" : "incompatible"
+    if (lhs.kind === "enum" && rhs.kind === "enum") return isSameType(lhs, rhs) ? "identity" : "enum-change"
     const scalar = lhs.kind === "enum" ? rhs : lhs
     if (scalar.kind !== "elementary") return "identity"
-    if (rhs.kind === "enum" && rhs.base !== undefined) return classifyElementary(scalar.name, rhs.base.name)
+    const base = lhs.kind === "enum" ? lhs.base : rhs.kind === "enum" ? rhs.base : undefined
+    // …but an enum stored into a REAL or an LREAL loses nothing, whatever its base: a DINT, UDINT or LINT base is silent
+    // into both (`cv_enum_base_{dint,udint,lint}_into_scalars`), where the base itself would warn about the mantissa
+    if (base !== undefined && rhs.kind === "enum" && scalar.elem.family === "real") return "widen"
+    if (base !== undefined) return lhs.kind === "enum" ? classifyElementary(base.name, scalar.name) : classifyElementary(scalar.name, base.name)
     return isIsolated(scalar.name) ? "incompatible" : "widen"
   }
 
@@ -93,8 +108,24 @@ export function isSameType(a: Type, b: Type): boolean {
 }
 
 /** IEC assignment compatibility: can a value of type `rhs` be implicitly assigned to a `lhs` target? */
-export function isAssignable(lhs: Type, rhs: Type): boolean {
-  return classifyConversion(lhs, rhs) !== "incompatible"
+export function isAssignable(lhs: Type, rhs: Type, target?: Target): boolean {
+  return classifyConversion(lhs, rhs, target) !== "incompatible"
+}
+
+/**
+ * AN INTEGER STORED INTO A POINTER (rule CV6, `cv_integers_into_pointer`, `cv_xword_into_pointer`, CODESYS 2026-10-03, on
+ * the 64-bit target): a 32-bit integer of either sign is refused ("Cannot convert type 'DWORD' to type 'POINTER TO INT'")
+ * — it is the pointer of the OTHER platform; every other integer converts as into the unsigned integer of the pointer's
+ * width — BYTE, WORD, UINT, LWORD, ULINT, `__XWORD` silent, INT and LINT a change of sign. A REAL is refused
+ * (`dt_pointer_arithmetic_refused`: `p - aReal` converts the REAL into the pointer); the other families are unmeasured.
+ * Unjudged where the target is unknown or 32-bit (unmeasured).
+ */
+function integerIntoPointer(rhs: ElementaryTypeRef, target: Target | undefined): ConversionKind {
+  const e = rhs.elem
+  if (e.family !== "int" && e.family !== "bitstring") return e.family === "real" ? "incompatible" : "identity"
+  if (target === undefined || target.pointerBits !== 64 || e.bits === 1) return "identity"
+  if (e.bits === 32) return "incompatible"
+  return classifyElementary("ULINT", rhs.name)
 }
 
 function bitToBool(name: string): string {

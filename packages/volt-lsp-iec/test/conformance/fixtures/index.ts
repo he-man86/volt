@@ -112,6 +112,10 @@ import { MEMBER_RULE_TESTS } from "./names/members.js"
 import { ELEMENTARY_RULE_TESTS } from "./types/elementary-rules.js"
 import { LITERAL_CONTEXT_TESTS } from "./types/literal-contexts.js"
 import { ARITHMETIC_RESULT_TESTS } from "./types/arithmetic-results.js"
+import { COMPARISON_BOOL_TESTS } from "./types/comparisons-bool.js"
+import { ENUM_CONVERSION_TESTS } from "./types/enum-conversions.js"
+import { POINTER_REFERENCE_TESTS } from "./types/pointer-reference.js"
+import { EXPLICIT_PAIR_TESTS } from "./conversions/explicit-pairs.js"
 
 export interface CategoryGroup {
   name: string
@@ -235,6 +239,10 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "types-elementary-rules", tests: ELEMENTARY_RULE_TESTS },
   { name: "types-literal-contexts", tests: LITERAL_CONTEXT_TESTS },
   { name: "types-arithmetic-results", tests: ARITHMETIC_RESULT_TESTS },
+  { name: "types-comparisons-bool", tests: COMPARISON_BOOL_TESTS },
+  { name: "types-enum-conversions", tests: ENUM_CONVERSION_TESTS },
+  { name: "types-pointer-reference", tests: POINTER_REFERENCE_TESTS },
+  { name: "conversions-explicit-pairs", tests: EXPLICIT_PAIR_TESTS },
 ]
 
 /**

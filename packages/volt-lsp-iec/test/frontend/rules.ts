@@ -2237,7 +2237,7 @@ export const RULES: readonly Rule[] = [
     fixtures: ["prag_strict_enum_*", "prag_enum_not_strict_*"],
     design: "**GAP**",
     recheck:
-      "2.10, recorded on both vendors (they agree on every cell): `strict` refuses an INT variable (\"'i' is not a valid value for strict ENUM type …\"), a literal no member names (\"'5' is not …\") and arithmetic (\"Arithmetics not allowed on strict ENUM type …\"); it does NOT refuse a literal a member names, the enum read into an INT, a comparison with a literal or an INT, or TO_INT. Without `strict` every cell builds. The three refusals are lsp-gap (`deferred.lsp`): `strict` is read by the type compatibility of task 4.5.1, which owns CV5 and P14.",
+      "4.5.1 (2026-10-03): the three refusals are the LSP's now (`types/enums` `strictEnum`, `analysis/rules`); `cv_*strict*` measured every family. 2.10, recorded on both vendors (they agree on every cell): `strict` refuses an INT variable (\"'i' is not a valid value for strict ENUM type …\"), a literal no member names (\"'5' is not …\") and arithmetic (\"Arithmetics not allowed on strict ENUM type …\"); it does NOT refuse a literal a member names, the enum read into an INT, a comparison with a literal or an INT, or TO_INT. Without `strict` every cell builds. The three refusals are lsp-gap (`deferred.lsp`): `strict` is read by the type compatibility of task 4.5.1, which owns CV5 and P14.",
   },
   {
     id: "P15",
@@ -2249,7 +2249,7 @@ export const RULES: readonly Rule[] = [
     fixtures: ["prag_to_string_*"],
     design: "**GAP**",
     recheck:
-      "2.10, recorded (CODESYS run, both builds): under `to_string` TO_STRING of a member or a variable is the member's NAME (`'On'`), so is INT_TO_STRING and TO_WSTRING (`\"On\"`), and a base type does not change it; without the attribute it is the value (`'1'`); a value no member names prints its number (`'5'`); an enum into a STRING with no conversion is refused (\"Cannot convert type …\"). The LSP agrees on every build. Lowering had printed the number under the attribute — a silent wrong answer, now refused by name (`lower/builtins.ts`, `lower.test.ts`; the member-name table is task 4.5.1's).",
+      "4.5.1 (2026-10-03): `cv_enum_to_string_attribute`, `cv_enum_to_string_implicit_members` — every member's name, written and implicit values; lowering's member-name table is handed to T (5.3). 2.10, recorded (CODESYS run, both builds): under `to_string` TO_STRING of a member or a variable is the member's NAME (`'On'`), so is INT_TO_STRING and TO_WSTRING (`\"On\"`), and a base type does not change it; without the attribute it is the value (`'1'`); a value no member names prints its number (`'5'`); an enum into a STRING with no conversion is refused (\"Cannot convert type …\"). The LSP agrees on every build. Lowering had printed the number under the attribute — a silent wrong answer, now refused by name (`lower/builtins.ts`, `lower.test.ts`; the member-name table is task 4.5.1's).",
   },
   {
     id: "P16",
@@ -4235,9 +4235,10 @@ export const RULES: readonly Rule[] = [
     section: "4.4",
     rule: "the comparison result is BOOL for every pair incl. STRING, TIME, pointer",
     home: "infer/expr",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["cb_compare_result_types","cb_compare_result_values","cb_compare_pointers","cb_compare_pointer_values","cb_compare_time_ltime","cb_compare_time_ltime_values"],
     design: "**GAP** (pointers and TIME)",
+    recheck: "4.4 (2026-10-03): every comparison names BOOL — two STRINGs, WSTRINGs, TIMEs, DATEs, REAL with LREAL, BOOLs, INT with UDINT (the UDINT warns into DINT), enum values, pointers; a pointer against a DWORD is \"Cannot compare\" on the 64-bit target, TIME against LTIME \"Cannot compare type 'TIME' with type 'LTIME'\".",
   },
   {
     id: "CB5",
@@ -4245,9 +4246,10 @@ export const RULES: readonly Rule[] = [
     section: "4.4",
     rule: "AND_THEN/OR_ELSE on non-BOOL operands",
     home: "arith/operators",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["cb_and_then_on_int","cb_or_else_on_int","cb_and_then_on_word","cb_and_then_bool_and_int","cb_and_then_result_type"],
     design: "**GAP**",
+    recheck: "4.4 (2026-10-03): two BOOLs are BOOL; otherwise the operands meet in the unsigned integer of their width (a signed one warns, a BOOL is refused into it) and that integer is refused as the condition (`arith/operators` `shortCircuitType`).",
   },
   // ── 4.5 ──
   {
@@ -4285,8 +4287,9 @@ export const RULES: readonly Rule[] = [
     rule: "a project enum without a base converts as INT; two enums are incompatible",
     home: "resolve + compat",
     gap: false,
-    fixtures: ["cc_enum_into_*", "cc_enum_var_into_*"],
+    fixtures: ["cc_enum_into_*","cc_enum_var_into_*","cv_enum_into_other_enum","cv_enum_arithmetic_type","cv_enum_arithmetic_values","prag_enum_not_strict_add_literal"],
     design: "cc_enum_into_*, cc_enum_var_into_*",
+    recheck: "4.5.1 (2026-10-03): a value of another enum is the WARNING \"Implicit conversion from one enumeration type (A) to another (B)\" (it was refused); an enum operand of arithmetic computes in its base (`e + 1` INT).",
   },
   {
     id: "CV4",
@@ -4294,9 +4297,10 @@ export const RULES: readonly Rule[] = [
     section: "4.5",
     rule: "an enum with a written base; a library enum",
     home: "compat + enums",
-    gap: true,
-    fixtures: ["type_dut_enum_with_base"],
+    gap: false,
+    fixtures: ["type_dut_enum_with_base","cv_enum_with_base_into_int","cv_enum_base_*_into_scalars","cv_enum_with_base_type","cv_library_enum_into_int","cv_library_enum_into_scalars","cv_library_enum_255_into_scalars","cv_library_enum_type"],
     design: "type_dut_enum_with_base (storage only) — **GAP**",
+    recheck: "4.5.1 (2026-10-03): a written base is the base the enum converts as, both ways (eight bases, every scalar target), but into REAL/LREAL silent; a library enum's base is not materialized — `LIBRARY_ENUM_BASE_NOT_MATERIALIZED`.",
   },
   {
     id: "CV5",
@@ -4304,9 +4308,10 @@ export const RULES: readonly Rule[] = [
     section: "4.5",
     rule: "a scalar into an enum (with and without `strict`, P14)",
     home: "compat",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["cv_int_into_enum","cv_literal_into_enum","cv_scalars_into_enum","cv_scalars_into_enum_with_base","cv_int_into_strict_enum","cv_scalars_into_strict_enum","cv_literals_into_strict_enum","cv_strict_enum_into_int","cv_strict_enum_into_scalars","cv_strict_enum_arithmetic","cv_strict_enum_from_other_enum","prag_strict_enum_*"],
     design: "**GAP**",
+    recheck: "4.5.1 (2026-10-03): a scalar into an enum converts as into its base; into a `strict` enum only its own values and literals a member holds, anything else \"'<text>' is not a valid value for strict ENUM type …\" (`types/enums` `strictEnum`).",
   },
   {
     id: "CV6",
@@ -4315,8 +4320,9 @@ export const RULES: readonly Rule[] = [
     rule: "pointer ↔ unsigned 32/64-bit integer",
     home: "compat + platform",
     gap: false,
-    fixtures: ["memory/memory-model.ts", "memory/pointer-parameters.ts"],
+    fixtures: ["memory/memory-model.ts","memory/pointer-parameters.ts","cv_integers_into_pointer","cv_xword_into_pointer","cv_pointer_through_lword_values"],
     design: "memory/memory-model.ts, memory/pointer-parameters.ts",
+    recheck: "4.5.2 (2026-10-03): an integer into a pointer on the 64-bit target — a 32-bit one refused, a signed one a change of sign, the rest silent (`compat` `integerIntoPointer`).",
   },
   {
     id: "CV7",
@@ -4324,10 +4330,11 @@ export const RULES: readonly Rule[] = [
     section: "4.5",
     rule: "explicit `X_TO_Y` for every pair; TRUNC/ROUND; BCD; string ↔ number/time/date",
     home: "builtins + conversion-name",
-    gap: true,
+    gap: false,
     fixtures: ["conversions/*"],
     design:
       "conversions/*.ts; the pair matrix (`scripts/conversion-matrix.ts`, run in 0.5) lists the missing pairs — **GAP** while that list is non-empty",
+    recheck: "4.5.3 (2026-10-03): the 327 pairs no fixture called have one each (`conversions/explicit-pairs.ts`); every one compiles on CODESYS; the matrix reports 0 missing.",
   },
   // ── 4.6 ──
   {
@@ -4537,9 +4544,10 @@ export const RULES: readonly Rule[] = [
     section: "4.7",
     rule: "POINTER TO / REFERENCE TO compatibility with each other and with the pointee",
     home: "compat",
-    gap: true,
-    fixtures: ["memory/*"],
+    gap: false,
+    fixtures: ["memory/*","cv_reference_to_pointer","cv_pointer_to_reference","cv_pointer_assigned_to_reference","cv_pointer_deref_to_reference_values","cv_pointer_to_other_pointee","cv_pointer_and_pointee","cv_reference_to_other_reference"],
     design: "memory/* (partial) — **GAP** for REFERENCE ↔ POINTER",
+    recheck: "4.5.2 (2026-10-03): a reference converts as its target and is named as itself; a pointer into a reference is refused, REF= of a pointer too, a pointer to another pointee is silent.",
   },
   {
     id: "DT13",
@@ -4547,9 +4555,10 @@ export const RULES: readonly Rule[] = [
     section: "4.7",
     rule: "pointer arithmetic: POINTER ± integer, pointer − pointer",
     home: "arith/operators + compat",
-    gap: true,
-    fixtures: ["refuse_adr_difference"],
+    gap: false,
+    fixtures: ["refuse_adr_difference","dt_pointer_plus_int","dt_pointer_difference","dt_pointer_arithmetic_values","dt_pointer_arithmetic_refused"],
     design: "refuse_adr_difference (the refused form only) — **GAP** for the accepted forms",
+    recheck: "4.5.2 (2026-10-03): POINTER ± integer is the pointer, pointer − pointer a DWORD (`arith/operators` `pointerArithmeticType`); a pointer minus a REAL is refused.",
   },
   {
     id: "DT14",
@@ -4557,8 +4566,9 @@ export const RULES: readonly Rule[] = [
     section: "4.7",
     rule: "REFERENCE auto-dereference typing (a REFERENCE TO T reads as T) and the REF= type rules beyond LT10",
     home: "infer/member + compat",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["dt_reference_auto_deref_type","dt_reference_auto_deref_values","dt_reference_into_narrower","dt_ref_assign_wrong_type","dt_ref_assign_struct_mismatch"],
     design: "**GAP**",
+    recheck: "4.5.2 (2026-10-03): a REFERENCE TO T reads as T in an operation and is named REFERENCE TO T bare; REF= takes a variable of exactly the target type (arrays too), an operation is the write-access refusal.",
   },
 ]

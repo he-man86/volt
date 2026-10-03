@@ -29,7 +29,7 @@ import { aliasElem, elementaryType } from "../elementary.js"
 import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
 import { literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
-import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
+import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
 import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
@@ -135,8 +135,16 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
 
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   if (COMPARISON_OPERATORS.has(e.op)) return elementaryRef("BOOL")
-  let l = inferExprType(e.left, scope, project)
-  let r = inferExprType(e.right, scope, project)
+  // an ENUM operand of arithmetic computes in its base (`enums.ts` `enumBase`): `e + INT#1`, `e + 1` and `e + e` are INT,
+  // `e * aDint` DINT (`cv_enum_arithmetic_type`, CODESYS 2026-10-03); an enum without a measured base stays itself
+  let l = asOperand(inferExprType(e.left, scope, project), e.op)
+  let r = asOperand(inferExprType(e.right, scope, project), e.op)
+  // AND_THEN / OR_ELSE: BOOL, or the unsigned integer their operands meet in (`arith/operators` `shortCircuitType`, CB5)
+  if (SHORT_CIRCUIT_OPERATORS.has(e.op)) return shortCircuitType(l, r) ?? UNKNOWN
+  // POINTER ± integer, pointer − pointer (`arith/operators` `pointerArithmeticType`, rule DT13); an untyped INTEGER literal
+  // counts as an integer — a REAL literal (a `number`) does not
+  const pointer = pointerArithmeticType(e.op, l, r, typeof untypedNumberValue(e.left) === "bigint", typeof untypedNumberValue(e.right) === "bigint", project.dialect)
+  if (pointer !== undefined) return pointer
   // an UNTYPED number beside a typed operand takes its type from it (`arith/checked` `literalOperandType`) — at a bit
   // operator the smallest UNSIGNED integer of at least its width (`bitwiseLiteralOperandType`), whose width a wider
   // literal then computes at (`bitwiseLiteralResultType`)
@@ -294,4 +302,11 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
     if (builtin !== undefined) return builtin
   }
   return UNKNOWN
+}
+
+/** An operand as an operator reads it: a REFERENCE as what it refers to (`ri + 1` is INT, `ri * rr` REAL —
+ *  `dt_reference_auto_deref_type`, rule DT14); at ARITHMETIC an enum with a measured base as that base (`cv_enum_arithmetic_type`). */
+function asOperand(t0: Type, op: string): Type {
+  const t = t0.kind === "reference" ? t0.target : t0
+  return ARITHMETIC_OPERATORS.has(op) && t.kind === "enum" && t.base !== undefined ? t.base : t
 }

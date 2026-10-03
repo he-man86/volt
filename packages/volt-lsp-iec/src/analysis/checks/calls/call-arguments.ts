@@ -22,7 +22,7 @@ import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../fron
 import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
-import { checkable, checkableType, conversionWarning } from "../../rules.js"
+import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../rules.js"
 import { bindableMember } from "../../resolution.js"
 
 export function checkCallArguments(ctx: CheckContext, out: DiagnosticItem[]): void {
@@ -430,6 +430,10 @@ function argTypeError(
   }
   const target = checkable(resolveTypeExpr(paramType, ctx.project, 0, ctx.project, ctx.uri))
   if (target === undefined) return
+  // An argument into a `{attribute 'strict'}` enum input is unmeasured: P14 was recorded on stores only, where the vendor
+  // refuses any value but the enum's own by its text, never with a conversion warning — so the plain-enum rules
+  // (another enum's value WARNS, a scalar converts as the base) would put words in its mouth here. Missing, never wrong.
+  if (isStrictEnum(target, ctx.project)) return
   const arg = checkableType(value, scope, ctx.project)
   if (arg === undefined) return
   if (isAssignable(target, arg)) {

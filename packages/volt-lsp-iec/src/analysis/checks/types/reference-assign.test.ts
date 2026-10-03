@@ -84,3 +84,44 @@ test("TwinCAT words a literal REF= the other way round: reference to literal (cc
   expect(literal("codesys")).toEqual(["Cannot convert type 'SINT' to type 'REFERENCE TO INT'"])
   expect(literal("twincat")).toEqual(["Cannot convert type 'REFERENCE TO INT' to type 'SINT'"])
 })
+
+/** Every error for `body` in an FB with `vars`. */
+const errorsOf = (vars: string, body: string): string[] => {
+  const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.severity === "error" && d.code !== "signature-name-mismatch")
+    .map((d) => d.message)
+}
+
+test("REF= takes a variable of exactly the referenced type — another type, a pointer, another reference, an array of another shape is refused (dt_ref_assign_*, DT14)", () => {
+  const vars = "ri : REFERENCE TO INT; rr : REFERENCE TO REAL; y : REAL; d : DINT; si : SINT; x : INT; p : POINTER TO INT;\nra : REFERENCE TO ARRAY[0..3] OF INT; a5 : ARRAY[0..4] OF INT; ad : ARRAY[0..3] OF DINT; a4 : ARRAY[0..3] OF INT;"
+  expect(errorsOf(vars, "ri REF= y;\nri REF= d;\nri REF= si;")).toEqual([
+    "Cannot convert type 'REAL' to type 'REFERENCE TO INT'",
+    "Cannot convert type 'DINT' to type 'REFERENCE TO INT'",
+    "Cannot convert type 'SINT' to type 'REFERENCE TO INT'",
+  ])
+  expect(errorsOf(vars, "ri REF= p;")).toEqual(["Cannot convert type 'POINTER TO INT' to type 'REFERENCE TO INT'"])
+  expect(errorsOf(vars, "ri REF= rr;")).toEqual(["Cannot convert type 'REFERENCE TO REAL' to type 'REFERENCE TO INT'"])
+  expect(errorsOf(vars, "ra REF= a5;\nra REF= ad;")).toEqual([
+    "Cannot convert type 'ARRAY [0..4] OF INT' to type 'REFERENCE TO ARRAY [0..3] OF INT'",
+    "Cannot convert type 'ARRAY [0..3] OF DINT' to type 'REFERENCE TO ARRAY [0..3] OF INT'",
+  ])
+  // its own type, a dereferenced pointer and an array of the same shape are taken
+  expect(errorsOf(vars, "ri REF= x;\nri REF= p^;\nra REF= a4;")).toEqual([])
+})
+
+test("REF= of an operation is the write-access refusal (dt_ref_assign_wrong_type)", () => {
+  expect(errorsOf("ri : REFERENCE TO INT; x : INT;", "ri REF= x + 1;")).toEqual(["Reference assign needs variable with write access"])
+})
+
+test("REF= compares an array's FOLDED bounds: a constant-sized array of the same shape is taken (dt_ref_assign_struct_mismatch, DT14)", () => {
+  const vars = "ra : REFERENCE TO ARRAY[0..N] OF INT; a3 : ARRAY[0..2] OF INT;\nEND_VAR\nVAR CONSTANT\nN : INT := 2;"
+  expect(errorsOf(vars, "ra REF= a3;")).toEqual([])
+})
+
+test("REF= judges a plain VARIABLE only: a call's result and a parenthesized variable were never recorded and stay unjudged", () => {
+  const vars = "ri : REFERENCE TO INT; y : REAL; d : DINT;"
+  expect(errorsOf(vars, "ri REF= ABS(d);\nri REF= (y);")).toEqual([])
+})

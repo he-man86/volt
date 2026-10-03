@@ -4,16 +4,18 @@
  * wording. The rules lived inside check files, so the network layer imported three check files through the analysis
  * index (consolidate-lsp-structure C3).
  */
-import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span } from "../frontend/syntax/index.js"
+import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span, type Target } from "../frontend/syntax/index.js"
 import { targetOf, type Scope } from "../frontend/symbols/index.js"
-import { ARITHMETIC_OPERATORS, classifyConversion, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN } from "../frontend/types/index.js"
+import { ARITHMETIC_OPERATORS, SHORT_CIRCUIT_OPERATORS, shortCircuitType, classifyConversion, constEval, isSameType, strictEnum, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN, untypedNumberValue } from "../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
 import { compilerStringLiteralText, type Messages } from "./messages.js"
 
 // ─── checkable types ─────────────────────────────────────────────────────────
 
-/** A type a conversion check can decide — elementary or enum — else undefined (a struct, FB, array or unknown type). */
+/** A type a conversion check can decide — elementary or enum, or a REFERENCE to one (it converts as its target and is
+ *  named as itself, rule DT14) — else undefined (a struct, FB, array, pointer or unknown type). */
 export function checkable(t: Type): Type | undefined {
+  if (t.kind === "reference") return checkable(t.target) === undefined ? undefined : t
   return t.kind === "elementary" || t.kind === "enum" ? t : undefined
 }
 
@@ -33,8 +35,10 @@ export function checkableType(expr: Expr, scope: Scope, project: Scope): Type | 
  * assignment pair, conversion arguments, the negation operand and call arguments all funnel through it, so the wording
  * stays byte-identical.
  */
-export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages): DiagnosticItem | undefined {
-  const kind = classifyConversion(lhs, rhs)
+export function conversionWarning(lhs: Type, rhs: Type, at: Expr, messages: Messages, target?: Target): DiagnosticItem | undefined {
+  const kind = classifyConversion(lhs, rhs, target)
+  if (kind === "enum-change")
+    return conversionWarn(at, "enum-conversion", messages.enumConversion(renderType(rhs, { form: "compiler" }), renderType(lhs, { form: "compiler" })))
   if (kind === "narrow") return conversionWarn(at, "narrowing-conversion", messages.narrowing(renderType(rhs, { form: "compiler" }), renderType(lhs, { form: "compiler" })))
   if (kind === "sign-change")
     return conversionWarn(
@@ -53,8 +57,10 @@ const conversionWarn = (target: Expr, code: string, message: string): Diagnostic
   message,
 })
 
-function signOf(t: Type): string {
-  // the facts ride on the Type — no second lookup by name (consolidate-lsp-structure B1); an enum signs as its base
+function signOf(t0: Type): string {
+  // the facts ride on the Type — no second lookup by name (consolidate-lsp-structure B1); an enum signs as its base, a
+  // reference as its target, a pointer as the unsigned integer it is
+  const t = t0.kind === "reference" ? t0.target : t0
   return elemOf(t.kind === "enum" && t.base !== undefined ? t.base : t)?.signed ? "signed" : "unsigned"
 }
 
@@ -69,7 +75,9 @@ export function assignmentPairError(
   project: Scope,
   messages: Messages,
 ): DiagnosticItem | undefined {
-  const lhs = checkableType(target, scope, project)
+  // a POINTER target takes an integer by the target's rule (`compat` `integerIntoPointer`)
+  const t = inferExprType(target, scope, project)
+  const lhs = t.kind === "pointer" ? t : checkable(t)
   return lhs === undefined ? undefined : storeConversionError(lhs, value, target.span, scope, project, messages)
 }
 
@@ -84,9 +92,19 @@ export function storeConversionError(
   project: Scope,
   messages: Messages,
 ): DiagnosticItem | undefined {
+  const strict = strictEnumStore(lhs, value, scope, project, messages)
+  if (strict !== "not-strict") return strict === "accepted" ? undefined : { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: strict }
+  // A STRUCT stored into an elementary target is refused, named as the struct: "Cannot convert type 'VERSION' to type
+  // 'STRING'" (`ty_version_into_string`, both vendors) — the struct case of rule CV1, unchecked until task 4.5.3
+  const whole = inferExprType(value, scope, project)
+  if (whole.kind === "struct" && lhs.kind === "elementary")
+    return { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: messages.cannotConvert(renderType(whole, { form: "compiler" }), renderType(lhs, { form: "compiler" })) }
+  // …into a POINTER, an integer VARIABLE (`compat` `integerIntoPointer`, decided by the project's target); an untyped
+  // literal into a pointer was never recorded (`cv_integers_into_pointer`, `cv_xword_into_pointer` store variables)
+  if (lhs.kind === "pointer" && untypedNumberValue(value) !== undefined) return undefined
   const rhs = literalErrorType(value, lhs) ?? checkableType(value, scope, project)
-  if (rhs === undefined) return undefined
-  if (isAssignable(lhs, rhs)) return undefined
+  if (rhs === undefined || (lhs.kind === "pointer" && rhs.kind !== "elementary")) return undefined
+  if (isAssignable(lhs, rhs, targetOf(project))) return undefined
   const display = rhsDisplay(value, rhs)
   if (display === undefined) return undefined
   return {
@@ -96,6 +114,42 @@ export function storeConversionError(
     code: "assignment-type-mismatch",
     message: messages.cannotConvert(display, renderType(lhs, { form: "compiler" })),
   }
+}
+
+/** How a member value of an enum folds, for the analysis: `constEval` in the project. */
+const enumeratorValue = (project: Scope) => (e: Expr): bigint | undefined => {
+  const v = constEval(e, project)
+  return typeof v === "bigint" ? v : undefined
+}
+
+/** Is `t` a `{attribute 'strict'}` enum (P14, `types/enums` `strictEnum`)? */
+export function isStrictEnum(t: Type, project: Scope): boolean {
+  return strictEnum(project, t, enumeratorValue(project)) !== undefined
+}
+
+/**
+ * A store INTO a `{attribute 'strict'}` enum (P14, `types/enums` `strictEnum`): "accepted" for a value of the enum itself
+ * or an integer literal (plain, typed, negated) a member holds; the refusal's message for a variable or a literal of any
+ * other kind, named by its text as written (`'i'`, `'5'`, `'-1'`, `'TRUE'` — `cv_scalars_into_strict_enum`,
+ * `cv_literals_into_strict_enum`, `cv_strict_enum_from_other_enum`); "accepted" too for any other expression, whose
+ * text the vendor's message was never measured with (missing, never wrong). "not-strict" when `lhs` is no strict enum.
+ */
+function strictEnumStore(lhs: Type, value: Expr, scope: Scope, project: Scope, messages: Messages): string | "accepted" | "not-strict" {
+  const strict = strictEnum(project, lhs, enumeratorValue(project))
+  if (strict === undefined) return "not-strict"
+  // a REFERENCE reads as its target (rule DT14): a `REFERENCE TO` the enum is a value of it
+  const read = inferExprType(value, scope, project)
+  const rhs = read.kind === "reference" ? read.target : read
+  if (rhs.kind === "enum" && isSameType(rhs, lhs)) return "accepted"
+  const negated = value.kind === "unary" && value.op === "-" && value.operand.kind === "literal" ? value.operand : undefined
+  const literal = value.kind === "literal" ? value : negated
+  if (literal !== undefined) {
+    const folded = constEval(value, scope)
+    if (typeof folded === "bigint" && strict.values.has(folded)) return "accepted"
+    return messages.strictEnumValue(negated !== undefined ? `-${literal.text}` : literal.text, strict.name)
+  }
+  if (value.kind === "ident_expr") return messages.strictEnumValue(value.name, strict.name)
+  return "accepted"
 }
 
 /** The RHS type as the COMPILER renders it in the mismatch message — a string literal's own form, else the type's. */
@@ -138,9 +192,13 @@ export function narrowingPairError(
   messages: Messages,
 ): DiagnosticItem | undefined {
   const lhs = inferExprType(target, scope, project)
+  // a store into a `strict` enum is refused or taken whole (`storeConversionError`), never warned about
+  if (strictEnum(project, lhs, enumeratorValue(project)) !== undefined) return undefined
+  // an untyped literal into a pointer is unjudged (`storeConversionError`)
+  if (lhs.kind === "pointer" && untypedNumberValue(value) !== undefined) return undefined
   // an untyped integer literal the target cannot hold converts as its literal type (gap 13): `si := 128` warns USINT→SINT
   const rhs = literalCheckType(value, lhs) ?? checkableType(value, scope, project) ?? UNKNOWN
-  return conversionWarning(lhs, rhs, target, messages)
+  return conversionWarning(lhs, rhs, target, messages, targetOf(project))
 }
 
 /**
@@ -169,6 +227,18 @@ export function conversionArgError(x: Expr, scope: Scope, project: Scope, messag
  */
 export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
   if (!ARITHMETIC_OPERATORS.has(e.op)) return undefined
+  // ARITHMETIC ON A `strict` ENUM is refused, once per operation whichever operand it is (`cv_strict_enum_arithmetic`:
+  // `e - INT#1`, `e * 2`, `e + e` one message each; `prag_strict_enum_add_literal`, both vendors)
+  for (const side of [e.left, e.right]) {
+    const strict = strictEnum(project, inferExprType(side, scope, project), enumeratorValue(project))
+    if (strict !== undefined) return binaryDiag(e, messages.strictEnumArithmetic(strict.name))
+  }
+  // A POINTER MINUS A REAL converts the REAL into the pointer, which it cannot: "Cannot convert type 'REAL' to type
+  // 'POINTER TO INT'" (`dt_pointer_arithmetic_refused`, CODESYS 2026-10-03 — the only refused form of the four asked;
+  // TwinCAT converts the pointer into the REAL instead, `messages` `pointerMinusReal`)
+  const [lt, rt] = [inferExprType(e.left, scope, project), inferExprType(e.right, scope, project)]
+  if (e.op === "-" && lt.kind === "pointer" && rt.kind === "elementary" && rt.elem.family === "real")
+    return binaryDiag(e, messages.pointerMinusReal(renderType(rt, { form: "compiler" }), renderType(lt, { form: "compiler" })))
   const a = elemName(e.left, scope, project)
   const b = elemName(e.right, scope, project)
   if (a === undefined || b === undefined) return undefined
@@ -178,6 +248,24 @@ export function binaryOpError(e: BinaryExpr, scope: Scope, project: Scope, messa
   const rule = operandFamilyRule(e.op, a, b)
   if (rule === undefined) return undefined
   return binaryDiag(e, rule.kind === "convert" ? messages.cannotConvert(rule.from, rule.to) : messages.modNotDefined(rule.type))
+}
+
+/**
+ * AND_THEN / OR_ELSE on operands that are not two BOOLs (`types/arith/operators` `shortCircuitType`, rule CB5): each BOOL
+ * operand refused into the integer they meet in, and that integer refused as the condition — "Cannot convert type 'BOOL'
+ * to type 'UINT'", "Cannot convert type 'UINT' to type 'BOOL'" (`cb_and_then_bool_and_int`, `cb_and_then_on_int`,
+ * `cb_and_then_on_word`, CODESYS 2026-10-03). The signed operands' warnings are `narrowing`'s.
+ */
+export function shortCircuitErrors(e: BinaryExpr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] {
+  if (!SHORT_CIRCUIT_OPERATORS.has(e.op)) return []
+  const sides = [inferExprType(e.left, scope, project), inferExprType(e.right, scope, project)]
+  const meet = shortCircuitType(sides[0]!, sides[1]!)
+  if (meet === undefined || meet.kind !== "elementary" || meet.elem.family === "bool") return []
+  const into = renderType(meet, { form: "compiler" })
+  return [
+    ...sides.filter((t) => t.kind === "elementary" && t.elem.family === "bool").map(() => binaryDiag(e, messages.cannotConvert("BOOL", into))),
+    binaryDiag(e, messages.cannotConvert(into, "BOOL")),
+  ]
 }
 
 function binaryDiag(e: BinaryExpr, message: string): DiagnosticItem {

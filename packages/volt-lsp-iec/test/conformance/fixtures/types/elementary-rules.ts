@@ -171,8 +171,7 @@ const VERSION_TYPE: LanguageTest[] = [
   fb("ty_version_component_type", "a VERSION component into a SINT and into a STRING — the messages name its type",
     "\tv : VERSION;\n\tsi : SINT;\n\tstr : STRING;", "si := v.uiMajor;\nstr := v.uiPatch;"),
   fb("ty_version_unknown_component", "an unknown component of VERSION", "\tv : VERSION;\n\tout : UINT;", "out := v.uiBuild;"),
-  deferLsp(fb("ty_version_into_string", "a VERSION into a STRING — the message names the type", "\tv : VERSION;\n\tstr : STRING;", "str := v;"),
-    "niche for VERSION: accepted loss (0 occurrences in the corpora of a VERSION stored whole) (2026-10-03) — VERSION is a STRUCT now (types/system), and a STRUCT stored into an elementary target is unchecked for every struct (compat.classifyConversion skips a non-elementary side): the conversions' task 4.5.3"),
+  fb("ty_version_into_string", "a VERSION into a STRING — the message names the type", "\tv : VERSION;\n\tstr : STRING;", "str := v;"),
 ]
 
 export const ELEMENTARY_RULE_TESTS: readonly LanguageTest[] = [

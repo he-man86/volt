@@ -35,7 +35,7 @@ import {
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { bodyConditionWorld, gvlBlockOf, lookupLocal, lookupMember, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { bodyConditionWorld, gvlBlockOf, lookup, lookupLocal, lookupMember, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -54,6 +54,8 @@ import {
   isElementaryTypeName,
   negativeLiteralComparisonTarget,
   selectionValueArguments,
+  SHORT_CIRCUIT_OPERATORS,
+  strictEnum,
   temporalArithmeticType,
   UNKNOWN,
   type Type,
@@ -68,7 +70,7 @@ import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, undecidedExprCount, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
-import type { Dialect } from "../../src/frontend/syntax/index.js"
+import type { Dialect, TypeExpr } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
 import { bareConversionArgument } from "../../src/analysis/hole.js"
 import { stringLiteralMessageType } from "../../src/analysis/index.js"
@@ -312,6 +314,10 @@ export function boundCensus(): BoundCensus {
         // is the LSP's own reason, and ahead of this it took agreements out of their measure
         else if (type === "?" && vendor.unknownTypes.has(compilerExprText(expr)))
           tally(c.types, `${group}: ${kind} UNKNOWN, unknown on the vendor too`)
+        // …and a variable whose DECLARED TYPE the vendor names unknown — LDATE, LDT and LTOD on TwinCAT, which has none of
+        // them ("Unknown type: 'LDATE'", the explicit-pair fixtures `xp_*ldate*`, `xp_*ldt*`, `xp_*ltod*`, task 4.5.3)
+        else if (type === "?" && expr.kind === "ident_expr" && scope !== undefined && declaredTypeUnknown(expr.name, scope, vendor.unknownTypes))
+          tally(c.types, `${group}: ident_expr untyped, its declared type unknown on the vendor too`)
         // a call of what the vendor says is no call target — "Program name, function or function block instance expected
         // instead of 'plain'" — has no result there either, as a statement too (`cc5_invalid_call_target`; the front-end
         // types such a call UNKNOWN since frontend-conformance 2.5b, `expr_global_namespace_call_non_callable`)
@@ -470,6 +476,12 @@ interface Store {
 /** What `S=` and `R=` read and set. */
 const BOOL: Type = elementaryRef("BOOL")
 
+/** An enum member's value folded in the project — what `strictEnum` reads its members by. */
+const enumerator = (project: Scope) => (e: Expr): bigint | undefined => {
+  const v = constEval(e, project)
+  return typeof v === "bigint" ? v : undefined
+}
+
 /** Every message a recorded build holds, lower case — what `dumps.ts` `unparsedIn` asks of an LSP parse error; undefined
  *  when there is no build recording (the push refused the fixture). */
 function vendorSays(build: { diagnostics: readonly { message: string }[] } | undefined): ReadonlySet<string> | undefined {
@@ -480,6 +492,9 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   const out: Store[] = []
   /** `named`: the target as the compiler names it where it is no `Type` — a bare conversion's parameter, `ANY`. */
   const store = (target: Type, value: Expr, scope: Scope, named?: string, compared?: string, reversedOnTwincat?: boolean): void => {
+    // a store into a `strict` enum is refused in its own words, "'x' is not a valid value for strict ENUM type …" — no
+    // conversion message explains or is explained by it (`types/enums` `strictEnum`, task 4.5.1)
+    if (strictEnum(b.project, target, enumerator(b.project)) !== undefined) return
     const inferred = inferExprType(value, scope, b.project)
     const as = new Set([typeKey(renderType(inferred))])
     for (const t of [literalErrorType(value, target), literalCheckType(value, target)])
@@ -543,6 +558,13 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
           store(result, x.right, scope, undefined, compared)
         }
       }
+      // AND_THEN / OR_ELSE over integers: the integer their operands meet in is refused as the condition, "Cannot convert
+      // type 'UINT' to type 'BOOL'" (`types/arith/operators` `shortCircuitType`, rule CB5) — the operands' own stores
+      // into that integer are the binary branch's above
+      if (x.kind === "binary" && SHORT_CIRCUIT_OPERATORS.has(x.op) && inferExprType(x, scope, b.project).kind === "elementary") {
+        const met = inferExprType(x, scope, b.project)
+        if (met.kind === "elementary" && met.elem.family !== "bool") store(BOOL, x, scope)
+      }
       if (x.kind !== "call") continue
       // a selection function's VALUE arguments convert into its result, their meet (`types/builtins` `selectionValueArguments`,
       // rules AR13/AR14) — the compiler's own name, unshadowed
@@ -573,28 +595,35 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
         for (const section of unit.varSections)
           for (const decl of section.decls) {
             if (decl.init !== undefined && decl.init.kind !== "aggregate_init" && decl.initOp === undefined)
-              store(resolveTypeExpr(decl.type, b.project, 0, scope), decl.init, scope)
+              store(resolveTypeExpr(decl.type, b.project, 0, scope), decl.init, scope, unknownTarget(resolveTypeExpr(decl.type, b.project, 0, scope), decl.type))
             // a REFUSED initializer still stores the value the compiler kept — the placeholder where the malformed
             // literal stood (`RefusedInit.value`): "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'TIME'"
             // (`cc_time_microsecond_literal`, `lit_init_*`, frontend-conformance 2.2a)
             const refused = decl.refusedInit?.value
-            if (refused !== undefined) store(resolveTypeExpr(decl.type, b.project, 0, scope), refused, scope)
+            if (refused !== undefined) store(resolveTypeExpr(decl.type, b.project, 0, scope), refused, scope, unknownTarget(resolveTypeExpr(decl.type, b.project, 0, scope), decl.type))
           }
       for (const body of unitBodies(unit)) {
         // a body that did not parse — on the vendor too — is typed by neither side (`dumps.ts` `unparsedIn`)
         if (!isStBody(body) || unparsed(body)) continue
         const bodyScope = scope.children.find((s) => s.span === body.span) ?? scope
         walkStatements(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements, (s) => {
-          if (s.kind === "assign" && s.op === undefined && s.chained === undefined)
-            store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope)
+          if (s.kind === "assign" && s.op === undefined && s.chained === undefined) {
+            const target = inferExprType(s.target, bodyScope, b.project)
+            const written = s.target.kind === "ident_expr" ? lookup(bodyScope, s.target.name)?.symbol.typeExpr : undefined
+            store(target, s.value, bodyScope, written === undefined ? undefined : unknownTarget(target, written))
+          }
           // `S=` / `R=` read and set a BOOL — both sides convert to it (`stmt_s_eq_non_bool_*`, frontend-conformance 2.6)
           if (s.kind === "assign" && (s.op === "S=" || s.op === "R=")) {
             store(BOOL, s.target, bodyScope)
             store(BOOL, s.value, bodyScope)
           }
           // a literal bound with `REF=` is stored into the reference (`cc3_reference_assign`, `stmt_ref_eq_literal_value`) —
-          // TwinCAT names the pair the other way round (`analysis/messages` `refLiteralCannotConvert`)
+          // TwinCAT names the pair the other way round (`analysis/messages` `refAssignCannotConvert`)
           if (s.kind === "assign" && s.op === "REF=" && s.value.kind === "literal")
+            store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope, undefined, undefined, true)
+          // …and a variable of another type is refused into it, named as itself (`analysis/checks/types/reference-assign`,
+          // `dt_ref_assign_wrong_type`, `cv_pointer_to_reference`, `cv_reference_to_other_reference`, rule DT14)
+          else if (s.kind === "assign" && s.op === "REF=")
             store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope, undefined, undefined, true)
           // a FOR counts in ANY_INT: its control variable converts to it (`stmt_for_real_control`, `stmt_for_bool_control`)
           if (s.kind === "for") store(UNKNOWN, s.controlVar, bodyScope, "ANY_INT")
@@ -725,10 +754,20 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
     }),
   )
   // the other way: a store the front-end calls not implicitly convertible must be one the vendor refused
+  const refusedPairs = new Set(
+    build.diagnostics.flatMap((d) => {
+      const m = /^Cannot convert type '(.+)' to type '(.+)'$/.exec(d.message)
+      return m === null ? [] : [`${typeKey(m[1]!)}|${typeKey(m[2]!)}`]
+    }),
+  )
   for (const s of stores) {
     if (s.conversion !== "incompatible") continue
     tally(c.types, key("stores typed not implicitly convertible"))
     if (refused.has(s)) tally(c.types, key("stores typed not implicitly convertible, refused"))
+    // TwinCAT prints ONE copy of a message per line (`analysis/diagnostics` `dedupePerLine`): a second store of the pair
+    // on a line it already refused is refused too (`cb_and_then_bool_and_int`: `ba AND_THEN a` into a BOOL)
+    else if (vendor === "twincat" && [...s.value].some((v) => refusedPairs.has(`${v}|${s.target}`)))
+      tally(c.types, key("stores typed not implicitly convertible, refused once per line"))
     else if (s.compared !== undefined && compared.has(s.compared))
       tally(c.types, key("stores typed not implicitly convertible, refused as a comparison"))
     else
@@ -1028,6 +1067,18 @@ function operandTyped(expr: Expr, scope: Scope | undefined, b: Bound): boolean |
   if (!operands.some(typeName)) return false
   // an ELEMENTARY type's name was typed by the old reading too (no project type needed) — kept in the measure it was in
   return operands.some((v) => v.kind === "ident_expr" && isElementaryTypeName(v.name)) ? true : "type-name"
+}
+
+/** A target the front-end cannot type, named as WRITTEN — `out : LDATE` on TwinCAT, which has no LDATE, is the target the
+ *  vendor names "…to type 'LDATE'" (`xp_*_to_ldate`, task 4.5.3); undefined for a typed target or an unnamed one. */
+function unknownTarget(resolved: Type, written: TypeExpr): string | undefined {
+  return resolved.kind === "unknown" && written.kind === "named_type" && written.qualifiers === undefined ? written.name.text : undefined
+}
+
+/** Is `name`, bound in `scope`, a variable declared of a named type the vendor names unknown? */
+function declaredTypeUnknown(name: string, scope: Scope, unknownTypes: ReadonlySet<string>): boolean {
+  const t = lookup(scope, name)?.symbol.typeExpr
+  return t?.kind === "named_type" && unknownTypes.has(t.name.text)
 }
 
 /** Is `expr` untyped only for its project's unknown TARGET — typed, were the project 64-bit? Asked of the bound project

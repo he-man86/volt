@@ -20,9 +20,13 @@ export function checkPointerConversion(ctx: CheckContext, out: DiagnosticItem[])
       if (s.kind !== "assign" || s.op !== undefined) return
       const rhs = inferExprType(s.value, scope, ctx.project)
       if (rhs.kind !== "pointer") return
+      // a REFERENCE target is written through, so the pointer converts into what it refers to — and the message names
+      // the reference: `rf := p` is "Cannot convert type 'POINTER TO INT' to type 'REFERENCE TO INT'"
+      // (`cv_pointer_assigned_to_reference`, CODESYS 2026-10-03)
       const lhs = inferExprType(s.target, scope, ctx.project)
-      if (lhs.kind !== "elementary") return
-      if (pointerFits(lhs, target) !== false) return // it fits, or the target that decides is unknown
+      const written = lhs.kind === "reference" ? lhs.target : lhs
+      if (written.kind !== "elementary") return
+      if (pointerFits(written, target) !== false) return // it fits, or the target that decides is unknown
       out.push({
         // C0033 is CONFIGURABLE, so the filter forces the project's own state and this severity is not what ships.
         // The recording project has it as an ERROR; the replay resolves no project settings, so the two differ by

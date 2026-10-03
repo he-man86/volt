@@ -2533,20 +2533,96 @@ cross-area edges are named on the tasks that have them.
       files, 260 s; vs gate 4a +17 pass, +17 tests); agreement CODESYS **4047** (+88), TwinCAT **3960** (+90) — floors raised
       3959 → 4047 and 3870 → 3960 (`fixtures.test.ts`; re-run whole `test/conformance`, 5374 pass / 166 todo / 0 fail);
       LT14 disagreements corpus 78 / fixtures 79; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
-- [ ] 4.4 Comparisons and BOOL (CB1–CB5), including the network-text wire rules 1.34 could not switch. Record cb_compare_pointers,
+- [x] 4.4 Comparisons and BOOL (CB1–CB5), including the network-text wire rules 1.34 could not switch. Record cb_compare_pointers,
       cb_compare_time_ltime, cb_and_then_on_int.
       Where: infer/expr, arith/operators, network-text/parser.ts (imports only). Acceptance: CA; network-text/parser.ts holds no
       type-family or operator-result list. Depends on: 4.3.5
-- [ ] 4.5.1 Enum conversions (CV3–CV5, P14, P15): `strict` and `to_string` read from the AST attributes. Record
+      **4.4 (2026-10-03).** Recorded `fixtures/types/comparisons-bool.ts` (11, both vendors, values on CODESYS):
+      `cb_compare_result_types`/`_values` (STRING, WSTRING, TIME, DATE, REAL with LREAL, BOOL, INT with UDINT, enum values —
+      every comparison BOOL; INT vs UDINT warns "UDINT to DINT": a comparison of two widths meets as arithmetic and warns at
+      32/64 bits — fixed test-first, `narrowing`), `cb_compare_pointers`/`_values` (pointer vs pointer BOOL; vs a DWORD "Cannot
+      compare type 'POINTER TO INT' with type 'DWORD'" on the 64-bit target, LWORD/ULINT silent — `comparison` reads
+      `pointerFits`), `cb_compare_time_ltime`/`_values` ("Cannot compare type 'TIME' with type 'LTIME'", agreed already). CB5
+      (`cb_and_then_on_int`, `cb_or_else_on_int`, `cb_and_then_on_word`, `cb_and_then_bool_and_int`, `cb_and_then_result_type`):
+      two BOOLs are BOOL; otherwise the operands meet in the UNSIGNED integer of their width (a signed one warns, a WORD is
+      silent, a BOOL "Cannot convert type 'BOOL' to type 'UINT'") and that integer — also the result's type — is refused as the
+      condition ("...'UINT' to type 'BOOL'"). Fixed test-first: `arith/operators` `SHORT_CIRCUIT_OPERATORS`/`shortCircuitType`,
+      read by inference, `rules` `shortCircuitErrors` and `narrowing`. Network text: `parser.ts` keeps no type-family or
+      operator-result list — `boxProduces` asks `arith/operators` `operatorFunctionResult`, the bit-operator disagreement
+      `isBitOperatorWireType` (ANY_BIT without BIT, as the bridge's `NetworkSpelling.BitStrings`: a wire declared BIT is
+      refused by the push, so by the reader — step 4c review). (`lt` is the LT operator and cannot
+      name a variable — the first recording of the TIME/LTIME cells said so; the LSP already agreed.)
+- [x] 4.5.1 Enum conversions (CV3–CV5, P14, P15): `strict` and `to_string` read from the AST attributes. Record
       cv_enum_with_base_into_int, cv_library_enum_into_int, cv_int_into_enum, cv_literal_into_enum, cv_int_into_strict_enum,
       cv_strict_enum_into_int, cv_enum_to_string_attribute.
       Where: compat, enums, builtins. Acceptance: CA. Depends on: 4.4, 2.7.2
-- [ ] 4.5.2 Pointer and reference compatibility and arithmetic (CV6, DT12, DT13, DT14): record cv_reference_to_pointer,
+      **4.5.1 (2026-10-03).** Recorded `fixtures/types/enum-conversions.ts` (30, both vendors, values on CODESYS) and restored
+      the held-out `prag_enum_not_strict_add_literal`. CV3: another enum's value is the WARNING "Implicit conversion from one
+      enumeration type (A) to another (B)" (`cv_enum_into_other_enum`; it was refused) — `compat` `enum-change`, `rules`
+      `conversionWarning`; an enum operand of arithmetic computes in its base (`cv_enum_arithmetic_type`: `e + 1` INT,
+      `e * aDint` DINT) — `infer/expr` `asOperand`. CV4: a written base is the base the enum converts as, both ways
+      (`cv_enum_base_<8 bases>_into_scalars`, `cv_enum_with_base_*`, `cv_scalars_into_enum_with_base`), except into REAL/LREAL,
+      silent for every base — `enums` `enumBase`, `compat`. A LIBRARY enum's base is not in its materialized declaration (Util's
+      WEEKDAY converts as an unsigned 16-bit, StringUtils' EDATETIMEPLACEHOLDER as an unsigned 8-bit type): known divergence
+      `LIBRARY_ENUM_BASE_NOT_MATERIALIZED` (3, both vendors; the bridge's to fix). CV5/P14: a scalar into an enum converts as into
+      its base (`cv_scalars_into_enum`: DINT, REAL, BOOL refused, UINT a change of sign); into a `strict` enum only its own values
+      and literals a member holds — any other variable, another enum's value, `5`, `-1`, `TRUE` is "'<text>' is not a valid value
+      for strict ENUM type '<name>'", never with a conversion warning beside it; arithmetic is refused once per operation; NOT
+      converts it as its base ("signed Type 'E' to unsigned Type 'UINT'") — `enums` `strictEnum`/`enumDeclaration` (the attribute
+      read from the AST), `rules` `strictEnumStore`/`binaryOpError`, `arith/operators` `notResultType`. The three
+      `prag_strict_enum_*` `deferred.lsp` marks closed. P15: `cv_enum_to_string_attribute` (written values TsIdle/TsBusy/TsDone —
+      a bare `Done` bound `enum_library_same_member_two_libraries` to it, so prefixed) and `cv_enum_to_string_implicit_members`
+      print every member's name; lowering's member-name table stays refused by name and is handed to T (5.3).
+- [x] 4.5.2 Pointer and reference compatibility and arithmetic (CV6, DT12, DT13, DT14): record cv_reference_to_pointer,
       cv_pointer_to_reference, dt_pointer_plus_int, dt_pointer_difference, dt_reference_auto_deref_type, dt_ref_assign_wrong_type.
       Where: compat, arith/operators, infer/member. Acceptance: CA. Depends on: 4.5.1
-- [ ] 4.5.3 Explicit conversions (CV7): record every pair `scripts/conversion-matrix.ts` lists as missing (the count pinned in 0.5).
+      **4.5.2 (2026-10-03).** Recorded `fixtures/types/pointer-reference.ts` (19, both vendors, values on CODESYS; no variable
+      is called `r` or `s` — IL operators, the first recording refused them). CV6: an integer into a pointer on the 64-bit
+      target — a 32-bit one refused, INT/LINT a change of sign, BYTE/WORD/UINT/LWORD/ULINT/`__XWORD` silent (`compat`
+      `integerIntoPointer`; `classifyConversion` takes the target). DT12/DT14: a REFERENCE converts as its target on either side
+      and is named as itself (`compat`, `rules` `checkable`/`signOf`; `dt_reference_into_narrower`, `cv_reference_to_pointer`,
+      `cv_reference_to_other_reference`), and reads as its target in an operation (`ri + 1` INT, `ri * rr` REAL — `infer/expr`
+      `asOperand`); `REF=` takes a variable of exactly the target's type — a REAL, a DINT, a SINT, a pointer, another reference, an
+      array of another shape are refused, an operation is the write-access refusal (`reference-assign`; TwinCAT names every such
+      pair reversed, `messages` `refAssignCannotConvert`, renamed from `refLiteralCannotConvert`); a pointer written through a
+      reference is C0033. DT13: POINTER ± integer is the pointer, pointer − pointer a DWORD (`arith/operators`
+      `pointerArithmeticType`); a pointer minus a REAL is refused — the REAL converted into the pointer on CODESYS, the pointer into
+      the REAL on TwinCAT (`messages` `pointerMinusReal`). Known divergences: `cv_pointer_assigned_to_reference`,
+      `cv_pointer_and_pointee`, `dt_pointer_plus_int` joined `C0033_CONFIGURED_AS_AN_ERROR` (word for word, severity only).
+- [x] 4.5.3 Explicit conversions (CV7): record every pair `scripts/conversion-matrix.ts` lists as missing (the count pinned in 0.5).
       Where: conversions/*.ts fixtures, builtins, conversion-name. Acceptance: CA; the matrix reports 0 missing pairs.
       Depends on: 4.5.2
+      **4.5.3 (2026-10-03).** `fixtures/conversions/explicit-pairs.ts`: one `xp_<from>_to_<to>` per pair the matrix listed (327),
+      each converting a known source value (negative, past the signed range, high bits set, a fraction, 1 s 500 ms, every date
+      field; a STRING holds the target's literal text). All 327 compile and run on CODESYS; the builds agree on both vendors and
+      every value the transpiler lowers agrees (216 confirmed); 111 are not lowered (conversion-type — handed to T). Fixed on the
+      way: a conversion naming a type the dialect lacks has no result (`builtins` `builtinCallResult`: `BOOL_TO_LDATE(v)` on
+      TwinCAT is UNKNOWN, as the vendor says), and a STRUCT stored into an elementary target is refused, named as the struct
+      (`rules` `storeConversionError`; `ty_version_into_string` left `ELEMENTARY_RULE_DIVERGENCES`). The harness reads a pre-epoch
+      instant's negative fraction (`LDATE_AND_TIME#1970-1-1-0:0:0.-000000005`, `xp_sint_to_ldt`). **The matrix reports 0 missing
+      pairs** (`CV7 explicit pairs no recorded fixture calls` 327 → 0).
+      **Step 4c numbers.** `rate:fixtures` 4791 (+388): confirmed 2695 (+229), refused 1678 (+42), not-lowered 286 (+120), lsp-gap
+      59 (−3), diverges 5, unaskable 68; edges agree 2857 / disagree 0 / not-run 115. Ceiling not-lowered 166 → 286 (FOR
+      MEASUREMENT, `fixtures.test.ts`). Rules GAP area 4 **13 → 5** (total 13 → 5; CB4, CB5, CV4, CV5, CV7, DT12, DT13, DT14
+      closed; the pinned counts in `baselines/ceilings.json`). Agreement (whole `test/conformance`) CODESYS 4047 → **4434**,
+      TwinCAT 3960 → **4345** (floors not raised — the gate's). Types (0.4): findings 126 → **111**; corpus binary UNKNOWN 505 →
+      439, fixtures 93 → 81, library 4 → 2; TwinCAT ident UNKNOWN 19 → 5. Census (`bound-census.ts`): a store into a strict enum
+      is no conversion; the short-circuit condition is a store; REF= of a variable is one (TwinCAT reversed); TwinCAT's one copy
+      per line; an unknown target is named as written; a variable whose declared type the vendor names unknown is its own key;
+      50 negated-literal cells named in `NEGATED_LITERAL_ROWS`. Known divergences: +7 (`LIBRARY_ENUM_BASE_NOT_MATERIALIZED` 3 both
+      vendors, C0033 +3 both, TwinCAT `cv_library_enum_type`), closed 4 (3 `prag_strict_enum_*` deferrals,
+      `ty_version_into_string`). F-diff (`frontend-snapshot.ts check --base HEAD`): 57 existing sources (type dumps of pointer,
+      reference, enum and L-date code; bakon-nano `CalcMasterSpeedAcc.pou` gains two LREAL → REAL warnings its recorded build
+      holds; `back/decl_implicit_enum_duplicate`, a refused fixture) plus the new fixtures' sources. Runs: `bun test src` 1791/0,
+      `test/conformance` 5829 pass / 286 todo / 0 fail (whole), `test/frontend` 34/0, `test/corpus` 19/0, `rate:fixtures`,
+      `bun typecheck`, `bun run lint`.
+      **Gate 4c (2026-10-03, 4.4–4.5.3, on HEAD c29df84902 + the step's tree).** `bun typecheck` clean; `rate:fixtures`
+      reproduces the map byte for byte (4791; confirmed 2695, refused 1678, not-lowered 286, lsp-gap 59, diverges 5, unaskable
+      68; edges 2857 / 0 / 115); full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7862 pass / 34 skip / 330 todo /
+      0 fail** (8226 tests, 203 files, 274 s; vs gate 4b +480 pass, +120 todo — the not-lowered explicit pairs, +600 tests);
+      agreement CODESYS **4434** (+387), TwinCAT **4345** (+385) — floors raised 4047 → 4434 and 3960 → 4345
+      (`fixtures.test.ts`; re-run whole `test/conformance`, 5829 pass / 286 todo / 0 fail); LT14 disagreements corpus 78 /
+      fixtures 79; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
 - [ ] 4.6.1 One constant fold (CE6, CE9, P16): constEval folds conversions, pure built-ins, SIZEOF, enum values, NOT and shifts,
       honouring `const_replaced`/`const_non_replaced`, so the LSP and the transpiler fold one set (T hand-off deletes transpile's
       folder). Record ce_fold_conversion_bound, ce_fold_sizeof_bound, ce_fold_not_int, ce_fold_shl, ce_real_alias_const,

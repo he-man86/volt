@@ -25,11 +25,11 @@
  *
  * TwinCAT words that conversion the other way round — "Cannot convert type 'REFERENCE TO INT' to type 'SINT'" — in
  * both cells asked (`cc3_reference_assign`, `stmt_ref_eq_literal_value`, 2026-10-02); a DECLARATION's `REF=` it words
- * as CODESYS does (`refdecl_target_wrong_type`), so this is the statement's (`refLiteralCannotConvert`).
+ * as CODESYS does (`refdecl_target_wrong_type`), so this is the statement's (`refAssignCannotConvert`).
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
-import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType, resolveTypeExpr } from "../../../frontend/types/index.js"
+import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -68,13 +68,62 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
               span: s.value.span,
               source: SOURCE,
               code: "assignment-type-mismatch",
-              message: ctx.messages.refLiteralCannotConvert(renderType(from), renderType(target)),
+              message: ctx.messages.refAssignCannotConvert(renderType(from), renderType(target)),
             })
           return
         }
       }
-      if (constancyOf(s.value, scope) === "constant")
+      if (constancyOf(s.value, scope) === "constant") {
         out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "reference-assign-write", message: ctx.messages.referenceAssignWriteAccess() })
+        return
+      }
+      // AN OPERATION IS NO VARIABLE: `ri REF= x + 1` is the write-access refusal (`dt_ref_assign_wrong_type`, CODESYS
+      // 2026-10-03). Only a binary operation was asked; a call's result and the rest stay unjudged — below too, where
+      // only a plain VARIABLE is compared, the one shape recorded.
+      if (s.value.kind === "binary") {
+        out.push({ severity: "error", span: s.value.span, source: SOURCE, code: "reference-assign-write", message: ctx.messages.referenceAssignWriteAccess() })
+        return
+      }
+      // A VARIABLE OF ANOTHER TYPE: the rule is EXACT TYPE, as for a literal and a declaration's bind — a REAL, a DINT,
+      // a SINT into a REFERENCE TO INT, a POINTER TO INT, another reference's target, an ARRAY of another length or
+      // element (`dt_ref_assign_wrong_type`, `cv_pointer_to_reference`, `cv_reference_to_other_reference`,
+      // `dt_ref_assign_struct_mismatch`, CODESYS 2026-10-03), each "Cannot convert type '<it>' to type 'REFERENCE TO …'",
+      // the value named as itself (a reference as REFERENCE TO REAL). Only the kinds the compiler's rendering is known
+      // for are compared; a struct, an FB or an unknown type is skipped. An array is compared by its FOLDED bounds
+      // (`ARRAY[0..N]` with N = 2 is `ARRAY[0..2]`), never by the text it is written with.
+      if (target.kind !== "reference" || s.value.kind !== "ident_expr") return
+      const value = inferExprType(s.value, scope, ctx.project)
+      const bound = value.kind === "reference" ? value.target : value
+      if (!comparable(bound) || !comparable(target.target)) return
+      if (sameExactType(bound, target.target)) return
+      out.push({
+        severity: "error",
+        span: s.value.span,
+        source: SOURCE,
+        code: "assignment-type-mismatch",
+        message: ctx.messages.refAssignCannotConvert(renderType(value, { form: "compiler" }), renderType(target, { form: "compiler" })),
+      })
     })
   }
+}
+
+/** A type whose compiler rendering is measured — elementary, enum, pointer, array of one whose bounds fold — so two
+ *  compare. A string is not: its capacity is written or the default, and `STRING` against `STRING(80)` was never asked. */
+function comparable(t: Type): boolean {
+  if (t.kind === "array") return t.bounds !== undefined && comparable(t.element)
+  if (t.kind === "pointer") return comparable(t.target)
+  return (t.kind === "elementary" && t.elem.family !== "string") || t.kind === "enum"
+}
+
+/** Two `comparable` types are the same type: an array by its folded bounds and element, a pointer by its target, the
+ *  rest by the compiler's rendering. */
+function sameExactType(a: Type, b: Type): boolean {
+  if (a.kind === "array" && b.kind === "array")
+    return (
+      a.bounds!.length === b.bounds!.length &&
+      a.bounds!.every((d, i) => d.lower === b.bounds![i]!.lower && d.upper === b.bounds![i]!.upper) &&
+      sameExactType(a.element, b.element)
+    )
+  if (a.kind === "pointer" && b.kind === "pointer") return sameExactType(a.target, b.target)
+  return renderType(a, { form: "compiler" }) === renderType(b, { form: "compiler" })
 }

@@ -232,9 +232,12 @@ function ideValue(raw: string, enums: ReadonlyMap<string, bigint> = new Map()): 
       const t = /^(\d+):(\d+):(\d+)(?:\.(\d+))?$/.exec(text)!
       ns = clock(t[1]!, t[2]!, t[3]!, t[4])
     } else {
-      const d = /^(\d+)-(\d+)-(\d+)(?:-(\d+):(\d+):(\d+)(?:\.(\d+))?)?$/.exec(text)!
+      // an instant BEFORE the epoch by less than a second prints its fraction negative: SINT_TO_LDT(-5) is
+      // `LDATE_AND_TIME#1970-1-1-0:0:0.-000000005` (`xp_sint_to_ldt`, CODESYS 2026-10-03) — -5 ns
+      const d = /^(\d+)-(\d+)-(\d+)(?:-(\d+):(\d+):(\d+)(?:\.(-?)(\d+))?)?$/.exec(text)
+      if (d === null) throw new Error(`unrecognised date in IDE value ${JSON.stringify(raw)}`)
       ns = BigInt(Date.UTC(Number(d[1]), Number(d[2]) - 1, Number(d[3])) / 86_400_000) * 86_400_000_000_000n
-      if (d[4] !== undefined) ns += clock(d[4], d[5]!, d[6]!, d[7])
+      if (d[4] !== undefined) ns += d[7] === "-" ? clock(d[4], d[5]!, d[6]!) - clock("0", "0", "0", d[8]) : clock(d[4], d[5]!, d[6]!, d[8])
     }
     if (long === "L") return ns
     return ns / (kind === "TIME_OF_DAY" ? 1_000_000n : 1_000_000_000n)
@@ -1535,7 +1538,14 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // and the other platform-target conversions, "not a project FUNCTION"), `ty_version_type` (VERSION, "no declaration
   // lowering can lay out"), `ty_array_of_pointer` ("a pointer stored somewhere this does not track") and
   // `lt_literal_case_label_out_of_range` ("a CASE label outside the selector's type" — CODESYS converts 200 to SINT -56).
-  "not-lowered": 166,
+  // 166 -> 286, FOR MEASUREMENT. frontend-conformance 4c (2026-10-03): 120 new cells CODESYS builds and runs and the
+  // lowering refuses (the transpiler's; handed to transpile-restructure, task 5.3): 111 explicit-pair conversions
+  // (`conversions/explicit-pairs.ts`, "conversion-type": a date or a duration to or from BOOL/REAL/LREAL, the cross-unit
+  // temporal ones, every X_TO_WSTRING and the STRING/WSTRING parses into a bit string or a date), the two
+  // `{attribute 'to_string'}` member-name cells (`cv_enum_to_string_*`, refused by name since 2.10) and 7 pointer cells
+  // (`cv_pointer_*`, `cv_reference_to_pointer`, `cv_xword_into_pointer`, `cb_compare_pointer_values`,
+  // `dt_pointer_arithmetic_values`: a pointer stored into an integer, compared, stepped). No wrong value: `diverges` stays 5.
+  "not-lowered": 286,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1826,7 +1836,10 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // `literal-contexts.ts`, TY1–TY15, LT1–LT14) — platform width per target, ANY groups, literal context conversions.
   // 3870 -> 3960 (2026-10-03, frontend-conformance 4b): the arithmetic-result fixtures (`fixtures/types/
   // arithmetic-results.ts`, AR1–AR31) — literal operands, shifts, LIMIT/SEL/MUX meets, built-in result types, temporal.
-  { vendor: "twincat", floor: 3960 },
+  // 3960 -> 4345 (2026-10-03, frontend-conformance 4c): comparisons and BOOL (`fixtures/types/comparisons-bool.ts`, CB1–CB5),
+  // enum conversions (`enum-conversions.ts`, CV3–CV5), pointers and references (`pointer-reference.ts`, CV6, DT12–DT14),
+  // the 327 explicit conversion pairs (`fixtures/conversions/explicit-pairs.ts`, CV7).
+  { vendor: "twincat", floor: 4345 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1967,7 +1980,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3868 -> 3914 (2026-10-03, frontend-conformance 3.5): the same, on CODESYS.
   // 3914 -> 3959 (2026-10-03, frontend-conformance 4a): the same, on CODESYS.
   // 3959 -> 4047 (2026-10-03, frontend-conformance 4b): the same, on CODESYS.
-  { vendor: "codesys", floor: 4047 },
+  // 4047 -> 4434 (2026-10-03, frontend-conformance 4c): the same, on CODESYS.
+  { vendor: "codesys", floor: 4434 },
 ]
 
 

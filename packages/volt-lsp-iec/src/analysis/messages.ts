@@ -279,8 +279,9 @@ export interface Messages {
   noValidStatement(code: string): string
   /** A FUNCTION's name alone as a statement. verified both vendors. */
   functionWithoutParens(name: string): string
-  /** A literal `REF=` into a reference of another type — TwinCAT names the pair reversed. verified both vendors. */
-  refLiteralCannotConvert(from: string, to: string): string
+  /** A `REF=` of a literal or a variable of another type into a reference — TwinCAT names the pair reversed (`cc3_reference_assign`,
+   *  `dt_ref_assign_wrong_type`, `dt_ref_assign_struct_mismatch`, `cv_pointer_to_reference`). verified both vendors. */
+  refAssignCannotConvert(from: string, to: string): string
   /** A `VAR_CONFIG` block outside a config list (C0168). verified both vendors. */
   varConfigOnlyInList(): string
   /** A function block invoked by its type name instead of an instance (C0080). verified both vendors. */
@@ -394,6 +395,17 @@ export interface Messages {
   noDefaultForType(typeName: string): string
   /** A comparison between two different enumeration types (C0354). verified both vendors. */
   enumComparison(left: string, right: string): string
+  /** A value of one enumeration type stored into another — a WARNING (`cv_enum_into_other_enum`, `unit_enum_extends_enum`).
+   *  verified both vendors. */
+  enumConversion(from: string, to: string): string
+  /** A value that is not the enum's own stored into a `{attribute 'strict'}` enum — named by its source text
+   *  (`prag_strict_enum_int_assign`, `cv_scalars_into_strict_enum`, `cv_literals_into_strict_enum`). verified both vendors. */
+  strictEnumValue(text: string, enumName: string): string
+  /** Arithmetic on a `{attribute 'strict'}` enum (`prag_strict_enum_add_literal`, `cv_strict_enum_arithmetic`). verified both vendors. */
+  strictEnumArithmetic(enumName: string): string
+  /** A pointer minus a REAL: CODESYS converts the REAL into the pointer, TwinCAT the pointer into the REAL
+   *  (`dt_pointer_arithmetic_refused`). verified both vendors. */
+  pointerMinusReal(real: string, pointer: string): string
   /** `INI` whose first operand is not an FB / DUT instance (C0070). verified both vendors. */
   iniNeedsInstance(): string
   /** Two overlapping CASE ranges, rendered lowest-first (C0219). verified both vendors. */
@@ -687,7 +699,7 @@ export function messagesFor(vendor: Vendor): Messages {
     codeHasNoEffect: (code) => `The code '${code}' has no effect. Is this the intent?`,
     noValidStatement: (code) => `'${code}' is no valid statement`,
     functionWithoutParens: (name) => `FUNCTION '${name}' referenced without parentheses '()'`,
-    refLiteralCannotConvert: (from, to) => (tc ? `Cannot convert type '${to}' to type '${from}'` : `Cannot convert type '${from}' to type '${to}'`),
+    refAssignCannotConvert: (from, to) => (tc ? `Cannot convert type '${to}' to type '${from}'` : `Cannot convert type '${from}' to type '${to}'`),
     varConfigOnlyInList: () => (tc ? `'VAR_CONFIG' declaration only allowed in VAR_CONFIG - list` : `VAR_CONFIG declaration only allowed in VAR_CONFIG  list`),
     fbMustBeInstantiated: (name) => (tc ? `Functionblock '${name}' must be instantiated to be accessed` : `Function block '${name}' must be instantiated to be accessed`),
     interfaceMustBeInstantiated: (name) => `Interface '${name}' must be instantiated to be accessed`,
@@ -761,6 +773,10 @@ export function messagesFor(vendor: Vendor): Messages {
     inoutInInitializer: () => `Access to uninitialized VAR_IN_OUT variable`,
     noDefaultForType: (typeName) => `The type ${typeName} cannot have a default value in this context`,
     enumComparison: (left, right) => `Comparison of one enumeration type (${left}) with another (${right})`,
+    enumConversion: (from, to) => `Implicit conversion from one enumeration type (${from}) to another (${to})`,
+    strictEnumValue: (text, enumName) => `'${text}' is not a valid value for strict ENUM type '${enumName}'`,
+    strictEnumArithmetic: (enumName) => `Arithmetics not allowed on strict ENUM type '${enumName}'`,
+    pointerMinusReal: (real, pointer) => (tc ? `Cannot convert type '${pointer}' to type '${real}'` : `Cannot convert type '${real}' to type '${pointer}'`),
     iniNeedsInstance: () => (tc ? `'INI' operator needs function block instance or data unit type instance` : `INI operator needs function block instance or data unit type instance`),
     caseOverlappingRanges: (lo1, hi1, lo2, hi2) => (tc ? `Case contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}` : `CASE contains overlapping range ${lo1} .. ${hi1} and ${lo2} .. ${hi2}`),
   }

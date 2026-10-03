@@ -50,7 +50,7 @@ import type {
   NetworkWire,
 } from "./ast.js"
 import { NetworkLexer, OPERATOR_HEADS, SYMBOL_TO_TYPE, type Tok, isOperator, isSym, isWord } from "./lexer.js"
-import { BIT_OPERATOR_FUNCTIONS, COMPARISON_FUNCTIONS } from "../frontend/types/index.js"
+import { BIT_OPERATOR_FUNCTIONS, isBitOperatorWireType, operatorFunctionResult } from "../frontend/types/index.js"
 
 /**
  * Words the text's own grammar gives a meaning at operand position (`NetworkSpelling.TextWords`); an operand spelled
@@ -1343,8 +1343,6 @@ function shift(s: Span, at: { offset: number; line: number; col: number }): Span
 // ── a wire's type, read off its producer (`NetworkSpelling`) ────────────────────────────────────
 
 const BOOL = "BOOL"
-/** IEC ANY_BIT: an AND/OR/XOR/NOT box is bitwise on any of them. */
-const BIT_STRINGS: ReadonlySet<string> = new Set(["BOOL", "BYTE", "WORD", "DWORD", "LWORD"])
 /** A group's operator → its box type: the lexer's table (`SYMBOL_TO_TYPE`), the one the group's operator was accepted
  *  by (`isOperator`), so a miss is a drift between the two and fails loudly rather than naming a box by its symbol. */
 function operatorType(op: string): string {
@@ -1359,12 +1357,12 @@ interface Produced {
   anyBit?: boolean
 }
 
-/** A box's word on its output, with no stored output type (the text carries none). */
+/** A box's word on its output, with no stored output type (the text carries none): the operators' own rule
+ *  (`types/arith/operators` `operatorFunctionResult`) — a comparison BOOL, a bit operator a type of ANY_BIT. */
 function boxProduces(type: string): Produced {
-  const t = type.toUpperCase()
-  if (COMPARISON_FUNCTIONS.has(t)) return { exact: BOOL }
-  if (BIT_OPERATOR_FUNCTIONS.has(t)) return { anyBit: true }
-  return {}
+  const result = operatorFunctionResult(type)
+  if (result === undefined) return {}
+  return "exact" in result ? { exact: result.exact } : { anyBit: true }
 }
 
 /** A type as the comparison reads it: its tokens, not its layout (`STRING (80)` is `STRING(80)`). */
@@ -1373,7 +1371,7 @@ const typeKey = (t: string): string => t.replace(/\s+/g, "").toUpperCase()
 /** How `p` disagrees with a DECLARED type — what the producer says instead — or undefined (`NetworkSpelling.Disagreement`). */
 function disagreement(p: Produced, declared: string): string | undefined {
   if (p.exact !== undefined) return typeKey(p.exact) === typeKey(declared) ? undefined : p.exact
-  return p.anyBit === true && !BIT_STRINGS.has(typeKey(declared))
+  return p.anyBit === true && !isBitOperatorWireType(typeKey(declared))
     ? "a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD)"
     : undefined
 }

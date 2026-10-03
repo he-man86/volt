@@ -54,3 +54,16 @@ test("a TIME scaled by a 64-bit integer refuses the TIME into the integer; a nar
   expect(mismatches("t : TIME; n : SINT;", "t := t / n;")).toEqual([])
   expect(mismatches("t : LTIME; n : LINT;", "t := n * t;")).toEqual([])
 })
+
+test("AND_THEN / OR_ELSE on integers: a BOOL operand refused into the unsigned integer they meet in, that integer refused as the condition (cb_and_then_*, CB5)", () => {
+  const vars = "a : INT; b : INT; wa : WORD; wb : WORD; ba : BOOL; bb : BOOL; i : INT; w : WORD; o : BOOL;"
+  expect(mismatches(vars, "i := a AND_THEN b;")).toEqual(["Cannot convert type 'UINT' to type 'BOOL'"])
+  expect(mismatches(vars, "i := a OR_ELSE b;")).toEqual(["Cannot convert type 'UINT' to type 'BOOL'"])
+  expect(mismatches(vars, "w := wa AND_THEN wb;")).toEqual(["Cannot convert type 'UINT' to type 'BOOL'"])
+  expect(mismatches(vars, "o := ba AND_THEN a;")).toEqual(["Cannot convert type 'BOOL' to type 'UINT'", "Cannot convert type 'UINT' to type 'BOOL'"])
+  expect(mismatches(vars, "o := ba AND_THEN bb;\no := ba OR_ELSE bb;")).toEqual([])
+  // a BIT is a 1-bit boolean, not an integer: BIT AND_THEN BIT and BOOL AND_THEN BIT are logic, nothing refused
+  expect(mismatches("x : BIT; y : BIT; ba : BOOL; o : BOOL;", "o := x AND_THEN y;\no := ba AND_THEN y;\no := x OR_ELSE ba;")).toEqual([])
+  // only 16 bits were recorded (two INTs, two WORDs, a BOOL beside an INT): another width names no meet, so nothing is said
+  expect(mismatches("a : BYTE; b : BYTE; c : DINT; d : DINT; e : LINT; f : LINT; ba : BOOL; o : BOOL;", "o := a AND_THEN b;\no := c AND_THEN d;\no := e OR_ELSE f;\no := ba AND_THEN c;")).toEqual([])
+})

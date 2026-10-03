@@ -156,6 +156,17 @@ test("a narrow comparison warns on TwinCAT only", () => {
     "Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : possible change of sign",
   ])
 })
+// A COMPARISON OF TWO WIDTHS was recorded for one pair only — an INT on the left of a UDINT (`cb_compare_result_types`,
+// both vendors 2026-10-03): the UDINT warns into DINT. Every other pair of widths is unmeasured and silent.
+test("a comparison of two widths warns for the recorded INT < UDINT only", () => {
+  const cmp = (t: string, u: string) =>
+    `FUNCTION_BLOCK F\nVAR\n si : ${t};\n un : ${u};\n ok : BOOL;\nEND_VAR\nok := si < un;\nEND_FUNCTION_BLOCK`
+  const of = (src: string, v: Vendor) => diag(src, v).map((d) => d.message)
+  expect(of(cmp("INT", "UDINT"), "codesys")).toEqual(["Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : Possible change of sign"])
+  expect(of(cmp("INT", "UDINT"), "twincat")).toEqual(["Implicit conversion from unsigned Type 'UDINT' to signed Type 'DINT' : possible change of sign"])
+  for (const v of ["codesys", "twincat"] as const)
+    for (const [t, u] of [["DINT", "ULINT"], ["SINT", "UDINT"], ["LINT", "UDINT"], ["INT", "ULINT"], ["INT", "DWORD"]] as const) expect(of(cmp(t, u), v)).toEqual([])
+})
 // TWINCAT NEVER SAYS THE SAME THING TWICE ON ONE LINE. CODESYS does — an over-long string constant in a
 // declaration warns once for the declaration and once for the initialization, at two spans on one line, and 111
 // of 2541 CODESYS fixtures carry a repeat like that where ZERO TwinCAT fixtures do (both recordings 2026-09-20).

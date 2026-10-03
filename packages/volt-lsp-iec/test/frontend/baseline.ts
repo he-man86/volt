@@ -12,6 +12,7 @@
 import { expect } from "bun:test"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { EXPLICIT_PAIR_TESTS } from "../conformance/fixtures/conversions/explicit-pairs.js"
 
 const DIR = join(import.meta.dir, "baselines")
 export const CEILINGS_PATH = join(DIR, "ceilings.json")
@@ -65,7 +66,7 @@ const TWO_LIBRARIES_ERROR =
 
 const LITERAL_TYPING = "frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
 const NEGATED_LITERAL_CELLS =
-  "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
+  "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator; 4c's negative enum literals and the negative SOURCE value of every explicit-pair cell over SINT, INT, DINT, LINT and LREAL) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
 /** The 4.1.3 / 4.2 / 4.3 / 4b fixtures writing negated untyped numbers, with how many each carries (the same on both vendors). */
 const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["lt_literal_any_int_argument", 2],
@@ -88,6 +89,10 @@ const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["ar_int_literal_operand_types", 1],
   ["ar_bitwise_literal_unsigned_or_negative", 3],
   ["ar_bitwise_literal_unsigned_or_negative_stores", 1],
+  ["cv_literal_into_enum", 1],
+  ["cv_literals_into_strict_enum", 1],
+  // 4.5.3: each explicit-pair cell whose source value is negative (`v : SINT := -5`, `conversions/explicit-pairs.ts`)
+  ...EXPLICIT_PAIR_TESTS.filter((t) => /:= -/.test(t.source)).map((t): [string, number] => [t.name, 1]),
 ]
 
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [

@@ -1122,6 +1122,10 @@ test("network text: a wire declared unlike its producer is the push's refusal, a
   // What the producer allows is no finding: a bitwise AND on WORDs, an ADD (the text carries no stored type).
   expect(vgDiags(fb("g1 : WORD;", "g1 := (w1 AND w2);\nw1 := g1;"))).toEqual([])
   expect(vgDiags(fb("g1 : INT;", "g1 := (i + j);\ni := g1;"))).toEqual([])
+  // BIT is in ANY_BIT but not among the bridge's bit strings (`NetworkSpelling.BitStrings`): the push refuses it, so the LSP does.
+  expect(vgDiags(fb("g1 : BIT;", "g1 := (a AND b);\nout := g1;")).map((d) => d.message)).toEqual([
+    "the wire g1 is declared BIT and its producer is a bit operator, whose result is BOOL or another bit string (BYTE, WORD, DWORD, LWORD).",
+  ])
 })
 
 test("network text: an EXECUTE box's assignments are ST, type-checked as ST — a call on the right included", () => {

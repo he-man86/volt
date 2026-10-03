@@ -43,7 +43,7 @@ import type { Vendor } from "../../../src/analysis/index.js"
  * WHAT IS LEFT, and why each is still open rather than excused:
  *
  *   (`cc3_reference_assign` left 2026-10-02: a second cell, `stmt_ref_eq_literal_value`, says TwinCAT reverses the
- *                             pair for EVERY literal `REF=` statement — `refLiteralCannotConvert`.)
+ *                             pair for EVERY literal `REF=` statement — `refAssignCannotConvert`.)
  *   (`cc5_deprecated_functionblock_keyword` left 2026-10-02, frontend-conformance 2.8.1: a POU's text opening with a name
  *                             declares nothing and the parser says nothing about it, as both vendors — `parse/parser`.)
  *
@@ -1073,8 +1073,11 @@ const CODESYS_LIBRARY_DIVERGENCES: readonly string[] = [
  *        these libraries (no Util, no CAA Device Diagnosis), so each is the library's ABSENCE ("Unknown type: 'Util.ERROR'",
  *        "Identifier 'Util' not defined"); the replay binds the CODESYS fixture project's libraries for both vendors
  *        (`support/project-libraries.ts`), as `TWINCAT_SCOPE_DIVERGENCES` says. The question is CODESYS's.
+ *   `cv_library_enum_type` (frontend-conformance 4.5.1) — the same absence: "Unknown type: 'WEEKDAY'" and
+ *        'EDATETIMEPLACEHOLDER' (Util's and StringUtils' enums); CODESYS agrees exactly.
  */
 const TWINCAT_LIBRARY_DIVERGENCES: readonly string[] = [
+  "cv_library_enum_type",
   "lib_ns_type_qualified",
   "lib_ns_type_qualified_other_library",
   "lib_ns_type_name_two_libraries",
@@ -1115,6 +1118,12 @@ const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = [
   // frontend-conformance 4.3.4 (2026-10-03): ADR's result into a STRING — "Cannot convert type 'POINTER TO INT' to type
   // 'STRING'" and 'POINTER TO ARRAY [0..3] OF BYTE', word for word from `pointer-conversion` at C0033's shipped severity
   "ar_adr_type",
+  // frontend-conformance 4.4/4.5.2 (2026-10-03): a pointer stored into what a REFERENCE TO INT refers to (`rf := p`), into an
+  // INT, and POINTER ± integer into a STRING — "Cannot convert type 'POINTER TO INT' to type 'REFERENCE TO INT'" / 'INT' /
+  // 'STRING', word for word from `pointer-conversion` at C0033's shipped severity
+  "cv_pointer_assigned_to_reference",
+  "cv_pointer_and_pointee",
+  "dt_pointer_plus_int",
 ]
 
 /**
@@ -1136,6 +1145,17 @@ const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = [
  *                            REAL or an LREAL the literal is the real's, and those four cells agree. Both vendors.
  */
 const ARITHMETIC_RESULT_DIVERGENCES: readonly string[] = ["ar_new_type", "ar_varinfo_type", "ar_real_literal_operand_types"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.5.1 (2026-10-03) — a LIBRARY enum stored into a scalar (`cv_library_enum_into_int`,
+ * `cv_library_enum_into_scalars`, `cv_library_enum_255_into_scalars`): CODESYS converts Util's WEEKDAY as an unsigned
+ * 16-bit type (refused into SINT, USINT, BYTE; "unsigned Type 'WEEKDAY' to signed Type 'INT'") and StringUtils'
+ * EDATETIMEPLACEHOLDER as an unsigned 8-bit one ("…to signed Type 'SINT'"). Both are written `( … );` — no base — in the
+ * materialized declarations the LSP reads (`Library Manager/Util/WEEKDAY.dut` in every corpus), so the base the compiler
+ * uses is a fact the materialization does not carry, and `types/enums` `enumBase` leaves a library enum unjudged
+ * (missing, never wrong). Closing it is the bridge's: materialize a library enum's base.
+ */
+const LIBRARY_ENUM_BASE_NOT_MATERIALIZED: readonly string[] = ["cv_library_enum_into_int", "cv_library_enum_into_scalars", "cv_library_enum_255_into_scalars"]
 
 /**
  * FRONTEND-CONFORMANCE 4b (2026-10-03) — TwinCAT, `b := di < SIZEOF(big)` with `di : DINT` and a 100000-byte `big`
@@ -1178,17 +1198,14 @@ const TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE: readonly string[] = ["ar_ldate
  *                            them in `ANY_FAMILIES` for the operators' rules and its unknown-type check passes every
  *                            name there. The generic parameter check knows them for no type (`types/compat`
  *                            `GENERIC_PARAMETER_TYPES`) and stays silent. Niche: accepted loss (0 occurrences in the corpora).
- *   `ty_version_into_string` — "Cannot convert type 'VERSION' to type 'STRING'": VERSION is a STRUCT now (`types/system`),
- *                            and a struct stored into an elementary target is unchecked for every struct
- *                            (`compat.classifyConversion` skips a non-elementary side) — the conversions' task 4.5.3,
- *                            not VERSION's. Niche for VERSION: 0 occurrences in the corpora of a VERSION stored whole.
+ *   (`ty_version_into_string` left 2026-10-03, frontend-conformance 4.5.3: a struct stored into an elementary target is
+ *                            refused, named as the struct — `analysis/rules` `storeConversionError`.)
  */
 const ELEMENTARY_RULE_DIVERGENCES: readonly string[] = [
   "ty_reference_to_bit",
   "ty_any_num_as_local_variable",
   "ty_any_elementary_parameter_rejects_struct",
   "ty_any_magnitude_parameter_accepts_time",
-  "ty_version_into_string",
 ]
 
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
@@ -1255,6 +1272,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...C0033_CONFIGURED_AS_AN_ERROR,
     ...ELEMENTARY_RULE_DIVERGENCES,
     ...ARITHMETIC_RESULT_DIVERGENCES,
+    ...LIBRARY_ENUM_BASE_NOT_MATERIALIZED,
     ...TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
     ...TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT,
@@ -1389,6 +1407,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...C0033_CONFIGURED_AS_AN_ERROR,
     ...ELEMENTARY_RULE_DIVERGENCES,
     ...ARITHMETIC_RESULT_DIVERGENCES,
+    ...LIBRARY_ENUM_BASE_NOT_MATERIALIZED,
     ...CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:

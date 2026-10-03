@@ -45,7 +45,7 @@ export {
   type Type,
 } from "./type.js"
 export { isDialectType, resolveNamedType, resolveTypeExpr } from "./resolve.js"
-export { enumDefault, inlineEnumDefault } from "./enums.js"
+export { enumDeclaration, enumDefault, inlineEnumDefault, strictEnum } from "./enums.js"
 export { renderType } from "./render.js"
 
 // inference
@@ -65,10 +65,15 @@ export {
   BIT_OPERATOR_FUNCTIONS,
   COMPARISON_FUNCTIONS,
   comparisonConverts,
+  isBitOperatorWireType,
   negativeLiteralComparisonTarget,
   notResultType,
   operandConversion,
   operandFamilyRule,
+  operatorFunctionResult,
+  pointerArithmeticType,
+  SHORT_CIRCUIT_OPERATORS,
+  shortCircuitType,
   unaryOperandConversion,
 } from "./arith/operators.js"
 export { BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, selectionValueArguments, type BuiltinName } from "./builtins.js"

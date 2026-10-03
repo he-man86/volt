@@ -6,7 +6,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
-import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, resolveTypeExpr, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
+import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, resolveTypeExpr, SHORT_CIRCUIT_OPERATORS, shortCircuitType, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -104,11 +104,24 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
     // the operand converts into NOT's result (`arith/operators` `notResultType`, the one NOT rule): a signed integer into
     // the unsigned one of its width warns; every other operand converts into its own kind and stays silent here
     const operand = inferExprType(x.operand, scope, project)
-    const w = integral(operand) === undefined ? undefined : conversionWarning(notResultType(operand), operand, x.operand, messages)
+    // …an enum as its base, named by the enum: `NOT e` is "signed Type 'E' to unsigned Type 'UINT'" (`cv_strict_enum_arithmetic`)
+    const integer = integral(operand.kind === "enum" && operand.base !== undefined ? operand.base : operand)
+    const w = integer === undefined ? undefined : conversionWarning(notResultType(operand), operand, x.operand, messages)
     return w === undefined ? [] : [w]
   }
   let rule: "signed" | "unsigned" | "signed-wide" | undefined
   let pair: readonly [Expr, Expr] | undefined
+  if (x.kind === "binary" && SHORT_CIRCUIT_OPERATORS.has(x.op)) {
+    // AND_THEN / OR_ELSE: each signed integer operand converts into the unsigned integer they meet in (`shortCircuitType`)
+    const sides = [x.left, x.right] as const
+    const types = sides.map((s) => inferExprType(s, scope, project))
+    const meet = shortCircuitType(types[0]!, types[1]!)
+    if (meet === undefined) return []
+    return sides.flatMap((s, i) => {
+      const w = integral(types[i]!) === undefined ? undefined : conversionWarning(meet, types[i]!, s, messages)
+      return w === undefined ? [] : [w]
+    })
+  }
   if (x.kind === "binary") {
     const scaled = durationScaleWarnings(x.op, x.left, x.right, scope, project, messages)
     if (scaled !== undefined) return scaled
@@ -139,6 +152,19 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   const rt = inferExprType(right, scope, project)
   const l = integral(literalCheckType(left, rt) ?? (isIntLiteral(left) ? rt : lt))
   const r = integral(literalCheckType(right, lt) ?? (isIntLiteral(right) ? lt : rt))
+  // A COMPARISON OF TWO WIDTHS meets as arithmetic does, and the operand that converts warns where a comparison converts
+  // at all (32 and 64 bits, `comparisonConverts`): `anInt < aUdint` is "unsigned Type 'UDINT' to signed Type 'DINT'"
+  // (`cb_compare_result_types`, both vendors 2026-10-03). Two variables only — a literal's own rules are above — and only
+  // the recorded pair, a signed 16-bit on the left of an unsigned 32-bit: every other pair of widths is unmeasured.
+  if (rule === "signed-wide" && l !== undefined && r !== undefined && l.bits !== r.bits && !isIntLiteral(left) && !isIntLiteral(right)) {
+    if (!(l.family === "int" && l.signed === true && l.bits === 16 && r.family === "int" && r.signed !== true && r.bits === 32)) return []
+    const meet = checkedMeetType(lt, rt)
+    if (meet === undefined || meet.kind !== "elementary") return []
+    return ([[lt, left, l], [rt, right, r]] as const).flatMap(([t, at, e]) => {
+      const w = comparisonConverts(e.bits, project.dialect) ? conversionWarning(meet, t, at, messages) : undefined
+      return w === undefined ? [] : [w]
+    })
+  }
   if (l === undefined || r === undefined || l.bits !== r.bits) return []
   // A BITWISE OPERATOR COMPUTES IN THE UNSIGNED INTEGER OF THE WIDTH, so EVERY signed operand converts on the way
   // in — two warnings for `aLint AND bLint`, at two spans on one line, and then a third from the assignment when

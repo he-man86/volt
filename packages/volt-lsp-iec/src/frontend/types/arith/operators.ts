@@ -15,6 +15,32 @@ import { durationScaleConversion, narrowDateWideDuration } from "./temporal.js"
 export const ARITHMETIC_OPERATORS: ReadonlySet<string> = new Set(["+", "-", "*", "/", "MOD"])
 /** The bitwise operators on two operands. */
 export const BITWISE_OPERATORS: ReadonlySet<string> = new Set(["AND", "OR", "XOR"])
+/** The short-circuit operators (`shortCircuitType`). */
+export const SHORT_CIRCUIT_OPERATORS: ReadonlySet<string> = new Set(["AND_THEN", "OR_ELSE"])
+
+/**
+ * AND_THEN / OR_ELSE (rule CB5, `cb_and_then_*`, `cb_or_else_on_int`, CODESYS 2026-10-03): two BOOLs are BOOL; otherwise
+ * the operands meet in the UNSIGNED integer of their width, as `NOT` does — a signed one with the change-of-sign warning,
+ * a bit string silently (`WORD AND_THEN WORD` is UINT), a BOOL refused into it ("Cannot convert type 'BOOL' to type
+ * 'UINT'") — and that integer is the result, which the operator itself then refuses to take as its condition ("Cannot
+ * convert type 'UINT' to type 'BOOL'", the caller's message). Measured at 16 bits ONLY — BOOL beside an INT either side and
+ * two INTs or WORDs — so every other width is undefined, as are integers of two widths and any other operand. A BIT is a
+ * 1-bit boolean, not an integer: beside a BIT or a BOOL the pair is BOOL logic (BOOL); beside an integer it is unmeasured.
+ */
+export function shortCircuitType(l: Type, r: Type): Type | undefined {
+  const a = l.kind === "elementary" ? l.elem : undefined
+  const b = r.kind === "elementary" ? r.elem : undefined
+  if (a === undefined || b === undefined) return undefined
+  const boolean = (e: ElementaryType): boolean => e.family === "bool" || (e.family === "bitstring" && e.bits === 1)
+  if (a.family === "bool" && b.family === "bool") return l
+  if (boolean(a) && boolean(b)) return elementaryTypeRef(elementaryType("BOOL")!)
+  const integers = [a, b].filter((e) => e.family !== "bool")
+  if (integers.some((e) => (e.family !== "int" && e.family !== "bitstring") || e.bits !== MEASURED_SHORT_CIRCUIT_BITS)) return undefined
+  return elementaryTypeRef(integerOfWidth(MEASURED_SHORT_CIRCUIT_BITS, false))
+}
+/** The one width CB5 was recorded at (`cb_and_then_*`, `cb_or_else_on_int`). */
+const MEASURED_SHORT_CIRCUIT_BITS = 16
+
 /** The comparisons — BOOL whatever their operands. */
 export const COMPARISON_OPERATORS: ReadonlySet<string> = new Set(["=", "<>", "<", ">", "<=", ">="])
 
@@ -22,6 +48,28 @@ export const COMPARISON_OPERATORS: ReadonlySet<string> = new Set(["=", "<>", "<"
 export const COMPARISON_FUNCTIONS: ReadonlySet<string> = new Set(["GT", "GE", "LT", "LE", "EQ", "NE"])
 /** The bit operators as function-form boxes: their result has their operands' bit-string type. */
 export const BIT_OPERATOR_FUNCTIONS: ReadonlySet<string> = new Set(["AND", "OR", "XOR", "NOT"])
+
+/**
+ * What a function-form operator box hands back (a network's `GT`, `AND` …), whatever its operands: a comparison is BOOL,
+ * a bit operator a type of ANY_BIT — its operands' own, BOOL among them. Undefined for any other box. The network-text
+ * reader types its wires by this and keeps no list of its own (design.md P6, task 4.4).
+ */
+export function operatorFunctionResult(name: string): { exact: "BOOL" } | { group: "ANY_BIT" } | undefined {
+  const upper = name.toUpperCase()
+  if (COMPARISON_FUNCTIONS.has(upper)) return { exact: "BOOL" }
+  if (BIT_OPERATOR_FUNCTIONS.has(upper)) return { group: "ANY_BIT" }
+  return undefined
+}
+
+/**
+ * Is `name` a type a bit-operator BOX's output wire may be declared — BOOL, BYTE, WORD, DWORD, LWORD: the ANY_BIT group
+ * without BIT, as the bridge's gate has it (`NetworkSpelling.BitStrings`). BIT is a 1-bit member of a STRUCT or a
+ * function block, never a network's VAR_TEMP wire, and the push refuses a wire declared BIT, so the reader does too.
+ */
+export function isBitOperatorWireType(name: string): boolean {
+  const facts = elementaryType(name)
+  return facts !== undefined && inTypeGroup("ANY_BIT", facts) && (facts.family === "bool" || facts.bits > 1)
+}
 
 /**
  * Which operand of a same-width signed/unsigned pair converts, per operator (measured on CODESYS SP21, conformance
@@ -84,7 +132,8 @@ export function unaryOperandConversion(op: "-" | "NOT", family: TypeFamily): "no
  * REAL or a STRING passes through (and is reported against ANY_BIT instead).
  */
 export function notResultType(operand: Type): Type {
-  const e = operand.kind === "elementary" ? operand.elem : undefined
+  // an enum is NOT-ed as its base: `NOT e` of an INT-based enum is UINT (`cv_strict_enum_arithmetic`, CODESYS 2026-10-03)
+  const e = operand.kind === "elementary" ? operand.elem : operand.kind === "enum" ? operand.base?.elem : undefined
   const widthed = e !== undefined && e.family !== "bool" && e.family !== "real" && e.family !== "string" && e.bits !== 1
   return widthed && e.bits !== undefined ? elementaryTypeRef(integerOfWidth(e.bits, false)) : operand
 }
@@ -118,6 +167,25 @@ export function bitwiseLiteralResultType(operand: Type, literal: Type): Type | u
   const b = literal.kind === "elementary" ? literal.elem : undefined
   if (a === undefined || b === undefined || a.family !== "int" || a.signed !== true) return undefined
   return b.family === "int" && b.signed !== true && b.bits > a.bits ? literal : undefined
+}
+
+/**
+ * POINTER ARITHMETIC (rule DT13, `dt_pointer_plus_int`, `dt_pointer_difference`, CODESYS 2026-10-03): a pointer plus an
+ * integer, either side, or minus one, is that POINTER (`p + 2`, `p + aDint`, `aDint + p`, `q - 2` are each 'POINTER TO
+ * INT' into a STRING); a pointer minus a pointer is a DWORD. An untyped INTEGER literal counts as an integer (`*Literal`
+ * says which side is one — never a REAL literal: `p + 1.5` was not recorded). A pointer minus a REAL is refused, and computes in the pointer on CODESYS (the REAL converts
+ * into it) and in the REAL on TwinCAT (the pointer converts — whose result then refuses its store back into a pointer;
+ * `dt_pointer_arithmetic_refused`, both vendors). Undefined for every other pair — `p * 2`, `p + q`, `p / 2` build but
+ * name no type here.
+ */
+export function pointerArithmeticType(op: string, l: Type, r: Type, leftLiteral: boolean, rightLiteral: boolean, dialect: Dialect | undefined): Type | undefined {
+  if (op === "-" && l.kind === "pointer" && r.kind === "elementary" && r.elem.family === "real") return dialect === "twincat" ? r : l
+  const integer = (t: Type, literal: boolean): boolean => literal || (t.kind === "elementary" && (t.elem.family === "int" || t.elem.family === "bitstring") && t.elem.bits > 1)
+  if (op === "+" && l.kind === "pointer" && integer(r, rightLiteral)) return l
+  if (op === "+" && r.kind === "pointer" && integer(l, leftLiteral)) return r
+  if (op === "-" && l.kind === "pointer" && integer(r, rightLiteral)) return l
+  if (op === "-" && l.kind === "pointer" && r.kind === "pointer") return elementaryTypeRef(elementaryType("DWORD")!)
+  return undefined
 }
 
 /** A string type by name — the table's ANY_STRING group. */

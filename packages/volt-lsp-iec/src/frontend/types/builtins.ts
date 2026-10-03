@@ -123,7 +123,12 @@ export const BUILTIN_RESULT: ReadonlyMap<string, string> = new Map([
 export function builtinCallResult(name: string, dialect: Dialect | undefined, target: Target | undefined): Type | undefined {
   const upper = name.toUpperCase()
   const known = dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : BUILTIN_RESULT.get(upper)
-  const modeled = parseConversionName(name, target)?.to.name ?? known
+  // …and a conversion naming a type the dialect lacks is no operator either (`builtinName`): `BOOL_TO_LDATE(v)` on TwinCAT is
+  // "Cannot convert type 'Unknown type: 'BOOL_TO_LDATE(v)'' to type 'LDATE'" (`xp_bool_to_ldate`, 2026-10-03), not an LDATE
+  const sides = conversionSides(name)
+  const inDialect = sides === undefined || [sides.to, sides.from].every((n) => n === undefined || !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(n)))
+  const conversion = inDialect ? parseConversionName(name, target) : undefined
+  const modeled = conversion?.to.name ?? known
   if (modeled === undefined) return undefined
   // a platform integer (XSIZEOF's `__UXINT`) is the target's; on an unknown target it has no facts — no result
   const elem = elementaryTypeOn(modeled, target)

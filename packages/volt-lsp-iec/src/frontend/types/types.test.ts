@@ -350,7 +350,9 @@ test("isAssignable: widening, narrowing, isolation, enums", () => {
   expect(isAssignable(T("BOOL"), T("INT"))).toBe(false) // BOOL isolated
   expect(isAssignable(T("REAL"), T("LREAL"))).toBe(true) // both ways (narrowing is a warning, not error)
   expect(isAssignable(T("Color"), T("Color"))).toBe(true)
-  expect(isAssignable(T("Color"), T("Mode"))).toBe(false) // different enums
+  // different enums: a WARNING, not a refusal — "Implicit conversion from one enumeration type (MODE) to another (COLOR)"
+  // (`cv_enum_into_other_enum`, `unit_enum_extends_enum`, both vendors; this said "not assignable" from no recording)
+  expect(classifyConversion(T("Color"), T("Mode"))).toBe("enum-change")
   expect(isAssignable(T("Color"), T("INT"))).toBe(true) // enum↔int allowed
   expect(isAssignable(T("Color"), T("STRING"))).toBe(false) // enum↔string rejected
   expect(isAssignable(T("INT"), UNKNOWN)).toBe(true) // unknown → skip
@@ -524,4 +526,115 @@ test("infer: a dependency's namespace through a library's namespace is a static 
   }
   expect(typed("DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO")).toBe("IO_SYSTEM_TYPE")
   expect(typed("Util.Standard.LEN('abcd')")).toBe("INT")
+})
+
+// ─── 4.4 the function-form operator boxes (the network-text reader's wire typing) ───
+
+test("operatorFunctionResult: a comparison box is BOOL, a bit-operator box a type of ANY_BIT, any other box nothing", async () => {
+  const { operatorFunctionResult, isBitOperatorWireType } = await import("./index.js")
+  for (const box of ["GT", "ge", "LT", "LE", "EQ", "NE"]) expect(operatorFunctionResult(box)).toEqual({ exact: "BOOL" })
+  for (const box of ["AND", "or", "XOR", "NOT"]) expect(operatorFunctionResult(box)).toEqual({ group: "ANY_BIT" })
+  expect(operatorFunctionResult("ADD")).toBeUndefined()
+  expect(operatorFunctionResult("TON")).toBeUndefined()
+  // a bit-operator box's wire is BOOL or a bit string — ANY_BIT without BIT, as the bridge's gate (`NetworkSpelling.BitStrings`)
+  for (const t of ["BOOL", "BYTE", "WORD", "DWORD", "LWORD"]) expect(isBitOperatorWireType(t)).toBe(true)
+  for (const t of ["BIT", "INT", "UDINT", "REAL", "TIME", "STRING", "NotAType"]) expect(isBitOperatorWireType(t)).toBe(false)
+})
+
+// ─── 4.5.1 enum conversions (CV3–CV5) ───
+
+const E_PLAIN = "TYPE E :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE"
+const E_BYTE = "TYPE EB :\n(\n\tOff := 0,\n\tOn := 1\n) BYTE;\nEND_TYPE"
+
+test("infer: an enum operand of arithmetic computes in its base — INT without one (cv_enum_arithmetic_type, CODESYS 2026-10-03)", () => {
+  const vars = "VAR\n e : E;\n d : DINT;\nEND_VAR"
+  expect(inferExpr(E_PLAIN, vars, "e + INT#1")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(inferExpr(E_PLAIN, vars, "e + 1")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(inferExpr(E_PLAIN, vars, "e + e")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(inferExpr(E_PLAIN, vars, "e * d")).toMatchObject({ kind: "elementary", name: "DINT" })
+})
+
+test("compat: an enum with a written base converts as that base, both ways (cv_enum_base_*_into_scalars, cv_scalars_into_enum_with_base)", () => {
+  const enumOf = (src: string, name: string): Type => resolveNamedType(name, proj(src))
+  const eb = enumOf(E_BYTE, "EB")
+  expect(eb).toMatchObject({ kind: "enum", base: { name: "BYTE" } })
+  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
+  expect(classifyConversion(el("SINT"), eb)).toBe("sign-change")
+  expect(classifyConversion(el("INT"), eb)).toBe("widen")
+  expect(classifyConversion(eb, el("INT"))).toBe("incompatible")
+  expect(classifyConversion(eb, el("USINT"))).toBe("widen")
+  // …and a project enum WITHOUT one converts as INT INTO it too (cv_scalars_into_enum: DINT, REAL, BOOL refused; UINT taken)
+  const e = enumOf(E_PLAIN, "E")
+  expect(classifyConversion(e, el("DINT"))).toBe("incompatible")
+  expect(classifyConversion(e, el("REAL"))).toBe("incompatible")
+  expect(classifyConversion(e, el("BOOL"))).toBe("incompatible")
+  expect(classifyConversion(e, el("SINT"))).toBe("widen")
+})
+
+test("compat: a value of another enum converts with a warning, not an error (cv_enum_into_other_enum, unit_enum_extends_enum)", () => {
+  const src = `${E_PLAIN}\n${E_BYTE}`
+  const p = proj(src)
+  expect(classifyConversion(resolveNamedType("E", p), resolveNamedType("EB", p))).toBe("enum-change")
+  expect(isAssignable(resolveNamedType("E", p), resolveNamedType("EB", p))).toBe(true)
+})
+
+// ─── 4.4 / 4.5.2 short-circuit operators, pointers, references ───
+
+test("shortCircuitType: two BOOLs are BOOL, integers meet in the unsigned integer of their width (cb_and_then_*, CB5)", async () => {
+  const { shortCircuitType } = await import("./index.js")
+  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
+  expect(shortCircuitType(el("BOOL"), el("BOOL"))).toMatchObject({ name: "BOOL" })
+  expect(shortCircuitType(el("INT"), el("INT"))).toMatchObject({ name: "UINT" })
+  expect(shortCircuitType(el("WORD"), el("WORD"))).toMatchObject({ name: "UINT" })
+  expect(shortCircuitType(el("BOOL"), el("INT"))).toMatchObject({ name: "UINT" })
+  expect(shortCircuitType(el("INT"), el("DINT"))).toBeUndefined() // two widths: unmeasured
+  expect(shortCircuitType(el("REAL"), el("BOOL"))).toBeUndefined()
+  // a BIT is a 1-bit boolean: beside a BIT or a BOOL it is BOOL logic; beside an integer unmeasured
+  expect(shortCircuitType(el("BIT"), el("BIT"))).toMatchObject({ name: "BOOL" })
+  expect(shortCircuitType(el("BOOL"), el("BIT"))).toMatchObject({ name: "BOOL" })
+  expect(shortCircuitType(el("BIT"), el("INT"))).toBeUndefined()
+  // only 16 bits were recorded: every other width is unmeasured
+  for (const [a, b] of [["BYTE", "BYTE"], ["DINT", "DINT"], ["LINT", "LINT"], ["BOOL", "DINT"], ["SINT", "BOOL"]] as const)
+    expect(shortCircuitType(el(a), el(b))).toBeUndefined()
+})
+
+test("infer: POINTER ± integer is the pointer, pointer − pointer a DWORD; a reference reads as its target (dt_pointer_*, dt_reference_auto_deref_type)", () => {
+  const vars = "VAR\n p : POINTER TO INT;\n q : POINTER TO INT;\n n : DINT;\n ri : REFERENCE TO INT;\n rr : REFERENCE TO REAL;\nEND_VAR"
+  for (const e of ["p + 2", "p + n", "n + p", "q - 2"]) expect(renderType(inferExpr("", vars, e))).toBe("POINTER TO INT")
+  expect(inferExpr("", vars, "q - p")).toMatchObject({ kind: "elementary", name: "DWORD" })
+  // an untyped INTEGER literal counts as an integer; a REAL literal does not (only `p - <REAL variable>` was recorded)
+  for (const e of ["p + 1.5", "1.5 + p", "q - 2.0"]) expect(renderType(inferExpr("", vars, e))).not.toBe("POINTER TO INT")
+  expect(inferExpr("", vars, "ri")).toMatchObject({ kind: "reference" })
+  expect(inferExpr("", vars, "ri + 1")).toMatchObject({ kind: "elementary", name: "INT" })
+  expect(inferExpr("", vars, "ri * rr")).toMatchObject({ kind: "elementary", name: "REAL" })
+})
+
+test("compat: an integer into a pointer on a 64-bit target — 32 bits refused, signed a change of sign, the rest silent (cv_integers_into_pointer)", () => {
+  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
+  const ptr: Type = { kind: "pointer", target: el("INT") }
+  const x64 = { pointerBits: 64 } as Parameters<typeof classifyConversion>[2]
+  for (const t of ["DWORD", "UDINT", "DINT"]) expect(classifyConversion(ptr, el(t), x64)).toBe("incompatible")
+  for (const t of ["INT", "LINT"]) expect(classifyConversion(ptr, el(t), x64)).toBe("sign-change")
+  for (const t of ["BYTE", "WORD", "UINT", "LWORD", "ULINT"]) expect(["widen", "identity"]).toContain(classifyConversion(ptr, el(t), x64))
+  expect(classifyConversion(ptr, el("REAL"), x64)).toBe("incompatible")
+  expect(classifyConversion(ptr, el("DWORD"))).toBe("identity") // no target: unjudged
+})
+
+test("compat: a reference converts as its target on either side (dt_reference_into_narrower, cv_reference_to_other_reference)", () => {
+  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
+  const ri: Type = { kind: "reference", target: el("INT") }
+  const rr: Type = { kind: "reference", target: el("REAL") }
+  expect(classifyConversion(el("SINT"), ri)).toBe("incompatible")
+  expect(classifyConversion(el("UINT"), ri)).toBe("sign-change")
+  expect(classifyConversion(ri, rr)).toBe("incompatible")
+  expect(classifyConversion(el("DINT"), ri)).toBe("widen")
+})
+
+test("pointerArithmeticType: a pointer minus a REAL computes in the pointer on CODESYS, in the REAL on TwinCAT (dt_pointer_arithmetic_refused)", async () => {
+  const { pointerArithmeticType } = await import("./index.js")
+  const real: Type = { kind: "elementary", name: "REAL", elem: elementaryType("REAL")! } as Type
+  const ptr: Type = { kind: "pointer", target: { kind: "elementary", name: "INT", elem: elementaryType("INT")! } as Type }
+  expect(pointerArithmeticType("-", ptr, real, false, false, "codesys")).toBe(ptr)
+  expect(pointerArithmeticType("-", ptr, real, false, false, "twincat")).toBe(real)
+  expect(pointerArithmeticType("*", ptr, real, false, true, "codesys")).toBeUndefined()
 })

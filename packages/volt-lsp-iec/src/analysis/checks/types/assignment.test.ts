@@ -39,8 +39,12 @@ test("an enum value converts as INT — into SINT, USINT and BYTE it does not, a
   for (const target of ["INT", "DINT", "LINT", "REAL", "LREAL", "UINT", "DWORD"]) expect(enumInto(target)).toEqual([])
 })
 
-test("an enum with a written base type is unmeasured, so it stays silent", () => {
-  expect(enumInto("SINT", " DINT")).toEqual([])
+test("an enum with a written base converts as that base: a DINT-based enum into a SINT or an INT is refused, into a DINT taken (cv_enum_base_dint_into_scalars)", () => {
+  // this said "unmeasured, so silent" until the recording (CODESYS 2026-10-03)
+  expect(enumInto("SINT", " DINT")).toEqual(["Cannot convert type 'E_MODE' to type 'SINT'"])
+  expect(enumInto("INT", " DINT")).toEqual(["Cannot convert type 'E_MODE' to type 'INT'"])
+  expect(enumInto("DINT", " DINT")).toEqual([])
+  expect(enumInto("REAL", " DINT")).toEqual([])
 })
 
 /** Every `assignment-type-mismatch` message for a declaration-only FB. */
@@ -155,4 +159,67 @@ test("`S=` and `R=` set a BOOL from a BOOL: an INT target or operand does not co
   expect(mismatches("n : INT;\n\ty : BOOL := TRUE;", "n S= y;")).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
   expect(mismatches("x : BOOL;\n\tn : INT := 1;", "x S= n;")).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
   expect(mismatches("x : BOOL;\n\ty : BOOL;", "x S= y;\nx R= y;")).toEqual([])
+})
+
+/** Every error and warning for `body` in a PROGRAM with `vars`, beside `enums` (whole TYPE units). */
+const storeDiagnostics = (enums: string, vars: string, body: string): string[] => {
+  const src = `${enums}\n\nPROGRAM PLC_PRG\nVAR\n${vars}\nEND_VAR\n${body}\nEND_PROGRAM`
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.severity === "error" || d.severity === "warning")
+    .map((d) => d.message)
+}
+
+const STRICT_E = "{attribute 'strict'}\nTYPE E_Strict :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE"
+const OTHER_E = "TYPE E_Other :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE"
+
+test("a strict enum takes only its own values: a variable, another enum's value, a literal no member holds is refused by its text (cv_*_strict_enum, P14)", () => {
+  const vars = "\te : E_Strict;\n\ti : INT := 1;\n\tf : E_Other;"
+  expect(storeDiagnostics(`${STRICT_E}
+${OTHER_E}`, vars, "e := i;")).toEqual(["'i' is not a valid value for strict ENUM type 'E_Strict'"])
+  expect(storeDiagnostics(`${STRICT_E}\n${OTHER_E}`, vars, "e := f;")).toEqual(["'f' is not a valid value for strict ENUM type 'E_Strict'"])
+  expect(storeDiagnostics(`${STRICT_E}
+${OTHER_E}`, vars, "e := 5;")).toEqual(["'5' is not a valid value for strict ENUM type 'E_Strict'"])
+  expect(storeDiagnostics(`${STRICT_E}
+${OTHER_E}`, vars, "e := -1;")).toEqual(["'-1' is not a valid value for strict ENUM type 'E_Strict'"])
+  expect(storeDiagnostics(`${STRICT_E}
+${OTHER_E}`, vars, "e := TRUE;")).toEqual(["'TRUE' is not a valid value for strict ENUM type 'E_Strict'"])
+  // a literal a member holds, typed or not, and its own member are taken
+  expect(storeDiagnostics(`${STRICT_E}
+${OTHER_E}`, vars, "e := 1;\ne := INT#1;\ne := E_Strict.On;")).toEqual([])
+})
+
+test("a REFERENCE TO the strict enum reads as its target and is taken (DT14, P14)", () => {
+  expect(storeDiagnostics(STRICT_E, "\te : E_Strict;\n\trr : REFERENCE TO E_Strict;", "e := rr;")).toEqual([])
+})
+
+test("a call argument into a strict-enum input is unmeasured: no enum-conversion warning, no refusal (P14 recorded stores only)", () => {
+  const fn = "FUNCTION K : BOOL\nVAR_INPUT x : E_Strict; END_VAR\nK := TRUE;\nEND_FUNCTION"
+  const vars = "\tf : E_Other;\n\to : BOOL;\n\tse : E_Strict;"
+  expect(storeDiagnostics(`${STRICT_E}\n${OTHER_E}\n${fn}`, vars, "o := K(x := f);\no := K(x := 7);\no := K(f);\no := K(x := se);")).toEqual([])
+})
+
+test("a value of another enum is a warning, and an enum with a written base converts as it (cv_enum_into_other_enum, cv_enum_base_*)", () => {
+  expect(storeDiagnostics(`${OTHER_E}\nTYPE E_B :\n(\n\tOff := 0,\n\tOn := 1\n);\nEND_TYPE`, "\ta : E_Other;\n\tb : E_B;", "b := a;")).toEqual([
+    "Implicit conversion from one enumeration type (E_OTHER) to another (E_B)",
+  ])
+})
+
+test("arithmetic on a strict enum is refused once per operation; NOT converts it as its base (cv_strict_enum_arithmetic)", () => {
+  const vars = "\te : E_Strict;\n\tout1 : INT;\n\tout2 : INT;\n\tout3 : INT;\n\tout4 : INT;"
+  expect(storeDiagnostics(STRICT_E, vars, "out1 := e - INT#1;\nout2 := e * 2;\nout3 := e + e;\nout4 := NOT e;").sort()).toEqual([
+    "Arithmetics not allowed on strict ENUM type 'E_Strict'",
+    "Arithmetics not allowed on strict ENUM type 'E_Strict'",
+    "Arithmetics not allowed on strict ENUM type 'E_Strict'",
+    "Implicit conversion from signed Type 'E_STRICT' to unsigned Type 'UINT' : Possible change of sign",
+    "Implicit conversion from unsigned Type 'UINT' to signed Type 'INT' : Possible change of sign",
+  ])
+})
+
+test("a scalar into a strict enum is the strict refusal alone, never a conversion warning beside it (cv_scalars_into_strict_enum)", () => {
+  expect(storeDiagnostics(`${STRICT_E}\n${OTHER_E}`, "\te : E_Strict;\n\tu : UINT;\n\tf : E_Other;", "e := u;\ne := f;")).toEqual([
+    "'u' is not a valid value for strict ENUM type 'E_Strict'",
+    "'f' is not a valid value for strict ENUM type 'E_Strict'",
+  ])
 })

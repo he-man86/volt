@@ -10,10 +10,10 @@
  * fire when either operand is an array, rendering the CODESYS-exact `ARRAY [lo..hi]` form; a non-foldable bound
  * skips (zero-FP). Struct/FB/pointer/unknown operands are still undecidable → skipped.
  */
-import { classifyConversion, inferExprType, isEnumValueRef, isSameType, renderType, type Type } from "../../../frontend/types/index.js"
+import { classifyConversion, inferExprType, isEnumValueRef, isSameType, pointerFits, renderType, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { compilerArrayText } from "../../messages.js"
-import { forEachExpr } from "../../../frontend/symbols/index.js"
+import { forEachExpr, targetOf } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const CMP_OPS = new Set(["<", ">", "<=", ">=", "=", "<>"])
@@ -50,6 +50,15 @@ export function checkComparison(ctx: CheckContext, out: DiagnosticItem[]): void 
     if (left.kind === "enum" && right.kind === "enum" && !isSameType(left, right)) {
       if (!isEnumValueRef(e.left, scope, ctx.project) && !isEnumValueRef(e.right, scope, ctx.project))
         push("enum-comparison", ctx.messages.enumComparison(renderType(left, { form: "compiler" }), renderType(right, { form: "compiler" })))
+      return
+    }
+
+    // C0066 — a POINTER against an unsigned integer it does not fit (`types/compat` `pointerFits`): `pa = aDword` on the
+    // 64-bit target is "Cannot compare type 'POINTER TO INT' with type 'DWORD'", `pa = anLword` and `aUlint = pa` are
+    // silent (`cb_compare_pointers`, CODESYS 2026-10-03). A signed integer was not asked.
+    const [ptr, int] = left.kind === "pointer" ? [left, right] : right.kind === "pointer" ? [right, left] : []
+    if (ptr !== undefined && int?.kind === "elementary" && int.elem.signed !== true && (int.elem.family === "int" || int.elem.family === "bitstring")) {
+      if (pointerFits(int, targetOf(ctx.project)) === false) push("incompatible-comparison", ctx.messages.cannotCompare(renderType(left), renderType(right)))
       return
     }
 
