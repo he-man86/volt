@@ -445,13 +445,14 @@ public class PushServiceTests
     }
 
     /// <summary>The pre-flight reads a graphical body against the scope the DRIVER builds from the project (task 3.9,
-    /// <c>ICodeStore.NetworkScopeFor</c>): a wire <c>g7</c> in a POU of a project whose GVL declares <c>G7</c> is the
-    /// global's name, so the push is refused <c>NETWORK_DUPLICATE_NAME</c> before anything is written — and the same
-    /// body in a project without that global is accepted.</summary>
+    /// <c>ICodeStore.NetworkScopeFor</c>). A wire <c>g7</c> in a POU of a project whose GVL declares <c>G7</c> is the
+    /// network's wire (openspec <c>bridge-refusal-review</c> 2.10: wires resolve first) and the body is written, with
+    /// the global in the project or without it; the writer names the wire around the global on the next pull (2.12:
+    /// canonical form is not a refusal). It was refused NETWORK_DUPLICATE_NAME with the global.</summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void A_wire_named_like_a_projects_global_is_refused_by_the_pre_flight(bool withGlobal)
+    public void A_wire_named_like_a_projects_global_is_written(bool withGlobal)
     {
         var items = new System.Collections.Generic.List<FakeIde.Item>
         {
@@ -470,15 +471,8 @@ public class PushServiceTests
                          "NETWORK\n  VAR_TEMP g7 : BOOL; END_VAR\n  g7 := TRUE;\n  out := g7;\nEND_NETWORK\n\nEND_PROGRAM\n",
         });
 
-        if (withGlobal)
-        {
-            Assert.False(resp.Accepted);
-            // The reader takes the wire (2.10); the canonical gate still refuses the spelling the writer would rename
-            // around the global, until 2.12.
-            Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(resp.Conflicts!).Code);
-            Assert.Empty(ide.WrittenContent);
-        }
-        else Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+        _ = withGlobal;
+        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
     }
 
     /// <summary>A move+edit whose CONTENT is refused must leave the item where it was — the refusal has to be

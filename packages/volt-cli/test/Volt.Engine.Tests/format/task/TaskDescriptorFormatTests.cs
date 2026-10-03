@@ -89,6 +89,19 @@ public class TaskDescriptorFormatTests
         Assert.Contains("CoreBinding", ex.Message);
     }
 
+    /// <summary>A LABEL WRITTEN TWICE IS REFUSED, BY NAME AND LINE (bridge-refusal-review 1+2d review). Read keeps one
+    /// value per field, so the earlier line would be dropped without a word — a second `Calls:` line would stop the task
+    /// calling a program while the push reported success. The canonical-form gate used to catch it by accident.</summary>
+    [Theory]
+    [InlineData("Type: Cyclic\nPriority: 5\nCalls: A\nCalls: B\n", "Calls", 4)]
+    [InlineData("Type: Cyclic\nPriority: 5\nPriority: 7\n", "Priority", 3)]
+    public void A_LABEL_WRITTEN_TWICE_IS_REFUSED_not_last_wins(string body, string label, int line)
+    {
+        var ex = Assert.Throws<TaskDescriptorException>(() => TaskDescriptorFormat.Gate(body));
+        Assert.Contains($"line {line}", ex.Message);
+        Assert.Contains($"'{label}'", ex.Message);
+    }
+
     [Theory]
     [InlineData("Priority:  5\n", "Type")]                                   // no kind
     [InlineData("Type:      Cyclic\n", "Priority")]                          // no priority
@@ -105,14 +118,17 @@ public class TaskDescriptorFormatTests
         Assert.Contains("sensitivity", ex.Message);
     }
 
+    /// <summary>A NON-CANONICAL DESCRIPTOR IS READ, NOT REFUSED (openspec <c>bridge-refusal-review</c> 2.13). Hand-typed
+    /// spacing reads into the same settings the canonical text does; the settings are written and the canonical text
+    /// comes back on the next pull — and is the same descriptor, so the push adopts it as layout.</summary>
     [Fact]
-    public void The_gate_refuses_a_non_canonical_body_and_prints_the_one_to_use()
+    public void The_gate_reads_a_non_canonical_body_and_its_canonical_text_is_the_same_descriptor()
     {
-        // Hand-typed spacing parses fine and would be REWRITTEN by the next pull. Refusing it with the exact
-        // canonical text is the same bargain NetworkTextGate strikes for graphical bodies.
-        var ex = Assert.Throws<TaskDescriptorException>(() =>
-            TaskDescriptorFormat.Gate("Type: Cyclic\nPriority: 5\nWatchdog: off\n"));
-        Assert.Contains("Type:      Cyclic", ex.Message);
+        const string typed = "Type: Cyclic\nPriority: 5\nWatchdog: off\n";
+        var settings = TaskDescriptorFormat.Gate(typed);
+        Assert.Equal("5", settings.Priority);
+        Assert.True(TaskDescriptorFormat.SameDescriptor(typed, TaskDescriptorFormat.Write(settings)));
+        Assert.False(TaskDescriptorFormat.SameDescriptor(typed, typed.Replace("Priority: 5", "Priority: 6")));
     }
 
     [Fact]

@@ -37,7 +37,7 @@ public class NoCodeCheckLeftTests
             "1.2: the identifier `implementation` refused anywhere in the code"),
         ["RefuseRetiredComment"] = new(@"\bRefuseRetiredComment\b", 0,
             "1.4: pull refuses an IDE text holding a `(* @volt-… *)` comment"),
-        ["NETWORK_NOT_CANONICAL"] = new(@"\bNETWORK_NOT_CANONICAL\b|\bNetworkNotCanonical\b", 4,
+        ["NETWORK_NOT_CANONICAL"] = new(@"\bNETWORK_NOT_CANONICAL\b|\bNetworkNotCanonical\b", 0,
             "2.12 / V.2: a complete, writable network model refused for its layout"),
         ["IsCallableHeader"] = new(@"\bIsCallableHeader\b", 2,
             "4.3: network scope reads a callee's header to decide FUNCTION or FB"),

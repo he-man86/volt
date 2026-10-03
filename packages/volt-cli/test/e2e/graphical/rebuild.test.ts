@@ -186,10 +186,9 @@ VAR
 END_VAR
 IMPLEMENTATION LD
 ` +
-			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and now the canonical form too. It was
-			// the other way round until this suite made the cost obvious: the reader takes them in either
-			// order, so a network typed the way the IDE displays it parsed fine and was then re-emitted
-			// swapped and refused as "not in canonical form".
+			// LABEL FIRST, THEN COMMENT — the IDE's own header layout, and the canonical form too. The reader
+			// takes them in either order; a text in another layout is written and comes back canonical
+			// (bridge-refusal-review 2.12 retired the layout-only refusal).
 			`NETWORK LABEL: Guard TITLE: "interlock"
   // holds the drive off while the guard is open
   // second line of the same comment

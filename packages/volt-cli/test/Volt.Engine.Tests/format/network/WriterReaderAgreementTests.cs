@@ -279,9 +279,11 @@ public class WriterReaderAgreementTests
         Assert.Null(NetworkModelOracle.Check("rising-not-box-around-group",
             Body(Set(Call("NOT", new[] { In(Op("AND", L("a"), L("b"))) }, main: null, f: Rise), T("out")))).Reason);
 
-        // The backticked head reads to the same box and is not canonical — a finding, never an exception.
+        // The backticked head reads to the same box and is accepted; its canonical text is the bare head (openspec
+        // bridge-refusal-review 2.12: canonical form is not a refusal) — never an exception.
         var r = Gate(Src("out := R_EDGE(`NOT`(a));"), NetworkScope.Empty);
-        Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
+        Assert.Equal(Src("out := R_EDGE(NOT(a));"), r.Canonical);
 
         // The negation MODIFIER inside the edge is the vendor's order (DIALECT N17) and reads back as the flag;
         // outside the edge it is the one refusal the spec names.
@@ -320,7 +322,8 @@ public class WriterReaderAgreementTests
                 en: L("c"), main: null, connected: 0, eno: true)), T("out")))).Reason);
 
         var r = Gate(Src("and(`or`(a, b), c);"), NetworkScope.Empty);
-        Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
+        Assert.Equal(Src("and(or(a, b), c);"), r.Canonical);
     }
 
     /// <summary>A digit or letter outside ASCII is no character of a bare token: the lexer makes progress past it
@@ -384,14 +387,14 @@ public class WriterReaderAgreementTests
         Assert.IsType<Terminator>(read.Networks[0].Trees[0]);
     }
 
-    /// <summary>A wire spelled as another name is reported where it is spelled, so a later error in the same
-    /// network does not hide it.</summary>
+    /// <summary>A wire spelled as another name is no finding (openspec <c>bridge-refusal-review</c> 2.11: the writer names
+    /// its wires around every other name on the next pull), so a later error in the same network is the only one.</summary>
     [Fact]
-    public void A_wire_name_collision_is_reported_beside_a_later_error()
+    public void A_wire_spelled_as_another_name_is_no_finding_beside_a_later_error()
     {
         var r = NetworkTextReader.Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := a;", "`g1 + 1` := g1;", "out := ((b));"), NetworkScope.Empty);
-        Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_DUPLICATE_NAME" && d.Line == 5);
-        Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_BAD_EXPRESSION" && d.Line == 6);
+        var d = Assert.Single(r.Diagnostics);
+        Assert.Equal(("NETWORK_BAD_EXPRESSION", 6), (d.Code, d.Line));
     }
 
     /// <summary>The reader and the writer refuse the same Parallel modes: whatever member the enum gains, the one

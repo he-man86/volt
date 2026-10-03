@@ -18,7 +18,7 @@ internal enum TokKind
     String,     // a TITLE; Text = the DECODED value
     Comment,    // a // line; Text = what follows `//` and one space
     Snippet,    // an EXECUTE body; Text = its lines joined by \n
-    Wires,      // a whole VAR_TEMP block, as the gate compares it; Text = name:type per wire, by VarId
+    Wires,      // a whole VAR_TEMP block, as the post-push comparison keys it; Text = name:type per wire, by VarId
     Sym,        // punctuation and operators
     Error,      // Text = message, Code = its NETWORK_* code
     Eof,

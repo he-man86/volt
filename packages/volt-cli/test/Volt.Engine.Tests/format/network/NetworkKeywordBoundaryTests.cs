@@ -14,7 +14,8 @@ namespace Volt.Engine.Tests;
 /// <item>The header ENDS at its newline: a statement on the next line that starts <c>DISABLED :=</c>,
 /// <c>TITLE :=</c> or <c>LABEL :=</c> is an assignment to a variable of that name, never a header field.</item>
 /// <item>A <c>//</c> comment ends at its newline: the statement on the next line is a statement.</item>
-/// <item>Header fields in another order are <c>NETWORK_NOT_CANONICAL</c>.</item>
+/// <item>Header fields in another order are read, and written back in the one order (openspec
+/// <c>bridge-refusal-review</c> 2.12; they were <c>NETWORK_NOT_CANONICAL</c>).</item>
 /// </list>
 /// </summary>
 public class NetworkKeywordBoundaryTests
@@ -79,9 +80,12 @@ public class NetworkKeywordBoundaryTests
     [InlineData("NETWORK TITLE: \"t\" LABEL: Done")]
     [InlineData("NETWORK DISABLED LABEL: Done")]
     [InlineData("NETWORK DISABLED TITLE: \"t\"")]
-    public void Header_fields_out_of_order_are_not_canonical(string header)
+    public void Header_fields_out_of_order_are_accepted_and_written_in_order(string header)
     {
+        // Canonical form is not a refusal (openspec bridge-refusal-review 2.12): the fields are read in any order and
+        // the canonical text — LABEL, TITLE, DISABLED — comes back.
         var r = NetworkTextGate.Validate(FbdMarker + header + "\n  ;\nEND_NETWORK\n", NetworkScope.Empty);
-        Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(r.Diagnostics).Code);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
+        Assert.Matches(@"NETWORK (LABEL: Done ?)?(TITLE: ""t"" ?)?(DISABLED)?\n", r.Canonical);
     }
 }

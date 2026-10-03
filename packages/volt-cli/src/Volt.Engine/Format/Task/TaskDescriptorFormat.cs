@@ -75,6 +75,7 @@ public static class TaskDescriptorFormat
     {
         string? type = null, interval = null, priority = null, evt = null, watchdog = null, calls = null;
         var lineNo = 0;
+        var seen = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var raw in (text ?? "").Replace("\r", "").Split('\n'))
         {
             lineNo++;
@@ -83,6 +84,11 @@ public static class TaskDescriptorFormat
             if (colon < 0) throw new TaskDescriptorException($"line {lineNo}: expected `Label: value`, found '{raw.Trim()}'");
             var label = raw.Substring(0, colon).Trim();
             var value = raw.Substring(colon + 1).Trim();
+            // One value per field: a second line of a label Volt knows would silently replace the first (a second
+            // `Calls:` stops the task calling a program), so it is refused by name and line, not last-wins.
+            if (seen.TryGetValue(label, out var first))
+                throw new TaskDescriptorException(
+                    $"line {lineNo}: '{label}' is written twice (first on line {first}) — a task field holds one value");
             switch (label)
             {
                 case LabelType: type = value; break;
@@ -96,6 +102,7 @@ public static class TaskDescriptorFormat
                         $"line {lineNo}: '{label}' is not a task field. Expected one of " +
                         $"{LabelType}, {LabelInterval}, {LabelPriority}, {LabelEvent}, {LabelWatchdog}, {LabelCalls}.");
             }
+            seen[label] = lineNo;
         }
         if (type is null) throw new TaskDescriptorException($"no '{LabelType}:' line — a task must say what kind it is");
         if (priority is null) throw new TaskDescriptorException($"no '{LabelPriority}:' line");
@@ -105,25 +112,19 @@ public static class TaskDescriptorFormat
                                 ReadWatchdog(watchdog), ReadCalls(calls));
     }
 
-    /// <summary>Read, then prove the text is CANONICAL by re-rendering it. A body that parses but re-renders
-    /// differently would be rewritten by the very next pull, so the push is refused with the exact text to use —
-    /// the same bargain `NetworkTextGate` strikes for graphical bodies, and for the same reason: drift the
-    /// engineer did not ask for is worse than a refusal they can act on.</summary>
-    public static TaskSettings Gate(string text)
-    {
-        var settings = Read(text);
-        var canonical = Write(settings);
-        if (!string.Equals(Normalize(canonical), Normalize(text), StringComparison.Ordinal))
-            throw new TaskDescriptorException(
-                "the task descriptor is not in canonical form — it would not round-trip identically (you'd see " +
-                $"drift on the next pull). Use this exact body:\n\n{canonical}");
-        return settings;
-    }
+    /// <summary>The push's gate: the settings a descriptor READS to, or the refusal of one that does not read. A
+    /// descriptor that reads but is not in the canonical form (fields in another order, another spacing) is WRITTEN —
+    /// the settings are what the IDE holds, and the canonical text comes back on the next pull (openspec
+    /// <c>bridge-refusal-review</c> 2.13). It used to be refused for its form, a complete descriptor turned away for
+    /// its spelling.</summary>
+    public static TaskSettings Gate(string text) => Read(text);
 
-    /// <summary>Whether two descriptors differ only in what <see cref="Gate"/> lets vary — trailing whitespace and
-    /// the final newline. This is the task's LAYOUT: a push the gate accepted as canonical may come back from the
-    /// IDE in the canonical bytes, and that is the same descriptor, not an IDE-side change.</summary>
-    public static bool SameDescriptor(string a, string b) => Normalize(a) == Normalize(b);
+    /// <summary>Whether two descriptors state the SAME settings: equal canonical renderings (<see cref="Write"/> of
+    /// <see cref="Read"/>). A push in another form comes back from the IDE in the canonical bytes, and that is the same
+    /// descriptor, not an IDE-side change. Both texts read: one was accepted by <see cref="Gate"/>, the other is the
+    /// IDE's own.</summary>
+    public static bool SameDescriptor(string a, string b) =>
+        Normalize(a) == Normalize(b) || Normalize(Write(Read(a))) == Normalize(Write(Read(b)));
 
     /// <summary>Trailing-whitespace-and-newline insensitive: a workspace file may lose or gain a final newline
     /// on the way through an editor, and that is not a reason to refuse a push.</summary>

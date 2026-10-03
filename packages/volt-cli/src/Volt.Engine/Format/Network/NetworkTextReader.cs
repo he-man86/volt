@@ -41,8 +41,8 @@ public static class NetworkTextReader
     public static NetworkReadResult Read(string text, NetworkScope scope) =>
         ReadTokens(text, scope).Result;
 
-    /// <summary>The read plus what the gate needs of it: every token consumed, in order (what it compares), and
-    /// where each model node and each network header was read (where it reports a finding the writer raises).</summary>
+    /// <summary>The read plus what the gate needs of it: where each model node and each network header was read (where
+    /// it reports a finding the writer raises).</summary>
     internal static (NetworkReadResult Result, ReadTrace Trace) ReadTokens(string text, NetworkScope scope)
     {
         if (text is null) throw new ArgumentNullException(nameof(text));
@@ -50,12 +50,12 @@ public static class NetworkTextReader
         var p = new Parser(text, scope);
         var body = p.ParseBody();
         return (new NetworkReadResult(p.Diagnostics.Count == 0 ? body : null, p.Diagnostics),
-                new ReadTrace(p.Consumed, p.Lexer, p.Spans, p.Headers));
+                new ReadTrace(p.Lexer, p.Spans, p.Headers));
     }
 
     /// <summary>What a read leaves behind for the gate. <see cref="Spans"/> is keyed by node IDENTITY: two equal
     /// leaves at two places are two keys.</summary>
-    internal sealed record ReadTrace(IReadOnlyList<Tok> Tokens, NetworkLexer? Lexer,
+    internal sealed record ReadTrace(NetworkLexer? Lexer,
                                      IReadOnlyDictionary<Node, (int Offset, int Length)> Spans, IReadOnlyList<Tok> Headers);
 
     private sealed class ByIdentity : IEqualityComparer<Node>
@@ -302,7 +302,6 @@ public static class NetworkTextReader
         /// <summary><c>VAR_TEMP g1, g2 : BOOL; … END_VAR</c> — on one line canonically, across lines as ST allows.</summary>
         private void ParseWires()
         {
-            var first = Consumed.Count;
             var kw = Next();
             while (!Peek().Is("END_VAR"))
             {
@@ -323,17 +322,10 @@ public static class NetworkTextReader
                 var type = NetworkSpelling.WireType(_text.Substring(from, to - from));
                 foreach (var n in names) Declare(n, type);
             }
-            var endVar = Next();
+            Next();   // END_VAR
             // An empty block declares nothing: layout, read as no block (2.9).
             // END_VAR takes no `;` of its own: a `;` after it is the empty statement — the empty item — and taking it
             // into the block would drop that item from the network without a word, on pull and on push alike.
-
-            // The gate compares the block by what it DECLARES, not by how the declarations are grouped
-            // (NetworkSpelling.WireBlockKey), so the block stands in the token stream as one token.
-            Consumed.RemoveRange(first, Consumed.Count - first);
-            Consumed.Add(new Tok(TokKind.Wires,
-                NetworkSpelling.WireBlockKey(_byId.Select(kv => (kv.Key, kv.Value.Name, kv.Value.Type))),
-                kw.Offset, endVar.Offset + endVar.Length - kw.Offset, kw.AtLineStart));
         }
 
         private Tok WireNameTok()
@@ -493,7 +485,6 @@ public static class NetworkTextReader
                 var l = Next();
                 if (l.Kind != TokKind.Word || !NetworkSpelling.Identifier.IsMatch(l.Text))
                     throw Err(l, ConflictCodes.NetworkBadExpression, "JMP takes one label, an identifier.");
-                AddOtherWords(l, l.Text);
                 var jump = Flags.None with { Jump = true };
                 return (new Operand(l.Text, IsLValue: true, Flags: jump), jump);
             }
@@ -748,7 +739,6 @@ public static class NetworkTextReader
             {
                 instance = new Operand(unnamedInstance, IsInstance: true);
                 type = unnamedType!;
-                AddOtherWords(head, type);
             }
             else if (_scope.InstanceType(head.Text) is { } fbType)
             {
@@ -756,8 +746,6 @@ public static class NetworkTextReader
                     throw Err(head, ConflictCodes.NetworkUnsupported, $"an instance named {head.Text.ToUpperInvariant()}: the text reads it as its own construct.");
                 instance = new Operand(head.Text, IsInstance: true);
                 type = fbType;
-                AddOtherWords(head, head.Text);
-                AddOtherWords(head, fbType);
             }
             else
             {
@@ -768,7 +756,6 @@ public static class NetworkTextReader
                     throw Err(head, ConflictCodes.NetworkUnsupported,
                         $"an FB instance the declarations do not name: '{head.Text}' is no POU name, and no declaration names it an instance, so its type is unknown.");
                 type = head.Text;
-                AddOtherWords(head, head.Text);
             }
             // Spec, "a POU named like an edge word": refused by name, at the call. A backticked head is still the
             // POU's name, and an instance's FB type is a POU too — the writer could spell none of them back.
@@ -968,9 +955,9 @@ public static class NetworkTextReader
             }
             // A word no VAR_TEMP declares is a variable, whatever its shape: whether it is declared is the build's
             // question (openspec bridge-refusal-review 1.3), and only this network's own block makes a name a wire.
-            // Every operand's words, whatever its token — the writer reserves the same (a typed literal's type
-            // included), so a wire it would rename is one the reader refuses.
-            AddOtherWords(t, t.Text);
+            // A wire spelled again as another name — in an operand's words, a target, a label, a call head, backticked —
+            // is no refusal either (bridge-refusal-review 2.11): the writer names its wires around every other name on
+            // the next pull.
             if (t.Kind == TokKind.Word && !_readAsVariable.ContainsKey(t.Text)) _readAsVariable[t.Text] = t;
             return Mark(new Leaf(new Operand(t.Text), Flags.None), t.Offset);
         }
@@ -984,11 +971,9 @@ public static class NetworkTextReader
                     if (NetworkSpelling.TextWords.Contains(t.Text))
                         throw Err(t, ConflictCodes.NetworkBadExpression,
                             $"'{t.Text}' as a target: a target spelled like a keyword of the text is written between backticks.");
-                    AddOtherWords(t, t.Text);
                     if (!_readAsVariable.ContainsKey(t.Text)) _readAsVariable[t.Text] = t;
                     return t.Text;
                 case TokKind.Backtick:
-                    AddOtherWords(t, t.Text);
                     return t.Text;
                 case TokKind.Unnamed:
                 case TokKind.Address:
@@ -997,19 +982,6 @@ public static class NetworkTextReader
                     throw Err(t, ConflictCodes.NetworkBadExpression,
                         $"'{t.Text}' as a target: a target is a variable, a token or text between backticks.");
             }
-        }
-
-        /// <summary>A word spelled where a wire name may not appear (a call head, backticked text, a target, a label,
-        /// an operand's words) — the writer reserves the same words, so a wire equal to one would be renamed on the
-        /// way out and the text would not be its own canonical form. Reported on the spot: the wire block precedes
-        /// every statement, so the wire set is complete here, and a later error in the network cannot hide it.</summary>
-        private void AddOtherWords(Tok at, string text)
-        {
-            foreach (var word in NetworkSpelling.Words(text))
-                if (_wires.TryGetValue(word, out var w))
-                    Diagnostics.Add(Diag(ConflictCodes.NetworkDuplicateName,
-                        $"the wire {w.Name} is also spelled as a name in this network ('{at.Text}'); a wire's name must be " +
-                        "no other name the network or its scope uses, case-insensitively.", at.Offset, at.Length));
         }
 
         /// <summary>Spec, "a hand-edited type": each wire's declared type against what its producer says, by the rule

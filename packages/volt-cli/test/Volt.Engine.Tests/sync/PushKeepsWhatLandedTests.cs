@@ -301,6 +301,11 @@ public class PushKeepsWhatLandedTests
         var conflict = Assert.Single(resp.Conflicts!);
         Assert.Equal("B.pou", conflict.Name);
         Assert.Contains("changed in the IDE while this push was being applied", conflict.Reason);
+        // A stale item version, coded as one (openspec bridge-refusal-review 2.14) — it answered BAD_REQUEST.
+        Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
+        // …in the pre-apply gate's SHAPE too (task 8.4, 1+2d review): the version the client sent and the IDE's now.
+        Assert.Equal(refs.Items["B.pou"], conflict.YourVersion);
+        Assert.Equal(RefsService.Handle(ide).Items["B.pou"], conflict.CurrentVersion);
         foreach (var advice in ClientAdvice.Append("pull first")) Assert.DoesNotContain(advice, conflict.Reason);
     }
 

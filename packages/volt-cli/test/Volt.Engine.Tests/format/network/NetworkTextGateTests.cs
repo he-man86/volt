@@ -137,7 +137,16 @@ public class NetworkTextGateTests
     public void An_EXECUTE_body_without_END_EXECUTE() =>
         Refused("NETWORK_PARSE", 3, FbdMarker + "NETWORK\n  EXECUTE\nx := 1;\n");
 
-    // ── NETWORK_NOT_CANONICAL: tokens, never layout ─────────────────────────────────────────────
+    // ── canonical form is not a refusal (openspec bridge-refusal-review 2.12) ───────────────────
+
+    /// <summary>A body that reads into a complete model the writer can spell is ACCEPTED in any spelling, and the gate
+    /// hands back its canonical text — what the next pull shows. NETWORK_NOT_CANONICAL is gone.</summary>
+    static void AcceptedAs(string text, string canonicalHolds, NetworkScope? scope = null)
+    {
+        var r = Gate(text, scope);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
+        Assert.Contains(canonicalHolds, r.Canonical);
+    }
 
     /// <summary>Spec, "re-wrapping a call is accepted".</summary>
     [Fact]
@@ -150,20 +159,29 @@ public class NetworkTextGateTests
     }
 
     [Fact]
-    public void Call_form_where_infix_is_canonical_names_the_canonical_body()
+    public void Call_form_where_infix_is_canonical_is_accepted_and_comes_back_infix() =>
+        AcceptedAs(Src("out := AND(a, b);"), "out := (a AND b);");
+
+    /// <summary>Spec, "the network header": the writer has one field order; another is read and written canonically.</summary>
+    [Fact]
+    public void Header_fields_out_of_order_are_accepted() =>
+        AcceptedAs(FbdMarker + "NETWORK DISABLED LABEL: Done\n  ;\nEND_NETWORK\n", "NETWORK LABEL: Done DISABLED");
+
+    [Fact]
+    public void A_default_Parallel_mode_written_out_is_accepted() =>
+        AcceptedAs(Src("out := PARALLEL(MODE := BoxShortCircuit, a, b);"), "out := PARALLEL(a, b);");
+
+    /// <summary>The rules the reader kept only to make the canonical comparison pass are gone with it, so their texts
+    /// pass the GATE too: a bare undeclared <c>gN</c> (1.3), a second wire block (2.7), a wire spelled like a variable in
+    /// scope (2.10).</summary>
+    [Fact]
+    public void The_texts_of_the_retired_layout_rules_pass_the_gate()
     {
-        var d = Refused("NETWORK_NOT_CANONICAL", 3, Src("out := AND(a, b);"));
-        Assert.Contains("out := (a AND b);", d.Message);
+        AcceptedAs(Src("out := g7;"), "out := `g7`;");
+        AcceptedAs(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "VAR_TEMP g2 : BOOL; END_VAR", "g2 := g1;", "out := g2;"),
+            "VAR_TEMP g1, g2 : BOOL; END_VAR", Names("out"));
+        AcceptedAs(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), "VAR_TEMP g0 : BOOL; END_VAR", Names("G3", "out"));
     }
-
-    /// <summary>Spec, "the network header": another field order is NOT_CANONICAL.</summary>
-    [Fact]
-    public void Header_fields_out_of_order() =>
-        Refused("NETWORK_NOT_CANONICAL", 2, FbdMarker + "NETWORK DISABLED LABEL: Done\n  ;\nEND_NETWORK\n");
-
-    [Fact]
-    public void A_default_Parallel_mode_written_out_is_not_canonical() =>
-        Refused("NETWORK_NOT_CANONICAL", 3, Src("out := PARALLEL(MODE := BoxShortCircuit, a, b);"));
 
     // ── NETWORK_DUPLICATE_NAME ──────────────────────────────────────────────────────────────────
 
@@ -194,9 +212,12 @@ public class NetworkTextGateTests
         Assert.Equal(3, Assert.IsType<Demux>(Assert.IsType<Assign>(trees[1]).Value).VarId);
     }
 
+    /// <summary>A WIRE ALSO SPELLED AS ANOTHER NAME IS ACCEPTED (openspec <c>bridge-refusal-review</c> 2.11): the bare
+    /// <c>g1</c> is the wire, the backticked one the variable of that name, and the writer names the wire around it on
+    /// the next pull. It used to be refused as a duplicate name — the writer's naming rule, made the reader's.</summary>
     [Fact]
-    public void A_wire_name_also_used_as_a_name_in_the_network() =>
-        Refused("NETWORK_DUPLICATE_NAME", 5, Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "MOVE(g1, => `g1`);"));
+    public void A_wire_name_also_used_as_a_name_in_the_network_is_accepted() =>
+        AcceptedAs(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "MOVE(g1, => `g1`);"), "VAR_TEMP g0 : BOOL; END_VAR");
 
     // ── NETWORK_BAD_EXPRESSION ──────────────────────────────────────────────────────────────────
 
@@ -247,7 +268,7 @@ public class NetworkTextGateTests
         Accepted(Src("`g5` := a;"));
         Accepted(Src("out := `G12`;"), Names("out", "a"));
         Accepted(Src("`g5` := a;"), Names("out", "a"));
-        Refused("NETWORK_NOT_CANONICAL", 3, Src("out := `g5`;"), Names("g5"));
+        AcceptedAs(Src("out := `g5`;"), "out := g5;", Names("g5"));   // in scope, its canonical spelling is bare
     }
 
     /// <summary>A SECOND OR LATE VAR_TEMP BLOCK IS LAYOUT (openspec <c>bridge-refusal-review</c> 2.7): the model it reads
@@ -620,11 +641,10 @@ public class NetworkTextGateTests
 
     // ── the third section-3 review ──────────────────────────────────────────────────────────────
 
-    /// <summary>A TITLE or comment fact no driver stores is not canonical. Both vendor readers trim a network's title
-    /// and comment at the end (an empty one is none), and both writers compare ignoring trailing whitespace — so a
-    /// trailing space, an empty title, a lone <c>//</c> or a closing empty <c>//</c> line would be pushed, never
-    /// written, and come back from the IDE as another text (spec, "the network header and its comment": the drivers
-    /// compare a comment ignoring trailing whitespace).</summary>
+    /// <summary>A TITLE or comment fact no driver stores is layout. Both vendor readers trim a network's title and
+    /// comment at the end (an empty one is none), and both writers compare ignoring trailing whitespace — so a trailing
+    /// space, an empty title, a lone <c>//</c> or a closing empty <c>//</c> line reads into the model the drivers store,
+    /// and the canonical text without it comes back from the IDE. It was refused NETWORK_NOT_CANONICAL until 2.12.</summary>
     [Theory]
     [InlineData("NETWORK TITLE: \"t  \"\n  out := a;\nEND_NETWORK\n", 2)]
     [InlineData("NETWORK TITLE: \"\"\n  out := a;\nEND_NETWORK\n", 2)]
@@ -632,8 +652,13 @@ public class NetworkTextGateTests
     [InlineData("NETWORK\n  //\n  out := a;\nEND_NETWORK\n", 3)]
     [InlineData("NETWORK\n  // one\n  //\n  out := a;\nEND_NETWORK\n", 4)]
     [InlineData("NETWORK\n  // one   \n  out := a;\nEND_NETWORK\n", 3)]
-    public void A_title_or_comment_the_drivers_do_not_store_is_not_canonical(string network, int line) =>
-        Refused("NETWORK_NOT_CANONICAL", line, FbdMarker + network);
+    public void A_title_or_comment_the_drivers_do_not_store_is_accepted_and_comes_back_stored(string network, int line)
+    {
+        _ = line;   // where the old NOT_CANONICAL finding stood
+        var r = Gate(FbdMarker + network);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line}:{d.Column} {d.Code} {d.Message}")));
+        Assert.NotEqual(FbdMarker + network, r.Canonical);   // the canonical text is the one the drivers store
+    }
 
     /// <summary>…while trailing whitespace INSIDE a comment, before its last line, is text the drivers store and
     /// compare: only the comment's end is trimmed.</summary>

@@ -42,9 +42,8 @@ describe(`graphical / create shapes (${BASE})`, () => {
 
 		const src =
 			`PROGRAM ${name}\nVAR\n\ta : BOOL;\n\tb : BOOL;\n\tc : BOOL;\n\tout1 : BOOL;\n\tout2 : BOOL;\nEND_VAR\n` +
-			// NO blank line between networks — that is not canonical form, and the gate refuses it while
-			// printing the exact body to use. Canonical form is what a PULL emits, so anything else would show
-			// up as drift on the very next one.
+			// NO blank line between networks — not the canonical form a PULL emits. It is written all the same
+			// (bridge-refusal-review 2.12: the layout-only gate is gone) and the pull below returns the canonical text.
 			`IMPLEMENTATION FBD\nNETWORK\n  out1 := (a AND b);\nEND_NETWORK\n` +
 			`NETWORK\n  out2 := (b OR c);\nEND_NETWORK\n\nEND_PROGRAM\n`
 

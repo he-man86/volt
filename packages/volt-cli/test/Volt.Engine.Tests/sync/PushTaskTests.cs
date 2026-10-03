@@ -166,11 +166,12 @@ public class PushTaskTests
         Assert.Contains("writetask:SlowTask", ide.Recorded);
     }
 
+    /// <summary>A BODY THAT IS NOT CANONICAL IS WRITTEN (openspec <c>bridge-refusal-review</c> 2.13): hand-typed spacing
+    /// reads into complete settings, which the IDE holds; the canonical text comes back on the next pull. It used to be
+    /// refused in the pre-flight for its form.</summary>
     [Fact]
-    public void A_BODY_THAT_IS_NOT_CANONICAL_IS_REFUSED_before_anything_is_written()
+    public void A_BODY_THAT_IS_NOT_CANONICAL_IS_WRITTEN()
     {
-        // Hand-typed spacing parses but would be rewritten by the next pull. The refusal carries the exact text
-        // to use, and — because it happens in the pre-flight — nothing was touched.
         var ide = WithTask();
         var (v, pv) = Ver(ide, "MainTask.task");
         var resp = Push(ide, pv, new SetItemOp
@@ -180,9 +181,8 @@ public class PushTaskTests
             SourceText = "Type: Cyclic\nPriority: 5\nWatchdog: off\n",
         });
 
-        Assert.False(resp.Accepted);
-        Assert.Contains("Type:      Cyclic", resp.Conflicts![0].Reason);
-        Assert.Empty(ide.Recorded);
+        Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
+        Assert.Contains("writetask:MainTask", ide.Recorded);
     }
 
     [Fact]

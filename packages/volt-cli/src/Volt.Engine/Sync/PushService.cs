@@ -386,7 +386,27 @@ public static class PushService
             reason += $" — '{rn.From}' was renamed to '{rn.To}' before it (the IDE rewrote the references to it) and stays renamed";
         if (outcome?.Replaced is { } replaced)
             reason += $" — the IDE's '{replaced}' was deleted before it, to be replaced, and stays deleted";
-        return new PushConflict { Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line };
+        var stale = ex as StaleItemVersionException;
+        return new PushConflict
+        {
+            Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line,
+            YourVersion = stale?.YourVersion, CurrentVersion = stale?.CurrentVersion,
+        };
+    }
+
+    /// <summary>A STALE ITEM VERSION caught at the last moment (<see cref="RequireUnchanged"/>,
+    /// <see cref="RequireUnchangedBeforeDelete"/>), carrying both versions so its conflict row has the pre-apply gate's
+    /// shape (<c>PushConflicts</c>): one code, one shape (openspec bridge-refusal-review 2.14/2.15, task 8.4).</summary>
+    private sealed class StaleItemVersionException : BridgeException
+    {
+        public string YourVersion { get; }
+        public string CurrentVersion { get; }
+        public StaleItemVersionException(string yourVersion, string currentVersion, string message)
+            : base(ConflictCodes.StaleItemVersion, message)
+        {
+            YourVersion = yourVersion;
+            CurrentVersion = currentVersion;
+        }
     }
 
     /// <summary>The folders items LEAVE in this push — a delete's folder, and a move's ORIGIN.
@@ -531,8 +551,11 @@ public static class PushService
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"'{name}': cannot verify the item version without its folder");
 
-        if (Hasher.ComputeItemVersion(folder, StWriter.Write(live)) != expected)
-            throw new BridgeException(BridgeErrorCodes.BadRequest,
+        // A STALE ITEM VERSION, and coded as one (openspec bridge-refusal-review 2.14): the pre-apply gate's own code for
+        // the same fact. It answered BAD_REQUEST, which tells a client its request was malformed.
+        var now = Hasher.ComputeItemVersion(folder, StWriter.Write(live));
+        if (now != expected)
+            throw new StaleItemVersionException(expected, now,
                 $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite it.");
     }
 
@@ -554,8 +577,9 @@ public static class PushService
         var kind = ItemKind.Map(ide.KindCode(item));
         if (kind is null) return;
         var now = Versioning.SafeVersion(ide, name, kind, item, folder).Version;
+        // A stale item version, coded as the set arm's (openspec bridge-refusal-review 2.15).
         if (now != Versioning.Unreadable && now != expected)
-            throw new BridgeException(BridgeErrorCodes.BadRequest,
+            throw new StaleItemVersionException(expected, now,
                 $"'{name}' changed in the IDE while this push was being applied — refusing to delete it.");
     }
 

@@ -143,15 +143,31 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       Done at the reader (`NetworkScopeTests`, `NetworkTextGateTests`); the gate's canonical comparison still refused
       the spelling until 2.12 (`PushServiceTests` at this commit expects NETWORK_NOT_CANONICAL).
       **Step 2b numbers:** Engine 1930 (+1 skipped), Twincat 341, Codesys 229, Repo.Gates 107.
-- [ ] 2.11 `NetworkTextReader.cs:1015` — wire also spelled as another name: accepted, same rule.
-- [ ] 2.12 `NetworkTextGate.cs:88` — `NETWORK_NOT_CANONICAL` goes: write the model; return the canonical text (push
+- [x] 2.11 `NetworkTextReader.cs:1015` — wire also spelled as another name: accepted, same rule.
+      Done: `AddOtherWords` deleted (`NetworkTextGateTests`, `WriterReaderAgreementTests`).
+- [x] 2.12 `NetworkTextGate.cs:88` — `NETWORK_NOT_CANONICAL` goes: write the model; return the canonical text (push
       response or next pull). Remove the code from `Volt.Contracts/Vocabulary/ConflictCodes.cs`. `PushedText` keeps
       comparing layout-free.
-- [ ] 2.13 `TaskDescriptorFormat.cs:117` — non-canonical `.task` written; canonical text comes back.
-- [ ] 2.14 `PushService.cs:534` (was 435, `RequireUnchanged` :520) — last-moment set re-check raises
+      Done: the gate writes the model and returns its canonical text; the code is gone from `ConflictCodes`, data.js and
+      network-text.html (ratchet 4 → 0); the reader's token trace went with it. Review 1+2d (low): the CLI's post-push
+      comparison (`PushedText.SameExceptLayout`) told the user the IDE held "another program" after a body pushed in
+      another SPELLING came back canonical — it now also compares canonical texts, both read in the body's own
+      declarations (`PushedTextTests` +2 rows, +1 fact; the `AND(a, b)` row red before). LSP's network code list: V.2.
+- [x] 2.13 `TaskDescriptorFormat.cs:117` — non-canonical `.task` written; canonical text comes back.
+      Done: `Gate` is `Read`; `SameDescriptor` compares canonical renderings. Review 1+2d (high): `Read` kept the LAST
+      value of a repeated label, so `Calls: A` + `Calls: B` dropped A without a word once the canonical comparison was
+      gone — a repeated label is now refused by name and line (`TaskDescriptorFormatTests` +2, red before). e2e
+      `task-writable.test.ts` (review, medium): the "not canonical is refused" case is rewritten to push the task's own
+      settings re-spaced and expect the canonical bytes back — from the code, not yet run live (6.1); stale comments in
+      `create-shapes.test.ts` / `rebuild.test.ts` fixed.
+- [x] 2.14 `PushService.cs:534` (was 435, `RequireUnchanged` :520) — last-moment set re-check raises
       `STALE_ITEM_VERSION` (with D15, D16).
-- [ ] 2.15 `PushService.cs:557` (was 459, `RequireUnchangedBeforeDelete` :542) — last-moment delete re-check raises
+      Done (`PushKeepsWhatLandedTests`). Review 1+2d (low): the apply-time row now carries `yourVersion` and
+      `currentVersion` like the pre-apply gate's (`StaleItemVersionException`), one code in one shape (8.4).
+- [x] 2.15 `PushService.cs:557` (was 459, `RequireUnchangedBeforeDelete` :542) — last-moment delete re-check raises
       `STALE_ITEM_VERSION`.
+      Done (`PushDeleteGuardTests`, with both versions).
+      **Step 2c numbers:** Engine 1936 (+1 skipped), Twincat 341, Codesys 229, Contracts 39, Repo.Gates 107.
 - [ ] 2.16 `PushService.cs:1128` (was 903) — take the wire kind from the caller that validated it; delete the
       re-derivation (`PushService.cs:703` already refused it as a `PushRefusal`).
 - [ ] 2.17 `PushService.cs:1755` (was 1369) — unknown top-level kind → INTERNAL_ERROR.

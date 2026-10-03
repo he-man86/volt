@@ -799,7 +799,6 @@ window.VOLT = {
       "UNREADABLE"
     ],
     "network": [
-      "NETWORK_NOT_CANONICAL",
       "NETWORK_PARSE",
       "NETWORK_NOT_CLOSED",
       "NETWORK_DUPLICATE_NAME",

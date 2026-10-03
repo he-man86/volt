@@ -19,7 +19,7 @@
  *
  * Where they legitimately differ is NARROW and named here rather than skipped: the folder a task lives in, and
  * the three fields TwinCAT cannot schedule at all (a non-Cyclic type, an event, a watchdog). Everything else —
- * the descriptor bytes, the edit, the call list, create and delete, the canonical-form refusal — is asserted
+ * the descriptor bytes, the edit, the call list, create and delete, a non-canonical form written — is asserted
  * identically on both.
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
@@ -167,12 +167,23 @@ describe(`items / a task is writable (${BASE})`, () => {
 		}
 	})
 
-	it("a body that is not canonical is refused, with the exact text to use", async () => {
+	it("a body that is not canonical is written, and the canonical text comes back (bridge-refusal-review 2.13)", async () => {
+		// The task's OWN settings, re-spaced: the same descriptor in another form. It used to be refused with the
+		// exact text to use; the settings are what the IDE holds, so it is written and the next read is canonical.
 		const name = await anyTask()
-		const r = await pushOps([
-			{ op: "set", name, toFolder: null, sourceText: "Type: Cyclic\nPriority: 5\nWatchdog: off\n", ifVersion: await versionOf(name) },
-		])
-		expect(r.accepted).toBe(false)
-		expect(JSON.stringify(r.conflicts)).toContain("Type:")
+		const original = (await fetchItem(name)).sourceText
+		const respaced = original
+			.split("\n")
+			.map((l: string) => l.replace(/^(\w+):\s+/, "$1: "))
+			.join("\n")
+		expect(respaced, "the descriptor has no padded label to re-space").not.toBe(original)
+		try {
+			const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: respaced, ifVersion: await versionOf(name) }])
+			expect(r.accepted, `push refused: ${JSON.stringify(r.conflicts)}`).toBe(true)
+			expect((await fetchItem(name)).sourceText).toBe(original)
+		} finally {
+			if ((await fetchItem(name)).sourceText !== original)
+				await pushOps([{ op: "set", name, toFolder: null, sourceText: original, ifVersion: await versionOf(name) }])
+		}
 	})
 })

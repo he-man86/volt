@@ -95,7 +95,12 @@ public class PushDeleteGuardTests
 
         Assert.False(res.Accepted, "the delete destroyed an edit made while the push was running");
         var conflict = Assert.Single(res.Conflicts!);
-        Assert.Equal(BridgeErrorCodes.BadRequest, conflict.Code);
+        // A stale item version, coded as one (openspec bridge-refusal-review 2.15) — it answered BAD_REQUEST, which
+        // told the client its REQUEST was malformed.
+        Assert.Equal(ConflictCodes.StaleItemVersion, conflict.Code);
+        // …in the pre-apply gate's SHAPE too (task 8.4, 1+2d review): the version the client sent and the IDE's now.
+        Assert.Equal(refs.Items["Racy.pou"], conflict.YourVersion);
+        Assert.Equal(RefsService.Handle(ide).Items["Racy.pou"], conflict.CurrentVersion);
         Assert.Contains("Racy.pou", RefsService.Handle(ide).Items.Keys);
     }
 

@@ -23,11 +23,26 @@ public class PushedTextTests
     [Theory]
     [InlineData("  out := ( a AND\n    b );", true)]
     [InlineData("  out := (a OR b);", false)]
+    // Another SPELLING of the same program is written since 2.12 and comes back canonical: the same item, not "another
+    // program" (1+2d review — the CLI told the user the IDE held another program than the text pushed).
+    [InlineData("  out := AND(a, b);", true)]
+    [InlineData("  out := OR(a, b);", false)]
     public void A_graphical_body_is_compared_by_its_tokens(string statement, bool same)
     {
         static string Prg(string s) =>
             "PROGRAM P\nVAR\n  a, b, out : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "\nEND_NETWORK\nEND_PROGRAM\n";
         Assert.Equal(same, PushedText.SameExceptLayout("P.pou", Prg("  out := (a AND b);"), Prg(statement)));
+    }
+
+    /// <summary>A wire block written late is the same program as the canonical one at the network's head (2.7).</summary>
+    [Fact]
+    public void A_late_wire_block_is_the_same_body()
+    {
+        static string Prg(string s) =>
+            "PROGRAM P\nVAR\n  a, b, c, out, out2 : BOOL;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n" + s + "END_NETWORK\nEND_PROGRAM\n";
+        Assert.True(PushedText.SameExceptLayout("P.pou",
+            Prg("  out := c;\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := (a AND b);\n  out := (g1 OR c);\n  out2 := g1;\n"),
+            Prg("  VAR_TEMP g1 : BOOL; END_VAR\n  out := c;\n  g1 := (a AND b);\n  out := (g1 OR c);\n  out2 := g1;\n")));
     }
 
     /// <summary>The extension is the kind wherever a wire name exists (the ST reader's contract), and the text's header

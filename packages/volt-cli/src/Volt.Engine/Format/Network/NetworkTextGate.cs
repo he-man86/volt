@@ -6,27 +6,28 @@ using Volt.Engine.Format.Body;
 namespace Volt.Engine.Format.Network;
 
 /// <summary>What <see cref="NetworkTextGate.Validate"/> returns: the model when the body may be pushed, every
-/// diagnostic otherwise, and the canonical form whenever the body parsed (a NOT_CANONICAL finding carries it too).</summary>
+/// diagnostic otherwise, and the canonical form — the text the next pull shows — whenever the body read and the writer
+/// could spell it.</summary>
 public sealed record NetworkGateResult(NetworkBody? Body, IReadOnlyList<NetworkTextDiagnostic> Diagnostics, string? Canonical)
 {
     public bool Ok => Body is not null && Diagnostics.Count == 0;
 }
 
 /// <summary>
-/// The network text v2 pre-push gate: read, write back, and accept iff the TOKENS agree —
-/// <c>Tokens(Write(Read(x))) == Tokens(x)</c>. Specified by the spec requirement "the round trip is checked on
-/// tokens and on models". It replaced v1's gate, which compared LINES and so could only accept Volt's own layout.
+/// The network text v2 pre-push gate: READ the body, then WRITE the model back. A body is pushed when it reads into a
+/// complete model the writer can spell; the written text is its canonical form, which the next pull shows.
 ///
-/// <para><b>Tokens, not bytes.</b> v1 compared lines, so it could only accept Volt's own layout and had to demand
-/// Volt's numbering. Whitespace here is layout everywhere except where it is content — inside backticks, a TITLE,
-/// a comment line and an EXECUTE body — and those arrive as ONE token each, compared whole. So re-wrapping a
-/// 30-pin call one pin per line passes, and changing any token does not: a NOT_CANONICAL finding always names a
-/// token, never a space.</para>
+/// <para><b>Canonical form is not a refusal</b> (openspec <c>bridge-refusal-review</c> 2.12). This gate used to compare
+/// the body's TOKENS with the canonical text's and refuse any difference as <c>NETWORK_NOT_CANONICAL</c> — header fields
+/// in another order, <c>AND(a, b)</c> where infix is canonical, a second wire block — a complete, writable model refused
+/// for its spelling, and a family of reader layout rules that existed only to make that comparison pass. The model is
+/// written; the IDE holds the model, and the canonical text comes back. Layout is still compared layout-free after a push
+/// (<see cref="SameTokens"/>).</para>
 ///
-/// <para><b>What the reader already refuses is not re-checked here.</b> Every wire rule, the <c>.ENO</c> rule,
-/// edges, reserved names and the producer-type check are the reader's diagnostics, at their spans. The gate adds
-/// the two checks that need the writer: a model the text can hold but the writer cannot spell (refused by name,
-/// NETWORK_UNSUPPORTED), and a body that is valid but not the canonical form.</para>
+/// <para><b>What the reader refuses is not re-checked here.</b> Every wire rule, the <c>.ENO</c> rule, edges and the
+/// producer-type check are the reader's diagnostics, at their spans. The gate adds the one check that needs the writer: a
+/// model the text can hold but the writer cannot spell (refused by name, NETWORK_UNSUPPORTED) — the next pull would hide
+/// it.</para>
 /// </summary>
 public static class NetworkTextGate
 {
@@ -34,7 +35,6 @@ public static class NetworkTextGate
     {
         var (read, trace) = NetworkTextReader.ReadTokens(text, scope);
         if (!read.Ok) return new NetworkGateResult(null, read.Diagnostics, null);
-        var tokens = trace.Tokens;
         var lexer = trace.Lexer;
 
         string canonical;
@@ -67,8 +67,7 @@ public static class NetworkTextGate
             }, null);
         }
 
-        var (again, canonicalTrace) = NetworkTextReader.ReadTokens(canonical, scope);
-        var canonicalTokens = canonicalTrace.Tokens;
+        var (again, _) = NetworkTextReader.ReadTokens(canonical, scope);
         if (!again.Ok)
             // Not bad input: the writer produced text its own reader refuses. Loud, because a diagnostic here would
             // blame the engineer for a Volt defect.
@@ -76,31 +75,15 @@ public static class NetworkTextGate
                 "network text v2: the canonical form of a valid body does not read back — " +
                 again.Diagnostics[0].Code + ": " + again.Diagnostics[0].Message + "\n\n" + canonical);
 
-        for (var i = 0; i < Math.Max(tokens.Count, canonicalTokens.Count); i++)
-        {
-            if (i < tokens.Count && i < canonicalTokens.Count && tokens[i].Key == canonicalTokens[i].Key) continue;
-            var at = i < tokens.Count ? tokens[i] : tokens[tokens.Count - 1];
-            var (line, col) = lexer!.LineCol(at.Offset);
-            var expected = i < canonicalTokens.Count ? Show(canonicalTokens[i]) : "the end of the body";
-            var found = i < tokens.Count ? Show(tokens[i]) : "the end of the body";
-            return new NetworkGateResult(null, new[]
-            {
-                new NetworkTextDiagnostic(ConflictCodes.NetworkNotCanonical,
-                    $"graphical body is not in canonical form: {found} where the canonical form has {expected}. It would " +
-                    "not come back from the IDE as written. Use this body:\n\n" + canonical.TrimEnd('\n'),
-                    line, col, Math.Max(1, at.Length)),
-            }, canonical);
-        }
-
         return new NetworkGateResult(read.Body, Array.Empty<NetworkTextDiagnostic>(), canonical);
     }
 
     /// <summary>
     /// Whether two graphical bodies are one text but for LAYOUT: the same marker and the same tokens, as the gate
     /// compares them — whitespace significant only inside backticks, a TITLE, a comment line and an EXECUTE body, and
-    /// a VAR_TEMP block compared by what it declares (<see cref="NetworkSpelling.WireBlockKey"/>). Whatever the gate
-    /// accepts as equal to its canonical form is the same tokens as that form here, so a push the gate let through in
-    /// another layout is adopted as that layout when the IDE gives it back canonically.
+    /// a VAR_TEMP block compared by what it declares (<see cref="NetworkSpelling.WireBlockKey"/>). A push in another
+    /// layout is adopted as that layout when the IDE gives it back canonically; one in another SPELLING (tokens) is
+    /// written all the same (<see cref="Validate"/>) and its canonical text comes back on the next pull.
     ///
     /// <para><b>Without a scope, on purpose.</b> It answers the CLI after a push — is the IDE's text of a body a
     /// re-layout of the pushed one, or another program? — and the CLI has no declarations to read against. Tokens need
@@ -189,15 +172,4 @@ public static class NetworkTextGate
         }
         return wires.Count == 0 ? null : NetworkSpelling.WireBlockKey(wires);
     }
-
-    private static string Show(Tok t) => t.Kind switch
-    {
-        TokKind.String => "the title \"" + t.Text + "\"",
-        TokKind.Comment => "the comment line '" + t.Text + "'",
-        TokKind.Snippet => "an EXECUTE body",
-        TokKind.Wires => "the wire block (" + t.Text + ")",
-        TokKind.Backtick => "`" + t.Text + "`",
-        TokKind.Marker => "the line IMPLEMENTATION " + t.Text,
-        _ => "'" + t.Text + "'",
-    };
 }

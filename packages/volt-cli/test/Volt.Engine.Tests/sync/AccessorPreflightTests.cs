@@ -30,10 +30,10 @@ public class AccessorPreflightTests
     /// <summary>Canonical FBD — what a pull produces, and what the gate accepts unchanged.</summary>
     private const string Canonical = "IMPLEMENTATION FBD\nNETWORK\n  out := a;\nEND_NETWORK";
 
-    /// <summary>A valid network in a spelling the writer does not produce: an AND box in call form, which the
-    /// writer spells infix. It PARSES — so only the canonical check catches it (NETWORK_NOT_CANONICAL) — and it
-    /// would drift on the very next pull.</summary>
-    private const string NonCanonical = "IMPLEMENTATION FBD\nNETWORK\n  out := AND(a, out);\nEND_NETWORK";
+    /// <summary>A network the reader refuses: a statement without its <c>;</c> (NETWORK_PARSE). This probe was a body in
+    /// a non-canonical spelling, refused NETWORK_NOT_CANONICAL; canonical form is no refusal any more (openspec
+    /// <c>bridge-refusal-review</c> 2.12), so the pre-flight's reach into accessors is proved with a body it refuses.</summary>
+    private const string NonCanonical = "IMPLEMENTATION FBD\nNETWORK\n  out := a\nEND_NETWORK";
 
     private static string Fb(string name, string accessorBody) =>
         $"FUNCTION_BLOCK {name}\nVAR\n\ta : BOOL;\n\tout : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\n" +

@@ -29,10 +29,6 @@ public static class ConflictCodes
 {
     // ── the graphical body format (see docs/network-text.html#diagnostics) ──────────────────────────
 
-    /// <summary>It parses, but is not the canonical form — it would drift on the next pull. The message
-    /// carries the exact text to paste, and <c>line</c> the first difference.</summary>
-    public const string NetworkNotCanonical = "NETWORK_NOT_CANONICAL";
-
     /// <summary>Any other structural parse failure: a statement before any network, an unexpected
     /// <c>END_NETWORK</c>, a statement without its <c>;</c>, and network text v1 (<c>LET</c>,
     /// <c>NETWORK &lt;n&gt; &lt;LANG&gt;</c>), which is refused with a "re-pull" message.</summary>
@@ -62,7 +58,7 @@ public static class ConflictCodes
     /// body problem" without listing them.</summary>
     public static readonly string[] Network =
     {
-        NetworkNotCanonical, NetworkParse, NetworkNotClosed,
+        NetworkParse, NetworkNotClosed,
         NetworkDuplicateName, NetworkBadExpression, NetworkUnknownOperator, NetworkUnsupported,
     };
 

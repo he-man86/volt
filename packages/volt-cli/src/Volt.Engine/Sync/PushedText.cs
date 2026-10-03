@@ -2,6 +2,7 @@ using System.Linq;
 using Volt.Engine.Format.Network;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Task;
+using Volt.Engine.Ide;
 using Volt.Engine.Item;
 
 namespace Volt.Engine.Sync;
@@ -49,19 +50,35 @@ public static class PushedText
         // from the declaration's own header, `StWriter`), so it is compared on its own: a pushed END line that does not
         // match its header (`PROGRAM X … END_FUNCTION_BLOCK`) comes back as `… END_PROGRAM`, which is not the pushed
         // text laid out otherwise — the client is told, and the next pull brings the IDE's text in.
-        return a.Kind == b.Kind && a.Declaration == b.Declaration && SameBody(a.Body, b.Body)
+        if (!(a.Kind == b.Kind && a.Declaration == b.Declaration
                && StReader.OuterEndKeyword(pushed, kind) == StReader.OuterEndKeyword(held, kind)
-               && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same);
+               && a.Members.Count == b.Members.Count && a.Members.Zip(b.Members, SameMember).All(same => same)))
+            return false;
+        // Declarations, members and accessors agree; every body is compared in the scope it resolves against.
+        return SourceScopes.BodiesOf(a).Zip(SourceScopes.BodiesOf(b), (x, y) => SameBody(x.Body, y.Body, x.Declaration))
+                           .All(same => same);
 
         static bool SameMember(Member x, Member y) =>
             x.Kind == y.Kind && x.Name == y.Name && x.Declaration == y.Declaration && x.Folder == y.Folder
-            && x.ReturnType == y.ReturnType && x.DataType == y.DataType && SameBody(x.Body, y.Body)
-            && SameAccessor(x.Getter, y.Getter) && SameAccessor(x.Setter, y.Setter);
+            && x.ReturnType == y.ReturnType && x.DataType == y.DataType
+            && (x.Getter is null) == (y.Getter is null) && (x.Setter is null) == (y.Setter is null)
+            && x.Getter?.Declaration == y.Getter?.Declaration && x.Setter?.Declaration == y.Setter?.Declaration;
+    }
 
-        static bool SameAccessor(Accessor? x, Accessor? y) =>
-            x is null ? y is null : y is not null && x.Declaration == y.Declaration && SameBody(x.Body, y.Body);
-
-        static bool SameBody(string? x, string? y) =>
-            x == y || (x is not null && y is not null && NetworkText.Is(x) && NetworkText.Is(y) && NetworkTextGate.SameTokens(x, y));
+    /// <summary>One body against the other: byte-equal, the same tokens (<see cref="NetworkTextGate.SameTokens"/>), or
+    /// — since another SPELLING of a graphical body is written and comes back canonical (openspec
+    /// <c>bridge-refusal-review</c> 2.12) — the same canonical text. The canonical form is read against the body's own
+    /// declarations only (<paramref name="declaration"/>): the CLI has no project to resolve against, and both texts are
+    /// read in that one scope, so equal canonical renderings are one model. A text that does not read in it is not
+    /// claimed to be the same.</summary>
+    private static bool SameBody(string? x, string? y, string? declaration)
+    {
+        if (x == y) return true;
+        if (x is null || y is null || !NetworkText.Is(x) || !NetworkText.Is(y)) return false;
+        if (NetworkTextGate.SameTokens(x, y)) return true;
+        var scope = NetworkScope.FromDeclarations(declaration, _ => null, () => System.Array.Empty<string>());
+        var cx = NetworkTextGate.Validate(x, scope);
+        var cy = NetworkTextGate.Validate(y, scope);
+        return cx.Canonical is { } canonicalX && cy.Canonical is { } canonicalY && canonicalX == canonicalY;
     }
 }

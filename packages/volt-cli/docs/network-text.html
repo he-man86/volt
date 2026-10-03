@@ -102,7 +102,7 @@
   connection slot · 18 FB type from the declaration and <code>??? : TYPE</code> · 19 EN pin + <code>.ENO</code> ·
   20 infix sugar, absent ≡ default formals · 21 parentheses are structural · 22 PARALLEL · 23 empty slot ·
   24 JMP/RETURN and the IF form · 25 EXECUTE (statement and value, empty-body layout) · 26 marker routing on pull ·
-  27 v1 refusal · 28 token gate + canonical rewrite on push.
+  27 v1 refusal · 28 canonical rewrite on push (the token gate went with <code>bridge-refusal-review</code> 2.12).
 </p>
 <p>
   The count drops by five; the gain is where the rules live. v1 rules 10–18 and 28–29 carry state <i>across</i>
@@ -312,7 +312,7 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   g0 := TRUE;
 END_NETWORK</pre>
 <p>
-  The header fields have one order (LABEL, TITLE, DISABLED); another order is <code>NETWORK_NOT_CANONICAL</code>.
+  The header fields have one order (LABEL, TITLE, DISABLED); another order is read, and written back in that order.
   The comment is the network's one <code>Comment</code>: its <code>//</code> lines sit between the header and the wire block
   (or the first statement), and a <code>//</code> after a statement is <code>NETWORK_PARSE</code> — NWL has no per-item comment, so
   moving it would be silent. Per line, the <code>//</code> and <b>one</b> following space are syntax; the rest,
@@ -626,19 +626,22 @@ END_NETWORK</pre>
 
 <h2 id="gate">The gate</h2>
 <p>
-  Body language (the <code>IMPLEMENTATION</code> line matches the IDE's view), then parse, then a <b>token fixed point</b>:
-  <code>Tokens(Write(Read(x))) == Tokens(x)</code> — re-wrapping a long call one pin per line passes, changing a token
-  does not, and no minted name is left to get "wrong". A separate test oracle checks <code>Read(Write(m)) ≅ m</code>
-  over every vendor-read fixture: the check that sees pull-side loss, which a text fixed point cannot. Its one
-  equivalence is absent ≡ default formals.
+  Body language (the <code>IMPLEMENTATION</code> line matches the IDE's view), then parse, then <b>write</b>: a body that
+  reads into a complete model the writer can spell is pushed, in any spelling — <b>canonical form is not a refusal</b>
+  (openspec <code>bridge-refusal-review</code> 2.12). The written text is the body's canonical form, which the next pull
+  shows. (Until 2.12 the gate demanded a token fixed point, <code>Tokens(Write(Read(x))) == Tokens(x)</code>, and refused
+  any other spelling as <code>NETWORK_NOT_CANONICAL</code>.) A model the writer cannot spell is refused
+  <code>NETWORK_UNSUPPORTED</code>. A separate test oracle checks <code>Read(Write(m)) ≅ m</code> over every vendor-read
+  fixture: the check that sees pull-side loss. Its one equivalence is absent ≡ default formals.
 </p>
 <p>
   <b>Layout after a push.</b> The writer has one canonical layout. After a successful push the CLI records the IDE's
   re-materialized — canonical — text as <code>volt/ide</code> and brings the working tree to it, as a formatter would.
   A hand layout therefore lasts until its push and never reappears as an IDE-side change on a later pull; an item the
-  push did not touch is not re-fetched. Only a layout is adopted: an IDE that holds a pushed item as other tokens holds
-  another program, so the working tree keeps the pushed text, the push names the item, and the next pull brings the
-  IDE's text in as the IDE-side change it is.
+  push did not touch is not re-fetched. Only the same program is adopted: other layout, or the canonical spelling of a
+  body pushed in another (both texts read, in the body's own declarations, to one canonical text). An IDE that holds a
+  pushed item as another program is not adopted, so the working tree keeps the pushed text, the push names the item, and
+  the next pull brings the IDE's text in as the IDE-side change it is.
 </p>
 
 <h3 id="diagnostics">Diagnostics</h3>
@@ -646,7 +649,6 @@ END_NETWORK</pre>
   <tr><th>code</th><th>raised when</th></tr>
   <tr><td class="name">NETWORK_PARSE</td><td>Structural error; a missing <code>;</code>; a <code>//</code> after a statement; leftover v1 text (<code>LET</code>, <code>NETWORK &lt;n&gt; &lt;LANG&gt;</code>), with a message naming a re-pull.</td></tr>
   <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> is missing its <code>END_NETWORK</code>.</td></tr>
-  <tr><td class="name">NETWORK_NOT_CANONICAL</td><td>It parses, but writes back as different <i>tokens</i> — e.g. <code>AND(a, b)</code> where infix is canonical, header fields out of order. Layout differences are not reported. The message carries the canonical form.</td></tr>
   <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire declared after the network read its name as a variable; an instance defined twice. (Not a label on two networks: both IDEs hold that, census 1.15 — the LSP reports the build's message.)</td></tr>
   <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>; <code>.ENO</code> on a box nothing consumes (a top-level <code>f(…).ENO;</code> or <code>EXECUTE … END_EXECUTE.ENO;</code> — a top-level item's output goes nowhere, so there is no consumer for the suffix to connect, and the writer never writes one there). Push, not the gate, refuses a suffix-less consumer of a box whose main output is ENO, and — on TwinCAT — <code>.ENO</code> on a box the IDE gives no ENO output (on CODESYS that box is built, and its build reports "Missing EN pin").</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table.</td></tr>
