@@ -53,11 +53,15 @@
 <h2 id="lines">The lines worth knowing</h2>
 <h3 id="push-receipt">The push receipt — Info</h3>
 <pre>push 3 ops — accepted [created: FooFB.pou; updated: Bar.gvl; deleted: Gone.st] (139 items) (215ms)
-push 1 ops — REJECTED (Bar.gvl: item changed since you fetched its version, 0 already applied) (12ms)</pre>
+push 2 ops — REJECTED (2 conflicts: Bar.gvl, Baz.pou) (12ms)
+push 3 ops — REFUSED at FB_Logger.pou (The name 'Log' is not valid for this object.), 2 already applied (40ms)
+push 3 ops — accepted IN PART [created: E_Mode.dut, ST_Data.dut], not landed: FB_Logger.pou UNSUPPORTED (141 items) (310ms)</pre>
 <p>
-  An accepted push <b>names exactly what it wrote</b>, grouped by action. A rejected one names the item and the
-  reason, and says how many ops had already been applied — which for a pre-flight refusal is zero, and that is
-  the number to check first when a push half-landed.
+  An accepted push <b>names exactly what it wrote</b>, grouped by action. A rejected one names every refused op —
+  nothing was written. When the live IDE refuses an op after others landed, the <code>REFUSED at</code> line says
+  how many had already been applied, and the receipt line that follows says <code>accepted IN PART</code> and names
+  each op that did not land (the refused one with its code, every later one <code>NOT_ATTEMPTED</code>) — the line to
+  check first when a push half-landed.
 </p>
 
 <h3 id="sync-tally">The fetch and refs tallies — Debug</h3>

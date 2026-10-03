@@ -33,6 +33,29 @@ namespace Volt.Ide.Codesys.Tests
             Assert.Equal(log, CodesysDriver.ChildRefusal(new TargetInvocationException(new InvalidOperationException(log))));
         }
 
+        /// <summary>…and the driver says WHICH refusal it is, so the push words a name refusal as one and never sends the
+        /// engineer to the declaration (openspec <c>push-keeps-what-landed</c> design D2).</summary>
+        [Fact]
+        public void The_driver_says_whether_the_kind_or_the_name_is_refused()
+        {
+            Assert.Equal(Volt.Engine.Ide.ChildRefusalCause.Kind, CodesysDriver.Refusal(new InvalidOperationException(Measured))!.Value.Cause);
+            Assert.Equal(Volt.Engine.Ide.ChildRefusalCause.Name,
+                CodesysDriver.Refusal(new InvalidOperationException("The name 'Log' is not valid for this object."))!.Value.Cause);
+        }
+
+        /// <summary>openspec <c>push-keeps-what-landed</c> gate step 2, round 2 (finding 2): CODESYS has no scripting call to
+        /// add a property's missing GET or SET. That is raised INSIDE the apply loop (the accessor reconcile), so it can
+        /// reach a conflict on an accepted push — where no reason may carry a client command ("… then pull"), and the class
+        /// is a vendor "cannot" (UNSUPPORTED), not an unclassified fault (INTERNAL_ERROR).</summary>
+        [Fact]
+        public void A_missing_accessor_create_is_a_vendor_cannot_that_names_no_client_command()
+        {
+            var ex = CodesysDriver.NoAccessorCreate("Set", "create_method, create_action");
+            Assert.IsType<NotSupportedException>(ex);
+            Assert.Contains("'Set'", ex.Message);
+            Assert.DoesNotContain("pull", ex.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
         [Theory]
         [InlineData("Unbound tree item")]
         [InlineData("Object reference not set to an instance of an object.")]

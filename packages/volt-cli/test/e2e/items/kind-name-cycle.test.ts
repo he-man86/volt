@@ -27,7 +27,7 @@ import { tmpdir } from "node:os"
 import { join, resolve, dirname, basename } from "node:path"
 import { bridge } from "../lib/bridge"
 import { VENDOR, BASE, currentPipe } from "../lib/pipe"
-import { id, requireHealthy, mainProgram, fetchItem, PREFIX } from "../lib/workspace"
+import { id, requireHealthy, mainProgram, fetchItem, PREFIX, landedInFull } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
 
 const CLI_ROOT = resolve(import.meta.dir, "..", "..", "..")
@@ -118,7 +118,11 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 		]
 		if (ops.length === 0) return
 		const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, force: true, ops })
-		if (!r.accepted) throw new Error(`sweep refused: ${JSON.stringify(r.conflicts).slice(0, 300)}`)
+		// IN FULL, not `accepted`: a delete refused at apply after earlier deletes landed answers accepted WITH conflicts
+		// (openspec push-keeps-what-landed), and its item would stay for the cases after this one to run into.
+		if (!landedInFull(r)) throw new Error(`sweep did not land in full: ${JSON.stringify(r.conflicts).slice(0, 300)}`)
+		const left = Object.keys((await bridge.refs()).items ?? {}).filter(mine)
+		if (left.length > 0) throw new Error(`sweep left ${left.join(", ")} in the project`)
 	}
 
 	/** The workspace's files of this file's shapes, by file name. */

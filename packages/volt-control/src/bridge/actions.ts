@@ -34,6 +34,10 @@ export type PullOutcome =
 export type PushOutcome =
   | { kind: "ok"; items: string[]; status?: StatusJson; message?: string }
   | { kind: "rejected"; reason: string }
+  // The IDE refused one op after others landed (openspec push-keeps-what-landed): `items` are the ones that LANDED and
+  // are now the baseline; `reason` names each op that did not, with the CLI's advice per op. Not "rejected": its
+  // "pull first or force" would re-send landed items over themselves.
+  | { kind: "partial"; items: string[]; status?: StatusJson; reason: string }
   | { kind: "error"; message: string }
 
 // `volt merge` has no --json (it's exit-code + a line); map the codes: 0 = done, 2 = markers still present.

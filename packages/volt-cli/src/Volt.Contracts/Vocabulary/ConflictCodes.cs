@@ -99,6 +99,16 @@ public static class ConflictCodes
     /// client would make. The remedy is to fix whatever stops the IDE enumerating that folder.</para></summary>
     public const string ItemUnverified = "ITEM_UNVERIFIED";
 
+    // ── the apply loop's outcome ───────────────────────────────────────────────────────────────────
+
+    /// <summary>The op was NOT APPLIED because the push stopped before reaching it: the live IDE refused an earlier op
+    /// (in apply order) after other ops had landed. Appears only on an ACCEPTED push — the one whose conflicts name
+    /// every op that did not land (openspec <c>push-keeps-what-landed</c>): the refused op with its own code, and each
+    /// op after it with this one. Nothing of this op was written, so re-sending it unchanged is the remedy.
+    ///
+    /// <para>Not a gate code and never an error frame: it says what the push did, not what was wrong with the op.</para></summary>
+    public const string NotAttempted = "NOT_ATTEMPTED";
+
     /// <summary>The name the project-level lease conflict is reported under. It is not an item and never
     /// collides with one: a wire name is `name.kind` and `&lt;` cannot appear in an IEC identifier.
     ///

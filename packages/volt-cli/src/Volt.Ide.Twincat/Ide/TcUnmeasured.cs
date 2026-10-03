@@ -71,7 +71,7 @@ internal static class TcUnmeasured
             throw new NetworkTextException(
                 $"TwinCAT: network {network.Order + 1} changes shape and holds {shape}. Volt rebuilds a changed network " +
                 "through TwinCAT's PLCopen import, which is not measured for that shape, so the push is refused before " +
-                "the import rather than risk a network that comes back different. Make this change in the IDE and pull it.",
+                "the import rather than risk a network that comes back different. The IDE can make this change.",
                 ConflictCodes.NetworkUnsupported);
     }
 
@@ -100,9 +100,9 @@ internal sealed class TcEnoRefusal : NotSupportedException
     public TcEnoRefusal(string box, bool textReadsEno)
         : base(textReadsEno
             ? $"TwinCAT: the text reads `.ENO` on the '{box}' box, and the IDE builds that box with no ENO output — the " +
-              "suffix names an output the box does not have. Remove `.ENO`, or make the change in the IDE and pull it."
+              "suffix names an output the box does not have. Without `.ENO` the text matches the box the IDE builds."
             : $"TwinCAT: the text reads the '{box}' box without `.ENO`, and the IDE builds that box with ENO as its main " +
-              "output — the text states a data output the box does not have. Write `.ENO`, or make the change in the " +
-              "IDE and pull it.")
+              "output — the text states a data output the box does not have. With `.ENO` the text matches the box the " +
+              "IDE builds.")
     { }
 }

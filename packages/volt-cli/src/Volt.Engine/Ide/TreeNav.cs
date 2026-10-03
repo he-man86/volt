@@ -28,13 +28,25 @@ internal static class TreeNav
     /// APPLICATION, so the workspace got them back one folder deeper than it sent them and a round-trip moved
     /// the engineer's files. On TwinCAT the two roots are the same node, so this is CODESYS-shaped and the
     /// TwinCAT behaviour is unchanged.</para></summary>
-    internal static ItemRef ResolveTopLevelFolder(IIdeDriver ide, string? folder)
+    /// <param name="created">When given, receives the path (from the tree root) of each folder this call CREATED — what a
+    /// refused push states it left behind (openspec <c>push-keeps-what-landed</c>).</param>
+    internal static ItemRef ResolveTopLevelFolder(IIdeDriver ide, string? folder, List<string>? created = null)
     {
         if (string.IsNullOrEmpty(folder)) return ide.GetTreeRoot();
         var node = ide.GetTreeRoot();
+        var path = "";
         foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
-            node = DescendOrCreateFolder(ide, node, part);
+        {
+            path = path.Length == 0 ? part : path + "/" + part;
+            node = DescendOrCreateFolder(ide, node, part, created, path);
+        }
         return node;
+    }
+
+    private static ItemRef Created(ItemRef folder, string path, List<string>? created)
+    {
+        created?.Add(path);
+        return folder;
     }
 
     /// <summary>The node a TASK is created under.
@@ -65,23 +77,29 @@ internal static class TreeNav
     /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user
     /// folder) by name and descend into it; a same-named source LEAF (a POU/DUT) is not a container, so fall
     /// through and create a user folder beside it.</summary>
-    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
+    private static ItemRef DescendOrCreateFolder(IIdeDriver ide, ItemRef parent, string name,
+                                                 List<string>? created = null, string? path = null) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && !ItemKind.IsTopLevelCrud(ide.KindCode(c)))
-            ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
+            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder), path ?? name, created);
 
     // Resolve a folder RELATIVE to a given parent (used for POU children, whose sub-folder is relative to the POU).
-    internal static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder)
+    // <paramref name="created"/>: as on <see cref="ResolveTopLevelFolder"/>, each folder created, by its path from the parent.
+    internal static ItemRef ResolveFolder(IIdeDriver ide, ItemRef parent, string? folder, List<string>? created = null)
     {
         if (string.IsNullOrEmpty(folder)) return parent;
         var node = parent;
+        var path = "";
         foreach (var part in FolderPath.Segments(folder))   // decode each segment back to its real IDE name
-            node = FindOrCreateFolder(ide, node, part);
+        {
+            path = path.Length == 0 ? part : path + "/" + part;
+            node = FindOrCreateFolder(ide, node, part, created, path);
+        }
         return node;
     }
 
-    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name) =>
+    private static ItemRef FindOrCreateFolder(IIdeDriver ide, ItemRef parent, string name, List<string>? created, string path) =>
         FirstChild(ide, parent, c => NameIs(ide, c, name) && ide.KindCode(c) == ItemKind.PlcFolder)
-            ?? ide.CreateChild(parent, name, ItemKind.PlcFolder);
+            ?? Created(ide.CreateChild(parent, name, ItemKind.PlcFolder), path, created);
 
     /// <summary>Descend an EXISTING folder path, creating nothing, matching the way the create path matches —
     /// by name, excluding only top-level CRUD kinds. That traverses a container-manager (`POUs`, `DUTs`) as

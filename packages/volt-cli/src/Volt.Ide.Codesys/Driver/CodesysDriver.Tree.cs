@@ -147,7 +147,7 @@ public sealed partial class CodesysDriver
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
         try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
-        catch (Exception ex) when (ChildRefusal(ex) is { } why) { throw new ChildRefusedException(why, ex); }
+        catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
     /// <summary>Is this CODESYS's own refusal of a child under its parent? Measured wording (SP21, DIALECT C2k,
@@ -155,12 +155,31 @@ public sealed partial class CodesysDriver
     /// device description)" — for a member under FUNCTION text, and a method or property under text that declares
     /// nothing. Anything else (a stale handle, a transport fault) is not a refusal and is not reported as one.
     /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
-    public static string? ChildRefusal(Exception ex)
+    public static string? ChildRefusal(Exception ex) => Refusal(ex)?.Message;
+
+    /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
+    /// "The name 'Log' is not valid for this object." — a METHOD named <c>Log</c> under a function block (SP21, openspec
+    /// <c>push-keeps-what-landed</c> 1.1, measured live 2026-10-03): the NAME is refused, whatever the declaration says.
+    /// Only measured wording; no guessed reserved-word list.</summary>
+    public static (string Message, ChildRefusalCause Cause)? Refusal(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
-            if (e.Message.IndexOf("is not accepted by parent object", StringComparison.Ordinal) >= 0) return e.Message;
+        {
+            if (e.Message.IndexOf("is not accepted by parent object", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Kind);
+            if (e.Message.IndexOf("is not valid for this object", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Name);
+        }
         return null;
     }
+    /// <summary>CODESYS has no scripting call to add a property's missing Get or Set — a vendor "cannot", so a
+    /// <see cref="NotSupportedException"/> (the push reports it UNSUPPORTED). Raised inside the push's apply loop (the
+    /// accessor reconcile), it can reach a conflict on an ACCEPTED push, so it names what the IDE can do and no client
+    /// command (openspec <c>push-keeps-what-landed</c> gate step 2: it said "Add it in the IDE, then pull.", unclassified).
+    /// <paramref name="offers"/>: the create calls the member container DOES expose.</summary>
+    internal static NotSupportedException NoAccessorCreate(string name, string offers) =>
+        new($"CODESYS: cannot create the '{name}' accessor — CODESYS creates a property's Get/Set with the property " +
+            "itself, and exposes no scripting call to add one afterwards; only the IDE's own editor can add it. " +
+            "(member container offers: " + offers + ")");
+
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     /// <summary>Enumerated directly — in-process CODESYS has no problem with it, unlike TwinCAT's COM.</summary>
     public (bool Get, bool Set) InterfacePropertyAccessors(ItemRef property)

@@ -112,11 +112,19 @@ public static class PushService
                                                       currentVersions, currentProjectVersion, walk.Complete,
                                                       // the IDE resolves a name case-insensitively (itemCache), so this does too
                                                       new HashSet<string>(walk.UnreadableObjects.Select(o => o.Name), StringComparer.OrdinalIgnoreCase));
-        if (conflicts.Count > 0)
+        PushResponse RejectAll(List<PushConflict> refused)
         {
-            VoltLog.Info($"push {ops.Count} ops — REJECTED ({conflicts.Count} conflicts: {string.Join(", ", conflicts.Take(5).Select(c => c.Name))}{(conflicts.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
-            return PushResponse.RejectedResult(conflicts, currentProjectVersion!);   // a gate conflict means a lease ran
+            VoltLog.Info($"push {ops.Count} ops — REJECTED ({refused.Count} conflicts: {string.Join(", ", refused.Take(5).Select(c => c.Name))}{(refused.Count > 5 ? "..." : "")}) ({sw.ElapsedMilliseconds}ms)");
+            // COMPUTED ON DEMAND when the pre-flight skipped it. A `--force` push with no lease never builds the version
+            // map, and a rejection publishes `currentProjectVersion` regardless — so without this it handed back `""`
+            // where it had always given the real hash. A rejection is not the hot path.
+            return PushResponse.RejectedResult(refused,
+                currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
         }
+
+        // THE LEASE IS ANSWERED WITHOUT THE PRE-FLIGHT: the project moved since the client read it, so no item's verdict
+        // means anything until it pulls (openspec `push-keeps-what-landed` design D1). The gate's own list goes with it.
+        if (conflicts.Any(c => c.Code == ConflictCodes.StaleProjectVersion)) return RejectAll(conflicts);
 
         var pushedDeclarations = DeclarationsIn(ops);
 
@@ -137,8 +145,8 @@ public static class PushService
         // of the parsed model, and those used to fire from inside the write with earlier ops already landed.
         //
         // What this still does NOT make atomic is a refusal that genuinely needs the LIVE project: a type the
-        // driver cannot resolve, a body the IDE itself rejects on import. Those stay possible, and the rejection
-        // below says so rather than implying nothing happened.
+        // driver cannot resolve, a body the IDE itself rejects on import. Those stay possible, and the apply loop
+        // below reports them in structure: what landed, the refused op, and every op it did not reach.
         var applied = new List<(string Action, string Name)>();  // what each op did, for the write receipt in the log
         var opTotal = ops.Count;
 
@@ -146,63 +154,20 @@ public static class PushService
         // client cannot tell which pass refused it, and should not have to: both mean "this op's text is not
         // something Volt can write". The difference is only in what is left behind, and pre-flight leaves
         // nothing.
-        PushResponse Reject(PushOp op, Exception ex)
-        {
-            var netEx = ex as NetworkTextException;
-            // THE CODE THE REFUSAL ALREADY COMPUTED, not just the parser's.
-            //
-            // This read `netEx?.Code` alone, so only a network-text diagnostic kept its code and every
-            // `BridgeException` on this path arrived as `code: null` — NOT_FOUND, UNSUPPORTED,
-            // DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST (and INVALID_CODE_HEADER, deleted since a push stopped reading a top-level item's header). Since
-            // a push catches EVERY exception and returns a rejection rather than an error frame, those were unreachable
-            // as codes anywhere on the wire: five of the ten `BridgeErrorCodes` values could not be observed by
-            // a client at all. So callers matched the English message instead — the e2e suite asserted on an
-            // exact sentence, and the CLI gave up and printed the prose — which means a caller cannot tell
-            // "pull and retry" from "this shape can never be written".
-            //
-            // The two vocabularies stay disjoint by construction: `BridgeException` implements
-            // `ICodedError`, `NetworkTextException` deliberately does not (it carries its own `Code`), so
-            // there is no case where both apply. Do NOT "tidy" that by making NetworkTextException an
-            // ICodedError — `PipeServer` stamps any ICodedError's code onto an ERROR FRAME, which would let
-            // a NETWORK_* value escape into a vocabulary that is documented as BridgeErrorCodes.
-            //
-            // A DRIVER'S `NotSupportedException` IS an UNSUPPORTED refusal, and it is mapped here rather than
-            // rewritten at ~20 raise sites. It is the .NET exception whose meaning is exactly this code's — "the
-            // vendor cannot do this" — and both drivers reach for it for precisely that: a graphical shape
-            // PLCopen cannot express, a member kind with no mapping, a body form the writer has no spelling for.
-            // Every one of them arrived as `code: null`, which is how `create-shapes.test.ts` caught this: a
-            // refusal that says at length that the shape can NEVER be written, carrying nothing to distinguish
-            // it from "pull and retry".
-            //
-            // AND NEVER NULL, because the field is published as never null. Anything that is not a coded error,
-            // a network-text diagnostic or a vendor "cannot" is a fault nobody classified — a COM exception, an
-            // argument error — and INTERNAL_ERROR is exactly what the frame vocabulary calls that. Leaving it
-            // null would make a client that followed the documented contract and branched on `code` fall through
-            // on the one path where ops have ALREADY been written to the PLC.
-            var code = (ex as ICodedError)?.ErrorCode
-                       ?? netEx?.Code
-                       ?? (ex is NotSupportedException ? BridgeErrorCodes.Unsupported : BridgeErrorCodes.InternalError);
-            VoltLog.Info($"push {opTotal} ops — REJECTED ({op.Name}: {ex.Message}, {applied.Count} already applied) ({sw.ElapsedMilliseconds}ms)");
-            // NAME WHAT ALREADY LANDED. The ops before this one are written and are not rolled back (a delete
-            // cannot be undone, and a half-undone push is worse than a half-done one), so a rejection that reads
-            // as "nothing happened" is a lie the user acts on. Saying the count — and the one thing that
-            // reconciles it — is the difference between a confusing project and a recoverable one.
-            var reason = applied.Count == 0
-                ? ex.Message
-                : $"{ex.Message} — NOTE: {applied.Count} of {opTotal} item(s) were already written to the IDE " +
-                  "before this one failed, and are not rolled back. Run `volt pull` to take them into the " +
-                  "workspace, then push again.";
-            // COMPUTED ON DEMAND when the pre-flight skipped it. A `--force` push with no lease never builds
-            // the version map, and this rejection publishes `currentProjectVersion` to the client regardless —
-            // so without this it handed back `""` where it had always given the real hash. A rejection is not
-            // the hot path; a successful push never reaches this line.
-            return PushResponse.RejectedResult(
-                new List<PushConflict> { new() { Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line } },
-                currentProjectVersion ?? ProjectSnapshot.Walk(ide, operation: "push-reject").ProjectVersion);
-        }
-
+        //
+        // EVERY REFUSAL IS COLLECTED, and still nothing is written (openspec `push-keeps-what-landed` design D1). The
+        // pre-flight returned at its FIRST refusal, and the gate's per-item conflicts returned before it ran at all, so a
+        // batch with two malformed items — or a stale item and a malformed one — cost one round trip per refusal. The
+        // pre-flight now runs over every op the gate did not name, and the answer is the UNION in request order, one
+        // conflict per op: a client regenerates exactly the refused items and re-sends the rest unchanged. The batch
+        // stays all-or-nothing — items reference each other (a pushed FB using a pushed DUT), so applying the rest lands
+        // a project no op-level check can say builds.
+        var refusedByGate = new HashSet<string>(conflicts.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        var preflight = new List<PushConflict>();
         foreach (var op in ops)
         {
+            if (refusedByGate.Contains(op.Name)) continue;   // its text is about to be replaced by the pull its code asks for
+
             // AN ITEM THE DRIVER MUST NOT OPEN (DIALECT C2i) is refused here too, without force, by name. The gate lets
             // a delete of it through as idempotent — it has no version entry — and the pre-flight's other checks read
             // `itemCache`, which never holds it; so the first refusal used to be `ApplyToUnopened`'s, from the apply
@@ -211,7 +176,8 @@ public static class PushService
             {
                 var u = walk.UnreadableObjects.First(o => o.Kinds is not null
                     && string.Equals(o.Name, Materializer.Bare(op.Name), StringComparison.OrdinalIgnoreCase));
-                return Reject(op, new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}"));
+                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unreadable, $"'{u.Name}' is not read: {u.Reason}")));
+                continue;
             }
 
             if (op is not SetItemOp { SourceText: { } text } set) continue;
@@ -242,19 +208,58 @@ public static class PushService
                     if (creating) ide.ValidateSource(set.Name, text, pushedDeclarations);
                 }
             }
-            catch (Exception ex) { return Reject(op, ex); }
+            catch (Exception ex) { preflight.Add(ConflictFor(op, ex)); }
+        }
+        if (conflicts.Count + preflight.Count > 0)
+        {
+            // REQUEST ORDER, each op at most once: a client reading the list top-down meets its ops in the order it sent
+            // them. The gate names ops by their `name`, exactly as the pre-flight does.
+            var position = ops.Select((op, i) => (op.Name, i)).GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                              .ToDictionary(g => g.Key, g => g.First().i, StringComparer.OrdinalIgnoreCase);
+            return RejectAll(conflicts.Concat(preflight)
+                .Select((c, k) => (c, k))
+                .OrderBy(x => position.TryGetValue(x.c.Name, out var at) ? at : int.MaxValue).ThenBy(x => x.k)
+                .Select(x => x.c).ToList());
         }
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
-        foreach (var op in InFolderDepthOrder(ops))
+        var inApplyOrder = InFolderDepthOrder(ops).ToList();
+        var appliedOps = new List<PushOp>();
+        List<PushConflict>? notLanded = null;
+        for (var k = 0; k < inApplyOrder.Count; k++)
         {
+            var op = inApplyOrder[k];
+            var outcome = new OpOutcome();
             // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source
-            // line; any other throw is reason-only. `Reject` handles both, and is shared with the pre-flight.
-            try { applied.Add((ApplyOp(ide, itemCache, notOpened, op, request.Force, pushedDeclarations), op.Name)); }
-            catch (Exception ex) { return Reject(op, ex); }
+            // line; any other throw is reason-only. `ConflictFor` handles both, and is shared with the pre-flight.
+            try { applied.Add((ApplyOp(ide, itemCache, notOpened, op, request.Force, pushedDeclarations, outcome), op.Name)); }
+            catch (Exception ex)
+            {
+                // THE LIVE IDE REFUSED THIS OP, and the push STOPS here (openspec `push-keeps-what-landed`, design D2/D3).
+                // The ops before it are written and are NOT rolled back — a delete cannot be undone, and a half-undone
+                // push is worse than a half-done one — and the ops after it are not applied: going on would move the
+                // project further from both the workspace's baseline and its HEAD. What of the refused op itself the IDE
+                // kept is in its reason (`ConflictFor`).
+                var refused = ConflictFor(op, ex, outcome);
+                VoltLog.Info($"push {opTotal} ops — REFUSED at {op.Name} ({ex.Message}), {applied.Count} already applied ({sw.ElapsedMilliseconds}ms)");
+                // Nothing applied in full → `accepted:false`, exactly as a pre-flight refusal: the one op's partial effect
+                // (an update's declaration, a create whose removal failed) is stated in its reason, not in `accepted`.
+                if (applied.Count == 0) return RejectAll(new List<PushConflict> { refused });
+                // Something landed → `accepted:true` with the receipt and a conflict per op NOT landed, so "each op landed
+                // unless a conflict names it" holds: the refused op, then every op after it in APPLY order.
+                notLanded = new List<PushConflict> { refused };
+                notLanded.AddRange(inApplyOrder.Skip(k + 1).Select(rest => new PushConflict
+                {
+                    Name = rest.Name, Code = ConflictCodes.NotAttempted,
+                    Reason = $"not applied: the push stopped at '{op.Name}'",
+                }));
+                break;
+            }
+            appliedOps.Add(op);
             // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = applied.Count, Total = opTotal });
         }
 
+        // The partial path runs what the full path runs: on TwinCAT the applied ops are not saved without this.
         ide.FlushPendingWrites();
 
         // PRUNE THE FOLDERS THIS PUSH EMPTIED — the derivation Volt's git-shaped interface was missing.
@@ -279,7 +284,8 @@ public static class PushService
         // `ItemLookup` and `BeckhoffDriver` both wrap `ChildCount` for exactly that reason. Letting one throw
         // out of here would fail a push that FULLY SUCCEEDED: no receipt, so the client never persists the new
         // baseline, and its next push reports a conflict over changes already in the IDE.
-        try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, ops)); }
+        // Over the APPLIED ops only: a refused or unattempted delete or move emptied nothing.
+        try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, appliedOps)); }
         catch (Exception ex) { VoltLog.Warn($"push: could not prune an emptied folder: {ex.Message}"); }
 
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
@@ -288,13 +294,84 @@ public static class PushService
         // receipt as its IDE baseline with no follow-up /refs, so it must match /refs exactly.
         var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
 
-        VoltLog.Info($"push {ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
         // The receipt walk can be SHORT for the same reasons a read walk can, and the client rebuilds its
         // baseline from it — so it has to be told, exactly as `refs`/`fetch` tell it.
+        if (notLanded is not null)
+        {
+            VoltLog.Info($"push {ops.Count} ops — accepted IN PART [{FormatApplied(applied)}], not landed: " +
+                         $"{string.Join(", ", notLanded.Select(c => $"{c.Name} {c.Code}"))} ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
+            return PushResponse.PartialResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
+                                              receipt.UnwalkedFolders, notLanded);
+        }
+        VoltLog.Info($"push {ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
         return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
                                            receipt.UnwalkedFolders);
     }
 
+
+    /// <summary>What a refused op left behind of ITSELF, recorded by the write path as it happens — so the conflict is
+    /// worded from what DID happen, after it happened (openspec <c>push-keeps-what-landed</c> design D2). Only a create
+    /// can leave something: <see cref="Rollback"/> sets <see cref="Created"/> to the name it tried to remove, and
+    /// <see cref="RollbackFault"/> when that removal itself failed (the object then stays in the project). An update's
+    /// partial effect (its declaration, a member it deleted) is the member refusal's own text, from
+    /// <c>MemberRefusal</c>.</summary>
+    private sealed class OpOutcome
+    {
+        public string? Created;
+        public Exception? RollbackFault;
+        /// <summary>What of a refused UPDATE the IDE kept (its declaration, a member it deleted or created), when the
+        /// refusal's own message does not already say it.</summary>
+        public string? UpdateKept;
+        /// <summary>A native rename that ran before the op was refused: the IDE renamed the item and rewrote every
+        /// reference to it, and that stays — the item is no longer under the op's name.</summary>
+        public (string From, string To)? Renamed;
+        /// <summary>The forced replace of an item the IDE will not open deleted that object before its create was
+        /// refused: the original is gone.</summary>
+        public string? Replaced;
+    }
+
+    /// <summary>The conflict a refused op is reported with — the pre-flight's and the apply loop's alike.
+    ///
+    /// <para><b>The code the refusal already computed, not just the parser's.</b> This read <c>netEx?.Code</c> alone, so
+    /// only a network-text diagnostic kept its code and every <c>BridgeException</c> arrived as <c>code: null</c> —
+    /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST. Since a push answers every refusal as a conflict
+    /// rather than an error frame, those were unobservable as codes, and callers matched the English instead. The two
+    /// vocabularies stay disjoint by construction: <c>BridgeException</c> implements <c>ICodedError</c>,
+    /// <c>NetworkTextException</c> deliberately does not (it carries its own <c>Code</c>) — do NOT "tidy" that, or
+    /// <c>PipeServer</c> would stamp a NETWORK_* value onto an ERROR FRAME.</para>
+    ///
+    /// <para><b>A driver's <c>NotSupportedException</c> IS an UNSUPPORTED refusal</b>, mapped here rather than rewritten
+    /// at ~20 raise sites (a <see cref="ChildRefusedException"/> is one). And never null: anything that is not a coded
+    /// error, a network-text diagnostic or a vendor "cannot" is a fault nobody classified, and INTERNAL_ERROR is exactly
+    /// what the frame vocabulary calls that.</para>
+    ///
+    /// <para><b>The reason describes the refusal and nothing else</b> — no client instruction (no "volt pull", no "push
+    /// again"): the CLI renders its own advice from the code, and a client that is not the CLI has no such command. Only
+    /// what of the op the IDE KEPT is added, worded HERE, once, for a classified and an unclassified refusal alike: the
+    /// live <c>METHOD Log</c> refusal arrived unclassified and WAS rolled back, and its reason said nothing of it.</para></summary>
+    private static PushConflict ConflictFor(PushOp op, Exception ex, OpOutcome? outcome = null)
+    {
+        var netEx = ex as NetworkTextException;
+        var code = (ex as ICodedError)?.ErrorCode
+                   ?? netEx?.Code
+                   ?? (ex is NotSupportedException ? BridgeErrorCodes.Unsupported : BridgeErrorCodes.InternalError);
+        var reason = outcome?.Created switch
+        {
+            null when outcome?.UpdateKept is { } kept => $"{ex.Message} — {kept}",
+            null => ex.Message,
+            { } n when outcome.RollbackFault is null => $"{ex.Message} — '{n}' is not created (the create is rolled back)",
+            { } n => $"{ex.Message} — '{n}' was created and could not be removed ({outcome.RollbackFault.Message}): " +
+                     $"'{n}' remains in the project",
+        };
+        // The steps of the op that ran BEFORE the write that refused, and stay: a native rename (the item is no longer
+        // under the op's name, so a client re-sending the op would name an item that is gone), and the delete of a forced
+        // replace (the original object is gone).
+        if (outcome?.Renamed is { } rn)
+            reason += $" — '{rn.From}' was renamed to '{rn.To}' before it (the IDE rewrote the references to it) and stays renamed";
+        if (outcome?.Replaced is { } replaced)
+            reason += $" — the IDE's '{replaced}' was deleted before it, to be replaced, and stays deleted";
+        return new PushConflict { Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line };
+    }
 
     /// <summary>The folders items LEAVE in this push — a delete's folder, and a move's ORIGIN.
     ///
@@ -440,8 +517,7 @@ public static class PushService
 
         if (Hasher.ComputeItemVersion(folder, StWriter.Write(live)) != expected)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
-                $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite " +
-                "it. Pull first, then push again.");
+                $"'{name}' changed in the IDE while this push was being applied — refusing to overwrite it.");
     }
 
     /// <summary>The same check for a DELETE, which has to read the item to make it — and reads it for that
@@ -464,15 +540,14 @@ public static class PushService
         var now = Versioning.SafeVersion(ide, name, kind, item, folder).Version;
         if (now != Versioning.Unreadable && now != expected)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
-                $"'{name}' changed in the IDE while this push was being applied — refusing to delete it. " +
-                "Pull first, then push again.");
+                $"'{name}' changed in the IDE while this push was being applied — refusing to delete it.");
     }
 
     /// <summary>Apply one op and return a short label of what it did (created/updated/renamed/moved/deleted),
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyDictionary<string, string> notOpened,
-        PushOp op, bool force, PushedDeclarations pushedDeclarations)
+        PushOp op, bool force, PushedDeclarations pushedDeclarations, OpOutcome outcome)
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
@@ -482,7 +557,7 @@ public static class PushService
         else
         {
             var (found, untouchable) = ItemLookup.Locate(ide, name);
-            if (untouchable is { } u) return ApplyToUnopened(ide, u, notOpened, op, force, pushedDeclarations);
+            if (untouchable is { } u) return ApplyToUnopened(ide, u, notOpened, op, force, pushedDeclarations, outcome);
             existing = found;
         }
         var currentFolder = inCache ? cached.Folder : "";
@@ -490,9 +565,9 @@ public static class PushService
         switch (op)
         {
             case SetItemOp set when ItemKind.IsTaskWireName(set.Name):
-                return ApplySetTask(ide, name, existing, set);
+                return ApplySetTask(ide, name, existing, set, outcome);
             case SetItemOp set:
-                return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations);
+                return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations, outcome);
             // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.dut` and `X.pou` both
             // resolve to the object `X`. So the op's kind is checked against the object's own kind, and a delete of a
             // name of another kind finds nothing, with or without force (force drops a version gate; it never widens
@@ -547,7 +622,7 @@ public static class PushService
     /// not reach it: the name means another item, and force never widens what a name means.</para></summary>
     private static string ApplyToUnopened(IIdeDriver ide, ItemLookup.Untouchable u,
         IReadOnlyDictionary<string, string> notOpened, PushOp op, bool force,
-        PushedDeclarations pushedDeclarations)
+        PushedDeclarations pushedDeclarations, OpOutcome outcome)
     {
         if (!force)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
@@ -573,8 +648,9 @@ public static class PushService
                         $"'{u.Name}' is not opened, and this push's walk did not say which folder it sits in"));
                 var wireName = set.ToName ?? set.Name;
                 ide.Delete(u.Parent, u.Name);
+                outcome.Replaced = u.Name;   // gone from here on, whatever the create below does
                 WriteItemFromSource(ide, Materializer.Bare(wireName), wireName, existing: null, set.SourceText, folder,
-                                    pushedDeclarations);
+                                    pushedDeclarations, outcome);
                 return "replaced";
             default:
                 throw new BridgeException(BridgeErrorCodes.BadRequest,
@@ -669,7 +745,7 @@ public static class PushService
     /// ordinary <c>deleteItem</c> op and the generic delete removes the object. What a task does NOT get is
     /// the move path — <c>MoveItem</c> refuses a non-source kind, and a task lives in the Task Configuration
     /// by definition, so there is nowhere for it to move to.</para></summary>
-    private static string ApplySetTask(IIdeDriver ide, string name, ItemRef? existing, SetItemOp op)
+    private static string ApplySetTask(IIdeDriver ide, string name, ItemRef? existing, SetItemOp op, OpOutcome outcome)
     {
         if (op.SourceText is not { } src)
             throw new BridgeException(BridgeErrorCodes.BadRequest,
@@ -692,6 +768,7 @@ public static class PushService
                 task = ItemLookup.Find(ide, Materializer.Bare(toName))
                     ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                         $"task '{name}' could not be found after being renamed to '{toName}'");
+                outcome.Renamed = (name, Materializer.Bare(toName));   // kept if the settings write is refused
                 action = "renamed+updated";
             }
         }
@@ -718,7 +795,7 @@ public static class PushService
         {
             ide.WriteTask(task, settings);
         }
-        catch when (createdParent is { } parent && Rollback(ide, parent, name))
+        catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
         {
             throw;   // unreachable: the filter returns false, so the original refusal propagates untouched.
         }
@@ -730,7 +807,7 @@ public static class PushService
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
     private static string ApplySetItem(IIdeDriver ide, string name, ItemRef? existing,
                                    string currentFolder, SetItemOp op, bool force,
-                                   PushedDeclarations pushedDeclarations)
+                                   PushedDeclarations pushedDeclarations, OpOutcome outcome)
     {
         // An EMPTY sourceText is not refused here: a DUT or a GVL is written as sent, empty or not, and a POU or an
         // interface with no text was already refused by the pre-flight's read (it has nothing to split).
@@ -740,7 +817,7 @@ public static class PushService
         {
             if (op.SourceText is null)
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': a new item needs sourceText");
-            WriteItemFromSource(ide, name, op.Name, existing: null, op.SourceText, op.ToFolder, pushedDeclarations);
+            WriteItemFromSource(ide, name, op.Name, existing: null, op.SourceText, op.ToFolder, pushedDeclarations, outcome);
             return "created";
         }
 
@@ -800,9 +877,10 @@ public static class PushService
             if (!string.Equals(landed, currentName, StringComparison.Ordinal))
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"this IDE did not apply the rename '{name}' -> '{currentName}': the item is still called " +
-                    $"'{landed}'. A rename that changes only LETTER CASE is not supported here — rename it in " +
-                    "the IDE and pull, or pick a name that differs by more than case.");
+                    $"'{landed}'. A rename that changes only LETTER CASE is not supported here; a name that " +
+                    "differs by more than case is.");
             renamed = true;
+            outcome.Renamed = (name, currentName);   // kept if a later step of this op is refused (`ConflictFor`)
         }
 
         // A toFolder that differs from the item's current folder is a MOVE. ABSENT (null) means “keep the
@@ -818,7 +896,7 @@ public static class PushService
         // distinction was already being made by the one client that matters.
         if (op.ToFolder is { } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
         {
-            MoveItem(ide, currentName, op.ToName ?? op.Name, item, toFolder, op.SourceText, pushedDeclarations);   // recreate in the new folder
+            MoveItem(ide, currentName, op.ToName ?? op.Name, item, toFolder, op.SourceText, pushedDeclarations, outcome);   // recreate in the new folder
             return renamed ? "renamed+moved" : "moved";
         }
         if (op.SourceText is { } src)
@@ -826,7 +904,7 @@ public static class PushService
             // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too - passing
             // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for.
             WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, item, src, currentFolder,
-                                pushedDeclarations, force ? null : op.IfVersion); // content update in place
+                                pushedDeclarations, outcome, force ? null : op.IfVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
@@ -841,7 +919,7 @@ public static class PushService
     /// delete whose re-create then failed left a DUPLICATE rather than a no-op. It was "the arm only TwinCAT
     /// takes", and TwinCAT has a move now (DIALECT D4f), so it models a driver that does not exist.</para></summary>
     private static void MoveItem(IIdeDriver ide, string name, string wireName, ItemRef item, string newFolder,
-                                 string? sourceText, PushedDeclarations pushedDeclarations)
+                                 string? sourceText, PushedDeclarations pushedDeclarations, OpOutcome outcome)
     {
         var kind = ItemKind.Map(ide.KindCode(item));
         if (kind == null || !ItemKind.IsSourceKind(kind))
@@ -853,46 +931,77 @@ public static class PushService
         // `ResolveTopLevelFolder` had already created the destination folder on the way. The push reported
         // failure while the project had quietly half-changed, and nothing put it back. Writing first makes
         // the refusal atomic: the item has not moved, so there is nothing to undo.
-        if (sourceText is { } edited)
+        // WHAT OF THIS OP HAS LANDED, step by step — the text written in place, a destination folder created, the move
+        // itself — for a refusal of any LATER step to state (step 2 review, round 2): the content write that makes a
+        // refusal atomic is also the one step nothing undoes once a later step fails.
+        var textLanded = false;
+        var newFolders = new List<string>();
+        var moved = false;
+        try
         {
-            WriteItemFromSource(ide, name, wireName, item, edited, newFolder, pushedDeclarations);
-            // RE-RESOLVE before moving. On TwinCAT the write is a document IMPORT, and an import invalidates every
-            // handle into the item it replaced (DIALECT D4d) — so the handle this method was called with is dead
-            // by the time the move needs it. That made a move+edit fail with "Item 'X' is deleted or invalidated
-            // by an ealier operation!" on EVERY attempt, not intermittently: the same push always writes before
-            // it moves, so no retry could ever succeed.
-            //
-            // The ordering itself is right and stays: the write is the step that can REFUSE, so writing first is
-            // what makes a refusal atomic (nothing moved, nothing to undo). It just cannot reuse the handle
-            // across it.
-            item = ItemLookup.Find(ide, name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"'{name}' could not be found after its content was written — the write appears to have " +
-                    "replaced it and the move cannot proceed.");
-        }
-        ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, newFolder));
+            if (sourceText is { } edited)
+            {
+                WriteItemFromSource(ide, name, wireName, item, edited, newFolder, pushedDeclarations, outcome);
+                textLanded = true;
+                // RE-RESOLVE before moving. On TwinCAT the write is a document IMPORT, and an import invalidates every
+                // handle into the item it replaced (DIALECT D4d) — so the handle this method was called with is dead
+                // by the time the move needs it. That made a move+edit fail with "Item 'X' is deleted or invalidated
+                // by an ealier operation!" on EVERY attempt, not intermittently: the same push always writes before
+                // it moves, so no retry could ever succeed.
+                //
+                // The ordering itself is right and stays: the write is the step that can REFUSE, so writing first is
+                // what makes a refusal atomic (nothing moved, nothing to undo). It just cannot reuse the handle
+                // across it.
+                item = ItemLookup.Find(ide, name)
+                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                        $"'{name}' could not be found after its content was written — the write appears to have " +
+                        "replaced it and the move cannot proceed.");
+            }
+            ide.Move(item, TreeNav.ResolveTopLevelFolder(ide, newFolder, newFolders));
+            moved = true;
 
-        // AND WRITE AGAIN, because a move can REPLACE the item rather than relocate it.
-        //
-        // Measured on TwinCAT: a move-only push keeps the item's body exactly, and a move+edit push lands the
-        // move but comes back with the OLD body - the edit written moments earlier is gone. The move there is an
-        // export/delete/import of the item's own document (DIALECT D4f), and the export serializes what has been
-        // PERSISTED, not the write still in flight. So the edit was never in the archive that got re-imported.
-        //
-        // This is the same fact the re-resolve above already encodes - a move replaces the item - carried to its
-        // conclusion: a replaced item needs its content applied to the thing that exists AFTERWARDS. Writing
-        // first is still what makes a refusal atomic (nothing has moved yet), so both writes earn their place:
-        // the first one can refuse, the second one lands. On a driver whose move truly relocates, the second
-        // write finds the content already correct and is the price of not encoding a per-vendor quirk in the
-        // engine.
-        if (sourceText is { } settle)
-        {
-            var moved = ItemLookup.Find(ide, name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                    $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
-                    "push is failed rather than leaving the item holding its pre-edit content.");
-            WriteItemFromSource(ide, name, wireName, moved, settle, newFolder, pushedDeclarations);
+            // AND WRITE AGAIN, because a move can REPLACE the item rather than relocate it.
+            //
+            // Measured on TwinCAT: a move-only push keeps the item's body exactly, and a move+edit push lands the
+            // move but comes back with the OLD body - the edit written moments earlier is gone. The move there is an
+            // export/delete/import of the item's own document (DIALECT D4f), and the export serializes what has been
+            // PERSISTED, not the write still in flight. So the edit was never in the archive that got re-imported.
+            //
+            // This is the same fact the re-resolve above already encodes - a move replaces the item - carried to its
+            // conclusion: a replaced item needs its content applied to the thing that exists AFTERWARDS. Writing
+            // first is still what makes a refusal atomic (nothing has moved yet), so both writes earn their place:
+            // the first one can refuse, the second one lands. On a driver whose move truly relocates, the second
+            // write finds the content already correct and is the price of not encoding a per-vendor quirk in the
+            // engine.
+            if (sourceText is { } settle)
+            {
+                var relocated = ItemLookup.Find(ide, name)
+                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                        $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
+                        "push is failed rather than leaving the item holding its pre-edit content.");
+                WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, pushedDeclarations, outcome);
+            }
         }
+        // A filter, returning false, so the original exception reaches the client untouched (as `RecordKept`). It runs
+        // AFTER the inner write's own filter, so what that write recorded is kept and this is added to it.
+        catch when (RecordMoveKept(outcome, name, newFolder, textLanded, newFolders, moved))
+        {
+            throw;   // unreachable: the filter returns false.
+        }
+    }
+
+    /// <summary>What of a refused move(+edit) landed before the step that refused: its text written in place, the
+    /// destination folders created, the move. Always false: an exception filter.</summary>
+    private static bool RecordMoveKept(OpOutcome outcome, string name, string newFolder, bool textLanded,
+                                       List<string> newFolders, bool moved)
+    {
+        var parts = new List<string>();
+        if (textLanded) parts.Add($"the pushed text of '{name}' was written before it and stays");
+        parts.AddRange(newFolders.Select(f => $"the folder '{f}' was created before it and stays"));
+        if (moved) parts.Add($"'{name}' was moved to '{(newFolder.Length == 0 ? "<the tree root>" : newFolder)}' before it and stays there");
+        if (outcome.UpdateKept is { } inner) parts.Add(inner);
+        if (parts.Count > 0) outcome.UpdateKept = string.Join(", and ", parts);
+        return false;
     }
 
     /// <summary>Parse the pushed source the way the write will, and throw if it cannot be parsed — WITHOUT
@@ -966,7 +1075,7 @@ public static class PushService
     /// name the op lands under (its <c>toName</c> for a rename), whose extension is the kind.</summary>
     private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, ItemRef? existing,
                                         string src, string? folder,
-                                        PushedDeclarations pushedDeclarations,
+                                        PushedDeclarations pushedDeclarations, OpOutcome outcome,
                                         string? ifVersion = null)
     {
         // THE WIRE KIND DECIDES, create or update — read off the FULL name, and the text's header is never read
@@ -1013,6 +1122,8 @@ public static class PushService
         ItemRef pou;
         ItemRef? createdParent = null;   // set only when THIS op creates the item; drives the rollback at the end
         var declarationLanded = false;   // the item's declaration was written ahead of its members (see below)
+        var changes = new MemberChanges();  // what the member reconcile did to the IDE before anything refused (an update's)
+        var memberRefusalWorded = false;    // the refusal already says what of the update landed (`MemberRefusal`)
         ItemContent? live = null;
         if (existing is not { } existingPou)
         {
@@ -1031,7 +1142,14 @@ public static class PushService
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
             // language at creation; CODESYS takes it from the content. There is no create-arm per language - the
             // language is data.
-            pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl));
+            // THE IDE MAY REFUSE THE ITEM'S OWN NAME, in the words it refuses a member's: measured live 2026-10-03 (CODESYS
+            // SP21, openspec `push-keeps-what-landed` 2.2) — `LOG.pou` and `Log.dut` "The name '…' is not valid for this
+            // object.", nothing created. Worded as the ITEM's refusal; nothing was created, so there is nothing to roll back.
+            try { pou = ide.CreateChild(targetParent, name, itemType, NetworkText.LanguageOf(impl)); }
+            catch (ChildRefusedException ex)
+            {
+                throw new BridgeException(BridgeErrorCodes.Unsupported, $"the IDE refused to create '{name}': {ex.Message}", ex);
+            }
             createdParent = targetParent;      // for the rollback below — the item did not exist before this op
             // The COM reference from CreateChild is stale for interface items - re-find before writing anything,
             // and FAIL if the re-find misses rather than writing through the handle this very line calls dead. On
@@ -1145,7 +1263,7 @@ public static class PushService
 
             // The member SET, for a create and an update alike. A create reaches here with the item existing but
             // empty, so every member the source declares is new; an update reconciles against what is there.
-            if (ReconcileMembers(ide, pou, live, split, MemberRefusal))
+            if (ReconcileMembers(ide, pou, live, split, changes, MemberRefusal))
                 // Creating or deleting a member INVALIDATES every handle into the POU on TwinCAT: a member is not a
                 // separate file there, so placing one is a round trip through the enclosing POU's own archive
                 // (DIALECT D4j), and the import replaces the item (D4d). The next write through the captured handle
@@ -1172,26 +1290,90 @@ public static class PushService
             //     the driver, which is the only layer that can ask the IDE cheaply.
             ide.WriteContent(pou, OnlyChanged(live, split), pushedDeclarations);
         }
-        catch when (createdParent is { } parent && Rollback(ide, parent, name))
+        catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
         {
             throw;   // unreachable: the filter returns false. Present so the compiler sees a complete catch.
         }
+        // AN UPDATE REFUSED AFTER PART OF IT LANDED says which part, whatever refused it. A member refusal the driver
+        // classifies words it itself (`MemberRefusal`, below); any OTHER failure after the declaration was written, or
+        // after the reconcile deleted a member, said nothing of either — the item is the engineer's and is not restored
+        // (`CreateRollbackTests`), so the conflict is the only place the client learns what the IDE now holds (openspec
+        // `push-keeps-what-landed`, spec "whatever of the refused op itself the IDE kept"). A filter, returning false,
+        // so the original exception reaches the client untouched — the same shape as the create's rollback.
+        catch when (createdParent is null && !memberRefusalWorded && RecordKept(outcome, UpdateLanded()))
+        {
+            throw;   // unreachable: the filter returns false.
+        }
+
+        // What of an UPDATE has already landed when it is refused: the declaration when it was written first, and every
+        // step the member reconcile took before it — a member it DELETED (deletes run first, so a member the push drops is
+        // gone from the IDE when a create is refused — 5Qa review) or CREATED, a POU-internal folder it created, a member it
+        // moved, an accessor it deleted or created (step 2 review, round 2: a refused update could leave a property without
+        // its GET and say nothing of it). Null when nothing landed.
+        string? UpdateLanded()
+        {
+            if (!changes.Any && !declarationLanded) return null;
+            var parts = new List<string>();
+            if (changes.Deleted.Count > 0)
+                parts.Add($"its {Members(changes.Deleted)} " + (changes.Deleted.Count == 1
+                    ? "was deleted before it and stays deleted" : "were deleted before it and stay deleted"));
+            // A member created before the refusal stays too, holding the SEED it was created with, not the pushed text
+            // (the content write that would have filled it is what refused) — step 2 review, finding 4.
+            if (changes.Created.Count > 0)
+                parts.Add($"its {Members(changes.Created)} " + (changes.Created.Count == 1
+                    ? "was created before it and stays (with its seed text)" : "were created before it and stay (with their seed text)"));
+            parts.AddRange(changes.Folders.Select(f => $"the folder '{f}' was created in '{name}' before it and stays"));
+            parts.AddRange(changes.Moved.Select(mv =>
+                $"its {mv.Member.Kind.Replace('_', ' ')} '{mv.Member.Name}' was moved to " +
+                $"'{(mv.To.Length == 0 ? "<the POU root>" : mv.To)}' before it and stays there"));
+            parts.AddRange(changes.AccessorsDeleted.Select(x =>
+                $"the {x.Accessor} accessor of property '{x.Property}' was deleted before it and stays deleted"));
+            parts.AddRange(changes.AccessorsCreated.Select(x =>
+                $"the {x.Accessor} accessor of property '{x.Property}' was created before it and stays (without the pushed text)"));
+            var members = string.Join(", and ", parts);
+            if (!declarationLanded) return members.Length == 0 ? null : members;
+            return $"the declaration of '{name}' was written before it and stays" + (members.Length == 0 ? "" : $", and {members}");
+
+            static string Members(List<Member> ms) => string.Join(", ", ms.Select(m => $"{m.Kind.Replace('_', ' ')} '{m.Name}'"));
+        }
 
         // What a member the IDE refuses to create is reported with: the IDE's own reason, and what of the item has
-        // already landed — nothing on a create (it is rolled back whole); on an update, the declaration when it was
-        // written first, and every member the reconcile DELETED before it reached the creates (deletes run first, so a
-        // member the push drops is gone from the IDE when a create is refused — 5Qa review).
-        string MemberRefusal(IReadOnlyList<Member> deleted)
+        // already landed on an UPDATE — what `UpdateLanded` says, and that the rest was NOT written (the refusal comes
+        // before the content write). Nothing on a CREATE: what a create leaves is decided by the rollback, which has not
+        // run yet when this is worded, so `ConflictFor` words it from the rollback's outcome (design D2).
+        string? MemberRefusal()
         {
-            if (createdParent is not null) return $"'{name}' is not created (the create is rolled back)";
-            var drops = deleted.Count == 0 ? null
-                : $"its {string.Join(", ", deleted.Select(m => $"{m.Kind.Replace('_', ' ')} '{m.Name}'"))} " +
-                  (deleted.Count == 1 ? "was deleted before it and stays deleted" : "were deleted before it and stay deleted");
+            if (createdParent is not null) return null;
+            memberRefusalWorded = true;
+            var landed = UpdateLanded();
             if (declarationLanded)
-                return $"the declaration of '{name}' was written before it and stays" +
-                       (drops is null ? "; its members and body were not" : $", and {drops}; its other members and body were not written");
-            return drops is null ? $"nothing of '{name}' was written" : $"{drops}; nothing else of '{name}' was written";
+                return landed + (!changes.Any ? "; its members and body were not" : "; its other members and body were not written");
+            return landed is null ? $"nothing of '{name}' was written" : $"{landed}; nothing else of '{name}' was written";
         }
+    }
+
+    /// <summary>What <see cref="ReconcileMembers"/> has done to the IDE so far, recorded as each step lands — so an update
+    /// refused after any of it can say exactly what stays (openspec <c>push-keeps-what-landed</c>, spec "whatever of the
+    /// refused op itself the IDE kept"). Every mutation the reconcile makes is one of these.</summary>
+    private sealed class MemberChanges
+    {
+        public readonly List<Member> Deleted = new();
+        public readonly List<Member> Created = new();
+        /// <summary>POU-internal folders created to place a member, by path from the POU.</summary>
+        public readonly List<string> Folders = new();
+        public readonly List<(Member Member, string To)> Moved = new();
+        public readonly List<(string Property, string Accessor)> AccessorsDeleted = new();
+        public readonly List<(string Property, string Accessor)> AccessorsCreated = new();
+
+        public bool Any => Deleted.Count + Created.Count + Folders.Count + Moved.Count
+                           + AccessorsDeleted.Count + AccessorsCreated.Count > 0;
+    }
+
+    /// <summary>Record what of a refused UPDATE landed, for <see cref="ConflictFor"/>. Always false: an exception filter.</summary>
+    private static bool RecordKept(OpOutcome outcome, string? kept)
+    {
+        outcome.UpdateKept = kept;
+        return false;
     }
 
     /// <summary>Will reconciling <paramref name="pushed"/>'s members against <paramref name="live"/> CREATE one — a
@@ -1208,9 +1390,14 @@ public static class PushService
     ///
     /// <para>Always returns FALSE, so the catch block never runs and the throw propagates untouched. A filter
     /// is the right place because it runs BEFORE the stack unwinds and cannot swallow what it is reacting to —
-    /// the alternative, catch-delete-rethrow, is one stray `throw ex;` away from losing the reason.</para></summary>
-    private static bool Rollback(IIdeDriver ide, ItemRef parent, string name)
+    /// the alternative, catch-delete-rethrow, is one stray `throw ex;` away from losing the reason.</para>
+    ///
+    /// <para><b>It RECORDS what happened</b> on <paramref name="outcome"/>, for the conflict to say: the create was
+    /// removed, or the removal failed and the object stays. A failed removal used to be a log line only, so the client
+    /// was told nothing of an object its next create would collide with (openspec <c>push-keeps-what-landed</c> 2a).</para></summary>
+    private static bool Rollback(IIdeDriver ide, ItemRef parent, string name, OpOutcome outcome)
     {
+        outcome.Created = name;
         try
         {
             ide.Delete(parent, Materializer.Bare(name));
@@ -1218,10 +1405,11 @@ public static class PushService
         }
         catch (Exception ex)
         {
-            // The shell survives. Say so — it is the state the engineer's project is actually in, and a silent
-            // failure here is how it would be discovered by a later push refusing to create over it.
+            // The shell survives. Say so — in the log, and in the conflict (`ConflictFor`), because it is the state the
+            // engineer's project is actually in.
+            outcome.RollbackFault = ex;
             VoltLog.Warn($"push: '{name}' was created and its content refused, and the create could NOT be " +
-                         $"rolled back — an empty item is left in the project: {ex.Message}");
+                         $"rolled back — the item is left in the project: {ex.Message}");
         }
         return false;
     }
@@ -1321,9 +1509,8 @@ public static class PushService
     /// first write, silently.</para></summary>
     /// <returns><c>true</c> when the project was mutated, so the caller knows its handles may be stale.</returns>
     private static bool ReconcileMembers(IIdeDriver ide, ItemRef pou, ItemContent live, ItemContent pushed,
-                                         Func<IReadOnlyList<Member>, string> landed)
+                                         MemberChanges changes, Func<string?> landed)
     {
-        var deleted = new List<Member>();
         var have = new HashSet<string>(live.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
         var want = new HashSet<string>(pushed.Members.Select(m => m.Name), StringComparer.OrdinalIgnoreCase);
 
@@ -1360,14 +1547,14 @@ public static class PushService
             // loudly on every retry with "no child named 'Act' under 'FB_FolderChild'".
             var site = TreeNav.FindFolder(ide, Owner(), m.Folder) ?? Owner();
             ide.Delete(site, m.Name);
-            deleted.Add(m);
+            changes.Deleted.Add(m);
             mutated = true;
         }
 
         foreach (var m in pushed.Members)
         {
             if (have.Contains(m.Name) && !retyped.Contains(m.Name)) continue;
-            var site = TreeNav.ResolveFolder(ide, Owner(), m.Folder);
+            var site = TreeNav.ResolveFolder(ide, Owner(), m.Folder, changes.Folders);
             // A MEMBER THE IDE WILL NOT TAKE IS REFUSED BY NAME, with the IDE's own reason (openspec
             // `push-without-header-check` 5.Q.4). Which members a POU accepts follows its TEXT (DIALECT C2k: FUNCTION
             // text refuses every member kind; text that declares nothing refuses a method and a property), and the
@@ -1377,10 +1564,18 @@ public static class PushService
             try { ide.CreateChild(site, m.Name, ItemKind.MemberCode(m.Kind), CreateSeed(m)); }
             catch (ChildRefusedException ex)
             {
+                // The declaration hint only where it is TRUE: a refused KIND follows the declaration (C2k); a refused NAME
+                // does not — the function block that refuses a method named `Log` takes methods (measured on both
+                // vendors, openspec `push-keeps-what-landed` 1.1 / 1.G).
+                var said = ex.Message.TrimEnd();
+                said = landed() is { } l ? $"{said} — {l}." : said.EndsWith(".", StringComparison.Ordinal) ? said : said + ".";
+                var hint = ex.Cause == ChildRefusalCause.Kind
+                    ? " Which members a POU accepts follows its declaration (a FUNCTION takes none)."
+                    : "";
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"'{name}': the IDE refused to create its {m.Kind.Replace('_', ' ')} '{m.Name}': {ex.Message} — " +
-                    $"{landed(deleted)}. Which members a POU accepts follows its declaration (a FUNCTION takes none).", ex);
+                    $"'{name}': the IDE refused to create its {m.Kind.Replace('_', ' ')} '{m.Name}': {said}{hint}", ex);
             }
+            changes.Created.Add(m);
             mutated = true;
         }
 
@@ -1404,7 +1599,8 @@ public static class PushService
                 throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"'{m.Name}': cannot be found at '{(was.Length == 0 ? "<the POU root>" : was)}' to move it");
 
-            ide.Move(member.Value, TreeNav.ResolveFolder(ide, Owner(), m.Folder));
+            ide.Move(member.Value, TreeNav.ResolveFolder(ide, Owner(), m.Folder, changes.Folders));
+            changes.Moved.Add((m, m.Folder ?? ""));
             mutated = true;
         }
 
@@ -1429,8 +1625,8 @@ public static class PushService
                     (string.IsNullOrEmpty(m.Folder) ? "" : $" under '{m.Folder}'") +
                     " — refusing to report the push applied when its accessors were never reconciled");
 
-            mutated |= ReconcileAccessor(ide, prop.Value, "Get",
-                                         isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter);
+            mutated |= ReconcileAccessor(ide, prop.Value, m.Name, "Get",
+                                         isInterface ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, m.Getter, changes);
 
             // Re-find the PROPERTY only where the accessor create just invalidated it.
             if (mutated && !ide.HandlesSurviveStructureChange)
@@ -1442,8 +1638,8 @@ public static class PushService
                 throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"'{m.Name}': the property vanished while its accessors were being reconciled");
 
-            mutated |= ReconcileAccessor(ide, prop.Value, "Set",
-                                         isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter);
+            mutated |= ReconcileAccessor(ide, prop.Value, m.Name, "Set",
+                                         isInterface ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, m.Setter, changes);
         }
 
         return mutated;
@@ -1459,8 +1655,8 @@ public static class PushService
     ///
     /// <para>Deleting one is what a silent no-op used to be: the source said GET only, the push was accepted,
     /// and the SET stayed in the project running its old code.</para></summary>
-    private static bool ReconcileAccessor(IIdeDriver ide, ItemRef property, string name, int kindCode,
-                                          Accessor? accessor)
+    private static bool ReconcileAccessor(IIdeDriver ide, ItemRef property, string propertyName, string name, int kindCode,
+                                          Accessor? accessor, MemberChanges changes)
     {
         // Ask the DRIVER whether it is there, never walk for it: enumerating an interface property's accessor
         // children can hard-crash TcXaeShell, which is exactly why InterfacePropertyAccessors is a per-vendor
@@ -1478,10 +1674,12 @@ public static class PushService
         {
             if (!exists) return false;
             ide.Delete(property, name);
+            changes.AccessorsDeleted.Add((propertyName, name));
             return true;
         }
         if (exists) return false;
         ide.CreateChild(property, name, kindCode);
+        changes.AccessorsCreated.Add((propertyName, name));
         return true;
     }
 

@@ -133,6 +133,14 @@ test("describePush: rejected offers Pull First then Force Push (force is destruc
   expect(describePush({ kind: "error", message: "boom" }).tone).toBe("error")
 })
 
+test("describePush: a push that landed in part says so and offers neither pull-first nor force", () => {
+  const v = describePush({ kind: "partial", items: ["E_A.dut"], reason: "the push landed in part: 1 of 2 item(s) are in the IDE" })
+  expect(v.tone).toBe("warn")
+  expect(v.message).toContain("Pushed 1 item(s)")
+  expect(v.message).toContain("landed in part")
+  expect(v.actions).toEqual([])
+})
+
 test("describePush: empty push explains WHY — IDE-ahead ⇒ pull first, else in-sync", () => {
   const idea = (added: string[]): StatusJson => ({
     initialized: true, merging: null, incoming: { added, removed: [], modified: [] },

@@ -10,7 +10,7 @@
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig, type Vendor } from "../src/analysis/index.js"
-import { call, VENDOR as V } from "./bridge.js"
+import { call, landedInFull, VENDOR as V } from "./bridge.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
 const VENDOR: Vendor = V
@@ -21,7 +21,7 @@ if (source === undefined) {
 }
 async function pushOps(ops: unknown[]): Promise<boolean> {
   const r = await call("push", { expectedProjectVersion: (await call("refs")).projectVersion, ops })
-  return !!r.accepted
+  return landedInFull(r)
 }
 const ver = async (n: string): Promise<string | null> => (await call("refs")).items[n] ?? null
 const key = (d: any): string => `[${d.severity}] ${d.message}`

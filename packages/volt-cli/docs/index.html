@@ -86,12 +86,14 @@ sequenceDiagram
   U->>C: volt push
   C->>B: push { expectedProjectVersion, ops }
   B->>B: PRE-FLIGHT — every text-decidable refusal
-  B->>I: apply what survived
-  B-->>C: accepted, or conflicts with nothing written
+  B->>I: apply, stopping at an op the IDE refuses
+  B-->>C: accepted (+ a conflict per op not landed), or conflicts with nothing written
 </div>
 <p>
   Two rules from that run are worth carrying into every page. <b>A push that cannot land in full lands
-  nothing</b> — everything refusable from the source text alone is decided before the IDE is touched. And
+  nothing</b> — everything refusable from the source text alone is decided before the IDE is touched, and every
+  such refusal is named in the one answer. Only the live IDE can still refuse an op part-way; the push then stops
+  there and says, in structure, exactly what landed. And
   <b>the IDE is a git remote</b>: <code>pull</code> fetches it into <code>refs/remotes/volt/ide</code> and lets
   native <code>git merge</code> reconcile it, so there is no bespoke merge engine to learn.
 </p>

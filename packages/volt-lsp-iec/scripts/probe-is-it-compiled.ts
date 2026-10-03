@@ -19,7 +19,7 @@
  * ALWAYS POINT THIS AT A COPY. It writes to the open project and restores after each step, but an interrupted
  * run leaves the planted error in place — never aim it at an engineer's original.
  */
-import { call } from "./bridge.js"
+import { call, landedInFull } from "./bridge.js"
 
 const MARKER = "zzVoltProbeUndeclared"
 const names = process.argv.slice(2)
@@ -56,7 +56,7 @@ for (const name of names) {
 		continue
 	}
 	const set = await push([{ op: "set", name, toFolder: null, sourceText: broken, ifVersion: original.version }])
-	if (!set.accepted) {
+	if (!landedInFull(set)) {
 		console.log(`${name.padEnd(28)} PUSH REFUSED — ${JSON.stringify(set.conflicts).slice(0, 160)}`)
 		continue
 	}
@@ -69,6 +69,6 @@ for (const name of names) {
 		const back = await push([
 			{ op: "set", name, toFolder: null, sourceText: original.sourceText, ifVersion: cur.version },
 		])
-		if (!back.accepted) console.error(`      RESTORE FAILED for ${name} — the copy still holds ${MARKER}`)
+		if (!landedInFull(back)) console.error(`      RESTORE FAILED for ${name} — the copy still holds ${MARKER}`)
 	}
 }

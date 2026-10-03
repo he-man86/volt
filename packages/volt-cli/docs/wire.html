@@ -167,7 +167,7 @@
 </p>
 <table>
   <tr><th>code</th><th>raised in</th><th>reaches you as</th></tr>
-  <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A push <b>rejection</b> — <code>accepted:false</code>, with the code on <code>conflicts[].code</code>.</td></tr>
+  <tr><td class="name">UNSUPPORTED</td><td>The push pre-flight, the body-format guard, both drivers.</td><td>A conflict on <code>conflicts[].code</code> — on a push <b>rejection</b> (<code>accepted:false</code>), or, raised by the live IDE after earlier ops landed, on an accepted push (<a href="#partial-push">below</a>).</td></tr>
   <tr><td class="name">INVALID_ST</td><td>The ST reader.</td><td>Same.</td></tr>
   <tr><td class="name">NOT_FOUND</td><td>The push, and both drivers.</td><td>Same, from a push. A driver read during <code>fetch</code> is isolated into <code>unreadable</code> instead.</td></tr>
   <tr><td class="name">DUPLICATE_CHILD</td><td>The push.</td><td>Same.</td></tr>
@@ -190,11 +190,34 @@
   <tr><td class="name">ITEM_MISSING</td><td>You quoted a version for an item that is gone. <code>currentVersion</code> is null. Only ever answered from a <b>complete</b> walk.</td><td>Nothing to merge with — create it, or drop the op.</td></tr>
   <tr><td class="name">ITEM_UNVERIFIED</td><td>The push could not READ the item — the pre-apply walk skipped the folder it lives in, so absence proves nothing. The opposite news to <code>ITEM_MISSING</code>: the item is almost certainly still there and the <i>bridge</i> is what is impaired.</td><td>Fix what stops the IDE enumerating that folder (see <code>unwalkedFolders</code>). Do not recreate the item.</td></tr>
 </table>
+<p>
+  A push refused before its first write names <b>every</b> refused op in the one answer — the gate's per-item
+  conflicts and the pre-flight's, in request order, one conflict per op — so a client regenerates exactly those and
+  re-sends the rest. A stale lease (<code>STALE_PROJECT_VERSION</code>) is answered without the pre-flight, and a
+  malformed request (<code>BAD_REQUEST</code> for the ops' own shape) at its first offending op.
+</p>
+
+<h3 id="partial-push">An accepted push that did not land in full</h3>
+<p>
+  Only the live IDE can refuse an op that the pre-flight passed — a member name it will not take, a body its
+  importer rejects. When it does after earlier ops landed, the push <b>stops</b> there (the earlier ops are not
+  rolled back, the later ones are not applied) and answers <code>accepted:true</code> with the usual receipt
+  (<code>newItems</code>, <code>newFolders</code>, <code>newProjectVersion</code>) <b>and</b> a conflict for every op
+  that did not land: the refused op with its own code, and each op after it in apply order with
+  <code>NOT_ATTEMPTED</code>. <b>Every op the list does not name landed.</b> When the refused op was the first one
+  applied, nothing landed in full and the answer is <code>accepted:false</code>; whatever of that op the IDE kept (an
+  update's declaration, a member it deleted, a create it could not remove) is stated in its reason. A reason
+  describes the refusal and carries no client instruction — the CLI adds its own advice from the code.
+</p>
+<table>
+  <tr><th>code</th><th>means</th><th>what a client does</th></tr>
+  <tr><td class="name">NOT_ATTEMPTED</td><td>The op was not applied: the push stopped at an earlier op the IDE refused. Only on an accepted push.</td><td>Re-send it unchanged.</td></tr>
+</table>
 <div class="note">
-  <b>Match <code>conflicts[].code</code>, never the message.</b> Three vocabularies share that field and they
+  <b>Match <code>conflicts[].code</code>, never the message.</b> Four vocabularies share that field and they
   cannot collide: the five gate codes above, a <code>NETWORK_*</code> diagnostic with a <code>line</code> for a
-  graphical body the format refuses, and the seven bridge codes in the table before it. Every conflict carries
-  one.
+  graphical body the format refuses, the seven bridge codes in the table before it, and
+  <code>NOT_ATTEMPTED</code>. Every conflict carries one.
   <br><br>
   Until 2026-09 this field held the network-text code and nothing else, so the bridge codes arrived as prose;
   the gate's four kept arriving as prose after that, all four as <code>code: null</code>, told apart only by

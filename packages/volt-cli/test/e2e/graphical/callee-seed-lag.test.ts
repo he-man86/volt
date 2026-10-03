@@ -17,7 +17,7 @@
  * the fixtures' `vendorRefuses` goes with it.</p>
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, requireHealthy, expectVendorDifference } from "../harness"
+import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, requireHealthy, expectVendorDifference } from "../harness"
 
 setDefaultTimeout(180_000)
 
@@ -79,16 +79,19 @@ describe(`graphical / a call box of a POU this session created (${BASE})`, () =>
 					{ op: "set", name: c.caller.name, toFolder: "", sourceText: c.caller.source, ifVersion: null },
 				])
 				if (!refuses) {
-					expect(r.accepted, `${c.what} was refused on ${VENDOR}: ${JSON.stringify(r.conflicts)}`).toBe(true)
+					expect(landedInFull(r), `${c.what} was refused on ${VENDOR}: ${JSON.stringify(r.conflicts)}`).toBe(true)
 					expect((await fetchItem(c.caller.name)).sourceText, `${c.caller.name} came back reshaped`).toBe(c.caller.source)
 					return
 				}
 				expectVendorDifference("push-without-header-check 5.Q.9: TwinCAT builds the box from the lagging 604 seed", {
 					codesys: () => undefined,
 					twincat: () => {
-						expect(r.accepted, `${c.what} was ACCEPTED on TwinCAT — the lag is gone, take it off the list (and the fixtures' vendorRefuses.twincat)`).toBe(false)
-						const reason = JSON.stringify(r.conflicts ?? [])
-						expect(reason).toContain("the IDE builds that box with no ENO output")
+						// The refusal is the CALLER's, raised at apply (it needs the live 604 seed, so no pre-flight sees it):
+						// the callee before it lands and the push answers `accepted: true` with a conflict for the caller
+						// (openspec push-keeps-what-landed). `accepted` alone would read that as "the lag is gone".
+						const refusal = (r.conflicts ?? []).find((x: any) => x.name === c.caller.name)
+						expect(refusal, `${c.what} was ACCEPTED on TwinCAT — the lag is gone, take it off the list (and the fixtures' vendorRefuses.twincat)`).toBeDefined()
+						expect(refusal.reason).toContain("the IDE builds that box with no ENO output")
 					},
 				})
 			} finally {

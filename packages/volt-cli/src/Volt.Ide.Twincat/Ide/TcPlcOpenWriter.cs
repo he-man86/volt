@@ -123,8 +123,8 @@ internal static class TcPlcOpenWriter
 
     private static NotSupportedException Refuse(string what) =>
         new NotSupportedException(
-            $"TwinCAT: this graphical body {what}, which Volt cannot express as PLCopen. Create it in the IDE " +
-            "and pull it.");
+            $"TwinCAT: this graphical body {what}, which Volt cannot express as PLCopen. The IDE can " +
+            "create it.");
 
     /// <summary>One network's emission. Holds the id counter and the wire table, because both are per-network:
     /// a <see cref="Demux"/> id is only meaningful inside the network that defines it.</summary>
@@ -263,7 +263,7 @@ internal static class TcPlcOpenWriter
                     "(`" + box.Type + "(… " + (box.Outputs.First(o => o.Formal is { Length: > 0 }).Formal) +
                     " => …)`). Volt has no way to CREATE that through PLCopen — the importer lowers the wire " +
                     "to a SEPARATE assignment however the pin is declared, so the body that came back would " +
-                    "not be the one pushed. Draw the pin in the IDE and pull it; editing one that already " +
+                    "not be the one pushed. The IDE can draw the pin; editing one that already " +
                     "exists works.");
             // THE ENABLE IS INPUT SLOT 0, emitted FIRST so the importer places it there — which is where the
             // archive expects it, and what makes the repair in TcNetworkWriter a rename rather than a move.

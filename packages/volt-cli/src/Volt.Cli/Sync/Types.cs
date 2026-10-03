@@ -13,6 +13,10 @@ public static class ResultKinds
     public const string Error = "error";
     public const string Refused = "refused";
     public const string Rejected = "rejected";
+    /// <summary>A push the bridge ACCEPTED IN PART: the live IDE refused one op after earlier ops had landed (openspec
+    /// <c>push-keeps-what-landed</c>). Neither <see cref="Ok"/> (it did not land in full — non-zero exit) nor
+    /// <see cref="Rejected"/> (things DID land; "pull first or force" would re-send landed items over themselves).</summary>
+    public const string Partial = "partial";
     public const string Conflict = "conflict";
     public const string Clean = "clean";
 }
@@ -110,7 +114,9 @@ public sealed class PullResult
         new() { Kind = ResultKinds.Conflict, Paths = paths, Status = status, Message = message };
 }
 
-/// <summary>The push outcome: ok{items,status} | rejected{reason}.</summary>
+/// <summary>The push outcome: ok{items,status} | rejected{reason} | partial{items,status,reason} — partial: the bridge
+/// accepted the push but the live IDE refused one op, so <c>items</c> are the ones that LANDED and <c>reason</c> names each
+/// that did not, with the CLI's advice.</summary>
 public sealed class PushResult
 {
     public string Kind { get; set; } = "";
@@ -122,6 +128,8 @@ public sealed class PushResult
     public static PushResult Ok(List<string> items, StatusData? status, string? message = null) =>
         new() { Kind = ResultKinds.Ok, Items = items, Status = status, Message = message };
     public static PushResult Rejected(string reason) => new() { Kind = ResultKinds.Rejected, Reason = reason };
+    public static PushResult Partial(List<string> landed, StatusData? status, string reason) =>
+        new() { Kind = ResultKinds.Partial, Items = landed, Status = status, Reason = reason };
 }
 
 /// <summary>The init outcome: ok{project, gitCreated, pulled, scaffold, corpus, note?} | error{reason}.</summary>

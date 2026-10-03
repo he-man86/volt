@@ -18,6 +18,19 @@ export function pipeName(vendor: string = VENDOR): string {
 
 export const TARGET = `pipe ${pipeName()}`
 
+/**
+ * Did a push land IN FULL — every op of it in the IDE?
+ *
+ * <p>`accepted` alone does not say so (openspec `push-keeps-what-landed`): when the live IDE refuses an op after
+ * earlier ops landed, the push stops there and answers `accepted: true` with the receipt PLUS one conflict per op
+ * that did not land (the refused op, then each later op as `NOT_ATTEMPTED`). A script that reads `accepted` alone
+ * then builds a project missing the refused item and writes that build down as the fixture's — a clean build on
+ * something that is not there. A full push carries no `conflicts` (the wire omits it), so absent or empty is "none".</p>
+ */
+export function landedInFull(r: { accepted?: boolean; conflicts?: readonly unknown[] | null }): boolean {
+  return r.accepted === true && (r.conflicts == null || r.conflicts.length === 0)
+}
+
 /** One request per connection (mirrors the CLI's PipeClient): write `{op,body}\n`, drain newline-JSON frames,
  *  resolve the terminal result (an error frame rejects; progress frames are ignored). */
 export function call(op: string, body?: unknown, pipe: string = pipeName()): Promise<any> {

@@ -9,7 +9,7 @@
  */
 import { afterEach, expect, test } from "bun:test"
 import { createServer, type Server } from "node:net"
-import { requireNetworkText, servedPipe } from "./bridge.js"
+import { landedInFull, requireNetworkText, servedPipe } from "./bridge.js"
 
 const servers: Server[] = []
 afterEach(() => {
@@ -56,4 +56,20 @@ test("servedPipe finds the one per-pid pipe of a vendor, refuses none or several
   expect(() => servedPipe(vendor)).toThrow("name the one to use with VOLT_PIPE")
   process.env.VOLT_PIPE = first
   expect(servedPipe(vendor)).toBe(first)
+})
+
+// `landedInFull` — `accepted` alone no longer means "every op is in the IDE" (openspec push-keeps-what-landed): an
+// apply-time refusal after earlier ops landed answers accepted WITH conflicts, and a recorder that reads `accepted`
+// alone records a build of a project missing the refused item.
+test("a push lands in full only when it is accepted with no conflict", () => {
+  expect(landedInFull({ accepted: true })).toBe(true)
+  expect(landedInFull({ accepted: true, conflicts: null })).toBe(true)
+  expect(landedInFull({ accepted: true, conflicts: [] })).toBe(true)
+  expect(landedInFull({ accepted: false, conflicts: [{ name: "A.pou", code: "INVALID_ST" }] })).toBe(false)
+  expect(
+    landedInFull({
+      accepted: true,
+      conflicts: [{ name: "PRG_caller.pou", code: "UNSUPPORTED", reason: "the IDE builds that box with no ENO output" }],
+    }),
+  ).toBe(false)
 })

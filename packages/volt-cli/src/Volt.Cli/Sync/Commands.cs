@@ -541,6 +541,9 @@ public static class Commands
             .Where(deletedByName.ContainsKey), StringComparer.OrdinalIgnoreCase);
 
         var ops = new List<PushOp>();
+        // Where each set op's file sits at HEAD, by op name — what `volt/ide` records for an op that LANDED when the push
+        // lands in part (below). A delete has none.
+        var headPathOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         void SetForChange(string rel)
         {
             var item = Materialize.PathToItem(rel);
@@ -548,6 +551,7 @@ public static class Commands
             if (movedNames.Contains(item.Value.Name))
             {
                 var old = deletedByName[item.Value.Name];
+                headPathOf[old.Name] = rel;
                 ops.Add(new SetItemOp
                 {
                     Name = old.Name,
@@ -559,6 +563,7 @@ public static class Commands
                 return;
             }
             var ifVersion = guardItems.TryGetValue(item.Value.Name, out var v) ? v : null;
+            headPathOf[item.Value.Name] = rel;
             ops.Add(new SetItemOp
             {
                 Name = item.Value.Name,
@@ -588,6 +593,7 @@ public static class Commands
                 if (o is null) { SetForChange(newRel); continue; }
                 if (!guardItems.TryGetValue(o.Value.Name, out var ver))
                     throw new InvalidOperationException($"renamed item '{o.Value.Name}' has no known IDE version — run `volt pull` first");
+                headPathOf[o.Value.Name] = newRel;
                 ops.Add(new SetItemOp
                 {
                     Name = o.Value.Name,
@@ -632,6 +638,21 @@ public static class Commands
             return PushResult.Rejected($"the bridge rejected the push:\n{lines}");
         }
 
+        // AN ACCEPTED PUSH MAY NOT HAVE LANDED IN FULL (openspec `push-keeps-what-landed`): the live IDE refused one op
+        // after earlier ops had landed, and the push stopped there. Every op that did not land has ONE conflict — the
+        // refused op with its code, each op after it NOT_ATTEMPTED — and every op no conflict names landed. Everything
+        // below works from the APPLIED ops alone: a refused edit must stay outgoing, never be marked synced.
+        var notLanded = resp.Conflicts ?? new List<PushConflict>();
+        var refusedOps = new HashSet<string>(notLanded.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        var landedOps = ops.Where(o => !refusedOps.Contains(o.Name)).ToList();
+        // Every name a refused op touches — its own, and a rename's target. None of them takes a receipt version.
+        var conflictedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var op in ops.Where(o => refusedOps.Contains(o.Name)))
+        {
+            conflictedNames.Add(op.Name);
+            if (op is SetItemOp { ToName: { } to }) conflictedNames.Add(to);
+        }
+
         // THE BASELINE GROWS ONLY BY WHAT THIS CLIENT PUSHED.
         //
         // The receipt is a fresh FULL snapshot of the project — it has to be, because a native rename rewrites
@@ -648,8 +669,15 @@ public static class Commands
         //
         // Keeping only names the client ALREADY had or JUST pushed is exact. When a lease WAS quoted and matched
         // this is a no-op, because a matching lease is precisely the proof that the baseline covered the project.
+        //
+        // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name: a
+        // native rename that landed still rewrote items outside the op set, and their new versions still enter the
+        // baseline (not "applied names only" — review R3), while a refused item keeps its old entry. One that PARTLY
+        // landed (an update whose declaration the IDE kept, a create whose removal failed) keeps it ON PURPOSE: the next
+        // push is then refused for it and `volt pull` brings the IDE's state in first, instead of a push overwriting
+        // state nobody has seen (review R4).
         var pushed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var op in ops)
+        foreach (var op in landedOps)
         {
             pushed.Add(op.Name);
             if (op is SetItemOp s && s.ToName is { } renamed) pushed.Add(renamed);
@@ -659,7 +687,8 @@ public static class Commands
         // RECEIPT's casing — and the next `ComputeIncoming`, which is Ordinal, then saw two spellings of one
         // item. The baseline is keyed the way the map that consumes it is keyed.
         var known = sidecar.Items;
-        var adopted = resp.NewItems!.Where(kv => known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
+        var adopted = resp.NewItems!.Where(kv => (known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
+                                                 && !conflictedNames.Contains(kv.Key))
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
         // …AND THE RECEIPT DOES NOT SHRINK IT. The receipt is a fresh walk and lists only what it SAW and READ: an
@@ -674,7 +703,7 @@ public static class Commands
         // new one while the IDE and the workspace held only the new; the next change back to the old name then
         // went up as an UPDATE of an item the IDE no longer has, at a stale version, and was refused.
         var retiredByPush = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var op in ops)
+        foreach (var op in landedOps)
             if (op is DeleteItemOp) retiredByPush.Add(op.Name);
             else if (op is SetItemOp { ToName: { } to } && to != op.Name) retiredByPush.Add(op.Name);
         foreach (var kv in known)
@@ -683,7 +712,8 @@ public static class Commands
         // The FOLDER map is filtered the same way. It was written through unfiltered, so after a `--force` push
         // against an IDE holding items this workspace has never seen, `Items` correctly omitted them while
         // `Folders` still placed every one — a baseline whose two halves disagreed about which items exist.
-        var adoptedFolders = resp.NewFolders!.Where(kv => adopted.ContainsKey(kv.Key))
+        // A conflicted item keeps its OLD folder with its old version: the two halves of its baseline entry are one fact.
+        var adoptedFolders = resp.NewFolders!.Where(kv => adopted.ContainsKey(kv.Key) && !conflictedNames.Contains(kv.Key))
                                              .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
 
         // …and an item RESTORED from the old baseline keeps the folder it had. The receipt walk never saw it, so
@@ -707,7 +737,45 @@ public static class Commands
         // state comes from the receipt (no follow-up `refs`).
         var head = Git.HeadCommit(root)!;
         var ideCommit = head;
-        var (canonical, heldOtherwise, unfetched) = Rematerialized(bridge, cfg, ops, resp);
+        var partial = notLanded.Count > 0;
+        string? partialLayout = null;   // a partial push's commit of the IDE's own layout, fast-forwarded after the ref
+        // ON A PUSH THAT LANDED IN PART, volt/ide is NOT HEAD: it is the previous volt/ide plus the rows of the ops that
+        // LANDED — their files from HEAD, a landed delete's or rename's old name removed — on the previous volt/ide alone
+        // (design D4 A). HEAD as a second parent would make the next pull's merge-base HEAD, and merging a later IDE change
+        // would then fast-forward the workspace to a tree WITHOUT the refused edits. No working-tree merge: HEAD already
+        // holds every file this commit takes from it, and the refused edits stay outgoing in `volt/ide..HEAD`.
+        var (canonical, heldOtherwise, unfetched) = Rematerialized(bridge, cfg, landedOps, resp);
+        if (partial)
+        {
+            // A LANDED ITEM THE IDE HOLDS IN ITS OWN LAYOUT IS ADOPTED HERE TOO, as on a full push ("a hand layout does not
+            // come back as an IDE change", network-text-literal-nwl): a commit on HEAD holding the IDE's text of those
+            // items alone — exactly the commit a full push makes — which the working tree follows once the ref and the
+            // sidecar are written; volt/ide below takes the same text. It used to be pinned as "another program than the text pushed"
+            // (false for a layout) and the next pull brought a whitespace-only diff in as an IDE edit (step 2 review).
+            var canonicalFiles = canonical.SelectMany(Materialize.MaterializeItem).ToList();
+            if (canonicalFiles.Count > 0)
+            {
+                // The commit is made here; the working tree is fast-forwarded onto it only AFTER the ref and the sidecar
+                // (below) — the order the full path keeps. Merged first, a failure before the ref left HEAD on the IDE's
+                // layout while volt/ide and the baseline were the old ones, and the next push sent that re-layout up as
+                // edits nobody made (step 2 review, round 2).
+                var layoutTree = IdeTree.BuildVoltIdeTree(gitDir, head, head, canonicalFiles, Array.Empty<string>(), librariesRefreshed: false);
+                partialLayout = IdeTree.CommitVoltIde(gitDir, layoutTree, head, $"volt: adopt the IDE's layout @ {resp.NewProjectVersion}");
+                foreach (var item in canonical) adopted[item.Name] = item.Version;
+            }
+            var canonicalNames = new HashSet<string>(canonical.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+            var landedFiles = landedOps.Where(o => o is SetItemOp s && headPathOf.ContainsKey(o.Name)
+                                                   && !canonicalNames.Contains(s.ToName ?? s.Name))
+                .Select(o => new MaterializedFile(headPathOf[o.Name], HeadBlob(headPathOf[o.Name])))
+                .Concat(canonicalFiles).ToList();
+            var landedRemovals = landedOps.Where(o => o is DeleteItemOp || (o is SetItemOp { ToName: { } t } && t != o.Name))
+                .Select(o => o.Name).ToList();
+            var tree = IdeTree.BuildVoltIdeTree(gitDir, head, voltHead, landedFiles, landedRemovals, librariesRefreshed: false);
+            ideCommit = IdeTree.CommitVoltIde(gitDir, tree, voltHead,
+                $"volt: IDE @ {resp.NewProjectVersion} (the push landed in part: {notLanded.Count} op(s) did not land)");
+        }
+        // (On a partial push the layout was adopted above, before volt/ide was built; nothing is left for below.)
+        if (partial) canonical.Clear();
         // AN IDE THAT HOLDS A PUSHED ITEM AS OTHER TOKENS CHANGED THE PROGRAM, and that is an IDE-side change: volt/ide
         // keeps what was pushed (HEAD) and the baseline says so — the version of the pushed text, hashed as the IDE's
         // are — so the next pull sees the IDE's version differ and brings its text in as the change it is. Adopting it
@@ -718,7 +786,7 @@ public static class Commands
         // A PUSHED ITEM THE IDE PUBLISHES UNDER ANOTHER NAME is pinned the same way, under the name that was pushed:
         // the next pull asks about it, hears it is gone, and brings the IDE's name in beside the removal — one file
         // per object. Left out, a create kept neither name and the pull added the IDE's name next to the pushed file.
-        var heldUnder = HeldUnderAnotherName(ops, resp, known, pushed);
+        var heldUnder = HeldUnderAnotherName(landedOps, resp, known, pushed);
         foreach (var (name, _, version) in heldUnder) adopted[name] = version;
         if (canonical.Count > 0)
         {
@@ -737,9 +805,12 @@ public static class Commands
         });
         // …and the working tree follows it. volt/ide's parent IS HEAD, so this is a fast-forward over the pushed
         // items' files alone; nothing of the engineer's can conflict, because everything else in the commit is HEAD.
-        if (ideCommit != head)
+        // On a partial push volt/ide holds nothing HEAD lacks (see above); the working tree follows the layout commit
+        // instead, when the IDE re-laid-out a landed item.
+        var followed = partial ? partialLayout : ideCommit != head ? IdeTree.Range : null;
+        if (followed is not null)
         {
-            var outcome = Git.GitMerge(root, IdeTree.Range, $"volt: adopt the IDE's layout @ {resp.NewProjectVersion}");
+            var outcome = Git.GitMerge(root, followed, $"volt: adopt the IDE's layout @ {resp.NewProjectVersion}");
             if (outcome.Kind != ResultKinds.Clean)
                 throw new InvalidOperationException(
                     "volt: adopting the IDE's own text of the pushed items did not fast-forward the workspace: " +
@@ -768,9 +839,56 @@ public static class Commands
         if (unfetched.Count > 0)
             notes.Add("the IDE holds " + string.Join(", ", unfetched.Select(h => h.Name)) +
                       " in other text than was pushed and did not give that text back; `volt pull` fetches it");
+        if (partial)
+        {
+            // THE CLI'S OWN ADVICE, by code and by what the receipt shows of the item — the bridge's reasons describe the
+            // refusal only (they reach clients that have no `volt` command).
+            var advice = notLanded.Select(c =>
+            {
+                var op = ops.First(o => string.Equals(o.Name, c.Name, StringComparison.OrdinalIgnoreCase));
+                return $"  {c.Name}: [{c.Code}] {c.Reason}\n    → {Advice(c, PartlyLanded(op, known, resp))}";
+            });
+            return PushResult.Partial(landedOps.Select(o => o.Name).ToList(), status,
+                $"the push landed in part: {landedOps.Count} of {ops.Count} item(s) are in the IDE, these are not:\n" +
+                string.Join("\n", advice) + (notes.Count == 0 ? "" : "\n(" + string.Join("; ", notes) + ")"));
+        }
         return PushResult.Ok(ops.Select(o => o.Name).ToList(), status,
                              notes.Count == 0 ? null : "pushed — " + string.Join("; ", notes));
+
+        string HeadBlob(string rel) =>
+            blobs.TryGetValue($"HEAD:src/{rel}", out var b) ? Encoding.UTF8.GetString(b)
+                : throw new InvalidOperationException($"volt: '{rel}' was pushed, but its blob at HEAD was not read");
     }
+
+    /// <summary>Did the IDE keep part of a refused op? Read off the RECEIPT, not the reason's prose: the item is in the
+    /// project at a version other than the one this client last held (an update whose declaration landed, an item
+    /// changed in the IDE meanwhile), or a create is in the project at all (its removal failed), or a rename ran before
+    /// the refusal — the item is in the project under its NEW name and gone from its old one, so re-sending the op (which
+    /// names the old) would be refused <c>ITEM_MISSING</c>.</summary>
+    private static bool PartlyLanded(PushOp op, IReadOnlyDictionary<string, string> known, PushResponse resp)
+    {
+        if (op is SetItemOp { ToName: { } to } && to != op.Name
+            && resp.NewItems!.ContainsKey(to) && !resp.NewItems.ContainsKey(op.Name)) return true;
+        if (!resp.NewItems!.TryGetValue(op.Name, out var now)) return false;
+        return !known.TryGetValue(op.Name, out var was) || was != now;
+    }
+
+    /// <summary>What the engineer does next about one op that did not land.
+    ///
+    /// <para><b>It claims nothing the CLI cannot see.</b> The fall-through said "nothing of it landed", but what of a
+    /// refused op the IDE kept is the bridge's to say (its reason, on the line above) and the receipt cannot always show
+    /// it: a forced replace of an item the IDE would not open deleted that original before its create failed — an item
+    /// the baseline never held and the receipt no longer lists (step 2 review, round 2). Re-sending is still the right
+    /// move there (the next push creates it), so the advice is the action, not a claim about the IDE.</para></summary>
+    private static string Advice(PushConflict c, bool partlyLanded) =>
+        partlyLanded
+            ? "the IDE holds part of it or another version of it: run `volt pull` first, then push again"
+            : c.Code switch
+            {
+                ConflictCodes.NotAttempted => "not sent — the push stopped before it; push again",
+                BridgeErrorCodes.Unsupported => "the IDE will not take this text; change it, then push again",
+                _ => "fix what the reason names, then push again",
+            };
 
     /// <summary>
     /// THE PUSHED ITEMS THE IDE HOLDS IN OTHER TEXT THAN WAS PUSHED, split in two: those it holds in another LAYOUT —

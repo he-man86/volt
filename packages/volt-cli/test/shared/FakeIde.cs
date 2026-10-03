@@ -449,7 +449,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 Recorded.Add($"refused:{name}");
                 // As the drivers word it: the vendor's own "not accepted", recognised and thrown as a child refusal.
                 throw new Volt.Engine.Ide.ChildRefusedException(
-                    $"Object '{what}' is not accepted by parent object, or invalid (e. g. missing plugin or device description).");
+                    $"Object '{what}' is not accepted by parent object, or invalid (e. g. missing plugin or device description).",
+                    Volt.Engine.Ide.ChildRefusalCause.Kind);
             }
         }
         Recorded.Add($"create:{name}");
@@ -563,8 +564,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     // Recorded, not simulated: the fake tree is flat, so there is no placement to model — but WHICH child was
     // re-placed WHERE is exactly what the folder-preservation tests assert, and a fake that silently accepted the
     // call could assert the bug away.
+    /// <summary>Make a move FAIL, given the moved item's name — the step of a move+edit that runs AFTER its content
+    /// write landed (openspec <c>push-keeps-what-landed</c> gate step 2: the conflict must say the text stays).</summary>
+    public Func<string, Exception?>? FailMove { get; init; }
+
     public void Move(ItemRef item, ItemRef target)
     {
+        if (FailMove?.Invoke(NameOf(item)) is { } failure) throw failure;
         Recorded.Add($"move:{NameOf(item)}->{NameOf(target)}");
 
         // …AND THE ITEM IS ACTUALLY SOMEWHERE ELSE AFTERWARDS. This recorded the call and changed nothing, so
@@ -596,7 +602,21 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         if (IgnoreRenames) return;
         var idx = _items.FindIndex(i => i.Name == old);
         if (idx >= 0) _items[idx] = _items[idx] with { Name = newName }; // so a follow-up Lookup(newName) resolves
+        if (!RewritesReferencesOnRename) return;
+        var word = new System.Text.RegularExpressions.Regex($@"\b{System.Text.RegularExpressions.Regex.Escape(old)}\b");
+        for (var k = 0; k < _items.Count; k++)
+            if (k != idx && _items[k] is { } other)
+                _items[k] = other with
+                {
+                    Declaration = other.Declaration is null ? null : word.Replace(other.Declaration, newName),
+                    Implementation = other.Implementation is null ? null : word.Replace(other.Implementation, newName),
+                };
     }
+
+    /// <summary>Model the IDE's NATIVE rename rewriting every reference to the renamed item in OTHER items (both
+    /// vendors do, which is why a push renames natively and why its receipt is a fresh walk: the referencing items'
+    /// versions change outside the op set). Opt-in; whole-word, in declarations and bodies.</summary>
+    public bool RewritesReferencesOnRename { get; init; }
 
     // ── ICodeStore ──
     /// <summary>Emit NO `interfaceasplaintext` addData block, as live TwinCAT now does. `ReadDeclaration`

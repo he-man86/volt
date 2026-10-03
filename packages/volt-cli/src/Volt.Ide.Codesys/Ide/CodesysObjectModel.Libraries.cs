@@ -421,10 +421,7 @@ namespace Volt.Ide.Codesys
                 case ItemKind.PlcPropSet:
                 case ItemKind.PlcItfPropGet:
                 case ItemKind.PlcItfPropSet:
-                    throw new InvalidOperationException(
-                        $"CODESYS: cannot create the '{name}' accessor — CODESYS creates a property's Get/Set " +
-                        "with the property itself, and exposes no scripting call to add one afterwards. Add it " +
-                        "in the IDE, then pull. (member container offers: " + CreateMethodNames(MemberContainer(parent)) + ")");
+                    throw CodesysDriver.NoAccessorCreate(name, CreateMethodNames(MemberContainer(parent)));
                 // No fallback: an unhandled kind is a bug (a new kind missed here), not a function block —
                 // same policy PushService.PouKindToCode states for its own mapping.
                 default:

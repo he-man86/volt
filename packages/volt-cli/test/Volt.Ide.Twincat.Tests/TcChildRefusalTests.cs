@@ -33,6 +33,15 @@ public class TcChildRefusalTests
         Assert.Equal(log, BeckhoffDriver.ChildRefusal(new COMException(log)));
     }
 
+    /// <summary>…and the driver says WHICH refusal it is (openspec <c>push-keeps-what-landed</c> design D2).</summary>
+    [Fact]
+    public void The_driver_says_whether_the_kind_or_the_name_is_refused()
+    {
+        Assert.Equal(Volt.Engine.Ide.ChildRefusalCause.Kind, BeckhoffDriver.Refusal(new COMException(Measured))!.Value.Cause);
+        Assert.Equal(Volt.Engine.Ide.ChildRefusalCause.Name,
+            BeckhoffDriver.Refusal(new COMException("Creating the child named 'Log' is not possible on node (Name mismatch)"))!.Value.Cause);
+    }
+
     [Theory]
     [InlineData("Unbound tree item")]
     [InlineData("The RPC server is unavailable.")]

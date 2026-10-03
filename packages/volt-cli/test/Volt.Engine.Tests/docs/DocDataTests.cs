@@ -109,15 +109,17 @@ public class DocDataTests
                               BridgeErrorCodes.InternalError }, new[]
         {
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
-            + "loop is caught and returned as `accepted:false` with one conflict. A client MUST check `accepted`.",
+            + "loop is caught and returned as a conflict. A client MUST check `accepted` AND `conflicts`.",
             "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
             + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
             + "NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, "
             + "never the message.",
             "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item.",
-            "A refusal during APPLY rather than pre-flight leaves the earlier ops WRITTEN, and they are not "
-            + "rolled back. The reason says how many, because a rejection that reads as \"nothing happened\" is "
-            + "a lie the user acts on.",
+            "A refusal decidable before the first write writes nothing and names EVERY refused op — the gate's "
+            + "per-item conflicts and the pre-flight's, one conflict per op.",
+            "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is "
+            + "`accepted:true` with the receipt and a conflict per op NOT landed — the refused op with its code, "
+            + "every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
         }),
         [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject }, new[]
         {
@@ -548,6 +550,7 @@ public class DocDataTests
             ["fromBridge"] = new JsonArray(ConflictCodes.FromBridge.Select(c => (JsonNode?)c).ToArray()),
             ["network"] = new JsonArray(ConflictCodes.Network.Select(c => (JsonNode?)c).ToArray()),
             ["projectRow"] = ConflictCodes.ProjectName,
+            ["apply"] = new JsonArray(ConflictCodes.NotAttempted),
         },
         // The wire VALUES only — `Vendors` also carries the display spellings, which are a UI concern.
         ["vendors"] = new JsonArray(Vendors.Codesys, Vendors.Twincat),

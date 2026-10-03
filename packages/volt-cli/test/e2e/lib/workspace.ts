@@ -106,10 +106,24 @@ export async function requireHealthy(timeoutMs = 60_000): Promise<void> {
 
 // ── pushing ───────────────────────────────────────────────────────────────────
 
+/**
+ * Did a push land IN FULL — every op of it in the IDE?
+ *
+ * <p>`accepted` alone does not say so (openspec `push-keeps-what-landed`): when the live IDE refuses an op after
+ * earlier ops landed, the push stops there and answers `accepted: true` with the receipt PLUS one conflict per op
+ * that did not land (the refused op with its code, each later op `NOT_ATTEMPTED`). A multi-op test that tells a
+ * refusal by `accepted` alone reads such a push as "the vendor took it". A full push carries no `conflicts` (the
+ * wire omits it), so absent or empty is "none".</p>
+ */
+export function landedInFull(r: { accepted?: boolean; conflicts?: readonly unknown[] | null }): boolean {
+	return r.accepted === true && (r.conflicts == null || r.conflicts.length === 0)
+}
+
 /** Push ops behind a fresh `expectedProjectVersion` guard, and hand back the receipt for the caller to assert on. */
 export async function pushOps(ops: unknown[]): Promise<any> {
 	const r = await bridge.push({ expectedProjectVersion: (await bridge.refs()).projectVersion, ops })
-	if (!r.accepted) console.warn("push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
+	if (!landedInFull(r))
+		console.warn(r.accepted ? "push landed in part:" : "push rejected:", JSON.stringify(r.conflicts || r).slice(0, 200))
 	return r
 }
 
@@ -130,7 +144,7 @@ export async function cleanup(): Promise<void> {
 		.map((n) => ({ op: "deleteItem", name: n, ifVersion: refs.items[n] }))
 	if (ops.length === 0) return
 	const r = await bridge.push({ expectedProjectVersion: refs.projectVersion, ops })
-	if (!r.accepted)
+	if (!landedInFull(r))
 		throw new Error(`cleanup could not delete ${ops.length} item(s): ${JSON.stringify(r.conflicts).slice(0, 300)}`)
 }
 

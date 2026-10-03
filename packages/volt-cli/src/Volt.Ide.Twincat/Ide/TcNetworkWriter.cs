@@ -183,7 +183,7 @@ internal static class TcNetworkWriter
                     ? "Volt cannot tell WHICH network was removed - network text renumbers its headers on " +
                       "every pull, so the text after deleting the second of four is identical to the text " +
                       "after deleting the fourth, and removing the wrong one would delete working logic. " +
-                      "Delete the network in the IDE and pull it."
+                      "The IDE can delete it."
                     : "Volt cannot ADD one through the archive: a new network needs elements whose member " +
                       "contract only the IDE produces. Add it in the IDE and pull it."));
 
@@ -248,7 +248,7 @@ internal static class TcNetworkWriter
             $"TwinCAT: this push {what}, which Volt cannot do through the archive. It edits the VALUES of an " +
             "existing graphical body - operands, types, comments, titles, flags - and never builds archive " +
             "elements, because the IDE's own reader depends on a member contract only the IDE produces. " +
-            "Make this change in the IDE and pull it.");
+            "The IDE can make this change.");
 
     // -- networks ----------------------------------------------------------------------------------
 

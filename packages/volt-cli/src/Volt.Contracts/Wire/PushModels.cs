@@ -142,6 +142,14 @@ public class PushResponse
     [JsonPropertyName("unwalkedFolders")]
     public List<string> UnwalkedFolders { get; set; } = new();
 
+    /// <summary>On a REJECTED push (<c>accepted:false</c>): every op refused, and nothing of the batch was applied in
+    /// full — a refusal decided before the first write names EVERY refused op; a refusal by the live IDE of the first op
+    /// applied states in its reason whatever of that op the IDE kept.
+    ///
+    /// <para>On an ACCEPTED push it may be non-empty too (openspec <c>push-keeps-what-landed</c>): the live IDE refused
+    /// an op after earlier ops had landed, the push stopped there, and each op that did NOT land has one conflict — the
+    /// refused op with its own code, every op after it in apply order with <see cref="ConflictCodes.NotAttempted"/>.
+    /// Every op this list does not name landed, and the receipt (<see cref="NewItems"/>) is the project as it now is.</para></summary>
     [JsonPropertyName("conflicts")]
     public List<PushConflict>? Conflicts { get; set; }
 
@@ -155,6 +163,13 @@ public class PushResponse
                                               Dictionary<string, string> newFolders, List<string> unwalkedFolders) =>
         new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders,
                 UnwalkedFolders = unwalkedFolders };
+
+    /// <summary>An accepted push that did not land in full: the receipt, plus one conflict per op that did not land.</summary>
+    public static PushResponse PartialResult(string newProjectVersion, Dictionary<string, string> newItems,
+                                             Dictionary<string, string> newFolders, List<string> unwalkedFolders,
+                                             List<PushConflict> notLanded) =>
+        new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders,
+                UnwalkedFolders = unwalkedFolders, Conflicts = notLanded };
 
     public static PushResponse RejectedResult(List<PushConflict> conflicts, string currentProjectVersion) =>
         new() { Accepted = false, Conflicts = conflicts, CurrentProjectVersion = currentProjectVersion };

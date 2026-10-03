@@ -169,7 +169,7 @@ namespace Volt.Ide.Codesys
 
         private static NotSupportedException Unbuildable(Box b, string why) =>
             new($"CODESYS: the '{b.Type}' box is {why}. Refusing rather than build a network whose consumer reads " +
-                "another output than the text says, or that does not compile. Edit this network in the IDE and pull it.");
+                "another output than the text says, or that does not compile. The IDE can edit this network.");
 
         private static string Render(Network network, BodyLanguage language, NetworkScope scope) =>
             NetworkTextWriter.Write(new NetworkBody(language, new[] { network }), scope);

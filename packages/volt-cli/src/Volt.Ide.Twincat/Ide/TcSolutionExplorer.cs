@@ -130,10 +130,13 @@ internal sealed class ExplorerSnapshot
     private static bool IsUnparsedPou(ExplorerNode n) =>
         IsPou(n) && string.Equals(n.Caption, n.Name, StringComparison.Ordinal);
 
-    /// <summary>What a walk and a refusal say about such a POU.</summary>
+    /// <summary>What a walk and a refusal say about such a POU — the FACT, and no client instruction: the same words
+    /// reach a refusal raised inside a push's apply loop, which can now arrive on an accepted push, and the CLI adds its
+    /// own advice from the code (openspec <c>push-keeps-what-landed</c> 2.5; "Push the fixed text with --force" was
+    /// here).</summary>
     public static string Reason(string name) =>
         $"TwinCAT does not read '{name}' as a POU; touching its tree item crashes TcXaeShell after a load " +
-        "(DIALECT C2i), so Volt does not read it. Push the fixed text with --force.";
+        "(DIALECT C2i), so Volt does not read it.";
 
     /// <summary>The wire kind a <c>.TcPOU</c> is, known without opening it: a POU is ONE kind, <c>X.pou</c> (openspec
     /// <c>push-without-header-check</c> 5.Q), so an untouchable POU is named under exactly one name and the CLI matches

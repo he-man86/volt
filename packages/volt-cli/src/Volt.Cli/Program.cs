@@ -153,6 +153,13 @@ internal static class Program
         var r = Commands.Push(root, bridge, a.Has("--force"), a.Value("--force-with-lease"), a.Has("--dry-run"), Reporter.Create());
         if (a.Has("--json")) { EmitJson(r); return r.Kind == ResultKinds.Ok ? 0 : 2; }
         if (r.Kind == ResultKinds.Rejected) { Console.Error.WriteLine(r.Reason); return 1; }
+        // Landed in part: what landed on stdout, what did not on stderr, and exit 2 — the op ran and the answer was "not all".
+        if (r.Kind == ResultKinds.Partial)
+        {
+            Console.WriteLine($"pushed {r.Items!.Count} item(s)");
+            Console.Error.WriteLine(r.Reason);
+            return 2;
+        }
         Console.WriteLine(r.Message ?? $"pushed {r.Items!.Count} item(s)");
         return 0;
     }

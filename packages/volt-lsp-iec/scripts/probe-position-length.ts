@@ -51,14 +51,14 @@
  *
  * ALWAYS POINT THIS AT A COPY (see probe-is-it-compiled.ts): it writes PLC_PRG and restores after each probe.
  */
-import { call } from "./bridge.js"
+import { call, landedInFull } from "./bridge.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 
 const refs = async (): Promise<any> => await call("refs")
 const version = async (name: string): Promise<string | null> => (await refs()).items[name] ?? null
 const push = async (ops: unknown[]): Promise<void> => {
   const r = await call("push", { expectedProjectVersion: (await refs()).projectVersion, ops })
-  if (!r.accepted) throw new Error(`push rejected: ${JSON.stringify(r.conflicts ?? r)}`)
+  if (!landedInFull(r)) throw new Error(`push did not land in full: ${JSON.stringify(r.conflicts ?? r)}`)
 }
 const build = async (): Promise<string[]> =>
   ((await call("build", { buildType: "full" })).diagnostics ?? []).map((d: any) => String(d.message))

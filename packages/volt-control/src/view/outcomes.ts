@@ -132,6 +132,15 @@ export function describePush(outcome: PushOutcome, status?: StatusJson): Outcome
       return { tone: "error", message: `volt push failed: ${outcome.message}`, actions: [] }
     case "rejected":
       return { tone: "warn", message: `volt: ${outcome.reason}`, actions: [PULL_FIRST, FORCE_PUSH] }
+    case "partial":
+      // No button: what to do differs per op (re-send, change the text, pull first) and the CLI's reason says it for
+      // each. Force would overwrite the IDE with items that just landed, for nothing.
+      return {
+        tone: "warn",
+        message: `Pushed ${outcome.items.length} item(s) to the IDE; some did not land.
+${outcome.reason}`,
+        actions: [],
+      }
   }
 }
 

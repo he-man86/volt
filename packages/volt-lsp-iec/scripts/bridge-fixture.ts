@@ -7,7 +7,7 @@
  * an untasked POU is NOT compiled, so a repro must live in / be called from the tasked PLC_PRG to build. Safe
  * against the committed FIXTURE project only.
  */
-import { call } from "./bridge.js"
+import { call, landedInFull } from "./bridge.js"
 
 export const MINIMAL_PLC = "PROGRAM PLC_PRG\nEND_PROGRAM\n"
 export const pushOps = (ops: unknown[]): Promise<any> => call("push", { expectedProjectVersion: null, ops })
@@ -30,7 +30,7 @@ export async function openFixture(): Promise<Fixture> {
     touched.add(name)
     const v = (await call("refs")).items[name] ?? null
     const r = await pushOps([{ op: "set", name, toFolder: v ? null : "", sourceText: src, ifVersion: v }])
-    if (r.accepted) return
+    if (landedInFull(r)) return
     // Rejected → the item is UNREADABLE (invisible in /refs but blocks re-create). Delete with the sentinel, recreate.
     await pushOps([{ op: "deleteItem", name, ifVersion: "UNREADABLE000000" }])
     await pushOps([{ op: "set", name, toFolder: "", sourceText: src, ifVersion: null }])

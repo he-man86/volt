@@ -125,7 +125,7 @@ public static class BodyFormatGuard
             if (held == stated) return;                      // the pulled line pushed back: the ordinary no-op
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what} is stated '{stated}' but its body in the IDE is '{held}' — a hidden body cannot change " +
-                "language by push. Pull first, or change it in the IDE.");
+                "language by push; change it in the IDE.");
         }
 
         // An LD/FBD body the IDE holds as network text, pushed as its UNSUPPORTED line, is the SAME body hidden: a
@@ -141,7 +141,7 @@ public static class BodyFormatGuard
             var stated = ImplementationMarker.Canonical(pushedBody.Trim());
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what} is stated '{stated}' but its body in the IDE is '{held}' — a hidden body cannot change " +
-                "language by push. Pull first, or change it in the IDE.");
+                "language by push; change it in the IDE.");
         }
 
         if (live == pushed) return;                          // same kind of body: the ordinary write
@@ -153,7 +153,7 @@ public static class BodyFormatGuard
         if (pushed == Shape.Unsupported)
             throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"{what} is stated '{pushedBody.Trim()}' — hidden, read-only here and never written — but its body in " +
-                "the IDE is ST — state its language and push real source, or pull first.");
+                "the IDE is ST — the text pushed is not that body's source.");
 
         if (live == Shape.Unsupported)
             throw new BridgeException(BridgeErrorCodes.Unsupported,

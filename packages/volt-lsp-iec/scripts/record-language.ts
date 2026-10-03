@@ -35,7 +35,7 @@ import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
-import { call, requireNetworkText } from "./bridge.js"
+import { call, landedInFull, requireNetworkText } from "./bridge.js"
 import { deleteOpsFor, heldIn, orphansIn, type Held } from "./held-as.js"
 import { ORACLE_WIDTH, TARGET_PROBE, targetWidth } from "./recording-target.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
@@ -166,9 +166,12 @@ async function pushOps(ops: unknown[]): Promise<void> {
   // never seen. That is the reachability trap the whole suite is built to avoid — a clean build on something
   // that is not there is not weak evidence, it is no evidence — and it arrives as GREEN, which is the one
   // colour nobody re-checks.
-  if (!r.accepted)
+  // `accepted` alone is not "the fixture is in the IDE" either: an apply-time refusal of a LATER item (TwinCAT's
+  // lagging callee seed, `vendorRefuses.twincat`; a member name only the IDE refuses) answers accepted WITH a conflict
+  // for every item that did not land — and a build of that is a build of a project missing the refused item.
+  if (!landedInFull(r))
     throw new Error(
-      `push rejected, so nothing below this line would describe the fixture:\n  ` +
+      `push did not land in full, so nothing below this line would describe the fixture:\n  ` +
         JSON.stringify(r.conflicts ?? r),
     )
 }
@@ -254,7 +257,7 @@ async function removeItems(wires: readonly string[], before: Held): Promise<void
   const { ops, force } = deleteOpsFor(wires, r, before)
   if (ops.length === 0) return
   const p = await call("push", { expectedProjectVersion: r.projectVersion, force, ops })
-  if (!p.accepted) throw new Error(`could not delete ${JSON.stringify(wires)}: ${JSON.stringify(p.conflicts ?? p)}`)
+  if (!landedInFull(p)) throw new Error(`could not delete ${JSON.stringify(wires)}: ${JSON.stringify(p.conflicts ?? p)}`)
 }
 
 // a fixture wire held under its own name OR under the name the IDE holds that one object under (`held-as.ts`) —

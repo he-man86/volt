@@ -11,7 +11,7 @@
  * compiler's severity against what `classifyConversion` predicts; prints every disagreement. Restores after.
  */
 import { classifyConversion, type ConversionKind, type Type } from "../src/frontend/types/index.js"
-import { call, VENDOR } from "./bridge.js"
+import { call, landedInFull, VENDOR } from "./bridge.js"
 
 if (process.argv.includes("--explicit")) {
   const { explicitConversionPairs } = await import("../test/frontend/conversion-pairs.js")
@@ -46,7 +46,7 @@ const predicted = (kind: ConversionKind): "none" | "warning" | "error" =>
 const version = async (name: string): Promise<string | null> => (await call("refs")).items[name] ?? null
 async function pushOps(ops: unknown[]): Promise<void> {
   const r = await call("push", { expectedProjectVersion: (await call("refs")).projectVersion, ops })
-  if (!r.accepted) console.warn("  push rejected:", JSON.stringify(r.conflicts ?? r).slice(0, 200))
+  if (!landedInFull(r)) console.warn("  push did not land in full:", JSON.stringify(r.conflicts ?? r).slice(0, 200))
 }
 
 const decls = TYPES.map((t) => `  v_${t} : ${t};`).join("\n")

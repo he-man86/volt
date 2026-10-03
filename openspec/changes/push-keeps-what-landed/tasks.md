@@ -108,7 +108,7 @@
 
 ## 2. Per-item outcome
 
-- [ ] 2.1 Pre-flight collects EVERY refusal (one conflict per refused op, code + reason + line) and still writes
+- [x] 2.1 Pre-flight collects EVERY refusal (one conflict per refused op, code + reason + line) and still writes
       nothing (`accepted:false`). (Design 1a — per-item application CONFLICTS, owner.) The gate's PER-ITEM conflicts
       (`STALE_ITEM_VERSION`, `ITEM_EXISTS`, `ITEM_MISSING`, `ITEM_UNVERIFIED`, `UNREADABLE`) no longer return before
       the pre-flight: the pre-flight runs over the ops the gate did not name and the response is the UNION (review
@@ -116,7 +116,14 @@
       the client must pull before anything else means something) is answered alone, and `BAD_REQUEST` for the
       request's own shape (`RequireWireNames` / `RequireOneOpPerItem` — a client bug, not an item's content) stops at
       the first offending op. Test red first: `[set A stale ifVersion, set B INVALID_ST]` → two conflicts.
-- [ ] 2.2 Apply loop: on an IDE refusal STOP (no rollback of earlier ops; a refused create stays rolled back, 2a);
+      **Done 2026-10-03.** `PushService.Handle`: the gate returns early only on `STALE_PROJECT_VERSION`; the pre-flight
+      runs over every op the gate did not name and COLLECTS (`Reject` split into `ConflictFor` + `RejectAll`); the
+      answer is gate ∪ pre-flight in request order, one conflict per op. `BAD_REQUEST` (request shape) unchanged.
+      Tests: `PushKeepsWhatLandedTests.A_stale_item_and_a_malformed_item_are_named_together_and_nothing_is_written`
+      (`[A STALE_ITEM_VERSION, B INVALID_ST]`, nothing recorded), `A_stale_lease_is_answered_without_the_pre_flight`,
+      and step 1's `A_pre_flight_with_two_malformed_items_names_both_and_writes_nothing` green. Live CODESYS (own
+      instance): 1.2 names `VltE2E_pk_bad1` AND `VltE2E_pk_bad2` [INVALID_ST], nothing written.
+- [x] 2.2 Apply loop: on an IDE refusal STOP (no rollback of earlier ops; a refused create stays rolled back, 2a);
       if the rollback's own delete fails, the conflict says the shell remains. (Design 1c/2b — continuing / restoring
       an update CONFLICTS, owner.)
       ALSO OWNS (gate step 1, F1/F2): (a) both drivers classify the measured member-NAME refusals as
@@ -128,9 +135,26 @@
       (c) a failed rollback delete reaches the conflict ("'F' remains …") and no reason claims a rollback that did not
       happen — `MemberRefusal` is worded before `Rollback` runs, so the rollback's outcome must decide the wording
       (green: the three gate-step-1 tests in `PushKeepsWhatLandedTests`).
-- [ ] 2.3 Dependent ops — already true (one op per item, gate forward simulation, stop-at-refusal makes every later op
+      **Done 2026-10-03.** Stop at the refusal (unchanged). `OpOutcome` threads through `ApplyOp` to every create;
+      `Rollback` records `Created` / `RollbackFault`; `ConflictFor` words it once, for classified and unclassified
+      alike ("'F' is not created (the create is rolled back)" or "'F' was created and could not be removed (…): 'F'
+      remains in the project"); `MemberRefusal` no longer words a create. (a) `ChildRefusedException.Cause`
+      (`Kind`/`Name`); CODESYS `is not valid for this object`, TwinCAT `(Name mismatch)` classified as `Name`; the
+      declaration hint only for `Kind`. **Top-level measured live** (CODESYS SP21, own instance `-Instance
+      push-keeps-what-landed`, fixture copy, then `down`): `LOG.pou` and `Log.dut` creates refused "The name '…' is not
+      valid for this object.", nothing created → wrapped in `WriteItemFromSource` as "the IDE refused to create
+      '<name>': <vendor words>" (DIALECT C2k extended). (b)/(c) also for an UPDATE: an unclassified failure after the
+      declaration landed / a member was deleted now says so (`UpdateLanded`, same words as `MemberRefusal`).
+      Green: the three gate-step-1 tests, both driver name tests, new `The_driver_says_whether_the_kind_or_the_name_is_refused`
+      (both drivers), `A_top_level_create_whose_name_the_IDE_refuses_is_worded_as_the_items_refusal` (red first),
+      `An_unclassified_failure_of_an_update_after_its_declaration_landed_says_the_declaration_stays`. Live CODESYS 1.1:
+      `accepted:true`, the two DUTs in the receipt, ONE conflict `VltE2E_pk_FB.pou [UNSUPPORTED]` "… refused to create
+      its method 'Log': The name 'Log' is not valid for this object. — 'VltE2E_pk_FB' is not created (the create is
+      rolled back)", refs after = the two DUTs, no shell. TwinCAT not re-run live in this step (4.1).
+- [x] 2.3 Dependent ops — already true (one op per item, gate forward simulation, stop-at-refusal makes every later op
       `NOT_ATTEMPTED`); nothing to build (design item 4).
-- [ ] 2.4 Response: at least one op APPLIED IN FULL → `accepted:true` + receipt + conflicts = the refused op (its
+      **Recorded 2026-10-03:** nothing built; `NOT_ATTEMPTED` (2.4) names every op after the stop.
+- [x] 2.4 Response: at least one op APPLIED IN FULL → `accepted:true` + receipt + conflicts = the refused op (its
       code) + `NOT_ATTEMPTED` for each op after it; no op applied in full → `accepted:false` as today, no NOTE —
       whatever of the refused op itself was touched (an update's declaration / deleted member, a create whose
       rollback failed) is stated in ITS conflict's reason, not in `accepted` (review R1: the `MemberRefusal` oracles
@@ -143,7 +167,16 @@
       only when `!resp.Accepted` and on `accepted` points `volt/ide` at HEAD and adopts the receipt for every known
       and pushed name, so 2.4 alone would mark refused and `NOT_ATTEMPTED` edits as synced (`volt status` shows a
       refused `F.pou` in sync while the IDE has no `F`).
-- [ ] 2.4b CLI (`Commands.Push`): on accepted-with-conflicts, `volt/ide` = previous tree + the APPLIED ops' rows only;
+      **Done 2026-10-03.** `accepted:true` iff an op applied in full before the refusal: `FlushPendingWrites`,
+      `PruneEmptied` over the applied ops only, the receipt walk, `PushResponse.PartialResult` with the refused op +
+      `NOT_ATTEMPTED` per later op in APPLY order ("not applied: the push stopped at '<op>'"). Nothing applied →
+      `RejectAll` as before, no NOTE. `ConflictCodes.NotAttempted`; `PushResponse.Conflicts` doc; docs `wire.html`
+      (#partial-push), `logs.html`, `index.html`; the `DocDataTests` push facts rewritten, `conflictCodes.apply` in the
+      data (regenerated, `VOLT_WRITE_DOCS=1`). volt-control: `PushOutcome` `partial`, `describePush` (warn, no
+      action). Tests: `Every_op_after_the_refused_one_in_apply_order_is_named_not_attempted`,
+      `A_refusal_of_the_first_op_is_rejected_without_a_note_and_names_the_rest_not`, step 1's two accepted-path tests;
+      the `MemberRefusal` oracles (`Accepted == false`) unchanged and green.
+- [x] 2.4b CLI (`Commands.Push`): on accepted-with-conflicts, `volt/ide` = previous tree + the APPLIED ops' rows only;
       adopt receipt versions for (names the sidecar already knows ∪ names the APPLIED ops produce) MINUS every
       conflicted name — not "applied names only" (review R3: a native rename rewrites referencing items outside the
       op set, and their new versions must enter the baseline as they do today, Commands.cs "THE BASELINE GROWS ONLY
@@ -154,7 +187,19 @@
       rollback failed) keeps its old baseline on purpose, so the next `volt push` is refused (`STALE_ITEM_VERSION` /
       `ITEM_EXISTS`) and `volt pull` must bring the IDE's state in first (review R4) — the CLI's advice for that
       conflict says pull first; test it (partial push, then push again → refused, pull → push re-sends the edit).
-- [ ] 2.5 Delete the apply NOTE (`volt pull` … push again) from `PushService.Reject`, AND the CLI advice in every
+      **Done 2026-10-03, CLI tests red first** (all three answered `ok` before): `PartialPushCommandTests` —
+      `A_partly_refused_push_leaves_only_the_refused_edit_outgoing_and_the_next_push_resends_only_it`,
+      `A_rename_landing_beside_a_refused_op_adopts_the_rewritten_reference_and_keeps_the_refused_item_old` (FakeIde
+      `RewritesReferencesOnRename`), `A_refused_op_that_partly_landed_needs_a_pull_before_the_next_push` (partial →
+      push refused `STALE_ITEM_VERSION` → pull → push re-sends only `K_Motor.pou`). `Commands.Push`: landed ops =
+      ops − conflicts; `volt/ide` = previous volt/ide + landed rows (`headPathOf`, blob from HEAD) on the previous
+      volt/ide alone, no working-tree merge; adoption (known ∪ landed-produced) − conflicted names, conflicted keep
+      old version AND folder; `retiredByPush`, `Rematerialized`, `HeldUnderAnotherName` over landed ops; on a partial
+      push the IDE's own layout is pinned (pushed text's version) instead of adopted (a true merge would conflict).
+      `ResultKinds.Partial` / `PushResult.Partial`; advice by code and by the receipt (`PartlyLanded`: the item is in
+      the receipt at another version than the baseline → "run `volt pull` first"); `Program`: stdout landed count,
+      stderr reason, exit 2.
+- [x] 2.5 Delete the apply NOTE (`volt pull` … push again) from `PushService.Reject`, AND the CLI advice in every
       other reason that can reach a conflict on an ACCEPTED push, i.e. raised inside the apply loop (review R2 —
       no test pins these; `grep -rn "Pull first\|change it in the IDE" packages/volt-cli/test` finds nothing):
       `RequireUnchanged` / `RequireUnchangedBeforeDelete` ("Pull first, then push again.", PushService.cs:444/:468),
@@ -165,6 +210,72 @@
       the IDE after the gate) → its reason contains none of `volt pull`, `Pull first`, `--force`, `push again`.
       The remedies raised only BEFORE the first write (`StReader` "Run `volt pull`", pinned ×7; `PushConflicts`
       "--force") are on `accepted:false` answers, outside the requirement, and stay (design item 5, owner).
+
+      **Done 2026-10-03.** Deleted: the NOTE (with `Reject`), "Pull first, then push again." ×2, "Pull first," in
+      `BodyFormatGuard` ×2 ("change it in the IDE" kept), "Push the fixed text with --force" from
+      `ExplorerSnapshot.Reason` (the FACT stays; the same words reached the apply-time `UnreadableItemException`).
+      Test: `A_race_refused_after_another_op_landed_carries_no_client_instruction` (accepted, one conflict `B.pou`,
+      none of the advice words). Kept, pinned pre-write: `StReader` "Run `volt pull`", `PushConflicts` "--force".
+      **Suites (this tree):** Engine 1882 pass / 1 skip, Cli 242, Contracts 19, Connector 113, Ide.Twincat 298,
+      Ide.Codesys 204, Relay 46, Repo.Gates 92 — 2896 pass, 0 fail; volt-cli `bun test test/unit` 4/4; volt-control
+      122/122; root `typecheck` clean, `lint` exit 0. No LSP / fixture / transpiler file touched.
+- [x] 2.G Gate step 2 — review findings (2026-10-03), six, all valid; each fixed with its test red first:
+      F1 (`accepted` alone read as "landed in full" by the bridge scripts) — `landedInFull(r)` in volt-lsp-iec
+      `scripts/bridge.ts` (+ `bridge.test.ts`); `record-language` (push + delete), `bridge-fixture`, `audit-check`,
+      `conversion-matrix`, `probe-position-length`, `probe-is-it-compiled` use it — a partial push is fatal to a recording.
+      F2 (e2e ratchets) — `landedInFull` in `test/e2e/lib/workspace.ts` (`pushOps` warning, `cleanup`);
+      `callee-seed-lag` asserts the CALLER's conflict and its reason (not `accepted === false`); `refused-shapes` branches
+      on `landedInFull`. Not run live on TwinCAT in this fix.
+      F3 (rename kept, unsaid; CLI advice wrong) — `OpOutcome.Renamed` (item and task renames): "'X' was renamed to 'Y'
+      before it (the IDE rewrote the references to it) and stays renamed"; CLI `PartlyLanded` true when the receipt holds
+      the rename target and not the old name → "run `volt pull` first". Tests
+      `A_rename_whose_edit_is_refused_after_the_rename_ran_says_the_rename_stays`,
+      `PartialPushCommandTests.A_rename_refused_after_the_rename_ran_advises_a_pull_first`.
+      F4 (members created / forced replace's delete unsaid) — `UpdateLanded` names members CREATED before the refusal
+      ("… was created before it and stays (with its seed text)"); `OpOutcome.Replaced` on `ApplyToUnopened`. Tests
+      `An_update_refused_after_it_created_a_member_says_the_member_stays`,
+      `A_forced_replace_whose_create_fails_says_the_original_was_deleted`.
+      F5 ("pull first" at apply) — `BodyFormatGuard` :156 and every UNPINNED apply-time "… and pull (it)" (case-only
+      rename, `CodesysNetworkWriter.Unbuildable`, `TcNetworkWriter` delete/`Refuse`, `TcPlcOpenWriter` ×2, `TcUnmeasured`
+      + `TcEnoRefusal`) reworded to name what the IDE can do, no client command. Test
+      `A_hidden_body_refused_at_apply_after_another_op_landed_carries_no_client_instruction` (case-insensitive).
+      **Left for the owner (pinned by tests):** `InterfaceAccessorGuard` "make the change in the IDE and pull"
+      (`InterfaceAccessorGuardTests:116`, LSP fixture `grammar/units.ts:55`) and `TcNetworkWriter` "Add it in the IDE and
+      pull it." (`TcNetworkWriterTests:268`).
+      F6 (partial push pinned a layout as "another program") — on a partial push the IDE's layout is adopted as on a
+      full push: a commit on HEAD with the IDE's text of those items, fast-forwarded, and the partial volt/ide takes
+      their text from it; `PushedVersion` deleted. Test
+      `PartialPushCommandTests.A_hand_layout_landing_beside_a_refused_op_is_adopted_and_not_reported_as_another_program`.
+      Suites: Engine 1886 / 1 skip, Cli 244, Ide.Twincat 298, Ide.Codesys 204, Repo.Gates 92, Contracts 19 — 0 fail;
+      volt-cli + volt-lsp-iec `tsc` clean. LSP (scripts only): `scripts/bridge.test.ts` 5/5, test/conformance 5374 pass /
+      0 fail, rate:fixtures leaves the map unchanged; test/frontend 1 fail (`0.4 types` baseline) — from the uncommitted
+      `src/frontend/types/**` work of another workflow in the tree, not from this fix (no script is imported by it).
+- [x] 2.G2 Gate step 2, round 2 — review findings (2026-10-03), six, all valid; each fixed with its test red first:
+      F1 (an update's other mutations unsaid) — `MemberChanges` records every step `ReconcileMembers` takes: members
+      deleted/created, POU-internal folders created (`TreeNav.ResolveFolder`/`ResolveTopLevelFolder` now report what they
+      create), members moved, accessors deleted/created; `UpdateLanded` words each ("the Get accessor of property 'P' was
+      deleted before it and stays deleted", "its method 'DoIt' was moved to 'Helpers' …"). Tests (red: the bare refusal)
+      `An_update_refused_after_it_deleted_an_accessor_says_the_accessor_stays_deleted` (the repro),
+      `…_created_an_accessor_says_the_accessor_stays`, `…_moved_a_member_says_the_move_and_the_new_folder_stay`.
+      F2 (CODESYS accessor create "Add it in the IDE, then pull.", INTERNAL_ERROR) — `CodesysDriver.NoAccessorCreate`: a
+      `NotSupportedException` (→ UNSUPPORTED), no client command. Test
+      `CodesysChildRefusalTests.A_missing_accessor_create_is_a_vendor_cannot_that_names_no_client_command`.
+      F3 (move+edit refused after its write) — `MoveItem` records the text written, the destination folders created and
+      the move; `RecordMoveKept` (filter) adds them to the reason. Tests
+      `A_move_refused_after_its_edit_was_written_says_the_text_and_the_folder_stay`,
+      `A_move_whose_second_write_is_refused_says_the_move_stays` (`FakeIde.FailMove` added).
+      F4 (CLI "nothing of it landed" vs the forced-replace reason) — the fall-through advice claims nothing the CLI cannot
+      see: "fix what the reason names, then push again" (re-sending creates the item, so the action stands). Test
+      `PartialPushCommandTests.A_forced_replace_whose_create_fails_is_not_advised_as_nothing_landed`.
+      F5 (partial push merged the layout before the ref) — the layout commit is made first, the working tree follows it
+      only after volt/ide and the sidecar are written (one merge site with the full path). Test
+      `A_partial_push_writes_the_ide_ref_and_the_baseline_before_it_moves_the_working_tree` (index locked once the push
+      is at the bridge; red: volt/ide unchanged).
+      F6 (`kind-name-cycle` sweep) — `landedInFull` + a refs re-read that throws on leftovers. Not run live (e2e).
+      Suites: Engine 1891 / 1 skip, Cli 246, Contracts 19, Connector 113, Ide.Twincat 298, Ide.Codesys 205, Relay 46,
+      Repo.Gates 92 — 2910 pass, 0 fail; volt-cli `bun test test/unit` 4/4; volt-control 122/122; root `typecheck`
+      clean, `lint` exit 0. LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 7382 pass / 34 skip / 210 todo /
+      0 fail (203 files); `scripts/bridge.test.ts` 5/5. No fixture / transpiler file touched → fixture map not regenerated.
 
 ## 3. Optional pre-flight
 

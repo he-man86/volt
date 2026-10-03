@@ -37,7 +37,7 @@
  * five are the only fixtures in 2561 with no TwinCAT recording, because the recorder cannot push them.</p>
  */
 import { describe, it, expect, beforeAll, setDefaultTimeout } from "bun:test"
-import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, removeItem, requireHealthy } from "../harness"
+import { VENDOR, BASE, bridge, id, fid, fetchItem, pushOps, landedInFull, removeItem, requireHealthy } from "../harness"
 
 setDefaultTimeout(180_000)
 
@@ -202,7 +202,9 @@ describe(`graphical / shapes a driver refuses (${BASE})`, () => {
 
 			const r = await pushOps(shape.items.map((i) => ({ op: "set", name: i.name, toFolder: "", sourceText: i.source, ifVersion: null })))
 
-			if (!r.accepted) {
+			// `landedInFull`, not `accepted`: a shape refused at APPLY after an earlier item landed answers accepted
+			// with a conflict (push-keeps-what-landed) — it must reach this branch, where "nothing landed" then fails.
+			if (!landedInFull(r)) {
 				expect(refused, `${shape.what} was REFUSED on ${VENDOR}, which the table does not expect:\n${JSON.stringify(r.conflicts)}`).toBe(true)
 				// The reason is the whole value of a refusal: a bare rejection tells an engineer to try again.
 				expect(JSON.stringify(r.conflicts ?? []).length, `${shape.what} was refused with no reason`).toBeGreaterThan(40)

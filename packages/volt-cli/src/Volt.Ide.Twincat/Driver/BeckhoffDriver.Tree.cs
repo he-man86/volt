@@ -269,7 +269,7 @@ public sealed partial class BeckhoffDriver
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
         try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
-        catch (Exception ex) when (ChildRefusal(ex) is { } why) { throw new ChildRefusedException(why, ex); }
+        catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
 
     /// <summary>Is this TwinCAT's own refusal of a child under its parent? Measured wording (TcXaeShell, DIALECT C2k,
@@ -277,10 +277,20 @@ public sealed partial class BeckhoffDriver
     /// type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)" — a method under FUNCTION text. Anything else (an "Unbound
     /// tree item", a COM fault) is not a refusal and is not reported as one.
     /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
-    public static string? ChildRefusal(Exception ex)
+    public static string? ChildRefusal(Exception ex) => Refusal(ex)?.Message;
+
+    /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
+    /// "… Creating the child named 'Log' is not possible on node (Name mismatch)" — a METHOD named <c>Log</c> under a
+    /// function block (TcXaeShell, openspec <c>push-keeps-what-landed</c> 1.G F3, measured live 2026-10-03): the NAME
+    /// is refused, whatever the declaration says.
+    /// Only measured wording; no guessed reserved-word list.</summary>
+    public static (string Message, ChildRefusalCause Cause)? Refusal(Exception ex)
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
-            if (e.Message.IndexOf("(SubType mismatch)", StringComparison.Ordinal) >= 0) return e.Message;
+        {
+            if (e.Message.IndexOf("(SubType mismatch)", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Kind);
+            if (e.Message.IndexOf("(Name mismatch)", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Name);
+        }
         return null;
     }
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
