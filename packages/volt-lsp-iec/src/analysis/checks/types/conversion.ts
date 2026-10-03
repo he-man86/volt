@@ -8,7 +8,7 @@
  * 'TIME_OF_DAY'" (conformance `cc_conv_short_source_mismatch`).
  */
 import { walkAllExprs } from "../../../frontend/syntax/index.js"
-import { bodies } from "../../../frontend/symbols/index.js"
+import { bodies, targetOf } from "../../../frontend/symbols/index.js"
 import { elementaryTypeRef, inferExprType, isAssignable, parseConversionName, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -17,7 +17,7 @@ export function checkConversionCalls(ctx: CheckContext, out: DiagnosticItem[]): 
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkAllExprs(statements, (e) => {
       if (e.kind !== "call" || e.callee.kind !== "ident_expr") return
-      const sourceElem = parseConversionName(e.callee.name)?.from
+      const sourceElem = parseConversionName(e.callee.name, targetOf(ctx.project))?.from
       if (sourceElem === undefined) return // not a conversion, or `TO_<DST>` (no explicit source) → skip
       if (e.args.length !== 1) return
       const arg = e.args[0]

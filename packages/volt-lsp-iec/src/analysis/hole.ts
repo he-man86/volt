@@ -10,7 +10,7 @@
  */
 import { addressShape, typedLiteralForm, type Expr, type Span } from "../frontend/syntax/index.js"
 import type { Scope } from "../frontend/symbols/index.js"
-import { inferExprType, parseConversionName, resolveMemberChain, resolveNamedType } from "../frontend/types/index.js"
+import { inferExprType, isConversionName, resolveMemberChain, resolveNamedType } from "../frontend/types/index.js"
 import type { DiagnosticItem } from "./diagnostic-item.js"
 
 /** The findings that mean the expression has NO TYPE — the ST codes and their network-text counterparts. */
@@ -97,7 +97,7 @@ export function passThroughOperand(e: Expr): Expr | undefined {
  */
 export function bareConversionArgument(e: Expr): Expr | undefined {
   if (e.kind !== "call" || e.callee.kind !== "ident_expr" || !/^TO_/i.test(e.callee.name)) return undefined
-  if (parseConversionName(e.callee.name) === undefined) return undefined
+  if (!isConversionName(e.callee.name)) return undefined
   const [only] = e.args
   return e.args.length === 1 && only.param === undefined ? only.value : undefined
 }

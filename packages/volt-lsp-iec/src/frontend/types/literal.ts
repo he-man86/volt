@@ -2,8 +2,7 @@
  * A LITERAL'S TYPE — what the compiler makes of an untyped integer, an untyped real, and the limits a literal is held to.
  */
 import { calendarNanoseconds, typedLiteralForm, type BinaryExpr, type Expr, type Literal } from "../syntax/index.js"
-import { ELEMENTARY_TYPES, elementaryType, type ElementaryType } from "./elementary.js"
-import { canonicalElem } from "./platform.js"
+import { aliasElem, ELEMENTARY_TYPES, elementaryType, type ElementaryType } from "./elementary.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 import { integerOfWidth } from "./width.js"
 import { renderType } from "./render.js"
@@ -111,6 +110,21 @@ export function literalCheckType(value: Expr, target: Type): Type | undefined {
 }
 
 /**
+ * The type an untyped integer literal CONVERTS from when it stands where the vendor converts it into `target` without a
+ * store — a CASE label into the selector's type, a FOR's TO bound into the counter's (rule LT12) — or undefined. Only the
+ * measured shape answers: a value beyond a SIGNED integer target that the unsigned type OF THE SAME WIDTH holds (`200:`
+ * under a SINT selector, `FOR si := 1 TO 200`: USINT → SINT, `lt_literal_case_label_out_of_range`,
+ * `lt_literal_for_bounds_out_of_range`, both vendors 2026-10-03). A wider literal, a negative one under an unsigned
+ * target, or a typed constant is unrecorded and stays undefined.
+ */
+export function literalContextConversion(value: Expr, target: Type): Type | undefined {
+  if (target.kind !== "elementary" || target.elem.family !== "int" || !target.elem.signed) return undefined
+  const src = literalCheckType(value, target)
+  if (src === undefined || src.kind !== "elementary" || src.elem.family !== "int") return undefined
+  return !src.elem.signed && src.elem.bits === target.elem.bits ? src : undefined
+}
+
+/**
  * The type an untyped numeric literal is checked as for the "Cannot convert" ERROR when stored into `target` (an
  * assignment or a declaration's initial value) — or undefined when there is nothing to check. Recorded on CODESYS
  * (conformance `cc_init_*`, `cc_assign_*`, `cc_literal_*`, consolidate-lsp-structure A13):
@@ -200,7 +214,7 @@ export function typedLiteralSum(e: BinaryExpr, l: Type, r: Type): Type | undefin
   const { left, right } = e
   if (left.kind !== "literal" || right.kind !== "literal" || left.literalKind !== "typed" || right.literalKind !== "typed") return undefined
   if (typeof left.value !== "bigint" || typeof right.value !== "bigint") return undefined
-  if (l.kind !== "elementary" || r.kind !== "elementary" || l.elem.family !== "int" || canonicalElem(l.name) !== canonicalElem(r.name)) return undefined
+  if (l.kind !== "elementary" || r.kind !== "elementary" || l.elem.family !== "int" || aliasElem(l.name) !== aliasElem(r.name)) return undefined
   const sum = left.value + right.value
   const order = [8, 16, 32, 64].map((bits) => integerOfWidth(bits, l.elem.signed === true))
   const fits = order.find((t) => t.bits >= l.elem.bits && sum >= t.range!.min && sum <= t.range!.max)

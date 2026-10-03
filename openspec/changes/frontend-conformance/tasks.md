@@ -2317,25 +2317,121 @@ One fixture per typing rule, recorded with `record:exec` (values that expose wid
 type messages). Every task's acceptance is **CA** unless it says otherwise. Area 4 needs the restructure and the 0.4 dumps; the
 cross-area edges are named on the tasks that have them.
 
-- [ ] 4.1.1 Platform width per target (TY5–TY6): `Target` on the project scope; `canonicalElem`, `POINTER_BITS` readers,
+- [x] 4.1.1 Platform width per target (TY5–TY6): `Target` on the project scope; `canonicalElem`, `POINTER_BITS` readers,
       `temporalResultType`, compat's pointer↔integer rule and infer REQUIRE a target (the 1.31 default is deleted, so `tsc` lists
       every caller). The transpile `lowering.ts` call gets today's 64-bit target explicitly and is handed off (5.3). Record
       ty_xint_twincat_width, ty_pointer_size_twincat.
       Where: types/platform.ts, symbols/scope.ts (target beside dialect), every caller. Acceptance: CA; Gate T for the one
       transpile call. Depends on: 1.41, 0.4
-- [ ] 4.1.2 Platform conversion names (TY11): `parseConversionName` accepts `__XINT_TO_*`; hand the transpile rewrite to T. Record
+      **4.1.1 (2026-10-03).** `Target` (`syntax/pragmas/conditional`, `CompileEnvironment.target`, absent = unknown) is the
+      project scope's (`symbols/scope` `targetOf`, beside `dialectOf`; throws off a non-root). REQUIRED (no default) by
+      `canonicalElem(name, target)`, `elementaryTypeOn`, `parseConversionName`, `builtinCallResult` and the pointer rule
+      `compat.pointerFits(t, target)`; `elementaryType` and every comparison of RESOLVED names read `aliasElem` (a resolved
+      Type never carries a platform name), so `temporalResultType`/`compat`/`infer` need no target. On an unknown target a
+      platform integer is a type NAME (`isElementaryTypeName`, never "Unknown type") with no facts: UNKNOWN, silent. Who
+      states it: the harness (`RECORDING_ENVIRONMENT`, 64-bit, measured), lowering (`EXEC_ORACLE_TARGET`; Gate T: the one
+      `prepareProject` call and `bytes.ts` SIZEOF of a type name — handed off, 5.3), the server and the corpus binding from a
+      device descriptor whose width is measured (`workspace-refs` `MEASURED_DEVICE_TARGETS`: `CODESYS Control Win V3 x64`).
+      Recorded ty_xint_twincat_width, ty_pointer_size_twincat (both vendors): both recording projects are 64-bit, and the
+      pointer rule is ONE rule, the target's (64-bit: LWORD/ULINT/`__XWORD` silent, WORD/DWORD/UDINT "Cannot convert";
+      32-bit: DWORD/UDINT silent too) — not the vendor split `pointer-conversion` had (it was the two projects' targets).
+      FOUND: TwinCAT Project14 opens on TwinCAT CE7 (ARMV7), 32-bit — the 50 rows were recorded there first (DINT/UDINT/
+      DWORD, a pointer silent into DWORD) and re-recorded on Project13 (TwinCAT RT x64) so `twincat.build.json` keeps one
+      target (`scripts/check-recording.ts` notes it); which project earlier RECORD_ONLY merges used is not recorded.
+      TY6 STAYS A GAP: implemented and unit-tested, measured, but no committed recording of a 32-bit target.
+      Divergences: `ty_pointer_size_twincat` and `cc5_pointer_not_convertible` (now both vendors) in
+      `C0033_CONFIGURED_AS_AN_ERROR` (severity only). Census: `typedOnASixtyFourBitTarget` names the UNKNOWNs only the
+      target leaves — 54 own-file + 24 Library Manager expressions of the projects with no measured target (pro2193's
+      `CAA.HANDLE`/tick aliases), a new ceilinged class "a platform integer on a target nobody measured (TY6)".
+- [x] 4.1.2 Platform conversion names (TY11): `parseConversionName` accepts `__XINT_TO_*`; hand the transpile rewrite to T. Record
       ty_xint_to_dint, ty_dint_to_uxint.
       Where: conversion-name. Acceptance: CA. Depends on: 4.1.1
-- [ ] 4.1.3 Elementary facts, aliases, ANY groups, type restrictions (TY1–TY4, TY7–TY10, TY12–TY15). Record ty_bit_as_variable,
+      **4.1.2 (2026-10-03).** `conversion-name`: the platform sides read on every target (`isConversionName`,
+      `conversionSides`), their facts the target's (`parseConversionName(name, target)`); `builtinName` reads the sides by
+      spelling, inference types `DINT_TO___XINT(d)` LINT on a 64-bit target. Recorded ty_xint_to_dint, ty_dint_to_uxint,
+      ty_xint_to_dint_result_type (both vendors build and run all eight names; the result named by the message).
+      Transpile: its `builtins.ts` platform rewrite and `constants.ts` read `parseConversionName(…, undefined)` — unchanged
+      behaviour, handed to T (5.3); `ty_dint_to_uxint` is not-lowered ("not a project FUNCTION").
+- [x] 4.1.3 Elementary facts, aliases, ANY groups, type restrictions (TY1–TY4, TY7–TY10, TY12–TY15). Record ty_bit_as_variable,
       ty_pointer_to_bit, ty_array_of_bit, ty_array_of_reference, ty_any_num_parameter_accepts_int, ty_any_num_parameter_rejects_string,
       ty_version_type.
       Where: elementary, resolve, compat. Acceptance: CA; the 0.4 elementary findings are empty. Depends on: 4.1.2
-- [ ] 4.2 Literal typing in every context (LT1–LT14): record lt_literal_in_comparison, lt_literal_case_label,
+      **4.1.3 (2026-10-03).** Recorded (both vendors build, CODESYS run) the 37 cells of `fixtures/types/elementary-rules.ts`:
+      TY12 BIT in a FUNCTION's VAR/VAR_INPUT, a METHOD's VAR, an FB's VAR/VAR_INPUT, a GVL, POINTER TO/REFERENCE TO/ARRAY OF
+      BIT; TY13 ARRAY OF REFERENCE (+ ARRAY OF POINTER); TY14 ANY/ANY_NUM/ANY_INT/ANY_REAL/ANY_BIT/ANY_STRING/ANY_DATE/
+      ANY_ELEMENTARY/ANY_MAGNITUDE as a parameter, accepting or refusing, and ANY_NUM as a local; TY15 VERSION.
+      Measured and fixed test-first: a GVL is no BIT container ("Only structures and function blocks…", `bit-usage`); a
+      generic input refuses an argument outside its group in the group's name ("Cannot convert type 'STRING' to type
+      'ANY_NUM'"), TwinCAT's ANY_BIT refuses a BOOL that CODESYS's takes, ANY_ELEMENTARY/ANY_MAGNITUDE are no type on either
+      vendor (`compat.genericParameterAccepts`, `GENERIC_PARAMETER_TYPES`, `call-arguments`); VERSION is a struct of four UINTs
+      and an ANY input is the compiler's AnyType (`diSize` DINT, `pValue` POINTER TO BYTE) — `types/system.ts` binds both in
+      a project of their own, after the asker's symbols (closing the 24 `.diSize`/`.pValue` resolution findings 3.6 left).
+      Known divergences opened (`ELEMENTARY_RULE_DIVERGENCES`, both vendors, each niche: 0 occurrences in the corpora):
+      `ty_reference_to_bit`, `ty_any_num_as_local_variable` (no catalog code), `ty_any_elementary_parameter_rejects_struct`,
+      `ty_any_magnitude_parameter_accepts_time` (the unknown-type check passes every ANY_FAMILIES name), `ty_version_into_string`
+      (a struct into an elementary target is unchecked for every struct — 4.5.3). The 0.4 elementary findings: none left in
+      the type-dump (its 170 findings are other areas': built-in operands 4.3.4, temporal 4.3.5, …); the 0.3 leftover
+      `TYPE_CLASS.TYPE_SUBRANGE` (1 per vendor) stays — the enum's member list is the compiler's, and one written from the
+      corpora's uses (TYPE_NONE 19, TYPE_SUBRANGE 1) would refuse every member they do not use.
+- [x] 4.2 Literal typing in every context (LT1–LT14): record lt_literal_in_comparison, lt_literal_case_label,
       lt_literal_array_bound, lt_literal_for_bounds, lt_literal_any_int_argument, lt_negative_min_sint, lt_negative_min_int; write
       `test/frontend/literal-agreement.test.ts` (`contextLiteralType` agrees with `literalCheckType` on every literal of the corpus
       and fixtures; disagreements pinned; T hand-off for the call site).
       Where: types/literal.ts. Acceptance: CA; literal-agreement.test.ts exists and its disagreement list is written here.
       Depends on: 4.1.3
+      **4.2 (2026-10-03).** Recorded (both vendors build, CODESYS run) the 13 cells of `fixtures/types/literal-contexts.ts`.
+      Measured and fixed test-first (`narrowing`, `loop-exit`, `call-arguments`, `types/arith/operators`): an untyped literal
+      beside a narrower variable converts nothing in a comparison on TwinCAT too (`si = 200`, an LSP-only warning there); a
+      NEGATIVE literal compared with an unsigned operand converts into the operand's type on TwinCAT and into UDINT on
+      CODESYS (`negativeLiteralComparisonTarget`); a CASE label and a FOR's TO bound convert into the selector's / counter's
+      type (200 under SINT: USINT → SINT), and a TO bound BEYOND the counter's range is that conversion, not C0266 —
+      `cc6_loop_cannot_exit` left KNOWN_DIVERGENCES on both vendors (its "C0266 is configured off" was the wrong reading);
+      a literal into an ANY input is "ANY parameter 'x' of 'F' needs variable with write access as input" (C0041's
+      sentence for a generic parameter). LT13: the minima (-128, -32768, DINT's, LINT's) hold, one below them refuses; the
+      census counts a negated untyped number as a literal (uncapped) from here. `lt_literal_negative_in_comparison_unsigned`
+      DIVERGES in the transpiler (`ui > -1` TRUE where CODESYS says FALSE; `deferred.transpile`, T).
+      `test/frontend/literal-agreement.test.ts` (LT14): `contextLiteralType` against `literalCheckType` over every stored
+      literal — corpus 14 930 (78 disagree), fixtures 3 871 (79), library 46 (0); 29 classes pinned
+      (`baselines/literal-agreement.json`): a 0/1 into BOOL/BIT/TIME (transpiler SINT, checker the target), an integer the
+      target cannot hold (transpiler the target, checker its narrowest type), a real beyond REAL into a REAL, a real into an
+      integer — the same stored value reached two ways; the call site is the transpiler's (T, 5.3).
+      **Step 4a numbers.** `rate:fixtures` 4309 (+50): confirmed 2463 (+17), refused 1547 (+23), not-lowered 166 (+4:
+      `ty_dint_to_uxint`, `ty_version_type`, `ty_array_of_pointer`, `lt_literal_case_label_out_of_range` — the transpiler's),
+      lsp-gap 60 (+5, the divergences above), diverges 5 (+1), unaskable 68; edges agree 2609 / disagree 0 / not-run 110.
+      Ceilings (`fixtures.test.ts`): lsp-gap 55 → 60, not-lowered 162 → 166. Rules GAP area 4 **28 → 20** (total 28 → 20;
+      TY11–TY15, LT12–LT14 closed; TY6 open). Agreement CODESYS 3914 → **3959**, TwinCAT 3825 → **3870** (floors not
+      raised — the gate's). Resolution (0.3) findings 29 + 1 → **5 + 1**. Types (0.4): findings 170 → 170 (4 new answered by
+      census stores for CASE labels, FOR bounds and the comparison literal); fixtures member UNKNOWN 38/38 → 27/26, ident
+      36/39 → 24/27; corpus member 1338 → 1313, ident 353 → 327 (the TY6 class takes 78 corpus expressions); a census fix
+      (project and scope were swapped in `operandTyped`) moves 48 Library Manager `SIZEOF(T)` to their own class; named
+      exceptions for the 4.2 FOR-bound `n + 1` (`binary UNKNOWN`, 4.3.1) and `ty_array_of_pointer`'s ADR.
+      F diff (base 77024fb0ac, VOLT_GRAPHICAL=1): 73 aspects changed over 51 sources — `types`/`resolution` of sources holding
+      platform integers, ANY inputs or VERSION, and two lowering refusal texts (`type_codesys_version`,
+      `refuse_interface_any_input`, ratings unchanged); no `diagnostics` aspect; the rest new fixtures; 0 gone.
+      Runs: `bun test src` 1758/0, `test/conformance` 5366/0 (whole), `test/frontend` 34/0, `test/corpus` 19/0,
+      `test/catalog` 147/0, `bun typecheck`, `bun run lint`, `bun run check` 15/0.
+      **4a review fixes (2026-10-03).** Each unmeasured generalisation was narrowed back to what was recorded, test-first:
+      (1) `loop-exit` fires again at/beyond the limit; only the measured conversion (`types/literal`
+      `literalContextConversion`: an untyped literal that the same-width unsigned type holds, over a signed counter or
+      selector) earns the LT12 warning instead, so `FOR bt := 0 TO 300`, `TO 70000` and typed-constant bounds keep C0266.
+      The CASE/FOR conversion in `narrowing` reads the same predicate (a negative label under WORD is silent). (2)
+      `scripts/recording-target.ts` (`TARGET_PROBE`, `targetWidth`) is shared by `check-recording.ts` and
+      `record-language.ts`. A `RECORD_ONLY` run now records `plat_xint_into_string` as well, and refuses the merge unless
+      `__XINT` is LINT. (3) An unknown member of an ANY/ANY_* input is not refused (`analysis/resolution`; the vendor's
+      struct is __SYSTEM.AnyType, and no recording names it). (4) `negativeLiteralComparisonTarget` returns undefined at
+      32 and 64 bits on TwinCAT too. (5) The literal rule for generic inputs covers only an integer literal into
+      ANY_INT; any other literal into a generic input is silent, and the group refusal applies to variables only. (6)
+      `fold` `heldAs` reads `elementaryTypeOn(name, targetOf(project))`. (7) Negated untyped numbers keep their capped
+      census key again (ceilings 135/658/253/252/9). The 22 per vendor that the 4.1.3/4.2 fixtures write are named
+      exceptions (`baseline.ts` `NEGATED_LITERAL_ROWS`). So is `cc6_loop_cannot_exit`'s `n + 1`, which has been measured
+      since it left the divergences. Baselines rewritten. Runs: `bun test src` 1764/0, `test/conformance` 5366/0,
+      `test/frontend` 34/0, `rate:fixtures` (map unchanged), `bun typecheck`.
+      **Gate 4a (2026-10-03, 4.1.1–4.2, on HEAD a313c74b38).** `bun typecheck` clean; `rate:fixtures` reproduces the map byte
+      for byte (4309; confirmed 2463, refused 1547, not-lowered 166, lsp-gap 60, diverges 5, unaskable 68; edges 2609 / 0 /
+      110); full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7365 pass / 34 skip / 210 todo / 0 fail** (7609 tests,
+      203 files, 308 s; vs gate 3.5–3.6 +63 pass, +4 todo, +2 files); agreement CODESYS **3959** (+45), TwinCAT **3870**
+      (+45) — floors raised 3914 → 3959 and 3825 → 3870 (`fixtures.test.ts`; re-run whole, 5291 pass / 166 todo / 0 fail);
+      `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
 - [ ] 4.3.1 Meets and promotion (AR1–AR3, AR19–AR21): record ar_div_negative, ar_mod_negative.
       Where: arith/runtime, arith/checked. Acceptance: CA. Depends on: 4.2
 - [ ] 4.3.2 NOT and unary minus (AR4–AR6): one NOT rule in arith/operators, decided by the recordings (infer vs lowering); T

@@ -37,3 +37,25 @@ test("a wider counter (INT) reaching 255 terminates — no FP", () => {
 test("non-constant end bound is skipped — no FP", () => {
   expect(codes(" b : BYTE;\n n : INT;", "FOR b := 0 TO n DO\n ;\nEND_FOR;")).toEqual([])
 })
+
+test("a bound BEYOND the counter's range is a conversion, not an endless loop: FOR si := 1 TO 200 over a SINT (`lt_literal_for_bounds_out_of_range`, both vendors 2026-10-03)", () => {
+  // the vendors convert 200 into the SINT counter (USINT → SINT, a sign-change warning) and say nothing of the exit
+  expect(codes(" si : SINT;\n n : INT;", "FOR si := 1 TO 200 DO\n n := n + 1;\nEND_FOR;")).toEqual(["sign-change-conversion"])
+})
+
+// A bound beyond the counter's range that is NOT the measured same-width unsigned → signed literal conversion keeps
+// C0266: the conversion check says nothing for it (no measured warning), and dropping C0266 there would drop every word
+// (step 4a review). Unrecorded beyond that — the base behaviour, kept until a recording decides it.
+test("a bound beyond the counter that needs a wider type, or a typed constant, keeps C0266", () => {
+  const decls = " i : INT;\n bt : BYTE;\n cMax : DINT := 40000;\n cB : INT := 300;"
+  expect(codes(decls, "FOR bt := 0 TO 300 DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
+  expect(codes(decls, "FOR i := 0 TO 70000 DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
+  const constants = (body: string): string[] => {
+    const src = `PROGRAM PLC_PRG\nVAR CONSTANT\n cMax : DINT := 40000;\n cB : INT := 300;\nEND_VAR\nVAR\n i : INT;\n bt : BYTE;\nEND_VAR\n${body}\nEND_PROGRAM`
+    const parseResult = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: uriFor(parseResult), parseResult, source: src }])
+    return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).map((d) => d.code)
+  }
+  expect(constants("FOR i := 0 TO cMax DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
+  expect(constants("FOR bt := 0 TO cB DO\n ;\nEND_FOR;")).toEqual(["loop-exit-constant"])
+})

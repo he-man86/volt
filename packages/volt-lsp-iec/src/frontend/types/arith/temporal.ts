@@ -2,8 +2,7 @@
  * DATE AND TIME ARITHMETIC — which date/duration pairs an operator takes, and the type it yields. The same in the
  * run-time and the checked view.
  */
-import { elementaryType } from "../elementary.js"
-import { canonicalElem } from "../platform.js"
+import { aliasElem, elementaryType } from "../elementary.js"
 import { isDatetime, isDuration } from "../predicates.js"
 
 /** The duration a date type's difference is: LTIME for a 64-bit date type, TIME otherwise. */
@@ -26,7 +25,7 @@ export function narrowDateWideDuration(left: string, right: string): boolean {
  * date is its duration (`durationFor`), a date ± a duration and a duration + a date are the date.
  */
 export function temporalResultType(op: "+" | "-", left: string, right: string): string | undefined {
-  const [l, r] = [canonicalElem(left), canonicalElem(right)]
+  const [l, r] = [aliasElem(left), aliasElem(right)]
   if (narrowDateWideDuration(l, r)) return undefined
   if (op === "-") {
     if (isDatetime(l) && l === r) return durationFor(l)

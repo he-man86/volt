@@ -14,9 +14,9 @@ export {
   inTypeGroup,
   type ElementaryType,
 } from "./elementary.js"
-export { canonicalElem, PLATFORM_ALIASES } from "./platform.js"
+export { canonicalElem, elementaryTypeOn, isElementaryTypeName, isPlatformInteger, PLATFORM_ALIASES, type Target } from "./platform.js"
 export { isDuration, isIntegerType, isKnownPrimitive, isNumericType, isTemporal } from "./predicates.js"
-export { parseConversionName } from "./conversion-name.js"
+export { conversionSides, isConversionName, parseConversionName } from "./conversion-name.js"
 export { DEFAULT_STRING_LENGTH } from "./defaults.js"
 export { integerOfWidth } from "./width.js"
 export {
@@ -24,6 +24,7 @@ export {
   isIntLiteral,
   literalCapacityType,
   literalCheckType,
+  literalContextConversion,
   literalErrorType,
   literalOwnType,
   literalType,
@@ -52,7 +53,7 @@ export { isEnumValueRef, memberScopeOf, resolveMemberChain } from "./infer/membe
 export { resolveCallee, type CalleeInfo } from "./infer/callee.js"
 
 // compatibility, constants, arithmetic, operators, built-ins
-export { classifyConversion, isAssignable, isPointerSizedInteger, isSameType, type ConversionKind } from "./compat.js"
+export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, isAssignable, isSameType, pointerFits, type ConversionKind } from "./compat.js"
 export { constantSlotType, constEval, type ConstValue } from "./const/fold.js"
 export { constancyOf } from "./const/constancy.js"
 export { commonType, promoteForRuntime } from "./arith/runtime.js"
@@ -63,6 +64,7 @@ export {
   BIT_OPERATOR_FUNCTIONS,
   COMPARISON_FUNCTIONS,
   comparisonConverts,
+  negativeLiteralComparisonTarget,
   operandConversion,
   operandFamilyRule,
   unaryOperandConversion,

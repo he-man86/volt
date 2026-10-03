@@ -10,10 +10,19 @@
  * as FALSE, and `prag_project_defined_in_body` reads `project_defined (X)` FALSE on CODESYS (frontend-conformance 2.7.1,
  * 2026-10-02).
  *
+ * THE TARGET IS STATED, and is 64-bit on both: the recordings name it themselves — `plat_xint_into_string` and
+ * `ty_xint_twincat_width` are "Cannot convert type 'LINT' to type 'STRING'" on CODESYS (`CODESYS Control Win V3 x64`) and
+ * on TwinCAT (`TwinCAT RT (x64)`), and a pointer is silent into an LWORD/ULINT and refused into a DWORD/UDINT on both
+ * (`ty_pointer_size_twincat`; frontend-conformance 4.1.1, 2026-10-03). `scripts/check-recording.ts` refuses a recording
+ * made on another target.
+ *
  * The device and the task configuration are NOT stated: the build recordings measure neither for the analysis, so a
  * condition on them stays refused here as in the LSP (the transpiler states the exec oracle's,
  * `transpile/lower/conditions.ts`).
  */
 import type { CompileEnvironment } from "../../../src/frontend/syntax/index.js"
 
-export const RECORDING_ENVIRONMENT: CompileEnvironment = Object.freeze({ project: Object.freeze({ defines: new Set<string>() }) })
+export const RECORDING_ENVIRONMENT: CompileEnvironment = Object.freeze({
+  project: Object.freeze({ defines: new Set<string>() }),
+  target: Object.freeze({ pointerBits: 64 as const }),
+})

@@ -19,17 +19,46 @@ import { basename, extname, join } from "node:path"
 import { projectDiagnosticsFrom, type ConfigurableCode, type DiagnosticState } from "./analysis/index.js"
 import { parseLibraryManifest, type LibraryManifest } from "./frontend/library/index.js"
 import type { DeviceInstance } from "./frontend/symbols/index.js"
+import type { CompileEnvironment, Target } from "./frontend/syntax/index.js"
 
-/** What a workspace holds beside its sources that the symbol table binds: the referenced libraries' manifests and the
- *  device tree's instances. */
+/** What a workspace holds beside its sources that the symbol table binds: the referenced libraries' manifests, the
+ *  device tree's instances, and the compilation target where a device descriptor names one whose width is measured. */
 export interface WorkspaceRefs {
   libraryManifests: readonly LibraryManifest[]
   devices: readonly DeviceInstance[]
+  target?: Target
 }
+
+/**
+ * THE DEVICES WHOSE POINTER WIDTH IS MEASURED, by the `Name:` their `.device` descriptor states — the only way a pulled
+ * workspace says what it compiles for. `CODESYS Control Win V3 x64` is the exec oracle's device and the CODESYS recording
+ * project's (`test-corpus/CodesysTestProject`): `__XINT` is LINT there (`plat_*`, `ty_xint_twincat_width`). Every other
+ * device is unmeasured — the Lenze `Controller c520` of four corpora among them — and a workspace on one has no target:
+ * its platform integers resolve to nothing rather than to a guessed width (frontend-conformance 4.1.1). A TwinCAT
+ * workspace has no descriptor at all.
+ */
+const MEASURED_DEVICE_TARGETS: ReadonlyMap<string, Target> = new Map([["CODESYS Control Win V3 x64", { pointerBits: 64 }]])
+
+/** The target the device descriptors' names give: the one measured device's, or undefined when none is measured — or
+ *  two measured devices disagree, which no single-application workspace can mean. */
+export function targetOfDevices(deviceNames: readonly string[]): Target | undefined {
+  const targets = new Set(deviceNames.flatMap((n) => MEASURED_DEVICE_TARGETS.get(n) ?? []))
+  return targets.size === 1 ? [...targets][0] : undefined
+}
+
+/** The environment the server binds a workspace's project in: its target, where known. */
+export function workspaceEnvironment(refs: WorkspaceRefs): CompileEnvironment | undefined {
+  return refs.target === undefined ? undefined : { target: refs.target }
+}
+
+/** A `.device` descriptor's `Name:` line. */
+const deviceNameOf = (file: string): string | undefined => readFileSync(file, "utf8").match(/^Name:\s*(.+?)\s*$/m)?.[1]
 
 /** No workspace reference files known. */
 export const EMPTY_WORKSPACE_REFS: WorkspaceRefs = { libraryManifests: [], devices: [] }
 import { SOURCE_EXTENSION_SET } from "./source-extensions.js"
+
+const withTarget = (target: Target | undefined): { target?: Target } => (target === undefined ? {} : { target })
 
 /** All files under `root`, recursively. Unreadable directories are skipped, not thrown. */
 function walkFiles(root: string): string[] {
@@ -144,6 +173,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
   if (root.length === 0) return empty
   const libraryManifests: LibraryManifest[] = []
   const devices: DeviceInstance[] = []
+  const deviceNames: string[] = []
   const taskRoots = new Set<string>()
   const sources: { path: string; source: string }[] = []
   for (const file of walkFiles(root)) {
@@ -158,6 +188,8 @@ export function scanWorkspace(root: string): WorkspaceScan {
         if (manifest !== undefined) libraryManifests.push(manifest)
       } else if (ext === ".device") {
         devices.push(deviceInstanceOf(file))
+        const name = deviceNameOf(file)
+        if (name !== undefined) deviceNames.push(name)
       } else if (ext === ".projectsettings") {
         // The project's own compiler-warning configuration — see `projectDiagnosticsFrom`. One per project;
         // a second would mean two projects in one root, which the workspace model does not support anyway.
@@ -173,7 +205,7 @@ export function scanWorkspace(root: string): WorkspaceScan {
     }
   }
   return {
-    refs: { libraryManifests, devices },
+    refs: { libraryManifests, devices, ...withTarget(targetOfDevices(deviceNames)) },
     taskRoots,
     sources,
     ...(projectDiagnostics === undefined ? {} : { projectDiagnostics }),

@@ -45,7 +45,8 @@ export function explicitConversionPairs(): ConversionPairs {
     for (const m of `${t.source}\n${t.plcPrgVar ?? ""}\n${t.plcPrgBody ?? ""}`.matchAll(
       /\b[A-Za-z_]+_TO_[A-Za-z_]+\b/g,
     )) {
-      const c = parseConversionName(m[0])
+      // a platform-alias name (`__XINT_TO_DINT`) calls no elementary pair, whatever the target makes of it
+      const c = parseConversionName(m[0], undefined)
       if (c?.from !== undefined) seen.add(`${c.from.name}_TO_${c.to.name}`)
     }
   }

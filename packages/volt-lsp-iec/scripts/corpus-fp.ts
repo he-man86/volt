@@ -21,7 +21,7 @@ import {
   inDeadMember,
   ownerPou,
 } from "../src/analysis/index.js"
-import { loadTaskRoots, loadWorkspaceRefs, readSourceText } from "../src/workspace-refs.js"
+import { loadTaskRoots, loadWorkspaceRefs, readSourceText, workspaceEnvironment } from "../src/workspace-refs.js"
 import { SOURCE_EXTENSION_SET } from "../src/source-extensions.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -48,7 +48,7 @@ for (const project of readdirSync(CORPUS)) {
     return { uri, source, parseResult: parseDocument(uri, source, { networkText: NETWORK_TEXT_ENABLED }) }
   })
   const references = loadWorkspaceRefs(dir)
-  const scope = build.buildSymbolTable(inputs, references.libraryManifests, "codesys", undefined, references.devices)
+  const scope = build.buildSymbolTable(inputs, references.libraryManifests, "codesys", workspaceEnvironment(references), references.devices)
   const dead = deadPous(inputs, loadTaskRoots(dir))
   const deadMembers = deadMemberSpans(inputs, dead)
   for (const f of inputs) {

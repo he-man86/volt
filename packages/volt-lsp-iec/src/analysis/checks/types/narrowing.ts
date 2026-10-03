@@ -6,7 +6,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
-import { checkedMeetType, comparisonConverts, type ElementaryType, elementaryTypeRef, inferExprType, integerOfWidth, isIntegerType, isIntLiteral, literalCheckType, operandConversion, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { checkedMeetType, comparisonConverts, type ElementaryType, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -36,6 +36,23 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
   }
   for (const { scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     walkStatements(statements, (s) => {
+      // A CASE LABEL AND A FOR BOUND CONVERT INTO THE SELECTOR'S / THE COUNTER'S TYPE, as a store into it does: `200:`
+      // under a SINT selector and `FOR si := 1 TO 200` over a SINT counter are both "unsigned Type 'USINT' to signed Type
+      // 'SINT'" (rule LT12, `lt_literal_case_label_out_of_range`, `lt_literal_for_bounds_out_of_range`, both vendors
+      // 2026-10-03). Only an untyped literal is measured — the label and the TO bound — and only same-width unsigned into
+      // a signed type (`literalContextConversion`).
+      if (s.kind === "case") {
+        const selector = inferExprType(s.selector, scope, ctx.project)
+        for (const label of s.arms.flatMap((a) => a.labels))
+          for (const v of label.upper === undefined ? [label.value] : [label.value, label.upper]) {
+            const diag = literalStore(selector, v, ctx.messages)
+            if (diag !== undefined) out.push(diag)
+          }
+      }
+      if (s.kind === "for") {
+        const diag = literalStore(inferExprType(s.controlVar, scope, ctx.project), s.to, ctx.messages)
+        if (diag !== undefined) out.push(diag)
+      }
       if (s.kind === "assign") {
         // `a := b := c` stores c into b, then b into a — each `:=` link is its own store (conformance
         // `assign_chained_plain`: `outL := midR := srcL` warns LREAL → REAL once, for `midR := srcL`). Only the outer pair
@@ -97,6 +114,10 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   }
   if (rule === undefined || pair === undefined) return []
   const [left, right] = pair
+  if (rule === "signed-wide") {
+    const negative = negativeLiteralComparison(left, right, scope, project, messages)
+    if (negative !== undefined) return negative
+  }
   // ARITHMETIC MEETS ITS OPERANDS AND CONVERTS BOTH INTO THE MEET, and a conversion that loses information or
   // crosses sign warns wherever it happens. `aUlint MOD aSint` meets at LINT and the ULINT operand warns
   // (`meet_ulint_mod_sint`); `aLint + aReal` meets at REAL and the LINT operand warns about the mantissa
@@ -122,10 +143,45 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
     return [each([l, left]), each([r, right])].filter((d): d is DiagnosticItem => d !== undefined)
   }
   if (l.signed === r.signed) return []
-  if (rule === "signed-wide" && !comparisonConverts(l.bits, project.dialect)) return []
+  // An untyped literal beside a narrower variable converts nothing on EITHER vendor: `si = 200` is silent on TwinCAT too,
+  // where two narrow VARIABLES of a signedness each convert (`lt_literal_in_comparison`, 2026-10-03).
+  const literal = isIntLiteral(left) || isIntLiteral(right)
+  if (rule === "signed-wide" && !comparisonConverts(l.bits, literal ? "codesys" : project.dialect)) return []
   const [signed, unsigned, unsignedAt] = l.signed ? [l, r, right] : [r, l, left]
   const w = conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
   return w === undefined ? [] : [w]
+}
+
+/**
+ * An untyped NEGATIVE literal compared with an UNSIGNED variable converts the LITERAL, into the type
+ * `negativeLiteralComparisonTarget` names (rule LT12): its narrowest type converting, with the warning that conversion
+ * earns. Undefined when the pair is no comparison of one literal and one other operand.
+ */
+function negativeLiteralComparison(left: Expr, right: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] | undefined {
+  const [literal, other] = isIntLiteral(left) && !isIntLiteral(right) ? [left, right] : isIntLiteral(right) && !isIntLiteral(left) ? [right, left] : []
+  if (literal === undefined || other === undefined) return undefined
+  const value = negatedValue(literal)
+  const operand = integral(inferExprType(other, scope, project))
+  if (value === undefined || value >= 0n || operand === undefined || operand.signed) return undefined
+  const own = integerLiteralType(value)
+  const into = negativeLiteralComparisonTarget(operand, value, project.dialect)
+  if (own === undefined || into === undefined) return []
+  const w = conversionWarning(elementaryTypeRef(into), elementaryTypeRef(own), literal, messages)
+  return w === undefined ? [] : [w]
+}
+
+/** An untyped integer literal's value, its sign applied — undefined for anything else. */
+function negatedValue(e: Expr): bigint | undefined {
+  const lit = e.kind === "unary" && e.op === "-" ? e.operand : e
+  if (lit.kind !== "literal" || lit.literalKind !== "int" || typeof lit.value !== "bigint") return undefined
+  return lit === e ? lit.value : -lit.value
+}
+
+/** An untyped literal converted into `target` (a CASE label, a FOR bound): the warning its conversion earns, if any —
+ *  only in the shape `literalContextConversion` names as measured. */
+function literalStore(target: Type, value: Expr, messages: Messages): DiagnosticItem | undefined {
+  const src = literalContextConversion(value, target)
+  return src === undefined ? undefined : conversionWarning(target, src, value, messages)
 }
 
 /**

@@ -37,6 +37,7 @@ import { parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call, requireNetworkText } from "./bridge.js"
 import { deleteOpsFor, heldIn, orphansIn, type Held } from "./held-as.js"
+import { ORACLE_WIDTH, TARGET_PROBE, targetWidth } from "./recording-target.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -312,7 +313,8 @@ function checkpoint(): void {
 }
 // RECORD_ONLY=name1,name2 → record just those fixtures and MERGE into the committed recording (safe: leaves
 // every other fixture's ground truth untouched — the way to add new fixtures without a risky full re-record).
-const ONLY = process.env.RECORD_ONLY ? new Set(process.env.RECORD_ONLY.split(",")) : undefined
+// The target probe rides along: a merge is refused unless THIS run's probe answers on the 64-bit oracle (`recording-target`).
+const ONLY = process.env.RECORD_ONLY ? new Set([...process.env.RECORD_ONLY.split(","), TARGET_PROBE]) : undefined
 if (RESUME && !ONLY && existsSync(freshPath)) {
   const prior = JSON.parse(readFileSync(freshPath, "utf8"))
   Object.assign(tests, prior.tests ?? {})
@@ -364,6 +366,17 @@ const out = {
 
 // RECORD_ONLY → merge just the recorded fixtures into the committed file (leave the rest untouched).
 if (ONLY) {
+  // A RECORD_ONLY merge never passes through `check-recording.ts`, so it judges its own target: a TwinCAT session on
+  // Project14 (CE7, 32-bit) answers every width 32-bit and would merge as the oracle without a word (step 4a review).
+  const width = targetWidth(tests)
+  if (width !== ORACLE_WIDTH) {
+    console.error(
+      `
+REFUSED: ${TARGET_PROBE} says __XINT is ${width} on this session's target, not ${ORACLE_WIDTH} — this is not the 64-bit oracle ` +
+        `(TwinCAT: serve Project13, \`ide.ps1 up -Vendor twincat -Fixture 13\`). Nothing was merged into ${stem}.json.`,
+    )
+    process.exit(1)
+  }
   const committed = JSON.parse(readFileSync(join(dir, `${stem}.json`), "utf8"))
   for (const [name, rec] of Object.entries(tests)) committed.tests[name] = rec
   committed.recorded.at = out.recorded.at

@@ -9,11 +9,12 @@
  *
  * A conversion's result (`INT_TO_REAL`, `TO_REAL`) is derived, not listed: `parseConversionName` names it.
  */
-import { CODESYS_ONLY_KEYWORDS, type Dialect } from "../syntax/index.js"
+import { CODESYS_ONLY_KEYWORDS, type Dialect, type Target } from "../syntax/index.js"
 import { isAssignable } from "./compat.js"
 import { CODESYS_ONLY_TYPES, elementaryType } from "./elementary.js"
+import { isElementaryTypeName } from "./platform.js"
 import { elementaryRef, elementaryTypeRef, elemOf, UNKNOWN, type Type } from "./type.js"
-import { parseConversionName } from "./conversion-name.js"
+import { conversionSides, parseConversionName } from "./conversion-name.js"
 import { REAL_LITERAL_TYPE } from "./literal.js"
 
 /**
@@ -58,14 +59,14 @@ export type BuiltinName = "system-operator" | "conversion" | "implicit" | "opera
 export function builtinName(name: string, dialect: Dialect | undefined): BuiltinName | undefined {
   const upper = name.toUpperCase()
   if (upper.startsWith("__")) return dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : "system-operator"
-  const conversion = parseConversionName(name)
+  const conversion = conversionSides(name)
   if (conversion !== undefined)
-    return [conversion.to.name, conversion.from?.name].every((n) => n === undefined || !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(n.toUpperCase())))
+    return [conversion.to, conversion.from].every((n) => n === undefined || !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(n)))
       ? "conversion"
       : undefined
   if (COMPILER_IMPLICITS.has(upper)) return "implicit"
   if (BUILTIN_OPERATOR_NAMES.has(upper)) return "operator"
-  return elementaryType(upper) !== undefined ? "type" : undefined
+  return isElementaryTypeName(upper) ? "type" : undefined
 }
 
 /**
@@ -96,10 +97,10 @@ export const BUILTIN_RESULT: ReadonlyMap<string, string> = new Map([
  * result yields that — or undefined. An operator the project's dialect does not have models NOTHING: on TwinCAT
  * `__POSITION()` is a call to a name nothing declares, not a STRING (`syntax/lex/vocabulary.ts`).
  */
-export function builtinCallResult(name: string, dialect: Dialect | undefined): Type | undefined {
+export function builtinCallResult(name: string, dialect: Dialect | undefined, target: Target | undefined): Type | undefined {
   const upper = name.toUpperCase()
   const known = dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : BUILTIN_RESULT.get(upper)
-  const modeled = parseConversionName(name)?.to.name ?? known
+  const modeled = parseConversionName(name, target)?.to.name ?? known
   if (modeled === undefined) return undefined
   const elem = elementaryType(modeled)
   return elem === undefined ? undefined : elementaryTypeRef(elem)

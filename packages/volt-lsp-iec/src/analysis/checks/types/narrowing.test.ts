@@ -42,3 +42,57 @@ END_FUNCTION_BLOCK`
     "Implicit conversion from 'LREAL' to 'REAL': Possible loss of information",
   ])
 })
+
+// ── LITERAL TYPING IN A CONTEXT (frontend-conformance 4.2, rule LT12; both vendors recorded 2026-10-03) ──
+
+/** The sign-change and narrowing messages over `body` in an FB declaring `vars`, as `vendor`. */
+const signMessages = (vars: string, body: string, vendor: "codesys" | "twincat"): string[] => {
+  const src = `FUNCTION_BLOCK F\nVAR\n${vars}\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }], [], vendor)
+  return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor }) })
+    .filter((d) => d.code === "sign-change-conversion" || d.code === "narrowing-conversion")
+    .map((d) => d.message)
+}
+
+test("an untyped non-negative literal beside a narrower variable converts nothing in a comparison — both vendors (`lt_literal_in_comparison`)", () => {
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(signMessages("si : SINT; i : INT; b : BOOL;", "b := si = 200;\nb := si < 300;\nb := i = 70000;\nb := i > -40000;", vendor)).toEqual([])
+})
+
+test("an untyped NEGATIVE literal beside an unsigned variable converts the literal — into the operand's type on TwinCAT, into UDINT on CODESYS (`lt_literal_negative_in_comparison_unsigned`)", () => {
+  const body = "b := u = -1;\nb := ui > -1;"
+  expect(signMessages("u : USINT; ui : UINT; b : BOOL;", body, "twincat")).toEqual([
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'USINT' : possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UINT' : possible change of sign",
+  ])
+  expect(signMessages("u : USINT; ui : UINT; b : BOOL;", body, "codesys")).toEqual([
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UDINT' : Possible change of sign",
+    "Implicit conversion from signed Type 'SINT' to unsigned Type 'UDINT' : Possible change of sign",
+  ])
+})
+
+test("a CASE label converts into the selector's type: 200 under a SINT selector is USINT → SINT (`lt_literal_case_label_out_of_range`)", () => {
+  expect(signMessages("si : SINT; out : INT;", "CASE si OF\n100: out := 1;\n200: out := 2;\nEND_CASE", "codesys")).toEqual([
+    "Implicit conversion from unsigned Type 'USINT' to signed Type 'SINT' : Possible change of sign",
+  ])
+  // labels the selector's type holds convert nothing (`lt_literal_case_label`)
+  expect(signMessages("si : SINT; out : INT;", "CASE si OF\n-128: out := 1;\n0..10: out := 2;\n127: out := 3;\nEND_CASE", "twincat")).toEqual([])
+})
+
+test("a FOR bound converts into the counter's type: TO 200 over a SINT counter is USINT → SINT (`lt_literal_for_bounds_out_of_range`)", () => {
+  expect(signMessages("si : SINT; n : INT;", "FOR si := 1 TO 200 DO\n\tn := n + 1;\nEND_FOR", "twincat")).toEqual([
+    "Implicit conversion from unsigned Type 'USINT' to signed Type 'SINT' : possible change of sign",
+  ])
+  expect(signMessages("si : SINT; n : INT;", "FOR si := -128 TO 126 DO\n\tn := n + 1;\nEND_FOR\nFOR si := 0 TO 100 BY 2 DO\n\tn := n + 1;\nEND_FOR", "codesys")).toEqual([])
+})
+
+test("a CASE label converts only in the measured shape — a same-width unsigned literal under a signed selector; a negative label under an unsigned selector is unmeasured and silent (step 4a review)", () => {
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(signMessages("w : WORD; n : INT;", "CASE w OF\n-1: n := 2;\nEND_CASE", vendor)).toEqual([])
+})
+
+test("a NEGATIVE literal beside a 32- or 64-bit unsigned operand is unmeasured on both vendors and stays silent (step 4a review)", () => {
+  for (const vendor of ["codesys", "twincat"] as const)
+    expect(signMessages("ud : UDINT; ul : ULINT; b : BOOL;", "b := ud > -1;\nb := ul = -1;", vendor)).toEqual([])
+})

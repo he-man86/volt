@@ -153,7 +153,7 @@ export function lowerBuiltin(lw: Lowering, e: Extract<Expr, { kind: "call" }>): 
   // resolved to what the platform makes it before the split (conformance `ct_pointer_width_types`). The names come from
   // `PLATFORM_ALIASES` — the ONE home — rather than a third spelling of the same three rows, which is what this read.
   const platform = name === undefined ? undefined : /^(__U?X(?:INT|WORD))_TO_/i.exec(name)?.[1]
-  const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_ALIASES.get(platform.toUpperCase())!))
+  const conv = name === undefined ? undefined : parseConversionName(platform === undefined ? name : name.replace(platform, PLATFORM_ALIASES.get(platform.toUpperCase())!), undefined)
   if (conv !== undefined) return lowerConversion(lw, e, conv.from && elementaryRef(conv.from.name), elementaryRef(conv.to.name))
   const arity = name === undefined ? undefined : BUILTIN_ARITY[name]
   if (name === undefined || arity === undefined) {

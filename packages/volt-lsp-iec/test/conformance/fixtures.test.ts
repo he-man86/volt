@@ -1371,7 +1371,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // be PUBLIC" (`deferred.lsp`, `MEMBER_DIVERGENCES`): no catalog code for a METHOD's refusal (a PROPERTY's C0513/C0515
   // document another, unverified sentence), 0 occurrences in the corpora of a refused access (they build; pro2193's own
   // Application declares 525 such members, user code — not library code, as first written). No fixture moved.
-  "lsp-gap": 55,
+  // 55 -> 60, FOR MEASUREMENT. frontend-conformance 4.1.3 (2026-10-03): 5 elementary-type cells both vendors refuse, the
+  // LSP silent (`ELEMENTARY_RULE_DIVERGENCES`): REFERENCE TO BIT and ANY_NUM as a local (no catalog code), ANY_ELEMENTARY
+  // and ANY_MAGNITUDE as a parameter type (no type on either vendor), VERSION stored whole into a STRING (a struct into an
+  // elementary target is unchecked for every struct — task 4.5.3) — each niche, 0 occurrences in the corpora. No fixture moved.
+  "lsp-gap": 60,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1518,7 +1522,12 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 161 -> 162, FOR MEASUREMENT. frontend-conformance 3.5 (2026-10-02): `mem_private_method_of_same_type_instance` builds
   // and runs (out 14) — a PRIVATE METHOD through a POINTER TO an instance of its own FB, `pOther := THIS` — and the lowering
   // refuses it (the transpiler's).
-  "not-lowered": 162,
+  // 162 -> 166, FOR MEASUREMENT. frontend-conformance 4.1/4.2 (2026-10-03): 4 new cells CODESYS builds and runs and the
+  // lowering refuses (the transpiler's; handed to transpile-restructure, task 5.3): `ty_dint_to_uxint` (`DINT_TO___UXINT`
+  // and the other platform-target conversions, "not a project FUNCTION"), `ty_version_type` (VERSION, "no declaration
+  // lowering can lay out"), `ty_array_of_pointer` ("a pointer stored somewhere this does not track") and
+  // `lt_literal_case_label_out_of_range` ("a CASE label outside the selector's type" — CODESYS converts 200 to SINT -56).
+  "not-lowered": 166,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1805,7 +1814,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3787 -> 3825 (2026-10-03, frontend-conformance 3.5): the member fixtures (`fixtures/names/members.ts`, M1–M6) —
   // callees found by their instance's TYPE (REFERENCE, array element, SUPER^), interface members as `<ITF>__Union`,
   // the named-argument count; access refusals are MEMBER_DIVERGENCES.
-  { vendor: "twincat", floor: 3825 },
+  // 3825 -> 3870 (2026-10-03, frontend-conformance 4a): the type fixtures (`fixtures/types/elementary-rules.ts`,
+  // `literal-contexts.ts`, TY1–TY15, LT1–LT14) — platform width per target, ANY groups, literal context conversions.
+  { vendor: "twincat", floor: 3870 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1944,7 +1955,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3829 -> 3854 (2026-10-02, frontend-conformance 3.3): the same, on CODESYS.
   // 3854 -> 3868 (2026-10-02, frontend-conformance 3.4): the same, on CODESYS.
   // 3868 -> 3914 (2026-10-03, frontend-conformance 3.5): the same, on CODESYS.
-  { vendor: "codesys", floor: 3914 },
+  // 3914 -> 3959 (2026-10-03, frontend-conformance 4a): the same, on CODESYS.
+  { vendor: "codesys", floor: 3959 },
 ]
 
 

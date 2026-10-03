@@ -13,7 +13,7 @@
  *
  * ponytail: a curated core catalog, not an exhaustive doc port; add operator entries as hover/lint needs surface them.
  */
-import { BUILTIN_RESULT, ELEMENTARY_TYPES, elementaryType, parseConversionName } from "../frontend/types/index.js"
+import { BUILTIN_RESULT, conversionSides, ELEMENTARY_TYPES, elementaryType } from "../frontend/types/index.js"
 
 export type ReferenceKind = "data-type" | "operator" | "standard-function"
 
@@ -166,15 +166,16 @@ const CATALOG: ReadonlyMap<string, ReferenceEntry> = new Map(
  * this used to keep its own, and `nameResolves` a looser one that let `TIME_OF_DAY_TO_UDINT` (not defined in CODESYS) pass.
  */
 function conversionEntry(upper: string): ReferenceEntry | undefined {
-  const conv = parseConversionName(upper)
-  if (conv === undefined) return undefined
-  const dst = conv.to
+  const sides = conversionSides(upper)
+  if (sides === undefined) return undefined
+  // a platform side's range is the target's, which a hover has no project to ask (`isPlatformInteger`)
+  const dst = elementaryType(sides.to)
   return {
     name: upper,
     kind: "operator",
-    oneLiner: `Convert ${conv.from?.name ?? "the operand"} to ${dst.name}.`,
-    returnType: dst.name,
-    ...(dst.range === undefined ? {} : { details: `result range ${dst.range.min}..${dst.range.max}` }),
+    oneLiner: `Convert ${sides.from ?? "the operand"} to ${sides.to}.`,
+    returnType: sides.to,
+    ...(dst?.range === undefined ? {} : { details: `result range ${dst.range.min}..${dst.range.max}` }),
   }
 }
 

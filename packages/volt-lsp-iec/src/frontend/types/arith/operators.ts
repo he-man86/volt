@@ -4,7 +4,7 @@
  * keep only their messages, and the network-text reader asks here which boxes are comparisons and bit operators.
  */
 import type { Dialect } from "../../syntax/index.js"
-import type { TypeFamily } from "../elementary.js"
+import type { ElementaryType, TypeFamily } from "../elementary.js"
 import { isIntegerType, isNumericType } from "../predicates.js"
 import { elementaryType, inTypeGroup } from "../elementary.js"
 import { elementaryTypeRef, type Type } from "../type.js"
@@ -45,6 +45,18 @@ export function operandConversion(op: string): "signed" | "unsigned" | "signed-w
  *  bits — narrower operands promote and stay silent; TwinCAT at every width. */
 export function comparisonConverts(bits: number, dialect: Dialect | undefined): boolean {
   return !(bits < 32 && dialect !== "twincat")
+}
+
+/**
+ * The type an untyped NEGATIVE literal converts INTO when it is compared with an UNSIGNED operand (rule LT12,
+ * `lt_literal_negative_in_comparison_unsigned`, 2026-10-03): `u = -1` (USINT) and `ui > -1` (UINT) convert the literal
+ * into the operand's own type on TwinCAT, and into UDINT on CODESYS, which compares a narrower operand at 32 bits. A 32- or
+ * 64-bit operand is unmeasured on EITHER vendor: undefined, as for a signed operand or a non-negative literal (`si = 200`
+ * is silent on both — a literal beside a narrower variable converts nothing).
+ */
+export function negativeLiteralComparisonTarget(operand: ElementaryType, value: bigint, dialect: Dialect | undefined): ElementaryType | undefined {
+  if (value >= 0n || operand.signed || (operand.family !== "int" && operand.family !== "bitstring") || operand.bits >= 32) return undefined
+  return dialect === "twincat" ? operand : integerOfWidth(32, false)
 }
 
 /** The families `-` converts its operand from, loudly. Integers, bit strings and reals are already what it computes in. */

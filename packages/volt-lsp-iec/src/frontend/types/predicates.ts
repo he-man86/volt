@@ -3,6 +3,7 @@
  * temporal, isolated from implicit conversion, a known primitive. The one place each old scattered set is computed.
  */
 import { ANY_FAMILIES, elementaryType } from "./elementary.js"
+import { isElementaryTypeName } from "./platform.js"
 
 /** Numeric widening rank (was `NUMERIC_RANK` in check-assignment-types), or undefined for non-numeric. */
 export function numericRank(name: string): number | undefined {
@@ -54,5 +55,5 @@ export function isTemporal(name: string): boolean {
  *  type, an `ANY_*` generic, or the bare `POINTER` keyword. */
 export function isKnownPrimitive(name: string): boolean {
   const u = name.toUpperCase()
-  return elementaryType(u) !== undefined || ANY_FAMILIES.has(u) || u === "POINTER"
+  return isElementaryTypeName(u) || ANY_FAMILIES.has(u) || u === "POINTER"
 }

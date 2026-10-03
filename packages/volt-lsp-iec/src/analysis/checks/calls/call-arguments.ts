@@ -19,7 +19,7 @@
  */
 import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
-import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, inferExprType, isAssignable, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { checkable, checkableType, conversionWarning } from "../../rules.js"
@@ -100,7 +100,7 @@ function checkCall(
   if (callee.complete && named.length === 0 && callee.positionalArity === callee.params.length) {
     positional.forEach((arg, i) => {
       const param = callee.params[i]
-      if (param !== undefined && arg.value !== undefined) argTypeError(arg.value, param.type, scope, ctx, out)
+      if (param !== undefined && arg.value !== undefined) argTypeError(arg.value, param, callee.sym.name, scope, ctx, out)
     })
   }
 
@@ -198,7 +198,7 @@ function checkCall(
     }
     if (arg.value !== undefined) {
       const param = callee.params.find((p) => p.name.text.toLowerCase() === name)
-      if (param !== undefined) argTypeError(arg.value, param.type, scope, ctx, out)
+      if (param !== undefined) argTypeError(arg.value, param, callee.sym.name, scope, ctx, out)
     }
   }
 
@@ -389,14 +389,45 @@ function outputTypeError(
   })
 }
 
+/** A literal argument, written plain or negated (`5`, `-1`, `TRUE`, `'abc'`, `INT#5`). */
+const isLiteralArgument = (e: Expr): boolean => e.kind === "literal" || (e.kind === "unary" && e.op === "-" && e.operand.kind === "literal")
+
 /** Flag an argument whose checkable type is not assignment-compatible with its parameter's declared type. */
 function argTypeError(
   value: Expr,
-  paramType: Parameters<typeof resolveTypeExpr>[0],
+  param: CalleeInfo["params"][number],
+  callee: string,
   scope: Scope,
   ctx: CheckContext,
   out: DiagnosticItem[],
 ): void {
+  const paramType = param.type
+  // A GENERIC PARAMETER (rule TY14): ANY and the ANY_* groups take an argument by its family, and refuse one outside it
+  // in the group's own name — "Cannot convert type 'STRING' to type 'ANY_NUM'"; and they take a VARIABLE — a literal is
+  // "ANY parameter 'x' of 'F' needs variable with write access as input" (`ty_any_*`, `lt_literal_any_int_argument`, both
+  // vendors 2026-10-03). Its type resolves to nothing, so the elementary check below never reached it.
+  // Only those two shapes are measured: a VARIABLE (`ty_any_*`) and an untyped integer literal into ANY_INT
+  // (`lt_literal_any_int_argument`). Any other literal into a generic input — 5 into ANY_STRING, TRUE into ANY_BIT,
+  // 'abc', 1.5 — is unrecorded and stays silent (step 4a review).
+  if (paramType.kind === "named_type" && paramType.qualifiers === undefined && GENERIC_PARAMETER_TYPES.has(paramType.name.text.toUpperCase())) {
+    const group = paramType.name.text
+    if (isLiteralArgument(value)) {
+      if (isIntLiteral(value) && group.toUpperCase() === "ANY_INT")
+        out.push({ severity: "error", span: value.span, source: SOURCE, code: "in-out-needs-writable", message: ctx.messages.anyNeedsWritable(param.name.text, callee) })
+      return
+    }
+    const argType = checkableType(value, scope, ctx.project)
+    if (argType !== undefined && genericParameterAccepts(group, argType, ctx.project.dialect) === false) {
+      out.push({
+        severity: "error",
+        span: value.span,
+        source: SOURCE,
+        code: "call-argument-type",
+        message: ctx.messages.cannotConvert(renderType(argType, { form: "compiler" }), group.toUpperCase()),
+      })
+      return
+    }
+  }
   const target = checkable(resolveTypeExpr(paramType, ctx.project, 0, ctx.project, ctx.uri))
   if (target === undefined) return
   const arg = checkableType(value, scope, ctx.project)

@@ -18,7 +18,7 @@
  */
 import { forEachDecl } from "../../../frontend/symbols/index.js"
 import type { Expr, TypeExpr, Span, VarDecl, VarSectionKind } from "../../../frontend/syntax/index.js"
-import { constEval, elementaryType } from "../../../frontend/types/index.js"
+import { constEval, isElementaryTypeName } from "../../../frontend/types/index.js"
 import type { Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -79,7 +79,7 @@ function vectorElement(t: TypeExpr): boolean {
   if (t.kind !== "named_type") return true
   const name = t.name.text.toUpperCase()
   if (name === "REAL" || name === "LREAL") return true
-  return (t.qualifiers?.length ?? 0) > 0 || elementaryType(name) === undefined
+  return (t.qualifiers?.length ?? 0) > 0 || !isElementaryTypeName(name)
 }
 
 /**

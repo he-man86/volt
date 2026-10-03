@@ -614,3 +614,69 @@ test("M3/E21: the named-argument count leaves unrecorded shapes alone", () => {
   const two = "FUNCTION F_T : INT\nVAR_INPUT\n\ta : INT;\n\tb : INT;\nEND_VAR\nF_T := a;\nEND_FUNCTION"
   expect(counted(two, "out := F_T(a := 1, zz => x);")).toEqual(["function-argument-count: Function 'F_T' requires exactly '2' inputs"])
 })
+
+// ── GENERIC PARAMETERS (frontend-conformance 4.1.3, rule TY14; both vendors recorded 2026-10-03, `ty_any_*`) ──
+
+/** The messages a call `F(<arg>)` of `FUNCTION F : DINT` with `VAR_INPUT x : <group>` draws, as `vendor`. */
+function genericCall(group: string, decls: string, arg: string, vendor: "codesys" | "twincat"): string[] {
+  const fn = `FUNCTION F : DINT\nVAR_INPUT\n\tx : ${group};\nEND_VAR\nF := x.diSize;\nEND_FUNCTION`
+  const prg = `PROGRAM P\nVAR\n${decls}\n\tres : DINT;\nEND_VAR\nres := F(${arg});\nEND_PROGRAM`
+  const files = [
+    { uri: "F.pou", source: fn, parseResult: parseSource(fn, { networkText: true }, vendor) },
+    { uri: "P.pou", source: prg, parseResult: parseSource(prg, { networkText: true }, vendor) },
+  ]
+  const project = build.buildSymbolTable(files, [], vendor)
+  const f = files[1]!
+  return computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor }) })
+    .filter((d) => d.code === "call-argument-type" || d.code === "in-out-needs-writable")
+    .map((d) => d.message)
+}
+
+test("an ANY_* input refuses an argument outside its group, in the group's name — both vendors", () => {
+  const cells: [string, string, string, string][] = [
+    ["ANY_NUM", "v : STRING;", "v", "STRING"],
+    ["ANY_NUM", "v : BOOL;", "v", "BOOL"],
+    ["ANY_NUM", "v : TIME;", "v", "TIME"],
+    ["ANY_INT", "v : REAL;", "v", "REAL"],
+    ["ANY_REAL", "v : INT;", "v", "INT"],
+    ["ANY_BIT", "v : INT;", "v", "INT"],
+    ["ANY_STRING", "v : INT;", "v", "INT"],
+    ["ANY_DATE", "v : INT;", "v", "INT"],
+  ]
+  for (const vendor of ["codesys", "twincat"] as const)
+    for (const [group, decls, arg, type] of cells) expect(genericCall(group, decls, arg, vendor)).toEqual([`Cannot convert type '${type}' to type '${group}'`])
+})
+
+test("an ANY_* input takes an argument of its group, and ANY takes a STRUCT", () => {
+  const cells: [string, string][] = [
+    ["ANY_NUM", "v : INT;"],
+    ["ANY_NUM", "v : REAL;"],
+    ["ANY_INT", "v : WORD;"],
+    ["ANY_DATE", "v : TOD;"],
+    ["ANY", "v : STRING;"],
+  ]
+  for (const vendor of ["codesys", "twincat"] as const) for (const [group, decls] of cells) expect(genericCall(group, decls, "v", vendor)).toEqual([])
+})
+
+test("ANY_BIT takes a BOOL on CODESYS and refuses it on TwinCAT (`ty_any_bit_parameter_accepts_bool`)", () => {
+  expect(genericCall("ANY_BIT", "v : BOOL;", "v", "codesys")).toEqual([])
+  expect(genericCall("ANY_BIT", "v : BOOL;", "v", "twincat")).toEqual(["Cannot convert type 'BOOL' to type 'ANY_BIT'"])
+})
+
+test("a literal into an ANY_* input is refused — it needs a variable with write access (`lt_literal_any_int_argument`)", () => {
+  for (const vendor of ["codesys", "twincat"] as const)
+    for (const arg of ["5", "5000000000", "-1"])
+      expect(genericCall("ANY_INT", "", arg, vendor)).toEqual(["ANY parameter 'x' of 'F' needs variable with write access as input"])
+})
+
+test("a literal into any other generic input is unmeasured and stays silent — only ANY_INT with an integer literal is recorded (step 4a review)", () => {
+  const cells: [string, string][] = [
+    ["ANY_STRING", "5"],
+    ["ANY", "5"],
+    ["ANY_BIT", "16#FF"],
+    ["ANY_BIT", "TRUE"],
+    ["ANY_STRING", "'abc'"],
+    ["ANY", "1.5"],
+  ]
+  for (const vendor of ["codesys", "twincat"] as const) for (const [group, arg] of cells) expect(genericCall(group, "", arg, vendor)).toEqual([])
+})

@@ -50,6 +50,8 @@ import {
   resolveCallee,
   resolveMemberChain,
   resolveTypeExpr,
+  isElementaryTypeName,
+  negativeLiteralComparisonTarget,
   UNKNOWN,
   type Type,
 } from "../../src/frontend/types/index.js"
@@ -128,6 +130,7 @@ export function boundCensus(): BoundCensus {
     // an expression kind whose UNKNOWNs all came to be typed is a count of 0, not a measure gone missing — its ceiling
     // must still be able to say so (`assign_expr`, typed by its target since frontend-conformance 2.5.6)
     for (const kind of EXPR_KINDS) c.types[`${group}: ${kind} UNKNOWN`] ??= 0
+    c.types[`${group}: unary UNKNOWN, a signed untyped number (context-typed, as a literal)`] ??= 0
     // …and a name shape whose NONEs all came to resolve, the same way (`fixtures codesys: bare name NONE` 5 → 0: the five
     // were names in a conditional branch CODESYS does not compile, which the one statement tree no longer holds —
     // frontend-conformance 2.7.1)
@@ -269,6 +272,10 @@ export function boundCensus(): BoundCensus {
         // 2.6 CASE-label fixtures add (`stmt_case_negative_label`, `_negative_range`, `_plus_label`) — 253/252, a
         // rise for measurement — and corpus 308 = 173 + 135, Library Manager 658, library 9 (no rise). Capped
         // (`baselines/ceilings.json`) at that start, so it may only fall from here.
+        // Frontend-conformance 4.2 (rule LT13) made a negated untyped number a literal in the type rules, but it keeps
+        // its OWN capped key: folded into the uncapped `literal UNKNOWN` its UNKNOWNs could rise unseen, and typing them
+        // is LT14's (`literal-agreement` counts disagreements, not UNKNOWNs) — step 4a review. The 4.1.3/4.2 fixtures'
+        // negated literals (22 per vendor) are named ceiling exceptions (`baseline.ts` `NEGATED_LITERAL_ROWS`).
         if (type === "?" && isSignedUntypedNumber(expr)) {
           tally(c.types, `${group}: unary UNKNOWN, a signed untyped number (context-typed, as a literal)`)
           continue
@@ -320,6 +327,10 @@ export function boundCensus(): BoundCensus {
         )
           tally(c.types, `${group}: ident_expr untyped, SUPER not allowed on the vendor too`)
         else if (type === "?" && operandTyped(expr, scope, b) === false) tally(c.types, `${group}: call UNKNOWN, on an untyped operand`)
+        // …a SIZEOF of a TYPE NAME (`SIZEOF(SomeStruct)`), told apart from one of a typed expression since frontend-conformance
+        // 4.1.1: the census resolved the name with the POU scope passed as the project, so a project type was "untyped"
+        else if (type === "?" && operandTyped(expr, scope, b) === "type-name")
+          tally(c.types, `${group}: call UNKNOWN, SIZEOF of a type name (no result type yet, task 4.3.4)`)
         else if (type === "?" && operandTyped(expr, scope, b) === true)
           tally(c.types, `${group}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`)
         // …and `__NEW`/`__DELETE`, whose result type is task 4.3.4's as SIZEOF's and ADR's are — split out when the five
@@ -337,6 +348,11 @@ export function boundCensus(): BoundCensus {
         // the refusal itself is task 4.5.1's, `deferred.lsp`)
         else if (type === "?" && expr.kind === "binary" && strictArithmeticRefused(expr, scope, b, vendor.says))
           tally(c.types, `${group}: binary untyped, arithmetic on a strict enum refused on the vendor too`)
+        // …and an expression the front-end WOULD type on a 64-bit target: a platform integer (`__XWORD`, `__UXINT`) has no
+        // width in a project whose device's width nobody measured, so it — and what is built on it — is untyped there, by
+        // the rule (`types/platform`, frontend-conformance 4.1.1). A GAP (TY6's), so the key says UNKNOWN and is ceilinged.
+        else if (type === "?" && scope !== undefined && typedOnASixtyFourBitTarget(expr, scope, b))
+          tally(c.types, `${group}: ${kind} UNKNOWN, a platform integer on a target nobody measured (TY6)`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
       }
     // …and its folds (0.4) are counted, not measured, as its resolution and types are (refinement (c), frontend-conformance
@@ -486,6 +502,16 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   const inner = (e: Expr, scope: Scope): void => {
     for (const x of valueExprs(e)) {
       if (x.kind === "unary") store(inferExprType(x, scope, b.project), x.operand, scope)
+      // an untyped NEGATIVE literal compared with an unsigned operand converts into the type the rule names (rule LT12,
+      // `types/arith/operators` `negativeLiteralComparisonTarget`)
+      if (x.kind === "binary" && COMPARISONS.has(x.op))
+        for (const [lit, other] of [[x.left, x.right], [x.right, x.left]] as const) {
+          const value = constEval(lit, scope)
+          const operand = inferExprType(other, scope, b.project)
+          if (!isSignedUntypedNumber(lit) || typeof value !== "bigint" || operand.kind !== "elementary") continue
+          const into = negativeLiteralComparisonTarget(operand.elem, value, b.project.dialect)
+          if (into !== undefined) store({ kind: "elementary", name: into.name, elem: into }, lit, scope)
+        }
       if (x.kind === "binary") {
         const result = COMPARISONS.has(x.op)
           ? checkedMeetType(inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project))
@@ -548,13 +574,16 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
             store(inferExprType(s.target, bodyScope, b.project), s.value, bodyScope, undefined, undefined, true)
           // a FOR counts in ANY_INT: its control variable converts to it (`stmt_for_real_control`, `stmt_for_bool_control`)
           if (s.kind === "for") store(UNKNOWN, s.controlVar, bodyScope, "ANY_INT")
-          // a typed-literal CASE label converts to the selector (`stmt_case_typed_label_other_type`)
+          // a CASE label converts to the selector — a typed literal (`stmt_case_typed_label_other_type`) and an untyped one
+          // (`lt_literal_case_label_out_of_range`, rule LT12) — and a FOR's TO bound to its counter
+          // (`lt_literal_for_bounds_out_of_range`)
           if (s.kind === "case") {
             const selector = inferExprType(s.selector, bodyScope, b.project)
             for (const arm of s.arms)
               for (const label of arm.labels)
-                if (label.value.kind === "literal" && label.value.literalKind === "typed") store(selector, label.value, bodyScope)
+                if (label.value.kind === "literal" && (label.value.literalKind === "typed" || label.value.literalKind === "int")) store(selector, label.value, bodyScope)
           }
+          if (s.kind === "for") store(inferExprType(s.controlVar, bodyScope, b.project), s.to, bodyScope)
         })
       }
     }
@@ -937,16 +966,36 @@ const TYPED_BY_THEIR_OPERAND: ReadonlySet<string> = new Set(["SIZEOF", "ADR"])
  * Told apart since frontend-conformance 2.3: `[SIZEOF(T)]` in an array initializer was misread as a repeat count NAMED
  * SIZEOF (an `ident_expr` UNKNOWN) and is the call it is now (`parse/initializer`) — 112 corpus library declarations.
  */
-function operandTyped(expr: Expr, scope: Scope | undefined, b: Bound): boolean | undefined {
+function operandTyped(expr: Expr, scope: Scope | undefined, b: Bound): boolean | "type-name" | undefined {
   if (expr.kind !== "call" || expr.callee.kind !== "ident_expr" || scope === undefined) return undefined
   if (!TYPED_BY_THEIR_OPERAND.has(expr.callee.name.toUpperCase())) return undefined
   const operands = expr.args.flatMap((a) => (a.value === undefined ? [] : [a.value]))
   if (operands.length === 0) return undefined
-  const untyped = (v: Expr): boolean =>
-    inferExprType(v, scope, b.project).kind === "unknown" &&
-    (v.kind !== "ident_expr" ||
-      resolveTypeExpr({ kind: "named_type", name: { kind: "identifier", text: v.name, span: v.span }, span: v.span }, scope, 0, b.project).kind === "unknown")
-  return !operands.every(untyped)
+  if (operands.some((v) => inferExprType(v, scope, b.project).kind !== "unknown")) return true
+  // a NAME no value types may be a TYPE: `SIZEOF(T)`. The PROJECT is the root and the scope is where the name is written —
+  // they were passed the other way round, which read the dialect off a POU scope (none) and found no project type at all;
+  // it failed loud once the target is read off the root (frontend-conformance 4.1.1)
+  const typeName = (v: Expr): boolean =>
+    v.kind === "ident_expr" &&
+    resolveTypeExpr({ kind: "named_type", name: { kind: "identifier", text: v.name, span: v.span }, span: v.span }, b.project, 0, scope).kind !== "unknown"
+  if (!operands.some(typeName)) return false
+  // an ELEMENTARY type's name was typed by the old reading too (no project type needed) — kept in the measure it was in
+  return operands.some((v) => v.kind === "ident_expr" && isElementaryTypeName(v.name)) ? true : "type-name"
+}
+
+/** Is `expr` untyped only for its project's unknown TARGET — typed, were the project 64-bit? Asked of the bound project
+ *  itself, its environment swapped for the length of one inference. */
+function typedOnASixtyFourBitTarget(expr: Expr, scope: Scope, b: Bound): boolean {
+  const project = b.project
+  if (project.environment?.target !== undefined) return false
+  const saved = project.environment
+  project.environment = { ...saved, target: { pointerBits: 64 } }
+  try {
+    return inferExprType(expr, scope, project).kind !== "unknown"
+  } finally {
+    if (saved === undefined) delete project.environment
+    else project.environment = saved
+  }
 }
 
 /** The POUs a call can name whose declaration states no return type. */

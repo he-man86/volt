@@ -15,7 +15,6 @@
  * a sizeless string's length (`defaults.ts`).
  */
 
-import { canonicalElem } from "./platform.js"
 import { CODESYS_ONLY_TYPE_WORDS } from "../syntax/index.js"
 
 export type TypeFamily = "bool" | "int" | "bitstring" | "real" | "time" | "date" | "string"
@@ -119,7 +118,7 @@ const DISPLAY_NAMES: ReadonlyMap<string, string> = new Map([...ELEM_ALIASES].map
  * are. TwinCAT is not recorded for these yet.
  */
 export function elementaryDisplayName(name: string): string {
-  const canonical = canonicalElem(name)
+  const canonical = aliasElem(name)
   return DISPLAY_NAMES.get(canonical) ?? canonical
 }
 
@@ -149,7 +148,21 @@ export function inTypeGroup(group: string, t: ElementaryType): boolean {
   return families !== undefined && (families.length === 0 || families.includes(t.family))
 }
 
-/** Facts for an elementary type name (resolves aliases, case-insensitive), or undefined if not elementary. */
+/**
+ * The canonical short form of an elementary type name — the IEC abbreviations resolved (`TIME_OF_DAY` is `TOD`),
+ * upper-cased. NOT the platform integers: what `__XINT` is depends on the target, so a name written in source reaches
+ * them only through `platform.ts` `canonicalElem`, with the project's target. A resolved Type never carries one (its
+ * name is its facts' name), so this is the spelling every comparison of RESOLVED names reads.
+ */
+export function aliasElem(name: string): string {
+  const u = name.toUpperCase()
+  return ELEM_ALIASES.get(u) ?? u
+}
+
+/**
+ * Facts for an elementary type name (resolves aliases, case-insensitive), or undefined if not elementary — and undefined
+ * for a platform integer, whose facts are the target's (`platform.ts` `elementaryTypeOn`).
+ */
 export function elementaryType(name: string): ElementaryType | undefined {
-  return ELEMENTARY_TYPES.get(canonicalElem(name))
+  return ELEMENTARY_TYPES.get(aliasElem(name))
 }

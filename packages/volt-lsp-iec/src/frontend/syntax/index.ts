@@ -88,7 +88,7 @@ export { calendarNanoseconds } from "./literal/calendar.js"
 // pragmas
 export { declarationAttributes, FRONTEND_ATTRIBUTES, hasFrontendAttribute, memberAttributes, readAttribute, unitAttributes, type FrontendAttribute } from "./pragmas/attributes.js"
 export { directiveOf } from "./pragmas/conditional.js"
-export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, ProjectFacts } from "./pragmas/conditional.js"
+export type { CompileEnvironment, ConditionNames, ConditionWorld, DeviceFacts, ProjectFacts, Target } from "./pragmas/conditional.js"
 
 // the Volt workspace file format
 export {

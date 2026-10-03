@@ -2,7 +2,8 @@
  * bit-usage (declarations/) — the placement rules for the 1-bit `BIT` type, one decl walk, four codes:
  *   C0205 pointer-to-bit  — `POINTER TO BIT`.
  *   C0206 bit-array-base  — `ARRAY[…] OF BIT`.
- *   C0203 bit-wrong-container — a plain `BIT` var in a PROGRAM/FUNCTION/METHOD (only structs/FBs may hold BIT).
+ *   C0203 bit-wrong-container — a plain `BIT` var in a PROGRAM/FUNCTION/METHOD or a global list (only structs/FBs may
+ *                               hold BIT; a GVL's `ty_bit_in_gvl`, both vendors 2026-10-03).
  *   C0204 bit-wrong-block     — a plain `BIT` var in an FB but a disallowed block (only VAR_INPUT/VAR_OUTPUT/VAR).
  *
  * Zero-FP: `BIT` in any of these positions is always an error; struct fields (a DUT body, not a var section)
@@ -15,7 +16,7 @@ import { forEachDecl } from "../../../frontend/symbols/index.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
 const BIT_OK_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR"])
-const BIT_C0203_POUS = new Set(["program", "function", "method"])
+const BIT_C0203_POUS = new Set(["program", "function", "method", "global_var_list"])
 
 const isBit = (t: TypeExpr): boolean => t.kind === "named_type" && t.name.text.toUpperCase() === "BIT"
 

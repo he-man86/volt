@@ -179,7 +179,7 @@ export {
   isIntLiteral,
   isKnownPrimitive,
   isNumericType,
-  isPointerSizedInteger,
+  pointerFits,
   isSameType,
   isTemporal,
   literalCapacityType,

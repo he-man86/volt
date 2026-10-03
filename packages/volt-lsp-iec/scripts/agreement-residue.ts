@@ -18,6 +18,7 @@ import { splitLists, withDependencies } from "../test/conformance/support/fixtur
 import { KNOWN_DIVERGENCES } from "../test/conformance/support/divergences.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { PROJECT_LIBRARY, PROJECT_MANIFESTS, projectDevices } from "../test/conformance/support/project-libraries.js"
+import { RECORDING_ENVIRONMENT } from "../test/conformance/support/recording-environment.js"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../src/analysis/index.js"
 import { computeNetworkTextDiagnostics } from "../src/network/index.js"
@@ -93,7 +94,7 @@ for (const t of ALL_TESTS) {
     ...crossDecls.filter((d) => !own.has(d.name)).map((d) => ({ ...d, name: `${d.name}__decl` })),
     ...std.map((l) => ({ ...l, name: "__std" })),
   ]
-  const project = build.buildSymbolTable(files, PROJECT_MANIFESTS, vendor, undefined, projectDevices(vendor))
+  const project = build.buildSymbolTable(files, PROJECT_MANIFESTS, vendor, RECORDING_ENVIRONMENT, projectDevices(vendor))
   const lsp: string[] = []
   // Only the fixture's OWN file and its PLC_PRG are ANALYZED — a dependency is in the project to resolve against,
   // not to be diagnosed, exactly as `fixtures.test.ts` does it. Analyzing them too attributed one fixture's findings

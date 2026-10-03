@@ -17,7 +17,7 @@
  */
 import { build } from "../../../src/frontend/symbols/index.js"
 import { parseSource, type TopLevel, type TypeExpr, type VarSection, type VarSectionKind } from "../../../src/frontend/syntax/index.js"
-import { constEval, elementaryType } from "../../../src/frontend/types/index.js"
+import { constEval, isElementaryTypeName } from "../../../src/frontend/types/index.js"
 import type { LanguageTest } from "../types.js"
 import { withDependencies } from "./fixture-units.js"
 import { plcPrgSource } from "./plc-prg.js"
@@ -74,7 +74,7 @@ export function runPaths(t: LanguageTest, all: readonly LanguageTest[]): string[
       case "named_type": {
         if (type.subrange !== undefined) return
         // `__XINT`, `__UXINT`, `__XWORD`, `__UXWORD`: CODESYS's pointer-width integers, one value each
-        if (elementaryType(type.name.text) !== undefined || /^__U?X(INT|WORD)$/i.test(type.name.text)) return void out.push(path)
+        if (isElementaryTypeName(type.name.text)) return void out.push(path)
         const unit = declared.get(type.name.text.toUpperCase())
         if (unit?.kind === "function_block") return expandFb(unit, `${path}.`, depth)
         if (unit?.kind === "type_decl") {

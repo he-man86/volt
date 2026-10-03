@@ -36,3 +36,7 @@ test("C0205/C0206: POINTER TO BIT and ARRAY OF BIT are flagged anywhere", () => 
 test("a BIT struct field stays quiet (structs allow BIT)", () => {
   expect(errs(`TYPE sv : STRUCT b:BIT; END_STRUCT END_TYPE`)).toEqual([])
 })
+
+test("C0203: a BIT global variable is flagged — a global list is no structure (`ty_bit_in_gvl`, both vendors 2026-10-03)", () => {
+  expect(errs(`VAR_GLOBAL\n\tg : BIT;\nEND_VAR\n`)).toEqual(["Only structures and function blocks can contain variables of type BIT"])
+})

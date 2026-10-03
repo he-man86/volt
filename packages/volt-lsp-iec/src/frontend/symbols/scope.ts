@@ -2,7 +2,7 @@
  * SCOPES, MADE AND READ — the one scope factory, symbol definition, the local lookup and the project root's dialect.
  * The model (`Symbol`, `Scope`) is `model.ts`; the lazy indices over it are `cache.ts`.
  */
-import type { CompileEnvironment, Dialect, Span } from "../syntax/index.js"
+import type { CompileEnvironment, Dialect, Span, Target } from "../syntax/index.js"
 import { isLibraryUri } from "../library/index.js"
 import type { Scope, ScopeKind, Symbol } from "./model.js"
 import { entered } from "./cache.js"
@@ -18,6 +18,13 @@ export function createProjectScope(dialect: Dialect, environment?: CompileEnviro
 export function dialectOf(project: Scope): Dialect {
   if (project.dialect === undefined) throw new Error("scope carries no dialect — it is not a bound project root")
   return project.dialect
+}
+
+/** The compilation target of a bound PROJECT ROOT — undefined where nobody measured it (the LSP over a workspace whose
+ *  device's width is unknown). Read beside `dialectOf`; every type fact that depends on it takes it explicitly. */
+export function targetOf(project: Scope): Target | undefined {
+  if (project.kind !== "project") throw new Error("targetOf: not a project root")
+  return project.environment?.target
 }
 
 /**

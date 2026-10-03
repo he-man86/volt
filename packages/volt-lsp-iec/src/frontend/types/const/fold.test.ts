@@ -110,3 +110,12 @@ test("a VAR_INPUT CONSTANT parameter does not fold to its default; a VAR CONSTAN
   const values = statements.map((s) => (s.kind === "assign" ? constEval(s.value, scope) : null))
   expect(values).toEqual([undefined, 2n])
 })
+
+test("a platform-integer CONSTANT's literal initializer is held at the target's width: __XINT on a 64-bit target is LINT (step 4a review)", () => {
+  const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n  C : __XINT := 16#FFFF_FFFF_FFFF_FFFF;\nEND_VAR\nVAR\n  l : LINT;\nEND_VAR\nl := C;\nEND_FUNCTION_BLOCK\n"
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "file:///p/F.pou", source: src, parseResult }], [], "codesys", { target: { pointerBits: 64 } })
+  const [body] = [...bodies(parseResult.units, project)]
+  const s = body!.statements[0]
+  expect(s?.kind === "assign" ? constEval(s.value, body!.scope) : undefined).toBe(-1n)
+})

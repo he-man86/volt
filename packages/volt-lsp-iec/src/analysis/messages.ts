@@ -158,6 +158,9 @@ export interface Messages {
   unknownNamedOutput(name: string, callee: string): string
   /** A VAR_IN_OUT parameter passed a non-writable (literal/constant) argument (C0041). verified both vendors. */
   inOutNeedsWritable(param: string, callee: string): string
+  /** An ANY / ANY_* input passed a literal (C0041's sentence for a generic parameter): both vendors alike,
+   *  `lt_literal_any_int_argument` (frontend-conformance 4.2, 2026-10-03). */
+  anyNeedsWritable(param: string, callee: string): string
   /** A VAR_IN_OUT CONSTANT parameter passed an integer literal or constant (conformance `inout_const_bound_forms_1`,
    *  `inout_const_fb_literal_6`). CODESYS only — TwinCAT is not recorded, so undefined there and the check stays silent. */
   inOutConstantNeedsVariable(param: string, callee: string): string | undefined
@@ -596,6 +599,7 @@ export function messagesFor(vendor: Vendor): Messages {
     newInExpression: () =>
       `It is not possible to use an assignment expression with the __NEW operator in another expression. Use the pointer variable instead.`,
     unknownNamedOutput: (name, callee) => `'${name}' is no output of '${callee}'`,
+    anyNeedsWritable: (param, callee) => `ANY parameter '${param}' of '${callee}' needs variable with write access as input`,
     inOutNeedsWritable: (param, callee) =>
       tc
         ? `VAR_IN_OUT parameter '${param}' of '${callee}' needs variable with write access as input`

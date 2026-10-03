@@ -109,6 +109,8 @@ import { INHERITANCE_RULE_TESTS } from "./names/inheritance.js"
 import { ENUM_RULE_TESTS } from "./names/enums.js"
 import { LIBRARY_RULE_TESTS } from "./names/libraries.js"
 import { MEMBER_RULE_TESTS } from "./names/members.js"
+import { ELEMENTARY_RULE_TESTS } from "./types/elementary-rules.js"
+import { LITERAL_CONTEXT_TESTS } from "./types/literal-contexts.js"
 
 export interface CategoryGroup {
   name: string
@@ -229,6 +231,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "names-enums", tests: ENUM_RULE_TESTS },
   { name: "names-libraries", tests: LIBRARY_RULE_TESTS },
   { name: "names-members", tests: MEMBER_RULE_TESTS },
+  { name: "types-elementary-rules", tests: ELEMENTARY_RULE_TESTS },
+  { name: "types-literal-contexts", tests: LITERAL_CONTEXT_TESTS },
 ]
 
 /**

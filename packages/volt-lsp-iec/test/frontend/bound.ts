@@ -12,7 +12,7 @@
  */
 import { parseSource, type Dialect } from "../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../src/frontend/symbols/index.js"
-import { loadWorkspaceRefs } from "../../src/workspace-refs.js"
+import { loadWorkspaceRefs, workspaceEnvironment } from "../../src/workspace-refs.js"
 import { splitLists, withDependencies } from "../conformance/support/fixture-units.js"
 import { PROJECT_LIBRARY, PROJECT_LOWERING, PROJECT_MANIFESTS, projectDevices } from "../conformance/support/project-libraries.js"
 import { RECORDING_ENVIRONMENT } from "../conformance/support/recording-environment.js"
@@ -29,7 +29,8 @@ export function boundCorpus(p: CorpusProject): Bound[] {
   if (bound === undefined) {
     const parsed = p.files.map((f) => parse(f, p.vendor))
     const refs = loadWorkspaceRefs(p.dir)
-    const project = build.buildSymbolTable(parsed, refs.libraryManifests, p.vendor, undefined, refs.devices)
+    // …in the environment the server binds it in: the target its device descriptor gives, where measured
+    const project = build.buildSymbolTable(parsed, refs.libraryManifests, p.vendor, workspaceEnvironment(refs), refs.devices)
     boundCorpora.set(p, (bound = parsed.map((f) => ({ parsed: f, project }))))
   }
   return bound

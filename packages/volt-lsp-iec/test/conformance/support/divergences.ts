@@ -1095,9 +1095,41 @@ const TWINCAT_LIBRARY_DIVERGENCES: readonly string[] = [
  * by both vendors with "Cannot convert type 'POINTER TO INT' to type 'INT'" — the message the LSP gives, word for word,
  * from `pointer-conversion`, at the severity C0033 ships with (a warning). The difference is the project's setting, as
  * `cc5_pointer_not_convertible` already records on CODESYS; what the cell decides — that one `^` of a POINTER TO
- * POINTER leaves a POINTER TO INT — agrees.
+ * POINTER leaves a POINTER TO INT — agrees. `ty_pointer_size_twincat` (frontend-conformance 4.1.1, 2026-10-03) is the same
+ * setting: the three refused targets (WORD, DWORD, UDINT on the 64-bit target) agree word for word, the LWORD, ULINT and
+ * `__XWORD` the pointer fits are silent on both sides — and so is `cc5_pointer_not_convertible` (a pointer into a DWORD)
+ * on TwinCAT now, where the LSP was silent while the pointer rule was a vendor split (`types/compat` `pointerFits`);
+ * it was CODESYS's alone.
  */
-const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = ["decl_pointer_to_pointer_deref_once_into_int"]
+const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = ["decl_pointer_to_pointer_deref_once_into_int", "ty_pointer_size_twincat", "cc5_pointer_not_convertible"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.1.3 (2026-10-03) — elementary-type fixtures (`fixtures/types/elementary-rules.ts`, rules TY12,
+ * TY14, TY15) whose refusal the LSP does not make, both vendors alike (TwinCAT's capitals and full stop aside):
+ *   `ty_reference_to_bit` — "References to bits are not possible". No catalog code carries the sentence (C0205 is
+ *                            POINTER TO BIT's), and a wire diagnostic is a catalog `Cnnnn`. Niche: accepted loss (0
+ *                            occurrences of REFERENCE TO BIT in the corpora).
+ *   `ty_any_num_as_local_variable` — "Variables of type 'ANY_NUM' only allowed as input of functions": no catalog code
+ *                            either. Niche: accepted loss (0 occurrences in the corpora of a generic type outside a
+ *                            function's VAR_INPUT — 9 generic declarations, every one an input).
+ *   `ty_any_elementary_parameter_rejects_struct`, `ty_any_magnitude_parameter_accepts_time` — ANY_ELEMENTARY and
+ *                            ANY_MAGNITUDE are NO TYPE on either vendor ("Unknown type: 'ANY_ELEMENTARY'" twice, the
+ *                            argument's "Cannot convert" to it and the `x.diSize` it then cannot type); the LSP keeps
+ *                            them in `ANY_FAMILIES` for the operators' rules and its unknown-type check passes every
+ *                            name there. The generic parameter check knows them for no type (`types/compat`
+ *                            `GENERIC_PARAMETER_TYPES`) and stays silent. Niche: accepted loss (0 occurrences in the corpora).
+ *   `ty_version_into_string` — "Cannot convert type 'VERSION' to type 'STRING'": VERSION is a STRUCT now (`types/system`),
+ *                            and a struct stored into an elementary target is unchecked for every struct
+ *                            (`compat.classifyConversion` skips a non-elementary side) — the conversions' task 4.5.3,
+ *                            not VERSION's. Niche for VERSION: 0 occurrences in the corpora of a VERSION stored whole.
+ */
+const ELEMENTARY_RULE_DIVERGENCES: readonly string[] = [
+  "ty_reference_to_bit",
+  "ty_any_num_as_local_variable",
+  "ty_any_elementary_parameter_rejects_struct",
+  "ty_any_magnitude_parameter_accepts_time",
+  "ty_version_into_string",
+]
 
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
@@ -1114,8 +1146,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   //                       POU and an uncompiled POU has no diagnostics. An editor cannot work that way.
   //   `itf_var_section_inherited` — both vendors report the interface error and STOP, never type-checking the
   //                       body that uses the member the interface could not declare.
-  //   `cc6_loop_cannot_exit` — C0266 is configurable and is OFF in both recording projects: each records only
-  //                       the sign-change warning in `FOR small : SINT := 1 TO 200`, which the LSP matches.
+  //   (`cc6_loop_cannot_exit` left 2026-10-03, frontend-conformance 4.2: its TO 200 is the LT12 conversion into the
+  //                       SINT counter, not C0266 configured off — the LSP matches both recordings.)
   //   `cc3_pointer_conversions` — TwinCAT prints `Variable of type '1' requires exactly 1 Index`, with the
   //                       INDEX where the type belongs. CODESYS names the type and the LSP matches CODESYS;
   //                       reproducing this one would be copying a vendor defect, not reaching parity.
@@ -1161,6 +1193,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_REFUSED_LDATE_LITERAL_STOPS,
     ...TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL,
     ...C0033_CONFIGURED_AS_AN_ERROR,
+    ...ELEMENTARY_RULE_DIVERGENCES,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
     ...TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT,
     ...TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST,
@@ -1199,7 +1232,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "cc2_var_in_interface",
     "itf_var_section_declaration",
     "itf_var_section_inherited",
-    "cc6_loop_cannot_exit",
     "ir_initializer_warning_no_instance",
     "cc3_pointer_conversions",
     //   `sn_dut_mismatch` — the same reachability rule as CODESYS's entry of the same name, and now measured on
@@ -1238,8 +1270,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // is the IDE's answer, not a better one. `cc2_call_recursion` and `cc2_type_name_…` now say what CODESYS says;
   // `cc2_var_in_interface`'s rule is deleted (SP21 builds it clean); `cc5_no_op_statement` was a storage convention
   // (CRLF vs LF) and is normalized in `comparable()`.
-  //   `cc5_pointer_not_convertible` — C0033 is CONFIGURABLE. The recording project has it as an ERROR; the replay
-  //                            resolves no project settings, so it is a warning here. Configuration, not behaviour.
+  //   (`cc5_pointer_not_convertible` moved to `C0033_CONFIGURED_AS_AN_ERROR`, both vendors — frontend-conformance 4.1.1.)
   //   `cc5_new_in_expression` — the recording device has no memory configured for dynamic creation, so the IDE
   //                            reports that instead and never reaches the nesting rule.
   //   `sn_dut_mismatch_used` — THE RECORDING IS OF A PROJECT BUILD; A DIAGNOSTIC IS PER FILE. The fixture is an FB
@@ -1293,6 +1324,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...LITERAL_REFUSAL_DECLARATION_RECOVERY,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...C0033_CONFIGURED_AS_AN_ERROR,
+    ...ELEMENTARY_RULE_DIVERGENCES,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers
@@ -1313,7 +1345,6 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "hdr_function_extends",
     "hdr_function_implements",
     "sn_dut_mismatch_used",
-    "cc5_pointer_not_convertible",
     "cc5_new_in_expression",
     //   C0149, three fixtures, one cause — the compiler only looks at what it REACHES:
     //   `cc2_var_in_interface`, `itf_var_section_declaration` — an interface NOBODY IMPLEMENTS is never compiled,
@@ -1368,9 +1399,10 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     "decl_retain_persistent_counts",
     "decl_retain_persistent_initialized",
     "decl_persistent_retain",
-    //   `cc6_loop_cannot_exit` — C0266 is CONFIGURABLE too, and the recording project has it OFF: the IDE warns only
-    //                            about the sign change in `FOR small : SINT := 1 TO 200`, which the LSP matches.
-    "cc6_loop_cannot_exit",
+    //   (`cc6_loop_cannot_exit` left 2026-10-03, both vendors, frontend-conformance 4.2: "C0266 is configurable and the
+    //                            project has it OFF" was the wrong reading — `for_at_type_max` records C0266 for a bound AT
+    //                            the counter's limit. A bound BEYOND it, `FOR small : SINT := 1 TO 200`, is a conversion
+    //                            into the counter's type, and the vendors say only that sign change, as the LSP now does.)
     //   `ir_initializer_warning_no_instance` — the IDE compiles only what the entry point REACHES, so a POU nobody
     //                            instantiates gets no diagnostics at all. An editor cannot work that way: it has to
     //                            answer about the file in front of you before anything instantiates it. The fixture

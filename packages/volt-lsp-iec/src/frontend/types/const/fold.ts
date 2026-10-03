@@ -6,9 +6,10 @@
  *
  * Integers stay `bigint` (exact for the 64-bit types); reals are `number`.
  */
-import { lookup, lookupGlobal, lookupLocal, resolveQualifiedConst, rootOf, type Scope, type Symbol } from "../../symbols/index.js"
-import type { Expr, TypeExpr, VarDecl } from "../../syntax/index.js"
+import { lookup, lookupGlobal, lookupLocal, resolveQualifiedConst, rootOf, targetOf, type Scope, type Symbol } from "../../symbols/index.js"
+import type { Expr, Target, TypeExpr, VarDecl } from "../../syntax/index.js"
 import { elementaryType, type ElementaryType } from "../elementary.js"
+import { elementaryTypeOn } from "../platform.js"
 import { integerOfWidth, wrapToWidth } from "../width.js"
 import { compileTimeConstant } from "./constancy.js"
 
@@ -126,12 +127,13 @@ function initialValue(symbol: Symbol, ctx: FoldContext): Folded {
   // A LITERAL initializer is held at the declared width, as the constant's slot holds it: `C : INT := 40000` is -25536
   // wherever it is named — an initializer, a CASE label. An EXPRESSION initializer is NOT: `D : SINT := K + 1` (K = 127)
   // reads 128, even from D itself (conformance `named_const_literal_wrap`, `named_const_expression_keeps`, LIVE).
-  return { value: typeof value === "bigint" && decl.init.kind === "literal" ? heldAs(value, decl.type) : value }
+  // A platform integer (`__XINT`) is held at the width of the project's target, and not at all where that is unknown.
+  return { value: typeof value === "bigint" && decl.init.kind === "literal" ? heldAs(value, decl.type, targetOf(rootOf(symbol.owner))) : value }
 }
 
 /** An integer as a variable of an elementary integer or bit-string type holds it — wrapped to the type's width. */
-function heldAs(v: bigint, t: TypeExpr): bigint {
-  const e = t.kind === "named_type" ? elementaryType(t.name.text) : undefined
+function heldAs(v: bigint, t: TypeExpr, target: Target | undefined): bigint {
+  const e = t.kind === "named_type" ? elementaryTypeOn(t.name.text, target) : undefined
   if (e === undefined || e.rank === undefined || (e.family !== "int" && e.family !== "bitstring")) return v
   return wrapToWidth(v, e)
 }

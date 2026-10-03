@@ -16,7 +16,7 @@
  */
 import { compilerTypeText, walkExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
 import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
-import { ANY_FAMILIES, builtinName, inferExprType, isDialectType, resolveBareName } from "../frontend/types/index.js"
+import { ANY_FAMILIES, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, resolveBareName } from "../frontend/types/index.js"
 
 
 export interface BareRef {
@@ -149,6 +149,9 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
   const t = written.kind === "reference" ? written.target : written
   if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum" && t.kind !== "interface") return undefined
   if (t.scope === undefined) return undefined
+  // an ANY / ANY_* input is the compiler's __SYSTEM.AnyType (`types/system`): its known members are typed, but an unknown
+  // one is unrecorded — the vendor's sentence may name AnyType rather than the group — so it is not refused (step 4a review)
+  if (t.kind === "struct" && GENERIC_PARAMETER_TYPES.has(t.name.toUpperCase())) return undefined
   const typeSym = lookupLocal(project, t.name)[0]
   if (typeSym !== undefined && isLibrarySymbol(typeSym)) return undefined // library type → signatures lossy, skip
   if (hasUnresolvedBase(t.scope)) return undefined // an unresolved EXTENDS base could hide the member

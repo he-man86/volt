@@ -17,7 +17,7 @@ export {
   type Symbol,
   type SymbolKind,
 } from "./model.js"
-export { defineSymbol, dialectOf, isLibrarySymbol, lookupLocal } from "./scope.js"
+export { defineSymbol, dialectOf, isLibrarySymbol, lookupLocal, targetOf } from "./scope.js"
 export { memoByProject } from "./cache.js"
 export { gvlName, type SymbolTableInput } from "./binder.js"
 

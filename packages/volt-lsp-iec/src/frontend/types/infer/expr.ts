@@ -6,7 +6,7 @@
  *
  * What a name or a member chain denotes is `member.ts`; a call's callee and its parameters `callee.ts`.
  */
-import { bareEnumMember, isLibrarySymbol, lookup, type Scope } from "../../symbols/index.js"
+import { bareEnumMember, isLibrarySymbol, lookup, targetOf, type Scope } from "../../symbols/index.js"
 import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
 import { checkedMeetType, checkedNegationType } from "../arith/checked.js"
 import { temporalResultType } from "../arith/temporal.js"
@@ -19,10 +19,9 @@ import {
   twincatXaddResultType,
   type ExptArgument,
 } from "../builtins.js"
-import { elementaryType } from "../elementary.js"
+import { aliasElem, elementaryType } from "../elementary.js"
 import { resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
-import { canonicalElem } from "../platform.js"
 import { literalType, typedLiteralSum } from "../literal.js"
 import { BITWISE_OPERATORS, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
 import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType } from "./member.js"
@@ -151,7 +150,7 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
     if (bitwise !== undefined) return bitwise
     const meet = checkedMeetType(l, r)
     if (meet !== undefined) return meet
-    if (canonicalElem(l.name) === canonicalElem(r.name)) return l
+    if (aliasElem(l.name) === aliasElem(r.name)) return l
   }
   return UNKNOWN
 }
@@ -170,7 +169,7 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
     if (a.value.kind === "literal") return typeof a.value.value === "bigint" ? "int-literal" : "unknown"
     const t = inferExprType(a.value, scope, project)
     if (t.kind !== "elementary" || elementaryType(t.name)?.rank === undefined) return "unknown"
-    return canonicalElem(t.name) === "REAL" ? "real" : "not-real"
+    return aliasElem(t.name) === "REAL" ? "real" : "not-real"
   })
   return exptCheckedType(kinds)
 }
@@ -234,7 +233,7 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // Flows a built-in's result into downstream checks — e.g. `REAL_TO_DINT(EXPT(…))` needs EXPT's type to see an
   // implicit LREAL→REAL narrowing on the argument.
   if (call.callee.kind === "ident_expr") {
-    const builtin = builtinCallResult(call.callee.name, project.dialect)
+    const builtin = builtinCallResult(call.callee.name, project.dialect, targetOf(project))
     if (builtin !== undefined) return builtin
   }
   return UNKNOWN

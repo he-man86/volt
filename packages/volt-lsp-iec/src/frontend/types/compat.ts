@@ -14,11 +14,10 @@
  *   - sign-change (same width, signed↔unsigned)           → WARNING "change of sign"
  *   - incompatible (integer narrowing, isolated mismatch, real→int, …) → ERROR (explicit X_TO_Y required)
  */
-import { sameName } from "../syntax/index.js"
-import { elementaryType } from "./elementary.js"
+import { sameName, type Dialect, type Target } from "../syntax/index.js"
+import { aliasElem, elementaryType, inTypeGroup } from "./elementary.js"
 import type { ElementaryTypeRef, Type } from "./type.js"
 import { isIsolated } from "./predicates.js"
-import { canonicalElem } from "./platform.js"
 
 /** How `rhs` converts into `lhs`. `identity` also covers the conservative skips (unknown / non-elementary). */
 export type ConversionKind = "identity" | "widen" | "narrow" | "sign-change" | "incompatible"
@@ -49,8 +48,8 @@ export function classifyConversion(lhs: Type, rhs: Type): ConversionKind {
  */
 function classifyElementary(lName: string, rName: string): ConversionKind {
   // BIT is 1-bit boolean storage — CODESYS treats it as BOOL.
-  const l = bitToBool(canonicalElem(lName)) // destination
-  const r = bitToBool(canonicalElem(rName)) // source
+  const l = bitToBool(aliasElem(lName)) // destination
+  const r = bitToBool(aliasElem(rName)) // source
   if (l === r) return "identity"
   // Isolated families (BOOL/STRING/TIME/DATE) accept only themselves.
   if (isIsolated(l) || isIsolated(r)) return "incompatible"
@@ -89,7 +88,7 @@ function classifyElementary(lName: string, rName: string): ConversionKind {
  * check compared enum names case-sensitively, so `a : E_Mode` against `b : e_mode` was two different enums.
  */
 export function isSameType(a: Type, b: Type): boolean {
-  if (a.kind === "elementary" && b.kind === "elementary") return canonicalElem(a.name) === canonicalElem(b.name)
+  if (a.kind === "elementary" && b.kind === "elementary") return aliasElem(a.name) === aliasElem(b.name)
   return a.kind === b.kind && "name" in a && "name" in b && sameName(a.name, b.name)
 }
 
@@ -103,11 +102,40 @@ function bitToBool(name: string): string {
 }
 
 /**
- * Is this integer wide enough to hold a pointer — the targets TwinCAT accepts a pointer assigned to silently? An
- * unsigned integer or bit string of 32 bits or more: DERIVED from the table, not listed (it was
- * `["DWORD", "LWORD", "UDINT", "ULINT"]`). The 32-bit rows are there because the recorded target is 64-bit and CODESYS
- * accepts the narrower pair too; the target width itself (`platform.ts`) decides it from conformance 4.1.1.
+ * The generic type groups a PARAMETER may be declared of — `ANY` and the ANY_* groups both vendors know as types.
+ * `ANY_ELEMENTARY` and `ANY_MAGNITUDE` are no type there ("Unknown type: 'ANY_ELEMENTARY'", `ty_any_elementary_*`,
+ * `ty_any_magnitude_*`, frontend-conformance 4.1.3), though `ANY_FAMILIES` names them for the operators' rules.
  */
-export function isPointerSizedInteger(t: ElementaryTypeRef): boolean {
-  return !t.elem.signed && (t.elem.family === "int" || t.elem.family === "bitstring") && t.elem.bits >= 32
+export const GENERIC_PARAMETER_TYPES: ReadonlySet<string> = new Set(["ANY", "ANY_NUM", "ANY_INT", "ANY_REAL", "ANY_BIT", "ANY_STRING", "ANY_DATE"])
+
+/**
+ * Does a parameter declared of the generic `group` take an argument of type `arg` (rule TY14, `ty_any_*`, both vendors
+ * 2026-10-03)? By the group's families (`inTypeGroup`) — ANY_NUM refuses a STRING, a BOOL and a TIME, ANY_INT a REAL and
+ * takes a WORD, ANY_DATE takes a TOD — with ONE vendor difference: TwinCAT's ANY_BIT refuses a BOOL, which CODESYS's
+ * takes. Undefined when unmeasured: a group no parameter may be declared of, or a non-elementary argument (ANY takes a
+ * STRUCT, recorded; a STRUCT into the others is not).
+ */
+export function genericParameterAccepts(group: string, arg: Type, dialect: Dialect | undefined): boolean | undefined {
+  const upper = group.toUpperCase()
+  if (!GENERIC_PARAMETER_TYPES.has(upper)) return undefined
+  if (upper === "ANY") return true
+  if (arg.kind !== "elementary") return undefined
+  if (upper === "ANY_BIT" && dialect === "twincat" && arg.elem.family === "bool") return false
+  return inTypeGroup(upper, arg.elem)
+}
+
+/**
+ * Does a pointer FIT this elementary target — is a pointer assigned to it silently (C0033 otherwise)? An unsigned integer
+ * or bit string at least as wide as the TARGET's pointer, one rule on both vendors (frontend-conformance 4.1.1,
+ * `ty_pointer_size_twincat`): on a 64-bit target LWORD, ULINT and `__XWORD` fit and WORD, DWORD, UDINT are refused
+ * (CODESYS Control Win V3 x64); on a 32-bit one DWORD and UDINT fit too (TwinCAT CE7). It was a VENDOR split — "CODESYS
+ * warns for every elementary target, TwinCAT only below 32 bits" — which was the two recording projects' targets read
+ * as vendors. Undefined where the target decides and is unknown (a 32-bit integer, no target); a signed integer never
+ * fits (only the unsigned widths are recorded; the rule before 4.1.1).
+ */
+export function pointerFits(t: ElementaryTypeRef, target: Target | undefined): boolean | undefined {
+  if (t.elem.signed || (t.elem.family !== "int" && t.elem.family !== "bitstring")) return false
+  if (t.elem.bits >= 64) return true
+  if (t.elem.bits < 32) return false
+  return target === undefined ? undefined : t.elem.bits >= target.pointerBits
 }

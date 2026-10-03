@@ -5,7 +5,7 @@
  * index (consolidate-lsp-structure C3).
  */
 import { decodeStringLiteral, decodeUtf8Literal, typedLiteralForm, type BinaryExpr, type Expr, type Span } from "../frontend/syntax/index.js"
-import type { Scope } from "../frontend/symbols/index.js"
+import { targetOf, type Scope } from "../frontend/symbols/index.js"
 import { ARITHMETIC_OPERATORS, classifyConversion, elementaryTypeRef, elemOf, inferExprType, isAssignable, literalCheckType, literalErrorType, operandFamilyRule, parseConversionName, renderType, type Type, UNKNOWN } from "../frontend/types/index.js"
 import { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
 import { compilerStringLiteralText, type Messages } from "./messages.js"
@@ -152,7 +152,7 @@ export function conversionArgError(x: Expr, scope: Scope, project: Scope, messag
   if (x.kind !== "call" || x.callee.kind !== "ident_expr") return undefined
   // The `<SRC>` before `_TO_` is the type the argument converts TO before the cast — where CODESYS emits the same
   // C0195/C0197 an assignment would (`UINT_TO_WORD(anINT)` warns "change of sign", `REAL_TO_DINT(anLREAL)` "loss").
-  const srcElem = parseConversionName(x.callee.name)?.from
+  const srcElem = parseConversionName(x.callee.name, targetOf(project))?.from
   if (srcElem === undefined) return undefined // not a conversion, or `TO_STRING` (no explicit source)
   const arg = x.args[0]?.value
   if (arg === undefined) return undefined

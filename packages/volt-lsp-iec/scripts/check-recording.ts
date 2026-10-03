@@ -27,6 +27,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ALL_TESTS } from "../test/conformance/fixtures/index.js"
 import { withDependencies } from "../test/conformance/support/fixture-units.js"
+import { ORACLE_WIDTH, targetWidth } from "./recording-target.js"
 
 const RECORDINGS = join(import.meta.dir, "..", "test", "conformance", "recordings")
 type Row = { buildSuccess?: boolean; diagnostics?: { severity: string; message: string }[] }
@@ -68,11 +69,13 @@ const ALL_POUS = new Set([...OWN.values()].flatMap((s) => [...s]))
  * reported `Internal Error (ARM): RiscFrontEnd: Unknown operator`, a code generator the fixtures never meant to
  * exercise. The platform is one click in a toolbar dropdown and leaves no trace in git, so the only durable
  * guard is this one: the recording states its own target, and a recording is not fit to adopt on another.
+ *
+ * MEASURED AGAIN 2026-10-03 (frontend-conformance 4.1.1): a fresh `ide.ps1` copy of `TwinCAT Project14` still opens on
+ * CE7 (ARMV7) — `ty_xint_twincat_width` answered DINT there — and `TwinCAT Project13` on `TwinCAT RT (x64)` (LINT). A
+ * `RECORD_ONLY` merge does not pass through this check; `record-language.ts` records the probe in the same run and refuses
+ * the merge on any other target (`recording-target.ts`, step 4a review). Record TwinCAT on Project13 (`-Fixture 13`).
  */
-function targetWidth(t: Record<string, Row>): string {
-  const m = t["plat_xint_into_string"]?.diagnostics?.[0]?.message.match(/Cannot convert type '(\w+)'/)
-  return m?.[1] ?? "unknown"
-}
+
 function verify(vendor: "codesys" | "twincat"): number {
   const stem = `${vendor}.build`
   const fresh = `${stem}.new.json`
@@ -83,7 +86,7 @@ function verify(vendor: "codesys" | "twincat"): number {
   const t = load(fresh)
   const committed = existsSync(join(RECORDINGS, `${stem}.json`)) ? load(`${stem}.json`) : {}
   const width = targetWidth(t)
-  const wrongTarget = width !== "LINT"
+  const wrongTarget = width !== ORACLE_WIDTH
   console.log(`target: __XINT is ${width} — ${wrongTarget ? "NOT the 64-bit oracle, do not adopt" : "a 64-bit target, as intended"}`)
   const ok = Object.values(t).filter((r) => r.buildSuccess).length
   console.log(`${fresh}: ${Object.keys(t).length} fixtures, ${ok} build clean, ${Object.keys(t).length - ok} with diagnostics`)

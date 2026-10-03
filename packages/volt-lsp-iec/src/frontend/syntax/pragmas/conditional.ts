@@ -298,6 +298,16 @@ export interface DeviceFacts {
   packMode: number
 }
 
+/**
+ * THE COMPILATION TARGET — only what a TYPE fact depends on: the width of a pointer, which is the width the platform
+ * integers (`__XINT`, `__UXINT`, `__XWORD`) take and the narrowest integer a pointer fits (`types/platform.ts`). A fact
+ * of the DEVICE, never of the vendor: both recording projects are 64-bit (`plat_*`, `ty_xint_twincat_width`), and a
+ * TwinCAT project once recorded on its ARM CE7 target measured the 32-bit half (frontend-conformance 4.1.1).
+ */
+export interface Target {
+  pointerBits: 32 | 64
+}
+
 /** What the project's compile settings say, each part known or not: its compile defines (CODESYS's Application > Build >
  *  Compiler defines, the TwinCAT PLC project's "Compiler defines") and its task configuration. */
 export interface ProjectFacts {
@@ -311,6 +321,9 @@ export interface ProjectFacts {
 export interface CompileEnvironment {
   device?: DeviceFacts
   project?: ProjectFacts
+  /** The target's pointer width, where it was MEASURED (the recordings' `plat_*`) or read off a device whose width is
+   *  measured (`workspace-refs` `targetOfDevices`). Absent, a platform integer has no width and resolves to nothing. */
+  target?: Target
 }
 
 /**

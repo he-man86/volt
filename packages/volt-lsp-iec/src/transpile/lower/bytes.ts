@@ -2,8 +2,8 @@
  * The measured byte layout — SIZEOF and the difference of two addresses in one variable.
  */
 import type { Expr } from "../../frontend/syntax/index.js"
-import { lookup } from "../../frontend/symbols/index.js"
-import { elementaryRef, elementaryType, resolveNamedType, type Type } from "../../frontend/types/index.js"
+import { lookup, targetOf } from "../../frontend/symbols/index.js"
+import { elementaryRef, elementaryTypeOn, resolveNamedType, type Type } from "../../frontend/types/index.js"
 import { type IrExpr, peelArray, type Place } from "../ir/index.js"
 import { baseOf, type Lowering } from "./lowering.js"
 import { storageOf } from "./storage.js"
@@ -169,7 +169,7 @@ export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr
   const named = arg.kind === "ident_expr" && !lw.holds(arg.name) ? lookup(lw.scope, arg.name)?.symbol : undefined
   // `SIZEOF(DINT)` / `XSIZEOF(DINT)` — an ELEMENTARY type name, which resolves to no symbol at all and so fell through
   // to `lowerPlace` and its "does not resolve" (conformance `cp_xsizeof`: XSIZEOF(DINT) is 4).
-  const elementary = arg.kind === "ident_expr" && !lw.holds(arg.name) && named === undefined ? elementaryType(arg.name) : undefined
+  const elementary = arg.kind === "ident_expr" && !lw.holds(arg.name) && named === undefined ? elementaryTypeOn(arg.name, targetOf(lw.project)) : undefined
   let type: Type
   if (elementary !== undefined) type = elementaryRef(elementary.name)
   else if (named?.kind === "type" || named?.kind === "function_block") type = storageOf(lw, resolveNamedType(named.name, lw.project))

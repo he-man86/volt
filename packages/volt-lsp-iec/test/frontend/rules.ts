@@ -3603,8 +3603,10 @@ export const RULES: readonly Rule[] = [
     rule: "platform integers `__XINT/__UXINT/__XWORD` (64-bit)",
     home: "platform",
     gap: false,
-    fixtures: ["types/platform-integers.ts", "plat_*"],
+    fixtures: ["types/platform-integers.ts", "plat_*", "ty_xint_twincat_width", "ty_pointer_size_twincat"],
     design: "types/platform-integers.ts (plat_*)",
+    recheck:
+      "4.1.1: the width is the TARGET's, a fact on the project scope (`symbols/scope` `targetOf`, `CompileEnvironment.target`), required by `canonicalElem`, `pointerFits` and the conversion names: both recording projects are 64-bit (`ty_xint_twincat_width` LINT/ULINT/LWORD on CODESYS Control Win V3 x64 and TwinCAT Project13 on TwinCAT RT (x64)); a pointer fits LWORD, ULINT and `__XWORD` silently and WORD/DWORD/UDINT are refused on both (`ty_pointer_size_twincat` — the C0033 vendor split was the two projects' targets). The LSP knows a workspace's target only from a device descriptor whose width is measured (`workspace-refs` `MEASURED_DEVICE_TARGETS`); elsewhere a platform integer resolves to nothing.",
   },
   {
     id: "TY6",
@@ -3615,6 +3617,8 @@ export const RULES: readonly Rule[] = [
     gap: true,
     fixtures: [],
     design: "**GAP**",
+    recheck:
+      "4.1.1: IMPLEMENTED (`PLATFORM_ALIASES_32`, `pointerFits` on a 32-bit target, unit-tested) and MEASURED, but not in a committed recording: TwinCAT Project14's active platform is TwinCAT CE7 (ARMV7), and recording the 50 4.1/4.2 fixtures there (2026-10-03) answered __XINT/__UXINT/__XWORD → DINT/UDINT/DWORD and a pointer silent into DWORD/UDINT — the 2026-09-20 full re-record's answer. `twincat.build.json` states ONE target (64-bit, `scripts/check-recording.ts`), so those rows were re-recorded on the x64 Project13 and the 32-bit ones are no oracle yet. Closing this needs a recording of its own target (a 32-bit build file), not a row in the 64-bit one.",
   },
   {
     id: "TY7",
@@ -3662,8 +3666,8 @@ export const RULES: readonly Rule[] = [
     section: "4.1",
     rule: "platform-alias conversion names `__XINT_TO_DINT` …",
     home: "conversion-name",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ty_xint_to_dint", "ty_dint_to_uxint", "ty_xint_to_dint_result_type"],
     design: "**GAP**",
   },
   {
@@ -3672,8 +3676,8 @@ export const RULES: readonly Rule[] = [
     section: "4.1",
     rule: "BIT only as a STRUCT/FB field: no BIT variable elsewhere, no POINTER TO / REFERENCE TO / ARRAY OF BIT",
     home: "resolve",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ty_bit_as_*", "ty_bit_in_gvl", "ty_pointer_to_bit", "ty_reference_to_bit", "ty_array_of_bit", "prim_default_bit", "ct_bit_fields"],
     design: "**GAP**",
   },
   {
@@ -3682,8 +3686,8 @@ export const RULES: readonly Rule[] = [
     section: "4.1",
     rule: "an ARRAY element cannot be a REFERENCE",
     home: "resolve",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ty_array_of_reference", "ty_array_of_pointer"],
     design: "**GAP**",
   },
   {
@@ -3692,8 +3696,8 @@ export const RULES: readonly Rule[] = [
     section: "4.1",
     rule: "generic ANY / ANY_NUM / ANY_* as a parameter type, and what argument it accepts",
     home: "resolve + compat",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ty_any_*", "type_any_function_input", "type_any_int_function_input", "lt_literal_any_int_argument"],
     design: "**GAP**",
   },
   {
@@ -3702,8 +3706,8 @@ export const RULES: readonly Rule[] = [
     section: "4.1",
     rule: "the VERSION system type",
     home: "elementary",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ty_version_*", "type_codesys_version"],
     design: "**GAP**",
   },
   // ── 4.2 ──
@@ -3823,8 +3827,8 @@ export const RULES: readonly Rule[] = [
     section: "4.2",
     rule: "an untyped literal in comparison, CASE label, array bound, FOR bounds, and as a call argument to ANY_*",
     home: "literal",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lt_literal_*"],
     design: "**GAP**",
   },
   {
@@ -3833,8 +3837,8 @@ export const RULES: readonly Rule[] = [
     section: "4.2",
     rule: "negative literals (`-128` into SINT, `-32768` into INT)",
     home: "literal.isNegatedIntLiteral",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["lt_negative_*"],
     design: "**GAP** (only through narrowing fixtures)",
   },
   {
@@ -3843,8 +3847,14 @@ export const RULES: readonly Rule[] = [
     section: "4.2",
     rule: "the context literal type the transpiler uses (`contextLiteralType`) agrees with the checked type",
     home: "literal",
-    gap: true,
+    gap: false,
     fixtures: [],
+    tests: [
+      {
+        file: "test/frontend/literal-agreement.test.ts",
+        title: "the transpiler's and the checker's type of every stored literal agree — the disagreeing classes are the baseline's",
+      },
+    ],
     design:
       "`test/frontend/literal-agreement.test.ts` over every literal in the corpus and fixtures — **GAP** until written",
   },

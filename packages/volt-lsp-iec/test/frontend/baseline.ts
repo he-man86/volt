@@ -74,7 +74,65 @@ const ADR_CELLS: readonly [string, number][] = [
   ["mem_pointer_member_without_deref", 1],
 ]
 
+const UNTYPED_LITERAL_OPERAND = "frontend-conformance 4.3.1 (meets and promotion: the type of an operation on an untyped literal)"
+const FOR_BOUND_CELLS =
+  "4.2's FOR-bound cells (rule LT12) count their loop, `n := n + 1`: an operation on an untyped literal is `binary UNKNOWN` until 4.3.1 types it, which no known-divergence list can hold (the replay agrees with both builds)"
+/** The 4.2 FOR-bound fixtures, with the `n + 1` each carries. */
+const FOR_BOUND_ROWS: readonly [string, number][] = [
+  ["lt_literal_for_bounds", 2],
+  ["lt_literal_for_bounds_out_of_range", 1],
+  // measured since 4.2 took it off the known divergences (its TO 200 is the LT12 conversion, not C0266)
+  ["cc6_loop_cannot_exit", 1],
+]
+
+const LITERAL_TYPING = "frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
+const NEGATED_LITERAL_CELLS =
+  "4.1.3's and 4.2's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
+/** The 4.1.3 / 4.2 fixtures writing negated untyped numbers, with how many each carries (the same on both vendors). */
+const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
+  ["lt_literal_any_int_argument", 2],
+  ["lt_literal_case_label", 3],
+  ["lt_literal_for_bounds", 1],
+  ["lt_literal_in_comparison", 1],
+  ["lt_literal_negative_in_comparison_unsigned", 2],
+  ["lt_negative_below_min_int", 1],
+  ["lt_negative_below_min_sint", 1],
+  ["lt_negative_min_dint_lint", 4],
+  ["lt_negative_min_int", 2],
+  ["lt_negative_min_sint", 2],
+  ["ty_dint_to_uxint", 2],
+  ["ty_xint_to_dint", 1],
+]
+
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
+  ...NEGATED_LITERAL_ROWS.flatMap(([fixture, by]) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: unary UNKNOWN, a signed untyped number (context-typed, as a literal)`,
+      by,
+      fixture,
+      task: LITERAL_TYPING,
+      why: NEGATED_LITERAL_CELLS,
+    })),
+  ),
+  ...FOR_BOUND_ROWS.flatMap(([fixture, by]) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: binary UNKNOWN`,
+      by,
+      fixture,
+      task: UNTYPED_LITERAL_OPERAND,
+      why: FOR_BOUND_CELLS,
+    })),
+  ),
+  {
+    baseline: "type-dump",
+    measure: "fixtures codesys: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)",
+    by: 1,
+    fixture: "ty_array_of_pointer",
+    task: ADR_RESULT_TYPE,
+    why: "4.1.3's ARRAY OF POINTER cell (rule TY13, the control beside ARRAY OF REFERENCE) stores `ADR(v)` into an element — ADR's call is the named class `call UNKNOWN, SIZEOF or ADR`",
+  },
   ...ADR_CELLS.flatMap(([fixture, by]) =>
     (["codesys", "twincat"] as const).map((vendor) => ({
       baseline: "type-dump",

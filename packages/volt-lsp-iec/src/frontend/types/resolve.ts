@@ -10,14 +10,17 @@ import {
   lookupLocal,
   pickForAsker,
   scopeUri,
+  targetOf,
   type Scope,
   type Symbol,
 } from "../symbols/index.js"
 import type { Dialect, TypeDecl, TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const/fold.js"
-import { CODESYS_ONLY_TYPES, elementaryType } from "./elementary.js"
+import { CODESYS_ONLY_TYPES } from "./elementary.js"
+import { elementaryTypeOn } from "./platform.js"
 import { elementaryRef, elementaryTypeRef, UNKNOWN, type Type } from "./type.js"
 import { enumBase } from "./enums.js"
+import { systemStructType } from "./system.js"
 
 const MAX_ALIAS_DEPTH = 10
 
@@ -96,8 +99,10 @@ export function resolveNamedType(
   askerUri: string | undefined = undefined,
 ): Type {
   // …unless the project's dialect does not have it: `LDATE`/`LTOD`/`LDT` are CODESYS's (see
-  // `CODESYS_ONLY_TYPES`), and on TwinCAT the name reaches the symbol lookup like any other unknown one.
-  const elem = isDialectType(name, project.dialect) ? elementaryType(name) : undefined
+  // `CODESYS_ONLY_TYPES`), and on TwinCAT the name reaches the symbol lookup like any other unknown one. A platform
+  // integer is the project's TARGET's width (`platform.ts`); on an unknown target it is no type this can name, and no
+  // symbol declares it either, so it is UNKNOWN — silent, never a guessed width (frontend-conformance 4.1.1).
+  const elem = isDialectType(name, project.dialect) ? elementaryTypeOn(name, targetOf(project)) : undefined
   if (elem !== undefined) return elementaryTypeRef(elem)
 
   // KIND FIRST, THEN WHO IS ASKING. A name can be held by something that is not a type at all — every
@@ -108,7 +113,8 @@ export function resolveNamedType(
   // a real POU stopped lowering. Precedence decides between candidates that could ANSWER the question; it
   // does not get to decide what the question is.
   const syms = lookupLocal(project, name).filter((x) => TYPE_SYMBOL_KINDS.has(x.kind))
-  if (syms.length === 0) return UNKNOWN
+  // …and a name no symbol holds may be the COMPILER's own struct: VERSION, or the AnyType of an ANY input (`system.ts`)
+  if (syms.length === 0) return systemStructType(name) ?? UNKNOWN
   return typeOfSymbol(pickForAsker(project, syms, (x) => x.uri, askerUri)!, name, project, depth, askerUri)
 }
 

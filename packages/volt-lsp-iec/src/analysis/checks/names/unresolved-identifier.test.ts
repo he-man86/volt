@@ -412,3 +412,8 @@ test("M1: a called unknown member of a GLOBAL LIST or through a dereferenced POI
   const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
   expect(ds.map((d) => d.message).filter((m) => m.startsWith("Program name, function or function block instance expected"))).toEqual([])
 })
+
+test("an unknown member of an ANY / ANY_* input is unmeasured and stays silent — the vendor's struct is __SYSTEM.AnyType, whose name in that sentence nothing has recorded (step 4a review)", () => {
+  const src = "FUNCTION F : DINT\nVAR_INPUT\n\tx : ANY_NUM;\nEND_VAR\nVAR\n\ti : INT;\nEND_VAR\ni := x.nope;\nF := x.diSize;\nEND_FUNCTION"
+  expect(diag(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+})

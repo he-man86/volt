@@ -54,7 +54,7 @@ import { defaultValueOf, holdsCall, type IrExpr, type IrInit, type IrPou, type I
 import { type AttributeLookup, baseOf, Lowering, newShared, openDims } from "./lowering.js"
 import { declareVars, storageOf, tempResets } from "./storage.js"
 import { lowerBlock } from "./statements.js"
-import { execBodyStatements } from "./conditions.js"
+import { EXEC_ORACLE_TARGET, execBodyStatements } from "./conditions.js"
 import { calledLayout, calledRoutine, programReentrant } from "./calls.js"
 import { finishInterfaces } from "./interfaces.js"
 import { parseLibraryManifest, type LibraryManifest } from "../../frontend/library/index.js"
@@ -715,7 +715,8 @@ export interface LoweringProject {
  *  repo's (`libraries/` `withImplementations`) to run one, or its materialized declarations to have it refused. */
 export function prepareProject(files: readonly ParsedFile[], manifests: readonly LibraryManifest[]): LoweringProject {
   return {
-    project: build.buildSymbolTable(files, manifests),
+    // on the exec oracle's target, which the platform integers' width is (frontend-conformance 4.1.1)
+    project: build.buildSymbolTable(files, manifests, "codesys", { target: EXEC_ORACLE_TARGET }),
     // every file's: a GVL's or a library's unit carries its own. Only the main source's were read once, so the
     // call_after_global_init_slot method of an FB in `fb_init_before_slot_method_sibling`'s GVL file never ran
     attributes: new Map<object, ReadonlySet<string>>(files.flatMap(attributesOf)),
