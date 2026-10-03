@@ -27,9 +27,10 @@ import {
 } from "../builtins.js"
 import { aliasElem, elementaryType } from "../elementary.js"
 import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
-import { elementaryRef, UNKNOWN, type Type } from "../type.js"
+import { elementaryRef, UNKNOWN, withoutSubrange, type Type } from "../type.js"
 import { literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
 import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
+import { enumStorage } from "../enums.js"
 import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
@@ -51,8 +52,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       if (bare !== undefined) return bare
       const sym = lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
       // The declaring file is the asker: `v : ETRIG;` written inside CBML means CBML's ETRIG, no matter
-      // which file is reading `v` now.
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+      // which file is reading `v` now. Its bounds and lengths fold where it is declared (rule CE8): `v : INT(0..N)` with N
+      // its POU's own CONSTANT is a subrange, and `a : ARRAY[0..N]` a sized array, wherever `v` is read.
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
       const value = sym === undefined ? undefined : enumValueType(sym, project)
       if (value !== undefined) return value
       // Static base: the name denotes a GVL/enum/namespace/POU scope (`E_State.Idle`), not a typed var.
@@ -61,7 +63,7 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
     case "global_expr": {
       // `.g` names the global past every local (rule E33): what the project scope holds under the name
       const sym = resolveMemberChain(expr, scope, project)
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
       return (sym === undefined ? undefined : enumValueType(sym, project)) ?? staticScopeType(project, expr.name.name) ?? UNKNOWN
     }
     case "member": {
@@ -73,7 +75,7 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors)
       if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return UNKNOWN
       const sym = resolveMemberChain(expr, scope, project)
-      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
+      if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
       const value = sym === undefined ? undefined : enumValueType(sym, project)
       if (value !== undefined) return value
       // `Ns.Dep` — the namespace of a library `Ns` depends on, which `Ns` holds (rule LB8: `DED.CommFB.IO_SYSTEM_TYPE.PROFINET_IO`
@@ -117,7 +119,8 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       //
       // A BOOL operand is a logical NOT and keeps BOOL; an already-unsigned operand keeps its own type. Both fall out
       // of the guard rather than needing a case.
-      const operand = inferExprType(expr.operand, scope, project)
+      // an operation on a SUBRANGE value yields its base, never the subrange (`dt_subrange_arithmetic_result`, rule DT3)
+      const operand = withoutSubrange(inferExprType(expr.operand, scope, project))
       if (expr.op === "-") return checkedNegationType(operand)
       if (expr.op === "NOT") return notResultType(operand)
       return operand
@@ -137,8 +140,10 @@ function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   if (COMPARISON_OPERATORS.has(e.op)) return elementaryRef("BOOL")
   // an ENUM operand of arithmetic computes in its base (`enums.ts` `enumBase`): `e + INT#1`, `e + 1` and `e + e` are INT,
   // `e * aDint` DINT (`cv_enum_arithmetic_type`, CODESYS 2026-10-03); an enum without a measured base stays itself
-  let l = asOperand(inferExprType(e.left, scope, project), e.op)
-  let r = asOperand(inferExprType(e.right, scope, project), e.op)
+  // …and a SUBRANGE operand its base: `v + 1` (v an INT(0..10)) is an INT, `w * 2` (w a UINT(0..10)) a UINT
+  // (`dt_subrange_arithmetic_result`, CODESYS 2026-10-03, rule DT3)
+  let l = asOperand(withoutSubrange(inferExprType(e.left, scope, project)), e.op)
+  let r = asOperand(withoutSubrange(inferExprType(e.right, scope, project)), e.op)
   // AND_THEN / OR_ELSE: BOOL, or the unsigned integer their operands meet in (`arith/operators` `shortCircuitType`, CB5)
   if (SHORT_CIRCUIT_OPERATORS.has(e.op)) return shortCircuitType(l, r) ?? UNKNOWN
   // POINTER ± integer, pointer − pointer (`arith/operators` `pointerArithmeticType`, rule DT13); an untyped INTEGER literal
@@ -229,7 +234,20 @@ function builtinArgumentResult(name: string, call: CallExpr, scope: Scope, proje
   if (upper === "ADR") return pointerTo(operand === undefined ? UNKNOWN : valueOperandType(operand, scope, project))
   if (upper === "__NEW") return pointerTo(operand?.kind === "ident_expr" ? resolveNamedType(operand.name, project) : UNKNOWN)
   if (upper === "SIZEOF") {
-    const bytes = operand === undefined ? undefined : scalarStorageBytes(sizedOperandType(operand, scope, project))
+    if (operand === undefined) return UNKNOWN
+    const sized = sizedOperandType(operand, scope, project)
+    // SIZEOF of a STRUCT or a UNION is a UINT, where SIZEOF of an elementary type, an enum, an alias or an array is the
+    // smallest unsigned integer holding the size: a one-byte STRUCT, a one-byte UNION and a four-byte one are UINT, a
+    // four-byte DINT USINT (`dt_sizeof_derived_type`, `dt_union_sizeof_type`, `ar_sizeof_type`, both vendors 2026-10-03).
+    // Asked only where the size certainly fits a UINT — a larger one is unmeasured.
+    if (sized.kind === "struct") {
+      const bound = structSizeBound(sized, project)
+      return bound !== undefined && bound < 65536n ? elementaryRef("UINT") : UNKNOWN
+    }
+    const bytes = storageBytes(sized, project)
+    // an enum whose storage is no fact here (a library enum's base is not materialized) is still at most an LWORD: USINT
+    // (`dt_sizeof_derived_type` — every enum's SIZEOF is one)
+    if (bytes === undefined && sized.kind === "enum") return elementaryRef("USINT")
     return bytes === undefined ? UNKNOWN : sizeofResultType(bytes)
   }
   return undefined
@@ -243,6 +261,90 @@ function valueOperandType(e: Expr, scope: Scope, project: Scope): Type {
     return sym !== undefined && VALUE_SYMBOLS.has(sym.kind) ? inferExprType(e, scope, project) : UNKNOWN
   }
   return e.kind === "member" || e.kind === "index" || e.kind === "deref" ? inferExprType(e, scope, project) : UNKNOWN
+}
+
+/** SIZEOF's value, in bytes: of a value or a TYPE named bare (`storageBytes`) — what a constant fold reads (`const/fold`). */
+export function sizeofOperandBytes(e: Expr, scope: Scope, project: Scope): bigint | undefined {
+  return storageBytes(sizedOperandType(e, scope, project), project)
+}
+
+/**
+ * The bytes a value of `t` occupies where no layout question arises — `builtins` `scalarStorageBytes` (an elementary
+ * type, an array of one), an ENUM as its storage (`enums` `enumStorage`: a written base, else INT — `dt_enum_*_storage`),
+ * an array of any of these, and a UNION of them: its largest member, rounded up to its most aligned member's natural
+ * alignment (BYTE|DWORD 4, BYTE|ARRAY[0..4] OF BYTE 5, LREAL|INT 8 — `dt_union_member_sizes`, `dt_union_*sizeof_bound`,
+ * 2026-10-03). Undefined for a STRUCT, an FB, a pointer or anything else whose layout the memory model owns.
+ */
+function storageBytes(t: Type, project: Scope): bigint | undefined {
+  if (t.kind === "enum") {
+    const base = enumStorage(t)
+    return base === undefined ? undefined : scalarStorageBytes(base)
+  }
+  if (t.kind === "array") {
+    const element = storageBytes(t.element, project)
+    if (element === undefined || t.bounds === undefined) return undefined
+    return t.bounds.reduce((n, b) => n * (b.upper - b.lower + 1n), element)
+  }
+  if (t.kind === "struct") {
+    if (t.union !== true) return undefined
+    const members = fieldTypes(t, project)
+    if (members === undefined || members.length === 0) return undefined
+    let size = 0n
+    let align = 1n
+    for (const m of members) {
+      const bytes = storageBytes(m, project)
+      const a = alignmentOf(m)
+      if (bytes === undefined || a === undefined) return undefined
+      if (bytes > size) size = bytes
+      if (a > align) align = a
+    }
+    return ((size + align - 1n) / align) * align
+  }
+  return scalarStorageBytes(t)
+}
+
+/** A member's natural alignment: an elementary type's own size up to 8 (a STRING 1, a WSTRING 2 — its code unit: a union of
+ *  WSTRING(1) and ARRAY[0..4] OF BYTE is 6, `dt_union_wstring_sizeof_bound`, both vendors 2026-10-03), an array's
+ *  element's, an enum's storage. */
+function alignmentOf(t: Type): bigint | undefined {
+  if (t.kind === "array") return alignmentOf(t.element)
+  if (t.kind === "enum") {
+    const base = enumStorage(t)
+    return base === undefined ? undefined : alignmentOf(base)
+  }
+  if (t.kind !== "elementary") return undefined
+  if (t.elem.family === "string") return BigInt(t.elem.bits / 8)
+  const bytes = scalarStorageBytes(t)
+  return bytes === undefined ? undefined : bytes > 8n ? 8n : bytes
+}
+
+/** The declared types of a STRUCT's or UNION's fields, each resolved in its own file — undefined when its scope is not known. */
+function fieldTypes(t: Extract<Type, { kind: "struct" }>, project: Scope): Type[] | undefined {
+  if (t.scope === undefined) return undefined
+  const out: Type[] = []
+  for (const list of t.scope.symbols.values())
+    for (const s of list) if (s.kind === "struct_field" && s.typeExpr !== undefined) out.push(resolveTypeExpr(s.typeExpr, project, 0, project, s.uri))
+  return out
+}
+
+/**
+ * An upper bound on a STRUCT's or UNION's size, when every field is sized (`storageBytes`, or a nested STRUCT bounded the
+ * same way): the fields' sizes, each with the most padding an alignment of at most 8 can put before it, and the tail's.
+ * Enough to know the size fits a UINT without owning the layout.
+ */
+function structSizeBound(t: Extract<Type, { kind: "struct" }>, project: Scope, depth = 0): bigint | undefined {
+  if (depth > 8) return undefined
+  const exact = storageBytes(t, project)
+  if (exact !== undefined) return exact
+  const members = fieldTypes(t, project)
+  if (members === undefined) return undefined
+  let bound = 7n
+  for (const m of members) {
+    const bytes = m.kind === "struct" ? structSizeBound(m, project, depth + 1) : storageBytes(m, project)
+    if (bytes === undefined) return undefined
+    bound += bytes + 7n
+  }
+  return bound
 }
 
 /** SIZEOF's operand: a value, or a TYPE named bare (`SIZEOF(LINT)`, `ar_sizeof_type`). */

@@ -115,6 +115,8 @@ import { ARITHMETIC_RESULT_TESTS } from "./types/arithmetic-results.js"
 import { COMPARISON_BOOL_TESTS } from "./types/comparisons-bool.js"
 import { ENUM_CONVERSION_TESTS } from "./types/enum-conversions.js"
 import { POINTER_REFERENCE_TESTS } from "./types/pointer-reference.js"
+import { CONSTANT_EVALUATION_TESTS } from "./types/constant-evaluation.js"
+import { DERIVED_TYPE_TESTS } from "./types/derived-types.js"
 import { EXPLICIT_PAIR_TESTS } from "./conversions/explicit-pairs.js"
 
 export interface CategoryGroup {
@@ -242,6 +244,8 @@ const RAW_CATEGORIES: readonly CategoryGroup[] = [
   { name: "types-comparisons-bool", tests: COMPARISON_BOOL_TESTS },
   { name: "types-enum-conversions", tests: ENUM_CONVERSION_TESTS },
   { name: "types-pointer-reference", tests: POINTER_REFERENCE_TESTS },
+  { name: "types-constant-evaluation", tests: CONSTANT_EVALUATION_TESTS },
+  { name: "types-derived-types", tests: DERIVED_TYPE_TESTS },
   { name: "conversions-explicit-pairs", tests: EXPLICIT_PAIR_TESTS },
 ]
 

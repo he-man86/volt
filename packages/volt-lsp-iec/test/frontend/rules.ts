@@ -4383,9 +4383,11 @@ export const RULES: readonly Rule[] = [
     section: "4.6",
     rule: "cycle guard",
     home: "const/fold",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ce_cycle", "ce_cycle_self"],
     design: "**GAP**",
+    recheck:
+      "4.6.2 (2026-10-03): CODESYS refuses each constant of a cycle, \"Recursive definition of constant value\" (`const/fold` `isRecursiveConstant`, `checks/declarations/constant-cycle`); TwinCAT's XAE exits building one (`vendorRefuses.twincat`).",
   },
   {
     id: "CE6",
@@ -4393,9 +4395,11 @@ export const RULES: readonly Rule[] = [
     section: "4.6",
     rule: "folding of conversions, pure built-ins, SIZEOF, enum values (transpile folds these; constEval does not)",
     home: "const/fold",
-    gap: true,
-    fixtures: ["declarations/constant-folding.ts"],
+    gap: false,
+    fixtures: ["declarations/constant-folding.ts", "ce_fold_conversion_bound*", "ce_fold_builtin_bound_*", "ce_fold_sizeof_bound*", "ce_fold_enum_value*", "ce_const_non_replaced_bound"],
     design: "declarations/constant-folding.ts (transpile only) — **GAP** for LSP agreement",
+    recheck:
+      "4.6.1 (2026-10-03): constEval folds the conversions (a wrap, a REAL rounded at the register, BOOL, TIME), ABS/MIN/MAX/LIMIT/SEL/MUX/EXPT/TRUNC, SIZEOF and enum values — each probed as an array bound whose refusal names the fold, both vendors.",
   },
   {
     id: "CE7",
@@ -4423,9 +4427,11 @@ export const RULES: readonly Rule[] = [
     section: "4.6",
     rule: "NOT on an integer, shifts, a REAL behind an alias",
     home: "const/fold",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["ce_fold_not_int*", "ce_fold_shl*", "ce_fold_shr", "ce_fold_rol", "ce_fold_ror", "ce_real_alias_const*", "ce_fold_untyped_*"],
     design: "**GAP**",
+    recheck:
+      "4.6.1 (2026-10-03): NOT computes in the unsigned integer of its operand's width, a shift or rotation at the operand's width; an untyped operand is its narrowest type as a bound and the declared type in a CONSTANT's initializer; a constant of an alias of REAL is a REAL.",
   },
   // ── 4.7 ──
   {
@@ -4455,8 +4461,10 @@ export const RULES: readonly Rule[] = [
     rule: "subrange bounds check (outside the Type model today)",
     home: "type.ts subrange",
     gap: false,
-    fixtures: ["subrange_init_*", "subrange_assign_const_out"],
+    fixtures: ["subrange_init_*", "subrange_assign_const_out", "dt_subrange_*"],
     design: "subrange_init_*, subrange_assign_const_out",
+    recheck:
+      "4.7.1 (2026-10-03): the subrange is in the Type (`type` `subrange`, folded where declared): a variable of one is named `INT (0..10)`, an operation on one is its base, and the check reads the target's Type — a STRUCT member's too; CODESYS types a positive lower bound of an assignment target with the base (`UINT#1`).",
   },
   {
     id: "DT4",
@@ -4465,8 +4473,10 @@ export const RULES: readonly Rule[] = [
     rule: "union typing (a union as a struct today)",
     home: "type.ts union",
     gap: false,
-    fixtures: ["types/data-type.ts", "operators/operands.ts"],
+    fixtures: ["types/data-type.ts", "operators/operands.ts", "dt_union_*", "dt_sizeof_derived_type"],
     design: "types/data-type.ts, operators/operands.ts",
+    recheck:
+      "4.7.2 (2026-10-03): a union is a struct with `union` in the Type; SIZEOF of one is its largest member rounded to its most aligned (4, 5, 8), and SIZEOF of a STRUCT or UNION is a UINT where an elementary, enum, alias or array size is the smallest unsigned integer holding it.",
   },
   {
     id: "DT5",
@@ -4484,9 +4494,11 @@ export const RULES: readonly Rule[] = [
     section: "4.7",
     rule: "enum storage base (resolve says INT only for a project enum without a base; transpile uses the written base)",
     home: "enums",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["dt_enum_base_byte_storage*", "dt_enum_plain_storage", "dt_enum_implicit_storage", "dt_library_enum_storage*"],
     design: "**GAP**",
+    recheck:
+      "4.7.3 (2026-10-03): an enum is stored as its written base, else an INT, an implicit one an INT (`enums` `enumStorage`; SIZEOF 1, 2, 2) — the base it converts as; a library enum's base is not materialized (`LIBRARY_ENUM_BASE_NOT_MATERIALIZED`).",
   },
   {
     id: "DT7",

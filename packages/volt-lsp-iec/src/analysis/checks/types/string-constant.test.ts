@@ -142,3 +142,16 @@ test("a bracketed or mismatched STRING length is named STRING(n) in the message"
     "String constant ''...' too long for destination type 'STRING(4)'",
   ])
 })
+
+// frontend-conformance 4.6.2 (rule CE8; `ce_string_length_constant_assign`, `prag_const_*_string_length`, both vendors
+// 2026-10-03): a capacity named by a constant of the declaring POU folds there — so an ASSIGNMENT's target has a size — and
+// the destination type is named as WRITTEN, `STRING(n)`, never by its fold.
+test("a capacity named by a local constant is the written name in the warning, an assignment's too", () => {
+  const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n  n : INT := 3;\nEND_VAR\nVAR\n  txt : STRING(n);\nEND_VAR\ntxt := 'abcdef';\nEND_FUNCTION_BLOCK"
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }], [], "codesys")
+  const got = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "string-constant-too-long")
+    .map((d) => d.message)
+  expect(got).toEqual(["String constant '...' too long for destination type 'STRING(n)'"])
+})

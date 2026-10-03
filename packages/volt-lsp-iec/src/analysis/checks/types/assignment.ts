@@ -27,7 +27,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       // converted to BOOL by the one store rule. REF= is `reference-assign`'s.
       if (s.op === "S=" || s.op === "R=") {
         for (const side of [s.target, s.value]) {
-          const diag = storeConversionError(BOOL, side, side.span, scope, ctx.project, ctx.messages)
+          const diag = storeConversionError(BOOL, side, side.span, scope, ctx.project, ctx.messages, "assignment")
           if (diag !== undefined) out.push(diag)
         }
         return
@@ -103,7 +103,7 @@ export function checkAssignmentTypes(ctx: CheckContext, out: DiagnosticItem[]): 
       })
       continue
     }
-    const diag = storeConversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages)
+    const diag = storeConversionError(lhs, decl.init, decl.init.span, scope, ctx.project, ctx.messages, "initial value")
     if (diag !== undefined) out.push(diag)
   }
 }

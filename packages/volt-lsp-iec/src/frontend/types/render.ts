@@ -22,7 +22,10 @@ export function renderType(t: Type, options?: { form: "display" | "compiler" }):
       // the compiler's spelling — TOD prints 'TIME_OF_DAY' — and a declared string capacity is part of the type it
       // prints: "Cannot convert type 'WSTRING' to type 'STRING(255)'" (conformance `cc_standard_len_wstring`)
       const name = elementaryDisplayName(t.name)
-      return t.length === undefined ? name : `${name}(${t.length})`
+      // …and so is a subrange's range, after a space: "Cannot convert type 'INT (0..10)' to type 'STRING'"
+      // (`dt_subrange_variable_type`, `subrange_init_above_range`, both vendors)
+      if (t.subrange !== undefined) return `${name} (${t.subrange.lower}..${t.subrange.upper})`
+      return t.length === undefined ? name : `${name}(${t.lengthText ?? t.length})`
     }
     case "enum":
     case "struct":

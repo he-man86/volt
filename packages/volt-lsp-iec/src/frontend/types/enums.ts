@@ -116,3 +116,68 @@ function defaultOfValues(
   if (init !== undefined) return init.kind === "ident_expr" && typeof init.name === "string" ? byName.get(init.name.toUpperCase()) : undefined
   return hasZero ? 0n : first
 }
+
+/**
+ * AN ENUM MEMBER'S VALUE — its written `:= n` folded by `valueOf`, else one more than the member before it, the first 0
+ * (`type_dut_enum_simple`, `type_dut_enum_explicit_values`). A TYPE enum's members are read from the declaration its
+ * scope came from; an implicit enum's (`e : (Idle, Busy)`) from the variable declaring it, through an ARRAY OF one.
+ * Only what the member's value is made of is folded — its own written value, else the nearest written one before it plus
+ * the distance — never a sibling's: a constant naming `E.A` was refused as recursive because `B := k` named it (step 4d
+ * review 2). Undefined when the declaration is not found or that written value does not fold.
+ */
+export function enumMemberValue(sym: Symbol, project: Scope, valueOf: EnumeratorValue): bigint | undefined {
+  const values = memberList(sym, project)
+  if (values === undefined) return undefined
+  const at = values.findIndex((v) => v.name.text.toUpperCase() === sym.name.toUpperCase())
+  if (at < 0) return undefined
+  let written = at
+  while (written >= 0 && values[written]!.value === undefined) written--
+  if (written < 0) return BigInt(at)
+  const base = valueOf(values[written]!.value!)
+  return typeof base === "bigint" ? base + BigInt(at - written) : undefined
+}
+
+/**
+ * WHAT AN ENUM IS STORED AS — DT6, measured as SIZEOF on CODESYS and TwinCAT 2026-10-03: an enum with a written base is
+ * that base (`(A, B := 200) BYTE` is 1 byte, `dt_enum_base_byte_storage`; its 200 reads back as BYTE#200), a project enum
+ * without one an INT (2, `dt_enum_plain_storage`), an implicit enum an INT (2, `dt_enum_implicit_storage`) — the same base
+ * it converts as (`enumBase`), one rule. A LIBRARY enum's materialized declaration carries no base, so its storage is no
+ * fact here (Util's WEEKDAY is 2 bytes, `dt_library_enum_storage` — `LIBRARY_ENUM_BASE_NOT_MATERIALIZED`).
+ */
+export function enumStorage(t: Type): ElementaryTypeRef | undefined {
+  if (t.kind !== "enum") return undefined
+  if (t.name === "(implicit)") return elementaryTypeRef(elementaryType("INT")!)
+  return t.base
+}
+
+/** The storage of the enum an enum VALUE belongs to — its TYPE enum's (`enumStorage`), or an implicit enum's INT. */
+export function enumValueStorage(sym: Symbol, project: Scope): ElementaryTypeRef | undefined {
+  if (sym.kind !== "enum_value") return undefined
+  if (sym.owner.kind !== "enum") return implicitValues(sym) === undefined ? undefined : elementaryTypeRef(elementaryType("INT")!)
+  const decl = typeDeclOf(sym.owner, project)
+  return decl?.body.kind === "enum" ? enumBase(decl.body, decl.symbol) : undefined
+}
+
+type EnumMember = { name: { text: string }; value?: Expr }
+
+/** The member list an enum value was declared in. */
+function memberList(sym: Symbol, project: Scope): readonly EnumMember[] | undefined {
+  if (sym.kind !== "enum_value") return undefined
+  if (sym.owner.kind !== "enum") return implicitValues(sym)
+  const body = typeDeclOf(sym.owner, project)?.body
+  return body?.kind === "enum" ? body.values : undefined
+}
+
+/** The TYPE declaration an enum scope came from, by its file. */
+function typeDeclOf(owner: Scope, project: Scope): { body: TypeDecl["body"]; symbol: Symbol } | undefined {
+  const symbol = lookupLocal(project, owner.name).find((s) => s.kind === "type" && s.uri === owner.defUri)
+  return symbol === undefined ? undefined : { body: (symbol.ast as TypeDecl).body, symbol }
+}
+
+/** An implicit enum's members: the declaring variable's type, or that type's array element. */
+function implicitValues(sym: Symbol): readonly EnumMember[] | undefined {
+  type Declared = { kind: string; element?: Declared; values?: readonly EnumMember[] }
+  let declared = (sym.ast as { type?: Declared } | undefined)?.type
+  while (declared?.kind === "array_type") declared = declared.element
+  return declared?.kind === "implicit_enum_type" ? declared.values : undefined
+}

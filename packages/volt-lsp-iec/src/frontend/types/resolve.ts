@@ -14,7 +14,7 @@ import {
   type Scope,
   type Symbol,
 } from "../symbols/index.js"
-import type { Dialect, TypeDecl, TypeExpr } from "../syntax/index.js"
+import { exprText, type Dialect, type TypeDecl, type TypeExpr } from "../syntax/index.js"
 import { constEval } from "./const/fold.js"
 import { CODESYS_ONLY_TYPES } from "./elementary.js"
 import { elementaryTypeOn } from "./platform.js"
@@ -47,13 +47,14 @@ export function resolveTypeExpr(
       // two referenced libraries exporting the same element (see symbols/precedence.ts). It was dropped here
       // while every other arm threaded it, so the one lookup that can be ambiguous was the one without it.
       if ((t.qualifiers?.length ?? 0) > 0) return resolveQualifiedType(t.qualifiers!.map((q) => q.text), t.name.text, project, depth, askerUri)
-      return resolveNamedType(t.name.text, project, depth, askerUri)
+      return withSubrange(resolveNamedType(t.name.text, project, depth, askerUri), t, valueScope)
     case "string_type": {
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
       const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
       const length = t.length === undefined ? undefined : constEval(t.length, valueScope)
       if (base.kind !== "elementary" || t.length === undefined) return base
-      return typeof length === "bigint" ? { ...base, length: Number(length) } : { ...base, unfoldedLength: true }
+      if (typeof length !== "bigint") return { ...base, unfoldedLength: true }
+      return t.length.kind === "literal" ? { ...base, length: Number(length) } : { ...base, length: Number(length), lengthText: exprText(t.length) }
     }
     case "implicit_enum_type":
       // Inline enum: its values live as bare constants in the enclosing scope, so no member scope here.
@@ -74,6 +75,15 @@ export function resolveTypeExpr(
     case "reference_type":
       return { kind: "reference", target: resolveTypeExpr(t.target, project, depth + 1, valueScope, askerUri) }
   }
+}
+
+/** A subrange's bounds on the integer type it narrows (`INT(0..10)`), folded where it is declared — rule DT3. A bound that
+ *  does not fold leaves the base alone: no guessed range. */
+function withSubrange(base: Type, t: Extract<TypeExpr, { kind: "named_type" }>, valueScope: Scope): Type {
+  if (t.subrange === undefined || base.kind !== "elementary") return base
+  const lower = constEval(t.subrange.lo, valueScope)
+  const upper = constEval(t.subrange.hi, valueScope)
+  return typeof lower === "bigint" && typeof upper === "bigint" ? { ...base, subrange: { lower, upper } } : base
 }
 
 /** The symbol kinds that can answer "what type is this name?" — everything else on the name is not a type. */
@@ -186,9 +196,8 @@ function typeOfSymbol(sym: Symbol, name: string, project: Scope, depth: number, 
       const base = enumBase(body, sym)
       return base !== undefined ? { kind: "enum", name, scope, base } : { kind: "enum", name, scope }
     }
-    if (body.kind === "struct" || body.kind === "union") {
-      return { kind: "struct", name, scope: ownScope() }
-    }
+    if (body.kind === "struct") return { kind: "struct", name, scope: ownScope() }
+    if (body.kind === "union") return { kind: "struct", name, scope: ownScope(), union: true }
     // An alias resolves IN ITS OWN FILE: `TYPE T : ETRIG; END_TYPE` inside a library means that library's
     // ETRIG, whoever is reading the alias.
     if (body.kind === "alias") return resolveTypeExpr(body.target, project, depth + 1, project, sym.uri)

@@ -25,11 +25,6 @@ export function compilerArrayText(t: ArrayTypeInfo, scope: Scope): string | unde
   return `ARRAY [${parts.join(",")}] OF ${renderType(t.element)}`
 }
 
-/** A subrange type: `INT (1..100)` — the base type's name, a space before the paren (both vendors, verified live). */
-export function compilerSubrangeText(base: string, lo: bigint, hi: bigint): string {
-  return `${base} (${lo}..${hi})`
-}
-
 /** A string LITERAL's type: `STRING(INT#3)`, sized by its DECODED length (conformance `cc_string_escape_literal_into_int`). */
 export function compilerStringLiteralText(length: number, wide: boolean): string {
   return `${wide ? "WSTRING" : "STRING"}(INT#${length})`
@@ -336,9 +331,11 @@ export interface Messages {
   /** A POU whose signature names something other than its object (CODESYS SP21, measured 2026-09-17). */
   signatureNameMismatch(): string
   /**
-   * A subrange as the target of an ASSIGNMENT, which CODESYS spells with a typed LOWER bound — `INT (INT#1..100)`
-   * — where its own DECLARATION form says `INT (1..100)`. TwinCAT says the bare form in both. Recorded, not chosen
-   * (conformance `subrange_assign_const_out` vs `subrange_init_above_range`).
+   * A subrange as the target of an ASSIGNMENT, which CODESYS spells with a POSITIVE lower bound typed by its base —
+   * `INT (INT#1..100)`, `UINT (UINT#1..10)` — and a zero or negative one bare, `INT (0..10)`, `INT (-10..10)`, a variable
+   * and a STRUCT member alike; its DECLARATION form says `INT (1..100)`. TwinCAT says the bare form in both. Recorded, not
+   * chosen (conformance `subrange_assign_const_out` vs `subrange_init_above_range`; `dt_subrange_assign_*`,
+   * `dt_subrange_member_assign*`, 2026-10-03).
    */
   subrangeAssignTarget(base: string, lo: bigint, hi: bigint): string
   /** An enumeration member's initial value the compiler will not take, named as written (CODESYS SP21). */
@@ -385,6 +382,9 @@ export interface Messages {
   enumInitNotConvertible(fromType: string, enumName: string): string
   /** A `CONSTANT` variable declared without an initial value (C0228). verified both vendors. */
   constantNoInitialValue(name: string): string
+  /** A CONSTANT whose initializer reaches itself (rule CE5, `ce_cycle`, `ce_cycle_self`, CODESYS SP21 2026-10-03). TwinCAT has
+   *  no recorded wording: its XAE exits building one, so the check is CODESYS-only (`constant-cycle`). */
+  recursiveConstant(): string
   /** A `VAR_EXTERNAL` declaration supplying an initial value (it must come from the GVL) (C0238). verified both vendors. */
   noInitForExternal(name: string): string
   /** A `VAR_EXTERNAL` with no matching `VAR_GLOBAL` anywhere (C0237). CODESYS-verified. */
@@ -736,7 +736,7 @@ export function messagesFor(vendor: Vendor): Messages {
     cannotCallObjectOfType: (kind) => `Cannot call object of type '${kind}'`,
     varInInterface: () => `Variable declarations are not allowed in interfaces`,
     signatureNameMismatch: () => `The name used in the signature is not identical to the object name`,
-    subrangeAssignTarget: (base, lo, hi) => `${base} (${tc ? lo : `INT#${lo}`}..${hi})`,
+    subrangeAssignTarget: (base, lo, hi) => `${base} (${tc || lo <= 0n ? lo : `${base}#${lo}`}..${hi})`,
     invalidEnumInitialisation: (value) => `${value} is no valid initialisation for an enumeration`,
     invalidAttributeValue: (value, attribute, allowed) =>
       `Invalid value '${value}' for attribute '${attribute}' should be one of: [${allowed.map((a) => `'${a}'`).join(", ")}]`,
@@ -767,6 +767,7 @@ export function messagesFor(vendor: Vendor): Messages {
     dataRecursion: (path) => (tc ? `Data Recursion: ${path}` : `Data recursion: ${path}`),
     enumInitNotConvertible: (fromType, enumName) => `Cannot convert type '${fromType}' to type '${enumName}'`,
     constantNoInitialValue: (name) => `No initial value for constant variable '${name}'`,
+    recursiveConstant: () => "Recursive definition of constant value",
     noInitForExternal: (name) => `No initial value allowed for VAR_EXTERNAL ${name}`,
     // CODESYS-verified (2026-07-11 live): no quotes around the name.
     externalNoGlobal: (name) => `No global definition found for VAR_EXTERNAL ${name}`,

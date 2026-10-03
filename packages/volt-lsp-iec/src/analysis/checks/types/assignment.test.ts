@@ -223,3 +223,15 @@ test("a scalar into a strict enum is the strict refusal alone, never a conversio
     "'f' is not a valid value for strict ENUM type 'E_Strict'",
   ])
 })
+
+// Step 4d review, recorded (`dt_subrange_assign_variable`, both vendors 2026-10-03): a VARIABLE stored into a subrange is
+// refused naming the target in its ASSIGNMENT form, as a constant is — `UINT (UINT#1..10)` on CODESYS — where the LSP
+// named it as declared, `UINT (1..10)`.
+test("a variable stored into a subrange names the target in its assignment form", () => {
+  expect(mismatches("\tv : INT(0..10);\n\tw : UINT(1..10);\n\td : DINT;\n\ttxt : STRING;", "v := txt;\nw := txt;\nv := d;\nw := d;")).toEqual([
+    "Cannot convert type 'STRING' to type 'INT (0..10)'",
+    "Cannot convert type 'STRING' to type 'UINT (UINT#1..10)'",
+    "Cannot convert type 'DINT' to type 'INT (0..10)'",
+    "Cannot convert type 'DINT' to type 'UINT (UINT#1..10)'",
+  ])
+})

@@ -86,7 +86,7 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     // assignment rules, so a type nobody probed answers the way the compilers answer it for `x : DWORD := flag`.
     if (name === "TEST_AND_SET" && lookup(scope, e.callee.name) === undefined) {
       const dword = elementaryTypeRef(elementaryType("DWORD")!)
-      const refused = storeConversionError(dword, arg, arg.span, scope, ctx.project, ctx.messages)
+      const refused = storeConversionError(dword, arg, arg.span, scope, ctx.project, ctx.messages, "argument")
       const t = inferExprType(arg, scope, ctx.project)
       const elem = t.kind === "elementary" ? t.elem : undefined
       if (refused !== undefined) out.push({ ...refused, code: "test-and-set-operand" })

@@ -170,3 +170,43 @@ test("enumDefault answers the enum the qualified name resolved to, not the first
   expect(start(0)).toBe(1n)
   expect(start(1)).toBe(0n)
 })
+
+// frontend-conformance 4.7.1 (rule DT3; `dt_subrange_variable_type`, `dt_subrange_arithmetic_result`, both vendors
+// 2026-10-03): a subrange is in the Type — named with its range, `INT (0..10)` — and an operation on one yields its base.
+describe("a subrange in the Type", () => {
+  test("a subrange variable is its base with folded bounds, named with them; an operation on it is the base", async () => {
+    const { bodies } = await import("../symbols/index.js")
+    const { inferExprType } = await import("./infer/expr.js")
+    const { renderType } = await import("./render.js")
+    const src = "FUNCTION_BLOCK F\nVAR CONSTANT\n\tN : INT := 10;\nEND_VAR\nVAR\n\tv : INT(0..N);\n\tw : UINT(1..10);\n\tx : STRING;\nEND_VAR\nx := v;\nx := w * 2;\nx := v + 1;\nEND_FUNCTION_BLOCK\n"
+    const f = file("file:///p/F.pou", src)
+    const project = build.buildSymbolTable([f])
+    const [body] = [...bodies(f.parseResult.units, project)]
+    const types = body!.statements.map((s) => (s.kind === "assign" ? renderType(inferExprType(s.value, body!.scope, project), { form: "compiler" }) : ""))
+    expect(types).toEqual(["INT (0..10)", "UINT", "INT"])
+  })
+})
+
+// frontend-conformance 4.7.2 (rule DT4; `dt_sizeof_derived_type`, `dt_union_sizeof_type`, both vendors 2026-10-03): SIZEOF
+// of a STRUCT or a UNION is a UINT, even of one byte; of an enum, an implicit enum, an alias or an array the smallest
+// unsigned integer holding the size.
+test("SIZEOF of a STRUCT or a UNION is a UINT; of an enum, an alias or an array the smallest that holds it", async () => {
+  const { bodies } = await import("../symbols/index.js")
+  const { inferExprType } = await import("./infer/expr.js")
+  const { renderType } = await import("./render.js")
+  const files = [
+    file("file:///p/S.dut", "TYPE S :\nSTRUCT\n\tb : BYTE;\nEND_STRUCT\nEND_TYPE\n"),
+    file("file:///p/U.dut", "TYPE U :\nUNION\n\tb : BYTE;\n\td : DWORD;\nEND_UNION\nEND_TYPE\n"),
+    file("file:///p/E.dut", "TYPE E :\n(\n\tA,\n\tB\n);\nEND_TYPE\n"),
+    file("file:///p/A.dut", "TYPE A : INT;\nEND_TYPE\n"),
+    file(
+      "file:///p/F.pou",
+      "FUNCTION_BLOCK F\nVAR\n\tsv : S;\n\tuv : U;\n\tev : E;\n\tiv : (Ia, Ib);\n\tav : A;\n\tbv : ARRAY[0..0] OF BYTE;\n\tx : STRING;\nEND_VAR\n" +
+        "x := SIZEOF(sv);\nx := SIZEOF(uv);\nx := SIZEOF(ev);\nx := SIZEOF(iv);\nx := SIZEOF(av);\nx := SIZEOF(bv);\nEND_FUNCTION_BLOCK\n",
+    ),
+  ]
+  const project = build.buildSymbolTable(files)
+  const [body] = [...bodies(files.at(-1)!.parseResult.units, project)]
+  const types = body!.statements.map((s) => (s.kind === "assign" ? renderType(inferExprType(s.value, body!.scope, project)) : ""))
+  expect(types).toEqual(["UINT", "UINT", "USINT", "USINT", "USINT", "USINT"])
+})

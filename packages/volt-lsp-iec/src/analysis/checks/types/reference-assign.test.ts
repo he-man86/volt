@@ -125,3 +125,25 @@ test("REF= judges a plain VARIABLE only: a call's result and a parenthesized var
   const vars = "ri : REFERENCE TO INT; y : REAL; d : DINT;"
   expect(errorsOf(vars, "ri REF= ABS(d);\nri REF= (y);")).toEqual([])
 })
+
+// Step 4d review, recorded (`dt_subrange_ref_bind`, both vendors build it, 2026-10-03): a reference to the base binds a
+// subrange variable — the subrange in the rendered type made the two read as different types.
+test("a REFERENCE TO the base binds a subrange variable", () => {
+  const src = "PROGRAM PLC_PRG\nVAR\n\tv : INT(0..10);\n\tw : UINT(1..10);\n\trv : REFERENCE TO INT;\n\trw : REFERENCE TO UINT;\nEND_VAR\nrv REF= v;\nrw REF= w;\nEND_PROGRAM"
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
+  const errors = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.severity === "error")
+  expect(errors.map((d) => d.message)).toEqual([])
+})
+
+// Step 4d review 2: only a REFERENCE TO <base> bound to a subrange VARIABLE was measured — the subrange is stripped from the
+// bound value's own type, nowhere else. A reference TO a subrange bound to its base or another range, and an array whose
+// element is a subrange, keep the rendering compare they had before (none recorded; the fix claims nothing wider).
+test("the subrange is stripped from the bound variable's top-level type only", () => {
+  const src = "PROGRAM PLC_PRG\nVAR\n\tv : INT;\n\tw : INT(0..20);\n\tz : INT(0..10);\n\tau : ARRAY[0..2] OF INT(0..10);\n\trs : REFERENCE TO INT(0..10);\n\tra : REFERENCE TO ARRAY[0..2] OF INT;\nEND_VAR\nrs REF= v;\nrs REF= w;\nra REF= au;\nrs REF= z;\nEND_PROGRAM"
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "PLC_PRG.pou", parseResult, source: src }])
+  const errors = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) }).filter((d) => d.severity === "error")
+  const lines = errors.map((d) => d.span.startLine)
+  expect(lines).toEqual([10, 11, 12])
+})

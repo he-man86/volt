@@ -528,12 +528,11 @@ const IMPLICIT_ENUM_TYPE_NAME: readonly string[] = [
  * `VAR CONSTANT` the LSP says nothing at all: `resolve` folds a type's length in the project scope, where the constant
  * is not (a global constant folds — and renders folded). NOT niche: 581 string lengths in the corpora are written as a
  * name or an expression. The type render (DT10/DT11, task 4.7.4) and the fold scope (CE1–CE5, task 4.6.2).
+ * (`decl_string_length_constant`, `_brackets` left 2026-10-03, frontend-conformance 4.6.2: a variable's type folds in its
+ * declaring POU, rule CE8, and a capacity written as a name is named by it, `types/type` `lengthText`. An EXPRESSION is
+ * printed in the compiler's own form, 'STRING((2 + 3))', which `exprText` does not write — the render, task 4.7.4.)
  */
-const STRING_LENGTH_AS_WRITTEN: readonly string[] = [
-  "decl_string_length_constant",
-  "decl_string_length_constant_brackets",
-  "decl_string_length_expression",
-]
+const STRING_LENGTH_AS_WRITTEN: readonly string[] = ["decl_string_length_expression"]
 
 /**
  * FRONTEND-CONFORMANCE 2.3.6 (2026-10-01) — `v : NoSuchLib.T;`: both vendors "Unknown type: 'NoSuchLib.T'". Closed on
@@ -1153,9 +1152,41 @@ const ARITHMETIC_RESULT_DIVERGENCES: readonly string[] = ["ar_new_type", "ar_var
  * EDATETIMEPLACEHOLDER as an unsigned 8-bit one ("…to signed Type 'SINT'"). Both are written `( … );` — no base — in the
  * materialized declarations the LSP reads (`Library Manager/Util/WEEKDAY.dut` in every corpus), so the base the compiler
  * uses is a fact the materialization does not carry, and `types/enums` `enumBase` leaves a library enum unjudged
- * (missing, never wrong). Closing it is the bridge's: materialize a library enum's base.
+ * (missing, never wrong). Closing it is the bridge's: materialize a library enum's base. Frontend-conformance 4.7.3 adds its
+ * STORAGE: SIZEOF of a WEEKDAY is 2 on CODESYS (`dt_library_enum_storage`), which `types/enums` `enumStorage` cannot say.
  */
-const LIBRARY_ENUM_BASE_NOT_MATERIALIZED: readonly string[] = ["cv_library_enum_into_int", "cv_library_enum_into_scalars", "cv_library_enum_255_into_scalars"]
+const LIBRARY_ENUM_BASE_NOT_MATERIALIZED: readonly string[] = [
+  "cv_library_enum_into_int",
+  "cv_library_enum_into_scalars",
+  "cv_library_enum_255_into_scalars",
+  "dt_library_enum_storage",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 4.6.1 (2026-10-03) — NOT or a shift of an UNTYPED literal as an array bound (`ce_fold_not_int_untyped`
+ * `NOT 250`, `ce_fold_shl_untyped` `SHL(1, 3)`): both vendors fold it at the literal's narrowest type (5, 8) and refuse
+ * the index past it. The fold gives an untyped literal no width without a context (`types/const/fold` `integerTypeOf`):
+ * the transpiler folds a CONSTANT's initializer by itself, and there the context's width is the right one (`NOT 0` into a
+ * WORD is 65535, `ce_fold_untyped_in_context_values`). Missing-only, both vendors; niche: accepted loss (0 occurrences in
+ * the corpora — no NOT or shift of a literal is an array bound in them).
+ */
+const UNTYPED_OPERAND_AS_A_BOUND: readonly string[] = ["ce_fold_not_int_untyped", "ce_fold_shl_untyped"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.6.1 (2026-10-03) — both vendors, `c3 : INT := NOT 5` CONSTANT
+ * (`ce_fold_untyped_not_signed_context_values`): "Cannot convert type 'INT' to type 'ANY_BIT'" — the literal takes the
+ * constant's INT, and NOT takes no signed integer handed over by a context, where `NOT INT#-5` as a bound builds. One cell;
+ * the LSP says nothing. Missing-only; niche: accepted loss (0 signed CONSTANTs initialized by NOT of a literal in the corpora).
+ */
+const UNTYPED_NOT_IN_A_SIGNED_CONTEXT: readonly string[] = ["ce_fold_untyped_not_signed_context_values"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.6.1 (2026-10-03) — TwinCAT, `ARRAY[0..NOT INT#-5]` (`ce_fold_not_int_signed`): "Array Border
+ * NOT(INT#-5) does not evaluate to a valid signed integer constant" and a self-conversion of the array type, where CODESYS
+ * folds the bound to 4 (NOT of an INT computes in UINT) and refuses only the index, as the LSP does on both. LSP-only on
+ * TwinCAT; niche: accepted loss (0 occurrences in the corpora — no NOT is an array bound in them).
+ */
+const TWINCAT_NOT_OF_A_SIGNED_BOUND: readonly string[] = ["ce_fold_not_int_signed"]
 
 /**
  * FRONTEND-CONFORMANCE 4b (2026-10-03) — TwinCAT, `b := di < SIZEOF(big)` with `di : DINT` and a 100000-byte `big`
@@ -1273,6 +1304,9 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...ELEMENTARY_RULE_DIVERGENCES,
     ...ARITHMETIC_RESULT_DIVERGENCES,
     ...LIBRARY_ENUM_BASE_NOT_MATERIALIZED,
+    ...UNTYPED_OPERAND_AS_A_BOUND,
+    ...TWINCAT_NOT_OF_A_SIGNED_BOUND,
+    ...UNTYPED_NOT_IN_A_SIGNED_CONTEXT,
     ...TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
     ...TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT,
@@ -1409,6 +1443,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...ARITHMETIC_RESULT_DIVERGENCES,
     ...LIBRARY_ENUM_BASE_NOT_MATERIALIZED,
     ...CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY,
+    ...UNTYPED_OPERAND_AS_A_BOUND,
+    ...UNTYPED_NOT_IN_A_SIGNED_CONTEXT,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers

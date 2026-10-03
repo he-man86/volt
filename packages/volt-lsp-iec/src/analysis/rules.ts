@@ -78,7 +78,22 @@ export function assignmentPairError(
   // a POINTER target takes an integer by the target's rule (`compat` `integerIntoPointer`)
   const t = inferExprType(target, scope, project)
   const lhs = t.kind === "pointer" ? t : checkable(t)
-  return lhs === undefined ? undefined : storeConversionError(lhs, value, target.span, scope, project, messages)
+  return lhs === undefined ? undefined : storeConversionError(lhs, value, target.span, scope, project, messages, "assignment")
+}
+
+/**
+ * Where a store happens, which names a SUBRANGE target two ways: an ASSIGNMENT's in its assignment form, `UINT
+ * (UINT#1..10)` on CODESYS, for a constant and a variable source alike (`subrange_assign_const_out`,
+ * `dt_subrange_assign_variable`, both vendors 2026-10-03; `messages` `subrangeAssignTarget`); an initial value's, and
+ * anything else, as the type is written, `UINT (1..10)` (`subrange_init_above_range`).
+ */
+export type StoreSite = "assignment" | "initial value" | "argument"
+
+/** The name a store's target is given in its "Cannot convert" message — see `StoreSite`. */
+function storeTargetName(lhs: Type, site: StoreSite, messages: Messages): string {
+  if (site === "assignment" && lhs.kind === "elementary" && lhs.subrange !== undefined)
+    return messages.subrangeAssignTarget(lhs.name, lhs.subrange.lower, lhs.subrange.upper)
+  return renderType(lhs, { form: "compiler" })
 }
 
 /** The "Cannot convert" error for `value` stored into a `lhs` — an assignment or a declaration's initial value — reported
@@ -91,6 +106,7 @@ export function storeConversionError(
   scope: Scope,
   project: Scope,
   messages: Messages,
+  site: StoreSite,
 ): DiagnosticItem | undefined {
   const strict = strictEnumStore(lhs, value, scope, project, messages)
   if (strict !== "not-strict") return strict === "accepted" ? undefined : { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: strict }
@@ -98,7 +114,7 @@ export function storeConversionError(
   // 'STRING'" (`ty_version_into_string`, both vendors) — the struct case of rule CV1, unchecked until task 4.5.3
   const whole = inferExprType(value, scope, project)
   if (whole.kind === "struct" && lhs.kind === "elementary")
-    return { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: messages.cannotConvert(renderType(whole, { form: "compiler" }), renderType(lhs, { form: "compiler" })) }
+    return { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: messages.cannotConvert(renderType(whole, { form: "compiler" }), storeTargetName(lhs, site, messages)) }
   // …into a POINTER, an integer VARIABLE (`compat` `integerIntoPointer`, decided by the project's target); an untyped
   // literal into a pointer was never recorded (`cv_integers_into_pointer`, `cv_xword_into_pointer` store variables)
   if (lhs.kind === "pointer" && untypedNumberValue(value) !== undefined) return undefined
@@ -112,7 +128,7 @@ export function storeConversionError(
     span,
     source: SOURCE,
     code: "assignment-type-mismatch",
-    message: messages.cannotConvert(display, renderType(lhs, { form: "compiler" })),
+    message: messages.cannotConvert(display, storeTargetName(lhs, site, messages)),
   }
 }
 

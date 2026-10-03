@@ -29,7 +29,7 @@
  */
 import { walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
-import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { constancyOf, constEval, inferExprType, literalErrorType, literalOwnType, renderType, resolveTypeExpr, withoutSubrange, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -95,7 +95,11 @@ export function checkReferenceAssign(ctx: CheckContext, out: DiagnosticItem[]): 
       const value = inferExprType(s.value, scope, ctx.project)
       const bound = value.kind === "reference" ? value.target : value
       if (!comparable(bound) || !comparable(target.target)) return
+      // A SUBRANGE VARIABLE binds a reference to its base: a REFERENCE TO INT binds an INT(0..10), a REFERENCE TO UINT a
+      // UINT(1..10) (`dt_subrange_ref_bind`, both vendors build it, step 4d review). Only that was measured, so only the
+      // variable's own top-level type loses its range — never the reference's, an array's element or a reference's target.
       if (sameExactType(bound, target.target)) return
+      if (value.kind !== "reference" && sameExactType(withoutSubrange(bound), target.target)) return
       out.push({
         severity: "error",
         span: s.value.span,

@@ -76,3 +76,15 @@ test("an enum member is constant (inline enum), an unresolved name is unknown", 
     }
   }
 })
+
+// frontend-conformance 4.6.2 (CE7): constancy is the fold's own walk — a conversion or pure built-in of constants, SIZEOF,
+// an enum value and a list's CONSTANT are constant; the same built-in over a variable is variable; a user function unknown.
+test("a conversion, a pure built-in, SIZEOF and an enum value are constant; over a variable they are variable", () => {
+  const decls = `  v : INT;\n  stv : (Ca, Cb);`
+  expect(classify(decls, `TO_INT(5)`)).toBe("constant")
+  expect(classify(decls, `ABS(-3) + MIN(1, 2)`)).toBe("constant")
+  expect(classify(decls, `SIZEOF(v)`)).toBe("constant")
+  expect(classify(decls, `Cb`)).toBe("constant")
+  expect(classify(decls, `ABS(v)`)).toBe("variable")
+  expect(classify(decls, `NoSuchFunction(3)`)).toBe("unknown")
+})

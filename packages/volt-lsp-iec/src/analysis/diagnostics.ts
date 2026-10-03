@@ -23,6 +23,7 @@ import { checkBinaryOperators } from "./checks/types/binary-operators.js"
 import { checkConversionCalls } from "./checks/types/conversion.js"
 import { checkDeref } from "./checks/types/deref.js"
 import { checkSubrange } from "./checks/types/subrange.js"
+import { checkConstantCycle } from "./checks/declarations/constant-cycle.js"
 import { checkArrayBounds } from "./checks/types/array-bounds.js"
 import { checkConstantOverflow } from "./checks/types/constant-overflow.js"
 import { checkBitNumber } from "./checks/types/bit-number.js"
@@ -153,6 +154,7 @@ const CHECKS: readonly Check[] = [
   checkConstantContext,
   checkDeclaredType,
   checkConstantInitializer,
+  checkConstantCycle,
   checkExternalInitializer,
   checkExternalGlobal,
   checkInputDefault,
@@ -236,6 +238,8 @@ const CODESYS_ONLY: ReadonlySet<Check> = new Set<Check>([
   checkAbstractAssign, // live /build (2026-07-11): TwinCAT accepts this — no such rule
   checkAbstractOutputDefault, // live /build: TwinCAT silently accepts a VAR_OUTPUT default here
   checkReservedKeyword, // a CODESYS forward-compat warning; TwinCAT accepts CHAR/WCHAR as names (verified live)
+  // TwinCAT has no answer to measure: its XAE exits building a recursive constant (`ce_cycle`, `ce_cycle_self`, 2026-10-03)
+  checkConstantCycle,
 ])
 
 /**

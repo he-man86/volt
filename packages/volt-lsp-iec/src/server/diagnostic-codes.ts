@@ -10,6 +10,9 @@
 export const KNOWN_UNMAPPED = new Set([
   "abstract-instantiation",
   "call-argument-type",
+  // "Recursive definition of constant value" (rule CE5, frontend-conformance 4.6.2): no catalog entry documents its
+  // number (the 220 documented codes hold no such sentence; the compiler's resources key it by name only)
+  "constant-cycle",
   "conversion-source-mismatch",
   "external-non-input-write",
   "non-callable-call",

@@ -12,7 +12,7 @@
  * and a string-literal source fires, on a strict over-length; a sizeless `STRING` is skipped.
  */
 import { decodeStringLiteral, compilerTypeText, walkStatements, type AggregateElement, type Expr, type Initializer } from "../../../frontend/syntax/index.js"
-import { constEval, inferExprType, type Type } from "../../../frontend/types/index.js"
+import { constEval, inferExprType, renderType } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { bodies, forEachDecl } from "../../../frontend/symbols/index.js"
 import { pushForDeclaration, SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -51,7 +51,7 @@ export function checkStringConstant(ctx: CheckContext, out: DiagnosticItem[]): v
         const dest = inferExprType(place, scope, ctx.project)
         if (dest.kind !== "elementary" || dest.length === undefined) return
         if (dest.name !== "STRING" && dest.name !== "WSTRING") return
-        const diag = tooLong(places[i + 1] ?? s.value, dest.name === "WSTRING", dest.length, renderType(dest), ctx)
+        const diag = tooLong(places[i + 1] ?? s.value, dest.name === "WSTRING", dest.length, renderType(dest, { form: "compiler" }), ctx)
         if (diag !== undefined) out.push(diag)
       })
     })
@@ -99,9 +99,4 @@ function tooLong(value: Initializer | Expr | undefined, wide: boolean, size: num
     // the literal as written (quotes and escapes included) — the compiler prints a prefix of that text, not the value
     message: ctx.messages.stringConstantTooLong(value.text, size, type),
   }
-}
-
-/** `STRING(8)` — an inferred destination's spelling, which the declaration form gets from `compilerTypeText`. */
-function renderType(t: Extract<Type, { kind: "elementary" }>): string {
-  return `${t.name}(${String(t.length)})`
 }

@@ -12,9 +12,13 @@
  *           way, every store the front-end types as not implicitly convertible (`classifyConversion` "incompatible")
  *           must be matched by a recorded "Cannot convert" for it; and every path a CODESYS run recorded, read as an
  *           expression in PLC_PRG, must infer the type its value is printed as;
- *   folds   a variable a run recorded that no body of its fixture names still holds its initializer, so `constEval` of
- *           that initializer must equal the recorded value — every recorded value this cannot be asked of is counted by
- *           why, so the values the check sees plus the ones it does not add up to every recorded value.
+ *   folds   a variable a run recorded that no body of its fixture names still holds its initializer, so when that
+ *           initializer reads nothing the init step runs (`readsRuntime`, asked of the AST and name resolution — never of
+ *           the fold under test) the value the declaration holds (`declaredValue`: the
+ *           fold stored into the declared type — wrapped to its width, a string cut at its capacity) must equal the
+ *           recorded value — every recorded value this cannot be asked of is counted by why, so the values the check sees
+ *           plus the ones it does not add up to every recorded value. An initializer that reads a variable or calls a
+ *           user function is run by the init step, not folded: no constant to ask (frontend-conformance 4.6.1).
  *
  * Fixtures are bound and measured once per vendor, each against that vendor's build recording; the run recording is
  * CODESYS's alone, so the run cross-checks (types and folds) are CODESYS-bound.
@@ -23,6 +27,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import {
   allUnits,
+  decodeStringLiteral,
   isStBody,
   lex,
   isTrivia,
@@ -40,6 +45,7 @@ import {
   checkedMeetType,
   classifyConversion,
   constEval,
+  declaredValue,
   elementaryRef,
   elementaryType,
   inferExprType,
@@ -73,7 +79,7 @@ import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSourc
 import type { Dialect, TypeExpr } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
 import { bareConversionArgument } from "../../src/analysis/hole.js"
-import { stringLiteralMessageType } from "../../src/analysis/index.js"
+import { messagesFor, stringLiteralMessageType } from "../../src/analysis/index.js"
 
 export interface BoundCensus {
   resolution: Record<string, number>
@@ -100,7 +106,8 @@ export function boundCensus(): BoundCensus {
     // conformance 3.2: the inherited-member class closed at 41 → 0, the rest 2 → 0)
     types: { "run: path inferred UNKNOWN": 0, [INHERITED_THROUGH_INSTANCE]: 0 },
     typeDisagreements: [],
-    folds: {},
+    // measured at 0 too, so the ceiling that reached 0 stays pinned there (frontend-conformance 4.6.1: 33 → 0)
+    folds: { "run: initializer does not fold": 0 },
     foldDisagreements: [],
   }
   /**
@@ -511,6 +518,12 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
     // `cc_string_escape_literal_into_int`, `lit_uchar_two_chars`, `lit_utf8_*_into_wstring`, frontend-conformance 2.2.6)
     const literal = stringLiteralMessageType(value)
     if (typeof literal === "string") as.add(typeKey(literal))
+    // …and a CONSTANT outside a SUBRANGE target by its value: "Cannot convert type '20' to type 'INT (0..10)'" (rule DT3,
+    // `analysis/checks/types/subrange`; `subrange_*`, `dt_subrange_*`)
+    if (target.kind === "elementary" && target.subrange !== undefined) {
+      const v = constEval(value, scope)
+      if (typeof v === "bigint" && (v < target.subrange.lower || v > target.subrange.upper)) as.add(typeKey(String(v)))
+    }
     out.push({
       target: typeKey(named ?? renderType(target)),
       value: as,
@@ -610,7 +623,11 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
           if (s.kind === "assign" && s.op === undefined && s.chained === undefined) {
             const target = inferExprType(s.target, bodyScope, b.project)
             const written = s.target.kind === "ident_expr" ? lookup(bodyScope, s.target.name)?.symbol.typeExpr : undefined
-            store(target, s.value, bodyScope, written === undefined ? undefined : unknownTarget(target, written))
+            // a SUBRANGE target of an assignment is named in its assignment form (`messages` `subrangeAssignTarget`)
+            const subrange = target.kind === "elementary" && target.subrange !== undefined
+              ? messagesFor(b.project.dialect === "twincat" ? "twincat" : "codesys").subrangeAssignTarget(target.name, target.subrange.lower, target.subrange.upper)
+              : undefined
+            store(target, s.value, bodyScope, subrange ?? (written === undefined ? undefined : unknownTarget(target, written)))
           }
           // `S=` / `R=` read and set a BOOL — both sides convert to it (`stmt_s_eq_non_bool_*`, frontend-conformance 2.6)
           if (s.kind === "assign" && (s.op === "S=" || s.op === "R=")) {
@@ -694,7 +711,8 @@ function recordedType(value: string): string | undefined {
  *  an inline enum is `(implicit)` to the front-end and `Implicit_Enum__<POU>` to CODESYS. */
 function sameType(recorded: string, inferred: string): boolean {
   const r = typeKey(recorded)
-  const i = typeKey(inferred).replace(/\(\d+\)$/, "")
+  // the capacity however written — `STRING(5)`, `STRING(n)` (a named length is rendered as written, frontend-conformance 4.6.2)
+  const i = typeKey(inferred).replace(/^(W?STRING)\(.*\)$/, "$1")
   if (r === "BOOL") return i === "BOOL" || i === "BIT"
   if (r.startsWith("IMPLICIT_ENUM__")) return i === "(IMPLICIT)"
   return r === i
@@ -848,8 +866,12 @@ function namesInBodies(files: readonly Bound[]): Set<string> {
   return out
 }
 
-/** A recorded value against a fold, or undefined when the value's type is not one a fold can be compared with. */
-function sameValue(recorded: string, folded: bigint | number | boolean): boolean | undefined {
+/** A recorded value against a fold, or undefined when the value's type is not one a fold can be compared with. A string is
+ *  printed as its literal (`'a$Tb'`, a WSTRING `"hel"`) and compared decoded. */
+function sameValue(recorded: string, folded: bigint | number | boolean | string): boolean | undefined {
+  const quoted = /^('|")(.*)\1$/s.exec(recorded)
+  if (quoted !== null) return typeof folded === "string" ? decodeStringLiteral(quoted[2]!, quoted[1] === '"') === folded : undefined
+  if (typeof folded === "string") return undefined
   const m = /^([A-Za-z_]+)#(.*)$/.exec(recorded)
   if (recorded === "TRUE" || recorded === "FALSE") {
     const b = typeof folded === "bigint" ? folded !== 0n : folded
@@ -923,14 +945,29 @@ function crossCheckFolds(f: FixtureSources, plc: Bound, files: readonly Bound[],
       skip("reached through an initializing declaration")
       continue
     }
+    // NOT `constancyOf`: that is the fold's own verdict, and a filter by the code under test hid every initializer it called
+    // undecidable (a built-in it does not fold, `LEN('abc')`) as "not asked" instead of "does not fold" (step 4d review)
+    // `__POSITION()`'s text ('Line 5 (Decl)', `sysop_position_value`) is the IDE's line in its own object, which no fold
+    // here computes
+    if (decl.init.kind === "call" && decl.init.callee.kind === "ident_expr" && decl.init.callee.name.toUpperCase() === "__POSITION") {
+      skip("__POSITION's text — niche: accepted loss (0 occurrences in the corpora)")
+      continue
+    }
+    if (readsRuntime(decl.init, sym.owner)) {
+      skip("the initializer reads a variable, an element or a project function")
+      continue
+    }
     tally(c.folds, "run: recorded values still holding their initializer")
-    const folded = constEval(decl.init, sym.owner)
+    const folded = declaredValue(sym)
     if (folded === undefined) {
       tally(c.folds, "run: initializer does not fold")
       // CODESYS has a value, the front-end none — a disagreement as much as a wrong value
       c.foldDisagreements.push(`${f.test.name}: ${path} is ${value}, the initializer does not fold`)
       continue
     }
+    // a recorded ENUM value (`E.Run`) names a member, not a number: the only number for it here is the fold under test's
+    // own (`E.B` folded is what `e : E := E.B` folds to), so a systematic error in member folding would still "match" —
+    // not comparable until a recording gives the member's number independently (step 4d review 2)
     const same = sameValue(value, folded)
     if (same === undefined) tally(c.folds, "run: value not comparable with a fold")
     else if (same) tally(c.folds, "run: fold equals the recorded value")
@@ -938,6 +975,39 @@ function crossCheckFolds(f: FixtureSources, plc: Bound, files: readonly Bound[],
       c.foldDisagreements.push(
         `${f.test.name}: ${path} is ${value}, the initializer folds to ${typeof folded === "bigint" ? `${folded}` : String(folded)}`,
       )
+  }
+}
+
+/** The symbol kinds that hold a value an initializer can read. */
+const VALUE_KINDS: ReadonlySet<string> = new Set(["var", "gvl_var", "struct_field", "method_param"])
+
+/**
+ * Does an initializer read something only the init step can — a variable (not a CONSTANT), an element, a dereference, or a
+ * call of a function the project declares? Asked of the AST and name resolution, never of the fold: what is left is what a
+ * fold must answer, and one it does not is a finding.
+ */
+function readsRuntime(e: Expr, scope: Scope): boolean {
+  const value = (sym: Symbol | undefined): boolean => sym !== undefined && sym.constant !== true && VALUE_KINDS.has(sym.kind)
+  switch (e.kind) {
+    case "literal":
+      return false
+    case "paren":
+      return readsRuntime(e.inner, scope)
+    case "unary":
+      return readsRuntime(e.operand, scope)
+    case "binary":
+      return readsRuntime(e.left, scope) || readsRuntime(e.right, scope)
+    case "ident_expr":
+      return value(lookup(scope, e.name)?.symbol)
+    case "member":
+      return value(resolveMemberChain(e, scope, rootOf(scope)))
+    case "call":
+      return (
+        (e.callee.kind === "ident_expr" && lookup(scope, e.callee.name) !== undefined) ||
+        e.args.some((a) => a.value !== undefined && readsRuntime(a.value, scope))
+      )
+    default:
+      return true
   }
 }
 

@@ -41,6 +41,15 @@ export interface ElementaryTypeRef {
   /** A STRING/WSTRING whose declaration STATES a length this scope cannot fold (`STRING(cLen)` with `cLen` out of reach):
    *  its capacity is a fact missing, not the default — so its size is unknown (`builtins` `scalarStorageBytes`). */
   unfoldedLength?: true
+  /** A capacity written as a NAME or an expression (`STRING(n)`), as written — the compiler names the type by it, not by
+   *  its fold: "too long for destination type 'STRING(n)'" (`ce_string_length_constant_*`, `prag_const_*_string_length`,
+   *  both vendors 2026-10-03). Undefined for a literal capacity. */
+  lengthText?: string
+  /** A SUBRANGE of an integer type (`INT(0..10)`): its bounds, folded in the declaring scope — absent when either does not
+   *  fold, and for every other type. Its values convert as its base (`v + 1` is an INT, `dt_subrange_arithmetic_result`)
+   *  but a variable of it is named with them, `INT (0..10)` (`dt_subrange_variable_type`), and a constant stored into it
+   *  outside them is refused (rule DT3, `analysis/checks/types/subrange`). */
+  subrange?: { lower: bigint; upper: bigint }
 }
 export interface EnumType {
   kind: "enum"
@@ -57,6 +66,9 @@ export interface StructType {
   name: string
   /** The struct/union field scope, when resolved. */
   scope?: Scope
+  /** A UNION: its fields share one storage, sized by its largest (DT4, `dt_union_member_sizes`; `infer/expr` `storageBytes`).
+   *  Everything else reads a union as it reads a struct — a member access, a store of one, its name. */
+  union?: true
 }
 export interface InterfaceType {
   kind: "interface"
@@ -105,6 +117,13 @@ export function elementaryTypeRef(elem: ElementaryType): ElementaryTypeRef {
 export function elementaryRef(name: string): Type {
   const facts = elementaryType(name)
   return facts === undefined ? UNKNOWN : elementaryTypeRef(facts)
+}
+
+/** `t` without its subrange: what an operation on a subrange value yields — the base (`dt_subrange_arithmetic_result`). */
+export function withoutSubrange(t: Type): Type {
+  if (t.kind !== "elementary" || t.subrange === undefined) return t
+  const { subrange: _, ...base } = t
+  return base
 }
 
 /** A Type's elementary facts, or undefined for any other kind of type. */

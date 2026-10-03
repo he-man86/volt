@@ -32,3 +32,30 @@ test("an assignment INSIDE the subrange is silent", () => {
       .filter((d) => d.code === "subrange-out-of-range"),
   ).toEqual([])
 })
+
+/** The subrange messages of `src` (one file) on `vendor`. */
+function subrangeMessages(src: string, vendor: "codesys" | "twincat" = "codesys"): string[] {
+  const parseResult = parseSource(src, { networkText: true }, vendor)
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }], [], vendor)
+  return computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor }) })
+    .filter((d) => d.code === "subrange-out-of-range")
+    .map((d) => d.message)
+}
+
+// frontend-conformance 4.7.1 (rule DT3; `dt_subrange_member_assign`, `dt_subrange_assign_*`, CODESYS 2026-10-03): the range
+// is the Type's, so a STRUCT member of a subrange type is checked as a variable is — it was silent, the check read the
+// declaration of a bare name — and CODESYS types only a POSITIVE lower bound, with the subrange's own base.
+test("a constant stored into a STRUCT member of a subrange type outside it is refused", () => {
+  const src = "TYPE R :\nSTRUCT\n\tf : INT(0..10);\nEND_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK F\nVAR\n\trec : R;\nEND_VAR\nrec.f := 20;\nrec.f := 5;\nEND_FUNCTION_BLOCK\n"
+  expect(subrangeMessages(src)).toEqual(["Cannot convert type '20' to type 'INT (0..10)'"])
+  expect(subrangeMessages(src, "twincat")).toEqual(["Cannot convert type '20' to type 'INT (0..10)'"])
+})
+
+test("CODESYS types a positive lower bound with the base, a zero or negative one bare", () => {
+  const src = "FUNCTION_BLOCK F\nVAR\n\ta : INT(0..10);\n\tb : INT(-10..10);\n\tc : UINT(1..10);\nEND_VAR\na := 20;\nb := 20;\nc := 20;\nEND_FUNCTION_BLOCK\n"
+  expect(subrangeMessages(src)).toEqual([
+    "Cannot convert type '20' to type 'INT (0..10)'",
+    "Cannot convert type '20' to type 'INT (-10..10)'",
+    "Cannot convert type '20' to type 'UINT (UINT#1..10)'",
+  ])
+})

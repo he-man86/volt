@@ -91,11 +91,39 @@ const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["ar_bitwise_literal_unsigned_or_negative_stores", 1],
   ["cv_literal_into_enum", 1],
   ["cv_literals_into_strict_enum", 1],
+  // 4d: ABS of a negative literal, a subrange's negative lower bound
+  ["ce_fold_builtin_bound_abs", 1],
+  ["dt_subrange_assign_negative_lower", 1],
   // 4.5.3: each explicit-pair cell whose source value is negative (`v : SINT := -5`, `conversions/explicit-pairs.ts`)
   ...EXPLICIT_PAIR_TESTS.filter((t) => /:= -/.test(t.source)).map((t): [string, number] => [t.name, 1]),
 ]
 
+const UNTYPED_CALL_CELLS =
+  "4d's constant-folding cells call a built-in over untyped numbers only (`ABS(-3)`, `MIN(5, 3)`, `SHL(1, 20)`, …) and NOT one (`NOT 0`); the untyped-operand bounds are known divergences, not measured: CODESYS folds each (the recorded bound names the value), but the TYPE of the call or the NOT is the untyped number's, which LT14 decides in its context — measured, not regressed"
+/** The 4d fixtures whose bound is a built-in call, or a NOT, over untyped numbers only — what each leaves UNKNOWN. */
+const UNTYPED_CALL_ROWS: readonly [string, "call" | "unary"][] = [
+  ["ce_fold_builtin_bound_abs", "call"],
+  ["ce_fold_builtin_bound_min", "call"],
+  ["ce_fold_builtin_bound_max", "call"],
+  ["ce_fold_builtin_bound_limit", "call"],
+  ["ce_fold_builtin_bound_sel", "call"],
+  ["ce_fold_builtin_bound_mux", "call"],
+  // …and the CONSTANT initializers that measure the context an untyped number takes there
+  ["ce_fold_untyped_in_context_values", "unary"],
+  ["ce_fold_untyped_shl_in_context_values", "call"],
+]
+
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
+  ...UNTYPED_CALL_ROWS.flatMap(([fixture, kind]) =>
+    (["codesys", "twincat"] as const).map((vendor) => ({
+      baseline: "type-dump",
+      measure: `fixtures ${vendor}: ${kind} UNKNOWN`,
+      by: 1,
+      fixture,
+      task: LITERAL_TYPING,
+      why: UNTYPED_CALL_CELLS,
+    })),
+  ),
   ...NEGATED_LITERAL_ROWS.flatMap(([fixture, by]) =>
     (["codesys", "twincat"] as const).map((vendor) => ({
       baseline: "type-dump",

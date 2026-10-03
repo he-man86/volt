@@ -37,13 +37,13 @@
     "messages twincat: recorded only": 3
   },
   "type-dump": {
-    "findings": 111,
+    "findings": 105,
     "corpus Library Manager: assign_expr UNKNOWN": 0,
     "corpus Library Manager: binary NOSCOPE": 369,
     "corpus Library Manager: binary UNKNOWN": 216,
     "corpus Library Manager: call NOSCOPE": 848,
     "corpus Library Manager: call UNKNOWN": 80,
-    "corpus Library Manager: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 132,
+    "corpus Library Manager: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 128,
     "corpus Library Manager: call UNKNOWN, on an untyped operand": 28,
     "corpus Library Manager: deref UNKNOWN": 28,
     "corpus Library Manager: global_expr UNKNOWN": 0,
@@ -62,7 +62,7 @@
     "corpus: binary NOSCOPE": 7,
     "corpus: binary UNKNOWN": 439,
     "corpus: call UNKNOWN": 868,
-    "corpus: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 57,
+    "corpus: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 53,
     "corpus: deref UNKNOWN": 16,
     "corpus: global_expr UNKNOWN": 0,
     "corpus: ident_expr NOSCOPE": 439,
@@ -79,7 +79,7 @@
     "fixtures codesys: assign_expr UNKNOWN": 0,
     "fixtures codesys: binary UNKNOWN": 81,
     "fixtures codesys: call UNKNOWN": 83,
-    "fixtures codesys: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 28,
+    "fixtures codesys: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 26,
     "fixtures codesys: call UNKNOWN, on an untyped operand": 1,
     "fixtures codesys: deref UNKNOWN": 4,
     "fixtures codesys: global_expr UNKNOWN": 0,
@@ -94,7 +94,7 @@
     "fixtures twincat: assign_expr UNKNOWN": 0,
     "fixtures twincat: binary UNKNOWN": 81,
     "fixtures twincat: call UNKNOWN": 83,
-    "fixtures twincat: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 28,
+    "fixtures twincat: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)": 26,
     "fixtures twincat: call UNKNOWN, __NEW or __DELETE (no result type yet, task 4.3.4)": 9,
     "fixtures twincat: deref UNKNOWN": 4,
     "fixtures twincat: global_expr UNKNOWN": 0,
@@ -128,18 +128,18 @@
     "corpus: member UNKNOWN, a platform integer on a target nobody measured (TY6)": 15
   },
   "fold-dump": {
-    "findings": 53,
+    "findings": 0,
     "corpus Library Manager: decl NOSCOPE": 20195,
     "corpus: decl NOSCOPE": 1405,
     "fixtures codesys: decl NOSCOPE": 31,
     "fixtures twincat: decl NOSCOPE": 31,
-    "run: initializer does not fold": 33
+    "run: initializer does not fold": 0
   },
   "rules": {
     "GAP area 2": 0,
     "GAP area 3": 0,
-    "GAP area 4": 5,
-    "GAP total": 5,
+    "GAP area 4": 1,
+    "GAP total": 1,
     "CV7 explicit pairs no recorded fixture calls": 0
   },
   "literal-agreement": {

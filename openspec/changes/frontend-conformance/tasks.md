@@ -2623,20 +2623,118 @@ cross-area edges are named on the tasks that have them.
       agreement CODESYS **4434** (+387), TwinCAT **4345** (+385) — floors raised 4047 → 4434 and 3960 → 4345
       (`fixtures.test.ts`; re-run whole `test/conformance`, 5829 pass / 286 todo / 0 fail); LT14 disagreements corpus 78 /
       fixtures 79; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
-- [ ] 4.6.1 One constant fold (CE6, CE9, P16): constEval folds conversions, pure built-ins, SIZEOF, enum values, NOT and shifts,
+- [x] 4.6.1 One constant fold (CE6, CE9, P16): constEval folds conversions, pure built-ins, SIZEOF, enum values, NOT and shifts,
       honouring `const_replaced`/`const_non_replaced`, so the LSP and the transpiler fold one set (T hand-off deletes transpile's
       folder). Record ce_fold_conversion_bound, ce_fold_sizeof_bound, ce_fold_not_int, ce_fold_shl, ce_real_alias_const,
       ce_const_non_replaced_bound.
       Where: const/fold, const/constancy. Acceptance: CA; the 0.4 fold-dump baseline is empty. Depends on: 4.5.3
-- [ ] 4.6.2 Constancy and scope (CE1–CE5, CE7–CE8): one walk for constancy and fold; cycle guard. Record ce_cycle.
+      **4.6.1 (2026-10-03).** Recorded `fixtures/types/constant-evaluation.ts` (both vendors; values on CODESYS). The PROBE is
+      an array bound whose element 30000 is written: the refusal names the fold ("…range from '0' to '<fold>'"). CE6:
+      `ce_fold_conversion_bound*` (8: a constant from INT_TO_DINT, TO_DINT, INT_TO_USINT(300) 44, REAL_TO_INT(2.5) 3,
+      TRUNC(7.9) 7, BOOL_TO_INT 1, TIME_TO_DINT(T#5MS) 5, a nested one 6), `ce_fold_builtin_bound_*` (7: ABS, MIN, MAX, LIMIT,
+      SEL, MUX, LREAL_TO_INT(EXPT(2, 3)) 8), `ce_fold_sizeof_bound*` (4: DINT 4, an LREAL 8, ARRAY[0..2] OF INT 6, STRING(10)
+      11), `ce_fold_enum_value*` (3, 7 each). CE9: `ce_fold_not_int*` (NOT BYTE#250 / WORD#65530 / of a BYTE constant 5,
+      NOT INT#-5 4), `ce_fold_shl*`/`shr`/`rol`/`ror` (8, 254, 5, 3, 192), `ce_real_alias_const` (3, a REAL behind an
+      alias) + `_values` (2.5), and `ce_fold_untyped_*_in_context_values` (an untyped literal in a CONSTANT of a declared
+      type takes it: NOT 0 into a WORD 65535, SHL(1, 20) into a DWORD 1048576). P16: `ce_const_non_replaced_bound` (a
+      decorated global constant, qualified, 3). Fixed test-first in `const/fold`: `constEval` folds the conversions
+      (wrap at the target, a REAL rounded half away from zero at the destination's register — the transpiler's measured
+      table — BOOL, a TIME literal as ticks), ABS/MIN/MAX/LIMIT/SEL/MUX/TRUNC/EXPT/SQRT, SIZEOF (`infer/expr`
+      `sizeofOperandBytes`), enum values (`enums` `enumMemberValue`, in their storage type), NOT on an integer (unsigned at
+      its width) and the shifts (at the operand's width); a REAL constant's width is read through its alias; an untyped
+      literal takes the context's integer type (a constant's declared type, a conversion's source) and has NO width without
+      one — the bound's narrowest is an accepted loss (`UNTYPED_OPERAND_AS_A_BOUND`, 0 occurrences in the corpora), because
+      the transpiler folds an initializer by itself and there the narrowest width is wrong. A project function named like a
+      conversion is its own. `const_replaced`/`const_non_replaced` change nothing the fold reads (P16, 2.10).
+      **The 0.4 fold-dump baseline is empty: findings 53 → 0.** The census (`bound-census`) asked `constEval` of the
+      initializer where the value is the DECLARATION's: it now asks `declaredValue` (`const/fold`, the fold stored into the
+      declared type — wrapped to its width, a string cut at its capacity, WSTRING by UTF-16 units) and only of an initializer
+      that is a compile-time constant (8 that read a variable or call a user function are counted apart, "not asked");
+      strings compared decoded. Run: 214 fold equal, 0 do not fold (33 before).
+      Known divergences opened: `UNTYPED_OPERAND_AS_A_BOUND` (both, 2), `UNTYPED_NOT_IN_A_SIGNED_CONTEXT` (both, 1: `c3 : INT :=
+      NOT 5` is "Cannot convert type 'INT' to type 'ANY_BIT'", niche 0), `TWINCAT_NOT_OF_A_SIGNED_BOUND` (TwinCAT, 1: "Array
+      Border NOT(INT#-5) does not evaluate…", niche 0). Not lowered (the transpiler's, 5.3): `ce_fold_untyped_in_context_values`
+      ("init-not-constant": lowering folds the initializer without its context).
+- [x] 4.6.2 Constancy and scope (CE1–CE5, CE7–CE8): one walk for constancy and fold; cycle guard. Record ce_cycle.
       Where: const/fold, const/constancy. Acceptance: CA. Depends on: 4.6.1
-- [ ] 4.7.1 Subrange in the Type model (DT3): subrange.ts reads the Type. Record dt_subrange_arithmetic_result.
+      **4.6.2 (2026-10-03).** One walk: `const/fold` evaluates value AND constancy together (`constancyIn`; `constancy.ts`
+      `constancyOf` reads it), so a conversion or pure built-in of constants, SIZEOF, an enum value (bare or qualified) and a
+      list's/program's CONSTANT are constant by the reading that folds them; a built-in over a variable is variable, a user
+      function unknown. CE5: recorded `ce_cycle`, `ce_cycle_self` — CODESYS "Recursive definition of constant value" once per
+      constant of the cycle; new `checks/declarations/constant-cycle` on `const/fold` `isRecursiveConstant` (slug
+      `constant-cycle` in `KNOWN_UNMAPPED`: no documented Cnnnn holds the sentence). TwinCAT's XAE EXITS building either
+      (three times, the restart manager relaunching it): `vendorRefuses.twincat`. CE8: a variable's type is resolved in its
+      declaring scope (`infer/expr` passes `sym.owner`, it passed the project), so `STRING(n)`/`ARRAY[0..n]`/`INT(0..n)` with n
+      a POU CONSTANT have their size wherever the variable is read; recorded `ce_string_length_constant_assign`/`_init`,
+      `ce_string_length_literal_assign` (both vendors warn "…destination type 'STRING(n)'" — the capacity named AS WRITTEN,
+      `type` `lengthText`; `string-constant` renders through `renderType`, its private copy deleted). Closed:
+      `decl_string_length_constant`, `_brackets` (`STRING_LENGTH_AS_WRITTEN`, both vendors; `decl_string_length_expression`
+      stays — the compiler's expression form is 4.7.4's render).
+- [x] 4.7.1 Subrange in the Type model (DT3): subrange.ts reads the Type. Record dt_subrange_arithmetic_result.
       Where: type.ts, resolve, analysis/checks/types/subrange.ts. Acceptance: CA. Depends on: 4.6.2
-- [ ] 4.7.2 Union in the Type model (DT4): record dt_union_member_sizes.
+      **4.7.1 (2026-10-03).** Recorded `fixtures/types/derived-types.ts` DT3 (both vendors): `dt_subrange_arithmetic_result`
+      (`v + 1` INT, `w * 2` UINT) + `_values` (11, 14), `dt_subrange_variable_type` ('INT (0..10)', 'UINT (0..10)'),
+      `dt_subrange_member_assign` (20 into a STRUCT member of INT(0..10) refused — the LSP was silent),
+      `dt_subrange_assign_zero_lower`, `_negative_lower`, `dt_subrange_member_assign_nonzero_lower` (CODESYS types a
+      POSITIVE lower bound of an assignment target with the base, `UINT (UINT#1..10)`, a zero or negative one bare — the
+      message had `INT#` for every bound and base). The subrange is in the Type (`type` `subrange`, folded where declared,
+      `resolve` `withSubrange`; rendered `INT (0..10)`; an operation on one is its base, `withoutSubrange` in `infer/expr`), and
+      `subrange.ts` reads the Type: the declared type of an initialized variable, the inferred type of any assigned target.
+      Census: a subrange store is explained by its folded value and the assignment form (the subrange type findings closed).
+- [x] 4.7.2 Union in the Type model (DT4): record dt_union_member_sizes.
       Where: type.ts, resolve. Acceptance: CA. Depends on: 4.7.1
-- [ ] 4.7.3 Enum storage base (DT5–DT6): one rule in enums.ts, decided by recording (T hand-off for enumStorage). Record
+      **4.7.2 (2026-10-03).** Recorded DT4 (both vendors): `dt_union_member_sizes` (values: SIZEOF 4, 5, 8; a DWORD read through
+      the BYTE 4), `dt_union_sizeof_bound` (4), `dt_union_array_sizeof_bound` (5), `dt_union_sizeof_type` and
+      `dt_sizeof_derived_type`: SIZEOF of a STRUCT or a UNION is a UINT (even of one byte) where an elementary, enum, implicit
+      enum, alias or array size is the smallest unsigned integer holding it. `type` StructType `union`; `infer/expr`
+      `storageBytes` (a union: its largest member rounded to its most aligned) and `structSizeBound` (UINT only where the size
+      certainly fits one). Not lowered: `dt_union_member_sizes` (the transpiler's, 5.3).
+- [x] 4.7.3 Enum storage base (DT5–DT6): one rule in enums.ts, decided by recording (T hand-off for enumStorage). Record
       dt_enum_base_byte_storage, dt_library_enum_storage.
       Where: enums. Acceptance: CA. Depends on: 4.7.2
+      **4.7.3 (2026-10-03).** Recorded DT6 (both vendors; values on CODESYS): `dt_enum_base_byte_storage` (1) + `_values` (200
+      reads back as BYTE#200), `dt_enum_plain_storage` (2), `dt_enum_implicit_storage` (2), `dt_library_enum_storage` (2 on
+      CODESYS; TwinCAT's project has no WEEKDAY) + `_values`. One rule: `enums` `enumStorage` — the base the enum converts as
+      (`enumBase`: written, else INT; an implicit one INT) — read by SIZEOF and by the enum-value fold (`enumValueStorage`);
+      the transpiler's `enumStorage` is handed to T (5.3). A library enum's storage is no fact (`LIBRARY_ENUM_BASE_NOT_MATERIALIZED`
+      +1); its SIZEOF still types USINT. DT5 is `type_enum_default_*`'s (unchanged).
+      **Step 4d numbers.** `rate:fixtures` 4853 (+62): confirmed 2704 (+9), refused 1726 (+48), not-lowered 287 (+1), lsp-gap 63
+      (+4), diverges 5, unaskable 68; edges agree 2866 / disagree 0 / not-run 157. Ceilings (`fixtures.test.ts`, FOR
+      MEASUREMENT): lsp-gap 62 → 63, not-lowered 286 → 287. Rules GAP area 4 **5 → 1** (total 5 → 1; CE5, CE6, CE9, DT6 closed;
+      TY6 remains — a 32-bit recording target). Agreement (whole `test/conformance`) CODESYS 4434 → **4496**, TwinCAT 4345 →
+      **4403** (floors not raised — the gate's). Fold dump findings 53 → **0**; type dump findings 111 → **105** (SIZEOF/subrange
+      closed; +2 pinned: `ce_fold_untyped_not_signed_context_values`, TwinCAT `ce_fold_not_int_signed`); corpus SIZEOF/ADR
+      UNKNOWN 57 → 53, Library Manager 132 → 128; corpus body constants folding 725 → 4653. Ceiling exceptions (`baseline.ts`):
+      8 built-in-over-untyped-number cells (`UNTYPED_CALL_ROWS`, LT14) and 2 negated-literal rows. Known divergences: opened
+      `UNTYPED_OPERAND_AS_A_BOUND` (both, 2), `UNTYPED_NOT_IN_A_SIGNED_CONTEXT` (both, 1), `TWINCAT_NOT_OF_A_SIGNED_BOUND` (1),
+      `LIBRARY_ENUM_BASE_NOT_MATERIALIZED` +1; closed `decl_string_length_constant`, `_brackets` (both vendors). F-diff
+      (`frontend-snapshot.ts check --base HEAD`): 4406 aspects over 2292 sources — folds (the step's: conversions, SIZEOF,
+      enum values, bit operators now fold across the corpora) and types (subrange/union/enum SIZEOF, named string capacities).
+      Runs: `bun test src` 1815/0, `test/conformance` 5851 pass / 287 todo / 0 fail (whole), `test/frontend` 34/0,
+      `test/corpus` 19/0, `rate:fixtures`, `bun typecheck`, `bun run lint`.
+      **Step 4d review (8 findings, all fixed, each with a failing test first).** (1) SIZEOF re-entered type resolution with a
+      fresh fold context, so `a : ARRAY[0..SIZEOF(a)]` (and four sibling shapes) overflowed the stack and the file got no
+      diagnostics: `fold` `sizing` guards the operand, a size that reaches itself does not fold. (2) A duration's ticks reached
+      MIN/MAX/LIMIT/SEL/MUX and folded a TIME as an integer: only a conversion reads them now (`converted`). (3) The context's
+      type reached an untyped literal through operators, parens, built-in arguments and signed constants, none recorded: only
+      NOT or a shift at the top of an UNSIGNED constant's initializer takes it. (4) A variable stored into a subrange named the
+      target as declared — recorded `dt_subrange_assign_variable` (both): the assignment form, `UINT (UINT#1..10)` on CODESYS,
+      for a variable source too (`rules` `StoreSite`); `dt_subrange_ref_bind` (both build it): a REFERENCE TO the base binds a
+      subrange variable (`reference-assign` compares without the subrange). (5) A cycle through an enum member's value lost
+      the walk's start: recorded `ce_cycle_enum` (CODESYS; TwinCAT not attempted — its XAE exits on a cycle): two "Recursive
+      definition" plus "… is no valid initialisation for an enumeration"; the LSP now says the constant's (the member's and the
+      enum message are misses). (6) The fold census filtered on `constancyOf`, the code under test: now an AST + resolution
+      test (`readsRuntime`); it surfaced `sysop_position_value` (`__POSITION()`'s text), niche: accepted loss (0 occurrences in
+      the corpora), counted by name; an enum-valued run value now compares (`sameEnumValue`). (7) constant-cycle is
+      CODESYS-only (TwinCAT has no recorded answer). (8) A WSTRING aligns to 2 — recorded `dt_union_wstring_sizeof_bound`
+      (both): WSTRING(1)|5 bytes is 6. `rate:fixtures` 4857: confirmed 2705, refused 1729; no baseline finding moved.
+      **Gate 4d (2026-10-03, 4.6.1–4.7.3, on HEAD 34095e48b5 + the step's tree).** `bun typecheck` clean; `rate:fixtures`
+      reproduces the map byte for byte (4857; confirmed 2705, refused 1729, not-lowered 287, lsp-gap 63, diverges 5, unaskable
+      68; edges 2866 / 0 / 158); full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7920 pass / 34 skip / 331 todo /
+      0 fail** (8285 tests, 204 files, 291 s; vs gate 4c +58 pass, +1 todo — the not-lowered `dt_union_member_sizes`, +59
+      tests); agreement CODESYS **4499** (+65), TwinCAT **4406** (+61) — floors raised 4434 → 4499 and 4345 → 4406
+      (`fixtures.test.ts`; re-run whole `test/conformance`, 5853 pass / 287 todo / 0 fail); LT14 disagreements corpus 78 /
+      fixtures 79; type dump disagreements 105; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
 - [ ] 4.7.4 Aliases, static bases, callees, rendering (DT1–DT2, DT7–DT11): staticScopeType distinguishes namespace and interface
       from struct. Record dt_alias_of_alias_init, dt_namespace_static_base, dt_interface_static_base.
       Where: infer/member, render. Acceptance: CA. Depends on: 4.7.3, 3.2.1
