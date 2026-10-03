@@ -1,4 +1,7 @@
 ## Parked (2026-10-03) — reopen when PLCAssist has field logs (~Nov 2026)
+Idea deferred by the owner (2026-10-03, "not now"): a `diagnostics` bridge request PLCAssist calls only on a failure,
+returning the start log (`bound:` lines) and the last call failure, so nobody has to ask a user for the log file.
+Reconsider when this change is reopened.
 
 Everything that can be done without a field log is done (1, 2, 4, 5, 6). The two open tasks — **3.1** (what failed on
 CODESYS 3.5.17) and **3.2** (refuse when another Volt build is already loaded?) — stay open, unchanged, and are
