@@ -167,7 +167,7 @@ All five fixed 2026-09-14 — 22 fixtures in `check-coverage.ts` recorded live o
       own `BINARY_PRECEDENCE`. First measured: `/`, `<=`, `&`, `XOR`, `AND_THEN`, `OR_ELSE` had NO fixture. Recording
       them found **gap 6 on the spot: `&` is not an operator in CODESYS** (parse error, exactly like `**`) — the check
       became `types/unsupported-operator.ts` for both. CODESYS agreement 275 → 280.
-- [ ] **C0582's wording** — unreachable on SP21 (design §7 of phase 1 above). Mirror the tree's creation error
+- [ ] *Backlog (handed off).* **C0582's wording** — unreachable on SP21 (design §7 of phase 1 above). Mirror the tree's creation error
       instead? A decision for the user, not researched further.
 - [x] **A Standard function's arguments are never checked** (gap 9) — FIXED 2026-09-14: a library FUNCTION's arguments
       are checked (a library FB or method stays skipped — inheritance is flattened there); `renderType` prints a declared
@@ -214,7 +214,7 @@ All five fixed 2026-09-14 — 22 fixtures in `check-coverage.ts` recorded live o
 - [x] **The replay counted every declaration parse error twice** (`replay.test.ts` pushed `parseResult.errors` next to
       `checkParseErrors`, which already reports them) — so no declaration-level parse-error fixture could agree exactly.
       Removed; CODESYS agreement 280 → 293 across this pass.
-- [ ] **Standard's functions and blocks are also hard-coded as always-present names** (gap 10, raised by the user
+- [ ] *Backlog (handed off).* **Standard's functions and blocks are also hard-coded as always-present names** (gap 10, raised by the user
       2026-09-14) — `reference.ts` lists LEN…FIND and TON…RS, so they resolve even in a project that references no
       Standard. Analysis done. **PARKED by the user 2026-09-14** ("a lot still to cover before we get to that") —
       together with all other Standard-library work (Standard64, the runtime tier).
@@ -226,10 +226,10 @@ All five fixed 2026-09-14 — 22 fixtures in `check-coverage.ts` recorded live o
 running script (`volt-cli/scripts/probe-online-state.py`). Routing the execution oracle through the bridge turns
 every oracle case into a real-code test of the bridge the CLI ships, on constructs its own fixtures never hold:
 
-- [ ] **Push round-trip** — push each case's ST through the bridge, fetch it back, require it byte-identical. Existing
+- [ ] *Backlog (handed off).* **Push round-trip** — push each case's ST through the bridge, fetch it back, require it byte-identical. Existing
       ops only; catches serialization bugs on bit access, chains, conversions, literals.
-- [ ] **Build parity** — the bridge's `build` diagnostics for each case agree with what the oracle compile reported.
-- [ ] **Execution through the bridge** — a `run` op on the Core online API (`IOnlineApplication.Login/Start/
+- [ ] *Backlog (handed off).* **Build parity** — the bridge's `build` diagnostics for each case agree with what the oracle compile reported.
+- [ ] *Backlog (handed off).* **Execution through the bridge** — a `run` op on the Core online API (`IOnlineApplication.Login/Start/
       SingleCycle` exist on SP21); reading values there is still to probe. Only then can `record:exec` drop the
       runscript. TwinCAT would need its own answer.
 
@@ -370,7 +370,7 @@ taken apart by construct before anything is built — record first, then build, 
       VAR started over, and a set computes its value into a temp before the setter runs (a getter inside it would
       otherwise be a call in the setter's arguments); `inst(a := , b := 2)` assigns nothing to `a`. SIZEOF of an FB
       whose method has VAR_INST is refused — the field appears when the method lowers, and its place is not measured.
-- [ ] **A PROGRAM called from an FB body** (60 corpus POUs) — recorded (`state_program_called_from_fb`: the one
+- [ ] *Backlog (handed off).* **A PROGRAM called from an FB body** (60 corpus POUs) — recorded (`state_program_called_from_fb`: the one
       instance PLC_PRG calls), not built. Rust holds program instances in `Programs`, handed only to the POU's own
       `scan`; an FB body would need them too, and a program body calling on would borrow them twice. The likely shape:
       every body takes `prg`, and a program call moves its instance out and back (`mem::replace`), with a lowering guard
@@ -393,7 +393,7 @@ taken apart by construct before anything is built — record first, then build, 
       instance); an FB's and a PROGRAM's VAR_TEMP start over at their initial value on every run (a PROGRAM's was kept
       across scans, an FB's refused). Conformance lowering **444 → 447 of 462**. *Why missed:* no running fixture declared
       any of them — the section fixtures only prove the declarations compile, and VAR_TEMP was only recorded in a METHOD.
-- [ ] A routine's VAR_OUTPUT as a local copied back after the call, not a `&mut` reset on entry.
+- [ ] *Superseded by transpile-restructure 4.11.* A routine's VAR_OUTPUT as a local copied back after the call, not a `&mut` reset on entry.
 - [x] VAR_IN_OUT CONSTANT as `&`. Recorded (`inout-constant.ts`, CODESYS SP21), in a FUNCTION, a METHOD and an FB
       alike: a variable binds (7 → 6), a STRING literal and a STRING `VAR CONSTANT` bind; an integer literal, an integer
       `VAR CONSTANT` and an expression do not ("VAR_IN_OUT CONSTANT parameter … needs variable as input" — the expression
@@ -412,13 +412,13 @@ taken apart by construct before anything is built — record first, then build, 
       instance through `&` (E0596 → recorded, lent `&mut`); ADR refused in unrecorded wording (→ recorded, allowed);
       `(own)` skipping the alias check; missing negative tests. Open: the copy rule refuses callees that write fields or
       outputs that cannot reach the lent variable (coverage only, never a wrong result).
-- [ ] A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`) — **designed 2026-09-20, see
+- [ ] *Superseded by transpile-restructure 4.2.* A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`) — **designed 2026-09-20, see
       `pointer-model.md`**, which sizes it (<=30 parameters + 13 multi-target locals), finds it is the INTERFACE
       tag with a place instead of a call, and puts two measurements before it: whether a `REFERENCE TO` field bound
       by a METHOD survives to the next scan, and what `__ISVALIDREF` answers for one never bound.
-- [ ] **Form 2 first** (`pointer-model.md` §8): a pointer PARAMETER the callee does not keep lowers as an in-out
+- [ ] *Superseded by transpile-restructure 4.2.* **Form 2 first** (`pointer-model.md` §8): a pointer PARAMETER the callee does not keep lowers as an in-out
       binding — 62 of the 99 parameters, no IR change and no emitter change.
-- [ ] REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
+- [ ] *Superseded by transpile-restructure 4.2.* REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`).
 
 ## The fixture programme — the corpus is the LAST check, not the specification (user, 2026-09-16)
 
@@ -552,7 +552,7 @@ language list below reaches ~40% of it. The namespace was never the ceiling; it 
 language work and the POUs it applies to, and the refusals it left say what they are: `L_LA is a namespace, which has
 no frame slot yet` is a call into a library with no body, not an unresolved name.
 
-- [ ] **Then** what is left of the library half: a call into a library FUNCTION or FB, whose BODY really is absent
+- [ ] *Backlog (handed off).* **Then** what is left of the library half: a call into a library FUNCTION or FB, whose BODY really is absent
       (`L_MC1P_ModuloCycle`, `StrConcatA`, `SysTimeRtcGet`) — design §8's stub mechanism, so a POU that calls one is
       still testable. `plc-library-runtime` covers Standard/Standard64 only and names none of these vendor libraries.
       Parked as the user asked (2026-09-16), and it is the next proposal after this change, not a phase of it.
@@ -563,20 +563,20 @@ in both backends, as every row above). **This list is the 2026-09-16 measurement
 the method — the current one is below it.**
 
 - [x] `root-inout` +10 → 52 — an FB's or PROGRAM's in-out is the harness's variable (2026-09-16). `ARRAY[*]` still refused.
-- [ ] `place-not-local` +4 → 56 — the library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
-- [ ] `init-not-constant` +3 → 59 — the library-free half: an initializer that folds but is not reached.
-- [ ] `graphical-body` +6 → 65 — an FBD/LD body reaching the backend through **network text**, not through `lowerUnit`.
-- [ ] `place-shape` +4 → 69 — member access on a base with no layout, an index on a non-array, a literal as a place.
-- [ ] `pointer-order` +5 → 74.
-- [ ] `call-body` +5 → 79.
-- [ ] `aggregate-init` +3 → 82 — an initializer naming an INHERITED field (`instanceNo` of a base FB) is the top shape.
-- [ ] `enum-value` +17 → 99 — **the biggest single step**: the library-free half, an enum value that does not fold.
-- [ ] `call-param` +4 → 103.
-- [ ] `interface-type` +3 → 106.
-- [ ] `expr-member` +4 → 110.
-- [ ] `stmt-try` +3 → 113 — `__TRY`/`__CATCH`; Rust has no exceptions, so decide a strategy or refuse explicitly.
-- [ ] `layout-union` +4 → 117.
-- [ ] `conversion-type` +2 → 119 · `fb-init-argument` +2 → 121 · `expr-call` +2 → 123 (the built-ins `ADR`, `LTIME`,
+- [ ] *Backlog (handed off).* `place-not-local` +4 → 56 — the library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
+- [ ] *Backlog (handed off).* `init-not-constant` +3 → 59 — the library-free half: an initializer that folds but is not reached.
+- [ ] *Backlog (handed off).* `graphical-body` +6 → 65 — an FBD/LD body reaching the backend through **network text**, not through `lowerUnit`.
+- [ ] *Backlog (handed off).* `place-shape` +4 → 69 — member access on a base with no layout, an index on a non-array, a literal as a place.
+- [ ] *Backlog (handed off).* `pointer-order` +5 → 74.
+- [ ] *Backlog (handed off).* `call-body` +5 → 79.
+- [ ] *Backlog (handed off).* `aggregate-init` +3 → 82 — an initializer naming an INHERITED field (`instanceNo` of a base FB) is the top shape.
+- [ ] *Backlog (handed off).* `enum-value` +17 → 99 — **the biggest single step**: the library-free half, an enum value that does not fold.
+- [ ] *Backlog (handed off).* `call-param` +4 → 103.
+- [ ] *Backlog (handed off).* `interface-type` +3 → 106.
+- [ ] *Backlog (handed off).* `expr-member` +4 → 110.
+- [ ] *Backlog (handed off).* `stmt-try` +3 → 113 — `__TRY`/`__CATCH`; Rust has no exceptions, so decide a strategy or refuse explicitly.
+- [ ] *Backlog (handed off).* `layout-union` +4 → 117.
+- [ ] *Backlog (handed off).* `conversion-type` +2 → 119 · `fb-init-argument` +2 → 121 · `expr-call` +2 → 123 (the built-ins `ADR`, `LTIME`,
       `TEST_AND_SET`, `DELETE` reaching the generic call path) · `call-inout-alias` +1 → 124 · `stmt-call_stmt` +1 → 125.
 
 **Not on this list, and why.** The blockers with the largest reach — `init-not-constant` 202, `enum-value` 134,
@@ -606,29 +606,29 @@ Today's table, `sole` first — the ONLY blocker of that many POUs:
 | `place-shape` · `expr-call` · `call-library` · `type-unknown` · `call-inout-global` | 95 · 78 · 34 · 11 · 4 | 1 each | |
 | `init-not-constant` · `layout-recursive` · `sizeof-unmeasured` · `interface-type` · `call-body` · `pointer-value` · `expr-member` · `interface-value` · `interface-query` | 181 · 154 · 154 · 154 · 140 · 98 · 94 · 80 · 80 | **0** | large reach, no POU of their own |
 
-- [ ] **`place-not-local` (+7 sole)** — still the head of the list, and the four the old order counted have been
+- [ ] *Backlog (handed off).* **`place-not-local` (+7 sole)** — still the head of the list, and the four the old order counted have been
       taken. The library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
-- [ ] **`graphical-body` (+6 sole)** — an FBD/LD body through **network text**. Note what this now sits beside:
+- [ ] *Backlog (handed off).* **`graphical-body` (+6 sole)** — an FBD/LD body through **network text**. Note what this now sits beside:
       `network-text` is a first-class sublanguage the LSP analyzes, and the conformance suite records graphical
       fixtures on both vendors, so the input is measured — what is missing is the route into `lowerUnit`.
-- [ ] **`stmt-try` (+3 sole)** — nine `__TRY` fixtures are in `KNOWN_DIVERGENCES.twincat` because the x64 code
+- [ ] *Backlog (handed off).* **`stmt-try` (+3 sole)** — nine `__TRY` fixtures are in `KNOWN_DIVERGENCES.twincat` because the x64 code
       generator refuses structured exception handling there, which is a DEVICE fact and does not change what this
       backend must decide.
-- [ ] Then re-measure. `bun run scripts/lower-completeness.ts` prints the table above; the greedy order is
+- [ ] *Backlog (handed off).* Then re-measure. `bun run scripts/lower-completeness.ts` prints the table above; the greedy order is
       derived from the refusals and moves when they do, which is what this section is evidence of.
 
 ## Phase 4 — aliasing
 
-- [ ] `VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref` — on the phase-3 model.
+- [ ] *Superseded by transpile-restructure 4.2.* `VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref` — on the phase-3 model.
   - [x] An FB field pointing into the body's own VAR_IN_OUT (`mem_adr_of_inout_member`): exact where the body stored it
         unconditionally earlier in the same run — the in-out is the variable bound for this call. A dereference anywhere
         else (a method, the caller, before the store, after a store inside IF/CASE/a loop) would follow the next binding
         where CODESYS follows the stale address — unmeasured, so refused (`pointer-outlives`).
-- [ ] `__ISVALIDREF` and the pointer built-ins, which only mean something here.
+- [ ] *Backlog (handed off).* `__ISVALIDREF` and the pointer built-ins, which only mean something here.
 
 ## Phase 5 — the remaining language
 
-- [ ] Interfaces, `EXTENDS`, `__QUERYINTERFACE` — dynamic dispatch.
+- [ ] *Backlog (handed off).* Interfaces, `EXTENDS`, `__QUERYINTERFACE` — dynamic dispatch.
   - [x] Recorded first (`interface-calls.ts`, 5 cases), then built (design §22): interface variables hold the held
         instance's tag; METHOD calls and PROPERTY get/set dispatch on it, arms finished after the whole POU lowers;
         copies to a base interface; `found := __QUERYINTERFACE(from, into)`, null on failure (measured). Conformance
@@ -848,7 +848,7 @@ Today's table, `sole` first — the ONLY blocker of that many POUs:
       Recorded (`callshape_for_limit_call`): a PROPERTY getter and a METHOD in the limit each run 4 times for 3 passes —
       once per test, as the limit is read. Lowered as such; a call in the step, or in a limit a runtime step tests on two
       arms, stays refused (unrecorded).
-- [ ] `__POUNAME` 304 and the other CODESYS compiler operators.
+- [ ] *Backlog (handed off).* `__POUNAME` 304 and the other CODESYS compiler operators.
 - [x] `aggregate-init` — recorded first (`array_initializers`, `init_struct_by_field`, `init_array_of_structs`,
       `init_fb_instance_inputs`), then lowered to a structured initial value (`IrInit`: elements / named fields) that the
       interpreter and `initOf` both build. Measured: a short array list leaves the rest at the element's own initial
@@ -858,16 +858,16 @@ Today's table, `sole` first — the ONLY blocker of that many POUs:
       **434 → 438 of 454**. *Why missed:* two parser gaps hid behind the refusal — a one-field `(y := 7)` parsed as a
       parenthesized inline assignment, and a top-level `STRUCT(…)` as a call — so neither was ever an aggregate;
       every aggregate parser test used two fields or more, and one documented the call as intended.
-- [ ] `expr-assign_expr` (1).
+- [ ] *Backlog (handed off).* `expr-assign_expr` (1).
 - [x] UNION (`type_dut_union`, measured little-endian overlay) — laid out as a struct of its members; a plain `:=` into
       one member is followed by copying its bytes into every other (design §21). Only unsigned integers and bit strings,
       and one-dimensional arrays of them, without initial values; SIZEOF, an aggregate initializer, and every other write
       path (in-out/output binding, latch, chain, FOR variable, ADR) are refused. Conformance lowering **439 → 440 of
       454** — every fixture that should lower now does. *Why missed:* `buildLayout` had no union branch at all, and its
       refusal was the generic `layout-struct`, so no count ever named UNION.
-- [ ] `stmt-try` (6, 2%) — `__TRY`/`__CATCH`. The interpreter can run it; Rust has no exceptions, so the
+- [ ] *Backlog (handed off).* `stmt-try` (6, 2%) — `__TRY`/`__CATCH`. The interpreter can run it; Rust has no exceptions, so the
       emitter needs a strategy or an explicit refusal. Decide rather than default.
-- [ ] `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.
+- [ ] *Backlog (handed off).* `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.
 
 ## Phase 6 — the standard library
 
@@ -883,7 +883,7 @@ they are ST now, over `s[i]`, and the recorded string fixtures are their oracle.
 - [x] `CTU`/`CTD`/`CTUD`/`R_TRIG`/`F_TRIG`/`RS`/`SR`.
 - [x] **Parameter names come from the bridge's library-signature extraction, not from memory** — every repo file is
       its materialized declaration plus a body, byte-identical interface (`test/libraries/standard.test.ts`).
-- [ ] Stub mechanism for third-party library FBs, so a POU that calls one is still testable (design §8).
+- [ ] *Backlog (handed off).* Stub mechanism for third-party library FBs, so a POU that calls one is still testable (design §8).
 
 ## Beyond this change — ST under a standard test framework
 
@@ -906,14 +906,14 @@ ever wanted, SP21's Core `IOnlineApplication` has a real `SingleCycle()` that th
 Both changes closed with one task each that nothing in them could finish. They are lowering and recording work, so
 they live here rather than in an archived folder nobody reads.
 
-- [ ] **`instanceRelative` treats the root FB's own frame as multi-instance** — structurally real, NO REACHING CASE.
+- [ ] *Superseded by transpile-restructure 4.14.* **`instanceRelative` treats the root FB's own frame as multi-instance** — structurally real, NO REACHING CASE.
       The asymmetry is in the code: the root POU's harness frame is `POU:NAME` (`lower.ts`) while the root FB's OWN
       frame is `FB:NAME` (`buildLayout`), so `instanceRelative` (`lower/interfaces.ts`) reads the root FB's own
       fields as another instance's. Three attempts to reach the refusal all lowered correctly or hit an earlier one:
       an interface holding the root's own field and dispatching, the same lent through a VAR_IN_OUT (refused earlier
       by `interface-place`), and lending the root's own instance into another instance's METHOD. Behaviour was not
       changed on the strength of a reading — a fixture that REACHES it is the prerequisite.
-- [ ] **A TwinCAT build pass for the program cases**, so the replay stops tolerating unrecorded cases on that vendor.
+- [ ] *Backlog (handed off).* **A TwinCAT build pass for the program cases**, so the replay stops tolerating unrecorded cases on that vendor.
       PARKED (user, 2026-09-14) — the CODESYS data is complete and this is the second vendor's half. Tried once:
       `ide.ps1 up -Vendor twincat` attaches workers to two XAE windows, both "no project selected"; `connect
       {project: "TwinCAT Project13"}` binds it (worker log: "select: bound", "DEGRADED cleared") and one `refs`

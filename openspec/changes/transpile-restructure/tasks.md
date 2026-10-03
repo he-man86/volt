@@ -1838,3 +1838,90 @@ pre-classification gave group 1 ≈ 11 notes / 576 rows, 2 ≈ 179/5178, 3 ≈ 1
   - Where: `openspec/changes/`.
   - Accept: `openspec list` shows neither this change nor transpile-lean-candidates; no `openspec/specs/`.
   - Depends: 8.3.
+
+## Hand-off from transpile-st-to-rust (2026-10-03)
+
+`transpile-st-to-rust` closed with 82 of 121 tasks done and is archived at
+`openspec/changes/archive/2026-10-03-transpile-st-to-rust/` (its proposal's "Close-out" holds the full 39-row mapping;
+its `pointer-model.md` and `memory-sketch.rs`, which design.md §3.3 and task 4.1 start from, moved there with it).
+These are notes, not tasks: the task list and plan above are unchanged.
+
+**Task 0.8 is done by this hand-off** — every open line there carries a verdict. Because that change is archived, the
+"mark/tick it there" steps of 0.8, 4.2, 4.11, 4.14 and 8.4 are met by writing the closing commit against the id below
+instead of editing the archived file.
+
+**Superseded — owned here (6):**
+- 4.11 ← "A routine's VAR_OUTPUT as a local copied back after the call, not a `&mut` reset on entry." (RC 20)
+- 4.2 ← "A multi-target handle for stored POINTER/REFERENCE (`pointer-targets`)" (designed 2026-09-20 in `pointer-model.md`;
+  two measurements before it: a `REFERENCE TO` field bound by a METHOD surviving to the next scan, and `__ISVALIDREF` of one
+  never bound).
+- 4.2 ← "**Form 2 first** (`pointer-model.md` §8)" — built (`pointers/borrowed.ts`); design.md §3.3 option (c) keeps it (the
+  call-scoped half); 4.2 confirms.
+- 4.2 ← "REFERENCE/POINTER inputs of a routine as borrows for the call — and interface inputs (`itf_function_input`)."
+- 4.2 ← "`VAR_IN_OUT`, `POINTER TO`, `REFERENCE TO`, `expr-deref` — on the phase-3 model." (its phase 4 parent)
+- 4.14 ← "**`instanceRelative` treats the root FB's own frame as multi-instance** — structurally real, NO REACHING CASE." (resolved
+  or left with a reason, as 4.14 says)
+
+**Backlog — handed off, not in this change's scope (33, verbatim; `l.` = line in the archived tasks.md).** Feature growth
+this change's non-goals exclude. They wait for a follow-up change; a model here that makes one lower for free reports it in
+its delta.
+
+- (l.170) **C0582's wording** — unreachable on SP21 (design §7 of phase 1 above). Mirror the tree's creation error
+    instead? A decision for the user, not researched further.
+- (l.217) **Standard's functions and blocks are also hard-coded as always-present names** (gap 10, raised by the user
+    2026-09-14) — `reference.ts` lists LEN…FIND and TON…RS, so they resolve even in a project that references no
+    Standard. Analysis done. **PARKED by the user 2026-09-14** ("a lot still to cover before we get to that") —
+    together with all other Standard-library work (Standard64, the runtime tier).
+- (l.229) **Push round-trip** — push each case's ST through the bridge, fetch it back, require it byte-identical. Existing
+    ops only; catches serialization bugs on bit access, chains, conversions, literals.
+- (l.231) **Build parity** — the bridge's `build` diagnostics for each case agree with what the oracle compile reported.
+- (l.232) **Execution through the bridge** — a `run` op on the Core online API (`IOnlineApplication.Login/Start/
+    SingleCycle` exist on SP21); reading values there is still to probe. Only then can `record:exec` drop the
+    runscript. TwinCAT would need its own answer.
+- (l.373) **A PROGRAM called from an FB body** (60 corpus POUs) — recorded (`state_program_called_from_fb`: the one
+    instance PLC_PRG calls), not built. Rust holds program instances in `Programs`, handed only to the POU's own
+    `scan`; an FB body would need them too, and a program body calling on would borrow them twice. The likely shape:
+    every body takes `prg`, and a program call moves its instance out and back (`mem::replace`), with a lowering guard
+    against re-entering a body still being lowered.
+- (l.555) **Then** what is left of the library half: a call into a library FUNCTION or FB, whose BODY really is absent
+    (`L_MC1P_ModuloCycle`, `StrConcatA`, `SysTimeRtcGet`) — design §8's stub mechanism, so a POU that calls one is
+    still testable. `plc-library-runtime` covers Standard/Standard64 only and names none of these vendor libraries.
+    Parked as the user asked (2026-09-16), and it is the next proposal after this change, not a phase of it.
+- (l.566) `place-not-local` +4 → 56 — the library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
+- (l.567) `init-not-constant` +3 → 59 — the library-free half: an initializer that folds but is not reached.
+- (l.568) `graphical-body` +6 → 65 — an FBD/LD body reaching the backend through **network text**, not through `lowerUnit`.
+- (l.569) `place-shape` +4 → 69 — member access on a base with no layout, an index on a non-array, a literal as a place.
+- (l.570) `pointer-order` +5 → 74.
+- (l.571) `call-body` +5 → 79.
+- (l.572) `aggregate-init` +3 → 82 — an initializer naming an INHERITED field (`instanceNo` of a base FB) is the top shape.
+- (l.573) `enum-value` +17 → 99 — **the biggest single step**: the library-free half, an enum value that does not fold.
+- (l.574) `call-param` +4 → 103.
+- (l.575) `interface-type` +3 → 106.
+- (l.576) `expr-member` +4 → 110.
+- (l.577) `stmt-try` +3 → 113 — `__TRY`/`__CATCH`; Rust has no exceptions, so decide a strategy or refuse explicitly.
+- (l.578) `layout-union` +4 → 117.
+- (l.579) `conversion-type` +2 → 119 · `fb-init-argument` +2 → 121 · `expr-call` +2 → 123 (the built-ins `ADR`, `LTIME`,
+    `TEST_AND_SET`, `DELETE` reaching the generic call path) · `call-inout-alias` +1 → 124 · `stmt-call_stmt` +1 → 125.
+- (l.609) **`place-not-local` (+7 sole)** — still the head of the list, and the four the old order counted have been
+    taken. The library-free half: a `var` of another scope with no frame slot (`Unit`, `AxisRef`).
+- (l.611) **`graphical-body` (+6 sole)** — an FBD/LD body through **network text**. Note what this now sits beside:
+    `network-text` is a first-class sublanguage the LSP analyzes, and the conformance suite records graphical
+    fixtures on both vendors, so the input is measured — what is missing is the route into `lowerUnit`.
+- (l.614) **`stmt-try` (+3 sole)** — nine `__TRY` fixtures are in `KNOWN_DIVERGENCES.twincat` because the x64 code
+    generator refuses structured exception handling there, which is a DEVICE fact and does not change what this
+    backend must decide.
+- (l.617) Then re-measure. `bun run scripts/lower-completeness.ts` prints the table above; the greedy order is
+    derived from the refusals and moves when they do, which is what this section is evidence of.
+- (l.627) `__ISVALIDREF` and the pointer built-ins, which only mean something here.
+- (l.631) Interfaces, `EXTENDS`, `__QUERYINTERFACE` — dynamic dispatch.
+- (l.851) `__POUNAME` 304 and the other CODESYS compiler operators.
+- (l.861) `expr-assign_expr` (1).
+- (l.868) `stmt-try` (6, 2%) — `__TRY`/`__CATCH`. The interpreter can run it; Rust has no exceptions, so the
+    emitter needs a strategy or an explicit refusal. Decide rather than default.
+- (l.870) `type-unknown` (18, 6%) — triage; each is a type the frontend could not resolve.
+- (l.886) Stub mechanism for third-party library FBs, so a POU that calls one is still testable (design §8).
+- (l.916) **A TwinCAT build pass for the program cases**, so the replay stops tolerating unrecorded cases on that vendor.
+    PARKED (user, 2026-09-14) — the CODESYS data is complete and this is the second vendor's half. Tried once:
+    `ide.ps1 up -Vendor twincat` attaches workers to two XAE windows, both "no project selected"; `connect
+    {project: "TwinCAT Project13"}` binds it (worker log: "select: bound", "DEGRADED cleared") and one `refs`
+    answers, then the recorder's `refs` is refused PLC_DISCONNECTED with no deselect in the log. Not diagnosed.

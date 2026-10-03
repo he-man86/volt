@@ -42,19 +42,23 @@ requirement exists to prevent.
 - **THEN** it is reported
 - **AND** no node carrying an unknown type reaches a backend
 
-### Requirement: ST aliasing is never expressed as a target-language reference
+### Requirement: stored ST aliasing is never expressed as a target-language reference
 
-A POU SHALL be represented as a flat frame of storage locations addressed by index. Pointers, `REFERENCE TO`
-and `VAR_IN_OUT` SHALL lower to positions within that frame, and SHALL NOT lower to a borrowed reference in
-the emitted target language.
+A POU SHALL be represented as a frame of storage locations addressed by place. A stored `POINTER TO` or
+`REFERENCE TO` SHALL lower to a value naming a position among its targets (0 is null), checked at every
+dereference, and SHALL NOT lower to a reference held in the emitted target language. A borrow SHALL live only for
+the duration of one call: a `VAR_IN_OUT` (`&mut`), a `VAR_IN_OUT CONSTANT` (`&`), a pointer parameter the callee
+does not keep, and the instance, globals and programs a scan or routine is handed. Lowering SHALL refuse what would
+need two mutable borrows of one location at once.
 
-ST's memory model is one static image with real aliasing; a borrow-checked reference cannot express it, and
-the corpus's most-called construct is `ADR`.
+ST's memory model is one static image with real aliasing; a borrow-checked reference that outlives a call cannot
+express it, and the corpus's most-called construct is `ADR`.
 
-#### Scenario: emitted Rust borrows nothing but the frame itself
+#### Scenario: emitted Rust stores no reference
 - **WHEN** a POU is emitted as Rust
-- **THEN** the only borrow in the output is the `&mut self` of its scan method
-- **AND** the emitted code passes `rustc` with the borrow checker and warnings-as-errors
+- **THEN** no struct field holds a reference, and every `&` or `&mut` in the output is a parameter or an argument
+  of one call
+- **AND** the emitted code passes `rustc` with the borrow checker and `unsafe_code` forbidden
 
 ### Requirement: semantics live in the IR, so a backend decides nothing
 
@@ -94,4 +98,5 @@ operator's result, a conversion's rounding, and a standard function block's para
 #### Scenario: a built-in's semantics are established by comparison
 - **WHEN** a built-in operator or standard function block is implemented
 - **THEN** its result is compared against the same call executed in the IDE
-- **AND** an implementation that has not been compared is marked as unverified where it is defined
+- **AND** a behaviour that disagrees with the recording is a named expected failure carrying its reason, not a
+  silent pass
