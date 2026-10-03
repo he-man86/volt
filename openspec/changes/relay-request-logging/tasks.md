@@ -1,0 +1,28 @@
+## 0. Design gate — do this first
+
+- [x] 0.1 (volt, 2026-10-03: confirmed, except that the end line is Warn, not Info. FITS. Total time only, the connection-end line names the pipe, and one line format shared with relay-outcome-ledger. See the proposal's assessment.) Verify the observation and confirm or refute PLCAssist's reading (see "Analyse first"): the unpaired ids in
+      `twincat-2026-09-24.log`, the unlogged paths in `RelayTunnel.ServeAsync`, and the shared `try` that logs a failed
+      send as "failed on pipe". If refuted or intended, record why and stop. Then check the request against volt's
+      design (what the local log is for, no token in it, log volume) and against `relay-outcome-ledger` (one line
+      format for an abandoned request). Record FITS, or CONFLICTS + why + the volt-native alternative. Build only
+      what fits.
+- [x] 0.2 (decided: only the total is logged. The queue/run split is **not built**: the tunnel cannot see the IDE-thread start without a new pipe field, and IDE_BUSY removes write-behind-write waits; only the total is logged.) Decide whether the queue wait is measured in the host (when the IDE-thread work starts) or only the total
+      is logged.
+
+## 1. Test red
+
+- [ ] 1.1 Tunnel tests with the injected log: a coded error, a non-relayable op, an abandoned request and a failed
+      result send each produce exactly one terminal line with the expected outcome and `delivered` value.
+- [ ] 1.2 Tunnel tests: a relay close, a drop, the watchdog and a refused upgrade each produce one connection-end line
+      with cause, age, in-flight ids and next dial.
+
+## 2. Build
+
+- [ ] 2.1 The terminal line, separate pipe and delivery outcomes, the connection-end line; `relay-protocol.md` lists
+      the lines.
+
+## 3. Verify
+
+- [ ] 3.1 Live: a session with a disconnected project, a relay restart mid-fetch and a watchdog drop; every `<-` in the
+      log has its terminal line, and every end has its cause.
+- [ ] 3.2 Full C# suites and `bun run check` green.
