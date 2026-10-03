@@ -29,12 +29,16 @@
  *
  * Run against YOUR OWN bridge (never another session's IDE):
  *   pwsh scripts/ide.ps1 up -Vendor codesys -Instance push-keeps-what-landed -Wait     # prints the pipe
- *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/probe-member-name-refusal.ts > scripts/member-name-refusal.log
+ *   VOLT_E2E_INSTANCE=push-keeps-what-landed bun run scripts/probe-member-name-refusal.ts > scripts/member-name-refusal.log
+ *   (TwinCAT: `-Vendor twincat` above and VOLT_VENDOR=twincat here; the logs gain `-tc`)
+ *   The pipe comes from an `ide.ps1` fixture instance ONLY (`test/e2e/lib/fixture-ide.ts`): VOLT_E2E_INSTANCE names it
+ *   (unset = the default instance), or VOLT_PIPE names one exact pipe an instance provably owns. Anything else is refused.
  *   pwsh scripts/ide.ps1 down -Vendor codesys -Instance push-keeps-what-landed
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe, vendorOf } from "../test/e2e/lib/fixture-ide"
 // The LSP's vocabulary, from the sibling package. A computed specifier: volt-cli's tsconfig roots at this package, so a
 // static import of another package's source fails its typecheck (TS6059).
 const VOCABULARY = "../../volt-lsp-iec/src/frontend/syntax/lex/vocabulary"
@@ -44,8 +48,9 @@ const { KEYWORDS, IL_OPERATOR_WORDS, ELEMENTARY_TYPE_WORDS } = (await import(VOC
 	ELEMENTARY_TYPE_WORDS: ReadonlySet<string>
 }
 
-const PIPE: string = process.env.VOLT_PIPE ?? ""
-if (!/^volt\.bridge\.(codesys|twincat)\.\d+$/.test(PIPE)) throw new Error("set VOLT_PIPE to YOUR bridge's exact per-pid pipe")
+// Never a pipe found by prefix, never "the first": only this instance's fixture IDE (refuses, naming the rest).
+const VENDOR = vendorOf(process.env.VOLT_VENDOR)
+const PIPE: string = scriptPipe(VENDOR)
 const PREFIX = "VltPkn"
 const CALL_TIMEOUT_MS = 120_000
 
@@ -199,7 +204,6 @@ const FAMILIES = [
 ]
 const FAMILIES_RUN = process.env.PROBE_SET === "families"
 const VERIFY_RUN = process.env.PROBE_SET === "verify"
-const VENDOR = PIPE.includes(".twincat.") ? "twincat" : "codesys"
 const LOG = (run: "" | "-families") => `member-name-refusal${run}${VENDOR === "twincat" ? "-tc" : ""}.log`
 
 /** PROBE_SET=verify: the earlier runs' rows to re-ask with the read-back — every one logged ACCEPTED and every one

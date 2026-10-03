@@ -39,10 +39,11 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync,
 import { execFileSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { requireNetworkText, servedPipe } from "./bridge.js"
+import { vendorOf } from "../../volt-cli/test/e2e/lib/fixture-ide.js"
+import { pipeName, requireNetworkText } from "./bridge.js"
 
 const name = process.argv[2]
-const vendor = process.argv[3] ?? "codesys"
+const vendor = vendorOf(process.argv[3])
 if (!name) {
 	console.error("usage: bun run refresh:corpus <name> [codesys|twincat]")
 	process.exit(1)
@@ -52,8 +53,9 @@ const VOLT = join(import.meta.dir, "..", "..", "volt-cli", "src", "Volt.Cli", "b
 const corpus = join(import.meta.dir, "..", "test-corpus", name)
 
 // A temp dir OUTSIDE the repo (a `volt init` here would nest a .git inside the monorepo).
-// The bridge that is asked is the bridge that is pulled from: `volt init` gets the checked pipe by name.
-const pipe = servedPipe(vendor)
+// The bridge that is asked is the bridge that is pulled from: `volt init` gets the checked pipe by name — and that pipe
+// is an `ide.ps1` fixture instance's (VOLT_E2E_INSTANCE / a VOLT_PIPE it owns), never one found by prefix (`bridge.ts`).
+const pipe = pipeName(vendor)
 await requireNetworkText(pipe)
 
 const tmp = mkdtempSync(join(tmpdir(), "volt-corpus-"))

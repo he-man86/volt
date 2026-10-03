@@ -24,8 +24,8 @@
  * and nothing under it — so there is nothing to create it FROM.
  * Those are counted and reported, never staged; pushing one is refused by `BodyFormatGuard`.
  *
- * RUNNING IT. It owns the IDE lifecycle: a throwaway blank project is opened per corpus and closed again, so no
- * bridge should be running when it starts.
+ * RUNNING IT. It owns the IDE lifecycle: a throwaway blank project is opened per corpus — `ide.ps1` instance
+ * `corpus-migration`, its pipe resolved from that instance's record and nothing else — and closed again.
  *
  *   bun run scripts/corpus-migration.ts                 # every corpus
  *   bun run scripts/corpus-migration.ts pro2193         # one
@@ -39,6 +39,7 @@ import { dirname, join, relative, sep } from "node:path"
 import { SOURCE_EXTENSIONS } from "@volt/control"
 // The e2e harness owns the pipe framing; importing it keeps ONE client rather than a second copy of the wire.
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe, vendorOf } from "../test/e2e/lib/fixture-ide"
 
 const REPO = join(import.meta.dir, "..", "..", "..")
 const VOLT = join(REPO, "packages", "volt-cli", "src", "Volt.Cli", "bin", "Release", "net10.0", "volt.exe")
@@ -47,6 +48,9 @@ const VOLT = join(REPO, "packages", "volt-cli", "src", "Volt.Cli", "bin", "Relea
 // v1 until 6.1 re-pulls them, and a v1 body is refused naming a re-pull).
 const CORPUS_ROOT = process.env.VOLT_CORPUS_ROOT ?? join(REPO, "packages", "volt-lsp-iec", "test-corpus")
 const LAUNCHER = join(import.meta.dir, "ide.ps1")
+/** The `ide.ps1` instance this finder brings up and tears down — its OWN, so its `down` never closes the default
+ *  instance another session (or the e2e suite) is using, and its pipe is resolved from that instance's record. */
+const INSTANCE = "corpus-migration"
 /** The pipe THIS run launched. Every `volt` call is pinned to it, so a stray IDE cannot be used. */
 let activePipe: string | undefined
 
@@ -60,7 +64,7 @@ const FOLDER_MARKER = ".gitkeep"
  *  `ImplementationMarker`; a script matches the line, it does not define it). */
 const HIDDEN_BODY = /^[ \t]*IMPLEMENTATION[ \t]+[A-Za-z]+[ \t]+UNSUPPORTED[ \t]*\r?$/im
 
-const VENDOR = process.env.VOLT_VENDOR ?? "codesys"
+const VENDOR = vendorOf(process.env.VOLT_VENDOR)
 
 // ── vendor lifecycle: open a BLANK project, serve it, close it ────────────────────────────────────────────
 
@@ -90,17 +94,16 @@ const CODESYS: Blank = {
 		//
 		// Nothing is needed to make the IDE usable: the launcher serves every project through the SHIPPED host,
 		// so the IDE's own message loop answers the pipe and the window stays clickable while the push runs.
-		// `-Wait` blocks until a NEW pipe appears and prints its name. Pinning to that is what stops the run
-		// attaching to an IDE someone left open — and it is the only thing that can: CODESYS RE-EXECS during
-		// startup, so the pid `Start-Process` reported is not the pid that ends up serving.
-		activePipe = pipeFrom(ps(LAUNCHER, ["-Action", "up", "-Vendor", "codesys", "-NoBuild", "-Fixture", project, "-Wait"]))
+		// `up` resolves the pipe from THIS instance's launch record (a re-exec'd child of the process it started —
+		// CODESYS RE-EXECS during startup), which is what stops the run attaching to an IDE someone left open.
+		activePipe = up("codesys", ["-NoBuild", "-Fixture", project])
 	},
 	close() {
 		if (process.env.VOLT_SHOW) {
 			console.log("  VOLT_SHOW: leaving the IDE open on the migrated project — close it yourself when done")
 			return
 		}
-		ps(LAUNCHER, ["-Action", "down", "-Vendor", "codesys"])
+		ps(LAUNCHER, ["-Action", "down", "-Vendor", "codesys", "-Instance", INSTANCE])
 	},
 }
 
@@ -137,7 +140,7 @@ const TWINCAT: Blank = {
 		// The launcher spawns the worker and waits for the ROT, so this arm no longer carries its own copy of
 		// either. It used to sleep a flat 90s before spawning, because TcXaeShell's window exists long before
 		// the PLC project is loaded — `--list-xae-pids` answers that question instead of guessing at it.
-		const pipe = pipeFrom(ps(LAUNCHER, ["-Action", "up", "-Vendor", "twincat", "-Fixture", sln, "-Wait"]))
+		const pipe = up("twincat", ["-Fixture", sln])
 		activePipe = pipe
 
 		// A TwinCAT XAE starts every project IDLE and must be TOLD which to serve — CODESYS serves its loaded
@@ -156,8 +159,8 @@ const TWINCAT: Blank = {
 		throw new Error(`the TwinCAT bridge never served a project on ${pipe} — is the XAE still loading?`)
 	},
 	close() {
-		// `down -Vendor twincat` closes the XAE windows AND the workers attached to them.
-		ps(LAUNCHER, ["-Action", "down", "-Vendor", "twincat"])
+		// `down -Vendor twincat` closes this instance's XAE windows AND the workers attached to them.
+		ps(LAUNCHER, ["-Action", "down", "-Vendor", "twincat", "-Instance", INSTANCE])
 	},
 }
 
@@ -169,31 +172,19 @@ function codesysInstall(): string {
 	return dir
 }
 
-/** The host serves `volt.bridge.<vendor>.<pid>`; wait for any pipe under the vendor prefix. */
 /**
- * Wait for the bridge pipe — and for THE ONE THIS RUN LAUNCHED when its pid is known.
+ * Bring this finder's own instance up (`-Wait`: until it serves) and return ITS pipe — resolved from the launcher's
+ * record (`test/e2e/lib/fixture-ide.ts`), not read off the launcher's output or found by prefix.
  *
- * <p>Matching only the PREFIX takes whichever IDE answers first, which is fine only while exactly one is
- * running. Leave a CODESYS open on another project and the finder silently migrates into THAT — measured: a
- * stray instance holding a probe's leftovers produced `ENOENT ... VltCollideA.pou` and it was reported as a
- * GAP in the product. A fabricated finding from a real run is worse than no run.</p>
+ * <p>Matching a PREFIX takes whichever IDE answers first, which is fine only while exactly one is running. Leave a
+ * CODESYS open on another project and the finder silently migrates into THAT — measured: a stray instance holding a
+ * probe's leftovers produced `ENOENT ... VltCollideA.pou` and it was reported as a GAP in the product. A fabricated
+ * finding from a real run is worse than no run. The resolver accepts only the pipe of an IDE this instance's `up`
+ * recorded, open on a copy under its own root, and refuses anything else naming it.</p>
  */
-/** The pipe `ide.ps1 -Wait` reported — the IDE THIS run brought up, which is the only one it may drive.
- *
- *  The launcher's last such token is that pipe: `-Wait` returns the one that appeared during the call, so an
- *  IDE someone left open cannot be mistaken for it. Strays are still NAMED, because an IDE serving a different
- *  project is exactly the setup that once fabricated a GAP, and the operator is the only one who can close it.
- *  (The polling this function used to do lives in the launcher now, for both vendors.) */
-function pipeFrom(out: string): string {
-	const all = [...out.matchAll(/volt\.bridge\.(?:codesys|twincat)\.\d+/g)].map((m) => m[0])
-	if (all.length === 0) throw new Error(`the launcher never reported a pipe:\n${out}`)
-	const mine = all[all.length - 1]
-	const vendor = mine.split(".")[2]
-	const strays = readdirSync("\\\\.\\pipe\\").filter((p) => p.startsWith(`volt.bridge.${vendor}.`) && p !== mine)
-	if (strays.length > 0)
-		console.log(`   NOTE  ${strays.length} other ${vendor} IDE(s) serving (${strays.join(", ")}) — this run `
-			+ `is pinned to ${mine}`)
-	return mine
+function up(vendor: "codesys" | "twincat", args: string[]): string {
+	ps(LAUNCHER, ["-Action", "up", "-Vendor", vendor, "-Instance", INSTANCE, ...args, "-Wait"])
+	return scriptPipe(vendor, "", INSTANCE)
 }
 
 function ps(script: string, args: string[]): string {

@@ -9,7 +9,7 @@
  * control fires but the target code doesn't, the silence is genuine; if the control is ALSO absent, the unit was
  * never built and the case is invalid.
  *
- *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/record-gaps.ts
+ *   VOLT_E2E_INSTANCE=<ide.ps1 instance> bun run scripts/record-gaps.ts
  */
 import { call } from "./bridge.js"
 import { openFixture } from "./bridge-fixture.js"

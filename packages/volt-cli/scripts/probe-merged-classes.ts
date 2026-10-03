@@ -9,16 +9,19 @@
  *   back   — moved back to its own folder, and the original text restored.
  * After every step the IDE-side probe reads the object's CLR class (request file, answered on the UI thread).
  *
- *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/probe-merged-classes.ts pro2193|bakon
+ *   VOLT_E2E_INSTANCE=<instance> bun run scripts/probe-merged-classes.ts pro2193|bakon
+ *   The pipe comes from an `ide.ps1` fixture instance ONLY (`test/e2e/lib/fixture-ide.ts`): VOLT_E2E_INSTANCE names it
+ *   (unset = the default instance), or VOLT_PIPE names one exact pipe an instance provably owns. Anything else is refused.
  *
  * Answer: `merged-classes.log` beside this file (both halves append to it).
  */
 import { appendFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe } from "../test/e2e/lib/fixture-ide"
 
-const PIPE: string = process.env.VOLT_PIPE ?? ""
-if (!PIPE) throw new Error("set VOLT_PIPE to the serving bridge")
+// Never a pipe found by prefix, never "the first": only this instance's fixture IDE (refuses, naming the rest).
+const PIPE: string = scriptPipe("codesys")
 const PHASE = process.argv[2]
 if (PHASE !== "pro2193" && PHASE !== "bakon") throw new Error("phase: pro2193 | bakon")
 const LOG = join(import.meta.dir, "merged-classes.log")

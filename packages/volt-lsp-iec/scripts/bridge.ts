@@ -3,20 +3,33 @@
  * body)` writes one `{op,body}` frame and resolves the terminal result; the pipe host serves byte-identical Core
  * responses, so a re-record over the pipe reproduces the same ground truth the old HTTP recorder did.
  *
- * VOLT_VENDOR picks the vendor (`codesys` default / `twincat` → pipe `volt.bridge.twincat`); VOLT_PIPE overrides
- * the pipe name outright.
+ * WHICH PIPE: only an `ide.ps1` fixture instance's — the ONE rule every script that drives a bridge from this checkout
+ * follows, implemented once in volt-cli (`packages/volt-cli/test/e2e/lib/fixture-ide.ts`, beside the launcher whose
+ * records it reads). `VOLT_E2E_INSTANCE` names the instance (unset = the default one), or `VOLT_PIPE` names one exact
+ * `volt.bridge.<vendor>.<pid>` that an instance provably owns; anything else is refused, naming the pipes and projects it
+ * will not touch. These scripts used to take `VOLT_PIPE` unchecked or the single pipe under the vendor PREFIX — and a
+ * prefix cannot tell a fixture copy from an engineer's own project (the e2e suite once wrote into an 881-item one).
+ * VOLT_VENDOR picks the vendor (`codesys` default / `twincat`).
  */
-import { readdirSync } from "node:fs"
 import { connect } from "node:net"
+import { scriptPipe, vendorOf, type Vendor } from "../../volt-cli/test/e2e/lib/fixture-ide.js"
 
-export const VENDOR = process.env.VOLT_VENDOR === "twincat" ? "twincat" : "codesys"
+export const VENDOR: Vendor = vendorOf(process.env.VOLT_VENDOR)
 
-/** The pipe for a given vendor (default: VOLT_VENDOR), honoring a VOLT_PIPE override. */
-export function pipeName(vendor: string = VENDOR): string {
-  return process.env.VOLT_PIPE || `volt.bridge.${vendor}`
+const resolved = new Map<Vendor, string>()
+
+/**
+ * The pipe of `vendor` (default: VOLT_VENDOR) — resolved through the fixture-instance rule on first use and kept for the
+ * run. Throws `FixtureRefusal`; there is no fallback name, because a fallback is a guess.
+ */
+export function pipeName(vendor: Vendor = VENDOR): string {
+  let pipe = resolved.get(vendor)
+  if (pipe === undefined) resolved.set(vendor, (pipe = scriptPipe(vendor)))
+  return pipe
 }
 
-export const TARGET = `pipe ${pipeName()}`
+/** What a log line names as the target. Resolves (a script prints it before its first call). */
+export const target = (): string => `pipe ${pipeName()}`
 
 /**
  * Did a push land IN FULL — every op of it in the IDE?
@@ -55,22 +68,6 @@ export function call(op: string, body?: unknown, pipe: string = pipeName()): Pro
     sock.on("end", () => resolve(result))
     sock.on("error", reject)
   })
-}
-
-/**
- * The ONE live pipe of `vendor` a script should talk to: `VOLT_PIPE` when set, else the single per-pid
- * `volt.bridge.<vendor>.<pid>` pipe that is up. None or several is an error naming them — a script that picked one of
- * two IDEs would record the wrong project, and the CLI refuses the same ambiguity (`BridgeResolver`).
- */
-export function servedPipe(vendor: string = VENDOR): string {
-  if (process.env.VOLT_PIPE) return process.env.VOLT_PIPE
-  const live = readdirSync("\\\\.\\pipe\\").filter((n) => n.startsWith(`volt.bridge.${vendor}.`))
-  if (live.length === 1) return live[0]!
-  throw new Error(
-    live.length === 0
-      ? `no ${vendor} bridge is up — serve the project with \`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor ${vendor}\``
-      : `${live.length} ${vendor} bridges are up (${live.join(", ")}) — name the one to use with VOLT_PIPE`,
-  )
 }
 
 /**

@@ -14,7 +14,7 @@
  * plant an unmistakable error in ONE object, build, restore, repeat. Give it a CONTROL first — an object known
  * to be compiled — so a silent subject means "not compiled" rather than "the experiment does not work".
  *
- *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/probe-is-it-compiled.ts <control> <subject> [more…]
+ *   VOLT_E2E_INSTANCE=<ide.ps1 instance> bun run scripts/probe-is-it-compiled.ts <control> <subject> [more…]
  *
  * ALWAYS POINT THIS AT A COPY. It writes to the open project and restores after each step, but an interrupted
  * run leaves the planted error in place — never aim it at an engineer's original.

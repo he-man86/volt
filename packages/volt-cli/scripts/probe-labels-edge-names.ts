@@ -12,12 +12,15 @@
  * A build diagnostic carries no item name on CODESYS, so each case is built ALONE and compared with the baseline
  * the project reports before any case is pushed — the same method as `test/e2e/graphical/labels.test.ts`.
  *
- *   VOLT_PIPE=volt.bridge.twincat.<pid> bun run scripts/probe-labels-edge-names.ts > scripts/tc-labels-edge-names.log
+ *   VOLT_E2E_INSTANCE=<instance> bun run scripts/probe-labels-edge-names.ts > scripts/tc-labels-edge-names.log
+ *   The pipe comes from an `ide.ps1` fixture instance ONLY (`test/e2e/lib/fixture-ide.ts`): VOLT_E2E_INSTANCE names it
+ *   (unset = the default instance), or VOLT_PIPE names one exact pipe an instance provably owns. Anything else is refused.
  */
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe, vendorOf } from "../test/e2e/lib/fixture-ide"
 
-const PIPE: string = process.env.VOLT_PIPE ?? ""
-if (!PIPE) throw new Error("set VOLT_PIPE to the serving bridge")
+// Never a pipe found by prefix, never "the first": only this instance's fixture IDE (refuses, naming the rest).
+const PIPE: string = scriptPipe(vendorOf(process.env.VOLT_VENDOR, "twincat"))
 const PREFIX = "VltProbe"
 
 const refs = async (): Promise<any> => await callOn(PIPE, "refs")

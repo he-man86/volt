@@ -40,12 +40,19 @@ public static class VoltRot2 {
     return null; }
 }
 "@
-$mine = @(Get-CimInstance Win32_Process -Filter "Name='TcXaeShell.exe'" | Where-Object { $_.CommandLine -like "*volt-ide-twincat-$Instance*" })
-if ($mine.Count -ne 1) { throw "expected exactly one TcXaeShell on the $Instance copy, found $($mine.Count)" }
-$dte = [VoltRot2]::Get("!TcXaeShell.DTE.15.0:$($mine[0].ProcessId)")
-if (-not $dte) { throw "XAE $($mine[0].ProcessId) has no DTE in the ROT" }
+# WHICH XAE: the one behind THIS instance's pipe, as the e2e harness's resolver proves it (test/e2e/lib/fixture-ide.ts,
+# asked through its CLI - one implementation of the rule, not a second one here): ide.ps1 recorded the process, its
+# project is under this instance's copy root, and the XAE's own command line names that copy's .sln. Anything else
+# (another session's XAE, an engineer's own) is refused, naming it. The pipe is named after the XAE's pid.
+$resolver = (Resolve-Path (Join-Path $PSScriptRoot "../test/e2e/lib/fixture-ide.ts")).Path
+# stdout only: under 5.1 a redirected native stderr becomes an ErrorRecord that "Stop" turns into a throw of its own.
+$pipe = (& bun $resolver twincat $Instance | Out-String).Trim()
+if ($LASTEXITCODE -ne 0) { throw "no fixture XAE for instance '$Instance' (the refusal above names what it will not touch)" }
+$xaePid = [int]($pipe -split '\.')[-1]
+$dte = [VoltRot2]::Get("!TcXaeShell.DTE.15.0:$xaePid")
+if (-not $dte) { throw "XAE $xaePid has no DTE in the ROT" }
 if ($dte.Solution.FullName -notlike "*volt-ide-twincat-$Instance*") { throw "not the $Instance fixture copy: $($dte.Solution.FullName)" }
-Out "XAE pid $($mine[0].ProcessId): $($dte.Solution.FullName)"
+Out "XAE pid ${xaePid} ($pipe): $($dte.Solution.FullName)"
 $sm = $dte.Solution.Projects.Item(1).Object
 $plc = $sm.LookupTreeItem("TIPC").Child(1)
 $root = $plc.NestedProject
@@ -70,7 +77,6 @@ function FirstLine([string]$s) { ($s -split "`r?`n" | Where-Object { $_.Trim() }
 # their messages. SolutionBuild.Build(true) through this DTE returns LastBuildInfo but leaves every Output pane empty
 # out of process (measured on the first runs), so it could say THAT a build failed and never WHY.
 function Build([string]$match) {
-    $pipe = "volt.bridge.twincat.$($mine[0].ProcessId)"
     $cli = (Resolve-Path (Join-Path $PSScriptRoot "../test/e2e/lib/pipe.ts")).Path -replace "\\", "/"
     $js = "import { callOn } from '$cli'; const r: any = await Promise.race([callOn('$pipe', 'build', {}), " +
           "new Promise((_, j) => setTimeout(() => j(new Error('build timed out after 600 s')), 600000))]); " +

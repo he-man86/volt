@@ -14,14 +14,17 @@
  *   - an object INSIDE a folder of the same name (`BFU/BFU.prg`)  — different LEVELS, ordinary, works
  *   - an object BESIDE a folder of the same name                  — same level, same name, the question
  *
- * Run it against whichever bridge is serving:
- *   VOLT_PIPE=volt.bridge.twincat.<pid> VOLT_VENDOR=twincat bun run scripts/probe-tc-name-collision.ts
- *   VOLT_PIPE=volt.bridge.codesys.<pid>                     bun run scripts/probe-tc-name-collision.ts
+ * Run it against an `ide.ps1` fixture instance (on either vendor):
+ *   VOLT_E2E_INSTANCE=<instance> VOLT_VENDOR=twincat bun run scripts/probe-tc-name-collision.ts
+ *   VOLT_E2E_INSTANCE=<instance>                       bun run scripts/probe-tc-name-collision.ts
+ *   The pipe comes from an `ide.ps1` fixture instance ONLY (`test/e2e/lib/fixture-ide.ts`): VOLT_E2E_INSTANCE names it
+ *   (unset = the default instance), or VOLT_PIPE names one exact pipe an instance provably owns. Anything else is refused.
  */
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe, vendorOf } from "../test/e2e/lib/fixture-ide"
 
-const PIPE: string = process.env.VOLT_PIPE ?? ""
-if (!PIPE) throw new Error("set VOLT_PIPE to the serving bridge")
+// Never a pipe found by prefix, never "the first": only this instance's fixture IDE (refuses, naming the rest).
+const PIPE: string = scriptPipe(vendorOf(process.env.VOLT_VENDOR))
 
 const NAME = "VltCollide"
 const CHILD = `${NAME}_Inner`

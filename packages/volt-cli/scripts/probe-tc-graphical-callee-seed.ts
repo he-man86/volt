@@ -13,16 +13,19 @@
  *   B  one push: PROGRAM callee + LD caller `done := P(EN := go).ENO;`  — the fixture's shape with a named target
  *   C  FUNCTION callee pushed, a BUILD, then FBD caller with `.ENO`     — does a build re-derive the code?
  *
- *   VOLT_PIPE=volt.bridge.twincat.<pid> bun run scripts/probe-tc-graphical-callee-seed.ts
+ *   VOLT_E2E_INSTANCE=<instance> bun run scripts/probe-tc-graphical-callee-seed.ts
+ *   The pipe comes from an `ide.ps1` fixture instance ONLY (`test/e2e/lib/fixture-ide.ts`): VOLT_E2E_INSTANCE names it
+ *   (unset = the default instance), or VOLT_PIPE names one exact pipe an instance provably owns. Anything else is refused.
  *
  * Answer: `tc-graphical-callee-seed.log` beside this file.
  */
 import { appendFileSync } from "node:fs"
 import { join } from "node:path"
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe } from "../test/e2e/lib/fixture-ide"
 
-const PIPE: string = process.env.VOLT_PIPE ?? ""
-if (!PIPE) throw new Error("set VOLT_PIPE to the serving bridge")
+// Never a pipe found by prefix, never "the first": only this instance's fixture IDE (refuses, naming the rest).
+const PIPE: string = scriptPipe("twincat")
 const LOG = join(import.meta.dir, "tc-graphical-callee-seed.log")
 const out = (s: string): void => {
 	console.log(s)

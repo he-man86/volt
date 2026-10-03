@@ -1,6 +1,7 @@
 /**
- * `requireNetworkText` / `servedPipe` — the guard the corpus refresh and the language recorder run before they touch a
- * bridge (openspec `implementation-keyword` 3c).
+ * `requireNetworkText` / `pipeName` — the guards the corpus refresh and the language recorder run before they touch a
+ * bridge (openspec `implementation-keyword` 3c; which pipe: the fixture-instance rule in volt-cli's `fixture-ide.ts`,
+ * unit-tested there as facts — here only that `bridge.ts` goes through it and keeps no fallback name of its own).
  *
  * WHY: LD and FBD network text is switched on in the BRIDGE's process (`VOLT_GRAPHICAL=1`), which these scripts cannot
  * set. A bridge started by the connector has it off, pulls every LD and FBD body as its UNSUPPORTED line, and a corpus
@@ -9,7 +10,8 @@
  */
 import { afterEach, expect, test } from "bun:test"
 import { createServer, type Server } from "node:net"
-import { landedInFull, requireNetworkText, servedPipe } from "./bridge.js"
+import { FixtureRefusal } from "../../volt-cli/test/e2e/lib/fixture-ide.js"
+import { landedInFull, pipeName, requireNetworkText } from "./bridge.js"
 
 const servers: Server[] = []
 afterEach(() => {
@@ -47,15 +49,11 @@ test("a bridge that does not say is refused: absent is off", async () => {
   expect(requireNetworkText(pipe)).rejects.toThrow("OFF")
 })
 
-test("servedPipe finds the one per-pid pipe of a vendor, refuses none or several, and VOLT_PIPE wins", async () => {
-  const vendor = `t${process.pid}x${Math.random().toString(36).slice(2, 8)}`
-  expect(() => servedPipe(vendor)).toThrow("no " + vendor + " bridge is up")
-  const first = await bridgeAnswering(`volt.bridge.${vendor}.1`, {})
-  expect(servedPipe(vendor)).toBe(first)
-  await bridgeAnswering(`volt.bridge.${vendor}.2`, {})
-  expect(() => servedPipe(vendor)).toThrow("name the one to use with VOLT_PIPE")
-  process.env.VOLT_PIPE = first
-  expect(servedPipe(vendor)).toBe(first)
+test("pipeName has no name of its own: the bare `volt.bridge.<vendor>` it used to fall back to is refused as a prefix", () => {
+  // Refused before any pipe is touched — on Windows because a prefix is discovery, elsewhere because there is no
+  // process table to prove ownership from. Either way: no fixture instance's word, no pipe.
+  process.env.VOLT_PIPE = "volt.bridge.codesys"
+  expect(() => pipeName("codesys")).toThrow(FixtureRefusal)
 })
 
 // `landedInFull` — `accepted` alone no longer means "every op is in the IDE" (openspec push-keeps-what-landed): an

@@ -28,7 +28,7 @@ import { join } from "node:path"
 import { parseSource } from "../src/frontend/syntax/index.js"
 import { build } from "../src/frontend/symbols/index.js"
 import { computeSemanticDiagnostics, resolveConfig } from "../src/analysis/index.js"
-import { call, TARGET } from "./bridge.js"
+import { call, target } from "./bridge.js"
 import { openFixture } from "./bridge-fixture.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -153,7 +153,7 @@ const targets = codes.filter(
     !((c.codesysOnly === true || c.twincatInternalError === true) && VENDOR !== "codesys"),
 )
 
-console.log(`Verifying ${targets.length} implemented codes against ${TARGET} (${VENDOR}) …\n`)
+console.log(`Verifying ${targets.length} implemented codes against ${target()} (${VENDOR}) …\n`)
 // The true per-vendor mirror test: does the LSP's message (for `vendor`) appear among the IDE's messages?
 //   verified — every LSP message for this code is one the IDE also emits (LSP mirrors the IDE).
 //   mismatch — the LSP emits wording the IDE does NOT (a wording delta to adopt, or an FP if the IDE is silent).
@@ -205,7 +205,7 @@ const by = (o: Outcome) => results.filter((r) => r.outcome === o).length
 console.log(`\n─── ${results.length} codes ───`)
 console.log(`  ✓ verified: ${by("verified")}   ≠ mismatch: ${by("mismatch")}   ∅ silent: ${by("silent")}   ✗ error: ${by("error")}`)
 const report = join(import.meta.dir, "..", "docs", "codesys-reference", "catalog-verification.json")
-writeFileSync(report, JSON.stringify({ at: new Date().toISOString(), base: TARGET, results }, null, 2) + "\n")
+writeFileSync(report, JSON.stringify({ at: new Date().toISOString(), base: target(), results }, null, 2) + "\n")
 console.log(`\nreport → ${report}`)
 
 // ── adopt (optional) ──────────────────────────────────────────────────────────

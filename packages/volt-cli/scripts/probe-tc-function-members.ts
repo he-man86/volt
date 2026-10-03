@@ -13,16 +13,19 @@
  *   reload  — after the solution was closed and reopened (`ide.ps1 down`, then `up -InPlace` on the same copy):
  *             refs, fetch both, a METHOD create under FUNCTION text again, build; then delete both.
  *
- *   VOLT_PIPE=volt.bridge.twincat.<pid> bun run scripts/probe-tc-function-members.ts create|reload
+ *   VOLT_E2E_INSTANCE=<instance> bun run scripts/probe-tc-function-members.ts create|reload
+ *   The pipe comes from an `ide.ps1` fixture instance ONLY (`test/e2e/lib/fixture-ide.ts`): VOLT_E2E_INSTANCE names it
+ *   (unset = the default instance), or VOLT_PIPE names one exact pipe an instance provably owns. Anything else is refused.
  *
  * Answer: `tc-function-members.log` beside this file.
  */
 import { appendFileSync } from "node:fs"
 import { join } from "node:path"
 import { callOn } from "../test/e2e/lib/pipe"
+import { scriptPipe } from "../test/e2e/lib/fixture-ide"
 
-const PIPE: string = process.env.VOLT_PIPE ?? ""
-if (!PIPE) throw new Error("set VOLT_PIPE to the serving bridge")
+// Never a pipe found by prefix, never "the first": only this instance's fixture IDE (refuses, naming the rest).
+const PIPE: string = scriptPipe("twincat")
 const PHASE = process.argv[2]
 if (PHASE !== "create" && PHASE !== "reload") throw new Error("phase: create | reload")
 const LOG = join(import.meta.dir, "tc-function-members.log")

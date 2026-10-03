@@ -9,14 +9,22 @@ Every file is listed once, grouped by purpose. **Live** = a bridge (or a CODESYS
 pure, runs under `bun`. The paths stay flat on purpose: open openspec changes, tests and source comments name
 `scripts/<file>`, and a move would break them (re-checked by openspec `lsp-package-structure` 2.3).
 
-To bring a bridge up: `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat`. It serves
-`volt.bridge.<vendor>.<pid>` — pass `VOLT_PIPE=volt.bridge.<vendor>.<pid>` to the tool.
+To bring a bridge up: `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat [-Instance <name>] -Wait`.
+**A live tool drives only that instance's fixture IDE** (`bridge.ts` → volt-cli's `test/e2e/lib/fixture-ide.ts`, the one
+implementation of the rule for every script in the repo): `VOLT_E2E_INSTANCE=<name>` names the instance (unset = the
+default one), or `VOLT_PIPE=volt.bridge.<vendor>.<pid>` names one exact pipe that an instance provably owns. A pipe no
+instance owns — an engineer's own IDE, another session's — is refused, naming it and its project; there is no prefix
+discovery and no default pipe name. An instance serving two projects (TwinCAT's `-Fixture both`) is refused too until
+`VOLT_PIPE` picks one or `-Fixture 13` serves one. (2026-10-03: prefix discovery once made the e2e suite write into an
+engineer's 881-item project.) `record-exec.ts` is the exception that needs none of this: it talks to no pipe at all —
+its half inside CODESYS is the runscript of the headless CODESYS it spawned itself (`spawnSync`, so its hang guard kills
+only that child), opening a copy of the fixture.
 
 ## Libraries (imported by the tools, not run)
 
 | File | Role |
 |---|---|
-| `bridge.ts` | named-pipe client — `call(op, body)` speaks the Volt wire to a live bridge; `requireNetworkText` / `servedPipe` refuse a bridge whose LD/FBD network text is off; tested in `bridge.test.ts` |
+| `bridge.ts` | named-pipe client — `call(op, body)` speaks the Volt wire to a live bridge; `pipeName` resolves the ONE pipe through the fixture-instance rule (never a prefix, never a default name); `requireNetworkText` refuses a bridge whose LD/FBD network text is off; tested in `bridge.test.ts` |
 | `bridge-fixture.ts` | `openFixture()` → `{ set, del, reset }` — push items + reset the fixture project between repros |
 | `held-as.ts` | where the IDE holds an item the recorder pushed (`x.pou` as `X.pou`, a GVL as `unreadable`) — `record-language.ts`'s cleanup lookup, tested in `held-as.test.ts` |
 | `recording-target.ts` | which target a recording was made on (`plat_xint_into_string`'s `__XINT` width) — `check-recording.ts` and `record-language.ts`'s `RECORD_ONLY` merge refuse anything but the 64-bit oracle, or, with `VOLT_RECORDING_TARGET=32`, anything but a 32-bit target (into `<vendor>-32.build.json`, rule TY6) |
@@ -26,7 +34,7 @@ To bring a bridge up: `pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys
 | File | package.json | Produces |
 |---|---|---|
 | `record-language.ts` | `record:language` | conformance build recordings → `test/conformance/recordings/<vendor>.build.json` (`VOLT_RECORDING_TARGET=32` + `RECORD_ONLY`: a 32-bit target's, `twincat-32.build.json`, replayed by `target-32.test.ts`) |
-| `record-exec.ts` | `record:exec` | the execution recording `test/conformance/recordings/codesys.run.json` — launches a headless CODESYS with `record-exec.py` as its runscript |
+| `record-exec.ts` | `record:exec` | the execution recording `test/conformance/recordings/codesys.run.json` — launches a headless CODESYS with `record-exec.py` as its runscript — and talks only to THAT process: no pipe, the recorder half runs inside the CODESYS it spawned (verified 2026-10-03), so the fixture-instance rule has nothing to resolve |
 | `record-exec.py` | — | the IronPython runscript `record-exec.ts` drives: per case, load the fixture's units into a simulated copy, build, run, read every path |
 | `record-corpus-build.ts` | — | a corpus project's real IDE build snapshot → the `corpus.test.ts` oracle |
 | `refresh-corpus.ts` | `refresh:corpus <name>` | refreshes a `test-corpus/<name>/` project via `volt pull` |

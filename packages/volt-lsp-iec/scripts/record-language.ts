@@ -3,14 +3,12 @@
  * Speaks the Volt NAMED-PIPE wire through `scripts/bridge.ts`, so it needs no CLI. (This said "the raw HTTP
  * wire" — there is no HTTP wire any more, and has not been since the bridge moved to named pipes.)
  *
- * THE PIPE NAME IS NOT THE DEFAULT when `ide.ps1` serves it. That script gives each IDE its own
- * `volt.bridge.<vendor>.<pid>` so several can run at once, while `bridge.ts` defaults to the bare
- * `volt.bridge.<vendor>`. Pass the one `ide.ps1 -Wait` prints:
+ * THE PIPE IS AN `ide.ps1` FIXTURE INSTANCE'S, and only that (`bridge.ts`): `VOLT_E2E_INSTANCE` names the instance
+ * (unset = the default one); an instance serving two projects — TwinCAT's default `-Fixture both` — is refused until
+ * `VOLT_PIPE` names one of its pipes exactly (verified the same way) or `-Fixture 13` serves one:
  *
- *   VOLT_VENDOR=twincat VOLT_PIPE=volt.bridge.twincat.<pid> bun run record:language
- *
- *   VOLT_VENDOR=codesys bun run scripts/record-language.ts        # CODESYS
- *   VOLT_VENDOR=twincat bun run scripts/record-language.ts        # TwinCAT
+ *   VOLT_VENDOR=codesys bun run scripts/record-language.ts                                   # CODESYS
+ *   VOLT_VENDOR=twincat VOLT_E2E_INSTANCE=<instance> bun run record:language                 # TwinCAT
  *
  * Each fixture is recorded ISOLATED (push its unit(s) AND every fixture it depends on → instantiate in PLC_PRG →
  * build → capture → restore),

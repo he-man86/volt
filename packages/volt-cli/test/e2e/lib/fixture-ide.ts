@@ -23,6 +23,13 @@
  *
  * <p>{@link resolveFixturePipes} is PURE (facts in, pipes or a refusal out) so the rule is unit-tested without an IDE
  * (`test/unit/fixture-ide.test.ts`); {@link gatherFacts} is the one place that reads the machine.</p>
+ *
+ * <p><b>The ONE implementation of the rule, for everything that drives a bridge from this checkout</b> — the e2e suite,
+ * the volt-cli probes and `corpus-migration.ts`, and the LSP recorders (`volt-lsp-iec/scripts/bridge.ts` imports it
+ * across the package boundary). A script drives exactly ONE pipe: {@link scriptPipe} narrows the instance's pipes to one
+ * and refuses several (TwinCAT's `-Fixture both` serves two). A PowerShell script asks the same code through the CLI
+ * below — `bun test/e2e/lib/fixture-ide.ts <vendor> [instance]` prints the pipe or exits 1 with the refusal — rather
+ * than carrying a second copy of it.</p>
  */
 import { win32 } from "node:path"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
@@ -167,6 +174,21 @@ export function resolveFixturePipes(facts: Facts, opts: { instance: string; expl
 	return ours
 }
 
+/**
+ * THE ONE pipe a script drives — {@link resolveFixturePipes} narrowed to exactly one. Several pipes owned by the instance
+ * are refused too, not "the first": `ide.ps1 up -Vendor twincat` opens Project13 (x64) AND Project14 (ARM, 32-bit) by
+ * default, and a recorder that took whichever pid sorted first recorded the wrong target.
+ */
+export function resolveOnePipe(facts: Facts, opts: { instance: string; explicit?: string }): string {
+	const pipes = resolveFixturePipes(facts, opts)
+	if (pipes.length === 1) return pipes[0]!
+	throw new FixtureRefusal(
+		`instance ${label(opts.instance)} (${facts.vendor}) serves ${pipes.length} fixture pipes ` +
+			`(${pipes.map((p) => describePipe(facts, p)).join(", ")}) and a script drives ONE: name it with VOLT_PIPE ` +
+			`(verified the same way), or serve one project (\`-Fixture 13\`)`,
+	)
+}
+
 // ── reading the machine ─────────────────────────────────────────────────────────────────────────────────────────
 
 /** `%LOCALAPPDATA%\volt-bridge`, where `ide.ps1` keeps its per-instance records. */
@@ -238,4 +260,31 @@ export const E2E_INSTANCE = process.env.VOLT_E2E_INSTANCE ?? ""
 /** Resolve against the live machine. Throws {@link FixtureRefusal}. */
 export function fixturePipesFor(vendor: Vendor, explicit?: string, instance = E2E_INSTANCE): string[] {
 	return resolveFixturePipes(gatherFacts(vendor), { instance, explicit: explicit || undefined })
+}
+
+/**
+ * The one pipe a SCRIPT may drive, against the live machine: `VOLT_PIPE` when set (verified — an instance must own it),
+ * else the `VOLT_E2E_INSTANCE` instance's one pipe. Throws {@link FixtureRefusal} naming the pipes and projects it will
+ * not touch. Probes, `corpus-migration.ts` and the LSP recorders all come through here.
+ */
+export function scriptPipe(vendor: Vendor, explicit = process.env.VOLT_PIPE, instance = E2E_INSTANCE): string {
+	return resolveOnePipe(gatherFacts(vendor), { instance, explicit: explicit || undefined })
+}
+
+/** The vendor a script names, refusing anything else (a typo must not become a default). */
+export function vendorOf(value: string | undefined, fallback: Vendor = "codesys"): Vendor {
+	const v = value || fallback
+	if (v !== "codesys" && v !== "twincat") throw new FixtureRefusal(`unknown vendor '${v}' (codesys | twincat)`)
+	return v
+}
+
+// The CLI for PowerShell callers (`probe-tc-refusal-measure.ps1`): print the one pipe, or the refusal and exit 1.
+if (import.meta.main) {
+	const [vendor, instance] = process.argv.slice(2)
+	try {
+		console.log(scriptPipe(vendorOf(vendor), process.env.VOLT_PIPE, instance ?? E2E_INSTANCE))
+	} catch (e) {
+		console.error((e as Error).message)
+		process.exit(1)
+	}
 }

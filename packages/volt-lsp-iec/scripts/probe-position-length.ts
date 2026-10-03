@@ -47,7 +47,7 @@
  * in. The first attempt at the line probes padded with empty lines and measured no change at all; the same
  * probes padded with real statements moved the number every time.
  *
- *   VOLT_PIPE=volt.bridge.codesys.<pid> bun run scripts/probe-position-length.ts
+ *   VOLT_E2E_INSTANCE=<ide.ps1 instance> bun run scripts/probe-position-length.ts
  *
  * ALWAYS POINT THIS AT A COPY (see probe-is-it-compiled.ts): it writes PLC_PRG and restores after each probe.
  */

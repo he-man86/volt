@@ -2,9 +2,12 @@
  * The e2e harness's safety rule, offline: it drives ONLY a pipe an `ide.ps1` instance provably started on a fixture
  * COPY (`test/e2e/lib/fixture-ide.ts`). Measured cause (2026-10-03): prefix discovery made `vendor-parity` create and
  * delete `VltE2E_par_*` items in an engineer's 881-item project. Every case here is a machine state, as facts.
+ *
+ * The same module is the rule for every SCRIPT that drives a bridge (probes, `corpus-migration.ts`, the LSP recorders):
+ * `resolveOnePipe` narrows it to exactly one pipe — the "first of several" was the other half of the same bug.
  */
 import { describe, expect, it } from "bun:test"
-import { FixtureRefusal, resolveFixturePipes, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
+import { FixtureRefusal, resolveFixturePipes, resolveOnePipe, vendorOf, type Facts, type InstanceRecord, type Proc } from "../e2e/lib/fixture-ide"
 
 const TEMP = "C:\\Users\\eng\\AppData\\Local\\Temp"
 const T0 = "638900000000000000" // .NET ticks — beyond 2^53, so they stay strings
@@ -86,5 +89,54 @@ describe("e2e fixture-IDE resolver", () => {
 		expect(resolveFixturePipes(ok, { instance: "x" })).toEqual(["volt.bridge.twincat.777"])
 		const foreign = facts("twincat", [xae(`"C:\\XAE\\TcXaeShell.exe" "D:\\Customer\\Line4.sln"`)], [inst], PIPES)
 		expect(() => resolveFixturePipes(foreign, { instance: "x" })).toThrow(/refusing to touch.*Line4\.sln/)
+	})
+})
+
+describe("script pipe resolver (one pipe, never the first of several)", () => {
+	const root = `${TEMP}\\volt-ide-twincat`
+	const xae = (pid: number, sln: string): Proc => ({
+		pid,
+		ppid: 1,
+		ticks: T0,
+		name: "TcXaeShell.exe",
+		commandLine: `"C:\\XAE\\TcXaeShell.exe" "${root}\\${sln}\\${sln}.sln"`,
+	})
+	// `ide.ps1 up -Vendor twincat` with the default `-Fixture both`: Project13 (x64) and Project14 (ARM, 32-bit).
+	const both: InstanceRecord = {
+		instance: "",
+		records: [
+			{ pid: 701, ticks: T0 },
+			{ pid: 702, ticks: T0 },
+		],
+		projects: [`${root}\\P13\\P13.sln`, `${root}\\P14\\P14.sln`],
+	}
+	const pipes = ["volt.bridge.twincat.701", "volt.bridge.twincat.702"]
+
+	it("returns the instance's single pipe", () => {
+		const f = facts("codesys", [engineer, launched, reexec], [ours], PIPES)
+		expect(resolveOnePipe(f, { instance: "e2e-hygiene" })).toBe("volt.bridge.codesys.5100")
+	})
+
+	it("refuses an instance serving two projects instead of taking the first, naming both", () => {
+		const f = facts("twincat", [xae(701, "P13"), xae(702, "P14")], [both], pipes)
+		const run = () => resolveOnePipe(f, { instance: "" })
+		expect(run).toThrow(FixtureRefusal)
+		expect(run).toThrow(/serves 2 fixture pipes.*P13\.sln.*P14\.sln.*VOLT_PIPE/)
+	})
+
+	it("an exact VOLT_PIPE the instance owns picks one of them", () => {
+		const f = facts("twincat", [xae(701, "P13"), xae(702, "P14")], [both], pipes)
+		expect(resolveOnePipe(f, { instance: "", explicit: "volt.bridge.twincat.702" })).toBe("volt.bridge.twincat.702")
+	})
+
+	it("keeps every refusal of the rule underneath (a foreign VOLT_PIPE)", () => {
+		const f = facts("codesys", [engineer, launched, reexec], [ours], PIPES)
+		expect(() => resolveOnePipe(f, { instance: "", explicit: "volt.bridge.codesys.39448" })).toThrow(/refusing to touch/)
+	})
+
+	it("refuses an unknown vendor rather than defaulting", () => {
+		expect(vendorOf(undefined)).toBe("codesys")
+		expect(vendorOf("twincat")).toBe("twincat")
+		expect(() => vendorOf("beckhoff")).toThrow(FixtureRefusal)
 	})
 })
