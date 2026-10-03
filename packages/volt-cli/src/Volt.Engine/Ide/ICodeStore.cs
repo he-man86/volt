@@ -95,9 +95,18 @@ public interface ICodeStore
     /// <para><see cref="DriverBase"/> refuses nothing, which is the honest answer for a driver whose refusals
     /// genuinely need the live objects: a pre-flight that guesses is worse than one that declines to. (It lives
     /// there rather than as a default interface member because this engine still targets net48 for the CODESYS
-    /// host, which has no such thing.)</para></summary>
-    void ValidateSource(string wireName, string sourceText,
-                        PushedDeclarations pushedDeclarations);
+    /// host, which has no such thing.)</para>
+    ///
+    /// <para><b>It is handed MODELS, never text</b> (openspec <c>bridge-refusal-review</c> 2.27, D8/D12): every
+    /// network-text body of the pushed item the engine's pre-flight has already validated against its own scope, with
+    /// where it sits. The TwinCAT override used to re-read the whole source with <c>StReader</c>, re-derive the kind from
+    /// the wire name and validate every body a second time — a second reader the first could disagree with.</para>
+    ///
+    /// <para><paramref name="existing"/> is the item the op writes into, or null when the push CREATES it. Whether a
+    /// body is created or edited is decided per BODY by the write (a new member in an existing item is a create), so
+    /// the driver is asked on an update too and answers for each body as its write would (openspec
+    /// <c>bridge-refusal-review</c> 2.28, D21).</para></summary>
+    void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies);
 
     /// <summary>Why the IDE refuses <paramref name="name"/> for a NEW POU or a new METHOD / ACTION / PROPERTY — or null
     /// when the driver has no measured refusal of that word. Asked by the push PRE-FLIGHT for every name a set op would
@@ -118,6 +127,15 @@ public interface ICodeStore
     /// its type as the create argument and cannot create one that states none). The driver's own <c>CreateChild</c>
     /// refuses the same create by the same predicate, so the two never disagree.</summary>
     string? RefusedMemberCreate(string memberKind, string name, string? seed);
+
+    /// <summary>Refuse — by throwing the refusal, with the code the write would answer — a task whose SETTINGS this
+    /// vendor cannot hold, or do nothing. Asked by the push PRE-FLIGHT for every `.task` set op, with the settings the
+    /// engine's own gate read (<c>TaskDescriptorFormat.Gate</c>), so a refusal the vendor decides from the settings
+    /// alone lands before the batch's first write instead of after its earlier ops (openspec
+    /// <c>bridge-refusal-review</c>, review of 2e+2g: CODESYS's unknown `Type:` and TwinCAT's non-cyclic task were found
+    /// only by the write). The driver's own write refuses the same settings by the same check, so the two never
+    /// disagree.</summary>
+    void ValidateTask(TaskSettings settings);
 
     /// <summary>The scope a graphical body resolves against: its own declarations (<paramref name="declaration"/>,
     /// innermost first — <see cref="SourceScopes.Scope"/>), the project's other items and its globals, the push's

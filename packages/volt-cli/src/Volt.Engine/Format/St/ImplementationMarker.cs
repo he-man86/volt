@@ -65,9 +65,11 @@ namespace Volt.Engine.Format.St
         public const string UnsupportedWord = "UNSUPPORTED";
 
         // Every line a body can state, alone on the line: the keyword, a language, and UNSUPPORTED — which `Parse`
-        // requires after CFC, SFC and IL and refuses after ST. Spacing is layout and the words are case-insensitive, as
-        // ST keywords are.
-        private static readonly Regex Line = new(@"^\s*IMPLEMENTATION[ \t]+(ST|LD|FBD|CFC|SFC|IL)(?:[ \t]+(UNSUPPORTED))?\s*$",
+        // requires after CFC, SFC, IL and every other word and refuses after ST. The language is a WORD: one of the six
+        // Volt knows, or the vendor's own name for one Volt has never seen (D27, openspec bridge-refusal-review 4.27),
+        // which a driver states as a hidden body rather than losing the whole item. Spacing is layout and the words are
+        // case-insensitive, as ST keywords are.
+        private static readonly Regex Line = new(@"^\s*IMPLEMENTATION[ \t]+([A-Za-z_][A-Za-z0-9_]*)(?:[ \t]+(UNSUPPORTED))?\s*$",
                                                  RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and whatever follows it on the
@@ -86,16 +88,51 @@ namespace Volt.Engine.Format.St
         public static string For(string language) => $"{Keyword} {language}";
 
         /// <summary>The line of a body Volt does not show: <c>IMPLEMENTATION &lt;LANG&gt; UNSUPPORTED</c>, for CFC, SFC, IL,
-        /// and an LD/FBD body network text cannot represent. Never for ST — Volt shows every ST body.</summary>
+        /// an LD/FBD body network text cannot represent, and a language Volt has never seen, under the vendor's own name
+        /// for it (<see cref="VendorLanguage"/>). Never for ST — Volt shows every ST body.</summary>
         public static string Unsupported(string language) =>
-            language is Languages.Ld or Languages.Fbd or Languages.Cfc or Languages.Sfc or Languages.Il
+            language != Languages.St && IsLanguageWord(language)
                 ? $"{Keyword} {language} {UnsupportedWord}"
                 : throw new System.ArgumentException($"'{language}' is no language whose body Volt hides", nameof(language));
 
+        /// <summary>A language Volt has never seen — an unknown view mode, body aspect or archive root — as the line
+        /// states it: the vendor's own name, upper case (D27, openspec bridge-refusal-review 2.23, 2.24, 2.29, 2.34). Its
+        /// body is hidden like a CFC chart's, so the item's declaration and members still pull — a refusal there took
+        /// the whole item out of refs and fetch. A name spelling LD or FBD is a network body in a form Volt does not read
+        /// (an aspect or archive root that is not the NWL one) and is the hidden LD/FBD line it already has — the vendor's
+        /// fact, not a Volt bug (review 2e+2g, low). Two names stay refused, naming them (UNSUPPORTED, the vendor's fact),
+        /// and so still cost the whole item: one that is no word, which the line cannot state, and ST, which Volt never
+        /// hides. Neither occurs in the six corpora (counted 2026-10-03: only CFC, SFC and LD/FBD hidden lines) — niche,
+        /// accepted loss.</summary>
+        public static string VendorLanguage(string vendorName)
+        {
+            var language = vendorName.ToUpperInvariant();
+            if (!IsLanguageWord(language))
+                throw new System.NotSupportedException(
+                    $"the body's language is '{vendorName}', a name Volt has never seen and cannot state on its {Keyword} " +
+                    "line, where a language is a word.");
+            if (language == Languages.St)
+                throw new System.NotSupportedException(
+                    $"the body's language is '{vendorName}' in a form Volt does not read, and Volt shows every ST body — it " +
+                    "has no line for a hidden one.");
+            return language;
+        }
+
+        /// <summary>A word the line can state as a language — and not the word UNSUPPORTED itself.</summary>
+        private static bool IsLanguageWord(string language) =>
+            LanguageWord.IsMatch(language) && !language.Equals(UnsupportedWord, System.StringComparison.OrdinalIgnoreCase);
+
+        private static readonly Regex LanguageWord = new(@"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
         /// <summary>Is this a language Volt never shows a body in — CFC, SFC or IL? Its line always carries
-        /// <c>UNSUPPORTED</c>; stated bare, it is refused naming the line to write.</summary>
+        /// <c>UNSUPPORTED</c>; stated bare, it is refused naming the line to write. (A language Volt has never seen is
+        /// never shown either, but bare it states nothing Volt knows: the reader names the lines a body can state.)</summary>
         public static bool IsNeverShown(string language) =>
             language is Languages.Cfc or Languages.Sfc or Languages.Il;
+
+        /// <summary>One of the six languages Volt knows: ST, LD, FBD, CFC, SFC, IL.</summary>
+        private static bool IsKnown(string language) =>
+            language is Languages.St or Languages.Ld or Languages.Fbd || IsNeverShown(language);
 
         /// <summary>True when items of this kind HAVE an implementation to separate — and therefore carry the
         /// line. A GVL and a DUT are a declaration and nothing else; an INTERFACE and its members are SIGNATURES, so
@@ -115,9 +152,11 @@ namespace Volt.Engine.Format.St
             if (!m.Success) return null;
             var language = m.Groups[1].Value.ToUpperInvariant();
             var unsupported = m.Groups[2].Success;
+            if (language == UnsupportedWord) return null;
             // ST is always shown, so UNSUPPORTED after it states nothing; CFC, SFC and IL are never shown, so without it
             // they state nothing either — section 2b's bare `IMPLEMENTATION CFC` is no longer a line (StReader names it).
-            if (unsupported ? language == Languages.St : IsNeverShown(language)) return null;
+            // A language Volt has never seen is a line only as a hidden body: bare, `IMPLEMENTATION COBOL` states nothing.
+            if (unsupported ? language == Languages.St : IsNeverShown(language) || !IsKnown(language)) return null;
             return (language, unsupported);
         }
 

@@ -22,15 +22,22 @@ namespace Volt.Engine.Ide
         /// which have no body of their own and are the half a plain <c>m.Body</c> walk silently skips.</summary>
         public static IEnumerable<(string? Body, string? Declaration)> BodiesOf(ItemContent split)
         {
-            yield return (split.Body, split.Declaration);
+            foreach (var (_, body, declaration) in SitesOf(split)) yield return (body, declaration);
+        }
+
+        /// <summary><see cref="BodiesOf"/>, each body with WHERE it sits (<see cref="BodySite"/>) — what a pre-flight
+        /// hands a driver beside the body's model, so the driver can find the live body it would write into.</summary>
+        public static IEnumerable<(BodySite Site, string? Body, string? Declaration)> SitesOf(ItemContent split)
+        {
+            yield return (BodySite.Item, split.Body, split.Declaration);
             foreach (var m in split.Members)
             {
                 // An ACTION has NO declaration of its own — IEC gives it a name and a body and nothing else —
                 // so it resolves purely against the POU's.
                 var scope = Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, split.Declaration);
-                yield return (m.Body, scope);
-                yield return (m.Getter?.Body, Scope(m.Getter?.Declaration, scope));
-                yield return (m.Setter?.Body, Scope(m.Setter?.Declaration, scope));
+                yield return (new BodySite(m.Name, m.Kind, null), m.Body, scope);
+                yield return (new BodySite(m.Name, m.Kind, BodySite.Get), m.Getter?.Body, Scope(m.Getter?.Declaration, scope));
+                yield return (new BodySite(m.Name, m.Kind, BodySite.Set), m.Setter?.Body, Scope(m.Setter?.Declaration, scope));
             }
         }
 
@@ -48,4 +55,24 @@ namespace Volt.Engine.Ide
             : string.IsNullOrWhiteSpace(owner) ? member
             : member + "\n" + owner;
     }
+
+    /// <summary>Where a body sits in a pushed item: the item's own (<see cref="Item"/>), a member's — its name and
+    /// kind — or a property accessor's (<see cref="Accessor"/> <c>Get</c> or <c>Set</c>).</summary>
+    public sealed record BodySite(string? Member, string? MemberKind, string? Accessor)
+    {
+        public const string Get = "Get";
+        public const string Set = "Set";
+
+        /// <summary>The item's own body.</summary>
+        public static readonly BodySite Item = new(null, null, null);
+
+        /// <summary>The body as a refusal names it: <c>the item</c>, <c>'Run'</c>, <c>'Ready' GET</c>.</summary>
+        public override string ToString() =>
+            Member is null ? "the item" : Accessor is null ? $"'{Member}'" : $"'{Member}' {Accessor.ToUpperInvariant()}";
+    }
+
+    /// <summary>A network-text body of a pushed item, as the push PRE-FLIGHT validated it (<c>NetworkText.Validate</c>
+    /// against its own scope), and where it sits — what a driver's pre-flight is handed, so it never parses the source
+    /// again (openspec <c>bridge-refusal-review</c> 2.27, D8/D12).</summary>
+    public sealed record PushedNetworkBody(BodySite Site, Volt.Engine.Format.Network.NetworkBody Model);
 }

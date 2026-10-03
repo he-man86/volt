@@ -35,8 +35,8 @@ namespace Volt.Engine.Format.Network;
 public static class NetworkTextReader
 {
     /// <summary>Read <paramref name="text"/>, a whole graphical body starting with its <c>IMPLEMENTATION LD|FBD</c> line —
-    /// which states the body's language. A line stating another language than the IDE's view is a view change, refused by
-    /// the one comparison the drivers make against the IDE (<see cref="NetworkText.RefuseViewModeChange"/>).</summary>
+    /// which states the body's language. A line stating another language than the IDE's view is a view change, which the
+    /// drivers write (openspec bridge-refusal-review 2.22, 2.31).</summary>
     /// <param name="scope">The declarations the body can see; see <see cref="NetworkScope"/>.</param>
     public static NetworkReadResult Read(string text, NetworkScope scope) =>
         ReadTokens(text, scope).Result;

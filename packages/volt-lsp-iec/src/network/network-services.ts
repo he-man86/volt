@@ -13,7 +13,6 @@ import {
   allUnits,
   type BodySpan,
   type Expr,
-  isNeverShown,
   graphicalBodies,
   spanContains,
   type IdentExpr,
@@ -70,7 +69,7 @@ export function readOnlyBodyHover(doc: Document, offset: number): Hover | undefi
         if (line === undefined || line.statement.kind !== "unsupported" || !spanContains(line.span, offset)) continue
         const { language } = line.statement
         const name = GRAPHICAL_LANGUAGES[language] ?? language
-        const why = isNeverShown(language)
+        const why = !(language === "LD" || language === "FBD")
           ? `Volt does not read ${name}, so no implementation is shown for this body.`
           : `This ${name} body holds a shape network text cannot represent yet, so no implementation is shown for it.`
         const value = [

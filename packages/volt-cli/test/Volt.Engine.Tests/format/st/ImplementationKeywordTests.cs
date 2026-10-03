@@ -54,6 +54,8 @@ public class ImplementationKeywordTests
     [InlineData("IMPLEMENTATION SFC")]
     [InlineData("IMPLEMENTATION IL")]
     [InlineData("IMPLEMENTATION UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION UNSUPPORTED UNSUPPORTED")]   // UNSUPPORTED is no language
+    [InlineData("IMPLEMENTATION 3 UNSUPPORTED")]             // a language is a word
     [InlineData("IMPLEMENTATION LD UNSUPPORTED x")]
     [InlineData("IMPLEMENTATION ST;")]                  // a statement, not the line
     [InlineData("IMPLEMENTATION ST x := 1;")]           // trailing tokens
@@ -94,6 +96,11 @@ public class ImplementationKeywordTests
     [InlineData("IMPLEMENTATION FBD UNSUPPORTED", "IMPLEMENTATION FBD UNSUPPORTED")]
     [InlineData("  implementation\tcfc  unsupported ", "IMPLEMENTATION CFC UNSUPPORTED")]
     [InlineData("Implementation  Ld   Unsupported\r", "IMPLEMENTATION LD UNSUPPORTED")]
+    // A language Volt has never seen, under the vendor's own name (D27, bridge-refusal-review 4.27): the driver states
+    // such a body hidden instead of losing the whole item, so the line must read back.
+    [InlineData("IMPLEMENTATION UML UNSUPPORTED", "IMPLEMENTATION UML UNSUPPORTED")]
+    [InlineData("implementation nwl unsupported", "IMPLEMENTATION NWL UNSUPPORTED")]
+    [InlineData("IMPLEMENTATION Ladder_2 UNSUPPORTED", "IMPLEMENTATION LADDER_2 UNSUPPORTED")]
     public void An_UNSUPPORTED_line_is_a_boundary_that_names_no_reader(string line, string canonical)
     {
         Assert.True(ImplementationMarker.Is(line), $"'{line}' is a boundary line");
@@ -112,6 +119,44 @@ public class ImplementationKeywordTests
         Assert.Equal("IMPLEMENTATION FBD UNSUPPORTED", ImplementationMarker.Unsupported(Languages.Fbd));
         // Volt shows every ST body.
         Assert.ThrowsAny<System.ArgumentException>(() => ImplementationMarker.Unsupported(Languages.St));
+        // …and a language Volt has never seen is hidden under the vendor's name.
+        Assert.Equal("IMPLEMENTATION UML UNSUPPORTED", ImplementationMarker.Unsupported("UML"));
+    }
+
+    /// <summary>The language a network body's line states, from the view mode either vendor stores on it — one answer
+    /// for both, so the same body is the same line on each (D27). An unknown or missing view used to be a throw that took
+    /// the whole POU out of refs and fetch.</summary>
+    [Theory]
+    [InlineData("Ld", "LD")]
+    [InlineData("FBD", "FBD")]
+    [InlineData("Il", "IL")]
+    [InlineData("Sequence", "SEQUENCE")]
+    [InlineData(null, "NWL")]
+    [InlineData("", "NWL")]
+    public void A_network_body_states_its_view_or_the_vendors_name_for_it(string? viewMode, string stated)
+    {
+        Assert.Equal(stated, NetworkText.ViewLanguage(viewMode));
+    }
+
+    /// <summary>The vendor's name for a language Volt has never seen, as the line states it (D27): upper case, a word.
+    /// A name that is no word, or ST (never hidden), cannot be stated and is refused naming it — UNSUPPORTED, a vendor
+    /// fact; LD or FBD is a network body in a form Volt does not read, hidden under its own line.</summary>
+    [Fact]
+    public void A_vendor_named_language_is_stated_upper_case_and_only_as_a_word()
+    {
+        Assert.Equal("UML", ImplementationMarker.VendorLanguage("Uml"));
+        Assert.Equal("NWL", ImplementationMarker.VendorLanguage("NWL"));
+        var notWord = Assert.Throws<System.NotSupportedException>(() => ImplementationMarker.VendorLanguage("3"));
+        Assert.Contains("'3'", notWord.Message);
+        Assert.Throws<System.NotSupportedException>(() => ImplementationMarker.VendorLanguage("Unsupported"));
+        // A vendor name spelling LD or FBD is a network body in a form Volt does not read — the vendor's fact, hidden as
+        // LD/FBD UNSUPPORTED already is (review 2e+2g, low: it was an InvalidOperationException, "a Volt bug").
+        Assert.Equal("LD", ImplementationMarker.VendorLanguage("Ld"));
+        Assert.Equal("FBD", ImplementationMarker.VendorLanguage("fbd"));
+        // ST is never hidden (Volt shows every ST body), so a vendor body NAMED ST that Volt cannot read is refused naming
+        // it — the vendor's fact, UNSUPPORTED, not a Volt bug. (0 such bodies in the six corpora: niche, accepted loss.)
+        var st = Assert.Throws<System.NotSupportedException>(() => ImplementationMarker.VendorLanguage("st"));
+        Assert.Contains("'st'", st.Message);
     }
 
     /// <summary>What a driver writes for a body: the body, or null — "leave the IDE's implementation alone" — for a body

@@ -31,7 +31,8 @@ test("IMPLEMENTATION and the language it states colour as keywords, for every li
 	for (const language of ["ST", "LD", "FBD"])
 		expect(coloured(`IMPLEMENTATION ${language}`)).toEqual({ IMPLEMENTATION: KEYWORD, [language]: LANGUAGE })
 	// A body Volt does not show (section 3b): its language and UNSUPPORTED, on every language but ST.
-	for (const language of ["LD", "FBD", "CFC", "SFC", "IL"])
+	// …and any other word: the vendor's own name for a language Volt has never seen (bridge-refusal-review D27).
+	for (const language of ["LD", "FBD", "CFC", "SFC", "IL", "UML", "NWL"])
 		expect(coloured(`IMPLEMENTATION ${language} UNSUPPORTED`)).toEqual({
 			IMPLEMENTATION: KEYWORD,
 			[language]: LANGUAGE,
@@ -51,6 +52,7 @@ test("only a whole line holding the statement is the line", () => {
 		"IMPLEMENTATION LD // note",
 		"IMPLEMENTATION LD out := a;",
 		"IMPLEMENTATION ST UNSUPPORTED",
+		"IMPLEMENTATION UNSUPPORTED UNSUPPORTED",
 		"IMPLEMENTATION CFC", // 3b: a CFC, SFC or IL body is never shown, so the bare line states nothing
 		"IMPLEMENTATION SFC",
 		"IMPLEMENTATION IL",

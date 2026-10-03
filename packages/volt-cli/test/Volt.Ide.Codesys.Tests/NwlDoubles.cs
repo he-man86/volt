@@ -21,7 +21,7 @@ internal static class Nwl
     /// <summary>An implementation aspect: the thing <c>CodesysNetworkReader.Read</c> is handed.</summary>
     internal sealed class NWLImplementationObject
     {
-        // The vendor's `NWLDisplayMode` as the driver reads it (`CodesysDriver.ReadViewMode`): "Ld", "Fbd" or "Il". The
+        // The vendor's `NWLDisplayMode` as the driver reads it (`CodesysDriver.ViewModeText`): "Ld", "Fbd" or "Il". The
         // reader is handed the language separately, so only a test that reads through the driver sets it.
         public string? DefaultViewMode { get; set; }
 

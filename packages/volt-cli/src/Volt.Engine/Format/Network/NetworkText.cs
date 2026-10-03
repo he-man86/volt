@@ -64,6 +64,27 @@ public static class NetworkText
     /// refusal each spelled it by hand.</summary>
     public static string Spelling(BodyLanguage language) => language == BodyLanguage.Ld ? Languages.Ld : Languages.Fbd;
 
+    /// <summary>The vendors' name for a network body's object — <c>NWLImplementationObject</c> on both — and the language
+    /// its line states when the body names no view at all (<see cref="ViewLanguage"/>).</summary>
+    public const string UnviewedNetwork = "NWL";
+
+    /// <summary>The language a network body's line states, from the view mode the vendor stores on it (CODESYS's aspect
+    /// member and TwinCAT's archive slot are both <c>DefaultViewMode</c>, DIALECT N1): <c>LD</c> or <c>FBD</c>, read as
+    /// network text; <c>IL</c>, a view Volt does not author; and a view Volt has never seen under the vendor's own name
+    /// (<see cref="ImplementationMarker.VendorLanguage"/>), or <see cref="UnviewedNetwork"/> when the body states none.
+    /// The last three are the body's UNSUPPORTED line. ONE answer for both vendors, so the same body is the same line on
+    /// each (D27, openspec bridge-refusal-review 2.23, 2.29): an unknown or missing view used to be a throw outside
+    /// <see cref="Pulled"/>, which took the whole POU out of refs and fetch.</summary>
+    public static string ViewLanguage(string? viewMode)
+    {
+        if (string.IsNullOrWhiteSpace(viewMode)) return UnviewedNetwork;
+        var mode = viewMode!.Trim();
+        if (mode.Equals(Languages.Ld, StringComparison.OrdinalIgnoreCase)) return Languages.Ld;
+        if (mode.Equals(Languages.Fbd, StringComparison.OrdinalIgnoreCase)) return Languages.Fbd;
+        if (mode.Equals(Languages.Il, StringComparison.OrdinalIgnoreCase)) return Languages.Il;
+        return ImplementationMarker.VendorLanguage(mode);
+    }
+
     /// <summary>The body language <paramref name="spelled"/> names (<see cref="Spelling"/>), or null for any other word.</summary>
     public static BodyLanguage? LanguageNamed(string? spelled) => spelled switch
     {
@@ -99,27 +120,6 @@ public static class NetworkText
     /// <summary>Whether a box type is a comparison operator (GT, GE, LT, LE, EQ, NE) — the engine's one list, the door a
     /// driver has to it so a refusal keyed on "a comparison" cannot drift from the set the text types as BOOL.</summary>
     public static bool IsComparison(string type) => NetworkSpelling.Comparisons.Contains(type);
-
-    /// <summary>Refuse a push that changes the body's VIEW between FBD and LD.
-    ///
-    /// <para>The view is a property of the whole implementation object (the vendors' <c>DefaultViewMode</c>), and
-    /// network text spells it ONCE, on the body's IMPLEMENTATION line — so this is one comparison, the line's
-    /// language against the IDE's view. Neither driver writes the member on an update, so an edited marker would be
-    /// accepted, write nothing, and be reverted by the next pull.</para>
-    ///
-    /// <para>Refusing rather than writing, for now, because whether the member is settable on a live CODESYS
-    /// aspect is NOT measured — TwinCAT has <c>TcArchive.WithViewMode</c> and uses it on the create route only.
-    /// A field that is rendered, accepted and ignored is the worst of the three; say so instead.</para></summary>
-    public static void RefuseViewModeChange(BodyLanguage? live, BodyLanguage pushed)
-    {
-        if (live is not { } was || was == pushed) return;
-
-        throw new NotSupportedException(
-            $"the graphical body's view is {Spelling(was)} and the pushed text says {Spelling(pushed)}. Volt cannot " +
-            "change a body's view — it is one property of the whole body, and nothing here writes it — so the " +
-            "push is refused rather than silently applying every other edit and reverting this one on the next " +
-            "pull. Switch the view in the IDE and pull.");
-    }
 
     /// <summary>Editable graphical languages: FBD and LD. (CFC/SFC have no text form — their UNSUPPORTED
     /// <c>IMPLEMENTATION</c> line is materialized for them instead of a network-text body.)</summary>
@@ -250,8 +250,8 @@ public static class NetworkText
 
     /// <summary>The push path's gate: validate a network-text body against the declarations it can see and
     /// return its model, or throw <see cref="NetworkTextException"/> carrying the FIRST finding — its
-    /// <c>NETWORK_*</c> code and line. The language is the body's own marker: a view change is refused
-    /// separately, against the IDE's view (<see cref="RefuseViewModeChange"/>), where the drivers know it.</summary>
+    /// <c>NETWORK_*</c> code and line. The language is the body's own marker: a view change is the drivers' to write,
+    /// against the IDE's view, where they know it (openspec bridge-refusal-review 2.22, 2.31).</summary>
     public static NetworkBody Validate(string body, NetworkScope scope)
     {
         // Every network-text body a push carries comes through here — the engine's pre-flight, the create arm, and each

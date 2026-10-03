@@ -292,8 +292,13 @@ operator   = "AND" | "OR" | "XOR" | "+" | "-" | "*" | "/" | "MOD"
   <code>IMPLEMENTATION FBD UNSUPPORTED</code> / <code>IMPLEMENTATION LD UNSUPPORTED</code> with nothing under it: no
   implementation is shown, the pull message names the item and the shape network text has no spelling for, the
   declaration stays editable, and a push never writes that body. CFC, SFC and IL bodies are always
-  <code>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</code>. A build without <code>VOLT_GRAPHICAL=1</code> hides every LD and
-  FBD body the same way, with the reason "LD and FBD are not enabled in this build".
+  <code>IMPLEMENTATION CFC|SFC|IL UNSUPPORTED</code>, and a body in a language Volt has never seen — an unknown view,
+  body aspect or archive root — is hidden the same way under the vendor's own name for it, upper case
+  (<code>IMPLEMENTATION NWL UNSUPPORTED</code> for a network body that states no view), so its item still pulls
+  (<code>bridge-refusal-review</code> D27). A build without <code>VOLT_GRAPHICAL=1</code> hides every LD and
+  FBD body the same way, with the reason "LD and FBD are not enabled in this build". Editing the line between
+  <code>LD</code> and <code>FBD</code> changes the body's view: both drivers write it (<code>bridge-refusal-review</code>
+  2.22, 2.31).
 </p>
 
 <h2 id="constructs">Constructs</h2>

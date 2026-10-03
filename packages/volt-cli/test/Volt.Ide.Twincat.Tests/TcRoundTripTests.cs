@@ -41,7 +41,7 @@ public class TcRoundTripTests
 
     /// <summary>The fixture's OWN view. This was hardcoded `Ld` while every fixture archive says `Fbd`, so the
     /// model built here disagreed with the body it was about to be written into — harmless while nothing looked,
-    /// and a refusal the moment the writer started checking that a push cannot change a body's view.</summary>
+    /// and a view change the moment the writer started comparing the view (it now writes one, bridge-refusal-review 2.31).</summary>
     private static BodyLanguage LanguageOf(string body) =>
         string.Equals(TcArchive.ViewMode(Impl(body)), "Ld", System.StringComparison.OrdinalIgnoreCase)
             ? BodyLanguage.Ld
@@ -302,18 +302,33 @@ public class TcRoundTripTests
         Assert.DoesNotContain("( := ", text);
     }
 
-    /// <summary>Spec, "a view change is one comparison": the pushed marker says FBD, the IDE's body is a ladder, so
-    /// the push is refused — through the writer the push runs, which is now the only place that compares the two (the
-    /// reader takes the language from the marker and cannot know the IDE's view).</summary>
+    /// <summary>A VIEW CHANGE IS WRITTEN (openspec bridge-refusal-review 2.31, D7): the pushed marker says FBD and the
+    /// IDE's body is a ladder, so the archive's <c>DefaultViewMode</c> slot — the member the CREATE route already sets
+    /// (<c>TcArchive.WithViewMode</c>) — takes the pushed view, and NOTHING else in the archive changes. It was refused as
+    /// "nothing here writes it" while the create route wrote exactly this slot.</summary>
     [Fact]
-    public void A_marker_naming_the_other_view_is_refused_by_the_writer()
+    public void A_marker_naming_the_other_view_writes_the_view_and_nothing_else()
     {
         var before = Body("ladder.TcPOU");
         Assert.Equal(BodyLanguage.Ld, LanguageOf(before));
         var pushed = TextDerivedModel(before) with { Language = BodyLanguage.Fbd };
 
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply(before, pushed));
-        Assert.Contains("view is LD and the pushed text says FBD", ex.Message);
+        var after = TcText.Apply(before, pushed);
+
+        Assert.NotNull(after);
+        Assert.Equal("Fbd", TcArchive.ViewMode(Impl(after!)));
+        var was = Scalars(before);
+        var now = Scalars(after!);
+        var changed = was.Keys.Where(k => was[k] != now[k]).ToList();
+        Assert.Equal(new[] { "DefaultViewMode" }, changed.Select(k => k.Substring(0, k.IndexOf('#'))));
+    }
+
+    /// <summary>The same view writes nothing: an unchanged push returns null, view and all.</summary>
+    [Fact]
+    public void The_same_view_is_not_written()
+    {
+        var before = Body("ladder.TcPOU");
+        Assert.Null(TcText.Apply(before, TextDerivedModel(before)));
     }
 
     /// <summary>AN FB CALL WHOSE INSTANCE IS DECLARED THROUGH ITS LIBRARY NAMESPACE IS THE SAME BOX. The text spells

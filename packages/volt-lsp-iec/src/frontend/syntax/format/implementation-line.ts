@@ -10,7 +10,8 @@
  *  - `IMPLEMENTATION ST`, `IMPLEMENTATION LD`, `IMPLEMENTATION FBD` — a body Volt reads: ST by the ST parser, LD/FBD by
  *    the network-text parser. The stated language is the ONE signal for which; nothing sniffs the text.
  *  - `IMPLEMENTATION <LANG> UNSUPPORTED` — a body Volt does not SHOW (owner decisions 2026-09-28, sections 2b and 3b):
- *    always for CFC, SFC and IL, which Volt does not read, and for an LD/FBD body network text cannot represent yet;
+ *    always for CFC, SFC and IL, which Volt does not read, for a language Volt has never seen under the vendor's own
+ *    name (`IMPLEMENTATION NWL UNSUPPORTED` — D27), and for an LD/FBD body network text cannot represent yet;
  *    never for ST. The body under the line is empty and read by neither parser; the push never writes it, and the
  *    DECLARATION above the line stays editable and is analysed like any other. A bare `IMPLEMENTATION CFC|SFC|IL`
  *    (section 2b's spelling) states no body and is reported naming the line to write.
@@ -43,9 +44,11 @@ const UNSUPPORTED_WORD = "UNSUPPORTED"
 export type ReadLanguage = "ST" | "LD" | "FBD"
 
 // Every line a body can state, alone on its line: the keyword, a language, and UNSUPPORTED — which `statementOf`
-// requires after CFC, SFC and IL and refuses after ST. Spacing is layout and the words are case-insensitive, as ST
+// requires after CFC, SFC, IL and every other word and refuses after ST. The language is a WORD: one of the six Volt
+// knows, or the vendor's own name for one Volt has never seen (D27, openspec bridge-refusal-review 4.27), which a driver
+// pulls as a hidden body rather than losing the whole item. Spacing is layout and the words are case-insensitive, as ST
 // keywords are.
-const LINE = /^\s*IMPLEMENTATION[ \t]+(ST|LD|FBD|CFC|SFC|IL)(?:[ \t]+(UNSUPPORTED))?\s*$/i
+const LINE = /^\s*IMPLEMENTATION[ \t]+([A-Za-z_][A-Za-z0-9_]*)(?:[ \t]+(UNSUPPORTED))?\s*$/i
 
 // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and whatever follows it when that opens
 // with a word. A line of this shape that is no boundary line — no language, one no body can state, code or a comment
@@ -63,6 +66,9 @@ const READ_LINES = (["ST", "LD", "FBD"] as const).map(implementationLine).join("
 
 /** The languages Volt never shows a body in: their line always carries UNSUPPORTED. */
 const NEVER_SHOWN = new Set(["CFC", "SFC", "IL"])
+
+/** The six languages Volt knows. Any other word is a language only as a hidden body: `IMPLEMENTATION UML UNSUPPORTED`. */
+const KNOWN = new Set(["ST", "LD", "FBD", ...NEVER_SHOWN])
 
 /** Is this a language Volt never shows a body in (CFC, SFC, IL) — as opposed to LD/FBD, hidden only when network text
  *  cannot represent the body? */
@@ -84,8 +90,10 @@ function statementOf(line: string): ImplementationStatement | undefined {
   const m = LINE.exec(line)
   const language = m?.[1]?.toUpperCase()
   const unsupported = m?.[2] !== undefined
-  if (language === undefined || (unsupported && language === "ST")) return { kind: "not-a-language", stated }
+  if (language === undefined || language === UNSUPPORTED_WORD || (unsupported && language === "ST"))
+    return { kind: "not-a-language", stated }
   if (unsupported) return { kind: "unsupported", language }
+  if (!KNOWN.has(language)) return { kind: "not-a-language", stated }
   if (NEVER_SHOWN.has(language)) return { kind: "bare-hidden", language }
   return { kind: "read", language: language as ReadLanguage }
 }

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
+using Volt.Engine.Item;
 
 namespace Volt.Engine.Ide;
 
@@ -24,9 +25,7 @@ public abstract class DriverBase : IIdeSession
     /// <summary>The push pre-flight, defaulting to REFUSE NOTHING — see <c>ICodeStore.ValidateSource</c>. A
     /// driver whose refusals need the live project leaves it alone rather than guessing at them here; TwinCAT
     /// overrides it, because its PLCopen writer decides several of them from the parsed body alone.</summary>
-    public virtual void ValidateSource(string wireName, string sourceText,
-                                       PushedDeclarations pushedDeclarations)
-    { }
+    public virtual void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies) { }
 
     /// <summary>No measured name refusal — see <c>ICodeStore.RefusedName</c>. A driver without measurements refuses
     /// nothing rather than guessing.</summary>
@@ -34,6 +33,9 @@ public abstract class DriverBase : IIdeSession
 
     /// <summary>No member create refused from its argument — see <c>ICodeStore.RefusedMemberCreate</c>.</summary>
     public virtual string? RefusedMemberCreate(string memberKind, string name, string? seed) => null;
+
+    /// <summary>No task refused from its settings — see <c>ICodeStore.ValidateTask</c>.</summary>
+    public virtual void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings) { }
 
 
 

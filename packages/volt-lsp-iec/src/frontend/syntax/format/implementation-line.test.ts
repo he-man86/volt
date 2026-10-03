@@ -273,6 +273,9 @@ test("an UNSUPPORTED line states a body read by neither parser, on every languag
     "IMPLEMENTATION IL UNSUPPORTED",
     "IMPLEMENTATION LD UNSUPPORTED",
     "implementation  fbd  unsupported",
+    // a language Volt has never seen, under the vendor's own name (D27, bridge-refusal-review 4.27)
+    "IMPLEMENTATION UML UNSUPPORTED",
+    "implementation nwl unsupported",
   ]) {
     const src = fb(`${line}\n`)
     expect({ line, errors: syntaxErrors(src) }).toEqual({ line, errors: [] })
@@ -319,7 +322,13 @@ test("code, a comment or a pragma under an UNSUPPORTED line is refused naming th
 })
 
 test("UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line", () => {
-  for (const line of ["IMPLEMENTATION ST UNSUPPORTED", "IMPLEMENTATION CFC UNSUPPORTED x := 1;", "IMPLEMENTATION LD UNSUPPORTED;"]) {
+  for (const line of [
+    "IMPLEMENTATION ST UNSUPPORTED",
+    "IMPLEMENTATION CFC UNSUPPORTED x := 1;",
+    "IMPLEMENTATION LD UNSUPPORTED;",
+    "IMPLEMENTATION UNSUPPORTED UNSUPPORTED", // UNSUPPORTED is no language
+    "IMPLEMENTATION COBOL", //                  a language Volt has never seen is a line only as a hidden body
+  ]) {
     const errors = parseSource(fb(`${line}\n`), { networkText: true }).errors.map((e) => e.message)
     expect({ line, named: errors.some((m) => m.includes(`'${line}'`)) }).toEqual({ line, named: true })
     expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })

@@ -71,6 +71,35 @@ public class PushTaskTests
         Assert.Equal(new[] { "PLC_PRG" }, written.Calls);
     }
 
+    /// <summary>A task the DRIVER refuses from its settings alone — a `Type:` its vendor does not name — is refused in the
+    /// PRE-FLIGHT, before the batch's earlier ops land (review 2e+2g, low: CODESYS's unknown-type BAD_REQUEST was found
+    /// only by the write, after a new POU earlier in the same push had been created). The driver is handed the settings
+    /// the engine's own gate read, never the text.</summary>
+    [Fact]
+    public void A_task_the_driver_refuses_from_its_settings_is_refused_before_anything_lands()
+    {
+        var ide = new FakeIde(new FakeIde.Item("MainTask", ItemKind.PlcTask, "Device/Plc Logic/Application/Task Configuration",
+                                               true, null, null, null, null))
+        {
+            ValidatesTask = t =>
+            {
+                if (t.Type == "Cyclicc") throw new BridgeException(BridgeErrorCodes.BadRequest, $"'{t.Type}' is not a task type");
+            },
+        };
+        var (v, pv) = Ver(ide, "MainTask.task");
+
+        var resp = Push(ide, pv,
+            new SetItemOp { Name = "PRG_A.pou", IfVersion = null, ToFolder = "",
+                            SourceText = "PROGRAM PRG_A\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 2;\nEND_PROGRAM\n" },
+            new SetItemOp { Name = "MainTask.task", IfVersion = v, SourceText = Body.Replace("Cyclic", "Cyclicc") });
+
+        Assert.False(resp.Accepted);
+        var refused = Assert.Single(resp.Conflicts!, c => c.Name == "MainTask.task");
+        Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
+        Assert.Equal("Cyclicc", Assert.Single(ide.TasksValidated).Type);
+        Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create:") || r.StartsWith("writetask:"));
+    }
+
     [Fact]
     public void A_task_never_goes_through_the_ST_writer()
     {

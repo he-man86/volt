@@ -283,17 +283,23 @@ namespace Volt.Ide.Codesys
         /// <c>priority</c>'s trap two lines up, and the reason both are written down rather than inferred. The
         /// legal names come from the enum itself: Cyclic, Freewheeling, Event, ExternalEvent, Status,
         /// ParentSynchron — which is also the vocabulary the READ side renders, so the file's `Type:` line and
-        /// this lookup cannot drift.</para></summary>
-        private static object TaskKind(string type)
+        /// this lookup cannot drift.</para>
+        ///
+        /// <para><b>A type the enum does not NAME is the request's fault</b> — BAD_REQUEST, as <c>TcTaskSchedule</c>
+        /// answers a malformed descriptor (openspec bridge-refusal-review 2.25). It was an InvalidOperationException,
+        /// which the push reports as INTERNAL_ERROR, a Volt bug, for a typo in a `.task` file. And the lookup is by NAME
+        /// only: <c>Enum.Parse</c> also takes a number, so <c>Type: 99</c> became an undefined <c>KindOfTask</c> written
+        /// into the task.</para></summary>
+        internal static object TaskKind(string type)
         {
-            try { return EnumValue("KindOfTask", type); }
-            catch (ArgumentException)
-            {
-                throw new InvalidOperationException(
+            var kinds = Reflection.FindEnum("KindOfTask")
+                ?? throw new InvalidOperationException("CODESYS enum KindOfTask not found");
+            var names = Enum.GetNames(kinds);
+            if (Array.IndexOf(names, type) < 0)
+                throw new Volt.Engine.BridgeException(BridgeErrorCodes.BadRequest,
                     $"CODESYS: '{type}' is not a task type. A `.task` file's `Type:` line must name one of " +
-                    string.Join(", ", Enum.GetNames(Reflection.FindEnum("KindOfTask")
-                        ?? throw new InvalidOperationException("CODESYS enum KindOfTask not found"))) + ".");
-            }
+                    string.Join(", ", names) + ".");
+            return Enum.Parse(kinds, type);
         }
 
         /// <summary>Replace a task's call list with exactly the POUs named, in order.

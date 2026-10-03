@@ -100,19 +100,17 @@ public class NetworkTextGateTests
         Refused("NETWORK_PARSE", 1, "IMPLEMENTATION ST\nNETWORK\n  out := a;\nEND_NETWORK\n");
     }
 
-    /// <summary>Spec, "a view change is one comparison": the marker says FBD, the IDE holds LD. The body's language IS
-    /// its marker's, so the text reads; the one comparison is the drivers' against the IDE's view. The reader once
-    /// made a second one against a language its only caller took from that same marker — a check that could never
-    /// fire, with a copy of the refusal's wording.</summary>
+    /// <summary>The body's language IS its marker's, so the text reads whatever the IDE's view; a marker naming the other
+    /// view is a view change, which each driver WRITES against the IDE's view (openspec bridge-refusal-review 2.22, 2.31 —
+    /// <c>CodesysViewModeTests</c>, <c>TcRoundTripTests</c>; it was one refusal both drivers called). The reader once made
+    /// a second comparison against a language its only caller took from that same marker — a check that could never
+    /// fire.</summary>
     [Fact]
-    public void A_marker_naming_the_other_view_is_refused_by_the_one_comparison()
+    public void A_marker_states_the_bodys_language_whatever_the_IDE_holds()
     {
         var read = Gate(Src("out := a;"));
         Assert.True(read.Ok);
         Assert.Equal(BodyLanguage.Fbd, read.Body!.Language);
-
-        var e = Assert.Throws<System.NotSupportedException>(() => NetworkText.RefuseViewModeChange(BodyLanguage.Ld, read.Body.Language));
-        Assert.Contains("view is LD and the pushed text says FBD", e.Message);
     }
 
     [Fact]

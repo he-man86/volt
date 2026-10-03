@@ -27,7 +27,7 @@ namespace Volt.Ide.Codesys
     {
         /// <summary>Write <paramref name="body"/> into <paramref name="iobj"/>, the object the IDE hands out to modify.
         /// The transaction around it (<c>CodesysObjectModel.ModifyObject</c>) is the driver's: it is the vendor's
-        /// ObjectManager, which no offline test has, and the refusals made here — a view change above all — are what
+        /// ObjectManager, which no offline test has, and the writes and refusals made here — the view, a missing body slot — are what
         /// a test must reach.</summary>
         /// <param name="scope">The scope the body was read against — the change gate renders the live network
         /// against it to compare (see <see cref="TreesUnchanged"/>).</param>
@@ -41,17 +41,14 @@ namespace Volt.Ide.Codesys
                     "CODESYS: this object has no Implementation aspect, so it holds no body — a graphical body cannot " +
                     "be written into it.");
 
-            // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
-            // text states FBD or LD once, on the body's IMPLEMENTATION line — the sole textual difference
-            // between the two — and the member is never written on an update, so a marker-only edit would
-            // write nothing, report success, and be reverted by the next pull.
-            // ...but only when there IS one. A body that is not graphical YET — a freshly created
-            // accessor, whose Implementation is still an `STImplementationObject` — has no
-            // `DefaultViewMode` member at all, and `ReadViewMode` demands it. Asking that of a CREATE
-            // turned every graphical property accessor into `'STImplementationObject' has no
-            // 'DefaultViewMode'`. There is no view to preserve when there is no diagram yet.
-            if (NwlInterop.Get(impl, "DefaultViewMode") is not null)
-                NetworkText.RefuseViewModeChange(CodesysDriver.ReadViewMode(impl), body.Language);
+            // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.22, D7). Network text states FBD or LD once, on
+            // the body's IMPLEMENTATION line — the sole textual difference between the two — and the view is one
+            // writable string member of the aspect. It was refused as "nothing here writes it", which made a
+            // marker-only edit a refusal on this vendor while TwinCAT writes the same member through its archive.
+            // ...but only when there IS one. A body that is not graphical YET — a freshly created accessor, whose
+            // Implementation is still an `STImplementationObject` — has no `DefaultViewMode` member at all. There is
+            // no view to set when there is no diagram yet.
+            if (NwlInterop.Has(impl, "DefaultViewMode")) WriteView(impl, CodesysDriver.ViewModeText(impl), body.Language);
 
             // Match the network COUNT first, through the aspect's own API. `NetworkList` is read-only,
             // and an earlier version of this file refused a count change outright as "not measured" - which
@@ -67,6 +64,23 @@ namespace Volt.Ide.Codesys
             var existing = NwlInterop.Items(NwlInterop.Require(impl, "NetworkList"), listMember: "");
             for (int i = 0; i < existing.Count; i++)
                 WriteNetwork(impl, existing[i], body.Networks[i], body.Language, scope);
+        }
+
+        /// <summary>Set the aspect's view to the pushed language, when it differs — in the spelling the vendor's own
+        /// member holds (<c>"Ld"</c>, measured on a real ladder project, and <c>"Fbd"</c>). A body in a view Volt does
+        /// not author (IL, or one it has never seen) pulls as its UNSUPPORTED line, and <c>BodyFormatGuard</c> refuses
+        /// network text over such a body before any write; reaching here with one is a Volt bug, never a diagram
+        /// written over an IL body.</summary>
+        private static void WriteView(object impl, string? view, BodyLanguage pushed)
+        {
+            var stated = NetworkText.ViewLanguage(view);
+            var live = NetworkText.LanguageNamed(stated)
+                ?? throw new InvalidOperationException(
+                    $"CODESYS: a graphical body reached the write over a body whose view is '{view}' " +
+                    $"('{Volt.Engine.Format.St.ImplementationMarker.Unsupported(stated)}'), which the push's body guard " +
+                    "refuses before any write. This is a Volt bug.");
+            if (live == pushed) return;
+            NwlInterop.Set(impl, "DefaultViewMode", pushed == BodyLanguage.Ld ? "Ld" : "Fbd");
         }
 
         internal static void WriteNetwork(object impl, object net, Network model, BodyLanguage language, NetworkScope scope)

@@ -768,24 +768,54 @@ public class CodesysCoilFlagTests
     }
 }
 
-/// <summary>The write's refusal of a view change, reached offline through <c>CodesysNetworkWriter.Write</c> — the
-/// write into the object the IDE hands out, without the vendor's ObjectManager transaction around it.</summary>
+/// <summary>A VIEW CHANGE IS WRITTEN (openspec <c>bridge-refusal-review</c> 2.22, D7), reached offline through
+/// <c>CodesysNetworkWriter.Write</c> — the write into the object the IDE hands out, without the vendor's ObjectManager
+/// transaction around it.
+///
+/// <para>Network text states FBD or LD once, on the body's IMPLEMENTATION line, and the view is one STRING member of the
+/// aspect (<c>INWLImplementationObject.DefaultViewMode</c>, writable — reflected off SP21's <c>NWLObject.dll</c>; the
+/// live write is measured in DIALECT, task 3.5). It was refused as "nothing here writes it": a push that changed only
+/// the marker was a refusal, where TwinCAT writes the same member through its archive.</para></summary>
 public class CodesysViewModeTests
 {
-    /// <summary>Spec, "a view change is one comparison": the pushed marker says FBD and the IDE's body is a ladder, so
-    /// the push is refused — through the write the push runs, the one place that compares the two now that the reader
-    /// takes the language from the marker alone.</summary>
     [Fact]
-    public void A_marker_naming_the_other_view_is_refused_by_the_write()
+    public void A_marker_naming_the_other_view_writes_the_view()
     {
-        var ex = Assert.Throws<NotSupportedException>(() =>
-            CodesysNetworkWriter.Write(new LadderPou(), new NetworkBody(BodyLanguage.Fbd, Array.Empty<Network>()),
-                                             NetworkScope.Empty));
-        Assert.Contains("view is LD and the pushed text says FBD", ex.Message);
+        var pou = new LadderPou();
+        CodesysNetworkWriter.Write(pou, new NetworkBody(BodyLanguage.Fbd, System.Array.Empty<Network>()), NetworkScope.Empty);
+
+        Assert.Equal("Fbd", pou.Implementation.DefaultViewMode);
+        Assert.Equal(1, pou.Implementation.ViewWrites);
+    }
+
+    /// <summary>The same view is no write: an unchanged push touches nothing (the change gate's rule, for the view).</summary>
+    [Fact]
+    public void The_same_view_is_not_written()
+    {
+        var pou = new LadderPou();
+        CodesysNetworkWriter.Write(pou, new NetworkBody(BodyLanguage.Ld, System.Array.Empty<Network>()), NetworkScope.Empty);
+
+        Assert.Equal("Ld", pou.Implementation.DefaultViewMode);
+        Assert.Equal(0, pou.Implementation.ViewWrites);
+    }
+
+    /// <summary>A graphical push over a body in a view Volt does not author (IL, or one it has never seen) never reaches
+    /// the write: the body pulls as its UNSUPPORTED line and <c>BodyFormatGuard</c> refuses network text over it. Reaching
+    /// here is a Volt bug, and it says so rather than turning an IL body into a diagram.</summary>
+    [Theory]
+    [InlineData("IL")]
+    [InlineData("Sequence")]
+    public void A_hidden_view_reaching_the_write_is_an_invariant(string view)
+    {
+        var pou = new LadderPou();
+        pou.Implementation.Seed(view);
+        Assert.Throws<System.InvalidOperationException>(() =>
+            CodesysNetworkWriter.Write(pou, new NetworkBody(BodyLanguage.Ld, System.Array.Empty<Network>()), NetworkScope.Empty));
+        Assert.Equal(0, pou.Implementation.ViewWrites);
     }
 
     /// <summary>The object the IDE hands out to modify, holding a ladder: its <c>Implementation</c> aspect, whose
-    /// <c>DefaultViewMode</c> is what <c>CodesysDriver.ReadViewMode</c> reads.</summary>
+    /// <c>DefaultViewMode</c> is what <c>CodesysDriver.ViewModeText</c> reads.</summary>
     private sealed class LadderPou
     {
         public LadderImplementation Implementation { get; } = new LadderImplementation();
@@ -793,7 +823,10 @@ public class CodesysViewModeTests
 
     private sealed class LadderImplementation
     {
-        public string DefaultViewMode => "Ld";
+        private string _view = "Ld";
+        public int ViewWrites { get; private set; }
+        public void Seed(string view) => _view = view;
+        public string DefaultViewMode { get => _view; set { _view = value; ViewWrites++; } }
         public System.Collections.Generic.List<object> NetworkList { get; } = new System.Collections.Generic.List<object>();
     }
 }

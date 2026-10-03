@@ -1734,7 +1734,7 @@ window.VOLT = {
         {
           "name": "ValidateSource",
           "kind": "method",
-          "signature": "void ValidateSource(string wireName, string sourceText, PushedDeclarations pushedDeclarations)"
+          "signature": "void ValidateSource(ItemRef? existing, IReadOnlyList\u003CPushedNetworkBody\u003E bodies)"
         },
         {
           "name": "RefusedName",
@@ -1745,6 +1745,11 @@ window.VOLT = {
           "name": "RefusedMemberCreate",
           "kind": "method",
           "signature": "string? RefusedMemberCreate(string memberKind, string name, string? seed)"
+        },
+        {
+          "name": "ValidateTask",
+          "kind": "method",
+          "signature": "void ValidateTask(TaskSettings settings)"
         },
         {
           "name": "NetworkScopeFor",

@@ -70,7 +70,9 @@ internal static class TcTaskSchedule
     /// that their file was malformed — it is not, and no edit to it can make TwinCAT schedule that task.</para></summary>
     public static string SysTaskPatch(TaskSettings t)
     {
-        if (!string.Equals(t.Type, CyclicType, StringComparison.OrdinalIgnoreCase))
+        // Case-EXACT, as every label of the descriptor is and as CODESYS looks up its `KindOfTask` names: `Type: cyclic`
+        // was accepted here and refused there, the same file answered two ways (review 2e+2g, low).
+        if (!string.Equals(t.Type, CyclicType, StringComparison.Ordinal))
             throw Refuse(BridgeErrorCodes.Unsupported, $"`Type: {t.Type}` — a TwinCAT PLC task is always {CyclicType}.");
         if (!string.IsNullOrEmpty(t.Event))
             throw Refuse(BridgeErrorCodes.Unsupported, $"`Event: {t.Event}` — a TwinCAT PLC task has no event source.");

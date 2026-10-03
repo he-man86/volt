@@ -234,15 +234,36 @@ public class TcNetworkWriterTests
         Assert.Contains("box changes from 'AND' to 'OR'", ex.Message);
     }
 
-    /// <summary>A newly created POU has no implementation at all, so a push of a brand-new graphical body
-    /// lands here. It has to REFUSE in the engineer's vocabulary rather than surface an XML parse error from
-    /// deep inside the adapter - the archive is not something they ever see.</summary>
+    /// <summary>A BLANK BODY NEVER REACHES THE IN-PLACE WRITER (openspec bridge-refusal-review 2.30): the driver's
+    /// <c>ResolveBody</c> sends a blank implementation, or an archive with nothing drawn in it, to the CREATE door first.
+    /// Reaching here with one is a Volt bug, and it says so — INTERNAL_ERROR, not an UNSUPPORTED that blamed the engineer's
+    /// push for something only a broken route can do.</summary>
     [Fact]
-    public void Creating_a_graphical_body_from_nothing_is_refused()
+    public void A_blank_body_reaching_the_in_place_writer_is_an_invariant()
     {
         var model = Read(VendorBody());
-        var ex = Assert.Throws<NotSupportedException>(() => TcText.Apply("", model));
-        Assert.Contains("creates a graphical body where the IDE has none", ex.Message);
+        var ex = Assert.Throws<InvalidOperationException>(() => TcText.Apply("", model));
+        Assert.Contains("Volt bug", ex.Message);
+    }
+
+    /// <summary>A RESET IS A COIL KIND, NOT A MODIFIER (openspec bridge-refusal-review 2.32, D23). The vendor spells a
+    /// reset coil <c>Negation + Set</c> on an assignment TARGET, and <c>WriteCoilBits</c> writes exactly that; the reader
+    /// never builds a Reset anywhere else. So a Reset reaching the generic flag write — here on a box input — is a model
+    /// the reader never produced: an invariant, worded as CODESYS words the same fact (<c>CodesysNetworkWriter.ApplyFlags</c>),
+    /// not the old "RESET has no representation in the IDE's flag set" that <c>WriteCoilBits</c>' own doc calls wrong.</summary>
+    [Fact]
+    public void A_reset_on_anything_but_a_coil_target_is_an_invariant()
+    {
+        var body = VendorBody();
+        var model = Read(body);
+        var box = (Box)model.Networks[0].Trees[0];
+        var input = box.Inputs[0];
+        var leaf = (Leaf)input.Value;
+        var reset = leaf with { Flags = Flags.None with { Reset = true } };   // a contact's modifiers are the leaf's
+        var pushed = Replace(model, box with { Inputs = new[] { input with { Value = reset } }.Concat(box.Inputs.Skip(1)).ToList() });
+
+        var ex = Assert.Throws<InvalidOperationException>(() => TcText.Apply(body, pushed));
+        Assert.Contains("a RESET reached the generic flag write", ex.Message);
     }
 
     /// <summary>Turning an ST body into a ladder is the same construction by another route.</summary>

@@ -162,6 +162,12 @@ public sealed partial class CodesysDriver
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
     public override string? RefusedName(string name) => NameRefusal(name);
 
+    /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): a `Type:` the vendor's
+    /// <c>KindOfTask</c> does not NAME — BAD_REQUEST, by the same lookup the descriptor write makes, so the batch's earlier
+    /// ops are not written before the request's own fault is found.</summary>
+    public override void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings) =>
+        CodesysObjectModel.TaskKind(settings.Type);
+
     internal static string? NameRefusal(string name) =>
         CodesysRefusedNames.Words.Contains(name)
             ? $"CODESYS does not take '{name}' as a name (\"The name '{name}' is not valid for this object.\")"

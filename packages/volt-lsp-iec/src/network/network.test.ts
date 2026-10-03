@@ -714,6 +714,12 @@ test("network text: a hidden body's line hover explains the body (F.2e)", () => 
   expect(unsupported).toContain("Ladder Diagram")
   expect(unsupported).toContain("cannot represent")
 
+  // A language Volt has never seen, under the vendor's name (D27): Volt does not read it — no network-text excuse.
+  const uml = `FUNCTION_BLOCK F\nVAR END_VAR\nIMPLEMENTATION UML UNSUPPORTED\nEND_FUNCTION_BLOCK`
+  const unknown = (readOnlyBodyHover(doc(uml), uml.indexOf("UML")) as { contents: { value: string } })?.contents.value
+  expect(unknown).toContain("Volt does not read UML")
+  expect(vgDiags(uml)).toEqual([])
+
   // Only the line a body opens with answers — not an ST body, and not the line quoted in a comment.
   const st = `FUNCTION_BLOCK F\nVAR END_VAR\n(* IMPLEMENTATION CFC UNSUPPORTED *)\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK`
   expect(readOnlyBodyHover(doc(st), st.indexOf("CFC"))).toBeUndefined()

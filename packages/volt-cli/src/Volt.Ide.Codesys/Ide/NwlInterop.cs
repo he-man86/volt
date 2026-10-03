@@ -48,6 +48,21 @@ namespace Volt.Ide.Codesys
         public static object Require(object o, string member) =>
             Get(o, member) ?? throw Missing(o, member);
 
+        /// <summary>Whether <paramref name="o"/>'s type DECLARES <paramref name="member"/> — on the type or on any interface
+        /// it implements, where <see cref="Get"/> looks. <see cref="Get"/> answers null both for an absent member and for
+        /// a present one holding null; a caller for whom those are two different facts asks this.</summary>
+        public static bool Has(object o, string member)
+        {
+            var t = o.GetType();
+            return t.GetProperty(member, BF) != null || t.GetInterfaces().Any(i => i.GetProperty(member) != null);
+        }
+
+        /// <summary>A property the type MUST declare, whose VALUE may legitimately be null — the null-tolerant twin of
+        /// <see cref="Require"/>. An absent member is the same version story as there (<see cref="Missing"/>, naming the
+        /// assembly); a present member holding null is an answer the caller decides on.</summary>
+        public static object? Declared(object o, string member) =>
+            Has(o, member) ? Get(o, member) : throw Missing(o, member);
+
         public static string? Text(object? o, string member) => Get(o, member) as string;
 
         public static bool Flag(object? o, string member) => Get(o, member) is bool b && b;

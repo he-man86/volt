@@ -145,11 +145,14 @@ internal static class TcNetworkWriter
     /// instead. That check happens HERE, from the model, before the IDE is touched.</para></summary>
     public static string? Apply(string? bodyXml, NetworkBody body, NetworkScope scope, Func<Network, XElement>? resolve)
     {
-        // No archive to edit means there is nothing to edit IN, and creating one is the construction this
-        // writer does not do. A newly created POU arrives here with an empty implementation, so this is the
-        // path a push of a brand-new graphical body takes - it has to say that, not throw an XML parse error.
+        // No archive to edit means there is nothing to edit IN — and nothing routes one here: the driver's
+        // `ResolveBody` sends a blank implementation (a newly created POU or member) and an archive with nothing
+        // drawn in it to the CREATE door first. So a blank body here is a broken route, a Volt bug (INTERNAL_ERROR,
+        // openspec bridge-refusal-review 2.30) — it was an UNSUPPORTED worded as if the push asked for something.
         if (string.IsNullOrWhiteSpace(bodyXml))
-            throw Refuse("creates a graphical body where the IDE has none");
+            throw new InvalidOperationException(
+                "TwinCAT: a graphical body reached the in-place writer with no archive to edit. A body the IDE does not " +
+                "have yet is created through the import (ResolveBody routes it there first); this is a Volt bug.");
 
         XElement doc;
         try { doc = XElement.Parse(bodyXml, LoadOptions.PreserveWhitespace); }
@@ -158,11 +161,11 @@ internal static class TcNetworkWriter
         var impl = doc.Descendants("o").FirstOrDefault(o => (string?)o.Attribute("t") == "NWLImplementationObject")
             ?? throw Refuse("replaces a " + doc.Name.LocalName + " body with a graphical one");
 
-        // THE VIEW CANNOT BE CHANGED BY A PUSH — the same rule CODESYS states, from its own accessor. Network
-        // text states FBD or LD once, on the body's IMPLEMENTATION line, and only the CREATE route writes
-        // `DefaultViewMode` (`TcArchive.WithViewMode`) — so a marker-only edit would write nothing, report
-        // success, and be reverted by the next pull.
-        NetworkText.RefuseViewModeChange(BeckhoffDriver.ViewModeOf(impl), body.Language);
+        // THE VIEW IS WRITTEN (openspec bridge-refusal-review 2.31, D7), as CODESYS writes its aspect's member.
+        // Network text states FBD or LD once, on the body's IMPLEMENTATION line, and the view is the archive's
+        // `DefaultViewMode` slot — the one the CREATE route already sets after the import (`TcArchive.WithViewMode`).
+        // It was refused here as "nothing writes it on an update".
+        var viewChanged = WriteView(impl, body.Language);
         TcUnmeasured.RefuseEdgeOrder(body);
 
         var networks = TcArchive.List(impl, "NetworkList");
@@ -187,7 +190,7 @@ internal static class TcNetworkWriter
                     : "Volt cannot ADD one through the archive: a new network needs elements whose member " +
                       "contract only the IDE produces. Add it in the IDE and pull it."));
 
-        bool changed = false;
+        bool changed = viewChanged;
         for (int i = 0; i < networks.Count; i++)
         {
             var model = body.Networks[i];
@@ -218,6 +221,23 @@ internal static class TcNetworkWriter
         }
 
         return changed ? doc.ToString(SaveOptions.DisableFormatting) : null;
+    }
+
+    /// <summary>Set the archive's view slot to the pushed language, when it differs; true when it was written. The slot
+    /// must already be there (the writer creates nothing). A body whose view Volt does not author (IL, one it has never
+    /// seen, or none) pulls as its UNSUPPORTED line, and <c>BodyFormatGuard</c> refuses network text over such a body
+    /// before any write — reaching here with one is a Volt bug, never a diagram written over an IL body.</summary>
+    private static bool WriteView(XElement impl, BodyLanguage pushed)
+    {
+        var view = TcArchive.ViewMode(impl);
+        var stated = NetworkText.ViewLanguage(view);
+        var live = NetworkText.LanguageNamed(stated)
+            ?? throw new InvalidOperationException(
+                $"TwinCAT: a graphical body reached the write over a body whose view is '{view ?? "(none)"}' " +
+                $"('{Volt.Engine.Format.St.ImplementationMarker.Unsupported(stated)}'), which the push's body guard " +
+                "refuses before any write. This is a Volt bug.");
+        if (live == pushed) return false;
+        return SetString(impl, "DefaultViewMode", pushed == BodyLanguage.Ld ? "Ld" : "Fbd");
     }
 
     /// <summary>Does the live network already say exactly what is being pushed?
@@ -924,16 +944,19 @@ internal static class TcNetworkWriter
         return SetInt(holder, "Flags", bits);
     }
 
-    /// <summary><c>Reset</c> is REFUSED rather than dropped: network text can express a reset coil and the
-    /// vendor's flag set (Negation/Set/Jump/Return/Rtrig/Ftrig) cannot, so writing a plain coil instead would
-    /// change what the program does.</summary>
+    /// <summary>The vendor bit-field for a node's or an operand's MODIFIERS. <c>Reset</c> is not one: it is a COIL
+    /// KIND, spelled <c>Negation + Set</c> on an assignment TARGET (<see cref="Flags.CoilFromVendor"/>), which
+    /// <see cref="WriteCoilBits"/> writes — and the reader builds it nowhere else. A Reset here is a model the reader
+    /// never produced: an invariant, worded as CODESYS words the same fact (<c>CodesysNetworkWriter.ApplyFlags</c>;
+    /// openspec bridge-refusal-review 2.32, D23). It was a refusal claiming RESET "has no representation in the IDE's
+    /// flag set" — the belief <see cref="WriteCoilBits"/>' own doc records as what made reset coils pull as SET.</summary>
     private static int Bits(Flags? flags)
     {
         if (flags is not { } f || f.IsNone) return 0;
         if (f.Reset)
-            throw new NotSupportedException(
-                "TwinCAT: a RESET modifier has no representation in the IDE's flag set. Refusing rather than " +
-                "writing a plain coil, which would change what the program does.");
+            throw new InvalidOperationException(
+                "TwinCAT: a RESET reached the generic flag write. Coil storage is encoded per TARGET via " +
+                "Flags.VendorCoilBits(); a Reset anywhere else is a modifier the model should never have produced.");
         int bits = 0;
         if (f.Negated) bits |= TcArchive.FlagNegation;
         if (f.Set) bits |= TcArchive.FlagSet;

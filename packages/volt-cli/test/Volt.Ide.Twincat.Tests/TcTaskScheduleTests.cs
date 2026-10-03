@@ -113,6 +113,8 @@ public class TcTaskScheduleTests
     /// A missing unit really is a bad request: `10` means nothing, and adding `ms` fixes it.</para></summary>
     [Theory]
     [InlineData("Type:      Freewheeling\nInterval:  10 ms\nPriority:  20\nWatchdog:  off\n", "Freewheeling", BridgeErrorCodes.Unsupported)]
+    // Case-exact, as CODESYS looks up its type names: `cyclic` was accepted here and refused there (review 2e+2g, low).
+    [InlineData("Type:      cyclic\nInterval:  10 ms\nPriority:  20\nWatchdog:  off\n", "`Type: cyclic`", BridgeErrorCodes.Unsupported)]
     [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  20\nEvent:     E_Stop\nWatchdog:  off\n", "E_Stop", BridgeErrorCodes.Unsupported)]
     [InlineData("Type:      Cyclic\nInterval:  10 ms\nPriority:  20\nWatchdog:  10 ms (sensitivity 1)\n", "watchdog", BridgeErrorCodes.Unsupported)]
     [InlineData("Type:      Cyclic\nInterval:  t#4ms\nPriority:  20\nWatchdog:  off\n", "t#4ms", BridgeErrorCodes.Unsupported)]
@@ -124,6 +126,19 @@ public class TcTaskScheduleTests
         var ex = Assert.Throws<BridgeException>(() => TcTaskSchedule.SysTaskPatch(TaskDescriptorFormat.Read(body)));
         Assert.Equal(code, ex.ErrorCode);
         Assert.Contains(mentions, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The push PRE-FLIGHT asks the very patch the write builds (<c>ICodeStore.ValidateTask</c>), so a task TwinCAT
+    /// cannot hold is refused before the batch's first write, not after its earlier ops landed (review 2e+2g, low).</summary>
+    [Fact]
+    public void The_pre_flight_refuses_what_the_write_refuses()
+    {
+        var driver = new BeckhoffDriver(new TcObjectModel());
+        var freewheeling = TaskDescriptorFormat.Read("Type:      Freewheeling\nInterval:  10 ms\nPriority:  20\nWatchdog:  off\n");
+
+        var ex = Assert.Throws<BridgeException>(() => driver.ValidateTask(freewheeling));
+        Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
+        driver.ValidateTask(freewheeling with { Type = "Cyclic" });   // a task TwinCAT holds passes
     }
 
     /// <summary>The read-back that makes the write safe. It checks BOTH copies the system task publishes —

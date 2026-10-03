@@ -445,6 +445,37 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         RefusesMemberCreate?.Invoke(memberKind, name, seed);
 
+    /// <summary>The driver's own pre-flight (<c>ICodeStore.ValidateSource</c>), handed the bodies the engine validated.
+    /// Every call is recorded; unset, the fake refuses nothing — as <c>DriverBase</c>.</summary>
+    public Action<IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody>>? ValidatesSource { get; init; }
+
+    /// <summary>Every <c>ValidateSource</c> call, in order: what the engine handed the driver's pre-flight.</summary>
+    public List<IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody>> SourcesValidated { get; } = new();
+
+    /// <summary>The item each <c>ValidateSource</c> call was handed (null for a create), index-aligned with
+    /// <see cref="SourcesValidated"/>.</summary>
+    public List<ItemRef?> ExistingValidated { get; } = new();
+
+    public override void ValidateSource(ItemRef? existing, IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody> bodies)
+    {
+        SourcesValidated.Add(bodies);
+        ExistingValidated.Add(existing);
+        ValidatesSource?.Invoke(bodies);
+    }
+
+    /// <summary>The driver's task pre-flight (<c>ICodeStore.ValidateTask</c>), handed the settings the engine's gate read.
+    /// Every call is recorded; unset, the fake refuses nothing — as <c>DriverBase</c>.</summary>
+    public Action<TaskSettings>? ValidatesTask { get; init; }
+
+    /// <summary>Every <c>ValidateTask</c> call, in order.</summary>
+    public List<TaskSettings> TasksValidated { get; } = new();
+
+    public override void ValidateTask(TaskSettings settings)
+    {
+        TasksValidated.Add(settings);
+        ValidatesTask?.Invoke(settings);
+    }
+
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
         if (FailCreate?.Invoke(name, kindCode) is { } failure) throw failure;

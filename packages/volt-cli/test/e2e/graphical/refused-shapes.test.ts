@@ -328,3 +328,71 @@ describe(`graphical / editing a body INTO a refused shape (${BASE})`, () => {
 		})
 	}
 })
+
+/**
+ * AND A NEW GRAPHICAL MEMBER OF AN EXISTING POU — a CREATE inside an UPDATE (openspec `bridge-refusal-review` 2.28, D21).
+ *
+ * <p>The write decides create-or-edit per BODY: a method the POU does not hold yet is created whole, through the same
+ * import a new item is. The pre-flight asked the driver only for a new ITEM, so a push adding such a method — holding
+ * a shape the import refuses — passed it, wrote every earlier op of the batch, and was refused mid-batch. It is
+ * refused in the pre-flight now, naming the member, and nothing lands.</p>
+ */
+describe(`graphical / a new graphical member in an existing POU (${BASE})`, () => {
+	beforeAll(async () => {
+		await requireHealthy()
+	})
+
+	it("a new METHOD holding an EXECUTE box: refused before any op lands, or written", async () => {
+		const first = fid("nm_first", "pou")
+		const owner = fid("nm_owner", "pou")
+		await removeItem(first).catch(() => {})
+		await removeItem(owner).catch(() => {})
+
+		const ownerSrc = `FUNCTION_BLOCK ${id("nm_owner")}
+VAR
+\tbRun : BOOL;
+\ttarget : INT;
+END_VAR
+IMPLEMENTATION ST
+target := 0;
+
+END_FUNCTION_BLOCK
+`
+		const created = await pushOps([{ op: "set", name: owner, toFolder: "", sourceText: ownerSrc, ifVersion: null }])
+		expect(created.accepted, `the owner was refused: ${JSON.stringify(created.conflicts)}`).toBe(true)
+		const v1 = await fetchItem(owner)
+
+		const withMethod = `${v1.sourceText.trimEnd()}
+
+METHOD Step : BOOL
+IMPLEMENTATION FBD
+NETWORK
+  EXECUTE(EN := bRun)
+target := 40 + 2;
+  END_EXECUTE;
+END_NETWORK
+
+END_METHOD
+`
+		const before = await bridge.refs()
+		const r = await pushOps([
+			{ op: "set", name: first, toFolder: "", sourceText: `PROGRAM ${id("nm_first")}\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\n\nEND_PROGRAM\n`, ifVersion: null },
+			{ op: "set", name: owner, sourceText: withMethod, ifVersion: v1.version },
+		])
+
+		try {
+			if (!landedInFull(r)) {
+				expect(VENDOR, `the new member was REFUSED on ${VENDOR}: ${JSON.stringify(r.conflicts)}`).toBe("twincat")
+				expect(JSON.stringify(r.conflicts ?? [])).toContain("'Step'")
+				const after = await bridge.refs()
+				expect(after.items[first], "a REFUSED push wrote the batch's first item anyway").toBeUndefined()
+				expect(after.items[owner], "a REFUSED push changed the owner anyway").toBe(before.items[owner])
+				return
+			}
+			expect(VENDOR, `the new member was ACCEPTED on ${VENDOR}, which refuses an Execute box`).toBe("codesys")
+		} finally {
+			await removeItem(first).catch(() => {})
+			await removeItem(owner).catch(() => {})
+		}
+	})
+})

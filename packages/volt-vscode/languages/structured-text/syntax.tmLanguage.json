@@ -157,8 +157,8 @@
       ]
     },
     "implementation-line": {
-      "comment": "The line that ends a body's declaration and states its language: IMPLEMENTATION ST|LD|FBD, or IMPLEMENTATION LD|FBD|CFC|SFC|IL UNSUPPORTED for a body Volt does not show (openspec implementation-keyword, sections 2b and 3b). Volt's own line, not IEC: the push strips it. Matched as a WHOLE line, as the LSP (syntax/implementation-keyword) and the bridge (ImplementationMarker) match it, so a look-alike after code or before a comment is not coloured as one; UNSUPPORTED never after ST, and always after CFC, SFC and IL (bare, they state nothing). Comments come first in the pattern list, so a line inside a block comment stays comment.",
-      "match": "(?i)^\\s*(IMPLEMENTATION)[ \\t]+(?:(ST)|(LD|FBD)(?:[ \\t]+(UNSUPPORTED))?|(CFC|SFC|IL)[ \\t]+(UNSUPPORTED))[ \\t]*$",
+      "comment": "The line that ends a body's declaration and states its language: IMPLEMENTATION ST|LD|FBD, or IMPLEMENTATION LD|FBD|CFC|SFC|IL UNSUPPORTED for a body Volt does not show (openspec implementation-keyword, sections 2b and 3b), and any other word UNSUPPORTED, the vendor's own name for a language Volt has never seen (openspec bridge-refusal-review D27). Volt's own line, not IEC: the push strips it. Matched as a WHOLE line, as the LSP (syntax/implementation-keyword) and the bridge (ImplementationMarker) match it, so a look-alike after code or before a comment is not coloured as one; UNSUPPORTED never after ST, and always after CFC, SFC and IL (bare, they state nothing). Comments come first in the pattern list, so a line inside a block comment stays comment.",
+      "match": "(?i)^\\s*(IMPLEMENTATION)[ \\t]+(?:(ST)|(LD|FBD)(?:[ \\t]+(UNSUPPORTED))?|(CFC|SFC|IL|(?!(?:ST|LD|FBD|UNSUPPORTED)[ \\t])[A-Za-z_][A-Za-z0-9_]*)[ \\t]+(UNSUPPORTED))[ \\t]*$",
       "captures": {
         "1": {
           "name": "keyword.other.implementation.structured-text"

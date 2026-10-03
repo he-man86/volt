@@ -311,6 +311,12 @@ public sealed partial class BeckhoffDriver
     public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         UntypedInterfaceMember(memberKind, name, seed);
 
+    /// <summary>The push pre-flight's task refusal (<c>ICodeStore.ValidateTask</c>): what TwinCAT's PLC task cannot hold
+    /// (a type other than Cyclic, an event, a watchdog) or nobody could read (a priority that is no number), by the very
+    /// patch the write builds (<see cref="TcTaskSchedule.SysTaskPatch"/>, pure), so it refuses before the batch's first
+    /// write.</summary>
+    public override void ValidateTask(TaskSettings settings) => TcTaskSchedule.SysTaskPatch(settings);
+
     /// <summary>An interface PROPERTY with no type, or an interface METHOD whose line has nothing after its <c>:</c>;
     /// an interface method with no colon at all is untyped and created with a null vInfo, as it always was.</summary>
     private static string? UntypedInterfaceMember(string memberKind, string name, string? seed) =>

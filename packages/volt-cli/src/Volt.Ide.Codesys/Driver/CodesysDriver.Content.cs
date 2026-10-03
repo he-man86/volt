@@ -120,14 +120,16 @@ public sealed partial class CodesysDriver
             case "NWLImplementationObject":
             {
                 // IL is a VIEW of this same aspect, not a separate one, so an IL body arrives HERE and not in
-                // the UNSUPPORTED arm below. ReadViewMode used to THROW for it, and the cost of that throw was total:
+                // the UNSUPPORTED arm below. the view read used to THROW for it, and the cost of that throw was total:
                 // Versioning.SafeVersion swallows it to UNREADABLE, and FetchService then drops the item from
                 // `changed`, `items` AND `folders` — so one IL-view method inside an ordinary ST function block
                 // removed the ENTIRE POU, declaration and every sibling method with it, from refs and fetch, on
                 // every pull, with only a log warning. IL is unsupported, which is exactly what the UNSUPPORTED line
-                // is for: `IMPLEMENTATION IL UNSUPPORTED`.
-                var language = ReadViewMode(impl);
-                if (language is null) return (ImplementationMarker.Unsupported(Languages.Il), null);
+                // is for: `IMPLEMENTATION IL UNSUPPORTED`. A view Volt has never seen, or none, is the same loss and the
+                // same answer under its own name (`IMPLEMENTATION <VIEW> UNSUPPORTED`, `IMPLEMENTATION NWL UNSUPPORTED`:
+                // NetworkText.ViewLanguage, D27, openspec bridge-refusal-review 2.23) — it threw here too.
+                var stated = NetworkText.ViewLanguage(ViewModeText(impl));
+                if (NetworkText.LanguageNamed(stated) is not { } view) return (ImplementationMarker.Unsupported(stated), null);
 
                 // A BODY THE READER CANNOT REPRESENT IS `IMPLEMENTATION LD|FBD UNSUPPORTED`, NOT A MISSING POU — and so
                 // is every LD and FBD body while network text is off in this process. `NetworkText.Pulled` decides both,
@@ -152,57 +154,41 @@ public sealed partial class CodesysDriver
                 // coil, a rung driving two jumps, a connection by an output slot the text cannot name. The writer
                 // raises the one exception for every such fact (network text v2: pull never throws anything
                 // else), so it is the same refusal as the reader's, and as IL.
-                var view = language.Value;
                 return NetworkText.Pulled(view, () =>
                     NetworkTextWriter.Write(CodesysNetworkReader.Read(impl, view), Declarations.ScopeForPull(declaration))
                         .TrimEnd('\n'));
             }
 
             default:
-                // CFC and SFC: a language Volt does not read, so the body is its UNSUPPORTED line
-                // (`IMPLEMENTATION CFC UNSUPPORTED`) and an engineer gets a file that says so rather than an editable-looking
-                // approximation of a diagram.
+                // CFC, SFC, and an aspect Volt has never seen: a language Volt does not read, so the body is its
+                // UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`) and an engineer gets a file that says so rather than
+                // an editable-looking approximation of a diagram.
                 return (ImplementationMarker.Unsupported(UnreadLanguage(impl.GetType().Name)), null);
         }
     }
 
-    /// <summary>FBD or LD, from the aspect's <c>DefaultViewMode</c> — the vendor's own
-    /// <c>NWLDisplayMode { LD, FBD, IL }</c>. Measured on a real ladder project: <c>'Ld'</c>.
-    /// <para>IL is a VIEW of the same network model, not a separate body format, and Volt does not author it.
-    /// A body in IL view is refused rather than rendered as FBD, because rendering it would hand the engineer a
-    /// diagram they did not write.</para></summary>
-    internal static BodyLanguage? ReadViewMode(object impl)
-    {
-        var mode = NwlInterop.Require(impl, "DefaultViewMode").ToString() ?? "";
-        if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
-        if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
+    /// <summary>The aspect's <c>DefaultViewMode</c> as the vendor spells it — <c>INWLImplementationObject.DefaultViewMode</c>
+    /// is a STRING (reflected off SP21's <c>NWLObject.dll</c>; the enum behind it is <c>NWLDisplayMode { LD, FBD, IL }</c>),
+    /// measured <c>'Ld'</c> on a real ladder project — or null when the member holds none. What it means is
+    /// <see cref="NetworkText.ViewLanguage"/>'s to say, the one answer both vendors give.
+    /// <para>A type with no such MEMBER is not "no view": SP21's <c>INWLImplementationObject</c> always declares it, so its
+    /// absence is another or unpinned vendor assembly — refused naming the member and the assembly
+    /// (<see cref="NwlInterop.Declared"/>). Read as a null value, it pulled every LD/FBD body of the project as a hidden
+    /// body with no reason and no log line (review 2e+2g, medium).</para></summary>
+    internal static string? ViewModeText(object impl) => NwlInterop.Declared(impl, "DefaultViewMode")?.ToString();
 
-        // NULL means "a view Volt does not author" — IL, today. The caller turns that into IMPLEMENTATION IL UNSUPPORTED, which is
-        // how every other unsupported language is handled. Throwing here instead took the whole enclosing POU
-        // out of refs and fetch, which is a far larger loss than the body Volt cannot render.
-        if (mode.Equals("IL", StringComparison.OrdinalIgnoreCase)) return null;
-
-        throw new NotSupportedException(
-            $"CODESYS: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
-            "authored, IL is hidden (IMPLEMENTATION IL UNSUPPORTED) — an unknown fourth view is refused rather than guessed at.");
-    }
-
-    /// <summary>The language of a body aspect Volt does not read — <c>CFCImplementationObject</c> to <c>CFC</c>,
-    /// <c>SFCImplementationObject</c> to <c>SFC</c>.
-    /// <para>Those two and nothing else. The UNSUPPORTED line states a language the reader and the LSP both know, so an
-    /// aspect Volt has never seen is refused naming it — as <see cref="ReadViewMode"/> refuses an unknown view —
-    /// rather than written into the file as a language no reader recognises. (It used to become a marker naming
-    /// whatever the type name said.)</para></summary>
+    /// <summary>The language of a body aspect Volt does not read, as its UNSUPPORTED line states it: the aspect's class
+    /// name without <c>ImplementationObject</c> — <c>CFCImplementationObject</c> to <c>CFC</c>, <c>SFCImplementationObject</c>
+    /// to <c>SFC</c>, and an aspect Volt has never seen to the vendor's own name for it (D27, openspec bridge-refusal-review
+    /// 2.24). That was a refusal, and a refusal on the read path took the whole POU out of refs and fetch.</summary>
     private static string UnreadLanguage(string aspectTypeName)
     {
         var name = aspectTypeName.EndsWith("ImplementationObject", StringComparison.Ordinal)
-            ? aspectTypeName.Substring(0, aspectTypeName.Length - "ImplementationObject".Length).ToUpperInvariant()
-            : aspectTypeName.ToUpperInvariant();
-        return name is Languages.Cfc or Languages.Sfc
-            ? name
-            : throw new NotSupportedException(
-                $"CODESYS: the body aspect is '{aspectTypeName}', a language Volt has never seen. ST, FBD and LD are " +
-                "read, CFC, SFC and IL are hidden (UNSUPPORTED) — an unknown language is refused rather than guessed at.");
+            ? aspectTypeName.Substring(0, aspectTypeName.Length - "ImplementationObject".Length)
+            : aspectTypeName;
+        return name.ToUpperInvariant() is Languages.Cfc or Languages.Sfc
+            ? name.ToUpperInvariant()
+            : ImplementationMarker.VendorLanguage(name);
     }
 
     // ── members ───────────────────────────────────────────────────────────────────────────────────

@@ -200,14 +200,15 @@ public static class PushService
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
             try
             {
-                if (ItemKind.IsTaskWireName(set.Name)) TaskDescriptorFormat.Gate(text);
+                // …and the driver, for what its vendor cannot hold of the settings the gate read (`ICodeStore.ValidateTask`).
+                if (ItemKind.IsTaskWireName(set.Name)) ide.ValidateTask(TaskDescriptorFormat.Gate(text));
                 else
                 {
                     var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
                     // Read by the kind of the name the op LANDS under — its extension, never the text's header.
-                    ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations,
-                                          ItemKind.KindForWireName(set.ToName ?? set.Name)!,
-                                          itemCache.TryGetValue(Materializer.Bare(set.Name), out var cached) ? cached.Item : null);
+                    var cached = itemCache.TryGetValue(Materializer.Bare(set.Name), out var held) ? held.Item : (ItemRef?)null;
+                    var bodies = ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations,
+                                          ItemKind.KindForWireName(set.ToName ?? set.Name)!, cached);
                     // …and what only the DRIVER can decide without writing. This is the class the comment above
                     // used to name as out of reach — a body one vendor's format cannot express — and it is out
                     // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
@@ -216,12 +217,15 @@ public static class PushService
                     // `test/e2e/graphical/refused-shapes.test.ts`, which used to watch a two-item push write the
                     // first and refuse the second.
                     //
-                    // A CREATE ONLY, and the asymmetry is the vendor's own: an update rewrites just the
-                    // networks that CHANGED, so a body can legitimately carry a shape the whole-body writer
-                    // refuses — an Execute box the engineer drew in the IDE, in a network this edit does not
-                    // touch. Validating the whole body on an update would refuse that edit, which is a worse
-                    // failure than the partial write this is here to stop.
-                    if (creating) ide.ValidateSource(set.Name, text, pushedDeclarations);
+                    // EVERY BODY THE WRITE WOULD CREATE, and the driver says which those are: an update rewrites
+                    // just the networks that CHANGED of a body the IDE holds, so such a body can legitimately carry
+                    // a shape the whole-body writer refuses — an Execute box the engineer drew, in a network this
+                    // edit does not touch — while a NEW member of the same item is created whole. This asked only
+                    // on a new ITEM, so that member was refused mid-batch, after the earlier ops had landed
+                    // (openspec bridge-refusal-review 2.28, D21). The driver is handed the item the op writes into
+                    // (null for a create) and the MODELS the engine just validated, never the text (2.27, D8/D12).
+                    if (bodies.Count > 0)
+                        ide.ValidateSource(creating ? null : cached ?? ItemLookup.Find(ide, Materializer.Bare(set.Name)), bodies);
                 }
             }
             catch (Exception ex) { preflight.Add(ConflictFor(op, ex)); }
@@ -1066,7 +1070,9 @@ public static class PushService
     /// the IDE's. So this READS the project — once per operation, indexed in one walk the driver shares with the
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
-    private static void ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
+    /// <returns>Every network-text body the source carries, as the model this validated it into, with where it sits —
+    /// what the driver's own pre-flight is handed (<see cref="ICodeStore.ValidateSource"/>), so the text is read once.</returns>
+    private static List<PushedNetworkBody> ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
                                               PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
         var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
@@ -1100,9 +1106,11 @@ public static class PushService
         // Each body against ITS OWN scope (`SourceScopes.BodiesOf`: a member's declarations, then its owner's), the
         // one the driver writes a pulled body against — network text v2 reads a call head as an FB instance, and a
         // wire name as free, only against the declarations (`NetworkScope`).
-        foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
+        var bodies = new List<PushedNetworkBody>();
+        foreach (var (site, body, declaration) in SourceScopes.SitesOf(split))
         {
-            if (body is { } b && NetworkText.Is(b)) NetworkText.Validate(b, ide.NetworkScopeFor(declaration, pushedDeclarations));
+            if (body is { } b && NetworkText.Is(b))
+                bodies.Add(new PushedNetworkBody(site, NetworkText.Validate(b, ide.NetworkScopeFor(declaration, pushedDeclarations))));
         }
 
         // AND A CREATE'S UNSUPPORTED REFUSAL, which is text-decidable in exactly the same way. A body Volt cannot
@@ -1118,6 +1126,7 @@ public static class PushService
         // refused an UPDATE carrying an UNSUPPORTED line would break every push of a project that merely contains a CFC
         // POU, which is a far worse failure than the late refusal this replaces.
         if (isCreate) BodyFormatGuard.RequireAuthorable(split);
+        return bodies;
     }
 
     /// <summary>A MEMBER CREATE THE IDE REFUSES FROM ITS ARGUMENT, before the first write (bridge-refusal-review 1+2d

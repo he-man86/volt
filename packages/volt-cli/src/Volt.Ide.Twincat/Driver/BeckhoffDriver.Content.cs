@@ -53,20 +53,61 @@ public sealed partial class BeckhoffDriver
     /// of the first write.</para>
     ///
     /// <para>It deliberately stops there. The IMPORT that follows in a real write can still fail on something
-    /// only the live project knows, and pretending otherwise here would be a pre-flight that lies.</para></summary>
-    public override void ValidateSource(string wireName, string sourceText,
-                               PushedDeclarations pushedDeclarations)
+    /// only the live project knows, and pretending otherwise here would be a pre-flight that lies.</para>
+    ///
+    /// <para><b>The models are the engine's</b> (openspec bridge-refusal-review 2.27, D8/D12): it validated each body
+    /// against its own scope a moment ago. This used to re-read the whole source with <c>StReader</c>, re-derive the
+    /// kind from the wire name and validate every body again — a second reading the first could disagree with.</para></summary>
+    ///
+    /// <para><b>Per BODY</b> (openspec bridge-refusal-review 2.28, D21): the lowering runs for exactly the bodies the
+    /// write would CREATE — every body of a new item (<paramref name="existing"/> null), and in an existing item each
+    /// body whose live implementation <see cref="CreatesBody"/> sends through the import, the one rule
+    /// <see cref="ResolveBody"/> writes by: a member the item does not hold under that name and kind (the reconciler
+    /// creates it), an accessor the property does not carry, a blank implementation or an archive with nothing drawn
+    /// in it. A body the write EDITS in place is not lowered: the in-place writer takes shapes the import does not.
+    /// This ran per ITEM, so a new graphical member in an existing POU was refused mid-batch.</para></summary>
+    public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)
     {
-        var split = StReader.Read(sourceText, ItemKind.KindForWireName(wireName)
-            ?? throw new ArgumentException($"'{wireName}' is not a wire name: its extension names no item kind", nameof(wireName)));
-        foreach (var (body, declaration) in SourceScopes.BodiesOf(split))
+        Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members = null;
+        foreach (var body in bodies)
         {
-            if (body is not { } text || !NetworkText.Is(text)) continue;
-            var model = NetworkText.Validate(text, NetworkScopeFor(declaration, pushedDeclarations));
-            // The name is the scratch POU's, and nothing reads it back — only whether the writer throws.
-            TcPlcOpenWriter.WriteProject("VoltPreflight", model);
+            if (existing is { } item && !Creates(item, body.Site, ref members)) continue;
+            // The name is the scratch POU's, and nothing reads it back — only whether the writer throws. A member's
+            // refusal names the member: the op names only the item.
+            try { TcPlcOpenWriter.WriteProject("VoltPreflight", body.Model); }
+            catch (NotSupportedException ex) when (ex.GetType() == typeof(NotSupportedException) && body.Site.Member is not null)
+            {
+                throw new NotSupportedException($"{body.Site}: {ex.Message}", ex);
+            }
         }
     }
+
+    /// <summary>Would the write CREATE the body at <paramref name="site"/> of the existing <paramref name="item"/>?
+    /// Asked of the live tree exactly as the write asks it (<see cref="Collect"/>, <see cref="WriteOne"/>).</summary>
+    private bool Creates(ItemRef item, BodySite site, ref Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members)
+    {
+        if (site.Member is not { } name) return CreatesBody(_om.ReadImplementation(item.Native));
+
+        members ??= Volt.Engine.Ide.MemberSites.Of(this, item)
+            .GroupBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        // Not held under this name AND kind: the reconciler creates it (a retyped member is deleted and created again).
+        if (!members.TryGetValue(name, out var member) || ItemKind.Map(member.Code) != site.MemberKind) return true;
+        if (site.Accessor is not { } accessor) return CreatesBody(_om.ReadImplementation(member.Ref.Native));
+
+        var itf = site.MemberKind == ItemKind.Kinds.InterfaceProperty;
+        var code = accessor == BodySite.Get ? (itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet)
+                                            : (itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet);
+        return AccessorSite(member.Ref, code) is not { } node || CreatesBody(_om.ReadImplementation(node.Native));
+    }
+
+    /// <summary>Does the write take the CREATE door for a body whose live implementation is <paramref name="existing"/>?
+    /// Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is null": that is
+    /// also true of a TEXTUAL body, and routing those to the import would silently turn live ST into a diagram instead
+    /// of refusing — which is what <see cref="TcNetworkWriter"/> is for. The ONE rule: <see cref="ResolveBody"/> writes
+    /// by it and the pre-flight lowers by it.</summary>
+    private static bool CreatesBody(string? existing) =>
+        string.IsNullOrWhiteSpace(existing) || (TcArchive.Root(existing) is { } live && TcArchive.HasNoItems(live));
 
     public void WriteContent(ItemRef item, ItemContent content,
                              PushedDeclarations pushedDeclarations)
@@ -265,8 +306,12 @@ public sealed partial class BeckhoffDriver
 
         if (TcArchive.Root(raw) is { } impl)
         {
-            var language = ViewModeOf(impl);
-            if (language is null) return (ImplementationMarker.Unsupported(Languages.Il), null);
+            // IL, a view Volt has never seen, or none at all is the body's UNSUPPORTED line under that name
+            // (`IMPLEMENTATION IL|<VIEW>|NWL UNSUPPORTED`: NetworkText.ViewLanguage, the one answer CODESYS gives too).
+            // An unknown or missing view threw here, outside `Pulled`, which took the whole POU out of refs and fetch
+            // (D27, openspec bridge-refusal-review 2.29).
+            var stated = NetworkText.ViewLanguage(TcArchive.ViewMode(impl));
+            if (NetworkText.LanguageNamed(stated) is not { } view) return (ImplementationMarker.Unsupported(stated), null);
 
             // EVERY LD AND FBD BODY GOES THROUGH `NetworkText.Pulled`, as on CODESYS: while network text is off in this
             // process it is the UNSUPPORTED line with the switch's reason, and nothing below is read; on, it is network
@@ -302,7 +347,6 @@ public sealed partial class BeckhoffDriver
             // for every such fact (network text v2: pull never throws anything else). `VendorCapabilityParityTests`
             // holds the two drivers there — CODESYS had no pre-scan at all and lost POUs outright, which is what the
             // vendor differential map found on 2026-09-22.
-            var view = language.Value;
             return NetworkText.Pulled(view, () =>
             {
                 if (TcArchive.HasUnreadableExecuteBox(impl))
@@ -323,38 +367,6 @@ public sealed partial class BeckhoffDriver
         // known, rather than read back from the file as the language it states.
         var body = raw.TrimEnd('\n');
         return (body.Length == 0 ? null : ImplementationMarker.RequireStBody(body), null);
-    }
-
-    /// <summary>FBD or LD, from the archive's <c>DefaultViewMode</c>. IL is the same network model in a third
-    /// view; Volt does not author it, so it is refused rather than re-rendered as a diagram the engineer did
-    /// not write.</summary>
-    internal static BodyLanguage? ViewModeOf(XElement impl)
-    {
-        // NO `?? "Fbd"`, AND NO NULL EITHER. An archive with no DefaultViewMode is a body whose view Volt cannot
-        // determine: guessing FBD renders a ladder as a function-block diagram, and answering null — which this did —
-        // shares IL's answer, so the body was pulled as `IMPLEMENTATION IL UNSUPPORTED`, a language it is not known to have. The
-        // stated language is the one signal for how a body is read, and a missing one is refused by name. CODESYS
-        // demands the member (`NwlInterop.Require`), and this now answers the same.
-        var mode = TcArchive.ViewMode(impl)
-            ?? throw new NotSupportedException(
-                "TwinCAT: the graphical body states no DefaultViewMode, so its language (FBD, LD or IL) is unknown — " +
-                "it is refused rather than pulled under a language it was guessed to have.");
-        if (mode.Equals("Ld", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Ld;
-        if (mode.Equals("Fbd", StringComparison.OrdinalIgnoreCase)) return BodyLanguage.Fbd;
-
-        // NULL means "a view Volt does not author" - IL - and the caller states it as `IMPLEMENTATION IL UNSUPPORTED`,
-        // exactly as CODESYS does. Throwing here instead took the WHOLE ENCLOSING POU out of git: SafeVersion
-        // swallows the throw to UNREADABLE and FetchService then skips the item, so one IL-view METHOD inside an
-        // ordinary ST function block removed the declaration, the body and every sibling method too - and
-        // PushService's `live = ide.ReadContent(pou)` threw, so it could not be pushed back either.
-        //
-        // This is the CODESYS fix (audit defect #4, eaacd48cd3) reaching its TwinCAT twin. Both vendors must
-        // answer identically for the same project, and this is the same fact on the same object model.
-        if (mode.Equals("IL", StringComparison.OrdinalIgnoreCase)) return null;
-
-        throw new NotSupportedException(
-            $"TwinCAT: the graphical body's view mode is '{mode}', which Volt has never seen. FBD and LD are " +
-            "authored, IL is hidden (IMPLEMENTATION IL UNSUPPORTED) - an unknown fourth view is refused rather than guessed at.");
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
@@ -401,11 +413,8 @@ public sealed partial class BeckhoffDriver
     {
         // The scope the body was read against: the in-place writer's change gate renders the live network with it.
         var scope = NetworkScopeFor(declaration, pushedDeclarations);
-        // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
-        // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
-        // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
-        var live = string.IsNullOrWhiteSpace(existing) ? null : TcArchive.Root(existing);
-        if (string.IsNullOrWhiteSpace(existing) || (live != null && TcArchive.HasNoItems(live)))
+        // Blank, or an archive the engineer has drawn nothing into: CreatesBody, the rule the pre-flight lowers by.
+        if (CreatesBody(existing))
         {
                 // TWO STEPS, and each does only what it can do honestly.
                 //
