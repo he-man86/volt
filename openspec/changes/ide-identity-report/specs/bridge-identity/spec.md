@@ -26,7 +26,11 @@ The bridge SHALL read the underlying platform version only from a source that is
 
 ### Requirement: the bridge reports its release
 
-The bridge SHALL report on health the release version stamped into its binary when it was packaged, distinct for every release, and `(dev)` for an unstamped build — never the shared `1.0.0.0`.
+The bridge SHALL report on health the release version stamped into its binary when it was packaged, distinct for every release. An unstamped build SHALL report `(dev)` followed by the commit its own file's `ProductVersion` states (`1.0.0+<commit>` → `(dev) <commit>`, verbatim), so two unstamped builds of different commits never report the same value; only a build whose `ProductVersion` states no commit reports a bare `(dev)`. Never the shared `1.0.0.0`.
+
+#### Scenario: two unstamped bundles
+- **WHEN** two unstamped bridges built from different commits report health (as the PLCAssist bundles are: every file `FileVersion` `1.0.0.0`, `ProductVersion` `1.0.0+<commit>`)
+- **THEN** each reports `(dev) <its commit>` and the two values differ
 
 #### Scenario: two releases
 - **WHEN** two bridges built from different releases report health

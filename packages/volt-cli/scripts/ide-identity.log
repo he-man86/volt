@@ -1,0 +1,98 @@
+platform (SystemInstances assembly version): 3.5.21.40
+  defined in: C:\Program Files\CODESYS 3.5.21.40\CODESYS\Common\SystemInstances.dll
+host process exe: CODESYS.exe
+  FileVersionInfo.ProductName          'CODESYS'
+  FileVersionInfo.ProductVersion       '3.5.21.40'
+  FileVersionInfo.FileVersion          '3.5.21.40'
+  FileVersionInfo.CompanyName          'CODESYS Development GmbH'
+  FileVersionInfo.FileDescription      'CODESYS Development System'
+  FileVersionInfo.LegalCopyright       'Copyright (c) 2023 CODESYS Development GmbH'
+  FileVersionInfo.ProductMajorPart     3
+  FileVersionInfo.ProductMinorPart     5
+  FileVersionInfo.ProductBuildPart     21
+  FileVersionInfo.ProductPrivatePart   40
+entry assembly: CODESYS, Version=3.5.21.40, Culture=neutral, PublicKeyToken=null
+  AssemblyProductAttribute                 'CODESYS'
+  AssemblyCompanyAttribute                 'CODESYS Development GmbH'
+  AssemblyInformationalVersionAttribute    None
+SystemInstances.Engine:
+      type: _3S.CoDeSys.Engine.Engine
+        UnsavedDataDirectory         None
+        ProfileInformationData       Array[Byte]((33, 29, 48, 133, 106, 252, 111, 7, 194, 0, 0, 0, 185, 129, 31, 36, 0, 0, 0, 0   (read-only)
+        EditorFactoryManager         <. object at 0x0000000000000087 [.]>   (read-only)
+        EditorManager                <. object at 0x0000000000000088 [.]>   (read-only)
+        CommandManager               <_3S.CoDeSys.Engine.CommandManager object at 0x0000000000000089 [_3S.CoDeSys.Engine.Comman   (read-only)
+        Frame                        None
+        Projects                     <. object at 0x000000000000008A [.]>   (read-only)
+        SettingsFolder               'C:\\Program Files\\CODESYS 3.5.21.40\\CODESYS\\Settings'   (read-only)
+        AllowSuppressingOfLengthyOperation False
+        FileReferenceManager         <_3S.CoDeSys.Engine.FileReferenceManager object at 0x000000000000008B [_3S.CoDeSys.Engine.   (read-only)
+        MessageService               <_3S.CoDeSys.ScriptDriverSystem.MessageService5Impl`1[[_3S.CoDeSys.Core.IMessageService5,    (read-only)
+        ResourceManager              <_3S.CoDeSys.Engine.CachingResourceManager object at 0x000000000000008D [_3S.CoDeSys.Engin   (read-only)
+        OEMCustomization             <. object at 0x000000000000008E [.]>   (read-only)
+        TemporaryFileService         <_3S.CoDeSys.Engine.TemporaryFileService object at 0x000000000000008F [_3S.CoDeSys.Engine.   (read-only)
+        OptionHandler                <. object at 0x0000000000000090 [.]>   (read-only)
+        IsUpdateLanguageModelSuppressed False   (read-only)
+        CommandLineManager           <_3S.CoDeSys.Engine.CommandLineManager object at 0x0000000000000091 [_3S.CoDeSys.Engine.Co   (read-only)
+        LengthyOperationIsActive     True   (read-only)
+        IsInOptionProtectionMode     False
+        methods: , , , , , AttachToEvent, BeginCleanAll, BeginSuppressUpdateLanguageModel, CallFunction, CheckObjectAccess, ClearRecoveryInformation, CreateProfileInformationDataThreadProc, DetachFromEvent, EndCleanAll, EndSuppressUpdateLanguageModel, EnterOptionProtectionMode, Equals, Finalize, GetHashCode, GetNativeOptionFilePath, GetNativeUserOptionFilePath, GetProfileInformationData, GetType, GetUserOptio
+  all 47 method names of SystemInstances.Engine (type + interfaces, public and non-public):
+    method 
+    method 
+    method 
+    method 
+    method 
+    method AttachToEvent
+    method BeginCleanAll
+    method BeginSuppressUpdateLanguageModel
+    method CallFunction
+    method CheckObjectAccess
+    method ClearRecoveryInformation
+    method CreateProfileInformationDataThreadProc
+    method DetachFromEvent
+    method EndCleanAll
+    method EndSuppressUpdateLanguageModel
+    method EnterOptionProtectionMode
+    method Equals
+    method Finalize
+    method GetHashCode
+    method GetNativeOptionFilePath
+    method GetNativeUserOptionFilePath
+    method GetProfileInformationData
+    method GetType
+    method GetUserOptionFilePath
+    method Initialize
+    method InvokeInPrimaryThread
+    method IsFunctionAvailable
+    method MemberwiseClone
+    method RaiseEvent
+    method ReportConsoleReady
+    method ReportUIReady
+    method SaveRecoveryInformation
+    method SetMessageService
+    method Shutdown
+    method StartBoxingLengthyOperation
+    method StartLengthyOperation
+    method ToString
+    method TryImportingOptions
+    method UpdateLanguageModel
+    method add_ConsoleReady
+    method add_Exiting
+    method add_Initialized
+    method add_UIReady
+    method remove_ConsoleReady
+    method remove_Exiting
+    method remove_Initialized
+    method remove_UIReady
+  members naming version/product/vendor/company/oem (any visibility): 2
+    Method get_OEMCustomization
+    Property OEMCustomization
+Engine.OEMCustomization:
+      type: .
+        ProductName                  'CODESYS'   (read-only)
+        ProductPathComponent         'CODESYS'   (read-only)
+        methods: , , Equals, Finalize, GetBoolValue, GetHashCode, GetIntValue, GetStringValue, GetType, GetValue, HasValue, MemberwiseClone, ToString
+  ProductName          'CODESYS'
+  ProductPathComponent 'CODESYS'
+  field                             None

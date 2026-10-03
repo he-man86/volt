@@ -127,6 +127,14 @@ words, not a pre-flight; `member-name-refusal-rule.log`; openspec `push-keeps-wh
 
 **Session** — `probe-tc-project-object` (a solution project is told apart by what it can ANSWER: an unknown member on a COM object comes back null, so only a `LookupTreeItem` call discriminates — DIALECT D35).
 
+**IDE identity** — `probe-ide-identity.py` (CODESYS, read-only `--noUI --runscript`, no project: what a running IDE states
+about itself — the platform version, `OEMCustomization`, the host exe's version-info and the entry assembly;
+`ide-identity.log`, DIALECT V1/V4) and `probe-tc-ide-identity.ps1` (TwinCAT, starts and quits its OWN TcXaeShell: the DTE,
+the shell exe's version-info and four TwinCAT-build sources, with no solution and with a fixture copy open; its own
+shell is the owner of `DTE.MainWindow.HWnd`, never a process diff; run it from a 32-bit PowerShell (`tc-ide-identity.log`)
+AND a 64-bit one (`-Log tc-ide-identity-64.log`) — a 64-bit reader, like the worker, sees 7 of the 32-bit shell's
+modules; DIALECT V5). openspec `ide-identity-report` 1.1–1.5.
+
 **Online / simulation** — `probe-online-state` (a POU runs in simulation and every variable reads back as a typed
 string, `INT#5`; the scripting `ScriptOnline` only works INSIDE a running script, so no C# pipe op can use it —
 why the transpiler's oracle, `volt-lsp-iec/scripts/record-exec.py`, is a runscript).

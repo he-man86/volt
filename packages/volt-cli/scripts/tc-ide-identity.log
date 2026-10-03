@@ -1,0 +1,33 @@
+﻿probe process: 32-bit
+own XAE pid: 46624 (owner of DTE.MainWindow.HWnd, image TcXaeShell)
+DTE.Name     : TcXaeShell
+DTE.Version  : 15.0
+DTE.Edition  : Express
+DTE.FullName : C:\Program Files (x86)\Beckhoff\TcXaeShell\Common7\IDE\TcXaeShell.exe
+shell exe version-info: ProductName='TcXaeShell Application' ProductVersion='15.0.0.0' FileVersion='15.0.0.0' CompanyName='Beckhoff' FileDescription='TcXaeShell Application'
+--- no solution open
+TcRemoteManager.Version  : 
+TcRemoteManager.Versions : 3.1.4024.74, 3.1.4024.50
+modules listed: 174
+  2 Beckhoff module(s) at FileVersion '3.1.4024.74': TwinCAT XAE Base.dll, TwinCAT XAE BaseUI.dll
+  1 Beckhoff module(s) at FileVersion '3.1.0.2206': TCATAdsAmsU14.dll
+  1 Beckhoff module(s) at FileVersion '15.0.0.0': TcXaeShell.exe
+  loaded TwinCAT XAE Base.dll: FileVersion='3.1.4024.74' ProductVersion='3.1.4024.74' Product='TwinCAT XAE' Company='Beckhoff Automation' (C:\TwinCAT\3.1\Components\Base\TwinCAT XAE Base.dll)
+  loaded TwinCAT XAE BaseUI.dll: FileVersion='3.1.4024.74' ProductVersion='3.1.4024.74' Product='TwinCAT XAE' Company='Beckhoff Automation' (C:\TwinCAT\3.1\Components\Base\1033\TwinCAT XAE BaseUI.dll)
+solution open: C:\Users\marce\AppData\Local\Temp\volt-probe-tc-identity-b0a7ca6d3745407fb2031987138c7b12\TwinCAT Project14.sln projects=1
+--- with the fixture solution open
+TcRemoteManager.Version  : 3.1.4024.74
+TcRemoteManager.Versions : 3.1.4024.74, 3.1.4024.50
+modules listed: 217
+  2 Beckhoff module(s) at FileVersion '3.1.0.2206': TCATAdsAmsU14.dll, TCATAdsAms10.dll
+  2 Beckhoff module(s) at FileVersion '3.1.4024.74': TwinCAT XAE Base.dll, TwinCAT XAE BaseUI.dll
+  2 Beckhoff module(s) at FileVersion '3.1.0.4384': TwinCAT System Manager.dll, TwinCAT System ManagerUI.dll
+  1 Beckhoff module(s) at FileVersion '2, 11, 0, 45': TcAdsDll.DLL
+  1 Beckhoff module(s) at FileVersion '3, 1, 0, 201': AdsDll.dll
+  1 Beckhoff module(s) at FileVersion '15.0.0.0': TcXaeShell.exe
+  1 Beckhoff module(s) at FileVersion '3.1.1.0': TcEventLoggerAdsProxy.dll
+  loaded TwinCAT XAE Base.dll: FileVersion='3.1.4024.74' ProductVersion='3.1.4024.74' Product='TwinCAT XAE' Company='Beckhoff Automation' (C:\TwinCAT\3.1\Components\Base\TwinCAT XAE Base.dll)
+  loaded TwinCAT XAE BaseUI.dll: FileVersion='3.1.4024.74' ProductVersion='3.1.4024.74' Product='TwinCAT XAE' Company='Beckhoff Automation' (C:\TwinCAT\3.1\Components\Base\1033\TwinCAT XAE BaseUI.dll)
+tsproj TcVersion attribute: 3.1.4024.74
+registry HKLM\SOFTWARE\Beckhoff\TwinCAT3\System (Registry32 view) TcVersion: 3.1.4024.74
+registry HKLM\SOFTWARE\Beckhoff\TwinCAT3\System (Registry64 view) TcVersion: <key absent>

@@ -71,7 +71,8 @@ connector), `14fe21dd70` (verification and review gate), `e4652fdfc9` (`@volt/co
      TwinCAT it becomes the TwinCAT build (`3.1.40xx.y`); the shell version it carries today moves to `productVersion`.
      It is null when it cannot be read, never derived from the product version.
 3. **Report the bridge's release on health**: the binary's own stamped version (the same reading as `volt --version`),
-   `(dev)` for an unstamped build — never the shared `1.0.0.0`.
+   for an unstamped build `(dev)` plus the commit its `ProductVersion` states (`1.0.0+<commit>`; measured on every
+   PLCAssist bundle, step 1.4) — never the shared `1.0.0.0`, and never one `(dev)` for different builds.
 4. **Settle the two field failures `codesys-minimum-version` could not** (moved here, each needs a field log the
    identity fields and the `bound:` lines will now produce): what failed on CODESYS 3.5.17, and whether to refuse when
    another Volt build is already loaded.
