@@ -176,7 +176,11 @@ function Test-TwincatAttached([int]$xaePid, [System.Diagnostics.Process]$worker,
     if ($worker -and $worker.HasExited) { return $false }
     $log = Join-Path $env:LOCALAPPDATA "Volt\logs\twincat-$(Get-Date -Format yyyy-MM-dd).log"
     if (-not (Test-Path $log)) { return $false }
-    $hits = Select-String -Path $log -Pattern "attached to TwinCAT.*xae pid $xaePid\)" -ErrorAction SilentlyContinue
+    # The worker's attach line names the IDE it reached by its OWN identity since ide-identity-report 2 ("attached to
+    # TcXaeShell 15.0 by Beckhoff (xae pid N)"); it used to read "attached to TwinCAT …", and a pattern on that word
+    # never matched again, so every attach was killed after its 60 s window and retried until `up` gave up. Keyed on
+    # the pid alone, which is what identifies the window.
+    $hits = Select-String -Path $log -Pattern "attached to .*\(xae pid $xaePid\)" -ErrorAction SilentlyContinue
     foreach ($h in $hits) {
         if ($h.Line -match '^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})') {
             $t = [datetime]::ParseExact($Matches[1], 'yyyy-MM-dd HH:mm:ss', $null)
