@@ -313,3 +313,24 @@ BAD_REQUEST for an unknown op or malformed body, INTERNAL_ERROR fallback in `Pip
       INTERNAL_ERROR, UNSUPPORTED — V.1; NOT_FOUND vs ITEM_MISSING — 7.2). Also: `ConflictCodes.FromBridge` omits
       `INTERNAL_ERROR`, which `PushService.ConflictFor` (:372) puts on every unclassified refusal — and since
       push-keeps-what-landed every apply-time stop is a conflict, so clients DO receive it there; list it.
+
+## 8. Negative e2e — every refusal proven live (owner, 2026-10-03: "our e2e tests don't really have negative tests")
+
+Measured 2026-10-03: the live e2e suite (51 files) asserts only 5 distinct wire codes (UNSUPPORTED ×3,
+NETWORK_UNSUPPORTED ×2, STALE_PROJECT_VERSION, ITEM_EXISTS, INVALID_ST) of the 24 in the vocabulary; the negative
+paths live almost only in the offline C# doubles, which cannot show what the real IDE does. After V.1–V.4 settle the
+codes, every code is proven against both live IDEs.
+
+- [ ] 8.1 One live negative matrix (`test/e2e/refusals/`), both vendors, data-driven (a table: trigger → expected code,
+      message fragment, and the state after): for EVERY code in BridgeErrorCodes/ConflictCodes that a client can
+      receive, one minimal trigger. Each row asserts (a) the exact code, (b) the message names the item, (c) the
+      project after the call — `refs` unchanged for a pre-write refusal (nothing written), exactly the receipt for an
+      apply-time stop — and (d) the CODESYS and TwinCAT answers are byte-identical except where DIALECT names the
+      difference. A code with no live trigger on a vendor is listed with the reason (e.g. CODESYS-only), never skipped
+      silently.
+- [ ] 8.2 The behaviour changes of this change get a live negative test each: the removed code checks now ACCEPT
+      (1.x: the IDE's own build reports the error instead), the silent drops now REFUSE (4.26 body without a slot,
+      4.31 move into a non-folder, D27 unknown view mode/language no longer drops the POU), the wrong FB/FUNCTION
+      body is built right (4.3).
+- [ ] 8.3 Gate (`Volt.Repo.Gates`, beside V.4): every client-visible code appears in the 8.1 table; a code added
+      later without a live row fails the gate.
