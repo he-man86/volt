@@ -22,6 +22,9 @@
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
     <Compile Include="..\shared\Scopes.cs" Link="Scopes.cs" />
     <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
+    <!-- The one in-memory driver double, for the fetch tests that feed it this vendor's REAL parsed signatures
+         (TcDirectedLibraryReadTests). -->
+    <Compile Include="..\shared\FakeIde.cs" Link="FakeIde.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- The suite's own vendor fixtures, beside the test binary. Without this the loader cannot find them. -->

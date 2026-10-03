@@ -149,10 +149,11 @@ public abstract class DriverBase : IIdeSession
     /// <summary>Precompile + read the referenced-library signatures. FetchService calls this ONLY when a referenced
     /// library's `.library` version changed (the client sends the versions it has in knownItems; the `.library` files
     /// are hashed like any other file), so the precompile runs only on a real library change. Both vendors override
-    /// it (CODESYS `AllPrecompiledSignatures`, TwinCAT `ProduceAllLibrarySignatures` in `TcObjectModel`); only test
-    /// doubles inherit the empty default.</summary>
-    public virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures() =>
-        Array.Empty<Library.LibSignature>();
+    /// it (CODESYS `AllPrecompiledSignatures`, TwinCAT `ProduceAllLibrarySignatures` in `TcObjectModel`).
+    /// <para>ABSTRACT, not an empty default (openspec <c>directed-library-signatures</c> 2.2): the empty answer is
+    /// indistinguishable from "this project references no library", and only the test doubles ever inherited it — so a
+    /// driver that forgot the override would have shipped "no library has an API" in silence.</para></summary>
+    public abstract IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
 
     /// <summary>Run <paramref name="probe"/> on a background thread, single-flight: a probe already in
     /// progress is skipped (health keeps the last snapshot). A probe failure never faults the /health request — but

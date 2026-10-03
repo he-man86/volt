@@ -125,6 +125,8 @@ public class HonestHealthTests
         public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");
+        public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+            throw new NotSupportedException("a health double reads no library");
     }
 
     /// <summary>The minimum DriverBase subclass: it counts probes and publishes an empty row list (which is what
@@ -180,5 +182,7 @@ public class HonestHealthTests
         public override IReadOnlyList<BridgeDiagnostic> GetBuildDiagnostics() => Array.Empty<BridgeDiagnostic>();
         public override string? RefusedLanguageChange(string site, string from, string to) =>
             throw new NotSupportedException("a health double writes no body");
+        public override IReadOnlyList<Volt.Engine.Library.LibSignature> ExtractLibrarySignatures() =>
+            throw new NotSupportedException("a health double reads no library");
     }
 }

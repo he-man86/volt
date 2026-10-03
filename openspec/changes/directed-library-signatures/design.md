@@ -49,7 +49,10 @@ EITHER ref returns them in the owner's folder (the same bytes as the full fetch;
 Refused by name, by contrast: one signature path claimed by refs with DIFFERENT RESOLUTIONs, which only the wildcard
 rule can produce (`X, * (V)` beside an `X` ref of another version, or two compiled versions of X). None of the five
 corpora has a wildcard ref sharing its title + company with any other ref; the signature side of that check is
-recorded for the two projects measured live only (1.1).
+recorded for the two projects measured live only (1.1). Scope of that refusal (gate step 2, default — the owner may overrule):
+a DIRECTED read naming either claimant throws, naming both refs and the path; a FULL fetch does not throw (that
+would make the whole project unpullable) — it keeps the path's signatures under `(unresolved)` and names both refs
+and the path in a Warn.
 
 **Left for the owner: the facade split.** 4-5 `(unresolved)` libraries per corpus (115-132 files: `cmpusermgr
 implementation`, `data server interfaces`, …) match no ref at all, while their facade refs (`CmpUserMgr, 3.5.17.0

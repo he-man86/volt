@@ -919,8 +919,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 child.KindCode == ItemKind.PlcAction ? $"ACTION {child.Name}" : child.Declaration ?? "",
                 BodyTextOf(child),
                 string.IsNullOrEmpty(child.Folder) ? null : child.Folder,
-                AccessorOf(child, ItemKind.PlcPropGet),
-                AccessorOf(child, ItemKind.PlcPropSet),
+                AccessorOf(child, ItemKind.PlcPropGet, ItemKind.PlcItfPropGet),
+                AccessorOf(child, ItemKind.PlcPropSet, ItemKind.PlcItfPropSet),
                 Unsupported: UnsupportedOf(child),
                 Stated: StatedOf(child));
         }
@@ -935,13 +935,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// cannot express a field cannot fail on it.</para>
     ///
     /// <para>Goes through the same <see cref="AccessorDeclaration.Keep"/> the drivers use, so the fake agrees
-    /// with them about when a declaration EXISTS rather than having a second opinion.</para></summary>
-    private Accessor? AccessorOf(Item property, int accessorKind)
+    /// with them about when a declaration EXISTS rather than having a second opinion.</para>
+    ///
+    /// <para>Both codes of the role: CODESYS classifies an interface accessor as the POU code (613/614), TwinCAT as
+    /// 654/655 — and <c>BeckhoffDriver</c> reads 654/655 as the accessor. The fake knew only 613/614, so a TwinCAT-shaped
+    /// interface accessor vanished from the read here while the real driver renders it (openspec
+    /// <c>directed-library-signatures</c> gate step 2).</para></summary>
+    private Accessor? AccessorOf(Item property, int pouAccessorKind, int interfaceAccessorKind)
     {
         foreach (var name in property.Children ?? System.Array.Empty<string>())
         {
             var acc = FindOrNull(Ref(name));
-            if (acc is null || acc.KindCode != accessorKind) continue;
+            if (acc is null || (acc.KindCode != pouAccessorKind && acc.KindCode != interfaceAccessorKind)) continue;
             return new Accessor(AccessorDeclaration.Keep(acc.Declaration), BodyTextOf(acc), UnsupportedOf(acc), StatedOf(acc));
         }
         return null;

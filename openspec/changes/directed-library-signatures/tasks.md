@@ -271,21 +271,116 @@
 
 ## 2. Test red
 
-- [ ] 2.1 An engine test: a directed read of one library returns that library's signature items and no other's —
+- [x] 2.1 An engine test: a directed read of one library returns that library's signature items and no other's —
       including a WILDCARD ref (`X, * (Vendor)`, R1) whose elements then sit beside its `.library` on the full fetch
       too; a named library that matches zero signatures is named in a Warn; one path claimed by refs with DIFFERENT
       RESOLUTIONs refuses by name; two refs with the SAME RESOLUTION (1.3 F1: `CAA Callback` + `CAA Callback Extern`)
       get the signatures once, beside the ordinal-least full name, whatever the walk order, and a directed read of
       either returns them.
-- [ ] 2.2 The same on TwinCAT (BeckhoffDriver's `ProduceAllLibrarySignatures`): the same item shape; fix the stale
+      **Done (red, 2026-10-03):** `test/Volt.Engine.Tests/library/DirectedLibraryReadTests.cs`, 17 cases on the
+      CODESYS fixture's recorded shape (Application Library Manager, lower-cased `LibraryPath`, the wildcard ref's item
+      name `CmpIoMgr Interfaces, %2A (System)`). **11 red** for the reason they exist (the manifest alone; wildcard
+      elements under `(unresolved)` — the invented `System_VisuElemBase` signature is gone, 2.5 G1; no Warn; no refusal; the CAA signatures beside the ref walked
+      LAST — red for one walk order only; 0 extractions where 2 are due). **6 green guards** that must stay green
+      through 3.1: a wildcard `(System)` ref does not claim another company's library, the facade split stays
+      `(unresolved)` (owner), a matched library is not warned about, a directed read naming no library extracts nothing,
+      the CAA case in the other walk order, and the directed read keeps `librariesRefreshed` false with nothing removed.
+      The refusal asserts a `BridgeException` naming both refs' full names and the claimed path (code left to 3.1).
+- [x] 2.2 The same on TwinCAT (BeckhoffDriver's `ProduceAllLibrarySignatures`): the same item shape; fix the stale
       `DriverBase.ExtractLibrarySignatures` comment ("TwinCAT has no library signatures yet").
       (Gate step 0 R4: the comment and its two other copies, `LibraryFetch.cs:28` and `IIdeSession.cs:105-107`, are
       already fixed; what remains here is the test and whether the base's empty default should go.)
-- [ ] 2.4 Data-driven over `ItemKind`: for EVERY kind a full fetch can return, a directed `fetch { onlyItems: [X.ext] }`
+      **Done (red, 2026-10-03):** `test/Volt.Ide.Twincat.Tests/TcDirectedLibraryReadTests.cs` feeds the engine this
+      vendor's REAL signatures — `TcLibrarySignatures.Parse` of the recorded `ProduceAllLibrarySignatures` excerpt
+      (`library-signatures.xml`), refs spelled as Project14 answers them (`References/Tc2_Standard`, exact-case
+      RESOLUTION). 4 cases: the full fetch's premise (every signature beside its ref, no `(unresolved)`) green; the
+      directed read of Tc2_Standard (RS with SET/RESET1 → Q1) and directed == full for Tc2_Standard and Tc2_System
+      **3 red**. The suite links `test/shared/FakeIde.cs` for it. **The empty default goes:**
+      `DriverBase.ExtractLibrarySignatures` is now `abstract` — "no signatures" is indistinguishable from "no library",
+      and only doubles inherited it; the two health doubles in `HonestHealthTests` now throw `NotSupportedException`
+      ("a health double reads no library"), as they already do for a body write.
+- [x] 2.4 Data-driven over `ItemKind`: for EVERY kind a full fetch can return, a directed `fetch { onlyItems: [X.ext] }`
       returns the same content for X as the full fetch (engine test on both vendors' doubles); a kind with no row fails.
-- [ ] 2.3 Measurement, not a cache (0.1 / R5): two directed reads in a row with no library change — the second is a
+      **Done (red, 2026-10-03):** `test/Volt.Engine.Tests/sync/DirectedReadPerKindTests.cs` — one row per
+      `ItemKind.Kinds` constant (34, by reflection; a missing or doubled row fails `Every_kind_has_exactly_one_row`),
+      and a row's route is checked against `ItemKind`'s own predicates so a kind cannot be filed under the wrong route:
+      19 **File** rows (4 source, the library, 14 descriptors incl. the task), 11 **ThroughOwner** rows (members,
+      accessors, transition, TwinCAT's interface accessors 654/655 and task call reference 650 — the owner's directed
+      read equals the full fetch's owner), 4 **NeverAnItem** (folder + 3 container managers). File and ThroughOwner rows
+      run in BOTH vendor shapes (CODESYS Application spine + Library Manager + lower-cased join; TwinCAT root +
+      `References` + exact join). 63 cases: **2 red** — the library row on both vendors (signatures missing from the
+      directed answer); every other kind is already readable on its own. (Corrected at gate step 2, 2.5 G2: the
+      Transition row passed with the transition in NEITHER answer — it is now NotRendered, pinned as read by no fetch;
+      and the TwinCAT-only rows run in the TwinCAT shape only — 60 cases, was 63.)
+- [x] 2.3 Measurement, not a cache (0.1 / R5): two directed reads in a row with no library change — the second is a
       WARM extraction (CODESYS `Build(app)` a no-op), on both vendors; numbers from 1.2. A cache is built only if the
       owner overrules archived `cache-library-signatures` D1.
+      **Done (baseline, 2026-10-03).** Engine half: `Each_directed_library_read_extracts_once_and_nothing_is_cached`
+      (2.1's file) pins NO bridge cache — two directed `.library` reads extract twice, one read naming two libraries
+      extracts once (red: 0 today). Live half: the read only extracts after 3.1, so "the second is warm" is measured
+      by the tool, not asserted here. `scripts/measure-library-signatures.ts` gained (a) a **2.3 section** — two
+      directed reads of DIFFERENT libraries in a row (the largest other library, then Standard), each timed and checked
+      against the full fetch's folder — and (b) an opt-in **per-item parity snapshot** (`MEASURE_PARITY=1`, for 4.1 /
+      4.3): every name `refs` publishes read on its own, `SAME`/`DIFFERS`/`AMBIGUOUS` against the last full fetch,
+      tallied per extension. Baseline runs (`scripts/library-signature-cost-{codesys-fixture,twincat-project14}-step2.log`):
+      | project | 2.3 reads today (ms) | parity today (per extension) | warm extraction the route will add (init − known, 1.2 + this run) |
+      |---|---|---|---|
+      | CODESYS fixture | `Util.library` 8, `Standard.library` 7 — both DIFFERS (115 / 22 signatures missing) | library 22 DIFFERS + 8 SAME (the 7 wildcard refs + facade `CmpEventMgr`: nothing beside them in the full fetch either), pou 4, device 1, projectsettings 1, task 1 SAME | ≈190 (this run: init warm 193/199/298, known 12/8/9); cold ≈2014 |
+      | TwinCAT Project14 | `Tc2_System.library` 100, `Tc2_Standard.library` 93 — both DIFFERS (164 / 32 missing) | library 3 DIFFERS; pou 8, dut 2, gvl 1, external_types 1, projectsettings 1, task 1, tmc 1 SAME | ≈20 (init warm 117/137/119, known 95/104/99); cold ≈25 |
+      Pro2193 (1.2): warm ≈2.4 s, cold ≈24 s, after an edit ≈22 s — the R2 answer that sends 3.1 to the owner stands.
+      **Step 2 numbers:** Engine 2132 pass + 1 skip + 13 red / 2146 (+80 cases); Ide.Twincat 425 pass + 3 red / 428 (+4);
+      Cli 259/259; Ide.Codesys 297/297 (net48); Repo.Gates 108/108; `dotnet build Volt.sln -c Release` 0 errors; `bun run
+      typecheck` 0 errors; `bun run lint` 0 errors. The 16 red are exactly this step's red tests (11 + 2 Engine library /
+      per-kind, 3 TwinCAT); every pre-existing test is green. No fixture or transpiler change, so no LSP suite /
+      fixture-map run.
+
+- [x] 2.5 Gate step 2 — review findings on 2.1-2.4 (2026-10-03). All six CONFIRMED and fixed; red-first where a test
+      changed (each new or changed test was run red against today's code for the reason it exists).
+      - G1 (medium, 2.1) — CONFIRMED. The `System_VisuElemBase` signature (`visuelembase, 4.6.0.0 (system)`) was invented:
+        the only recording says `"VisuElemBase, * (System)" -> NONE` (`library-signature-cost-codesys-pro2193-settled.log`
+        line 322; empty ref, line 116). Removed; `The_wildcard_rule_matches_the_resolution_title_not_the_item_name` is
+        replaced by the recorded case, `A_wildcard_ref_with_no_matched_signature_is_named_in_a_warning` (directed read of
+        `System_VisuElemBase.library` answers the manifest alone AND a Warn names it; red: no Warn). **"Title of the
+        RESOLUTION vs the item name before the comma" is NOT separable on recorded data:** of the 30 Pro2193 + 7 fixture
+        wildcard refs, the one whose item name (before any comma) differs from its RESOLUTION title is `System_VisuElemBase`,
+        which matches `NONE`; every ref with signatures has item-name prefix = title — so no test pins it, and 3.1 takes the title
+        from the RESOLUTION because that is the recorded string the rule is defined on (1.1), not because a test forces it.
+      - G2 (medium, 2.4) — CONFIRMED, and it hid a fake bug. Every ThroughOwner row now carries the child's own text
+        (`Shows`, e.g. `x := 2;` for the action, `Pr := x;` for the getter) and asserts it is IN the full fetch's owner
+        text before comparing directed == full. Transition moves to a new route **NotRendered**: it asserts `x > 1` is in
+        NEITHER answer, so the table no longer claims it readable and fails the day a reader renders one. The TwinCAT-only
+        codes (654/655 interface accessors, 650 task call reference) run in the TwinCAT shape only; the interface-property
+        row uses each vendor's own accessor code (613 CODESYS / 654 TwinCAT). Red-first found the shared `FakeIde` read
+        only 613/614 as accessors, so a TwinCAT-shaped interface accessor vanished from the read (`PROPERTY IP : INT
+        END_PROPERTY`) while `BeckhoffDriver` renders 654/655 — fixed in `test/shared/FakeIde.cs` (`AccessorOf` takes
+        both codes of the role); the rows now see `GET … END_GET` / `SET … END_SET`. "Every other kind is already
+        readable on its own" in 2.4 now reads: every kind except the library (red until 3.1) and the transition (rendered
+        by no fetch, out of this change's scope).
+      - G3 (low, 2.1) — CONFIRMED, three tests added, all red today: `A_directed_library_read_counts_the_signatures_no_named_library_claimed`
+        (a directed Standard read logs a line with `3 extracted signatures` … `claimed by no named library` — the
+        wording 3.1 must use); `A_directed_read_of_two_libraries_equals_the_full_fetch_for_both` and
+        `A_directed_read_of_a_library_and_a_pou_equals_the_full_fetch_for_both` compare CONTENT with the full fetch, not
+        only the extraction count. The directed refusal is G4's.
+      - G4 (low, 2.1) — CONFIRMED. **Decided (default, the owner may overrule):** for one path claimed by refs with
+        DIFFERENT RESOLUTIONs (0 occurrences in the corpora), a DIRECTED read naming either claimant refuses by name
+        (`BridgeException` naming both refs' full names and the path; theory over both claimants); a FULL fetch does NOT
+        throw — the path's signatures stay under `(unresolved)`, attributed to neither, every other library still pulls
+        (TON beside Standard), and a Warn names both refs and the path. `Full(ide)` throwing is gone from the tests.
+      - G5 (low, script) — CONFIRMED. `parity()` could never answer AMBIGUOUS from a deduped init. It now takes
+        `twoFolders`: the `.library` names a `knownItems` fetch re-sends from a folder the init did not answer them from
+        (the measured symptom of the 13 `System_Visu*` second copies), and a `.library` whose answers both hold the
+        manifest alone is `EMPTY`, not `SAME` — the baseline's "library 8 SAME" (CODESYS fixture) reads as 8 EMPTY on the
+        next run; 4.1 / 4.3 must not read EMPTY as parity. Not re-run live in this step (no product change; the
+        `-step2` logs stay the pre-fix baseline, their SAME rows for libraries meaning EMPTY).
+      - G6 (low, script) — CONFIRMED and fixed: `const med = (a`.
+      **Gate step 2 numbers:** Engine 2129 pass + 1 skip + 18 red / 2148 (+2: library
+      tests 17 → 22, per-kind 63 → 60); Ide.Twincat 425 pass + 3 red / 428; Cli 259/259; Connector 115/115; Ide.Codesys
+      297/297 (net48); Contracts 39/39; Repo.Gates 108/108; volt-cli `bun test test/unit` 24/24; `dotnet build Volt.sln -c
+      Release` 0 errors; `bun run typecheck` 0 errors (5 packages); `bun run lint` 0 errors (warnings only); `openspec
+      validate directed-library-signatures` valid; `bun run check` exit 0 (15/15 smoke) with the same pre-existing ✗ (6
+      `D7` citations, `bridge-refusal-review` 6.0). The 21 red are exactly this change's red tests (16 Engine library +
+      2 per-kind library rows + 3 TwinCAT), each red for the reason it exists; every pre-existing test is green. No
+      fixture or transpiler change, so no LSP suite / fixture-map run.
 
 ## 3. Build
 

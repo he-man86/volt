@@ -17,6 +17,9 @@
  *   <li>CODESYS only (R2): edit one ST POU through scripting (what typing in the editor does), then a directed read,
  *       a `known` fetch, and an `init` — the extraction AFTER AN EDIT — with the IDE's message view counted before and
  *       after each, and the precompiled library set counted right after the edit (does an app edit discard it?).</li>
+ *   <li>2.3: two directed reads of DIFFERENT libraries in a row, each checked against the full fetch's folder;</li>
+ *   <li>4.1 / 4.3 (MEASURE_PARITY=1): every name `refs` publishes read on its own, compared with the full fetch, tallied
+ *       per extension — the snapshot the verify steps re-run once the route is built.</li>
  * </ul>
  *
  * Run against YOUR OWN bridge:
@@ -112,6 +115,32 @@ type Item = { name: string; folder?: string; sourceText: string; version: string
 // Manager", TwinCAT "References").
 const isLibFile = (it: Item, items: Record<string, string>) => !(it.name in items)
 const resolutionOf = (it: Item) => /^RESOLUTION (.+)$/m.exec(it.sourceText)?.[1]?.trim()
+
+/** A directed answer for `name` against the full fetch `full`: SAME when it carries exactly the items the full fetch
+ *  writes for it (folder, name, version, text) — for a `.library`, everything in its folder (its signatures).
+ *  <p>AMBIGUOUS: a full name that lives in TWO folders (the 13 `System_Visu*` refs on Pro2193, tasks.md 1.1) has no
+ *  single expectation. The init cannot show it — FetchService dedupes `changed` by full name, so `full` holds each name
+ *  once — so the caller passes `twoFolders`: the names a `knownItems` fetch re-sends from a folder the init did not
+ *  answer them from (the measured symptom of the second copy).</p>
+ *  <p>EMPTY: a `.library` whose full-fetch folder holds the manifest alone and whose directed answer is the same — equal
+ *  only because both carry no signature (a wildcard ref the exact join misses, a facade), which is not parity.</p> */
+function parity(full: Item[], name: string, directed: Item[], twoFolders: Map<string, string>): string {
+	const key = (i: Item) => `${i.folder}|${i.name}|${i.version}|${i.sourceText}`
+	const own = full.filter((i) => i.name === name)
+	if (own.length !== 1) return `AMBIGUOUS full fetch answers ${JSON.stringify(name)} ${own.length} times`
+	const second = twoFolders.get(name)
+	if (second !== undefined)
+		return `AMBIGUOUS ${JSON.stringify(name)} lives in two folders (init ${JSON.stringify(own[0].folder)}, known fetch ${JSON.stringify(second)})`
+	const expected = (name.endsWith(".library") ? full.filter((i) => i.folder === own[0].folder) : own).map(key).sort()
+	const got = directed.map(key).sort()
+	const missing = expected.filter((k) => !got.includes(k)).length
+	const extra = got.filter((k) => !expected.includes(k)).length
+	if (missing === 0 && extra === 0 && name.endsWith(".library") && expected.length === 1)
+		return `EMPTY (manifest alone in both answers)`
+	return missing === 0 && extra === 0
+		? `SAME (${got.length} items)`
+		: `DIFFERS (expected ${expected.length}, got ${got.length}: ${missing} missing, ${extra} extra)`
+}
 
 function describeFetch(label: string, ms: number, res: any) {
 	const changed: Item[] = res.changed ?? []
@@ -286,13 +315,16 @@ async function main() {
 	}
 	// `.library` full names a no-extraction fetch re-sends although their versions are the live ones: the init and the
 	// known fetch answer them from DIFFERENT folders (one full name, two Library Manager nodes). Print both folders,
-	// then what a directed read of each such name answers (how many items, from which folder).
+	// then what a directed read of each such name answers (how many items, from which folder). The names whose second
+	// folder shows here are the ones `parity` calls AMBIGUOUS.
+	const twoFolders = new Map<string, string>()
 	{
 		const kf = await call("fetch", { knownItems })
 		const resent = (kf.changed as Item[]).filter((i) => i.name.endsWith(".library"))
 		out(`\n-- .library re-sent by a known fetch: ${resent.length}`)
 		for (const k of resent) {
 			const fromInit = (last.res.changed as Item[]).filter((i) => i.name === k.name)
+			if (fromInit.some((i) => i.folder !== k.folder)) twoFolders.set(k.name, k.folder ?? "")
 			out(`  ${JSON.stringify(k.name)}  known: ${JSON.stringify(k.folder)} ${JSON.stringify(resolutionOf(k))}  |  init: ${fromInit.map((i) => `${JSON.stringify(i.folder)} ${JSON.stringify(resolutionOf(i))}`).join(", ")}`)
 			const d = await call("fetch", { knownItems: {}, onlyItems: [k.name] })
 			out(`    directed ${JSON.stringify(k.name)}: changed=${d.changed.length} ${(d.changed as Item[]).map((i) => `${JSON.stringify(i.folder)} ${JSON.stringify(resolutionOf(i))}`).join(", ")}`)
@@ -306,6 +338,44 @@ async function main() {
 		directed.push(d.ms)
 	}
 	if (withProbe) msg = await messages("after known + directed", msg)
+
+	// 2.3 — two directed reads of DIFFERENT libraries one after the other, no library change between (spec "a second
+	// read is warm"): the library with the most signatures beside it after Standard, then Standard again. Each answer
+	// is compared with the full fetch's folder (directed == full), so after 3.1 this line is the route's own check.
+	{
+		const byFolder = new Map<string, Item[]>()
+		for (const it of last.res.changed as Item[]) byFolder.set(it.folder ?? "", [...(byFolder.get(it.folder ?? "") ?? []), it])
+		const libsBySize = (last.res.changed as Item[])
+			.filter((i) => i.name.endsWith(".library") && i.name !== STD)
+			.map((i) => ({ name: i.name, n: (byFolder.get(i.folder ?? "") ?? []).length - 1 }))
+			.sort((a, b) => b.n - a.n || a.name.localeCompare(b.name))
+		const other = libsBySize[0]?.name
+		out(`\n-- 2.3 two directed reads of different libraries in a row: ${JSON.stringify(other)} then ${JSON.stringify(STD)}`)
+		for (const name of other ? [other, STD] : [STD]) {
+			const d = await timed("directed", "fetch", { knownItems: {}, onlyItems: [name] })
+			describeFetch(`directed ${JSON.stringify(name)}`, d.ms, d.res)
+			out(`    ${parity(last.res.changed as Item[], name, d.res.changed as Item[], twoFolders)}`)
+		}
+		if (withProbe) msg = await messages("after the 2.3 reads", msg)
+	}
+
+	// 4.1 / 4.3 — the per-item snapshot: EVERY name refs publishes read on its own, compared with the last full fetch.
+	// Opt-in (MEASURE_PARITY=1): one directed fetch per item (≈0.7 s each on Pro2193, 881 items).
+	if (process.env.MEASURE_PARITY === "1") {
+		const names = Object.keys(last.res.items as Record<string, string>).sort()
+		out(`\n-- 4.3 directed == full, per item: ${names.length} names`)
+		const tally = new Map<string, number>()
+		for (const name of names) {
+			const d = await call("fetch", { knownItems: {}, onlyItems: [name] })
+			const verdict = parity(last.res.changed as Item[], name, d.changed as Item[], twoFolders)
+			const ext = name.slice(name.lastIndexOf(".") + 1)
+			const key = `${ext}\t${verdict.split(" ")[0]}`
+			tally.set(key, (tally.get(key) ?? 0) + 1)
+			if (!verdict.startsWith("SAME")) out(`  ${JSON.stringify(name)}: ${verdict}`)
+		}
+		out("  per extension (ext, verdict, count):")
+		for (const [k, n] of [...tally].sort(([a], [b]) => a.localeCompare(b))) out(`    ${k}\t${n}`)
+	}
 
 	const med = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)]
 	out(`\n-- summary (ms): init cold ${i1.ms}; init warm ${warm.join("/")} (median ${med(warm)}); known ${known.join("/")} (median ${med(known)}); ` +
