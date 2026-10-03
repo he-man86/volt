@@ -87,6 +87,9 @@ const GROUPABLE = new Set(['structure', 'fix', 'lean', 'measure', 'conformance']
 // Owner 2026-10-02: bigger chunks per cycle — up to ~15 tasks share one implement/review/gate cycle and one recorder batch
 // per vendor (sub-steps keep their own commits). The 2026-09-30 cap (one agent ran 41 tasks) stays: never a whole phase.
 const GROUP_MAX = { structure: 8, measure: 4, fix: 5, lean: 5, conformance: 3 }
+// args.light (owner 2026-10-03, "a bit less is also good enough"): double the chunk sizes and no second review round —
+// for changes like bridge-refusal-review where the gate's full suites are the safety net, not a second pair of eyes.
+if (args.light) for (const k of Object.keys(GROUP_MAX)) GROUP_MAX[k] *= 2
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
@@ -147,7 +150,7 @@ ${impl}`, { label: `review:${s.id}`, phase: 'Review', schema: FIND }))?.findings
   // agent re-read the whole context and re-ran the tests the gate then ran again; the GATE now fixes ordinary findings itself.
   // Only a HIGH finding keeps the separate fix + second review (independent eyes on the risky change).
   let pending = findings
-  if (findings.some(f => f.severity === 'high')) {
+  if (!args.light && findings.some(f => f.severity === 'high')) {
     const fix = await agent(`${RULES}
 
 FIX the confirmed findings for step ${s.id} (failing test first; skip a wrong one with the reason). Do not commit.
