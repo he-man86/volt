@@ -64,7 +64,8 @@ STATUS ONLY — change nothing.
    numbered section or sub-section — but NEVER more than 5 unticked tasks: split a larger section into consecutive steps of at most
    5 tasks (ids like 1a, 1b, …), so no agent carries a whole big section and every step gets its own commit. For each step: its unticked task ids, its kind — measure (mechanical measurement),
    baseline, structure (moves/splits, output-neutral), model (a representation change), conformance (an area reviewed against CODESYS,
-   rule by rule, with recorded fixtures), fix (root causes), lean (same output, less code), downstream (re-run consumers), close — and
+   rule by rule, with recorded fixtures), fix (root causes), lean (same output, less code), downstream (re-run consumers), close (ONLY the final cold-suite + archive task; a 'Verify' section of live
+   checks, e2e runs or suite numbers is NOT close — give it kind conformance if it runs a live IDE, else measure) — and
    whether it needs a design.md section that is not written yet.`,
   { label: 'status', phase: 'Status', schema: { type: 'object', properties: {
     blockedBy: { type: 'array', items: { type: 'string' }, description: 'required changes not archived yet' },
@@ -192,7 +193,8 @@ if (closeOpen && (!steps.length || steps[steps.length - 1]?.kind === 'close' || 
 
 CLOSE ${args.change}. If every other step is ticked: run the FULL suite COLD once (VOLT_RUSTC_CACHE=0 VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset) — green; the docs the change names are updated; a final review with the SPEC and LAYERING
 lenses over the whole change (fix what it finds, test-first); archive it (npx --yes openspec archive ${args.change} -y), delete the
-recreated openspec/specs/, and commit. If a step is still open, say which and stop.`, { label: 'close', phase: 'Close' }))
+recreated openspec/specs/, and commit. If tasks are still open: do them first when they are verification (live IDE checks via
+ide.ps1 -Instance ${args.change}, e2e runs, full suites, numbers), writing results under each task; any other open task: name it and stop.`, { label: 'close', phase: 'Close' }))
 }
 
 return { change: args.change, steps: steps.map(s => `${s.id} [${s.kind}] ${s.title}`), done }
