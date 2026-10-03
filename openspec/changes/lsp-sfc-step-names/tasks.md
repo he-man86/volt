@@ -79,5 +79,48 @@
 
 ## 3. Verify
 
-- [ ] 3.1 Fixture clean; a real typo (`S_Bot`) still reported if the chart is available.
-- [ ] 3.2 Conformance suite green.
+- [x] 3.1 Fixture clean; a real typo (`S_Bot`) still reported if the chart is available.
+      — The chart is NOT available (`IMPLEMENTATION SFC UNSUPPORTED`), so the spec's second branch holds: DIALECT D40 notes
+      why a typo read with a member cannot be reported. Measured by `scripts/measure-sfc-step-names.ts` (2026-10-03):
+      the field case (`PRG0_Main` SFC, `S_Boot.x/.t/._x/._t` in its action, `PRG0_Main.S_Boot.x/.t` from an ST program)
+      0 errors — the PLCAssist `'S_Boot' is no component of 'PRG0_Main'` is gone. Typos: `S_Bot.x` inside 0 errors and
+      `PRG0_Main.S_Bot.x` outside 0 errors (the bet's price — `sfc_step_typo` / `sfc_step_typo_qualified` held as known
+      divergences, CODESYS refuses both); `S_Bot.y` 2 errors, reported but worded as a step's (`'y' is no component of
+      'SFCStepType'`, `sfc_step_typo_other_member`); `S_Bot` bare 2 errors, `Identifier 'S_Bot' not defined` as CODESYS;
+      `S_Boot.x` in an ST POU 2 errors, `Identifier 'S_Boot' not defined` as CODESYS. Corpora: 2 SFC POUs (the
+      `VltFixtureSfc` stubs, CodesysTestProject + twincat-project14), 0 errors on each diagnosed alone (a one-file project), no code reads a step (a grep). Fixtures
+      (`VOLT_FIXTURES` = the 80 `sfc_step_*`): 67 pass, 6 skip, 48 todo (expected failures), 0 fail;
+      `SFC_STEPS_NOT_IN_SCOPE` 8 entries, none matching. No product code changed.
+- [x] 3.2 Conformance suite green.
+      — `bun test test/conformance` (whole, no VOLT_FIXTURES, rustc cache on), 2026-10-03: 5949 pass, 337 todo, 0 fail
+      (6286 tests, 13 files, 211 s); rust 2688 compiled+run, 352 more compiled. Ratings unchanged from gate 2: confirmed
+      2713, refused 1781, not-lowered 337, lsp-gap 73, diverges 5, unaskable 68; LSP-only 0 on both vendors.
+      Typecheck clean.
+      (Measured on a tree that also held another workflow's uncommitted `grammar/units.ts` and `codesys.build.json` changes
+      — bridge-refusal-review 3.6 — so these numbers describe that tree; 3.3's gate is the one run on the commit's own tree.)
+- [x] 3.3 Gate step 3 — the review's three findings:
+      - **the field's own shape was never recorded** (medium): the field read was SELF-qualified (`PRG0_Main.S_Boot` at a
+        line of PRG0_Main.prg itself), and 3.1 measured it only from another program. S3 now has it, recorded in ONE
+        `record:exec` run (2026-10-03): `sfc_step_qualified_self` (`PRG.S_Boot.x` / `.t` in the SFC program's own action)
+        BUILDS on CODESYS (TRUE, TRUE) and the LSP is silent — agreement, rated not-lowered (an SFC body has no ST to lower);
+        `sfc_step_qualified_self_typo` (`PRG.S_Bot.x` there) is REFUSED ("'S_Bot' is no component of 'PRG…'"), the LSP
+        silent — the bet's price as from outside, niche: accepted loss (0 occurrences in the corpora): `deferred.lsp` and
+        `SFC_STEPS_NOT_IN_SCOPE` (8 -> 9). `scripts/measure-sfc-step-names.ts` gains the shape: self-qualified 0 errors,
+        its typo 0 errors. **The 'field FP gone' claim is conditional** and now says so: the bet needs the file's
+        `IMPLEMENTATION SFC UNSUPPORTED` line; the same program WITHOUT it (a pull from before 2026-09-28's keyword line)
+        still gives 5 errors, among them the field's `'S_Boot' is no component of 'PRG0_Main'` (measured, new case in
+        the script). Whether the PLCAssist text carried the line is not known here — a re-pull gives it.
+      - **foreign changes in 3.2's tree** (low): written under 3.2. This gate ran in a clean worktree at HEAD with only
+        this step's paths copied in (`units.ts` / `codesys.build.json` left out, uncommitted, not staged).
+      - **corpus SFC POUs diagnosed alone** (low): reworded, not changed — the script and its README row say "diagnosed
+        alone" (a one-file project, no libraries, not the corpus run's answer); that no other code reads a step is a grep
+        (`VltFixtureSfc.` over test-corpus: 0 hits). Count re-checked: 2 `IMPLEMENTATION SFC UNSUPPORTED` among 17 hidden
+        bodies (3 CFC, 2 FBD, 10 LD, 2 SFC).
+      Ratings: not-lowered 337 -> 338, lsp-gap 73 -> 74 (ceilings raised FOR MEASUREMENT, comments in `fixtures.test.ts`);
+      front-end baselines count-only (`VOLT_WRITE_BASELINE=1`: fixture files 9954 -> 9958, CODESYS known-divergence files
+      394 -> 396, SFC files not measured CODESYS 96 -> 98 / TwinCAT 160 -> 164, push-refused without parse error CODESYS
+      54 -> 55 / TwinCAT 94 -> 96), no finding moved.
+      Gate (clean worktree, the commit's tree): typecheck clean; full `bun test` (VOLT_REQUIRE_FULL=1, no VOLT_FIXTURES,
+      rustc cache on, 2% re-proved) 8050 pass, 34 skip, 382 todo, 0 fail (8466 tests, 207 files, 366 s); rust 2688
+      compiled+run, 352 more compiled; fixture map regenerated (`rate:fixtures`: confirmed 2713, refused 1781, not-lowered
+      338, lsp-gap 74, diverges 5, unaskable 68); LSP-only 0 on both vendors.

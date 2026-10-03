@@ -18,7 +18,8 @@
  *
  *   S1  a step's flag `.x` (BOOL) and elapsed time `.t` (TIME), read in an ACTION of the SFC PROGRAM
  *   S2  the internal pair `._x` / `._t`
- *   S3  the step qualified from OUTSIDE: `PRG.S_Boot.x` / `.t` (the field shape), `._x` / `._t`, and through an FB INSTANCE
+ *   S3  the step qualified from OUTSIDE: `PRG.S_Boot.x` / `.t`, `._x` / `._t`, and through an FB INSTANCE; and SELF-qualified
+ *       in the SFC program's own action — the field shape — `PRG.S_Boot.x` / `.t`, and its typo `PRG.S_Bot.x`
  *   S4  the step in an SFC FUNCTION_BLOCK's ACTION and METHOD
  *   S5  case: `S_BOOT.X`
  *   S6  writing the flag and the time inside the POU; writing `PRG.S_Boot.x` from outside ("is no input of")
@@ -228,6 +229,13 @@ export const SFC_STEP_TESTS: LanguageTest[] = [
     "bx := PRG_LANG_sfc_qualified_internal.S_Boot._x;\ntOk := PRG_LANG_sfc_qualified_internal.S_Boot._t >= T#0MS;"),
   block("fb_instance", "S3: inst.S_Boot.x and inst.S_Boot.t read through an instance of an SFC FUNCTION_BLOCK", "", "", OUT_VARS,
     "bx := inst.S_Boot.x;\ntOk := inst.S_Boot.t >= T#0MS;"),
+  // …and SELF-qualified, inside the SFC program's own action: the field diagnostic's exact shape (`PRG0_Main.S_Boot` at a
+  // line of PRG0_Main.prg itself; gate step 3 review), the step and a typo of it
+  program("qualified_self", "S3: PRG.S_Boot.x and PRG.S_Boot.t read SELF-qualified in an ACTION of the SFC program itself", OWN_VARS,
+    "bx := PRG_LANG_sfc_qualified_self.S_Boot.x;\ntOk := PRG_LANG_sfc_qualified_self.S_Boot.t >= T#0MS;", OUT_VARS, copyOut("qualified_self")),
+  program("qualified_self_typo", "S3: PRG.S_Bot.x (no step of the chart) read SELF-qualified in an ACTION of the SFC program itself", OWN_VARS,
+    "bx := PRG_LANG_sfc_qualified_self_typo.S_Bot.x;", "", "", "'S_Bot' is no component of 'PRG_LANG_sfc_qualified_self_typo'",
+    "a name read with a member through an SFC program is bet a step of its chart, in the program's own text as from outside, so PRG.S_Bot.x is taken for one and not reported"),
   // S4
   block("fb_action", "S4: a step's .x and .t read in an ACTION of its SFC FUNCTION_BLOCK", OWN_VARS,
     "ACTION A\nbx := S_Boot.x;\ntOk := S_Boot.t >= T#0MS;\nEND_ACTION\n", "", "inst.A();"),

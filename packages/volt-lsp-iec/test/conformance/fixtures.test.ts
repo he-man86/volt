@@ -1413,7 +1413,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 72 -> 73, FOR MEASUREMENT. lsp-sfc-step-names gate 2 (2026-10-03): S16 `sfc_step_bit_const_qualified` — a bit numbered
   // by a list-qualified constant (`gw.GVL.cBit`), which CODESYS refuses ("Bit access requires literal or symbolic integer
   // constant") and the LSP passes in ANY POU, an ST one too — niche: accepted loss (0 occurrences in the corpora).
-  "lsp-gap": 73,
+  // 73 -> 74, FOR MEASUREMENT. lsp-sfc-step-names gate 3 (2026-10-03): S3 `sfc_step_qualified_self_typo` — the field's
+  // self-qualified shape with a typo (`PRG.S_Bot.x` in the SFC program's own action), which CODESYS refuses ("'S_Bot' is no
+  // component of 'PRG…'") and the bet takes for a step, as from outside (`sfc_step_typo_qualified`) — niche: accepted loss
+  // (0 occurrences in the corpora). No fixture moved.
+  "lsp-gap": 74,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1590,7 +1594,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 334 -> 337, FOR MEASUREMENT. lsp-sfc-step-names gate 2 (2026-10-03): 3 more SFC cells CODESYS builds and runs — a bit
   // numbered by a GVL constant and by a local VAR CONSTANT, and a step written and read through THIS^ in its FB's method.
   // Same reason: an SFC body has no ST to lower.
-  "not-lowered": 337,
+  // 337 -> 338, FOR MEASUREMENT. lsp-sfc-step-names gate 3 (2026-10-03): S3 `sfc_step_qualified_self` — a step read
+  // SELF-qualified in its SFC program's own action (the field's shape), which CODESYS builds and runs. Same reason: an SFC
+  // body has no ST to lower.
+  "not-lowered": 338,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

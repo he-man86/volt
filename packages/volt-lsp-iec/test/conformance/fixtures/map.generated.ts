@@ -16,8 +16,8 @@
  *   evidence
  *     confirmed     2713
  *     refused       1781
- *     not-lowered    337
- *     lsp-gap         73
+ *     not-lowered    338
+ *     lsp-gap         74
  *     diverges         5
  *     unaskable       68
  *
@@ -3905,6 +3905,8 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   sfc_step_pointer_global_no_step: { evidence: "lsp-gap", diverges: { codesys: "known" } },
   sfc_step_qualified: { evidence: "not-lowered" },
   sfc_step_qualified_internal: { evidence: "not-lowered" },
+  sfc_step_qualified_self: { evidence: "not-lowered" },
+  sfc_step_qualified_self_typo: { evidence: "lsp-gap", diverges: { codesys: "known" } },
   sfc_step_shadow_enum_in_action: { evidence: "not-lowered" },
   sfc_step_shadow_fb_global: { evidence: "not-lowered" },
   sfc_step_shadow_function_in_action: { evidence: "not-lowered" },

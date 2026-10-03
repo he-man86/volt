@@ -1041,6 +1041,7 @@ const SFC_STEPS_NOT_IN_SCOPE: readonly string[] = [
   "sfc_step_action_flag",
   "sfc_step_typo",
   "sfc_step_typo_qualified",
+  "sfc_step_qualified_self_typo",
   "sfc_step_typo_other_member",
   "sfc_step_pointer_global_no_step",
 ]
