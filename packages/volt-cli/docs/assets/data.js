@@ -194,7 +194,8 @@ window.VOLT = {
           "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, never the message.",
           "A version conflict is also \u0060accepted:false\u0060 \u2014 with \u0060yourVersion\u0060/\u0060currentVersion\u0060 per item.",
           "A refusal decidable before the first write writes nothing and names EVERY refused op \u2014 the gate\u0027s per-item conflicts and the pre-flight\u0027s, one conflict per op.",
-          "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is \u0060accepted:true\u0060 with the receipt and a conflict per op NOT landed \u2014 the refused op with its code, every later op NOT_ATTEMPTED. Every op the conflicts do not name landed."
+          "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is \u0060accepted:true\u0060 with the receipt and a conflict per op NOT landed \u2014 the refused op with its code, every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
+          "What of the REFUSED op itself the IDE kept is in fields as well as in \u0060reason\u0060: \u0060partiallyApplied: true\u0060 whenever any of it stays (re-read the item before retrying it), \u0060renamedTo\u0060 with the item\u0027s current full name after a native rename that ran first, \u0060remains: true\u0060 for a create whose rollback failed. Each is ABSENT when it does not apply \u2014 never false."
         ],
         "result": {
           "name": "result",
@@ -688,6 +689,15 @@ window.VOLT = {
             },
             "line": {
               "type": "integer"
+            },
+            "partiallyApplied": {
+              "type": "boolean"
+            },
+            "renamedTo": {
+              "type": "string"
+            },
+            "remains": {
+              "type": "boolean"
             }
           },
           "required": [

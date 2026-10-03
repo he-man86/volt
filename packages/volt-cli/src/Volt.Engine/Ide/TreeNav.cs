@@ -62,16 +62,23 @@ internal static class TreeNav
     /// <para>So the ANCESTRY is walked by name (Device / Plc Logic / Application are real, non-localized
     /// container names) and the last segment is resolved by KIND. TwinCAT has no such node — its PLC tasks are
     /// children of the PLC project itself — so nothing there matches and the by-name walk stays the answer.</para></summary>
-    internal static ItemRef ResolveTaskParent(IIdeDriver ide, string? folder)
+    /// <param name="created">As on <see cref="ResolveTopLevelFolder"/>: each folder created, by its path.</param>
+    internal static ItemRef ResolveTaskParent(IIdeDriver ide, string? folder, List<string>? created = null)
     {
         var segments = new List<string>(FolderPath.Segments(folder));
         if (segments.Count > 0)
         {
             var node = ide.GetTreeRoot();
-            for (var i = 0; i < segments.Count - 1; i++) node = DescendOrCreateFolder(ide, node, segments[i]);
+            var path = "";
+            for (var i = 0; i < segments.Count - 1; i++)
+            {
+                path = path.Length == 0 ? segments[i] : path + "/" + segments[i];
+                node = DescendOrCreateFolder(ide, node, segments[i], created, path);
+            }
             if (FirstChild(ide, node, c => ide.KindCode(c) == ItemKind.TaskConfig) is { } config) return config;
         }
-        return ResolveTopLevelFolder(ide, folder);
+        // The ancestry above was created already if it was missing, so this walk finds it and records only what it adds.
+        return ResolveTopLevelFolder(ide, folder, created);
     }
 
     /// <summary>Match a container child (a structural node like Device/Plc Logic/Application, or an existing user

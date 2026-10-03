@@ -125,6 +125,10 @@ public class DocDataTests
             "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is "
             + "`accepted:true` with the receipt and a conflict per op NOT landed — the refused op with its code, "
             + "every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
+            "What of the REFUSED op itself the IDE kept is in fields as well as in `reason`: `partiallyApplied: true` "
+            + "whenever any of it stays (re-read the item before retrying it), `renamedTo` with the item's current "
+            + "full name after a native rename that ran first, `remains: true` for a create whose rollback failed. "
+            + "Each is ABSENT when it does not apply — never false.",
         }),
         [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject }, new[]
         {
@@ -299,7 +303,10 @@ public class DocDataTests
         var required = new JsonArray();
 
         foreach (var p in t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                           .Where(p => p.GetCustomAttribute<JsonIgnoreAttribute>() is null))
+                           // Only a property NEVER on the wire is left out. A conditional ignore (`WhenWritingNull`: absent
+                           // when it does not apply, e.g. `PushConflict.partiallyApplied`) IS a wire field, and dropping it
+                           // here published a schema that did not name it.
+                           .Where(p => p.GetCustomAttribute<JsonIgnoreAttribute>() is not { Condition: JsonIgnoreCondition.Always }))
         {
             var wireName = p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                            ?? JsonNamingPolicy.CamelCase.ConvertName(p.Name);

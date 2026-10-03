@@ -347,12 +347,25 @@ public static class PushService
         /// <summary>What of a refused UPDATE the IDE kept (its declaration, a member it deleted or created), when the
         /// refusal's own message does not already say it.</summary>
         public string? UpdateKept;
+        /// <summary>What of a refused UPDATE the IDE kept when the member refusal's OWN text already says it
+        /// (<c>MemberRefusal</c> words it into the exception, so <see cref="UpdateKept"/> stays null rather than say it
+        /// twice). The fact without the words: it makes the conflict <c>partiallyApplied</c>.</summary>
+        public bool KeptInRefusal;
         /// <summary>A native rename that ran before the op was refused: the IDE renamed the item and rewrote every
-        /// reference to it, and that stays — the item is no longer under the op's name.</summary>
-        public (string From, string To)? Renamed;
+        /// reference to it, and that stays — the item is no longer under the op's name. <c>From</c>/<c>To</c> are BARE
+        /// (the reason's words); <c>WireName</c> is the FULL name the item now has (<c>PushConflict.RenamedTo</c>).</summary>
+        public (string From, string To, string WireName)? Renamed;
         /// <summary>The forced replace of an item the IDE will not open deleted that object before its create was
         /// refused: the original is gone.</summary>
         public string? Replaced;
+        /// <summary>The folders this op's CREATE made to place its item (a toFolder that did not exist yet), by path,
+        /// recorded as each is made. A rollback removes the item, not them, so they stay — as a refused move's do
+        /// (<c>RecordMoveKept</c>).</summary>
+        public readonly List<string> FoldersCreated = new();
+
+        /// <summary>Anything of the op stays in the project: every fact above except a create that was rolled back.</summary>
+        public bool PartiallyApplied => UpdateKept is not null || KeptInRefusal || RollbackFault is not null
+                                        || Renamed is not null || Replaced is not null || FoldersCreated.Count > 0;
     }
 
     /// <summary>The conflict a refused op is reported with — the pre-flight's and the apply loop's alike.
@@ -395,11 +408,18 @@ public static class PushService
             reason += $" — '{rn.From}' was renamed to '{rn.To}' before it (the IDE rewrote the references to it) and stays renamed";
         if (outcome?.Replaced is { } replaced)
             reason += $" — the IDE's '{replaced}' was deleted before it, to be replaced, and stays deleted";
+        foreach (var folder in outcome?.FoldersCreated ?? new List<string>())
+            reason += $" — the folder '{folder}' was created before it and stays";
         var stale = ex as StaleItemVersionException;
+        // The same facts as FIELDS (openspec `push-partially-applied-flag`), so a caller branches on them and never on
+        // the reason above. Absent (null) when nothing of the op stays — never false.
         return new PushConflict
         {
             Name = op.Name, Reason = reason, Code = code, Line = netEx?.Line,
             YourVersion = stale?.YourVersion, CurrentVersion = stale?.CurrentVersion,
+            PartiallyApplied = outcome?.PartiallyApplied == true ? true : null,
+            RenamedTo = outcome?.Renamed?.WireName,
+            Remains = outcome?.RollbackFault is not null ? true : null,
         };
     }
 
@@ -814,16 +834,18 @@ public static class PushService
             if (op.ToName is { } toName && !string.Equals(Materializer.Bare(toName), name, StringComparison.Ordinal))
             {
                 ide.Rename(task, Materializer.Bare(toName));
+                // Recorded the moment the rename RETURNS, before the re-find: a re-find that misses (a stale tree) does
+                // not undo it, and the conflict must say the task is no longer under its old name.
+                outcome.Renamed = (name, Materializer.Bare(toName), toName);   // kept if anything after it is refused
                 task = ItemLookup.Find(ide, Materializer.Bare(toName))
                     ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                         $"task '{name}' could not be found after being renamed to '{toName}'");
-                outcome.Renamed = (name, Materializer.Bare(toName));   // kept if the settings write is refused
                 action = "renamed+updated";
             }
         }
         else
         {
-            createdParent = TreeNav.ResolveTaskParent(ide, op.ToFolder);
+            createdParent = TreeNav.ResolveTaskParent(ide, op.ToFolder, outcome.FoldersCreated);
             task = ide.CreateChild(createdParent.Value, name, ItemKind.PlcTask);
             action = "created";
         }
@@ -840,6 +862,13 @@ public static class PushService
         // interval and left the task behind; the recovery pull then hit `CONFLICT in 1 file(s)` on that very
         // file — the workspace had dropped it (refused) while the IDE still held the shell. A task with no
         // schedule is worse than a POU shell: it is in the call chain and runs nothing.
+        //
+        // AN UPDATE'S REFUSED WRITE MAY HAVE LANDED PART OF ITSELF — neither vendor's `WriteTask` is atomic (TwinCAT
+        // applies the schedule and deletes the old calls before it refuses the call list; CODESYS sets `kind_of_task`
+        // before a later member refuses), and the engine cannot see inside it. So it ASKS: the task's descriptor is read
+        // before the write and again after the refusal, and a difference is what stays (review of
+        // `push-partially-applied-flag` 1+2).
+        var before = createdParent is null ? ide.ReadManifest(task, ItemKind.Kinds.Task) : null;
         try
         {
             ide.WriteTask(task, settings);
@@ -847,6 +876,10 @@ public static class PushService
         catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
         {
             throw;   // unreachable: the filter returns false, so the original refusal propagates untouched.
+        }
+        catch when (before is not null && RecordKept(outcome, TaskKept(ide, outcome.Renamed?.To ?? name, before)))
+        {
+            throw;   // unreachable: the filter returns false.
         }
         return action;
     }
@@ -899,6 +932,9 @@ public static class PushService
             // caught by the write, which is why the ORDER below (content, then move) stays as it is.
             ide.Rename(item, toName);                  // native rename → IDE rewrites references
             currentName = toName;
+            // Recorded the moment the rename RETURNS — before the re-find below, whose miss (a stale tree) does not undo
+            // it. Withdrawn only where the IDE is shown to have ignored it (the case-only check).
+            outcome.Renamed = (name, currentName, op.ToName!);   // kept if a later step of this op is refused (`ConflictFor`)
             // Refresh the staled handle, and FAIL on a miss. The rename reported success, so the item MUST be
             // findable under its new name; keeping the pre-rename handle writes the pushed content onto the OLD
             // identity and still returns "renamed+updated", which the receipt then bakes into the baseline.
@@ -924,12 +960,14 @@ public static class PushService
             // Re-measured against a freshly built worker, the two vendors agree.)
             var landed = ide.Name(item);
             if (!string.Equals(landed, currentName, StringComparison.Ordinal))
+            {
+                outcome.Renamed = null;   // the IDE kept the old spelling: nothing was renamed
                 throw new BridgeException(BridgeErrorCodes.Unsupported,
                     $"this IDE did not apply the rename '{name}' -> '{currentName}': the item is still called " +
                     $"'{landed}'. A rename that changes only LETTER CASE is not supported here; a name that " +
                     "differs by more than case is.");
+            }
             renamed = true;
-            outcome.Renamed = (name, currentName);   // kept if a later step of this op is refused (`ConflictFor`)
         }
 
         // A toFolder that differs from the item's current folder is a MOVE. ABSENT (null) means “keep the
@@ -1262,7 +1300,7 @@ public static class PushService
         {
             // Placement is a CREATE-only concern: resolve (and if needed create) the target folder from the full
             // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
-            var targetParent = TreeNav.ResolveTopLevelFolder(ide, folder);
+            var targetParent = TreeNav.ResolveTopLevelFolder(ide, folder, outcome.FoldersCreated);
 
             // The body was validated BEFORE anything is created — by the pre-flight, once (D8) — so a refused push leaves
             // no orphaned, unlisted stub POU behind that blocks the next create.
@@ -1284,11 +1322,24 @@ public static class PushService
             // and FAIL if the re-find misses rather than writing through the handle this very line calls dead. On
             // TwinCAT a write to a detached COM object can succeed silently, so the interface would land EMPTY
             // while the push reports "created" and the receipt bakes that into the client's baseline.
+            //
+            // A miss is a refusal of the CREATE like any other, so the object CreateChild made is rolled back (or said to
+            // remain) — this ran outside the rollback below, and left it with nothing said (review of
+            // `push-partially-applied-flag` 1+2).
             if (itemType == ItemKind.PlcItf)
-                pou = TreeNav.FindChild(ide, targetParent, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
-                        $"created interface '{name}' but it cannot be found under its parent - refusing to write " +
-                        "through the stale create handle");
+            {
+                try
+                {
+                    pou = TreeNav.FindChild(ide, targetParent, name)
+                        ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                            $"created interface '{name}' but it cannot be found under its parent - refusing to write " +
+                            "through the stale create handle");
+                }
+                catch when (Rollback(ide, targetParent, name, outcome))
+                {
+                    throw;   // unreachable: the filter returns false.
+                }
+            }
         }
         else
         {
@@ -1475,6 +1526,7 @@ public static class PushService
             if (createdParent is not null) return null;
             memberRefusalWorded = true;
             var landed = UpdateLanded();
+            outcome.KeptInRefusal = landed is not null;
             if (declarationLanded)
                 return landed + (!changes.Any ? "; its members and body were not" : "; its other members and body were not written");
             return landed is null ? $"nothing of '{name}' was written" : $"{landed}; nothing else of '{name}' was written";
@@ -1496,6 +1548,27 @@ public static class PushService
 
         public bool Any => Deleted.Count + Created.Count + Folders.Count + Moved.Count
                            + AccessorsDeleted.Count + AccessorsCreated.Count > 0;
+    }
+
+    /// <summary>What of an existing task's refused settings write stays: null when the task reads back exactly as it did
+    /// before the write. A task that cannot be read back is NOT assumed unchanged — that would claim a fact nobody
+    /// measured — so the conflict says it may have changed, and is <c>partiallyApplied</c> (the client re-reads it).</summary>
+    private static string? TaskKept(IIdeDriver ide, string name, string before)
+    {
+        try
+        {
+            var task = ItemLookup.Find(ide, name)
+                ?? throw new BridgeException(BridgeErrorCodes.NotFound, $"task '{name}' cannot be found");
+            var after = ide.ReadManifest(task, ItemKind.Kinds.Task);
+            return after == before ? null
+                : $"part of the settings of '{name}' was written before it and stays (the IDE now holds: " +
+                  $"{after.Trim().Replace("\n", "; ")})";
+        }
+        catch (Exception ex)
+        {
+            return $"the task '{name}' could not be read back after the refusal ({ex.Message}), so part of its settings " +
+                   "may have been written and stay";
+        }
     }
 
     /// <summary>Record what of a refused UPDATE landed, for <see cref="ConflictFor"/>. Always false: an exception filter.</summary>
