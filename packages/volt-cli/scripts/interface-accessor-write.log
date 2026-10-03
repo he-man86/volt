@@ -1,0 +1,47 @@
+project copy of: C:\Users\marce\Github\volt\packages\volt-cli\scripts\..\test\fixtures\CodesysTestProject.project
+interface property P created; children: ['Set', 'Get']
+
+=== as created ===
+   IVltAcc.P.Set                      decl=''
+                                      impl='<no Implementation aspect>'
+                                      scripting textual_declaration=True textual_implementation=False
+   IVltAcc.P.Get                      decl=''
+                                      impl='<no Implementation aspect>'
+                                      scripting textual_declaration=True textual_implementation=False
+   build: CLEAN
+
+=== IVltAcc.P.Set: the driver's write (object manager, TextDocument.Text) ===
+   declaration -> committed
+   body        -> NO Implementation ASPECT
+   IVltAcc.P.Set read back            decl='VAR\n  tmp : INT;\nEND_VAR\n'
+                                      impl='<no Implementation aspect>'
+   build: 
+      [Error] Only inputs, outputs, and inouts allowed in interface methods
+=== IVltAcc.P.Set: the scripting write (textual_declaration.replace) ===
+   declaration: replace taken
+   body: REFUSED: AttributeError: 'ExtendedObject[IScriptObject]' object has no attribute 'textual_implementation'
+   IVltAcc.P.Set read back            decl='VAR\n  tmp2 : INT;\nEND_VAR\n'
+                                      impl='<no Implementation aspect>'
+   build: 
+      [Error] Only inputs, outputs, and inouts allowed in interface methods
+
+=== IVltAcc.P.Get: the driver's write (object manager, TextDocument.Text) ===
+   declaration -> committed
+   body        -> NO Implementation ASPECT
+   IVltAcc.P.Get read back            decl='VAR\n  tmp : INT;\nEND_VAR\n'
+                                      impl='<no Implementation aspect>'
+   build: 
+      [Error] Only inputs, outputs, and inouts allowed in interface methods
+      [Error] Only inputs, outputs, and inouts allowed in interface methods
+=== IVltAcc.P.Get: the scripting write (textual_declaration.replace) ===
+   declaration: replace taken
+   body: REFUSED: AttributeError: 'ExtendedObject[IScriptObject]' object has no attribute 'textual_implementation'
+   IVltAcc.P.Get read back            decl='VAR\n  tmp2 : INT;\nEND_VAR\n'
+                                      impl='<no Implementation aspect>'
+   build: 
+      [Error] Only inputs, outputs, and inouts allowed in interface methods
+      [Error] Only inputs, outputs, and inouts allowed in interface methods
+
+=== the IDE is still answering: the interface's children ===
+   ['Set', 'Get']
+done

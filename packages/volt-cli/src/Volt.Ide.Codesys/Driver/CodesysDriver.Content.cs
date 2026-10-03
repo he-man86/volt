@@ -45,6 +45,16 @@ public sealed partial class CodesysDriver
     public void WriteContent(ItemRef item, ItemContent content,
                              PushedDeclarations pushedDeclarations)
     {
+        // An interface accessor's BODY is refused from the text alone, so before the first commit — not after the
+        // interface's and the property's declarations had landed (review of bridge-refusal-review 3a+3b). The push
+        // pre-flight asks the same call.
+        foreach (var m in content.Members)
+        {
+            if (m.Kind != ItemKind.Kinds.InterfaceProperty) continue;
+            if (m.Getter is { } get) ValidateInterfaceAccessor(get);
+            if (m.Setter is { } set) ValidateInterfaceAccessor(set);
+        }
+
         // A graphical body is validated BEFORE anything is written, so a refusal leaves the item untouched.
         var scope = NetworkScopeFor(content.Declaration, pushedDeclarations);
         NetworkBody? graph = content.Body is { } b && NetworkText.Is(b) ? NetworkText.Validate(b, scope) : null;
@@ -75,6 +85,12 @@ public sealed partial class CodesysDriver
 
         WriteMembers(item, content.Members, content.Declaration, pushedDeclarations);
     }
+
+    /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): a BODY,
+    /// which a CODESYS interface accessor has no Implementation aspect to hold (DIALECT D41). Its declaration is written.
+    /// (The ST reader takes an interface accessor's whole text as its declaration — it has no boundary line — so a push
+    /// never carries a body here; this keeps the driver's own write from taking one handed to it directly.)</summary>
+    public override void ValidateInterfaceAccessor(Accessor pushed) => InterfaceAccessorGuard.RefuseBody(pushed.Body);
 
     // ── body ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -409,19 +425,20 @@ public sealed partial class CodesysDriver
         // accessor as 613/614 like any other, so a test on the code could never fire (see the call site).
         if (ownerIsInterface)
         {
-            // The DETECTION is this vendor's own — it has to read the accessor back, because a CODESYS
-            // interface accessor carries whatever the IDE put there. The refusal and its wording are shared
-            // (`InterfaceAccessorGuard`), so the sentence an engineer reads cannot drift between vendors.
+            // THE DECLARATION IS WRITTEN, A BODY IS REFUSED (openspec bridge-refusal-review 3.6, D28; DIALECT D41).
+            // Measured on SP21: the accessor's declaration takes the driver's own write and reads back equal, the
+            // build judges it, and the IDE survives — D21's crash is TwinCAT's. The accessor has NO Implementation
+            // aspect, so a body has no slot: refused by name before anything is written (`ValidateInterfaceAccessor`,
+            // asked at the top of `WriteContent` and by the push pre-flight). An unchanged declaration is not written
+            // again.
             //
             // A live accessor of null means the property does not carry one at all: there is nothing to write
-            // to and nothing to refuse, so it stays a silent return rather than reaching the guard.
+            // to, so it stays a silent return.
             var live = FindAccessor(property, code);
-            if (live is not null)
-            {
-                var was = ReadAccessor(live.Value, ownerDeclaration);
-                InterfaceAccessorGuard.RefuseIfChanged(was.Declaration, was.Code,
-                                                       accessor.Declaration, accessor.Code);
-            }
+            if (live is null) return;
+            var was = ReadAccessor(live.Value, ownerDeclaration);
+            if (!InterfaceAccessorGuard.Unchanged(was.Declaration, accessor.Declaration))
+                _om.WriteSourceText(live.Value.Native, accessor.Declaration ?? "", null);
             return;
         }
 

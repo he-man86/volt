@@ -366,11 +366,80 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       `RefusedName` signature). volt-cli `bun test test/unit` 9; `bun run check` 15/15.
 - [x] 3.5 `NetworkText.cs:148` — can DefaultViewMode be set on an update on live CODESYS (TwinCAT: on create already)?
       Measured 2026-10-03: yes on both — DIALECT N23. Written (2.22, 2.31).
-- [ ] 3.6 `CodesysDriver.Content.cs:436` (was 441) — CODESYS interface-accessor write: taken, refused or crash? (D28)
-- [ ] 3.7 `BeckhoffDriver.Content.cs:512` (was 516) — which NotSupportedExceptions reach the Stamp catch on real
+- [x] 3.6 `CodesysDriver.Content.cs:436` (was 441) — CODESYS interface-accessor write: taken, refused or crash? (D28)
+      Done (step 3b) — MEASURED, CHANGED (DIALECT D41, `scripts/probe-interface-accessor-write.py` ->
+      `interface-accessor-write.log`): CODESYS TAKES the declaration write (the driver's object-manager write and the
+      scripting `replace`, read back equal, IDE alive) and the BUILD judges it ("Only inputs, outputs, and inouts allowed
+      in interface methods"); the accessor has NO Implementation aspect. So CODESYS writes an interface accessor's
+      declaration (an unchanged one is not re-written) and refuses a BODY by name (`InterfaceAccessorGuard.RefuseBody`,
+      UNSUPPORTED, "has no implementation"); TwinCAT keeps `RefuseIfChanged` (D21). Tests:
+      `CodesysInterfaceAccessorWriteTests` (3; 2 red before). `CodesysHiddenBodyWriteTests` joins the `SystemInstances`
+      collection (it raced the new class on the process-wide `ObjectMgr`). LSP: the four `unit_interface_property_
+      accessor_var*` fixtures were `pushRefuses` on both vendors with the old message; now `twincatPushRefuses`, and their
+      CODESYS builds RECORDED in one `record:language` batch (RECORD_ONLY, our live bridge with the change): VAR -> "Only
+      inputs, outputs, and inouts allowed in interface methods"; VAR_INPUT -> "It is not allowed to define input variables
+      in property accessors: scratch : INT" + the two override mismatches; VAR_OUTPUT / VAR_IN_OUT -> the two override
+      mismatches. (The batch also re-recorded `plat_xint_into_string`; only its `durationMs` moved, reverted by hand.)
+      `VOLT_FIXTURES` run of the four: green.
+      **Review 3a+3b (gate), fixed:** (low) the body refusal ran inside `WriteContent` after the interface's and the
+      property's declarations were committed (+2 commits before the throw — the test now asserts `Commits` unchanged, red
+      before). It is a driver pre-flight now, `ICodeStore.ValidateInterfaceAccessor(Accessor)` (DriverBase: nothing):
+      CODESYS refuses a body (`RefuseBody`), TwinCAT any declaration or body (`RefuseIfChanged(null, null, …)`, its write
+      calls the same); `CodesysDriver.WriteContent` asks it for every interface accessor before its first commit, and
+      `PushService.ValidateSourceOrThrow` for every interface property's GET/SET — so TwinCAT's declaration refusal (the
+      four U21 fixtures' `twincatPushRefuses`) lands before the batch's first write too, which it did not. Measured on the
+      way: the ST reader reads an interface accessor's whole text as its DECLARATION (no boundary line), so a push never
+      carries a CODESYS body — `RefuseBody` guards the driver's own contract. Tests: `CodesysInterfaceAccessorWriteTests`
+      +1 (pre-flight), `TcInterfaceAccessorPreflightTests` (3, new), `PushKeepsWhatLandedTests.An_interface_accessor_the_
+      driver_refuses_is_refused_before_the_first_write` (red before). (low) the hand-edited recording: the recorder's
+      selection is NOT wider than asked — `plat_xint_into_string` is `TARGET_PROBE` (`scripts/recording-target.ts`), which
+      every `RECORD_ONLY` batch records on purpose so the merge is refused off the 64-bit oracle. Its diagnostics were
+      unchanged and `durationMs` is compared by nothing (the recorder's own diff ignores it), so the file stays as it is:
+      each value in it is a recorder output. Not re-recorded (a CODESYS start for a duration). Next time the probe's fresh
+      `durationMs` is kept as recorded, not reverted. `testCount` 4741 -> 4745 is the four accessor fixtures.
+- [x] 3.7 `BeckhoffDriver.Content.cs:512` (was 516) — which NotSupportedExceptions reach the Stamp catch on real
       creates (D24).
-- [ ] 3.8 `TcNetworkWriter.cs:166` / `TcPlcOpenWriter.cs:50` — TwinCAT's negation/edge order (`TcUnmeasured.RefuseEdgeOrder`).
-- [ ] 3.9 `TcTaskSchedule.cs:82` — XML-escaped `Priority:` passed through: does TwinCAT's read-back decide validity?
+      Done (step 3b) — MEASURED: the catch now LOGS what it swallows (`VoltLog.Warn` "a created body keeps the importer's
+      grouping; the in-place stamp refused (…)"). Live TwinCAT (Project14, rebuilt worker), 7 graphical e2e files —
+      create-shapes, grouping, roundtrip, graphical-kinds, fanout, labels, comments: 48 pass, 47 creates; the catch fired
+      3 times, ALL the same `TcNetworkWriter.Apply` refusal, "network 1 changes from 1 to 3 item(s)" — the one-wire-two-
+      coils shape (`VltE2E_fanout`, `VltE2E_fanint`, `VltE2E_onewiretwo`): the importer splits one item into three inside
+      the network (an item-level regrouping; `MergeImporterSplits` merges only network splits). Nothing else reached it.
+      Statically, the rest that can is `Apply`'s generic `Refuse` (~35 sites: values the in-place writer cannot write),
+      swallowed only for a body with no detail, and `RefuseEdgeOrder` (pre-flighted). Input for 4.24: the dedicated
+      regrouping exception is the item-count arm (with the network-count arm D25 names).
+- [x] 3.8 `TcNetworkWriter.cs:166` / `TcPlcOpenWriter.cs:50` — TwinCAT's negation/edge order (`TcUnmeasured.RefuseEdgeOrder`).
+      Done (step 3b) — NOT MEASURABLE HERE, refusal KEPT (DIALECT N17 re-check): the TwinCAT user-mode runtime is installed
+      (`C:\TwinCAT\3.1\Runtimes\UmRT_Default`, 4024.74) but unlicensed (`Target\License` empty), and the trial licence
+      is issued only after a CAPTCHA in the XAE dialog — a human step. Corpora: 0 `R_EDGE(NOT …)` / `F_EDGE(NOT …)` in
+      all six, so the refusal is niche. Owner step to lift it: activate a UmRT trial licence once, then run N17's
+      sequence there. `TcUnmeasured` doc updated.
+- [x] 3.9 `TcTaskSchedule.cs:82` — XML-escaped `Priority:` passed through: does TwinCAT's read-back decide validity?
+      Done (step 3b) — MEASURED, CHANGED (DIALECT C19c, `tc-refusal-measure-priority.log`): `ConsumeXml` refuses NO
+      priority; it stores a UINT16 and coerces silently (-1 -> 65535, 65536 -> 0, 99999999999 -> 59391, abc / `<5>` / `&`
+      / empty -> 0, 1.5 -> 1, 0x10 -> 16, 007 -> 7). Escaping and letting the read-back decide would catch a value only
+      after the task was overwritten, so the pre-flight keeps refusing — by the range 0..65535 (BAD_REQUEST; `-1` and
+      `99999999999` passed as "whole numbers" before) — and the read-back compares NUMBERS (`Priority: 007` reads back
+      `7`, which the string compare reported as a declined write). Tests: `TcTaskScheduleTests` +3 (written before the
+      code; the red run was not logged). Live (rebuilt worker): `-1` and `65536` refused BAD_REQUEST before the write,
+      `007` accepted, the task restored.
+      **Review 3a+3b (gate), fixed:** (low) `0x10`, which C19c measured TwinCAT to store as 16, was refused BAD_REQUEST:
+      `PriorityOf` takes the measured spellings — a decimal with blanks, a sign or leading zeros, and a C-style `0x` hex
+      number — in 0..65535; an IEC `16#10` was not measured and stays refused. `TcTaskScheduleTests`: `0x10` moved from the
+      refused rows to the written ones (`16`; its premise contradicted the log), + ` 7 `, + refused `0x` and `0x10000`.
+      **Step 3b numbers:** census against `4ebeb61c98`: 3b's rows: gone the Priority "not a whole number", new the
+      Priority range refusal and `InterfaceAccessorGuard.RefuseBody`. C# suites as in 3a's numbers. Live: CODESYS and
+      TwinCAT fixture IDEs, instance `bridge-refusal-review`, both closed.
+      **Gate 3a+3b numbers (after the review fixes, 2026-10-03):** C# Engine 1970 (+1 skipped; 3a 1964), Cli 259, Codesys
+      272, Twincat 402, Contracts 39, Connector 115, Repo.Gates 106 of 107 — the one red, `NoKindFromTextTests` (retired
+      `P.prg`/`B.fb` spellings), is `packages/volt-lsp-iec/src/analysis/checks/names/unresolved-identifier.test.ts` as
+      COMMITTED by `lsp-sfc-step-names` (now archived, `53d6f007a7`), red at HEAD, no path of this change. Cli's
+      `BridgePackagingTests.An_unstamped_bundle_…(Volt.Ide.Twincat)` hung once for ~25 min in the full run (its `dotnet
+      build` child's MSBuild nodes holding the redirected stdout) and then passed; re-run with `MSBUILDDISABLENODEREUSE=1`:
+      259 in 1 m 33 s. volt-cli `bun test test/unit` 9; `bun run check` 15/15; `bun run typecheck` clean (5 packages);
+      `rate:fixtures`: `map.generated.ts` unchanged; LSP full suite (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 8050 pass,
+      382 todo, 34 skip, 0 fail. Census: the review fixes add no throw site (`ValidateInterfaceAccessor` routes the two
+      existing `InterfaceAccessorGuard` refusals; `PriorityOf` and `StReader.Words` throw nothing).
 - [ ] 3.10 (review 2e+2g, medium — triaged niche) — what does the vendor's own View switch (LD ⇄ FBD) do with a network
       the target view has no drawing for: convert it, refuse it, or show it as is? Both writers set `DefaultViewMode` and
       write the same network (network text has no per-view rule), so an LD body holding a `PARALLEL` branch flipped to
@@ -440,7 +509,8 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       kind table (`CodesysObjectModel.cs:229` returns silently; `BeckhoffDriver.Content.cs:583` `HasBodySlot`).
 - [x] 4.27 D27 — covered by 2.23, 2.24, 2.29, 2.34; the marker grammar accepts a vendor-named unknown language.
       Done with 2.23, 2.24, 2.29, 2.34 and the grammar (bridge, LSP, VS Code).
-- [ ] 4.28 D28 — covered by 3.6: refusal TwinCAT-only if CODESYS takes the write.
+- [x] 4.28 D28 — covered by 3.6: refusal TwinCAT-only if CODESYS takes the write.
+      Done with 3.6 (step 3b): CODESYS writes the declaration and refuses only a body; TwinCAT refuses the whole accessor.
 - [ ] 4.29 D29 — measure `ErrorList.ErrorItems` on TcXaeShell; read diagnostics structurally or record why not.
 - [ ] 4.30 D30 — `LibraryManifestFromXml` (`BeckhoffDriver.Content.cs:782`) requires the members the vendor XML always
       carries (measure which); a missing one makes the manifest unreadable (`?? name` at :788, :794).

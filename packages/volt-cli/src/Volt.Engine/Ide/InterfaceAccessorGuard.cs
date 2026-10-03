@@ -16,6 +16,11 @@ namespace Volt.Engine.Ide;
 /// engineer has no way to find out. So a real CHANGE must be refused LOUDLY, while an unchanged restatement
 /// stays the ordinary no-op that keeps the enclosing item pushable at all.</para>
 ///
+/// <para><b>CODESYS writes the declaration (openspec bridge-refusal-review 3.6, D28; DIALECT D41).</b> The crash is
+/// TwinCAT's; measured on SP21, an interface accessor's declaration is written through the driver's own write, read back
+/// equal, and judged by the build — so only TwinCAT refuses the whole accessor (<see cref="RefuseIfChanged"/>), and
+/// CODESYS refuses only a BODY, which its accessor has no slot for (<see cref="RefuseBody"/>).</para>
+///
 /// <para><b>It lives here because the message is the contract.</b> Both drivers refuse, each detecting the
 /// change its own way — CODESYS reads the live accessor back, TwinCAT knows by construction that
 /// <c>ReadMember</c> built it as <c>new Accessor(null, null)</c> — but the sentence the engineer reads has to be
@@ -43,6 +48,20 @@ public static class InterfaceAccessorGuard
             "body are not writable, and writing them can crash the IDE. Remove the edit, or make the " +
             "change in the IDE and pull.");
     }
+
+    /// <summary>CODESYS: refuse a BODY pushed at an interface accessor — the accessor has no Implementation aspect, so
+    /// there is nowhere to write it (measured, 3.6). A blank body is the ordinary restatement and passes.</summary>
+    public static void RefuseBody(string? pushedBody)
+    {
+        if ((pushedBody ?? "").Trim().Length == 0) return;
+
+        throw new BridgeException(BridgeErrorCodes.Unsupported,
+            "an interface property's GET/SET has no implementation — the IDE holds a declaration for it and no body, " +
+            "so the body pushed has nowhere to be written. Remove the body.");
+    }
+
+    /// <summary>Whether two accessor halves are the same text, whitespace-insensitively (a reformat is not an edit).</summary>
+    public static bool Unchanged(string? live, string? pushed) => Same(live, pushed);
 
     private static bool Same(string? a, string? b) => (a ?? "").Trim() == (b ?? "").Trim();
 }

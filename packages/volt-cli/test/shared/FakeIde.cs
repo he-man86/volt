@@ -446,6 +446,19 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
         RefusesMemberCreate?.Invoke(memberKind, name, seed);
 
+    /// <summary>The driver's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>), handed each pushed
+    /// accessor of an interface property. Every call is recorded; unset, the fake refuses none — as <c>DriverBase</c>.</summary>
+    public Action<Accessor>? ValidatesInterfaceAccessor { get; init; }
+
+    /// <summary>Every <c>ValidateInterfaceAccessor</c> call, in order.</summary>
+    public List<Accessor> InterfaceAccessorsValidated { get; } = new();
+
+    public override void ValidateInterfaceAccessor(Accessor pushed)
+    {
+        InterfaceAccessorsValidated.Add(pushed);
+        ValidatesInterfaceAccessor?.Invoke(pushed);
+    }
+
     /// <summary>The driver's own pre-flight (<c>ICodeStore.ValidateSource</c>), handed the bodies the engine validated.
     /// Every call is recorded; unset, the fake refuses nothing — as <c>DriverBase</c>.</summary>
     public Action<IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody>>? ValidatesSource { get; init; }

@@ -36,6 +36,7 @@ namespace Volt.Ide.Codesys.Tests
     /// object manager's own checkout/commit, and asserts every declaration lands and no implementation aspect is so
     /// much as touched.</para>
     /// </summary>
+    [Collection(NetworkTextSwitchCollection.Name)]   // SystemInstances.ObjectMgr is process-wide (a parallel class raced it)
     public class CodesysHiddenBodyWriteTests
     {
         /// <summary>A text document: the text an aspect holds.</summary>

@@ -1096,6 +1096,15 @@ public static class PushService
                                                 ChildRefusalCause.Name);
         }
         RefuseMemberCreates(ide, name, split, isCreate, existing);
+        // …and an INTERFACE property's GET/SET the driver cannot write, from the text alone (`ICodeStore.ValidateInterfaceAccessor`:
+        // CODESYS a body, TwinCAT any edit). It was refused from inside the write, after the batch's earlier ops — and on
+        // CODESYS the interface's and the property's own declarations — had landed (review of bridge-refusal-review 3a+3b).
+        foreach (var m in split.Members)
+        {
+            if (m.Kind != ItemKind.Kinds.InterfaceProperty) continue;
+            if (m.Getter is { } get) ide.ValidateInterfaceAccessor(get);
+            if (m.Setter is { } set) ide.ValidateInterfaceAccessor(set);
+        }
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         //

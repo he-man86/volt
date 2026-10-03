@@ -66,6 +66,12 @@ public sealed partial class BeckhoffDriver
     /// creates it), an accessor the property does not carry, a blank implementation or an archive with nothing drawn
     /// in it. A body the write EDITS in place is not lowered: the in-place writer takes shapes the import does not.
     /// This ran per ITEM, so a new graphical member in an existing POU was refused mid-batch.</para></summary>
+    /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): ANY
+    /// declaration or body, since <c>ReadMember</c> builds an interface accessor as <c>new Accessor(null, null)</c> and
+    /// writing one can crash TcXaeShell (DIALECT D21). The write refuses by this same call.</summary>
+    public override void ValidateInterfaceAccessor(Accessor pushed) =>
+        InterfaceAccessorGuard.RefuseIfChanged(null, null, pushed.Declaration, pushed.Body);
+
     public override void ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)
     {
         Dictionary<string, Volt.Engine.Ide.MemberSites.Site>? members = null;
@@ -521,6 +527,10 @@ public sealed partial class BeckhoffDriver
         catch (NotSupportedException ex) when (ex is not TcEnoRefusal && !CarriesDetail(model) && !LostNetworks(built, model))
         {
             // Nothing to lose: the body is exactly what was pushed, grouped the way the IDE groups it.
+            // LOGGED, because the catch takes a NotSupportedException it never names (D24, task 3.7): which ones reach
+            // it on real creates is what decides whether it may narrow to one exception type.
+            VoltLog.Warn($"twincat: a created body keeps the importer's grouping; the in-place stamp refused " +
+                         $"({ex.GetType().Name}): {ex.Message}");
             return TcNetworkWriter.DropImporterBoxOutputs(built);
         }
     }
@@ -704,7 +714,7 @@ public sealed partial class BeckhoffDriver
             // Live state is BLANK by construction here — `ReadMember` builds an interface accessor as
             // `new Accessor(null, null)` — so anything non-blank pushed at one IS a change, and no COM read is
             // needed to tell. Passing the blanks explicitly is what lets the refusal itself be shared.
-            InterfaceAccessorGuard.RefuseIfChanged(null, null, accessor.Declaration, accessor.Body);
+            ValidateInterfaceAccessor(accessor);
             return;
         }
 

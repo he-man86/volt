@@ -1747,6 +1747,11 @@ window.VOLT = {
           "signature": "string? RefusedMemberCreate(string memberKind, string name, string? seed)"
         },
         {
+          "name": "ValidateInterfaceAccessor",
+          "kind": "method",
+          "signature": "void ValidateInterfaceAccessor(Accessor pushed)"
+        },
+        {
           "name": "ValidateTask",
           "kind": "method",
           "signature": "void ValidateTask(TaskSettings settings)"

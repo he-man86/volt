@@ -18,7 +18,9 @@ internal static class TcUnmeasured
 
     /// <summary>A node's flags state a negation AND an edge: the one combination whose evaluation ORDER is a vendor fact.
     /// CODESYS negates first (<c>R_EDGE(NOT x)</c>, DIALECT N17, run in simulation); TwinCAT's order is not measured —
-    /// running a TwinCAT PLC needs a runtime licence the measuring machine does not have (task 1.14) — so the one
+    /// running a TwinCAT PLC needs a runtime licence the measuring machine does not have (task 1.14; re-checked for
+    /// bridge-refusal-review 3.8: the user-mode runtime is installed, unlicensed, and the trial licence takes a CAPTCHA a probe
+    /// may not type — DIALECT N17) — so the one
     /// object model (N1) is the only evidence the order is the same, which is not enough to write logic by.</summary>
     public static bool NegatedEdge(Flags? f) => f is { Negated: true } and ({ Rising: true } or { Falling: true });
 

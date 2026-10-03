@@ -1,0 +1,24 @@
+﻿probe-tc-refusal-measure.ps1 -Phase priority - 2026-10-03 14:58
+XAE pid 40780: C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project14\TwinCAT Project14.sln
+system task TIRT^PlcTask, as found: TaskDef Priority='20' CycleTime=100000; ctx 'PlcTask' prio=20
+   Priority 'abc' (sent 'abc'): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '-1' (sent '-1'): taken -> TaskDef Priority='65535' CycleTime=100000; ctx 'PlcTask' prio=65535
+   Priority '0' (sent '0'): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '1.5' (sent '1.5'): taken -> TaskDef Priority='1' CycleTime=100000; ctx 'PlcTask' prio=1
+   Priority ' 7 ' (sent ' 7 '): taken -> TaskDef Priority='7' CycleTime=100000; ctx 'PlcTask' prio=7
+   Priority '+3' (sent '+3'): taken -> TaskDef Priority='3' CycleTime=100000; ctx 'PlcTask' prio=3
+   Priority '0x10' (sent '0x10'): taken -> TaskDef Priority='16' CycleTime=100000; ctx 'PlcTask' prio=16
+   Priority '99999999999' (sent '99999999999'): taken -> TaskDef Priority='59391' CycleTime=100000; ctx 'PlcTask' prio=59391
+   Priority '2147483648' (sent '2147483648'): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '<5>' (sent '&lt;5&gt;'): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '&' (sent '&amp;'): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '' (sent ''): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '31' (sent '31'): taken -> TaskDef Priority='31' CycleTime=100000; ctx 'PlcTask' prio=31
+   Priority '32' (sent '32'): taken -> TaskDef Priority='32' CycleTime=100000; ctx 'PlcTask' prio=32
+   Priority '255' (sent '255'): taken -> TaskDef Priority='255' CycleTime=100000; ctx 'PlcTask' prio=255
+   Priority '256' (sent '256'): taken -> TaskDef Priority='256' CycleTime=100000; ctx 'PlcTask' prio=256
+   Priority '65535' (sent '65535'): taken -> TaskDef Priority='65535' CycleTime=100000; ctx 'PlcTask' prio=65535
+   Priority '65536' (sent '65536'): taken -> TaskDef Priority='0' CycleTime=100000; ctx 'PlcTask' prio=0
+   Priority '007' (sent '007'): taken -> TaskDef Priority='7' CycleTime=100000; ctx 'PlcTask' prio=7
+restored: TaskDef Priority='20' CycleTime=100000; ctx 'PlcTask' prio=20
+done

@@ -131,6 +131,15 @@ public interface ICodeStore
     /// refuses the same create by the same predicate, so the two never disagree.</summary>
     string? RefusedMemberCreate(string memberKind, string name, string? seed);
 
+    /// <summary>Refuse — by throwing the refusal the write would answer — an INTERFACE property's GET/SET this vendor
+    /// cannot write, or do nothing. Asked by the push PRE-FLIGHT for every accessor of every interface property the text
+    /// carries, so the refusal lands before the batch's first write instead of after the earlier ops (and the item's own
+    /// interface and property declarations) had landed (review of bridge-refusal-review 3a+3b). Decided from the pushed
+    /// accessor alone: CODESYS refuses a BODY, which its accessor has no slot for (DIALECT D41); TwinCAT refuses any
+    /// declaration or body, which its live accessor never holds (D21). The driver's own write refuses by the same call,
+    /// so the two never disagree.</summary>
+    void ValidateInterfaceAccessor(Accessor pushed);
+
     /// <summary>Refuse — by throwing the refusal, with the code the write would answer — a task whose SETTINGS this
     /// vendor cannot hold, or do nothing. Asked by the push PRE-FLIGHT for every `.task` set op, with the settings the
     /// engine's own gate read (<c>TaskDescriptorFormat.Gate</c>), so a refusal the vendor decides from the settings

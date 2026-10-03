@@ -80,8 +80,14 @@ internal static class TcTaskSchedule
             throw Refuse(BridgeErrorCodes.Unsupported,
                          "a watchdog — TwinCAT has no per-task watchdog with a time and a sensitivity. " +
                          "Write `Watchdog: off`.");
-        if (!long.TryParse(t.Priority, NumberStyles.Integer, CultureInfo.InvariantCulture, out var priority))
-            throw Refuse(BridgeErrorCodes.BadRequest, $"`Priority: {t.Priority}` is not a whole number.");
+        // THE RANGE TWINCAT HOLDS, refused before the write (openspec bridge-refusal-review 3.9, DIALECT C19c). ConsumeXml
+        // refuses no priority: it stores a UINT16 and coerces anything else without a word (-1 -> 65535, 65536 -> 0,
+        // 99999999999 -> 59391, 'abc' -> 0, '1.5' -> 1). Passed through XML-escaped, the read-back below would catch it
+        // only AFTER the system task was overwritten with the coerced number — so the patch is built from the number.
+        if (PriorityOf(t.Priority) is not { } priority)
+            throw Refuse(BridgeErrorCodes.BadRequest,
+                $"`Priority: {t.Priority}` — a task priority is a whole number in 0..65535 (TwinCAT stores a UINT16 and turns " +
+                "any other value into a different number without a word).");
 
         return $"<TreeItem><TaskDef><Priority>{priority}</Priority>" +
                $"<CycleTime>{ToTicks(t.Interval, t.IntervalUnit)}</CycleTime></TaskDef></TreeItem>";
@@ -103,18 +109,35 @@ internal static class TcTaskSchedule
 
         var def = root.Descendants("TaskDef").FirstOrDefault()
             ?? throw new InvalidOperationException("twincat: the system task lost its <TaskDef> across the write");
-        if (def.Element("Priority")?.Value.Trim() != wantPriority) return false;
+        // BY NUMBER: `Priority: 007` is written `7` (the patch writes the parsed number) and reads back `7`.
+        if (!SamePriority(def.Element("Priority")?.Value, wantPriority)) return false;
         if (def.Element("CycleTime")?.Value.Trim() != wantTicks.ToString(CultureInfo.InvariantCulture)) return false;
 
         // The module context's cycle is the SAME time in nanoseconds — 100 ns per tick.
         foreach (var ctx in root.Descendants("Context"))
         {
-            if (ctx.Element("Priority") is { } p && p.Value.Trim() != wantPriority) return false;
+            if (ctx.Element("Priority") is { } p && !SamePriority(p.Value, wantPriority)) return false;
             if (ctx.Element("CycleTime") is { } c &&
                 c.Value.Trim() != (wantTicks * 100).ToString(CultureInfo.InvariantCulture)) return false;
         }
         return true;
     }
+
+    /// <summary>A `Priority:` value as the number TwinCAT holds it (0..65535), or null for one it would coerce. The
+    /// spellings are the ones C19c measured TwinCAT to store as the number they state: a decimal with surrounding blanks,
+    /// a sign or leading zeros (` 7 `, `+3`, `007`), and a C-style hex number (`0x10` -> 16). An IEC `16#10` was not
+    /// measured, so it is refused with the rest.</summary>
+    private static int? PriorityOf(string? text)
+    {
+        var s = (text ?? "").Trim();
+        var parsed = s.StartsWith("0x", StringComparison.Ordinal)
+            ? int.TryParse(s.Substring(2), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out var n)
+            : int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out n);
+        return parsed && n >= 0 && n <= ushort.MaxValue ? n : null;
+    }
+
+    private static bool SamePriority(string? read, string want) =>
+        PriorityOf(read) is { } r && PriorityOf(want) is { } w ? r == w : (read ?? "").Trim() == want;
 
     /// <summary>What a set of settings asks for, in the vendor's own numbers — for the read-back failure, which
     /// is useless without them. "Did not apply it" tells nobody which field moved or where it landed.</summary>

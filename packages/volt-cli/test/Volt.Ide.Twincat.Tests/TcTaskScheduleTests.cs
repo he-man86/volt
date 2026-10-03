@@ -128,6 +128,48 @@ public class TcTaskScheduleTests
         Assert.Contains(mentions, ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>openspec bridge-refusal-review 3.9, DIALECT C19c: TwinCAT's <c>ConsumeXml</c> refuses NO priority — it
+    /// stores a UINT16 and coerces anything else silently (<c>-1</c> -> 65535, <c>65536</c> -> 0, <c>99999999999</c> -> 59391,
+    /// <c>abc</c> -> 0; <c>scripts/tc-refusal-measure-priority.log</c>). Passed through escaped, the read-back would catch
+    /// it only after the system task was overwritten with the coerced number, so the patch keeps refusing it BEFORE the
+    /// write — now by the range TwinCAT holds, not merely "a whole number", which let <c>-1</c> through.</summary>
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("65536")]
+    [InlineData("99999999999")]
+    [InlineData("1.5")]
+    [InlineData("0x")]
+    [InlineData("0x10000")]
+    public void A_priority_TwinCAT_would_coerce_is_refused_before_the_write(string priority)
+    {
+        var body = $"Type:      Cyclic\nInterval:  10 ms\nPriority:  {priority}\nWatchdog:  off\n";
+        var ex = Assert.Throws<BridgeException>(() => TcTaskSchedule.SysTaskPatch(TaskDescriptorFormat.Read(body)));
+        Assert.Equal(BridgeErrorCodes.BadRequest, ex.ErrorCode);
+        Assert.Contains("0..65535", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("0", "0")]
+    [InlineData("65535", "65535")]
+    [InlineData("+3", "3")]
+    [InlineData("007", "7")]
+    [InlineData(" 7 ", "7")]
+    [InlineData("0x10", "16")]   // measured: TwinCAT stores 0x10 as 16, the number it states (review 3a+3b)
+    public void A_priority_in_range_is_written_as_its_number(string priority, string written)
+    {
+        var settings = TaskDescriptorFormat.Read($"Type:      Cyclic\nInterval:  10 ms\nPriority:  {priority}\nWatchdog:  off\n");
+        Assert.Contains($"<Priority>{written}</Priority>", TcTaskSchedule.SysTaskPatch(settings));
+    }
+
+    /// <summary>The read-back compares the NUMBER: <c>Priority: 007</c> is written as <c>7</c> and TwinCAT reads back
+    /// <c>7</c>, which matched the string <c>007</c> never — a landed write reported as one TwinCAT declined.</summary>
+    [Fact]
+    public void The_read_back_compares_the_priority_as_a_number()
+    {
+        var want = TcTaskSchedule.Read(SysTaskXml, new[] { "PLC_PRG" }) with { Priority = "020" };
+        Assert.True(TcTaskSchedule.Matches(SysTaskXml, want));
+    }
+
     /// <summary>The push PRE-FLIGHT asks the very patch the write builds (<c>ICodeStore.ValidateTask</c>), so a task TwinCAT
     /// cannot hold is refused before the batch's first write, not after its earlier ops landed (review 2e+2g, low).</summary>
     [Fact]

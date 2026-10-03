@@ -34,6 +34,9 @@ public abstract class DriverBase : IIdeSession
     /// <summary>No member create refused from its argument — see <c>ICodeStore.RefusedMemberCreate</c>.</summary>
     public virtual string? RefusedMemberCreate(string memberKind, string name, string? seed) => null;
 
+    /// <summary>No interface accessor refused from its text — see <c>ICodeStore.ValidateInterfaceAccessor</c>.</summary>
+    public virtual void ValidateInterfaceAccessor(Volt.Engine.Item.Accessor pushed) { }
+
     /// <summary>No task refused from its settings — see <c>ICodeStore.ValidateTask</c>.</summary>
     public virtual void ValidateTask(Volt.Engine.Format.Task.TaskSettings settings) { }
 

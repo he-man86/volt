@@ -58,6 +58,10 @@ const ACCESSOR_DECLARATION_NOT_WRITABLE = "an interface property's GET/SET carri
 function pushRefuses(t: LanguageTest, reason: string): LanguageTest {
   return { ...t, vendorRefuses: { codesys: reason, twincat: reason } }
 }
+/** `t`, whose push only TWINCAT refuses (`reason`): CODESYS takes it, so its build is recorded. */
+function twincatPushRefuses(t: LanguageTest, reason: string): LanguageTest {
+  return { ...t, vendorRefuses: { twincat: reason } }
+}
 /** `t`, whose text Volt's push REWRITES before either IDE sees it (`how`): no vendor ever answers the text as written.
  *  The build recording measures the rewrite, and `record:exec` would load the parser's own split — so nothing is
  *  asked. A BRIDGE gap (reported to the owner), not a fact about the language. */
@@ -390,15 +394,16 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
     itf("unit_interface_extends_qualified", ITF_GET, " EXTENDS __SYSTEM.IQueryInterface")),
 
   // ─── U21 interface accessor VAR sections ────────────────────────────────────────────────────────────────────────────
-  // the push refuses to WRITE an interface accessor's declaration (a pull reads it — 263 in pro2193); `record:exec`
-  // loads the objects itself and answers for CODESYS
-  pushRefuses(itfProperty("unit_interface_property_accessor_var", "U21 — an interface property's getter declaring a VAR section", "",
+  // TwinCAT's push refuses to WRITE an interface accessor's declaration (DIALECT D21: the write crashes TcXaeShell; a pull
+  // reads it — 263 in pro2193); CODESYS's writes it and its build answers (openspec bridge-refusal-review 3.6, DIALECT
+  // D41), so the CODESYS build is recorded; `record:exec` loads the objects itself and answers for CODESYS
+  twincatPushRefuses(itfProperty("unit_interface_property_accessor_var", "U21 — an interface property's getter declaring a VAR section", "",
     "GET\nVAR\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE),
-  pushRefuses(itfProperty("unit_interface_property_accessor_var_input", "U21 — an interface property's getter declaring a VAR_INPUT section", "",
+  twincatPushRefuses(itfProperty("unit_interface_property_accessor_var_input", "U21 — an interface property's getter declaring a VAR_INPUT section", "",
     "GET\nVAR_INPUT\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE),
-  accessorSignature(pushRefuses(itfProperty("unit_interface_property_accessor_var_output", "U21 — an interface property's getter declaring a VAR_OUTPUT section", "",
+  accessorSignature(twincatPushRefuses(itfProperty("unit_interface_property_accessor_var_output", "U21 — an interface property's getter declaring a VAR_OUTPUT section", "",
     "GET\nVAR_OUTPUT\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE)),
-  accessorSignature(pushRefuses(itfProperty("unit_interface_property_accessor_var_in_out", "U21 — an interface property's getter declaring a VAR_IN_OUT section", "",
+  accessorSignature(twincatPushRefuses(itfProperty("unit_interface_property_accessor_var_in_out", "U21 — an interface property's getter declaring a VAR_IN_OUT section", "",
     "GET\nVAR_IN_OUT\n\tscratch : INT;\nEND_VAR\nEND_GET\n"), ACCESSOR_DECLARATION_NOT_WRITABLE)),
   // …and an interface METHOD's local sections ("Only inputs, outputs, and inouts allowed in interface methods" is
   // measured on VAR; these are the other three a method may declare)

@@ -794,6 +794,35 @@ public class PushKeepsWhatLandedTests
         Assert.Contains((ItemKind.Kinds.InterfaceProperty, "My-Name"), asked);
     }
 
+    /// <summary>Review of bridge-refusal-review 3a+3b: an interface property's GET/SET the driver refuses from its text
+    /// (<c>ICodeStore.ValidateInterfaceAccessor</c> — TwinCAT any edit, D21) is refused by the PRE-FLIGHT, so nothing is
+    /// written: it was refused from inside the write, after the batch's earlier ops had landed. (An interface accessor's
+    /// text is all declaration to the reader — it has no boundary line — so this fake refuses a declaration, as
+    /// TwinCAT does.)</summary>
+    [Fact]
+    public void An_interface_accessor_the_driver_refuses_is_refused_before_the_first_write()
+    {
+        var ide = new FakeIde
+        {
+            ValidatesInterfaceAccessor = a =>
+            {
+                if (!string.IsNullOrWhiteSpace(a.Declaration))
+                    throw new BridgeException(BridgeErrorCodes.Unsupported, "the accessor is not writable");
+            },
+        };
+
+        var resp = Push(ide, Create("E_A.dut", Enum),
+            Create("I_X.itf", "INTERFACE I_X\nPROPERTY P : INT\nGET\nVAR\n\tscratch : INT;\nEND_VAR\nEND_GET\nEND_PROPERTY\nEND_INTERFACE"));
+
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("I_X.itf", conflict.Name);
+        Assert.True(conflict.Code == BridgeErrorCodes.Unsupported, conflict.Reason);
+        Assert.Contains("not writable", conflict.Reason);
+        Assert.Single(ide.InterfaceAccessorsValidated);
+    }
+
     /// <summary>bridge-refusal-review 3.1: the POU create is asked with its kind, so a driver answers its words only where
     /// they were measured.</summary>
     [Fact]
