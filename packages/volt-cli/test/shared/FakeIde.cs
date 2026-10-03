@@ -528,12 +528,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         ItemKind.PlcGvl => "VAR_GLOBAL\nEND_VAR\n",
         _ => $"PROGRAM {name}\nVAR\nEND_VAR\n",
     };
+    /// <summary>Make a delete FAIL, given the bare name — the case a push's rollback of a refused create must report
+    /// (openspec <c>push-keeps-what-landed</c>: "a refused create leaves nothing behind, or says it did"). The item
+    /// stays in the project, as it does on the live IDE when its removal faults.</summary>
+    public Func<string, Exception?>? FailDelete { get; init; }
+
     /// <summary>Records AND removes. It only recorded, so nothing could observe that a delete actually
     /// happened: a test could not tell "deleted" from "reported deleted", and a push that removed a member and
     /// then read the POU back still saw it. An audit found a foldered member that could never be deleted at all,
     /// and the offline suite was structurally incapable of noticing.</summary>
     public void Delete(ItemRef parent, string name)
     {
+        if (FailDelete?.Invoke(name) is { } failure) throw failure;
         Recorded.Add($"delete:{name}");
         UnopenedItems.Remove(name);
         // A FOLDER IS NOT AN ITEM, so it is not in `_items` and the item path below would silently no-op on

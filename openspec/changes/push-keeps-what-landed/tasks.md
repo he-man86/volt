@@ -49,10 +49,62 @@
 
 ## 1. Test red
 
-- [ ] 1.1 Live fixture (CODESYS): push `[create A.<dut kind>, create FB.pou with METHOD Log]`. Today (re-measure —
+- [x] 1.1 Live fixture (CODESYS): push `[create A.<dut kind>, create FB.pou with METHOD Log]`. Today (re-measure —
       the shell is expected GONE since `f7eb383f47`): `accepted:false`, prose "1 of 2 … Run `volt pull`", no receipt.
-- [ ] 1.2 Pre-flight: a batch with TWO INVALID_ST items and two valid items. Today: only the first bad item is named,
+      **Red 2026-10-03.** Live: `test/e2e/endpoints/push-keeps-what-landed.test.ts` (prints the whole response and
+      the refs after — the snapshot later steps compare against); offline twin
+      `Volt.Engine.Tests/sync/PushKeepsWhatLandedTests.An_apply_time_refusal_after_earlier_creates_is_accepted_…`
+      (FakeIde C2k: FUNCTION text + METHOD). Measured live on CODESYS SP21 (own instance, fixture copy), push of
+      `[enum VltE2E_pk_E.dut, struct VltE2E_pk_ST.dut, FB VltE2E_pk_FB.pou + METHOD Log]`: `accepted:false`, ONE
+      conflict `VltE2E_pk_FB.pou`, **code `INTERNAL_ERROR`**, reason "The name 'Log' is not valid for this object. —
+      NOTE: 2 of 3 item(s) were already written to the IDE before this one failed, and are not rolled back. Run
+      `volt pull` to take them into the workspace, then push again."; no `newItems`; refs after = the two DUTs, **no
+      FB shell** (the rollback ran). Two facts the FakeIde twin does not show: the live refusal is NOT a
+      `ChildRefusedException` (the CODESYS driver raises it unclassified → `INTERNAL_ERROR`, not `UNSUPPORTED`), so
+      the reason also lacks `MemberRefusal`'s "'F' is not created (the create is rolled back)" although the create
+      WAS rolled back — for 2.2 / 3.1. The e2e asserts the conflict NAME and the absent shell, not the code.
+      Offline the same shape: `accepted:false`, one `F.pou [UNSUPPORTED]` "… 'F' is not created (the create is
+      rolled back) … — NOTE: 2 of 3 …", no receipt, `E_A`/`ST_B` exist.
+- [x] 1.2 Pre-flight: a batch with TWO INVALID_ST items and two valid items. Today: only the first bad item is named,
       nothing written.
+      **Red 2026-10-03.** `PushKeepsWhatLandedTests.A_pre_flight_with_two_malformed_items_names_both_and_writes_nothing`
+      (offline: `[Good1, Bad, Bad2, Good2]` → today ONE conflict `Bad.pou [INVALID_ST]`, nothing recorded) and the
+      e2e twin in the same file (live CODESYS: ONE conflict `VltE2E_pk_bad1.pou [INVALID_ST]` "Missing
+      END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION in 'VltE2E_pk_bad1' …", nothing written, `bad2` unnamed).
+      Baseline: the push oracles (`PushServiceTests`, `DeclarationBeforeMembersTests`, `CreateRollbackTests`,
+      `UnopenedItemTests`, `PushConflictCodeTests`) 67/67 green, the two new tests red (69 total); volt-cli `tsc` clean.
+- [x] 1.G Gate step 1 — review findings (2026-10-03), all four valid:
+      F1 (the live code is never asserted) — fixed: the e2e 1.1 now pins `conflicts[0].code == "UNSUPPORTED"` (the
+      default chosen: a vendor refusing a member by NAME is the same class as its refusal by kind, DIALECT C2k, and
+      the CLI picks its advice by code; owner may pick another) and that the reason says
+      "'<FB>' is not created (the create is rolled back)". Red at the driver too:
+      `CodesysChildRefusalTests.The_measured_name_not_valid_answer_is_a_refusal_with_the_vendors_words`
+      ("The name 'Log' is not valid for this object." → today `ChildRefusal` answers null). 2.2 owns it (below), 4.1
+      checks the code.
+      F2 (the offline twin takes another path) — fixed: `FakeIde.FailDelete` added; the twin's doc comment no longer
+      claims to stand in for `Log`; three new red tests in `PushKeepsWhatLandedTests`:
+      `An_unclassified_member_create_failure_after_earlier_creates_is_accepted_and_says_the_create_is_rolled_back`
+      (FailCreate "The name 'M' is not valid …" on an FB create in `[E_A, ST_B, F]` — today `accepted:false`
+      `INTERNAL_ERROR`, NOTE prose, no rollback word; F rolled back),
+      `An_unclassified_failure_whose_rollback_delete_also_fails_says_the_shell_remains` (+ FailDelete on F — today F
+      stays and the conflict says nothing of it; only `VoltLog.Warn`), and
+      `A_classified_member_refusal_whose_rollback_delete_fails_does_not_claim_the_rollback` (C2k + FailDelete — today
+      the reason says "'F' is not created (the create is rolled back)" while F is in the project: `MemberRefusal`
+      words it before `Rollback` runs).
+      F3 (TwinCAT unmeasured) — MEASURED, no gate: own XAE (`ide.ps1 up -Vendor twincat -Instance
+      push-keeps-what-landed`, fixture, then `down`), `VOLT_VENDOR=twincat` e2e 1.1: XAE ALSO refuses `Log` —
+      "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'Log' is not possible
+      on node (Name mismatch) …", `accepted:false`, ONE conflict `VltE2E_pk_FB.pou [INTERNAL_ERROR]` + NOTE, refs
+      after = the two DUTs, no FB shell. Same shape as CODESYS (parity); the test stays ungated on both vendors. Red
+      at the driver: `TcChildRefusalTests.The_measured_Name_mismatch_is_a_refusal_with_the_vendors_words`. 1.2 on
+      TwinCAT: one conflict `VltE2E_pk_bad1.pou [INVALID_ST]`, nothing written (as CODESYS).
+      F4 (untracked `openspec/specs/`) — not this step's; left untouched and not staged.
+      Suites (volt-cli, this tree): Engine 1870 pass / 1 skip / **5 red** (the five `PushKeepsWhatLandedTests`, each
+      failing on the change's assertion, every premise assertion green), Cli 239, Contracts 19, Connector 113,
+      Ide.Twincat 296 / **1 red** (Name mismatch), Ide.Codesys 202 / **1 red** (name not valid), Relay 46,
+      Repo.Gates 92 — 2877 pass, 0 unexpected fail, 7 deliberately red (the step's tests); `bun test test/unit` 4/4;
+      `tsc` clean; `openspec validate` valid. e2e live (TwinCAT): 2 red as designed. No LSP / fixture / transpiler
+      file touched, so no fixture map regeneration and no LSP suite.
 
 ## 2. Per-item outcome
 
@@ -67,6 +119,15 @@
 - [ ] 2.2 Apply loop: on an IDE refusal STOP (no rollback of earlier ops; a refused create stays rolled back, 2a);
       if the rollback's own delete fails, the conflict says the shell remains. (Design 1c/2b — continuing / restoring
       an update CONFLICTS, owner.)
+      ALSO OWNS (gate step 1, F1/F2): (a) both drivers classify the measured member-NAME refusals as
+      `ChildRefusedException` — CODESYS "The name '<n>' is not valid for this object.", TwinCAT "(Name mismatch)" —
+      so the live `Log` refusal reaches the client `UNSUPPORTED` with `MemberRefusal`'s text (green:
+      `CodesysChildRefusalTests` / `TcChildRefusalTests` name tests); check whether the same wording can come from a
+      TOP-LEVEL create (an item named `LOG`) and word that case as the item's, not a member's; (b) an UNCLASSIFIED
+      create failure still says what of the op the IDE kept ("'F' is not created (the create is rolled back)");
+      (c) a failed rollback delete reaches the conflict ("'F' remains …") and no reason claims a rollback that did not
+      happen — `MemberRefusal` is worded before `Rollback` runs, so the rollback's outcome must decide the wording
+      (green: the three gate-step-1 tests in `PushKeepsWhatLandedTests`).
 - [ ] 2.3 Dependent ops — already true (one op per item, gate forward simulation, stop-at-refusal makes every later op
       `NOT_ATTEMPTED`); nothing to build (design item 4).
 - [ ] 2.4 Response: at least one op APPLIED IN FULL → `accepted:true` + receipt + conflicts = the refused op (its
@@ -112,7 +173,7 @@
 
 ## 4. Verify
 
-- [ ] 4.1 1.1 now: `accepted:true`, the DUT in the receipt, `FB.pou` the only conflict, no shell, `refs` matches the
-      receipt. 1.2 now: both bad items named, nothing written.
+- [ ] 4.1 1.1 now, live on BOTH vendors: `accepted:true`, the DUT in the receipt, `FB.pou` the only conflict with
+      code `UNSUPPORTED` and a reason saying it is not created (rolled back), no shell, `refs` matches the receipt. 1.2 now: both bad items named, nothing written.
 - [ ] 4.2 CLI push of a partially refused batch updates the baseline for applied items (and the receipt's
       rewritten known items) only; full suites green.
