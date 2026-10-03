@@ -94,10 +94,12 @@ pwsh scripts/build-cli.ps1                                 # publish volt.exe + 
 ```
 
 IDE dev/test loop (Windows/PowerShell), **one script for both vendors**:
-`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat [-Wait]` (plus `down` / `pipe` / `logs`).
-It serves a committed **fixture** project (never the engineer's live IDE); then `bun run test:e2e:codesys` or
-`test:e2e:twincat`, which discover the live pipe by prefix — `volt.bridge.<vendor>.<pid>`, one per IDE, so
-there is nothing to hand them. The vendors differ in exactly one step and the script owns it: CODESYS loads
+`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat -Instance <name> [-Fixture 13|14] [-Wait]` (plus `down` /
+`pipe` / `logs`). It serves a COPY of a committed **fixture** project (never the engineer's live IDE); then
+`VOLT_E2E_INSTANCE=<name> bun run test:e2e:codesys` or `test:e2e:twincat`. The harness talks ONLY to the pipe of
+that instance's own fixture IDE (`test/e2e/lib/fixture-ide.ts`) and refuses any other — it once wrote into an
+engineer's project by picking the first `volt.bridge.<vendor>.*` pipe it found. `down` closes cleanly; `up` first
+clears what the same instance left behind (and dismisses TwinCAT's Recovered Files dialog). The vendors differ in exactly one step and the script owns it: CODESYS loads
 the bridge IN-PROC, TwinCAT needs a separate `VoltBridgeTwincat --xae-pid` worker, which the script spawns so
 the tier does not silently depend on the connector tray being up. There were two scripts until 2026-09-09 and
 only the CODESYS one was finished — the TwinCAT half started no bridge, waited for nothing and printed no pipe.
