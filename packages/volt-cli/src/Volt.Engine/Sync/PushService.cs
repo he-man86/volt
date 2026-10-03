@@ -689,8 +689,8 @@ public static class PushService
                 var wireName = set.ToName ?? set.Name;
                 ide.Delete(u.Parent, u.Name);
                 outcome.Replaced = u.Name;   // gone from here on, whatever the create below does
-                WriteItemFromSource(ide, Materializer.Bare(wireName), wireName, existing: null, set.SourceText, folder,
-                                    pushedDeclarations, outcome);
+                WriteItemFromSource(ide, Materializer.Bare(wireName), wireName, AdmittedKind(wireName), existing: null,
+                                    set.SourceText, folder, pushedDeclarations, outcome);
                 return "replaced";
             default:
                 throw new BridgeException(BridgeErrorCodes.BadRequest,
@@ -857,7 +857,8 @@ public static class PushService
         {
             if (op.SourceText is null)
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': a new item needs sourceText");
-            WriteItemFromSource(ide, name, op.Name, existing: null, op.SourceText, op.ToFolder, pushedDeclarations, outcome);
+            WriteItemFromSource(ide, name, op.Name, AdmittedKind(op.Name), existing: null, op.SourceText, op.ToFolder,
+                                pushedDeclarations, outcome);
             return "created";
         }
 
@@ -943,8 +944,8 @@ public static class PushService
         {
             // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too - passing
             // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for.
-            WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, item, src, currentFolder,
-                                pushedDeclarations, outcome, force ? null : op.IfVersion); // content update in place
+            WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, AdmittedKind(op.ToName ?? op.Name), item, src,
+                                currentFolder, pushedDeclarations, outcome, force ? null : op.IfVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
@@ -992,7 +993,7 @@ public static class PushService
         {
             if (sourceText is { } edited)
             {
-                WriteItemFromSource(ide, name, wireName, item, edited, newFolder, pushedDeclarations, outcome);
+                WriteItemFromSource(ide, name, wireName, AdmittedKind(wireName), item, edited, newFolder, pushedDeclarations, outcome);
                 textLanded = true;
                 // RE-RESOLVE before moving. On TwinCAT the write is a document IMPORT, and an import invalidates every
                 // handle into the item it replaced (DIALECT D4d) — so the handle this method was called with is dead
@@ -1030,7 +1031,7 @@ public static class PushService
                     ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                         $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
                         "push is failed rather than leaving the item holding its pre-edit content.");
-                WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, pushedDeclarations, outcome);
+                WriteItemFromSource(ide, name, wireName, AdmittedKind(wireName), relocated, settle, newFolder, pushedDeclarations, outcome);
             }
         }
         // A filter, returning false, so the original exception reaches the client untouched (as `RecordKept`). It runs
@@ -1160,11 +1161,19 @@ public static class PushService
                                    string bare) =>
         walk.Complete && !itemCache.ContainsKey(bare);
 
+    /// <summary>The kind of a wire name the pre-flight ADMITTED (<see cref="RequireWireNames"/> refuses every op whose
+    /// name or toName has an extension that names no kind, before anything is applied). Null here is therefore Volt's
+    /// bug, not the client's request — INTERNAL_ERROR (openspec <c>bridge-refusal-review</c> 2.16).</summary>
+    private static string AdmittedKind(string wireName) =>
+        ItemKind.KindForWireName(wireName)
+        ?? throw new BridgeException(BridgeErrorCodes.InternalError,
+            $"'{wireName}' reached the apply with no item kind, which the pre-flight's wire-name check admits for no op");
+
     /// <summary>Create-or-update an item and its children from full canonical ST source. Shared by the
     /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.
     /// <paramref name="name"/> is the BARE IDE name the write resolves by; <paramref name="wireName"/> is the FULL
     /// name the op lands under (its <c>toName</c> for a rename), whose extension is the kind.</summary>
-    private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, ItemRef? existing,
+    private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, string wireKind, ItemRef? existing,
                                         string src, string? folder,
                                         PushedDeclarations pushedDeclarations, OpOutcome outcome,
                                         string? ifVersion = null)
@@ -1174,8 +1183,8 @@ public static class PushService
         // wrong with it. This was once handed the BARE name, so `KindForWireName` answered null for every item and
         // the write believed the text's header: a function block's text pushed as `X.dut` over the FB `X` was
         // written, and the receipt named `X.pou` for an op sent as `X.dut`.
-        var wireKind = ItemKind.KindForWireName(wireName)
-            ?? throw new BridgeException(BridgeErrorCodes.BadRequest, $"'{wireName}' is not a wire name: its extension names no item kind");
+        // The kind comes from the CALLER, which took it from the name the pre-flight validated (RequireWireNames):
+        // re-deriving it here answered BAD_REQUEST for a case no push reaches (openspec bridge-refusal-review 2.16).
         var split = StReader.Read(src, wireKind, name);
 
 
@@ -1794,15 +1803,17 @@ public static class PushService
               ?? NetworkText.LanguageOf(m.Getter?.Code)
               ?? NetworkText.LanguageOf(m.Setter?.Code);
 
-    private static int PouKindToCode(string kind) => kind switch
+    internal static int PouKindToCode(string kind) => kind switch
     {
         // ONE seed per kind (design 5.Qa, S1): every POU is created as a function block whatever its text, as every DUT
         // is created as a struct — the vendor takes the kind the TEXT declares (DIALECT C2f/C2g; TwinCAT's compiler too,
         // C2h), and a function block accepts every member kind until the declaration says otherwise (C2k).
         ItemKind.Kinds.Pou => ItemKind.PlcPou,
         ItemKind.Kinds.Dut => ItemKind.PlcDut, ItemKind.Kinds.Gvl => ItemKind.PlcGvl, ItemKind.Kinds.Interface => ItemKind.PlcItf,
-        // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program.
-        _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown top-level kind '{kind}'"),
+        // No fallback: an unrecognized top-level kind is a bug (a new kind missed here), not a Program — and it is
+        // coded as Volt's bug (openspec bridge-refusal-review 2.17), not as the client's malformed request.
+        _ => throw new BridgeException(BridgeErrorCodes.InternalError,
+            $"no create code for the top-level kind '{kind}': the pre-flight admits only a writable source kind"),
     };
 
     // The splitter only ever emits method/action/property as textual children; interface vs non-interface is

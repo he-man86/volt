@@ -283,7 +283,8 @@ public static class ItemKind
         // named after the member and report the push accepted. Its structural twin `PushService.PouKindToCode`
         // - the same map for the other half of this table - throws, and so do `ExtFor` and
         // `StWriter.EndKeyword`. This arm was the one that disagreed with the policy stated 60 lines below it.
-        _ => throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown member kind '{kind}'"),
+        // Coded as Volt's bug (openspec bridge-refusal-review 2.18): the splitter emits no other member kind.
+        _ => throw new BridgeException(BridgeErrorCodes.InternalError, $"no create code for the member kind '{kind}'"),
     };
 
     public static bool IsMember(int code) =>

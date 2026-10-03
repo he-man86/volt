@@ -168,17 +168,25 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       `STALE_ITEM_VERSION`.
       Done (`PushDeleteGuardTests`, with both versions).
       **Step 2c numbers:** Engine 1936 (+1 skipped), Twincat 341, Codesys 229, Contracts 39, Repo.Gates 107.
-- [ ] 2.16 `PushService.cs:1128` (was 903) — take the wire kind from the caller that validated it; delete the
+- [x] 2.16 `PushService.cs:1128` (was 903) — take the wire kind from the caller that validated it; delete the
       re-derivation (`PushService.cs:703` already refused it as a `PushRefusal`).
-- [ ] 2.17 `PushService.cs:1755` (was 1369) — unknown top-level kind → INTERNAL_ERROR.
-- [ ] 2.18 `ItemKind.cs:286` (was 275) — unknown member kind → INTERNAL_ERROR.
+      Done: `WriteItemFromSource` takes `wireKind`; `AdmittedKind` answers INTERNAL_ERROR (`PushKindInvariantTests`).
+- [x] 2.17 `PushService.cs:1755` (was 1369) — unknown top-level kind → INTERNAL_ERROR.
+      Done (`PushKindInvariantTests`).
+- [x] 2.18 `ItemKind.cs:286` (was 275) — unknown member kind → INTERNAL_ERROR.
+      Done (`ItemKindTests`, `PushKindInvariantTests`).
 - [x] 2.19 `Materializer.cs:92` — gone: `ec0152fe0f` (the driver states a DUT's subtype; no answer publishes
       `name.dut`) and `b6822e9751` (one `.dut`, subtype off the wire). A DUT stating no subtype is addressable as
       `X.dut`; nothing parses its header to name it.
-- [ ] 2.20 `CodesysNetworkWriter.cs:284` — unreachable FB-without-instance arm → INTERNAL_ERROR, model-invariant
+- [x] 2.20 `CodesysNetworkWriter.cs:284` — unreachable FB-without-instance arm → INTERNAL_ERROR, model-invariant
       message, no v1 wording.
-- [ ] 2.21 `CodesysNetworkWriter.cs:37` — graphical text at an item with no Implementation aspect → one named
+      Done: `InvalidOperationException` "network model invariant" (`NoKindFromTextTests` loses the TYPE-word entry).
+- [x] 2.21 `CodesysNetworkWriter.cs:37` — graphical text at an item with no Implementation aspect → one named
       UNSUPPORTED (with D26).
+      Done: `NotSupportedException` naming the missing aspect (`CodesysWriterNoBodySlotTests`).
+      **Gate 1+2d (final state, every C# suite):** Engine 1943 (+1 skipped; baseline 1916),
+      Cli 259, Codesys 230, Twincat 341, Connector 115, Contracts 39, Repo.Gates 107; volt-cli `bun test test/unit` 9,
+      `tsc --noEmit` clean, `bun run check` 15/15. e2e not run (6.1): the two hand-edited e2e expectations stay unverified.
 - [ ] 2.22 `CodesysNetworkWriter.cs:51` — FBD↔LD view change written (after 3.5), else one named refusal in pre-flight (D7).
 - [ ] 2.23 `CodesysDriver.Content.cs:185` (was 190) — unknown view mode → UNSUPPORTED body marker naming it; declaration
       and members still pull (D27).
@@ -303,6 +311,14 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       is gone with 2.19; `push-without-header-check` 4.1 owns the unclosed-comment DUT/FB/GVL recordings.
 - [ ] 5.2 LSP reports each recorded error with the build's message and line; reports nothing for `implementation` as
       an identifier, a `(* @volt-` comment, and the layout rules. Colocated src test per fix.
+      LSP-only since steps 1/2 (review 1+2d) — each a false positive under the parity rule until fixed here:
+      (a) FMT8 `src/frontend/syntax/format/reserved-names.ts` reports every identifier `implementation` (and its doc
+      cites the deleted `StReader.RefuseReservedNames`) — 1.2; (b) FMT7 `retired-comments.ts` reports every
+      `(* @volt-… *)` comment "as the push refuses it" — 1.4/2.1 (keep only the no-boundary hint, if any);
+      (c) `implementation-line.ts:215` reports "its body is network text" for NETWORK…END_NETWORK under
+      IMPLEMENTATION ST, where the build's own error belongs — 1.1; (d) `network-text/parser.ts` reports the layout
+      rules 2.7-2.11 and an undeclared `gN` (1.3); and it lacks the one rule the bridge ADDED (2.7 review): a late
+      VAR_TEMP block declaring a name the network already read as a variable is NETWORK_DUPLICATE_NAME.
 
 ## 6. Gate — no code-check left
 

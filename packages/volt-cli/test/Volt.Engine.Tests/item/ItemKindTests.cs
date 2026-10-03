@@ -49,7 +49,12 @@ public class ItemKindTests
     [InlineData("pou")]               // a top-level kind, not a member at all
     [InlineData("")]
     public void An_unknown_member_kind_is_refused(string kind)
-        => Assert.Throws<BridgeException>(() => ItemKind.MemberCode(kind));
+    {
+        // A member kind the splitter never emits is a Volt bug, coded as one (openspec bridge-refusal-review 2.18): it
+        // answered BAD_REQUEST, which tells a client its request was malformed.
+        var ex = Assert.Throws<BridgeException>(() => ItemKind.MemberCode(kind));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.InternalError, ex.ErrorCode);
+    }
 
     /// <summary>AN UNMAPPED KIND HAS NO EXTENSION, and asking for one throws. A silent <c>""</c> produced a
     /// bare trailing dot (<c>"POUs."</c>) — a filename no lookup on either side of the vendor seam resolves.</summary>

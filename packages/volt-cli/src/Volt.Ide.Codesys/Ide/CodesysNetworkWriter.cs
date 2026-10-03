@@ -33,10 +33,13 @@ namespace Volt.Ide.Codesys
         /// against it to compare (see <see cref="TreesUnchanged"/>).</param>
         internal static void Write(object? iobj, NetworkBody body, NetworkScope scope)
         {
+            // An object with no Implementation aspect holds no body: a fact about the target, refused by name as
+            // UNSUPPORTED (openspec bridge-refusal-review 2.21) — it was an InvalidOperationException, which the push
+            // reports as INTERNAL_ERROR, a Volt bug.
             var impl = NwlInterop.Get(iobj, "Implementation")
-                ?? throw new InvalidOperationException(
-                    "CODESYS: the item has no Implementation aspect — refusing to write a graphical body " +
-                    "into an item that cannot hold one");
+                ?? throw new NotSupportedException(
+                    "CODESYS: this object has no Implementation aspect, so it holds no body — a graphical body cannot " +
+                    "be written into it.");
 
             // THE VIEW CANNOT BE CHANGED BY A PUSH, and this is the only place that says so. Network
             // text states FBD or LD once, on the body's IMPLEMENTATION line — the sole textual difference
@@ -281,12 +284,12 @@ namespace Volt.Ide.Codesys
                         // reader built `Type: "t1"` and this writer resolved it here from the declaration; that
                         // resolver went with the v1 text, task 3.9.) An FB call with no instance names no box the IDE
                         // can resolve at all, and is refused rather than written with the instance name as its type.
+                        // Unreachable from a push: the reader builds every FB call with its instance and its type
+                        // from the declarations. A model without one is Volt's bug (openspec bridge-refusal-review 2.20).
                         if (b.Kind == CallKind.FunctionBlock && b.Instance is null)
-                            throw new NotSupportedException(
-                                $"CODESYS: the call '{b.Type}' is a function-block instance, and network text " +
-                                "carries only the instance name - Volt cannot tell which TYPE to write into the " +
-                                "box, and writing the instance name there produces a POU that no longer " +
-                                "compiles. Edit this network in the IDE.");
+                            throw new InvalidOperationException(
+                                $"network model invariant: the function-block call '{b.Type}' carries no instance; the " +
+                                "reader builds every FB call with one.");
 
                         var box = NwlInterop.New(_net, "BoxTreeBox");
                         // The TYPE NAME only: CallType and EnEno are the vendor's to derive, and it does.
