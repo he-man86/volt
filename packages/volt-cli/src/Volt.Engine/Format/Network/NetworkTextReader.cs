@@ -122,6 +122,9 @@ public static class NetworkTextReader
         // Per network: the declared wires, by name and by VarId.
         private Dictionary<string, Wire> _wires = new(StringComparer.OrdinalIgnoreCase);
         private Dictionary<int, Wire> _byId = new();
+        // Per network: every bare word read as a VARIABLE so far (an operand or a target), with where — so a late
+        // VAR_TEMP block cannot turn a name the network already read as a variable into a wire (Declare).
+        private Dictionary<string, Tok> _readAsVariable = new(StringComparer.OrdinalIgnoreCase);
 
         public Parser(string text, NetworkScope scope)
         {
@@ -221,6 +224,7 @@ public static class NetworkTextReader
         {
             _wires = new Dictionary<string, Wire>(StringComparer.OrdinalIgnoreCase);
             _byId = new Dictionary<int, Wire>();
+            _readAsVariable = new Dictionary<string, Tok>(StringComparer.OrdinalIgnoreCase);
 
             var hdr = Next();
             Headers.Add(hdr);
@@ -267,9 +271,6 @@ public static class NetworkTextReader
             var comment = new List<string>();
             while (Peek().Kind == TokKind.Comment) comment.Add(Next().Text);
 
-            var sawBlock = false;
-            if (Peek().Is("VAR_TEMP")) { ParseWires(); sawBlock = true; }
-
             var trees = new List<Node>();
             while (true)
             {
@@ -281,17 +282,15 @@ public static class NetworkTextReader
                     throw Err(t, ConflictCodes.NetworkParse,
                         "a // comment after a statement: the network's one comment is the // lines between its header and " +
                         "its wire block or first statement, and NWL has no per-item comment to move this one to.");
-                if (t.Is("VAR_TEMP"))
-                    throw Err(t, ConflictCodes.NetworkBadExpression,
-                        sawBlock ? "a second VAR_TEMP block: a network declares its wires in one block."
-                                 : "a VAR_TEMP block after a statement: a network's wire block comes before its first statement.");
+                // A VAR_TEMP block is read wherever it stands, and a second one adds to the first (openspec
+                // bridge-refusal-review 2.7): the model is the same, and the writer puts the one canonical block before
+                // the first statement on the next pull. Text order still rules — a wire is a wire from its declaration on.
+                if (t.Is("VAR_TEMP")) { ParseWires(); continue; }
                 trees.Add(ParseStatement());
             }
 
-            foreach (var w in _wires.Values.Where(w => !w.Defined).OrderBy(w => w.Decl.Offset))
-                Diagnostics.Add(Diag(ConflictCodes.NetworkBadExpression,
-                    $"the wire {w.Name} is declared and never defined: a wire's definition is the statement `{w.Name} := value;`.",
-                    w.Decl.Offset, w.Decl.Length));
+            // A wire declared and never defined carries no Demux, so the model is complete without it and the writer
+            // drops its declaration (2.8). A REFERENCE to one is refused where it stands (Resolve): it has no producer.
             CheckWireTypes(trees);
 
             // Title and comment as the drivers store them (NetworkText.Stored): a trailing space, an empty title or a
@@ -305,7 +304,6 @@ public static class NetworkTextReader
         {
             var first = Consumed.Count;
             var kw = Next();
-            var any = false;
             while (!Peek().Is("END_VAR"))
             {
                 if (Peek().Kind == TokKind.Eof) throw Err(kw, ConflictCodes.NetworkParse, "a VAR_TEMP block with no END_VAR.");
@@ -324,10 +322,9 @@ public static class NetworkTextReader
                 Next();
                 var type = NetworkSpelling.WireType(_text.Substring(from, to - from));
                 foreach (var n in names) Declare(n, type);
-                any = true;
             }
             var endVar = Next();
-            if (!any) throw Err(kw, ConflictCodes.NetworkBadExpression, "an empty VAR_TEMP block: a network without a wire carries none.");
+            // An empty block declares nothing: layout, read as no block (2.9).
             // END_VAR takes no `;` of its own: a `;` after it is the empty statement — the empty item — and taking it
             // into the block would drop that item from the network without a word, on pull and on push alike.
 
@@ -358,9 +355,16 @@ public static class NetworkTextReader
             if (_byId.TryGetValue(id, out var other))
                 throw Err(name, ConflictCodes.NetworkDuplicateName,
                     $"the wires {other.Name} and {name.Text} carry the same VarId {id}.");
-            if (_scope.Contains(name.Text))
+            // A wire spelled like a variable in scope is no conflict (2.10): wires are VarIds in the IDE, and in the text
+            // the network's own wires resolve first. Which name the writer picks is its own choice, made on the next pull.
+            // But a LATE block (2.7) may not take a name this network already read as a variable: text order would make the
+            // one spelling two things — the variable before the block, the wire after it — which the canonical rewrite
+            // shows only once the push has landed (bridge-refusal-review 1+2d review).
+            if (_readAsVariable.TryGetValue(name.Text, out var used))
                 throw Err(name, ConflictCodes.NetworkDuplicateName,
-                    $"the wire {name.Text} names a variable in scope (case-insensitively); the writer would have named it the lowest free g<n>.");
+                    $"the wire {name.Text} is declared after line {Line(used)} read {used.Text} as a " +
+                    "variable: one name would mean the variable before this block and the wire after it. Declare the wire " +
+                    "before its first use, or give it another name.");
             var w = new Wire(name.Text, id, type, name);
             _wires[name.Text] = w;
             _byId[id] = w;
@@ -967,6 +971,7 @@ public static class NetworkTextReader
             // Every operand's words, whatever its token — the writer reserves the same (a typed literal's type
             // included), so a wire it would rename is one the reader refuses.
             AddOtherWords(t, t.Text);
+            if (t.Kind == TokKind.Word && !_readAsVariable.ContainsKey(t.Text)) _readAsVariable[t.Text] = t;
             return Mark(new Leaf(new Operand(t.Text), Flags.None), t.Offset);
         }
 
@@ -980,6 +985,7 @@ public static class NetworkTextReader
                         throw Err(t, ConflictCodes.NetworkBadExpression,
                             $"'{t.Text}' as a target: a target spelled like a keyword of the text is written between backticks.");
                     AddOtherWords(t, t.Text);
+                    if (!_readAsVariable.ContainsKey(t.Text)) _readAsVariable[t.Text] = t;
                     return t.Text;
                 case TokKind.Backtick:
                     AddOtherWords(t, t.Text);

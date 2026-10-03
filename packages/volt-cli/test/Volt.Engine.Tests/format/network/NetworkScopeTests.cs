@@ -48,11 +48,16 @@ public class NetworkScopeTests
 
     static NetworkGateResult Gate(string text, NetworkScope scope) => NetworkTextGate.Validate(text, scope);
 
-    static void RefusedAsDuplicate(string text, NetworkScope scope)
+    /// <summary>The text reads, and the wire-shaped name is the network's WIRE — not the variable in scope it shares a
+    /// name with (openspec <c>bridge-refusal-review</c> 2.10: wires resolve first, and which name the writer picks is its
+    /// own choice on the next pull). The READER's answer; the gate stops refusing a non-canonical spelling with 2.12.</summary>
+    static void ReadAsTheWire(string text, NetworkScope scope)
     {
-        var r = Gate(text, scope);
-        Assert.False(r.Ok);
-        Assert.Equal("NETWORK_DUPLICATE_NAME", Assert.Single(r.Diagnostics).Code);
+        var r = NetworkTextReader.Read(text, scope);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => d.Code + " " + d.Message)));
+        var trees = Assert.Single(r.Body!.Networks).Trees;
+        var wire = Assert.IsType<Demux>(trees[0]).VarId;
+        Assert.Equal(wire, Assert.IsType<Demux>(Assert.IsType<Assign>(trees[^1]).Value).VarId);
     }
 
     // ── a wire named like a name in scope, case-insensitively ───────────────────────────────────
@@ -61,18 +66,19 @@ public class NetworkScopeTests
 
     static NetworkScope In(string where) => where == "method" ? InMethod : InAction;
 
-    /// <summary>Spec, "a wire that differs from a variable only in case", for a GLOBAL: <c>G7</c> is declared in a GVL,
-    /// not in the POU, and a wire <c>g7</c> read in a method or an action names it.</summary>
+    /// <summary>A wire spelled like a GLOBAL (<c>G7</c>, declared in a GVL, not in the POU), read in a method or an
+    /// action, is the network's wire. It used to be refused as a duplicate name (spec "a wire that differs from a
+    /// variable only in case"); that rule is gone (2.10).</summary>
     [Theory]
     [MemberData(nameof(Bodies))]
-    public void A_wire_named_like_a_GVL_global_is_a_duplicate_name(string where) =>
-        RefusedAsDuplicate(Src("VAR_TEMP g7 : BOOL; END_VAR", "g7 := TRUE;", "out := g7;"), In(where));
+    public void A_wire_named_like_a_GVL_global_is_the_wire(string where) =>
+        ReadAsTheWire(Src("VAR_TEMP g7 : BOOL; END_VAR", "g7 := TRUE;", "out := g7;"), In(where));
 
-    /// <summary>…and for the OWNING FB's member, seen from its method or action: <c>G3</c> is the FB's.</summary>
+    /// <summary>…and so is one spelled like the OWNING FB's member, seen from its method or action: <c>G3</c> is the FB's.</summary>
     [Theory]
     [MemberData(nameof(Bodies))]
-    public void A_wire_named_like_the_owning_FBs_member_is_a_duplicate_name(string where) =>
-        RefusedAsDuplicate(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), In(where));
+    public void A_wire_named_like_the_owning_FBs_member_is_the_wire(string where) =>
+        ReadAsTheWire(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), In(where));
 
     /// <summary>Spec, "the writer avoids a collision": a Demux whose VarId names a global or the owner's member is
     /// written as the lowest free <c>g&lt;n&gt;</c>, and the reader accepts that text against the SAME built scope.</summary>
@@ -255,15 +261,15 @@ public class NetworkScopeTests
         Assert.Equal(LdSrc("tBase(IN := a);"),
             NetworkTextWriter.Write(Ld1(Fb("tBase", new[] { NetworkModels.In(L("a"), "IN") }, type: "TON")), InChild(where)));
 
-    /// <summary>Spec, "reserved names are one case-insensitive set": every name in scope, an inherited member too. A
-    /// wire <c>g3</c> beside the base's <c>G3</c> is refused on read and renamed on write.</summary>
+    /// <summary>Spec, "reserved names are one case-insensitive set" — for the WRITER: every name in scope, an inherited
+    /// member too. A wire <c>g3</c> beside the base's <c>G3</c> reads as the wire (2.10) and is renamed on write.</summary>
     [Theory]
     [MemberData(nameof(InheritingBodies))]
-    public void A_wire_named_like_an_inherited_member_is_a_duplicate_name(string where)
+    public void A_wire_named_like_an_inherited_member_is_the_wire_and_renamed_on_write(string where)
     {
         var scope = InChild(where);
         Assert.True(scope.Contains("G3"));
-        RefusedAsDuplicate(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), scope);
+        ReadAsTheWire(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), scope);
         Assert.Contains("VAR_TEMP g0 : BOOL; END_VAR",
             NetworkTextWriter.Write(Body(Net(Def(3, L("TRUE")), Set(Ref(3), T("out")))), scope));
     }

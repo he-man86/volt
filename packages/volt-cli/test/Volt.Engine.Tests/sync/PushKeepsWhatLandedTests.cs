@@ -759,4 +759,70 @@ public class PushKeepsWhatLandedTests
         Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
         Assert.True(ide.Exists("F"));
     }
+
+    // ── bridge-refusal-review 2.4/2.6 (1+2d review): a member create the IDE refuses from its ARGUMENT ─────────────────
+
+    /// <summary>TwinCAT's refusal of an interface member that states no type (<c>BeckhoffDriver.UntypedInterfaceMember</c>),
+    /// as the fake models it: the pre-flight predicate and <c>CreateChild</c> answer alike.</summary>
+    private static FakeIde RefusingUntypedInterfaceMembers(params FakeIde.Item[] items) => new(items)
+    {
+        RefusesMemberCreate = (kind, name, seed) =>
+            kind == ItemKind.Kinds.InterfaceProperty && string.IsNullOrWhiteSpace(seed)
+                ? $"the interface property '{name}' states no type" : null,
+    };
+
+    private const string ItfTyped = "INTERFACE I_X\nMETHOD M : BOOL\nEND_METHOD\nPROPERTY P : INT\nEND_PROPERTY\nEND_INTERFACE";
+    private const string ItfUntyped = "INTERFACE I_X\nMETHOD M : BOOL\nEND_METHOD\nPROPERTY P\nEND_PROPERTY\nEND_INTERFACE";
+
+    /// <summary>Measured on this tree before the fix: the pre-flight passed, <c>E_A</c> landed, <c>I_X</c> and its method
+    /// were created, and the property's create then threw — UNSUPPORTED after a partial write. The refusal is decidable
+    /// from the text and the driver's predicate, so it belongs to the pre-flight: nothing is written.</summary>
+    [Fact]
+    public void A_new_interface_member_the_IDE_cannot_create_without_a_type_is_refused_before_the_first_write()
+    {
+        var ide = RefusingUntypedInterfaceMembers();
+
+        var resp = Push(ide, Create("E_A.dut", Enum), Create("I_X.itf", ItfUntyped));
+
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("I_X.itf", conflict.Name);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
+        Assert.Contains("interface property 'P'", conflict.Reason);
+        Assert.Contains("states no type", conflict.Reason);
+    }
+
+    /// <summary>An update that ADDS the untyped member is the same create, refused the same way; an update of a member
+    /// the IDE already holds is written through, never created, so it is not asked about — its declaration is the
+    /// build's to judge.</summary>
+    [Fact]
+    public void An_update_is_refused_only_for_the_untyped_member_it_would_create()
+    {
+        var ide = RefusingUntypedInterfaceMembers();
+        Assert.True(Push(ide, Create("I_X.itf", ItfTyped)).Accepted);   // premise: P exists, typed
+        ide.Recorded.Clear();
+
+        var held = RefsService.Handle(ide);
+        var adding = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = held.ProjectVersion,
+            Ops = new List<PushOp>
+            {
+                Create("E_A.dut", Enum),
+                new SetItemOp { Name = "I_X.itf", IfVersion = held.Items["I_X.itf"],
+                                SourceText = ItfTyped.Replace("END_INTERFACE", "PROPERTY Q\nEND_PROPERTY\nEND_INTERFACE") },
+            },
+        });
+        Assert.False(adding.Accepted);
+        Assert.Empty(ide.Recorded);
+        Assert.Contains("interface property 'Q'", Assert.Single(adding.Conflicts!).Reason);
+
+        var rewriting = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = held.ProjectVersion,
+            Ops = new List<PushOp> { new SetItemOp { Name = "I_X.itf", IfVersion = held.Items["I_X.itf"], SourceText = ItfUntyped } },
+        });
+        Assert.True(rewriting.Accepted, string.Join("; ", (rewriting.Conflicts ?? new()).Select(c => c.Reason)));
+    }
 }

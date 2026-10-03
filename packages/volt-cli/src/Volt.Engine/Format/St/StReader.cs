@@ -1002,14 +1002,11 @@ public static class StReader
 		return (name, null);
 	}
 
-	private static (string name, string dataType) ParsePropertySignature(string sig, string code, string where)
-	{
-		// A PROPERTY's type is MANDATORY where a method's is optional — the one real difference between the two
-		// lines, and the reason they were ever two patterns.
-		var (name, type) = ParseSignature(sig, code, "PROPERTY", where);
-		if (type == null) throw BadSignature(sig, "PROPERTY", "a property must declare a type", where);
-		return (name, type);
-	}
+	private static (string name, string? dataType) ParsePropertySignature(string sig, string code, string where) =>
+		// A property with no type is the build's error ("a property must declare a type" was the push's, openspec
+		// bridge-refusal-review 2.6): its declaration is written as sent. A TwinCAT INTERFACE property takes its type as
+		// the create argument, and that driver refuses one with none, by name.
+		ParseSignature(sig, code, "PROPERTY", where);
 
 	/// <summary>The folder a <c>%FOLDER &lt;path&gt;</c> directive line names, or null for any other line.</summary>
 	private static string? FolderOn(string line)

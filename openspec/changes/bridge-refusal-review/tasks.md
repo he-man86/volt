@@ -127,12 +127,22 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       after code again (`ChildSplitterTableTests` +2) — the early 2.5 had read it as a member named END_METHOD.
       **Step 2a numbers:** Engine 1923 (+1 skipped), Twincat 341, Codesys 229, Repo.Gates 107; `data.js` regenerated
       (driver interface).
-- [ ] 2.6 `StReader.cs:1039` — "property must declare a type" goes for POU properties (build reports it); interface
+- [x] 2.6 `StReader.cs:1039` — "property must declare a type" goes for POU properties (build reports it); interface
       property on TwinCAT handled as 2.4.
-- [ ] 2.7 `NetworkTextReader.cs:285` — second / late VAR_TEMP block: read, and let the writer canonicalize.
-- [ ] 2.8 `NetworkTextReader.cs:292` — declared-never-defined wire: dropped on write, not refused.
-- [ ] 2.9 `NetworkTextReader.cs:330` — empty VAR_TEMP block accepted.
-- [ ] 2.10 `NetworkTextReader.cs:362` — wire named like a scope variable: accepted (wires resolve first).
+      Done: a POU property with no type reads `DataType` null (`SignatureParseTests`). The TwinCAT pre-flight of 2.4
+      refuses an untyped INTERFACE property before the first write — a new item and an update adding one; an update
+      of a member the IDE holds is written through (`PushKeepsWhatLandedTests` +2, red without the pre-flight).
+- [x] 2.7 `NetworkTextReader.cs:285` — second / late VAR_TEMP block: read, and let the writer canonicalize.
+      Done (`NetworkTextGateTests`). Review 1+2d (low): with 2.10, a late block could make one spelling two things — a
+      scope variable `g1` read before the block and the wire after it. A late block may not declare a name the network
+      already read as a variable (an operand or a target): NETWORK_DUPLICATE_NAME at the declaration, naming the
+      earlier line (+2 rows; network-text.html). The LSP's network parser has no such rule yet (5.2).
+- [x] 2.8 `NetworkTextReader.cs:292` — declared-never-defined wire: dropped on write, not refused.
+- [x] 2.9 `NetworkTextReader.cs:330` — empty VAR_TEMP block accepted.
+- [x] 2.10 `NetworkTextReader.cs:362` — wire named like a scope variable: accepted (wires resolve first).
+      Done at the reader (`NetworkScopeTests`, `NetworkTextGateTests`); the gate's canonical comparison still refused
+      the spelling until 2.12 (`PushServiceTests` at this commit expects NETWORK_NOT_CANONICAL).
+      **Step 2b numbers:** Engine 1930 (+1 skipped), Twincat 341, Codesys 229, Repo.Gates 107.
 - [ ] 2.11 `NetworkTextReader.cs:1015` — wire also spelled as another name: accepted, same rule.
 - [ ] 2.12 `NetworkTextGate.cs:88` — `NETWORK_NOT_CANONICAL` goes: write the model; return the canonical text (push
       response or next pull). Remove the code from `Volt.Contracts/Vocabulary/ConflictCodes.cs`. `PushedText` keeps

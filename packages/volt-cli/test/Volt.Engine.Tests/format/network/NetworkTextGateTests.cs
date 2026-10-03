@@ -179,10 +179,20 @@ public class NetworkTextGateTests
         Refused("NETWORK_DUPLICATE_NAME", 3, Src("VAR_TEMP g1, g01 : BOOL; END_VAR", "g1 := TRUE;"));
     }
 
-    /// <summary>Spec, "a wire that differs from a variable only in case".</summary>
+    /// <summary>A WIRE NAMED LIKE A VARIABLE IN SCOPE IS ACCEPTED (openspec <c>bridge-refusal-review</c> 2.10). Wires
+    /// are VarIds in the IDE, so nothing there conflicts, and in the text a network's own wires resolve first: the
+    /// reference is the wire. It used to be refused as "the writer would have named it the lowest free g&lt;n&gt;" — the
+    /// writer's naming choice, which the next pull applies, and a rule resting on the regex scope. The READER's answer;
+    /// the gate stops refusing a non-canonical spelling with 2.12.</summary>
     [Fact]
-    public void A_wire_named_like_a_variable_in_scope() =>
-        Refused("NETWORK_DUPLICATE_NAME", 3, Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), Names("G3"));
+    public void A_wire_named_like_a_variable_in_scope_is_the_wire()
+    {
+        var r = NetworkTextReader.Read(Src("VAR_TEMP g3 : BOOL; END_VAR", "g3 := TRUE;", "out := g3;"), Names("G3", "out"));
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        var trees = Assert.Single(r.Body!.Networks).Trees;
+        Assert.Equal(3, Assert.IsType<Demux>(trees[0]).VarId);
+        Assert.Equal(3, Assert.IsType<Demux>(Assert.IsType<Assign>(trees[1]).Value).VarId);
+    }
 
     [Fact]
     public void A_wire_name_also_used_as_a_name_in_the_network() =>
@@ -240,23 +250,69 @@ public class NetworkTextGateTests
         Refused("NETWORK_NOT_CANONICAL", 3, Src("out := `g5`;"), Names("g5"));
     }
 
-    /// <summary>Spec, "a second block".</summary>
+    /// <summary>A SECOND OR LATE VAR_TEMP BLOCK IS LAYOUT (openspec <c>bridge-refusal-review</c> 2.7): the model it reads
+    /// to is the one a single block reads to, and the writer canonicalizes it to one block before the first statement on
+    /// the next pull. It used to be refused — a rule that existed to make the canonical gate pass. Read in text order: a
+    /// wire is a wire from its declaration on.</summary>
     [Fact]
-    public void A_second_wire_block() =>
-        Refused("NETWORK_BAD_EXPRESSION", 5, Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "VAR_TEMP g2 : BOOL; END_VAR", "g2 := TRUE;"));
+    public void A_second_wire_block_is_read_into_the_same_model()
+    {
+        var r = NetworkTextReader.Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "VAR_TEMP g2 : BOOL; END_VAR", "g2 := g1;", "out := g2;"), Names("out"));
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        var one = NetworkTextReader.Read(Src("VAR_TEMP g1, g2 : BOOL; END_VAR", "g1 := TRUE;", "g2 := g1;", "out := g2;"), Names("out"));
+        Assert.Equal(NetworkTextWriter.Write(one.Body!, Names("out")), NetworkTextWriter.Write(r.Body!, Names("out")));
+    }
+
+    /// <summary>…but a LATE block may not make a name a wire that the network already READ as a variable (1+2d review):
+    /// with a scope variable <c>g1</c>, <c>out := g1;</c> before the block and <c>out2 := g1;</c> after it would spell two
+    /// different things the same way, and the canonical rewrite showed it only after the push had landed. Refused at the
+    /// declaration, naming the earlier use.</summary>
+    [Theory]
+    [InlineData("out := g1;")]
+    [InlineData("g1 := a;")]
+    public void A_late_wire_block_may_not_take_a_name_already_used_as_a_variable(string earlier)
+    {
+        Refused("NETWORK_DUPLICATE_NAME", 4,
+            Src(earlier, "VAR_TEMP g1 : BOOL; END_VAR", "g1 := (a AND b);", "out2 := g1;"), Names("g1", "out", "out2", "a", "b"));
+    }
+
+    [Fact]
+    public void A_wire_block_after_a_statement_is_read()
+    {
+        var r = NetworkTextReader.Read(Src("out := a;", "VAR_TEMP g1 : BOOL; END_VAR", "g1 := TRUE;", "lamp := g1;"), Names("out", "a", "lamp"));
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        Assert.Equal(1, Assert.IsType<Demux>(r.Body!.Networks[0].Trees[1]).VarId);
+    }
+
+    /// <summary>AN EMPTY VAR_TEMP BLOCK IS LAYOUT (2.9): it declares nothing, the model is the one without it.</summary>
+    [Fact]
+    public void An_empty_wire_block_is_read()
+    {
+        var r = NetworkTextReader.Read(Src("VAR_TEMP END_VAR", "out := a;"), Names("out", "a"));
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        Assert.IsType<Assign>(Assert.Single(Assert.Single(r.Body!.Networks).Trees));
+    }
 
     /// <summary>Spec, "a wire not named g&lt;digits&gt;".</summary>
     [Fact]
     public void A_wire_not_named_g_digits() =>
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("VAR_TEMP speed : BOOL; END_VAR", "speed := TRUE;"));
 
-    /// <summary>Spec, "a wire referenced but never defined".</summary>
+    /// <summary>Spec, "a wire referenced but never defined": the reference has no producer to read, so it is refused
+    /// where it stands.</summary>
     [Fact]
-    public void A_wire_referenced_and_never_defined()
+    public void A_wire_referenced_and_never_defined() =>
+        Refused("NETWORK_BAD_EXPRESSION", 4, Src("VAR_TEMP g1 : BOOL; END_VAR", "out := g1;"));
+
+    /// <summary>A WIRE DECLARED AND NEVER USED is a lint, not a refusal (openspec <c>bridge-refusal-review</c> 2.8): no
+    /// Demux carries it, the model is complete, and the writer drops the declaration on the next pull.</summary>
+    [Fact]
+    public void A_wire_declared_and_never_defined_or_used_is_dropped_from_the_model()
     {
-        var r = Gate(Src("VAR_TEMP g1 : BOOL; END_VAR", "out := g1;"));
-        Assert.Contains(r.Diagnostics, d => d.Code == "NETWORK_BAD_EXPRESSION" && d.Line == 4);
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("VAR_TEMP g1 : BOOL; END_VAR", "out := a;"));
+        var r = NetworkTextReader.Read(Src("VAR_TEMP g1 : BOOL; END_VAR", "out := a;"), Names("out", "a"));
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        Assert.IsType<Assign>(Assert.Single(Assert.Single(r.Body!.Networks).Trees));
+        Assert.DoesNotContain("VAR_TEMP", NetworkTextWriter.Write(r.Body!, Names("out", "a")));
     }
 
     /// <summary>Spec, "a wire defined with a storage operator".</summary>

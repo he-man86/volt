@@ -114,16 +114,20 @@ public class SignatureParseTests
         Assert.Contains("an action has no return type", Refused("ACTION Go : INT").Message);
     }
 
-    /// <summary>And a property's type is MANDATORY where a method's is optional — the one real difference
-    /// between the two lines.</summary>
+    /// <summary>A POU PROPERTY WITH NO TYPE IS WRITTEN AS SENT (openspec <c>bridge-refusal-review</c> 2.6): its
+    /// declaration is written verbatim and the IDE's build reports the missing type. It used to be refused here, "a
+    /// property must declare a type" — the build's error, made the push's. (A TwinCAT INTERFACE property takes its type
+    /// as the create argument; that driver refuses one with none, by name.)</summary>
     [Fact]
-    public void A_property_without_a_type_is_refused()
+    public void A_property_without_a_type_is_read_with_no_type()
     {
-        var ex = Assert.Throws<BridgeException>(() => StReader.Read(
+        var m = StReader.Read(
             "FUNCTION_BLOCK FB_S\nVAR\nEND_VAR\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nEND_FUNCTION_BLOCK\n\n" +
             "PROPERTY Ready\nGET\n" + ImplementationMarker.For(Volt.Engine.Format.Body.Languages.St) + "\nReady := TRUE;\nEND_GET\nEND_PROPERTY\n",
-            ItemKind.Kinds.Pou));
-        Assert.Contains("must declare a type", ex.Message);
+            ItemKind.Kinds.Pou).Members.Single();
+        Assert.Equal("Ready", m.Name);
+        Assert.Null(m.DataType);
+        Assert.Equal("PROPERTY Ready", m.Declaration);
     }
 
     /// <summary>A word between the keyword and the name that is not an access modifier is a MALFORMED line, not a

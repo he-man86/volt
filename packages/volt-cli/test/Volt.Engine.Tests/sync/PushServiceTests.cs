@@ -473,7 +473,9 @@ public class PushServiceTests
         if (withGlobal)
         {
             Assert.False(resp.Accepted);
-            Assert.Equal("NETWORK_DUPLICATE_NAME", Assert.Single(resp.Conflicts!).Code);
+            // The reader takes the wire (2.10); the canonical gate still refuses the spelling the writer would rename
+            // around the global, until 2.12.
+            Assert.Equal("NETWORK_NOT_CANONICAL", Assert.Single(resp.Conflicts!).Code);
             Assert.Empty(ide.WrittenContent);
         }
         else Assert.True(resp.Accepted, string.Join(" | ", (resp.Conflicts ?? new()).Select(c => c.Code + ": " + c.Reason)));
