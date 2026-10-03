@@ -24,3 +24,15 @@ i.e. a false positive by the parity rule. Owner, 2026-10-02: "we don't have this
 - `Volt.Ide.Twincat` (driver content/descriptors), DIALECT.md, the C# tests (FakeIde / TwinCAT doubles), the TS e2e
   parity suite (a TwinCAT project with a disabled warning), and the twincat-project14 corpus re-pulled if it carries a
   disabled warning.
+
+## Close-out (2026-10-03)
+
+Built: the TwinCAT driver materializes `Project Settings.projectsettings` through the engine's shared format — the
+disabled warnings from the saved `.plcproj`, Replace constants / Max compiler warnings / Project defines from the
+automation interface, the four rows without a TwinCAT source omitted (D37–D39). Verified live (tasks 3.1–3.4): a
+warning disabled in XAE is pulled and the LSP stops reporting it; all four rows both vendors source are byte-identical
+for the same settings (the cross-driver facts assert them). Named gap (D37, measured): after TwinCAT fails to save the
+clearing of the LAST disabled warning, the open session's build follows the page while the descriptor reads the stale
+file, until the next warning save or a reload — no other source exists. The Impact line's "TS e2e parity suite" was
+not added as a separate e2e: the live pull (3.1), the live probes (3.4) and the linked parity facts in both driver
+suites cover it; twincat-project14 carries no disabled warning, so no corpus re-pull was needed.
