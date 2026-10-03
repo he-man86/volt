@@ -54,6 +54,8 @@ import {
   operandConversion,
   resolveNamedType,
   inferExprType,
+  isIntegerType,
+  isSfcStepBase,
   operandFamilyRule,
   parseConversionName,
   unaryOperandConversion,
@@ -195,6 +197,18 @@ export function boundCensus(): BoundCensus {
     // member and its base, so `arr[undefIdx].nope`'s `.nope` follows `undefIdx` and belongs to `arr`.
     const shapes = memberShapes(sites(b).map((s) => s.expr))
     const bases = memberBases(b)
+    // …and a member whose chain stands on an INTEGER where the vendor refuses a bit access — `gw.GVL.cBit`, a bit numbered by
+    // a list-qualified constant, is "Bit access requires literal or symbolic integer constant" (`sfc_step_bit_const_qualified`,
+    // lsp-sfc-step-names gate 2): no component of the integer, and no type, on either side
+    const bitRefusedSites = new Set<string>()
+    if (!vendor.known && vendor.says?.has("bit access requires literal or symbolic integer constant") === true)
+      for (const { expr, scope } of typeRows(b)) {
+        if (expr.kind !== "member" || scope === undefined) continue
+        let root: Expr = expr.base
+        while (root.kind === "member") root = root.base
+        const t = inferExprType(root, scope, b.project)
+        if (t.kind === "elementary" && isIntegerType(t.name)) bitRefusedSites.add(at(expr.member.span))
+      }
     const lines = vendor.known
       ? []
       : resolutionDump(b).map((line) => {
@@ -260,6 +274,10 @@ export function boundCensus(): BoundCensus {
           vendor.says?.has("expression 'super' is not allowed in this context") === true)
       ) {
         tally(c.resolution, `${group}: member NONE, SUPER not allowed on the vendor too`)
+        continue
+      }
+      if (verdict === "NONE" && shape === "member" && bitRefusedSites.has(where)) {
+        tally(c.resolution, `${group}: member NONE, a bit access refused on the vendor too`)
         continue
       }
       if (verdict === "NONE" && shape === "member" && agreed.has(shapes.rootOf.get(where) ?? "")) {
@@ -377,6 +395,8 @@ export function boundCensus(): BoundCensus {
         // …and an expression over a TYPED LITERAL whose prefix names no type: `FOO#5 + n` is "'5' is no component of 'FOO'"
         // on CODESYS and nothing more — the operand has no type there, and neither has what is built on it
         // (`rec_unknown_literal_prefix_cascade`, frontend-conformance 2.8.3); the LSP says the same line
+        else if (type === "?" && expr.kind === "member" && bitRefusedSites.has(at(expr.member.span)))
+          tally(c.types, `${group}: member untyped, a bit access refused on the vendor too`)
         else if (type === "?" && unknownLiteralComponent(expr, vendor.says))
           tally(c.types, `${group}: ${kind} UNKNOWN, no component on the vendor too`)
         // …and arithmetic on a `strict` enum, which the vendor refuses — "Arithmetics not allowed on strict ENUM type 'X'"
@@ -1211,6 +1231,9 @@ function memberBases(b: Bound): Map<string, string[]> {
           // `mem_unknown_member_through_reference`, `mem_unknown_method_of_interface`, frontend-conformance 3.5)
           if (t.kind === "reference") names.push(renderType(t.target).toLowerCase())
           if (t.kind === "interface") names.push(`${t.name}__union`.toLowerCase())
+          // …and a STEP of an SFC chart is an SFCStepType, whose name the vendor gives ("'y' is no component of 'SFCStepType'") though no
+          // declaration in the text types the step (`types/infer/sfc-step`, DIALECT D40)
+          if (isSfcStepBase(e, scope, b.project)) names.push("sfcsteptype")
         }
         out.set(at(e.member.span), names)
       }

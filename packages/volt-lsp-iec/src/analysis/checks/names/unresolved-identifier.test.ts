@@ -443,3 +443,146 @@ FUNCTION_BLOCK Fb_a\nVAR\nn : INT;\nEND_VAR\nn := Dut_s.nope;\nn := I_x.nope;\nn
     "Cannot convert type 'Unknown type: 'THIS^.nope'' to type 'INT'",
   ])
 })
+
+// ─── SFC steps (openspec lsp-sfc-step-names 2.1, fixtures `names/sfc-steps.ts`, CODESYS 2026-10-03) ────────────────
+// A POU whose body is SFC has its chart's steps in scope, each an `IecSfc.SFCStepType` (x, t, _x, _t). The chart is not in
+// the text (`IMPLEMENTATION SFC UNSUPPORTED`), so the LSP BETS: a name read WITH A MEMBER inside an SFC POU (or through its
+// program or instance), that the POU does not declare and that names nothing else with members, is a step
+// (`types/infer/sfc-step`, DIALECT D40).
+
+/** Every error code and message for `files` (one item per file, as the pull lays them out), bound as one project. */
+function sfcDiag(files: Record<string, string>): string[] {
+  const inputs = Object.entries(files).map(([uri, source]) => ({ uri, source, parseResult: parseSource(source, { networkText: true }) }))
+  const project = build.buildSymbolTable(inputs, [], "codesys")
+  return inputs
+    .flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config: resolveConfig({ vendor: "codesys" }) }))
+    .filter((d) => d.severity === "error")
+    .map((d) => `${d.code}: ${d.message}`)
+}
+
+/** An SFC PROGRAM `P` declaring `vars`, with ACTION `A` holding `action`. */
+const sfcProgram = (vars: string, action: string): string =>
+  `PROGRAM P\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
+
+test("SFC S1/S2/S5: a step's .x, .t, ._x, ._t read in an action of its SFC program are the step's — BOOL and TIME, no error", () => {
+  expect(sfcDiag({ "P.prg": sfcProgram("\tbx : BOOL;\n\ttOk : BOOL;", "bx := S_Boot.x;\ntOk := S_Boot.t >= T#0MS;\nbx := S_Boot._x;\ntOk := S_Boot._t >= T#0MS;\nbx := S_BOOT.X;") })).toEqual([])
+})
+
+test("SFC S3/S4: the step through its program, through an SFC FB's instance, and in the FB's method", () => {
+  expect(sfcDiag({
+    "P.prg": sfcProgram("", ""),
+    "FB.fb": "FUNCTION_BLOCK FB\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\nMETHOD M\nbx := S_Boot.x;\nEND_METHOD\n",
+    "Q.prg": "PROGRAM Q\nVAR\n\tinst : FB;\n\tbx : BOOL;\n\ttOk : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbx := P.S_Boot.x;\ntOk := P.S_Boot._t >= T#0MS;\nbx := inst.S_Boot.x;\nEND_PROGRAM\n",
+  })).toEqual([])
+})
+
+test("SFC S6: a step's flag written inside its POU builds; written through its program it is no input of it", () => {
+  expect(sfcDiag({
+    "P.prg": sfcProgram("", "S_Boot.x := TRUE;\nS_Boot.t := T#1S;"),
+    "Q.prg": "PROGRAM Q\nIMPLEMENTATION ST\nP.S_Boot.x := TRUE;\nEND_PROGRAM\n",
+  })).toEqual(["external-non-input-write: 'S_Boot' is no input of 'P'"])
+})
+
+test("SFC S7: a step is an SFCStepType — an unknown member is no component of it, .t is TIME and .x BOOL", () => {
+  expect(sfcDiag({ "P.prg": sfcProgram("\tbx : BOOL;\n\tk : INT;", "bx := S_Boot.y;\nk := S_Boot.t;\nk := S_Boot.x;") })).toEqual([
+    "assignment-type-mismatch: Cannot convert type 'TIME' to type 'INT'",
+    "assignment-type-mismatch: Cannot convert type 'BOOL' to type 'INT'",
+    "unknown-member: 'y' is no component of 'SFCStepType'",
+    "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.y'' to type 'BOOL'",
+  ])
+})
+
+test("SFC S9: a step's name outside every SFC POU is the unknown name it is there", () => {
+  expect(sfcDiag({ "P.prg": sfcProgram("", ""), "Q.prg": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
+    .toEqual(["unresolved-identifier: Identifier 'S_Boot' not defined", "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.x'' to type 'BOOL'"])
+})
+
+test("SFC: a name the SFC POU declares is its variable, never a step — and in an ST POU nothing is a step", () => {
+  expect(sfcDiag({ "P.prg": sfcProgram("\tv : INT;\n\tbx : BOOL;", "bx := v.x;") })).toEqual([])
+  expect(sfcDiag({ "Q.prg": "PROGRAM Q\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION ST\nbx := S_Boot.x;\nEND_PROGRAM\n" }))
+    .toEqual(["unresolved-identifier: Identifier 'S_Boot' not defined", "unknown-source: Cannot convert type 'Unknown type: 'S_Boot.x'' to type 'BOOL'"])
+})
+
+test("SFC S13/S14: the step takes precedence over an enum member, an elementary global and a FUNCTION of its name", () => {
+  expect(sfcDiag({
+    "E.dut": "TYPE E :\n(\n\tS_Enum := 3,\n\tS_Other := 4\n);\nEND_TYPE\n",
+    "GVL.gvl": "VAR_GLOBAL\n\tS_Gvl : INT := 7;\nEND_VAR\n",
+    "S_Fun.fun": "FUNCTION S_Fun : INT\nS_Fun := 5;\nEND_FUNCTION\n",
+    "P.prg": sfcProgram("\tk : INT;", "k := S_Enum.t;\nk := S_Gvl.t;\nk := S_Fun.t;"),
+  })).toEqual([
+    "assignment-type-mismatch: Cannot convert type 'TIME' to type 'INT'",
+    "assignment-type-mismatch: Cannot convert type 'TIME' to type 'INT'",
+    "assignment-type-mismatch: Cannot convert type 'TIME' to type 'INT'",
+  ])
+})
+
+// CHOSEN against the measurement: CODESYS binds a step of the name over such a global too (S15 `shadow_struct_global`,
+// `shadow_fb_global`); the LSP keeps the global, since a global struct read in an SFC action is common (DIALECT D40)
+test("SFC: a global whose type HAS the member stays the global — only what cannot answer the access is bet a step", () => {
+  expect(sfcDiag({
+    "S_T.dut": "TYPE S_T :\nSTRUCT\n\tx : INT;\nEND_STRUCT\nEND_TYPE\n",
+    "GVL.gvl": "VAR_GLOBAL\n\tg : S_T;\nEND_VAR\n",
+    "P.prg": sfcProgram("\tk : INT;", "k := g.x;"),
+  })).toEqual([])
+})
+
+test("SFC S8, the bet's price: with no chart in the text a typo read with a member is taken for a step (DIALECT D40)", () => {
+  expect(sfcDiag({ "P.prg": sfcProgram("\tbx : BOOL;", "bx := S_Bot.x;") })).toEqual([])
+  // …with a member no step has it is worded as a step's (S15 `typo_other_member`: CODESYS "Identifier 'S_Bot' not defined")
+  expect(sfcDiag({ "P.prg": sfcProgram("\tbx : BOOL;", "bx := S_Bot.y;") })).toEqual([
+    "unknown-member: 'y' is no component of 'SFCStepType'",
+    "unknown-source: Cannot convert type 'Unknown type: 'S_Bot.y'' to type 'BOOL'",
+  ])
+  // …and a pointer global that is no step, read with a member, is taken for one (S15 `pointer_global_no_step`: CODESYS
+  // "'G_Ptr' is no structured variable")
+  expect(sfcDiag({ "GVL.gvl": "VAR_GLOBAL\n\tG_Ptr : POINTER TO INT;\nEND_VAR\n", "P.prg": sfcProgram("\tbx : BOOL;", "bx := G_Ptr.x;") })).toEqual([])
+  // …but read BARE it is the unknown name it is: nothing evidences a step
+  expect(sfcDiag({ "P.prg": sfcProgram("\tbx : BOOL;", "bx := S_Bot;") })).toEqual([
+    "unresolved-identifier: Identifier 'S_Bot' not defined",
+    "unknown-source: Cannot convert type 'Unknown type: 'S_Bot'' to type 'BOOL'",
+  ])
+})
+
+// A bit (`gw.3`) or partial access (`gw.%X3`) names no member: a step has none of those, so the access stays the global's
+// (step 2 review — the bet took any memberless global read with a member for a step, `'3' is no component of 'SFCStepType'`)
+test("SFC: a bit or partial access on an elementary global is the global's, never a step's — as in an ST POU", () => {
+  const gvl = "VAR_GLOBAL\n\tgw : WORD;\nEND_VAR\n"
+  for (const lang of ["SFC UNSUPPORTED", "ST"]) {
+    const prg = (vars: string, action: string): string =>
+      `PROGRAM P\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
+    expect(sfcDiag({ "GVL.gvl": gvl, "P.prg": prg("\tbx : BOOL;\n\tk : INT;", "bx := gw.3;\nk := gw.3;\ngw.3 := TRUE;\nbx := gw.%X3;") })).toEqual([])
+    expect(sfcDiag({ "GVL.gvl": gvl, "P.prg": prg("\tbx : BOOL;", "bx := gw.17;") })).toEqual(["invalid-bit-number: '17' is no valid bit number for 'gw'"])
+  }
+})
+
+// A bit numbered by a CONSTANT (`gw.cBit`) names no member either, though the member is a name (gate step 2 review: the bet
+// took it for a step, `'cBit' is no component of 'SFCStepType'`). S16 (CODESYS 2026-10-03): a GVL constant and a local VAR
+// CONSTANT number a bit, read and written (`sfc_step_bit_const_global`, `_local`); the constant QUALIFIED by its list is
+// refused ("Bit access requires literal or symbolic integer constant", `_qualified`) — the LSP is silent there in an ST POU
+// too (niche: accepted loss), and in an SFC POU no step either
+test("SFC: a bit numbered by a CONSTANT is the global's, never a step's — as in an ST POU", () => {
+  const gvl = "VAR_GLOBAL\n\tgw : WORD;\nEND_VAR\nVAR_GLOBAL CONSTANT\n\tcBit : INT := 3;\nEND_VAR\n"
+  for (const lang of ["SFC UNSUPPORTED", "ST"]) {
+    const prg = (vars: string, action: string): string =>
+      `PROGRAM P\nVAR\n${vars}\nEND_VAR\nIMPLEMENTATION ${lang}\nEND_PROGRAM\n\nACTION A\n${action}\nEND_ACTION\n`
+    expect(sfcDiag({ "GVL.gvl": gvl, "P.prg": prg("\tbx : BOOL;", "gw.cBit := TRUE;\nbx := gw.cBit;") })).toEqual([])
+    expect(sfcDiag({ "GVL.gvl": gvl, "P.prg": prg("\tbx : BOOL;\nEND_VAR\nVAR CONSTANT\n\tcL : INT := 2;", "gw.cL := TRUE;\nbx := gw.cL;") })).toEqual([])
+    expect(sfcDiag({ "GVL.gvl": gvl, "P.prg": prg("\tbx : BOOL;", "gw.GVL.cBit := TRUE;\nbx := gw.GVL.cBit;") })).toEqual([])
+  }
+})
+
+// A step written through THIS^ in its own SFC FB's method is the FB's own, as `S_Boot.x := TRUE` bare is (S16 `this_step`,
+// CODESYS 2026-10-03: builds, TRUE) — no "is no input of" (gate step 2 review)
+test("SFC: an SFC FB writing its own step through THIS^ writes its own member", () => {
+  expect(sfcDiag({
+    "FB.fb": "FUNCTION_BLOCK FB\nVAR\n\tbx : BOOL;\nEND_VAR\nIMPLEMENTATION SFC UNSUPPORTED\nEND_FUNCTION_BLOCK\n\nMETHOD M\nTHIS^.S_Boot.x := TRUE;\nbx := THIS^.S_Boot.x;\nEND_METHOD\n",
+  })).toEqual([])
+})
+
+// D40 bets a variable of a type with no members a step when read with a member; a POINTER has none of its own, so every
+// check takes `gp.x` for the step — the member check typed it so while `self-not-structured` still refused it (step 2 review)
+test("SFC: a POINTER global read with a member in an SFC POU is the step for every check, as an INT global is", () => {
+  expect(sfcDiag({ "GVL.gvl": "VAR_GLOBAL\n\tgp : POINTER TO INT;\nEND_VAR\n", "P.prg": sfcProgram("\tbx : BOOL;\n\tk : INT;", "bx := gp.x;\nk := gp.t;") })).toEqual([
+    "assignment-type-mismatch: Cannot convert type 'TIME' to type 'INT'",
+  ])
+})

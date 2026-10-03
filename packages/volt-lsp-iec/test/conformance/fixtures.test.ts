@@ -1401,7 +1401,19 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 72 -> 74, FOR MEASUREMENT. lsp-sfc-step-names 1 review (2026-10-03): the default step `Init`'s `.t` into an INT and its
   // unknown member `.y` — CODESYS refuses both, the LSP binds bare `Init` to a transitive library's enum member (LB2) and is
   // silent. Fixed by 2.1. No fixture moved.
-  "lsp-gap": 74,
+  // 74 -> 70. lsp-sfc-step-names 2.1 (2026-10-03): a step read with a member is in scope (`types/infer/sfc-step`), which
+  // answers 6 of those cells as CODESYS does (an unknown member, `.t` as TIME and `.x` as BOOL — of `S_Boot` and of the default
+  // `Init` — and a step written from outside) and costs 2 (`sfc_step_typo`, `_typo_qualified`: with no chart in the text the
+  // bet takes a typo read with a member for a step — niche: accepted loss, 0 occurrences in the corpora).
+  // 70 -> 72, FOR MEASUREMENT. lsp-sfc-step-names 2 review (2026-10-03): the edge of the bet, recorded (S15) —
+  // `sfc_step_typo_other_member` (`S_Bot.y`: CODESYS "Identifier 'S_Bot' not defined", the LSP a step's unknown member) and
+  // `sfc_step_pointer_global_no_step` (a pointer global read with a member: CODESYS "no structured variable", the LSP takes
+  // it for a step, as it must for the step S15 measured over a pointer global) — the bet's price, niche: accepted loss
+  // (0 occurrences in the corpora). No fixture moved.
+  // 72 -> 73, FOR MEASUREMENT. lsp-sfc-step-names gate 2 (2026-10-03): S16 `sfc_step_bit_const_qualified` — a bit numbered
+  // by a list-qualified constant (`gw.GVL.cBit`), which CODESYS refuses ("Bit access requires literal or symbolic integer
+  // constant") and the LSP passes in ANY POU, an ST one too — niche: accepted loss (0 occurrences in the corpora).
+  "lsp-gap": 73,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1572,7 +1584,13 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // 300 -> 330, FOR MEASUREMENT. lsp-sfc-step-names 1 review (2026-10-03): 30 more SFC cells CODESYS builds and runs — the
   // default step `Init`, a step beside a global, an enum member and a FUNCTION of its name, and the SFC flag variables
   // declared with their type and another. Same reason: an SFC body has no ST to lower.
-  "not-lowered": 330,
+  // 330 -> 334, FOR MEASUREMENT. lsp-sfc-step-names 2 review (2026-10-03): 4 more SFC cells CODESYS builds and runs — a step
+  // beside a struct, an FB instance and a pointer global of its name, and a WORD global's bit and partial access in an SFC
+  // action. Same reason: an SFC body has no ST to lower.
+  // 334 -> 337, FOR MEASUREMENT. lsp-sfc-step-names gate 2 (2026-10-03): 3 more SFC cells CODESYS builds and runs — a bit
+  // numbered by a GVL constant and by a local VAR CONSTANT, and a step written and read through THIS^ in its FB's method.
+  // Same reason: an SFC body has no ST to lower.
+  "not-lowered": 337,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.

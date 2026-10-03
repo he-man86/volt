@@ -15,6 +15,11 @@
  *                        nowhere here, so that component is untyped rather than given a guessed member list. An UNKNOWN
  *                        component is unrecorded (the vendor may name AnyType, not the group), so `analysis/resolution`
  *                        does not refuse one (step 4a review).
+ *   IecSfc.SFCStepType   what an SFC chart's step IS (openspec lsp-sfc-step-names 2.1, `infer/sfc-step`): the library's
+ *                        own declaration (`IecSfc/SFCSTEPTYPE.dut` in the CodesysTestProject corpus: X, T, _X, _T), spelled
+ *                        as CODESYS names it in a message — "'y' is no component of 'SFCStepType'" (`sfc_step_unknown_
+ *                        member`, CODESYS 2026-10-03). A step is in scope where no declaration names its type, so the
+ *                        struct is the compiler's here, not the materialized library's.
  *
  * They are bound in a project of their own, never in the asker's: they are no project's symbols (a project of its own
  * that declares `VERSION` wins, `resolve.ts`), and resolving their components needs nothing but elementary types.
@@ -40,6 +45,15 @@ STRUCT
 	diSize : DINT;
 END_STRUCT
 END_TYPE
+
+TYPE SFCStepType :
+STRUCT
+	x : BOOL;
+	t : TIME;
+	_x : BOOL;
+	_t : TIME;
+END_STRUCT
+END_TYPE
 `
 
 let systemScopes: ReadonlyMap<string, Scope> | undefined
@@ -61,4 +75,11 @@ export function systemStructType(name: string): StructType | undefined {
   if (upper === "VERSION") return { kind: "struct", name: "VERSION", scope: scopes().get("VERSION") }
   if (GENERIC_PARAMETER_TYPES.has(upper)) return { kind: "struct", name: upper, scope: scopes().get("ANYTYPE") }
   return undefined
+}
+
+/** The member scope of IecSfc's `SFCStepType` — a step of an SFC chart (`infer/sfc-step`). */
+export function sfcStepTypeScope(): Scope {
+  const scope = scopes().get("SFCSTEPTYPE")
+  if (scope === undefined) throw new Error("system types: SFCStepType is not bound")
+  return scope
 }

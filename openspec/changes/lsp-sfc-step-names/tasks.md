@@ -40,8 +40,42 @@
 
 ## 2. Fix
 
-- [ ] 2.1 Resolve step names (and implicit step members) for SFC POUs; or, where the chart is not available, do not
+- [x] 2.1 Resolve step names (and implicit step members) for SFC POUs; or, where the chart is not available, do not
       report `unknown-member` on possible step names. Record which in DIALECT.md.
+      — The chart is not available (`IMPLEMENTATION SFC UNSUPPORTED`), so neither option as written: the LSP BETS and
+      TYPES (DIALECT **D40**, `src/frontend/types/infer/sfc-step.ts`). A name read WITH A MEMBER in an SFC POU (or through
+      an SFC program / instance, `P.X.m`) that the POU does not declare and that names nothing else able to answer a member
+      (nothing, an enum member, a FUNCTION, a variable of a memberless type) is a step, an `SFCStepType` (x/_x BOOL, t/_t
+      TIME — `types/system.ts`, the IecSfc declaration). Bound in ONE place, `resolveMemberChain`, so typing, the member
+      check, the unresolved-identifier check (`resolution.ts`) and `external-write` (a step written through its program is
+      "no input of") all follow. Tests first: 10 in `analysis/checks/names/unresolved-identifier.test.ts` (S1–S9, S13/S14,
+      a struct global keeps its member, the typo price), 2 in `types/infer/sfc-step.test.ts`. Fixtures: 16 of the 20
+      `SFC_STEPS_NOT_IN_SCOPE` cells now answer as CODESYS (10 run-oracle, 6 lsp-gap: unknown member of `S_Boot` and of
+      `Init`, `.t` TIME / `.x` BOOL of both, written from outside); the default step `Init` takes precedence over the
+      library enum member, the step over a GVL INT / project enum member / FUNCTION. Left, niche: accepted loss (0
+      occurrences in the corpora): `sizeof_adr` (a step read bare), `bare_value`, `declared_as_variable`, `action_flag`, and
+      the bet's price `typo` / `typo_qualified` (newly marked) — `SFC_STEPS_NOT_IN_SCOPE` 20 -> 6. Ratings: lsp-gap 74 -> 70
+      (ceiling lowered), refused 1777 -> 1781. Front-end census taught the step (`dumps.ts` `sfc-step` binding and
+      `SFCStepType` type row, `bound-census.ts` base name): counts only, no finding, no ceiling raised.
+- [x] 2.2 Gate step 2 — the review's two findings, each recorded first (S16, 4 fixtures, ONE `record:exec` run), then
+      fixed with a failing src test first:
+      - **bit access through an integer CONSTANT taken for a step** (medium): CODESYS (2026-10-03) builds `G_Wc_sfc.cBit_sfc`
+        (a GVL `VAR_GLOBAL CONSTANT`) and `lwBits.cLBit` (a local `VAR CONSTANT`), read and written in an SFC action (TRUE),
+        and REFUSES the list-qualified form `gw.GVL.cBit` ("Bit access requires literal or symbolic integer constant") — the
+        finding's guess that it builds was wrong, the step bet was still wrong on it. Fix: `sfc-step.ts` `numbersABit` — a
+        member that names a CONSTANT in scope, or a global list, numbers a bit and is never a step's. Test: unresolved-identifier
+        `SFC: a bit numbered by a CONSTANT …` (SFC and ST alike, red before: `'cBit' is no component of 'SFCStepType'`).
+        The qualified refusal the LSP misses in ANY POU (ST too): `sfc_step_bit_const_qualified` `deferred.lsp`, niche:
+        accepted loss (0 occurrences in the corpora); the front-end census learns that refusal as an agreement
+        (`bound-census.ts` `member NONE, a bit access refused on the vendor too` / `member untyped, …` — 4 each).
+      - **THIS^ step write reported external** (low): `sfc_step_this_step` builds on CODESYS (TRUE). Fix: `external-write.ts`
+        skips the step branch on a self reference (`isSelfRef(step.base)`). Test: `SFC: an SFC FB writing its own step
+        through THIS^ …` (red before: `'S_Boot' is no input of 'FB'`).
+      DIALECT D40 updated (80 fixtures, constant bit access, THIS^). Ratings: not-lowered 334 -> 337, lsp-gap 72 -> 73
+      (ceilings raised FOR MEASUREMENT, comments in `fixtures.test.ts`), refused unchanged (the one refusal is lsp-gap).
+      Gate: typecheck clean; full `bun test` (VOLT_REQUIRE_FULL=1, no VOLT_FIXTURES) 8049 pass, 34 skip, 381 todo, 0 fail
+      (8464 tests, 207 files, 285 s); fixture map regenerated (`rate:fixtures`: confirmed 2713, refused 1781, not-lowered
+      337, lsp-gap 73, diverges 5, unaskable 68).
 
 ## 3. Verify
 

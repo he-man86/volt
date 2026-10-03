@@ -21,6 +21,7 @@ import {
   constancyOf,
   constEval,
   inferExprType,
+  isSfcStepBase,
   renderType,
   resolveCallee,
   resolveBareName,
@@ -445,6 +446,9 @@ function bareWord(answer: BareName): string {
  *                                      number (`x.3`) are named as such and are not looked up
  *   `<at> <param> := -> <binding>`     a named argument's parameter, through the callee `resolveCallee` finds
  *   `<at> (global) <name> -> <binding>` a `.name` (the global-namespace operator, rule E33), in the project scope only
+ *
+ * A STEP of an SFC chart read with a member (`S_Boot.x`, `PRG.S_Boot.x`) binds no declaration — the chart is not in the text
+ * — and is `sfc-step`, the front-end's bet (`types/infer/sfc-step`, DIALECT D40); its member is SFCStepType's.
  */
 export function resolutionDump(b: Bound): string[] {
   const out: string[] = []
@@ -471,7 +475,13 @@ export function resolutionDump(b: Bound): string[] {
       case "literal":
         return
       case "member":
-        walk(e.base, scope)
+        if (scope !== undefined && isSfcStepBase(e, scope, b.project)) {
+          if (e.base.kind === "ident_expr") out.push(`${at(e.base.span)} ${e.base.name} -> sfc-step`)
+          else if (e.base.kind === "member") {
+            walk(e.base.base, scope)
+            out.push(`${at(e.base.member.span)} .${e.base.member.name} -> sfc-step`)
+          }
+        } else walk(e.base, scope)
         out.push(`${at(e.member.span)} .${e.member.name} -> ${member(e, scope)}`)
         return
       case "call": {
@@ -560,13 +570,19 @@ export function typeDump(b: Bound): string[] {
 /** `typeDump`, each line with the expression it was printed from — for a measure that asks more of the expression. */
 export function typeRows(b: Bound): { expr: Expr; scope: Scope | undefined; line: string }[] {
   const out: { expr: Expr; scope: Scope | undefined; line: string }[] = []
-  for (const s of sites(b))
-    for (const e of valueExprs(s.expr))
+  for (const s of sites(b)) {
+    const values = valueExprs(s.expr)
+    // a STEP of an SFC chart read with a member is an SFCStepType, which its own expression cannot say: no declaration in the
+    // text types it, the member access is what evidences it (`types/infer/sfc-step`, DIALECT D40)
+    const steps = new Set<Expr>()
+    if (s.scope !== undefined) for (const e of values) if (e.kind === "member" && isSfcStepBase(e, s.scope, b.project)) steps.add(e.base)
+    for (const e of values)
       out.push({
         expr: e,
         scope: s.scope,
-        line: `${at(e.span)} ${e.kind} ${s.scope === undefined ? "NOSCOPE" : renderType(inferExprType(e, s.scope, b.project))}`,
+        line: `${at(e.span)} ${e.kind} ${s.scope === undefined ? "NOSCOPE" : steps.has(e) ? "SFCStepType" : renderType(inferExprType(e, s.scope, b.project))}`,
       })
+  }
   return out
 }
 

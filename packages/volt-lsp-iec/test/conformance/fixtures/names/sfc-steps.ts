@@ -45,11 +45,31 @@
  *       nothing more; a STRING flag into an INT is the plain conversion refusal. The LSP agrees on every cell.
  *   S13/S14 answers: CODESYS binds the STEP in every case — over the library enum member `Init`, a GVL global, a project
  *       enum member and a FUNCTION of the same name — and the global outside the POU (k = 7)
+ *   S15 the edge of the bet (step 2 review): a step beside a GVL global whose type HAS the member (a struct with `x`, an FB
+ *       instance with an output `x`) and beside a POINTER global; a pointer global and a WORD global's bit and partial
+ *       access (`G_Word_sfc.3`, `.%X1`) with no step of their name; a typo read with a member no step has (`S_Bot.y`).
+ *       CODESYS (2026-10-03): the STEP over the struct, the FB instance and the pointer global alike (the run reads its
+ *       TRUE where the global's `x` is FALSE); with no step of the name, the pointer is "no structured variable", the bit
+ *       and partial access build, and `S_Bot.y` is "Identifier 'S_Bot' not defined"
+ *   S16 (gate step 2 review) a bit numbered by a CONSTANT — a WORD global's bit by a GVL constant (`G_Wc_sfc.cBit_sfc`) and
+ *       by one qualified with its list (`G_Wq_sfc.GVL….cBitQ_sfc`), a local WORD's bit by a local VAR CONSTANT — and a step
+ *       written and read through THIS^ in its SFC FB's method. CODESYS (2026-10-03): the bare constants and THIS^ build
+ *       (TRUE); the qualified constant is "Bit access requires literal or symbolic integer constant" — which the LSP does
+ *       not report in any POU (niche, `deferred.lsp`), and in an SFC POU it is no step either
  *
  * NOT ASKED, and why: a chart of SEVERAL steps, and an IEC action's flags (an action a step calls through a qualifier),
  * need a chart the recorder would have to DRAW rather than rename. Every rule above is about ONE step's name and what it
  * holds, which a second step would only repeat. 0 SFC charts with steps in the six corpora (the two `VltFixtureSfc`
  * stubs hold the default chart and no code reads them).
+ *
+ * THE LSP'S ANSWER (2.1, `src/frontend/types/infer/sfc-step.ts`, DIALECT D40): with no chart in the text it
+ * BETS — a name read with a member in an SFC POU (or through its program or instance) that the POU does not declare and
+ * that names nothing else with members is a step, an `SFCStepType`. That answers S1–S7's member cells, S13 and S14 as
+ * CODESYS does, and S15's shadowed pointer and the bit and partial access (never a step's: they name no member); a global
+ * whose type HAS the member stays the global, against S15's measurement (DIALECT D40: a global struct read is common, a
+ * step of its name rare) — silent on both sides there, as the member types agree; what it cannot answer is held by `deferred.lsp` or `SFC_STEPS_NOT_IN_SCOPE`: a step read BARE (S7's value
+ * and SIZEOF), a variable of a step's name (S10), an action's flags (S12), and S8's and S15's typos and the pointer global
+ * that is no step, which the bet takes for steps.
  *
  * A `.t` is never recorded as a value: it is the time since the step became active, which no replay can reproduce, so
  * each fixture records `.t >= T#0MS` instead. AVOID ONE-LETTER NAMES in an SFC POU: `s : STRING;` in one was refused
@@ -66,8 +86,11 @@ const NOT_AUTHORABLE =
   "form for it, so it can only be created in the IDE (BodyFormatGuard.RequireAuthorable). record:exec creates the SFC POU itself."
 const REFUSES = { codesys: NOT_AUTHORABLE, twincat: NOT_AUTHORABLE }
 
-/** Why the LSP does not refuse what CODESYS refuses yet — openspec lsp-sfc-step-names 2.1 (step names in scope). */
-const GAP = "lsp-sfc-step-names 2.1 (2026-10-03): the chart is not in the text, so no step name is in scope —"
+/** Why the LSP does not refuse what CODESYS refuses — openspec lsp-sfc-step-names 2.1: no chart, so only an evidenced step
+ *  is in scope. */
+const GAP =
+  "lsp-sfc-step-names 2.1 (2026-10-03), niche: accepted loss (0 occurrences in the corpora): the chart is not in the text, so the " +
+  "LSP knows no step but one a member access evidences (`types/infer/sfc-step`, DIALECT D40) —"
 
 /** The chart's one step, named as the field case named it (`types.ts` `sfcStep`). */
 const STEP = "S_Boot"
@@ -217,30 +240,32 @@ export const SFC_STEP_TESTS: LanguageTest[] = [
   program("written_in_action", "S6: S_Boot.x and S_Boot.t written in an ACTION of its SFC program", OWN_VARS,
     "S_Boot.x := TRUE;\nS_Boot.t := T#1S;\nbx := S_Boot.x;\ntOk := S_Boot.t >= T#0MS;", OUT_VARS, copyOut("written_in_action")),
   program("written_from_outside", "S6: PRG.S_Boot.x written from PLC_PRG", "", "", "", "PRG_LANG_sfc_written_from_outside.S_Boot.x := TRUE;",
-    "'S_Boot' is no input of 'PRG_LANG_sfc_written_from_outside'", "the LSP says 'S_Boot' is no COMPONENT of the program"),
+    "'S_Boot' is no input of 'PRG_LANG_sfc_written_from_outside'"),
   // S7
   program("unknown_member", "S7: a member SFCStepType does not have (S_Boot.y)", OWN_VARS, "bx := S_Boot.y;", "", "",
-    "'y' is no component of 'SFCStepType'", "the LSP says S_Boot is not defined"),
+    "'y' is no component of 'SFCStepType'"),
   program("bare_value", "S7: the step itself read as a BOOL — its type is IecSfc.SFCStepType", OWN_VARS, "bx := S_Boot;", "", "",
-    "Cannot convert type 'IecSfc.SFCStepType(iecsfc, 4.4.0.0 (system))' to type 'BOOL'", "the LSP says S_Boot is not defined"),
+    "Cannot convert type 'IecSfc.SFCStepType(iecsfc, 4.4.0.0 (system))' to type 'BOOL'", "a step read BARE has no member to evidence it, so S_Boot is the unknown name here"),
   program("t_is_time", "S7: S_Boot.t assigned to an INT — it is TIME", "\tk : INT;", "k := S_Boot.t;", "", "",
-    "Cannot convert type 'TIME' to type 'INT'", "the LSP says S_Boot is not defined"),
+    "Cannot convert type 'TIME' to type 'INT'"),
   program("x_is_bool", "S7: S_Boot.x assigned to an INT — it is BOOL", "\tk : INT;", "k := S_Boot.x;", "", "",
-    "Cannot convert type 'BOOL' to type 'INT'", "the LSP says S_Boot is not defined"),
+    "Cannot convert type 'BOOL' to type 'INT'"),
   program("sizeof_adr", "S7: SIZEOF of a step and ADR of its flag", "\tsize : UDINT;\n\tpx : POINTER TO BOOL;\n\tbx : BOOL;",
     "size := SIZEOF(S_Boot);\npx := ADR(S_Boot.x);\nbx := px <> 0;", "size : UDINT; bx : BOOL;",
     "size := PRG_LANG_sfc_sizeof_adr.size;\nbx := PRG_LANG_sfc_sizeof_adr.bx;"),
   // S8
   program("typo", "S8: a name that is no step of the chart (S_Bot.x), inside the POU", OWN_VARS, "bx := S_Bot.x;", "", "",
-    "Identifier 'S_Bot' not defined"),
+    "Identifier 'S_Bot' not defined",
+    "a name read with a member in an SFC POU is bet a step, so the typo S_Bot.x is taken for one and not reported"),
   program("typo_qualified", "S8: a name that is no step of the chart (PRG.S_Bot.x), from PLC_PRG", "", "", "bx : BOOL;",
-    "bx := PRG_LANG_sfc_typo_qualified.S_Bot.x;", "'S_Bot' is no component of 'PRG_LANG_sfc_typo_qualified'"),
+    "bx := PRG_LANG_sfc_typo_qualified.S_Bot.x;", "'S_Bot' is no component of 'PRG_LANG_sfc_typo_qualified'",
+    "a name read with a member through an SFC program is bet a step of its chart, so PRG.S_Bot.x is taken for one and not reported"),
   // S9
   program("outside_unqualified", "S9: a step name read unqualified in a POU that is not its SFC POU (PLC_PRG)", "", "",
     "bx : BOOL;", "bx := S_Boot.x;", "Identifier 'S_Boot' not defined"),
   // S10
   program("declared_as_variable", "S10: a variable of the SFC program declared with a step's name", "\tS_Boot : INT;", "", "", "",
-    "Variable 'S_Boot' has to be of type 'IecSfc.SFCStepType'.", "the LSP sees an ordinary INT and says nothing"),
+    "Variable 'S_Boot' has to be of type 'IecSfc.SFCStepType'.", "so a variable of a step's name is an ordinary INT to the LSP, which says nothing"),
   // S11
   program("flag_undeclared", "S11: the SFC flag SFCInit read without declaring it", OWN_VARS, "bx := SFCInit;", "", "",
     "Identifier 'SFCInit' not defined"),
@@ -253,20 +278,18 @@ export const SFC_STEP_TESTS: LanguageTest[] = [
   // S13 — the default step, as every new chart names it
   named(program("init_flag", "S13: the default step Init's .x and .t read in an ACTION (Init is also a library enum member)", OWN_VARS,
     "bx := Init.x;\ntOk := Init.t >= T#0MS;", OUT_VARS, copyOut("init_flag")), "Init"),
-  // …the LSP is silent here for the WRONG reason: it binds bare `Init` to Component Manager's enum member (LB2) and says
-  // nothing of its members; CODESYS binds the step. 2.1's step in scope must take precedence over that enum member.
+  // …`Init.x` names Component Manager's enum member too (LB2); CODESYS binds the step, and so does the LSP since 2.1: a bare enum
+  // member has no members, so a member access on it in an SFC POU is the step's (`types/infer/sfc-step`)
   named(program("init_t_is_time", "S13: the default step's Init.t assigned to an INT — it is TIME", "\tk : INT;", "k := Init.t;", "", "",
-    "Cannot convert type 'TIME' to type 'INT'",
-    "and bare Init binds a transitive library's enum member (LB2), whose .t the LSP leaves untyped and silent"), "Init"),
+    "Cannot convert type 'TIME' to type 'INT'"), "Init"),
   named(program("init_unknown_member", "S13: a member SFCStepType does not have, of the default step (Init.y)", OWN_VARS, "bx := Init.y;", "", "",
-    "'y' is no component of 'SFCStepType'",
-    "and bare Init binds a transitive library's enum member (LB2), whose .y the LSP says nothing of"), "Init"),
+    "'y' is no component of 'SFCStepType'"), "Init"),
   // S14 — a step beside another visible name of its spelling
   named(ahead(program("shadow_global_in_action", "S14: a step and a GVL global of the same name — the step's .x and .t read in the action",
     OWN_VARS, "bx := S_Gvl.x;\ntOk := S_Gvl.t >= T#0MS;", OUT_VARS, copyOut("shadow_global_in_action")),
     "VAR_GLOBAL\n\tS_Gvl : INT := 7;\nEND_VAR\n", ["GVL_LANG_sfc_shadow_global_in_action"]), "S_Gvl"),
-  // CODESYS binds the STEP in its own POU, over the global (the run reads TRUE, TRUE); the LSP, with no step in scope,
-  // binds the INT global and says nothing of `.x` / `.t` on it — silent, so no mark can hold it: 2.1 must bind the step
+  // CODESYS binds the STEP in its own POU, over the global (the run reads TRUE, TRUE); so does the LSP since 2.1: an INT has
+  // no members, so `.x` / `.t` on its name in an SFC POU is the step's
   named(ahead(program("shadow_global_outside", "S14: a step and a GVL global of the same name — the name read bare in PLC_PRG",
     OWN_VARS, "bx := TRUE;", "k : INT;", "k := S_Gvl2;"),
     "VAR_GLOBAL\n\tS_Gvl2 : INT := 7;\nEND_VAR\n", ["GVL_LANG_sfc_shadow_global_outside"]), "S_Gvl2"),
@@ -276,7 +299,56 @@ export const SFC_STEP_TESTS: LanguageTest[] = [
   named(ahead(program("shadow_function_in_action", "S14: a step and a FUNCTION of the same name — the step's .x and .t read in the action",
     OWN_VARS, "bx := S_Fun.x;\ntOk := S_Fun.t >= T#0MS;", OUT_VARS, copyOut("shadow_function_in_action")),
     "FUNCTION S_Fun : INT\nS_Fun := 5;\nEND_FUNCTION\n"), "S_Fun"),
-  // as with the global: CODESYS binds the step; the LSP binds the FUNCTION and is silent
+  // as with the global: CODESYS binds the step, and so does the LSP since 2.1 (a FUNCTION's name has no members)
+  // S15 — the edge of the bet (step 2 review): a global whose type HAS members beside a step of its name, a POINTER global
+  // beside one and without one, a memberless global's bit and partial access with no step of its name, a typo read with
+  // a member the step type does not have
+  named(ahead(program("shadow_struct_global", "S15: a step and a GVL global of a STRUCT type with a member x — S_Str.x read in the action",
+    OWN_VARS, "bx := S_Str.x;\ntOk := TRUE;", OUT_VARS, copyOut("shadow_struct_global")),
+    "TYPE DUT_LANG_sfc_shadow_struct_global :\nSTRUCT\n\tx : BOOL;\nEND_STRUCT\nEND_TYPE\n\nVAR_GLOBAL\n\tS_Str : DUT_LANG_sfc_shadow_struct_global;\nEND_VAR\n",
+    ["GVL_LANG_sfc_shadow_struct_global"]), "S_Str"),
+  named(ahead(program("shadow_fb_global", "S15: a step and a GVL global FB instance with an output x — S_Fbi.x read in the action",
+    OWN_VARS, "bx := S_Fbi.x;\ntOk := TRUE;", OUT_VARS, copyOut("shadow_fb_global")),
+    "FUNCTION_BLOCK FB_LANG_sfc_shadow_fb_global_holder\nVAR_OUTPUT\n\tx : BOOL;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nVAR_GLOBAL\n\tS_Fbi : FB_LANG_sfc_shadow_fb_global_holder;\nEND_VAR\n",
+    ["GVL_LANG_sfc_shadow_fb_global"]), "S_Fbi"),
+  named(ahead(program("shadow_pointer_global", "S15: a step and a GVL global POINTER TO INT of the same name — S_Ptr.x read in the action",
+    OWN_VARS, "bx := S_Ptr.x;\ntOk := S_Ptr.t >= T#0MS;", OUT_VARS, copyOut("shadow_pointer_global")),
+    "VAR_GLOBAL\n\tS_Ptr : POINTER TO INT;\nEND_VAR\n", ["GVL_LANG_sfc_shadow_pointer_global"]), "S_Ptr"),
+  ahead(program("pointer_global_no_step", "S15: a GVL global POINTER TO INT that is no step, read with a member (G_Ptr.x) in the action",
+    OWN_VARS, "bx := G_Ptr_sfc.x;", "", "", "'G_Ptr_sfc' is no structured variable",
+    "a POINTER has no members of its own, so a pointer global read with a member in an SFC POU is bet a step, as an INT global is (S14), and G_Ptr_sfc.x is taken for one and not reported"),
+    "VAR_GLOBAL\n\tG_Ptr_sfc : POINTER TO INT;\nEND_VAR\n", ["GVL_LANG_sfc_pointer_global_no_step"]),
+  ahead(program("bit_access_global", "S15: a WORD global that is no step — bit access read and written, partial access read — in the action",
+    OWN_VARS, "G_Word_sfc.1 := TRUE;\nbx := G_Word_sfc.3;\ntOk := G_Word_sfc.%X1;", OUT_VARS, copyOut("bit_access_global")),
+    "VAR_GLOBAL\n\tG_Word_sfc : WORD := 8;\nEND_VAR\n", ["GVL_LANG_sfc_bit_access_global"]),
+  program("typo_other_member", "S15: a name that is no step of the chart, read with a member no step has (S_Bot.y)", OWN_VARS, "bx := S_Bot.y;", "", "",
+    "Identifier 'S_Bot' not defined",
+    "a name read with a member in an SFC POU is bet a step, so the typo S_Bot.y is answered as a step's unknown member ('y' is no component of 'SFCStepType')"),
+  // S16 — bit access through an integer CONSTANT (gate step 2 review): the member is a NAME, not a digit, yet names a bit
+  // of a memberless global — a GVL constant bare and qualified by its list, a local VAR CONSTANT on a local WORD — and a
+  // step written and read through THIS^ in its SFC FB's method
+  ahead(program("bit_const_global", "S16: a WORD global that is no step, its bit named by a GVL INTEGER CONSTANT (G_Wc_sfc.cBit_sfc), written and read in the action",
+    OWN_VARS, "G_Wc_sfc.cBit_sfc := TRUE;\nbx := G_Wc_sfc.cBit_sfc;\ntOk := TRUE;", OUT_VARS, copyOut("bit_const_global")),
+    "VAR_GLOBAL\n\tG_Wc_sfc : WORD := 1;\nEND_VAR\n\nVAR_GLOBAL CONSTANT\n\tcBit_sfc : INT := 3;\nEND_VAR\n",
+    ["GVL_LANG_sfc_bit_const_global"]),
+  // …CODESYS refuses the constant qualified by its list (2026-10-03): a qualified name does not number a bit ("Bit access requires literal or symbolic integer constant")
+  {
+    ...ahead(program("bit_const_qualified", "S16: a WORD global that is no step, its bit named by a GVL INTEGER CONSTANT qualified by its list (G_Wq_sfc.GVL.cBitQ_sfc), written and read in the action",
+      OWN_VARS, "G_Wq_sfc.GVL_LANG_sfc_bit_const_qualified.cBitQ_sfc := TRUE;\nbx := G_Wq_sfc.GVL_LANG_sfc_bit_const_qualified.cBitQ_sfc;\ntOk := TRUE;",
+      "", "", "Bit access requires literal or symbolic integer constant"),
+      "VAR_GLOBAL\n\tG_Wq_sfc : WORD := 1;\nEND_VAR\n\nVAR_GLOBAL CONSTANT\n\tcBitQ_sfc : INT := 3;\nEND_VAR\n",
+      ["GVL_LANG_sfc_bit_const_qualified"]),
+    deferred: {
+      lsp: "lsp-sfc-step-names gate 2 (2026-10-03), niche: accepted loss (0 occurrences in the corpora): the LSP does not refuse a bit " +
+        "numbered by a list-qualified constant in ANY POU (an ST one is silent too) — no check asks whether a bit access's name is " +
+        "a bare symbolic constant. In an SFC POU it is no step either (`types/infer/sfc-step` `numbersABit`), so it is silent as in ST",
+    },
+  },
+  program("bit_const_local", "S16: a local WORD of the SFC program, its bit named by a local VAR CONSTANT (lwBits.cLBit), written and read in the action",
+    `${OWN_VARS}\n\tlwBits : WORD := 1;\nEND_VAR\nVAR CONSTANT\n\tcLBit : INT := 3;`,
+    "lwBits.cLBit := TRUE;\nbx := lwBits.cLBit;\ntOk := TRUE;", OUT_VARS, copyOut("bit_const_local")),
+  block("this_step", "S16: a step of an SFC FUNCTION_BLOCK written and read through THIS^ in one of its METHODs (THIS^.S_Boot.x)", OWN_VARS,
+    "METHOD M\nTHIS^.S_Boot.x := TRUE;\nbx := THIS^.S_Boot.x;\ntOk := THIS^.S_Boot.t >= T#0MS;\nEND_METHOD\n", "", "inst.M();"),
   // S11, systematically
   ...flagTests(),
 ]

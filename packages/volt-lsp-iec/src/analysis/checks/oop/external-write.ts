@@ -10,7 +10,7 @@
  */
 import { isSelfRef, walkStatements } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol } from "../../../frontend/symbols/index.js"
-import { inferExprType, resolveMemberChain } from "../../../frontend/types/index.js"
+import { inferExprType, isSfcStepBase, memberScopeOf, resolveMemberChain } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 
@@ -20,6 +20,15 @@ export function checkExternalNonInputWrite(ctx: CheckContext, out: DiagnosticIte
       if (s.kind !== "assign" || s.op !== undefined) return // plain `:=` only
       if (s.target.kind !== "member") return
       if (isSelfRef(s.target.base)) return // writing your own member (THIS/SUPER) is legal
+      // a STEP of an SFC program or instance written through it (`PRG.S_Boot.x := TRUE`) is internal to its POU, as a
+      // plain VAR is: "'S_Boot' is no input of 'PRG'" (`sfc_step_written_from_outside`, CODESYS 2026-10-03; `types/infer/sfc-step`)
+      // — but through THIS^ an SFC FB writes its OWN step (`sfc_step_this_step`, builds)
+      const step = s.target.base
+      if (step.kind === "member" && !isSelfRef(step.base) && isSfcStepBase(s.target, scope, ctx.project)) {
+        const pou = memberScopeOf(inferExprType(step.base, scope, ctx.project))!
+        out.push({ severity: "error", span: s.target.span, source: SOURCE, code: "external-non-input-write", message: ctx.messages.noInput(step.member.name, pou.name) })
+        return
+      }
       // a REFERENCE TO the FB is read through: `rf.k := 5` is no input of it, as `sb.k := 5` is (rule M3,
       // `mem_reference_to_fb_member_write`, both vendors 2026-10-02)
       const written = inferExprType(s.target.base, scope, ctx.project)

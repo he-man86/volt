@@ -15,8 +15,8 @@
  * CODESYS says it is.
  */
 import { compilerTypeText, walkExpr, type Expr, type Identifier, type MemberExpr, type Span, type TypeExpr } from "../frontend/syntax/index.js"
-import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, type Scope, type Symbol } from "../frontend/symbols/index.js"
-import { ANY_FAMILIES, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, resolveBareName } from "../frontend/types/index.js"
+import { gvlBlockOf, hasUnresolvedBase, isLibrarySymbol, lookupLocal, lookupMember, resolveGvlMember, rootOf, type Scope, type Symbol } from "../frontend/symbols/index.js"
+import { ANY_FAMILIES, builtinName, GENERIC_PARAMETER_TYPES, inferExprType, isDialectType, isSfcStepBase, resolveBareName, sfcStepTypeScope } from "../frontend/types/index.js"
 
 
 export interface BareRef {
@@ -27,44 +27,49 @@ export interface BareRef {
 /**
  * Visit only the identifiers that are BARE references (the root of a chain) — NOT member names (`.b` in
  * `a.b`) nor named-argument params (`p` in `f(p := v)`), both of which are `IdentExpr` in the tree but
- * resolve against a callee/type, not the local scope. Mirrors `ast-walk`'s traversal minus those.
+ * resolve against a callee/type, not the local scope. Mirrors `ast-walk`'s traversal minus those — and minus a STEP of an SFC
+ * chart read with a member (`S_Boot.x`), which no declaration names (`types/infer/sfc-step`).
  */
-function collectBareRefs(e: Expr, emit: (ref: BareRef) => void): void {
-  switch (e.kind) {
-    case "ident_expr":
-      emit(e)
-      return
-    case "literal":
-      return
-    case "member":
-      collectBareRefs(e.base, emit) // skip e.member (a member name, not a bare ref)
-      return
-    case "call":
-      collectBareRefs(e.callee, emit)
-      for (const a of e.args) if (a.value !== undefined) collectBareRefs(a.value, emit) // skip a.param
-      return
-    case "index":
-      collectBareRefs(e.base, emit)
-      for (const i of e.indices) collectBareRefs(i, emit)
-      return
-    case "deref":
-      collectBareRefs(e.base, emit)
-      return
-    case "binary":
-      collectBareRefs(e.left, emit)
-      collectBareRefs(e.right, emit)
-      return
-    case "unary":
-      collectBareRefs(e.operand, emit)
-      return
-    case "paren":
-      collectBareRefs(e.inner, emit)
-      return
-    case "assign_expr":
-      collectBareRefs(e.target, emit)
-      collectBareRefs(e.value, emit)
-      return
+function collectBareRefs(root: Expr, emit: (ref: BareRef) => void, isStep: (access: MemberExpr) => boolean): void {
+  const collect = (e: Expr): void => {
+    switch (e.kind) {
+      case "ident_expr":
+        emit(e)
+        return
+      case "literal":
+        return
+      case "member":
+        if (e.base.kind === "ident_expr" && isStep(e)) return
+        collect(e.base) // skip e.member (a member name, not a bare ref)
+        return
+      case "call":
+        collect(e.callee)
+        for (const a of e.args) if (a.value !== undefined) collect(a.value) // skip a.param
+        return
+      case "index":
+        collect(e.base)
+        for (const i of e.indices) collect(i)
+        return
+      case "deref":
+        collect(e.base)
+        return
+      case "binary":
+        collect(e.left)
+        collect(e.right)
+        return
+      case "unary":
+        collect(e.operand)
+        return
+      case "paren":
+        collect(e.inner)
+        return
+      case "assign_expr":
+        collect(e.target)
+        collect(e.value)
+        return
+    }
   }
+  collect(root)
 }
 
 /** Whether the bare name `name`, written in `scope`, names anything — the search order's answer (`types/names`
@@ -78,10 +83,16 @@ export function nameResolves(name: string, scope: Scope): boolean {
 /** The bare identifier references in `exprs` that resolve in NO reachable scope. */
 export function unresolvedInExprs(exprs: Iterable<Expr>, scope: Scope): BareRef[] {
   const out: BareRef[] = []
+  const project = rootOf(scope)
+  const isStep = (access: MemberExpr): boolean => isSfcStepBase(access, scope, project)
   for (const e of exprs) {
-    collectBareRefs(e, (ref) => {
-      if (!nameResolves(ref.name, scope)) out.push(ref)
-    })
+    collectBareRefs(
+      e,
+      (ref) => {
+        if (!nameResolves(ref.name, scope)) out.push(ref)
+      },
+      isStep,
+    )
   }
   return out
 }
@@ -126,9 +137,17 @@ export interface MemberRef {
  */
 export function unresolvedMembers(exprs: Iterable<Expr>, scope: Scope, project: Scope): MemberRef[] {
   const out: MemberRef[] = []
+  // `P.S_Boot` read with a member is a STEP of P's chart (`types/infer/sfc-step`), no unknown member of P: met before it
+  // (the walk is pre-order) and passed over
+  const steps = new Set<Expr>()
   for (const e of exprs) {
     walkExpr(e, (x) => {
-      if (x.kind !== "member") return
+      if (x.kind !== "member" || steps.has(x)) return
+      if (isSfcStepBase(x, scope, project)) {
+        steps.add(x.base)
+        if (lookupMember(sfcStepTypeScope(), x.member.name) === undefined) out.push({ member: x.member.name, typeName: "SFCStepType", span: x.member.span })
+        return
+      }
       const ref = checkMember(x, scope, project)
       if (ref !== undefined) out.push(ref)
     })
@@ -175,7 +194,9 @@ export function pointerMemberBases(exprs: Iterable<Expr>, scope: Scope, project:
   const out: Expr[] = []
   for (const e of exprs)
     walkExpr(e, (x) => {
-      if (x.kind === "member" && inferExprType(x.base, scope, project).kind === "pointer") out.push(x.base)
+      // …but not a STEP's name: D40 bets a variable of a type with no members of its own, a pointer's included, the step of
+      // its POU's chart when read with a member in an SFC POU (`types/infer/sfc-step`) — as every other check then reads it
+      if (x.kind === "member" && inferExprType(x.base, scope, project).kind === "pointer" && !isSfcStepBase(x, scope, project)) out.push(x.base)
     })
   return out
 }

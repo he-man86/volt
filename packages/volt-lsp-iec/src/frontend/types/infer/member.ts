@@ -20,6 +20,8 @@ import { selfRefKind, type Expr, type TypeExpr } from "../../syntax/index.js"
 import { resolveNamedType } from "../resolve.js"
 import { UNKNOWN, type StaticType, type Type } from "../type.js"
 import { inferExprType } from "./expr.js"
+import { isSfcStepBase } from "./sfc-step.js"
+import { sfcStepTypeScope } from "../system.js"
 
 /**
  * The symbol a reference chain denotes — `x`, `a.b.c`, `a.b()` — or undefined. Feeds inference and
@@ -38,6 +40,8 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
       if (gvlMember !== undefined) return gvlMember
       // `THIS.v`, `SUPER.Get` — the pointers themselves have no members (`expr_this_member_without_deref`)
       if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return undefined
+      // a step of an SFC chart, which no declaration in the text names (`sfc-step`): `S_Boot.x`, `PRG.S_Boot.t`
+      if (isSfcStepBase(expr, scope, project)) return lookupMember(sfcStepTypeScope(), expr.member.name)
       const base = inferExprType(expr.base, scope, project)
       const memberScope = memberScopeOf(base)
       // the member scope AND what it inherits (rule H2): `inst.baseMember` is the base FB's member, an interface's base's

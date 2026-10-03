@@ -53,6 +53,8 @@ export { renderType } from "./render.js"
 export { inferExprType } from "./infer/expr.js"
 export { isEnumValueRef, memberScopeOf, resolveMemberChain } from "./infer/member.js"
 export { resolveCallee, takesNoPositionalArguments, type CalleeInfo } from "./infer/callee.js"
+export { isSfcStepBase } from "./infer/sfc-step.js"
+export { sfcStepTypeScope } from "./system.js"
 
 // compatibility, constants, arithmetic, operators, built-ins
 export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, isAssignable, isSameType, pointerFits, type ConversionKind } from "./compat.js"
