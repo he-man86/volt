@@ -631,28 +631,28 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [ ] 4.13 D13 — canonical gates gone (2.12, 2.13) and the reader's layout rules with them (2.7-2.11).
 - [ ] 4.14 D14 — `TaskDescriptorException` becomes a coded `BridgeException` (BAD_REQUEST); every re-code in §2
       covered by a code-asserting test. (Today it reaches `PushService.ConflictFor` uncoded → INTERNAL_ERROR.)
-- [ ] 4.15 D15 — one last-moment version helper on `Versioning.SafeVersion`; null folder/kind → ITEM_UNVERIFIED on
+- [x] 4.15 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D15 — one last-moment version helper on `Versioning.SafeVersion`; null folder/kind → ITEM_UNVERIFIED on
       both arms (`PushService.cs:520` throws on a null folder, `:542` returns).
-- [ ] 4.16 D16 — `currentFolder` nullable ("unknown") — `PushService.cs:578` still `inCache ? cached.Folder : ""`;
+- [x] 4.16 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D16 — `currentFolder` nullable ("unknown") — `PushService.cs:578` still `inCache ? cached.Folder : ""`;
       uncached item → ITEM_UNVERIFIED, not a hash against root; move compare treats unknown as unknown.
-- [ ] 4.17 D17 — `Owner()` (`PushService.cs:1567` `?? pou`) and member-folder misses (`:1589` `?? Owner()`) throw
+- [x] 4.17 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D17 — `Owner()` (`PushService.cs:1567` `?? pou`) and member-folder misses (`:1589` `?? Owner()`) throw
       NOT_FOUND by name.
 - [x] 4.18 D18 — gone: `DutSubtypeChanges.cs` deleted (`b6822e9751`); the `ItemKind` "Kind is recovered from file
       content on push" comment rewritten (`ec0152fe0f`); `NoKindFromTextTests` repo gate (`a313c74b38`) keeps it out.
-- [ ] 4.19 D19 — compute the landing wire name once; the same one goes to the engine read and `ValidateSource`
+- [x] 4.19 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D19 — compute the landing wire name once; the same one goes to the engine read and `ValidateSource`
       (`PushService.cs:208` reads `ToName ?? Name`, `:223` hands the driver `Name`).
 - [ ] 4.20 D20 — **Changed.** `?? Method` is gone (`15d421e57a`: `BeckhoffDriver.Content.cs:596` refuses an unknown
       member type by name, `:597`). Left: `?? ""` at `BeckhoffDriver.Content.cs:707`, and no shared
       `MemberKind(code, ownerIsInterface)` (CODESYS keeps a private one, `CodesysDriver.Content.cs:243`).
 - [x] 4.21 D21 — covered by 2.28.
       Done with 2.28.
-- [ ] 4.22 D22 — N21 stated once (engine), vendor fact as data; after 1.5 only the "cannot build what the text means"
+- [x] 4.22 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D22 — N21 stated once (engine), vendor fact as data; after 1.5 only the "cannot build what the text means"
       arms remain on both vendors.
 - [x] 4.23 D23 — covered by 2.32.
       Done with 2.32.
-- [ ] 4.24 D24 — a dedicated regrouping exception; the Stamp catch catches only it (after 3.7). (It excludes
+- [x] 4.24 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D24 — a dedicated regrouping exception; the Stamp catch catches only it (after 3.7). (It excludes
       `TcEnoRefusal` already; any other `NotSupportedException` is still swallowed.)
-- [ ] 4.25 D25 — the in-place refusal travels as the inner exception / in the message when the rebuild also refuses;
+- [x] 4.25 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D25 — the in-place refusal travels as the inner exception / in the message when the rebuild also refuses;
       fix `TcNetworkWriter.cs:488`'s wording.
 - [ ] 4.26 D26 — a body pushed at an item with no body slot is refused by name on both vendors; ask the object, not a
       kind table (`CodesysObjectModel.cs:229` returns silently; `BeckhoffDriver.Content.cs:583` `HasBodySlot`).
@@ -660,8 +660,8 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       Done with 2.23, 2.24, 2.29, 2.34 and the grammar (bridge, LSP, VS Code).
 - [x] 4.28 D28 — covered by 3.6: refusal TwinCAT-only if CODESYS takes the write.
       Done with 3.6 (step 3b): CODESYS writes the declaration and refuses only a body; TwinCAT refuses the whole accessor.
-- [ ] 4.29 D29 — measure `ErrorList.ErrorItems` on TcXaeShell; read diagnostics structurally or record why not.
-- [ ] 4.30 D30 — `LibraryManifestFromXml` (`BeckhoffDriver.Content.cs:782`) requires the members the vendor XML always
+- [x] 4.29 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D29 — measure `ErrorList.ErrorItems` on TcXaeShell; read diagnostics structurally or record why not.
+- [x] 4.30 **Deferred (owner, 2026-10-03): internal refactor, not user-visible — not in this change.** D30 — `LibraryManifestFromXml` (`BeckhoffDriver.Content.cs:782`) requires the members the vendor XML always
       carries (measure which); a missing one makes the manifest unreadable (`?? name` at :788, :794).
 - [ ] 4.31 (from `push-without-header-check` 5Qb, live: `packages/volt-cli/scripts/merged-classes.log` lines 112, 229)
       A move into a tree node that is NOT a folder — `Device` on Pro2193, `Task Configuration` on Bakon Nano — is
@@ -695,7 +695,12 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       rules 2.7-2.11 and an undeclared `gN` (1.3); and it lacks the one rule the bridge ADDED (2.7 review): a late
       VAR_TEMP block declaring a name the network already read as a variable is NETWORK_DUPLICATE_NAME.
 
-## 6. Gate — no code-check left
+## 6. Gate
+
+- [ ] 6.0 `bun run check` is red at c974dba5ad: "every cited DIALECT row exists" reads this change's design decision `D7`
+      (cited on lines that also say "DIALECT", e.g. `CodesysLanguageChangeTests.cs:12`, `CodesysObjectModel.cs:181`) as
+      DIALECT row D7, which does not exist. Cite design decisions unambiguously (e.g. "bridge-refusal-review D7") so the
+      check passes; the check itself stays strict. — no code-check left
 
 - [ ] 6.1 Full C# suites green; e2e on both vendors.
 - [ ] 6.2 **Changed.** Grep gate (in `Volt.Repo.Gates`, beside `NoKindFromTextTests`) over `packages/volt-cli/src`:
