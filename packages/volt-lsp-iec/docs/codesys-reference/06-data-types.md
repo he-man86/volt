@@ -493,38 +493,3 @@ Total: 21 pages.
 | Subranges | `_cds_datatype_subint.html` |
 | __VECTOR | `_cds_data_type_vector.html` |
 | VERSION | `_cds_datatype_version.html` |
-
-## Notes for tooling
-
-**Already in parser (`src/parser/ast.ts`):**
-- Type expressions: `NamedType`, `QualifiedNamedType`, `ArrayType`, `ReferenceType`, `PointerType`, `StringType` (with `(n)` size), `WStringType`
-- DUT objects: `TYPE_DECL` with `StructBody | EnumBody | UnionBody | AliasBody`
-- See section A in Explore findings.
-
-**Diagnostic candidates (Stage 5):**
-- `POINTER TO BIT`, `REFERENCE TO BIT`, `ARRAY OF BIT`, `ARRAY OF REFERENCE TO ...`, `REFERENCE TO REFERENCE TO ...`, `POINTER TO REFERENCE TO ...` → all errors
-- `BIT` outside a STRUCT/FB → error
-- Subrange literal that's provably out of range at compile time → error
-- ENUM with fewer than 2 members → error
-- ENUM without `{attribute 'strict'}` → information (recommend)
-- STRUCT/UNION with fewer than 2 members → error
-- STRUCT nested member with `AT <address>` clause → error
-- `__VECTOR` size outside 1..8 or element type not REAL/LREAL → error
-
-**Hover augmentation:**
-- Every elementary type hover shows: range, memory size, IEC vs CODESYS-extension
-- Hovering on a string-with-size shows byte capacity vs char capacity in current encoding mode
-- Hovering on `LREAL` warns about target-dependent 64-bit support
-
-**Stage 5 deep-dives this into `src/reference/data-types.ts` as a structured table:**
-
-```ts
-interface DataType {
-  name: string;
-  family: 'bool' | 'integer' | 'real' | 'string' | 'time' | 'date' | 'pointer' | 'reference' | 'array' | 'struct' | 'enum' | 'union' | 'alias' | 'vector' | 'system';
-  iec: boolean;            // is it part of IEC 61131-3 or a CODESYS extension?
-  bits: number | 'platform' | 'variable';   // for __XINT etc.
-  range?: { min: string; max: string };
-  url: string;
-}
-```

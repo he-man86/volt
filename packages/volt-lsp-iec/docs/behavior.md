@@ -7,14 +7,14 @@ The contracts the `volt-lsp-iec` language server guarantees. It covers three con
 1. **The language server** — navigation, diagnostics, symbol resolution over the ST statement/expression AST.
    LSP-owned.
 2. **The graphical (FBD/LD) sublanguage** the LSP analyzes as readable text — *code correctness* is LSP-owned;
-   *format and PlcOpen round-trip* are bridge-owned (`volt-bridge`).
-3. **The on-disk workspace layout** the LSP reads (kind-named files, in-content markers) — bridge/CLI-owned
-   (`volt-bridge` writes it, `volt-git` reconciles it); consumed here offline.
+   *format and the vendor round-trip* are bridge-owned (`packages/volt-cli`).
+3. **The on-disk workspace layout** the LSP reads (kind-named files, the `IMPLEMENTATION <LANG>` line) —
+   bridge/CLI-owned (the `volt` CLI in `packages/volt-cli` writes and reconciles it); consumed here offline.
 
 This capability is self-contained: together with its sibling docs — `architecture.md` (the layered structure +
 build order), `data-model.md` (the concrete types), `language-reference.md` (the IEC catalog + the CODESYS↔
-TwinCAT differences) — it holds everything needed to build the LSP from the ground up. The HTTP wire it consumes
-is `bridge-protocol`.
+TwinCAT differences) — it holds everything needed to build the LSP from the ground up. The LSP consumes no wire:
+it reads the files the CLI wrote.
 ## Requirements
 
 <!-- ══════════ A. Analyzer — scope & boundaries (LSP-owned) ══════════ -->
@@ -383,13 +383,13 @@ The reachability analysis SHALL be conservative: when reachability is UNCERTAIN 
 
 ### Requirement: Graphical CFC/SFC bodies are not diagnosed and carry no read-only marker
 
-The LSP SHALL treat a CFC/SFC body as a comment-only informational marker (no `READONLY <LANG>`
-detection): it produces no diagnostics because it parses as a comment, and no code path classifies a
-body as "read-only" from its content. Read-only *access* for POU languages is not a concept the LSP
-models; graphical bodies are simply not analyzed and are edited in the IDE.
+The LSP SHALL treat a CFC/SFC body — its line `IMPLEMENTATION CFC|SFC UNSUPPORTED` with nothing under it (see
+"FBD/LD are editable; CFC/SFC/IL are UNSUPPORTED") — as having no body to analyze: it produces no diagnostics,
+and no code path classifies a body as "read-only" from its content. Read-only *access* for POU languages is not
+a concept the LSP models; such bodies are simply not analyzed and are edited in the IDE.
 
 #### Scenario: A graphical body yields no diagnostics without special detection
-- **WHEN** a POU (or inlined method) body is the CFC/SFC informational marker comment
+- **WHEN** a POU (or inlined method) body is a CFC/SFC `IMPLEMENTATION <LANG> UNSUPPORTED` line
 - **THEN** the LSP produces no diagnostics for it and does not tag it read-only from content
 
 <!-- ══════════ D. Analyzer — symbol resolution (LSP-owned) ══════════ -->
@@ -554,20 +554,21 @@ The formatter SHALL guarantee three invariants over every formatted document: (A
 
 <!-- ══════════ E. the network-text sublanguage — code correctness LSP-owned; FORMAT & ROUND-TRIP BRIDGE-OWNED ══════════ -->
 
-### Requirement: Network text is its own language, routed by content
+### Requirement: Network text is its own language, routed by the stated language
 
 Editable FBD/LD graphical bodies SHALL be represented as network text — a distinct language
-with its own grammar, parser, and analysis, not Structured Text. A POU body whose first significant
-token is `NETWORK` SHALL be routed to the network-text analysis path; everything else is ST. The declaration
-(`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the network-text parser sees only the body.
+with its own grammar, parser, and analysis, not Structured Text. A body under `IMPLEMENTATION LD` or
+`IMPLEMENTATION FBD` SHALL be routed to the network-text analysis path; a body under `IMPLEMENTATION ST` is ST, and
+nothing sniffs the text. The declaration (`PROGRAM`/`VAR … END_VAR`) remains ordinary ST; the network-text parser
+sees only the body.
 
-#### Scenario: A NETWORK body is analyzed as network text
-- **WHEN** a POU body begins with a `NETWORK` marker
+#### Scenario: An LD/FBD body is analyzed as network text
+- **WHEN** a POU body is stated `IMPLEMENTATION LD` or `IMPLEMENTATION FBD`
 - **THEN** it is parsed and analyzed by the network-text path, not the ST path
 
 ### Requirement: The round trip is exact and the bridge is the source of truth
 
-The bridge SHALL round-trip PlcOpen XML ⇄ graph ⇄ network text exactly (`NetworkTextWriter(NetworkTextReader(x)) == x`). A
+The bridge SHALL round-trip the vendor's own graphical model ⇄ network text exactly (`NetworkTextWriter(NetworkTextReader(x)) == x`). A
 push whose network text is non-canonical or non-convergent SHALL be refused before it reaches the IDE, with a
 structured diagnostic that returns the canonical text. So a graphical body can be read, edited, and
 written entirely as network text without drift.

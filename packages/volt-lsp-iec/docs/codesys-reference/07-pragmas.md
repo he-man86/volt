@@ -829,34 +829,3 @@ Total: 51 pages.
 | `warning disable`, `warning restore` | `_cds_pragma_attribute_warning_disable.html` |
 | Conditional Pragmas | `_cds_pragma_conditional.html` |
 | Region Pragma | `_cds_pragma_region.html` |
-
-## Notes for tooling
-
-**Stage 2 deep-dive into `src/reference/pragmas.ts`** would expose each pragma as a structured record:
-
-```ts
-interface Pragma {
-  name: string;                    // 'no_init', 'pack_mode', etc.
-  aliases?: string[];              // alternate spellings: 'noinit', 'no-init'
-  category: 'attribute' | 'message' | 'conditional' | 'region';
-  takesValue: boolean;
-  insertLocation: 'fb_top' | 'var_above' | 'method_top' | 'pou_top' | 'enum_top' | 'gvl_top' | 'struct_top';
-  oneliner: string;                // single-sentence summary for hover
-  gotchas?: string[];              // critical pitfalls
-  requires?: string[];             // other attributes that must also be present
-  forbids?: string[];              // pragmas that conflict
-  url: string;                     // CODESYS doc URL
-}
-```
-
-**Diagnostic candidates (Stage 2):**
-- Unknown pragma name in `{attribute '<name>'}` → warning ("not in CODESYS catalog; user-defined attributes should prefix with vendor name")
-- Insert-location violation (e.g., `linkalways` not on first line) → warning
-- Required companion missing (`instance-path` without `reflection` on FB) → error
-- Conflicting pragmas on same symbol (`pin_presentation_order_*` AND `pingroup`) → warning
-- `subsequent` with `VAR_TEMP` in a program → error
-- `call_after_*` / `call_before_*` POU with `VAR_INPUT` declarations → error
-
-**Hover augmentation (Stage 2):**
-- Hovering any pragma name shows: purpose, syntax, insert location, gotchas, link to CODESYS URL
-- Hovering `{attribute 'global_init_slot' := '<N>'}` shows what runs at that slot — cross-references [12-global-init-slots.md](./12-global-init-slots.md)

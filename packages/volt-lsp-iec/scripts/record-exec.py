@@ -17,7 +17,7 @@
 #   - a fixture's units load through create_dut / create_pou / create_method / create_action / create_property and
 #     `textual_declaration` / `textual_implementation`; create_property makes BOTH accessors, and the one a fixture
 #     does not declare is removed; an instance member reads like a scalar, a composite raises "Invalid pointer size."
-#     (`scripts/probe-fixture-run.py`, 2026-09-14).
+#     (measured headless 2026-09-14, unify-conformance-suite 3.1, by a one-off probe since deleted).
 #
 # ASCII ONLY - this file, and everything it writes: IronPython's json encoder decodes every string as UTF-8 and
 # crashed on a genuine U+00E9 read back from a WSTRING. Values leave as `\uXXXX` text (`ascii_escaped`), which

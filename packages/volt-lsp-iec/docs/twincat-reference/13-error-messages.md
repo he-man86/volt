@@ -85,7 +85,7 @@ ADS errors surface at runtime and in the TwinCAT router log. Common ones:
 | `0x1001` | 4097 | Symbol not found — variable name changed or PLC download pending |
 | `0x1002` | 4098 | Symbol version invalid — PLC was downloaded since the ADS handle was opened; reconnect |
 
-The Volt bridge returns ADS errors in its HTTP response body when the bridge cannot reach the PLC. The error code appears in the bridge's health response `degradedReason` field.
+When the Volt bridge cannot reach the PLC, the ADS error code appears in its `health` answer's `degradedReason` field (over the bridge's named pipe).
 
 ---
 

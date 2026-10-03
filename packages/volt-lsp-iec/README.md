@@ -12,12 +12,12 @@ Claude Code.
 ## Role in Volt
 
 ```
-live PLC IDE  ──HTTP──  bridge (C#)  ──HTTP wire──  volt-git (TS)  ──>  git repo of text files
- CODESYS / TwinCAT       per-vendor                  init/pull/push          analyzed by volt-lsp-iec
-                                                     status/build/log         edited in volt-vscode
+live PLC IDE  ──named pipe──  volt-cli (C#)  ──>  git repo of text files
+ CODESYS / TwinCAT   in-IDE bridge + CLI       analyzed by volt-lsp-iec
+                     init/pull/push/build       edited in volt-vscode
 ```
 
-The LSP reads the kind-named source tree that `volt-bridge` materializes and `volt-git` reconciles — POUs
+The LSP reads the kind-named source tree that the `volt` CLI (`packages/volt-cli`) materializes and reconciles — POUs
 (`.pou`, whatever their text declares), DUTs (`.dut`, whatever their shape), `.itf`, `.gvl`, plus read-only library
 signatures and `.device`/`.library` stubs — entirely offline. It never talks to the bridge at runtime; the
 bridge/CLI own the on-disk layout, the LSP consumes it.
@@ -67,7 +67,8 @@ bun run lint                    # the layer-boundary check (fails on an upward i
 ```
 
 The `record:language` / `refresh:corpus` / `audit:check` scripts (in `scripts/`) talk to a **live bridge** to
-produce the recorded ground truth; they are run by hand, never by `bun test`. See [`TESTING.md`](./TESTING.md).
+produce the recorded ground truth; they are run by hand, never by `bun test`. Every script is listed in
+[`scripts/README.md`](./scripts/README.md); the test layers are in [`TESTING.md`](./TESTING.md).
 
 ## Layout
 
@@ -83,11 +84,15 @@ services ← server), lint-enforced. See [`docs/architecture.md`](./docs/archite
 | `src/frontend/library/` | the Volt library format: path layout · manifest · materialization format. |
 | `src/analysis/` | diagnostics orchestrator (vendor-keyed) · per-vendor messages · the `checks/`. |
 | `src/services/` | navigation · hierarchy · hover/completion/signature-help · semantic-tokens · formatting · code-actions. |
-| `src/reference/` · `src/network/` | language-data catalogs · the network-text (FBD/LD) sublanguage (reuses the shared core). |
+| `src/reference/` | language-data catalogs (types · operators · conversions · pragmas · standard fns/fbs · lifecycle). |
+| `src/network-text/` · `src/network/` | the network-text (FBD/LD) lexer · parser · AST · its analysis and services (reusing the shared core). |
+| `src/index.ts` · `src/source-extensions.ts` · `src/workspace-refs.ts` | the package barrel · the writable-source extension set (gated by `bun run check`) · the workspace scan (sources, `.library`/`.device` refs, task roots). |
 | `src/server/` | LSP 3.17 over stdio · `WorkspaceStore` (eager index + watched-file freshness) · push+pull diagnostics. |
 | `src/transpile/` | Rust backend — sibling consumer of the frontend for headless PLC-logic test execution. |
 | `libraries/` | the library repo: each referenced library's elements written in ST, per version, for the transpiler (never the LSP). |
 | `test/conformance/` · `test/corpus/` | oracle replay (LSP diagnostics, transpiler execution) · real-project ratchet. |
+| `test/catalog/` · `test/frontend/` · `test/libraries/` | the C-code catalog · front-end baselines, censuses and the layering gate · the library repo. Map: [`test/README.md`](./test/README.md). |
+| `scripts/` · `docs/` | dev tooling — recorders, gates, generators, measurements ([`scripts/README.md`](./scripts/README.md)) · the docs below. |
 
 ## Docs
 
@@ -95,6 +100,8 @@ services ← server), lint-enforced. See [`docs/architecture.md`](./docs/archite
 - [`docs/behavior.md`](./docs/behavior.md) — the behavioral contracts (requirements + scenarios) the server guarantees.
 - [`docs/data-model.md`](./docs/data-model.md) — the concrete types.
 - [`docs/language-reference.md`](./docs/language-reference.md) — the IEC catalog + the CODESYS↔TwinCAT differences.
+- [`docs/reserved-il-operators.md`](./docs/reserved-il-operators.md) — the IL operator names CODESYS reserves in ST, measured.
+- [`docs/codesys-reference/`](./docs/codesys-reference/00-index.md) · [`docs/twincat-reference/`](./docs/twincat-reference/00-index.md) — the vendors' language documentation, summarized; with the CODESYS C-code catalog (`error-catalog.json`, `TRIAGE.md`, `compiler-warnings-coverage.md`).
 - [`TESTING.md`](./TESTING.md) — the three test layers and the live-bridge tooling.
 - [`../volt-cli/docs/network-text.html`](../volt-cli/docs/network-text.html) — the network-text language the graphical path analyzes.
 - [`../../CLAUDE.md`](../../CLAUDE.md) — repo-wide guidance.

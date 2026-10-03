@@ -128,25 +128,6 @@ Calling order during online change:
 
 Init parameters must be compatible: derived `FB_Init` declares the same parameters as base, optionally adding extras at the end.
 
-## Notes for tooling
-
-**Diagnostic candidates (Stage 3):**
-- `FB_Init` / `FB_Reinit` / `FB_Exit` with wrong return type → error ("must return BOOL")
-- `FB_Init` declared without the implicit `bInitRetains` + `bInCopyCode` params → error (or warning if the FB has no base — the spec is fuzzy here)
-- `FB_Exit` missing `bInCopyCode` param → error
-- `SUPER^.FB_Init` call detected in body → error ("FB_Init is implicitly called; never explicitly chain SUPER")
-- Derived FB whose `FB_Init` signature drops a base parameter → error
-
-**Hover augmentation (Stage 3):**
-- Hovering on any of the three method names shows the implicit parameter table + which scenarios fire which method
-- Hovering on `{attribute 'call_after_init'}` shows the post-init contract
-
-**Not enforceable in LSP:**
-- Whether `POINTER`/`REFERENCE` variables are stale-after-online-change — runtime concern
-- Whether `{attribute 'no_copy'}` is correctly applied — requires intent inference
-
-**Stage 3 deep-dives this into `src/reference/lifecycle.ts`.**
-
 ## Sub-pages
 
 This section has no sub-pages on the CODESYS site.

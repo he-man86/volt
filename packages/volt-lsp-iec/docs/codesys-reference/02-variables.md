@@ -244,25 +244,3 @@ Total: 17 pages.
 | SUPER | `_cds_pointer_super.html` |
 | THIS | `_cds_pointer_this.html` |
 | Implicit Enumeration | `_cds_datatype_implicit_enumeration.html` |
-
-## Notes for tooling
-
-**Already supported in parser:**
-- `VarSection` AST node carries all `VAR_*` kinds (`src/parser/ast.ts:156-177`)
-- `VarSectionKind` enum: `VAR | VAR_INPUT | VAR_OUTPUT | VAR_IN_OUT | VAR_TEMP | VAR_STAT | VAR_INST | VAR_EXTERNAL | VAR_GLOBAL | VAR_CONFIG | VAR_ACCESS`
-- Modifiers `CONSTANT`, `RETAIN`, `PERSISTENT` already parsed
-- `AT <address>` clause is captured (TwinCAT `%I*` and CODESYS forms)
-
-**Diagnostic candidates:**
-- `VAR_TEMP` in a function → error ("only in programs and FBs")
-- `VAR_TEMP` in a program with `{attribute 'subsequent'}` → error
-- `VAR_INST` outside a method → error ("methods only")
-- `VAR PERSISTENT` (without `RETAIN`) in an FB → error
-- `RETAIN` in a function → warning ("ignored in functions")
-- `VAR_IN_OUT` parameter passed a literal/constant at call site → error (Stage 5+, requires call-site analysis)
-- `VAR_CONFIG` outside a GVL → error
-- `VAR_EXTERNAL` with initialization → error
-
-**Hover augmentation:**
-- Hovering on each VAR kind shows: scope, pass-semantics, lifetime, memory area
-- Hovering on `RETAIN`/`PERSISTENT` shows the survival table

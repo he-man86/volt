@@ -15,7 +15,7 @@ LD-exclusive page chain reachable from the elements landing → "Next" series:
 3. LD Element: Branch Start/End → `_cds_ld_element_branch_start_end.html`
 4. LD Element: Closed Branch → `_cds_ld_element_closed_branch.html`
 
-As with FBD, the docs are terse. PLCopenXML element names below are derived from the IEC 61131-10 schema and the [fbd-authoring](../../../.claude/skills/fbd-authoring) skill, not from the CODESYS docs themselves.
+As with FBD, the docs are terse. PLCopenXML element names below are derived from the IEC 61131-10 schema and the former `fbd-authoring` skill (deleted with PLCopen), not from the CODESYS docs themselves.
 
 ## The power-rail model (background)
 
@@ -26,7 +26,7 @@ The CODESYS LD docs never explicitly describe the **left/right power rail** mode
 
 Contacts, coils, and branches all wire `localId`s into these two rails. Multiple rungs in a network share the same pair of rails; parallel coils are stacked vertically and all connect to the right rail. This is what makes the rung representation "look like" relay-ladder wiring.
 
-The CODESYS UI hides the rails; they're rendered as the left and right vertical lines of the diagram. The bridge round-trips them as proper PLCopenXML elements.
+The CODESYS UI hides the rails; they're rendered as the left and right vertical lines of the diagram. Volt does not go through PLCopenXML: the bridge reads and writes the vendor's own network model.
 
 ## Element catalog
 
@@ -209,33 +209,4 @@ The CODESYS docs treat each "network" as a single rung in LD, but in practice an
 - **EN/ENO inside an LD rung.** Whether the rung's accumulated boolean automatically wires to a box's `EN` pin is not spelled out, though that is the conventional behavior.
 - **Comment / label inside a rung.** Documented only at the network level, not rung level.
 
-These gaps must be filled by the conformance corpus (P4: `ld-element-tests.ts` ~20 tests) and bridge ground truth (P5).
-
-## Notes for tooling
-
-**LSP diagnostic candidates:**
-- Series coils → error ("Coils must be in parallel only" — from the docs verbatim)
-- Coil variable type ≠ `BOOL` → error
-- Set coil and Reset coil on the same variable in the same network with ambiguous execution order → warning
-- Edge-detect contact on a non-BOOL variable → error
-- Closed branch where vertical-line style cannot be inferred (corrupt XML round-trip) → warning
-- Multi-rung network with a coil on a non-rightmost column → error
-- SCE branch containing a contact/coil with side effects that the user may not realize are skipped → low-priority warning
-
-**Hover augmentation:**
-- Contact: show the variable's type, current edge mode, and a note if rising/falling edge state is implicit
-- Coil: show storage mode (none / set / reset / negated), variable's `VAR_RETAIN` status, and warn if multiple coils target the same variable
-- Closed branch: show OR vs SCE semantics with link to the page above
-- Hovering over the left/right power rail: show "implicit `TRUE` source" / "rung sink" annotation
-
-**Completion:**
-- Inside an empty rung: offer Contact, Negated Contact, R-edge Contact, F-edge Contact, Coil, Set Coil, Reset Coil, Box, Closed Branch
-- After a contact: offer "series next" (place to the right) and "parallel" (insert below) as code actions
-- Inside a `???` placeholder: BOOL variables and bit-accessors only, ranked first
-
-**Bridge round-trip concerns:**
-- Vertical-line style (OR vs SCE on closed branches) **must** be preserved — the bridge currently treats it as opaque metadata in `addData`
-- Branch Start/End markers are UI-only; do not emit them as PLCopenXML elements
-- Power rails should always be emitted (one left + one right per LD body), even for trivial single-contact rungs
-
-Stage 5 deep-dives this into `src/reference/ld-elements.ts` and pairs with the existing `_fbd/` semantic checks under `src/semantic/checks/`.
+These gaps are filled by the conformance fixtures (recorded against the live CODESYS and TwinCAT builds).

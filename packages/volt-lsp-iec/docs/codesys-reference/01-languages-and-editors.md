@@ -143,23 +143,3 @@ Total: 24 pages.
 | `CONTINUE` | `_cds_exst_instruction_continue.html` |
 | ST Function Block Call | `_cds_st_fb_call.html` |
 | ST Comments | `_cds_st_comment.html` |
-
-## Notes for tooling
-
-**Already implemented in lexer/parser:**
-- `:=`, `=>`, `REF=`, comments — confirmed in `src/lexer/`
-- All ST statements (`IF`/`CASE`/`FOR`/`WHILE`/`REPEAT`) — confirmed in `src/parser/`
-- `THIS`, `SUPER` — keywords in `ALL_KEYWORDS`
-
-**Confirm during Stage 5:**
-- `S=` and `R=` ExST assignments — may or may not be in lexer
-- `CONTINUE` — ExST-only; check lexer support
-- Assignment-as-expression — parser may currently reject this as an error
-
-**Diagnostic candidates (Stage 5):**
-- Multi-assignment chains with `S=` / `R=` mixed → warning (evaluation order trap)
-- `S=`/`R=`/`REF=` outside ExST context → if we ever distinguish strict IEC vs ExST modes (probably not worth it)
-
-**Hover augmentation:**
-- Hovering on `THIS` / `SUPER` shows their semantics
-- Hovering on `S=` / `R=` / `REF=` shows the evaluation-order quirk

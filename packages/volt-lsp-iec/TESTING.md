@@ -101,30 +101,14 @@ error-catalog.json  ── master checklist (status/ourCode/repro/verified per c
    └─▶ compiler-warnings-coverage.md         the dialog's 66 configurable codes + Volt's coverage/gaps
 ```
 
-## The tooling (in `scripts/` — NOT run by `bun test`)
+## The tooling (in `scripts/`)
 
-Grouped by what they need. **Live** = a bridge must be up (see below). **Offline** = pure, runs under `bun`.
-
-| Script | Live? | package.json | Job |
-|---|---|---|---|
-| `bridge.ts` | — | (lib) | named-pipe client (`call(op,body)`) the live scripts import |
-| `bridge-fixture.ts` | — | (lib) | shared fixture (`openFixture()` → set/del/reset) for the recorders |
-| `record-language.ts` | live | `record:language` | push every conformance fixture, build, capture IDE diagnostics → `test/conformance/recordings/` |
-| `record-corpus-build.ts` | live | — | snapshot a corpus project's real IDE build → `corpus.test.ts` oracle |
-| `refresh-corpus.ts` | live | `refresh:corpus <name>` | refresh a `test-corpus/<name>/` project by dogfooding `volt pull` |
-| `verify-catalog.ts` | live | — | build every implemented C-code repro, confirm wording vs IDE → `error-catalog.json` verified flags |
-| `record-gaps.ts` | live | — | probe unverified compiler-warning gap codes for their real trigger/wording (positive-control proven) |
-| `audit-check.ts` | live | `audit:check <battery>` | ad-hoc "is this check right?" — LSP vs `/build` for a battery of cases; touches no test data |
-| `conversion-matrix.ts` | live | — | validate `classifyConversion` against the live compiler for every numeric pair |
-| `catalog-status.ts` | offline | — | render the C-code catalog status matrix (LSP / CS / TC) |
-| `corpus-fp.ts` | offline | — | the zero-FP corpus oracle in a debuggable, grouped-by-code form (no test timeout) |
-| `parser-completeness.ts` | offline | — | parser recovery evidence — both parser paths record zero on the (clean) corpus |
-| `check-layering.ts` | offline | `lint` | fail on an illegal upward import between layers |
-
-Bring a bridge up first (the data wire is a **named pipe**, not an HTTP port): CODESYS —
-`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys` (a GUI IDE; serves `volt.bridge.codesys.<pid>` when no
-`VOLT_PIPE` is set — pass `VOLT_PIPE=volt.bridge.codesys.<pid>`); TwinCAT — run `VoltConnector.exe` and pick the
-project from the tray (serves `volt.bridge.twincat`, XAE open on a project).
+Recorders, gates, generators, audits and measurements — every script with its purpose, whether it needs a live bridge,
+and its `package.json` alias is listed in [`scripts/README.md`](scripts/README.md) (one list; this file keeps none).
+Bring a bridge up first (the data wire is a **named pipe**, not an HTTP port):
+`pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys|twincat` serves `volt.bridge.<vendor>.<pid>` (CODESYS loads
+the bridge in-proc in a GUI IDE; for TwinCAT the script spawns the `VoltBridgeTwincat --xae-pid` worker) — pass
+`VOLT_PIPE=volt.bridge.<vendor>.<pid>` to the tool.
 
 ## Running
 

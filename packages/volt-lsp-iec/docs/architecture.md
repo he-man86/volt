@@ -30,7 +30,7 @@ downward only** (`syntax ← symbols ← types ← analysis ← services ← ser
 ```
 G  server        LSP 3.17 / stdio · dispatch · capabilities · WorkspaceStore (eager index + watched-file
                  freshness) · push+pull diagnostics · progress
-F  reference · network        language data catalogs · the FBD/LD sublanguage (native, by reuse)
+F  reference · network(-text) language data catalogs · the FBD/LD sublanguage (native, by reuse)
 E  services      navigation · hierarchy · hover/completion/signature-help · inlay-hints · code-lens ·
                  semantic-tokens · structure · formatting · code-actions
 D  analysis      diagnostics orchestrator · messages · the checks
@@ -38,6 +38,29 @@ C  types         elementary facts · Type model · resolve · const · infer · 
 B  symbols       symbol table · binder · scope-nav · scoped-bodies (the shared ST-body iterator)    │ frontend/
 A  syntax        vocabulary · lexer · complete AST · parser · literals · pragmas · file format      │ (+ library)
                       ↘ transpile (Rust backend) consumes the front-end directly — headless test execution
+```
+
+## The tree (as it stands; openspec `lsp-package-structure` gives it its final shape)
+
+```
+src/
+  frontend/      A–C — syntax · symbols · types, and library (the Volt library format); one index per sub-layer
+  analysis/      D — the diagnostics orchestrator, messages, rules, and checks/ by concern
+  services/      E — the LSP features over the layers below
+  reference/     F — the language data catalogs
+  network-text/  F — the network-text (FBD/LD) lexer, parser and AST
+  network/       F — network-text analysis and services over the shared core
+  server/        G — LSP 3.17 over stdio, the WorkspaceStore, push+pull diagnostics
+  transpile/     the Rust backend — lower/ → ir/ → interp/ · emit/rust/
+  bin.ts · index.ts · source-extensions.ts · workspace-refs.ts
+                 the CLI entry · the package barrel · the writable-source extension set · the workspace scan
+test/            cross-cutting suites — conformance/ · corpus/ · catalog/ · frontend/ · libraries/ (map: test/README.md);
+                 unit tests sit beside their module in src/
+libraries/       the library repo: referenced libraries' elements in ST, per version, for the transpiler
+scripts/         dev tooling — recorders, gates, generators, audits, measurements (every file: scripts/README.md)
+docs/            this file · behavior.md · data-model.md · language-reference.md · reserved-il-operators.md ·
+                 codesys-reference/ (vendor docs + the C-code catalog) · twincat-reference/
+test-corpus/     the real projects the corpus suite reads
 ```
 
 ## Layers
@@ -157,12 +180,14 @@ implementation), `hierarchy` (call + type), `assist` (hover · completion · sig
 (document/workspace-symbol · folding · selection), `formatting` (print · editorconfig · on-type · range), and
 `code-actions`.
 
-### F — `reference/` · `network/`
+### F — `reference/` · `network-text/` · `network/`
 `reference/` holds the language data catalogs (types · operators · conversions · pragmas · standard fns/fbs ·
-lifecycle) — ranges derive from `frontend/types/elementary`. `network/` is the FBD/LD family: the readable text
-encoding (`network-text/`, room for future formats), plus infer/checks/services that **reuse the shared
-core** — one type engine, one orchestrator, one service set. Graphical is a second front-end that plugs in, not
-a second stack.
+lifecycle) — ranges derive from `frontend/types/elementary`. The FBD/LD family is two folders today:
+`network-text/` reads the text (lexer, parser, AST of a network-text body, the format specified in
+`packages/volt-cli/docs/network-text.html`), and `network/` analyzes it — wire symbols and types, the checks, the
+services — **reusing the shared core**: one type engine, one orchestrator, one service set. Graphical is a second
+front-end that plugs in, not a second stack. (Both dissolve into the layers — `frontend/syntax/network`,
+`frontend/symbols`/`types`, `analysis/checks/network` — in openspec `lsp-package-structure`.)
 
 ### G — `server/`
 LSP 3.17 over stdio (`--stdio` only), one vendor-keyed binary (`codesys | twincat | auto`): dispatch, framing,
@@ -179,8 +204,8 @@ three server modules:
 - `server` — the dispatch itself: incremental document sync, semantic tokens (full · range · delta),
   refresh-after-reindex, live configuration, and work-done progress around the crawl.
 
-Every advertised capability has a registered handler — an invariant guarded by a parity test (see `spec.md`,
-"The LSP-3.17 conformance surface is declared and kept in capability↔handler parity").
+Every advertised capability has a registered handler — an invariant guarded by a capability↔handler parity test
+in `server/server.test.ts`.
 
 ### Backend — `transpile/`
 A compiler backend, sibling consumer of the frontend (`frontend/`: `syntax ← symbols ← types`, through their indexes), not of the LSP.
@@ -233,10 +258,10 @@ reports a comfortable percentage while nothing real runs.
 ## Testing (built in)
 
 Diagnostics match CODESYS and TwinCAT byte-for-byte, guaranteed by construction. `test/conformance/`:
-`catalog/` (one fixture per rule) → `record.ts` (push each to the live bridge, build, capture the compiler's
-exact diagnostics) → `recordings/` (the committed oracle truth) → `fixtures.test.ts` (offline; asserts the
-message set is byte-identical per vendor — the single criterion; a `KNOWN_DIVERGENCES` ledger is the only
-opt-out). `test/corpus/` is the real-project ratchet (a miss ⇒ add a fixture, never a threshold tweak); unit
+`fixtures/` (one fixture per rule, grouped by concern) → `scripts/record-language.ts` (push each to the live bridge,
+build, capture the compiler's exact diagnostics) → `recordings/` (the committed oracle truth) → `fixtures.test.ts`
+(offline; asserts the message set is byte-identical per vendor — the single criterion; a `KNOWN_DIVERGENCES` ledger
+is the only opt-out). The full map is `TESTING.md` and `test/README.md`. `test/corpus/` is the real-project ratchet (a miss ⇒ add a fixture, never a threshold tweak); unit
 tests co-locate with each module; `test/conformance/` also runs the transpiler (interpreter + emitted Rust) against the simulator's recording. The loop: corpus miss → catalog fixture →
 record → mirror the message → replay green. A diagnostic cannot ship unless it matches both compilers.
 
@@ -296,6 +321,6 @@ map first.** A second copy is a lint failure, not a style nit.
 - Additive to the protocol; `inferExprType` is the frontend's public entry point.
 
 Requirement-level contracts (compiler-parity, vendor-keying, error-tolerant parsing, network-text ownership boundary,
-library resolution, corpus verification) live in `spec.md`; the concrete types in `data-model.md`; the IEC
+library resolution, corpus verification) live in `behavior.md`; the concrete types in `data-model.md`; the IEC
 catalog + the CODESYS↔TwinCAT differences in `language-reference.md`. This document is the structural blueprint
 the build follows.

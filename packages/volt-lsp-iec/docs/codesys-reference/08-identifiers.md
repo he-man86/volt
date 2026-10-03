@@ -92,19 +92,3 @@ CODESYS publishes a Hungarian-notation convention (full reference: `_cds_recomme
 | For POUs | `_cds_identifiers_pous.html` |
 | For V3 library blocks | `_cds_identifiers_pou_v3_library.html` |
 | For visualizations | `_cds_identifiers_visu.html` |
-
-## Notes for tooling
-
-**Mechanically enforceable in the LSP:**
-- Rule 1 (no spaces/special chars) — lexer-level; can't happen in valid tokens
-- Rule 2 (consecutive underscores) — **diagnostic candidate**, regex `_{2,}` anywhere in identifier
-- Rule 3 (case-insensitive lookup) — already done by `lookupLocal` in `symbol-table.ts:141`
-- Rule 5 (no keyword overlap) — lexer-level for true keywords; **diagnostic candidate** for cases the lexer treats as identifiers (e.g., the `ACTION`/`END_*` export-format-only set)
-- Rule 6 (no duplicate local) — **diagnostic candidate**, `lookupLocal(scope, name).length > 1`
-- Rule 7 (`__` prefix) — **diagnostic candidate**, regex `^__`
-
-**Not enforceable (IDE/compiler authoritative):**
-- Recommendations (Hungarian prefixes) — style, not language
-- Library qualification rules — require library symbol tables we don't index
-
-**Stage 1 diagnostics consume this section.**

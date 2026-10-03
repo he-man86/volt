@@ -139,22 +139,3 @@ Total: 9 pages.
 | DATE, DT, TOD, LDATE, LDT, LTOD → ... | `_cds_operator_date_to.html` |
 | TRUNC | `_cds_operator_trunc.html` |
 | TRUNC_INT | `_cds_operator_trunc_int.html` |
-
-## Notes for tooling
-
-**Lexer impact:** Every `<src>_TO_<dst>` combination is a distinct keyword. The combinatorial blow-up (~25 elementary types × ~25 targets = ~600 names) suggests two approaches:
-- Enumerate explicitly in `ALL_KEYWORDS` (current approach, exhaustive but bulky)
-- Treat as a derived pattern: tokenize `<IDENT>_TO_<IDENT>` and check both sides match elementary type names. Cleaner but parser-level rather than lexer-level.
-
-Recommend continuing the enumeration approach for V1; revisit if the lexer file gets unwieldy.
-
-**Diagnostic candidates (Stage 5):**
-- Implicit narrowing assignment (`iVar : INT := diSomething;` where `diSomething` is `DINT`) → error ("explicit conversion required")
-- `TRUNC` used in a context expecting `INT` instead of `DINT` → suggest `TRUNC_INT` (especially during V2.3 → V3 migrations)
-- `REAL_TO_<INT>` on a value provably out of range (literal or analyzable constant) → warning
-
-**Hover augmentation:**
-- Hovering any `_TO_*` operator shows the source/dest semantics and any known target-dependent caveats
-- Hovering `TRUNC` shows the V2.3 vs V3 difference
-
-**Stage 5 deep-dives this into `src/reference/type-conversion.ts` as a permitted-coercions matrix.**

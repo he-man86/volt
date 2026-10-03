@@ -199,21 +199,6 @@ VAR_ACCESS       READ_ONLY        READ_WRITE       PARAMS
 7. **`__POOL` is positionally significant** — prepending it changes which view the compiler searches first. See [09-shadowing.md](./09-shadowing.md).
 8. **Property accessors `GET` / `SET`** appear inside `PROPERTY`/`END_PROPERTY` blocks; outside that context they're not keywords in a typical sense but still reserved.
 
-## Notes for tooling
-
-**LSP lexer status:**
-- `packages/volt-lsp-iec/src/lexer/tokens.ts:172` (`ALL_KEYWORDS`) currently enumerates ~85 keywords. **It will need to be cross-checked against this corpus** during Stage 1 — likely missing some of the system operators (`__POSITION`, `__CURRENTTASK`, `__POUNAME`, etc.) and the more exotic data type aliases (`LDT`, `LTOD`, `LDATE_AND_TIME`).
-- The export-format-only set (`ACTION`/`END_*`) needs to be in `ALL_KEYWORDS` or in a semantic check, since CODESYS rejects identifiers matching them.
-
-**Mechanically enforceable diagnostics (Stage 1):**
-- Identifier matches an `ALL_KEYWORDS` entry → error
-- Identifier starts with `__` → error
-- Identifier with `_{2,}` somewhere in middle → error
-- Identifier matches export-format-only keyword (`ACTION`, `END_ACTION`, etc.) → error
-- Identifier matches a known type name that the lexer treats as identifier → error
-
-**Stage 1 deep-dives this into `src/reference/keywords.ts` as the canonical set.**
-
 ## Sub-pages
 
 This section has no sub-pages on the CODESYS site.

@@ -24,7 +24,7 @@ The chain of pages reachable from the landing-page "Next" link, in order:
 10. Element: Execute → `_cds_fbd_ld_il_element_execute.html`
 11. → continues into LD-specific elements (Contact, Coil, ...)
 
-The docs are **terse**. Most pages are 1–3 short paragraphs plus an icon and a "see Insert X command" link. There is **no PLCopenXML mapping in the CODESYS docs themselves** — the XML element names below are derived from IEC 61131-10 / PLCopen TC6 schema knowledge and our own [fbd-authoring](../../../.claude/skills/fbd-authoring) skill.
+The docs are **terse**. Most pages are 1–3 short paragraphs plus an icon and a "see Insert X command" link. There is **no PLCopenXML mapping in the CODESYS docs themselves** — the XML element names below are derived from IEC 61131-10 / PLCopen TC6 schema knowledge and the former `fbd-authoring` skill (deleted with PLCopen).
 
 ## Element catalog
 
@@ -46,7 +46,7 @@ A network is "the base unit of an FBD or LD program." Networks are displayed as 
 ### Box
 
 > **Page:** `_cds_fbd_ld_il_element_box.html`
-> **PLCopenXML:** `<block>` (with `typeName` for the called POU/function/FB; `instanceName` for FB instances; `<inputVariables>` / `<outputVariables>` / `<inOutVariables>` for the pins). See [fbd-authoring](../../../.claude/skills/fbd-authoring) for the `addData` envelope CODESYS expects.
+> **PLCopenXML:** `<block>` (with `typeName` for the called POU/function/FB; `instanceName` for FB instances; `<inputVariables>` / `<outputVariables>` / `<inOutVariables>` for the pins).
 
 A box is a container for "IEC function blocks, IEC functions, library function blocks, or operators." It accepts "any number of inputs and outputs."
 
@@ -172,35 +172,11 @@ The Execute element is a box that allows direct insertion of ST (Structured Text
 
 The CODESYS documentation pages reached from the FBD/LD/IL elements landing are **deliberately terse** and omit several things our LSP and corpus tests need:
 
-- **PLCopenXML element-to-CODESYS-element mapping.** Nowhere in the docs is the FBD/LD element vocabulary cross-referenced with the IEC 61131-10 XML schema. The mappings above are inferred from PLCopen TC6 spec knowledge and round-trip experiments documented in [fbd-authoring](../../../.claude/skills/fbd-authoring).
+- **PLCopenXML element-to-CODESYS-element mapping.** Nowhere in the docs is the FBD/LD element vocabulary cross-referenced with the IEC 61131-10 XML schema. The mappings above are inferred from PLCopen TC6 spec knowledge and round-trip experiments documented in the former `fbd-authoring` skill (deleted with PLCopen).
 - **Execution order semantics.** The docs say networks run "top to bottom" but never specify whether ENO short-circuits, whether parallel branches are evaluated lazily, or how `executionOrderId` is assigned to elements within a network.
 - **Connection / wire model.** The docs describe inserting boxes and pins but never describe the wire/connection element directly — it's implicit. PLCopenXML uses `<connection refLocalId="N" formalParameter="..."/>` inside `<inputVariables>` / `<outputVariables>`.
 - **Comment elements.** Free-standing comment boxes inside an FBD body are not documented at the element level (only as a network-header line). PLCopenXML has `<comment>` for these.
 - **Pragma support inside graphical bodies.** Pragmas (`{attribute ...}`) inside FBD/LD networks are not discussed.
 - **Variable typing / coercion at pin boundaries.** The "input shows `???` — replace with variable or constant" guidance is silent on type compatibility, narrowing, or implicit conversion at pin boundaries.
 
-These gaps are where the **conformance test corpus** must provide ground truth (P5: bridge recording against a real TwinCAT/CODESYS project).
-
-## Notes for tooling
-
-**Lexer / parser (relevant ST keywords also recognized in FBD/LD network text fields):**
-- Network label names are identifiers, validated by [08-identifiers.md](./08-identifiers.md) rules.
-- Box `typeName` resolution shares the ST type-name resolution path (see [09-shadowing.md](./09-shadowing.md)).
-
-**LSP diagnostic candidates:**
-- Jump → unknown label → error
-- Box with mismatched `formalParameter` against the called POU's interface → error (after Update Parameters has not been run)
-- Return on a `FUNCTION` (which has no early-exit semantics in some controllers) → warning
-- Unconnected required input pin on a box → warning (`check-dangling-connection.ts` already does this — see `src/semantic/checks/_fbd/check-dangling-connection.ts`)
-- Branch nested inside an `EN`-disabled box → noop warning
-
-**Hover augmentation:**
-- Hovering on a box shows: `typeName`, `instanceName` (if any), called POU's signature, link to the page above
-- Hovering on a Jump shows: target label name + a peek of the destination network
-- Hovering on EN/ENO shows the "ENO mirrors EN" semantics
-
-**Completion:**
-- Inside an empty network: offer Box, Assignment, Jump, Return, Branch, Execute as element kinds
-- Inside a `???` placeholder: offer the standard expression completion list
-
-Stage 5 deep-dives this into `src/reference/fbd-elements.ts`.
+These gaps are where the **conformance fixtures** provide ground truth (recorded against the live CODESYS and TwinCAT builds).

@@ -158,24 +158,3 @@ See [09-shadowing.md](./09-shadowing.md) for how these interact with the search 
 ## Sub-page catalog
 
 Total: 64 sub-pages. URLs follow the pattern `_cds_operator_<name>.html`. Full list in [`_toc.json`](./_toc.json) under "Operators".
-
-## Notes for tooling
-
-**Already in lexer (`src/lexer/tokens.ts:172` `ALL_KEYWORDS`):**
-- Arithmetic, logical, comparison operator keywords (`ADD`, `AND`, `EQ`, …)
-- System operators (`__NEW`, `__DELETE`, `__VARINFO`, …) — confirm during Stage 5 cross-check
-- `INI` — likely present (it's an operator keyword)
-
-**Diagnostic candidates (Stage 5):**
-- Plain `AND`/`OR` guarding a potentially-null pointer dereference → warning, suggest `AND_THEN`/`OR_ELSE`
-- Integer-typed expressions where overflow may be unintended on target → low-priority warning
-- `__NEW` used without `{attribute 'enable_dynamic_creation'}` on the FB → error
-- Use of deprecated `INI` operator → warning ("INI is replaced by FB_Init since V3")
-
-**Hover augmentation:**
-- Hovering on any operator shows: signature, IEC vs CODESYS-extension, link to per-operator URL
-- Hovering on `AND_THEN`/`OR_ELSE` shows the short-circuit semantics
-- Hovering on `__NEW` shows the `enable_dynamic_creation` requirement
-- Hovering on `INI` shows the deprecation notice
-
-**Stage 5 deep-dives this into `src/reference/operators.ts`.**

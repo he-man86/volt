@@ -67,12 +67,3 @@ Pragmas that originate in CODESYS but TwinCAT documents with extensions/differen
 | `strict` | TwinCAT enum-strictness directive (also in modern CODESYS) |
 
 These are tagged as `"shared"` in the LSP catalog — both vendors accept them. If we discover TwinCAT-only nuances later, we'll re-tag.
-
----
-
-## Notes for tooling
-
-- Each TwinCAT pragma here gets a `vendor: "twincat"` entry in `src/reference/pragmas.ts`.
-- `equivalentIn.codesys` is set for the pragmas in the equivalents table above.
-- The `wrong-vendor-pragma` diagnostic uses these entries to produce the user-facing suggestion.
-- TwinCAT-only inherited pragmas (`c++_compatible`, etc.) are tagged `vendor: "shared"` unless we learn otherwise.

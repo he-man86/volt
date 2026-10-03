@@ -89,21 +89,6 @@ Reproduced from the CODESYS page. Use this when picking a slot for `{attribute '
 | Initialize **after** visualization is ready | > 70000 |
 | Initialize at the very end | > 200000 |
 
-## Notes for tooling
-
-**Diagnostic candidates (Stage 6):**
-- `{attribute 'global_init_slot' := <N>}` where N collides with a CODESYS-reserved slot → warning ("slot N is reserved for X")
-- Slot value outside reasonable range (negative, very large, non-integer) → error
-
-**Hover augmentation:**
-- Hovering on `{attribute 'global_init_slot' := N}` shows what runs at that slot range
-
-**Not enforceable in LSP:**
-- Whether the *dependency intent* is met — runtime concern
-- Order between two GVLs at the same slot — undefined; can't verify intent
-
-**Stage 6 deep-dives this into `src/reference/init-slots.ts`.**
-
 ## Sub-pages
 
 This section has no sub-pages on the CODESYS site.

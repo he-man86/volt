@@ -331,27 +331,3 @@ Total: 14 pages.
 | Partial variable access | `_cds_partial_access.html` |
 | Addresses | `_cds_operands_addresses.html` |
 | Functions as operands | `_cds_operands_functions.html` |
-
-## Notes for tooling
-
-**Lexer needs to recognize all literal prefixes:**
-- `T#`, `TIME#`, `LTIME#`, `D#`, `DATE#`, `DT#`, `DATE_AND_TIME#`, `TOD#`, `TIME_OF_DAY#`, `LD#`, `LDATE#`, `LDT#`, `LDATE_AND_TIME#`, `LTOD#`, `LTIME_OF_DAY#`
-- `UTF8#`, `UCHAR#`
-- `<TYPE>#` typed literal prefixes
-- `2#`, `8#`, `16#` base prefixes
-- Underscores in numeric literals (`16#FFFF_FFFF`)
-
-**Diagnostic candidates (Stage 5+):**
-- Integer literal divided by integer literal where result type is `REAL` → suggest `1.0/10` form (warning, "integer division")
-- Partial access on a forbidden target (function call, literal, property) → error
-- Time literal with out-of-order units → error
-- Time literal missing `T#` prefix → error
-- Numeric literal with comma instead of period → error
-- Bit index out of range for the source variable's type → error
-- Address using `%` form on a target that doesn't match the device config → bridge-side only (we don't have device config)
-
-**Hover augmentation:**
-- Hovering on a time literal shows the millisecond/nanosecond value
-- Hovering on `%`-form address shows the area, size, and bit position breakdown
-- Hovering on `UTF8#` shows the encoding behavior + recommended `monitoring_encoding` companion pragma
-- Hovering on `$<hh>` inside a string shows the resolved character
