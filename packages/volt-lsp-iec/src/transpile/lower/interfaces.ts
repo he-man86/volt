@@ -260,7 +260,7 @@ export function interfaceCall(lw: Lowering, ref: Place, call: Extract<Expr, { ki
   for (const [position, arg] of call.args.entries()) {
     const param = arg.param === undefined ? declared[position] : declared.find((d) => d.name === arg.param!.name.toUpperCase())
     if (param === undefined || arg.output || arg.value === undefined) return lw.bail("call-param", `an argument ${name} of ${itf} does not take`, arg.span)
-    const type = storageOf(lw, lw.resolve(param.type, lw.project))
+    const type = storageOf(lw, lw.resolve(param.type, lw.project), param.type.span)
     if (type.kind === "interface") return lw.bail("interface-input", "an interface passed as an input — not built yet", arg.span)
     // AN ANY INPUT THROUGH AN INTERFACE IS REFUSED, not passed.
     //
@@ -286,7 +286,7 @@ export function interfaceCall(lw: Lowering, ref: Place, call: Extract<Expr, { ki
     inputs.set(param.name, convert(value, type))
   }
   if (inputs.size !== declared.length) return lw.bail("call-input-missing", `${name} called without every input — its default is not measured yet`, call.span)
-  const type = method.returnType === undefined ? UNKNOWN : storageOf(lw, lw.resolve(method.returnType, lw.project))
+  const type = method.returnType === undefined ? UNKNOWN : storageOf(lw, lw.resolve(method.returnType, lw.project), method.returnType.span)
   return dispatch(lw, ref, type, (instance, fb) => {
     const routine = methodOf(lw, fb, name, call.span)
     if (routine === undefined) return undefined
@@ -303,7 +303,7 @@ function interfaceProperty(lw: Lowering, e: Expr): { ref: Place; name: string; t
   if (ref === undefined) return undefined
   if (ref.type.kind !== "interface") return null
   const property = interfaceChain(lw, ref.type.name).flatMap((a) => a.properties).find((p) => p.name.text.toUpperCase() === e.member.name.toUpperCase())
-  return property === undefined ? null : { ref, name: property.name.text, type: storageOf(lw, lw.resolve(property.dataType, lw.project)) }
+  return property === undefined ? null : { ref, name: property.name.text, type: storageOf(lw, lw.resolve(property.dataType, lw.project), property.dataType.span) }
 }
 
 /** The instance's accessor of a PROPERTY, invoked — one arm of a dispatch. */

@@ -73,7 +73,7 @@ const thisPlace = (type: FbType, span: Span): Place => ({ slot: 0, path: [], typ
  */
 function instancePlace(lw: Lowering, place: Place, span: Span): Place | undefined {
   if (place.type.kind !== "reference" && place.type.kind !== "pointer") return place
-  return storageOf(lw, place.type.target).kind === "function_block" ? pointeePlace(lw, place, undefined, span) : place
+  return storageOf(lw, place.type.target, span).kind === "function_block" ? pointeePlace(lw, place, undefined, span) : place
 }
 
 const holding = (instance: Place | undefined, bindings: readonly (IrBinding | InFrame | undefined)[]): Place[] => [
@@ -573,7 +573,7 @@ export function calledRoutine(lw: Lowering, sym: RoutineSymbol, frame: FbType | 
     for (const [own, global] of kept.stat) r.statics.set(own, lw.shared.globals.byName.get(global)!)
     let result: number | undefined
     if (ast.kind !== "action" && ast.returnType !== undefined) {
-      const type = storageOf(r, r.resolve(ast.returnType))
+      const type = storageOf(r, r.resolve(ast.returnType), ast.returnType.span)
       r.localByName.set(sym.name.toUpperCase(), 0)
       r.localSlots.push({ name: sym.name, type, section: "VAR", init: defaultValueOf(type) })
       result = 0
@@ -708,7 +708,7 @@ export function propertyRoutine(lw: Lowering, frame: FbType, sym: RoutineSymbol,
       return lw.bail("call-library", `${name} is a library declaration without a body`, span)
     const key = name.toUpperCase()
     const r = routineLowering(lw, scope, frame, sym.owner, key, name)
-    const type = storageOf(r, r.resolve(ast.dataType))
+    const type = storageOf(r, r.resolve(ast.dataType), ast.dataType.span)
     r.localByName.set(sym.name.toUpperCase(), 0)
     r.localSlots.push({ name: sym.name, type, section: accessor === "get" ? "VAR" : "VAR_INPUT", init: defaultValueOf(type) })
     declareVars(r, part.varSections)
@@ -750,7 +750,7 @@ function propertyAccess(lw: Lowering, e: Expr): { instance: Place; frame: FbType
   // `reference`, never `function_block`, so `r.Size` was not recognised as a property at all and fell through to the
   // generic member path (`expr-member` reading it, `place-shape` writing it).
   const written = inferExprType(e.base, lw.scope, lw.project)
-  const seen = written.kind === "reference" || written.kind === "pointer" ? storageOf(lw, written.target) : written
+  const seen = written.kind === "reference" || written.kind === "pointer" ? storageOf(lw, written.target, e.span) : written
   if (seen.kind !== "function_block" || seen.scope === undefined || lookupMember(seen.scope, e.member.name)?.kind !== "property") return null
   const resolved = lowerPlace(lw, e.base)
   if (resolved === undefined) return undefined

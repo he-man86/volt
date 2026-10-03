@@ -157,6 +157,8 @@ END_METHOD
 
   {
     name: "operand_uchar_literal",
+    // CODESYS REFUSES this too (recorded): `UCHAR#'A'` is a UDINT, and a UDINT does not go into a BYTE implicitly.
+    refused: "Cannot convert type 'UDINT' to type 'BYTE'",
     pouName: "FB_LANG_operand_uchar",
     kind: "function_block",
     feature: "UCHAR#'A' — CODESYS-only character literal; TC rejects",

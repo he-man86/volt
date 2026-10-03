@@ -35,7 +35,7 @@ export function globalPlace(lw: Lowering, name: string, span: Span): Place | und
   if (sym === undefined || libraryOf(sym) !== undefined) return undefined
   if (sym.kind === "gvl_var") declareGlobal(lw, sym.ast as VarDecl, "")
   else if (sym.kind === "program" && sym.name.toUpperCase() !== lw.shared.root.toUpperCase()) {
-    const type = storageOf(lw, resolveNamedType(sym.name, lw.project))
+    const type = storageOf(lw, resolveNamedType(sym.name, lw.project), sym.span)
     lw.shared.globals.byName.set(upper, lw.shared.globals.slots.length)
     lw.shared.globals.slots.push({ name: sym.name, type, section: "program", init: defaultValueOf(type) })
     lw.touched.add(lw.shared.globals.slots.length - 1)

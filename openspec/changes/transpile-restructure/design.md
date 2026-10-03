@@ -1181,6 +1181,54 @@ server are "the rest of the LSP review", after this change. The proposal is amen
   says which LSP answer changes and cites the recording.
 - **Out of scope:** `analysis/`, `services/`, `server/`, and any LSP-only diagnostic gap. Those are handed off (§7.1).
 
+### 6.1 What frontend-conformance provides (its task 5.2, read from the code on 2026-10-03)
+
+frontend-conformance moved the front-end under `src/frontend/` (`library/`, `syntax/`, `symbols/`, `types/`, each with a
+curated `index.ts`; the transpiler already imports only `frontend/<layer>/index.js`, enforced by `scripts/check-layering.ts`
+`TRANSPILE_ALLOWED`). Every front-end path in §2.7 and in tasks.md therefore reads `src/frontend/<that>`. Task 0.9 starts from
+this table and re-checks it; "met" makes the matching 1.1 task a verification that the transpiler uses that home and drops its
+own copy (the copies are the hand-off list at the end of tasks.md).
+
+| # | Need | Verdict | Front-end path (export) | Transpiler copy still standing |
+|---|---|---|---|---|
+| 1 | `sameName` | met | `src/frontend/syntax/identifier.ts` `sameName` (syntax index); `types/compat.ts` uses it | `interp/interp.ts` `sameName` (1.1.1) |
+| 2 | `extendsChain(scope)`, FBs and interfaces | met | `src/frontend/symbols/extends.ts` `extendsChain` (base first, each scope once — a cycle ends the chain), `baseOf`, `basesOf`/`ancestry` (interface EXTENDS, bound and linked since frontend-conformance 3.2.1), `extendsCycle`; "incomplete" is `src/frontend/symbols/scope-nav.ts` `hasUnresolvedBase` | `lower/lower.ts` `extendsChain(lw, fb)` by NAME and the other EXTENDS walks (hand-off H1) |
+| 3 | `peelArray`, `elementOf` | not provided, because no front-end consumer needs them: they are helpers over the transpiler's own array use, and frontend-conformance moved nothing out of `src/transpile/` but the named R tasks | — (1.1.3 builds `src/frontend/types/arrays.ts`) | `ir/ir.ts` |
+| 4 | `typeZero`, `typeDefault` (RC 25) | not provided, because the front-end has no value model; it provides the facts `typeDefault` reads: `src/frontend/types/enums.ts` `enumDefault`/`inlineEnumDefault`, `src/frontend/types/defaults.ts` `DEFAULT_STRING_LENGTH` | — (1.1.4 builds them in `src/frontend/types/defaults.ts`) | `ir/ir.ts` `defaultValueOf`, `lower/storage.ts` |
+| 5 | type predicates | not provided as named, because no front-end rule asks `isBit`/`isBoolValued`/`isIntegral`/`holdsIntegerBits`/`stringKind`/`isReal`/`floatBits`/`hasTextFormat`; the file exists with the front-end's own: `src/frontend/types/predicates.ts` `numericRank`, `isIntegerType`, `isNumericType`, `isIsolated`, `isDatetime`, `isDuration`, `isTemporal`, `isKnownPrimitive` | `src/frontend/types/predicates.ts` (1.1.5 adds the transpiler's set there) | `ir/ir.ts` `isBit`, `emit/rust/emit.ts` `isReal`, inline copies |
+| 6 | `integerOfWidth`, `wrapToWidth`, `widthOf` | met for two, not for `widthOf` (no front-end rule needs it; `ElementaryType.bits` is the fact) | `src/frontend/types/width.ts` `integerOfWidth` (types index), `wrapToWidth` (NOT on the types index yet — 1.1.14 adds it) | `lower/convert.ts` `stored`, `integerFoldType`; `ir/values.ts` `fit`; `ir/evaluate.ts` `widthOf` (hand-off H6) |
+| 7 | literal typing incl. `contextLiteralType` | met except `contextLiteralType`, which is not provided because the two rules disagree and only recordings may decide which is right: `test/frontend/literal-agreement.test.ts` (LT14) pins 29 classes, corpus 78 / fixtures 79 / library 0 stores where `contextLiteralType` and `literalCheckType` answer differently (`baselines/literal-agreement.json`) | `src/frontend/types/literal.ts` `literalType`, `literalCheckType`, `literalErrorType`, `integerLiteralType`, `literalOwnType`, `literalCapacityType`, `literalContextConversion`, `typedLiteralSum`, `REAL_LITERAL_TYPE` | `lower/constants.ts` `contextLiteralType` (hand-off H5, with RC 6 / 6.2) |
+| 8 | `parseConversionName` | met | `src/frontend/types/conversion-name.ts` `parseConversionName(name, target)` — the target is required since frontend-conformance 4.1.2 (platform names are the target's) | `lower/builtins.ts`, `lower/constants.ts` call it with `undefined` (hand-off H4) |
+| 9 | arithmetic result types split runtime / checked / temporal | met | `src/frontend/types/arith/runtime.ts` (`commonType`, `promoteForRuntime`), `arith/checked.ts` (`checkedMeetType`, `checkedNegationType`), `arith/temporal.ts` (`temporalResultType`, `durationScaleResultType`, `temporalArithmeticType`; `durationFor` private), `arith/operators.ts` (`notResultType`, `bitwiseResultType`, `operandConversion`, …); `exptResultType` is in `src/frontend/types/builtins.ts` (frontend-conformance 1.6 put the EXPT rule with the built-ins) | `lower/expressions.ts` NOT and duration × integer (hand-off H4) |
+| 10 | constant fold split constancy / fold, `heldAs` on `wrapToWidth` | met | `src/frontend/types/const/constancy.ts` `constancyOf`; `src/frontend/types/const/fold.ts` `constEval`, `constancyIn` (one walk for value and constancy, 4.6.2), `declaredValue` (the fold stored into its declared type — what `heldAs` was), `compileTimeConstant`, `constantSlotType`, `isRecursiveConstant`; the wrap is `wrapToWidth`; `**` and `&` are gone (6.A.20) | `lower/constants.ts` `foldConstant`, `foldsToConstant`, `convertedConstant` (hand-off H7) |
+| 11 | enum numbering and default | met | `src/frontend/types/enums.ts` `enumMemberValue` (numbering), `enumDefault`, `inlineEnumDefault`, `enumStorage`/`enumValueStorage`/`enumBase` (storage, recorded DT5–DT6), `strictEnum`; the transpiler already imports `enumDefault`/`inlineEnumDefault` (frontend-conformance 1.37) | `lower/constants.ts` `enumStorage` (hand-off H7) |
+| 12 | `calendarNanoseconds` | met | `src/frontend/syntax/literal/calendar.ts` (syntax index); `lower/constants.ts` already imports it (frontend-conformance 1.22) — 1.1.12 is a verification | none |
+| 13 | infer split, `fbChainSections` on `extendsChain`, `resolveCallee` for lowering | met | `src/frontend/types/infer/expr.ts`, `infer/member.ts`, `infer/callee.ts`; `fbChainSections` (callee.ts, private) runs on `extendsChain`; `resolveCallee` is on the types index | lowering's parameter view (6.B.4) |
+| 14 | `resolveNamedType` with a required asker (RC 21) | not provided, because frontend-conformance kept the asker optional (`resolveNamedType(name, project, depth = 0, askerUri = undefined)`): callers without a file (the compiler's own structs in `types/system.ts`, tests) and the library precedence rules it recorded (3.4) did not need it required. 6.5 makes it required | `src/frontend/types/resolve.ts` `resolveNamedType`, `namespaceOf` (qualified types resolve in their namespace, 3.4.2) | the callers 6.5 lists |
+| 15 | every one exported from its layer's index | met, two exceptions | `src/frontend/{syntax,symbols,types}/index.ts` (curated named exports); `src/frontend/index.ts` re-exports them. Not on an index: `wrapToWidth` (1.1.14), `fbChainSections` (private; nothing outside infer needs it) | — |
+
+### 6.2 Root causes that live in the front-end: status (frontend-conformance task 5.2)
+
+Every front-end root cause the review found was closed UPSTREAM, by the review's own fixes (`transpile-review-2026-09-29`,
+archived 2026-09-30, before frontend-conformance's first code step); frontend-conformance closed none of the RCs and
+closed or halved five appendix items. Its F-back snapshot (emitted Rust and interpreter values of every fixture that existed at
+its start, 1b03f0e55c → the 4e tree) is byte-identical for every fixture still lowered, so it changed no transpiler output.
+
+| Item | Status | By |
+|---|---|---|
+| RC 1 (meet of mixed signs), RC 2 / 2.3 (named constant fold, `constantSlotType`), RC 3 (REAL fold width), RC 4 (VAR_INPUT CONSTANT default) | closed upstream | review tasks 1.2, 2.2, 2.3 (cf95980537), 3.2, 4.2; fixtures `meet_mixed_sign_wider_unsigned`, `named_const_*`, `real_constant_fold_width`, `var_input_constant_default_as_step` confirmed at frontend-conformance's start and still |
+| RC 6 (out-of-range literal keeps its type) | closed upstream (lowering's `beside`, review 6.2); the shared `contextLiteralType` home is NOT provided (§6.1 row 7) | `tr_6_literal_beyond_dint_neighbour` confirmed |
+| RC 21 (FUNCTION keyed by identity) | closed upstream (review 21.2); the required asker is open (§6.1 row 14, task 6.5) | `tr_21_namespace_*` confirmed |
+| RC 45, literal decoding | closed upstream (review 45.2, landed with task 34, 5c1e7e00df) | `tr_45_string_embedded_nul` confirmed |
+| 6.A.20 `**`, `&`, REAL MOD in the fold | `**` and `&` closed by frontend-conformance 2.5a (58de5afeb0: the parser refuses them, the fold has no case); **REAL MOD open** (`const/fold.ts` `foldNumber` still folds `MOD` on two reals) | — |
+| 6.A.21 REAL_MAX_MAGNITUDE below f32::MAX, two constants | open: both constants now sit in one file, `src/frontend/types/literal.ts` (`REAL_MAX_MAGNITUDE` 3.402823e38 and the `3.4028234663852886e38` in the real-literal rule) | — |
+| 6.A.22 inferred STRING(N)/ARRAY[1..N] folded in project scope | closed by frontend-conformance 4.6.2 (62bcb30d65, rule CE8: `infer/expr` resolves a variable's type in its declaring scope; `ce_string_length_constant_*`) | — |
+| 6.A.23 negated/parenthesised real literal in SIN/SQRT infers UNKNOWN | open (probed 2026-10-03: `SIN(1.5)` LREAL, `SIN(-1.5)` and `SQRT((2.0))` UNKNOWN — `infer/expr` passes "is a literal" only for a bare literal to `mathResultType`) | — |
+| 6.A.24 member access does not walk EXTENDS | closed by frontend-conformance 3.2.3 (461b70fc4d, H2: `infer/member` uses `lookupMember`; the 42 UNKNOWN run paths of 0.4 fell to 2) | — |
+| 6.A.25 subrange bounds dropped | closed in the front-end by frontend-conformance 4.7.1 (62bcb30d65: `Type.subrange`, rule DT3); lowering's use of it is its own | — |
+| 6.A.26 qualified `Lib.T` by its bare name | closed by frontend-conformance 3.4.2 (1bdaf58172: `types/resolve` `namespaceOf`, `resolveQualifiedType`) | — |
+| 6.A.29 named DINT/LINT constant folds unbounded in an initializer | front-end half closed by frontend-conformance 4.6.1 (62bcb30d65: `const/fold` `declaredValue` holds the fold at the declared width; the 20 CE2 fold disagreements of its 0.4 fell to 0); the lowering half (`lower/constants.ts` folds an initializer by itself, `ce_fold_untyped_in_context_values` not-lowered "init-not-constant") open | — |
+
 ---
 
 ## 7. Hand-offs and accepted divergences

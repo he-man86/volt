@@ -172,7 +172,7 @@ export function sizeOf(lw: Lowering, e: Extract<Expr, { kind: "call" }>): IrExpr
   const elementary = arg.kind === "ident_expr" && !lw.holds(arg.name) && named === undefined ? elementaryTypeOn(arg.name, targetOf(lw.project)) : undefined
   let type: Type
   if (elementary !== undefined) type = elementaryRef(elementary.name)
-  else if (named?.kind === "type" || named?.kind === "function_block") type = storageOf(lw, resolveNamedType(named.name, lw.project))
+  else if (named?.kind === "type" || named?.kind === "function_block") type = storageOf(lw, resolveNamedType(named.name, lw.project), arg.span)
   else {
     const place = lowerPlace(lw, arg)
     if (place === undefined) return undefined

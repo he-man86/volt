@@ -1925,3 +1925,100 @@ its delta.
     `ide.ps1 up -Vendor twincat` attaches workers to two XAE windows, both "no project selected"; `connect
     {project: "TwinCAT Project13"}` binds it (worker log: "select: bound", "DEGRADED cleared") and one `refs`
     answers, then the recorder's `refs` is refused PLC_DISCONNECTED with no deselect in the log. Not diagnosed.
+
+## Hand-off from frontend-conformance (2026-10-03, its tasks 5.2 and 5.3)
+
+These are notes, not tasks: the task list above is unchanged. Front-end paths are the real ones (`src/frontend/<layer>/…`);
+every function named below is reachable through `src/frontend/<layer>/index.js` unless it says otherwise.
+
+**Task 5.2 (input to 0.1 and 0.9).** design.md §6.1 gives each of the 15 needs of §6 a verdict and a path (met: 1, 2, 6 in
+part, 7 in part, 8–13, 15 with two exceptions; not provided, with the reason: 3, 4, 5, `widthOf`, `contextLiteralType`, 14);
+design.md §6.2 gives every front-end root cause a status (RC 1–4, 2.3, 6, 21, 45 closed UPSTREAM by the review's own fixes;
+6.A.22, 6.A.24, 6.A.26 closed by frontend-conformance; 6.A.20, 6.A.25, 6.A.29 closed in the front-end half only; 6.A.21,
+6.A.23 open). frontend-conformance changed no transpiler output: its F-back snapshot (emitted Rust and interpreter values,
+1b03f0e55c → the 4e tree) is byte-identical for all 2181 fixtures that lowered at its start; 22 refused fixtures stopped
+lowering because the parser now refuses them as CODESYS does (`cc_il_name_*` ×14, `cc_reserved_name_*` ×3,
+`cc4_type_name_*_as_variable` ×2, `identifier_*underscore*` ×2, `var_non_retain`), one started (`operand_uchar_literal`,
+`UCHAR#'A'`, which CODESYS REFUSES — "Cannot convert type 'UDINT' to type 'BYTE'", recorded; TwinCAT refuses it at
+parse): lowering called the literal malformed and now lowers it, so it joins the 266 refused fixtures that lower — outside
+the transpiler's input contract ("code CODESYS compiles", `fixtures.test.ts` `refused` row), neither an improvement nor a
+regression; the LSP gives the recorded refusal, pinned by the fixture's `refused` field. A refusal at a compiler struct
+(`VERSION`, an `ANY` input — `type_codesys_version`, `refuse_interface_any_input`) pointed at 0:0; `storageOf` now takes
+the span of its use and refuses there (fixed in frontend-conformance's step-5 review, `lower.test.ts`).
+
+**Task 5.3 — the T hand-off.** Every "T" row of frontend-conformance design.md P6 and §3.3, once, with the transpiler site as
+read on 2026-10-03 (line numbers name the code, not a contract) and the front-end function that replaces it. The restructure
+task that owns each is in brackets.
+
+- **H1 — EXTENDS chains** (P6 "13 EXTENDS sites"; §3.3 "EXTENDS chains", "Interface EXTENDS"). Sites today: `lower/lower.ts`
+  `extendsChain(lw, fb)` :212 (by NAME through `unit.extends?.text`) and its callers :398, :583; the `baseOf`/`.extends`/
+  `baseScope` walks at `lower/lower.ts` :200, :272, :290, :301, :377, :438; `lower/calls.ts` :97–101, :113, :655, :735, :983,
+  :1409; `lower/storage.ts` :90, :109; `lower/bytes.ts` :64, :72, :81; `lower/interfaces.ts` :53, :66 (interface EXTENDS by
+  name); `lower/lowering.ts` :46 (`baseOf`, a copy of the front-end's). → `symbols/extends.ts` `extendsChain(scope)` (base
+  first, cycle-safe), `baseOf`, `basesOf`/`ancestry` for interfaces (linked by the binder since frontend-conformance 3.2.1, so
+  a base is the one precedence picked, not the first by name); `symbols/scope-nav.ts` `hasUnresolvedBase` for "incomplete".
+  [1.1.2, 1.7.3]
+- **H2 — GVL-qualified resolution** (P6 `places.ts:33,64,80`). `lower/places.ts` :34, :65, :81 search
+  `lw.project.symbols.get(…)` for a `gvl_var`. → `symbols/scope-nav.ts` `resolveGvlMember`, `gvlBlockOf`, `externalGlobal`
+  (per-unit `qualified_only` read since frontend-conformance 3.1.3). [1.6.12]
+- **H3 — namespace lookups by map** (P6 `calls.ts:976,1627`, `constants.ts:103`). `lower/calls.ts` :993
+  (`ns.symbols.get(…)` for a namespace FUNCTION); `lower/lower.ts` :302 (`s.symbols.get("fb_init")`). The `constants.ts`
+  namespace lookup now reads `findChildScope` (:56–58) — that site is met. → `symbols/scope-nav.ts` `findChildScope` +
+  `symbols/scope.ts` `lookupLocal` (both on the symbols index). [6.5]
+- **H4 — typing rules re-decided in lowering** (P6 NOT, duration × integer, LIMIT/SEL/MUX, `UNARY_MATH`, platform rewrite;
+  §3.3 "NOT result type", "Built-in result types").
+  - NOT: `lower/expressions.ts` :180–184 (a signed integer → the bit string of its width) → `types/arith/operators.ts`
+    `notResultType` (value-identical, frontend-conformance 4.3.2). [1.1.8]
+  - duration × integer: `lower/expressions.ts` :246–251 → `types/arith/temporal.ts` `durationScaleResultType`,
+    `durationScaleConversion` (4.3.5). [1.1.8, 6.14]
+  - LIMIT/SEL/MUX: `lower/builtins.ts` :456–487 (its own meet over `commonType`/`integerFoldType`) → `types/builtins.ts`
+    `selectionValueArguments` (the checked meet of the value arguments, after SEL's selector and MUX's index; 4.3.4).
+    [6.7, 6.15]
+  - `UNARY_MATH`: `lower/builtins.ts` :76, :229 → `types/builtins.ts` `MATH_ARG_TYPED`, `mathResultType`. [1.6.15]
+  - platform conversion rewrite: `lower/builtins.ts` :152–156 (replaces `__XINT` & co. before parsing) and
+    `lower/constants.ts` :132, :183 (`parseConversionName(…, undefined)`) → `types/conversion-name.ts`
+    `parseConversionName(name, target)` with the project's target (`symbols` `targetOf`), which reads platform sides itself
+    (4.1.2). [1.1.10]
+- **H5 — literal typing** (P6 `contextLiteralType`; §3.3 "Literal typing"). `lower/constants.ts` `contextLiteralType` :251
+  → `types/literal.ts` (`literalCheckType`, `literalContextConversion`, `integerLiteralType`). NOT value-identical: LT14
+  (`test/frontend/literal-agreement.test.ts`, `baselines/literal-agreement.json`) pins 29 classes, corpus 78 / fixtures 79
+  stores, where the two answer differently (a 0/1 into BOOL/BIT/TIME, an integer the target cannot hold, a real beyond REAL,
+  a real into an integer); each class needs a recording before the switch, and the baseline may only fall. [1.1.7, 6.2]
+- **H6 — width ladder and wrap** (P6 `stored`/`fit`/`integerFoldType`; §3.3 "Integer width ladder", "Wrap to width").
+  `lower/convert.ts` `stored` :132, `integerFoldType` :67; `ir/values.ts` `fit` :416; `ir/evaluate.ts` `widthOf` →
+  `types/width.ts` `wrapToWidth` (export it from the types index first) and `integerOfWidth`; the fold width is the
+  front-end fold's (`types/const/fold.ts`). [1.1.6, 6.B.2]
+- **H7 — the constant folder and enum facts** (P6 `constants.ts` row; §3.3 "Constant folding", "Enum base / numbering /
+  default"). `lower/constants.ts` `foldConstant` :187, `foldsToConstant` :157, `convertedConstant` :123 →
+  `types/const/fold.ts` `constEval`, `compileTimeConstant`, `declaredValue`, `constantSlotType`, `constancyIn`
+  (frontend-conformance 4.6.1 made the LSP fold the set the transpiler folds: conversions, pure built-ins, SIZEOF, enum
+  values, NOT, shifts); `lower/constants.ts` `enumStorage` :28 → `types/enums.ts` `enumStorage`/`enumValueStorage`
+  (recorded DT5–DT6, 4.7.3). Already switched by frontend-conformance: `enumDefault`, `inlineEnumDefault` (1.37,
+  `lower/storage.ts` imports them), `calendarNanoseconds` (1.22). [1.1.9, 1.7.14, 7.2]
+- **H8 — the default STRING capacity** (P6 `withStringCapacity`). `lower/storage.ts` `withStringCapacity` :32 (and its
+  callers in `builtins.ts`, `places.ts`, `constants.ts`) → `types/defaults.ts` `DEFAULT_STRING_LENGTH`, applied at
+  `lowering.resolve` as design.md §3.2 decides. [3.3]
+- **H9 — the platform target** (P6 `canonicalElem`'s target in `lowering.ts`). The `lowering.ts` `canonicalElem` call is gone
+  (`resolve` goes through `resolveTypeExpr`, which takes the project's target). What is left: `lower/conditions.ts` :20
+  `EXEC_ORACLE_TARGET` passed to `build.buildSymbolTable` (`lower/lower.ts` :719), and `lower/bytes.ts` :172
+  `elementaryTypeOn(name, targetOf(project))` for SIZEOF of a type name → `types/platform.ts` `canonicalElem(name, target)`
+  / `elementaryTypeOn` with the target the project states (4.1.1; `workspace-refs` `MEASURED_DEVICE_TARGETS` for real
+  projects). [1.1.6 or 6.B]
+- **H10 — identifier equality** (P6 interp `sameName`). `interp/interp.ts` `sameName` :467 → `syntax/identifier.ts`
+  `sameName`. [1.1.1]
+- **H11 — attribute maps** (frontend-conformance 1.23 "T, 5.3"). `lower/lower.ts` `attributesOf` :733 and
+  `lowering.ts` `attributes` :261 rebuild per-file maps from `unitAttributes`/`memberAttributes`/`declarationAttributes`;
+  since frontend-conformance 2.7.2 every unit, member and declaration node carries `attributes` in the AST (the three
+  functions no longer lex). → read the node's `attributes` (`syntax/pragmas/attributes.ts` `hasFrontendAttribute`,
+  `readAttribute`). Output-neutral. [1.6.20]
+
+**Fixtures the front-end now types and the transpiler does not lower** (each `not-lowered` in `map.generated.ts`; a model
+task here that lowers one reports it): `ce_fold_untyped_in_context_values` ("init-not-constant": lowering folds an
+initializer without its context — H5/H7); `dt_union_member_sizes` (union member sizes); `dt_this_into_pointer`,
+`dt_this_deref_identity_values` (a bare THIS and `SUPER^.v` as places); `ty_dint_to_uxint` (a platform conversion name read
+as a project FUNCTION — H4); the enum `to_string` member-name table (4.5.1, refused by name); `type_codesys_version` and
+`refuse_interface_any_input` — the front-end now types `VERSION` and an `ANY` input as the compiler's own structs
+(`types/system.ts`, rules TY14/TY15, recorded), so `lower/storage.ts` :125 refuses `layout-struct` "VERSION / ANY has no
+declaration lowering can lay out" at a zero span (no project symbol declares them); before, `type_codesys_version` was refused
+as `slot-unknown` at its declaration. Lay out the system structs from `types/system.ts` `systemStructType`, or refuse at the
+declaration that names one. [5 (the instance model) or 6.B]

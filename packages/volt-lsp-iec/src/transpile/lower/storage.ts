@@ -5,7 +5,7 @@ import type { AggregateElement, AggregateInit, Expr, Initializer, Span, TypeDecl
 import { lookup } from "../../frontend/symbols/index.js"
 import { constantSlotType, DEFAULT_STRING_LENGTH, elementaryRef, elementaryTypeRef, elemOf, enumDefault, inlineEnumDefault, resolveNamedType, type Type } from "../../frontend/types/index.js"
 import { defaultValueOf, elementOf, type IrExpr, type IrInit, type IrStmt, type IrValue, type Place } from "../ir/index.js"
-import { baseOf, boundName, Lowering, openDims, ZERO_SPAN } from "./lowering.js"
+import { baseOf, boundName, Lowering, openDims } from "./lowering.js"
 import { stored, valueAs } from "./convert.js"
 import { calendarOf, durationOf, enumeratorValue, enumStorage, foldsToConstant, foldConstant, stringLiteralText, TEMPORAL_LITERAL_KINDS, typedRealOf } from "./constants.js"
 import { overlayBytes } from "./unions.js"
@@ -39,13 +39,16 @@ export function withStringCapacity(t: Type): Type {
  * case-insensitive and Rust is not, so `fb_x : fb_conveyor` and `FB_Conveyor` must be one struct), an array of
  * those. Building it builds the layout of every composite type it reaches, dependencies first.
  */
-export function storageOf(lw: Lowering, t: Type): Type {
-  if (t.kind === "array") return { ...t, element: storageOf(lw, t.element) }
+export function storageOf(lw: Lowering, t: Type, at: Span): Type {
+  if (t.kind === "array") return { ...t, element: storageOf(lw, t.element, at) }
   if (t.kind === "enum") return enumStorage(lw, t)
   if (t.kind !== "struct" && t.kind !== "function_block") return withStringCapacity(t)
   const sym = lookup(lw.project, t.name)?.symbol
   const name = sym?.name ?? t.name
   const key = name.toUpperCase()
+  // WHERE A REFUSAL POINTS: the type's own declaration, or — for a compiler struct the project does not declare
+  // (`VERSION`, an `ANY` input's struct; frontend-conformance TY14/TY15) — the place that USES it. It pointed at 0:0.
+  const where = sym?.span ?? at
   // A TYPE THAT CONTAINS ITSELF HAS NO SIZE, and saying so beats running out of stack. `FUNCTION_BLOCK FB_R VAR rv :
   // FB_R; END_VAR` — or any longer cycle through a struct — sent `storageOf` and `buildLayout` into each other until
   // the process died with a RangeError, where the rule for this component is that invalid input ends in a
@@ -53,13 +56,13 @@ export function storageOf(lw: Lowering, t: Type): Type {
   // lost was the difference between "refused" and "crashed". The corpus has no self-referential type, which is why
   // `TOTALITY` never saw it — found by aiming at `calls.ts`'s uncovered refusals (0.7).
   if (lw.shared.building.has(key)) {
-    lw.bail("layout-recursive", `${name} contains itself, so it has no size`, sym?.span ?? ZERO_SPAN)
+    lw.bail("layout-recursive", `${name} contains itself, so it has no size`, where)
     return { ...t, name }
   }
   if (!lw.layouts.has(key)) {
     lw.shared.building.add(key)
     try {
-      buildLayout(lw, { ...t, name }, sym)
+      buildLayout(lw, { ...t, name }, sym, where)
     } finally {
       lw.shared.building.delete(key)
     }
@@ -68,7 +71,7 @@ export function storageOf(lw: Lowering, t: Type): Type {
 }
 
 /** A struct's fields or an FB instance's storage, lowered in the type's own scope — a base type's fields first. */
-export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never): void {
+export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "function_block" }>, sym: ReturnType<typeof lookup> extends infer R ? (R extends { symbol: infer S } ? S : never) | undefined : never, where: Span): void {
   const nested = new Lowering(t.scope ?? lw.project, lw.project, lw.shared)
   nested.selfType = t
   nested.codeOwner = t.scope
@@ -76,9 +79,9 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
   const statics: { name: string; global: number }[] = []
   const base = (name: string | undefined): void => {
     if (name === undefined) return
-    const baseType = storageOf(lw, resolveNamedType(name, lw.project))
+    const baseType = storageOf(lw, resolveNamedType(name, lw.project), where)
     const layout = baseType.kind === "struct" || baseType.kind === "function_block" ? lw.layouts.get(baseType.name.toUpperCase()) : undefined
-    if (layout === undefined) return void lw.bail("layout-base", `the base type ${name} of ${t.name} has no layout`, sym?.span ?? ZERO_SPAN)
+    if (layout === undefined) return void lw.bail("layout-base", `the base type ${name} of ${t.name} has no layout`, where)
     nested.inherit(layout.fields)
     for (const shared of layout.statics ?? []) {
       nested.statics.set(shared.name.toUpperCase(), shared.global)
@@ -97,7 +100,7 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     declareVars(nested, [{ sectionKind: "VAR", decls: ast.body.fields } as unknown as VarSection])
     const pointers = nested.frame.length > 0 && nested.frame.every((f) => f.type.kind === "pointer")
     if (ast.body.fields.some((f) => f.init !== undefined) || !(pointers || nested.frame.every((f) => overlayBytes(f.type) !== undefined))) {
-      lw.bail("layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, sym?.span ?? ZERO_SPAN)
+      lw.bail("layout-union", `${t.name} has a member whose overlaid bytes are not measured, or an initial value`, where)
       return
     }
     lw.shared.unions.add(t.name.toUpperCase())
@@ -122,7 +125,7 @@ export function buildLayout(lw: Lowering, t: Extract<Type, { kind: "struct" | "f
     // lowers later — on the first call — so this has to come first.
     buildInitSequence(nested)
   } else {
-    lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, sym?.span ?? ZERO_SPAN)
+    lw.bail(`layout-${t.kind}`, `${t.name} has no declaration lowering can lay out`, where)
     return
   }
   lw.diagnostics.push(...nested.diagnostics)
@@ -210,7 +213,7 @@ export function declareVars(lw: Lowering, sections: readonly VarSection[], defer
       // it is skipped for the reason above — a hardware-mapped variable left as ordinary storage, un-diagnosed,
       // is worse than the cascade.
       if (written.at !== undefined) bindAddress(lw, written)
-      const type = constantSlot(lw, sec, written, storageOf(lw, lw.resolve(written.type)))
+      const type = constantSlot(lw, sec, written, storageOf(lw, lw.resolve(written.type), written.type.span))
       // A variable with no initializer of its own starts at its ALIAS type's: `TYPE T : INT := 42;` makes `x : T` 42
       // (conformance `type_dut_alias_with_init`, 43 after `x := x + 1`). It started at 0 — `resolve` sees through the
       // alias to INT and the alias's initializer went with it.
@@ -584,7 +587,7 @@ function aggregateInit(lw: Lowering, init: AggregateInit, type: Type): IrInit | 
 export function declareInOuts(lw: Lowering, sections: readonly VarSection[]): void {
   for (const sec of sections)
     for (const decl of sec.decls) {
-      const type = storageOf(lw, lw.resolve(decl.type))
+      const type = storageOf(lw, lw.resolve(decl.type), decl.type.span)
       for (const name of decl.names) {
         lw.inoutByName.set(name.text.toUpperCase(), lw.inoutSlots.length)
         const constant = sec.constant === true ? { constant: true, ...(holdsInstance(lw, type) ? {} : { readOnly: true }) } : {}

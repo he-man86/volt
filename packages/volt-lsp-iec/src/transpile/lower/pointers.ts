@@ -83,7 +83,7 @@ export function addressOf(lw: Lowering, x: Expr, pointerType: Type, span: Span):
     return lw.bail("pointer-runtime-index", "the address of a place with a runtime index before its last step", span)
   // A POINTER TO BYTE over an INT acted on the whole INT: a dereference takes its target's type. Only an address of the
   // pointer's own target type is modelled — a byte walk over another type is the unmeasured byte view (design §9).
-  const declared = storageOf(lw, pointerType.target)
+  const declared = storageOf(lw, pointerType.target, span)
   if (last?.kind !== "index") {
     // A POINTER TO BYTE OVER A STRING walks its n + 1 bytes (`tr_34_lib_prim_char_behind`: `p := ADR(u); p[4] := 67`
     // stores behind the terminator) — its characters, exactly as a string cursor's, and valued the same: offset + 1.
@@ -299,7 +299,7 @@ export function pointeePlace(lw: Lowering, pointer: Place, extra: IrExpr | undef
     // `pValue` (or a union member overlaying another pointer) reaches here at the ARGUMENT's type: a DINT read through a
     // POINTER TO REAL was converted as a number, where CODESYS reinterprets the bytes (`tr_17_any_pvalue_*`: 1065353216
     // is 1.0). That byte view is not modelled (transpile-review 17).
-    const declared = pointer.type.kind === "pointer" || pointer.type.kind === "reference" ? storageOf(lw, pointer.type.target) : undefined
+    const declared = pointer.type.kind === "pointer" || pointer.type.kind === "reference" ? storageOf(lw, pointer.type.target, span) : undefined
     if (declared !== undefined && !sameStorage(declared, target.base.type))
       return lw.bail("pointer-type", `${describePointer(lw, pointer)} dereferenced as another type than the variable it names`, span)
     return { ...target.base, guard: pointer, span }

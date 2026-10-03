@@ -662,7 +662,7 @@ function initStep(lw: Lowering, span: Span): IrStmt[] | undefined {
  * a test needs — write the variable, run a scan, read it back. An `ARRAY[*]` has no size to own, so it stays refused.
  */
 function rootInstance(lw: Lowering, unit: Extract<TopLevel, { kind: "function_block" | "program" }>): IrStmt[] {
-  const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project))
+  const type = storageOf(lw, resolveNamedType(unit.name.text, lw.project), unit.name.span)
   // A POU THAT SUCCEEDS AND DOES NOTHING IS THE ONE OUTCOME THIS FILE REFUSES EVERYWHERE ELSE. An empty body was
   // returned with no diagnostic when the unit resolved to something that is not an FB — which cannot happen for a
   // PROGRAM or FUNCTION_BLOCK that bound, so it is a lowering bug, and it was reported as a clean run.

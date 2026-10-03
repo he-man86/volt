@@ -2839,19 +2839,100 @@ cross-area edges are named on the tasks that have them.
 
 ## 5. Consequences downstream
 
-- [ ] 5.1 Re-run analysis, corpus, build-conformance and the transpiler suites; every change is either a recording-decided
+- [x] 5.1 Re-run analysis, corpus, build-conformance and the transpiler suites; every change is either a recording-decided
       improvement (note it) or a regression (fix it). Regenerate the map.
       Acceptance: all green; the improvements listed here. Depends on: 2.10, 3.6, 4.8
-- [ ] 5.2 Record in `transpile-restructure` which of its root causes this change already closed, and which of its §6 items 1–15
+      **5.1 (2026-10-03, on HEAD 94a1cbfd8c).** Runs, each once: the consumer `src` suites (`analysis`, `services`, `server`,
+      `network`, `network-text`, `transpile`, `reference`, `workspace-refs`, `source-extensions`) **1368 pass / 1 skip / 0 fail**
+      (131 files); `test/corpus` (parse, "the LSP invents nothing" = build-conformance, lowering totality) + `test/libraries` +
+      `test/catalog` **189 pass / 33 skip / 44 todo / 0 fail** (266 tests); whole `test/conformance` (the transpiler's fixture
+      suite and the LSP's) **5912 pass / 289 todo / 0 fail** (6201 tests, 12 files); `test/frontend` **34 pass / 0 fail** (10 files; baselines unchanged);
+      `rate:fixtures` reproduces `map.generated.ts` byte for byte (4897: confirmed 2713, refused 1757, not-lowered 289, lsp-gap 65, diverges 5, unaskable 68; edges 2878 / 0 / 162).
+      **What the change did downstream, measured** — snapshot F of 1b03f0e55c (0.6: `src/` identical to the commit before this
+      change) against the working tree, every source matched by path with the extension dropped (the DUT/POU file unification
+      renamed `.prg`/`.fb`/`.struct` to `.pou`/`.dut` meanwhile):
+      - **Transpiler (F-back): no output changed.** Emitted Rust and interpreter values are byte-identical for all **2181**
+        fixtures that lowered at the change's start. 22 fixtures stopped lowering and 59 changed their lowering diagnostics —
+        every one recording-decided: 56 refused fixtures (CODESYS refuses them) are now refused by the parser, as the vendor
+        does (`cc_il_name_*` ×14, `cc_reserved_name_*` ×3, `cc4_type_name_*_as_variable` ×2, `identifier_*underscore*` ×2,
+        `var_non_retain` — the 22; `pwh_*`, `esc_wstring_*`, `operator_call_form_*`, `cc_power_operator`, `cc_fp_op_ampersand`,
+        `cc_time_*_literal*`, `power_/ampersand_operator_rejected`, `cc_unterminated_if`, `conditional_orphan_else`, …), one
+        unaskable (`pwh_prose_gvl`, a parse message in the vendor's words now); `operand_uchar_literal` (`UCHAR#'A'`) now lowers and compiles (edge agree) where lowering
+        called it a malformed literal — NOT recording-decided: CODESYS REFUSES it ("Cannot convert type 'UDINT' to type
+        'BYTE'", `codesys.build.json`) and TwinCAT refuses it at parse, so it joins the 266 refused fixtures that lower,
+        outside the transpiler's input contract ("code CODESYS compiles"; `fixtures.test.ts` `refused` row) — neutral, and
+        the LSP gives the recorded refusal (pinned in review: the fixture's `refused` field); two not-lowered
+        fixtures change their refusal because the front-end now types `VERSION` and an `ANY` input as the compiler's structs
+        (TY14/TY15, recorded): `type_codesys_version` (`slot-unknown` → `layout-struct` "VERSION has no declaration lowering
+        can lay out") and `refuse_interface_any_input` (+ that refusal for ANY before its own) — still refused by name, but at
+        a zero span — a regression this note first only handed on; fixed in review: `storageOf` takes the span of the use
+        and a type with no declaration of its own (a compiler struct) is refused there, never at 0:0 (`lower.test.ts` "a
+        compiler struct lowering cannot lay out …"; the `?? ZERO_SPAN` fallbacks in `storage.ts` are gone).
+      - **LSP over the six corpora: one file changed, toward the recording.** 1145 of 1146 project files and all 28 024
+        Library Manager files give identical diagnostics; bakon-nano `CalcMasterSpeedAcc` gains 2 × C0197 "Implicit
+        conversion from 'LREAL' to 'REAL'" (`Axis.scPar.MaxVelocity / ABS(rGearingRatio)` into a REAL) — the recorded build
+        has 20 copies, the LSP now 16 (was 14). COUNT-LEVEL EVIDENCE ONLY: every C0197 in the corpus recording has line 0
+        and no file, so it cannot say these two are among the 20; six other files read the same LREAL members
+        (`Axis.scPar.MaxVelocity`) without changing, and the two could be false positives under the count. Settling it
+        needs a per-file recording of bakon-nano, not done here. Corpus gate figures unchanged: warnings ours/build CodesysTestProject 0/0,
+        awa-palletizer 0/0, bakon-nano 4/4, lenze-mid 3/4, pro2193 0/5 (distinct messages; the misses are pre-existing);
+        lowering 54/304 POUs, 85 of 116 refusal codes reached, IR coverage 8/8, 9/9, 24/24.
+      - **Fixture ratings: of the 2783 fixtures the map held at the start, 1 changed evidence** (`cc_decl_init_dunder_unknown`
+        lsp-gap → refused: the LSP now gives the recorded refusal). Divergence marks on those fixtures: closed 3
+        (`cc6_loop_cannot_exit`, `cc5_deprecated_functionblock_keyword`, `cc3_reference_assign`), narrowed 5 (`newdel_*_pragma`
+        to CODESYS only), triage → known 3 (`sysop_position_*`, `ldate_ltod_ldt`); opened on 22 (5 `CALC_CONDITIONAL_CALL`,
+        16 TwinCAT-only: `TWINCAT_WSTRING_ESCAPE_RUNS_TO_END`, `TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT`,
+        `TWINCAT_NON_RETAIN_RECOVERY`, `TWINCAT_XSIZEOF_IS_NO_KEYWORD`, `TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER`; and
+        `cc5_pointer_not_convertible` widened to TwinCAT) — none an answer that got worse: each is a disagreement the 0.1/0.3
+        census already listed (the recorded-only "not defined" names, the TwinCAT L-date lexing) or a TwinCAT message the
+        comparison started checking, opened with its reason in the step that found it.
+      No regression found, so nothing fixed here; no test or fixture added (no logic changed). [Superseded by the step-5
+      review: the zero-span refusal above was a regression and is fixed; `operand_uchar_literal`'s refusal is pinned.]
+- [x] 5.2 Record in `transpile-restructure` which of its root causes this change already closed, and which of its §6 items 1–15
       the front-end now provides (with their `frontend/…` paths).
       Where: openspec/changes/transpile-restructure/{design,tasks}.md. Acceptance: every §6 item has a path or "not provided,
       because". Depends on: 5.1
-- [ ] 5.3 Hand-off list into `transpile-restructure`: every "T" row of design.md P6 and §3.3 — the 13 EXTENDS sites, places GVL
+      **5.2 (2026-10-03).** transpile-restructure design.md §6.1 (a 15-row table: verdict, `src/frontend/…` path and export,
+      the transpiler copy still standing) and §6.2 (every front-end root cause with its status), pointed to from a new last
+      section of its tasks.md ("Hand-off from frontend-conformance") as the input of its 0.1 and 0.9. §6 items: **met** 1
+      (`syntax/identifier.ts`), 2 (`symbols/extends.ts`), 8 (`types/conversion-name.ts`), 9 (`types/arith/*`, EXPT in
+      `types/builtins.ts`), 10 (`types/const/{constancy,fold}.ts`), 11 (`types/enums.ts`), 12 (`syntax/literal/calendar.ts`),
+      13 (`types/infer/{expr,member,callee}.ts`), 15 (curated indexes; `wrapToWidth` and the private `fbChainSections` not on
+      one); **in part** 6 (`types/width.ts` — `widthOf` not provided) and 7 (`types/literal.ts` — `contextLiteralType` not
+      provided: LT14 pins 29 classes where it and `literalCheckType` disagree); **not provided, because** 3 (no front-end
+      consumer of `peelArray`/`elementOf`), 4 (no value model; the facts `typeDefault` reads are provided), 5 (no front-end rule
+      asks the transpiler's predicate set; `types/predicates.ts` is its home), 14 (the asker stayed optional). Root causes:
+      none closed by this change — RC 1–4, 2.3, 6, 21, 45 were closed upstream by the review's own fixes before this change's
+      first code step; of the appendix items it closed 6.A.22 (4.6.2, CE8), 6.A.24 (3.2.3, H2), 6.A.26 (3.4.2), and the
+      front-end half of 6.A.20 (`**`/`&`, 2.5a; REAL MOD still folds), 6.A.25 (4.7.1, `Type.subrange`) and 6.A.29 (4.6.1,
+      `declaredValue`); 6.A.21 and 6.A.23 are open (probed: `SIN(-1.5)`, `SQRT((2.0))` infer UNKNOWN).
+- [x] 5.3 Hand-off list into `transpile-restructure`: every "T" row of design.md P6 and §3.3 — the 13 EXTENDS sites, places GVL
       resolution, the `ns.symbols.get` namespace lookups (calls.ts:976,1627, constants.ts:103), `stored`/`fit`/`integerFoldType`,
       `withStringCapacity`, `contextLiteralType`, `UNARY_MATH`, the platform rewrite, `canonicalElem`'s target in lowering.ts, the
       LIMIT/SEL/MUX and NOT rules, the duration × integer rule, the constant folder, `enumStorage`, interp `sameName` — each with
       the front-end function that replaces it.
       Where: openspec/changes/transpile-restructure/tasks.md. Acceptance: every T row appears once. Depends on: 5.2
+      **5.3 (2026-10-03).** transpile-restructure tasks.md "Hand-off from frontend-conformance", H1–H11, each with the
+      transpiler sites re-read today, the front-end function that replaces it and the restructure task that owns it: H1 the
+      EXTENDS walks (21 sites today in `lower.ts`, `calls.ts`, `storage.ts`, `bytes.ts`, `interfaces.ts`, `lowering.ts` `baseOf`)
+      → `symbols/extends.ts` `extendsChain`/`baseOf`/`basesOf`/`ancestry`; H2 places' GVL resolution → `scope-nav`
+      `resolveGvlMember`; H3 `ns.symbols.get` (`calls.ts` :993, `lower.ts` :302; `constants.ts` already on `findChildScope`) →
+      `findChildScope` + `lookupLocal`; H4 NOT → `notResultType`, duration × integer → `durationScaleResultType`, LIMIT/SEL/MUX
+      → `selectionValueArguments`, `UNARY_MATH` → `MATH_ARG_TYPED`/`mathResultType`, the platform rewrite →
+      `parseConversionName(name, target)`; H5 `contextLiteralType` → `types/literal.ts` (not value-identical: LT14 first); H6
+      `stored`/`fit`/`integerFoldType`/`widthOf` → `wrapToWidth`/`integerOfWidth`; H7 the constant folder → `const/fold`
+      (`constEval`, `compileTimeConstant`, `declaredValue`), `enumStorage` → `types/enums.ts`; H8 `withStringCapacity` →
+      `DEFAULT_STRING_LENGTH` at `lowering.resolve`; H9 the target (`lowering.ts`'s `canonicalElem` call is gone; left
+      `EXEC_ORACLE_TARGET` and `bytes.ts` SIZEOF) → `types/platform.ts`; H10 interp `sameName` → `syntax/identifier.ts`; H11 (from
+      1.23) the attribute maps → the AST's `attributes`. Plus the not-lowered fixtures the front-end now types
+      (`ce_fold_untyped_in_context_values`, `dt_union_member_sizes`, `dt_this_into_pointer`, `dt_this_deref_identity_values`,
+      `ty_dint_to_uxint`, the enum `to_string` table, and 5.1's `type_codesys_version`/`refuse_interface_any_input`).
+      **Gate 5 (2026-10-03, 5.1–5.3 + the step-5 review fixes, on HEAD b989a16d9d + the step's tree).** `bun typecheck`
+      clean; `bun run lint` exit 0; `rate:fixtures` reproduces the map byte for byte (4897; edges 2878 / 0 / 162); full run
+      (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7993 pass / 34 skip / 333 todo / 0 fail** (8360 tests, 205 files,
+      324 s; vs gate 4e +2 pass, +2 tests — `lower.test.ts` "a compiler struct lowering cannot lay out …" and the pinned
+      `operand_uchar_literal` refusal); agreement CODESYS **4531**, TwinCAT **4437** (floors unchanged); type dump 0 findings, fold dump 0 disagreements; LT14
+      disagreements corpus 78 / fixtures 79 (unchanged); `bun run check` 15 passed, 0 failed.
 
 ## 6. Close
 
