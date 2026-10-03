@@ -6,7 +6,7 @@ using Xunit;
 
 namespace _3S.CoDeSys.TaskConfig
 {
-    /// <summary>The vendor's <c>KindOfTask</c>, with the six names measured on SP21 (<c>scripts/probe-task-kind.py</c>).
+    /// <summary>The vendor's <c>KindOfTask</c>, with the six names measured on SP21 (<c>probe-task-kind.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py</c>)).
     /// <c>Reflection.FindEnum</c> finds an enum by its simple name in the AppDomain, so this IS the enum to the driver.</summary>
     public enum KindOfTask { Cyclic, Freewheeling, Event, ExternalEvent, Status, ParentSynchron }
 }

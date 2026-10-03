@@ -16,7 +16,7 @@ namespace Volt.Engine.Tests.Format.Network;
 /// <para><b>The mapping is measured, not reasoned.</b> CODESYS's own PLCopen export names coil storage
 /// outright, so exporting every POU in a real project with a non-plain coil and pairing the two views settles
 /// it. 17 POUs, exact counts on both sides, no residue —
-/// <c>scripts/probe-nwl-coils.py</c> / <c>scripts/nwl-coils.log</c>.</para>
+/// <c>probe-nwl-coils.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-coils.py</c>) / <c>nwl-coils.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-coils.log</c>).</para>
 /// </summary>
 public class CoilKindTests
 {

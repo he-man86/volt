@@ -17,7 +17,7 @@ namespace Volt.Engine.Tests;
 /// <para><b>The models are the vendor's, not the corpus text's.</b> The corpus holds these rungs as v1 text, which
 /// carries none of the facts v2 spells — which <c>X AND (a OR b)</c> is a <c>BoxTreeParallel</c>, which box has an
 /// ENO output, which output slot a pin is on, a coil's reset bit pair. Each model below is transcribed from a live
-/// SP21 dump of those very networks (<c>scripts/probe-nwl-oracle-rungs.py</c> -&gt; <c>scripts/nwl-oracle-rungs.log</c>,
+/// SP21 dump of those very networks (<c>probe-nwl-oracle-rungs.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-oracle-rungs.py</c>) -&gt; <c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>),
 /// run on a copy of <c>Lenze_MID-S100_V5_00_602_T51</c>), item by item: <c>OutputParams.Names</c> starting
 /// <c>ENO</c> is <see cref="Box.HasEnoOutput"/>, <c>MainOutputIndex</c> as stored (None on AND/OR), a consumer
 /// connected by it (DIALECT N16), <c>Outputs.List[i]</c> wired is slot i, <c>Negation+Set</c> on a target is a reset.

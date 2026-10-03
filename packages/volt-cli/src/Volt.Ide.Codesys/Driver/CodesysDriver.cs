@@ -249,7 +249,7 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     /// on a clean build, and a build is seconds where a walk is milliseconds.</para>
     ///
     /// <para>A CHILD OBJECT IS NOT A TOP-LEVEL ITEM, and its diagnostic carries ITS OWN guid. Measured live on SP21
-    /// 3.5.21.40 (DIALECT C27, openspec <c>codesys-diagnostic-child-names</c> 1.2, <c>scripts/diagnostic-child-guid.log</c>): an
+    /// 3.5.21.40 (DIALECT C27, openspec <c>codesys-diagnostic-child-names</c> 1.2, <c>diagnostic-child-guid.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/diagnostic-child-guid.log</c>)): an
     /// error in a METHOD body points at the method (`FB_DcnMeth/MExecute`), one in a property GET at the accessor
     /// (`FB_DcnMeth/PProp/Get`), one in an action at the action — never at the FB, never `Guid.Empty`. Resolved
     /// against <see cref="WalkItems"/> alone, which lists top-level items, every one of them was published with no

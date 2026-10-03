@@ -95,7 +95,7 @@ public sealed record Member(
 ///
 /// <para><b>It used to drop a bare <c>VAR</c>/<c>END_VAR</c> entirely</b>, justified in this very comment as "an
 /// empty VAR block the engineer did not author". CENSUSED against live SP21 over pro2193's 464 accessor nodes
-/// (<c>scripts/probe-accessor-census.py</c>): the vendor returns 35 DISTINCT declaration values, including 263
+/// (<c>probe-accessor-census.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-accessor-census.py</c>)): the vendor returns 35 DISTINCT declaration values, including 263
 /// bare <c>VAR\nEND_VAR\n</c>, 107 genuinely EMPTY, and 6 with a LEADING newline. A synthesized default would be
 /// one constant for every accessor that has none; three different "empty-looking" values, kept distinct, is
 /// STORED CONTENT. Dropping the block put 223 of pro2193's getters at odds with the project.</para>

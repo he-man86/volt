@@ -239,7 +239,7 @@ internal static class Nwl
 
         /// <summary>Per-pin modifiers, index-aligned with <see cref="InputItemList"/> (the EN slot included) — a
         /// real member on CODESYS, where a negated FBD input can live HERE and nowhere else (measured 2026-09-26,
-        /// `scripts/probe-nwl-census-v2.py`: 6 such pins across Lenze and pro2193, the operand unflagged).
+        /// `probe-nwl-census-v2.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py`): 6 such pins across Lenze and pro2193, the operand unflagged).
         /// PRESENT AND ALIGNED by default, like the vendor's: the census found the list on every box (~1,300, none
         /// null), one empty <see cref="Flags"/> per input — so an unset double follows the inputs as they are set or
         /// appended. A null default was the shape of a box no vendor holds, and it let the reader treat a missing list as
@@ -307,7 +307,7 @@ internal static class Nwl
     public static BoxTreeOperand Leaf(string name) =>
         new BoxTreeOperand { Operand = new Operand { OperandExpr = name } };
 
-    /// <summary>An Execute box as the vendor holds one (<c>scripts/nwl-execute-compare.log</c>, the real box in Lenze
+    /// <summary>An Execute box as the vendor holds one (<c>nwl-execute-compare.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-execute-compare.log</c>), the real box in Lenze
     /// <c>SpeedCalculationDryer</c>): <c>BoxType = 'EXECUTE'</c> in capitals, EN/ENO shown (<c>En = True</c>,
     /// <c>Eno = True</c>), and its one input item the EN wire — an Execute box takes no data pin
     /// (<c>MaxInputPinCount = 0</c>). These doubles were <c>BoxType = "Execute"</c> with an unnamed data pin, a shape

@@ -239,7 +239,7 @@ internal static class TcNetworkReader
     /// <para>The archive serializes no <c>MainOutputIndex</c> (no fixture carries the member; the live CODESYS object
     /// reports one). It does say it another way, the one CODESYS's census recorded beside the index: the slot a
     /// consumer is connected to is the one output slot stored as NULL (<c>&lt;n /&gt;</c>) — nothing is written into
-    /// it because the connection IS the nesting. Measured on CODESYS (<c>scripts/nwl-slots.log</c>, the slots column:
+    /// it because the connection IS the nesting. Measured on CODESYS (<c>nwl-slots.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-slots.log</c>), the slots column:
     /// <c>MainOutputIndex=1 slots=eneeRe</c>, <c>=0 slots=nRRRR</c>, <c>=0 slots=ne</c> — the null sits at the index
     /// every time), and the hand-drawn TwinCAT fixtures hold the same shape (<c>ladder-demux.TcPOU</c>'s TON read by
     /// its coil: <c>[null, ""]</c>, Q connected, ET unwired). DIALECT N1: one object model, two spellings.</para>
@@ -366,7 +366,7 @@ internal static class TcNetworkReader
         // A POPULATED `InputFlags` IS REFUSED BY NAME. It was null in all 22 occurrences measured here, and this
         // used to read every pin as `Flags.None` and say "do not fix this". On CODESYS — the same object model
         // (DIALECT N1) — the member IS populated, and six pins in two real projects keep their negation there ONLY,
-        // with the operand unflagged (census 2026-09-26, `scripts/probe-nwl-census-v2.py`); reading them as None
+        // with the operand unflagged (census 2026-09-26, `probe-nwl-census-v2.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py`)); reading them as None
         // pulled inverted logic. CODESYS now READS its populated list into `Input.Flags` (the text writer then refuses
         // a pin flag, which has no spelling); this reader cannot, because the populated ARCHIVE spelling has never been
         // observed, so it is not guessed at: anything but `<n n="InputFlags" />` refuses the body here, at the reader.

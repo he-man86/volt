@@ -24,7 +24,7 @@ namespace Volt.Ide.Codesys.Tests
     /// A DIAGNOSTIC INSIDE A METHOD, PROPERTY ACCESSOR, ACTION OR TRANSITION NAMES ITS PARENT ITEM, AND THE CHILD AS
     /// <c>member</c> (openspec <c>codesys-diagnostic-child-names</c>).
     ///
-    /// <para>Measured live on SP21 3.5.21.40 (task 1.2, <c>scripts/probe-diagnostic-child-guid.py</c>): a build error in
+    /// <para>Measured live on SP21 3.5.21.40 (task 1.2, <c>probe-diagnostic-child-guid.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-diagnostic-child-guid.py</c>)): a build error in
     /// a METHOD body carries that METHOD's own <c>ObjectGuid</c> - not the FB's and not <c>Guid.Empty</c> - and so does
     /// one in a property GET accessor (<c>FB/Prop/Get</c>) and in an action. The driver resolved the guid against
     /// <c>WalkItems</c>, which lists TOP-LEVEL items only, so every such diagnostic was published with no name and the

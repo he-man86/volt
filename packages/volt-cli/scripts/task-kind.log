@@ -1,8 +1,0 @@
-kind_of_task reads 'Cyclic'  (python type KindOfTask, .NET type _3S.CoDeSys.TaskConfig.KindOfTask)
-enum values: Cyclic, Freewheeling, Event, ExternalEvent, Status, ParentSynchron
-  writes:
-    string 'Freewheeling'      RAISED TypeError: expected KindOfTask, got str
-    int 1                      RAISED TypeError: Cannot convert numeric value 1 to KindOfTask.  The value must be zero.
-    enum Freewheeling          accepted, read back 'Freewheeling' (CHANGED)
-
-done

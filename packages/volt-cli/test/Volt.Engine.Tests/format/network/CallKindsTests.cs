@@ -13,7 +13,7 @@ namespace Volt.Engine.Tests.Format.Network;
 ///
 /// <para><b>The member set is measured, not assumed.</b> The committed <c>.TcPOU</c> archives carry
 /// <c>And</c> (8), <c>Or</c> (6), <c>FunctionBlock</c> (5) and <c>None</c> (2), and
-/// <c>scripts/nwl-boxoutputs.log</c> records the live CODESYS side: a freshly built box reads
+/// <c>nwl-boxoutputs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-boxoutputs.log</c>) records the live CODESYS side: a freshly built box reads
 /// <c>Operator.None</c>, and the same box reads <c>Operator.Move</c> once the IDE has resolved it. So
 /// <c>None</c> means "no operator resolved", which is why the INSTANCE decides under it.</para>
 /// </summary>

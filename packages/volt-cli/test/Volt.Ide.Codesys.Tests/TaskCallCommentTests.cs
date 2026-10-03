@@ -12,7 +12,7 @@ namespace Volt.Ide.Codesys.Tests;
 /// per call — because the scripting list's own <c>remove</c> is a silent no-op on the read-only view. That is
 /// the right mechanism and it had a destructive side effect: <c>PouObject</c> persists exactly two fields, and
 /// the vendor says so itself (<c>SerializableValueNames == ('Name', 'Comment')</c>, identical on all 21 call
-/// entries of five real projects — <c>scripts/probe-task-callcomment.py</c>). Volt's descriptor carries the
+/// entries of five real projects — <c>probe-task-callcomment.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-callcomment.py</c>)). Volt's descriptor carries the
 /// name, so every push that touched a call list threw the comment away.</para>
 ///
 /// <para><b>Invisibly.</b> The <c>.task</c> file never showed the comment, so neither the workspace nor git

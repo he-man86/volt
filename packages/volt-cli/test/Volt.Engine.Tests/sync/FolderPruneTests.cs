@@ -17,7 +17,7 @@ namespace Volt.Engine.Tests;
 /// now-empty directory from the working tree, as a consequence of the file going.</para>
 ///
 /// <para><b>Measured on both vendors before this was written.</b> Neither IDE prunes on its own and both expose
-/// the primitive — <c>scripts/probe-empty-folder-lifecycle.py</c> for CODESYS (folder survives at children=0,
+/// the primitive — <c>probe-empty-folder-lifecycle.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py</c>) for CODESYS (folder survives at children=0,
 /// and <c>folder.remove()</c> works), a COM tree walk for TwinCAT (<c>VltFold/New</c> and <c>VltFold/Old</c>
 /// both at children=0 after a folder rename moved every item out, beside <c>Moved</c>, <c>Sub/Deep</c> and a
 /// <c>POUs/POUs</c> left by earlier runs; <c>DeleteChild</c> removes them). Git pruned the workspace half for

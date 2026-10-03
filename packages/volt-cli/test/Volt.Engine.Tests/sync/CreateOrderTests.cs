@@ -11,7 +11,7 @@ namespace Volt.Engine.Tests;
 /// A FOLDER'S CONTENTS ARE CREATED BEFORE AN ITEM THAT SHARES THE FOLDER'S NAME.
 ///
 /// <para><b>TwinCAT will not create a folder whose name an object at that level already has</b> — DIALECT D34,
-/// measured across all four kind × order cells on a live XAE (`scripts/probe-tc-name-collision.ts`). The two
+/// measured across all four kind × order cells on a live XAE (`probe-tc-name-collision.ts` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-tc-name-collision.ts`)). The two
 /// may COEXIST perfectly well; what is refused is making the FOLDER second:</para>
 /// <code>
 ///   folder first, then a sibling object of that name   POU: OK        DUT: OK

@@ -17,7 +17,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <c>LookupTreeItem("TIPC")</c>.</para>
 ///
 /// <para><b>The replacement asks by capability, and the capability was measured, not assumed</b>
-/// — DIALECT D35 (<c>scripts/probe-tc-project-object.ps1</c>, TcXaeShell 15.0 against `TwinCAT Project14`): a real
+/// — DIALECT D35 (<c>probe-tc-project-object.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-project-object.ps1</c>), TcXaeShell 15.0 against `TwinCAT Project14`): a real
 /// <c>ITcSysManager</c> answers an unresolvable path with <c>COMException 0x98510001 "Item '…' not found"</c>,
 /// immediately, with no dialog and without entering the project tree. So "can answer <c>LookupTreeItem</c>" is
 /// the test — the one member the driver ever calls on a system manager, which also means it cannot rot into

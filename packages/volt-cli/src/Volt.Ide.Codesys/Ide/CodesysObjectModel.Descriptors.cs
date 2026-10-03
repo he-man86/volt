@@ -73,7 +73,7 @@ namespace Volt.Ide.Codesys
         /// break on a CODESYS upgrade. Verified live on SP21 (3.5.21.40).</para>
         ///
         /// <para><b>That singleton is a session service over PER-PROJECT state, and the read is sound</b>
-        /// (DIALECT C24, <c>scripts/probe-projectsettings-scope.py</c>). The standing doubt was whether one
+        /// (DIALECT C24, <c>probe-projectsettings-scope.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-projectsettings-scope.py</c>)). The standing doubt was whether one
         /// project's descriptor reports what the previously-opened project left behind — a real hazard, because
         /// the service is not a property of the node being described. Measured as a SWITCH rather than a single
         /// read, on a pair disagreeing in two fields: open A → <c>C0371</c>/UTF-8 off, close, open B →
@@ -232,7 +232,7 @@ namespace Volt.Ide.Codesys
         /// member for member, so the pair cannot drift.
         ///
         /// <para>Every field written here is a real setter, MEASURED rather than assumed
-        /// (`scripts/probe-task-writable.py` and `probe-task-kind.py`, live SP21). Three carry a trap worth
+        /// (`probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`) and `probe-task-kind.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py`), live SP21). Three carry a trap worth
         /// naming: <c>kind_of_task</c> takes ONLY the vendor enum (see <see cref="TaskKind"/>), <c>priority</c>
         /// is a STRING even though it reads as a number — handing it an int raises `TypeError: expected str, got
         /// int`, which looks exactly like a read-only property and is not — and <c>interval</c> /
@@ -277,7 +277,7 @@ namespace Volt.Ide.Codesys
         /// <c>Cyclic</c> — a task running flat out instead of on a 10 ms cycle, reported by the push as success.
         /// Found by `scripts/corpus-migration.ts`.</para>
         ///
-        /// <para>MEASURED (`scripts/probe-task-kind.py`, live SP21): the member IS writable, and takes ONLY a
+        /// <para>MEASURED (`probe-task-kind.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-kind.py`), live SP21): the member IS writable, and takes ONLY a
         /// real <c>_3S.CoDeSys.TaskConfig.KindOfTask</c>. A string raises `TypeError: expected KindOfTask, got
         /// str` and an int raises `Cannot convert numeric value 1 to KindOfTask` — the exact inverse of
         /// <c>priority</c>'s trap two lines up, and the reason both are written down rather than inferred. The
@@ -305,7 +305,7 @@ namespace Volt.Ide.Codesys
         /// <summary>Replace a task's call list with exactly the POUs named, in order.
         ///
         /// <para><b>The list `pous` hands out is a VIEW, and mutating it is not an error — it is a NO-OP.</b>
-        /// Measured on live SP21 (`scripts/probe-task-calllist.py`): `remove(name)` returns happily and the
+        /// Measured on live SP21 (`probe-task-calllist.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-calllist.py`)): `remove(name)` returns happily and the
         /// list is unchanged afterwards, `remove(index)` throws "Cannot remove the specified item because it
         /// was not found in the specified Collection" (it is remove-by-VALUE, not by position), and `add` DOES
         /// take. A rebuild written against that surface drains nothing and appends forever — the probe that
@@ -353,7 +353,7 @@ namespace Volt.Ide.Codesys
         ///
         /// <para><b>The vendor states an entry's whole persisted contract itself</b>, and it is two fields:
         /// <c>PouObject.SerializableValueNames</c> is exactly <c>('Name', 'Comment')</c>, measured identical on
-        /// all 21 call entries of five real projects (<c>scripts/probe-task-callcomment.py</c>). Volt's
+        /// all 21 call entries of five real projects (<c>probe-task-callcomment.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-callcomment.py</c>)). Volt's
         /// descriptor carries the name. Clearing and re-minting therefore threw the comment away on every push
         /// that touched a task's call list — invisibly, because the <c>.task</c> file never showed it, so
         /// neither the workspace nor git could reveal the loss.</para>

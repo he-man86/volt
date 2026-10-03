@@ -147,7 +147,7 @@ internal sealed class ExplorerSnapshot
 /// <summary>
 /// Reads the Solution Explorer hierarchy of a TwinCAT XAE, out of process, through the DTE's OLE
 /// <c>IServiceProvider</c> → <c>IVsSolution</c> → <c>IVsHierarchy</c> (ported from
-/// <c>scripts/probe-tc-kind-source.ps1</c>). The interfaces are declared here with <c>[ComImport]</c>, only up to the
+/// <c>probe-tc-kind-source.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-kind-source.ps1</c>)). The interfaces are declared here with <c>[ComImport]</c>, only up to the
 /// last vtable slot used, so no TcXaeShell assembly is loaded into the worker. Cost measured on a 143-node solution:
 /// 73–142 ms per read (≈700 ms on the first read in a fresh process).
 /// </summary>

@@ -76,7 +76,7 @@ public interface ICodeStore
     /// is the same seam <c>ICodeStore</c> keeps everywhere else — the engine owns the representation, the
     /// driver owns the vendor call.</para>
     ///
-    /// <para>CODESYS only. Every field is a live setter there (`scripts/probe-task-writable.py`); TwinCAT
+    /// <para>CODESYS only. Every field is a live setter there (`probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`)); TwinCAT
     /// renders a different `.task` shape entirely and REFUSES rather than guess at one nobody has
     /// measured.</para></summary>
     void WriteTask(ItemRef task, TaskSettings settings);

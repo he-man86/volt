@@ -10,7 +10,7 @@ namespace Volt.Ide.Twincat.Tests;
 
 /// <summary>
 /// The TwinCAT `.task` translation, against XML MEASURED off a live TcXaeShell 15.0 rather than composed here —
-/// the fixture strings below are what `scripts/probe-tc-task.ps1` printed for `TwinCAT Project14`. A hand-written
+/// the fixture strings below are what `probe-tc-task.ps1` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-tc-task.ps1`) printed for `TwinCAT Project14`. A hand-written
 /// approximation of a vendor document is the failure `vendor-serialization-needs-identity-gate` records: it makes
 /// the test agree with the code and neither agree with the IDE.
 /// </summary>

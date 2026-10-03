@@ -10,7 +10,7 @@ namespace Volt.Engine.Tests;
 /// <summary>
 /// A POU'S DECLARATION LANDS BEFORE ITS MEMBERS ARE CREATED (openspec <c>push-without-header-check</c> 5.Q.4, design O2).
 ///
-/// <para>Which members a POU accepts follows its TEXT on CODESYS, measured live (DIALECT C2k, `kind-audit2.log`):
+/// <para>Which members a POU accepts follows its TEXT on CODESYS, measured live (DIALECT C2k, `kind-audit2.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/kind-audit2.log`)):
 /// FUNCTION text refuses a method, a property, an action and a transition ("Object 'Method' is not accepted by parent
 /// object"), text that declares nothing refuses a method and a property, and a member created BEFORE such text lands is
 /// kept by the IDE afterwards. A push used to create the item with its extension's seed, create the members, and only

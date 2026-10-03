@@ -178,7 +178,7 @@ public sealed record Box(
     /// unconnected pin — see <c>NetworkTextReader.IsEmptyOperand</c>).
     ///
     /// <para><b>Such a box still has a real TYPE, and network text could not carry it.</b> Measured on
-    /// `Lenze_MID-S100`'s `POU.pou` (<c>scripts/probe-nwl-dump.py</c>): four boxes, each
+    /// `Lenze_MID-S100`'s `POU.pou` (<c>probe-nwl-dump.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-dump.py</c>)): four boxes, each
     /// <c>BoxType='L_MC1P_AxisBasicControlV2'</c> / <c>'L_TT1P_BasicMotionBase'</c> / … with
     /// <c>Instance='???'</c>. The format names an FB call ONCE — the instance — and the push recovers the type
     /// from the declaration that instance is declared in. <c>???</c> is declared nowhere, so the type was lost
@@ -189,7 +189,7 @@ public sealed record Box(
     /// <summary>Whether the box's input slot 0 is the ENABLE WIRE rather than a data pin.
     ///
     /// <para><b>The enable's expression is an ORDINARY INPUT ITEM, and the <c>En</c> member is not it.</b>
-    /// Measured across 373 real networks (<c>scripts/probe-nwl-census.py</c>): <c>En</c> is a Boolean on 468
+    /// Measured across 373 real networks (<c>probe-nwl-census.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census.py</c>)): <c>En</c> is a Boolean on 468
     /// boxes and null on 814, and a tree on NONE — it is the "EN/ENO is shown on this box" flag. The wire
     /// itself arrives as <c>InputItemList[0]</c>, and the vendor names that slot <c>"EN"</c> in
     /// <c>InputParams</c> on 220 of 220 boxes that have one. Live CODESYS agrees from the write side, in a
@@ -427,7 +427,7 @@ public sealed record Input(string? Formal, Node Value, Flags Flags);
 /// operand list that <c>NetworkTextWriter</c> only ever consulted for name collection — never rendered — so
 /// every pin an engineer wired straight off a box vanished from the text: <c>MOVE(EN := rung, IN := 0)</c>
 /// with its output on <c>TempI</c> materialized as <c>MOVE(0)</c>, and `TempI` was nowhere in the file. 208 wired
-/// output pins on 171 boxes across 373 networks (`scripts/nwl-census.log`). The push side knew: it REFUSED any box carrying outputs, because
+/// output pins on 171 boxes across 373 networks (`nwl-census.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/nwl-census.log`)). The push side knew: it REFUSED any box carrying outputs, because
 /// "network text has no form for them" — which was true, and is what this record exists to end.</para>
 ///
 /// <para><see cref="Slot"/> is the pin's OUTPUT SLOT index (network text v2, review 7.3). The readers drop
@@ -468,7 +468,7 @@ public enum CallKind { Operator, Function, FunctionBlock }
 /// latent only because nothing consumes an archive-derived <c>Kind</c> yet.</para>
 ///
 /// <para><b>MEASURED, not inferred.</b> The member set comes from the committed archives (<c>And</c> 8,
-/// <c>Or</c> 6, <c>FunctionBlock</c> 5, <c>None</c> 2) and from <c>scripts/nwl-boxoutputs.log</c>, which
+/// <c>Or</c> 6, <c>FunctionBlock</c> 5, <c>None</c> 2) and from <c>nwl-boxoutputs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-boxoutputs.log</c>), which
 /// records the live CODESYS side: a freshly constructed box reads <c>Operator.None</c> and the SAME box reads
 /// <c>Operator.Move</c> after the IDE resolves it on reload. So <c>None</c> means "not resolved as an
 /// operator", which is why an instance is what distinguishes the two call kinds under it — the reading
@@ -529,7 +529,7 @@ public sealed record Flags(
     /// <para><b>Measured, by asking the vendor rather than reading the logic around it.</b> CODESYS's own
     /// PLCopen export names coil storage outright, so exporting every POU in a real project that has a
     /// non-plain coil and pairing the two views settles it. All 17 POUs agree, exactly, with no residue
-    /// (<c>scripts/probe-nwl-coils.py</c> · <c>scripts/nwl-coils.log</c>):</para>
+    /// (<c>probe-nwl-coils.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-coils.py</c>) · <c>nwl-coils.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-coils.log</c>)):</para>
     /// <code>
     ///   NWL target flags        CODESYS PLCopen export
     ///   (none)              ->  negated="false" storage="none"

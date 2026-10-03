@@ -1,7 +1,7 @@
 /**
  * A CORPUS PROJECT, READ ONCE AND BOUND FOR LOWERING — the one loader the corpus gate and the lowering scripts share.
  *
- * It was four copies (the gate, `lower-completeness`, `probe-lowering-refusals`, `probe-order-dependence`) of the same
+ * It was four copies (the gate, `lower-completeness`, `probe-lowering-refusals`, `probe-order-dependence` (deleted; `git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-order-dependence.ts`)) of the same
  * walk-parse-bind, and all four built the symbol table without saying which units came from a library. Lowering then
  * ran every bodyless library element as an empty body, and the corpus reach counted the invented meaning. One loader
  * built on `prepareProject` cannot leave that out, and it hands each library's manifest to the library repo so a

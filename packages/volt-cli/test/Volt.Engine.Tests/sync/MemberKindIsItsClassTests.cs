@@ -12,7 +12,7 @@ namespace Volt.Engine.Tests;
 ///
 /// <para>Both drivers report a member's kind from the IDE object — a method, a property, an action — never from its
 /// text. But the push reads a member's kind from the keyword that opens its block, and CODESYS keeps a member's class
-/// whatever text it is given (DIALECT C2l, `kind-audit.log`: a <c>POUMethodObject</c> given <c>PROPERTY</c> text stays
+/// whatever text it is given (DIALECT C2l, `kind-audit.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/kind-audit.log`): a <c>POUMethodObject</c> given <c>PROPERTY</c> text stays
 /// a method; given <c>FUNCTION_BLOCK</c> text it stays one too). Pulled verbatim, such a member reads back on the next
 /// push as another kind — the method deleted and a property created (<c>ReconcileMembers</c>' re-type) — under a push
 /// that changed nothing, or the file cannot be split at all.</para>

@@ -92,7 +92,7 @@ describe(`endpoints / build diagnostics (${BASE})`, () => {
 	// A DIAGNOSTIC INSIDE A CHILD OBJECT NAMES THE ITEM AND THE CHILD (openspec codesys-diagnostic-child-names). A method,
 	// action or property accessor is its own object in the IDE but travels inside its parent's file, so `name` is the
 	// parent - the file a client opens - and `member` the child. CODESYS reports such an error against the CHILD's
-	// guid (measured, scripts/diagnostic-child-guid.log), which the bridge used to resolve against top-level items
+	// guid (measured, diagnostic-child-guid.log (deleted; git show b2496efb4b:packages/volt-cli/scripts/diagnostic-child-guid.log)), which the bridge used to resolve against top-level items
 	// only: the field case (c802b74d) was five `C0578`s in METHOD bodies published with no name at all. Both vendors
 	// must answer the same pair - the parity boundary is the wire.
 	//

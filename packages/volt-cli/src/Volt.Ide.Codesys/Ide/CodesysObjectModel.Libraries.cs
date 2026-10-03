@@ -381,7 +381,7 @@ namespace Volt.Ide.Codesys
                 case ItemKind.PlcDut: return Create(c, "create_dut", name, EnumValue("DutType", "Structure"));
                 case ItemKind.PlcGvl: return Create(c, "create_gvl", name);
                 // A TASK is created on the TASK CONFIGURATION, not on the IEC language container - a
-                // different facet with a single `create_task(name)` (measured: scripts/probe-task-create.py).
+                // different facet with a single `create_task(name)` (measured: probe-task-create.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-task-create.py)).
                 // The parent here IS the Task Configuration node, because that is the folder the walk emits
                 // a task under and therefore the folder a new `.task` file resolves to.
                 case ItemKind.PlcTask:
@@ -456,7 +456,7 @@ namespace Volt.Ide.Codesys
         {
             // THE PROJECT ROOT CANNOT BE A MOVE TARGET, and saying so beats a raw type error. `move` takes an
             // `IExtendedObject<IScriptObject>`, and the project is not an `IScriptObject` at all - it implements
-            // `IScriptProject`/`IScriptTreeObject` and nothing else (measured, scripts/probe-project-container.py).
+            // `IScriptProject`/`IScriptTreeObject` and nothing else (measured, probe-project-container.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-project-container.py)).
             // So the vendor exposes no way to move an existing object INTO the POU pool, and the attempt used to
             // surface as "Object of type 'ScriptProject' cannot be converted to type '...IScriptObject'".
             // CREATING there works (a separate container exists for it - see CodesysObjectModel.IecContainer);

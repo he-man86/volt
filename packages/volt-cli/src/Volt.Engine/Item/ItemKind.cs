@@ -339,7 +339,7 @@ public static class ItemKind
     /// is right for everything that is assembled ST and wrong for a descriptor: a `.task` is not structured
     /// text, the LSP must not parse it as such, and `volt init` must not colour it as ST — yet its fields are
     /// perfectly writable on the vendor (interval, priority, watchdog and the call list, every one a setter
-    /// measured live: `scripts/probe-task-writable.py`). Keeping it OUT of the source list is also what leaves
+    /// measured live: `probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`)). Keeping it OUT of the source list is also what leaves
     /// the four SOURCE_EXTENSIONS manifests (`scripts/check-wiring.ts`) untouched.</para>
     ///
     /// <para>BOTH VENDORS, by routes that share nothing below this format. TwinCAT assembles the same six

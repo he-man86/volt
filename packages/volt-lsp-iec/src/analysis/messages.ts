@@ -58,7 +58,7 @@ export interface Messages {
   /** Two methods with the same name in one FB (C0582) — an unmarked overload. Volt can't push it either way.
    *  PROVISIONAL, and UNVERIFIABLE on SP21: the object tree itself refuses a second same-named method at create
    *  ("An object with the name '…' already exists within the corresponding namespace", measured by
-   *  `volt-cli/scripts/probe-duplicate-method.py`), so the compiler never sees the repro by ANY path. */
+   *  `probe-duplicate-method.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-duplicate-method.py`)), so the compiler never sees the repro by ANY path. */
   duplicateMethod(name: string): string
   /** A bare identifier that resolves in no reachable scope — byte-identical on both vendors. */
   /**

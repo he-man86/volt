@@ -41,7 +41,7 @@
                     is ON, for development and the suites; this is for checking what a customer's bridge serves.
 .PARAMETER RunScript codesys only: the runscript CODESYS starts with, in place of run_pipe_production.py. For a
                     probe that runs run_pipe_production.py itself and then arms its own read timer (e.g.
-                    probe-dut-subtype-push.py), so the probe runs in an IDE this script launched, tracks and closes,
+                    probe-dut-subtype-push.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-dut-subtype-push.py)), so the probe runs in an IDE this script launched, tracks and closes,
                     on a fixture COPY - not one started by hand.
 .PARAMETER NoBuild  Skip the pre-launch bridge build (fast re-launch when you KNOW the binary is current).
 .PARAMETER DryRun   down only: print what would be closed and what is left running, and close nothing.

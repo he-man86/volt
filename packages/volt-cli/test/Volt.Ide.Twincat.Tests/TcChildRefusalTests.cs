@@ -10,7 +10,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// (DIALECT C2k); it used to word every failed create that way, an "Unbound tree item" included.</summary>
 public class TcChildRefusalTests
 {
-    // Verbatim from `scripts/tc-function-members.log` (TcXaeShell, 2026-10-02).
+    // Verbatim from `tc-function-members.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-function-members.log`) (TcXaeShell, 2026-10-02).
     private const string Measured =
         "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child type 'TREEITEMTYPE_PLCMETHOD' " +
         "is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)";

@@ -17,7 +17,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <c>twincat-project-settings</c> 2.1-2.3), from the settings TwinCAT itself stores.
 ///
 /// <para><b>Every vendor document here is MEASURED</b> (TcXaeShell 15.0 / TwinCAT 3.1.4024.74, a copy of the Project14
-/// fixture, 2026-10-03, <c>scripts/probe-tc-project-settings.ps1</c> + <c>probe-tc-project-settings-gui.ps1</c>):</para>
+/// fixture, 2026-10-03, <c>probe-tc-project-settings.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-project-settings.ps1</c>) + <c>probe-tc-project-settings-gui.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-project-settings-gui.ps1</c>)):</para>
 /// <list type="bullet">
 /// <item><c>untouched.plcproj.xml</c> — the committed Project14 <c>Untitled2.plcproj</c>, as TwinCAT wrote it: no warning
 /// key, no compile-option key (the copy every measurement started from).</item>
@@ -27,7 +27,7 @@ namespace Volt.Ide.Twincat.Tests;
 /// <item><c>nested-project.xml</c> — <c>ProduceXml()</c> of the PLC project's <c>NestedProject</c> (type 600),
 /// identical before and after the clicks: <c>CompilerSettings</c> answers ReplaceConstants=false, MaxWarnings=100,
 /// empty CompilerDefines (D38).</item>
-/// <item><c>nested-project-defines.xml</c> — the same <c>ProduceXml()</c> after <c>probe-tc-compile-options.ps1</c> set ReplaceConstants=true and CompilerDefines=<c>A, B</c> (task 3.4).</item>
+/// <item><c>nested-project-defines.xml</c> — the same <c>ProduceXml()</c> after <c>probe-tc-compile-options.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-compile-options.ps1</c>) set ReplaceConstants=true and CompilerDefines=<c>A, B</c> (task 3.4).</item>
 /// <item><c>plc-project-item.xml</c> — <c>ProduceXml()</c> of the PLC project item (<c>TIPC^Untitled2</c>, type 56),
 /// whose <c>PlcProjectDef/ProjectPath</c> names the <c>.plcproj</c>. The one edit: the measured path (a temp dir under
 /// the user's profile) is replaced by <c>%PROJECT_PATH%</c>, which the driver test fills with a copy it owns.</item>
@@ -173,7 +173,7 @@ public class TcProjectSettingsTests
 
     /// <summary>Task 3.4: the defines row from the MEASURED <c>NestedProject</c> of a project whose defines were set to
     /// <c>A, B</c> (<c>nested-project-defines.xml</c>, TcXaeShell 15.0 / 4024.74, 2026-10-03,
-    /// <c>probe-tc-compile-options.ps1</c>) — the line the CODESYS bridge served for the same string.</summary>
+    /// <c>probe-tc-compile-options.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-compile-options.ps1</c>)) — the line the CODESYS bridge served for the same string.</summary>
     [Fact]
     public void The_defines_row_matches_the_cross_driver_fact()
     {

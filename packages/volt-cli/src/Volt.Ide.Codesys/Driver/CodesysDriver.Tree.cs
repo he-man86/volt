@@ -151,7 +151,7 @@ public sealed partial class CodesysDriver
     }
 
     /// <summary>Is this CODESYS's own refusal of a child under its parent? Measured wording (SP21, DIALECT C2k,
-    /// `kind-audit2.log`): "Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or
+    /// `kind-audit2.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/kind-audit2.log`)): "Object 'Method' is not accepted by parent object, or invalid (e. g. missing plugin or
     /// device description)" — for a member under FUNCTION text, and a method or property under text that declares
     /// nothing. Anything else (a stale handle, a transport fault) is not a refusal and is not reported as one.
     /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>

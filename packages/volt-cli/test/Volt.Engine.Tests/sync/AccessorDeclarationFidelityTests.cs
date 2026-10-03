@@ -12,7 +12,7 @@ namespace Volt.Engine.Tests;
 ///
 /// <para>The read used to DROP a bare empty VAR block, reasoning that it "carries nothing" and that keeping it
 /// would write a block "the engineer did not author". MEASURED against live SP21
-/// (<c>scripts/probe-accessor-decl.py</c>, pro2193's <c>CassetteFB.NegativeLimitReachedY</c>), CODESYS reports
+/// (<c>probe-accessor-decl.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-accessor-decl.py</c>), pro2193's <c>CassetteFB.NegativeLimitReachedY</c>), CODESYS reports
 /// that getter's declaration as exactly <c>VAR\nEND_VAR\n</c>. The engineer did not type it; the PROJECT
 /// contains it. ~320 of pro2193's 361 getters disagreed with the IDE because of that drop.</para>
 ///

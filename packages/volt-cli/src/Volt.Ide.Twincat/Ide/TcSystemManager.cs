@@ -17,7 +17,7 @@ namespace Volt.Ide.Twincat;
 /// the driver ever calls on a system manager, so "can answer that" is exactly the property being relied on —
 /// and it survives a TwinCAT version bump that renames a project kind.</para>
 ///
-/// <para><b>Measured, not assumed</b> — DIALECT D35 (<c>scripts/probe-tc-project-object.ps1</c>, TcXaeShell
+/// <para><b>Measured, not assumed</b> — DIALECT D35 (<c>probe-tc-project-object.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-project-object.ps1</c>), TcXaeShell
 /// 15.0 against `TwinCAT Project14`): a real <c>ITcSysManager</c> answers an unresolvable path immediately with
 /// <c>COMException 0x98510001 "Item '…' not found"</c> — the same HRESULT D29a records — with no dialog, no
 /// tree walk and the empty string behaving the same; and a COM object hands back NULL for a member it does not

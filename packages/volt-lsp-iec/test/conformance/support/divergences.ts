@@ -67,7 +67,7 @@ import type { Vendor } from "../../../src/analysis/index.js"
  *                             `STRING(INT#13)` in a declaration (`sysop_position_initializer`, a known divergence since
  *                             frontend-conformance 2.8.3: `CODESYS_POSITION_IN_AN_INITIALIZER`).
  *
- * THE MEASUREMENT IS NO LONGER WHAT IS MISSING. `scripts/probe-position-length.ts` pinned the model with twelve
+ * THE MEASUREMENT IS NO LONGER WHAT IS MISSING. `probe-position-length.ts` (deleted; `git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-position-length.ts`) pinned the model with twelve
  * probes and the simulator then handed over the text itself: the length is `21 + digits(line) + digits(column)`
  * in an implementation and `12 + digits(line)` in a declaration, with the line counted inside the POU's OWN part
  * (its header is declaration line 1, its first statement is implementation line 1) and the column being the
@@ -628,7 +628,7 @@ const CALC_CONDITIONAL_CALL: readonly string[] = [
  * running to the end of the part. Both one fixture each; niche: accepted loss (0 `__POSITION` in the corpora).
  * `sysop_position_call_form` (frontend-conformance 4.8, from the triage backlog) is the same sized type in a body, "…
  * 'STRING(INT#23)' to type 'DINT'" where the LSP says 'STRING': the length is the position text's (`21 + digits(line) +
- * digits(column)`, `scripts/probe-position-length.ts`), which the type layer does not have.
+ * digits(column)`, `probe-position-length.ts` (deleted; `git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-position-length.ts`)), which the type layer does not have.
  */
 const CODESYS_POSITION_IN_AN_INITIALIZER: readonly string[] = ["sysop_position_initializer", "sysop_position_call_form"]
 const TWINCAT_RECOVERY_DIVERGENCES: readonly string[] = ["rec_interface_stray", "rec_refused_name_declared_fb_type"]

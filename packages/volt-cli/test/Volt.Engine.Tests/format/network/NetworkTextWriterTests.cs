@@ -205,7 +205,7 @@ public class NetworkTextWriterTests
             Write(Set(new Box("AND", null, CallKind.Operator, new[] { In(L("a")), In(L("b")) }, new Output[0], null, null, Rise), T("lamp"))));
     }
 
-    /// <summary>A FLAG ON A WIRE OR A PARALLEL HAS NO VENDOR FORM (DIALECT N20, <c>scripts/probe-edge-names-order.py</c>):
+    /// <summary>A FLAG ON A WIRE OR A PARALLEL HAS NO VENDOR FORM (DIALECT N20, <c>probe-edge-names-order.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-edge-names-order.py</c>)):
     /// on <c>BoxTreeDemux</c> and <c>BoxTreeParallel</c> the <c>Flags</c> getter hands out an object that is not stored,
     /// so the IDE ran every such network as the bare value. This asserted the writer refused a model carrying one; the
     /// model now cannot carry one (no Flags parameter, always None), so no writer, v1 or v2, and no driver can be handed
@@ -330,7 +330,7 @@ public class NetworkTextWriterTests
 
     /// <summary>The TrayFiller N8 oracle (<see cref="LadderOracleTests"/>): a GE with EN shown and unwired is an
     /// empty EN pin. This asserted <c>GE(EN := , …).ENO</c>, after the design page; the live dump of that network
-    /// (<c>scripts/nwl-oracle-rungs.log</c>) shows the GE has NO ENO output (<c>OutputParams.Names = ['']</c>) and is
+    /// (<c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>)) shows the GE has NO ENO output (<c>OutputParams.Names = ['']</c>) and is
     /// connected by its result, so the text carries no suffix. A box with EN unwired AND an ENO is written
     /// <c>.ENO</c> the same way.</summary>
     [Fact]

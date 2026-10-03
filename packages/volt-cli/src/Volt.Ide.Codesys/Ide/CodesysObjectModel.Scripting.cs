@@ -78,7 +78,7 @@ namespace Volt.Ide.Codesys
         ///
         /// <para><b>THE PROJECT ROOT HAS ITS OWN CONTAINER, and using the object one on it throws.</b> CODESYS
         /// ships two siblings over the same <c>AbstractIecLanguageContainer</c> base — measured on SP21
-        /// (<c>scripts/probe-project-container.py</c>):
+        /// (<c>probe-project-container.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-project-container.py</c>)):
         /// <c>ScriptIecLanguageObjectContainerObject(ScriptObject baseObject)</c> for a node inside the tree, and
         /// <c>ScriptIecLanguageObjectContainerRoot(ScriptProject project)</c> for the project itself. The project
         /// object is a <c>ScriptProject</c>, not a <c>ScriptObject</c>, so constructing the object container over

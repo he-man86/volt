@@ -3,7 +3,7 @@
  *
  * `.task` was a read-only descriptor because access was derived from "is this assembled ST", and a scheduling
  * descriptor is not. That was never a statement about the VENDOR: every field is a live setter on CODESYS
- * (`scripts/probe-task-writable.py` — interval, priority, event, the watchdog's four, and a call list with
+ * (`probe-task-writable.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-task-writable.py`) — interval, priority, event, the watchdog's four, and a call list with
  * add/insert/remove/replace), so the read-only-ness was Volt's own, and it meant an engineer could see the
  * schedule in git and change nothing about it.
  *

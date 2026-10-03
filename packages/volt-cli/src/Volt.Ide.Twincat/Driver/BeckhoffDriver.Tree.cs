@@ -295,7 +295,7 @@ public sealed partial class BeckhoffDriver
     }
 
     /// <summary>Is this TwinCAT's own refusal of a child under its parent? Measured wording (TcXaeShell, DIALECT C2k,
-    /// `tc-function-members.log`): "Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node
+    /// `tc-function-members.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-function-members.log`)): "Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node
     /// type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)" — a method under FUNCTION text. Anything else (an "Unbound
     /// tree item", a COM fault) is not a refusal and is not reported as one.
     /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>

@@ -19,7 +19,7 @@ namespace Volt.Ide.Twincat;
 /// <c>&lt;TaskDef&gt;&lt;Priority/&gt;&lt;CycleTime/&gt;&lt;/TaskDef&gt;</c>, while the ordered POU calls are the
 /// PLC item's OWN children (TREEITEMTYPE_PLCPROGREF, 650, named by POU). So one `.task` file is assembled from
 /// two tree items, and written back to two. Measured live, TcXaeShell 15.0 —
-/// <c>scripts/probe-tc-task.ps1</c>. See DIALECT C19b.</para>
+/// <c>probe-tc-task.ps1</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-tc-task.ps1</c>). See DIALECT C19b.</para>
 ///
 /// <para><b>The PLC project's `.TcTTO` is NOT the copy to read.</b> It carries the same three numbers
 /// (<c>CycleTime</c> in µs, <c>Priority</c>, <c>PouCall</c>) and is the obvious target, which is exactly the trap:

@@ -8,7 +8,7 @@
 #
 # Measured on SP21, and each point is load-bearing:
 #   - there is no single-cycle step on the SCRIPTING surface, hence the counter gate and the done-flag poll
-#     (`packages/volt-cli/scripts/probe-online-state.py`);
+#     (`probe-online-state.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-online-state.py`));
 #   - the online object only works inside a running script (ScriptOnline peeks an execution stack that is empty
 #     outside one), which is why this is a runscript and not a bridge op;
 #   - login with OnlineChangeOption.NEVER, not Force: an online change KEEPS variable values across a code change,

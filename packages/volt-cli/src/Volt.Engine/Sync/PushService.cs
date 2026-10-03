@@ -291,7 +291,7 @@ public static class PushService
         // `folders` map is keyed by item) and the next pull can neither see it nor report it as drift.
         //
         // Measured on both vendors before this was written: neither prunes on its own, and both expose the
-        // primitive (`scripts/probe-empty-folder-lifecycle.py` for CODESYS; a COM tree walk for TwinCAT, where
+        // primitive (`probe-empty-folder-lifecycle.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`) for CODESYS; a COM tree walk for TwinCAT, where
         // `VltFold/New` and `VltFold/Old` both sat at children=0 after a folder rename moved every item out).
         //
         // The candidates are the folders items LEFT, read from the PRE-APPLY cache: a delete empties the

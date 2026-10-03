@@ -706,7 +706,7 @@ public class CodesysCoilFlagTests
     }
 
     /// <summary>AN EXECUTE BOX IS CREATED WITH ITS ST. The writer refused one until the construction was
-    /// measured; it is measured now (`scripts/probe-nwl-execute-create.py`), and a live push of one builds
+    /// measured; it is measured now (`probe-nwl-execute-create.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-execute-create.py`)), and a live push of one builds
     /// clean in an empty project. This pins the shape offline: the snippet is hung on the box, and the box
     /// reports itself as providing one.</summary>
     [Fact]

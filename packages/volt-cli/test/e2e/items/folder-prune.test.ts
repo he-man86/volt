@@ -14,7 +14,7 @@
  * <p>So what a LIVE test can add is the half the fake cannot: that the prune runs against two real IDEs
  * without refusing the push, losing the item, or disturbing anything it should not touch. The vendor half —
  * that neither IDE prunes on its own and both accept the delete — is measured by
- * `scripts/probe-empty-folder-lifecycle.py` and a COM tree walk.</p>
+ * `probe-empty-folder-lifecycle.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`) and a COM tree walk.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, BASE } from "../harness"

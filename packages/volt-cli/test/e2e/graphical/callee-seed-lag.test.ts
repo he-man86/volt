@@ -7,7 +7,7 @@
  * a call box from the tree code: a box calling a PROGRAM or a FUNCTION that the same session created is built as a
  * function-block box, which has no ENO output, so a network reading `.ENO` on it is refused by the driver ("the IDE
  * builds that box with no ENO output"). Under the old per-kind seeds (`.prg` → 602, `.fun` → 603) it was accepted.
- * Measured 2026-10-02 (`scripts/probe-tc-graphical-callee-seed.ts` → `tc-graphical-callee-seed.log`): a build in
+ * Measured 2026-10-02 (`probe-tc-graphical-callee-seed.ts` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-tc-graphical-callee-seed.ts`) → `tc-graphical-callee-seed.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-graphical-callee-seed.log`)): a build in
  * between does not re-derive the code; a call WITHOUT `.ENO` is accepted, fetches back identical and builds clean.</p>
  *
  * <p>Triage: niche, accepted loss — 0 such calls in the TwinCAT corpus, 2 in the six corpora (all lenze-mid, a CODESYS

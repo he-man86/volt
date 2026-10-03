@@ -66,7 +66,7 @@ public class CodesysNetworkReaderTests
     /// <para><b>This test used to hand the double a shape no vendor emits</b> — <c>En = Leaf("enable")</c>, a
     /// TREE in the <c>En</c> member — and passed, which is worse than failing: it certified a read that could
     /// never fire. Across 373 real networks <c>En</c> is a Boolean on 468 boxes, null on 814, and a tree on
-    /// none (<c>scripts/probe-nwl-census.py</c>); live CODESYS says the same from the write side, refusing a
+    /// none (<c>probe-nwl-census.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census.py</c>)); live CODESYS says the same from the write side, refusing a
     /// tree with "cannot be converted to type System.Nullable`1[System.Boolean]". <c>En</c> is the "EN/ENO is
     /// shown on this box" flag. The WIRE is an ordinary input item in slot 0, and the vendor names that slot
     /// <c>EN</c> — 220 of 220 boxes that have one.</para>
@@ -323,7 +323,7 @@ public class CodesysNetworkReaderTests
     ///
     /// <para>The vendor names the encoding itself: exporting each of the 17 POUs in `Lenze_MID-S100` that has a
     /// non-plain coil gives <c>storage="reset"</c> for exactly this bit pair, counts matching on both sides
-    /// with no residue (<c>scripts/probe-nwl-coils.py</c>). <c>negated="true"</c> never appears on a coil
+    /// with no residue (<c>probe-nwl-coils.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-coils.py</c>)). <c>negated="true"</c> never appears on a coil
     /// there, which is why the fourth bit combination is unobserved rather than merely rare.</para>
     ///
     /// <para>The cost of the old reading was not subtle. `GeneralProgramFlags` network 0, whose comment is
@@ -413,7 +413,7 @@ public class CodesysNetworkReaderTests
     }
 
     /// <summary>CENSUS 1.2, the Parallel half: an unfed Parallel has ONE representation, the null feed (5 of 17 in
-    /// Lenze; a feed that is the empty terminator: 0 in five projects, <c>scripts/nwl-census-v2.log</c>). The reader
+    /// Lenze; a feed that is the empty terminator: 0 in five projects, <c>nwl-census-v2.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-census-v2.log</c>)). The reader
     /// refuses the unmeasured one by name, so it reaches the marker instead of a second spelling of "no feed".</summary>
     [Fact]
     public void A_Parallel_fed_by_the_empty_terminator_is_refused_by_name()
@@ -556,7 +556,7 @@ public class CodesysNetworkReaderTests
     /// <summary>A NEGATION ON A BOX INPUT PIN IS READ INTO THE MODEL, AND THE PULL NAMES IT — NEVER DROPS IT (task 4.1).
     ///
     /// <para><b>The regression.</b> CODESYS can keep a negated FBD input on the box's own <c>InputFlags</c>, with the
-    /// operand feeding it unflagged — measured 2026-09-26 (<c>scripts/probe-nwl-census-v2.py</c>): six such pins, three
+    /// operand feeding it unflagged — measured 2026-09-26 (<c>probe-nwl-census-v2.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py</c>)): six such pins, three
     /// in Lenze's <c>call_FirstErrorCapture_FB</c> and three in pro2193's <c>SetAlarm</c>. The reader never read the
     /// member (it wrote <c>Flags.None</c> on the strength of a TwinCAT-only measurement), so those contacts were
     /// pulled as PLAIN — inverted logic in git, and a push would have written it back into the PLC without the
@@ -821,7 +821,7 @@ public class CodesysNetworkReaderTests
     ///
     /// <para>Reading them at all is the fix: <c>Box.Outputs</c> was never rendered, so `TempI` in
     /// <c>MOVE(EN := rung, IN := 0) -> TempI</c> was simply not in the file, 208 times in one project
-    /// (`scripts/nwl-census.log`: 208 wired output pins on 171 boxes).</para></summary>
+    /// (`nwl-census.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/nwl-census.log`): 208 wired output pins on 171 boxes).</para></summary>
     [Fact]
     public void A_box_output_pin_is_read_without_the_ENO_slot_or_the_unwired_ones()
     {
@@ -871,7 +871,7 @@ public class CodesysNetworkReaderTests
     /// inside the call — never <c>dst := MOVE(src);</c>, which is a different NWL item, an Assign over the box
     /// (spec, "a result pin is not an assign"; v1 spelled both alike and read the pin back as the Assign). The
     /// slot travels with the pin (task 3.10): a MOVE with EN/ENO hidden has one output, unnamed
-    /// (<c>OutputParams.Names = ['']</c>, measured — <c>nwl-slots.log</c>), so <c>dst</c> is slot 0 and the box has
+    /// (<c>OutputParams.Names = ['']</c>, measured — <c>nwl-slots.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-slots.log</c>)), so <c>dst</c> is slot 0 and the box has
     /// no ENO output.</summary>
     [Fact]
     public void An_unnamed_output_pin_is_the_boxs_own_result_pin_not_an_assign()
@@ -967,7 +967,7 @@ public class CodesysNetworkReaderTests
     }
 
     /// <summary>THE STORED OUTPUT TYPES (spec, "a stored output type"): <c>OutputParams.Types</c>, the array beside
-    /// the <c>Names</c> this reader already reads (<c>scripts/nwl-oracle-rungs.log</c>: <c>Names=['ENO', '']
+    /// the <c>Names</c> this reader already reads (<c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>): <c>Names=['ENO', '']
     /// Types=['BOOL', 'INT']</c>). No reader filled <see cref="Box.OutputTypes"/>, so every wire a data box feeds went
     /// to the marker as "a wire of unknown type" although the vendor stores it. An empty entry is an unresolved slot,
     /// an unknown type — null, never a default.</summary>

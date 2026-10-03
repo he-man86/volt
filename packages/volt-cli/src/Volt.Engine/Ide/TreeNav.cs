@@ -56,7 +56,7 @@ internal static class TreeNav
     /// resolving a pushed task's folder by name missed the container entirely, <see cref="DescendOrCreateFolder"/>
     /// created a plain user folder in its place, and the vendor then refused the create on a node with no task
     /// facet — <c>node has no ScriptTaskConfigObject facet</c>, with the junk folder left behind. Found migrating
-    /// a real project into the shipped blank; measured with <c>scripts/probe-task-config-survives-delete.py</c>,
+    /// a real project into the shipped blank; measured with <c>probe-task-config-survives-delete.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-task-config-survives-delete.py</c>),
     /// which also rules out the other candidate (the container survives its last task being deleted).</para>
     ///
     /// <para>So the ANCESTRY is walked by name (Device / Plc Logic / Application are real, non-localized
@@ -141,7 +141,7 @@ internal static class TreeNav
     /// file under <c>a/b/</c> records exactly that one path — and git still REMOVES the directory from the
     /// working tree, as a derived consequence of the file going. Volt models its interface on git and was
     /// missing precisely that derivation: the workspace side is pruned by git for free, while the IDE kept the
-    /// folder for ever. Measured on BOTH vendors (`scripts/probe-empty-folder-lifecycle.py` for CODESYS, a COM
+    /// folder for ever. Measured on BOTH vendors (`probe-empty-folder-lifecycle.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`) for CODESYS, a COM
     /// tree walk for TwinCAT): neither prunes on its own, and both expose the primitive to do it.</para>
     ///
     /// <para>It compounds, because an empty folder is UNREPRESENTABLE on the wire — the <c>folders</c> map is

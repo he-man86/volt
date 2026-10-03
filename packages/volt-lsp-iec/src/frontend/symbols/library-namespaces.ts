@@ -39,7 +39,7 @@ function file<T>(map: Map<string, T[]>, key: string, value: T): void {
  * `EXTENDS ETRIG` inside a library means — and the two must agree, or a name would resolve one way through a
  * namespace and another way through inheritance.
  *
- * DIRECT dependencies only, and that is measured rather than assumed. `scripts/probe-dep-depth.ts` walks the
+ * DIRECT dependencies only, and that is measured rather than assumed. `probe-dep-depth.ts` (deleted; `git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-dep-depth.ts`) walks the
  * dependency graph breadth-first for every ambiguous reference in the six corpus projects and reports the
  * smallest depth at which the asker reaches a candidate: <b>40 at depth 0 (its own library) and 123 at depth
  * 1 (a declared dependency) — nothing at depth 2 or beyond, and nothing unreachable.</b> So transitivity

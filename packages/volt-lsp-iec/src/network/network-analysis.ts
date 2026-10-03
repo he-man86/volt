@@ -116,7 +116,7 @@ function checkUndeclared(
 
 /**
  * Labels and jumps, at parity with the builds census 1.15 recorded on both vendors (DIALECT N19;
- * `volt-cli/scripts/nwl-labels.log`, `tc-labels-edge-names.log`). Both IDEs HOLD every shape below, so none is a gate
+ * `nwl-labels.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/nwl-labels.log`), `tc-labels-edge-names.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-labels-edge-names.log`)). Both IDEs HOLD every shape below, so none is a gate
  * refusal; the build reports them, and so does the LSP — with the build's words and nothing more:
  *
  *   a JMP to a label no ENABLED network carries   error    No such label 'X' within the scope of the JMP statement

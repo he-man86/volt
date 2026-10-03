@@ -20,6 +20,12 @@ engineer's 881-item project.) `record-exec.ts` is the exception that needs none 
 its half inside CODESYS is the runscript of the headless CODESYS it spawned itself (`spawnSync`, so its hang guard kills
 only that child), opening a copy of the fixture.
 
+**Probes are single use.** A one-question measurement goes once its answer is cited; the citation stays and points at
+history (`… (deleted; git show <commit>:packages/volt-lsp-iec/scripts/<file>)`). On 2026-10-03 that removed
+`probe-dep-depth.ts`, `probe-is-it-compiled.ts`, `probe-order-dependence.ts`, `probe-position-length.ts` and
+`measure-sfc-step-names.ts` (last commit holding them: `b2496efb4b`). The two `probe-*` files left are named by open
+openspec tasks — see the Measure table.
+
 ## Libraries (imported by the tools, not run)
 
 | File | Role |
@@ -65,8 +71,6 @@ only that child), opening a copy of the fixture.
 |---|---|---|
 | `audit-check.ts` | `audit:check <battery>` | LSP vs `/build` for a battery of cases |
 | `conversion-matrix.ts` | — | calibrates `classifyConversion` against the live compiler; `--explicit` (offline) lists the `X_TO_Y` pairs no recorded fixture calls (rule CV7) |
-| `probe-is-it-compiled.ts` | — | is an object actually COMPILED? plants an error, builds, restores — point at a COPY (cited by `test/conformance/fixtures/graphical/network-unresolved.ts`) |
-| `probe-position-length.ts` | — | what `__POSITION` expands to, measured through the size the compiler reports (cited by `test/conformance/support/divergences.ts`) |
 
 ## Measure — offline evidence over the corpus and the fixtures
 
@@ -77,8 +81,5 @@ only that child), opening a copy of the fixture.
 | `agreement-residue.ts` | why each fixture does NOT agree with the IDE — the work list for closing the gap |
 | `parser-completeness.ts` | parser-recovery evidence over the corpus |
 | `lower-completeness.ts` | transpiler coverage over the corpus — what each construct would unblock, ranked |
-| `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure (named by openspec `transpile-restructure` and `test/corpus/corpus.test.ts`) |
-| `probe-order-dependence.ts` | lowers a corpus project twice, sorted and reversed, and diffs the routines — proves the symbol table does not depend on the order files are bound |
-| `probe-dep-depth.ts` | how deep in the DEPENDENCIES graph an ambiguous reference has to reach (measured: never past depth 1, which is why visibility is direct-only — cited by `src/frontend/symbols/library-namespaces.ts`) |
-| `probe-projectsettings-effect.ts` | proves a project's `.projectsettings` actually SUPPRESSES diagnostics (per-code delta, settings on vs off; named by openspec `analysis-conformance`) |
-| `measure-sfc-step-names.ts` | openspec `lsp-sfc-step-names` 3.1 — the SFC step-name field case, its typo shapes and a pull without the `IMPLEMENTATION SFC` line, plus every SFC POU in the corpora diagnosed alone — the numbers behind DIALECT D40's bet and its price |
+| `probe-lowering-refusals.ts` | every POU with code that does NOT lower, and the codes it was refused for — diff before/after a resolver change to attribute a moved figure (run by openspec `transpile-restructure` 4.1; named by `test/corpus/corpus.test.ts`) |
+| `probe-projectsettings-effect.ts` | proves a project's `.projectsettings` actually SUPPRESSES diagnostics (per-code delta, settings on vs off; rewired by openspec `analysis-conformance` 1.3, re-run after it) |

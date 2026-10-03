@@ -882,7 +882,7 @@ END_FUNCTION_BLOCK`
 
 test("network text: both vendors report a JMP to a missing label, TwinCAT with a full stop", () => {
   // Census 1.15 (DIALECT N19), measured on network text v2: TwinCAT DOES report it — `No such label 'NOWHERE' within
-  // the scope of the JMP statement.` (tc-labels-edge-names.log). The 2026-07-07 measurement that it said nothing was of
+  // the scope of the JMP statement.` (tc-labels-edge-names.log (deleted; git show b2496efb4b:packages/volt-cli/scripts/tc-labels-edge-names.log)). The 2026-07-07 measurement that it said nothing was of
   // v1 text, and the exception it bought went with it.
   const src = `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
@@ -901,7 +901,7 @@ END_FUNCTION_BLOCK`
 
 // ─── labels at parity with the recorded builds (census 1.15, DIALECT N19; openspec network-text-literal-nwl 5.6) ───
 // Both IDEs HOLD every shape below, so none is a gate refusal: the build reports them, and the LSP says what the build
-// says — `volt-cli/scripts/nwl-labels.log` (CODESYS) and `tc-labels-edge-names.log` (TwinCAT) — and nothing more.
+// says — `nwl-labels.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/nwl-labels.log`) (CODESYS) and `tc-labels-edge-names.log` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/tc-labels-edge-names.log`) (TwinCAT) — and nothing more.
 
 const labelsBody = (networks: string) => `FUNCTION_BLOCK F
 VAR out : BOOL; END_VAR
@@ -917,7 +917,7 @@ test("network labels: one label on two networks, in any case, is the build's dup
   const networks = "NETWORK\n  JMP Done;\nEND_NETWORK\nNETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := FALSE;\nEND_NETWORK"
   expect(labelMessages(networks)).toEqual(["[error] The label 'DONE' is a duplicate"])
   expect(labelMessages(networks, "twincat")).toEqual(["[error] The label 'DONE' is a duplicate"])
-  // No jump at all: the duplicate, and ONE unreferenced warning for the name (nwl-labels.log, "duplicate label, no jump").
+  // No jump at all: the duplicate, and ONE unreferenced warning for the name (nwl-labels.log (deleted; git show b2496efb4b:packages/volt-cli/scripts/nwl-labels.log), "duplicate label, no jump").
   expect(labelMessages("NETWORK LABEL: Done\n  out := TRUE;\nEND_NETWORK\nNETWORK LABEL: DONE\n  out := FALSE;\nEND_NETWORK")).toEqual([
     "[error] The label 'DONE' is a duplicate",
     "[warning] The label 'DONE' has not been referenced",

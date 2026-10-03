@@ -18,7 +18,7 @@ namespace Volt.Engine.Tests;
 ///
 /// <para><b>ENO facts follow the measurement, not the v1 text.</b> v1's <c>IF en THEN … END_IF</c> said "the rung
 /// continues from ENO" for every enabled box. Where these shapes come from a real network the model carries what the
-/// live dump says (<c>scripts/nwl-oracle-rungs.log</c>): a comparison with EN shown and unwired has no ENO output and
+/// live dump says (<c>nwl-oracle-rungs.log</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/nwl-oracle-rungs.log</c>)): a comparison with EN shown and unwired has no ENO output and
 /// is read by its result (TrayFiller N8's GE), while MOVE/ADD/MUL/SUB show ENO.</para>
 /// </summary>
 public class SplitShapeGoldensTests

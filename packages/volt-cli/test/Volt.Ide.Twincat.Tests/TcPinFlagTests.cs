@@ -13,7 +13,7 @@ namespace Volt.Ide.Twincat.Tests;
 ///
 /// <para>The reader wrote <c>Flags.None</c> for every pin because the member was null in all 22 archive occurrences
 /// measured. On CODESYS — the same object model (DIALECT N1) — the census of 2026-09-26 found six pins whose negation
-/// lives ONLY there (<c>scripts/probe-nwl-census-v2.py</c>), and they were pulled as plain contacts. A populated
+/// lives ONLY there (<c>probe-nwl-census-v2.py</c> (deleted; <c>git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-census-v2.py</c>)), and they were pulled as plain contacts. A populated
 /// member has never been seen in a TwinCAT archive, so its exact spelling is unmeasured: anything but the null form
 /// is refused by name rather than read by a guess or dropped.</para>
 /// </summary>

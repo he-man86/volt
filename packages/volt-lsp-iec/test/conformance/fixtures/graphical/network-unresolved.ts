@@ -35,12 +35,12 @@
  *
  *   "the objects are excluded from build"  —  planting an undeclared identifier in `Mach1_MIDS`, `AHWF`,
  *                                             `General` and `BasicMovement` makes the compiler report every
- *                                             one (scripts/probe-is-it-compiled.ts). They ARE compiled.
+ *                                             one (probe-is-it-compiled.ts (deleted; git show b2496efb4b:packages/volt-lsp-iec/scripts/probe-is-it-compiled.ts)). They ARE compiled.
  *   "nothing reaches them"                 —  same experiment, same answer. (The MECHANISM is real — an
  *                                             uninstantiated FB is skipped whatever is wrong inside it — it
  *                                             simply is not what is happening here.)
  *
- * The truth is a FORMAT ambiguity, and the vendor model shows it plainly (probe-nwl-dump.py, `AHWF`
+ * The truth is a FORMAT ambiguity, and the vendor model shows it plainly (probe-nwl-dump.py (deleted; git show b2496efb4b:packages/volt-cli/scripts/probe-nwl-dump.py), `AHWF`
  * network 6): the marker there is a genuine `'???'` operand on a BOX OUTPUT PIN whose result nobody wired
  * (`BoxType='SideCorrection'`, `out[0] = <null>`, `out[1] = '???'`). CODESYS compiles an unwired result pin
  * without complaint. An unnamed COIL is a different shape — a `BoxTreeAssign` with a `???` target — and IS

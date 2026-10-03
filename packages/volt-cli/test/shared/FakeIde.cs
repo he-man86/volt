@@ -545,7 +545,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         //
         // `TreeChildren` derives folders from the items IN them ("no folder is invented that holds nothing"),
         // which is faithful for a walk and useless for a lifecycle: the moment the last item leaves, the fake
-        // forgets the folder ever existed. Both vendors keep it (measured — `probe-empty-folder-lifecycle.py`
+        // forgets the folder ever existed. Both vendors keep it (measured — `probe-empty-folder-lifecycle.py` (deleted; `git show b2496efb4b:packages/volt-cli/scripts/probe-empty-folder-lifecycle.py`)
         // and a COM tree walk), so a fake that cannot represent an empty folder makes `PruneEmptied` untestable
         // by construction: every assertion passes whether the prune runs or not.
         // The parent's own path, which is "" at either root. Folder refs in this fake are NAMED by their full
