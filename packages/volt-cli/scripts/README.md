@@ -142,7 +142,12 @@ not an offset; `diagnostic-child-guid.log`, DIALECT C27).
 
 **Project / settings** — `probe-project-container`, `probe-projectsettings-scope` (the compiler configuration
 is a session SERVICE over per-project state, and the read is sound — DIALECT C24, which closed
-`project-settings-sync`).
+`project-settings-sync`). `probe-tc-project-settings` (read-only: TwinCAT's compiler settings as the automation interface
+answers them, LIVE, and as the `.plcproj` stores them, SAVED) with `probe-tc-project-settings-gui` (sets
+warnings to `-State Disabled|Enabled` on the Compiler Warnings page — the warning list has no automation surface, so
+a real click is the only writer; that click is a blind toggle, so the script reads the saved `.plcproj` before,
+refuses a warning already in the requested state, and fails by name when the file read back after Save All
+disagrees; the checkbox offset is measured at 125% scaling only; `tc-project-settings.log`, DIALECT D37–D39, openspec `twincat-project-settings` 1.1).
 
 ## Running one
 
