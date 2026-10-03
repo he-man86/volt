@@ -338,3 +338,12 @@ listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted a
       see above.)
 - [ ] 8.3 Gate (`Volt.Repo.Gates`, beside V.4): every client-visible code appears in the 8.1 table; a code added
       later without a live row fails the gate.
+- [ ] 8.4 Close the vendor gaps behind the wire (owner, 2026-10-03: "both should behave identically behind the wire").
+      8.1's "except where DIALECT names the difference" is NOT an escape hatch: every row where CODESYS and TwinCAT
+      answer differently (code, message shape, state after) is a defect to fix in the driver below the seam, so the
+      wire answer is identical. Only an IRREDUCIBLE vendor fact may remain (e.g. TwinCAT C2i: opening a broken POU's
+      tree item crashes XAE) — then the wire still gives the same code and shape on both vendors as far as the fact
+      allows, and DIALECT names why it cannot be unified, with the live evidence. (This is about wire BEHAVIOUR; the
+      load-bearing representation asymmetries below the seam in DIALECT.md stay as they are.) Each closed gap gets
+      its row in 8.1 asserting byte-identical answers. Known candidate: a broken-text POU — CODESYS `X.pou`, TwinCAT
+      `unreadable` + `--force` (5.H / C2i): find the closest identical wire answer the crash guard allows.
