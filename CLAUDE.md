@@ -174,4 +174,3 @@ a new source kind can't be added in one place and silently missed in another.
 > they tested. **There is no third-party contract left to track** — that is the point of the removal, not a gap
 > in coverage. Full script map: `scripts/README.md`.
 
-Adding another vendor LSP: `packages/volt-lsp-iec/README.md` → "Adding another vendor LSP".
