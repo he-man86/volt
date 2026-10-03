@@ -132,7 +132,30 @@ def _native_probe():
         if os.path.exists(request):
             os.remove(request)                   # a request left by a previous IDE with this pid answers nothing
 
+        quit_req = os.path.join(folder, "quit")
+        if os.path.exists(quit_req):
+            os.remove(quit_req)
+
+        # `ide.ps1 down` (and `up`, reaping what an instance left) asks for a CLEAN close through this same folder:
+        # close the project WITHOUT saving - it is a throwaway fixture copy - and answer `quit.done`; ide.ps1 then
+        # closes the main window, which with no project open is CODESYS's normal exit and asks nothing. A forced kill
+        # is what it does only when this goes unanswered.
+        def quit_tick():
+            os.remove(quit_req)
+            try:
+                if projects.primary is not None:
+                    projects.primary.close()
+                open(os.path.join(folder, "quit.done"), "w").close()
+                _log("quit requested - project closed without saving")
+            except Exception as e:
+                with open(os.path.join(folder, "quit.error"), "w") as f:
+                    f.write(str(e))
+                _log("quit: %s" % str(e))
+
         def tick(sender, args):
+            if os.path.exists(quit_req):
+                quit_tick()
+                return
             if not os.path.exists(request):
                 return
             rid = None

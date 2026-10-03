@@ -20,7 +20,9 @@
               silently depend on a tray app being up.
 
   Everything around that step — build first so the bridge is never stale, track what we launched, wait for the
-  pipe, print its NAME, tear down — is identical, and is now written once.
+  pipe, print its NAME, tear down — is identical, and is now written once. Tear-down goes through the IDE's own
+  shutdown before any force, and `up` first reaps what its instance left (see "leftovers" below): an unclean exit
+  otherwise leaves TcXaeShell's "Recovered Files" dialog for the next start, and a modal dialog blocks every COM call.
 
 .PARAMETER Action  up (default) | down | pipe | logs
 .PARAMETER Vendor  codesys | twincat
@@ -146,8 +148,9 @@ function Test-Ours([int]$procId, $records) {
     return $false
 }
 
-# MERGE with what is already recorded, never overwrite: `up -Fixture 13` then `up -Fixture 14` used to replace
-# the file, so `down` closed only the second and left the first running. A record is kept after its process exits:
+# MERGE with what is already recorded, never overwrite: one `up` writes the file several times (each XAE, then each
+# worker once it attaches), and replacing it left `down` closing only the last. (A second `up` on the same
+# -Instance now closes the first one's processes and starts a fresh file — see the `up` verb.) A record is kept after its process exits:
 # a launched process can be gone by `down` while the IDE it started is still up, and it is the parent that names
 # that IDE as ours. A stale record cannot name a stranger — its start time no longer matches anything.
 # `@(...)` on both sides is load-bearing: Get-Content returns a SCALAR for a one-line file, and `$a + $b` then
@@ -220,6 +223,185 @@ function Wait-ForPipe([string]$vendor, [int[]]$before) {
     throw "$vendor IDE launched but no NEW pipe of ours after 10 minutes - see: ide.ps1 logs -Vendor $vendor"
 }
 
+# ── leftovers: close cleanly, and clear what an unclean exit leaves behind ─────────────────────────────────
+#
+# AN UNCLEAN EXIT IS NOT FREE. `down` used to Stop-Process -Force everything, and a crash test kills the XAE on
+# purpose. TcXaeShell (Visual Studio 2017 underneath) then leaves its AutoRecover state behind, and the NEXT XAE that
+# starts shows a modal "recover files?" dialog — and a modal dialog blocks every COM call, so the worker attaches to
+# nothing and `up` reads as a slow or broken bridge. Worse, Windows' Restart Manager RELAUNCHES a crashed XAE with
+# `/restartManager /recoveryFile <dead pid>.dat`: a window nobody started, holding this instance's copy, that no record
+# names (measured 2026-10-03: XAE 41464 on volt-ide-twincat-e2e-verify, relaunched for dead 12248, still up after its
+# run had ended, and colliding by project name with another workflow's Project13).
+#
+# So: close through the IDE's own shutdown first (TwinCAT by DTE, CODESYS through the harness's runscript), force only
+# after a timeout, and before `up` opens anything, reap what this instance left and clear its recovery entries.
+
+# Where TcXaeShell keeps AutoRecover state (measured): one `<xae pid>.dat` + `<xae pid>.suodat` per XAE that had
+# unsaved changes at an autosave tick, removed on a clean exit. Keyed by PID, not path — the solution path is INSIDE
+# the file — so it is cleared by content: only entries naming this instance's copy, and never a live XAE's.
+$XAE_RECOVERY = Join-Path $env:APPDATA "Beckhoff\TcXaeShell\15.0_IsoShell\AutoRecoverDat"
+
+# The XAEs holding this instance's copy, by COMMAND LINE — how a Restart-Manager relaunch is found, since no record
+# names it. Exact per instance (Get-CopyRoot ends in a separator), so another instance's window is never matched.
+function Get-CopyHolders([string]$vendor) {
+    if ($vendor -ne "twincat") { return @() }   # CODESYS's command line carries no project path (it travels in env)
+    $root = Get-CopyRoot $vendor
+    @(Get-CimInstance Win32_Process -Filter "Name='TcXaeShell.exe'" -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+        ForEach-Object { [int]$_.ProcessId })
+}
+
+# Every running process of THIS instance, split into what to close and what is left alone. Ours: what Test-Ours
+# names (the record), what holds this instance's copy (Get-CopyHolders), and a TwinCAT worker attached to an XAE of
+# ours — including one whose XAE is gone, which serves PLC_DISCONNECTED forever and is the commonest leftover. A
+# worker spawned by an `up` that was itself killed before it wrote the worker down is found that way too.
+function Get-OurProcesses([string]$vendor) {
+    $records = @(Read-Records $pidFile)
+    $holders = @(Get-CopyHolders $vendor)
+    $candidates = @(Get-ServingPids $vendor) + @($records | ForEach-Object { $_.Pid }) + $holders
+    $workers = @()
+    if ($vendor -eq "twincat") {
+        $workers = @(Get-CimInstance Win32_Process -Filter "Name='VoltBridgeTwincat.exe'" -ErrorAction SilentlyContinue)
+        $candidates = @($workers | ForEach-Object { [int]$_.ProcessId }) + $candidates
+    }
+    $candidates = @($candidates | Select-Object -Unique | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
+    $ours = @($candidates | Where-Object { $holders -contains $_ -or (Test-Ours $_ $records) })
+    foreach ($w in $workers) {
+        $wid = [int]$w.ProcessId
+        if ($ours -contains $wid -or $candidates -notcontains $wid) { continue }
+        if ($w.CommandLine -notmatch '--xae-pid\s+(\d+)') { continue }
+        $xae = [int]$Matches[1]
+        $wTicks = $w.CreationDate.ToUniversalTime().Ticks
+        # Attached to an XAE we hold now, or to one the record names (the worker no older than that XAE, so a reused
+        # pid number is not mistaken for ours).
+        $mine = ($ours -contains $xae) -or @($records | Where-Object { $_.Pid -eq $xae -and ($null -eq $_.Ticks -or $_.Ticks -le $wTicks) }).Count -gt 0
+        if ($mine) { $ours += $wid }
+    }
+    [pscustomobject]@{ Ours = $ours; Others = @($candidates | Where-Object { $ours -notcontains $_ }) }
+}
+
+# The DTE close, run in a CHILD process: a modal dialog in the XAE blocks a COM call forever, and that must cost a
+# timeout, not hang ide.ps1. Close the solution WITHOUT saving (the copy is thrown away; saving would only write a
+# fixture copy nobody reads), then Quit — the exit path that removes the XAE's own AutoRecover entry.
+$XAE_CLOSE = @'
+$ErrorActionPreference = "Stop"
+Add-Type -TypeDefinition @"
+using System; using System.Runtime.InteropServices; using System.Runtime.InteropServices.ComTypes;
+public static class VoltRotClose {
+    [DllImport("ole32.dll")] static extern int GetRunningObjectTable(int r, out IRunningObjectTable t);
+    [DllImport("ole32.dll")] static extern int CreateBindCtx(int r, out IBindCtx c);
+    public static object Find(string suffix) {
+        IRunningObjectTable rot; GetRunningObjectTable(0, out rot); IEnumMoniker e; rot.EnumRunning(out e);
+        var m = new IMoniker[1];
+        while (e.Next(1, m, IntPtr.Zero) == 0) {
+            IBindCtx ctx; CreateBindCtx(0, out ctx); string name; m[0].GetDisplayName(ctx, null, out name);
+            if (name.EndsWith(suffix) && name.Contains("DTE")) { object o; rot.GetObject(m[0], out o); return o; }
+        }
+        return null;
+    }
+}
+"@
+$dte = [VoltRotClose]::Find(":__PID__")
+if ($null -eq $dte) { exit 2 }
+# A busy XAE REJECTS a call (RPC_E_CALL_REJECTED / RPC_E_SERVERCALL_RETRYLATER) rather than queueing it.
+function Retry([scriptblock]$b) {
+    for ($i = 0; ; $i++) {
+        try { return (& $b) } catch {
+            $hr = $_.Exception.HResult
+            if ($i -ge 40 -or ($hr -ne -2147418111 -and $hr -ne -2147417846)) { throw }
+            Start-Sleep -Milliseconds 500
+        }
+    }
+}
+Retry { $dte.SuppressUI = $true }
+Retry { $dte.Solution.Close($false) }
+Retry { $dte.Quit() }
+exit 0
+'@
+
+# CODESYS has no automation server to call from outside. The harness runscript (run_pipe_production.py) watches
+# %LOCALAPPDATA%\volt-bridge\codesys-native\<pid>\ already; a `quit` file there makes it close the project WITHOUT
+# saving and answer `quit.done`. With no project open, the main window's close is CODESYS's normal exit, no prompt.
+function Close-CodesysClean([System.Diagnostics.Process]$p, [int]$timeoutSec) {
+    $dir = Join-Path $work "codesys-native\$($p.Id)"
+    if (Test-Path $dir) {
+        Remove-Item (Join-Path $dir "quit.*") -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType File -Force (Join-Path $dir "quit") | Out-Null
+        $deadline = (Get-Date).AddSeconds([Math]::Min(30, $timeoutSec))
+        while ((Get-Date) -lt $deadline -and -not (Test-Path (Join-Path $dir "quit.*"))) { Start-Sleep -Milliseconds 300 }
+        $err = Join-Path $dir "quit.error"
+        if (Test-Path $err) { Write-Warning "CODESYS $($p.Id) could not close its project: $(Get-Content $err -Raw)" }
+        elseif (-not (Test-Path (Join-Path $dir "quit.done"))) { Write-Warning "CODESYS $($p.Id) did not answer the quit request (a modal dialog, or a runscript without the quit handler)" }
+    }
+    $p.Refresh()
+    if ($p.MainWindowHandle -ne [IntPtr]::Zero) { [void]$p.CloseMainWindow() }
+}
+
+# Close ONE process of ours: cleanly if it is an IDE, then wait, then force — the force is the last resort, and it is
+# reported, because it is exactly the exit that leaves recovery state behind.
+function Close-Ours([int]$procId, [int]$timeoutSec = 90) {
+    $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
+    if ($null -eq $p) { return }
+    $name = $p.ProcessName
+    $child = $null
+    if ($name -eq "TcXaeShell") {
+        $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($XAE_CLOSE.Replace("__PID__", "$procId")))
+        $child = Start-Process powershell -ArgumentList "-NoProfile", "-NonInteractive", "-EncodedCommand", $enc -WindowStyle Hidden -PassThru
+    } elseif ($name -eq "CODESYS") {
+        Close-CodesysClean $p $timeoutSec
+    }
+    # A worker has nothing to recover and nothing to save: it is not "closed cleanly", it is just stopped (below).
+    if ($name -eq "TcXaeShell" -or $name -eq "CODESYS") {
+        if ($p.WaitForExit($timeoutSec * 1000)) {
+            Write-Host "closed $name $procId cleanly"
+            if ($child -and -not $child.HasExited) { Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue }
+            return
+        }
+        if ($child -and -not $child.HasExited) { Stop-Process -Id $child.Id -Force -ErrorAction SilentlyContinue }
+        Write-Warning "$name $procId did not exit within $timeoutSec s of a clean close - forcing it (its recovery state is cleared on the next up)"
+    }
+    try { Stop-Process -Id $procId -Force -ErrorAction Stop; Write-Host "closed $name $procId" } catch {}
+}
+
+# Close every process of this instance: workers FIRST (each holds COM references into its XAE, and nothing of a worker
+# needs saving), then the IDEs. Returns the pids it closed.
+function Close-Instance([string]$vendor, [switch]$DryRun, [switch]$Quiet) {
+    $found = Get-OurProcesses $vendor
+    if (-not $Quiet) { foreach ($procId in $found.Others) { Write-Host "left pid $procId running — not started by this script" } }
+    if ($found.Ours.Count -eq 0) { Write-Host "nothing of ours to close for $vendor$(if ($Instance) { " (instance $Instance)" })"; return @() }
+    $ordered = @($found.Ours | Sort-Object { if ((Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -eq "VoltBridgeTwincat") { 0 } else { 1 } })
+    foreach ($procId in $ordered) {
+        if ($DryRun) { Write-Host "would close pid $procId ($((Get-Process -Id $procId -ErrorAction SilentlyContinue).ProcessName))"; continue }
+        Close-Ours $procId
+    }
+    return $ordered
+}
+
+# What an unclean exit left for THIS instance, once nothing of it runs: the XAE AutoRecover entries naming its copy
+# (any other entry — a live XAE's, another instance's, an engineer's own project — is left exactly as it is), and the
+# copy itself, which still carries the dead session's .vs/.suo, `.~u` project locks (TwinCAT and CODESYS alike) and
+# CODESYS's per-user .opt files. The copy is rebuilt from the committed fixture right after, so deleting it all is the
+# whole of "fresh"; a delete that fails means a process this script does not own holds it, and that is said loudly.
+function Clear-InstanceLeftovers([string]$vendor) {
+    $root = Get-CopyRoot $vendor
+    if ($vendor -eq "twincat" -and (Test-Path $XAE_RECOVERY)) {
+        foreach ($dat in @(Get-ChildItem $XAE_RECOVERY -Filter "*.dat" -File -ErrorAction SilentlyContinue)) {
+            $owner = $dat.BaseName
+            if ($owner -match '^\d+$' -and (Get-Process -Id ([int]$owner) -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -eq "TcXaeShell" })) { continue }
+            $bytes = [IO.File]::ReadAllBytes($dat.FullName)
+            $text = [Text.Encoding]::Unicode.GetString($bytes) + [Text.Encoding]::UTF8.GetString($bytes)
+            # WITH the separator: the default instance's `volt-ide-twincat` is a prefix of every other instance's copy.
+            if ($text.IndexOf($root, [StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
+            Remove-Item $dat.FullName, (Join-Path $XAE_RECOVERY "$owner.suodat") -Force -ErrorAction SilentlyContinue
+            Write-Host "cleared XAE recovery entry $($dat.Name) (it named this instance's copy)"
+        }
+    }
+    if (-not $InPlace -and (Test-Path $root)) {
+        try { Remove-Item $root -Recurse -Force -ErrorAction Stop }
+        catch { throw "could not clear this instance's copy $root - a process this script did not start holds it: $($_.Exception.Message)" }
+    }
+}
+
 # ── serve a COPY ───────────────────────────────────────────────────────────────────────────────────────────
 
 <#
@@ -227,12 +409,17 @@ function Wait-ForPipe([string]$vendor, [int[]]$before) {
 .DESCRIPTION A CODESYS project is one file; a TwinCAT solution is a tree, so the whole folder travels. The copy
 is refreshed on every `up`, so it is the committed fixture every time — a stale scratch tree is its own bug.
 #>
+# PER INSTANCE. `-Instance` exists so several can run at once, and a work dir keyed on the vendor alone means
+# the second `up` deletes the solution tree the first one's IDE has OPEN (a partial delete, then a copy into
+# the wreckage) — or overwrites the .project file it is holding. The pipe is already per-pid; so is this.
+# Returned WITH its trailing separator, so `volt-ide-twincat\` never matches inside `volt-ide-twincat-e2e\`.
+function Get-CopyRoot([string]$vendor) {
+    (Join-Path ([System.IO.Path]::GetTempPath()) "volt-ide-$vendor$sfx") + "\"
+}
+
 function Copy-FixtureOut([string]$path, [string]$vendor) {
     if ($InPlace) { return $path }
-    # PER INSTANCE. `-Instance` exists so several can run at once, and a work dir keyed on the vendor alone means
-    # the second `up` deletes the solution tree the first one's IDE has OPEN (a partial delete, then a copy into
-    # the wreckage) — or overwrites the .project file it is holding. The pipe is already per-pid; so is this.
-    $work = Join-Path ([System.IO.Path]::GetTempPath()) ("volt-ide-$vendor" + $(if ($Instance) { "-$Instance" } else { "" }))
+    $work = (Get-CopyRoot $vendor).TrimEnd('\')
     if ($path -like "*.sln") {
         # `<fixtures>\<name>\<name>.sln`: the solution FOLDER is the unit that travels, PLC projects and all.
         $srcDir = Split-Path -Parent $path
@@ -386,29 +573,16 @@ switch ($Action) {
         Get-Content $log -Tail 40 -ErrorAction SilentlyContinue
     }
     "down" {
-        # Close what THIS `up` started (per -Vendor and -Instance) and nothing else. Candidates are what is serving,
-        # what is recorded, and (TwinCAT) every bridge worker; one is closed only if the record names it or its
-        # parent (Test-Ours). Serving pids are candidates because CODESYS can re-exec, so the IDE that serves may not
-        # be the pid `up` launched — it is found through its recorded parent.
+        # Close what THIS `up` started (per -Vendor and -Instance) and nothing else — see Get-OurProcesses for what
+        # "ours" is. Serving pids are candidates because CODESYS can re-exec, so the IDE that serves may not be the pid
+        # `up` launched — it is found through its recorded parent.
         #
         # This used to close every serving IDE on the machine (on 2026-09-26 an engineer's own TcXaeShell and the
         # production bridge serving it), and then anything run from this repo or a `volt-ide-*` copy — which is
         # every IDE ANOTHER session or workflow started here. A process this `up` did not record is left running.
-        $records = @(Read-Records $pidFile)
-        $candidates = @(Get-ServingPids $Vendor) + @($records | ForEach-Object { $_.Pid })
-        if ($Vendor -eq "twincat") {
-            $candidates = @(Get-Process VoltBridgeTwincat -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }) + $candidates
-        }
-        $candidates = @($candidates | Select-Object -Unique | Where-Object { Get-Process -Id $_ -ErrorAction SilentlyContinue })
-        $targets = @($candidates | Where-Object { Test-Ours $_ $records })
-        foreach ($procId in @($candidates | Where-Object { $targets -notcontains $_ })) {
-            Write-Host "left pid $procId running — not started by this script"
-        }
-        if ($targets.Count -eq 0) { Write-Host "nothing of ours to close for $Vendor" }
-        foreach ($procId in $targets) {
-            if ($DryRun) { Write-Host "would close pid $procId"; continue }
-            try { Stop-Process -Id $procId -Force -ErrorAction Stop; Write-Host "closed pid $procId" } catch {}
-        }
+        # And it used to close by Stop-Process -Force, which left the XAE's recovery dialog for the next start; an IDE
+        # is now closed through its own shutdown first (Close-Ours).
+        [void](Close-Instance $Vendor -DryRun:$DryRun)
         if (-not $DryRun) { Remove-Item $pidFile -Force -ErrorAction SilentlyContinue }
     }
     "up" {
@@ -419,6 +593,13 @@ switch ($Action) {
         # than left alone, because a shell that set it once would otherwise hand it on and the check would prove nothing.
         if ($Production) { Remove-Item Env:VOLT_GRAPHICAL -ErrorAction SilentlyContinue }
         else { $env:VOLT_GRAPHICAL = "1" }
+        # FIRST what this instance left last time: an IDE or worker still running (closed as `down` closes it), a worker
+        # whose XAE is gone, the XAE recovery entries naming this copy, and the copy itself. Without this, the IDE about
+        # to open shows a modal recovery dialog and the worker attaches to nothing. One `up` owns its instance: a second
+        # `up` on the same -Instance replaces the first (use `-Fixture both`, or a second -Instance, for two windows).
+        [void](Close-Instance $Vendor -Quiet)
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        Clear-InstanceLeftovers $Vendor
         $before = Get-ServingPids $Vendor
         if ($Vendor -eq "codesys") { Up-Codesys } else { Up-Twincat }
         Write-Host "Tail the launcher log with: ide.ps1 logs -Vendor $Vendor"
