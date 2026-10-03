@@ -12,9 +12,17 @@ The bridge SHALL answer a directed fetch that names a `.library` item with that 
 - **WHEN** the same directed read is made on TwinCAT
 - **THEN** the answer carries that library's signatures from TwinCAT's own library manager, in the same item shape
 
-#### Scenario: the extraction is paid once per resolution
+#### Scenario: a wildcard reference returns its library's signatures
+- **WHEN** a client fetches a `.library` whose RESOLUTION is a wildcard (`CmpEventMgr Interfaces, * (System)`)
+- **THEN** the answer carries the signatures of the library that reference resolves to, in the same folder a full fetch writes them, and a full fetch no longer folders them under `(unresolved)`
+
+#### Scenario: a library with no matched signature is named
+- **WHEN** a directed read names a library to which no extracted signature could be attributed
+- **THEN** the bridge names that library in a warning instead of answering the manifest alone in silence
+
+#### Scenario: a second read is warm
 - **WHEN** a client reads two libraries one after the other with no library change between
-- **THEN** the second read does not run a new extraction for a resolution already extracted in the session
+- **THEN** the second read costs a warm extraction (no cold precompile), without a session cache in the bridge
 
 ### Requirement: every readable extension is readable by a directed fetch
 

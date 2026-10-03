@@ -148,8 +148,9 @@ public abstract class DriverBase : IIdeSession
 
     /// <summary>Precompile + read the referenced-library signatures. FetchService calls this ONLY when a referenced
     /// library's `.library` version changed (the client sends the versions it has in knownItems; the `.library` files
-    /// are hashed like any other file), so the precompile runs only on a real library change. Default empty
-    /// (TwinCAT has no library signatures yet).</summary>
+    /// are hashed like any other file), so the precompile runs only on a real library change. Both vendors override
+    /// it (CODESYS `AllPrecompiledSignatures`, TwinCAT `ProduceAllLibrarySignatures` in `TcObjectModel`); only test
+    /// doubles inherit the empty default.</summary>
     public virtual IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures() =>
         Array.Empty<Library.LibSignature>();
 

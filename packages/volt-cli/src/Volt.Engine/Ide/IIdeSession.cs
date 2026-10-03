@@ -103,7 +103,7 @@ public interface IIdeSession
 
     // ── library signatures ──
     /// <summary>Extract every referenced-library element's SIGNATURE (declaration only, no body) from the
-    /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT returns none for
-    /// now (no equivalent surface yet).</summary>
+    /// resolved language model (builds first). CODESYS reflects the compile context; TwinCAT parses its library
+    /// manager's `ProduceAllLibrarySignatures()`.</summary>
     IReadOnlyList<Library.LibSignature> ExtractLibrarySignatures();
 }

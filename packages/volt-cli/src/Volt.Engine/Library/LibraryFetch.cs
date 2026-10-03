@@ -25,7 +25,7 @@ internal static class LibraryFetch
     /// the full public API of every used library is materialized so the AI/LSP can resolve into any of it. The
     /// library is matched to its `.library` ref by RESOLUTION; an unmatched lib falls back to the shared Library
     /// Manager folder. Takes the signatures <c>Handle</c> already extracted up front (so their count folds into the
-    /// one progress total); renders them, ticking the shared bar. TwinCAT returns none. The version is a content
+    /// one progress total); renders them, ticking the shared bar. Both vendors supply them (TwinCAT via `ProduceAllLibrarySignatures`). The version is a content
     /// hash — read-only, never a push target.</summary>
     /// <returns>(renderNull, unmatched): how many element signatures couldn't be rendered, and how many
     /// were foldered under `(unresolved)` because their owning library matched no `.library` ref.</returns>
