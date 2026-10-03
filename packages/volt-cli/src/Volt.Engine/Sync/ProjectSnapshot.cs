@@ -44,6 +44,14 @@ internal sealed class ProjectSnapshot
     /// <summary>Full name → folder path.</summary>
     public Dictionary<string, string> Folders { get; } = new();
 
+    /// <summary>Full name → the item's materialized text, for the items the caller asked to keep
+    /// (<c>keepText</c>) and nothing else — the push answer's <c>newSources</c> (openspec
+    /// <c>st-roundtrip-fixed-point</c>). It is the SAME materialization <see cref="FullVersions"/>' version hashes and
+    /// the one <c>fetch</c> renders (<c>Versioning.SafeVersion</c> → <c>StWriter</c>), so text and version cannot
+    /// disagree, and no item is read a second time. An item that did not materialize has no entry here, as it has none
+    /// in <see cref="FullVersions"/>.</summary>
+    public Dictionary<string, string> Texts { get; } = new(StringComparer.Ordinal);
+
     public int Unmapped { get; private set; }
 
     /// <summary>Items the walk found but could not materialize, BY NAME. A count was enough for a log line; the
@@ -72,8 +80,11 @@ internal sealed class ProjectSnapshot
         ItemKind.Map(kindCode) != null && !ItemKind.IsContainerManager(kindCode);
 
     /// <summary>Walk every tracked item once, applying the <c>refs</c> gates. <paramref name="operation"/>
-    /// labels the streamed progress frames + skip logs (e.g. "refs").</summary>
-    public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs)
+    /// labels the streamed progress frames + skip logs (e.g. "refs"). <paramref name="keepText"/> is asked, for each
+    /// materialized item, with its full wire name and the version this walk computed, whether <see cref="Texts"/> keeps
+    /// its text; null keeps none.</summary>
+    public static ProjectSnapshot Walk(IIdeDriver ide, Action<ProgressFrame>? onProgress = null, string operation = Ops.Refs,
+                                       Func<string, string, bool>? keepText = null)
     {
         var snap = new ProjectSnapshot();
         // COMPLETENESS TRAVELS WITH THE ITEMS. This used to take `.Items` and drop the rest one line after the
@@ -107,7 +118,12 @@ internal sealed class ProjectSnapshot
             var folder = Versioning.FolderOf(kind, it.Folder, it.Name);
             var v = Versioning.SafeVersion(ide, it.Name, kind, it.Item, it.Folder);
             snap.Versions[v.Identity] = v.Version;
-            if (v.Materialized is { } mat) { snap.FullVersions[mat.FullName] = v.Version; snap.Folders[mat.FullName] = folder; }
+            if (v.Materialized is { } mat)
+            {
+                snap.FullVersions[mat.FullName] = v.Version;
+                snap.Folders[mat.FullName] = folder;
+                if (keepText is not null && keepText(mat.FullName, v.Version)) snap.Texts[mat.FullName] = mat.Text;
+            }
             else { snap.Unreadable.Add(it.Name); Removal.AddUnreadable(snap.UnreadableKinds, it.Name, kind); }
         }
         // Objects the walk saw and could not even classify: in the hash (they exist) and named unreadable — by the

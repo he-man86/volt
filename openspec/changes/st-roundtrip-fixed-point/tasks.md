@@ -60,7 +60,32 @@
 
 ## 3. Build
 
-- [ ] 3.1 The chosen route; regenerated docs.
+- [x] 3.1 (2026-10-04: route A as design.md step 2 — `ProjectSnapshot.Walk(keepTextOf:)` keeps `Texts` (full name →
+      the walk's own materialized text) for the names asked and no others; `PushService` asks, only when
+      `returnSources == true`, for each LANDED `set` op's `toName ?? name` (case-insensitive, keyed by the IDE's
+      spelling) and answers them as `newSources` on the accepted and the partial result. Zero extra IDE reads; text and
+      `newItems` version from one materialization; engine-only, so both vendors identical. Docs: no field doc changed,
+      `DocDataTests` green without regeneration (the contract docs landed in step 2). Numbers: PushReturnsSourcesTests
+      18/18 (15 red → green), PushThenFetchShapeTests 3/3; Engine 2215 pass / 0 fail / 1 skip (2216), Cli 260,
+      Contracts 39, Twincat 428, Codesys 297; `bun run check` 18/18.) The chosen route; regenerated docs.
+- [x] 3.2 (gate 3, 2026-10-04) Review findings on step 3 — both taken, each red first:
+      - `newSources` covered only landed `set` names, so the callers a native rename rewrote (new `newItems` version, no
+        op names them) had no entry — a client re-reading only pushed names would adopt the caller's new version over
+        its pre-rename text and push the old name back. FIXED in the spec's words ("each item the push changed"): the
+        receipt walk also keeps every item whose version differs from the pre-apply walk's (`ProjectSnapshot.Walk`
+        takes a `keepText(name, version)` predicate), except an item a conflict names (`name`, `renamedTo`) — re-read;
+        the pre-apply walk now materializes under `--force` when `returnSources` is set (only a pre-apply version says
+        what changed). Tests (2 red on the value — "newSources has no entry for 'PLC_PRG.pou'" — premises green):
+        a rename answers the caller it rewrote (and nothing else); a refused rename+edit that stays renamed, on the
+        partial path, answers the rewritten caller and not `Y.pou`/`X.pou`. design.md "Gate 3" + `NewSources`/
+        `ReturnSources` docs say "every item the push changed".
+      - the IDE-spelling key was untested/undocumented — `NewSources` doc now states it (an op named in another case is
+        answered under the IDE's case, the `newItems` key); pinned by a test (`fb_motor.pou` → `FB_Motor.pou`, green
+        on the step-3 build — the behaviour was right, only unpinned).
+      Numbers: PushReturnsSourcesTests 21/21 (18 → 21); Engine 2218 pass / 0 fail / 1 skip (2219), Cli 260, Connector
+      115, Twincat 428, Codesys 297, Contracts 39, Repo.Gates 108 (all 0 fail); volt-cli `test/unit` 24/24; typecheck
+      clean; `bun run check` 18/18. `DocDataTests` green, `VOLT_WRITE_DOCS=1` produced no diff (field summaries are not
+      in the generated docs). No LSP/fixture/transpiler change, so no fixture-map regeneration.
 
 ## 4. Verify
 

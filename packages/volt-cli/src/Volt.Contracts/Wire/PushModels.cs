@@ -22,7 +22,7 @@ public class PushRequest : BoundRequest
     public bool Force { get; set; }
 
     /// <summary>Opt-in: <c>true</c> asks an ACCEPTED push to answer <see cref="PushResponse.NewSources"/> — the stored
-    /// text of every item a landed <c>set</c> op left in the project, exactly as a fetch returns it (openspec
+    /// text of every item the push changed, exactly as a fetch returns it (openspec
     /// <c>st-roundtrip-fixed-point</c>, route A). A client that patches its own text then holds what a read would give
     /// (volt's canonical form: one blank line before the END line, members METHOD, ACTION, PROPERTY then by name) without
     /// a second call. Absent or <c>false</c>: the answer is unchanged. Additive: an older bridge ignores it and answers
@@ -194,9 +194,11 @@ public class PushResponse
     public string? CurrentProjectVersion { get; set; }
 
     /// <summary>Only when the request set <see cref="PushRequest.ReturnSources"/> and the push was ACCEPTED: full wire
-    /// name (<c>name.kind</c>, the <see cref="NewItems"/> key — a renamed item under its NEW name) → that item's stored
-    /// text exactly as a fetch returns it, for every item a landed <c>set</c> op left in the project. The text is the
-    /// receipt walk's own materialization, so it is the text <see cref="NewItems"/>' version hashes.
+    /// name (<c>name.kind</c>, the <see cref="NewItems"/> key, in the IDE's spelling — a renamed item under its NEW name,
+    /// an op named in another case under the IDE's case) → that item's stored text exactly as a fetch returns it, for
+    /// every item the push changed: each item a landed <c>set</c> op left in the project, and each item whose version the
+    /// push changed though no op names it (the call sites a native rename rewrote). The text is the receipt walk's own
+    /// materialization, so it is the text <see cref="NewItems"/>' version hashes.
     ///
     /// <para>No entry, by name, for: a <c>delete</c>; an op in <see cref="Conflicts"/> (refused or
     /// <c>NOT_ATTEMPTED</c> — a <c>partiallyApplied</c> one is re-read); a changed item the receipt could not

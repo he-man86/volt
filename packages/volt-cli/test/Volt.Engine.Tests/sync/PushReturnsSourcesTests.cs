@@ -13,7 +13,8 @@ namespace Volt.Engine.Tests;
 /// blank line before the END line, members METHOD, ACTION, PROPERTY then by name — <c>PushThenFetchShapeTests</c>), not
 /// the pushed shape. Route (B), keeping the pushed shape, breaks stable workspace diffs and is not built. Route (A): with
 /// <c>returnSources: true</c> an accepted push answers <c>newSources</c>, full wire name → the stored text exactly as a
-/// fetch returns it, for every item a landed <c>set</c> left in the project.</para>
+/// fetch returns it, for every item the push changed — each item a landed <c>set</c> left in the project, and each item
+/// whose version it changed though no op names it (the callers a native rename rewrote).</para>
 ///
 /// <para>Every expected text here is a FETCH on the same FakeIde, never <c>PushThenFetchShapeTests.Canonical</c> — the
 /// oracle is what a read gives, whatever the writer's form is.</para>
@@ -191,6 +192,88 @@ public class PushReturnsSourcesTests
         HoldsWhatAFetchGives(ide, push, "F_New.pou");
         Assert.Contains("FUNCTION F_New", push.NewSources!["F_New.pou"]);
         Assert.Contains("F_New := TRUE;", push.NewSources["F_New.pou"]);
+    }
+
+    /// <summary>A NATIVE RENAME REWRITES THE CALL SITES in items no op names (gate 3 review): those items changed —
+    /// <c>newItems</c> carries their new version — so the answer carries their text too. Without it a client holding the
+    /// caller's pre-rename text adopts its new version as baseline, and its next patch-and-push of that caller passes the
+    /// <c>ifVersion</c> gate and writes the OLD name back over the rename.</summary>
+    [Fact]
+    public void A_rename_answers_the_callers_it_rewrote()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", ";"),
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\tfb : FB_A;\nEND_VAR", "fb();"),
+            FakeIde.Item.TextualPou("P_Other", "PROGRAM P_Other\nVAR\nEND_VAR", ";"))
+        { RewritesReferencesOnRename = true };
+        var refs = RefsService.Handle(ide);
+
+        var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", ToName = "FB_B.pou", IfVersion = refs.Items["FB_A.pou"] });
+
+        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.NotEqual(refs.Items["PLC_PRG.pou"], push.NewItems!["PLC_PRG.pou"]);          // premise: the caller changed
+        Assert.Contains("fb : FB_B;", Fetch(ide, "PLC_PRG.pou").SourceText);               // premise: rewritten
+        HoldsWhatAFetchGives(ide, push, "FB_B.pou");
+        HoldsWhatAFetchGives(ide, push, "PLC_PRG.pou");
+        Assert.Equal(new[] { "FB_B.pou", "PLC_PRG.pou" }, push.NewSources!.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
+    }
+
+    /// <summary>The same on a push accepted IN PART: a rename+edit refused after its native rename ran "stays renamed"
+    /// and rewrote the callers. The refused item itself is re-read (it is in <c>conflicts</c>, under <c>renamedTo</c>);
+    /// the callers it rewrote are answered.</summary>
+    [Fact]
+    public void A_refused_rename_that_stays_renamed_answers_the_callers_it_rewrote()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", ";"),
+            FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\tfb : X;\nEND_VAR", "fb();"))
+        {
+            RewritesReferencesOnRename = true,
+            FailCreate = (name, kind) => kind == Volt.Engine.Item.ItemKind.PlcMethod
+                ? new Volt.Engine.Ide.ChildRefusedException($"The name '{name}' is not valid for this object.", Volt.Engine.Ide.ChildRefusalCause.Name)
+                : null,
+        };
+        var refs = RefsService.Handle(ide);
+
+        var push = Push(ide, true,
+            Create("ST_Drive.dut", Struct),
+            new SetItemOp
+            {
+                Name = "X.pou", ToName = "Y.pou", IfVersion = refs.Items["X.pou"],
+                SourceText = "FUNCTION_BLOCK Y\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
+                             "\n\nMETHOD M : BOOL\nIMPLEMENTATION ST\nM := TRUE;\nEND_METHOD\n",
+            });
+
+        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        var c = Assert.Single(push.Conflicts!);
+        Assert.Equal("Y.pou", c.RenamedTo);                                                   // premise: stays renamed
+        Assert.Contains("fb : Y;", Fetch(ide, "PLC_PRG.pou").SourceText);                     // premise: caller rewritten
+        HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
+        HoldsWhatAFetchGives(ide, push, "PLC_PRG.pou");
+        Assert.False(push.NewSources!.ContainsKey("Y.pou"));
+        Assert.False(push.NewSources.ContainsKey("X.pou"));
+    }
+
+    /// <summary>THE KEY IS THE IDE'S SPELLING (gate 3 review): the IDE resolves an op's name case-insensitively, so an
+    /// update named <c>fb_motor.pou</c> lands on <c>FB_Motor</c>, and the answer is keyed <c>FB_Motor.pou</c> — the
+    /// <c>newItems</c> key — not the op's spelling.</summary>
+    [Fact]
+    public void An_update_named_in_another_case_is_answered_under_the_IDEs_spelling()
+    {
+        var ide = new FakeIde();
+        Push(ide, null, Create("FB_Motor.pou", W1));
+        var version = RefsService.Handle(ide).Items["FB_Motor.pou"];
+
+        var push = Push(ide, true, new SetItemOp
+        {
+            Name = "fb_motor.pou", IfVersion = version,
+            SourceText = W1.Replace("xRunning := FALSE;", "xRunning := NOT xEnable;"),
+        });
+
+        Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
+        HoldsWhatAFetchGives(ide, push, "FB_Motor.pou");
+        Assert.False(push.NewSources!.ContainsKey("fb_motor.pou"));
+        Assert.Contains("FB_Motor.pou", push.NewItems!.Keys);
     }
 
     /// <summary>A MOVE-ONLY op (no <c>SourceText</c>) is a landed <c>set</c> too: it has an entry.</summary>

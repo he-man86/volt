@@ -50,7 +50,9 @@ public static class PushService
         // caller quoted one. A plain `push --force` therefore paid for materializing every item in the project
         // to build two maps that nothing then looked at. The item CACHE is still needed either way: it is what
         // the apply boundary resolves each op against, and it comes from the walk, not from the read.
-        var needVersions = !request.Force || request.ExpectedProjectVersion != null;
+        // `returnSources` reads them too: the answer carries every item whose version the push CHANGED, which only a
+        // pre-apply version can tell.
+        var needVersions = !request.Force || request.ExpectedProjectVersion != null || request.ReturnSources == true;
         var currentVersions = new Dictionary<string, string>();
         var gatedVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
@@ -317,7 +319,28 @@ public static class PushService
         // pre-apply versions. A native rename rewrites the bodies of referencing items that are NOT in the op
         // set, so reusing their pre-apply versions would report a stale baseline; the client persists this
         // receipt as its IDE baseline with no follow-up /refs, so it must match /refs exactly.
-        var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt");
+        //
+        // WITH `returnSources` THE SAME WALK KEEPS THE TEXT of every item the push CHANGED (openspec
+        // `st-roundtrip-fixed-point`, route A): each item a LANDED `set` left (under the name it landed as — `toName`
+        // for a rename — matched as the IDE matches a name, keyed by the IDE's spelling), AND each item whose version
+        // differs from the pre-apply walk's — the callers a native rename rewrote, which no op names (gate 3 review: a
+        // client never told their text changed adopts their new version over the old text, and its next push of one
+        // writes the old name back over the rename). An item named by a conflict (`name`, `renamedTo`) is re-read by
+        // the client, never answered. The walk already materialized each item to hash its version, through the same
+        // StWriter a fetch renders with — so the answer is what a read gives, its version the `newItems` one, and no
+        // item is read twice. A delete leaves nothing, and an item the walk could not materialize is kept by no one.
+        Func<string, string, bool>? keepText = null;
+        if (request.ReturnSources == true)
+        {
+            var landed = LandedSetNames(appliedOps);
+            var refused = new HashSet<string>(
+                (notLanded ?? new List<PushConflict>()).SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(),
+                StringComparer.OrdinalIgnoreCase);
+            keepText = (name, version) => !refused.Contains(name)
+                && (landed.Contains(name) || !currentVersions.TryGetValue(name, out var before) || before != version);
+        }
+        var receipt = ProjectSnapshot.Walk(ide, operation: "push-receipt", keepText: keepText);
+        var newSources = keepText is null ? null : receipt.Texts;
 
         // The receipt walk can be SHORT for the same reasons a read walk can, and the client rebuilds its
         // baseline from it — so it has to be told, exactly as `refs`/`fetch` tell it.
@@ -325,13 +348,23 @@ public static class PushService
         {
             VoltLog.Info($"push {ops.Count} ops — accepted IN PART [{FormatApplied(applied)}], not landed: " +
                          $"{string.Join(", ", notLanded.Select(c => $"{c.Name} {c.Code}"))} ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-            return PushResponse.PartialResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
-                                              receipt.UnwalkedFolders, notLanded);
+            var partial = PushResponse.PartialResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
+                                                     receipt.UnwalkedFolders, notLanded);
+            partial.NewSources = newSources;
+            return partial;
         }
         VoltLog.Info($"push {ops.Count} ops — accepted [{FormatApplied(applied)}] ({receipt.FullVersions.Count} items) ({sw.ElapsedMilliseconds}ms)");
-        return PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
-                                           receipt.UnwalkedFolders);
+        var accepted = PushResponse.AcceptedResult(receipt.ProjectVersion, receipt.FullVersions, receipt.Folders,
+                                                   receipt.UnwalkedFolders);
+        accepted.NewSources = newSources;
+        return accepted;
     }
+
+    /// <summary>The wire name each LANDED <c>set</c> op left its item under — <c>toName</c> for a rename, else
+    /// <c>name</c> — case-insensitive, because the IDE resolves a name that way and the receipt keys it by the IDE's own
+    /// spelling.</summary>
+    private static HashSet<string> LandedSetNames(IEnumerable<PushOp> appliedOps) =>
+        new(appliedOps.OfType<SetItemOp>().Select(set => set.ToName ?? set.Name), StringComparer.OrdinalIgnoreCase);
 
 
     /// <summary>What a refused op left behind of ITSELF, recorded by the write path as it happens — so the conflict is
