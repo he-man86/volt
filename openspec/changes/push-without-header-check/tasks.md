@@ -796,8 +796,35 @@ broken POU) is superseded and NOT committed; its WIP + evidence (C2j: CODESYS's 
       3825 / 4259.
 
 ### 5.G Verify
-- [ ] 5.G.1 Live on both vendors (fixture copies, `ide.ps1 -Instance push5`): every 5.A.1 shape incl. the broken-text
+- [x] 5.G.1 Live on both vendors (fixture copies, `ide.ps1 -Instance push5`): every 5.A.1 shape incl. the broken-text
       ones — push as sent, pull, push the fixed text, pull: every DUT is `name.dut` and every POU `name.pou` throughout (a PROGRAM rewritten as a FUNCTION_BLOCK
       in place is a content change, its END line follows),
       a subtype change (struct → enum in place) is an ordinary content change, the TwinCAT broken-POU case survives (5.H).
+      DONE (2026-10-03), in a scratch worktree of HEAD (`a313c74b38`; the tree held another workflow's uncommitted LSP
+      work), own IDEs `ide.ps1 -Instance push5` on fixture copies (CODESYS `CodesysTestProject`, TwinCAT Project14),
+      bridges built from the worktree. New e2e `test/e2e/items/kind-name-cycle.test.ts`, through the real `volt` CLI
+      (`init` / `push` / `pull`): every 5.A.1 shape — struct, struct EXTENDS, enum with base type `DINT` and
+      `qualified_only` + `strict`, union, the six alias shapes (DWORD, STRING(40), ARRAY, POINTER TO, REFERENCE TO,
+      subrange), PRG / FB / FUN, interface, GVL — each first BROKEN (unclosed `(*`, `TYPE X : END_TYPE`, missing
+      END_TYPE, empty, prose, a body that does not parse), then `volt push` -> `volt pull` -> push of the fixed text ->
+      pull -> the fixed texts BUILD with every shape referenced from the main program (0 errors) -> struct -> enum and
+      PROGRAM -> FUNCTION_BLOCK in place -> push -> pull. After every pull the workspace holds exactly `X.dut` for the
+      10 DUTs, `X.pou` for the 3 POUs, `X.itf`, `X.gvl` (no rename, no second file), and the IDE holds the text sent;
+      the rewritten PROGRAM's file ends `END_FUNCTION_BLOCK`. CODESYS 4/4 (111 expects), TwinCAT 4/4 (112): on TwinCAT
+      the two unclosed-comment POUs are `unreadable` after the broken push (C2i caption guard), the pull keeps their
+      files, a plain push of the fixed texts is REJECTED naming both before anything lands, `--force` repairs them.
+      Not here by design: the CODESYS text-list enum (a class a push cannot create; `CodesysTextListEnumTests`).
+      5.H across a RELOAD (scratch probe, not committed): two unclosed-comment POUs + `TYPE X : END_TYPE` pushed,
+      saved, XAE closed, the saved copy reopened (`ide.ps1 up -Fixture <copy>.sln`): `refs` 824 ms, both POUs in
+      `unreadable`, the DUT walked as `X.dut`, 0 unwalked folders, XAE alive (same pid, no Application-1000 event);
+      unforced fix refused `UNREADABLE` by name, forced fix -> `X.pou` ×2 + `X.dut` (now an enum), fetched as sent.
+      5Qa's open item (TwinCAT FUNCTION text in a 604, design 5.Qa Migration 1): re-recorded in ONE batch on the final
+      code, `RECORD_ONLY=` the 38 `function` + 195 `program` fixtures (TwinCAT, `record:language`): 182 diagnostics
+      identical to the committed recording (`durationMs` excluded), 0 differ, 51 never recorded on TwinCAT before (not
+      merged, as in 5Qa), 1 refused — `network_unnamed_target_of_void_call`, the known C2m seed lag (`vendorRefuses.
+      twincat`, 5.Q.9). 184 of the 233 build with no error; the 49 with errors are fixtures about an error (34 committed
+      rows, unchanged, + 15 of the new); nothing committed (the recording file was restored). e2e, full suites (`VOLT_PIPE` /
+      `VOLT_PIPE_<VENDOR>` pinned to the push5 pipes): CODESYS 244 pass / 24 skip / 0 fail (268 tests, 49 files; run
+      twice, before and after the 5.G review fixes), TwinCAT 244 pass / 24 skip / 0 fail (824 s, after the fixes);
+      `vendor-parity` with both bridges up 11 / 0.
 - [ ] 5.G.2 Full C# suites, `bun test test/unit` (volt-cli), the LSP suite, `bun run check`; docs regenerated.
