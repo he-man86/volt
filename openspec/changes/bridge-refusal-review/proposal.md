@@ -32,6 +32,68 @@ the seam. They are listed below with the refusals they produce.
 5. **No fallback kind.** Where the IDE or the extension cannot answer, the item is refused or listed unreadable by
    name; it is never defaulted to FUNCTION_BLOCK or METHOD.
 
+## Re-baseline (2026-10-03)
+
+The tables below were written at `0d1ae8aff0` (2026-09-29) and keep that commit's line numbers; `tasks.md` carries
+HEAD's. `bun packages/volt-cli/scripts/refusal-census.ts [--rev <commit>]` regenerates the site list (throws,
+network-text diagnostics, coded conflict rows, with code and message); the mapping to HEAD was done by message.
+
+Of the 193 sites: **7 gone, 3 changed, 183 still hold**, and **47 are new** (below).
+
+- **Gone** — `E/Format/St/CodeHelper.cs:186` (DUT states no subtype), `E/Sync/DutSubtypeChanges.cs:62, 73, 126` (file
+  deleted), `E/Sync/PushConflicts.cs:69` (create over a sibling subtype), `E/Sync/PushService.cs:209` (delete of an
+  unreadable DUT): `b6822e9751` (one `.dut`). `E/Sync/Materializer.cs:92` (DUT named from its declaration):
+  `ec0152fe0f`.
+- **Changed** — `C/Ide/CodesysObjectModel.Libraries.cs:427` is now `CodesysDriver.NoAccessorCreate`
+  (`C/Driver/CodesysDriver.Tree.cs:188`), a `NotSupportedException` → UNSUPPORTED, as its CHANGE row asked
+  (`f18af69c54`). `E/Sync/PushService.cs:992` (a write cannot re-type) is `PushService.cs:1229`, reworded ("a push
+  cannot re-type an object by its NAME"), still UNSUPPORTED. `E/Format/St/StReader.cs:809` (IEC identifier) is
+  `StReader.cs:996`, and its MEASURE is half done: the names each vendor refuses were measured and are pre-flighted by
+  name (`ICodeStore.RefusedName`, `CodesysRefusedNames` / `TcRefusedNames`); non-ASCII names are still unmeasured.
+- **Design issues** — D1, D2 and D18 are resolved (see each); D3 and D20 are half resolved.
+
+### New since 2026-09-29 (47)
+
+Paths at HEAD. 38 keep, 9 change (tasks 7.1, 7.3).
+
+| Site | Code | Category | Class | Why |
+|---|---|---|---|---|
+| `E/Format/St/StReader.cs:161` | INVALID_ST | needed-to-write | Change (7.3) | U+FEFF after the start of the text: the splitter's own scans would disagree. A Volt limit, not the IDE's. |
+| `E/Format/St/StReader.cs:318` | INVALID_ST | needed-to-write | Keep | Text after END_INTERFACE: no slot holds it. |
+| `E/Format/St/StReader.cs:758` | INVALID_ST | needed-to-write | Keep | Text after the last member belongs to none: no slot holds it. |
+| `E/Format/St/StReader.cs:1104` | INVALID_ST | needed-to-write | Keep | END keyword after code on its line: the splitter reads END on its own line (5E). |
+| `E/Format/St/StReader.cs:1151` | INVALID_ST | needed-to-write | Keep | Text after an END keyword: the IDE stores no such line, it would be dropped. |
+| `E/Format/St/StReader.cs:1162` | INVALID_ST | needed-to-write | Keep | A member opens inside an unclosed one: no delimiting. |
+| `E/Ide/ItemLookup.cs:40` | UNREADABLE | version-or-conflict-gate | Keep | An item the driver must not open (C2i), by name. |
+| `E/Sync/Materializer.cs:62` | UNSUPPORTED (unreadable) | needed-to-write | Keep | Pull: the file would not read back on a push (5E.1; also :70, :77). |
+| `E/Sync/Materializer.cs:100` | UNSUPPORTED (unreadable) | needed-to-write | Keep | Pull: a member's text opens with another kind's keyword; a push would re-type it (5Q.5). |
+| `E/Sync/PushConflicts.cs:71` | UNREADABLE | version-or-conflict-gate | Keep | An object of the bare name whose kind could not be read. |
+| `E/Sync/PushService.cs:127` | STALE_PROJECT_VERSION | version-or-conflict-gate | Keep | Lease refused: every op rejected. |
+| `E/Sync/PushService.cs:179` | UNREADABLE | version-or-conflict-gate | Keep | Pre-flight: an untouchable item, without force. |
+| `E/Sync/PushService.cs:192` | UNSUPPORTED | request-shape | Keep | A read-only descriptor (`.projectsettings`, `.device`, …) set or deleted; code question in V.1. |
+| `E/Sync/PushService.cs:267` | NOT_ATTEMPTED | (outcome) | Keep | An op after an apply-time stop: not applied. |
+| `E/Sync/PushService.cs:643` | UNREADABLE | version-or-conflict-gate | Keep | Untouchable item at apply without force (also :646, wrong kind under force). |
+| `E/Sync/PushService.cs:657` | BAD_REQUEST | request-shape | Keep | A forced replace of an untouchable item needs sourceText. |
+| `E/Sync/PushService.cs:662` | INTERNAL_ERROR | internal-invariant | Keep | The walk named the item without its folder. |
+| `E/Sync/PushService.cs:737` | BAD_REQUEST | request-shape | Keep | Two ops name one item. |
+| `E/Sync/PushService.cs:745` | BAD_REQUEST | request-shape | Keep | Delete + set of two wire identities of one IDE object (re-type in one push; owner decision 4.32). |
+| `E/Sync/PushService.cs:1054` | UNSUPPORTED (ChildRefused) | vendor-limit | Keep | A POU name the IDE was measured to refuse, pre-flighted (also :1059 for members). |
+| `E/Sync/PushService.cs:1192` | UNSUPPORTED | vendor-limit | Keep | The IDE refused the item's create (ChildRefusedException only). |
+| `E/Sync/PushService.cs:1300` | NOT_FOUND | internal-invariant | Keep | Re-find after the declaration write (code question 7.2). |
+| `E/Sync/PushService.cs:1616` | UNSUPPORTED | vendor-limit | Keep | The IDE refused a member's create, cause kind or name. |
+| `C/Driver/CodesysDriver.Tree.cs:150` | ChildRefusedException | vendor-limit | Keep | CODESYS's measured child refusal recognised by wording. |
+| `C/Ide/Reflection.cs:44` | MissingMethodException → INTERNAL_ERROR | internal-invariant | Keep | No vendor overload takes the argument types (codesys-refs-guid-int32). |
+| `T/Driver/BeckhoffDriver.Content.cs:597` | UNSUPPORTED | internal-invariant | Keep | Member tree type with no Volt kind, no `?? Method` (replaces D20's fallback). |
+| `T/Driver/BeckhoffDriver.Tree.cs:281` | ChildRefusedException | vendor-limit | Keep | TwinCAT's measured child refusal ("Name/SubType mismatch"). |
+| `T/Ide/TcObjectModel.cs:209` | INTERNAL_ERROR | connection-state | Change (7.1) | C2i: the PLC tree and the Solution Explorer disagree on a must-not-touch POU's children (also :246, :295, :300, :308). |
+| `T/Ide/TcObjectModel.cs:216` | INTERNAL_ERROR | vendor-limit | Change (7.1) | Two children of one name under a must-not-touch POU (D34): a project fact, not a Volt bug. |
+| `T/Ide/TcObjectModel.cs:222` | UnreadableItemException | needed-to-write | Keep | The item is listed unreadable by name. |
+| `T/Ide/TcProjectSettings.cs:59` | InvalidOperationException → INTERNAL_ERROR | internal-invariant | Keep | Vendor XML contract for the compiler settings (also :76, :99, :102, :106, :128). |
+| `T/Ide/TcSolutionExplorer.cs:100` | INTERNAL_ERROR | connection-state | Change (7.1) | The hierarchy did not read a node in full (also :111, a canonical name). |
+| `T/Ide/TcSolutionExplorer.cs:259` | COMException | connection-state | Keep | COM plumbing: an HRESULT made an exception. |
+
+Rows that group lines count each line: 6 + 1 + 4 + 1 + 15 + 1 + 1 + 1 + 1 + 7 + 6 + 3 = 47.
+
 ## The census
 
 193 refusal sites (some rows group one refusal family at the lines listed), paths relative to
@@ -269,16 +331,16 @@ judges the code.
 
 Grouped from the review; `Dn` is the task in `tasks.md` §4. The first eight are the ones that matter most.
 
-- **D1 — A DUT's subtype has two sources.** Push: the extension is the subtype, the text is written as sent. Pull,
+- **D1 — A DUT's subtype has two sources.** *Resolved 2026-10-02 (`ec0152fe0f`, `b6822e9751`): one `.dut`, no subtype on the wire.* Push: the extension is the subtype, the text is written as sent. Pull,
   refs, receipt, delete and create gates: parsed from the declaration (`Materializer.cs:92` → `CodeHelper.DutSubtype`).
   `set X.struct` with an enum body comes back `X.enum`; with no stated subtype (`TYPE X : END_TYPE`, the `c802b74d`
   unclosed comment) it becomes UNREADABLE, and then the create/update that would fix it is refused UNREADABLE
   (`PushConflicts:93`) and the delete needs `--force`. `push-without-header-check` task 1.2 says "fixing the header
   and pushing again restores it"; for a DUT that is false today.
-- **D2 — CODESYS reads a POU's kind from its header and defaults to FB** (`CodesysTypeMap.cs:165-173`). A `.prg`
+- **D2 — CODESYS reads a POU's kind from its header and defaults to FB** *Resolved (`f7eb383f47`): one `.pou`, kind from the IDE class.* (`CodesysTypeMap.cs:165-173`). A `.prg`
   with an unclosed opening `(*` is published as `.fb`; the next refs reports a rename nobody made. Push takes the
   extension as the kind; pull guesses one from the text.
-- **D3 — The network scope classifies items by regex-reading headers** (`StDeclaration.IsCallableHeader`,
+- **D3 — The network scope classifies items by regex-reading headers** *Half resolved: GVLs by wire kind (`15d421e57a`); callable / FB still from the header, and the wire kind is `pou` for all three, so the fact must come from the IDE (task 4.3).* (`StDeclaration.IsCallableHeader`,
   `IsGlobalListHeader`, `IsFunctionBlockType` via `CodeHelper.HeaderLine`; `NetworkScope.FromDeclarations:98,115`;
   `ProjectDeclarations.cs:78`; `PushService.DeclarationsIn` drops the op's kind). An FB instance becomes a
   FUNCTION call when the FB's declaration opens with an unclosed comment.
@@ -312,10 +374,10 @@ Grouped from the review; `Dn` is the task in `tasks.md` §4. The first eight are
 - D16 — `currentFolder = inCache ? cached.Folder : ""` (`PushService.cs:474`): an uncached item is hashed against
   the root and reported "changed in the IDE"; a `ToFolder=""` reads as "no move".
 - D17 — Member reconciliation falls back silently (`Owner(): ItemLookup.Find(...) ?? pou`, `FindFolder(...) ?? Owner()`).
-- D18 — Stale docs still state the retired rule: `ItemKind.cs:293` ("Kind is recovered from file content on push"),
+- D18 — *Resolved (`b6822e9751`, `ec0152fe0f`, gate `a313c74b38`).* Stale docs still state the retired rule: `ItemKind.cs:293` ("Kind is recovered from file content on push"),
   `DutSubtypeChanges.cs:33-39` and the :126 message ("the subtype is what the declaration says").
 - D19 — Pre-flight reads the kind of `ToName ?? Name` but hands the driver's `ValidateSource` `Name`.
-- D20 — TwinCAT keeps the member-kind fallbacks CODESYS removed (`BeckhoffDriver.Content.cs:597` `?? Method`, :706
+- D20 — *Half resolved: `?? Method` gone (`15d421e57a`); `?? ""` and the shared helper remain (task 4.20).* TwinCAT keeps the member-kind fallbacks CODESYS removed (`BeckhoffDriver.Content.cs:597` `?? Method`, :706
   `?? ""`).
 - D21 — TwinCAT's create pre-flight is per ITEM while create-vs-edit is decided per BODY; a new graphical member in an
   existing POU fails mid-batch.
@@ -351,7 +413,7 @@ live on CODESYS SP21 (and TwinCAT where the construct exists).
 | `NetworkTextReader:1036` (if removed) wire type vs producer | Type mismatch, if the build reports one | Same. |
 | `CodesysNetworkWriter:163` `.ENO` without EN | "Missing EN pin" | Network-text sublanguage reports it. |
 | `Materializer:37` retired `(* @volt-` comment | Nothing (a comment) | Nothing. |
-| `Materializer:92` DUT stating no subtype | Syntax error on `TYPE X : END_TYPE` / unclosed comment | Same (extends push-without-header-check 4.1). |
+| ~~`Materializer:92` DUT stating no subtype~~ (gone, `ec0152fe0f`) | Syntax error on `TYPE X : END_TYPE` / unclosed comment | Same (extends push-without-header-check 4.1). |
 | Layout rules (285, 292, 330, 362, 1015), both canonical gates | Nothing | Nothing. |
 
 ## Impact

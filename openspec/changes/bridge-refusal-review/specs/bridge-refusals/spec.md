@@ -58,6 +58,10 @@ Every refusal SHALL carry the code of its category: a malformed request `BAD_REQ
 The bridge SHALL NOT default an item or member it cannot classify to a kind (FUNCTION_BLOCK, METHOD); it SHALL refuse
 or list the item by name.
 
-#### Scenario: POU whose header does not parse on CODESYS
-- **WHEN** a `.prg` whose text opens with an unclosed `(*` is pulled
-- **THEN** it is not published as `.fb`
+#### Scenario: TwinCAT member whose tree type maps to no kind
+- **WHEN** a TwinCAT member's tree item type maps to no Volt member kind
+- **THEN** it is refused by name, never written or read as a METHOD and never given an empty kind
+
+#### Scenario: callee whose header does not parse
+- **WHEN** network text calls a function block whose declaration opens with an unclosed `(*`
+- **THEN** the call is built as an FB instance from the IDE's POU type, not as a FUNCTION call guessed from the header
