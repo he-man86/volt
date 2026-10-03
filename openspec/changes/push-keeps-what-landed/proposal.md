@@ -34,6 +34,14 @@ client the same thing (re-send only what failed, know exactly what landed), and 
 
 ## What Changes
 
+> **Superseded in part by the design gate (2026-10-03, `design.md` "Step 0").** The list below is what PLCAssist
+> asked for, kept as the request. What is built is the rewritten `specs/bridge-push/spec.md` and `tasks.md`.
+> **Not built, left for the owner:** 1 as per-item application of pre-flight and gate refusals (instead, every
+> refusal is named in one response and nothing is written); 1 as continuing past an IDE refusal (instead, the push
+> stops and names every op not reached, `NOT_ATTEMPTED`); 2 as restoring an update's previous text (instead, the
+> conflict states what of the update landed and the CLI keeps its old baseline); 5 for the pre-write remedies
+> pinned by oracle tests. The Impact line "restore previous text" is not built either.
+
 1. **Per-item outcome.** An item refused for its own reasons — pre-flight (INVALID_ST, NETWORK_*, UNREADABLE,
    UNSUPPORTED, STALE_ITEM_VERSION, ITEM_EXISTS, ITEM_MISSING, ITEM_UNVERIFIED, DUPLICATE_CHILD) or by the IDE during
    apply — is refused ALONE; every other item in the batch is still applied.
