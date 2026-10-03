@@ -227,7 +227,7 @@ the bridge serves: it is shown and logged, never gated on. What OEMs expose is l
 
 ## 3. Field failures moved from codesys-minimum-version (each needs a field log)
 
-- [ ] 3.1 (was codesys-minimum-version 2.1) Measure what failed on 3.5.17 (the proposal's exception, chat 896f798f):
+- [ ] 3.1 **Deferred (owner, 2026-10-03: closed for now; a new change if extended later).** (was codesys-minimum-version 2.1) Measure what failed on 3.5.17 (the proposal's exception, chat 896f798f):
       which API/type/member the bridge binds that the old platform lacks. List every framework API the bridge needs at
       start in ONE place (the capability list), each with the platform version it is known on.
       *State at hand-over:* the capability list is DONE (`CodesysPlatform.All`, DIALECT V2). Open — no CODESYS 3.5.17
@@ -288,7 +288,7 @@ the bridge serves: it is shown and logged, never gated on. What OEMs expose is l
       load-bearing; the pin is `10.0.12` since `6d59429d33` (2026-09-09).
       What settles 3.1: a 3.5.17 start log's `bound:` lines — two `System.Text.Json` lines, or `PipeClient.Call binds`
       naming a copy other than `[bound]`, is the cause; one copy each refutes the hypothesis.
-- [ ] 3.2 (was codesys-minimum-version 3.2) Decide on the "another Volt build already loaded" refusal once a field log
+- [ ] 3.2 **Deferred (owner, 2026-10-03: closed for now; a new change if extended later).** (was codesys-minimum-version 3.2) Decide on the "another Volt build already loaded" refusal once a field log
       shows the 3.5.21 case.
       *State at hand-over:* needs a field log from the 3.5.21.50 install (or the 3.5.17 one) carrying the `bound:`
       lines. Nothing here reproduces it: on 3.5.21.40 every Volt assembly is bound once (DIALECT V3).

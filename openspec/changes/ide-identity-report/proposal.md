@@ -86,3 +86,14 @@ connector), `14fe21dd70` (verification and review gate), `e4652fdfc9` (`@volt/co
 - DIALECT.md V1 (OEM check), a TwinCAT entry for the build-version source.
 - Clients: PLCAssist stores `productName`, `productVersion`, `ideVersion` and the bridge release per chat (it already
   has columns for name/version/bridge version) and shows `productName productVersion` in its bridge bar.
+
+## Close-out (2026-10-03)
+
+Closed by the owner for now ("if we want to extend on this we will do it later"). Built and verified live (5.1, both
+vendors): health reports `productVendor` / `productName` / `productVersion` / `ideVersion` (platform) / `bridgeVersion`
+and `loadConflicts`; @volt/control renders "<vendor> <product> <version> — CODESYS 3.5 SP<n> Patch <p>"; nothing blocks
+on identity (report only); the bridge start log and call-failure evidence are field-log ready (`bound:` lines with the
+build commit, LOAD CONFLICT lines, full exception + loaded copies; `INTERNAL_ERROR` as `<Type>: <message>`).
+Not done, deferred to a future change: 3.1 (what failed on CODESYS 3.5.17) and 3.2 (refuse when another Volt build is
+loaded) — both need PLCAssist field logs; the deferred `diagnostics` request idea. The parked section in tasks.md says
+what to collect and how to read it.
