@@ -20,6 +20,16 @@ public class PushRequest : BoundRequest
     /// IDE.</para></summary>
     [JsonPropertyName("force")]
     public bool Force { get; set; }
+
+    /// <summary>Opt-in: <c>true</c> asks an ACCEPTED push to answer <see cref="PushResponse.NewSources"/> — the stored
+    /// text of every item a landed <c>set</c> op left in the project, exactly as a fetch returns it (openspec
+    /// <c>st-roundtrip-fixed-point</c>, route A). A client that patches its own text then holds what a read would give
+    /// (volt's canonical form: one blank line before the END line, members METHOD, ACTION, PROPERTY then by name) without
+    /// a second call. Absent or <c>false</c>: the answer is unchanged. Additive: an older bridge ignores it and answers
+    /// without <c>newSources</c>, which a client reads as "re-read".</summary>
+    [JsonPropertyName("returnSources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ReturnSources { get; set; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "op")]
@@ -182,6 +192,19 @@ public class PushResponse
 
     [JsonPropertyName("currentProjectVersion")]
     public string? CurrentProjectVersion { get; set; }
+
+    /// <summary>Only when the request set <see cref="PushRequest.ReturnSources"/> and the push was ACCEPTED: full wire
+    /// name (<c>name.kind</c>, the <see cref="NewItems"/> key — a renamed item under its NEW name) → that item's stored
+    /// text exactly as a fetch returns it, for every item a landed <c>set</c> op left in the project. The text is the
+    /// receipt walk's own materialization, so it is the text <see cref="NewItems"/>' version hashes.
+    ///
+    /// <para>No entry, by name, for: a <c>delete</c>; an op in <see cref="Conflicts"/> (refused or
+    /// <c>NOT_ATTEMPTED</c> — a <c>partiallyApplied</c> one is re-read); a changed item the receipt could not
+    /// materialize (it is equally absent from <see cref="NewItems"/>: these keys are always a subset of those). Absent on a
+    /// rejected push and when the flag was not set. A client missing a pushed name re-reads it.</para></summary>
+    [JsonPropertyName("newSources")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? NewSources { get; set; }
 
     public static PushResponse AcceptedResult(string newProjectVersion, Dictionary<string, string> newItems, Dictionary<string, string> newFolders) =>
         new() { Accepted = true, NewProjectVersion = newProjectVersion, NewItems = newItems, NewFolders = newFolders };

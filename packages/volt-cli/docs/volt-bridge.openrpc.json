@@ -543,6 +543,9 @@
           "force": {
             "type": "boolean"
           },
+          "returnSources": {
+            "type": "boolean"
+          },
           "expectedPlatform": {
             "type": "string"
           },
@@ -658,6 +661,12 @@
           },
           "currentProjectVersion": {
             "type": "string"
+          },
+          "newSources": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         },
         "required": [

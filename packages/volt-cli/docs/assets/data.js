@@ -547,6 +547,9 @@ window.VOLT = {
             "force": {
               "type": "boolean"
             },
+            "returnSources": {
+              "type": "boolean"
+            },
             "expectedPlatform": {
               "type": "string"
             },
@@ -662,6 +665,12 @@ window.VOLT = {
             },
             "currentProjectVersion": {
               "type": "string"
+            },
+            "newSources": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
             }
           },
           "required": [

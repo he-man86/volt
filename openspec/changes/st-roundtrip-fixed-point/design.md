@@ -34,5 +34,7 @@ Rejected, one line each:
 **Migration.** Additive on both sides (nullable request flag, nullable response map, `JsonIgnore` when null): an older
 bridge ignores the flag and answers without `newSources`, which a client reads as "re-read". Engine-only, so both
 vendors serve it byte-identically (the parity boundary is the wire). The CLI does not set the flag (it already pulls
-canonical text into the workspace); PLCAssist does. `docs/wire.html` + `volt-bridge.openrpc.json` regenerated
-(`VOLT_WRITE_DOCS=1`) in step 3.
+canonical text into the workspace); PLCAssist does. The generated docs (`docs/assets/data.js` +
+`volt-bridge.openrpc.json`, `VOLT_WRITE_DOCS=1`) are regenerated in step 2, WITH the contract fields — not step 3 as
+first planned: the doc gate (`DocDataTests`) fails the moment the wire models change, so leaving it for step 3 would
+keep an unrelated red in step 2's suite. Step 3 regenerates again only if the field docs change.

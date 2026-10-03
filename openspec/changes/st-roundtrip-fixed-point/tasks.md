@@ -31,8 +31,32 @@
 
 ## 2. Test red
 
-- [ ] 2.1 For the chosen route: the push answer's text (A), or the fetched text (B), equals the canonical text a fetch
+- [x] 2.1 (2026-10-04: `test/Volt.Engine.Tests/sync/PushReturnsSourcesTests.cs` — 9 red on the value (`newSources` null),
+      3 green guards (corrected at gate 2; first recorded as 4): flag absent/false → no `newSources` (on the wire too), rejected push → none. Red: W1 FB, a GVL + struct
+      + enum DUT, an update, only changed items, rename+edit under the new name, a delete has no entry, a partial push
+      answers only landed ops, an item the receipt cannot read has no entry (and none in `newItems`), keys ⊆ `newItems`;
+      every expected text is a FETCH on the same fake. Contract fields landed (`PushRequest.ReturnSources`,
+      `PushResponse.NewSources`, both `JsonIgnore` when null) and docs regenerated now — design.md says why. Engine 2200
+      pass / 9 fail (the red) / 1 skip, Contracts 39, Cli 260; `bun run check` 18/18.) For the chosen route: the push answer's text (A), or the fetched text (B), equals the canonical text a fetch
       gives, for an FB with members and for a GVL/DUT.
+- [x] 2.2 (gate 2, 2026-10-04) Review findings on step 2 — all four taken; every new test is red ON THE VALUE
+      (`newSources` null), its premises asserted green before it:
+      - no rename-only / move-only op (no `SourceText`), no TwinCAT rename shape — ADDED: a rename-only op is answered
+        under the new name with the rewritten header (CODESYS shape, premise: the fetch reads `FUNCTION_BLOCK FB_New`);
+        the same under `RewritesOwnReferencesOnRename` (TwinCAT, DIALECT C2o: the fetch reads `F_New := TRUE;`); a
+        move-only op is answered. A build that fills `newSources` only for ops carrying text fails all three.
+      - "an op in `conflicts` has no entry" unpinned (the partial-push case's refused create rolled back, so it was
+        absent from `newItems` anyway) — ADDED: a refused UPDATE that stays in `newItems`, both shapes: declaration
+        written before the member refusal (`partiallyApplied: true`) and nothing written. A build keying on `newItems`
+        ∩ set-op names fails both.
+      - no `unwalkedFolders` case — ADDED: a create into `Types`, which the receipt walk cannot enumerate after the
+        write (`OnWalkItems` → `UnwalkableFolders`): `Types` in `unwalkedFolders`, the item absent from `newItems` and
+        `newSources`, the sibling GVL answered.
+      - tasks.md "4 green guards" — CORRECTED to 3 in 2.1.
+      Numbers: PushReturnsSourcesTests 15 red (all `Assert.NotNull() Failure: Value is null`) / 3 green / 18;
+      Engine 2200 pass / 15 fail (the red, 9 → 15) / 1 skip (2216); Cli 260, Connector 115, Twincat 428, Codesys 297,
+      Contracts 39, Repo.Gates 108 (all 0 fail); typecheck clean; `bun run check` 18/18. No LSP/fixture/transpiler
+      change, so no fixture-map regeneration.
 
 ## 3. Build
 
