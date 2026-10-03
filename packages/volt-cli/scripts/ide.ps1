@@ -402,6 +402,144 @@ function Clear-InstanceLeftovers([string]$vendor) {
     }
 }
 
+# ── the safety net: a Recovered Files dialog that appears anyway ───────────────────────────────────────────
+#
+# Clear-InstanceLeftovers removes what it can SEE. A recovery entry it could not attribute (or one written between the
+# clear and the launch) still opens TcXaeShell on a modal "TcXaeShell Recovered Files" dialog, and the worker then
+# blocks in COM until `up` gives up. So while `up` waits for the attach it also watches this instance's XAE windows,
+# and answers exactly THAT dialog with "&Do Not Recover" — the copy is thrown away on the next `up`, there is nothing
+# in it to recover — logging the instance, the pid and the files it listed. Nothing else is ever clicked: any other
+# modal dialog on those windows is logged (title + buttons) once, and `up` keeps waiting and times out as before.
+# Only windows OWNED by this instance's XAE pids are looked at; another instance's IDE is never touched.
+$XAE_RECOVERY_TITLE  = "TcXaeShell Recovered Files"
+$XAE_RECOVERY_BUTTON = "&Do Not Recover"
+# Compiled on first use (the attach wait), so `down`, `pipe`, `logs` and CODESYS never pay for it.
+$XAE_DIALOGS_SRC = @"
+using System; using System.Collections.Generic; using System.Runtime.InteropServices; using System.Text;
+public static class VoltXaeDialogs {
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumChildWindows(IntPtr p, EnumProc f, IntPtr l);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern IntPtr SendMessageTimeout(IntPtr h, uint m, IntPtr w, StringBuilder l, uint f, uint t, out IntPtr r);
+    [DllImport("user32.dll")] static extern IntPtr SendMessageTimeout(IntPtr h, uint m, IntPtr w, IntPtr l, uint f, uint t, out IntPtr r);
+    const uint WM_GETTEXT = 0x000D, BM_CLICK = 0x00F5, SMTO_ABORTIFHUNG = 0x0002;
+    public static string ClassOf(IntPtr h) { var s = new StringBuilder(256); GetClassName(h, s, s.Capacity); return s.ToString(); }
+    // WM_GETTEXT, not GetWindowText: the latter returns nothing for a control in another process.
+    public static string TextOf(IntPtr h) { var s = new StringBuilder(1024); IntPtr r; SendMessageTimeout(h, WM_GETTEXT, (IntPtr)s.Capacity, s, SMTO_ABORTIFHUNG, 2000, out r); return s.ToString(); }
+    /// <summary>The visible top-level dialogs (#32770) owned by one process.</summary>
+    public static IntPtr[] Dialogs(int pid) {
+        var found = new List<IntPtr>();
+        EnumWindows((h, l) => { uint p; GetWindowThreadProcessId(h, out p);
+            if (p == (uint)pid && IsWindowVisible(h) && ClassOf(h) == "#32770") found.Add(h); return true; }, IntPtr.Zero);
+        return found.ToArray();
+    }
+    public static IntPtr[] Children(IntPtr parent) {
+        var found = new List<IntPtr>();
+        EnumChildWindows(parent, (h, l) => { found.Add(h); return true; }, IntPtr.Zero);
+        return found.ToArray();
+    }
+    public static void Click(IntPtr button) { IntPtr r; SendMessageTimeout(button, BM_CLICK, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 5000, out r); }
+
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint a, bool i, uint pid);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("kernel32.dll")] static extern bool IsWow64Process(IntPtr h, out bool w);
+    [DllImport("kernel32.dll")] static extern IntPtr VirtualAllocEx(IntPtr p, IntPtr a, UIntPtr s, uint t, uint pr);
+    [DllImport("kernel32.dll")] static extern bool VirtualFreeEx(IntPtr p, IntPtr a, UIntPtr s, uint t);
+    [DllImport("kernel32.dll")] static extern bool WriteProcessMemory(IntPtr p, IntPtr a, byte[] b, UIntPtr s, out UIntPtr w);
+    [DllImport("kernel32.dll")] static extern bool ReadProcessMemory(IntPtr p, IntPtr a, byte[] b, UIntPtr s, out UIntPtr r);
+    /// <summary>The rows of a list view in ANOTHER process, each as its non-empty column texts joined by " / ". The
+    /// text comes back through a buffer in the target's address space (LVM_GETITEMTEXTW carries a pointer), laid out
+    /// for the target's bitness — TcXaeShell is 32-bit under a 64-bit shell. Measured on the Recovered Files dialog:
+    /// column 0 is the checkbox (empty), 1 the project, 2 the file. An empty array when the process cannot be opened.</summary>
+    public static string[] ListRows(IntPtr lv, int columns) {
+        var rows = new List<string>();
+        IntPtr r; SendMessageTimeout(lv, 0x1004 /*LVM_GETITEMCOUNT*/, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 2000, out r);
+        int count = (int)r.ToInt64();
+        uint pid; GetWindowThreadProcessId(lv, out pid);
+        IntPtr proc = OpenProcess(0x0008 | 0x0010 | 0x0020 | 0x0400, false, pid);   // VM_OPERATION|VM_READ|VM_WRITE|QUERY_INFORMATION
+        if (proc == IntPtr.Zero) return rows.ToArray();
+        try {
+            bool wow; IsWow64Process(proc, out wow);
+            bool is32 = wow || IntPtr.Size == 4;
+            const int ITEM = 128, TEXT = 1024;
+            IntPtr mem = VirtualAllocEx(proc, IntPtr.Zero, (UIntPtr)(ITEM + TEXT), 0x3000, 0x04);
+            if (mem == IntPtr.Zero) return rows.ToArray();
+            try {
+                long textAddr = mem.ToInt64() + ITEM;
+                for (int i = 0; i < count; i++) {
+                    var cells = new List<string>();
+                    for (int sub = 0; sub < Math.Max(columns, 1); sub++) {
+                        // LVITEMW: mask, iItem, iSubItem, state, stateMask (5 x int), pszText (pointer), cchTextMax (int).
+                        var item = new byte[ITEM];
+                        BitConverter.GetBytes(1).CopyTo(item, 0);
+                        BitConverter.GetBytes(i).CopyTo(item, 4);
+                        BitConverter.GetBytes(sub).CopyTo(item, 8);
+                        if (is32) { BitConverter.GetBytes((int)textAddr).CopyTo(item, 20); BitConverter.GetBytes(TEXT / 2).CopyTo(item, 24); }
+                        else      { BitConverter.GetBytes(textAddr).CopyTo(item, 24);      BitConverter.GetBytes(TEXT / 2).CopyTo(item, 32); }
+                        UIntPtr n; WriteProcessMemory(proc, mem, item, (UIntPtr)ITEM, out n);
+                        SendMessageTimeout(lv, 0x1073 /*LVM_GETITEMTEXTW*/, (IntPtr)i, mem, SMTO_ABORTIFHUNG, 2000, out r);
+                        var buf = new byte[TEXT]; ReadProcessMemory(proc, (IntPtr)textAddr, buf, (UIntPtr)TEXT, out n);
+                        var s = Encoding.Unicode.GetString(buf); int z = s.IndexOf('\0'); if (z >= 0) s = s.Substring(0, z);
+                        if (s.Length > 0) cells.Add(s);
+                    }
+                    rows.Add(string.Join(" / ", cells));
+                }
+            } finally { VirtualFreeEx(proc, mem, UIntPtr.Zero, 0x8000); }
+        } finally { CloseHandle(proc); }
+        return rows.ToArray();
+    }
+    public static int HeaderColumns(IntPtr header) { IntPtr r; SendMessageTimeout(header, 0x1200 /*HDM_GETITEMCOUNT*/, IntPtr.Zero, IntPtr.Zero, SMTO_ABORTIFHUNG, 2000, out r); return (int)r.ToInt64(); }
+}
+"@
+
+# The files the dialog lists — read from its own list view, so the log says what the dialog said, not a guess from
+# the AutoRecover entries. Best effort: an unreadable list logs "(none listed)" and the dialog is still answered.
+function Get-RecoveredFiles([IntPtr]$dlg, $kids) {
+    $lv = @($kids | Where-Object { $_.Class -eq "SysListView32" }) | Select-Object -First 1
+    if (-not $lv) { return @() }
+    $hdr = @([VoltXaeDialogs]::Children($lv.H) | Where-Object { [VoltXaeDialogs]::ClassOf($_) -eq "SysHeader32" }) | Select-Object -First 1
+    $cols = if ($hdr) { [VoltXaeDialogs]::HeaderColumns($hdr) } else { 3 }
+    @([VoltXaeDialogs]::ListRows($lv.H, $cols) | Where-Object { $_ })
+}
+$script:dialogsSeen = @{}
+
+# One look at this instance's XAE windows (the pids `up` launched, plus any XAE holding this instance's copy — a
+# Restart-Manager relaunch adopted as ours). Cheap enough to run every second of the attach wait.
+function Watch-XaeDialogs([int[]]$xaePids) {
+    if (-not ("VoltXaeDialogs" -as [type])) { Add-Type -TypeDefinition $XAE_DIALOGS_SRC }
+    $pids =@(@($xaePids) + @(Get-CopyHolders "twincat") | Select-Object -Unique)
+    foreach ($xae in $pids) {
+        foreach ($dlg in [VoltXaeDialogs]::Dialogs($xae)) {
+            $title = [VoltXaeDialogs]::TextOf($dlg)
+            $kids = @([VoltXaeDialogs]::Children($dlg) | ForEach-Object {
+                [pscustomobject]@{ H = $_; Class = [VoltXaeDialogs]::ClassOf($_); Text = [VoltXaeDialogs]::TextOf($_) } })
+            $buttons = @($kids | Where-Object { $_.Class -eq "Button" -and $_.Text })
+            $dismiss = @($buttons | Where-Object { $_.Text -ceq $XAE_RECOVERY_BUTTON })
+            if ($title -ceq $XAE_RECOVERY_TITLE -and $dismiss.Count -eq 1) {
+                # Clicked once already and still there: say so once, and do not click it every second.
+                if ($script:dialogsSeen.ContainsKey("clicked $dlg")) {
+                    if (-not $script:dialogsSeen.ContainsKey("stuck $dlg")) {
+                        $script:dialogsSeen["stuck $dlg"] = $true
+                        Write-Warning "'$XAE_RECOVERY_TITLE' on XAE $xae is still open after '$XAE_RECOVERY_BUTTON' was clicked - left as is"
+                    }
+                    continue
+                }
+                $script:dialogsSeen["clicked $dlg"] = $true
+                $files = @(Get-RecoveredFiles $dlg $kids)
+                [VoltXaeDialogs]::Click($dismiss[0].H)
+                Write-Host "dismissed '$XAE_RECOVERY_TITLE' on XAE $xae (instance $(if ($Instance) { $Instance } else { '(default)' })) with '$XAE_RECOVERY_BUTTON' - files: $(if ($files.Count) { $files -join '; ' } else { '(none listed)' })"
+                continue
+            }
+            if ($script:dialogsSeen.ContainsKey([string]$dlg)) { continue }
+            $script:dialogsSeen[[string]$dlg] = $true
+            Write-Warning "XAE $xae shows a modal dialog '$title' (buttons: $(($buttons | ForEach-Object { $_.Text }) -join ', ')) - not one ide.ps1 answers; left as is"
+        }
+    }
+}
+
 # ── serve a COPY ───────────────────────────────────────────────────────────────────────────────────────────
 
 <#
@@ -548,7 +686,9 @@ function Up-Twincat {
             $spawnedAt = Get-Date
             $w = Start-Process -FilePath $worker -ArgumentList "--xae-pid", "$procId" -WindowStyle Hidden -PassThru
             for ($i = 0; $i -lt 12; $i++) {
-                Start-Sleep -Seconds 5
+                # Watch EVERY XAE this `up` launched (not only the one being attached), once a second, for the
+                # Recovered Files dialog (see Watch-XaeDialogs) — the window is the same 60 s as before.
+                for ($s = 0; $s -lt 5; $s++) { Start-Sleep -Seconds 1; Watch-XaeDialogs $launched }
                 if (Test-TwincatAttached $procId $w $spawnedAt) { $ready = $true; break }
                 if ($w.HasExited) { break }   # died outright (no XAE, name collision) — respawn rather than wait out the window
             }
