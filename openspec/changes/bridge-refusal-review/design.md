@@ -274,3 +274,279 @@ back unchanged, and a network body pushed as its own hidden line.
 - **D5's statement reader reads through `StTrivia`**, not `CodeOn`: comments nest, a comment opened after code on its line
   is seen, and string text is blanked — so a trailing `// …` or `(* … *)` is no part of the next statement. The corpus
   oracle stayed at its pinned tallies.
+
+---
+
+## Step 4b — D8–D12: one validation, no content scans, a signature without vocabulary, one shape table
+
+Tasks 4.8 (D8), 4.9 (D9), 4.10 (D10), 4.11 (D11), 4.12 (D12). They are one step because each removes a second reading
+of something the push has already read once: the network body (D8, D12), the boundary line (D9), the member header
+(D10), and the kind's shape (D11).
+
+### How it was measured
+
+A scratch console outside the repo, linked against a Release build of `Volt.Engine` at HEAD (`0bc065950c`), ran over
+the six corpora the way `ModelRoundTripOracleTests` harvests them (each project's own files as the declarations,
+`SourceScopes.BodiesOf`, `NetworkScope.FromDeclarations` with `BothVendorsRefusedNames`). Line counts are `grep` over
+every `.pou`/`.dut`/`.gvl`/`.itf` of the corpora (16,990 / 8,175 / 1,296 / 2,709 files, libraries included). The kind
+table below was read off the code.
+
+| Corpus fact | Count |
+|---|---|
+| top-level POUs outside `Library Manager/` and `References/`; `StReader.Read` over all of them | 457; 334 ms (0.7 ms each) |
+| network-text bodies; `NetworkTextGate.Validate` over all of them | 34; 211 ms, median 2.2 ms, max 49.6 ms (the first, JIT) |
+| bodies whose model and canonical text are identical when read twice against two scopes built independently, the first model written against the second scope | **34 / 34** |
+| lines of the keyword's SHAPE (`ImplementationMarker.Shape`) | 2,140 — every one a valid boundary line (2,089 `ST`, 26 `LD`, 8 `FBD`, 17 `… UNSUPPORTED`) |
+| shape lines that are NO boundary line (bare `Implementation`, `Implementation OR b`, `IMPLEMENTATION COBOL`, code after the language) | **0** |
+| other occurrences of the word `implementation` | 28, all inside comments |
+| empty POU files / POU files outside libraries without a boundary line | 0 / 0 |
+| METHOD / PROPERTY / ACTION signature lines | 55,607 + 202 + 46 bare; 1,420 with modifiers |
+| modifier words seen | `PUBLIC` 883+, `PROTECTED` 351, `PRIVATE` 163, `INTERNAL` 11, `FINAL` 7, `ABSTRACT` 13 — all six of `Modifiers`, always BEFORE the name |
+| signature lines with a word between keyword and name that is not one of the six | **0** |
+| ACTION lines holding anything besides the keyword and a name (modifier, type, comment) | **0** / 46 |
+| `ACTION` blocks inside an interface | 0 / 2,709 |
+
+From the measured name lists (`BothVendorsRefusedNames`, `CodesysRefusedNames`, `TcRefusedNames`): all six modifier
+words are refused as a member name by BOTH vendors, so no member can be named by one.
+
+### D8 + D12 — each network body validated once, and the write takes the model
+
+**Target.** One `NetworkText.Validate` per network body per push, in the engine's pre-flight. The drivers' writes take
+the model and the scope it was read against; they hold no copy of the validation and parse no body text. The create
+arm's copies (`PushService.cs:1261` `NetworkText.Validate`, and `WriteItemFromSource`'s second `StReader.Read`) go.
+
+**Today.** Counted per body per push, from the code:
+
+| Path | `StReader.Read` | `NetworkText.Validate` |
+|---|---|---|
+| update (item body or member body) | 2 (pre-flight, `WriteItemFromSource`) | 2 (pre-flight, driver write) |
+| create: the item's own body | 2 | **3** (pre-flight, create arm, driver write) |
+| create: a member's body | 2 | 2 |
+| move + edit | 3 (pre-flight, two `WriteItemFromSource`) | 3 (pre-flight, each write) |
+| replace (forced over an unopened item) | 2 | 3 |
+
+The TwinCAT pre-flight (2.27) already takes the engine's models and lowers each CREATED body once
+(`TcPlcOpenWriter.WriteProject`, a throwaway). That is a lowering, not a validation; the write lowers again because
+that is the write.
+
+**What the measurement says.** The repetitions cannot disagree today. The readings are deterministic (34/34), and all
+of them ask the same `ProjectDeclarations` instance, which only `WalkItems` drops; nothing in a push walks between
+the pre-flight and the receipt. The three body/scope pairings agree too: `SourceScopes.SitesOf`, CODESYS
+`WriteMembers`/`WriteAccessor` and TwinCAT `Collect` all take the member first, then the owner, and an action against
+its owner's alone. The cost is negligible: ≤ 0.5 s on a whole-corpus migration, against IDE writes that take
+minutes. So the defect is **structural, not a bug or a cost**:
+- four places pair a body with its scope and validate it;
+- a refusal raised from the driver's copy is unreachable behind the pre-flight, and only a test that calls
+  `WriteContent` directly can reach it;
+- the `NetworkTextSwitch` guard relies on every copy staying in place.
+
+**Options.**
+
+1. *Keep it, document the determinism.* The four pairings stay four places to keep in step. **Rejected.**
+2. *Memoize `NetworkText.Validate` by text and scope.* Scopes are rebuilt per call, so an identity cache misses, and
+   a value cache would need scope equality. It hides the copies instead of removing them. **Rejected.**
+3. *The model on the record* (`ItemContent`/`Member`/`Accessor` gain `Graph`, like D6's `Stated`). A `with` that
+   changes the text keeps the old model. `PushService.cs:1375` writes `split with { Body = null, Members = [] }`, so
+   a stale root model would ride along: text and model disagree without a word. **Rejected.**
+4. *The validated bodies beside the content* (**chosen**), the shape `ICodeStore.ValidateSource` already takes.
+   - `PushedNetworkBody` gains the `NetworkScope` it was read against: `(BodySite Site, NetworkBody Model, NetworkScope Scope)`.
+   - `ValidateSourceOrThrow` returns a `ValidatedSource(ItemContent Content, IReadOnlyList<PushedNetworkBody> Bodies)`,
+     and the pre-flight keeps one per set op.
+   - The apply loop, `ApplyOp`, `WriteItemFromSource`, `MoveItem` (both of its writes) and the replace arm take that
+     instead of `string src`.
+   - `ICodeStore.WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies)` drops
+     `PushedDeclarations`. Every driver use of it built a network scope, and the scope now travels with its model.
+   - At each network-text body it writes, the driver takes the model and scope for that site:
+     `CodesysNetworkWriter.Write(iobj, model, scope)`, TwinCAT `ResolveBody(existing, model, scope)`.
+   - A network-text body with no entry is **Volt's bug**: `InvalidOperationException` naming the site. A body the
+     write does not touch (`OnlyChanged`, a declaration-only write) is never looked up. Nothing is guessed or defaulted.
+
+**Choice: 4.** It closes D8 and D12 together: each body is validated once, by the engine, on both vendors.
+`NetworkScopeFor` stays on the driver for the pre-flight and for pull (`ScopeForPull`). The TwinCAT pre-flight
+lowering stays: it asks the model the vendor's "can this be created" question (D21), not the text.
+
+**What stays refused.** Every `NETWORK_*` refusal, raised once and before the first write, with its code and line. The
+`NetworkTextSwitch` refusal stays in `NetworkText.Validate`, now its only door; a driver cannot write a model that did
+not pass through it. No new refusal.
+
+**Gate.** `NoCodeCheckLeftTests` gains a ratchet: `NetworkText.Validate(` appears exactly once in product source (the
+pre-flight). Tests:
+- A `FakeIde` write handed a network body with no model throws, naming the site. Red until the drivers stop
+  validating.
+- A CODESYS and a TwinCAT write whose `ProjectDeclarations` throws when asked still writes the model it was handed.
+  That proves there is no second reading.
+- A move + edit and a create each validate once (a counting scope source on `FakeIde.NetworkScopeFor`).
+- Tests that call `WriteContent` directly build their bodies through the engine helper the pre-flight uses
+  (`SourceScopes.Validated(content, scopeFor)`).
+
+### D9 — the boundary line by its grammar alone; one refusal for a text with no outer block
+
+**Target.** A line is a body's boundary only when it IS one (`ImplementationMarker.Is`: the keyword, one word,
+optionally `UNSUPPORTED`, as `Parse` accepts). Any other line is code. The SHAPE (`Shape`, `Stated`) is read in one
+place only: as the HINT of the no-boundary refusal, the way 2.1 kept the retired comment. The empty-text branch
+(`StReader.cs:111`) goes.
+
+**Today.** `Shape` makes every line that opens with the keyword and a word a boundary candidate. So `Implementation`
+on its own line, or `Implementation OR b;` in a wrapped expression, is refused on push (as a second boundary,
+`SplitAtBoundary`, or as a line in a declaration, `RefuseLinesInDeclarations`), refused on pull (the drivers'
+`RequireStBody`), and mirrored in the LSP (`implementation-line.ts` `SHAPE`). That is a code check: CODESYS compiles
+`x := a OR\n  Implementation;` with `implementation : BOOL;` declared (1.2 recorded that the identifier compiles).
+Separately, the empty-text message is wrong for an interface: it says the file "holds at least its declaration, its
+IMPLEMENTATION line and its END line", and an interface has no such line.
+
+**Options.**
+
+1. *Keep `Shape`.* **Rejected**: it refuses code the IDE compiles (rule 2).
+2. *`Shape` minus the bare keyword* (4.9's wording). Passes `Implementation`, but still refuses `Implementation OR b`
+   and every `IMPLEMENTATION <word> <more>` continuation. **Rejected** as half the same check.
+3. *Grammar only* (**chosen**). `StatedLinesIn`, `IndexIn`, `RequireStBody` and `RefuseLinesInDeclarations` ask
+   `Is`. Once only a valid line can be the boundary, `Body()`'s lookalike refusals are unreachable, so they become the
+   `Unmarked` hint: a line stating no language, a bare `IMPLEMENTATION CFC|SFC|IL` (section 2b's line, "pull
+   again"), a word no body states. The hint names the first line outside comments that opens with the keyword, and
+   what it lacks. A file that forgot its language is still refused, by name, with the same advice.
+
+**Choice: 3.** It changes the verdict on **0 of 2,140** corpus shape lines, removes one regex and three refusal arms,
+and holds no code check: every line still refused is one the format cannot hold. The LSP's `SHAPE` changes in the
+same step, because it reads the same file format and an LSP-only report is a false positive. That is row (e) of 5.2,
+done here. 4.9's test: an ST body holding `Implementation` (and `Implementation OR b`) pulls and pushes as written.
+
+**Empty text.** The branch goes. An empty or blank POU or interface text has no outer block, so it gets the refusal
+every text without one gets: `FindOuterBlock`'s "Missing END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION in 'X'"
+(END_INTERFACE for an interface). One condition, one message, right for both composite kinds. `Unmarked` stays the
+refusal for a text WITH an outer block and no boundary: two conditions, two messages. Corpora: 0 empty files.
+
+**What stays refused, by name.**
+- Two valid boundary lines in one region: the text cannot say which.
+- A valid boundary line inside a declaration: it would read back as the boundary.
+- Code under an `UNSUPPORTED` line.
+- A `%FOLDER` line out of place.
+- A region with no boundary line (`Unmarked`, now with the lookalike hint).
+- An ST body in the IDE holding a valid boundary line (`RequireStBody`).
+
+### D10 — the member header: the name is the last word before the colon
+
+**Target.** `ParseSignature` returns the name and the type text, with no modifier vocabulary (2.5). The type
+requirement and the ASCII check are gone already (2.4, 2.6, 3.1), and the TwinCAT interface-member seed lives in that
+driver (2.4).
+
+**Options.**
+
+1. *Keep `Modifiers`.* The six words are a fact: both vendors refuse each as a member name, and the corpora hold no
+   other word there. But refusing a seventh word (`METHOD PUBLC Run : BOOL`) is still a code check: the IDE takes
+   that text as the declaration of the method `Run`, and its build reports the word. **Rejected** (rule 2).
+2. *The first word that is not a modifier is the name; later words pass through.* A modifier typo,
+   `METHOD PUBLC Run`, reads as the member `PUBLC`; on an update that deletes `Run` and creates `PUBLC`, and the
+   method loses its identity silently. Modifiers stand before the name in 1,420 of 1,420 corpus signatures, so a
+   modifier typo is the realistic typo. **Rejected.**
+3. *The last word before the colon is the name* (2.5; **chosen**). A modifier typo keeps the member:
+   `METHOD PUBLC Run` is `Run`, and the build reports `PUBLC`. Review 1+2d's case, `METHOD Run Walk : BOOL` over an
+   existing `Run`, reads as `Walk`. That is a member renamed by its header, which is what every header rename already
+   is (the reconciler deletes and creates, `PushService.ReconcileMembers`); the stray word is the build's to report.
+   Pull reads member names from the IDE's objects (`MemberSites.Of`), so the round trip is stable: object `Walk` with
+   header `METHOD Run Walk` reads back as `Walk`. A name the vendor refuses (`METHOD Run PUBLIC`) is refused by the
+   pre-flight's `RefusedName` before anything lands. Corpora: 0 lines read differently from today.
+
+**Found while measuring, and fixed here.** An ACTION's line is composed, not stored: CODESYS writes an action no
+declaration (`WriteMembers`: `Action ? null`), and TwinCAT composes `ACTION <name>` (`MemberDeclaration`). Today
+`ACTION PUBLIC Run` accepts the modifier and **drops it without a word**, and a comment on that line goes the same
+way. So the ACTION line is refused by name (INVALID_ST) when it holds anything besides the keyword and a name: a
+modifier, a type (today's ":" refusal joins it), or a comment. The message: "an action has no declaration the IDE
+stores; this would be dropped". This is needed-to-write, measured on 0 of 46 corpus action lines.
+
+**What stays refused.**
+- A signature with no name (`METHOD : BOOL`).
+- An END line read where a name should be. `RefuseEndAfterCode` runs before the signature is read, and
+  `ChildSplitterTableTests` keeps its two rows.
+- The ACTION line above.
+- A name a vendor refuses (pre-flight, UNSUPPORTED).
+
+**Recording.** One batch per vendor in this step's recorder run: fixture `sig_unknown_word` (an FB with
+`METHOD PUBLC Run : BOOL` and `METHOD Run Walk : BOOL`), plus the build error for 2.4/2.5's `METHOD Run :`. The LSP
+reports what is recorded (5.1/5.2). `SignatureParseTests`' refusal rows (STATIC, FOO, PUBLIK) are rewritten to assert
+the name and type read; their premise was the vocabulary this step removes. Rows for the ACTION refusal are added.
+
+### D11 — one shape table per kind
+
+**Target.** "What a kind's file holds" is answered by one table on `ItemKind`, and every reader, writer and guard asks
+it. `BodyFormatGuard`'s `InterfaceMethod` branch (:57, :100) is fixed by the table, not by a third kind list.
+
+**Today: one question, five spellings, three disagreements.**
+
+| Spelling | pou | interface | gvl/dut | method / action | property | interface_method | interface_property |
+|---|---|---|---|---|---|---|---|
+| `ImplementationMarker.AppliesTo` (and `NetworkText.CanHold`) | T | F | F | T | **T** | F | F |
+| `StWriter.HasBody` | T | **T** | F | — | — | — | — |
+| `StReader` `Gvl or Dut` (×3), `OuterEndKeywords`, `kind == Interface` | split | split, inside | as sent | — | — | — | — |
+| `BodyFormatGuard.CarriesAccessors` | — | — | — | F | T | **T** | T |
+| `CodesysDriver.ReadMember`, `PushService:1735` (accessors read / reconciled) | — | — | — | F | T | F | T |
+
+Each bold cell is one word made to carry a different meaning:
+- `AppliesTo(property)` is true because a property's ACCESSORS carry the line, not the property.
+- `HasBody(interface)` means "composite".
+- `CarriesAccessors(interface_method)` means "has no body"; an interface method has no accessors.
+
+TwinCAT's `HasBodySlot` is a sixth spelling, but it is a vendor question about an OBJECT. D26 (4.26) replaces it by
+asking the object, so it is not folded into this table.
+
+**Options.**
+1. *Five named predicates on `ItemKind`*: one file, but the sets can still contradict each other.
+2. *A kind object hierarchy*: more machinery than six facts need.
+3. *One row per kind* (**chosen**): `ItemKind.ShapeOf(kind)` returns
+   `KindShape(bool Composite, bool MembersInside, bool Body, AccessorShape Accessors, bool Signature)`. It is a total
+   switch, and an unknown kind throws as Volt's bug (ArgumentException → INTERNAL_ERROR, as 2.2).
+
+| kind | Composite | MembersInside | Body (IMPLEMENTATION line) | Accessors | Signature (create takes a type) |
+|---|---|---|---|---|---|
+| pou | T | F | T | none | F |
+| interface | T | T | F | none | T |
+| gvl, dut | F | — | F | none | F |
+| method, action, property_get, property_set | F | — | T | none | F |
+| property | F | — | F | with bodies | F |
+| interface_method | F | — | F | none | T |
+| interface_property | F | — | F | declarations only | T |
+
+**Who asks it.**
+- `ImplementationMarker.AppliesTo` → `Body`.
+- `StWriter.HasBody` → `Composite`.
+- `AssembleChild`/`AssembleProperty`'s `marked` → `Body` / `Accessors == WithBodies`. The owner check goes, because
+  interface members are kinds of their own.
+- `StReader`'s three `Gvl or Dut` returns and its interface branch → `Composite` / `MembersInside`. The END words stay
+  the reader's text vocabulary, keyed by kind.
+- `NetworkText.CanHold` → source kind and `Body`.
+- `BodyFormatGuard` checks accessors where `Accessors != none` and the body where `Body`, and skips a kind with
+  neither. That is the `InterfaceMethod` fix.
+- `SourceScopes.SitesOf` yields only the sites the table says exist.
+- `CodesysDriver.ReadMember` and `PushService:1735` → `Accessors`; `PushService.CreateSeed` → `Signature`.
+
+**Behaviour.** No answer changes for any kind the push reads: each disagreement was in WHICH predicate a caller asked,
+not in the answer it got. A table test over every kind proves it, comparing each consumer's old predicate with the
+row; it runs before the predicates are deleted. An ACTION inside an interface keeps today's path (0 occurrences in the
+corpora): the reader maps it by its owner, as the IDE read does, and the vendor's create answers.
+
+### Migration
+
+1. **D11 first**, because D8 and D9 build on its `Body`/`Accessors`.
+   - Add `KindShape`/`ShapeOf`, then the table test pinning the old predicates.
+   - Point the consumers at it. Delete `AppliesTo`'s body, `HasBody`, `CarriesAccessors` and the `Gvl or Dut` copies.
+   - Fix the guard's `InterfaceMethod` branch. Test: an interface method pushed over the live one checks no body and
+     no accessor. Today it differs only in its reason, so the test asserts which site the guard asks.
+2. **D8 + D12.**
+   - `PushedNetworkBody` gains `Scope`; add `ValidatedSource`, kept by the pre-flight per op.
+   - `WriteItemFromSource`/`MoveItem`/replace take it; the create arm's `StReader.Read` + `Validate` go.
+   - `ICodeStore.WriteContent` changes on both drivers and `FakeIde`. Delete the drivers' write-path
+     `NetworkText.Validate`/`NetworkScopeFor` calls (CODESYS `:61`, `:441`, `:542`; TwinCAT `:241`, `:384`, `:446`).
+   - Regenerate `docs/assets/data.js` (the driver-interface row) and add the ratchet. Tests first (above).
+3. **D9.**
+   - `StatedLinesIn`/`IndexIn`/`RequireStBody`/`RefuseLinesInDeclarations` ask `Is`, and `Body()`'s lookalike arms
+     move into `Unmarked`'s hint.
+   - The empty-text branch goes.
+   - The LSP `SHAPE` change and its src test land in the same commit.
+   - Tests first: an ST body with `Implementation` / `Implementation OR b` pulls (CODESYS and TwinCAT reader doubles)
+     and pushes; `IMPLEMENTATION SST` alone is refused `Unmarked`, naming the line; an empty interface is refused
+     "Missing END_INTERFACE".
+4. **D10.**
+   - `Modifiers` goes: the name is the last word. Add the ACTION-line refusal.
+   - Record `sig_unknown_word` on both vendors, one batch each, and rate it with `rate:fixtures`.
+   - Rewrite the `SignatureParseTests` rows (their premise was the removed vocabulary).
+5. The corpus oracle (34 bodies / 157 networks) stays at its pinned tallies. The scratch measurement predicts no
+   change: 0 corpus lines read differently under D9 or D10, and D8 changes no model (34/34).
