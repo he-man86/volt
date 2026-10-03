@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -25,7 +27,13 @@ public static class PipeHost
 
     public static bool IsRunning => _host is not null;
 
-    public static string Start(object? projects, object? system, object? online)
+    public static string Start(object? projects, object? system, object? online) =>
+        Start(projects, p => new CodesysDriver(p), logDir: null);
+
+    /// <summary>The start over a given driver and log folder — the offline tests drive the real start sequence over a
+    /// <see cref="CodesysDriver"/> on doubles and read its log (openspec ide-identity-report: the start log is the field
+    /// evidence for 3.1/3.2). Production passes the real driver and the durable log folder.</summary>
+    internal static string Start(object? projects, Func<object?, CodesysDriver> newDriver, string? logDir)
     {
         // The dependency resolver is installed by BridgeAssemblyResolver's module
         // initializer, not here: this method's own body cannot be JITted until Volt.Wire
@@ -41,11 +49,15 @@ public static class PipeHost
                 ? PipeNames.CodesysInstance(Process.GetCurrentProcess().Id)
                 : overridePipe!;
 
-            VoltLog.Init(Vendors.Codesys);
-            VoltLog.Debug($"in-proc bridge starting on pipe {_pipeName}");
+            VoltLog.Init(Vendors.Codesys, logDir);
+            // Info, and with the pid: every CODESYS process appends to the SAME daily codesys log, so this header is
+            // what separates one session's start block from another's in a field log (3.2 is about a second session).
+            VoltLog.Info($"in-proc bridge starting on pipe {_pipeName} (CODESYS pid {Pid})");
             LogBoundAssemblies();
+            var conflicts = LogLoadConflicts();
+            WatchLaterLoads();
 
-            _driver = new CodesysDriver(projects);
+            _driver = newDriver(projects);
             // The identity health reports, as read — so the first OEM log is the evidence (DIALECT V1/V4): the exe's
             // own product name sits beside OEMCustomization's, to show whether the two part (design B2).
             VoltLog.Info(_driver.IdentityLine());
@@ -82,7 +94,10 @@ public static class PipeHost
             var where = _driver.IsConnected ? "connected to IDE" : "no project open";
             VoltLog.Info($"CODESYS bridge ready on {_pipeName} ({where})");
             var oem = _driver.OemProduct is { } o ? $"{o} on " : "";
-            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion})";
+            // A load conflict is said in the message window too — report only (3.2 is an open decision), but the
+            // engineer looking at CODESYS is the one who can say what else they loaded.
+            var warning = conflicts.Count > 0 ? " — WARNING, load conflict (see the Volt log): " + conflicts[0] : "";
+            return $"Volt bridge started on pipe {_pipeName} ({where}, {oem}CODESYS {_driver.IdeVersion}){warning}";
         }
     }
 
@@ -93,6 +108,56 @@ public static class PipeHost
         try { foreach (var line in BoundAssemblies.Describe()) VoltLog.Info("bound: " + line); }
         catch (Exception ex) { VoltLog.Error("bound: the assembly log itself failed: " + ex.GetType().Name + ": " + ex.Message); }
     }
+
+    /// <summary>The load conflicts at start (<see cref="LoadedCopies"/>): a Volt assembly or System.Text.Json loaded twice, or more than one
+    /// Volt build — the evidence 3.1/3.2 wait for. Each is a Warn line of its own; "none" is said, so a field log
+    /// that lacks the line is an older bridge, not a clean one.</summary>
+    private static IReadOnlyList<string> LogLoadConflicts()
+    {
+        try
+        {
+            var conflicts = LoadedCopies.Conflicts();
+            if (conflicts.Count == 0) VoltLog.Info("bound: load conflicts: none");
+            foreach (var c in conflicts) VoltLog.Warn("LOAD CONFLICT: " + c);
+            return conflicts;
+        }
+        catch (Exception ex)
+        {
+            VoltLog.Error("bound: the load-conflict check itself failed: " + ex.GetType().Name + ": " + ex.Message);
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>Log every watched assembly loaded AFTER start, and a conflict it creates. A second copy need not be
+    /// there at start: a second CODESYS session's <c>start_volt_codesys.py</c> can strip this session's not-yet-loaded
+    /// dependencies from its staged folder (3.2 fact 4), and the next lazy load then comes from whichever resolver
+    /// answers. Subscribed once per process — the event outlives a Stop/Start, and a second handler would log twice.</summary>
+    private static void WatchLaterLoads()
+    {
+        if (Interlocked.Exchange(ref _watching, 1) != 0) return;
+        AppDomain.CurrentDomain.AssemblyLoad += (_, e) =>
+        {
+            try
+            {
+                if (e.LoadedAssembly.IsDynamic || !LoadedCopies.IsWatched(e.LoadedAssembly.GetName().Name)) return;
+                var copy = LoadedCopies.Of(e.LoadedAssembly);
+                VoltLog.Info($"loaded after start (pid {Pid}): {copy.Name} {copy.Describe()}");
+                var loaded = LoadedCopies.Loaded();
+                if (LoadedCopies.CanConflict(copy.Name) && loaded.Count(c => c.Name == copy.Name) > 1)
+                    VoltLog.Warn($"LOAD CONFLICT (after start, pid {Pid}): " + LoadedCopies.Conflicts(loaded.Where(c => c.Name == copy.Name)).Single());
+                // A build not seen before (this copy's ProductVersion is new to the process).
+                if (copy.Name.StartsWith("Volt.", StringComparison.Ordinal)
+                    && !loaded.Any(c => c.Name.StartsWith("Volt.", StringComparison.Ordinal) && c.Name != copy.Name
+                                        && c.ProductVersion == copy.ProductVersion)
+                    && LoadedCopies.Builds(loaded).Count > 1)
+                    VoltLog.Warn($"LOAD CONFLICT (after start, pid {Pid}): " + LoadedCopies.Conflicts(loaded).Last());
+            }
+            catch { /* the log is evidence about a failure; it must not become one */ }
+        };
+    }
+
+    private static int _watching;
+    private static readonly int Pid = Process.GetCurrentProcess().Id;
 
     /// <summary>Start the relay tunnel when this install is configured for one.
     ///

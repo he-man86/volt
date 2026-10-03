@@ -100,6 +100,10 @@ public sealed class BridgePipeHost : IDisposable
                 h.ProductVendor = _ide.ProductVendor;
                 h.BridgeVersion = Release;
                 h.Unsupported = unsupported;
+                // Read per poll, not at start: a second copy can load later (3.2). Cheap — one scan of the loaded
+                // assemblies, each copy's version-info read once per process (LoadedCopies caches it).
+                var conflicts = LoadedCopies.Conflicts();
+                h.LoadConflicts = conflicts.Count == 0 ? null : conflicts.ToList();
                 return h;
             }
             case Ops.Connect:

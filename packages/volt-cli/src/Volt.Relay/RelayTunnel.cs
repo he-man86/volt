@@ -305,9 +305,13 @@ namespace Volt.Relay
             {
                 // Errors are coded or they are bugs. A request is NEVER dropped: every id the bridge accepts
                 // gets exactly one terminal frame, or the socket closes.
-                Log(VoltLogLevel.Warn, "relay: '" + op + "' failed: " + ex.Message);
+                // The 3.5.17 field failure was thrown HERE (Volt.Relay is what calls PipeClient.Call) and left only its
+                // message, at Warn. Now the log keeps the whole exception and, for a binding failure, every copy
+                // loaded at that moment; the remote client gets the type beside the message (openspec
+                // ide-identity-report 3.1).
+                Log(VoltLogLevel.Error, "relay: '" + op + "' failed on pipe " + _pipeName + " — " + CallFailure.LogText(ex));
                 await TrySendAsync(RelayFrames.Error(id, BridgeErrorCodes.InternalError,
-                    ex.Message), token).ConfigureAwait(false);
+                    CallFailure.Message(ex)), token).ConfigureAwait(false);
             }
         }
 

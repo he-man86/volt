@@ -1046,10 +1046,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// CODESYS's in-proc answer. Settable so that branch stops being unreachable under test.</summary>
     public bool TransientErrorsAreDegraded { get; init; }
     public override bool ShouldMarkDegraded(Exception ex) => TransientErrorsAreDegraded;
+    /// <summary>Every call marshalled to the IDE thread throws this instead of running — the shape of a member that
+    /// fails to bind at call time (the 3.5.17 <c>MissingMethodException</c>), which surfaces on the call, uncoded
+    /// (openspec ide-identity-report 3.1).</summary>
+    public Func<Exception>? CallFault { get; set; }
     /// <summary>The fake's one IDE thread. <c>DriverBase.RunOnStaThread</c> wraps every call to this with the
     /// in-flight/freshness bracketing, so the fake gets the real liveness signals for free.</summary>
     protected override T MarshalToIdeThread<T>(Func<T> fn)
     {
+        if (CallFault is { } fault) throw fault();
         if (_sta == null) return fn();   // default: inline, no serialization
         T result = default!; Exception? error = null;
         using var done = new ManualResetEventSlim(false);

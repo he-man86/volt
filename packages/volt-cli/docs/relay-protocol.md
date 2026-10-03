@@ -191,6 +191,13 @@ measured against a live deployment**:
 - A pipe failure crosses as its own `code`: the `BridgeErrorCodes` vocabulary in `wire.html`, unchanged.
 - An op not on the allowlist is answered `BAD_REQUEST`. Any other tunnel-side failure (the pipe is gone, the
   call threw) is answered `INTERNAL_ERROR` with the reason.
+- **An `INTERNAL_ERROR` message is `<ExceptionType>: <message>`** — on either side of the pipe (`CallFailure`),
+  because the message text is OS-localized and the type name is not. For a failure to bind a type, member or
+  assembly (`MissingMethodException`, `MissingFieldException`, `TypeLoadException`, `FileLoadException`, …) it
+  ends with what was loaded at that moment: `[loaded: one copy of each Volt and System.Text.Json assembly, one
+  Volt build]`, or `[load conflict: <each conflict, as health.loadConflicts states it>]`. The bridge log holds
+  the whole exception (stack, inner exceptions) and every watched copy. A client that records these messages
+  records the evidence the open field failures need (openspec `ide-identity-report` 3.1/3.2).
 - A frame the bridge cannot read as a request (not JSON, not an object, an `op` with no string `id`, an `op`
   that is not a string) is **logged and dropped, not answered**. Without an id there is nowhere to send an
   answer, and closing the socket over one bad frame would abandon every request in flight.

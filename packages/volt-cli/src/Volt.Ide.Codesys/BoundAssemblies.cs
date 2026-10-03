@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using Volt.Contracts;
 
 namespace Volt.Ide.Codesys
 {
@@ -36,6 +36,11 @@ namespace Volt.Ide.Codesys
                 typeof(Volt.Wire.PipeClient).GetMethod(nameof(Volt.Wire.PipeClient.Call))!.ReturnType.Assembly);
             Binds(lines, "Volt.Contracts.WireJson.Write", () =>
                 typeof(Volt.Contracts.WireJson).GetField(nameof(Volt.Contracts.WireJson.Write))!.FieldType.Assembly);
+
+            // Every Volt build in the process, by its ProductVersion (3.2): an unstamped build is 1.0.0.0 by assembly
+            // and file version alike, so the commit in the ProductVersion is the only thing that tells two apart.
+            var builds = LoadedCopies.Builds(LoadedCopies.Loaded());
+            lines.Add($"Volt builds loaded: {builds.Count} — " + string.Join("; ", builds.Select(b => b.Describe())));
             return lines;
         }
 
@@ -63,13 +68,9 @@ namespace Volt.Ide.Codesys
             catch (Exception ex) { lines.Add($"{member} does not bind: {ex.GetType().Name}: {ex.Message}"); }
         }
 
-        private static string Describe(Assembly a)
-        {
-            string location;
-            try { location = a.Location; } catch (NotSupportedException) { location = ""; }
-            if (string.IsNullOrEmpty(location)) return $"{a.GetName().Version} (no file: loaded from bytes)";
-            var file = FileVersionInfo.GetVersionInfo(location).FileVersion;
-            return $"{a.GetName().Version} (file {file}{(a.GlobalAssemblyCache ? ", GAC" : "")}) at {location}";
-        }
+        /// <summary>Version, file version, BUILD (ProductVersion), GAC, location — one reading for every line
+        /// (<see cref="LoadedCopies"/>), so the start log, health's <c>loadConflicts</c> and a failed call's evidence
+        /// describe a copy identically.</summary>
+        private static string Describe(Assembly a) => LoadedCopies.Of(a).Describe();
     }
 }

@@ -15,7 +15,8 @@ namespace Volt.Contracts;
 /// lost connection. Per-op results (refs/fetch/push/build) come back from those ops, not here.
 /// <para>The wire carries <see cref="Projects"/> and the facts about the bridge PROCESS itself — not a project's, so
 /// not a row's: <see cref="NetworkText"/>, <see cref="Unsupported"/>, and the identity (<see cref="ProductName"/>,
-/// <see cref="ProductVersion"/>, <see cref="ProductVendor"/>, <see cref="IdeVersion"/>, <see cref="BridgeVersion"/>).
+/// <see cref="ProductVersion"/>, <see cref="ProductVendor"/>, <see cref="IdeVersion"/>, <see cref="BridgeVersion"/>), and
+/// <see cref="LoadConflicts"/>.
 /// A process fact sits at top level so a frame with no rows (no project open, an unsupported IDE) still carries it —
 /// exactly when a support case needs it. The connector stamps <see cref="Unsupported"/> and the identity onto every
 /// row it detects from this frame. Each identity field is null (absent) when its source does not answer — never
@@ -67,6 +68,15 @@ public class HealthResponse
     /// bridge always sends it when its own file is readable, so a frame without it is an older bridge.</summary>
     [JsonPropertyName("bridgeVersion")]
     public string? BridgeVersion { get; set; }
+
+    /// <summary>Copies of Volt or of the framework assemblies the wire binds that should not be in one process
+    /// (<see cref="LoadedCopies"/>): a name loaded more than once, or Volt assemblies of more than one build, one
+    /// self-contained line each naming every copy's version, build (ProductVersion) and location. Absent when there is
+    /// one copy of each and one build — the normal case. Report only: nothing is refused for it (openspec
+    /// ide-identity-report 3.2 is an open decision); on the wire so a remote client, which never sees the bridge log,
+    /// records it.</summary>
+    [JsonPropertyName("loadConflicts")]
+    public List<string>? LoadConflicts { get; set; }
 
     /// <summary>Why this bridge serves NOTHING: the IDE lacks something the bridge needs. The fixed English sentence
     /// every other op answers with under <c>IDE_UNSUPPORTED</c>. Absent when the IDE has everything. While it is set,

@@ -169,7 +169,7 @@ public sealed class PipeServer : IDisposable
                 catch { server.Dispose(); if (!_running) break; continue; }
 
                 if (!_running) { try { server.Dispose(); } catch { } break; }
-                ThreadPool.QueueUserWorkItem(_ => Handle(server));
+                ThreadPool.QueueUserWorkItem(_ => Serve(server));
             }
         }
         finally
@@ -180,10 +180,24 @@ public sealed class PipeServer : IDisposable
         }
     }
 
+    // Handle's own JIT binds the wire (WireJson.Read): if THAT fails — the 3.5.21.50 MissingFieldException shape —
+    // the exception is thrown here, at the call, on a thread-pool thread, where an unhandled one takes the whole
+    // process down (CODESYS itself, in-proc). Caught and logged instead; the connection is dropped.
+    private void Serve(NamedPipeServerStream server)
+    {
+        try { Handle(server); }
+        catch (Exception ex)
+        {
+            VoltLog.Error($"pipe {_pipeName}: a request could not be served — " + CallFailure.LogText(ex));
+            try { server.Dispose(); } catch { }
+        }
+    }
+
     private void Handle(NamedPipeServerStream server)
     {
         using (server)
         {
+            string? op = null;
             try
             {
                 var line = ReadLine(server);
@@ -202,6 +216,7 @@ public sealed class PipeServer : IDisposable
                 }
                 // Per-connection frames are written strictly in order (progress on the op thread, then the result
                 // after the op returns) — no concurrent writer on this stream, so no lock is needed.
+                op = req.Op;
                 var result = _dispatch(req, frame => WriteFrame(server, new PipeFrame { Progress = frame }));
                 WriteFrame(server, new PipeFrame { Result = result });
             }
@@ -209,9 +224,26 @@ public sealed class PipeServer : IDisposable
             {
                 // Carry a real code when the op threw one (Engine's BridgeException implements ICodedError);
                 // anything else is a genuine INTERNAL_ERROR.
-                var code = ex is ICodedError coded ? coded.ErrorCode : BridgeErrorCodes.InternalError;
-                try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = ex.Message } }); }
-                catch { /* client gone — best effort */ }
+                // An uncoded failure is a bug or a binding failure, never an answer: it is LOGGED (the whole exception,
+                // and for a binding failure every copy loaded at that moment — openspec ide-identity-report 3.1) BEFORE
+                // the error frame, whose write uses the very WireJson.Write a binding failure can take away. The client
+                // gets the exception's TYPE beside its message: the message is OS-localized (the 3.5.17 one was), the
+                // type name is not. A coded refusal is the caller's ordinary answer: unchanged, and not logged here.
+                string code, message;
+                if (ex is ICodedError coded) { code = coded.ErrorCode; message = ex.Message; }
+                else
+                {
+                    code = BridgeErrorCodes.InternalError;
+                    message = CallFailure.Message(ex);
+                    VoltLog.Error($"pipe {_pipeName}: '{op ?? "(no op read)"}' failed — " + CallFailure.LogText(ex));
+                }
+                try { WriteFrame(server, new PipeFrame { Error = new PipeError { Code = code, Message = message } }); }
+                catch (Exception writeEx)
+                {
+                    // Client gone (ordinary), or the frame itself cannot be written — said, for the second.
+                    if (!(writeEx is IOException || writeEx is ObjectDisposedException))
+                        VoltLog.Error($"pipe {_pipeName}: the error frame could not be written — " + CallFailure.LogText(writeEx));
+                }
             }
             try { server.WaitForPipeDrain(); } catch { }
         }

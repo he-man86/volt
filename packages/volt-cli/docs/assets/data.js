@@ -263,6 +263,12 @@ window.VOLT = {
             "bridgeVersion": {
               "type": "string"
             },
+            "loadConflicts": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "unsupported": {
               "type": "string"
             }

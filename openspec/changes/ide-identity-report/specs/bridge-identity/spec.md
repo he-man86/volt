@@ -47,3 +47,15 @@ The bridge SHALL report the product's manufacturer as `productVendor` when a gen
 #### Scenario: manufacturer not readable
 - **WHEN** no generic source states the manufacturer
 - **THEN** `productVendor` is null and the client shows the vendor as unknown — no name is inferred
+
+### Requirement: the bridge leaves the evidence a load conflict needs
+
+The bridge SHALL report, without refusing anything, every copy of a Volt assembly or of a framework assembly the wire binds that should not share its process: a name loaded more than once, or Volt assemblies of more than one build (told apart by the file's `ProductVersion`). It SHALL log them at start and when a later load creates one, and carry them on health as `loadConflicts` (absent when there are none). An uncoded failure of a call SHALL reach the client as `<ExceptionType>: <message>` — and for a failure to bind a type, member or assembly, with the load conflicts at that moment — and SHALL be logged with the whole exception and every watched copy loaded at that moment.
+
+#### Scenario: a second copy of a Volt assembly in the process
+- **WHEN** a second copy of a Volt assembly is loaded in the bridge's process, before or after the bridge starts
+- **THEN** the log has a `LOAD CONFLICT` line naming every copy with its version, build and location, and health carries the same line in `loadConflicts`
+
+#### Scenario: a member missing at call time
+- **WHEN** a call fails because a member cannot be bound
+- **THEN** the client receives `INTERNAL_ERROR` whose message starts with the exception type and the member, followed by what was loaded, and the bridge log holds the exception with its stack and the loaded copies
