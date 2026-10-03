@@ -16,6 +16,10 @@ The bridge SHALL answer a directed fetch that names a `.library` item with that 
 - **WHEN** a client fetches a `.library` whose RESOLUTION is a wildcard (`CmpEventMgr Interfaces, * (System)`)
 - **THEN** the answer carries the signatures of the library that reference resolves to, in the same folder a full fetch writes them, and a full fetch no longer folders them under `(unresolved)`
 
+#### Scenario: two references to one library
+- **WHEN** two `.library` references carry the same RESOLUTION (a placeholder and a direct reference to one compiled library)
+- **THEN** a full fetch writes that library's signatures once, beside the same reference whatever the walk order, and a directed read naming either reference returns them in that folder
+
 #### Scenario: a library with no matched signature is named
 - **WHEN** a directed read names a library to which no extracted signature could be attributed
 - **THEN** the bridge names that library in a warning instead of answering the manifest alone in silence

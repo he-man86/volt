@@ -1,0 +1,655 @@
+== library-signature cost — codesys-pro2193-settled — codesys — pipe volt.bridge.codesys.52516 — 2026-10-03T21:00:32.057Z
+  messages after open: OfflineHelpMessageCategory=1, ScriptMessageCategory=9; changed: OfflineHelpMessageCategory, ScriptMessageCategory
+  precompiled library signatures BEFORE any build: TOTAL	58
+  precompiled library signatures after 60000 ms idle, still no build: TOTAL	7228
+  refs: 1218 ms  items=881
+  .library refs: 173; Standard: ["Standard.library"]
+
+-- 1.1 directed read of Standard.library (cold session, before any extraction)
+  directed #0: 777 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  item "Standard.library" folder="Device/Plc Logic/Application/09 Misc/Library Manager/Standard" chars=123
+    | LIBRARY Standard
+    | NAMESPACE Standard
+    | RESOLUTION Standard, 3.5.18.0 (System)
+    | PLACEHOLDER true
+    | SYSTEM false
+    | MATERIALIZATION 4
+    | 
+  messages after directed #0: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1; changed: DeviceMessageCategory, PreCompileMessageCategory
+      DeviceMessageCategory
+      Device description for 'MagazineAxes' is missing
+      Device description for 'MagazineAxes' is missing
+      PreCompileMessageCategory
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+
+-- 1.2 full fetches
+  init #1 (COLD extraction): 24865 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  messages after init #1: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory, StaticAnalysisMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+      StaticAnalysisMessageCategory
+      Additional code checks ...
+      Additional code checks complete -- 0 errors
+
+-- R1 refs: 173, wildcard RESOLUTIONs: 30
+  wildcard ref "SysTypes2 Interfaces, %2A (System).library"  RESOLUTION "SysTypes2 Interfaces, * (System)"
+  wildcard ref "CmpErrors2 Interfaces, %2A (System).library"  RESOLUTION "CmpErrors2 Interfaces, * (System)"
+  wildcard ref "SysSem Interfaces, %2A (System).library"  RESOLUTION "SysSem Interfaces, * (System)"
+  wildcard ref "CmpEventMgr Interfaces, %2A (System).library"  RESOLUTION "CmpEventMgr Interfaces, * (System)"
+  wildcard ref "Visu Interfaces, %2A (System).library"  RESOLUTION "Visu Interfaces, * (System)"
+  wildcard ref "Collections Interfaces, %2A (System).library"  RESOLUTION "Collections Interfaces, * (System)"
+  wildcard ref "Base Interfaces, %2A (System).library"  RESOLUTION "Base Interfaces, * (System)"
+  wildcard ref "Datasources Interfaces, %2A (3S - Smart Software Solutions GmbH).library"  RESOLUTION "Datasources Interfaces, * (3S - Smart Software Solutions GmbH)"
+  wildcard ref "System_VisuElemBase.library"  RESOLUTION "VisuElemBase, * (System)"
+  wildcard ref "SysSocket Interfaces, %2A (System).library"  RESOLUTION "SysSocket Interfaces, * (System)"
+  wildcard ref "IecVarAccess3 Interfaces, %2A (System).library"  RESOLUTION "IecVarAccess3 Interfaces, * (System)"
+  wildcard ref "CmpIecVarAccess Interfaces, %2A (System).library"  RESOLUTION "CmpIecVarAccess Interfaces, * (System)"
+  wildcard ref "CmpOPCUAStack Interfaces, %2A (System).library"  RESOLUTION "CmpOPCUAStack Interfaces, * (System)"
+  wildcard ref "CmpOPCUAServer Interfaces, %2A (System).library"  RESOLUTION "CmpOPCUAServer Interfaces, * (System)"
+  wildcard ref "IecVarAccessOpcUaMetaData Interfaces, %2A (System).library"  RESOLUTION "IecVarAccessOpcUaMetaData Interfaces, * (System)"
+  wildcard ref "SysProcess Interfaces, %2A (System).library"  RESOLUTION "SysProcess Interfaces, * (System)"
+  wildcard ref "Alarm Manager Interfaces, %2A (Intern).library"  RESOLUTION "Alarm Manager Interfaces, * (Intern)"
+  wildcard ref "Alarm Manager Internal Interfaces, %2A (Intern).library"  RESOLUTION "Alarm Manager Internal Interfaces, * (Intern)"
+  wildcard ref "CmpOPCUAProviderAlarmConfiguration Interfaces, %2A (System).library"  RESOLUTION "CmpOPCUAProviderAlarmConfiguration Interfaces, * (System)"
+  wildcard ref "CmpIoMgr Interfaces, %2A (System).library"  RESOLUTION "CmpIoMgr Interfaces, * (System)"
+  wildcard ref "IoDriver Interfaces, %2A (System).library"  RESOLUTION "IoDriver Interfaces, * (System)"
+  wildcard ref "IoDriver Parameter Interfaces, %2A (System).library"  RESOLUTION "IoDriver Parameter Interfaces, * (System)"
+  wildcard ref "IoDriver Profibus2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver Profibus2 Interfaces, * (System)"
+  wildcard ref "SysTypes Interfaces, %2A (System).library"  RESOLUTION "SysTypes Interfaces, * (System)"
+  wildcard ref "IoDriver2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver2 Interfaces, * (System)"
+  wildcard ref "IoDriver Parameter2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver Parameter2 Interfaces, * (System)"
+  wildcard ref "L_SI9P_IoDrvi900.library"  RESOLUTION "L_SI9P_IoDrvi900, * (Lenze)"
+  wildcard ref "L_ST2I_ActivateTimeMeasurement, %2A (Lenze).library"  RESOLUTION "L_ST2I_ActivateTimeMeasurement, * (Lenze)"
+  wildcard ref "VisuUserMgmt3 Interfaces, %2A (System).library"  RESOLUTION "VisuUserMgmt3 Interfaces, * (System)"
+  wildcard ref "L_MC4I_TestTools, %2A (Lenze).library"  RESOLUTION "L_MC4I_TestTools, * (Lenze)"
+  (unresolved) folders: 32
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/alarm manager interfaces
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/alarm manager internal interfaces
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/base interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmperrors2 interfaces
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpeventmgr interfaces
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpiecvaraccess interfaces
+    17	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpiomgr interfaces
+    2	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpopcuaprovideralarmconfiguration interfaces
+    18	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpopcuaserver interfaces
+    277	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpopcuastack interfaces
+    51	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpusermgr implementation
+    13	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpusermgr interfaces
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/collections interfaces
+    37	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/data server interfaces
+    60	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/datasources interfaces
+    57	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iecvaraccess3 interfaces
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iecvaraccessopcuametadata interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver parameter interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver parameter2 interfaces
+    16	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver profibus2 interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver2 interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/l_st2i_activatetimemeasurement
+    14	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/monitoring data interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/sysprocess interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/syssem interfaces
+    17	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/syssocket interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/systypes
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/systypes interfaces
+    7	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/systypes2 interfaces
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/visu interfaces
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/visuusermgmt3 interfaces
+  refs whose folder holds no signature: 54
+    empty "SysTypes2 Interfaces, %2A (System).library"  RESOLUTION "SysTypes2 Interfaces, * (System)"
+    empty "CmpErrors2 Interfaces, %2A (System).library"  RESOLUTION "CmpErrors2 Interfaces, * (System)"
+    empty "SysSem.library"  RESOLUTION "SysSem, 3.5.17.0 (System)"
+    empty "SysSem Interfaces, %2A (System).library"  RESOLUTION "SysSem Interfaces, * (System)"
+    empty "CmpEventMgr.library"  RESOLUTION "CmpEventMgr, 3.5.17.0 (System)"
+    empty "CmpEventMgr Interfaces, %2A (System).library"  RESOLUTION "CmpEventMgr Interfaces, * (System)"
+    empty "Visu Interfaces, %2A (System).library"  RESOLUTION "Visu Interfaces, * (System)"
+    empty "Collections Interfaces, %2A (System).library"  RESOLUTION "Collections Interfaces, * (System)"
+    empty "Base Interfaces, %2A (System).library"  RESOLUTION "Base Interfaces, * (System)"
+    empty "Datasources Interfaces, %2A (3S - Smart Software Solutions GmbH).library"  RESOLUTION "Datasources Interfaces, * (3S - Smart Software Solutions GmbH)"
+    empty "CAA Callback.library"  RESOLUTION "CAA Callback Extern, 3.5.17.0 (CAA Technical Workgroup)"
+    empty "SysTime.library"  RESOLUTION "SysTime, 3.5.17.0 (System)"
+    empty "SysTime, 3.5.17.0 (System).library"  RESOLUTION "SysTime, 3.5.17.0 (System)"
+    empty "System_VisuElemBase.library"  RESOLUTION "VisuElemBase, * (System)"
+    empty "System_VisuElems.library"  RESOLUTION "VisuElems, 4.8.1.0 (System)"
+    empty "System_VisuElemMeter.library"  RESOLUTION "VisuElemMeter, 4.7.0.0 (System)"
+    empty "System_VisuElemsSpecialControls.library"  RESOLUTION "VisuElemsSpecialControls, 4.7.0.0 (System)"
+    empty "System_VisuElemsWinControls.library"  RESOLUTION "VisuElemsWinControls, 4.8.1.0 (System)"
+    empty "System_VisuElemTextEditor.library"  RESOLUTION "VisuElemTextEditor, 4.8.0.0 (System)"
+    empty "System_VisuElemTrace.library"  RESOLUTION "VisuElemTrace, 4.8.0.0 (System)"
+    empty "System_VisuNativeControl.library"  RESOLUTION "VisuNativeControl, 4.8.0.0 (System)"
+    empty "System_VisuElemsAlarm.library"  RESOLUTION "VisuElemsAlarm, 4.8.0.0 (System)"
+    empty "System_VisuElemCamDisplayer.library"  RESOLUTION "VisuElemCamDisplayer, 4.7.0.0 (System)"
+    empty "System_VisuElem3DPath.library"  RESOLUTION "VisuElem3DPath, 4.7.0.0 (System)"
+    empty "System_VisuElemsDateTime.library"  RESOLUTION "VisuElemsDateTime, 4.8.0.0 (System)"
+    empty "System_VisuElemXYChart.library"  RESOLUTION "VisuElemXYChart, 4.8.0.0 (System)"
+    empty "SysSocket.library"  RESOLUTION "SysSocket, 3.5.19.0 (System)"
+    empty "SysSocket Interfaces, %2A (System).library"  RESOLUTION "SysSocket Interfaces, * (System)"
+    empty "SysTime, 3.5.5.0 (System).library"  RESOLUTION "SysTime, 3.5.5.0 (System)"
+    empty "Time and Date, 3.5.17.0 (3S - Smart Software Solutions GmbH).library"  RESOLUTION "Time and Date, 3.5.17.0 (3S - Smart Software Solutions GmbH)"
+    empty "IecVarAccess3 Interfaces, %2A (System).library"  RESOLUTION "IecVarAccess3 Interfaces, * (System)"
+    empty "CmpIecVarAccess Interfaces, %2A (System).library"  RESOLUTION "CmpIecVarAccess Interfaces, * (System)"
+    empty "CmpOPCUAStack Interfaces, %2A (System).library"  RESOLUTION "CmpOPCUAStack Interfaces, * (System)"
+    empty "CmpUserMgr, 3.5.17.0 (System).library"  RESOLUTION "CmpUserMgr, 3.5.17.0 (System)"
+    empty "CmpOPCUAStack, 3.5.17.0 (System).library"  RESOLUTION "CmpOPCUAStack, 3.5.17.0 (System)"
+    empty "CmpOPCUAServer Interfaces, %2A (System).library"  RESOLUTION "CmpOPCUAServer Interfaces, * (System)"
+    empty "IecVarAccessOpcUaMetaData Interfaces, %2A (System).library"  RESOLUTION "IecVarAccessOpcUaMetaData Interfaces, * (System)"
+    empty "SysProcess.library"  RESOLUTION "SysProcess, 3.5.17.0 (System)"
+    empty "SysProcess Interfaces, %2A (System).library"  RESOLUTION "SysProcess Interfaces, * (System)"
+    empty "Alarm Manager Interfaces, %2A (Intern).library"  RESOLUTION "Alarm Manager Interfaces, * (Intern)"
+    empty "Alarm Manager Internal Interfaces, %2A (Intern).library"  RESOLUTION "Alarm Manager Internal Interfaces, * (Intern)"
+    empty "CmpOPCUAProviderAlarmConfiguration Interfaces, %2A (System).library"  RESOLUTION "CmpOPCUAProviderAlarmConfiguration Interfaces, * (System)"
+    empty "CmpOPCUAProviderAlarmConfiguration Implementation.library"  RESOLUTION "NotImplementedByDevice, 3.5.17.0 (System)"
+    empty "CmpIoMgr Interfaces, %2A (System).library"  RESOLUTION "CmpIoMgr Interfaces, * (System)"
+    empty "IoDriver Interfaces, %2A (System).library"  RESOLUTION "IoDriver Interfaces, * (System)"
+    empty "IoDriver Parameter Interfaces, %2A (System).library"  RESOLUTION "IoDriver Parameter Interfaces, * (System)"
+    empty "IoDriver Profibus2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver Profibus2 Interfaces, * (System)"
+    empty "SysTypes Interfaces, %2A (System).library"  RESOLUTION "SysTypes Interfaces, * (System)"
+    empty "IoDriver2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver2 Interfaces, * (System)"
+    empty "IoDriver Parameter2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver Parameter2 Interfaces, * (System)"
+    empty "L_SI9P_IoDrvi900.library"  RESOLUTION "L_SI9P_IoDrvi900, * (Lenze)"
+    empty "L_ST2I_ActivateTimeMeasurement, %2A (Lenze).library"  RESOLUTION "L_ST2I_ActivateTimeMeasurement, * (Lenze)"
+    empty "VisuUserMgmt3 Interfaces, %2A (System).library"  RESOLUTION "VisuUserMgmt3 Interfaces, * (System)"
+    empty "L_MC4I_TestTools, %2A (Lenze).library"  RESOLUTION "L_MC4I_TestTools, * (Lenze)"
+
+-- R1 raw LibraryPath (AllPrecompiledSignatures after the build): TOTAL	7229
+  distinct LibraryPaths: 152; matching a RESOLUTION exactly: 120; matching none: 32 (713 signatures)
+    UNMATCHED 21	"alarm manager interfaces, 4.5.0.0 (intern)"
+    UNMATCHED 19	"alarm manager internal interfaces, 4.8.0.0 (intern)"
+    UNMATCHED 4	"base interfaces, 3.5.17.0 (system)"
+    UNMATCHED 1	"cmperrors2 interfaces, 3.5.21.0 (system)"
+    UNMATCHED 5	"cmpeventmgr interfaces, 3.5.17.0 (system)"
+    UNMATCHED 4	"cmpiecvaraccess interfaces, 3.5.17.0 (system)"
+    UNMATCHED 17	"cmpiomgr interfaces, 3.5.19.30 (system)"
+    UNMATCHED 2	"cmpopcuaprovideralarmconfiguration interfaces, 3.5.21.0 (system)"
+    UNMATCHED 18	"cmpopcuaserver interfaces, 3.5.21.0 (system)"
+    UNMATCHED 277	"cmpopcuastack interfaces, 3.5.21.0 (system)"
+    UNMATCHED 51	"cmpusermgr implementation, 3.5.19.0 (system)"
+    UNMATCHED 13	"cmpusermgr interfaces, 3.5.21.10 (system)"
+    UNMATCHED 5	"collections interfaces, 3.5.17.0 (system)"
+    UNMATCHED 37	"data server interfaces, 3.5.17.0 (system)"
+    UNMATCHED 60	"datasources interfaces, 4.7.0.0 (3s - smart software solutions gmbh)"
+    UNMATCHED 57	"iecvaraccess3 interfaces, 4.6.0.0 (system)"
+    UNMATCHED 4	"iecvaraccessopcuametadata interfaces, 4.5.0.0 (system)"
+    UNMATCHED 3	"iodriver interfaces, 3.5.17.0 (system)"
+    UNMATCHED 3	"iodriver parameter interfaces, 3.5.17.0 (system)"
+    UNMATCHED 3	"iodriver parameter2 interfaces, 3.5.17.0 (system)"
+    UNMATCHED 16	"iodriver profibus2 interfaces, 3.5.17.0 (system)"
+    UNMATCHED 3	"iodriver2 interfaces, 3.5.17.0 (system)"
+    UNMATCHED 1	"l_st2i_activatetimemeasurement, 1.0.0.0 (lenze)"
+    UNMATCHED 14	"monitoring data interfaces, 3.5.17.0 (system)"
+    UNMATCHED 1	"sysprocess interfaces, 3.5.17.0 (system)"
+    UNMATCHED 1	"syssem interfaces, 3.5.17.0 (system)"
+    UNMATCHED 17	"syssocket interfaces, 3.5.19.0 (system)"
+    UNMATCHED 5	"systypes interfaces, 3.5.2.0 (system)"
+    UNMATCHED 3	"systypes, 3.1.2.0 (system)"
+    UNMATCHED 7	"systypes2 interfaces, 3.5.17.0 (system)"
+    UNMATCHED 19	"visu interfaces, 4.5.0.0 (system)"
+    UNMATCHED 22	"visuusermgmt3 interfaces, 4.5.0.0 (system)"
+  matched:
+    matched 123	"3s storage, 3.5.17.0 (3s - smart software solutions gmbh)"
+    matched 21	"3slicense, 3.5.19.10 (3s - smart software solutions gmbh)"
+    matched 1	"L_IODrvEtherCAT, 3.32.0.11 (Lenze)"
+    matched 465	"alarmmanager, 4.8.0.0 (intern)"
+    matched 14	"alarmmanagertoopcuaconnector, 4.7.0.0 (codesys)"
+    matched 8	"analyzation, 4.1.0.0 (system)"
+    matched 3	"breakpoint logging functions, 3.5.17.0 (3s - smart software solutions gmbh)"
+    matched 50	"brink edgepc logging, 2.0.7 (brink automation)"
+    matched 34	"caa async manager extern, 3.5.17.0 (caa technical workgroup)"
+    matched 13	"caa behaviour model, 3.5.19.0 (caa technical workgroup)"
+    matched 38	"caa callback extern, 3.5.17.0 (caa technical workgroup)"
+    matched 14	"caa canopen manager, 3.5.17.0 (caa technical workgroup)"
+    matched 21	"caa canopen stack, 3.5.17.0 (caa technical workgroup)"
+    matched 33	"caa cia 405, 3.5.17.0 (caa technical workgroup)"
+    matched 54	"caa device diagnosis, 3.5.19.10 (caa technical workgroup)"
+    matched 19	"caa dtutil extern, 3.5.17.0 (caa technical workgroup)"
+    matched 7	"caa fb factory, 3.5.19.0 (caa technical workgroup)"
+    matched 66	"caa file, 3.5.17.0 (caa technical workgroup)"
+    matched 22	"caa list and tree, 3.5.17.0 (caa technical workgroup)"
+    matched 44	"caa mathematics, 3.5.19.0 (caa technical workgroup)"
+    matched 94	"caa memory block manager extern, 3.5.18.0 (caa technical workgroup)"
+    matched 41	"caa memory, 3.5.17.0 (caa technical workgroup)"
+    matched 50	"caa net base services, 3.5.19.0 (caa technical workgroup)"
+    matched 21	"caa real time clock extern, 3.5.17.0 (caa technical workgroup)"
+    matched 24	"caa ressource manager extern, 3.5.17.0 (caa technical workgroup)"
+    matched 38	"caa segmented buffer manager extern, 3.5.17.0 (caa technical workgroup)"
+    matched 105	"caa storage, 3.5.17.0 (caa technical workgroup)"
+    matched 5	"caa tick extern, 3.5.17.0 (caa technical workgroup)"
+    matched 8	"caa tickutil extern, 3.5.17.0 (caa technical workgroup)"
+    matched 80	"caa types extern, 3.5.17.0 (caa technical workgroup)"
+    matched 39	"cdsv3protocolutils, 4.1.0.0 (3s - smart software solutions gmbh)"
+    matched 68	"cmpapp, 3.5.17.0 (system)"
+    matched 13	"cmpasyncmgr, 3.5.17.0 (system)"
+    matched 38	"cmpbintagutiliec, 3.5.17.0 (system)"
+    matched 7	"cmpchecksum, 3.5.17.0 (system)"
+    matched 19	"cmpcodemeter, 3.5.18.0 (system)"
+    matched 18	"cmpdynamictext, 3.5.17.0 (system)"
+    matched 22	"cmpeventmgr implementation, 3.5.17.0 (system)"
+    matched 35	"cmpiectask, 3.5.19.0 (system)"
+    matched 36	"cmpiecvaraccess implementation, 3.5.17.0 (system)"
+    matched 6	"cmpiecvaraccess, 3.5.17.0 (system)"
+    matched 47	"cmpiomgr implementation, 3.5.17.0 (system)"
+    matched 12	"cmplog, 3.5.17.0 (system)"
+    matched 15	"cmpschedule, 3.5.17.0 (system)"
+    matched 6	"cmpsrv, 3.5.17.0 (system)"
+    matched 42	"cmpvisuhandler, 3.5.19.0 (system)"
+    matched 40	"collections, 3.5.17.0 (system)"
+    matched 61	"commfb, 3.5.18.0 (3s - smart software solutions gmbh)"
+    matched 60	"common behaviour model, 3.5.17.0 (3s - smart software solutions gmbh)"
+    matched 27	"component manager, 3.5.17.0 (system)"
+    matched 99	"element collections, 3.5.17.0 (3s - smart software solutions gmbh)"
+    matched 44	"floatingpointutils, 3.5.17.0 (system)"
+    matched 7	"iecvaraccess, 4.6.0.0 (system)"
+    matched 2	"iodrvbase, 3.5.17.0 (system)"
+    matched 21	"iostandard, 3.5.17.0 (system)"
+    matched 63	"l_ct1p_controltoolbox, 3.32.0.20 (lenze)"
+    matched 19	"l_dco_drivecommunication, 3.32.0.2 (lenze)"
+    matched 51	"l_etcslaveconfig, 3.32.0.8 (lenze)"
+    matched 25	"l_etcslaveconfig_i700, 3.32.0.16 (lenze)"
+    matched 13	"l_etcslaveconfig_i750, 3.32.0.4 (lenze)"
+    matched 18	"l_etcslaveconfig_i900, 3.32.0.4 (lenze)"
+    matched 20	"l_ic1p_componentdirectory, 3.32.0.3 (lenze)"
+    matched 9	"l_ie1p_applicationerrors, 3.32.0.3 (lenze)"
+    matched 29	"l_ie1p_applicationerrorsimplementation, 3.32.0.4 (lenze)"
+    matched 21	"l_ie1p_applicationerrorstypes, 3.32.0.11 (lenze)"
+    matched 41	"l_if1p_functionsconnections, 3.32.0.32 (lenze)"
+    matched 15	"l_ilmp_licensemanager, 3.32.0.1 (lenze)"
+    matched 80	"l_imhp_modulehandler, 3.32.0.8 (lenze)"
+    matched 85	"l_iodrvethercat, 3.32.0.11 (lenze)"
+    matched 22	"l_iom_iomodules, 3.32.0.2 (lenze)"
+    matched 29	"l_ipap_parametermanageraccess, 3.32.0.7 (lenze)"
+    matched 598	"l_mc1p_motioncontrolbasic, 3.32.1.197 (lenze)"
+    matched 128	"l_mc2p_motioncontrolcam, 3.32.1.10 (lenze)"
+    matched 315	"l_mc4p_robotichandling, 3.32.0.78 (lenze)"
+    matched 110	"l_mk4p_robotickinematics, 3.32.0.9 (lenze)"
+    matched 12	"l_plcloggingaccess, 3.32.0.2 (lenze)"
+    matched 51	"l_semp_errormanagement, 3.32.0.3 (lenze)"
+    matched 20	"l_smhp_modulehandler, 3.32.0.1 (lenze)"
+    matched 58	"l_spmi_plcparametermanager, 3.32.0.3 (lenze)"
+    matched 22	"l_ssyp_cmplenzeipcsystem, 3.32.0.4 (lenze)"
+    matched 64	"l_sudp_slaveupdownloadmanager, 3.32.0.7 (lenze)"
+    matched 21	"l_tb1p_technologybasics, 3.32.0.1 (lenze)"
+    matched 101	"l_tb2p_techmodulesbasic, 3.32.0.22 (lenze)"
+    matched 74	"l_tf2p_techmodulesfollowingpositioning, 3.32.0.25 (lenze)"
+    matched 36	"l_tp2p_techmodulesprocessfunctions, 3.32.0.7 (lenze)"
+    matched 176	"l_ts2p_techmodulessynchronizingcamming, 3.32.0.10 (lenze)"
+    matched 514	"l_tt1p_technologymodules_lm, 3.32.0.11 (lenze)"
+    matched 64	"l_tw2p_techmoduleswindingtraversing, 3.32.0.7 (lenze)"
+    matched 154	"l_ubup_basicutilities, 3.32.0.36 (lenze)"
+    matched 207	"l_umtp_mathematics, 3.32.0.11 (lenze)"
+    matched 27	"l_uspp_signalprocessing, 3.32.0.4 (lenze)"
+    matched 15	"l_util, 3.32.0.5 (lenze)"
+    matched 12	"memoryutils, 3.5.18.0 (3s - smart software solutions gmbh)"
+    matched 7	"omac packml state machine, 1.0.0.4 (3s - smart software solutions gmbh)"
+    matched 99	"recipe management, 4.5.0.0 (system)"
+    matched 22	"standard, 3.5.18.0 (system)"
+    matched 25	"standard64, 3.5.17.0 (system)"
+    matched 84	"stringutils, 3.5.18.0 (system)"
+    matched 107	"symbolicvarsbase, 4.6.0.0 (system)"
+    matched 11	"syscpuhandling, 3.5.17.0 (system)"
+    matched 15	"sysdir, 3.5.17.0 (system)"
+    matched 3	"sysexcept, 3.5.17.0 (system)"
+    matched 24	"sysfile, 3.5.17.0 (system)"
+    matched 15	"sysmem, 3.5.17.0 (system)"
+    matched 12	"sysprocess implementation, 3.5.17.0 (system)"
+    matched 5	"syssem implementation, 3.5.17.0 (system)"
+    matched 44	"syssocket implementation, 3.5.19.0 (system)"
+    matched 18	"systarget, 3.5.17.0 (system)"
+    matched 36	"systask, 3.5.17.0 (system)"
+    matched 4	"systimecore, 3.5.17.0 (system)"
+    matched 21	"systimertc, 3.5.17.0 (system)"
+    matched 10	"tcp, 3.5.19.0 (3s - smart software solutions gmbh)"
+    matched 12	"textlistutils, 4.6.0.0 (system)"
+    matched 19	"udp, 3.5.19.0 (3s - smart software solutions gmbh)"
+    matched 99	"util, 3.5.19.0 (system)"
+    matched 38	"visu utils, 4.5.0.0 (system)"
+    matched 68	"visudialogs, 4.8.0.0 (system)"
+    matched 12	"visuinputs, 4.7.0.0 (system)"
+    matched 19	"visushared, 4.8.0.0 (system)"
+    matched 68	"visuusermgmt, 4.8.0.0 (system)"
+  wildcard pairing (title + company, case-insensitive):
+    "SysTypes2 Interfaces, * (System)" -> "systypes2 interfaces, 3.5.17.0 (system)" (7)
+    "CmpErrors2 Interfaces, * (System)" -> "cmperrors2 interfaces, 3.5.21.0 (system)" (1)
+    "SysSem Interfaces, * (System)" -> "syssem interfaces, 3.5.17.0 (system)" (1)
+    "CmpEventMgr Interfaces, * (System)" -> "cmpeventmgr interfaces, 3.5.17.0 (system)" (5)
+    "Visu Interfaces, * (System)" -> "visu interfaces, 4.5.0.0 (system)" (19)
+    "Collections Interfaces, * (System)" -> "collections interfaces, 3.5.17.0 (system)" (5)
+    "Base Interfaces, * (System)" -> "base interfaces, 3.5.17.0 (system)" (4)
+    "Datasources Interfaces, * (3S - Smart Software Solutions GmbH)" -> "datasources interfaces, 4.7.0.0 (3s - smart software solutions gmbh)" (60)
+    "VisuElemBase, * (System)" -> NONE
+    "SysSocket Interfaces, * (System)" -> "syssocket interfaces, 3.5.19.0 (system)" (17)
+    "IecVarAccess3 Interfaces, * (System)" -> "iecvaraccess3 interfaces, 4.6.0.0 (system)" (57)
+    "CmpIecVarAccess Interfaces, * (System)" -> "cmpiecvaraccess interfaces, 3.5.17.0 (system)" (4)
+    "CmpOPCUAStack Interfaces, * (System)" -> "cmpopcuastack interfaces, 3.5.21.0 (system)" (277)
+    "CmpOPCUAServer Interfaces, * (System)" -> "cmpopcuaserver interfaces, 3.5.21.0 (system)" (18)
+    "IecVarAccessOpcUaMetaData Interfaces, * (System)" -> "iecvaraccessopcuametadata interfaces, 4.5.0.0 (system)" (4)
+    "SysProcess Interfaces, * (System)" -> "sysprocess interfaces, 3.5.17.0 (system)" (1)
+    "Alarm Manager Interfaces, * (Intern)" -> "alarm manager interfaces, 4.5.0.0 (intern)" (21)
+    "Alarm Manager Internal Interfaces, * (Intern)" -> "alarm manager internal interfaces, 4.8.0.0 (intern)" (19)
+    "CmpOPCUAProviderAlarmConfiguration Interfaces, * (System)" -> "cmpopcuaprovideralarmconfiguration interfaces, 3.5.21.0 (system)" (2)
+    "CmpIoMgr Interfaces, * (System)" -> "cmpiomgr interfaces, 3.5.19.30 (system)" (17)
+    "IoDriver Interfaces, * (System)" -> "iodriver interfaces, 3.5.17.0 (system)" (3)
+    "IoDriver Parameter Interfaces, * (System)" -> "iodriver parameter interfaces, 3.5.17.0 (system)" (3)
+    "IoDriver Profibus2 Interfaces, * (System)" -> "iodriver profibus2 interfaces, 3.5.17.0 (system)" (16)
+    "SysTypes Interfaces, * (System)" -> "systypes interfaces, 3.5.2.0 (system)" (5)
+    "IoDriver2 Interfaces, * (System)" -> "iodriver2 interfaces, 3.5.17.0 (system)" (3)
+    "IoDriver Parameter2 Interfaces, * (System)" -> "iodriver parameter2 interfaces, 3.5.17.0 (system)" (3)
+    "L_SI9P_IoDrvi900, * (Lenze)" -> NONE
+    "L_ST2I_ActivateTimeMeasurement, * (Lenze)" -> "l_st2i_activatetimemeasurement, 1.0.0.0 (lenze)" (1)
+    "VisuUserMgmt3 Interfaces, * (System)" -> "visuusermgmt3 interfaces, 4.5.0.0 (system)" (22)
+    "L_MC4I_TestTools, * (Lenze)" -> NONE
+  matching neither exactly nor by the wildcard rule: 5 paths (118 signatures)
+    51	"cmpusermgr implementation, 3.5.19.0 (system)"
+    13	"cmpusermgr interfaces, 3.5.21.10 (system)"
+    37	"data server interfaces, 3.5.17.0 (system)"
+    14	"monitoring data interfaces, 3.5.17.0 (system)"
+    3	"systypes, 3.1.2.0 (system)"
+  paths claimed by more than one ref (exact or wildcard):
+    38	"caa callback extern, 3.5.17.0 (caa technical workgroup)" <- "CAA Callback.library" @ "Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback", "CAA Callback Extern.library" @ "Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback Extern"
+
+-- refs sharing one RESOLUTION: 2 group(s)
+  caa callback extern, 3.5.17.0 (caa technical workgroup)
+    "CAA Callback.library"  RESOLUTION "CAA Callback Extern, 3.5.17.0 (CAA Technical Workgroup)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback"  signatures beside it: 0
+    "CAA Callback Extern.library"  RESOLUTION "CAA Callback Extern, 3.5.17.0 (CAA Technical Workgroup)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback Extern"  signatures beside it: 38
+  systime, 3.5.17.0 (system)
+    "SysTime.library"  RESOLUTION "SysTime, 3.5.17.0 (System)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/SysTime"  signatures beside it: 0
+    "SysTime, 3.5.17.0 (System).library"  RESOLUTION "SysTime, 3.5.17.0 (System)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/SysTime, 3.5.17.0 (System)"  signatures beside it: 0
+
+-- refs sharing one title + company: 2 group(s)
+  caa callback extern|caa technical workgroup
+    "CAA Callback.library"  RESOLUTION "CAA Callback Extern, 3.5.17.0 (CAA Technical Workgroup)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback"  signatures beside it: 0
+    "CAA Callback Extern.library"  RESOLUTION "CAA Callback Extern, 3.5.17.0 (CAA Technical Workgroup)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback Extern"  signatures beside it: 38
+  systime|system
+    "SysTime.library"  RESOLUTION "SysTime, 3.5.17.0 (System)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/SysTime"  signatures beside it: 0
+    "SysTime, 3.5.17.0 (System).library"  RESOLUTION "SysTime, 3.5.17.0 (System)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/SysTime, 3.5.17.0 (System)"  signatures beside it: 0
+    "SysTime, 3.5.5.0 (System).library"  RESOLUTION "SysTime, 3.5.5.0 (System)"  @ "Device/Plc Logic/Application/09 Misc/Library Manager/SysTime, 3.5.5.0 (System)"  signatures beside it: 0
+
+-- signature folders in init #1: 151
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/alarm manager interfaces
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/alarm manager internal interfaces
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/base interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmperrors2 interfaces
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpeventmgr interfaces
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpiecvaraccess interfaces
+    17	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpiomgr interfaces
+    2	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpopcuaprovideralarmconfiguration interfaces
+    18	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpopcuaserver interfaces
+    277	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpopcuastack interfaces
+    51	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpusermgr implementation
+    13	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/cmpusermgr interfaces
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/collections interfaces
+    37	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/data server interfaces
+    60	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/datasources interfaces
+    57	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iecvaraccess3 interfaces
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iecvaraccessopcuametadata interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver parameter interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver parameter2 interfaces
+    16	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver profibus2 interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/iodriver2 interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/l_st2i_activatetimemeasurement
+    14	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/monitoring data interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/sysprocess interfaces
+    1	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/syssem interfaces
+    17	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/syssocket interfaces
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/systypes
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/systypes interfaces
+    7	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/systypes2 interfaces
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/visu interfaces
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/(unresolved)/visuusermgmt3 interfaces
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/3SLicense
+    462	Device/Plc Logic/Application/09 Misc/Library Manager/AlarmManager
+    14	Device/Plc Logic/Application/09 Misc/Library Manager/AlarmManagerToOpcUaConnector
+    8	Device/Plc Logic/Application/09 Misc/Library Manager/Analyzation
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/BreakpointLogging
+    50	Device/Plc Logic/Application/09 Misc/Library Manager/BrinkEdgePcLogging
+    34	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Async Manager
+    13	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Behaviour Model
+    38	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Callback Extern
+    14	Device/Plc Logic/Application/09 Misc/Library Manager/CAA CANopen Manager
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/CAA CANopen Stack
+    33	Device/Plc Logic/Application/09 Misc/Library Manager/CAA CiA405
+    54	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Device Diagnosis
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/CAA DTUtility
+    7	Device/Plc Logic/Application/09 Misc/Library Manager/CAA FB Factory
+    66	Device/Plc Logic/Application/09 Misc/Library Manager/CAA File
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/CAA List And Tree
+    44	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Mathematics
+    94	Device/Plc Logic/Application/09 Misc/Library Manager/CAA MemBlockMan
+    41	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Memory
+    50	Device/Plc Logic/Application/09 Misc/Library Manager/CAA NetBaseSrv
+    24	Device/Plc Logic/Application/09 Misc/Library Manager/CAA ResMan
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/CAA RTCLK
+    38	Device/Plc Logic/Application/09 Misc/Library Manager/CAA SegBufMan
+    105	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Storage
+    123	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Storage Imp
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Tick
+    8	Device/Plc Logic/Application/09 Misc/Library Manager/CAA TickUtil
+    80	Device/Plc Logic/Application/09 Misc/Library Manager/CAA Types
+    60	Device/Plc Logic/Application/09 Misc/Library Manager/CBML
+    39	Device/Plc Logic/Application/09 Misc/Library Manager/CDSV3ProtocolUtils
+    68	Device/Plc Logic/Application/09 Misc/Library Manager/CmpApp
+    13	Device/Plc Logic/Application/09 Misc/Library Manager/CmpAsyncMgr
+    37	Device/Plc Logic/Application/09 Misc/Library Manager/CmpBinTagUtilIec
+    7	Device/Plc Logic/Application/09 Misc/Library Manager/CmpChecksum
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/CmpCodeMeter
+    18	Device/Plc Logic/Application/09 Misc/Library Manager/CmpDynamicText
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/CmpEventMgr Implementation
+    35	Device/Plc Logic/Application/09 Misc/Library Manager/CmpIecTask
+    6	Device/Plc Logic/Application/09 Misc/Library Manager/CmpIecVarAccess
+    36	Device/Plc Logic/Application/09 Misc/Library Manager/CmpIecVarAccess Implementation
+    47	Device/Plc Logic/Application/09 Misc/Library Manager/CmpIoMgr Implementation
+    12	Device/Plc Logic/Application/09 Misc/Library Manager/CmpLog
+    15	Device/Plc Logic/Application/09 Misc/Library Manager/CmpSchedule
+    6	Device/Plc Logic/Application/09 Misc/Library Manager/CmpSrv
+    42	Device/Plc Logic/Application/09 Misc/Library Manager/CmpVisuHandler
+    40	Device/Plc Logic/Application/09 Misc/Library Manager/Collections
+    61	Device/Plc Logic/Application/09 Misc/Library Manager/CommFB
+    27	Device/Plc Logic/Application/09 Misc/Library Manager/Component Manager
+    99	Device/Plc Logic/Application/09 Misc/Library Manager/ElementCollections
+    44	Device/Plc Logic/Application/09 Misc/Library Manager/FloatingPointUtils
+    7	Device/Plc Logic/Application/09 Misc/Library Manager/IecVarAccess
+    2	Device/Plc Logic/Application/09 Misc/Library Manager/IoDrvBase
+    86	Device/Plc Logic/Application/09 Misc/Library Manager/IODrvEtherCAT
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/IoStandard
+    63	Device/Plc Logic/Application/09 Misc/Library Manager/L_CT1P_ControlToolbox
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/L_DCO_DriveCommunication
+    51	Device/Plc Logic/Application/09 Misc/Library Manager/L_EtcSlaveConfig
+    25	Device/Plc Logic/Application/09 Misc/Library Manager/L_EtcSlaveConfig_i700
+    13	Device/Plc Logic/Application/09 Misc/Library Manager/L_EtcSlaveConfig_i750
+    18	Device/Plc Logic/Application/09 Misc/Library Manager/L_EtcSlaveConfig_i900
+    20	Device/Plc Logic/Application/09 Misc/Library Manager/L_IC1P_ComponentDirectory
+    9	Device/Plc Logic/Application/09 Misc/Library Manager/L_IE1P_ApplicationErrors
+    29	Device/Plc Logic/Application/09 Misc/Library Manager/L_IE1P_ApplicationErrorsImplementation
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/L_IE1P_ApplicationErrorsTypes
+    41	Device/Plc Logic/Application/09 Misc/Library Manager/L_IF1P_FunctionsConnections
+    15	Device/Plc Logic/Application/09 Misc/Library Manager/L_ILMP_LicenseManager
+    80	Device/Plc Logic/Application/09 Misc/Library Manager/L_IMHP_ModuleHandler
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/L_IOM_IOModules
+    29	Device/Plc Logic/Application/09 Misc/Library Manager/L_IPAP_ParameterManagerAccess
+    598	Device/Plc Logic/Application/09 Misc/Library Manager/L_MC1P_MotionControlBasic
+    128	Device/Plc Logic/Application/09 Misc/Library Manager/L_MC2P_MotionControlCam
+    315	Device/Plc Logic/Application/09 Misc/Library Manager/L_MC4P_RoboticHandling
+    110	Device/Plc Logic/Application/09 Misc/Library Manager/L_MK4P_RoboticKinematics
+    12	Device/Plc Logic/Application/09 Misc/Library Manager/L_PLCLoggingAccess
+    51	Device/Plc Logic/Application/09 Misc/Library Manager/L_SEMP_ErrorManagement
+    20	Device/Plc Logic/Application/09 Misc/Library Manager/L_SMHP_ModuleHandler
+    58	Device/Plc Logic/Application/09 Misc/Library Manager/L_SPMI_PlcParameterManager
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/L_SSYP_CmpLenzeIPCSystem
+    64	Device/Plc Logic/Application/09 Misc/Library Manager/L_SUDP_SlaveUpDownloadManager
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/L_TB1P_TechnologyBasics
+    101	Device/Plc Logic/Application/09 Misc/Library Manager/L_TB2P_TechModulesBasic
+    74	Device/Plc Logic/Application/09 Misc/Library Manager/L_TF2P_TechModulesFollowingPositioning
+    36	Device/Plc Logic/Application/09 Misc/Library Manager/L_TP2P_TechModulesProcessFunctions
+    176	Device/Plc Logic/Application/09 Misc/Library Manager/L_TS2P_TechModulesSynchronizingCamming
+    514	Device/Plc Logic/Application/09 Misc/Library Manager/L_TT1P_TechnologyModules
+    64	Device/Plc Logic/Application/09 Misc/Library Manager/L_TW2P_TechModulesWindingTraversing
+    154	Device/Plc Logic/Application/09 Misc/Library Manager/L_UBUP_BasicUtilities
+    207	Device/Plc Logic/Application/09 Misc/Library Manager/L_UMTP_Mathematics
+    27	Device/Plc Logic/Application/09 Misc/Library Manager/L_USPP_SignalProcessing
+    15	Device/Plc Logic/Application/09 Misc/Library Manager/L_Util
+    12	Device/Plc Logic/Application/09 Misc/Library Manager/MemoryUtils
+    7	Device/Plc Logic/Application/09 Misc/Library Manager/OMAC_PackML_State_Machine
+    99	Device/Plc Logic/Application/09 Misc/Library Manager/RecipeManagement
+    22	Device/Plc Logic/Application/09 Misc/Library Manager/Standard
+    25	Device/Plc Logic/Application/09 Misc/Library Manager/Standard64
+    84	Device/Plc Logic/Application/09 Misc/Library Manager/StringUtils
+    107	Device/Plc Logic/Application/09 Misc/Library Manager/SymbolicVarsBase
+    11	Device/Plc Logic/Application/09 Misc/Library Manager/SysCpuHandling
+    15	Device/Plc Logic/Application/09 Misc/Library Manager/SysDir
+    3	Device/Plc Logic/Application/09 Misc/Library Manager/SysExcept
+    24	Device/Plc Logic/Application/09 Misc/Library Manager/SysFile
+    15	Device/Plc Logic/Application/09 Misc/Library Manager/SysMem
+    12	Device/Plc Logic/Application/09 Misc/Library Manager/SysProcess Implementation
+    5	Device/Plc Logic/Application/09 Misc/Library Manager/SysSem Implementation
+    44	Device/Plc Logic/Application/09 Misc/Library Manager/SysSocket Implementation
+    18	Device/Plc Logic/Application/09 Misc/Library Manager/SysTarget
+    36	Device/Plc Logic/Application/09 Misc/Library Manager/SysTask
+    4	Device/Plc Logic/Application/09 Misc/Library Manager/SysTimeCore
+    21	Device/Plc Logic/Application/09 Misc/Library Manager/SysTimeRtc
+    10	Device/Plc Logic/Application/09 Misc/Library Manager/TCP
+    12	Device/Plc Logic/Application/09 Misc/Library Manager/TextListUtils
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/UDP
+    99	Device/Plc Logic/Application/09 Misc/Library Manager/Util
+    68	Device/Plc Logic/Application/09 Misc/Library Manager/VisuDialogs
+    19	Device/Plc Logic/Application/09 Misc/Library Manager/VisuShared
+    68	Device/Plc Logic/Application/09 Misc/Library Manager/VisuUserManagement
+    38	Device/Plc Logic/Application/09 Misc/Library Manager/VisuUtils
+    11	Library Manager/System_VisuInputs
+  TON.pou in Device/Plc Logic/Application/09 Misc/Library Manager/Standard:
+    | FUNCTION_BLOCK TON
+    | VAR_INPUT
+    | 	IN : BOOL;
+    | 	PT : TIME;
+    | END_VAR
+    | VAR_OUTPUT
+    | 	Q : BOOL;
+    | 	ET : TIME;
+    | END_VAR
+    | VAR
+    | 	M : BOOL;
+    | 	STARTTIME : TIME;
+    | END_VAR
+    | END_FUNCTION_BLOCK
+
+  init #2 (WARM extraction): 3486 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  init #3 (WARM extraction): 3175 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  init #4 (WARM extraction): 3102 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  messages after warm inits: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      The application is up to date
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+  known #1 (no extraction: walk-only floor): 750 ms  librariesRefreshed=false  changed=13  .library=13  signatures=0  under (unresolved)=0  items=881
+  known #2 (no extraction: walk-only floor): 733 ms  librariesRefreshed=false  changed=13  .library=13  signatures=0  under (unresolved)=0  items=881
+  known #3 (no extraction: walk-only floor): 742 ms  librariesRefreshed=false  changed=13  .library=13  signatures=0  under (unresolved)=0  items=881
+
+-- .library re-sent by a known fetch: 13
+  "System_VisuElems.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElems" "VisuElems, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElems" "VisuElems, 4.8.1.0 (System)"
+    directed "System_VisuElems.library": changed=1 "Library Manager/System_VisuElems" "VisuElems, 4.8.1.0 (System)"
+  "System_VisuElemMeter.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemMeter" "VisuElemMeter, 4.1.0.0 (System)"  |  init: "Library Manager/System_VisuElemMeter" "VisuElemMeter, 4.7.0.0 (System)"
+    directed "System_VisuElemMeter.library": changed=1 "Library Manager/System_VisuElemMeter" "VisuElemMeter, 4.7.0.0 (System)"
+  "System_VisuElemsSpecialControls.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemsSpecialControls" "VisuElemsSpecialControls, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemsSpecialControls" "VisuElemsSpecialControls, 4.7.0.0 (System)"
+    directed "System_VisuElemsSpecialControls.library": changed=1 "Library Manager/System_VisuElemsSpecialControls" "VisuElemsSpecialControls, 4.7.0.0 (System)"
+  "System_VisuElemsWinControls.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemsWinControls" "VisuElemsWinControls, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemsWinControls" "VisuElemsWinControls, 4.8.1.0 (System)"
+    directed "System_VisuElemsWinControls.library": changed=1 "Library Manager/System_VisuElemsWinControls" "VisuElemsWinControls, 4.8.1.0 (System)"
+  "System_VisuElemTextEditor.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemTextEditor" "VisuElemTextEditor, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemTextEditor" "VisuElemTextEditor, 4.8.0.0 (System)"
+    directed "System_VisuElemTextEditor.library": changed=1 "Library Manager/System_VisuElemTextEditor" "VisuElemTextEditor, 4.8.0.0 (System)"
+  "System_VisuElemTrace.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemTrace" "VisuElemTrace, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemTrace" "VisuElemTrace, 4.8.0.0 (System)"
+    directed "System_VisuElemTrace.library": changed=1 "Library Manager/System_VisuElemTrace" "VisuElemTrace, 4.8.0.0 (System)"
+  "System_VisuNativeControl.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuNativeControl" "VisuNativeControl, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuNativeControl" "VisuNativeControl, 4.8.0.0 (System)"
+    directed "System_VisuNativeControl.library": changed=1 "Library Manager/System_VisuNativeControl" "VisuNativeControl, 4.8.0.0 (System)"
+  "System_VisuElemsAlarm.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemsAlarm" "VisuElemsAlarm, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemsAlarm" "VisuElemsAlarm, 4.8.0.0 (System)"
+    directed "System_VisuElemsAlarm.library": changed=1 "Library Manager/System_VisuElemsAlarm" "VisuElemsAlarm, 4.8.0.0 (System)"
+  "System_VisuElemCamDisplayer.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemCamDisplayer" "VisuElemCamDisplayer, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemCamDisplayer" "VisuElemCamDisplayer, 4.7.0.0 (System)"
+    directed "System_VisuElemCamDisplayer.library": changed=1 "Library Manager/System_VisuElemCamDisplayer" "VisuElemCamDisplayer, 4.7.0.0 (System)"
+  "System_VisuElem3DPath.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElem3DPath" "VisuElem3DPath, 4.1.0.0 (System)"  |  init: "Library Manager/System_VisuElem3DPath" "VisuElem3DPath, 4.7.0.0 (System)"
+    directed "System_VisuElem3DPath.library": changed=1 "Library Manager/System_VisuElem3DPath" "VisuElem3DPath, 4.7.0.0 (System)"
+  "System_VisuElemsDateTime.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemsDateTime" "VisuElemsDateTime, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemsDateTime" "VisuElemsDateTime, 4.8.0.0 (System)"
+    directed "System_VisuElemsDateTime.library": changed=1 "Library Manager/System_VisuElemsDateTime" "VisuElemsDateTime, 4.8.0.0 (System)"
+  "System_VisuElemXYChart.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuElemXYChart" "VisuElemXYChart, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuElemXYChart" "VisuElemXYChart, 4.8.0.0 (System)"
+    directed "System_VisuElemXYChart.library": changed=1 "Library Manager/System_VisuElemXYChart" "VisuElemXYChart, 4.8.0.0 (System)"
+  "System_VisuInputs.library"  known: "Device/Plc Logic/Application/09 Misc/Library Manager/System_VisuInputs" "VisuInputs, 4.2.0.0 (System)"  |  init: "Library Manager/System_VisuInputs" "VisuInputs, 4.7.0.0 (System)"
+    directed "System_VisuInputs.library": changed=1 "Library Manager/System_VisuInputs" "VisuInputs, 4.7.0.0 (System)"
+
+  directed #1 (warm session): 717 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  directed #2 (warm session): 724 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  directed #3 (warm session): 723 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  messages after known + directed: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: none
+
+-- summary (ms): init cold 24865; init warm 3486/3175/3102 (median 3175); known 750/733/742 (median 742); extraction cold ≈ 24123, warm ≈ 2433; directed 777 cold-session, 717/724/723 warm
+
+-- R2 edit-then-read: editing GVL_ComponentHardwareCall
+  edited GVL_ComponentHardwareCall: declaration 70 -> 96 chars, implementation 1662 -> 1699 chars
+  messages after edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: none
+  precompiled library signatures right after the edit (no build): TOTAL	7229
+  directed after edit (today's path, no extraction): 885 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  messages after directed-after-edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: none
+  known after edit (no extraction): 731 ms  librariesRefreshed=false  changed=14  .library=13  signatures=0  under (unresolved)=0  items=881
+  messages after known-after-edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: none
+  init after edit (extraction after an edit): 22914 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  messages after init-after-edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+  init again (warm after the edit's build): 3324 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  messages after init-again: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      The application is up to date
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+
+-- R2 summary (ms): extraction after edit ≈ 22183 (init 22914 − known 731); next warm init 3324
+
+-- cold after Clean, round 1
+  cleaned Application
+  precompiled library signatures right after Clean (no build): TOTAL	7229
+  messages after clean: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: none
+  init after Clean: 20651 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  messages after init-after-clean: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+  init warm #1 after the Clean's build: 3858 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  init warm #2 after the Clean's build: 3614 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  init warm #3 after the Clean's build: 3314 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+
+-- Clean round 1 summary (ms): init after Clean 20651; next warm 3858/3614/3314; known floor 731
+
+-- cold after Clean, round 2
+  cleaned Application
+  precompiled library signatures right after Clean (no build): TOTAL	7229
+  messages after clean: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=1, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      The application is up to date
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+  init after Clean: 20864 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  messages after init-after-clean: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, DeviceMessageCategory=2, PreCompileMessageCategory=0, CompilerMessageCategory=5, StaticAnalysisMessageCategory=2; changed: PreCompileMessageCategory, CompilerMessageCategory
+      PreCompileMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Temporary disabled to test PLC. Todo: schedule saving recipes
+      Memory usage on device, not used for licensing purposes:
+      Compile complete -- 0 errors, 0 warnings
+  init warm #1 after the Clean's build: 3510 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  init warm #2 after the Clean's build: 3814 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+  init warm #3 after the Clean's build: 3596 ms  librariesRefreshed=true  changed=8105  .library=173  signatures=7224  under (unresolved)=713  items=881
+
+-- Clean round 2 summary (ms): init after Clean 20864; next warm 3510/3814/3596; known floor 731

@@ -1,0 +1,202 @@
+== library-signature cost — codesys-fixture — codesys — pipe volt.bridge.codesys.39436 — 2026-10-03T20:45:53.001Z
+  messages after open: OfflineHelpMessageCategory=1, ScriptMessageCategory=9; changed: OfflineHelpMessageCategory, ScriptMessageCategory
+  precompiled library signatures BEFORE any build: TOTAL	813
+  precompiled library signatures after 60000 ms idle, still no build: TOTAL	813
+  refs: 614 ms  items=37
+  .library refs: 30; Standard: ["Standard.library"]
+
+-- 1.1 directed read of Standard.library (cold session, before any extraction)
+  directed #0: 75 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  item "Standard.library" folder="Device/Plc Logic/Application/Library Manager/Standard" chars=123
+    | LIBRARY Standard
+    | NAMESPACE Standard
+    | RESOLUTION Standard, 3.5.18.0 (System)
+    | PLACEHOLDER true
+    | SYSTEM false
+    | MATERIALIZATION 4
+    | 
+  messages after directed #0: OfflineHelpMessageCategory=1, ScriptMessageCategory=9; changed: none
+
+-- 1.2 full fetches
+  init #1 (COLD extraction): 1432 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  messages after init #1: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory, StaticAnalysisMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Compile complete -- 0 errors, 0 warnings
+      StaticAnalysisMessageCategory
+      Additional code checks ...
+      Additional code checks complete -- 0 errors
+
+-- R1 refs: 30, wildcard RESOLUTIONs: 7
+  wildcard ref "Base Interfaces, %2A (System).library"  RESOLUTION "Base Interfaces, * (System)"
+  wildcard ref "SysTypes2 Interfaces, %2A (System).library"  RESOLUTION "SysTypes2 Interfaces, * (System)"
+  wildcard ref "CmpErrors2 Interfaces, %2A (System).library"  RESOLUTION "CmpErrors2 Interfaces, * (System)"
+  wildcard ref "CmpIoMgr Interfaces, %2A (System).library"  RESOLUTION "CmpIoMgr Interfaces, * (System)"
+  wildcard ref "CmpEventMgr Interfaces, %2A (System).library"  RESOLUTION "CmpEventMgr Interfaces, * (System)"
+  wildcard ref "IoDriver Interfaces, %2A (System).library"  RESOLUTION "IoDriver Interfaces, * (System)"
+  wildcard ref "IoDriver Profibus2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver Profibus2 Interfaces, * (System)"
+  (unresolved) folders: 8
+    4	Device/Plc Logic/Application/Library Manager/(unresolved)/base interfaces
+    1	Device/Plc Logic/Application/Library Manager/(unresolved)/cmperrors2 interfaces
+    5	Device/Plc Logic/Application/Library Manager/(unresolved)/cmpeventmgr interfaces
+    17	Device/Plc Logic/Application/Library Manager/(unresolved)/cmpiomgr interfaces
+    3	Device/Plc Logic/Application/Library Manager/(unresolved)/iodriver interfaces
+    16	Device/Plc Logic/Application/Library Manager/(unresolved)/iodriver profibus2 interfaces
+    5	Device/Plc Logic/Application/Library Manager/(unresolved)/systypes interfaces
+    7	Device/Plc Logic/Application/Library Manager/(unresolved)/systypes2 interfaces
+  refs whose folder holds no signature: 8
+    empty "Base Interfaces, %2A (System).library"  RESOLUTION "Base Interfaces, * (System)"
+    empty "SysTypes2 Interfaces, %2A (System).library"  RESOLUTION "SysTypes2 Interfaces, * (System)"
+    empty "CmpErrors2 Interfaces, %2A (System).library"  RESOLUTION "CmpErrors2 Interfaces, * (System)"
+    empty "CmpIoMgr Interfaces, %2A (System).library"  RESOLUTION "CmpIoMgr Interfaces, * (System)"
+    empty "CmpEventMgr.library"  RESOLUTION "CmpEventMgr, 3.5.17.0 (System)"
+    empty "CmpEventMgr Interfaces, %2A (System).library"  RESOLUTION "CmpEventMgr Interfaces, * (System)"
+    empty "IoDriver Interfaces, %2A (System).library"  RESOLUTION "IoDriver Interfaces, * (System)"
+    empty "IoDriver Profibus2 Interfaces, %2A (System).library"  RESOLUTION "IoDriver Profibus2 Interfaces, * (System)"
+
+-- R1 raw LibraryPath (AllPrecompiledSignatures after the build): TOTAL	813
+  distinct LibraryPaths: 30; matching a RESOLUTION exactly: 22; matching none: 8 (58 signatures)
+    UNMATCHED 4	"base interfaces, 3.5.17.0 (system)"
+    UNMATCHED 1	"cmperrors2 interfaces, 3.5.21.0 (system)"
+    UNMATCHED 5	"cmpeventmgr interfaces, 3.5.17.0 (system)"
+    UNMATCHED 17	"cmpiomgr interfaces, 3.5.19.30 (system)"
+    UNMATCHED 3	"iodriver interfaces, 3.5.17.0 (system)"
+    UNMATCHED 16	"iodriver profibus2 interfaces, 3.5.17.0 (system)"
+    UNMATCHED 5	"systypes interfaces, 3.5.2.0 (system)"
+    UNMATCHED 7	"systypes2 interfaces, 3.5.17.0 (system)"
+  matched:
+    matched 22	"3slicense, 3.5.21.40 (codesys)"
+    matched 8	"analyzation, 4.1.0.0 (system)"
+    matched 3	"breakpoint logging functions, 3.5.17.0 (3s - smart software solutions gmbh)"
+    matched 56	"caa device diagnosis, 3.5.21.0 (caa technical workgroup)"
+    matched 80	"caa types extern, 3.5.17.0 (caa technical workgroup)"
+    matched 69	"cmpapp, 3.5.21.0 (system)"
+    matched 15	"cmpasyncmgr, 3.5.21.0 (system)"
+    matched 19	"cmpcodemeter, 3.5.18.0 (system)"
+    matched 22	"cmpeventmgr implementation, 3.5.17.0 (system)"
+    matched 47	"cmpiomgr implementation, 3.5.17.0 (system)"
+    matched 13	"cmplog, 3.5.21.0 (system)"
+    matched 64	"commfb, 3.5.21.0 (codesys)"
+    matched 29	"component manager, 3.5.21.0 (system)"
+    matched 12	"iecsfc, 4.4.0.0 (system)"
+    matched 21	"iostandard, 3.5.17.0 (system)"
+    matched 22	"standard, 3.5.18.0 (system)"
+    matched 84	"stringutils, 3.5.20.0 (system)"
+    matched 11	"syscpuhandling, 3.5.17.0 (system)"
+    matched 15	"sysmem, 3.5.17.0 (system)"
+    matched 4	"systimecore, 3.5.17.0 (system)"
+    matched 24	"systimertc, 3.5.21.30 (system)"
+    matched 115	"util, 3.5.21.0 (system)"
+  wildcard pairing (title + company, case-insensitive):
+    "Base Interfaces, * (System)" -> "base interfaces, 3.5.17.0 (system)" (4)
+    "SysTypes2 Interfaces, * (System)" -> "systypes2 interfaces, 3.5.17.0 (system)" (7)
+    "CmpErrors2 Interfaces, * (System)" -> "cmperrors2 interfaces, 3.5.21.0 (system)" (1)
+    "CmpIoMgr Interfaces, * (System)" -> "cmpiomgr interfaces, 3.5.19.30 (system)" (17)
+    "CmpEventMgr Interfaces, * (System)" -> "cmpeventmgr interfaces, 3.5.17.0 (system)" (5)
+    "IoDriver Interfaces, * (System)" -> "iodriver interfaces, 3.5.17.0 (system)" (3)
+    "IoDriver Profibus2 Interfaces, * (System)" -> "iodriver profibus2 interfaces, 3.5.17.0 (system)" (16)
+  matching neither exactly nor by the wildcard rule: 1 paths (5 signatures)
+    5	"systypes interfaces, 3.5.2.0 (system)"
+
+-- signature folders in init #1: 30
+    4	Device/Plc Logic/Application/Library Manager/(unresolved)/base interfaces
+    1	Device/Plc Logic/Application/Library Manager/(unresolved)/cmperrors2 interfaces
+    5	Device/Plc Logic/Application/Library Manager/(unresolved)/cmpeventmgr interfaces
+    17	Device/Plc Logic/Application/Library Manager/(unresolved)/cmpiomgr interfaces
+    3	Device/Plc Logic/Application/Library Manager/(unresolved)/iodriver interfaces
+    16	Device/Plc Logic/Application/Library Manager/(unresolved)/iodriver profibus2 interfaces
+    5	Device/Plc Logic/Application/Library Manager/(unresolved)/systypes interfaces
+    7	Device/Plc Logic/Application/Library Manager/(unresolved)/systypes2 interfaces
+    22	Device/Plc Logic/Application/Library Manager/3SLicense
+    8	Device/Plc Logic/Application/Library Manager/Analyzation
+    3	Device/Plc Logic/Application/Library Manager/BreakpointLogging
+    56	Device/Plc Logic/Application/Library Manager/CAA Device Diagnosis
+    80	Device/Plc Logic/Application/Library Manager/CAA Types
+    69	Device/Plc Logic/Application/Library Manager/CmpApp
+    15	Device/Plc Logic/Application/Library Manager/CmpAsyncMgr
+    19	Device/Plc Logic/Application/Library Manager/CmpCodeMeter
+    22	Device/Plc Logic/Application/Library Manager/CmpEventMgr Implementation
+    47	Device/Plc Logic/Application/Library Manager/CmpIoMgr Implementation
+    13	Device/Plc Logic/Application/Library Manager/CmpLog
+    64	Device/Plc Logic/Application/Library Manager/CommFB
+    29	Device/Plc Logic/Application/Library Manager/Component Manager
+    12	Device/Plc Logic/Application/Library Manager/IecSfc
+    21	Device/Plc Logic/Application/Library Manager/IoStandard
+    22	Device/Plc Logic/Application/Library Manager/Standard
+    84	Device/Plc Logic/Application/Library Manager/StringUtils
+    11	Device/Plc Logic/Application/Library Manager/SysCpuHandling
+    15	Device/Plc Logic/Application/Library Manager/SysMem
+    4	Device/Plc Logic/Application/Library Manager/SysTimeCore
+    24	Device/Plc Logic/Application/Library Manager/SysTimeRtc
+    115	Device/Plc Logic/Application/Library Manager/Util
+  TON.pou in Device/Plc Logic/Application/Library Manager/Standard:
+    | FUNCTION_BLOCK TON
+    | VAR_INPUT
+    | 	IN : BOOL;
+    | 	PT : TIME;
+    | END_VAR
+    | VAR_OUTPUT
+    | 	Q : BOOL;
+    | 	ET : TIME;
+    | END_VAR
+    | VAR
+    | 	M : BOOL;
+    | 	STARTTIME : TIME;
+    | END_VAR
+    | END_FUNCTION_BLOCK
+
+  init #2 (WARM extraction): 190 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  init #3 (WARM extraction): 299 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  init #4 (WARM extraction): 285 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  messages after warm inits: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      The application is up to date
+      Compile complete -- 0 errors, 0 warnings
+  known #1 (no extraction: walk-only floor): 23 ms  librariesRefreshed=false  changed=0  .library=0  signatures=0  under (unresolved)=0  items=37
+  known #2 (no extraction: walk-only floor): 7 ms  librariesRefreshed=false  changed=0  .library=0  signatures=0  under (unresolved)=0  items=37
+  known #3 (no extraction: walk-only floor): 6 ms  librariesRefreshed=false  changed=0  .library=0  signatures=0  under (unresolved)=0  items=37
+  directed #1 (warm session): 6 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  directed #2 (warm session): 7 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  directed #3 (warm session): 6 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  messages after known + directed: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: none
+
+-- summary (ms): init cold 1432; init warm 190/299/285 (median 285); known 23/7/6 (median 7); extraction cold ≈ 1425, warm ≈ 278; directed 75 cold-session, 6/7/6 warm
+
+-- R2 edit-then-read: editing PLC_PRG
+  edited PLC_PRG: declaration 27 -> 53 chars, implementation 0 -> 39 chars
+  messages after edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: none
+  precompiled library signatures right after the edit (no build): TOTAL	813
+  directed after edit (today's path, no extraction): 8 ms  librariesRefreshed=false  changed=1  .library=1  signatures=0  under (unresolved)=0  items=1
+  messages after directed-after-edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: none
+  known after edit (no extraction): 8 ms  librariesRefreshed=false  changed=1  .library=0  signatures=0  under (unresolved)=0  items=37
+  messages after known-after-edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: none
+  init after edit (extraction after an edit): 582 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  messages after init-after-edit: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Compile complete -- 0 errors, 0 warnings
+  init again (warm after the edit's build): 180 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  messages after init-again: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      The application is up to date
+      Compile complete -- 0 errors, 0 warnings
+
+-- R2 summary (ms): extraction after edit ≈ 574 (init 582 − known 8); next warm init 180
+
+-- cold after Clean
+  cleaned Application
+  precompiled library signatures right after Clean (no build): TOTAL	813
+  messages after clean: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: none
+  init after Clean (COLD extraction): 565 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+  messages after init-after-clean: OfflineHelpMessageCategory=1, ScriptMessageCategory=9, CompilerMessageCategory=3, StaticAnalysisMessageCategory=2; changed: CompilerMessageCategory
+      CompilerMessageCategory
+      ------ Build started: Application: Device.Application -------
+      Typify code...
+      Compile complete -- 0 errors, 0 warnings
+  init again (warm): 741 ms  librariesRefreshed=true  changed=850  .library=30  signatures=813  under (unresolved)=58  items=37
+
+-- Clean summary (ms): init after Clean 565, next 741; known floor 8

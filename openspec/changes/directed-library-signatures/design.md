@@ -33,8 +33,23 @@ today a full fetch folders them under `(unresolved)` and a directed read would r
 about 10% of each CODESYS corpus's library API (688-713 of 6238-7408 files; 25-27 libraries per real corpus, counts
 in tasks.md 0.1 R1). The join gets a second rule, in one place, for both fetches: a wildcard ref matches the
 signatures whose `LibraryPath` names the same library title (and company, when `LibraryPath` carries it; pinned
-on recorded strings in 1.1). Two refs claiming one signature is refused by name. So the full fetch writes those
-elements beside their `.library` too, and directed == full holds.
+on recorded strings in 1.1). So the full fetch writes those elements beside their `.library` too, and directed ==
+full holds.
+
+**Two refs, one library (gate step 1).** Refs that repeat ONE RESOLUTION are real and common: 4 of the 5 CODESYS
+corpora carry `CAA Callback` and `CAA Callback Extern`, both `RESOLUTION CAA Callback Extern, 3.5.17.0 (CAA
+Technical Workgroup)`, both `NAMESPACE CB` (38 element files, all beside `CAA Callback Extern`); lenze-mid also
+`SysTimeCore` (placeholder) and `SysTimeCore, 3.5.17.0 (System)` (direct, 4 files); pro2193 `SysTime` twice (no
+elements). They name ONE compiled library: not ambiguous, never refused. Today `libByResolution` keeps the ref the walk
+reached LAST (`FetchService.cs:158`), an order nobody chose. **Decided (default, the owner may overrule):** the matcher
+gives such a RESOLUTION one owner, the ref with the ordinal-least FULL name (`CAA Callback Extern.library`,
+`SysTimeCore, 3.5.17.0 (System).library` — the folders the corpora already show), so the signatures are written
+ONCE (writing them beside both would declare every element twice in one namespace), and a directed read naming
+EITHER ref returns them in the owner's folder (the same bytes as the full fetch; no zero-match Warn for the other).
+Refused by name, by contrast: one signature path claimed by refs with DIFFERENT RESOLUTIONs, which only the wildcard
+rule can produce (`X, * (V)` beside an `X` ref of another version, or two compiled versions of X). None of the five
+corpora has a wildcard ref sharing its title + company with any other ref; the signature side of that check is
+recorded for the two projects measured live only (1.1).
 
 **Left for the owner: the facade split.** 4-5 `(unresolved)` libraries per corpus (115-132 files: `cmpusermgr
 implementation`, `data server interfaces`, …) match no ref at all, while their facade refs (`CmpUserMgr, 3.5.17.0
