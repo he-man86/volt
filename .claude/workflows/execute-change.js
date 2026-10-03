@@ -127,9 +127,9 @@ for (const s of steps) {
     phase('Design')
     done.push(await agent(`${RULES}
 
-DESIGN for step ${s.id} — ${s.title}. Write its section in ${CHANGE}/design.md (create it if missing): the target; every realistic
-option, each MEASURED against the recorded fixtures (prototype in a scratch copy if needed); the choice and why; what stays refused, by
-name; the migration of existing code. Commit design.md alone as "docs(openspec): ${args.change} design — <topic>". No code.
+DESIGN for step ${s.id} — ${s.title}. Write its section in ${CHANGE}/design.md (create it if missing). SHORT (owner 2026-10-03:
+"the workflow is a bit too heavy"): at most ~40 lines — the target, the choice and why (name the rejected options in one line each,
+measure only what decides between them), what stays refused by name, the migration. No essays, no full option write-ups. Commit design.md alone as "docs(openspec): ${args.change} design — <topic>". No code.
 Return the choice in three lines.`, { label: `design:${s.id}`, phase: 'Design' }))
   }
 
