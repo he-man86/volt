@@ -6,7 +6,7 @@
  */
 import { stmtExprs, walkExpr, walkStatements, type Expr } from "../../../frontend/syntax/index.js"
 import { bodies, forEachDecl, type Scope } from "../../../frontend/symbols/index.js"
-import { checkedMeetType, comparisonConverts, type ElementaryType, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { checkedMeetType, comparisonConverts, durationScaleConversion, type ElementaryType, elementaryRef, elementaryTypeRef, inferExprType, integerLiteralType, integerOfWidth, isDuration, isIntegerType, isIntLiteral, literalCheckType, literalContextConversion, negativeLiteralComparisonTarget, operandConversion, literalOperandType, notResultType, resolveTypeExpr, selectionValueArguments, type Type, untypedNumberValue } from "../../../frontend/types/index.js"
 import type { Messages } from "../../messages.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { pushForDeclaration, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -95,22 +95,30 @@ export function checkNarrowingConversion(ctx: CheckContext, out: DiagnosticItem[
  *     `NOT sint` are "signed Type 'SINT' to unsigned Type 'USINT'");
  *   - the six comparisons warn like arithmetic, but only at 32 and 64 bits — narrower operands promote and stay silent.
  * An untyped integer literal takes the other operand's type when it fits it (`un XOR 1` is silent, `sn AND 255` warns).
- * ponytail: the shifts, EXPT and the other generic functions are unmeasured and stay silent — probe before adding one.
+ * MIN, MAX, LIMIT, SEL and MUX convert every VALUE argument into their meet (`ar_*_mixed_types`). The shifts convert
+ * nothing — `SHL(aSint, n)` is a SINT with no warning (`ar_shl_sint_type`); EXPT and the other generic functions are
+ * unmeasured and stay silent — probe before adding one.
  */
 function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] {
   if (x.kind === "unary" && x.op === "NOT") {
-    const t = integral(inferExprType(x.operand, scope, project))
-    const w = t?.signed === true ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), x.operand, messages) : undefined
+    // the operand converts into NOT's result (`arith/operators` `notResultType`, the one NOT rule): a signed integer into
+    // the unsigned one of its width warns; every other operand converts into its own kind and stays silent here
+    const operand = inferExprType(x.operand, scope, project)
+    const w = integral(operand) === undefined ? undefined : conversionWarning(notResultType(operand), operand, x.operand, messages)
     return w === undefined ? [] : [w]
   }
   let rule: "signed" | "unsigned" | "signed-wide" | undefined
   let pair: readonly [Expr, Expr] | undefined
   if (x.kind === "binary") {
+    const scaled = durationScaleWarnings(x.op, x.left, x.right, scope, project, messages)
+    if (scaled !== undefined) return scaled
     rule = operandConversion(x.op)
     pair = [x.left, x.right]
-  } else if (x.kind === "call" && x.callee.kind === "ident_expr" && /^(MAX|MIN)$/i.test(x.callee.name) && x.args.length === 2) {
-    const [a, b] = [x.args[0]!.value, x.args[1]!.value]
-    if (a !== undefined && b !== undefined) [rule, pair] = ["signed", [a, b]]
+  } else if (x.kind === "call" && x.callee.kind === "ident_expr") {
+    // MIN, MAX, LIMIT, SEL and MUX convert every VALUE argument into their meet (`builtins` `selectionValueArguments`)
+    const values = selectionValueArguments(x.callee.name, x.args.map((a) => a.value))
+    if (values !== undefined && values.length === 2 && values.every((v) => v !== undefined)) [rule, pair] = ["signed", [values[0]!, values[1]!]]
+    else if (values !== undefined && values.length > 2) return meetAllWarnings(values, scope, project, messages) ?? []
   }
   if (rule === undefined || pair === undefined) return []
   const [left, right] = pair
@@ -136,10 +144,17 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   // in — two warnings for `aLint AND bLint`, at two spans on one line, and then a third from the assignment when
   // the result goes back into a signed destination (`bit_{and,or,xor}_{sint,int,dint,lint}`, three each on CODESYS).
   // An untyped literal takes the other operand's type and is not one of the conversions: `sn AND 255` warns ONCE
-  // (`cc_bitwise_sint_and_literal`).
+  // (`cc_bitwise_sint_and_literal`). A NEGATIVE one converts from its OWN type, the smallest signed integer holding it:
+  // `si AND -1` and `i XOR -1` convert the SINT literal into USINT / UINT beside the operand's own conversion
+  // (`ar_bitwise_literal_unsigned_or_negative`, both vendors 2026-10-03; TwinCAT's one copy per line makes `si AND -1` one
+  // warning there). A negative literal beyond the operand's signed width was not asked: `l.bits !== r.bits` above.
   if (rule === "unsigned") {
-    const each = ([t, at]: readonly [typeof l, Expr]): DiagnosticItem | undefined =>
-      t.signed && !isIntLiteral(at) ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), at, messages) : undefined
+    const each = ([t, at]: readonly [typeof l, Expr]): DiagnosticItem | undefined => {
+      if (!isIntLiteral(at)) return t.signed ? conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(t), at, messages) : undefined
+      const v = negatedValue(at)
+      const own = v !== undefined && v < 0n ? integerLiteralType(v) : undefined
+      return own === undefined ? undefined : conversionWarning(unsignedOfWidth(t.bits), elementaryTypeRef(own), at, messages)
+    }
     return [each([l, left]), each([r, right])].filter((d): d is DiagnosticItem => d !== undefined)
   }
   if (l.signed === r.signed) return []
@@ -149,6 +164,23 @@ function operandSignWarnings(x: Expr, scope: Scope, project: Scope, messages: Me
   if (rule === "signed-wide" && !comparisonConverts(l.bits, literal ? "codesys" : project.dialect)) return []
   const [signed, unsigned, unsignedAt] = l.signed ? [l, r, right] : [r, l, left]
   const w = conversionWarning(elementaryTypeRef(signed), elementaryTypeRef(unsigned), unsignedAt, messages)
+  return w === undefined ? [] : [w]
+}
+
+/**
+ * A duration scaled by an integer (`arith/temporal` `durationScaleConversion`, rule AR18): the warning its one operand
+ * conversion earns, or undefined when the pair is no such scaling. The duration refused into a WIDER integer is an error,
+ * `binary-op-type-mismatch`'s; an integer no wider converts into the signed integer of the duration's width, which CODESYS
+ * warns for a same-width unsigned one ("UDINT to DINT", "ULINT to LINT") and TwinCAT does not
+ * (`ar_duration_scaled_by_same_width_unsigned_type`, `ar_duration_scaled_stores`, 2026-10-03).
+ */
+function durationScaleWarnings(op: string, left: Expr, right: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] | undefined {
+  const [lt, rt] = [inferExprType(left, scope, project), inferExprType(right, scope, project)]
+  if (lt.kind !== "elementary" || rt.kind !== "elementary") return undefined
+  const c = durationScaleConversion(op, lt.name, rt.name)
+  if (c === undefined) return undefined
+  if (isDuration(c.from) || project.dialect !== "codesys") return []
+  const w = conversionWarning(elementaryRef(c.to), elementaryRef(c.from), c.side === "left" ? left : right, messages)
   return w === undefined ? [] : [w]
 }
 
@@ -196,13 +228,18 @@ function meetOperandWarnings(
   project: Scope,
   messages: Messages,
 ): DiagnosticItem[] | undefined {
-  const lt = inferExprType(left, scope, project)
-  const rt = inferExprType(right, scope, project)
+  let lt = inferExprType(left, scope, project)
+  let rt = inferExprType(right, scope, project)
+  // an untyped number takes its type from the other operand (`arith/checked` `literalOperandType`): `aSint + 200` meets
+  // at INT and converts nothing that warns (`ar_int_literal_operand_types`)
+  const [lv, rv] = [untypedNumberValue(left), untypedNumberValue(right)]
+  if (lv !== undefined && rv === undefined) lt = literalOperandType(lv, rt) ?? lt
+  else if (rv !== undefined && lv === undefined) rt = literalOperandType(rv, lt) ?? rt
   if (lt.kind !== "elementary" || rt.kind !== "elementary") return undefined
   const meet = checkedMeetType(lt, rt)
   if (meet === undefined || meet.kind !== "elementary") return undefined
   const each = (t: Type, at: Expr): DiagnosticItem | undefined =>
-    isIntLiteral(at) ? undefined : conversionWarning(meet, t, at, messages)
+    untypedNumberValue(at) !== undefined ? undefined : conversionWarning(meet, t, at, messages)
   return [each(lt, left), each(rt, right)].filter((d): d is DiagnosticItem => d !== undefined)
 }
 
@@ -221,4 +258,18 @@ const unsignedOfWidth = (bits: number): Type => elementaryTypeRef(integerOfWidth
 function negationOperandWarning(x: Expr, scope: Scope, project: Scope, messages: Messages): DiagnosticItem | undefined {
   if (x.kind !== "unary" || x.op !== "-") return undefined
   return conversionWarning(inferExprType(x, scope, project), inferExprType(x.operand, scope, project), x.operand, messages)
+}
+
+/** `meetOperandWarnings` over three or more value arguments (LIMIT, an extended MIN/MAX/MUX): each converted into the
+ *  meet of all, or undefined when one has no elementary type or the meet is unmeasured. */
+function meetAllWarnings(values: readonly (Expr | undefined)[], scope: Scope, project: Scope, messages: Messages): DiagnosticItem[] | undefined {
+  const typed = values.map((v) => (v === undefined ? undefined : ([v, inferExprType(v, scope, project)] as const)))
+  if (typed.some((p) => p === undefined || p[1].kind !== "elementary")) return undefined
+  const pairs = typed as readonly (readonly [Expr, Type])[]
+  const meet = pairs.map((p) => p[1]).reduce<Type | undefined>((acc, t) => (acc === undefined ? undefined : checkedMeetType(acc, t)), pairs[0]![1])
+  if (meet === undefined || meet.kind !== "elementary") return undefined
+  return pairs.flatMap(([at, t]) => {
+    const w = isIntLiteral(at) ? undefined : conversionWarning(meet, t, at, messages)
+    return w === undefined ? [] : [w]
+  })
 }

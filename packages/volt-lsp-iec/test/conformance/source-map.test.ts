@@ -50,7 +50,9 @@ import { PROJECT_BASE, PROJECT_LOWERING } from "./support/project-libraries.js"
 // 34 -> 35 (2026-10-02, frontend-conformance 3.1), read, a documented class: `sym_inout_vs_field_vs_stat`'s METHOD
 // `Io` has VAR_IN_OUT `x`, called `Io(x := v)`, so `x := x + INT#100` is specialized to the caller's field
 // (`self.v = …`) — the VAR_IN_OUT substitution, as `callshape_*`.
-const RENAMED_TARGETS = 35
+// 35 -> 38 (2026-10-03, frontend-conformance 4.3.4), read, the documented `match` class: `ar_queryinterface_type`'s
+// `out1 := __QUERYINTERFACE(ia, ib)` (refused by both vendors — it stores a BOOL into a STRING — and lowered all the same).
+const RENAMED_TARGETS = 38
 
 interface Program {
   name: string

@@ -43,6 +43,7 @@ import {
   elementaryRef,
   elementaryType,
   inferExprType,
+  durationScaleConversion,
   literalCheckType,
   literalErrorType,
   renderType,
@@ -52,6 +53,8 @@ import {
   resolveTypeExpr,
   isElementaryTypeName,
   negativeLiteralComparisonTarget,
+  selectionValueArguments,
+  temporalArithmeticType,
   UNKNOWN,
   type Type,
 } from "../../src/frontend/types/index.js"
@@ -259,6 +262,9 @@ export function boundCensus(): BoundCensus {
     const invalidStatement = noValidStatementsIn(b, vendor.says)
     const undecided = vendor.known ? 0 : undecidedExprCount(b)
     if (undecided > 0) tally(c.types, `${group}: expressions in a conditional branch Volt cannot decide, not measured`, undecided)
+    // a TYPE named where an operator takes one — `SIZEOF(LINT)`, `XSIZEOF(DINT)`, `__NEW(T)` — is no value and has no type
+    // to ask for, on either side (rules AR23/AR24)
+    const typeOperands = typeNameOperands(b)
     if (!vendor.known)
       for (const { expr, scope, line } of typeRows(b)) {
         const [where, kind, ...rest] = line.split(" ")
@@ -333,7 +339,8 @@ export function boundCensus(): BoundCensus {
           tally(c.types, `${group}: call UNKNOWN, SIZEOF of a type name (no result type yet, task 4.3.4)`)
         else if (type === "?" && operandTyped(expr, scope, b) === true)
           tally(c.types, `${group}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`)
-        // …and `__NEW`/`__DELETE`, whose result type is task 4.3.4's as SIZEOF's and ADR's are — split out when the five
+        // …and `__NEW`/`__DELETE` — `__NEW` is POINTER TO its type since 4.3.4, so what is left is `__DELETE`, whose value no
+        // recording asks — split out when the five
         // TwinCAT `newdel_*` fixtures left KNOWN_DIVERGENCES (frontend-conformance 2.7.2: they diverged only because the
         // recorder had dropped their pragma) and their calls came to be measured: a reclassification, not a rise
         else if (type === "?" && expr.kind === "call" && expr.callee.kind === "ident_expr" && /^__(new|delete)$/i.test(expr.callee.name))
@@ -351,6 +358,7 @@ export function boundCensus(): BoundCensus {
         // …and an expression the front-end WOULD type on a 64-bit target: a platform integer (`__XWORD`, `__UXINT`) has no
         // width in a project whose device's width nobody measured, so it — and what is built on it — is untyped there, by
         // the rule (`types/platform`, frontend-conformance 4.1.1). A GAP (TY6's), so the key says UNKNOWN and is ceilinged.
+        else if (type === "?" && typeOperands.has(expr)) tally(c.types, `${group}: ident_expr untyped, a type named where the operator takes one`)
         else if (type === "?" && scope !== undefined && typedOnASixtyFourBitTarget(expr, scope, b))
           tally(c.types, `${group}: ${kind} UNKNOWN, a platform integer on a target nobody measured (TY6)`)
         else tally(c.types, `${group}: ${kind} ${type === "?" ? "UNKNOWN" : "NOSCOPE"}`)
@@ -512,7 +520,18 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
           const into = negativeLiteralComparisonTarget(operand.elem, value, b.project.dialect)
           if (into !== undefined) store({ kind: "elementary", name: into.name, elem: into }, lit, scope)
         }
+      // date/time arithmetic converts no operand — a date and a duration stay as they are (`types/arith/temporal`, rule
+      // AR17) — except a duration scaled by an integer (rule AR18, `durationScaleConversion`): into a WIDER integer the
+      // duration converts ("Cannot convert type 'TIME' to type 'LINT'", `ar_time_scaled_by_wide_or_unsigned_int_type`), and
+      // an integer no wider converts into the signed integer of the duration's width (CODESYS: "UDINT to DINT",
+      // `ar_duration_scaled_by_same_width_unsigned_type`)
+      const temporal = x.kind === "binary" ? temporalArithmeticType(x.op, inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project)) : undefined
       if (x.kind === "binary") {
+        const [lt, rt] = [inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project)]
+        const scaled = lt.kind === "elementary" && rt.kind === "elementary" ? durationScaleConversion(x.op, lt.name, rt.name) : undefined
+        if (scaled !== undefined) store(elementaryRef(scaled.to), scaled.side === "left" ? x.left : x.right, scope)
+      }
+      if (x.kind === "binary" && temporal === undefined) {
         const result = COMPARISONS.has(x.op)
           ? checkedMeetType(inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project))
           : inferExprType(x, scope, b.project)
@@ -525,6 +544,11 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
         }
       }
       if (x.kind !== "call") continue
+      // a selection function's VALUE arguments convert into its result, their meet (`types/builtins` `selectionValueArguments`,
+      // rules AR13/AR14) — the compiler's own name, unshadowed
+      const values = x.callee.kind === "ident_expr" && resolveCallee(x, scope, b.project) === undefined ? selectionValueArguments(x.callee.name, x.args.map((a) => a.value)) : undefined
+      const selected = values === undefined ? UNKNOWN : inferExprType(x, scope, b.project)
+      if (selected.kind === "elementary") for (const v of values ?? []) if (v !== undefined) store(selected, v, scope)
       // a BARE conversion converts its argument to ANY (`analysis/hole` `bareConversionArgument`, frontend-conformance 2.2b)
       const converted = bareConversionArgument(x)
       if (converted !== undefined) store(UNKNOWN, converted, scope, "ANY")
@@ -950,12 +974,35 @@ function namesAGvl(expr: Expr, scope: Scope | undefined): boolean {
   return scope !== undefined && gvlBlockOf(expr, scope, rootOf(scope)) !== undefined
 }
 
+/** The operators that take a TYPE NAME as their operand. */
+const TAKE_A_TYPE_NAME: ReadonlySet<string> = new Set(["SIZEOF", "XSIZEOF", "__NEW"])
+
+/** Every `ident_expr` of `b` that names a TYPE as the operand of `TAKE_A_TYPE_NAME` — an elementary type, or one the name
+ *  resolves to where it is written. */
+function typeNameOperands(b: Bound): ReadonlySet<Expr> {
+  const out = new Set<Expr>()
+  for (const { expr: site, scope } of sites(b))
+  for (const expr of valueExprs(site)) {
+    if (scope === undefined || expr.kind !== "call" || expr.callee.kind !== "ident_expr" || !TAKE_A_TYPE_NAME.has(expr.callee.name.toUpperCase())) continue
+    for (const a of expr.args) {
+      const v = a.value
+      if (v?.kind !== "ident_expr") continue
+      const named = resolveTypeExpr({ kind: "named_type", name: { kind: "identifier", text: v.name, span: v.span }, span: v.span }, b.project, 0, scope)
+      if (isElementaryTypeName(v.name) || named.kind !== "unknown") out.add(v)
+    }
+  }
+  return out
+}
+
 /** The operators whose result type is made from their operand: SIZEOF's from its size, ADR's from its type. */
 const TYPED_BY_THEIR_OPERAND: ReadonlySet<string> = new Set(["SIZEOF", "ADR"])
 
 /**
- * A call of `TYPED_BY_THEIR_OPERAND`, by its operand — undefined for any other expression. The front-end has no result
- * type for either operator yet (built-ins, task 4.3.4), so each is UNKNOWN; the census tells the two reasons apart:
+ * A call of `TYPED_BY_THEIR_OPERAND`, by its operand — undefined for any other expression. Since frontend-conformance 4.3.4
+ * the front-end types ADR (POINTER TO its operand's type) and SIZEOF of a size it can count (`types/builtins`
+ * `scalarStorageBytes`); what is left UNKNOWN is SIZEOF of a STRUCT or an FB, whose layout is the transpiler's memory model,
+ * and ADR of no value (a device instance, a malformed address). The keys keep their names — a ceiling's name is its id —
+ * and the census tells the two reasons apart:
  *
  *   false  every operand has no type — a value inferred UNKNOWN, or a name that resolves to no type
  *          (`SIZEOF(OpcUa_Boolean)` over a library the corpus does not materialize): no rule for the operator could type

@@ -903,6 +903,10 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
    * looks — so what is asserted is that they are the ones we know about. The ceiling holds the total at 2.
    */
   const MEASURED_SILENT: ReadonlySet<string> = new Set([
+    // `__POUNAME()` into an INT (frontend-conformance 4.3.4): CODESYS names a STRING sized by the asking body's qualified
+    // name, which an ACTION's body does not carry (`CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY`); TwinCAT has no `__POUNAME`
+    // and agrees, so it cannot be written on the fixture as a deferral (agreeing would end it there)
+    "ar_pouname_type",
     // the `???` target over a CALL. The fixture and the corpus disagree because the compiler never reads network
     // text at all — see `network/network-analysis.ts`.
     "network_unnamed_target_of_void_call",
@@ -1375,7 +1379,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // LSP silent (`ELEMENTARY_RULE_DIVERGENCES`): REFERENCE TO BIT and ANY_NUM as a local (no catalog code), ANY_ELEMENTARY
   // and ANY_MAGNITUDE as a parameter type (no type on either vendor), VERSION stored whole into a STRING (a struct into an
   // elementary target is unchecked for every struct — task 4.5.3) — each niche, 0 occurrences in the corpora. No fixture moved.
-  "lsp-gap": 60,
+  // 60 -> 62, FOR MEASUREMENT. frontend-conformance 4.3.4 (2026-10-03): 2 built-in result cells CODESYS refuses, the LSP
+  // silent (`ARITHMETIC_RESULT_DIVERGENCES`, `CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY`): `__VARINFO` into a STRING (the VAR_INFO
+  // struct's members are unmeasured, and a struct into an elementary target is 4.5.3's) and `__POUNAME()` into an INT (a
+  // STRING sized by the asking body's qualified name, which an ACTION's body does not carry). No fixture moved.
+  "lsp-gap": 62,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1816,7 +1824,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // the named-argument count; access refusals are MEMBER_DIVERGENCES.
   // 3825 -> 3870 (2026-10-03, frontend-conformance 4a): the type fixtures (`fixtures/types/elementary-rules.ts`,
   // `literal-contexts.ts`, TY1–TY15, LT1–LT14) — platform width per target, ANY groups, literal context conversions.
-  { vendor: "twincat", floor: 3870 },
+  // 3870 -> 3960 (2026-10-03, frontend-conformance 4b): the arithmetic-result fixtures (`fixtures/types/
+  // arithmetic-results.ts`, AR1–AR31) — literal operands, shifts, LIMIT/SEL/MUX meets, built-in result types, temporal.
+  { vendor: "twincat", floor: 3960 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1956,7 +1966,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3854 -> 3868 (2026-10-02, frontend-conformance 3.4): the same, on CODESYS.
   // 3868 -> 3914 (2026-10-03, frontend-conformance 3.5): the same, on CODESYS.
   // 3914 -> 3959 (2026-10-03, frontend-conformance 4a): the same, on CODESYS.
-  { vendor: "codesys", floor: 3959 },
+  // 3959 -> 4047 (2026-10-03, frontend-conformance 4b): the same, on CODESYS.
+  { vendor: "codesys", floor: 4047 },
 ]
 
 

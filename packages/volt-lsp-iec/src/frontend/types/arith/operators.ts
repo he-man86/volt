@@ -5,11 +5,11 @@
  */
 import type { Dialect } from "../../syntax/index.js"
 import type { ElementaryType, TypeFamily } from "../elementary.js"
-import { isIntegerType, isNumericType } from "../predicates.js"
+import { isDuration, isIntegerType, isNumericType } from "../predicates.js"
 import { elementaryType, inTypeGroup } from "../elementary.js"
 import { elementaryTypeRef, type Type } from "../type.js"
 import { integerOfWidth } from "../width.js"
-import { narrowDateWideDuration } from "./temporal.js"
+import { durationScaleConversion, narrowDateWideDuration } from "./temporal.js"
 
 /** The arithmetic operators — they meet their operands (`checked.ts` `checkedMeetType`). */
 export const ARITHMETIC_OPERATORS: ReadonlySet<string> = new Set(["+", "-", "*", "/", "MOD"])
@@ -106,6 +106,20 @@ export function bitwiseResultType(l: Type, r: Type): Type | undefined {
   return elementaryTypeRef(integerOfWidth(a.bits, false))
 }
 
+/**
+ * A bit operator between a SIGNED integer and an untyped literal that took a WIDER unsigned integer
+ * (`checked.ts` `bitwiseLiteralOperandType`) computes at the literal's width: `si AND 300` is UINT (`ar_bitwise_literal_beyond_width`,
+ * CODESYS 2026-10-03). Undefined for any other pair: an UNSIGNED or bit-string operand beside the wider literal needs no
+ * rule of its own — the checked meet already names the literal's width (`us AND 300` UINT, `w AND 16#1FFFF` UDINT,
+ * `ar_bitwise_literal_unsigned_or_negative`, both vendors 2026-10-03) — and two variables of different widths were not asked.
+ */
+export function bitwiseLiteralResultType(operand: Type, literal: Type): Type | undefined {
+  const a = operand.kind === "elementary" ? operand.elem : undefined
+  const b = literal.kind === "elementary" ? literal.elem : undefined
+  if (a === undefined || b === undefined || a.family !== "int" || a.signed !== true) return undefined
+  return b.family === "int" && b.signed !== true && b.bits > a.bits ? literal : undefined
+}
+
 /** A string type by name — the table's ANY_STRING group. */
 function isStringType(name: string): boolean {
   const facts = elementaryType(name)
@@ -119,6 +133,8 @@ function isStringType(name: string): boolean {
  *   A BOOL OPERAND IS THE SAME ANSWER FOR ALL FIVE OPERATORS, MOD INCLUDED — the conversion of the BOOL into the other
  *   operand's type (`meet_bool_{plus,minus,times,div,mod}_int`, identical on both recordings 2026-09-20);
  *   a 32-bit date ± an LTIME, either order, is ULINT arithmetic CODESYS refuses (`tr_40_*`);
+ *   a duration scaled by an integer WIDER than it is that integer, the duration refused into it — "Cannot convert type
+ *   'TIME' to type 'LINT'" (`temporal.ts` `durationScaleConversion`, `ar_time_scaled_by_wide_or_unsigned_int_type`);
  *   MOD is integer-only, and names the offending operand — `REAL` for every floating one, either width;
  *   a string on the LEFT must become ANY_NUM; on the RIGHT of a number, that number's type (`cc_string_*`).
  */
@@ -130,6 +146,8 @@ export function operandFamilyRule(
   if (!ARITHMETIC_OPERATORS.has(op)) return undefined
   if (a === "BOOL" || b === "BOOL") return { kind: "convert", from: "BOOL", to: a === "BOOL" ? b : a }
   if ((op === "+" || op === "-") && narrowDateWideDuration(a, b)) return { kind: "convert", from: "LTIME", to: "ULINT" }
+  const scaled = durationScaleConversion(op, a, b)
+  if (scaled !== undefined && isDuration(scaled.from)) return { kind: "convert", from: scaled.from, to: scaled.to }
   if (op === "MOD") {
     if (isIntegerType(a) && isIntegerType(b)) return undefined
     const offending = !isIntegerType(a) ? a : b

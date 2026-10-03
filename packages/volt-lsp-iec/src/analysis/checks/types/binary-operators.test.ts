@@ -41,3 +41,16 @@ test("DATE / DT / TOD plus or minus an LTIME is refused; with a TIME it is not",
   expect(mismatches("d : DATE; dur : LTIME;", "d := dur + d;")).toEqual(ltime)
   expect(mismatches("d : DATE; dur : TIME;", "d := d + dur;")).toEqual([])
 })
+
+// Rule AR18 (`arith/temporal` `durationScaleResultType`): a TIME scaled by a 64-bit integer is that INTEGER, and the TIME
+// is refused into it — "Cannot convert type 'TIME' to type 'LINT'" for `t * li` and `li * t`, 'TIME' to 'ULINT' for
+// `t / ul` (`ar_time_scaled_by_wide_or_unsigned_int_type`, both vendors 2026-10-03). It was silent wherever the result
+// was stored into a matching integer: only the STRING stores of the probe reported anything.
+test("a TIME scaled by a 64-bit integer refuses the TIME into the integer; a narrower integer refuses nothing", () => {
+  expect(mismatches("t : TIME; li : LINT; x : LINT;", "x := t * li;")).toEqual(["Cannot convert type 'TIME' to type 'LINT'"])
+  expect(mismatches("t : TIME; li : LINT; x : LINT;", "x := li * t;")).toEqual(["Cannot convert type 'TIME' to type 'LINT'"])
+  expect(mismatches("t : TIME; ul : ULINT; x : ULINT;", "x := t / ul;")).toEqual(["Cannot convert type 'TIME' to type 'ULINT'"])
+  expect(mismatches("t : TIME; n : INT;", "t := t * n;")).toEqual([])
+  expect(mismatches("t : TIME; n : SINT;", "t := t / n;")).toEqual([])
+  expect(mismatches("t : LTIME; n : LINT;", "t := n * t;")).toEqual([])
+})

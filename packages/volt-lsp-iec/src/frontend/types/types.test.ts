@@ -238,6 +238,108 @@ test("infer: EXPT is REAL only when BOTH arguments are REAL (measured) — never
   expect(expt("a : REAL;", "EXPT(a, 2)")).toEqual(UNKNOWN) // a bare literal has no width: stay silent
 })
 
+test("infer: an operation with an untyped literal operand (rules AR1/AR7; ar_int_literal_operand_types, ar_real_literal_operand_types)", () => {
+  const decls = "si : SINT; i : INT; d : DINT; li : LINT; us : USINT; ui : UINT; bt : BYTE; w : WORD; rv : REAL; lr : LREAL;"
+  const named = (expr: string): string => renderType(inferExpr("", `VAR\n ${decls}\nEND_VAR`, `tmp := ${expr}`), { form: "compiler" })
+  // in range the literal takes its neighbour's integer (a bit string's is the unsigned one of its width)
+  expect(named("i + 1")).toBe("INT")
+  expect(named("1 + i")).toBe("INT")
+  expect(named("si + 1")).toBe("SINT")
+  expect(named("us - 1")).toBe("USINT")
+  expect(named("bt + 1")).toBe("USINT")
+  expect(named("w + 1")).toBe("UINT")
+  expect(named("i + -1")).toBe("INT")
+  expect(named("i MOD 2")).toBe("INT")
+  // beyond it, the smallest integer of the neighbour's signedness that holds it
+  expect(named("si + 200")).toBe("INT")
+  expect(named("i + 70000")).toBe("DINT")
+  expect(named("us + 300")).toBe("UINT")
+  expect(named("ui + 70000")).toBe("UDINT")
+  // bitwise: the unsigned integer of the width
+  expect(named("bt AND 1")).toBe("USINT")
+  expect(named("si AND 1")).toBe("USINT")
+  // …and a literal only the unsigned integer of the width holds stays at the width, never widened to the next signed
+  // integer (`cc_bitwise_sint_and_literal`: `sn AND 255` converts SINT → USINT; `ar_bitwise_literal_beyond_width`)
+  expect(named("si AND 255")).toBe("USINT")
+  expect(named("255 AND si")).toBe("USINT")
+  expect(named("i AND 16#FF00")).toBe("UINT")
+  expect(named("d OR 16#80000000")).toBe("UDINT")
+  expect(named("si AND 300")).toBe("UINT") // beyond the width, the wider unsigned integer it computes at
+  // …beside an unsigned or bit-string operand too, and a negative literal keeps the signed operand's type
+  // (`ar_bitwise_literal_unsigned_or_negative`, both vendors)
+  expect(named("us AND 300")).toBe("UINT")
+  expect(named("300 OR us")).toBe("UINT")
+  expect(named("bt AND 300")).toBe("UINT")
+  expect(named("w AND 16#1FFFF")).toBe("UDINT")
+  expect(named("si AND -1")).toBe("USINT")
+  expect(named("-1 AND si")).toBe("USINT")
+  expect(named("i XOR -1")).toBe("UINT")
+  // beside a real, the real; a real literal is REAL beside a REAL, else LREAL
+  expect(named("rv + 1")).toBe("REAL")
+  expect(named("lr + 1")).toBe("LREAL")
+  expect(named("rv + 1.5")).toBe("REAL")
+  expect(named("1.5 + rv")).toBe("REAL")
+  expect(named("lr + 1.5")).toBe("LREAL")
+  expect(named("i + 1.5")).toBe("?") // named by its store: LREAL into a STRING, silent into a REAL
+})
+
+test("infer: the built-ins' result types (rules AR10, AR13/14, AR18, AR22–AR31; types/arithmetic-results.ts)", () => {
+  const decls = "b : BYTE; w : WORD; si : SINT; i : INT; ui : UINT; li : LINT; rv : REAL; lr : LREAL; g : BOOL; k : INT; t : TIME; ltm : LTIME; d : DINT; arr : ARRAY[0..3] OF BYTE; a256 : ARRAY[1..256] OF BYTE; big : ARRAY[0..99999] OF BYTE; str : STRING;"
+  const infer = (expr: string): Type => inferExpr("", `VAR\n ${decls}\nEND_VAR`, `tmp := ${expr}`)
+  const named = (expr: string): string => renderType(infer(expr), { form: "compiler" })
+  // AR10 — a shift or rotate is its operand's type, never promoted
+  expect(named("SHL(si, k)")).toBe("SINT")
+  expect(named("ROR(w, k)")).toBe("WORD")
+  expect(named("SHR(li, k)")).toBe("LINT")
+  expect(infer("SHL(1, k)")).toEqual(UNKNOWN) // an untyped literal operand has no type of its own
+  // AR13/AR14 — the selection functions meet their VALUE arguments (not SEL's selector, not MUX's index)
+  expect(named("LIMIT(i, ui, i)")).toBe("INT")
+  expect(named("LIMIT(ui, i, ui)")).toBe("INT")
+  expect(named("SEL(g, li, rv)")).toBe("REAL")
+  expect(named("MUX(k, b, si)")).toBe("SINT")
+  expect(named("MIN(b, b)")).toBe("USINT")
+  expect(named("MAX(w, w)")).toBe("UINT")
+  expect(infer("LIMIT(0, i, 100)")).toEqual(UNKNOWN)
+  // AR22–AR31 — the fixed and argument-typed built-ins
+  expect(named("ADR(i)")).toBe("POINTER TO INT")
+  expect(named("ADR(arr)")).toBe("POINTER TO ARRAY [0..3] OF BYTE")
+  expect(infer("ADR(5)")).toEqual(UNKNOWN)
+  expect(named("SIZEOF(i)")).toBe("USINT")
+  expect(named("SIZEOF(LINT)")).toBe("USINT")
+  expect(named("SIZEOF(str)")).toBe("USINT")
+  expect(named("SIZEOF(a256)")).toBe("UINT")
+  expect(named("SIZEOF(big)")).toBe("UDINT")
+  expect(named("BITADR(g)")).toBe("DWORD")
+  expect(named("TRUNC(lr)")).toBe("DINT")
+  expect(named("TRUNC_INT(rv)")).toBe("INT")
+  expect(named("ABS(b)")).toBe("BYTE")
+  expect(named("MOVE(t)")).toBe("TIME")
+  expect(named("UPPER_BOUND(arr, 1)")).toBe("DINT")
+  expect(named("TIME()")).toBe("TIME")
+  expect(named("LTIME()")).toBe("LTIME")
+  // AR18 — a duration scaled by an integer is the duration
+  expect(named("t * i")).toBe("TIME")
+  expect(named("i * t")).toBe("TIME")
+  expect(named("t / d")).toBe("TIME")
+  expect(named("ltm / i")).toBe("LTIME")
+  // …an integer no wider than the duration, signed or not; a 64-bit one beside a TIME is the INTEGER, the TIME refused
+  // into it (`ar_time_scaled_by_wide_or_unsigned_int_type`)
+  expect(named("t * ui")).toBe("TIME")
+  expect(named("t * si")).toBe("TIME")
+  expect(named("t * li")).toBe("LINT")
+  expect(named("li * t")).toBe("LINT")
+  // …and a same-width UNSIGNED one keeps the duration (`ar_duration_scaled_by_same_width_unsigned_type`, both vendors)
+  expect(inferExpr("", "VAR\n t : TIME; ud : UDINT;\nEND_VAR", "tmp := t * ud")).toMatchObject({ kind: "elementary", name: "TIME" })
+  expect(inferExpr("", "VAR\n ltm : LTIME; ul : ULINT;\nEND_VAR", "tmp := ul * ltm")).toMatchObject({ kind: "elementary", name: "LTIME" })
+  // a STRING whose declared length does not fold has no size — never the default capacity's (finding 4b)
+  const sized = (decl: string): Type => inferExpr("", `VAR
+ ${decl}
+END_VAR`, "tmp := SIZEOF(s1)")
+  expect(sized("s1 : STRING(Unknown_C);")).toEqual(UNKNOWN)
+  expect(sized("s1 : STRING(GVL_missing.cLen);")).toEqual(UNKNOWN)
+  expect(renderType(sized("s1 : STRING(300);"), { form: "compiler" })).toBe("UINT")
+})
+
 // ─── C.5 compat ───
 
 test("isAssignable: widening, narrowing, isolation, enums", () => {

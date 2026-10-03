@@ -52,7 +52,8 @@ export function resolveTypeExpr(
       // Carry a declared capacity (`STRING(5)`); a length this scope cannot fold leaves it unstated, never guessed.
       const base = elementaryRef(t.wide ? "WSTRING" : "STRING")
       const length = t.length === undefined ? undefined : constEval(t.length, valueScope)
-      return base.kind === "elementary" && typeof length === "bigint" ? { ...base, length: Number(length) } : base
+      if (base.kind !== "elementary" || t.length === undefined) return base
+      return typeof length === "bigint" ? { ...base, length: Number(length) } : { ...base, unfoldedLength: true }
     }
     case "implicit_enum_type":
       // Inline enum: its values live as bare constants in the enclosing scope, so no member scope here.

@@ -16,8 +16,8 @@
  */
 import { elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, isAssignable, renderType } from "../../../frontend/types/index.js"
 import { conversionWarning, storeConversionError } from "../../rules.js"
-import { CODESYS_ONLY_KEYWORDS, type Span } from "../../../frontend/syntax/index.js"
-import { forEachExpr, lookup } from "../../../frontend/symbols/index.js"
+import { CODESYS_ONLY_KEYWORDS, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { forEachExpr, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { literalHole } from "../../hole.js"
@@ -144,7 +144,9 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
       const bit = arg.kind === "member" && /^\d+$/.test(arg.member.name)
       const t = bit ? undefined : inferExprType(arg, scope, ctx.project)
       const named = bit ? "BIT" : t?.kind === "elementary" ? t.name : undefined
-      if (named !== undefined)
+      // …EXCEPT A VARIABLE LOCATED AT A BIT ADDRESS, which is what BITADR is for: `x AT %MX4.3 : BOOL` builds on both
+      // vendors and BITADR(x) is a DWORD (`ar_bitadr_type`, 2026-10-03). Only that was measured — a located WORD is not.
+      if (named !== undefined && !locatedAtBitAddress(arg, scope))
         push(out, "error", arg.span, "operator-not-possible", ctx.messages.operatorNotPossible("BitAdr", named))
     }
     if (name === "__DELETE") {
@@ -191,3 +193,11 @@ function push(out: DiagnosticItem[], severity: DiagnosticItem["severity"], span:
 }
 
 const text = (source: string, span: Span): string => source.slice(span.start, span.end)
+
+/** Is `arg` a variable declared `AT` a bit address (`%IX`, `%QX`, `%MX`) — BITADR's operand? */
+function locatedAtBitAddress(arg: Expr, scope: Scope): boolean {
+  if (arg.kind !== "ident_expr") return false
+  const ast = lookup(scope, arg.name)?.symbol.ast
+  const at = ast !== undefined && "at" in ast ? ast.at : undefined
+  return at?.tokens.some((t) => /^%[IQM]X/i.test(t.text)) === true
+}

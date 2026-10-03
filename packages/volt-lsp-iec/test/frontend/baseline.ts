@@ -63,32 +63,10 @@ const LIB_REFERENCE_FACTS =
 const TWO_LIBRARIES_ERROR =
   "bare `ERROR` (Util's, CAA Device Diagnosis') is Util's on CODESYS — DED's is no candidate, a qualified-access fact the manifest does not carry; the LSP ranks the two alike and binds DED's by the URI tiebreak, so `.WRONG_CONFIGURATION` is unresolved. Not a regression: the same input gave the same answer before 3.4, which made it measurable"
 
-const ADR_RESULT_TYPE = "frontend-conformance 4.3.4 (every built-in's result type: ADR's is POINTER TO its operand's)"
-const ADR_IN_A_MEMBER_FIXTURE =
-  "3.5's pointer cells (rule M3) must take an instance's address — `p := ADR(sb)` — to ask what is reached through it; ADR's call is the named class `call UNKNOWN, SIZEOF or ADR`, which no known-divergence list can hold (the replay agrees with both builds)"
-/** The 3.5 member fixtures taking `ADR(sb)`, with how many each carries — one ceiling exception per fixture and vendor. */
-const ADR_CELLS: readonly [string, number][] = [
-  ["mem_unknown_member_through_pointer", 1],
-  ["mem_pointer_deref_method", 1],
-  ["mem_pointer_to_pointer_member", 2],
-  ["mem_pointer_member_without_deref", 1],
-]
-
-const UNTYPED_LITERAL_OPERAND = "frontend-conformance 4.3.1 (meets and promotion: the type of an operation on an untyped literal)"
-const FOR_BOUND_CELLS =
-  "4.2's FOR-bound cells (rule LT12) count their loop, `n := n + 1`: an operation on an untyped literal is `binary UNKNOWN` until 4.3.1 types it, which no known-divergence list can hold (the replay agrees with both builds)"
-/** The 4.2 FOR-bound fixtures, with the `n + 1` each carries. */
-const FOR_BOUND_ROWS: readonly [string, number][] = [
-  ["lt_literal_for_bounds", 2],
-  ["lt_literal_for_bounds_out_of_range", 1],
-  // measured since 4.2 took it off the known divergences (its TO 200 is the LT12 conversion, not C0266)
-  ["cc6_loop_cannot_exit", 1],
-]
-
 const LITERAL_TYPING = "frontend-conformance LT14 (an untyped number's type in its context — the transpiler's call site, task 5.3)"
 const NEGATED_LITERAL_CELLS =
-  "4.1.3's and 4.2's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
-/** The 4.1.3 / 4.2 fixtures writing negated untyped numbers, with how many each carries (the same on both vendors). */
+  "4.1.3's, 4.2's and 4.3's cells write negated untyped numbers (the minima `-128`, `-32768`, a negative CASE label, comparison and argument; 4.3's negative dividends and ABS operands; 4b's negative literal beside a bit operator) — measured, not regressed: a signed untyped number is UNKNOWN in the census until LT14 types it, and it keeps its own capped key (step 4a review)"
+/** The 4.1.3 / 4.2 / 4.3 / 4b fixtures writing negated untyped numbers, with how many each carries (the same on both vendors). */
 const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["lt_literal_any_int_argument", 2],
   ["lt_literal_case_label", 3],
@@ -102,6 +80,14 @@ const NEGATED_LITERAL_ROWS: readonly [string, number][] = [
   ["lt_negative_min_sint", 2],
   ["ty_dint_to_uxint", 2],
   ["ty_xint_to_dint", 1],
+  ["ar_div_negative", 7],
+  ["ar_mod_negative", 7],
+  ["ar_div_function_form", 1],
+  ["ar_mod_function_form", 1],
+  ["ar_abs_type", 4],
+  ["ar_int_literal_operand_types", 1],
+  ["ar_bitwise_literal_unsigned_or_negative", 3],
+  ["ar_bitwise_literal_unsigned_or_negative_stores", 1],
 ]
 
 export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
@@ -115,34 +101,11 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
       why: NEGATED_LITERAL_CELLS,
     })),
   ),
-  ...FOR_BOUND_ROWS.flatMap(([fixture, by]) =>
-    (["codesys", "twincat"] as const).map((vendor) => ({
-      baseline: "type-dump",
-      measure: `fixtures ${vendor}: binary UNKNOWN`,
-      by,
-      fixture,
-      task: UNTYPED_LITERAL_OPERAND,
-      why: FOR_BOUND_CELLS,
-    })),
-  ),
-  {
-    baseline: "type-dump",
-    measure: "fixtures codesys: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)",
-    by: 1,
-    fixture: "ty_array_of_pointer",
-    task: ADR_RESULT_TYPE,
-    why: "4.1.3's ARRAY OF POINTER cell (rule TY13, the control beside ARRAY OF REFERENCE) stores `ADR(v)` into an element — ADR's call is the named class `call UNKNOWN, SIZEOF or ADR`",
-  },
-  ...ADR_CELLS.flatMap(([fixture, by]) =>
-    (["codesys", "twincat"] as const).map((vendor) => ({
-      baseline: "type-dump",
-      measure: `fixtures ${vendor}: call UNKNOWN, SIZEOF or ADR (no result type yet, task 4.3.4)`,
-      by,
-      fixture,
-      task: ADR_RESULT_TYPE,
-      why: ADR_IN_A_MEMBER_FIXTURE,
-    })),
-  ),
+  // (the FOR-bound exceptions — `n := n + 1` in `lt_literal_for_bounds`, `_out_of_range` and `cc6_loop_cannot_exit` — left
+  // 2026-10-03: an operation on an untyped literal takes its neighbour's type since frontend-conformance 4.3.1, `arith/checked`
+  // `literalOperandType`)
+  // (the ADR exceptions — `ty_array_of_pointer` and 3.5's pointer cells `mem_*_pointer_*` — left 2026-10-03: ADR is
+  // POINTER TO its operand's type since frontend-conformance 4.3.4, so their calls are typed)
   { baseline: "resolution-dump", measure: "findings", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
   { baseline: "resolution-dump", measure: "fixtures codesys: member NONE", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
   { baseline: "type-dump", measure: "fixtures codesys: member UNKNOWN", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },

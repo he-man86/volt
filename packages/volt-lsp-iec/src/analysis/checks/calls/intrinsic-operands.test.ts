@@ -35,6 +35,19 @@ test("C0355: ADR of a BIT variable is flagged (warning); ADR of a non-BIT is not
   expect(adrBit(`pt := ADR(i);`)).toEqual([])
 })
 
+test("C0072 BitAdr: refused on an unlocated BOOL; a BOOL located at a bit address is BITADR's operand (ar_bitadr_type)", () => {
+  const op = (vars: string, body: string): string[] => {
+    const src = `FUNCTION_BLOCK F\nVAR\n${vars}\n addr : DWORD;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+    return computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+      .filter((d) => d.code === "operator-not-possible")
+      .map((d) => d.message)
+  }
+  expect(op(" x : BOOL;", "addr := BITADR(x);")).toEqual(["Operation 'BitAdr' is not possible on type 'BOOL'"])
+  expect(op(" x AT %MX4.3 : BOOL;", "addr := BITADR(x);")).toEqual([])
+})
+
 test("C0070: INI of a non-instance is flagged; INI of an FB instance is not", () => {
   const ini = run("ini-needs-instance")
   expect(ini(`i := INI(i, TRUE);`)).toEqual(["INI operator needs function block instance or data unit type instance"])

@@ -8,22 +8,28 @@
  */
 import { bareEnumMember, isLibrarySymbol, lookup, targetOf, type Scope } from "../../symbols/index.js"
 import { selfRefKind, type BinaryExpr, type CallExpr, type Expr } from "../../syntax/index.js"
-import { checkedMeetType, checkedNegationType } from "../arith/checked.js"
-import { temporalResultType } from "../arith/temporal.js"
+import { bitwiseLiteralOperandType, checkedMeetType, checkedNegationType, literalOperandType } from "../arith/checked.js"
+import { temporalArithmeticType } from "../arith/temporal.js"
 import {
+  ARGUMENT_TYPED,
   bareBuiltinType,
   builtinCallResult,
+  clockCallResult,
   exptCheckedType,
   MATH_ARG_TYPED,
   mathResultType,
+  pointerTo,
+  scalarStorageBytes,
+  selectionValueArguments,
+  sizeofResultType,
   twincatXaddResultType,
   type ExptArgument,
 } from "../builtins.js"
 import { aliasElem, elementaryType } from "../elementary.js"
-import { resolveTypeExpr } from "../resolve.js"
+import { resolveNamedType, resolveTypeExpr } from "../resolve.js"
 import { elementaryRef, UNKNOWN, type Type } from "../type.js"
-import { literalType, typedLiteralSum } from "../literal.js"
-import { BITWISE_OPERATORS, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
+import { literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
+import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType } from "../arith/operators.js"
 import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
@@ -129,10 +135,22 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
 
 function binaryResultType(e: BinaryExpr, scope: Scope, project: Scope): Type {
   if (COMPARISON_OPERATORS.has(e.op)) return elementaryRef("BOOL")
-  const l = inferExprType(e.left, scope, project)
-  const r = inferExprType(e.right, scope, project)
+  let l = inferExprType(e.left, scope, project)
+  let r = inferExprType(e.right, scope, project)
+  // an UNTYPED number beside a typed operand takes its type from it (`arith/checked` `literalOperandType`) — at a bit
+  // operator the smallest UNSIGNED integer of at least its width (`bitwiseLiteralOperandType`), whose width a wider
+  // literal then computes at (`bitwiseLiteralResultType`)
+  const retype = ARITHMETIC_OPERATORS.has(e.op) ? literalOperandType : BITWISE_OPERATORS.has(e.op) ? bitwiseLiteralOperandType : undefined
+  let widened: Type | undefined
+  if (retype !== undefined) {
+    const [lv, rv] = [untypedNumberValue(e.left), untypedNumberValue(e.right)]
+    if (lv !== undefined && rv === undefined) l = retype(lv, r) ?? l
+    else if (rv !== undefined && lv === undefined) r = retype(rv, l) ?? r
+    if (BITWISE_OPERATORS.has(e.op)) widened = lv !== undefined && rv === undefined ? bitwiseLiteralResultType(r, l) : rv !== undefined && lv === undefined ? bitwiseLiteralResultType(l, r) : undefined
+  }
+  if (widened !== undefined) return widened
   if (l.kind === "elementary" && r.kind === "elementary") {
-    const temporal = e.op === "+" || e.op === "-" ? temporalResultType(e.op, l.name, r.name) : undefined
+    const temporal = temporalArithmeticType(e.op, l, r)
     if (temporal !== undefined) return elementaryRef(temporal)
     const folded = e.op === "+" ? typedLiteralSum(e, l, r) : undefined
     if (folded !== undefined) return folded
@@ -174,8 +192,56 @@ function exptType(call: CallExpr, scope: Scope, project: Scope): Type {
   return exptCheckedType(kinds)
 }
 
-/** The value functions whose result is the meet of their arguments — measured for these two only. */
-const SELECTS_BY_MEET: ReadonlySet<string> = new Set(["MIN", "MAX"])
+/**
+ * A BUILT-IN WHOSE RESULT IS A FUNCTION OF ITS ARGUMENTS (`builtins.ts` holds each rule), or undefined for any other name.
+ * The selection functions return the MEET of their value arguments — the one a binary operator's operands reach. They
+ * are extensible and type-dependent, so the catalog models no fixed result, and inferring UNKNOWN left `MIN(anInt, aUint)`
+ * invisible to every check downstream. An argument whose type is unknown — an untyped literal takes its type from the
+ * context — leaves the result unknown.
+ */
+function builtinArgumentResult(name: string, call: CallExpr, scope: Scope, project: Scope): Type | undefined {
+  const upper = name.toUpperCase()
+  const values = call.args.map((a) => a.value)
+  const typeOf = (e: Expr | undefined): Type => (e === undefined ? UNKNOWN : inferExprType(e, scope, project))
+  const selected = selectionValueArguments(upper, values)
+  if (selected !== undefined) {
+    const types = selected.map(typeOf)
+    if (types.length === 0 || types.some((t) => t.kind !== "elementary")) return UNKNOWN
+    return types.reduce((acc, t) => checkedMeetType(acc, t) ?? UNKNOWN)
+  }
+  const argument = ARGUMENT_TYPED.get(upper)
+  if (argument !== undefined) {
+    const t = typeOf(values[argument])
+    return t.kind === "elementary" ? t : UNKNOWN
+  }
+  const clock = clockCallResult(upper, call.args.length)
+  if (clock !== undefined) return clock
+  if (call.args.length !== 1 && upper !== "__NEW") return undefined
+  const operand = values[0]
+  if (upper === "ADR") return pointerTo(operand === undefined ? UNKNOWN : valueOperandType(operand, scope, project))
+  if (upper === "__NEW") return pointerTo(operand?.kind === "ident_expr" ? resolveNamedType(operand.name, project) : UNKNOWN)
+  if (upper === "SIZEOF") {
+    const bytes = operand === undefined ? undefined : scalarStorageBytes(sizedOperandType(operand, scope, project))
+    return bytes === undefined ? UNKNOWN : sizeofResultType(bytes)
+  }
+  return undefined
+}
+
+/** A VALUE's type, as ADR addresses it — a variable, a member, an element or a dereference; anything else (a POU's
+ *  name, a literal) unknown. */
+function valueOperandType(e: Expr, scope: Scope, project: Scope): Type {
+  if (e.kind === "ident_expr") {
+    const sym = lookup(scope, e.name)?.symbol
+    return sym !== undefined && VALUE_SYMBOLS.has(sym.kind) ? inferExprType(e, scope, project) : UNKNOWN
+  }
+  return e.kind === "member" || e.kind === "index" || e.kind === "deref" ? inferExprType(e, scope, project) : UNKNOWN
+}
+
+/** SIZEOF's operand: a value, or a TYPE named bare (`SIZEOF(LINT)`, `ar_sizeof_type`). */
+function sizedOperandType(e: Expr, scope: Scope, project: Scope): Type {
+  if (e.kind === "ident_expr" && lookup(scope, e.name) === undefined) return resolveNamedType(e.name, project)
+  return valueOperandType(e, scope, project)
+}
 
 /** The symbols that hold a value — a call of one calls what its type is. */
 const VALUE_SYMBOLS: ReadonlySet<string> = new Set(["var", "gvl_var", "struct_field", "method_param"])
@@ -205,18 +271,9 @@ function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
     if (element.kind === "function_block") return element
   }
   if (call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "EXPT") return exptType(call, scope, project)
-  // MIN AND MAX RETURN THE MEET OF THEIR ARGUMENTS, the same one a binary operator's operands reach. They are
-  // extensible and type-dependent, so the reference catalog models no return type for them and they inferred
-  // UNKNOWN — which is assignable to anything, so no check downstream could see a `MIN(anInt, aUint)` at all.
-  // Measured on all six mixed pairs (`operators/selection.ts`, 2026-09-19): MIN(INT, UINT) is INT, MIN(DINT, UDINT)
-  // is DINT, MIN(BYTE, SINT) is SINT, MIN(LINT, REAL) is REAL — `checkedMeetType` exactly.
-  //
-  // LIMIT, SEL and MUX are deliberately NOT here. They plainly meet their value arguments too, and nothing has
-  // recorded them across two types, so they keep the silence they have earned.
-  if (call.callee.kind === "ident_expr" && SELECTS_BY_MEET.has(call.callee.name.toUpperCase())) {
-    const types = call.args.map((a) => (a.value === undefined ? UNKNOWN : inferExprType(a.value, scope, project)))
-    if (types.length === 0 || types.some((t) => t.kind !== "elementary")) return UNKNOWN
-    return types.reduce((acc, t) => checkedMeetType(acc, t) ?? UNKNOWN)
+  if (call.callee.kind === "ident_expr") {
+    const builtin = builtinArgumentResult(call.callee.name, call, scope, project)
+    if (builtin !== undefined) return builtin
   }
   // TwinCAT's `__XADD` hands back what it was given (`builtins.ts` `twincatXaddResultType`).
   if (project.dialect === "twincat" && call.callee.kind === "ident_expr" && call.callee.name.toUpperCase() === "__XADD") {

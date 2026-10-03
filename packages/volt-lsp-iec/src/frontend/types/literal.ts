@@ -84,6 +84,17 @@ export const isIntLiteral = (e: Expr): boolean =>
   (e.kind === "literal" && e.literalKind === "int") ||
   (e.kind === "unary" && e.op === "-" && e.operand.kind === "literal" && e.operand.literalKind === "int")
 
+/** An UNTYPED number's value, written plain or negated (`5`, `-5`, `1.5`, `-1.5`), its sign applied — undefined for anything
+ *  else (a typed literal has its prefix's type and is no such operand). */
+export function untypedNumberValue(e: Expr): bigint | number | undefined {
+  const negated = e.kind === "unary" && e.op === "-"
+  const lit = negated ? e.operand : e
+  if (lit.kind !== "literal" || (lit.literalKind !== "int" && lit.literalKind !== "real")) return undefined
+  if (typeof lit.value === "bigint") return negated ? -lit.value : lit.value
+  if (typeof lit.value === "number") return negated ? -lit.value : lit.value
+  return undefined
+}
+
 /**
  * The type an untyped integer literal is CHECKED as against an integer or bit-string target — or undefined when there is
  * nothing to check: not such a literal, not such a target, or a value the target holds (`us := 5`, `b := 255`, `i := 200`

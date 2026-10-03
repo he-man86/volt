@@ -30,6 +30,7 @@ export {
   literalType,
   REAL_LITERAL_TYPE,
   REAL_MAX_MAGNITUDE,
+  untypedNumberValue,
 } from "./literal.js"
 
 // the Type model and its resolution
@@ -57,17 +58,18 @@ export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, i
 export { constantSlotType, constEval, type ConstValue } from "./const/fold.js"
 export { constancyOf } from "./const/constancy.js"
 export { commonType, promoteForRuntime } from "./arith/runtime.js"
-export { checkedMeetType, checkedNegationType } from "./arith/checked.js"
-export { narrowDateWideDuration, temporalResultType } from "./arith/temporal.js"
+export { checkedMeetType, checkedNegationType, literalOperandType } from "./arith/checked.js"
+export { durationScaleConversion, narrowDateWideDuration, temporalArithmeticType, temporalResultType } from "./arith/temporal.js"
 export {
   ARITHMETIC_OPERATORS,
   BIT_OPERATOR_FUNCTIONS,
   COMPARISON_FUNCTIONS,
   comparisonConverts,
   negativeLiteralComparisonTarget,
+  notResultType,
   operandConversion,
   operandFamilyRule,
   unaryOperandConversion,
 } from "./arith/operators.js"
-export { BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, type BuiltinName } from "./builtins.js"
+export { BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, selectionValueArguments, type BuiltinName } from "./builtins.js"
 export { resolveBareName, resolveGlobalName, type BareName } from "./names.js"

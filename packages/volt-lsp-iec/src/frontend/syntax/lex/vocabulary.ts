@@ -224,6 +224,7 @@ export type Dialect = "codesys" | "twincat"
  * compilers the same source (2026-09-20):
  *
  *   `__POSITION`, `__POUNAME`, `__COMPARE_AND_SWAP`  TwinCAT answers "Identifier '<name>' not defined"
+ *   `XSIZEOF`                                         the same, called (`ar_xsizeof_type`, frontend-conformance 4.3.4)
  *   `__VECTOR`                                        "Type definition expected instead of '__VECTOR'" where a type
  *                                                     belongs (`parse/type-expr`), "not defined" where a name does
  *   `UCHAR#`, `UTF8#`, `LDATE#`, `LDT#`, `LTOD#`      the prefix cascades: "Unexpected Token 'LDATE#' found" — and so
@@ -239,6 +240,7 @@ export const CODESYS_ONLY_KEYWORDS: ReadonlySet<string> = new Set([
   "__POSITION",
   "__POUNAME",
   "__COMPARE_AND_SWAP",
+  "XSIZEOF",
   "__VECTOR",
   // TwinCAT reads `VAR_GENERIC` as a declaration's NAME ("',, AT or :' expected instead of 'CONSTANT'", `decl_var_generic*`
   // on TwinCAT, 2026-10-01); CODESYS opens a section with it.

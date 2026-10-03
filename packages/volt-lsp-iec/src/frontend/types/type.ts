@@ -38,6 +38,9 @@ export interface ElementaryTypeRef {
    *  sizeless `STRING` — the default capacity is a vendor fact the transpiler applies (`DEFAULT_STRING_LENGTH`), not a
    *  resolution fact — and for every non-string type. */
   length?: number
+  /** A STRING/WSTRING whose declaration STATES a length this scope cannot fold (`STRING(cLen)` with `cLen` out of reach):
+   *  its capacity is a fact missing, not the default — so its size is unknown (`builtins` `scalarStorageBytes`). */
+  unfoldedLength?: true
 }
 export interface EnumType {
   kind: "enum"

@@ -2432,22 +2432,107 @@ cross-area edges are named on the tasks that have them.
       203 files, 308 s; vs gate 3.5–3.6 +63 pass, +4 todo, +2 files); agreement CODESYS **3959** (+45), TwinCAT **3870**
       (+45) — floors raised 3914 → 3959 and 3825 → 3870 (`fixtures.test.ts`; re-run whole, 5291 pass / 166 todo / 0 fail);
       `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
-- [ ] 4.3.1 Meets and promotion (AR1–AR3, AR19–AR21): record ar_div_negative, ar_mod_negative.
+- [x] 4.3.1 Meets and promotion (AR1–AR3, AR19–AR21): record ar_div_negative, ar_mod_negative.
       Where: arith/runtime, arith/checked. Acceptance: CA. Depends on: 4.2
-- [ ] 4.3.2 NOT and unary minus (AR4–AR6): one NOT rule in arith/operators, decided by the recordings (infer vs lowering); T
+      **4.3.1 (2026-10-03).** All of 4.3 lives in `fixtures/types/arithmetic-results.ts` (86 fixtures, recorded on both
+      vendors in one `record:language` run each, plus two follow-up batches; `record:exec` for the two that build). AR21:
+      `ar_div_negative`, `ar_mod_negative` (confirmed, both backends) — the quotient truncates toward zero and the remainder
+      takes the dividend's sign at SINT/INT/DINT/LINT and all-constant (`-7 / 2` = -3, `-7 MOD 2` = -1, `7 MOD -2` = 1);
+      `DIV(a, b)` and `MOD(a, b)` CALLED are refused by both vendors (`ar_div_function_form`, `ar_mod_function_form`, the
+      LSP agrees word for word). AR1 with a LITERAL operand, measured into a STRING and stored back
+      (`ar_int_literal_operand_types`, `ar_real_literal_operand_types`, `ar_literal_operand_stores`, both vendors):
+      an untyped integer takes its neighbour's integer when it holds the value (a bit string's is the unsigned one of its
+      width: `aByte + 1` USINT, `aByte AND 1` USINT), else the smallest integer of that signedness that does (`aSint + 200`
+      INT, `aUsint + 300` UINT, `anInt + 70000` DINT) — context-free (`si := si + 200` is "Cannot convert type 'INT' to type
+      'SINT'"); a real literal is the real beside a REAL/LREAL. Fixed test-first: `arith/checked` `literalOperandType`,
+      read by inference (`infer/expr` `binaryResultType`, via `literal` `untypedNumberValue`) and by the narrowing meet
+      (`aSint + 200` no longer warns USINT → SINT — an LSP-only warning the new fixture exposed). OPEN, a known divergence
+      (`ARITHMETIC_RESULT_DIVERGENCES`, both vendors): a real literal beside an INTEGER is named LREAL into a STRING and is
+      silent into a REAL (`division_with_a_real_operand`'s `int7 / 2.0`) — the store's context, which an operation's own
+      type does not carry; left undefined (missing, never wrong), the context literal type is LT14's/T's (5.3). AR2/AR3/
+      AR19/AR20 stay decided by their recorded fixtures (rules.ts unchanged). The FOR-bound `n + 1` ceiling exceptions
+      (`baseline.ts`) left: the operation is typed now.
+- [x] 4.3.2 NOT and unary minus (AR4–AR6): one NOT rule in arith/operators, decided by the recordings (infer vs lowering); T
       hand-off for expressions.ts:180-184.
       Where: arith/operators. Acceptance: CA. Depends on: 4.3.1
-- [ ] 4.3.3 Bitwise and shifts (AR7, AR10): the checked shift/rotate result type. Record ar_shl_byte_type, ar_ror_word_type,
+      **4.3.2 (2026-10-03).** The recordings decide infer's reading (`uop_not_*`: NOT BYTE is USINT, NOT WORD UINT, NOT TIME
+      UDINT; `not_result_width`): `arith/operators` `notResultType` is the one rule — the narrowing check's NOT branch now
+      converts the operand into it instead of its own `unsignedOfWidth` (same answers; `unary-operand` already read the
+      inferred type). Lowering's copy (`transpile/lower/expressions.ts:180-184`, a signed integer → the BIT STRING of its
+      width, BYTE/WORD/DWORD/LWORD) is value-identical and handed to T (5.3: replace with `notResultType`). AR4/AR5 stay
+      decided by `cc_neg_*`, `uop_neg_*`, `unary_minus_*`; no new fixture.
+- [x] 4.3.3 Bitwise and shifts (AR7, AR10): the checked shift/rotate result type. Record ar_shl_byte_type, ar_ror_word_type,
       ar_shl_int_type.
       Where: arith/operators, builtins. Acceptance: CA. Depends on: 4.3.2
-- [ ] 4.3.4 Built-ins (AR11–AR16, AR22–AR31): LIMIT/SEL/MUX typed in builtins.ts (T hand-off for builtins.ts:456); every built-in's
+      **4.3.3 (2026-10-03).** Recorded SHL/SHR/ROL/ROR × every integer and bit string (48 `ar_<op>_<type>_type`, both
+      vendors): the result is the OPERAND's own type, never promoted, and no operand converts (`SHL(aSint, n)` a SINT, no
+      warning). Fixed test-first: `builtins` `ARGUMENT_TYPED` (shifts by their first argument, ABS and MOVE by their one),
+      read by inference; an untyped literal operand stays unknown. AR7 with a literal: `aSint AND 1` is USINT with the
+      operand's sign warning (`ar_int_literal_operand_types`, agrees).
+- [x] 4.3.4 Built-ins (AR11–AR16, AR22–AR31): LIMIT/SEL/MUX typed in builtins.ts (T hand-off for builtins.ts:456); every built-in's
       result type from `BUILTIN_RESULT` or a rule in builtins.ts. Record ar_limit_mixed_types, ar_sel_mixed_types,
       ar_mux_mixed_types, ar_upper_bound_type, ar_lower_bound_type, ar_time_call, ar_ltime_call; re-check that the AR22–AR29
       fixtures decide the result TYPE (a message or a width-revealing value); record ar_<name>_type for any that does not.
       Where: types/builtins.ts. Acceptance: CA. Depends on: 4.3.3
-- [ ] 4.3.5 Temporal (AR17–AR18): duration × integer typed in arith/temporal (T hand-off for expressions.ts:248). Record
+      **4.3.4 (2026-10-03).** AR13/AR14: LIMIT/SEL/MUX over the six mixed pairs in both orders and two same-type bit strings
+      (`ar_limit_mixed_types`, `ar_sel_mixed_types`, `ar_mux_mixed_types`, `ar_minmax_bitstring_types`): the CHECKED MEET of
+      the value arguments (SEL's after the selector, MUX's after the index), each argument converting into it with its own
+      warning (TwinCAT one per line, the existing per-line dedupe). `builtins` `selectionValueArguments` is the one rule —
+      inference and the narrowing meet read it for MIN, MAX, LIMIT, SEL and MUX (three or more values: `meetAllWarnings`).
+      Lowering's LIMIT/SEL/MUX (`transpile/lower/builtins.ts:456`) handed to T (5.3). Re-check AR22–AR29: none of the listed
+      fixtures named the TYPE (each stored into the very type, or was refused for another reason), so each got an
+      `ar_<name>_type` into a STRING: ADR is POINTER TO its operand's type (`ar_adr_type`; 'POINTER TO ARRAY [0..3] OF BYTE'),
+      BITADR of a BOOL located at `%MX4.3` DWORD (`ar_bitadr_type` — BITADR's refusal no longer fires on a variable located at
+      a bit address, `intrinsic-operands` `locatedAtBitAddress`, an LSP-only error the fixture exposed), SIZEOF the smallest
+      unsigned integer holding the size (`ar_sizeof_type`, `ar_sizeof_width_edges`: 255 USINT, 256/65535 UINT, 65536 UDINT;
+      `builtins` `sizeofResultType` over `scalarStorageBytes` — elementary types, strings and arrays of them; a STRUCT/FB's
+      layout stays the transpiler's), XSIZEOF `__UXINT` (ULINT; TwinCAT has none — `XSIZEOF` joined `CODESYS_ONLY_KEYWORDS`,
+      which closed 3 TwinCAT `lex_keyword_*_xsizeof` divergences), `__NEW(T)` POINTER TO T (`ar_new_type`), `__ISVALIDREF`/
+      `__QUERYINTERFACE`/`__QUERYPOINTER` BOOL, `__COMPARE_AND_SWAP` BOOL, TRUNC DINT, TRUNC_INT INT, ABS and MOVE their
+      argument's type (BYTE stays BYTE), UPPER_BOUND/LOWER_BOUND DINT, `TIME()` TIME and `LTIME()` LTIME (`clockCallResult`).
+      All in `builtins.ts` (`BUILTIN_RESULT`, `ARGUMENT_TYPED`, `pointerTo`, `sizeofResultType`, `clockCallResult`). AR11/
+      AR12/AR15/AR16 were already decided by messages. Known divergences opened: `ar_adr_type` (`C0033_CONFIGURED_AS_AN_ERROR`,
+      severity only), `ar_new_type` (C0033 severity; CODESYS also has no dynamic memory and states the conversion twice),
+      `ar_varinfo_type` (`__SYSTEM.VAR_INFO`'s members unmeasured, struct → elementary is 4.5.3's; `deferred.lsp`), CODESYS
+      `ar_pouname_type` (a STRING sized by the asking body's qualified name, which an ACTION's body does not carry —
+      `CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY`, `MEASURED_SILENT`; 308 `__POUNAME()` in the corpora, none mis-stored).
+- [x] 4.3.5 Temporal (AR17–AR18): duration × integer typed in arith/temporal (T hand-off for expressions.ts:248). Record
       ar_time_times_int_type, ar_ltime_div_int_type.
       Where: arith/temporal. Acceptance: CA. Depends on: 4.3.4
+      **4.3.5 (2026-10-03).** Recorded `ar_time_times_int_type`, `ar_time_div_int_type`, `ar_ltime_div_int_type`,
+      `ar_ltime_times_lint_type` (TIME/LTIME × or ÷ an integer, and integer × duration: the duration) and, for AR17's TYPES,
+      `ar_date_minus_date_type` (DATE/DT/TOD differences TIME), `ar_ldate_minus_ldate_type` (LTIME), `ar_date_plus_time_type`
+      (DT + TIME a DATE_AND_TIME, TIME + TOD a TIME_OF_DAY, DATE − TIME a DATE). Fixed test-first: `arith/temporal`
+      `durationScaleResultType`, and `temporalArithmeticType` (the date pair and the duration scale, one entry) read by
+      inference and by the type census, whose operand stores no longer convert a date or a duration into the result (with
+      4.3.4's selection arguments now census stores, the type-dump findings fall 170 → 128). Lowering's duration × integer
+      (`transpile/lower/expressions.ts:248`) handed to T (5.3). Known divergence (TwinCAT, niche: accepted loss, 0
+      occurrences of LDATE/LDT/LTOD in the TwinCAT corpus): `ar_ldate_minus_ldate_type` — TwinCAT does arithmetic on the
+      unknown type ("Cannot convert type 'LDATE' to type 'ANY_NUM'").
+      **Step 4b numbers.** `rate:fixtures` 4395 (+86): confirmed 2465 (+2), refused 1629 (+82), not-lowered 166, lsp-gap 62
+      (+2: `ar_varinfo_type`, `ar_pouname_type`), diverges 5, unaskable 68; edges agree 2612 / disagree 0 / not-run 111.
+      Ceilings: lsp-gap 60 → 62 (`fixtures.test.ts`); source-map RENAMED_TARGETS 35 → 38 (`ar_queryinterface_type`'s
+      `__QUERYINTERFACE` match, the documented class). Rules GAP area 4 **20 → 13** (total 20 → 13; AR10, AR14, AR18, AR21,
+      AR24, AR30, AR31 closed; AR6/AR13/AR17/AR22–AR29 gained their type fixtures). Agreement (whole `test/conformance`)
+      CODESYS 3959 → **4040**, TwinCAT 3870 → **3954** (floors not raised — the gate's). Types (0.4): findings 170 → **128**;
+      corpus binary UNKNOWN 3076 → 505, call UNKNOWN 1270 → 868, `SIZEOF or ADR` 392 → 57 (Library Manager 390 → 132, ident
+      100 → 48), unary 87 → 55; fixtures binary UNKNOWN 1152 → 93, call UNKNOWN 382 → 83, `SIZEOF or ADR` 239 → 28 (what is
+      left is SIZEOF of a STRUCT/FB and ADR of no value; the key keeps its name, a ceiling's id), `__NEW or __DELETE` 20 → 9
+      (`__DELETE` alone); new census keys `ident_expr untyped, a type named where the operator takes one` (SIZEOF(LINT),
+      `__NEW(T)` — no value on either side) and a Library Manager TY6 call (reclassified). Named ceiling exceptions: the 4.3
+      negated literals (`NEGATED_LITERAL_ROWS`, +21 per vendor); the ADR and FOR-bound exceptions left (typed now).
+      LT14: fixtures literals 3871 → 4069, disagreements 79 (unchanged), corpus 78. Known divergences: +6 opened
+      (`ar_adr_type`, `ar_new_type`, `ar_varinfo_type`, `ar_real_literal_operand_types` both vendors; `ar_pouname_type`
+      CODESYS; `ar_ldate_minus_ldate_type` TwinCAT), 3 closed (TwinCAT `lex_keyword_assigned/operand/called_xsizeof`).
+      Runs: `bun test src` 1768/0, `test/conformance` 5372/0 (whole), `test/frontend` 34/0, `test/corpus` 19/0,
+      `rate:fixtures`, `bun typecheck`, `bun run lint`.
+      **Gate 4b (2026-10-03, 4.3.1–4.3.5, on HEAD ccbd277317 + the step's tree).** `bun typecheck` clean; `rate:fixtures`
+      reproduces the map byte for byte (4403; confirmed 2466, refused 1636, not-lowered 166, lsp-gap 62, diverges 5, unaskable
+      68; edges 2616 / 0 / 111 — the step note's 4395/2465/1629/2612 predate its last follow-up batch, the map is the truth);
+      full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7382 pass / 34 skip / 210 todo / 0 fail** (7626 tests, 203
+      files, 260 s; vs gate 4a +17 pass, +17 tests); agreement CODESYS **4047** (+88), TwinCAT **3960** (+90) — floors raised
+      3959 → 4047 and 3870 → 3960 (`fixtures.test.ts`; re-run whole `test/conformance`, 5374 pass / 166 todo / 0 fail);
+      LT14 disagreements corpus 78 / fixtures 79; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
 - [ ] 4.4 Comparisons and BOOL (CB1–CB5), including the network-text wire rules 1.34 could not switch. Record cb_compare_pointers,
       cb_compare_time_ltime, cb_and_then_on_int.
       Where: infer/expr, arith/operators, network-text/parser.ts (imports only). Acceptance: CA; network-text/parser.ts holds no

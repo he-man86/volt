@@ -11,8 +11,10 @@
  */
 import { CODESYS_ONLY_KEYWORDS, type Dialect, type Target } from "../syntax/index.js"
 import { isAssignable } from "./compat.js"
-import { CODESYS_ONLY_TYPES, elementaryType } from "./elementary.js"
-import { isElementaryTypeName } from "./platform.js"
+import { CODESYS_ONLY_TYPES } from "./elementary.js"
+import { elementaryTypeOn, isElementaryTypeName } from "./platform.js"
+import { integerOfWidth } from "./width.js"
+import { DEFAULT_STRING_LENGTH } from "./defaults.js"
 import { elementaryRef, elementaryTypeRef, elemOf, UNKNOWN, type Type } from "./type.js"
 import { conversionSides, parseConversionName } from "./conversion-name.js"
 import { REAL_LITERAL_TYPE } from "./literal.js"
@@ -51,14 +53,15 @@ export const COMPILER_IMPLICITS: ReadonlySet<string> = new Set(["THIS", "SUPER",
 export type BuiltinName = "system-operator" | "conversion" | "implicit" | "operator" | "type"
 
 /**
- * `name` as one of the compiler's own names in `dialect`, or undefined. A `__` name is a system operator — except the
- * CODESYS-only ones on TwinCAT, which has never heard of them ("Identifier '__POSITION' not defined",
+ * `name` as one of the compiler's own names in `dialect`, or undefined. A `__` name is a system operator — and none of the
+ * CODESYS-only names (`XSIZEOF` too) is one on TwinCAT, which has never heard of them ("Identifier '__POSITION' not defined",
  * `syntax/lex/vocabulary.ts`). A conversion is only as real as the types it names: `DATE_TO_LDATE` is no TwinCAT
  * operator, LDATE being no TwinCAT type (`TO_LDATE` neither — the parsed conversion is asked, not the spelling).
  */
 export function builtinName(name: string, dialect: Dialect | undefined): BuiltinName | undefined {
   const upper = name.toUpperCase()
-  if (upper.startsWith("__")) return dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : "system-operator"
+  if (dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper)) return undefined
+  if (upper.startsWith("__")) return "system-operator"
   const conversion = conversionSides(name)
   if (conversion !== undefined)
     return [conversion.to, conversion.from].every((n) => n === undefined || !(dialect === "twincat" && CODESYS_ONLY_TYPES.has(n)))
@@ -83,6 +86,17 @@ export function builtinName(name: string, dialect: Dialect | undefined): Builtin
  *                         convert type 'DWORD' to type 'BOOL'". The one fixture that
  *                         recorded this read as an OPERAND rule and is not one.
  *
+ * …and each named by the compiler where its result is stored into a STRING (`types/arithmetic-results.ts`, both vendors
+ * 2026-10-03, rules AR22–AR31; TwinCAT has no XSIZEOF):
+ *
+ *   `BITADR`              DWORD (`ar_bitadr_type`, of a BOOL located at `%MX4.3`).
+ *   `__ISVALIDREF`, `__QUERYINTERFACE`, `__QUERYPOINTER`   BOOL (`ar_isvalidref_type`, `ar_queryinterface_type`,
+ *                         `ar_querypointer_type`).
+ *   `TRUNC`               DINT, of a REAL and of an LREAL alike; `TRUNC_INT` INT (`ar_trunc_type`, `ar_trunc_int_type`).
+ *   `UPPER_BOUND`, `LOWER_BOUND`   DINT (`ar_upper_bound_type`, `ar_lower_bound_type`, of an `ARRAY[*]` in-out).
+ *   `XSIZEOF`             the platform's unsigned integer, `__UXINT` — ULINT on the 64-bit recording target
+ *                         (`ar_xsizeof_type`, `cp_xsizeof`).
+ *
  * EXPT has no fixed result — it is REAL when BOTH arguments are REAL, LREAL otherwise (`exptResultType`).
  */
 export const BUILTIN_RESULT: ReadonlyMap<string, string> = new Map([
@@ -90,6 +104,15 @@ export const BUILTIN_RESULT: ReadonlyMap<string, string> = new Map([
   ["__COMPARE_AND_SWAP", "BOOL"],
   ["__XADD", "DINT"],
   ["TEST_AND_SET", "DWORD"],
+  ["BITADR", "DWORD"],
+  ["__ISVALIDREF", "BOOL"],
+  ["__QUERYINTERFACE", "BOOL"],
+  ["__QUERYPOINTER", "BOOL"],
+  ["TRUNC", "DINT"],
+  ["TRUNC_INT", "INT"],
+  ["UPPER_BOUND", "DINT"],
+  ["LOWER_BOUND", "DINT"],
+  ["XSIZEOF", "__UXINT"],
 ])
 
 /**
@@ -102,8 +125,88 @@ export function builtinCallResult(name: string, dialect: Dialect | undefined, ta
   const known = dialect === "twincat" && CODESYS_ONLY_KEYWORDS.has(upper) ? undefined : BUILTIN_RESULT.get(upper)
   const modeled = parseConversionName(name, target)?.to.name ?? known
   if (modeled === undefined) return undefined
-  const elem = elementaryType(modeled)
+  // a platform integer (XSIZEOF's `__UXINT`) is the target's; on an unknown target it has no facts — no result
+  const elem = elementaryTypeOn(modeled, target)
   return elem === undefined ? undefined : elementaryTypeRef(elem)
+}
+
+/**
+ * THE BUILT-INS THAT HAND BACK AN ARGUMENT'S OWN TYPE, and which argument: the shifts and rotates their first (the
+ * operand, not the count), ABS and MOVE their one. Measured into a STRING on both vendors (`types/arithmetic-results.ts`,
+ * 2026-10-03): `SHL`/`SHR`/`ROL`/`ROR` of each of the twelve integers and bit strings name that very type — `SHL(aSint, n)`
+ * is a SINT, `ROR(aWord, n)` a WORD, never promoted (`ar_<op>_<type>_type`, rule AR10); `ABS` of a SINT, INT, UINT, BYTE,
+ * REAL and LREAL, and `MOVE` of a SINT, BYTE, REAL and TIME, likewise (`ar_abs_type`, `ar_move_type`, rule AR29).
+ */
+export const ARGUMENT_TYPED: ReadonlyMap<string, number> = new Map([
+  ["SHL", 0],
+  ["SHR", 0],
+  ["ROL", 0],
+  ["ROR", 0],
+  ["ABS", 0],
+  ["MOVE", 0],
+])
+
+/**
+ * THE SELECTION FUNCTIONS' VALUE ARGUMENTS — the ones that meet (`arith/checked` `checkedMeetType`) into the result, each
+ * converting into it: every argument of MIN, MAX and LIMIT, SEL's two after the selector, MUX's after the index. Undefined
+ * for any other name. Measured over mixed pairs in both orders (`ar_limit_mixed_types`, `ar_sel_mixed_types`,
+ * `ar_mux_mixed_types`, both vendors 2026-10-03, rules AR13/AR14): LIMIT/SEL/MUX of an INT and a UINT is INT with a sign
+ * change on every UINT argument, of a LINT and a REAL is REAL with the LINT's loss warning, of two BYTEs USINT — the MIN and
+ * MAX rule (`operators/selection.ts`, `ar_minmax_bitstring_types`).
+ */
+export function selectionValueArguments<T>(name: string, args: readonly T[]): readonly T[] | undefined {
+  switch (name.toUpperCase()) {
+    case "MIN":
+    case "MAX":
+    case "LIMIT":
+      return args
+    case "SEL":
+    case "MUX":
+      return args.slice(1)
+    default:
+      return undefined
+  }
+}
+
+/**
+ * `TIME()` AND `LTIME()` — a type NAME called with no argument is the clock read, of that type (`cs_clock_reads`; named by
+ * the compiler in `ar_time_call`, `ar_ltime_call`, both vendors 2026-10-03, rule AR31). The two measured; any other type
+ * name called bare is no such read.
+ */
+export function clockCallResult(name: string, argCount: number): Type | undefined {
+  const upper = name.toUpperCase()
+  return argCount === 0 && (upper === "TIME" || upper === "LTIME") ? elementaryRef(upper) : undefined
+}
+
+/**
+ * SIZEOF'S TYPE IS THE SMALLEST UNSIGNED INTEGER THAT HOLDS THE SIZE — `SIZEOF(anInt)` (2) and `SIZEOF(LINT)` (8) are USINT
+ * and `SIZEOF` of a 100000-byte array UDINT, on both vendors (`ar_sizeof_type`, 2026-10-03, rule AR23); the steps are where
+ * the width runs out — 255 bytes USINT, 256 and 65535 UINT, 65536 UDINT (`ar_sizeof_width_edges`). `bytes` is the size,
+ * when it is known (`scalarStorageBytes`).
+ */
+export function sizeofResultType(bytes: bigint): Type {
+  for (const bits of [8, 16, 32, 64]) if (bytes < 1n << BigInt(bits)) return elementaryTypeRef(integerOfWidth(bits, false))
+  return UNKNOWN
+}
+
+/**
+ * The bytes a value of `t` occupies where no layout question arises — an elementary type (a STRING its capacity plus the
+ * terminator, `mem_sizeof_struct_mixed` 81 for a sizeless one; a WSTRING twice that — but a stated length that did not
+ * fold has no size), or an array of such with every bound folded (elements are contiguous). Undefined for a struct, an FB, a pointer, a BIT or anything else whose size the
+ * memory model owns (the transpiler's `lower/bytes`).
+ */
+export function scalarStorageBytes(t: Type): bigint | undefined {
+  if (t.kind === "array") {
+    const element = scalarStorageBytes(t.element)
+    if (element === undefined || t.bounds === undefined) return undefined
+    return t.bounds.reduce((n, b) => n * (b.upper - b.lower + 1n), element)
+  }
+  if (t.kind !== "elementary") return undefined
+  const e = t.elem
+  if (e.family === "string" && t.unfoldedLength === true) return undefined
+  if (e.family === "string") return BigInt((t.length ?? DEFAULT_STRING_LENGTH) + 1) * (e.name === "WSTRING" ? 2n : 1n)
+  if (e.family === "bool") return 1n
+  return e.bits % 8 === 0 ? BigInt(e.bits / 8) : undefined
 }
 
 /**
@@ -179,4 +282,13 @@ export function exptCheckedType(kinds: readonly ExptArgument[]): Type {
  */
 export function twincatXaddResultType(first: Type): Type {
   return first.kind === "elementary" && isAssignable(elementaryRef("DINT"), first) ? first : UNKNOWN
+}
+
+/**
+ * `ADR(x)` IS A POINTER TO x's TYPE and `__NEW(T)` A POINTER TO T: "Cannot convert type 'POINTER TO INT' to type 'STRING'",
+ * 'POINTER TO ARRAY [0..3] OF BYTE', 'POINTER TO DUT_LANG_ar_new_target' (`ar_adr_type`, `ar_new_type`, both vendors
+ * 2026-10-03, rules AR22/AR24). `target` is what is addressed or created; an unknown one leaves the pointer unknown.
+ */
+export function pointerTo(target: Type): Type {
+  return target.kind === "unknown" ? UNKNOWN : { kind: "pointer", target }
 }

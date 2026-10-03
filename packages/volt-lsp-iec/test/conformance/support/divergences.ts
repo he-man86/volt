@@ -136,17 +136,24 @@ const SYSTEM_OPERAND_AT_STATEMENT_START: readonly string[] = [
  * NICHE: ACCEPTED LOSS (0 occurrences in the TwinCAT corpus; the 5 in pro2193 are CODESYS, all called — `XSIZEOF(x)`;
  * owner triage 2026-09-30): a bare `xsizeof` is asked by nothing real, and the call form needs a callable-but-no-keyword
  * reading the vocabulary does not have.
+ *
+ * FRONTEND-CONFORMANCE 4.3.4 (2026-10-03) answered the call form: `XSIZEOF(i)` and `XSIZEOF(big)` on TwinCAT are the
+ * undefined name, three messages each (`ar_xsizeof_type`) — so XSIZEOF IS a CODESYS-only word (`CODESYS_ONLY_KEYWORDS`).
+ * `cp_xsizeof`'s lone "Expression expected instead of 'DINT'" is TwinCAT stopping at a TYPE argument's parse error and
+ * saying nothing else of the POU; the LSP reads a lone type argument in any call, so it parses on and names the three
+ * undefined calls. `lex_keyword_before_name_xsizeof` lacks the "has no effect" warning of an identifier statement. Both
+ * stay niche, as above.
  */
 const TWINCAT_XSIZEOF_IS_NO_KEYWORD: readonly string[] = [
   // the call of a TYPE, named in the note above and held here since frontend-conformance 2.8.3 emptied the parse census:
-  // the lone type argument stands only in a KEYWORD operator's call, which XSIZEOF is to the LSP on both vendors
+  // TwinCAT stops at the type argument's parse error (the 4.3.4 paragraph above)
   "cp_xsizeof",
-  "lex_keyword_assigned_xsizeof",
   "lex_keyword_before_name_xsizeof",
-  "lex_keyword_operand_xsizeof",
-  // …and called where a statement starts, `xsizeof(n);`: "Identifier 'xsizeof' not defined" and "Program name, function
-  // or function block instance expected instead of 'xsizeof'" — the LSP refuses CODESYS's reserved word (review 2.6)
-  "lex_keyword_called_xsizeof",
+  // (`lex_keyword_assigned_xsizeof`, `lex_keyword_operand_xsizeof` and `lex_keyword_called_xsizeof` left 2026-10-03,
+  // frontend-conformance 4.3.4: `ar_xsizeof_type` recorded the call form `XSIZEOF(i)` on TwinCAT as the undefined name —
+  // "Identifier 'XSIZEOF' not defined", "Program name, function or function block instance expected instead of
+  // 'XSIZEOF'" — so XSIZEOF is CODESYS-only after all (`CODESYS_ONLY_KEYWORDS`); what `cp_xsizeof` answers is the TYPE
+  // argument's parse error alone, and the two above are the identifier's statement shapes.)
 ]
 
 
@@ -1101,7 +1108,60 @@ const TWINCAT_LIBRARY_DIVERGENCES: readonly string[] = [
  * on TwinCAT now, where the LSP was silent while the pointer rule was a vendor split (`types/compat` `pointerFits`);
  * it was CODESYS's alone.
  */
-const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = ["decl_pointer_to_pointer_deref_once_into_int", "ty_pointer_size_twincat", "cc5_pointer_not_convertible"]
+const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = [
+  "decl_pointer_to_pointer_deref_once_into_int",
+  "ty_pointer_size_twincat",
+  "cc5_pointer_not_convertible",
+  // frontend-conformance 4.3.4 (2026-10-03): ADR's result into a STRING — "Cannot convert type 'POINTER TO INT' to type
+  // 'STRING'" and 'POINTER TO ARRAY [0..3] OF BYTE', word for word from `pointer-conversion` at C0033's shipped severity
+  "ar_adr_type",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 4.3 (2026-10-03) — the built-in result-type fixtures (`fixtures/types/arithmetic-results.ts`) whose
+ * answer the LSP does not give, each for a reason that is not a rule this step could close:
+ *   `ar_new_type` — `__NEW(T)` is typed POINTER TO T and the store into a STRING is reported word for word, at C0033's
+ *                            shipped severity (a warning; both projects configure it an error, as `ar_adr_type`). On
+ *                            CODESYS the recording project also has no memory for dynamic creation ("No memory for
+ *                            dynamic object creation defined…", the `newdel_*` wall) and states the conversion twice.
+ *   `ar_varinfo_type` — "Cannot convert type '__SYSTEM.VAR_INFO' to type 'STRING'": `__VARINFO` is the compiler's
+ *                            VAR_INFO struct, whose members no recording names (so `types/system` binds none), and a
+ *                            struct stored into an elementary target is unchecked for every struct — task 4.5.3, as
+ *                            `ty_version_into_string`. Both vendors.
+ *   `ar_real_literal_operand_types` — an untyped REAL literal beside an INTEGER (`anInt + 1.5`) is named LREAL into a
+ *                            STRING and is silent into a REAL (`division_with_a_real_operand`'s `int7 / 2.0`): its type is
+ *                            the STORE's context, which an operation's own type does not carry (`arith/checked`
+ *                            `literalOperandType` leaves it undefined, so the three cells are missing, never wrong) — the
+ *                            context literal type is LT14's / the transpiler's (`contextLiteralType`, task 5.3). Beside a
+ *                            REAL or an LREAL the literal is the real's, and those four cells agree. Both vendors.
+ */
+const ARITHMETIC_RESULT_DIVERGENCES: readonly string[] = ["ar_new_type", "ar_varinfo_type", "ar_real_literal_operand_types"]
+
+/**
+ * FRONTEND-CONFORMANCE 4b (2026-10-03) — TwinCAT, `b := di < SIZEOF(big)` with `di : DINT` and a 100000-byte `big`
+ * (`ar_sizeof_into_narrow`): silent on TwinCAT, where CODESYS warns "unsigned Type 'UDINT' to signed Type 'DINT'" as the
+ * LSP does on both. TwinCAT compares the folded size like an untyped constant that fits (as `si = 200`, rule LT12's
+ * neighbour) — one cell, too little to read a rule from. The store `si := SIZEOF(a)` agrees on both. LSP-only on TwinCAT;
+ * niche: accepted loss (0 occurrences in the corpora — no SIZEOF or XSIZEOF is compared with anything in them).
+ */
+const TWINCAT_SIZEOF_COMPARED_AS_A_CONSTANT: readonly string[] = ["ar_sizeof_into_narrow"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.3.4 (2026-10-03) — CODESYS, `__POUNAME()` into an INT: "Cannot convert type 'STRING(INT#23)' to
+ * type 'INT'" (`ar_pouname_type`) — a STRING sized by the asking body's qualified name (`FB`, `FB.Method`, `FB.Action`:
+ * `cp_pouname_operator` runs 'FB_CP_named.Marked' in an ACTION). An action's body binds against its FB's scope, so the
+ * name an action asks with is not on the path inference has; an unsized STRING would be a wrong message where this is a
+ * missing one (as `sysop_position_call_form`). TwinCAT has no `__POUNAME` and agrees.
+ */
+const CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY: readonly string[] = ["ar_pouname_type"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.3.5 (2026-10-03) — TwinCAT, LDATE − LDATE, LDT − LDT, LTOD − LTOD (`ar_ldate_minus_ldate_type`):
+ * TwinCAT has none of the three types ("Unknown type: 'LDATE'", which the LSP gives) and then reads each difference as
+ * that unknown type, "Cannot convert type 'LDATE' to type 'ANY_NUM'" and "…to type 'STRING'" — arithmetic on a type that
+ * does not exist. Niche: accepted loss (0 occurrences of LDATE, LDT or LTOD in the TwinCAT corpus).
+ */
+const TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE: readonly string[] = ["ar_ldate_minus_ldate_type"]
 
 /**
  * FRONTEND-CONFORMANCE 4.1.3 (2026-10-03) — elementary-type fixtures (`fixtures/types/elementary-rules.ts`, rules TY12,
@@ -1194,11 +1254,14 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...TWINCAT_IF_RECOVERY_AFTER_A_REFUSED_LITERAL,
     ...C0033_CONFIGURED_AS_AN_ERROR,
     ...ELEMENTARY_RULE_DIVERGENCES,
+    ...ARITHMETIC_RESULT_DIVERGENCES,
+    ...TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
     ...TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT,
     ...TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST,
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...TWINCAT_XSIZEOF_IS_NO_KEYWORD,
+    ...TWINCAT_SIZEOF_COMPARED_AS_A_CONSTANT,
     ...TWINCAT_NO_EFFECT_AFTER_AN_UNKNOWN_WORD,
     ...TWINCAT_VECTOR_REFUSAL_CASCADE,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
@@ -1325,6 +1388,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...SYSTEM_OPERAND_AT_STATEMENT_START,
     ...C0033_CONFIGURED_AS_AN_ERROR,
     ...ELEMENTARY_RULE_DIVERGENCES,
+    ...ARITHMETIC_RESULT_DIVERGENCES,
+    ...CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers
