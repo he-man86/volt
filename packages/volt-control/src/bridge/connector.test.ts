@@ -203,3 +203,13 @@ describe("connector client (the UI's single source of connection status)", () =>
     }
   })
 })
+
+// openspec ide-identity-report 2.4/2.5: every option carries the one identity line both shells render — refused rows
+// included, since a refused IDE is exactly when the user needs to know which one it is.
+test("connectOptions carries each project's IDE identity line, refused rows too", () => {
+  const plain = { ...proj("codesys", "MyMachine"), productVendor: "CODESYS Development GmbH", productName: "CODESYS", productVersion: "3.5.21.40", ideVersion: "3.5.21.40" }
+  const refused = { ...proj("codesys", "OldRig"), status: "idle" as const, unsupported: "CODESYS 3.5.17.0 is not supported: it lacks X.", productName: "CODESYS", productVersion: "3.5.17.0", ideVersion: "3.5.17.0" }
+  const [p, r] = connectOptions([plain, refused] as never, undefined)
+  expect(p?.identity).toBe("CODESYS Development GmbH CODESYS 3.5.21.40 — CODESYS 3.5 SP21 Patch 4")
+  expect(r?.identity).toBe("unknown vendor CODESYS 3.5.17.0 — CODESYS 3.5 SP17 Patch 0")
+})

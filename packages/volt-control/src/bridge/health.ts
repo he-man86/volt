@@ -10,7 +10,8 @@ import { join } from "node:path"
 // The UI-facing health fields, DERIVED from a `/status` row by `connector.ts:healthStateOf`. Deliberately only the
 // fields a renderer reads: the connected/degraded/unavailable distinction is the `HealthState.kind` tag (below), so
 // it is NOT re-encoded here. (The old `status`/`degraded`/`degradedReason`/`ideVersion` fields were removed with the
-// C# `degradedReason` wire field — they were unset or unread; the live IDE version is `DetectedProject.ideVersion`.)
+// C# `degradedReason` wire field — they were unset or unread. The IDE identity — `ideVersion` and the product/bridge
+// fields beside it — lives on each `DetectedProject` row, rendered as one line by `view/identity.ts`.)
 export interface BridgeHealth {
   connected: boolean
   projectName?: string | null

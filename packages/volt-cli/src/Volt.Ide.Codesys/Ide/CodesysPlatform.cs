@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -68,6 +69,36 @@ namespace Volt.Ide.Codesys
         /// that failure as <c>ProductNameUnreadable</c> rather than failing to construct.</summary>
         public static string? ReadProductName(object? engine) =>
             Member(Member(engine, "OEMCustomization"), "ProductName") as string;
+
+        /// <summary>What the IDE's own exe states about itself in its version-info (DIALECT V4): the product's version
+        /// and its manufacturer go to <c>health</c>; the exe's product name is logged beside
+        /// <c>OEMCustomization.ProductName</c> so the first OEM log shows whether the two part (design B2). Each is
+        /// null when empty — never taken from the exe's file name or path.</summary>
+        internal sealed class HostExe
+        {
+            public HostExe(string? productName, string? productVersion, string? companyName)
+            {
+                ProductName = Stated(productName);
+                ProductVersion = Stated(productVersion);
+                CompanyName = Stated(companyName);
+            }
+            public string? ProductName { get; }
+            public string? ProductVersion { get; }
+            public string? CompanyName { get; }
+        }
+
+        /// <summary>The CURRENT process's exe — right ONLY because this bridge is in-proc, so the process IS the IDE
+        /// (<c>CODESYS.exe</c>, or the OEM's exe). The TwinCAT worker is out of process and must never read this way
+        /// (DIALECT V4). Throws when the module cannot be read; the driver keeps that failure by name.</summary>
+        public static HostExe ReadHostExe()
+        {
+            using var self = Process.GetCurrentProcess();
+            var info = self.MainModule!.FileVersionInfo;
+            return new HostExe(info.ProductName, info.ProductVersion, info.CompanyName);
+        }
+
+        /// <summary>A stated value, verbatim, or null when the source states nothing (empty or whitespace).</summary>
+        public static string? Stated(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
         /// <summary>The engine <c>SystemInstances.Engine</c> holds, or null.</summary>
         public static object? ReadEngine() =>

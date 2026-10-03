@@ -22,12 +22,14 @@ namespace Volt.Relay
     {
         /// <summary>Enrol if needed, then dial.</summary>
         /// <param name="directory">Where the sidecar lives — beside the bridge assembly.</param>
+        /// <param name="version">The bridge release (<c>BridgePipeHost.Release</c>, the value <c>health.bridgeVersion</c>
+        /// carries); null when the bridge cannot read its own file, sent as an empty <c>hello.volt</c>.</param>
         /// <returns>The running tunnel, or null when this install has no relay configured.</returns>
         public static RelayTunnel? StartIfConfigured(
             string? directory,
             string pipeName,
             string vendor,
-            string version,
+            string? version,
             Action<string> logInfo,
             Action<string> logError)
         {

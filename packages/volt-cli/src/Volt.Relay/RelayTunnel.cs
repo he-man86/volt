@@ -38,7 +38,7 @@ namespace Volt.Relay
         private readonly RelaySidecar _config;
         private readonly string _pipeName;
         private readonly string _vendor;
-        private readonly string _voltVersion;
+        private readonly string? _voltVersion;
         private readonly Func<IRelaySocket> _socketFactory;
         private readonly Func<TimeSpan, CancellationToken, Task> _delay;
         private readonly Action<VoltLogLevel, string> _log;
@@ -61,7 +61,7 @@ namespace Volt.Relay
             RelaySidecar config,
             string pipeName,
             string vendor,
-            string voltVersion,
+            string? voltVersion,
             Func<IRelaySocket>? socketFactory = null,
             Func<TimeSpan, CancellationToken, Task>? reconnectDelay = null,
             Action<VoltLogLevel, string>? log = null)

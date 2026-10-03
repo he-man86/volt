@@ -29,6 +29,19 @@ public sealed class BridgePipeHost : IDisposable
     // CLI reaches the pipe directly, so a connector-side selection flag alone can never gate sync.
     private volatile bool _paused;
 
+    /// <summary>This bridge's release (<see cref="BridgeRelease"/>, design D3), read once off the shared host's own file
+    /// — <c>Volt.Engine.Host.dll</c>, stamped by the same <c>build-cli.ps1</c> pass as every binary — so both vendors
+    /// answer through one read. Stamped on <c>health</c> and handed to the relay <c>hello</c>, so the two never
+    /// disagree. Null only when that file cannot be read; the log names why, once.</summary>
+    public static string? Release => _release.Value;
+
+    private static readonly Lazy<string?> _release = new(() =>
+    {
+        var r = BridgeRelease.Of(typeof(BridgePipeHost).Assembly.Location, out var unreadable);
+        if (unreadable != null) BridgeLog.Warn("bridge release unreadable, health carries no bridgeVersion: " + unreadable);
+        return r;
+    });
+
     public BridgePipeHost(IIdeDriver ide, string pipeName)
     {
         _ide = ide;
@@ -78,7 +91,14 @@ public sealed class BridgePipeHost : IDisposable
                 // and the reason plus the IDE version ride on the frame so a client can show both before any call.
                 if (_paused || unsupported != null)
                     h.Projects = h.Projects.Select(p => p with { Status = HealthStatus.Idle }).ToList();
+                // The identity — process facts the driver read (the release, this host) — rides on the unsupported
+                // path too: a refused IDE is exactly when a client needs to know which one it is. Report only: none
+                // of it decides anything (openspec ide-identity-report).
                 h.IdeVersion = _ide.IdeVersion;
+                h.ProductName = _ide.ProductName;
+                h.ProductVersion = _ide.ProductVersion;
+                h.ProductVendor = _ide.ProductVendor;
+                h.BridgeVersion = Release;
                 h.Unsupported = unsupported;
                 return h;
             }

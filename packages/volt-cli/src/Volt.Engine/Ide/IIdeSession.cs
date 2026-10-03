@@ -27,9 +27,21 @@ public interface IIdeSession
     /// <para>Called from inside an op, on the marshalled IDE thread, so an implementation MAY touch its object model
     /// (CODESYS reads the primary project's path); it must not marshal again and must not throw.</para></summary>
     string? ServedProjectName { get; }
-    /// <summary>The IDE version, shown per-instance in the connector's project label and stamped on `health`
-    /// (<c>ideVersion</c>). CODESYS: the underlying platform version, never an OEM exe's (DIALECT V1).</summary>
+    /// <summary>The PLATFORM version, shown per-instance in the connector's project label and stamped on `health`
+    /// (<c>ideVersion</c>). CODESYS: the framework's version, never an OEM exe's (DIALECT V1); TwinCAT: the build
+    /// (<c>TcRemoteManager.Version</c>, DIALECT V5). Null when its source does not answer — never derived from
+    /// <see cref="ProductVersion"/>.</summary>
     string? IdeVersion { get; }
+
+    /// <summary>The product the user runs, as the IDE names itself (<c>health.productName</c>). A state read; null when
+    /// the source does not answer. Like every identity read, report only — nothing gates on it.</summary>
+    string? ProductName { get; }
+
+    /// <summary>That product's own version, verbatim (<c>health.productVersion</c>); null when unread.</summary>
+    string? ProductVersion { get; }
+
+    /// <summary>The product's manufacturer as its exe states it (<c>health.productVendor</c>); null when unread.</summary>
+    string? ProductVendor { get; }
 
     /// <summary>Null when the IDE has everything the bridge needs; otherwise the fixed English sentence naming the
     /// platform version and what it lacks — e.g. <c>CODESYS 3.5.17.0 is not supported: it lacks …</c>. A PRIMITIVE

@@ -30,7 +30,11 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
     private readonly string? _platformVersion;   // DIALECT V1: the platform's, not an OEM exe's
     private readonly string? _unsupported;       // CodesysPlatform.Refusal — null when nothing is missing
 
-    public CodesysDriver(object? projects)
+    public CodesysDriver(object? projects) : this(projects, CodesysPlatform.ReadHostExe) { }
+
+    /// <summary>Over a given host-exe read — the offline tests hand an OEM-shaped one; production reads the current
+    /// process (in-proc, so the IDE's own exe).</summary>
+    internal CodesysDriver(object? projects, Func<CodesysPlatform.HostExe> readHostExe)
     {
         _om = new CodesysObjectModel(projects);
         _dispatcher = CodesysDispatcher.TryCreate();
@@ -47,17 +51,64 @@ public sealed partial class CodesysDriver : DriverBase, IIdeDriver
         // The product name is a display nicety, never a capability: an OEM build whose getter throws or whose
         // property is shadowed must not abort construction (that would leave no bridge and no IDE_UNSUPPORTED
         // answer at all). Its failure is kept, by name, for the start log.
-        try { ProductName = CodesysPlatform.ReadProductName(CodesysPlatform.ReadEngine()); }
+        // Read once, kept twice: verbatim for the start log (what an OEM answers — whitespace included — is the
+        // evidence) and for OemProduct as it always was; Stated for the wire, where an empty answer is null.
+        try { ProductNameAsRead = CodesysPlatform.ReadProductName(CodesysPlatform.ReadEngine()); }
         catch (Exception e)
         {
             var cause = e is TargetInvocationException { InnerException: { } inner } ? inner : e;
             ProductNameUnreadable = $"{cause.GetType().Name}: {cause.Message}";
         }
-        OemProduct = CodesysPlatform.OemProduct(ProductName);
+        ProductName = CodesysPlatform.Stated(ProductNameAsRead);
+        OemProduct = CodesysPlatform.OemProduct(ProductNameAsRead);
+        // The product's own version and maker (DIALECT V4) — like the name, report only: a failing read leaves both
+        // null and is kept by name for the start log, never a reason not to serve.
+        try
+        {
+            var exe = readHostExe();
+            ExeProductName = exe.ProductName;
+            ProductVersion = exe.ProductVersion;
+            ProductVendor = exe.CompanyName;
+        }
+        catch (Exception e)
+        {
+            HostExeUnreadable = $"{e.GetType().Name}: {e.Message}";
+        }
     }
 
-    /// <summary>The product name exactly as the IDE states it (null when the platform has no such member).</summary>
-    public string? ProductName { get; }
+    /// <summary>The product name as the IDE states it (<c>OEMCustomization.ProductName</c>, <c>health.productName</c>)
+    /// — `CODESYS` included; null when the platform has no such member or states nothing.</summary>
+    public override string? ProductName { get; }
+
+    /// <summary>The product name exactly as <c>OEMCustomization.ProductName</c> answered, unfiltered — logged at start
+    /// (an empty or whitespace answer differs from a platform with no such member) and the input to
+    /// <see cref="OemProduct"/>. Null when there is no such member or the read threw.</summary>
+    public string? ProductNameAsRead { get; }
+
+    /// <summary>The IDE exe's own <c>ProductVersion</c>, verbatim (<c>health.productVersion</c>, DIALECT V4).</summary>
+    public override string? ProductVersion { get; }
+
+    /// <summary>The IDE exe's <c>CompanyName</c> (<c>health.productVendor</c>, DIALECT V4).</summary>
+    public override string? ProductVendor { get; }
+
+    /// <summary>The IDE exe's own <c>ProductName</c> — logged only, beside <see cref="ProductName"/> (design B2).</summary>
+    public string? ExeProductName { get; }
+
+    /// <summary>Why the IDE exe's version-info could not be read, or null.</summary>
+    public string? HostExeUnreadable { get; }
+
+    /// <summary>The start log's identity line — every value as read (the product name unfiltered), so an OEM's answer is
+    /// on record verbatim. Logged once by <c>PipeHost</c>.</summary>
+    internal string IdentityLine() =>
+        $"CODESYS platform {IdeVersion ?? "(version unreadable)"}; product name as stated: " +
+        (ProductNameAsRead is { } pn ? $"\"{pn}\""
+         : ProductNameUnreadable is { } why ? $"(unreadable: {why})" : "(none)") +
+        (HostExeUnreadable is { } exeWhy
+            ? $"; exe version-info unreadable: {exeWhy}"
+            : $"; exe product {Q(ExeProductName)} version {Q(ProductVersion)} vendor {Q(ProductVendor)}") +
+        $"; bridge {Volt.Engine.Host.BridgePipeHost.Release ?? "(release unreadable)"}";
+
+    private static string Q(string? stated) => stated is null ? "(none)" : $"\"{stated}\"";
 
     /// <summary>Why <see cref="ProductName"/> could not be read (the exception, by type and message), or null.</summary>
     public string? ProductNameUnreadable { get; }

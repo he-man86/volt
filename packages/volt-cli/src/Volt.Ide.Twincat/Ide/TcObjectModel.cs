@@ -28,7 +28,13 @@ internal sealed partial class TcObjectModel
     private dynamic? _sysManager;
     private dynamic? _plcNode;
     private string? _projectName;
+    // The identity health reports (DIALECT V5). The product is the running shell's own answer, read at every DTE bind;
+    // the vendor is the XAE exe's, read once (the xae pid is fixed for the worker's life); the build is the open
+    // SOLUTION's remote manager, re-read with every snapshot because the solution can change inside one DTE.
     private string? _ideVersion;
+    private string? _productName;
+    private string? _productVersion;
+    private string? _productVendor;
 
     // The ONE XAE window this worker owns, by its stable process id. Selection and recovery re-acquire THIS pid
     // (stable across a DTE re-registration), never search other windows. Set once at startup by ConnectToPid.
@@ -47,7 +53,14 @@ internal sealed partial class TcObjectModel
     // `is not null` pattern is load-bearing on a `dynamic` field: `!= null` would compile to a runtime-binder
     // BinaryOperation call site (a bound COM call), while a pattern match binds against the static type object.
     public bool IsConnected => _dte is not null && _sysManager is not null;
+    /// <summary>The TwinCAT build (<c>TcRemoteManager.Version</c>), null when it states none — never the shell's.</summary>
     public string? IdeVersion => _ideVersion;
+    /// <summary>The shell's <c>DTE.Name</c> (`TcXaeShell`).</summary>
+    public string? ProductName => _productName;
+    /// <summary>The shell's <c>DTE.Version</c> (`15.0`).</summary>
+    public string? ProductVersion => _productVersion;
+    /// <summary>The XAE exe's <c>CompanyName</c> (`Beckhoff`).</summary>
+    public string? ProductVendor => _productVendor;
     public string? ProjectName => _projectName;
 
     /// <summary>Whether this worker has a project to serve — picked by a client's `select`, or taken up by the attach.

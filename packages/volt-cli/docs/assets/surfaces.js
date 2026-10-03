@@ -130,7 +130,32 @@ window.VOLT_SURFACES = {
           {
             "name": "ideVersion",
             "type": "string?",
-            "note": "Disambiguates same-named projects across IDE versions."
+            "note": "The platform version under the product (the CODESYS framework version, or the TwinCAT build). Disambiguates same-named projects across IDE versions."
+          },
+          {
+            "name": "unsupported",
+            "type": "string?",
+            "note": "Why this row\u0027s bridge serves nothing \u2014 the IDE lacks something the bridge needs. A client shows it instead of offering a connect."
+          },
+          {
+            "name": "productName",
+            "type": "string?",
+            "note": "The product the user runs, as the IDE names itself."
+          },
+          {
+            "name": "productVersion",
+            "type": "string?",
+            "note": "That product\u0027s own version, verbatim."
+          },
+          {
+            "name": "productVendor",
+            "type": "string?",
+            "note": "The product\u0027s maker, as its exe states it."
+          },
+          {
+            "name": "bridgeVersion",
+            "type": "string?",
+            "note": "The bridge release: the stamped version, or \u0060(dev) \u003Ccommit\u003E\u0060."
           }
         ]
       }

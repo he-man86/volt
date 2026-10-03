@@ -12,6 +12,7 @@
  * the connector being down resolves to an empty/unreachable state the UI renders as "start Volt".
  */
 import { readBridgeVendor, readBoundProject, type BoundProject, type HealthState, type Vendor } from "./health.js"
+import { ideIdentity } from "../view/identity.js"
 
 // The connector's control plane. Fixed at :8550 in production (the one port every client knows); an e2e can point
 // the real client at a test harness on another port via VOLT_CONTROL_BASE. Read lazily so the override can be set
@@ -27,8 +28,19 @@ export interface DetectedProject {
   dirty: boolean
   /** The bridge pipe serving it (per-pid for CODESYS) — the shells set it as VOLT_PIPE for `volt init`. */
   pipe?: string | null
-  /** IDE version, shown in the label when a vendor has more than one live instance. */
+  /** The PLATFORM version under the product — CODESYS's framework version (`3.5.21.40`) or the TwinCAT build
+   *  (`3.1.4024.74`); the bridge's `health.ideVersion`. Null/absent when the bridge could not read it. Shown through
+   *  {@link ConnectOption.identity}. */
   ideVersion?: string | null
+  /** The bridge identity (openspec ide-identity-report), from the bridge's `health` and carried by the connector onto
+   *  every row of that bridge (C# `ProjectView`): the product the user runs as the IDE names itself (`CODESYS`, an
+   *  OEM's name, `TcXaeShell`), that product's own version verbatim, and its maker. Null/absent when the bridge did
+   *  not state it (or is too old to). Rendered as one line by {@link ConnectOption.identity}, never parsed. */
+  productName?: string | null
+  productVersion?: string | null
+  productVendor?: string | null
+  /** The bridge's release: the stamped version of a release build, or `(dev) <commit>` for an unstamped one. */
+  bridgeVersion?: string | null
   /** The name the workspace BINDING matches on AND the name a user is shown — one value, one field. Always
    *  present (the connector stamps every row).
    *
@@ -75,6 +87,8 @@ export interface ConnectOption {
   /** Set when picking this project cannot work because its IDE is refused by the bridge: the shells draw the row
    *  with `caption` and `reason` and give it NO action (the bridge would answer every call `IDE_UNSUPPORTED`). */
   refusal?: Refusal
+  /** The IDE this project is open in, as one line ({@link ideIdentity}) — both shells render this string. */
+  identity: string
 }
 
 /** Why a detected project cannot be picked — the wording both shells show. `reason` is the bridge's sentence as
@@ -94,7 +108,8 @@ export function connectOptions(projects: DetectedProject[], bound: BoundProject 
   return projects.map((project) => {
     const action: ConnectAction = bound === undefined ? "init" : matchesBinding(project, bound) ? "connect" : "rebind"
     const refusal = refusalOf(project)
-    return refusal ? { project, action, refusal } : { project, action }
+    const identity = ideIdentity(project)
+    return refusal ? { project, action, refusal, identity } : { project, action, identity }
   })
 }
 

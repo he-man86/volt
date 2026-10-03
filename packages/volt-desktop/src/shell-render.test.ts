@@ -2,6 +2,9 @@ import { expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
+/** The identity line @volt/control puts on every picker row (openspec ide-identity-report 2.5). */
+const IDENTITY = "CODESYS Development GmbH CODESYS 3.5.21.40 — CODESYS 3.5 SP21 Patch 4"
+
 /**
  * THE RENDERER, EXECUTED — the shipped `shell.html`, not a copy of it.
  *
@@ -117,7 +120,7 @@ test("a project name containing an apostrophe renders as data, not as code", () 
     initialized: false,
       onboarding: "choose-project",
     surface: {
-      create: [{ id: "codesys::Bob's Machine:", projectName: "Bob's Machine", dirty: false, action: "init" }],
+      create: [{ id: "codesys::Bob's Machine:", projectName: "Bob's Machine", dirty: false, action: "init", identity: IDENTITY }],
       primary: [],
       alternates: [],
     },
@@ -146,7 +149,7 @@ test("a project on an unsupported IDE shows why, and cannot be clicked", () => {
     onboarding: "choose-project",
     surface: {
       create: [
-        { id: "codesys::OldRig:", projectName: "OldRig", dirty: false, action: "init", refusal: { caption: "IDE not supported", reason } },
+        { id: "codesys::OldRig:", projectName: "OldRig", dirty: false, action: "init", refusal: { caption: "IDE not supported", reason }, identity: IDENTITY },
       ],
       primary: [],
       alternates: [],
@@ -159,6 +162,31 @@ test("a project on an unsupported IDE shows why, and cannot be clicked", () => {
   expect(out).toContain("IDE not supported")
   expect(out).toContain(reason)
   expect(out).not.toContain("data-pact") // nothing to dispatch
+})
+
+// openspec ide-identity-report 2.5: every project in the picker names the IDE it is open in, under its name — the
+// refused one included, beside its reason, since that is when a user most needs to know which IDE it is.
+test("each project in the picker shows its IDE identity line", () => {
+  const s = shell()
+  s.setSnap({
+    ...bound,
+    bound: false,
+    initialized: false,
+    onboarding: "choose-project",
+    surface: {
+      create: [
+        { id: "codesys::A:", projectName: "A", dirty: false, action: "init", identity: IDENTITY },
+        { id: "codesys::B:", projectName: "B", dirty: false, action: "init", refusal: { caption: "IDE not supported", reason: "r" }, identity: "unknown vendor CODESYS 3.5.17.0 — CODESYS 3.5 SP17 Patch 0" },
+      ],
+      primary: [],
+      alternates: [],
+    },
+  })
+  s.render()
+
+  const out = s.html()
+  expect(out).toContain(IDENTITY)
+  expect(out).toContain("unknown vendor CODESYS 3.5.17.0 — CODESYS 3.5 SP17 Patch 0")
 })
 
 /** C9: the status error the view-model has always carried is now displayed — but only in the ready state, where

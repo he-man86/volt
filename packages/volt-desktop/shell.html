@@ -261,7 +261,7 @@
     // answer IDE_UNSUPPORTED).
     if (p.refusal)
       return `<button class="btn" title="${esc(p.refusal.reason)}" disabled><svg class="bolt"><use href="#bolt"/></svg>${esc(p.projectName)} — ${esc(p.refusal.caption)}</button>` +
-        `<div class="note" style="padding:0">${esc(p.refusal.reason)}</div>`
+        `<div class="note" style="padding:0">${esc(p.refusal.reason)}</div>` + identityNote(p)
     const key = p.action === "connect" ? "connect" : `${p.action}:${p.id}` // "connect" | "rebind:<id>" | "init:<id>"
     // The project NAME is the identity — the UI is vendor-blind, so no "CODESYS · " prefix or badge (the vendor is a
     // wire/binding detail, never a way to label a project here).
@@ -273,8 +273,11 @@
         ? "Bind this workspace to this project instead (e.g. after a rename in the IDE) — asks to confirm first."
         : "Creates the git workspace and pulls the project's code — the IDE is not modified."
     // init/connect are the primary move on their screen (accent fill); rebind stays quiet — it's a correction.
-    return btn(key, p.action === "rebind" ? "btn" : "btn primary", "", `<svg class="bolt"><use href="#bolt"/></svg>`, label, title, attrs)
+    return btn(key, p.action === "rebind" ? "btn" : "btn primary", "", `<svg class="bolt"><use href="#bolt"/></svg>`, label, title, attrs) +
+      identityNote(p)
   }
+  // The IDE the project is open in, under its name (openspec ide-identity-report) — @volt/control's one line, as TEXT.
+  const identityNote = (p) => `<div class="note" style="padding:0">${esc(p.identity)}</div>`
   const projectList = (projects) => `<div class="init-row">` + projects.map(projectBtn).join("") + `</div>`
   // The two connection surfaces. The GROUPING is @volt/control's (snapshot passes s.surface already partitioned +
   // ordered — create vs reconnect, matching project first); the shell only draws it + supplies copy, never re-decides

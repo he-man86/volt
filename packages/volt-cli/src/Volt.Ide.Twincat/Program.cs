@@ -352,7 +352,7 @@ catch (Exception ex)
     cts.Cancel();
     return 3;
 }
-VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid})");
+VoltLog.Info($"twincat bridge serving on pipe {pipe} (xae pid {xaePid}), bridge {BridgePipeHost.Release ?? "(release unreadable)"}");
 // Said on the CONSOLE as well as in the log, because for a double-click launch this window is the entire user
 // interface: it is how someone knows the bridge is up, and closing it is how they stop it. Closing a console
 // window terminates its process group, so there is nothing to clean up afterwards and no tray icon to hunt for.
@@ -366,7 +366,7 @@ using var tunnel = Volt.Relay.PipeHostTunnel.StartIfConfigured(
     Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(BridgePipeHost)),
     pipe,
     Vendors.Twincat,
-    typeof(BridgePipeHost).Assembly.GetName().Version?.ToString() ?? "0.0.0",
+    BridgePipeHost.Release,   // the release health reports (design D3), never the assembly version
     m => VoltLog.Info(m),
     m => VoltLog.Error(m));
 

@@ -72,6 +72,11 @@ public class DocDataTests
             "Answers even when the IDE lacks what the bridge needs: `unsupported` then carries the fixed reason "
             + "every other op answers with as IDE_UNSUPPORTED, `ideVersion` the IDE version, and every row is idle. "
             + "Never a version floor — an IDE is refused for what it lacks, not for its number.",
+            "Always states the bridge identity at top level, rows or not, refused or not: `productName`, "
+            + "`productVersion` and `productVendor` (what the user runs, its own number and its maker), `ideVersion` "
+            + "(the platform under it — the CODESYS framework version, or the TwinCAT build) and `bridgeVersion` (the "
+            + "stamped release, or `(dev) <commit>` for an unstamped build). Each is absent when its source does not "
+            + "answer, never filled from another, and none of them decides whether the bridge serves.",
         }),
         [Ops.Connect] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.InternalError }, new[]
         {

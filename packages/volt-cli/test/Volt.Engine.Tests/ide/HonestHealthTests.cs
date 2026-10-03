@@ -114,6 +114,9 @@ public class HonestHealthTests
         public override string Vendor => "fake";
         public override string? ServedProjectName => "P";
         public override string? IdeVersion => "0";
+        public override string? ProductName => null;
+        public override string? ProductVersion => null;
+        public override string? ProductVendor => null;
         public override void Disconnect() { }
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }
@@ -164,6 +167,9 @@ public class HonestHealthTests
         public override string Vendor => "fake";
         public override string? ServedProjectName => null;
         public override string? IdeVersion => "0";
+        public override string? ProductName => null;
+        public override string? ProductVersion => null;
+        public override string? ProductVendor => null;
         public override void Disconnect() { }
         public override bool ShouldMarkDegraded(Exception ex) => false;
         public override void SelectProject(ConnectRequest sel) { }

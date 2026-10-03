@@ -28,7 +28,13 @@ namespace Volt.Connector
     /// <param name="Unsupported">Why this row's bridge serves nothing — the IDE lacks something the bridge needs (the
     /// bridge's <c>health.unsupported</c>, the same sentence every op answers under <c>IDE_UNSUPPORTED</c>). Null when
     /// the IDE has everything. A client shows it instead of offering a connect that the bridge would refuse.</param>
-    public sealed record ProjectView(string Id, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null, string? Unsupported = null);
+    /// <param name="ProductName">The bridge identity (openspec ide-identity-report), from the bridge's `health`:
+    /// the product the user runs (`CODESYS`, an OEM's name, `TcXaeShell`). With <c>ProductVersion</c> (that
+    /// product's own number), <c>ProductVendor</c> (its maker) and <c>BridgeVersion</c> (the bridge release, or
+    /// `(dev) &lt;commit&gt;`), and <c>IdeVersion</c> as the platform, it is what a client shows as the IDE line. Each is
+    /// null when the bridge could not read it (or is too old to send it).</param>
+    public sealed record ProjectView(string Id, string Vendor, bool Dirty, string Status, string ProjectName, string? Pipe = null, string? IdeVersion = null, string? Unsupported = null,
+        string? ProductName = null, string? ProductVersion = null, string? ProductVendor = null, string? BridgeVersion = null);
 
     /// <summary>The control plane's status snapshot: nothing but the ONE unified, self-describing list of detected
     /// projects across every vendor. Both status use cases read it — the init/connect surface is the list itself;

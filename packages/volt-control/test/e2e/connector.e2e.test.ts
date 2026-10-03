@@ -13,7 +13,7 @@
  */
 import { test, expect, describe, beforeAll, afterAll, beforeEach, afterEach } from "bun:test"
 import { spawn, spawnSync, type ChildProcess } from "node:child_process"
-import { existsSync, writeFileSync, mkdtempSync, mkdirSync } from "node:fs"
+import { existsSync, writeFileSync, mkdtempSync, mkdirSync, readFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { connectorStatus, detectedProjects, isServing } from "../../src/bridge/connector.js"
@@ -21,7 +21,14 @@ import { declareInterest, dropInterest, shutdownSession, __resetSessionForTest }
 import { boundWorkspace as ws } from "../../src/test-support.js"
 
 const HARNESS_DIR = join(import.meta.dir, "..", "..", "..", "volt-cli", "test", "Volt.Connector.ControlHarness")
-const OUT = join(HARNESS_DIR, "bin", "Debug", "net8.0")
+// The output folder follows the harness's OWN TargetFramework. It was hard-coded "net8.0" after the harness moved to
+// net10.0, so the build went to net10.0 while the suite ran a month-old net8.0 binary — the "real" C# wire it
+// exists to prove was a stale one (found by ide-identity-report gate 2: new ProjectView fields never arrived).
+const TFM = /<TargetFramework>([^<]+)<\/TargetFramework>/.exec(
+	readFileSync(join(HARNESS_DIR, "Volt.Connector.ControlHarness.csproj"), "utf8"),
+)?.[1]
+if (!TFM) throw new Error("connector.e2e: the harness csproj states no single <TargetFramework>")
+const OUT = join(HARNESS_DIR, "bin", "Debug", TFM)
 const EXE = join(OUT, "VoltControlHarness.exe")
 const DLL = join(OUT, "VoltControlHarness.dll")
 const PORT = 18570 // distinct from the production 8550 so a running dev connector doesn't clash
@@ -43,11 +50,15 @@ const suite = available ? describe : describe.skip
 if (!available) console.warn("[connector.e2e] skipped — could not build the C# ControlServer harness (no .NET SDK?)")
 
 // ── scriptable ConnectorView rows (what the live connector's ProjectView serializes to) ──
-type Row = { id: string; displayName: string; vendor: string; dirty: boolean; status: string; pipe?: string; ideVersion?: string; projectName?: string }
+type Row = {
+	id: string; displayName: string; vendor: string; dirty: boolean; status: string; pipe?: string; ideVersion?: string; projectName?: string
+	// the bridge identity the connector stamps on every row (openspec ide-identity-report 2.4)
+	unsupported?: string; productName?: string; productVersion?: string; productVendor?: string; bridgeVersion?: string
+}
 const cs = (name: string, pid: number): Row =>
-	({ id: `codesys:::${name}:`, displayName: name, vendor: "codesys", dirty: false, status: "idle", pipe: `volt.bridge.codesys.${pid}`, ideVersion: "3.5", projectName: name })
+	({ id: `codesys:::${name}:`, displayName: name, vendor: "codesys", dirty: false, status: "idle", pipe: `volt.bridge.codesys.${pid}`, ideVersion: "3.5.21.40", projectName: name })
 const tc = (name: string, pid: number): Row =>
-	({ id: `twincat:::${name}:`, displayName: name, vendor: "twincat", dirty: false, status: "idle", pipe: `volt.bridge.twincat.${pid}`, ideVersion: "15.0", projectName: name })
+	({ id: `twincat:::${name}:`, displayName: name, vendor: "twincat", dirty: false, status: "idle", pipe: `volt.bridge.twincat.${pid}`, ideVersion: "3.1.4024.74", projectName: name })
 
 function writeView(rows: Row[]): void { writeFileSync(VIEW, JSON.stringify(rows)) }
 
@@ -90,6 +101,22 @@ suite("volt-control ↔ real ControlServer (session model)", () => {
 		// These rows are SCRIPTED idle and nothing has ever wanted them, so the (edge-triggered) reconciler leaves
 		// them alone — untouched, not gated. A row scripted as already-serving would stay serving here, by design.
 		expect(projects.some(isServing)).toBe(false)
+	})
+
+	// openspec ide-identity-report 2.4: the identity crosses the C# ControlServer → TS client wire under the exact names
+	// both sides use — a rename on either side fails here, which a mocked fetch cannot see.
+	test("GET /status carries each row's bridge identity and refusal under the wire names the client reads", async () => {
+		const reason = "CODESYS 3.5.17.0 is not supported: it lacks the object manager (SystemInstances.ObjectMgr)."
+		writeView([
+			{ ...cs("MachineA", 1001), productName: "PLC Designer", productVersion: "4.1.0.37740", productVendor: "Lenze Automation GmbH", bridgeVersion: "0.1.17258", unsupported: reason },
+			{ ...tc("Line1", 2001), productName: "TcXaeShell", productVersion: "15.0", productVendor: "Beckhoff", bridgeVersion: "(dev) a93e5d7619b5" },
+		])
+		const projects = await detectedProjects()
+		const a = projects.find(p => p.id === "codesys:::MachineA:")!
+		const l = projects.find(p => p.id === "twincat:::Line1:")!
+		expect(a).toMatchObject({ ideVersion: "3.5.21.40", productName: "PLC Designer", productVersion: "4.1.0.37740", productVendor: "Lenze Automation GmbH", bridgeVersion: "0.1.17258", unsupported: reason })
+		expect(l).toMatchObject({ ideVersion: "3.1.4024.74", productName: "TcXaeShell", productVersion: "15.0", productVendor: "Beckhoff", bridgeVersion: "(dev) a93e5d7619b5" })
+		expect(l.unsupported ?? null).toBeNull()
 	})
 
 	// ── the session API: declare interest → reconcile → serving ──

@@ -49,7 +49,7 @@ sealed class FileProjectSource : IProjectSource
                 .Where(r => r.Vendor == Vendor)
                 .Select(r => new DetectedProject(
                     r.Id, r.ProjectName, r.Vendor, r.Dirty, new ProjectRef(r.ProjectName), r.Pipe, r.IdeVersion,
-                    Status(r)))
+                    Status(r), r.Unsupported, r.ProductName, r.ProductVersion, r.ProductVendor, r.BridgeVersion))
                 .ToList();
             // Always reachable: the "bridge" is a file. Zero rows here means the scenario has none, not a down pipe.
             return Task.FromResult(new SourceScan(mine, Reachable: true));

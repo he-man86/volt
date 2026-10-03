@@ -102,20 +102,73 @@ the bridge serves: it is shown and logged, never gated on. What OEMs expose is l
 
 ## 2. Report the identity
 
-- [ ] 2.1 `health` carries `productName` and `productVersion` (nullable) for both vendors beside the existing
+- [x] 2.1 `health` carries `productName` and `productVersion` (nullable) for both vendors beside the existing
       `ideVersion`; publish them in the wire contract and regenerate the wire docs (`VOLT_WRITE_DOCS=1`).
-- [ ] 2.2 `ideVersion` is null when not readable — never derived from `productVersion`. On TwinCAT it moves from the
+      *Done (design A1/B1/C1):* top-level `HealthResponse.ProductName/ProductVersion`, stamped once in
+      `BridgePipeHost` (unsupported path included) from `IIdeSession`; CODESYS = `OEMCustomization.ProductName` + the
+      in-proc exe's `ProductVersion` (`CodesysPlatform.ReadHostExe`), TwinCAT = `DTE.Name`/`DTE.Version` (`SwapDte`).
+      `volt-bridge.openrpc.json`, `assets/data.js`, `assets/surfaces.js` regenerated; DIALECT V4/V5 name the readers.
+- [x] 2.2 `ideVersion` is null when not readable — never derived from `productVersion`. On TwinCAT it moves from the
       shell version to the TwinCAT build (1.3).
-- [ ] 2.3 `health` carries the bridge's release: the binary's stamped version (the reading `volt --version` uses, of
+      *Done (C5):* TwinCAT `ideVersion` = `TcRemoteManager.Version`, re-read with every snapshot (`OwnSolution`);
+      empty or throwing → null (logged once per source+message). Each row's `version` follows (`15.0` → `3.1.4024.74`).
+- [x] 2.3 `health` carries the bridge's release: the binary's stamped version (the reading `volt --version` uses, of
       the bridge's OWN file — 1.4), and when unstamped `(dev) <commit>` from that file's `ProductVersion` suffix
       (`1.0.0+<commit>`; a bare `(dev)` only when no commit is stated); two different builds never report the same value
       (1.4: the six PLCAssist bundles are four builds that would all read a bare `(dev)`).
-- [ ] 2.4 The connector (`DetectedProject`, `/status`) and `@volt/control` carry the new fields.
+      *Done (D3):* `Volt.Contracts.BridgeRelease` read once off `Volt.Engine.Host.dll` (`BridgePipeHost.Release`) →
+      `health.bridgeVersion` AND the relay `hello.volt` (was the assembly version; `docs/relay-protocol.md` updated).
+      The four PLCAssist commits give four distinct values, none `1.0.0.0` (`BridgeReleaseTests`); this repo's
+      unstamped build reports `(dev) <its commit>`.
+- [x] 2.4 The connector (`DetectedProject`, `/status`) and `@volt/control` carry the new fields.
+      *Done:* `WireProjects.Flatten` stamps the four top-level fields on every row (like `Unsupported`);
+      `ProjectView`, `TrayContext.Snapshot`, the control harness and `@volt/control.DetectedProject` carry them.
 
-- [ ] 2.5 `health` carries `productVendor` (nullable, from 1.5). @volt/control renders the identity as
+- [x] 2.5 `health` carries `productVendor` (nullable, from 1.5). @volt/control renders the identity as
       "<vendor> <product> <productVersion> — CODESYS 3.5 SP<n> Patch <p>", the SP/patch read from `ideVersion`
       (3.5.21.40 → SP21 Patch 4: CODESYS's own version scheme, formatting only); a null part is shown as unknown, not
       omitted silently. The SP is what decides compatibility, so it is shown whenever `ideVersion` is known.
+      *Done (E3):* `productVendor` = CODESYS exe `CompanyName` / TwinCAT XAE exe `CompanyName` by the xae pid
+      (`ReadXaeVendor`). `@volt/control` `view/identity.ts` `ideIdentity` (exhaustive `Record<Vendor, …>`; TwinCAT shows
+      `TwinCAT <build>`, a non-SP CODESYS number verbatim) → `ConnectOption.identity`; VS Code picker description +
+      panel tooltips (refused rows beside the reason), desktop picker note under each project, `detectedKey` covers it.
+      Numbers: C# Volt.Cli.Tests 251, Volt.Engine.Tests 1912 + 1 skip, Volt.Contracts.Tests 31, Volt.Connector.Tests
+      115, Volt.Ide.Twincat.Tests 316, Volt.Ide.Codesys.Tests 213, Volt.Relay.Tests 46, Volt.Repo.Gates 92 — 0 fail;
+      TS @volt/control 132, volt-vscode 40, volt-desktop 31, volt-cli unit 4, control e2e (real harness) 8 — 0 fail;
+      typecheck 5/5, `bun run check` green. New tests: BridgeReleaseTests (12), IdeIdentityTests (5),
+      CodesysIdentityTests (6), TcIdentityTests (7), 2 Flatten, identity.test.ts (9), 1+2+3 shell tests. No LSP
+      file, fixture or recording touched, so the LSP suites, the fixture map and the recorders have no delta.
+
+- [x] 2.6 Gate 2 (2026-10-03): seven review findings, all fixed — none skipped; one of them uncovered a stale e2e tier.
+      (1) `volt-vscode` `panel.test.ts`: the refused reconnect row's `description` "IDE not supported" assertion restored
+      (the design changes only the tooltip). (2) TwinCAT field logs name the build again: `OwnSolution` logs
+      `twincat build (TcRemoteManager.Version): <build>` at the first read and on every change (not every poll)
+      (`TcIdentityTests.The_build_is_logged_at_the_first_read_and_on_change_only`). (3) The per-snapshot
+      `GetObject("TcRemoteManager")` RCW is released every time (`ReleaseCom`, `Marshal.ReleaseComObject` in production)
+      and counted: one read per snapshot (`Each_snapshot_reads_the_remote_manager_once_and_releases_it`). It stays on the
+      probe's never-throws path on purpose — the liveness verdict is `ProbeIdeAlive`, which runs first in the same
+      snapshot; a dead channel is answered there. Its cost on a live XAE is measured in 5.1. (4) `ideIdentity`: a row
+      with no `bridgeVersion` is an older bridge (design A); on TwinCAT its `ideVersion` was `DTE.Version` (the shell's
+      `15.0`), so it renders `TwinCAT build not reported (older bridge)`, never `TwinCAT 15.0`; CODESYS's `ideVersion`
+      never changed meaning (`3.5`, then the platform) and still renders. The desktop identity fixture now states a
+      `bridgeVersion` (a current bridge always does). (5) CODESYS: `ProductNameAsRead` keeps the unfiltered answer for
+      the start log (`product name as stated: "  "` vs `(none)`) and for `OemProduct` as before; the wire keeps
+      `Stated` (whitespace → null). The start line moved to `CodesysDriver.IdentityLine()` so it is testable
+      (`A_whitespace_product_name_is_null_on_the_wire_and_verbatim_in_the_start_log`). (6) The `bridgeVersion` tests
+      pin the D3 FORM, written out in the test off `Volt.Engine.Host.dll`'s own version-info, plus NotEqual the assembly
+      version — the `Assembly.GetName().Version` mutation now fails both (`IdeIdentityTests`, `CodesysIdentityTests`).
+      (7) control e2e: `GET /status carries each row's bridge identity and refusal under the wire names the client
+      reads`, rows at the new meanings (CODESYS `3.5.21.40`, TwinCAT `3.1.4024.74`). Written first, it FAILED — and the
+      cause was the suite, not the wire: it ran `bin/Debug/net8.0/VoltControlHarness.exe` (built 2026-09-09) while the
+      harness targets net10.0, so every control-e2e run since the move proved a month-old C# wire (step 2.5's "control
+      e2e 8 — 0 fail" included). The output folder now follows the csproj's own `<TargetFramework>` (fails loud when it
+      states none); against the current harness all fields arrive.
+      Numbers: C# Volt.Cli.Tests 251, Volt.Engine.Tests 1912 + 1 skip, Volt.Contracts.Tests 31, Volt.Connector.Tests
+      115, Volt.Ide.Twincat.Tests 318 (+2), Volt.Ide.Codesys.Tests 214 (+1), Volt.Relay.Tests 46, Volt.Repo.Gates 92 —
+      0 fail; `dotnet build Volt.sln -c Release` 0 errors; TS @volt/control 134 (132 at 2.5), volt-vscode 40, volt-desktop 31,
+      volt-cli unit 4, `test/e2e` against the CURRENT harness 11 (two files) — 0 fail; typecheck 5/5, lint 0 errors,
+      `bun run check` green, `openspec validate` valid. No LSP file, fixture or recording touched, so the LSP suites,
+      the fixture map and the recorders have no delta.
 
 ## 3. Field failures moved from codesys-minimum-version (each needs a field log)
 

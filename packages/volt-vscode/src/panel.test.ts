@@ -148,7 +148,8 @@ test("unbound + a project on an unsupported IDE → the row says why and sets no
   const node = header?.children?.[0]
   expect(node?.label).toBe("MyMachine")
   expect(node?.description).toBe("IDE not supported")
-  expect(node?.tooltip).toBe(REASON)
+  // the reason, and beside it the IDE it is open in (openspec ide-identity-report 2.5) — unknown parts named as unknown
+  expect(node?.tooltip).toBe(`${REASON}\nunknown vendor unknown product unknown version — CODESYS version unknown`)
   expect(node?.command).toBeUndefined()
 })
 
@@ -156,6 +157,12 @@ test("bound + offline + its project on an unsupported IDE → the reconnect row 
   const nodes = bridgeRoots([offlineView as never], [proj({ status: "idle", unsupported: REASON })], true)
   const row = nodes.find((n) => n.key.startsWith("reconnect:"))
   expect(row?.description).toBe("IDE not supported")
-  expect(row?.tooltip).toBe(REASON)
+  expect(row?.tooltip).toBe(`${REASON}\nunknown vendor unknown product unknown version — CODESYS version unknown`)
   expect(row?.command).toBeUndefined()
+})
+
+// openspec ide-identity-report 2.5: the set-up row names the IDE the project is open in, from the bridge's own words.
+test("unbound + a detected project → the set-up row names its IDE", () => {
+  const [header] = bridgeRoots([], [proj({ productVendor: "CODESYS Development GmbH", productName: "CODESYS", productVersion: "3.5.21.40", ideVersion: "3.5.21.40" })], true)
+  expect(header?.children?.[0]?.tooltip).toContain("CODESYS Development GmbH CODESYS 3.5.21.40 — CODESYS 3.5 SP21 Patch 4")
 })

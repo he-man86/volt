@@ -984,7 +984,15 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public override string? ServedProjectName => IsConnected ? HealthProjectName : null;
     public override string? IdeVersion => Version;
     /// <summary>The IDE version this double reports. "0" unless a test names one.</summary>
-    public string Version { get; init; } = "0";
+    public string? Version { get; init; } = "0";
+    /// <summary>The product identity this double's IDE states (<c>health.productName/productVersion/productVendor</c>)
+    /// — null (the default) is an IDE that states none.</summary>
+    public string? IdeProductName { get; init; }
+    public string? IdeProductVersion { get; init; }
+    public string? IdeProductVendor { get; init; }
+    public override string? ProductName => IdeProductName;
+    public override string? ProductVersion => IdeProductVersion;
+    public override string? ProductVendor => IdeProductVendor;
     /// <summary>What this double's IDE lacks, as the driver's fixed refusal text — null (the default) when it has
     /// everything the bridge needs. See <c>IIdeSession.Unsupported</c>.</summary>
     public string? UnsupportedReason { get; init; }

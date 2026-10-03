@@ -258,4 +258,42 @@ public class PerPipeProjectSourceTests
             "codesys", null));
         Assert.Null(row.Unsupported);
     }
+
+    /// <summary>openspec ide-identity-report 2.4: the bridge identity is a process fact at the top level of `health`
+    /// (like `unsupported`), and the connector stamps it onto EVERY row of that bridge, so /status and both frontends
+    /// can show which IDE and which bridge release each project is open in.</summary>
+    [Fact]
+    public void The_bridge_identity_rides_onto_each_of_its_rows()
+    {
+        var rows = WireProjects.Flatten(Health(
+            """
+            { "projects": [ { "vendor": "twincat", "version": "3.1.4024.74", "project": "A", "status": "healthy", "dirty": false },
+                            { "vendor": "twincat", "version": "3.1.4024.74", "project": "B", "status": "idle", "dirty": false } ],
+              "ideVersion": "3.1.4024.74", "productName": "TcXaeShell", "productVersion": "15.0",
+              "productVendor": "Beckhoff", "bridgeVersion": "(dev) 203657806a38" }
+            """), "twincat", "volt.bridge.twincat.9112");
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, r =>
+        {
+            Assert.Equal("3.1.4024.74", r.IdeVersion);
+            Assert.Equal("TcXaeShell", r.ProductName);
+            Assert.Equal("15.0", r.ProductVersion);
+            Assert.Equal("Beckhoff", r.ProductVendor);
+            Assert.Equal("(dev) 203657806a38", r.BridgeVersion);
+        });
+    }
+
+    /// <summary>An older bridge sends none of it: every field reads null, nothing is guessed.</summary>
+    [Fact]
+    public void An_older_bridge_without_identity_leaves_the_fields_null()
+    {
+        var row = Assert.Single(WireProjects.Flatten(Health(
+            """{ "projects": [ { "vendor": "codesys", "version": "3.5.21.40", "project": "P", "status": "healthy", "dirty": false } ], "ideVersion": "3.5.21.40" }"""),
+            "codesys", null));
+        Assert.Null(row.ProductName);
+        Assert.Null(row.ProductVersion);
+        Assert.Null(row.ProductVendor);
+        Assert.Null(row.BridgeVersion);
+    }
 }

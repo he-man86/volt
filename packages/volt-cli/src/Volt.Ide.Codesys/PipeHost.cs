@@ -46,9 +46,9 @@ public static class PipeHost
             LogBoundAssemblies();
 
             _driver = new CodesysDriver(projects);
-            VoltLog.Info($"CODESYS platform {_driver.IdeVersion ?? "(version unreadable)"}; product name as stated: " +
-                         (_driver.ProductName is { } pn ? $"\"{pn}\""
-                          : _driver.ProductNameUnreadable is { } why ? $"(unreadable: {why})" : "(none)"));
+            // The identity health reports, as read — so the first OEM log is the evidence (DIALECT V1/V4): the exe's
+            // own product name sits beside OEMCustomization's, to show whether the two part (design B2).
+            VoltLog.Info(_driver.IdentityLine());
             _driver.Connect(); // snapshot on the primary thread (we are on it now)
 
             _host = new BridgePipeHost(_driver, _pipeName);
@@ -106,7 +106,7 @@ public static class PipeHost
             Volt.Relay.PipeHostTunnel.DirectoryOf(typeof(PipeHost)),
             _pipeName,
             Vendors.Codesys,
-            typeof(PipeHost).Assembly.GetName().Version?.ToString() ?? "0.0.0",
+            BridgePipeHost.Release,   // the release health reports (design D3), never the assembly version
             m => VoltLog.Info(m),
             m => VoltLog.Error(m));
     }

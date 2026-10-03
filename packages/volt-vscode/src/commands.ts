@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
 	VoltStatus,
 	pull, push, build, describeBuildDiagnostic, initFromProject, rebind, connectWorkspace, disconnectWorkspace, detectedProjects,
-	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor,
+	mergeContinue, mergeAbort, mergeResolve, readBridgeVendor, ideIdentity,
 	describePull, describePush, describeMerge, presentOutcome, settleOutcome, formatProgress, firstLine, FORCE_PULL, FORCE_PUSH,
 	type ProgressUpdate, type OutcomePresenter, type PullOutcome, type PushOutcome, type MergeOutcome, type DetectedProject,
 } from "@volt/control"
@@ -274,7 +274,7 @@ async function doRebindProject(ensureWorkspace: (folder: string) => void, worksp
 async function pickProject(projects: DetectedProject[]): Promise<DetectedProject | undefined> {
 	const items = projects.map((p) => ({
 		label: `${p.projectName}${p.dirty ? " *" : ""}`,
-		description: p.ideVersion ?? undefined,
+		description: ideIdentity(p),
 		project: p,
 	}))
 	const pick = await vscode.window.showQuickPick(items, { placeHolder: "Pick the PLC project to initialize this workspace from" })

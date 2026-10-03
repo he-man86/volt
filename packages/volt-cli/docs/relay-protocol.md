@@ -57,7 +57,7 @@ The bridge's first frame, before any response frame:
 | field | meaning |
 | --- | --- |
 | `protocol` | This document's version. `1` (`RelayFrames.Protocol`). |
-| `volt` | The bridge's own version string, for the relay's logs and support. |
+| `volt` | The bridge's release, for the relay's logs and support — the same value `health.bridgeVersion` carries (`BridgeRelease`): the stamped version of a release build (`0.0.1.842`), or `(dev) <commit>` for an unstamped one (`(dev)` alone only when its file states no commit). Empty only when the bridge cannot read its own file. It was the assembly version, `1.0.0.0` on every unstamped build. |
 | `vendor` | `codesys` or `twincat`. |
 | `pipe` | The local pipe this tunnel serves. Diagnostic: it identifies WHICH IDE on a machine with several. |
 

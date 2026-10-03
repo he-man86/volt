@@ -29,10 +29,14 @@ namespace Volt.Connector
         string Status = HealthStatus.Idle, // the wire row's full connection state — idle | healthy | degraded. The
                                    // ONE self-describing field carried straight through: the UI reads serving + the
                                    // degraded distinction off it, with no separate per-vendor bridge-health view.
-        string? Unsupported = null) // why this row's bridge serves NOTHING — health's top-level `unsupported`, the
+        string? Unsupported = null, // why this row's bridge serves NOTHING — health's top-level `unsupported`, the
                                    // fixed sentence every op answers under IDE_UNSUPPORTED (the IDE lacks something
                                    // the bridge needs). Null when the IDE has everything. A row carrying it is never
                                    // bound: `connect` would be refused every cycle, and the reason is what to show.
+        string? ProductName = null,    // the bridge identity — health's top-level productName / productVersion /
+        string? ProductVersion = null, // productVendor / bridgeVersion, stamped on every row of that bridge like
+        string? ProductVendor = null,  // `Unsupported` (openspec ide-identity-report). Report only: nothing in the
+        string? BridgeVersion = null)  // connector reads them; /status carries them to the frontends. Null = unread.
     {
         /// <summary>GROUND TRUTH: is this project's bridge serving it right now (pull/push work) — a non-idle row.
         /// Derived from <see cref="Status"/>, not stored: the host stamps exactly one non-idle row per bridge and

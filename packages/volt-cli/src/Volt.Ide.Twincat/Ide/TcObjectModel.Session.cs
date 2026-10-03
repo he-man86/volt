@@ -27,8 +27,24 @@ internal sealed partial class TcObjectModel
         _xaePid = pid;
         var dte = BindWindow(pid) ?? throw new InvalidOperationException($"No running TwinCAT XAE with pid {pid}.");
         SwapDte(dte);
-        VoltLog.Info($"attached to TwinCAT {_ideVersion ?? "?"} (xae pid {pid})");
+        // The vendor is the one fact only the exe states (the DTE has no vendor member), and the exe is the XAE's —
+        // through ITS pid, never this worker's own process, which would name VoltBridgeTwincat (DIALECT V4/V5).
+        try { _productVendor = Stated(ReadXaeVendor(pid)); }
+        catch (Exception ex) { VoltLog.Warn($"twincat: the XAE exe's version-info is unreadable, productVendor is null: {ex.GetType().Name}: {ex.Message}"); }
+        VoltLog.Info($"attached to {_productName ?? "(product unread)"} {_productVersion ?? "(version unread)"} " +
+                     $"by {_productVendor ?? "(vendor unread)"} (xae pid {pid})");
     }
+
+    /// <summary>The XAE exe's <c>CompanyName</c> by pid — its <c>MainModule</c>'s version-info in production, a double in
+    /// the offline tests (<c>TcIdentityTests</c>). Readable from the win-x64 worker for a 32-bit shell (DIALECT V5).</summary>
+    internal Func<int, string?> ReadXaeVendor { get; set; } = pid =>
+    {
+        using var xae = System.Diagnostics.Process.GetProcessById(pid);
+        return xae.MainModule?.FileVersionInfo.CompanyName;
+    };
+
+    /// <summary>A stated value, verbatim, or null when the source states nothing (empty or whitespace).</summary>
+    private static string? Stated(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>How this worker reaches its XAE window by pid — the ROT in production, a double in the offline tests
     /// (<c>TcAttachTests</c>). The one way in: attach, recovery and the health poll all re-acquire through it.</summary>
@@ -126,12 +142,71 @@ internal sealed partial class TcObjectModel
             try { Marshal.ReleaseComObject(_dte); } catch { }
         }
         _dte = newDte;
-        try { _ideVersion = (string?)_dte.Version; } catch { /* version is cosmetic */ }
+        // The product: the running shell's own answer (DIALECT V5) — `TcXaeShell` / `15.0`, the form PLCAssist's
+        // pre-Volt history recorded. It was `_ideVersion`; the platform is the build now (OwnSolution).
+        _productName = ReadStated(() => (string?)_dte.Name, "DTE.Name");
+        _productVersion = ReadStated(() => (string?)_dte.Version, "DTE.Version");
     }
 
-    /// <summary>The OWNED XAE window's (version, project names) — this worker's health list, ITS window only.
-    /// Name-only — never touches the PLC tree (that can fault a fragile XAE in its own process). Runs on the STA thread.</summary>
-    public (string? Version, List<string> Projects) OwnSolution() => (_ideVersion, SolutionProjectNames().ToList());
+    /// <summary>The OWNED XAE window's (TwinCAT build, project names) — this worker's health list, ITS window only.
+    /// Name-only — never touches the PLC tree (that can fault a fragile XAE in its own process). Runs on the STA thread.
+    /// The build is re-read here, with the snapshot: it is the remote manager the open SOLUTION is pinned to, so it can
+    /// change inside one DTE; empty with no solution open, which reads null (DIALECT V5).
+    /// <para>One COM read per snapshot (the ~5 s probe): <c>GetObject("TcRemoteManager")</c> hands back a fresh RCW
+    /// each time, so it is released here the way <see cref="SwapDte"/> releases a replaced DTE — never left for the
+    /// finalizer to collect one per poll. A failing read stays null and never throws: this snapshot is the probe's
+    /// NEVER-THROWS path (<c>BeckhoffDriver.RefreshHealthSnapshot</c>), and a dead channel is already answered there by
+    /// <see cref="ProbeIdeAlive"/>, which runs first. The build is logged at the first read and on every change, so a
+    /// field log names the TwinCAT build the way the CODESYS start line names its platform.</para></summary>
+    public (string? Version, List<string> Projects) OwnSolution()
+    {
+        if (_dte != null)
+        {
+            var build = ReadBuild();
+            if (!_buildLogged || build != _ideVersion)
+                Log($"twincat build (TcRemoteManager.Version): {build ?? "(none stated — no solution open, or unreadable)"}");
+            _buildLogged = true;
+            _ideVersion = build;
+        }
+        else _ideVersion = null;
+        return (_ideVersion, SolutionProjectNames().ToList());
+    }
+
+    private bool _buildLogged;
+
+    private string? ReadBuild()
+    {
+        object? remote = null;
+        try
+        {
+            return ReadStated(() =>
+            {
+                remote = (object)_dte!.GetObject("TcRemoteManager");
+                return (string?)((dynamic)remote).Version;
+            }, "TcRemoteManager.Version");
+        }
+        finally { if (remote != null) ReleaseCom(remote); }
+    }
+
+    /// <summary>How a COM handle this model obtained is let go — <c>Marshal.ReleaseComObject</c> in production (a plain
+    /// object is not a COM handle and is left alone), a counting double in the offline tests (<c>TcIdentityTests</c>).</summary>
+    internal Action<object> ReleaseCom { get; set; } = o => { if (Marshal.IsComObject(o)) Marshal.ReleaseComObject(o); };
+
+    /// <summary>Where this model's Info lines go — <c>VoltLog</c> in production, a list in the offline tests.</summary>
+    internal Action<string> Log { get; set; } = VoltLog.Info;
+
+    /// <summary>One identity read off the DTE: its answer verbatim, null when empty, and null when it throws — then the
+    /// log names the exception, once per source and message (it is re-read every snapshot).</summary>
+    private static string? ReadStated(Func<string?> read, string source)
+    {
+        try { return Stated(read()); }
+        catch (Exception ex)
+        {
+            var why = $"{ex.GetType().Name}: {ex.Message}";
+            Volt.Engine.Ide.BridgeLog.WarnOnce("twincat-identity:" + source + ":" + why, $"twincat: {source} is unreadable, reported as null: {why}");
+            return null;
+        }
+    }
 
     // The IDE-project names in the currently bound DTE's solution — a diagnostic for a select that finds no match.
     private IEnumerable<string> SolutionProjectNames()

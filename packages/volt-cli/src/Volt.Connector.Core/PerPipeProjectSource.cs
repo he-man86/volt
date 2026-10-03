@@ -123,9 +123,11 @@ namespace Volt.Connector
                 var attach = new ProjectRef(p.Project);
                 // `unsupported` is a bridge-process fact (top level, like `ideVersion`): the IDE lacks what the bridge
                 // needs, so every row of that bridge carries the reason — it is what the tray and the frontends show,
-                // and what keeps the reconciler from sending a `connect` the bridge refuses every cycle.
+                // and what keeps the reconciler from sending a `connect` the bridge refuses every cycle. The identity
+                // (product, vendor, bridge release) is a process fact too, and rides onto every row the same way.
                 list.Add(new DetectedProject(DetectedProject.MakeId(vendor, attach), p.Project, vendor, p.Dirty, attach, pipe, p.Version,
-                    p.Status ?? HealthStatus.Idle, parsed!.Unsupported));
+                    p.Status ?? HealthStatus.Idle, parsed!.Unsupported,
+                    parsed.ProductName, parsed.ProductVersion, parsed.ProductVendor, parsed.BridgeVersion));
             }
             return list;
         }

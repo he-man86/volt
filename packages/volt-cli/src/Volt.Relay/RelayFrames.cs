@@ -49,7 +49,7 @@ namespace Volt.Relay
         /// <summary>This document's version. No negotiation — a relay that does not speak it closes the socket.</summary>
         public const int Protocol = 1;
 
-        public static string Hello(string voltVersion, string vendor, string pipe)
+        public static string Hello(string? voltVersion, string vendor, string pipe)
         {
             using (var stream = new System.IO.MemoryStream())
             {

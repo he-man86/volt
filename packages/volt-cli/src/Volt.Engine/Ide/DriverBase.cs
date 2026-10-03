@@ -84,8 +84,14 @@ public abstract class DriverBase : IIdeSession
     public abstract string Vendor { get; }
     /// <summary>See <see cref="IIdeSession.ServedProjectName"/> — the LIVE served project, never the cached snapshot.</summary>
     public abstract string? ServedProjectName { get; }
-    /// <summary>The IDE version, shown in the connector's project label (per instance). Not on the wire top-level.</summary>
+    /// <summary>See <see cref="IIdeSession.IdeVersion"/> — the platform version, on every row and on `health`.</summary>
     public abstract string? IdeVersion { get; }
+    /// <summary>See <see cref="IIdeSession.ProductName"/>.</summary>
+    public abstract string? ProductName { get; }
+    /// <summary>See <see cref="IIdeSession.ProductVersion"/>.</summary>
+    public abstract string? ProductVersion { get; }
+    /// <summary>See <see cref="IIdeSession.ProductVendor"/>.</summary>
+    public abstract string? ProductVendor { get; }
     /// <summary>See <see cref="IIdeSession.Unsupported"/>. Default: nothing missing. CODESYS overrides it with its
     /// capability check (<c>CodesysCapabilities</c>); TwinCAT has no measured capability gap and inherits this.</summary>
     public virtual string? Unsupported => null;

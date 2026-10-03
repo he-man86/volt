@@ -117,3 +117,16 @@ test("a project on an unsupported IDE carries its refusal into the snapshot", ()
 test("the detected-project key changes when a project's IDE becomes unsupported", () => {
   expect(detectedKey([{ ...proj, unsupported: REASON }] as never)).not.toBe(detectedKey([{ ...proj, unsupported: null }] as never))
 })
+
+// openspec ide-identity-report 2.4/2.5: the IDE identity line is decided by @volt/control and rides the snapshot to the
+// sandboxed renderer; the picker draws it, so the change key covers it — an identity that arrives later redraws the row.
+test("each project carries its IDE identity line into the snapshot", () => {
+  // a current bridge: it always states its release (design A) — without one the row reads as an older bridge
+  const p = { ...proj, productVendor: "Beckhoff", productName: "TcXaeShell", productVersion: "15.0", ideVersion: "3.1.4024.74", vendor: "twincat", bridgeVersion: "0.1.17258" }
+  const snap = snapshot({ projects: [p], status: undefined, connectorUp: true } as never)
+  expect(snap.surface.create[0]?.identity).toBe("Beckhoff TcXaeShell 15.0 — TwinCAT 3.1.4024.74")
+})
+
+test("the detected-project key changes when a project's IDE identity arrives", () => {
+  expect(detectedKey([{ ...proj, productName: "CODESYS" }] as never)).not.toBe(detectedKey([{ ...proj }] as never))
+})

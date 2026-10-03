@@ -35,7 +35,11 @@ public sealed partial class BeckhoffDriver : DriverBase, IIdeDriver
     // never lags the ~5s health snapshot. Same value BuildProjects() reads for its `served` row.
     public override string? ServedProjectName => IsConnected ? _om.ProjectName : null;
 
+    // The identity (DIALECT V5): the build as the platform, the shell as the product, the XAE exe's maker as vendor.
     public override string? IdeVersion => _om.IdeVersion;
+    public override string? ProductName => _om.ProductName;
+    public override string? ProductVersion => _om.ProductVersion;
+    public override string? ProductVendor => _om.ProductVendor;
 
     /// <summary>Per-XAE worker startup: own the ONE XAE window with this process id (the connector spawned us for it),
     /// and serve what it has open — its first TwinCAT project (<see cref="TcObjectModel.AttachFirstProject"/>), as the

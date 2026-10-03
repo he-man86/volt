@@ -403,13 +403,13 @@ export function bridgeRoots(views: WorkspaceView[], detected: DetectedProject[],
 // project — a rename, or the wrong bind) → re-point the binding, with the confirm in the command. (`init` never
 // reaches here — that's the unbound onboarding path.)
 function reconnectNode(o: ConnectOption): VoltNode {
-	if (o.refusal) return refusedNode(`reconnect:${o.project.id}`, o.project, o.refusal)
+	if (o.refusal) return refusedNode(`reconnect:${o.project.id}`, o, o.refusal)
 	// Vendor-blind: a project is identified by its name (the vendor is a wire/binding detail, never a label here).
 	if (o.action === "connect")
 		return {
 			key: `reconnect:${o.project.id}`,
 			label: `Reconnect to ${o.project.projectName}`,
-			tooltip: "Re-point the bridge at this workspace's project and resume syncing.",
+			tooltip: `Re-point the bridge at this workspace's project and resume syncing.\n${o.identity}`,
 			icon: new vscode.ThemeIcon("plug"),
 			command: { command: "volt.connect", title: "Connect" },
 		}
@@ -417,26 +417,27 @@ function reconnectNode(o: ConnectOption): VoltNode {
 		key: `rebind:${o.project.id}`,
 		label: o.project.projectName,
 		description: "rebind",
-		tooltip: `Bind this workspace to "${o.project.projectName}" instead (e.g. after a rename in the IDE). Your local code is untouched — confirms first.`,
+		tooltip: `Bind this workspace to "${o.project.projectName}" instead (e.g. after a rename in the IDE). Your local code is untouched — confirms first.\n${o.identity}`,
 		icon: new vscode.ThemeIcon("plug"),
 		command: { command: "volt.rebindProject", title: "Rebind", arguments: [o.project] },
 	}
 }
 
 // A project whose IDE the bridge refuses (openspec codesys-minimum-version): named, with the reason @volt/control
-// carries, and NO command — every call the click could make would be answered IDE_UNSUPPORTED.
-function refusedNode(key: string, p: DetectedProject, refusal: Refusal): VoltNode {
+// carries, and NO command — every call the click could make would be answered IDE_UNSUPPORTED. The IDE identity sits
+// beside the reason: a refused IDE is exactly when the user needs to know which one it is (ide-identity-report).
+function refusedNode(key: string, o: ConnectOption, refusal: Refusal): VoltNode {
 	return {
 		key,
-		label: p.projectName,
+		label: o.project.projectName,
 		description: refusal.caption,
-		tooltip: refusal.reason,
+		tooltip: `${refusal.reason}\n${o.identity}`,
 		icon: new vscode.ThemeIcon("error"),
 	}
 }
 
 function detectedNode(o: ConnectOption): VoltNode {
-	if (o.refusal) return refusedNode(`detected:${o.project.id}`, o.project, o.refusal)
+	if (o.refusal) return refusedNode(`detected:${o.project.id}`, o, o.refusal)
 	const p = o.project
 	return {
 		key: `detected:${p.id}`,
@@ -444,7 +445,7 @@ function detectedNode(o: ConnectOption): VoltNode {
 		// "click to set up" sits right after the name, on the row that actually does it. Fires volt.initProject with
 		// THIS project, so clicking sets up exactly what you clicked — no project-picker QuickPick to re-choose it.
 		description: "— click to set up",
-		tooltip: `Set this folder up to sync with "${p.projectName}".\nCreates the git workspace and pulls the project's code — the IDE is not modified.`,
+		tooltip: `Set this folder up to sync with "${p.projectName}".\nCreates the git workspace and pulls the project's code — the IDE is not modified.\n${o.identity}`,
 		icon: new vscode.ThemeIcon("plug"),
 		command: { command: "volt.initProject", title: "Set up this folder", arguments: [p] },
 	}

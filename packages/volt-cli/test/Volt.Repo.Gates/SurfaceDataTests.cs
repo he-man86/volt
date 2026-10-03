@@ -96,7 +96,14 @@ public class SurfaceDataTests
                     + "UI claim a connection against a gated bridge."),
                 Field("projectName", "string", "The name a workspace BINDING matches on."),
                 Field("pipe", "string?", "The bridge pipe serving it — what the shells set as `VOLT_PIPE`."),
-                Field("ideVersion", "string?", "Disambiguates same-named projects across IDE versions.")),
+                Field("ideVersion", "string?", "The platform version under the product (the CODESYS framework "
+                    + "version, or the TwinCAT build). Disambiguates same-named projects across IDE versions."),
+                Field("unsupported", "string?", "Why this row's bridge serves nothing — the IDE lacks something the "
+                    + "bridge needs. A client shows it instead of offering a connect."),
+                Field("productName", "string?", "The product the user runs, as the IDE names itself."),
+                Field("productVersion", "string?", "That product's own version, verbatim."),
+                Field("productVendor", "string?", "The product's maker, as its exe states it."),
+                Field("bridgeVersion", "string?", "The bridge release: the stamped version, or `(dev) <commit>`.")),
         },
     };
 
