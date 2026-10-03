@@ -27,5 +27,6 @@
     <Compile Include="..\shared\NetworkModelOracle.cs" Link="NetworkModelOracle.cs" />
     <Compile Include="..\shared\NetworkTextFacts.cs" Link="NetworkTextFacts.cs" />
     <Compile Include="..\shared\NetworkModelEquality.cs" Link="NetworkModelEquality.cs" />
+    <Compile Include="..\shared\ProjectSettingsFacts.cs" Link="ProjectSettingsFacts.cs" />
   </ItemGroup>
 </Project>

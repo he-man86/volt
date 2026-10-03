@@ -8,6 +8,7 @@ using Volt.Engine;
 using Volt.Engine.Format.Body;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Format.Network;
+using Volt.Engine.Format.Settings;
 using Volt.Engine.Format.St;
 using Volt.Engine.Ide;
 using Volt.Engine.Item;
@@ -729,6 +730,10 @@ public sealed partial class BeckhoffDriver
     // ── non-source manifest ──
     public string ReadManifest(ItemRef item, string kind)
     {
+        // `Project Settings` → the SHARED compiler-settings descriptor, the rows CODESYS writes that TwinCAT has a
+        // source for (DIALECT D37-D39). Before ProduceXml: the item is synthesized (TcProjectSettingsNode), not a tree node.
+        if (kind == ItemKind.Kinds.ProjectSettings) return ProjectSettingsFormat.Write(_om.ReadProjectSettings());
+
         // No silent catch: ProduceXml failing is a real error. An item that genuinely produces no XML
         // yields the canonical, kind-stamped empty manifest (deterministic version basis) — the SAME Core
         // helper CODESYS falls through to, so the two vendors cannot drift on those bytes.

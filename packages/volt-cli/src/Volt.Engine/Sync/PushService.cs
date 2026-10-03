@@ -180,6 +180,21 @@ public static class PushService
                 continue;
             }
 
+            // A READ-ONLY DESCRIPTOR (`.projectsettings`, `.device`, `.library`, …) is something the IDE RENDERS, not
+            // something a push writes — on either vendor, whichever route materialized it. Refused by name, as what it
+            // is. It used to reach the ST reader and come back INVALID_ST, "Unexpected composite POU kind", which
+            // blamed the text for being what the file is meant to be. A DELETE of one is the same refusal: it used to pass
+            // here (only sets were checked), so the batch's earlier ops landed and the delete then reached the vendor
+            // object — TwinCAT's synthesized settings marker, whose parent read threw an unnamed binder error, or a live
+            // CODESYS descriptor, removed.
+            if (ReadOnlyKindOf(op) is { } readOnly)
+            {
+                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unsupported,
+                    $"'{readOnly.Name}' is read-only: a {readOnly.Kind} descriptor is rendered from the IDE and is never " +
+                    "pushed. Change it in the IDE and pull.")));
+                continue;
+            }
+
             if (op is not SetItemOp { SourceText: { } text } set) continue;
             // A `.task` is a DESCRIPTOR, not assembled ST, so it is gated by its own format. Routing it
             // through `ValidateSourceOrThrow` would refuse every task push as a malformed document.
@@ -908,6 +923,17 @@ public static class PushService
             return renamed ? "renamed+updated" : "updated";
         }
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
+    }
+
+    /// <summary>The read-only kind an op names — a delete by its name, a set by either of its names (the one it targets
+    /// and the one it lands under) — or null when every name is writable. A name whose extension names no kind is not
+    /// this check's question.</summary>
+    private static (string Name, string Kind)? ReadOnlyKindOf(PushOp op)
+    {
+        foreach (var name in new[] { op.Name, (op as SetItemOp)?.ToName })
+            if (name is not null && ItemKind.KindForWireName(name) is { } kind && ItemKind.IsReadOnlyKind(kind))
+                return (name, kind);
+        return null;
     }
 
     /// <summary>Move an item to another folder — <see cref="IProjectTree.Move"/>, on every driver. The IDE

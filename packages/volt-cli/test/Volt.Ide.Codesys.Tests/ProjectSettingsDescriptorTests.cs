@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using Volt.Engine.Format.Settings;
 using Xunit;
 
 namespace Volt.Ide.Codesys.Tests;
@@ -15,23 +18,25 @@ namespace Volt.Ide.Codesys.Tests;
 /// </summary>
 public class ProjectSettingsDescriptorTests
 {
-    /// <summary>Drive the real private helper — a copy of the formatting rule here would test itself.</summary>
+    /// <summary>Drive the driver's real read of the warning configuration (<c>ReadProjectSettings</c>) and the shared
+    /// renderer, and answer the <c>Disabled warnings</c> value ("" when the row is omitted) — a copy of the formatting
+    /// rule here would test itself. (It drove a private <c>WarningIds</c> wrapper by reflection until gate 2 of
+    /// openspec <c>twincat-project-settings</c> deleted it: no shipped code called it any more.)</summary>
     private static string Render(object? ids)
     {
-        var m = typeof(CodesysObjectModel).GetMethod(
-            "WarningIds",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        Assert.NotNull(m);
-        // The helper asks its first argument for `getter`; a dictionary-free stand-in is enough.
-        return (string)m!.Invoke(null, new object?[] { new FakeWarnings(ids), "GetIds" })!;
+        var text = ProjectSettingsFormat.Write(CodesysObjectModel.ReadProjectSettings(new FakeWarnings(ids), null));
+        var line = text.Split('\n').SingleOrDefault(l => l.StartsWith("Disabled warnings:", StringComparison.Ordinal));
+        return line is null ? "" : line.Substring(line.IndexOf(':') + 1).Trim();
     }
 
-    /// <summary>Answers <c>GetIds()</c> with whatever it was handed — the shape `InvokeMethod` looks for.</summary>
+    /// <summary>Answers <c>GetDisabledWarningIds()</c> with whatever it was handed (and no warnings-as-errors) — the shape <c>InvokeMethod</c>
+    /// looks for.</summary>
     private sealed class FakeWarnings
     {
         private readonly object? _ids;
         public FakeWarnings(object? ids) => _ids = ids;
-        public object? GetIds() => _ids;
+        public object? GetDisabledWarningIds() => _ids;
+        public object? GetWarningAsErrorIds() => null;
     }
 
     [Fact]

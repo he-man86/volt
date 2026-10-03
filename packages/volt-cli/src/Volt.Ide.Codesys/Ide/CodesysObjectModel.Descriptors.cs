@@ -6,6 +6,7 @@ using System.Reflection;
 using Volt.Contracts;
 using Volt.Engine.Library;
 using Volt.Engine.Format.Body;
+using Volt.Engine.Format.Settings;
 using Volt.Engine.Format.St;
 using Volt.Engine.Format.Task;
 
@@ -94,43 +95,38 @@ namespace Volt.Ide.Codesys
                 ?? throw new InvalidOperationException("CODESYS: APEnvironment.LMServiceProvider unavailable");
             var config = GetMember(provider, "ConfigurationService")
                 ?? throw new InvalidOperationException("CODESYS: ILMServiceProvider.ConfigurationService unavailable");
-            var warnings = GetMember(config, "WarningConfiguration");
-            var options = GetMember(config, "CompileOptions");
-
-            return new Descriptor()
-                .Add("Disabled warnings", WarningIds(warnings, "GetDisabledWarningIds"))
-                .Add("Warnings as errors", WarningIds(warnings, "GetWarningAsErrorIds"))
-                .Add("Replace constants", Flag(options, "ReplaceConstants"))
-                .Add("Unicode identifiers", Flag(options, "UnicodeIdentifiers"))
-                .Add("UTF-8 encoding", Flag(options, "UTF8Encoding"))
-                .Add("Max compiler warnings", System.Convert.ToString(GetMember(options, "MaxCompilerWarnings")))
-                .Add("Breakpoint logging", Flag(options, "EnableBreakpointLogging"))
-                .Add("Project defines", System.Convert.ToString(GetMember(options, "ProjectDefines")))
-                .ToString();
+            return ProjectSettingsFormat.Write(ReadProjectSettings(
+                GetMember(config, "WarningConfiguration"), GetMember(config, "CompileOptions")));
         }
 
-        /// <summary>One warning-id set, rendered as sorted <c>Cnnnn</c> codes. The ids come back as BARE INTEGERS
-        /// (371, not C0371) and the collection is <c>null</c> — not empty — when nothing is configured, which is
-        /// the vendor's representation of "none", not a missing value to guard against.</summary>
-        private static string WarningIds(object? warnings, string getter)
+        /// <summary>The settings, as data, from the language model's two objects — the vendor half; the FILE LAYOUT
+        /// is the engine's (<see cref="ProjectSettingsFormat"/>), shared with the TwinCAT driver so the rows both
+        /// vendors carry are byte-identical (openspec <c>twincat-project-settings</c>). Split from the static walk
+        /// above so it runs offline against doubles of the two objects (<c>ProjectSettingsParityTests</c>).
+        /// CODESYS sources all eight rows.</summary>
+        internal static ProjectSettings ReadProjectSettings(object? warnings, object? options) => new ProjectSettings(
+            DisabledWarnings: Ids(warnings, "GetDisabledWarningIds"),
+            WarningsAsErrors: Ids(warnings, "GetWarningAsErrorIds"),
+            ReplaceConstants: GetMember(options, "ReplaceConstants") as bool?,
+            UnicodeIdentifiers: GetMember(options, "UnicodeIdentifiers") as bool?,
+            Utf8Encoding: GetMember(options, "UTF8Encoding") as bool?,
+            MaxCompilerWarnings: System.Convert.ToString(GetMember(options, "MaxCompilerWarnings")),
+            BreakpointLogging: GetMember(options, "EnableBreakpointLogging") as bool?,
+            ProjectDefines: System.Convert.ToString(GetMember(options, "ProjectDefines")));
+
+        /// <summary>One warning-id set as the vendor's integers. The ids come back as BARE INTEGERS (371, not C0371)
+        /// and the collection is <c>null</c> — not empty — when nothing is configured, which is the vendor's
+        /// representation of "none", not a missing value to guard against.</summary>
+        private static List<int>? Ids(object? warnings, string getter)
         {
-            if (InvokeMethod(warnings, getter) is not IEnumerable ids) return "";
-            var codes = new List<string>();
+            if (InvokeMethod(warnings, getter) is not IEnumerable ids) return null;
+            var codes = new List<int>();
             foreach (var id in ids)
             {
                 if (id == null) continue;
-                if (int.TryParse(System.Convert.ToString(id), out var n)) codes.Add("C" + n.ToString("D4"));
+                if (int.TryParse(System.Convert.ToString(id), out var n)) codes.Add(n);
             }
-            codes.Sort(StringComparer.Ordinal);
-            return string.Join(", ", codes);
-        }
-
-        /// <summary>A compile-option boolean as <c>on</c>/<c>off</c> — never blank, so an option that is OFF is
-        /// still a line in the file (Descriptor drops empty values, and "absent" would read as "unknown").</summary>
-        private static string Flag(object? options, string name)
-        {
-            var v = GetMember(options, name);
-            return v is bool b ? (b ? "on" : "off") : "";
+            return codes;
         }
 
         /// <summary>A trace/recording configuration (`.trace`): which task/trigger/resolution records what.

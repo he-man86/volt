@@ -191,7 +191,7 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
 
         Assert.False(xae.Dead);
-        Assert.Equal(new[] { "VltX_EG", "VltX_FP", "VltX_UCI", "Motor", "PLC_PRG" }, walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { "VltX_EG", "VltX_FP", "VltX_UCI", "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
         var named = Assert.Single(walk.UnreadableObjects);
         Assert.Equal(("VltX_UCFB", "VltCensus"), (named.Name, named.Folder));
         Assert.Contains("crashes TcXaeShell", named.Reason);
@@ -333,7 +333,7 @@ public class TcUntouchablePouTests
         var walk = driver.WalkItems();
         var pathReadsInTheWalk = xae.PathReads;
 
-        Assert.Equal(motors.Append("PLC_PRG"), walk.Items.Select(i => i.Name));
+        Assert.Equal(motors.Append("PLC_PRG").Append("Project Settings"), walk.Items.Select(i => i.Name));
         Assert.InRange(pathReadsInTheWalk, 1, 3);   // the PLC root once, and each of its two folders' scans
         Assert.NotNull(ItemLookup.Find(driver, "Motor8"));
         Assert.Empty(xae.Lookups);
@@ -380,7 +380,7 @@ public class TcUntouchablePouTests
 
         Assert.False(xae.Dead);
         Assert.Contains("VltCensus", walk.UnwalkedFolders);
-        Assert.Equal(new[] { "Motor", "PLC_PRG" }, walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { "Motor", "PLC_PRG", "Project Settings" }, walk.Items.Select(i => i.Name));
     }
 
     /// <summary>A folder the hierarchy does not list at all leaves the PLC project short of a child: the whole tree is

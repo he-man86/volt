@@ -98,7 +98,9 @@ public static class ItemKind
                                             // which compiler warnings are off / raised to errors, plus the compile
                                             // options. IWorkspaceObject. This was a deliberate known-skip while the
                                             // only way in was the SCRIPTING api, which exposes nothing readable for
-                                            // it; the object model does (see the descriptor). CODESYS-first.
+                                            // it; the object model does (see the descriptor). TwinCAT has no
+                                            // tree node for it: its walk SYNTHESIZES the item at the root
+                                            // (TcProjectSettings, DIALECT D37-D39).
                                             // (695-700 are CODESYS-first read-only descriptors for non-source project objects.)
 
     // ── [TC-only] TwinCAT TREEITEMTYPEs with no CODESYS equivalent ──
@@ -235,6 +237,11 @@ public static class ItemKind
 
     /// <summary>Whether a kind string is a source kind (assembled ST text, not a manifest).</summary>
     public static bool IsSourceKind(string kind) => SourceKinds.Contains(kind);
+
+    /// <summary>Whether a kind is a READ-ONLY descriptor: a reference kind (<see cref="ReferenceKindExtensions"/>) that
+    /// is not one of the <see cref="WritableReferenceKinds"/>. The IDE renders it; a push never writes it.</summary>
+    public static bool IsReadOnlyKind(string kind) =>
+        ReferenceKindExtensions.Any(r => r.Kind == kind) && !WritableReferenceSet.Contains(kind);
 
     /// <summary>The canonical manifest body for a non-source item whose vendor exposes NO metadata for its kind:
     /// a kind-stamped line — never null, never empty, so the version basis stays stable. BOTH drivers call this

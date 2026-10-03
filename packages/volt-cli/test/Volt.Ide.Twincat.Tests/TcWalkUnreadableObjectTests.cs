@@ -81,7 +81,7 @@ public class TcWalkUnreadableObjectTests
 
         var walk = driver.WalkItems();
 
-        Assert.Equal(new[] { "PlcDataType" }, walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { "PlcDataType", "Project Settings" }, walk.Items.Select(i => i.Name));
         var lost = Assert.Single(walk.UnreadableObjects);
         Assert.Equal(("SER_OperationModeType", "Data"), (lost.Name, lost.Folder));
         Assert.Contains("Data", walk.UnwalkedFolders);

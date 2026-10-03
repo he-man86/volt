@@ -49,8 +49,9 @@
       TwinCAT builder must declare the SAME 8 labels in the SAME order (a row with no TwinCAT source is `Add(label,
       null)` — emits nothing, keeps the column), and render ids/flags/ints through the same helpers (move
       `WarningIds`/`Flag` formatting out of the CODESYS driver into Engine so both drivers share it). Identity is then
-      row-for-row on the rows both vendors have (proven for Disabled warnings and Replace constants; Max compiler
-      warnings and Project defines carry the UNMEASURED points above); a CODESYS file always carries the THREE flag
+      row-for-row on the rows both vendors have (proven for Disabled warnings only; Replace constants, Max compiler
+      warnings and Project defines carry UNMEASURED points — gate 2 corrected "and Replace constants": no CODESYS
+      recording of `off` exists, task 3.4 (c)); a CODESYS file always carries the THREE flag
       rows TwinCAT cannot source — Unicode identifiers, UTF-8 encoding, Breakpoint logging (D39; Replace constants is
       CODESYS's fourth flag row and HAS a TwinCAT source, D38; Warnings as errors has no TwinCAT source either but is
       an id list, written only when it holds ids) — so whole files of a CODESYS and a TwinCAT project are never
@@ -80,11 +81,67 @@
       (net48), Contracts 19/19, Repo.Gates 92/92 — 2876 passed, 0 failed.
 
 ## 2. Build (red first)
-- [ ] 2.1 A TwinCAT driver test on a double: a project with C0371 disabled materializes `Project Settings.projectsettings`
+- [x] 2.1 A TwinCAT driver test on a double: a project with C0371 disabled materializes `Project Settings.projectsettings`
       with `Disabled warnings:     C0371`, identical to the CODESYS descriptor for the same settings.
-- [ ] 2.2 The TwinCAT driver materializes the descriptor from the vendor's stored settings (1.1); a row with no vendor
+      **Done 2026-10-03.** `TcProjectSettingsTests` (11 tests, red first: the suite did not compile without the
+      type) over MEASURED documents re-captured on a Project14 copy (instance `twincat-project-settings`; C0371, then
+      C0033, unchecked by `probe-tc-project-settings-gui.ps1` and saved): `fixtures/tc-project-settings/`
+      `untouched|c0371|c0033-c0371.plcproj.xml` (the `.xml` suffix keeps them out of the Repo.Gates `*.plcproj`
+      integrity gate — they are content, not openable projects), `nested-project.xml`, `plc-project-item.xml` (its
+      measured temp path replaced by `%PROJECT_PATH%`). The driver double walks `Project Settings` at folder `""`, kind
+      700, and its manifest is `Disabled warnings:     C0371` / `Replace constants:     off` / `Max compiler warnings: 100`
+      — the first line byte-identical to pro2193's and lenze-mid's CODESYS file. Two probe defects found on the way
+      and fixed: the GUI probe compared the archive key's Name unquoted (it is stored `"{8F99A816-..}"`, so the
+      read-back could never match), and `$plcItem = if (...)` let PowerShell unroll the COM tree item into its children.
+- [x] 2.2 The TwinCAT driver materializes the descriptor from the vendor's stored settings (1.1); a row with no vendor
       source is omitted and named in DIALECT.md — no default. Read-only like on CODESYS (a push of it is refused by name).
-- [ ] 2.3 Parity test across both drivers' doubles: same settings → same descriptor text.
+      **Done 2026-10-03.** The format moved into the engine: `Volt.Engine/Format/Settings/ProjectSettingsFormat`
+      (`ProjectSettings` record, null = no vendor source → row omitted, column kept; `WarningIds`, `Flag`), pinned
+      against the pro2193 and bakon-nano corpus bytes (`ProjectSettingsFormatTests`, 5). CODESYS renders through it
+      (`CodesysObjectModel.ReadProjectSettings`, offline-testable; its descriptor bytes unchanged). TwinCAT:
+      `TcProjectSettings` (pure: `.plcproj` archive → disabled ids, refusing a non-integer by name; NestedProject
+      `CompilerSettings` → the three live rows, refusing a document without them; the four D39 rows null),
+      `TcObjectModel.ReadProjectSettings` (reads afresh each call, no catch), the walk names the item unconditionally
+      via a `TcProjectSettingsNode` marker (KindCode/Name/ReadManifest route it; never handed to COM). DIALECT D37–D39
+      carry the driver notes and the quoted-key fact. Read-only: the bridge used to refuse a pushed descriptor as
+      INVALID_ST "Unexpected composite POU kind" (red, `ProjectSettingsReadOnlyPushTests`); the push pre-flight now
+      refuses any read-only kind (`ItemKind.IsReadOnlyKind`) by name, UNSUPPORTED, by its name or its rename target,
+      nothing written (both vendors — the engine is shared).
+- [x] 2.3 Parity test across both drivers' doubles: same settings → same descriptor text.
+      **Done 2026-10-03.** The drivers cannot share a process (net48 / net10.0-windows), so the parity is stated once in
+      `test/shared/ProjectSettingsFacts.cs` (linked into both suites): C0371 disabled →
+      `Disabled warnings:     C0371` (gate 2 dropped the `Replace constants:     off` row — see 2.G). `ProjectSettingsParityTests` (CODESYS, 2: the facts,
+      and the whole pro2193 file) and `TcProjectSettingsTests.The_shared_rows_match_the_cross_driver_facts` assert each
+      double against it; Replace constants, Max compiler warnings and Project defines are named UNMEASURED there (task 3.4), and the four
+      CODESYS-only rows asserted absent on TwinCAT. Numbers (as first built): C# Engine 1910 + 1 skipped / 1911, Cli 246/246,
+      Ide.Twincat 309/309, Ide.Codesys 207/207, Connector 113/113, Contracts 19/19, Repo.Gates 92/92 — 2896 passed,
+      0 failed; `dotnet build Volt.sln -c Release` 0 errors; `bun run check` 15 passed, 0 failed; volt-cli
+      `bun test test/unit` 4 pass. No LSP, fixture-map or recording change in this step.
+- [x] 2.G Gate 2 (2026-10-03): three review findings, all fixed, none skipped.
+      (1) medium — the read-only pre-flight checked only sets: a `deleteItem` of a read-only descriptor passed, the
+      batch's earlier ops landed, and the delete reached the vendor object (TwinCAT: the synthesized settings marker,
+      `TcObjectModel.Parent` → unnamed RuntimeBinderException; CODESYS: the live descriptor, removed). Red first:
+      `ProjectSettingsReadOnlyPushTests.A_delete_of_a_read_only_descriptor_is_refused_by_name_and_nothing_lands`
+      (theory: `.projectsettings` and `.library`, each after a valid PLC_PRG edit) — 2 failed, `accepted:true`. Fix:
+      `PushService.ReadOnlyKindOf` takes any op (a delete by its name, a set by name or rename target); green, nothing
+      written. (2) low — `ProjectSettingsFacts` called both rows CODESYS-recorded; `Replace constants:     off` is in no
+      corpus (all 5 read `on`) and both drivers render it through the shared `Flag`. The row left `SharedRows` for
+      `UnmeasuredRows` with the reason; the `ReplaceConstants` fact went with it (the CODESYS parity double no longer
+      sets it); 1.2's "proven for … Replace constants" corrected; D38/D39 say the parity covers Disabled warnings only;
+      task 3.4 gains (c). (3) low — the `WarningIds(object?, string)` wrapper in `CodesysObjectModel.Descriptors.cs`
+      deleted. It was not quite dead: `ProjectSettingsDescriptorTests` (5) reached it by reflection, and it was the only
+      out-of-file caller of the public `ProjectSettingsFormat.WarningIds`, so deleting it turned both red (5 failed;
+      Repo.Gates `NoTestOnlyCodeInSrc` named `WarningIds`). Neither premise changed: the descriptor tests now drive
+      the driver's real `ReadProjectSettings` + `ProjectSettingsFormat.Write` and assert the same `Disabled warnings`
+      values; `ProjectSettingsFormat.WarningIds`/`Flag` are private to the format and its two row tests assert the
+      same values through `Write`.
+      Numbers: `dotnet build Volt.sln -c Release` 0 errors (the first attempt hit a transient lock on
+      `Volt.Ide.Twincat/bin/Release/Volt.Engine.dll` held by another process, gone on retry); C# — Cli 246/246,
+      Engine 1912 + 1 skipped / 1913 (+2, the delete theory), Connector 113/113, Ide.Twincat 309/309, Ide.Codesys
+      207/207 (net48), Contracts 19/19, Repo.Gates 92/92 — 2898 passed, 0 failed; `bun run typecheck` 5/5 exit 0;
+      `bun run check` 15 passed, 0 failed; volt-cli `bun test test/unit` 4 pass, 0 fail. No fixture, transpiler,
+      recording or LSP change in this step, so no fixture map regeneration and no LSP suite (the LSP files modified in
+      the tree belong to another change and are not part of this commit).
 
 ## 3. Verify
 - [ ] 3.1 Live on TwinCAT: disable a warning in XAE, pull, the descriptor shows it; the LSP stops reporting that warning
@@ -97,5 +154,6 @@
 - [ ] 3.4 (gate 1, review finding 1 + 6) Measure before 2.3 asserts byte identity on these rows: (a) what TwinCAT's
       `MaxWarnings=0` means (the page offers only `<no limit>`) against CODESYS's `MaxCompilerWarnings` for the same
       number; (b) a CODESYS project with two defines — the `Project defines` line CODESYS writes, against TwinCAT's
-      stored `A,B`. Until measured, 2.3's parity test covers Disabled warnings and Replace constants only and names the
-      other two rows as unmeasured.
+      stored `A,B`; (c) (gate 2) Replace constants: a CODESYS project with it `off` (no corpus has one) against the
+      TwinCAT project's `false`, or a TwinCAT `true` against CODESYS's `on`. Until measured, 2.3's parity test covers
+      Disabled warnings only and names the other three rows as unmeasured.

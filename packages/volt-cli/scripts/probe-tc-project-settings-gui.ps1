@@ -87,7 +87,9 @@ function ByName([string]$n) { @($root.FindAll($TS::Descendants, (New-Object Syst
 # 0. The SAVED disabled set (D37): the .plcproj's PlcProjectOptions XmlArchive, OptionKey {8F99A816-..}, value
 #    DisabledWarningIds = bare ints joined by ','. No key, or no value, is nothing disabled.
 $sm = $dte.Solution.Projects.Item(1).Object
-$plcItem = if ($PlcProject) { $sm.LookupTreeItem("TIPC^$PlcProject") } else { $sm.LookupTreeItem("TIPC").Child(1) }
+# Assigned inside the branches, NOT `$plcItem = if (...)`: a statement's output is a pipeline, and PowerShell unrolls a
+# COM tree item that enumerates its children - $plcItem became the children array and ProduceXml() an Object[].
+if ($PlcProject) { $plcItem = $sm.LookupTreeItem("TIPC^$PlcProject") } else { $plcItem = $sm.LookupTreeItem("TIPC").Child(1) }
 if (-not $PlcProject) { $PlcProject = $plcItem.Name }
 $plcproj = ([xml]$plcItem.ProduceXml()).TreeItem.PlcProjectDef.ProjectPath
 function SavedDisabled {
@@ -96,7 +98,8 @@ function SavedDisabled {
     $ns.AddNamespace("m", "http://schemas.microsoft.com/developer/msbuild/2003")
     $set = @()
     foreach ($o in $proj.SelectNodes("//m:PlcProjectOptions//m:o[m:d[@n='Values']/m:v]", $ns)) {
-        if ($o.SelectSingleNode("m:v[@n='Name']", $ns).InnerText -ne "{8F99A816-E488-41E4-9FA3-846536012284}") { continue }
+        # The archive stores a key's Name QUOTED (`"{8F99A816-..}"`, measured 2026-10-03 on the Project14 copy).
+        if ($o.SelectSingleNode("m:v[@n='Name']", $ns).InnerText -ne '"{8F99A816-E488-41E4-9FA3-846536012284}"') { continue }
         $vals = @($o.SelectNodes("m:d[@n='Values']/m:v", $ns) | ForEach-Object { $_.InnerText })
         for ($k = 0; $k -lt $vals.Count; $k += 2) {
             if ($vals[$k] -eq "DisabledWarningIds" -and $vals[$k + 1]) {

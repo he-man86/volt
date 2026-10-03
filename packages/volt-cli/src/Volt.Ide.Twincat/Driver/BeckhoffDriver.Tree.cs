@@ -6,6 +6,7 @@ using Volt.Engine;
 using Volt.Contracts;
 using Volt.Engine.Ide;
 using Volt.Engine.Format.Body;
+using Volt.Engine.Format.Settings;
 using Volt.Engine.Format.Task;
 using Volt.Engine.Item;
 
@@ -42,6 +43,12 @@ public sealed partial class BeckhoffDriver
         var unwalked = new List<string>();
         var unreadable = new List<UnreadableObject>();
         WalkInner(_om.PlcRoot(), "", items, unwalked, unreadable);
+        // The compiler settings have no tree node on TwinCAT (they are the PLC project's property pages), so the item
+        // is NAMED here, at the project root where the CODESYS walk finds its `Project Settings` node, and read when
+        // its manifest is asked for (ReadManifest). Unconditional on purpose: an item whose presence depended on a read
+        // would vanish on a read fault, and absence reads as DELETED to a pull — a failed read is an unreadable item.
+        items.Add(new ProjectItem(ProjectSettingsFormat.ItemName, new ItemRef(TcProjectSettingsNode.Instance),
+                                  ItemKind.PlcProjectSettings, ""));
         WalkIoDevices(items, unwalked);
         return new WalkResult(items, unwalked, unreadable);
     }
@@ -263,7 +270,9 @@ public sealed partial class BeckhoffDriver
     public int ChildCount(ItemRef item) => _om.ChildCount(item.Native);
     public ItemRef ChildAt(ItemRef parent, int index1Based) => new(_om.ChildAt(parent.Native, index1Based));
     public ItemRef Parent(ItemRef item) => new(_om.Parent(item.Native));
-    public string Name(ItemRef item) => _om.GetName(item.Native);   // never "" — the name is the wire identity
+    public string Name(ItemRef item) => item.Native is TcProjectSettingsNode
+        ? ProjectSettingsFormat.ItemName
+        : _om.GetName(item.Native);   // never "" — the name is the wire identity
     public int KindCode(ItemRef item) => ClassifiedKind(item.Native);
 
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
@@ -407,7 +416,8 @@ public sealed partial class BeckhoffDriver
     // is `X.dut` for every one of them (`Materializer`). The code says nothing reliable about the shape anyway: a
     // push-create always seeds 606 whatever the body (`TcObjectModel.CreateChild`), and an in-place write of another
     // shape keeps the OLD code in the live session until a reload re-derives it (DIALECT C2e).
-    private int ClassifiedKind(object node) => _om.ItemType(node);
+    private int ClassifiedKind(object node) =>
+        node is TcProjectSettingsNode ? ItemKind.PlcProjectSettings : _om.ItemType(node);
 
     private static readonly HashSet<int> _loggedTcCodes = new HashSet<int>();
 
