@@ -21,6 +21,9 @@ const RESOLUTION_FAILURE: ReadonlySet<string> = new Set([
   // .gCall(1)` is "Cannot convert type 'Unknown type: '.gCall(1)'' to type 'INT'" beside it
   // (`expr_global_namespace_call_non_callable`, both vendors 2026-10-02)
   "invalid-call-target",
+  // …and so has a STRUCT type's name called, whose C0230 names why: `n := S()` is "Cannot convert type 'Unknown type:
+  // 'S()'' to type 'INT'" beside it (`dt_struct_type_name_called`, CODESYS 2026-10-03)
+  "type-name-as-value",
 ])
 
 /**

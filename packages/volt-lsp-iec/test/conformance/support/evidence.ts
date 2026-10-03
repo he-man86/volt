@@ -14,8 +14,9 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { computeSemanticDiagnostics, messagesFor, resolveConfig } from "../../../src/analysis/index.js"
+import type { AnalysisInitOptions } from "../../../src/analysis/config.js"
 import { computeNetworkTextDiagnostics } from "../../../src/network/index.js"
-import { parseDocument, parseSource, type Dialect } from "../../../src/frontend/syntax/index.js"
+import { parseDocument, parseSource, type CompileEnvironment, type Dialect } from "../../../src/frontend/syntax/index.js"
 import { build, type Scope } from "../../../src/frontend/symbols/index.js"
 import { lowerSource } from "../../../src/transpile/lower/index.js"
 import { run } from "../../../src/transpile/interp/index.js"
@@ -87,6 +88,39 @@ export function lspErrors(t: LanguageTest, all: readonly LanguageTest[], vendor:
 const LSP_ERRORS = new WeakMap<LanguageTest, WeakMap<readonly LanguageTest[], Map<Dialect, readonly string[]>>>()
 
 function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dialect): string[] {
+  return onFixtureProject(t, all, vendor, RECORDING_ENVIRONMENT, (own, files, project) => diagnosed(own, files, project, vendor))
+}
+
+/**
+ * EVERY ERROR AND WARNING the LSP gives a fixture, `[severity] message` sorted — the agreement replay's form — on a project
+ * of ANOTHER compile environment than the oracles' and with the project's own severities: a recording made on a 32-bit
+ * target (`recordings/<vendor>-32.build.json`, rule TY6, `target-32.test.ts`).
+ */
+export function lspMessagesOn(
+  t: LanguageTest,
+  all: readonly LanguageTest[],
+  vendor: Dialect,
+  environment: CompileEnvironment,
+  diagnostics: AnalysisInitOptions["diagnostics"],
+): string[] {
+  return onFixtureProject(t, all, vendor, environment, (own, files, project) => {
+    const config = resolveConfig({ vendor, diagnostics })
+    const diags = [
+      ...files.flatMap((f) => computeSemanticDiagnostics({ parseResult: f.parseResult, source: f.source, project, config })),
+      ...computeNetworkTextDiagnostics(own, project, messagesFor(vendor)),
+    ]
+    return diags.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${d.message.replace(/\r\n/g, "\n")}`).sort()
+  })
+}
+
+/** The fixture's files bound onto the libraries of a project of `environment`, `ask`ed, and unbound again. */
+function onFixtureProject(
+  t: LanguageTest,
+  all: readonly LanguageTest[],
+  vendor: Dialect,
+  environment: CompileEnvironment,
+  ask: (own: FixtureFile, files: readonly FixtureFile[], project: Scope) => string[],
+): string[] {
   // ONE ITEM, ONE FILE — the layout the protocol guarantees and `fixtures.test.ts` replays. `assembleFixture` is the
   // TRANSPILER's assembly: it concatenates every dependency AND the synthesized PLC_PRG into a single source. Read
   // as a file, that source holds two top-level POUs, which is exactly the shape `signature-name` treats as a fixture
@@ -104,23 +138,27 @@ function lspErrorsNow(t: LanguageTest, all: readonly LanguageTest[], vendor: Dia
   const plcText = plcPrgSource(t)
   const plc = { uri: `file:///conformance/${t.name}/PLC_PRG.pou`, source: plcText, parseResult: parseSource(plcText, { networkText: true }, vendor) }
   const files = [own, ...lists, plc, ...deps]
-  // the libraries bound once, this fixture's files on top for the length of the call — as `fixtures.test.ts` does
-  let project = lspBase.get(vendor)
+  // the libraries bound once per vendor and environment, this fixture's files on top for the length of the call — as
+  // `fixtures.test.ts` does
+  const baseKey = `${vendor} ${environment.target?.pointerBits ?? "?"}`
+  let project = lspBase.get(baseKey)
   if (project === undefined) {
-    project = build.buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor, RECORDING_ENVIRONMENT, projectDevices(vendor))
-    lspBase.set(vendor, project)
+    project = build.buildSymbolTable(libraryFiles(vendor), PROJECT_MANIFESTS, vendor, environment, projectDevices(vendor))
+    lspBase.set(baseKey, project)
   }
   for (const f of files) build.bindFile(project, f)
   build.relink(project, PROJECT_MANIFESTS)
   try {
-    return diagnosed(own, files, project, vendor)
+    return ask(own, files, project)
   } finally {
     for (const f of files) build.unbindFile(project, f.uri)
     build.relink(project, PROJECT_MANIFESTS)
   }
 }
 
-const lspBase = new Map<Dialect, Scope>()
+const lspBase = new Map<string, Scope>()
+
+type FixtureFile = { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }
 
 function diagnosed(own: { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }, files: readonly { uri: string; source: string; parseResult: ReturnType<typeof parseSource> }[], project: Scope, vendor: Dialect): string[] {
   const config = resolveConfig({ vendor })

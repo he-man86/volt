@@ -3614,11 +3614,12 @@ export const RULES: readonly Rule[] = [
     section: "4.1",
     rule: "platform integers on a 32-bit target",
     home: "platform (Target)",
-    gap: true,
-    fixtures: [],
+    gap: false,
+    fixtures: ["types/platform-integers.ts", "plat_*", "ty_pointer_size_twincat", "cv_integers_into_pointer"],
+    tests: [{ file: "test/conformance/target-32.test.ts", title: "a 32-bit target (rule TY6): the LSP against TwinCAT's build on TwinCAT CE7 (ARMV7)" }],
     design: "**GAP**",
     recheck:
-      "4.1.1: IMPLEMENTED (`PLATFORM_ALIASES_32`, `pointerFits` on a 32-bit target, unit-tested) and MEASURED, but not in a committed recording: TwinCAT Project14's active platform is TwinCAT CE7 (ARMV7), and recording the 50 4.1/4.2 fixtures there (2026-10-03) answered __XINT/__UXINT/__XWORD → DINT/UDINT/DWORD and a pointer silent into DWORD/UDINT — the 2026-09-20 full re-record's answer. `twincat.build.json` states ONE target (64-bit, `scripts/check-recording.ts`), so those rows were re-recorded on the x64 Project13 and the 32-bit ones are no oracle yet. Closing this needs a recording of its own target (a 32-bit build file), not a row in the 64-bit one.",
+      "4.8 (2026-10-03): RECORDED on its own target — `recordings/twincat-32.build.json`, TwinCAT Project14 on TwinCAT CE7 (ARMV7), written by `VOLT_RECORDING_TARGET=32` (`record-language`), its probe answering __XINT a DINT. The 38 fixtures that name a platform integer or store a pointer, asked there: __XINT/__UXINT/__XWORD are DINT/UDINT/DWORD, a pointer is silent into DWORD/UDINT and refused into WORD; the LSP replays each on a 32-bit project (`target-32.test.ts`, C0033 an error as the project has it) and agrees with all but one expected failure (`cp_xsizeof`, TwinCAT's XSIZEOF). 4.7.4 review: that first batch ran beside another session's Project14 XAE and recorded three fixtures clean that build with errors; re-recorded on an XAE of its own with `dt_pointer_difference` (39 fixtures): `ty_xint_to_dint_result_type` and `dt_pointer_arithmetic_values` now agree (their niche marks removed), and an integer into a pointer is the mirror of the 64-bit rule — a 64-bit integer refused, the rest as into a UDINT (`compat` `integerIntoPointer`, `cv_integers_into_pointer`).",
   },
   {
     id: "TY7",
@@ -4441,8 +4442,10 @@ export const RULES: readonly Rule[] = [
     rule: "an alias resolves in its own file",
     home: "resolve",
     gap: false,
-    fixtures: ["types/corpus-types.ts", "types/data-type.ts"],
+    fixtures: ["types/corpus-types.ts", "types/data-type.ts", "dt_alias_type_name", "dt_alias_narrowing_name", "dt_alias_struct_and_array_values"],
     design: "types/corpus-types.ts, types/data-type.ts",
+    recheck:
+      "4.7.4 (2026-10-03): a variable of an alias, and of an alias of one, is named as the type the alias resolves to ('INT', both vendors), its narrowing too; an alias of a STRUCT and of an ARRAY is read through (5, 7); an alias's own bounds and lengths resolve in the project its file sees (`test/frontend/dumps.ts` `sites`)."
   },
   {
     id: "DT2",
@@ -4451,8 +4454,10 @@ export const RULES: readonly Rule[] = [
     rule: "an alias with an initializer",
     home: "resolve + const",
     gap: false,
-    fixtures: ["type_dut_alias_with_init"],
+    fixtures: ["type_dut_alias_with_init", "dt_alias_of_alias_init", "dt_alias_init_*"],
     design: "type_dut_alias_with_init",
+    recheck:
+      "4.7.4 (2026-10-03): an alias's initializer is NOT inherited by an alias of it (`dt_alias_of_alias_init`: 42, 0, 7); both vendors check it as a store into the base as often as the alias is used — never unused, a refusal once, a warning once plus once per FB variable on CODESYS — which the LSP does not (`ALIAS_INITIALIZER_NOT_CHECKED`, niche: accepted loss, 0 aliases with an initializer in the corpora)."
   },
   {
     id: "DT3",
@@ -4507,8 +4512,10 @@ export const RULES: readonly Rule[] = [
     rule: "THIS types as the enclosing FB; `THIS^` is identity",
     home: "infer/member",
     gap: false,
-    fixtures: ["calls/call-shapes.ts", "calls/fb-call.ts", "oop/*"],
+    fixtures: ["calls/call-shapes.ts", "calls/fb-call.ts", "oop/*", "dt_this_type", "dt_this_into_pointer", "dt_super_type", "dt_this_deref_identity_values"],
     design: "calls/call-shapes.ts, calls/fb-call.ts, oop/*",
+    recheck:
+      "4.7.4 (2026-10-03): THIS is a POINTER TO the enclosing FB and SUPER one to its base, `^` the FB — each named upper-cased ('POINTER TO FB_LANG_DT_THIS_TYPE', both vendors; `infer/member` `thisType`, `superType`); THIS converts into any pointer silently; a base member written through THIS^ reads back through SUPER^ (9). The design row said THIS was the FB."
   },
   {
     id: "DT8",
@@ -4517,8 +4524,10 @@ export const RULES: readonly Rule[] = [
     rule: 'a name that denotes a GVL/enum/POU/namespace is a static member base (namespace and interface typed "struct" today)',
     home: "infer/member",
     gap: false,
-    fixtures: ["cross-object/*"],
+    fixtures: ["cross-object/*", "dt_static_base_*", "dt_namespace_static_base", "dt_interface_static_base", "dt_interface_static_member", "dt_fb_instance_type_name", "dt_interface_variable_type_name", "dt_function_name_in_own_body"],
     design: "cross-object/*",
+    recheck:
+      "4.7.4 (2026-10-03): a name that denotes a declaration is a static base, and read as a value it is refused, named upper-cased: a GVL's, a namespace's, a STRUCT type's, an INTERFACE's and an uncalled FUNCTION's name are a `StaticType` (`type`; they were a \"struct\", UNKNOWN and the return type), a PROGRAM's and an FB type's the POU (`infer/member` `staticScopeType`), an enum type's its enum; an FB or interface type name stored says it must be instantiated; an INSTANCE, an interface variable and an array are refused named as declared (`analysis/rules` `storeConversionError`); a FUNCTION's name inside its own body is its result, and called there has no result (`cc2_call_recursion`)."
   },
   {
     id: "DT9",
@@ -4527,8 +4536,10 @@ export const RULES: readonly Rule[] = [
     rule: "an FB takes no positional arguments; a function/method does",
     home: "infer/callee",
     gap: false,
-    fixtures: ["calls/call-grid.ts", "refuse_fb_called_positionally"],
+    fixtures: ["calls/call-grid.ts", "refuse_fb_called_positionally", "dt_program_called_positionally", "dt_interface_method_positional_values"],
     design: "calls/call-grid.ts, refuse_fb_called_positionally",
+    recheck:
+      "4.7.4 (2026-10-03): a PROGRAM takes no positional argument either (\"Assignment to input missing for parameter '5' in call of 'PRG_…'\", both vendors; `infer/callee` `takesNoPositionalArguments`); an interface's method takes them (42)."
   },
   {
     id: "DT10",
@@ -4537,8 +4548,10 @@ export const RULES: readonly Rule[] = [
     rule: "render: TIME_OF_DAY spelling, `ARRAY [` with a space, STRING(n)",
     home: "render",
     gap: false,
-    fixtures: ["cc_ltod_literal_into_tod", "cc_standard_len_wstring", "cc6_function_input_array_default"],
+    fixtures: ["cc_ltod_literal_into_tod", "cc_standard_len_wstring", "cc6_function_input_array_default", "dt_render_array_dims", "dt_render_string_capacity", "dt_render_date_time_names", "dt_render_pointer_names"],
     design: "cc_ltod_literal_into_tod, cc_standard_len_wstring, cc6_function_input_array_default",
+    recheck:
+      "4.7.4 (2026-10-03): 'ARRAY [1..2, 0..1] OF BYTE', 'ARRAY [0..1] OF STRING(5)', 'ARRAY [0..1] OF ARRAY [0..2] OF INT', 'STRING(5)' and a sizeless 'STRING', 'WSTRING(7)', 'DATE', 'TIME_OF_DAY', 'DATE_AND_TIME', 'TIME', 'LTIME', 'POINTER TO POINTER TO INT', 'POINTER TO ARRAY [0..1] OF REAL' — every one as `render` prints it, both vendors (an array into an elementary was unchecked)."
   },
   {
     id: "DT11",
@@ -4547,8 +4560,10 @@ export const RULES: readonly Rule[] = [
     rule: "render: a string literal as `STRING(INT#len)`",
     home: "render (compiler form)",
     gap: false,
-    fixtures: ["cc_string_escape_literal_into_int", "operators/system-operands.ts"],
+    fixtures: ["cc_string_escape_literal_into_int", "operators/system-operands.ts", "dt_render_string_literal", "dt_render_string_constant"],
     design: "cc_string_escape_literal_into_int, operators/system-operands.ts",
+    recheck:
+      "4.7.4 (2026-10-03): 'STRING(INT#0)' for an empty literal, 'STRING(INT#3)' for `'a$$b'` (decoded), 'WSTRING(INT#4)' for a WSTRING literal; a STRING CONSTANT is its variable's type, 'STRING' (both vendors)."
   },
   {
     id: "DT12",

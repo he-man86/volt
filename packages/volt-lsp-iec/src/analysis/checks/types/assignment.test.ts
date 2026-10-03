@@ -235,3 +235,73 @@ test("a variable stored into a subrange names the target in its assignment form"
     "Cannot convert type 'DINT' to type 'UINT (UINT#1..10)'",
   ])
 })
+
+/** Every `assignment-type-mismatch` message of `units` (whole units, an FB `F` among them). */
+const mismatchesIn = (units: string): string[] => {
+  const parseResult = parseSource(units, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
+  return computeSemanticDiagnostics({ parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "assignment-type-mismatch")
+    .map((d) => d.message)
+}
+
+// A VALUE THAT IS NO ELEMENTARY ONE is refused into an elementary target, named as its type: an FB instance and an
+// interface variable as declared, an array with its bounds, THIS^ and a name that denotes a declaration upper-cased
+// (rules DT7, DT8, DT10; `dt_fb_instance_type_name`, `dt_interface_variable_type_name`, `dt_render_array_dims`,
+// `dt_this_type`, `dt_static_base_*`, CODESYS 2026-10-03). Only a STRUCT was (`ty_version_into_string`).
+test("an FB instance, an interface, an array, THIS^ and a static name stored into an elementary are refused (DT7, DT8, DT10)", () => {
+  const units = `INTERFACE I_x\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE
+FUNCTION_BLOCK Fb_other\nEND_FUNCTION_BLOCK
+FUNCTION F_x : INT\nF_x := 1;\nEND_FUNCTION
+PROGRAM Prg_x\nEND_PROGRAM
+FUNCTION_BLOCK F
+VAR
+\tinst : Fb_other;
+\titf : I_x;
+\ta2 : ARRAY[1..2, 0..1] OF BYTE;
+\ttxt : STRING;
+\ti : INT;
+END_VAR
+txt := inst;
+txt := itf;
+i := a2;
+txt := THIS^;
+txt := F_x;
+txt := Prg_x;
+txt := I_x;
+END_FUNCTION_BLOCK`
+  expect(mismatchesIn(units)).toEqual([
+    "Cannot convert type 'Fb_other' to type 'STRING'",
+    "Cannot convert type 'I_x' to type 'STRING'",
+    "Cannot convert type 'ARRAY [1..2, 0..1] OF BYTE' to type 'INT'",
+    "Cannot convert type 'F' to type 'STRING'",
+    "Cannot convert type 'F_X' to type 'STRING'",
+    "Cannot convert type 'PRG_X' to type 'STRING'",
+    "Cannot convert type 'I_X' to type 'STRING'",
+  ])
+})
+
+// Another FB's METHOD named without its call, read inside a method OF THE SAME NAME: it is still that other method
+// ('VALUE'), not the reading method's result variable — `insideOwnBody` matched by name only (step 4.7.4 review).
+// CODESYS gives the 'VALUE' message alone for an uncalled method (`cc2_type_name_and_method_without_parens`).
+test("another FB's uncalled method read inside a method of the same name is the method, not the result variable", () => {
+  const units = `FUNCTION_BLOCK A\nEND_FUNCTION_BLOCK\nMETHOD Value : INT\nValue := 1;\nEND_METHOD
+FUNCTION_BLOCK F
+VAR
+\ta : A;
+\ttxt : STRING;
+END_VAR
+END_FUNCTION_BLOCK
+METHOD Value : INT
+txt := a.Value;
+END_METHOD
+METHOD Other : INT
+txt := a.Value;
+END_METHOD`
+  const parseResult = parseSource(units, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: units }])
+  const messages = computeSemanticDiagnostics({ parseResult, source: units, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.message.startsWith("Cannot convert"))
+    .map((d) => d.message)
+  expect(messages).toEqual(["Cannot convert type 'VALUE' to type 'STRING'", "Cannot convert type 'VALUE' to type 'STRING'"])
+})

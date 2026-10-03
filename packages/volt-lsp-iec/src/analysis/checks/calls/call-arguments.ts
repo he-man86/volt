@@ -19,7 +19,7 @@
  */
 import { walkAllExprs, type CallArg, type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { bodies, isLibrarySymbol, lookupMember, type Scope } from "../../../frontend/symbols/index.js"
-import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, type Type } from "../../../frontend/types/index.js"
+import { type CalleeInfo, constancyOf, elementaryType, elementaryTypeRef, GENERIC_PARAMETER_TYPES, genericParameterAccepts, inferExprType, isAssignable, isIntLiteral, isSameType, literalOwnType, renderType, resolveCallee, resolveTypeExpr, takesNoPositionalArguments, type Type } from "../../../frontend/types/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
 import { checkable, checkableType, conversionWarning, isStrictEnum } from "../../rules.js"
@@ -59,8 +59,8 @@ function checkCall(
   // Vendor-mirrored wording: a FUNCTION/METHOD reports the exact input count it requires (C0040); an FB reports
   // the 1-based position of the arg that has no input to bind to (C0044).
   if (callee.complete && positional.length > callee.positionalArity) {
-    const isFb = callee.sym.kind === "function_block"
-    if (isFb) {
+    // an FB and a PROGRAM (rule DT9, `dt_program_called_positionally`)
+    if (takesNoPositionalArguments(callee.sym)) {
       // ONE MESSAGE PER POSITIONAL ARGUMENT, each naming THAT ARGUMENT'S SOURCE TEXT, and the callee UPPER-CASED.
       // All three were wrong and the third is the vendor's own inconsistency, not ours: this message upper-cases the
       // FB's name where the VAR_IN_OUT one two hundred lines below keeps the declared case — `refuse_inout_not_given`

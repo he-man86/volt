@@ -290,6 +290,35 @@ export function twincatXaddResultType(first: Type): Type {
 }
 
 /**
+ * WHAT AN ATOMIC INTRINSIC TAKES ITS FIRST OPERAND AS, per dialect (`calls/atomic-operands.ts`, both recordings 2026-09-19/20,
+ * TwinCAT on x64), or undefined for a name that is none of them (or that the dialect lacks):
+ *   `TEST_AND_SET`        a DWORD by address, on both vendors — the operand STORED into one, by the assignment rule
+ *                         (`store`: refused or warned as `x : DWORD := flag` would be);
+ *   `__XADD`              CODESYS takes the ADDRESS — any pointer, every other operand refused into `POINTER TO DINT`
+ *                         ("Cannot convert type 'DINT' to type 'POINTER TO DINT'"); TwinCAT takes the DINT ITSELF, an
+ *                         operand that does not convert into a DINT refused ("Cannot convert type 'POINTER TO DINT' to
+ *                         type 'DINT'"; INT and DWORD pass — widening, and a sign crossing TwinCAT does not warn about at
+ *                         an argument);
+ *   `__COMPARE_AND_SWAP`  CODESYS only (TwinCAT: "Identifier '__COMPARE_AND_SWAP' not defined"), as `__XADD` with
+ *                         `POINTER TO LWORD`.
+ * `refuses` judges a KNOWN operand type; an unknown one is never refused.
+ */
+export type AtomicOperand = { type: Type; store: true } | { type: Type; store: false; refuses: (operand: Type) => boolean }
+
+export function atomicOperand(name: string, dialect: Dialect | undefined): AtomicOperand | undefined {
+  const upper = name.toUpperCase()
+  if (upper === "TEST_AND_SET") return { type: elementaryRef("DWORD"), store: true }
+  const pointee = upper === "__XADD" ? "DINT" : upper === "__COMPARE_AND_SWAP" ? "LWORD" : undefined
+  if (pointee === undefined) return undefined
+  if (dialect === "twincat") {
+    if (CODESYS_ONLY_KEYWORDS.has(upper)) return undefined
+    const target = elementaryRef(pointee)
+    return { type: target, store: false, refuses: (t) => t.kind !== "unknown" && (t.kind !== "elementary" || !isAssignable(target, t)) }
+  }
+  return { type: { kind: "pointer", target: elementaryRef(pointee) }, store: false, refuses: (t) => t.kind !== "pointer" && t.kind !== "unknown" }
+}
+
+/**
  * `ADR(x)` IS A POINTER TO x's TYPE and `__NEW(T)` A POINTER TO T: "Cannot convert type 'POINTER TO INT' to type 'STRING'",
  * 'POINTER TO ARRAY [0..3] OF BYTE', 'POINTER TO DUT_LANG_ar_new_target' (`ar_adr_type`, `ar_new_type`, both vendors
  * 2026-10-03, rules AR22/AR24). `target` is what is addressed or created; an unknown one leaves the pointer unknown.

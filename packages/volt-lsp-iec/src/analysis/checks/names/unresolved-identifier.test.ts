@@ -417,3 +417,29 @@ test("an unknown member of an ANY / ANY_* input is unmeasured and stays silent â
   const src = "FUNCTION F : DINT\nVAR_INPUT\n\tx : ANY_NUM;\nEND_VAR\nVAR\n\ti : INT;\nEND_VAR\ni := x.nope;\nF := x.diSize;\nEND_FUNCTION"
   expect(diag(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
 })
+
+// A member a declaration's NAME does not have (a STRUCT type, an INTERFACE, a PROGRAM; THIS^'s FB): the base became a
+// `StaticType` / an upper-cased POU in rule DT8 (task 4.7.4), and the review found the member check silent for the first
+// two and naming the last two upper-cased. Only the "Cannot convert" store was measured upper-cased (`dt_this_type`,
+// `dt_static_base_*`); a member-not-found message keeps the declared case, as before DT8.
+test("a member a type's, a program's or THIS^'s name does not declare is no component, named as declared", () => {
+  const src = `TYPE Dut_s :\nSTRUCT\nx : INT;\nEND_STRUCT\nEND_TYPE
+INTERFACE I_x\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE
+PROGRAM Prg_x\nVAR\nx : INT;\nEND_VAR\nEND_PROGRAM
+FUNCTION_BLOCK Fb_a\nVAR\nn : INT;\nEND_VAR\nn := Dut_s.nope;\nn := I_x.nope;\nn := Prg_x.nope;\nn := THIS^.nope;\nEND_FUNCTION_BLOCK`
+  const parseResult = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult, source: src }])
+  const ds = computeSemanticDiagnostics({ parseResult, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+  expect(ds.filter((d) => d.code === "unknown-member").map((d) => d.message)).toEqual([
+    "'nope' is no component of 'Dut_s'",
+    "'nope' is no component of 'I_x'",
+    "'nope' is no component of 'Prg_x'",
+    "'nope' is no component of 'Fb_a'",
+  ])
+  expect(ds.filter((d) => d.code === "unknown-source").map((d) => d.message)).toEqual([
+    "Cannot convert type 'Unknown type: 'Dut_s.nope'' to type 'INT'",
+    "Cannot convert type 'Unknown type: 'I_x.nope'' to type 'INT'",
+    "Cannot convert type 'Unknown type: 'Prg_x.nope'' to type 'INT'",
+    "Cannot convert type 'Unknown type: 'THIS^.nope'' to type 'INT'",
+  ])
+})

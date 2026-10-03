@@ -126,7 +126,7 @@ function fieldsOf(init: Initializer): { name: string; span: Span; value?: Initia
 }
 
 /** `STRUCT(x := 1, y := 2)` — the compiler's name for an initializer it could not attach to a type. */
-function structEcho(init: Initializer): string {
+export function structEcho(init: Initializer): string {
   const element = (el: AggregateElement): string => {
     if (el.kind === "field") return `${el.name} := ${element(el.value)}`
     if (el.kind === "value") return el.expr.kind === "literal" ? el.expr.text : "?"
@@ -142,7 +142,7 @@ function isArrayInit(init: Initializer): boolean {
   return init.kind === "aggregate_init" && init.form === "array"
 }
 
-function isStructInit(init: Initializer): boolean {
+export function isStructInit(init: Initializer): boolean {
   // A single-field `(p1 := 1)` parses as a paren-wrapped assignment expression; multi-field / `STRUCT(…)`
   // parse as an aggregate whose form is "struct".
   if (init.kind === "paren") return init.inner.kind === "assign_expr"

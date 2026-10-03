@@ -51,3 +51,15 @@ test("CALLING an interface by its type name says so twice; reaching into one say
     .map((d) => d.message)
   expect(msgs).toEqual(["Interface 'ITF_run' must be instantiated to be accessed", "Cannot call object of type 'INTERFACE'"])
 })
+
+// …and a type name STORED as a value: `txt := FB_x` and `txt := I_x` say it must be instantiated, beside the refused store
+// (rule DT8, `dt_static_base_fb_type`, `dt_interface_static_base`, CODESYS 2026-10-03) — they said only the store, or nothing.
+test("an FB or interface type name stored as a value must be instantiated (dt_static_base_fb_type, dt_interface_static_base)", () => {
+  const src = `FUNCTION_BLOCK F\nVAR\n\ttxt : STRING;\n\tinst : FB;\nEND_VAR\ntxt := FB;\ntxt := ITF;\ntxt := inst;\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nEND_FUNCTION_BLOCK\nINTERFACE ITF\nEND_INTERFACE`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F", parseResult: pr, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "fb-not-instantiated" || d.code === "interface-not-instantiated")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["Function block 'FB' must be instantiated to be accessed", "Interface 'ITF' must be instantiated to be accessed"])
+})

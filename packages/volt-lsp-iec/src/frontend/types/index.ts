@@ -52,7 +52,7 @@ export { renderType } from "./render.js"
 // inference
 export { inferExprType } from "./infer/expr.js"
 export { isEnumValueRef, memberScopeOf, resolveMemberChain } from "./infer/member.js"
-export { resolveCallee, type CalleeInfo } from "./infer/callee.js"
+export { resolveCallee, takesNoPositionalArguments, type CalleeInfo } from "./infer/callee.js"
 
 // compatibility, constants, arithmetic, operators, built-ins
 export { classifyConversion, GENERIC_PARAMETER_TYPES, genericParameterAccepts, isAssignable, isSameType, pointerFits, type ConversionKind } from "./compat.js"
@@ -77,5 +77,5 @@ export {
   shortCircuitType,
   unaryOperandConversion,
 } from "./arith/operators.js"
-export { BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, selectionValueArguments, type BuiltinName } from "./builtins.js"
+export { atomicOperand, BUILTIN_OPERATOR_NAMES, BUILTIN_RESULT, builtinName, exptResultType, selectionValueArguments, type AtomicOperand, type BuiltinName } from "./builtins.js"
 export { resolveBareName, resolveGlobalName, type BareName } from "./names.js"

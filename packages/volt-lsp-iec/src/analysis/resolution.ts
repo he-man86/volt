@@ -147,7 +147,12 @@ function checkMember(m: MemberExpr, scope: Scope, project: Scope): MemberRef | u
   // a REFERENCE TO a type is read through: `rf.nope` is no component of the FB (rule M3, `mem_unknown_member_through_reference`)
   const written = inferExprType(m.base, scope, project)
   const t = written.kind === "reference" ? written.target : written
-  if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum" && t.kind !== "interface") return undefined
+  // …and a STRUCT type's, an INTERFACE's or a namespace's NAME as the base (rule DT8's `StaticType`; a "struct" before it):
+  // `Dut_s.nope` is no component of 'Dut_s', named as declared, as it was (step 4.7.4 review). A GVL's is `gvlBlockOf`'s
+  // above; a FUNCTION's or METHOD's name has no members.
+  if (t.kind === "static") {
+    if (t.denotes !== "struct" && t.denotes !== "interface" && t.denotes !== "namespace") return undefined
+  } else if (t.kind !== "struct" && t.kind !== "function_block" && t.kind !== "enum" && t.kind !== "interface") return undefined
   if (t.scope === undefined) return undefined
   // an ANY / ANY_* input is the compiler's __SYSTEM.AnyType (`types/system`): its known members are typed, but an unknown
   // one is unrecorded — the vendor's sentence may name AnyType rather than the group — so it is not refused (step 4a review)

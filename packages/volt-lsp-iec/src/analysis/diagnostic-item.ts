@@ -35,5 +35,11 @@ export function pushForDeclaration(
   diagnostic: DiagnosticItem,
 ): void {
   out.push(diagnostic)
-  if (owner.kind === "function_block" && section.constant !== true) out.push(diagnostic)
+  if (initializerWarnedTwice(owner, section)) out.push(diagnostic)
+}
+
+/** Does the IDE say a warning about a declaration's initializer twice — in a FUNCTION_BLOCK, outside VAR CONSTANT? (see
+ *  `pushForDeclaration`) */
+export function initializerWarnedTwice(owner: { kind: string }, section: { constant?: boolean }): boolean {
+  return owner.kind === "function_block" && section.constant !== true
 }

@@ -18,7 +18,7 @@ import {
 } from "../../symbols/index.js"
 import { selfRefKind, type Expr, type TypeExpr } from "../../syntax/index.js"
 import { resolveNamedType } from "../resolve.js"
-import { UNKNOWN, type Type } from "../type.js"
+import { UNKNOWN, type StaticType, type Type } from "../type.js"
 import { inferExprType } from "./expr.js"
 
 /**
@@ -53,12 +53,12 @@ export function resolveMemberChain(expr: Expr, scope: Scope, project: Scope): Sy
   }
 }
 
-/** The member scope of a scoped type (enum, struct, FB, interface), or undefined. Completion kept a copy. A REFERENCE TO
+/** The member scope of a scoped type (enum, struct, FB, interface, a static base), or undefined. Completion kept a copy. A REFERENCE TO
  *  one is read through: `r.M(a := 1)` with `r : REFERENCE TO FB` calls the FB's method (`inh_override_reference_only`,
  *  both vendors build it and refuse only the override). */
 export function memberScopeOf(written: Type): Scope | undefined {
   const t = written.kind === "reference" ? written.target : written
-  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" ? t.scope : undefined
+  return t.kind === "enum" || t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" || t.kind === "static" ? t.scope : undefined
 }
 
 /**
@@ -102,34 +102,81 @@ export function isEnumValueRef(expr: Expr, scope: Scope, project: Scope): boolea
   return sym?.kind === "enum_value"
 }
 
-/** `THIS` — the enclosing FB carrying its member scope; nothing in a FUNCTION or a PROGRAM, which has no instance: `THIS^.v`
- *  there is "Unknown type: 'THIS^.v'" (`expr_this_in_function`, `cc_self_this_in_program`, both vendors). */
+/**
+ * `THIS` — a POINTER TO the enclosing FB, whose target carries its member scope (`THIS^.v`); nothing in a FUNCTION or a
+ * PROGRAM, which has no instance: `THIS^.v` there is "Unknown type: 'THIS^.v'" (`expr_this_in_function`,
+ * `cc_self_this_in_program`, both vendors). The FB is named as the compiler names its own POU, upper-cased: "Cannot convert
+ * type 'POINTER TO FB_LANG_DT_THIS_TYPE' to type 'STRING'", and `THIS^` 'FB_LANG_DT_THIS_TYPE' (rule DT7, `dt_this_type`,
+ * CODESYS 2026-10-03). This typed THIS as the FB itself.
+ */
 export function thisType(scope: Scope): Type {
   const pou = enclosingPou(scope)
   if (pou === undefined || !lookupLocal(rootOf(pou), pou.name).some((s) => s.kind === "function_block")) return UNKNOWN
-  return { kind: "function_block", name: pou.name, scope: pou }
+  return { kind: "pointer", target: pouNamed(pou) }
 }
 
-/** `SUPER` — the enclosing FB's BASE carrying its member scope (`SUPER^.Get()`, `expr_super_deref_call`, both vendors run
- *  it), UNKNOWN where the FB extends nothing or its base did not resolve (`expr_super_without_base` is refused). */
+/** `SUPER` — a POINTER TO the enclosing FB's BASE (`SUPER^.Get()`, `expr_super_deref_call`, both vendors run it), named
+ *  upper-cased as THIS is (`dt_super_type`); UNKNOWN where the FB extends nothing or its base did not resolve
+ *  (`expr_super_without_base` is refused). */
 export function superType(scope: Scope): Type {
   const base = enclosingPou(scope)?.baseScope
-  return base !== undefined ? { kind: "function_block", name: base.name, scope: base } : UNKNOWN
+  return base !== undefined ? { kind: "pointer", target: pouNamed(base) } : UNKNOWN
 }
 
-/** A bare name that names a GVL/enum/namespace/POU/struct scope (a static member base like `E.Idle`). */
+/** A POU denoted by its NAME — THIS's FB, SUPER's base, a PROGRAM's or an FB type's name read as a value: the compiler
+ *  prints it upper-cased (`dt_this_type`, `dt_static_base_program`, `dt_static_base_fb_type`), where a declared INSTANCE
+ *  keeps its type's case ("Cannot convert type 'FB_LANG_dt_fb_instance_type_name_other' to type 'STRING'",
+ *  `dt_fb_instance_type_name`, CODESYS 2026-10-03). Only the PRINTED type was measured so (`byName`, `render`): a
+ *  member-not-found message keeps the declared name, as it did before rule DT8 — no recording asks one. */
+function pouNamed(pou: Scope): Type {
+  return { kind: "function_block", name: pou.name, scope: pou, byName: true }
+}
+
+/**
+ * A bare name that denotes a declaration — a static member base like `E.Idle`, `GVL.x`, `Util.WEEKDAY`, or such a name read
+ * as a value (rule DT8). An ENUM type is its `EnumType`; a PROGRAM or an FB type the POU (`pouNamed`); a GVL, a namespace,
+ * a STRUCT type and an INTERFACE a `StaticType` — a namespace and an interface were typed "struct", a GVL not at all.
+ */
 export function staticScopeType(project: Scope, name: string): Type | undefined {
   for (const child of childScopesByName(project, name)) {
     switch (child.kind) {
       case "enum":
         return { kind: "enum", name: child.name, scope: child }
       case "pou":
-        return { kind: "function_block", name: child.name, scope: child }
+        return pouNamed(child)
       case "struct":
       case "namespace":
       case "interface":
-        return { kind: "struct", name: child.name, scope: child }
+      case "gvl":
+        return staticOf(child.kind, child.name, child)
     }
   }
   return undefined
+}
+
+/**
+ * The declaration a SYMBOL's name denotes where it is read as a value (rule DT8), or undefined for a symbol that is a
+ * value: a GVL's name ('GVL_LANG_…', it was untyped), and a FUNCTION's or METHOD's name where it is no call — the callable
+ * itself ('F_LANG_…', 'VALUE'), except inside its own body, where the name is its result variable (rule Y20;
+ * `dt_static_base_gvl`, `dt_static_base_function`, `dt_function_name_in_own_body`, `cc2_type_name_and_method_without_parens`,
+ * CODESYS 2026-10-03).
+ */
+export function staticNameOf(sym: Symbol, scope: Scope): StaticType | undefined {
+  if (sym.kind === "gvl_block") return staticOf("gvl", sym.name)
+  if ((sym.kind !== "function" && sym.kind !== "method") || insideOwnBody(sym, scope)) return undefined
+  return staticOf(sym.kind, sym.name)
+}
+
+/** Is `scope` inside the body of the FUNCTION or METHOD `sym` — where its name is its result variable (rule Y20)? The
+ *  body is the scope `sym`'s owner holds under its name: another FB's method of the same name (`a.Value` inside this FB's
+ *  own `Value`) is no result variable (step 4.7.4 review). */
+export function insideOwnBody(sym: Symbol, scope: Scope): boolean {
+  for (let s: Scope | undefined = scope; s !== undefined; s = s.parent)
+    if ((s.kind === "pou" || s.kind === "method") && s.parent === sym.owner && s.name.toLowerCase() === sym.name.toLowerCase()) return true
+  return false
+}
+
+/** The `StaticType` of a declaration of `denotes` named `name`. */
+export function staticOf(denotes: StaticType["denotes"], name: string, scope?: Scope): StaticType {
+  return { kind: "static", denotes, name, ...(scope !== undefined ? { scope } : {}) }
 }

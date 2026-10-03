@@ -1390,7 +1390,11 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // refuse, the LSP silent (`UNTYPED_OPERAND_AS_A_BOUND` `ce_fold_not_int_untyped`, `ce_fold_shl_untyped` — an untyped literal
   // under NOT or a shift has no width without a context; `UNTYPED_NOT_IN_A_SIGNED_CONTEXT`; `LIBRARY_ENUM_BASE_NOT_MATERIALIZED`
   // `dt_library_enum_storage`), each niche or the bridge's. No fixture moved.
-  "lsp-gap": 63,
+  // 63 -> 65, FOR MEASUREMENT. frontend-conformance 4.7.4 (2026-10-03): 2 alias-initializer cells both vendors refuse, the
+  // LSP silent (`ALIAS_INITIALIZER_NOT_CHECKED` `dt_alias_init_out_of_range`, `dt_alias_init_wrong_type`: an alias's
+  // initializer is checked as often as the alias is used, a project-wide count) — niche, 0 occurrences in the corpora. No
+  // fixture moved.
+  "lsp-gap": 65,
   // 21 -> 25 by RECLASSIFICATION, not regression: fixtures that had never been ASKED turn out to be ones the vendor
   // compiles and we refuse — `refuse_var_temp_struct`, two pointer derefs — which is exactly what this rating is for.
   // 25 -> 27. `conversions/cross-family.ts` asked 76 conversions across the isolated families and found 35 the
@@ -1553,7 +1557,10 @@ const CEILINGS: Partial<Record<Evidence, number>> = {
   // WORD CONSTANT, "init-not-constant": the lowering asks the fold of the initializer alone, which has no context to give
   // the literal a width) and `dt_union_member_sizes` (a UNION laid out and read through another member) — both the
   // transpiler's, handed to transpile-restructure (task 5.3).
-  "not-lowered": 287,
+  // 287 -> 289, FOR MEASUREMENT. frontend-conformance 4.7.4 (2026-10-03): `dt_this_into_pointer` (`p := THIS`, "THIS does
+  // not resolve" as a place) and `dt_this_deref_identity_values` (`SUPER^.v`, "deref is not a lowerable storage location
+  // yet") — the transpiler's, handed to transpile-restructure (task 5.3).
+  "not-lowered": 289,
   // `refused` is uncapped on purpose: it is the rating that GROWS when a probe family asks the vendor something it
   // rejects, which is the point of a probe family. 252 -> 322 in one sitting (`mixed-type`, `unary-operand`), all of
   // them questions with answers.
@@ -1850,7 +1857,9 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 4345 -> 4406 (2026-10-03, frontend-conformance 4d): constant evaluation (`fixtures/types/constant-evaluation.ts`,
   // CE1–CE9, P16 — conversions, pure built-ins, SIZEOF, enum values, NOT and shifts fold; the constant cycle) and derived
   // types (`derived-types.ts`, DT3, DT4, DT6 — subrange, union and enum storage in the Type).
-  { vendor: "twincat", floor: 4406 },
+  // 4406 -> 4437 (2026-10-03, frontend-conformance 4e): aliases, static bases, callees and rendering (`derived-types.ts`,
+  // DT1–DT2, DT7–DT11 — THIS/SUPER as pointers, a static name stored as a value, a PROGRAM takes no positional argument).
+  { vendor: "twincat", floor: 4437 },
   // the `???` slots match on text. 257 → 280 (2026-09-14): the LSP gaps the transpiler's execution oracle exposed —
   // `r`/`s` names, `**`, unary-minus and EXPT typing, set/reset chains — plus the operator-coverage fixtures
   // (now `suite.test.ts`), which found `&` is not a CODESYS operator either. Each recorded live and fixed.
@@ -1993,7 +2002,8 @@ const FLOORS: ReadonlyArray<{ vendor: Vendor; floor: number }> = [
   // 3959 -> 4047 (2026-10-03, frontend-conformance 4b): the same, on CODESYS.
   // 4047 -> 4434 (2026-10-03, frontend-conformance 4c): the same, on CODESYS.
   // 4434 -> 4499 (2026-10-03, frontend-conformance 4d): the same, on CODESYS.
-  { vendor: "codesys", floor: 4499 },
+  // 4499 -> 4531 (2026-10-03, frontend-conformance 4e): the same, on CODESYS.
+  { vendor: "codesys", floor: 4531 },
 ]
 
 

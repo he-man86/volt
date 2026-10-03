@@ -140,6 +140,18 @@ export const CEILING_EXCEPTIONS: readonly CeilingException[] = [
   // (the ADR exceptions — `ty_array_of_pointer` and 3.5's pointer cells `mem_*_pointer_*` — left 2026-10-03: ADR is
   // POINTER TO its operand's type since frontend-conformance 4.3.4, so their calls are typed)
   { baseline: "resolution-dump", measure: "findings", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
+  // an ALIAS's type expression was NOSCOPE until frontend-conformance 4.7.4 placed it in the project its file sees (rule DT1,
+  // `dumps.ts` `sites`): of pro2193's three library aliases bounded by a GVL constant (`ARRAY [1..GVL_Dashboard.
+  // LogQueueLength] OF LogRecord`, BrinkEdgePcLogging), one constant is a platform integer, which on a corpus whose target
+  // nobody measured is UNKNOWN — the same expression, moved from NOSCOPE (−3) into the TY6 class (+1)
+  {
+    baseline: "type-dump",
+    measure: "corpus Library Manager: member UNKNOWN, a platform integer on a target nobody measured (TY6)",
+    by: 1,
+    fixture: "(corpus) pro2193 BrinkEdgePcLogging LOGRECORDARRAY.dut",
+    task: "a measured target for each corpus (`workspace-refs` `MEASURED_DEVICE_TARGETS`)",
+    why: "an alias's bound read in the project scope (frontend-conformance 4.7.4) — a NOSCOPE expression typed as far as an unmeasured target allows",
+  },
   { baseline: "resolution-dump", measure: "fixtures codesys: member NONE", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
   { baseline: "type-dump", measure: "fixtures codesys: member UNKNOWN", by: 1, fixture: "lib_ns_type_name_two_libraries", task: LIB_REFERENCE_FACTS, why: TWO_LIBRARIES_ERROR },
 ]

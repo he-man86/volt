@@ -2735,12 +2735,107 @@ cross-area edges are named on the tasks that have them.
       tests); agreement CODESYS **4499** (+65), TwinCAT **4406** (+61) — floors raised 4434 → 4499 and 4345 → 4406
       (`fixtures.test.ts`; re-run whole `test/conformance`, 5853 pass / 287 todo / 0 fail); LT14 disagreements corpus 78 /
       fixtures 79; type dump disagreements 105; `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
-- [ ] 4.7.4 Aliases, static bases, callees, rendering (DT1–DT2, DT7–DT11): staticScopeType distinguishes namespace and interface
+- [x] 4.7.4 Aliases, static bases, callees, rendering (DT1–DT2, DT7–DT11): staticScopeType distinguishes namespace and interface
       from struct. Record dt_alias_of_alias_init, dt_namespace_static_base, dt_interface_static_base.
       Where: infer/member, render. Acceptance: CA. Depends on: 4.7.3, 3.2.1
-- [ ] 4.8 Area 4 closed: the 0.4 findings are closed; every §4 4.x rule has a recorded fixture or named test.
+      **4.7.4 (2026-10-03).** Rule by rule, 35 cells the listed fixtures did not separate, in `fixtures/types/derived-types.ts`
+      (recorded on both vendors, values on CODESYS). DT1: `dt_alias_type_name` (an alias, and an alias of one, named 'INT'),
+      `dt_alias_narrowing_name`, `dt_alias_struct_and_array_values` (5, 7) — the LSP agreed. DT2: `dt_alias_of_alias_init` (an
+      alias's initializer is NOT inherited by an alias of it: 42, **0**, 7 — the transpiler agrees), `dt_alias_init_out_of_range`,
+      `_wrong_type`, `_narrowing`, `_narrowing_two_uses`, `_narrowing_in_program`, `_narrowing_unused`, `_wrong_type_unused`: both
+      vendors check an alias's initializer as a store into its base as often as the alias is USED (never unused; a refusal once;
+      a warning once plus once per FB variable on CODESYS, twice on TwinCAT) — the LSP checks none, and saying it needs the
+      project-wide count of uses: `ALIAS_INITIALIZER_NOT_CHECKED` (both, 5), niche: accepted loss (0 aliases with an initializer in
+      the corpora). DT7: `dt_this_type`, `dt_super_type` — THIS is a POINTER TO the enclosing FB and SUPER one to its base, `^`
+      the FB, named upper-cased ('POINTER TO FB_LANG_DT_THIS_TYPE'); the design row said THIS was the FB. Fixed test-first:
+      `infer/member` `thisType`/`superType` (pointers; `pouNamed`), and the `THIS.v` "no structured variable" is now any
+      pointer's rule (`resolution` `pointerMemberBases`), its private copy in `this-super-context` deleted; `dt_this_into_pointer`
+      (silent into any pointer), `dt_this_deref_identity_values` (9, 9). The THIS/SUPER-into-STRING cells are C0033 at its
+      shipped severity (`C0033_CONFIGURED_AS_AN_ERROR` +2). DT8: `dt_static_base_gvl`, `_struct_type`, `_fb_type`, `_function`,
+      `_program`, `_enum_type`, `dt_namespace_static_base`, `dt_interface_static_base`, `dt_interface_static_member`,
+      `dt_fb_instance_type_name`, `dt_interface_variable_type_name`, `dt_function_name_in_own_body`: a name that denotes a
+      declaration, stored as a value, is refused named UPPER-CASED ('GVL_LANG_…', 'UTIL', 'I_LANG_…', 'F_LANG_…', 'PRG_LANG_…') —
+      the LSP said nothing for a GVL, a program, an FB type, and the return type ('INT') for a function, and 'Util', a source-case
+      struct name for the rest; an FB or interface type name also "must be instantiated to be accessed"; an INSTANCE, an
+      interface variable and an array are refused named as declared. Fixed test-first: `type` `StaticType` (a GVL, namespace,
+      STRUCT type, INTERFACE, uncalled FUNCTION or METHOD — **namespace and interface no longer typed "struct"**), `infer/member`
+      `staticScopeType` (a PROGRAM or FB type the POU, upper-cased), `staticNameOf`, `insideOwnBody` (a FUNCTION's name in its own
+      body is its result, and called there has no result — `cc2_call_recursion`'s finding closed), `analysis/rules`
+      `storeConversionError` (every non-elementary value into an elementary target), `checks/calls/fb-instantiation` (a type
+      name stored). TwinCAT has no Util: `dt_namespace_static_base` to `TWINCAT_LIBRARY_DIVERGENCES`. DT9:
+      `dt_program_called_positionally` — a PROGRAM takes no positional argument either (the LSP took it): `infer/callee`
+      `takesNoPositionalArguments`; `dt_interface_method_positional_values` (42). DT10: `dt_render_array_dims` (an array into an
+      elementary was unchecked), `dt_render_string_capacity`, `dt_render_date_time_names`, `dt_render_pointer_names` (C0033 +1).
+      DT11: `dt_render_string_literal` ('STRING(INT#0)', 'STRING(INT#3)' for `'a$$b'`, 'WSTRING(INT#4)'),
+      `dt_render_string_constant` ('STRING'). Everything else agreed on both vendors.
+- [x] 4.8 Area 4 closed: the 0.4 findings are closed; every §4 4.x rule has a recorded fixture or named test.
       Where: test/frontend/rules.ts, type/fold-dump baselines. Acceptance: the 0.4 baselines are empty (or each remaining entry is a
       recorded known divergence named here); the rules.test GAP count for area 4, and in total, is 0 and pinned. Depends on: 4.7.4
+      **4.8 (2026-10-03).** **The 0.4 baselines are empty: type dump findings 105 → 0, fold dump 0.** Each class of the 105
+      was a store the census did not model or a measured vendor fact, closed at its root: an FB declaration's initializer
+      WARNING said twice (`analysis` `initializerWarnedTwice`, the one `pushForDeclaration` reads; the census lets one store
+      explain both copies, the inner conversions of such an initializer too); a conversion's argument into its
+      source type, an arithmetic operand of the wrong family (`operandFamilyRule`, ANY_NUM), NOT's ANY_BIT
+      (`unaryOperandConversion`), a bitwise operand into the unsigned integer of the width, an output binding, a chained
+      assignment, a `REF=` declaration, an enum member's value, a struct initializer's echo on an elementary variable, a
+      VAR_IN_OUT bound not converted — each from the front-end or analysis function that decides it; the atomics' operands from
+      the type layer (`builtins` `atomicOperand`, moved out of `intrinsic-operands`' private tables); a recursive
+      call's hole (`insideOwnBody`); a network body's messages counted apart (`in a fixture with a network body`, the census
+      reads ST). Named known divergences: `sysop_position_call_form` (moved from `CODESYS_TRIAGE`, now empty, into
+      `CODESYS_POSITION_IN_AN_INITIALIZER`: the sized string is the position text's length — niche, 0 `__POSITION` in the
+      corpora); TwinCAT `cc_fp_overflow_expr`, `cc_init_constant_expr_into_sint` (`TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER`:
+      TwinCAT types a folded operation over untyped integers as the smallest signed integer — niche, 0 overflowing ones in the
+      corpora); TwinCAT `ldate_ltod_ldt` (`TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE`). The census places an ALIAS's type
+      expression in the project scope (`dumps.ts` `sites`; rule DT1): NOSCOPE literals 31 → 18 per vendor, Library Manager
+      19971 → 19840 — one of pro2193's aliases bounded by a platform-integer constant moves into the TY6 class (+1, a named
+      ceiling exception in `baseline.ts`). **Rules GAP area 4 1 → 0, total 1 → 0 (pinned):** TY6 recorded on its own target —
+      `recordings/twincat-32.build.json`, TwinCAT Project14 on TwinCAT CE7 (ARMV7), written by `VOLT_RECORDING_TARGET=32`
+      (`record-language`; `recording-target` `THIRTY_TWO_BIT_WIDTH`), 38 fixtures that name a platform integer or store a
+      pointer (the probe among them); `test/conformance/target-32.test.ts` replays each on a 32-bit project (C0033 an error, as the project configures
+      it): 35 agree, 3 expected failures — `cp_xsizeof` (TwinCAT's XSIZEOF), `ty_xint_to_dint_result_type` and
+      `dt_pointer_arithmetic_values` (niche: 0 platform integers in the corpora's own code; the second batch, which would have
+      measured pointer − pointer on that target, ran while another session held an XAE on the same project name and was refused
+      by its own probe — the TwinCAT tier needs Project14 to itself).
+      **Step 4e numbers.** `rate:fixtures` 4892 (+35): confirmed 2713 (+8), refused 1752 (+23), not-lowered 289 (+2), lsp-gap 65
+      (+2), diverges 5, unaskable 68; edges agree 2877 / disagree 0 / not-run 161. Ceilings (`fixtures.test.ts`, FOR
+      MEASUREMENT): lsp-gap 63 → 65 (the two alias-initializer refusals), not-lowered 287 → 289 (`dt_this_into_pointer`,
+      `dt_this_deref_identity_values` — the transpiler's: a bare THIS and `SUPER^.v` as places, task 5.3). Agreement (whole
+      `test/conformance`) CODESYS 4499 → **4526**, TwinCAT 4406 → **4432** (floors not raised — the gate's). Type dump 105 → **0**,
+      fold dump 0; resolution/parse/fixed-point baselines moved by the new fixtures only (Library Manager NOSCOPE −5 names, −3
+      members, from the alias scope). Known divergences: opened `ALIAS_INITIALIZER_NOT_CHECKED` (both, 5),
+      `TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER` (2), C0033 +3, TwinCAT library +1, TwinCAT unknown date type +1,
+      `sysop_position_call_form` from triage. Runs: `bun test src` 1838/0, `test/conformance` 5911 pass / 289 todo / 0 fail
+      (whole, incl. `target-32.test.ts` 40/0), `test/frontend` 34/0, `test/corpus` 19/0, `rate:fixtures`, `bun typecheck`,
+      `bun run lint` exit 0.
+      **Step 4e review (6 findings; 5 fixed test-first, 1 wrong).** Five cells recorded on both vendors
+      (`fixtures/types/derived-types.ts`): `dt_interface_into_integers`, `dt_fb_instance_into_integers`,
+      `dt_struct_type_name_called`, `dt_static_base_unknown_member`, `dt_method_name_in_same_named_method`. (1) A STRUCT type's
+      or INTERFACE's name as a static base had gone quiet: `analysis/resolution` `checkMember` reads a `StaticType` base again
+      ("'nope' is no component of 'Dut_s'" / 'I_x', and their Unknown-type stores); a STRUCT type's name CALLED is "Cannot
+      call object of type 'TYPE'" plus C0230 "Type name … not expected in this place" — not the C0035 HEAD said
+      (`non-callable-call`, `type-as-value` for a call and for a member the struct lacks, `hole` explains with C0230).
+      (2) A POU named by its name keeps its declared case in a member-not-found message (recorded on CODESYS; TwinCAT
+      upper-cases it, which the comparison folds): `FunctionBlockType.byName` and `StaticType.name` are declared, `render`
+      upper-cases. (3) WRONG: an interface and an FB instance ARE refused into every integer (LWORD, DWORD, __XWORD named
+      'LWORD', INT, both vendors); the silent __XWORD was the repro's missing target. (4) `insideOwnBody` matches the scope
+      the symbol's owner holds, not the name. (5) The 32-bit batch was contaminated: re-recorded on an XAE of its own (39
+      fixtures, with `dt_pointer_difference`, DWORD): `ty_xint_to_dint_result_type`, `cv_integers_into_pointer`,
+      `dt_pointer_arithmetic_values` had been recorded clean and build with errors; the two niche marks removed (the LSP
+      agrees), and an integer into a pointer on 32 bits is the mirror rule (`compat` `integerIntoPointer`: 64-bit refused,
+      the rest as into UDINT); TY6's recheck corrected. (6) The type census names every network-body message (fixture and
+      text, 3 CODESYS + 6 TwinCAT) instead of one blanket count. `rate:fixtures` 4897: confirmed 2713, refused 1757 (+5),
+      not-lowered 289, lsp-gap 65, diverges 5, unaskable 68; edges 2878 / 0 / 162. Agreement CODESYS 4531, TwinCAT 4437.
+      Runs: `bun test src` 1843/0, `test/conformance` 5912 pass / 289 todo / 0 fail (whole, `target-32` 41/0),
+      `test/frontend` 34/0 (baselines rewritten for the new fixtures and the named network-body tallies; findings unchanged),
+      `bun typecheck`, `bun run lint` exit 0.
+      **Gate 4e (2026-10-03, 4.7.4–4.8, on HEAD 63b37d1657 + the step's tree).** `bun typecheck` clean; `rate:fixtures`
+      reproduces the map byte for byte (4897; confirmed 2713, refused 1757, not-lowered 289, lsp-gap 65, diverges 5, unaskable
+      68; edges 2878 / 0 / 162); full run (`VOLT_REQUIRE_FULL=1`, `VOLT_FIXTURES` unset) **7991 pass / 34 skip / 333 todo /
+      0 fail** (8358 tests, 205 files, 340 s; vs gate 4d +71 pass, +2 todo — the not-lowered `dt_this_into_pointer`,
+      `dt_this_deref_identity_values` — +73 tests, +1 file `target-32.test.ts`); agreement CODESYS **4531** (+32), TwinCAT
+      **4437** (+31) — floors raised 4499 → 4531 and 4406 → 4437 (`fixtures.test.ts`; re-run whole `test/conformance`, 5912
+      pass / 289 todo / 0 fail); type dump findings 0, fold dump 0 disagreements; LT14 disagreements corpus 78 / fixtures 79;
+      `bun run check` 15 passed, 0 failed; `bun run lint` exit 0.
 
 ## 5. Consequences downstream
 

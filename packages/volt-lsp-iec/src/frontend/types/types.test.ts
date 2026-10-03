@@ -194,9 +194,60 @@ test("infer: an index through a REFERENCE TO an array is the array's element", (
   })
 })
 
-test("infer: THIS resolves to the enclosing FB member scope", () => {
+// THIS is a POINTER TO the enclosing FB and SUPER one to its base; `^` reads the FB — each named by the POU's name
+// upper-cased: "Cannot convert type 'POINTER TO FB_LANG_DT_THIS_TYPE' to type 'STRING'", "…'FB_LANG_DT_SUPER_TYPE_BASE'…"
+// (rule DT7, `dt_this_type`, `dt_super_type`, CODESYS 2026-10-03). This said THIS was the FB itself.
+test("infer: THIS and SUPER are pointers to the FB and its base, named upper-cased (dt_this_type, dt_super_type, DT7)", () => {
   const t = inferExpr("", "VAR\n flag : BOOL;\nEND_VAR", "THIS")
-  expect(t.kind).toBe("function_block")
+  expect(t).toMatchObject({ kind: "pointer", target: { kind: "function_block", name: "F" } })
+  expect(renderType(t, { form: "compiler" })).toBe("POINTER TO F")
+  const lower = (body: string): string => {
+    const src = `FUNCTION_BLOCK Fb_base\nVAR\n v : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK Fb_derived EXTENDS Fb_base\nVAR\nEND_VAR\nprobe := ${body};\nEND_FUNCTION_BLOCK`
+    const pr = parseSource(src, { networkText: true })
+    const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+    return renderType(inferExprType(lastExpr(pr.units.at(-1) as FunctionBlock), findChildScope(project, "Fb_derived")!, project), { form: "compiler" })
+  }
+  expect(lower("THIS")).toBe("POINTER TO FB_DERIVED")
+  expect(lower("THIS^")).toBe("FB_DERIVED")
+  expect(lower("SUPER")).toBe("POINTER TO FB_BASE")
+  expect(lower("SUPER^")).toBe("FB_BASE")
+  // `THIS^.v` still reaches the inherited member
+  expect(lower("THIS^.v")).toBe("INT")
+})
+
+// A NAME THAT DENOTES A DECLARATION, read as a value (rule DT8): a GVL's, a STRUCT type's, an INTERFACE's and an uncalled
+// FUNCTION's name are static, a PROGRAM's and an FB type's the POU — each named upper-cased; inside its own body a
+// FUNCTION's name is its result (`dt_static_base_*`, `dt_interface_static_base`, `dt_function_name_in_own_body`, CODESYS
+// 2026-10-03). They were a "struct", UNKNOWN (the GVL) and the function's return type.
+test("infer: a static base's name is the declaration, named upper-cased (dt_static_base_*, DT8)", () => {
+  const units = `VAR_GLOBAL\n g : INT;\nEND_VAR\nTYPE Dut_s : STRUCT x : INT; END_STRUCT END_TYPE
+INTERFACE I_x\nMETHOD M : INT\nEND_METHOD\nEND_INTERFACE
+FUNCTION F_x : INT\nF_x := 1;\nEND_FUNCTION
+PROGRAM Prg_x\nVAR\n x : INT;\nEND_VAR\nEND_PROGRAM
+FUNCTION_BLOCK Fb_other\nEND_FUNCTION_BLOCK`
+  const named = (what: string): string => renderType(inferExpr(units, "", what), { form: "compiler" })
+  const src = `${units}\nFUNCTION_BLOCK F\nVAR\nEND_VAR\nprobe := 1;\nEND_FUNCTION_BLOCK`
+  const project = build.buildSymbolTable([{ uri: "GVL_x.gvl", parseResult: parseSource("VAR_GLOBAL\n gg : INT;\nEND_VAR", { networkText: true }), source: "" }, { uri: "F.pou", parseResult: parseSource(src, { networkText: true }), source: src }])
+  expect(renderType(inferExprType({ kind: "ident_expr", name: "GVL_x", span: { start: 0, end: 0 } } as Expr, findChildScope(project, "F")!, project), { form: "compiler" })).toBe("GVL_X")
+  expect(inferExpr(units, "", "Dut_s")).toMatchObject({ kind: "static", denotes: "struct" })
+  expect(named("Dut_s")).toBe("DUT_S")
+  expect(inferExpr(units, "", "I_x")).toMatchObject({ kind: "static", denotes: "interface" })
+  expect(named("I_x")).toBe("I_X")
+  expect(inferExpr(units, "", "F_x")).toMatchObject({ kind: "static", denotes: "function" })
+  expect(named("F_x")).toBe("F_X")
+  expect(named("Prg_x")).toBe("PRG_X")
+  expect(named("Fb_other")).toBe("FB_OTHER")
+  // …a program's member is still reached through it
+  expect(named("Prg_x.x")).toBe("INT")
+})
+
+test("infer: a FUNCTION's name inside its own body is its result (dt_function_name_in_own_body)", () => {
+  const src = `FUNCTION F_x : INT\nVAR\n probe : STRING;\nEND_VAR\nprobe := F_x;\nEND_FUNCTION`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F_x.pou", parseResult: pr, source: src }])
+  const stmts = bodyStatements((pr.units[0] as unknown as FunctionBlock).body).statements
+  const value = (stmts.at(-1) as { value: Expr }).value
+  expect(inferExprType(value, findChildScope(project, "F_x")!, project)).toMatchObject({ kind: "elementary", name: "INT" })
 })
 
 test("infer: unary minus is typed as the signed type of the operand's width, at least 16 bits (measured)", () => {
@@ -620,6 +671,18 @@ test("compat: an integer into a pointer on a 64-bit target — 32 bits refused, 
   expect(classifyConversion(ptr, el("DWORD"))).toBe("identity") // no target: unjudged
 })
 
+// …and on a 32-bit target the mirror: a 64-bit integer is refused, the rest converts as into a UDINT — TwinCAT CE7
+// (`recordings/twincat-32.build.json` `cv_integers_into_pointer`, 2026-10-03, re-recorded on an XAE of its own; the first
+// batch, made beside another session's XAE on the same project, recorded it clean)
+test("compat: an integer into a pointer on a 32-bit target — 64 bits refused, signed a change of sign, the rest silent (cv_integers_into_pointer)", () => {
+  const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
+  const ptr: Type = { kind: "pointer", target: el("INT") }
+  const x32 = { pointerBits: 32 } as Parameters<typeof classifyConversion>[2]
+  for (const t of ["LWORD", "ULINT", "LINT"]) expect(classifyConversion(ptr, el(t), x32)).toBe("incompatible")
+  for (const t of ["INT", "DINT"]) expect(classifyConversion(ptr, el(t), x32)).toBe("sign-change")
+  for (const t of ["BYTE", "WORD", "UINT", "DWORD", "UDINT"]) expect(["widen", "identity"]).toContain(classifyConversion(ptr, el(t), x32))
+})
+
 test("compat: a reference converts as its target on either side (dt_reference_into_narrower, cv_reference_to_other_reference)", () => {
   const el = (n: string): Type => ({ kind: "elementary", name: n, elem: elementaryType(n)! }) as Type
   const ri: Type = { kind: "reference", target: el("INT") }
@@ -637,4 +700,12 @@ test("pointerArithmeticType: a pointer minus a REAL computes in the pointer on C
   expect(pointerArithmeticType("-", ptr, real, false, false, "codesys")).toBe(ptr)
   expect(pointerArithmeticType("-", ptr, real, false, false, "twincat")).toBe(real)
   expect(pointerArithmeticType("*", ptr, real, false, true, "codesys")).toBeUndefined()
+})
+
+test("infer: a FUNCTION called inside its own body has no result (cc2_call_recursion, Y20)", () => {
+  const src = `FUNCTION F_x : INT\nVAR_INPUT\n d : INT;\nEND_VAR\nF_x := F_x(d := d - 1);\nEND_FUNCTION`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F_x.pou", parseResult: pr, source: src }])
+  const stmts = bodyStatements((pr.units[0] as unknown as FunctionBlock).body).statements
+  expect(inferExprType((stmts.at(-1) as { value: Expr }).value, findChildScope(project, "F_x")!, project)).toEqual(UNKNOWN)
 })

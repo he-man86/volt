@@ -680,3 +680,16 @@ test("a literal into any other generic input is unmeasured and stays silent — 
   ]
   for (const vendor of ["codesys", "twincat"] as const) for (const [group, arg] of cells) expect(genericCall(group, "", arg, vendor)).toEqual([])
 })
+
+// A PROGRAM TAKES NO POSITIONAL ARGUMENT either: `P(5)` is "Assignment to input missing for parameter '5' in call of
+// 'P'", the callee upper-cased (rule DT9, `dt_program_called_positionally`, CODESYS 2026-10-03) — it was taken.
+test("a PROGRAM called positionally is refused, one error per argument (dt_program_called_positionally, DT9)", () => {
+  const prg = `PROGRAM Prg_t\nVAR_INPUT\n\tk : INT;\nEND_VAR\nEND_PROGRAM`
+  const src = `${prg}\nFUNCTION_BLOCK F\nVAR\nEND_VAR\nPrg_t(5);\nPrg_t(k := 5);\nEND_FUNCTION_BLOCK`
+  const pr = parseSource(src, { networkText: true })
+  const project = build.buildSymbolTable([{ uri: "F.pou", parseResult: pr, source: src }])
+  const msgs = computeSemanticDiagnostics({ parseResult: pr, source: src, project, config: resolveConfig({ vendor: "codesys" }) })
+    .filter((d) => d.code === "input-assignment-missing")
+    .map((d) => d.message)
+  expect(msgs).toEqual(["Assignment to input missing for parameter '5' in call of 'PRG_T'"])
+})

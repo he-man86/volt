@@ -26,6 +26,7 @@ export type Type =
   | ArrayTypeInfo
   | PointerTypeInfo
   | ReferenceTypeInfo
+  | StaticType
   | UnknownType
 
 /** An IEC elementary type with its checkable facts embedded (no re-derive-from-name). */
@@ -81,6 +82,10 @@ export interface FunctionBlockType {
   name: string
   /** The FB/PROGRAM member scope, when resolved. */
   scope?: Scope
+  /** The POU denoted by its NAME — THIS's FB, SUPER's base, a PROGRAM's or an FB type's name read as a value — which the
+   *  compiler NAMES upper-cased in a type it prints (`render`; `dt_this_type`, `dt_static_base_program`,
+   *  `dt_static_base_fb_type`). `name` stays as declared: a member-not-found message keeps it (`infer/member` `pouNamed`). */
+  byName?: true
 }
 export interface ArrayTypeInfo {
   kind: "array"
@@ -97,6 +102,27 @@ export interface PointerTypeInfo {
 export interface ReferenceTypeInfo {
   kind: "reference"
   target: Type
+}
+/**
+ * A NAME THAT DENOTES A DECLARATION, read where a value stands (rule DT8): a GVL's, a namespace's, a STRUCT type's, an
+ * INTERFACE's or an uncalled FUNCTION's or METHOD's name — the static base of `GVL.x`, `Util.WEEKDAY`, `I.M`, never a value.
+ * Its members are the declaration's (`scope`). Stored as a value it is refused, named by the compiler UPPER-CASED: "Cannot
+ * convert type 'GVL_LANG_DT_STATIC_BASE_GVL' to type 'STRING'", 'UTIL', 'I_LANG_DT_INTERFACE_STATIC_BASE', 'F_LANG_…', and a
+ * method named without its call 'VALUE' (`dt_static_base_*`, `dt_namespace_static_base`, `dt_interface_static_base`,
+ * `cc2_type_name_and_method_without_parens`, CODESYS 2026-10-03). They were a "struct", UNKNOWN and the callable's result.
+ *
+ * An ENUM type's name stays its `EnumType` (it converts as the enum, `cc2_type_name_and_method_without_parens`), and a
+ * PROGRAM's or an FB type's name the `FunctionBlockType` named upper-cased (`infer/member` `staticScopeType`): a program's
+ * name IS its instance, read as one by every check of an instance's members.
+ */
+export interface StaticType {
+  kind: "static"
+  denotes: "gvl" | "namespace" | "struct" | "interface" | "function" | "method"
+  /** The name as declared; a type the compiler prints names it upper-cased (`render`), a member-not-found message as
+   *  declared (`analysis/resolution` `checkMember`). */
+  name: string
+  /** The declaration's member scope, when it has one. */
+  scope?: Scope
 }
 export interface UnknownType {
   kind: "unknown"

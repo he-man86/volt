@@ -37,7 +37,7 @@ import { parseSource } from "../src/frontend/syntax/index.js"
 import { plcPrgSource } from "../test/conformance/support/plc-prg.js"
 import { call, landedInFull, requireNetworkText } from "./bridge.js"
 import { deleteOpsFor, heldIn, orphansIn, type Held } from "./held-as.js"
-import { ORACLE_WIDTH, TARGET_PROBE, targetWidth } from "./recording-target.js"
+import { ORACLE_WIDTH, TARGET_PROBE, THIRTY_TWO_BIT_WIDTH, targetWidth } from "./recording-target.js"
 import { markImplementations } from "../test/conformance/support/mark-implementations.js"
 import { NETWORK_TEXT_ENABLED } from "../src/server/config.js"
 
@@ -279,7 +279,14 @@ async function setPlcPrg(src: string): Promise<void> {
 const tests: Record<string, { buildSuccess: boolean; durationMs: number; diagnostics: { severity: string; message: string; line: number }[] }> = {}
 let done = 0
 
-const stem = `${VENDOR === "tc" ? "twincat" : VENDOR}.build`
+/**
+ * A 32-BIT TARGET'S RECORDING IS A FILE OF ITS OWN (rule TY6, frontend-conformance 4.8): `VOLT_RECORDING_TARGET=32` with
+ * RECORD_ONLY records into `<vendor>-32.build.json` — TwinCAT Project14, on TwinCAT CE7 (ARMV7) — and its probe must answer
+ * 32-bit, as the oracle's must answer 64-bit. The two never mix: a width is a fact of the file (`recording-target`).
+ */
+const TARGET_BITS = process.env.VOLT_RECORDING_TARGET === "32" ? 32 : 64
+if (TARGET_BITS === 32 && process.env.RECORD_ONLY === undefined) throw new Error("VOLT_RECORDING_TARGET=32 records named fixtures only: set RECORD_ONLY")
+const stem = `${VENDOR === "tc" ? "twincat" : VENDOR}${TARGET_BITS === 32 ? "-32" : ""}.build`
 const dir = join(import.meta.dir, "..", "test", "conformance", "recordings")
 /** The full run's output — and, from now on, its CHECKPOINT. */
 const freshPath = join(dir, `${stem}.new.json`)
@@ -372,15 +379,20 @@ if (ONLY) {
   // A RECORD_ONLY merge never passes through `check-recording.ts`, so it judges its own target: a TwinCAT session on
   // Project14 (CE7, 32-bit) answers every width 32-bit and would merge as the oracle without a word (step 4a review).
   const width = targetWidth(tests)
-  if (width !== ORACLE_WIDTH) {
+  const wanted = TARGET_BITS === 32 ? THIRTY_TWO_BIT_WIDTH : ORACLE_WIDTH
+  if (width !== wanted) {
     console.error(
       `
-REFUSED: ${TARGET_PROBE} says __XINT is ${width} on this session's target, not ${ORACLE_WIDTH} — this is not the 64-bit oracle ` +
-        `(TwinCAT: serve Project13, \`ide.ps1 up -Vendor twincat -Fixture 13\`). Nothing was merged into ${stem}.json.`,
+REFUSED: ${TARGET_PROBE} says __XINT is ${width} on this session's target, not ${wanted} — this is not the ${TARGET_BITS}-bit target ` +
+        `(TwinCAT: serve Project${TARGET_BITS === 32 ? "14" : "13"}, \`ide.ps1 up -Vendor twincat -Fixture ${TARGET_BITS === 32 ? "14" : "13"}\`). Nothing was merged into ${stem}.json. ` +
+        `The probe recorded: ${JSON.stringify(tests[TARGET_PROBE] ?? "nothing")}`,
     )
     process.exit(1)
   }
-  const committed = JSON.parse(readFileSync(join(dir, `${stem}.json`), "utf8"))
+  // the 32-bit file starts empty the first time it is recorded into
+  const committed = existsSync(join(dir, `${stem}.json`))
+    ? JSON.parse(readFileSync(join(dir, `${stem}.json`), "utf8"))
+    : { $schema: out.$schema, _doc: out._doc, recorded: { ...out.recorded }, tests: {} }
   for (const [name, rec] of Object.entries(tests)) committed.tests[name] = rec
   committed.recorded.at = out.recorded.at
   committed.recorded.testCount = Object.keys(committed.tests).length

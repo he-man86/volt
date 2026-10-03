@@ -12,11 +12,13 @@ import { checkBaseline } from "./baseline.js"
 import { boundCensus } from "./bound-census.js"
 
 describe("0.4 types", () => {
-  test("a store explains one copy of a message — a message recorded twice needs two stores", () => {
-    // `bound_byte_below_min` records SINT → BYTE twice; the front-end types one such store
-    expect(boundCensus().typeDisagreements).toContainEqual(
-      expect.stringMatching(/^codesys bound_byte_below_min: .*once more than store the front-end types SINT → BYTE$/),
-    )
+  test("an FB initializer's warning is said twice and explained by its one store — a refusal is said once", () => {
+    // `bound_byte_below_min` records SINT → BYTE twice for `x : BYTE := -1` in a FUNCTION_BLOCK, which CODESYS checks once
+    // for the type and once for the instance (`analysis` `initializerWarnedTwice`, `ir_initializer_warning_*`): one store
+    // explains both copies — this read the second as a message no store explained
+    const census = boundCensus()
+    expect(census.typeDisagreements.filter((f) => f.includes(" bound_byte_below_min: "))).toEqual([])
+    expect(census.types["build codesys: explained by the inferred types, said twice for an initializer"]).toBeGreaterThan(0)
   }, 240_000)
   test("measured on both vendors, each against its own build", () => {
     expect(boundCensus().types["build twincat: type messages recorded"]).toBeGreaterThan(0)

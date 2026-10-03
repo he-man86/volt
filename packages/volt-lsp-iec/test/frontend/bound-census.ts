@@ -40,7 +40,7 @@ import {
   type Expr,
   type TopLevel,
 } from "../../src/frontend/syntax/index.js"
-import { bodyConditionWorld, gvlBlockOf, lookup, lookupLocal, lookupMember, rootOf, scopeForUnit, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
+import { bodyConditionWorld, gvlBlockOf, lookup, lookupLocal, lookupMember, rootOf, scopeForUnit, targetOf, type Scope, type Symbol } from "../../src/frontend/symbols/index.js"
 import {
   checkedMeetType,
   classifyConversion,
@@ -48,7 +48,15 @@ import {
   declaredValue,
   elementaryRef,
   elementaryType,
+  elementaryTypeRef,
+  atomicOperand,
+  integerOfWidth,
+  operandConversion,
+  resolveNamedType,
   inferExprType,
+  operandFamilyRule,
+  parseConversionName,
+  unaryOperandConversion,
   durationScaleConversion,
   literalCheckType,
   literalErrorType,
@@ -76,10 +84,11 @@ import { boundCorpus, boundLibrary, withBoundFixture } from "./bound.js"
 import { KNOWN_DIVERGENCES } from "../conformance/support/divergences.js"
 import { at, foldDump, refusedIn, resolutionDump, sites, typeRows, undecidedExprCount, unparsedIn, valueChildren, valueExprs, type Bound } from "./dumps.js"
 import { corpusProjects, fixtureSources, isLibraryManagerFile, type FixtureSources } from "./sources.js"
-import type { Dialect, TypeExpr } from "../../src/frontend/syntax/index.js"
+import { compilerTypeText, type Dialect, type TypeExpr } from "../../src/frontend/syntax/index.js"
 import { compilerExprText } from "../../src/analysis/expr-echo.js"
 import { bareConversionArgument } from "../../src/analysis/hole.js"
-import { messagesFor, stringLiteralMessageType } from "../../src/analysis/index.js"
+import { isStructInit, structEcho } from "../../src/analysis/checks/types/struct-init.js"
+import { initializerWarnedTwice, messagesFor, stringLiteralMessageType } from "../../src/analysis/index.js"
 
 export interface BoundCensus {
   resolution: Record<string, number>
@@ -478,6 +487,16 @@ interface Store {
   compared?: string
   /** A store TwinCAT words with its two types swapped (a literal `REF=`). */
   reversedOnTwincat?: boolean
+  /** A declaration's initializer whose WARNING the IDE says twice (`analysis` `initializerWarnedTwice`: in a FUNCTION_BLOCK,
+   *  outside VAR CONSTANT — `ir_initializer_warning_*`): it explains two copies of a warning, one of a refusal. */
+  warnedTwice?: boolean
+}
+
+/** The type an operation meets at, for the compiler's typed echo of a bare integer literal inside it (as `analysis/checks/
+ *  types/unknown-source` `metType`). */
+const metIn = (scope: Scope) => (e: Expr): string | undefined => {
+  const t = inferExprType(e, scope, rootOf(scope))
+  return t.kind === "elementary" ? t.name : undefined
 }
 
 /** What `S=` and `R=` read and set. */
@@ -498,7 +517,7 @@ function vendorSays(build: { diagnostics: readonly { message: string }[] } | und
 function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   const out: Store[] = []
   /** `named`: the target as the compiler names it where it is no `Type` — a bare conversion's parameter, `ANY`. */
-  const store = (target: Type, value: Expr, scope: Scope, named?: string, compared?: string, reversedOnTwincat?: boolean): void => {
+  const store = (target: Type, value: Expr, scope: Scope, named?: string, compared?: string, reversedOnTwincat?: boolean, warnedTwice?: boolean): void => {
     // a store into a `strict` enum is refused in its own words, "'x' is not a valid value for strict ENUM type …" — no
     // conversion message explains or is explained by it (`types/enums` `strictEnum`, task 4.5.1)
     if (strictEnum(b.project, target, enumerator(b.project)) !== undefined) return
@@ -511,7 +530,9 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
     // `lit_address_unsized_in_body`, frontend-conformance 2.2.7)
     if (inferred.kind === "unknown") {
       as.add(typeKey(`Unknown type: '${exprText(value)}'`))
-      as.add(typeKey(`Unknown type: '${compilerExprText(value)}'`))
+      // …with an untyped integer inside it typed as the operation it stands in, as `unknown-source` echoes it:
+      // 'F_C2_loop(depth := (depth - INT#1))' (`cc2_call_recursion`)
+      as.add(typeKey(`Unknown type: '${compilerExprText(value, metIn(scope))}'`))
     }
     // …and a string LITERAL by its message form, length-tagged: "Cannot convert type 'STRING(INT#3)' to type 'INT'" —
     // the front-end's type is STRING, the length is the message's (`analysis/rules` `stringLiteralMessageType`;
@@ -531,13 +552,64 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
       printed: `${renderType(inferred)} → ${named ?? renderType(target)}`,
       ...(compared !== undefined ? { compared } : {}),
       ...(reversedOnTwincat === true ? { reversedOnTwincat } : {}),
+      ...(warnedTwice === true ? { warnedTwice } : {}),
     })
+  }
+  /** A conversion a RULE of the front-end names by its two types, with no value expression to type: an operator's operand
+   *  family (`operandFamilyRule`, `unaryOperandConversion` — 'STRING' into 'ANY_NUM', 'REAL' into 'ANY_BIT'), an
+   *  output binding's parameter into its variable. */
+  const pair = (target: string, from: Type | string, conversion: ReturnType<typeof classifyConversion>): void => {
+    const fromName = typeof from === "string" ? from : renderType(from)
+    out.push({ target: typeKey(target), value: new Set([typeKey(fromName)]), conversion, printed: `${fromName} → ${target}` })
   }
   /** Stores inside an expression: an operand converts to the type of its operator — for a comparison, whose BOOL is not
    *  what its operands convert to, to the two operands' checked meet — and an input argument to its parameter's type. */
-  const inner = (e: Expr, scope: Scope): void => {
+  const inner = (e: Expr, scope: Scope, twice: boolean): void => {
     for (const x of valueExprs(e)) {
-      if (x.kind === "unary") store(inferExprType(x, scope, b.project), x.operand, scope)
+      if (x.kind === "unary") store(inferExprType(x, scope, b.project), x.operand, scope, undefined, undefined, undefined, twice)
+      // …except where the operator computes in no integer the operand could convert to: `NOT aReal`, `NOT aString` name
+      // ANY_BIT (`types/arith/operators` `unaryOperandConversion`; `uop_not_real`, `unary_not_on_string`)
+      if (x.kind === "unary" && (x.op === "-" || x.op === "NOT")) {
+        const operand = inferExprType(x.operand, scope, b.project)
+        if (operand.kind === "elementary" && unaryOperandConversion(x.op, operand.elem.family) === "ANY_BIT") pair("ANY_BIT", operand, "incompatible")
+      }
+      // an arithmetic operand of the wrong FAMILY converts into what the rule names — a BOOL into the number beside it, a
+      // string into ANY_NUM or that number (`types/arith/operators` `operandFamilyRule`; `cc_string_plus_string`,
+      // `cc_int_plus_string`, `string_arithmetic_rejected`)
+      if (x.kind === "binary") {
+        const [lt, rt] = [inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project)]
+        const rule = lt.kind === "elementary" && rt.kind === "elementary" ? operandFamilyRule(x.op, lt.name, rt.name) : undefined
+        // …but a BOOL operand and a scaled duration, which the operand stores into the result and the duration store
+        // below already hold
+        const heldBelow = rule?.kind === "convert" && (rule.from === "BOOL" || (lt.kind === "elementary" && rt.kind === "elementary" && durationScaleConversion(x.op, lt.name, rt.name) !== undefined))
+        if (rule?.kind === "convert" && !heldBelow) pair(rule.to, rule.from, "incompatible")
+      }
+      // an ATOMIC intrinsic's operand (`builtins` `atomicOperand`, `calls/atomic-operands.ts`): TEST_AND_SET stores it into a
+      // DWORD; __XADD and __COMPARE_AND_SWAP refuse what they do not take, into the type they name
+      if (x.kind === "call" && x.callee.kind === "ident_expr" && x.args[0]?.value !== undefined) {
+        const atomic = atomicOperand(x.callee.name, b.project.dialect)
+        const arg = x.args[0].value
+        if (atomic?.store === true) store(atomic.type, arg, scope, undefined, undefined, undefined, twice)
+        else if (atomic !== undefined && atomic.refuses(inferExprType(arg, scope, b.project))) pair(renderType(atomic.type), inferExprType(arg, scope, b.project), "incompatible")
+      }
+      // a BITWISE operator computes in the UNSIGNED integer of its operands' width: a signed operand of a same-width pair
+      // converts into it (`types/arith/operators` `operandConversion` "unsigned"; `cc_bitwise_byte_and_sint`: BYTE AND
+      // SINT is "signed Type 'SINT' to unsigned Type 'USINT'")
+      if (x.kind === "binary" && operandConversion(x.op) === "unsigned") {
+        const sides = [x.left, x.right].map((side) => [side, inferExprType(side, scope, b.project)] as const)
+        const [l, r] = sides.map(([, t]) => (t.kind === "elementary" && (t.elem.family === "int" || t.elem.family === "bitstring") ? t.elem : undefined))
+        if (l !== undefined && r !== undefined && l.bits === r.bits && l.signed !== r.signed)
+          for (const [side, t] of sides)
+            if (t.kind === "elementary" && t.elem.signed && side.kind !== "literal") store(elementaryTypeRef(integerOfWidth(t.elem.bits, false)), side, scope, undefined, undefined, undefined, twice)
+      }
+      // a CONVERSION's argument converts into its source type first (`analysis/rules` `conversionArgError`, rule CV2:
+      // `REAL_TO_DINT(EXPT(…))` LREAL into REAL, `INT_TO_REAL(aReal)` REAL into INT — `cfold_expt`,
+      // `conversion_int_to_real_wrong_source`)
+      if (x.kind === "call" && x.callee.kind === "ident_expr") {
+        const from = parseConversionName(x.callee.name, targetOf(b.project))?.from
+        const arg = x.args[0]?.value
+        if (from !== undefined && arg !== undefined) store(elementaryTypeRef(from), arg, scope, undefined, undefined, undefined, twice)
+      }
       // an untyped NEGATIVE literal compared with an unsigned operand converts into the type the rule names (rule LT12,
       // `types/arith/operators` `negativeLiteralComparisonTarget`)
       if (x.kind === "binary" && COMPARISONS.has(x.op))
@@ -546,7 +618,7 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
           const operand = inferExprType(other, scope, b.project)
           if (!isSignedUntypedNumber(lit) || typeof value !== "bigint" || operand.kind !== "elementary") continue
           const into = negativeLiteralComparisonTarget(operand.elem, value, b.project.dialect)
-          if (into !== undefined) store({ kind: "elementary", name: into.name, elem: into }, lit, scope)
+          if (into !== undefined) store({ kind: "elementary", name: into.name, elem: into }, lit, scope, undefined, undefined, undefined, twice)
         }
       // date/time arithmetic converts no operand — a date and a duration stay as they are (`types/arith/temporal`, rule
       // AR17) — except a duration scaled by an integer (rule AR18, `durationScaleConversion`): into a WIDER integer the
@@ -557,7 +629,7 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
       if (x.kind === "binary") {
         const [lt, rt] = [inferExprType(x.left, scope, b.project), inferExprType(x.right, scope, b.project)]
         const scaled = lt.kind === "elementary" && rt.kind === "elementary" ? durationScaleConversion(x.op, lt.name, rt.name) : undefined
-        if (scaled !== undefined) store(elementaryRef(scaled.to), scaled.side === "left" ? x.left : x.right, scope)
+        if (scaled !== undefined) store(elementaryRef(scaled.to), scaled.side === "left" ? x.left : x.right, scope, undefined, undefined, undefined, twice)
       }
       if (x.kind === "binary" && temporal === undefined) {
         const result = COMPARISONS.has(x.op)
@@ -567,8 +639,8 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
           const compared = COMPARISONS.has(x.op)
             ? `${typeKey(renderType(inferExprType(x.left, scope, b.project)))}|${typeKey(renderType(inferExprType(x.right, scope, b.project)))}`
             : undefined
-          store(result, x.left, scope, undefined, compared)
-          store(result, x.right, scope, undefined, compared)
+          store(result, x.left, scope, undefined, compared, undefined, twice)
+          store(result, x.right, scope, undefined, compared, undefined, twice)
         }
       }
       // AND_THEN / OR_ELSE over integers: the integer their operands meet in is refused as the condition, "Cannot convert
@@ -576,27 +648,36 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
       // into that integer are the binary branch's above
       if (x.kind === "binary" && SHORT_CIRCUIT_OPERATORS.has(x.op) && inferExprType(x, scope, b.project).kind === "elementary") {
         const met = inferExprType(x, scope, b.project)
-        if (met.kind === "elementary" && met.elem.family !== "bool") store(BOOL, x, scope)
+        if (met.kind === "elementary" && met.elem.family !== "bool") store(BOOL, x, scope, undefined, undefined, undefined, twice)
       }
       if (x.kind !== "call") continue
       // a selection function's VALUE arguments convert into its result, their meet (`types/builtins` `selectionValueArguments`,
       // rules AR13/AR14) — the compiler's own name, unshadowed
       const values = x.callee.kind === "ident_expr" && resolveCallee(x, scope, b.project) === undefined ? selectionValueArguments(x.callee.name, x.args.map((a) => a.value)) : undefined
       const selected = values === undefined ? UNKNOWN : inferExprType(x, scope, b.project)
-      if (selected.kind === "elementary") for (const v of values ?? []) if (v !== undefined) store(selected, v, scope)
+      if (selected.kind === "elementary") for (const v of values ?? []) if (v !== undefined) store(selected, v, scope, undefined, undefined, undefined, twice)
       // a BARE conversion converts its argument to ANY (`analysis/hole` `bareConversionArgument`, frontend-conformance 2.2b)
       const converted = bareConversionArgument(x)
-      if (converted !== undefined) store(UNKNOWN, converted, scope, "ANY")
+      if (converted !== undefined) store(UNKNOWN, converted, scope, "ANY", undefined, undefined, twice)
       const callee = resolveCallee(x, scope, b.project)
       if (callee === undefined) continue
       x.args.forEach((a, i) => {
-        if (a.value === undefined || a.output) return
+        if (a.value === undefined) return
+        // an OUTPUT binding `p => v` stores the output into the variable (`accepts_output_into_other_type`: "Cannot convert
+        // type 'INT' to type 'STRING'")
+        if (a.output) {
+          const output = a.param === undefined ? undefined : outputType(callee, a.param.name, b)
+          const into = inferExprType(a.value, scope, b.project)
+          if (output !== undefined && into.kind !== "unknown") pair(renderType(into), output, classifyConversion(into, output))
+          return
+        }
         const param =
           a.param === undefined
             ? callee.positional[i]
             : callee.positional.find((p) => p.name.text.toLowerCase() === a.param!.name.toLowerCase())
-        if (param !== undefined)
-          store(resolveTypeExpr(param.type, b.project, 0, b.project, callee.sym.uri), a.value, scope)
+        // a VAR_IN_OUT is BOUND, not converted — its own rule and message (`calls/inout-*`; `cc5_in_out_type_mismatch`)
+        if (param !== undefined && !param.inOut)
+          store(resolveTypeExpr(param.type, b.project, 0, b.project, callee.sym.uri), a.value, scope, undefined, undefined, undefined, twice)
       })
     }
   }
@@ -604,11 +685,27 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
     for (const unit of allUnits(units)) {
       const scope = scopeForUnit(b.project, unit)
       if (scope === undefined) continue
+      // an ENUM member's value converts into the enum (`cc5_enum_init_not_convertible`: "Cannot convert type 'LREAL' to type
+      // 'DUT_C5_ODD'")
+      if (unit.kind === "type_decl" && unit.body.kind === "enum") {
+        const enumType = resolveNamedType(unit.name.text, b.project)
+        for (const member of unit.body.values) if (member.value !== undefined) store(enumType, member.value, scope)
+      }
       if ("varSections" in unit)
         for (const section of unit.varSections)
           for (const decl of section.decls) {
+            // a STRUCT initializer on an elementary variable has no type, and is named by its text: "Cannot convert type
+            // 'Unknown type: 'STRUCT(x := 1, y := 2)'' to type 'INT'" (`analysis/checks/types/struct-init`,
+            // `cc3_unexpected_struct_init`)
+            if (decl.init !== undefined && isStructInit(decl.init) && resolveTypeExpr(decl.type, b.project, 0, scope).kind === "elementary")
+              pair(compilerTypeText(decl.type), `Unknown type: '${structEcho(decl.init)}'`, "incompatible")
+            // a REFERENCE declared `REF= x` binds x, named as the reference: "Cannot convert type 'STRING' to type
+            // 'REFERENCE TO INT'", 'Unknown type: 'nope'' for an undeclared one (`refdecl_target_wrong_type`,
+            // `refdecl_target_undeclared`, both vendors)
+            if (decl.init !== undefined && decl.init.kind !== "aggregate_init" && decl.initOp === "REF=")
+              store(resolveTypeExpr(decl.type, b.project, 0, scope), decl.init, scope)
             if (decl.init !== undefined && decl.init.kind !== "aggregate_init" && decl.initOp === undefined)
-              store(resolveTypeExpr(decl.type, b.project, 0, scope), decl.init, scope, unknownTarget(resolveTypeExpr(decl.type, b.project, 0, scope), decl.type))
+              store(resolveTypeExpr(decl.type, b.project, 0, scope), decl.init, scope, unknownTarget(resolveTypeExpr(decl.type, b.project, 0, scope), decl.type), undefined, undefined, initializerWarnedTwice(unit, section))
             // a REFUSED initializer still stores the value the compiler kept — the placeholder where the malformed
             // literal stood (`RefusedInit.value`): "Cannot convert type 'Unknown type: '!!!'ERROR'!!!'' to type 'TIME'"
             // (`cc_time_microsecond_literal`, `lit_init_*`, frontend-conformance 2.2a)
@@ -620,6 +717,14 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
         if (!isStBody(body) || unparsed(body)) continue
         const bodyScope = scope.children.find((s) => s.span === body.span) ?? scope
         walkStatements(bodyStatements(body, bodyConditionWorld(b.project, unit, body)).statements, (s) => {
+          // `a := b := c` stores c into b and b into a — each `:=` link its own store (`assign_chained_plain`)
+          if (s.kind === "assign" && s.chained !== undefined) {
+            const places = [s.target, ...s.chained]
+            const ops = [s.op, ...(s.chainOps ?? [])]
+            places.forEach((place, i) => {
+              if (ops[i] === undefined) store(inferExprType(place, bodyScope, b.project), places[i + 1] ?? s.value, bodyScope)
+            })
+          }
           if (s.kind === "assign" && s.op === undefined && s.chained === undefined) {
             const target = inferExprType(s.target, bodyScope, b.project)
             const written = s.target.kind === "ident_expr" ? lookup(bodyScope, s.target.name)?.symbol.typeExpr : undefined
@@ -660,8 +765,26 @@ function storesOf(b: Bound, says: ReadonlySet<string> | undefined): Store[] {
   }
   const unparsed = unparsedIn(b.parsed.parseResult, says)
   visit(b.parsed.parseResult.units)
-  for (const s of sites(b)) if (s.scope !== undefined && !unparsed(s.expr)) inner(s.expr, s.scope)
+  // the conversions INSIDE an initializer the IDE checks twice are said twice too (`narrowing` walks the initializer with
+  // `pushForDeclaration`: `cfold_expt`'s `REAL_TO_DINT(EXPT(…))` in an FB)
+  const twice = new Set<Expr>()
+  for (const unit of allUnits(b.parsed.parseResult.units))
+    if ("varSections" in unit)
+      for (const section of unit.varSections)
+        for (const decl of section.decls)
+          if (decl.init !== undefined && decl.init.kind !== "aggregate_init" && initializerWarnedTwice(unit, section)) twice.add(decl.init)
+  for (const s of sites(b)) if (s.scope !== undefined && !unparsed(s.expr)) inner(s.expr, s.scope, twice.has(s.expr))
   return out
+}
+
+/** The declared type of the OUTPUT `name` of a callee — a member of an FB instance's scope (its base chain's too), or a
+ *  VAR_OUTPUT of a function/method's own declaration. */
+function outputType(callee: NonNullable<ReturnType<typeof resolveCallee>>, name: string, b: Bound): Type | undefined {
+  const sym = callee.scope !== undefined ? lookupMember(callee.scope, name) : undefined
+  const own = (callee.sym.ast as { varSections?: readonly { sectionKind: string; decls: readonly { names: readonly { text: string }[]; type: TypeExpr }[] }[] }).varSections
+  const decl = own?.filter((sec) => sec.sectionKind === "VAR_OUTPUT").flatMap((sec) => sec.decls).find((d) => d.names.some((n) => n.text.toLowerCase() === name.toLowerCase()))
+  if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, b.project, 0, sym.owner, sym.uri)
+  return decl === undefined ? undefined : resolveTypeExpr(decl.type, b.project, 0, b.project, callee.sym.uri)
 }
 
 /** Does the vendor refuse the operands of the call operator `name` — its count, or its operand's kind? */
@@ -734,27 +857,44 @@ function crossCheckBuildTypes(f: FixtureSources, vendor: Dialect, files: readonl
   const key = (what: string): string => `build ${vendor}: ${what}`
   const says = vendorSays(build)
   const stores = files.flatMap((b) => storesOf(b, says))
-  // each store explains ONE copy of a message: it is used up by the message it explains
+  // each store explains ONE copy of a message: it is used up by the message it explains — but a WARNING the IDE says twice
+  // (`Store.warnedTwice`) is used up by its second copy
   const unused = new Set(stores)
+  const warnedOnce = new Set<Store>()
   const refused = new Set<Store>()
   // an override whose parameter differs from its base method's: the vendor says the parameter's conversion beside it,
   // "Cannot convert type 'DINT' to type 'INT'" — a signature, not a store (rule H10, `analysis/checks/oop/method-signature`
   // says it; `inh_override_signature_mismatch`, `_section_mismatch`, `_pointer_only`, both vendors)
   const overrides = build.diagnostics.some((d) => /^Interface of overridden method '.+' of base '.+' doesn't match declaration$/.test(d.message))
+  const unreadBody = files.some((b) => allUnits(b.parsed.parseResult.units).some((u) => unitBodies(u).some((body) => !isStBody(body))))
   for (const d of build.diagnostics) {
     const m = TYPE_MESSAGES.map((r) => r.exec(d.message)).find((x) => x !== null)
     if (m === undefined || m === null) continue
     tally(c.types, key("type messages recorded"))
     const [x, y] = [typeKey(m[1]), typeKey(m[2])]
+    const warning = !m[0].startsWith("Cannot convert")
+    const again = warning ? [...warnedOnce].find((s) => s.target === y && s.value.has(x)) : undefined
+    if (again !== undefined) {
+      warnedOnce.delete(again)
+      tally(c.types, key("explained by the inferred types, said twice for an initializer"))
+      continue
+    }
     const by =
       [...unused].find((s) => s.target === y && s.value.has(x)) ??
       (vendor === "twincat" ? [...unused].find((s) => s.reversedOnTwincat === true && s.target === x && s.value.has(y)) : undefined)
     if (by !== undefined) {
       unused.delete(by)
+      if (warning && by.warnedTwice === true) warnedOnce.add(by)
       if (m[0].startsWith("Cannot convert")) refused.add(by)
       tally(c.types, key("explained by the inferred types"))
     } else if (overrides && m[0].startsWith("Cannot convert"))
       tally(c.types, key("explained by an override's parameter (H10)"))
+    // a NETWORK body (FBD/LD network text) is no ST the census walks (`storesOf` reads ST bodies): its sinks and boxes are
+    // the network checks' (`cc_vg_*`, `ng_sink_type_mismatch`, `network_unnamed_*`). Each such message is NAMED, fixture and
+    // text, never one blanket count: the fixture's ST files are read, and a mismatch in one of them must show here as a new
+    // entry rather than vanish into the tally (step 4.7.4 review)
+    else if (unreadBody)
+      tally(c.types, key(`in a fixture with a network body (not ST, which this census reads): ${name}: ${d.message}`))
     else
       c.typeDisagreements.push(
         `${vendor} ${name}: build says ${JSON.stringify(d.message)} — ${

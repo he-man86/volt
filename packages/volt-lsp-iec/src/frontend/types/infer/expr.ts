@@ -31,7 +31,7 @@ import { elementaryRef, UNKNOWN, withoutSubrange, type Type } from "../type.js"
 import { literalType, typedLiteralSum, untypedNumberValue } from "../literal.js"
 import { ARITHMETIC_OPERATORS, BITWISE_OPERATORS, bitwiseLiteralResultType, bitwiseResultType, COMPARISON_OPERATORS, notResultType, pointerArithmeticType, SHORT_CIRCUIT_OPERATORS, shortCircuitType } from "../arith/operators.js"
 import { enumStorage } from "../enums.js"
-import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType } from "./member.js"
+import { resolveMemberChain, enumValueType, memberScopeOf, staticScopeType, superType, thisType, staticNameOf, insideOwnBody } from "./member.js"
 
 /** A CODESYS partial access's member name (`%X0`, `%b3`), one token (`lex/lexer`): its width letter. */
 const PARTIAL_ACCESS = /^%([XBWD])\d+$/i
@@ -51,6 +51,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       const bare = bareBuiltinType(expr.name, project.dialect)
       if (bare !== undefined) return bare
       const sym = lookup(scope, expr.name)?.symbol ?? bareEnumMember(scope, expr.name)
+      // a GVL's name, and a FUNCTION's or METHOD's where it is no call, denote the declaration (rule DT8)
+      const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
+      if (denoted !== undefined) return denoted
       // The declaring file is the asker: `v : ETRIG;` written inside CBML means CBML's ETRIG, no matter
       // which file is reading `v` now. Its bounds and lengths fold where it is declared (rule CE8): `v : INT(0..N)` with N
       // its POU's own CONSTANT is a subrange, and `a : ARRAY[0..N]` a sized array, wherever `v` is read.
@@ -75,6 +78,9 @@ export function inferExprType(expr: Expr, scope: Scope, project: Scope): Type {
       // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors)
       if (expr.base.kind === "ident_expr" && selfRefKind(expr.base.name) !== undefined) return UNKNOWN
       const sym = resolveMemberChain(expr, scope, project)
+      // a METHOD named without its call is the method — 'VALUE' for `other.Value` (rule DT8)
+      const denoted = sym === undefined ? undefined : staticNameOf(sym, scope)
+      if (denoted !== undefined) return denoted
       if (sym?.typeExpr !== undefined) return resolveTypeExpr(sym.typeExpr, project, 0, sym.owner, sym.uri)
       const value = sym === undefined ? undefined : enumValueType(sym, project)
       if (value !== undefined) return value
@@ -361,6 +367,10 @@ const NOT_CALLABLE: ReadonlySet<string> = new Set(["elementary", "enum", "struct
 function callReturnType(call: CallExpr, scope: Scope, project: Scope): Type {
   // A project function/method wins (user code can shadow a built-in name).
   const sym = resolveMemberChain(call.callee, scope, project)
+  // a FUNCTION called inside its own body calls its RESULT VARIABLE (rule Y20), which is no call target: the call has no
+  // result — "Program name, function or function block instance expected instead of 'F_C2_loop'" and "Cannot convert
+  // type 'Unknown type: 'F_C2_loop(depth := (depth - INT#1))'' to type 'INT'" (`cc2_call_recursion`, both vendors)
+  if (sym?.kind === "function" && call.callee.kind === "ident_expr" && insideOwnBody(sym, scope)) return UNKNOWN
   if (sym?.typeExpr !== undefined) {
     const declared = resolveTypeExpr(sym.typeExpr, project, 0, project, sym.uri)
     // a VALUE that is no call target has no result: `.gCall(1)` over an INT is "Unknown type: '.gCall(1)'" on both

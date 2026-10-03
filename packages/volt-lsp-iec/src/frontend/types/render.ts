@@ -27,9 +27,11 @@ export function renderType(t: Type, options?: { form: "display" | "compiler" }):
       if (t.subrange !== undefined) return `${name} (${t.subrange.lower}..${t.subrange.upper})`
       return t.length === undefined ? name : `${name}(${t.lengthText ?? t.length})`
     }
+    // a POU denoted by its name is printed upper-cased (`FunctionBlockType` `byName`, rules DT7, DT8)
+    case "function_block":
+      return t.byName === true ? t.name.toUpperCase() : t.name
     case "enum":
     case "struct":
-    case "function_block":
     case "interface":
       return t.name
     case "array":
@@ -38,6 +40,9 @@ export function renderType(t: Type, options?: { form: "display" | "compiler" }):
       return `ARRAY [${t.dims.map(dimText).join(", ")}] OF ${renderType(t.element)}`
     case "pointer":
       return `POINTER TO ${renderType(t.target)}`
+    // a name that denotes a declaration is named as the compiler names it, upper-cased (rule DT8, `type` `StaticType`)
+    case "static":
+      return t.name.toUpperCase()
     case "reference":
       return `REFERENCE TO ${renderType(t.target)}`
     case "unknown":

@@ -56,7 +56,15 @@ export function checkNonCallableCall(ctx: CheckContext, out: DiagnosticItem[]): 
       // *Why missed:* no fixture ever called through one; every REFERENCE TO case pinned a declaration or a read.
       const type = inferExprType(e.callee, scope, ctx.project)
       const target = type.kind === "pointer" || type.kind === "reference" ? type.target : type
-      if (NON_CALLABLE_TYPE.has(target.kind))
+      // A STRUCT type's NAME called (rule DT8's `StaticType`) calls a TYPE: "Cannot call object of type 'TYPE'", beside
+      // `type-as-value`'s C0230 (`dt_struct_type_name_called`, CODESYS 2026-10-03; the step 4.7.4 review found it silent,
+      // and before DT8 it was this C0035). A namespace's name keeps C0035, as before DT8 (unrecorded); an INTERFACE's is
+      // `fb-instantiation`'s, and a FUNCTION's, METHOD's or GVL's never gets here.
+      if (target.kind === "static" && target.denotes === "struct") {
+        out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "non-callable-call", message: ctx.messages.cannotCallType("TYPE") })
+        return
+      }
+      if (NON_CALLABLE_TYPE.has(target.kind) || (target.kind === "static" && target.denotes === "namespace"))
         out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(calleeName(e.callee)) })
     })
   }

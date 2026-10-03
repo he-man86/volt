@@ -14,7 +14,8 @@
  * `ty_xint_twincat_width` are "Cannot convert type 'LINT' to type 'STRING'" on CODESYS (`CODESYS Control Win V3 x64`) and
  * on TwinCAT (`TwinCAT RT (x64)`), and a pointer is silent into an LWORD/ULINT and refused into a DWORD/UDINT on both
  * (`ty_pointer_size_twincat`; frontend-conformance 4.1.1, 2026-10-03). `scripts/check-recording.ts` refuses a recording
- * made on another target.
+ * made on another target. A 32-bit target's recording is a file of its own, replayed on this environment with a 32-bit
+ * target (`target-32.test.ts`, rule TY6).
  *
  * The device and the task configuration are NOT stated: the build recordings measure neither for the analysis, so a
  * condition on them stays refused here as in the LSP (the transpiler states the exec oracle's,

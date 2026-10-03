@@ -10,7 +10,7 @@ against. The tests themselves live in `src/**/*.test.ts` and `test/` — see [`.
 |---|---|
 | `bridge.ts` | named-pipe client — `call(op, body)` speaks the Volt wire to a live bridge |
 | `held-as.ts` | where the IDE holds an item the recorder pushed (`x.pou` as `X.pou`, a GVL as `unreadable`) — `record-language.ts`'s cleanup lookup, tested in `held-as.test.ts` |
-| `recording-target.ts` | which target a recording was made on (`plat_xint_into_string`'s `__XINT` width) — `check-recording.ts` and `record-language.ts`'s `RECORD_ONLY` merge refuse anything but the 64-bit oracle |
+| `recording-target.ts` | which target a recording was made on (`plat_xint_into_string`'s `__XINT` width) — `check-recording.ts` and `record-language.ts`'s `RECORD_ONLY` merge refuse anything but the 64-bit oracle, or, with `VOLT_RECORDING_TARGET=32`, anything but a 32-bit target (into `<vendor>-32.build.json`, rule TY6) |
 | `bridge-fixture.ts` | `openFixture()` → `{ set, del, reset }` — push items + reset the fixture project between repros |
 
 ## Live tools (a bridge must be up)
@@ -20,7 +20,7 @@ it serves `volt.bridge.codesys.<pid>` — pass `VOLT_PIPE=volt.bridge.codesys.<p
 
 | File | Produces / does |
 |---|---|
-| `record-language.ts` | conformance recordings → `test/conformance/recordings/` |
+| `record-language.ts` | conformance recordings → `test/conformance/recordings/` (`VOLT_RECORDING_TARGET=32` + `RECORD_ONLY`: a 32-bit target's, `twincat-32.build.json`, replayed by `target-32.test.ts`) |
 | `record-corpus-build.ts` | a corpus project's real IDE build snapshot → `corpus.test.ts` oracle |
 | `refresh-corpus.ts` | refreshes a `test-corpus/<name>/` project via `volt pull` |
 | `verify-catalog.ts` | verifies implemented C-code wording vs the IDE → `error-catalog.json` verified flags |

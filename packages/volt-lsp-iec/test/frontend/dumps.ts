@@ -361,7 +361,10 @@ export interface Site {
 export function sites(b: Bound): Site[] {
   const out: Site[] = []
   for (const unit of allUnits(b.parsed.parseResult.units)) {
-    const unitScope = scopeForUnit(b.project, unit)
+    // an ALIAS declares no scope of its own (`symbols` `scopeForUnit`): its initializer resolves where the alias does, in
+    // the project as its own file sees it (rule DT1; `types/resolve` resolves the alias there)
+    const alias = unit.kind === "type_decl" && unit.body.kind === "alias"
+    const unitScope = scopeForUnit(b.project, unit) ?? (alias ? b.project : undefined)
     for (const expr of declExprs(unit)) out.push({ where: "decl", expr, scope: unitScope })
     for (const body of unitBodies(unit)) {
       if (!isStBody(body)) continue

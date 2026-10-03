@@ -111,9 +111,12 @@ export function storeConversionError(
   const strict = strictEnumStore(lhs, value, scope, project, messages)
   if (strict !== "not-strict") return strict === "accepted" ? undefined : { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: strict }
   // A STRUCT stored into an elementary target is refused, named as the struct: "Cannot convert type 'VERSION' to type
-  // 'STRING'" (`ty_version_into_string`, both vendors) — the struct case of rule CV1, unchecked until task 4.5.3
+  // 'STRING'" (`ty_version_into_string`, both vendors) — the struct case of rule CV1, unchecked until task 4.5.3 — and so
+  // is every other value that is no elementary one: an FB instance, an interface, an array, THIS^, a name that denotes a
+  // declaration (`dt_fb_instance_type_name`, `dt_interface_variable_type_name`, `dt_render_array_dims`, `dt_this_type`,
+  // `dt_static_base_*`, CODESYS 2026-10-03; task 4.7.4). A METHOD's name is `checks/oop/method-reference`'s, under its code.
   const whole = inferExprType(value, scope, project)
-  if (whole.kind === "struct" && lhs.kind === "elementary")
+  if (lhs.kind === "elementary" && refusedWhole(whole))
     return { severity: "error", span, source: SOURCE, code: "assignment-type-mismatch", message: messages.cannotConvert(renderType(whole, { form: "compiler" }), storeTargetName(lhs, site, messages)) }
   // …into a POINTER, an integer VARIABLE (`compat` `integerIntoPointer`, decided by the project's target); an untyped
   // literal into a pointer was never recorded (`cv_integers_into_pointer`, `cv_xword_into_pointer` store variables)
@@ -130,6 +133,13 @@ export function storeConversionError(
     code: "assignment-type-mismatch",
     message: messages.cannotConvert(display, storeTargetName(lhs, site, messages)),
   }
+}
+
+/** A value no elementary target takes whatever its type: a struct, an FB instance, an interface, an array, a name that
+ *  denotes a declaration (rule DT8) — but a METHOD's name, whose check is `method-reference`'s. */
+function refusedWhole(t: Type): boolean {
+  if (t.kind === "static") return t.denotes !== "method"
+  return t.kind === "struct" || t.kind === "function_block" || t.kind === "interface" || t.kind === "array"
 }
 
 /** How a member value of an enum folds, for the analysis: `constEval` in the project. */

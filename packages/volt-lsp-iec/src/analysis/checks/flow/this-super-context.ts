@@ -37,17 +37,16 @@ function baseless(scope: Scope): boolean {
 export function checkThisSuperContext(ctx: CheckContext, out: DiagnosticItem[]): void {
   for (const { unit, scope, statements } of bodies(ctx.parseResult.units, ctx.project)) {
     if (unit.kind !== "program" && unit.kind !== "function") {
-      // THIS and SUPER WITHOUT their `^` are the pointers themselves, which have no members: `THIS.v` is "'THIS' is no
-      // structured variable", `SUPER.Get()` that and no call target as written, each hole then converted as a refused
-      // name's (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors 2026-10-02). Where there is NO
-      // base a bare SUPER is not allowed at all, and that is all it is: `SUPER.Get()` there is no structured-variable
-      // message, and its call target is said once, below (`expr_super_without_deref_without_base`, both vendors)
+      // THIS and SUPER WITHOUT their `^` are the pointers themselves (`infer/member` `thisType`), which have no members:
+      // `THIS.v` is "'THIS' is no structured variable" — any pointer's sentence, said by `unresolved-identifier` — and
+      // `SUPER.Get()` that and no call target as written, each hole then converted as a refused name's
+      // (`expr_this_member_without_deref`, `expr_super_without_deref`, both vendors 2026-10-02). Where there is NO base a
+      // bare SUPER is not allowed at all, and that is all it is: `SUPER.Get()` there is no structured-variable message
+      // (SUPER has no type there), and its call target is said once, below (`expr_super_without_deref_without_base`)
       const noBase = baseless(scope)
       const pointer = (e: Expr): boolean => bareSelf(e) && !(noBase && e.kind === "ident_expr" && selfRefKind(e.name) === "SUPER")
       walkAllExprs(statements, (e) => {
-        if (e.kind === "member" && pointer(e.base))
-          out.push({ severity: "error", span: e.base.span, source: SOURCE, code: "self-not-structured", message: ctx.messages.notStructuredVariable(compilerExprText(e.base)) })
-        else if (e.kind === "call" && e.callee.kind === "member" && pointer(e.callee.base))
+        if (e.kind === "call" && e.callee.kind === "member" && pointer(e.callee.base))
           out.push({ severity: "error", span: e.callee.span, source: SOURCE, code: "invalid-call-target", message: ctx.messages.callTargetExpected(compilerExprText(e.callee)) })
       })
       if (!noBase) continue

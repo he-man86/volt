@@ -118,14 +118,15 @@ export function isAssignable(lhs: Type, rhs: Type, target?: Target): boolean {
  * — it is the pointer of the OTHER platform; every other integer converts as into the unsigned integer of the pointer's
  * width — BYTE, WORD, UINT, LWORD, ULINT, `__XWORD` silent, INT and LINT a change of sign. A REAL is refused
  * (`dt_pointer_arithmetic_refused`: `p - aReal` converts the REAL into the pointer); the other families are unmeasured.
- * Unjudged where the target is unknown or 32-bit (unmeasured).
+ * On a 32-bit target the mirror (TwinCAT CE7, `recordings/twincat-32.build.json`, 2026-10-03): a 64-bit integer is
+ * refused, the rest converts as into a UDINT — DINT and INT a change of sign. Unjudged where the target is unknown.
  */
 function integerIntoPointer(rhs: ElementaryTypeRef, target: Target | undefined): ConversionKind {
   const e = rhs.elem
   if (e.family !== "int" && e.family !== "bitstring") return e.family === "real" ? "incompatible" : "identity"
-  if (target === undefined || target.pointerBits !== 64 || e.bits === 1) return "identity"
-  if (e.bits === 32) return "incompatible"
-  return classifyElementary("ULINT", rhs.name)
+  if (target === undefined || e.bits === 1) return "identity"
+  if (e.bits === (target.pointerBits === 64 ? 32 : 64)) return "incompatible"
+  return classifyElementary(target.pointerBits === 64 ? "ULINT" : "UDINT", rhs.name)
 }
 
 function bitToBool(name: string): string {

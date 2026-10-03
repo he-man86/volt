@@ -72,3 +72,19 @@ test("C0035 — a global variable called as `.g(1)`: named as written, and the c
     "Program name, function or function block instance expected instead of '.gq'",
   ])
 })
+
+// A STRUCT type's name CALLED is "Cannot call object of type 'TYPE'" — not C0035, which the LSP said before rule DT8, nor
+// nothing, which it said after (step 4.7.4 review) — beside the type name's C0230 (`type-as-value`), and its call has no
+// result (`dt_struct_type_name_called`, CODESYS 2026-10-03).
+test("C0036 — calling a STRUCT type's name, as a statement and as a value, calls a TYPE", () => {
+  const ds = one(`TYPE Dut_s :\nSTRUCT\nx : INT;\nEND_STRUCT\nEND_TYPE
+FUNCTION_BLOCK F\nVAR\nn : INT;\nEND_VAR\nDut_s();\nn := Dut_s();\nEND_FUNCTION_BLOCK`)
+  const codes = new Set(["non-callable-call", "invalid-call-target", "type-name-as-value", "unknown-source"])
+  expect(ds.filter((d) => codes.has(d.code)).map((d) => d.message).sort()).toEqual([
+    "Cannot call object of type 'TYPE'",
+    "Cannot call object of type 'TYPE'",
+    "Cannot convert type 'Unknown type: 'Dut_s()'' to type 'INT'",
+    "Type name 'Dut_s' not expected in this place",
+    "Type name 'Dut_s' not expected in this place",
+  ])
+})

@@ -98,6 +98,9 @@ function fbChainSections(fbScope: Scope): { sections: VarSection[]; complete: bo
 const POSITIONAL_SECTIONS = new Set(["VAR_INPUT", "VAR_IN_OUT"]) // VAR_OUTPUT is never bound by position
 const PARAM_SECTIONS = new Set(["VAR_INPUT", "VAR_OUTPUT", "VAR_IN_OUT"]) // the name-bindable formal params
 
+/** An FB instance and a PROGRAM bind no argument by position (rule DT9) — a FUNCTION and a METHOD do. */
+export const takesNoPositionalArguments = (sym: Symbol): boolean => sym.kind === "function_block" || sym.kind === "program"
+
 /** A FUNCTION, or a METHOD stating `: <type>`, whose name is its result variable (rule Y20). */
 const hasResultVariable = (sym: Symbol): boolean => sym.kind === "function" || (sym.kind === "method" && sym.typeExpr !== undefined)
 
@@ -133,6 +136,9 @@ function calleeInfo(
   // This said `positional.length` for every callee kind, so an FB's positional call looked legal up to its input
   // count and only an EXCESS argument was reported — which is why `refuse_fb_called_positionally` sat as an
   // lsp-gap. `positional` itself keeps every parameter: it is what the VAR_IN_OUT and writability checks bind by.
-  const arity = sym.kind === "function_block" ? 0 : positional.length
+  //
+  // …and neither does a PROGRAM: `P(5)` is "Assignment to input missing for parameter '5' in call of 'P'"
+  // (`dt_program_called_positionally`, CODESYS 2026-10-03; rule DT9).
+  const arity = takesNoPositionalArguments(sym) ? 0 : positional.length
   return { sym, params, positional, positionalArity: arity, paramNames, scope, complete }
 }

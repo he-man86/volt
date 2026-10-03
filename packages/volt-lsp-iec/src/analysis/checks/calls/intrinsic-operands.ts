@@ -14,9 +14,9 @@
  * operator name is UNSHADOWED (a project/library symbol of the same name skips) and the argument's type is a
  * KNOWN non-numeric elementary (not ANY_NUM = int/bitstring/real).
  */
-import { elementaryType, elementaryTypeRef, inferExprType, inTypeGroup, isAssignable, renderType } from "../../../frontend/types/index.js"
+import { atomicOperand, inferExprType, inTypeGroup, renderType } from "../../../frontend/types/index.js"
 import { conversionWarning, storeConversionError } from "../../rules.js"
-import { CODESYS_ONLY_KEYWORDS, type Expr, type Span } from "../../../frontend/syntax/index.js"
+import { type Expr, type Span } from "../../../frontend/syntax/index.js"
 import { forEachExpr, lookup, type Scope } from "../../../frontend/symbols/index.js"
 import type { CheckContext } from "../../diagnostics.js"
 import { SOURCE, type DiagnosticItem } from "../../diagnostic-item.js"
@@ -84,8 +84,10 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     //
     // Written as that one sentence rather than a table: the refusal and the warning both come from the shared
     // assignment rules, so a type nobody probed answers the way the compilers answer it for `x : DWORD := flag`.
-    if (name === "TEST_AND_SET" && lookup(scope, e.callee.name) === undefined) {
-      const dword = elementaryTypeRef(elementaryType("DWORD")!)
+    // What each atomic takes is the type layer's (`builtins` `atomicOperand`).
+    const atomic = atomicOperand(name, ctx.project.dialect)
+    if (atomic?.store === true && lookup(scope, e.callee.name) === undefined) {
+      const dword = atomic.type
       const refused = storeConversionError(dword, arg, arg.span, scope, ctx.project, ctx.messages, "argument")
       const t = inferExprType(arg, scope, ctx.project)
       const elem = t.kind === "elementary" ? t.elem : undefined
@@ -117,21 +119,10 @@ export function checkIntrinsicOperands(ctx: CheckContext, out: DiagnosticItem[])
     // type 'DINT' to type 'POINTER TO DINT'" — while TwinCAT takes the DINT ITSELF and refuses the pointer,
     // "Cannot convert type 'POINTER TO DINT' to type 'DINT'". INT and DWORD pass there (widening, and a sign
     // crossing TwinCAT does not warn about at an argument); LINT and LWORD do not.
-    const ATOMIC_POINTER: Readonly<Record<string, string>> = { __XADD: "DINT", __COMPARE_AND_SWAP: "LWORD" }
-    const tc = ctx.project.dialect === "twincat"
-    const wants = CODESYS_ONLY_KEYWORDS.has(name) && tc ? undefined : ATOMIC_POINTER[name]
-    if (wants !== undefined) {
+    if (atomic?.store === false) {
       const t = inferExprType(arg, scope, ctx.project)
-      const target = elementaryTypeRef(elementaryType(wants)!)
-      const bad = tc ? t.kind !== "unknown" && (t.kind !== "elementary" || !isAssignable(target, t)) : t.kind !== "pointer" && t.kind !== "unknown"
-      if (bad)
-        push(
-          out,
-          "error",
-          arg.span,
-          "call-argument-type",
-          ctx.messages.cannotConvert(renderType(t, { form: "compiler" }), tc ? wants : `POINTER TO ${wants}`),
-        )
+      if (atomic.refuses(t))
+        push(out, "error", arg.span, "call-argument-type", ctx.messages.cannotConvert(renderType(t, { form: "compiler" }), renderType(atomic.type, { form: "compiler" })))
     }
     // INDEXOF WAS REMOVED IN SP21 and says so, whether it is handed a POU name or a variable (`operand_indexof`,
     // `atomic_indexof_variable`). It is not an operand rule — the operator is simply gone.

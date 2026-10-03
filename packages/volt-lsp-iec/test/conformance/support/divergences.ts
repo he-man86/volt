@@ -80,8 +80,9 @@ import type { Vendor } from "../../../src/analysis/index.js"
  * form right and guesses the column would be worse than the honest silence: it would be a WRONG number where
  * this is merely an unsized one.
  */
-export const CODESYS_TRIAGE: ReadonlySet<string> = new Set([
-  "sysop_position_call_form",
+export const CODESYS_TRIAGE: ReadonlySet<string> = new Set<string>([
+  // (`sysop_position_call_form` left 2026-10-03 for `CODESYS_POSITION_IN_AN_INITIALIZER`, a known divergence: the sized
+  // type is a seam not worth cutting for two fixtures and 0 corpus occurrences — frontend-conformance 4.8)
 ])
 
 export const TWINCAT_TRIAGE: ReadonlySet<string> = new Set<string>([])
@@ -625,8 +626,11 @@ const CALC_CONDITIONAL_CALL: readonly string[] = [
  * LSP's 'STRING' — the seam the backlog note describes) and, in an INITIALIZER, `__POSITION` without its `(` eating the
  * `;` as it does in a body — "';' expected instead of 'END_VAR'" and "'END_VAR' expected instead of ''", the declaration
  * running to the end of the part. Both one fixture each; niche: accepted loss (0 `__POSITION` in the corpora).
+ * `sysop_position_call_form` (frontend-conformance 4.8, from the triage backlog) is the same sized type in a body, "…
+ * 'STRING(INT#23)' to type 'DINT'" where the LSP says 'STRING': the length is the position text's (`21 + digits(line) +
+ * digits(column)`, `scripts/probe-position-length.ts`), which the type layer does not have.
  */
-const CODESYS_POSITION_IN_AN_INITIALIZER: readonly string[] = ["sysop_position_initializer"]
+const CODESYS_POSITION_IN_AN_INITIALIZER: readonly string[] = ["sysop_position_initializer", "sysop_position_call_form"]
 const TWINCAT_RECOVERY_DIVERGENCES: readonly string[] = ["rec_interface_stray", "rec_refused_name_declared_fb_type"]
 
 const UNIT_HEADER_RECOVERY: readonly string[] = [
@@ -1077,6 +1081,8 @@ const CODESYS_LIBRARY_DIVERGENCES: readonly string[] = [
  */
 const TWINCAT_LIBRARY_DIVERGENCES: readonly string[] = [
   "cv_library_enum_type",
+  // frontend-conformance 4.7.4: `txt := Util` — "Identifier 'Util' not defined" (CODESYS agrees exactly: 'UTIL')
+  "dt_namespace_static_base",
   "lib_ns_type_qualified",
   "lib_ns_type_qualified_other_library",
   "lib_ns_type_name_two_libraries",
@@ -1123,6 +1129,12 @@ const C0033_CONFIGURED_AS_AN_ERROR: readonly string[] = [
   "cv_pointer_assigned_to_reference",
   "cv_pointer_and_pointee",
   "dt_pointer_plus_int",
+  // frontend-conformance 4.7.4 (2026-10-03): THIS and SUPER (pointers to the FB and its base) and three pointer types stored
+  // into a STRING / an INT — "Cannot convert type 'POINTER TO FB_LANG_DT_THIS_TYPE' to type 'STRING'", 'POINTER TO POINTER
+  // TO INT', 'POINTER TO ARRAY [0..1] OF REAL', word for word from `pointer-conversion` at C0033's shipped severity
+  "dt_this_type",
+  "dt_super_type",
+  "dt_render_pointer_names",
 ]
 
 /**
@@ -1160,6 +1172,25 @@ const LIBRARY_ENUM_BASE_NOT_MATERIALIZED: readonly string[] = [
   "cv_library_enum_into_scalars",
   "cv_library_enum_255_into_scalars",
   "dt_library_enum_storage",
+]
+
+/**
+ * FRONTEND-CONFORMANCE 4.7.4 (2026-10-03) — an ALIAS's initializer (`TYPE A : SINT := 300`, `INT := 'abc'`, `REAL :=
+ * LREAL#1.5`, rule DT2): CODESYS checks it as a store into the alias's base, and says it as often as the alias is USED —
+ * never for an alias no variable is declared with (`dt_alias_init_narrowing_unused`, `dt_alias_init_wrong_type_unused`:
+ * silent, as the LSP is), a refusal once, and a warning once for the alias plus once per variable of it declared in a
+ * FUNCTION_BLOCK (`dt_alias_init_narrowing_in_program` 1, `dt_alias_init_narrowing` 2 each, `_two_uses` 3). TwinCAT says
+ * the refusals as CODESYS does and the warnings twice for one or two variables, in an FB or a PROGRAM (`_in_program` 2,
+ * `_two_uses` 2). The LSP does not check an alias's initializer: saying it needs the project-wide count of the alias's
+ * uses, at the alias's declaration. Missing-only, both vendors; niche: accepted loss (0 occurrences in the corpora — no
+ * alias in them has an initializer).
+ */
+const ALIAS_INITIALIZER_NOT_CHECKED: readonly string[] = [
+  "dt_alias_init_out_of_range",
+  "dt_alias_init_wrong_type",
+  "dt_alias_init_narrowing",
+  "dt_alias_init_narrowing_two_uses",
+  "dt_alias_init_narrowing_in_program",
 ]
 
 /**
@@ -1210,9 +1241,22 @@ const CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY: readonly string[] = ["ar_pouname_typ
  * FRONTEND-CONFORMANCE 4.3.5 (2026-10-03) — TwinCAT, LDATE − LDATE, LDT − LDT, LTOD − LTOD (`ar_ldate_minus_ldate_type`):
  * TwinCAT has none of the three types ("Unknown type: 'LDATE'", which the LSP gives) and then reads each difference as
  * that unknown type, "Cannot convert type 'LDATE' to type 'ANY_NUM'" and "…to type 'STRING'" — arithmetic on a type that
- * does not exist. Niche: accepted loss (0 occurrences of LDATE, LDT or LTOD in the TwinCAT corpus).
+ * does not exist. Niche: accepted loss (0 occurrences of LDATE, LDT or LTOD in the TwinCAT corpus). `ldate_ltod_ldt`
+ * (frontend-conformance 4.8) is the same arithmetic: `ldt1 + oneNs` reads the unknown LDT as ULINT — "Cannot convert type
+ * 'LDT' to type 'ULINT'", 'LTIME' to 'ULINT', 'ULINT' to 'LDT' — beside the twenty messages both sides give.
  */
-const TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE: readonly string[] = ["ar_ldate_minus_ldate_type"]
+const TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE: readonly string[] = ["ar_ldate_minus_ldate_type", "ldate_ltod_ldt"]
+
+/**
+ * FRONTEND-CONFORMANCE 4.8 (2026-10-03) — TwinCAT, an initializer that is an operation over untyped integers whose value
+ * the target cannot hold (`cc_fp_overflow_expr` `x : INT := 30000 + 10000`, `cc_init_constant_expr_into_sint` `si : SINT
+ * := 100 + 100`): "Cannot convert type 'DINT' to type 'INT'" / 'INT' to 'SINT' — TwinCAT types the folded operation as
+ * the smallest SIGNED integer holding its value and refuses the store, where CODESYS is silent on both (as the LSP is).
+ * An untyped number's type in its context is LT14's (the transpiler's call site, task 5.3). Missing-only on TwinCAT;
+ * niche: accepted loss (0 occurrences in the corpora — one initializer in them is an operation over untyped integers,
+ * and its value fits).
+ */
+const TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER: readonly string[] = ["cc_fp_overflow_expr", "cc_init_constant_expr_into_sint"]
 
 /**
  * FRONTEND-CONFORMANCE 4.1.3 (2026-10-03) — elementary-type fixtures (`fixtures/types/elementary-rules.ts`, rules TY12,
@@ -1307,7 +1351,9 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...UNTYPED_OPERAND_AS_A_BOUND,
     ...TWINCAT_NOT_OF_A_SIGNED_BOUND,
     ...UNTYPED_NOT_IN_A_SIGNED_CONTEXT,
+    ...ALIAS_INITIALIZER_NOT_CHECKED,
     ...TWINCAT_ARITHMETIC_ON_AN_UNKNOWN_DATE_TYPE,
+    ...TWINCAT_UNTYPED_OPERATION_IN_AN_INITIALIZER,
     ...TWINCAT_NOTHING_OF_PLC_PRG_BESIDE_A_PARSE_ERROR,
     ...TWINCAT_ECHO_NAMES_A_POSITIONAL_ARGUMENT,
     ...TWINCAT_REFUSED_PREFIX_INSIDE_A_LIST,
@@ -1445,6 +1491,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_POUNAME_IS_SIZED_BY_ITS_BODY,
     ...UNTYPED_OPERAND_AS_A_BOUND,
     ...UNTYPED_NOT_IN_A_SIGNED_CONTEXT,
+    ...ALIAS_INITIALIZER_NOT_CHECKED,
     //   PUSH-WITHOUT-HEADER-CHECK (2026-09-30) — texts the push now writes as sent, whose build answer the LSP does not
     //   reproduce, each for a reason that is not a rule to implement from what was measured:
     //   `pwh_struct_then_prose`, `pwh_gvl_then_prose` — text after a DUT's END_TYPE / a GVL's END_VAR. The compilers

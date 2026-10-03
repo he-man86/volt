@@ -9,7 +9,9 @@
  * whole or a `RECORD_ONLY` merge, is judged by this probe, and refused on any other target.
  *
  * Shared by `check-recording.ts` (a whole run before `--write`) and `record-language.ts` (a `RECORD_ONLY` merge, which
- * records the probe in the same run and refuses to merge without the 64-bit answer — step 4a review, 2026-10-03).
+ * records the probe in the same run and refuses to merge without the 64-bit answer — step 4a review, 2026-10-03). A 32-bit
+ * target's recording is a file of its own, `<vendor>-32.build.json` (`VOLT_RECORDING_TARGET=32`, rule TY6), whose probe must
+ * answer `THIRTY_TWO_BIT_WIDTH` (frontend-conformance 4.8).
  */
 type Row = { diagnostics?: { message: string }[] }
 
@@ -24,3 +26,6 @@ export function targetWidth(tests: Record<string, Row>): string {
 
 /** The width both oracles are recorded at. */
 export const ORACLE_WIDTH = "LINT"
+
+/** The width a 32-bit target's recording answers (`<vendor>-32.build.json`, rule TY6). */
+export const THIRTY_TWO_BIT_WIDTH = "DINT"

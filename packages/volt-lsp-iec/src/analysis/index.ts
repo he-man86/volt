@@ -14,7 +14,7 @@ export {
   type ReachabilityInput,
   type FileReachInfo,
 } from "./reachability.js"
-export { SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
+export { initializerWarnedTwice, SOURCE, type DiagnosticItem } from "./diagnostic-item.js"
 export { parseErrorMessage, vendorReportsParseError } from "./checks/syntax/parse-errors.js"
 export { assignmentPairError, binaryOpError, conversionArgError, narrowingPairError, stringLiteralMessageType } from "./rules.js"
 export { unresolvedInExprs, unresolvedMembers, type BareRef, type MemberRef } from "./resolution.js"
