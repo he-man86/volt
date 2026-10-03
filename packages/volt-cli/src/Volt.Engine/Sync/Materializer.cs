@@ -19,29 +19,12 @@ public static class Materializer
             var build = BuildSource(ide, item, kind);
             RefuseMemberOfAnotherClass(name, build);
             var text = StWriter.Write(build);
-            RefuseRetiredComment(name, text);
             RefuseUnreadableBack(name, build, text);
             LogEndLineFallback(name, build);
             return new WorkspaceItem(text, FullWireName(name, build.Kind), UnsupportedIn(build));
         }
         return new WorkspaceItem(ide.ReadManifest(item, kind), FullWireName(name, kind),
                                  Array.Empty<UnsupportedBody>());
-    }
-
-    /// <summary>A pulled file carries no <c>(* @volt-… *)</c> comment, and the push refuses one naming <c>volt pull</c>
-    /// as the fix (<see cref="StReader.Read"/>). That fix is true only while the pull holds up its half: an IDE that
-    /// ITSELF holds such a comment — an older Volt pushed its marker into a declaration or a body, which is how the
-    /// retired markers were found in the first place — would be pulled verbatim, every push of the file refused, and
-    /// every pull would write the same text straight back. So the item is refused here, naming the comment and the
-    /// one fix that exists (an edit in the IDE); fetch lists it unreadable and leaves the workspace's file alone.
-    /// The same rule as the push's, from the same definition (<see cref="ImplementationMarker.FindRetiredComment"/>).</summary>
-    private static void RefuseRetiredComment(string name, string text)
-    {
-        if (ImplementationMarker.FindRetiredComment(text.Split('\n')) is not { } retired) return;
-        throw new BridgeException(BridgeErrorCodes.Unsupported,
-            $"'{name}' holds '{retired.Text}' in the IDE, a comment of a Volt from before bodies were stated by an " +
-            $"{ImplementationMarker.Keyword} line. A workspace file cannot carry it (a push of one is refused), so " +
-            "the item is not pulled until the comment is removed in the IDE.");
     }
 
     /// <summary>What a pull writes, a push reads back — WITH THE SAME MEMBERS. The IDE stores each member's text on its
@@ -87,7 +70,7 @@ public static class Materializer
     /// is given and keeps it a method (DIALECT C2l): one holding <c>PROPERTY</c> text pulled verbatim would come back on
     /// the next push as a property — the method deleted and a property created (<c>PushService.ReconcileMembers</c>,
     /// a member whose kind changed), under a push that changed nothing. So the item is refused here, as
-    /// <see cref="RefuseRetiredComment"/> refuses a text no file can carry: listed unreadable, the workspace file left
+    /// <see cref="RefuseUnreadableBack"/> refuses a text no push can split back: listed unreadable, the workspace file left
     /// alone, the reason naming the member, its class and the keyword its text opens with (openspec
     /// <c>push-without-header-check</c> 5.Q.5, M-a). An action carries no declaration of its own (its <c>ACTION</c> line
     /// is written from its class), and a declaration with no code opens with no keyword to disagree.</summary>

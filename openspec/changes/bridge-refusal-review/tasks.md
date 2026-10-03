@@ -73,19 +73,31 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 ## 1. Remove — code checks
 
-- [ ] 1.1 `StReader.cs:630` (was 460) — drop the "IMPLEMENTATION ST whose body is network text" refusal. Test: an ST
+- [x] 1.1 `StReader.cs:630` (was 460) — drop the "IMPLEMENTATION ST whose body is network text" refusal. Test: an ST
       body holding `NETWORK … END_NETWORK` under `IMPLEMENTATION ST` is written as sent; record the CODESYS build error.
-- [ ] 1.2 `StReader.cs:659` (was 489; called at :131) — delete `RefuseReservedNames`. Test: `implementation : INT;`,
+      Done: the ST arm of the sniff is gone (`ImplementationLanguagePushTests`: member, POU body and getter written as
+      sent; `PullCommandTests` no longer calls such a file unpushable). The build recording is 5.1's row.
+- [x] 1.2 `StReader.cs:659` (was 489; called at :131) — delete `RefuseReservedNames`. Test: `implementation : INT;`,
       `x := implementation;` and an enum value `Implementation` push; the boundary-shaped lines stay refused by 556/695.
       Record: compiles clean.
-- [ ] 1.3 `NetworkTextReader.cs:1003` — drop "shaped like a wire and undeclared". A bare `gN` is a Leaf. Test with
+      Done: `RefuseReservedNames` and its regex deleted (ratchet 2 → 0); a variable, an assignment, a member and the POU
+      named `implementation` are written; a keyword-SHAPED line in a declaration stays refused. Recording: 5.1.
+- [x] 1.3 `NetworkTextReader.cs:1003` — drop "shaped like a wire and undeclared". A bare `gN` is a Leaf. Test with
       `g5 AT %IX0.0 : BOOL;` (a real variable) and with an undeclared `g7`; record the build's undeclared-identifier
       error for the latter.
-- [ ] 1.4 `Materializer.cs:41` (was 37) — delete `RefuseRetiredComment` on pull. Test: a DUT, a GVL and a POU holding
+      Done: `RefuseUndeclaredWire` deleted; `out := g7;` reads a Leaf, and so does `g5 AT %IX0.0 : BOOL;`
+      (`NetworkTextGateTests`). The writer still backticks such a name (its spelling choice). Recording: 5.1.
+- [x] 1.4 `Materializer.cs:41` (was 37) — delete `RefuseRetiredComment` on pull. Test: a DUT, a GVL and a POU holding
       `(* @volt-note *)` in the IDE pull and are readable. The pull's other refusals added by 5E/5Q
       (`Materializer.cs:62/70/77` read-back, `:100` member of another class) stay: they guard the round trip.
-- [ ] 1.5 `CodesysNetworkWriter.cs:163` — drop the `.ENO`-without-EN arm; keep :155 and :159. Test: the push writes
+      Done: `RefuseRetiredComment` deleted (ratchet 2 → 0); `PullDoesNotJudgeCommentsTests` (DUT, GVL, POU pulled
+      and published), `ReadOnlyBodyTests` rewritten (its premise was the removed check, 0.2). e2e: the `retired` GVL row
+      of `push-without-header-check.test.ts` now expects `fetched` — from the code, not yet run live (6.1).
+- [x] 1.5 `CodesysNetworkWriter.cs:163` — drop the `.ENO`-without-EN arm; keep :155 and :159. Test: the push writes
       the box; record CODESYS "Missing EN pin".
+      Done: the arm is gone (`CodesysNetworkWriterGateTests`); TwinCAT's `TcEnoRefusal` stays (D22). Recording: 5.1.
+      **Step 1 numbers (commit state):** Engine 1921 (+1 skipped; baseline 1916), Codesys 229, Repo.Gates 107,
+      Cli `PullCommandTests` 36/36.
 
 ## 2. Change
 

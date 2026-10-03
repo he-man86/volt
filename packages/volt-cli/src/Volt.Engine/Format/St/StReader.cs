@@ -128,7 +128,6 @@ public static class StReader
 
 		// 3. The structure.
 		var item = ReadStructureOf(sourceText, original, kind, what, splitOnly: false);
-		RefuseReservedNames(original);
 		RefuseLinesInDeclarations(item, what);
 		return item;
 	}
@@ -584,8 +583,8 @@ public static class StReader
 	/// <list type="bullet">
 	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION COBOL</c>, <c>UNSUPPORTED</c> after
 	/// language other than ST, a bare CFC, SFC or IL, code after the language) — never guessed;</item>
-	/// <item>a body whose text contradicts its language: network text under <c>ST</c>, or text under <c>LD</c>/<c>FBD</c>
-	/// that is no network — never re-read as the other;</item>
+	/// <item>text under <c>LD</c>/<c>FBD</c> that is no network — never re-read as ST. (Network text under <c>ST</c> is
+	/// an ST body like any other, written as sent: the build reports it, openspec <c>bridge-refusal-review</c> 1.1);</item>
 	/// <item>code under an UNSUPPORTED line (<c>IMPLEMENTATION CFC|SFC|IL|LD|FBD UNSUPPORTED</c>) —
 	/// that body has no text form, the drivers write nothing for it, so the code would be dropped without a word and
 	/// overwritten by the next pull.</item>
@@ -625,11 +624,9 @@ public static class StReader
 				$"{ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another language " +
 				"is edited in the IDE.");
 
+		// Network text under `IMPLEMENTATION ST` is an ST body like any other, written as sent: the IDE's build reports
+		// it (openspec bridge-refusal-review 1.1). ST under LD/FBD is still refused here until 2.3.
 		var network = Volt.Engine.Format.Network.NetworkText.OpensNetwork(code);
-		if (lang == Languages.St && network)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}', and its body is network text. State the language it is written in " +
-				$"({ImplementationMarker.For(Languages.Ld)} or {ImplementationMarker.For(Languages.Fbd)}), or write the body as ST.");
 		if (lang != Languages.St && !network && StTrivia.Code(code.Split('\n')).Any(l => l.Trim().Length > 0))
 			throw new BridgeException(BridgeErrorCodes.InvalidSt,
 				$"{what} states '{stated}', and its body is not network text — a network-text body is a sequence of " +
@@ -637,37 +634,12 @@ public static class StReader
 		return ImplementationMarker.Join(line, code);
 	}
 
-	/// <summary><c>IMPLEMENTATION</c> is RESERVED: no name in a workspace file may be spelled like it, in any case —
-	/// a variable at any scope, a member, the POU, an enum value, a struct member. A name spelled like the boundary line
-	/// could stand at the start of a line and read as one, so it is refused by name, never renamed or tolerated.
-	///
-	/// <para>Checked over the whole text's CODE — comments, strings and pragmas blanked (<see cref="StTrivia"/>) — and
-	/// every occurrence, not only a declaration: IEC has no such keyword, so any code use of the word is a name, and
-	/// a check hung on one declaration path lets every other position through. The lines of the keyword's own shape are
-	/// skipped HERE because each has one owner that refuses it with a better message: the boundary is consumed, more
-	/// than one in a region is refused naming both by <see cref="SplitAtBoundary"/>, and one in a kind with no boundary
-	/// lands in a declaration and is refused by <see cref="RefuseLinesInDeclarations"/>.</para></summary>
-	private static void RefuseReservedNames(IList<string> lines)
-	{
-		var open = StTrivia.OpenAtStart(lines);
-		var code = StTrivia.Code(lines);
-		for (int i = 0; i < lines.Count; i++)
-		{
-			if (!open[i] && ImplementationMarker.Stated(lines[i]) is not null) continue;
-			var m = ReservedWord.Match(code[i]);
-			if (m.Success)
-				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"'{m.Value}' (line {i + 1}) is reserved: {ImplementationMarker.Keyword} is the line that states where " +
-					"a body starts and what language it is in, so nothing in a workspace may be named it. Rename it.");
-		}
-	}
-
 	/// <summary>A DECLARATION is written into the IDE verbatim, so a line of Volt's own that ends up in one would
 	/// reach the project as code. Two kinds of line, both refused by name:
 	/// <list type="bullet">
 	/// <item>one of the keyword's shape. A kind that has no implementation (GVL, DUT, an interface and its members)
 	/// has no boundary to consume it, and a name spelled <c>IMPLEMENTATION</c> alone on its line (the last enum value, a
-	/// variable in a wrapped declaration) has the keyword's shape and slips past the reserved-name scan on it.</item>
+	/// variable in a wrapped declaration) has the keyword's shape: the text alone cannot say it is no boundary line.</item>
 	/// <item>a <c>%FOLDER</c> directive. Its place is fixed (<see cref="PeelFolderUnder"/>, <see cref="PeelFolderClosing"/>)
 	/// and the directive there has been peeled already; one anywhere else is no directive, and leaving it in let a
 	/// member's folder read as none while the line was written into its declaration.</item>
@@ -693,9 +665,10 @@ public static class StReader
 				if (open[i]) continue;
 				if (ImplementationMarker.Stated(lines[i]) is not null)
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
-						$"{where} holds '{lines[i].Trim()}' in its declaration. {ImplementationMarker.Keyword} is reserved: " +
-						"it is the line that opens a body and states its language, so it stands only where a body starts, " +
-						"and nothing may be named it. Remove the line, or rename what it names.");
+						$"{where} holds '{lines[i].Trim()}' in its declaration. A line of that shape is reserved: " +
+						$"{ImplementationMarker.Keyword} at the start of a line opens a body and states its language, so such a " +
+						"line stands only where a body starts. Remove the line, or write what it names on a line with more " +
+						"than the word (or rename it).");
 				if (FolderOn(lines[i]) is not null)
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"{where} holds '{lines[i].Trim()}' in its declaration. A member's %FOLDER stands directly under " +
@@ -704,10 +677,6 @@ public static class StReader
 			}
 		}
 	}
-
-	private static readonly System.Text.RegularExpressions.Regex ReservedWord =
-		new(@"(?<![A-Za-z0-9_])" + ImplementationMarker.Keyword + "(?![A-Za-z0-9_])",
-			System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 
 	// ─── Child blocks (composite POU's siblings) ─────────────────────
 

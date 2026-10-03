@@ -13,7 +13,7 @@
  * (`Unknown type: '<name>'`, `Identifier '<name>_g' not defined`): the item's text read as one comment declares
  * nothing.</p>
  *
- * <p><b>Cleanup is forced.</b> An item the reader refuses (a GVL holding a retired comment) is written, but cannot be
+ * <p><b>Cleanup is forced.</b> An item the reader refuses (a POU whose header the IDE cannot read) is written, but cannot be
  * read back: `refs` lists it under `unreadable`, not `items`, so `cleanup()` does not see it and a plain delete is
  * refused UNREADABLE ("push with --force to delete it"); this file sweeps its own names with `force`. A DUT is
  * never unreadable for its text: every DUT is `X.dut` by its class (openspec push-without-header-check 5.P), so even
@@ -28,9 +28,10 @@ import { withMainProgramRestored } from "../lib/compile"
 const KEY = "nohdr_"
 
 /** The extension each name that can come back unreadable was pushed under: `unreadable` lists BARE names, and a
- *  forced delete reaches the object only under its own kind. Only these two rows record `unreadable`; any other
- *  name listed there is a new fact, and the sweep says so rather than guess its kind. */
-const pushedAs = new Map<string, string>([["uc_fb", "pou"], ["retired", "gvl"]].map(([k, e]) => [id(KEY + k), e]))
+ *  forced delete reaches the object only under its own kind. Only this row records `unreadable` (the GVL holding a
+ *  retired comment did until openspec bridge-refusal-review 1.4); any other name listed there is a new fact, and the
+ *  sweep says so rather than guess its kind. */
+const pushedAs = new Map<string, string>([["uc_fb", "pou"]].map(([k, e]) => [id(KEY + k), e]))
 
 /** Delete every item this file made, readable or not. */
 async function sweep(): Promise<void> {
@@ -217,13 +218,14 @@ describe(`items / push without header check (${BASE})`, () => {
 	// ── a DUT or a GVL is not read at all: nothing about its text is a reason to refuse ─────────────
 
 	// `held` recorded live 2026-09-30, the DUT rows re-recorded 2026-10-03 on both vendors (5.F.1): a DUT is fetched
-	// back as sent whatever its text — empty, prose, a struct member named IMPLEMENTATION — and a GVL holding a retired
-	// comment is in the project but listed `unreadable`.
+	// back as sent whatever its text — empty, prose, a struct member named IMPLEMENTATION. A GVL holding a retired
+	// comment was recorded `unreadable` (the pull refused the comment); that refusal is a check on the code and is gone
+	// (openspec bridge-refusal-review 1.4), so the row expects `fetched` — not yet re-recorded live.
 	const unread: { key: string; ext: string; text: (b: string) => string; held: "fetched" | "unreadable" }[] = [
 		{ key: "empty", ext: "dut", text: () => "", held: "fetched" },
 		{ key: "prose", ext: "dut", text: () => "this is not structured text at all", held: "fetched" },
 		{ key: "implm", ext: "dut", text: (b) => `TYPE ${b} :\nSTRUCT\n\tIMPLEMENTATION : INT;\nEND_STRUCT\nEND_TYPE`, held: "fetched" },
-		{ key: "retired", ext: "gvl", text: (b) => `(* @volt-impl *)\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, held: "unreadable" },
+		{ key: "retired", ext: "gvl", text: (b) => `(* @volt-impl *)\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, held: "fetched" },
 	]
 	for (const s of unread) {
 		it(`${s.key} under .${s.ext} is pushed as written`, async () => {

@@ -7,7 +7,7 @@ namespace Volt.Engine.Format.St;
 /// Where the comments, strings and pragmas of a text are, across lines — the question a WHOLE-LINE rule needs
 /// answered: does this line start inside a comment, and what code does the text hold outside all of them?
 ///
-/// <para><b>THE trivia skipper of the ST format</b> — the boundary rule, the reserved-name rule, the END-line mirror
+/// <para><b>THE trivia skipper of the ST format</b> — the boundary rule, the END-line mirror
 /// and the CHILD SPLITTER (<c>StReader</c>: where each METHOD / ACTION / PROPERTY block opens and closes, openspec
 /// <c>push-without-header-check</c> 5.E.1) all read through it. Comments NEST, as both vendors' do
 /// (<c>lex_nested_block_comment</c>, <c>(* outer (* inner *) n := 99; still inside *)</c>, builds clean on CODESYS and

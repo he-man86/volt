@@ -137,17 +137,19 @@ public class ImplementationLanguagePushTests
 
     // ── 1.3 a body that contradicts its stated language ───────────────────────────────────────────
 
+    /// <summary>NETWORK TEXT UNDER <c>IMPLEMENTATION ST</c> IS WRITTEN AS SENT (openspec <c>bridge-refusal-review</c>
+    /// 1.1). The line states ST, so the body is ST: written into the ST implementation verbatim, and the IDE's build
+    /// reports its <c>NETWORK</c> / <c>END_NETWORK</c> tokens. It used to be refused by a content sniff — a check on the
+    /// CODE, which the bridge does not make.</summary>
     [Fact]
-    public void Network_text_under_IMPLEMENTATION_ST_is_refused_naming_the_member_and_its_language()
+    public void Network_text_under_IMPLEMENTATION_ST_is_written_as_sent_as_an_ST_body()
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, Motor($"IMPLEMENTATION ST\n{Network}")));
+        var resp = Create(ide, Motor($"IMPLEMENTATION ST\n{Network}"));
 
-        Assert.Contains("DoReset", reason);
-        Assert.Contains("IMPLEMENTATION ST", reason);
-        Assert.DoesNotContain("volt pull", reason);   // the file is current; the body contradicts what it states
-        AssertNothingWritten(ide);
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "DoReset").Body);
     }
 
     [Theory]
@@ -165,19 +167,30 @@ public class ImplementationLanguagePushTests
     }
 
     [Fact]
-    public void Network_text_under_IMPLEMENTATION_ST_on_the_POU_body_is_refused_naming_the_POU()
+    public void Network_text_under_IMPLEMENTATION_ST_on_the_POU_body_is_written_as_sent()
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, $"{Decl}\nIMPLEMENTATION ST\n{Network}\n\nEND_FUNCTION_BLOCK\n"));
+        var resp = Create(ide, $"{Decl}\nIMPLEMENTATION ST\n{Network}\n\nEND_FUNCTION_BLOCK\n");
 
-        Assert.Contains("FB_Motor", reason);
-        Assert.Contains("IMPLEMENTATION ST", reason);
-        AssertNothingWritten(ide);
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Body);
+    }
+
+    [Fact]
+    public void Network_text_in_a_getter_stated_ST_is_written_as_sent()
+    {
+        var ide = new FakeIde();
+        var src = $"{Decl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
+                  $"PROPERTY Running : BOOL\nGET\nIMPLEMENTATION ST\n{Network}\nEND_GET\nEND_PROPERTY\n";
+
+        var resp = Create(ide, src);
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Equal(Network, ide.WrittenContent["FB_Motor"].Members.Single(m => m.Name == "Running").Getter!.Code);
     }
 
     [Theory]
-    [InlineData("ST", Network)]                     // network text stated ST
     [InlineData("LD", "Running := out;")]           // ST stated LD
     public void A_getter_that_contradicts_its_language_is_refused_naming_the_property(string language, string code)
     {
@@ -249,33 +262,35 @@ public class ImplementationLanguagePushTests
         AssertNothingWritten(ide);
     }
 
-    // ── IMPLEMENTATION is reserved ────────────────────────────────────────────────────────────────
+    // ── IMPLEMENTATION as a name ──────────────────────────────────────────────────────────────────
 
-    /// <summary>The keyword joins the reserved-name set, so no workspace identifier can take it: a name the boundary
-    /// line is spelled with could otherwise stand at the start of a line and be read as one. Refused by name, like
-    /// every other refusal here — never renamed, never tolerated.</summary>
+    /// <summary>A NAME SPELLED LIKE THE BOUNDARY KEYWORD IS WRITTEN AS SENT (openspec <c>bridge-refusal-review</c> 1.2).
+    /// IEC has no keyword <c>IMPLEMENTATION</c>; it is Volt's line, and only a line of that line's SHAPE could be misread
+    /// as a boundary — those keep their owners' refusals (two such lines in one region; one in a declaration). A variable,
+    /// an assignment to or from it, or a member called that is no such line: the IDE compiles it, so the push writes it.
+    /// It used to be refused as "reserved" by a scan over the whole text's code — a check on the code.</summary>
     [Theory]
     [InlineData("implementation")]
     [InlineData("IMPLEMENTATION")]
     [InlineData("Implementation")]
-    public void A_variable_named_IMPLEMENTATION_is_refused_as_reserved(string name)
+    public void A_variable_named_IMPLEMENTATION_is_written_as_sent(string name)
     {
         var ide = new FakeIde();
-        var src = $"FUNCTION_BLOCK FB_Motor\nVAR\n\t{name} : INT;\nEND_VAR\nIMPLEMENTATION ST\n{name} := 1;\n\nEND_FUNCTION_BLOCK\n";
+        var src = $"FUNCTION_BLOCK FB_Motor\nVAR\n\t{name} : INT;\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n{name} := 1;\nx := {name};\n\nEND_FUNCTION_BLOCK\n";
 
-        var reason = Reason(Create(ide, src));
+        var resp = Create(ide, src);
 
-        Assert.Contains($"'{name}'", reason);
-        Assert.Contains("reserved", reason, System.StringComparison.OrdinalIgnoreCase);
-        AssertNothingWritten(ide);
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        var written = ide.WrittenContent["FB_Motor"];
+        Assert.Equal($"FUNCTION_BLOCK FB_Motor\nVAR\n\t{name} : INT;\n\tx : INT;\nEND_VAR", written.Declaration);
+        Assert.Equal($"{name} := 1;\nx := {name};", written.Body);
     }
 
     private const string FbHead = "FUNCTION_BLOCK FB_Motor\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n";
 
-    /// <summary>Reserved means reserved EVERYWHERE a workspace file names something, not only in the POU's own VAR
-    /// block: a check hung on one declaration path passes the row above and lets every other position through.</summary>
+    /// <summary>…in every naming position a POU has: a member-local variable, a member's own name, the POU's name.</summary>
     [Theory]
-    [InlineData("FB_Motor.pou", "Implementation",   // a method-local variable
+    [InlineData("FB_Motor.pou", "Run",              // a method-local variable
         FbHead + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n")]
     [InlineData("FB_Motor.pou", "Implementation",   // a method's name
         FbHead + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n")]
@@ -283,18 +298,31 @@ public class ImplementationLanguagePushTests
         FbHead + "ACTION implementation\nIMPLEMENTATION ST\n\nEND_ACTION\n")]
     [InlineData("FB_Motor.pou", "Implementation",   // a property's name
         FbHead + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n")]
-    [InlineData("Implementation.pou", "Implementation",   // the POU's own name
+    [InlineData("Implementation.pou", null,         // the POU's own name
         "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FB_Motor.pou", "IMPLEMENTATION",   // the same shape in a POU's own VAR block, above its boundary
-        "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n")]
-    public void IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position(string op, string name, string source)
+    public void IMPLEMENTATION_as_a_name_is_written_as_sent_in_every_naming_position(string op, string? member, string source)
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, source, op));
+        var resp = Create(ide, source, op);
 
-        Assert.Contains($"'{name}'", reason);
-        Assert.Contains("reserved", reason, System.StringComparison.OrdinalIgnoreCase);
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        var written = ide.WrittenContent[op.Substring(0, op.IndexOf('.'))];
+        if (member is not null) Assert.Contains(written.Members, m => m.Name == member);
+    }
+
+    /// <summary>A line of the keyword's SHAPE in a declaration is still refused (<c>RefuseLinesInDeclarations</c>): a
+    /// wrapped variable list whose name stands alone on its line reads exactly like a boundary line, and the text alone
+    /// cannot say which it is. That refusal is a condition of the SPLIT, not a check on the code.</summary>
+    [Fact]
+    public void A_keyword_shaped_line_in_a_POUs_declaration_is_still_refused_naming_the_line()
+    {
+        var ide = new FakeIde();
+
+        var reason = Reason(Create(ide,
+            "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n"));
+
+        Assert.Contains("'IMPLEMENTATION'", reason);
         AssertNothingWritten(ide);
     }
 

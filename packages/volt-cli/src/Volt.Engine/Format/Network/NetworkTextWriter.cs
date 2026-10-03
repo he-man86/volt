@@ -717,7 +717,7 @@ public static class NetworkTextWriter
 
         /// <summary>An assignment or <c>=&gt;</c> target: bare when it is a target token, else verbatim between
         /// backticks — the same rule as an operand, except that a literal is no target token. A wire-shaped name the
-        /// scope does not hold is backticked too: bare, the reader refuses it as an undeclared wire
+        /// scope does not hold is backticked too, so it reads as the variable beyond doubt
         /// (<see cref="NetworkSpelling.ReadsAsUndeclaredWire"/>).</summary>
         private string LValue(Operand o, string what)
         {

@@ -962,7 +962,8 @@ public static class NetworkTextReader
                         $"the wire {w.Name} is referenced before its definition: a wire is defined by `{w.Name} := value;` before its first use.");
                 return Mark(new Demux(w.VarId, null), t.Offset);
             }
-            if (t.Kind == TokKind.Word) RefuseUndeclaredWire(t);
+            // A word no VAR_TEMP declares is a variable, whatever its shape: whether it is declared is the build's
+            // question (openspec bridge-refusal-review 1.3), and only this network's own block makes a name a wire.
             // Every operand's words, whatever its token — the writer reserves the same (a typed literal's type
             // included), so a wire it would rename is one the reader refuses.
             AddOtherWords(t, t.Text);
@@ -978,7 +979,6 @@ public static class NetworkTextReader
                     if (NetworkSpelling.TextWords.Contains(t.Text))
                         throw Err(t, ConflictCodes.NetworkBadExpression,
                             $"'{t.Text}' as a target: a target spelled like a keyword of the text is written between backticks.");
-                    RefuseUndeclaredWire(t);
                     AddOtherWords(t, t.Text);
                     return t.Text;
                 case TokKind.Backtick:
@@ -991,17 +991,6 @@ public static class NetworkTextReader
                     throw Err(t, ConflictCodes.NetworkBadExpression,
                         $"'{t.Text}' as a target: a target is a variable, a token or text between backticks.");
             }
-        }
-
-        /// <summary>A name shaped like a wire that neither this network nor the scope declares is a wire someone
-        /// forgot to declare — read as a variable it would compile against nothing. Only a BARE word: between
-        /// backticks the name is verbatim text, the variable of that name, which is how the writer spells one the
-        /// scope does not hold (<see cref="NetworkSpelling.ReadsAsUndeclaredWire"/>).</summary>
-        private void RefuseUndeclaredWire(Tok t)
-        {
-            if (!_wires.ContainsKey(t.Text) && NetworkSpelling.ReadsAsUndeclaredWire(t.Text, _scope))
-                throw Err(t, ConflictCodes.NetworkBadExpression,
-                    $"'{t.Text}' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope.");
         }
 
         /// <summary>A word spelled where a wire name may not appear (a call head, backticked text, a target, a label,

@@ -199,10 +199,33 @@ public class NetworkTextGateTests
     public void Two_operator_kinds_in_one_group() =>
         Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := (a AND b OR c);"));
 
-    /// <summary>Spec, "an undeclared wire-shaped name".</summary>
+    /// <summary>A BARE WIRE-SHAPED NAME NO VAR_TEMP DECLARES IS A VARIABLE OPERAND (openspec <c>bridge-refusal-review</c>
+    /// 1.3). Only the network's own VAR_TEMP block makes a name a wire; any other <c>gN</c> is a variable, and whether one
+    /// is declared is the build's question ("undeclared identifier"), not the push's. It used to be refused as "a wire
+    /// someone forgot to declare" — a check on the code, resting on a one-line regex scope that also missed real
+    /// variables (<c>g5 AT %IX0.0 : BOOL;</c>). The READER's answer: the canonical spelling of such a variable is
+    /// backticked, and the gate stops refusing a non-canonical spelling with 2.12.</summary>
     [Fact]
-    public void An_undeclared_wire_shaped_name_in_no_scope() =>
-        Refused("NETWORK_BAD_EXPRESSION", 3, Src("out := g5;"));
+    public void An_undeclared_wire_shaped_name_is_a_variable_operand()
+    {
+        var r = NetworkTextReader.Read(Src("out := g7;"), NetworkScope.Empty);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        var assign = Assert.IsType<Assign>(Assert.Single(Assert.Single(r.Body!.Networks).Trees));
+        Assert.Equal("g7", Assert.IsType<Leaf>(assign.Value).Operand.Text);
+    }
+
+    /// <summary>…and so is a real variable whose declaration the scope's one-line reading misses — an address after
+    /// the name. The push used to refuse a body using it as an undeclared wire.</summary>
+    [Fact]
+    public void A_wire_shaped_variable_declared_AT_an_address_is_a_variable_operand()
+    {
+        var scope = NetworkScope.FromDeclarations("PROGRAM P\nVAR\n\tg5 AT %IX0.0 : BOOL;\n\tout : BOOL;\nEND_VAR",
+            _ => null, () => Array.Empty<string>());
+        var r = NetworkTextReader.Read(Src("out := g5;"), scope);
+        Assert.True(r.Ok, string.Join("\n", r.Diagnostics.Select(d => $"{d.Line} {d.Code} {d.Message}")));
+        var assign = Assert.IsType<Assign>(Assert.Single(Assert.Single(r.Body!.Networks).Trees));
+        Assert.Equal("g5", Assert.IsType<Leaf>(assign.Value).Operand.Text);
+    }
 
     /// <summary>Review of section 2: backticked, a wire-shaped name is verbatim text — the variable of that name,
     /// which the scope may not hold — and that IS its canonical form. The gate re-spelled it bare, its own reader

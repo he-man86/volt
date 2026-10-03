@@ -542,27 +542,25 @@ public class ReadOnlyBodyTests
 
     // ── what the IDE holds that a workspace file cannot carry ─────────────────────────────────────
 
-    /// <summary>The pull writes no <c>(* @volt-… *)</c> comment — and that includes one the IDE itself holds (an older
-    /// Volt pushed its marker into a body or a declaration). Pulled verbatim, the file would be refused on every
-    /// push with "run volt pull", and the pull would write it straight back. So the item is not materialized: it is
-    /// refused naming the comment and the fix, which is an edit in the IDE, and fetch lists it as unreadable (the
-    /// file already in the workspace, if any, is left alone).</summary>
+    /// <summary>A <c>(* @volt-… *)</c> comment the IDE itself holds (an older Volt pushed its marker into a body or a
+    /// declaration) is a COMMENT: the pull materializes the item with it, verbatim, and fetch returns it (openspec
+    /// <c>bridge-refusal-review</c> 1.4). This asserted the opposite — the item refused and listed unreadable — on the
+    /// premise that a pull judges the comments in the IDE's code; that premise is the check the change removes.</summary>
     [Theory]
     [InlineData(Decl, "(* @volt-graphical: kept from the old chart *)\nx := 1;")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)", "x := 1;")]
     [InlineData(Decl, "(* note (* @volt-graphical: CFC *) *)\nx := 1;")]
-    public void An_IDE_item_holding_a_volt_comment_is_refused_on_pull_naming_the_comment(string declaration, string body)
+    public void An_IDE_item_holding_a_volt_comment_is_pulled_with_it(string declaration, string body)
     {
         var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, declaration, body, null, null));
 
-        var ex = Assert.Throws<BridgeException>(() => Pulled(ide));
-        Assert.Contains("FB_Chart", ex.Message);
-        Assert.Contains("@volt-", ex.Message);
-        Assert.Contains("in the IDE", ex.Message);
+        var text = Pulled(ide);
+        Assert.Contains(declaration, text);
+        Assert.Contains(body, text);
 
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
-        Assert.Empty(fetch.Changed);
-        Assert.Contains("FB_Chart", fetch.Unreadable);
+        Assert.Contains(fetch.Changed, i => i.Name == "FB_Chart.pou");
+        Assert.DoesNotContain("FB_Chart", fetch.Unreadable);
     }
 
     /// <summary>An ST body the IDE holds whose text has a line of the keyword's shape (outside every comment) cannot

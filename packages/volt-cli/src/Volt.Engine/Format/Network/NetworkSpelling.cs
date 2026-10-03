@@ -60,12 +60,11 @@ internal static class NetworkSpelling
     public static bool ConstructTaken(string word, NetworkScope scope) =>
         ConstructWords.Contains(word) && scope.IsCallable(word);
 
-    /// <summary>Whether a BARE word <paramref name="t"/> that is no wire of its network reads as a wire someone forgot
-    /// to declare: shaped like one, and no name in scope. The reader refuses it (spec, "an undeclared wire-shaped
-    /// name"), so the writer never leaves such an operand or target bare — it backticks it, verbatim text the reader
-    /// takes as the variable of that name. One rule for both sides: a name the scope lacks (one no declaration the
-    /// scope is built from makes — <see cref="NetworkScope.FromDeclarations"/>) otherwise made the writer's text one
-    /// its own reader refuses.</summary>
+    /// <summary>Whether a BARE word <paramref name="t"/> that is no wire of its network LOOKS like a wire a reader of
+    /// the text could take for an undeclared one: shaped like one, and no name in scope. The writer's SPELLING choice
+    /// only — it backticks such an operand or target, verbatim text that names the variable beyond doubt. The reader no
+    /// longer refuses the bare word (openspec <c>bridge-refusal-review</c> 1.3): a word no VAR_TEMP declares is a
+    /// variable, and whether it is declared is the build's question.</summary>
     public static bool ReadsAsUndeclaredWire(string t, NetworkScope scope) => WireName.IsMatch(t) && !scope.Contains(t);
 
     /// <summary>

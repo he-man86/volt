@@ -74,7 +74,7 @@ namespace Volt.Engine.Format.St
         // line, when that opens with a word. A line of this shape that is no boundary line — no language, one no body
         // can state, UNSUPPORTED where it cannot stand, or code after the language — is refused NAMING the line, rather
         // than passing as code the IDE then cannot compile. Opening with a word keeps `IMPLEMENTATION := 1;` out: that
-        // names something, and the reserved-name rule answers it.
+        // names something, and a name is the IDE's to take (openspec bridge-refusal-review 1.2).
         private static readonly Regex Shape = new(@"^\s*IMPLEMENTATION(?:[ \t]+([A-Za-z_].*?))?\s*$",
                                                   RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 

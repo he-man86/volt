@@ -138,12 +138,15 @@ public class PullCommandTests
 
     /// <summary>The hunk need not hold the v1 header. A v1 network whose header is followed by `//` comment lines
     /// merges its header cleanly onto the IDE's bare `NETWORK`, and the conflict hunk holds only v1 `LET` statements —
-    /// the file still holds v1 text the push refuses, so the note must still name it.</summary>
+    /// the file still holds v1 text the push refuses, so the note must still name it.
+    /// <para>The body is stated <c>IMPLEMENTATION LD</c>, as network text always is; it was held as an ST body, which
+    /// reached the note only through the retired refusal of network text under <c>IMPLEMENTATION ST</c> (openspec
+    /// <c>bridge-refusal-review</c> 1.1).</para></summary>
     [Fact]
     public void A_conflict_whose_hunk_holds_only_v1_statements_still_names_the_file()
     {
         var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR",
-            "NETWORK 14 LD TITLE: \"Digital inputs\"\n// read the inputs\n// once per cycle\n" +
+            "IMPLEMENTATION LD\nNETWORK 14 LD TITLE: \"Digital inputs\"\n// read the inputs\n// once per cycle\n" +
             "LET en1 := TRUE;\nIF en1 THEN mydword := MOVE(%ID79); END_IF\nLET g8 := en1;\nEND_NETWORK"));
         var (root, host, client) = Bound(ide);
         try
@@ -309,12 +312,16 @@ public class PullCommandTests
 
     /// <summary>A modify/delete conflict is a conflict the IDE side materialized nothing for: the engineer edited a v1
     /// body and the IDE deleted the item. Keeping our side re-creates the POU with v1 text the push refuses, so the
-    /// note must judge every CONFLICTED file, not only the ones the IDE changed.</summary>
+    /// note must judge every CONFLICTED file, not only the ones the IDE changed.
+    /// <para>The body is stated <c>IMPLEMENTATION LD</c>: network text is only ever a body stated LD or FBD. This fixture
+    /// used to hold the v1 network as an ST body, which reached the note only because the ST reader refused network text
+    /// under <c>IMPLEMENTATION ST</c> (the file was then named "unchecked"); that refusal was a check on the code and is
+    /// gone (openspec <c>bridge-refusal-review</c> 1.1), so an ST body holding it is ST.</para></summary>
     [Fact]
     public void A_modify_delete_conflict_over_network_text_v1_names_the_file()
     {
         var ide = ConnectedIde(FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\nEND_VAR",
-            "NETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK"));
+            "IMPLEMENTATION LD\nNETWORK 0 LD\n  LET g0 := TRUE;\n  out := g0;\nEND_NETWORK"));
         var (root, host, client) = Bound(ide);
         try
         {

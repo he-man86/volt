@@ -137,7 +137,9 @@ namespace Volt.Ide.Codesys
         /// on a box Volt constructs. Measured by running each shape (DIALECT N21): a consumed enabled MOVE is read through
         /// its ENO whatever list Volt writes, a consumed enabled comparison does not compile in any list, and an operator
         /// with no EN carrying an ENO slot is "Missing EN pin". So the text's reading (<see cref="NetworkText.HasEnoOutput"/>)
-        /// is compared with what the built box will do.</para>
+        /// is compared with what the built box will do. Only the shapes that would feed a consumer ANOTHER value than the
+        /// text says, or that Volt cannot build, are refused: "Missing EN pin" is a compile error the build names, so
+        /// <c>.ENO</c> on a box with no EN is written (openspec <c>bridge-refusal-review</c> 1.5).</para>
         ///
         /// <para>Only a CONSUMED box has a consumer to misread; every top-level shape built clean. An Execute box's ENO is
         /// its type's, and an FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so neither is refused
@@ -159,9 +161,8 @@ namespace Volt.Ide.Codesys
                     throw Unbuildable(b, "the text reads its main output (no `.ENO`), and CODESYS reads a box Volt " +
                                          "builds with EN through its ENO (DIALECT N21) — the push would feed the " +
                                          "consumer the enable, not the data. Write `.ENO` if that is meant");
-                if (b.Enable is null && readsEno && b.Kind != CallKind.FunctionBlock)
-                    throw Unbuildable(b, "the text reads `.ENO` on a box with no EN, which CODESYS builds with no " +
-                                         "ENO output (\"Missing EN pin\", DIALECT N21)");
+                // `.ENO` on a box with no EN is NOT refused (openspec bridge-refusal-review 1.5): Volt builds the box the
+                // text describes, and CODESYS's build reports it ("Missing EN pin", DIALECT N21) — the build's error.
             }
             // Everything below the top level is consumed by its parent.
             foreach (var child in n.Children()) RefuseUnbuildableEno(child, consumed: true);

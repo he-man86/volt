@@ -544,13 +544,14 @@ public class CodesysCoilFlagTests
     /// output of 0), whatever list Volt writes;</item>
     /// <item>a consumed enabled comparison, with or without <c>.ENO</c>: it does not compile (<c>ImpVar … not
     /// defined</c>);</item>
-    /// <item><c>.ENO</c> on an operator with no EN: "Missing EN pin".</item>
-    /// </list></summary>
+    /// </list>
+    /// <c>.ENO</c> on an operator with no EN used to be the third row ("Missing EN pin"). That is the BUILD's error, and
+    /// Volt can build the box the text describes, so it is written and CODESYS reports it (openspec
+    /// <c>bridge-refusal-review</c> 1.5; see the theory below).</summary>
     [Theory]
     [InlineData("lamp := MOVE(EN := c, a, => sv);", "MOVE", "`.ENO`")]
     [InlineData("x := GT(EN := c, a, b);", "GT", "comparison")]
     [InlineData("x := GT(EN := c, a, b).ENO;", "GT", "comparison")]
-    [InlineData("x := ADD(a, b).ENO;", "ADD", "no EN")]
     public void A_consumer_the_built_box_would_read_otherwise_is_refused_by_name_before_anything_is_destroyed(
         string statement, string box, string why)
     {
@@ -583,11 +584,14 @@ public class CodesysCoilFlagTests
     }
 
     /// <summary>…and the shapes that DO build are not refused: at the top level every enabled box builds (N21), and an
-    /// FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so <c>.ENO</c> on one is the FB's own output.</summary>
+    /// FB call may declare <c>ENO</c> without EN (Lenze <c>Dryer</c>, N16), so <c>.ENO</c> on one is the FB's own output.
+    /// <c>.ENO</c> on an operator with no EN is built too: the box the text describes, which CODESYS's build answers
+    /// with "Missing EN pin" (DIALECT N21) — the build's error, not a reason for the push to refuse (1.5).</summary>
     [Theory]
     [InlineData("MOVE(EN := c, a, => sv);")]
     [InlineData("GT(EN := c, a, b, => x);")]
     [InlineData("lamp := MOVE(EN := c, a, => sv).ENO;")]
+    [InlineData("x := ADD(a, b).ENO;")]
     public void A_consumer_the_built_box_reads_as_written_is_built(string statement)
     {
         var (model, scope) = Pushed(statement);

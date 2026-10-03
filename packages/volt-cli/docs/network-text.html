@@ -359,14 +359,15 @@ END_NETWORK</pre>
 </p>
 <table>
   <tr><th>wire misuse</th><th>code</th></tr>
-  <tr><td>declared, never defined; referenced before its definition; an undeclared <code>g&lt;digits&gt;</code> that is no name in scope</td><td class="name">NETWORK_BAD_EXPRESSION</td></tr>
+  <tr><td>declared, never defined; referenced before its definition</td><td class="name">NETWORK_BAD_EXPRESSION</td></tr>
   <tr><td>defined with <code>S=</code>/<code>R=</code>, or inside a chain (<code>g1 := x := v;</code>)</td><td class="name">NETWORK_BAD_EXPRESSION</td></tr>
   <tr><td>a name that is not <code>g&lt;digits&gt;</code>; a type other than the producer's; a second block</td><td class="name">NETWORK_BAD_EXPRESSION</td></tr>
   <tr><td>declared or defined twice; a name matching any name in scope, case-insensitively (<code>g3</code> beside a variable <code>G3</code>)</td><td class="name">NETWORK_DUPLICATE_NAME</td></tr>
 </table>
-<p>An undeclared <code>g5 := x;</code>, where the POU declares <code>g5</code>, is a coil on that variable. Between
-  backticks a wire-shaped name is verbatim text, the variable of that name, whatever the scope holds: the writer spells
-  a pulled <code>g5</code> the scope does not hold as <code>`g5`</code>, never bare.</p>
+<p>A <code>g&lt;digits&gt;</code> no <code>VAR_TEMP</code> of its network declares is a variable, whatever the scope holds:
+  <code>g5 := x;</code> is a coil on <code>g5</code>, and whether <code>g5</code> is declared is the build's question, not the
+  push's (openspec <code>bridge-refusal-review</code> 1.3). Between backticks a wire-shaped name is verbatim text, the variable
+  of that name: the writer spells a pulled <code>g5</code> the scope does not hold as <code>`g5`</code>.</p>
 
 <h3 id="assign">Assignment — coils</h3>
 <pre>lamp := x;
@@ -642,7 +643,7 @@ END_NETWORK</pre>
   <tr><td class="name">NETWORK_NOT_CLOSED</td><td>A <code>NETWORK</code> is missing its <code>END_NETWORK</code>.</td></tr>
   <tr><td class="name">NETWORK_NOT_CANONICAL</td><td>It parses, but writes back as different <i>tokens</i> — e.g. <code>AND(a, b)</code> where infix is canonical, header fields out of order. Layout differences are not reported. The message carries the canonical form.</td></tr>
   <tr><td class="name">NETWORK_DUPLICATE_NAME</td><td>A wire declared or defined twice; a wire name matching a name in scope, case-insensitively; an instance defined twice. (Not a label on two networks: both IDEs hold that, census 1.15 — the LSP reports the build's message.)</td></tr>
-  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, undeclared, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>; <code>.ENO</code> on a box nothing consumes (a top-level <code>f(…).ENO;</code> or <code>EXECUTE … END_EXECUTE.ENO;</code> — a top-level item's output goes nowhere, so there is no consumer for the suffix to connect, and the writer never writes one there). Push, not the gate, refuses <code>.ENO</code> on a box the IDE gives no ENO output, and a suffix-less consumer of a box whose main output is ENO.</td></tr>
+  <tr><td class="name">NETWORK_BAD_EXPRESSION</td><td>A malformed group; a parenthesis pair that is no box; a wire undefined, defined with <code>S=</code>/<code>R=</code>, chained, referenced before its definition, not named <code>g&lt;digits&gt;</code> or typed unlike its producer; <code>NOT R_EDGE(x)</code> (the vendor negates first — the one spelling is <code>R_EDGE(NOT x)</code>); a modifier inside an edge other than that one <code>NOT</code>; <code>.ENO</code> on a box nothing consumes (a top-level <code>f(…).ENO;</code> or <code>EXECUTE … END_EXECUTE.ENO;</code> — a top-level item's output goes nowhere, so there is no consumer for the suffix to connect, and the writer never writes one there). Push, not the gate, refuses a suffix-less consumer of a box whose main output is ENO, and — on TwinCAT — <code>.ENO</code> on a box the IDE gives no ENO output (on CODESYS that box is built, and its build reports "Missing EN pin").</td></tr>
   <tr><td class="name">NETWORK_UNKNOWN_OPERATOR</td><td>The symbol is not in the operator table.</td></tr>
   <tr><td class="name">NETWORK_UNSUPPORTED</td><td>Operand or target text containing a backtick; a POU or instance named <code>PARALLEL</code>, <code>R_EDGE</code> or <code>F_EDGE</code>; nested edges or rising+falling on one operand; a flag on an empty slot, a wire reference or a <code>PARALLEL</code>; an unmeasured <code>Parallel.Mode</code> (neither <code>BoxShortCircuit</code> nor <code>Sequential</code>); an FB instance whose text is an expression (<code>`fbs[1]`(…)</code>) — a bare name that no declaration makes an instance is a function call, as in ST; on TwinCAT, <code>PARALLEL</code>, a Demux of a leaf or a result pin in a structurally changed network — the message names the network and the reason.</td></tr>
 </table>

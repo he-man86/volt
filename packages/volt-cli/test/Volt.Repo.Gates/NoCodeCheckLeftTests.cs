@@ -33,9 +33,9 @@ public class NoCodeCheckLeftTests
         // Still in the code at the baseline.
         ["OpensNetwork"] = new(@"\bOpensNetwork\b", 2,
             "1.1 / 2.3: StReader sniffs an ST body for network text, and LD/FBD for its absence"),
-        ["RefuseReservedNames"] = new(@"\bRefuseReservedNames\b", 2,
+        ["RefuseReservedNames"] = new(@"\bRefuseReservedNames\b", 0,
             "1.2: the identifier `implementation` refused anywhere in the code"),
-        ["RefuseRetiredComment"] = new(@"\bRefuseRetiredComment\b", 2,
+        ["RefuseRetiredComment"] = new(@"\bRefuseRetiredComment\b", 0,
             "1.4: pull refuses an IDE text holding a `(* @volt-… *)` comment"),
         ["NETWORK_NOT_CANONICAL"] = new(@"\bNETWORK_NOT_CANONICAL\b|\bNetworkNotCanonical\b", 4,
             "2.12 / V.2: a complete, writable network model refused for its layout"),
