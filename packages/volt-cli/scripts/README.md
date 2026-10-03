@@ -135,6 +135,14 @@ shell is the owner of `DTE.MainWindow.HWnd`, never a process diff; run it from a
 AND a 64-bit one (`-Log tc-ide-identity-64.log`) — a 64-bit reader, like the worker, sees 7 of the 32-bit shell's
 modules; DIALECT V5). openspec `ide-identity-report` 1.1–1.5.
 
+**Bridge bundles** — `probe-bridge-bundles.cs` (OFFLINE, no IDE; a .NET 10 file-based app:
+`dotnet run scripts/probe-bridge-bundles.cs -- <bundle.zip|dir>...`): per shipped bridge bundle, every Volt and
+framework assembly's assembly/file/product version and MVID, which `System.Text.Json` each Volt assembly references
+against the one shipped, where `PipeClient.Call` / `WireJson.Write` are defined and called, and a cross matrix of
+unresolved type + member references if one bundle's Volt assemblies bound another's (every Volt build is `1.0.0.0`, so the
+first copy loaded wins). Types are compared by assembly IDENTITY, as the CLR binds them. `bridge-bundles.log`;
+openspec `ide-identity-report` 3.1 / 3.2.
+
 **Online / simulation** — `probe-online-state` (a POU runs in simulation and every variable reads back as a typed
 string, `INT#5`; the scripting `ScriptOnline` only works INSIDE a running script, so no C# pipe op can use it —
 why the transpiler's oracle, `volt-lsp-iec/scripts/record-exec.py`, is a runscript).

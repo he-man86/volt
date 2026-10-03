@@ -1,0 +1,511 @@
+# bridge bundle census — 2026-10-03 — 11 bundle(s)
+
+== PLCAssistBridge-CODESYS-5b5834f4.zip  (11 assemblies, start script 8490 bytes, stages a per-pid copy)
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid fa5e4f7a-beb2-4735-add9-f3840bf237a3
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid b9191981-5f59-40cc-a721-1d434b37bf37
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid b345a7d2-7083-4702-a6ab-21d7d8de515c
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid 6c0f661b-fed4-4d6b-838b-ec42b9a20267
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid 1b69775a-b652-4244-9021-83acc10e2833
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid ed38d4d6-3876-47b2-8861-9f051311af32
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 120 Volt type refs + 283 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-CODESYS-6d29a61f.zip  (11 assemblies, start script 5830 bytes, stages a per-pid copy)
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+839b738f8bc3a7132feb846ec75cf0086ca78bd5 mvid fc12ee37-5a84-4d18-a2d6-6fbb20ae94ae
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+839b738f8bc3a7132feb846ec75cf0086ca78bd5 mvid caec4751-58f8-460f-885a-77abae689441
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+839b738f8bc3a7132feb846ec75cf0086ca78bd5 mvid 573ecdbd-4a65-4f48-a13c-3ed1c63dc8ca
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+839b738f8bc3a7132feb846ec75cf0086ca78bd5 mvid 2f6ac0ea-d9e6-4101-a871-b61f15ef6811
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+839b738f8bc3a7132feb846ec75cf0086ca78bd5 mvid 6f1d9f4b-c2fe-4c3e-9bc3-931330f93b84
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+839b738f8bc3a7132feb846ec75cf0086ca78bd5 mvid 11048985-8835-4a96-8d72-322ddceca887
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 120 Volt type refs + 283 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-CODESYS-80b3e817.zip  (11 assemblies, start script 8672 bytes, stages a per-pid copy)
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid 5b6463f1-d950-4208-b039-dd325a161eaa
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid b172e598-3a5b-4a72-9b23-48ab840eb3c6
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid e80cafda-fe88-4e9a-86c0-8f2ac8528541
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid dbc27482-53c5-433d-a7f7-b13a19150eb5
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid 7d3581bd-4bdf-4077-aa5b-ac227a4ada79
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid a0b2e0eb-6deb-4ecb-9251-b166853513fc
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 122 Volt type refs + 296 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-CODESYS-99ec059a.zip  (11 assemblies, start script 8490 bytes, stages a per-pid copy)
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 31191cca-a907-4f60-aae6-3e2887d21142
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 882406cf-95eb-48b9-b32d-673009c485d3
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid ae3503df-5587-4a73-9fef-b6a7f16fbf22
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid c27db44b-dff4-4cc2-b4cd-091ea8bdd33b
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 1e6fae3f-4f8d-4beb-b02f-df1d7d125ae1
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 0c0d422d-af15-4811-b4e6-8cb99e542fa6
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 120 Volt type refs + 283 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-CODESYS-b101a3d5.zip  (11 assemblies, start script 8490 bytes, stages a per-pid copy)
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid fa5e4f7a-beb2-4735-add9-f3840bf237a3
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid b9191981-5f59-40cc-a721-1d434b37bf37
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid b345a7d2-7083-4702-a6ab-21d7d8de515c
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid 6c0f661b-fed4-4d6b-838b-ec42b9a20267
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid 1b69775a-b652-4244-9021-83acc10e2833
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid ed38d4d6-3876-47b2-8861-9f051311af32
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 120 Volt type refs + 283 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-CODESYS-e016af22.zip  (11 assemblies, start script 8490 bytes, stages a per-pid copy)
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid fa5e4f7a-beb2-4735-add9-f3840bf237a3
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid b9191981-5f59-40cc-a721-1d434b37bf37
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid b345a7d2-7083-4702-a6ab-21d7d8de515c
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid 6c0f661b-fed4-4d6b-838b-ec42b9a20267
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid 1b69775a-b652-4244-9021-83acc10e2833
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+3a59f06a58e4dde762870a30f7190aaab15206b1 mvid ed38d4d6-3876-47b2-8861-9f051311af32
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 120 Volt type refs + 283 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-TwinCAT-116c5689.zip  (10 assemblies, start script (none))
+   System.Memory.dll                  asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 0ae2e4aa-3f9f-4b49-9642-22f30e4a0303
+   System.Runtime.CompilerServices.Unsafe.dll asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 996e0a7a-920a-448f-b7a8-f83b4075bdd5
+   System.Text.Encodings.Web.dll      asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 4a1c9816-e83a-43f9-9af2-5433ed423581
+   System.Text.Json.dll               asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 2aaaf149-a6ae-4634-be1f-f86dca2ee497
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+d5f85076d8e6d406a3670da52f263f788f90fbb8 mvid 92b14868-ee7c-470e-876d-14fca4504431
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+d5f85076d8e6d406a3670da52f263f788f90fbb8 mvid 5e8495e5-5bf9-422d-a10e-e18e21bf1ded
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+d5f85076d8e6d406a3670da52f263f788f90fbb8 mvid 0244733c-1099-4711-b7cc-c4320a2bb2ca
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+d5f85076d8e6d406a3670da52f263f788f90fbb8 mvid de704c68-8fab-4054-a4a9-761ea4f0920e
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+d5f85076d8e6d406a3670da52f263f788f90fbb8 mvid 5f5e0102-7cfa-4566-a6ff-42a448e9c8ee
+   VoltBridgeTwincat.dll              asm 1.0.0.0      file 1.0.0.0          product 1.0.0+d5f85076d8e6d406a3670da52f263f788f90fbb8 mvid e912c387-a7ce-416b-b2b2-df74c4b05b0c
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 119 Volt type refs + 284 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-TwinCAT-6277c2d7.zip  (10 assemblies, start script (none))
+   System.Memory.dll                  asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 0ae2e4aa-3f9f-4b49-9642-22f30e4a0303
+   System.Runtime.CompilerServices.Unsafe.dll asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 996e0a7a-920a-448f-b7a8-f83b4075bdd5
+   System.Text.Encodings.Web.dll      asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 4a1c9816-e83a-43f9-9af2-5433ed423581
+   System.Text.Json.dll               asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 2aaaf149-a6ae-4634-be1f-f86dca2ee497
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid 5b6463f1-d950-4208-b039-dd325a161eaa
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid b172e598-3a5b-4a72-9b23-48ab840eb3c6
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid e80cafda-fe88-4e9a-86c0-8f2ac8528541
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid 7d3581bd-4bdf-4077-aa5b-ac227a4ada79
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid a0b2e0eb-6deb-4ecb-9251-b166853513fc
+   VoltBridgeTwincat.dll              asm 1.0.0.0      file 1.0.0.0          product 1.0.0+203657806a38ea47f83d560f5a090842b3506c6a mvid 8198c1d6-5cfe-403f-8a7a-65f78c9f3692
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 125 Volt type refs + 299 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-TwinCAT-6d4e0b88.zip  (10 assemblies, start script (none))
+   System.Memory.dll                  asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 0ae2e4aa-3f9f-4b49-9642-22f30e4a0303
+   System.Runtime.CompilerServices.Unsafe.dll asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 996e0a7a-920a-448f-b7a8-f83b4075bdd5
+   System.Text.Encodings.Web.dll      asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 4a1c9816-e83a-43f9-9af2-5433ed423581
+   System.Text.Json.dll               asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 2aaaf149-a6ae-4634-be1f-f86dca2ee497
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+1b5a160675dea9b6af7a1ffb41453bcbcad07d72 mvid 1cee207d-357d-45f8-84b5-2dedcb5ce43b
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+1b5a160675dea9b6af7a1ffb41453bcbcad07d72 mvid 15a03568-2712-459f-af6e-950c02a199a2
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+1b5a160675dea9b6af7a1ffb41453bcbcad07d72 mvid 45e865ac-4608-43a7-a28d-db3a8a0714a5
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+1b5a160675dea9b6af7a1ffb41453bcbcad07d72 mvid 8ec2a3e3-31ff-4385-a589-9687f2c7047c
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+1b5a160675dea9b6af7a1ffb41453bcbcad07d72 mvid 64aa74d6-3a26-4c29-afc1-eae3679b7d81
+   VoltBridgeTwincat.dll              asm 1.0.0.0      file 1.0.0.0          product 1.0.0+1b5a160675dea9b6af7a1ffb41453bcbcad07d72 mvid 5de3e5a6-a3ea-4269-8fe1-023b89077ba1
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 119 Volt type refs + 284 Volt member refs, 0 unresolved within the bundle
+
+== PLCAssistBridge-TwinCAT-fbff1b8f.zip  (10 assemblies, start script (none))
+   System.Memory.dll                  asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 0ae2e4aa-3f9f-4b49-9642-22f30e4a0303
+   System.Runtime.CompilerServices.Unsafe.dll asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 996e0a7a-920a-448f-b7a8-f83b4075bdd5
+   System.Text.Encodings.Web.dll      asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 4a1c9816-e83a-43f9-9af2-5433ed423581
+   System.Text.Json.dll               asm 10.0.0.0     file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 2aaaf149-a6ae-4634-be1f-f86dca2ee497
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 31191cca-a907-4f60-aae6-3e2887d21142
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 882406cf-95eb-48b9-b32d-673009c485d3
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid ae3503df-5587-4a73-9fef-b6a7f16fbf22
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 1e6fae3f-4f8d-4beb-b02f-df1d7d125ae1
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 0c0d422d-af15-4811-b4e6-8cb99e542fa6
+   VoltBridgeTwincat.dll              asm 1.0.0.0      file 1.0.0.0          product 1.0.0+a93e5d7619b511c7f4e0f279eafaece05996242d mvid 2a0ff5fe-da75-437d-8f86-4751d6ac1f91
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 119 Volt type refs + 284 Volt member refs, 0 unresolved within the bundle
+
+== net48  (11 assemblies, start script (none))
+   Microsoft.Bcl.AsyncInterfaces.dll  asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid be8c46b7-cce8-45b8-9ff5-1b0f670c0a9f
+   System.Memory.dll                  asm 4.0.5.0      file 4.600.325.20307  product 4.6.3+f62ca0009b038cab4725a720f386623a969d73ad mvid 27c7dfb4-b639-4500-8914-8d6e6caca8cb
+   System.Runtime.CompilerServices.Unsafe.dll asm 6.0.3.0      file 6.100.225.20307  product 6.1.2+f62ca0009b038cab4725a720f386623a969d73ad mvid c6def535-7c0f-4b43-9aad-d997d94d3033
+   System.Text.Encodings.Web.dll      asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 332759d4-73a2-4cef-aae7-9e9a289ea040
+   System.Text.Json.dll               asm 10.0.0.12    file 10.0.1226.42308  product 10.0.12+95017c711e6afc1085133d440e42b4bd78155701 mvid 480491c7-281e-4b31-b455-67a3961bf22d
+   Volt.Contracts.dll                 asm 1.0.0.0      file 1.0.0.0          product 1.0.0+0dca8a23fdbb5aba8e890aa36d9de4cb9451928a mvid fe0b4278-3e8d-48a2-acb4-49fd0749d6ab
+   Volt.Engine.dll                    asm 1.0.0.0      file 1.0.0.0          product 1.0.0+0dca8a23fdbb5aba8e890aa36d9de4cb9451928a mvid 267cd0d7-d9a8-46c9-adc3-ddec407a2041
+   Volt.Engine.Host.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+0dca8a23fdbb5aba8e890aa36d9de4cb9451928a mvid 7bfb84c8-1159-4408-b536-f8692e3d4686
+   Volt.Ide.Codesys.dll               asm 1.0.0.0      file 1.0.0.0          product 1.0.0+0dca8a23fdbb5aba8e890aa36d9de4cb9451928a mvid 82c686e9-c0bf-46a8-80f4-a8f732d3076d
+   Volt.Relay.dll                     asm 1.0.0.0      file 1.0.0.0          product 1.0.0+0dca8a23fdbb5aba8e890aa36d9de4cb9451928a mvid 5f4ee1ef-ba09-4f37-bae0-a30b54e823fe
+   Volt.Wire.dll                      asm 1.0.0.0      file 1.0.0.0          product 1.0.0+0dca8a23fdbb5aba8e890aa36d9de4cb9451928a mvid 65c4868f-820f-436e-b7ec-f575de6cac93
+   ref  Volt.Contracts.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Engine.Host.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Ide.Codesys.dll -> System.Text.Json 10.0.0.12
+   ref  Volt.Relay.dll -> System.Text.Json 10.0.0.0
+   ref  Volt.Wire.dll -> System.Text.Json 10.0.0.0
+   def  [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   def  [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Relay.dll -> [Volt.Wire 1.0.0.0]Volt.Wire.PipeClient::Call(String, Object, [core]System.Action`1<[System.Text.Json 10.0.0.0]System.Text.Json.JsonElement>, Int32) : [System.Text.Json 10.0.0.0]System.Text.Json.JsonElement
+   call Volt.Wire.dll -> [Volt.Contracts 1.0.0.0]Volt.Contracts.WireJson::Write field : [System.Text.Json 10.0.0.0]System.Text.Json.JsonSerializerOptions
+   self-check: 132 Volt type refs + 334 Volt member refs, 0 unresolved within the bundle
+
+== cross matrix: rows = consumer bundle (its non-provider Volt assemblies), cols = provider bundle (its Volt.Wire + Volt.Contracts + Volt.Engine + Volt.Engine.Host + Volt.Relay)
+   cell = unresolved type + member refs; '*' = one of the two failing members is among them
+   [0]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-CODESYS-5b5834f4.zip
+   [1]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-CODESYS-6d29a61f.zip
+   [2]    32    32     0    32    32    32    32     0    32    32    10   PLCAssistBridge-CODESYS-80b3e817.zip
+   [3]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-CODESYS-99ec059a.zip
+   [4]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-CODESYS-b101a3d5.zip
+   [5]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-CODESYS-e016af22.zip
+   [6]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-TwinCAT-116c5689.zip
+   [7]    31    31     0    31    31    31    31     0    31    31    11   PLCAssistBridge-TwinCAT-6277c2d7.zip
+   [8]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-TwinCAT-6d4e0b88.zip
+   [9]     0     0    10     0     0     0     0    10     0     0    20   PLCAssistBridge-TwinCAT-fbff1b8f.zip
+   [10]    82    82    51    82    82    82    82    51    82    82     0   net48
+
+== failing-member detail per (consumer, provider) pair where one is unresolved
+
+== distinct unresolved members when a consumer of one API generation binds a provider of the other (first pair per row/col generation)
+   [0]->[2] 10 refs:
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.CallKind, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Input>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::.ctor(Int32, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextGate::Validate(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextReader::Parse(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Unspellable([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::get_Input() : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node
+   [0]->[10] 20 refs:
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchResponse::set_Removed([core]System.Collections.Generic.List`1<String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker::For(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker::Is(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException::get_Marker() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.CallKind, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Input>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::.ctor(Int32, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextGate::Validate(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextReader::Parse(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Unspellable([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::get_Input() : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.StReader::Read(String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor::.ctor(String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent::.ctor(String, String, String, [core]System.Collections.Generic.List`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.Member>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Member::.ctor(String, String, String, String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.WalkResult::.ctor([core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ProjectItem>, [core]System.Collections.Generic.IReadOnlyList`1<String>) : Void
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker
+   [2]->[0] 32 refs:
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.CallKind, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Input>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags, [core]System.Nullable`1<Int32>, [core]System.Nullable`1<Int32>, [core]System.Collections.Generic.IReadOnlyList`1<String>, [core]System.Nullable`1<Boolean>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::get_OutputTypes() : [core]System.Collections.Generic.IReadOnlyList`1<String>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::StoresNoMainOutput(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::MissingList(String, String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::NoPinFlags(String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::NullInputSlot(String, String, Int32) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::RefuseWiredEno(String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::.ctor(Int32, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::get_Type() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::HasEnoOutput([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box, Boolean) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::IsComparison(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::Validate(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::WithDeclaredType([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node::Children() : [core]System.Collections.Generic.IEnumerable`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [core]System.Nullable`1<Int32>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::get_Slot() : [core]System.Nullable`1<Int32>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::get_Mode() : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelModes::FromVendor(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags::RefuseOnAssignItem(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags::RefuseOnNode(String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Ide.IProjectTree, [core]System.Func`2<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemRef, String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeFor(String, [core]System.Collections.Generic.IReadOnlyDictionary`2<String, String>) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeForPull(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelModes
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations
+   [2]->[10] 10 refs:
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchResponse::set_Removed([core]System.Collections.Generic.List`1<String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker::For(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker::Is(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException::get_Marker() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeFor(String, [core]System.Collections.Generic.IReadOnlyDictionary`2<String, String>) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor::.ctor(String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent::.ctor(String, String, String, [core]System.Collections.Generic.List`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.Member>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Member::.ctor(String, String, String, String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.WalkResult::.ctor([core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ProjectItem>, [core]System.Collections.Generic.IReadOnlyList`1<String>) : Void
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker
+   [7]->[0] 31 refs:
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.CallKind, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Input>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags, [core]System.Nullable`1<Int32>, [core]System.Nullable`1<Int32>, [core]System.Collections.Generic.IReadOnlyList`1<String>, [core]System.Nullable`1<Boolean>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::get_ConnectedSlot() : [core]System.Nullable`1<Int32>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::get_HasEnoOutput() : [core]System.Nullable`1<Boolean>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::StoresNoMainOutput(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::MissingList(String, String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::NoPinFlags(String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::NullInputSlot(String, String, Int32) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::RefuseWiredEno(String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::.ctor(Int32, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::Stored(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::Validate(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node::Children() : [core]System.Collections.Generic.IEnumerable`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [core]System.Nullable`1<Int32>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::get_Slot() : [core]System.Nullable`1<Int32>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::get_Mode() : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelModes::FromVendor(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags::RefuseOnAssignItem(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags::RefuseOnNode(String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.StDeclaration::SameType(String, String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Ide.IProjectTree, [core]System.Func`2<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemRef, String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeFor(String, [core]System.Collections.Generic.IReadOnlyDictionary`2<String, String>) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeForPull(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelModes
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations
+   [7]->[10] 11 refs:
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchResponse::set_Removed([core]System.Collections.Generic.List`1<String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker::For(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker::Is(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException::get_Marker() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.StReader::Read(String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeFor(String, [core]System.Collections.Generic.IReadOnlyDictionary`2<String, String>) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor::.ctor(String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent::.ctor(String, String, String, [core]System.Collections.Generic.List`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.Member>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Member::.ctor(String, String, String, String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.WalkResult::.ctor([core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ProjectItem>, [core]System.Collections.Generic.IReadOnlyList`1<String>) : Void
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.BodyMarker
+   [10]->[0] 82 refs:
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeDiagnostic::get_Member() : String
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeDiagnostic::set_Member(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeRelease::Of(String, String&) : String
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchedItem::set_Unsupported([core]System.Collections.Generic.List`1<[Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody>) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchRequest::get_KnownFolders() : [core]System.Collections.Generic.Dictionary`2<String, String>
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_BridgeVersion(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_IdeVersion(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_NetworkText(Boolean) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_ProductName(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_ProductVendor(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_ProductVersion(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_Unsupported(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.PushResponse::PartialResult(String, [core]System.Collections.Generic.Dictionary`2<String, String>, [core]System.Collections.Generic.Dictionary`2<String, String>, [core]System.Collections.Generic.List`1<String>, [core]System.Collections.Generic.List`1<[Volt.Contracts 1.0.0.0]Volt.Contracts.PushConflict>) : [Volt.Contracts 1.0.0.0]Volt.Contracts.PushResponse
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.ReadResponse::set_Removed([core]System.Collections.Generic.List`1<String>) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.RefsRequest::get_KnownFolders() : [core]System.Collections.Generic.Dictionary`2<String, String>
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.RefsRequest::get_KnownItems() : [core]System.Collections.Generic.Dictionary`2<String, String>
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::.ctor() : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::set_Language(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::set_Member(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::set_Reason(String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.CallKind, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Input>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags, [core]System.Nullable`1<Int32>, [core]System.Nullable`1<Int32>, [core]System.Collections.Generic.IReadOnlyList`1<String>, [core]System.Nullable`1<Boolean>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::get_OutputTypes() : [core]System.Collections.Generic.IReadOnlyList`1<String>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box::StoresNoMainOutput(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::MissingList(String, String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::NoPinFlags(String, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::NullInputSlot(String, String, Int32) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Body.UnrepresentableBodyException
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals::RefuseWiredEno(String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::.ctor(Int32, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Demux::get_Type() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::HasEnoOutput([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Box, Boolean) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::IsComparison(String) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::Pulled([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BodyLanguage, [core]System.Func`1<String>) : [core]System.ValueTuple`2<String, String>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::Validate(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::WithDeclaredType([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkTextWriter::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkBody, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node::Children() : [core]System.Collections.Generic.IEnumerable`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Operand, [core]System.Nullable`1<Int32>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Output::get_Slot() : [core]System.Nullable`1<Int32>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Node>, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Parallel::get_Mode() : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelModes::FromVendor(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Terminator::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags::RefuseOnAssignItem(String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags::RefuseOnNode(String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.Flags) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettings::.ctor([core]System.Collections.Generic.IReadOnlyCollection`1<Int32>, [core]System.Collections.Generic.IReadOnlyCollection`1<Int32>, [core]System.Nullable`1<Boolean>, [core]System.Nullable`1<Boolean>, [core]System.Nullable`1<Boolean>, String, [core]System.Nullable`1<Boolean>, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettingsFormat::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettings) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.ImplementationMarker::RequireStBody(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.ImplementationMarker::Unsupported(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.ImplementationMarker::Written(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusedException::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusalCause, [core]System.Exception) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.DriverBase::get_ProductVendor() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.DriverBase::get_ProductVersion() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.DriverBase::get_Unsupported() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_ProductName() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_ProductVendor() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_ProductVersion() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_Unsupported() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::.ctor([Volt.Engine 1.0.0.0]Volt.Engine.Ide.IProjectTree, [core]System.Func`2<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemRef, String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeFor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Ide.PushedDeclarations) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeForPull(String) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor::.ctor(String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent::.ctor(String, String, String, [core]System.Collections.Generic.List`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.Member>, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemKind::HoldsMembers(Int32) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Member::.ctor(String, String, String, String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.UnreadableObject::.ctor(String, String, String, [core]System.Collections.Generic.IReadOnlyList`1<String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.WalkResult::.ctor([core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ProjectItem>, [core]System.Collections.Generic.IReadOnlyList`1<String>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.UnreadableObject>) : Void
+      [Volt.Engine.Host 1.0.0.0]Volt.Engine.Host.BridgePipeHost::get_Release() : String
+      type [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeRelease
+      type [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BoxRefusals
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelMode
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.ParallelModes
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.UnheldFlags
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettings
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettingsFormat
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusalCause
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusedException
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.PushedDeclarations
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Item.UnreadableObject
+   [10]->[2] 51 refs:
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeDiagnostic::get_Member() : String
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeDiagnostic::set_Member(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeRelease::Of(String, String&) : String
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchedItem::set_Unsupported([core]System.Collections.Generic.List`1<[Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody>) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.FetchRequest::get_KnownFolders() : [core]System.Collections.Generic.Dictionary`2<String, String>
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_BridgeVersion(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_IdeVersion(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_NetworkText(Boolean) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_ProductName(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_ProductVendor(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_ProductVersion(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.HealthResponse::set_Unsupported(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.PushResponse::PartialResult(String, [core]System.Collections.Generic.Dictionary`2<String, String>, [core]System.Collections.Generic.Dictionary`2<String, String>, [core]System.Collections.Generic.List`1<String>, [core]System.Collections.Generic.List`1<[Volt.Contracts 1.0.0.0]Volt.Contracts.PushConflict>) : [Volt.Contracts 1.0.0.0]Volt.Contracts.PushResponse
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.ReadResponse::set_Removed([core]System.Collections.Generic.List`1<String>) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.RefsRequest::get_KnownFolders() : [core]System.Collections.Generic.Dictionary`2<String, String>
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.RefsRequest::get_KnownItems() : [core]System.Collections.Generic.Dictionary`2<String, String>
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::.ctor() : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::set_Language(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::set_Member(String) : Void
+      [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody::set_Reason(String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkText::Pulled([Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.BodyLanguage, [core]System.Func`1<String>) : [core]System.ValueTuple`2<String, String>
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettings::.ctor([core]System.Collections.Generic.IReadOnlyCollection`1<Int32>, [core]System.Collections.Generic.IReadOnlyCollection`1<Int32>, [core]System.Nullable`1<Boolean>, [core]System.Nullable`1<Boolean>, [core]System.Nullable`1<Boolean>, String, [core]System.Nullable`1<Boolean>, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettingsFormat::Write([Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettings) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.ImplementationMarker::RequireStBody(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.ImplementationMarker::Unsupported(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Format.St.ImplementationMarker::Written(String) : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusedException::.ctor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusalCause, [core]System.Exception) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.DriverBase::get_ProductVendor() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.DriverBase::get_ProductVersion() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.DriverBase::get_Unsupported() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_ProductName() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_ProductVendor() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_ProductVersion() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.IIdeSession::get_Unsupported() : String
+      [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ProjectDeclarations::ScopeFor(String, [Volt.Engine 1.0.0.0]Volt.Engine.Ide.PushedDeclarations) : [Volt.Engine 1.0.0.0]Volt.Engine.Format.Network.NetworkScope
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor::.ctor(String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemContent::.ctor(String, String, String, [core]System.Collections.Generic.List`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.Member>, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.ItemKind::HoldsMembers(Int32) : Boolean
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.Member::.ctor(String, String, String, String, String, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, [Volt.Engine 1.0.0.0]Volt.Engine.Item.Accessor, String, String, String) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.UnreadableObject::.ctor(String, String, String, [core]System.Collections.Generic.IReadOnlyList`1<String>) : Void
+      [Volt.Engine 1.0.0.0]Volt.Engine.Item.WalkResult::.ctor([core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.ProjectItem>, [core]System.Collections.Generic.IReadOnlyList`1<String>, [core]System.Collections.Generic.IReadOnlyList`1<[Volt.Engine 1.0.0.0]Volt.Engine.Item.UnreadableObject>) : Void
+      [Volt.Engine.Host 1.0.0.0]Volt.Engine.Host.BridgePipeHost::get_Release() : String
+      type [Volt.Contracts 1.0.0.0]Volt.Contracts.BridgeRelease
+      type [Volt.Contracts 1.0.0.0]Volt.Contracts.UnsupportedBody
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettings
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Format.Settings.ProjectSettingsFormat
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusalCause
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.ChildRefusedException
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Ide.PushedDeclarations
+      type [Volt.Engine 1.0.0.0]Volt.Engine.Item.UnreadableObject

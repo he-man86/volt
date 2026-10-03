@@ -180,10 +180,104 @@ the bridge serves: it is shown and logged, never gated on. What OEMs expose is l
       Action`1[JsonElement], Int32)`, is VOLT's, not a CODESYS API, and that install printed "connected to IDE", so no
       capability on the list explains it; it has the shape of the 3.5.21.50 `MissingFieldException: WireJson.Write` (a
       second bound copy of a Volt or System.Text.Json assembly). Settles with the first `bound:` log from such an install.
+      *Measured offline 2026-10-03 (`scripts/probe-bridge-bundles.cs` → `scripts/bridge-bundles.log`; 10 PLCAssist
+      bundles in Downloads — 6 CODESYS, 4 TwinCAT, 7 distinct commits 2026-09-24…27 — plus this repo's net48 build at
+      `0dca8a23fd`). Still OPEN — none of this is a field log, and no CODESYS below SP18 is installed (on disk: SP18.30,
+      SP21.40; no OEM).* Numbers:
+      (a) **The failing member is identical in every build.** All 11 define `PipeClient.Call(String, Object,
+      Action<[System.Text.Json 10.0.0.0]JsonElement>, Int32)` and `WireJson.Write` as a FIELD of `[System.Text.Json
+      10.0.0.0]JsonSerializerOptions`, compared by assembly identity; the caller of `Call` is `Volt.Relay` and the reader
+      of `WireJson.Write` is `Volt.Wire` in all 11 (not `Volt.Ide.Codesys`). Self-check 0 unresolved Volt TYPE and member
+      refs in every bundle (119–132 type refs + 283–334 member refs each). In the 11×11 cross matrix (one bundle's Volt assemblies bound to another's — every
+      Volt build is `1.0.0.0`, unsigned, so the first copy loaded wins) **neither failing member is unresolved in any of
+      the 121 pairs.** So a mix of two Volt builds — of everything shipped since 2026-09-24 — cannot raise either
+      exception by name or signature. What can: the two sides' `JsonElement`/`JsonSerializerOptions` resolving to two
+      DIFFERENT `System.Text.Json` instances — the shape the `bound:` lines name directly. Three ways to get there, none
+      reproduced: a `System.Text.Json` from the GAC (d); a resolver registered before `BridgeAssemblyResolver`
+      supplying its own copy; and the shipped `start_volt_codesys.py` deleting the live session's not-yet-loaded
+      dependencies from its own staged folder so that the NEXT request falls through to whichever handler answers
+      (3.2 fact 4).
+      (b) **Why that is CODESYS-only.** Every netstandard2.0 Volt assembly (`Volt.Contracts`, `Volt.Wire`, `Volt.Relay`,
+      `Volt.Engine.Host`) references `System.Text.Json 10.0.0.0`; the repo build's `Volt.Ide.Codesys` (net48) references
+      `10.0.0.12` (below). The CODESYS bundles ship `10.0.0.12` (one file, MVID `480491c7…` in all 6 and the repo build), so on
+      net48 that strong-named bind never succeeds by the CLR's own probing and every request goes to an `AssemblyResolve`
+      handler (`BridgeAssemblyResolver`, by simple name — or any handler registered before it in the process). The
+      TwinCAT bundles ship `10.0.0.0` exactly (net10, no resolver). The repo build's `Volt.Ide.Codesys` alone references
+      `10.0.0.12` (added with `BoundAssemblies`), the 6 shipped ones do not reference STJ at all.
+      (c) **Two API generations among the shipped bundles**, a real mixed-load hazard on OTHER members: commit
+      `203657806a` (CODESYS-80b3e817, TwinCAT-6277c2d7, 2026-09-27) vs the other five commits — mixing them leaves 10
+      (older consumer → newer provider) or 31/32 (newer → older) `Volt.Engine` type + member refs unresolved
+      (network-text `Box`/`Demux`/`Parallel`/`Terminator` ctors, `NetworkTextWriter.Write`; types `BoxRefusals`,
+      `NetworkScope`, `ParallelMode(s)`, `UnheldFlags`, `ProjectDeclarations`, `Body.BodyMarker`); against the repo
+      build 20 / 10 / 51 / 82 (adds `Contracts.BridgeRelease`/`UnsupportedBody`, `Settings.ProjectSettings(Format)`,
+      `ChildRefused*`, `PushedDeclarations`, `UnreadableObject`). A field `MissingMethodException`/`TypeLoadException`
+      naming one of THOSE would be a two-Volt-builds load; one naming `PipeClient.Call` is not. *Gate 3:* the first census matched member refs only
+      (a type used only by `isinst`/`castclass`/`typeof`/an attribute/a signature has no MemberReference) — so its
+      cells (10, 25/26, 19/9/43/68) were lower bounds; the probe now also checks every TypeReference into a Volt
+      assembly against the provider's TypeDefinitions. Same 11 inputs, same MVIDs; the two failing members still
+      resolve in all 121 pairs.
+      (d) **No foreign System.Text.Json on this machine's CODESYS**: neither install nor any `.package` in Downloads
+      ships one (Automation Server Connector carries `Newtonsoft.Json` 13.0.0.0; Package Designer `System.Memory`
+      4.0.1.1). Dev leftovers present, not shipped: `CODESYS 3.5.18.30\CODESYS\VoltBridge\PlugIns` (June HTTP bridge,
+      Swashbuckle) and two `VoltBridge.plugin.dll` plugin folders in SP21.40 — none carries STJ. *The GAC (gate 3) —
+      the CLR's FIRST probe for a strong-named reference, before any `AssemblyResolve` handler:*
+      `C:\Windows\Microsoft.NETssembly\GAC_MSIL|GAC_32|GAC_64` and the legacy `C:\Windowsssembly\GAC_MSIL` hold NO
+      `System.Text.Json`, `Microsoft.Bcl.AsyncInterfaces`, `System.Text.Encodings.Web` or `Volt.*`; they DO hold
+      `System.Memory` `4.0.1.2` and `System.Runtime.CompilerServices.Unsafe` `4.0.4.1` — older than the `4.0.5.0` /
+      `6.0.3.0` the CODESYS bundles ship, so (strong-name binds take the exact version) not bound in their place here.
+      So the GAC is a live source of framework copies: a field machine whose GAC carries a `System.Text.Json 10.0.0.0`
+      would serve the netstandard2.0 Volt assemblies' exact reference from the GAC — bypassing (b)'s resolver — while
+      the net48 `Volt.Ide.Codesys`'s `10.0.0.12` reference resolves to the bundle's file: two STJ instances. A `bound:`
+      line's location (`GAC_MSIL\…`) names that case directly.
+      (e) Stale, not product code: `Directory.Packages.props`'s header still calls `System.Text.Json 8.0.5`
+      load-bearing; the pin is `10.0.12` since `6d59429d33` (2026-09-09).
+      What settles 3.1: a 3.5.17 start log's `bound:` lines — two `System.Text.Json` lines, or `PipeClient.Call binds`
+      naming a copy other than `[bound]`, is the cause; one copy each refutes the hypothesis.
 - [ ] 3.2 (was codesys-minimum-version 3.2) Decide on the "another Volt build already loaded" refusal once a field log
       shows the 3.5.21 case.
       *State at hand-over:* needs a field log from the 3.5.21.50 install (or the 3.5.17 one) carrying the `bound:`
       lines. Nothing here reproduces it: on 3.5.21.40 every Volt assembly is bound once (DIALECT V3).
+      *Measured offline 2026-10-03 (same census as 3.1). Still OPEN — no decision without the field log.* Facts for the
+      decision: (1) no refusal exists today — no "already loaded" check anywhere under `src/`; (2) a second Volt build in
+      one CODESYS process cannot be told apart by assembly identity (all `1.0.0.0`, unsigned) but CAN by the file's
+      `ProductVersion` commit (7 distinct `1.0.0+<commit>` across the 10 bundles, design D3); (3) of the shipped
+      builds, only a mix across the `203657806a` boundary breaks member binding (3.1 c), and none breaks
+      `WireJson.Write` (3.1 a) — so the 3.5.21.50 `MissingFieldException` is not explained by a Volt-vs-Volt mix of the
+      bundles on hand; (4) `start_volt_codesys.py` stages per CODESYS pid (`%TEMP%\Volt\codesys-bridge\<pid>`) and
+      reuses an existing staged DLL for that pid — but `_stage()` calls `_prune(root)` BEFORE that reuse check, and
+      `_prune` runs `shutil.rmtree` on EVERY per-pid dir, the live session's own included. `rmtree` deletes every
+      unlocked file and raises only at the first locked one (`_prune` swallows it): on net48 assemblies load lazily, so
+      the dependencies the CLR has not loaded yet are unlocked and deleted — and `Microsoft.Bcl.AsyncInterfaces.dll`,
+      `System.*.dll` and `Volt.Contracts.dll` sort before `Volt.Ide.Codesys.dll`. *Gate 3, measured (CPython 3.11,
+      scratch): a dir of those six names with `Volt.Ide.Codesys.dll` held open (`CreateFileW` GENERIC_READ,
+      FILE_SHARE_READ, as a mapped image) → `PermissionError`, left `['Volt.Ide.Codesys.dll', 'Volt.Wire.dll']`;
+      CODESYS runs IronPython 2.7, whose `shutil.rmtree` is the same stdlib loop (not measured there).* So re-running
+      the script in the same session, or starting a SECOND CODESYS (its `_prune` reaches the first session's dir),
+      strips the live session's not-yet-loaded dependencies; `BridgeAssemblyResolver` then finds no file, returns null,
+      and any other `AssemblyResolve` handler in the process supplies its copy — a second-loader path INSIDE the
+      shipped script, not only "another folder's `Volt.Ide.Codesys`, or a resolver from another build registered
+      first". Not fixed here (product code, outside this step; skipping only the own pid would not cover a second
+      CODESYS): it belongs to the 3.2 decision and is named by a `bound:` line whose location is not the staged dir.
+
+- [x] 3.3 Gate 3 (2026-10-03): four review findings on the offline census, all fixed — none skipped. 3.1 and 3.2 stay
+      OPEN (each needs a field log; no decision is taken without one).
+      (1) 3.2 fact (4) named only "another folder / a resolver registered first" as a mixed-load path; the shipped
+      `start_volt_codesys.py` is one itself — `_prune` before the reuse check strips the live session's not-yet-loaded
+      dependencies (measured in scratch: 4 of 6 files deleted before the first locked one). Fact (4) and the 3.1 (a)
+      hypothesis space now name it; the script is not changed in this step. (2) the probe matched member refs only;
+      it now checks every TypeReference into a Volt assembly too — self-checks 0 unresolved (119–132 type refs per
+      bundle), cross-generation cells 10 / 31 / 32 (were 10 / 25 / 26), repo build 20 / 10 / 51 / 82 (were 19 / 9 / 43
+      / 68), the failing members still resolve in all 121 pairs; `bridge-bundles.log` re-recorded (same MVIDs).
+      (3) 3.1 (d) now states the GAC check: no `System.Text.Json`/`Bcl.AsyncInterfaces`/`Encodings.Web`/`Volt.*`;
+      `System.Memory 4.0.1.2` + `Unsafe 4.0.4.1` present (older than shipped) — and what a GAC'd STJ would do.
+      (4) 3.1 (b)'s blanket "every Volt assembly references 10.0.0.0" corrected: the netstandard2.0 four do; the
+      repo build's `Volt.Ide.Codesys` references `10.0.0.12`.
+      Numbers: C# Volt.Cli.Tests 251, Volt.Engine.Tests 1912 + 1 skip, Volt.Contracts.Tests 31, Volt.Connector.Tests
+      115, Volt.Ide.Twincat.Tests 318, Volt.Ide.Codesys.Tests 214, Volt.Relay.Tests 46, Volt.Repo.Gates 92 — 0 fail;
+      TS @volt/control 134, control e2e (current harness) 11, volt-vscode 40, volt-desktop 31, volt-cli unit 4 — 0
+      fail; typecheck 5/5, lint 0 errors, `bun run check` 15/15, `openspec validate` valid. Delta vs gate 2: none in
+      any suite (step 3 changed a probe script and this write-up only). No LSP file, fixture or recording touched by
+      this change, so the LSP suites, the fixture map and the recorders have no delta.
 
 ## 4. Tests
 
