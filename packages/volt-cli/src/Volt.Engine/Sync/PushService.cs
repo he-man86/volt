@@ -917,7 +917,26 @@ public static class PushService
         //
         // The pushed name is what the engineer typed, and casing is the whole content of this edit: it is what
         // the IDE displays and what the workspace file is called.
-        if (toName != null && !string.Equals(toName, currentName, StringComparison.Ordinal))
+        var moves = op.ToFolder is { } dest && !string.Equals(dest, currentFolder, StringComparison.OrdinalIgnoreCase);
+        // The last-moment check of a content write — see `WriteItemFromSource` — and FORCE skips it there too.
+        var lastMomentVersion = force ? null : op.IfVersion;
+        var renames = toName != null && !string.Equals(toName, currentName, StringComparison.Ordinal);
+        // THE LAST-MOMENT CHECK OF AN EDIT THAT ALSO RENAMES OR MOVES RUNS FIRST, before anything of the op lands — not in
+        // the write after it. The native rename rewrites the item's OWN header (`FUNCTION_BLOCK Old` -> `FUNCTION_BLOCK
+        // New`), so its version after the rename is never the client's: checked in the write, every rename+edit was refused
+        // STALE_ITEM_VERSION — after the rename had run and rewritten every call site, which stayed. Measured live
+        // 2026-10-04 (CODESYS SP21, openspec `push-partially-applied-flag` 3.1). And a move's write (`MoveItem`) hashes
+        // against the DESTINATION folder and was handed no version at all, so a move+edit (or rename+move+edit) of an
+        // item edited in the IDE meanwhile overwrote that edit and reported accepted (gate review of step 3). Checked here,
+        // once, against the item and folder the client's version names: an item edited in the IDE meanwhile is refused
+        // before the rename, the move and the write. An edit in place keeps its check in the write, where the content
+        // read for the format guard is already in hand.
+        if (op.SourceText is not null && (renames || moves) && lastMomentVersion is not null)
+        {
+            RequireUnchanged(name, currentFolder, ide.ReadContent(item), lastMomentVersion);
+            lastMomentVersion = null;   // checked, against the right state: the write after the rename must not re-ask
+        }
+        if (renames && toName is not null)
         {
             // THE PUSHED TEXT IS ALREADY VALIDATED, by the batch pre-flight in `Handle` — nothing that could
             // be refused on its text is still in flight by the time a rename runs. It used to be re-checked
@@ -981,18 +1000,19 @@ public static class PushService
         // the item where it was, and the next pull put the file back. The engineer's move undone, with nothing
         // anywhere saying so. `volt push` has always sent NULL for an unchanged folder (Commands.cs), so the
         // distinction was already being made by the one client that matters.
-        if (op.ToFolder is { } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
+        if (moves)
         {
-            MoveItem(ide, currentName, op.ToName ?? op.Name, item, toFolder,
+            MoveItem(ide, currentName, op.ToName ?? op.Name, item, op.ToFolder!,
                      op.SourceText is null ? null : SourceOf(validated, op), outcome);   // recreate in the new folder
             return renamed ? "renamed+moved" : "moved";
         }
         if (op.SourceText is not null)
         {
             // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too - passing
-            // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for.
+            // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for. A rename+edit
+            // was checked before its rename (above), so it passes none.
             WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, item, SourceOf(validated, op),
-                                currentFolder, outcome, force ? null : op.IfVersion); // content update in place
+                                currentFolder, outcome, lastMomentVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
@@ -1529,7 +1549,12 @@ public static class PushService
             outcome.KeptInRefusal = landed is not null;
             if (declarationLanded)
                 return landed + (!changes.Any ? "; its members and body were not" : "; its other members and body were not written");
-            return landed is null ? $"nothing of '{name}' was written" : $"{landed}; nothing else of '{name}' was written";
+            // After a native rename the item is NOT untouched — the rename rewrote its header, and `ConflictFor` says it
+            // stays renamed — so "nothing of it was written" would contradict that in the same reason (gate review of
+            // step 3, seen live on CODESYS). Only what this write did is said here; the rename is worded once, there.
+            if (landed is null)
+                return outcome.Renamed is null ? $"nothing of '{name}' was written" : $"nothing but the rename of '{name}' was written";
+            return $"{landed}; nothing else of '{name}' was written";
         }
     }
 

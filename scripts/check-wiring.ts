@@ -237,26 +237,8 @@ check("C# LibraryManifest.Materialization == LSP MATERIALIZATION", () => {
 			"MATERIALIZATION_FORMATS row that says what the older format lacks)";
 });
 
-console.log("\n" + "-".repeat(40));
-console.log(`${passed} passed, ${failed} failed.`);
-
-if (failed > 0) {
-	process.exit(1);
-}
-
-console.log("\nOne-time PATH setup (so bare `volt` works in shells / an agent's terminal / the VS Code terminal):");
-if (process.platform === "win32") {
-	console.log("  PowerShell (this session only):");
-	console.log(`    $env:Path = "${join(REPO_ROOT, "packages/volt-cli/dist/Cli")};$env:Path"`);
-	console.log("  PowerShell (permanent, current user):");
-	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "packages/volt-cli/dist/Cli")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
-} else {
-	console.log("  Bash / zsh (this session only):");
-	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
-	console.log(`  Bash / zsh (permanent — add to ~/.bashrc or ~/.zshrc):`);
-	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
-}
-
+// THESE RUN BEFORE THE SUMMARY AND ITS EXIT. They were printed after both, so a failing citation check never
+// reached the exit code, and one failed unnoticed (openspec `push-partially-applied-flag` gate 3).
 // ── Vendor-fact citations ─────────────────────────────────────────────────────────────────────────
 // `packages/volt-cli/src/Volt.Engine/Ide/DIALECT.md` is the home for MEASURED vendor behaviour, and the code
 // cites its rows by id ("DIALECT D4f"). Two ways that goes wrong, both observed:
@@ -319,8 +301,14 @@ function citations(): { file: string; line: number; id: string; text: string }[]
 		if (f.endsWith("DIALECT.md")) continue;
 		readFileSync(f, "utf8").split(/\r?\n/).forEach((text, i) => {
 			if (!text.includes("DIALECT")) return;
-			for (const m of text.matchAll(/\b([A-D]\d+[a-z]?)\b/g))
+			for (const m of text.matchAll(/\b([A-D]\d+[a-z]?)\b/g)) {
+				// AN OPENSPEC CHANGE'S OWN DESIGN DECISION is not a DIALECT row, though it shares the shape: "(openspec
+				// `bridge-refusal-review` 4.7, D7; DIALECT N24)" cites design D7 of that change. Read as a DIALECT row it
+				// failed this check six times over correct citations.
+				const before = text.slice(0, m.index)
+				if (/openspec\s+(?:<c>|`)?[a-z0-9-]+(?:<\/c>|`)?\s*(?:\d+(?:\.\d+)*\s*,\s*)?$/i.test(before)) continue
 				out.push({ file: f.slice(REPO_ROOT.length + 1).replaceAll("\\", "/"), line: i + 1, id: m[1], text: text.trim() });
+			}
 		});
 	}
 	return out;
@@ -375,6 +363,26 @@ function citationsOfUnmeasured(): string[] {
 		});
 	}
 	return out;
+}
+
+console.log("\n" + "-".repeat(40));
+console.log(`${passed} passed, ${failed} failed.`);
+
+if (failed > 0) {
+	process.exit(1);
+}
+
+console.log("\nOne-time PATH setup (so bare `volt` works in shells / an agent's terminal / the VS Code terminal):");
+if (process.platform === "win32") {
+	console.log("  PowerShell (this session only):");
+	console.log(`    $env:Path = "${join(REPO_ROOT, "packages/volt-cli/dist/Cli")};$env:Path"`);
+	console.log("  PowerShell (permanent, current user):");
+	console.log(`    [Environment]::SetEnvironmentVariable("Path", "${join(REPO_ROOT, "packages/volt-cli/dist/Cli")};" + [Environment]::GetEnvironmentVariable("Path", "User"), "User")`);
+} else {
+	console.log("  Bash / zsh (this session only):");
+	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
+	console.log(`  Bash / zsh (permanent — add to ~/.bashrc or ~/.zshrc):`);
+	console.log(`    export PATH="${join(REPO_ROOT, "packages/volt-cli/dist/Cli")}:$PATH"`);
 }
 
 console.log("\nManual verification — an AI agent (any host):");

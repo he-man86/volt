@@ -77,6 +77,10 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 			`'${fbName.replace(/\.pou$/, "")}' is not created (the create is rolled back)`,
 		)
 		for (const advice of CLIENT_ADVICE) expect(conflicts[0].reason, `the reason carries the client instruction '${advice}'`).not.toContain(advice)
+		// Rolled back: nothing of the op stays, so no field says otherwise (openspec `push-partially-applied-flag` 3.1).
+		expect(conflicts[0].partiallyApplied, "a rolled-back create claims partiallyApplied").toBeUndefined()
+		expect(conflicts[0].remains, "a rolled-back create claims it remains").toBeUndefined()
+		expect(conflicts[0].renamedTo).toBeUndefined()
 
 		// The receipt IS the next refs, as on every accepted push.
 		expect(r.newProjectVersion).toBe((await bridge.refs()).projectVersion)
@@ -105,6 +109,8 @@ describe(`endpoints / push keeps what landed (${BASE})`, () => {
 		expect(conflicts.map((c: any) => c.name)).toEqual([fbName])
 		expect(conflicts[0].code).toBe("UNSUPPORTED")
 		expect(conflicts[0].reason).toContain("method 'Log'")
+		// Refused before the first write: nothing stays (openspec `push-partially-applied-flag` 3.1).
+		expect(conflicts[0].partiallyApplied, "a pre-flight refusal claims partiallyApplied").toBeUndefined()
 	})
 
 	it("a pre-flight batch with two INVALID_ST items names both and writes nothing", async () => {

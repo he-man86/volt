@@ -699,9 +699,34 @@ public sealed class FakeIde : DriverBase, IIdeDriver
         Recorded.Add($"rename:{old}->{newName}");
         if (IgnoreRenames) return;
         var idx = _items.FindIndex(i => i.Name == old);
-        if (idx >= 0) _items[idx] = _items[idx] with { Name = newName }; // so a follow-up Lookup(newName) resolves
+        var escaped = System.Text.RegularExpressions.Regex.Escape(old);
+        var word = new System.Text.RegularExpressions.Regex($@"\b{escaped}\b");
+        // So a follow-up Lookup(newName) resolves — and the item's OWN HEADER names it anew, and nothing else of its text
+        // does. Measured live 2026-10-04 (CODESYS SP21, openspec `push-partially-applied-flag` 3.1 and gate 3,
+        // `push-partially-applied.test.ts` "a native rename's rewrite of the item's own text"): the header line is
+        // rewritten (`FUNCTION F_Old` -> `FUNCTION F_New`), so the item's version changes with it — a fake that kept the
+        // old header hid that every rename+edit was refused STALE_ITEM_VERSION after the rename had run. A leading comment
+        // naming the item, a comment in the body, a FUNCTION's return assignment (`F_Old := …`) and a self-reference in
+        // the declaration (`POINTER TO FB_Old`) all KEEP the old name. (The first version of this rewrote the first
+        // whole-word match, unmeasured — a leading comment in place of the header.)
+        var header = new System.Text.RegularExpressions.Regex(
+            $@"^(\s*(?:FUNCTION_BLOCK|FUNCTION|PROGRAM|INTERFACE|TYPE)\b(?:\s+(?:PUBLIC|PRIVATE|PROTECTED|INTERNAL|ABSTRACT|FINAL))*\s+){escaped}\b",
+            System.Text.RegularExpressions.RegexOptions.Multiline);
+        if (idx >= 0)
+            _items[idx] = _items[idx] with
+            {
+                Name = newName,
+                Declaration = _items[idx].Declaration is { } d ? header.Replace(d, m => m.Groups[1].Value + newName, 1) : null,
+            };
+        // TwinCAT measured otherwise for the rest of the item (DIALECT C2o): it ALSO rewrites the item's own code
+        // references — the return assignment, the self-pointer — and still no comment.
+        if (idx >= 0 && RewritesOwnReferencesOnRename)
+            _items[idx] = _items[idx] with
+            {
+                Declaration = _items[idx].Declaration is { } d2 ? OutsideLineComments(d2, s => word.Replace(s, newName)) : null,
+                Implementation = _items[idx].Implementation is { } b ? OutsideLineComments(b, s => word.Replace(s, newName)) : null,
+            };
         if (!RewritesReferencesOnRename) return;
-        var word = new System.Text.RegularExpressions.Regex($@"\b{System.Text.RegularExpressions.Regex.Escape(old)}\b");
         for (var k = 0; k < _items.Count; k++)
             if (k != idx && _items[k] is { } other)
                 _items[k] = other with
@@ -715,6 +740,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// vendors do, which is why a push renames natively and why its receipt is a fresh walk: the referencing items'
     /// versions change outside the op set). Opt-in; whole-word, in declarations and bodies.</summary>
     public bool RewritesReferencesOnRename { get; init; }
+
+    /// <summary>The TwinCAT shape of a native rename's effect on the renamed item ITSELF (DIALECT C2o, measured live
+    /// 2026-10-04): beyond the header, every code reference to the item in its own text is rewritten — a FUNCTION's
+    /// return assignment, a <c>POINTER TO</c> itself — and no comment is. Unset is the CODESYS shape: the header only.</summary>
+    public bool RewritesOwnReferencesOnRename { get; init; }
+
+    /// <summary>Apply <paramref name="rewrite"/> to each line's code, leaving a trailing <c>//</c> comment as it is.</summary>
+    private static string OutsideLineComments(string text, Func<string, string> rewrite) =>
+        string.Join("\n", text.Split('\n').Select(line =>
+            line.IndexOf("//", StringComparison.Ordinal) is var at and >= 0 ? rewrite(line[..at]) + line[at..] : rewrite(line)));
 
     // ── ICodeStore ──
     /// <summary>Emit NO `interfaceasplaintext` addData block, as live TwinCAT now does. `ReadDeclaration`

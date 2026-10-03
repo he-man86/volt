@@ -223,6 +223,27 @@ public class PartiallyAppliedFieldsTests
         Assert.Null(c.Remains);
     }
 
+    /// <summary>THE REASON DOES NOT CONTRADICT THE FIELDS (gate review of step 3, seen live on CODESYS): a rename followed
+    /// by a member refusal under a declaration the rename itself rewrote answered "nothing of 'Y' was written" AND "'X'
+    /// was renamed to 'Y' … and stays renamed" in one reason. The member refusal says what of the item was written AFTER
+    /// the rename; the rename is worded once, by <c>ConflictFor</c>.</summary>
+    [Fact]
+    public void A_member_refusal_after_a_rename_does_not_say_nothing_was_written()
+    {
+        var ide = new FakeIde(FakeIde.Item.TextualPou("X", "FUNCTION X : BOOL\nVAR\nEND_VAR", "X := TRUE;")) { RefusesMembersByText = true };
+        var resp = Push(ide, Update(ide, "X.pou",
+            "FUNCTION Y : BOOL\nVAR\nEND_VAR\nIMPLEMENTATION ST\nY := TRUE;\nEND_FUNCTION" + Method, toName: "Y.pou"));
+
+        Assert.True(ide.Exists("Y"), "premise: the native rename ran before the refused member");
+        var c = Assert.Single(resp.Conflicts!);
+        Assert.DoesNotContain("nothing of 'Y' was written", c.Reason);
+        Assert.Contains("nothing but the rename of 'Y' was written", c.Reason);
+        Assert.Contains("'X' was renamed to 'Y'", c.Reason);
+        Assert.Contains("stays renamed", c.Reason);
+        Assert.True(c.PartiallyApplied);
+        Assert.Equal("Y.pou", c.RenamedTo);
+    }
+
     /// <summary>The task arm's own rename (<c>ApplySetTask</c>): renamed, then the settings write refused.</summary>
     [Fact]
     public void A_task_renamed_before_its_settings_write_was_refused_names_the_new_name()
