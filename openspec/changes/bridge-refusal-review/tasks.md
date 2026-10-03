@@ -38,11 +38,38 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 - [x] 0.1 Start after `push-without-header-check` — gone: archived 2026-10-03 (`0b1e85f4eb`). Its 4.1 fixtures
       (unclosed `(*` in DUT/FB/GVL) remain the pattern for §5.
-- [ ] 0.2 Every REMOVE/CHANGE task is test-first: a C# test that is red on today's refusal and asserts the new
+- [x] 0.2 Every REMOVE/CHANGE task is test-first: a C# test that is red on today's refusal and asserts the new
       behaviour (the write happens / the code is the right one). Where a code check goes, the IDE's recorded compile
       error replaces it: record the build live (CODESYS SP21; TwinCAT where the construct exists) as a conformance
       fixture, and add the LSP parity case (§5). A test whose premise was a removed code check is rewritten, not
       deleted: its premise (the bridge judges the code) is wrong on grounds independent of behaviour.
+      **Baseline (2026-10-03, `2d4a1a46f2`; `packages/volt-cli/src` unchanged since the re-baseline's `7e36c323ad`):**
+      - Census: 577 sites in all of `src` (555 throw, 11 conflict, 7 diag, 4 coded); 239 in `Volt.Engine/Format`, 56
+        `Volt.Engine/Sync`, 7 `Volt.Engine/Ide`, 3 `Volt.Engine/Item`, 95 CODESYS (9 Driver + 86 Ide), 127 TwinCAT
+        (19 + 108). Against `0d1ae8aff0`: 531 then, 19 gone, 65 new (by site, not line).
+      - C# suites green: Engine 1916 (+1 skipped), Cli 259, Codesys 229, Twincat 331, Connector 115, Contracts 39,
+        Repo.Gates 101. After the step-0 review fixes: Repo.Gates 107 (+6 teeth), the rest unchanged; volt-cli
+        `bun test test/unit` 9 (+5).
+      - Tools: `refusal-census.ts --against <commit>` lists the sites gone, new and moved since a commit, keyed by
+        file, form, exception, code, message and the refusing expression with its whitespace removed. A refusal moved
+        or re-wrapped within its file is neither gone nor new; one moved unchanged to another file (or a renamed file)
+        is listed as `moved`, not as gone plus new; identical expressions in one file count as a multiset. Every step
+        reports against `2d4a1a46f2`, and 6.3 classifies each new row. `Volt.Repo.Gates/NoCodeCheckLeftTests` is
+        6.2's grep gate as a RATCHET: each retired name holds its exact baseline count of MATCHES in code (comments
+        stripped by a scanner that reads string/char literals and interpolation holes, so a `//` in a string is no
+        comment) — OpensNetwork 2, RefuseReservedNames 2, RefuseRetiredComment 2, NETWORK_NOT_CANONICAL 4 (the const
+        line names it twice), IsCallableHeader 2, IsFunctionBlockType 2, FunctionBlockHeader 2, NonBlockTypeWords 2,
+        HeaderLine callers outside CodeHelper 2; the five already-gone names 0. The step that deletes one sets its
+        count to 0 in the same commit; 6.2 closes it at all zeros.
+      - Review fixes (step 0 gate): (a) `--against` keyed a site without its expression, so 47 rows shared a key with
+        another (e.g. 5× `NetworkScope.cs throw ArgumentNullException`, 2× `NetworkTextReader.cs throw Err` with
+        variable code and message) and swapping one for a different one read "0 gone, 0 new" — the expression is now
+        in the key; 26 rows in 12 keys still share one, each a textually identical expression (`tie.InnerException ??
+        tie`, `new ArgumentNullException(nameof(sourceText))`), which the multiset counts. (b) the "moved code is
+        neither" note held only within a file — cross-file moves are now paired as `moved`. (c) the ratchet counted
+        matching LINES and cut a line at a `//` inside a string literal — it now counts matches over a literal-aware
+        strip. Tests first: `test/unit/refusal-census.test.ts` (5; 3 red before), `NoCodeCheckLeftTests` teeth (+6;
+        4 red before, and the real count of NETWORK_NOT_CANONICAL rose 3 → 4).
 
 ## 1. Remove — code checks
 
