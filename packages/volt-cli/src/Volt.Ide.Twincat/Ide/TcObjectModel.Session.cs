@@ -31,7 +31,7 @@ internal sealed partial class TcObjectModel
         // through ITS pid, never this worker's own process, which would name VoltBridgeTwincat (DIALECT V4/V5).
         try { _productVendor = Stated(ReadXaeVendor(pid)); }
         catch (Exception ex) { VoltLog.Warn($"twincat: the XAE exe's version-info is unreadable, productVendor is null: {ex.GetType().Name}: {ex.Message}"); }
-        VoltLog.Info($"attached to {_productName ?? "(product unread)"} {_productVersion ?? "(version unread)"} " +
+        Log($"attached to {_productName ?? "(product unread)"} {_productVersion ?? "(version unread)"} " +
                      $"by {_productVendor ?? "(vendor unread)"} (xae pid {pid})");
     }
 

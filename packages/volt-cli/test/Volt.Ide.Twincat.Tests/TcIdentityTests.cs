@@ -203,4 +203,35 @@ public class TcIdentityTests
             "twincat build (TcRemoteManager.Version): (none stated — no solution open, or unreadable)",
         }, builds);
     }
+
+    /// <summary>The attach line is the dev loop's readiness signal: <c>ide.ps1 up -Vendor twincat</c> waits for the
+    /// worker's log line matching its <c>Test-TwincatAttached</c> pattern. Step 2 of ide-identity-report reworded the
+    /// line (<c>attached to TwinCAT …</c> → <c>attached to TcXaeShell 15.0 by Beckhoff (xae pid N)</c>) and the script
+    /// kept waiting for the old words — found live 2026-10-03 (5.1): the worker attached on every one of ten tries
+    /// and the script killed it and failed. The pattern is read FROM the script, so either side changing is caught.</summary>
+    [Fact]
+    public void The_attach_line_is_the_one_ide_ps1_waits_for()
+    {
+        var window = new Dte(Tc("P"));
+        var log = new System.Collections.Generic.List<string>();
+        var model = new TcObjectModel { BindWindow = _ => window, ReadXaeVendor = _ => "Beckhoff", Log = log.Add };
+        new BeckhoffDriver(model).Connect(xaePid: 4242);
+
+        var script = System.IO.File.ReadAllText(System.IO.Path.Combine(RepoScripts(), "ide.ps1"));
+        var m = System.Text.RegularExpressions.Regex.Match(script,
+            @"function Test-TwincatAttached[\s\S]*?-Pattern ""(?<p>[^""]+)""");
+        Assert.True(m.Success, "ide.ps1 no longer has a Test-TwincatAttached -Pattern");
+        var pattern = m.Groups["p"].Value.Replace("$xaePid", "4242");
+
+        var attach = Assert.Single(log, l => l.StartsWith("attached to "));
+        Assert.Equal("attached to TcXaeShell 15.0 by Beckhoff (xae pid 4242)", attach);
+        Assert.Matches(pattern, attach);
+    }
+
+    private static string RepoScripts()
+    {
+        var dir = new System.IO.DirectoryInfo(System.AppContext.BaseDirectory);
+        while (dir != null && !System.IO.File.Exists(System.IO.Path.Combine(dir.FullName, "scripts", "ide.ps1"))) dir = dir.Parent;
+        return System.IO.Path.Combine(dir?.FullName ?? throw new System.InvalidOperationException("scripts/ide.ps1 not found"), "scripts");
+    }
 }
