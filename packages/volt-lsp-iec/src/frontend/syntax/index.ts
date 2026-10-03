@@ -97,6 +97,7 @@ export {
   implementationLine,
   implementationWords,
   isNeverShown,
+  lookalikeLine,
   statedLine,
 } from "./format/implementation-line.js"
 export { isRetiredComment } from "./format/retired-comments.js"

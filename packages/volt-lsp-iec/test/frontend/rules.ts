@@ -1104,8 +1104,9 @@ export const RULES: readonly Rule[] = [
     rule: "ACTION",
     home: "parse/units/action",
     gap: false,
-    fixtures: ["xo2_actions_base_and_derived", "xo3_action_method_action", "unit_action_var_section", "unit_action_modifier"],
+    fixtures: ["xo2_actions_base_and_derived", "xo3_action_method_action"],
     design: "xo2_actions_base_and_derived, xo3_action_method_action",
+    recheck: "bridge-refusal-review D10 + review 4b (2026-10-03): `unit_action_modifier` and `unit_action_var_section` left the row — the push refuses both by name now (an action has no declaration the IDE stores), so neither has a vendor answer; the parser reports the same text with the push's words (`method.test.ts`).",
   },
   {
     id: "U18",
@@ -2436,10 +2437,12 @@ export const RULES: readonly Rule[] = [
         title:
           "an UNSUPPORTED line states a body read by neither parser, on every language but ST, and its empty body is clean",
       },
-      // "never for ST" and "the body under it is empty" (2.4.7: the second written here)
+      // "never for ST" and "the body under it is empty" (2.4.7: the second written here). By the grammar alone (openspec
+      // bridge-refusal-review D9) a line that only looks like one — UNSUPPORTED after ST, words after UNSUPPORTED — is no
+      // boundary, and is named as the hint of a body stating no language.
       {
         file: "src/frontend/syntax/format/implementation-line.test.ts",
-        title: "UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line",
+        title: "a line that only looks like the boundary is none, and is named as the hint of a body stating no language",
       },
       {
         file: "src/frontend/syntax/format/implementation-line.test.ts",
@@ -2452,14 +2455,20 @@ export const RULES: readonly Rule[] = [
     id: "FMT3",
     area: 2,
     section: "2.10",
-    rule: "a bare `IMPLEMENTATION CFC|SFC|IL` is reported, naming the line to write",
+    rule:
+      "a bare `IMPLEMENTATION CFC|SFC|IL` is no boundary (openspec bridge-refusal-review D9): the body states no language, and the finding names the line to write",
     home: "format/implementation-line",
     gap: false,
     fixtures: [],
     tests: [
       {
         file: "src/frontend/syntax/format/implementation-line.test.ts",
-        title: "a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line to write",
+        title: "a bare CFC, SFC or IL line is no boundary: the body states no language, and the hint names the line to write",
+      },
+      {
+        file: "src/server/implementation-keyword-diagnostics.test.ts",
+        title:
+          "a body whose line only looks like the boundary states no language, and the finding names the line and what it lacks",
       },
     ],
     design: "`implementation-line.test.ts`",
@@ -2468,7 +2477,7 @@ export const RULES: readonly Rule[] = [
     id: "FMT4",
     area: 2,
     section: "2.10",
-    rule: "a look-alike (in a comment, or after code on the line) is not the boundary",
+    rule: "a look-alike (in a comment, after code on the line, or a line that is no boundary by the grammar — `Implementation` alone, `Implementation OR b`) is not the boundary",
     home: "format/implementation-line",
     gap: false,
     fixtures: [],
@@ -2476,6 +2485,11 @@ export const RULES: readonly Rule[] = [
       {
         file: "src/frontend/syntax/format/implementation-line.test.ts",
         title: "only a whole line is the boundary: a look-alike inside an ST body switches no reader",
+      },
+      // openspec bridge-refusal-review D9 (4.9): the identifier on a line of its own is code
+      {
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
+        title: "an identifier spelled Implementation on a line of its own is code, not a second boundary",
       },
       {
         file: "src/frontend/syntax/format/implementation-line.test.ts",
@@ -2546,22 +2560,18 @@ export const RULES: readonly Rule[] = [
     id: "FMT8",
     area: 2,
     section: "2.10",
-    rule: "IMPLEMENTATION is a reserved name; a network body opens with the fielded header and closes with END_NETWORK",
-    home: "format/reserved-names, format/network-header",
+    rule: "a network body opens with the fielded header and closes with END_NETWORK (IMPLEMENTATION is a name like any other: review 4b)",
+    home: "format/network-header",
     gap: false,
     fixtures: [],
     tests: [
-      {
-        file: "src/frontend/syntax/format/reserved-names.test.ts",
-        title: "a name spelled like the IMPLEMENTATION keyword is reported, in any case; a body's line is not",
-      },
       {
         file: "src/frontend/syntax/format/network-header.test.ts",
         title: "a network opens with a fielded header, or a bare NETWORK closed by END_NETWORK",
       },
       {
         file: "src/server/implementation-keyword-diagnostics.test.ts",
-        title: "IMPLEMENTATION is reserved in every naming position: a diagnostic on the declaring line",
+        title: "IMPLEMENTATION is a name like any other, in every file and every naming position: no diagnostic",
       },
       {
         file: "src/network-text/parser.test.ts",
@@ -2569,7 +2579,7 @@ export const RULES: readonly Rule[] = [
       },
       { file: "src/network-text/parser.test.ts", title: "an unclosed network is NETWORK_NOT_CLOSED" },
     ],
-    design: "`reserved-names.test.ts`, `network-header.test.ts`",
+    design: "`network-header.test.ts`",
   },
   // ── 3.1 ──
   {

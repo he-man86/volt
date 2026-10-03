@@ -115,8 +115,7 @@ public sealed partial class BeckhoffDriver
     private static bool CreatesBody(string? existing) =>
         string.IsNullOrWhiteSpace(existing) || (TcArchive.Root(existing) is { } live && TcArchive.HasNoItems(live));
 
-    public void WriteContent(ItemRef item, ItemContent content,
-                             PushedDeclarations pushedDeclarations)
+    public void WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies)
     {
         // MEMBERS FIRST, THE POU ITSELF LAST — and the order is load-bearing on this vendor.
         //
@@ -132,7 +131,7 @@ public sealed partial class BeckhoffDriver
         // where `PushService` re-resolves the POU after reconciling members because a member create invalidates
         // its handle.
         if (content.Members.Count == 0)
-        { WriteOne(item, content.Kind, content.Declaration, content.Body, pushedDeclarations); return; }
+        { WriteOne(item, content.Kind, content.Declaration, content.Body, bodies, BodySite.Item); return; }
 
         // ONE walk, and ORDINAL-IGNORE-CASE — the CODESYS fix from earlier today, reaching its TwinCAT twin.
         //
@@ -175,16 +174,16 @@ public sealed partial class BeckhoffDriver
         {
             var site = byName[m.Name];
             var itf = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            // Each body against its OWN scope, the one `SourceScopes.BodiesOf` gives the pre-flight: an action
-            // has no declaration of its own, and an accessor sees its property's and then the POU's.
-            var memberScope = SourceScopes.Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration);
-            Collect(graphical, new[] { m.Name }, m.Kind, site, m.Body, memberScope, pushedDeclarations);
+            // Each body's model, with the scope the push pre-flight read it against (an action has no declaration of
+            // its own, an accessor sees its property's and then the POU's: SourceScopes.SitesOf) — D8: no second read.
+            Collect(graphical, new[] { m.Name }, m.Kind, site,
+                    PushedNetworkBody.At(bodies, new BodySite(m.Name, m.Kind, null), m.Body));
             Collect(graphical, new[] { m.Name, "Get" }, ItemKind.Kinds.PropertyGet,
                     AccessorSite(site, itf ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet),
-                    m.Getter?.Body, SourceScopes.Scope(m.Getter?.Declaration, memberScope), pushedDeclarations);
+                    PushedNetworkBody.At(bodies, new BodySite(m.Name, m.Kind, BodySite.Get), m.Getter?.Body));
             Collect(graphical, new[] { m.Name, "Set" }, ItemKind.Kinds.PropertySet,
                     AccessorSite(site, itf ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet),
-                    m.Setter?.Body, SourceScopes.Scope(m.Setter?.Declaration, memberScope), pushedDeclarations);
+                    PushedNetworkBody.At(bodies, new BodySite(m.Name, m.Kind, BodySite.Set), m.Setter?.Body));
         }
 
         if (graphical.Count > 0)
@@ -203,17 +202,17 @@ public sealed partial class BeckhoffDriver
                     "to write through a handle the re-import already killed");
 
             WriteOne(target, m.Kind, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, Textual(m.Body),
-                     pushedDeclarations);
+                     bodies, new BodySite(m.Name, m.Kind, null));
             // The accessor's own kind, decided by the OWNER - the same rule the member kind follows. Passing
             // the POU code for an interface property would make the crash guard in WriteAccessor unreachable.
             var itfProp = m.Kind == ItemKind.Kinds.InterfaceProperty;
             WriteAccessor(target, itfProp ? ItemKind.PlcItfPropGet : ItemKind.PlcPropGet, Textual(m.Getter),
-                          pushedDeclarations);
+                          bodies, new BodySite(m.Name, m.Kind, BodySite.Get));
             WriteAccessor(target, itfProp ? ItemKind.PlcItfPropSet : ItemKind.PlcPropSet, Textual(m.Setter),
-                          pushedDeclarations);
+                          bodies, new BodySite(m.Name, m.Kind, BodySite.Set));
         }
 
-        WriteOne(item, content.Kind, content.Declaration, content.Body, pushedDeclarations);
+        WriteOne(item, content.Kind, content.Declaration, content.Body, bodies, BodySite.Item);
     }
 
     /// <summary>Resolve one graphical member body and note it for the archive write — or note NOTHING, when
@@ -232,19 +231,19 @@ public sealed partial class BeckhoffDriver
     /// against the member's own live implementation. A null verdict means no change, and a body with no change
     /// does not belong in a round trip.</para>
     ///
-    /// <para>Validation still runs before anything is touched, so a refusal costs nothing.</para></summary>
+    /// <para>The body arrives as the model the push pre-flight validated (null for a body that is no network text), so
+    /// a refusal was raised before anything was touched (openspec bridge-refusal-review D8).</para></summary>
     private void Collect(List<(string[] Path, string Nwl)> into,
-                         string[] path, string kind, ItemRef? site, string? body, string? declaration,
-                         PushedDeclarations pushedDeclarations)
+                         string[] path, string kind, ItemRef? site, PushedNetworkBody? graph)
     {
-        if (body is not { } b || !NetworkText.Is(b)) return;
-        var model = NetworkText.Validate(b, NetworkScopeFor(declaration, pushedDeclarations));   // refuse BEFORE touching the IDE
+        if (graph is null) return;
+        var model = graph.Model;
 
         // A null site is an accessor the property does not carry. Collecting nothing leaves the report to
         // `WriteAccessor`, which is where that case is already decided.
         var existing = site is { } s ? _om.ReadImplementation(s.Native) : null;
         RefuseLanguageChange(kind, existing, LanguageOf(model));
-        if (ResolveBody(existing, model, declaration, pushedDeclarations) is { } nwl) into.Add((path, nwl));
+        if (ResolveBody(existing, model, graph.Scope) is { } nwl) into.Add((path, nwl));
     }
 
     /// <summary>A property ACCESSOR's node, or null when the property does not carry one.</summary>
@@ -377,11 +376,12 @@ public sealed partial class BeckhoffDriver
     }
 
     private void WriteOne(ItemRef item, string kind, string? declaration, string? body,
-                          PushedDeclarations pushedDeclarations)
+                          IReadOnlyList<PushedNetworkBody> bodies, BodySite site)
     {
-        if (body is { } b && NetworkText.Is(b))
+        // A network-text body is written from the model the push pre-flight validated, with its scope (D8).
+        if (PushedNetworkBody.At(bodies, site, body) is { } graph)
         {
-            var model = NetworkText.Validate(b, NetworkScopeFor(declaration, pushedDeclarations));   // refuse BEFORE touching the IDE
+            var model = graph.Model;
             var existing = _om.ReadImplementation(item.Native);
             RefuseLanguageChange(kind, existing, LanguageOf(model));
 
@@ -397,7 +397,7 @@ public sealed partial class BeckhoffDriver
             // Blank, or an archive the engineer has drawn nothing into. Deliberately NOT "the archive root is
             // null": that is also true of a TEXTUAL body, and routing those here would silently turn live ST
             // into a diagram instead of refusing — which is what TcNetworkWriter below is for.
-            _om.WriteText(item.Native, declaration, ResolveBody(existing, model, declaration, pushedDeclarations));
+            _om.WriteText(item.Native, declaration, ResolveBody(existing, model, graph.Scope));
             return;
         }
 
@@ -439,11 +439,10 @@ public sealed partial class BeckhoffDriver
     /// <para>Shared by <see cref="WriteOne"/> and <see cref="Collect"/>, because a POU and a MEMBER face the
     /// identical question — and answering it in two places let them drift: the member path took the create arm
     /// every time, without reading the live body at all.</para></summary>
-    private string? ResolveBody(string? existing, NetworkBody model, string? declaration,
-                                PushedDeclarations pushedDeclarations)
+    /// <param name="scope">The scope the body was read against (it travels with the model): the in-place writer's
+    /// change gate renders the live network with it.</param>
+    private string? ResolveBody(string? existing, NetworkBody model, NetworkScope scope)
     {
-        // The scope the body was read against: the in-place writer's change gate renders the live network with it.
-        var scope = NetworkScopeFor(declaration, pushedDeclarations);
         // Blank, or an archive the engineer has drawn nothing into: CreatesBody, the rule the pre-flight lowers by.
         if (CreatesBody(existing))
         {
@@ -721,7 +720,7 @@ public sealed partial class BeckhoffDriver
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor,
-                               PushedDeclarations pushedDeclarations)
+                               IReadOnlyList<PushedNetworkBody> bodies, BodySite site)
     {
         if (accessor is null) return;
 
@@ -748,7 +747,7 @@ public sealed partial class BeckhoffDriver
         {
             var child = ChildAt(property, i);
             if (KindCode(child) != code) continue;
-            WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body, pushedDeclarations);
+            WriteOne(child, ItemKind.Map(code) ?? "", accessor.Declaration, accessor.Body, bodies, site);
             return;
         }
     }

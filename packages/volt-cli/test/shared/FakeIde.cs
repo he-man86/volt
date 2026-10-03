@@ -743,10 +743,13 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// IS the content, so asserting on <c>Recorded</c> alone would miss everything a push actually did.</summary>
     public Dictionary<string, ItemContent> WrittenContent { get; } = new();
 
-    /// <summary>The sibling declarations each <see cref="WriteContent"/> was handed, by item name.</summary>
-    public Dictionary<string, IReadOnlyDictionary<string, string>> PushedDeclarations { get; } = new();
-    /// <summary>The pushed GLOBAL LISTS each write saw (by wire kind — openspec <c>push-without-header-check</c> 5.Q.7).</summary>
-    public Dictionary<string, List<string>> PushedGlobals { get; } = new();
+    /// <summary>The push's own declarations each <see cref="NetworkScopeFor"/> call was handed, in order — one call per
+    /// network body the push reads (openspec <c>bridge-refusal-review</c> D8: the pre-flight builds each body's scope once,
+    /// and the scope travels to the write with its model, so this is where a push's sibling declarations reach a body).</summary>
+    public List<Volt.Engine.Ide.PushedDeclarations> ScopesPushed { get; } = new();
+
+    /// <summary>The network bodies each <see cref="WriteContent"/> was handed, by item name.</summary>
+    public Dictionary<string, IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody>> WrittenBodies { get; } = new();
 
     /// <summary>Every piece of text a written <see cref="ItemContent"/> carries — declaration, body, and the
     /// same for each member and accessor. Assertions used to read <c>WrittenXml[name]</c> and search the
@@ -886,9 +889,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// (<see cref="Volt.Engine.Ide.ProjectDeclarations"/>) — fresh on every call, because a test edits the fake's
     /// items between calls and a driver-lifetime cache would answer for the item before the edit.</summary>
     public Volt.Engine.Format.Network.NetworkScope NetworkScopeFor(string? declaration,
-                                                                   Volt.Engine.Ide.PushedDeclarations pushedDeclarations) =>
-        new Volt.Engine.Ide.ProjectDeclarations(this, r => Find(r).Declaration,
+                                                                   Volt.Engine.Ide.PushedDeclarations pushedDeclarations)
+    {
+        ScopesPushed.Add(pushedDeclarations);
+        return new Volt.Engine.Ide.ProjectDeclarations(this, r => DeclarationsRead?.Invoke(r) ?? Find(r).Declaration,
                 n => RefusedName(ItemKind.Kinds.Pou, n) is not null).ScopeFor(declaration, pushedDeclarations);
+    }
+
+    /// <summary>Stands in for the vendor's read of another item's declaration while a scope is built — set it to throw,
+    /// and a write that still builds a scope of its own (a second reading of the body, D8) fails loud.</summary>
+    public Func<ItemRef, string?>? DeclarationsRead { get; set; }
 
     private IEnumerable<Member> MembersOf(Item owner)
     {
@@ -971,20 +981,16 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     public string? StoredImplementation(string bareName) => _items.Single(i => i.Name == bareName).Implementation;
 
     public void WriteContent(ItemRef item, ItemContent content,
-                             Volt.Engine.Ide.PushedDeclarations pushedDeclarations)
+                             IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody> bodies)
     {
         if (RefuseContentWrite?.Invoke(item) is { } refusal) throw refusal;
 
         var name = NameOf(item);
         Recorded.Add($"writecontent:{name}");
         WrittenContent[name] = content;
-        // RECORDED, because a real driver's answer depends on it and nothing else offline can see it. A
-        // graphical box may call through a name the written item does not declare, and the driver resolves that
-        // by walking OTHER items' declarations; the push carries them so the answer does not depend on op
-        // order (see `PushService.DeclarationsIn`). Passing an empty one would be invisible here and would show
-        // up live as a refused body, which is exactly how it was found.
-        PushedDeclarations[name] = pushedDeclarations.ByName;
-        PushedGlobals[name] = pushedDeclarations.Globals.ToList();
+        // RECORDED: the models this write is handed, each with the scope the pre-flight read it against (D8). A write
+        // takes a network body from here and from nowhere else — exactly as both drivers do.
+        WrittenBodies[name] = bodies;
 
         var owner = FindOrNull(item);
         if (owner is not null)
@@ -992,7 +998,8 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             {
                 KindCode = RetypesFromDeclaration?.Invoke(content.Declaration) ?? owner.KindCode,
                 Declaration = content.Declaration,
-                Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), content.Declaration, pushedDeclarations) ?? owner.Implementation,
+                Implementation = Held(Volt.Engine.Format.St.ImplementationMarker.Written(content.Body), bodies,
+                                      Volt.Engine.Ide.BodySite.Item) ?? owner.Implementation,
                 // A WRITTEN body is held as written, in the language written (a POU's body may change language where
                 // the driver writes it: `RefusesLanguageChange`, openspec bridge-refusal-review D7). A body not written
                 // (none, or its UNSUPPORTED line) keeps the IDE's language and why it is hidden.
@@ -1023,9 +1030,7 @@ public sealed class FakeIde : DriverBase, IIdeDriver
             var member = existing is not null && Volt.Engine.Format.St.ImplementationMarker.IsUnsupportedBody(m.Body)
                 ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration }
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
-                           Held(m.Body, Volt.Engine.Ide.SourceScopes.Scope(
-                               m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, content.Declaration),
-                               pushedDeclarations),
+                           Held(m.Body, bodies, new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
                            null, null) { Class = existing?.Class };   // written in place: the class is kept (C2l)
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
@@ -1040,12 +1045,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// model materialized, in the canonical layout, whatever layout was pushed (network text compares TOKENS, so a
     /// hand-wrapped call is accepted). Storing the pushed bytes instead would make this fake hold a text no IDE
     /// holds, and hide the one case the CLI's post-push adoption exists for. Any other body is stored as sent.</summary>
-    private string? Held(string? body, string? declaration, Volt.Engine.Ide.PushedDeclarations pushedDeclarations)
+    private string? Held(string? body, IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody> bodies, Volt.Engine.Ide.BodySite site)
     {
-        if (body is null || !Volt.Engine.Format.Network.NetworkText.Is(body)) return body;
-        var scope = NetworkScopeFor(declaration, pushedDeclarations);
-        var held = Volt.Engine.Format.Network.NetworkTextWriter
-            .Write(Volt.Engine.Format.Network.NetworkText.Validate(body, scope), scope).TrimEnd('\n');
+        // The MODEL the pre-flight validated, never the text read again (D8) — a network body with none is Volt's bug,
+        // and the lookup refuses it naming the site, as both drivers' writes do.
+        if (Volt.Engine.Ide.PushedNetworkBody.At(bodies, site, body) is not { } graph) return body;
+        var held = Volt.Engine.Format.Network.NetworkTextWriter.Write(graph.Model, graph.Scope).TrimEnd('\n');
         return RematerializeAs is null ? held : RematerializeAs(held);
     }
 

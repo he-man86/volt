@@ -23,7 +23,8 @@ public static class StWriter
 {
     public static string Write(ItemContent item)
     {
-        if (!HasBody(item.Kind))
+        var shape = ItemKind.ShapeOf(item.Kind);
+        if (!shape.Composite)
             return item.Declaration.TrimEnd('\n') + "\n";
 
         var sb = new StringBuilder();
@@ -35,7 +36,7 @@ public static class StWriter
         // DECLARATION ends and what language the body is in, facts that do not depend on whether code follows it.
         // A body Volt does not show is its UNSUPPORTED line (IMPLEMENTATION CFC UNSUPPORTED, …) and nothing under it.
         var (boundary, impl) = ImplementationMarker.Split(item.Body ?? "");
-        if (ImplementationMarker.AppliesTo(item.Kind)) sb.Append('\n').Append(boundary);
+        if (shape.Body) sb.Append('\n').Append(boundary);
         if (impl.Length > 0)
             sb.Append('\n').Append(impl);
 
@@ -52,23 +53,20 @@ public static class StWriter
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .ToList();
 
-        if (item.Kind == ItemKind.Kinds.Interface)
+        if (shape.MembersInside)
         {
-            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, item.Kind)); }
+            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, shape)); }
             sb.Append('\n').Append('\n').Append(EndKeyword(item));
         }
         else
         {
             sb.Append('\n').Append('\n').Append(EndKeyword(item));
-            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, item.Kind)); }
+            foreach (var c in children) { sb.Append('\n').Append('\n'); sb.Append(AssembleChild(c, shape)); }
         }
 
         sb.Append('\n');
         return sb.ToString();
     }
-
-    private static bool HasBody(string kind) =>
-        kind is not (ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut);
 
     // No silent fallback — an invented `END_<KIND>` would write syntactically wrong ST into the user's repo.
     // The kind comes from the IDE's tree, and a kind with no END line (`method`/`property`/`action` handed up as
@@ -106,10 +104,15 @@ public static class StWriter
         _ => 3,
     };
 
-    private static string AssembleChild(Member child, string ownerKind)
+    /// <summary>A member block. Whether it carries the boundary line is its kind's row (<see cref="ItemKind.ShapeOf"/>):
+    /// a method's and an action's <c>Body</c>, a property's accessors <c>WithBodies</c> — and none at all inside an owner
+    /// whose members sit in its block (<c>MembersInside</c>, an interface), whose members are signatures. That is the
+    /// owner's row, the one the reader splits such a block by, so an ACTION inside an interface (0 in the six corpora) is
+    /// written as the reader reads it: unmarked.</summary>
+    private static string AssembleChild(Member child, KindShape owner)
     {
         if (child.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
-            return AssembleProperty(child, ownerKind);
+            return AssembleProperty(child, owner);
         var decl = child.Declaration.TrimEnd('\n');
         // The boundary line first, then `%FOLDER`, then the code — an UNSUPPORTED line is that boundary too, so a hidden
         // member's `%FOLDER` follows it; above it, the directive would be DECLARATION text and the folder lost.
@@ -123,15 +126,15 @@ public static class StWriter
             _ => throw new BridgeException(BridgeErrorCodes.Unsupported,
                 $"No END keyword for POU child kind '{child.Kind}'"),
         };
-        if (!ImplementationMarker.AppliesTo(child.Kind) || !ImplementationMarker.AppliesTo(ownerKind))
+        if (owner.MembersInside || !ItemKind.ShapeOf(child.Kind).Body)
             return impl.Length == 0 ? $"{decl}\n{end}" : $"{decl}\n{impl}\n{end}";
         return impl.Length == 0 ? $"{decl}\n{boundary}\n{end}" : $"{decl}\n{boundary}\n{impl}\n{end}";
     }
 
-    private static string AssembleProperty(Member child, string ownerKind)
+    private static string AssembleProperty(Member child, KindShape owner)
     {
         // An INTERFACE property's accessors are signatures — no body, so no boundary to mark.
-        var marked = ImplementationMarker.AppliesTo(child.Kind) && ImplementationMarker.AppliesTo(ownerKind);
+        var marked = !owner.MembersInside && ItemKind.ShapeOf(child.Kind).Accessors == AccessorShape.WithBodies;
         var parts = new List<string> { child.Declaration.TrimEnd('\n') };
         if (!string.IsNullOrEmpty(child.Folder)) parts.Add($"%FOLDER {child.Folder}");
         // Presence is the object. This used to re-derive it from two nullable fields — the same rule the reader

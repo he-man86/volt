@@ -129,8 +129,8 @@ branch in: the tree of the services that edit and navigate text (rename, referen
 values). `pragmas/` — the `{IF}` condition grammar and its evaluation (`conditional.ts`), and `{attribute …}`, attached
 once by the parser to the unit, member or declaration it decorates (`attributes.ts`; `FRONTEND_ATTRIBUTES` the ones the
 front-end answers by). `format/` — the Volt workspace file format, which is not
-CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, `%FOLDER`, the retired comments, the reserved
-name, the network header, which reader reads a body, and what a file's extension says its object is (a DUT's or a GVL's
+CODESYS grammar: the `IMPLEMENTATION <LANG>` line and the body splitter, `%FOLDER`, the retired comments,
+the network header, which reader reads a body, and what a file's extension says its object is (a DUT's or a GVL's
 text is read as the IDE reads it — nothing is declared, and nothing reported, unless the text opens with TYPE /
 VAR_GLOBAL). A parse takes `ParseOptions` (`networkText`: whether an LD/FBD body is read as network text — the server
 passes its environment's answer; the front-end reads no environment) and hands back the token stream it lexed

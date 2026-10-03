@@ -1719,7 +1719,7 @@ window.VOLT = {
         {
           "name": "WriteContent",
           "kind": "method",
-          "signature": "void WriteContent(ItemRef item, ItemContent content, PushedDeclarations pushedDeclarations)"
+          "signature": "void WriteContent(ItemRef item, ItemContent content, IReadOnlyList\u003CPushedNetworkBody\u003E bodies)"
         },
         {
           "name": "ReadManifest",

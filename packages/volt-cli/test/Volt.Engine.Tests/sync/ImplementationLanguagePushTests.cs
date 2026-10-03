@@ -316,18 +316,35 @@ public class ImplementationLanguagePushTests
         if (member is not null) Assert.Contains(written.Members, m => m.Name == member);
     }
 
-    /// <summary>A line of the keyword's SHAPE in a declaration is still refused (<c>RefuseLinesInDeclarations</c>): a
-    /// wrapped variable list whose name stands alone on its line reads exactly like a boundary line, and the text alone
-    /// cannot say which it is. That refusal is a condition of the SPLIT, not a check on the code.</summary>
+    /// <summary>A line is the boundary only when it IS one — the keyword and a language a body states (openspec
+    /// <c>bridge-refusal-review</c> D9). A wrapped variable list whose name stands alone on its line is CODE: it states no
+    /// language, so the text does say which it is, and the declaration is written as sent. It used to be refused as a
+    /// line of the keyword's SHAPE (the premise of this test before D9: "the text alone cannot say which it is").</summary>
     [Fact]
-    public void A_keyword_shaped_line_in_a_POUs_declaration_is_still_refused_naming_the_line()
+    public void A_bare_keyword_line_in_a_POUs_declaration_is_code_written_as_sent()
+    {
+        var ide = new FakeIde();
+
+        var resp = Create(ide,
+            "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n");
+
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Contains("\tIMPLEMENTATION\n", ide.WrittenContent["FB_Motor"].Declaration);
+    }
+
+    /// <summary>…while a BOUNDARY line in a declaration is still refused (<c>RefuseLinesInDeclarations</c>): an interface
+    /// member has no body to consume it, and the line would read back as the boundary. That refusal is a condition of
+    /// the SPLIT, not a check on the code.</summary>
+    [Fact]
+    public void A_boundary_line_in_an_interface_members_declaration_is_still_refused_naming_the_line()
     {
         var ide = new FakeIde();
 
         var reason = Reason(Create(ide,
-            "FUNCTION_BLOCK FB_Motor\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n"));
+            "INTERFACE I_Motor\n\nMETHOD Run : BOOL\nVAR_INPUT\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nEND_METHOD\n\nEND_INTERFACE\n",
+            "I_Motor.itf"));
 
-        Assert.Contains("'IMPLEMENTATION'", reason);
+        Assert.Contains("'IMPLEMENTATION ST'", reason);
         AssertNothingWritten(ide);
     }
 

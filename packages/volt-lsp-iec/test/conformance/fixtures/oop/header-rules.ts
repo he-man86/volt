@@ -116,4 +116,65 @@ END_FUNCTION
 `,
     plcPrgBody: "F_LANG_hdr_implements_bare(2);",
   },
+  // THE MEMBER HEADER, READ WITHOUT A MODIFIER VOCABULARY (openspec bridge-refusal-review D10, task 4.10). The push reads
+  // a member's NAME as the last word before the colon and nothing between: a word the IDE does not take there is its
+  // build's to report. It refused every word outside six modifiers. AS SENT: the text is the question, and the push
+  // splits it into the FB and its members by itself.
+  {
+    name: "sig_unknown_word",
+    pouName: "FB_LANG_sig_unknown_word",
+    kind: "function_block",
+    feature: "a METHOD header with a word that is no modifier before its name, and one with a second word after it",
+    fromDoc: "openspec bridge-refusal-review design D10",
+    note:
+      "`METHOD PUBLC Run : BOOL` is the method Run (a modifier typo keeps the member); `METHOD Run Walk : BOOL` is the " +
+      "method Walk (a header rename). Both are written as sent, and the build answers each header.",
+    asSent: "the member headers are the question; the push splits the text into the FB and its two methods itself",
+    source: `FUNCTION_BLOCK FB_LANG_sig_unknown_word
+VAR
+END_VAR
+IMPLEMENTATION ST
+;
+
+END_FUNCTION_BLOCK
+
+METHOD PUBLC Run : BOOL
+IMPLEMENTATION ST
+Run := TRUE;
+END_METHOD
+
+METHOD Run Walk : BOOL
+IMPLEMENTATION ST
+Walk := TRUE;
+END_METHOD
+`,
+    plcPrgVar: "fb_suw : FB_LANG_sig_unknown_word;",
+    plcPrgBody: "fb_suw();",
+  },
+  {
+    name: "sig_empty_type",
+    pouName: "FB_LANG_sig_empty_type",
+    kind: "function_block",
+    feature: "a METHOD header with nothing after its colon",
+    fromDoc: "openspec bridge-refusal-review 2.4 / 2.5, design D10",
+    note:
+      "Nothing after the colon is the build's declaration error (2.4): the push writes the line as sent and the member " +
+      "carries an empty type. (TwinCAT creates an INTERFACE member with its type, and that driver refuses one with none.)",
+    asSent: "the member header is the question; the push splits the text into the FB and its method itself",
+    source: `FUNCTION_BLOCK FB_LANG_sig_empty_type
+VAR
+END_VAR
+IMPLEMENTATION ST
+;
+
+END_FUNCTION_BLOCK
+
+METHOD Run :
+IMPLEMENTATION ST
+;
+END_METHOD
+`,
+    plcPrgVar: "fb_set : FB_LANG_sig_empty_type;",
+    plcPrgBody: "fb_set();",
+  },
 ]

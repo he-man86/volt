@@ -183,4 +183,36 @@ public class LanguageChangeGuardTests
         Assert.Contains("delete it and push it again", conflict.Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("write"));
     }
+
+    // ── D11: the guard checks what the kind's row says exists ──────────────────────────────────────────────
+
+    /// <summary>An INTERFACE METHOD has neither a body nor accessors (<c>ItemKind.ShapeOf</c>), so the guard checks
+    /// nothing of it. It used to be asked about its accessors (`CarriesAccessors` meant "has no body"): an accessor
+    /// slot handed to it reached the vendor's language-change question as a property GET. Asserted by WHICH SITE the
+    /// guard asks — the verdict for a real interface method was a pass either way.</summary>
+    [Fact]
+    public void An_interface_method_is_checked_for_neither_a_body_nor_accessors()
+    {
+        static Member Itm(string? body, StatedLanguage? stated, Accessor? get) =>
+            new(ItemKind.Kinds.InterfaceMethod, "Run", "METHOD Run : BOOL", body, Getter: get, Stated: stated);
+        static ItemContent Itf(Member m) =>
+            new(ItemKind.Kinds.Interface, "INTERFACE I", "", new List<Member> { m });
+
+        var asked = new List<string>();
+        string? Record(string site, string from, string to) { asked.Add(site); return "no route."; }
+
+        BodyFormatGuard.RequireWritable(
+            Itf(Itm("x", StatedLanguage.Shown(Languages.Ld), new Accessor("", "x", Stated: StatedLanguage.Shown(Languages.Ld)))),
+            Itf(Itm("y", StatedLanguage.St, new Accessor("", "y", Stated: StatedLanguage.St))),
+            Record);
+        Assert.Empty(asked);
+
+        // …while a property is asked at its accessors, and a method at its body.
+        static Member Prop(string get) => new(ItemKind.Kinds.Property, "P", "PROPERTY P : BOOL", "",
+            Getter: new Accessor("", get, Stated: get.StartsWith("IMPLEMENTATION") ? StatedLanguage.Shown(Languages.Ld) : StatedLanguage.St));
+        static ItemContent Fb(params Member[] ms) => new(ItemKind.Kinds.Pou, Decl, "", ms.ToList(), Stated: StatedLanguage.St);
+        Assert.Throws<BridgeException>(() => BodyFormatGuard.RequireWritable(
+            Fb(Prop("IMPLEMENTATION LD\nNETWORK\nEND_NETWORK")), Fb(Prop("q := a;")), Record));
+        Assert.Equal(new[] { ItemKind.Kinds.PropertyGet }, asked);
+    }
 }

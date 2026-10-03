@@ -38,11 +38,6 @@ function fb(name: string, feature: string, head: string, body: string, members =
     `${before}FUNCTION_BLOCK ${header}\nVAR\n\tout : INT;\nEND_VAR\n${body}\nEND_FUNCTION_BLOCK\n${members ? `\n${members}` : ""}`)
 }
 
-/** A base FB `FB_LANG_<name>_base` with `members`, written ahead of a fixture's FB. */
-function base(name: string, members = "", fields = "\tb : INT := 2;"): string {
-  return `FUNCTION_BLOCK FB_LANG_${name}_base\nVAR\n${fields}\nEND_VAR\nEND_FUNCTION_BLOCK\n${members ? `\n${members}` : ""}\n`
-}
-
 /** An interface `ITF_LANG_<name><suffix>` declaring `members` (and `head` after its name). */
 function itf(name: string, members: string, head = "", suffix = ""): string {
   return `INTERFACE ITF_LANG_${name}${suffix}${head}\n${members}END_INTERFACE\n\n`
@@ -83,7 +78,7 @@ function pushRewrites(t: LanguageTest, how: string): LanguageTest {
 function loaderNamed(t: LanguageTest, seen: string): LanguageTest {
   return {
     ...t,
-    execSkip: `NOTHING TO COMPARE: the push refuses this header on both vendors, and \`record:exec\` names the member object as the parser splits it — ${seen}, an answer that moves with the parser's reading rather than one about the text`,
+    execSkip: `NOTHING TO COMPARE: the push names the member by the last word before its colon (openspec bridge-refusal-review D10), and \`record:exec\` names the member object as the parser splits it — ${seen}, an answer that moves with the parser's reading rather than one about the text`,
   }
 }
 
@@ -142,9 +137,28 @@ function method(name: string, feature: string, mods: string): LanguageTest {
 }
 
 /** An FB extending `FB_LANG_<name>_base` (whose `M` returns 1) and overriding `M` with one headed `METHOD <mods> M`. */
-function overriding(name: string, feature: string, mods: string): LanguageTest {
-  return fb(name, feature, `<name> EXTENDS FB_LANG_${name}_base`, "out := M();",
-    `METHOD ${mods} M : INT\nM := 7;\nEND_METHOD\n`, base(name, "METHOD M : INT\nM := 1;\nEND_METHOD\n"))
+/**
+ * `overriding`, PUSHED AS SENT, with its base FB a fixture of its own (`<name>_base`, `overrideBase`). The LSP parser
+ * reads `METHOD OVERRIDE M` as the method OVERRIDE, as both vendors do, so it cannot split the source into the units
+ * the recorder marks; the push reads the member as the last word before the colon (M, openspec bridge-refusal-review
+ * D10) and writes the header as sent — which is what the build answers.
+ */
+function overridingAsSent(name: string, feature: string, mods: string): LanguageTest {
+  return {
+    ...fbUnit(name, feature,
+      `FUNCTION_BLOCK FB_LANG_${name} EXTENDS FB_LANG_${name}_base\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nout := M();\n` +
+        `END_FUNCTION_BLOCK\n\nMETHOD ${mods} M : INT\nIMPLEMENTATION ST\nM := 7;\nEND_METHOD\n`),
+    asSent: "the parser reads OVERRIDE as the method's name, so it cannot mark the units; the text states its own IMPLEMENTATION lines, as a workspace file does",
+  }
+}
+
+/** The base FB an `overridingAsSent` fixture extends, with the `M : INT` it overrides — a fixture of its own, so the
+ *  as-sent fixture is one item. */
+function overrideBase(name: string): LanguageTest {
+  return {
+    ...fbUnit(`${name}_base`, `the base FB of ${name}, declaring the METHOD M it overrides`,
+      `FUNCTION_BLOCK FB_LANG_${name}_base\nVAR\n\tb : INT := 2;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nMETHOD M : INT\nM := 1;\nEND_METHOD\n`),
+  }
 }
 
 /** A property `P : INT` headed `PROPERTY <mods> P` whose getter returns `stored` (6), read by the FB's body. */
@@ -278,14 +292,15 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
   method("unit_method_protected", "U13 — `METHOD PROTECTED M`", "PROTECTED"),
   method("unit_method_internal", "U13 — `METHOD INTERNAL M`", "INTERNAL"),
   method("unit_method_final", "U13 — `METHOD FINAL M`", "FINAL"),
-  // OVERRIDE: the push refuses each OVERRIDE header (the IDE never sees it), so CODESYS answered through `record:exec`,
-  // which loads the objects itself: OVERRIDE is no modifier there, it is the method's NAME — "The name used in the
-  // signature is not identical to the object name" (2026-10-01). TwinCAT has no oracle that reaches past the push.
-  pushRefuses(overriding("unit_method_override", "U13 — `METHOD OVERRIDE M`, overriding the base's M", "OVERRIDE"),
-    "'FB_LANG_unit_method_override', line 9: Cannot parse METHOD signature: 'OVERRIDE' is not an access modifier — METHOD OVERRIDE M : INT"),
-  pushRefuses(overriding("unit_method_override_public_order", "U13 — OVERRIDE before the access modifier: `METHOD OVERRIDE PUBLIC M`",
+  // OVERRIDE: the push refused each OVERRIDE header until openspec bridge-refusal-review D10 ("'OVERRIDE' is not an access
+  // modifier"), so CODESYS answered through `record:exec`, which loads the objects itself: OVERRIDE is no modifier there,
+  // it is the method's NAME — "The name used in the signature is not identical to the object name" (2026-10-01). The push
+  // now reads the member as the last word before the colon (M) and writes the header as sent, so both builds answer it.
+  overrideBase("unit_method_override"),
+  overridingAsSent("unit_method_override", "U13 — `METHOD OVERRIDE M`, overriding the base's M", "OVERRIDE"),
+  overrideBase("unit_method_override_public_order"),
+  overridingAsSent("unit_method_override_public_order", "U13 — OVERRIDE before the access modifier: `METHOD OVERRIDE PUBLIC M`",
     "OVERRIDE PUBLIC"),
-    "'FB_LANG_unit_method_override_public_order', line 9: Cannot parse METHOD signature: 'OVERRIDE' is not an access modifier — METHOD OVERRIDE PUBLIC M : INT"),
   method("unit_method_final_private_order", "U13 — FINAL before the access modifier: `METHOD FINAL PRIVATE M`", "FINAL PRIVATE"),
   method("unit_method_two_access", "U13 — two access modifiers on one METHOD: `METHOD PUBLIC PRIVATE M`", "PUBLIC PRIVATE"),
   method("unit_method_modifier_twice", "U13 — one METHOD modifier written twice: `METHOD FINAL FINAL M`", "FINAL FINAL"),
@@ -306,10 +321,19 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
   fb("unit_property_abstract", "U16 — `PROPERTY ABSTRACT P` in an ABSTRACT base, implemented by the FB extending it",
     "<name> EXTENDS FB_LANG_unit_property_abstract_base", "out := P;", "PROPERTY P : INT\nGET\nP := 6;\nEND_GET\nEND_PROPERTY\n",
     "FUNCTION_BLOCK ABSTRACT FB_LANG_unit_property_abstract_base\nEND_FUNCTION_BLOCK\n\nPROPERTY ABSTRACT P : INT\nGET\nEND_GET\nEND_PROPERTY\n\n"),
-  loaderNamed(pushRefuses(fb("unit_property_override", "U16 — `PROPERTY OVERRIDE P`, overriding the base's P",
-    "<name> EXTENDS FB_LANG_unit_property_override_base", "out := P;", "PROPERTY OVERRIDE P : INT\nGET\nP := 6;\nEND_GET\nEND_PROPERTY\n",
-    base("unit_property_override", "PROPERTY P : INT\nGET\nP := 1;\nEND_GET\nEND_PROPERTY\n")),
-    "'FB_LANG_unit_property_override', line 9: Cannot parse PROPERTY signature: 'OVERRIDE' is not an access modifier — PROPERTY OVERRIDE P : INT"),
+  // AS SENT, its base a fixture of its own (as `overridingAsSent`): the parser reads OVERRIDE as the property's name and
+  // cannot mark its getter, and the push reads the member as P (the last word before the colon, D10).
+  {
+    ...fbUnit("unit_property_override_base", "the base FB of unit_property_override, declaring the PROPERTY P it overrides",
+      "FUNCTION_BLOCK FB_LANG_unit_property_override_base\nVAR\n\tb : INT := 2;\nEND_VAR\nEND_FUNCTION_BLOCK\n\n" +
+        "PROPERTY P : INT\nGET\nP := 1;\nEND_GET\nEND_PROPERTY\n"),
+  },
+  loaderNamed({
+    ...fbUnit("unit_property_override", "U16 — `PROPERTY OVERRIDE P`, overriding the base's P",
+      "FUNCTION_BLOCK FB_LANG_unit_property_override EXTENDS FB_LANG_unit_property_override_base\nVAR\n\tout : INT;\nEND_VAR\n" +
+        "IMPLEMENTATION ST\nout := P;\nEND_FUNCTION_BLOCK\n\nPROPERTY OVERRIDE P : INT\nGET\nIMPLEMENTATION ST\nP := 6;\nEND_GET\nEND_PROPERTY\n"),
+    asSent: "the parser reads OVERRIDE as the property's name, so it cannot mark the getter; the text states its own IMPLEMENTATION lines, as a workspace file does",
+  },
     "a property object named OVERRIDE holding `PROPERTY OVERRIDE P : INT` BUILDS there and leaves the base's P in place (out = 1)"),
   property("unit_property_modifiers", "U16 — stacked PROPERTY modifiers: `PROPERTY PUBLIC FINAL P`", "PUBLIC FINAL"),
   property("unit_property_modifiers_reordered", "U16 — stacked PROPERTY modifiers, FINAL first: `PROPERTY FINAL PUBLIC P`",
@@ -334,17 +358,25 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
     "GET\nP := stored;\n"), "the push closes the getter at END_PROPERTY as an EMPTY accessor, dropping `P := stored;`"),
 
   // ─── U17 ACTION ─────────────────────────────────────────────────────────────────────────────────────────────────────
+  // …and so does an action's declaration under its line (review 4b): neither write stores one, so the VAR section was
+  // dropped and both builds answered the body alone ("Identifier 't' not defined"). Refused by name now.
   {
-    ...fb("unit_action_var_section", "U17 — an ACTION declaring a VAR section of its own",
+    ...pushRefuses(fb("unit_action_var_section", "U17 — an ACTION declaring a VAR section of its own",
       "<name>", "Act();", "ACTION Act\nVAR\n\tt : INT;\nEND_VAR\nIMPLEMENTATION ST\nt := 4;\nout := t;\nEND_ACTION\n"),
+      "'FB_LANG_unit_action_var_section', line 10: 'VAR' would be part of action 'Act's declaration, and an action has no declaration the IDE stores — its line is 'ACTION Act', so this would be dropped. Move it into the action's body or the owner's declaration."),
+    execSkip:
+      "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the VAR section to — the push refuses it, and `record:exec` loads the parser's units, which hold no such action",
     asSent: "the parser reads no declaration on an ACTION, so it would mark the body above the VAR; the text states its own IMPLEMENTATION lines, as a workspace file does",
     source: "FUNCTION_BLOCK FB_LANG_unit_action_var_section\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION Act\nVAR\n\tt : INT;\nEND_VAR\nIMPLEMENTATION ST\nt := 4;\nout := t;\nEND_ACTION\n",
   },
+  // The push REFUSES an action line holding anything besides its keyword and name (openspec bridge-refusal-review D10): an
+  // action's line is composed, not stored, so the modifier was dropped without a word (both vendors built the FB).
   {
-    ...fb("unit_action_modifier", "U17 — an access modifier on an ACTION: `ACTION PRIVATE Act`", "<name>", "Act();"),
+    ...pushRefuses(fb("unit_action_modifier", "U17 — an access modifier on an ACTION: `ACTION PRIVATE Act`", "<name>", "Act();"),
+      "'FB_LANG_unit_action_modifier', line 9: Cannot parse ACTION signature: an action has no declaration the IDE stores — its line is 'ACTION Act', so anything else on it would be dropped — ACTION PRIVATE Act"),
     asSent: "the parser does not read a modifier on an ACTION; the text states its own IMPLEMENTATION lines, as a workspace file does",
     execSkip:
-      "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the modifier to — the push drops the header (CODESYS builds the FB), and `record:exec` loads the parser's units, which hold no such action",
+      "NOTHING TO MEASURE: a CODESYS ACTION has no declaration, so there is no text to give the modifier to — the push refuses the header, and `record:exec` loads the parser's units, which hold no such action",
     source: "FUNCTION_BLOCK FB_LANG_unit_action_modifier\nVAR\n\tout : INT;\nEND_VAR\nIMPLEMENTATION ST\nAct();\nEND_FUNCTION_BLOCK\n\nACTION PRIVATE Act\nIMPLEMENTATION ST\nout := 4;\nEND_ACTION\n",
   },
 
@@ -355,8 +387,7 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
   itfMethod("unit_interface_method_internal", "U18 — an interface method `METHOD INTERNAL Get`", "INTERNAL"),
   itfMethod("unit_interface_method_final", "U18 — an interface method `METHOD FINAL Get`", "FINAL"),
   itfMethod("unit_interface_method_abstract", "U18 — an interface method `METHOD ABSTRACT Get`", "ABSTRACT"),
-  loaderNamed(pushRefuses(itfMethod("unit_interface_method_override", "U18 — an interface method `METHOD OVERRIDE Get`", "OVERRIDE"),
-    "'ITF_LANG_unit_interface_method_override', line 2: Cannot parse METHOD signature: 'OVERRIDE' is not an access modifier — METHOD OVERRIDE Get : INT"),
+  loaderNamed(itfMethod("unit_interface_method_override", "U18 — an interface method `METHOD OVERRIDE Get`", "OVERRIDE"),
     "an interface method object named OVERRIDE holding `METHOD OVERRIDE Get : INT` reads no parse error there, only \"There is no implementation for method 'OVERRIDE'\""),
   itfProperty("unit_interface_property_public", "U18 — an interface property `PROPERTY PUBLIC Val`", "PUBLIC"),
   itfProperty("unit_interface_property_private", "U18 — an interface property `PROPERTY PRIVATE Val`", "PRIVATE"),
@@ -372,10 +403,9 @@ export const UNIT_RULE_TESTS: readonly LanguageTest[] = [
   itfProperty("unit_interface_property_final_public_order", "U18 — an interface property `PROPERTY FINAL PUBLIC Val`",
     "FINAL PUBLIC"),
   {
-    ...pushRefuses(itfProperty("unit_interface_property_override", "U18 — an interface property `PROPERTY OVERRIDE Val`", "OVERRIDE"),
-      "'ITF_LANG_unit_interface_property_override', line 2: Cannot parse PROPERTY signature: 'OVERRIDE' is not an access modifier — PROPERTY OVERRIDE Val : INT"),
+    ...itfProperty("unit_interface_property_override", "U18 — an interface property `PROPERTY OVERRIDE Val`", "OVERRIDE"),
     execSkip:
-      "NOTHING TO COMPARE: the push refuses this header on both vendors, and `record:exec` builds an interface's property objects from the parser's units — which cannot read `PROPERTY OVERRIDE Val` (OVERRIDE is a name, as `unit_method_override` measured), so it would load a different interface than the one written",
+      "NOTHING TO COMPARE: the push names the property by the last word before its colon (Val, openspec bridge-refusal-review D10), and `record:exec` builds an interface's property objects from the parser's units — which cannot read `PROPERTY OVERRIDE Val` (OVERRIDE is a name, as `unit_method_override` measured), so it would load a different interface than the one written",
   },
 
   // ─── U20 INTERFACE EXTENDS a list; INTERFACE IMPLEMENTS ─────────────────────────────────────────────────────────────

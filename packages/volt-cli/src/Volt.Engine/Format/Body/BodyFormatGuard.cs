@@ -39,21 +39,22 @@ public static class BodyFormatGuard
     /// the opposite ("root CFC/SFC are unsupported and never reach push").</para></summary>
     public static void RequireAuthorable(ItemContent pushed)
     {
-        Authorable("the item", pushed.Body, pushed.Stated);
+        if (ItemKind.ShapeOf(pushed.Kind).Body) Authorable("the item", pushed.Body, pushed.Stated);
         foreach (var member in pushed.Members) AuthorableMember(member);
     }
 
     /// <summary>The create rule for ONE member: every body it carries must be one Volt can author.</summary>
     private static void AuthorableMember(Member member)
     {
-        // Same split as below: a property node's code lives in its accessors, not in a body of its own.
-        if (CarriesAccessors(member))
+        // Same split as below, by the kind's row (ItemKind.ShapeOf): a property node's code lives in its accessors, not
+        // in a body of its own, and an interface method has neither.
+        var shape = ItemKind.ShapeOf(member.Kind);
+        if (shape.Accessors != AccessorShape.None)
         {
             Authorable($"'{member.Name}' GET", member.Getter?.Body, member.Getter?.Stated);
             Authorable($"'{member.Name}' SET", member.Setter?.Body, member.Setter?.Stated);
-            return;
         }
-        Authorable($"'{member.Name}'", member.Body, member.Stated);
+        if (shape.Body) Authorable($"'{member.Name}'", member.Body, member.Stated);
     }
 
     private static void Authorable(string what, string? body, StatedLanguage? stated)
@@ -73,7 +74,8 @@ public static class BodyFormatGuard
                                        Func<string, string, string, string?> refusedLanguageChange)
     {
         if (refusedLanguageChange is null) throw new ArgumentNullException(nameof(refusedLanguageChange));
-        Check("the item", pushed.Kind, live.Body, live.Stated, pushed.Body, pushed.Stated, refusedLanguageChange);
+        if (ItemKind.ShapeOf(pushed.Kind).Body)
+            Check("the item", pushed.Kind, live.Body, live.Stated, pushed.Body, pushed.Stated, refusedLanguageChange);
 
         var byName = live.Members.ToDictionary(m => m.Name, StringComparer.OrdinalIgnoreCase);
         foreach (var member in pushed.Members)
@@ -90,25 +92,23 @@ public static class BodyFormatGuard
                 continue;
             }
 
-            // An interface member and a PROPERTY node carry no body of their own: a property's code lives in its
-            // GET/SET accessors, which arrive as `Getter`/`Setter`. Asking about `Body` for one would be asking
-            // the wrong question. (The accessors are guarded on their own terms below.)
-            if (CarriesAccessors(member))
+            // WHAT THE KIND'S ROW SAYS EXISTS (ItemKind.ShapeOf, openspec bridge-refusal-review D11): a PROPERTY node
+            // carries no body of its own — its code lives in its GET/SET accessors, which arrive as `Getter`/`Setter` —
+            // and an INTERFACE METHOD carries neither a body nor accessors, so nothing of it is checked. It used to be
+            // asked about accessors it does not have (`CarriesAccessors` meant "has no body").
+            var shape = ItemKind.ShapeOf(member.Kind);
+            if (shape.Accessors != AccessorShape.None)
             {
                 Check($"'{member.Name}' GET", ItemKind.Kinds.PropertyGet, current.Getter?.Body, current.Getter?.Stated,
                       member.Getter?.Body, member.Getter?.Stated, refusedLanguageChange);
                 Check($"'{member.Name}' SET", ItemKind.Kinds.PropertySet, current.Setter?.Body, current.Setter?.Stated,
                       member.Setter?.Body, member.Setter?.Stated, refusedLanguageChange);
-                continue;
             }
 
-            Check($"'{member.Name}'", member.Kind, current.Body, current.Stated, member.Body, member.Stated,
+            if (shape.Body) Check($"'{member.Name}'", member.Kind, current.Body, current.Stated, member.Body, member.Stated,
                   refusedLanguageChange);
         }
     }
-
-    private static bool CarriesAccessors(Member member) =>
-        member.Kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty or ItemKind.Kinds.InterfaceMethod;
 
     /// <param name="site">Which body this is, for the vendor's language-change answer: the item's kind, a member's kind,
     /// or <c>property_get</c> / <c>property_set</c>.</param>

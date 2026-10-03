@@ -103,15 +103,16 @@ public static class StReader
 		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
 		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
 
-		// 1. A DUT or a GVL is ONE declaration, written as sent. Nothing in it is Volt's to judge.
-		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut)
+		// 1. A kind that is not composite (a DUT, a GVL: ItemKind.ShapeOf) is ONE declaration, written as sent. Nothing in
+		// it is Volt's to judge.
+		if (!ItemShape(kind).Composite)
 			return new ItemContent(kind, sourceText.TrimEnd('\n'), "", new List<Member>());
 
+		// An EMPTY or blank POU or interface text has no outer block, so it is refused as every text without one is
+		// (FindOuterBlock: "Missing END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION", or END_INTERFACE) — one condition, one
+		// message, right for both composite kinds (openspec bridge-refusal-review D9). Its own branch said an interface
+		// "holds its IMPLEMENTATION line", which an interface has not.
 		var what = name is null ? $"this {kind}" : $"'{name}'";
-		if (string.IsNullOrWhiteSpace(sourceText))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} is empty — a {kind} file holds at least its declaration, its {ImplementationMarker.Keyword} line and its END line.");
-
 		var original = NormalizeLines(sourceText);
 
 		// 2. The structure. A `(* @volt-… *)` comment — the tag of a Volt from before the IMPLEMENTATION line — is a
@@ -135,7 +136,7 @@ public static class StReader
 	/// is not the splitter's question (network text has its own round-trip gate).</para></summary>
 	internal static IReadOnlyList<Member> SplitMembers(string sourceText, string kind, string name)
 	{
-		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut) return Array.Empty<Member>();
+		if (!ItemShape(kind).Composite) return Array.Empty<Member>();
 		return ReadStructureOf(sourceText, NormalizeLines(sourceText), kind, $"'{name}'", splitOnly: true).Members;
 	}
 
@@ -178,12 +179,21 @@ public static class StReader
 	{
 		if (kind is null) throw new ArgumentNullException(nameof(kind), "the kind is the wire name's extension; there is no other source for it");
 		if (sourceText is null) throw new ArgumentNullException(nameof(sourceText));
-		if (kind is ItemKind.Kinds.Gvl or ItemKind.Kinds.Dut) return null;
+		if (!ItemShape(kind).Composite) return null;
 		var original = NormalizeLines(sourceText);
 		var unclosed = StTrivia.UnterminatedOpenings(original);
 		var lines = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0 ? Neutralized(original, unclosed) : original;
 		return FindOuterBlock(lines, OuterEndKeywords(kind), $"this {kind}").keyword.ToUpperInvariant();
 	}
+
+	/// <summary>The row of a SOURCE item's kind (<see cref="ItemKind.ShapeOf"/>) — the only kinds this reader reads: a POU,
+	/// an interface, a DUT or a GVL. A member kind, a task or a descriptor reaching it is a caller's bug, not the
+	/// engineer's text (openspec <c>bridge-refusal-review</c> 2.2): <see cref="ArgumentException"/>, INTERNAL_ERROR on push.</summary>
+	private static KindShape ItemShape(string kind) =>
+		ItemKind.IsSourceKind(kind)
+			? ItemKind.ShapeOf(kind)
+			: throw new ArgumentException($"the ST reader has no composite shape for kind '{kind}': it reads a source item " +
+			                              "(a POU, an interface, a DUT or a GVL)", nameof(kind));
 
 	/// <summary>The POU header keywords a pulled file's outer END line mirrors (<see cref="PouHeaderKeyword"/>).</summary>
 	private static readonly string[] PouHeaderKeywords = { "PROGRAM", "FUNCTION_BLOCK", "FUNCTION" };
@@ -296,7 +306,7 @@ public static class StReader
 		var (pouEnd, childrenStart, _) = FindOuterBlock(lines, OuterEndKeywords(kind), what);
 		var pouLines = SliceLines(lines, 0, pouEnd - 1);
 
-		if (kind == ItemKind.Kinds.Interface)
+		if (ItemShape(kind).MembersInside)
 		{
 			// Children = METHOD / PROPERTY / ACTION signature blocks INSIDE the INTERFACE block, so nothing a push
 			// writes stands AFTER END_INTERFACE. A line there is refused, naming it — it used to be dropped in silence
@@ -540,7 +550,7 @@ public static class StReader
 	/// under it.</para></summary>
 	private static (string decl, string impl, string line) SplitAtBoundary(IList<string> lines, string what)
 	{
-		// ONE line of the keyword's shape per region. Two are refused NAMING BOTH, before either is taken as the
+		// ONE boundary line per region (ImplementationMarker.Is). Two are refused NAMING BOTH, before either is taken as the
 		// boundary: the text alone cannot say which one the engineer meant. One may be a name in a wrapped declaration
 		// (`implementation ST` on its own line of a VAR list), the other the real boundary — taking the first as the
 		// boundary told the engineer to remove the REAL one. Or both are boundaries (a member pasted with its line),
@@ -574,17 +584,18 @@ public static class StReader
 	}
 
 	/// <summary>The body a boundary line and the text under it make — checked against what the line STATES, which
-	/// is the one signal for how the body is read. Every refusal names <paramref name="what"/> and the line as
-	/// written, and each is raised before anything is written:
+	/// is the one signal for how the body is read. Only a boundary line reaches here (<see cref="ImplementationMarker.Is"/>:
+	/// the grammar alone, openspec <c>bridge-refusal-review</c> D9); a line that only LOOKS like one — no language, one no
+	/// body can state, a bare CFC, SFC or IL, code after the language — is no boundary, and a region holding no other is
+	/// refused as <see cref="Unmarked"/>, naming that line and what it lacks. The one refusal here names
+	/// <paramref name="what"/> and the line as written, and is raised before anything is written:
 	/// <list type="bullet">
-	/// <item>a line with no language, or one no body can state (<c>IMPLEMENTATION COBOL</c>, <c>UNSUPPORTED</c> after
-	/// language other than ST, a bare CFC, SFC or IL, code after the language) — never guessed;</item>
-	/// <item>text under <c>LD</c>/<c>FBD</c> that is no network — never re-read as ST. (Network text under <c>ST</c> is
-	/// an ST body like any other, written as sent: the build reports it, openspec <c>bridge-refusal-review</c> 1.1);</item>
 	/// <item>code under an UNSUPPORTED line (<c>IMPLEMENTATION CFC|SFC|IL|LD|FBD UNSUPPORTED</c>) —
 	/// that body has no text form, the drivers write nothing for it, so the code would be dropped without a word and
 	/// overwritten by the next pull.</item>
 	/// </list>
+	/// (Text under <c>LD</c>/<c>FBD</c> that is no network is the network reader's refusal, with its own code and line;
+	/// network text under <c>ST</c> is an ST body like any other, written as sent: openspec <c>bridge-refusal-review</c> 1.1.)
 	/// With the body, the language the line STATES (<see cref="StatedLanguage"/>, openspec <c>bridge-refusal-review</c>
 	/// D6): the fact this reader already parsed, carried on the record so the push's guard reads no text to learn it.</summary>
 	private static (string Body, StatedLanguage Stated) Body(string line, string code, string what)
@@ -601,27 +612,8 @@ public static class StReader
 			return (hidden, StatedLanguage.HiddenIn(ImplementationMarker.UnsupportedLanguageOf(hidden)!));
 		}
 
-		var word = ImplementationMarker.Stated(line)!;
-		if (word.Length == 0)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}' with no language — a body states its language on that line: " +
-				$"{ImplementationMarker.For(Languages.St)}, {ImplementationMarker.For(Languages.Ld)} or " +
-				$"{ImplementationMarker.For(Languages.Fbd)}. ({ImplementationMarker.Keyword} is reserved, so if the line " +
-				"names something, rename it.)");
-		// A bare CFC, SFC or IL was section 2b's line for a body Volt does not show; 3b gave every such body one word,
-		// UNSUPPORTED, so the bare line states no body. Refused naming the line to write, never read as the hidden body
-		// it once meant — a line that reads two ways is the ambiguity the stated language exists to end.
-		if (ImplementationMarker.IsNeverShown(word.ToUpperInvariant()))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}'. Volt shows no {word.ToUpperInvariant()} body, so its line is " +
-				$"'{ImplementationMarker.Unsupported(word.ToUpperInvariant())}', with nothing under it. Pull the item " +
-				"again to get it.");
 		var lang = ImplementationMarker.LanguageOf(line)
-			?? throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}', and '{word}' is no language a body can state. The line holds the keyword and " +
-				$"one of ST, LD or FBD, or — for a body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and " +
-				$"{ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another language " +
-				"is edited in the IDE.");
+			?? throw new InvalidOperationException($"'{stated}' reached the body read as a boundary line and states no language a reader reads");
 
 		// The stated language picks the reader, and the body is not sniffed for another (openspec bridge-refusal-review
 		// 1.1, 2.3): an ST body is ST whatever it holds — `NETWORK … END_NETWORK` under `IMPLEMENTATION ST` is written
@@ -633,9 +625,10 @@ public static class StReader
 	/// <summary>A DECLARATION is written into the IDE verbatim, so a line of Volt's own that ends up in one would
 	/// reach the project as code. Two kinds of line, both refused by name:
 	/// <list type="bullet">
-	/// <item>one of the keyword's shape. A kind that has no implementation (GVL, DUT, an interface and its members)
-	/// has no boundary to consume it, and a name spelled <c>IMPLEMENTATION</c> alone on its line (the last enum value, a
-	/// variable in a wrapped declaration) has the keyword's shape: the text alone cannot say it is no boundary line.</item>
+	/// <item>a boundary line (<see cref="ImplementationMarker.Is"/>, the grammar alone). A kind that has no
+	/// implementation (an interface and its members) has no boundary to consume it, and in any declaration it would read
+	/// back as the boundary. A line that only looks like one — <c>Implementation</c> alone, the last enum value or a
+	/// variable in a wrapped declaration — is code, the IDE's to compile (openspec <c>bridge-refusal-review</c> D9).</item>
 	/// <item>a <c>%FOLDER</c> directive. Its place is fixed (<see cref="PeelFolderUnder"/>, <see cref="PeelFolderClosing"/>)
 	/// and the directive there has been peeled already; one anywhere else is no directive, and leaving it in let a
 	/// member's folder read as none while the line was written into its declaration.</item>
@@ -659,12 +652,11 @@ public static class StReader
 			for (int i = 0; i < lines.Length; i++)
 			{
 				if (open[i]) continue;
-				if (ImplementationMarker.Stated(lines[i]) is not null)
+				if (ImplementationMarker.Is(lines[i]))
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
-						$"{where} holds '{lines[i].Trim()}' in its declaration. A line of that shape is reserved: " +
-						$"{ImplementationMarker.Keyword} at the start of a line opens a body and states its language, so such a " +
-						"line stands only where a body starts. Remove the line, or write what it names on a line with more " +
-						"than the word (or rename it).");
+						$"{where} holds '{lines[i].Trim()}' in its declaration. That line opens a body and states its " +
+						"language, so it stands only where a body starts: here it would read back as the boundary. Remove " +
+						"it, or write what it names on a line with more than the words.");
 				if (FolderOn(lines[i]) is not null)
 					throw new BridgeException(BridgeErrorCodes.InvalidSt,
 						$"{where} holds '{lines[i].Trim()}' in its declaration. A member's %FOLDER stands directly under " +
@@ -771,12 +763,13 @@ public static class StReader
 		{
 			// An INTERFACE's members are SIGNATURES (the OWNER decides, which is why `marked` is passed down: an
 			// interface's members arrive as kind `method` and are re-kinded afterwards). No boundary line, and the
-			// whole block is declaration (see ImplementationMarker.AppliesTo).
+			// whole block is declaration (see ItemKind.ShapeOf: an interface's members sit inside it).
 			// Its %FOLDER closes the declaration, where the writer puts it with no body to stand under.
 			var (itfFolder, itfDecl) = PeelFolderClosing(string.Join("\n", inner).TrimEnd('\n'));
 			return new Member(kind, name, itfDecl, "", Folder: itfFolder, ReturnType: returnType);
 		}
 		var (decl, impl, line) = SplitAtBoundary(inner, what);
+		if (kind == ItemKind.Kinds.Action) RefuseActionDeclaration(decl, blockStart, sigLine, name, at);
 		// %FOLDER (the child's sub-folder) is the first line under the boundary when there is one, and is peeled off
 		// before the body is checked against the language its line states.
 		var (folder, bodyCode) = PeelFolderUnder(impl);
@@ -890,26 +883,41 @@ public static class StReader
 	/// 2.1) — and the only place the comment is read at all.</summary>
 	private static BridgeException Unmarked(string what, IList<string> region)
 	{
+		var head = $"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
+		           "declaration ends or what language its body is in.";
+		// A LINE THAT LOOKS LIKE THE BOUNDARY AND IS NONE (openspec bridge-refusal-review D9): the file forgot its language,
+		// states one no body can, or keeps section 2b's bare line. Named, with what it lacks — the refusals the reader used
+		// to raise for such a line wherever it stood, now raised only where it is what is missing.
+		if (ImplementationMarker.LookalikeIn(region) is { } lookalike)
+			return new BridgeException(BridgeErrorCodes.InvalidSt, $"{head} It holds '{lookalike.Line}', {Lacks(lookalike.Stated)}");
 		var hint = ImplementationMarker.FindRetiredComment(region) is { } retired
 			? $" It holds '{retired.Text}', the comment a Volt from before that line wrote in its place."
 			: "";
 		return new BridgeException(BridgeErrorCodes.InvalidSt,
-			$"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
-			$"declaration ends or what language its body is in.{hint} Run `volt pull` once to rewrite the workspace in " +
-			"the current format.");
+			$"{head}{hint} Run `volt pull` once to rewrite the workspace in the current format.");
+	}
+
+	/// <summary>What a line of the keyword's shape that is no boundary line lacks, by what it states (<paramref name="stated"/>,
+	/// <see cref="ImplementationMarker.Stated"/>).</summary>
+	private static string Lacks(string stated)
+	{
+		if (stated.Length == 0)
+			return "which states no language — a body states its language on that line: " +
+			       $"{ImplementationMarker.For(Languages.St)}, {ImplementationMarker.For(Languages.Ld)} or " +
+			       $"{ImplementationMarker.For(Languages.Fbd)}.";
+		// A bare CFC, SFC or IL was section 2b's line for a body Volt does not show; 3b gave every such body one word,
+		// UNSUPPORTED, so the bare line states no body — never read as the hidden body it once meant.
+		var word = stated.ToUpperInvariant();
+		if (ImplementationMarker.IsNeverShown(word))
+			return $"but Volt shows no {word} body, so its line is '{ImplementationMarker.Unsupported(word)}', with nothing " +
+			       "under it. Pull the item again to get it.";
+		return $"and '{stated}' is no language a body can state. The line holds the keyword and one of ST, LD or FBD, or — " +
+		       "for a body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and " +
+		       $"{ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another language is " +
+		       "edited in the IDE.";
 	}
 
 	// ─── Signature parsing (METHOD/ACTION/PROPERTY headers) ─────────
-
-	/// <summary>The access/abstractness keywords a member signature may carry between its keyword and its name.
-	///
-	/// <para>Spelled ONCE. It used to be written out in two regexes, and they had already drifted: the property
-	/// pattern allowed <c>?</c> over four keywords where the method pattern allowed <c>*</c> over six, so
-	/// `PROPERTY PUBLIC ABSTRACT Ready : INT` — ordinary CODESYS, and a file Volt itself had written — threw
-	/// <c>InvalidSt</c> from inside the write, mid-batch. A set cannot drift from itself.</para></summary>
-	private static readonly HashSet<string> Modifiers =
-		new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-		{ "PUBLIC", "PRIVATE", "PROTECTED", "INTERNAL", "FINAL", "ABSTRACT" };
 
 	/// <summary>Read a member's NAME and (where it has one) its TYPE off its signature line.
 	///
@@ -962,14 +970,17 @@ public static class StReader
 			clean = clean.Substring(0, colon);
 		}
 
-		// KEYWORD [modifier …] NAME — the name is last because everything between is a modifier, and a word
-		// there that is NOT one is a malformed line, not a second name to pick from.
+		// THE NAME IS THE LAST WORD BEFORE THE COLON (openspec bridge-refusal-review D10), and no word between the keyword
+		// and it is read: Volt holds no modifier vocabulary. A word there the IDE does not take is its build's to report
+		// (`METHOD PUBLC Run` is the method `Run`, and the build names `PUBLC`), and a modifier typo keeps the member's
+		// identity — 1,420 of 1,420 corpus signatures with modifiers carry them BEFORE the name, so that is the realistic
+		// typo. A word AFTER the old name (`METHOD Run Walk`) renames the member by its header, as every header rename
+		// does (ReconcileMembers deletes and creates), and pull reads names from the IDE's objects, so the round trip is
+		// stable. A name the vendor refuses (`METHOD Run PUBLIC`) is the pre-flight's RefusedName. It refused every word
+		// outside six modifiers — a code check on text the IDE takes.
 		var words = Words(clean);
 		if (words.Length < 2 || !string.Equals(words[0], keyword, StringComparison.OrdinalIgnoreCase))
 			throw BadSignature(sig, keyword, $"it does not begin with '{keyword}' and a name", where);
-		for (var i = 1; i < words.Length - 1; i++)
-			if (!Modifiers.Contains(words[i]))
-				throw BadSignature(sig, keyword, $"'{words[i]}' is not an access modifier", where);
 
 		// The name is taken AS WRITTEN. Whether the IDE takes it is the driver's measured answer, asked by the push
 		// pre-flight (`ICodeStore.RefusedName`): both vendors refuse every non-identifier shape themselves, and CODESYS
@@ -1022,12 +1033,37 @@ public static class StReader
 	{
 		if (kind == ItemKind.Kinds.Method) return ParseSignature(sig, code, "METHOD", where);
 
-		// AN ACTION HAS NO RETURN TYPE — it is a named body sharing the POU's variables. A `:` on the line is a
-		// method signature under the wrong keyword, and taking the name and dropping the rest would write it as
-		// an action the IDE then cannot call.
+		// AN ACTION'S LINE IS COMPOSED, NOT STORED (openspec bridge-refusal-review D10): CODESYS writes an action no
+		// declaration (`WriteMembers`: `Action ? null`) and TwinCAT composes `ACTION <name>`. So the line holds the keyword
+		// and a name and NOTHING else — a modifier, a type (an action has no return type: a `:` is a method signature under
+		// the wrong keyword), a comment, a `;` — or that text is dropped without a word and the next pull deletes it. Refused
+		// by name; needed to write, and measured on 0 of 46 corpus action lines.
 		var (name, type) = ParseSignature(sig, code, "ACTION", where);
-		if (type != null) throw BadSignature(sig, "ACTION", "an action has no return type", where);
+		var onLine = Words(sig.Trim());
+		if (type != null || onLine.Length != 2 || !string.Equals(onLine[1], name, StringComparison.Ordinal))
+			throw BadSignature(sig, "ACTION",
+				(type != null ? "an action has no return type, and " : "") +
+				$"an action has no declaration the IDE stores — its line is 'ACTION {name}', so anything else on it would be " +
+				"dropped", where);
 		return (name, null);
+	}
+
+	/// <summary>An action's DECLARATION is its ACTION line and nothing else (openspec bridge-refusal-review D10, review 4b):
+	/// neither write stores one (CODESYS and TwinCAT both write an action <c>null</c> for it, and a pull composes
+	/// <c>ACTION &lt;name&gt;</c>), so a comment or pragma ABOVE the line, or a VAR section or comment under it before the body,
+	/// would be dropped without a word, exactly as text on the line is (<see cref="ParseMethodOrActionSignature"/>). Refused
+	/// naming the first such line. A blank line is layout.</summary>
+	private static void RefuseActionDeclaration(string decl, int blockStart, int sigLine, string name, ChildSite at)
+	{
+		var lines = decl.Split('\n');
+		for (int k = 0; k < lines.Length; k++)
+		{
+			if (blockStart + k == sigLine || lines[k].Trim().Length == 0) continue;
+			throw new BridgeException(BridgeErrorCodes.InvalidSt,
+				$"{at.Line(blockStart + k)}: '{Truncate(lines[k].Trim(), 80)}' would be part of action '{name}'s declaration, " +
+				$"and an action has no declaration the IDE stores — its line is 'ACTION {name}', so this would be dropped. " +
+				"Move it into the action's body or the owner's declaration.");
+		}
 	}
 
 	private static (string name, string? dataType) ParsePropertySignature(string sig, string code, string where) =>
@@ -1107,22 +1143,38 @@ public static class StReader
 	}
 
 
-	/// <summary>Where a header's NAME starts on this line of CODE — the first word after a leading
-	/// <paramref name="keywords"/> word and any access modifiers (<see cref="Modifiers"/>) — or -1 when the line leads with
-	/// none of them. Only the position: the name itself is read by <see cref="ParseSignature"/> (members) or not at all
-	/// (an item's name is its file's).</summary>
+	/// <summary>Where a header's NAME starts on this line of CODE — with a colon on the line, the last word before it (as
+	/// <see cref="ParseSignature"/> reads it); without one, the first word after a leading <paramref name="keywords"/> word
+	/// and any of the six measured modifier words (<see cref="HeaderModifiers"/>, the list the pull's END-line mirror holds)
+	/// — or -1 when the line leads with none of them. ONLY the position, for the END-after-code exemption, which runs
+	/// before any name is read: a colon-less line is the one place the text alone cannot say which
+	/// word an END word is — <c>METHOD PUBLIC end_method</c> names a method, <c>METHOD Foo END_METHOD</c> is an END line
+	/// read where a name should be. It decides no name: an item's is its file's, and a member's is the last word before the
+	/// colon (<see cref="ParseSignature"/>, openspec <c>bridge-refusal-review</c> D10), with no vocabulary.</summary>
 	private static int HeaderNameAt(string code, string[] keywords)
 	{
 		int i = code.Length - code.TrimStart().Length;
 		var first = WordAt(code, i);
 		if (first is null || Array.FindIndex(keywords, k => string.Equals(k, first, StringComparison.OrdinalIgnoreCase)) < 0) return -1;
 		i += first.Length;
+		// A COLON on the line says where the name ends, and the name is the last word before it — the word ParseSignature
+		// reads (D10), with no vocabulary, so the two never disagree (review 4b: `METHOD PUBLC end_method : INT` was the
+		// method end_method to the signature and "END_METHOD stands after code" here). Only a colon-less line is ambiguous.
+		var colon = OutsideBackticks(code).IndexOf(':', i);
+		if (colon >= 0)
+		{
+			int end = colon;
+			while (end > i && char.IsWhiteSpace(code[end - 1])) end--;
+			int start = end;
+			while (start > i && (char.IsLetterOrDigit(code[start - 1]) || code[start - 1] == '_')) start--;
+			return start == end ? -1 : start;
+		}
 		while (true)
 		{
 			while (i < code.Length && char.IsWhiteSpace(code[i])) i++;
 			var word = WordAt(code, i);
 			if (word is null) return -1;
-			if (!Modifiers.Contains(word)) return i;
+			if (Array.FindIndex(HeaderModifiers, m => string.Equals(m, word, StringComparison.OrdinalIgnoreCase)) < 0) return i;
 			i += word.Length;
 		}
 

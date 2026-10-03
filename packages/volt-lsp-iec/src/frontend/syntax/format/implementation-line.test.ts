@@ -12,6 +12,7 @@ import {
   graphicalMarkerLanguage,
   isGraphicalBody,
   isStBody,
+  lookalikeLine,
   parseSource,
   bodyStatements,
   unitBodies,
@@ -290,17 +291,21 @@ test("an UNSUPPORTED line states a body read by neither parser, on every languag
 })
 
 /** Section 3b reverses 2b's bare `IMPLEMENTATION CFC|SFC|IL`: a body Volt does not show says so with UNSUPPORTED on
- *  every language, so the bare line states no body — the push refuses it naming the line to write
- *  (`ReadOnlyBodyTests`), and so does the LSP, on the line. Neither reader reads what is under it. */
-test("a bare CFC, SFC or IL line is refused naming it and the UNSUPPORTED line to write", () => {
+ *  every language, so the bare line states no body. By the grammar alone (openspec `bridge-refusal-review` D9) it is
+ *  no boundary line: the body states no language, and the finding for that names the bare line and the UNSUPPORTED line
+ *  to write (`lookalikeLine`, the push's `StReader.Unmarked` hint; the server's finding is
+ *  `implementation-keyword-diagnostics.test.ts`). It used to be refused as a malformed line wherever it stood. */
+test("a bare CFC, SFC or IL line is no boundary: the body states no language, and the hint names the line to write", () => {
   for (const language of ["CFC", "SFC", "IL", "cfc"]) {
     const line = `IMPLEMENTATION ${language}`
-    const errors = parseSource(fb(`${line}\n`), { networkText: true }).errors.map((e) => e.message)
-    expect({ line, named: errors.some((m) => m.includes(`'${line}'`) && m.includes(`IMPLEMENTATION ${language.toUpperCase()} UNSUPPORTED`)) }).toEqual({
+    const body = bodiesOf(fb(`${line}\n`))[0]!
+    expect({ line, implementation: body.implementation }).toEqual({ line, implementation: undefined })
+    const hint = lookalikeLine(body.tokens)
+    expect({ line, hint: hint?.text, names: hint?.lacks.includes(`IMPLEMENTATION ${language.toUpperCase()} UNSUPPORTED`) }).toEqual({
       line,
-      named: true,
+      hint: line,
+      names: true,
     })
-    expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })
   }
 })
 
@@ -321,17 +326,37 @@ test("code, a comment or a pragma under an UNSUPPORTED line is refused naming th
     }
 })
 
-test("UNSUPPORTED never stands after ST, and anything after an UNSUPPORTED line's words is refused naming the line", () => {
+/** No boundary line by the grammar (D9): UNSUPPORTED after ST, anything after an UNSUPPORTED line's words, UNSUPPORTED
+ *  as the language, a language Volt has never seen stated bare, the keyword alone. Each is code, and where it is all a
+ *  body has, the body states no language and the hint names that line. */
+test("a line that only looks like the boundary is none, and is named as the hint of a body stating no language", () => {
   for (const line of [
     "IMPLEMENTATION ST UNSUPPORTED",
     "IMPLEMENTATION CFC UNSUPPORTED x := 1;",
     "IMPLEMENTATION LD UNSUPPORTED;",
     "IMPLEMENTATION UNSUPPORTED UNSUPPORTED", // UNSUPPORTED is no language
     "IMPLEMENTATION COBOL", //                  a language Volt has never seen is a line only as a hidden body
+    "IMPLEMENTATION", //                         the keyword alone
   ]) {
-    const errors = parseSource(fb(`${line}\n`), { networkText: true }).errors.map((e) => e.message)
-    expect({ line, named: errors.some((m) => m.includes(`'${line}'`)) }).toEqual({ line, named: true })
-    expect({ line, reader: bodiesOf(fb(`${line}\n`)).map(isStBody) }).toEqual({ line, reader: [false] })
+    const body = bodiesOf(fb(`${line}\n`))[0]!
+    expect({ line, implementation: body.implementation, hint: lookalikeLine(body.tokens)?.text }).toEqual({
+      line,
+      implementation: undefined,
+      hint: line,
+    })
+  }
+})
+
+/** 4.9's case on the LSP side (D9): an ST body holding `Implementation` alone on a line, or `Implementation OR b` in a
+ *  wrapped expression, is CODE — the IDE compiles the identifier (1.2). No line-shaped finding is reported for it and
+ *  the body keeps its one boundary, and the identifier is a name like any other (review 4b: FMT8's reserved-name report is gone). */
+test("an identifier spelled Implementation on a line of its own is code, not a second boundary", () => {
+  for (const code of ["out := a OR\n  Implementation;", "out := a\nImplementation OR b;"]) {
+    const src = fb(`IMPLEMENTATION ST\n${code}`)
+    const body = bodiesOf(src)[0]!
+    expect({ code, line: body.implementation?.text }).toEqual({ code, line: "IMPLEMENTATION ST" })
+    const lineFindings = parseSource(src, { networkText: true }).errors.map((e) => e.message).filter((m) => m.includes("line inside a body"))
+    expect({ code, lineFindings }).toEqual({ code, lineFindings: [] })
   }
 })
 

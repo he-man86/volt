@@ -536,15 +536,98 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       the process gone, 45 cascading timeouts; that file passed 6/6 alone on a fresh XAE and the full rerun is the green
       one above, so it was not reproduced.)
       Census vs HEAD: 563 → 571 (7 gone, 15 new: 4.7's 14 and TwinCAT's write-side language-change refusal).
-- [ ] 4.8 D8 — pre-flight validates each network body once and passes the `NetworkBody` model to the write; drivers
+- [x] 4.8 D8 — pre-flight validates each network body once and passes the `NetworkBody` model to the write; drivers
       take a model, never text; the create-arm copies go (`PushService.cs:1180`).
-- [ ] 4.9 D9 — StReader content scans gone (1.2, 2.1); one message for empty text and Unmarked; `Shape`
+      **Done (design D8 option 4).** `PushedNetworkBody(Site, Model, Scope)`; `SourceScopes.Validated(content, scopeFor)` is
+      the one door (`NetworkText.Validate(` = 1 in product source, ratchet in `NoCodeCheckLeftTests`); the pre-flight keeps
+      a `ValidatedSource(Content, Bodies)` per set op and the apply loop, `ApplySetItem`, `MoveItem` (both writes),
+      `ApplyToUnopened` and `WriteItemFromSource` take it — no second `StReader.Read`, the create arm's `Validate` gone.
+      `ICodeStore.WriteContent(item, content, bodies)` on both drivers and `FakeIde`; a network body with no entry is
+      `InvalidOperationException` naming the site (`PushedNetworkBody.At`). Per body per push now: update 1 read / 1
+      validation, create 1/1, move+edit 1/1 (written twice from it), replace 1/1 (were 2/2, 2/3, 3/3, 2/3).
+      `docs/assets/data.js` regenerated. Tests: `PushValidatesOnceTests` (create, update, move+edit each build one scope
+      per body; the fake refuses a model-less body; `Validated`'s sites), `CodesysWriteTakesModelTests`,
+      `TcWriteTakesModelTests` (a body TEXT that does not read beside a valid model is written from the model);
+      `PushSiblingDeclarationsTests` / `GlobalsByWireKindTests` assert the scope (`FakeIde.ScopesPushed`).
+- [x] 4.9 D9 — StReader content scans gone (1.2, 2.1); one message for empty text and Unmarked; `Shape`
       (`ImplementationMarker.cs:78`) does not match a bare `Implementation` wrapped-expression line (test: an ST body
       with that line pulls).
-- [ ] 4.10 D10 — `ParseSignature` returns name + type text, no vocabulary (2.4-2.6, 3.1).
-- [ ] 4.11 D11 — one shape table per kind on `ItemKind`; reader, writer, guard, `CanHold` ask it; fix the
+      **Done (design D9 option 3).** `StatedLinesIn`/`IndexIn`/`RequireStBody`/`RefuseLinesInDeclarations` ask `Is`; the
+      shape is read only by `LookalikeIn`, the hint of `Unmarked` (no language / bare CFC-SFC-IL / no language a body
+      states, the old `Body()` wordings); the empty-text branch is gone (an empty POU or interface is "Missing END_… in
+      'X'"). LSP in the same step (5.2 row (e)): `opensKeywordLine` asks the grammar, the three lookalike statement kinds
+      are gone, `lookalikeLine` is the hint of the server's "states no language" finding. Tests:
+      `ImplementationKeywordTests` (lookalike rows → `Unmarked` naming the line; empty POU/interface; ST bodies holding
+      `Implementation`/`Implementation OR b`/`IMPLEMENTATION CFC` handed up unchanged), `ReadOnlyBodyTests` (they pull AND
+      push back as written), `CodesysStBodyLineTests` / `TcStBodyLineTests` (driver reads), `ImplementationLanguagePushTests`
+      (a bare keyword line in a declaration is written as sent — its premise was the shape; a boundary line in an
+      interface member's declaration is still refused); LSP `implementation-line.test.ts` (+1, 2 rewritten),
+      `implementation-keyword-diagnostics.test.ts` (+1); rule inventory FMT2/FMT3/FMT4 updated.
+- [x] 4.10 D10 — `ParseSignature` returns name + type text, no vocabulary (2.4-2.6, 3.1).
+      **Done (design D10 option 3; as-built: the END-after-code exemption keeps the six words — see design).** The name
+      is the last word before the colon; `Modifiers` is gone. The ACTION line is refused (INVALID_ST) when it holds
+      anything besides the keyword and a name (modifier, type, comment, `;`). Recorded `sig_unknown_word` and
+      `sig_empty_type` (`oop/header-rules.ts`) on CODESYS SP21 and TwinCAT Project13, one batch each: both builds read the
+      FIRST word as the name ("The name used in the signature is not identical to the object name"); `METHOD Run :` is
+      "Type definition expected instead of ''" on both, which the LSP now reports (`parse/units/header.ts`, src test in
+      `method.test.ts`); `sig_unknown_word` is a known divergence (`MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD`, niche: 0 corpus
+      lines). Consequences recorded in a second batch per vendor: the five OVERRIDE fixtures are no longer refused by the
+      push and both builds were recorded (three became as-sent with their base a fixture of its own:
+      `unit_method_override_base`, `…_public_order_base`, `unit_property_override_base`), all in the same divergence set;
+      `unit_action_modifier` is now refused by the push (`vendorRefuses`, its old rows predate it). Tests:
+      `SignatureParseTests` (the STATIC/FOO/PUBLIK rows assert the name and type read; +`METHOD Run Walk`, +ACTION refusal
+      and acceptance rows), `ChildSplitterTableTests` (PUBLIK row reads `method:M`; the ACTION-line comment row is refused;
+      the two END rows kept).
+- [x] 4.11 D11 — one shape table per kind on `ItemKind`; reader, writer, guard, `CanHold` ask it; fix the
       `InterfaceMethod` branch in `BodyFormatGuard` (:57, :100).
-- [ ] 4.12 D12 — merged into 4.8 / 2.27; verify TwinCAT validates each body once.
+      **Done (design D11 option 3).** `ItemKind.ShapeOf(kind)` → `KindShape(Composite, MembersInside, Body, Accessors,
+      Signature)`, a total switch (an unknown kind is `ArgumentException`). Asked by `StWriter`, `StReader` (source kinds
+      only), `NetworkText.CanHold`, `BodyFormatGuard` (the interface method checks neither a body nor accessors),
+      `SourceScopes.SitesOf`, `PushService` (accessor reconcile, `CreateSeed`), `CodesysDriver.ReadMember`.
+      `ImplementationMarker.AppliesTo`, `StWriter.HasBody`, `BodyFormatGuard.CarriesAccessors` and the three `Gvl or Dut`
+      copies deleted (ratchet: 0). Tests: `KindShapeTests` (the old predicates pinned against the rows; no answer changes),
+      `LanguageChangeGuardTests.An_interface_method_is_checked_for_neither_a_body_nor_accessors` (asserts the sites asked).
+- [x] 4.12 D12 — merged into 4.8 / 2.27; verify TwinCAT validates each body once.
+      **Verified.** TwinCAT's write takes the model and scope at each body (`WriteOne`, `Collect`, `ResolveBody(existing,
+      model, scope)`); its three write-path `NetworkText.Validate` calls are gone; the pre-flight's lowering
+      (`ValidateSource`) stays — it asks the vendor's create question, not the text (D21). Proved by
+      `TcWriteTakesModelTests` and the `NetworkText.Validate(` = 1 ratchet.
+      **Step 4b numbers (before the gate):** C# Engine 2059 (+1 skipped; +41), Codesys 297 (+5), Twincat 424 (+5),
+      Repo.Gates 108, Contracts 39, Cli 259; corpus oracle at its pinned tallies (in Engine). LSP: test/conformance 5956
+      pass / 338 todo / 0 fail, test/frontend 39/39 (baselines rewritten: +5 fixtures, +6 known divergences per vendor),
+      changed-area src tests 451 + method.test 5; typecheck and lint clean. Recordings: CODESYS/TwinCAT build for
+      sig_unknown_word, sig_empty_type, the five OVERRIDE fixtures and three base fixtures; CODESYS run for the three bases.
+      Census vs HEAD: 571 → 575 (8 gone: the empty-text branch, the three lookalike arms of `Body()`, the shape refusal in
+      declarations, the old `Unmarked`, the modifier and old action refusals; 12 new: the boundary-line refusal in
+      declarations, two `Unmarked` arms, the action-line refusal, `ItemShape`/`ShapeOf` ArgumentExceptions, the
+      unreachable-language guard in `Body()`, two arg-null, the model-less body, two push INTERNAL_ERRORs).
+      **Step 4b gate — review fixes (5 findings, all fixed, none skipped; each test red before its fix):**
+      (1, medium) an action's DECLARATION, not only its line: trivia above the ACTION keyword and a VAR section or comment
+      under it were read into the declaration neither write stores (`Action ? null`) and dropped. `StReader.
+      RefuseActionDeclaration` refuses every non-blank line in it but the ACTION line, naming it (INVALID_ST; 0 in the
+      corpora — a pull composes `ACTION <name>`). `ChildSplitterTableTests`: +4 rows (above, VAR under, comment under,
+      blank line accepted); "trivia between members" keeps its premise on a PROPERTY (its action half asserted the drop).
+      LSP: `unit_action_var_section` is `pushRefuses` (+execSkip); `parse/units/action.ts` reports the push's words for
+      the line, above and under, and reads the action by the push's name, so `Act()` binds (`method.test.ts` +1).
+      (2, medium) `unit_action_modifier` / `unit_action_var_section` left `ACTION_HEADER_DROPPED_BY_THE_PUSH` (set
+      deleted) and their pre-refusal build rows were dropped from both build recordings (check-recording's "vendorRefuses
+      — the row predates it"); U17 lists neither (recheck note); map: both `unaskable`, no divergence.
+      (3, low) the empty type is read for every line the push never writes into a declaration: `header.ts`
+      `refusedEmptyType` (IMPLEMENTATION line, END_METHOD on an interface method, GET/SET/END_PROPERTY on a property —
+      POU or interface; `emptyType` keeps a property node's type), one "Type definition expected instead of ''" and no
+      cascade (`method.test.ts` +1, five shapes).
+      (4, low) FMT8's reserved-name report is gone (`format/reserved-names.ts` + test deleted, `claimedKeywordLines`
+      with it): `IMPLEMENTATION` is a name like any other, as the push writes it since 1.2 — 5.2 row (a) done.
+      `implementation-keyword-diagnostics.test.ts`: the two "reserved" tests (premise: the push refused the name) became
+      one "no diagnostic in any file or naming position" test; FMT8 inventory row and `docs/architecture.md` updated.
+      (5, low) `HeaderNameAt` with a colon on the line takes the last word before it — ParseSignature's word — and keeps
+      the six words only for a colon-less line (`METHOD PUBLC end_method : INT` is the method end_method;
+      `ChildSplitterTableTests` +2). Design D10 as-built notes amended.
+      **Gate numbers:** C# Engine 2065 (+1 skipped; +6), Codesys 297, Twincat 424, Repo.Gates 108, Contracts 39,
+      Cli 259, Connector 115, Relay 49 — all green. LSP full (VOLT_REQUIRE_FULL=1): 8060 pass / 34 skip / 381 todo / 0 fail (8475 tests, 206 files); test/frontend 39/39
+      (baselines rewritten: known-divergence files −4 per vendor, push-refused-with-parse-error +2 per vendor, bare names
+      resolved +6, no NEW finding, no ceiling rise); typecheck and lint clean; map regenerated (2 fixtures known →
+      unaskable). Census vs HEAD: 571 → 576 (8 gone, 13 new: the 12 above + `RefuseActionDeclaration`).
 - [ ] 4.13 D13 — canonical gates gone (2.12, 2.13) and the reader's layout rules with them (2.7-2.11).
 - [ ] 4.14 D14 — `TaskDescriptorException` becomes a coded `BridgeException` (BAD_REQUEST); every re-code in §2
       covered by a code-asserting test. (Today it reaches `PushService.ConflictFor` uncoded → INTERNAL_ERROR.)
@@ -604,8 +687,8 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [ ] 5.2 LSP reports each recorded error with the build's message and line; reports nothing for `implementation` as
       an identifier, a `(* @volt-` comment, and the layout rules. Colocated src test per fix.
       LSP-only since steps 1/2 (review 1+2d) — each a false positive under the parity rule until fixed here:
-      (a) FMT8 `src/frontend/syntax/format/reserved-names.ts` reports every identifier `implementation` (and its doc
-      cites the deleted `StReader.RefuseReservedNames`) — 1.2; (b) FMT7 `retired-comments.ts` reports every
+      (a) DONE at the 4b gate: FMT8 `src/frontend/syntax/format/reserved-names.ts` reported every identifier
+      `implementation` — deleted (1.2); (b) FMT7 `retired-comments.ts` reports every
       `(* @volt-… *)` comment "as the push refuses it" — 1.4/2.1 (keep only the no-boundary hint, if any);
       (c) `implementation-line.ts:215` reports "its body is network text" for NETWORK…END_NETWORK under
       IMPLEMENTATION ST, where the build's own error belongs — 1.1; (d) `network-text/parser.ts` reports the layout

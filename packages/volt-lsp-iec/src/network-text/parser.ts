@@ -238,8 +238,7 @@ class Parser {
     const message =
       line === undefined
         ? `a graphical body opens with the line stating its language, ${opens}, on its first line.`
-        : `the body states '${line.text}' — a network-text body opens with ${opens}` +
-          (line.statement.kind === "no-language" ? "; this line states no language." : ".")
+        : `the body states '${line.text}' — a network-text body opens with ${opens}.`
     this.report(new ParseError("NETWORK_PARSE", message, 0, 1))
   }
 

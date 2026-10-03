@@ -65,11 +65,13 @@ public class GlobalsByWireKindTests
         Assert.DoesNotContain("VAR_CONFIG\nEND_VAR", globals);
     }
 
-    /// <summary>Through the push itself: the declarations a write is handed carry the wire kind of each pushed item.</summary>
+    /// <summary>Through the push itself: the declarations a body's scope is built from (the pre-flight, openspec
+    /// <c>bridge-refusal-review</c> D8) carry the wire kind of each pushed item.</summary>
     [Fact]
-    public void A_write_in_a_push_sees_each_pushed_gvl_as_a_global_list()
+    public void A_body_in_a_push_sees_each_pushed_gvl_as_a_global_list()
     {
-        var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\nEND_VAR", "n := 1;"));
+        var ide = new FakeIde(FakeIde.Item.TextualPou("Caller", "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR",
+            "IMPLEMENTATION FBD\nNETWORK\n  n := 1;\nEND_NETWORK"));
         var refs = RefsService.Handle(ide);
         var resp = PushService.Handle(ide, new PushRequest
         {
@@ -79,7 +81,7 @@ public class GlobalsByWireKindTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = "FUNCTION_BLOCK Caller\nVAR\nEND_VAR\nIMPLEMENTATION ST\nn := 2;\nEND_FUNCTION_BLOCK\n",
+                    SourceText = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION FBD\nNETWORK\n  n := 2;\nEND_NETWORK\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp { Name = "Variable_Configuration.gvl", ToFolder = "", SourceText = VarConfig + "\n" },
                 new SetItemOp { Name = "Line.gvl", ToFolder = "", SourceText = Broken + "\n" },
@@ -88,7 +90,7 @@ public class GlobalsByWireKindTests
         });
         Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
 
-        var globals = ide.PushedGlobals["Caller"];
+        var globals = Assert.Single(ide.ScopesPushed).Globals.ToList();
         Assert.Contains(globals, g => g.Contains("VAR_CONFIG"));
         Assert.Contains(globals, g => g.Contains("nBroken"));
         Assert.DoesNotContain(globals, g => g.Contains("nInPou"));

@@ -140,7 +140,7 @@ namespace Volt.Ide.Codesys.Tests
                             Getter: new Accessor("VAR\n\tb : BOOL;\nEND_VAR", line), Setter: null),
                     });
 
-                new CodesysDriver(projects: null).WriteContent(new ItemRef(pou), content, Volt.Engine.Ide.PushedDeclarations.None);
+                new CodesysDriver(projects: null).WriteContent(new ItemRef(pou), content, System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Contains("bStart : BOOL;", pou.Object.Interface.TextDocument.Text);
                 Assert.Contains("n : INT;", method.Object.Interface.TextDocument.Text);

@@ -13,12 +13,15 @@
  *    always for CFC, SFC and IL, which Volt does not read, for a language Volt has never seen under the vendor's own
  *    name (`IMPLEMENTATION NWL UNSUPPORTED` — D27), and for an LD/FBD body network text cannot represent yet;
  *    never for ST. The body under the line is empty and read by neither parser; the push never writes it, and the
- *    DECLARATION above the line stays editable and is analysed like any other. A bare `IMPLEMENTATION CFC|SFC|IL`
- *    (section 2b's spelling) states no body and is reported naming the line to write.
+ *    DECLARATION above the line stays editable and is analysed like any other.
  *
  * WHY a whole line, and why it matters here: `IMPLEMENTATION ST` is a line an engineer can plausibly write in a
  * comment, and a look-alike after code (`x := IMPLEMENTATION LD;`) is a use of a name. So the boundary is a line holding
- * the keyword and its statement and NOTHING else — not a comment, not a `;` — that starts outside every comment. The
+ * the keyword and its statement and NOTHING else — not a comment, not a `;` — that starts outside every comment.
+ * A line is the boundary only when it IS one, by that grammar alone (openspec `bridge-refusal-review` D9, the bridge's
+ * `ImplementationMarker.Is`): `Implementation` alone, `Implementation OR b` in a wrapped expression, a bare
+ * `IMPLEMENTATION CFC` or `IMPLEMENTATION SST` are code. Such a line is named in one place only — as the hint of the
+ * finding for a body that states no language (`lookalikeLine`, the push's `StReader.Unmarked`). The
  * lexer already puts comments (nested ones included) in their own tokens, which is how "outside every comment" is
  * decided here without the bridge's line-state scan.
  *
@@ -51,9 +54,9 @@ export type ReadLanguage = "ST" | "LD" | "FBD"
 const LINE = /^\s*IMPLEMENTATION[ \t]+([A-Za-z_][A-Za-z0-9_]*)(?:[ \t]+(UNSUPPORTED))?\s*$/i
 
 // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and whatever follows it when that opens
-// with a word. A line of this shape that is no boundary line — no language, one no body can state, code or a comment
-// after the language — is reported NAMING the line, as the push refuses it. Opening with a word keeps
-// `IMPLEMENTATION := 1;` out: that names something, and the reserved-name rule answers it.
+// with a word. Read for a HINT and nothing else (`lookalikeLine`): a line of this shape that is no boundary line is code
+// wherever a boundary line was found, and named only where a body states no language (openspec bridge-refusal-review
+// D9). It used to make every such line a boundary candidate, reported wherever it stood.
 const SHAPE = /^\s*IMPLEMENTATION(?:[ \t]+([A-Za-z_].*?))?\s*$/i
 
 /** The boundary line of a body Volt reads — what the recorder writes above a fixture's ST. */
@@ -81,38 +84,63 @@ function unsupportedLine(language: string): string {
   return `${IMPLEMENTATION_KEYWORD} ${language} ${UNSUPPORTED_WORD}`
 }
 
-/** What a line of the keyword's shape states, or undefined for a line of any other shape. */
+/** What a boundary line states, or undefined for a line that is none — the grammar alone (the bridge's
+ *  `ImplementationMarker.Parse`): the keyword, a language and optionally UNSUPPORTED, which a language Volt reads (ST, LD,
+ *  FBD) states bare and every other word states with UNSUPPORTED, and ST never does. */
 function statementOf(line: string): ImplementationStatement | undefined {
-  const shape = SHAPE.exec(line)
-  if (shape === null) return undefined
-  const stated = (shape[1] ?? "").trim()
-  if (stated === "") return { kind: "no-language" }
   const m = LINE.exec(line)
-  const language = m?.[1]?.toUpperCase()
-  const unsupported = m?.[2] !== undefined
-  if (language === undefined || language === UNSUPPORTED_WORD || (unsupported && language === "ST"))
-    return { kind: "not-a-language", stated }
-  if (unsupported) return { kind: "unsupported", language }
-  if (!KNOWN.has(language)) return { kind: "not-a-language", stated }
-  if (NEVER_SHOWN.has(language)) return { kind: "bare-hidden", language }
+  if (m === null) return undefined
+  const language = m[1].toUpperCase()
+  const unsupported = m[2] !== undefined
+  if (language === UNSUPPORTED_WORD) return undefined
+  if (unsupported) return language === "ST" ? undefined : { kind: "unsupported", language }
+  if (!KNOWN.has(language) || NEVER_SHOWN.has(language)) return undefined
   return { kind: "read", language: language as ReadLanguage }
 }
 
-/** The line in its one spelling when it states something, else as written — as the refusals quote it and the formatter
- *  prints it. */
+/**
+ * The first line in `tokens` that LOOKS like a body's line and is none — the keyword's shape (`SHAPE`) outside every
+ * comment, stating no language or one no body can state — with what it lacks, or undefined. The HINT of the finding for
+ * a body that states no language, as the push's refusal of the same file names it (`StReader.Unmarked`, openspec
+ * `bridge-refusal-review` D9). Read nowhere else.
+ */
+export function lookalikeLine(tokens: readonly Token[]): { text: string; lacks: string } | undefined {
+  for (let i = 0; i < tokens.length; i++) {
+    if (!isImplementationKeyword(tokens[i])) continue
+    const { text } = lineAround(tokens, i)
+    const shape = SHAPE.exec(text)
+    if (shape === null || statementOf(text) !== undefined) continue
+    return { text: text.trim(), lacks: lacksOf((shape[1] ?? "").trim()) }
+  }
+  return undefined
+}
+
+/** What a line of the keyword's shape that is no boundary line lacks, by what it states — the push's `StReader.Lacks`. */
+function lacksOf(stated: string): string {
+  if (stated === "") return `which states no language — a body states its language on that line: ${READ_LINES}.`
+  // Section 2b's line for a body Volt does not show; 3b gave every such body one word, so the bare line states no body.
+  const word = stated.toUpperCase()
+  if (NEVER_SHOWN.has(word))
+    return `but Volt shows no ${word} body, so its line is '${unsupportedLine(word)}', with nothing under it. Pull the item again to get it.`
+  return (
+    `and '${stated}' is no language a body can state. The line holds the keyword and one of ST, LD or FBD, or — for a ` +
+    `body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and ${UNSUPPORTED_WORD}, alone. Code goes under ` +
+    "the line, and a body in another language is edited in the IDE."
+  )
+}
+
+/** The line in its one spelling — as the refusals quote it and the formatter prints it. */
 export function statedLine(line: ImplementationLine): string {
   const s = line.statement
-  if (s.kind === "read") return implementationLine(s.language)
-  if (s.kind === "unsupported") return unsupportedLine(s.language)
-  return line.text
+  return s.kind === "read" ? implementationLine(s.language) : unsupportedLine(s.language)
 }
 
 /** Is `t` the word `IMPLEMENTATION` (an identifier to the lexer, in any case)? */
 export const isImplementationKeyword = (t: Token): boolean => t.kind === "identifier" && t.text.toUpperCase() === IMPLEMENTATION_KEYWORD
 
-/** Does `tokens[at]` open a line of the keyword's shape (outside every comment — a comment is its own token)? */
+/** Does `tokens[at]` open a boundary line — the grammar alone, outside every comment (a comment is its own token)? */
 export function opensKeywordLine(tokens: readonly Token[], at: number): boolean {
-  return isImplementationKeyword(tokens[at]!) && SHAPE.test(lineAround(tokens, at).text)
+  return isImplementationKeyword(tokens[at]!) && statementOf(lineAround(tokens, at).text) !== undefined
 }
 
 /** Whose body the splitter is given. A `member` — a METHOD or an ACTION of a POU — is the one body a `%FOLDER`
@@ -123,7 +151,7 @@ export type BodyOwner = "member" | "pou-or-accessor"
 /**
  * A body's tokens, as the unit parsers collect them, split into the line that states it and the code under it.
  *
- * The line is the body's FIRST significant token, when that is the keyword opening a line of its shape: everything
+ * The line is the body's FIRST significant token, when that is the keyword opening a boundary line: everything
  * before it is trivia, which belongs to the declaration. A member's `%FOLDER` directive stands directly under the
  * line (the bridge writes it there, `StWriter`) and is taken out with it, its path kept on the line — it is folder
  * metadata, not code (`peelFolder` says exactly where). A body that opens with anything else has no line and is returned whole: the
@@ -132,9 +160,9 @@ export type BodyOwner = "member" | "pou-or-accessor"
  * `volt pull`, as the push refuses it, and reports nothing else in it (`server/diagnostics.ts`), so no language is
  * guessed for it there.
  *
- * Reported, each on its own line, as the push refuses the same file: a line stating no language, or none a body can
- * state; code under an UNSUPPORTED line; a bare CFC, SFC or IL line; network text under `IMPLEMENTATION ST` (never re-read as a network); and a
- * second line of the keyword's shape anywhere in the body.
+ * Reported, each on its own line, as the push refuses the same file: code under an UNSUPPORTED line; network text under
+ * `IMPLEMENTATION ST` (never re-read as a network); and a second boundary line anywhere in the body. A line that only
+ * looks like one is code (D9).
  */
 export function splitImplementation(
   tokens: Token[],
@@ -155,7 +183,7 @@ export function splitImplementation(
       text: text.trim(),
       statement,
       span: { ...keyword.span, end: last.span.end, endLine: last.span.endLine, endCol: last.span.endCol },
-      words: statement.kind === "read" || statement.kind === "unsupported" ? words : [keyword],
+      words,
     }
     // What stands above the line is the declaration's (comments, pragmas) — kept, or the formatter deletes it.
     const leading = tokens
@@ -189,28 +217,7 @@ function checkLine(line: ImplementationLine, code: readonly Token[], report: Rep
   // Anything but whitespace is text under the line — a comment and a pragma included. Not `isTrivia`: the push tests
   // the raw text (`StReader.Body`), and since no driver writes a hidden body, a comment there would be silently lost.
   const hasCode = code.some((t) => t.kind !== "whitespace" && t.kind !== "eof")
-  if (s.kind === "no-language")
-    report(
-      `'${line.text}' states no language — a body states its language on that line: ${READ_LINES}. ` +
-        `(${IMPLEMENTATION_KEYWORD} is reserved, so if the line names something, rename it.)`,
-      line.span,
-    )
-  else if (s.kind === "not-a-language")
-    report(
-      `'${line.text}' states '${s.stated}', which is no language a body can state. The line holds the keyword and one ` +
-        `of ST, LD or FBD, or — for a body Volt does not show — its language (LD, FBD, CFC, SFC or IL) and ` +
-        `${UNSUPPORTED_WORD}, alone. Code goes under the line, and a body in another language is edited in the IDE.`,
-      line.span,
-    )
-  // Section 2b's line for a body Volt does not show; 3b gave every such body one word, so the bare line states no body.
-  // Named with the line to write — never read as the hidden body it once meant, as the push refuses it (`StReader`).
-  else if (s.kind === "bare-hidden")
-    report(
-      `'${line.text}' states no body: Volt shows no ${s.language} body, so its line is '${unsupportedLine(s.language)}', ` +
-        "with nothing under it. Pull the item again to get it.",
-      line.span,
-    )
-  else if (s.kind === "unsupported" && hasCode)
+  if (s.kind === "unsupported" && hasCode)
     report(
       `the body holds code under '${statedLine(line)}'. Volt shows no implementation for that body and never writes it` +
         (NEVER_SHOWN.has(s.language)
@@ -241,8 +248,8 @@ export function readNoNetworkText(body: BodySpan): void {
   NO_NETWORK_TEXT.add(body)
 }
 
-/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, a line that states no language a
- *  body can have, or an LD/FBD body parsed with network text off (`ParseOptions.networkText`) — neither. A body with no
+/** Which parser reads a body: `st`, `network`, or — for a hidden (UNSUPPORTED) body, or an LD/FBD body parsed with
+ *  network text off (`ParseOptions.networkText`) — neither. A body with no
  *  line is ST to the PARSER, which also reads fixture ST and the library repo (IDE text, no line); in a workspace file
  *  the server reports it as stating no language and shows none of its findings (see `splitImplementation`). */
 export function bodyReader(body: BodySpan): "st" | "network" | undefined {

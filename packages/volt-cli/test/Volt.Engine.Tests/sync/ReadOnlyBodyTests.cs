@@ -575,13 +575,12 @@ public class ReadOnlyBodyTests
         Assert.DoesNotContain("FB_Chart", fetch.Unreadable);
     }
 
-    /// <summary>An ST body the IDE holds whose text has a line of the keyword's shape (outside every comment) cannot
-    /// be written into a file: the file would read that line as the body's boundary — a hidden body, a network
-    /// body, or a second boundary — so the body would come back in a language it is not. The driver knows the body
-    /// is ST and refuses it by name (<see cref="ImplementationMarker.RequireStBody"/>) rather than hand the pull a
-    /// text that states the wrong language.</summary>
+    /// <summary>An ST body the IDE holds whose text has a BOUNDARY line (outside every comment) cannot be written into a
+    /// file: the file would read that line as the body's boundary — a hidden body, a network body, or a second
+    /// boundary — so the body would come back in a language it is not. The driver knows the body is ST and refuses it
+    /// by name (<see cref="ImplementationMarker.RequireStBody"/>) rather than hand the pull a text that states the wrong
+    /// language. (A line that only LOOKS like one is code, D9: below.)</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION CFC")]
     [InlineData("IMPLEMENTATION CFC UNSUPPORTED")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
     [InlineData("x := 1;\nIMPLEMENTATION ST\ny := 2;")]
@@ -595,6 +594,33 @@ public class ReadOnlyBodyTests
         var fetch = FetchService.Handle(ide, new FetchRequest { Init = true });
         Assert.Empty(fetch.Changed);
         Assert.Contains("FB_Chart", fetch.Unreadable);
+    }
+
+    /// <summary>A LINE IS THE BOUNDARY ONLY WHEN IT IS ONE (openspec <c>bridge-refusal-review</c> D9, task 4.9): an ST body
+    /// holding the identifier <c>Implementation</c> on a line of its own — alone, in a wrapped expression, or a bare
+    /// <c>IMPLEMENTATION CFC</c> — compiles in the IDE (1.2) and is code. It pulls as written, and the pulled file pushes
+    /// back as written: the push reads the one boundary line, and the rest is the body.</summary>
+    [Theory]
+    [InlineData("x := a OR\n  Implementation;")]
+    [InlineData("x := a\nImplementation OR b;")]
+    [InlineData("x := a OR\nIMPLEMENTATION")]
+    [InlineData("IMPLEMENTATION CFC")]
+    public void An_ST_body_holding_a_line_that_only_looks_like_the_boundary_pulls_and_pushes_as_written(string body)
+    {
+        const string decl = "FUNCTION_BLOCK FB_Chart\nVAR\n\ta, b, x, implementation, cfc : BOOL;\nEND_VAR";
+        var ide = new FakeIde(new FakeIde.Item("FB_Chart", ItemKind.PlcPou, "", true, decl, body, null, null));
+
+        var text = Pulled(ide);
+        Assert.Equal($"{decl}\nIMPLEMENTATION ST\n{body}\n\nEND_FUNCTION_BLOCK\n", text);
+
+        var refs = RefsService.Handle(ide);
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new() { new SetItemOp { Name = "FB_Chart.pou", IfVersion = refs.Items["FB_Chart.pou"], SourceText = text.Replace("x := a", "x := b") } },
+        });
+        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.Equal(body.Replace("x := a", "x := b"), ide.StoredImplementation("FB_Chart"));
     }
 
     /// <summary>…and only a line OUTSIDE every comment: the same words in a comment are the engineer's text.</summary>

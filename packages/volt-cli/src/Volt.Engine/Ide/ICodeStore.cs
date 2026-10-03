@@ -48,15 +48,16 @@ public interface ICodeStore
     /// it. That distinction is load-bearing and was paid for once already — TwinCAT skipped empty
     /// implementations, so emptying a body silently kept the old code.</para>
     ///
-    /// <para><paramref name="pushedDeclarations"/> is EVERY OTHER ITEM'S declaration arriving in the same push,
-    /// by bare name, with which of them are global variable lists by wire kind. A graphical box can call through a name this item does not declare — a qualified path
-    /// (`Mach1_AuxData.IEC_TIMERS.OffDelayLockDrives`) walks a GVL, then a struct, to reach the timer — and the
-    /// driver has to know the TYPE to write into the box. Asking the IDE alone answers only for items that are
-    /// ALREADY there, which on a push that creates a whole project depends on op order: pushing Lenze's
-    /// MID-S100 into an empty project failed on `Mach1_Drives` because the struct it walks through was two
-    /// hundred ops away. The push is also the newer truth for an item it is updating, so it is consulted FIRST
-    /// and the IDE answers for everything the push does not carry.</para></summary>
-    void WriteContent(ItemRef item, ItemContent content, PushedDeclarations pushedDeclarations);
+    /// <para><b>A network-text body arrives as its MODEL</b> (<paramref name="bodies"/>, openspec <c>bridge-refusal-review</c>
+    /// D8/D12): every network body of the pushed item, validated ONCE by the push pre-flight
+    /// (<see cref="SourceScopes.Validated"/>), with the scope it was read against and where it sits. At each network body
+    /// it writes, the driver takes that site's model and scope (<see cref="PushedNetworkBody.At"/>) — it holds no copy of
+    /// the validation and parses no body text. The scope is what carried the push's own declarations to the write
+    /// (<see cref="NetworkScopeFor"/>: a graphical box can call through a name this item does not declare, and every
+    /// other item of the push answers before the IDE does, so the answer does not depend on op order); it travels with
+    /// its model now, so this call takes no declarations of its own. A network body with no entry is Volt's bug, refused
+    /// loud by the lookup.</para></summary>
+    void WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies);
 
     /// <summary>The item's MANIFEST: a canonical text body for a NON-SOURCE item (library ref, task, device,
     /// project info, trace, recipe, symbol config) — the vendor's metadata rendered as deterministic text. It is

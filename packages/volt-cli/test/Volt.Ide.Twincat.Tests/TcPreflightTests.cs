@@ -29,11 +29,13 @@ namespace Volt.Ide.Twincat.Tests;
 public class TcPreflightTests
 {
     /// <summary>A body as the engine's pre-flight hands it over: read against a scope declaring one FB instance.</summary>
-    private static PushedNetworkBody Body(string statement, BodySite? site = null) =>
-        new(site ?? BodySite.Item,
-            NetworkText.Validate($"IMPLEMENTATION LD\nNETWORK\n  {statement}\nEND_NETWORK\n",
-                new NetworkScope(Array.Empty<string>(), Array.Empty<string>(),
-                                 new Dictionary<string, string> { ["t1"] = "TON" })));
+    private static PushedNetworkBody Body(string statement, BodySite? site = null)
+    {
+        var scope = new NetworkScope(Array.Empty<string>(), Array.Empty<string>(),
+                                     new Dictionary<string, string> { ["t1"] = "TON" });
+        return new(site ?? BodySite.Item,
+                   NetworkText.Validate($"IMPLEMENTATION LD\nNETWORK\n  {statement}\nEND_NETWORK\n", scope), scope);
+    }
 
     /// <summary>A shape the import cannot take (a box output pin wired straight to a variable).</summary>
     private const string Unimportable = "t1(IN := a, PT := pt, ET => el);";

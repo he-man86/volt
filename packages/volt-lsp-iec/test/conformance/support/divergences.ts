@@ -648,13 +648,23 @@ const UNIT_HEADER_RECOVERY: readonly string[] = [
 ]
 
 /**
- * FRONTEND-CONFORMANCE 2.4a (2026-10-01) — an ACTION's header text, which the PUSH drops: a CODESYS action has no
- * declaration, so `ACTION Act` + a VAR section reaches the IDE as the body alone ("Identifier 't' not defined", both
- * vendors), and `ACTION PRIVATE Act` as a plain action (it builds). The LSP reads the text as written and refuses both.
- * A bridge fact, reported to the owner (the push drops text silently); niche: accepted loss (0 occurrences in the
- * corpora — a pulled action never carries a header beyond its name).
+ * BRIDGE-REFUSAL-REVIEW D10 (2026-10-03) — a MEMBER HEADER the push reads by its LAST word before the colon, with no
+ * modifier vocabulary: `METHOD PUBLC Run` is the method Run, `METHOD Run Walk` the method Walk, `METHOD OVERRIDE M` the
+ * method M, and the header is written as sent. Both vendors then read the header's FIRST word after the keyword as the
+ * name, against the object: "The name used in the signature is not identical to the object name", with each vendor's
+ * recovery after it (CODESYS "Ambiguous use of name 'M'", TwinCAT "VAR, VAR_INPUT, VAR_OUTPUT or VAR_INOUT expected
+ * instead of Run:BOOL;"). The LSP reads the header as the IEC grammar has it and knows no object name apart from it, so it
+ * gives parse errors of its own. Both vendors; niche: accepted loss (0 occurrences in the corpora — no signature line
+ * holds a word between its keyword and its name that is not one of the six modifiers, 1,420 of 1,420 with modifiers).
  */
-const ACTION_HEADER_DROPPED_BY_THE_PUSH: readonly string[] = ["unit_action_var_section", "unit_action_modifier"]
+const MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD: readonly string[] = [
+  "sig_unknown_word",
+  "unit_method_override",
+  "unit_method_override_public_order",
+  "unit_property_override",
+  "unit_interface_method_override",
+  "unit_interface_property_override",
+]
 
 /**
  * FRONTEND-CONFORMANCE 2.10 (2026-10-02) — an accessor's text the PUSH drops, U16's accessor cells: the push reads an
@@ -1341,7 +1351,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...UNKNOWN_QUALIFIED_TYPE,
     ...AFTER_A_REFUSED_TYPE.twincat,
     ...UNIT_HEADER_RECOVERY,
-    ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
+    ...MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD,
     ...ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,
@@ -1483,7 +1493,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CALC_CONDITIONAL_CALL,
     ...CODESYS_POSITION_IN_AN_INITIALIZER,
     ...UNIT_HEADER_RECOVERY,
-    ...ACTION_HEADER_DROPPED_BY_THE_PUSH,
+    ...MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD,
     ...ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,

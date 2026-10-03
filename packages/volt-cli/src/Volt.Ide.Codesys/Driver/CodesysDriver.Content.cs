@@ -43,8 +43,7 @@ public sealed partial class CodesysDriver
         return new ItemContent(KindOf(item), declaration.TrimEnd('\n'), body, members, unsupported, stated);
     }
 
-    public void WriteContent(ItemRef item, ItemContent content,
-                             PushedDeclarations pushedDeclarations)
+    public void WriteContent(ItemRef item, ItemContent content, IReadOnlyList<PushedNetworkBody> bodies)
     {
         // An interface accessor's BODY is refused from the text alone, so before the first commit — not after the
         // interface's and the property's declarations had landed (review of bridge-refusal-review 3a+3b). The push
@@ -56,9 +55,9 @@ public sealed partial class CodesysDriver
             if (m.Setter is { } set) ValidateInterfaceAccessor(set);
         }
 
-        // A graphical body is validated BEFORE anything is written, so a refusal leaves the item untouched.
-        var scope = NetworkScopeFor(content.Declaration, pushedDeclarations);
-        NetworkBody? graph = content.Body is { } b && NetworkText.Is(b) ? NetworkText.Validate(b, scope) : null;
+        // A graphical body arrives as the MODEL the push pre-flight validated, with the scope it was read against
+        // (openspec bridge-refusal-review D8): nothing here reads it again, and a refusal was raised before any write.
+        var graph = PushedNetworkBody.At(bodies, BodySite.Item, content.Body);
 
         if (graph is null)
         {
@@ -83,10 +82,10 @@ public sealed partial class CodesysDriver
             // import on this path at all.)
             var aspect = NewBodyAspect(item.Native, KindOf(item), content.Body, content.Stated);
             _om.WriteSourceText(item.Native, content.Declaration, null);
-            WriteGraph(item.Native, graph, scope, aspect);
+            WriteGraph(item.Native, graph.Model, graph.Scope, aspect);
         }
 
-        WriteMembers(item, content.Members, content.Declaration, pushedDeclarations);
+        WriteMembers(item, content.Members, bodies);
     }
 
     /// <summary>The push pre-flight's interface-accessor refusal (<c>ICodeStore.ValidateInterfaceAccessor</c>): a BODY,
@@ -230,7 +229,7 @@ public sealed partial class CodesysDriver
         var (body, unsupported, stated) = ReadBody(iobj, scope);
 
         Accessor? getter = null, setter = null;
-        if (kind is ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)
+        if (ItemKind.ShapeOf(kind).Accessors != AccessorShape.None)
         {
             int n = ChildCount(site.Ref);
             for (int i = 1; i <= n; i++)
@@ -409,8 +408,7 @@ public sealed partial class CodesysDriver
     // ── member write ──────────────────────────────────────────────────────────────────────────────
 
 
-    private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, string? ownerDeclaration,
-                              PushedDeclarations pushedDeclarations)
+    private void WriteMembers(ItemRef pou, IReadOnlyList<Member> members, IReadOnlyList<PushedNetworkBody> bodies)
     {
         if (members.Count == 0) return;
 
@@ -435,10 +433,9 @@ public sealed partial class CodesysDriver
                     "is the push service's job, and writing through a missing one would land nothing");
 
 
-            // An ACTION has no declaration of its own and resolves against its owner's (SourceScopes.BodiesOf).
-            var memberScope = SourceScopes.Scope(m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, ownerDeclaration);
-            var scope = NetworkScopeFor(memberScope, pushedDeclarations);
-            NetworkBody? graph = m.Body is { } b && NetworkText.Is(b) ? NetworkText.Validate(b, scope) : null;
+            // The member's model and its scope (its own declarations, then its owner's: SourceScopes.SitesOf) come from
+            // the push pre-flight (D8).
+            var graph = PushedNetworkBody.At(bodies, new BodySite(m.Name, m.Kind, null), m.Body);
             if (graph is null)
             {
                 var written = ImplementationMarker.Written(m.Body);   // an UNSUPPORTED body is never written back
@@ -451,7 +448,7 @@ public sealed partial class CodesysDriver
             {
                 var aspect = NewBodyAspect(target.Native, m.Kind, m.Body, m.Stated);
                 _om.WriteSourceText(target.Native, m.Kind == ItemKind.Kinds.Action ? null : m.Declaration, null);
-                WriteGraph(target.Native, graph, scope, aspect);
+                WriteGraph(target.Native, graph.Model, graph.Scope, aspect);
             }
 
             // The accessor is LOOKED UP by the code this vendor's classifier actually returns, and the
@@ -466,10 +463,10 @@ public sealed partial class CodesysDriver
             // written to fix. An engineer's edit to a `GET … END_GET` in a `.itf` was accepted and dropped, and
             // `volt status` then reported in sync.
             var ownerIsInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
-            WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface, pushedDeclarations,
-                          memberScope);
-            WriteAccessor(target, ItemKind.PlcPropSet, m.Setter, ownerIsInterface, pushedDeclarations,
-                          memberScope);
+            WriteAccessor(target, ItemKind.PlcPropGet, m.Getter, ownerIsInterface,
+                          new BodySite(m.Name, m.Kind, BodySite.Get), bodies);
+            WriteAccessor(target, ItemKind.PlcPropSet, m.Setter, ownerIsInterface,
+                          new BodySite(m.Name, m.Kind, BodySite.Set), bodies);
         }
     }
 
@@ -484,8 +481,7 @@ public sealed partial class CodesysDriver
     /// transport, where the import wrote the whole object at once and never touched an accessor directly.</para>
     /// </summary>
     private void WriteAccessor(ItemRef property, int code, Accessor? accessor, bool ownerIsInterface,
-                               PushedDeclarations pushedDeclarations,
-                               string? ownerDeclaration)
+                               BodySite site, IReadOnlyList<PushedNetworkBody> bodies)
     {
         if (accessor is null) return;
 
@@ -509,7 +505,7 @@ public sealed partial class CodesysDriver
             // to, so it stays a silent return.
             var live = FindAccessor(property, code);
             if (live is null) return;
-            var was = ReadAccessor(live.Value, ownerDeclaration);
+            var was = ReadAccessor(live.Value, null);
             if (!InterfaceAccessorGuard.Unchanged(was.Declaration, accessor.Declaration))
                 _om.WriteSourceText(live.Value.Native, accessor.Declaration ?? "", null);
             return;
@@ -535,11 +531,9 @@ public sealed partial class CodesysDriver
             // assertion filtered diagnostics by a POU name no vendor puts in one. That test's own comment
             // describes this bug as fixed; the fix covered the member path and never reached the accessor.
             //
-            // Same two-step as every other body here: validate BEFORE touching the IDE, write the
-            // declaration with a null body, then build the diagram through the network writer.
-            var accessorScope = SourceScopes.Scope(accessor.Declaration, ownerDeclaration);
-            var scope = NetworkScopeFor(accessorScope, pushedDeclarations);
-            var graph = accessor.Code is { } ac && NetworkText.Is(ac) ? NetworkText.Validate(ac, scope) : null;
+            // Same two-step as every other body here: write the declaration with a null body, then build the diagram
+            // through the network writer, from the model the push pre-flight validated (D8).
+            var graph = PushedNetworkBody.At(bodies, site, accessor.Code);
             if (graph is null)
             {
                 // AN UNSUPPORTED BODY IS NEVER WRITTEN BACK — the same guard `WriteContent` and `WriteMembers` carry,
@@ -556,7 +550,7 @@ public sealed partial class CodesysDriver
 
             var aspect = NewBodyAspect(child.Native, AccessorSite(code), accessor.Code, accessor.Stated);
             _om.WriteSourceText(child.Native, accessor.Declaration, null);
-            WriteGraph(child.Native, graph, scope, aspect);
+            WriteGraph(child.Native, graph.Model, graph.Scope, aspect);
             return;
         }
     }

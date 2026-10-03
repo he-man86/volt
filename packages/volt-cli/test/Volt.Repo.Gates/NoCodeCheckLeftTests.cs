@@ -48,6 +48,13 @@ public class NoCodeCheckLeftTests
         ["HeaderLine outside CodeHelper"] = new(@"\bHeaderLine\s*\(", 0,
             "4.3: network scope read a callee's header through CodeHelper.HeaderLine (StDeclaration); no product code asks it"),
 
+        // Step 4b (D8/D12, D11): ratchets on what the step made ONE.
+        ["NetworkText.Validate( outside the pre-flight"] = new(@"\bNetworkText\.Validate\s*\(", 1,
+            "4.8 / 4.12: each network body validated once — SourceScopes.Validated, the push pre-flight's door; the " +
+            "drivers' writes take the model"),
+        ["CarriesAccessors"] = new(@"\bCarriesAccessors\b", 0, "4.11: the kind's shape is ItemKind.ShapeOf"),
+        ["ImplementationMarker.AppliesTo"] = new(@"\bAppliesTo\s*\(", 0, "4.11: the kind's shape is ItemKind.ShapeOf"),
+
         // Already at zero at the baseline: kept so they stay out.
         ["IsGlobalListHeader"] = new(@"\bIsGlobalListHeader\b", 0, "push-without-header-check 5Qb (Globals by wire kind)"),
         ["?? ItemKind.Kinds.Method"] = new(@"\?\?\s*ItemKind\.Kinds\.Method\b", 0,

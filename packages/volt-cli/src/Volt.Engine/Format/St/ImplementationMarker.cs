@@ -33,8 +33,10 @@ namespace Volt.Engine.Format.St
     /// default. A keyword reads like the rest of ST, and a stated language is the ONE signal for how a body is read:
     /// <c>ST</c> goes to the ST path, <c>LD</c>/<c>FBD</c> to network text. A body that contradicts what it states
     /// is refused by name (<see cref="StReader"/>), never re-read as the other language. The price, accepted:
-    /// <c>IMPLEMENTATION</c> is not IEC 61131-3, so it is stripped on push and the IDE never sees it, and it is a
-    /// reserved name no workspace identifier may take — a name spelled like the line could otherwise be read as one.</para>
+    /// <c>IMPLEMENTATION</c> is not IEC 61131-3, so it is stripped on push and the IDE never sees it. A line is the
+    /// boundary only when it IS one — the keyword, one language and optionally <c>UNSUPPORTED</c>, alone
+    /// (<see cref="Is"/>); every other line is code, so an identifier spelled <c>Implementation</c> in a wrapped expression
+    /// is the IDE's to compile (openspec <c>bridge-refusal-review</c> D9).</para>
     ///
     /// <para><b>A body Volt does not show states that on the same line: its language, then <c>UNSUPPORTED</c></b>
     /// (owner decisions 2026-09-28, sections 2b and 3b). CFC, SFC and IL always — Volt does not read them — and LD/FBD
@@ -73,10 +75,11 @@ namespace Volt.Engine.Format.St
                                                  RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
         // The SHAPE of the line, whatever it states: the keyword alone, or the keyword and whatever follows it on the
-        // line, when that opens with a word. A line of this shape that is no boundary line — no language, one no body
-        // can state, UNSUPPORTED where it cannot stand, or code after the language — is refused NAMING the line, rather
-        // than passing as code the IDE then cannot compile. Opening with a word keeps `IMPLEMENTATION := 1;` out: that
-        // names something, and a name is the IDE's to take (openspec bridge-refusal-review 1.2).
+        // line, when that opens with a word. Read in ONE place: the HINT of the refusal of a region with no boundary line
+        // (StReader's Unmarked), which names the first line of this shape and what it lacks — a file that forgot its
+        // language, or kept section 2b's bare `IMPLEMENTATION CFC`. It decides nothing: such a line is code wherever a
+        // boundary line was found (openspec bridge-refusal-review D9). It used to make every such line a boundary
+        // candidate, refused on push and on pull — `Implementation OR b;` in a wrapped expression the IDE compiles.
         private static readonly Regex Shape = new(@"^\s*IMPLEMENTATION(?:[ \t]+([A-Za-z_].*?))?\s*$",
                                                   RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
@@ -133,17 +136,6 @@ namespace Volt.Engine.Format.St
         /// <summary>One of the six languages Volt knows: ST, LD, FBD, CFC, SFC, IL.</summary>
         private static bool IsKnown(string language) =>
             language is Languages.St or Languages.Ld or Languages.Fbd || IsNeverShown(language);
-
-        /// <summary>True when items of this kind HAVE an implementation to separate — and therefore carry the
-        /// line. A GVL and a DUT are a declaration and nothing else; an INTERFACE and its members are SIGNATURES, so
-        /// there is no boundary to record and a line would invent one. The writer and the reader both ask this, so
-        /// they cannot disagree about which files carry it.</summary>
-        public static bool AppliesTo(string kind) =>
-            kind != Volt.Engine.Item.ItemKind.Kinds.Gvl &&
-            kind != Volt.Engine.Item.ItemKind.Kinds.Dut &&
-            kind != Volt.Engine.Item.ItemKind.Kinds.Interface &&
-            kind != Volt.Engine.Item.ItemKind.Kinds.InterfaceMethod &&
-            kind != Volt.Engine.Item.ItemKind.Kinds.InterfaceProperty;
 
         /// <summary>What a boundary line states, in its one spelling, or null for a line that is none.</summary>
         private static (string Language, bool Unsupported)? Parse(string line)
@@ -205,7 +197,8 @@ namespace Volt.Engine.Format.St
 
         /// <summary>What a line of the keyword's SHAPE states: <c>""</c> for the keyword alone, what follows it as
         /// written otherwise, and null for a line of any other shape. Only <see cref="Is"/> makes a boundary; this is
-        /// how the reader finds the lines it must refuse by name.</summary>
+        /// read for a HINT and nothing else — what a line that looks like the boundary lacks (<see cref="LookalikeIn"/>,
+        /// the network reader's diagnostic).</summary>
         public static string? Stated(string line)
         {
             var m = Shape.Match(line);
@@ -230,8 +223,8 @@ namespace Volt.Engine.Format.St
         }
 
         /// <summary>The index of the line that states the body in <paramref name="lines"/> — one member's region, or
-        /// the POU's — or -1: the first line of the keyword's shape that starts OUTSIDE every comment. More than one is
-        /// the caller's to refuse (<see cref="StatedLinesIn"/>).
+        /// the POU's — or -1: the first boundary line (<see cref="Is"/>) that starts OUTSIDE every comment. More than one
+        /// is the caller's to refuse (<see cref="StatedLinesIn"/>).
         ///
         /// <para>Outside every comment, because <c>IMPLEMENTATION ST</c> is a line an engineer can plausibly write
         /// in documentation. A comment may open after code on its line (bakon-nano: <c>:= TRUE;(*NOT (</c> spanning
@@ -243,18 +236,31 @@ namespace Volt.Engine.Format.St
             return stated.Count > 0 ? stated[0] : -1;
         }
 
-        /// <summary>Every line of the keyword's SHAPE (<see cref="Stated"/>) outside every comment, in order.</summary>
+        /// <summary>Every boundary line (<see cref="Is"/>, the grammar alone) outside every comment, in order.</summary>
         public static List<int> StatedLinesIn(IList<string> lines)
         {
             var open = StTrivia.OpenAtStart(lines);
             var found = new List<int>();
             for (int i = 0; i < lines.Count; i++)
-                if (!open[i] && Stated(lines[i]) is not null) found.Add(i);
+                if (!open[i] && Is(lines[i])) found.Add(i);
             return found;
         }
 
-        /// <summary>An ST body the IDE holds, as a driver hands it up — refused when a line of it has the keyword's
-        /// shape outside every comment.
+        /// <summary>The first line outside every comment that has the keyword's SHAPE (<see cref="Stated"/>) and is NO
+        /// boundary line — with what it states — or null. The HINT of a region with no boundary line: a file that forgot
+        /// its language, or states one no body can (openspec <c>bridge-refusal-review</c> D9). Read nowhere else.</summary>
+        public static (string Line, string Stated)? LookalikeIn(IList<string> lines)
+        {
+            var open = StTrivia.OpenAtStart(lines);
+            for (int i = 0; i < lines.Count; i++)
+                if (!open[i] && !Is(lines[i]) && Stated(lines[i]) is { } stated) return (lines[i].Trim(), stated);
+            return null;
+        }
+
+        /// <summary>An ST body the IDE holds, as a driver hands it up — refused when a line of it IS a boundary line
+        /// (<see cref="Is"/>) outside every comment. Any other line is code: <c>Implementation</c> alone, or
+        /// <c>Implementation OR b;</c> in a wrapped expression, is an identifier the IDE compiles (openspec
+        /// <c>bridge-refusal-review</c> D9).
         ///
         /// <para>In memory an ST body carries no line (<see cref="Split"/> gives it <c>IMPLEMENTATION ST</c> on the way
         /// to the file), so its text alone must not read as one of the other bodies. An ST body whose whole text is

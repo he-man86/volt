@@ -141,47 +141,49 @@ test("a comment or pragma under an UNSUPPORTED line is the same keyword diagnost
   }
 })
 
-test("IMPLEMENTATION is reserved: a variable named after it is a diagnostic on its declaration", async () => {
-  for (const name of ["implementation", "IMPLEMENTATION", "Implementation"]) {
-    const src = `FUNCTION_BLOCK F\nVAR\n\t${name} : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n`
-    const ds = await diagnostics(src)
-    const on = ds.filter((d) => d.range.start.line === 2)
-    expect({ name, flagged: on.some((d) => text(d).toLowerCase().includes("implementation")) }).toEqual({
-      name,
-      flagged: true,
-    })
-  }
-})
-
-/** Reserved EVERYWHERE a file names something, not only in the POU's VAR block — the push refuses the same positions
- *  (`IMPLEMENTATION_is_refused_as_reserved_in_every_naming_position`). Each case names the line its name stands on. */
-test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the declaring line", async () => {
-  const head = "FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" // lines 0-6
-  const cases: { what: string; uri: string; src: string; line: number }[] = [
+/** `IMPLEMENTATION` is a NAME like any other, in every file and every naming position (openspec bridge-refusal-review
+ *  1.2, review 4b): the push writes it as sent (`RefuseReservedNames` is deleted; `ImplementationLanguagePushTests`
+ *  writes `a,\n\tIMPLEMENTATION\n\t: INT;` as sent), and the IDE compiles the identifier — the vendors hold no such
+ *  keyword (`pwh_struct_member_implementation` builds clean). Only a line of the boundary's GRAMMAR is a boundary (D9).
+ *  These cases were "IMPLEMENTATION is reserved" while the push refused the name; that premise went with 1.2, and an
+ *  LSP-only error is a false positive under the parity rule. Whether an IDE takes an OBJECT named so is the driver's
+ *  measured answer (`RefusedName`), not a rule of the text. */
+test("IMPLEMENTATION is a name like any other, in every file and every naming position: no diagnostic", async () => {
+  const head = "FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n"
+  const cases: { what: string; uri: string; src: string }[] = [
+    ...["implementation", "IMPLEMENTATION", "Implementation"].map((name) => ({
+      what: `a variable '${name}'`,
+      uri: "file:///F.pou",
+      src: `FUNCTION_BLOCK F\nVAR\n\t${name} : INT;\nEND_VAR\nIMPLEMENTATION ST\n${name} := 1;\nEND_FUNCTION_BLOCK\n`,
+    })),
+    {
+      what: "a wrapped declaration's name on a line of its own",
+      uri: "file:///F.pou",
+      src: "FUNCTION_BLOCK F\nVAR\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n",
+    },
     {
       what: "a method-local variable",
       uri: "file:///F.pou",
       src: head + "METHOD Run\nVAR\n\tImplementation : INT;\nEND_VAR\nIMPLEMENTATION ST\nImplementation := 1;\nEND_METHOD\n",
-      line: 9,
     },
     {
       what: "a method's name",
       uri: "file:///F.pou",
       src: head + "METHOD Implementation : BOOL\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_METHOD\n",
-      line: 7,
     },
     {
       what: "a property's name",
       uri: "file:///F.pou",
       src: head + "PROPERTY Implementation : BOOL\nGET\nIMPLEMENTATION ST\nImplementation := TRUE;\nEND_GET\nEND_PROPERTY\n",
-      line: 7,
     },
     {
       what: "the POU's own name",
       uri: "file:///Implementation.pou",
       src: "FUNCTION_BLOCK Implementation\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n",
-      line: 0,
     },
+    { what: "an enum value", uri: "file:///E.dut", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
+    { what: "a struct member", uri: "file:///S.dut", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
+    { what: "a global", uri: "file:///G.gvl", src: "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n" },
   ]
   for (const c of cases) {
     const h = harness()
@@ -189,28 +191,7 @@ test("IMPLEMENTATION is reserved in every naming position: a diagnostic on the d
     await h.open(c.uri, c.src)
     const ds = await h.pull(c.uri)
     h.dispose()
-    const on = ds.filter((d) => d.range.start.line === c.line && /reserved/i.test(text(d)))
-    expect({ what: c.what, flagged: on.length > 0 }).toEqual({ what: c.what, flagged: true })
-  }
-})
-
-/** …in every file that HAS a boundary. A DUT or a GVL has none, and the push writes its text as sent
- *  (`IMPLEMENTATION_in_a_gvl_or_a_dut_is_written_as_sent`, push-without-header-check 2.1): CODESYS builds a struct member
- *  named IMPLEMENTATION clean (conformance `pwh_struct_member_implementation`). An enum value sat in the list above
- *  while the push refused it; the push no longer does, so the premise changed with it. */
-test("IMPLEMENTATION in a DUT or a GVL is a name like any other: no diagnostic", async () => {
-  const cases: { uri: string; src: string }[] = [
-    { uri: "file:///E.dut", src: "TYPE E :\n(\n\tIMPLEMENTATION,\n\tB\n);\nEND_TYPE\n" },
-    { uri: "file:///S.dut", src: "TYPE S :\nSTRUCT\n\timplementation : INT;\nEND_STRUCT\nEND_TYPE\n" },
-    { uri: "file:///G.gvl", src: "VAR_GLOBAL\n\ta,\n\tIMPLEMENTATION\n\t: INT;\nEND_VAR\n" },
-  ]
-  for (const c of cases) {
-    const h = harness()
-    await h.init(CAPS.pull)
-    await h.open(c.uri, c.src)
-    const ds = await h.pull(c.uri)
-    h.dispose()
-    expect({ uri: c.uri, reserved: ds.filter((d) => /reserved/i.test(text(d))).map(text) }).toEqual({ uri: c.uri, reserved: [] })
+    expect({ what: c.what, shown: ds.map(text) }).toEqual({ what: c.what, shown: [] })
   }
 })
 
@@ -278,4 +259,18 @@ test("a property accessor with no IMPLEMENTATION line is the same diagnostic", a
 test("a line-less ladder is not read as ST either", async () => {
   const ds = await diagnostics(fb("NETWORK\n  out := a;\nEND_NETWORK"))
   expect(ds.filter((d) => /states no language/.test(text(d))).map((d) => d.range.start.line)).toEqual([KEYWORD_LINE])
+})
+
+// D9 (openspec bridge-refusal-review): a line is the boundary only by its grammar. A body whose only line-like line is
+// none — a bare `IMPLEMENTATION CFC`, a word no body states, the keyword alone — states no language, and the finding
+// names that line and what it lacks, as the push's refusal of the same file does (`StReader.Unmarked`).
+test("a body whose line only looks like the boundary states no language, and the finding names the line and what it lacks", async () => {
+  const bare = (await diagnostics(fb("IMPLEMENTATION CFC\n"))).filter((d) => /states no language/.test(text(d)))
+  expect(bare.length).toBe(1)
+  expect(text(bare[0]!)).toContain("It holds 'IMPLEMENTATION CFC'")
+  expect(text(bare[0]!)).toContain("'IMPLEMENTATION CFC UNSUPPORTED'")
+
+  const word = (await diagnostics(fb("IMPLEMENTATION SST\nout := a;"))).filter((d) => /states no language/.test(text(d)))
+  expect(word.length).toBe(1)
+  expect(text(word[0]!)).toContain("'SST' is no language a body can state")
 })

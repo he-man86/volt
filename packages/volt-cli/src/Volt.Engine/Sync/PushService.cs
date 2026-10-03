@@ -164,6 +164,9 @@ public static class PushService
         // a project no op-level check can say builds.
         var refusedByGate = new HashSet<string>(conflicts.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
         var preflight = new List<PushConflict>();
+        // EACH SET OP'S TEXT, READ AND VALIDATED ONCE (openspec bridge-refusal-review D8/D12), by the op's name — one op per
+        // wire identity (RequireOneOpPerItem). The apply writes from these: no second read, no second validation.
+        var validated = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
         foreach (var op in ops)
         {
             if (refusedByGate.Contains(op.Name)) continue;   // its text is about to be replaced by the pull its code asks for
@@ -207,8 +210,10 @@ public static class PushService
                     var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
                     // Read by the kind of the name the op LANDS under — its extension, never the text's header.
                     var cached = itemCache.TryGetValue(Materializer.Bare(set.Name), out var held) ? held.Item : (ItemRef?)null;
-                    var bodies = ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations,
+                    var source = ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations,
                                           ItemKind.KindForWireName(set.ToName ?? set.Name)!, cached);
+                    validated[set.Name] = source;
+                    var bodies = source.Bodies;
                     // …and what only the DRIVER can decide without writing. This is the class the comment above
                     // used to name as out of reach — a body one vendor's format cannot express — and it is out
                     // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
@@ -251,7 +256,7 @@ public static class PushService
             var outcome = new OpOutcome();
             // A structured network-text diagnostic (parser / round-trip gate) carries a stable code + source
             // line; any other throw is reason-only. `ConflictFor` handles both, and is shared with the pre-flight.
-            try { applied.Add((ApplyOp(ide, itemCache, notOpened, op, request.Force, pushedDeclarations, outcome), op.Name)); }
+            try { applied.Add((ApplyOp(ide, itemCache, notOpened, op, request.Force, validated, outcome), op.Name)); }
             catch (Exception ex)
             {
                 // THE LIVE IDE REFUSED THIS OP, and the push STOPS here (openspec `push-keeps-what-landed`, design D2/D3).
@@ -591,7 +596,7 @@ public static class PushService
     /// used only for the log receipt.</summary>
     private static string ApplyOp(IIdeDriver ide,
         Dictionary<string, (ItemRef Item, string Folder)> itemCache, IReadOnlyDictionary<string, string> notOpened,
-        PushOp op, bool force, PushedDeclarations pushedDeclarations, OpOutcome outcome)
+        PushOp op, bool force, IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
         // The wire carries FULL names; the IDE is extensionless. Convert once, here, at the boundary.
         var name = Materializer.Bare(op.Name);
@@ -601,7 +606,7 @@ public static class PushService
         else
         {
             var (found, untouchable) = ItemLookup.Locate(ide, name);
-            if (untouchable is { } u) return ApplyToUnopened(ide, u, notOpened, op, force, pushedDeclarations, outcome);
+            if (untouchable is { } u) return ApplyToUnopened(ide, u, notOpened, op, force, validated, outcome);
             existing = found;
         }
         var currentFolder = inCache ? cached.Folder : "";
@@ -611,7 +616,7 @@ public static class PushService
             case SetItemOp set when ItemKind.IsTaskWireName(set.Name):
                 return ApplySetTask(ide, name, existing, set, outcome);
             case SetItemOp set:
-                return ApplySetItem(ide, name, existing, currentFolder, set, force, pushedDeclarations, outcome);
+                return ApplySetItem(ide, name, existing, currentFolder, set, force, validated, outcome);
             // A DELETE NAMES ONE WIRE ITEM, and the bare lookup above cannot say which: `X.dut` and `X.pou` both
             // resolve to the object `X`. So the op's kind is checked against the object's own kind, and a delete of a
             // name of another kind finds nothing, with or without force (force drops a version gate; it never widens
@@ -666,7 +671,7 @@ public static class PushService
     /// not reach it: the name means another item, and force never widens what a name means.</para></summary>
     private static string ApplyToUnopened(IIdeDriver ide, ItemLookup.Untouchable u,
         IReadOnlyDictionary<string, string> notOpened, PushOp op, bool force,
-        PushedDeclarations pushedDeclarations, OpOutcome outcome)
+        IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
         if (!force)
             throw new BridgeException(BridgeErrorCodes.Unreadable,
@@ -693,8 +698,8 @@ public static class PushService
                 var wireName = set.ToName ?? set.Name;
                 ide.Delete(u.Parent, u.Name);
                 outcome.Replaced = u.Name;   // gone from here on, whatever the create below does
-                WriteItemFromSource(ide, Materializer.Bare(wireName), wireName, AdmittedKind(wireName), existing: null,
-                                    set.SourceText, folder, pushedDeclarations, outcome);
+                WriteItemFromSource(ide, Materializer.Bare(wireName), wireName, existing: null,
+                                    SourceOf(validated, set), folder, outcome);
                 return "replaced";
             default:
                 throw new BridgeException(BridgeErrorCodes.BadRequest,
@@ -851,7 +856,7 @@ public static class PushService
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
     private static string ApplySetItem(IIdeDriver ide, string name, ItemRef? existing,
                                    string currentFolder, SetItemOp op, bool force,
-                                   PushedDeclarations pushedDeclarations, OpOutcome outcome)
+                                   IReadOnlyDictionary<string, ValidatedSource> validated, OpOutcome outcome)
     {
         // An EMPTY sourceText is not refused here: a DUT or a GVL is written as sent, empty or not, and a POU or an
         // interface with no text was already refused by the pre-flight's read (it has nothing to split).
@@ -861,8 +866,7 @@ public static class PushService
         {
             if (op.SourceText is null)
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"set '{op.Name}': a new item needs sourceText");
-            WriteItemFromSource(ide, name, op.Name, AdmittedKind(op.Name), existing: null, op.SourceText, op.ToFolder,
-                                pushedDeclarations, outcome);
+            WriteItemFromSource(ide, name, op.Name, existing: null, SourceOf(validated, op), op.ToFolder, outcome);
             return "created";
         }
 
@@ -941,15 +945,16 @@ public static class PushService
         // distinction was already being made by the one client that matters.
         if (op.ToFolder is { } toFolder && !string.Equals(toFolder, currentFolder, StringComparison.OrdinalIgnoreCase))
         {
-            MoveItem(ide, currentName, op.ToName ?? op.Name, item, toFolder, op.SourceText, pushedDeclarations, outcome);   // recreate in the new folder
+            MoveItem(ide, currentName, op.ToName ?? op.Name, item, toFolder,
+                     op.SourceText is null ? null : SourceOf(validated, op), outcome);   // recreate in the new folder
             return renamed ? "renamed+moved" : "moved";
         }
-        if (op.SourceText is { } src)
+        if (op.SourceText is not null)
         {
             // FORCE deliberately overrides a diverged IDE, so it skips the last-moment check too - passing
             // `ifVersion` through regardless made `volt push --force` refuse the very case it exists for.
-            WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, AdmittedKind(op.ToName ?? op.Name), item, src,
-                                currentFolder, pushedDeclarations, outcome, force ? null : op.IfVersion); // content update in place
+            WriteItemFromSource(ide, currentName, op.ToName ?? op.Name, item, SourceOf(validated, op),
+                                currentFolder, outcome, force ? null : op.IfVersion); // content update in place
             return renamed ? "renamed+updated" : "updated";
         }
         return renamed ? "renamed" : "no-op";          // rename-only (or a bare no-op set)
@@ -975,7 +980,7 @@ public static class PushService
     /// delete whose re-create then failed left a DUPLICATE rather than a no-op. It was "the arm only TwinCAT
     /// takes", and TwinCAT has a move now (DIALECT D4f), so it models a driver that does not exist.</para></summary>
     private static void MoveItem(IIdeDriver ide, string name, string wireName, ItemRef item, string newFolder,
-                                 string? sourceText, PushedDeclarations pushedDeclarations, OpOutcome outcome)
+                                 ValidatedSource? source, OpOutcome outcome)
     {
         var kind = ItemKind.Map(ide.KindCode(item));
         if (kind == null || !ItemKind.IsSourceKind(kind))
@@ -995,9 +1000,9 @@ public static class PushService
         var moved = false;
         try
         {
-            if (sourceText is { } edited)
+            if (source is { } edited)
             {
-                WriteItemFromSource(ide, name, wireName, AdmittedKind(wireName), item, edited, newFolder, pushedDeclarations, outcome);
+                WriteItemFromSource(ide, name, wireName, item, edited, newFolder, outcome);
                 textLanded = true;
                 // RE-RESOLVE before moving. On TwinCAT the write is a document IMPORT, and an import invalidates every
                 // handle into the item it replaced (DIALECT D4d) — so the handle this method was called with is dead
@@ -1029,13 +1034,13 @@ public static class PushService
             // the first one can refuse, the second one lands. On a driver whose move truly relocates, the second
             // write finds the content already correct and is the price of not encoding a per-vendor quirk in the
             // engine.
-            if (sourceText is { } settle)
+            if (source is { } settle)
             {
                 var relocated = ItemLookup.Find(ide, name)
                     ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                         $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
                         "push is failed rather than leaving the item holding its pre-edit content.");
-                WriteItemFromSource(ide, name, wireName, AdmittedKind(wireName), relocated, settle, newFolder, pushedDeclarations, outcome);
+                WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, outcome);
             }
         }
         // A filter, returning false, so the original exception reaches the client untouched (as `RecordKept`). It runs
@@ -1070,9 +1075,11 @@ public static class PushService
     /// the IDE's. So this READS the project — once per operation, indexed in one walk the driver shares with the
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
-    /// <returns>Every network-text body the source carries, as the model this validated it into, with where it sits —
-    /// what the driver's own pre-flight is handed (<see cref="ICodeStore.ValidateSource"/>), so the text is read once.</returns>
-    private static List<PushedNetworkBody> ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
+    /// <returns>The source as the push writes it, and every network-text body it carries as the model this validated it
+    /// into, with its scope and where it sits — what the driver's own pre-flight is handed
+    /// (<see cref="ICodeStore.ValidateSource"/>) and what the apply WRITES from (<see cref="WriteItemFromSource"/>), so the
+    /// text is read and each body validated ONCE (openspec bridge-refusal-review D8/D12).</returns>
+    private static ValidatedSource ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
                                               PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
         var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
@@ -1119,12 +1126,7 @@ public static class PushService
         // Each body against ITS OWN scope (`SourceScopes.BodiesOf`: a member's declarations, then its owner's), the
         // one the driver writes a pulled body against — network text v2 reads a call head as an FB instance, and a
         // wire name as free, only against the declarations (`NetworkScope`).
-        var bodies = new List<PushedNetworkBody>();
-        foreach (var (site, body, declaration) in SourceScopes.SitesOf(split))
-        {
-            if (body is { } b && NetworkText.Is(b))
-                bodies.Add(new PushedNetworkBody(site, NetworkText.Validate(b, ide.NetworkScopeFor(declaration, pushedDeclarations))));
-        }
+        var bodies = SourceScopes.Validated(split, declaration => ide.NetworkScopeFor(declaration, pushedDeclarations));
 
         // AND A CREATE'S UNSUPPORTED REFUSAL, which is text-decidable in exactly the same way. A body Volt cannot
         // author materializes as its UNSUPPORTED line (`IMPLEMENTATION CFC UNSUPPORTED`), and pushing that at an EXISTING item is the
@@ -1139,8 +1141,17 @@ public static class PushService
         // refused an UPDATE carrying an UNSUPPORTED line would break every push of a project that merely contains a CFC
         // POU, which is a far worse failure than the late refusal this replaces.
         if (isCreate) BodyFormatGuard.RequireAuthorable(split);
-        return bodies;
+        return new ValidatedSource(split, bodies);
     }
+
+    /// <summary>The source the pre-flight read and validated for <paramref name="op"/>. Every set op that carries text and
+    /// reaches the apply was pre-flighted (a refused one rejects the whole batch first), so a miss is Volt's bug —
+    /// INTERNAL_ERROR, never a second read of the text.</summary>
+    private static ValidatedSource SourceOf(IReadOnlyDictionary<string, ValidatedSource> validated, SetItemOp op) =>
+        validated.TryGetValue(op.Name, out var source)
+            ? source
+            : throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"set '{op.Name}' reached the apply without the source the pre-flight validated for it");
 
     /// <summary>A MEMBER CREATE THE IDE REFUSES FROM ITS ARGUMENT, before the first write (bridge-refusal-review 1+2d
     /// review; <see cref="IIdeDriver.RefusedMemberCreate"/>): TwinCAT creates an interface member with its type and cannot
@@ -1195,9 +1206,8 @@ public static class PushService
     /// set create/update path and the move recreate, so both apply identical full-fidelity write semantics.
     /// <paramref name="name"/> is the BARE IDE name the write resolves by; <paramref name="wireName"/> is the FULL
     /// name the op lands under (its <c>toName</c> for a rename), whose extension is the kind.</summary>
-    private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, string wireKind, ItemRef? existing,
-                                        string src, string? folder,
-                                        PushedDeclarations pushedDeclarations, OpOutcome outcome,
+    private static void WriteItemFromSource(IIdeDriver ide, string name, string wireName, ItemRef? existing,
+                                        ValidatedSource source, string? folder, OpOutcome outcome,
                                         string? ifVersion = null)
     {
         // THE WIRE KIND DECIDES, create or update — read off the FULL name, and the text's header is never read
@@ -1205,9 +1215,15 @@ public static class PushService
         // wrong with it. This was once handed the BARE name, so `KindForWireName` answered null for every item and
         // the write believed the text's header: a function block's text pushed as `X.dut` over the FB `X` was
         // written, and the receipt named `X.pou` for an op sent as `X.dut`.
-        // The kind comes from the CALLER, which took it from the name the pre-flight validated (RequireWireNames):
-        // re-deriving it here answered BAD_REQUEST for a case no push reaches (openspec bridge-refusal-review 2.16).
-        var split = StReader.Read(src, wireKind, name);
+        // The kind is the one the pre-flight read the text by — the name the op LANDS under (RequireWireNames, openspec
+        // bridge-refusal-review 2.16).
+        //
+        // THE TEXT IS NOT READ AGAIN (openspec bridge-refusal-review D8): the pre-flight read it and validated every network
+        // body once, and the write takes that content and those models. A move+edit writes twice from the one reading.
+        var split = source.Content;
+        if (split.Kind != AdmittedKind(wireName))
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"'{wireName}' is written from a source the pre-flight read as a {split.Kind}");
 
 
         // Children (method/action/property) are keyed by name, so two children sharing a name would silently
@@ -1225,17 +1241,12 @@ public static class PushService
                 "name is not representable (the IDE keys children by name; the duplicate would silently overwrite). " +
                 "Rename or remove the duplicate.");
 
-        var decl = split.Declaration;
         var impl = split.Body;
         var itemType = PouKindToCode(split.Kind);
         // Only POUs (program/function/function_block) have an implementation-body slot. DUTs, GVLs and
         // interfaces don't — pass NULL so WriteText leaves the (nonexistent) impl untouched; writing text to
         // a slot the COM object doesn't expose crashes TwinCAT. A POU with an EMPTY body still passes "" so
         // the body is CLEARED (TcObjectModel.WriteText / CodesysObjectModel.WriteSourceText write on non-null).
-
-        // A ROOT body STATED `IMPLEMENTATION LD|FBD` is network text — the line stays its first line, and the stated
-        // language is the one signal (ImplementationMarker). (Root CFC/SFC are unsupported and never reach push.)
-        var pouIsNetwork = NetworkText.Is(impl);
 
         // Read-only enforcement for an EXISTING graphical body is by LIVE IDE STATE, not content: it is refused
         // by the body-type guard below. On a CREATE there is no live state to read, and the UNSUPPORTED line is the only
@@ -1253,12 +1264,8 @@ public static class PushService
             // tree path here, so an in-place update never re-walks or accidentally materializes the spine.
             var targetParent = TreeNav.ResolveTopLevelFolder(ide, folder);
 
-            // Validate the body BEFORE creating the item - a refused push must not leave an orphaned, unlisted
-            // stub POU behind that blocks the next create.
-            // `impl is not null` changes nothing at run time — `NetworkText.Is` is false for a null body — but it is the
-            // form the compiler can PROVE: netstandard2.0 has no [NotNullWhen] to carry that fact out of `Is`, and without
-            // it every build of the push path printed CS8604 here.
-            if (pouIsNetwork && impl is not null) NetworkText.Validate(impl, ide.NetworkScopeFor(decl, pushedDeclarations));
+            // The body was validated BEFORE anything is created — by the pre-flight, once (D8) — so a refused push leaves
+            // no orphaned, unlisted stub POU behind that blocks the next create.
             BodyFormatGuard.RequireAuthorable(split);
 
             // The body language is passed UNCONDITIONALLY (null for ST). TwinCAT sets a POU's implementation
@@ -1372,7 +1379,7 @@ public static class PushService
             // body travels with the members in the one write below, which restates the declaration (the same text).
             if (CreatesMembers(live, split) && Text(live.Declaration) != Text(split.Declaration))
             {
-                ide.WriteContent(pou, split with { Body = null, Members = new List<Member>() }, pushedDeclarations);
+                ide.WriteContent(pou, split with { Body = null, Members = new List<Member>() }, source.Bodies);
                 declarationLanded = true;
                 // A write may replace the item on a vendor whose handles do not survive a change (TwinCAT, D4d), so the
                 // member reconcile below starts from a fresh handle there, as the content write after it does.
@@ -1410,7 +1417,7 @@ public static class PushService
             //   - `BodyFormatGuard.RequireChildFormatWritable` over a parsed document: the guard's POLICY (decide
             //     from the IDE's LIVE body language, never from the incoming text) is right and survives - inside
             //     the driver, which is the only layer that can ask the IDE cheaply.
-            ide.WriteContent(pou, OnlyChanged(live, split), pushedDeclarations);
+            ide.WriteContent(pou, OnlyChanged(live, split), source.Bodies);
         }
         catch when (createdParent is { } parent && Rollback(ide, parent, name, outcome))
         {
@@ -1732,8 +1739,9 @@ public static class PushService
         // fix relied on, and doing it here is what lets the INTERFACE rule below be stated once.
         foreach (var m in pushed.Members)
         {
-            if (m.Kind is not (ItemKind.Kinds.Property or ItemKind.Kinds.InterfaceProperty)) continue;
-            var isInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
+            var accessors = ItemKind.ShapeOf(m.Kind).Accessors;
+            if (accessors == AccessorShape.None) continue;
+            var isInterface = accessors == AccessorShape.DeclarationsOnly;
             // FIND, never find-or-create. This used ResolveFolder - which CREATES - for a pure lookup, so a
             // pushed `%FOLDER` that did not match where the property actually sits made a real empty folder
             // inside the engineer's POU, missed the property inside the folder it had just created, and then
@@ -1814,7 +1822,7 @@ public static class PushService
     /// for an interface PROPERTY. An interface member has no body, so the language it was being handed was
     /// always null anyway: the two halves were never in competition.</para></summary>
     private static string? CreateSeed(Member m) =>
-        m.Kind is ItemKind.Kinds.InterfaceMethod or ItemKind.Kinds.InterfaceProperty
+        ItemKind.ShapeOf(m.Kind).Signature
             ? m.ReturnType ?? m.DataType
             // A PROPERTY HAS NO BODY OF ITS OWN — its ACCESSORS carry the code, and with it the language.
             // Reading `m.Body` alone always answered null for one, so `create_property` made its Get and

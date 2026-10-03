@@ -41,7 +41,7 @@ public class TcLanguageChangeTests
             TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
                 new ItemContent(ItemKind.Kinds.Pou, "FUNCTION_BLOCK FB_L\nVAR\nEND_VAR", "x := 1;", new List<Member>(),
                                 Stated: StatedLanguage.St),
-                Volt.Engine.Ide.PushedDeclarations.None));
+                System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("(from LD to ST)", ex.Message);
         Assert.Equal(0, pou.ImplementationWrites);
@@ -52,11 +52,13 @@ public class TcLanguageChangeTests
     {
         const string decl = "FUNCTION_BLOCK FB_S\nVAR\n\ta, q : BOOL;\nEND_VAR";
         var pou = new TcHiddenBodyWriteTests.Node("FB_S", ItemKind.PlcPou, decl, "q := a;");
-        var ex = Assert.Throws<Volt.Engine.BridgeException>(() =>
-            TcUntouchablePouTests.BoundDriver().WriteContent(new ItemRef(pou),
-                new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK",
-                                new List<Member>(), Stated: StatedLanguage.Shown("LD")),
-                Volt.Engine.Ide.PushedDeclarations.None));
+        var driver = TcUntouchablePouTests.BoundDriver();
+        var content = new ItemContent(ItemKind.Kinds.Pou, decl, "IMPLEMENTATION LD\nNETWORK\n  q := a;\nEND_NETWORK",
+                                      new List<Member>(), Stated: StatedLanguage.Shown("LD"));
+        // The bodies as the push pre-flight hands them over (D8): validated once, by the engine.
+        var bodies = Volt.Engine.Ide.SourceScopes.Validated(content,
+            d => driver.NetworkScopeFor(d, Volt.Engine.Ide.PushedDeclarations.None));
+        var ex = Assert.Throws<Volt.Engine.BridgeException>(() => driver.WriteContent(new ItemRef(pou), content, bodies));
         Assert.Equal(Volt.Contracts.BridgeErrorCodes.Unsupported, ex.ErrorCode);
         Assert.Contains("(from ST to LD)", ex.Message);
         Assert.Equal(0, pou.ImplementationWrites);

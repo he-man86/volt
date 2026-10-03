@@ -103,7 +103,7 @@ function bodyIsSfc(pou: Scope): boolean {
   const ast = sym?.ast
   if (ast === undefined || (ast.kind !== "program" && ast.kind !== "function_block")) return false
   const statement = ast.body.implementation?.statement
-  return (statement?.kind === "unsupported" || statement?.kind === "bare-hidden") && statement.language.toUpperCase() === "SFC"
+  return statement?.kind === "unsupported" && statement.language.toUpperCase() === "SFC"
 }
 
 /** Does the project hold any SFC POU at all? Keeps every member access in a project without one free of the question. */

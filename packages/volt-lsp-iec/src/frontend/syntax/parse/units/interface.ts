@@ -15,6 +15,7 @@
 import type { Identifier, Interface, InterfaceMethod, InterfaceProperty, VarSection } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import { parseTypeExpression } from "../type-expr.js"
+import { emptyType, refusedEmptyType } from "./header.js"
 import { atVarSection, collectVarSections, parseVarSection } from "../declarations.js"
 import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
@@ -131,7 +132,8 @@ function parseInterfaceMethod(c: Cursor): InterfaceMethod | undefined {
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
   let returnType: InterfaceMethod["returnType"]
-  if (c.eatPunct(":") !== undefined) {
+  const colon = c.eatPunct(":")
+  if (colon !== undefined && !refusedEmptyType(c, colon.span, ["END_METHOD"])) {
     returnType = parseTypeExpression(c)
   }
   // A method in a sub-folder closes its declaration with `%FOLDER <path>` — the line directly before END_METHOD, where
@@ -171,8 +173,11 @@ function parseInterfaceProperty(c: Cursor): InterfaceProperty | undefined {
   const nameTok = c.expectUnitName()
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
-  if (c.expectPunct(":") === undefined) return undefined
-  const dataType = parseTypeExpression(c)
+  const colon = c.expectPunct(":")
+  if (colon === undefined) return undefined
+  const dataType = refusedEmptyType(c, colon.span, ["GET", "SET", "END_PROPERTY"])
+    ? emptyType(colon.span)
+    : parseTypeExpression(c)
   if (dataType === undefined) return undefined
   c.eatPunct(";") // some exports terminate the property data type with a trailing `;`
   // Interfaces declare which of GET/SET accessors are required. The bridge materializes each as a bare

@@ -107,7 +107,7 @@ namespace Volt.Ide.Codesys.Tests
                 Nwl.TextDocument.ThrowsAfterInsert = false;
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, Decl, "q := NOT a;", new List<Member>(), Stated: StatedLanguage.St),
-                    Volt.Engine.Ide.PushedDeclarations.None);
+                    System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 var st = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(obj.Implementation);
                 Assert.Equal("q := NOT a;", st.TextDocument.Text);
@@ -134,7 +134,7 @@ namespace Volt.Ide.Codesys.Tests
                 Nwl.TextDocument.ThrowsAfterInsert = false;
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, Decl, "q := a;", new List<Member>(), Stated: StatedLanguage.St),
-                    Volt.Engine.Ide.PushedDeclarations.None);
+                    System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Same(held, obj.Implementation);
             }
@@ -163,7 +163,7 @@ namespace Volt.Ide.Codesys.Tests
                 Nwl.TextDocument.ThrowsAfterInsert = false;
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, Decl, null, new List<Member>(), Stated: StatedLanguage.Shown("LD")),
-                    Volt.Engine.Ide.PushedDeclarations.None);
+                    System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Same(held, obj.Implementation);
             }
@@ -190,7 +190,7 @@ namespace Volt.Ide.Codesys.Tests
                 Nwl.TextDocument.ThrowsAfterInsert = false;
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(pou),
                     new ItemContent(ItemKind.Kinds.Pou, Decl, "", new List<Member>()),
-                    Volt.Engine.Ide.PushedDeclarations.None);
+                    System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 var st = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(obj.Implementation);
                 Assert.Equal("", st.TextDocument.Text);
@@ -231,7 +231,7 @@ namespace Volt.Ide.Codesys.Tests
                     new ItemContent(ItemKind.Kinds.Pou, Decl, null, new List<Member>
                     {
                         new(ItemKind.Kinds.Method, "Step", "METHOD Step : BOOL", "Step := TRUE;", Stated: StatedLanguage.St),
-                    }), Volt.Engine.Ide.PushedDeclarations.None);
+                    }), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 var st = Assert.IsType<_3S.CoDeSys.STObject.STImplementationObject>(obj.Implementation);
                 Assert.Equal("Step := TRUE;", st.TextDocument.Text);

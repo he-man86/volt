@@ -23,7 +23,7 @@ public class NetworkTextV1DetectionTests
     /// name IS the file name, so a client asks by name and knows no kind. Only a kind with an implementation to
     /// separate (a POU and its members) can hold a body; a GVL, a DUT, an interface, a descriptor
     /// and a name no kind claims cannot. The CLI's pull note (`V1Note`) asked this with its own kind logic —
-    /// `KindForWireName`, `IsSourceKind`, `ImplementationMarker.AppliesTo` — before it asked the engine.</summary>
+    /// `KindForWireName`, `IsSourceKind`, `ItemKind.ShapeOf` — before it asked the engine.</summary>
     [Theory]
     [InlineData("X.pou", true)]
     [InlineData("X.pou", true)]

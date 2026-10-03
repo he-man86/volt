@@ -17,15 +17,20 @@ namespace Volt.Engine.Tests;
 /// `Mach1_Drives`: the struct it walks through was hundreds of ops further down the same push. Op order is not
 /// a contract and cannot be made one (two items may reference each other), so the push carries its own
 /// declarations instead. <c>StCallTargetTests</c> covers the walk; this covers what it walks over.</para>
+///
+/// <para>They reach a body through its SCOPE (openspec <c>bridge-refusal-review</c> D8): the pre-flight builds each
+/// network body's scope once from the push's declarations (<c>ICodeStore.NetworkScopeFor</c>), and the scope travels to the
+/// write with the model. So the caller here has a network body, and what the scope was handed is what is asserted — the
+/// write itself is handed no declarations any more.</para>
 /// </summary>
 public class PushSiblingDeclarationsTests
 {
     private const string GvlDecl = "VAR_GLOBAL\n\tIEC_TIMERS : cUDT_Timers;\nEND_VAR";
-    private const string FbDecl = "FUNCTION_BLOCK Caller\nVAR\nEND_VAR";
+    private const string FbDecl = "FUNCTION_BLOCK Caller\nVAR\n\tn : INT;\nEND_VAR";
 
     private static FakeIde TwoItems() => new(
         new FakeIde.Item("Mach1_AuxData", ItemKind.PlcGvl, "", true, "VAR_GLOBAL\nEND_VAR", null, null, null),
-        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "n := 1;", null, null));
+        new FakeIde.Item("Caller", ItemKind.PlcPou, "", true, FbDecl, "IMPLEMENTATION FBD\nNETWORK\n  n := 1;\nEND_NETWORK", null, null));
 
     private static PushResponse PushBoth(FakeIde ide)
     {
@@ -40,7 +45,7 @@ public class PushSiblingDeclarationsTests
                 new SetItemOp
                 {
                     Name = "Caller.pou", IfVersion = refs.Items["Caller.pou"],
-                    SourceText = FbDecl + "\nIMPLEMENTATION ST\nn := 2;\n\nEND_FUNCTION_BLOCK\n",
+                    SourceText = FbDecl + "\nIMPLEMENTATION FBD\nNETWORK\n  n := 2;\nEND_NETWORK\n\nEND_FUNCTION_BLOCK\n",
                 },
                 new SetItemOp
                 {
@@ -52,15 +57,15 @@ public class PushSiblingDeclarationsTests
     }
 
     [Fact]
-    public void A_write_sees_a_sibling_whose_own_op_has_not_run_yet()
+    public void A_body_sees_a_sibling_whose_own_op_has_not_run_yet()
     {
         var ide = TwoItems();
         var resp = PushBoth(ide);
         Assert.True(resp.Accepted);
 
-        var seen = ide.PushedDeclarations["Caller"];
+        var seen = Assert.Single(ide.ScopesPushed).ByName;
         Assert.True(seen.ContainsKey("Mach1_AuxData"),
-                    "the GVL's declaration did not reach the write that runs before its own op");
+                    "the GVL's declaration did not reach the scope of the body written before its own op");
         Assert.Contains("IEC_TIMERS", seen["Mach1_AuxData"]);
     }
 
@@ -72,7 +77,7 @@ public class PushSiblingDeclarationsTests
         var ide = TwoItems();
         PushBoth(ide);
 
-        var seen = ide.PushedDeclarations["Caller"];
+        var seen = Assert.Single(ide.ScopesPushed).ByName;
         Assert.False(seen.ContainsKey("Mach1_AuxData.gvl"), "the index is keyed by the WIRE name, not the IDE's");
     }
 
@@ -84,6 +89,6 @@ public class PushSiblingDeclarationsTests
         var ide = TwoItems();
         PushBoth(ide);
 
-        Assert.Contains("Caller", ide.PushedDeclarations["Caller"].Keys);
+        Assert.Contains("Caller", Assert.Single(ide.ScopesPushed).ByName.Keys);
     }
 }

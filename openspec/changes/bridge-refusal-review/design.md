@@ -550,3 +550,58 @@ corpora): the reader maps it by its owner, as the IDE read does, and the vendor'
    - Rewrite the `SignatureParseTests` rows (their premise was the removed vocabulary).
 5. The corpus oracle (34 bodies / 157 networks) stays at its pinned tallies. The scratch measurement predicts no
    change: 0 corpus lines read differently under D9 or D10, and D8 changes no model (34/34).
+
+### As built (step 4b) — where reality forced a different choice, and why
+
+- **D11: the writer keeps one owner question, asked of the owner's row.** "The owner check goes" holds for every kind
+  of its own (`interface_method` and `interface_property` have no body / declaration-only accessors in the table). An
+  ACTION inside an interface (0 in the corpora) is not a kind of its own: the reader splits an interface's block with
+  every member a signature (`marked: false`), so `StWriter` marks a member only when the OWNER's row is not
+  `MembersInside` — the same row the reader splits by, so the two cannot disagree. Asking the child's row alone would
+  write an interface action a boundary line the reader then refuses as a line in a declaration.
+- **D11: the ST reader asks the table only for a SOURCE kind.** `ShapeOf` has rows for members and accessors, so a
+  member kind handed to `StReader.Read` would have read as a non-composite "declaration as sent". The reader keeps 2.2's
+  contract (a kind no source file is → `ArgumentException`) through `ItemShape`, which admits the four source kinds.
+- **D8: the push's declarations reach a body through its scope only.** `WriteContent` takes no `PushedDeclarations`,
+  so `FakeIde` records what each `NetworkScopeFor` was handed (`ScopesPushed`) instead of what each write was handed;
+  `PushSiblingDeclarationsTests` and `GlobalsByWireKindTests` assert there (their caller now has a network body — an ST
+  body asks no scope). `WriteItemFromSource` refuses a source read under another kind than the one it lands under
+  (INTERNAL_ERROR): it no longer reads the text, so it states the one fact it used to re-derive.
+- **D8 proof without a throwing `ProjectDeclarations`:** the driver tests hand the write a body TEXT that does not read
+  at all beside a valid model for its site (TwinCAT: under a declaration that does not even declare the archive's FB
+  instance, which only the handed scope does). A driver that read the text again, or built a scope of its own, refuses;
+  both write the model (`CodesysWriteTakesModelTests`, `TcWriteTakesModelTests`). Ratchet: `NetworkText.Validate(` = 1 in
+  product source (`SourceScopes.Validated`).
+- **D10: the END-after-code exemption keeps the six measured words — on a colon-less line only.** `ParseSignature`
+  reads the name as the last word before the colon with no vocabulary. But the exemption that lets an END word stand in
+  a header's NAME position runs BEFORE any name is read, and on a line with NO colon the text alone cannot tell
+  `METHOD PUBLIC end_method` (a method named end_method, measured accepted, 3.G) from `METHOD Foo END_METHOD` (an END
+  line where a name should be — "ChildSplitterTableTests keeps its two rows"). Without a list both read alike. So
+  `HeaderNameAt` keeps `HeaderModifiers` (the six words, the list the pull's END-line mirror already holds) for that
+  position only; it decides no name. With a colon on the line (review 4b) the name position is the last word before it,
+  exactly ParseSignature's word, so the two never disagree: `METHOD PUBLC end_method : INT` is the method end_method
+  (it was refused as "END_METHOD stands after code").
+- **D10: what the build answers.** Recorded (`sig_unknown_word`, `sig_empty_type`; CODESYS SP21 and TwinCAT Project13, one
+  batch each): both vendors read a member header's FIRST word after the keyword as its name and compare it with the
+  object — "The name used in the signature is not identical to the object name" for `METHOD PUBLC Run` (object Run) and
+  `METHOD Run Walk` (object Walk), then each vendor's recovery. So the build does not "report PUBLC" by that word; it
+  reports the mismatch, which keeps the member identity Volt chose visible. `METHOD Run :` is "Type definition expected
+  instead of ''" on both. The LSP matches the latter (`parse/units/header.ts`); the former is a known divergence,
+  `MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD` (niche: 0 corpus signatures hold a non-modifier word before the name).
+- **D10's consequences on recorded fixtures.** The five OVERRIDE fixtures (`unit_method_override`, `…_public_order`,
+  `unit_property_override`, `unit_interface_method_override`, `unit_interface_property_override`) were refused by the
+  push ("'OVERRIDE' is not an access modifier"); they are written now and both builds were recorded. Three became
+  as-sent fixtures with their base FB a fixture of its own (the LSP parser reads OVERRIDE as the name, as the vendors
+  do, so it cannot mark the units the recorder splits by). `unit_action_modifier` (`ACTION PRIVATE Act`) is now refused
+  by the push, by name; its old build rows predate the refusal.
+- **D10's ACTION refusal covers a `;` too** (it is dropped like a modifier or a comment); spacing between the keyword and
+  the name is layout. The refusal covers the LINE, as designed. **Review 4b closed its two neighbours** (cheap, so fixed
+  under the owner's triage): trivia lines ABOVE an ACTION keyword and a VAR section or comment UNDER it, before the body,
+  were read into the action's declaration, which neither write stores (`Action ? null`), so the push accepted them and
+  dropped them (`unit_action_var_section`: "Identifier 't' not defined"). The rule is now the declaration's, not the
+  line's: an action's declaration is its ACTION line and nothing else but blank lines (`StReader.RefuseActionDeclaration`,
+  naming the first other line). A pull composes `ACTION <name>` on both vendors, so no pulled file holds anything else.
+- **D9 on the LSP:** `ImplementationStatement` lost its three lookalike kinds (`no-language`, `not-a-language`,
+  `bare-hidden`); `opensKeywordLine` asks the grammar; the shape is read only by `lookalikeLine`, the hint of the server's
+  "states no language" finding (the push's `Unmarked`). FMT8 still reports the identifier `implementation` itself — that
+  is task 5.2 row (a), not this step.

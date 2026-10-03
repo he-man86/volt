@@ -17,6 +17,7 @@ import type { BodySpan, Property } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import type { Token } from "../../lex/tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
+import { emptyType, refusedEmptyType } from "./header.js"
 import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
 import { vendorTokenText } from "../errors.js"
@@ -39,7 +40,9 @@ export function parseProperty(c: Cursor): Property | undefined {
 
   const colon = c.expectPunct(":")
   if (colon === undefined) return undefined
-  const dataType = parseTypeExpression(c)
+  const dataType = refusedEmptyType(c, colon.span, ["GET", "SET", "END_PROPERTY"])
+    ? emptyType(colon.span)
+    : parseTypeExpression(c)
   if (dataType === undefined) return undefined
   c.eatPunct(";") // some exports terminate the property data type with a trailing `;`
 

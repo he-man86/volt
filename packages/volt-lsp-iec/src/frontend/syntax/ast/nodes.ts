@@ -50,13 +50,9 @@ export type ImplementationStatement =
   | { kind: "read"; language: "ST" | "LD" | "FBD" }
   /** A language and `UNSUPPORTED` (never ST): a body Volt does not show, empty and read by neither parser. */
   | { kind: "unsupported"; language: string }
-  /** `CFC`, `SFC` or `IL` without `UNSUPPORTED`: no line a body can state since section 3b, reported naming the line to
-   *  write. Its own kind so the finding can name that line; read by neither parser. */
-  | { kind: "bare-hidden"; language: string }
-  /** The keyword alone. */
-  | { kind: "no-language" }
-  /** The keyword and something no body can state (`XYZ`, `LD;`, `ST UNSUPPORTED`, `LD // note`). */
-  | { kind: "not-a-language"; stated: string }
+  // A line that only LOOKS like the boundary — the keyword alone, a bare CFC/SFC/IL, a word no body can state — is no
+  // boundary line and so no statement (openspec bridge-refusal-review D9): it is code, named only as the hint of the
+  // finding for a body that states no language (`lookalikeLine`).
 
 export interface ImplementationLine {
   /** The line as written, trimmed. */
@@ -64,7 +60,7 @@ export interface ImplementationLine {
   statement: ImplementationStatement
   /** From the keyword to the line's last word. */
   span: Span
-  /** The words an editor colours as keywords: the whole statement when it states one, else the keyword alone. */
+  /** The words an editor colours as keywords: the whole statement. */
   words: Token[]
   /** The comments and pragmas between the declaration and this line, as written (trimmed), when there are any. They
    *  are DECLARATION text on the push side — a `{warning}` or `{attribute}` pragma means something there — and neither

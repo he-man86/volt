@@ -47,7 +47,7 @@ namespace Volt.Ide.Codesys.Tests
             try
             {
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(itf),
-                    Content(new Accessor("VAR_INPUT\n\tn : INT;\nEND_VAR", null)), Volt.Engine.Ide.PushedDeclarations.None);
+                    Content(new Accessor("VAR_INPUT\n\tn : INT;\nEND_VAR", null)), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Contains("n : INT;", getter.Object.Interface.TextDocument.Text);
             }
@@ -63,7 +63,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var before = manager.Commits;
                 var ex = Assert.Throws<BridgeException>(() => new CodesysDriver(projects: null).WriteContent(new ItemRef(itf),
-                    Content(new Accessor("VAR_INPUT\n\tn : INT;\nEND_VAR", "P := 1;")), Volt.Engine.Ide.PushedDeclarations.None));
+                    Content(new Accessor("VAR_INPUT\n\tn : INT;\nEND_VAR", "P := 1;")), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>()));
 
                 Assert.Equal(BridgeErrorCodes.Unsupported, ex.ErrorCode);
                 Assert.Contains("no implementation", ex.Message);
@@ -95,7 +95,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 var before = manager.Commits;
                 new CodesysDriver(projects: null).WriteContent(new ItemRef(itf),
-                    Content(new Accessor("VAR_INPUT\n\tn : INT;\nEND_VAR\n", "")), Volt.Engine.Ide.PushedDeclarations.None);
+                    Content(new Accessor("VAR_INPUT\n\tn : INT;\nEND_VAR\n", "")), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 // The interface's own declaration and the property's are written (one commit each); the accessor is not.
                 Assert.Equal(before + 2, manager.Commits);

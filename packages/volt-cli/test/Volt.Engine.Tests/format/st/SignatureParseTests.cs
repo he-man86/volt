@@ -137,6 +137,30 @@ public class SignatureParseTests
         Assert.Contains("an action has no return type", Refused("ACTION Go : INT").Message);
     }
 
+    /// <summary>AN ACTION'S LINE IS COMPOSED, NOT STORED (openspec <c>bridge-refusal-review</c> D10): CODESYS writes an
+    /// action no declaration and TwinCAT composes <c>ACTION &lt;name&gt;</c>, so anything else on the line — a modifier, a
+    /// comment, a semicolon — was dropped without a word (a modifier was accepted and lost). Refused by name; measured on
+    /// 0 of 46 corpus action lines.</summary>
+    [Theory]
+    [InlineData("ACTION PUBLIC Go")]
+    [InlineData("ACTION Go // runs the step")]
+    [InlineData("ACTION Go (* step *)")]
+    [InlineData("ACTION Go;")]
+    public void An_action_line_holding_anything_besides_its_name_is_refused(string signature)
+    {
+        var ex = Refused(signature, "");
+        Assert.Equal(BridgeErrorCodes.InvalidSt, ex.ErrorCode);
+        Assert.Contains("an action has no declaration the IDE stores — its line is 'ACTION Go'", ex.Message);
+    }
+
+    /// <summary>…while the keyword and a name, in any case and spacing, is the line the IDE composes.</summary>
+    [Theory]
+    [InlineData("ACTION Go")]
+    [InlineData("ACTION   Go")]
+    [InlineData("ACTION\tGo")]
+    public void An_action_line_with_its_name_alone_is_read(string signature) =>
+        Assert.Equal("Go", Only(signature, "").Name);
+
     /// <summary>A POU PROPERTY WITH NO TYPE IS WRITTEN AS SENT (openspec <c>bridge-refusal-review</c> 2.6): its
     /// declaration is written verbatim and the IDE's build reports the missing type. It used to be refused here, "a
     /// property must declare a type" — the build's error, made the push's. (A TwinCAT INTERFACE property takes its type
@@ -153,17 +177,32 @@ public class SignatureParseTests
         Assert.Equal("PROPERTY Ready", m.Declaration);
     }
 
-    /// <summary>A word between the keyword and the name that is not an access modifier is a MALFORMED line, not a
-    /// second name to choose from. Still refused (openspec <c>bridge-refusal-review</c> 2.5 waits for 3.1 and the
-    /// recorded build error): passed through, <c>METHOD Foo Bar : BOOL</c> over an existing method <c>Foo</c> read as
-    /// member <c>Bar</c>, and the push deleted Foo and created Bar with Foo's text (1+2d review).</summary>
+    /// <summary>THE NAME IS THE LAST WORD BEFORE THE COLON (openspec <c>bridge-refusal-review</c> D10), and the words
+    /// between the keyword and it are not read: Volt holds no modifier vocabulary. A word the IDE does not take there is
+    /// its build's to report (<c>sig_unknown_word</c>, recorded on both vendors), and a modifier typo keeps the member's
+    /// identity. These rows were refused ("'STATIC' is not an access modifier"); their premise was the vocabulary this
+    /// step removed.</summary>
     [Theory]
-    [InlineData("METHOD STATIC Run : INT", "STATIC")]
-    [InlineData("METHOD FOO Run : INT", "FOO")]
-    [InlineData("METHOD PUBLIK Run", "PUBLIK")]
-    public void An_unknown_word_before_the_name_is_refused(string signature, string word)
+    [InlineData("METHOD STATIC Run : INT", "Run", "INT")]
+    [InlineData("METHOD FOO Run : INT", "Run", "INT")]
+    [InlineData("METHOD PUBLIK Run", "Run", null)]
+    [InlineData("METHOD PUBLC Run : BOOL", "Run", "BOOL")]
+    public void A_word_before_the_name_is_not_read(string signature, string name, string? type)
     {
-        Assert.Contains($"'{word}' is not an access modifier", Refused(signature).Message);
+        var m = Only(signature);
+        Assert.Equal(name, m.Name);
+        Assert.Equal(type, m.ReturnType);
+    }
+
+    /// <summary>A word AFTER the name the member had is its new name: <c>METHOD Run Walk : BOOL</c> is the method
+    /// <c>Walk</c> — a member renamed by its header, as every header rename is (the reconciler deletes and creates), and
+    /// the stray word is the build's to report.</summary>
+    [Fact]
+    public void The_last_word_before_the_colon_is_the_name()
+    {
+        var m = Only("METHOD Run Walk : BOOL");
+        Assert.Equal("Walk", m.Name);
+        Assert.Equal("BOOL", m.ReturnType);
     }
 
     /// <summary>NOTHING AFTER THE COLON IS THE BUILD'S DECLARATION ERROR (2.4), so the line is written as sent and the

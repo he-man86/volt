@@ -25,7 +25,7 @@ import { parseProperty } from "./units/property.js"
 import { parseTypeDecl } from "./units/type-decl.js"
 import { unitBodies } from "../format/bodies.js"
 import { allUnits } from "../ast/walk.js"
-import { opensKeywordLine, readNoNetworkText } from "../format/implementation-line.js"
+import { readNoNetworkText } from "../format/implementation-line.js"
 import { isTrivia } from "../lex/tokens.js"
 import { attachAttributes } from "../pragmas/attributes.js"
 import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } from "../format/source-object.js"
@@ -33,7 +33,6 @@ import { UNIT_STARTERS, type Dialect, type UnitStarter } from "../lex/vocabulary
 import { vendorTokenText } from "./errors.js"
 import { readFolderLine, reportMisplacedFolder } from "../format/folder.js"
 import { reportRetiredComments } from "../format/retired-comments.js"
-import { reportReservedNames } from "../format/reserved-names.js"
 
 /**
  * How a parse reads what the text does not decide.
@@ -107,7 +106,6 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
 
   // The file format's POU rules — a DUT's or a GVL's text is written as sent and claims none of them
   if (!isWrittenAsSent(object)) {
-    reportReservedNames(tokens, claimedKeywordLines(units), (message, span) => c.pushError(message, span))
     reportRetiredComments(tokens, (message, span) => c.pushError(message, span))
   }
   // a POU's END_NAMESPACE is the push's refusal (rule U28; `reportNamespaceClosers` says where it is not reported)
@@ -130,21 +128,6 @@ function strayAtFileScope(stray: Token, after: TopLevel | undefined, object: Sou
   const asSent = isWrittenAsSent(object) || after === undefined || after.kind === "type_decl" || after.kind === "global_var_list"
   if (asSent) return `Unexpected token ${vendorTokenText(stray)} found`
   return `${vendorTokenText(stray)} stands after the unit, where a workspace file holds only its METHODs, ACTIONs and PROPERTYs: the push refuses the text ("expected METHOD/ACTION/PROPERTY, got: ${stray.text}"). Remove it.`
-}
-
-/** The `IMPLEMENTATION` tokens the body splitter owns — each body's boundary keyword, and every keyword opening a line
- *  of its shape inside a body, which the splitter reports as a second line — so the reserved-name rule does not report
- *  the same line again as a name. By offset: a body's tokens are the stream's own objects, but the offset says it
- *  without relying on that. */
-function claimedKeywordLines(units: readonly TopLevel[]): (t: Token) => boolean {
-  const at = new Set<number>()
-  for (const unit of allUnits(units))
-    for (const body of unitBodies(unit)) {
-      const keyword = body.implementation?.words[0]
-      if (keyword !== undefined) at.add(keyword.span.start)
-      body.tokens.forEach((t, i) => opensKeywordLine(body.tokens, i) && at.add(t.span.start))
-    }
-  return (t) => at.has(t.span.start)
 }
 
 /**

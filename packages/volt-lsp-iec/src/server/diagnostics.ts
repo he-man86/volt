@@ -29,6 +29,7 @@ import {
   allUnits,
   type BodySpan,
   IMPLEMENTATION_KEYWORD,
+  lookalikeLine,
   isTrivia,
   type Span,
   type TopLevel,
@@ -147,6 +148,8 @@ function unstatedBodies(units: readonly TopLevel[]): { body: BodySpan; what: str
  *  body's first line of code (or the body itself when it holds none). */
 function missingLanguage({ body, what }: { body: BodySpan; what: string }): VoltDiagnostic {
   const first = body.tokens.find((t) => !isTrivia(t.kind) && t.kind !== "eof")
+  // A line that LOOKS like the boundary and is none is named, with what it lacks — the push's hint (D9).
+  const lookalike = lookalikeLine(body.tokens)
   return {
     range: rangeFromSpan(first?.span ?? body.span),
     severity: DiagnosticSeverity.Error,
@@ -154,7 +157,9 @@ function missingLanguage({ body, what }: { body: BodySpan; what: string }): Volt
     message:
       `'${what}' states no language: its body opens with no '${IMPLEMENTATION_KEYWORD} <ST|LD|FBD>' line, so the file ` +
       "does not say where its declaration ends or what language its body is in, and neither reader reads it. " +
-      "Run `volt pull` once to rewrite the workspace in the current format.",
+      (lookalike !== undefined
+        ? `It holds '${lookalike.text}', ${lookalike.lacks}`
+        : "Run `volt pull` once to rewrite the workspace in the current format."),
   }
 }
 

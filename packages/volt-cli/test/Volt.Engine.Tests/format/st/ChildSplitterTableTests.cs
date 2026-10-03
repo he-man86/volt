@@ -50,11 +50,25 @@ public class ChildSplitterTableTests
         Row("attribute and comment before PROPERTY", "pou",
             "{attribute 'monitoring' := 'call'}\n// p\nPROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nEND_PROPERTY\n",
             "property:P=INT[{attribute 'monitoring' := 'call'}]"),
-        Row("comment on the ACTION line", "pou", "(* a *) ACTION A\nIMPLEMENTATION ST\n;\nEND_ACTION\n", "action:A[(* a *) ACTION A]"),
+        // An action's line is composed, not stored (openspec bridge-refusal-review D10): a comment on it would be dropped
+        // without a word, so it is refused by name. (This row read it as the action's declaration, which no write stores.)
+        Row("comment on the ACTION line", "pou", "(* a *) ACTION A\nIMPLEMENTATION ST\n;\nEND_ACTION\n",
+            "!line 8|an action has no declaration the IDE stores"),
+        // Nor may text stand ABOVE the ACTION line, or under it before the body (review 4b): it is read into the action's
+        // declaration, which neither write stores (`Action ? null`), so it would be dropped the same way. (The row
+        // "trivia between members" read `// next` into action B's declaration and accepted it.) A blank line is layout.
+        Row("trivia above an ACTION line", "pou",
+            M("METHOD A") + "\n// next\n(* x *)\n{attribute 'y'}\nACTION B\nIMPLEMENTATION ST\n;\nEND_ACTION\n",
+            "!line 13|an action has no declaration the IDE stores"),
+        Row("a VAR section under an ACTION line", "pou", "ACTION A\nVAR t : INT; END_VAR\nIMPLEMENTATION ST\n;\nEND_ACTION\n",
+            "!line 9|an action has no declaration the IDE stores"),
+        Row("a comment under an ACTION line", "pou", "ACTION A\n// note\nIMPLEMENTATION ST\n;\nEND_ACTION\n",
+            "!line 9|an action has no declaration the IDE stores"),
+        Row("a blank line under an ACTION line", "pou", "ACTION A\n\nIMPLEMENTATION ST\n;\nEND_ACTION\n", "action:A"),
         Row("trivia between members", "pou",
-            M("METHOD A") + "\n// next\n(* x *)\n{attribute 'y'}\nACTION B\nIMPLEMENTATION ST\n;\nEND_ACTION\n\n" +
+            M("METHOD A") + "\n// next\n(* x *)\n{attribute 'y'}\n" +
             "PROPERTY C : INT\nGET\nIMPLEMENTATION ST\nC := 1;\nEND_GET\nEND_PROPERTY\n",
-            "method:A,action:B[// next],property:C"),
+            "method:A,property:C[// next]"),
         Row("a comment after the last member", "pou", M("METHOD M") + "\n// trailing note\n",
             "!line 13|'// trailing note' stands after the last member"),
         Row("a comment after the END line of a POU with no member", "pou", "(* nothing below *)\n",
@@ -110,7 +124,9 @@ public class ChildSplitterTableTests
             "PROPERTY PRIVATE P : INT\nGET\nIMPLEMENTATION ST\nP := 1;\nEND_GET\nEND_PROPERTY\n" +
             "PROPERTY PUBLIC ABSTRACT Q : INT\nEND_PROPERTY\n",
             "method:A=INT,method:B,method:C=BOOL,method:D,method:e,property:P=INT,property:Q=INT"),
-        Row("a word that is no modifier", "pou", M("METHOD PUBLIK M"), "!line 8|'PUBLIK' is not an access modifier"),
+        // The name is the LAST word before the colon (openspec bridge-refusal-review D10): a word before it is the build's to
+        // report, not a vocabulary the splitter holds. (This row refused 'PUBLIK' as "not an access modifier".)
+        Row("a word that is no modifier", "pou", M("METHOD PUBLIK M"), "method:M"),
 
         // ── END lines on the same line, and a member opened inside another ──
         Row("END_METHOD after code on the same line", "pou",
@@ -122,6 +138,11 @@ public class ChildSplitterTableTests
         // from Volt.
         Row("a METHOD named END_METHOD", "pou", M("METHOD END_METHOD : INT") + M("METHOD B"), "method:END_METHOD=INT,method:B"),
         Row("a METHOD with a modifier named end_method", "pou", M("METHOD PUBLIC end_method"), "method:end_method"),
+        // With a colon on the line the name is the last word before it (D10, no vocabulary), and the END-after-code
+        // exemption asks the same word: a modifier typo names end_method too, not "END_METHOD stands after code" (review 4b).
+        Row("a METHOD with a modifier typo named end_method", "pou", M("METHOD PUBLC end_method : INT"), "method:end_method=INT"),
+        Row("a PROPERTY with a modifier typo named end_property", "pou",
+            "PROPERTY PUBLC end_property : INT\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "property:end_property=INT"),
         Row("an ACTION named END_ACTION", "pou", "ACTION END_ACTION\nIMPLEMENTATION ST\n;\nEND_ACTION\n", "action:END_ACTION"),
         Row("a PROPERTY named END_PROPERTY", "pou",
             "PROPERTY PUBLIC END_PROPERTY : INT\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "property:END_PROPERTY=INT"),

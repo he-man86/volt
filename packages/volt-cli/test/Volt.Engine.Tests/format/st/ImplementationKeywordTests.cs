@@ -20,7 +20,7 @@ namespace Volt.Engine.Tests;
 /// line at all — the existing "pull once" refusal.</para>
 ///
 /// <para>These pin the spelling (one line, exactly the keyword and a known language, spacing free, case-insensitive
-/// as ST keywords are), where the writer puts it for every kind <see cref="ImplementationMarker.AppliesTo"/> covers,
+/// as ST keywords are), where the writer puts it for every kind <see cref="Volt.Engine.Item.ItemKind.ShapeOf"/> (its Body column) covers,
 /// and that the reader splits on it through the three shapes the old inference broke on.</para>
 /// </summary>
 public class ImplementationKeywordTests
@@ -186,7 +186,7 @@ public class ImplementationKeywordTests
 
     private const string FbDecl = "FUNCTION_BLOCK FB_Motor\nVAR\n\tx : INT;\nEND_VAR";
 
-    /// <summary>Every kind <see cref="ImplementationMarker.AppliesTo"/> covers, in one file: the POU, a method, an
+    /// <summary>Every kind <see cref="Volt.Engine.Item.ItemKind.ShapeOf"/> (its Body column) covers, in one file: the POU, a method, an
     /// action, a property's getter and setter. Each ST body states its language.</summary>
     private const string Golden =
         "FUNCTION_BLOCK FB_Motor\nVAR\n\tx : INT;\nEND_VAR\n" +
@@ -239,7 +239,7 @@ public class ImplementationKeywordTests
     [Fact]
     public void An_interface_states_no_implementation()
     {
-        // Signatures only — AppliesTo is false, so there is no boundary to state and a line would invent one.
+        // Signatures only — the row has no Body, so there is no boundary to state and a line would invent one.
         var text = StWriter.Write(new ItemContent(ItemKind.Kinds.Interface, "INTERFACE I_Motor", "", new List<Member>
         {
             new(ItemKind.Kinds.InterfaceMethod, "Start", "METHOD Start : BOOL", ""),
@@ -614,14 +614,12 @@ public class ImplementationKeywordTests
     // ── an ST body the IDE holds ──────────────────────────────────────────────────────────────────
 
     /// <summary>The drivers hand an ST body up through <see cref="ImplementationMarker.RequireStBody"/>: in memory an ST
-    /// body carries no line, so a line of the keyword's shape in its text would be read back as a boundary — a
-    /// hidden body, a network body, a second boundary — and the body would be pulled in a language it is not.</summary>
+    /// body carries no line, so a BOUNDARY line in its text (<see cref="ImplementationMarker.Is"/>) would be read back as
+    /// one — a hidden body, a network body, a second boundary — and the body would be pulled in a language it is not.</summary>
     [Theory]
-    [InlineData("IMPLEMENTATION CFC")]
     [InlineData("IMPLEMENTATION LD UNSUPPORTED")]
     [InlineData("IMPLEMENTATION LD\nNETWORK\n  x := 1;\nEND_NETWORK")]
     [InlineData("x := 1;\nimplementation st")]
-    [InlineData("IMPLEMENTATION")]
     public void An_ST_body_with_a_keyword_line_is_refused_naming_the_line(string body)
     {
         var ex = Assert.Throws<BridgeException>(() => ImplementationMarker.RequireStBody(body));
@@ -632,9 +630,63 @@ public class ImplementationKeywordTests
     [InlineData("x := 1;")]
     [InlineData("(*\nIMPLEMENTATION CFC\n*)\nx := 1;")]
     [InlineData("s := 'IMPLEMENTATION ST';")]
-    [InlineData("IMPLEMENTATION := 1;")]              // a name, and the reserved-name rule's to answer on push
+    [InlineData("IMPLEMENTATION := 1;")]              // a name, the IDE's to compile (1.2)
+    // A line that only LOOKS like the boundary is code (openspec bridge-refusal-review D9, 4.9): the keyword alone, a bare
+    // CFC (section 2b's line, no line since 3b), and the identifier in a wrapped expression — all compile as ST in the IDE
+    // with `implementation : BOOL;` declared (1.2). They were refused as lines of the keyword's shape.
+    [InlineData("IMPLEMENTATION")]
+    [InlineData("IMPLEMENTATION CFC")]
+    [InlineData("x := a OR\n  Implementation;")]
+    [InlineData("x := a\nImplementation OR b;")]
     public void An_ST_body_without_a_keyword_line_is_handed_up_unchanged(string body)
     {
         Assert.Equal(body, ImplementationMarker.RequireStBody(body));
+    }
+
+    // ── D9: the boundary line by its grammar alone; one refusal for a text with no outer block ────────────────
+
+    /// <summary>A line that LOOKS like the boundary and is none (openspec <c>bridge-refusal-review</c> D9) is code; where
+    /// it is all a region has, the region has no boundary and is refused <c>Unmarked</c> — naming that line and what it
+    /// lacks, the refusals the reader used to raise for such a line wherever it stood.</summary>
+    [Theory]
+    [InlineData("IMPLEMENTATION SST", "'SST' is no language a body can state")]
+    [InlineData("IMPLEMENTATION", "states no language")]
+    [InlineData("IMPLEMENTATION CFC", "'IMPLEMENTATION CFC UNSUPPORTED'")]
+    [InlineData("IMPLEMENTATION ST x := 1;", "is no language a body can state")]
+    public void A_region_whose_only_line_looks_like_the_boundary_is_refused_unmarked_naming_it(string line, string lacks)
+    {
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(
+            $"FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\n{line}\n\nEND_FUNCTION_BLOCK\n", ItemKind.Kinds.Pou, "FB_X"));
+
+        Assert.Equal(BridgeErrorCodes.InvalidSt, ex.ErrorCode);
+        Assert.Contains("has no 'IMPLEMENTATION <ST|LD|FBD>' line", ex.Message);
+        Assert.Contains($"It holds '{line}'", ex.Message);
+        Assert.Contains(lacks, ex.Message);
+    }
+
+    /// <summary>…and a member region the same way, by the member's name.</summary>
+    [Fact]
+    public void A_member_whose_only_line_looks_like_the_boundary_is_refused_unmarked_naming_it()
+    {
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(
+            "FUNCTION_BLOCK FB_X\nVAR\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Run : BOOL\nIMPLEMENTATION SST\nEND_METHOD\n",
+            ItemKind.Kinds.Pou, "FB_X"));
+        Assert.Contains("method 'Run' has no 'IMPLEMENTATION <ST|LD|FBD>' line", ex.Message);
+        Assert.Contains("It holds 'IMPLEMENTATION SST'", ex.Message);
+    }
+
+    /// <summary>An EMPTY or blank POU or interface text has no outer block, and is refused as every text without one is
+    /// — one condition, one message, right for both composite kinds. Its own branch told an interface it "holds its
+    /// IMPLEMENTATION line", which an interface has not.</summary>
+    [Theory]
+    [InlineData("", "pou", "END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION")]
+    [InlineData("  \n\t\n", "pou", "END_FUNCTION_BLOCK / END_PROGRAM / END_FUNCTION")]
+    [InlineData("", "interface", "END_INTERFACE")]
+    [InlineData("\n", "interface", "END_INTERFACE")]
+    public void An_empty_composite_text_is_refused_as_missing_its_outer_end(string text, string kind, string ends)
+    {
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, kind, "X"));
+        Assert.Equal(BridgeErrorCodes.InvalidSt, ex.ErrorCode);
+        Assert.Equal($"Missing {ends} in 'X' — the text does not say where the item ends and its members begin.", ex.Message);
     }
 }

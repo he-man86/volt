@@ -167,6 +167,34 @@ public static class ItemKind
         public const string ProjectSettings = "project_settings";
     }
 
+    /// <summary>WHAT A KIND'S FILE HOLDS, in one row per kind (openspec <c>bridge-refusal-review</c> D11). Every reader,
+    /// writer and guard asks this table — the ST reader and writer, <c>ImplementationMarker</c>, <c>NetworkText.CanHold</c>,
+    /// <c>BodyFormatGuard</c>, <c>SourceScopes</c>, the push's accessor reconcile and create seed, the CODESYS member read.
+    /// It replaces five spellings of one question that disagreed in three cells, each one word made to carry another
+    /// meaning: <c>AppliesTo(property)</c> was true because a property's ACCESSORS carry the line, <c>HasBody(interface)</c>
+    /// meant "composite", and <c>CarriesAccessors(interface_method)</c> meant "has no body".
+    ///
+    /// <para>A total switch over the kinds a source file holds — a POU, an interface, a GVL, a DUT, and the members and
+    /// accessors inside them. Any other kind is a caller's bug (a descriptor or a folder never reaches the ST layer):
+    /// <see cref="ArgumentException"/>, which the push codes INTERNAL_ERROR (openspec <c>bridge-refusal-review</c> 2.2).</para></summary>
+    public static KindShape ShapeOf(string kind) => kind switch
+    {
+        Kinds.Pou => new KindShape(Composite: true, MembersInside: false, Body: true, AccessorShape.None, Signature: false),
+        Kinds.Interface => new KindShape(Composite: true, MembersInside: true, Body: false, AccessorShape.None, Signature: true),
+        Kinds.Gvl or Kinds.Dut =>
+            new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.None, Signature: false),
+        Kinds.Method or Kinds.Action or Kinds.PropertyGet or Kinds.PropertySet =>
+            new KindShape(Composite: false, MembersInside: false, Body: true, AccessorShape.None, Signature: false),
+        Kinds.Property =>
+            new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.WithBodies, Signature: false),
+        Kinds.InterfaceMethod =>
+            new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.None, Signature: true),
+        Kinds.InterfaceProperty =>
+            new KindShape(Composite: false, MembersInside: false, Body: false, AccessorShape.DeclarationsOnly, Signature: true),
+        _ => throw new ArgumentException($"no shape for kind '{kind}': only a source item and the members and accessors " +
+                                         "inside it have one", nameof(kind)),
+    };
+
     /// <summary>Code → vendor-neutral wire kind string. null = not emitted as a tracked item: the containers
     /// &amp; sentinels (0, 690-693, -1, -2) and any code we don't classify all fall through to the default.</summary>
     public static string? Map(int code) => code switch
@@ -411,3 +439,16 @@ public static class ItemKind
             : throw new ArgumentException(
                 $"No extension for kind '{kind}' — add it to ItemKind.SourceKindExtensions/ReferenceKindExtensions");
 }
+
+/// <summary>A kind's accessors (<see cref="ItemKind.ShapeOf"/>): none, GET/SET with bodies of their own (a property), or
+/// GET/SET that are declarations only (an interface property — signatures, no body).</summary>
+public enum AccessorShape { None, WithBodies, DeclarationsOnly }
+
+/// <summary>One row of <see cref="ItemKind.ShapeOf"/>.</summary>
+/// <param name="Composite">Its file is split: a declaration, a body or members, and an END line (a POU, an interface).
+/// A GVL or a DUT is one declaration, read as sent.</param>
+/// <param name="MembersInside">Its members sit INSIDE its block and are signatures (an interface).</param>
+/// <param name="Body">It has an implementation, so its text carries the <c>IMPLEMENTATION</c> line.</param>
+/// <param name="Accessors">What its GET/SET are.</param>
+/// <param name="Signature">A create takes its declared type as the argument (an interface and its members).</param>
+public readonly record struct KindShape(bool Composite, bool MembersInside, bool Body, AccessorShape Accessors, bool Signature);

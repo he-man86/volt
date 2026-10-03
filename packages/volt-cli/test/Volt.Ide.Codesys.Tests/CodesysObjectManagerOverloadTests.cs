@@ -114,7 +114,7 @@ namespace Volt.Ide.Codesys.Tests
             {
                 const string decl = "TYPE SER_OperationModeType :\n(\n\tAuto := 0,\n\tManual,\n\tService\n);\nEND_TYPE";
                 new CodesysDriver(new Projects(root)).WriteContent(new ItemRef(en),
-                    new ItemContent(ItemKind.Kinds.Dut, decl, null, new List<Member>()), Volt.Engine.Ide.PushedDeclarations.None);
+                    new ItemContent(ItemKind.Kinds.Dut, decl, null, new List<Member>()), System.Array.Empty<Volt.Engine.Ide.PushedNetworkBody>());
 
                 Assert.Equal(decl, en.Object!.Interface.TextDocument.Text);
                 Assert.Equal(1, mgr.Commits);

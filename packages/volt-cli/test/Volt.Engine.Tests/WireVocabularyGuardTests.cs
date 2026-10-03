@@ -246,7 +246,7 @@ public class WireVocabularyGuardTests
     /// of (<c>Materialize.FileNameFor</c> read the subtype to pick an extension). An import of
     /// <c>Volt.Engine.Format.St</c> left behind after that logic went is the open door it comes back through
     /// unnoticed, so no <c>Volt.Cli</c> file imports the namespace. (The one qualified use left, <c>Commands.cs</c>'
-    /// <c>ImplementationMarker.AppliesTo</c>, is task 4.9's: that decision moves behind one engine call.)</summary>
+    /// <c>ItemKind.ShapeOf</c>, is task 4.9's: that decision moves behind one engine call.)</summary>
     [Fact]
     public void The_cli_imports_no_st_format()
     {

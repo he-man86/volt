@@ -2,7 +2,9 @@
  * WHAT A UNIT'S HEADER HOLDS AFTER ITS NAME — the clauses more than one unit kind reads the same way: a return type,
  * and an IMPLEMENTS list (names through `names.ts`).
  */
-import type { Identifier, TypeExpr } from "../../ast/nodes.js"
+import type { Identifier, NamedType, TypeExpr } from "../../ast/nodes.js"
+import type { Keyword } from "../../lex/vocabulary.js"
+import type { Span } from "../../span.js"
 import type { Cursor } from "../cursor.js"
 import { readHeaderNames } from "../names.js"
 import { vendorTokenText } from "../errors.js"
@@ -13,9 +15,31 @@ export type ReturnTypeClause = { returnType: TypeExpr } | { returnTypeRefused: t
 
 /** A `: ReturnType` at the cursor, or nothing when no `:` stands there. */
 export function parseReturnTypeClause(c: Cursor): ReturnTypeClause {
-  if (c.eatPunct(":") === undefined) return {}
+  const colon = c.eatPunct(":")
+  if (colon === undefined) return {}
+  if (refusedEmptyType(c, colon.span, [])) return { returnTypeRefused: true }
   const returnType = parseTypeExpression(c)
   return returnType !== undefined ? { returnType } : { returnTypeRefused: true }
+}
+
+/**
+ * NOTHING AFTER A MEMBER'S COLON BUT A LINE THE PUSH NEVER WRITES INTO A DECLARATION — the body's IMPLEMENTATION line, or
+ * one of `closers` (an interface member's END_METHOD / END_PROPERTY, a property's GET / SET): the IDE holds the
+ * declaration without that line, so its text ends at the colon — "Type definition expected instead of ''" on both
+ * vendors (`sig_empty_type`, openspec bridge-refusal-review 2.4/D10, 2026-10-03; review 4b for the closers). Reported at
+ * the colon, and true; read as the type, that line was taken for a type name. False, with nothing reported, otherwise.
+ */
+export function refusedEmptyType(c: Cursor, colon: Span, closers: readonly Keyword[]): boolean {
+  const next = c.peek()
+  const ends = c.opensImplementationLine() || (next.kind === "keyword" && closers.includes(next.keyword!))
+  if (ends) c.pushError("Type definition expected instead of ''", colon)
+  return ends
+}
+
+/** The type a member whose declaration ends at its colon declares: none — named '' at the colon (`refusedEmptyType`
+ *  reported it). A property's node holds a type, and the vendors' own text for it is the empty one. */
+export function emptyType(colon: Span): NamedType {
+  return { kind: "named_type", name: { kind: "identifier", text: "", span: colon }, span: colon }
 }
 
 /**
