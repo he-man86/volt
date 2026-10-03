@@ -343,7 +343,13 @@ listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted a
       answer differently (code, message shape, state after) is a defect to fix in the driver below the seam, so the
       wire answer is identical. Only an IRREDUCIBLE vendor fact may remain (e.g. TwinCAT C2i: opening a broken POU's
       tree item crashes XAE) — then the wire still gives the same code and shape on both vendors as far as the fact
-      allows, and DIALECT names why it cannot be unified, with the live evidence. (This is about wire BEHAVIOUR; the
+      allows, and DIALECT names why it cannot be unified, with the live evidence. Be CRITICAL (owner): the default
+      answer is "we don't need this divergence". A divergence counts as irreducible only after at least two alternative
+      vendor paths were tried and measured live (another API, another read order, a guarded read, a different seed),
+      each recorded; a remaining one is listed for the OWNER to accept, not accepted by the agent. Also sweep the
+      divergences that already exist: every e2e row that expects a vendor difference (`vendor-parity`, the per-row
+      "vendor difference" notes, e.g. `uc_fb` CODESYS unreadable / TwinCAT fetched) and every DIALECT row that leaks
+      into the wire answer — each one challenged the same way. (This is about wire BEHAVIOUR; the
       load-bearing representation asymmetries below the seam in DIALECT.md stay as they are.) Each closed gap gets
       its row in 8.1 asserting byte-identical answers. Known candidate: a broken-text POU — CODESYS `X.pou`, TwinCAT
       `unreadable` + `--force` (5.H / C2i): find the closest identical wire answer the crash guard allows.
