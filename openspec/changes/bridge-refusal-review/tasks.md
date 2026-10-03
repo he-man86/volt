@@ -187,26 +187,118 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       **Gate 1+2d (final state, every C# suite):** Engine 1943 (+1 skipped; baseline 1916),
       Cli 259, Codesys 230, Twincat 341, Connector 115, Contracts 39, Repo.Gates 107; volt-cli `bun test test/unit` 9,
       `tsc --noEmit` clean, `bun run check` 15/15. e2e not run (6.1): the two hand-edited e2e expectations stay unverified.
-- [ ] 2.22 `CodesysNetworkWriter.cs:51` — FBD↔LD view change written (after 3.5), else one named refusal in pre-flight (D7).
-- [ ] 2.23 `CodesysDriver.Content.cs:185` (was 190) — unknown view mode → UNSUPPORTED body marker naming it; declaration
+- [x] 2.22 `CodesysNetworkWriter.cs:51` — FBD↔LD view change written (after 3.5), else one named refusal in pre-flight (D7).
+      Done (step 2e) — WRITTEN, measured live first (3.5): `CodesysNetworkWriter.WriteView` sets the aspect's
+      `DefaultViewMode` string (`"Ld"`/`"Fbd"`) when it differs; a hidden view (IL, unknown, none) reaching the write is
+      an InvalidOperationException (the body guard refuses network text over a hidden body first). Tests:
+      `CodesysViewModeTests` (rewritten: premise was the refusal), e2e `graphical/view-change.test.ts` (live, both vendors).
+      Review 2e+2g (medium, triaged niche): a flip writes the network whatever it holds — what the vendor's own switch
+      does with an LD-only shape is task 3.10.
+- [x] 2.23 `CodesysDriver.Content.cs:185` (was 190) — unknown view mode → UNSUPPORTED body marker naming it; declaration
       and members still pull (D27).
-- [ ] 2.24 `CodesysDriver.Content.cs:203` (was 208) — unknown body aspect → marker (D27).
-- [ ] 2.25 `CodesysObjectModel.Descriptors.cs:292` (was 296) — unknown task `Type:` → BAD_REQUEST (as TcTaskSchedule).
+      Done (2e): `NetworkText.ViewLanguage` — one answer for both vendors: LD/FBD read, IL, an unknown view under its own
+      name, none → `IMPLEMENTATION NWL UNSUPPORTED`; `CodesysDriver.ViewModeText` replaces `ReadViewMode`.
+      Test: `CodesysUnknownBodyLanguageTests` (3; red before).
+      Review 2e+2g (medium): a MISSING `DefaultViewMode` member fails loud naming the assembly (`NwlInterop.Declared`);
+      only a null VALUE is the NWL line.
+- [x] 2.24 `CodesysDriver.Content.cs:203` (was 208) — unknown body aspect → marker (D27).
+      Done (2e): `UnreadLanguage` → `ImplementationMarker.VendorLanguage(<aspect name>)` (`UMLImplementationObject` →
+      `IMPLEMENTATION UML UNSUPPORTED`). With 4.27's grammar: the bridge marker (`ImplementationMarker.Line`), the LSP mirror
+      (`implementation-line.ts`, hover `network-services.ts`) and the VS Code grammar accept any word + UNSUPPORTED; a bare
+      unknown word stays no line. Tests: `ImplementationKeywordTests` (+7), `implementation-line.test.ts`, `network.test.ts`,
+      `implementation-line-grammar.test.ts`.
+      Review 2e+2g (low): a vendor name spelling LD/FBD is the hidden LD/FBD line, not "a Volt bug"; a non-word name
+      and ST stay refused (niche, accepted loss: 0 in the corpora).
+- [x] 2.25 `CodesysObjectModel.Descriptors.cs:292` (was 296) — unknown task `Type:` → BAD_REQUEST (as TcTaskSchedule).
+      Done (2e): `BridgeException(BAD_REQUEST)` naming the types; lookup by NAME only (`Enum.Parse` took `99`).
+      Test: `CodesysTaskKindTests` (5; red before).
+      Review 2e+2g (low): also refused in the PRE-FLIGHT (`ICodeStore.ValidateTask`, both vendors), and case-exact on
+      both (TwinCAT accepted `cyclic`).
 - [x] 2.26 `CodesysObjectModel.Libraries.cs:427` — gone: `f18af69c54`. Now `CodesysObjectModel.Libraries.cs:424`
       throws `CodesysDriver.NoAccessorCreate` (`CodesysDriver.Tree.cs:188`), a `NotSupportedException` → UNSUPPORTED,
       naming the create calls the container offers.
-- [ ] 2.27 `BeckhoffDriver.Content.cs:61` (was 60) — `ValidateSource` takes the engine's validated models, no re-parse (D8).
-- [ ] 2.28 `BeckhoffDriver.Content.cs:67` (was 66) — PLCopen create refusals pre-flighted per BODY (D21). Test: a new
+- [x] 2.27 `BeckhoffDriver.Content.cs:61` (was 60) — `ValidateSource` takes the engine's validated models, no re-parse (D8).
+      Done (2e): `ICodeStore.ValidateSource(ItemRef? existing, IReadOnlyList<PushedNetworkBody> bodies)` — the engine's
+      pre-flight (`ValidateSourceOrThrow`) returns each network body's validated model with its `BodySite`
+      (`SourceScopes.SitesOf`); TwinCAT lowers the models, no `StReader`, no wire-name kind. Docs data regenerated
+      (`docs/assets/data.js`, the driver-interface row). Tests: `DriverPreflightModelsTests`, `TcPreflightTests`.
+- [x] 2.28 `BeckhoffDriver.Content.cs:67` (was 66) — PLCopen create refusals pre-flighted per BODY (D21). Test: a new
       graphical method with an Execute box in an existing POU is refused before any op lands. (push-keeps-what-landed
       now reports such a mid-batch stop with a receipt + NOT_ATTEMPTED; the pre-flight is still per ITEM.)
-- [ ] 2.29 `BeckhoffDriver.Content.cs:339` (and :355) — missing/unknown DefaultViewMode → marker (D27).
-- [ ] 2.30 `TcNetworkWriter.cs:152` — unreachable arm → INTERNAL_ERROR.
-- [ ] 2.31 `TcNetworkWriter.cs:165` — FBD↔LD view change written via DefaultViewMode on update (after 3.5).
-- [ ] 2.32 `TcNetworkWriter.cs:934` — RESET in `Bits` → InvalidOperationException with CODESYS's message (D23).
-- [ ] 2.33 `TcPlcOpenWriter.cs:339` (and :177, :187, :295, :328, :341, :394, :427, :477, :483) — model invariants →
+      Done (2f): the engine asks the driver on an UPDATE too, with the item; `BeckhoffDriver.ValidateSource` lowers exactly
+      the bodies `ResolveBody` would CREATE (`CreatesBody`, now shared): a member not held under that name and kind, a
+      missing accessor, a blank or undrawn implementation. A member's refusal names it. Tests: `TcPreflightTests` (+4),
+      `DriverPreflightModelsTests.An_update_hands_the_driver_the_existing_item`, e2e `refused-shapes.test.ts` "a new
+      graphical member in an existing POU" (live TwinCAT: refused naming `'Step'`, nothing landed; live CODESYS: written).
+- [x] 2.29 `BeckhoffDriver.Content.cs:339` (and :355) — missing/unknown DefaultViewMode → marker (D27).
+      Done (2f): through `NetworkText.ViewLanguage`, as CODESYS; `BeckhoffDriver.ViewModeOf` deleted.
+      Test: `TcBodyLanguageTests` (rewritten through `ReadContent`: premise was the refusal).
+- [x] 2.30 `TcNetworkWriter.cs:152` — unreachable arm → INTERNAL_ERROR.
+      Done (2f): InvalidOperationException "… this is a Volt bug". Test: `TcNetworkWriterTests` (rewritten).
+- [x] 2.31 `TcNetworkWriter.cs:165` — FBD↔LD view change written via DefaultViewMode on update (after 3.5).
+      Done (2f): `TcNetworkWriter.WriteView` sets the archive slot in place; `NetworkText.RefuseViewModeChange` deleted (no
+      caller left). Tests: `TcRoundTripTests` (only `DefaultViewMode` changes), e2e `view-change.test.ts` live on TwinCAT.
+- [x] 2.32 `TcNetworkWriter.cs:934` — RESET in `Bits` → InvalidOperationException with CODESYS's message (D23).
+      Done (2f): CODESYS's wording. Test: `TcNetworkWriterTests.A_reset_on_anything_but_a_coil_target_is_an_invariant`.
+- [x] 2.33 `TcPlcOpenWriter.cs:339` (and :177, :187, :295, :328, :341, :394, :427, :477, :483) — model invariants →
       INTERNAL_ERROR, "Volt bug", not "cannot express as PLCopen" (the wording is `Refuse`, `TcPlcOpenWriter.cs:124`).
-- [ ] 2.34 `TcArchive.cs:73` — unknown `<root>` language → marker (D27).
-- [ ] 2.35 `BeckhoffDriver.Tree.cs:385` (was 322) — move post-condition → INTERNAL_ERROR (still UNSUPPORTED).
+      Done (2g): `TcPlcOpenWriter.Invariant` (InvalidOperationException, "network model invariant … Volt bug") at the ten
+      sites; the vendor limits (Execute box, multi-destination jump, single-consumer branch) keep `Refuse`.
+      Test: `TcPlcOpenInvariantTests` (3).
+      Review 2e+2g: +6 — every other invariant site but the Parallel arm (unreachable through `WriteProject`); the
+      "assignment with no value" arm is deleted as unreachable.
+- [x] 2.34 `TcArchive.cs:73` — unknown `<root>` language → marker (D27).
+      Done (2g): `VendorLanguage(<root>)`. Test: `TcBodyLanguageTests` (unknown root pulls whole).
+- [x] 2.35 `BeckhoffDriver.Tree.cs:385` (was 322) — move post-condition → INTERNAL_ERROR (still UNSUPPORTED).
+      Done (2g): `BridgeException(INTERNAL_ERROR)`. No offline test: the member move needs the archive round trip and a
+      project walk no double has (`TcHiddenBodyWriteTests` covers the archive half); the code is the whole change.
+      Review 2e+2g: tested now — `TcMemberMovePostConditionTests` (the check is its own function).
+      **Steps 2e+2f+2g numbers:** Engine 1960 (1958 + DocData regenerated, +1 skipped), Codesys 241, Twincat 353, Cli 259,
+      Repo.Gates 107, Contracts 39; volt-cli `bun test test/unit` 9; LSP `test/frontend` 39, `test/conformance` 5946 pass +
+      330 todo, `tsc` clean; VS Code grammar 4. Census against `0fce3a3820`: 565 → 563 sites, 21 gone, 19 new (against
+      `2d4a1a46f2`: 577 → 563, 48 gone, 34 new). Live e2e (fixture IDEs, instance `bridge-refusal-review`): CODESYS
+      view-change, refused-shapes, preflight, unsupported, hidden-*, unresolved-marker, task-writable — 49 pass; TwinCAT
+      view-change, refused-shapes, preflight, unsupported, create-shapes, hidden-network-body, unresolved-marker,
+      roundtrip — pass (hidden-members needs Project14, not opened).
+      **Gate 2e+2g — review fixes (2026-10-03):**
+      (1) medium, 2.23 — `CodesysDriver.ViewModeText` read `DefaultViewMode` with `NwlInterop.Get`, which answers null
+      for a MISSING member exactly as for a null value, so an unpinned NWLObject assembly pulled every LD/FBD body as
+      `IMPLEMENTATION NWL UNSUPPORTED` without a word. It now reads `NwlInterop.Declared` (new, with `NwlInterop.Has`):
+      member absent → the `Missing` refusal naming the member and the assembly version; value null → the NWL line. The
+      writer asks `Has` (an ST aspect of a fresh accessor has no view to set). Test:
+      `CodesysUnknownBodyLanguageTests.A_network_aspect_whose_type_lacks_the_view_member_fails_loud_naming_it` (red before).
+      (2) medium, 2.22/2.31 — the flip writes the same network whatever it holds; not fixed: triaged niche (0 FBD bodies
+      with a `PARALLEL` in the corpora, no FBD-only shape known) and not cheap (a per-view shape table needs the vendor's
+      switch measured). Recorded as DIALECT N23's open half and task 3.10.
+      (3) low, 2.24/2.34 — `ImplementationMarker.VendorLanguage("Ld"|"Fbd")` threw "a Volt bug" on the read path; a
+      vendor aspect/root named LD or FBD that is not the NWL one is now the hidden `IMPLEMENTATION LD|FBD UNSUPPORTED`
+      line. A name that is no word, and ST (never hidden), stay refused naming them (UNSUPPORTED, the vendor's fact,
+      still costing the item): niche, accepted loss (0 occurrences in the corpora — hidden lines there: CFC 3, SFC 2,
+      LD 10, FBD 2). D27's claim narrowed to that in the code's doc. Tests: `ImplementationKeywordTests` (rewritten rows,
+      premise "a Volt bug" wrong), `TcBodyLanguageTests` (+2 rows `<LD>`, `<Fbd>`), `CodesysUnknownBodyLanguageTests`
+      (+1, `LDImplementationObject`).
+      (4) low, 2.25 — a task `Type:` refusal is now PRE-FLIGHTED on both vendors: new `ICodeStore.ValidateTask(TaskSettings)`
+      (DriverBase: refuse nothing), asked by the push pre-flight with the settings `TaskDescriptorFormat.Gate` read; CODESYS
+      answers by the same `TaskKind` lookup (BAD_REQUEST), TwinCAT by the same `TcTaskSchedule.SysTaskPatch` its write
+      builds. TwinCAT's `Type:` compare is case-exact now, as CODESYS's names and every descriptor label are (`cyclic` was
+      accepted there and refused here). Tests: `PushTaskTests` (+1, batch `[new PRG_A.pou, task Type: Cyclicc]` refused,
+      nothing created), `CodesysTaskKindTests` (+1), `TcTaskScheduleTests` (+1 row, +1 fact); docs data regenerated.
+      (5) low, 2.33/2.35 — `TcPlcOpenInvariantTests` +6 (statement-fed assignment, RETURN, jump and wire; unknown call
+      kind; a node type with no arm); the "assignment with no value" arm is DELETED (`Assign.Value` is never null and the
+      walks before the lowering fault on one first — unreachable); the Parallel arm stays untested (RefuseImport refuses
+      a Parallel before any lowering). 2.35's post-condition is `BeckhoffDriver.RequireMemberLanded` (private), tested by
+      `TcMemberMovePostConditionTests` (4).
+      **Gate 2e+2g numbers (after the review fixes):** Engine 1960 (+1 skipped), Cli 259, Codesys 244, Twincat 367,
+      Connector 115, Contracts 39, Repo.Gates 106 of 107 — the one red, `NoKindFromTextTests` (retired `P.prg`/`B.fb`
+      spellings), is `unresolved-identifier.test.ts`, an UNCOMMITTED edit of the parallel `lsp-sfc-step-names` 2 session,
+      not in either commit; volt-cli `bun test test/unit` 9; `bun run check` 15/15; LSP `tsc` clean; LSP full suite
+      (`VOLT_REQUIRE_FULL=1`, no `VOLT_FIXTURES`): 8042 pass, 378 todo, 34 skip, 4 fail — all four `test/frontend`
+      baselines (printer, parse census, resolution, types), every delta that session's new uncommitted SFC fixtures
+      (`sfc_step_typo_other_member`, `sfc_step_pointer_global_no_step`, …), none from this change; VS Code grammar 4.
+      Census against `0fce3a3820`: 565 → 563 sites, 21 gone, 19 new (against `2d4a1a46f2`: 577 → 563, 48 gone, 34 new).
+      Commits: 2e and 2f share one (`ICodeStore.ValidateSource`'s new signature, TwinCAT's per-body pre-flight and view
+      read are one rewrite of `BeckhoffDriver.Content`/`PushService`, and `RefuseViewModeChange` goes from both writers at
+      once — no tree between them builds); 2g is its own.
 
 ## 3. Measure (live; record the outcome in DIALECT.md, then keep or change)
 
@@ -221,12 +313,20 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [ ] 3.3 `BodyFormatGuard.cs:164` — can FBD/LD → ST be written in place on either vendor?
 - [ ] 3.4 `BodyFormatGuard.cs:168` — can ST → LD/FBD be written on an existing body? Fix the message either way
       (graphical bodies ARE created by push).
-- [ ] 3.5 `NetworkText.cs:148` — can DefaultViewMode be set on an update on live CODESYS (TwinCAT: on create already)?
+- [x] 3.5 `NetworkText.cs:148` — can DefaultViewMode be set on an update on live CODESYS (TwinCAT: on create already)?
+      Measured 2026-10-03: yes on both — DIALECT N23. Written (2.22, 2.31).
 - [ ] 3.6 `CodesysDriver.Content.cs:436` (was 441) — CODESYS interface-accessor write: taken, refused or crash? (D28)
 - [ ] 3.7 `BeckhoffDriver.Content.cs:512` (was 516) — which NotSupportedExceptions reach the Stamp catch on real
       creates (D24).
 - [ ] 3.8 `TcNetworkWriter.cs:166` / `TcPlcOpenWriter.cs:50` — TwinCAT's negation/edge order (`TcUnmeasured.RefuseEdgeOrder`).
 - [ ] 3.9 `TcTaskSchedule.cs:82` — XML-escaped `Priority:` passed through: does TwinCAT's read-back decide validity?
+- [ ] 3.10 (review 2e+2g, medium — triaged niche) — what does the vendor's own View switch (LD ⇄ FBD) do with a network
+      the target view has no drawing for: convert it, refuse it, or show it as is? Both writers set `DefaultViewMode` and
+      write the same network (network text has no per-view rule), so an LD body holding a `PARALLEL` branch flipped to
+      `IMPLEMENTATION FBD` is accepted and pulls back FBD with the `PARALLEL` unchanged (DIALECT N23). Corpora 2026-10-03:
+      0 of 10 FBD bodies hold a `PARALLEL`, 3 of 26 LD bodies do; no FBD-only shape is known (LD bodies hold boxes and
+      wires). Measure live (CODESYS fixture IDE: View → FBD on an LD POU with a parallel branch; TwinCAT the same); a
+      conversion or refusal there → refuse the flip in the pre-flight naming the shape, else record that the vendor holds it.
 
 ## 4. Design issues
 
@@ -248,6 +348,8 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [ ] 4.7 D7 — one language-change comparison in `BodyFormatGuard`, pre-flight, UNSUPPORTED, same on both vendors;
       `RefuseViewModeChange` leaves the drivers (`CodesysNetworkWriter.cs:51`, `TcNetworkWriter.cs:165`); CODESYS's raw
       member error replaced by the named refusal.
+      Half done (2e/2f): the view change is WRITTEN on both vendors (3.5), so `RefuseViewModeChange` left the drivers and
+      the engine; the ST ⇄ graphical comparison in `BodyFormatGuard` (3.3/3.4) is what remains.
 - [ ] 4.8 D8 — pre-flight validates each network body once and passes the `NetworkBody` model to the write; drivers
       take a model, never text; the create-arm copies go (`PushService.cs:1180`).
 - [ ] 4.9 D9 — StReader content scans gone (1.2, 2.1); one message for empty text and Unmarked; `Shape`
@@ -273,17 +375,20 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 - [ ] 4.20 D20 — **Changed.** `?? Method` is gone (`15d421e57a`: `BeckhoffDriver.Content.cs:596` refuses an unknown
       member type by name, `:597`). Left: `?? ""` at `BeckhoffDriver.Content.cs:707`, and no shared
       `MemberKind(code, ownerIsInterface)` (CODESYS keeps a private one, `CodesysDriver.Content.cs:243`).
-- [ ] 4.21 D21 — covered by 2.28.
+- [x] 4.21 D21 — covered by 2.28.
+      Done with 2.28.
 - [ ] 4.22 D22 — N21 stated once (engine), vendor fact as data; after 1.5 only the "cannot build what the text means"
       arms remain on both vendors.
-- [ ] 4.23 D23 — covered by 2.32.
+- [x] 4.23 D23 — covered by 2.32.
+      Done with 2.32.
 - [ ] 4.24 D24 — a dedicated regrouping exception; the Stamp catch catches only it (after 3.7). (It excludes
       `TcEnoRefusal` already; any other `NotSupportedException` is still swallowed.)
 - [ ] 4.25 D25 — the in-place refusal travels as the inner exception / in the message when the rebuild also refuses;
       fix `TcNetworkWriter.cs:488`'s wording.
 - [ ] 4.26 D26 — a body pushed at an item with no body slot is refused by name on both vendors; ask the object, not a
       kind table (`CodesysObjectModel.cs:229` returns silently; `BeckhoffDriver.Content.cs:583` `HasBodySlot`).
-- [ ] 4.27 D27 — covered by 2.23, 2.24, 2.29, 2.34; the marker grammar accepts a vendor-named unknown language.
+- [x] 4.27 D27 — covered by 2.23, 2.24, 2.29, 2.34; the marker grammar accepts a vendor-named unknown language.
+      Done with 2.23, 2.24, 2.29, 2.34 and the grammar (bridge, LSP, VS Code).
 - [ ] 4.28 D28 — covered by 3.6: refusal TwinCAT-only if CODESYS takes the write.
 - [ ] 4.29 D29 — measure `ErrorList.ErrorItems` on TcXaeShell; read diagnostics structurally or record why not.
 - [ ] 4.30 D30 — `LibraryManifestFromXml` (`BeckhoffDriver.Content.cs:782`) requires the members the vendor XML always

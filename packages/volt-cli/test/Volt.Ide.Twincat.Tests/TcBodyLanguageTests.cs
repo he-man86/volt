@@ -81,14 +81,21 @@ public class TcBodyLanguageTests
         Assert.Null(TcArchive.UnreadLanguage(raw));
     }
 
-    /// <summary>A graphical body whose root Volt has never seen used to fall through as TEXT and pull under
-    /// <c>IMPLEMENTATION ST</c> — the vendor's XML as an engineer's code — where CODESYS refuses an unknown aspect.</summary>
+    /// <summary>2.34: a graphical body whose root Volt has never seen is its UNSUPPORTED line under that root's name —
+    /// pulled whole, where a refusal took the POU out of refs and fetch (and, before that, its XML fell through as TEXT
+    /// and pulled under <c>IMPLEMENTATION ST</c>).</summary>
     [Theory]
-    [InlineData("<UML><state/></UML>", "UML")]
-    [InlineData("<NWL><o t=\"Other\"/></NWL>", "NWL")]
-    public void An_unknown_graphical_root_is_refused_naming_it(string raw, string root)
+    [InlineData("<UML><state/></UML>", "IMPLEMENTATION UML UNSUPPORTED")]
+    [InlineData("<NWL><o t=\"Other\"/></NWL>", "IMPLEMENTATION NWL UNSUPPORTED")]
+    // A root that names a language Volt READS, in a form it does not (no NWL archive): a vendor fact, the hidden LD/FBD
+    // body line — never a "Volt bug" thrown on the read path, which took the POU out of refs (review 2e+2g, low).
+    [InlineData("<LD><x/></LD>", "IMPLEMENTATION LD UNSUPPORTED")]
+    [InlineData("<Fbd><x/></Fbd>", "IMPLEMENTATION FBD UNSUPPORTED")]
+    public void An_unknown_graphical_root_is_the_UNSUPPORTED_line_naming_it(string raw, string line)
     {
-        var ex = Assert.Throws<NotSupportedException>(() => TcArchive.UnreadLanguage(raw));
-        Assert.Contains(root, ex.Message);
+        var content = Read(raw);
+
+        Assert.Equal(line, content.Body);
+        Assert.Equal("FUNCTION_BLOCK FB_Odd\nVAR\n\tx : BOOL;\nEND_VAR", content.Declaration);
     }
 }

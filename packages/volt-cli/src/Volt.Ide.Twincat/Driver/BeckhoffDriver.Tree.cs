@@ -383,6 +383,21 @@ public sealed partial class BeckhoffDriver
 
     public void Rename(ItemRef item, string newName) => _om.Rename(item.Native, newName);
 
+    /// <summary>The member move's post-condition: after the archive round trip, the member <paramref name="name"/> sits at
+    /// its POU's root exactly when the move asked for the root (<paramref name="folder"/> empty). A broken post-condition
+    /// of Volt's own round trip — the archive was rewritten and re-imported and the member is not where its FolderPath now
+    /// says — is a Volt bug (INTERNAL_ERROR, openspec bridge-refusal-review 2.35), not a vendor limit: it was UNSUPPORTED,
+    /// which told the client the request asked for something TwinCAT cannot do. Its own function so the code is tested
+    /// without the project walk no double has.</summary>
+    private static void RequireMemberLanded(string name, string pouName, string folder, bool atPouRoot)
+    {
+        if (atPouRoot == (folder.Length == 0)) return;
+        throw new BridgeException(BridgeErrorCodes.InternalError,
+            $"placed '{name}' in '{(folder.Length == 0 ? pouName : folder)}' inside '{pouName}', but after the " +
+            $"archive round trip it is {(atPouRoot ? "at the POU's root" : "not at the POU's root")} — the placement did not land. " +
+            "A member move's post-condition is Volt's own: this is a Volt bug.");
+    }
+
     /// <summary>Relocate an item, whole. TwinCAT has no <c>Move</c> member on its tree item — the dispatch
     /// surface of <c>ITcSmTreeItem</c> was enumerated off the shipped type library to settle that — but the
     /// export/import pair IS one once the archive's entry paths are flattened (<c>TcItemArchive</c>, DIALECT D4f).
@@ -413,10 +428,8 @@ public sealed partial class BeckhoffDriver
             var written = ItemLookup.Find(this, pouName)
                 ?? throw new BridgeException(BridgeErrorCodes.NotFound,
                     $"placed '{name}' but its POU '{pouName}' cannot be found afterwards");
-            var atPouRoot = Enumerable.Range(1, ChildCount(written)).Any(i => Name(ChildAt(written, i)) == name);
-            if (atPouRoot != (folder.Length == 0))
-                throw new BridgeException(BridgeErrorCodes.Unsupported,
-                    $"'{name}' did not land in '{folder}' inside '{pouName}'");
+            RequireMemberLanded(name, pouName, folder,
+                atPouRoot: Enumerable.Range(1, ChildCount(written)).Any(i => Name(ChildAt(written, i)) == name));
             return;
         }
 

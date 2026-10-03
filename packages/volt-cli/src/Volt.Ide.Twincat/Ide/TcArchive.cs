@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Xml.Linq;
+using Volt.Engine.Format.St;
 
 namespace Volt.Ide.Twincat;
 
@@ -57,11 +58,12 @@ internal static class TcArchive
     /// <summary>The language of a graphical body Volt does not read — the wrapper element, <c>&lt;CFC&gt;</c> or
     /// <c>&lt;SFC&gt;</c> — or null when the body is textual (ST is not XML at all). Asked of a body that is not an
     /// NWL archive with an implementation object (<see cref="Root"/>).
-    /// <para>Those two and nothing else. Any other XML root is a graphical body Volt has never seen (or an NWL archive
-    /// with no implementation object), and it is refused naming the root — as CODESYS refuses an unknown aspect
-    /// (<c>CodesysDriver.UnreadLanguage</c>). It used to answer null, so the vendor's XML fell through as TEXT and
-    /// was pulled under <c>IMPLEMENTATION ST</c>: the same body refused on one vendor and pulled as code on the
-    /// other.</para></summary>
+    /// <para>Any other XML root is a graphical body Volt has never seen (or an NWL archive with no implementation
+    /// object), and its line names the root, upper case — <c>IMPLEMENTATION UML UNSUPPORTED</c> — as CODESYS names an
+    /// unknown aspect (<c>CodesysDriver.UnreadLanguage</c>; <see cref="ImplementationMarker.VendorLanguage"/>). It was a
+    /// refusal, thrown outside <c>NetworkText.Pulled</c>, which took the whole POU out of refs and fetch (D27, openspec
+    /// bridge-refusal-review 2.34); before that it answered null, so the vendor's XML fell through as TEXT and was pulled
+    /// under <c>IMPLEMENTATION ST</c>.</para></summary>
     public static string? UnreadLanguage(string raw)
     {
         XElement el;
@@ -70,9 +72,7 @@ internal static class TcArchive
         {
             "CFC" => "CFC",
             "SFC" => "SFC",
-            var root => throw new NotSupportedException(
-                $"TwinCAT: the body is a <{root}> document, a graphical language Volt has never seen. ST, FBD and LD " +
-                "are read, CFC, SFC and IL are hidden (UNSUPPORTED) — an unknown language is refused rather than guessed at."),
+            var root => ImplementationMarker.VendorLanguage(root),
         };
     }
 

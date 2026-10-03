@@ -126,6 +126,14 @@ internal static class TcPlcOpenWriter
             $"TwinCAT: this graphical body {what}, which Volt cannot express as PLCopen. The IDE can " +
             "create it.");
 
+    /// <summary>A model the network-text reader never builds reached the lowering: a Volt bug, INTERNAL_ERROR, worded as
+    /// what the model lacks (openspec bridge-refusal-review 2.33, V.1). These went through <see cref="Refuse"/>, which
+    /// told the engineer PLCopen "cannot express" a body when it was Volt's own model that was broken.</summary>
+    private static InvalidOperationException Invariant(string what) =>
+        new InvalidOperationException(
+            $"TwinCAT: network model invariant — the body holds {what}. The network-text reader never builds such a " +
+            "model; this is a Volt bug, not a limit of TwinCAT or of PLCopen.");
+
     /// <summary>One network's emission. Holds the id counter and the wire table, because both are per-network:
     /// a <see cref="Demux"/> id is only meaningful inside the network that defines it.</summary>
     private sealed class NetworkWriter
@@ -174,7 +182,7 @@ internal static class TcPlcOpenWriter
             Assign assign => EmitAssign(assign),
             Demux demux => EmitDemux(demux),
             // Refused by name before any lowering (TcUnmeasured.RefuseImport); reaching this arm is a bug.
-            Parallel => throw new InvalidOperationException("TwinCAT: a Parallel reached the PLCopen lowering past TcUnmeasured.RefuseImport"),
+            Parallel => throw Invariant("a Parallel, which TcUnmeasured.RefuseImport refuses before any lowering"),
             // AN UNWIRED PIN IS CREATABLE, and this used to refuse it. `FB(xEnable := , Axis := )` — a pin the
             // engineer left connected to nothing — reaches here as a bare Terminator, and the whole body was
             // refused as "contains a ladder rung terminator".
@@ -184,7 +192,7 @@ internal static class TcPlcOpenWriter
             // empty operand is a shape the vendor's own archives already carry, so this is its spelling rather
             // than an invention.
             Terminator => EmitEmpty(),
-            _ => throw Refuse($"contains a {node.GetType().Name}"),
+            _ => throw Invariant($"a {node.GetType().Name} node, which the lowering has no arm for"),
         };
 
         /// <summary>AN INPUT WIRED TO NOTHING, spelled as the importer's own form: an empty expression.
@@ -292,7 +300,7 @@ internal static class TcPlcOpenWriter
             for (int i = 0; i < wired.Count; i++)
             {
                 var (input, from) = wired[i];
-                if (from is not { } producer) throw Refuse("wires a box input to a statement");
+                if (from is not { } producer) throw Invariant("a box input wired to a statement, which produces no value");
                 inputs.Add(new XElement(Namespaces.Tc6 + "variable",
                     // An operator carries no formal names, and the vendor's exporter numbers the pins - In1,
                     // In2 - rather than leaving them unnamed. A real call HAS names and they are used as given.
@@ -325,7 +333,7 @@ internal static class TcPlcOpenWriter
             CallKind.Operator => "operator",
             CallKind.Function => "function",
             CallKind.FunctionBlock => "functionblock",
-            _ => throw Refuse($"uses call kind {kind}"),
+            _ => throw Invariant($"call kind {kind}, which names no PLCopen call type"),
         };
 
         private long? EmitAssign(Assign assign)
@@ -336,9 +344,10 @@ internal static class TcPlcOpenWriter
             // them here: measured on a real ladder, a target came back Flags=Negation,Set.
             if (assign.Flags.Jump) return EmitJump(assign);
             if (assign.Flags.Return) return EmitReturn(assign);
-            if (assign.Value is not { } value) throw Refuse("assigns nothing");
-
-            var producer = Emit(value) ?? throw Refuse("assigns from a statement");
+            // `Assign.Value` is never null in the model (an unconnected value is the empty Terminator), and the walks
+            // before the lowering (TcUnmeasured) would fault on one first: the "assignment with no value" arm here could
+            // not be reached, so it is gone (review 2e+2g).
+            var producer = Emit(assign.Value) ?? throw Invariant("an assignment from a statement, which produces no value");
             foreach (var target in assign.Targets)
             {
                 _root.Add(new XElement(Namespaces.Tc6 + "outVariable",
@@ -391,7 +400,7 @@ internal static class TcPlcOpenWriter
             // invention. Its operand is discarded by the swap.
             var source = ret.Value is Terminator
                 ? EmitEmpty()
-                : Emit(ret.Value) ?? throw Refuse("returns on a statement");
+                : Emit(ret.Value) ?? throw Invariant("a RETURN conditioned on a statement, which produces no value");
             el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
                 new XElement(Namespaces.Tc6 + "connection",
                     new XAttribute("refLocalId", source.ToString()))));
@@ -424,7 +433,7 @@ internal static class TcPlcOpenWriter
             // asked for.
             var source = jump.Value is Terminator
                 ? EmitEmpty()
-                : Emit(jump.Value) ?? throw Refuse("jumps on a statement");
+                : Emit(jump.Value) ?? throw Invariant("a jump conditioned on a statement, which produces no value");
             el.Add(new XElement(Namespaces.Tc6 + "connectionPointIn",
                 new XElement(Namespaces.Tc6 + "connection",
                     new XAttribute("refLocalId", source.ToString()))));
@@ -474,13 +483,13 @@ internal static class TcPlcOpenWriter
                         $"contains a branch point (wire {demux.VarId}) feeding only one place, which PLCopen "
                         + "cannot express - it would import as a plain connection and the branch would be gone");
 
-                var id = Emit(input) ?? throw Refuse("defines a wire from a statement");
+                var id = Emit(input) ?? throw Invariant("a wire defined from a statement, which produces no value");
                 _wires[demux.VarId] = id;
                 return id;
             }
             return _wires.TryGetValue(demux.VarId, out var known)
                 ? known
-                : throw Refuse($"references wire {demux.VarId} before it is defined");
+                : throw Invariant($"a reference to wire {demux.VarId} before its definition, which the network-text reader refuses");
         }
 
     }
