@@ -157,6 +157,16 @@ public sealed partial class CodesysDriver
     /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
     public static string? ChildRefusal(Exception ex) => Refusal(ex)?.Message;
 
+    /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
+    /// 3.1): a word CODESYS was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="CodesysRefusedNames"/>, the
+    /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
+    public override string? RefusedName(string name) => NameRefusal(name);
+
+    internal static string? NameRefusal(string name) =>
+        CodesysRefusedNames.Words.Contains(name)
+            ? $"CODESYS does not take '{name}' as a name (\"The name '{name}' is not valid for this object.\")"
+            : null;
+
     /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
     /// "The name 'Log' is not valid for this object." — a METHOD named <c>Log</c> under a function block (SP21, openspec
     /// <c>push-keeps-what-landed</c> 1.1, measured live 2026-10-03): the NAME is refused, whatever the declaration says.

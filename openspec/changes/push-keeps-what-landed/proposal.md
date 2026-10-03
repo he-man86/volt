@@ -36,11 +36,12 @@ client the same thing (re-send only what failed, know exactly what landed), and 
 
 > **Superseded in part by the design gate (2026-10-03, `design.md` "Step 0").** The list below is what PLCAssist
 > asked for, kept as the request. What is built is the rewritten `specs/bridge-push/spec.md` and `tasks.md`.
-> **Not built, left for the owner:** 1 as per-item application of pre-flight and gate refusals (instead, every
-> refusal is named in one response and nothing is written); 1 as continuing past an IDE refusal (instead, the push
-> stops and names every op not reached, `NOT_ATTEMPTED`); 2 as restoring an update's previous text (instead, the
-> conflict states what of the update landed and the CLI keeps its old baseline); 5 for the pre-write remedies
-> pinned by oracle tests. The Impact line "restore previous text" is not built either.
+> **Decided not to be built (owner, 2026-10-02/03 — keep all-or-nothing):** 1 as per-item application of pre-flight
+> and gate refusals (instead, every refusal is named in one response and nothing is written); 1 as continuing past an
+> IDE refusal (instead, the push stops and names every op not reached, `NOT_ATTEMPTED`); 2 as restoring an update's
+> previous text (instead, the conflict states what of the update landed and the CLI keeps its old baseline); 5 for
+> the pre-write remedies pinned by oracle tests; `accepted:true` for a single partly-landed op. The Impact line
+> "restore previous text" is not built either.
 
 1. **Per-item outcome.** An item refused for its own reasons — pre-flight (INVALID_ST, NETWORK_*, UNREADABLE,
    UNSUPPORTED, STALE_ITEM_VERSION, ITEM_EXISTS, ITEM_MISSING, ITEM_UNVERIFIED, DUPLICATE_CHILD) or by the IDE during
@@ -68,3 +69,12 @@ client the same thing (re-send only what failed, know exactly what landed), and 
 - The CLI: an accepted push with conflicts updates the baseline for the applied items only.
 - Clients: PLCAssist already handles `accepted: true` + `conflicts` as partial and marks each op landed or refused;
   its model then re-sends only the refused items. Nothing to change beyond verifying it live.
+
+## Close-out (2026-10-03)
+
+Built and verified live on CODESYS SP21 and TcXaeShell 4024.74 (tasks 4.1 / 4.2): every pre-write refusal in one
+answer with nothing written; an apply-time IDE refusal → `accepted:true`, the exact receipt, the refused op named with
+its code, `NOT_ATTEMPTED` after it, a refused create rolled back (no shell) or the reason saying it remains; reasons
+without CLI instructions; the CLI adopting only what landed. Item 6 is built from measurements, not a guessed list:
+each driver refuses before the first write exactly the names its IDE was measured to refuse (`Log` among them).
+**Owner decision:** keep all-or-nothing — the items above marked "decided not to be built" are closed, not deferred.

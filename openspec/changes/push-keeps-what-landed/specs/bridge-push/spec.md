@@ -4,7 +4,8 @@
 
 A push SHALL decide every per-item refusal that is decidable before the first write — the gate's per-item conflicts
 (`STALE_ITEM_VERSION`, `ITEM_EXISTS`, `ITEM_MISSING`, `ITEM_UNVERIFIED`, `UNREADABLE`) and the pre-flight's (run over
-the ops the gate did not refuse) — before writing anything, and when any op is refused SHALL write nothing and answer
+the ops the gate did not refuse, including a POU or METHOD / ACTION / PROPERTY name the driver's IDE was measured to
+refuse, `UNSUPPORTED`) — before writing anything, and when any op is refused SHALL write nothing and answer
 `accepted: false` with one conflict per refused op (code, reason, line) — not only the first. Two refusals concern the
 request as a whole and are answered alone: a stale project lease (`STALE_PROJECT_VERSION`), and a malformed request
 (`BAD_REQUEST` for the ops' own shape — a name that is not a wire name, two ops on one item), which names the first
@@ -13,6 +14,10 @@ offending op.
 #### Scenario: two malformed items in one batch
 - **WHEN** a push of four items has two items that fail pre-flight (INVALID_ST)
 - **THEN** nothing is written, the response is `accepted: false`, and it carries a conflict for EACH of the two
+
+#### Scenario: a member name the IDE was measured to refuse
+- **WHEN** a push creates a DUT and an FB whose METHOD is named `Log`, a word both vendors were measured to refuse
+- **THEN** nothing is written, the response is `accepted: false`, and its one conflict names the FB with code `UNSUPPORTED`
 
 #### Scenario: a stale item and a malformed item in one batch
 - **WHEN** a push sets `A` with a stale `ifVersion` and `B` with text that fails pre-flight
@@ -28,7 +33,8 @@ itself the IDE kept (an update's declaration or a member it deleted, a create wh
 in that op's conflict reason.
 
 #### Scenario: one item refused by the IDE during apply
-- **WHEN** a push of `[create a DUT, create an FB whose METHOD the IDE refuses]` reaches the FB
+- **WHEN** a push of `[create a DUT, create an FB whose METHOD name the IDE refuses]` reaches the FB (a name no
+  measurement listed, so the pre-flight passed it)
 - **THEN** the DUT remains, the FB does not exist, and the response is `accepted: true` with the DUT's version in the receipt and one conflict naming the FB
 
 #### Scenario: the first op is refused and nothing of it landed

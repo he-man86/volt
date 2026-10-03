@@ -167,8 +167,9 @@ part-way, stop, and REPORT what landed in structure — `accepted:true` + a conf
   `BAD_REQUEST` are answered alone (the latter at its first offending op).
 - Per op, after earlier ops landed: whatever the live IDE refuses (`UNSUPPORTED` from `ChildRefusedException`, an
   import refusal, `INTERNAL_ERROR`), the push stopping there.
-- Not built (owner decides): per-item application of pre-flight/gate refusals (1a/1b), continuing past an apply
-  refusal (1c), restoring an update (2b), re-phrasing the pinned CLI remedies (5).
+- Decided NOT to be built (owner, 2026-10-02/03 — "Owner decision" below): per-item application of pre-flight/gate
+  refusals (1a/1b), continuing past an apply refusal (1c), restoring an update (2b), re-phrasing the pinned CLI
+  remedies (5).
 
 ### Migration of existing code
 
@@ -342,8 +343,8 @@ Kept (raised before the first write, pinned, owner): `StReader` "Run `volt pull`
 - After earlier ops landed: the live IDE's refusal of one op — the push stops, `accepted:true`, the op named with its
   code, every later op `NOT_ATTEMPTED`. Nothing landed → `accepted:false`, including a single update whose
   declaration landed (stated in its reason).
-- Not built (owner): per-item application (1a/1b), continuing past a refusal (1c), restoring an update (2b), the
-  pinned pre-write remedies (5), `accepted:true` for a single partly-landed op.
+- Decided NOT to be built (owner, 2026-10-02/03): per-item application (1a/1b), continuing past a refusal (1c),
+  restoring an update (2b), the pinned pre-write remedies (5), `accepted:true` for a single partly-landed op.
 
 ### Migration
 
@@ -358,3 +359,35 @@ Kept (raised before the first write, pinned, owner): `StReader` "Run `volt pull`
 | volt-control `bridge/actions.ts`, `view/outcomes.ts` | the `partial` outcome |
 | `docs/wire.html`, `logs.html`, `index.html`; the `DocDataTests` fact "The reason says how many" | the partial push and `NOT_ATTEMPTED`; the NOTE fact rewritten to the receipt (regenerated with `VOLT_WRITE_DOCS=1`) |
 | tests | the five step-1 reds go green (plus the two driver reds); new reds first: `[stale A, malformed B]` (2.1), a `NOT_ATTEMPTED` row after a mid-batch refusal in apply order (2.4), the CLI baseline / rename / partly-landed cases (2.4b), the race reason (2.5); the 67 oracles unchanged |
+
+## Step 3 — the name pre-flight (task 3.1)
+
+Measured (tasks.md 3.1): both vendors refuse a POU or METHOD / ACTION / PROPERTY NAME from the word alone — whatever
+the project, whatever the member kind, in any case. So the refusal is decidable before the first write, and belongs to
+the pre-flight (D1), where it writes nothing and is named with the rest.
+
+- **Who knows the words: the driver.** `ICodeStore.RefusedName(name)` → the vendor's reason, or null. The words are
+  vendor facts (CODESYS refuses `END_METHOD`, TcXaeShell takes it), so they live below the seam; the engine asks for
+  every name a set op would create and words the conflict. `DriverBase` answers null: a driver without measurements
+  refuses nothing rather than guessing.
+- **The words are the measurements, not the rule.** The rule in `member-name-refusal-rule.ts` reproduces all 5066
+  verdicts but was fitted to them, and one of its extensions was already wrong once (`<T>_TO_<T>`). Each driver's
+  list is every word its IDE refused in the logs (CODESYS 1092, TwinCAT 933), generated from them and gated against
+  them (Repo.Gates `RefusedNamesMatchTheLogsTests`). A word nobody asked reaches the IDE and gets D2's apply-time
+  report — which is how the 4.1 e2e still exercises the apply path (`Vlt__Log`).
+- **Every member on an update too.** An existing member can not carry a word its IDE refuses to create, so asking for
+  every member name refuses only a new one. The item's own name only on a create, and only for `.pou` (the kind the
+  top-level probe measured); interface members and DUT / GVL names were not measured and are not asked.
+- **Code `UNSUPPORTED`** (`ChildRefusedException`, cause NAME) — the same class as the live refusal D2 classifies, so
+  the CLI's advice by code is unchanged.
+
+## Owner decision (2026-10-02/03): keep all-or-nothing
+
+The items left open by Step 0 are DECIDED, as not to be built: per-item application of pre-flight / gate refusals
+(1a/1b), continuing past an apply refusal (1c), restoring an update's previous text (2b), re-phrasing the pinned
+pre-write CLI remedies (5), and `accepted:true` for a single op that partly landed. What is built is the final
+behaviour: every refusal decidable before the first write (gate per-item ∪ pre-flight, the measured name refusals
+included) comes back in ONE answer and nothing is written; a refusal by the live IDE part-way stops the push, which
+answers `accepted:true` with the exact receipt, the refused op's own code and `NOT_ATTEMPTED` for every op after it
+(`accepted:false` when no op applied in full, what of the refused op stayed stated in its reason); the CLI adopts only
+the applied ops. The spec delta states exactly that, with no open owner item.

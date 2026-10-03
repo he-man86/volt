@@ -1044,6 +1044,21 @@ public static class PushService
                                               PushedDeclarations pushedDeclarations, string wireKind)
     {
         var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
+
+        // A NAME THE IDE REFUSES, from the word alone (openspec `push-keeps-what-landed` 3.1). Both vendors refuse a POU
+        // or a METHOD / ACTION / PROPERTY named like a reserved word (`Log`, `INT_TO_REAL`, `__NEW` …) whatever the
+        // project and the member kind, and only the driver knows its vendor's measured words. Measured live the refusal
+        // came from the apply loop, after the batch's earlier ops had landed. Every member the text carries is asked, on
+        // an update too: an existing member can not hold a word its IDE refuses to create, so only a NEW one can be refused.
+        if (isCreate && wireKind == ItemKind.Kinds.Pou && ide.RefusedName(name) is { } pouRefusal)
+            throw new ChildRefusedException($"the IDE refuses to create '{name}': {pouRefusal}", ChildRefusalCause.Name);
+        foreach (var m in split.Members)
+        {
+            if (m.Kind is ItemKind.Kinds.Method or ItemKind.Kinds.Action or ItemKind.Kinds.Property
+                && ide.RefusedName(m.Name) is { } memberRefusal)
+                throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {memberRefusal}",
+                                                ChildRefusalCause.Name);
+        }
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         //

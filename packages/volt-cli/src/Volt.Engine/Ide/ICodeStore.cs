@@ -99,6 +99,17 @@ public interface ICodeStore
     void ValidateSource(string wireName, string sourceText,
                         PushedDeclarations pushedDeclarations);
 
+    /// <summary>Why the IDE refuses <paramref name="name"/> for a NEW POU or a new METHOD / ACTION / PROPERTY — or null
+    /// when the driver has no measured refusal of that word. Asked by the push PRE-FLIGHT for every name a set op would
+    /// create, so a refusal the vendor decides from the word alone lands before the first write instead of after the
+    /// batch's earlier ops (openspec <c>push-keeps-what-landed</c> 3.1).
+    ///
+    /// <para>The words are the VENDOR's, and each driver answers only the ones its IDE was MEASURED to refuse —
+    /// case-insensitively (measured), whatever the member kind (measured: the verdict is the word's), and whatever the
+    /// project (measured: a name colliding with a variable or another POU is accepted). A word nobody asked is not
+    /// guessed at: it reaches the IDE, whose apply-time refusal the push reports as what it is.</para></summary>
+    string? RefusedName(string name);
+
     /// <summary>The scope a graphical body resolves against: its own declarations (<paramref name="declaration"/>,
     /// innermost first — <see cref="SourceScopes.Scope"/>), the project's other items and its globals, the push's
     /// own declarations answering before the IDE's. The SAME scope the driver writes a pulled body against, so the

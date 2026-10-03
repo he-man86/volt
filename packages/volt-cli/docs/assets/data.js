@@ -1732,6 +1732,11 @@ window.VOLT = {
           "signature": "void ValidateSource(string wireName, string sourceText, PushedDeclarations pushedDeclarations)"
         },
         {
+          "name": "RefusedName",
+          "kind": "method",
+          "signature": "string? RefusedName(string name)"
+        },
+        {
           "name": "NetworkScopeFor",
           "kind": "method",
           "signature": "NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations)"

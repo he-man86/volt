@@ -89,6 +89,10 @@ public class NoKindFromTextTests
         ["Volt.Ide.Codesys/Ide/CodesysNetworkWriter.cs"] = new(1, "the word TYPE in a refusal message"),
         ["Volt.Engine/Sync/PushService.cs"] = new(1,
             "a refused member create's message: which members a POU accepts follows its declaration (a FUNCTION takes none)"),
+        ["Volt.Ide.Codesys/Driver/CodesysRefusedNames.cs"] = new(7,
+            "the NAMES CODESYS refuses for a POU or member (FUNCTION, PROGRAM, TYPE … are among them) — a word list, read by no header"),
+        ["Volt.Ide.Twincat/Driver/TcRefusedNames.cs"] = new(7,
+            "the NAMES TwinCAT refuses for a POU or member (FUNCTION, PROGRAM, TYPE … are among them) — a word list, read by no header"),
     };
 
     // ── rule 2: the deleted classifiers and the per-object vendor parse ─────────────────────────────────────────

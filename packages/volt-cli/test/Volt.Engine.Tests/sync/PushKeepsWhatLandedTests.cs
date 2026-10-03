@@ -675,4 +675,88 @@ public class PushKeepsWhatLandedTests
         Assert.Contains("the pushed text of 'FB_M' was written before it and stays", conflict.Reason);
         Assert.Contains("'FB_M' was moved to 'B' before it and stays there", conflict.Reason);
     }
+
+    // ── Task 3.1: a NAME the IDE refuses is refused before the first write ─────────────────────────────────────────
+
+    /// <summary>A driver whose IDE refuses the word <c>Log</c> (any case) as a POU or member name — what both real
+    /// drivers answer from their measured lists (<c>ICodeStore.RefusedName</c>).</summary>
+    private static FakeIde RefusingLog(params FakeIde.Item[] items) => new(items)
+    {
+        RefusesName = name => string.Equals(name, "Log", System.StringComparison.OrdinalIgnoreCase)
+            ? $"the IDE does not take the name '{name}'" : null,
+    };
+
+    /// <summary>Task 3.1. Measured on this tree before the change: the METHOD reached the IDE AFTER the DUT landed —
+    /// <c>accepted:true</c>, <c>E_A</c> created, the FB the one conflict. A word the vendor was measured to refuse is
+    /// decidable from the text, so it belongs to the pre-flight: nothing is written.</summary>
+    [Fact]
+    public void A_member_named_with_a_word_the_IDE_refuses_is_refused_before_the_first_write()
+    {
+        var ide = RefusingLog();
+
+        var resp = Push(ide, Create("E_A.dut", Enum), Create("F.pou", FbWithMethod.Replace("METHOD M", "METHOD log").Replace("M := TRUE", "log := TRUE")));
+
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);   // nothing written — the DUT before it included
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("F.pou", conflict.Name);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
+        Assert.Contains("method 'log'", conflict.Reason);
+        Assert.Contains("the IDE does not take the name 'log'", conflict.Reason);
+    }
+
+    /// <summary>Task 3.1: an UPDATE that adds the member is the same create of a member, refused the same way.</summary>
+    [Fact]
+    public void An_update_adding_a_member_named_with_a_refused_word_is_refused_before_the_first_write()
+    {
+        var ide = RefusingLog(FakeIde.Item.TextualPou("K", "FUNCTION_BLOCK K\nVAR\nEND_VAR", ";"));
+        var refs = RefsService.Handle(ide);
+
+        var resp = PushService.Handle(ide, new PushRequest
+        {
+            ExpectedProjectVersion = refs.ProjectVersion,
+            Ops = new List<PushOp>
+            {
+                Create("E_A.dut", Enum),
+                new SetItemOp { Name = "K.pou", IfVersion = refs.Items["K.pou"], SourceText =
+                    "FUNCTION_BLOCK K\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK" +
+                    "\n\nACTION Log\nIMPLEMENTATION ST\n;\nEND_ACTION\n" },
+            },
+        });
+
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("K.pou", conflict.Name);
+        Assert.Contains("action 'Log'", conflict.Reason);
+    }
+
+    /// <summary>Task 3.1: a top-level POU create under a refused word (CODESYS measured <c>LOG.pou</c>, task 2.2).</summary>
+    [Fact]
+    public void A_POU_create_named_with_a_refused_word_is_refused_before_the_first_write()
+    {
+        var ide = RefusingLog();
+
+        var resp = Push(ide, Create("E_A.dut", Enum), Create("LOG.pou", "FUNCTION_BLOCK LOG\nVAR\nEND_VAR\nIMPLEMENTATION ST\n;\nEND_FUNCTION_BLOCK\n"));
+
+        Assert.False(resp.Accepted);
+        Assert.Empty(ide.Recorded);
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal("LOG.pou", conflict.Name);
+        Assert.Equal(BridgeErrorCodes.Unsupported, conflict.Code);
+        Assert.Contains("the IDE does not take the name 'LOG'", conflict.Reason);
+    }
+
+    /// <summary>Task 3.1: a word the driver does not answer passes the pre-flight — the check refuses only what the
+    /// vendor was measured to refuse, and the push lands.</summary>
+    [Fact]
+    public void A_name_the_driver_does_not_refuse_lands()
+    {
+        var ide = RefusingLog();
+
+        var resp = Push(ide, Create("E_A.dut", Enum), Create("F.pou", FbWithMethod));
+
+        Assert.True(resp.Accepted, resp.Conflicts?.FirstOrDefault()?.Reason);
+        Assert.True(ide.Exists("F"));
+    }
 }

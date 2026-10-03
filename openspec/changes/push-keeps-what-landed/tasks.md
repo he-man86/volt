@@ -279,7 +279,7 @@
 
 ## 3. Optional pre-flight
 
-- [ ] 3.1 If a live IDE shows a member-name refusal is decidable from the text (e.g. `Log`), add it to pre-flight with
+- [x] 3.1 If a live IDE shows a member-name refusal is decidable from the text (e.g. `Log`), add it to pre-flight with
       the measurement recorded; otherwise leave it to 2.2.
       **Measured 2026-10-03 (step 3, no product code changed) — DECIDABLE from the word alone, on both vendors.**
       Probe `packages/volt-cli/scripts/probe-member-name-refusal.ts` (one push per word, each a new FB `VltPkn_<i>`
@@ -344,6 +344,27 @@
       TwinCAT each with the words its IDE refused in these logs, `UNSUPPORTED` with the vendor's measured words) would
       move every measured `Log`-class refusal before the first write. Not built in this step (MEASURE); the box stays
       open for it.
+      **Built 2026-10-03 (verify session), tests red first.** `ICodeStore.RefusedName(name)` (DriverBase: null — no
+      measurement, no guess); each driver answers from a word list that IS its IDE's logged refusals — not the rule:
+      `Volt.Ide.Codesys/Driver/CodesysRefusedNames.cs` (1092 words) and `Volt.Ide.Twincat/Driver/TcRefusedNames.cs`
+      (933 words), every word a live IDE refused in the six logs (Volt's own `INVALID_ST` rows excluded; a later log
+      overrides an earlier row), upper-cased and matched case-insensitively (measured). Repo.Gates
+      `RefusedNamesMatchTheLogsTests` holds each file to its logs (and fails if a word was refused as one kind and
+      accepted as another — the per-word verdict is measured, 0 such words); `VOLT_WRITE_REFUSED_NAMES=1` regenerates.
+      The pre-flight (`PushService.ValidateSourceOrThrow`, every set op) asks the driver for every METHOD / ACTION /
+      PROPERTY name the text carries (create and update — an existing member cannot hold a word its IDE refuses to
+      create, so only a new one can be refused) and, on a create, for a `.pou`'s own name; a refused name is
+      `UNSUPPORTED` (`ChildRefusedException`, cause NAME), e.g. "the IDE refuses to create method 'Log' in
+      'VltE2E_pk_FB2': CODESYS does not take 'Log' as a name ("The name 'Log' is not valid for this object.")", and
+      nothing is written. Not asked: interface members, DUT / GVL / interface item names (unmeasured kinds).
+      Red first: `PushKeepsWhatLandedTests` 3 of 4 new tests red (member on a create, member added by an update,
+      `LOG.pou`), `CodesysNameRefusalTests` / `TcNameRefusalTests` (11 / 10 rows; compile-red), the Repo.Gates test
+      (2 red: files missing). Live, both vendors: `METHOD Log` beside a DUT create → `accepted:false`, ONE conflict
+      `UNSUPPORTED` naming method 'Log', nothing written (e2e `push-keeps-what-landed.test.ts`, the new 3.1 case).
+      Consequence for 4.1: `Log` no longer reaches the apply loop, so the apply-time e2e uses `Vlt__Log` — a word no
+      probe asked (`a__b` was refused, this one never asked), which both IDEs refused at apply, as the rule predicted.
+      Cost: a word an IDE version other than the measured two (SP21, 4024.74) would accept is refused if the measured
+      one refused it; 0 of 57275 corpus member declarations carry a listed word.
 - [x] 3.G Gate step 3 — review findings (2026-10-03), four, all valid:
       F1 (ACCEPTED never read back) — `probe-member-name-refusal.ts` `readBack`: an accepted push is fetched
       (`onlyItems`) and must hold exactly one member of the pushed kind named exactly the word, else `LANDED-OTHER`.
@@ -378,7 +399,37 @@
 
 ## 4. Verify
 
-- [ ] 4.1 1.1 now, live on BOTH vendors: `accepted:true`, the DUT in the receipt, `FB.pou` the only conflict with
+- [x] 4.1 1.1 now, live on BOTH vendors: `accepted:true`, the DUT in the receipt, `FB.pou` the only conflict with
       code `UNSUPPORTED` and a reason saying it is not created (rolled back), no shell, `refs` matches the receipt. 1.2 now: both bad items named, nothing written.
-- [ ] 4.2 CLI push of a partially refused batch updates the baseline for applied items (and the receipt's
+      **Done 2026-10-03**, own IDEs on fixture copies (`ide.ps1 up -Instance e2e-verify`; CODESYS SP21 pid 43816 on
+      CodesysTestProject, TcXaeShell pid 12248 on Project13 and pid 42444 on Project14 — 12248 exited on its own
+      between runs, so the second TwinCAT run is on Project14), bridges built from the worktree at `62bcb30d65` + the 3.1
+      change. `test/e2e/endpoints/push-keeps-what-landed.test.ts` 3/3 on CODESYS and 3/3 on TwinCAT (both projects).
+      1.1 (METHOD `Vlt__Log`, see 3.1): `accepted:true`, `newItems` holds `VltE2E_pk_E.dut` and `VltE2E_pk_ST.dut`,
+      ONE conflict `VltE2E_pk_FB.pou [UNSUPPORTED]` "'VltE2E_pk_FB': the IDE refused to create its method 'Vlt__Log':
+      The name 'Vlt__Log' is not valid for this object. — 'VltE2E_pk_FB' is not created (the create is rolled back)"
+      (TwinCAT: "… Creating the child named 'Vlt__Log' is not possible on node (Name mismatch) …" + the same rollback
+      words), refs after = the two DUTs (no shell), `newProjectVersion` = the next refs, no client advice word. 1.2:
+      `accepted:false`, two conflicts `VltE2E_pk_bad1.pou` / `VltE2E_pk_bad2.pou [INVALID_ST]`, nothing added.
+      3.1: `METHOD Log` → `accepted:false`, one `UNSUPPORTED` conflict, nothing added.
+- [x] 4.2 CLI push of a partially refused batch updates the baseline for applied items (and the receipt's
       rewritten known items) only; full suites green.
+      **Done 2026-10-03, live on both vendors** — new e2e `test/e2e/endpoints/push-keeps-what-landed-cli.test.ts`
+      drives the built `volt.exe`: `volt init` on the served project, commit a new enum DUT and a new FB with METHOD
+      `Vlt__Log`, `volt push` → exit 2, stdout "pushed 1 item(s)", stderr "the push landed in part: 1 of 2 item(s) are
+      in the IDE, these are not: VltE2E_cp_FB.pou: [UNSUPPORTED] … → the IDE will not take this text; change it, then
+      push again"; `refs/remotes/volt/ide` holds the DUT's path and not the FB's; `volt status --porcelain` outgoing =
+      exactly `oA …/VltE2E_cp_FB.pou` (CODESYS: `Device/Plc Logic/Application/…`, TwinCAT: top level); the method
+      renamed and committed, the next `volt push` exits 0 "pushed 1 item(s)" and nothing is outgoing. 1/1 on CODESYS
+      (12.0 s) and on TwinCAT Project14.
+      **Suites (worktree of `62bcb30d65` + this change):** C# Engine 1916 pass / 1 skip, Cli 251, Contracts 31,
+      Connector 115, Ide.Twincat 329, Ide.Codesys 226 (net48), Relay 46, Repo.Gates 94 — 3008 pass, 0 fail; volt-cli
+      `bun test test/unit` 4/4; `bun run check` 15 passed, 0 failed. e2e: CODESYS `test:e2e:codesys` 248 pass / 24 skip /
+      0 fail (272 tests, 51 files, 280 s); TwinCAT `test:e2e:twincat` 248 pass / 24 skip / 0 fail (272 tests, 1041 s, Project14).
+      Gates the first suite run caught, fixed: `WireVocabularyGuardTests` (the member-kind words were re-spelled — the
+      message now uses `m.Kind`), `NoKindFromTextTests` (the word lists spell FUNCTION / PROGRAM / TYPE … as NAMES —
+      allow-listed, 7 lines each), `DocDataTests` (the driver interface grew `RefusedName` — `VOLT_WRITE_DOCS=1`).
+      Found on the way: `ide.ps1`'s TwinCAT readiness pattern ("attached to TwinCAT …") stopped matching when
+      ide-identity-report 2 changed the worker's attach line to the IDE's own name ("attached to TcXaeShell 15.0 by
+      Beckhoff (xae pid N)"), so every attach was killed after its 60 s window and `up` gave up after 10 — fixed to key
+      on the pid.

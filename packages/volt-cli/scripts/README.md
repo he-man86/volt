@@ -123,7 +123,7 @@ level already has, in either kind — but the two may COEXIST, so it is an ORDER
 as a METHOD, ~220 also as ACTION / PROPERTY / top-level FB, plus three context controls; every accept READ BACK, and
 `PROBE_SET=verify` re-asks the earlier accepts, `<T>_TO_<T>` and lower / mixed case; `member-name-refusal*.log`)
 and `member-name-refusal-rule.ts` (one rule on the word describes all 5066 IDE verdicts — a description of the measured
-words, not a pre-flight; `member-name-refusal-rule.log`; openspec `push-keeps-what-landed` tasks 3.1 / 3.G).
+words, not a pre-flight; `member-name-refusal-rule.log`; openspec `push-keeps-what-landed` tasks 3.1 / 3.G). The drivers' pre-flight word lists (`CodesysRefusedNames` / `TcRefusedNames`) are those logs' refused words, held to them by Repo.Gates `RefusedNamesMatchTheLogsTests` (`VOLT_WRITE_REFUSED_NAMES=1` regenerates).
 
 **Session** — `probe-tc-project-object` (a solution project is told apart by what it can ANSWER: an unknown member on a COM object comes back null, so only a `LookupTreeItem` call discriminates — DIALECT D35).
 

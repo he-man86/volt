@@ -431,6 +431,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// fault — given the name and kind code. The engine must not word such a failure as a refusal of the text.</summary>
     public Func<string, int, Exception?>? FailCreate { get; init; }
 
+    /// <summary>The driver's measured NAME refusals (<c>ICodeStore.RefusedName</c>): the reason for a refused word, null
+    /// for a word it does not refuse. Unset, the fake refuses no name — as <c>DriverBase</c>.</summary>
+    public Func<string, string?>? RefusesName { get; init; }
+
+    public override string? RefusedName(string name) => RefusesName?.Invoke(name);
+
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
         if (FailCreate?.Invoke(name, kindCode) is { } failure) throw failure;

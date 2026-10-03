@@ -288,6 +288,16 @@ public sealed partial class BeckhoffDriver
     /// The vendor's message, from wherever it sits in the chain (a reflective call wraps it), or null.</summary>
     public static string? ChildRefusal(Exception ex) => Refusal(ex)?.Message;
 
+    /// <summary>The push pre-flight's NAME refusal (<c>ICodeStore.RefusedName</c>, openspec <c>push-keeps-what-landed</c>
+    /// 3.1): a word TwinCAT was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="TcRefusedNames"/>, the
+    /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
+    public override string? RefusedName(string name) => NameRefusal(name);
+
+    internal static string? NameRefusal(string name) =>
+        TcRefusedNames.Words.Contains(name)
+            ? $"TwinCAT does not take '{name}' as a name (\"Creating the child named '{name}' is not possible on node (Name mismatch)\")"
+            : null;
+
     /// <summary>The refusal and what it refuses: the child's KIND under this parent (above), or its NAME —
     /// "… Creating the child named 'Log' is not possible on node (Name mismatch)" — a METHOD named <c>Log</c> under a
     /// function block (TcXaeShell, openspec <c>push-keeps-what-landed</c> 1.G F3, measured live 2026-10-03): the NAME

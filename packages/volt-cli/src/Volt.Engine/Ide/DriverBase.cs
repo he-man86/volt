@@ -28,6 +28,10 @@ public abstract class DriverBase : IIdeSession
                                        PushedDeclarations pushedDeclarations)
     { }
 
+    /// <summary>No measured name refusal — see <c>ICodeStore.RefusedName</c>. A driver without measurements refuses
+    /// nothing rather than guessing.</summary>
+    public virtual string? RefusedName(string name) => null;
+
 
 
     private volatile bool _isDegraded;
