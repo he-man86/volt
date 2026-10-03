@@ -90,10 +90,13 @@ const GROUP_MAX = { structure: 8, measure: 4, fix: 5, lean: 5, conformance: 3 }
 // args.light (owner 2026-10-03, "a bit less is also good enough"): double the chunk sizes and no second review round —
 // for changes like bridge-refusal-review where the gate's full suites are the safety net, not a second pair of eyes.
 if (args.light) for (const k of Object.keys(GROUP_MAX)) GROUP_MAX[k] *= 2
+// A round never carries more than TASK_CAP tasks, whatever the step counts say (one agent ran 41 on 2026-09-30).
+const TASK_CAP = args.light ? 25 : 15
 const grouped = []
 for (const s of steps) {
   const last = grouped[grouped.length - 1]
-  if (last && GROUPABLE.has(s.kind) && !s.designFirst && last.kind === s.kind && (last.parts?.length ?? 1) < (GROUP_MAX[s.kind] ?? 3) && !last.designFirst) {
+  if (last && GROUPABLE.has(s.kind) && !s.designFirst && last.kind === s.kind && (last.parts?.length ?? 1) < (GROUP_MAX[s.kind] ?? 3) && !last.designFirst
+      && last.openTasks.length + s.openTasks.length <= TASK_CAP) {
     last.parts = [...(last.parts ?? [{ ...last }]), s]
     last.id = `${last.parts[0].id}+${s.id}`
     last.title = last.parts.map(p => p.title).join(' | ')
