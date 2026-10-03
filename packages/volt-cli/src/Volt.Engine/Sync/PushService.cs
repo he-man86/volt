@@ -206,7 +206,8 @@ public static class PushService
                     var creating = WillCreate(walk, itemCache, Materializer.Bare(set.Name));
                     // Read by the kind of the name the op LANDS under — its extension, never the text's header.
                     ValidateSourceOrThrow(ide, Materializer.Bare(set.Name), text, creating, pushedDeclarations,
-                                          ItemKind.KindForWireName(set.ToName ?? set.Name)!);
+                                          ItemKind.KindForWireName(set.ToName ?? set.Name)!,
+                                          itemCache.TryGetValue(Materializer.Bare(set.Name), out var cached) ? cached.Item : null);
                     // …and what only the DRIVER can decide without writing. This is the class the comment above
                     // used to name as out of reach — a body one vendor's format cannot express — and it is out
                     // of reach only for the ENGINE: TwinCAT's PLCopen writer is a pure function of the parsed
@@ -1041,7 +1042,7 @@ public static class PushService
     /// write (<see cref="ProjectDeclarations"/>) — and never per op, which is the cost <see cref="WillCreate"/> is
     /// written against.</para></summary>
     private static void ValidateSourceOrThrow(IIdeDriver ide, string name, string src, bool isCreate,
-                                              PushedDeclarations pushedDeclarations, string wireKind)
+                                              PushedDeclarations pushedDeclarations, string wireKind, ItemRef? existing)
     {
         var split = StReader.Read(src, wireKind, name);      // throws InvalidSt when the text cannot be split into what the push writes
 
@@ -1059,6 +1060,7 @@ public static class PushService
                 throw new ChildRefusedException($"the IDE refuses to create {m.Kind} '{m.Name}' in '{name}': {memberRefusal}",
                                                 ChildRefusalCause.Name);
         }
+        RefuseMemberCreates(ide, name, split, isCreate, existing);
         // …and every graphical body it carries, root and members alike: network text that does not parse is the
         // most common way an edit is refused, and it is knowable before anything is mutated.
         //
@@ -1091,6 +1093,30 @@ public static class PushService
         // refused an UPDATE carrying an UNSUPPORTED line would break every push of a project that merely contains a CFC
         // POU, which is a far worse failure than the late refusal this replaces.
         if (isCreate) BodyFormatGuard.RequireAuthorable(split);
+    }
+
+    /// <summary>A MEMBER CREATE THE IDE REFUSES FROM ITS ARGUMENT, before the first write (bridge-refusal-review 1+2d
+    /// review; <see cref="IIdeDriver.RefusedMemberCreate"/>): TwinCAT creates an interface member with its type and cannot
+    /// create one that states none. Its driver refused that create from inside the apply loop, after the batch's earlier
+    /// ops and the item's own declaration had landed. Only a member the push CREATES is asked about — every member of a
+    /// new item, and on an update one the IDE does not hold under that name and kind (<see cref="ReconcileMembers"/>'s
+    /// rule): an existing member is written through, never created, so its declaration is the build's to judge. The
+    /// IDE's members are read only when the driver refuses one, which is rare; an update the walk did not cache is
+    /// looked up live.</summary>
+    private static void RefuseMemberCreates(IIdeDriver ide, string name, ItemContent split, bool isCreate, ItemRef? existing)
+    {
+        var refused = split.Members
+            .Select(m => (Member: m, Why: ide.RefusedMemberCreate(m.Kind, m.Name, CreateSeed(m))))
+            .Where(x => x.Why is not null).ToList();
+        if (refused.Count == 0) return;
+        var held = new List<Member>();
+        if (!isCreate && (existing ?? ItemLookup.Find(ide, name)) is { } item) held = ide.ReadContent(item).Members.ToList();
+        foreach (var (m, why) in refused)
+        {
+            if (held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind)) continue;
+            throw new BridgeException(BridgeErrorCodes.Unsupported,
+                $"'{name}': the IDE cannot create its {m.Kind.Replace('_', ' ')} '{m.Name}': {why}");
+        }
     }
 
     /// <summary>Does this op CREATE — is there no such item right now?

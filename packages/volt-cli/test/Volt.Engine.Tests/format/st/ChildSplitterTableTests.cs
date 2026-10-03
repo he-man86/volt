@@ -127,6 +127,12 @@ public class ChildSplitterTableTests
             "PROPERTY PUBLIC END_PROPERTY : INT\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "property:END_PROPERTY=INT"),
         Row("a METHOD named END_METHOD with END_METHOD after it on the line", "pou",
             "METHOD END_METHOD : INT END_METHOD\n", "!line 8|END_METHOD stands after code"),
+        // …but an END word AFTER another name on a colon-less signature line is no name: the last word before the end of
+        // the line is END_METHOD, and it is an END line after code (1+2d review — it used to read as member END_METHOD).
+        Row("END_METHOD after the name on a signature line with no colon", "pou",
+            "METHOD Foo END_METHOD\nIMPLEMENTATION ST\n;\nEND_METHOD\n", "!line 8|END_METHOD stands after code"),
+        Row("END_PROPERTY after the name on a signature line with no colon", "pou",
+            "PROPERTY P END_PROPERTY\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n", "!line 8|END_PROPERTY stands after code"),
         Row("END_GET after code on the same line", "pou",
             "PROPERTY P : INT\nGET\nIMPLEMENTATION ST\nP := 1; END_GET\nEND_PROPERTY\n", "!line 11|END_GET"),
         Row("END_ACTION after code on the same line", "pou",

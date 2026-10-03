@@ -101,16 +101,32 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 ## 2. Change
 
-- [ ] 2.1 `StReader.cs:124` — retired-comment scan only when no boundary line exists, as a hint inside Unmarked
+- [x] 2.1 `StReader.cs:124` — retired-comment scan only when no boundary line exists, as a hint inside Unmarked
       (`:921`). Test: current-format POU with `(* @volt-x *)` in an ST body pushes.
-- [ ] 2.2 `StReader.cs:495` — unexpected composite kind → `ArgumentException` / INTERNAL_ERROR. (Read-only descriptors
+      Done: the scan is gone; `Unmarked(what, region)` names the comment as its hint. A pulled POU holding one reads
+      back (`PullDoesNotJudgeCommentsTests`); `ReadOnlyBodyTests`/`ImplementationKeywordTests` rewritten (0.2).
+- [x] 2.2 `StReader.cs:495` — unexpected composite kind → `ArgumentException` / INTERNAL_ERROR. (Read-only descriptors
       no longer reach it: `PushService.cs:192` refuses them in the pre-flight, so it is a pure invariant now.)
-- [ ] 2.3 `StReader.cs:634` — delete the sniffed LD/FBD "not network text" copy; `NetworkTextReader:189` answers with
+      Done: `ArgumentException` (`StReaderKindInvariantTests`).
+- [x] 2.3 `StReader.cs:634` — delete the sniffed LD/FBD "not network text" copy; `NetworkTextReader:189` answers with
       NETWORK_PARSE and a line. Delete `NetworkText.OpensNetwork` (`NetworkText.cs:66`) with 1.1.
-- [ ] 2.4 `StReader.cs:982` — "nothing after ':'" no longer refused in the reader; the TwinCAT driver refuses an
+      Done: sniff and `OpensNetwork` deleted (ratchet 2 → 0); ST under LD/FBD answers NETWORK_PARSE with its line.
+- [x] 2.4 `StReader.cs:982` — "nothing after ':'" no longer refused in the reader; the TwinCAT driver refuses an
       interface-member create whose seed type is null, by name. Record the build error for a METHOD with `:` and no type.
+      Done: `METHOD Run :` reads an empty type. TwinCAT refuses an untyped interface member by one predicate
+      (`BeckhoffDriver.UntypedInterfaceMember`) asked twice: by `CreateChild`, and — review 1+2d (medium) — by the push
+      PRE-FLIGHT through the new `ICodeStore.RefusedMemberCreate`, for every member the push would create (all of a new
+      item's; on an update only one the IDE does not hold under that name and kind), so nothing lands before the
+      refusal (`TcInterfaceMemberSeedTests` +6; engine tests in 2.6). Recording: 5.1.
 - [ ] 2.5 `StReader.cs:992` — no modifier vocabulary: the name is the last word before `:`, the line passes through
       (after 3.1). Record the build error for `METHOD FOO Bar`.
+      **Not done — blocked on 3.1 and the recording (review 1+2d, low).** Implemented early, it changed which member a
+      push writes: `METHOD Foo Bar : BOOL` over an existing method Foo read as member Bar, so the push deleted Foo and
+      created Bar with Foo's text. Reverted to the modifier vocabulary; `SignatureParseTests` pins the refusal (STATIC,
+      FOO, PUBLIK). Review 1+2d (low) on the same lines: `METHOD Foo END_METHOD` (no colon) is refused as an END line
+      after code again (`ChildSplitterTableTests` +2) — the early 2.5 had read it as a member named END_METHOD.
+      **Step 2a numbers:** Engine 1923 (+1 skipped), Twincat 341, Codesys 229, Repo.Gates 107; `data.js` regenerated
+      (driver interface).
 - [ ] 2.6 `StReader.cs:1039` — "property must declare a type" goes for POU properties (build reports it); interface
       property on TwinCAT handled as 2.4.
 - [ ] 2.7 `NetworkTextReader.cs:285` — second / late VAR_TEMP block: read, and let the writer canonicalize.

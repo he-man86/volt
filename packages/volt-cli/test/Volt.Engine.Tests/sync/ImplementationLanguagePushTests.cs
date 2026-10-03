@@ -15,10 +15,11 @@ namespace Volt.Engine.Tests;
 /// ON PUSH, THE STATED LANGUAGE IS THE ONE SIGNAL (openspec <c>implementation-keyword</c>).
 ///
 /// <para><c>IMPLEMENTATION ST</c> sends a body to the ST path and <c>IMPLEMENTATION LD|FBD</c> to network text;
-/// nothing else decides. A body whose text contradicts its stated language, a missing language, or a language no
-/// body can state is REFUSED BY NAME — the member and what it stated — before anything is written, and never re-read
-/// as the other language. A file that still carries the retired <c>(* @volt-implementation *)</c> comment has no
-/// boundary line at all and gets the existing "pull the project once" refusal.</para>
+/// nothing else decides. A missing language, or a language no body can state, is REFUSED BY NAME — the member and what
+/// it stated — before anything is written. The body is never sniffed for the other language (openspec
+/// <c>bridge-refusal-review</c> 1.1, 2.3): an ST body is ST whatever it holds, and an LD/FBD body that is no network is
+/// the network reader's NETWORK_PARSE. A file that still carries the retired <c>(* @volt-implementation *)</c> comment
+/// has no boundary line at all and gets the "pull the project once" refusal, naming the comment.</para>
 ///
 /// <para>Every refusal here is a CREATE into an empty project, so "nothing written" is directly observable: no item
 /// created, no content written.</para>
@@ -155,14 +156,18 @@ public class ImplementationLanguagePushTests
     [Theory]
     [InlineData("LD")]
     [InlineData("FBD")]
-    public void ST_under_a_graphical_language_is_refused_naming_the_member_and_its_language(string language)
+    public void ST_under_a_graphical_language_is_refused_by_the_network_reader(string language)
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, Motor($"IMPLEMENTATION {language}\nDoReset := TRUE;")));
+        var resp = Create(ide, Motor($"IMPLEMENTATION {language}\nDoReset := TRUE;"));
 
-        Assert.Contains("DoReset", reason);
-        Assert.Contains($"IMPLEMENTATION {language}", reason);
+        // The NETWORK READER answers (openspec bridge-refusal-review 2.3): a body stated LD/FBD is read as network text,
+        // and ST is no network — NETWORK_PARSE, with the line. The ST reader's own sniffed copy of that rule is gone.
+        Assert.False(resp.Accepted, "the push must be refused");
+        var conflict = Assert.Single(resp.Conflicts!);
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkParse, conflict.Code);
+        Assert.NotNull(conflict.Line);
         AssertNothingWritten(ide);
     }
 
@@ -192,16 +197,16 @@ public class ImplementationLanguagePushTests
 
     [Theory]
     [InlineData("LD", "Running := out;")]           // ST stated LD
-    public void A_getter_that_contradicts_its_language_is_refused_naming_the_property(string language, string code)
+    public void A_getter_that_contradicts_its_language_is_refused_by_the_network_reader(string language, string code)
     {
         var ide = new FakeIde();
         var src = $"{Decl}\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\n" +
                   $"PROPERTY Running : BOOL\nGET\nIMPLEMENTATION {language}\n{code}\nEND_GET\nEND_PROPERTY\n";
 
-        var reason = Reason(Create(ide, src));
+        var resp = Create(ide, src);
 
-        Assert.Contains("Running", reason);
-        Assert.Contains($"IMPLEMENTATION {language}", reason);
+        Assert.False(resp.Accepted, "the push must be refused");
+        Assert.Equal(Volt.Contracts.ConflictCodes.NetworkParse, Assert.Single(resp.Conflicts!).Code);
         AssertNothingWritten(ide);
     }
 
@@ -399,6 +404,7 @@ public class ImplementationLanguagePushTests
 
         Assert.Contains("volt pull", reason);
         Assert.Contains("IMPLEMENTATION", reason);   // the refusal names the line the file lacks
+        Assert.Contains("(* @volt-implementation", reason);   // …and the retired comment, as the hint (2.1)
         AssertNothingWritten(ide);
     }
 
@@ -431,21 +437,24 @@ public class ImplementationLanguagePushTests
         Assert.Equal(ChartDecl, ide.ReadContent(new ItemRef("FB_Chart")).Declaration);
     }
 
-    /// <summary>The retired comment used to be refused only where it stood as a BOUNDARY, and accepted as an ordinary
-    /// comment in a current file. The owner's decision (section 2b) retires every <c>(* @volt-… *)</c> comment: the pull
-    /// writes none, so a file holding one anywhere — in an ST body, documenting a declaration — was written before the
-    /// change, and is refused naming <c>volt pull</c>.</summary>
+    /// <summary>The retired comment in a CURRENT file — one with its <c>IMPLEMENTATION</c> line — is a comment. Section 2b
+    /// had every <c>(* @volt-… *)</c> comment anywhere refused naming <c>volt pull</c>, which refused current files holding
+    /// one in an ST body or a declaration: a scan over the code, not a condition of the split (openspec
+    /// <c>bridge-refusal-review</c> 2.1). The hint survives where it means something: inside the no-boundary refusal.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK F\nVAR\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n(* @volt-implementation *)\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK F\nVAR\n(* @volt-implementation *)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    public void The_retired_comment_anywhere_in_a_file_is_refused_naming_volt_pull(string source)
+    public void The_retired_comment_in_a_file_with_its_boundary_line_is_a_comment(string source)
     {
         var ide = new FakeIde();
 
-        var reason = Reason(Create(ide, source, "F.pou"));
+        var resp = Create(ide, source, "F.pou");
 
-        Assert.Contains("volt pull", reason);
-        AssertNothingWritten(ide);
+        // openspec bridge-refusal-review 2.1: a file that HAS its IMPLEMENTATION line states its boundary, so a
+        // `(* @volt-… *)` comment in it states nothing — it is a comment, written as sent. Only a file with no boundary
+        // line is a file from before the keyword, and that refusal (Unmarked) names the comment as its hint.
+        Assert.True(resp.Accepted, "push refused: " + Why(resp));
+        Assert.Contains("(* @volt-implementation *)", FakeIde.AllText(ide.WrittenContent["F"]));
     }
 
     [Fact]

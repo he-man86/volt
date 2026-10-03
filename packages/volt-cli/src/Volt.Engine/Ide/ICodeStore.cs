@@ -110,6 +110,15 @@ public interface ICodeStore
     /// guessed at: it reaches the IDE, whose apply-time refusal the push reports as what it is.</para></summary>
     string? RefusedName(string name);
 
+    /// <summary>Why the IDE cannot CREATE a member of <paramref name="memberKind"/> named <paramref name="name"/> with the
+    /// create argument <paramref name="seed"/> (<c>PushService.CreateSeed</c>: an interface member's declared type, any
+    /// other member's body language) — or null when the driver creates it. Asked by the push PRE-FLIGHT for every member
+    /// the push would create, so a create the vendor refuses from its argument alone lands before the first write, as
+    /// <see cref="RefusedName"/> does for a word (bridge-refusal-review 2.4/2.6: TwinCAT creates an interface member with
+    /// its type as the create argument and cannot create one that states none). The driver's own <c>CreateChild</c>
+    /// refuses the same create by the same predicate, so the two never disagree.</summary>
+    string? RefusedMemberCreate(string memberKind, string name, string? seed);
+
     /// <summary>The scope a graphical body resolves against: its own declarations (<paramref name="declaration"/>,
     /// innermost first — <see cref="SourceScopes.Scope"/>), the project's other items and its globals, the push's
     /// own declarations answering before the IDE's. The SAME scope the driver writes a pulled body against, so the

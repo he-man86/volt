@@ -114,19 +114,11 @@ public static class StReader
 
 		var original = NormalizeLines(sourceText);
 
-		// 2. A FILE FROM BEFORE THE KEYWORD. No Volt writes a `(* @volt-… *)` comment any more — the boundary and a
-		// hidden body are both stated by an IMPLEMENTATION line — so a file holding one, anywhere, was pulled by an
-		// older Volt. Refused before anything else is read, naming the pull that rewrites it: read around, the old
-		// boundary comment left a file with no boundary and the old marker comment landed in the IDE as the tail of a
-		// declaration or as a body. A comment only — the same characters in a string or after `//` are text. Only a POU
-		// or an interface asks: in a DUT or a GVL the comment is a comment.
-		if (ImplementationMarker.FindRetiredComment(original) is { } retired)
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} holds '{retired.Text}' (line {retired.Line + 1}), a comment of a Volt from " +
-				$"before bodies were stated by an {ImplementationMarker.Keyword} line. Run `volt pull` once to rewrite the " +
-				"workspace in the current format.");
-
-		// 3. The structure.
+		// 2. The structure. A `(* @volt-… *)` comment — the tag of a Volt from before the IMPLEMENTATION line — is a
+		// comment in a file that states its boundaries: it is read nowhere but as the HINT of the one refusal it explains,
+		// a region with no boundary line (Unmarked; openspec bridge-refusal-review 2.1). It used to be refused anywhere
+		// in the text, so a current file holding one in an ST body or a declaration could not be pushed — a scan over
+		// the code, not a condition of the split.
 		var item = ReadStructureOf(sourceText, original, kind, what, splitOnly: false);
 		RefuseLinesInDeclarations(item, what);
 		return item;
@@ -491,7 +483,10 @@ public static class StReader
 	{
 		ItemKind.Kinds.Pou => new[] { "END_FUNCTION_BLOCK", "END_PROGRAM", "END_FUNCTION" },
 		ItemKind.Kinds.Interface => new[] { "END_INTERFACE" },
-		_ => throw new BridgeException(BridgeErrorCodes.InvalidSt, $"Unexpected composite POU kind: {kind}"),
+		// A caller's bug, not the engineer's text (openspec bridge-refusal-review 2.2): the push reads a POU or an
+		// interface here, a DUT or a GVL is not read at all, and a read-only descriptor or a task never reaches the reader.
+		_ => throw new ArgumentException($"the ST reader has no composite shape for kind '{kind}': only a POU or an " +
+			"interface is split", nameof(kind)),
 	};
 
 	/// <summary>
@@ -557,7 +552,7 @@ public static class StReader
 				$"it, '{lines[stated[1]].Trim()}'. A body has ONE, the line that opens it. {ImplementationMarker.Keyword} " +
 				"is reserved, so if the other one names something, rename it; otherwise remove it.");
 		int at = ImplementationMarker.IndexIn(lines);
-		if (at < 0) throw Unmarked(what);
+		if (at < 0) throw Unmarked(what, lines);
 		var decl = string.Join("\n", SliceLines(lines, 0, at - 1));
 		var impl = string.Join("\n", SliceLines(lines, at + 1, lines.Count - 1));
 		return (decl.TrimEnd('\n'), impl.TrimEnd('\n'), lines[at]);
@@ -624,13 +619,10 @@ public static class StReader
 				$"{ImplementationMarker.UnsupportedWord}, alone. Code goes under the line, and a body in another language " +
 				"is edited in the IDE.");
 
-		// Network text under `IMPLEMENTATION ST` is an ST body like any other, written as sent: the IDE's build reports
-		// it (openspec bridge-refusal-review 1.1). ST under LD/FBD is still refused here until 2.3.
-		var network = Volt.Engine.Format.Network.NetworkText.OpensNetwork(code);
-		if (lang != Languages.St && !network && StTrivia.Code(code.Split('\n')).Any(l => l.Trim().Length > 0))
-			throw new BridgeException(BridgeErrorCodes.InvalidSt,
-				$"{what} states '{stated}', and its body is not network text — a network-text body is a sequence of " +
-				$"NETWORK … END_NETWORK blocks. State {ImplementationMarker.For(Languages.St)} for an ST body.");
+		// The stated language picks the reader, and the body is not sniffed for another (openspec bridge-refusal-review
+		// 1.1, 2.3): an ST body is ST whatever it holds — `NETWORK … END_NETWORK` under `IMPLEMENTATION ST` is written
+		// as sent and the IDE's build reports it — and an LD/FBD body is network text, which the NETWORK reader reads and
+		// refuses with its own code and line (NETWORK_PARSE for text that is no network).
 		return ImplementationMarker.Join(line, code);
 	}
 
@@ -885,12 +877,21 @@ public static class StReader
 		return new Accessor(decl, Body(line, impl, what));
 	}
 
-	/// <summary>A file that does not say where its declaration ends. Refused, never guessed — see
-	/// <see cref="ImplementationMarker"/> for the three bugs the guessing cost.</summary>
-	private static BridgeException Unmarked(string what) => new BridgeException(BridgeErrorCodes.InvalidSt,
-		$"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
-		"declaration ends or what language its body is in. Run `volt pull` once to rewrite the workspace in the " +
-		"current format.");
+	/// <summary>A region that does not say where its declaration ends. Refused, never guessed — see
+	/// <see cref="ImplementationMarker"/> for the three bugs the guessing cost. When the region holds a retired
+	/// <c>(* @volt-… *)</c> comment, the refusal names it: that comment is what a Volt from before the keyword wrote where
+	/// the line now stands, so it is the HINT that the file predates the format (openspec <c>bridge-refusal-review</c>
+	/// 2.1) — and the only place the comment is read at all.</summary>
+	private static BridgeException Unmarked(string what, IList<string> region)
+	{
+		var hint = ImplementationMarker.FindRetiredComment(region) is { } retired
+			? $" It holds '{retired.Text}', the comment a Volt from before that line wrote in its place."
+			: "";
+		return new BridgeException(BridgeErrorCodes.InvalidSt,
+			$"{what} has no '{ImplementationMarker.Keyword} <ST|LD|FBD>' line — the text does not say where its " +
+			$"declaration ends or what language its body is in.{hint} Run `volt pull` once to rewrite the workspace in " +
+			"the current format.");
+	}
 
 	// ─── Signature parsing (METHOD/ACTION/PROPERTY headers) ─────────
 
@@ -941,14 +942,15 @@ public static class StReader
 
 		// The type is everything after the FIRST colon, taken WHOLE and unexamined: no IEC type name contains a
 		// colon, and `ARRAY[0..N] OF BOOL` must arrive intact. Volt does not need to understand it — the IDE does,
-		// and it is the IDE that refuses a type that is wrong.
+		// and it is the IDE that refuses a type that is wrong. NOTHING after the colon is the build's declaration error
+		// too, so it reads as an empty type and the line is written as sent (openspec bridge-refusal-review 2.4); the one
+		// create that needs the type as an argument — a TwinCAT interface member — is refused by that driver, by name.
 		string? type = null;
 		var colon = clean.IndexOf(':');
 		if (colon >= 0)
 		{
 			type = clean.Substring(colon + 1).Trim();
 			clean = clean.Substring(0, colon);
-			if (type.Length == 0) throw BadSignature(sig, keyword, "nothing follows the ':'", where);
 		}
 
 		// KEYWORD [modifier …] NAME — the name is last because everything between is a modifier, and a word

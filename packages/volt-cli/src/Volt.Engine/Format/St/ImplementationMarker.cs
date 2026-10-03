@@ -45,8 +45,8 @@ namespace Volt.Engine.Format.St
     /// (2b's spelling) is no line a body can state and is refused by name. The line replaced the old marker comment,
     /// which carried the REASON in the file; an LD/FBD body's reason now reaches the pull message instead
     /// (<see cref="Volt.Engine.Item.ItemContent.Unsupported"/>), and no <c>(* @volt-… *)</c> comment of any kind is
-    /// written — a pushed file holding one was written before the change and is refused naming <c>volt pull</c>
-    /// (<see cref="FindRetiredComment"/>).</para>
+    /// written. One in a pushed file is a comment; only where a region has NO boundary line is it read, as the hint that
+    /// the file predates the line (<see cref="FindRetiredComment"/>, openspec <c>bridge-refusal-review</c> 2.1).</para>
     ///
     /// <para><b>Where the line rides in memory.</b> An ST body is written into the IDE as it stands, so it carries no
     /// line; a network-text body's language is one property of the whole body, so its keyword line stays its FIRST

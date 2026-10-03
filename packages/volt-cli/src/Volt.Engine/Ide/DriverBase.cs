@@ -32,6 +32,9 @@ public abstract class DriverBase : IIdeSession
     /// nothing rather than guessing.</summary>
     public virtual string? RefusedName(string name) => null;
 
+    /// <summary>No member create refused from its argument — see <c>ICodeStore.RefusedMemberCreate</c>.</summary>
+    public virtual string? RefusedMemberCreate(string memberKind, string name, string? seed) => null;
+
 
 
     private volatile bool _isDegraded;

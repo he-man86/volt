@@ -126,19 +126,36 @@ public class SignatureParseTests
         Assert.Contains("must declare a type", ex.Message);
     }
 
-    /// <summary>A word between the keyword and the name that is not an access modifier is a MALFORMED line,
-    /// not a second name to choose from. The old pattern reached the same verdict; this one says why.</summary>
-    [Fact]
-    public void An_unknown_word_before_the_name_is_refused()
+    /// <summary>A word between the keyword and the name that is not an access modifier is a MALFORMED line, not a
+    /// second name to choose from. Still refused (openspec <c>bridge-refusal-review</c> 2.5 waits for 3.1 and the
+    /// recorded build error): passed through, <c>METHOD Foo Bar : BOOL</c> over an existing method <c>Foo</c> read as
+    /// member <c>Bar</c>, and the push deleted Foo and created Bar with Foo's text (1+2d review).</summary>
+    [Theory]
+    [InlineData("METHOD STATIC Run : INT", "STATIC")]
+    [InlineData("METHOD FOO Run : INT", "FOO")]
+    [InlineData("METHOD PUBLIK Run", "PUBLIK")]
+    public void An_unknown_word_before_the_name_is_refused(string signature, string word)
     {
-        Assert.Contains("'STATIC' is not an access modifier", Refused("METHOD STATIC Run : INT").Message);
+        Assert.Contains($"'{word}' is not an access modifier", Refused(signature).Message);
     }
 
+    /// <summary>NOTHING AFTER THE COLON IS THE BUILD'S DECLARATION ERROR (2.4), so the line is written as sent and the
+    /// member carries an empty type. (TwinCAT's interface-member create needs the type as its create argument, so its
+    /// driver refuses an interface member with none, by name.)</summary>
+    [Fact]
+    public void Nothing_after_the_colon_is_read_as_an_empty_type()
+    {
+        var m = Only("METHOD Run :");
+        Assert.Equal("Run", m.Name);
+        Assert.Equal("", m.ReturnType);
+    }
+
+    /// <summary>A line with no name at all has no identity to create: still refused.</summary>
     [Fact]
     public void A_bare_keyword_is_refused()
     {
         Assert.Contains("does not begin with 'METHOD' and a name", Refused("METHOD").Message);
-        Assert.Contains("nothing follows the ':'", Refused("METHOD Run :").Message);
+        Assert.Contains("does not begin with 'METHOD' and a name", Refused("METHOD : INT").Message);
     }
 
     /// <summary>Every modifier CODESYS allows, on the line that used to allow four of them.</summary>

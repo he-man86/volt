@@ -1743,6 +1743,11 @@ window.VOLT = {
           "signature": "string? RefusedName(string name)"
         },
         {
+          "name": "RefusedMemberCreate",
+          "kind": "method",
+          "signature": "string? RefusedMemberCreate(string memberKind, string name, string? seed)"
+        },
+        {
           "name": "NetworkScopeFor",
           "kind": "method",
           "signature": "NetworkScope NetworkScopeFor(string? declaration, PushedDeclarations pushedDeclarations)"

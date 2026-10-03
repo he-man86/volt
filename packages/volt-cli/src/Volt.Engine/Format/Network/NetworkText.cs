@@ -41,37 +41,6 @@ public static class NetworkText
         return Languages.IsNetwork(lang) ? lang : null;
     }
 
-    // `NETWORK` opening a line with a header FIELD after it — `LABEL:`, `TITLE:`, `DISABLED`, v1's number — the way a
-    // network-text body opens and no ST statement can. NOT any word: `network REF= y;` is ST that names a variable
-    // `network`, and calling it network text made such a body pullable and never pushable.
-    private static readonly System.Text.RegularExpressions.Regex FieldedHeader =
-        new(@"^\s*NETWORK\s+(LABEL\s*:|TITLE\s*:|DISABLED\b|\d)",
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-    // `NETWORK` alone on its line is the other header — and also ST, when a statement is wrapped after the name
-    // (`network` then `:= y;`). Network text closes every network with `END_NETWORK`, which no such statement has.
-    private static readonly System.Text.RegularExpressions.Regex BareHeader =
-        new(@"^\s*NETWORK\s*$",
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-    private static readonly System.Text.RegularExpressions.Regex NetworkEnd =
-        new(@"^\s*END_NETWORK\b",
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-    /// <summary>Does <paramref name="code"/> — a body's text under its boundary line — open with a network: is its first
-    /// line of code a <c>NETWORK</c> header? The one rule a body is checked against its STATED language by
-    /// (<see cref="StReader"/>): network text under <c>IMPLEMENTATION ST</c> and ST under <c>IMPLEMENTATION LD</c> are both
-    /// refused by name. It decides nothing about how a body is read — the stated language does that; this only
-    /// catches the text that contradicts it, which would otherwise reach the IDE as the wrong language.</summary>
-    public static bool OpensNetwork(string code)
-    {
-        var lines = StTrivia.Code(code.Replace("\r", "").Split('\n'));
-        var first = System.Array.FindIndex(lines, l => l.Trim().Length > 0);
-        if (first < 0) return false;
-        if (FieldedHeader.IsMatch(lines[first])) return true;
-        return BareHeader.IsMatch(lines[first]) && lines.Skip(first + 1).Any(l => NetworkEnd.IsMatch(l));
-    }
-
     /// <summary>An LD or FBD body as a PULL hands it up: its network text, from <paramref name="read"/> — the driver's
     /// own reader and <see cref="NetworkTextWriter"/> — or its UNSUPPORTED line and why. The ONE decision every driver's
     /// pull (and <c>FakeIde</c>) makes for such a body, so the vendors cannot answer the same body differently.
@@ -236,9 +205,9 @@ public static class NetworkText
     /// construct (<see cref="V1Constructs"/>, the reader's own rule), a whole v1 network included.
     ///
     /// <para>Network text is only ever a body STATED LD or FBD. A whole v1 body under any other line is either a file
-    /// from before the <c>IMPLEMENTATION</c> keyword (the retired comment: refused, "pull once") or network text under
-    /// <c>IMPLEMENTATION ST</c> (a contradiction, refused by name) — both by <see cref="StReader.Read"/>, before this
-    /// question can be asked.</para>
+    /// from before the <c>IMPLEMENTATION</c> keyword (no boundary line: refused by <see cref="StReader.Read"/>, "pull
+    /// once") or an ST body — <c>IMPLEMENTATION ST</c> states ST whatever the body holds, and the IDE's build answers it
+    /// (openspec <c>bridge-refusal-review</c> 1.1).</para>
     /// </summary>
     private static bool HoldsV1(string? body)
     {

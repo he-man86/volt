@@ -434,21 +434,15 @@ public class ReadOnlyBodyTests
 
     // ── no Volt comment survives ─────────────────────────────────────────────────────────────────
 
-    /// <summary>A file that still holds a <c>(* @volt-… *)</c> comment ANYWHERE was written before the change —
-    /// the pull writes none — and is refused naming <c>volt pull</c>, which rewrites it in the current format.
-    /// Nothing is written.</summary>
+    /// <summary>A file with NO boundary line where one belongs — the POU's, or a member's — is a file from before the
+    /// change, and when it holds a <c>(* @volt-… *)</c> comment the refusal names that comment as the hint, beside
+    /// <c>volt pull</c>, which rewrites it in the current format (openspec <c>bridge-refusal-review</c> 2.1). Nothing is
+    /// written.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-graphical: CFC *)\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION CFC UNSUPPORTED\n(* @volt-graphical: CFC *)\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\n(* @volt-graphical: kept *)\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1; (*@volt-note*)\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\n(* @volt-graphical: SFC *)\nEND_METHOD\n")]
     [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\n(* @volt-implementation *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    // NESTED inside a comment of the engineer's: comments nest, so the tag is a comment of its own inside the outer
-    // one, and "no Volt comment survives" has no depth at which it stops holding.
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n(* note (* @volt-graphical: CFC *) *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT; (* a\n\t(* b (* @volt-note *) *)\n\t*)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n")]
-    public void A_pushed_file_holding_a_volt_comment_is_refused_naming_volt_pull(string source)
+    public void A_pushed_file_with_no_boundary_holding_a_volt_comment_is_refused_naming_it_and_volt_pull(string source)
     {
         var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", "SFC"));
 
@@ -457,6 +451,24 @@ public class ReadOnlyBodyTests
         Assert.Contains("volt pull", reason);
         Assert.Contains("@volt", reason);                       // it names what it found
         Assert.Empty(ide.WrittenContent);
+    }
+
+    /// <summary>…while a file that HAS its boundary lines states them, and a <c>(* @volt-… *)</c> comment in it is a
+    /// comment like any other — in a declaration, an ST body, nested in a comment of the engineer's. It used to be
+    /// refused anywhere (section 2b): a scan over the code, not a condition of the split.</summary>
+    [Theory]
+    [InlineData("FUNCTION_BLOCK FB_Chart\n(* @volt-graphical: kept *)\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\nx := 1; (*@volt-note*)\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT;\nEND_VAR\nIMPLEMENTATION ST\n(* note (* @volt-graphical: CFC *) *)\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
+    [InlineData("FUNCTION_BLOCK FB_Chart\nVAR\n\tx : INT; (* a\n\t(* b (* @volt-note *) *)\n\t*)\nEND_VAR\nIMPLEMENTATION ST\nx := 1;\n\nEND_FUNCTION_BLOCK\n\nMETHOD Step : BOOL\nIMPLEMENTATION SFC UNSUPPORTED\nEND_METHOD\n")]
+    public void A_pushed_file_with_its_boundary_lines_holding_a_volt_comment_is_written(string source)
+    {
+        var ide = new FakeIde(Pou(null, null, "Step"), Method("Step", "SFC"));
+
+        var resp = Update(ide, source);
+
+        Assert.True(resp.Accepted, resp.Conflicts is null ? "" : string.Join("; ", resp.Conflicts.Select(c => c.Reason)));
+        Assert.Contains("@volt-", FakeIde.AllText(ide.WrittenContent["FB_Chart"]));
     }
 
     /// <summary>A declaration-only kind is NOT held to that rule: a GVL or a DUT is not read on a push at all (openspec

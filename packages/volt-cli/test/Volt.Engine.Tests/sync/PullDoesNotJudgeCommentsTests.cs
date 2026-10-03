@@ -55,6 +55,21 @@ public class PullDoesNotJudgeCommentsTests
         Assert.Contains("x := 1; (* @volt-implementation *)", item.Text);
     }
 
+    /// <summary>…and the file it writes reads back on a push as the same item (2.1: a file with its boundary line is
+    /// not judged for a comment), so the item round-trips.</summary>
+    [Fact]
+    public void A_pulled_POU_holding_a_retired_volt_comment_reads_back_on_a_push()
+    {
+        var ide = new FakeIde(new FakeIde.Item("FB_A", ItemKind.PlcPou, "", true,
+            "FUNCTION_BLOCK FB_A\n(* @volt-note *)\nVAR\nEND_VAR", "x := 1; (* @volt-implementation *)", null, null));
+
+        var item = Materializer.Materialize(ide, "FB_A", ItemKind.Kinds.Pou, new ItemRef("FB_A"));
+
+        var back = Volt.Engine.Format.St.StReader.Read(item.Text, ItemKind.Kinds.Pou, "FB_A");
+        Assert.Equal("FUNCTION_BLOCK FB_A\n(* @volt-note *)\nVAR\nEND_VAR", back.Declaration);
+        Assert.Equal("x := 1; (* @volt-implementation *)", back.Body);
+    }
+
     [Fact]
     public void The_items_are_published_by_refs_not_listed_unreadable()
     {

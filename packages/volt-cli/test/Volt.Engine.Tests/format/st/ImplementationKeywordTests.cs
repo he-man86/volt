@@ -504,24 +504,23 @@ public class ImplementationKeywordTests
 
     // ── section 2, data-lens review ───────────────────────────────────────────────────────────────
 
-    /// <summary>A declaration comment spelled like the retired <c>(* @volt-graphical: … *)</c> marker was read as the
-    /// engineer's note and pushed back (section-2 review round 1). The owner's decision (section 2b) retires every
-    /// <c>(* @volt-… *)</c> comment: the pull writes none, so a file holding one — in a declaration as much as at a
-    /// boundary — was written before the change, and is refused naming <c>volt pull</c> rather than read around.</summary>
+    /// <summary>A declaration comment spelled like the retired <c>(* @volt-graphical: … *)</c> marker, in a file that
+    /// states its boundary on its <c>IMPLEMENTATION</c> line, is the engineer's comment: the line, not the comment, says
+    /// where the body starts, so the comment is written as part of the declaration (openspec
+    /// <c>bridge-refusal-review</c> 2.1). Section 2b refused it anywhere; that was a scan over the code.</summary>
     [Theory]
     [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\n\ta : BOOL;\nEND_VAR\nIMPLEMENTATION ST\na := TRUE;\n\nEND_FUNCTION_BLOCK\n")]
     [InlineData("FUNCTION_BLOCK FB_Motor\n(* @volt-graphical: replaces the old CFC *)\nVAR\nEND_VAR\nIMPLEMENTATION CFC UNSUPPORTED\n\nEND_FUNCTION_BLOCK\n")]
-    public void A_marker_spelled_comment_in_a_declaration_is_refused_naming_volt_pull(string text)
+    public void A_marker_spelled_comment_in_a_declaration_is_the_declarations_comment(string text)
     {
-        var ex = Assert.Throws<BridgeException>(() => StReader.Read(text, ItemKind.Kinds.Pou, "FB_Motor"));
-        Assert.Contains("volt pull", ex.Message);
-        Assert.Contains("FB_Motor", ex.Message);
+        var item = StReader.Read(text, ItemKind.Kinds.Pou, "FB_Motor");
+        Assert.Contains("(* @volt-graphical: replaces the old CFC *)", item.Declaration);
     }
 
     /// <summary><c>network</c> is an ordinary IEC name, and an ST body may open with it: a <c>REF=</c> assignment,
     /// or a statement wrapped so that the name stands alone on its first line. The pull writes such a body under
-    /// <c>IMPLEMENTATION ST</c>; the contradiction check must not call it network text, or the item could never be
-    /// pushed back. A network header is <c>NETWORK</c> with a header field, or alone and closed by <c>END_NETWORK</c>.</summary>
+    /// <c>IMPLEMENTATION ST</c>, and an ST body is ST whatever it holds (openspec <c>bridge-refusal-review</c> 1.1/2.3:
+    /// the contradiction sniff is gone, and network text under ST is ST too).</summary>
     [Theory]
     [InlineData("network REF= y;")]
     [InlineData("network\n\t:= y;")]
@@ -534,18 +533,6 @@ public class ImplementationKeywordTests
         var item = StReader.Read(text, ItemKind.Kinds.Pou, "FB_Motor");
 
         Assert.Equal(body, item.Body);
-    }
-
-    [Theory]
-    [InlineData("NETWORK\n  out := a;\nEND_NETWORK")]
-    [InlineData("NETWORK LABEL: L1\n  out := a;\nEND_NETWORK")]
-    [InlineData("NETWORK TITLE: \"t\"\n  out := a;\nEND_NETWORK")]
-    [InlineData("NETWORK DISABLED\n  out := a;\nEND_NETWORK")]
-    [InlineData("NETWORK 0 LD\n  out := a;\nEND_NETWORK")]   // v1's header: network text, refused by its own reader
-    [InlineData("NETWORK LABEL: L1\n  out := a;")]           // unclosed, but a header only network text has
-    public void Network_text_under_ST_is_still_network_text(string body)
-    {
-        Assert.True(NetworkText.OpensNetwork(body), body);
     }
 
     /// <summary><c>%FOLDER</c> is peeled only where the directive stands — the FIRST line under a member's boundary.

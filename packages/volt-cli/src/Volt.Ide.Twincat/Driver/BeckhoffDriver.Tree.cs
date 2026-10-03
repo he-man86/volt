@@ -277,6 +277,19 @@ public sealed partial class BeckhoffDriver
 
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
+        // AN INTERFACE MEMBER IS CREATED WITH ITS TYPE (openspec bridge-refusal-review 2.4, 2.6): TwinCAT's CreateChild
+        // takes an interface method's return type / an interface property's data type as its vInfo, and a property
+        // created with none fails inside TcXaeShell ("Object reference not set to an instance of an object",
+        // IProjectTree.CreateChild). So a property with no type, or a member whose line has nothing after its `:`, is
+        // refused here, by name, before the IDE is touched. The ST reader used to refuse those lines on both vendors —
+        // the build's error everywhere but this one create. An interface METHOD with no colon at all is untyped and is
+        // created with a null vInfo, as it always was.
+        // The push pre-flight asks the same predicate (RefusedMemberCreate), so a push is refused before anything lands;
+        // this is the guard for every other caller.
+        var memberKind = kindCode == ItemKind.PlcItfProp ? ItemKind.Kinds.InterfaceProperty
+            : kindCode == ItemKind.PlcItfMeth ? ItemKind.Kinds.InterfaceMethod : null;
+        if (memberKind is not null && UntypedInterfaceMember(memberKind, name, seed) is { } refusal)
+            throw new NotSupportedException(refusal);
         try { return new(_om.CreateChild(parent.Native, name, kindCode, seed)); }
         catch (Exception ex) when (Refusal(ex) is { } why) { throw new ChildRefusedException(why.Message, why.Cause, ex); }
     }
@@ -292,6 +305,20 @@ public sealed partial class BeckhoffDriver
     /// 3.1): a word TwinCAT was measured to refuse for a new POU or METHOD / ACTION / PROPERTY (<see cref="TcRefusedNames"/>, the
     /// probe logs), answered in the words the IDE uses — or null for a word it took or was never asked.</summary>
     public override string? RefusedName(string name) => NameRefusal(name);
+
+    /// <summary>The push pre-flight's create-argument refusal (<c>ICodeStore.RefusedMemberCreate</c>): an interface
+    /// member TwinCAT cannot create because it states no type (see <see cref="CreateChild"/>).</summary>
+    public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
+        UntypedInterfaceMember(memberKind, name, seed);
+
+    /// <summary>An interface PROPERTY with no type, or an interface METHOD whose line has nothing after its <c>:</c>;
+    /// an interface method with no colon at all is untyped and created with a null vInfo, as it always was.</summary>
+    private static string? UntypedInterfaceMember(string memberKind, string name, string? seed) =>
+        (memberKind == ItemKind.Kinds.InterfaceProperty && string.IsNullOrWhiteSpace(seed))
+        || (memberKind == ItemKind.Kinds.InterfaceMethod && seed is not null && seed.Trim().Length == 0)
+            ? $"TwinCAT: the interface {(memberKind == ItemKind.Kinds.InterfaceProperty ? "property" : "method")} '{name}' " +
+              "states no type, and TwinCAT creates an interface member with its type as the create argument. Give it a type."
+            : null;
 
     internal static string? NameRefusal(string name) =>
         TcRefusedNames.Words.Contains(name)

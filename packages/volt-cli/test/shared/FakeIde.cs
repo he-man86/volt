@@ -437,9 +437,19 @@ public sealed class FakeIde : DriverBase, IIdeDriver
 
     public override string? RefusedName(string name) => RefusesName?.Invoke(name);
 
+    /// <summary>The driver's create-argument refusals (<c>ICodeStore.RefusedMemberCreate</c>), given the member kind, name
+    /// and seed. <see cref="CreateChild"/> refuses the same creates with a <c>NotSupportedException</c>, as TwinCAT's
+    /// driver does. Unset, the fake refuses none — as <c>DriverBase</c>.</summary>
+    public Func<string, string, string?, string?>? RefusesMemberCreate { get; init; }
+
+    public override string? RefusedMemberCreate(string memberKind, string name, string? seed) =>
+        RefusesMemberCreate?.Invoke(memberKind, name, seed);
+
     public ItemRef CreateChild(ItemRef parent, string name, int kindCode, string? seed = null)
     {
         if (FailCreate?.Invoke(name, kindCode) is { } failure) throw failure;
+        if (ItemKind.Map(kindCode) is { } memberKind && RefusesMemberCreate?.Invoke(memberKind, name, seed) is { } why)
+            throw new NotSupportedException(why);
         if (RefusesMembersByText && ItemKind.IsInlinedInPou(kindCode) && FindOrNull(parent) is { KindCode: ItemKind.PlcPou } pouOwner)
         {
             var header = Volt.Engine.Format.St.StReader.PouHeaderKeyword(pouOwner.Declaration ?? "");

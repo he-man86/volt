@@ -31,7 +31,7 @@ public class NoCodeCheckLeftTests
     private static readonly Dictionary<string, Retired> Names = new(StringComparer.Ordinal)
     {
         // Still in the code at the baseline.
-        ["OpensNetwork"] = new(@"\bOpensNetwork\b", 2,
+        ["OpensNetwork"] = new(@"\bOpensNetwork\b", 0,
             "1.1 / 2.3: StReader sniffs an ST body for network text, and LD/FBD for its absence"),
         ["RefuseReservedNames"] = new(@"\bRefuseReservedNames\b", 0,
             "1.2: the identifier `implementation` refused anywhere in the code"),
