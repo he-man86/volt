@@ -1088,13 +1088,70 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 ? existing with { KindCode = KindCodeOf(m.Kind), Folder = folder, Declaration = m.Declaration }
                 : new Item(m.Name, KindCodeOf(m.Kind), folder, false, m.Declaration,
                            Held(m.Body, bodies, new Volt.Engine.Ide.BodySite(m.Name, m.Kind, null)),
-                           null, null) { Class = existing?.Class };   // written in place: the class is kept (C2l)
+                           null, null) { Class = existing?.Class, Children = existing?.Children };   // written in place: the class (C2l) and the accessors are kept
             if (existing is null) _items.Add(member);
             else _items[_items.IndexOf(existing)] = member;
+
+            // A PROPERTY'S ACCESSORS ARE WRITTEN TOO, as both drivers do (`WriteAccessor`, GET and SET). The fake
+            // replaced the property and dropped its accessor children, so a pushed `GET … END_GET` was created by
+            // `ReconcileAccessor` and then never held: the read gave the property back with no accessors at all
+            // (openspec `st-roundtrip-fixed-point` 1.1). An accessor the IDE lacks is not invented here — creating it
+            // is `CreateChild`'s job, through `ReconcileAccessor`.
+            var ownerIsInterface = m.Kind == ItemKind.Kinds.InterfaceProperty;
+            WriteAccessor(member, m.Getter, ItemKind.PlcPropGet, ItemKind.PlcItfPropGet, ownerIsInterface, bodies,
+                          new Volt.Engine.Ide.BodySite(m.Name, m.Kind, Volt.Engine.Ide.BodySite.Get));
+            WriteAccessor(member, m.Setter, ItemKind.PlcPropSet, ItemKind.PlcItfPropSet, ownerIsInterface, bodies,
+                          new Volt.Engine.Ide.BodySite(m.Name, m.Kind, Volt.Engine.Ide.BodySite.Set));
         }
 
         // Bumped LAST, so this call's own handle was still valid.
         if (InvalidatesHandlesOnWrite) _generation++;
+    }
+
+    /// <summary>Write one pushed accessor into the property's existing accessor child of that role, as the drivers'
+    /// <c>WriteAccessor</c> do; nothing when either side is absent (the push's <c>ReconcileAccessor</c> creates and
+    /// deletes accessors, not the content write).
+    ///
+    /// <para><b>The body written is <see cref="Accessor.Code"/></b> — <c>""</c> for a null body, as CODESYS writes it.
+    /// An accessor that exists has a body, empty or not (<c>Accessor</c>'s own contract); keeping the old body on null
+    /// was a fallback that turned a missing fact into "unchanged". TwinCAT's driver passes <c>Body</c> and skips a null
+    /// one, but gets a null only from its own <c>Textual</c> (a graphical body already written through the archive):
+    /// <c>StReader</c> never produces a null accessor body.</para>
+    ///
+    /// <para><b>Through <see cref="Held"/>, as every other body write here</b>: both drivers build a graphical GET/SET
+    /// from the validated model (<c>WriteGraph</c>), so it reads back in the canonical layout, not as pushed. An
+    /// UNSUPPORTED body is never written (<c>ImplementationMarker.Written</c>) and the accessor keeps its own.</para>
+    ///
+    /// <para><b>An INTERFACE accessor takes its declaration and never a body.</b> Neither vendor has a body slot there
+    /// (DIALECT D21/D41). CODESYS writes the declaration (a changed one; an unchanged one reads the same either way).
+    /// TwinCAT writes nothing and refuses any declaration from the text in its push pre-flight
+    /// (<c>BeckhoffDriver.ValidateInterfaceAccessor</c>) — modelled through <see cref="ValidatesInterfaceAccessor"/>,
+    /// which runs before any write. The fake's default refuses nothing, so a declaration reaching this point is written
+    /// as CODESYS writes it.</para></summary>
+    private void WriteAccessor(Item property, Accessor? pushed, int pouAccessorKind, int interfaceAccessorKind,
+                               bool ownerIsInterface, IReadOnlyList<Volt.Engine.Ide.PushedNetworkBody> bodies,
+                               Volt.Engine.Ide.BodySite site)
+    {
+        if (pushed is null) return;
+        foreach (var name in property.Children ?? System.Array.Empty<string>())
+        {
+            var acc = FindOrNull(Ref(name));
+            if (acc is null || (acc.KindCode != pouAccessorKind && acc.KindCode != interfaceAccessorKind)) continue;
+            if (ownerIsInterface)
+            {
+                _items[_items.IndexOf(acc)] = acc with { Declaration = pushed.Declaration };
+                return;
+            }
+            var written = Volt.Engine.Format.St.ImplementationMarker.Written(pushed.Code);
+            _items[_items.IndexOf(acc)] = acc with
+            {
+                Declaration = pushed.Declaration,
+                Implementation = written is null ? acc.Implementation : Held(written, bodies, site),
+                BodyLang = written is null ? acc.BodyLang : null,
+                Unsupported = written is null ? acc.Unsupported : null,
+            };
+            return;
+        }
     }
 
     /// <summary>A written body AS THE IDE HOLDS IT. A real IDE stores a graphical body as its MODEL — the drivers read
