@@ -1,0 +1,118 @@
+== library-signature cost — twincat-project14-step4 — twincat — pipe volt.bridge.twincat.17984 — 2026-10-03T22:17:42.838Z
+  refs: 746 ms  items=18
+  .library refs: 3; Standard: ["Tc2_Standard.library"]
+
+-- 1.1 directed read of Tc2_Standard.library (cold session, before any extraction)
+  directed #0: 149 ms  librariesRefreshed=false  changed=33  .library=1  signatures=32  under (unresolved)=0  items=1
+  item "Tc2_Standard.library" folder="References/Tc2_Standard" chars=152
+    | LIBRARY Tc2_Standard
+    | NAMESPACE Tc2_Standard
+    | RESOLUTION Tc2_Standard, 3.4.5.0 (Beckhoff Automation GmbH)
+    | PLACEHOLDER true
+    | SYSTEM false
+    | MATERIALIZATION 4
+    | 
+  item "RS.pou" folder="References/Tc2_Standard" chars=114
+  item "SR.pou" folder="References/Tc2_Standard" chars=114
+  item "CTD.pou" folder="References/Tc2_Standard" chars=135
+  item "CTU.pou" folder="References/Tc2_Standard" chars=136
+  item "CTUD.pou" folder="References/Tc2_Standard" chars=176
+  item "CONCAT.pou" folder="References/Tc2_Standard" chars=102
+  item "DELETE.pou" folder="References/Tc2_Standard" chars=104
+  item "FIND.pou" folder="References/Tc2_Standard" chars=92
+  item "INSERT.pou" folder="References/Tc2_Standard" chars=114
+  item "LEFT.pou" folder="References/Tc2_Standard" chars=91
+  item "LEN.pou" folder="References/Tc2_Standard" chars=69
+  item "MID.pou" folder="References/Tc2_Standard" chars=101
+  item "REPLACE.pou" folder="References/Tc2_Standard" chars=123
+  item "RIGHT.pou" folder="References/Tc2_Standard" chars=92
+  item "WCONCAT.pou" folder="References/Tc2_Standard" chars=106
+  item "WDELETE.pou" folder="References/Tc2_Standard" chars=107
+  item "WFIND.pou" folder="References/Tc2_Standard" chars=95
+  item "WINSERT.pou" folder="References/Tc2_Standard" chars=118
+  item "WLEFT.pou" folder="References/Tc2_Standard" chars=94
+  item "WLEN.pou" folder="References/Tc2_Standard" chars=71
+  item "WMID.pou" folder="References/Tc2_Standard" chars=104
+  item "WREPLACE.pou" folder="References/Tc2_Standard" chars=127
+  item "WRIGHT.pou" folder="References/Tc2_Standard" chars=95
+  item "TOF.pou" folder="References/Tc2_Standard" chars=121
+  item "TON.pou" folder="References/Tc2_Standard" chars=121
+    | FUNCTION_BLOCK TON
+    | VAR_INPUT
+    | 	IN : BOOL;
+    | 	PT : TIME;
+    | END_VAR
+    | VAR_OUTPUT
+    | 	Q : BOOL;
+    | 	ET : TIME;
+    | END_VAR
+    | END_FUNCTION_BLOCK
+  item "TP.pou" folder="References/Tc2_Standard" chars=120
+  item "LTOF.pou" folder="References/Tc2_Standard" chars=124
+  item "LTON.pou" folder="References/Tc2_Standard" chars=124
+  item "LTP.pou" folder="References/Tc2_Standard" chars=123
+  item "F_TRIG.pou" folder="References/Tc2_Standard" chars=101
+  item "R_TRIG.pou" folder="References/Tc2_Standard" chars=101
+  item "Global_Version.gvl" folder="References/Tc2_Standard" chars=62
+  4.1 TON in the directed answer: TON.pou @ "References/Tc2_Standard"
+
+-- 1.2 full fetches
+  init #1 (first full fetch, after directed #0's cold extraction): 118 ms  librariesRefreshed=true  changed=252  .library=3  signatures=234  under (unresolved)=0  items=18
+  4.1 directed #0 (own cold extraction) vs init #1 (own extraction): SAME (33 items)
+
+-- R1 refs: 3, wildcard RESOLUTIONs: 0
+  (unresolved) folders: 0
+  refs whose folder holds no signature: 0
+
+-- refs sharing one RESOLUTION: 0 group(s)
+
+-- refs sharing one title + company: 0 group(s)
+
+-- signature folders in init #1: 3
+    32	References/Tc2_Standard
+    164	References/Tc2_System
+    38	References/Tc3_Module
+  TON.pou in References/Tc2_Standard:
+    | FUNCTION_BLOCK TON
+    | VAR_INPUT
+    | 	IN : BOOL;
+    | 	PT : TIME;
+    | END_VAR
+    | VAR_OUTPUT
+    | 	Q : BOOL;
+    | 	ET : TIME;
+    | END_VAR
+    | END_FUNCTION_BLOCK
+
+  init #2 (WARM extraction): 126 ms  librariesRefreshed=true  changed=252  .library=3  signatures=234  under (unresolved)=0  items=18
+  init #3 (WARM extraction): 125 ms  librariesRefreshed=true  changed=252  .library=3  signatures=234  under (unresolved)=0  items=18
+  init #4 (WARM extraction): 111 ms  librariesRefreshed=true  changed=252  .library=3  signatures=234  under (unresolved)=0  items=18
+  known #1 (no extraction: walk-only floor): 110 ms  librariesRefreshed=false  changed=0  .library=0  signatures=0  under (unresolved)=0  items=18
+  known #2 (no extraction: walk-only floor): 97 ms  librariesRefreshed=false  changed=0  .library=0  signatures=0  under (unresolved)=0  items=18
+  known #3 (no extraction: walk-only floor): 93 ms  librariesRefreshed=false  changed=0  .library=0  signatures=0  under (unresolved)=0  items=18
+
+-- .library re-sent by a known fetch: 0
+
+  directed #1 (warm session): 110 ms  librariesRefreshed=false  changed=33  .library=1  signatures=32  under (unresolved)=0  items=1
+  directed #2 (warm session): 102 ms  librariesRefreshed=false  changed=33  .library=1  signatures=32  under (unresolved)=0  items=1
+  directed #3 (warm session): 96 ms  librariesRefreshed=false  changed=33  .library=1  signatures=32  under (unresolved)=0  items=1
+
+-- 2.3 two directed reads of different libraries in a row: "Tc2_System.library" then "Tc2_Standard.library"
+  directed "Tc2_System.library": 102 ms  librariesRefreshed=false  changed=165  .library=1  signatures=164  under (unresolved)=0  items=1
+    SAME (165 items)
+  directed "Tc2_Standard.library": 94 ms  librariesRefreshed=false  changed=33  .library=1  signatures=32  under (unresolved)=0  items=1
+    SAME (33 items)
+
+-- 4.3 directed == full, per item: 18 names
+  per extension (ext, verdict, count):
+    dut	SAME	2
+    external_types	SAME	1
+    gvl	SAME	1
+    library	SAME	3
+    pou	SAME	8
+    projectsettings	SAME	1
+    task	SAME	1
+    tmc	SAME	1
+  full-fetch signatures: 234; in a ref's folder (a directed read can return them): 234; outside every ref's folder (no directed read returns them): 0
+
+-- summary (ms): extraction cold = directed #0 149 (the session's first extraction); init #1 118 (after directed #0's build, NOT cold; − known ≈ 21); init warm 126/125/111 (median 125); known 110/97/93 (median 97); extraction warm ≈ 28; directed 110/102/96 warm (session cache)

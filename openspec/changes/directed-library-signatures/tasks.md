@@ -481,7 +481,83 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Repeat 1.1 live on CODESYS: TON's pins are in the answer.
-- [ ] 4.3 Live, both vendors: the 2.4 table over a fixture project — every readable extension read on its own matches
+- [x] 4.1 Repeat 1.1 live on CODESYS: TON's pins are in the answer.
+      **Done (2026-10-04, live, CODESYS 3.5.21.40 SP21 P4, `ide.ps1 -Instance directed-library-signatures`, fixture copy;
+      log `packages/volt-cli/scripts/library-signature-cost-codesys-fixture-step4.log`).** `fetch { knownItems: {},
+      onlyItems: ["Standard.library"] }` as the session's FIRST read (no extraction before it): `librariesRefreshed:
+      false`, `changed` = 23 = the manifest (unchanged, 123 chars, `MATERIALIZATION 4`) + Standard's 22 signatures, 0 under
+      `(unresolved)`, `items` = 1. `TON.pou` @ `Device/Plc Logic/Application/Library Manager/Standard`: `VAR_INPUT IN : BOOL;
+      PT : TIME;` / `VAR_OUTPUT Q : BOOL; ET : TIME;` / `VAR M : BOOL; STARTTIME : TIME;` — and the whole directed
+      answer (folder, name, version, text of all 23 items) equals what init #1 writes in Standard's folder: `4.1
+      directed #0 (own cold extraction) vs init #1 (own extraction): SAME (23 items)`. That is the one comparison of two
+      INDEPENDENT extractions (gate step 4 F1): directed #0 extracted on its own (nothing cached yet), init #1 extracted
+      again and Stored; every later directed read (2.3, 4.3, the warm repeats) is answered by `Reuse` from the cache a
+      full fetch Stored, so its parity only shows that `AppendNamed` and `AppendAll` split ONE extraction the same way.
+      The read cost 1756 ms cold (it ran `Build(app)`: the message view gained `Typify code…` / `Compile complete -- 0
+      errors, 0 warnings` / `Additional code checks …`, as 1.2 R2 predicted) — the session's cold extraction figure; init
+      #1 after it is NOT cold (316 ms, "The application is up to date"; gate step 4 F2) — and 13-25 ms warm from the
+      session cache (×3, and 9 ms right after an ST edit — no library version moved, no build output). The same on
+      TwinCAT Project14 (`…-twincat-project14-step4.log`): `Tc2_Standard.library` directed first read 149 ms, 33 items
+      (manifest + 32), `TON.pou` @ `References/Tc2_Standard` IN/PT → Q/ET, `SAME (33 items)` against init #1; warm
+      96-110 ms (the walk floor, known fetch 93-110). Wildcard refs now hold their signatures on the full fetch too: fixture
+      `(unresolved)` 58 → 5 signatures, 8 → 1 folder — the one left is `systypes interfaces, 3.5.2.0 (system)`, the
+      facade split left to the owner (1.1).
+- [x] 4.3 Live, both vendors: the 2.4 table over a fixture project — every readable extension read on its own matches
       the full fetch (LD/FBD network text rows deferred to its design work, listed as such).
-- [ ] 4.2 Full C# suites and `bun run check` green.
+      **Done (2026-10-04, `MEASURE_PARITY=1`, same two logs): every name `refs` publishes read on its own and compared
+      (folder, name, version, text — for a `.library`, everything in its folder) with the last full fetch.**
+      | project | names | per extension | not SAME |
+      |---|---|---|---|
+      | CODESYS fixture | 37 | library 29 SAME + 1 EMPTY, pou 4, device 1, projectsettings 1, task 1 SAME | `CmpEventMgr.library` EMPTY: the facade (`CmpEventMgr, 3.5.17.0`) holds no signature in either answer — the owner's facade split, not a directed-read gap |
+      | TwinCAT Project14 | 18 | library 3, pou 8, dut 2, gvl 1, external_types 1, projectsettings 1, task 1, tmc 1 SAME | none |
+      Step-2 baseline for comparison: CODESYS library 22 DIFFERS + 8 EMPTY (read SAME by the pre-G5 script), TwinCAT
+      library 3 DIFFERS — every library row now matches. 2.3 live: `Util.library` (116 items) then `Standard.library`
+      (23), both SAME, 11/16 ms (CODESYS); `Tc2_System.library` (165) then `Tc2_Standard.library` (33), SAME, 102/94 ms.
+      These rows (and 2.3) compare a cache `Reuse` with the full fetch that Stored it — the extraction itself is checked
+      independently only by 4.1's directed #0 row (gate step 4 F1).
+      **Outside every directed answer (gate step 4 F4):** a directed read returns only the folder of the name it asks
+      for, and the tally iterates the names `refs` publishes, so a signature the full fetch writes outside every ref's
+      folder is in no row. CODESYS fixture: full fetch 813 signatures, 808 in a ref's folder, **5 outside** (all in
+      `(unresolved)/systypes interfaces` — the owner's open facade split, 1.1); no directed read of any name returns
+      them. TwinCAT Project14: 234 / 234 / 0.
+      No `.library` is re-sent by a known fetch on either fixture, so no AMBIGUOUS row (the 13 `System_Visu*` second
+      copies exist only on Pro2193, 1.1 F5).
+      **Owner rules covered OFFLINE only (gate step 4 F3):** neither fixture has a repeated RESOLUTION or a shared
+      title + company (both logs: `refs sharing one RESOLUTION: 0 group(s)`, `sharing one title + company: 0
+      group(s)`), so one owner per repeated RESOLUTION (the CAA Callback + CAA Callback Extern pair, 1.3 F1, 4 of 5 real
+      CODESYS corpora) and the ambiguous-owner refusal are pinned by the step-2/3 engine tests alone; nothing live in
+      this step shows them. A live check needs a corpus with the pair (awa-palletizer, Pro2193) — not run here.
+      Coverage: of the 2.4 table's 19 File kinds, 9 occur on these two live fixtures (pou, dut, gvl, library, device,
+      task, project_settings, external_types, tmc_file); the other 10 (interface, project_info, trace, recipe,
+      symbol_config, image_pool, parameter_list, text_list, visualization, class_diagram) are pinned offline only by
+      2.4 in both vendor shapes. ThroughOwner kinds are covered through their owner's `.pou` row. **LD/FBD network text:
+      DEFERRED to its design work (`support-all-ld-fbd`).** For the record, Project14's four graphical POUs (`ladder`,
+      `ladderLabel`, `POUexecute`, `POU_PBD`) were among the 8 pou SAME with `VOLT_GRAPHICAL` on (ide.ps1's default);
+      the CODESYS fixture's bodies are not separated by language in this measurement.
+- [x] 4.2 Full C# suites and `bun run check` green.
+      **Done (2026-10-04, at `c04fb2356f` + this step's script/log changes; no product code changed in step 4):**
+      `dotnet build Volt.sln -c Release` 0 errors; Cli 260/260; Engine 2157 pass + 1 skip / 2158; Connector 115/115;
+      Ide.Twincat 428/428; Ide.Codesys 297/297 (net48); Contracts 39/39; Repo.Gates 108/108; volt-cli `bun test test/unit`
+      24/24; `bun run check` exit 0 (15/15 smoke) with the same pre-existing ✗ (6 `D7` citations, owned by
+      `bridge-refusal-review` 6.0). No fixture, LSP or transpiler change, so no LSP suite / fixture-map run.
+      Step 4 changed only `scripts/measure-library-signatures.ts` (1.1 now prints the manifest and TON in full, every
+      other directed item by name, and a `4.1 TON in the directed answer` line) and added the two `-step4` logs.
+- [x] 4.4 Gate step 4 — review findings on 4.1-4.3 (2026-10-04). Four findings, all CONFIRMED, all low; none touches
+      product code. Both `-step4` logs re-recorded live with the fixed script (same instance, fixtures, `MEASURE_PARITY=1`).
+      - F1 (4.3 parity circular for the extraction): CONFIRMED — `FetchService` Stores on `librariesRefreshed` and the
+        directed read `Reuse`s. The script now compares directed #0 (its own cold extraction) with init #1 (its own
+        extraction): CODESYS `SAME (23 items)`, TwinCAT `SAME (33 items)`; 4.1 / 4.3 reworded.
+      - F2 (stale "init #1 COLD" labels): CONFIRMED — relabelled `init #1 (first full fetch, after directed #0's cold
+        extraction)`; the summary now prints `extraction cold = directed #0 <ms>` and init #1 as NOT cold. Re-recorded:
+        cold 1756 ms (directed #0, `Typify code…`) vs init #1 316 ms ("up to date"); the old log's "extraction cold ≈ 293"
+        was a warm figure. Header comment and the R2 "today's path" label fixed too.
+      - F3 (repeated-RESOLUTION / ambiguous-owner rules not live): CONFIRMED — stated under 4.3 as offline-only (0 groups
+        on both fixtures); no corpus run.
+      - F4 (signatures outside every directed answer): CONFIRMED — the 4.3 run now prints the count: CODESYS 813 = 808 +
+        5 outside (`(unresolved)/systypes interfaces`), TwinCAT 234 = 234 + 0; stated under 4.3.
+      **Gate step 4 numbers (2026-10-04, at `c04fb2356f` + this step's script/log/tasks changes):** `bun run typecheck`
+      0 errors; `bun run lint` exit 0 (warnings only); `dotnet build Volt.sln -c Release` 0 warnings / 0 errors; Cli
+      260/260; Engine 2157 pass + 1 skip / 2158; Connector 115/115; Ide.Twincat 428/428; Ide.Codesys 297/297 (net48);
+      Contracts 39/39; Repo.Gates 108/108; volt-cli `bun test test/unit` 24/24; `bun run check` exit 0 (15/15 smoke), the
+      same pre-existing ✗ (6 `D7` citations, `bridge-refusal-review` 6.0). No fixture, LSP or transpiler change, so no
+      LSP suite (`VOLT_REQUIRE_FULL`) or fixture-map run is named by this change.

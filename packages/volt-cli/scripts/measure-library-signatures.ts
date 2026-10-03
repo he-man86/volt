@@ -9,11 +9,14 @@
  *
  * <p>1.2 — times, over the pipe, as a client sees them:</p>
  * <ul>
- *   <li>`init` #1: a full fetch WITH `librariesRefreshed` (extraction), the first of the IDE session = COLD;</li>
+ *   <li>the directed `.library` read #0 runs FIRST: since directed-library-signatures 3.1 it does the session's first
+ *       extraction itself (on CODESYS: `Build(app)`), so IT is the cold figure;</li>
+ *   <li>`init` #1: a full fetch WITH `librariesRefreshed` (its own extraction, not the session cache), after directed
+ *       #0's build — so not cold (on CODESYS the message view says "The application is up to date");</li>
  *   <li>`init` #2..#4: the same, WARM;</li>
  *   <li>`known` fetch: a full fetch whose `knownItems` are the live versions — `librariesRefreshed` false, so no
  *       extraction: the walk-only floor. extraction ≈ init − known;</li>
- *   <li>directed `.library` reads (today: no extraction);</li>
+ *   <li>directed `.library` reads after a full fetch (answered from the session cache it Stored);</li>
  *   <li>CODESYS only (R2): edit one ST POU through scripting (what typing in the editor does), then a directed read,
  *       a `known` fetch, and an `init` — the extraction AFTER AN EDIT — with the IDE's message view counted before and
  *       after each, and the precompiled library set counted right after the edit (does an app edit discard it?).</li>
@@ -184,17 +187,26 @@ async function main() {
 	out(`\n-- 1.1 directed read of ${STD} (cold session, before any extraction)`)
 	const d0 = await timed("directed", "fetch", { knownItems: {}, onlyItems: [STD] })
 	describeFetch("directed #0", d0.ms, d0.res)
+	// The manifest and TON in full (4.1: TON's pins must be in the directed answer); every other item by name.
 	for (const it of d0.res.changed as Item[]) {
 		out(`  item ${JSON.stringify(it.name)} folder=${JSON.stringify(it.folder)} chars=${it.sourceText.length}`)
-		for (const l of it.sourceText.split("\n")) out(`    | ${l}`)
+		if (it.name.endsWith(".library") || /^TON\./.test(it.name)) for (const l of it.sourceText.split("\n")) out(`    | ${l}`)
 	}
+	const tonD0 = (d0.res.changed as Item[]).filter((i) => /^TON\./.test(i.name))
+	out(`  4.1 TON in the directed answer: ${tonD0.length ? tonD0.map((t) => `${t.name} @ ${JSON.stringify(t.folder)}`).join(", ") : "ABSENT"}`)
 	if (withProbe) msg = await messages("after directed #0", msg)
 
-	// 1.2 — cold full fetch with librariesRefreshed.
+	// 1.2 — the first full fetch with librariesRefreshed. Directed #0 already did the session's first (cold) extraction,
+	// so this one is not cold (on CODESYS its build answers "The application is up to date").
 	out(`\n-- 1.2 full fetches`)
 	const i1 = await timed("init", "fetch", { init: true })
-	describeFetch("init #1 (COLD extraction)", i1.ms, i1.res)
+	describeFetch("init #1 (first full fetch, after directed #0's cold extraction)", i1.ms, i1.res)
 	if (withProbe) msg = await messages("after init #1", msg)
+	// 4.1 — directed #0 against init #1: the ONE comparison of two INDEPENDENT extractions. Every later directed read
+	// is answered from the session cache a full fetch Stored (FetchService: librariesRefreshed → Store, a directed read
+	// → Reuse), so its parity shows only that the directed and the full answer split ONE extraction the same way.
+	// Directed #0 extracted on its own (nothing was cached yet); init #1 extracted again and Stored.
+	out(`  4.1 directed #0 (own cold extraction) vs init #1 (own extraction): ${parity(i1.res.changed as Item[], STD, d0.res.changed as Item[], new Map())}`)
 
 	// R1 — RESOLUTIONs of the refs, and the (unresolved) folders.
 	const all: Item[] = i1.res.changed
@@ -376,11 +388,23 @@ async function main() {
 		}
 		out("  per extension (ext, verdict, count):")
 		for (const [k, n] of [...tally].sort(([a], [b]) => a.localeCompare(b))) out(`    ${k}\t${n}`)
+		// The tally iterates the names `refs` publishes, and a directed read answers only the folder of the name it was
+		// asked for — so a signature the full fetch writes OUTSIDE every ref's folder (the `(unresolved)` folders) is
+		// returned by no directed read and is in no row above. Count them, so the tally cannot read as "everything".
+		const fullSigs = (last.res.changed as Item[]).filter((i) => isLibFile(i, last.res.items))
+		const refFolders = new Set((last.res.changed as Item[]).filter((i) => i.name.endsWith(".library")).map((i) => i.folder))
+		const outside = fullSigs.filter((i) => !refFolders.has(i.folder))
+		out(`  full-fetch signatures: ${fullSigs.length}; in a ref's folder (a directed read can return them): ${fullSigs.length - outside.length}; outside every ref's folder (no directed read returns them): ${outside.length}`)
+		const outsideFolders = new Map<string, number>()
+		for (const i of outside) outsideFolders.set(i.folder ?? "", (outsideFolders.get(i.folder ?? "") ?? 0) + 1)
+		for (const [f, n] of [...outsideFolders].sort(([a], [b]) => a.localeCompare(b))) out(`    ${n}\t${f}`)
 	}
 
 	const med = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)]
-	out(`\n-- summary (ms): init cold ${i1.ms}; init warm ${warm.join("/")} (median ${med(warm)}); known ${known.join("/")} (median ${med(known)}); ` +
-		`extraction cold ≈ ${i1.ms - med(known)}, warm ≈ ${med(warm) - med(known)}; directed ${d0.ms} cold-session, ${directed.join("/")} warm`)
+	// Cold is directed #0 (the session's first extraction); init #1 runs after its build, so it is not a cold figure.
+	out(`\n-- summary (ms): extraction cold = directed #0 ${d0.ms} (the session's first extraction); ` +
+		`init #1 ${i1.ms} (after directed #0's build, NOT cold; − known ≈ ${i1.ms - med(known)}); init warm ${warm.join("/")} (median ${med(warm)}); ` +
+		`known ${known.join("/")} (median ${med(known)}); extraction warm ≈ ${med(warm) - med(known)}; directed ${directed.join("/")} warm (session cache)`)
 
 	// R2 — edit, then read.
 	if (withProbe) {
@@ -395,7 +419,7 @@ async function main() {
 		const afterEdit = await probe("libpaths")
 		out(`  precompiled library signatures right after the edit (no build): ${afterEdit[0]}`)
 		const de = await timed("directed", "fetch", { knownItems: {}, onlyItems: [STD] })
-		describeFetch("directed after edit (today's path, no extraction)", de.ms, de.res)
+		describeFetch("directed after edit (session cache: no library version moved)", de.ms, de.res)
 		msg = await messages("after directed-after-edit", msg)
 		const ke = await timed("known", "fetch", { knownItems })
 		describeFetch("known after edit (no extraction)", ke.ms, ke.res)
