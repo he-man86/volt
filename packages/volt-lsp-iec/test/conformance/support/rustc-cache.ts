@@ -428,7 +428,10 @@ async function store(root: string, key: string, entry: Entry, exe: string | unde
     if (exe !== undefined) {
       const bytes = await readFile(exe)
       entry.exe = createHash("sha256").update(bytes).digest("hex")
-      await writeFile(join(tmp, "out.bin"), bytes)
+      // EXECUTABLE ON POSIX: a hit hard-links (or copies, which keeps the mode) THIS file to the caller's `exe`, so
+      // its mode is the hit's mode — written with the default 0666 & ~umask, every hit was spawned to EACCES on
+      // Linux. Windows has no execute bit and ignores the mode, which is why it passed there.
+      await writeFile(join(tmp, "out.bin"), bytes, { mode: 0o755 })
     }
     await writeFile(join(tmp, "entry.json"), JSON.stringify(entry)) // written last: its presence means complete
     // WINDOWS REFUSES A RENAME while something holds a file inside the directory — the virus scanner opens every new
