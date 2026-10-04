@@ -262,7 +262,7 @@ public class WireVocabularyTests
 
     /// <summary>The <c>public const string X = "Y";</c> of a vocabulary class, as (X, Y) — read as text, since this gate
     /// references no package. A const whose value is no code (<c>ProjectName = "&lt;project&gt;"</c>) is not one.</summary>
-    private static IEnumerable<(string Const, string Code)> Consts(string source, string type) =>
+    internal static IEnumerable<(string Const, string Code)> Consts(string source, string type) =>
         Regex.Matches(NoCodeCheckLeftTests.StripComments(source), @"public\s+const\s+string\s+(\w+)\s*=\s*""([A-Z_]+)""\s*;")
             .Select(m => ($"{type}.{m.Groups[1].Value}", m.Groups[2].Value));
 

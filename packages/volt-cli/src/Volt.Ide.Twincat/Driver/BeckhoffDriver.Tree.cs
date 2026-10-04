@@ -359,11 +359,18 @@ public sealed partial class BeckhoffDriver
     {
         for (Exception? e = ex; e is not null; e = e.InnerException)
         {
-            if (e.Message.IndexOf("(SubType mismatch)", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Kind);
-            if (e.Message.IndexOf("(Name mismatch)", StringComparison.Ordinal) >= 0) return (e.Message, ChildRefusalCause.Name);
+            if (VendorSentence.Match(e.Message) is { Success: true } m)
+                return (m.Value, m.Groups[1].Value == "SubType" ? ChildRefusalCause.Kind : ChildRefusalCause.Name);
         }
         return null;
     }
+
+    /// <summary>The IDE's own sentence inside the automation wrapper — "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild)
+    /// failed: &lt;sentence&gt;\nPath: 'TIPC^…' (ITcSmTreeItem:CreateChild." measured live. Only the sentence is the IDE's
+    /// reason; CODESYS's refusal is its sentence alone, so quoting the wrapper gave the one refusal two message shapes on
+    /// the wire (openspec <c>bridge-refusal-review</c> 8.4).</summary>
+    private static readonly System.Text.RegularExpressions.Regex VendorSentence =
+        new(@"Creating the child [^\n]*?\((SubType|Name) mismatch\)", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
     public void Delete(ItemRef parent, string name) => _om.DeleteChild(parent.Native, name);
     /// <summary>Which accessors an INTERFACE property has — by ENUMERATING its children, the same way a
     /// non-interface property is read one file over.

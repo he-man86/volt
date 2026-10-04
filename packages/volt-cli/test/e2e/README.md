@@ -242,6 +242,23 @@ pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Fixture 13
 bun run test:e2e:twincat        # vendor-parity runs; everything else drives TwinCAT
 ```
 
+**`refusals/` drives BOTH IDEs too — every wire code, proven live** (openspec `bridge-refusal-review` 8.1–8.4). `table.ts`
+holds one minimal trigger per code a client can receive; `matrix.test.ts` runs each against every fixture IDE of the
+instance that is up and asserts the exact code, that the message names the item, the project after the call (nothing
+written for a pre-write refusal, exactly the receipt for an apply-time stop) and — with both up — that CODESYS and
+TwinCAT answer byte-identically after masking versions, the project's name and the IDE's own refusal sentence.
+`behaviour-changes.test.ts` does the same for what the change made the bridge do differently (removed code checks now
+accept, silent drops gone). A code with no live trigger says why in the table, and `Volt.Repo.Gates`
+`LiveRefusalTableTests` fails on a code with no row — a code added later needs a live one. A vendor difference is never
+absorbed: the one row that keeps one (UNREADABLE, DIALECT C2i) pins the other vendor's answer and fails when they
+converge. One vendor up runs its half and skips the parity half, saying so.
+
+```bash
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor codesys -Instance x -Wait
+pwsh packages/volt-cli/scripts/ide.ps1 up -Vendor twincat -Instance x -Fixture 13 -Wait
+VOLT_E2E_INSTANCE=x bun test test/e2e/refusals
+```
+
 **`production/network-text-off.test.ts` needs a PRODUCTION bridge** — one without `VOLT_GRAPHICAL=1`, as every
 shipped build is — and every other file needs the opposite, so it is its own run and skips (saying so) against a
 development bridge. It proves the switch is off where a customer's bridge has it off: ST shown, every LD/FBD body

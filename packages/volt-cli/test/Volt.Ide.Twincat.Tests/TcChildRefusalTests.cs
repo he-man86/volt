@@ -15,9 +15,16 @@ public class TcChildRefusalTests
         "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child type 'TREEITEMTYPE_PLCMETHOD' " +
         "is not possible on parent node type 'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)";
 
+    /// <summary>The vendor's SENTENCE, not the automation wrapper around it (openspec <c>bridge-refusal-review</c> 8.4): the
+    /// live refusal reads "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: &lt;sentence&gt;\nPath: 'TIPC^…'
+    /// (ITcSmTreeItem:CreateChild." (measured 2026-10-04, refusals/matrix NOT_ATTEMPTED), while CODESYS's refusal is the
+    /// sentence alone — so the same refused member reached the client in two message shapes. The wrapper names the COM
+    /// call and an internal tree path, neither of which is the IDE's reason.</summary>
     [Fact]
     public void The_measured_SubType_mismatch_is_a_refusal_with_the_vendors_words() =>
-        Assert.Equal(Measured, BeckhoffDriver.ChildRefusal(new COMException(Measured)));
+        Assert.Equal("Creating the child type 'TREEITEMTYPE_PLCMETHOD' is not possible on parent node type " +
+                     "'TREEITEMTYPE_PLCPOUFB' (SubType mismatch)",
+                     BeckhoffDriver.ChildRefusal(new COMException(Measured)));
 
     /// <summary>openspec <c>push-keeps-what-landed</c> gate step 1, measured live 2026-10-03 (TcXaeShell, the e2e
     /// <c>push-keeps-what-landed.test.ts</c> 1.1 on the fixture): XAE refuses a METHOD named <c>Log</c> under a function
@@ -27,10 +34,12 @@ public class TcChildRefusalTests
     [Fact]
     public void The_measured_Name_mismatch_is_a_refusal_with_the_vendors_words()
     {
+        // Verbatim from the live matrix (2026-10-04): the wrapper, the sentence, and the tree path after it.
         const string log =
             "TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: Creating the child named 'Log' is not possible " +
-            "on node (Name mismatch)";
-        Assert.Equal(log, BeckhoffDriver.ChildRefusal(new COMException(log)));
+            "on node (Name mismatch)\nPath: 'TIPC^Untitled1^Untitled1 Project^VltE2E_ref_na_b' (ITcSmTreeItem:CreateChild.";
+        Assert.Equal("Creating the child named 'Log' is not possible on node (Name mismatch)",
+                     BeckhoffDriver.ChildRefusal(new COMException(log)));
     }
 
     /// <summary>…and the driver says WHICH refusal it is (openspec <c>push-keeps-what-landed</c> design D2).</summary>

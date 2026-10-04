@@ -1,0 +1,46 @@
+﻿probe-tc-broken-pou.ps1 - 2026-10-04 09:05
+
+== XAE pid 31308 (volt.bridge.twincat.31308): C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project13\TwinCAT Project13.sln  (reload: False)
+-- A3 DTE project 'TwinCAT Project13' lists 0 ProjectItem(s) - the model a file could be read through without the tree
+
+-- A1 C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project13\TwinCAT Project13\Untitled1\VltE2E_ref_probe.TcPOU
+   POU attributes: Name=VltE2E_ref_probe Id={c439fbc7-8d3a-4a6d-bf5f-62f34393207c} SpecialFunc=None
+   Declaration: (* Motor\n *\nFUNCTION_BLOCK VltE2E_ref_probe\nVAR\n	n : INT;\nEND_VAR
+   Implementation: <ST><![CDATA[n := n + 1;]]></ST>
+   plcproj: <Compile Include="VltE2E_ref_probe.TcPOU"> <SubType>Code</SubType> </Compile>
+
+-- A1 C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project13\TwinCAT Project13\Untitled1\POUs\PLC_PRG.TcPOU
+   POU attributes: Name=PLC_PRG Id={f3836523-7b61-43d1-a85c-c59c10b1ab31} SpecialFunc=None
+   Declaration: PROGRAM PLC_PRG\nVAR\n\n\nEND_VAR
+   Implementation: <ST><![CDATA[]]></ST>
+   plcproj: <Compile Include="POUs\PLC_PRG.TcPOU"> <SubType>Code</SubType> </Compile>
+
+-- A2 tree item 'VltE2E_ref_probe' (in the session that wrote it): ItemType=604
+   DeclarationText: (* Motor\n *\nFUNCTION_BLOCK VltE2E_ref_probe\nVAR\n	n : INT;\nEND_VAR
+   ImplementationText: n := n + 1;
+
+== XAE alive afterwards: True
+
+== XAE pid 31308 (volt.bridge.twincat.31308): C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project13\TwinCAT Project13.sln  (reload: True)
+   solution closed (saved); reopening
+   reopened: 1 project(s)
+-- A3 DTE project 'TwinCAT Project13' lists 0 ProjectItem(s) - the model a file could be read through without the tree
+
+-- A1 C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project13\TwinCAT Project13\Untitled1\VltE2E_ref_probe.TcPOU
+   POU attributes: Name=VltE2E_ref_probe Id={c439fbc7-8d3a-4a6d-bf5f-62f34393207c} SpecialFunc=None
+   Declaration: (* Motor\n *\nFUNCTION_BLOCK VltE2E_ref_probe\nVAR\n	n : INT;\nEND_VAR
+   Implementation: <ST><![CDATA[n := n + 1;]]></ST>
+   plcproj: <Compile Include="VltE2E_ref_probe.TcPOU"> <SubType>Code</SubType> </Compile>
+
+-- A1 C:\Users\marce\AppData\Local\Temp\volt-ide-twincat-bridge-refusal-review\TwinCAT Project13\TwinCAT Project13\Untitled1\POUs\PLC_PRG.TcPOU
+   POU attributes: Name=PLC_PRG Id={f3836523-7b61-43d1-a85c-c59c10b1ab31} SpecialFunc=None
+   Declaration: PROGRAM PLC_PRG\nVAR\n\n\nEND_VAR
+   Implementation: <ST><![CDATA[]]></ST>
+   plcproj: <Compile Include="POUs\PLC_PRG.TcPOU"> <SubType>Code</SubType> </Compile>
+
+== XAE alive afterwards: True
+
+== the worker after the reload (no re-select), then after a re-select:
+   refs: refs {"err":"Error: INTERNAL_ERROR: COMException: Unexpected HRESULT has been returned from a call to a COM component.","n":0}
+   connect {"ok":true}
+   refs {"unreadable":["VltE2E_ref_probe"],"n":10}

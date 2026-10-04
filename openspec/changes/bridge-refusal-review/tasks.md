@@ -1222,19 +1222,71 @@ codes, every code is proven against both live IDEs.
 bodies, 4.3's FB-vs-FUNCTION network call — need design work first (the LD/FBD coverage change). Those rows are
 listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted as gaps by 8.3.
 
-- [ ] 8.1 One live negative matrix (`test/e2e/refusals/`), both vendors, data-driven (a table: trigger → expected code,
+- [x] 8.1 One live negative matrix (`test/e2e/refusals/`), both vendors, data-driven (a table: trigger → expected code,
       message fragment, and the state after): for EVERY code in BridgeErrorCodes/ConflictCodes that a client can
       receive, one minimal trigger. Each row asserts (a) the exact code, (b) the message names the item, (c) the
       project after the call — `refs` unchanged for a pre-write refusal (nothing written), exactly the receipt for an
       apply-time stop — and (d) the CODESYS and TwinCAT answers are byte-identical except where DIALECT names the
       difference. A code with no live trigger on a vendor is listed with the reason (e.g. CODESYS-only), never skipped
       silently.
-- [ ] 8.2 The behaviour changes of this change get a live negative test each: the removed code checks now ACCEPT
+      **Done (step 8, 2026-10-04).** `test/e2e/refusals/table.ts` (the table) + `matrix.test.ts` (the runner): one row
+      per code, 23 codes (11 BridgeErrorCodes + 12 ConflictCodes; `<project>` is a conflict name). **12 live**, run
+      against both fixture IDEs (CODESYS SP21 `CodesysTestProject` copy, TwinCAT Project13 copy, instance
+      `bridge-refusal-review`): PLC_DISCONNECTED (`disconnect` + refs), WRONG_PROJECT (refs naming another project),
+      BAD_REQUEST (fetch with no baseline), UNSUPPORTED (METHOD `Log`, pre-flight), DUPLICATE_CHILD, INVALID_ST,
+      UNREADABLE (TwinCAT; CODESYS answers ITEM_EXISTS — a pinned divergence, 8.4), STALE_PROJECT_VERSION,
+      STALE_ITEM_VERSION, ITEM_EXISTS, ITEM_MISSING, NOT_ATTEMPTED (`Vlt__Log` refused at apply; receipt = next refs).
+      Each asserts (a) the code, (b) the conflict names the item and the reason names it where Volt writes one, (c)
+      `refs` (version, items, folders, unreadable) unchanged for a pre-write refusal / the receipt for the apply-time
+      stop, (d) with both up, byte-identical answers after masking versions, the project's / vendor's own name and the
+      IDE's own refusal sentence (`IDE_WORDS`, each a measured sentence). **5 with no live trigger, each with its reason
+      in the row:** IDE_UNSUPPORTED (both IDEs meet the minimum), IDE_SAVE_FAILED (TwinCAT's SaveAll refusal is reachable
+      only through a modal dialog; CODESYS saves nothing on push), INTERNAL_ERROR (a live trigger is a bug),
+      IDE_LOST_ITEM (a post-condition), ITEM_UNVERIFIED (no enumeration a fixture refuses without crashing XAE).
+      **6 NETWORK_* rows: deferred: LD/FBD design.** Measured: 36 tests, 36 pass (12 × 2 vendors + 12 parity), ~13 s.
+      The live suite asserted 5 distinct codes before; the matrix asserts 12 (+ ITEM_EXISTS as the pinned CODESYS answer).
+- [x] 8.2 The behaviour changes of this change get a live negative test each: the removed code checks now ACCEPT
       (1.x: the IDE's own build reports the error instead), the silent drops now REFUSE (4.26 body without a slot,
       4.31 move into a non-folder, D27 unknown view mode/language no longer drops the POU). (4.3's network body: deferred,
       see above.)
-- [ ] 8.3 Gate (`Volt.Repo.Gates`, beside V.4): every client-visible code appears in the 8.1 table; a code added
+      **Done (step 8).** `test/e2e/refusals/behaviour-changes.test.ts`, both vendors + a parity half (21 tests, 21 pass):
+      1.1 an ST body holding `NETWORK … END_NETWORK` is written as sent and the build reports it (both: "';' expected
+      instead of 'x'", "';' expected instead of end of POU"); 1.2 a variable named `implementation` is written and builds
+      clean; 2.1 a `(* @volt-x *)` comment in an ST body is written and read back; 1.4 a GVL holding `(* @volt-impl *)`
+      pulls readable (also `push-without-header-check`'s `retired` row, run live now: green on both); 4.31 a move into
+      the library manager (a non-folder node on both vendors: CODESYS `…/Application/Library Manager`, TwinCAT
+      `References`) is refused UNSUPPORTED in the pre-flight and nothing moves; D27 the committed CFC POU pulls whole with
+      `IMPLEMENTATION CFC UNSUPPORTED`. **4.26, measured:** no wire text reaches a slotless item AS a body — a GVL text
+      with a body after `IMPLEMENTATION ST` is written WHOLE as its declaration (nothing dropped) and the build reports
+      it, on both vendors; the drivers' `RequireSlot` refusal guards every other caller and is unreachable from the wire,
+      so the row asserts "written as sent + a build error", not a refusal. Not live: D27's UNKNOWN view mode / language
+      (no fixture object holds one; offline `CodesysUnknownBodyLanguageTests`, `TcBodyLanguageTests`); 1.3/1.5/4.3
+      (network text, deferred). Build messages are not compared across vendors (each IDE's compiler output: CODESYS
+      quotes the source span with its line breaks, TwinCAT adds a follow-on error on 4.26).
+- [x] 8.3 Gate (`Volt.Repo.Gates`, beside V.4): every client-visible code appears in the 8.1 table; a code added
       later without a live row fails the gate.
+      **Done (step 8).** `Volt.Repo.Gates/LiveRefusalTableTests`: reads every code constant (as V.4 does) and the rows of
+      `table.ts` (`code: "X", live: true|false`, `reason`); fails on a code with no row, two rows, a row for no code, a
+      non-live row without a reason, a NETWORK_* row without the `${DEFERRED_LD_FBD}` reason, and a non-live row for any
+      code outside the pinned list (IDE_UNSUPPORTED, IDE_SAVE_FAILED, INTERNAL_ERROR, IDE_LOST_ITEM, ITEM_UNVERIFIED —
+      shrinks only; a listed code that gains a live row must leave it). 8 teeth tests + the gate. Repo.Gates 124 → 133.
+      **Gate 8 (2026-10-04) — review fixes (4 low findings, all fixed, none skipped; each red before its fix):**
+      (1) matrix NOT_ATTEMPTED proved only receipt == next refs, true whatever the bridge did → an apply-time row now
+      names `landed` / `absent` (`Outcome`), and `check` asserts the project holds `VltE2E_ref_na_a.pou` and not
+      `VltE2E_ref_na_c.pou` (a receipt row without both throws). (2) D27 checked only the marker line → the text above
+      the marker must open with `PROGRAM|FUNCTION_BLOCK VltFixtureCfc` (kind is each fixture's own) and end its
+      declaration with `END_VAR`. (3) 1.1 / 4.26 counted any build error in the project → `errorsOf` keeps only the
+      errors whose diagnostic name holds the row's bare name (measured: both vendors attribute every one of them to
+      `VltE2E_ref_st_net.pou` / `VltE2E_ref_gvl_body.gvl`). (4) the 8.3 gate did not constrain `divergence` → it reads
+      each live row's `divergence: { vendor, answers }` and pins the owner-listed ones (`PinnedDivergence`, today only
+      `UNREADABLE` = `codesys:ITEM_EXISTS`, shrinks only): an unlisted divergence fails, and a pinned code whose row lost
+      its divergence must leave the list. Repro of the finding (ITEM_EXISTS + a twincat divergence) now fails the gate.
+      3 teeth tests. **Numbers:** Engine 2282/0/1, Twincat 447, Codesys 305, Cli 260, Connector 115, Contracts 39,
+      Relay 49, Repo.Gates 136 (+3); volt-cli `test/unit` 24; `bun run check` 18/18; typecheck green. LSP full
+      (`VOLT_REQUIRE_FULL=1`): 8094 pass / 34 skip / 381 todo / 0 fail (8509 tests, 205 files). e2e (instance
+      `bridge-refusal-review`): refusals 57/57 (both vendors + parity); CODESYS 338 pass / 12 skip / 0 fail; TwinCAT
+      Project13 329 pass / 13 skip / 3 fail — the three known Project14-only rows (as at gate 6), re-run on `-Fixture 14`:
+      `hidden-declaration` + `hidden-members` 11/11. No fixture or transpiler change → map not regenerated.
 - [ ] 8.4 Close the vendor gaps behind the wire (owner, 2026-10-03: "both should behave identically behind the wire").
       8.1's "except where DIALECT names the difference" is NOT an escape hatch: every row where CODESYS and TwinCAT
       answer differently (code, message shape, state after) is a defect to fix in the driver below the seam, so the
@@ -1250,3 +1302,47 @@ listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted a
       load-bearing representation asymmetries below the seam in DIALECT.md stay as they are.) Each closed gap gets
       its row in 8.1 asserting byte-identical answers. Known candidate: a broken-text POU — CODESYS `X.pou`, TwinCAT
       `unreadable` + `--force` (5.H / C2i): find the closest identical wire answer the crash guard allows.
+      **Partly done (step 8) — one gap closed; the rest listed for the OWNER, none accepted.** **Closed:** a member or POU
+      name the IDE refuses reached the client in two message shapes — TwinCAT's refusal carried the automation wrapper
+      and an internal tree path ("TwinCAT PLC automation call (ITcSmTreeItem:CreateChild) failed: <sentence>\nPath:
+      'TIPC^…' (ITcSmTreeItem:CreateChild."), CODESYS's is its sentence alone (measured in the matrix, NOT_ATTEMPTED).
+      `BeckhoffDriver.Refusal` now quotes only the IDE's sentence (`TcChildRefusalTests`: 2 rows rewritten red-first —
+      their premise, "the vendor's words" = the whole COM message, is wrong on grounds independent of the code); DIALECT
+      C2k records it. Matrix UNSUPPORTED and NOT_ATTEMPTED are byte-identical with only the IDE's sentence masked.
+      **Sweep of the existing differences:**
+      (1) **C2i broken-text POU** (`push-without-header-check` `uc_fb`, `kind-name-cycle` broken prg/fb, matrix
+      UNREADABLE): CODESYS fetches it; TwinCAT names it `unreadable` (create-over UNREADABLE vs ITEM_EXISTS). Three vendor
+      paths measured live (`scripts/probe-tc-broken-pou.ps1` → `tc-broken-pou.log`, DIALECT C2i): path 1 — the `.TcPOU`
+      holds the text as sent and NO POU type, nor does the `.plcproj` (TwinCAT types a POU from its text at load, so one
+      loaded broken has no type for the END line); path 2 — the tree item in the session that wrote it reads (ItemType
+      604, XAE alive), safe only within one load: a solution close + reopen leaves the worker's PLC node answering E_FAIL
+      until a re-select (measured), and a project reload-from-disk is unmeasured; path 3 — the DTE project model has no
+      ProjectItems on TcXaeShell. **Owner decision:** path 2 keyed to the PLC node's acquisition gives the CODESYS answer
+      in-session, once a project reload-from-disk is measured to drop that node too; after a reload the difference is
+      irreducible (no type stored). Pinned in the matrix (`divergence`: CODESYS answers ITEM_EXISTS) — fails when the
+      vendors converge.
+      (2) **Watchdog** (`task-writable`): CODESYS schedules it, TwinCAT refuses UNSUPPORTED. Measured earlier (DIALECT
+      C19b): neither published copy of the TwinCAT task carries a time/sensitivity watchdog, and `ExceedWarning` counts
+      tolerated overruns, not a time. A missing capability: **listed for the owner** as irreducible.
+      (3) **C2o / C2p native rename** rewrites the item's own references and its callers on TwinCAT, neither on CODESYS
+      (`push-return-sources`, `push-partially-applied`). Alternatives NOT yet measured: a TwinCAT rename that does not
+      refactor (an archive export/import under the new name — loses identity), CODESYS Refactoring → Rename (no scripting
+      surface known). **Open — listed for the owner.**
+      (4) **D21 / D41 interface accessor declaration**: CODESYS writes it, TwinCAT refuses (the write crashed XAE,
+      measured twice). Alternative NOT yet measured: the interface's archive round trip (`TcItemArchive`). **Open — listed.**
+      (5) Graphical rows (N24 language change, `refused-shapes`, `fanout`, `callee-seed-lag`, `view-change`,
+      `unresolved-marker`, the graphical kinds of `roundtrip` / `create-shapes`): **deferred: LD/FBD design** (owner).
+      (6) Not wire behaviour: `task-writable`'s task folder (tree representation, kept by ARCHITECTURE.md), the "only
+      TwinCAT saves a push to a readable file" notes (the harness reading vendor storage), `ide-restart` (the TwinCAT
+      worker's process lifecycle), build diagnostics' wording (each IDE's compiler; the LSP oracle records both).
+      **New finding (listed for the owner):** after a solution close + reopen in XAE, the TwinCAT worker answers every op
+      INTERNAL_ERROR ("COMException: Unexpected HRESULT", E_FAIL on the stale PLC node) until a `connect` — an IDE state
+      answered as INTERNAL_ERROR (V.1's rule). Candidate: recover + retry a read once E_FAIL on the PLC node can be told
+      apart from an op's own E_FAIL. CODESYS's analogue (the project closed and reopened under the in-proc host) is
+      unmeasured.
+      **Numbers (step 8):** refusals e2e 57/57 on both vendors (matrix 36, behaviour 21, ~36 s); e2e re-run on both vendors
+      for the files the TwinCAT message touches (`push-keeps-what-landed`, `push-partially-applied`,
+      `push-without-header-check`, `push`): 27/27 each; Twincat 447, Repo.Gates 133 (+9); volt-cli `test/unit` 24;
+      `bun run check` 18/18; typecheck green; census vs HEAD 586 → 586 (0 gone, 0 new). No LSP code, fixture or recording
+      changed (nothing a user writes changes its answer); run once at the end anyway: LSP `test/frontend` 39/0,
+      `test/conformance` 5982 pass / 337 todo / 0 fail, `rate:fixtures` — fixture map unchanged.
