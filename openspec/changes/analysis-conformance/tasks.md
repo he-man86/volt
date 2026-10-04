@@ -332,3 +332,11 @@ is the one exception (P6): its census rows are only handed off (5.3).
 - [ ] 5.5 Final review (spec + layering: A1–A6 allow-list empty or each remaining entry justified); fix;
       `openspec archive analysis-conformance`; delete the recreated openspec/specs/.
       Where: openspec/. Acceptance: archived; `openspec list` no longer shows it. Depends on: 5.4
+
+## Hand-in (2026-10-04, from the CI fix c4f4b66e02)
+
+- [ ] H.1 Record a CODESYS fixture for a namespace declared by TWO referenced libraries (e.g. CAA Callback placeholder +
+      CAA Callback Extern, both `CB`; SysTime twice): which library's members does `CB.X` / a bare member reach? The CI
+      fix made a shared namespace cover every declaring library (consistent with `linkExtends`, backed by the clean
+      corpus builds) — the recording is the oracle; adjust the binder if CODESYS answers otherwise. Add the rule row
+      to test/frontend/rules.ts.
