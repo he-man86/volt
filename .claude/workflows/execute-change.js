@@ -193,8 +193,10 @@ and say what blocks it.`, { label: `repair:${s.id}`, phase: 'Gate', schema: GATE
 }
 
 if (stopped) return { change: args.change, stoppedAt: stopped, blockedBy: [`${args.change} step ${stopped} is red`], done }
-const closeOpen = (status?.steps ?? []).some(s => s.kind === 'close')
-if (closeOpen && (!steps.length || steps[steps.length - 1]?.kind === 'close' || steps.every(s => s.kind === 'close'))) {
+// Close whenever the run got through without a red stop — a change whose last section is not a 'close' step was left
+// unarchived with every task ticked (three PLCAssist changes + lsp-sfc-step-names, 2026-10-03/04). The close agent checks
+// for open tasks itself and stops if one remains.
+if (!args.stopAfter && !args.maxSteps && !args.only?.length) {
   phase('Close')
   done.push(await agent(`${RULES}
 
