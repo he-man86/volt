@@ -16,6 +16,10 @@ export const meta = {
 // Cost standard (memory: workflow-cost-standard): consecutive small steps of the same kind run in ONE agent (context read once),
 // each task still test-first with its own commit; one data review per group, a second only on a high finding.
 if (!args?.change) throw new Error('execute-change needs args.change (an openspec change name)')
+// LIGHT IS THE DEFAULT (owner 2026-10-04: over-heavy workflows are "a recurring theme"). The process is sized to the change:
+// <= 12 open tasks -> one agent; otherwise rounds of <= 25 tasks, one review, short designs, the gate fixes findings.
+// The heavier process (smaller rounds, a second review round on HIGH findings) only on request: args.thorough.
+if (args.light === undefined) args.light = !args.thorough
 const CHANGE = `openspec/changes/${args.change}`
 const REQUIRES = args.requires ?? []
 
