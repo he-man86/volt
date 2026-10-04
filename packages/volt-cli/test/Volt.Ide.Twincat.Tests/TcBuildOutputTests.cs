@@ -106,6 +106,24 @@ public class TcBuildOutputTests
         Assert.Empty(Collect("1>------ Build started ------\r\n1>Build succeeded.\r\n"));
     }
 
+    /// <summary>FOREIGN OUTPUT IS NOT A DIAGNOSTIC (openspec codesys-build-own-messages-only 4.2). On CODESYS a script's
+    /// stdout and stderr shared the build's message store and failed every later build. TwinCAT reads every Output pane,
+    /// but only a line in the compiler's `file(line,col) : error|warning|message : text` shape parses, and the verdict
+    /// comes from `LastBuildInfo`, never this list - so the lines PLCAssist saw on CODESYS, written to a pane here, are
+    /// nothing.</summary>
+    [Fact]
+    public void ScriptOutputAndStderrInAPaneParseToNothing()
+    {
+        Assert.Empty(Collect(
+            "LiveCheck: opened C:\\p\\Plc.sln\r\n" +
+            "Volt: loading C:\\Temp\\Volt\\codesys-bridge\\1\\Volt.Ide.Codesys.dll\r\n" +
+            "Volt bridge started on pipe volt.bridge.twincat.1\r\n" +
+            "C:\\scripts\\live-run.py:9: DeprecationWarning: execfile() not supported in 3.x\r\n" +
+            "  execfile(start, g)\r\n" +
+            "Traceback (most recent call last):\r\n" +
+            "ValueError: bad thing\r\n"));
+    }
+
     /// <summary>THE ITEM THE COMPILER NAMED. Group 1 of the pane regex always held it and the capture was
     /// dropped, so a diagnostic carried a line number with no file to anchor it to — a client had a position
     /// and nowhere to put it. The name is BARE here on purpose: `.TcPOU` is one vendor file type covering

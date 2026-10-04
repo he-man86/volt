@@ -58,8 +58,13 @@ namespace Volt.Ide.Codesys
         // A category is identified by the GUID on its type's `TypeGuidAttribute` (the display text is localized), read
         // by NAME so this keeps no compile-time CODESYS reference. Categories are created on first write, so a store
         // read after a build with no Build category is not "clean" — the build's messages are somewhere this cannot
-        // see — and reads as Unreadable, never as an empty list. (A missing library wrote NO message in any category:
-        // that is the compile's to report, not this read's.)
+        // see — and reads as Unreadable, never as an empty list. AN UNRESOLVED LIBRARY IS NOT A BUILD MESSAGE: a
+        // placeholder that resolves nowhere puts an Error in "Library Manager" (`LibManObjectMessageCategory`, "Could not
+        // open library …") when it is ADDED, not when the project builds — the same message object survives every later
+        // build, and the build itself says "Compile complete -- 0 errors" (probe-build-own-messages.py, run 3). Code that
+        // USES such a library fails in the compile, in "Build", and is reported from there. Measured with the build:
+        // "Build" and "Additional code checks" hold new message objects after every build; every other category keeps
+        // the same ones.
         private static readonly Guid BuildCategory = new Guid("97f48d64-a2a3-4856-b640-75c046e37ea9");
         private static readonly Guid AdditionalCodeChecksCategory = new Guid("220493a1-f49b-4416-9a3f-a545db707cbe");
 
