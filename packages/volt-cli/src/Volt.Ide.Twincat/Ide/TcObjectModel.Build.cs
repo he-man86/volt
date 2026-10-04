@@ -50,9 +50,13 @@ internal sealed partial class TcObjectModel
         }
         catch (Exception ex)
         {
+            // IDE_SAVE_FAILED: the applied writes are in the IDE's memory, not on disk — a transient state whose remedy is
+            // to save, never a vendor limit (UNSUPPORTED) nor a Volt bug (INTERNAL_ERROR). It arrives as a frame on push
+            // and build, which declare it (review of openspec bridge-refusal-review step V).
             VoltLog.Warn($"File.SaveAll failed — applied writes may not be on disk: {ex.Message}");
-            throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"the IDE could not save the applied changes, so they are NOT committed to disk: {ex.Message}", ex);
+            throw new BridgeException(BridgeErrorCodes.IdeSaveFailed,
+                $"the IDE could not save the applied changes, so they are NOT committed to disk: {ex.Message} " +
+                "Save in the IDE (File > Save All) or retry, then `volt pull` to see what landed.", ex);
         }
     }
 

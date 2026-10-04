@@ -111,25 +111,29 @@ public class DocDataTests
             + "session is marked degraded meanwhile, which `health` reports.",
         }),
         [Ops.Fetch] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                               BridgeErrorCodes.NoSidecar, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
+                               BridgeErrorCodes.BadRequest, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
-            "NO_SIDECAR is specific to this op: a fetch with neither `knownItems` nor `onlyItems` is ambiguous "
+            "BAD_REQUEST for a fetch with neither `knownItems` nor `onlyItems` nor `init: true`: it is ambiguous "
             + "— it could mean \"everything\" or a client that forgot its baseline. Send `init: true` for a "
-            + "first pull.",
+            + "first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
             "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a "
             + "name absent from a folder it did read is still in `removed`, judged by `knownFolders`.",
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
+                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeSaveFailed, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
+            "TwinCAT saves the project before the apply and after it (`File.SaveAll`); a save the IDE refuses is the "
+            + "frame IDE_SAVE_FAILED. After the apply it means every op landed in the IDE and is not on disk, and the "
+            + "receipt was not sent: save in the IDE or retry, then pull.",
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
             + "loop is caught and returned as a conflict. A client MUST check `accepted` AND `conflicts`.",
             "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
             + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
-            + "IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, "
+            + "IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE, and INTERNAL_ERROR for a refusal nobody "
+            + "coded. Match the code, "
             + "never the message.",
             "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item.",
             "A refusal decidable before the first write writes nothing and names EVERY refused op — the gate's "
@@ -142,12 +146,15 @@ public class DocDataTests
             + "full name after a native rename that ran first, `remains: true` for a create whose rollback failed. "
             + "Each is ABSENT when it does not apply — never false.",
         }),
-        [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject }, new[]
+        [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
+                               BridgeErrorCodes.IdeSaveFailed }, new[]
         {
             "The guard sits OUTSIDE the try, deliberately — otherwise WRONG_PROJECT would be swallowed into a "
             + "fake \"build failed\" diagnostic instead of surfacing as an error frame.",
             "Everything after it IS caught: a thrown build answers `success:false` with the message as one "
             + "error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
+            "Except a CODED refusal, which passes as its frame: TwinCAT saves the project before it builds, and a "
+            + "save the IDE refuses is IDE_SAVE_FAILED — save in the IDE or retry.",
             "`success` comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, "
             + "TwinCAT reads the IDE's own count of failed projects.",
         }),

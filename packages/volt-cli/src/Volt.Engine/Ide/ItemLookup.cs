@@ -100,11 +100,18 @@ public static class ItemLookup
     /// top-level item is what keeps this off a POU's methods — the walk that made TwinCAT's version cheap,
     /// generalized.</para>
     ///
-    /// <para><b>A CODED refusal passes through with its code.</b> Only an UNCODED fault (a raw COM or binder throw) is
-    /// wrapped as <c>INTERNAL_ERROR</c>. A driver that already said what is wrong — TwinCAT's C2i guard refusing a folder
-    /// the hierarchy does not vouch for (<c>ITEM_UNVERIFIED</c>) — was re-coded <c>INTERNAL_ERROR</c> here, so the push's
-    /// conflict blamed Volt for an IDE state (openspec <c>bridge-refusal-review</c> 7.1). Its message already names the
-    /// folder.</para>
+    /// <para><b>A CODED refusal passes through with its code.</b> A driver that already said what is wrong — TwinCAT's
+    /// C2i guard refusing a folder the hierarchy does not vouch for (<c>ITEM_UNVERIFIED</c>) — was re-coded
+    /// <c>INTERNAL_ERROR</c> here, so the push's conflict blamed Volt for an IDE state (openspec
+    /// <c>bridge-refusal-review</c> 7.1). Its message already names the folder.</para>
+    ///
+    /// <para><b>An UNCODED fault (a raw COM or binder throw) is <c>ITEM_UNVERIFIED</c> too</b> — the same situation met
+    /// another way: the IDE refused a read the lookup needed, so the push could not read where the item lives, and the
+    /// remedy is the IDE's, not a Volt bug report (it was <c>INTERNAL_ERROR</c>; openspec <c>bridge-refusal-review</c>
+    /// V.1). The message names the item looked for, the FOLDER whose read the IDE refused (the remedy is that folder's,
+    /// and a lookup's folder is never in a walk's <c>unwalkedFolders</c>), and the IDE's own words; the IDE's exception
+    /// travels as the inner one, so a vendor that degrades its session on a dead channel (TwinCAT's RPC faults,
+    /// <c>BeckhoffDriver.IsRpcFault</c> walks the inner chain) still sees it (review of step V).</para>
     /// </summary>
     private static bool Walk(IProjectTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit,
                              System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable)
@@ -114,9 +121,9 @@ public static class ItemLookup
         try { count = tree.ChildCount(node); }
         catch (System.Exception ex) when (ex is not ICodedError)
         {
-            throw new BridgeException(BridgeErrorCodes.InternalError,
-                $"could not read the project tree while {doing} — the IDE refused a child read ({ex.Message}). " +
-                "Refusing to report it as absent.");
+            throw new BridgeException(ConflictCodes.ItemUnverified,
+                $"could not read the children of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
+                $"({ex.Message}). Refusing to report it as absent.", ex);
         }
 
         for (var i = 1; i <= count; i++)
@@ -138,9 +145,9 @@ public static class ItemLookup
             }
             catch (System.Exception ex) when (ex is not ICodedError)
             {
-                throw new BridgeException(BridgeErrorCodes.InternalError,
-                    $"could not read child {i} while {doing} — the IDE refused the read ({ex.Message}). " +
-                    "Refusing to report it as absent.");
+                throw new BridgeException(ConflictCodes.ItemUnverified,
+                    $"could not read child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused the read " +
+                    $"({ex.Message}). Refusing to report it as absent.", ex);
             }
 
             if (!ItemKind.IsAddressableItem(kind))
@@ -153,12 +160,25 @@ public static class ItemLookup
             try { name = tree.Name(child); }
             catch (System.Exception ex) when (ex is not ICodedError)
             {
-                throw new BridgeException(BridgeErrorCodes.InternalError,
-                    $"could not read the name of child {i} while {doing} — the IDE refused the read ({ex.Message}). " +
-                    "Refusing to report it as absent.");
+                throw new BridgeException(ConflictCodes.ItemUnverified,
+                    $"could not read the name of child {i} of {Place(tree, node, depth)} while {doing} — the IDE refused " +
+                    $"the read ({ex.Message}). Refusing to report it as absent.", ex);
             }
             if (!visit(child, name, kind)) return false;
         }
         return true;
+    }
+
+    /// <summary>The folder a refused read was IN, for the refusal's message. Read only after a read has already failed,
+    /// so a lookup that succeeds pays nothing for it. The walk's root is the project root; a folder whose name the IDE
+    /// refuses too is said to be exactly that, with the IDE's words.</summary>
+    private static string Place(IProjectTree tree, ItemRef node, int depth)
+    {
+        if (depth == 0) return "the project root";
+        try { return $"the folder '{tree.Name(node)}'"; }
+        catch (System.Exception ex) when (ex is not ICodedError)
+        {
+            return $"a folder whose name the IDE refused to read too ({ex.Message})";
+        }
     }
 }

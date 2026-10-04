@@ -1118,7 +1118,7 @@ WRONG_PROJECT, NO_SIDECAR (fetch only), INTERNAL_ERROR, UNSUPPORTED/UNREADABLE a
 WRONG_PROJECT / BAD_REQUEST as frames), `build` (PLC_DISCONNECTED, INTERNAL_ERROR), any op (IDE_UNSUPPORTED,
 BAD_REQUEST for an unknown op or malformed body, INTERNAL_ERROR fallback in `PipeServer`).
 
-- [ ] V.1 **Changed.** Codes on the wrong situation, at HEAD: a stale item version as `BAD_REQUEST`
+- [x] V.1 **Changed.** Codes on the wrong situation, at HEAD: a stale item version as `BAD_REQUEST`
       (`PushService.cs:534, 557`) → `STALE_ITEM_VERSION`; a refused `.task` (`TaskDescriptorException`, uncoded →
       INTERNAL_ERROR) → `BAD_REQUEST` (amended by D14: a malformed descriptor is the request's grammar, not a vendor
       limit — done in 4.14); known vendor limits as `INTERNAL_ERROR` (`CodesysObjectModel.Descriptors.cs:341`,
@@ -1128,19 +1128,88 @@ BAD_REQUEST for an unknown op or malformed body, INTERNAL_ERROR fallback in `Pip
       own broken invariants only. A request for a read-only descriptor (`PushService.cs:192`) and a move of a non-source
       item (`:952`) are request-shape answered `UNSUPPORTED` — decide whether that stays (a Volt rule, not a vendor
       limit) or becomes `BAD_REQUEST`.
+      **Done (step V, 2026-10-04).** Re-coded, each with an offline double asserting the new code and the item (red
+      before): `ItemLookup` ×3 (the IDE refused a child count / child / name read) and `PushService` forced replace of
+      an unopened item whose folder the walk skipped → `ITEM_UNVERIFIED` (`ErrorCodeVocabularyTests`; `FakeIde` gains
+      `FaultingChildReads`/`FaultingNameReads`); a member the IDE holds no declaration for (both drivers) → `UNREADABLE`
+      (`CodesysMemberWithoutDeclarationTests`, `TcMemberWithoutDeclarationTests`); the TwinCAT member-move post-condition
+      → `IDE_LOST_ITEM` (`TcMemberMovePostConditionTests`, message no longer says "Volt bug"); the CODESYS task call-list
+      rebuild ×3, the TwinCAT PLCopen import that built nothing ×2 and the save the IDE refused → `UNSUPPORTED`
+      (`CodesysTaskCallListRefusalTests`, `TcIdeRefusalCodeTests`; the import double gains `PlcOpenImport`, the empty-body
+      arm has no double — same shape, same code); `TcPlcOpenWriter.Refuse` says "Volt's TwinCAT lowering has no spelling
+      for it" (`TcPlcOpenInvariantTests`). **The open decision, taken as the design names it:** a push of a read-only
+      descriptor and a move of a non-source item → `BAD_REQUEST` (`ProjectSettingsReadOnlyPushTests` ×3 rows take the
+      code; the move is reached only when a non-`.task` name finds a TASK by its bare name — the one addressable
+      non-source kind). **Kept INTERNAL_ERROR against the design, measured:** `PushService.RequireUnchanged`'s null folder
+      (design ":627 folder unknown because the walk skipped it") is unreachable — every caller that passes a version passes
+      the cache's non-null folder; an item in an unread folder is refused by the gate first — so it is an invariant;
+      `BeckhoffDriver.Content` accessor code with no Volt kind (design ":740") is reached only with `PlcPropGet`/`PlcPropSet`
+      (both call sites), both of which map — an invariant too. Census vs HEAD (`refusal-census.ts --against HEAD`): 585 →
+      585 sites, 16 re-coded (16 gone + 16 new, same file and message; 0 moved).
 - [x] V.2 `NETWORK_NOT_CANONICAL` goes with the layout-only gate (design issue 6): text that is complete and writable is
       written; the code is removed from Volt.Contracts, ConflictCodes, network-text.html and the LSP's network code list
       (5 TS files reference it today).
       Done (2.12; 4.13): 0 as code anywhere; the five TS files now mention it only as gone. Stays in the 6.2 grep gate.
-- [ ] V.3 `NO_SIDECAR` (`FetchService.cs:51`, "supply knownItems … or run `volt init`") is named after an internal cache
+- [x] V.3 `NO_SIDECAR` (`FetchService.cs:51`, "supply knownItems … or run `volt init`") is named after an internal cache
       a client never sees: rename to a request-shape code or fold into `BAD_REQUEST` with the same message; update
       clients and wire.html. Unchanged at HEAD.
-- [ ] V.4 **Changed.** Gate: every code in BridgeErrorCodes/ConflictCodes is raised by production code AND documented
+      **Done (step V).** Folded into `BAD_REQUEST`, the message naming the wire fields: "a fetch needs a baseline: send
+      `knownItems` (or `onlyItems` for a directed read), or `init: true` for a first pull". `BridgeErrorCodes.NoSidecar`
+      deleted; `FetchService`, `RefsFetch` doc, wire.html (row removed, BAD_REQUEST's row lists it), `WireVocabularyGuardTests`,
+      `DocDataTests` (fetch declares BAD_REQUEST), `PipeTransportTests`, `FetchIncrementalTests`; data.js/openrpc regenerated.
+      0 clients branched on it (CLI, volt-control, volt-vscode, volt-desktop, e2e).
+- [x] V.4 **Changed.** Gate: every code in BridgeErrorCodes/ConflictCodes is raised by production code AND documented
       with the situation it means (wire.html for the frame and gate codes, network-text.html for `NETWORK_*`, which
       wire.html does not list); a code raised for two different kinds of situation fails the gate (today: BAD_REQUEST,
       INTERNAL_ERROR, UNSUPPORTED — V.1; NOT_FOUND vs ITEM_MISSING — 7.2). Also: `ConflictCodes.FromBridge` omits
       `INTERNAL_ERROR`, which `PushService.ConflictFor` (:372) puts on every unclassified refusal — and since
       push-keeps-what-landed every apply-time stop is a conflict, so clients DO receive it there; list it.
+      **Done (step V).** `Volt.Repo.Gates/WireVocabularyTests`: 22 situations, each naming its remedy and its ONE code, with
+      the census of raise sites (every `BridgeErrorCodes.X`/`ConflictCodes.X` reference in comment-stripped `src`,
+      Contracts and the CLI client excluded) per file with exact counts — 74 (code, file) rows. Fails on: a new or gone
+      site, a code under two situations, a code raised nowhere, a code with no `class="name"` row (wire.html; network-text.html
+      for `NETWORK_*`). 6 teeth tests. `ConflictCodes.FromBridge` lists `INTERNAL_ERROR` (wire.html "Seven of these codes",
+      its conflict row; DocDataTests' push outcome). The situation docs live on the constants (BAD_REQUEST, UNSUPPORTED,
+      INTERNAL_ERROR, ITEM_UNVERIFIED) and in wire.html's rows. 7.1's open question: the project-level C2i frame stays a
+      frame, declared on refs/fetch/push (7.4 F3) — the walk cannot list a root it could not read as `unwalked` without a
+      root to name. Numbers: Engine 2279/0/1, Twincat 447, Codesys 305, Repo.Gates 115, Contracts 39, Relay 49, Cli 255
+      (BridgePackagingTests not run), volt-cli `test/unit` 24, `bun run check` 18/18.
+- [x] V.5 Gate step V — review findings first, then the full suites. All four findings were right; each was fixed with a
+      failing test first.
+      **F1 (medium) — a refused TwinCAT save answered `UNSUPPORTED`.** That code was declared on neither push nor build, it
+      arrives as a frame and not a conflict, and its remedy says "no retry", while saving again is exactly what fixes it.
+      → new frame code **`IDE_SAVE_FAILED`** (`BridgeErrorCodes`; TwinCAT `File.SaveAll` only). It is declared on push and
+      build (`DocDataTests` outcomes + notes; openrpc/data.js regenerated), has its own row in wire.html, and the
+      UNSUPPORTED row no longer lists "save". The message names the remedy (save in the IDE or retry, then pull) and the
+      COM exception stays the inner exception, so an RPC drop still degrades the session. Test:
+      `TcIdeRefusalCodeTests.A_save_the_IDE_refused_is_IDE_SAVE_FAILED_and_keeps_the_IDE_exception`. The vocabulary
+      now has 25 codes.
+      **F2 (low) — a member with no declaration is `UNREADABLE`, but force cannot get past it.** Measured offline: no
+      forced update gets past an item whose live read throws, because the update path reads the item before it writes.
+      This was already true for any such item, not only this one. A delete followed by a create in two pushes does work.
+      → `PushService.ReadLive` wraps the 4 live reads (last-moment version, refused member create, guard read ×2). A
+      coded UNREADABLE keeps its code and the IDE's words and adds "cannot be updated in place, with or without force …
+      push its deleteItem, then push it again as a create". wire.html, the constant's doc and the gate situation state
+      the exception. Test: `ErrorCodeVocabularyTests.A_forced_update_of_an_item_the_IDE_does_not_return_is_UNREADABLE_naming_delete_then_create`
+      (the refusal, then the delete push and the create push are both accepted).
+      **F3 (low) — the `ItemLookup` faults named no folder and dropped the inner exception.** → each of the three
+      messages now names the folder whose read was refused ("the project root" / "the folder 'X'"; that folder's name is
+      read only after a fault) and passes the IDE's exception as inner, so `BeckhoffDriver.IsRpcFault` sees it. The
+      ITEM_UNVERIFIED remedy in wire.html now reads "the message names it; a refs/fetch walk lists its skips in
+      `unwalkedFolders`". Test: `LookupFaults` gains 2 nested-folder rows, and every row asserts the place and the inner
+      exception.
+      **F4 (low) — the vocabulary gate could not see codes assigned by exception TYPE.** → `WireVocabularyTests` gets a
+      second census: every `throw new` of a BCL exception type that carries no code (InvalidOperation / NotSupported /
+      NotImplemented / IO / MissingMethod / COM / bare `Exception`; `Argument*` guards excluded), counted per file. A new
+      one fails until it is coded or counted. Baseline: 110 throws in 34 files, **accepted as they stand, not
+      classified one by one**. The gate holds new sites; auditing which of the 110 are IDE refusals is open work (see
+      8.1). 3 teeth tests. Census changes: IDE_SAVE_FAILED +1 situation, UNSUPPORTED −1 (TcObjectModel.Build), UNREADABLE
+      PushService 3→5.
+      **Numbers:** Engine 2282/0/1, Cli 260 (with BridgePackagingTests, MSBUILDDISABLENODEREUSE=1), Connector 115, Twincat
+      447, Codesys 305, Contracts 39, Relay 49, Repo.Gates 124; volt-cli `test/unit` 24; `bun run check` 18/18; typecheck
+      green; LSP 8094 pass/34 skip/381 todo/0 fail (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset). No fixtures or transpiler
+      changed, so the fixture map was not regenerated. e2e was not re-run: the changes are offline-proven codes and
+      messages, and no e2e row asserts any of them.
 
 ## 8. Negative e2e — every refusal proven live (owner, 2026-10-03: "our e2e tests don't really have negative tests")
 

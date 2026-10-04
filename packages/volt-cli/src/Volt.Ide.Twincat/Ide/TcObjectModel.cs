@@ -612,8 +612,10 @@ internal sealed partial class TcObjectModel
             TcPlcOpenWriter.WriteProject(name, model).Save(file);
             ((dynamic)PlcRoot()).PlcOpenImport(file, 0);
 
+            // Both refusals below are UNSUPPORTED: the IDE did not take the document Volt sent (it was an uncoded
+            // InvalidOperationException, INTERNAL_ERROR on the wire — a Volt bug; openspec bridge-refusal-review V.1).
             var scratch = LookupPath(PathOf(PlcRoot()) + "^" + name)
-                ?? throw new InvalidOperationException(
+                ?? throw new BridgeException(BridgeErrorCodes.Unsupported,
                        "TwinCAT: the PLCopen import produced no POU. The document was accepted and nothing was " +
                        "built from it, so the push is failed rather than reported as applied.");
 
@@ -623,7 +625,7 @@ internal sealed partial class TcObjectModel
             // importer does not understand yields an EMPTY body, which would then be written over the item and
             // read back as "the engineer drew nothing".
             if (TcArchive.HasNoItems(TcArchive.Root(archive)))
-                throw new InvalidOperationException(
+                throw new BridgeException(BridgeErrorCodes.Unsupported,
                     "TwinCAT: the PLCopen import produced an empty body. The document was accepted but nothing " +
                     "was built from it, so the push is failed rather than reported as applied.");
 

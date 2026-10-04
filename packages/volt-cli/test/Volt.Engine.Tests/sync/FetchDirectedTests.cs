@@ -77,7 +77,7 @@ public class FetchDirectedTests
     /// <summary>`onlyItems: []` MEANS ZERO ITEMS, not "everything".
     ///
     /// <para>It used to collapse to null when empty, which gave one value three readings at once: the
-    /// NO_SIDECAR check saw a non-null list and allowed the request, the per-item filter saw null and let
+    /// no-baseline check saw a non-null list and allowed the request, the per-item filter saw null and let
     /// every item through, and the library gate saw null and ran the full signature extraction. A caller
     /// asking for nothing got the most expensive answer the bridge has.</para></summary>
     [Fact]

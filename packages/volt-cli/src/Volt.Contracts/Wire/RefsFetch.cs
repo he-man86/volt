@@ -58,7 +58,7 @@ public class FetchRequest : BoundRequest
 
     /// <summary>Bootstrap mode: return every item regardless of knownItems. This is how <c>volt init</c> seeds
     /// the first workspace. A <c>fetch</c> with neither <c>knownItems</c> nor <c>onlyItems</c> nor this flag is
-    /// NO_SIDECAR: "everything" and "a client that forgot its baseline" are indistinguishable otherwise.</summary>
+    /// BAD_REQUEST (it was NO_SIDECAR): "everything" and "a client that forgot its baseline" are indistinguishable otherwise.</summary>
     [JsonPropertyName("init")]
     public bool Init { get; set; }
 }

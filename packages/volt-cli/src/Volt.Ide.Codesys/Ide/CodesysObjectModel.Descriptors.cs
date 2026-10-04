@@ -326,8 +326,10 @@ namespace Volt.Ide.Codesys
         private static void WriteCallList(object taskFacet, object pous,
                                           System.Collections.Generic.IReadOnlyList<string> calls)
         {
+            // Every refusal of the rebuild (here and in RebuildCallList) is UNSUPPORTED: the IDE did not take the write. They
+            // were uncoded InvalidOperationExceptions, INTERNAL_ERROR on the wire (openspec bridge-refusal-review V.1).
             var perform = pous.GetType().GetMethod("PerformWithWriteableCopy", BF)
-                ?? throw new InvalidOperationException(
+                ?? throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: no PerformWithWriteableCopy on {pous.GetType().FullName} — a task's call list " +
                     "cannot be rebuilt, and mutating the read-only view would silently do nothing.");
 
@@ -344,7 +346,7 @@ namespace Volt.Ide.Codesys
             catch (TargetInvocationException tie)
             {
                 var inner = tie.InnerException ?? tie;
-                throw new InvalidOperationException($"CODESYS refused a task call-list rebuild: {inner.Message}", inner);
+                throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported, $"CODESYS refused a task call-list rebuild: {inner.Message}", inner);
             }
         }
 
@@ -372,7 +374,7 @@ namespace Volt.Ide.Codesys
                                             System.Collections.Generic.IReadOnlyList<string> calls)
         {
             if (writeable is not System.Collections.IList list)
-                throw new InvalidOperationException(
+                throw new Volt.Engine.BridgeException(BridgeErrorCodes.Unsupported,
                     $"CODESYS: the writeable call list is a {writeable.GetType().FullName}, which is not an IList " +
                     $"— it offers: {string.Join(", ", writeable.GetType().GetMethods(BF).Select(m => m.Name).Distinct().OrderBy(n => n))}");
 

@@ -191,10 +191,12 @@ public static class PushService
             // blamed the text for being what the file is meant to be. A DELETE of one is the same refusal: it used to pass
             // here (only sets were checked), so the batch's earlier ops landed and the delete then reached the vendor
             // object — TwinCAT's synthesized settings marker, whose parent read threw an unnamed binder error, or a live
-            // CODESYS descriptor, removed.
+            // CODESYS descriptor, removed. BAD_REQUEST: the wire never writes a descriptor — Volt's rule, not the IDE
+            // refusing a text, so UNSUPPORTED ("the IDE will not take this text") sent the engineer to edit a file that
+            // is fine (openspec bridge-refusal-review V.1).
             if (ReadOnlyKindOf(op) is { } readOnly)
             {
-                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.Unsupported,
+                preflight.Add(ConflictFor(op, new BridgeException(BridgeErrorCodes.BadRequest,
                     $"'{readOnly.Name}' is read-only: a {readOnly.Kind} descriptor is rendered from the IDE and is never " +
                     "pushed. Change it in the IDE and pull.")));
                 continue;
@@ -758,10 +760,13 @@ public static class PushService
                     throw new BridgeException(BridgeErrorCodes.BadRequest,
                         $"set '{set.Name}': '{u.Name}' is replaced, not updated, so the op needs sourceText");
                 // The folder it sits in comes from the walk that named it; without it the recreate would land at the
-                // root — a move nobody asked for.
+                // root — a move nobody asked for. A walk that names no folder for it did not READ that folder (the
+                // lookup found the item, the walk skipped where it sits): ITEM_UNVERIFIED, the walk's gap, not a Volt bug
+                // (it was INTERNAL_ERROR; openspec bridge-refusal-review V.1).
                 var folder = set.ToFolder ?? (notOpened.TryGetValue(u.Name, out var f) ? f
-                    : throw new BridgeException(BridgeErrorCodes.InternalError,
-                        $"'{u.Name}' is not opened, and this push's walk did not say which folder it sits in"));
+                    : throw new BridgeException(ConflictCodes.ItemUnverified,
+                        $"'{u.Name}' is not opened, and this push's walk did not read the folder it sits in, so there is " +
+                        "no folder to recreate it in"));
                 var wireName = set.ToName ?? set.Name;
                 ide.Delete(u.Parent, u.Name);
                 outcome.Replaced = u.Name;   // gone from here on, whatever the create below does
@@ -990,7 +995,7 @@ public static class PushService
         // read for the format guard is already in hand.
         if (op.SourceText is not null && (renames || moves) && lastMomentVersion is not null)
         {
-            RequireUnchanged(name, currentFolder, ide.ReadContent(item), lastMomentVersion);
+            RequireUnchanged(name, currentFolder, ReadLive(ide, item, name), lastMomentVersion);
             lastMomentVersion = null;   // checked, against the right state: the write after the rename must not re-ask
         }
         if (renames && toName is not null)
@@ -1099,8 +1104,11 @@ public static class PushService
                                  ValidatedSource? source, OpOutcome outcome)
     {
         var kind = ItemKind.Map(ide.KindCode(item));
+        // A move takes a source item only — Volt's wire rule, so BAD_REQUEST (it was UNSUPPORTED, whose remedy is to
+        // change the text; openspec bridge-refusal-review V.1). Reached when the op's bare name finds an object of
+        // another kind, a task (the one addressable non-source kind, `.task` routing aside).
         if (kind == null || !ItemKind.IsSourceKind(kind))
-            throw new BridgeException(BridgeErrorCodes.Unsupported, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
+            throw new BridgeException(BridgeErrorCodes.BadRequest, $"cannot move '{name}': only source items (POUs/DUTs/GVLs) can be moved");
 
         // CONTENT FIRST, then the move — because the content write is the step that can REFUSE.
         // It used to move first, which meant a rejected move+edit (an unsupported CFC body, a language change,
@@ -1284,6 +1292,27 @@ public static class PushService
             : throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"set '{op.Name}' reached the apply without the source the pre-flight validated for it");
 
+    /// <summary>The LIVE item an update reads before it writes (the format guard, the member reconcile, the last-moment
+    /// version, a refused member create).
+    ///
+    /// <para><b>An item the IDE does not return at all cannot be updated in place, forced or not.</b> A driver that holds
+    /// the item and cannot read it whole — a member the IDE holds no declaration for, on both vendors — refuses it
+    /// <c>UNREADABLE</c>, and that code's remedy includes "push with force". Force skips the version GATE; this read is
+    /// not the gate, so a forced update met the same refusal again and a client following the advice looped. The refusal
+    /// keeps its code and the IDE's words and says what does work: fix it in the IDE, or replace it — delete it, then
+    /// create it, two pushes because one push names an item once (review of step V; proved in
+    /// <c>ErrorCodeVocabularyTests</c>).</para></summary>
+    private static ItemContent ReadLive(IIdeDriver ide, ItemRef item, string name)
+    {
+        try { return ide.ReadContent(item); }
+        catch (Exception ex) when (ex is ICodedError { ErrorCode: BridgeErrorCodes.Unreadable })
+        {
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
+                $"'{name}' cannot be updated in place, with or without force: the IDE does not return it ({ex.Message}). " +
+                "Fix it in the IDE, or replace it — push its deleteItem, then push it again as a create.", ex);
+        }
+    }
+
     /// <summary>A MEMBER CREATE THE IDE REFUSES FROM ITS ARGUMENT, before the first write (bridge-refusal-review 1+2d
     /// review; <see cref="IIdeDriver.RefusedMemberCreate"/>): TwinCAT creates an interface member with its type and cannot
     /// create one that states none. Its driver refused that create from inside the apply loop, after the batch's earlier
@@ -1299,7 +1328,7 @@ public static class PushService
             .Where(x => x.Why is not null).ToList();
         if (refused.Count == 0) return;
         var held = new List<Member>();
-        if (!isCreate && (existing ?? ItemLookup.Find(ide, name)) is { } item) held = ide.ReadContent(item).Members.ToList();
+        if (!isCreate && (existing ?? ItemLookup.Find(ide, name)) is { } item) held = ReadLive(ide, item, name).Members.ToList();
         foreach (var (m, why) in refused)
         {
             if (held.Any(h => string.Equals(h.Name, m.Name, StringComparison.OrdinalIgnoreCase) && h.Kind == m.Kind)) continue;
@@ -1441,7 +1470,7 @@ public static class PushService
             // Validate the WHOLE write before any of it lands, so a refusal is atomic. The guard decides from
             // the IDE's LIVE body, which arrives in the content the driver returns - a body Volt cannot author
             // must never be overwritten by a textual push, and a UNSUPPORTED line must not be written over one it can.
-            live = ide.ReadContent(pou);
+            live = ReadLive(ide, pou, name);
 
             // A PUSH MAY NOT RE-TYPE AN EXISTING ITEM BY ITS NAME. The IDE's kind comes from the object's CLASS — it
             // really is a POU, a DUT, a GVL, an interface — and the op's kind from its wire name's extension. They are
@@ -1488,7 +1517,7 @@ public static class PushService
         // ONE read of the live item, used by all three of the guard, the reconciler and the write filter. These
         // were two separate ReadContent calls back to back, each walking every member and reading its
         // declaration, body and accessors, to answer two questions about the same unchanged snapshot.
-        live ??= ide.ReadContent(pou);
+        live ??= ReadLive(ide, pou, name);
 
         // A REFUSED CREATE LEAVES NOTHING BEHIND.
         //

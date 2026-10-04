@@ -104,6 +104,11 @@ public static class ConflictCodes
     /// <see cref="ConflictCodes"/> value is a frame (openspec <c>bridge-refusal-review</c> 7.1). It was
     /// <c>INTERNAL_ERROR</c>, which blamed Volt for an IDE state.</para>
     ///
+    /// <para><b>A read the IDE refused.</b> The push's lookup of an item, and its recreate of an item it must not open,
+    /// meet the same situation without a C2i guard: the IDE refuses a child count, a child or a name read (a raw COM
+    /// fault), or the walk skipped the folder a forced replace would recreate the item in. Same code, the message naming
+    /// the item and the IDE's words (openspec <c>bridge-refusal-review</c> V.1; they were <c>INTERNAL_ERROR</c>).</para>
+    ///
     /// <para><b>On an op whose own item was read.</b> Resolving a body's names reads every declaration of the project,
     /// so such a folder ANYWHERE refuses that op too — with this code (the remedy is the folder's) and a message that
     /// says the refusal is the folder's, not the item's (review of <c>bridge-refusal-review</c> 7).</para></summary>
@@ -135,10 +140,15 @@ public static class ConflictCodes
     /// <summary>The <see cref="BridgeErrorCodes"/> values that reach a client as a CONFLICT rather than as an
     /// error frame, because the push catches them. Listing them is what makes the enum honest: without this,
     /// six of the ten codes are published by no op and look unreachable. <c>INVALID_CODE_HEADER</c> is gone from the
-    /// vocabulary: a push no longer reads a top-level item's header (openspec <c>push-without-header-check</c>).</summary>
+    /// vocabulary: a push no longer reads a top-level item's header (openspec <c>push-without-header-check</c>).
+    ///
+    /// <para><c>INTERNAL_ERROR</c> is one of them: <c>PushService.ConflictFor</c> answers every refusal nobody coded with
+    /// it, and since <c>push-keeps-what-landed</c> every apply-time stop is a conflict, so a client DOES receive it here
+    /// (openspec <c>bridge-refusal-review</c> V.4).</para></summary>
     public static readonly string[] FromBridge =
     {
         BridgeErrorCodes.IdeLostItem, BridgeErrorCodes.Unsupported, BridgeErrorCodes.DuplicateChild,
         BridgeErrorCodes.BadRequest, BridgeErrorCodes.InvalidSt, BridgeErrorCodes.Unreadable,
+        BridgeErrorCodes.InternalError,
     };
 }

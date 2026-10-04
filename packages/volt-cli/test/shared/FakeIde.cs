@@ -254,6 +254,12 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// answers that the code used to collapse into one.</summary>
     public IReadOnlyList<string> FaultingNodes { get; init; } = System.Array.Empty<string>();
 
+    /// <summary>Tree nodes whose <see cref="ChildAt"/> FAULTS (the count answers, a child read does not), and items whose
+    /// <see cref="Name"/> FAULTS — the two other reads a lookup makes, each its own refusal site in
+    /// <c>ItemLookup.Walk</c> (openspec <c>bridge-refusal-review</c> V.1).</summary>
+    public IReadOnlyList<string> FaultingChildReads { get; init; } = System.Array.Empty<string>();
+    public IReadOnlyList<string> FaultingNameReads { get; init; } = System.Array.Empty<string>();
+
     // ── IProjectTree (only the walk + accessors the services use are real) ──
 
     /// <summary>How many times the tree was walked — lets a test prove an op that must NOT walk doesn't.</summary>
@@ -315,11 +321,14 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     private int ChildCountCore(ItemRef item) =>
         IsTreeNode(item) ? TreeChildren(item).Count : FindOrNull(item)?.Children?.Length ?? 0;
     public string Name(ItemRef item) =>
+        FaultingNameReads.Contains(NameOf(item)) ? throw new InvalidOperationException($"COM fault reading the name of '{NameOf(item)}'") :
         // A folder ref is its ENCODED path (as an item's Folder is, FolderPath): its name is the decoded last segment, so a
         // folder literally named "Interfaces / Data" is ONE node here as it is in the IDE.
         IsTreeNode(item) ? FolderPath.Segments(NameOf(item)).Last() : Find(item).Name;
     public ItemRef ChildAt(ItemRef parent, int index1Based)
     {
+        if (FaultingChildReads.Contains(NameOf(parent)))
+            throw new InvalidOperationException($"COM fault reading child {index1Based} of '{NameOf(parent)}'");
         var child = IsTreeNode(parent) ? TreeChildren(parent)[index1Based - 1]
                                        : Ref(Find(parent).Children![index1Based - 1]);
         if (NameOf(child) is { } n && UnopenedItems.Contains(n))

@@ -106,5 +106,8 @@ public class TcPlcOpenInvariantTests
                               "out := a;", Flags.None);
         var ex = Assert.Throws<NotSupportedException>(() => TcPlcOpenWriter.WriteProject("P", One(execute)));
         Assert.Contains("Execute box", ex.Message);
+        // What Volt's lowering lacks, not a claim about PLCopen (V.1): "cannot express as PLCopen" read as a format limit.
+        Assert.Contains("Volt's TwinCAT lowering has no spelling for it", ex.Message);
+        Assert.DoesNotContain("as PLCopen", ex.Message);
     }
 }

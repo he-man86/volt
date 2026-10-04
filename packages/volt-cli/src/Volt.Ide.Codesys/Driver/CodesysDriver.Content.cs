@@ -274,8 +274,10 @@ public sealed partial class CodesysDriver
         if (site.Code == ItemKind.PlcAction) return $"ACTION {site.Name}";
 
         var decl = ReadDeclarationText(site.Ref);
+        // UNREADABLE: the IDE holds the item and Volt cannot read it whole — fix it in the IDE, or push with force. It was
+        // INTERNAL_ERROR, a Volt bug, for a broken item in the project (openspec bridge-refusal-review V.1).
         if (string.IsNullOrWhiteSpace(decl))
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(BridgeErrorCodes.Unreadable,
                 $"'{site.Name}': the IDE reports no declaration for this member — that is a broken item, not a " +
                 "transport gap");
         return decl.TrimEnd('\n');

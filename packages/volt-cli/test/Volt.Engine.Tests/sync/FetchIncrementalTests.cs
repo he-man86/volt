@@ -85,6 +85,7 @@ public class FetchIncrementalTests
     {
         var ide = TwoItem();
         var ex = Assert.Throws<BridgeException>(() => FetchService.Handle(ide, new FetchRequest()));
+        Assert.Equal(Volt.Contracts.BridgeErrorCodes.BadRequest, ex.ErrorCode);
         Assert.Contains("knownItems", ex.Message);
     }
 }

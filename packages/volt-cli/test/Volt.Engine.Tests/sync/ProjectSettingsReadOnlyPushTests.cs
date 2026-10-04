@@ -35,7 +35,7 @@ public class ProjectSettingsReadOnlyPushTests
         Assert.False(resp.Accepted);
         var refused = Assert.Single(resp.Conflicts!);
         Assert.Equal("Project Settings.projectsettings", refused.Name);
-        Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
+        Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
         Assert.Contains("'Project Settings.projectsettings' is read-only", refused.Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("create") || r.StartsWith("writecontent:"));
     }
@@ -92,7 +92,7 @@ public class ProjectSettingsReadOnlyPushTests
 
         Assert.False(resp.Accepted);
         var refused = Assert.Single(resp.Conflicts!, c => c.Name == wireName);
-        Assert.Equal(BridgeErrorCodes.Unsupported, refused.Code);
+        Assert.Equal(BridgeErrorCodes.BadRequest, refused.Code);
         Assert.Contains($"'{wireName}' is read-only", refused.Reason);
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("delete") || r.StartsWith("writecontent:") || r.StartsWith("write:")
             || r.StartsWith("decl:") || r.StartsWith("create"));

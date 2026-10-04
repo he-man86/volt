@@ -142,7 +142,7 @@ public class NoCodeCheckLeftTests
     /// number is the file's). String and char literals are read as literals — a <c>//</c> inside <c>"http://…"</c>
     /// is not a comment — and kept, since a retired code spelled in a string is still raised. Interpolation holes
     /// (<c>$"{…}"</c>) are code, nested strings included. The toolchain has no raw (<c>"""</c>) literals.</summary>
-    private static string StripComments(string source)
+    internal static string StripComments(string source)
     {
         var o = new StringBuilder(source.Length);
         Code(source, 0, o, inHole: false);
@@ -246,7 +246,7 @@ public class NoCodeCheckLeftTests
         return i;
     }
 
-    private static string RepoRoot()
+    internal static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "CLAUDE.md"))) dir = dir.Parent;

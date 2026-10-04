@@ -187,10 +187,10 @@ public class PipeTransportTests
         using var host = new BridgePipeHost(new FakeIde(FakeIde.Item.TextualPou("P", "PROGRAM P\nVAR\nEND_VAR", "x := 1;")), pipe);
         host.Start();
 
-        // /fetch with no knownItems and not init → the service throws BridgeException(NO_SIDECAR). The wire must
+        // /fetch with no knownItems and not init → the service throws BridgeException(BAD_REQUEST). The wire must
         // carry that code through to PipeCallException.Code (it used to flatten every error to INTERNAL_ERROR).
         var ex = Assert.Throws<PipeCallException>(() => new PipeClient(pipe).Call("fetch", new { }));
-        Assert.Equal("NO_SIDECAR", ex.Code);
+        Assert.Equal("BAD_REQUEST", ex.Code);
     }
 
     /// <summary>The Core `connect` post-condition, enforced ONCE in BridgePipeHost for BOTH vendors: a connect that

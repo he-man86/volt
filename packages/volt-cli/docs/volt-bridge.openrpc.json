@@ -153,13 +153,13 @@
         "IDE_UNSUPPORTED",
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
-        "NO_SIDECAR",
+        "BAD_REQUEST",
         "ITEM_UNVERIFIED",
         "INTERNAL_ERROR"
       ],
       "x-outcomes": [
         "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
-        "NO_SIDECAR is specific to this op: a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull.",
+        "BAD_REQUEST for a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 nor \u0060init: true\u0060: it is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull. (It was NO_SIDECAR, a code named after a cache no client sees.)",
         "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a name absent from a folder it did read is still in \u0060removed\u0060, judged by \u0060knownFolders\u0060.",
         "Items that would not materialize are named in \u0060unreadable\u0060, not raised."
       ],
@@ -188,12 +188,14 @@
         "PLC_DISCONNECTED",
         "WRONG_PROJECT",
         "ITEM_UNVERIFIED",
+        "IDE_SAVE_FAILED",
         "INTERNAL_ERROR"
       ],
       "x-outcomes": [
         "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+        "TwinCAT saves the project before the apply and after it (\u0060File.SaveAll\u0060); a save the IDE refuses is the frame IDE_SAVE_FAILED. After the apply it means every op landed in the IDE and is not on disk, and the receipt was not sent: save in the IDE or retry, then pull.",
         "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as a conflict. A client MUST check \u0060accepted\u0060 AND \u0060conflicts\u0060.",
-        "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, never the message.",
+        "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE, and INTERNAL_ERROR for a refusal nobody coded. Match the code, never the message.",
         "A version conflict is also \u0060accepted:false\u0060 \u2014 with \u0060yourVersion\u0060/\u0060currentVersion\u0060 per item.",
         "A refusal decidable before the first write writes nothing and names EVERY refused op \u2014 the gate\u0027s per-item conflicts and the pre-flight\u0027s, one conflict per op.",
         "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is \u0060accepted:true\u0060 with the receipt and a conflict per op NOT landed \u2014 the refused op with its code, every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
@@ -222,11 +224,13 @@
       "x-errorCodes": [
         "IDE_UNSUPPORTED",
         "PLC_DISCONNECTED",
-        "WRONG_PROJECT"
+        "WRONG_PROJECT",
+        "IDE_SAVE_FAILED"
       ],
       "x-outcomes": [
         "The guard sits OUTSIDE the try, deliberately \u2014 otherwise WRONG_PROJECT would be swallowed into a fake \u0022build failed\u0022 diagnostic instead of surfacing as an error frame.",
         "Everything after it IS caught: a thrown build answers \u0060success:false\u0060 with the message as one error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
+        "Except a CODED refusal, which passes as its frame: TwinCAT saves the project before it builds, and a save the IDE refuses is IDE_SAVE_FAILED \u2014 save in the IDE or retry.",
         "\u0060success\u0060 comes from a different vendor SIGNAL on each: CODESYS derives it from the diagnostics, TwinCAT reads the IDE\u0027s own count of failed projects."
       ],
       "result": {

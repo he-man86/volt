@@ -75,6 +75,9 @@ public class TcUntouchablePouTests
             _xae.Lookups.Add(name);
             return Touch(Kids.First(k => string.Equals(k._name, name, StringComparison.OrdinalIgnoreCase)));
         }
+        /// <summary>The PLCopen import as a document the importer accepted and built nothing from: no POU appears (the
+        /// refusal <c>ResolveGraphicalBody</c> then answers; openspec <c>bridge-refusal-review</c> V.1).</summary>
+        public void PlcOpenImport(string file, int options) => _xae.Alive();
         public void DeleteChild(string name)
         {
             _xae.Alive();
@@ -147,7 +150,7 @@ public class TcUntouchablePouTests
         };
     }
 
-    private static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
+    internal static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
         Func<Xae, Node> build, Func<object, string, ExplorerNode?>? explorer = null)
     {
         var xae = new Xae();

@@ -121,10 +121,13 @@ internal static class TcPlcOpenWriter
         XElement Scaling() => new XElement(Namespaces.Tc6 + "scaling", new XAttribute("x", "1"), new XAttribute("y", "1"));
     }
 
+    /// <summary>A real limit of Volt's lowering: UNSUPPORTED (a <see cref="NotSupportedException"/>), worded as what the
+    /// LOWERING lacks — "cannot express as PLCopen" read as a limit of the format, which holds these shapes perfectly
+    /// well (<c>drawn-refused-shapes.TcPOU</c>; openspec bridge-refusal-review V.1).</summary>
     private static NotSupportedException Refuse(string what) =>
         new NotSupportedException(
-            $"TwinCAT: this graphical body {what}, which Volt cannot express as PLCopen. The IDE can " +
-            "create it.");
+            $"TwinCAT: this graphical body {what}, and Volt's TwinCAT lowering has no spelling for it, so the push " +
+            "cannot write it. The IDE can create it.");
 
     /// <summary>A model the network-text reader never builds reached the lowering: a Volt bug, INTERNAL_ERROR, worded as
     /// what the model lacks (openspec bridge-refusal-review 2.33, V.1). These went through <see cref="Refuse"/>, which

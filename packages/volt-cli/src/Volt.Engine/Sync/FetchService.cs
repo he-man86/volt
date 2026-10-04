@@ -38,7 +38,7 @@ public static class FetchService
         var isInit = request.Init;
         var knownItems = request.KnownItems ?? new Dictionary<string, string>();
         // `[]` MEANS "THESE ZERO ITEMS", everywhere. It used to collapse to null when empty, which gave the
-        // one value three different readings: the NO_SIDECAR check below saw a non-null list and allowed the
+        // one value three different readings: the no-baseline check below saw a non-null list and allowed the
         // request, the per-item filter saw null and let EVERY item through, and the library gate saw null and
         // ran the full signature extraction — the slowest work the bridge does. So `{knownItems:{},
         // onlyItems:[]}` was a full init-weight fetch wearing the clothes of a directed preview.
@@ -47,8 +47,11 @@ public static class FetchService
         // A normal fetch without a knownItems baseline is ambiguous — did the client mean "everything" or
         // did it forget to supply a sidecar? The init op (`volt init`) is the first pull instead.
         // An onlyItems fetch without knownItems IS allowed (directed preview, used by E2E harness).
+        // BAD_REQUEST: the request lacks a field the wire needs. It was NO_SIDECAR, a code named after a cache no client
+        // sees, and its message named a CLI command rather than the fields (openspec bridge-refusal-review V.3).
         if (!isInit && request.KnownItems == null && request.OnlyItems == null)
-            throw new BridgeException(BridgeErrorCodes.NoSidecar, "supply knownItems to diff against, or run `volt init` for the first pull");
+            throw new BridgeException(BridgeErrorCodes.BadRequest,
+                "a fetch needs a baseline: send `knownItems` (or `onlyItems` for a directed read), or `init: true` for a first pull");
 
         var versions = new Dictionary<string, string>();
         var fullVersions = new Dictionary<string, string>();

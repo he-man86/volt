@@ -404,17 +404,17 @@ public sealed partial class BeckhoffDriver
 
     /// <summary>The member move's post-condition: after the archive round trip, the member <paramref name="name"/> sits at
     /// its POU's root exactly when the move asked for the root (<paramref name="folder"/> empty). A broken post-condition
-    /// of Volt's own round trip — the archive was rewritten and re-imported and the member is not where its FolderPath now
-    /// says — is a Volt bug (INTERNAL_ERROR, openspec bridge-refusal-review 2.35), not a vendor limit: it was UNSUPPORTED,
-    /// which told the client the request asked for something TwinCAT cannot do. Its own function so the code is tested
+    /// — the archive was rewritten and re-imported and the member is not where its FolderPath now says — is the IDE not
+    /// holding what Volt just wrote: IDE_LOST_ITEM, the code of every post-condition (openspec bridge-refusal-review 7.2,
+    /// V.1). It was UNSUPPORTED, which told the client the request asked for something TwinCAT cannot do, then
+    /// INTERNAL_ERROR (2.35), which blamed Volt for what the IDE did with the import. Its own function so the code is tested
     /// without the project walk no double has.</summary>
     private static void RequireMemberLanded(string name, string pouName, string folder, bool atPouRoot)
     {
         if (atPouRoot == (folder.Length == 0)) return;
-        throw new BridgeException(BridgeErrorCodes.InternalError,
+        throw new BridgeException(BridgeErrorCodes.IdeLostItem,
             $"placed '{name}' in '{(folder.Length == 0 ? pouName : folder)}' inside '{pouName}', but after the " +
-            $"archive round trip it is {(atPouRoot ? "at the POU's root" : "not at the POU's root")} — the placement did not land. " +
-            "A member move's post-condition is Volt's own: this is a Volt bug.");
+            $"archive round trip it is {(atPouRoot ? "at the POU's root" : "not at the POU's root")} — the placement did not land.");
     }
 
     /// <summary>Relocate an item, whole. TwinCAT has no <c>Move</c> member on its tree item — the dispatch
