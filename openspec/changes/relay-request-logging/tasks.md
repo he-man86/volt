@@ -23,6 +23,6 @@
 
 ## 3. Verify
 
-- [ ] 3.1 Live: a session with a disconnected project, a relay restart mid-fetch and a watchdog drop; every `<-` in the
+- [x] 3.1 (2026-10-04, CODESYS SP21 fixture instance + the real tunnel with a ClientWebSocket against a local Bun relay: every `<-` paired; the coded error was WRONG_PROJECT — a fixture IDE serves a project, so PLC_DISCONNECTED is covered by the tunnel test, same code path; relay terminate mid-fetch logged `ended after 3s — dropped without a close … in flight: c1-fetch` then `-> fetch (c1-fetch) abandoned ok 1687ms delivered=no`; watchdog `ended after 75s — the watchdog dropped it (no frame for 60s)`; closes 1001/1000 each one Info line) Live: a session with a disconnected project, a relay restart mid-fetch and a watchdog drop; every `<-` in the
       log has its terminal line, and every end has its cause.
-- [ ] 3.2 Full C# suites and `bun run check` green.
+- [x] 3.2 (2026-10-04: Relay 58, Contracts 39, Connector 115, Codesys 305, Repo.Gates 136, Cli 262, Engine 2282+1 skipped; TwinCAT 447 green on a clean worktree of HEAD + this change — in the shared tree another session's uncommitted TcObjectModel edits fail 9; `bun run check` 18/0; typecheck green) Full C# suites and `bun run check` green.
