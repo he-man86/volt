@@ -82,6 +82,12 @@ public class BridgePackagingTests
     {
         var psi = new ProcessStartInfo(exe) { WorkingDirectory = cwd, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in args) psi.ArgumentList.Add(a);
+        // NO REUSABLE MSBUILD NODES: a node outlives the build (~15 min idle) and inherits the redirected stdout, so the
+        // read below saw no end of stream until it exited — each bundle build blocked the suite ~15 min holding the
+        // packaging mutex, which read as a hang (bridge-refusal-review 6.1, measured 2026-10-04: the TwinCAT bundle
+        // built at 06:30:08, the next build started 06:45:09, as its nodes idled out). The command line stays the
+        // script's own; only the node lifetime changes.
+        psi.Environment["MSBUILDDISABLENODEREUSE"] = "1";
         using var p = Process.Start(psi)!;
         var stdout = p.StandardOutput.ReadToEndAsync();
         var stderr = p.StandardError.ReadToEndAsync();

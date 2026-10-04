@@ -9,14 +9,16 @@ using Xunit;
 namespace Volt.Repo.Gates;
 
 /// <summary>
-/// NO CODE CHECK LEFT IN THE BRIDGE (openspec <c>bridge-refusal-review</c> 6.2) — a RATCHET until that change closes.
+/// NO CODE CHECK LEFT IN THE BRIDGE (openspec <c>bridge-refusal-review</c> 6.2) — CLOSED at zero.
 ///
 /// <para>The bridge does not check the code: a refusal is allowed only where the write cannot be performed as sent
 /// (no split, no child identity, no NWL model, no vendor slot). Each name below is a code check, a header read that
 /// decides what a write means, or a code for a refusal the change deletes. The count is EXACT, taken at the change's
 /// baseline (step 0, <c>2d4a1a46f2</c>): the step that deletes a name sets its count to 0 here in the same commit, a
 /// count that grows is a check coming back, and a count that drops without the entry changing is a deletion nobody
-/// recorded. Task 6.2 closes the ratchet: every entry is 0, and the names stay in the gate.</para>
+/// recorded. Task 6.2 closed the ratchet (2026-10-04): every retired name is at 0 and stays in the gate, so a check
+/// that comes back under its old name fails here — <c>HeaderLine</c> included, deleted with its last caller, so no file
+/// may define it either. Only the step-4b entry that names its one door holds a count above 0.</para>
 ///
 /// <para>Code only — <c>//</c>, <c>///</c> and <c>/* */</c> are removed first, so a history note that names a
 /// deleted helper is not a finding; a <c>//</c> inside a string literal is not a comment. String literals ARE code: a
@@ -30,7 +32,7 @@ public class NoCodeCheckLeftTests
 
     private static readonly Dictionary<string, Retired> Names = new(StringComparer.Ordinal)
     {
-        // Still in the code at the baseline.
+        // In the code at the baseline (2d4a1a46f2); each deleted by this change and closed at 0 by 6.2.
         ["OpensNetwork"] = new(@"\bOpensNetwork\b", 0,
             "1.1 / 2.3: StReader sniffs an ST body for network text, and LD/FBD for its absence"),
         ["RefuseReservedNames"] = new(@"\bRefuseReservedNames\b", 0,
@@ -45,8 +47,8 @@ public class NoCodeCheckLeftTests
         ["FunctionBlockHeader"] = new(@"\bFunctionBlockHeader\b", 0, "4.3: as IsCallableHeader"),
         ["NonBlockTypeWords"] = new(@"\bNonBlockTypeWords\b", 0,
             "4.4: a hand copy of IEC types; an unknown type assumed to be a library FB"),
-        ["HeaderLine outside CodeHelper"] = new(@"\bHeaderLine\s*\(", 0,
-            "4.3: network scope read a callee's header through CodeHelper.HeaderLine (StDeclaration); no product code asks it"),
+        ["HeaderLine"] = new(@"\bHeaderLine\s*\(", 0,
+            "4.3: network scope read a callee's header through CodeHelper.HeaderLine (StDeclaration); deleted with its last caller (D3)"),
 
         // Step 4b (D8/D12, D11): ratchets on what the step made ONE.
         ["NetworkText.Validate( outside the pre-flight"] = new(@"\bNetworkText\.Validate\s*\(", 1,
@@ -65,12 +67,6 @@ public class NoCodeCheckLeftTests
             "push-without-header-check (no header check)"),
     };
 
-    /// <summary>Where a name's match is its definition, not a use — path under src → the names it may define.</summary>
-    private static readonly Dictionary<string, string[]> Defines = new(StringComparer.Ordinal)
-    {
-        ["Volt.Engine/Format/St/CodeHelper.cs"] = new[] { "HeaderLine outside CodeHelper" },
-    };
-
     [Fact]
     public void Every_retired_code_check_holds_its_recorded_count()
     {
@@ -86,7 +82,6 @@ public class NoCodeCheckLeftTests
         foreach (var (name, r) in Names)
         {
             var hits = files
-                .Where(f => !(Defines.TryGetValue(f.Key, out var d) && d.Contains(name)))
                 .SelectMany(f => Hits(f.Value, name).Select(line => $"{f.Key}:{line}"))
                 .ToList();
             if (hits.Count != r.Count)
@@ -115,17 +110,17 @@ public class NoCodeCheckLeftTests
     [Theory]
     [InlineData("var k = m.Kind ?? ItemKind.Kinds.Method;", "?? ItemKind.Kinds.Method")]
     [InlineData("throw new BridgeException(\"INVALID_CODE_HEADER\", msg);", "INVALID_CODE_HEADER")]
-    [InlineData("var h = CodeHelper.HeaderLine(decl); // a scope read", "HeaderLine outside CodeHelper")]
+    [InlineData("var h = CodeHelper.HeaderLine(decl); // a scope read", "HeaderLine")]
     public void Code_naming_a_retired_check_is_counted(string source, string name) =>
         Assert.Matches(new Regex(Names[name].Pattern), StripComments(source));
 
     [Theory]
-    [InlineData("var u = \"http://x\"; var h = CodeHelper.HeaderLine(decl);", "HeaderLine outside CodeHelper", 1)]
+    [InlineData("var u = \"http://x\"; var h = CodeHelper.HeaderLine(decl);", "HeaderLine", 1)]
     [InlineData("var u = @\"C:\\a\\\"; IsCallableHeader(h);", "IsCallableHeader", 1)]
     [InlineData("var u = $\"{(a ? \"//\" : b)}\"; IsCallableHeader(h);", "IsCallableHeader", 1)]
     [InlineData("var c = '\"'; var u = \"//\"; IsCallableHeader(h);", "IsCallableHeader", 1)]
     [InlineData("var m = \"// RefuseRetiredComment\";", "RefuseRetiredComment", 1)]
-    [InlineData("var a = CodeHelper.HeaderLine(x) + CodeHelper.HeaderLine(y);", "HeaderLine outside CodeHelper", 2)]
+    [InlineData("var a = CodeHelper.HeaderLine(x) + CodeHelper.HeaderLine(y);", "HeaderLine", 2)]
     public void Every_match_in_code_counts_even_after_a_string_holding_two_slashes(string source, string name, int count) =>
         Assert.Equal(count, Hits(StripComments(source), name).Count);
 

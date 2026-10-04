@@ -94,6 +94,61 @@ Paths at HEAD. 38 keep, 9 change (tasks 7.1, 7.3).
 
 Rows that group lines count each line: 6 + 1 + 4 + 1 + 15 + 1 + 1 + 1 + 1 + 7 + 6 + 3 = 47.
 
+### New during this change (73) — task 6.3
+
+`bun packages/volt-cli/scripts/refusal-census.ts --against 2d4a1a46f2` at the end of step 6 (2026-10-04): **577 sites
+then, 584 now; 66 gone, 73 new, 0 moved to another file.** Every new site is classified here; paths and lines at the
+step-6 tree. 73 keep, 0 change: each is a condition of the write, an invariant the pre-flight already guarantees, a
+measured vendor limit, a request-shape or version gate — none judges the code. (1 is another change's:
+`directed-library-signatures`.)
+
+| Site | Code | Category | Class | Why |
+|---|---|---|---|---|
+| `E/Format/Body/BodyFormatGuard.cs:63` | UNSUPPORTED | needed-to-write | Keep | A body pushed as `IMPLEMENTATION <LANG> UNSUPPORTED` where none exists: no text form to write it from (D6). |
+| `E/Format/Body/BodyFormatGuard.cs:138, 148` | UNSUPPORTED | needed-to-write | Keep | A hidden body's stated language disagrees with the IDE's: the text is not that body's source (D7). |
+| `E/Format/Body/BodyFormatGuard.cs:153, 164` | UNSUPPORTED | vendor-limit | Keep | The one language-change comparison, pre-flight, both vendors (D7; 3.3/3.4 measured), naming the route that exists. |
+| `E/Format/Body/BodyFormatGuard.cs:76, 177` | ArgumentNull / InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | A null argument; a body with text and no stated language — the reader states one (D6). |
+| `E/Format/Network/NetworkScope.cs:96, 97`, `E/Ide/ProjectDeclarations.cs:64`, `E/Ide/SourceScopes.cs:60, 120` | ArgumentNullException | internal-invariant | Keep | Null constructor/method arguments (4.3, 4.5, 4.8). |
+| `E/Format/Network/NetworkTextReader.cs:356` | NETWORK_DUPLICATE_NAME | needed-to-write | Keep | A late VAR_TEMP block taking a name the network already read as a variable: one spelling, two meanings (2.7 review). The LSP raises the same (5.2d). |
+| `E/Format/St/ImplementationMarker.cs:114, 118` | NotSupported → UNSUPPORTED | vendor-limit | Keep | An unknown vendor language that is no word, or a hidden ST body: the line cannot state it (D27; niche, 0 in the corpora). |
+| `E/Format/St/StReader.cs:196, 499, 617` | ArgumentException / InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | No composite shape for the kind (2.2); a line that reached the body read as a boundary and states no read language (D9). |
+| `E/Format/St/StReader.cs:566, 893, 897` | INVALID_ST (`Unmarked`) | needed-to-write | Keep | A region with no `IMPLEMENTATION` line: no split. Names a look-alike line or a retired comment as its hint (D9, 2.1). |
+| `E/Format/St/StReader.cs:657` | INVALID_ST | needed-to-write | Keep | A boundary line inside a declaration: the split would end the declaration there (D9). |
+| `E/Format/St/StReader.cs:1047, 1065` | INVALID_ST | needed-to-write | Keep | An action's header word or declaration line: an action has no declaration the IDE stores, so it would be dropped (D10, review 4b). |
+| `E/Format/Task/TaskDescriptorFormat.cs:90` | BAD_REQUEST (4.14) | request-shape | Keep | A `.task` field written twice: one slot, two values. |
+| `E/Ide/InterfaceAccessorGuard.cs:58` | UNSUPPORTED | needed-to-write | Keep | A body at an interface property's accessor: the IDE holds a declaration and no body slot (3.6, D28). |
+| `E/Ide/SourceScopes.cs:124` | InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | A network body at the write with no validated model: the pre-flight validates every one once (D8). |
+| `E/Item/ItemKind.cs:194, 315` | ArgumentException / INTERNAL_ERROR | internal-invariant | Keep | No shape table for the kind (D11); no create code for a member kind (2.18, 4.20). |
+| `E/Item/ItemKind.cs:334` | UNSUPPORTED | vendor-limit | Keep | A member item type Volt has no kind for, refused by name — never treated as a method (4.20, D20). |
+| `E/Library/LibraryFetch.cs:172` | UNSUPPORTED | needed-to-write | Keep | Two libraries claim one signature path: Volt does not pick an owner by order (`directed-library-signatures`, not this change). |
+| `E/Sync/PushService.cs:212` | UNSUPPORTED (coded) | vendor-limit | Keep | A move into a node that holds no object, pre-flighted (4.31, DIALECT C2q). |
+| `E/Sync/PushService.cs:634, 658` | STALE_ITEM_VERSION | version-or-conflict-gate | Keep | The last-moment re-check before a set / a delete (2.14, 2.15). |
+| `E/Sync/PushService.cs:853` | BAD_REQUEST (PushRefusal) | request-shape | Keep | The re-type route in one push: delete + set of one IDE object (4.32, owner decision). |
+| `E/Sync/PushService.cs:1147` | UNSUPPORTED | vendor-limit | Keep | The move post-condition: the IDE did not apply it (4.31). |
+| `E/Sync/PushService.cs:1306` | UNSUPPORTED | vendor-limit | Keep | A member create the driver refuses (`RefusedMemberCreate`, TwinCAT's untyped interface member, 2.4/2.6). |
+| `E/Sync/PushService.cs:1284, 1333, 1356, 2016` | INTERNAL_ERROR | internal-invariant | Keep | Apply reached without the pre-flight's source, kind or split (D8, 2.16); no create code for a top-level kind (2.17). |
+| `E/Sync/PushService.cs:1659` | NOT_FOUND | internal-invariant | Keep | A task the IDE lost after the write (post-condition; code question 7.2). |
+| `C/Driver/CodesysDriver.Content.cs:346` | UNSUPPORTED | vendor-limit | Keep | CODESYS's half of the language-change comparison (D7, DIALECT N24). |
+| `C/Driver/CodesysDriver.Content.cs:333` | InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | The object of a site could not be obtained to read its language. |
+| `C/Ide/CodesysNetworkWriter.cs:40` | NotSupported → UNSUPPORTED | needed-to-write | Keep | No Implementation aspect: no body slot for the graphical body (2.21). |
+| `C/Ide/CodesysNetworkWriter.cs:78, 304` | InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | A graphical write over a hidden view (the guard refuses it first); an FB call with no instance (2.20). |
+| `C/Ide/CodesysObjectModel.cs:226` | InvalidOperation → INTERNAL_ERROR | vendor-limit | Keep | The body aspect class measured on SP21 is not loaded: no language swap without it (N24). |
+| `C/Ide/CodesysObjectModel.cs:229, 276` | InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | A null checked-out object; an aspect vanished after it was asked for. |
+| `C/Ide/CodesysObjectModel.cs:263`, `T/Ide/TcObjectModel.cs:549` | UNSUPPORTED | needed-to-write | Keep | A body or declaration at a slot the object does not have, refused rather than dropped (4.26, D26). |
+| `C/Ide/CodesysObjectModel.Descriptors.cs:299` | BAD_REQUEST | request-shape | Keep | An unknown task `Type:` (2.25). |
+| `C/Ide/NwlInterop.cs:88` | MissingMemberException → INTERNAL_ERROR | internal-invariant | Keep | A vendor member the NWL model must have is absent: the object model changed shape (version story). |
+| `T/Driver/BeckhoffDriver.Content.cs:87` | NotSupported → UNSUPPORTED | vendor-limit | Keep | A PLCopen create refusal, pre-flighted per BODY and naming it (2.28, D21). |
+| `T/Driver/BeckhoffDriver.Content.cs:432` | UNSUPPORTED | vendor-limit | Keep | TwinCAT's half of the language-change comparison (D7). |
+| `T/Driver/BeckhoffDriver.Content.cs:740` | INTERNAL_ERROR | internal-invariant | Keep | An accessor code that maps to no Volt kind (4.20). |
+| `T/Driver/BeckhoffDriver.Tree.cs:292` | NotSupported → UNSUPPORTED | vendor-limit | Keep | An untyped interface member create, by name, before the IDE is touched (2.4/2.6; TwinCAT crashes on a null seed type). |
+| `T/Driver/BeckhoffDriver.Tree.cs:414`, `T/Ide/TcItemArchive.cs:154` | INTERNAL_ERROR | internal-invariant | Keep | The archive round trip's placement post-condition; a refused move whose undo restored the item renamed — names both (4d review). |
+| `T/Ide/TcNetworkWriter.cs:153, 235, 957` | InvalidOperation → INTERNAL_ERROR | internal-invariant | Keep | An in-place write with no archive; a write over a hidden view; RESET in the generic flag write (2.30, 2.32/D23). |
+| `T/Ide/TcPlcOpenWriter.cs:185, 195, 303, 336, 350, 403, 436, 486, 492` | Invariant → INTERNAL_ERROR | internal-invariant | Keep | PLCopen lowering invariants the reader and `TcUnmeasured` guarantee upstream (2.33). |
+| `T/Ide/TcTaskSchedule.cs:88` | BAD_REQUEST | request-shape | Keep | A task priority outside TwinCAT's UINT16 (3.9). |
+
+Rows that group lines count each line: 73 lines in all. By category: internal-invariant 39, needed-to-write 15 (one
+of them `directed-library-signatures`'s), vendor-limit 13, request-shape 4, version-or-conflict-gate 2.
+
 ## The census
 
 193 refusal sites (some rows group one refusal family at the lines listed), paths relative to

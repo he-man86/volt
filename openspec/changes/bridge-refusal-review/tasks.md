@@ -982,22 +982,58 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 ## 6. Gate
 
-- [ ] 6.0 `bun run check` is red at c974dba5ad: "every cited DIALECT row exists" reads this change's design decision `D7`
+- [x] 6.0 `bun run check` is red at c974dba5ad: "every cited DIALECT row exists" reads this change's design decision `D7`
       (cited on lines that also say "DIALECT", e.g. `CodesysLanguageChangeTests.cs:12`, `CodesysObjectModel.cs:181`) as
       DIALECT row D7, which does not exist. Cite design decisions unambiguously (e.g. "bridge-refusal-review D7") so the
       check passes; the check itself stays strict. — no code-check left
+      **Done — already green when step 6 ran (2026-10-04), no change needed:** `bun run check` 18/18. Every citation of
+      this change's D7 reads "openspec `bridge-refusal-review` D7" (`CodesysObjectModel.cs:182`,
+      `CodesysLanguageChangeTests.cs:12`, `TcLanguageChangeTests.cs:8`), and `scripts/check-wiring.ts` skips exactly that
+      form — an id directly after `openspec <change>` — since `ad6db35328` (push-partially-applied-flag 3). A bare `D7`
+      beside "DIALECT" still fails it.
 
-- [ ] 6.1 Full C# suites green; e2e on both vendors.
-- [ ] 6.2 **Changed.** Grep gate (in `Volt.Repo.Gates`, beside `NoKindFromTextTests`) over `packages/volt-cli/src`:
+- [x] 6.1 Full C# suites green; e2e on both vendors.
+      **Gate 5+6 (2026-10-04): green.** The Cli "hang" was a test bug, measured: `BridgePackagingTests.Run` builds a
+      bundle with `dotnet build`, whose REUSABLE MSBuild nodes outlive it (~15 min idle) holding the redirected stdout,
+      so `stdout.Result` saw no end of stream until they exited — each bundle build blocked ~15 min holding the packaging
+      mutex (the TwinCAT bundle built 06:30:08, the next build started 06:45:09, exactly as its nodes idled out). Fixed:
+      `MSBUILDDISABLENODEREUSE=1` on the child (the command line stays the script's). Cli **260/0 in 70 s**; Engine
+      2262/0/1, Connector 115, Twincat 440, Codesys 301, Contracts 39, Relay 49, Repo.Gates 108; volt-cli `test/unit` 24;
+      `bun run check` 18/18. e2e: the step-6 run below stands — no bridge or driver code changed since (the gate fixes
+      are LSP, fixtures and one Cli test helper).
+      **Step 6 run (2026-10-04) — all green but one Cli class, left open for the gate:** Engine 2262/0/1, Connector 115,
+      Twincat 440, Codesys 301, Contracts 39, Repo.Gates 108, Relay 49, volt-cli `test/unit` 24; check 18/18.
+      **Cli 255 pass, 0 fail, `BridgePackagingTests` not finished:** the first `dotnet test test/Volt.Cli.Tests/` hung
+      in `BridgePackagingTests` (testhost idle, no child process, still holding the `Global\volt-packaging-tests`
+      mutex), and a second run (`--blame-hang`, 4 min) passed the other 255 and hung on that mutex in
+      `An_unstamped_bundle_reports_dev_and_the_commit_it_was_built_from` (sequence + dump under `%TEMP%\brr\clires`).
+      Unrelated to steps 5/6 (no Cli or packaging code touched; the other session runs builds in parallel); the stuck
+      testhost could not be stopped from this session — re-run `Volt.Cli.Tests` once it is gone.
+      **e2e (own fixture IDEs, `-Instance bridge-refusal-review`):** CODESYS SP21 293 tests: 281 pass, 12 skip
+      (`-Production` / vendor-only), 0 fail — the 1.4 `retired` GVL row of `push-without-header-check.test.ts` now run
+      live (`fetched`). TwinCAT Project13: 272 pass, 13 skip, 3 fail — all three need Project14's fixtures
+      (`VltFixtureCfc` is a PROGRAM in Project13, `VltFixtureMembers` exists only in Project14); re-run on Project14
+      (`-Fixture 14`): `hidden-declaration` + `hidden-members` 11 pass / 0 fail.
+- [x] 6.2 **Changed.** Grep gate (in `Volt.Repo.Gates`, beside `NoKindFromTextTests`) over `packages/volt-cli/src`:
       zero hits for `OpensNetwork`, `RefuseReservedNames`, `RefuseRetiredComment`, `NETWORK_NOT_CANONICAL`,
       `IsCallableHeader`, `IsFunctionBlockType`, `FunctionBlockHeader`, `NonBlockTypeWords`; `CodeHelper.HeaderLine`
       used only by child delimiting. Already at zero at HEAD (keep them in the gate): `IsGlobalListHeader`,
       `?? ItemKind.Kinds.Method`, `PlcPouFb; // default`, and `ParseCodeHeader` / `INVALID_CODE_HEADER` as code (both
       survive only in history comments: `CodeHelper.cs:20`, `StWriter.cs:77`, `PushModels.cs:95`,
       `ConflictCodes.cs:127` — match code, not comments).
-- [ ] 6.3 Re-census with `scripts/refusal-census.ts`: every refusal site in `Volt.Engine/Format`, `Volt.Engine/Sync`,
+      **Done (step 6, 2026-10-04): the ratchet is CLOSED.** `NoCodeCheckLeftTests` already held every retired name at 0
+      (each step set its own); 6.2 makes it the gate: doc says closed, and `HeaderLine` — deleted with its last caller
+      in 4a (D3), so "used only by child delimiting" became "used by nothing" — lost its `Defines` exemption for
+      `CodeHelper.cs` (no file may define it now; key renamed `HeaderLine`). The two stale `<see cref="HeaderLine"/>`
+      in `CodeHelper.cs` docs are now plain text. The step-4b door (`NetworkText.Validate(` = 1) stays a count.
+- [x] 6.3 Re-census with `scripts/refusal-census.ts`: every refusal site in `Volt.Engine/Format`, `Volt.Engine/Sync`,
       `Volt.Engine/Ide` and both drivers appears in the proposal's tables as keep (including the 47 "New since
       2026-09-29" rows); any new site is classified before it lands.
+      **Done (step 6, 2026-10-04).** `refusal-census.ts --against 2d4a1a46f2`: 577 sites then, **584 now; 66 gone, 73
+      new, 0 moved**. All 73 are classified in proposal.md "New during this change (73)": 73 keep, 0 change —
+      internal-invariant 39, needed-to-write 15 (one is `directed-library-signatures`', `LibraryFetch.cs:172`),
+      vendor-limit 13, request-shape 4, version-or-conflict-gate 2. None is a code check. (Steps 5–6 add no site:
+      step 5 changed no `src` of volt-cli; 6.2 touched only a doc comment.)
 
 ## 7. New since 2026-09-29
 

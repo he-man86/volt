@@ -21,7 +21,7 @@ public static class CodeHelper
     ///
     /// <para><b>One trivia scanner per line.</b> There were two, and they disagreed about the same line. This one
     /// skipped any line STARTING with <c>(*</c> — so <c>(* doc *) FUNCTION_BLOCK FB</c>, where the comment closes
-    /// and the declaration follows, was skipped whole and <see cref="HeaderLine"/> answered with the NEXT line.
+    /// and the declaration follows, was skipped whole and <c>HeaderLine</c> (deleted, D3) answered with the NEXT line.
     /// <c>StReader</c>'s scanner called that same line CODE, which is correct. Two answers to one question, and
     /// the wrong one was the one <c>CodesysTypeMap.LeadingKeyword</c> read (deleted with openspec
     /// <c>push-without-header-check</c> 5.Q — a POU's kind is its class now): it was TOTAL by design and fell back to
@@ -44,8 +44,8 @@ public static class CodeHelper
     ///
     /// <para><b>Not the splitter's.</b> The child splitter (<c>StReader</c>) reads through <see cref="StTrivia"/>, which
     /// NESTS comments and sees one opened after code (openspec <c>push-without-header-check</c> 5.E.1); this one does
-    /// neither. What still asks it is <see cref="HeaderLine"/> and <c>StDeclaration</c>'s EXTENDS reader (network
-    /// text); its variable reader reads by statement through <see cref="StTrivia"/> (D5).</para></summary>
+    /// neither. What still asks it is <c>StDeclaration</c>'s EXTENDS reader (network text); its variable reader reads
+    /// by statement through <see cref="StTrivia"/> (D5).</para></summary>
     public static string CodeOn(string line, ref bool inBlockComment)
     {
         // U+FEFF is NOT whitespace under .NET Core, so `Trim()` alone leaves a BOM glued to the header keyword and
