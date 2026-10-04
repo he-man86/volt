@@ -12,12 +12,14 @@
 
 - [x] 1.1 **Not built** (no ledger and no report frame: the identical re-send under the lease already resolves it.) Tunnel test (in-memory relay): drop the socket while a fake push runs, let it complete, redial; the new
       connection carries one report naming the id and verdict, and no `result` frame for that id.
-- [ ] 1.2 Tunnel test: the abandoned request's Info line names op, id and outcome.
+- [x] 1.2 Tunnel test: the abandoned request's Info line names op, id and outcome. (Green on arrival: relay-request-logging
+      built the line. `A_push_completed_after_the_connection_went_logs_its_verdict_and_is_never_answered` pins the push
+      case with a redial and no frame for the id; the relay-close end-line test pins "nothing in flight, no line".)
 - [x] 1.3 **Not built** (no request tag on `PipeRequest`: the tunnel's terminal line pairs id and outcome. The build end line at Info is tested under 2.1.) Host test: a tagged push and a tagged build log the tag; an untagged one logs as before.
 
 ## 2. Build
 
-- [ ] 2.1 Built PARTLY: the abandoned request's outcome in relay-request-logging's terminal line (push: verdict and
+- [x] 2.1 Built PARTLY: the abandoned request's outcome in relay-request-logging's terminal line (push: verdict and
       `newProjectVersion`, `delivered=no`), and `BuildService`'s end line at Info. Not built: ledger and report in
       `RelayTunnel`, the optional tag on `PipeRequest`, ids in push/build lines, a build-start line, and the report
       in `relay-protocol.md`.

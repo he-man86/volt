@@ -73,6 +73,22 @@ public class BuildServiceTests
         Assert.Equal(Severity.Warning, Assert.Single(resp.Diagnostics!).Severity);
     }
 
+    /// <summary>A BUILD'S END IS AN INFO LINE (openspec relay-outcome-ledger 2.1): verdict, error and warning counts,
+    /// duration. It was Debug, so a default bridge log held no record that a CLI build ran or what it found.</summary>
+    [Fact]
+    public void A_build_logs_its_verdict_counts_and_duration_at_info()
+    {
+        var warning = new BridgeDiagnostic { Severity = Severity.Warning, Message = "C0195: implicit conversion" };
+        string log;
+        using (var capture = new LogCapture(VoltLogLevel.Info))
+        {
+            BuildService.Handle(Ide(diagnostics: new[] { warning, warning }), Bound());
+            log = capture.Read();
+        }
+
+        Assert.Matches(@"\[info\] build succeeded \(\d+ms\) — 0 errors, 2 warnings", log);
+    }
+
     /// <summary>THE GUARD IS OUTSIDE THE TRY/CATCH — a wrong project SURFACES, it does not become a diagnostic.
     ///
     /// <para>This is the one its own comment names. The catch turns any exception into

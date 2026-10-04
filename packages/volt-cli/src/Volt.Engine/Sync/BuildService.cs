@@ -55,7 +55,9 @@ public static class BuildService
             catch (Exception ex) { VoltLog.Warn($"build: could not name the diagnostics ({ex.Message}) — reporting them without item names"); }
             var errors = diagnostics.Count(d => d.Severity == Severity.Error);
             var warnings = diagnostics.Count(d => d.Severity == Severity.Warning);
-            VoltLog.Debug($"build {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms){(errors > 0 || warnings > 0 ? $" — {errors} errors, {warnings} warnings" : "")}");
+            // Info, not Debug (openspec relay-outcome-ledger 2.1): the one record a default log keeps that a build ran,
+            // for the CLI as for the relay, whose own terminal line carries the request id.
+            VoltLog.Info($"build {(success ? "succeeded" : "failed")} ({sw.ElapsedMilliseconds}ms) — {errors} errors, {warnings} warnings");
             return new BuildResponse
             {
                 Success = success,
