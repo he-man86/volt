@@ -1,41 +1,35 @@
 /**
- * THE RETIRED `(* @volt-… *)` COMMENTS (rule FMT7) — reported naming `volt pull`, as the push refuses a file holding
- * one.
- */
-import type { Token } from "../lex/tokens.js"
-import { IMPLEMENTATION_KEYWORD } from "./implementation-line.js"
-import type { ReportAt } from "./lines.js"
-
-// `(*`, then `@volt-`: the prefix every retired Volt comment carried (`ImplementationMarker.RetiredTag`).
-const RETIRED_OPENING = /\(\*\s*@volt-/i
-
-/**
- * Every `(* @volt-… *)` comment, reported naming `volt pull` — as the push refuses a file holding one
- * (`StReader`, `ImplementationMarker.FindRetiredComment`). No Volt writes one any more: the boundary comment
- * `(* @volt-implementation … *)` and the marker `(* @volt-graphical: … *)` both became an `IMPLEMENTATION` line, so
- * a comment of that spelling says the file was pulled by an older Volt. This is no reading of the old form — its
- * body is still read as a body that states no language — only the one sentence that names the repair, where a
- * workspace with no library manifest has no other place to say it.
+ * THE RETIRED `(* @volt-… *)` COMMENTS (rule FMT7) — a comment, and only a HINT where a body states no language.
+ *
+ * No Volt writes one any more: the boundary comment `(* @volt-implementation … *)` and the marker `(* @volt-graphical: … *)`
+ * both became an `IMPLEMENTATION` line. To the IDE such a comment is a comment, and the push writes it as sent wherever
+ * a body states its language (openspec bridge-refusal-review 1.4/2.1; `rcc_retired_comment_in_body` and
+ * `pwh_gvl_retired_volt_comment` build clean on both vendors). It is read in ONE place, as the bridge reads it
+ * (`StReader.Unmarked`, `ImplementationMarker.FindRetiredComment`): a body that states no language and holds one was
+ * pulled by an older Volt, and the finding for that body names the comment (`server/diagnostics.ts`).
  *
  * A comment only: the lexer puts a comment in its own token with every comment nested in it, so an opening anywhere in
  * a block comment's text is a comment's; the same characters after `//` or in a string are text.
  */
-export function reportRetiredComments(tokens: readonly Token[], report: ReportAt): void {
+import type { Token } from "../lex/tokens.js"
+
+// `(*`, then `@volt-` on the same line: the prefix every retired Volt comment carried (`ImplementationMarker.RetiredTag`).
+const RETIRED_OPENING = /\(\*[^\S\r\n]*@volt-/i
+
+/**
+ * The first `(* @volt-… *)` comment among `tokens`, as the push quotes it (`ImplementationMarker.FindRetiredComment`):
+ * on the opening's own line, from `(*` to the first `*)` there, or to the line's end — or undefined. The push reads one
+ * line, so the tag must stand on the opening's line, and a comment running on past it is quoted only that far.
+ */
+export function retiredCommentIn(tokens: readonly Token[]): string | undefined {
   for (const t of tokens) {
     if (t.kind !== "block_comment") continue
     const m = RETIRED_OPENING.exec(t.text)
     if (m === null) continue
-    const close = t.text.indexOf("*)", m.index + 2)
-    const text = (close < 0 ? t.text.slice(m.index) : t.text.slice(m.index, close + 2)).trim()
-    report(
-      `'${text}' is a comment of a Volt from before bodies were stated by an ${IMPLEMENTATION_KEYWORD} line. Run ` +
-        "`volt pull` once to rewrite the workspace in the current format.",
-      t.span,
-    )
+    const eol = t.text.slice(m.index).search(/[\r\n]/)
+    const line = eol < 0 ? t.text.slice(m.index) : t.text.slice(m.index, m.index + eol)
+    const close = line.indexOf("*)", 2)
+    return (close < 0 ? line : line.slice(0, close + 2)).trim()
   }
-}
-
-/** Is this token a `(* @volt-… *)` comment (`reportRetiredComments`)? */
-export function isRetiredComment(t: Token): boolean {
-  return t.kind === "block_comment" && RETIRED_OPENING.test(t.text)
+  return undefined
 }

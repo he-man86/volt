@@ -36,7 +36,6 @@ import { joinSpans, type Span } from "../span.js"
 import type { Dialect } from "../lex/vocabulary.js"
 import { peelFolder } from "./folder.js"
 import { lineAround, nextSignificant, type ReportAt } from "./lines.js"
-import { opensNetwork } from "./network-header.js"
 
 export const IMPLEMENTATION_KEYWORD = "IMPLEMENTATION"
 
@@ -160,9 +159,10 @@ export type BodyOwner = "member" | "pou-or-accessor"
  * `volt pull`, as the push refuses it, and reports nothing else in it (`server/diagnostics.ts`), so no language is
  * guessed for it there.
  *
- * Reported, each on its own line, as the push refuses the same file: code under an UNSUPPORTED line; network text under
- * `IMPLEMENTATION ST` (never re-read as a network); and a second boundary line anywhere in the body. A line that only
- * looks like one is code (D9).
+ * Reported, each on its own line, as the push refuses the same file: code under an UNSUPPORTED line, and a second
+ * boundary line anywhere in the body. A line that only looks like one is code (D9). Network text under
+ * `IMPLEMENTATION ST` is NOT reported here: the push writes it as sent (openspec bridge-refusal-review 1.1), and the
+ * build reads it as the ST it is stated to be — the ST parser answers it, as the build does (`rcc_st_body_network`).
  */
 export function splitImplementation(
   tokens: Token[],
@@ -225,12 +225,6 @@ function checkLine(line: ImplementationLine, code: readonly Token[], report: Rep
           : ` (it is ${s.language}, a language network text reads, but this body holds a shape the text cannot represent yet)`) +
         ", so the code has nowhere to go and would be dropped. Remove it, and edit the body in the IDE — the declaration " +
         "above the line is yours to edit here.",
-      line.span,
-    )
-  else if (s.kind === "read" && s.language === "ST" && opensNetwork(code))
-    report(
-      `the body states '${statedLine(line)}', and its body is network text. State the language it is written in ` +
-        `(${implementationLine("LD")} or ${implementationLine("FBD")}), or write the body as ST.`,
       line.span,
     )
 }

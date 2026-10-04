@@ -4,14 +4,14 @@
  * at the same token, so what the LSP underlines is what the push refuses. Specified by
  * `volt-cli/docs/network-text.html` and openspec network-text-literal-nwl (task 5.1).
  *
- * THE SCOPE. The bridge reader consults the declarations (`NetworkScope`) in the middle of a statement, and three of
- * its answers decide how the text reads: a POU or instance named R_EDGE, F_EDGE or PARALLEL is refused before its
- * argument list is read as the construct's; a bare wire-shaped name no scope declares is refused as a wire someone
- * forgot; a wire named like a name in scope is refused at its declaration. Asked after the parse, they gave the wrong
- * finding at the wrong token (the argument list failed as the construct's first) and let the compiler checks run over
- * a statement the push refuses, so the parser takes the same questions (`NetworkScopeView`) from its caller and raises
- * them where the bridge does — an instance's FB TYPE included, since an instance of a POU named R_EDGE is as
- * unspellable as the POU. A wire's declared type is held to its producer as the bridge reader holds it, from what the
+ * THE SCOPE. The bridge reader consults the declarations (`NetworkScope`) in the middle of a statement, and its answers
+ * decide how the text reads: a POU or instance named R_EDGE, F_EDGE or PARALLEL is refused before its argument list is
+ * read as the construct's, and a head is an instance or a function by what the declarations say. Asked after the parse,
+ * they gave the wrong finding at the wrong token (the argument list failed as the construct's first) and let the compiler
+ * checks run over a statement the push refuses, so the parser takes the same questions (`NetworkScopeView`) from its
+ * caller and raises them where the bridge does — an instance's FB TYPE included, since an instance of a POU named R_EDGE
+ * is as unspellable as the POU. A bare wire-shaped name no VAR_TEMP declares is a variable, whether the scope declares it
+ * or not (the build's question, bridge-refusal-review 1.3), and a wire named like a name in scope is the wire (2.10). A wire's declared type is held to its producer as the bridge reader holds it, from what the
  * text says (`checkWireTypes`). Canonical form is no finding: the push writes any spelling that reads (bridge-refusal-review
  * 2.12).
  *
@@ -99,7 +99,6 @@ const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/
 const PATH = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/
 const WIRE_NAME = /^[gG][0-9]+$/
 const MAX_VAR_ID = 2147483647
-const WORD = /[A-Za-z_][A-Za-z0-9_]*/g
 const MEASURED_MODES = new Set(["BoxShortCircuit", "Sequential"])
 const STRUCTURAL = new Set([",", ")", "(", ";", ":=", "=>", ".", ":"])
 
@@ -134,8 +133,6 @@ interface Wire {
 
 /** The questions the bridge reader asks of the declarations mid-statement (`NetworkScope`), case-insensitively. */
 export interface NetworkScopeView {
-  /** A name some declaration in scope makes — a variable, a global, a POU (`NetworkScope.Contains`). */
-  contains(name: string): boolean
   /** A POU a call can name (the bridge's `IsPou`). */
   isPou(name: string): boolean
   /** The FB type of `head` when it is an FB instance a declaration names — a variable, or a path to one — else
@@ -171,6 +168,9 @@ class Parser {
   private lastEnd = 0
   private readonly diagnostics: NetworkTextDiagnostic[] = []
   private wires = new Map<string, Wire>()
+  /** Per network: every bare word read as a VARIABLE so far (an operand or a target), with where — so a late VAR_TEMP
+   *  block cannot turn a name the network already read as a variable into a wire (`declare`). */
+  private readAsVariable = new Map<string, Tok>()
   private language!: NetworkLanguage
 
   constructor(
@@ -258,6 +258,7 @@ class Parser {
 
   private parseNetwork(index: number): NetworkTextNetwork {
     this.wires = new Map()
+    this.readAsVariable = new Map()
     const hdr = this.next()
     const hdrLine = this.line(hdr)
     let title: string | undefined
@@ -306,12 +307,6 @@ class Parser {
       // The network's comment: the `//` lines between the header and the wire block or first statement.
       while (this.peek().kind === "comment") comment.push(this.next().text)
 
-      let sawBlock = false
-      if (isWord(this.peek(), "VAR_TEMP")) {
-        this.parseWires(wires)
-        sawBlock = true
-      }
-
       for (;;) {
         const t = this.peek()
         if (isWord(t, "END_NETWORK")) {
@@ -326,23 +321,18 @@ class Parser {
             "NETWORK_PARSE",
             "a // comment after a statement: the network's one comment is the // lines between its header and its wire block or first statement, and NWL has no per-item comment to move this one to.",
           )
-        if (isWord(t, "VAR_TEMP"))
-          throw this.err(
-            t,
-            "NETWORK_BAD_EXPRESSION",
-            sawBlock
-              ? "a second VAR_TEMP block: a network declares its wires in one block."
-              : "a VAR_TEMP block after a statement: a network's wire block comes before its first statement.",
-          )
+        // A VAR_TEMP block is read wherever it stands, and a second one adds to the first (bridge-refusal-review 2.7):
+        // the model is the same, and the writer puts the one canonical block before the first statement on the next
+        // pull. Text order still rules — a wire is a wire from its declaration on.
+        if (isWord(t, "VAR_TEMP")) {
+          this.parseWires(wires)
+          continue
+        }
         statements.push(this.parseStatement())
       }
 
-      for (const w of [...this.wires.values()].filter((x) => !x.defined))
-        this.diag(
-          "NETWORK_BAD_EXPRESSION",
-          `the wire ${w.wire.name.text} is declared and never defined: a wire's definition is the statement \`${w.wire.name.text} := value;\`.`,
-          w.wire.name.span,
-        )
+      // A wire declared and never defined carries no Demux: the model is complete without it and the writer drops its
+      // declaration (2.8). A REFERENCE to one is refused where it stands (`resolve`): it has no producer.
       this.checkWireTypes(wires, statements)
     } catch (e) {
       if (!(e instanceof ParseError)) throw e
@@ -371,7 +361,6 @@ class Parser {
   /** `VAR_TEMP g1, g2 : BOOL; … END_VAR` — on one line canonically, across lines as ST allows. */
   private parseWires(out: NetworkWire[]): void {
     const kw = this.next()
-    let any = false
     while (!isWord(this.peek(), "END_VAR")) {
       if (this.peek().kind === "eof") throw this.err(kw, "NETWORK_PARSE", "a VAR_TEMP block with no END_VAR.")
       const names = [this.wireNameTok()]
@@ -394,10 +383,10 @@ class Parser {
       const type = parseTypeExprFromTokens(typeToks, this.dialect)
       const declSpan = this.span(names[0]!.offset, this.lastEnd)
       for (const n of names) this.declare(n, typeText, type, declSpan, out)
-      any = true
     }
-    this.next() // END_VAR — it takes no `;` of its own: a `;` after it is the empty item.
-    if (!any) throw this.err(kw, "NETWORK_BAD_EXPRESSION", "an empty VAR_TEMP block: a network without a wire carries none.")
+    // END_VAR — it takes no `;` of its own: a `;` after it is the empty item. An empty block declares nothing: layout,
+    // read as no block (2.9).
+    this.next()
   }
 
   private wireNameTok(): Tok {
@@ -420,11 +409,16 @@ class Parser {
     for (const w of this.wires.values())
       if (Number(w.wire.name.text.slice(1)) === id)
         throw this.err(name, "NETWORK_DUPLICATE_NAME", `the wires ${w.wire.name.text} and ${name.text} carry the same VarId ${id}.`)
-    if (this.scope?.contains(name.text))
+    // A wire spelled like a variable in scope is no conflict (2.10): wires are VarIds in the IDE, and in the text the
+    // network's own wires resolve first. But a LATE block (2.7) may not take a name this network already read as a
+    // variable: text order would make the one spelling two things, the variable before the block and the wire after it.
+    const used = this.readAsVariable.get(key)
+    if (used !== undefined)
       throw this.err(
         name,
         "NETWORK_DUPLICATE_NAME",
-        `the wire ${name.text} names a variable in scope (case-insensitively); the writer would have named it the lowest free g<n>.`,
+        `the wire ${name.text} is declared after line ${this.bridgeLine(used)} read ${used.text} as a variable: one name ` +
+          "would mean the variable before this block and the wire after it. Declare the wire before its first use, or give it another name.",
       )
     const wire: NetworkWire = { name: this.name(name), typeText, ...(type !== undefined ? { type } : {}), span }
     this.wires.set(key, { wire, defined: false })
@@ -653,7 +647,6 @@ class Parser {
       const l = this.next()
       if (l.kind !== "word" || !IDENTIFIER.test(l.text))
         throw this.err(l, "NETWORK_BAD_EXPRESSION", "JMP takes one label, an identifier.")
-      this.addOtherWords(l, l.text)
       return { kind: "jump", target: this.name(l), ...cond }
     }
     if (isWord(t, "RETURN")) return { kind: "return", ...cond }
@@ -879,13 +872,10 @@ class Parser {
     const fbType = unnamedType === undefined ? this.scope?.instanceType(headText) : undefined
     if (unnamedType !== undefined) {
       type = unnamedType.text
-      this.addOtherWords(head, type)
     } else if (fbType !== undefined) {
       if (CONSTRUCT_WORDS.has(headText.toUpperCase()))
         throw this.err(head, "NETWORK_UNSUPPORTED", `an instance named ${headText.toUpperCase()}: the text reads it as its own construct.`)
       type = fbType
-      this.addOtherWords(head, headText)
-      this.addOtherWords(head, fbType)
     } else {
       // A function is a POU and has a name. A head that is none (`fbs[1]`, `SUPER^`) is an FB instance whose declaration
       // names no name, and read as a function it would push a box of a type no POU has in place of the instance call.
@@ -896,7 +886,6 @@ class Parser {
           `an FB instance the declarations do not name: '${headText}' is no POU name, and no declaration names it an instance, so its type is unknown.`,
         )
       type = headText
-      this.addOtherWords(head, headText)
     }
     // Spec, "a POU named like an edge word": a backticked head is still the POU's name, and an instance's FB type is a
     // POU too — the writer could spell none of them back.
@@ -1090,8 +1079,11 @@ class Parser {
         )
       return { kind: "wire_ref", name: this.name(t), span: this.tokSpan(t) }
     }
-    if (t.kind === "word") this.refuseUndeclaredWire(t)
-    this.addOtherWords(t, t.text)
+    // A word no VAR_TEMP declares is a variable, whatever its shape: whether it is declared is the build's question
+    // (bridge-refusal-review 1.3, `rcc_network_undeclared_wire_shape`), and only this network's own block makes a name
+    // a wire. A wire spelled again as another name is no finding either (2.11): the writer names its wires around
+    // every other name on the next pull.
+    if (t.kind === "word") this.readAsAVariable(t)
     const unnamed = t.kind === "unnamed"
     const backticked = t.kind === "backtick"
     const expr = unnamed ? undefined : backticked ? this.stExpr(t.offset + 1, t.offset + t.length - 1) : this.stExpr(t.offset, t.offset + t.length)
@@ -1104,11 +1096,9 @@ class Parser {
       case "word":
         if (NETWORK_TEXT_WORDS.has(t.text.toUpperCase()))
           throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' as a target: a target spelled like a keyword of the text is written between backticks.`)
-        this.refuseUndeclaredWire(t)
-        this.addOtherWords(t, t.text)
+        this.readAsAVariable(t)
         return this.targetOf(t, op, this.stExpr(t.offset, t.offset + t.length))
       case "backtick":
-        this.addOtherWords(t, t.text)
         return this.targetOf(t, op, this.stExpr(t.offset + 1, t.offset + t.length - 1))
       case "unnamed":
         return this.targetOf(t, op, undefined)
@@ -1130,12 +1120,10 @@ class Parser {
     }
   }
 
-  /** A BARE word shaped like a wire that neither this network nor the scope declares is a wire someone forgot to
-   *  declare — read as a variable it would compile against nothing. Between backticks it is the variable of that name,
-   *  which is how the writer spells one the scope does not hold (`NetworkSpelling.ReadsAsUndeclaredWire`). */
-  private refuseUndeclaredWire(t: Tok): void {
-    if (this.scope === undefined || !WIRE_NAME.test(t.text) || this.wires.has(t.text.toUpperCase()) || this.scope.contains(t.text)) return
-    throw this.err(t, "NETWORK_BAD_EXPRESSION", `'${t.text}' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope.`)
+  /** A bare word read as a variable, remembered at its first reading (`declare`'s late-block rule). */
+  private readAsAVariable(t: Tok): void {
+    const key = t.text.toUpperCase()
+    if (!this.readAsVariable.has(key)) this.readAsVariable.set(key, t)
   }
 
   /** Whether a POU or FB instance in scope carries a construct word (`NetworkSpelling.ConstructTaken`). */
@@ -1145,20 +1133,6 @@ class Parser {
       CONSTRUCT_WORDS.has(word.toUpperCase()) &&
       (this.scope.isPou(word) || this.scope.instanceType(word) !== undefined)
     )
-  }
-
-  /** A word spelled where a wire name may not appear — the writer reserves the same words, so a wire equal to one would
-   *  be renamed on the way out. Reported on the spot; it stops nothing. */
-  private addOtherWords(at: Tok, text: string): void {
-    for (const m of text.matchAll(WORD)) {
-      const w = this.wires.get(m[0].toUpperCase())
-      if (w !== undefined)
-        this.diag(
-          "NETWORK_DUPLICATE_NAME",
-          `the wire ${w.wire.name.text} is also spelled as a name in this network ('${at.text}'); a wire's name must be no other name the network or its scope uses, case-insensitively.`,
-          this.tokSpan(at),
-        )
-    }
   }
 
   /** DIALECT N20: the IDE holds no flag on a wire reference or a Parallel, so `NOT g3`, `R_EDGE(g3)` and
@@ -1283,6 +1257,13 @@ class Parser {
 
   private line(t: Tok): number {
     return this.lineIndex(t.offset)
+  }
+
+  /** The line the BRIDGE reader names for `t` in a message (`NetworkTextReader.Line`): 1-based over the body as pushed,
+   *  whose line 1 is the IMPLEMENTATION line. This text starts at the newline that ends that line, so its line index 0 is
+   *  the bridge's line 1. */
+  private bridgeLine(t: Tok): number {
+    return this.line(t) + 1
   }
 
   private position(offset: number): { offset: number; line: number; col: number } {

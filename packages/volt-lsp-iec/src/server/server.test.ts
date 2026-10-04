@@ -845,14 +845,24 @@ test("server: a workspace at the LSP's own materialization says nothing about it
   expect(diags.get("F.pou") ?? []).toEqual([])
 })
 
-test("server: without a manifest, a file an older Volt pulled is told to `volt pull` on its comment — its ladder is not ST errors", async () => {
+test("server: without a manifest, a file an older Volt pulled is told to `volt pull` naming its comment — its ladder is not ST errors", async () => {
   // No manifest states a format (a workspace with no library), so the file itself is the only place left to say it —
-  // and it does: every Volt before the line wrote a `(* @volt-… *)` comment, which the push refuses naming `volt pull`
-  // wherever it stands. The LSP says the same on the comment. The body under it states no language, so read as ST
-  // every rung would be a parse error meaning only "this file is from an older Volt": those stay quiet.
-  for (const [format, body] of [["format 2 (v1)", V1_BODY], ["format 3", RETIRED_MARKER_BODY]] as const) {
+  // and it does: the body states no language, which the push refuses naming `volt pull` (`StReader.Unmarked`), and
+  // every Volt before the line wrote a `(* @volt-… *)` comment there, which that one finding names as its hint
+  // (bridge-refusal-review 2.1). Read as ST every rung would be a parse error meaning only "this file is from an older
+  // Volt": those stay quiet.
+  for (const [format, body, comment] of [
+    ["format 2 (v1)", V1_BODY, "(* @volt-implementation *)"],
+    ["format 3", RETIRED_MARKER_BODY, "(* @volt-implementation LD *)"],
+  ] as const) {
     const messages = [...new Set(((await workspaceDiagnostics({ "F.pou": body })).get("F.pou") ?? []).map((d) => d.message))]
-    expect({ format, count: messages.length, pull: messages[0]?.includes("volt pull") }).toEqual({ format, count: 1, pull: true })
+    const first = messages[0] ?? ""
+    expect({ format, count: messages.length, pull: first.includes("volt pull"), hint: first.includes(comment) }).toEqual({
+      format,
+      count: 1,
+      pull: true,
+      hint: true,
+    })
   }
 })
 

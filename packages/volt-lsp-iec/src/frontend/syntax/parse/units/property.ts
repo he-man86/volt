@@ -17,7 +17,7 @@ import type { BodySpan, Property } from "../../ast/nodes.js"
 import type { Cursor } from "../cursor.js"
 import type { Token } from "../../lex/tokens.js"
 import { parseTypeExpression } from "../type-expr.js"
-import { emptyType, refusedEmptyType } from "./header.js"
+import { emptyType } from "./header.js"
 import { MEMBER_MODIFIERS, type Keyword } from "../../lex/vocabulary.js"
 import { joinSpans } from "../../span.js"
 import { vendorTokenText } from "../errors.js"
@@ -25,6 +25,15 @@ import { closesDeclaration, readFolderLine, reportMisplacedFolder } from "../../
 import { collectVarSections } from "../declarations.js"
 import { identFromToken, readModifiers, readPropertyModifiers } from "../names.js"
 import { collectAccessorBody } from "../body.js"
+
+/** The keywords that end a property header no type follows — the push never writes them into the declaration. */
+const UNTYPED_CLOSERS: readonly Keyword[] = ["GET", "SET", "END_PROPERTY"]
+
+/** The header ends where it stands: the body's IMPLEMENTATION line or one of `UNTYPED_CLOSERS` is next. */
+function endsUntyped(c: Cursor): boolean {
+  const next = c.peek()
+  return c.opensImplementationLine() || (next.kind === "keyword" && UNTYPED_CLOSERS.includes(next.keyword!))
+}
 
 export function parseProperty(c: Cursor): Property | undefined {
   const start = c.expectKeyword("PROPERTY")
@@ -38,11 +47,25 @@ export function parseProperty(c: Cursor): Property | undefined {
   if (nameTok === undefined) return undefined
   const name = identFromToken(nameTok)
 
-  const colon = c.expectPunct(":")
-  if (colon === undefined) return undefined
-  const dataType = refusedEmptyType(c, colon.span, ["GET", "SET", "END_PROPERTY"])
-    ? emptyType(colon.span)
-    : parseTypeExpression(c)
+  // A header ending at its NAME declares no type, as one ending at its colon does: the push writes both as sent (openspec
+  // bridge-refusal-review 2.6) and the IDE builds the property without one. Read as the empty type, not as a header
+  // that broke off, so the accessors under it stay the property's. The vendors' own answer to either shape is a cascade
+  // over the declaration they synthesize for the getter (`rcc_property_no_type`, `rcc_property_empty_type`): a known
+  // divergence, niche. The one message the LSP gives is that cascade's own, which BOTH builds give for each shape: the
+  // synthesized declaration's first token, ';', where the colon or the type belongs — not the METHOD rule's "instead of
+  // ''" (`refusedEmptyType`), which neither build says for a POU property.
+  const colon = c.eatPunct(":")
+  const untyped = endsUntyped(c)
+  if (untyped)
+    c.pushError(
+      colon === undefined ? "',, AT or :' expected instead of ';'" : "Type definition expected instead of ';'",
+      (colon ?? nameTok).span,
+    )
+  else if (colon === undefined) {
+    c.expectPunct(":")
+    return undefined
+  }
+  const dataType = untyped ? emptyType((colon ?? nameTok).span) : parseTypeExpression(c)
   if (dataType === undefined) return undefined
   c.eatPunct(";") // some exports terminate the property data type with a trailing `;`
 
@@ -141,7 +164,11 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
     // The rest of the keyword line is dropped whole (`ParseAccessor` strips it). An accessor keyword next on the line
     // refuses itself (`refuseNotFirstOnLine`), so it is not refused twice.
     const next = c.peek()
-    if (next.kind !== "eof" && next.span.startLine === kw.span.endLine && !(next.keyword !== undefined && ACCESSOR_KEYWORDS.includes(next.keyword)))
+    if (
+      next.kind !== "eof" &&
+      next.span.startLine === kw.span.endLine &&
+      !(next.keyword !== undefined && ACCESSOR_KEYWORDS.includes(next.keyword))
+    )
       c.pushError(
         `'${next.text}' shares the line of '${kw.keyword}': the push drops the rest of an accessor's keyword line. Move it to the next line.`,
         next.span,
@@ -166,7 +193,13 @@ function parseInlineAccessor(c: Cursor): Property["getter"] | undefined {
   // A modifier under a bare keyword is as dropped as code: the push closes the accessor at its own line, and the
   // property's declaration ends before it, so that line belongs to nothing.
   const underIt = modifierTokens.length > onKeywordLine.length
-  if (!closed && (underIt || body.tokens.some((t) => t.kind !== "whitespace" && t.kind !== "eof") || varSections.length > 0 || body.implementation !== undefined))
+  if (
+    !closed &&
+    (underIt ||
+      body.tokens.some((t) => t.kind !== "whitespace" && t.kind !== "eof") ||
+      varSections.length > 0 ||
+      body.implementation !== undefined)
+  )
     c.pushError(
       `'${kw.keyword}' is not closed by '${endAccessor}': an accessor without its ${endAccessor} is bodiless, and the push drops what stands under it. Close it with ${endAccessor}.`,
       kw.span,

@@ -259,10 +259,12 @@ END_PROPERTY
 })
 
 test("the stated language wins over what the text looks like: network text under ST is read as ST", () => {
-  // Never re-read as the other language — the ST parser meets `NETWORK` and says so.
+  // Never re-read as the other language — the ST parser meets `NETWORK` and says what the build says
+  // (`rcc_st_body_network`, both vendors 2026-10-04), and nothing else: the push writes the text as sent (openspec
+  // bridge-refusal-review 1.1), so a Volt finding "its body is network text" was an LSP-only message.
   const src = fb(`IMPLEMENTATION ST\n${NETWORK}`)
   expect(bodiesOf(src).some(isGraphicalBody)).toBe(false)
-  expect(syntaxErrors(src).length).toBeGreaterThan(0)
+  expect(syntaxErrors(src)).toEqual(["';' expected instead of 'out'", "';' expected instead of end of POU"])
 })
 
 // ── hidden bodies (sections 2b and 3b: the line states a body Volt does not show) ─────────────────

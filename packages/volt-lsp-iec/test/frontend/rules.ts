@@ -2543,31 +2543,34 @@ export const RULES: readonly Rule[] = [
     id: "FMT7",
     area: 2,
     section: "2.10",
-    rule: "the retired `(* @volt-… *)` comments are reported",
+    rule: "a retired `(* @volt-… *)` comment is a comment: nothing is reported, and in a body that states no language it is that finding's hint (bridge-refusal-review 1.4/2.1)",
     home: "format/retired-comments",
     gap: false,
-    fixtures: [],
+    fixtures: ["rcc_retired_comment_in_body", "pwh_gvl_retired_volt_comment"],
     tests: [
       {
         file: "src/frontend/syntax/format/retired-comments.test.ts",
-        title:
-          "a (* @volt-… *) comment is an older Volt's, reported naming `volt pull` wherever it stands — as the push refuses it",
+        title: "a (* @volt-… *) comment in a file that states its bodies is a comment: nothing is reported",
+      },
+      {
+        file: "src/server/server.test.ts",
+        title: "server: without a manifest, a file an older Volt pulled is told to `volt pull` naming its comment — its ladder is not ST errors",
       },
     ],
-    design: "`retired-comments.test.ts`",
+    design: "rcc_retired_comment_in_body, `retired-comments.test.ts`",
   },
   {
     id: "FMT8",
     area: 2,
     section: "2.10",
-    rule: "a network body opens with the fielded header and closes with END_NETWORK (IMPLEMENTATION is a name like any other: review 4b)",
-    home: "format/network-header",
+    rule: "network text under IMPLEMENTATION ST is ST: the build's syntax errors and no Volt finding (bridge-refusal-review 1.1); IMPLEMENTATION is a name like any other (review 4b, 1.2)",
+    home: "format/implementation-line",
     gap: false,
-    fixtures: [],
+    fixtures: ["rcc_st_body_network", "rcc_implementation_variable", "rcc_implementation_method", "rcc_implementation_enum_value"],
     tests: [
       {
-        file: "src/frontend/syntax/format/network-header.test.ts",
-        title: "a network opens with a fielded header, or a bare NETWORK closed by END_NETWORK",
+        file: "src/frontend/syntax/format/implementation-line.test.ts",
+        title: "the stated language wins over what the text looks like: network text under ST is read as ST",
       },
       {
         file: "src/server/implementation-keyword-diagnostics.test.ts",
@@ -2579,7 +2582,7 @@ export const RULES: readonly Rule[] = [
       },
       { file: "src/network-text/parser.test.ts", title: "an unclosed network is NETWORK_NOT_CLOSED" },
     ],
-    design: "`network-header.test.ts`",
+    design: "rcc_st_body_network, rcc_implementation_variable",
   },
   // ── 3.1 ──
   {

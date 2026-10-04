@@ -41,9 +41,10 @@ import {
   type Messages,
 } from "../analysis/index.js"
 import { extendsChain, hasUnresolvedBase, type Scope } from "../frontend/symbols/index.js"
-import { analyzeNetworkText, instanceFb } from "./network-analyze.js"
+import { analyzeNetworkText, headIsVariable, instanceFb } from "./network-analyze.js"
 import { walkValues, type NetworkName, type NetworkTextNetwork, type NetworkTextStatement, type NetworkValue } from "../network-text/ast.js"
 import { callReading, executeBoxes, networkValueExpr, statementExprs } from "../network-text/exprs.js"
+import { SYMBOL_TO_TYPE } from "../network-text/lexer.js"
 import type { Document } from "../services/shared/index.js"
 
 export function computeNetworkTextDiagnostics(
@@ -68,6 +69,7 @@ export function computeNetworkTextDiagnostics(
       checkConversionArgs(network.statements, scope, project, messages, out)
       checkUndeclared(network.statements, scope, project, messages, out)
       checkPins(network.statements, scope, project, messages, out)
+      checkEnoWithoutEn(network.statements, scope, project, messages, out)
       checkHoles(network.statements, scope, project, messages, out) // LAST — it reads what the others found
     }
 
@@ -213,6 +215,50 @@ function checkPins(
       }
     }
 }
+
+/**
+ * network-missing-en: `.ENO` read on a box with no EN that is no FB call. The push writes the box the text describes
+ * (openspec bridge-refusal-review 1.5) and CODESYS's build answers it, by the box's kind (SP21, 2026-10-04):
+ *
+ *   an operator box  `x := ADD(a, b).ENO;`              "… (Missing EN pin). …" (`rcc_network_eno_without_en`; N21)
+ *   a FUNCTION's box `x := FUN(a, b).ENO;`              "The assignment source is incorrect."
+ *                                                       (`rcc_network_eno_function_without_en`)
+ *
+ * The operator boxes are the bridge's `CallKind.Operator` — the infix table's types and NOT (`NetworkSpelling.KindOf`);
+ * ADD is the one measured. A FUNCTION's box is a head that resolves to a declared callable (`isRealCall`, the same
+ * resolution the `??? :=` rule splits on), a namespace-qualified one included. An FB call may declare ENO without EN
+ * (Lenze `Dryer`, N16): there `.ENO` is the FB's own output — a box headed by a variable (`headIsVariable`, whether or
+ * not its FB type resolves) or the vendor's unnamed instance `??? : TYPE(…)`, and nothing is said. Any other head (a
+ * MOVE, a SEL, a name nothing declares) is unmeasured, and nothing is said either.
+ *
+ * The build ALSO reports an operator box's data output against the target (`Cannot convert type 'INT' to type 'BOOL'`
+ * for an ADD into a BOOL): not given — an operator box has no ST reading here (`callReading`), and the shape is a known
+ * divergence, niche (`rcc_network_eno_without_en`).
+ */
+function checkEnoWithoutEn(
+  statements: readonly NetworkTextStatement[],
+  scope: Scope,
+  project: Scope,
+  messages: Messages,
+  out: DiagnosticItem[],
+): void {
+  for (const s of statements)
+    for (const v of walkValues(s)) {
+      if (v.kind !== "call" || !v.eno) continue
+      if (v.pins.some((p) => p.kind === "input" && p.name?.text.toUpperCase() === "EN")) continue
+      if (v.unnamedType !== undefined) continue
+      if (v.headExpr === undefined || headIsVariable(v.headExpr, scope, project)) continue
+      const message = isRealCall(v, scope, project)
+        ? messages.assignmentSourceIncorrect()
+        : OPERATOR_BOXES.has(v.head.text.toUpperCase())
+          ? messages.missingEnPin()
+          : undefined
+      if (message !== undefined) out.push({ severity: "error", span: v.span, source: SOURCE, code: "network-missing-en", message })
+    }
+}
+
+/** The bridge's `CallKind.Operator` boxes: the infix table's types (`SYMBOL_TO_TYPE`) and NOT. */
+const OPERATOR_BOXES: ReadonlySet<string> = new Set([...SYMBOL_TO_TYPE.values(), "NOT"])
 
 /**
  * An FB's settable pin names (lowercased), inherited included — or `undefined` if any EXTENDS base is

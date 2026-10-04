@@ -46,7 +46,7 @@ import { computeSemanticDiagnostics, messagesFor, resolveConfig, type Vendor } f
 import { computeNetworkTextDiagnostics } from "../../src/network/index.js"
 import { CLOCK, emitRust, isBit, lowerSource, run, rustAccess, type IrPou, type IrValue, type LoweredPou } from "../../src/transpile/index.js"
 import { lowerCodeKind } from "../../src/transpile/ir/codes.js"
-import { CODESYS_TRIAGE, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
+import { CODESYS_TRIAGE, CREATE_REFUSAL_BY_NAME_NOT_MODELLED, KNOWN_DIVERGENCES, TWINCAT_TRIAGE } from "./support/divergences.js"
 import { ALL_TESTS } from "./fixtures/index.js"
 import { assembleFixture, splitLists, withDependencies } from "./support/fixture-units.js"
 import { plcPrgSource } from "./support/plc-prg.js"
@@ -975,6 +975,73 @@ describe("lsp-gap — a refusal the LSP does not make yet", () => {
     expect(unaccounted).toEqual([])
     // and the other direction — one that gains a check should leave the set rather than rot in it
     expect([...MEASURED_SILENT].filter((n) => SELECTION.has(n) && !rated("lsp-gap").some((c) => c.name === n))).toEqual([])
+  })
+})
+
+/**
+ * THE IDE REFUSES TO CREATE IT BY NAME, AND THE LSP DOES NOT SAY SO (`CREATE_REFUSAL_BY_NAME_NOT_MODELLED`). A fixture
+ * the vendor refuses carries no build, so the agreement replay skips it; without this, a refused name the LSP misreads
+ * was rated `unaskable` or `confirmed` (by the OTHER vendor) and nothing showed it (review 5+6).
+ */
+describe("create refused by name — a vendor refusal the LSP does not make", () => {
+  for (const vendor of ["codesys", "twincat"] as const) {
+    for (const [name, sentence] of Object.entries(CREATE_REFUSAL_BY_NAME_NOT_MODELLED[vendor])) {
+      if (!SELECTION.has(name)) continue
+      test(`${name} — ${vendor}: the LSP does not say ${JSON.stringify(sentence)}`, () => {
+        const c = ALL_TESTS.find((t) => t.name === name)
+        expect(c).toBeDefined()
+        // only a fixture the vendor refuses belongs here — any other has a build, and the replay judges it
+        expect(c!.vendorRefuses?.[vendor]).toBeDefined()
+        const check = () => expect(lspErrors(c!, ALL_TESTS, vendor)).toContainEqual(expect.stringContaining(sentence))
+        expectStillDiverges(name, "CREATE_REFUSAL_BY_NAME_NOT_MODELLED", [check], `${vendor}'s create refusal`)
+      })
+    }
+  }
+  whole("every entry names a fixture", () => {
+    const names = new Set(ALL_TESTS.map((t) => t.name))
+    const listed = [...Object.keys(CREATE_REFUSAL_BY_NAME_NOT_MODELLED.codesys), ...Object.keys(CREATE_REFUSAL_BY_NAME_NOT_MODELLED.twincat)]
+    expect(listed.filter((n) => !names.has(n))).toEqual([])
+  })
+})
+
+/**
+ * THE LINE, where a recording carries one — openspec bridge-refusal-review 5.2 (review 5+6). The agreement replay
+ * compares `[severity] message` and never a line, so it cannot back a claim of line parity. CODESYS records every line
+ * as 0. TwinCAT records an ST body's line as its declaration's lines plus the body's own line — the file's line minus
+ * one, since the push takes the IMPLEMENTATION line off. A NETWORK body's lines are the vendor's own numbering, no text
+ * line (`rcc_network_undeclared_wire_shape`: 6 and 7 for the one statement on file line 8), so none is compared there.
+ *
+ * Pinned for this change's ST row. Three of its four lines agree; the fourth, "';' expected instead of end of POU", the
+ * build puts on the body's last line and the LSP on END_FUNCTION_BLOCK, one line lower — held as an expected failure
+ * here, and the same for every "end of POU" (146 recorded, never compared: a line-parity gate for the whole replay is
+ * the follow-up this belongs to, not this change).
+ */
+describe("lines — TwinCAT's, for this change's ST row", () => {
+  const name = "rcc_st_body_network"
+  const lines = (): { lsp: string[]; ide: string[] } => {
+    const t = ALL_TESTS.find((x) => x.name === name)!
+    const pr = parseSource(t.source, { networkText: true }, "twincat")
+    const project = build.buildSymbolTable([{ uri: `file:///w/${t.pouName}.pou`, parseResult: pr, source: t.source }], [], "twincat")
+    const at = (ds: readonly { severity: string; message: string; line: number }[]) =>
+      ds.filter((d) => d.severity === "error" || d.severity === "warning").map((d) => `[${d.severity}] ${comparable(d.message)} @${d.line}`)
+    const lsp = computeSemanticDiagnostics({ parseResult: pr, source: t.source, project, config: resolveConfig({ vendor: "twincat" }) })
+    // the file's 1-based line, less the IMPLEMENTATION line the push takes off
+    return {
+      lsp: at(lsp.map((d) => ({ severity: d.severity, message: d.message, line: d.span.startLine - 1 }))),
+      ide: at(BUILDS.twincat.tests[name]!.diagnostics),
+    }
+  }
+  const endOfPou = (m: string) => m.includes("end of POU")
+  const run = SELECTION.has(name) && BUILDS.twincat.recorded !== null
+  test.if(run)(`${name} — every message but "end of POU" on the build's line`, () => {
+    const { lsp, ide } = lines()
+    expect(lsp.filter((m) => !endOfPou(m)).sort()).toEqual(ide.filter((m) => !endOfPou(m)).sort())
+  })
+  test.if(run)(`${name} — "end of POU" is one line below the build's, still`, () => {
+    const { lsp, ide } = lines()
+    expectStillDiverges(name, "end of POU on END_FUNCTION_BLOCK, the build's on the body's last line", [
+      () => expect(lsp.filter(endOfPou)).toEqual(ide.filter(endOfPou)),
+    ], "TwinCAT's lines")
   })
 })
 

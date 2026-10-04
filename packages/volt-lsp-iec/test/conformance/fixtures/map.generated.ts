@@ -14,20 +14,20 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2717
- *     refused       1783
- *     not-lowered    337
+ *     confirmed     2723
+ *     refused       1786
+ *     not-lowered    336
  *     lsp-gap         74
  *     diverges         5
- *     unaskable       69
+ *     unaskable       80
  *
  *   tier                     lowered    clean
- *     decl                    687      687
+ *     decl                    690      690
  *     arith                  1537     1535
  *     control                 138      133
  *     aggregate               114      114
  *     call                    260      258
- *     indirect                306      302
+ *     indirect                309      305
  *
  *   surviving lints (a lint listed here is work, not policy — 11 allowed ones are named with their reasons)
  *     clippy::collapsible_if                     4
@@ -56,7 +56,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2880
+ *     agree         2886
  *     disagree         0
  *     not-run        162
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -64,8 +64,8 @@
  *       not-run: no elementary variable to seed or compare       34
 
  *
- *   pedantic — 30148 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7432
+ *   pedantic — 30159 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7443
  *     clippy::cast_possible_truncation         4795
  *     clippy::cast_lossless                    4218
  *     clippy::cast_sign_loss                   3355
@@ -88,8 +88,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1644 distinct emission shapes over 3042 lowered fixtures, 1763 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2874 fixtures are improvable, 2789 touch a construct with alternatives.
+ *   shape — 1645 distinct emission shapes over 3048 lowered fixtures, 1764 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2880 fixtures are improvable, 2795 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -3399,7 +3399,7 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   pwh_enum_text_is_struct: { evidence: "confirmed", tier: "decl", rust: "compiles", pedantic: 2, edge: "agree", size: 3.8, shape: "c91d65d9ea", notes: ["1307e33bbf"] },
   pwh_fb_text_says_program: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 3, edge: "agree", size: 4.4, shape: "c28a4c31d4", notes: ["0e0d715a81", "1307e33bbf", "abf2bb6e4e"] },
   pwh_gvl_missing_semicolon: { evidence: "refused" },
-  pwh_gvl_retired_volt_comment: { evidence: "not-lowered" },
+  pwh_gvl_retired_volt_comment: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 3.9, shape: "700ce1f7e0", notes: ["1307e33bbf", "a29db6178b"] },
   pwh_gvl_then_prose: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
   pwh_prg_text_says_function_block: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 2.9, shape: "bc0d245868", notes: ["1307e33bbf", "4979768984"] },
   pwh_prose_gvl: { evidence: "unaskable" },
@@ -3607,6 +3607,25 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   r2ilad_lint_pos_09: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 3.5, shape: "0a8433d907", notes: ["1707972c33", "4a6baf16b3", "5383e1c9ac", "6a98109119", "870b70e195", "c5844eabe9", "de283d0ef6", "f44fb59407", "fe6af35845"] },
   r2ilad_lint_pos_10: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 3.5, shape: "0a8433d907", notes: ["1707972c33", "4a6baf16b3", "5383e1c9ac", "6a98109119", "870b70e195", "c5844eabe9", "de283d0ef6", "f44fb59407", "fe6af35845"] },
   r2ilad_lint_pos_11: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 9, edge: "agree", size: 3.5, shape: "0a8433d907", notes: ["1707972c33", "4a6baf16b3", "5383e1c9ac", "6a98109119", "870b70e195", "c5844eabe9", "de283d0ef6", "f44fb59407", "fe6af35845"] },
+  rcc_implementation_enum_value: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 1, edge: "agree", size: 1.8, shape: "1358d87837", notes: ["0e0d715a81", "1307e33bbf"] },
+  rcc_implementation_method: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.8, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  rcc_implementation_variable: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.9, shape: "df0902fc27", notes: ["0e0d715a81", "1307e33bbf"] },
+  rcc_member_backtick_name: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 2.4, shape: "f99ed53ab5", notes: ["0e0d715a81", "1307e33bbf"] },
+  rcc_member_name_not_identifier: { evidence: "unaskable" },
+  rcc_network_empty_var_temp: { evidence: "unaskable" },
+  rcc_network_eno_function_without_en: { evidence: "unaskable" },
+  rcc_network_eno_without_en: { evidence: "unaskable", diverges: { codesys: "known" } },
+  rcc_network_late_block_shadows_read: { evidence: "unaskable" },
+  rcc_network_located_wire_shape: { evidence: "unaskable" },
+  rcc_network_second_var_temp: { evidence: "unaskable" },
+  rcc_network_undeclared_wire_shape: { evidence: "unaskable" },
+  rcc_network_var_temp_after_statement: { evidence: "unaskable" },
+  rcc_network_wire_named_like_variable: { evidence: "unaskable" },
+  rcc_network_wire_never_defined: { evidence: "unaskable" },
+  rcc_property_empty_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  rcc_property_no_type: { evidence: "refused", diverges: { codesys: "known", twincat: "known" } },
+  rcc_retired_comment_in_body: { evidence: "confirmed", tier: "indirect", rust: "vendor", pedantic: 2, edge: "agree", size: 2.5, shape: "5bf8cb83f6", notes: ["11f6ad8ec5", "1307e33bbf", "5370b79269"] },
+  rcc_st_body_network: { evidence: "refused" },
   real_constant_fold_width: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 10, edge: "agree", size: 9.7, shape: "dc643a2c83", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },
   real_lreal_precision: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 6.3, shape: "2d0162b8e4", notes: ["06bb3a6005", "1707972c33", "4a6baf16b3", "5c9bb13706", "63d29bd1a0", "6a98109119", "74845f98c6", "870b70e195"] },
   real_precision: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 4, edge: "agree", size: 5, shape: "9e513abd1e", notes: ["1707972c33", "5c9bb13706", "6a98109119", "74845f98c6"] },

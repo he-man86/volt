@@ -20,14 +20,20 @@ test("the modifiers are kept as an ordered list, as written", () => {
 
 test("an access modifier after another modifier is refused as an unexpected token, then the `;` wanted in place of the name", () => {
   // `unit_property_modifiers_reordered`: "Unexpected token 'PUBLIC' found", both vendors
-  expect(property("PROPERTY FINAL PUBLIC P : INT").errors).toEqual(["Unexpected token 'PUBLIC' found", "';' expected instead of 'P'"])
+  expect(property("PROPERTY FINAL PUBLIC P : INT").errors).toEqual([
+    "Unexpected token 'PUBLIC' found",
+    "';' expected instead of 'P'",
+  ])
 })
 
 test("a PROPERTY takes ONE of FINAL/ABSTRACT, after its access modifier: a second modifier after one is refused", () => {
   // `unit_property_abstract_final`, `unit_property_final_twice` (CODESYS 2026-10-01): "Unexpected token 'FINAL' found" —
   // where a METHOD builds `FINAL FINAL` and calls `ABSTRACT FINAL` a semantic error
   for (const header of ["PROPERTY ABSTRACT FINAL P : INT", "PROPERTY FINAL FINAL P : INT"])
-    expect([header, property(header).errors]).toEqual([header, ["Unexpected token 'FINAL' found", "';' expected instead of 'P'"]])
+    expect([header, property(header).errors]).toEqual([
+      header,
+      ["Unexpected token 'FINAL' found", "';' expected instead of 'P'"],
+    ])
   expect(property("PROPERTY PUBLIC ABSTRACT P : INT").errors).toEqual([])
 })
 
@@ -43,9 +49,12 @@ test("a PROPERTY takes ONE of FINAL/ABSTRACT, after its access modifier: a secon
  * recording can answer these — `unit_property_accessor_modifier`, `_no_end_get`, `_no_end_get_alone` are unaskable.
  */
 const accessors = (text: string) => {
-  const r = parseSource(`FUNCTION_BLOCK X\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\n${text}END_PROPERTY\n`, {
-    networkText: true,
-  })
+  const r = parseSource(
+    `FUNCTION_BLOCK X\nVAR\n\tstored : INT;\nEND_VAR\nEND_FUNCTION_BLOCK\n\nPROPERTY P : INT\n${text}END_PROPERTY\n`,
+    {
+      networkText: true,
+    },
+  )
   return { errors: r.errors.map((e) => e.message), unit: r.units[1] as Property }
 }
 
@@ -62,8 +71,7 @@ test("an accessor's modifier on the keyword's own line is refused; on the line u
   // the pulled form: the modifier opens the accessor's declaration
   const pulled = accessors("GET\nPUBLIC\nVAR\nEND_VAR\nIMPLEMENTATION ST\nP := stored;\nEND_GET\n")
   expect([pulled.errors, pulled.unit.getter?.modifiers]).toEqual([[], ["PUBLIC"]])
-}
-)
+})
 
 test("an accessor without END_GET/END_SET is bare: code under it is refused, the bare keyword is not", () => {
   const unclosed = (keyword: string, end: string) =>
@@ -76,7 +84,8 @@ test("an accessor without END_GET/END_SET is bare: code under it is refused, the
   // a declaration under an open accessor is dropped the same way
   expect(accessors("GET\nVAR\n\tt : INT;\nEND_VAR\n").errors).toEqual([unclosed("GET", "END_GET")])
   // the bare keyword — present, empty — is what the push reads it as, and is accepted
-  for (const text of ["GET\n", "SET\n", "GET\nSET\n", "GET\nEND_GET\nSET\n"]) expect([text, accessors(text).errors]).toEqual([text, []])
+  for (const text of ["GET\n", "SET\n", "GET\nSET\n", "GET\nEND_GET\nSET\n"])
+    expect([text, accessors(text).errors]).toEqual([text, []])
   const both = accessors("GET\nSET\n").unit
   const code = (a: Property["getter"]) => a?.body?.tokens.filter((t) => t.kind !== "whitespace").length
   expect([code(both.getter), code(both.setter)]).toEqual([0, 0])
@@ -103,12 +112,35 @@ test("an accessor keyword stands alone on its line: one that shares it is refuse
   const trailing = (keyword: string, after: string) =>
     `'${after}' shares the line of '${keyword}': the push drops the rest of an accessor's keyword line. Move it to the next line.`
   expect(accessors("GET\nIMPLEMENTATION ST\nP := stored; END_GET\n").errors).toEqual([notFirst("END_GET", ";")])
-  expect(accessors("GET\nIMPLEMENTATION ST\nP := 1;\nEND_GET SET\nIMPLEMENTATION ST\nstored := P;\nEND_SET\n").errors).toEqual([
-    notFirst("SET", "END_GET"),
-  ])
+  expect(
+    accessors("GET\nIMPLEMENTATION ST\nP := 1;\nEND_GET SET\nIMPLEMENTATION ST\nstored := P;\nEND_SET\n").errors,
+  ).toEqual([notFirst("SET", "END_GET")])
   expect(accessors("SET\nIMPLEMENTATION ST\nstored := P; END_SET\n").errors).toEqual([notFirst("END_SET", ";")])
   expect(accessors("GET P := stored;\nEND_GET\n").errors).toEqual([trailing("GET", "P")])
   expect(accessors("GET END_GET\n").errors).toEqual([notFirst("END_GET", "GET")])
   // each on a line of its own (trailing comments are no content) is accepted
-  expect(accessors("GET // the getter\nIMPLEMENTATION ST\nP := stored;\nEND_GET (* end *)\nSET\nEND_SET\n").errors).toEqual([])
+  expect(
+    accessors("GET // the getter\nIMPLEMENTATION ST\nP := stored;\nEND_GET (* end *)\nSET\nEND_SET\n").errors,
+  ).toEqual([])
+})
+
+test("a header with no type keeps its accessors: one message, the build's own, never a 'GET after the unit' the push would refuse", () => {
+  // openspec bridge-refusal-review 2.6: the push writes `PROPERTY P` (no colon) as sent, so the LSP's old cascade — "':'
+  // expected instead of 'GET'" and a stray GET "the push refuses" — claimed a refusal that no longer happens. Both
+  // vendors answer it with a cascade over the declaration they synthesize (`rcc_property_no_type`): a known divergence,
+  // but the one message the LSP gives is one BOTH builds give — never the METHOD rule's "instead of ''" (review 5+6).
+  const r = property("PROPERTY P")
+  expect(r.errors).toEqual(["',, AT or :' expected instead of ';'"])
+  expect(r.unit.kind).toBe("property")
+  expect(r.unit.getter).toBeDefined()
+  // a header that breaks off before anything a property can hold still wants its colon
+  expect(property("PROPERTY P INT").errors[0]).toBe("':' expected instead of 'INT'")
+})
+
+test("a header ending at its colon is the build's \"Type definition expected instead of ';'\" (rcc_property_empty_type, both vendors)", () => {
+  // the METHOD rule's "instead of ''" (`sig_empty_type`) is not what either build says for a PROPERTY: the vendor puts the
+  // declaration it synthesizes for the getter after the colon, and its first token is the ';' (review 5+6)
+  const r = property("PROPERTY P :")
+  expect(r.errors).toEqual(["Type definition expected instead of ';'"])
+  expect(r.unit.getter).toBeDefined()
 })

@@ -992,13 +992,17 @@ test("network text: the operands inside an .ENO box and an edge are still resolv
   expect(enoDiags("out := R_EDGE(nope);")).toContain("Identifier 'nope' not defined")
 })
 
-test("network text: an undeclared wire-shaped name is the push's refusal, not a compiler message", () => {
+test("network text: an undeclared wire-shaped name is a compiler message, not a push refusal", () => {
+  // openspec bridge-refusal-review 1.3: the push writes it as a variable and the build reports it — both vendors,
+  // `rcc_network_undeclared_wire_shape` (2026-10-04): "Identifier 'g7' not defined" and the hole it leaves.
   const fb = (statement: string) =>
     `FUNCTION_BLOCK FB\nVAR out : BOOL; x : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
-  const refusal = "NETWORK_BAD_EXPRESSION: 'g5' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope."
-  expect(vgDiags(fb("out := g5;")).map((d) => `${d.code}: ${d.message}`)).toEqual([refusal])
-  expect(vgDiags(fb("g5 := x;")).map((d) => `${d.code}: ${d.message}`)).toEqual([refusal])
-  expect(vgDiags(fb("out := `g5`;")).map((d) => d.code)).not.toContain("NETWORK_BAD_EXPRESSION")
+  expect(vgDiags(fb("out := g5;")).map((d) => d.message).sort()).toEqual([
+    "Cannot convert type 'Unknown type: 'g5'' to type 'BOOL'",
+    "Identifier 'g5' not defined",
+  ])
+  expect(vgDiags(fb("out := `g5`;")).map((d) => d.message)).toContain("Identifier 'g5' not defined")
+  expect(vgDiags(fb("out := g5;")).map((d) => d.code)).not.toContain("NETWORK_BAD_EXPRESSION")
 })
 
 test("network text: a POU or instance named like a construct is refused at the call, whatever its pins", () => {
@@ -1151,4 +1155,53 @@ END_NETWORK
 END_FUNCTION_BLOCK`
   expect(vgDiags(src("o := k;")).map((d) => d.message)).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
   expect(vgDiags(src("o := F_Int(k);")).map((d) => d.message)).toEqual(["Cannot convert type 'INT' to type 'BOOL'"])
+})
+
+test("network text: a wire named like a POU variable is the wire for every use after its block — no finding", () => {
+  // openspec bridge-refusal-review 2.10: the push writes it (wires resolve first, the writer renames on the next pull),
+  // so the analysis types `g1` as the wire, never as the INT the POU declares under that name.
+  const src = `FUNCTION_BLOCK FB\nVAR g1 : INT; a : BOOL; out : BOOL; END_VAR\nIMPLEMENTATION LD\nNETWORK\n  VAR_TEMP g1 : BOOL; END_VAR\n  g1 := a;\n  out := g1;\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  expect(vgDiags(src).map((d) => `${d.code}: ${d.message}`)).toEqual([])
+})
+
+test("network text: `.ENO` on an operator box with no EN is CODESYS's 'Missing EN pin'; on an FB it is the FB's own", () => {
+  // openspec bridge-refusal-review 1.5: the push builds the box the text describes and CODESYS's build answers it
+  // (`rcc_network_eno_without_en`, SP21 2026-10-04; DIALECT N21). An FB may declare ENO without EN (Lenze `Dryer`, N16).
+  const fb = (vars: string, statement: string) =>
+    `FUNCTION_BLOCK FB_T\nVAR_INPUT IN : BOOL; END_VAR\nVAR_OUTPUT ENO : BOOL; END_VAR\nEND_FUNCTION_BLOCK\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; ${vars} END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+  const missing = "An inconsistent element has been detected (Missing EN pin). Consider making a correction."
+  expect(vgDiags(fb("", "x := ADD(a, b).ENO;")).map((d) => d.message)).toContain(missing)
+  expect(vgDiags(fb("", "x := ADD(EN := go, a, b).ENO;")).map((d) => d.message)).not.toContain(missing)
+  expect(vgDiags(fb("t : FB_T;", "x := t(IN := go).ENO;")).map((d) => d.message)).not.toContain(missing)
+})
+
+test("network text: `.ENO` with no EN on a FUNCTION's box is CODESYS's 'The assignment source is incorrect.', a qualified one too", () => {
+  // review 5+6, measured (`rcc_network_eno_function_without_en`, SP21 2026-10-04): a FUNCTION's box answers about the
+  // source, not the pin — the check had borrowed the operator box's "Missing EN pin" for every head that is no variable.
+  // And a member head used to count as a path to a variable whatever it named, so `Lib.F(a, b).ENO` passed for an FB
+  // call: a namespace qualifying a POU names a function.
+  const lib = "file:///w/Library Manager/Util"
+  const manifest = { uri: `${lib}/Util.library`, folder: "Util", namespace: "Util", library: "Util", dependencies: [], materialization: 2 }
+  const libSrc = "FUNCTION Twice : INT\nVAR_INPUT\n  a : INT;\n  b : INT;\nEND_VAR\nTwice := a + b;\nEND_FUNCTION\n"
+  const source = "The assignment source is incorrect."
+  const missing = "An inconsistent element has been detected (Missing EN pin). Consider making a correction."
+  const run = (statement: string) => {
+    const src = `FUNCTION FUN : INT\nVAR_INPUT a : INT; b : INT; END_VAR\nFUN := a + b;\nEND_FUNCTION\nFUNCTION_BLOCK FB\nVAR a : INT; b : INT; x : BOOL; go : BOOL; END_VAR\nIMPLEMENTATION FBD\nNETWORK\n  ${statement}\nEND_NETWORK\nEND_FUNCTION_BLOCK`
+    const d = doc(src)
+    const p = build.buildSymbolTable(
+      [{ uri: d.uri, source: d.source, parseResult: d.parseResult }, { uri: `${lib}/Twice.pou`, source: libSrc, parseResult: parseSource(libSrc, { networkText: true }) }],
+      [manifest],
+    )
+    return computeNetworkTextDiagnostics(d, p, messagesFor("codesys")).map((m) => m.message)
+  }
+  expect(run("x := FUN(a, b).ENO;")).toEqual([source])
+  expect(run("x := Util.Twice(a, b).ENO;")).toEqual([source])
+  expect(run("x := FUN(EN := go, a, b).ENO;")).not.toContain(source)
+  expect(run("x := Util.Twice(EN := go, a, b).ENO;")).not.toContain(source)
+  expect(run("x := ADD(a, b).ENO;")).toContain(missing)
+  // a member the namespace does not show is unknown — it could be a library global instance — so nothing rests on it
+  const unknown = run("x := Util.gInst(IN := go).ENO;")
+  expect([unknown.includes(source), unknown.includes(missing)]).toEqual([false, false])
+  // nor on an unmeasured box kind: MOVE is no operator of the table and resolves to no declared callable
+  expect(run("x := MOVE(a).ENO;")).not.toContain(missing)
 })

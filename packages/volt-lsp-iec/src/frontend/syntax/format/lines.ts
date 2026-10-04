@@ -1,6 +1,6 @@
 /**
  * READING LINES OUT OF A TOKEN STREAM — the Volt file format's rules are about whole lines (the `IMPLEMENTATION` line,
- * `%FOLDER`, a network's header), while the lexer hands out tokens. These are the shared line readers.
+ * `%FOLDER`), while the lexer hands out tokens. These are the shared line readers.
  */
 import type { Span } from "../span.js"
 import { isTrivia, type Token } from "../lex/tokens.js"
@@ -8,14 +8,11 @@ import { isTrivia, type Token } from "../lex/tokens.js"
 /** Where a problem with the file format is reported, and what it says. */
 export type ReportAt = (message: string, span: Span) => void
 
-/** One source line around `tokens[at]`: its text, and the index of the token holding the newline that ends it
- *  (`tokens.length` when the stream ends first). `code` blanks comments and pragmas, as the bridge's `StTrivia.Code`
- *  does, for the network-header test; the keyword's own test reads the raw line, so a comment on it disqualifies it. */
-export function lineAround(tokens: readonly Token[], at: number, code = false): { text: string; end: number } {
-  const piece = (t: Token): string =>
-    code && (t.kind === "line_comment" || t.kind === "block_comment" || t.kind === "pragma")
-      ? t.text.replace(/[^\n]/g, " ")
-      : t.text
+/** One source line around `tokens[at]`: its raw text, and the index of the token holding the newline that ends it
+ *  (`tokens.length` when the stream ends first). The keyword's own test reads the raw line, so a comment on it
+ *  disqualifies it. */
+export function lineAround(tokens: readonly Token[], at: number): { text: string; end: number } {
+  const piece = (t: Token): string => t.text
   let before = ""
   let k = at - 1
   for (; k >= 0; k--) {

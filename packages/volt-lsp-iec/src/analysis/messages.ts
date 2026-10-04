@@ -96,6 +96,19 @@ export interface Messages {
    */
   unresolvedOperandToken(): string
   unresolvedAssignTarget(): string
+  /**
+   * `.ENO` read on an operator box that has no EN (`x := ADD(a, b).ENO;`): CODESYS builds the box with no ENO
+   * output and its build answers this (`rcc_network_eno_without_en`, SP21 2026-10-04; DIALECT N21). Undefined on TwinCAT:
+   * its driver refuses that box before anything is written (`TcEnoRefusal`), so no TwinCAT build has ever answered it and
+   * there is no wording to give.
+   */
+  missingEnPin(): string | undefined
+  /**
+   * `.ENO` read on a FUNCTION's box that has no EN (`x := F(a, b).ENO;`): CODESYS answers about the source, not the pin
+   * (`rcc_network_eno_function_without_en`, SP21 2026-10-04 — the same sentence a `??? :=` coil over a call gets).
+   * Undefined on TwinCAT, as `missingEnPin`: its driver refuses the box before a build.
+   */
+  assignmentSourceIncorrect(): string | undefined
   undefinedIdentifier(name: string): string
   /** `.name` (the global-namespace operator) that no GLOBAL declares, a local of that name or not — both vendors alike
    *  (`expr_global_namespace_undefined`, `_local_only`, 2026-10-02). */
@@ -561,6 +574,8 @@ export function messagesFor(vendor: Vendor): Messages {
     unresolvedOperand: () => "Expression expected instead of '?'",
     unresolvedOperandToken: () => (tc ? "Unexpected Token '?' found" : "Unexpected token '?' found"),
     unresolvedAssignTarget: () => (tc ? "Assignment target not specified" : "The assignment target is not specified."),
+    missingEnPin: () => (tc ? undefined : "An inconsistent element has been detected (Missing EN pin). Consider making a correction."),
+    assignmentSourceIncorrect: () => (tc ? undefined : "The assignment source is incorrect."),
     undefinedIdentifier: (name) => `Identifier '${name}' not defined`,
     noGlobalDefinition: (name) => `There is no global definition for '${name}'`,
     // Live-verified both vendors (2026-07-11): CODESYS capital "Ambiguous", TwinCAT lowercase "ambiguous".

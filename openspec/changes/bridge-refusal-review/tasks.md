@@ -880,10 +880,27 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 ## 5. LSP parity (`packages/volt-lsp-iec`)
 
-- [ ] 5.1 **Changed.** Conformance fixtures + live recordings for every row of the proposal's "What the LSP must pick
+- [x] 5.1 **Changed.** Conformance fixtures + live recordings for every row of the proposal's "What the LSP must pick
       up" table (1.1, 1.2, 1.3, 1.5, 2.4, 2.5, 2.6, and 3.1/3.2 if they remove). The 2.19 row (DUT stating no subtype)
       is gone with 2.19; `push-without-header-check` 4.1 owns the unclosed-comment DUT/FB/GVL recordings.
-- [ ] 5.2 LSP reports each recorded error with the build's message and line; reports nothing for `implementation` as
+      **Done (step 5, 2026-10-04).** Row by row; 12 new fixtures in `test/conformance/fixtures/objects/removed-push-checks.ts`
+      (category `removed-push-checks`), recorded in ONE batch per vendor (CODESYS SP21 + TwinCAT Project13, own
+      `-Instance bridge-refusal-review` IDEs) and `record:exec` for the ST ones that build:
+      1.1 `rcc_st_body_network` — both builds: "';' expected instead of 'out'", "';' expected instead of end of POU" +
+      two "has no effect" warnings (no Volt message); 1.2 `rcc_implementation_variable`/`_method`/`_enum_value` — clean
+      on both, run confirmed; 1.3 `rcc_network_undeclared_wire_shape` (`out := g7;`) — "Identifier 'g7' not defined" +
+      "Cannot convert type 'Unknown type: 'g7'' to type 'BOOL'" on both, `rcc_network_located_wire_shape`
+      (`g5 AT %IX0.0 : BOOL;`) clean on both; 1.5 `rcc_network_eno_without_en` — CODESYS "An inconsistent element has been
+      detected (Missing EN pin). Consider making a correction." + "Cannot convert type 'INT' to type 'BOOL'", TwinCAT
+      refused by `TcEnoRefusal` (`vendorRefuses.twincat`); 2.1 (the retired comment, 5.2b) `rcc_retired_comment_in_body`
+      — clean on both, run confirmed; 2.4/2.5 were already recorded (`sig_empty_type`, `sig_unknown_word`); 2.6
+      `rcc_property_no_type` / `rcc_property_empty_type` — both vendors answer with a cascade over the getter declaration
+      they synthesize ("',, AT or :' expected instead of ';'" / "Type definition expected instead of ';'", "'END_VAR'
+      expected instead of ''", "Cannot convert type 'BOOL' to type 'INT'", TwinCAT adds "Type definition expected
+      instead of ''" to the colon-less one); 3.1 (removed `IsIdentifier`, the vendors' create rule) — `rcc_member_backtick_name`
+      (`` METHOD `a b` : INT ``) clean on CODESYS, refused on TwinCAT (Name mismatch), `rcc_member_name_not_identifier`
+      (`METHOD My-Name`) refused by both IDEs' create rule (vendorRefuses both, execSkip); 3.2 measured KEPT (N25), no row.
+- [x] 5.2 LSP reports each recorded error with the build's message and line; reports nothing for `implementation` as
       an identifier, a `(* @volt-` comment, and the layout rules. Colocated src test per fix.
       LSP-only since steps 1/2 (review 1+2d) — each a false positive under the parity rule until fixed here:
       (a) DONE at the 4b gate: FMT8 `src/frontend/syntax/format/reserved-names.ts` reported every identifier
@@ -893,6 +910,75 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
       IMPLEMENTATION ST, where the build's own error belongs — 1.1; (d) `network-text/parser.ts` reports the layout
       rules 2.7-2.11 and an undeclared `gN` (1.3); and it lacks the one rule the bridge ADDED (2.7 review): a late
       VAR_TEMP block declaring a name the network already read as a variable is NETWORK_DUPLICATE_NAME.
+      **Done (step 5, 2026-10-04)**, test-first, each with its colocated test: (b) FMT7's report deleted — the parser
+      reports no `(* @volt-… *)` comment; `retired-comments.ts` is only `retiredCommentIn`, read by the server as the HINT
+      of the one finding for a body that states no language, in the push's words (`StReader.Unmarked`)
+      (`retired-comments.test.ts` rewritten, `source-object.test.ts`/`server.test.ts` premises rewritten — the removed
+      check); (c) the "its body is network text" arm of `implementation-line.ts` deleted, and with it
+      `format/network-header.ts` + test (`opensNetwork`, the bridge's deleted `OpensNetwork`) and `lineAround`'s `code`
+      mode; the ST parser's two messages are the build's (`implementation-line.test.ts` pins them exactly); (d)
+      `network-text/parser.ts` ported from the bridge reader: VAR_TEMP read wherever it stands and a second block adds
+      to the first, empty block and declared-never-defined wire accepted, wire named like a scope variable is the
+      wire, `refuseUndeclaredWire` and `addOtherWords` deleted (an undeclared `gN` is the analysis's "Identifier … not
+      defined", as the build says), the late-block NETWORK_DUPLICATE_NAME added with the bridge's message and line
+      (`bridgeLine`); `NetworkScopeView.contains` deleted (nothing asks it); parser/network tests whose premise was a
+      removed rule rewritten (`WIRE_LAYOUT` table +6, late-block +2 rows, wire-shadow analysis +1). Also: `.ENO` on a
+      function/operator box with no EN reports CODESYS's "Missing EN pin" (`network-missing-en`, CODESYS only — TwinCAT's
+      driver refuses the box, no wording exists; `headIsVariable` keeps an FB call out, resolved type or not); a
+      PROPERTY header with no colon reads as the empty type (one message at the name) instead of breaking off into a
+      stray GET "the push refuses" (`property.test.ts` +1). FMT7/FMT8 rows in `test/frontend/rules.ts` restated with
+      the new fixtures (count unchanged, 352).
+      **Agreement:** 8 of 11 recorded CODESYS rows and 7 of 9 TwinCAT rows agree exactly; the rest are the marks below. Known divergences (niche):
+      `PROPERTY_WITHOUT_A_TYPE` (`rcc_property_no_type`, `rcc_property_empty_type`, both vendors — "niche: accepted
+      loss (0 occurrences in the corpora)": every PROPERTY header in the six declares a type); `ENO_WITHOUT_EN_OUTPUT_TYPE`
+      (`rcc_network_eno_without_en`, CODESYS — the INT→BOOL message needs an operator box's ST reading; niche: accepted
+      loss, 0 occurrences: all 26 `.ENO` reads in the corpora are on a box with an EN).
+      **Step 5 numbers:** LSP `bun test test/conformance` 5970 pass / 0 fail (full, once); `test/frontend` 39/0 after
+      `VOLT_WRITE_BASELINE=1` (COUNT lines only — the 24 new fixture files; no finding added or lost, no ceiling rose);
+      `bun test src scripts` 1881/0; `test/corpus` + `test/catalog` 166/0; typecheck clean; lint (layering) clean;
+      `rate:fixtures`: confirmed 2717→2723, refused 1783→1786, not-lowered 337→336 (`pwh_gvl_retired_volt_comment` now
+      lowers and is confirmed — the retired-comment report had refused its no-object assembly), unaskable 69→73.
+      **Review 5+6 (gate, 2026-10-04) — six findings, each test-first:**
+      (1, medium) `PROPERTY_WITHOUT_A_TYPE` hid a false positive: the LSP's one message was the METHOD rule's
+      "Type definition expected instead of ''", which neither build gives for a POU property (only TwinCAT's colon-less
+      one). `parse/units/property.ts` now gives the first message of the cascade BOTH builds give for the shape —
+      "',, AT or :' expected instead of ';'" with no colon, "Type definition expected instead of ';'" after one
+      (`property.test.ts` +1; `method.test.ts`'s review-4b premise for the two POU-property cases rewritten — disproved
+      by the recording `rcc_property_empty_type`, not by the code). The mark stays: the LSP MISSES the rest of the
+      cascade (niche, 0 occurrences). (2, medium) row 3.1 was not met and nothing showed it: the LSP models no create
+      refusal by name (nor the 1092 measured words), so `METHOD My-Name` gets a wrong-cause message and TwinCAT's
+      backtick refusal none. Niche: accepted loss (0 occurrences in the corpora — no POU or member header in the six
+      names itself outside an ASCII identifier, none with a backtick); recorded as
+      `CREATE_REFUSAL_BY_NAME_NOT_MODELLED` (`support/divergences.ts`: CODESYS `rcc_member_name_not_identifier`, TwinCAT
+      it and `rcc_member_backtick_name`, each with the vendor's sentence), held by `fixtures.test.ts` as an expected
+      failure per vendor — a vendorRefuses fixture has no build, so the replay never saw it. (3, low) the 5.2d network
+      rules got fixtures, recorded live in one batch per vendor (own `-Instance bridge-refusal-review` IDEs, CODESYS
+      SP21 + TwinCAT Project13): `rcc_network_var_temp_after_statement`, `_second_var_temp`, `_empty_var_temp`,
+      `_wire_never_defined`, `_wire_named_like_variable` — clean on both builds, the LSP silent;
+      `rcc_network_late_block_shadows_read` refused by the push on both, live ("NETWORK_DUPLICATE_NAME … after line 3",
+      line 4 — the LSP's message; vendorRefuses). The shadow fixture's wire is fed by a group: TwinCAT's driver refuses a
+      wire fed by a bare leaf as an unmeasured import shape (NETWORK_UNSUPPORTED), no answer about the name. (4, low)
+      measured the user-FUNCTION case, `rcc_network_eno_function_without_en`: CODESYS answers "The assignment source is
+      incorrect." — NOT "Missing EN pin" (the check borrowed the operator's message for every non-variable head, a false
+      positive the review predicted as unmeasured); TwinCAT refuses it (`TcEnoRefusal`, vendorRefuses). `network-missing-en`
+      now splits by box kind: an operator box (the bridge's `CallKind.Operator`: the infix table and NOT) "Missing EN
+      pin", a head resolving to a declared callable (`isRealCall`) "The assignment source is incorrect." (new
+      `Messages.assignmentSourceIncorrect`, CODESYS only), any other head (MOVE, SEL, unresolved) nothing — unmeasured;
+      `headIsVariable` takes a namespace-qualified POU (`Util.Twice`) as a function, a member the namespace does not show
+      stays a path (unknown, nothing rests on it); moved below `instanceFb` with its own doc (`network.test.ts` +1).
+      (5, low) `retiredCommentIn` cuts as `FindRetiredComment` does: the tag on the opening's own line, the hint up to
+      that line's `*)` or its end (`retired-comments.test.ts` +1). (6, low) the replay compares no line; the claim is
+      corrected here: 5.2's "and line" holds for TwinCAT's ST row only, now pinned by `fixtures.test.ts` "lines —
+      TwinCAT's" (`rcc_st_body_network`: TwinCAT's ST line = the file's line less the IMPLEMENTATION line; three of four
+      agree, "';' expected instead of end of POU" sits on END_FUNCTION_BLOCK where the build puts it on the body's last
+      line — held as an expected failure; every "end of POU" is the same, 146 recorded and never compared: a line-parity
+      gate for the whole replay is follow-up work, not this change). A network body's TwinCAT lines are its own element
+      numbering (6 and 7 for one statement on file line 8), no text line: not compared, no parity claimed.
+      **Gate 5+6 numbers (2026-10-04):** LSP full suite `VOLT_REQUIRE_FULL=1 bun test` (VOLT_FIXTURES unset) **8088 pass
+      / 34 skip / 380 todo / 0 fail** (8060 at the 4d gate; 5 diverge as expected failures, LSP-only 0 on both vendors);
+      typecheck clean; layering clean; root `bun run lint` 0 errors; `test/frontend` 39/0 after `VOLT_WRITE_BASELINE=1`
+      (COUNT lines only, the 7 new fixtures: files 9994→10008); `rate:fixtures`: confirmed 2723, refused 1786,
+      not-lowered 336, lsp-gap 74, diverges 5, unaskable 73→80 (the 7 new network fixtures, NOT_ST).
 
 ## 6. Gate
 

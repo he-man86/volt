@@ -100,7 +100,7 @@ export {
   lookalikeLine,
   statedLine,
 } from "./format/implementation-line.js"
-export { isRetiredComment } from "./format/retired-comments.js"
+export { retiredCommentIn } from "./format/retired-comments.js"
 export { sourceObjectOf } from "./format/source-object.js"
 export { graphicalBodies, graphicalMarkerLanguage, isGraphicalBody, isStBody, unitBodies } from "./format/bodies.js"
 

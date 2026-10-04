@@ -32,7 +32,6 @@ import { isWrittenAsSent, OPENING_KEYWORDS, sourceObjectOf, type SourceObject } 
 import { UNIT_STARTERS, type Dialect, type UnitStarter } from "../lex/vocabulary.js"
 import { vendorTokenText } from "./errors.js"
 import { readFolderLine, reportMisplacedFolder } from "../format/folder.js"
-import { reportRetiredComments } from "../format/retired-comments.js"
 
 /**
  * How a parse reads what the text does not decide.
@@ -104,10 +103,6 @@ export function parse(tokens: readonly Token[], dialect: Dialect, options: Parse
     }
   }
 
-  // The file format's POU rules — a DUT's or a GVL's text is written as sent and claims none of them
-  if (!isWrittenAsSent(object)) {
-    reportRetiredComments(tokens, (message, span) => c.pushError(message, span))
-  }
   // a POU's END_NAMESPACE is the push's refusal (rule U28; `reportNamespaceClosers` says where it is not reported)
   if (object === "pou") reportNamespaceClosers(units, (message, span) => c.pushError(message, span))
   if (!options.networkText) for (const unit of allUnits(units)) unitBodies(unit).forEach(readNoNetworkText)

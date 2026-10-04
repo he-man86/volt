@@ -15,8 +15,10 @@ import {
   build,
   defineSymbol,
   dialectOf,
+  findChildScope,
   isPouSymbol,
   lookup,
+  lookupLocal,
   type Scope,
   scopeForUnit,
   type Symbol as StSymbol,
@@ -112,11 +114,11 @@ export function networkNetworkAt(analysis: NetworkTextAnalysis, offset: number):
   return undefined
 }
 
-/** The POU's scope as the parser asks it — the bridge's `NetworkScope`: whether a name is declared, whether it is a POU,
- *  and the FB type of an instance. */
+/** The POU's scope as the parser asks it — the bridge's `NetworkScope`: whether a name is a POU, and the FB type of an
+ *  instance. (Whether a name is declared at all is no question of the parser's any more: a bare word is a variable, and
+ *  the build — here `network-undeclared-identifier` — answers whether it exists, bridge-refusal-review 1.3/2.10.) */
 function scopeView(pou: Scope, project: Scope): NetworkScopeView {
   return {
-    contains: (name) => lookup(pou, name) !== undefined,
     isPou: (name) => {
       const sym = lookup(pou, name)?.symbol
       return sym !== undefined && isPouSymbol(sym)
@@ -147,4 +149,24 @@ export function instanceFb(head: Expr, scope: Scope, project: Scope): FunctionBl
   } else if (head.kind !== "member") return undefined
   const t = inferExprType(head, scope, project)
   return t.kind === "function_block" ? t : undefined
+}
+
+/**
+ * Whether `head` heads an FB call — names a variable, whatever its type resolves to (an instance of a type the project
+ * may not resolve is still an instance): an identifier a declaration makes a variable, or a path (`GVL.timers.t1`,
+ * `inst.inner`, `Lib.gInst`). Any other head names a function or the vendor's own operator box — a bare POU name, and a
+ * POU a namespace qualifies (`Util.Twice`, review 5+6: a member head used to count as a path whatever it named, so a
+ * library function's `.ENO` with no EN passed for an FB call). A qualifier whose member the namespace does not show is
+ * left a path: unknown, so no finding rests on it.
+ */
+export function headIsVariable(head: Expr, scope: Scope, project: Scope): boolean {
+  if (head.kind === "member") {
+    const ns = head.base.kind === "ident_expr" ? lookup(scope, head.base.name)?.symbol : undefined
+    if (ns?.kind !== "namespace") return true
+    const nsScope = findChildScope(project, ns.name, scope.defUri)
+    return nsScope === undefined || !lookupLocal(nsScope, head.member.name).some(isPouSymbol)
+  }
+  if (head.kind !== "ident_expr") return false
+  const kind = lookup(scope, head.name)?.symbol.kind
+  return kind !== undefined && VARIABLE_KINDS.has(kind)
 }

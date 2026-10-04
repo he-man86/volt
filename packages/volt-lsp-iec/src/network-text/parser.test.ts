@@ -115,19 +115,32 @@ test("an undeclared assignment is a coil on a variable, never a wire", () => {
 })
 
 const WIRE_MISUSE: ReadonlyArray<[string, string, string]> = [
-  ["declared, never defined", "VAR_TEMP g1 : BOOL; END_VAR\nout := a;", "NETWORK_BAD_EXPRESSION"],
   ["referenced before its definition", "VAR_TEMP g1 : BOOL; END_VAR\nout := g1;\ng1 := a;", "NETWORK_BAD_EXPRESSION"],
   ["defined with S=", "VAR_TEMP g1 : BOOL; END_VAR\ng1 S= a;", "NETWORK_BAD_EXPRESSION"],
   ["defined inside a chain", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := out := a;", "NETWORK_BAD_EXPRESSION"],
   ["not named g<digits>", "VAR_TEMP speed : BOOL; END_VAR\nout := a;", "NETWORK_BAD_EXPRESSION"],
-  ["a second block", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nVAR_TEMP g2 : BOOL; END_VAR", "NETWORK_BAD_EXPRESSION"],
   ["declared twice", "VAR_TEMP g1, G1 : BOOL; END_VAR\ng1 := a;", "NETWORK_DUPLICATE_NAME"],
   ["defined twice", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\ng1 := b;", "NETWORK_DUPLICATE_NAME"],
-  ["also spelled as a call head", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\n`g1`(x);", "NETWORK_DUPLICATE_NAME"],
 ]
 for (const [what, statements, code] of WIRE_MISUSE)
   test(`a wire ${what} is ${code}`, () => {
     expect(codes(net(statements))).toContain(code)
+  })
+
+// THE LAYOUT RULES ARE GONE (openspec bridge-refusal-review 2.7-2.11, the bridge reader's): each text below reads to a
+// model the push writes, the writer canonicalizes it on the next pull, and neither build has anything to say about it.
+// Reporting them made the LSP refuse what the push takes.
+const WIRE_LAYOUT: ReadonlyArray<[string, string]> = [
+  ["declared and never defined (dropped on write, 2.8)", "VAR_TEMP g1 : BOOL; END_VAR\nout := a;"],
+  ["in a second block (2.7)", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nVAR_TEMP g2 : BOOL; END_VAR\ng2 := g1;\nout := g2;"],
+  ["in a block after a statement (2.7)", "out := a;\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := b;\nlamp := g1;"],
+  ["an empty block (2.9)", "VAR_TEMP END_VAR\nout := a;"],
+  ["also spelled as a call head (2.11)", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\n`g1`(x);"],
+  ["also spelled in a label (2.11)", "VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nIF g1 THEN JMP g1; END_IF;"],
+]
+for (const [what, statements] of WIRE_LAYOUT)
+  test(`a wire ${what} is read, and no finding`, () => {
+    expect(codes(net(statements))).toEqual([])
   })
 
 // ── statements ──────────────────────────────────────────────────────────────────────────────
@@ -320,15 +333,16 @@ test("every operand is read once, inside the constructs ST cannot spell", () => 
 
 // ── section-5 review: where the LSP read text otherwise than the bridge reader ─────────────────────
 
-/** A scope as the parser asks it — the bridge's `NetworkScope.Contains` / `IsPou` / `InstanceType`: `pous` are POUs,
- *  `instances` maps an FB instance to its FB type. */
-const scope = (pous: string[], names: string[] = [], instances: Record<string, string> = {}): NetworkScopeView => {
+/** A scope as the parser asks it — the bridge's `NetworkScope.IsPou` / `InstanceType`: `pous` are POUs, `instances` maps
+ *  an FB instance to its FB type. `names` are the variables a test states its scope holds: the parser asks nothing of
+ *  them since a bare word is a variable whatever is declared (bridge-refusal-review 1.3/2.10), and a test passing them
+ *  says the answer does not depend on them. */
+const scope = (pous: string[], _names: string[] = [], instances: Record<string, string> = {}): NetworkScopeView => {
   const has = (list: string[], n: string) => list.some((c) => c.toUpperCase() === n.toUpperCase())
   const inst = (n: string) => Object.entries(instances).find(([k]) => k.toUpperCase() === n.toUpperCase())?.[1]
   return {
     isPou: (n) => has(pous, n),
     instanceType: inst,
-    contains: (n) => has([...pous, ...names, ...Object.keys(instances)], n),
   }
 }
 const scoped = (networks: string, sc: NetworkScopeView): string[] =>
@@ -375,19 +389,31 @@ test("a POU or instance named like a construct is refused at the call, whatever 
   expect(scoped(net("o := R_EDGE(a);"), scope([], ["R_EDGE"]))).toEqual([])
 })
 
-test("a bare wire-shaped name no VAR_TEMP and no scope declares is refused; backticked it is the variable", () => {
+test("a bare wire-shaped name no VAR_TEMP declares is a variable, declared or not: the build answers for it", () => {
+  // openspec bridge-refusal-review 1.3: whether `g5` is declared is the build's question ("Identifier 'g5' not defined",
+  // `rcc_network_undeclared_wire_shape`), and only the network's own block makes a name a wire — no parser finding.
   const sc = scope(["f"], ["out", "x"])
-  const refusal = "NETWORK_BAD_EXPRESSION: 'g5' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope."
-  for (const statement of ["out := g5;", "g5 := x;", "f(x, => g5);", "out := (x AND g5);"])
-    expect(scoped(net(statement), sc)).toEqual([refusal])
-  expect(scoped(net("out := `g5`;"), sc)).toEqual([])
+  for (const statement of ["out := g5;", "g5 := x;", "f(x, => g5);", "out := (x AND g5);", "out := `g5`;"])
+    expect(scoped(net(statement), sc)).toEqual([])
   expect(scoped(net("out := g5;"), scope(["f"], ["out", "g5"]))).toEqual([])
 })
 
-test("a wire named like a name in scope is NETWORK_DUPLICATE_NAME", () => {
-  expect(scoped(net("VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nout := g1;"), scope([], ["G1", "out", "a"]))).toEqual([
-    "NETWORK_DUPLICATE_NAME: the wire g1 names a variable in scope (case-insensitively); the writer would have named it the lowest free g<n>.",
-  ])
+test("a wire named like a name in scope is the wire: wires resolve first", () => {
+  // openspec bridge-refusal-review 2.10: wires are VarIds in the IDE; which name the writer picks is its own choice.
+  const got = parseNetworkText(body(net("VAR_TEMP g1 : BOOL; END_VAR\ng1 := a;\nout := g1;")), scope([], ["G1", "out", "a"]), "codesys")
+  expect(got.diagnostics).toEqual([])
+  expect(valueOf(got.networks[0]!.statements[1]!).kind).toBe("wire_ref")
+})
+
+test("a late block may not take a name the network already read as a variable: NETWORK_DUPLICATE_NAME, naming that line", () => {
+  // The bridge's rule (bridge-refusal-review 2.7, review 1+2d; `NetworkTextGateTests`): before the block `g1` is the
+  // scope's variable, after it the wire — one spelling, two things. Lines as the push names them: 1 is the
+  // IMPLEMENTATION line, 2 the NETWORK header, 3 the earlier use.
+  for (const earlier of ["out := g1;", "g1 := a;"])
+    expect(scoped(net(`${earlier}\nVAR_TEMP g1 : BOOL; END_VAR\ng1 := (a AND b);\nout2 := g1;`), scope([], ["g1", "out", "out2", "a", "b"]))).toEqual([
+      "NETWORK_DUPLICATE_NAME: the wire g1 is declared after line 3 read g1 as a variable: one name would mean the variable " +
+        "before this block and the wire after it. Declare the wire before its first use, or give it another name.",
+    ])
 })
 
 // ── section-5 second review ────────────────────────────────────────────────────────────────────
@@ -398,9 +424,9 @@ test("the scope is an explicit argument: structure-only is a value, never an omi
   // @ts-expect-error — the scope is required
   expect(() => parseNetworkText(body(net("out := a;")))).not.toThrow()
   expect(parseNetworkText(body(net("out := g5;")), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
-  expect(scoped(net("out := g5;"), scope([], ["out"]))).toEqual([
-    "NETWORK_BAD_EXPRESSION: 'g5' is shaped like a wire and is declared neither in this network's VAR_TEMP block nor in scope.",
-  ])
+  // …and the scope still decides what the text reads: a POU named like a construct is refused at its call.
+  expect(scoped(net("o := R_EDGE(a);"), scope(["R_EDGE"], ["o", "a"]))).toHaveLength(1)
+  expect(parseNetworkText(body(net("o := R_EDGE(a);")), STRUCTURE_ONLY, "codesys").diagnostics).toEqual([])
 })
 
 test("a call of an instance is typed by the instance's FB: one whose FB is named like a construct is refused", () => {

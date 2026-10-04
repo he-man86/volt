@@ -23,7 +23,7 @@ export {
   implementationWords,
   isGraphicalBody,
   isNeverShown,
-  isRetiredComment,
+  retiredCommentIn,
   isSelfRef,
   isStBody,
   isTrivia,

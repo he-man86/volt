@@ -24,10 +24,11 @@ export function parseReturnTypeClause(c: Cursor): ReturnTypeClause {
 
 /**
  * NOTHING AFTER A MEMBER'S COLON BUT A LINE THE PUSH NEVER WRITES INTO A DECLARATION — the body's IMPLEMENTATION line, or
- * one of `closers` (an interface member's END_METHOD / END_PROPERTY, a property's GET / SET): the IDE holds the
- * declaration without that line, so its text ends at the colon — "Type definition expected instead of ''" on both
+ * one of `closers` (an interface member's END_METHOD / END_PROPERTY, an interface property's GET / SET): the IDE holds
+ * the declaration without that line, so its text ends at the colon — "Type definition expected instead of ''" on both
  * vendors (`sig_empty_type`, openspec bridge-refusal-review 2.4/D10, 2026-10-03; review 4b for the closers). Reported at
  * the colon, and true; read as the type, that line was taken for a type name. False, with nothing reported, otherwise.
+ * A POU PROPERTY's build says otherwise (`rcc_property_empty_type`: "instead of ';'") — `property.ts` reads its own.
  */
 export function refusedEmptyType(c: Cursor, colon: Span, closers: readonly Keyword[]): boolean {
   const next = c.peek()

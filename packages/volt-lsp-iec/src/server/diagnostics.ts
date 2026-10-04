@@ -25,7 +25,7 @@ import {
 import { pathToFileURL } from "node:url"
 import { rangeFromSpan } from "../services/index.js"
 import {
-  isRetiredComment,
+  retiredCommentIn,
   allUnits,
   type BodySpan,
   IMPLEMENTATION_KEYWORD,
@@ -82,23 +82,16 @@ export function documentDiagnostics(store: WorkspaceStore, messages: Messages, d
   // A body with no `IMPLEMENTATION` line states no language, so it is read by NEITHER reader — never ST by default
   // (spec: a missing language "is an LSP diagnostic … never guessed"). Its findings are quiet and ONE finding names it:
   //  - in this server's format: the push's own refusal (`StReader.Unmarked`), since the push refuses the same file
-  //    naming `volt pull` — seen here first, not only when the push says no;
-  //  - where an older Volt's `(* @volt-… *)` comment stands in the body, that comment is the finding
-  //    (`reportRetiredComments`), naming the same repair;
+  //    naming `volt pull` — seen here first, not only when the push says no; where an older Volt's `(* @volt-… *)`
+  //    comment stands in the body, the finding names it as its hint, as the push does (bridge-refusal-review 2.1);
   //  - in a workspace another materialization wrote (older: no body in it has a line; newer: it may state what this
   //    server cannot), the manifests say so ONCE (`libraryManifestDiagnostics`) — flagging every body as well would
   //    bury that one sentence under findings that all mean the same thing, so no network-text finding is given either.
   const otherFormat = materializationMismatch(store.workspaceRefs.libraryManifests)
   const unstated = unstatedBodies(d.parseResult.units)
-  const retired = otherFormat
-    ? []
-    : unstated.flatMap(({ body }) => body.tokens.filter(isRetiredComment).map((t) => t.span))
-  const missing = otherFormat
-    ? []
-    : unstated.filter(({ body }) => !body.tokens.some(isRetiredComment)).map(missingLanguage)
+  const missing = otherFormat ? [] : unstated.map(missingLanguage)
   const inUnstated = (span: Span): boolean =>
-    unstated.some(({ body }) => span.start >= body.span.start && span.end <= body.span.end) &&
-    !retired.some((r) => r.start === span.start && r.end === span.end)
+    unstated.some(({ body }) => span.start >= body.span.start && span.end <= body.span.end)
   const quiet = (span: Span): boolean => inDeadMember(span, dm) || inUnstated(span)
   const items = dead
     ? []
@@ -145,11 +138,13 @@ function unstatedBodies(units: readonly TopLevel[]): { body: BodySpan; what: str
 }
 
 /** The finding for a body that states no language — the push's refusal of the same file (`StReader.Unmarked`), on the
- *  body's first line of code (or the body itself when it holds none). */
+ *  body's first line of code (or the body itself when it holds none). Its hint is the push's: a line that looks like the
+ *  boundary, else an older Volt's `(* @volt-… *)` comment in the body, the one place that comment is read. */
 function missingLanguage({ body, what }: { body: BodySpan; what: string }): VoltDiagnostic {
   const first = body.tokens.find((t) => !isTrivia(t.kind) && t.kind !== "eof")
   // A line that LOOKS like the boundary and is none is named, with what it lacks — the push's hint (D9).
   const lookalike = lookalikeLine(body.tokens)
+  const retired = retiredCommentIn(body.tokens)
   return {
     range: rangeFromSpan(first?.span ?? body.span),
     severity: DiagnosticSeverity.Error,
@@ -159,7 +154,8 @@ function missingLanguage({ body, what }: { body: BodySpan; what: string }): Volt
       "does not say where its declaration ends or what language its body is in, and neither reader reads it. " +
       (lookalike !== undefined
         ? `It holds '${lookalike.text}', ${lookalike.lacks}`
-        : "Run `volt pull` once to rewrite the workspace in the current format."),
+        : (retired !== undefined ? `It holds '${retired}', the comment a Volt from before that line wrote in its place. ` : "") +
+          "Run `volt pull` once to rewrite the workspace in the current format."),
   }
 }
 

@@ -667,6 +667,29 @@ const MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD: readonly string[] = [
 ]
 
 /**
+ * BRIDGE-REFUSAL-REVIEW 2.6 (2026-10-04) — a POU PROPERTY whose header declares no type (`PROPERTY Ready`, or
+ * `PROPERTY Ready :`), written as sent now. Both vendors answer it with a cascade over the declaration they synthesize
+ * for the getter — "',, AT or :' expected instead of ';'" / "Type definition expected instead of ';'", "'END_VAR' expected
+ * instead of ''", and "Cannot convert type 'BOOL' to type 'INT'" at the getter's `Ready := TRUE` (the property read as an
+ * INT) — and TwinCAT adds "Type definition expected instead of ''" to the colon-less one. The LSP reads the header as the
+ * empty type and gives ONE message, the first of that cascade both vendors give for the shape — "',, AT or :' expected
+ * instead of ';'" without the colon, "Type definition expected instead of ';'" after it (`parse/units/property.ts`, review
+ * 5+6: it used to borrow the METHOD rule's "instead of ''", a message only TwinCAT's colon-less build has). It MISSES the
+ * rest; reproducing the vendors' synthesized text would be imitating their recovery. Both vendors; niche: accepted loss
+ * (0 occurrences in the corpora — every PROPERTY header in the six declares a type).
+ */
+const PROPERTY_WITHOUT_A_TYPE: readonly string[] = ["rcc_property_no_type", "rcc_property_empty_type"]
+
+/**
+ * BRIDGE-REFUSAL-REVIEW 1.5 (2026-10-04) — `.ENO` on an operator box with no EN (`x := ADD(a, b).ENO;`). CODESYS reports
+ * "Missing EN pin" (the LSP does, `network-missing-en`) AND the box's data output against the target, "Cannot convert type
+ * 'INT' to type 'BOOL'": an operator box in call form has no ST reading in the network analysis (`callReading`), so its
+ * type is not given. CODESYS only — TwinCAT's driver refuses the box before a build (`TcEnoRefusal`); niche: accepted loss
+ * (0 occurrences in the corpora — all 26 `.ENO` reads there are on a box with an EN).
+ */
+const ENO_WITHOUT_EN_OUTPUT_TYPE: readonly string[] = ["rcc_network_eno_without_en"]
+
+/**
  * FRONTEND-CONFORMANCE 2.10 (2026-10-02) — an accessor's text the PUSH drops, U16's accessor cells: the push reads an
  * accessor's declaration from the lines UNDER its keyword line and drops that line whole, so `GET PRIVATE` reaches both
  * IDEs as `GET`; and it closes a `GET` without END_GET at its own line, so the getter's body never reaches them (both
@@ -1319,6 +1342,27 @@ const ELEMENTARY_RULE_DIVERGENCES: readonly string[] = [
   "ty_any_magnitude_parameter_accepts_time",
 ]
 
+/**
+ * A NAME THE IDE REFUSES TO CREATE, AND THE LSP DOES NOT SAY SO — openspec bridge-refusal-review 3.1 / DIALECT C28
+ * (review 5+6). The push no longer judges a name (`StReader.IsIdentifier` went); each driver's `RefusedName` answers the
+ * vendors' measured create rule: no ASCII identifier is refused by both IDEs for a POU and every member kind, and CODESYS
+ * CREATES a backtick-quoted name, which TwinCAT refuses. Such a fixture carries `vendorRefuses`, so it has no build to
+ * replay and the agreement gate never sees it; this list is where the LSP's side is written down. The LSP models no
+ * create refusal by name — the 1092 measured reserved words neither (`parse/parser.test.ts`, "a unit header takes all
+ * nine as its name") — so on `METHOD My-Name` it gives a message with the wrong cause (the stray `-Name : BOOL` reads as
+ * code above the IMPLEMENTATION line: "an IMPLEMENTATION line inside a body"), and on TwinCAT it is silent on a
+ * backtick name. Niche: accepted loss (0 occurrences in the corpora — no POU or member header in the six names itself
+ * outside an ASCII identifier, and none with a backtick). Each entry is the vendor's own sentence the LSP would have to
+ * say; `fixtures.test.ts` holds each as an expected failure, so the day the LSP says it, the entry must go.
+ */
+export const CREATE_REFUSAL_BY_NAME_NOT_MODELLED: Record<Vendor, Readonly<Record<string, string>>> = {
+  codesys: { rcc_member_name_not_identifier: "The name 'My-Name' is not valid for this object." },
+  twincat: {
+    rcc_member_name_not_identifier: "Creating the child named 'My-Name' is not possible on node (Name mismatch)",
+    rcc_member_backtick_name: "Creating the child named '`a b`' is not possible on node (Name mismatch)",
+  },
+}
+
 export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
   // `cc_vg_undefined_label` was listed here once, when TwinCAT said nothing about a network-text JMP to a missing label
   // (measured 2026-07-07 on v1 text). Census 1.15 re-measured it on v2 text and TwinCAT DOES report it, with a trailing
@@ -1352,6 +1396,7 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...AFTER_A_REFUSED_TYPE.twincat,
     ...UNIT_HEADER_RECOVERY,
     ...MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD,
+    ...PROPERTY_WITHOUT_A_TYPE,
     ...ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,
@@ -1494,6 +1539,8 @@ export const KNOWN_DIVERGENCES: Record<Vendor, ReadonlySet<string>> = {
     ...CODESYS_POSITION_IN_AN_INITIALIZER,
     ...UNIT_HEADER_RECOVERY,
     ...MEMBER_HEADER_NAMED_BY_ITS_LAST_WORD,
+    ...PROPERTY_WITHOUT_A_TYPE,
+    ...ENO_WITHOUT_EN_OUTPUT_TYPE,
     ...ACCESSOR_TEXT_DROPPED_BY_THE_PUSH,
     ...FB_ACCESS_AT_THE_CALL,
     ...ENUM_TO_ENUM_IS_A_WARNING,

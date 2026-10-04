@@ -52,7 +52,7 @@ test("nothing after the colon but the body's line is the vendors' empty type, no
   expect([m.name.text, m.body.implementation?.text]).toEqual(["Run", "IMPLEMENTATION ST"])
 })
 
-test("nothing after the colon on an interface member or a property is the same empty type, whatever line follows", () => {
+test("nothing after the colon on an interface member is the same empty type, whatever line follows", () => {
   // Review 4b: the push writes every member header with nothing after its colon as sent, and in each case the IDE's
   // declaration ends at the colon — the line after it (END_METHOD, END_PROPERTY, GET, SET, IMPLEMENTATION) is one the
   // push never writes into a declaration, so the vendors' answer is `sig_empty_type`'s. Those lines used to be read
@@ -61,12 +61,22 @@ test("nothing after the colon on an interface member or a property is the same e
     "INTERFACE I\nMETHOD Run :\nEND_METHOD\nEND_INTERFACE\n",
     "INTERFACE I\nPROPERTY P :\nEND_PROPERTY\nEND_INTERFACE\n",
     "INTERFACE I\nPROPERTY P :\nGET\nEND_GET\nEND_PROPERTY\nEND_INTERFACE\n",
-    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n",
-    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nSET\nIMPLEMENTATION ST\n;\nEND_SET\nEND_PROPERTY\n",
   ]
   for (const source of cases) {
     const r = parseSource(source, { networkText: true })
     expect([source, r.errors.map((e) => e.message)]).toEqual([source, ["Type definition expected instead of ''"]])
+  }
+  // A POU PROPERTY is not one of them: recorded since (`rcc_property_empty_type`, both vendors, 2026-10-04), its build
+  // says "Type definition expected instead of ';'" — the vendor puts the declaration it synthesizes for the getter after
+  // the colon. The LSP gives that message and the accessor stays the property's (`property.test.ts`). The SET case
+  // reads the same header and is unmeasured on its own.
+  const pouProperty = [
+    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nGET\nIMPLEMENTATION ST\n;\nEND_GET\nEND_PROPERTY\n",
+    "FUNCTION_BLOCK X\nIMPLEMENTATION ST\nEND_FUNCTION_BLOCK\n\nPROPERTY P :\nSET\nIMPLEMENTATION ST\n;\nEND_SET\nEND_PROPERTY\n",
+  ]
+  for (const source of pouProperty) {
+    const r = parseSource(source, { networkText: true })
+    expect([source, r.errors.map((e) => e.message)]).toEqual([source, ["Type definition expected instead of ';'"]])
   }
 })
 
