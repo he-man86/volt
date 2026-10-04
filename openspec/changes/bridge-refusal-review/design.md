@@ -648,3 +648,50 @@ an unknown code refused `UNSUPPORTED`); a `PushService` test where a malformed `
 `BAD_REQUEST`. Then the code: delete CODESYS's private map, point TwinCAT at the shared one, replace the `?? ""`,
 rebase `TaskDescriptorException`. Then the six comments. Regenerate `docs/assets/data.js` if the code census moves.
 No LSP fixture: nothing a user writes changes its answer, except the code of a malformed `.task`.
+
+## Step 4d — D26, 4.31, 4.32: a body without a slot, a move into a non-folder, the re-type route
+
+**D26 — target: a text sent at a slot the OBJECT lacks is refused by name, never dropped.** Today CODESYS
+`SetAspectText` returns on a missing aspect (`CodesysObjectModel.cs:258`) and TwinCAT asks a kind table
+(`BeckhoffDriver.Content.cs:628` `HasBodySlot`); either way the push says "updated". Choice: each object model's ONE
+text write asks the object — CODESYS `GetMember(iobj, aspect) == null`, TwinCAT the COM member missing
+(`TcObjectModel.IsMissingMember`, the classification `ReadImplementation` already uses) — and a non-null text at a
+missing slot throws `BridgeException(UNSUPPORTED)` naming the item and the slot (`Interface` / `Implementation`), inside
+the checkout so CODESYS rolls back. The declaration gets the same rule (a missing `DeclarationText` is a raw
+`RuntimeBinderException` → INTERNAL_ERROR today). `HasBodySlot` is deleted: which slots a KIND has is the Engine's
+`ItemKind.ShapeOf(kind).Body` and the reader already sends no body for a kind without one; if a test shows a
+property arriving with `""`, the producer is fixed, not a driver table. Rejected: keep `HasBodySlot` and refuse when
+it says no (still a kind table; the object is the fact); an Engine-only check (cannot see an object of a body kind
+that lacks the aspect, the case that drops today).
+
+**4.31 — target: a move whose `toFolder` lands on a node that cannot hold an item is refused before anything is
+applied, and a move the IDE ignored is caught after.** Measured (`scripts/merged-classes.log` 225–229): CODESYS accepts
+`Move` into `Device` / `Task Configuration` and leaves the object; `DescendOrCreateFolder` descends any non-CRUD node
+by name, so `Device` resolves. Choice: (a) the pre-flight resolves each MOVE's `toFolder` read-only (as
+`DescendExisting`) and the deepest existing node must be the tree root, a `PlcFolder` or an `Application` — else
+`UNSUPPORTED` "'X' cannot move into '<path>': '<node>' is a <kind>, not a folder" (both vendors; the rule is the
+Engine's, so TwinCAT's own answer does not decide it — still measured once with a non-folder target, a POU node, and
+recorded in DIALECT); (b) `MoveItem`'s post-condition compares the re-found item's folder with the requested one and
+refuses naming where the IDE left it (extends `PushService.cs:1135`, TwinCAT `BeckhoffDriver.Tree.cs:385`). The allowed
+set is MEASURED first: the kind of every node that holds a source item in the corpora's live refs (Pro2193, Bakon, the
+TwinCAT fixtures); a holder kind found outside the three joins the set, never a default. A CREATE keeps the vendor's
+own create refusal (not in this task). Rejected: post-condition only (refuses after earlier ops landed); asking the
+vendor "can move" (no measured API on either).
+
+**4.32 — choice: STAYS REFUSED (owner may flip; default named so the step does not stall).** `deleteItem X.pou` +
+`set X.dut` in one push keeps `BAD_REQUEST` from `RequireOneOpPerItem`. Why: git pairs the same edit as ONE
+renaming `set` when the texts are similar, and that op is refused by the re-type guard (`PushService.cs:1426`, kept);
+writing the unpaired form would make one intent succeed or fail on git's similarity score. A re-type discards the
+object's identity, which is the engineer's call (as the guard says). Rejected: write it in one push (delete, drop the
+bare-name cache entry, create) — asymmetric with the paired form, and a refused create after a landed delete leaves
+the IDE without the object. Change: the message states the CLI remedy — commit the deletion, `volt push`, then commit
+the new file, `volt push`. `OneOpPerItemTests` stay (premise unchanged); one row pins the new wording.
+
+**Stays refused by name:** a re-type by name (single op, UNSUPPORTED, message kept); a delete+set of one bare name
+(BAD_REQUEST); a move of a non-source kind (`MoveItem`, UNSUPPORTED).
+
+**Migration.** Tests first, red before: CODESYS offline double with no `Implementation` aspect + a body → UNSUPPORTED,
+transaction rolled back; TwinCAT dynamic double without `ImplementationText` / `DeclarationText` → UNSUPPORTED; Engine
+`PushService` + `FakeIde`: a move into a `Device` / `TaskConfig` node → UNSUPPORTED, nothing applied, refs unchanged;
+a `FakeIde` that ignores `Move` → refused naming the folder it stayed in. Then the code, then DIALECT rows for the
+measured TwinCAT move. Live negatives are 8.2's. No LSP fixture: no text a user writes changes its answer.
