@@ -192,11 +192,13 @@ window.VOLT = {
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
           "ITEM_UNVERIFIED",
+          "IDE_BUSY",
           "IDE_SAVE_FAILED",
           "INTERNAL_ERROR"
         ],
         "x-outcomes": [
           "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
+          "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
           "TwinCAT saves the project before the apply and after it (\u0060File.SaveAll\u0060); a save the IDE refuses is the frame IDE_SAVE_FAILED. After the apply it means every op landed in the IDE and is not on disk, and the receipt was not sent: save in the IDE or retry, then pull.",
           "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as a conflict. A client MUST check \u0060accepted\u0060 AND \u0060conflicts\u0060.",
           "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE, and INTERNAL_ERROR for a refusal nobody coded. Match the code, never the message.",
@@ -229,9 +231,11 @@ window.VOLT = {
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
+          "IDE_BUSY",
           "IDE_SAVE_FAILED"
         ],
         "x-outcomes": [
+          "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS used to run the op nested inside the running build). Reads and \u0060health\u0060 are not gated. Wait for the running op, then try once.",
           "The guard sits OUTSIDE the try, deliberately \u2014 otherwise WRONG_PROJECT would be swallowed into a fake \u0022build failed\u0022 diagnostic instead of surfacing as an error frame.",
           "Everything after it IS caught: a thrown build answers \u0060success:false\u0060 with the message as one error-severity diagnostic. So this op essentially never returns INTERNAL_ERROR.",
           "Except a CODED refusal, which passes as its frame: TwinCAT saves the project before it builds, and a save the IDE refuses is IDE_SAVE_FAILED \u2014 save in the IDE or retry.",
@@ -811,6 +815,7 @@ window.VOLT = {
     "INVALID_ST",
     "UNREADABLE",
     "IDE_UNSUPPORTED",
+    "IDE_BUSY",
     "IDE_SAVE_FAILED",
     "INTERNAL_ERROR"
   ],

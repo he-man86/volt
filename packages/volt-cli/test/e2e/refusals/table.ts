@@ -208,6 +208,19 @@ export const ROWS: Row[] = [
 			"both fixture IDEs meet it (CODESYS SP21, TwinCAT 3.1.4024), and SP18 is installed but never used (codesys-sp21-only)",
 	},
 	{
+		code: "IDE_BUSY",
+		live: true,
+		trigger: "three `build`s sent at once (openspec codesys-build-nesting): the first holds the IDE, the others are refused",
+		after: "unchanged",
+		run: async (b) => {
+			const all = await Promise.all([answer(b, "build"), answer(b, "build"), answer(b, "build")])
+			const refused = all.filter((a) => a.kind === "frame")
+			if (all.length - refused.length !== 1)
+				throw new Error(`${b.vendor}: expected exactly one build to run, got ${JSON.stringify(all).slice(0, 600)}`)
+			return { answer: refused[0], names: ["build or push", "nothing was applied"] }
+		},
+	},
+	{
 		code: "IDE_SAVE_FAILED",
 		live: false,
 		reason:

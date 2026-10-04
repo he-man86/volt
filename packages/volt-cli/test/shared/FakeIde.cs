@@ -1312,9 +1312,18 @@ public sealed class FakeIde : DriverBase, IIdeDriver
     /// IDE itself faulting — and the second must not be reported as the first without saying so.</summary>
     public bool BuildThrows { get; init; }
 
+    /// <summary>Hold a build IN FLIGHT: <c>Build</c> signals <see cref="BuildEntered"/> and blocks until
+    /// <see cref="BuildBlock"/> is set. With the default inline marshalling (no serialization) a second op runs
+    /// beside it, which is the CODESYS shape: its build pumps the primary thread, so queued work runs nested inside
+    /// it (openspec <c>codesys-build-nesting</c>).</summary>
+    public ManualResetEventSlim? BuildEntered { get; init; }
+    public ManualResetEventSlim? BuildBlock { get; init; }
+
     public override bool Build()
     {
         BuildSequence.Add("build");
+        BuildEntered?.Set();
+        BuildBlock?.Wait();
         if (BuildThrows) throw new InvalidOperationException("the IDE's compiler faulted");
         return BuildSucceeds;
     }

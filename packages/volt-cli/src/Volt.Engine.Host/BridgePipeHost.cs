@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using Volt.Engine;
 using Volt.Wire;
 using Volt.Contracts;
@@ -28,6 +29,13 @@ public sealed class BridgePipeHost : IDisposable
     // is refused as PLC_DISCONNECTED until a `connect` re-binds. This is what makes Disconnect mean something: the
     // CLI reaches the pipe directly, so a connector-side selection flag alone can never gate sync.
     private volatile bool _paused;
+
+    // The one gate for the ops that change the project or compile it (push, build): TRIED before the op is marshalled,
+    // never waited on, so a second one is refused IDE_BUSY instead of running. Without it CODESYS ran a second build
+    // and pushes NESTED inside a running build (its build pumps the primary thread, so queued invokes run inside it;
+    // measured: builds finished last-in, first-out) while TwinCAT's STA queue serialized them — one vendor nested, one
+    // queued. Reads and health are not gated: they change nothing (openspec codesys-build-nesting).
+    private int _writing;
 
     /// <summary>This bridge's release (<see cref="BridgeRelease"/>, design D3), read once off the shared host's own file
     /// — <c>Volt.Engine.Host.dll</c>, stamped by the same <c>build-cli.ps1</c> pass as every binary — so both vendors
@@ -162,14 +170,23 @@ public sealed class BridgePipeHost : IDisposable
             case Ops.Fetch:
                 return RunRead(() => (object)FetchService.Handle(_ide, Body<FetchRequest>(req), f => onProgress(f)));
             case Ops.Push:
-                return RunOp(() => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f)));
+                return Gated(() => RunOp(() => (object)PushService.Handle(_ide, Body<PushRequest>(req), f => onProgress(f))));
             case Ops.Build:
-                return RunOp(() => (object)BuildService.Handle(_ide, Body<BuildRequest>(req), f => onProgress(f)));
+                return Gated(() => RunOp(() => (object)BuildService.Handle(_ide, Body<BuildRequest>(req), f => onProgress(f))));
             default:
                 // A coded error, not a raw InvalidOperationException — so the client sees BAD_REQUEST, not the
                 // catch-all INTERNAL_ERROR. Shared Core, so identical on both vendors.
                 throw new BridgeException(BridgeErrorCodes.BadRequest, $"unknown op '{req.Op}'");
         }
+    }
+
+    // Run a push or build under the write gate, or refuse it at once if another one holds it.
+    private object Gated(Func<object> run)
+    {
+        if (Interlocked.CompareExchange(ref _writing, 1, 0) != 0)
+            throw new BridgeException(BridgeErrorCodes.IdeBusy, "the IDE is running a build or push — nothing was applied");
+        try { return run(); }
+        finally { Volatile.Write(ref _writing, 0); }
     }
 
     // Run a mutating op on the IDE thread. A clean completion CONFIRMS the channel, so it clears any degraded flag —

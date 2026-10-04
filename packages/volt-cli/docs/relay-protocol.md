@@ -119,8 +119,16 @@ relay. A relay is free to expose fewer ops to its own clients; it cannot expose 
 ## Concurrency
 
 One pipe connection per request id. Ops run concurrently to the extent the pipe allows, which is the property
-that matters in practice: **`health` answers while a `push` or `build` holds the IDE thread.** Everything else
-takes the IDE and queues behind it.
+that matters in practice: **`health` answers while a `push` or `build` holds the IDE thread.**
+
+**A `push` or `build` while another push or build runs is refused, not queued:** the error frame `IDE_BUSY`
+("the IDE is running a build or push — nothing was applied"), answered at once, before the IDE is touched. One
+gate in the bridge, tried and never waited on, so both vendors answer alike and a retried build is refused
+instead of stacked. Wait for the running op to answer, then try once. (Before this, CODESYS ran the second op
+nested inside the running build — its build pumps the IDE's thread — and TwinCAT queued it.)
+
+The reads (`refs`, `fetch`) are not gated: they change nothing. On TwinCAT they queue behind a running build;
+on CODESYS one may answer while a build runs. That is a difference in timing, never in the bytes answered.
 
 A relay may have many requests in flight on one socket. Frames for different ids interleave freely; a relay
 demultiplexes on `id` and nothing else. Frame ORDER is guaranteed only within one id.

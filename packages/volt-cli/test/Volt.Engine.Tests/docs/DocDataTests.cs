@@ -67,6 +67,12 @@ public class DocDataTests
         "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project "
         + "ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.";
 
+    private const string BusyFrame =
+        "IDE_BUSY as an error FRAME when another push or build holds the IDE: one gate, tried before the op is "
+        + "marshalled and never waited on, so nothing is applied or compiled. Both vendors answer it alike (CODESYS "
+        + "used to run the op nested inside the running build). Reads and `health` are not gated. Wait for the "
+        + "running op, then try once.";
+
     /// <summary>The frame codes beyond <see cref="BridgeErrorCodes"/>: exactly the one gate code a walk can stop on.</summary>
     private static readonly string[] GateCodesAsFrames = { ConflictCodes.ItemUnverified };
 
@@ -122,9 +128,10 @@ public class DocDataTests
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeSaveFailed, BridgeErrorCodes.InternalError }, new[]
+                              ConflictCodes.ItemUnverified, BridgeErrorCodes.IdeBusy, BridgeErrorCodes.IdeSaveFailed, BridgeErrorCodes.InternalError }, new[]
         {
             UnverifiedProjectFrame,
+            BusyFrame,
             "TwinCAT saves the project before the apply and after it (`File.SaveAll`); a save the IDE refuses is the "
             + "frame IDE_SAVE_FAILED. After the apply it means every op landed in the IDE and is not on disk, and the "
             + "receipt was not sent: save in the IDE or retry, then pull.",
@@ -147,8 +154,9 @@ public class DocDataTests
             + "Each is ABSENT when it does not apply — never false.",
         }),
         [Ops.Build] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                               BridgeErrorCodes.IdeSaveFailed }, new[]
+                               BridgeErrorCodes.IdeBusy, BridgeErrorCodes.IdeSaveFailed }, new[]
         {
+            BusyFrame,
             "The guard sits OUTSIDE the try, deliberately — otherwise WRONG_PROJECT would be swallowed into a "
             + "fake \"build failed\" diagnostic instead of surfacing as an error frame.",
             "Everything after it IS caught: a thrown build answers `success:false` with the message as one "

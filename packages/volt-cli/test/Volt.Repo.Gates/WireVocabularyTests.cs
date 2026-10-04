@@ -48,6 +48,9 @@ public class WireVocabularyTests
         new("the IDE lacks what the bridge needs", "every op but health: the IDE has to change, not the call",
             "IDE_UNSUPPORTED", At(
             ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
+        new("another push or build holds the IDE", "wait for it to answer, then try once: nothing was applied",
+            "IDE_BUSY", At(
+            ("Volt.Engine.Host/BridgePipeHost.cs", 1))),
         new("the IDE refused to save what was applied", "save in the IDE or retry, then pull: the writes are in the IDE, not on disk",
             "IDE_SAVE_FAILED", At(
             ("Volt.Ide.Twincat/Ide/TcObjectModel.Build.cs", 1))),

@@ -47,6 +47,13 @@ public static class BridgeErrorCodes
     /// code, and an old code would be read as its old meaning (openspec <c>codesys-minimum-version</c>).</summary>
     public const string IdeUnsupported = "IDE_UNSUPPORTED";
 
+    /// <summary>A <c>push</c> or <c>build</c> arrived while another push or build held the IDE: refused at once, nothing
+    /// applied and nothing compiled. One non-waiting gate in the shared host, so both vendors answer it alike — before it,
+    /// CODESYS ran the second op NESTED inside the running build (its build pumps the primary thread) and TwinCAT queued
+    /// it. Reads and <c>health</c> are not gated. Remedy: wait for the running op, then try once (openspec
+    /// <c>codesys-build-nesting</c>).</summary>
+    public const string IdeBusy = "IDE_BUSY";
+
     /// <summary>The IDE refused to SAVE: what was applied is in the IDE's memory and not on disk. TwinCAT only — its
     /// writes land in the open project and are committed by <c>File.SaveAll</c>, which a push runs before its apply and
     /// after it, and a build before it; CODESYS commits each write as it lands. Raised outside the push's per-op handling,
