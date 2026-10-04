@@ -60,7 +60,6 @@ import { EVIDENCE_ORDER, rateFixture, type Evidence } from "../test/conformance/
 import {
   ALLOWED,
   NOTES,
-  TIERS,
   assertNotes,
   assertPolicy,
   buildArgv,
@@ -81,9 +80,8 @@ import {
   sizeRatio,
   splitFindings,
   tierOf,
-  type EdgeVerdict,
-  type FixtureMapRow,
 } from "../test/conformance/support/transpile-confidence.js"
+import { TIERS, type EdgeVerdict, type FixtureMapRow } from "../test/conformance/fixtures/map-row.js"
 import { CLIPPY } from "../test/conformance/support/rustc.js"
 import { buildRust } from "../test/conformance/support/rustc-cache.js"
 
@@ -320,7 +318,7 @@ ${sizes
  *   ${Object.keys(NOTES).length} constructs carry a review note (\`NOTES\`): ${improvable} fixtures are improvable, ${withAlternatives} touch a construct with alternatives.
  *   Each row's \`notes\` names its noted constructs; their texts are the \`NOTES\` section at the end of this file.
  */
-import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
+import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
 export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
 ${lines.join("\n")}

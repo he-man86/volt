@@ -92,7 +92,7 @@
  *   723 constructs carry a review note (`NOTES`): 2882 fixtures are improvable, 2797 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
-import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
+import type { FixtureMapRow, ShapeNote } from "./map-row.js"
 
 export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   abs_unsigned: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 3.8, shape: "db1bd6e51a", notes: ["56c33c9bab"] },

@@ -91,8 +91,8 @@ import {
   sizeRatio,
   splitFindings,
   tierOf,
-  type EdgeVerdict,
 } from "./support/transpile-confidence.js"
+import type { EdgeVerdict } from "./fixtures/map-row.js"
 import { STRING_PRELUDE } from "../../src/transpile/emit/rust/prelude.js"
 import { elementaryType, elementaryTypeRef } from "../../src/frontend/types/index.js"
 import { comparable } from "./support/compare-message.js"

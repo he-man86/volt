@@ -13,12 +13,14 @@
     // TS7 defaults `types` to [] (no auto-discovery of @types) — every package must name what it needs.
     "types": ["node"]
   },
-  "include": ["src", "test"],
-  // `test/` is in because the `./conformance` package export compiles out of it. `support/` is NOT: those are
-  // test-RUNNER helpers in the same category as a `*.test.ts`, three of them use Bun-only APIs
-  // (`import.meta.dir`, `Bun.spawnSync`), and nothing reachable from `test/conformance/index.ts` imports one.
-  // Compiling them under `types: ["node"]` is what broke `bun run build` — and adding "bun" to the build's
-  // types instead would have emitted a dist/ that calls `Bun` on the one condition (`default`) that exists
-  // precisely for runtimes that are not Bun.
-  "exclude": ["dist", "node_modules", "**/*.test.ts", "test/conformance/support"]
+  // `src` and the ONE `test/` file the `./conformance` package export names — the build compiles what the package
+  // publishes and what that reaches, never a directory of test code. It used to include all of `test/`, so every
+  // test-runner helper beside the export was compiled too: `test/frontend/` (2026-09-30) and `test/conformance/support/`
+  // (reached through the generated map's row type) use Bun-only APIs (`import.meta.dir`, `Bun.spawnSync`, `bun:test`)
+  // and cannot type under `types: ["node"]` — rightly: `default` is the condition for runtimes that are NOT Bun, so
+  // adding "bun" here would publish a dist/ that calls `Bun`. Nothing the export reaches may import a runner helper;
+  // the map's row type lives beside the map (`fixtures/map-row.ts`) for exactly that. `src/build.test.ts` runs this
+  // build so `bun test` sees it break.
+  "include": ["src", "test/conformance/index.ts"],
+  "exclude": ["dist", "node_modules", "**/*.test.ts"]
 }
