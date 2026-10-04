@@ -1287,7 +1287,7 @@ listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted a
       `bridge-refusal-review`): refusals 57/57 (both vendors + parity); CODESYS 338 pass / 12 skip / 0 fail; TwinCAT
       Project13 329 pass / 13 skip / 3 fail — the three known Project14-only rows (as at gate 6), re-run on `-Fixture 14`:
       `hidden-declaration` + `hidden-members` 11/11. No fixture or transpiler change → map not regenerated.
-- [ ] 8.4 Close the vendor gaps behind the wire (owner, 2026-10-03: "both should behave identically behind the wire").
+- [x] 8.4 Close the vendor gaps behind the wire (owner, 2026-10-03: "both should behave identically behind the wire").
       8.1's "except where DIALECT names the difference" is NOT an escape hatch: every row where CODESYS and TwinCAT
       answer differently (code, message shape, state after) is a defect to fix in the driver below the seam, so the
       wire answer is identical. Only an IRREDUCIBLE vendor fact may remain (e.g. TwinCAT C2i: opening a broken POU's
@@ -1353,3 +1353,34 @@ listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted a
       `bun run check` 18/18; typecheck green; census vs HEAD 586 → 586 (0 gone, 0 new). No LSP code, fixture or recording
       changed (nothing a user writes changes its answer); run once at the end anyway: LSP `test/frontend` 39/0,
       `test/conformance` 5982 pass / 337 todo / 0 fail, `rate:fixtures` — fixture map unchanged.
+      **Closed (2026-10-04, after the owner decisions):** (1) C2i: commit 221126625a — a TwinCAT POU written broken in
+      this load reads as CODESYS reads it (fetched byte-identical, create-over ITEM_EXISTS on both); after a solution
+      reopen / reload-from-disk TwinCAT names it unreadable — ACCEPTED irreducible (no type stored), pinned in the matrix
+      row with both states. (2) Watchdog: ACCEPTED irreducible (DIALECT C19b; `task-writable` asserts UNSUPPORTED by
+      name). (3) **Native rename — re-decided by the owner (2026-10-04): renaming behaves IDENTICALLY on both vendors and a
+      push changes exactly the items it names.** Both vendors' assemblies were reverse-engineered (ilspycmd, scratchpad):
+      TwinCAT's `ITcSmTreeItem.Name` → `PlcFileNode.RenameItem` (`TwinCATPlcControl.dll`) → the refactoring plugin's
+      `TryQueryAndPerformRenameOfObject(…, silent)` (under automation a skip-dialog that accepts every change); the plain
+      `MutualProjectStructure.Rename` runs only on a `PerformWithoutRefactoring` answer, which comes from the engineer's
+      own Options (`DISABLED_AUTOMATICS`, `OptionRoot.User`) — no automation interface sets it; the only out-of-process
+      door is a `.vssettings` import over the whole user option root: rejected (rewrites the engineer's preferences
+      around every push). CODESYS SP21: its scripting `rename` is plain (already the decided semantics); its refactoring
+      commits a copy project only through the dialog's tree-diff view (`SetAllAccepted` + `Finish`), i.e. the rejected
+      semantics. **Built:** `PushService.PutBackWhatTheRenameTouched` — a push that renames reads every text first (also
+      under `--force`); after the apply, an item whose text changed though the push did not send it gets its pre-push
+      text back, a renamed item sent without text gets its pre-push text with only the header renamed
+      (`WithOnlyTheHeaderRenamed`, no ST parsed), and an item sent before a later rename is written again; all through
+      Volt's own write, only where the text differs. On CODESYS nothing is put back. Tests first:
+      `RenameChangesOnlyNamedItemsTests` (7, both fake shapes; 4 red on the TwinCAT shape before), `PushReturnsSourcesTests`
+      3 and the CLI's 2 rename tests rewritten (premise changed by the owner's decision; the CLI's incoming rule for an item
+      the IDE changes during a push stays, now triggered by an IDE-side edit). Live, both vendors (instance
+      `bridge-refusal-review`, CODESYS fixture copy, TwinCAT Project14 copy): `push-return-sources` "a rename alone" /
+      "a rename and its caller in one push", `push-partially-applied` "a rename changes only the item's header",
+      `refusals/behaviour-changes` row 8.4 + its parity half (refs versions and texts byte-identical across vendors); a
+      PROGRAM renamed while a task calls it: both keep the old call (probe, not kept). DIALECT C2o/C2p rewritten; the
+      single-use probe `probe-codesys-refactor-rename.py` + log deleted (cited from history). (4) D21/D41 interface
+      accessor declaration and the E_FAIL-after-reopen finding stay listed for the owner, not built.
+      **Numbers (close):** Engine 2290/0/1, Cli 263, Twincat 449, Codesys 305, Connector 115, Contracts 39, Relay 63,
+      Repo.Gates 136 (INTERNAL_ERROR census PushService 6 → 7: the header assumption broken is Volt's own invariant);
+      volt-cli `test/unit` 24; `bun run check` 18/18; typecheck green. e2e on both vendors: refusals 64/64 (matrix +
+      behaviour incl. row 8.4 and its parity half), push files 39/39 each, `crud-cycle` 8/8 each.

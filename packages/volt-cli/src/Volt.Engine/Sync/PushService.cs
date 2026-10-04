@@ -52,7 +52,13 @@ public static class PushService
         // the apply boundary resolves each op against, and it comes from the walk, not from the read.
         // `returnSources` reads them too: the answer carries every item whose version the push CHANGED, which only a
         // pre-apply version can tell.
-        var needVersions = !request.Force || request.ExpectedProjectVersion != null || request.ReturnSources == true;
+        // A RENAME READS THEM TOO: a push changes exactly the items it names (owner, 2026-10-04), and TwinCAT's native
+        // rename rewrites items no op names (DIALECT C2o, C2p) — those are put back from these texts after the apply
+        // (`PutBackWhatTheRenameTouched`).
+        var renaming = request.Ops.OfType<SetItemOp>().Any(s => s.ToName is { } to
+            && !string.Equals(Materializer.Bare(to), Materializer.Bare(s.Name), StringComparison.Ordinal));
+        var needVersions = !request.Force || request.ExpectedProjectVersion != null || request.ReturnSources == true || renaming;
+        var textsBefore = renaming ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) : null;
         var currentVersions = new Dictionary<string, string>();
         var gatedVersions = new Dictionary<string, string>();
         var itemCache = new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase);
@@ -74,6 +80,7 @@ public static class PushService
             // BARE on purpose: that is the IDE's OWN lookup key, one rung below the wire.
             currentVersions[v.Identity] = version;
             if (ProjectSnapshot.IsTracked(it.KindCode)) gatedVersions[v.Identity] = version;
+            if (textsBefore is not null && v.Materialized is { } was) textsBefore[was.FullName] = was.Text;
         }
         // Where each object the driver NAMES but must not open sits (UnreadableObject.Kinds: a TwinCAT POU, DIALECT
         // C2i). A forced set recreates such an item, and keeps it in this folder unless the op moves it.
@@ -267,6 +274,8 @@ public static class PushService
         onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = 0, Total = opTotal, Phase = "applying" });
         var inApplyOrder = InFolderDepthOrder(ops).ToList();
         var appliedOps = new List<PushOp>();
+        var appliedAt = new List<(int At, PushOp Op)>();
+        var lastRenameAt = -1;   // apply position of the last op whose rename landed (it may have stayed on a refused op)
         List<PushConflict>? notLanded = null;
         for (var k = 0; k < inApplyOrder.Count; k++)
         {
@@ -282,6 +291,7 @@ public static class PushService
                 // push is worse than a half-done one — and the ops after it are not applied: going on would move the
                 // project further from both the workspace's baseline and its HEAD. What of the refused op itself the IDE
                 // kept is in its reason (`ConflictFor`).
+                if (outcome.Renamed is not null) lastRenameAt = k;
                 var refused = ConflictFor(op, ex, outcome);
                 VoltLog.Info($"push {opTotal} ops — REFUSED at {op.Name} ({ex.Message}), {applied.Count} already applied ({sw.ElapsedMilliseconds}ms)");
                 // Nothing applied in full → `accepted:false`, exactly as a pre-flight refusal: the one op's partial effect
@@ -298,6 +308,8 @@ public static class PushService
                 break;
             }
             appliedOps.Add(op);
+            appliedAt.Add((k, op));
+            if (outcome.Renamed is not null) lastRenameAt = k;
             // Report AFTER applying (like FetchService), so the final frame carries Done == Total (100%).
             onProgress?.Invoke(new ProgressFrame { Operation = Ops.Push, Done = applied.Count, Total = opTotal });
         }
@@ -331,17 +343,23 @@ public static class PushService
         try { TreeNav.PruneEmptied(ide, EmptiedFolders(itemCache, appliedOps)); }
         catch (Exception ex) { VoltLog.Warn($"push: could not prune an emptied folder: {ex.Message}"); }
 
+        if (textsBefore is not null && lastRenameAt >= 0)
+        {
+            PutBackWhatTheRenameTouched(ide, textsBefore, appliedAt, lastRenameAt, notLanded, pushedDeclarations, notOpened);
+            ide.FlushPendingWrites();
+        }
+
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
-        // pre-apply versions. A native rename on TwinCAT rewrites the referencing items, which are NOT in the op set
-        // (DIALECT C2p; CODESYS does not), so reusing their pre-apply versions would report a stale baseline; the client persists this
+        // pre-apply versions. The IDE can change items NOT in the op set while the push runs (an engineer's edit), so
+        // reusing their pre-apply versions would report a stale baseline; the client persists this
         // receipt as its IDE baseline with no follow-up /refs, so it must match /refs exactly.
         //
         // WITH `returnSources` THE SAME WALK KEEPS THE TEXT of every item the push CHANGED (openspec
         // `st-roundtrip-fixed-point`, route A): each item a LANDED `set` left (under the name it landed as — `toName`
         // for a rename — matched as the IDE matches a name, keyed by the IDE's spelling), AND each item whose version
-        // differs from the pre-apply walk's — the callers a native rename rewrote (TwinCAT, DIALECT C2p), which no op names (gate 3 review: a
-        // client never told their text changed adopts their new version over the old text, and its next push of one
-        // writes the old name back over the rename). An item named by a conflict (`name`, `renamedTo`) is re-read by
+        // differs from the pre-apply walk's — an item the IDE changed beside the ops, which no op names (gate 3 review: a
+        // client never told its text changed adopts its new version over the old text, and its next push of it writes
+        // the old text back; a rename's callers are put back before this walk, `PutBackWhatTheRenameTouched`). An item named by a conflict (`name`, `renamedTo`) is re-read by
         // the client, never answered. The walk already materialized each item to hash its version, through the same
         // StWriter a fetch renders with — so the answer is what a read gives, its version the `newItems` one, and no
         // item is read twice. A delete leaves nothing, and an item the walk could not materialize is kept by no one.
@@ -376,6 +394,83 @@ public static class PushService
         return accepted;
     }
 
+    /// <summary>A PUSH CHANGES EXACTLY THE ITEMS IT NAMES — a rename too (owner, 2026-10-04, openspec bridge-refusal-review
+    /// 8.4). Each vendor's only item rename differs (DIALECT C2o, C2p): CODESYS rewrites the renamed item's header and
+    /// nothing else; TwinCAT's runs XAE's rename refactoring, which also rewrites the item's own code references and every
+    /// reference in other items, with no automation switch (its one switch is the engineer's own Options setting). So the
+    /// engine puts back, after the apply, what the push did not send: an item no op names gets its pre-push text, a
+    /// renamed item the push sent no text for gets its pre-push text with only the header renamed, and an item the push
+    /// SENT before a later rename is written again, so the sent text wins. Each is Volt's own read written back through
+    /// Volt's own write, and only where the text differs — on CODESYS that is nothing but the sent re-writes.</summary>
+    private static void PutBackWhatTheRenameTouched(IIdeDriver ide, IReadOnlyDictionary<string, string> before,
+        IReadOnlyList<(int At, PushOp Op)> applied, int lastRenameAt, IReadOnlyCollection<PushConflict>? notLanded,
+        PushedDeclarations declarations, IReadOnlyDictionary<string, string> notOpened)
+    {
+        var landedAs = new Dictionary<string, SetItemOp>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (_, op) in applied) if (op is SetItemOp s) landedAs[s.ToName ?? s.Name] = s;
+        // An item a conflict names is re-read by the client, never answered — and never put back.
+        var refused = new HashSet<string>((notLanded ?? new List<PushConflict>())
+            .SelectMany(c => new[] { c.Name, c.RenamedTo }).OfType<string>(), StringComparer.OrdinalIgnoreCase);
+        var now = ProjectSnapshot.Walk(ide, operation: "push-rename-scope", keepText: (_, _) => true);
+        var writes = new List<SetItemOp>();
+        string? Before(string name) => before.TryGetValue(name, out var t) ? t : null;
+        foreach (var entry in now.Texts)
+        {
+            var (name, text) = (entry.Key, entry.Value);
+            if (refused.Contains(name)) continue;
+            string? expected;
+            if (landedAs.TryGetValue(name, out var op))
+            {
+                if (op.SourceText is not null) continue;   // sent: written again below when a later rename could reach it
+                expected = op.ToName is { } to && before.TryGetValue(op.Name, out var was)
+                           && !string.Equals(Materializer.Bare(to), Materializer.Bare(op.Name), StringComparison.Ordinal)
+                    ? WithOnlyTheHeaderRenamed(name, was, text, Materializer.Bare(op.Name), Materializer.Bare(to))
+                    : Before(name);
+            }
+            else expected = Before(name);
+            if (expected is null || expected == text) continue;
+            if (ItemKind.KindForWireName(name) is not { } kind || ItemKind.IsReadOnlyKind(kind)) continue;
+            writes.Add(new SetItemOp { Name = name, SourceText = expected });
+        }
+        foreach (var (at, op) in applied)
+            if (at < lastRenameAt && op is SetItemOp { SourceText: { } sent } s)
+                writes.Add(new SetItemOp { Name = s.ToName ?? s.Name, SourceText = sent });
+
+        foreach (var w in writes)
+        {
+            var sources = new Dictionary<string, ValidatedSource>(StringComparer.OrdinalIgnoreCase);
+            if (!ItemKind.IsTaskWireName(w.Name))
+                sources[w.Name] = ValidateSourceOrThrow(ide, Materializer.Bare(w.Name), w.SourceText!, isCreate: false,
+                                                        declarations, ItemKind.KindForWireName(w.Name)!, existing: null);
+            ApplyOp(ide, new Dictionary<string, (ItemRef Item, string Folder)>(StringComparer.OrdinalIgnoreCase), notOpened,
+                    w, force: true, sources, new OpOutcome());
+        }
+        if (writes.Count > 0)
+            VoltLog.Info($"push: put back {writes.Count} item(s) a rename reached: {string.Join(", ", writes.Select(w => w.Name))}");
+    }
+
+    /// <summary>The renamed item's pre-push text <paramref name="was"/> with only its header renamed, read off what the
+    /// IDE made of it (<paramref name="now"/>): the FIRST place the two differ is the header — nothing above it names
+    /// the item but a comment, and neither vendor rewrites a comment (DIALECT C2o) — and it must be <paramref name="from"/>
+    /// becoming <paramref name="to"/>, whole word; everything after it is the pre-push text. No ST is parsed.</summary>
+    private static string WithOnlyTheHeaderRenamed(string item, string was, string now, string from, string to)
+    {
+        var i = 0;
+        while (i < was.Length && i < now.Length && was[i] == now[i]) i++;
+        if (i == was.Length && i == now.Length) return now;
+        while (i > 0 && IsIdentifierChar(was[i - 1])) i--;
+        if (!WordAt(was, i, from) || !WordAt(now, i, to))
+            throw new BridgeException(BridgeErrorCodes.InternalError,
+                $"renamed '{from}' to '{to}', but the first change the IDE made to '{item}' is not its header's name");
+        return now.Substring(0, i + to.Length) + was.Substring(i + from.Length);
+
+        static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+        static bool WordAt(string s, int at, string word) =>
+            at + word.Length <= s.Length
+            && string.Compare(s, at, word, 0, word.Length, StringComparison.OrdinalIgnoreCase) == 0
+            && (at + word.Length == s.Length || !IsIdentifierChar(s[at + word.Length]));
+    }
+
     /// <summary>The wire name each LANDED <c>set</c> op left its item under — <c>toName</c> for a rename, else
     /// <c>name</c> — case-insensitive, because the IDE resolves a name that way and the receipt keys it by the IDE's own
     /// spelling.</summary>
@@ -400,8 +495,8 @@ public static class PushService
         /// (<c>MemberRefusal</c> words it into the exception, so <see cref="UpdateKept"/> stays null rather than say it
         /// twice). The fact without the words: it makes the conflict <c>partiallyApplied</c>.</summary>
         public bool KeptInRefusal;
-        /// <summary>A native rename that ran before the op was refused: the IDE renamed the item (and, on TwinCAT,
-        /// rewrote every reference to it — DIALECT C2p), and that stays — the item is no longer under the op's name. <c>From</c>/<c>To</c> are BARE
+        /// <summary>A native rename that ran before the op was refused: the IDE renamed the item (what TwinCAT's
+        /// rename rewrote beside it is put back — DIALECT C2p), and that stays — the item is no longer under the op's name. <c>From</c>/<c>To</c> are BARE
         /// (the reason's words); <c>WireName</c> is the FULL name the item now has (<c>PushConflict.RenamedTo</c>).</summary>
         public (string From, string To, string WireName)? Renamed;
         /// <summary>The forced replace of an item the IDE will not open deleted that object before its create was
@@ -454,7 +549,7 @@ public static class PushService
         // under the op's name, so a client re-sending the op would name an item that is gone), and the delete of a forced
         // replace (the original object is gone).
         if (outcome?.Renamed is { } rn)
-            reason += $" — '{rn.From}' was renamed to '{rn.To}' before it (the IDE rewrote the references to it) and stays renamed";
+            reason += $" — '{rn.From}' was renamed to '{rn.To}' before it and stays renamed";
         if (outcome?.Replaced is { } replaced)
             reason += $" — the IDE's '{replaced}' was deleted before it, to be replaced, and stays deleted";
         foreach (var folder in outcome?.FoldersCreated ?? new List<string>())
@@ -889,9 +984,8 @@ public static class PushService
         if (existing is { } found)
         {
             task = found;
-            // A renamed `.task` file is a renamed TASK, through the IDE's own rename, so whatever the IDE rewrites
-            // of what references the task by name it rewrites (a POU reference is rewritten on TwinCAT and not on
-            // CODESYS, DIALECT C2p; a task reference is unmeasured) — Volt rewrites nothing of its own.
+            // A renamed `.task` file is a renamed TASK, through the IDE's own rename, and what that rename rewrites
+            // beside it is put back after the apply (`PutBackWhatTheRenameTouched`, DIALECT C2p).
             if (op.ToName is { } toName && !string.Equals(Materializer.Bare(toName), name, StringComparison.Ordinal))
             {
                 ide.Rename(task, Materializer.Bare(toName));
@@ -945,8 +1039,8 @@ public static class PushService
         return action;
     }
 
-    /// <summary>Apply one unified change. A rename uses the IDE's native rename (TwinCAT rewrites the call sites,
-    /// CODESYS does not — DIALECT C2p) and
+    /// <summary>Apply one unified change. A rename uses the IDE's native rename (what TwinCAT's also rewrites beside the item
+    /// is put back after the apply — DIALECT C2p) and
     /// precedes a move; a move recreates in the new folder (name kept ⇒ name-based references survive); a
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
     private static string ApplySetItem(IIdeDriver ide, string name, ItemRef? existing,
@@ -1003,7 +1097,7 @@ public static class PushService
             // THE PUSHED TEXT IS ALREADY VALIDATED, by the batch pre-flight in `Handle` — nothing that could
             // be refused on its text is still in flight by the time a rename runs. It used to be re-checked
             // right here, because a native rename on TwinCAT rewrites every reference to this POU across the
-            // project (DIALECT C2p; CODESYS rewrites none): the largest change in this method, and once the first
+            // project (DIALECT C2p; put back after the apply now): the largest change in this method, and once the first
             // thing a set op did. A rename+edit whose edit was then rejected left the item renamed (and its call
             // sites rewritten) while the push
             // reported failure, with nothing to put it back.
@@ -1012,7 +1106,7 @@ public static class PushService
             // local re-parse became a call that could never throw. What neither can pre-check is a refusal that
             // depends on the item's LIVE state (an unsupported body, a language change) — those are still
             // caught by the write, which is why the ORDER below (content, then move) stays as it is.
-            ide.Rename(item, toName);                  // native rename → TwinCAT rewrites references (DIALECT C2p)
+            ide.Rename(item, toName);                  // native rename; what it rewrites beside the item is put back (C2p)
             currentName = toName;
             // Recorded the moment the rename RETURNS — before the re-find below, whose miss (a stale tree) does not undo
             // it. Withdrawn only where the IDE is shown to have ignored it (the case-only check).

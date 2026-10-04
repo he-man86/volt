@@ -459,25 +459,35 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>A CALLER THE IDE'S RENAME REWROTE IS AN IDE CHANGE THE CLIENT PULLS (openspec bridge-refusal-review 8.4).
-    /// The rename rewrites <c>W_User</c>'s <c>inst : A_Motor</c> (DIALECT C2p), an item no op names. Adopting its new
-    /// version over the workspace's OLD text hid the rewrite: the next pull saw nothing, and the next push of an edit to
-    /// <c>W_User</c> passed its <c>ifVersion</c> gate and wrote the old name back over the rename. Its old version stays in
-    /// the baseline instead, so status shows it incoming, the push says so, and a pull brings the rewrite in.</summary>
+    /// <summary>AN ITEM THE IDE CHANGED WHILE THE PUSH RAN IS AN IDE CHANGE THE CLIENT PULLS (openspec
+    /// bridge-refusal-review 8.4). <c>W_User</c> is edited in the IDE during a push that does not send it. Adopting its new
+    /// version over the workspace's OLD text would hide the edit: the next pull would see nothing, and the next push of
+    /// <c>W_User</c> would pass its <c>ifVersion</c> gate and write the old text back over it. Its old version stays in the
+    /// baseline instead, so status shows it incoming, the push says so, and a pull brings it in. (A rename's callers no
+    /// longer reach this: the push puts back what a rename touched beyond what it names — <c>RenameChangesOnlyNamedItemsTests</c>.)</summary>
     [Fact]
-    public void A_caller_the_rename_rewrote_is_incoming_and_a_pull_brings_the_rewrite_in()
+    public void An_item_the_IDE_changed_during_the_push_is_incoming_and_a_pull_brings_it_in()
     {
-        var ide = new FakeIde(
+        FakeIde ide = null!;
+        ide = new FakeIde(
             FakeIde.Item.TextualPou("A_Motor", "FUNCTION_BLOCK A_Motor\nVAR\nEND_VAR", ";"),
             FakeIde.Item.TextualPou("W_User", "PROGRAM W_User\nVAR\n\tinst : A_Motor;\nEND_VAR", "inst();"))
-        { HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo", RewritesReferencesOnRename = true };
+        {
+            HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
+            RefuseContentWrite = item =>
+            {
+                if (ide.Name(item) == "A_Motor") ide.MutateImplementation("W_User", "inst(); // edited in the IDE");
+                return null;
+            },
+        };
         var (root, host, client) = Bound(ide);
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var before = Sidecar.LoadIdeRefs(root)!.Items;
-            File.Move(Path.Combine(root, "src", "A_Motor.pou"), Path.Combine(root, "src", "A_Drive.pou"));
-            Git.CommitAll(root, "rename");
+            var motor = Path.Combine(root, "src", "A_Motor.pou");
+            File.WriteAllText(motor, File.ReadAllText(motor).Replace(";\n", "x := 1;\n"));
+            Git.CommitAll(root, "edit");
 
             var r = Commands.Push(root, client);
 
@@ -486,7 +496,7 @@ public class PushCommandTests
             Assert.Equal(before["W_User.pou"], Sidecar.LoadIdeRefs(root)!.Items["W_User.pou"]);
             Assert.Contains("W_User.pou", Commands.Status(root, client).Incoming.Modified);
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
-            Assert.Contains("inst : A_Drive;", File.ReadAllText(Path.Combine(root, "src", "W_User.pou")));
+            Assert.Contains("edited in the IDE", File.ReadAllText(Path.Combine(root, "src", "W_User.pou")));
             Assert.Equal(0, Commands.Status(root, client).Incoming.Count);
         }
         finally { host.Dispose(); TestUtil.ForceDelete(root); }

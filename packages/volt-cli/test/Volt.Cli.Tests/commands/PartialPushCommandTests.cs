@@ -70,44 +70,43 @@ public class PartialPushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>A rename lands beside a refused op: the native rename rewrites <c>W</c> (TwinCAT, DIALECT C2p — and
-    /// CODESYS through its refactoring rename), which no op names. Review R3 adopted its post-rename version; that hid the
-    /// rewrite behind the workspace's old text (openspec bridge-refusal-review 8.4 — the next push of <c>W</c> wrote the
-    /// old name back). It keeps its OLD version, so it is incoming, as on a full push; the refused <c>Z_Late</c> keeps its
-    /// old one too.</summary>
+    /// <summary>An edit lands beside a refused op while the IDE changes <c>W_User</c>, which no op names. Review R3
+    /// adopted its new version; that hid the change behind the workspace's old text (openspec bridge-refusal-review 8.4 —
+    /// the next push of <c>W_User</c> wrote the old text back). It keeps its OLD version, so it is incoming, as on a full
+    /// push; the refused <c>Z_Late</c> keeps its old one too.</summary>
     [Fact]
-    public void A_rename_landing_beside_a_refused_op_leaves_the_rewritten_reference_incoming_and_keeps_the_refused_item_old()
+    public void An_edit_landing_beside_a_refused_op_leaves_what_the_IDE_changed_incoming_and_keeps_the_refused_item_old()
     {
         FakeIde ide = null!;
         ide = new FakeIde(
-            FakeIde.Item.TextualPou("A_Motor", "FUNCTION_BLOCK A_Motor\nVAR\nEND_VAR", ";"),
+            FakeIde.Item.TextualPou("A_Motor", "FUNCTION_BLOCK A_Motor\nVAR\nEND_VAR", "x := 1;"),
             Pou("W_User", "inst();", "PROGRAM W_User\nVAR\n\tinst : A_Motor;\nEND_VAR"),
             Pou("Z_Late"))
         {
             HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo",
-            RewritesReferencesOnRename = true,
-            RefuseContentWrite = item => ide.Name(item) == "Z_Late"
-                ? new InvalidOperationException("the IDE could not write 'Z_Late'") : null,
+            RefuseContentWrite = item =>
+            {
+                if (ide.Name(item) == "A_Motor") ide.MutateImplementation("W_User", "inst(); // edited in the IDE");
+                return ide.Name(item) == "Z_Late" ? new InvalidOperationException("the IDE could not write 'Z_Late'") : null;
+            },
         };
         var (root, host, client) = Bound(ide);
         try
         {
             Assert.Equal("ok", Commands.Pull(root, client).Kind);
             var before = Sidecar.LoadIdeRefs(root)!.Items;
-            File.Move(Path.Combine(root, "src", "A_Motor.pou"), Path.Combine(root, "src", "A_Drive.pou"));
+            Edit(root, "A_Motor.pou", "x := 1;", "x := 2;");
             Edit(root, "Z_Late.pou", "x := 1;", "x := 3;");
 
             var r = Commands.Push(root, client);
 
             Assert.True(r.Kind == ResultKinds.Partial, $"expected a partial push, got {r.Kind}: {r.Reason}");
-            Assert.Contains(ide.Recorded, x => x == "rename:A_Motor->A_Drive");
             var refs = Volt.Engine.Sync.RefsService.Handle(ide);
             var after = Sidecar.LoadIdeRefs(root)!.Items;
-            Assert.NotEqual(before["W_User.pou"], refs.Items["W_User.pou"]);       // premise: the IDE rewrote W_User
+            Assert.NotEqual(before["W_User.pou"], refs.Items["W_User.pou"]);       // premise: the IDE changed W_User
             Assert.Equal(before["W_User.pou"], after["W_User.pou"]);
             Assert.Contains("W_User.pou", Commands.Status(root, client).Incoming.Modified);
-            Assert.Equal(refs.Items["A_Drive.pou"], after["A_Drive.pou"]);
-            Assert.False(after.ContainsKey("A_Motor.pou"), "the renamed-away name stayed in the baseline");
+            Assert.Equal(refs.Items["A_Motor.pou"], after["A_Motor.pou"]);
             Assert.Equal(before["Z_Late.pou"], after["Z_Late.pou"]);
             Assert.Equal(new[] { "Z_Late.pou" }, Commands.Status(root, client).Outgoing.Modified.ToArray());
         }

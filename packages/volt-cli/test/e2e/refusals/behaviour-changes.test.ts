@@ -9,7 +9,9 @@
  * IDE of ours that is up, and — when both are — the two answers must be byte-identical after `normalize` (8.4). The
  * BUILD's messages are not compared: they are each IDE's compiler output (CODESYS quotes the source span with its line
  * breaks, TwinCAT adds a follow-on error — measured on 4.26), the same as a recorded conformance build. The
- * network-text rows (1.3, 1.5, 4.3) wait for the LD/FBD design (owner, 2026-10-03) and are not here.</p>
+ * network-text rows (1.3, 1.5, 4.3) wait for the LD/FBD design (owner, 2026-10-03) and are not here. Row 8.4: a rename changes exactly
+ * the items the push names, alone and with its caller in the same push (each vendor's own rename differs, DIALECT
+ * C2o/C2p; the push puts back what it did not name), and the two vendors leave byte-identical refs and texts.</p>
  *
  * <p>Not live, and why: D27's UNKNOWN view mode / language (a vendor-named marker, `IMPLEMENTATION UML UNSUPPORTED`)
  * needs an object no fixture holds and SP21 cannot author without an add-on; `CodesysUnknownBodyLanguageTests` and
@@ -206,6 +208,51 @@ const ROWS: Row[] = [
 			expect(decl, `${b.vendor}: the CFC POU pulled without its declaration header`).toMatch(/^\s*(PROGRAM|FUNCTION_BLOCK) VltFixtureCfc\b/m)
 			expect(decl, `${b.vendor}: the CFC POU pulled without its VAR block`).toMatch(/\nEND_VAR\s*$/)
 			return { marker: text.split("\n").find((l) => l.startsWith("IMPLEMENTATION")) }
+		},
+	},
+	{
+		key: "8.4",
+		title: "8.4 a rename changes exactly the items the push names: alone, and with its caller in the same push",
+		run: async (b) => {
+			const [fbA, fbB, fnA, fnB, p] = ["ren_fbA", "ren_fbB", "ren_fnA", "ren_fnG", "ren_call"].map(n)
+			const callerText = `PROGRAM ${p}\nVAR\n\tinst : ${fbA}; (* an ${fbA} *)\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${fnA}(a := 1); // calls ${fnA}\nEND_PROGRAM\n`
+			const made = await pushFresh(b, [
+				{ op: "set", name: `${fbA}.pou`, toFolder: "", ifVersion: null,
+				  sourceText: `// ${fbA} helper\nFUNCTION_BLOCK ${fbA}\nVAR\n\tpSelf : POINTER TO ${fbA};\nEND_VAR\n${MARK}\npSelf := 0; // sets ${fbA}\nEND_FUNCTION_BLOCK\n` },
+				{ op: "set", name: `${fnA}.pou`, toFolder: "", ifVersion: null,
+				  sourceText: `FUNCTION ${fnA} : BOOL\nVAR_INPUT\n\ta : INT;\nEND_VAR\n${MARK}\n${fnA} := a > 0; // sets ${fnA}\nEND_FUNCTION\n` },
+				{ op: "set", name: `${p}.pou`, toFolder: "", ifVersion: null, sourceText: callerText },
+			])
+			expect(accepted(made), `${b.vendor}: setup refused: ${JSON.stringify(made)}`).toBe(true)
+			const v0 = (await refsOf(b)).items
+			const [fbText, fnText, callText] = await Promise.all([`${fbA}.pou`, `${fnA}.pou`, `${p}.pou`].map(async (x) => (await fetchOne(b, x)).sourceText as string))
+
+			// Alone: only the headers change; the caller and the items' own references keep the old names.
+			const alone = await pushFresh(b, [
+				{ op: "set", name: `${fbA}.pou`, toName: `${fbB}.pou`, ifVersion: v0[`${fbA}.pou`] },
+				{ op: "set", name: `${fnA}.pou`, toName: `${fnB}.pou`, ifVersion: v0[`${fnA}.pou`] },
+			], { returnSources: true })
+			expect(accepted(alone), `${b.vendor}: rename refused: ${JSON.stringify(alone)}`).toBe(true)
+			const v1 = (await refsOf(b)).items
+			expect((await fetchOne(b, `${fbB}.pou`)).sourceText).toBe(fbText.replace(`FUNCTION_BLOCK ${fbA}\n`, `FUNCTION_BLOCK ${fbB}\n`))
+			expect((await fetchOne(b, `${fnB}.pou`)).sourceText).toBe(fnText.replace(`FUNCTION ${fnA} :`, `FUNCTION ${fnB} :`))
+			expect((await fetchOne(b, `${p}.pou`)).sourceText, `${b.vendor}: the caller changed`).toBe(callText)
+			expect(v1[`${p}.pou`], `${b.vendor}: the caller's version moved`).toBe(v0[`${p}.pou`])
+			expect(Object.keys((alone as any).response.newSources ?? {}).sort()).toEqual([`${fbB}.pou`, `${fnB}.pou`].sort())
+
+			// With its caller, the caller FIRST (written before the renames): the caller holds the text sent.
+			const sent = callText.replace(`inst : ${fbA};`, `inst : ${fbB};`).replace(`ok := ${fnA}(`, `ok := ${fnB}(`)
+			const together = await pushFresh(b, [
+				{ op: "set", name: `${p}.pou`, sourceText: sent, ifVersion: v1[`${p}.pou`] },
+				{ op: "set", name: `${fbB}.pou`, toName: `${fbA}.pou`, ifVersion: v1[`${fbB}.pou`] },
+			])
+			expect(accepted(together), `${b.vendor}: rename + caller refused: ${JSON.stringify(together)}`).toBe(true)
+			expect((await fetchOne(b, `${p}.pou`)).sourceText, `${b.vendor}: the caller does not hold the text sent`).toBe(sent)
+			expect((await fetchOne(b, `${fbA}.pou`)).sourceText).toBe(fbText)
+
+			const refs = await refsOf(b)
+			const mine = Object.keys(refs.items).filter((k) => k.startsWith(n("ren_"))).sort()
+			return Object.fromEntries(await Promise.all(mine.map(async (k) => [k, { version: refs.items[k], text: (await fetchOne(b, k)).sourceText }])))
 		},
 	},
 ]

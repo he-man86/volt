@@ -11,13 +11,14 @@
  * live fetch's `sourceText` byte for byte, its key is in `newItems`, and its `newItems` version equals the live refs
  * version. The cases then go rule by rule through the `NewSources` contract (PushModels.cs): created FB with members
  * (the census's W1 shape), GVL + struct + enum DUT, update, rename+edit (new name), rename-only (the IDE rewrites the
- * header, DIALECT C2o; a FUNCTION also its return assignment on TwinCAT), move-only (the move landed), a rename answers
- * exactly the items whose version moved (callers rewritten on TwinCAT, not on CODESYS — DIALECT C2p, asserted per
- * vendor), only changed items answered, no flag → absent, delete → no entry, a refused op →
+ * header and nothing else, on both vendors — DIALECT C2o), move-only (the move landed), a rename answers exactly the
+ * renamed items and leaves a caller as it was, and a caller sent with the rename holds the text sent (DIALECT C2p; the
+ * push puts back what TwinCAT's rename touched beyond what it names — openspec bridge-refusal-review 8.4), only changed
+ * items answered, no flag → absent, delete → no entry, a refused op →
  * no entry, an op named in another case → the IDE's spelling.</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, cleanup, plcFolder, fetchSource, FOLDER, BASE, VENDOR } from "../harness"
+import { id, fid, bridge, requireHealthy, cleanup, plcFolder, fetchSource, FOLDER, BASE } from "../harness"
 import { fb, func, gvl, structDut, enumDut, MARK } from "../fixtures"
 
 /** The census's W1: the body runs straight into END_FUNCTION_BLOCK, and the PROPERTY is written before the ACTION. */
@@ -125,9 +126,9 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 		expect(s[to]).toContain(`FUNCTION_BLOCK ${id("rs_roB")}`)
 	})
 
-	// A rename-only push of a FUNCTION whose body assigns its own name: the answer is the text the IDE made of it, which
-	// is where the vendors differ (DIALECT C2o — TwinCAT also rewrites the return assignment, CODESYS only the header).
-	it("rename-only of a FUNCTION: answered as the IDE rewrote it (DIALECT C2o, per vendor)", async () => {
+	// A rename-only push of a FUNCTION whose body assigns its own name: the header is renamed and the return assignment
+	// keeps the old name, on both vendors (DIALECT C2o: TwinCAT's rename rewrites it, and the push puts it back).
+	it("rename-only of a FUNCTION: only the header is renamed (DIALECT C2o, both vendors)", async () => {
 		const from = fid("rs_rfA"), to = fid("rs_rfB"), a = id("rs_rfA"), b = id("rs_rfB")
 		const created = await push([{ op: "set", name: from, toFolder: await plcFolder(FOLDER), sourceText: func(a), ifVersion: null }])
 		expect(created.accepted, JSON.stringify(created.conflicts)).toBe(true)
@@ -138,25 +139,29 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 		expect(text, "a rename-only op has no entry").toBeDefined()
 		console.log("[push-return-sources gate 4] renamed FUNCTION answered:\n" + text)
 		expect(text).toContain(`FUNCTION ${b} : BOOL`)
-		const ret = text.includes(`${b} := a > 0;`) ? "new" : text.includes(`${a} := a > 0;`) ? "old" : "gone"
-		expect(ret, "the return assignment is not what DIALECT C2o measured").toBe(measured(C2O_RETURN_ASSIGNMENT))
+		expect(text, "the return assignment does not keep the old name").toContain(`${a} := a > 0;`)
 	})
 
-	// Gate 3's rule, live: "every item the push changed" includes an item no op names whose version the push changed
-	// (a caller a native rename rewrote). WHETHER the IDE rewrites a caller is a vendor fact (DIALECT C2p), asserted
-	// here per vendor, so a vendor that starts (or stops) rewriting fails this test; the rule — EVERY item whose refs
-	// version moved is answered, and nothing else is — is asserted on both.
-	it("a rename answers exactly the items whose version it changed; the caller is rewritten as DIALECT C2p measured", async () => {
-		const fbA = id("rs_rcA"), fbB = id("rs_rcB"), fnA = id("rs_rcF"), fnB = id("rs_rcG"), p = id("rs_rcP")
-		const caller = fid("rs_rcP")
+	// A PUSH CHANGES EXACTLY THE ITEMS IT NAMES (openspec bridge-refusal-review 8.4): a rename answers the renamed items
+	// and nothing else, and a caller that names them keeps its text and its version — on both vendors (DIALECT C2p:
+	// TwinCAT's native rename rewrites the caller, and the push puts it back).
+	async function renameFixture(tag: string) {
+		const names = { fbA: id(`rs_${tag}A`), fbB: id(`rs_${tag}B`), fnA: id(`rs_${tag}F`), fnB: id(`rs_${tag}G`), p: id(`rs_${tag}P`) }
 		const folder = await plcFolder(FOLDER)
 		const created = await push([
-			{ op: "set", name: fid("rs_rcA"), toFolder: folder, sourceText: fb(fbA), ifVersion: null },
-			{ op: "set", name: fid("rs_rcF"), toFolder: folder, sourceText: func(fnA), ifVersion: null },
-			{ op: "set", name: caller, toFolder: folder, sourceText: `PROGRAM ${p}\nVAR\n\tinst : ${fbA};\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${fnA}(a := 1);\nEND_PROGRAM\n`, ifVersion: null },
+			{ op: "set", name: fid(`rs_${tag}A`), toFolder: folder, sourceText: fb(names.fbA), ifVersion: null },
+			{ op: "set", name: fid(`rs_${tag}F`), toFolder: folder, sourceText: func(names.fnA), ifVersion: null },
+			{ op: "set", name: fid(`rs_${tag}P`), toFolder: folder, sourceText: `PROGRAM ${names.p}\nVAR\n\tinst : ${names.fbA}; (* an ${names.fbA} *)\n\tok : BOOL;\nEND_VAR\n${MARK}\ninst();\nok := ${names.fnA}(a := 1); // calls ${names.fnA}\nEND_PROGRAM\n`, ifVersion: null },
 		])
 		expect(created.accepted, JSON.stringify(created.conflicts)).toBe(true)
+		return names
+	}
+
+	it("a rename alone answers exactly the renamed items; the caller keeps its text and version", async () => {
+		const n = await renameFixture("rc")
+		const caller = fid("rs_rcP")
 		const before = (await bridge.refs()).items
+		const callerBefore = await fetchSource(caller)
 		const r = await push([
 			{ op: "set", name: fid("rs_rcA"), toName: fid("rs_rcB"), ifVersion: before[fid("rs_rcA")] },
 			{ op: "set", name: fid("rs_rcF"), toName: fid("rs_rcG"), ifVersion: before[fid("rs_rcF")] },
@@ -164,19 +169,30 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 		const s = await holdsWhatAFetchGives(r)
 		const after = (await bridge.refs()).items
 		const changed = Object.keys(after).filter((k) => after[k] !== before[k]).sort()
-		const callerText = await fetchSource(caller)
-		const rewrite = {
-			declaration: callerText.includes(`inst : ${fbB};`) ? "new" : callerText.includes(`inst : ${fbA};`) ? "old" : "gone",
-			call: callerText.includes(`ok := ${fnB}(a := 1);`) ? "new" : callerText.includes(`ok := ${fnA}(a := 1);`) ? "old" : "gone",
-		}
-		console.log("[push-return-sources gate 4] rename changed:", JSON.stringify(changed), "caller rewrite:", JSON.stringify(rewrite), "caller:\n" + callerText)
-		expect(Object.keys(s).sort(), "newSources is not exactly the items the rename changed").toEqual(changed)
-		expect(rewrite, "the caller's rewrite is not what DIALECT C2p measured").toEqual(measured(C2P_CALLER_REWRITE))
-		// The caller is answered exactly when the IDE changed it: on a vendor that rewrites it, this is the live proof of
-		// gate 3's "a rewritten caller is answered"; on one that does not, its version must not have moved.
-		const callerChanged = rewrite.declaration === "new" || rewrite.call === "new"
-		expect(changed.includes(caller), "the caller's version moved without its text changing, or the reverse").toBe(callerChanged)
-		if (callerChanged) expect(s[caller], "a caller the rename rewrote has no entry").toBeDefined()
+		console.log("[push-return-sources 8.4] rename changed:", JSON.stringify(changed))
+		expect(changed).toEqual([fid("rs_rcB"), fid("rs_rcG")].sort())
+		expect(Object.keys(s).sort(), "newSources is not exactly the renamed items").toEqual(changed)
+		expect(await fetchSource(caller), "the caller changed").toBe(callerBefore)
+		expect(callerBefore).toContain(`inst : ${n.fbA};`)
+	})
+
+	it("a rename and its caller in one push: the caller holds the text sent, the callee only its header", async () => {
+		const n = await renameFixture("rp")
+		const caller = fid("rs_rpP")
+		const before = (await bridge.refs()).items
+		const calleeBefore = await fetchSource(fid("rs_rpF"))
+		const sent = (await fetchSource(caller)).replace(`inst : ${n.fbA};`, `inst : ${n.fbB};`).replace(`ok := ${n.fnA}(`, `ok := ${n.fnB}(`)
+		// The caller FIRST: it is written before the renames, which would rewrite its comments on TwinCAT if nothing put
+		// the sent text back.
+		const r = await push([
+			{ op: "set", name: caller, sourceText: sent, ifVersion: before[caller] },
+			{ op: "set", name: fid("rs_rpA"), toName: fid("rs_rpB"), ifVersion: before[fid("rs_rpA")] },
+			{ op: "set", name: fid("rs_rpF"), toName: fid("rs_rpG"), ifVersion: before[fid("rs_rpF")] },
+		])
+		const s = await holdsWhatAFetchGives(r)
+		expect(Object.keys(s).sort()).toEqual([caller, fid("rs_rpB"), fid("rs_rpG")].sort())
+		expect(await fetchSource(caller), "the caller does not hold the text sent").toBe(sent)
+		expect(await fetchSource(fid("rs_rpG"))).toBe(calleeBefore.replace(`FUNCTION ${n.fnA} : BOOL`, `FUNCTION ${n.fnB} : BOOL`))
 	})
 
 	it("move-only: answered", async () => {
@@ -231,19 +247,3 @@ describe(`endpoints / push returns sources (${BASE})`, () => {
 		expect(s[bad], "a refused op was answered").toBeUndefined()
 	})
 })
-
-// Measured live (each test's log line), first run on each vendor. A vendor nobody measured has no answer: refused by
-// name, never compared against a guess.
-type ByVendor<T> = Record<string, T>
-/** DIALECT C2o: does a rename-only push rewrite a FUNCTION's own return assignment? */
-const C2O_RETURN_ASSIGNMENT: ByVendor<string> = { codesys: "old", twincat: "new" }
-/** DIALECT C2p: does a native rename rewrite a reference in ANOTHER item — an FB instance's declared type, a FUNCTION call? */
-const C2P_CALLER_REWRITE: ByVendor<{ declaration: string; call: string }> = {
-	codesys: { declaration: "old", call: "old" },
-	twincat: { declaration: "new", call: "new" },
-}
-function measured<T>(byVendor: ByVendor<T>): T {
-	const m = byVendor[VENDOR]
-	if (m === undefined) throw new Error(`no measured value for vendor '${VENDOR}' — measure it live and record it (DIALECT C2o/C2p)`)
-	return m
-}

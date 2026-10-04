@@ -92,3 +92,26 @@ or list the item by name.
 - **WHEN** network text calls a function block whose declaration opens with an unclosed `(*`
 - **THEN** the call is built as an FB instance of the variable's declared type; no callee header is read (the callee
   is a POU by its kind — the push's wire kind, else the IDE's class)
+
+### Requirement: both vendors answer identically behind the wire
+
+The bridge SHALL give the same wire answer (code, message shape, state after) on CODESYS and TwinCAT for the same
+request; a vendor difference SHALL be closed in the driver or the engine below the seam. Only an irreducible vendor fact
+the owner accepted MAY remain, named in DIALECT and pinned in the live matrix: a TwinCAT POU loaded broken from disk
+(no type stored — DIALECT C2i) is named unreadable where CODESYS fetches it, and a task watchdog is refused
+`UNSUPPORTED` on TwinCAT (no published watchdog time — DIALECT C19b). Not built in this change: the internal refactors
+D15, D16, D17, D19, D22, D24, D25, D29 and D30 deferred by the owner, the network-text (LD/FBD) live rows, the TwinCAT interface accessor declaration
+(D21/D41) and recovery from E_FAIL after a solution reopen — each listed for the owner.
+
+#### Scenario: a rename changes exactly the items the push names
+- **WHEN** a push renames an item that other items reference, with no text for those items
+- **THEN** on both vendors only the renamed item's header changes; the item's own references and every caller keep their
+  text and version, and the answer names only the renamed item
+
+#### Scenario: a rename with its callers in one push
+- **WHEN** a push renames an item and sends the callers' new text, in any op order
+- **THEN** each caller holds the text sent, and both vendors leave byte-identical refs and texts
+
+#### Scenario: a POU written broken in the current load
+- **WHEN** a POU whose text gives TwinCAT no type is pushed and then read in the same IDE load
+- **THEN** it is fetched as sent and a create over it answers `ITEM_EXISTS`, on both vendors

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Volt.Contracts;
 using Volt.Engine.Sync;
@@ -14,7 +14,7 @@ namespace Volt.Engine.Tests;
 /// the pushed shape. Route (B), keeping the pushed shape, breaks stable workspace diffs and is not built. Route (A): with
 /// <c>returnSources: true</c> an accepted push answers <c>newSources</c>, full wire name → the stored text exactly as a
 /// fetch returns it, for every item the push changed — each item a landed <c>set</c> left in the project, and each item
-/// whose version it changed though no op names it (the callers a native rename rewrote).</para>
+/// whose version it changed though no op names it (an item the IDE changed beside the ops — no longer a rename's callers, which the push puts back).</para>
 ///
 /// <para>Every expected text here is a FETCH on the same FakeIde, never <c>PushThenFetchShapeTests.Canonical</c> — the
 /// oracle is what a read gives, whatever the writer's form is.</para>
@@ -174,10 +174,11 @@ public class PushReturnsSourcesTests
         Assert.False(push.NewSources.ContainsKey("FB_Old.pou"));
     }
 
-    /// <summary>The TwinCAT rename shape (DIALECT C2o, <c>RewritesOwnReferencesOnRename</c>): beyond the header, the
-    /// item's own code references are rewritten — a FUNCTION's return assignment. The answer holds that text.</summary>
+    /// <summary>The TwinCAT rename shape (DIALECT C2o, <c>RewritesOwnReferencesOnRename</c>) rewrites the item's own code
+    /// references too — a FUNCTION's return assignment — and the push puts them back (a push changes exactly the items it
+    /// names, openspec bridge-refusal-review 8.4): the answer is the CODESYS one, the header only.</summary>
     [Fact]
-    public void A_rename_only_op_under_the_TwinCAT_rename_shape_is_answered_with_the_rewritten_references()
+    public void A_rename_only_op_under_the_TwinCAT_rename_shape_is_answered_with_only_the_header_renamed()
     {
         var ide = new FakeIde(FakeIde.Item.TextualPou("F_Old", "FUNCTION F_Old : BOOL\nVAR\nEND_VAR", "F_Old := TRUE;"))
         {
@@ -188,19 +189,17 @@ public class PushReturnsSourcesTests
         var push = Push(ide, true, new SetItemOp { Name = "F_Old.pou", ToName = "F_New.pou", IfVersion = refs.Items["F_Old.pou"] });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
-        Assert.Contains("F_New := TRUE;", Fetch(ide, "F_New.pou").SourceText);   // premise: the TwinCAT shape rewrote it
+        Assert.Contains("F_Old := TRUE;", Fetch(ide, "F_New.pou").SourceText);
         HoldsWhatAFetchGives(ide, push, "F_New.pou");
         Assert.Contains("FUNCTION F_New", push.NewSources!["F_New.pou"]);
-        Assert.Contains("F_New := TRUE;", push.NewSources["F_New.pou"]);
+        Assert.Contains("F_Old := TRUE;", push.NewSources["F_New.pou"]);
     }
 
-    /// <summary>A NATIVE RENAME REWRITES THE CALL SITES in items no op names on TwinCAT (gate 3 review; DIALECT C2p,
-    /// measured live at gate 4 — CODESYS rewrites none, and live CODESYS answers only the renamed item): those items changed —
-    /// <c>newItems</c> carries their new version — so the answer carries their text too. Without it a client holding the
-    /// caller's pre-rename text adopts its new version as baseline, and its next patch-and-push of that caller passes the
-    /// <c>ifVersion</c> gate and writes the OLD name back over the rename.</summary>
+    /// <summary>A NATIVE RENAME REWRITES THE CALL SITES in items no op names on TwinCAT (DIALECT C2p; CODESYS rewrites
+    /// none), and the push puts them back (openspec bridge-refusal-review 8.4): the caller keeps its version and its text,
+    /// and the answer carries only the renamed item — as on CODESYS.</summary>
     [Fact]
-    public void A_rename_answers_the_callers_it_rewrote()
+    public void A_rename_under_the_TwinCAT_shape_answers_only_the_renamed_item()
     {
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", ";"),
@@ -212,18 +211,18 @@ public class PushReturnsSourcesTests
         var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", ToName = "FB_B.pou", IfVersion = refs.Items["FB_A.pou"] });
 
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
-        Assert.NotEqual(refs.Items["PLC_PRG.pou"], push.NewItems!["PLC_PRG.pou"]);          // premise: the caller changed
-        Assert.Contains("fb : FB_B;", Fetch(ide, "PLC_PRG.pou").SourceText);               // premise: rewritten
+        Assert.Contains("rename:FB_A->FB_B", ide.Recorded);
+        Assert.Equal(refs.Items["PLC_PRG.pou"], push.NewItems!["PLC_PRG.pou"]);
+        Assert.Contains("fb : FB_A;", Fetch(ide, "PLC_PRG.pou").SourceText);
         HoldsWhatAFetchGives(ide, push, "FB_B.pou");
-        HoldsWhatAFetchGives(ide, push, "PLC_PRG.pou");
-        Assert.Equal(new[] { "FB_B.pou", "PLC_PRG.pou" }, push.NewSources!.Keys.OrderBy(k => k, System.StringComparer.Ordinal));
+        Assert.Equal(new[] { "FB_B.pou" }, push.NewSources!.Keys.ToArray());
     }
 
-    /// <summary>The same on a push accepted IN PART: a rename+edit refused after its native rename ran "stays renamed"
-    /// and rewrote the callers. The refused item itself is re-read (it is in <c>conflicts</c>, under <c>renamedTo</c>);
-    /// the callers it rewrote are answered.</summary>
+    /// <summary>The same on a push accepted IN PART: a rename+edit refused after its native rename ran "stays renamed",
+    /// and the callers TwinCAT's rename rewrote are put back. The refused item itself is re-read (it is in
+    /// <c>conflicts</c>, under <c>renamedTo</c>); the callers are not answered — they did not change.</summary>
     [Fact]
-    public void A_refused_rename_that_stays_renamed_answers_the_callers_it_rewrote()
+    public void A_refused_rename_that_stays_renamed_leaves_the_callers_as_they_were()
     {
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", ";"),
@@ -248,9 +247,10 @@ public class PushReturnsSourcesTests
         Assert.True(push.Accepted, push.Conflicts?.FirstOrDefault()?.Reason);
         var c = Assert.Single(push.Conflicts!);
         Assert.Equal("Y.pou", c.RenamedTo);                                                   // premise: stays renamed
-        Assert.Contains("fb : Y;", Fetch(ide, "PLC_PRG.pou").SourceText);                     // premise: caller rewritten
+        Assert.Contains("fb : X;", Fetch(ide, "PLC_PRG.pou").SourceText);
+        Assert.Equal(refs.Items["PLC_PRG.pou"], push.NewItems!["PLC_PRG.pou"]);
         HoldsWhatAFetchGives(ide, push, "ST_Drive.dut");
-        HoldsWhatAFetchGives(ide, push, "PLC_PRG.pou");
+        Assert.False(push.NewSources!.ContainsKey("PLC_PRG.pou"));
         Assert.False(push.NewSources!.ContainsKey("Y.pou"));
         Assert.False(push.NewSources.ContainsKey("X.pou"));
     }

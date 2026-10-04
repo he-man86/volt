@@ -47,8 +47,8 @@ public class PushOp
 /// <summary>Unified declarative item change: the item named <c>Name</c> should end up as
 /// <c>ToName ?? Name</c>, in <c>ToFolder ?? (current folder)</c>, with <c>SourceText ?? (current content)</c>.
 /// Each field absent = that facet unchanged. One op expresses create / update / rename / move and any
-/// combination, applied atomically — a rename uses the IDE's native rename (call sites update where the IDE rewrites
-/// them: TwinCAT does, CODESYS does not — DIALECT C2p); a move
+/// combination, applied atomically — a rename uses the IDE's native rename and changes no item the push does not name
+/// (callers keep their text unless the push sends them — DIALECT C2p); a move
 /// recreates (names are globally unique, so name-based references survive).</summary>
 public class SetItemOp : PushOp
 {

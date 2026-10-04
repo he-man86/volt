@@ -85,7 +85,7 @@ public class WireVocabularyTests
         new("Volt's own broken invariant, or a refusal nobody coded", "report a bug; code the refusal", "INTERNAL_ERROR", At(
             ("Volt.Engine/Item/ItemKind.cs", 1),
             ("Volt.Engine/Sync/FetchService.cs", 1),
-            ("Volt.Engine/Sync/PushService.cs", 6),
+            ("Volt.Engine/Sync/PushService.cs", 7),
             ("Volt.Ide.Codesys/Driver/CodesysDriver.Content.cs", 1),
             ("Volt.Ide.Twincat/Driver/BeckhoffDriver.Content.cs", 2),
             ("Volt.Relay/RelayTunnel.cs", 1),

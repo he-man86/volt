@@ -14,11 +14,12 @@
  *
  * <p>Runs on BOTH vendors, unmodified: measured green live on CODESYS SP21 Patch 4 and on TwinCAT (Project13 copy),
  * 2026-10-04 (gate 3). Both refuse `Vlt__Log` at apply (TwinCAT: `CreateChild` "Name mismatch") after the declaration
- * was written, and the shared engine words the kept part identically. The one vendor difference — what a rename does to
- * the item's own text beyond its header (DIALECT C2o) — is keyed by vendor in the last test.</p>
+ * was written, and the shared engine words the kept part identically. What a rename does to the item's own text was the
+ * one vendor difference (DIALECT C2o); the push now puts back everything but the header, so the last test asserts one
+ * answer on both (openspec bridge-refusal-review 8.4).</p>
  */
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
-import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, fetchItem, FOLDER, BASE, VENDOR } from "../harness"
+import { id, fid, bridge, requireHealthy, pushOps, cleanup, plcFolder, fetchItem, FOLDER, BASE } from "../harness"
 import { fb, MARK } from "../fixtures"
 
 describe(`endpoints / push partially applied (${BASE})`, () => {
@@ -141,10 +142,11 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		expect((await fetchItem(to)).sourceText, "the edit did not land").toContain("x := x + 3;")
 	})
 
-	// WHAT A NATIVE RENAME DOES TO THE ITEM'S OWN TEXT — the vendor fact `FakeIde.Rename` models (gate review of step 3:
-	// the fake rewrote the FIRST whole-word match in the declaration, unmeasured, so a leading comment naming the item was
-	// rewritten in place of the header). A rename-only op (no sourceText): what comes back is the IDE's own rewrite.
-	it("a native rename's rewrite of the item's own text: the header, and what else names it", async () => {
+	// WHAT A RENAME DOES TO THE ITEM'S OWN TEXT: its header, and nothing else — on both vendors. TwinCAT's native rename
+	// also rewrites the item's own code references (DIALECT C2o) and the push puts them back (openspec bridge-refusal-review
+	// 8.4: a push changes exactly what it names). A rename-only op (no sourceText): the text is the pre-push fetch with the
+	// header renamed, byte for byte.
+	it("a rename changes only the item's header, on both vendors", async () => {
 		const fnA = id("pa_selfFnA"), fnB = id("pa_selfFnB")
 		const fbA = id("pa_selfFbA"), fbB = id("pa_selfFbB")
 		const folder = await plcFolder(FOLDER)
@@ -157,6 +159,8 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		expect(created.accepted, `the items to rename were not created: ${JSON.stringify(created.conflicts)}`).toBe(true)
 		const before = (await bridge.refs()).items ?? {}
 
+		const fnBefore = (await fetchItem(fid("pa_selfFnA"))).sourceText as string
+		const fbBefore = (await fetchItem(fid("pa_selfFbA"))).sourceText as string
 		const r = await pushOps([
 			{ op: "set", name: fid("pa_selfFnA"), toName: fid("pa_selfFnB"), ifVersion: before[fid("pa_selfFnA")] },
 			{ op: "set", name: fid("pa_selfFbA"), toName: fid("pa_selfFbB"), ifVersion: before[fid("pa_selfFbA")] },
@@ -166,38 +170,9 @@ describe(`endpoints / push partially applied (${BASE})`, () => {
 		const fbText = (await fetchItem(fid("pa_selfFbB"))).sourceText as string
 		console.log("[push-partially-applied gate 3] renamed FUNCTION:\n" + fn + "\n[renamed FUNCTION_BLOCK]:\n" + fbText)
 
-		expect(fn).toContain(`FUNCTION ${fnB} : BOOL`)
-		expect(fbText).toContain(`FUNCTION_BLOCK ${fbB}`)
-		expect({ fn: SELF_FN(fn, fnA, fnB), fb: SELF_FB(fbText, fbA, fbB) }).toEqual(measuredSelfRewrite())
+		expect(fn).toBe(fnBefore.replace(`FUNCTION ${fnA} : BOOL`, `FUNCTION ${fnB} : BOOL`))
+		expect(fbText).toBe(fbBefore.replace(`FUNCTION_BLOCK ${fbA}\n`, `FUNCTION_BLOCK ${fbB}\n`))
+		expect(fn, "premise: the return assignment names the old name").toContain(`${fnA} := a > 0;`)
 	})
 })
 
-// What each of the item's own mentions reads after the rename: "old" (kept), "new" (rewritten). The header is asserted
-// above; these are the rest.
-const SELF_FN = (t: string, a: string, b: string) => ({
-	leadingComment: t.includes(`// ${b} helper`) ? "new" : t.includes(`// ${a} helper`) ? "old" : "gone",
-	bodyComment: t.includes(`// sets ${b}`) ? "new" : t.includes(`// sets ${a}`) ? "old" : "gone",
-	returnAssignment: t.includes(`${b} := a > 0;`) ? "new" : t.includes(`${a} := a > 0;`) ? "old" : "gone",
-})
-const SELF_FB = (t: string, a: string, b: string) => ({
-	leadingComment: t.includes(`// ${b} helper`) ? "new" : t.includes(`// ${a} helper`) ? "old" : "gone",
-	selfPointer: t.includes(`POINTER TO ${b};`) ? "new" : t.includes(`POINTER TO ${a};`) ? "old" : "gone",
-})
-// Measured live (the test's log line), first run on each vendor, 2026-10-04 (DIALECT C2o): CODESYS SP21 Patch 4
-// rewrites only the header; TwinCAT (Project13 copy) also rewrites the item's own code references. Neither a comment.
-const MEASURED_SELF_REWRITE_BY_VENDOR: Record<string, { fn: ReturnType<typeof SELF_FN>; fb: ReturnType<typeof SELF_FB> }> = {
-	codesys: {
-		fn: { leadingComment: "old", bodyComment: "old", returnAssignment: "old" },
-		fb: { leadingComment: "old", selfPointer: "old" },
-	},
-	twincat: {
-		fn: { leadingComment: "old", bodyComment: "old", returnAssignment: "new" },
-		fb: { leadingComment: "old", selfPointer: "new" },
-	},
-}
-// A vendor nobody measured has no answer: refused by name, never compared against a guess.
-function measuredSelfRewrite() {
-	const m = MEASURED_SELF_REWRITE_BY_VENDOR[VENDOR]
-	if (!m) throw new Error(`no measured self-rewrite for vendor ${VENDOR}`)
-	return m
-}

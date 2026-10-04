@@ -655,9 +655,8 @@ public static class Commands
 
         // THE BASELINE GROWS ONLY BY WHAT THIS CLIENT PUSHED.
         //
-        // The receipt is a fresh FULL snapshot of the project — it has to be, because a native rename can rewrite
-        // the bodies of items that are not in the op set (TwinCAT does, CODESYS does not — DIALECT C2p), and those items' new versions must be in the baseline
-        // or the next push reports a phantom conflict. But adopting it WHOLESALE claims a version for every item
+        // The receipt is a fresh FULL snapshot of the project — it has to be, because the IDE can change items that
+        // are not in the op set while the push runs (an engineer's edit; a rename's callers are put back, DIALECT C2p). But adopting it WHOLESALE claims a version for every item
         // in the IDE, including ones this workspace has never seen and has no file for.
         //
         // That is not hypothetical: `push --force` deliberately sends NO lease (see `expectedProjectVersion`
@@ -671,7 +670,7 @@ public static class Commands
         // this is a no-op, because a matching lease is precisely the proof that the baseline covered the project.
         //
         // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name (an
-        // item a landed rename rewrote outside the op set is pinned below, as on a full push), while a refused item keeps
+        // item the IDE changed outside the op set is pinned below, as on a full push), while a refused item keeps
         // its old entry. One that PARTLY
         // landed (an update whose declaration the IDE kept, a create whose removal failed) keeps it ON PURPOSE: the next
         // push is then refused for it and `volt pull` brings the IDE's state in first, instead of a push overwriting
@@ -690,10 +689,11 @@ public static class Commands
         var adopted = resp.NewItems!.Where(kv => (known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
                                                  && !conflictedNames.Contains(kv.Key))
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
-        // …EXCEPT AN ITEM THE IDE CHANGED THAT THIS PUSH DID NOT SEND: the callers a native rename rewrote (both vendors,
-        // DIALECT C2p). Its new version over the workspace's OLD text hid the rewrite — the next pull saw nothing, and the
-        // next push of that file passed its gate and wrote the old name back over the rename (openspec
-        // bridge-refusal-review 8.4). It keeps its old version: it is incoming, and `volt pull` brings the IDE's text in.
+        // …EXCEPT AN ITEM THE IDE CHANGED THAT THIS PUSH DID NOT SEND — an edit in the IDE while the push ran. (A rename's
+        // callers no longer reach here: the bridge puts back what a rename touched beyond the items the push names, DIALECT
+        // C2p.) Its new version over the workspace's OLD text would hide the change — the next pull would see nothing, and
+        // the next push of that file would pass its gate and write the old text back (openspec bridge-refusal-review 8.4).
+        // It keeps its old version: it is incoming, and `volt pull` brings the IDE's text in.
         var changedByIde = adopted.Keys.Where(k => !pushed.Contains(k) && known.TryGetValue(k, out var was) && was != adopted[k])
                                   .OrderBy(k => k, StringComparer.Ordinal).ToList();
         foreach (var name in changedByIde) adopted[name] = known[name];
@@ -838,7 +838,7 @@ public static class Commands
         });
         var notes = new List<string>();
         if (changedByIde.Count > 0)
-            notes.Add("the IDE also changed " + string.Join(", ", changedByIde) + " (references to a renamed item); `volt pull` brings them in");
+            notes.Add("the IDE also changed " + string.Join(", ", changedByIde) + " while the push ran; `volt pull` brings them in");
         if (heldUnder.Count > 0)
             notes.Add("the IDE holds " + string.Join(", ", heldUnder.Select(h => $"{h.Name} as {h.HeldAs}")) +
                       " — the kind its text declares; `volt pull` moves the file to that name");
