@@ -1328,6 +1328,13 @@ listed in 8.1's table as "deferred: LD/FBD design", not tested and not counted a
       (`push-return-sources`, `push-partially-applied`). Alternatives NOT yet measured: a TwinCAT rename that does not
       refactor (an archive export/import under the new name — loses identity), CODESYS Refactoring → Rename (no scripting
       surface known). **Open — listed for the owner.**
+      **Owner decisions (2026-10-04):** (1) C2i: YES — read the broken POU in-session via the tree item (path 2, keyed to
+      the PLC node's acquisition) so TwinCAT answers like CODESYS while the writing session is open; measure that a
+      project reload-from-disk drops that node too; after a reload the difference is ACCEPTED as irreducible (no type
+      stored), named in DIALECT C2i and pinned in the matrix. (2) Watchdog: ACCEPTED as an irreducible vendor capability
+      (TwinCAT answers UNSUPPORTED by name; DIALECT C19b, matrix row). (3) Native rename: REPORT, DON'T UNIFY — each vendor
+      keeps its rename, but the push receipt (and `newSources` when asked) lists EVERY item the rename changed, callers
+      included, on both vendors, so a client sees and pulls them the same way; a matrix row asserts it.
       (4) **D21 / D41 interface accessor declaration**: CODESYS writes it, TwinCAT refuses (the write crashed XAE,
       measured twice). Alternative NOT yet measured: the interface's archive round trip (`TcItemArchive`). **Open — listed.**
       (5) Graphical rows (N24 language change, `refused-shapes`, `fanout`, `callee-seed-lag`, `view-change`,
