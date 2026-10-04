@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -58,7 +58,26 @@ public class TcUntouchablePouTests
         }
         public Node? Owner;
         public readonly List<Node> Kids;
-        public bool Poisoned { get; }
+        /// <summary>Loaded broken: a touch kills XAE. Settable, so a test can model XAE loading the project again.</summary>
+        public bool Poisoned { get; set; }
+        /// <summary>The IDE does not read this POU's text as a POU (its caption is bare) — set by a text write whose
+        /// opening comment never closes. Touching it kills XAE only once it is <see cref="Poisoned"/> (loaded so).</summary>
+        public bool Unparsed;
+        private string _declaration = "";
+        public string DeclarationText
+        {
+            get { _xae.Alive(); return _declaration; }
+            set { _xae.Alive(); _declaration = value; Unparsed = value.TrimStart().StartsWith("(*") && !value.Contains("*)"); }
+        }
+        public string ImplementationText { get; set; } = "";
+        /// <summary>A POU created in this session: a new tree item, appended, as TwinCAT does.</summary>
+        public Node CreateChild(string name, int kind, string before, object? vInfo)
+        {
+            _xae.Alive();
+            var kid = new Node(_xae, name, kind) { Owner = this };
+            Kids.Add(kid);
+            return kid;
+        }
         public string Name { get { _xae.Alive(); return _name; } private init => _name = value; }
         private readonly string _name = "";
         public int ItemType { get { _xae.Alive(); return _type; } }
@@ -109,7 +128,7 @@ public class TcUntouchablePouTests
             if (k.Poisoned) { _xae.Dead = true; _xae.Alive(); }
             return k;
         }
-        public string Caption => Poisoned ? _name : _type switch
+        public string Caption => Poisoned || Unparsed ? _name : _type switch
         {
             ItemKind.PlcPouProg => _name + " (PRG)", ItemKind.PlcPou => _name + " (FB)", ItemKind.PlcPouFunc => _name + " (FUN)",
             _ => _name,
@@ -146,8 +165,21 @@ public class TcUntouchablePouTests
         {
             "TIPC" => _tipc,
             "TIID" => new Empty(),
-            _ => throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001)),
+            _ => Resolve(path) ?? throw new COMException($"Item '{path}' not found", unchecked((int)0x98510001)),
         };
+
+        /// <summary>A PLC tree path, as XAE resolves one: a POU LOADED broken is not in its path index — "not found",
+        /// and no harm (measured live 2026-10-04, DIALECT C2i) — while every other node, one written broken in this load
+        /// included, is found.</summary>
+        private Node? Resolve(string path)
+        {
+            const string root = "TIPC^Untitled2^Untitled2 Project^";
+            if (!path.StartsWith(root, StringComparison.Ordinal)) return null;
+            Node? node = _tipc.Child[1].NestedProject;
+            foreach (var name in path.Substring(root.Length).Split('^'))
+                node = node?.Kids.FirstOrDefault(k => string.Equals(k.Caption.Split(' ')[0], name, StringComparison.OrdinalIgnoreCase));
+            return node is { Poisoned: false } ? node : null;
+        }
     }
 
     internal static (BeckhoffDriver Driver, TcObjectModel Model, Xae Xae, Node Root) Project(
@@ -605,6 +637,53 @@ public class TcUntouchablePouTests
         Assert.False(xae.Dead);
         Assert.Empty(after.UnreadableObjects);
         Assert.Contains("VltX_UCFB", after.Items.Select(i => i.Name));
+    }
+
+    private const string BrokenFb = "(* Motor\n *\nFUNCTION_BLOCK VltX_W\nVAR\n\tn : INT;\nEND_VAR";
+
+    /// <summary>A POU WRITTEN BROKEN IN THIS LOAD IS READ AS CODESYS READS IT (openspec bridge-refusal-review 8.4,
+    /// owner decision C2i). Its caption is bare — the IDE does not read the text as a POU — but it is a tree item of
+    /// this load, which XAE survives a touch of and the system manager resolves by path (measured live: ItemType 604,
+    /// XAE alive). So the walk lists it as an item, a lookup finds it (a create over it then answers ITEM_EXISTS), and
+    /// nothing dies.</summary>
+    [Fact]
+    public void A_POU_written_broken_in_this_load_is_read_like_any_POU()
+    {
+        var (driver, model, xae, root) = Project(Census);
+        var created = (Node)model.CreateChild(root, "VltX_W", ItemKind.PlcPou);
+        model.WriteText(created, BrokenFb, "n := n + 1;");
+        Assert.Equal("VltX_W", created.Caption);   // premise: the IDE does not read it as a POU
+        model.ForgetExplorer();                    // a new operation
+
+        var walk = driver.WalkItems();
+
+        Assert.False(xae.Dead);
+        Assert.Contains("VltX_W", walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { "VltX_UCFB" }, walk.UnreadableObjects.Select(u => u.Name));   // the one loaded broken stays
+        var (found, untouchable) = ItemLookup.Locate(driver, "VltX_W");
+        Assert.Null(untouchable);
+        Assert.Same(created, found!.Value.Native);
+    }
+
+    /// <summary>…AND ONLY IN THIS LOAD. XAE loading the project again — a solution close + reopen, and a project
+    /// reload-from-disk, which leaves the worker's PLC node WORKING (measured) — loads the POU broken: touching it then
+    /// kills XAE. The system manager's path lookup no longer resolves it (measured: "not found", XAE alive), so it is
+    /// named <c>unreadable</c> again — the accepted irreducible state (owner, 2026-10-04) — with the node never
+    /// re-acquired, and nothing touched.</summary>
+    [Fact]
+    public void A_POU_written_broken_is_unreadable_once_XAE_has_loaded_it_again()
+    {
+        var (driver, model, xae, root) = Project(Census);
+        var created = (Node)model.CreateChild(root, "VltX_W", ItemKind.PlcPou);
+        model.WriteText(created, BrokenFb, "n := n + 1;");
+
+        created.Poisoned = true;   // XAE loaded the project again (from disk): the item is loaded broken now
+        model.ForgetExplorer();
+        var walk = driver.WalkItems();
+
+        Assert.False(xae.Dead);
+        Assert.DoesNotContain("VltX_W", walk.Items.Select(i => i.Name));
+        Assert.Equal(new[] { "VltX_UCFB", "VltX_W" }, walk.UnreadableObjects.Select(u => u.Name).OrderBy(n => n, StringComparer.Ordinal));
     }
 
     [Fact]

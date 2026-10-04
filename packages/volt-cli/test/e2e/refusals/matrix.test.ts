@@ -22,6 +22,7 @@
 import { describe, it, expect, beforeAll, afterAll, setDefaultTimeout } from "bun:test"
 import { livePipesFor } from "../lib/pipe"
 import {
+	IN_SESSION,
 	ROWS,
 	REF_PREFIX,
 	bindBridge,
@@ -136,6 +137,11 @@ for (const vendor of VENDORS) {
 }
 
 describe.skipIf(VENDORS.length < 2)("refusals — CODESYS and TwinCAT answer byte-identically (8.1 d, 8.4)", () => {
+	it("UNREADABLE's POU, in the load that wrote it: the same version and the same ITEM_EXISTS on both vendors", () => {
+		expect(IN_SESSION.get("twincat"), "the TwinCAT UNREADABLE setup did not run").toBeDefined()
+		expect(IN_SESSION.get("twincat")).toEqual(IN_SESSION.get("codesys"))
+	})
+
 	for (const row of live) {
 		it(`${row.code}: the same answer on both vendors`, () => {
 			const seen = answers.get(row.code) ?? {}

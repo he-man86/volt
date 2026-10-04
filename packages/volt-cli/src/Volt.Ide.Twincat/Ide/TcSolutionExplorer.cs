@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -81,18 +81,24 @@ internal sealed class ExplorerSnapshot
     /// <summary>The snapshot of the PLC project whose hierarchy node is <paramref name="plcProject"/>.</summary>
     /// <param name="stillUntouchable">POU paths flagged earlier in this session and not since replaced by Volt: they stay
     /// flagged whatever their caption says now (<c>TcObjectModel.Explorer</c> says why).</param>
-    public static ExplorerSnapshot From(ExplorerNode plcProject, IReadOnlyCollection<string>? stillUntouchable = null)
+    /// <param name="inThisLoad">Asked only of a bare-captioned POU (by its path below the PLC project): is it a tree item
+    /// of THIS load, which XAE survives a touch of? Answered by the system manager's path lookup
+    /// (<c>TcObjectModel.Explorer</c>); without it every bare-captioned POU is untouchable.</param>
+    public static ExplorerSnapshot From(ExplorerNode plcProject, IReadOnlyCollection<string>? stillUntouchable = null,
+                                        Func<string, bool>? inThisLoad = null)
     {
         var guarded = new Dictionary<string, Guarded>(StringComparer.Ordinal);
         var listed = new Dictionary<string, int>(StringComparer.Ordinal);
         var pous = new HashSet<string>(StringComparer.Ordinal);
         Collect(plcProject, "", guarded, listed, pous,
-                new HashSet<string>(stillUntouchable ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase));
+                new HashSet<string>(stillUntouchable ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase),
+                inThisLoad ?? (_ => false));
         return new ExplorerSnapshot(guarded, listed, pous);
     }
 
     private static void Collect(ExplorerNode node, string path, Dictionary<string, Guarded> guarded,
-                                Dictionary<string, int> listed, HashSet<string> pous, HashSet<string> still)
+                                Dictionary<string, int> listed, HashSet<string> pous, HashSet<string> still,
+                                Func<string, bool> inThisLoad)
     {
         // A NODE THAT WAS NOT FULLY READ CANNOT BE VOUCHED FOR: a caption read as "" would pass a broken POU for a
         // parsed one, and a child list cut short would hide one. Refused, named — never read as "nothing to avoid".
@@ -105,19 +111,19 @@ internal sealed class ExplorerSnapshot
         foreach (var child in node.Children)
         {
             var childPath = path.Length == 0 ? child.Name : path + "^" + child.Name;
-            if (child.Unread is not null) Collect(child, childPath, guarded, listed, pous, still);   // refuses it, named
+            if (child.Unread is not null) Collect(child, childPath, guarded, listed, pous, still, inThisLoad);   // refuses it, named
             // Whether it is a POU at all is read from its canonical name: unread, it cannot be classified.
             if (child.Canonical is null)
                 throw new BridgeException(ConflictCodes.ItemUnverified,
                     $"the Solution Explorer did not read the canonical name of '{childPath}'; Volt cannot tell whether it is " +
                     "a POU that crashes TcXaeShell, so it does not walk the TwinCAT tree (DIALECT C2i)");
-            if (IsUnparsedPou(child) || (IsPou(child) && still.Contains(childPath)))
+            if ((IsPou(child) && still.Contains(childPath)) || (IsUnparsedPou(child) && !inThisLoad(childPath)))
             { untouchable.Add(child.Name); pous.Add(childPath); continue; }
             // A POU's own children are its members, which the tree reaches only through the POU itself.
             if (IsPou(child)) pous.Add(childPath);
             // A DUT and a folder may share a name (DIALECT D34), so two nodes have one path. A childless one (the DUT,
             // a GVL) states nothing a folder's count needs and must not overwrite it: it hid the folder's POUs (5Qa e2e).
-            else if (child.Children.Count > 0 || !listed.ContainsKey(childPath)) Collect(child, childPath, guarded, listed, pous, still);
+            else if (child.Children.Count > 0 || !listed.ContainsKey(childPath)) Collect(child, childPath, guarded, listed, pous, still, inThisLoad);
         }
         if (untouchable.Count > 0)
             guarded[path] = new Guarded(node.Children.Select(c => c.Name).ToList(), untouchable);

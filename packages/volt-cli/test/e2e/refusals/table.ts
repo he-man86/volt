@@ -21,6 +21,11 @@
  */
 import { callOn } from "../lib/pipe"
 import { fb, MARK } from "../fixtures"
+import { reopenTwinCatSolution } from "../lib/tc-reopen"
+
+/** The UNREADABLE row's in-session state per vendor (its setup): the POU's version and the normalized answer to a
+ *  create over it — compared across vendors by the parity half (8.4: in the load that wrote it, identical). */
+export const IN_SESSION = new Map<string, { version: string; answer: unknown }>()
 
 export const DEFERRED_LD_FBD = "deferred: LD/FBD design"
 
@@ -290,26 +295,36 @@ export const ROWS: Row[] = [
 	{
 		code: "UNREADABLE",
 		live: true,
-		trigger: "a create over a POU the IDE holds and Volt cannot read (a text whose opening comment never closes)",
+		trigger:
+			"a create over a POU whose text the IDE does not parse (an opening comment that never closes), after XAE has " +
+			"loaded it again (solution close + reopen) — in the load that wrote it both vendors read it (setup asserts it)",
 		after: "unchanged",
 		divergence: {
 			vendor: "codesys",
 			answers: "ITEM_EXISTS",
 			why:
-				"CODESYS reads such a POU by its class and fetches it back as written, so the create collides with an item it " +
-				"lists; TwinCAT stores no POU type (neither the .TcPOU nor the .plcproj — measured 2026-10-04, " +
-				"scripts/tc-broken-pou.log), derives it from the text at load, and touching the tree item of one it could " +
-				"not type crashes XAE (DIALECT C2i), so the snapshot names it `unreadable`. Measured alternatives: (1) the " +
-				".TcPOU file (holds the text, no type), (2) the tree item in the session that wrote it (reads, ItemType 604 — " +
-				"safe only until a reload, and a project reload-from-disk is not measured to invalidate the worker's handle), " +
-				"(3) the DTE project model (no ProjectItems on TcXaeShell). Listed for the owner: DIALECT C2i, 8.4",
+				"ACCEPTED irreducible (owner, 2026-10-04; DIALECT C2i). In the load that wrote it TwinCAT reads such a POU as " +
+				"CODESYS does (setup: listed, fetched byte-identical, a create over it ITEM_EXISTS on both). Once XAE loads it " +
+				"again it has no POU type (none is stored — .TcPOU and .plcproj measured), touching its tree item kills XAE, " +
+				"and the system manager no longer resolves it by path: TwinCAT names it `unreadable`, CODESYS still reads it " +
+				"by its class",
 		},
 		setup: async (b, n) => {
-			await createFb(
-				b,
-				n("unread"),
-				`(* Motor\n *\nFUNCTION_BLOCK ${n("unread")}\nVAR\n\tn : INT;\nEND_VAR\n${MARK}\nn := n + 1;\nEND_FUNCTION_BLOCK\n`,
-			)
+			const bare = n("unread")
+			const text = `(* Motor\n *\nFUNCTION_BLOCK ${bare}\nVAR\n\tn : INT;\nEND_VAR\n${MARK}\nn := n + 1;\nEND_FUNCTION_BLOCK\n`
+			await createFb(b, bare, text)
+			// In the load that wrote it: read like any POU, and a create over it collides — the same on both vendors.
+			const refs = await refsOf(b)
+			if (!refs.items?.[`${bare}.pou`] || (refs.unreadable ?? []).includes(bare))
+				throw new Error(`${b.vendor}: '${bare}.pou' is not read in the load that wrote it: ${JSON.stringify(refs.unreadable)}`)
+			const over = await pushFresh(b, [{ op: "set", name: `${bare}.pou`, toFolder: "", sourceText: fb(bare), ifVersion: null }])
+			IN_SESSION.set(b.vendor, { version: refs.items[`${bare}.pou`], answer: normalize(over, b) })
+			if (conflictOf(over, `${bare}.pou`)?.code !== "ITEM_EXISTS")
+				throw new Error(`${b.vendor}: a create over '${bare}.pou' in the load that wrote it: ${JSON.stringify(over).slice(0, 400)}`)
+			if (b.vendor === "twincat") {
+				reopenTwinCatSolution(b.pipe, process.env.VOLT_E2E_INSTANCE ?? "")
+				await b.call("connect", { project: b.project })
+			}
 		},
 		run: async (b, n) => {
 			const name = `${n("unread")}.pou`

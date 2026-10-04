@@ -138,10 +138,12 @@ describe(`items / a task is writable (${BASE})`, () => {
 	})
 
 	/**
-	 * The ONE place the vendors legitimately part, asserted rather than skipped. CODESYS schedules a watchdog;
-	 * TwinCAT has no per-task watchdog with a time and a sensitivity, so it REFUSES the push instead of dropping
-	 * the line — a file that keeps saying `Watchdog: 50 ms (sensitivity 1)` over a task with no watchdog is the
-	 * silent divergence this whole capability was held back to avoid.
+	 * The ONE place the vendors legitimately part, asserted rather than skipped — an ACCEPTED irreducible vendor
+	 * capability (owner, 2026-10-04; openspec bridge-refusal-review 8.4, DIALECT C19b). CODESYS schedules a watchdog;
+	 * TwinCAT has no per-task watchdog with a time and a sensitivity (re-measured 2026-10-04: `TIRT^PlcTask` holds
+	 * `ExceedWarning`, a count of tolerated overruns, and `WatchdogStackCapacity`, neither a time), so it REFUSES the
+	 * push `UNSUPPORTED`, naming the watchdog, instead of dropping the line — a file that keeps saying
+	 * `Watchdog: 50 ms (sensitivity 1)` over a task with no watchdog is the silent divergence this capability avoids.
 	 */
 	it("a watchdog is scheduled on CODESYS and REFUSED on TwinCAT — never silently dropped", async () => {
 		const name = await anyTask()
@@ -153,6 +155,7 @@ describe(`items / a task is writable (${BASE})`, () => {
 			const r = await pushOps([{ op: "set", name, toFolder: null, sourceText: edited, ifVersion: await versionOf(name) }])
 			if (VENDOR === "twincat") {
 				expect(r.accepted, "TwinCAT accepted a watchdog it cannot schedule").toBe(false)
+				expect(r.conflicts?.[0]?.code, JSON.stringify(r.conflicts)).toBe("UNSUPPORTED")
 				expect(JSON.stringify(r.conflicts).toLowerCase()).toContain("watchdog")
 				// …and the refusal changed NOTHING. A rejected push that half-applied would be worse than one
 				// that silently dropped the field.

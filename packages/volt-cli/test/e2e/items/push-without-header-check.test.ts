@@ -20,7 +20,7 @@
  * an empty or prose DUT is fetched back as sent (re-recorded live on both vendors 2026-10-03, 5.F.1).</p>
  */
 import { describe, it, expect, beforeAll, afterEach, afterAll, setDefaultTimeout } from "bun:test"
-import { BASE, VENDOR } from "../lib/pipe"
+import { BASE } from "../lib/pipe"
 import { bridge } from "../lib/bridge"
 import { id, requireHealthy, pushOps, plcFolder, mainProgram, fetchItem, PREFIX } from "../lib/workspace"
 import { withMainProgramRestored } from "../lib/compile"
@@ -125,10 +125,9 @@ describe(`items / push without header check (${BASE})`, () => {
 		{ key: "uc_gvl", ext: "gvl", text: (b) => `(* Globals\n *\nVAR_GLOBAL\n\t${b}_g : INT;\nEND_VAR`, ref: (b) => ({ decl: "v : INT;", body: `v := ${b}_g;` }),
 		  errors: (b, m) => [`${m}: Cannot convert type 'Unknown type: '${b}_g'' to type 'INT'`, `${m}: Identifier '${b}_g' not defined`], held: "fetched" },
 		{ key: "uc_fb", ext: "pou", text: (b) => `(* Motor\n *\nFUNCTION_BLOCK ${b}\nVAR\n\tn : INT;\nEND_VAR\nIMPLEMENTATION ST\nn := n + 1;\nEND_FUNCTION_BLOCK\n`, ref: (b) => ({ decl: `v : ${b};`, body: "v();" }),
-		  // TwinCAT does not parse this text as a POU, so its Solution Explorer caption carries no (FB) and the C2i guard
-		  // (5.H) never opens it: listed unreadable as `X.pou`, IN the session that wrote it too (measured 2026-10-02,
-		  // 5Qa review). CODESYS reads its class and fetches the text back.
-		  errors: (b, m) => [`${m}: Unknown type: '${b}'`, `${m}: Program name, function or function block instance expected instead of 'v'`], held: VENDOR === "twincat" ? "unreadable" : "fetched" },
+		  // TwinCAT does not parse this text as a POU, but written in this load it is read like any POU (DIALECT C2i,
+		  // bridge-refusal-review 8.4): fetched back as written on both vendors.
+		  errors: (b, m) => [`${m}: Unknown type: '${b}'`, `${m}: Program name, function or function block instance expected instead of 'v'`], held: "fetched" },
 	]
 	for (const s of unclosed) {
 		it(`${s.ext} whose opening comment never closes: pushed as written, and the build reports it`, async () => {

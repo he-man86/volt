@@ -12,10 +12,10 @@
  * enum, PROGRAM → FUNCTION_BLOCK) → `volt push` → `volt pull`, asserting the file names after every pull and the
  * text the IDE holds after every push. The fixed texts then BUILD when referenced from the main program.</p>
  *
- * <p><b>TwinCAT, a POU whose text it does not parse</b> (DIALECT C2i, 5.H): its Solution Explorer caption carries no
- * `(PRG)`/`(FB)`, so the walk never opens it — `refs` lists it under `unreadable`, the pull keeps its file, and a
- * plain push of the fixed text is refused `UNREADABLE` until `--force` (repaired through its parent by name). CODESYS
- * reads its class and fetches the text back. The CODESYS text-list enum is not here: a push creates a plain DUT, and a
+ * <p><b>A POU whose text TwinCAT does not parse</b> (DIALECT C2i): written in this load, it is read like any POU on
+ * both vendors (bridge-refusal-review 8.4: TwinCAT's system manager still resolves it by path), so the cycle runs the
+ * same on both. Only after XAE loads the project again is it `unreadable` on TwinCAT (the refusal matrix's UNREADABLE
+ * row pins that state). The CODESYS text-list enum is not here: a push creates a plain DUT, and a
  * text-list enum is a class only the IDE can create (`CodesysTextListEnumTests`, 5.P.1).</p>
  *
  * Local-only (a live bridge and a built volt.exe), like the rest of test/e2e.
@@ -44,15 +44,12 @@ if (CLI) setBundledCli(CLI)
 
 const KEY = "cyc_"
 const M = "IMPLEMENTATION ST"
-const TC = VENDOR === "twincat"
 
 interface Shape {
 	key: string
 	ext: "dut" | "pou" | "itf" | "gvl"
 	broken: (b: string) => string
 	fixed: (b: string) => string
-	/** How the IDE holds the BROKEN text: `unreadable` only for a POU TwinCAT does not parse (C2i). */
-	brokenHeld?: "unreadable"
 }
 
 const unclosed = (t: string) => `(* note that never closes\n *\n${t}`
@@ -78,8 +75,8 @@ const shapes: Shape[] = [
 	{ key: "al_ref", ext: "dut", broken: () => "this is not structured text at all", fixed: alias("REFERENCE TO INT") },
 	{ key: "al_sub", ext: "dut", broken: (b) => unclosed(alias("INT(0..100)")(b)), fixed: alias("INT(0..100)") },
 	// The struct shape is rewritten as an enum in place in the third push (`change` below).
-	{ key: "prg", ext: "pou", broken: (b) => unclosed(prg(b)), fixed: prg, brokenHeld: TC ? "unreadable" : undefined },
-	{ key: "fb", ext: "pou", broken: (b) => unclosed(fbOf(b)), fixed: fbOf, brokenHeld: TC ? "unreadable" : undefined },
+	{ key: "prg", ext: "pou", broken: (b) => unclosed(prg(b)), fixed: prg },
+	{ key: "fb", ext: "pou", broken: (b) => unclosed(fbOf(b)), fixed: fbOf },
 	{ key: "fun", ext: "pou", broken: (b) => `FUNCTION ${b} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n${M}\n${b} := a +;\nEND_FUNCTION\n`,
 	  fixed: (b) => `FUNCTION ${b} : INT\nVAR_INPUT\n\ta : INT;\nEND_VAR\n${M}\n${b} := a + 1;\nEND_FUNCTION\n` },
 	{ key: "itf", ext: "itf", broken: (b) => unclosed(`INTERFACE ${b}\nEND_INTERFACE\n`),
@@ -170,24 +167,16 @@ describe.skipIf(CLI === undefined)(`items / kind names through a broken → fixe
 		try { await sweep() } finally { if (parent && existsSync(parent)) rmSync(parent, { recursive: true, force: true }) }
 	})
 
-	const brokenUnreadable = () => shapes.filter((s) => s.brokenHeld === "unreadable").map((s) => S(s.key))
-
 	it("1. every broken text pushes as sent, and the pull names every DUT .dut and every POU .pou", async () => {
 		write((s) => s.broken(S(s.key)))
 		const r = await push(root)
 		expect(r.kind, `push: ${JSON.stringify(r)}`).toBe("ok")
-		await expectPulled((s) => s.broken(S(s.key)), brokenUnreadable())
+		await expectPulled((s) => s.broken(S(s.key)), [])
 	})
 
-	it("2. the fixed texts push (a TwinCAT POU it could not parse needs --force) and keep every name", async () => {
+	it("2. the fixed texts push and keep every name", async () => {
 		write((s) => s.fixed(S(s.key)))
-		if (TC) {
-			// Unforced, the push is refused in its pre-flight naming the unparsed POUs; nothing of the batch lands.
-			const plain = await push(root)
-			expect(plain.kind).toBe("rejected")
-			for (const n of brokenUnreadable()) expect(JSON.stringify(plain)).toContain(n)
-		}
-		const r = await push(root, { force: TC })
+		const r = await push(root)
 		expect(r.kind, `push: ${JSON.stringify(r)}`).toBe("ok")
 		await expectPulled((s) => s.fixed(S(s.key)), [])
 	})

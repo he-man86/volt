@@ -301,8 +301,15 @@ internal sealed partial class TcObjectModel
                 $"the Solution Explorer hierarchy has no node for the PLC project '{plcProject}'; Volt does not walk " +
                 "the TwinCAT tree without it (DIALECT C2i)");
         var key = plcProject + "|";
-        var snapshot = ExplorerSnapshot.From(node, _flaggedThisSession.Where(k => k.StartsWith(key, StringComparison.OrdinalIgnoreCase))
-                                                                      .Select(k => k.Substring(key.Length)).ToList());
+        // A bare-captioned POU the system manager still RESOLVES BY PATH is a tree item of this load — created or
+        // rewritten since XAE loaded the project — and reads like any other, as CODESYS reads it. One loaded broken is
+        // not in the path index: LookupTreeItem answers "not found" (0x98510001) without harm, where Child/LookupChild on
+        // it kills XAE. Measured live 2026-10-04 (openspec bridge-refusal-review 8.4, DIALECT C2i): in session found
+        // (ItemType 604); after a solution close + reopen, and after a project reload-from-disk, not found, XAE alive.
+        var rootPath = _plcRootPath ??= PathOf(PlcRoot());
+        var snapshot = ExplorerSnapshot.From(node,
+            _flaggedThisSession.Where(k => k.StartsWith(key, StringComparison.OrdinalIgnoreCase)).Select(k => k.Substring(key.Length)).ToList(),
+            inThisLoad: rel => LookupPath(rootPath + "^" + rel) is not null);
         var rootCount = RawChildCount(PlcRoot());
         if (snapshot.ListedChildren("") != rootCount)
             throw new BridgeException(ConflictCodes.ItemUnverified,
