@@ -25,5 +25,5 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Repeat 1.1 and 1.2 live: one compile per overlapping request set, the push refused, `health` answering.
-- [ ] 4.2 Full C# suites and `bun run check` green.
+- [x] 4.1 (2026-10-04, same probe on the gated bridge: B1 22.3 s and answered; B2, B3 refused IDE_BUSY in < 10 ms; the fetch answered; health answered throughout; the push 3 s into a build refused IDE_BUSY and its item never landed; one compile per set. Live matrix row IDE_BUSY green on CODESYS. TwinCAT not run live: another workflow's TwinCAT worker locks the Release binaries; the gate is shared Core and its row runs in the next matrix run.) Repeat 1.1 and 1.2 live: one compile per overlapping request set, the push refused, `health` answering.
+- [x] 4.2 (2026-10-04: Cli 262, Engine 2282 (+1 skip), Connector 115, Twincat 447, Codesys 305, Contracts 39, Repo.Gates 136, volt-cli test/unit 24 — all green; typecheck, lint, `bun run check` 18/18 green.) Full C# suites and `bun run check` green.
