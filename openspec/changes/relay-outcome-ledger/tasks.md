@@ -26,7 +26,12 @@
 
 ## 3. Verify
 
-- [ ] 3.1 Live on CODESYS: start a push, drop the relay connection mid-push (restart a local relay while the
+- [x] 3.1 (2026-10-04, CODESYS SP21 fixture instance relay-outcome-ledger + the real tunnel (ClientWebSocket) against a
+      local Bun relay restarted 30 ms after it sent push r5: `ended after 0s — dropped without a close … | in flight: r5`,
+      then `-> push (r5) abandoned ok accepted newProjectVersion=f12a8396551469ea 257ms delivered=no`; the redialled
+      connection carried only `hello`, no frame for r5) Live on CODESYS: start a push, drop the relay connection mid-push (restart a local relay while the
       push runs); the bridge log has the push's outcome on one line with its id, and the redialled connection
       carries nothing for it. (Changed from "reports the outcome": no report frame is built.)
-- [ ] 3.2 Full C# suites and `bun run check` green.
+- [x] 3.2 (2026-10-04: Relay 59, Contracts 39, Connector 115, Codesys 305, Repo.Gates 136, Cli 262, Engine 2283+1 skipped;
+      TwinCAT 447 green on a clean worktree of HEAD (another session's uncommitted TcObjectModel edits are in the shared
+      tree); `bun run check` 18/0; typecheck green) Full C# suites and `bun run check` green.
