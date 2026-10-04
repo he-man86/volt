@@ -161,7 +161,7 @@ guard that throws** — real projects legitimately repeat these names, and throw
   there is no document to splice, no import to re-place items after, and no regeneration carrying unmodelled
   elements through. What survives from that era is the AXIS, which the deletion did not change: folder
   membership, rename and move are still not properties of an item's content, so they stay on `IProjectTree`
-  (`TreeNav`), where the IDE rewrites call-sites on a rename. A task is the sharp case — it is placed by KIND
+  (`TreeNav`), where a rename is the IDE's own (TwinCAT rewrites the call sites, CODESYS does not — DIALECT C2p). A task is the sharp case — it is placed by KIND
   rather than by folder name, because the vendor names its container in the installation's LANGUAGE
   (`TreeNav.ResolveTaskParent`, DIALECT C22).
 - **A DECLARATION is handed to the vendor VERBATIM — nothing re-emits one from parsed fields.** The path is

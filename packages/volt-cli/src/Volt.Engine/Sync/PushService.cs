@@ -316,14 +316,14 @@ public static class PushService
         catch (Exception ex) { VoltLog.Warn($"push: could not prune an emptied folder: {ex.Message}"); }
 
         // The receipt is a FRESH FULL snapshot — the SAME walk /refs uses (ProjectSnapshot), NOT a reuse of the
-        // pre-apply versions. A native rename rewrites the bodies of referencing items that are NOT in the op
-        // set, so reusing their pre-apply versions would report a stale baseline; the client persists this
+        // pre-apply versions. A native rename on TwinCAT rewrites the referencing items, which are NOT in the op set
+        // (DIALECT C2p; CODESYS does not), so reusing their pre-apply versions would report a stale baseline; the client persists this
         // receipt as its IDE baseline with no follow-up /refs, so it must match /refs exactly.
         //
         // WITH `returnSources` THE SAME WALK KEEPS THE TEXT of every item the push CHANGED (openspec
         // `st-roundtrip-fixed-point`, route A): each item a LANDED `set` left (under the name it landed as — `toName`
         // for a rename — matched as the IDE matches a name, keyed by the IDE's spelling), AND each item whose version
-        // differs from the pre-apply walk's — the callers a native rename rewrote, which no op names (gate 3 review: a
+        // differs from the pre-apply walk's — the callers a native rename rewrote (TwinCAT, DIALECT C2p), which no op names (gate 3 review: a
         // client never told their text changed adopts their new version over the old text, and its next push of one
         // writes the old name back over the rename). An item named by a conflict (`name`, `renamedTo`) is re-read by
         // the client, never answered. The walk already materialized each item to hash its version, through the same
@@ -384,8 +384,8 @@ public static class PushService
         /// (<c>MemberRefusal</c> words it into the exception, so <see cref="UpdateKept"/> stays null rather than say it
         /// twice). The fact without the words: it makes the conflict <c>partiallyApplied</c>.</summary>
         public bool KeptInRefusal;
-        /// <summary>A native rename that ran before the op was refused: the IDE renamed the item and rewrote every
-        /// reference to it, and that stays — the item is no longer under the op's name. <c>From</c>/<c>To</c> are BARE
+        /// <summary>A native rename that ran before the op was refused: the IDE renamed the item (and, on TwinCAT,
+        /// rewrote every reference to it — DIALECT C2p), and that stays — the item is no longer under the op's name. <c>From</c>/<c>To</c> are BARE
         /// (the reason's words); <c>WireName</c> is the FULL name the item now has (<c>PushConflict.RenamedTo</c>).</summary>
         public (string From, string To, string WireName)? Renamed;
         /// <summary>The forced replace of an item the IDE will not open deleted that object before its create was
@@ -862,8 +862,9 @@ public static class PushService
         if (existing is { } found)
         {
             task = found;
-            // A renamed `.task` file is a renamed TASK. The IDE's own rename runs first so anything that
-            // references the task by name is rewritten by the IDE rather than left dangling by Volt.
+            // A renamed `.task` file is a renamed TASK, through the IDE's own rename, so whatever the IDE rewrites
+            // of what references the task by name it rewrites (a POU reference is rewritten on TwinCAT and not on
+            // CODESYS, DIALECT C2p; a task reference is unmeasured) — Volt rewrites nothing of its own.
             if (op.ToName is { } toName && !string.Equals(Materializer.Bare(toName), name, StringComparison.Ordinal))
             {
                 ide.Rename(task, Materializer.Bare(toName));
@@ -917,7 +918,8 @@ public static class PushService
         return action;
     }
 
-    /// <summary>Apply one unified change. A rename uses the IDE's native rename (rewrites call-sites) and
+    /// <summary>Apply one unified change. A rename uses the IDE's native rename (TwinCAT rewrites the call sites,
+    /// CODESYS does not — DIALECT C2p) and
     /// precedes a move; a move recreates in the new folder (name kept ⇒ name-based references survive); a
     /// content change goes through the shared full-fidelity writer. Each facet absent = unchanged.</summary>
     private static string ApplySetItem(IIdeDriver ide, string name, ItemRef? existing,
@@ -957,7 +959,7 @@ public static class PushService
         // THE LAST-MOMENT CHECK OF AN EDIT THAT ALSO RENAMES OR MOVES RUNS FIRST, before anything of the op lands — not in
         // the write after it. The native rename rewrites the item's OWN header (`FUNCTION_BLOCK Old` -> `FUNCTION_BLOCK
         // New`), so its version after the rename is never the client's: checked in the write, every rename+edit was refused
-        // STALE_ITEM_VERSION — after the rename had run and rewritten every call site, which stayed. Measured live
+        // STALE_ITEM_VERSION — after the rename had run (and, on TwinCAT, rewritten every call site), which stayed. Measured live
         // 2026-10-04 (CODESYS SP21, openspec `push-partially-applied-flag` 3.1). And a move's write (`MoveItem`) hashes
         // against the DESTINATION folder and was handed no version at all, so a move+edit (or rename+move+edit) of an
         // item edited in the IDE meanwhile overwrote that edit and reported accepted (gate review of step 3). Checked here,
@@ -973,16 +975,17 @@ public static class PushService
         {
             // THE PUSHED TEXT IS ALREADY VALIDATED, by the batch pre-flight in `Handle` — nothing that could
             // be refused on its text is still in flight by the time a rename runs. It used to be re-checked
-            // right here, because a native rename makes the IDE rewrite every reference to this POU across the
-            // project: the largest change in this method, and once the first thing a set op did. A rename+edit
-            // whose edit was then rejected left the item renamed and its call sites rewritten while the push
+            // right here, because a native rename on TwinCAT rewrites every reference to this POU across the
+            // project (DIALECT C2p; CODESYS rewrites none): the largest change in this method, and once the first
+            // thing a set op did. A rename+edit whose edit was then rejected left the item renamed (and its call
+            // sites rewritten) while the push
             // reported failure, with nothing to put it back.
             //
             // Pre-flighting the WHOLE BATCH subsumes that guard and covers the ops before this one too, so the
             // local re-parse became a call that could never throw. What neither can pre-check is a refusal that
             // depends on the item's LIVE state (an unsupported body, a language change) — those are still
             // caught by the write, which is why the ORDER below (content, then move) stays as it is.
-            ide.Rename(item, toName);                  // native rename → IDE rewrites references
+            ide.Rename(item, toName);                  // native rename → TwinCAT rewrites references (DIALECT C2p)
             currentName = toName;
             // Recorded the moment the rename RETURNS — before the re-find below, whose miss (a stale tree) does not undo
             // it. Withdrawn only where the IDE is shown to have ignored it (the case-only check).

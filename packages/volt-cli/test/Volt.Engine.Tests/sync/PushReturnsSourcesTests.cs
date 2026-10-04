@@ -194,7 +194,8 @@ public class PushReturnsSourcesTests
         Assert.Contains("F_New := TRUE;", push.NewSources["F_New.pou"]);
     }
 
-    /// <summary>A NATIVE RENAME REWRITES THE CALL SITES in items no op names (gate 3 review): those items changed —
+    /// <summary>A NATIVE RENAME REWRITES THE CALL SITES in items no op names on TwinCAT (gate 3 review; DIALECT C2p,
+    /// measured live at gate 4 — CODESYS rewrites none, and live CODESYS answers only the renamed item): those items changed —
     /// <c>newItems</c> carries their new version — so the answer carries their text too. Without it a client holding the
     /// caller's pre-rename text adopts its new version as baseline, and its next patch-and-push of that caller passes the
     /// <c>ifVersion</c> gate and writes the OLD name back over the rename.</summary>
@@ -205,7 +206,7 @@ public class PushReturnsSourcesTests
             FakeIde.Item.TextualPou("FB_A", "FUNCTION_BLOCK FB_A\nVAR\nEND_VAR", ";"),
             FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\tfb : FB_A;\nEND_VAR", "fb();"),
             FakeIde.Item.TextualPou("P_Other", "PROGRAM P_Other\nVAR\nEND_VAR", ";"))
-        { RewritesReferencesOnRename = true };
+        { RewritesReferencesOnRename = true, RewritesOwnReferencesOnRename = true };   // the TwinCAT shape (C2o, C2p)
         var refs = RefsService.Handle(ide);
 
         var push = Push(ide, true, new SetItemOp { Name = "FB_A.pou", ToName = "FB_B.pou", IfVersion = refs.Items["FB_A.pou"] });
@@ -228,7 +229,7 @@ public class PushReturnsSourcesTests
             FakeIde.Item.TextualPou("X", "FUNCTION_BLOCK X\nVAR\nEND_VAR", ";"),
             FakeIde.Item.TextualPou("PLC_PRG", "PROGRAM PLC_PRG\nVAR\n\tfb : X;\nEND_VAR", "fb();"))
         {
-            RewritesReferencesOnRename = true,
+            RewritesReferencesOnRename = true, RewritesOwnReferencesOnRename = true,   // the TwinCAT shape (C2o, C2p)
             FailCreate = (name, kind) => kind == Volt.Engine.Item.ItemKind.PlcMethod
                 ? new Volt.Engine.Ide.ChildRefusedException($"The name '{name}' is not valid for this object.", Volt.Engine.Ide.ChildRefusalCause.Name)
                 : null,

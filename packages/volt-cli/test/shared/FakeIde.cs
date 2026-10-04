@@ -736,9 +736,11 @@ public sealed class FakeIde : DriverBase, IIdeDriver
                 };
     }
 
-    /// <summary>Model the IDE's NATIVE rename rewriting every reference to the renamed item in OTHER items (both
-    /// vendors do, which is why a push renames natively and why its receipt is a fresh walk: the referencing items'
-    /// versions change outside the op set). Opt-in; whole-word, in declarations and bodies.</summary>
+    /// <summary>The TwinCAT shape of a native rename's effect on OTHER items (DIALECT C2p, measured live 2026-10-04):
+    /// every reference to the renamed item — an instance's declared type, a call — is rewritten, so the referencing
+    /// items' versions change outside the op set (why a push's receipt is a fresh walk). Unset is the CODESYS shape:
+    /// no other item is touched. Whole-word, in declarations and bodies; that comments are rewritten too is the fake's,
+    /// unmeasured.</summary>
     public bool RewritesReferencesOnRename { get; init; }
 
     /// <summary>The TwinCAT shape of a native rename's effect on the renamed item ITSELF (DIALECT C2o, measured live

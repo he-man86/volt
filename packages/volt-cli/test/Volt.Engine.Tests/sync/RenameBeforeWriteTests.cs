@@ -16,9 +16,9 @@ namespace Volt.Engine.Tests;
 /// that can refuse.</para>
 ///
 /// <para>The RENAME in the same method never got that treatment. It runs before everything —
-/// <c>ide.Rename(item, toName)</c> — and a native rename is not a small change: the IDE rewrites every reference
-/// to that POU across the project. So a rename+edit whose edit is refused left the item renamed, its call sites
-/// rewritten, and the push reporting rejected. Nothing put that back either.</para>
+/// <c>ide.Rename(item, toName)</c> — and a native rename is not a small change: it rewrites the item's header on
+/// both vendors and, on TwinCAT, every reference to that POU across the project (DIALECT C2o, C2p). So a rename+edit
+/// whose edit is refused left the item renamed (and its call sites rewritten), and the push reporting rejected. Nothing put that back either.</para>
 ///
 /// <para>Same bug, same method, one arm fixed and the other not — which is the shape half these findings share.</para>
 /// </summary>
@@ -68,7 +68,7 @@ public class RenameBeforeWriteTests
 
         // The push was refused…
         Assert.False(res.Accepted);
-        // …so nothing may have been renamed. A native rename rewrites every call site in the project; leaving one
+        // …so nothing may have been renamed. A native rename on TwinCAT rewrites every call site in the project; leaving one
         // behind after a rejected push is a half-applied change nothing puts back.
         Assert.DoesNotContain(ide.Recorded, r => r.StartsWith("rename:", System.StringComparison.Ordinal));
         Assert.Equal(before, RefsService.Handle(ide).Items.Keys.OrderBy(k => k).ToList());
@@ -268,7 +268,7 @@ public class RenameBeforeWriteTests
         var ide = new FakeIde(
             FakeIde.Item.TextualPou("F_Old", "// F_Old helper\nFUNCTION F_Old : BOOL\nVAR\nEND_VAR", "// sets F_Old\nF_Old := TRUE;"),
             FakeIde.Item.TextualPou("FB_Old", "// FB_Old helper\nFUNCTION_BLOCK FB_Old\nVAR\n\tpSelf : POINTER TO FB_Old;\nEND_VAR", ";"))
-        { RewritesReferencesOnRename = true };
+        { };   // the CODESYS shape (DIALECT C2o, C2p)
 
         ide.Rename(new Volt.Engine.Item.ItemRef("F_Old"), "F_New");
         ide.Rename(new Volt.Engine.Item.ItemRef("FB_Old"), "FB_New");

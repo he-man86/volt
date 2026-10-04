@@ -89,7 +89,45 @@
 
 ## 4. Verify
 
-- [ ] 4.1 Live on CODESYS: create, then fetch; the text equals what the push answer held (A) or what was pushed (B).
+- [x] 4.1 (2026-10-04: `test/e2e/endpoints/push-return-sources.test.ts`, live CODESYS SP21 Patch 4 on an `ide.ps1
+      -Instance st-roundtrip-fixed-point` fixture copy, 9/9 green, 72 expects. One rule check runs on EVERY entry of every
+      answer: its text equals a LIVE fetch's `sourceText` byte for byte, its key is in `newItems`, its `newItems` version
+      is the live refs version. Cases, rule by rule through the `NewSources` doc: W1 created (answer != pushed; holds
+      `xRunning := xEnable;` + blank line + `END_FUNCTION_BLOCK`, ACTION before PROPERTY; only the FB answered); GVL +
+      struct + enum
+      DUT in one push; update (no flag and `false` → no `newSources`); rename+edit (new name, old absent); rename-only
+      (rewritten header `FUNCTION_BLOCK <new>`); move-only; a rename answers EXACTLY the items whose refs version moved —
+      measured: CODESYS does not rewrite a caller's `inst : FB_A` on rename, so only the renamed item changed and only it
+      is answered; a delete has no entry and an op named in lower case is answered under the IDE's spelling; an op
+      refused at apply (`Vlt__Log`) has no entry while the op that landed before it does. No disagreement with the
+      IDE found, so no fixture pinned and no known divergence. TwinCAT not run live: engine-only, parity is the wire.)
+      Live on CODESYS: create, then fetch; the text equals what the push answer held (A) or what was pushed (B).
       Compare against the LIVE fetch, never against `PushThenFetchShapeTests.Canonical` (StWriter + fake; R14 attests
       only the END-line blank line and the member order).
-- [ ] 4.2 Full C# suites and `bun run check` green.
+- [x] 4.2 (2026-10-04) Full C# suites and `bun run check` green. Engine 2218 pass / 0 fail / 1 skip (2219), Cli 260,
+      Connector 115, Twincat 428, Codesys 297, Contracts 39, Repo.Gates 108 (all 0 fail); `bun run check` 18/18; volt-cli
+      `test/unit` 24/24; typecheck clean. No LSP/fixture/transpiler change, so no fixture-map regeneration.
+- [x] 4.3 (gate 4, 2026-10-04) Review findings on step 4 — all three taken; the live test was red first on each vendor
+      (`no measured value for vendor` — the caller-rewrite case refuses an unmeasured vendor by name, never a guess):
+      - the caller-rewrite fact went only to `console.log`, unrecorded, and contradicted the docs — MEASURED on BOTH
+        vendors and recorded as DIALECT **C2p**: one rename-only push of an FB and a FUNCTION, with a PROGRAM declaring
+        `inst : FB_A;` and calling `ok := F_A(a := 1);` — TwinCAT rewrites both (the caller's version moves, it is in
+        `newSources`, and its text equals the live fetch: gate 3's "a rewritten caller is answered" is now exercised
+        live), CODESYS rewrites neither (caller version unchanged, only the renamed items answered). The test asserts the
+        per-vendor table (`C2P_CALLER_REWRITE`) and that the caller is answered exactly when its version moved, so a
+        vendor change in either direction fails it. Corrected every place that said "both vendors" / "the IDE rewrites
+        the call sites": `FakeIde.RewritesReferencesOnRename` (now the TwinCAT shape; unset = CODESYS), `PushService`
+        (receipt walk, task rename, `ApplySetItem`, the rename guard, `OpOutcome.Renamed`), `PushModels` (`SetItemOp`,
+        `NewSources`), `ProjectSnapshot`, `Commands` (baseline), `ARCHITECTURE.md`, and the offline tests' docs. The
+        offline caller tests (`PushReturnsSourcesTests` gate-3 pair) now run the full TwinCAT shape
+        (`RewritesOwnReferencesOnRename` too); `RenameBeforeWriteTests`' CODESYS-shape test no longer sets the caller
+        flag; `PartialPushCommandTests` R3 says its caller rewrite is TwinCAT's.
+      - TwinCAT never run live — RUN (Project13 copy, `-Fixture 13 -Instance st-roundtrip-fixed-point`): 10/10 green. Added
+        a rename-only FUNCTION case whose own return assignment the IDE rewrites (C2o): the answer equals the live fetch
+        and reads `F_B := a > 0;` on TwinCAT, `F_A := a > 0;` on CODESYS (asserted per vendor).
+      - move-only never asserted the move landed — ADDED: `newFolders[name]` and the live `refs.folders[name]` equal the
+        destination.
+      Numbers: push-return-sources.test.ts live CODESYS SP21 Patch 4 10/10 (87 expects), live TwinCAT 10/10 (91 expects);
+      Engine 2218 pass / 0 fail / 1 skip (2219), Cli 260, Connector 115, Twincat 428, Codesys 297, Contracts 39,
+      Repo.Gates 108 (all 0 fail); volt-cli `test/unit` 24/24; typecheck clean; `bun run check` 18/18. No
+      LSP/fixture/transpiler change, so no fixture-map regeneration and no LSP suite run.

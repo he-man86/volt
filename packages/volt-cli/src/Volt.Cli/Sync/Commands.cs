@@ -655,8 +655,8 @@ public static class Commands
 
         // THE BASELINE GROWS ONLY BY WHAT THIS CLIENT PUSHED.
         //
-        // The receipt is a fresh FULL snapshot of the project — it has to be, because a native rename rewrites
-        // the bodies of items that are not in the op set, and those items' new versions must be in the baseline
+        // The receipt is a fresh FULL snapshot of the project — it has to be, because a native rename can rewrite
+        // the bodies of items that are not in the op set (TwinCAT does, CODESYS does not — DIALECT C2p), and those items' new versions must be in the baseline
         // or the next push reports a phantom conflict. But adopting it WHOLESALE claims a version for every item
         // in the IDE, including ones this workspace has never seen and has no file for.
         //
@@ -671,7 +671,7 @@ public static class Commands
         // this is a no-op, because a matching lease is precisely the proof that the baseline covered the project.
         //
         // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name: a
-        // native rename that landed still rewrote items outside the op set, and their new versions still enter the
+        // native rename that landed still rewrote items outside the op set (on TwinCAT, DIALECT C2p), and their new versions still enter the
         // baseline (not "applied names only" — review R3), while a refused item keeps its old entry. One that PARTLY
         // landed (an update whose declaration the IDE kept, a create whose removal failed) keeps it ON PURPOSE: the next
         // push is then refused for it and `volt pull` brings the IDE's state in first, instead of a push overwriting

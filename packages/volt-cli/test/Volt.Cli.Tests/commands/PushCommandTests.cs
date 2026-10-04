@@ -604,8 +604,8 @@ public class PushCommandTests
 
     /// <summary>A FORCED PUSH DOES NOT MAKE THE CLIENT CLAIM ITEMS IT HAS NEVER SEEN.
     ///
-    /// <para>The push receipt is a fresh FULL snapshot of the project, which it has to be — a native rename
-    /// rewrites the bodies of items outside the op set, and their new versions must reach the baseline or the
+    /// <para>The push receipt is a fresh FULL snapshot of the project, which it has to be — a native rename can
+    /// rewrite the bodies of items outside the op set (TwinCAT does, CODESYS does not — DIALECT C2p), and their new versions must reach the baseline or the
     /// next push reports a phantom conflict. But `push --force` deliberately sends NO lease, so nothing has
     /// established that the client's view covered the project. An item the engineer added in the IDE since the
     /// last pull is in that receipt; adopted wholesale it goes into the sidecar at its current version, and from

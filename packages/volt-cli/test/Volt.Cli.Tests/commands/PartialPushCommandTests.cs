@@ -70,7 +70,8 @@ public class PartialPushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>Spec "a rename lands beside a refused op" (review R3): the IDE's native rename rewrites <c>W</c>, which
+    /// <summary>Spec "a rename lands beside a refused op" (review R3): a native rename that rewrites callers (TwinCAT,
+    /// DIALECT C2p — CODESYS rewrites none; the binding here says codesys only to pass the harness's checks) rewrites <c>W</c>, which
     /// references the renamed item and is in no op. Its post-rename version must enter the baseline as on a full push
     /// — "applied names only" would have left it at its old version and the next push would report a phantom conflict —
     /// while the refused <c>Z_Late</c> keeps its old one.</summary>

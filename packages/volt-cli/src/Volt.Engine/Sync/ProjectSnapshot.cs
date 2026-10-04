@@ -11,7 +11,8 @@ namespace Volt.Engine.Sync;
 /// <summary>
 /// One consistent walk of the project's tracked items into the version + folder maps that BOTH <c>refs</c>
 /// and the <c>push</c> receipt report. Having a SINGLE walk here is what guarantees those two agree
-/// byte-for-byte — a native rename rewrites the bodies of items OUTSIDE the pushed op set, so a receipt that
+/// byte-for-byte — a native rename can rewrite the bodies of items OUTSIDE the pushed op set (TwinCAT does, CODESYS
+/// does not — DIALECT C2p), so a receipt that
 /// reused pre-apply versions for "untouched" items reported a stale baseline, and the client (which persists
 /// the receipt as its IDE baseline, no follow-up <c>refs</c>) then hit a spurious "pull first" on its next
 /// push. Re-materializing every item from the SAME walk <c>refs</c> uses makes that drift impossible.

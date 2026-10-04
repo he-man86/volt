@@ -47,7 +47,8 @@ public class PushOp
 /// <summary>Unified declarative item change: the item named <c>Name</c> should end up as
 /// <c>ToName ?? Name</c>, in <c>ToFolder ?? (current folder)</c>, with <c>SourceText ?? (current content)</c>.
 /// Each field absent = that facet unchanged. One op expresses create / update / rename / move and any
-/// combination, applied atomically — a rename uses the IDE's native rename (so call-sites update); a move
+/// combination, applied atomically — a rename uses the IDE's native rename (call sites update where the IDE rewrites
+/// them: TwinCAT does, CODESYS does not — DIALECT C2p); a move
 /// recreates (names are globally unique, so name-based references survive).</summary>
 public class SetItemOp : PushOp
 {
@@ -197,7 +198,7 @@ public class PushResponse
     /// name (<c>name.kind</c>, the <see cref="NewItems"/> key, in the IDE's spelling — a renamed item under its NEW name,
     /// an op named in another case under the IDE's case) → that item's stored text exactly as a fetch returns it, for
     /// every item the push changed: each item a landed <c>set</c> op left in the project, and each item whose version the
-    /// push changed though no op names it (the call sites a native rename rewrote). The text is the receipt walk's own
+    /// push changed though no op names it (the call sites a native rename rewrote — TwinCAT does, CODESYS does not). The text is the receipt walk's own
     /// materialization, so it is the text <see cref="NewItems"/>' version hashes.
     ///
     /// <para>No entry, by name, for: a <c>delete</c>; an op in <see cref="Conflicts"/> (refused or
