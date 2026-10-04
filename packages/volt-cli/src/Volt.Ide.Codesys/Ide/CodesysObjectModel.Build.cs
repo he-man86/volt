@@ -61,7 +61,7 @@ namespace Volt.Ide.Codesys
         // see — and reads as Unreadable, never as an empty list. AN UNRESOLVED LIBRARY IS NOT A BUILD MESSAGE: a
         // placeholder that resolves nowhere puts an Error in "Library Manager" (`LibManObjectMessageCategory`, "Could not
         // open library …") when it is ADDED, not when the project builds — the same message object survives every later
-        // build, and the build itself says "Compile complete -- 0 errors" (probe-build-own-messages.py, run 3). Code that
+        // build, and the build itself says "Compile complete -- 0 errors" (probe-build-own-messages.py, run 3 — deleted; git show 390483d5cb:packages/volt-cli/scripts/probe-build-own-messages.py). Code that
         // USES such a library fails in the compile, in "Build", and is reported from there. Measured with the build:
         // "Build" and "Additional code checks" hold new message objects after every build; every other category keeps
         // the same ones.
