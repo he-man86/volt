@@ -31,6 +31,19 @@ public sealed class FakeRelay
     /// a frame matching it throws instead of arriving.</summary>
     public volatile Func<string, bool>? FailSendWhen;
 
+    /// <summary>Set to make the bridge's Close frame never finish going out (a relay that stopped reading):
+    /// the close task never completes and ignores its token, so only the tunnel's own bound ends the wait.</summary>
+    public volatile bool CloseNeverCompletes;
+
+    private readonly List<string> _socketEvents = new();
+
+    /// <summary>What the bridge did to its sockets, in order: <c>close STATUS REASON</c> for a Close frame that
+    /// went out, <c>abort</c> for a drop without a handshake.</summary>
+    public IReadOnlyList<string> SocketEvents
+    {
+        get { lock (_gate) return _socketEvents.ToArray(); }
+    }
+
     /// <summary>How many times a socket has been opened. The reconnect assertion.</summary>
     public int ConnectAttempts;
 
@@ -146,7 +159,18 @@ public sealed class FakeRelay
             });
         }
 
-        public void Abort() { try { _aborted.Cancel(); } catch { } }
+        public Task CloseOutputAsync(int status, string reason, CancellationToken cancellation)
+        {
+            if (_relay.CloseNeverCompletes) return new TaskCompletionSource<bool>().Task;
+            lock (_relay._gate) _relay._socketEvents.Add("close " + status + " " + reason);
+            return Task.CompletedTask;
+        }
+
+        public void Abort()
+        {
+            lock (_relay._gate) _relay._socketEvents.Add("abort");
+            try { _aborted.Cancel(); } catch { }
+        }
         public void Dispose() { try { _aborted.Cancel(); } catch { } _aborted.Dispose(); }
     }
 }

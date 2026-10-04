@@ -650,6 +650,55 @@ public class RelayTunnelTests : IDisposable
         Assert.Matches(@"^relay: connection on " + pipe + @" ended before it connected — could not connect \(InvalidOperationException\): relay refused \(test\) \| in flight: none \| next dial in " +
                        (int)wait.TotalSeconds + "s$", ends[1].Message);
     }
+
+    // ── a deliberate stop closes (openspec bridge-close-frame) ────
+
+    [Fact]
+    public async Task A_deliberate_stop_sends_close_1001_bridge_stopping_then_drops()
+    {
+        var (relay, tunnel, _) = Start();
+        await relay.AwaitHello();
+
+        tunnel.Dispose();
+
+        // A relay cannot tell a drop (1006) from a stop unless the stop says so, and it says so FIRST.
+        var events = relay.SocketEvents;
+        Assert.True(events.Count >= 2, "expected a close then the drop, got: " + string.Join(" | ", events));
+        Assert.Equal("close 1001 bridge stopping", events[0]);
+        Assert.Contains("abort", events.Skip(1));
+    }
+
+    [Fact]
+    public async Task A_close_the_relay_never_takes_is_dropped_within_the_bound()
+    {
+        var (relay, tunnel, _) = Start();
+        await relay.AwaitHello();
+        relay.CloseNeverCompletes = true;
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        tunnel.Dispose();
+        clock.Stop();
+
+        // About one second for the close, then the drop: a stop must never hold up an IDE that is closing.
+        Assert.True(clock.Elapsed < TimeSpan.FromSeconds(2.5), "the stop took " + clock.Elapsed);
+        Assert.Contains("abort", relay.SocketEvents);
+    }
+
+    [Fact]
+    public async Task The_watchdog_still_aborts_without_a_close()
+    {
+        var delay = new FakeDelay();
+        var (relay, _, _) = Start(out _, delay: delay,
+            pingEvery: TimeSpan.FromMilliseconds(100), silenceLimit: TimeSpan.FromMilliseconds(600));
+        await relay.AwaitHello();
+
+        // Nothing from the relay: the watchdog drops the socket, and the reconnect asks for its wait.
+        await delay.NextWait();
+
+        var events = relay.SocketEvents;
+        Assert.Contains("abort", events);
+        Assert.DoesNotContain(events, e => e.StartsWith("close", StringComparison.Ordinal));
+    }
 }
 
 /// <summary>The heartbeat's exact bytes.
