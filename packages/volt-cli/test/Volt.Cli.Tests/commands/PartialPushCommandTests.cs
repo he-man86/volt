@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using Volt.Cli.Sync;
@@ -70,13 +70,13 @@ public class PartialPushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
-    /// <summary>Spec "a rename lands beside a refused op" (review R3): a native rename that rewrites callers (TwinCAT,
-    /// DIALECT C2p — CODESYS rewrites none; the binding here says codesys only to pass the harness's checks) rewrites <c>W</c>, which
-    /// references the renamed item and is in no op. Its post-rename version must enter the baseline as on a full push
-    /// — "applied names only" would have left it at its old version and the next push would report a phantom conflict —
-    /// while the refused <c>Z_Late</c> keeps its old one.</summary>
+    /// <summary>A rename lands beside a refused op: the native rename rewrites <c>W</c> (TwinCAT, DIALECT C2p — and
+    /// CODESYS through its refactoring rename), which no op names. Review R3 adopted its post-rename version; that hid the
+    /// rewrite behind the workspace's old text (openspec bridge-refusal-review 8.4 — the next push of <c>W</c> wrote the
+    /// old name back). It keeps its OLD version, so it is incoming, as on a full push; the refused <c>Z_Late</c> keeps its
+    /// old one too.</summary>
     [Fact]
-    public void A_rename_landing_beside_a_refused_op_adopts_the_rewritten_reference_and_keeps_the_refused_item_old()
+    public void A_rename_landing_beside_a_refused_op_leaves_the_rewritten_reference_incoming_and_keeps_the_refused_item_old()
     {
         FakeIde ide = null!;
         ide = new FakeIde(
@@ -104,7 +104,8 @@ public class PartialPushCommandTests
             var refs = Volt.Engine.Sync.RefsService.Handle(ide);
             var after = Sidecar.LoadIdeRefs(root)!.Items;
             Assert.NotEqual(before["W_User.pou"], refs.Items["W_User.pou"]);       // premise: the IDE rewrote W_User
-            Assert.Equal(refs.Items["W_User.pou"], after["W_User.pou"]);
+            Assert.Equal(before["W_User.pou"], after["W_User.pou"]);
+            Assert.Contains("W_User.pou", Commands.Status(root, client).Incoming.Modified);
             Assert.Equal(refs.Items["A_Drive.pou"], after["A_Drive.pou"]);
             Assert.False(after.ContainsKey("A_Motor.pou"), "the renamed-away name stayed in the baseline");
             Assert.Equal(before["Z_Late.pou"], after["Z_Late.pou"]);

@@ -670,9 +670,9 @@ public static class Commands
         // Keeping only names the client ALREADY had or JUST pushed is exact. When a lease WAS quoted and matched
         // this is a no-op, because a matching lease is precisely the proof that the baseline covered the project.
         //
-        // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name: a
-        // native rename that landed still rewrote items outside the op set (on TwinCAT, DIALECT C2p), and their new versions still enter the
-        // baseline (not "applied names only" — review R3), while a refused item keeps its old entry. One that PARTLY
+        // On a push that landed IN PART the rule is the same over the ops that LANDED, minus every conflicted name (an
+        // item a landed rename rewrote outside the op set is pinned below, as on a full push), while a refused item keeps
+        // its old entry. One that PARTLY
         // landed (an update whose declaration the IDE kept, a create whose removal failed) keeps it ON PURPOSE: the next
         // push is then refused for it and `volt pull` brings the IDE's state in first, instead of a push overwriting
         // state nobody has seen (review R4).
@@ -690,6 +690,13 @@ public static class Commands
         var adopted = resp.NewItems!.Where(kv => (known.ContainsKey(kv.Key) || pushed.Contains(kv.Key))
                                                  && !conflictedNames.Contains(kv.Key))
                                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+        // …EXCEPT AN ITEM THE IDE CHANGED THAT THIS PUSH DID NOT SEND: the callers a native rename rewrote (both vendors,
+        // DIALECT C2p). Its new version over the workspace's OLD text hid the rewrite — the next pull saw nothing, and the
+        // next push of that file passed its gate and wrote the old name back over the rename (openspec
+        // bridge-refusal-review 8.4). It keeps its old version: it is incoming, and `volt pull` brings the IDE's text in.
+        var changedByIde = adopted.Keys.Where(k => !pushed.Contains(k) && known.TryGetValue(k, out var was) && was != adopted[k])
+                                  .OrderBy(k => k, StringComparer.Ordinal).ToList();
+        foreach (var name in changedByIde) adopted[name] = known[name];
 
         // …AND THE RECEIPT DOES NOT SHRINK IT. The receipt is a fresh walk and lists only what it SAW and READ: an
         // item under an unenumerable folder is missing from it, and so is one the walk could not read (an item the
@@ -830,6 +837,8 @@ public static class Commands
             // just written holds only names the receipt has and names restored above as unseen.
         });
         var notes = new List<string>();
+        if (changedByIde.Count > 0)
+            notes.Add("the IDE also changed " + string.Join(", ", changedByIde) + " (references to a renamed item); `volt pull` brings them in");
         if (heldUnder.Count > 0)
             notes.Add("the IDE holds " + string.Join(", ", heldUnder.Select(h => $"{h.Name} as {h.HeldAs}")) +
                       " — the kind its text declares; `volt pull` moves the file to that name");

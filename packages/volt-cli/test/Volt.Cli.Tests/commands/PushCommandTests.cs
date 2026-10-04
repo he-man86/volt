@@ -459,6 +459,39 @@ public class PushCommandTests
         finally { host.Dispose(); TestUtil.ForceDelete(root); }
     }
 
+    /// <summary>A CALLER THE IDE'S RENAME REWROTE IS AN IDE CHANGE THE CLIENT PULLS (openspec bridge-refusal-review 8.4).
+    /// The rename rewrites <c>W_User</c>'s <c>inst : A_Motor</c> (DIALECT C2p), an item no op names. Adopting its new
+    /// version over the workspace's OLD text hid the rewrite: the next pull saw nothing, and the next push of an edit to
+    /// <c>W_User</c> passed its <c>ifVersion</c> gate and wrote the old name back over the rename. Its old version stays in
+    /// the baseline instead, so status shows it incoming, the push says so, and a pull brings the rewrite in.</summary>
+    [Fact]
+    public void A_caller_the_rename_rewrote_is_incoming_and_a_pull_brings_the_rewrite_in()
+    {
+        var ide = new FakeIde(
+            FakeIde.Item.TextualPou("A_Motor", "FUNCTION_BLOCK A_Motor\nVAR\nEND_VAR", ";"),
+            FakeIde.Item.TextualPou("W_User", "PROGRAM W_User\nVAR\n\tinst : A_Motor;\nEND_VAR", "inst();"))
+        { HealthConnected = true, HealthPlatform = "codesys", HealthProjectName = "Demo", RewritesReferencesOnRename = true };
+        var (root, host, client) = Bound(ide);
+        try
+        {
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            var before = Sidecar.LoadIdeRefs(root)!.Items;
+            File.Move(Path.Combine(root, "src", "A_Motor.pou"), Path.Combine(root, "src", "A_Drive.pou"));
+            Git.CommitAll(root, "rename");
+
+            var r = Commands.Push(root, client);
+
+            Assert.True(r.Kind == "ok", $"push rejected: {r.Reason}");
+            Assert.Contains("W_User.pou", r.Message ?? "");                                   // the push says so
+            Assert.Equal(before["W_User.pou"], Sidecar.LoadIdeRefs(root)!.Items["W_User.pou"]);
+            Assert.Contains("W_User.pou", Commands.Status(root, client).Incoming.Modified);
+            Assert.Equal("ok", Commands.Pull(root, client).Kind);
+            Assert.Contains("inst : A_Drive;", File.ReadAllText(Path.Combine(root, "src", "W_User.pou")));
+            Assert.Equal(0, Commands.Status(root, client).Incoming.Count);
+        }
+        finally { host.Dispose(); TestUtil.ForceDelete(root); }
+    }
+
     /// <summary>A FILE MOVED AND REWRITTEN PAST GIT'S RENAME THRESHOLD IS ONE MOVE+EDIT (openspec
     /// <c>push-without-header-check</c> 5.Q.6, design 5.Qb Q2). Git reports it as a <c>Delete</c> row plus an <c>Add</c>
     /// row; both map to the SAME item name, and the name is the identity, so the CLI pairs them into one
