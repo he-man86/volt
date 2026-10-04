@@ -107,6 +107,7 @@ for (const s of steps) {
 steps = grouped
 log(steps.length ? `${args.change}: open steps ${steps.map(s => `${s.id}(${s.kind})`).join(', ')}` : `${args.change}: nothing open`)
 
+
 const KIND = {
   measure: 'MEASURE step: mechanical only — write the measuring scripts under the package\'s scripts/ or a scratch folder, record the numbers and findings in tasks.md; change no product code.',
   baseline: 'BASELINE step: record the numbers and build any tool the later steps depend on (e.g. an output snapshot).',
@@ -120,6 +121,23 @@ const KIND = {
 
 const GATE = { type: 'object', properties: { committed: { type: 'boolean' }, hash: { type: 'string' },
   numbers: { type: 'string' }, blocker: { type: 'string' } }, required: ['committed'] }
+// SMALL change in light mode (owner 2026-10-04: "these are all pretty small features, we are overdoing it"): one agent does
+// the whole change — no design step, no separate review — tests first, the full gate, the commits, the close.
+const openTotal = steps.reduce((n, s) => n + s.openTasks.length, 0)
+if (args.light && openTotal > 0 && openTotal <= 12 && !steps.some(s => s.kind === 'model')) {
+  phase('Implement')
+  const whole = await agent(`${RULES}
+
+SMALL CHANGE ${args.change} (${openTotal} open tasks: ${steps.flatMap(s => s.openTasks).join(', ')}). Do ALL of it in this one agent, in task
+order: tests first where there is logic; live checks where a task asks (own ide.ps1 instance -Instance ${args.change}, VOLT_E2E_INSTANCE);
+keep it minimal — the smallest code that meets each task, no extra design write-up beyond a few lines in design.md if a choice was made.
+Then the gate: typecheck, the FULL suites the change names (VOLT_REQUIRE_FULL=1, VOLT_FIXTURES unset), bun run check — green; tick the
+tasks with their numbers; commit per section as "<type>(<scope>): ${args.change} <section> — <what>". Then close: check the spec delta
+describes what was BUILT, archive (npx --yes openspec archive ${args.change} -y), delete the recreated openspec/specs/, commit.
+If anything stays red: do not commit the red part, restore it, and say what blocks it.`, { label: `whole:${args.change}`, phase: 'Implement', schema: GATE })
+  return { change: args.change, small: true, stoppedAt: whole?.committed ? undefined : 'whole', done: [whole] }
+}
+
 let stopped = null
 const done = []
 for (const s of steps) {
