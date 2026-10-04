@@ -695,3 +695,47 @@ transaction rolled back; TwinCAT dynamic double without `ImplementationText` / `
 `PushService` + `FakeIde`: a move into a `Device` / `TaskConfig` node → UNSUPPORTED, nothing applied, refs unchanged;
 a `FakeIde` that ignores `Move` → refused naming the folder it stayed in. Then the code, then DIALECT rows for the
 measured TwinCAT move. Live negatives are 8.2's. No LSP fixture: no text a user writes changes its answer.
+
+## Step 7 — C2i refusal codes, `NOT_FOUND` as the post-condition code, U+FEFF splitter limit
+
+**7.1 — target: the eight C2i hierarchy-vouch refusals (`TcObjectModel.cs:209, 216, 246, 295, 300, 308`,
+`TcSolutionExplorer.cs:100, 111`) answer `ITEM_UNVERIFIED`, not `INTERNAL_ERROR`.** Measured: inside a walk every one is
+caught by `BeckhoffDriver.WalkInner` and the folder goes to `unwalkedFolders` (no code reaches a client); the code
+escapes only through an apply-time lookup (`ItemLookup`/`TreeNav` in a push), where it becomes the op's conflict. That
+is exactly `ITEM_UNVERIFIED`'s meaning — "the push could not read where the item lives; the bridge/IDE is impaired; fix
+what stops that folder being enumerated" — which the pre-apply gate already answers for the SAME folder when the walk
+skipped it. One code for one situation, whichever phase meets it. `:216` (two children of one name in a guarded folder,
+D34) is a project fact, but its remedy is the same (rename one, or repair the C2i POU, and the folder is read) — same
+code, its message keeps naming D34. Rejected: `UNREADABLE` (its remedy is `force`, which overwrites an item; here no
+item is read and `force` changes nothing); `UNSUPPORTED` (a permanent limit; these pass once the hierarchy vouches);
+a new code (V.4: a second code for `ITEM_UNVERIFIED`'s situation); `PLC_DISCONNECTED` (the IDE answers).
+Messages unchanged (they already name the folder and what the hierarchy did not vouch for).
+
+**7.2 — target: the post-condition code is renamed `NOT_FOUND` → `IDE_LOST_ITEM` and documented as "the IDE no longer
+holds what Volt just wrote or read, during the apply".** Audited at HEAD: all 18 sites are post-conditions (PushService
+:897, 1019, 1133, 1171, 1427, 1532, 1546, 1659, 1899, 1924, 1939; `CodesysDriver.Content.cs:411`;
+`BeckhoffDriver.Content.cs:170, 202, 286, 297`; `BeckhoffDriver.Tree.cs:448, 460`) — none answers "the request names
+nothing" (that is `ITEM_MISSING`, from the gate, before anything is written). Measured: no client branches on
+`NOT_FOUND` (0 matches in volt-cli's CLI, volt-control, volt-vscode); wire.html documents it wrongly ("the named item does
+not exist … re-read refs"). Rejected: keep `NOT_FOUND` + document (the name still reads as `ITEM_MISSING`, the exact
+confusion 7.2 names); fold into `INTERNAL_ERROR` (V.1 keeps that for Volt's own broken invariants; this is the IDE not
+doing what it acknowledged, and the remedy differs — `volt pull` to see what landed, then retry, not "report a bug").
+
+**7.3 — target: a U+FEFF after the start of the text stays refused by name, as niche: accepted loss.** Measured: 0
+occurrences — leading or later — in the 30,167 files of the six corpora. Making the splitter read it as code everywhere
+is not trivial: `StTrivia` blanks a U+FEFF at index 0 of whatever text it is handed, so every slice scan would need to
+know whether its slice starts the text. The CODE follows one recording (fixture `ufeff_after_start`, a U+FEFF between
+two tokens of a VAR line, CODESYS `record:language`): the build refuses it → `INVALID_ST` stays and the message quotes the
+build; the build accepts it → `UNSUPPORTED` (a Volt limit, V.1) and the message says "Volt's splitter does not read
+U+FEFF after the start of the text (niche: accepted loss, 0 occurrences in the corpora)". If the LSP's answer differs
+from the recording, it is a known divergence with the same niche reason.
+
+**Stays refused by name:** every C2i folder (unread, named, now `ITEM_UNVERIFIED`); every post-condition (now
+`IDE_LOST_ITEM`); a mid-text U+FEFF.
+
+**Migration.** Tests first: per C2i site an offline TwinCAT double (the `ReadExplorer` seam) asserting `ITEM_UNVERIFIED`
+and the folder name — the existing `INTERNAL_ERROR` assertions change on the V.1 decision, not on code behaviour;
+`ConflictCodes.ItemUnverified` doc widened to the apply-time lookup. 7.2: `BridgeErrorCodes.NotFound` →
+`IdeLostItem = "IDE_LOST_ITEM"`, `FromBridge`, wire.html (both rows), `WireVocabularyGuardTests`, `DocDataTests`, the
+`PushModels`/`PushService`/`IProjectTree` comments; the tests pinning these sites take the new code. 7.3: record the
+fixture, then the message/code, `StReader` test pinned. No push-behaviour change in any of the three.
