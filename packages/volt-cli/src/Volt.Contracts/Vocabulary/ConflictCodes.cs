@@ -92,7 +92,21 @@ public static class ConflictCodes
     /// <para>Split from <see cref="ItemMissing"/> because the two are opposite news. "The item is gone" invites
     /// the client to recreate it; here the item is almost certainly still there and the BRIDGE is the thing
     /// that is impaired. Recreating it would be the wrong move, and under <c>force</c> it is the move the
-    /// client would make. The remedy is to fix whatever stops the IDE enumerating that folder.</para></summary>
+    /// client would make. The remedy is to fix whatever stops the IDE enumerating that folder.</para>
+    ///
+    /// <para><b>The same code from the apply.</b> TwinCAT reads a folder only when its Solution Explorer hierarchy
+    /// vouches for every child (DIALECT C2i: opening a POU the IDE does not parse kills TcXaeShell). A walk takes a
+    /// folder it does not vouch for into <c>unwalked</c> — the gate above; a push's apply-time lookup meets the same
+    /// refusal and answers it with this code too, the message naming the folder and what the hierarchy did not vouch
+    /// for. Two children of one name in such a folder (DIALECT D34) is a project fact with the same remedy, and the same
+    /// code. A hierarchy that cannot vouch for the PLC project ITSELF stops the walk before anything is read, so it
+    /// reaches <c>refs</c>/<c>fetch</c>/<c>push</c> as an error frame with this code — the one place a
+    /// <see cref="ConflictCodes"/> value is a frame (openspec <c>bridge-refusal-review</c> 7.1). It was
+    /// <c>INTERNAL_ERROR</c>, which blamed Volt for an IDE state.</para>
+    ///
+    /// <para><b>On an op whose own item was read.</b> Resolving a body's names reads every declaration of the project,
+    /// so such a folder ANYWHERE refuses that op too — with this code (the remedy is the folder's) and a message that
+    /// says the refusal is the folder's, not the item's (review of <c>bridge-refusal-review</c> 7).</para></summary>
     public const string ItemUnverified = "ITEM_UNVERIFIED";
 
     // ── the apply loop's outcome ───────────────────────────────────────────────────────────────────
@@ -124,7 +138,7 @@ public static class ConflictCodes
     /// vocabulary: a push no longer reads a top-level item's header (openspec <c>push-without-header-check</c>).</summary>
     public static readonly string[] FromBridge =
     {
-        BridgeErrorCodes.NotFound, BridgeErrorCodes.Unsupported, BridgeErrorCodes.DuplicateChild,
+        BridgeErrorCodes.IdeLostItem, BridgeErrorCodes.Unsupported, BridgeErrorCodes.DuplicateChild,
         BridgeErrorCodes.BadRequest, BridgeErrorCodes.InvalidSt, BridgeErrorCodes.Unreadable,
     };
 }

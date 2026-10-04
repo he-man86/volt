@@ -142,7 +142,7 @@ public sealed partial class BeckhoffDriver
         // Every layer above it is OrdinalIgnoreCase (`ReconcileMembers`, `OnlyChanged`, `BodyFormatGuard`,
         // `ItemLookup`, `TreeNav.NameIs`), and IEC identifiers are case-insensitive in both IDEs. So a case-only
         // rename — `METHOD Calc` to `METHOD calc` — passed every gate, the POU's own declaration and body were
-        // already written on the line above, and THEN this threw NOT_FOUND claiming the member is not in the
+        // already written on the line above, and THEN this threw NOT_FOUND (now IDE_LOST_ITEM) claiming the member is not in the
         // project. False, and half-applied.
         // A MEMBER'S GRAPHICAL BODY GOES IN FIRST, THROUGH THE POU'S OWN ARCHIVE — and the ORDER is the whole
         // difference between this working and not.
@@ -167,7 +167,7 @@ public sealed partial class BeckhoffDriver
 
         foreach (var m in content.Members)
             if (!byName.ContainsKey(m.Name))
-                throw new BridgeException(BridgeErrorCodes.NotFound,
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
                     "is the push service's job, and writing through a missing one would land nothing");
 
@@ -199,7 +199,7 @@ public sealed partial class BeckhoffDriver
         foreach (var m in content.Members)
         {
             if (!byName.TryGetValue(m.Name, out var target))
-                throw new BridgeException(BridgeErrorCodes.NotFound,
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the member is not under the POU after its archive was rewritten — refusing " +
                     "to write through a handle the re-import already killed");
 
@@ -283,7 +283,7 @@ public sealed partial class BeckhoffDriver
     internal ItemRef WriteMemberBodies(ItemRef item, List<(string[] Path, string Nwl)> resolved)
     {
         var parent = _om.Parent(item.Native)
-            ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+            ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                 $"'{_om.GetName(item.Native)}' has no parent, so its archive cannot be rewritten");
         var pouName = _om.GetName(item.Native);
 
@@ -294,7 +294,7 @@ public sealed partial class BeckhoffDriver
         // The parent is a FOLDER, so it may hold a POU Volt must not open (DIALECT C2i): `ChildNamed` passes it over.
         if (ChildNamed(new ItemRef(parent), pouName) is { } live) return live;
 
-        throw new BridgeException(BridgeErrorCodes.NotFound,
+        throw new BridgeException(BridgeErrorCodes.IdeLostItem,
             $"'{pouName}' is not under its parent after the archive re-import — refusing to write through a " +
             "handle the import already killed");
     }

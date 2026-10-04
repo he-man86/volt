@@ -1130,6 +1130,13 @@ function crossCheckFolds(f: FixtureSources, plc: Bound, files: readonly Bound[],
       skip("__POSITION's text — niche: accepted loss (0 occurrences in the corpora)")
       continue
     }
+    // A non-ASCII character TYPED into a STRING literal: which byte(s) CODESYS stores for it is not measured (the
+    // transpiler's own `string-non-ascii` refuses it too), so no fold here can state the value. 0 STRING initializers in
+    // the six corpora hold one (counted 2026-10-04); `ufeff_in_string` is the one recorded (bridge-refusal-review 7.4).
+    if (decl.init.kind === "literal" && decl.init.literalKind === "string" && /[^\x00-\x7f]/.test(String(decl.init.value))) {
+      skip("a non-ASCII character in a STRING literal, its stored bytes not measured — niche: accepted loss (0 occurrences in the corpora)")
+      continue
+    }
     if (readsRuntime(decl.init, sym.owner)) {
       skip("the initializer reads a variable, an element or a project function")
       continue

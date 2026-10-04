@@ -125,9 +125,11 @@ window.VOLT = {
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
+          "ITEM_UNVERIFIED",
           "INTERNAL_ERROR"
         ],
         "x-outcomes": [
+          "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "An item whose body will not materialize is NOT an error: it is named in \u0060unreadable\u0060, keeps a stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
           "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The session is marked degraded meanwhile, which \u0060health\u0060 reports."
         ],
@@ -156,9 +158,11 @@ window.VOLT = {
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
           "NO_SIDECAR",
+          "ITEM_UNVERIFIED",
           "INTERNAL_ERROR"
         ],
         "x-outcomes": [
+          "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "NO_SIDECAR is specific to this op: a fetch with neither \u0060knownItems\u0060 nor \u0060onlyItems\u0060 is ambiguous \u2014 it could mean \u0022everything\u0022 or a client that forgot its baseline. Send \u0060init: true\u0060 for a first pull.",
           "A walk that could not enumerate a folder reports no deletion beneath it and says so at Warn; a name absent from a folder it did read is still in \u0060removed\u0060, judged by \u0060knownFolders\u0060.",
           "Items that would not materialize are named in \u0060unreadable\u0060, not raised."
@@ -187,11 +191,13 @@ window.VOLT = {
           "IDE_UNSUPPORTED",
           "PLC_DISCONNECTED",
           "WRONG_PROJECT",
+          "ITEM_UNVERIFIED",
           "INTERNAL_ERROR"
         ],
         "x-outcomes": [
+          "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.",
           "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply loop is caught and returned as a conflict. A client MUST check \u0060accepted\u0060 AND \u0060conflicts\u0060.",
-          "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, never the message.",
+          "A refusal carries its CODE on the conflict: a \u0060NETWORK_*\u0060 diagnostic for a body the format refuses (with a \u0060line\u0060), or a BridgeErrorCodes value for everything else \u2014 UNSUPPORTED, IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, never the message.",
           "A version conflict is also \u0060accepted:false\u0060 \u2014 with \u0060yourVersion\u0060/\u0060currentVersion\u0060 per item.",
           "A refusal decidable before the first write writes nothing and names EVERY refused op \u2014 the gate\u0027s per-item conflicts and the pre-flight\u0027s, one conflict per op.",
           "A refusal during APPLY leaves the earlier ops WRITTEN, not rolled back, and stops the push: it is \u0060accepted:true\u0060 with the receipt and a conflict per op NOT landed \u2014 the refused op with its code, every later op NOT_ATTEMPTED. Every op the conflicts do not name landed.",
@@ -795,7 +801,7 @@ window.VOLT = {
     "PLC_DISCONNECTED",
     "WRONG_PROJECT",
     "NO_SIDECAR",
-    "NOT_FOUND",
+    "IDE_LOST_ITEM",
     "BAD_REQUEST",
     "UNSUPPORTED",
     "DUPLICATE_CHILD",
@@ -813,7 +819,7 @@ window.VOLT = {
       "ITEM_UNVERIFIED"
     ],
     "fromBridge": [
-      "NOT_FOUND",
+      "IDE_LOST_ITEM",
       "UNSUPPORTED",
       "DUPLICATE_CHILD",
       "BAD_REQUEST",

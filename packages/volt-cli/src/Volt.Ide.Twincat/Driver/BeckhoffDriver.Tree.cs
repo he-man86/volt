@@ -445,7 +445,7 @@ public sealed partial class BeckhoffDriver
             // the POU by this point, so a placement that silently did not land would be indistinguishable from one
             // that did. Re-find the POU first: every handle into it is dead (D4d).
             var written = ItemLookup.Find(this, pouName)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"placed '{name}' but its POU '{pouName}' cannot be found afterwards");
             RequireMemberLanded(name, pouName, folder,
                 atPouRoot: Enumerable.Range(1, ChildCount(written)).Any(i => Name(ChildAt(written, i)) == name));
@@ -457,7 +457,7 @@ public sealed partial class BeckhoffDriver
         // silently landed nowhere would otherwise be indistinguishable from one that worked, and the caller has
         // already written the item's content by this point.
         if (!HoldsChildNamed(target, name))
-            throw new BridgeException(BridgeErrorCodes.NotFound,
+            throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                 $"moved '{name}' but it is not under the target folder afterwards");
     }
 

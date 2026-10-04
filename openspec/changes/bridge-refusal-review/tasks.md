@@ -1037,20 +1037,75 @@ Gone: `ec0152fe0f` (5B, the driver states a DUT's subtype), `b6822e9751` (5.P, o
 
 ## 7. New since 2026-09-29
 
-- [ ] 7.1 The C2i hierarchy-vouch refusals (`twincat` POUs that crash TcXaeShell, DIALECT C2i) answer
+- [x] 7.1 The C2i hierarchy-vouch refusals (`twincat` POUs that crash TcXaeShell, DIALECT C2i) answer
       INTERNAL_ERROR for an IDE STATE, not a Volt bug: `TcObjectModel.cs:209, 216, 246, 295, 300, 308`,
       `TcSolutionExplorer.cs:100, 111`. `:216` (two children of one name, DIALECT D34) is a project fact — UNREADABLE
       or UNSUPPORTED by name; the rest name what the IDE did not vouch for. Decide the code with V.1 (likely a
       connection-state code or UNSUPPORTED), test the code per site.
-- [ ] 7.2 `NOT_FOUND` is raised only for post-conditions (`PushService.cs:784, 872, 982, 1005, 1201, 1300, 1314, 1640,
+      **Done (step 7, 2026-10-04).** All eight sites answer `ITEM_UNVERIFIED` (design step 7). Measured on the way: the
+      design's "the code escapes only through an apply-time lookup" held for the three FOLDER sites (`TcObjectModel`
+      ChildAt ×2, RequireListed) — and `ItemLookup.Walk` re-coded every coded refusal from `ChildCount`/`ChildAt` as
+      INTERNAL_ERROR, so the lookup now passes an `ICodedError` through with its code (root fix; only an uncoded fault is
+      wrapped). The five PROJECT-level sites (`Explorer()` :295/:300/:308, `ExplorerSnapshot.From` :100/:111) run at walk
+      START, outside `WalkInner`'s catches, so they also reach `refs`/`fetch`/`push` as an ERROR FRAME carrying
+      `ITEM_UNVERIFIED` — the one gate code that can be a frame; documented in `ConflictCodes.ItemUnverified`, wire.html and
+      DIALECT C2i. **Open for V.4:** `DocDataTests` declares frame codes from BridgeErrorCodes only, so that frame is not in
+      the per-op lists — V.4 decides (declare it, or report the root `unwalked` instead of failing the walk). Tests
+      (`TcUntouchablePouTests`): 4 new — lookup into a guarded folder with two children of one name (D34), lookup into a
+      guarded node whose count moved, lookup through a folder the hierarchy lists short, a node without its canonical
+      name — and the 4 existing INTERNAL_ERROR assertions (8 cases) take the V.1 code. Twincat 444.
+- [x] 7.2 `NOT_FOUND` is raised only for post-conditions (`PushService.cs:784, 872, 982, 1005, 1201, 1300, 1314, 1640,
       1664, 1679`; `CodesysDriver.Content.cs:361`; `BeckhoffDriver.Content.cs:122, 154, 237, 248`;
       `BeckhoffDriver.Tree.cs:381, 395`) — "the IDE lost the item Volt just wrote/read", never "the request names nothing". Decide
       (with V.4): keep it as the one "the IDE lost it" code and document that in wire.html, or fold it into
       INTERNAL_ERROR. A client today cannot tell it from `ITEM_MISSING`.
-- [ ] 7.3 `StReader.cs:161` — a U+FEFF after the start of the text is refused INVALID_ST because the splitter's scans
+      **Done (step 7, 2026-10-04).** `BridgeErrorCodes.NotFound` → `IdeLostItem = "IDE_LOST_ITEM"` at all 18 sites (no
+      message or behaviour change), documented on the constant and in wire.html (both rows: "a post-condition of a push:
+      the IDE no longer holds what Volt just wrote or read … never the request names nothing"); `FromBridge`,
+      `WireVocabularyGuardTests`, `DocDataTests` (+ regenerated docs data/openrpc), the comments in PushModels, PushService,
+      IProjectTree, BeckhoffDriver.Content; `PartiallyAppliedFieldsTests` (3) take the new code. 0 clients branch on it
+      (CLI, volt-control, volt-vscode).
+- [x] 7.3 `StReader.cs:161` — a U+FEFF after the start of the text is refused INVALID_ST because the splitter's scans
       would disagree about it (5E). It is a Volt splitter limit, not the IDE's: make the splitter read it as a code
       character everywhere and write it, or keep it as "niche: accepted loss" (0 in the six corpora) and say so in
       the message. Record what the CODESYS build says of it.
+      **Done (step 7, 2026-10-04).** Fixture `ufeff_after_start` (`grammar/lexer.ts`: `n :<U+FEFF> INT;` beside `m : INT;`,
+      body `m := 2;`) recorded with `record:exec` (the push refuses it on both vendors, so `record:language` cannot reach a
+      build): CODESYS **refuses** it — "Type definition expected instead of '<U+FEFF>'". So `INVALID_ST` stays and the
+      message quotes the build (`ChildSplitterTableTests` pins it); niche (0 occurrences in the six corpora) — the splitter
+      is not changed. The LSP gives the build's message on both dialects (agrees; rated `refused`); no divergence mark.
+      Frontend baselines: counts only (+1 fixture), no finding and no ceiling moved.
+      **Amended by the step-7 review (7.4):** the message above claimed more than the one measured position, and the
+      "both dialects" agreement had no TwinCAT recording (record:exec is CODESYS-only) and no test pinning the wording.
+- [x] 7.4 Gate step 7 — review findings first, then the full suites.
+      **F1 (medium, fixed): the U+FEFF refusal quoted the build at positions never asked.** Recorded with `record:exec`
+      (one batch, then one more after a contaminated fixture): `ufeff_in_comment` — the build ACCEPTS it (runs, `m = 2`);
+      `ufeff_in_body` — refused, "';' expected instead of '<U+FEFF>'"; `ufeff_in_string` / `ufeff_in_wstring` — the build
+      ACCEPTS it (runs). The first string fixture named its variable `s`, and CODESYS's "Unexpected token 's'" cascade was
+      about the name (`S` is the set operator), not the U+FEFF — renamed `txt` and re-recorded. So
+      `StReader.RefuseInnerBom` branches on WHERE the character stands (`StTrivia.Classes`, a per-column class beside
+      `Code`): between two tokens → `INVALID_ST` quoting both measured build messages; inside a comment or a string literal
+      → `UNSUPPORTED`, "the CODESYS build accepts it there (measured), but Volt's splitter does not read U+FEFF … (niche:
+      accepted loss, 0 occurrences in the corpora)"; inside a pragma (not measured) → `UNSUPPORTED`, the splitter's limit
+      and no claim about the build. `ChildSplitterTableTests` theory, 7 rows (declaration, body, STRING, WSTRING, block
+      comment, `//` comment, pragma). Ratings: after_start + body `refused`, comment + wstring `confirmed`, string
+      `not-lowered` (`string-non-ascii`, the transpiler's own not-measured refusal).
+      **F2 (low, fixed):** `refused:` pins the build's words on the two refused fixtures — `ufeff_after_start` "Type
+      definition expected instead of '<U+FEFF>'", `ufeff_in_body` "Expression expected instead of '<U+FEFF>'" (in
+      codesys.run.json and in the LSP's codesys errors; fixtures.test.ts "refused — the vendor rejects it, in words we
+      repeat"). The TwinCAT half is the LSP's dialect only — no TwinCAT recording exists for a text the push refuses.
+      **F3 (low, fixed):** `ITEM_UNVERIFIED` is declared as an error frame on `refs`/`fetch`/`push` in `DocDataTests`
+      (with an outcome line; `Every_declared_error_code_exists` admits exactly that one gate code), regenerated
+      `docs/assets/data.js` + `volt-bridge.openrpc.json`; `PushModels` no longer says the frame vocabulary is
+      BridgeErrorCodes alone. (V.4 still decides whether a root that cannot be vouched for should be `unwalked` instead.)
+      **F4 (low, fixed):** `ProjectDeclarations.Index` keeps `ITEM_UNVERIFIED` from a folder anywhere (skipping it would
+      resolve its names as unknown — a guess) but says why the op needed it: "resolving the body's names needs every
+      declaration of the project, and this folder could not be read — the refusal is the folder's, not the item's";
+      documented on `ConflictCodes.ItemUnverified` and in wire.html. New `ProjectDeclarationsUnverifiedFolderTests`.
+      **Numbers:** Engine 2270/0/1, Cli 260, Connector 115, Twincat 444, Codesys 301, Contracts 39, Relay 49,
+      Repo.Gates 108; volt-cli `test/unit` 24; `bun run check` 18/18; typecheck green; LSP 8094/34 skip/381 todo/0 fail (VOLT_REQUIRE_FULL=1). Frontend baselines: counts only (+5 fixtures); the one finding the run raised — `ufeff_in_string`'s initializer does not fold, a non-ASCII character typed into a STRING whose stored bytes are not measured (the transpiler's `string-non-ascii` too) — is counted in `bound-census.ts` as "not asked … niche: accepted loss (0 occurrences in the corpora)" (0 non-ASCII STRING initializers in the six corpora, counted), no ceiling moved.
+      e2e not re-run: the step's code changes are the push's pre-IDE splitter refusal and a message in the declarations
+      index — no driver or wire path an e2e row drives (no e2e row holds a U+FEFF); the step-6 run stands.
 
 ## Error-code vocabulary (owner question, 2026-09-29; re-audited 2026-10-03)
 

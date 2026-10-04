@@ -10,7 +10,14 @@ public static class BridgeErrorCodes
     public const string PlcDisconnected = "PLC_DISCONNECTED";
     public const string WrongProject = "WRONG_PROJECT";
     public const string NoSidecar = "NO_SIDECAR";
-    public const string NotFound = "NOT_FOUND";
+    /// <summary>A POST-CONDITION of the apply: the IDE no longer holds what Volt just wrote or read — a member it
+    /// created and cannot find again, a node it moved that is not where the move put it, a task the IDE acknowledged
+    /// and does not list. Never "the request names nothing": that is <see cref="ConflictCodes.ItemMissing"/>, answered
+    /// by the gate before anything is written. Raised only during a push, so it reaches a client as a conflict, and
+    /// since <c>push-keeps-what-landed</c> the earlier ops are written. Remedy: <c>volt pull</c> to see what landed,
+    /// then push again. It was <c>NOT_FOUND</c>, a name a client could not tell from <c>ITEM_MISSING</c>
+    /// (openspec <c>bridge-refusal-review</c> 7.2).</summary>
+    public const string IdeLostItem = "IDE_LOST_ITEM";
     public const string BadRequest = "BAD_REQUEST";
     public const string Unsupported = "UNSUPPORTED";
     public const string DuplicateChild = "DUPLICATE_CHILD";

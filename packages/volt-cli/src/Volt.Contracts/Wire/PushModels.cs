@@ -100,10 +100,12 @@ public class PushConflict
     /// </list>
     /// <para>They cannot collide: the network-text exception carries its own code and is NOT an
     /// <c>ICodedError</c>, precisely so a <c>NETWORK_*</c> value can never escape into an error FRAME, whose
-    /// vocabulary is documented as BridgeErrorCodes alone.</para>
+    /// vocabulary is documented as BridgeErrorCodes plus ONE gate code: <see cref="ConflictCodes.ItemUnverified"/>, when
+    /// TwinCAT's hierarchy cannot vouch for the PLC project itself and the walk stops before anything is read
+    /// (DIALECT C2i; openspec <c>bridge-refusal-review</c> 7.1).</para>
     ///
     /// <para>This used to carry the network-text code and nothing else, so every coded refusal a push raised —
-    /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST (and INVALID_CODE_HEADER, deleted once a push
+    /// IDE_LOST_ITEM (then NOT_FOUND), UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST (and INVALID_CODE_HEADER, deleted once a push
     /// stopped reading a top-level item's header) — arrived as a
     /// message with no code. Since a push answers refusals as CONFLICTS rather than error frames, those six
     /// were unobservable anywhere on the wire, and callers matched the English instead: the e2e suite asserted

@@ -37,11 +37,21 @@ internal static class StTrivia
     /// one open.</summary>
     public static List<(int Line, int Column)> UnterminatedOpenings(IList<string> lines) => Scan(lines).Unclosed;
 
+    /// <summary>Per line, per column: what the character IS — <see cref="CodeChar"/>, <see cref="CommentChar"/> (a block
+    /// or <c>//</c> comment, its delimiters included), <see cref="StringChar"/> (a string's TEXT; its quotes are code, as
+    /// in <see cref="Code"/>), <see cref="PragmaChar"/> (a pragma, its braces included) or <see cref="BomChar"/> (the BOM
+    /// at the start of the text). The question a refusal that depends on WHERE a character stands needs answered
+    /// (<c>StReader</c>'s U+FEFF refusal, openspec <c>bridge-refusal-review</c> 7.3).</summary>
+    public static string[] Classes(IList<string> lines) => Scan(lines).Classes;
+
+    public const char CodeChar = 'c', CommentChar = 'm', StringChar = 's', PragmaChar = 'p', BomChar = 'b';
+
     private static (bool[] OpenAtStart, string[] Code, List<(int Line, int Column)> Openings,
-        List<(int Line, int Column)> Unclosed) Scan(IList<string> lines)
+        List<(int Line, int Column)> Unclosed, string[] Classes) Scan(IList<string> lines)
     {
         var open = new bool[lines.Count];
         var code = new string[lines.Count];
+        var classes = new string[lines.Count];
         var openings = new List<(int Line, int Column)>();
         var stack = new List<(int Line, int Column)>();   // the openers not yet closed, innermost last
         var depth = 0;
@@ -50,20 +60,21 @@ internal static class StTrivia
             open[i] = depth > 0;
             var line = lines[i];
             var sb = new StringBuilder(line.Length);
+            var kb = new StringBuilder(line.Length);   // the class of each character, column for column with sb
             for (int j = 0; j < line.Length; j++)
             {
                 var c = line[j];
                 var next = j + 1 < line.Length ? line[j + 1] : '\0';
                 if (depth > 0)
                 {
-                    if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth++; sb.Append("  "); j++; }
-                    else if (c == '*' && next == ')') { depth--; stack.RemoveAt(stack.Count - 1); sb.Append("  "); j++; }
-                    else sb.Append(' ');
+                    if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth++; sb.Append("  "); kb.Append(CommentChar, 2); j++; }
+                    else if (c == '*' && next == ')') { depth--; stack.RemoveAt(stack.Count - 1); sb.Append("  "); kb.Append(CommentChar, 2); j++; }
+                    else { sb.Append(' '); kb.Append(CommentChar); }
                     continue;
                 }
-                if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth = 1; sb.Append("  "); j++; continue; }
-                if (c == '/' && next == '/') { sb.Append(' ', line.Length - j); break; }
-                if (i == 0 && j == 0 && c == '﻿') { sb.Append(' '); continue; }   // a BOM opens no code
+                if (c == '(' && next == '*') { openings.Add((i, j)); stack.Add((i, j)); depth = 1; sb.Append("  "); kb.Append(CommentChar, 2); j++; continue; }
+                if (c == '/' && next == '/') { sb.Append(' ', line.Length - j); kb.Append(CommentChar, line.Length - j); break; }
+                if (i == 0 && j == 0 && c == '﻿') { sb.Append(' '); kb.Append(BomChar); continue; }   // a BOM opens no code
                 if (c == '\'' || c == '"' || c == '{')
                 {
                     // A string ends at its own quote (`$` escapes the next character, `$'` included); a pragma at
@@ -73,18 +84,23 @@ internal static class StTrivia
                     var pragma = c == '{';
                     var close = pragma ? '}' : c;
                     sb.Append(pragma ? ' ' : c);
+                    kb.Append(pragma ? PragmaChar : CodeChar);
+                    var inner = pragma ? PragmaChar : StringChar;
                     for (j++; j < line.Length; j++)
                     {
-                        if (!pragma && line[j] == '$' && j + 1 < line.Length) { sb.Append("  "); j++; continue; }
-                        if (line[j] == close) { sb.Append(pragma ? ' ' : close); break; }
+                        if (!pragma && line[j] == '$' && j + 1 < line.Length) { sb.Append("  "); kb.Append(StringChar, 2); j++; continue; }
+                        if (line[j] == close) { sb.Append(pragma ? ' ' : close); kb.Append(pragma ? PragmaChar : CodeChar); break; }
                         sb.Append(' ');
+                        kb.Append(inner);
                     }
                     continue;
                 }
                 sb.Append(c);
+                kb.Append(CodeChar);
             }
             code[i] = sb.ToString();
+            classes[i] = kb.ToString();
         }
-        return (open, code, openings, stack);
+        return (open, code, openings, stack, classes);
     }
 }

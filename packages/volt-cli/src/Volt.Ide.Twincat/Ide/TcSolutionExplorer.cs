@@ -97,7 +97,7 @@ internal sealed class ExplorerSnapshot
         // A NODE THAT WAS NOT FULLY READ CANNOT BE VOUCHED FOR: a caption read as "" would pass a broken POU for a
         // parsed one, and a child list cut short would hide one. Refused, named — never read as "nothing to avoid".
         if (node.Unread is { } unread)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"the Solution Explorer did not read '{(path.Length == 0 ? node.Name : path)}' in full ({unread}); Volt does " +
                 "not walk the TwinCAT tree on a hierarchy that cannot vouch for every POU (DIALECT C2i)");
         listed[path] = node.Children.Count;
@@ -108,7 +108,7 @@ internal sealed class ExplorerSnapshot
             if (child.Unread is not null) Collect(child, childPath, guarded, listed, pous, still);   // refuses it, named
             // Whether it is a POU at all is read from its canonical name: unread, it cannot be classified.
             if (child.Canonical is null)
-                throw new BridgeException(BridgeErrorCodes.InternalError,
+                throw new BridgeException(ConflictCodes.ItemUnverified,
                     $"the Solution Explorer did not read the canonical name of '{childPath}'; Volt cannot tell whether it is " +
                     "a POU that crashes TcXaeShell, so it does not walk the TwinCAT tree (DIALECT C2i)");
             if (IsUnparsedPou(child) || (IsPou(child) && still.Contains(childPath)))

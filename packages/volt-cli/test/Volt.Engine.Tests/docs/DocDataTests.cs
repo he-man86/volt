@@ -61,6 +61,15 @@ public class DocDataTests
     /// </list>
     /// <para>Anything that is not an <c>ICodedError</c> reaches the client as <c>INTERNAL_ERROR</c>
     /// (<c>PipeServer</c>), which is why every op that runs vendor code lists it.</para></summary>
+    /// <summary>The one GATE code that is also an error frame (openspec <c>bridge-refusal-review</c> 7.1, DIALECT C2i):
+    /// declared on every op whose walk can meet it, so a client built from the openrpc schema is told it can arrive.</summary>
+    private const string UnverifiedProjectFrame =
+        "ITEM_UNVERIFIED as an error FRAME (TwinCAT): the Solution Explorer hierarchy cannot vouch for the PLC project "
+        + "ITSELF (DIALECT C2i), so the walk stops before anything is read. Fix what stops the IDE enumerating it.";
+
+    /// <summary>The frame codes beyond <see cref="BridgeErrorCodes"/>: exactly the one gate code a walk can stop on.</summary>
+    private static readonly string[] GateCodesAsFrames = { ConflictCodes.ItemUnverified };
+
     private static readonly Dictionary<string, (string[] Errors, string[] Outcomes)> Outcomes = new()
     {
         [Ops.Health] = (new[] { BridgeErrorCodes.InternalError }, new[]
@@ -93,16 +102,18 @@ public class DocDataTests
             + "NEXT op, never the current one.",
         }),
         [Ops.Refs] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              BridgeErrorCodes.InternalError }, new[]
+                              ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
+            UnverifiedProjectFrame,
             "An item whose body will not materialize is NOT an error: it is named in `unreadable`, keeps a "
             + "stable sentinel version so a pull does not mistake it for deleted, and is logged at Warn.",
             "A read is retried ONCE through a transient IDE failure that the driver classifies as one. The "
             + "session is marked degraded meanwhile, which `health` reports.",
         }),
         [Ops.Fetch] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                               BridgeErrorCodes.NoSidecar, BridgeErrorCodes.InternalError }, new[]
+                               BridgeErrorCodes.NoSidecar, ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
+            UnverifiedProjectFrame,
             "NO_SIDECAR is specific to this op: a fetch with neither `knownItems` nor `onlyItems` is ambiguous "
             + "— it could mean \"everything\" or a client that forgot its baseline. Send `init: true` for a "
             + "first pull.",
@@ -111,13 +122,14 @@ public class DocDataTests
             "Items that would not materialize are named in `unreadable`, not raised.",
         }),
         [Ops.Push] = (new[] { BridgeErrorCodes.IdeUnsupported, BridgeErrorCodes.PlcDisconnected, BridgeErrorCodes.WrongProject,
-                              BridgeErrorCodes.InternalError }, new[]
+                              ConflictCodes.ItemUnverified, BridgeErrorCodes.InternalError }, new[]
         {
+            UnverifiedProjectFrame,
             "MOST PUSH FAILURES ARE NOT ERROR FRAMES. Every exception from the pre-flight and from the apply "
             + "loop is caught and returned as a conflict. A client MUST check `accepted` AND `conflicts`.",
             "A refusal carries its CODE on the conflict: a `NETWORK_*` diagnostic for a body the format "
             + "refuses (with a `line`), or a BridgeErrorCodes value for everything else — UNSUPPORTED, "
-            + "NOT_FOUND, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, "
+            + "IDE_LOST_ITEM, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST, UNREADABLE. Match the code, "
             + "never the message.",
             "A version conflict is also `accepted:false` — with `yourVersion`/`currentVersion` per item.",
             "A refusal decidable before the first write writes nothing and names EVERY refused op — the gate's "
@@ -650,11 +662,12 @@ public class DocDataTests
     [Fact]
     public void Every_declared_error_code_exists()
     {
-        var known = new HashSet<string>(Consts(typeof(BridgeErrorCodes)), StringComparer.Ordinal);
+        var known = new HashSet<string>(Consts(typeof(BridgeErrorCodes)).Concat(GateCodesAsFrames), StringComparer.Ordinal);
         foreach (var (op, row) in Outcomes)
             foreach (var code in row.Errors)
                 Assert.True(known.Contains(code),
-                    $"op '{op}' names '{code}', which is not a BridgeErrorCodes value.");
+                    $"op '{op}' names '{code}', which is not a BridgeErrorCodes value (nor the one gate code a walk " +
+                    "answers as a frame, ITEM_UNVERIFIED).");
     }
 
     /// <summary>EVERY CODE IS REACHABLE SOMEWHERE — the converse of the gate above, and the one that was

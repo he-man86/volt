@@ -408,7 +408,7 @@ public sealed partial class CodesysDriver
         foreach (var m in members)
         {
             if (!byName.TryGetValue(m.Name, out var target))
-                throw new BridgeException(BridgeErrorCodes.NotFound,
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the member is in the pushed source but not in the project — creating members " +
                     "is the push service's job, and writing through a missing one would land nothing");
 

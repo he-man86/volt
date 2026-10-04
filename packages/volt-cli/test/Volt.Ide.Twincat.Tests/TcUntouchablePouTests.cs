@@ -289,6 +289,83 @@ public class TcUntouchablePouTests
         Assert.Contains("PLC_PRG", walk.Items.Select(i => i.Name));
     }
 
+    // ── what reaches a CLIENT from each C2i refusal (openspec bridge-refusal-review 7.1) ───────────────────────────
+    // A walk takes a refused folder into `unwalked` (above); a push's apply-time LOOKUP meets the same refusal and it
+    // becomes that op's conflict. It is an IDE state — the hierarchy did not vouch for the folder — not a Volt bug, so it
+    // answers ITEM_UNVERIFIED, the code the pre-apply gate gives an item in a folder the walk skipped: one code for one
+    // situation, whichever phase meets it. It answered INTERNAL_ERROR, and the lookup re-coded every coded refusal as
+    // INTERNAL_ERROR on top.
+
+    /// <summary>TcObjectModel.ChildAt: a guarded folder whose children cannot each be addressed by name (DIALECT D34).</summary>
+    [Fact]
+    public void A_lookup_into_a_guarded_folder_with_two_children_of_one_name_answers_ITEM_UNVERIFIED_naming_it()
+    {
+        var (driver, _, xae, _) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcFolder, false,
+            new Node(x, "F", ItemKind.PlcFolder, false,
+                new Node(x, "U", ItemKind.PlcPou, poisoned: true),
+                new Node(x, "X", ItemKind.PlcDutStruct),
+                new Node(x, "X", ItemKind.PlcFolder, false, new Node(x, "P", ItemKind.PlcPou))),
+            new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
+
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "P"));
+
+        Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
+        Assert.Contains("Untitled2 Project^F'", refusal.Message);
+        Assert.Contains("DIALECT D34", refusal.Message);
+        Assert.False(xae.Dead);
+    }
+
+    /// <summary>TcObjectModel.ChildAt: a guarded node whose child count moved after the hierarchy was read (a POU added in
+    /// the IDE during the operation). Only a node that is not a PLC folder reaches this check — a folder is held to the
+    /// hierarchy's count before any child is asked for — so the guarded node here is the PLC project itself.</summary>
+    [Fact]
+    public void A_lookup_into_a_guarded_node_whose_child_count_moved_answers_ITEM_UNVERIFIED_naming_it()
+    {
+        var (driver, _, xae, root) = Project(x => new Node(x, "Untitled2 Project", ItemKind.PlcSystemRoot, false,
+            new Node(x, "U", ItemKind.PlcPou, poisoned: true),
+            new Node(x, "PLC_PRG", ItemKind.PlcPouProg)));
+        driver.WalkItems();
+        root.Kids.Add(new Node(xae, "Added", ItemKind.PlcPou) { Owner = root });
+
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "PLC_PRG"));
+
+        Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
+        Assert.Contains("'TIPC^Untitled2^Untitled2 Project'", refusal.Message);
+        Assert.Contains("lists 3 of them where the Solution Explorer lists 2", refusal.Message);
+        Assert.False(xae.Dead);
+    }
+
+    /// <summary>TcObjectModel.RequireListed: a PLC folder the hierarchy lists short.</summary>
+    [Fact]
+    public void A_lookup_through_a_folder_the_hierarchy_lists_short_answers_ITEM_UNVERIFIED_naming_it()
+    {
+        var hierarchy = (ExplorerNode?)null;
+        var (driver, _, xae, root) = Project(Census, (_, _) => hierarchy);
+        var census = root.Explorer();
+        hierarchy = census with
+        {
+            Children = new[] { census.Children[0] with { Children = Array.Empty<ExplorerNode>() } }
+                .Concat(census.Children.Skip(1)).ToList(),
+        };
+
+        var refusal = Assert.Throws<BridgeException>(() => ItemLookup.Find(driver, "PLC_PRG"));
+
+        Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
+        Assert.Contains("'VltCensus' holds 4 children", refusal.Message);
+        Assert.False(xae.Dead);
+    }
+
+    /// <summary>ExplorerSnapshot.From: a node whose canonical name was not read cannot be classified as a POU or not.</summary>
+    [Fact]
+    public void A_node_without_its_canonical_name_answers_ITEM_UNVERIFIED_naming_it()
+    {
+        var refusal = Assert.Throws<BridgeException>(() => ExplorerSnapshot.From(new ExplorerNode("P", "", "P",
+            new[] { new ExplorerNode("F", @"C:\p\F\", "F", new[] { new ExplorerNode("Q", null, "Q", Array.Empty<ExplorerNode>()) }) })));
+
+        Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
+        Assert.Contains("canonical name of 'F^Q'", refusal.Message);
+    }
+
     /// <summary>A POU BESIDE A FOLDER OF ITS NAME (5Qa review): the folder's path is the POU's, and "inside a POU" (whose
     /// members the hierarchy does not list) waved the folder through the count check — so a folder the hierarchy lists
     /// short was read anyway, a POU it does not list among its children. The hierarchy LISTS that folder, so it is held
@@ -395,7 +472,7 @@ public class TcUntouchablePouTests
 
         var failure = Assert.Throws<BridgeException>(() => driver.WalkItems());
 
-        Assert.Equal(BridgeErrorCodes.InternalError, failure.ErrorCode);
+        Assert.Equal(ConflictCodes.ItemUnverified, failure.ErrorCode);
         Assert.Contains("'Untitled2 Project'", failure.Message);
         Assert.False(xae.Dead);
     }
@@ -480,7 +557,7 @@ public class TcUntouchablePouTests
         var nodes = TcSolutionExplorer.Children(h, 0xFFFFFFFE, 0, unread);
 
         var refusal = Assert.Throws<BridgeException>(() => ExplorerSnapshot.From(new ExplorerNode("P", "", "P", nodes, unread.Count == 0 ? null : string.Join("; ", unread))));
-        Assert.Equal(BridgeErrorCodes.InternalError, refusal.ErrorCode);
+        Assert.Equal(ConflictCodes.ItemUnverified, refusal.ErrorCode);
         Assert.Contains("did not read", refusal.Message);
         Assert.Contains("'F", refusal.Message);   // named by where it sits (its own name may be the read that failed)
     }
@@ -534,7 +611,7 @@ public class TcUntouchablePouTests
 
         var failure = Assert.Throws<BridgeException>(() => driver.WalkItems());
 
-        Assert.Equal(BridgeErrorCodes.InternalError, failure.ErrorCode);
+        Assert.Equal(ConflictCodes.ItemUnverified, failure.ErrorCode);
         Assert.Contains("Solution Explorer hierarchy is unreadable", failure.Message);
         Assert.False(xae.Dead);
     }
@@ -546,7 +623,7 @@ public class TcUntouchablePouTests
 
         var failure = Assert.Throws<BridgeException>(() => driver.WalkItems());
 
-        Assert.Equal(BridgeErrorCodes.InternalError, failure.ErrorCode);
+        Assert.Equal(ConflictCodes.ItemUnverified, failure.ErrorCode);
         Assert.Contains("'Untitled2 Project'", failure.Message);
         Assert.False(xae.Dead);
     }

@@ -146,14 +146,7 @@ public static class StReader
 	/// leaves. <paramref name="splitOnly"/>: the members' kinds and names alone (<see cref="SplitMembers"/>).</summary>
 	private static ItemContent ReadStructureOf(string sourceText, List<string> original, string kind, string what, bool splitOnly)
 	{
-		// A BOM is a BOM only as the text's first character (StTrivia blanks it there). Anywhere else it is a character
-		// of its line — and a SLICE of the text that starts on that line would read it as a BOM while the whole text
-		// reads it as code, so the splitter's scans would disagree about it. 0 in the six corpora; refused naming the line.
-		for (int l = 0; l < original.Count; l++)
-			if (original[l].IndexOf('\uFEFF', l == 0 ? Math.Min(1, original[l].Length) : 0) >= 0)
-				throw new BridgeException(BridgeErrorCodes.InvalidSt,
-					$"{what}, line {l + 1}: holds U+FEFF (a byte-order mark) after the start of the text, where it is no " +
-					"byte-order mark but an invisible character. Remove it.");
+		RefuseInnerBom(original, what);
 
 		var unclosed = StTrivia.UnterminatedOpenings(original);
 		var neutralize = unclosed.Count > 0 && sourceText.IndexOf(UnclosedStandIn[0]) < 0;
@@ -166,6 +159,54 @@ public static class StReader
 			throw new BridgeException(ex.ErrorCode, Restored(ex.Message)!, ex);
 		}
 		return neutralize ? Restored(item) : item;
+	}
+
+	/// <summary>U+FEFF — a byte-order mark as the text's first character, an invisible character anywhere else.</summary>
+	private const char Bom = (char)0xFEFF;
+
+	/// <summary>A BOM is a BOM only as the text's first character (StTrivia blanks it there). Anywhere else it is a
+	/// character of its line — and a SLICE of the text that starts on that line would read it as a BOM while the whole text
+	/// reads it as code, so the splitter's scans would disagree about it: refused, naming the line. 0 occurrences in the six
+	/// corpora (openspec bridge-refusal-review 7.3). WHAT the refusal says depends on where the character stands, each
+	/// position asked of the CODESYS build on its own (<c>record:exec</c> 2026-10-04, fixtures <c>ufeff_*</c>):
+	/// <list type="bullet">
+	/// <item>between two tokens — <c>ufeff_after_start</c> (a declaration: "Type definition expected instead of '&lt;U+FEFF&gt;'")
+	/// and <c>ufeff_in_body</c> (a body: "';' expected instead of '&lt;U+FEFF&gt;'"): the build refuses it, so it is the
+	/// text's fault as the IDE judges it — <c>INVALID_ST</c>, quoting the build;</item>
+	/// <item>inside a comment (<c>ufeff_in_comment</c>) or a STRING or WSTRING literal (<c>ufeff_in_string</c>,
+	/// <c>ufeff_in_wstring</c>): the build ACCEPTS it — <c>UNSUPPORTED</c>, Volt's splitter limit, "niche: accepted
+	/// loss";</item>
+	/// <item>inside a pragma — not measured: <c>UNSUPPORTED</c>, the splitter's limit, with no claim about the build.</item>
+	/// </list></summary>
+	private static void RefuseInnerBom(List<string> original, string what)
+	{
+		string[]? classes = null;
+		for (int l = 0; l < original.Count; l++)
+		{
+			int col = original[l].IndexOf(Bom, l == 0 ? Math.Min(1, original[l].Length) : 0);
+			if (col < 0) continue;
+			classes ??= StTrivia.Classes(original);
+			var at = $"{what}, line {l + 1}: holds U+FEFF (a byte-order mark) after the start of the text, where it is no " +
+				"byte-order mark but an invisible character";
+			const string splitter = "Volt's splitter does not read U+FEFF after the start of the text — a slice of the text " +
+				"starting on that line would read it as a byte-order mark where the whole text reads it as a character " +
+				"(niche: accepted loss, 0 occurrences in the corpora). Remove it.";
+			throw classes[l][col] switch
+			{
+				StTrivia.CodeChar => (Exception)new BridgeException(BridgeErrorCodes.InvalidSt,
+					$"{at}, between two tokens; the CODESYS build refuses it too (measured: \"Type definition expected " +
+					"instead of '" + Bom + "'\" in a declaration, \"';' expected instead of '" + Bom + "'\" in a body). Remove it."),
+				StTrivia.StringChar => new BridgeException(BridgeErrorCodes.Unsupported,
+					$"{at}, inside a string literal. The CODESYS build accepts it there (measured), but {splitter}"),
+				StTrivia.CommentChar => new BridgeException(BridgeErrorCodes.Unsupported,
+					$"{at}, inside a comment. The CODESYS build accepts it there (measured), but {splitter}"),
+				StTrivia.PragmaChar => new BridgeException(BridgeErrorCodes.Unsupported,
+					$"{at}, inside a pragma (what the build says of it there is not measured). {splitter}"),
+				var other => new InvalidOperationException(
+					$"{what}, line {l + 1}: StTrivia classed the U+FEFF at column {col + 1} as '{other}', which only the text's " +
+					"first character can be"),
+			};
+		}
 	}
 
 	/// <summary>The END keyword that closes a POU's or an interface's outer block — which of the lines

@@ -45,8 +45,20 @@ public sealed class ProjectDeclarations
         get
         {
             if (_index is not null) return _index;
+            IReadOnlyList<(ItemRef Item, string Name, int Kind)> all;
+            // A folder ANYWHERE that the driver will not read (TwinCAT's C2i guard: ITEM_UNVERIFIED) stops the index, and
+            // must: skipping it would resolve a name it holds as unknown. But the refusal lands on the OP's item, which
+            // may well have been read, so it says why this op needed the folder — the code stays (the bridge is
+            // impaired, the remedy is the folder's), the reason is added (review of bridge-refusal-review 7).
+            try { all = ItemLookup.All(_tree); }
+            catch (Exception ex) when (ex is Volt.Contracts.ICodedError coded && coded.ErrorCode == Volt.Contracts.ConflictCodes.ItemUnverified)
+            {
+                throw new BridgeException(coded.ErrorCode,
+                    "resolving the body's names needs every declaration of the project, and this folder could not be read " +
+                    $"— the refusal is the folder's, not the item's: {ex.Message}", ex);
+            }
             _index = new Dictionary<string, (ItemRef, int)>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (item, name, kind) in ItemLookup.All(_tree))
+            foreach (var (item, name, kind) in all)
                 if (ItemKind.IsTopLevelCrud(kind) && !_index.ContainsKey(name)) _index[name] = (item, kind);
             return _index;
         }

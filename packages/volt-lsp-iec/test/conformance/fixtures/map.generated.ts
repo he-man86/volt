@@ -14,15 +14,15 @@
  * At the last regeneration:
  *
  *   evidence
- *     confirmed     2723
- *     refused       1786
- *     not-lowered    336
+ *     confirmed     2725
+ *     refused       1788
+ *     not-lowered    337
  *     lsp-gap         74
  *     diverges         5
  *     unaskable       80
  *
  *   tier                     lowered    clean
- *     decl                    690      690
+ *     decl                    692      692
  *     arith                  1537     1535
  *     control                 138      133
  *     aggregate               114      114
@@ -42,7 +42,7 @@
  *
  *   allowed, and how many fixtures each one still excuses — `support/transpile-confidence.ts` holds the reason
  *   each is Volt's own answer rather than a defect. A count could never reach zero: the generator refuses to write.
- *     dead_code                               5189
+ *     dead_code                               5204
  *     clippy::self_assignment                   34
  *     clippy::eq_op                             17
  *     clippy::unnecessary_min_or_max            10
@@ -56,7 +56,7 @@
  *
  *   edge — the interpreter against the compiled Rust on inputs nobody recorded (type extremes, 0, ±1, NaN, ±inf,
  *   empty and full strings), one variable at a time. Agreement is not correctness: both run one IR.
- *     agree         2886
+ *     agree         2888
  *     disagree         0
  *     not-run        162
  *       not-run: reaches the platform's libm (pow, ln, sin…)     71
@@ -64,16 +64,16 @@
  *       not-run: no elementary variable to seed or compare       34
 
  *
- *   pedantic — 30159 clippy::pedantic + clippy::perf findings; the ten most frequent
- *     clippy::must_use_candidate               7443
- *     clippy::cast_possible_truncation         4795
- *     clippy::cast_lossless                    4218
- *     clippy::cast_sign_loss                   3355
- *     clippy::uninlined_format_args            3177
- *     clippy::unreadable_literal               2790
- *     clippy::missing_panics_doc               1050
- *     clippy::manual_assert                     808
- *     clippy::format_push_string                706
+ *   pedantic — 30204 clippy::pedantic + clippy::perf findings; the ten most frequent
+ *     clippy::must_use_candidate               7450
+ *     clippy::cast_possible_truncation         4802
+ *     clippy::cast_lossless                    4220
+ *     clippy::cast_sign_loss                   3362
+ *     clippy::uninlined_format_args            3186
+ *     clippy::unreadable_literal               2794
+ *     clippy::missing_panics_doc               1052
+ *     clippy::manual_assert                     810
+ *     clippy::format_push_string                708
  *     clippy::cast_possible_wrap                364
  *
  *   size — emitted Rust lines per ST line, the string prelude not counted: median 3.1; the ten largest
@@ -88,8 +88,8 @@
  *     tr_14_set_reset_through_multi_target_pointer  12.2
  *     string_to_real_parse                            11
  *
- *   shape — 1645 distinct emission shapes over 3048 lowered fixtures, 1764 distinct constructs.
- *   723 constructs carry a review note (`NOTES`): 2880 fixtures are improvable, 2795 touch a construct with alternatives.
+ *   shape — 1646 distinct emission shapes over 3050 lowered fixtures, 1764 distinct constructs.
+ *   723 constructs carry a review note (`NOTES`): 2882 fixtures are improvable, 2797 touch a construct with alternatives.
  *   Each row's `notes` names its noted constructs; their texts are the `NOTES` section at the end of this file.
  */
 import type { FixtureMapRow, ShapeNote } from "../support/transpile-confidence.js"
@@ -4442,6 +4442,11 @@ export const FIXTURE_MAP: Readonly<Record<string, FixtureMapRow>> = {
   type_var_temp_in_method: { evidence: "refused", tier: "indirect", rust: "compiles", pedantic: 4, edge: "agree", size: 2.4, shape: "ecf0c90732", notes: ["1307e33bbf", "3d737b5821", "5370b79269", "9610f67747"] },
   typed_literal_constant_fold: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 4, edge: "agree", size: 4.5, shape: "10d7b1b841", notes: ["06bb3a6005", "1307e33bbf", "24588decbd", "63d29bd1a0", "6e95d900d2"] },
   typed_literal_real_prefix: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 4.5, shape: "77c8303aae", notes: ["1707972c33", "6a98109119"] },
+  ufeff_after_start: { evidence: "refused" },
+  ufeff_in_body: { evidence: "refused" },
+  ufeff_in_comment: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 2, edge: "agree", size: 3.1, shape: "9d0f47c334", notes: ["0e0d715a81", "1307e33bbf"] },
+  ufeff_in_string: { evidence: "not-lowered" },
+  ufeff_in_wstring: { evidence: "confirmed", tier: "decl", rust: "vendor", pedantic: 43, edge: "agree", size: 3.3, shape: "11f0a03eea", notes: ["0e0d715a81", "1307e33bbf"] },
   unary_minus_at_the_edge: { evidence: "confirmed", tier: "arith", rust: "vendor", pedantic: 7, edge: "agree", size: 5.1, shape: "872bcda218", notes: ["06bb3a6005", "1307e33bbf", "3968425889", "4a6baf16b3", "605307fc4c", "63d29bd1a0", "6f9ae8fd3a", "870b70e195", "b501abe431", "ec9a760059"] },
   unary_minus_on_bool: { evidence: "refused" },
   unary_minus_on_string: { evidence: "refused" },

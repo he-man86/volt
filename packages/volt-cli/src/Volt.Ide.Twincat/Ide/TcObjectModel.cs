@@ -206,14 +206,14 @@ internal sealed partial class TcObjectModel
 
         var count = RawChildCount(node);
         if (count != guarded.Names.Count)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"'{PathOf(node)}' holds a POU Volt must not touch (DIALECT C2i), so its children are addressed by " +
                 $"name — and the PLC tree lists {count} of them where the Solution Explorer lists " +
                 $"{guarded.Names.Count}. This folder is not read.");
         // A DUT and a folder may share a name (DIALECT D34): addressed by name, both indices would answer the one node
         // LookupChild finds, reading it twice and the other never — a folder's POUs missing in silence (5Qa review).
         if (guarded.Names.GroupBy(n => n, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1) is { } twice)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"'{PathOf(node)}' holds a POU Volt must not touch (DIALECT C2i), so its children are addressed by " +
                 $"name — and two of them are named '{twice.Key}' (DIALECT D34), which a name cannot tell apart. This " +
                 "folder is not read.");
@@ -243,7 +243,7 @@ internal sealed partial class TcObjectModel
             listed = explorer.ListedChildren(rel);
         }
         if (listed != count)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"'{rel}' holds {count} children in the PLC tree, and the Solution Explorer lists " +
                 $"{(listed is { } n ? n.ToString() : "no such folder")}. Volt reads a folder only when the hierarchy " +
                 "vouches for every child — a POU it does not list could be one that crashes TcXaeShell (DIALECT C2i). " +
@@ -292,12 +292,12 @@ internal sealed partial class TcObjectModel
         try { node = ReadExplorer(_dte!, plcProject); }
         catch (Exception ex)
         {
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 "the Solution Explorer hierarchy is unreadable; Volt does not walk the TwinCAT tree without it " +
                 $"(DIALECT C2i): {ex.Message}");
         }
         if (node is null)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"the Solution Explorer hierarchy has no node for the PLC project '{plcProject}'; Volt does not walk " +
                 "the TwinCAT tree without it (DIALECT C2i)");
         var key = plcProject + "|";
@@ -305,7 +305,7 @@ internal sealed partial class TcObjectModel
                                                                       .Select(k => k.Substring(key.Length)).ToList());
         var rootCount = RawChildCount(PlcRoot());
         if (snapshot.ListedChildren("") != rootCount)
-            throw new BridgeException(BridgeErrorCodes.InternalError,
+            throw new BridgeException(ConflictCodes.ItemUnverified,
                 $"the PLC project '{plcProject}' holds {rootCount} children in the PLC tree, and the Solution Explorer " +
                 $"lists {snapshot.ListedChildren("")}; Volt does not walk the TwinCAT tree on a hierarchy that does not " +
                 "vouch for every child (DIALECT C2i)");

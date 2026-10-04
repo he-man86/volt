@@ -419,7 +419,7 @@ public static class PushService
     ///
     /// <para><b>The code the refusal already computed, not just the parser's.</b> This read <c>netEx?.Code</c> alone, so
     /// only a network-text diagnostic kept its code and every <c>BridgeException</c> arrived as <c>code: null</c> —
-    /// NOT_FOUND, UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST. Since a push answers every refusal as a conflict
+    /// IDE_LOST_ITEM (then NOT_FOUND), UNSUPPORTED, DUPLICATE_CHILD, BAD_REQUEST, INVALID_ST. Since a push answers every refusal as a conflict
     /// rather than an error frame, those were unobservable as codes, and callers matched the English instead. The two
     /// vocabularies stay disjoint by construction: <c>BridgeException</c> implements <c>ICodedError</c>,
     /// <c>NetworkTextException</c> deliberately does not (it carries its own <c>Code</c>) — do NOT "tidy" that, or
@@ -894,7 +894,7 @@ public static class PushService
                 // not undo it, and the conflict must say the task is no longer under its old name.
                 outcome.Renamed = (name, Materializer.Bare(toName), toName);   // kept if anything after it is refused
                 task = ItemLookup.Find(ide, Materializer.Bare(toName))
-                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"task '{name}' could not be found after being renamed to '{toName}'");
                 action = "renamed+updated";
             }
@@ -1016,7 +1016,7 @@ public static class PushService
             // findable under its new name; keeping the pre-rename handle writes the pushed content onto the OLD
             // identity and still returns "renamed+updated", which the receipt then bakes into the baseline.
             item = ItemLookup.Find(ide, currentName)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"renamed '{name}' to '{currentName}' but the renamed item cannot be found — refusing to " +
                     "write through the pre-rename handle");
 
@@ -1130,7 +1130,7 @@ public static class PushService
                 // what makes a refusal atomic (nothing moved, nothing to undo). It just cannot reuse the handle
                 // across it.
                 item = ItemLookup.Find(ide, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"'{name}' could not be found after its content was written — the write appears to have " +
                         "replaced it and the move cannot proceed.");
             }
@@ -1168,7 +1168,7 @@ public static class PushService
             if (source is { } settle)
             {
                 var relocated = ItemLookup.Find(ide, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"'{name}' could not be found after being moved — the edit cannot be re-applied, so the " +
                         "push is failed rather than leaving the item holding its pre-edit content.");
                 WriteItemFromSource(ide, name, wireName, relocated, settle, newFolder, outcome);
@@ -1424,7 +1424,7 @@ public static class PushService
                 try
                 {
                     pou = TreeNav.FindChild(ide, targetParent, name)
-                        ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                        ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                             $"created interface '{name}' but it cannot be found under its parent - refusing to write " +
                             "through the stale create handle");
                 }
@@ -1529,7 +1529,7 @@ public static class PushService
                 // member reconcile below starts from a fresh handle there, as the content write after it does.
                 if (!ide.HandlesSurviveStructureChange)
                     pou = ItemLookup.Find(ide, name)
-                        ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                        ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                             $"'{name}' cannot be found after its declaration was written — refusing to create its " +
                             "members through a handle the write invalidated");
             }
@@ -1543,7 +1543,7 @@ public static class PushService
                 // fails with "Unbound tree item" — which is how this surfaced, on 40-odd e2e tests at once. Re-find
                 // from a FRESH tree root, because the PARENT handle dies with it.
                 pou = ItemLookup.Find(ide, name)
-                    ?? throw new BridgeException(BridgeErrorCodes.NotFound,
+                    ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                         $"'{name}' cannot be found after reconciling its members — refusing to write through a " +
                         "handle the member create invalidated");
 
@@ -1656,7 +1656,7 @@ public static class PushService
         try
         {
             var task = ItemLookup.Find(ide, name)
-                ?? throw new BridgeException(BridgeErrorCodes.NotFound, $"task '{name}' cannot be found");
+                ?? throw new BridgeException(BridgeErrorCodes.IdeLostItem, $"task '{name}' cannot be found");
             var after = ide.ReadManifest(task, ItemKind.Kinds.Task);
             return after == before ? null
                 : $"part of the settings of '{name}' was written before it and stays (the IDE now holds: " +
@@ -1896,7 +1896,7 @@ public static class PushService
             var from = TreeNav.FindFolder(ide, Owner(), was);
             var member = from is null ? null : TreeNav.FindChild(ide, from.Value, m.Name);
             if (member is null)
-                throw new BridgeException(BridgeErrorCodes.NotFound,
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': cannot be found at '{(was.Length == 0 ? "<the POU root>" : was)}' to move it");
 
             ide.Move(member.Value, TreeNav.ResolveFolder(ide, Owner(), m.Folder, changes.Folders));
@@ -1921,7 +1921,7 @@ public static class PushService
             var propParent = TreeNav.FindFolder(ide, Owner(), m.Folder);
             var prop = propParent is null ? null : TreeNav.FindChild(ide, propParent.Value, m.Name);
             if (prop is null)
-                throw new BridgeException(BridgeErrorCodes.NotFound,
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the property is in the pushed source but cannot be found in the project" +
                     (string.IsNullOrEmpty(m.Folder) ? "" : $" under '{m.Folder}'") +
                     " — refusing to report the push applied when its accessors were never reconciled");
@@ -1936,7 +1936,7 @@ public static class PushService
                 prop = propParent is null ? null : TreeNav.FindChild(ide, propParent.Value, m.Name);
             }
             if (prop is null)
-                throw new BridgeException(BridgeErrorCodes.NotFound,
+                throw new BridgeException(BridgeErrorCodes.IdeLostItem,
                     $"'{m.Name}': the property vanished while its accessors were being reconciled");
 
             mutated |= ReconcileAccessor(ide, prop.Value, m.Name, "Set",

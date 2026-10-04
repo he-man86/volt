@@ -413,7 +413,7 @@ public class PartiallyAppliedFieldsTests
 
         Assert.Contains("rename:X->Y", ide.Recorded);   // premise: the rename ran
         var c = Assert.Single(resp.Conflicts!);
-        Assert.Equal(BridgeErrorCodes.NotFound, c.Code);
+        Assert.Equal(BridgeErrorCodes.IdeLostItem, c.Code);
         Assert.Contains("stays renamed", c.Reason);
         Assert.True(c.PartiallyApplied);
         Assert.Equal("Y.pou", c.RenamedTo);
@@ -428,7 +428,7 @@ public class PartiallyAppliedFieldsTests
 
         Assert.Contains("rename:MainTask->SlowTask", ide.Recorded);   // premise
         var c = Assert.Single(resp.Conflicts!);
-        Assert.Equal(BridgeErrorCodes.NotFound, c.Code);
+        Assert.Equal(BridgeErrorCodes.IdeLostItem, c.Code);
         Assert.Contains("stays renamed", c.Reason);
         Assert.True(c.PartiallyApplied);
         Assert.Equal("SlowTask.task", c.RenamedTo);
@@ -458,7 +458,7 @@ public class PartiallyAppliedFieldsTests
         Assert.Contains("create:I_New", ide.Recorded);   // premise: CreateChild ran
         Assert.False(ide.Exists("I_New"), "the create is rolled back");
         var c = Assert.Single(resp.Conflicts!);
-        Assert.Equal(BridgeErrorCodes.NotFound, c.Code);
+        Assert.Equal(BridgeErrorCodes.IdeLostItem, c.Code);
         Assert.Contains("'I_New' is not created (the create is rolled back)", c.Reason);
         AssertNothingKept(c);
     }

@@ -315,7 +315,7 @@ public class TcNetworkWriterTests
     /// and every other identity compare on this vendor's write path was deliberately moved off ordinal for
     /// exactly that reason — <c>BeckhoffDriver.WriteContent</c> calls its Ordinal predecessor "the last Ordinal
     /// IDENTITY compare left on the wire" and names the analogue that broke it (<c>METHOD Calc</c> renamed to
-    /// <c>METHOD calc</c> passed every gate above and then threw NOT_FOUND). This compare was the one left.
+    /// <c>METHOD calc</c> passed every gate above and then threw NOT_FOUND, now IDE_LOST_ITEM). This compare was the one left.
     ///
     /// <para>What it costs: a case-only edit of a box or instance name makes <c>Apply</c> refuse a body nobody
     /// retyped. On the push path that refusal discards the whole network to <c>RebuildNetwork</c>, regenerating

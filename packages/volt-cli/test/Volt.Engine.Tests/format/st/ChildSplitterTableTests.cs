@@ -269,6 +269,42 @@ public class ChildSplitterTableTests
         }
     }
 
+    /// <summary>A U+FEFF after the start of the text is refused naming its line — and WHAT the refusal says depends on
+    /// where it stands, each position asked of the CODESYS build on its own (openspec bridge-refusal-review 7.3,
+    /// <c>record:exec</c> 2026-10-04, fixtures <c>ufeff_*</c>): between two tokens of a declaration
+    /// (<c>ufeff_after_start</c>, "Type definition expected instead of '&lt;U+FEFF&gt;'") or of a body
+    /// (<c>ufeff_in_body</c>, "';' expected instead of '&lt;U+FEFF&gt;'") the build refuses it too — INVALID_ST, quoting
+    /// it; inside a comment (<c>ufeff_in_comment</c>) or a STRING / WSTRING literal (<c>ufeff_in_string</c>,
+    /// <c>ufeff_in_wstring</c>) the build ACCEPTS it — UNSUPPORTED, the splitter's own limit; inside a pragma the build
+    /// was not asked — UNSUPPORTED, no claim about it. 0 occurrences in the six corpora.</summary>
+    // In the rows, `~` stands for the U+FEFF and `|` for a line break (the test writes both in).
+    [Theory]
+    [InlineData("n :~ INT;", "m := 2;", 3, BridgeErrorCodes.InvalidSt,
+        "between two tokens; the CODESYS build refuses it too (measured: \"Type definition expected instead of '~'\" in a declaration, \"';' expected instead of '~'\" in a body)")]
+    [InlineData("m : INT;", "m :=~ 2;", 6, BridgeErrorCodes.InvalidSt,
+        "between two tokens; the CODESYS build refuses it too (measured:")]
+    [InlineData("txt : STRING := 'a~b';", "txt := 'x';", 3, BridgeErrorCodes.Unsupported,
+        "inside a string literal. The CODESYS build accepts it there (measured), but Volt's splitter does not read U+FEFF")]
+    [InlineData("wtxt : WSTRING := \"a~b\";", "wtxt := \"x\";", 3, BridgeErrorCodes.Unsupported, "inside a string literal.")]
+    [InlineData("n : INT; (* a~b *)", "n := 1;", 3, BridgeErrorCodes.Unsupported,
+        "inside a comment. The CODESYS build accepts it there (measured), but Volt's splitter does not read U+FEFF")]
+    [InlineData("n : INT; // a~b", "n := 1;", 3, BridgeErrorCodes.Unsupported, "inside a comment.")]
+    [InlineData("n : INT;", "{warning 'a~b'}|n := 1;", 6, BridgeErrorCodes.Unsupported,
+        "inside a pragma (what the build says of it there is not measured). Volt's splitter does not read U+FEFF")]
+    public void A_U_FEFF_after_the_start_is_refused_by_where_it_stands(string decl, string body, int line, string code, string says)
+    {
+        static string Text(string s) => s.Replace('~', (char)0xFEFF).Replace('|', (char)10);
+        var lf = ((char)10).ToString();
+        var source = string.Join(lf, "FUNCTION_BLOCK FB", "VAR", Text(decl), "END_VAR", "IMPLEMENTATION ST", Text(body),
+                                 "END_FUNCTION_BLOCK", "");
+        var ex = Assert.Throws<BridgeException>(() => StReader.Read(source, ItemKind.Kinds.Pou, "FB"));
+
+        Assert.Equal(code, ex.ErrorCode);
+        Assert.Contains($"'FB', line {line}: holds U+FEFF", ex.Message);
+        Assert.Contains(Text(says), ex.Message);
+        if (code == BridgeErrorCodes.Unsupported) Assert.Contains("niche: accepted loss", ex.Message);
+    }
+
     /// <summary>The bodies of the rows whose END line hides in a comment: the member ends at its REAL END line, so the
     /// comment and the code after it stay in its body.</summary>
     [Theory]

@@ -17,6 +17,24 @@ import { KEYWORDS } from "../../../../src/frontend/syntax/index.js"
 
 const doc = "frontend-conformance design.md §4 2.1 (lexer)"
 
+/** The push's refusal of a U+FEFF after the start of the text — Volt's own splitter, before either IDE sees the text
+ *  (`StReader.RefuseInnerBom`, bridge-refusal-review 7.3). What it says depends on where the character stands, each
+ *  position asked of the CODESYS build through `record:exec` (codesys.run.json, 2026-10-04): between two tokens the
+ *  build refuses it too (INVALID_ST, quoting it); inside a comment or a string literal the build ACCEPTS it, and the
+ *  refusal is the splitter's own limit (UNSUPPORTED, niche). */
+const UFEFF_SPLITTER =
+  "Volt's splitter does not read U+FEFF after the start of the text — a slice of the text starting on that line would read it as a byte-order mark where the whole text reads it as a character (niche: accepted loss, 0 occurrences in the corpora). Remove it."
+const UFEFF_TAIL = {
+  token: "INVALID_ST|between two tokens; the CODESYS build refuses it too (measured: \"Type definition expected instead of '\uFEFF'\" in a declaration, \"';' expected instead of '\uFEFF'\" in a body). Remove it.",
+  comment: `UNSUPPORTED|inside a comment. The CODESYS build accepts it there (measured), but ${UFEFF_SPLITTER}`,
+  string: `UNSUPPORTED|inside a string literal. The CODESYS build accepts it there (measured), but ${UFEFF_SPLITTER}`,
+} as const
+function ufeffRefusal(name: string, line: number, where: keyof typeof UFEFF_TAIL): Partial<LanguageTest> {
+  const [code, tail] = UFEFF_TAIL[where].split("|")
+  const message = `${code}: 'FB_LANG_${name}', line ${line}: holds U+FEFF (a byte-order mark) after the start of the text, where it is no byte-order mark but an invisible character, ${tail} — Volt's push, before the IDE is asked`
+  return { vendorRefuses: { codesys: message, twincat: message } }
+}
+
 /** A function block `FB_LANG_<name>` with `decl` in its VAR block and `body` as its implementation. */
 function fb(name: string, feature: string, decl: string, body: string, extra: Partial<LanguageTest> = {}): LanguageTest {
   const pouName = `FB_LANG_${name}`
@@ -304,4 +322,27 @@ export const LEXER_TESTS: readonly LanguageTest[] = [
     plcPrgBody: "FUN_LANG_vector_return(x := 1);",
     source: "FUNCTION FUN_LANG_vector_return : __VECTOR[4] OF REAL\nVAR_INPUT\n\tx : INT;\nEND_VAR\n;\nEND_FUNCTION\n",
   },
+  // U+FEFF AFTER THE START OF THE TEXT (openspec bridge-refusal-review 7.3): a byte-order mark only as a text's first
+  // character, anywhere else an invisible character of its line — here between two tokens of a VAR line. Volt's push
+  // refuses it before either IDE is asked (`StReader`: the splitter's scans would disagree about it), so the BUILD's
+  // answer comes from `record:exec`, which writes the text through CODESYS scripting. 0 occurrences in the six corpora.
+  fb("ufeff_after_start", "U+FEFF between two tokens of a VAR line — `n :<U+FEFF> INT;`, beside `m : INT;`, the body using `m` alone (the question is the declaration, not the cascade of an unusable `n`)", "\tn :\uFEFF INT;\n\tm : INT;", "m := 2;", {
+    ...ufeffRefusal("ufeff_after_start", 3, "token"),
+    refused: "Type definition expected instead of '\uFEFF'",
+  }),
+  // The same character at the other positions a text can hold it (review of step 7): inside a comment, inside a STRING
+  // and a WSTRING literal, and between two tokens of an ST body. Each is asked of the build on its own (record:exec).
+  fb("ufeff_in_comment", "U+FEFF inside a block comment on a VAR line — `n : INT; (* a<U+FEFF>b *)`", "\tn : INT; (* a\uFEFFb *)\n\tm : INT;", "m := 2;\nn := 1;", {
+    ...ufeffRefusal("ufeff_in_comment", 3, "comment"),
+  }),
+  fb("ufeff_in_string", "U+FEFF inside a string literal — `txt : STRING := 'a<U+FEFF>b';`", "\ttxt : STRING := 'a\uFEFFb';\n\tm : INT;", "m := 2;", {
+    ...ufeffRefusal("ufeff_in_string", 3, "string"),
+  }),
+  fb("ufeff_in_wstring", "U+FEFF inside a WSTRING literal — `wtxt : WSTRING := \"a<U+FEFF>b\";` (a STRING holds one byte per character, a WSTRING the character itself)", "\twtxt : WSTRING := \"a\uFEFFb\";\n\tm : INT;", "m := 2;", {
+    ...ufeffRefusal("ufeff_in_wstring", 3, "string"),
+  }),
+  fb("ufeff_in_body", "U+FEFF between two tokens of an ST body line — `m :=<U+FEFF> 2;`", "\tm : INT;", "m :=\uFEFF 2;", {
+    ...ufeffRefusal("ufeff_in_body", 5, "token"),
+    refused: "Expression expected instead of '\uFEFF'",
+  }),
 ]

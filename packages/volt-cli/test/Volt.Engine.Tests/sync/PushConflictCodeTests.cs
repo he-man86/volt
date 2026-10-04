@@ -146,7 +146,7 @@ public class PushConflictCodeTests
     /// <summary>DELETING SOMETHING THAT IS NOT THERE IS ACCEPTED, and that is deliberate — `PushService`
     /// answers "no-op" for it in so many words.
     ///
-    /// <para>Written down because it is the obvious way to reach for a NOT_FOUND and it is not one: a delete
+    /// <para>Written down because it is the obvious way to reach for a not-found code (ITEM_MISSING) and it is not one: a delete
     /// is idempotent, so a client replaying a push, or two clients racing to remove the same item, both
     /// succeed. Asserting it here stops the next reader "fixing" the absence of a code by making the delete
     /// throw.</para></summary>

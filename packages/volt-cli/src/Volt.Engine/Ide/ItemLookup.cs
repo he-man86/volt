@@ -99,6 +99,12 @@ public static class ItemLookup
     /// folders, which is why "recurse only into folders" would never have found anything there). Stopping AT a
     /// top-level item is what keeps this off a POU's methods — the walk that made TwinCAT's version cheap,
     /// generalized.</para>
+    ///
+    /// <para><b>A CODED refusal passes through with its code.</b> Only an UNCODED fault (a raw COM or binder throw) is
+    /// wrapped as <c>INTERNAL_ERROR</c>. A driver that already said what is wrong — TwinCAT's C2i guard refusing a folder
+    /// the hierarchy does not vouch for (<c>ITEM_UNVERIFIED</c>) — was re-coded <c>INTERNAL_ERROR</c> here, so the push's
+    /// conflict blamed Volt for an IDE state (openspec <c>bridge-refusal-review</c> 7.1). Its message already names the
+    /// folder.</para>
     /// </summary>
     private static bool Walk(IProjectTree tree, ItemRef node, string doing, int depth, System.Func<ItemRef, string, int, bool> visit,
                              System.Func<ItemRef, UnreadableItemException, bool> visitUntouchable)
@@ -106,7 +112,7 @@ public static class ItemLookup
         if (depth > MaxDepth) return true;
         int count;
         try { count = tree.ChildCount(node); }
-        catch (System.Exception ex)
+        catch (System.Exception ex) when (ex is not ICodedError)
         {
             throw new BridgeException(BridgeErrorCodes.InternalError,
                 $"could not read the project tree while {doing} — the IDE refused a child read ({ex.Message}). " +
@@ -130,7 +136,7 @@ public static class ItemLookup
                 if (!visitUntouchable(node, untouchable)) return false;
                 continue;
             }
-            catch (System.Exception ex)
+            catch (System.Exception ex) when (ex is not ICodedError)
             {
                 throw new BridgeException(BridgeErrorCodes.InternalError,
                     $"could not read child {i} while {doing} — the IDE refused the read ({ex.Message}). " +
@@ -145,7 +151,7 @@ public static class ItemLookup
 
             string name;
             try { name = tree.Name(child); }
-            catch (System.Exception ex)
+            catch (System.Exception ex) when (ex is not ICodedError)
             {
                 throw new BridgeException(BridgeErrorCodes.InternalError,
                     $"could not read the name of child {i} while {doing} — the IDE refused the read ({ex.Message}). " +
