@@ -94,8 +94,13 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+      # The toolchain is the one `packages/volt-lsp-iec/rust-toolchain.toml` names — NOT `stable`: the fixture map's
+      # stored lint rows are clippy's output, and the day's `stable` lints differently from the release they were
+      # written with (1.99.0 here vs 1.96.0 there dropped `expr_not_not`'s nonminimal_bool on 2026-10-04).
+      # `rustup toolchain install` with no name installs the toolchain file's, components and profile included.
       - name: Rust toolchain (the emitted-Rust differential runs against it; clippy checks the emitted code's QUALITY)
-        run: rustup toolchain install stable --profile minimal --component clippy --no-self-update && rustup default stable
+        working-directory: packages/volt-lsp-iec
+        run: rustup toolchain install --no-self-update && rustc --version && clippy-driver --version
       - run: bun install --frozen-lockfile
       - name: Volt package suites (lsp-iec offline + control)
         run: bun run --filter='*' test

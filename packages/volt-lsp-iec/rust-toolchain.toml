@@ -1,0 +1,12 @@
+# THE ONE RUST TOOLCHAIN the emitted-Rust half of the suite compiles and lints against — here and in CI alike.
+#
+# The fixture map's stored rows (`test/conformance/fixtures/map.generated.ts`: `lints`, `pedantic`) are clippy's
+# output, and clippy's lint set moves between releases: CI installed whatever `stable` was that day (1.99.0 on
+# 2026-10-04) while the rows were written with 1.96.0, so `expr_not_not`'s `clippy::nonminimal_bool` "vanished" on CI
+# only. A stored row is reproducible only against a named toolchain, so this names it; rustup resolves it for every
+# `rustc` / `clippy-driver` the suite spawns from this package (they inherit its working directory). Bumping it is a
+# deliberate change: bump, `bun run rate:fixtures`, commit the rows with it.
+[toolchain]
+channel = "1.96.0"
+components = ["clippy"]
+profile = "minimal"
